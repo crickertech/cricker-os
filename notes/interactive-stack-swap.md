@@ -38,20 +38,20 @@ decisions, and so an architect's.
 
 Fork 1: a quiesce request. The swap's drain step rides the served endpoint so its FIFO does the
 waiting, per §41 (the endpoint is the broker, and a device is revoked by taking it back). The terminal
-contract has no such opcode. The options: an additive `OP_QUIESCE` in `line_editor::proto`, which
+contract has no such opcode. The options: an additive `OPERATION_QUIESCE` in `line_editor::proto`, which
 changes no existing opcode and which only a supervisor sends; or a second, supervisor-only control
 endpoint, which loses the FIFO property and makes the drain racy. Recommend the additive opcode.
 It is what `swap_protocol` already does.
 
 Fork 2: what a parked reader is told. At an idle prompt `swish` is always parked in
-`OP_READLINE`, and its one-shot reply capability lives in `line_editor`'s capability table, where no
+`OPERATION_READLINE`, and its one-shot reply capability lives in `line_editor`'s capability table, where no
 one can move it (notes/hung-component.md, question 3). So the incumbent must answer it before it
 quiesces. Three answers:
 
 - `FLAG_INTERRUPTED`, which exists (`line_editor` already fails a parked read this way on `^C`). No
   contract change, but `swish` would redraw its prompt as if the person had pressed `^C`, and it lies
   about why.
-- A new flag, say `FLAG_RETRY`, meaning "ask again". `swish` re-issues the same `OP_READLINE`;
+- A new flag, say `FLAG_RETRY`, meaning "ask again". `swish` re-issues the same `OPERATION_READLINE`;
   the replacement, having absorbed the edit line, redraws it; the person sees nothing. One bit in the
   reply word and one branch in each reader.
 - Defer the swap until no read is parked. At an idle prompt that is never.
@@ -65,7 +65,7 @@ history ring and a full queue is under 4 KiB. That corrects this note's own earl
 
 ## line_editor: built (2026-09-27)
 
-calef ruled 1a and 2b on 2026-09-26 (an additive `OP_QUIESCE`; a `FLAG_RETRY` reply that a reader
+calef ruled 1a and 2b on 2026-09-26 (an additive `OPERATION_QUIESCE`; a `FLAG_RETRY` reply that a reader
 answers by asking again) and, on 2026-09-27, option A of
 `design/roadmap/661-a-terminal-supervisor-holds-the-line-editor.md`. So:
 

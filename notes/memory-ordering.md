@@ -1,10 +1,10 @@
 # Memory ordering, and the fences with no partner
 
 Milestone 116. CLAUDE.md's fourth rule is *assume weak memory ordering*, and this is the inventory
-that says where in the tree that rule is actually being relied on, who is relying on it, and which
+that says where in the tree that rule is being relied on, who is relying on it, and which
 sites were trusting something that is not there.
 
-**A release fence with no matching acquire orders nothing while reading as though it does.** That is
+A release fence with no matching acquire orders nothing while reading as though it does. That is
 worse than an absent fence, because the fence is the comment: a reader who meets
 `fence(Ordering::Release)` stops asking the question. The mistake was found twice on 2026-08-04 by
 two methods that share nothing, milestone 80's loom harness on the clock page's seqlock and
@@ -29,7 +29,7 @@ From the merged tree, outside test code:
 | `compiler_fence` call sites outside test code | **1** |
 | Files holding at least one non-test site | 45 |
 
-**Two things about that count are worth more than the number.**
+Two things about that count are worth more than the number.
 
 The first is that a line-oriented grep gets it wrong, which CLAUDE.md already warns about from the
 `#[path]` module count. `rustfmt` splits a long `compare_exchange` across five lines, so the ordering
@@ -49,33 +49,33 @@ whole file, not a region. Both forms exist in this tree and a scan has to know t
 
 ## Where this kernel's ordering actually lives, which is mostly not here
 
-**63 sites is a small number for an SMP kernel on two weakly ordered ISAs, and the reason is
-DECISIONS §9.** Almost everything shared is behind a ranked interrupt-safe lock, and
+63 sites is a small number for an SMP kernel on two weakly ordered ISAs, and the reason is
+DECISIONS §9 (locking). Almost everything shared is behind a ranked interrupt-safe lock, and
 `IrqSafeMutex` wraps `spin::Mutex`, which locks with `compare_exchange(false, true, Acquire,
 Relaxed)` and unlocks with `store(false, Release)`. So the overwhelming majority of this kernel's
-happens-before edges are supplied by an acquire/release pair **inside a dependency**, where nothing
+happens-before edges are supplied by an acquire/release pair inside a dependency, where nothing
 in this tree names them and no grep over this tree can find them.
 
 That fact runs through every adjudication below, so it is worth stating as a rule:
 
-> **An ordering edge in nife comes from one of four places, and only the first is greppable.**
+> An ordering edge in nife comes from one of four places, and only the first is greppable.
 >
-> 1. **An explicit fence or an ordered atomic**, in this tree. 63 sites plus 12 fences.
-> 2. **The `SCHED` lock**, taken by every `SEND`, `RECV`, `CALL` and `REPLY`. A blocking IPC
+> 1. An explicit fence or an ordered atomic, in this tree. 63 sites plus 12 fences.
+> 2. The `SCHED` lock, taken by every `SEND`, `RECEIVE`, `CALL` and `REPLY`. A blocking IPC
 >    rendezvous therefore orders everything the sender wrote before it against everything the
 >    receiver reads after it, at no cost and with nothing written down.
-> 3. **A spawn.** A page written before the process that reads it existed is ordered by the act of
+> 3. A spawn. A page written before the process that reads it existed is ordered by the act of
 >    creating that process.
-> 4. **Nothing at all**, because the writer and the reader are the same core with interrupts masked.
+> 4. Nothing at all, because the writer and the reader are the same core with interrupts masked.
 
 Point 2 is the one that changes the shape of this inventory. DECISIONS §10 says control by message
-and bulk by shared page, and in practice **every shared-page publish in this tree except one is
-immediately followed by a blocking `CALL` or a `REPLY` to the process that reads it.** So the fences
+and bulk by shared page, and in practice every shared-page publish in this tree except one is
+immediately followed by a blocking `CALL` or a `REPLY` to the process that reads it. So the fences
 guarding those publishes are, with one exception, redundant rather than load-bearing. They are not
 wrong and they are not being removed; the point is that a reader cannot tell which kind a given
 fence is, and until this milestone nothing said.
 
-**The exception is the clock page**, which is the only cross-address-space protocol with no
+The exception is the clock page, which is the only cross-address-space protocol with no
 rendezvous underneath it at all: a process reads the wall clock out of a shared mapping with no
 syscall. That is exactly where milestone 80's loom harness found a real bug, and it is not a
 coincidence.
@@ -91,8 +91,8 @@ Each of these now carries a `PAIR:` comment at the site naming where its other h
 | `crates/credential_protocol` `wipe` | neither | none, and none wanted | **Sound.** A `compiler_fence` emits no instruction and orders nothing between cores. Now says so |
 | `kernel/src/arch/aarch64/exceptions.rs` `last_user_fault` | acquire | `USER_FAULTS.fetch_add(1, Release)` in `user_fault` | **Sound, and the model for the tree.** Both halves present, both load-bearing, both explained at the site before this milestone |
 | `kernel/src/arch/riscv64/exceptions.rs` `last_user_fault` | acquire | the same pair on the other ISA | **Sound.** Parity holds |
-| `kernel/src/user.rs` `term_print` | release | none; the `ipc_call` below it is the edge | **Sound, redundant.** The terminal is blocked in `recv_cap` |
-| `components/src/console.rs` `show` | release | none; the `call` below it is the edge | **Sound, redundant.** `term_print`'s case from userspace: `display_terminal` is blocked in `recv_cap` (milestone 400) |
+| `kernel/src/user.rs` `term_print` | release | none; the `ipc_call` below it is the edge | **Sound, redundant.** The terminal is blocked in `receive_cap` |
+| `components/src/console.rs` `show` | release | none; the `call` below it is the edge | **Sound, redundant.** `term_print`'s case from userspace: `display_terminal` is blocked in `receive_cap` (milestone 400 (shell firmware's)) |
 | `kernel/src/user/keyboard_service.rs` `take_typed` | acquire | `ring_publish`'s fence in `components/src/keyboard_driver.rs` | **Sound.** The reader milestone 43 named as getting it right |
 | `kernel/src/user/compositor_service.rs` `type_bytes` | release | `drain_input` in `components/src/compositor.rs` | **Sound, redundant** (the doorbell `CALL` follows). **A fourth writer the audit's count of three missed**; see below |
 | `components/src/keyboard_driver.rs` `ring_publish` | release | two readers, one fenced and one not | **Sound, redundant.** `call(DOORBELL, ...)` follows immediately |
@@ -108,7 +108,7 @@ Each of these now carries a `PAIR:` comment at the site naming where its other h
 Milestone 43's audit called finding 7 reachable "on real weakly ordered hardware", which is true and
 which this inventory can now make specific. The path is not the obvious one.
 
-The compositor's doorbell is **shared**, and `serve_frame` rescans *every* client's control page on a
+The compositor's doorbell is shared, and `serve_frame` rescans *every* client's control page on a
 `COMMIT` from *anyone*. Only the caller is blocked. So when window A commits, the compositor reads
 window B's sequence and B's four damage fields while B is running, possibly mid-`commit` on another
 core. B's release fence orders B's own stores correctly; nothing orders the compositor's loads, so it
@@ -131,7 +131,7 @@ input driver, which publishes into the same ring with the same fence and the sam
 looked at that file and named its *reader* (`keyboard_service`'s `take_typed`) as the one that gets
 it right, so the writer beside it went past.
 
-**The fix is unaffected**, because `drain_input` is the single reader of both ring producers, and one
+The fix is unaffected, because `drain_input` is the single reader of both ring producers, and one
 acquire fence there covers them. Recorded because the count is wrong in the audit and a later reader
 would try to reconcile three against four.
 
@@ -151,31 +151,31 @@ would try to reconcile three against four.
 
 ### The two sites that are sound for a reason that was not written down
 
-**`HWID` in `kernel/src/smp.rs` is read with `Acquire` and written with `Relaxed`.** An acquire whose
+`HWID` in `kernel/src/smp.rs` is read with `Acquire` and written with `Relaxed`. An acquire whose
 release does not exist, which is this milestone's bug class in mirror image. It is sound: nothing is
 published behind `HWID`, the publication flag for the whole roster is `ROSTER`, and a caller reaches
 a valid slot index only by having read `ROSTER` with an acquire first. The acquire on `HWID` is
 decorative. The tell is that the same array is read with `Relaxed` thirty lines further down, so the
-file already disagrees with itself about whether that ordering means anything. **Left as it is**,
+file already disagrees with itself about whether that ordering means anything. Left as it is,
 because this milestone changes no ordering that is not shown wrong, and an unnecessary `Acquire`
 removed is still an ordering change with no argument behind it.
 
-**`components/src/compositor.rs`'s `publish` had a comment that was wrong**, and this is the one place the
+`components/src/compositor.rs`'s `publish` had a comment that was wrong, and this is the one place the
 inventory corrected the record rather than the code. It writes six control-page fields with plain
 `write_volatile` and then writes `MAGIC` last, under a comment saying "the store order is what makes
 the check mean anything". It is not. `write_volatile` guarantees that the access happens and
 guarantees no ordering at all; on aarch64 the interconnect may make `MAGIC` visible before the fields
 above it. What makes the check sound is that `publish` runs once, before the serve loop, so no
-client's `HELLO` can be answered until every page is written. **Both client programs say exactly that
-at their end and this end did not**, which is the same one-sided shape as a fence: the argument
+client's `HELLO` can be answered until every page is written. Both client programs say exactly that
+at their end and this end did not, which is the same one-sided shape as a fence: the argument
 existed and lived somewhere the reader was not. The comment now carries it, and says what would have
 to change if `publish` were ever called again while clients run.
 
 ### The window list, which no reader has yet
 
 `publish` writes `wlist::COUNT`, then `FOCUSED`, then the per-window `RECORDS`. If `COUNT` were ever
-used as the publication flag for the records it counts, that order is backwards. **It is not used
-that way today, because nothing in the tree reads `RECORDS` at all**: `fixtures/src/window.rs` reads
+used as the publication flag for the records it counts, that order is backwards. It is not used
+that way today, because nothing in the tree reads `RECORDS` at all: `fixtures/src/window.rs` reads
 `COUNT` and `FOCUSED` and reports them, and the kernel reads `FOCUSED`. Recorded here rather than
 fixed, because the first reader of `RECORDS` is the change that makes it matter and that reader
 should meet this paragraph.
@@ -184,21 +184,21 @@ should meet this paragraph.
 
 The 243 `Relaxed` sites were not adjudicated individually; the brief scoped this milestone to the
 sites that carry ordering. One sub-question was worth asking anyway, because a relaxed
-compare-exchange used as a claim is the classic form of this bug: **fifteen compare-exchange sites
-outside test code, and at twelve of them the `Relaxed` is the failure ordering**, which is
+compare-exchange used as a claim is the classic form of this bug: fifteen compare-exchange sites
+outside test code, and at twelve of them the `Relaxed` is the failure ordering, which is
 conventional and right. The three that are relaxed on success publish nothing behind the value:
 `kernel/src/sched.rs`'s thread-budget reservation, `kernel/src/pci.rs`'s BAR cursor, and the
 interrupt-routing lottery in `kernel/src/arch/*/irq.rs`, where the loser of the race reads the
-winner's answer out of the compare-exchange's own failure return. In all three the value **is** the
+winner's answer out of the compare-exchange's own failure return. In all three the value is the
 whole protocol.
 
 ## Can pairing be checked mechanically? Measured, not argued
 
-**Broadly, no.** The obvious check is per variable: for every atomic touched with `Acquire`, require
+Broadly, no. The obvious check is per variable: for every atomic touched with `Acquire`, require
 a `Release` somewhere on the same atomic. It was built and run against the tree before this note was
 written, and here is what it did on a population of 63:
 
-**Seven flags, six of them correct code.** It flagged all five spin locks, because a lock pairs a
+Seven flags, six of them correct code. It flagged all five spin locks, because a lock pairs a
 compare-exchange with a store and the receiver expression (`self.0.locked`, `REG.locked`) is not a
 stable identifier. It flagged the `USER_FAULTS` protocol on both ISAs, which is the *best* pair in
 the tree, because its acquire side is a `fence` and not a load on that variable. It missed `HWID`,
@@ -209,12 +209,12 @@ to add an allow-list entry without looking.
 
 That is the measurement. The reason underneath it is structural and does not improve with effort:
 
-- **The partner is frequently not an ordering primitive at all.** For most of this tree it is a
+- The partner is frequently not an ordering primitive at all. For most of this tree it is a
   blocking IPC rendezvous whose happens-before edge lives in `spin::Mutex`, in a dependency. No AST
   in this repository contains it.
-- **The two halves are in different programs**, often different crates, sometimes different languages
+- The two halves are in different programs, often different crates, sometimes different languages
   (`fixtures/c/c_seam.c`). Cross-binary dataflow.
-- **The defect is an absence.** Finding 7 was a reader with no fence anywhere. There is no token to
+- The defect is an absence. Finding 7 was a reader with no fence anywhere. There is no token to
   match on, which is why a grep-shaped tool cannot find the exact bug this milestone is named for.
 
 **Narrowly, yes, and it is worth having.** Milestone 112 faced the same question about SAFETY
@@ -299,10 +299,10 @@ above it:
 core::sync::atomic::fence(core::sync::atomic::Ordering::SeqCst);
 ```
 
-If there is no matching fence, say what the edge actually is and name it:
+If there is no matching fence, say what the edge is and name it:
 
 ```rust
-// PAIR: no acquire fence, and none is needed. The terminal is blocked in `recv_cap` and the
+// PAIR: no acquire fence, and none is needed. The terminal is blocked in `receive_cap` and the
 // `ipc_call` below is what wakes it, so the kernel's release of the `SCHED` lock and the
 // terminal's acquire of it are the pair.
 ```
@@ -328,7 +328,7 @@ If there is no matching fence, say what the edge actually is and name it:
   and a tenth could be added tomorrow in `Relaxed` and never appear in this table.
 - **Two of the three findings this note describes are fixed elsewhere.** The clock seqlock's writer
   fence is milestone 80's, and the compositor's two acquire fences are milestone 43's. This milestone
-  changed no ordering at all, which was its scope note and is also the honest result: the inventory
+  changed no ordering at all, which was its scope note and is the honest result: the inventory
   found one wrong comment and one decorative `Acquire`, and no new bug.
 - **`crates/user_mode_runtime`'s spin lock and the interrupt-routing lottery cannot be modelled today**, for
   the reasons milestone 80 recorded: `user_mode_runtime` is aarch64 inline `asm!` and does not compile for the
@@ -336,7 +336,7 @@ If there is no matching fence, say what the edge actually is and name it:
 
 ---
 
-*See also `notes/locking.md` for the ranked-lock discipline that makes this population small,
+*See `notes/locking.md` for the ranked-lock discipline that makes this population small,
 `notes/deadlock.md` for the other half of that discipline, `notes/interleaving.md` (milestone 80) for
 the loom harnesses that can decide a protocol, `notes/shared-page-audit.md` (milestone 43) for the
 audit whose finding 7 is half of this milestone's motivation, and `notes/compositor.md` for the

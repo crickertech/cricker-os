@@ -38,9 +38,8 @@ and CoreMark +2.5%.
 
 ## Follow-on
 
-- **Recorded.** The profile choice (options A to D, recommendation A) is calef's and waits in
-  `notes/overflow-checks.md`; no profile changed here. Adopting A or B also re-derives
-  `SUITE_PAGE_FRAME_BUDGET`, which the checked programs pushed two frames over.
+- **Milestone 750.** calef chose option A on 2026-10-04; milestone 750 (overflow checks in the
+  shipped build) turned the profiles on, rewrote the fast paths and re-derived the frame budget.
 - **Recorded.** Release cycles on riscv64 and x86_64, and the hand-built `cryptography_exerciser`
   and `rg`, are unmeasured, in the BUGS section of `notes/overflow-checks.md`.
 

@@ -41,6 +41,4 @@ whether the tree spells that `SEND_TO`. This ruling does not touch it.
 Closed records (`BUILT` roadmap blocks, `design/decisions/`, dated audit reports) keep the name they
 used, so a grep for `OP_` finds them.
 
-Recorded limitation: live notes and roadmap documents still cite `OP_READLINE`, `OP_BYTES` and the
-like. Touching one makes `helpers/prose_ratchet.py` judge its bold density, and each is over. The
-follow-up is to bank that cleanup, then sweep `git grep -l "OP_[A-Z]" -- notes design/roadmap`.
+The live notes and roadmap documents that cited `OP_` were swept on 2026-10-04 UTC (lane `records/rename-pointer-sweep`).

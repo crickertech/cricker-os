@@ -46,10 +46,10 @@ a boot is the expensive unit in this suite. The outbound transcript is already p
 is refused the port, so the granted run serves and stops.
 
 One thing the contract cannot tell the PAL, and it is now a fork rather than a gap.
-`std::net::TcpListener::accept` must return a `SocketAddr`, and `OP_ACCEPT`'s reply carries no peer,
+`std::net::TcpListener::accept` must return a `SocketAddr`, and `OPERATION_ACCEPT`'s reply carries no peer,
 so what comes back is `0.0.0.0:0` and `peer_addr()` on an accepted stream reports the same. A server
 that logs its peers logs zeros. Two ways to fix it, both changes to what two programs agree on and
-therefore neither taken here. One is a second reply word (`reply` already carries two and `OP_ACCEPT`
+therefore neither taken here. One is a second reply word (`reply` already carries two and `OPERATION_ACCEPT`
 sends zero in the second). The other is the frame's dead `dst` fields, which is exactly the move a UDP
 `RECEIVE` already makes with the datagram's source and would cost no format change at all. The second
 is cheaper and has the precedent; both are calef's.

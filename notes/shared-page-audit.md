@@ -6,7 +6,7 @@ window were still closed, and bringing a 6,457-word audit report to 4 bold spans
 is a rewrite for this note's owner, not something to hide inside a correction, the same line
 notes/timed-wait.md's marker takes. Remove this marker when that de-bold pass lands. -->
 
-Done 2026-08-04, as the tree's **second** security audit. The first
+Done 2026-08-04, as the tree's second security audit. The first
 ([arch-audit.md](arch-audit.md)) read the hand-written architecture assembly and found three bugs in
 the class "state staged in single-copy hardware registers across more than one instruction." This
 one deliberately does not re-read a line of that, because the value of a second audit is the lens
@@ -14,14 +14,14 @@ the first one lacked.
 
 ## The lens, and why this one
 
-**Every service contract in this system moves bulk data through a page shared with the client**
+Every service contract in this system moves bulk data through a page shared with the client
 (DECISIONS §10: control by message, bulk by shared page). That shape did not exist when the first
 audit was written; the compositor's surfaces, the C seam, `std::fs`, `std::net`, the FS service and
 the sink contract all arrived afterwards, and the attack surface roughly doubled.
 
 The bug class this audit hunts, stated generally:
 
-> A value that a server **checks** and a value that a server **uses** are two different reads of
+> A value that a server checks and a value that a server uses are two different reads of
 > memory that a party other than the server can write in between.
 
 That is the double fetch, and it is invisible to every gate we run, because both the check and the
@@ -31,11 +31,11 @@ because of a window that only a second runnable writer can enter.
 
 The question asked of every request handler was therefore the arch audit's four, transposed:
 
-- **(a) The window.** Where is the check, where is the use, and what is between them?
-- **(b) What can land in it.** Which processes hold a writable mapping of that frame, and is any of
+- (a) The window. Where is the check, where is the use, and what is between them?
+- (b) What can land in it. Which processes hold a writable mapping of that frame, and is any of
   them runnable at that moment?
-- **(c) The corrupted state.** What does the server do with the value it did not check?
-- **(d) Reachable?** Is it closed by a mapping, by the blocking-`CALL` rendezvous, or only by the
+- (c) The corrupted state. What does the server do with the value it did not check?
+- (d) Reachable? Is it closed by a mapping, by the blocking-`CALL` rendezvous, or only by the
   fact that nobody has built the wiring that would open it?
 
 (d) is again the interesting one, and again the honest answer for most of the tree is "closed by
@@ -72,18 +72,18 @@ audit asks does not care which.
 
 Stated because a scope nobody wrote down is a scope nobody can check.
 
-- **The arch and assembly layer.** That is [arch-audit.md](arch-audit.md)'s, and re-reading it would
+- The arch and assembly layer. That is [arch-audit.md](arch-audit.md)'s, and re-reading it would
   be the failure this milestone exists to avoid.
-- **Capability lifetime races** between revocation and an in-flight use (generational names,
+- Capability lifetime races between revocation and an in-flight use (generational names,
   `Untyped::DESTROY`, `Endpoint::REAP`). Named in the milestone as a candidate lens and left for a
   later one; it is a different question and mixing it in would have diluted both.
-- **The census of `unsafe`.** Also a candidate lens, also a whole audit of its own.
-- **The supply chain**, the boot trust root, and the DMA/IOMMU descriptor validator. The last has
+- The census of `unsafe`. A candidate lens, a whole audit of its own.
+- The supply chain, the boot trust root, and the DMA/IOMMU descriptor validator. The last has
   its own machine-checked proofs (`crates/dma_validator`, DECISIONS §30) and reading it by hand
   would add nothing a prover has not already said for every input.
-- **The Kani bounds.** Whether a proof's chosen bound is the right bound is
+- The Kani bounds. Whether a proof's chosen bound is the right bound is
   [verification.md](verification.md)'s question, not this one's.
-- **Anything that requires already being the progenitor.** SECURITY.md puts it out of scope and this audit
+- Anything that requires already being the progenitor. SECURITY.md puts it out of scope and this audit
   honours that: the progenitor is unverified and privileged by design.
 
 ### And three things that moved under this audit
@@ -91,13 +91,13 @@ Stated because a scope nobody wrote down is a scope nobody can check.
 An audit reads a commit, not a project. This one read `main` at `313a055`, and three areas changed
 in flight; each is named so the clearance above is not read as covering work it never saw.
 
-- **The inbound socket half** (`LISTEN`/`ACCEPT` with a spawn-time port grant) is **not on `main`**.
-  `crates/socket_protocol` there stops at `OP_CLOSE` and `net_stack.rs` has no listener. What is
+- The inbound socket half (`LISTEN`/`ACCEPT` with a spawn-time port grant) is not on `main`.
+  `crates/socket_protocol` there stops at `OPERATION_CLOSE` and `net_stack.rs` has no listener. What is
   audited here is the outbound contract only. The `net_transport.rs` finding below applies to both,
   the file being identical across them.
-- **`crates/credential_protocol` and `components/src/credentialer.rs`** are being substantially rewritten with an
+- `crates/credential_protocol` and `components/src/credentialer.rs` are being substantially rewritten with an
   NTLM path. The clearance recorded below is of the version on `main` and does not transfer.
-- **The clock page's seqlock** has a live finding of its own from another lane (see finding 7's last
+- The clock page's seqlock has a live finding of its own from another lane (see finding 7's last
   paragraph). This audit did not re-derive it and does not claim `clock_protocol` is clear; it uses that
   page only as the in-tree precedent for the acquire side.
 
@@ -105,27 +105,27 @@ in flight; each is named so the clearance above is not read as covering work it 
 
 Worth stating before the findings, because it is the reason there are so few.
 
-**Lengths, offsets, counts, handles, opcodes and rectangles all travel in the IPC register words,
-never in the page.** The kernel copies a message's words into its own state at `SEND` time and hands
+Lengths, offsets, counts, handles, opcodes and rectangles all travel in the IPC register words,
+never in the page. The kernel copies a message's words into its own state at `SEND` time and hands
 them to the receiver in registers, so by the time a server sees them they are in memory only that
 server can write. `filesystem_protocol::fs::req` packs opcode, handle and a 40-bit length into one word;
 `graphics_protocol` packs a whole rectangle into four 14-bit fields of one word; `credential_protocol` packs two
-lengths into one word. There is **no contract in this tree whose length field lives in the shared
-page**, which removes the entire classic form of the bug (read a length from the page, bound-check
+lengths into one word. There is no contract in this tree whose length field lives in the shared
+page, which removes the entire classic form of the bug (read a length from the page, bound-check
 it, read it again to size the copy) by construction rather than by care.
 
 Three consequences fell out of the sweep and bound the search:
 
-- **Every payload length is clamped to the page at the top of its serve loop** and the clamp is a
+- Every payload length is clamped to the page at the top of its serve loop and the clamp is a
   local, not a re-read. `redoxfs_server.rs:246` `let len = fs::req_len(w0).min(BLOCK);` is the pattern,
   and the three caretakers, `line_editor`, `display_terminal` and `sink` all repeat it.
-- **The one contract whose decode lives in a host-testable crate is the one with a proof.**
+- The one contract whose decode lives in a host-testable crate is the one with a proof.
   `credential_protocol::read` takes the page and the register word, checks both lengths against their
   maxima, and returns two subslices; `crates/credential_protocol/src/lib.rs` carries a harness asserting the
   returned slices' lengths match the word and stay inside the page. Every other contract's decode is
   inlined into a `no_std` serve loop, where neither a host test nor Kani can reach it. That is rule
   7's argument arriving from a new direction.
-- **The check-free caretaker is the one with no window.** `fs_subtree_caretaker` performs no name
+- The check-free caretaker is the one with no window. `fs_subtree_caretaker` performs no name
   check at all (its attenuation lives entirely in the handle the FS server minted for it), and it is
   therefore the only caretaker that cannot have this bug. Its own doc comment argues for that design
   on simplicity grounds; this audit is the security argument for the same choice.
@@ -134,7 +134,7 @@ Three consequences fell out of the sweep and bound the search:
 
 ### 1. The FS service's one shared frame is mapped read-write into every client the boot ever wired
 
-**(a) The window.** `kernel/src/user/fs_service.rs`'s `ensure()` allocates **one** frame,
+(a) The window. `kernel/src/user/fs_service.rs`'s `ensure()` allocates one frame,
 `FILE_SHARED`, on the first call and hands that same physical address to every later caller:
 `spawn_fs_client`, `start_granted`, `start_granted_dir`, `start_granted_set`, `narrow_dir`,
 `start_file_sink`, `start_sink_verify` and `start_std`. Each maps it `Flags::user_data()`
@@ -144,14 +144,14 @@ maps the same frame at `FILE_PAGE`.
 So the number of processes holding a writable mapping of the file page grows with every FS client a
 boot wires, and never shrinks: a caretaker `serve`s forever and never exits.
 
-**(b) What can land in it.** The property that makes one frame sound is stated in
+(b) What can land in it. The property that makes one frame sound is stated in
 `fs_file_caretaker.rs`'s module comment:
 
 > One frame, three parties, and that is sound because every request on both sides is a blocking
 > `CALL`: the client is parked inside its call for the whole time the caretaker is using the page.
 
-That argument is correct **for a chain** (one client, one caretaker, one server) and says nothing
-about a **fan-out**. A second FS client is not inside anybody's call; it is runnable, and it holds
+That argument is correct for a chain (one client, one caretaker, one server) and says nothing
+about a fan-out. A second FS client is not inside anybody's call; it is runnable, and it holds
 the same page read-write.
 
 This is not a hypothetical the audit invented. `fs_service.rs`'s own `wait_for_caretaker` exists
@@ -160,30 +160,30 @@ because exactly this went wrong once, at startup, and its comment is the precede
 > a confined program that already exists writes its own first name over that page, and the FS
 > server resolves whatever it finds there.
 
-The fix taken then was **ordering** (drain the handshakes before the client exists), which closes
+The fix taken then was ordering (drain the handshakes before the client exists), which closes
 the startup case and not the steady-state one.
 
-**(c) The corrupted state.** A client `A` sends `OPEN` with the name staged at offset 0 and blocks.
+(c) The corrupted state. A client `A` sends `OPEN` with the name staged at offset 0 and blocks.
 Client `B`, runnable, writes a different name over offset 0. The FS server reads the page after the
 message arrives and opens `B`'s name, returning the handle to `A`. `A` now holds a handle to a file
 it never named and, if `A` is behind a caretaker, one outside the namespace that caretaker exists to
 enforce. The same substitution works on `CREATE`, `UNLINK`, `RMDIR`, `MKDIR`, `OPENDIR` and both
 halves of `RENAME`, and on the *data* of a `WRITE`.
 
-**(d) Reachable? Not on 2026-08-04; reachable since 2026-09-27.** In the interactive
+(d) Reachable? Not on 2026-08-04; reachable since 2026-09-27. In the interactive
 boot three processes now map the file page, and the audit's first named event has happened:
-`crates/system_initializer` grants the shell `(SH_FS_VA, g.fs_page, MAP_RW)`, **keeps its own copy
-for the life of the boot** (milestone 31 phase 3, 2026-08-17), and maps it into both the
+`crates/system_initializer` grants the shell `(SH_FS_VA, g.fs_page, MAP_RW)`, keeps its own copy
+for the life of the boot (milestone 31 (A capability shell) phase 3, 2026-08-17), and maps it into both the
 `fs_subtree_caretaker` and the program behind a directory grant. What still closed the hole then was that
 those three are never runnable at once on the same page: the shell is parked in `receive` on the
 spawned program's stream for the whole time that program exists, the program is inside a blocking
 `CALL` whenever the caretaker is forwarding, and the caretaker touches the page exactly once at
-startup and then only relays handles. **Init itself never writes it at all**, worth stating
+startup and then only relays handles. Init itself never writes it at all, worth stating
 because it holds the capability: it maps the frame into children and does not speak `filesystem_protocol`.
 In the kernel test suite several caretaker chains do coexist on the one frame, but each is blocked on
 `receive_cap` between tests, and the confined clients `exit()` after reporting.
 
-**The remaining opening is a runnable third party, and it opened on 2026-09-27.**
+The remaining opening is a runnable third party, and it opened on 2026-09-27.
 This note used to say that the day init could build a caretaker per grant, "a runnable shell holding
 the page coexists with a caretaker chain using it". Init can, since 2026-08-17, and the coexistence
 became runnable with milestone 205 (how a foreign program is told what to do): the prompt builds an
@@ -195,14 +195,14 @@ program granted an untyped budget could retype a second `Tcb` into its own addre
 scribble the page from a helper thread while its main thread is parked in `CALL`; today's confined
 programs are granted two endpoints and no budget, so they cannot.
 
-**Disposition: proposed as a milestone.** See "What wants a lane" below. The fix is a frame per
+Disposition: proposed as a milestone. See "What wants a lane" below. The fix is a frame per
 client channel rather than a frame per service, which is a wiring change across `fs_service.rs` and
 the four programs that name `FILE_VA_CLIENT`, plus a witness test with two live clients. It is too
 large for an audit lane and too specific to leave as prose.
 
 ### 2. `fs_nameset_caretaker` checks a name and forwards it without re-staging it
 
-**(a) The window.** `components/src/fs_nameset_caretaker.rs`'s serve loop:
+(a) The window. `components/src/fs_nameset_caretaker.rs`'s serve loop:
 
 ```rust
 if filtered && v.takes_name() && v.operand == verb::Operand::Name {
@@ -226,33 +226,33 @@ one check, and the checked bytes are never written back.
 own comment says renaming a matched name onto an unmatched one "would destroy a name this capability
 was never granted, which is an escape even though nothing was opened."
 
-**(b) What can land in it.** Only another writer of the frame, which is finding 1. The confined
+(b) What can land in it. Only another writer of the frame, which is finding 1. The confined
 client is parked in its `CALL` and the caretaker is parked in `forward`.
 
-**(c) The corrupted state.** The FS server acts on a name the set filter never saw, and the handle
+(c) The corrupted state. The FS server acts on a name the set filter never saw, and the handle
 comes back to the caretaker, which installs it in the client's table. The namespace the capability
 designates is no longer the set.
 
-**(d) Reachable? No, for finding 1's reason and no other.** The two are one bug seen from two sides,
+(d) Reachable? No, for finding 1's reason and no other. The two are one bug seen from two sides,
 and they are recorded separately because they have different fixes and the second is cheap.
 
-**Disposition: fixed in this lane.** The caretaker now writes the checked bytes back into the page
+Disposition: fixed in this lane. The caretaker now writes the checked bytes back into the page
 before forwarding, so the bytes the FS server reads are the bytes the filter approved. On the honest
 path this is a byte-identical rewrite and the existing glob-grant and directory-capability tests
 prove it did not change behaviour.
 
-**And the honest limit, stated where the fix is:** re-staging narrows the window from "the whole
+And the honest limit, stated where the fix is: re-staging narrows the window from "the whole
 check-to-forward span" to "the caretaker's store until the FS server's load". It does not close it,
 because a third writer of the frame can still land in the smaller window. Only finding 1's fix
 closes it. This is a hardening with a named residue, not a repair.
 
-`fs_file_caretaker` does **not** need this and cannot have the bug: it answers `OPEN` locally
+`fs_file_caretaker` does not need this and cannot have the bug: it answers `OPEN` locally
 (comparing the asked name against the granted one and returning `grant::HANDLE`) and never forwards
 a name at all. `fs_subtree_caretaker` cannot have it either, for the reason in the section above.
 
 ### 3. The console server takes an unbounded byte count from its client
 
-**(a) The window.** `components/src/console.rs`:
+(a) The window. `components/src/console.rs`:
 
 ```rust
 let (len, _, _) = receive(REQUEST);
@@ -266,33 +266,33 @@ for i in 0..len {
 `len` is the first register word with no clamp. The shared mapping is exactly one frame
 (`kernel/src/user/console_service.rs`, one `alloc()`, mapped `Flags::user_rodata()`).
 
-**(b) What can land in it.** Nothing needs to: this is not a race. Any holder of `WRITE` on the
+(b) What can land in it. Nothing needs to: this is not a race. Any holder of `WRITE` on the
 request endpoint sends `len = u64::MAX`.
 
-**(c) The corrupted state.** The server reads off the end of its own mapping and is killed by the
+(c) The corrupted state. The server reads off the end of its own mapping and is killed by the
 fault. The console is a shared service, so its death takes out every other client's output too.
 
-**(d) Reachable? Yes, trivially, by any client of this contract.** What bounds the damage is that
+(d) Reachable? Yes, trivially, by any client of this contract. What bounds the damage is that
 this wiring is milestone 19f's test console; the interactive system's terminal is `line_editor`,
 which does clamp (`.min(PAGE)` at every one of its four length sites).
 
-The finding worth keeping is not the missing clamp but **the reason recorded next to it**. The
+The finding worth keeping is not the missing clamp but the reason recorded next to it. The
 `SAFETY` comment says:
 
 > A malicious length is a read out of our OWN mapping, which faults us, not the kernel: a driver bug
 > is a crashed process.
 
-The length is not the driver's; it is the **client's**. The comment classifies a client-triggered
+The length is not the driver's; it is the client's. The comment classifies a client-triggered
 kill of a shared server as a driver bug, and a reader who trusted it would carry that reasoning to a
 contract where it is not merely a test program. This is the same failure the arch audit's finding 1
-was really about: the code was defensible and the record was wrong.
+was about: the code was defensible and the record was wrong.
 
-**Disposition: fixed in this lane.** The count is clamped to the page, matching `line_editor`, and
+Disposition: fixed in this lane. The count is clamped to the page, matching `line_editor`, and
 the comment now says who supplies the length and what the clamp is for.
 
 ### 4. Two unchecked arithmetic sites in the compositor's window client
 
-**(a) The windows.** `fixtures/src/window.rs` reads its geometry out of the control page the compositor
+(a) The windows. `fixtures/src/window.rs` reads its geometry out of the control page the compositor
 publishes:
 
 ```rust
@@ -308,30 +308,30 @@ were not granted") and the arithmetic is what lets it through.
 
 The second is in the same file's input loop: `let n = line_editor::proto::len(w0);` and then
 `(bytes >> (8 * k))` for `k` in `0..n`, with no clamp. `proto::len` is a full 32-bit field, so
-`8 * k` passes 63 at `k == 8`. Every other consumer of `OP_BYTES` clamps to 8
+`8 * k` passes 63 at `k == 8`. Every other consumer of `OPERATION_BYTES` clamps to 8
 (`display_terminal.rs`, `line_editor.rs`); this is the one that does not.
 
-**(b)/(c)/(d) Reachable? No.** Both values are written by the **compositor**, which is the trusted
+(b)/(c)/(d) Reachable? No. Both values are written by the compositor, which is the trusted
 party in this direction, and it publishes correct geometry and always sends a count of 1. They are
 latent, in a test witness program, and they are recorded because a bounds check that its own
 arithmetic can defeat is worth naming wherever it appears.
 
-`display_terminal.rs` validates the same geometry by **division** (`w / GLYPH_W <= MAX_COLS`), which
+`display_terminal.rs` validates the same geometry by division (`w / GLYPH_W <= MAX_COLS`), which
 cannot overflow. That is the shape to copy.
 
-**Disposition: fixed in this lane**, both, because each is one line and neither can change behaviour
+Disposition: fixed in this lane, both, because each is one line and neither can change behaviour
 on any path the tests exercise.
 
 ### 5. The compositor composites surfaces whose owners are not blocked
 
-**(a) The window.** `components/src/compositor.rs`'s `serve_frame` iterates every committed window, and
+(a) The window. `components/src/compositor.rs`'s `serve_frame` iterates every committed window, and
 `source(i)` builds a `&'static [u32]` over client `i`'s surface. The invariant claimed next to it is:
 
 > The caller is blocked in `CALL` throughout, which is what makes reading a client's pixels safe
 > without a lock: the client that rang cannot be writing while we read.
 
-**(b) What can land in it.** That covers the caller and not the other clients. `paint` reads
-**every** window's surface, and the keyboard driver's `COMMIT` rings the doorbell while no window
+(b) What can land in it. That covers the caller and not the other clients. `paint` reads
+every window's surface, and the keyboard driver's `COMMIT` rings the doorbell while no window
 client is blocked at all. Clients hold `Flags::user_data()` on their own surfaces and control pages.
 
 The damage rectangle has the same shape one level down: four independent `rd32`s of `DAMAGE_X/Y/W/H`,
@@ -339,18 +339,18 @@ which a non-calling client can be mid-way through writing, so the compositor can
 that never existed. The client's `SEQ` fence orders the *client's* stores and cannot stop the
 compositor sampling between them on somebody else's `COMMIT`.
 
-**(c)/(d) Reachable, and bounded to tearing.** The slice length is `SCENE[i].pixels()`, a
+(c)/(d) Reachable, and bounded to tearing. The slice length is `SCENE[i].pixels()`, a
 compile-time constant, and every clip uses constant geometry, so no client-supplied value ever
 indexes anything. The observable effect is a half-drawn window or a wrong damage rectangle. It is
 the same limit already recorded for a capture client reading a mid-composite screen.
 
-**Disposition: recorded-accepted**, in `notes/compositor.md`'s BUGS section, where a reader meets
+Disposition: recorded-accepted, in `notes/compositor.md`'s BUGS section, where a reader meets
 the frame protocol. Making it a real guarantee means either compositing only the caller's surface
 (which breaks the contract, since a `COMMIT` from the input source must repaint everything) or
 double-buffering per client, which is a design decision and not an audit's to take.
 
-**One hardening this audit does recommend and did not take**: the compositor holds
-`Flags::user_data()` on every client surface and **never writes one**. Read-only there would make
+One hardening this audit does recommend and did not take: the compositor holds
+`Flags::user_data()` on every client surface and never writes one. Read-only there would make
 "the compositor cannot deface a client's window" a mapping rather than a discipline, exactly as
 `ROLE_CAPTURE`'s read-only screen already does. It is a one-word change in
 `kernel/src/user/compositor_service.rs` with a real behavioural risk if any path does write, so it
@@ -362,7 +362,7 @@ Not a double fetch. It is what the enumeration the lens required turned up: to a
 checked twice" you must first list every value read from a page a hostile party writes, and two of
 those values are not checked at all.
 
-**(a) The window.** `components/src/net_transport.rs`'s `rx_take` and `components/src/keyboard_driver.rs`'s drain loop both
+(a) The window. `components/src/net_transport.rs`'s `rx_take` and `components/src/keyboard_driver.rs`'s drain loop both
 take a used-ring element and use its 32-bit `id` as a buffer index:
 
 ```rust
@@ -373,27 +373,27 @@ let base = rx_buf(id) + NET_HDR_LEN;              // rx_buf(i) = 0x400 + i * 0x2
 
 Neither `id` nor `total` is bounded by anything.
 
-**(b) What can land in it.** The **device**, and it needs no race: it simply writes a number. The
+(b) What can land in it. The device, and it needs no race: it simply writes a number. The
 used ring lives inside the driver's own single-page DMA region, which the device is entitled to
 write; that is what a used ring is for.
 
-**This is not covered by the DMA confinement**, and the reason is worth stating because it is easy
-to assume otherwise. `crates/dma_validator` validates the **driver to device** direction: at
+This is not covered by the DMA confinement, and the reason is worth stating because it is easy
+to assume otherwise. `crates/dma_validator` validates the driver to device direction: at
 `NOTIFY` it checks that every descriptor the device could follow lies inside the granted region, and
 copies the validated descriptors into a kernel-private shadow the driver cannot touch afterwards.
 Its own module comment says the shadow is what makes the check hold under time-of-check to
-time-of-use. All of that is about where the device may **touch**. Nothing anywhere says what the
-device may **say** on the way back, and the driver believes it.
+time-of-use. All of that is about where the device may touch. Nothing anywhere says what the
+device may say on the way back, and the driver believes it.
 
-**(c) The corrupted state.** `id = 4` is already past the one-page region. `id` near 1.5 million puts
+(c) The corrupted state. `id = 4` is already past the one-page region. `id` near 1.5 million puts
 `base` at this process's heap (`user_mode_runtime::heap`'s `DEFAULT_BASE`), which is an ordinary `u32`, so the
 network driver copies its own heap into a frame and hands it to smoltcp, which may put it on the
 wire. `total` unbounded reads past the buffer and asks a 96-page heap for up to 4 GiB. In `kbd.rs`
 the same index leaves the region at `id = 462` and returns process memory as a keystroke.
 
-**(d) Reachable? By a device, yes, and by nothing else.** The threat model is the question, and this
+(d) Reachable? By a device, yes, and by nothing else. The threat model is the question, and this
 project's answer is already on the record: DECISIONS §20, §23 and §30 exist because the device is
-**not** trusted, which is why there is an IOMMU and a validator at all. A driver that trusts the
+not trusted, which is why there is an IOMMU and a validator at all. A driver that trusts the
 device's own accounting contradicts the thesis those milestones establish. Under QEMU with slirp
 nothing lies; on the VisionFive 2, or behind any device the host does not fully own, the assumption
 is doing real work and is written down nowhere.
@@ -402,12 +402,12 @@ The other two drivers show this is an omission rather than a policy: `entropy.rs
 (`.min(POOL_LEN)`), and `display.rs` and `crates/virtio` read only `used.idx` and never the element,
 because they use one fixed buffer.
 
-**Disposition: fixed in this lane**, both drivers, failing closed: a completion naming a buffer that
+Disposition: fixed in this lane, both drivers, failing closed: a completion naming a buffer that
 was never posted is consumed and dropped, and a length larger than a buffer is truncated to it. What
 that costs is one receive buffer per lie, which is the right trade against a device that has stopped
 being a network card.
 
-**And what is not proven, said plainly:** nothing in the suite exercises a lying device, so the
+And what is not proven, said plainly: nothing in the suite exercises a lying device, so the
 existing tests show the honest path is unchanged and nothing shows the hostile path is now safe. A
 harness that can make a virtio device misbehave is a piece of work in its own right and is proposed
 below.
@@ -429,7 +429,7 @@ advertises it, each with a fence between and a comment explaining the fence:
 fields and (via `paint`) the pixels; `drain_input` loads `TAIL` and then loads the bytes.
 
 **(b) What can land in it.** Nothing needs to. `read_volatile` guarantees the access happens and
-guarantees **no ordering at all**, and this kernel runs on aarch64, which is the weakly ordered one
+guarantees no ordering at all, and this kernel runs on aarch64, which is the weakly ordered one
 (DECISIONS rule 4). The dependent loads may be satisfied before the load that gates them.
 
 **(c) The corrupted state.** A fresh sequence beside the previous frame's rectangle or pixels; a
@@ -440,8 +440,8 @@ fence prevents.
 what a memory-ordering bug looks like right up until it is not. QEMU's TCG does not reorder, and
 this system has not yet run on a physical board.
 
-The evidence that this is an oversight rather than a judgement is that **the kernel's own stand-in
-for the input ring gets it right.** `kernel/src/user/keyboard_service.rs`'s `take_typed` reads the
+The evidence that this is an oversight rather than a judgement is that the kernel's own stand-in
+for the input ring gets it right. `kernel/src/user/keyboard_service.rs`'s `take_typed` reads the
 tail, then `fence(SeqCst)`, then reads the bytes, with the comment "The tail is published after the
 bytes it advertises; read it before them." Two readers of one contract, one fenced.
 
@@ -449,11 +449,11 @@ bytes it advertises; read it before them." Two readers of one contract, one fenc
 the in-tree precedent for the acquire side of exactly this pattern.
 
 **Relationship to milestone 80.** That lane found the same failure shape in the clock page's
-seqlock, on the **writer's** side (the claim is not ordered ahead of the data, and neither `AcqRel`
+seqlock, on the writer's side (the claim is not ordered ahead of the data, and neither `AcqRel`
 nor `SeqCst` on the claim fixes it; it needs a release fence). This finding is a different page, a
-different pair, and the **reader's** side, so it is fixed here rather than folded into that lane. The
-two together say something neither says alone: **this tree writes release-side fences by instinct
-and forgets the acquire side**, and a comment explaining a one-sided fence reads exactly like a
+different pair, and the reader's side, so it is fixed here rather than folded into that lane. The
+two together say something neither says alone: this tree writes release-side fences by instinct
+and forgets the acquire side, and a comment explaining a one-sided fence reads exactly like a
 comment explaining a correct one. That is a lint's worth of pattern, not a bug's.
 
 ## Candidates cleared, and why each is safe
@@ -503,7 +503,7 @@ would bite (an input area with no NUL, making `strlen` run off the mapping) cann
 confiner writes the input and the frame is zeroed at wiring. The Rust side reads only fixed-size
 fields and compares against a constant.
 
-The seam also turned out to be **better than its reputation**. `crates/c_seam` now parses the
+The seam also turned out to be better than its reputation. `crates/c_seam` now parses the
 `#define`s out of `fixtures/c/c_seam.c` and asserts they equal the Rust constants, so the "written twice
 with nothing checking that the two agree" warning in `CLAUDE.md` is stale. Correcting that file is
 the maintainer's; it is reported rather than edited here.
@@ -520,11 +520,11 @@ audit's lens, stated in the tree, and it is the model the file page should follo
 `MAX_SOCKETS` before it indexes anything; every payload length refused above `DATA_MAX`; receives
 staged through a `[0u8; DATA_MAX]` stack buffer and then copied into the page. No slice is ever
 formed over the shared mapping, in the server, in `std::net`'s PAL, or in `network_time_client`, so a concurrent
-writer can change the bytes that go out and can corrupt nothing. The PAL's half is **generated** from
+writer can change the bytes that go out and can corrupt nothing. The PAL's half is generated from
 `crates/socket_protocol` by `xtask`, so the offsets cannot drift.
 
-One thing there is worth naming before somebody tidies it: **`OFF_LEN` is a length field in the page
-that nothing reads.** The server writes it on receive and no client consults it; every length that
+One thing there is worth naming before somebody tidies it: `OFF_LEN` is a length field in the page
+that nothing reads. The server writes it on receive and no client consults it; every length that
 matters travels in a register. It is documented as "in for `SEND*`, out for `RECEIVE`", which is an
 invitation. The first change that makes the server honour the header length converts a contract with
 no double fetch into one with a double fetch, and the diff will look like a tidy-up.
@@ -587,7 +587,7 @@ read-write in up to ten processes at once and what keeps them apart is who happe
 The fix is a frame per channel: allocate in `spawn_fs_client` / `start_granted*` / `narrow_dir`
 rather than in `ensure`, which also removes the ordering hazard `wait_for_caretaker` was written to
 patch, because a caretaker's staging page would no longer be reachable by anything but its own
-chain. **The witness is the deliverable**, not the wiring: two live confined programs on one FS
+chain. The witness is the deliverable, not the wiring: two live confined programs on one FS
 service, one of them substituting the other's name mid-request, failing before the change and
 passing after. Severity is what makes it worth a lane rather than a note: it is a confinement escape
 in the exact terms SECURITY.md puts in scope, and it moves from latent to live the day the shell can

@@ -33,7 +33,7 @@ that decision it has nothing to grant, and the split falls out rather than being
 tree's existing habit of splitting authority by what a holder can *do* rather than by what it names,
 which is `Frame` versus `DeviceFrame` and `WRITE` versus `GRANT` on one object.
 
-So `ACCEPT` carries the socket id to install the connection at (`CALL(req(OP_ACCEPT, lsid),
+So `ACCEPT` carries the socket id to install the connection at (`CALL(req(OPERATION_ACCEPT, lsid),
 target_sid)`), the client must have attached a frame there first, and `target_sid == lsid` is
 refused. The contract will not let a listener become a connection in place. The listener keeps its
 id, its port, and its authority.

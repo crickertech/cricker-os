@@ -105,14 +105,25 @@ static STACKS: Stacks = Stacks(UnsafeCell::new([[0; SLOT]; MAX_CPUS]));
 static ARMED: AtomicBool = AtomicBool::new(false);
 
 /// The low end of core `id`'s slot, which is its **guard page**.
+///
+/// **An index, not a multiply**, since release builds check overflow (notes/overflow-checks.md).
+/// The multiply's overflow check refused only an `id` near `2^52`, and an `id` of `MAX_CPUS` slipped
+/// past it to name memory past the region. Indexing the array place bounds-checks `id` against
+/// `MAX_CPUS` instead, which is the check that matters, in fewer bytes on the trap path.
 pub fn guard(id: usize) -> u64 {
-    STACKS.0.get() as u64 + (id as u64) * SLOT as u64
+    // SAFETY: `STACKS.0.get()` points at the live static. `&raw const` of an element place projects
+    // the address (bounds-checked) and neither reads the slot nor makes a reference to memory a
+    // core may be running on as its stack.
+    (unsafe { &raw const (*STACKS.0.get())[id] }) as u64
 }
 
 /// Core `id`'s usable stack as `(bottom, top)`: the slot above its guard page.
 pub fn span(id: usize) -> (u64, u64) {
-    let bottom = guard(id) + GUARD as u64;
-    (bottom, bottom + SIZE as u64)
+    // Wrapping, because the wrap cannot happen: `guard` refused any `id` past the array, so both
+    // sums stay inside slot `id` or at its one-past-the-end, and the static they lie in does not
+    // run past the top of the address space.
+    let bottom = guard(id).wrapping_add(GUARD as u64);
+    (bottom, bottom.wrapping_add(SIZE as u64))
 }
 
 /// The whole region, `(start, end)`, for the check against what the linker reserved.

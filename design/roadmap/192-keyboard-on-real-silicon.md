@@ -70,9 +70,9 @@ built the graphical boot around it:
 
 - `components/src/input.rs` is the UART receive driver, raw since milestone 28. It holds `WRITE` on one
   terminal endpoint, `READ` on the UART receive `Irq`, and one device-typed page of registers. It
-  forwards bytes as `line_editor::proto::OP_BYTES`, up to eight per `CALL`.
+  forwards bytes as `line_editor::proto::OPERATION_BYTES`, up to eight per `CALL`.
 - `components/src/keyboard_driver.rs` gained `MODE_DIRECT` in milestone 177: a virtio-input driver
-  holding `WRITE` on one fixed endpoint, sending **byte for byte the same `OP_BYTES` framing**.
+  holding `WRITE` on one fixed endpoint, sending **byte for byte the same `OPERATION_BYTES` framing**.
 - So the two sources were already interchangeable at DECISIONS §21's line-discipline contract.
   Nothing had ever put them behind one choice, and the graphical boot's condition was "a GPU
   and a keyboard", which on argon, radon and xenon is never true.
@@ -186,7 +186,7 @@ Unchanged by this lane except that the wiring is no longer part of it: an xHCI d
 core to enumerate and configure a device, and a HID keyboard driver, on three architectures, plus
 the scoping pass that splits those into their own milestones. What it will not need is any
 change to `line_editor`, `display_terminal`, `swish`, `crates/system_initializer`, or the boot's
-capability layout: a HID driver that holds `WRITE` on one endpoint and sends `OP_BYTES` is a third
+capability layout: a HID driver that holds `WRITE` on one endpoint and sends `OPERATION_BYTES` is a third
 arm of `boot_graphical_terminal`'s `match` and nothing else.
 
 ## The fork: what a keystroke arrives on

@@ -167,14 +167,14 @@ functions' bodies for wrapper calls that still took a raw absolute VA (which wou
 invariant at all, per this milestone's own instruction): `Sock.va: u64` (0 meaning "no frame") became
 `Sock.window: Option<MappedWindow>` (`None` meaning the same thing), and the parallel `frame_va:
 [u64; MAX_SOCKETS]` array became `frame_window: [Option<MappedWindow>; MAX_SOCKETS]`, constructed
-once in `OP_ATTACH_FRAME` right after the kernel maps the frame -- the one place in the whole socket
+once in `OPERATION_ATTACH_PAGE_FRAME` right after the kernel maps the frame -- the one place in the whole socket
 lifecycle that needs to assert the invariant, instead of every one of the four functions' bodies.
 Every downstream call site (`read_dst`, `udp_sendto`, `sock_receive`, `tcp_connect`, `tcp_accept`,
 `udp_bind`, `tcp_send`) now takes or holds a `MappedWindow` rather than a raw VA, so the
 restructuring reaches the caller side. One further site collapsed for the same reason though it was
 never named `a_w8`: `sock_receive`'s payload-write loop had its own hand-rolled `write_volatile`,
 identical in shape, folded into the same window. 5 `unsafe {` blocks removed (the four functions'
-bodies plus the hand-rolled loop), 1 added (the window construction in `OP_ATTACH_FRAME`), net -4,
+bodies plus the hand-rolled loop), 1 added (the window construction in `OPERATION_ATTACH_PAGE_FRAME`), net -4,
 in `components/src/net_stack.rs` alone. `script/test`'s aarch64 and riscv64 net suites (DHCP, UDP, TCP
 connect/accept/listen, the mDNS responder) passed clean, which is the load-bearing evidence here: the
 restructuring touches per-socket lifecycle state, exactly the kind of change where a mistake shows up

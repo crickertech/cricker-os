@@ -8,7 +8,7 @@ argument are [DECISIONS §44](../design/decisions/44-entropy-capability.md), the
 
 `std::random` used to be splitmix64 seeded from the virtual counter, and the file said so in its
 first line: *"not cryptographic, and saying so is the point."* The counter is the ABI's one ambient
-readable, so the stream was **predictable to anyone who could guess boot-relative time**. Fine for a
+readable, so the stream was predictable to anyone who could guess boot-relative time. Fine for a
 `HashMap` seed. Useless for a key, a token, or a challenge.
 
 That is not a small caveat sitting in one file. It taints anything security-adjacent anywhere in the
@@ -27,18 +27,18 @@ future work and would replace this file, not patch it"), which is what this is.
                                                 └── its DMA page: nobody else maps it
 ```
 
-One process holds the device. Everything else holds **one endpoint that names no device**, and that
+One process holds the device. Everything else holds one endpoint that names no device, and that
 is the entire difference between "may obtain randomness" and "may reach the random-number
 generator". A client cannot program the queue, cannot map the page the device writes into, and
 cannot ask the device for anything the service did not ask on its behalf.
 
-The service's whole authority is four things placed before it ran: the request endpoint (RECV), an
+The service's whole authority is four things placed before it ran: the request endpoint (RECEIVE), an
 `Irq`, a `Virtio` transport, and a readiness endpoint. No initrd, no budget, no filesystem, no
 network. A compromised entropy service is a machine whose random numbers an attacker chooses, which
 is exactly as much damage as owning the entropy source should be worth, and it is the reason the
 device is not sitting inside every program.
 
-**It needed nothing new in the kernel.** No capability type, no syscall, no method number: an
+It needed nothing new in the kernel. No capability type, no syscall, no method number: an
 `Endpoint` with WRITE is the whole grant, and `caps` already prints it. That is the third time this
 pattern has paid (the framebuffer, the clock, now this), and it is worth noticing that a capability
 system's answer to "add a new privilege" keeps being "hand out a smaller object you already have".
@@ -60,14 +60,14 @@ the small power is all it ever held.
 
 ## The bytes are the device's bytes
 
-**No pool, no whitening, no mixing, no DRBG.** There is no cryptographic primitive in this tree yet,
+No pool, no whitening, no mixing, no DRBG. There is no cryptographic primitive in this tree yet,
 and without a one-way function every transformation available is a reversible permutation: it would
 change the bytes without adding an unpredictability an attacker could not undo, while making the
 security claim harder to state. So the claim stays one sentence long, and it is auditable:
 
 > These are the bytes the device produced.
 
-What the service does keep is a **256-byte buffer**, and the distinction from a pool matters. Byte
+What the service does keep is a 256-byte buffer, and the distinction from a pool matters. Byte
 *i* out is byte *i* in, unmodified, handed to exactly one client, and zeroed behind the cursor. It
 is a cache for round trips, not an entropy transformation, and it turns thirty-two device requests
 into one.
@@ -75,7 +75,7 @@ into one.
 ### Short reads
 
 virtio-rng is allowed to return fewer bytes than the buffer holds, and the used ring's `len` is
-where it says so. **QEMU's really does**, which is worth recording as a measurement rather than a
+where it says so. QEMU's really does, which is worth recording as a measurement rather than a
 spec allowance the code defends against on principle: the first version of the service passed a
 short buffer straight through to the client, and the milestone-56 test caught a five-byte reply to
 an eight-byte request thirty draws in.
@@ -89,7 +89,7 @@ find out.
 ### Why the bytes ride in the reply and not in a shared page
 
 [§10](../design/decisions/10-capability-microkernel.md) says bulk rides in a page and control rides in the message, and this contract
-deliberately does not. A page shared with a client is a place the bytes **persist** and a second
+deliberately does not. A page shared with a client is a place the bytes persist and a second
 party can read, and random bytes are the one payload whose entire value is that nobody else has seen
 them. Registers and the client's own stack are a smaller footprint than a page both parties map.
 
@@ -122,11 +122,11 @@ stamping a key with something guessable.
 `hashmap_random_keys` is the one place a fallback is right. A `HashMap` in a program nobody granted
 entropy must still work, and std's own `unsupported` backend degrades that same function (to
 allocation addresses) rather than failing, so a platform is permitted to. The splitmix64 stream
-survives there, clearly labelled, and **nothing in the file lets it reach `fill_bytes`**. That
+survives there, clearly labelled, and nothing in the file lets it reach `fill_bytes`. That
 separation is the milestone's point: the caller that promises cryptographic strength refuses when it
 cannot keep the promise, and the caller that promises nothing degrades and says so.
 
-The grant is **slot 6** of the std slot convention (`sys/pal/nife/rt.rs`), and it is an endpoint
+The grant is slot 6 of the std slot convention (`sys/pal/nife/rt.rs`), and it is an endpoint
 with no mapping alongside it, unlike the clock, whose read authority *is* a page.
 
 ## Both transports, and a finding about interrupts
@@ -136,7 +136,7 @@ instance sits behind the IOMMU and the test asserts it: the buffer this device w
 machine's key material comes from, so an unconfined device writing it is the last thing you would
 leave unchecked.
 
-**The driver looks at the used ring before it blocks**, which is a change from the disk driver's
+The driver looks at the used ring before it blocks, which is a change from the disk driver's
 shape and a fact about the board rather than an optimisation. `pci::intx_irq` swizzles INTx by
 device number modulo four; `sched::bind_irq` routes an intid to exactly one endpoint; the test leg
 now attaches five PCI functions. There is no unshared line left, so a driver that blocked before
@@ -149,23 +149,23 @@ completes a virtio request inside `NOTIFY`, so the fast path never blocks in pra
 Four kernel tests, not arch-gated and not transport-gated, so aarch64 and riscv64 run literally the
 same assertions over both buses (`system_tests/src/user/entropy_tests.rs`):
 
-- **512 bytes across a refill boundary, all 64 words distinct and none zero**, over mmio and over
+- 512 bytes across a refill boundary, all 64 words distinct and none zero, over mmio and over
   PCIe. A stuck device, a buffer served twice, and a driver reading a stale used ring all present
   exactly as a repeat, and a collision among 64 draws from a real source is a 2^-58 event.
-- **Two devices do not agree.** The mmio and PCIe services draw disjoint bytes, which is what says
+- Two devices do not agree. The mmio and PCIe services draw disjoint bytes, which is what says
   they came from the devices rather than from something shared underneath.
-- **The count in a reply is the truth about the reply**: a three-byte request writes three bytes and
+- The count in a reply is the truth about the reply: a three-byte request writes three bytes and
   leaves the rest of the caller's buffer alone, an oversized one is clamped and answered rather than
   refused, and an unimplemented opcode is answered with nothing rather than killing the service.
-- **A std program gets there**: `std_exerciser` draws two 32-byte values through `std::random` and asserts
+- A std program gets there: `std_exerciser` draws two 32-byte values through `std::random` and asserts
   they differ (`entropy ok` in the pinned transcript), on both ISAs.
 
 **And since 2026-08-03 the endpoint is load-bearing for something a machine cannot do without it.**
 Milestone 57's write half made this service the thing that decides whether a disk can be partitioned
 or formatted at all: a GPT partition and a RedoxFS volume each carry an identifier that must be
 globally unique, and neither `crates/globally_unique_identifier_partition_table` nor a `no_std` RedoxFS has any randomness of its own. So
-`disk_partitioner` and `mkfs` hold this endpoint beside their disk, and **withholding it is what
-the test does to prove the pair is necessary**: the same binary, the same disk, one capability fewer,
+`disk_partitioner` and `mkfs` hold this endpoint beside their disk, and withholding it is what
+the test does to prove the pair is necessary: the same binary, the same disk, one capability fewer,
 and a disk that afterwards still reads as unpartitioned. That is a stronger statement of "an
 endpoint is the authority to obtain randomness" than a client that merely draws bytes and compares
 them, because here the refusal is visible on the platter.
@@ -221,8 +221,8 @@ it.
   `RDSEED`'s carry flag and Intel's DRNG Software Implementation Guide (rev. 2.2, §5.3.1.2) give the
   retry bound (100 attempts, a `pause` between). Both instructions' own specifications describe
   SP800-90B-shaped on-die conditioning as part of their architectural contract, so bytes pass through
-  unmodified, same as virtio-rng; the health-test question above does not apply to either. **Proven
-  end to end under QEMU on aarch64, but only with `--cpu neoverse-n2`**: the suite's default CPU
+  unmodified, same as virtio-rng; the health-test question above does not apply to either. Proven
+  end to end under QEMU on aarch64, but only with `--cpu neoverse-n2`: the suite's default CPU
   (`cortex-a72`) predates `FEAT_RNG`, and QEMU's `max` model, despite carrying `FEAT_RNG`, cannot even
   boot this kernel (a missing 4 KiB stage-1 granule, checked and confirmed 2026-08-24 against QEMU
   11.0.2, unrelated to entropy). On x86_64 the instruction itself is proven (a kernel-side boot probe;
@@ -243,8 +243,8 @@ it.
   first consumer a person can type, and `caps uuid` prints the row.
 
   **Ambient entropy would still be ambient authority**, and nothing here made randomness ambient:
-  the endowment is per program, declared, and previewed before anything is spawned. **The shell
-  itself holds none**, deliberately, because nothing it does as a builtin is unpredictable;
+  the endowment is per program, declared, and previewed before anything is spawned. The shell
+  itself holds none, deliberately, because nothing it does as a builtin is unpredictable;
   `config` and `domain` make the same call, and `clock` is the exception only because `time`
   measures with it.
 

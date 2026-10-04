@@ -1,7 +1,7 @@
 # The command line as a grant expression
 
 Milestone 31, phase 1. This is the note on the one idea the capability shell exists to make
-visible: on a nife command line, **naming a resource is how you grant it**. Mark Miller's
+visible: on a nife command line, naming a resource is how you grant it. Mark Miller's
 principle, "designation is authorization," applied at the one interface a human touches. The pure
 logic lives in the `grant_plan` crate (host-tested); the wiring is `swish.rs` and, on the
 progenitor's side of the channel, `crates/system_initializer`'s spawn service. There were two first
@@ -14,15 +14,15 @@ expression is written once and entered once. The manifest half is written up sep
 ## What Unix does, and why it is the opposite
 
 A Unix child inherits every one of your file descriptors and runs under your uid, so it may
-`open()` anything your uid allows. Authority comes from **who you are**, and it flows to a child
+`open()` anything your uid allows. Authority comes from who you are, and it flows to a child
 whether or not the command mentioned it. `grep secret public.txt` hands grep the authority to read
 every file you own; that it only touches `public.txt` is grep's good manners, not a limit the
 system imposed. This is ambient authority ([capabilities.md](capabilities.md)), and it is what
 makes the confused deputy constructible.
 
-The inversion: a nife command grants **exactly what it names, and nothing else**. A program
+The inversion: a nife command grants exactly what it names, and nothing else. A program
 that names no resource gets none. There is no ambient pool to draw from, so the question "may I?"
-is never asked; there is simply nothing in the program's hands it was not given. `least_authority_demo 9` grants a
+is never asked; there is nothing in the program's hands it was not given. `least_authority_demo 9` grants a
 report channel and an argument. `memory_grant_depleter --mem 16` grants a report channel and a 16-page memory
 budget. `memory_grant_depleter` alone grants a report channel and is refused, because memory_grant_depleter's manifest says it
 needs memory and the command named none.
@@ -36,13 +36,13 @@ help
 echo <text>
 ```
 
-**The command line itself is the grant expression.** Its parts are designators:
+The command line itself is the grant expression. Its parts are designators:
 
 - `<prog>` names the program to spawn (a closed set today: `least_authority_demo`, `memory_grant_depleter`, `interrupt_heeder`,
   `interrupt_ignorer`, `date`).
-- `--mem N` designates **N pages of untyped**, carved from the shell's own budget.
+- `--mem N` designates N pages of untyped, carved from the shell's own budget.
 - a bare token designates whatever the program's manifest declares in that position: the integer
-  argument, then a **file** (one name, at most 16 bytes, no path). See the per-file grant section
+  argument, then a file (one name, at most 16 bytes, no path). See the per-file grant section
   below for what the shell narrows it from and what it can back today.
 
 `caps` is introspection: with no argument it prints the shell's whole endowment; with a tail it
@@ -54,7 +54,7 @@ authority. That is DECISIONS §14's claim made interactive.
 Phase 1 spelled the same thing `run [--mem N] <prog> [arg] [file:PATH ...]`. calef asked to be
 convinced the two extra words earned their keep; they did not.
 
-**`run` failed on consistency.** Milestone 47 adds `ls`, `cd`, `pwd`, `mkdir` and `rm` as shell
+`run` failed on consistency. Milestone 47 (navigation naming) adds `ls`, `cd`, `pwd`, `mkdir` and `rm` as shell
 builtins, and nobody would type `run ls`. Keeping the verb would mean builtins are bare words while
 programs need a prefix, so a user has to know *which class a command is in* before knowing how to
 type it. That is the gratuitous divergence the milestone exists to refuse, and milestone 50 finishes
@@ -62,20 +62,20 @@ the argument: `run a | run b` is indefensible. What replaces it already existed,
 name to a program is `Prog::from_name` either way. The cost is three reserved words: `help`, `echo`
 and `caps` win over a program of the same name, so the program namespace must not contain them.
 
-**`file:` failed because it announced the wrong half of the grant.** `wc report.txt` reads and `tee
+`file:` failed because it announced the wrong half of the grant. `wc report.txt` reads and `tee
 report.txt` writes: identical syntax, opposite authority, because the direction lives in the manifest
 by design. The prefix decorated *which file*, which was already on the screen, and was silent about
 read-versus-write, which is the part that decides what the child can do.
 
 Its safety argument failed on inspection too. `least_authority_demo 5 extra` is refused as unplaceable because
-least_authority_demo's manifest says `FileSpec::Forbidden`, not because of any prefix: **the manifest was doing all
-the work and the prefix was taking credit.** The one thing the prefix genuinely bought is kept, in
+least_authority_demo's manifest says `FileSpec::Forbidden`, not because of any prefix: the manifest was doing all
+the work and the prefix was taking credit. The one thing the prefix genuinely bought is kept, in
 the place where it applies: a token shaped like a flag (`--secret`) never falls into the file
 position, because that is the one way a typo could become a capability transfer.
 
-The deeper reason a prefix could never carry the thesis: **the capability claim is about absence.**
+The deeper reason a prefix could never carry the thesis: the capability claim is about absence.
 That a filename grants access to that file surprises nobody. What `wc report.txt` proves is that wc
-got that file *and nothing else*, and that claim lives in the tokens which are **not** on the line. A
+got that file *and nothing else*, and that claim lives in the tokens which are not on the line. A
 prefix decorating a token that is present cannot express it. `caps <command>` can, which is what
 makes `caps` the visibility surface now that the designator is gone.
 
@@ -83,16 +83,16 @@ makes `caps` the visibility surface now that the designator is gone.
 
 `parse` keeps the positional tokens in the order typed and refuses to say which is which;
 `plan_against` places them into the slots the manifest declares. So `wc 2026` designates a file named
-`2026`, which a shape-based rule ("a number is the argument") would have got wrong. It also means
+`2026`, which a shape-based rule ("a number is the argument") would have got wrong. It means
 "which token is the file" and "may this program have a file at all" are answered by the same
 declaration, which is the honest version of what the prefix pretended to do.
 
-**The window is why it happened now.** No program today takes both an argument and a file, so
+The window is why it happened now. No program today takes both an argument and a file, so
 positional resolution is at most one bare token. The first program that wants both (`grep pattern
 file.txt`) forces `ArgSpec` to grow position and arity, and this change would have been a redesign
 instead of an edit.
 
-**Two limitations, named where a reader meets them.** A file whose name begins with `-` cannot be
+Two limitations, named where a reader meets them. A file whose name begins with `-` cannot be
 designated (it reads as a flag), which is Unix's problem too and Unix's answer (`--`) is available
 when something needs it. And with the prefix gone, the "you hold no such capability" refusal is only
 reachable through a manifest that declares a file, so no *shipped* program can produce it at the
@@ -103,12 +103,12 @@ deliberate; see the refusal catalog below.
 ## Where the authority actually comes from, and how it moves
 
 The shell holds four capabilities (the progenitor grants them at boot, in this order): the terminal endpoint
-(slot 0), a spawn endpoint to the progenitor (slot 1), a result endpoint (slot 2), and **its own untyped
-budget** (slot 3). The budget is the piece milestone 31 added: the progenitor splits it off its own untyped
+(slot 0), a spawn endpoint to the progenitor (slot 1), a result endpoint (slot 2), and its own untyped
+budget (slot 3). The budget is the piece milestone 31 (capability shell) added: the progenitor splits it off its own untyped
 and `CAP_INSERT`s it into the shell, so the shell has memory that is genuinely its to give.
 
 The shell does not build children itself; the progenitor holds the initrd and stays the ELF loader (the
-parser lives in one place, out of the shell). So the shell **directs** The progenitor and **delegates** the
+parser lives in one place, out of the shell). So the shell directs The progenitor and delegates the
 capabilities it grants, over the spawn endpoint. The protocol (`grant_plan::spawnproto`, a userspace
 protocol like the terminal contract, DECISIONS §21):
 
@@ -132,11 +132,11 @@ to DECISIONS §16. `Untyped::SPLIT` minted its child budget with `WRITE` alone, 
 but never delegated (`SEND_CAP` and `CAP_INSERT` both gate on `GRANT`). Untyped was the one object
 type no process could hand on, which quietly foreclosed the whole feature.
 
-The fix is rights **inheritance**, not a blanket upgrade, and the distinction matters: minting the
+The fix is rights inheritance, not a blanket upgrade, and the distinction matters: minting the
 `SPLIT` child full rights unconditionally would be an escalation, since `SPLIT` gates only on
 `WRITE`, so a process holding a spend-only untyped could split itself a `GRANT`-bearing child and
 manufacture the right it was denied. Instead, a `SPLIT` child inherits the invoking capability's
-rights and no more, and the **root** untyped the progenitor holds at boot is the delegable one
+rights and no more, and the root untyped the progenitor holds at boot is the delegable one
 (`READ|WRITE|GRANT`). Rights narrow monotonically from that root down: root -> the progenitor split (inherits
 `GRANT`) -> shell (narrowed to `WRITE|GRANT` at `CAP_INSERT`) -> shell split (inherits) -> spawned
 child (narrowed to `WRITE`, spend-only). `GRANT` never appears where it was not present above.
@@ -145,7 +145,7 @@ child (narrowed to `WRITE`, spend-only). `GRANT` never appears where it was not 
 
 `memory_grant_depleter` is a program whose whole job is to spend the memory it was granted: it maps pages out of
 its slot-1 untyped until the budget is exhausted, then reports the count. The number it prints is
-the authority the command handed it. `memory_grant_depleter --mem 16` reports **15** pages mapped on both
+the authority the command handed it. `memory_grant_depleter --mem 16` reports 15 pages mapped on both
 ISAs: the sixteenth paid for the page table that reaches the others (the kernel allocates nothing on
 a process's behalf, DECISIONS §10). Grant more and it maps more; grant nothing and it holds no
 untyped at slot 1 at all, so its first `MAP` returns `NoSuchSlot` and it maps zero. There is no
@@ -162,13 +162,13 @@ A refusal is a fact about what the shell holds, phrased in the capability model'
 - `memory_grant_depleter` → "memory_grant_depleter: needs a memory grant; add --mem <pages>." The manifest caught it.
 - `least_authority_demo 3 --mem 8` → "least_authority_demo: takes no memory grant; drop the --mem."
 - `least_authority_demo 5 extra` → "least_authority_demo: takes no file; drop the name." The token could only have been a file,
-  and least_authority_demo declares none, so it is refused rather than granted-and-dropped. **The answer is the
-  same in a shell that holds a directory**, which is the point: the manifest decides, not the
+  and least_authority_demo declares none, so it is refused rather than granted-and-dropped. The answer is the
+  same in a shell that holds a directory, which is the point: the manifest decides, not the
   endowment.
 - `least_authority_demo eight` → "least_authority_demo: needs an integer argument." Not a file, because least_authority_demo has no file slot
   for the word to fall into.
 - `wc report.txt`, at a program that *does* declare a file, in a shell that was granted no directory
-  → "wc: **you hold no such capability**: this shell was granted no directory to narrow." Since
+  → "wc: you hold no such capability: this shell was granted no directory to narrow." Since
   milestone 50 the *interactive* shell is not that shell (it holds the image root); the wiring with
   no disk attached still is, and it is the same binary in both.
 - `wc sub/report.txt` → "wc: that is not a name this shell can grant: one component, at most 16
@@ -196,11 +196,11 @@ same door `FileSpec::Required` has always come through.
 change, and it did; milestone 47 then removed the `file:` prefix from it, which changed the spelling
 and not one line of the mechanism below.)*
 
-The filesystem's unit of authority is a **directory**: the endpoint a client holds IS the directory
+The filesystem's unit of authority is a directory: the endpoint a client holds IS the directory
 capability, and every name in an `OPEN` resolves under it (DECISIONS §27). `wc report.txt` says
 less than that. It names one file, so it must grant one file.
 
-The narrowing is a **caretaker**, Mark Miller's pattern: a process that holds the wider capability,
+The narrowing is a caretaker, Mark Miller's pattern: a process that holds the wider capability,
 exports a narrower one, and is the only path between them. `components/src/fs_file_caretaker.rs` opens the
 granted name once at startup and then serves the *same* `filesystem_protocol::fs` contract on its own endpoint:
 
@@ -221,11 +221,11 @@ refusal, because there is no policy here to consult:
 
 ### The verb surface is part of what the capability is (milestone 61)
 
-This is the caretaker that needs a **per-verb** answer, and the other two do not. They serve the
+This is the caretaker that needs a per-verb answer, and the other two do not. They serve the
 directory protocol their client speaks, so every verb means what it always meant and the attenuation
 lives elsewhere. A file capability is a *different protocol*: nothing to enumerate, nothing to
 create a name in, one handle. So "which verbs exist" is not a filter over a wider surface, it is
-what the capability **is**, and it is written down in `filesystem_protocol::verb::file_grant::POLICY`, one row
+what the capability is, and it is written down in `filesystem_protocol::verb::file_grant::POLICY`, one row
 per opcode, in a crate host tests and Kani can reach.
 
 Three policies, and the third is the one worth keeping distinct:
@@ -234,12 +234,12 @@ Three policies, and the third is the one worth keeping distinct:
   is a truthful no-op, because the caretaker owns the underlying handle for its whole life.
 - `Forward`: sent on the caretaker's own handle, with the caller's substituted, gated on the
   direction when the verb mutates.
-- `Refused(errno)`: not offered, **and the errno says which kind of "no" this is.** `ENOTDIR` means
+- `Refused(errno)`: not offered, and the errno says which kind of "no" this is. `ENOTDIR` means
   the request does not *mean* anything here, which is a stronger statement than a refusal. Flattening
   that into "allowed / not allowed" is exactly what a table is at risk of doing, so the rows carry
   the errno rather than a boolean.
 
-Milestone 61 also closed the attribute gap here: `GETXATTR`, `SETXATTR`, `LISTXATTR` and
+Milestone 61 (caretakers) closed the attribute gap: `GETXATTR`, `SETXATTR`, `LISTXATTR` and
 `REMOVEXATTR` used to answer `EOPNOTSUPP`, so a program handed one file could read the file and not
 what was attached to it. See [xattr.md](xattr.md).
 
@@ -249,20 +249,20 @@ what was attached to it. See [xattr.md](xattr.md).
   rather than argued.** Before the table, `OPENDIR`, `READDIR`, `MKDIR`, `RENAME`, `UNLINK` and
   `RMDIR` fell through one `_ =>` arm shared with "you named a handle I never minted", so two
   different statements came out as one word. Writing the rows down is what made the conflation
-  visible. `ENOTDIR` is very likely right for all seven, by exactly the argument `CREATE` already
+  visible. `ENOTDIR` is likely right for all seven, by exactly the argument `CREATE` already
   makes, but changing it changes what a client observes on the wire, so it is a contract decision
   rather than a table's to take. Named here, and in `POLICY`'s own doc comment, so the reader meets
   it where they meet the feature.
 
 ### Why the caretaker is a process and not a check inside the FS server
 
-The FS server receives on **one** endpoint. Serving a second, narrower one would need a receive over
+The FS server receives on one endpoint. Serving a second, narrower one would need a receive over
 a *set* of endpoints, which this kernel does not offer; the way to add it is to give endpoint
-capabilities a **badge** (seL4's answer), and that is a design fork, recorded rather than taken. The
+capabilities a badge (seL4's answer), and that is a design fork, recorded rather than taken. The
 caretaker needs nothing new: it is an ordinary FS client above and an ordinary FS server below.
 
-It is also the stronger form of the claim. The confined program holds an endpoint to the caretaker
-and **nothing that names the FS server**, so "it cannot reach a second file" is a property of its
+It is the stronger form of the claim. The confined program holds an endpoint to the caretaker
+and nothing that names the FS server, so "it cannot reach a second file" is a property of its
 capability table, not of a branch it is trusted to take. The boundary is an address space. That is the same
 reason milestone 36's checker lives outside the component it checks.
 
@@ -273,7 +273,7 @@ call for the whole time the caretaker touches the page.
 
 ### How it is proven, and why one test would not have been enough
 
-An attacker (`fs_test_client`'s third role) reports a **bitmap of what got through**, not a pass. It is run
+An attacker (`fs_test_client`'s third role) reports a bitmap of what got through, not a pass. It is run
 twice, on both ISAs:
 
 - **Read-only grant of `motd`: every bit must be clear.** It tries to open `scratch`, which exists,
@@ -284,9 +284,9 @@ twice, on both ISAs:
   them since milestone 61: `WROTE`, `TRUNCATED`, and `WROTE_ATTR`, which is the third way to change
   a file and would have been missed by a direction check that only covered the first two.
 
-The read-only run also carries the attribute half of milestone 61, in the clear bits: the listing
-and the get reached the store (so the caretaker really does forward them) and the set did not (so a
-read grant really does not). Before that milestone all four answered `EOPNOTSUPP` and the first half
+The read-only run carries the attribute half of milestone 61, in the clear bits: the listing
+and the get reached the store (so the caretaker does forward them) and the set did not (so a
+read grant does not). Before that milestone all four answered `EOPNOTSUPP` and the first half
 would have failed.
 
 The second run is what makes the first mean anything. A caretaker that refused every request would
@@ -313,14 +313,14 @@ authority is still exactly what the line says, because the program's half is fix
 
 The refusal this section used to describe is gone, and the reason it went is the point of the way it
 was written. It said "you hold no such capability: this shell was granted no directory to narrow",
-which was a **fact about the shell's capability table** rather than a release date; milestone 50 gave the
+which was a fact about the shell's capability table rather than a release date; milestone 50 gave the
 interactive boot a RedoxFS disk and had the progenitor narrow the file service into the shell, and the same
 sentence stopped being printed with no edit to the condition that prints it. Phase 1's first draft
 hardcoded "arrives with milestone 32", which was true when written and would have become a lie the
 moment the mechanism landed.
 
 So at the prompt today the shell holds the image root, `holdings().dir` is true, a name on the line
-resolves, and since 2026-08-17 **The progenitor builds a `fs_subtree_caretaker` per directory grant**, so `rm`
+resolves, and since 2026-08-17 The progenitor builds a `fs_subtree_caretaker` per directory grant, so `rm`
 runs. `script/swish-check` types four lines on both ISAs: the preview (`caps rm rmtree/rm-solo`
 names the directory and says what `-r` would have added), the removal (`rm -v rmtree/rm-solo` prints
 the name it was given), the check (`ls rmtree | wc` counts two entries where there were three, so the
@@ -341,7 +341,7 @@ more than deleting it, because three landed as written and the fourth was worse 
 
 **The wire.** As predicted: a request is three words and what follows it is *capabilities*, so a
 directory grant travels as its own messages. It is two, not one, and the shape is better than the
-"five words of names" this note guessed: each message is a **process's three `START` words**, the
+"five words of names" this note guessed: each message is a process's three `START` words, the
 caretaker's and then the program's, forwarded by the progenitor without being decoded. That is what lets
 `grant_plan` carry a filesystem grant while keeping its deliberate non-dependency on `filesystem_protocol`.
 
@@ -352,18 +352,18 @@ already hold. Chaining answers depth two and beyond; the root needs a decision, 
 `design/roadmap/31-capability-shell.md` states the two options rather than guessing.
 
 **The lifetime.** Predicted as "a supervision question rather than a filesystem one", which is what
-DECISIONS §92 then decided: the caretaker is built out of **the client's own region**, so §40's
+DECISIONS §92 (caretaker supervised) then decided: the caretaker is built out of the client's own region, so §40 (supervisor's death)'s
 ownership cascade ends both. What the decision did not predict, and what cost the most care, is that
-the *first* reclaim of such a region is refused **by construction**. `reap_region_objects` sweeps a
+the *first* reclaim of such a region is refused by construction. `reap_region_objects` sweeps a
 region's endpoints before it looks at its threads, which is exactly what wakes a caretaker parked in
-`RECV` so it can be collected, and a thread that can be scheduled is `RefuseAndArm`. So the mechanism
+`RECEIVE` so it can be collected, and a thread that can be scheduled is `RefuseAndArm`. So the mechanism
 that makes the caretaker collectable is the same mechanism that makes the first attempt fail.
 `job_undertaker` used to trap on any refusal; it now yields and retries, and this is the first
 ordinary command that meets `reclaim_region`'s documented retry contract, which until now only the
 shell's `^C` escalation did.
 
 **The capability table.** Predicted at seven slots held for life plus two for the file service. That is what it
-is: nine at rest, and a directory-granted spawn peaks at **fifteen of sixteen** (the region, the
+is: nine at rest, and a directory-granted spawn peaks at fifteen of sixteen (the region, the
 narrowed endpoint, the readiness endpoint, and a `build_child` retyping an address space and a TCB).
 One slot from the wall, and `crates/system_initializer`'s BUGS is right about what running out looks
 like: nothing at all.
@@ -378,7 +378,7 @@ watchdog in a test and would have been the whole machine with the progenitor as 
 
 Naming a file to a program that declares an input grants it that file's bytes. `wc report.txt` is
 `wc < report.txt` with the operator left out, and it runs down the same path: the planner puts the
-designated name in the stage's **source**, the shell opens it and streams it, and the child holds an
+designated name in the stage's source, the shell opens it and streams it, and the child holds an
 endpoint.
 
 This is milestone 47's move applied to the other direction. The `file:` prefix came out on the
@@ -416,8 +416,8 @@ disagree one of them opened something else.
 
 `date` became reachable from the shell with the grammar change, because with `run` gone `date` is
 exactly what a person types. Its manifest is all `Forbidden`: no argument, no memory, no file. It is
-the first program in the table whose **whole authority is something the command line cannot
-designate**, and that is worth being explicit about rather than letting it read as an oversight.
+the first program in the table whose whole authority is something the command line cannot
+designate, and that is worth being explicit about rather than letting it read as an oversight.
 
 What `date` holds is a read-only mapping of the clock page (DECISIONS §43, notes/clock.md). Read,
 set and propose are three different objects there, and the reason `date -s` cannot exist is that the
@@ -451,15 +451,15 @@ The assessment above listed four, in different subsystems, and three of them wer
 2. **Init had no way to receive the page.** Correct: it is a read-only frame capability now, granted
    ahead of the filesystem pair so its slot number does not depend on whether a disk was attached.
 3. **"The spawn protocol carries no clock. A clock is a third position and a new flag word, in both
-   inits."** **Wrong, and the reason is the interesting part.** A clock is not designated on the
+   inits."** Wrong, and the reason is the interesting part. A clock is not designated on the
    command line, so there is nothing for the shell to *send*: the progenitor already decodes the program id, so
    it can read that program's manifest itself and decide. The wire did not change at all. The general
-   rule that falls out: a flag word carries what the **sender chose**, and an authority the sender
+   rule that falls out: a flag word carries what the sender chose, and an authority the sender
    could not choose does not belong on it.
 4. **The child needs the page mapped and the cap inserted.** Correct, at `CLOCK_VA` and slot 1,
    because `date` probes the slot before touching the address.
 
-The old paragraph also said all of it "would ship unexercised, because nothing in the test suite
+The old paragraph said all of it "would ship unexercised, because nothing in the test suite
 boots the interactive shell". That stopped being true when milestone 50 (pipes and redirection: one sink protocol) wrote
 `script/swish-check`,
 which is the gate this landed against.
@@ -509,4 +509,4 @@ so it cannot be signaled or torn down through this path; the authority is exactl
 everywhere else. The escalation policy (how many `^C`, the grace timeout) is the shell's, host-tested
 in `grant_plan::Escalation`. The two demonstrators are `interrupt_heeder` (heeds the cooperative `^C`) and `interrupt_ignorer`
 (a bare loop only the forcible tier ends). See DECISIONS §24's implementation amendment and
-notes/terminal-contract.md's `OP_INTRCOUNT`.
+notes/terminal-contract.md's `OPERATION_INTRCOUNT`.

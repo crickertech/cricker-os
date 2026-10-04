@@ -28,11 +28,11 @@ which route to take.
 
 ## What is decided and built
 
-- **The key.** Shift and page up, shift and page down, the convention of the Linux console, xterm,
+- The key. Shift and page up, shift and page down, the convention of the Linux console, xterm,
   VTE and every emulator a reader has used. The keymap sends xterm's sequences for them since
   2026-09-26: `CSI 5;2~` and `CSI 6;2~` (`video_terminal::keymap`, with a test driving the real line
   discipline).
-- **The engine.** `scroll_up(n)`, `scroll_down(n)`, and new output snapping the view back to live.
+- The engine. `scroll_up(n)`, `scroll_down(n)`, and new output snapping the view back to live.
   Host-tested.
 
 ## Why it is a routing question
@@ -41,7 +41,7 @@ The component that owns the history is not the component that sees the keys. In 
 actually uses (journey 1, `user::boot_graphical_terminal`):
 
 ```text
-keyboard_driver or input ──OP_BYTES──► line_editor ──OP_WRITE (echo)──► display_terminal
+keyboard_driver or input ──OPERATION_BYTES──► line_editor ──OPERATION_WRITE (echo)──► display_terminal
 ```
 
 `display_terminal` only ever receives output. A keystroke has already been consumed, edited and
@@ -57,7 +57,7 @@ sequence it does not implement (which is correct: it must not type `5;2~` into t
 | C | the keyboard driver acts on the key event and sends a scroll request to the terminal directly | one opcode | the driver gains `WRITE` on the terminal's endpoint | yes |
 | D | the discipline echoes a private escape sequence the terminal treats as "scroll" | a private sequence in the output stream | none | yes |
 
-**A is recommended.** The line discipline is the one component that sees every keystroke in every
+A is recommended. The line discipline is the one component that sees every keystroke in every
 wiring where a person types at a prompt, and it already holds the terminal's endpoint
 (`components/src/line_editor.rs`, `MODE_DISPLAY`, slot 1). The terminal already tells its senders
 apart by opcode on that one endpoint, a consequence of §33 (the compositor's authority is memory,
@@ -66,41 +66,41 @@ arm in a match that exists.
 
 Why each other option loses:
 
-- **B** reorders the whole input pipeline and makes two servers `CALL` each other.
+- B reorders the whole input pipeline and makes two servers `CALL` each other.
   `display_terminal` already records one deadlock of exactly that shape (its module note, "the
   deadlock that taught us"), and this would add a second, between the discipline echoing and the
   terminal forwarding. It is the most faithful to how a Unix terminal emulator is built and the most
   expensive here.
-- **C** puts the gesture in the right place in principle (Linux does it in the keyboard layer; see
+- C puts the gesture in the right place in principle (Linux does it in the keyboard layer; see
   prior art) but not in this tree: on real boards the keystroke source is usually the UART
   (milestone 192 (a keyboard on real silicon)'s option A, `KeystrokeSource::Serial`), which sees
   bytes rather than key events, so C would need a second implementation in `input` and would still
   leave a serial-driven screen without scrolling. It also spends a capability slot in the driver,
   and `boot_graphical_terminal`'s own comment records that aarch64's progenitor has three left.
-- **D** puts an input gesture into the output stream, where any program can print it and scroll a
+- D puts an input gesture into the output stream, where any program can print it and scroll a
   person's view out from under them. Every other option keeps output unable to do that.
 
 ## The seven questions, for A
 
-1. **Considered and refused:** B, C and D above, each with its reason.
-2. **What the tree does in the analogous case:** the discipline already turns a keystroke into a
+1. Considered and refused: B, C and D above, each with its reason.
+2. What the tree does in the analogous case: the discipline already turns a keystroke into a
    non-byte effect. ^C does not reach the application as a byte; it becomes an interrupt the
-   application reads with `OP_INTRCOUNT`. A scroll request is the same move toward the terminal
+   application reads with `OPERATION_INTRCOUNT`. A scroll request is the same move toward the terminal
    instead of toward the application.
-3. **Prior art, from memory and marked as such:** the Linux virtual console binds shift and page up
+3. Prior art, from memory and marked as such: the Linux virtual console binds shift and page up
    to a `Scroll_Backward` action in its keymap, handled inside the VT layer rather than passed to
    the tty (the closest analogue to C). xterm, VTE and Alacritty intercept the key in the emulator
    before anything is written to the pty (the analogue to B). Neither was re-read for this note.
-4. **Is the premise true:** yes, checked. `Vt::scroll_up`/`scroll_down` have no callers outside
+4. Is the premise true: yes, checked. `Vt::scroll_up`/`scroll_down` have no callers outside
    `crates/video_terminal` (`grep -rn scroll_up components kernel` is empty), and the line
    discipline's CSI dispatch (`crates/line_editor/src/lib.rs`, `csi_final`) has no arm for `5~` or
    `6~`.
-5. **Cost of A, estimated rather than measured:** one opcode constant in `line_editor::proto`, two
+5. Cost of A, estimated rather than measured: one opcode constant in `line_editor::proto`, two
    arms in the discipline's CSI dispatch plus a way to report a scroll request out of `feed` (an
    `Event` variant is the existing shape), one `CALL` in `components/src/line_editor.rs`, and one
    arm in `display_terminal.rs`. Perhaps sixty lines and a host test on each side. No capability,
    no slot.
-6. **Reversibility:** the opcode is the only irreversible part, because two programs agree on it.
+6. Reversibility: the opcode is the only irreversible part, because two programs agree on it.
    Nothing has acted on it yet. The keymap sequences are xterm's and are not ours to change.
 7. **Same cost, same choice?** Yes. A is also the cheapest, but the reason is that it needs no new
    authority and no new deadlock surface, which would hold if it cost more.

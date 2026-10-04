@@ -20,11 +20,11 @@ For a reader arriving at this file cold, the shape of the system `2>` completed:
 
 ```text
   init ──builds──► console server            reads a page, writes the UART
-              ├──► line_editor               the terminal contract: OP_WRITE, OP_READLINE,
-              │                              OP_BYTES, OP_INTRCOUNT, OP_PRINT
+              ├──► line_editor               the terminal contract: OPERATION_WRITE, OPERATION_READLINE,
+              │                              OPERATION_BYTES, OPERATION_INTRCOUNT, OPERATION_PRINT
               ├──► input driver              the UART receive interrupt, into the terminal
               ├──► swish                     the prompt
-              └──► terminal_sink_caretaker             the sink contract, into OP_PRINT
+              └──► terminal_sink_caretaker             the sink contract, into OPERATION_PRINT
 ```
 
 The fifth is new (DECISIONS §67, notes/sink-protocol.md), and it is the only one a person never
