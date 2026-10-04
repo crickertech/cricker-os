@@ -422,7 +422,7 @@ fn a_keystroke_edited_by_the_client_costs_two_more_round_trips() {
 /// a test that a terminal refusing everything would also pass.
 ///
 /// `ipc_call_badged` is the kernel's own delivery of a badged capability's `CALL` (the badge lands
-/// in `x3` of the server's `RECV_CAP`), so this drives the discipline exactly as a user program
+/// in `x3` of the server's `RECEIVE_CAP`), so this drives the discipline exactly as a user program
 /// holding the badged capability would.
 ///
 /// Falsification: replayable `system_tests/falsifications/user.raw_mode_tests.a_badged_copy_of_the_terminal_reads_keystrokes_and_cannot_type_them.patch`

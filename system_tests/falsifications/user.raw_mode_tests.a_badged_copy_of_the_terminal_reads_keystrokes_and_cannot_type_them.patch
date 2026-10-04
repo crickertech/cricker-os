@@ -24,7 +24,7 @@ diff --git a/components/src/line_editor.rs b/components/src/line_editor.rs
 @@ -203,7 +203,7 @@
  
      loop {
-         let req = recv_request(TERM);
+         let req = receive_request(TERM);
 -        let (w0, w1, badge) = (req.w0, req.w1, req.badge);
 +        let (w0, w1) = (req.w0, req.w1);
          let Some(slot) = req.delivered.into_reply() else {
