@@ -162,7 +162,7 @@ pub fn init() {
     // Start this core's cycle counter and check it moves (milestone 74's aarch64 half). Here
     // because this is the per-core init every core runs, beside the register that says whether EL0
     // may read the same counter. Init-time only; nothing on the switch path. See arch/aarch64/pmu.rs.
-    super::pmu::init_this_core();
+    super::pmu::init_this_cpu();
 
     let interval = freq / TICK_HZ;
     INTERVAL.store(interval, Ordering::Relaxed);
@@ -450,8 +450,8 @@ pub fn missed_ticks() -> u64 {
 /// reads it either side of a wait must name the core, or a migration compares two unrelated
 /// counters.
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
-pub fn missed_ticks_on(core: usize) -> u64 {
-    MISSED_TICKS[core].load(Ordering::Relaxed)
+pub fn missed_ticks_on(cpu: usize) -> u64 {
+    MISSED_TICKS[cpu].load(Ordering::Relaxed)
 }
 
 /// This core's next armed deadline: `CNTV_CVAL_EL0`, the grid cell [`rearm`] advances from.
@@ -542,8 +542,8 @@ pub fn ticks() -> u64 {
 /// an idle core at any preemption point (DECISIONS §28.3). Reading by index makes the pair name one
 /// core on purpose. See notes/load-sensitive-assertions.md.
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
-pub fn ticks_on(core: usize) -> u64 {
-    TICKS[core].load(Ordering::Relaxed)
+pub fn ticks_on(cpu: usize) -> u64 {
+    TICKS[cpu].load(Ordering::Relaxed)
 }
 
 /// The raw counter. Monotonic, never wraps in any timescale that matters, and **keeps counting
@@ -731,13 +731,13 @@ mod tests {
 
         // Name the core. `ticks()` reads a per-core counter and this thread can be migrated by a
         // steal at any preemption point, which would compare two unrelated counters (`ticks_on`).
-        let core = crate::cpu::id();
-        let before = timer::ticks_on(core);
+        let cpu = crate::cpu::id();
+        let before = timer::ticks_on(cpu);
         // **Waited for, not spun for.** A fixed three periods asked the emulator to have raised the
         // timer within 30 ms of wall clock, and it raises it from its own main loop: measured on
         // 2026-09-24 at up to 86 ms after the deadline (`is_tick_pending`'s comment has the
         // numbers). A timer that is genuinely dead still fails, a second later.
-        let ticked = within_periods(RAISE_BOUND_PERIODS, || timer::ticks_on(core) > before);
+        let ticked = within_periods(RAISE_BOUND_PERIODS, || timer::ticks_on(cpu) > before);
 
         assert!(
             ticked,
@@ -777,13 +777,13 @@ mod tests {
         // unchanged. The core id is in the bracket too: the statics and CVAL are per core, and a
         // snapshot pair taken on two cores compares unrelated grids.
         let snapshot = || loop {
-            let core = crate::cpu::id();
+            let cpu = crate::cpu::id();
             let t = timer::ticks();
             let m = timer::missed_ticks();
             let d = timer::deadline();
             let c = timer::now();
-            if timer::ticks() == t && crate::cpu::id() == core {
-                break (core, t, m, d, c);
+            if timer::ticks() == t && crate::cpu::id() == cpu {
+                break (cpu, t, m, d, c);
             }
         };
 
@@ -928,21 +928,21 @@ mod tests {
         // masked in there, so this thread can neither be preempted nor migrated and the measured
         // window is exactly the window under test. Read outside, it straddled a preemption point
         // and compared per-core counters across a possible steal (see `ticks_on`).
-        let (core, before) = {
+        let (cpu, before) = {
             let _guard = M.lock();
-            let core = crate::cpu::id();
-            let before = timer::missed_ticks_on(core);
+            let cpu = crate::cpu::id();
+            let before = timer::missed_ticks_on(cpu);
             // Two whole tick periods with interrupts masked. At least one deadline passes while
             // we cannot service it.
             timer::spin_for(timer::interval() * 2 + timer::interval() / 2);
-            (core, before)
+            (cpu, before)
         };
 
         // Let the pending interrupt land and the miss be counted. Bounded rather than a fixed
         // single period: the claim is that the miss *happens*, and a host that descheduled the
         // emulator only makes the delivery later.
         assert!(
-            within_periods(20, || timer::missed_ticks_on(core) > before),
+            within_periods(20, || timer::missed_ticks_on(cpu) > before),
             "holding a lock across two tick periods did NOT lose a tick, which means \
              IrqSafeMutex is not masking interrupts and the deadlock is live"
         );
@@ -1019,18 +1019,18 @@ mod tests {
         // failed CI that way on 2026-08-04 ("left: 41, right: 40", one surplus tick, on `rv64`,
         // the control model). The same window also straddled a preemption point, and TICKS is per
         // core, so a steal (§28.3) moving this thread compared two unrelated counters.
-        let (core, before) = {
+        let (cpu, before) = {
             let _guard = M.lock();
             // Interrupts are masked from here, so this core cannot switch threads: `cpu::id()` is
             // fixed for the whole block and both reads below are of one counter.
-            let core = crate::cpu::id();
-            let before = timer::ticks_on(core);
+            let cpu = crate::cpu::id();
+            let before = timer::ticks_on(cpu);
 
             // Thirty milliseconds. Three ticks' worth. Not one of them may land.
             timer::spin_for(timer::interval() * 3);
 
             assert_eq!(
-                timer::ticks_on(core),
+                timer::ticks_on(cpu),
                 before,
                 "A TIMER INTERRUPT FIRED WHILE A LOCK WAS HELD. IrqSafeMutex is not masking, \
                  and the deadlock in notes/locking.md is live: a handler that touched this lock \
@@ -1051,13 +1051,13 @@ mod tests {
                  delivering it"
             );
             assert_eq!(
-                timer::ticks_on(core),
+                timer::ticks_on(cpu),
                 before,
                 "A TIMER INTERRUPT FIRED WHILE A LOCK WAS HELD. IrqSafeMutex is not masking, \
                  and the deadlock in notes/locking.md is live: a handler that touched this lock \
                  would spin forever waiting for code that cannot run."
             );
-            (core, before)
+            (cpu, before)
         };
 
         // And the moment we let go, the pending interrupt is delivered. Bounded rather than a
@@ -1065,7 +1065,7 @@ mod tests {
         // point: this thread may be on another core by the next instruction, and the core we left
         // keeps ticking either way.
         assert!(
-            within_periods(20, || timer::ticks_on(core) > before),
+            within_periods(20, || timer::ticks_on(cpu) > before),
             "interrupts did not resume after the lock was released: `restore` is broken"
         );
     }

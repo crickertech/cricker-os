@@ -180,8 +180,8 @@ const START_MARKER: &str = "soak-test: started";
 ///
 /// The caller is the boot thread at the end of the tour, and this replaces its `arch::halt()`.
 pub fn run() -> ! {
-    let cores = smp::online_count();
-    let groups = topology_groups(cores);
+    let cpus = smp::online_count();
+    let groups = topology_groups(cpus);
     let callers = CALLERS_PER_GROUP;
 
     // Measured through the chain an ordinary boot's progenitor runs, because this boot has none
@@ -292,7 +292,7 @@ pub fn run() -> ! {
     println!(
         "{START_MARKER} {groups} groups of one responder, {callers} callers, \
          {GRINDERS_PER_GROUP} grinder and {WAITERS_PER_GROUP} tick waiter ({workers} user \
-         threads) on {cores} online core(s), beating every {BEAT_SECONDS}s"
+         threads) on {cpus} online core(s), beating every {BEAT_SECONDS}s"
     );
     println!(
         "soak-test: silence longer than a few beats is a hang, not a slow run; the beat is on the wall \
@@ -400,11 +400,11 @@ fn print_census(what: &str, groups: usize, cpus: &[u8]) {
          after each letter is its group"
     );
     let mut accounted = 0usize;
-    for core in smp::online_cpus() {
-        let here = u8::try_from(core).unwrap_or(u8::MAX);
+    for cpu in smp::online_cpus() {
+        let here = u8::try_from(cpu).unwrap_or(u8::MAX);
         let n = cpus.iter().filter(|&&c| c == here).count();
         accounted += n;
-        crate::print!("{CENSUS_MARKER} core={core} threads={n}");
+        crate::print!("{CENSUS_MARKER} core={cpu} threads={n}");
         for (i, &c) in cpus.iter().enumerate() {
             if c == here {
                 crate::print!(
@@ -944,8 +944,8 @@ fn arm_tick_hook(groups: usize) {
 ///
 /// One group per core, and at least two so a single-core QEMU leg still runs something with more
 /// than one endpoint in it. Capped by what the shared page has slots for.
-fn topology_groups(cores: usize) -> usize {
-    let groups = cores.max(2);
+fn topology_groups(cpus: usize) -> usize {
+    let groups = cpus.max(2);
     groups.min(MAX_WORKERS / MEMBERS_PER_GROUP)
 }
 

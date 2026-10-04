@@ -28,7 +28,7 @@ fn current_cpu_reader_image() -> &'static [u8] {
 /// instruction without having been switched in first, so by the time this program runs its page has
 /// been written, and a `None` here means the page never got mapped or never got written.
 #[test_case]
-fn a_userspace_thread_reads_a_core_that_is_really_online() {
+fn a_userspace_thread_reads_a_cpu_that_is_really_online() {
     let result = crate::sched::create_rendezvous();
     crate::sched::spawn(move || {
         run(

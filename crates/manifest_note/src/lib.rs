@@ -769,4 +769,127 @@ mod tests {
         assert_eq!(&n.0[12..20], b"nife\0\0\0\0");
         assert_eq!(decode(&n.0[20..]), Ok(Prog::Uptime.manifest()));
     }
+
+    /// The manifest every field of which is at a non-default value except those a test sets, so a
+    /// field moved to the wrong byte or dropped shows as a different manifest.
+    fn base() -> Manifest {
+        grant_plan::NO_NOTE_MANIFEST
+    }
+
+    /// **Every value of every enumerated field encodes and decodes to itself**, one field at a
+    /// time. A `decode` arm for a value no round trip names is an arm nobody would notice losing:
+    /// the descriptor would then be refused as malformed, and only for programs that use it.
+    #[test]
+    fn every_value_of_every_field_round_trips() {
+        let args = [
+            ArgSpec::Forbidden,
+            ArgSpec::Required,
+            ArgSpec::Words(WordGrant::ReadOnly),
+            ArgSpec::Words(WordGrant::ReadWrite),
+            ArgSpec::Words(WordGrant::Create),
+        ];
+        for arg in args {
+            let m = Manifest { arg, ..base() };
+            assert_eq!(decode(&encode(&m)), Ok(m), "{arg:?}");
+        }
+        for file in [
+            FileSpec::Forbidden,
+            FileSpec::Required { writable: false },
+            FileSpec::Required { writable: true },
+        ] {
+            let m = Manifest { file, ..base() };
+            assert_eq!(decode(&encode(&m)), Ok(m), "{file:?}");
+        }
+        for dir in [DirSpec::Forbidden, DirSpec::Required { subtree_flag: None }] {
+            let m = Manifest { dir, ..base() };
+            assert_eq!(decode(&encode(&m)), Ok(m), "{dir:?}");
+        }
+        for output in [
+            OutputSpec::Silent,
+            OutputSpec::Words,
+            OutputSpec::Bytes,
+            OutputSpec::BytesAndDiagnostics {
+                slot: DIAGNOSTICS_SLOT,
+            },
+        ] {
+            let m = Manifest { output, ..base() };
+            assert_eq!(decode(&encode(&m)), Ok(m), "{output:?}");
+        }
+    }
+
+    /// A second stream is declared at one slot only, and a manifest naming another has no spelling:
+    /// the constant evaluation that would reject it is a compile error, and here a panic.
+    #[test]
+    #[should_panic(expected = "DIAGNOSTICS_SLOT")]
+    fn a_second_stream_at_any_other_slot_has_no_encoding() {
+        let m = Manifest {
+            output: OutputSpec::BytesAndDiagnostics {
+                slot: DIAGNOSTICS_SLOT + 1,
+            },
+            ..base()
+        };
+        let _ = encode(&m);
+    }
+
+    /// A subtree option is accepted when it is one of the declared letters, including when it is
+    /// the only one, and has no encoding when it is not.
+    #[test]
+    fn a_subtree_option_must_be_a_declared_letter_even_the_only_one() {
+        let with = |letters: &[u8], flag: u8| Manifest {
+            flags: Flags::try_new(letters).unwrap(),
+            dir: DirSpec::Required {
+                subtree_flag: Some(flag),
+            },
+            ..base()
+        };
+        let only = with(b"r", b'r');
+        assert_eq!(decode(&encode(&only)), Ok(only));
+        let second = with(b"fr", b'r');
+        assert_eq!(decode(&encode(&second)), Ok(second));
+        extern crate std;
+        let undeclared = std::panic::catch_unwind(|| encode(&with(b"r", b'x')));
+        assert!(undeclared.is_err());
+    }
+
+    /// The boundaries of the layout, each at the value that is last to be accepted: a descriptor of
+    /// four bytes has a version and nothing else (wrong length, not "no version"), the longest
+    /// option list and an empty memory range are accepted, and the last byte of the layout is
+    /// checked to be zero.
+    #[test]
+    fn the_layout_accepts_its_largest_values_and_checks_its_last_byte() {
+        assert_eq!(decode(&[1, 2, 3]), Err(Error::NoVersion));
+        assert_eq!(decode(&VERSION.to_le_bytes()), Err(Error::WrongLength));
+        assert_eq!(decode(&2u32.to_le_bytes()), Err(Error::UnknownVersion));
+
+        let letters: [u8; MAX_DECLARED_FLAGS] = core::array::from_fn(|i| b'a' + i as u8);
+        let m = Manifest {
+            flags: Flags::try_new(&letters).unwrap(),
+            ..base()
+        };
+        assert_eq!(decode(&encode(&m)), Ok(m));
+
+        let m = Manifest {
+            mem: MemSpec::Required { min: 8, max: 8 },
+            ..base()
+        };
+        assert_eq!(decode(&encode(&m)), Ok(m));
+
+        let mut d = encode(&base());
+        let last = d.len() - 1;
+        d[last] = 1;
+        assert_eq!(decode(&d), Err(Error::BadField(last)));
+    }
+
+    /// The whole note's header says what an ELF reader expects, for both note types: the owner's
+    /// length including its NUL, the descriptor's length, and the type.
+    #[test]
+    fn both_notes_state_their_owner_length_descriptor_length_and_type() {
+        let n = SubtreeGrantsNote::of(Scope::SubtreeScope);
+        assert_eq!(&n.0[0..4], &5u32.to_le_bytes());
+        assert_eq!(&n.0[4..8], &(SUBTREE_GRANTS_LEN as u32).to_le_bytes());
+        assert_eq!(&n.0[8..12], &SUBTREE_GRANTS.to_le_bytes());
+        assert_eq!(&n.0[12..20], b"nife\0\0\0\0");
+        assert_eq!(&n.0[20..24], &SUBTREE_GRANTS_VERSION.to_le_bytes());
+        assert_eq!(&n.0[24..28], &1u32.to_le_bytes());
+    }
 }

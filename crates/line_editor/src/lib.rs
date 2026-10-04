@@ -2079,4 +2079,174 @@ mod tests {
         feed_all(&mut d, &mut s, b"\r");
         assert_eq!(d.line(), b"Xabcdefghijkl");
     }
+
+    // ---- the survivors of the 2026-10-03 mutation census ----
+
+    /// A sink that keeps the exact bytes, which the `Screen` model deliberately does not: it reads
+    /// `ESC [ D` and `ESC [ 1 D` alike.
+    struct Raw(Vec<u8>);
+    impl Sink for Raw {
+        fn put(&mut self, b: &[u8]) {
+            self.0.extend_from_slice(b);
+        }
+    }
+
+    /// A move of one column elides its count, and a move of ten writes both digits.
+    #[test]
+    fn a_cursor_move_of_one_elides_its_count_and_ten_spells_it() {
+        let mut o = Raw(Vec::new());
+        csi_left(&mut o, 1);
+        csi_right(&mut o, 1);
+        csi_left(&mut o, 0);
+        csi_right(&mut o, 10);
+        assert_eq!(o.0, b"\x1b[D\x1b[C\x1b[10C");
+    }
+
+    /// The two start bits are the two lowest bits, one each.
+    #[test]
+    fn the_two_start_bits_are_distinct_low_bits() {
+        assert_eq!(proto::START_HANDOFF, 1);
+        assert_eq!(proto::START_ABSORB, 2);
+    }
+
+    /// **Resuming a read paints nothing** and still remembers the prompt, so a later repaint (after
+    /// a completion listing) prints it. A resume that forgot the prompt would repaint a bare line.
+    #[test]
+    fn resuming_a_read_remembers_the_prompt_and_paints_nothing() {
+        let mut d = LineDisc::new();
+        let mut o = Raw(Vec::new());
+        d.resume_line(b"$ ");
+        assert!(o.0.is_empty());
+        d.repaint(&mut o);
+        assert_eq!(o.0, b"$ ");
+    }
+
+    /// A repaint puts the cursor back where it was: the distance left of the end is `len - cur`,
+    /// nothing at the end of the line and the whole line at column 0.
+    #[test]
+    fn a_repaint_leaves_the_cursor_where_it_was() {
+        let (mut d, mut s) = (LineDisc::new(), Screen::new());
+        feed_all(&mut d, &mut s, b"abcde\x1b[D\x1b[D");
+        let mut o = Raw(Vec::new());
+        d.repaint(&mut o);
+        assert_eq!(o.0, b"abcde\x1b[2D");
+        feed_all(&mut d, &mut s, b"\x05"); // ^E: to the end
+        let mut o = Raw(Vec::new());
+        d.repaint(&mut o);
+        assert_eq!(o.0, b"abcde");
+        feed_all(&mut d, &mut s, b"\x01"); // ^A: to the start
+        let mut o = Raw(Vec::new());
+        d.repaint(&mut o);
+        assert_eq!(o.0, b"abcde\x1b[5D");
+    }
+
+    /// A blob that exactly fills its buffer is a blob, and one byte short is refused: the header
+    /// alone is eight bytes.
+    #[test]
+    fn a_blob_may_fill_its_buffer_exactly_and_no_more() {
+        let mut exact = [0u8; 8];
+        assert_eq!(handoff::Writer::new(&mut exact).finish(), Some(8));
+        let mut short = [0u8; 7];
+        assert_eq!(handoff::Writer::new(&mut short).finish(), None);
+        let mut page = [0u8; 12];
+        let mut w = handoff::Writer::new(&mut page);
+        w.field(&[]);
+        assert_eq!(w.finish(), Some(12), "the length word fills the last four");
+    }
+
+    /// A field is refused when longer than the buffer it lands in and accepted when exactly as long.
+    #[test]
+    fn a_field_exactly_as_long_as_its_buffer_fits_and_one_longer_is_malformed() {
+        let mut page = [0u8; 64];
+        let mut w = handoff::Writer::new(&mut page);
+        w.field(&[7; 5]);
+        w.field(&[8; 5]);
+        let n = w.finish().unwrap();
+        let mut r = handoff::Reader::new(&page[..n]).unwrap();
+        let mut five = [0u8; 5];
+        assert_eq!(r.field(&mut five), Some(5));
+        assert_eq!(five, [7; 5]);
+        let mut four = [0u8; 4];
+        assert_eq!(r.field(&mut four), None);
+    }
+
+    /// **The cursor a blob carries cannot lie past the line**: a cursor on the last byte or past
+    /// it is accepted only up to the line's length, and the history's write position survives a
+    /// swap, so Up recalls the newest line and not whichever sits at index 0.
+    #[test]
+    fn a_restored_cursor_stays_inside_its_line_and_history_keeps_its_place() {
+        let (mut old, mut s) = (LineDisc::new(), Screen::new());
+        for line in [&b"one\r"[..], b"two\r", b"three\r"] {
+            old.start_line(b"$ ", &mut s);
+            feed_all(&mut old, &mut s, line);
+        }
+        old.start_line(b"$ ", &mut s);
+        feed_all(&mut old, &mut s, b"abc\x1b[D");
+        let mut page = [0u8; 4096];
+        let mut w = handoff::Writer::new(&mut page);
+        old.save(&mut w);
+        let n = w.finish().unwrap();
+
+        let mut new = LineDisc::new();
+        let mut r = handoff::Reader::new(&page[..n]).unwrap();
+        assert_eq!(new.restore(&mut r), Some(()));
+        assert_eq!(new.pending(), (b"abc".as_slice(), 2));
+        feed_all(&mut new, &mut s, b"\x15\x1b[A"); // ^U, then Up
+        assert_eq!(new.pending().0, b"three");
+
+        // The same blob with its cursor word moved past the line: refused whole. The header is 8
+        // bytes, the line field 4 + 3, so the cursor word sits at 15.
+        let mut bad = page;
+        bad[15..19].copy_from_slice(&4u32.to_le_bytes());
+        let mut r = handoff::Reader::new(&bad[..n]).unwrap();
+        assert_eq!(LineDisc::new().restore(&mut r), None);
+        // And a cursor on the line's own end is not past it.
+        bad[15..19].copy_from_slice(&3u32.to_le_bytes());
+        let mut r = handoff::Reader::new(&bad[..n]).unwrap();
+        assert_eq!(LineDisc::new().restore(&mut r), Some(()));
+    }
+
+    /// **Unread raw bytes cross a swap in order**, including when the ring has wrapped, and an
+    /// empty queue stays empty.
+    #[test]
+    fn the_raw_queue_crosses_a_swap_in_order_across_the_wrap() {
+        let mut q = RawQueue::new();
+        let first: Vec<u8> = (0..60).collect();
+        q.push(&first);
+        while q.len > 4 {
+            q.pop8();
+        }
+        let more: Vec<u8> = (100..110).collect();
+        q.push(&more); // the ring wraps: head is near the end
+        assert!(q.head + q.len > RAW_QUEUE_MAX);
+
+        let mut page = [0u8; 256];
+        let mut w = handoff::Writer::new(&mut page);
+        q.save(&mut w);
+        let n = w.finish().unwrap();
+        let mut copy = RawQueue::new();
+        let mut r = handoff::Reader::new(&page[..n]).unwrap();
+        assert_eq!(copy.restore(&mut r), Some(()));
+
+        let drain = |q: &mut RawQueue| {
+            let mut out = Vec::new();
+            while let Some((n, packed)) = q.pop8() {
+                out.extend_from_slice(&packed.to_le_bytes()[..n]);
+            }
+            out
+        };
+        let mut expect: Vec<u8> = (56..60).collect();
+        expect.extend(100..110);
+        assert_eq!(drain(&mut q), expect);
+        assert_eq!(drain(&mut copy), expect);
+
+        let mut w = handoff::Writer::new(&mut page);
+        RawQueue::new().save(&mut w);
+        let n = w.finish().unwrap();
+        let mut empty = RawQueue::new();
+        empty.push(b"x");
+        let mut r = handoff::Reader::new(&page[..n]).unwrap();
+        assert_eq!(empty.restore(&mut r), Some(()));
+        assert!(empty.is_empty());
+    }
 }

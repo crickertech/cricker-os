@@ -140,7 +140,7 @@ remains) or fixed. A fixed site can still carry a residual in BUGS below.
 | `holding_a_lock_masks_the_timer`, liveness and release; `the_timer_is_ticking` | both `timer.rs` | fixed | wait for the pending bit, or the property (09-24) | [preemption window](load-sensitive-assertions/preemption-window-tick.md) |
 | `unmasking_delivers_the_tick_that_was_held`, `a_masked_window_takes_no_preemption` | `preemption_window_tests.rs` | fixed | waits for `timer::is_tick_pending`; QEMU raised ticks 86 ms late (09-24) | [preemption window](load-sensitive-assertions/preemption-window-tick.md) |
 | `inbound check` (host prober) | `xtask/src/inbound.rs` | fixed | an `EINTR` read dropped a held connection, losing its round (09-24) | [inbound EINTR](load-sensitive-assertions/inbound-eintr.md) |
-| `work_can_be_placed_on_every_core` | `smp.rs` | fixed | asserts arrival at the named core (`PerCpu::adopted`), not execution (08-04) | [second round](load-sensitive-assertions/measurement-windows-and-the-load-recipe.md) |
+| `work_can_be_placed_on_every_cpu` | `smp.rs` | fixed | asserts arrival at the named core (`PerCpu::adopted`), not execution (08-04) | [second round](load-sensitive-assertions/measurement-windows-and-the-load-recipe.md) |
 | `a_thread_that_never_yields_is_preempted_anyway` | `sched.rs` | fixed | the spinner is waited on, not sampled; the budget is 200 delivered ticks (08-04) | [second round](load-sensitive-assertions/measurement-windows-and-the-load-recipe.md) |
 | `a_sender_blocks_until_a_receiver_arrives`, `other_threads_run_while_one_is_blocked` | `sched.rs` | fixed | five yield-count waits became `wait_for` (08-04) | [second round](load-sensitive-assertions/measurement-windows-and-the-load-recipe.md) |
 | `threads_round_robin` | `sched.rs` | fixed | waits for every counter above zero, then for its own reaps (08-03) | [first verdicts](load-sensitive-assertions/global-baselines-and-the-drift-law.md) |
@@ -188,7 +188,7 @@ been read against these questions.
 - `script/icount` is `-smp 1`. The tick path is lock-free on both ISAs today, which is why deleting
   the handler-latency assertion was safe. If the tick path ever takes a contended lock, neither
   instrument would notice.
-- `work_can_be_placed_on_every_core` no longer proves that a specific core ran a specific thread.
+- `work_can_be_placed_on_every_cpu` no longer proves that a specific core ran a specific thread.
   Nothing does, because placement is a hint and §28 deferred pins.
 - `ROUTED_IRQS` is a global count. The PCIe test proves some interrupt became some driver's message,
   and it is sound only while no second driver runs in the window. A per-intid delivery count wants

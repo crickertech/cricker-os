@@ -215,21 +215,21 @@ fn port_holder_transmits_then_a_non_holder_faults() {
         sup,
     );
     let msg = sched::ipc_recv(report);
-    let (word, core_after, core_before) = (msg[0], msg[1], msg[2]);
+    let (word, cpu_after, cpu_before) = (msg[0], msg[1], msg[2]);
     assert_eq!(
         word, REPORTED,
         "the port holder's `out` should have been permitted, and its report should have arrived",
     );
     assert!(
-        core_before < current_cpu_protocol::CPU_ID_BOUND as u64,
-        "the holder read core {core_before:#x}: its current-cpu page was never written, so which \
+        cpu_before < current_cpu_protocol::CPU_ID_BOUND as u64,
+        "the holder read core {cpu_before:#x}: its current-cpu page was never written, so which \
          core's bitmap it set is unknown",
     );
     assert_eq!(
-        core_before, core_after,
+        cpu_before, cpu_after,
         "the holder moved cores across its `out`; which core's bitmap it set is unknown",
     );
-    let holder_core = core_before;
+    let holder_cpu = cpu_before;
     assert_eq!(
         sched::ipc_recv(sup)[0],
         EVENT_EXIT,
@@ -250,7 +250,7 @@ fn port_holder_transmits_then_a_non_holder_faults() {
             &super::x86_programs::port_out_on_cpu_then_exit(
                 SCRATCH_PORT,
                 SCRATCH_VAL,
-                holder_core as u8,
+                holder_cpu as u8,
             ),
             report2,
             None,
@@ -260,12 +260,12 @@ fn port_holder_transmits_then_a_non_holder_faults() {
         let msg = sched::ipc_recv(sup2);
         reap(nh_region);
         if msg[0] == EVENT_FAULT
-            && msg[2] == CODE_VA + super::x86_programs::PORT_OUT_ON_CPU_WRONG_CORE_PC_OFFSET
+            && msg[2] == CODE_VA + super::x86_programs::PORT_OUT_ON_CPU_WRONG_CPU_PC_OFFSET
         {
             continue; // started on another core and never reached its `out`: not a test, retry
         }
         crate::println!(
-            "    the non-holder ran on the holder's core {holder_core} on try {attempt}"
+            "    the non-holder ran on the holder's core {holder_cpu} on try {attempt}"
         );
         assert_eq!(
             msg[0], EVENT_FAULT,
@@ -280,7 +280,7 @@ fn port_holder_transmits_then_a_non_holder_faults() {
         return;
     }
     panic!(
-        "no non-holder ran on the holder's core {holder_core} in {NON_HOLDER_ATTEMPTS} tries, so \
+        "no non-holder ran on the holder's core {holder_cpu} in {NON_HOLDER_ATTEMPTS} tries, so \
          this run did not test the hand-off at all",
     );
 }

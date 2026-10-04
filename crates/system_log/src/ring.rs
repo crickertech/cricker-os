@@ -176,4 +176,76 @@ mod tests {
             assert_eq!(chunk[999], b'\n');
         }
     }
+
+    fn fill_exactly(r: &mut Ring, entries: usize) {
+        // 11 bytes of header and 53 of line make a 64-byte entry, and 1,024 of them are the ring.
+        let line = [b'x'; 53];
+        for seq in 0..entries as u64 {
+            r.append(seq, b"", &line);
+        }
+    }
+
+    /// An entry that exactly fills what is left evicts nothing, and the next one evicts exactly one.
+    #[test]
+    fn an_exact_fit_evicts_nothing_and_the_next_entry_evicts_one() {
+        let mut r = Ring::new();
+        fill_exactly(&mut r, 1024);
+        assert_eq!((r.held(), r.first_seq(), r.used), (1024, 0, RING_BYTES));
+        r.append(1024, b"", &[b'x'; 53]);
+        assert_eq!((r.held(), r.first_seq()), (1024, 1));
+        fill_exactly(&mut Ring::new(), 0);
+        let mut r = Ring::new();
+        fill_exactly(&mut r, 1030);
+        assert_eq!((r.held(), r.first_seq()), (1024, 6));
+    }
+
+    /// An entry is its header, its user and its line, and nothing else.
+    #[test]
+    fn an_entry_is_eleven_bytes_of_header_and_what_it_holds() {
+        let mut r = Ring::new();
+        r.append(0, b"ab", b"xyz");
+        assert_eq!((r.used, r.held()), (11 + 2 + 3, 1));
+        r.append(1, b"", b"q");
+        assert_eq!((r.used, r.held()), (11 + 2 + 3 + 11 + 1, 2));
+    }
+
+    /// A reader whose cursor is partway into what was evicted is told how many it lost, counted from
+    /// where it was and not from the start.
+    #[test]
+    fn a_dropped_line_counts_from_the_cursor() {
+        let mut r = Ring::new();
+        fill_exactly(&mut r, 1030);
+        let mut out = [0u8; 4080];
+        let (_, n) = r.read(2, None, &mut out);
+        let text = core::str::from_utf8(&out[..n]).unwrap();
+        assert!(
+            text.starts_with("{\"dropped\":4,\"from\":2,\"to\":5}\n"),
+            "{}",
+            &text[..60]
+        );
+    }
+
+    /// A per-user read matches the whole user, not a prefix of it.
+    #[test]
+    fn a_user_filter_matches_the_whole_name() {
+        let mut r = Ring::new();
+        r.append(0, b"alice", b"a\n");
+        r.append(1, b"al", b"b\n");
+        let mut out = [0u8; 64];
+        let (_, n) = r.read(0, Some(b"al"), &mut out);
+        assert_eq!(&out[..n], b"b\n");
+        let (_, n) = r.read(0, Some(b"alice"), &mut out);
+        assert_eq!(&out[..n], b"a\n");
+    }
+
+    /// A window that holds a line exactly takes it, and one a byte short leaves it for the next read.
+    #[test]
+    fn a_window_that_holds_a_line_exactly_takes_it() {
+        let mut r = Ring::new();
+        r.append(0, b"", &[b'z'; 53]);
+        let mut out = [0u8; 53];
+        assert_eq!(r.read(0, None, &mut out), (1, 53));
+        let mut short = [0u8; 52];
+        assert_eq!(r.read(0, None, &mut short), (0, 0));
+    }
 }

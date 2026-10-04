@@ -120,7 +120,7 @@
 //! `segments::revoke_port_grant_everywhere` closes it by broadcasting the reset over #2's NMI.
 //!
 //! #2's fix is therefore **gated** now rather than only verified:
-//! `user::tests::an_asid_flush_reaches_the_other_cores`, the portable test milestone 58 (RISC-V TLB
+//! `user::tests::an_asid_flush_reaches_the_other_cpus`, the portable test milestone 58 (RISC-V TLB
 //! shootdown) wrote for
 //! exactly this property, fails on this port without the shootdown and passes with it, and with two
 //! cores the default it runs on every `script/test --arch x86_64`.

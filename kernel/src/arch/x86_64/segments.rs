@@ -465,7 +465,7 @@ pub(super) fn revoke_installed_port_grant_on(id: usize, base: u16, count: u16) {
 /// with interrupts masked, which is exactly what a core waiting for `IPC_TABLES` is doing while the
 /// revoker holds it.
 ///
-/// **`spare_this_core` is the take-back's asymmetry reaching the hardware** (2026-09-24 security
+/// **`spare_this_cpu` is the take-back's asymmetry reaching the hardware** (2026-09-24 security
 /// audit). `PortRange::REVOKE` deletes the range from every table *but the invoker's*, and the
 /// invoker is by definition the thread running on this core, so this core's installed bitmap is
 /// the invoker's own grant whenever it names the range. Until that audit the local reset ran
@@ -474,8 +474,8 @@ pub(super) fn revoke_installed_port_grant_on(id: usize, base: u16, count: u16) {
 /// and latent, because nothing in the tree invokes the take-back yet; a whole-machine sweep
 /// (`keeper == None`) passes `false` and resets here too. The remote half is unaffected either way:
 /// no other core can be running the invoker.
-pub fn revoke_port_grant_everywhere(base: u16, count: u16, spare_this_core: bool) {
-    if !spare_this_core {
+pub fn revoke_port_grant_everywhere(base: u16, count: u16, spare_this_cpu: bool) {
+    if !spare_this_cpu {
         revoke_installed_port_grant(base, count);
     }
     super::mmu::revoke_port_grant_others(base, count);

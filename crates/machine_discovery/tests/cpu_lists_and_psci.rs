@@ -55,7 +55,7 @@ fn psci(bytes: &[u8]) -> Option<Psci> {
 /// machine `reg` really is `0..4`, so nothing the kernel did was wrong here. It is the shape of the
 /// check `crates/pci` uses on its own hardcodes, and the reason a second board is where it breaks.
 #[test]
-fn qemu_virt_describes_the_four_cores_the_runner_starts() {
+fn qemu_virt_describes_the_four_cpus_the_runner_starts() {
     let list = cpus(QEMU_VIRT_SMP4);
 
     assert_eq!(list.described, 4, "the runner passes -smp 4");
@@ -97,7 +97,7 @@ fn qemu_virt_states_hvc_and_the_standard_cpu_on() {
         psci.cpu_on_from_property,
         "and publishes the id anyway, which we take at its word"
     );
-    assert!(psci.can_start_a_core());
+    assert!(psci.can_start_a_cpu());
 }
 
 /// **The same board, one machine option different, answers on `smc`.**
@@ -142,7 +142,7 @@ fn psci_0_1_publishes_its_own_function_id() {
     assert_eq!(psci.cpu_on, Some(0x95c1_ba5e));
     assert!(psci.cpu_on_from_property);
     assert_eq!(psci.conduit, Some(Conduit::Smc));
-    assert!(psci.can_start_a_core());
+    assert!(psci.can_start_a_cpu());
 }
 
 /// **A two-cell hardware id decodes as one 64-bit number, not as its high half.**
@@ -169,7 +169,7 @@ fn a_clustered_machine_decodes_two_cell_ids() {
 /// about the kernel and not about the tree. Both are here so the kernel's refusal has something
 /// truthful to refuse on.
 #[test]
-fn a_disabled_core_and_a_spin_table_core_are_reported_as_such() {
+fn a_disabled_cpu_and_a_spin_table_cpu_are_reported_as_such() {
     let list = cpus(CLUSTERED);
 
     let disabled = list.cpus()[5];
@@ -242,7 +242,7 @@ fn both_architectures_answer_the_same_call() {
 /// it is the only place `is_truncated` is ever true: a predicate that answered `false` for every
 /// tree in the suite is a predicate no caller could rely on.
 #[test]
-fn a_machine_with_more_cores_than_fit_says_so() {
+fn a_machine_with_more_cpus_than_fit_says_so() {
     let list = cpus(MANY_HARTS);
 
     assert_eq!(list.described, 18, "the tree describes eighteen");
@@ -320,7 +320,7 @@ fn a_psci_node_stating_only_its_conduit_is_still_a_node() {
     assert!(!psci.cpu_on_from_property);
     assert!(!psci.standard);
     assert!(
-        !psci.can_start_a_core(),
+        !psci.can_start_a_cpu(),
         "both halves are needed, and only one is here",
     );
 }

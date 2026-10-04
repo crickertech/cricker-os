@@ -1691,7 +1691,7 @@ mod tests {
     /// decoder knew the three types, every one of them came back as [`MadtEntry::Other`], which is
     /// the same answer a machine with no cores and no interrupt controller would give.
     #[test]
-    fn an_aarch64_madt_names_its_gic_and_its_cores() {
+    fn an_aarch64_madt_names_its_gic_and_its_cpus() {
         let mut body = [0u8; 128];
         body[0..4].copy_from_slice(&0u32.to_le_bytes()); // no local APIC address
         body[4..8].copy_from_slice(&0u32.to_le_bytes()); // no PCAT_COMPAT
