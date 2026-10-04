@@ -458,21 +458,25 @@ impl<'a> PixelSink<'a> {
         }
     }
 
-    /// One 32-bit pixel, already in the screen's byte order, at `at` bytes from pixel (0, 0).
-    /// `false`, having stored nothing, when the pixel would not fit: a short slice truncates the
-    /// picture rather than panicking (see [`ScreenConsole::write`]).
-    fn store(&mut self, at: usize, word: u32) -> bool {
-        match self.bytes.get_mut(at..at + 4) {
-            Some(pixel) => {
-                pixel.copy_from_slice(&word.to_le_bytes());
-                #[cfg(test)]
-                {
-                    self.stores += 1;
-                }
-                true
+    /// A run of whole pixels, already in the screen's byte order, at `at` bytes from pixel (0, 0).
+    /// `false` when the run does not fit, having stored the whole pixels of it that do: a short
+    /// slice truncates the picture rather than panicking (see [`ScreenConsole::write`]).
+    ///
+    /// **A run rather than a pixel, for the emulator's sake** (2026-10-04). One bounds check and
+    /// one `copy_from_slice` per row of a glyph, instead of a check, a font lookup and a four-byte
+    /// copy per pixel, is what kept the OVMF kernel suite inside its 90 s bound under TCG once a
+    /// scroll became a redraw; see `ScreenConsole::draw`.
+    fn store_run(&mut self, at: usize, run: &[u8]) -> bool {
+        let room = self.bytes.len().saturating_sub(at);
+        let fits = run.len().min(room) / 4 * 4;
+        if fits > 0 {
+            self.bytes[at..at + fits].copy_from_slice(&run[..fits]);
+            #[cfg(test)]
+            {
+                self.stores += fits / 4;
             }
-            None => false,
         }
+        fits == run.len()
     }
 
     /// How many bytes of screen this covers.
@@ -629,9 +633,13 @@ impl ScreenConsole {
     /// grid and the screen agree**: every cell a space, every pixel paper, which is exactly the
     /// picture a grid of spaces draws.
     pub fn clear(&mut self, cells: &mut Cells, pixels: &mut PixelSink<'_>) {
-        let paper = self.screen.order.store(Self::BACKGROUND);
-        for at in (0..pixels.len()).step_by(4) {
-            pixels.store(at, paper);
+        let paper = self.screen.order.store(Self::BACKGROUND).to_le_bytes();
+        let mut run = [0u8; 4096];
+        for pixel in run.as_chunks_mut::<4>().0 {
+            *pixel = paper;
+        }
+        for at in (0..pixels.len()).step_by(run.len()) {
+            pixels.store_run(at, &run[..run.len().min(pixels.len() - at)]);
         }
         cells.text.fill(b' ');
         self.col = 0;
@@ -728,24 +736,33 @@ impl ScreenConsole {
     }
 
     /// Paint one glyph into cell (`col`, `row`).
+    ///
+    /// Each font row is built once, as one screen row's run of `GLYPH_W * scale` pixels, and that
+    /// run is stored `scale` times. Per pixel there is no font lookup and no bounds check, which
+    /// matters more than it looks: under QEMU's TCG an unoptimised per-pixel loop made the
+    /// redrawing scroll slower than the copy it replaced, and the OVMF kernel suite overran its
+    /// bound (#1645's first CI run, 2026-10-04).
     fn draw(&self, pixels: &mut PixelSink<'_>, col: u32, row: u32, glyph: u8) {
+        /// Room for a glyph row up to scale 32, a screen 26,880 pixels wide. Past that the cell is
+        /// left unpainted rather than drawn wrong.
+        const RUN: usize = bitmap_font::GLYPH_W as usize * 32 * 4;
         let stride = self.screen.stride as usize;
         let k = self.scale as usize;
+        let len = bitmap_font::GLYPH_W as usize * k * 4;
+        if len > RUN {
+            return;
+        }
         let left = (col * bitmap_font::GLYPH_W) as usize * k * 4;
         let top = (row * bitmap_font::GLYPH_H) as usize * k;
-        // Each font pixel becomes a k-by-k block: `y`/`x` walk the screen, `/ k` finds the font
-        // pixel under them.
-        for y in 0..bitmap_font::GLYPH_H as usize * k {
-            let line = (top + y) * stride + left;
-            for x in 0..bitmap_font::GLYPH_W as usize * k {
-                let colour = bitmap_font::cell_pixel(
-                    glyph as char,
-                    (x / k) as u32,
-                    (y / k) as u32,
-                    Self::FOREGROUND,
-                    Self::BACKGROUND,
-                );
-                if !pixels.store(line + x * 4, self.screen.order.store(colour)) {
+        let ink = self.screen.order.store(Self::FOREGROUND).to_le_bytes();
+        let paper = self.screen.order.store(Self::BACKGROUND).to_le_bytes();
+        let mut run = [0u8; RUN];
+        for (fy, &bits) in bitmap_font::glyph(glyph as char).iter().enumerate() {
+            for (x, pixel) in run[..len].as_chunks_mut::<4>().0.iter_mut().enumerate() {
+                *pixel = if bits >> (x / k) & 1 != 0 { ink } else { paper };
+            }
+            for dy in 0..k {
+                if !pixels.store_run((top + fy * k + dy) * stride + left, &run[..len]) {
                     return;
                 }
             }
