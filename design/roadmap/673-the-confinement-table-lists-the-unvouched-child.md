@@ -1,5 +1,6 @@
 ---
-status: NOT-STARTED
+status: BUILT
+built: 2026-10-03
 raised: 2026-09-26
 promoted_from: the-confinement-table-lists-the-unvouched-child
 milestone_dependencies: none
@@ -34,6 +35,27 @@ the lane did not take on:
 
 Done means the row is in the table, the note passes `script/lint`, and milestone 202's Follow-on
 entry for this proposal is marked done.
+
+## Built
+
+Row 31 is in the table, tested by the `installed/unvouched` line of `script/swish-check` (all three
+legs) and falsified by `xtask/falsifications/swish_check.swish_check_boot.patch`, replayed on aarch64
+on 2026-10-03 (UTC): exit 0 without it, exit 1 with it, the child reporting `domain: REACHED` and
+`slots held: 0 1 2 7`. The row counts are now 31 (`design/fatal-risks/README.md` and
+`design/fatal-risks/the-confinement-claims.md`). Milestone 202's Follow-on entry is marked done.
+
+Limits, recorded where a reader meets them: the sweep cannot replay a swish-check line, so the record
+is by hand (a known gap in `script/falsifications`' report); only the domain defect has a patch, and
+only aarch64 was replayed. The proposal's cost estimate (about 65 bold spans) was not paid: the
+prose ratchet judged the row against its baseline, and the lane cut three restating sentences from
+the note to keep its word count at or under main's.
+
+## Follow-on
+
+- **Done.** Row 31 and the counts, carried by this lane; milestone 202's Follow-on entry is marked done.
+- **Recorded.** The sweep cannot replay a swish-check line, the record covers the domain defect only
+  and only aarch64 was replayed: the limits sit beside the record, in
+  `xtask/falsifications/swish_check.swish_check_boot.patch`.
 
 ## Index row
 

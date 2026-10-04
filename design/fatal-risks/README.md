@@ -156,6 +156,8 @@ first complete census since 2026-09-21: 85 crates, 14,853 mutants, 13,734 viable
 timeouts, 92.7% killed against 92.4% on 2026-09-21.
 [Appendix](the-mutation-verdict.md).
 
+Fact, 2026-10-03: milestone 517 (what fraction of survivor growth arrives on lines a pull request touched)'s inflow measurement ran once and is not a weekly report; between the 2026-09-21 and 2026-10-03 censuses 600 new survivors sit on lines 58 merged pull requests wrote, 364 in crates with a triage ledger section and 236 in crates with none ([inflow](../../notes/mutation-testing/inflow-2026-10-03.md)).
+
 ## 4. The architecture imposes a per-crossing cost that cannot be engineered away
 
 The claim, and calef named this one first: a capability microkernel pays on every boundary crossing,
@@ -246,7 +248,7 @@ confinement and watches it fail).
 fixed real defects (tests that could not fail, three times; claims false in audit 313 and on
 2026-09-21) and found no escape on a component's own authority, and the outsider half is unrun. What
 moves it is the adversarial review of milestone 633 (an outside agent attacks the confinement claim). 26 claims
-enumerated at that date (the table now has 30 rows, counted 2026-10-03 in `notes/confinement-claims.md`),
+enumerated at that date (the table now has 31 rows, counted 2026-10-03 in `notes/confinement-claims.md`),
 three of them stated nowhere, and 25 harnesses carried a replayable falsification, up
 from 6 ([`notes/confinement-claims.md`](../../notes/confinement-claims.md); PR #614). The finding is
 worse than a missing test. A page-table assertion was patched to remove the check it exists for and
@@ -296,6 +298,9 @@ Open security findings that bear on it, each a proposal and none yet built:
 
 - [The confinement table lists the unvouched child](../roadmap/673-the-confinement-table-lists-the-unvouched-child.md):
   a claim tested and falsified by hand three times, with no row in the table. Severity not recorded.
+  Dated 2026-10-03: row 31 of the table now states it, tested by the `installed/unvouched` line of
+  `script/swish-check` on three ISAs, with a replayable falsification (a patch, replayed by hand on
+  aarch64, red with exit 1).
 - [Reset unowned PCI functions before the IOMMU enables](../roadmap/693-reset-unowned-pci-functions-before-iommu-enable.md):
   Bus Master Enable is already set on functions the kernel never owns, so DMA can outlive the
   confinement. Severity not recorded; an architect's call.
@@ -303,7 +308,9 @@ Open security findings that bear on it, each a proposal and none yet built:
   one holder of the network capability can read and close another's sockets. Severity not
   recorded; the fix changes a wire format.
 - [The sibling RECV_CAP paths get a receiver-first test](../roadmap/714-the-sibling-recv-cap-paths-get-a-receiver-first-test.md):
-  two paths now correct by reading, unmeasured. Severity not recorded.
+  two paths now correct by reading, unmeasured. Severity not recorded. Dated 2026-10-03, afterwards:
+  a receiver-first test for each is in PR #1576, with a replayable falsification that turns it red
+  on aarch64; riscv64 and x86_64 build it and run it in CI.
 - [A graphical terminal session on the no-keyboard arm holds only the raw half of the boot discipline](../roadmap/709-arm-1-holds-only-the-raw-half-of-the-boot-discipline.md):
   the session's copy of the boot line discipline's endpoint also answers `OP_BYTES`, so a
   compromised session can queue a command line the boot shell runs with its own authority. A
