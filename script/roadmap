@@ -1090,8 +1090,11 @@ elif _base.strip() != (_git("rev-parse", "HEAD") or "").strip():
     if _added:
         _held = {os.path.basename(f)[:-3] for f in (_git(
             "ls-tree", "--name-only", _base, "design/roadmap/proposals/") or "").split()}
+        # --full-history: in CI HEAD is a PR merge ref. If the branch added a proposal and then
+        # promoted it away, the merge tree matches main's here, and default history simplification
+        # follows only the main side and hides the branch-only add.
         _held |= {os.path.basename(f)[:-3] for f in (_git(
-            "log", f"{_base}..HEAD", "--diff-filter=A", "--name-only", "--format=", "--",
+            "log", f"{_base}..HEAD", "--full-history", "--diff-filter=A", "--name-only", "--format=", "--",
             "design/roadmap/proposals/") or "").split()}
         problems.extend(unheld_promotions(_added, _held))
 
