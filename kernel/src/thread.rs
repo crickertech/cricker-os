@@ -497,6 +497,17 @@ pub struct Thread {
     // sender-chosen slot).
     pub cap_delivered: bool,
 
+    /// **Is the receive this thread is parked in a `RECEIVE_CAP`?** Written at each receive's park:
+    /// `true` by `ipc_receive_cap`, beside its `cap_delivered` reset, and `false` by `ipc_receive`.
+    /// A sender that meets a parked receiver reads it to decide whether a capability may be
+    /// installed at all: a plain `RECEIVE` never takes one, whichever side reached the rendezvous
+    /// first (§246 (a plain `RECEIVE` never takes a capability), PROVISIONAL number; calef's
+    /// ruling A, 2026-10-04 UTC). Before it, `ipc_send_cap` and `ipc_call_badged` installed into
+    /// any parked receiver's table, so the answer depended on arrival order. Meaningful only while
+    /// the thread is parked as a receiver. See `sched::ipc_send_cap`.
+    // Name: provisional, this lane's; calef names public items.
+    pub receiving_cap: bool,
+
     /// **Why the last aborted send was aborted, when the reason was a refusal** (milestone 603
     /// (provisional), DECISIONS §101 (notification objects) ruling B). Set beside `handshake.abort()` when a `SEND`,
     /// `SEND_CAP` or `CALL` named a rendezvous that carries an interrupt, and read-and-cleared by
@@ -712,6 +723,7 @@ impl Thread {
             quota: None,
             outgoing_cap: None,
             cap_delivered: false,
+            receiving_cap: false,
             ipc_refused: false,
             next: None,
             entry: (0, 0), // a kernel thread; never enters EL0 by this path
@@ -751,6 +763,7 @@ impl Thread {
             quota: None,
             outgoing_cap: None,
             cap_delivered: false,
+            receiving_cap: false,
             ipc_refused: false,
             next: None,
             entry: (0, 0), // a kernel thread; never enters EL0 by this path
@@ -894,6 +907,7 @@ impl Thread {
                 quota: None,
                 outgoing_cap: None,
                 cap_delivered: false,
+                receiving_cap: false,
                 ipc_refused: false,
                 next: None,
                 entry: (0, 0), // a kernel thread; becomes a user process via exec, not this path
@@ -931,6 +945,7 @@ impl Thread {
             quota: None,
             outgoing_cap: None,
             cap_delivered: false,
+            receiving_cap: false,
             ipc_refused: false,
             next: None,
             entry: (0, 0),

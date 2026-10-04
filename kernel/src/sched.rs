@@ -3575,24 +3575,29 @@ pub fn ipc_receive(ep: RendezvousId) -> [u64; 5] {
                     // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
                     let sender = unsafe { (*sender.as_ptr()).id };
                     let msg = sched.threads.get(sender).unwrap().mailbox;
-                    // A caller (its outgoing cap is the one-shot Reply the kernel minted for a CALL, §12 (call/reply IPC))
-                    // is awaiting a *reply*, which a plain RECEIVE cannot furnish: only RECEIVE_CAP delivers the
-                    // reply capability. Deliver the words but leave the caller blocked rather than wake it
-                    // with its own request masquerading as a reply. Serve CALL endpoints with RECEIVE_CAP; a
-                    // plain RECEIVE here leaves the caller hung, the same no-timeout limitation as a reply
-                    // that never comes.
-                    //
                     // A **dead sender** is a fault/exit corpse parked on its supervision rendezvous
-                    // (DECISIONS §26): deliver its five-word message but never wake it, exactly as for a
-                    // caller, because it is dead-until-reaped and must not run again. `receive` already
-                    // popped it off the sender queue, so it is now a free-standing corpse the supervisor
-                    // reaps with revocation.
-                    let leave_blocked = matches!(
-                        sched.threads.get(sender).unwrap().outgoing_cap,
+                    // (DECISIONS §26): deliver its five-word message but never wake it, because it is
+                    // dead-until-reaped and must not run again. `receive` already popped it off the
+                    // sender queue, so it is now a free-standing corpse the supervisor reaps with
+                    // revocation.
+                    //
+                    // A **caller** (its outgoing cap is the one-shot Reply the kernel minted for a
+                    // CALL, §12 (call/reply IPC)) awaits a reply a plain RECEIVE cannot furnish: only
+                    // RECEIVE_CAP takes the Reply. So it is answered `Gone` (§246 (a plain `RECEIVE`
+                    // never takes a capability), PROVISIONAL number; calef's ruling A, 2026-10-04
+                    // UTC), and the words are delivered, as `ipc_call_badged` delivers them when this
+                    // receiver parked first. Until the ruling it was left parked on a Reply that
+                    // existed nowhere, until teardown.
+                    let tx = sched.threads.get(sender).unwrap();
+                    let is_caller = matches!(
+                        tx.outgoing_cap,
                         Some(c) if matches!(c.object, crate::cap::Object::Reply(_))
-                    ) || sched.threads.get(sender).unwrap().handshake.state
-                        == State::Dead;
-                    if !leave_blocked {
+                    );
+                    if tx.handshake.state == State::Dead {
+                        sched.threads.get_mut(sender).unwrap().handshake.wait_on = None;
+                    } else if is_caller {
+                        answer_caller_gone(sched, sender);
+                    } else {
                         // **A plain RECEIVE collected this sender, and a plain RECEIVE delivers no
                         // capability** (milestone 633 (an outside agent attacks the confinement
                         // claim), fatal risk 7's outsider pass, 2026-10-03
@@ -3612,16 +3617,15 @@ pub fn ipc_receive(ep: RendezvousId) -> [u64; 5] {
                         sched.threads.get_mut(sender).unwrap().handshake.serve();
                         trace::record(trace::Event::Served, sender, 2);
                         wake(sched, sender);
-                    } else if sched.threads.get(sender).unwrap().handshake.state == State::Dead {
-                        // The corpse's death message is collected and `receive` popped it off the sender
-                        // queue; it waits on nothing now, it only awaits its reap.
-                        sched.threads.get_mut(sender).unwrap().handshake.wait_on = None;
                     }
                     Some(msg)
                 }
                 inter_process_communication::Receive::Blocked => {
                     // `receive` has already queued `current` as a receiver.
                     let me = sched.threads.get_mut(current).unwrap();
+                    // A plain RECEIVE: whoever meets us installs no capability (§246 (a plain
+                    // `RECEIVE` never takes a capability), PROVISIONAL number).
+                    me.receiving_cap = false;
                     me.handshake.park(Wait::Rendezvous(ep, WaitRole::Receiver)); // only a delivering sender may wake us
                     trace::record(trace::Event::BlockSelf, current, ep as u8);
                     None
@@ -3651,6 +3655,43 @@ pub fn ipc_receive(ep: RendezvousId) -> [u64; 5] {
 /// The x1 value a `RECEIVE_CAP` returns when no capability accompanied the message. Mirrors
 /// `abi::rendezvous::NO_CAP`; kept here too so the scheduler names it without reaching into the ABI.
 const NO_CAP: u64 = u64::MAX;
+
+/// **A `CALL` met a receiver parked in plain `RECEIVE`** (§246 (a plain `RECEIVE` never takes a
+/// capability), PROVISIONAL number; calef's ruling A, 2026-10-04 UTC). The receiver gets the
+/// request's words exactly as it would had the caller parked first (`ipc_receive`'s collect), and
+/// no capability: a plain `RECEIVE` has no slot it asked to have filled, and the Reply would be one
+/// it never reads. The caller is answered `Gone`, since no Reply exists for anyone to send. Caller
+/// holds `IPC_TABLES`; `caller` is the running thread and has not parked.
+///
+/// `#[cold]` and out of line for `set_ipc_aborted`'s reason: every `CALL` server in the tree
+/// receives with `RECEIVE_CAP`, so the `CALL` fastpath pays one branch for this and none of its bytes.
+#[cold]
+#[inline(never)]
+fn call_meets_plain_receive(
+    sched: &mut IpcTables,
+    receiver: ThreadId,
+    caller: ThreadId,
+    msg: [u64; 2],
+    badge: u64,
+) {
+    let r = sched.threads.get_mut(receiver).unwrap();
+    r.mailbox = [msg[0], msg[1], 0, badge, 0];
+    r.handshake.serve(); // delivered: this wake passes the boot-8 gate
+    trace::record(trace::Event::Served, receiver, 5);
+    wake(sched, receiver);
+    set_ipc_aborted(sched, caller);
+}
+
+/// **Release a caller a plain `RECEIVE` collected, with `Gone`** (§246, PROVISIONAL number). The
+/// sender-first half of [`call_meets_plain_receive`]: `rendezvous.receive` has already popped the
+/// caller off the sender queue, and `set_ipc_aborted` drops the Reply staged in its
+/// `outgoing_cap`, which was the only copy. Caller holds `IPC_TABLES`.
+#[cold]
+#[inline(never)]
+fn answer_caller_gone(sched: &mut IpcTables, caller: ThreadId) {
+    set_ipc_aborted(sched, caller);
+    wake(sched, caller);
+}
 
 /// **The `x4` a receive returns for a `CALL` whose Reply landed at `slot`** (milestone 706 (a
 /// `CALL` server can tell a Reply from a delegation), DECISIONS §245 (a `CALL` server tells a Reply
@@ -3697,13 +3738,24 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u6
                 // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
                 let receiver = unsafe { (*receiver.as_ptr()).id };
                 let r = sched.threads.get_mut(receiver).unwrap();
-                let slot = r.capability_table.insert(cap).unwrap_or(NO_CAP);
-                // Word 3 carries the sender's badge (milestone 599 (a frame per filesystem client channel)): the same store that used to
-                // write a zero here, so RECEIVE_CAP surfaces it at no extra instruction on this path.
-                r.mailbox = [data, slot, 0, badge, 0];
-                // A capability was installed, so RECEIVE_CAP's x1 is a real slot (milestone 634 (a plain SEND
-                // received by RECEIVE_CAP never hands the receiver a sender-chosen slot)).
-                r.cap_delivered = true;
+                if r.receiving_cap {
+                    let slot = r.capability_table.insert(cap).unwrap_or(NO_CAP);
+                    // Word 3 carries the sender's badge (milestone 599 (a frame per filesystem client channel)): the same store that used to
+                    // write a zero here, so RECEIVE_CAP surfaces it at no extra instruction on this path.
+                    r.mailbox = [data, slot, 0, badge, 0];
+                    // A capability was installed, so RECEIVE_CAP's x1 is a real slot (milestone 634 (a plain SEND
+                    // received by RECEIVE_CAP never hands the receiver a sender-chosen slot)).
+                    r.cap_delivered = true;
+                } else {
+                    // **A plain RECEIVE takes no capability** (§246 (a plain `RECEIVE` never takes
+                    // a capability), PROVISIONAL number; calef's ruling A, 2026-10-04 UTC). The data
+                    // word arrives and the copy is dropped, the same five words `ipc_receive`
+                    // returns when it collects this sender parked (milestone 633). Until the ruling
+                    // this arm installed into any parked receiver's table, so a server draining a
+                    // child's output lost a slot per delegation, on this arrival order only. The
+                    // sender keeps its own copy: `SEND_CAP` narrows a copy, never the source.
+                    r.mailbox = [data, 0, 0, badge, 0];
+                }
                 r.handshake.serve(); // delivered: this wake passes the boot-8 gate
                 trace::record(trace::Event::Served, receiver, 3);
                 wake(sched, receiver);
@@ -3803,6 +3855,9 @@ pub fn ipc_receive_cap(ep: RendezvousId) -> [u64; 5] {
                     // Clear before parking: whoever wakes us sets this iff it installs a
                     // capability, so a plain SEND (which installs none) leaves it false (milestone 634).
                     me.cap_delivered = false;
+                    // And say which receive this is, so a sender that meets us may install one
+                    // (§246, PROVISIONAL number: a plain RECEIVE parks with this false).
+                    me.receiving_cap = true;
                     me.handshake.park(Wait::Rendezvous(ep, WaitRole::Receiver)); // only a delivering sender may wake us
                     trace::record(trace::Event::BlockSelf, current, ep as u8);
                     None
@@ -3912,6 +3967,12 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3] 
                 let receiver = unsafe { (*receiver.as_ptr()).id };
                 // A server is parked in RECEIVE_CAP: hand it the reply cap and the two words now.
                 let r = sched.threads.get_mut(receiver).unwrap();
+                if !r.receiving_cap {
+                    // A plain RECEIVE cannot hold the Reply, so this CALL is answered `Gone`
+                    // (§246, PROVISIONAL number). Out of line: no server in the tree does this.
+                    call_meets_plain_receive(sched, receiver, current, msg, badge);
+                    return [0, 0, 0];
+                }
                 let slot = r.capability_table.insert(reply).unwrap_or(NO_CAP);
                 // Word 3 is the caller's badge (milestone 599): the same store as before with a
                 // value instead of a zero, so the server's RECEIVE_CAP surfaces which client called.

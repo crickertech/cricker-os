@@ -55,13 +55,6 @@
 //!   `Timer`, `Irq`, `PageFrame::MAP` and `SLICE`, a bound notification (no TCB capability exists,
 //!   so `BIND` only reaches its refusals), and death messages. Each is a model extension, not a
 //!   rewrite; a timer needs the model to reason about time, which is why it was left.
-//! - **The model encodes what the kernel does today for a capability delivered to a parked plain
-//!   `RECEIVE`**: a `SEND_CAP` or `CALL` that finds a plain `RECEIVE` already parked installs the
-//!   capability in the receiver's table and returns its slot in `x1`, while the same pair in the
-//!   other order delivers no capability (the fix of milestone 633 (an outside agent attacks the
-//!   confinement claim)). The asymmetry is written up for an architect in
-//!   `design/roadmap/752-*.md`; until it is ruled on, this file pins the behaviour so a change to
-//!   it is seen.
 //! - **Unexpected wakes are seen late.** An actor the model says is parked is checked for a stray
 //!   answer at every step and at teardown, so a wrong wake is caught, but possibly some steps after
 //!   the operation that caused it.
@@ -186,8 +179,8 @@ enum Park {
         msg: [u64; 2],
         badge: u64,
     },
-    /// Collected; waiting for a `REPLY` that may never come (a plain `RECEIVE` collected it, or the
-    /// server deleted the Reply). Only teardown ends that.
+    /// Collected; waiting for a `REPLY` that may never come (the server deleted the Reply). Only
+    /// teardown ends that.
     AwaitReply,
     Recv {
         ep: usize,
@@ -282,7 +275,8 @@ struct Census {
     revoked: u64,
     /// A frame revoked while a copy of it was staged in a parked `SEND_CAP`.
     staged_frame_revoked: u64,
-    /// A `SEND_CAP` or `CALL` that found a plain `RECEIVE` parked and installed a capability there.
+    /// A `SEND_CAP` or `CALL` that met a plain `RECEIVE`, on either order. Since §246 it installs
+    /// nothing; the count says the case was reached.
     cap_to_plain_receive: u64,
 }
 
@@ -435,14 +429,13 @@ impl Model {
                         badge: src.badge,
                     };
                     match self.receivers[ep].pop() {
-                        // Receiver-first: the capability is installed whichever kind of receive
-                        // parked (see this module's BUGS).
+                        // Receiver-first: only a RECEIVE_CAP takes the capability (§246, see
+                        // `plain_receive`).
                         Some(rx) => {
-                            let s = self.insert(rx, delegated);
-                            if matches!(self.park[rx], Park::Recv { cap: false, .. }) && s != NO_CAP
-                            {
-                                self.census.cap_to_plain_receive += 1;
-                            }
+                            let s = match self.plain_receive(rx) {
+                                false => self.insert(rx, delegated),
+                                true => 0,
+                            };
                             self.park[rx] = Park::Idle;
                             woken[rx] = Some(Answer::msg([a2, s, 0, cap.badge, 0]));
                             Some(Answer::ok(0))
@@ -464,12 +457,14 @@ impl Model {
                         return refuse(Error::NotPermitted);
                     }
                     match self.receivers[ep].pop() {
+                        Some(rx) if self.plain_receive(rx) => {
+                            // §246: the words arrive and the caller is answered Gone.
+                            self.park[rx] = Park::Idle;
+                            woken[rx] = Some(Answer::msg([a0, a1, 0, cap.badge, 0]));
+                            return refuse(Error::Gone);
+                        }
                         Some(rx) => {
                             let s = self.insert(rx, reply_of(a));
-                            if matches!(self.park[rx], Park::Recv { cap: false, .. }) && s != NO_CAP
-                            {
-                                self.census.cap_to_plain_receive += 1;
-                            }
                             self.park[rx] = Park::Idle;
                             woken[rx] = Some(Answer::msg([a0, s, a1, cap.badge, reply_tag(s)]));
                             self.park[a] = Park::AwaitReply;
@@ -591,6 +586,16 @@ impl Model {
         }
     }
 
+    /// **Is parked receiver `rx` in a plain `RECEIVE`?** The model's one statement of §246 (a plain
+    /// `RECEIVE` never takes a capability), PROVISIONAL number, calef's ruling A of 2026-10-04 UTC:
+    /// a `SEND_CAP` or `CALL` that meets a plain `RECEIVE` installs nothing, whichever side parked
+    /// first. The sender-first half is in `collect`. Counted, so a green run says it was reached.
+    fn plain_receive(&mut self, rx: usize) -> bool {
+        let plain = matches!(self.park[rx], Park::Recv { cap: false, .. });
+        self.census.cap_to_plain_receive += u64::from(plain);
+        plain
+    }
+
     /// A plain `SEND` reaching a parked receiver of either kind.
     fn deliver_plain(&mut self, rx: usize, m: [u64; 5]) -> Answer {
         let Park::Recv { cap, .. } = self.park[rx] else {
@@ -636,6 +641,7 @@ impl Model {
                     Answer::msg([data, s, 0, badge, 0])
                 } else {
                     // Milestone 633: a plain RECEIVE takes the data and drops the staged capability.
+                    self.census.cap_to_plain_receive += 1;
                     Answer::msg([data, 0, 0, badge, 0])
                 }
             }
@@ -645,7 +651,10 @@ impl Model {
                     let s = self.insert(a, reply_of(tx));
                     Answer::msg([msg[0], s, msg[1], badge, reply_tag(s)])
                 } else {
-                    // The caller stays parked with no Reply anywhere; only teardown frees it.
+                    // §246: a plain RECEIVE answers the caller Gone (see `plain_receive`).
+                    self.census.cap_to_plain_receive += 1;
+                    self.park[tx] = Park::Idle;
+                    woken[tx] = Some(Answer::err(Error::Gone));
                     Answer::msg([msg[0], msg[1], 0, badge, 0])
                 }
             }
