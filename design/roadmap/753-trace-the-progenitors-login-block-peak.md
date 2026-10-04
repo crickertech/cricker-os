@@ -63,7 +63,7 @@ table grows by 1,024 bytes inside a TCB page measured at 1,984, 1,968 and 1,712 
 derived and moves from 31 to 63. That is an ABI fact every supervisor and child shares, though
 nothing outside the tree is built against it today. The fastpath footprint at 64 was not measured.
 
-### B. Graphics sessions get a builder of their own (recommended)
+### B. Graphics sessions get a builder of their own (the lane's recommendation; ruled, then reversed)
 
 A new process, built at boot before the first plateau, takes the seven device grants and a budget.
 It builds each graphical session when the shell asks. The progenitor holds neither the grants nor
@@ -120,11 +120,18 @@ B: it costs the same new program and protocol, saves less, and leaves the launch
 
 The lane recommended B, with C alongside it, which together read 23 on every boot shape.
 
-calef ruled B + C on 2026-10-04 (UTC), on pull request #1608. Graphics sessions get a builder
-process of their own that holds the seven gpu and keyboard grants, and the login block releases its
-inputs earlier. The new program's name and its request protocol stay calef's; the build lane ships
-provisional ones. A was not chosen. The build is milestone 754 (graphics sessions get a builder of
-their own, and the login block lets go sooner), number provisional.
+calef chose A on 2026-10-04 (UTC), on pull request #1608: the table grows to 64 slots. Earlier the
+same day he had ruled B + C, and he reversed that ruling before anything was built.
+
+His reason for the reversal: a builder process that exists to move slot accounting is not worth a
+new program and a new protocol. Taking the device grants away from the progenitor does not
+meaningfully reduce its authority, because the progenitor runs the spawn service and can build any
+process with any grant it holds. That overturns question 7's argument above, which rested on B
+shrinking the most powerful process's authority. The fixed table is the real constraint.
+
+The build is milestone 754 (the capability table grows to 64 slots), number provisional. Whether
+tables should instead grow per process, as seL4's do, is a separate proposal:
+`design/roadmap/proposals/capability-tables-sized-per-process.md`.
 
 ## BUGS
 
@@ -134,8 +141,12 @@ their own, and the login block lets go sooner), number provisional.
 
 ## Follow-on
 
-- **Milestone 754.** Milestone 754 (graphics sessions get a builder of their own, and the login
-  block lets go sooner), number provisional: the build of B + C as ruled.
+- **Milestone 754.** Milestone 754 (the capability table grows to 64 slots), number provisional:
+  option A, as ruled.
+- **Proposed.** `design/roadmap/proposals/capability-tables-sized-per-process.md`, the longer-term
+  question the raise buys time for.
+- **Refused.** Options B and C, ruled 2026-10-04 (UTC) and reversed the same day, for the reason
+  under the ruling above.
 - **Refused.** A new gate that fails when the peak passes 30 already exists in effect:
   `report_peak` prints "ABOVE the recorded" and `script/swish-check` fails on it. What the trace
   adds is the itemisation. Keeping it as an opt-in kernel feature would need a name, so it is left as
