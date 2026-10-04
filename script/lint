@@ -100,6 +100,18 @@ for hook_flag in $(grep -oE 'script/lint (-[a-z-]+ ?)+' "$lint_root/.githooks/pr
     }
 done
 
+echo "==> the commit-msg hook (an agent's commit carries a Co-Authored-By trailer)"
+# Milestone 725 (provisional): `.githooks/commit-msg` refuses a commit made under an agent harness
+# (CLAUDECODE=1 or OPENCODE=1) with no trailer. Same reasoning as the pre-push contract above: a
+# hook that is deleted or loses its executable bit stops gating with no signal, so its absence
+# fails here, and its behaviour is proved against a scratch repository (no cargo, so it runs in
+# the pre-push `--no-cargo` mode too).
+[ -x "$lint_root/.githooks/commit-msg" ] || {
+    echo "lint: .githooks/commit-msg is missing or not executable, so agent commits are no longer checked for a trailer" >&2
+    exit 1
+}
+helpers/commit-msg-selftest.sh >/dev/null
+
 # The partition `--no-cargo` relies on, proved against fixtures (no tree, no cargo).
 helpers/lint-no-cargo-selftest.sh >/dev/null
 
