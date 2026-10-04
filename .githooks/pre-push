@@ -1,17 +1,36 @@
 #!/bin/sh
-# pre-push: the formatting gate, the whole lint, and the ready-status check, run where they are cheap.
+# pre-push: the formatting gate, lint's text checks, and the ready-status check, run where they are cheap.
 #
 # CI's rustfmt is one of seven required checks, and a lane that pushes unformatted code learns
 # that from a runner ten minutes later, then pushes again. Every lane on 2026-08-15 and -16 paid
 # that tax at least once, three of them on the same night, which is a gate teaching the wrong
-# lesson: "run CI to find out how to format". This runs the identical check in ~0.7 s before the
+# lesson: "run CI to find out how to format". This runs the identical check in about 2 s before the
 # push leaves the machine.
 #
-# Clippy joined on 2026-09-29 (calef: "run the clippy gate before they push, since we see regular
-# failures of that gate"), for the same reason one level up: #1424 reached CI with stale lints and
-# #1442's push left before its lint was read, and both are a red runner teaching "run CI to find
-# out what clippy thinks". The hook ran `script/lint --clippy`, the identical clippy passes CI
-# runs, until milestone 630 (a merge-queue ejection is caught before the queue) widened it to all of lint (below).
+# What this runs, and what it skips (milestone 631, provisional, 2026-10-03 UTC; calef approved
+# COE decision 3 on #1564: "Approve the revised decision 3."):
+#
+#   1. `script/fmt --check`.
+#   2. `script/lint --no-cargo`: every lint check that does not invoke cargo. Clippy stays in CI.
+#   3. `script/roadmap --ready-branch`, for a branch whose pull request is ready.
+#   4. All three are skipped for a push whose commits change no files, which is a claim (an empty
+#      commit, protocol section 90). That push used to be refused for "milestone N has no roadmap
+#      block", five false refusals on 2026-10-03, because the block comes after the claim.
+#
+# How it got here. The hook grew one gate per incident (clippy on 2026-09-29, then the prose
+# ratchets, then the baselines check), each after a lane lost a queue cycle, and the list lagged
+# every time. Milestone 630 (a merge-queue ejection is caught before the queue, and recovered
+# after it) then made it all of `script/lint`, which on 2026-10-03 cost 70 to 120 s warm and 202 s
+# cold on a loaded machine, past an agent harness's two-minute tool limit. #1556's claim push sat
+# in it for a whole lane, #1560's first push timed out, and lanes took to `--no-verify`, which is
+# a gate teaching the wrong lesson again. Of the 38 lint failures CI saw on pull requests between
+# 2026-09-19 and 10-03 under an fmt-only hook, 36 came from checks that read text, so the text
+# checks are the ones worth the seconds. The measured cost of this version is in notes/scripts.md.
+#
+# "Not cargo" is a rule and not a list: `script/lint --no-cargo` reads the partition out of
+# script/lint's own sections (helpers/lint-no-cargo.awk), so a new check is in a bucket the moment
+# it is written. `script/lint --no-cargo --list` prints which sections run. The design record is
+# the COE for 2026-10-03, notes/coes/2026-10-03-the-queue-judged-one-pull-request-at-a-time.md.
 #
 # Installed by `script/setup` via core.hooksPath, so it covers every worktree sharing this .git
 # (which is how lanes work) rather than needing per-worktree installation.
@@ -23,6 +42,33 @@
 root="$(git rev-parse --show-toplevel)"
 [ -x "$root/script/fmt" ] || exit 0   # a branch predating the script pushes unimpeded
 
+# git sends one line per ref on stdin: <local ref> <local sha> <remote ref> <remote sha>. Read it
+# once, because two steps below want it.
+refs="$(cat)"
+
+# **A push that changes no files has nothing to check** (a claim: `git commit --allow-empty`). Changed
+# is measured against the remote ref when it exists, and against where the branch left origin/main
+# when it is new, so a claim is the same empty push the first time and every time. A deletion pushes
+# no files. Any case this cannot answer (a remote sha this clone has never fetched) counts as
+# changed, so the answer errs toward checking and never skips a push that carries files.
+zero=0000000000000000000000000000000000000000
+changed=
+while read -r _ local_sha _ remote_sha; do
+    [ -n "$local_sha" ] || continue
+    [ "$local_sha" != "$zero" ] || continue
+    if [ "$remote_sha" = "$zero" ]; then
+        base="$(git merge-base origin/main "$local_sha" 2>/dev/null)" || base=
+    else
+        base="$remote_sha"
+    fi
+    if [ -z "$base" ] || ! git diff --quiet "$base" "$local_sha" 2>/dev/null; then
+        changed=1
+    fi
+done <<ENDREFS
+$refs
+ENDREFS
+[ -n "$changed" ] || exit 0
+
 if ! "$root/script/fmt" --check >/dev/null 2>&1; then
     echo "pre-push: rustfmt would change files, and CI's rustfmt check will fail." >&2
     echo "  Fix:    script/fmt        (then commit and push again)" >&2
@@ -30,26 +76,6 @@ if ! "$root/script/fmt" --check >/dev/null 2>&1; then
     exit 1
 fi
 
-# **The whole of `script/lint`, not `--clippy` and three hand-picked gates** (milestone 630,
-# 2026-10-03). The hook grew one gate per incident: clippy (#1424, #1442), then the two prose
-# ratchets (#1456), then the baselines check (#1463), each added after a full queue cycle was lost
-# to it, and each new lint check was outside the hook until it, too, cost a cycle. Measured on
-# patagonia (M-series, warm target directory, three runs each, wall clock, with two other lanes'
-# QEMU running beside it, so these are a busy machine's numbers):
-#
-#     script/lint --clippy    27.36  32.90  26.71 s   (median 27.4)
-#     script/lint             56.48  55.20  56.65 s   (median 56.5)
-#
-# The rest of lint adds about 29 s, and the three gates it replaces here cost about 6 of those
-# already, so the hook gets about 22 s slower and stops having a list that lags the incidents. No
-# single check after clippy is over 3.5 s (spelling 3.4, prose ratchet 3.0, counted claims 2.6,
-# citations 2.6), so no fast/slow split was worth its second list. The numbers are in
-# notes/scripts.md. A cold target directory makes the first push of a worktree slow either way;
-# that was already true of `--clippy`.
-#
-# A `script/lint` reached through an old branch runs whatever that branch's lint is, which is the
-# point: the push is judged by the tree being pushed.
-#
 # **git exports GIT_DIR to a hook, and lint must not inherit it** (found by this lane, 2026-10-03).
 # Inside a hook GIT_DIR names this worktree's git directory, so any check that `cd`s into a
 # throwaway repository and runs git there acts on the real one instead.
@@ -60,10 +86,10 @@ fi
 # a person running `script/lint` gets, so clearing the hook's git environment is the whole fix.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_CONFIG_PARAMETERS
 out="$(mktemp "${TMPDIR:-/tmp}/nife-pre-push.XXXXXX")"
-if ! "$root/script/lint" >"$out" 2>&1; then
-    echo "pre-push: script/lint failed, and CI's clippy job (which runs all of it) will fail the same way." >&2
+if ! "$root/script/lint" --no-cargo >"$out" 2>&1; then
+    echo "pre-push: script/lint --no-cargo failed; CI runs these checks too and will fail the same way." >&2
     tail -n 15 "$out" | sed 's/^/  | /' >&2
-    echo "  Fix:    script/lint   (read its output, fix, commit, push again)" >&2
+    echo "  Fix:    script/lint --no-cargo   (read its output, fix, commit, push again)" >&2
     echo "  Bypass: git push --no-verify" >&2
     rm -f "$out"
     exit 1
@@ -92,5 +118,7 @@ if [ -x "$root/script/roadmap" ] && grep -q -- '"--ready-branch"' "$root/script/
             echo "  Bypass: git push --no-verify" >&2
             exit 1
         fi
-    done
+    done <<ENDREFS
+$refs
+ENDREFS
 fi
