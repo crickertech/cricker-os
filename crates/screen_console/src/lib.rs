@@ -634,7 +634,9 @@ impl ScreenConsole {
     /// picture a grid of spaces draws.
     pub fn clear(&mut self, cells: &mut Cells, pixels: &mut PixelSink<'_>) {
         let paper = self.screen.order.store(Self::BACKGROUND).to_le_bytes();
-        let mut run = [0u8; 4096];
+        // 512 bytes, not a page: a 4 KiB local put this frame over the 4 KiB guard under every
+        // kernel thread stack (`script/stack-frame-check`, #1645's second CI run).
+        let mut run = [0u8; 512];
         for pixel in run.as_chunks_mut::<4>().0 {
             *pixel = paper;
         }
@@ -743,9 +745,10 @@ impl ScreenConsole {
     /// redrawing scroll slower than the copy it replaced, and the OVMF kernel suite overran its
     /// bound (#1645's first CI run, 2026-10-04).
     fn draw(&self, pixels: &mut PixelSink<'_>, col: u32, row: u32, glyph: u8) {
-        /// Room for a glyph row up to scale 32, a screen 26,880 pixels wide. Past that the cell is
-        /// left unpainted rather than drawn wrong.
-        const RUN: usize = bitmap_font::GLYPH_W as usize * 32 * 4;
+        /// Room for a glyph row up to scale 16, a screen 13,440 pixels wide (448 bytes, kept small
+        /// because this is a frame on a kernel thread stack). Past that the cell is left unpainted
+        /// rather than drawn wrong.
+        const RUN: usize = bitmap_font::GLYPH_W as usize * 16 * 4;
         let stride = self.screen.stride as usize;
         let k = self.scale as usize;
         let len = bitmap_font::GLYPH_W as usize * k * 4;
