@@ -25,7 +25,7 @@ the answer rather than raced for it, which is unusual for a family that usually 
 Three links, none of them timing-dependent:
 
 1. `Irq::WAIT` is not a poll. `syscall::irq_wait` is `sched::irq_route(intid)` followed by
-   `sched::ipc_recv(ep)`. It returns only when that endpoint is signalled or has a counted pending
+   `sched::ipc_receive(ep)`. It returns only when that endpoint is signalled or has a counted pending
    signal, and both come from `sched::irq_notify`.
 2. Every architecture's trap handler bumps `ROUTED_IRQS` immediately before calling `irq_notify`,
    never after (`arch/aarch64/exceptions.rs`, `arch/riscv64/exceptions.rs`,
@@ -43,12 +43,12 @@ delta is a baseline sampled after the increments, and the test sampled it in exa
 let Some(report) = virtio_service::start_pci(init_image()) else { ... };
 
 let irqs_before = ROUTED_IRQS.load(Ordering::Relaxed);   // <- after the driver is spawned
-let word = sched::ipc_recv(report)[0];
+let word = sched::ipc_receive(report)[0];
 ```
 
 `start_pci` ends by spawning the driver. Suppose a tick preempts the test thread after that spawn,
 and it does not get the CPU back before the driver has finished both reads and reported. Then
-`irqs_before` is sampled past both completions, `ipc_recv` returns the already-queued report at
+`irqs_before` is sampled past both completions, `ipc_receive` returns the already-queued report at
 once, and the delta is zero. The window looks like a handful of instructions when you read it, and
 it is not. The measurements below show the sample point drifting by tens of milliseconds from run to
 run.

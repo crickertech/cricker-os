@@ -33,7 +33,7 @@
 #![no_main]
 
 use abi::Error;
-use user_mode_runtime::{exit, recv, send};
+use user_mode_runtime::{exit, receive, send};
 
 /// The page shared with the console server. We write text here; the server reads it. Mapped
 /// read/write here, read-only there. Must match `components/src/console.rs`'s `SHARED_VA`.
@@ -81,7 +81,7 @@ fn print(bytes: &[u8]) -> Result<(), Error> {
     }
 
     // Wait for the server to finish reading the buffer before we touch it again.
-    let (_ack, _, _) = recv(REPLY);
+    let (_ack, _, _) = receive(REPLY);
     Ok(())
 }
 

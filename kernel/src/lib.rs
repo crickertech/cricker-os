@@ -1437,7 +1437,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
                 Some(report) => {
                     // A receiver for the driver's reports, so the boot tour does not block on input.
                     sched::spawn(move || {
-                        let byte = sched::ipc_recv(report)[0] as u8;
+                        let byte = sched::ipc_receive(report)[0] as u8;
                         println!(
                             "  device IRQ  : an unprivileged userspace driver serviced the UART via its Irq cap and sent {byte:#04x} ({:?})",
                             byte as char,
@@ -1992,7 +1992,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         //     miniature.
         //   - **The virtio and PCIe block demos.** The kernel enumerates the bus, mints the
         //     device's registers, a DMA page and an interrupt into a driver's world, and receives
-        //     the driver's report with `sched::ipc_recv`. Every one of those is an authority whose
+        //     the driver's report with `sched::ipc_receive`. Every one of those is an authority whose
         //     whole point is that the driver did not have it until the kernel granted it, so the
         //     granter cannot be the grantee.
         //   - **The outlaw.** `&raw const USER_FAULTS` is the address of a kernel static, handed to
@@ -2112,8 +2112,8 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
                         if let Some(report) = user::virtio_service::start(image_for_virtio()) {
                             // The driver reads block 0 and sends us its first 8 bytes. We check they
                             // are the nifefs magic, which proves real disk bytes crossed DMA and
-                            // the EL0 boundary. This RECV blocks until the driver has done the read.
-                            let word = sched::ipc_recv(report)[0];
+                            // the EL0 boundary. This RECEIVE blocks until the driver has done the read.
+                            let word = sched::ipc_receive(report)[0];
                             let head = word.to_le_bytes();
                             println!();
                             if &head == b"nife: re" {
@@ -2147,7 +2147,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
                             d.bdf.bus, d.bdf.dev, d.bdf.func, d.intid,
                         );
                         if let Some(report) = user::virtio_service::start_pci(image_for_virtio()) {
-                            let word = sched::ipc_recv(report)[0];
+                            let word = sched::ipc_receive(report)[0];
                             if &word.to_le_bytes() == b"nife: re" {
                                 println!(
                                     "      the same file, over the transport real hardware uses."
@@ -2208,9 +2208,9 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
                     && let Some((_region, report, _demo)) =
                         user::memory_region_service::start(image, 24)
                 {
-                    sched::ipc_recv(report); // the process signals it is loaded and ready
+                    sched::ipc_receive(report); // the process signals it is loaded and ready
                     let before = memory::stats().unwrap().used;
-                    let mapped = sched::ipc_recv(report)[0]; // it maps until its untyped is spent
+                    let mapped = sched::ipc_receive(report)[0]; // it maps until its untyped is spent
                     let after = memory::stats().unwrap().used;
                     println!();
                     println!(

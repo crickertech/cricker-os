@@ -19,8 +19,8 @@
 //! Two shapes, each measured two ways:
 //!
 //! - **Kernel threads** ([`kernel_thread_shapes`]), which is E1's own shape: `bench.rs`'s
-//!   `ipc_thread_scaling` runs kernel-thread pairs through `sched::ipc_send`/`ipc_recv`, and
-//!   `call_reply` runs `ipc_call` against `ipc_recv_cap`/`ipc_reply`. The thread wraps each call in
+//!   `ipc_thread_scaling` runs kernel-thread pairs through `sched::ipc_send`/`ipc_receive`, and
+//!   `call_reply` runs `ipc_call` against `ipc_receive_cap`/`ipc_reply`. The thread wraps each call in
 //!   [`measured`], so the sample is that one call.
 //! - **EL0 threads** ([`el0_shapes`]), which is the shape every real service runs. A user thread
 //!   cannot paint its kernel stack, so the kernel does it for a registered thread at the end of every
@@ -168,13 +168,13 @@ fn scan(bottom: u64, top: u64) -> u64 {
     unsafe { crate::stack::high_water(bottom, top) }
 }
 
-/// Run `op` with the stack painted beneath it and record how deep it went.
+/// Run `operation` with the stack painted beneath it and record how deep it went.
 #[inline(never)]
-fn measured<R>(series: &Series, span: (u64, u64), op: impl FnOnce() -> R) -> R {
+fn measured<R>(series: &Series, span: (u64, u64), operation: impl FnOnce() -> R) -> R {
     let (bottom, top) = span;
     let caller = top - crate::arch::current_sp();
     let ceiling = arm(bottom);
-    let r = op();
+    let r = operation();
     let used = scan(bottom, top);
     series.record(used, top - ceiling, caller);
     r
@@ -184,24 +184,24 @@ fn measured<R>(series: &Series, span: (u64, u64), op: impl FnOnce() -> R) -> R {
 
 static K_NULL: Series = Series::new();
 static K_SR_CLIENT_SEND: Series = Series::new();
-static K_SR_CLIENT_RECV: Series = Series::new();
-static K_SR_SERVER_RECV: Series = Series::new();
+static K_SR_CLIENT_RECEIVE: Series = Series::new();
+static K_SR_SERVER_RECEIVE: Series = Series::new();
 static K_SR_SERVER_SEND: Series = Series::new();
 static K_CR_CLIENT_CALL: Series = Series::new();
-static K_CR_SERVER_RECV_CAP: Series = Series::new();
+static K_CR_SERVER_RECEIVE_CAP: Series = Series::new();
 static K_CR_SERVER_REPLY: Series = Series::new();
 
 /// Unmeasured round trips first, so a lazily built path (the first rendezvous, a first reply
 /// capability) is not in the samples. The same idea as `bench.rs`'s `WARMUP`.
 const WARMUP: usize = 16;
 
-/// SEND/RECV between two kernel threads, the shape `bench.rs`'s `ipc_rtt` and E1's
+/// SEND/RECEIVE between two kernel threads, the shape `bench.rs`'s `ipc_rtt` and E1's
 /// `ipc_thread_scaling` time.
-fn send_recv_kernel() {
+fn send_receive_kernel() {
     for s in [
         &K_SR_CLIENT_SEND,
-        &K_SR_CLIENT_RECV,
-        &K_SR_SERVER_RECV,
+        &K_SR_CLIENT_RECEIVE,
+        &K_SR_SERVER_RECEIVE,
         &K_SR_SERVER_SEND,
     ] {
         s.reset();
@@ -214,7 +214,7 @@ fn send_recv_kernel() {
     sched::spawn_on(cpu, move || {
         let span = own_span();
         loop {
-            let m = measured(&K_SR_SERVER_RECV, span, || sched::ipc_recv(request));
+            let m = measured(&K_SR_SERVER_RECEIVE, span, || sched::ipc_receive(request));
             if m[0] == u64::MAX {
                 break;
             }
@@ -223,32 +223,36 @@ fn send_recv_kernel() {
             });
         }
     })
-    .expect("ipc_stack_depth: no send/recv server");
+    .expect("ipc_stack_depth: no send/receive server");
 
     sched::spawn_on(cpu, move || {
         let span = own_span();
         for _ in 0..WARMUP {
             sched::ipc_send(request, [1, 0, 0]);
-            sched::ipc_recv(reply);
+            sched::ipc_receive(reply);
         }
         for _ in 0..SAMPLES {
             measured(&K_SR_CLIENT_SEND, span, || {
                 sched::ipc_send(request, [1, 0, 0]);
             });
-            measured(&K_SR_CLIENT_RECV, span, || sched::ipc_recv(reply));
+            measured(&K_SR_CLIENT_RECEIVE, span, || sched::ipc_receive(reply));
         }
         sched::ipc_send(request, [u64::MAX, 0, 0]);
         sched::ipc_send(done, [0, 0, 0]);
     })
-    .expect("ipc_stack_depth: no send/recv client");
+    .expect("ipc_stack_depth: no send/receive client");
 
-    sched::ipc_recv(done);
+    sched::ipc_receive(done);
 }
 
-/// CALL against `RECV_CAP` and REPLY between two kernel threads, the shape `bench.rs`'s `call_reply`
+/// CALL against `RECEIVE_CAP` and REPLY between two kernel threads, the shape `bench.rs`'s `call_reply`
 /// times and the one real services issue.
 fn call_reply_kernel() {
-    for s in [&K_CR_CLIENT_CALL, &K_CR_SERVER_RECV_CAP, &K_CR_SERVER_REPLY] {
+    for s in [
+        &K_CR_CLIENT_CALL,
+        &K_CR_SERVER_RECEIVE_CAP,
+        &K_CR_SERVER_REPLY,
+    ] {
         s.reset();
     }
     let ep = sched::create_rendezvous();
@@ -258,7 +262,9 @@ fn call_reply_kernel() {
     sched::spawn_on(cpu, move || {
         let span = own_span();
         loop {
-            let m = measured(&K_CR_SERVER_RECV_CAP, span, || sched::ipc_recv_cap(ep));
+            let m = measured(&K_CR_SERVER_RECEIVE_CAP, span, || {
+                sched::ipc_receive_cap(ep)
+            });
             if m[0] == u64::MAX {
                 break;
             }
@@ -271,7 +277,7 @@ fn call_reply_kernel() {
                     .object
                 else {
                     panic!(
-                        "ipc_stack_depth: RECV_CAP of a CALL did not deliver a Reply capability"
+                        "ipc_stack_depth: RECEIVE_CAP of a CALL did not deliver a Reply capability"
                     );
                 };
                 sched::ipc_reply(caller, [m[0], 0]);
@@ -289,13 +295,13 @@ fn call_reply_kernel() {
         for _ in 0..SAMPLES {
             measured(&K_CR_CLIENT_CALL, span, || sched::ipc_call(ep, [1, 0]));
         }
-        // A plain SEND meets a server parked in RECV_CAP all the same (`bench.rs`'s `call_reply`).
+        // A plain SEND meets a server parked in RECEIVE_CAP all the same (`bench.rs`'s `call_reply`).
         sched::ipc_send(ep, [u64::MAX, 0, 0]);
         sched::ipc_send(done, [0, 0, 0]);
     })
     .expect("ipc_stack_depth: no call/reply client");
 
-    sched::ipc_recv(done);
+    sched::ipc_receive(done);
 }
 
 /// Both kernel-thread shapes, then their report. Returns how many series fell short of a usable
@@ -316,7 +322,7 @@ pub fn kernel_thread_shapes() -> usize {
         sched::ipc_send(done, [0, 0, 0]);
     })
     .expect("ipc_stack_depth: no calibration thread");
-    sched::ipc_recv(done);
+    sched::ipc_receive(done);
     //
     // **Judged on the median, like every other series, and the first version judged it on every
     // sample and was wrong.** Its maximum sits a few hundred bytes below the floor whatever the
@@ -358,20 +364,44 @@ pub fn kernel_thread_shapes() -> usize {
         },
     );
 
-    send_recv_kernel();
+    send_receive_kernel();
     call_reply_kernel();
     let mut bad = usize::from(!null_clean);
-    bad += report("kernel", "send_recv", "client", "SEND", &K_SR_CLIENT_SEND);
-    bad += report("kernel", "send_recv", "client", "RECV", &K_SR_CLIENT_RECV);
-    bad += report("kernel", "send_recv", "server", "RECV", &K_SR_SERVER_RECV);
-    bad += report("kernel", "send_recv", "server", "SEND", &K_SR_SERVER_SEND);
+    bad += report(
+        "kernel",
+        "send_receive",
+        "client",
+        "SEND",
+        &K_SR_CLIENT_SEND,
+    );
+    bad += report(
+        "kernel",
+        "send_receive",
+        "client",
+        "RECEIVE",
+        &K_SR_CLIENT_RECEIVE,
+    );
+    bad += report(
+        "kernel",
+        "send_receive",
+        "server",
+        "RECEIVE",
+        &K_SR_SERVER_RECEIVE,
+    );
+    bad += report(
+        "kernel",
+        "send_receive",
+        "server",
+        "SEND",
+        &K_SR_SERVER_SEND,
+    );
     bad += report("kernel", "call_reply", "client", "CALL", &K_CR_CLIENT_CALL);
     bad += report(
         "kernel",
         "call_reply",
         "server",
-        "RECV_CAP",
-        &K_CR_SERVER_RECV_CAP,
+        "RECEIVE_CAP",
+        &K_CR_SERVER_RECEIVE_CAP,
     );
     bad += report(
         "kernel",
@@ -496,18 +526,18 @@ const SOAK_RESPONDER: u64 = 0;
 #[cfg(initrd)]
 const SOAK_CALLER: u64 = 1;
 
-/// SEND/RECV between two EL0 processes: `bench.rs`'s `ipc_rtt_el0`, lmbench's `lat_pipe`. The
-/// client runs its own fixed loop, reports and exits; the server parks in RECV forever, so the
+/// SEND/RECEIVE between two EL0 processes: `bench.rs`'s `ipc_rtt_el0`, lmbench's `lat_pipe`. The
+/// client runs its own fixed loop, reports and exits; the server parks in RECEIVE forever, so the
 /// endpoints come from a region a `Holding` reclaims, which is what wakes it to die.
 #[cfg(initrd)]
-fn send_recv_el0() -> Option<()> {
+fn send_receive_el0() -> Option<()> {
     use crate::cap::{Rights, rendezvous_cap};
     use crate::user::Spawn;
     use crate::user::holding::Holding;
 
     let Some(image) = crate::user::program("os_primitives_benchmarker") else {
         println!(
-            "ipc-stack-depth: el0 send_recv skipped (no os_primitives_benchmarker in the initrd)"
+            "ipc-stack-depth: el0 send_receive skipped (no os_primitives_benchmarker in the initrd)"
         );
         return None;
     };
@@ -556,18 +586,18 @@ fn send_recv_el0() -> Option<()> {
     })
     .expect("ipc_stack_depth: could not spawn the EL0 client");
 
-    sched::ipc_recv(report);
+    sched::ipc_receive(report);
     EL0_ARMED.store(false, Ordering::Release);
 
     let mut held = Holding::new();
     held.add_thread(server);
     held.add_thread(client);
     held.add_region(region);
-    held.release_or_fail("ipc_stack_depth's EL0 send/recv pair");
+    held.release_or_fail("ipc_stack_depth's EL0 send/receive pair");
     Some(())
 }
 
-/// CALL against `RECV_CAP` and REPLY between two EL0 processes, using the soak workload's caller and
+/// CALL against `RECEIVE_CAP` and REPLY between two EL0 processes, using the soak workload's caller and
 /// responder, which loop forever: this waits until both have filled their series and then takes
 /// them back.
 #[cfg(initrd)]
@@ -616,7 +646,7 @@ fn call_reply_el0() -> Option<()> {
     // Wall clock, not a yield count, for `Holding`'s own reason (threads may run on other cores).
     let deadline = crate::arch::timer::now() + 30 * crate::arch::timer::frequency();
     let filled = || {
-        EL0[0].series[abi::rendezvous::RECV_CAP as usize].is_full()
+        EL0[0].series[abi::rendezvous::RECEIVE_CAP as usize].is_full()
             && EL0[0].series[abi::reply::REPLY as usize].is_full()
             && EL0[1].series[abi::rendezvous::CALL as usize].is_full()
     };
@@ -638,33 +668,33 @@ fn call_reply_el0() -> Option<()> {
 /// Both EL0 shapes, then their report, in the same form as [`kernel_thread_shapes`].
 #[cfg(initrd)]
 pub fn el0_shapes() -> usize {
-    use abi::rendezvous::{CALL, RECV, RECV_CAP, SEND};
+    use abi::rendezvous::{CALL, RECEIVE, RECEIVE_CAP, SEND};
     let mut bad = 0;
-    if send_recv_el0().is_some() {
+    if send_receive_el0().is_some() {
         bad += report(
             "el0",
-            "send_recv",
+            "send_receive",
             "client",
             "SEND",
             &EL0[1].series[SEND as usize],
         );
         bad += report(
             "el0",
-            "send_recv",
+            "send_receive",
             "client",
-            "RECV",
-            &EL0[1].series[RECV as usize],
+            "RECEIVE",
+            &EL0[1].series[RECEIVE as usize],
         );
         bad += report(
             "el0",
-            "send_recv",
+            "send_receive",
             "server",
-            "RECV",
-            &EL0[0].series[RECV as usize],
+            "RECEIVE",
+            &EL0[0].series[RECEIVE as usize],
         );
         bad += report(
             "el0",
-            "send_recv",
+            "send_receive",
             "server",
             "SEND",
             &EL0[0].series[SEND as usize],
@@ -683,8 +713,8 @@ pub fn el0_shapes() -> usize {
             "el0",
             "call_reply",
             "server",
-            "RECV_CAP",
-            &EL0[0].series[RECV_CAP as usize],
+            "RECEIVE_CAP",
+            &EL0[0].series[RECEIVE_CAP as usize],
         );
         bad += report(
             "el0",
@@ -702,8 +732,8 @@ pub fn el0_shapes() -> usize {
 /// few samples, or a median at the floor (the operation did not go below the paint's ceiling, so
 /// the number is the instrument's own frames and margin rather than the kernel's depth). A minimum
 /// at the floor with a median above it is a measurement: it is the shorter of two paths one
-/// operation can take (RECV that finds its sender already waiting does not block).
-fn report(plane: &str, shape: &str, role: &str, op: &str, s: &Series) -> usize {
+/// operation can take (RECEIVE that finds its sender already waiting does not block).
+fn report(plane: &str, shape: &str, role: &str, operation: &str, s: &Series) -> usize {
     let n = s.n.load(Ordering::Relaxed).min(SAMPLES);
     let mut v = [0u32; SAMPLES];
     for (dst, src) in v.iter_mut().zip(s.depth.iter()).take(n) {
@@ -714,7 +744,7 @@ fn report(plane: &str, shape: &str, role: &str, op: &str, s: &Series) -> usize {
     let floor = s.floor.load(Ordering::Relaxed);
     let caller = s.caller.load(Ordering::Relaxed);
     if n == 0 {
-        println!("ipc-stack-depth: {plane} {shape} {role} {op} NO SAMPLES");
+        println!("ipc-stack-depth: {plane} {shape} {role} {operation} NO SAMPLES");
         return 1;
     }
     let (min, median, max) = (v[0] as u64, v[n / 2] as u64, v[n - 1] as u64);
@@ -723,7 +753,7 @@ fn report(plane: &str, shape: &str, role: &str, op: &str, s: &Series) -> usize {
         // EL0, `after_syscall` and `arm` below `dispatch`, plus the margin). What is true is the
         // bound, so that is what the line says, rather than a median that is the instrument's.
         println!(
-            "ipc-stack-depth: {plane} {shape} {role} {op} AT FLOOR: at most {floor}, shallower than \
+            "ipc-stack-depth: {plane} {shape} {role} {operation} AT FLOOR: at most {floor}, shallower than \
              the instrument can see (max {max}, samples {n})"
         );
         return 1;
@@ -731,7 +761,7 @@ fn report(plane: &str, shape: &str, role: &str, op: &str, s: &Series) -> usize {
     // The excursion below the measuring frame: what the operation itself costs, whatever the
     // caller's own depth. For EL0 the caller offset is zero and the two numbers are the same.
     println!(
-        "ipc-stack-depth: {plane} {shape} {role} {op} median {median} min {min} max {max} \
+        "ipc-stack-depth: {plane} {shape} {role} {operation} median {median} min {min} max {max} \
          below-caller {} floor {floor} samples {n}",
         median - caller,
     );

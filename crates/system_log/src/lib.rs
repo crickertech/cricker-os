@@ -33,7 +33,7 @@
 //!         log.handle(0, m.0, m.1, m.2, 0);
 //!     }
 //! }
-//! log.handle(0, control::word(control::OP_READER, control::SCOPE_SYSTEM, 0, 9), 0, 0, 0);
+//! log.handle(0, control::word(control::OPERATION_READER, control::SCOPE_SYSTEM, 0, 9), 0, 0, 0);
 //!
 //! let (a, b) = (b"first half, then", b"one\n");
 //! let (w0, w1, w2, _) = pack(a);
@@ -165,8 +165,8 @@ impl Log {
             self.control(w0, w1, w2);
             return Handled::Nothing;
         }
-        let op = w0 >> byte_sink_protocol::OP_SHIFT;
-        if op == read::OP_READ {
+        let operation = w0 >> byte_sink_protocol::OPERATION_SHIFT;
+        if operation == read::OPERATION_READ {
             return match self.registry.get(badge).and_then(|e| e.reader) {
                 Some(r) => Handled::Read {
                     window: r.window,
@@ -206,21 +206,21 @@ impl Log {
 
     /// One spawner word. A malformed one is counted, never half-applied.
     fn control(&mut self, w0: u64, w1: u64, w2: u64) {
-        let (op, field, arg, badge) = control::fields(w0);
-        let ok = match op {
-            control::OP_NAME if badge != 0 && arg < 2 && field <= control::USER => {
+        let (operation, field, arg, badge) = control::fields(w0);
+        let ok = match operation {
+            control::OPERATION_NAME if badge != 0 && arg < 2 && field <= control::USER => {
                 let mut chunk = [0u8; 16];
                 chunk[..8].copy_from_slice(&w1.to_le_bytes());
                 chunk[8..].copy_from_slice(&w2.to_le_bytes());
                 self.registry
                     .name(badge as u64, field, arg as usize, &chunk)
             }
-            control::OP_STREAM if badge != 0 && arg <= severity::DEBUG as u64 => self
+            control::OPERATION_STREAM if badge != 0 && arg <= severity::DEBUG as u64 => self
                 .registry
                 .entry(badge as u64)
                 .map(|e| e.default_severity = arg as u8)
                 .is_some(),
-            control::OP_READER if badge != 0 && field <= control::SCOPE_SYSTEM => self
+            control::OPERATION_READER if badge != 0 && field <= control::SCOPE_SYSTEM => self
                 .registry
                 .entry(badge as u64)
                 .map(|e| {
@@ -230,7 +230,7 @@ impl Log {
                     });
                 })
                 .is_some(),
-            control::OP_FORGET if badge != 0 => {
+            control::OPERATION_FORGET if badge != 0 => {
                 // A partial line dies with its writer's registration rather than being stamped
                 // later under a name nobody holds.
                 let _ = self.assembler.finish(badge as u64);
@@ -362,7 +362,7 @@ mod tests {
         };
         log.handle(
             0,
-            control::word(control::OP_READER, scope, window as u64, badge),
+            control::word(control::OPERATION_READER, scope, window as u64, badge),
             0,
             0,
             0,
@@ -424,7 +424,7 @@ mod tests {
         register(&mut log, 2, b"diag", b"");
         log.handle(
             0,
-            control::word(control::OP_STREAM, 0, severity::WARNING as u64, 2),
+            control::word(control::OPERATION_STREAM, 0, severity::WARNING as u64, 2),
             0,
             0,
             0,
@@ -582,7 +582,13 @@ mod tests {
         let mut log = Log::new();
         register(&mut log, 1, b"gone", b"alice");
         reader(&mut log, 9, b"", true, 0);
-        log.handle(0, control::word(control::OP_FORGET, 0, 0, 1), 0, 0, 0);
+        log.handle(
+            0,
+            control::word(control::OPERATION_FORGET, 0, 0, 1),
+            0,
+            0,
+            0,
+        );
         write(&mut log, 1, b"late\n", 0);
         let (_, lines) = read_all(&mut log, 9, 0);
         assert!(
@@ -615,50 +621,58 @@ mod tests {
             refused += u64::from(bad);
             assert_eq!(log.refused, refused, "{w:#x}");
         };
-        // Badge 0 is the spawner itself, and none of the four ops may name it.
-        for op in [
-            control::OP_NAME,
-            control::OP_STREAM,
-            control::OP_READER,
-            control::OP_FORGET,
+        // Badge 0 is the spawner itself, and none of the four operations may name it.
+        for operation in [
+            control::OPERATION_NAME,
+            control::OPERATION_STREAM,
+            control::OPERATION_READER,
+            control::OPERATION_FORGET,
         ] {
-            try_word(&mut log, control::word(op, 0, 0, 0), true);
+            try_word(&mut log, control::word(operation, 0, 0, 0), true);
         }
-        // Past the last argument or field each op takes.
-        try_word(&mut log, control::word(control::OP_NAME, 0, 2, 5), true);
+        // Past the last argument or field each operation takes.
         try_word(
             &mut log,
-            control::word(control::OP_NAME, control::USER + 1, 0, 5),
+            control::word(control::OPERATION_NAME, 0, 2, 5),
             true,
         );
         try_word(
             &mut log,
-            control::word(control::OP_STREAM, 0, severity::DEBUG as u64 + 1, 5),
+            control::word(control::OPERATION_NAME, control::USER + 1, 0, 5),
             true,
         );
         try_word(
             &mut log,
-            control::word(control::OP_READER, control::SCOPE_SYSTEM + 1, 0, 5),
+            control::word(control::OPERATION_STREAM, 0, severity::DEBUG as u64 + 1, 5),
+            true,
+        );
+        try_word(
+            &mut log,
+            control::word(control::OPERATION_READER, control::SCOPE_SYSTEM + 1, 0, 5),
             true,
         );
         try_word(&mut log, control::word(0x7f, 0, 0, 5), true);
         // And the edges that are allowed.
         try_word(
             &mut log,
-            control::word(control::OP_NAME, control::USER, 0, 5),
+            control::word(control::OPERATION_NAME, control::USER, 0, 5),
             false,
         );
         try_word(
             &mut log,
-            control::word(control::OP_STREAM, 0, severity::DEBUG as u64, 5),
+            control::word(control::OPERATION_STREAM, 0, severity::DEBUG as u64, 5),
             false,
         );
         try_word(
             &mut log,
-            control::word(control::OP_READER, control::SCOPE_SYSTEM, 0, 5),
+            control::word(control::OPERATION_READER, control::SCOPE_SYSTEM, 0, 5),
             false,
         );
-        try_word(&mut log, control::word(control::OP_FORGET, 0, 0, 5), false);
+        try_word(
+            &mut log,
+            control::word(control::OPERATION_FORGET, 0, 0, 5),
+            false,
+        );
     }
 
     /// A record handed straight to the store is held and read back, and counted.

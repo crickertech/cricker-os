@@ -657,9 +657,19 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 /// CI read **26636** on aarch64 and **26598** on riscv64 (run 37146917385) against the 24861 above, so
 /// aarch64 is the tighter of the pair this time. 26636 + 32 = 26668.
 ///
+/// **`26_705` (2026-10-04, UTC): overflow checks in the release builds of the image's programs.**
+/// calef's ruling on notes/overflow-checks.md turned `overflow-checks` on in every release profile,
+/// and `redoxfs_server`, `mkfs`, `std_exerciser` and its `std` are built release even in a test boot,
+/// so they now carry their checks and are a few pages larger. That is a design cost, not a leak:
+/// the services that stay up for the rest of the suite carry the bigger images. CI read **26673** on
+/// aarch64 with the change (runs 37179021009 and 37179516804) against **26667** on `main` without it
+/// (run 37178544875), +6; riscv64 read **26648** against 26640, +8, and is the lower of the pair.
+/// The +32 is the headroom the `22_249` entry above set and every entry since has kept, for the
+/// two-frame local-against-CI divergence it measured on one tree: 26673 + 32 = 26705.
+///
 /// Raising or lowering it is a decision, not a formality: read the `[that test kept N frames]`
 /// lines the run prints, find who grew or shrank, and be able to say why.
-const SUITE_PAGE_FRAME_BUDGET: usize = 26_668;
+const SUITE_PAGE_FRAME_BUDGET: usize = 26_705;
 
 /// **The longest run of free frames the boot must still have at the end**, in frames.
 ///
@@ -1283,7 +1293,7 @@ fn a_livelock_that_keeps_doing_ipc_trips_the_per_test_ceiling() {
     // a wake is "progress" as far as the heartbeat is concerned.
     crate::sched::spawn(move || {
         loop {
-            let _ = crate::sched::ipc_recv(ep);
+            let _ = crate::sched::ipc_receive(ep);
         }
     })
     .expect("probe: could not spawn the partner");

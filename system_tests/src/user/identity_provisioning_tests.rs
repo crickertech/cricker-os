@@ -126,7 +126,7 @@ fn wired() -> Option<Wired> {
             let cli = program("credentialer_test_client")
                 .expect("no credentialer_test_client program in the initrd archive");
             cs::provisioner(cli, &w);
-            let ready = crate::sched::ipc_recv(w.ready);
+            let ready = crate::sched::ipc_receive(w.ready);
             assert_eq!(
                 ready[0],
                 cs::RPT_READY,

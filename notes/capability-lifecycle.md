@@ -4,13 +4,13 @@ The companion to [ipc-naming.md](ipc-naming.md). That note is about *naming* (IP
 endpoint, never the peer). This one is about the *lifecycle* of the capabilities themselves: how
 authority is copied, how it narrows, and, at the end, how it is revoked. *(That last clause read
 "why it cannot yet be revoked" until 2026-09-05, contradicting this note's own "Revocation
-(milestone 13)" section, which has said **Built** since 13 landed. The section was updated and its
+(milestone 13 (capability revocation + untyped reclamation))" section, which has said Built since 13 landed. The section was updated and its
 own opening sentence was not.)*
 
 ## Authority moves by copy-with-narrowing, never by widening
 
-A `Cap<O>` is `Copy` (`crates/capability`). Authority spreads by **deriving** a copy, and the one rule
-is that a derivative's rights are a **subset** of the source's:
+A `Cap<O>` is `Copy` (`crates/capability`). Authority spreads by deriving a copy, and the one rule
+is that a derivative's rights are a subset of the source's:
 
 ```rust
 // CapabilityTable::derive: "copy a capability into another slot, with rights that are no greater."
@@ -23,16 +23,16 @@ point (DECISIONS §10): if delegation could widen authority, the model is theatr
 
 `ENUMERATE` is the newest and the one that shows why the count is worth gating rather than
 retyping: it arrived on 2026-08-17 with milestone 126, this line still said three bits the next
-day, and the 2026-08-17 documentation sweep is what found it. It is **the right to learn what
-exists, as distinct from acting on it**, the kernel-level twin of `filesystem_protocol`'s directory
+day, and the 2026-08-17 documentation sweep is what found it. It is the right to learn what
+exists, as distinct from acting on it, the kernel-level twin of `filesystem_protocol`'s directory
 `ENUMERATE`, and `endpoint::SURVEY` is its only consumer today. The argument for a right of its own
 rather than a corner of `READ` is on `capability::Rights::ENUMERATE`, where a reader meets it:
-`READ` on a supervision endpoint is what `RECV` and `REAP` take, so a `ps` granted `READ` could
+`READ` on a supervision endpoint is what `RECEIVE` and `REAP` take, so a `ps` granted `READ` could
 reap a child, and a domain names its members rather than acting on them.
 
 ## `SEND_CAP` is share, not move
 
-Delegating a capability over IPC (`syscall.rs`, `SEND_CAP`) **reads** the sender's cap and delivers
+Delegating a capability over IPC (`syscall.rs`, `SEND_CAP`) reads the sender's cap and delivers
 a *new* one to the receiver:
 
 ```rust
@@ -43,7 +43,7 @@ if !narrowed.is_subset_of(src.rights) { return NotPermitted; }  // only narrow
 ipc_send_cap(ep, data, Cap { object: src.object, rights: narrowed });
 ```
 
-So the sender **keeps its capability**; the receiver gets a narrowed derivative pointing at the same
+So the sender keeps its capability; the receiver gets a narrowed derivative pointing at the same
 object. That is exactly what lets a frame be shared: a producer holding `READ|WRITE|GRANT` keeps its
 writable mapping while handing a consumer a read-only view of the same physical page.
 
@@ -55,14 +55,14 @@ Delegation answers separate questions, and they narrow independently:
 |---|---|---|
 | What may the holder **do**? | `READ`, `WRITE` | a `PageFrame` with `READ` alone maps read-only, never writable |
 | May the holder **pass it on**? | `GRANT` | a derivative sent *without* `GRANT` is a dead end: the receiver may use it but not re-delegate |
-| What may the holder **learn**? | `ENUMERATE` | a `Rendezvous` with `ENUMERATE` can `SURVEY` the domain it supervises; one with `READ` instead can `RECV` and `REAP` there but cannot list it |
+| What may the holder **learn**? | `ENUMERATE` | a `Rendezvous` with `ENUMERATE` can `SURVEY` the domain it supervises; one with `READ` instead can `RECEIVE` and `REAP` there but cannot list it |
 
 This section was headed "Two independent narrowings" and had the first two rows until the
 2026-08-17 documentation sweep; `ENUMERATE` made the third question a real one the day before. The
 heading no longer counts them, because the count is the part that rots and the independence is the
 part that matters.
 
-`SEND_CAP` needs `WRITE` on the *endpoint* (may I send here?) **and** `GRANT` on the *delegated*
+`SEND_CAP` needs `WRITE` on the *endpoint* (may I send here?) and `GRANT` on the *delegated*
 capability (was I trusted to lend it?). Two rights, two objects, two questions.
 
 ## Frames, end to end
@@ -71,9 +71,9 @@ The frame path shows every piece confining the next:
 
 1. `MemoryRegion::RETYPE` mints the owner a `PageFrame` with `READ|WRITE|GRANT` (`syscall.rs:181`).
 2. The owner maps it writable (`PageFrame::MAP` with the writable flag needs `WRITE`).
-3. The owner delegates a **`READ`-only, no-`GRANT`** derivative with `SEND_CAP`.
+3. The owner delegates a `READ`-only, no-`GRANT` derivative with `SEND_CAP`.
 4. The consumer's `PageFrame::MAP` sees `READ` without `WRITE`, so it is confined to `user_rodata`: it
-   maps the same physical page but **cannot write it, and cannot pass it on**.
+   maps the same physical page but cannot write it, and cannot pass it on.
 
 The test `a_frame_capability_shares_a_page_and_a_read_only_view_cannot_write_it` pins exactly this.
 This is DECISIONS §10's "shared memory carries data," composed by the processes at runtime rather
@@ -85,28 +85,28 @@ to the page-table bits.
 This is the part that gets misremembered later, so it is worth stating as a contract rather than
 leaving as an emergent property of a tested mechanism.
 
-A read-only derivative is *share, not move* (above): the producer keeps `WRITE` and a **writable
-mapping of the same physical page.** So what the read-only bit actually delivers is narrow:
+A read-only derivative is *share, not move* (above): the producer keeps `WRITE` and a writable
+mapping of the same physical page. So what the read-only bit actually delivers is narrow:
 
 > **It stops the *consumer* from writing the shared page. It does nothing to stop the *producer*
 > from writing it while the consumer reads.**
 
-The property is "the consumer cannot corrupt the shared page," **not** "the page is stable under
-the consumer's feet," and **not** "the data is trustworthy." A consumer that validates the page and
+The property is "the consumer cannot corrupt the shared page," not "the page is stable under
+the consumer's feet," and not "the data is trustworthy." A consumer that validates the page and
 then acts on it is exposed to the producer mutating it *after* the check (a TOCTOU). So, for a
 server reading a buffer shared by an untrusted client:
 
-1. **Take structural data from the message, never from the page.** A length, offset, count, or
+1. Take structural data from the message, never from the page. A length, offset, count, or
    index that you will compute on must ride the IPC message (registers, immutable once sent), not
    live in the mutable shared page. Otherwise the producer edits it under you.
-2. **Copy-into-private-then-validate.** If you must validate content and then act on the validated
+2. Copy-into-private-then-validate. If you must validate content and then act on the validated
    form, copy it into your own memory first and validate the copy. The shared page can change
    between your check and your use.
-3. **Bound everything by the frame size yourself.** Never trust a producer-supplied count to stay
+3. Bound everything by the frame size yourself. Never trust a producer-supplied count to stay
    within the page.
 
 **The console server is the worked example, and it is safe *because* it follows this** (checked):
-the length rides the message (`recv(REQUEST)`), the shared page holds only bytes to print (a
+the length rides the message (`receive(REQUEST)`), the shared page holds only bytes to print (a
 content TOCTOU just prints different bytes: benign), and an over-long length is a *read out of the
 server's own mapping* that faults the server, i.e. a crashed driver, not a corrupted kernel
 (fixtures/src/hello.rs). A future server that read a length or offset *from the page*, or indexed on
@@ -126,19 +126,19 @@ capability-derivation tree, no refcount, no `revoke`. The only trace of the idea
 The crucial thing is *what that does and does not cost*, because the lifetime makes it narrower than
 it sounds:
 
-**It is not a memory-safety hole.** Frames come from **spend-only untyped**: `retype_page` only
+**It is not a memory-safety hole.** Frames come from spend-only untyped: `retype_page` only
 advances a watermark and never reclaims (`untyped.rs`). And address-space teardown deliberately does
 **not** free a mapped frame's leaf, only the page tables reaching it (`user.rs`: *"the frame is not
 recorded for freeing, because we do not own it"*; see [teardown.md](teardown.md)). So a peer that
-still maps a shared frame after the granter has exited is mapping **valid, non-reused** memory. No
+still maps a shared frame after the granter has exited is mapping valid, non-reused memory. No
 use-after-free, no double-free. The safety is structural.
 
 **What it does cost is control and reclamation:**
 
-- You cannot **un-share**. Hand a peer a read-only view and then distrust it, and you cannot take
+- You cannot un-share. Hand a peer a read-only view and then distrust it, and you cannot take
   the mapping back. The only lever is the blunt one: destroy the peer (tear down its address space,
   which unmaps everything it holds). There is no fine-grained "revoke just this frame."
-- You cannot **reclaim**. A retyped page is spent from the untyped forever; sharing is one-way until
+- You cannot reclaim. A retyped page is spent from the untyped forever; sharing is one-way until
   the whole untyped region is destroyed.
 
 seL4's answer is a capability-derivation tree plus a recursive `revoke` that walks it, unmapping the
@@ -148,8 +148,8 @@ recorded), which is precisely why it is a first-class object there and parked he
 
 ## Where authority can enter at all
 
-Only three ways, and none is ambient: **retype** it out of untyped you hold, be **handed** it
-(`SEND_CAP` / spawn-time grant), or **derive** a narrower copy of one you already have. There is no
+Only three ways, and none is ambient: retype it out of untyped you hold, be handed it
+(`SEND_CAP` / spawn-time grant), or derive a narrower copy of one you already have. There is no
 `open(path)`, no global name, no way to mint authority from who you are. A thread's capability table is empty
 until something puts a capability in it. That is the whole of §10, seen from the object's side.
 

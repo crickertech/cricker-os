@@ -327,7 +327,13 @@ pub fn init() {
 fn advance_past_trapping_insn(frame: &mut TrapFrame) {
     // SAFETY: `sepc` is the address of the instruction that trapped, which is mapped and readable.
     let low = unsafe { core::ptr::read_volatile(frame.sepc as *const u16) };
-    frame.sepc += if low & 0b11 == 0b11 { 4 } else { 2 };
+    // Wrapping, because the wrap cannot happen (release builds check overflow,
+    // notes/overflow-checks.md, and this is inlined into the trap body every syscall crosses): the
+    // only caller is the S-mode breakpoint arm, so `sepc` is in the kernel's own `.text`, linked
+    // gigabytes below `2^64 - 4`.
+    frame.sepc = frame
+        .sepc
+        .wrapping_add(if low & 0b11 == 0b11 { 4 } else { 2 });
 }
 
 unsafe extern "C" {
@@ -446,7 +452,10 @@ extern "C" fn riscv_trap_body(frame: &mut TrapFrame) -> bool {
             // The syscall. `sepc` points AT the `ecall` (unlike aarch64, where the hardware advances
             // ELR past `svc`), so step over it before dispatching, and `ecall` is always 4 bytes.
             SVC_COUNT.fetch_add(1, Ordering::Relaxed);
-            frame.sepc += 4;
+            // Wrapping, because the wrap cannot happen on the one path every syscall takes
+            // (release builds check overflow, notes/overflow-checks.md): this cause is U-mode
+            // only, so `sepc` is a user address in Sv39's low half, far below `2^64 - 4`.
+            frame.sepc = frame.sepc.wrapping_add(4);
             crate::syscall::dispatch(frame);
         }
         // **A thread asked for the FP unit for the first time**
@@ -517,7 +526,7 @@ extern "C" fn riscv_trap_body(frame: &mut TrapFrame) -> bool {
 ///
 /// The mechanism is aarch64's `user_fault`, verbatim in spirit: we are in the trap handler on the
 /// faulting thread's kernel stack, `sched::exit()` marks it Finished and schedules away forever,
-/// and the reaper frees the stack from the next thread. The blocking-syscall path (`ipc_recv`)
+/// and the reaper frees the stack from the next thread. The blocking-syscall path (`ipc_receive`)
 /// already schedules away from this exact context, so nothing here is novel.
 ///
 /// **Correction, on the record.** Until milestone 32 this arm panicked the whole kernel, behind a

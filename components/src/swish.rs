@@ -43,7 +43,7 @@
 //!
 //! It holds, by convention (the progenitor granted them in this order):
 //!
-//! - slot 0: the terminal rendezvous (CALL: `OP_WRITE` / `OP_READLINE`).
+//! - slot 0: the terminal rendezvous (CALL: `OPERATION_WRITE` / `OPERATION_READLINE`).
 //! - slot 1: a spawn rendezvous (direct the progenitor to start a program; `grant_plan::spawnproto`).
 //! - slot 2: a result rendezvous (receive a spawned program's answer).
 //! - slot 3: an untyped budget, the memory it grants with `--mem`.
@@ -58,31 +58,17 @@
 //!
 //! # BUGS
 //!
-//! **This shell holds the display devices for its whole life, and uses them only to delegate.**
-//! Since milestone 632 (graphics on demand: `graphical_terminal`, launched from the swish prompt)
-//! the progenitor places the GPU's four capabilities and the keyboard's three at
-//! `spawnproto::SHELL_GPU_SLOT` onward: the transports with `WRITE | GRANT`, the interrupts with
-//! `READ | GRANT`, the DMA run, the surface and the keyboard DMA page with
-//! `READ | WRITE | GRANT`. [`delegate_display`] narrows copies for a session and keeps these, so
-//! a session can be launched again. With them this shell could map the three pages read-write
-//! into its own space (it holds the tables `map_page_frame` needs) and read the keyboard driver's
-//! DMA or write the surface behind a session, and could `RECV` on either interrupt rendezvous and
-//! take a wake the driver was parked for. It does none of that, and nothing it parses from the
-//! prompt can reach the seven slots. The spawn service keeps `term_ep` for the same purpose
-//! without lending the shell `GRANT`; the same posture for the seven is proposed in
-//! `design/roadmap/715-the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md`
-//! (the 2026-10-03 security audit's follow-up).
-//!
 //! **A program's answer word on the result endpoint is the program's own claim.** A child whose
 //! slot 0 was not redirected holds `result_ep` with `WRITE` (the spawn service's default in
 //! `crates/system_initializer`), the same endpoint the spawn service's `SPAWN_FAILED`, the
 //! `job_undertaker`'s `JOB_FAULTED` and this shell's `RESULT` reads share. The reads here take
-//! three words and test `w0`, so a child can send `SPAWN_FAILED` or a wrong exit status about
-//! itself; it cannot speak for another job, because the wait is one job at a time. Since
-//! milestone 613 (a system log service) every `RECV` returns the sender's badge in `x3`, so a
-//! badged copy per sender would let this shell tell the spawn service from a child at no new
-//! authority. Recorded by the 2026-10-03 security audit, which met it beside its scope; a lie about
-//! one's own exit status is the lowest-value thing a confined program can forge here.
+//! three words and test `w0`, so a child can send `SPAWN_FAILED` (or, since milestone 715,
+//! `SPAWN_NO_DISPLAY`) or a wrong exit status about itself; it cannot speak for another job,
+//! because the wait is one job at a time. Since milestone 613 (a system log service) every
+//! `RECEIVE` returns the sender's badge in `x3`, so a badged copy per sender would let this shell
+//! tell the spawn service from a child at no new authority. Recorded by the 2026-10-03 security
+//! audit, which met it beside its scope; a lie about one's own exit status is the lowest-value
+//! thing a confined program can forge here.
 //!
 //! **A spawned command that faults no longer hangs the prompt, and here is what it costs**
 //! (milestone 235, design/roadmap/235-a-faulted-job-should-reach-the-prompt.md). This shell waits
@@ -95,7 +81,7 @@
 //! through the same line.
 //!
 //! **A job that hangs without faulting still hangs the prompt**, which is the same symptom and a
-//! different problem: a live thread blocked in a `RECV` nobody will answer is not dead, nothing
+//! different problem: a live thread blocked in a `RECEIVE` nobody will answer is not dead, nothing
 //! reports it, and this shell cannot tell it from a slow one. Milestone 235's own block names this
 //! as out of its scope and nothing here closes it. The forcible tier a person can reach already
 //! exists for a job that was spawned interruptible (`^C` twice, DECISIONS §24); an ordinary command
@@ -135,8 +121,8 @@ use line_editor::proto;
 use swish::{Route, Say, Status, Untimed, sequence};
 use user_mode_runtime::mapped_window::MappedWindow;
 use user_mode_runtime::{
-    call, cap_delete, cntfrq, destroy_region, exit, monotonic_nanos, now, reap, recv, recv_fault,
-    retype_object, retype_sleeper, send, sleep_until, split_region, yield_now,
+    call, cap_delete, cntfrq, destroy_region, exit, monotonic_nanos, now, reap, receive,
+    receive_fault, retype_object, retype_sleeper, send, sleep_until, split_region, yield_now,
 };
 
 // Pages shared with the terminal (must match the wiring in the progenitor).
@@ -164,7 +150,7 @@ const LINE_WINDOW: MappedWindow =
 // Capability slots.
 const TERM: u64 = 0; // CALL requests on the terminal
 const SPAWN: u64 = 1; // SEND a spawn request to the progenitor
-const RESULT: u64 = 2; // RECV a spawned program's answer
+const RESULT: u64 = 2; // RECEIVE a spawned program's answer
 const BUDGET: u64 = 3; // our own untyped; SPLIT a grant off it for `--mem`
 
 /// **This shell's heap** (milestone 47 (navigation and naming), calef's ruling of 2026-09-26).
@@ -303,52 +289,6 @@ fn delegate_machine_page(wired: bool) {
             spawnproto::MACHINE_PAGE_SLOT,
             abi::rights::READ | abi::rights::GRANT,
         );
-    }
-}
-
-/// **Whether this session holds the display devices** (milestone 632 (provisional), graphics
-/// launched from the prompt): the gpu's four at [`spawnproto::SHELL_GPU_SLOT`] and its siblings,
-/// placed there by the progenitor at boot and ours to delegate until a `graphical_terminal` session takes
-/// them. Probed once at [`_start`], for [`HOLDS_MACHINE_PAGE`]'s reasons. A boot with no gpu, a
-/// `login` session the progenitor built without them, and every witness wiring hold none, and
-/// `graphical_terminal` at those prompts is refused with a sentence rather than spawned empty-handed.
-static HOLDS_DISPLAY: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
-
-/// **Whether a virtio keyboard's three came with the gpu's four**: the transport at
-/// [`spawnproto::SHELL_GPU_SLOT`] + 4. A session launched without them takes its keystrokes from
-/// this prompt's own line discipline over the UART (milestone 192 (a keyboard on real silicon)'s option A, at launch), which
-/// is every real board's configuration.
-static HOLDS_KEYBOARD: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
-
-/// **Whether a spawn of `e` launches the graphical terminal session, and this session holds the devices for
-/// it**: the program is `graphical_terminal` and [`HOLDS_DISPLAY`] is true. The devices are not something the
-/// command line designates and no manifest declares them, which is the machine page's own
-/// reasoning one authority over; what differs is that the caps travel from *this session's*
-/// slots, because the user at this prompt is who delegates them.
-fn display_wiring(e: &Endowment) -> bool {
-    e.prog == grant_plan::Prog::GraphicalTerminal
-        && HOLDS_DISPLAY.load(core::sync::atomic::Ordering::Relaxed)
-}
-
-/// **Delegate the display capabilities, in the wire's fixed order** (milestone 632 (provisional)):
-/// the gpu's four, then the keyboard's three when this session holds them, each narrowed to the
-/// rights the boot endowment carried for it. We keep our own copies, the machine page's own
-/// posture, so the session can be run again once it ends.
-fn delegate_display(devices: bool) {
-    if !devices {
-        return;
-    }
-    let transport = abi::rights::WRITE | abi::rights::GRANT;
-    let interrupt = abi::rights::READ | abi::rights::GRANT;
-    let page = abi::rights::READ | abi::rights::WRITE | abi::rights::GRANT;
-    let rights = [transport, interrupt, page, page];
-    for (i, r) in rights.iter().enumerate() {
-        delegate(spawnproto::SHELL_GPU_SLOT + i as u64, *r);
-    }
-    if HOLDS_KEYBOARD.load(core::sync::atomic::Ordering::Relaxed) {
-        for (i, r) in rights.iter().enumerate().take(3) {
-            delegate(spawnproto::SHELL_GPU_SLOT + 4 + i as u64, *r);
-        }
     }
 }
 
@@ -1235,12 +1175,12 @@ fn apropos(nav: &mut Nav, term: &[u8]) -> Say {
     Say::Nothing
 }
 
-/// Print through the terminal: write the text into the shared page, CALL `OP_WRITE`. The reply
+/// Print through the terminal: write the text into the shared page, CALL `OPERATION_WRITE`. The reply
 /// means the bytes are on the wire and the page is ours again.
 fn print(s: &[u8]) {
     let n = s.len().min(4096);
     stage(s, n);
-    call(TERM, proto::req(proto::OP_WRITE, n as u64), 0);
+    call(TERM, proto::req(proto::OPERATION_WRITE, n as u64), 0);
 }
 
 /// Copy `n` bytes into the outgoing shared page.
@@ -1255,13 +1195,17 @@ fn print_num(v: u64) {
     swish::write_num(v, &mut print);
 }
 
-/// Read a command line with the terminal's own editor: stage the prompt, CALL `OP_READLINE`, and
+/// Read a command line with the terminal's own editor: stage the prompt, CALL `OPERATION_READLINE`, and
 /// block until the terminal has a line. Kept for a terminal that refuses raw mode, where the shell
 /// cannot edit its own line; [`edit_line`] is the path every real boot takes.
 fn read_line(prompt: &[u8], out: &mut [u8]) -> (usize, u64) {
     stage(prompt, prompt.len());
     let (len, flags) = loop {
-        let r = call(TERM, proto::req(proto::OP_READLINE, prompt.len() as u64), 0);
+        let r = call(
+            TERM,
+            proto::req(proto::OPERATION_READLINE, prompt.len() as u64),
+            0,
+        );
         // The terminal is being replaced and handed this read back (FLAG_RETRY, milestone 23 (a capability-routed component OS with live replacement)).
         // Ask again, unchanged: whichever terminal answers resumes the line where it was.
         if !proto::is_retry(r.0, r.1) {
@@ -1278,7 +1222,7 @@ fn read_line(prompt: &[u8], out: &mut [u8]) -> (usize, u64) {
 // ---- the shell edits its own line (DECISIONS §227 (how Tab reaches the shell) option D) ----
 
 /// **The line editor, in this process** (milestone 47 (navigation and naming), §227 option D).
-/// The same sans-IO engine the terminal runs, fed from `OP_READRAW`, so a Tab reaches the process
+/// The same sans-IO engine the terminal runs, fed from `OPERATION_READRAW`, so a Tab reaches the process
 /// that holds the authority completion needs. A `static` for `line_editor`'s own reason: the
 /// engine is a few KiB and this shell's stack has run out before (notes/pipes.md).
 static mut EDITOR: line_editor::LineDisc = line_editor::LineDisc::new();
@@ -1296,21 +1240,21 @@ static RAW: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new
 /// Ask the terminal for raw mode, or leave it. `false` when the terminal refused, which a terminal
 /// without raw mode does; the caller then reads lines the old way.
 fn set_raw(on: bool) -> bool {
-    let (r, _) = call(TERM, proto::req(proto::OP_RAWMODE, on as u64), 0);
+    let (r, _) = call(TERM, proto::req(proto::OPERATION_RAWMODE, on as u64), 0);
     let ok = r == 0;
     RAW.store(on && ok, core::sync::atomic::Ordering::Relaxed);
     ok
 }
 
 /// Leave raw mode before a supervised job, so its `^C` is counted where [`watch`] polls for it.
-/// Switching discards whatever was typed ahead into the raw queue, which is `OP_RAWMODE`'s contract.
+/// Switching discards whatever was typed ahead into the raw queue, which is `OPERATION_RAWMODE`'s contract.
 fn leave_raw() {
     if RAW.load(core::sync::atomic::Ordering::Relaxed) {
         set_raw(false);
     }
 }
 
-/// **Echo, staged in the output page and sent with `OP_WRITE`.** The terminal translates `\n` to
+/// **Echo, staged in the output page and sent with `OPERATION_WRITE`.** The terminal translates `\n` to
 /// `\r\n` on output, and the engine already writes `\r\n`, so a `\r` right before a `\n` is dropped
 /// here rather than doubled there.
 struct Echo {
@@ -1320,7 +1264,11 @@ struct Echo {
 impl Echo {
     fn flush(&mut self) {
         if self.used > 0 {
-            call(TERM, proto::req(proto::OP_WRITE, self.used as u64), 0);
+            call(
+                TERM,
+                proto::req(proto::OPERATION_WRITE, self.used as u64),
+                0,
+            );
             self.used = 0;
         }
     }
@@ -1360,7 +1308,7 @@ fn edit_line(nav: &mut Nav, prompt: &[u8], out: &mut [u8]) -> (usize, u64) {
     echo.flush();
     loop {
         if ahead.1 == ahead.2 {
-            let (n, packed) = call(TERM, proto::req(proto::OP_READRAW, 0), 0);
+            let (n, packed) = call(TERM, proto::req(proto::OPERATION_READRAW, 0), 0);
             // The terminal is being replaced and handed this read back (FLAG_RETRY, milestone 23
             // (a capability-routed component OS with live replacement)). The line lives in this
             // process, so nothing was lost and nothing needs painting: ask again. A replacement
@@ -1556,16 +1504,6 @@ pub extern "C" fn _start(role: u64, arg: u64, clock: u64) -> ! {
         user_mode_runtime::is_granted(spawnproto::MACHINE_PAGE_SLOT),
         core::sync::atomic::Ordering::Relaxed,
     );
-    // And here: see [`HOLDS_DISPLAY`], whose reason is [`HOLDS_MACHINE_PAGE`]'s own.
-    HOLDS_DISPLAY.store(
-        user_mode_runtime::is_granted(spawnproto::SHELL_GPU_SLOT),
-        core::sync::atomic::Ordering::Relaxed,
-    );
-    HOLDS_KEYBOARD.store(
-        HOLDS_DISPLAY.load(core::sync::atomic::Ordering::Relaxed)
-            && user_mode_runtime::is_granted(spawnproto::SHELL_GPU_SLOT + 4),
-        core::sync::atomic::Ordering::Relaxed,
-    );
     match role {
         ROLE_NAVIGATE => navigate(arg),
         ROLE_GLOB => globbing(arg),
@@ -1648,7 +1586,7 @@ fn redirecting(rights: u64) -> ! {
         // **And the same designation inside a pipeline**, which is the line that used to answer
         // nothing at all: the operand is resolved by the planner, and `pipeline` used to wire the
         // head's input off the line instead of off the plan, so the stage was spawned with an empty
-        // input slot, where a `recv` answers `NoSuchSlot` rather than blocking: the stage counted
+        // input slot, where a `receive` answers `NoSuchSlot` rather than blocking: the stage counted
         // an empty stream and said so. Its answer has to be the length of the line above it.
         b"wc out.txt | wc",
         // The same unmodified `date`, twice, to two destinations.
@@ -2653,9 +2591,11 @@ fn run_image(nav: &mut Nav, spec: RunSpec) {
     if m.output.is_byte_stream() {
         drain_text();
     } else {
-        let answer = recv(RESULT).0;
-        // The four progenitor words sit at the top of `u64` (`SPAWN_REFUSED_BY_MANIFEST` is the
-        // lowest); anything below is the program's own answer, which no row renders for an image.
+        let answer = receive(RESULT).0;
+        // The four progenitor words an image can be answered with sit at the top of `u64`
+        // (`SPAWN_REFUSED_BY_MANIFEST` is the lowest; `SPAWN_NO_DISPLAY`, below it, answers only a
+        // `graphical_terminal` launch); anything below is the program's own answer, which no row
+        // renders for an image.
         if answer >= spawnproto::SPAWN_REFUSED_BY_MANIFEST {
             outcome(e, answer);
         } else {
@@ -2911,7 +2851,7 @@ fn package(nav: &mut Nav, verb: grant_plan::PackageVerb<'_>, usage: &[u8]) {
                 let (lo, hi) = filesystem_protocol::grant::pack_name(name);
                 send(SPAWN, lo, hi, name.len() as u64);
             }
-            let (r0, r1, _) = recv(RESULT);
+            let (r0, r1, _) = receive(RESULT);
             user_mode_runtime::destroy_region(staging);
             cap_delete(staging);
             if !read_ok {
@@ -2928,7 +2868,7 @@ fn package(nav: &mut Nav, verb: grant_plan::PackageVerb<'_>, usage: &[u8]) {
             send(SPAWN, w0, w1, w2);
             let (lo, hi) = filesystem_protocol::grant::pack_name(name);
             send(SPAWN, lo, hi, name.len() as u64);
-            let (r0, r1, _) = recv(RESULT);
+            let (r0, r1, _) = receive(RESULT);
             (r0, r1)
         }
         grant_plan::PackageVerb::Remove(name) => {
@@ -2936,13 +2876,13 @@ fn package(nav: &mut Nav, verb: grant_plan::PackageVerb<'_>, usage: &[u8]) {
             send(SPAWN, w0, w1, w2);
             let (lo, hi) = filesystem_protocol::grant::pack_name(name);
             send(SPAWN, lo, hi, name.len() as u64);
-            let (r0, r1, _) = recv(RESULT);
+            let (r0, r1, _) = receive(RESULT);
             (r0, r1)
         }
         grant_plan::PackageVerb::Rollback => {
             let (w0, w1, w2) = spawnproto::activation_request(Activation::Rollback, 0);
             send(SPAWN, w0, w1, w2);
-            let (r0, r1, _) = recv(RESULT);
+            let (r0, r1, _) = receive(RESULT);
             (r0, r1)
         }
     };
@@ -3173,22 +3113,6 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
         None
     };
 
-    // **A `graphical_terminal` this session cannot launch stops here, loudly** (milestone 632 (provisional)),
-    // for the file-grant block's own reason: authority the user asked for must never quietly
-    // evaporate, and a session spawned with no display behind it would be exactly that. The
-    // witness wirings and every `login` session hold none, and so does a boot with no gpu.
-    if e.prog == grant_plan::Prog::GraphicalTerminal
-        && !HOLDS_DISPLAY.load(core::sync::atomic::Ordering::Relaxed)
-    {
-        refused();
-        print(b"  no display on this boot; there is nothing to launch a graphical terminal session from\n");
-        if let Some(w) = &set_grant {
-            release_words_grant(w, true);
-        }
-        give_back();
-        return;
-    }
-
     // The request: program id, argument, page count, and the operators' answer (grant_plan::spawnproto).
     //
     // **`diagnostics` is false here and always will be** (DECISIONS §67). This path runs a line with
@@ -3221,13 +3145,15 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
             args: argv.is_some(),
             nameset: set_grant.is_some_and(|w| w.set.is_some()),
             machine: machine_wiring(&e),
-            // **The display devices, for a `graphical_terminal` session** (milestone 632 (provisional)): set
-            // only on a plain line, which is the only line `graphical_terminal`'s manifest can reach this
-            // path on (`Words` output refuses `>` and a pipe's left, `InputSpec::Forbidden` its
-            // right), so a stage never promises devices.
-            graphics: display_wiring(&e),
-            keyboard: display_wiring(&e)
-                && HOLDS_KEYBOARD.load(core::sync::atomic::Ordering::Relaxed),
+            // **"This is a graphical terminal launch", and nothing follows it** (milestone 715
+            // (provisional)): the spawn service holds the display devices and this shell holds
+            // none, so the bit is the whole request, and a boot with no display answers
+            // `spawnproto::SPAWN_NO_DISPLAY`. Set only on a plain line, which is the only line
+            // `graphical_terminal`'s manifest can reach this path on (`Words` output refuses `>`
+            // and a pipe's left, `InputSpec::Forbidden` its right). `keyboard` is never set: the
+            // spawn service decides the arm from what the boot granted.
+            graphics: e.prog == grant_plan::Prog::GraphicalTerminal,
+            keyboard: false,
         },
     );
     send(SPAWN, w0, w1, w2);
@@ -3258,10 +3184,6 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
         delegate(slot, abi::rights::WRITE | abi::rights::GRANT);
         cap_delete(slot); // our copy is delegated; free the slot
     }
-    // **The display devices follow the `--mem` untyped and precede the machine page**
-    // (`spawnproto::GRAPHICS_BIT`/`KEYBOARD_BIT`), which is the order the progenitor receives
-    // them in. Our copies stay: the caps are this session's to delegate again.
-    delegate_display(display_wiring(&e));
     delegate_machine_page(machine_wiring(&e));
 
     // One reader, one word: a real program's answer, or the progenitor's spawn-failed sentinel. A program
@@ -3270,7 +3192,7 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
     if e.prog.manifest().output.is_byte_stream() {
         drain_text();
     } else {
-        let answer = recv(RESULT).0;
+        let answer = receive(RESULT).0;
         outcome(e, answer);
     }
     // The set's page was carved after the argv's, so it goes back first and each is the top.
@@ -3287,15 +3209,15 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
 ///
 /// This used to stop at the first newline, because the framing was a convention rather than a
 /// contract and there was nothing else to stop at. Milestone 50 gave it an end: it drains until
-/// `OP_EOF`, so a program that prints two lines prints two lines, and the rendezvous is left clean for
-/// the next command instead of holding a message the next `recv` would mistake for an answer.
+/// `OPERATION_EOF`, so a program that prints two lines prints two lines, and the rendezvous is left clean for
+/// the next command instead of holding a message the next `receive` would mistake for an answer.
 ///
 /// That change is not optional. Before it, a `date` that announced end of stream would leave that
 /// message queued, and the next command's single read would take it.
 fn drain_text() {
     print(b"  ");
     for _ in 0..MAX_OUTPUT_CHUNKS {
-        let (w0, w1, w2) = recv(RESULT);
+        let (w0, w1, w2) = receive(RESULT);
         // Checked before decoding: the progenitor's sentinel is `u64::MAX`, whose top byte is an opcode this
         // contract does not define, so it would otherwise read as a malformed message rather than as
         // the one thing it is.
@@ -3345,7 +3267,7 @@ fn drain_text() {
 ///
 /// It is retyped straight out of [`BUDGET`] rather than out of a per-line region, and that is a
 /// decision rather than a shortcut: a pipeline's region is destroyed to turn a dead reader into
-/// `Gone`, and a stream this shell always drains to `OP_EOF` has no dead reader to signal. One
+/// `Gone`, and a stream this shell always drains to `OPERATION_EOF` has no dead reader to signal. One
 /// rendezvous for the session costs one page and saves a SPLIT and a DESTROY per `date`.
 static DIAG_EP: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(u64::MAX);
 
@@ -3388,7 +3310,7 @@ fn screen_rendezvous() -> Option<u64> {
 
 /// **Wait for a screen-narrowed tail to finish, then free its region.**
 ///
-/// The kernel's own exit-delivery (DECISIONS §26) is the completion signal: `recv_fault` blocks
+/// The kernel's own exit-delivery (DECISIONS §26 (the fault endpoint)) is the completion signal: `receive_fault` blocks
 /// until the child is dead-until-reaped, which is stronger than "it painted its last line" (a dead
 /// thread cannot enqueue any further `SEND`, so the child itself cannot still be mid-write here).
 /// What can still be in flight is `terminal_sink_caretaker`'s own trailing `CALL` to `line_editor`,
@@ -3400,7 +3322,7 @@ fn screen_rendezvous() -> Option<u64> {
 /// region still holds something schedulable, and yielding between attempts is what lets that settle
 /// without spinning the only core there is.
 fn await_screen(ep: u64) {
-    let (_event, tid, _pc, _addr, _rsvd) = recv_fault(ep);
+    let (_event, tid, _pc, _addr, _rsvd) = receive_fault(ep);
     for _ in 0..SCREEN_REAP_ATTEMPTS {
         if reap(ep, tid) == 0 {
             return;
@@ -3433,7 +3355,7 @@ const SCREEN_REAP_ATTEMPTS: usize = 1024;
 /// complaints are all reasons it has no answer.
 ///
 /// `writers` is how many stages were handed the rendezvous, and the drain ends when that many have
-/// announced end of stream. Each declaring stage sends exactly one `OP_EOF`, so the count is the
+/// announced end of stream. Each declaring stage sends exactly one `OPERATION_EOF`, so the count is the
 /// termination condition and no stage's silence can be mistaken for the line being over.
 fn drain_diagnostics(dest: &mut dyn ByteOut, writers: usize) {
     let Some(ep) = diag_rendezvous() else { return };
@@ -3442,12 +3364,12 @@ fn drain_diagnostics(dest: &mut dyn ByteOut, writers: usize) {
         if done == writers {
             break;
         }
-        let (w0, w1, w2) = recv(ep);
+        let (w0, w1, w2) = receive(ep);
         let mut buf = [0u8; byte_sink_protocol::INLINE_MAX];
         match byte_sink_protocol::unpack(w0, w1, w2, &mut buf) {
             byte_sink_protocol::Msg::Bytes(n) => dest.push(&buf[..n]),
             byte_sink_protocol::Msg::Eof => done += 1,
-            // The progenitor's failure sentinel arrives here too, as an `OP_EOF` it sends on this rendezvous so
+            // The progenitor's failure sentinel arrives here too, as an `OPERATION_EOF` it sends on this rendezvous so
             // this drain can end; anything else is a program that cannot spell the contract.
             byte_sink_protocol::Msg::Malformed => done += 1,
         }
@@ -3541,6 +3463,17 @@ fn caps(nav: &mut Nav, tail: &[u8]) {
         &mut |token| nav.expand(token),
         &mut print,
     );
+    // **And what is actually in the table** (milestone 715 (provisional)), under the shell's own
+    // endowment only: the rows above are what this shell understands it was given, and the census
+    // is the kernel's answer, so a slot no row names cannot hide. It is what `script/swish-check`
+    // reads to prove this shell holds no display device.
+    if grant_plan::trim(tail).is_empty() {
+        swish::write_census(
+            abi::fault::FAULT_EP_SLOT,
+            &user_mode_runtime::is_granted,
+            &mut print,
+        );
+    }
 }
 
 /// **The line is a plain run**: one stage, no operator. The shape [`run`] hands to [`run_image`]
@@ -3896,7 +3829,7 @@ fn pipeline(nav: &mut Nav, l: Line<'_>) {
 
     // **The head stage's input file comes off the plan, not off the line**, and not reading it here
     // was the bug milestone 40's viewer found: `doc page.md | wc` planned correctly, spawned the
-    // head with an empty input slot, where a `recv` answers `NoSuchSlot` rather than blocking, so
+    // head with an empty input slot, where a `receive` answers `NoSuchSlot` rather than blocking, so
     // the stage counted an empty stream and reported it. A wrong answer, not a hang.
     //
     // An input operand is a trailing positional at a program that declares an input
@@ -4233,7 +4166,7 @@ fn run_pipeline(
 /// its output slot, and for the same reason: it is handed a place to push bytes and nothing else.
 trait ByteOut {
     fn push(&mut self, bytes: &[u8]);
-    /// Say the stream is over. On a pipe that is `OP_EOF`; on a file it is the last write.
+    /// Say the stream is over. On a pipe that is `OPERATION_EOF`; on a file it is the last write.
     fn finish(&mut self);
 }
 
@@ -4548,7 +4481,7 @@ struct FileIn {
 
 impl FileIn {
     /// **Stream the file over the sink contract**, which is the whole of `<`: the head stage holds
-    /// the read end of an rendezvous and receives `OP_BYTES` until `OP_EOF`, exactly as it would from
+    /// the read end of an rendezvous and receives `OPERATION_BYTES` until `OPERATION_EOF`, exactly as it would from
     /// a program on the left of a `|`. Nothing about the file reaches it.
     fn stream_into(&mut self, pipe: u64) {
         let mut w = SinkWriter::new(pipe);
@@ -4586,7 +4519,7 @@ impl FileIn {
 /// the file that the program did not write.
 fn drain_into(f: &mut FileOut) {
     for _ in 0..MAX_OUTPUT_CHUNKS {
-        let (w0, w1, w2) = recv(RESULT);
+        let (w0, w1, w2) = receive(RESULT);
         if w0 == spawnproto::SPAWN_FAILED {
             failed();
             print(b"  could not spawn (the progenitor is out of memory)\n");
@@ -4700,7 +4633,7 @@ fn spawn_stage(
         send_set(w);
     }
     // In the protocol's order, which both sides read out of the same word. A `SEND_CAP` nobody
-    // expects and a `RECV_CAP` nobody answers both deadlock, so the order is the contract.
+    // expects and a `RECEIVE_CAP` nobody answers both deadlock, so the order is the contract.
     if let Some(slot) = sink {
         delegate(slot, abi::rights::WRITE | abi::rights::GRANT);
     }
@@ -4712,7 +4645,7 @@ fn spawn_stage(
     }
     if let Some(slot) = screen {
         // READ (not WRITE): the progenitor installs this as the *child's* fault target, and what this shell
-        // needs back from its own copy is the right to `RECV`/`REAP` on it, exactly
+        // needs back from its own copy is the right to `RECEIVE`/`REAP` on it, exactly
         // `job_undertaker`'s DEATHS. The progenitor narrows its own copy no further than that when it inserts
         // the child's (`abi::rights::READ`, `supervision_protocol::build_child_space`), so delegating
         // less than READ here would leave the progenitor unable to hand the child anything at all.
@@ -4733,7 +4666,7 @@ fn spawn_stage(
     // earlier stage of the same line that died between its own ack and this one. Either way the
     // line is over, so both arms return false and only the sentence differs.
     if wiring.sink || wiring.screen {
-        match recv(RESULT).0 {
+        match receive(RESULT).0 {
             w if w == spawnproto::SPAWN_OK => {}
             w if w == spawnproto::JOB_FAULTED => {
                 failed();
@@ -4934,7 +4867,7 @@ fn spawn_interruptible(e: Endowment) {
     send_cap(job_fr);
 
     // The progenitor acks once the child is running: that is the shell's go-ahead to start watching.
-    if recv(RESULT).0 != spawnproto::SPAWN_OK {
+    if receive(RESULT).0 != spawnproto::SPAWN_OK {
         failed();
         print(b"  could not spawn (the progenitor is out of memory)\n");
         cap_delete(job_fr);
@@ -5128,9 +5061,9 @@ fn delegate(slot: u64, rights: u64) {
     user_mode_runtime::send_cap(SPAWN, slot, rights, spawnproto::CAP_TAG);
 }
 
-/// Ask the terminal how many `^C` it has seen (a non-blocking poll; see `proto::OP_INTRCOUNT`).
+/// Ask the terminal how many `^C` it has seen (a non-blocking poll; see `proto::OPERATION_INTRCOUNT`).
 fn intr_count() -> u64 {
-    call(TERM, proto::req(proto::OP_INTRCOUNT, 0), 0).0
+    call(TERM, proto::req(proto::OPERATION_INTRCOUNT, 0), 0).0
 }
 
 // ---- the navigating witness (milestone 47) ----

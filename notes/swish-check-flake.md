@@ -112,6 +112,13 @@ and 11 of 323 on riscv64, and failed the gate both times. The aarch64 run failed
 `caps wc doc/kernel/ipc-naming.md`*). The two signatures below this one are not this
 fix's.
 
+**A recurrence was reported, and it was false (2026-10-04).** The week 2026W40 count put the echo
+splice at 6 of 18 swish-check failures and 4 of 6 merge-group evictions, which read as 342 not
+holding. Every one of the six ran before #1498 merged (2026-10-03T09:52:00Z) on a tree without it.
+Since then, 118 merge-group swish-check jobs ran with no echo failure; at the old one-in-ten rate
+that is about four in a million. The fix stands. Rows, ancestry checks and the riscv64 transcripts
+are in [2026W40](swish-check-flake-2026w40.md).
+
 **The progenitor OOM (signature of #1444).** The shell prints the sentence when the progenitor
 answers with the `SPAWN_FAILED` sentinel (components/src/swish.rs:3053; the sentinel is
 `u64::MAX`, crates/grant_plan/src/spawnproto.rs:633). A `std` program needs one contiguous
@@ -203,14 +210,14 @@ One sentence answers for all fourteen, so a transcript cannot say which fired.
 body is whole, folding every read through `Response::feed`, a byte-stream reader that holds only the
 head. A host test feeds one real response at every split length, and the fuzzer asserts on 46 million
 inputs that status, body and verdict never depend on where the reads fell
-(fuzz/fuzz_targets/http_response_feed.rs). No read assumes it fills anything: `OP_RECV` returns
+(fuzz/fuzz_targets/http_response_feed.rs). No read assumes it fills anything: `OPERATION_RECEIVE` returns
 whatever smoltcp had buffered, at most the 2,048-byte socket buffer, and any length from one byte to
 `DATA_MAX` is accepted. The one length prefix, `Content-Length`, is parsed from the accumulated head
 only after the blank line, so a split head cannot misread it. The declaration bounds the staging
 carve, the copy, and completion itself: `Ok` only at exactly that many body bytes, more refused,
 zero or oversized refused before anything is carved.
 
-The timing bounds are real and were not hit. Each `OP_RECV` and the connect wait inside
+The timing bounds are real and were not hit. Each `OPERATION_RECEIVE` and the connect wait inside
 `service_until`'s 15 s bound (components/src/net_stack.rs), under the gate's 30 s per line. Both
 transcripts that kept their timings rule a timeout out more cheaply: the failing line is absent from
 the gate's own slowest-three (floors 1.0 s and 0.6 s) and the legs ran 26.3 s and 25.8 s in total.
@@ -239,7 +246,7 @@ attach maps a clean page.
 What remains is the host side: slirp, forking `helpers/package-http-peer` per connection while the
 first connection's teardown is still settling. The tree has met this peer family twice, both
 recorded: the stale 4-tuple stall above, and the echo peer that blocks its next connection behind a
-half-closed predecessor (the reason `OP_CLOSE` drains the FIN handshake). A fast refusal on a
+half-closed predecessor (the reason `OPERATION_CLOSE` drains the FIN handshake). A fast refusal on a
 back-to-back second connection is the same family's third face, at a speed only CI's runners have
 shown.
 
@@ -253,3 +260,16 @@ notes/packages.md is at its prose cap. `fetch` carves its socket page and stagin
 because CI once made it transiently short (2026-09-27, that function's own doc). The discipline is
 clean between commands, so this cannot explain the cluster; it is the one place the fetch path
 lacks the retry its sibling learned to need.
+
+## The noteless signature (2026-10-04, UTC)
+
+`packages/noteless/0.1.0/noteless` answered "", evicting #1573. It answered; the gate misread.
+Both runs (37167978481, 37153714653) were the first launch after the reboot, not after `package
+rollback`. A gauge waited in the console's queue mid-line, the log service's 250 ms flush fell
+between the echo of the last typed character and the echo of Enter, and the console redrew the line
+beneath the gauge (milestone 342's design). Filtered, `$ line` appeared twice and the first copy
+read as silent.
+
+Fixed in the harness by `without_redraws`, milestone 748 (the noteless launch that prints nothing).
+A 400 ms pause before Enter (`NIFE_SWISH_ENTER_PAUSE_MS`) failed 4 of 4 boots without it and 0 of 3
+with it; rows in [the 2026W40 file](swish-check-flake-2026w40.md).

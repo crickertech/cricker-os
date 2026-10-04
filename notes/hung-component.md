@@ -18,7 +18,7 @@ A component that stops answering without dying produces none of it. It holds its
 holds its device. Its region is live and mapped. Its thread is `Blocked` or, if it is spinning,
 `Running`. Nothing faults, nothing exits, no message arrives, there is no corpse, and every mechanism
 in this tree reads that as a healthy server. Meanwhile a client is parked inside a `CALL` that will
-not return, and its supervisor is blocked in `RECV` on an endpoint that will never deliver.
+not return, and its supervisor is blocked in `RECEIVE` on an endpoint that will never deliver.
 
 The tree had the vocabulary for this and had never joined it up. DECISIONS §26.1 calls it
 "alive but wedged" and says polling "remains the right tool" for it. §32's second consequence names
@@ -73,7 +73,7 @@ because noticing and acting are separated into two processes rather than two rig
 
 `abi::endpoint::SURVEY` (milestone 126) is the whole view: a cursor walk over the supervision
 subtree, returning `(tid, state)` per member, gated on `Rights::ENUMERATE` and pointedly not `READ`,
-because `READ` is what `RECV` and `REAP` take. calef's ruling on 2026-08-17 is that a domain names
+because `READ` is what `RECEIVE` and `REAP` take. calef's ruling on 2026-08-17 is that a domain names
 its members and does not act on them.
 
 A watchdog looks like the first thing that legitimately needs both halves, and it is not, for a
@@ -126,7 +126,7 @@ is wrong.
 
 The manifest's, and no. `component_plan::Requirements` is where a deadline looks like it belongs:
 one declaration, shipped with the contract, read by every supervisor. It fails on the tree's own
-evidence. A contract cannot know the machine: the same `OP_PUT` under QEMU TCG, under HVF, and on a
+evidence. A contract cannot know the machine: the same `OPERATION_PUT` under QEMU TCG, under HVF, and on a
 VisionFive 2 differ by orders of magnitude (notes/cpu-models.md, milestone 59's matrix), and a
 wall-clock number compiled into a `*_proto` crate would be a shipped version of exactly the
 load-sensitive assertion milestones 62 and 78 exist to remove. It also fails the manifest's own test:
@@ -238,14 +238,14 @@ test is the argument. Milestone 23's four steps against a hung incumbent:
 ```text
   1 BUILT    unchanged. Lay the replacement out, endow it with everything but the device, do not
              configure or start it.
-  2 DRAINED  UNAVAILABLE, and unnecessary. OP_QUIESCE needs the incumbent to answer, which is the
+  2 DRAINED  UNAVAILABLE, and unnecessary. OPERATION_QUIESCE needs the incumbent to answer, which is the
              one thing it does not do. But quiescing exists to make the incumbent stop receiving,
              and a hung component has already stopped receiving. **The step that needs its
              cooperation is the step the hang makes redundant.**
   3 REVOKED  unchanged. Frame::REVOKE take-back (§41) is GRANT-gated on the operator's own device
              capability and asks the holder for nothing. It works on a live, wedged, wholly
              uncooperative holder exactly as on a quiesced one.
-  4 STARTED  unchanged. The replacement parks in RECV_CAP on the stable endpoint and picks up
+  4 STARTED  unchanged. The replacement parks in RECEIVE_CAP on the stable endpoint and picks up
              whatever queued behind the silence, because the stable name is the endpoint object and
              the kernel's sender queue is the buffer (§41).
   5 REAPED   UNAVAILABLE. There is no corpse. Endpoint::REAP answers StillAlive.
@@ -278,7 +278,7 @@ assertion about program order and not one of them about elapsed time:
 
 1. The domain does not report a hang. `SURVEY` reports every member `BLOCKED` and none `DEAD`,
    which is byte for byte what a healthy idle system reads as: `abi::survey::BLOCKED` is the state of
-   a server parked in `RECV_CAP`, and that is every healthy server between requests. The widest view
+   a server parked in `RECEIVE_CAP`, and that is every healthy server between requests. The widest view
    a supervisor has cannot tell the difference, and no death message has arrived by then either.
 2. The supervisor's whole vocabulary is refused. `Endpoint::REAP` is asked about *every* member of
    the domain and answers `StillAlive` every time. It is side-effect free by construction:
@@ -307,12 +307,12 @@ Worth its own heading because a reader will otherwise reach for the simpler shap
 race the test was written to avoid.
 
 The wedged instance announces itself with `call(NOTE, NOTE_WEDGED, served)` rather than `send`, and
-the operator serves that one message with `RECV_CAP` and keeps the reply capability, never using
+the operator serves that one message with `RECEIVE_CAP` and keeps the reply capability, never using
 it. That is not a message-passing style choice; it is the hang. Three properties fall out:
 
 - The blocked state is provable rather than raced. `sched::ipc_call` marks the caller `Blocked`
   inside the same critical section that wakes the receiver, so at the instant the operator's
-  `RECV_CAP` returns, the instance is already parked. A `send` followed by a `recv` would leave a
+  `RECEIVE_CAP` returns, the instance is already parked. A `send` followed by a `receive` would leave a
   window in which the instance was still `Ready`, and a survey inside that window would read a state
   the assertion forbids. The test would then be measuring a scheduler race.
 - It is the commonest real hang. Blocked awaiting a reply from a peer that will not answer is

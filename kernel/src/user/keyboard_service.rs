@@ -147,7 +147,7 @@ impl Wiring {
 
     /// Answer the driver's `COMMIT`, the way a compositor would after compositing.
     pub fn answer_doorbell(&self) {
-        let m = crate::sched::ipc_recv_cap(self.doorbell);
+        let m = crate::sched::ipc_receive_cap(self.doorbell);
         let crate::cap::Object::Reply(caller) = crate::sched::current_cap(m[1])
             .expect("the keyboard driver's ring was not a CALL")
             .object
@@ -155,7 +155,7 @@ impl Wiring {
             panic!("the keyboard driver rang without a reply capability");
         };
         assert_eq!(
-            compositor::proto::op(m[0]),
+            compositor::proto::operation(m[0]),
             compositor::proto::COMMIT,
             "the keyboard driver rang with something other than COMMIT",
         );

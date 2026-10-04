@@ -211,7 +211,7 @@ small and mostly explained:
 
 | primitive | true delta (smp=1) | cause | assessment |
 |---|---|---|---|
-| ipc_rtt | +7.2% | the IPC mailbox widened 3 words to 5 (milestone 22 (trusted init) §26 (the fault endpoint), the fault-message carrier); every `ipc_send`/`ipc_recv` now copies five words via `wide()` | real, small, expected; the step lands exactly at the M22 merge (cap-shell 861k to HEAD 923k) |
+| ipc_rtt | +7.2% | the IPC mailbox widened 3 words to 5 (milestone 22 (trusted init) §26 (the fault endpoint), the fault-message carrier); every `ipc_send`/`ipc_receive` now copies five words via `wide()` | real, small, expected; the step lands exactly at the M22 merge (cap-shell 861k to HEAD 923k) |
 | ipc_rtt_el0 | +5.2% | same mailbox widening, on the EL0 path | real, small |
 | spawn_el0 | +11% | the M31 SPLIT rights-inheritance change (child budget gets full delegable rights); spawn_el0 does a SPLIT + retype per iteration | real, small; the step lands at the cap-shell merge (1.61M to 1.75M) |
 | null_syscall | +7.0% | one-step at the blk-write/iommu merges, then flat; kernel layout/codegen drift in the syscall entry path, not a redesign | codegen drift, in the build-to-build drift documented above |

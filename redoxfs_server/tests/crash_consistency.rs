@@ -245,33 +245,36 @@ fn record_workload() -> Recorded {
         Server::open(BlockDisk(Recording::new(pristine.clone()))).expect("mount the fixture");
 
     let mut states = vec![snapshot(&mut srv).expect("snapshot the mounted fixture")];
-    let mark = |srv: &mut Server<_>, states: &mut Vec<State>, op: u32| {
-        states.push(snapshot(srv).unwrap_or_else(|e| panic!("snapshot after op {op}: {e:?}")));
+    let mark = |srv: &mut Server<_>, states: &mut Vec<State>, operation: u32| {
+        states.push(
+            snapshot(srv).unwrap_or_else(|e| panic!("snapshot after operation {operation}: {e:?}")),
+        );
     };
     let big = tagged(b'5', 160 * 1024);
 
     let h = srv.open_file("scratch").expect("open scratch");
-    srv.write(h, 0, &tagged(b'1', 64)).expect("op 1");
+    srv.write(h, 0, &tagged(b'1', 64)).expect("operation 1");
     mark(&mut srv, &mut states, 1);
-    srv.write(h, 0, &tagged(b'2', 61)).expect("op 2");
+    srv.write(h, 0, &tagged(b'2', 61)).expect("operation 2");
     mark(&mut srv, &mut states, 2);
-    srv.truncate(h, 61).expect("op 3");
+    srv.truncate(h, 61).expect("operation 3");
     mark(&mut srv, &mut states, 3);
 
-    let g = srv.create_file("made").expect("op 4");
+    let g = srv.create_file("made").expect("operation 4");
     mark(&mut srv, &mut states, 4);
-    srv.write(g, 0, &big).expect("op 5");
+    srv.write(g, 0, &big).expect("operation 5");
     mark(&mut srv, &mut states, 5);
-    srv.truncate(g, 100 * 1024).expect("op 6");
+    srv.truncate(g, 100 * 1024).expect("operation 6");
     mark(&mut srv, &mut states, 6);
 
-    srv.write(h, 0, &tagged(b'7', 200)).expect("op 7");
+    srv.write(h, 0, &tagged(b'7', 200)).expect("operation 7");
     mark(&mut srv, &mut states, 7);
 
     // The rename: `made` becomes `renamed`, both of which `snapshot` reads, so a recovery that
     // found the file under both names or under neither is a state that never existed.
     let root = filesystem_protocol::fs::ROOT as u32;
-    srv.rename(root, "made", root, "renamed").expect("op 8");
+    srv.rename(root, "made", root, "renamed")
+        .expect("operation 8");
     mark(&mut srv, &mut states, 8);
 
     // Operations 9 to 12 are the attribute ones (milestone 57). They are interleaved with a write
@@ -290,14 +293,15 @@ fn record_workload() -> Recorded {
         filesystem_protocol::xattr::RAW,
         b"0x20",
     )
-    .expect("op 9");
+    .expect("operation 9");
     mark(&mut srv, &mut states, 9);
-    srv.write(h, 0, &tagged(b'a', 300)).expect("op 10");
+    srv.write(h, 0, &tagged(b'a', 300)).expect("operation 10");
     mark(&mut srv, &mut states, 10);
     srv.set_xattr(h, b"user.com.apple.FinderInfo", 0x4353_5452, &[7u8; 32])
-        .expect("op 11");
+        .expect("operation 11");
     mark(&mut srv, &mut states, 11);
-    srv.remove_xattr(h, b"user.DOSATTRIB").expect("op 12");
+    srv.remove_xattr(h, b"user.DOSATTRIB")
+        .expect("operation 12");
     mark(&mut srv, &mut states, 12);
 
     // Sanity on the workload itself, so a test that silently stopped exercising anything fails here

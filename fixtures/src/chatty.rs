@@ -28,7 +28,7 @@
 //!
 //! It is endowed with exactly the client's capabilities, including a real, working capability to
 //! the stable endpoint. If endpoint-only naming meant "whoever holds the endpoint is the server",
-//! it would be able to park itself in `RECV_CAP` and take the client's requests. It cannot: its
+//! it would be able to park itself in `RECEIVE_CAP` and take the client's requests. It cannot: its
 //! capability carries `WRITE` and not `READ`, and the same object handed out with different rights
 //! is a one-way pipe in whichever direction each holder was trusted with. It reports the refusal.
 //!
@@ -99,7 +99,7 @@ fn converse() -> ! {
     let mut changed_at = 0u64;
 
     for seq in 0..swap_protocol::REQUESTS {
-        let (mut got, mut tag) = call(SVC, swap_protocol::OP_PUT, seq);
+        let (mut got, mut tag) = call(SVC, swap_protocol::OPERATION_PUT, seq);
 
         // **We were stranded inside this call, and the thing that stranded us let go** (milestone
         // 23's hung-component channel). A component took this request and then stopped answering
@@ -113,7 +113,7 @@ fn converse() -> ! {
         // channels this value never arrives and this branch is dead.
         if got == swap_protocol::WEDGE_RELEASED {
             bits |= ck::WAS_RELEASED;
-            let again = call(SVC, swap_protocol::OP_PUT, seq);
+            let again = call(SVC, swap_protocol::OPERATION_PUT, seq);
             got = again.0;
             tag = again.1;
         }
@@ -175,7 +175,7 @@ fn produce() -> ! {
     let mut buffered = 0u64;
 
     for seq in 0..swap_protocol::REQUESTS {
-        let (got, tag) = call(SVC, swap_protocol::OP_PUT, seq);
+        let (got, tag) = call(SVC, swap_protocol::OPERATION_PUT, seq);
         match got {
             swap_protocol::ACCEPTED => {
                 buffered += 1;
@@ -205,7 +205,7 @@ fn produce() -> ! {
 
 /// **The attacker.** It tries to become the server on the endpoint it is a client of.
 fn usurp() -> ! {
-    let r = swap_protocol::try_recv_cap(SVC);
+    let r = swap_protocol::try_receive_cap(SVC);
     // A success here is the catastrophe: it means the attacker is now parked in the queue the real
     // component receives on, and the next client request goes to it. Report the code either way and
     // let the test decide; a program that judged its own attack would be judging itself.
@@ -213,7 +213,7 @@ fn usurp() -> ! {
         RPT,
         swap_protocol::RPT_ATTACK,
         (-r) as u64,
-        abi::rendezvous::RECV_CAP,
+        abi::rendezvous::RECEIVE_CAP,
     );
     // Also say so on the operator's channel, so the operator knows the attack has been made and the
     // run is not simply missing a report.

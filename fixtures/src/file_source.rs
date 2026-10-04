@@ -34,7 +34,7 @@
 //! let (source, report) = fs_service::start_file_source(blk, fs_server, image).unwrap();
 //! let out = spawn_wc(source);              // wc holds one endpoint and nothing else
 //! assert_eq!(wc_counts(out), piped);       // the same answer it gave for a pipe
-//! assert_eq!(ipc_recv(report)[0], fixture::DONE);
+//! assert_eq!(ipc_receive(report)[0], fixture::DONE);
 //! ```
 //!
 //! # BUGS

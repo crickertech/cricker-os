@@ -16,84 +16,84 @@ the machine down. No remote attacker, no crypto, single core, runs under QEMU or
 
 The core boundaries are sound, and the review confirmed each with reasoning rather than assertion:
 
-- **The capability boundary.** No method is invocable without its rights (SEND needs WRITE, RECV
+- The capability boundary. No method is invocable without its rights (SEND needs WRITE, RECEIVE
   needs READ, `Untyped MAP` needs WRITE, `Irq` needs READ). Userspace only ever names a capability
   *slot*, which `CapabilityTable::get` bounds-checks; the object index inside (endpoint id, untyped region,
   intid) always comes from a kernel-minted capability, never a user register. Rights cannot widen,
   and delegation is not even exposed to userspace yet. No process can reach another's CapabilityTable,
   mailbox, or endpoints.
-- **The MMU.** Every `user_*` page-flag has correct AP/PXN/UXN bits; W^X holds as a *type
+- The MMU. Every `user_*` page-flag has correct AP/PXN/UXN bits; W^X holds as a *type
   invariant* (there is no writable-and-executable constructor, proved over all of them by a test).
   EL0 cannot name, read, write, or execute any kernel high-half address. `map_physical`
   (arbitrary-physical mapping) is not reachable from EL0; the only user mapping path is
   `Untyped MAP`, which is confined to the process's own budget and own low half.
-- **TLB discipline.** Stack VAs and address spaces are flushed on reuse, so a new owner cannot read
+- TLB discipline. Stack VAs and address spaces are flushed on reuse, so a new owner cannot read
   a dead owner's data.
-- **The scheduler and locks.** No third instance of the two bugs milestone 9 fixed (interrupt
+- The scheduler and locks. No third instance of the two bugs milestone 9 (A virtio-blk driver at EL0, and an interrupt) fixed (interrupt
   restored under the lock; no idle thread). `HELD_RANK` is `NONE` at every `switch_to`; IPC
   blocking races, IRQ re-entrancy, and the untyped-MAP TOCTOU all check out on single core.
-- **The loaders and parsers.** ELF file-bounds and header-table math are `checked_*`; `.bss` is
+- The loaders and parsers. ELF file-bounds and header-table math are `checked_*`; `.bss` is
   genuinely zeroed; the "load over the kernel" attack is refused by construction (`Half::Low`); the
   device-tree parser reads every field through bounds-checked accessors and cannot be made to loop
   or read out of bounds.
 
 ## What was wrong, and is now fixed
 
-**1. A crafted ELF could panic the kernel (`crates/elf`).** The parser checked `p_offset +
+1. A crafted ELF could panic the kernel (`crates/elf`). The parser checked `p_offset +
 p_filesz` and `memsz >= filesz` but never `p_vaddr + p_memsz`. A segment with `memsz` near
 `u64::MAX` passed validation, then overflowed the entry-in-segment check and `page_range`. With
-overflow-checks on (the shipping dev profile) that is a **panic**, i.e. a hostile initrd halting
+overflow-checks on (the shipping dev profile) that is a panic, i.e. a hostile initrd halting
 the kernel, which is precisely the denial of service the ELF crate exists to prevent. Fixed with a
 `checked_add` on `vaddr + memsz` (new `Error::AddressOverflow`), saturating arithmetic in the
 `pub` `page_range`, and two tests (`u64::MAX` memsz, and 65-header count). Also capped the program
 header count (`MAX_PHNUM = 64`), because 65535 headers turned the O(n²) overlap check into a
 multi-second stall.
 
-**2. A spawn flood could panic the kernel (`shell_service`).** The process service did
+2. A spawn flood could panic the kernel (`shell_service`). The process service did
 `.expect(...)` on `sched::spawn`, so once memory was tight, out-of-memory became a kernel panic.
 Now it degrades: a failed spawn returns a sentinel result to the shell ("could not spawn a
 process") and the service keeps serving. Per-process spawn *quotas* are the real fix and are
 deferred with untyped kernel objects; not turning OOM into a panic is the cheap, honest hardening.
 
-**3. A failed `Untyped MAP` silently burned the process's own budget.** The syscall retyped a page
+3. A failed `Untyped MAP` silently burned the process's own budget. The syscall retyped a page
 before attempting the map, so a bad `va` (misaligned, or high-half) spent a page for nothing. Now
 those cheap cases are rejected before any page is retyped. (An already-mapped `va` still costs one
 page, which is process-local and bounded by the untyped, so it is left as-is.)
 
-**4. Stale documentation described defences the code no longer has.** Comments still pointed at
+4. Stale documentation described defences the code no longer has. Comments still pointed at
 `user_slice` and the confused-deputy `AT S1E0R` reader, which milestone 8 deleted when the console
 left the kernel; a future reader could have believed a pointer path was guarded when there is no
 pointer path at all. Corrected, and the historical `abi::console` methods are marked as such.
 
 ## What is deferred, on purpose, and named honestly
 
-- **DMA confinement: now closed by kernel-mediated validation.** This was the single most severe
+- DMA confinement: now closed by kernel-mediated validation. This was the single most severe
   item: the virtio device is a second bus master doing DMA against raw physical addresses with no
   MMU in front of it, so a hostile driver could point a descriptor at the kernel and the device
   would DMA over it. QEMU `virt` has no IOMMU that covers virtio-mmio, so the fix is software: the
   kernel keeps the two DMA-critical powers (programming the queue's ring addresses and ringing the
-  device) and **validates that every descriptor stays within the driver's own DMA region** before
+  device) and validates that every descriptor stays within the driver's own DMA region before
   the device sees it. The driver drives the device through a `Virtio` capability and can no longer
   aim it anywhere else. A malicious driver pointing a descriptor at the kernel image is now refused
   end to end, and there is a test that proves it (and that the legit block read still works).
   Fault isolation *and* malice isolation now hold. A second audit pass found the in-place check was
-  still bypassable two ways: an **indirect descriptor** aims the device at a table the validator
-  never walked (reachable on QEMU, which offers the feature), and a **packed ring** swaps the format
+  still bypassable two ways: an indirect descriptor aims the device at a table the validator
+  never walked (reachable on QEMU, which offers the feature), and a packed ring swaps the format
   out from under it. Both are now stripped at feature negotiation and refused at validation, with
   unit and end-to-end tests. The residual time-of-check/time-of-use race (the validator read
-  descriptors the driver keeps mapped writable) is now closed too: the device reads a **shadow
-  descriptor ring** in kernel-private memory, filled by a validated copy on each notify, so it never
+  descriptors the driver keeps mapped writable) is now closed too: the device reads a shadow
+  descriptor ring in kernel-private memory, filled by a validated copy on each notify, so it never
   reads a descriptor the driver can mutate after the check. The driver's ABI is unchanged, the
   end-to-end disk read still works through the copy, and a test points a descriptor at the kernel
   after validation and confirms the shadow is untouched. See notes/dma.md.
-- **Per-process resource limits: closed, but not by the mechanism this note used to name.** The
-  spawn-exhaustion vector is bounded because a process spawns out of **its own untyped budget**
-  (§10, §16): the budget is the limit, and retyping enforces it. The per-spawner **quota** in
+- Per-process resource limits: closed, but not by the mechanism this note used to name. The
+  spawn-exhaustion vector is bounded because a process spawns out of its own untyped budget
+  (§10 (process model), §16 (object revocation)): the budget is the limit, and retyping enforces it. The per-spawner quota in
   notes/quotas.md still exists in the kernel but has had no caller since §28 retired the kernel-wired
   shell, which milestone 41 found and recorded there. Read that note as a description of the
   mechanism, not of what is running. What remains unbounded is any kernel object a future syscall
   might create outside the untyped model.
-- **No IPC timeouts and no revocation.** A thread blocked on an endpoint that never gets a peer is
+- No IPC timeouts and no revocation. A thread blocked on an endpoint that never gets a peer is
   never reclaimed. This is the accumulation primitive above, and it is the seL4 depth (capability
   derivation tree, revocation) deliberately parked.
 
@@ -129,8 +129,8 @@ above as current would be wrong about all four:
   harnesses over the aarch64 entry arithmetic. The shadow ring (notes/dma.md) deliberately stays as
   defence in depth. notes/iommu.md carries the honest limits, which are real.
 - **"without resource quotas".** The mechanism exists (`Thread`'s quota slot, returned by ownership
-  rather than by bookkeeping; notes/quotas.md), and `sched::spawn_with_quota` **has no caller
-  today**, so the exhaustion attack this audit named is still reachable. That row moved from
+  rather than by bookkeeping; notes/quotas.md), and `sched::spawn_with_quota` has no caller
+  today, so the exhaustion attack this audit named is still reachable. That row moved from
   "no mechanism" to "a mechanism nobody wired", which is a different piece of work.
 
 The word "learning" was in this paragraph and is removed. The project pivoted from a learning

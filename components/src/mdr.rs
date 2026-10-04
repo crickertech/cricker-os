@@ -101,7 +101,7 @@
 //!   `2 4 24`: two source lines re-flowed into one, plus two bytes of body indent, which is what
 //!   separates a rendered page from silence.
 //! - **No pager, and the reason is authority rather than effort.** Paging needs a keypress, a
-//!   keypress needs `line_editor::proto::OP_READLINE`, and that opcode rides on the terminal
+//!   keypress needs `line_editor::proto::OPERATION_READLINE`, and that opcode rides on the terminal
 //!   endpoint whose read side *is* the keyboard. The spawn protocol has no way to hand a child the
 //!   right to read one line without handing it the terminal, which is the exact thing
 //!   `terminal_sink_caretaker` exists to prevent. So a long page scrolls off, and the fix is a
@@ -123,7 +123,7 @@
 #![no_main]
 
 use documentation::{Renderer, Sink, Style};
-use user_mode_runtime::{exit, recv, send};
+use user_mode_runtime::{exit, receive, send};
 
 /// The output sink: where the rendered bytes go, in the sink contract's framing.
 const SINK: u64 = 0;
@@ -152,7 +152,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
 
     let mut out = Out::default();
     loop {
-        let (w0, w1, w2) = recv(SOURCE);
+        let (w0, w1, w2) = receive(SOURCE);
         let mut buf = [0u8; byte_sink_protocol::INLINE_MAX];
         let n = match byte_sink_protocol::unpack(w0, w1, w2, &mut buf) {
             byte_sink_protocol::Msg::Bytes(n) => n,

@@ -183,45 +183,45 @@ pub mod record {
 /// endpoint through the unbadged capability, which only the minter holds: the service reads a
 /// badge-0 message as control and nothing else can produce one.
 ///
-/// Every control word is `op << 56 | field << 40 | arg << 32 | badge`, a badge in the low 32 bits.
+/// Every control word is `operation << 56 | field << 40 | arg << 32 | badge`, a badge in the low 32 bits.
 /// The opcodes start at 0x10 so none is a byte-sink opcode, which keeps "a writer's bytes" and "the
 /// spawner's word about a writer" distinct on one endpoint even before the badge is looked at.
 pub mod control {
     /// **Name a badge's program or user.** `arg` is the chunk (0 or 1), `field` is [`PROGRAM`] or
     /// [`USER`], and `w1`/`w2` carry sixteen bytes of the name, NUL-padded. Chunk 0 resets the
     /// field, so a re-registration cannot leave a stale tail. [`name_messages`] builds them.
-    pub const OP_NAME: u64 = 0x10;
+    pub const OPERATION_NAME: u64 = 0x10;
     /// **Set a writer badge's inferred severity**: `arg` is the syslog level a line gets when its
     /// writer set none. A spawner sends [`crate::severity::WARNING`] for a declared diagnostics
     /// stream and nothing (the default, [`crate::severity::INFO`]) for ordinary output.
-    pub const OP_STREAM: u64 = 0x11;
+    pub const OPERATION_STREAM: u64 = 0x11;
     /// **Make a badge a reader**: `arg` is its window (0 to the service's window count minus 1),
     /// and `field` is [`SCOPE_SYSTEM`] (every record) or [`SCOPE_USER`] (only records stamped with
     /// this badge's own registered user). The spawner decides which, because the per-user read is
     /// a lesser authority than the system read (§242, Question 2).
-    pub const OP_READER: u64 = 0x12;
+    pub const OPERATION_READER: u64 = 0x12;
     /// **Forget a badge**: its process is gone. Records already stamped keep its names; a later
     /// message on the badge is from nobody the service knows.
-    pub const OP_FORGET: u64 = 0x13;
+    pub const OPERATION_FORGET: u64 = 0x13;
 
-    /// [`OP_NAME`]'s field: the program.
+    /// [`OPERATION_NAME`]'s field: the program.
     pub const PROGRAM: u64 = 0;
-    /// [`OP_NAME`]'s field: the user.
+    /// [`OPERATION_NAME`]'s field: the user.
     pub const USER: u64 = 1;
-    /// [`OP_READER`]'s field: the system read.
+    /// [`OPERATION_READER`]'s field: the system read.
     pub const SCOPE_SYSTEM: u64 = 1;
-    /// [`OP_READER`]'s field: the per-user read.
+    /// [`OPERATION_READER`]'s field: the per-user read.
     pub const SCOPE_USER: u64 = 0;
 
     /// The longest name a registration carries: two chunks of sixteen.
     pub const NAME_MAX: usize = 32;
 
     /// A control word.
-    pub const fn word(op: u64, field: u64, arg: u64, badge: u32) -> u64 {
-        (op << 56) | ((field & 0xff) << 40) | ((arg & 0xff) << 32) | badge as u64
+    pub const fn word(operation: u64, field: u64, arg: u64, badge: u32) -> u64 {
+        (operation << 56) | ((field & 0xff) << 40) | ((arg & 0xff) << 32) | badge as u64
     }
 
-    /// A control word's `(op, field, arg, badge)`.
+    /// A control word's `(operation, field, arg, badge)`.
     pub const fn fields(w0: u64) -> (u64, u64, u64, u32) {
         (
             w0 >> 56,
@@ -236,7 +236,7 @@ pub mod control {
         badge != 0 && badge <= u32::MAX as u64
     }
 
-    /// The [`OP_NAME`] messages naming `badge`'s `field` as `name` (cut at [`NAME_MAX`]): one when
+    /// The [`OPERATION_NAME`] messages naming `badge`'s `field` as `name` (cut at [`NAME_MAX`]): one when
     /// it fits in sixteen bytes, two otherwise. Unused entries are `None`.
     pub fn name_messages(badge: u32, field: u64, name: &[u8]) -> [Option<(u64, u64, u64)>; 2] {
         let name = &name[..name.len().min(NAME_MAX)];
@@ -250,7 +250,7 @@ pub mod control {
             lo.copy_from_slice(&b[..8]);
             hi.copy_from_slice(&b[8..]);
             (
-                word(OP_NAME, field, i as u64, badge),
+                word(OPERATION_NAME, field, i as u64, badge),
                 u64::from_le_bytes(lo),
                 u64::from_le_bytes(hi),
             )
@@ -266,7 +266,7 @@ pub mod control {
     }
 }
 
-/// **How a reader reads.** The reader `SEND`s [`read::OP_READ`] with a cursor on the intake
+/// **How a reader reads.** The reader `SEND`s [`read::OPERATION_READ`] with a cursor on the intake
 /// endpoint through its own badged copy; the service fills that badge's window with whole JSONL
 /// lines and signals the reader's notification. The reader waits on the notification, never the
 /// service on the reader: a reader that stops reading cannot hold up a writer (§242's "dropping
@@ -283,7 +283,7 @@ pub mod control {
 pub mod read {
     /// A read request's opcode, in the first word's top byte; the cursor rides in the second word.
     /// A cursor is a sequence number: the first record wanted. 0 asks for everything still held.
-    pub const OP_READ: u64 = 0x20;
+    pub const OPERATION_READ: u64 = 0x20;
 
     /// The window's size: one page.
     pub const WINDOW_BYTES: usize = 4096;
@@ -310,7 +310,7 @@ pub mod read {
 
     /// The first word of a read request.
     pub const fn request() -> u64 {
-        OP_READ << 56
+        OPERATION_READ << 56
     }
 
     /// Write a window's header.
@@ -570,7 +570,7 @@ pub mod kernel_ring {
 /// drive one UART from two address spaces)): how a kernel line reaches the terminal whole.
 ///
 /// The log service `SEND`s a kernel line to the console's request endpoint in sixteen-byte chunks,
-/// each first word [`OP_KERNEL_LINE`](console::OP_KERNEL_LINE) with the count in the low bits, the
+/// each first word [`OPERATION_KERNEL_LINE`](console::OPERATION_KERNEL_LINE) with the count in the low bits, the
 /// byte-sink packing with a different opcode. The console's own client sends a byte count there,
 /// which never has a top byte, so the two are told apart by the word alone, and the console never
 /// acknowledges a kernel chunk (its acknowledgement belongs to the client that is waiting for it).
@@ -578,23 +578,23 @@ pub mod kernel_ring {
 /// [`Inserter`](console::Inserter) is what the console does with them, and the reason the splice
 /// cannot happen: a kernel line is written only at the start of a terminal line. Arriving mid-line
 /// (a prompt, an echo being typed) it is queued, and goes out the moment the terminal's own writing
-/// reaches a line end. If none comes, the log service sends [`OP_FLUSH`](console::OP_FLUSH) after a
+/// reaches a line end. If none comes, the log service sends [`OPERATION_FLUSH`](console::OPERATION_FLUSH) after a
 /// short wait, and the console puts the queued lines on a line of their own and redraws the partial
 /// line under them.
 pub mod console {
-    /// A chunk of a kernel line: `OP_KERNEL_LINE << 56 | count`, bytes in the next two words.
-    pub const OP_KERNEL_LINE: u64 = 0x4b;
+    /// A chunk of a kernel line: `OPERATION_KERNEL_LINE << 56 | count`, bytes in the next two words.
+    pub const OPERATION_KERNEL_LINE: u64 = 0x4b;
     /// Write whatever kernel lines are queued now, redrawing the partial line beneath them.
-    pub const OP_FLUSH: u64 = 0x46;
+    pub const OPERATION_FLUSH: u64 = 0x46;
 
     /// The opcode in a request word, 0 for the console's own client's byte counts.
-    pub const fn op(w0: u64) -> u64 {
+    pub const fn operation(w0: u64) -> u64 {
         w0 >> 56
     }
 
     /// The first word of a kernel chunk carrying `n` bytes.
     pub const fn chunk(n: usize) -> u64 {
-        (OP_KERNEL_LINE << 56) | n as u64
+        (OPERATION_KERNEL_LINE << 56) | n as u64
     }
 
     /// The longest kernel line the console assembles before writing it as cut.
@@ -770,19 +770,32 @@ mod tests {
     /// word about a writer are distinct on the wire before anyone looks at the badge.
     #[test]
     fn control_opcodes_are_not_byte_sink_opcodes() {
-        for op in [
-            control::OP_NAME,
-            control::OP_STREAM,
-            control::OP_READER,
-            control::OP_FORGET,
-            read::OP_READ,
+        for operation in [
+            control::OPERATION_NAME,
+            control::OPERATION_STREAM,
+            control::OPERATION_READER,
+            control::OPERATION_FORGET,
+            read::OPERATION_READ,
         ] {
-            assert!(op > 1, "opcode {op:#x} collides with OP_BYTES or OP_EOF");
+            assert!(
+                operation > 1,
+                "opcode {operation:#x} collides with OPERATION_BYTES or OPERATION_EOF"
+            );
         }
-        let w = control::word(control::OP_READER, control::SCOPE_SYSTEM, 3, 0xdead_beef);
+        let w = control::word(
+            control::OPERATION_READER,
+            control::SCOPE_SYSTEM,
+            3,
+            0xdead_beef,
+        );
         assert_eq!(
             control::fields(w),
-            (control::OP_READER, control::SCOPE_SYSTEM, 3, 0xdead_beef)
+            (
+                control::OPERATION_READER,
+                control::SCOPE_SYSTEM,
+                3,
+                0xdead_beef
+            )
         );
         assert!(!control::badge_fits(0));
         assert!(!control::badge_fits(1 << 32));
@@ -798,13 +811,16 @@ mod tests {
         let (w0, w1, _) = short[0].unwrap();
         assert_eq!(
             control::fields(w0),
-            (control::OP_NAME, control::PROGRAM, 0, 5)
+            (control::OPERATION_NAME, control::PROGRAM, 0, 5)
         );
         assert_eq!(&w1.to_le_bytes()[..3], b"wc\0");
 
         let long = control::name_messages(5, control::USER, b"sink_transcript_writer");
         let (w0, w1, w2) = long[1].unwrap();
-        assert_eq!(control::fields(w0), (control::OP_NAME, control::USER, 1, 5));
+        assert_eq!(
+            control::fields(w0),
+            (control::OPERATION_NAME, control::USER, 1, 5)
+        );
         assert_eq!(&w1.to_le_bytes()[..6], b"writer");
         assert_eq!(w2, 0);
     }
@@ -945,5 +961,60 @@ mod tests {
         assert_eq!(text.len(), long.len());
         assert_eq!(t.iter().filter(|&&b| b == b'\n').count(), 2);
         assert!(t.windows(2).all(|w| w[1] != b'\n' || w[0] == b'\r'));
+    }
+
+    /// The sizes the notes quote: a record is at most 256 bytes (Zircon's), a window's data is its
+    /// page less the 16-byte header, and the four flag bits are the four low bits.
+    #[test]
+    fn the_quoted_sizes_and_flag_bits_are_what_the_notes_say() {
+        assert_eq!(record::RECORD_MAX, 256);
+        assert_eq!(read::DATA_MAX, 4080);
+        assert_eq!(record::flags::KERNEL, 1);
+        assert_eq!(record::flags::DROPPED_BEFORE, 2);
+        assert_eq!(record::flags::CUT, 4);
+        assert_eq!(record::flags::DIRECT, 8);
+    }
+
+    /// Severity 7 is the last level syslog has: accepted, and 8 is refused.
+    #[test]
+    fn the_last_syslog_level_is_accepted_and_the_next_is_refused() {
+        let h = record::Header {
+            seq: 1,
+            time: 2,
+            source: 3,
+            severity: 7,
+            flags: 0,
+            len: 0,
+            kind: 0,
+        };
+        let mut b = h.encode();
+        assert_eq!(record::Header::decode(&b), Some(h));
+        b[24] = 8;
+        assert_eq!(record::Header::decode(&b), None);
+    }
+
+    /// A name of sixteen bytes is one message and seventeen is two: the second chunk carries only
+    /// what spills past sixteen.
+    #[test]
+    fn a_name_of_sixteen_bytes_is_one_message_and_seventeen_is_two() {
+        let sixteen = control::name_messages(5, control::USER, &[b'a'; 16]);
+        assert!(sixteen[0].is_some() && sixteen[1].is_none());
+        let seventeen = control::name_messages(5, control::USER, &[b'a'; 17]);
+        let (word, ..) = seventeen[1].expect("a second chunk");
+        assert_eq!(
+            control::fields(word),
+            (control::OPERATION_NAME, control::USER, 1, 5)
+        );
+        assert_eq!(
+            seventeen[1].unwrap().1,
+            u64::from_le_bytes(*b"a\0\0\0\0\0\0\0")
+        );
+    }
+
+    /// A read request carries its opcode in the top byte and nothing else.
+    #[test]
+    fn a_read_request_is_the_opcode_in_the_top_byte_alone() {
+        assert_eq!(read::request() >> 56, read::OPERATION_READ);
+        assert_eq!(read::request() & ((1 << 56) - 1), 0);
     }
 }

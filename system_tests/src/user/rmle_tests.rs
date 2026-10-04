@@ -27,7 +27,7 @@ fn type_text(term: sched::RendezvousId, text: &[u8]) {
         for (i, &b) in chunk.iter().enumerate() {
             w1 |= (b as u64) << (8 * i);
         }
-        let w0 = line_editor::proto::req(line_editor::proto::OP_BYTES, chunk.len() as u64);
+        let w0 = line_editor::proto::req(line_editor::proto::OPERATION_BYTES, chunk.len() as u64);
         sched::ipc_call(term, [w0, w1]);
     }
 }
@@ -125,7 +125,7 @@ fn rmle_edits_and_saves_a_real_file() {
     );
 
     type_text(w.term, &[CTRL_Q]);
-    let [status, dirty, ..] = sched::ipc_recv(w.report);
+    let [status, dirty, ..] = sched::ipc_receive(w.report);
     assert_eq!(
         status, 1, /* STATUS_QUIT */
         "rmle did not quit cleanly"
@@ -168,7 +168,7 @@ fn rmle_refuses_to_quit_dirty_without_confirmation() {
     );
 
     type_text(w.term, &[CTRL_Q]);
-    let [status, dirty, ..] = sched::ipc_recv(w.report);
+    let [status, dirty, ..] = sched::ipc_receive(w.report);
     assert_eq!(status, 1 /* STATUS_QUIT */, "the second ^Q must quit");
     assert_eq!(
         dirty, 1,

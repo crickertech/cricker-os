@@ -68,11 +68,11 @@ writes `Blocked`:
 
 | `WaitRole` | Where the TCB is linked | Reached by |
 |---|---|---|
-| `Sender` | the endpoint's sender `Fifo` | `Endpoint::recv`, `drain_waiters`, `remove_sender` |
+| `Sender` | the endpoint's sender `Fifo` | `Endpoint::receive`, `drain_waiters`, `remove_sender` |
 | `Receiver` | the endpoint's receiver `Fifo` | `Endpoint::send`, `Endpoint::signal`, `drain_waiters` |
 | `Reply` | no queue at all | `sched::ipc_reply`, addressed by tid |
 
-There is no fourth. An `Irq::WAIT` is `sched::ipc_recv` on a routed endpoint, so it is a `Receiver`.
+There is no fourth. An `Irq::WAIT` is `sched::ipc_receive` on a routed endpoint, so it is a `Receiver`.
 `handshake.wait_on` carries `(EpId, WaitRole)` and `endpoint_of` resolves the `EpId`, so from a bare
 `Tid` the kernel can say exactly which queue, if any, holds that thread.
 
@@ -561,14 +561,14 @@ expresses the right to end a blocked thread, and there are four candidate answer
 consequences.
 
 Milestone 126 (procps) set the frame. A domain names its members and does not act on them, with
-`Rights::ENUMERATE` separating looking from acting, and `SURVEY` taking `ENUMERATE` while `RECV` and
+`Rights::ENUMERATE` separating looking from acting, and `SURVEY` taking `ENUMERATE` while `RECEIVE` and
 `REAP` take `READ`. Any answer here has to say which side of that line it falls on.
 
 | Candidate | Who holds it today | What it already authorizes | What ending a blocked thread would add |
 |---|---|---|---|
 | The region capability (`Untyped`) | the builder | `DESTROY`: reclaim the region and everything retyped from it | nothing new. `DESTROY` already commits to ending every resident; it just cannot finish |
 | The `ThreadControlBlock` capability | the builder, during construction | configure, endow, start | a lifetime handle where there is now a construction tool. seL4's answer |
-| The supervision endpoint (`READ`) | the supervisor | `RECV` a death message, `REAP` a corpse | the "stronger right" §32 declined, and the hung-component note showed it is insufficient for case (c) anyway |
+| The supervision endpoint (`READ`) | the supervisor | `RECEIVE` a death message, `REAP` a corpse | the "stronger right" §32 declined, and the hung-component note showed it is insufficient for case (c) anyway |
 | A new right (`Rights::TERMINATE`) | nobody | nothing | a fifth bit; `Rights::ALL` is `0b1111` today, so this is an ABI change to `abi::rights` |
 
 Three observations, offered as analysis rather than as a verdict.

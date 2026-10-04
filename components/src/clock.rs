@@ -1,7 +1,7 @@
 //! **The clock service** (milestone 51 lane A; DECISIONS §43, notes/clock.md).
 //!
 //! The one process that owns the real-time clock's registers and the wall clock's offset. Its
-//! entire authority is four things placed before it ran: the propose endpoint (slot 0, RECV), a
+//! entire authority is four things placed before it ran: the propose endpoint (slot 0, RECEIVE), a
 //! report endpoint (slot 1, WRITE, for whoever wired it), the **clock page** mapped read/write, and
 //! the **RTC's registers** as a device mapping. No initrd, no budget, no network, nothing it could
 //! build anything with. A compromised clock service is a machine that believes the wrong time,
@@ -58,9 +58,9 @@
 #![no_main]
 
 use clock_protocol::{ClockPage, policy, propose, rtc, state, status};
-use user_mode_runtime::{cntfrq, now, recv_request, reply, send};
+use user_mode_runtime::{cntfrq, now, receive_request, reply, send};
 
-/// The propose endpoint (slot 0): the service RECVs proposals on it. Everything that arrives here
+/// The propose endpoint (slot 0): the service receives proposals on it. Everything that arrives here
 /// is a request, never a command.
 const PROPOSE_EP: u64 = 0;
 /// The report endpoint (slot 1): one message at startup saying what the machine knows. Optional;
@@ -107,7 +107,7 @@ pub extern "C" fn _start(rtc_kind: u64, rtc_seed: u64, _a2: u64) -> ! {
 /// The serve loop: one endpoint, one wait point, forever.
 fn serve(page: ClockPage) -> ! {
     loop {
-        let req = recv_request(PROPOSE_EP);
+        let req = receive_request(PROPOSE_EP);
         let (w0, w1) = (req.w0, req.w1);
         let Some(cap) = req.delivered.into_reply() else {
             // A plain SEND, or a SEND_CAP, on a CALL-only contract. Nobody is waiting for an
@@ -116,7 +116,7 @@ fn serve(page: ClockPage) -> ! {
             // delegation)) rather than replying into a slot that is not a Reply.
             continue;
         };
-        match propose::op(w0) {
+        match propose::operation(w0) {
             propose::PROPOSE => {
                 let r = page.read();
                 let current = wall_now(&page);

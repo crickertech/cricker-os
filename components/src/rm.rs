@@ -359,14 +359,14 @@ fn text(bytes: &[u8]) {
 /// terminator of its own.
 ///
 /// This program's manifest declares [`grant_plan::OutputSpec::Bytes`], which is the sink contract:
-/// self-framing byte messages ending in `OP_EOF`. [`text`] always produced them, and the verdict
+/// self-framing byte messages ending in `OPERATION_EOF`. [`text`] always produced them, and the verdict
 /// used to be `filesystem_protocol::fixture::VERDICT`, a word that contract has no meaning for. Under the guest
 /// wiring the reader was a test that knew to look for it; at the real prompt the reader is the shell,
 /// which reads the same three words through `byte_sink_protocol::unpack` and would have called it malformed.
 /// So `rm -rv logs | wc` had never been expressible, and the declaration and the program disagreed
 /// with nothing to notice. Found while wiring milestone 31 phase 3, 2026-08-17.
 ///
-/// The verdict is not lost: `OP_EOF` uses only the first word, so the status and the count ride in
+/// The verdict is not lost: `OPERATION_EOF` uses only the first word, so the status and the count ride in
 /// the two the contract leaves free. Every reader that wants them takes them off the message that
 /// ends the stream, which is also the only message that can carry a status without racing the text.
 fn verdict(status: u64, count: u64) {

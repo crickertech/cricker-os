@@ -15,12 +15,12 @@
 //!
 //! ```text
 //!   arm 0 (a keyboard came):
-//!     keyboard_driver ──OP_BYTES──► line_editor ──OP_WRITE──► display_terminal ──► screen
+//!     keyboard_driver ──OPERATION_BYTES──► line_editor ──OPERATION_WRITE──► display_terminal ──► screen
 //!            this program ◄──lines── (slot 2)     (slot 1 == slot 2's server)
 //!
 //!   arm 1 (no keyboard; the UART is the keystroke source):
-//!     boot input ──OP_BYTES──► boot line_editor ◄──OP_READRAW── this program
-//!            this program ──OP_WRITE──► display_terminal ──► screen
+//!     boot input ──OPERATION_BYTES──► boot line_editor ◄──OPERATION_READRAW── this program
+//!            this program ──OPERATION_WRITE──► display_terminal ──► screen
 //! ```
 //!
 //! Arm 1 is the shell's own §227 (how Tab reaches the shell: the shell edits its own line) shape: raw mode on the boot discipline, register-only reads,
@@ -54,18 +54,17 @@
 //! takes raw back at its next prompt, which costs that one round trip after every session. A
 //! session the kernel killed skips even that, and the same recovery covers it.
 //!
-//! **Arm 1 holds the whole boot discipline, not the raw half it uses.** Slot 2 on that arm is the
-//! boot line discipline's own endpoint (`crates/system_initializer`, the spawn service's `term_ep`,
-//! granted with `WRITE`), and the discipline serves every request the same whoever holds the other
-//! end (`components/src/line_editor.rs`, `TERM`). This program sends `OP_RAWMODE` and `OP_READRAW`;
-//! the same capability also answers `OP_BYTES`, `OP_READLINE` and `OP_PRINT`. A compromised
-//! session on this arm can therefore queue bytes the boot shell reads as its next command line
-//! once the session ends, and the shell runs it with the shell's authority (the seven device
-//! capabilities at slots 22 to 28, the spawn service, the filesystem), none of which the session
-//! holds. The kernel confined the session exactly as granted; the grant is wider than the use.
-//! Found by the 2026-10-03 security audit, by reading, not demonstrated under QEMU; the fix is a
-//! badged copy of the endpoint that the discipline answers only `OP_RAWMODE` and `OP_READRAW` on,
-//! proposed in `design/roadmap/709-arm-1-holds-only-the-raw-half-of-the-boot-discipline.md`.
+//! **Arm 1 can still switch the boot discipline's mode under the shell.** Slot 2 on that arm is a
+//! copy of the boot discipline's endpoint badged `line_editor::proto::RAW_ONLY_BADGE` (milestone
+//! 709 (a graphical terminal session on the no-keyboard arm holds only the raw half of the boot
+//! discipline)), which the discipline serves `OPERATION_RAWMODE` and `OPERATION_READRAW` on and nothing else, so
+//! a session can no longer type a line the boot shell reads (`OPERATION_BYTES`), take one (`OPERATION_READLINE`)
+//! or print to the UART. `OPERATION_RAWMODE` is in the half it keeps: a session can flip the discipline
+//! cooked or raw while the shell is between reads, which abandons whatever the shell had half
+//! typed and fails a parked read with `BAD_REQUEST`. The shell's §227 recovery takes raw back on
+//! its next prompt. A disruption, not authority: no byte the session chooses reaches the shell.
+//! Before 709 the copy was unbadged and answered the whole contract; found by the 2026-10-03
+//! security audit, finding 2.
 //!
 //! Name: ratified 2026-10-03 (calef, #1493). Refused `screen` (clashes with `SCREEN_BIT`, the
 //! screen-narrowed tail of §106 (an unredirected tail stage's output goes to the screen, not the
@@ -88,7 +87,7 @@ use user_mode_runtime::{call, exit, send};
 /// The result endpoint: one word when the session ends, the shape every reporting program answers.
 const REPORT: u64 = 0;
 /// **The screen's write endpoint** (slot 1): arm 0's line discipline, arm 1's `display_terminal`.
-/// On either arm the contract is `OP_WRITE` over one page, `line_editor::proto`'s
+/// On either arm the contract is `OPERATION_WRITE` over one page, `line_editor::proto`'s
 /// control-by-message, bulk-by-shared-page split.
 const WRITE: u64 = 1;
 /// **The keystroke endpoint** (slot 2): arm 0's line discipline again (it serves both classes on
@@ -137,7 +136,11 @@ impl Echo {
 
     fn flush(&mut self) {
         if self.used > 0 {
-            call(WRITE, proto::req(proto::OP_WRITE, self.used as u64), 0);
+            call(
+                WRITE,
+                proto::req(proto::OPERATION_WRITE, self.used as u64),
+                0,
+            );
             self.used = 0;
         }
     }
@@ -152,7 +155,7 @@ pub extern "C" fn _start(arm: u64, _a1: u64, _a2: u64) -> ! {
 }
 
 /// **Arm 0: a keyboard came with the gpu, so a line discipline did too.** The discipline does
-/// the terminal's whole job, cooked `OP_READLINE` (milestone 28 (a solid terminal: the line discipline as a component)'s original contract): it paints
+/// the terminal's whole job, cooked `OPERATION_READLINE` (milestone 28 (a solid terminal: the line discipline as a component)'s original contract): it paints
 /// the prompt, echoes each keystroke, moves on enter, and hands this program the completed line,
 /// so this arm's loop is a prompt delivered, a line read, and nothing painted by the program
 /// itself. `quit` and `^C`/EOF (the discipline's flags) are the two ways out.
@@ -163,7 +166,11 @@ fn discipline_arm() -> ! {
         for (i, &b) in PROMPT.iter().enumerate() {
             OUT_WINDOW.w8(i as u64, b);
         }
-        let (len, flags) = call(KEYS, proto::req(proto::OP_READLINE, PROMPT.len() as u64), 0);
+        let (len, flags) = call(
+            KEYS,
+            proto::req(proto::OPERATION_READLINE, PROMPT.len() as u64),
+            0,
+        );
         if flags & (proto::FLAG_EOF | proto::FLAG_INTERRUPTED) != 0 {
             // EOF or `^C`: the session is over either way. The discipline already moved the
             // cursor for the interrupted line's sake; say nothing and end cleanly.
@@ -182,24 +189,24 @@ fn discipline_arm() -> ! {
 }
 
 /// **Arm 1: no keyboard, so the keystrokes are the boot prompt's own, over the UART.** Raw mode
-/// on the boot discipline (`OP_RAWMODE`), register-only reads (`OP_READRAW`), echo painted here:
+/// on the boot discipline (`OPERATION_RAWMODE`), register-only reads (`OPERATION_READRAW`), echo painted here:
 /// the shell's own §227 shape, run against a screen instead of a UART console. The discipline's
 /// cooked-mode echo is bypassed in raw mode, so nothing double-echoes on either surface.
 fn raw_arm() -> ! {
     // The shell keeps the discipline raw at the prompt (§227 option D), so this is usually
     // already the state; asking anyway is what makes the session correct when it is not.
-    call(KEYS, proto::req(proto::OP_RAWMODE, 1), 0);
+    call(KEYS, proto::req(proto::OPERATION_RAWMODE, 1), 0);
     let mut echo = Echo { used: 0 };
     echo.put(PROMPT);
     echo.flush();
     let mut line = [0u8; 4096];
     let mut n = 0usize;
     'session: loop {
-        let (got, packed) = call(KEYS, proto::req(proto::OP_READRAW, 0), 0);
+        let (got, packed) = call(KEYS, proto::req(proto::OPERATION_READRAW, 0), 0);
         if got == proto::BAD_REQUEST {
             // Somebody left the discipline cooked between our reads. Take raw mode back and ask
             // again, the same recovery the shell's own edit loop performs.
-            call(KEYS, proto::req(proto::OP_RAWMODE, 1), 0);
+            call(KEYS, proto::req(proto::OPERATION_RAWMODE, 1), 0);
             continue;
         }
         let got = (got as usize).min(8);
@@ -226,7 +233,7 @@ fn raw_arm() -> ! {
     }
     // Put the boot discipline back the way the prompt found it. A session the kernel killed
     // skips this, and the shell's `BAD_REQUEST` recovery covers it from its side.
-    call(KEYS, proto::req(proto::OP_RAWMODE, 0), 0);
+    call(KEYS, proto::req(proto::OPERATION_RAWMODE, 0), 0);
     end()
 }
 

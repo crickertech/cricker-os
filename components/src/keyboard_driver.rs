@@ -8,7 +8,7 @@
 //!                                                      └──doorbell COMMIT──► "look at the surfaces"
 //!
 //!   MODE_DIRECT (milestone 177, option A: the boot's single-terminal case):
-//!   virtio-input ──virtio──► keyboard_driver ──OP_BYTES, one CALL──► line_editor
+//!   virtio-input ──virtio──► keyboard_driver ──OPERATION_BYTES, one CALL──► line_editor
 //! ```
 //!
 //! # Two modes, chosen at spawn, the same shape `display_terminal`'s `MODE_DISPLAY`/`MODE_WINDOW`
@@ -21,7 +21,7 @@
 //! compositor's focus arbitration solves does not exist in this journey's scope
 //! (design/roadmap/177-graphical-interactive-boot.md's own reasoning). The driver instead holds a
 //! fixed `CALL` capability to `line_editor`'s own served endpoint, granted at spawn, and sends
-//! every keystroke there directly, byte for byte the same [`line_editor::proto::OP_BYTES`] framing
+//! every keystroke there directly, byte for byte the same [`line_editor::proto::OPERATION_BYTES`] framing
 //! `components/src/input.rs`'s UART driver already uses to feed the very same endpoint. **Not** a
 //! security exception to the module note below: it is *narrower* authority than [`MODE_RING`], not
 //! looser, because this driver holds exactly one fixed capability instead of "whichever client the
@@ -217,12 +217,12 @@ fn ring_publish(tail: u32) {
     // matching `fence(SeqCst)`; `drain_input` in components/src/compositor.rs is the half milestone 43's
     // audit found missing (finding 7). The `call(OUT, ...)` this program makes immediately
     // after `ring_publish` orders it against the compositor anyway, because the compositor is
-    // blocked in `recv_cap` on that doorbell. See notes/memory-ordering.md.
+    // blocked in `receive_cap` on that doorbell. See notes/memory-ordering.md.
     core::sync::atomic::fence(core::sync::atomic::Ordering::SeqCst);
     RING.w32(ring::TAIL, tail);
 }
 
-/// **[`MODE_DIRECT`]: send whatever is buffered as one `OP_BYTES` `CALL`.** Byte for byte the
+/// **[`MODE_DIRECT`]: send whatever is buffered as one `OPERATION_BYTES` `CALL`.** Byte for byte the
 /// framing `components/src/input.rs`'s `drain` already uses to feed the same endpoint from the UART side;
 /// a keyboard and a serial line are both "one input source" to `line_editor`, and neither contract
 /// had to grow anything to carry the other's bytes. A no-op if nothing is buffered, so a caller need
@@ -235,7 +235,7 @@ fn direct_send(buf: &[u8], n: &mut usize) {
     for (i, &b) in buf[..*n].iter().enumerate() {
         word |= (b as u64) << (8 * i);
     }
-    call(OUT, proto::req(proto::OP_BYTES, *n as u64), word);
+    call(OUT, proto::req(proto::OPERATION_BYTES, *n as u64), word);
     *n = 0;
 }
 
@@ -326,7 +326,7 @@ pub extern "C" fn _start(mode: u64, _arg1: u64, _arg2: u64) -> ! {
     let mut keys = video_terminal::keymap::Keyboard::new();
     let mut seen: u16 = 0; // used-ring index already drained
     let mut tail: u32 = 0; // our end of the compositor's input ring (MODE_RING)
-    let mut direct_buf = [0u8; 8]; // buffered bytes awaiting one OP_BYTES CALL (MODE_DIRECT)
+    let mut direct_buf = [0u8; 8]; // buffered bytes awaiting one OPERATION_BYTES CALL (MODE_DIRECT)
     let mut direct_n: usize = 0;
     loop {
         irq_wait(IRQ);

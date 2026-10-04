@@ -10,8 +10,8 @@ scheduling. This note follows the code, so its own text now says `IPC_TABLES`; t
 paragraph is the historical pointer for a reader who remembers the old name.*
 
 The scheduler's per-CPU migration (DECISIONS §28) already moved run queues, `current`, and
-held-rank out of shared state. What still lives under the one `IPC_TABLES` lock is the **thread
-table** (and with it every thread's CapabilityTable) and the **endpoint array**. Milestone 17's question is
+held-rank out of shared state. What still lives under the one `IPC_TABLES` lock is the thread
+table (and with it every thread's CapabilityTable) and the endpoint array. Milestone 17 (multikernel-leaning)'s question is
 whether that remainder ever costs enough to justify partitioning it; this note is the denominator
 for that question.
 
@@ -19,7 +19,7 @@ for that question.
 
 | Class | Functions | Why it matters |
 |---|---|---|
-| **Hot: every IPC, every core** | `ipc_send`, `ipc_recv`, `ipc_call`, `ipc_reply`, `ipc_send_cap`, `ipc_recv_cap`, `irq_notify` | The `call_reply` fast path this project benchmarks and wins on takes `IPC_TABLES` at least once per operation. At 4 harts the hold times are short enough not to show; whether that survives 64 harts is THE milestone 17 question |
+| **Hot: every IPC, every core** | `ipc_send`, `ipc_receive`, `ipc_call`, `ipc_reply`, `ipc_send_cap`, `ipc_receive_cap`, `irq_notify` | The `call_reply` fast path this project benchmarks and wins on takes `IPC_TABLES` at least once per operation. At 4 harts the hold times are short enough not to show; whether that survives 64 harts is THE milestone 17 question |
 | **Hot: every reschedule** | `schedule` (twice), `depart` | Runs on the core's own queue, but takes the global lock to touch the thread table |
 | **Warm: per capability operation** | `grant`, `grant_at`, `current_cap`, `delete_current_cap`, `take_ipc_aborted` | CapabilityTables live inside thread-table entries, so a purely thread-local capability lookup pays for the global lock. If partitioning ever happens, this is the piece that partitions for free (a CapabilityTable has exactly one owner) |
 | **Cold: lifecycle** | `create_tcb`, `configure_tcb`, `start_tcb`, `tcb_insert_cap`, `spawn_on`, `spawn_with_quota`, `kill_thread`, `reap_supervised`, `reap_region_objects`, `create_endpoint`, `try_create_endpoint_from`, `adopt_address_space`, `adopt_secondary_idle`, `init` | Dozens per boot, not thousands per second. No plausible contention at any scale this project names |
@@ -45,9 +45,9 @@ Three structural observations survive even before the curve exists:
 
 ## The sequencing, recorded
 
-Milestone 17 stays OPTIONAL and gated on evidence: **milestone 88 provides the machine** (the
-scaling curve at 4/8/16/64 harts is a stated deliverable of its bench stage), and **milestone 80
-provides the method** (any design that replaces this lock with messages wants its protocol born
+Milestone 17 stays OPTIONAL and gated on evidence: milestone 88 (nife on rented silicon) provides the machine (the
+scaling curve at 4/8/16/64 harts is a stated deliverable of its bench stage). Milestone 80 (loom)
+provides the method (any design that replaces this lock with messages wants its protocol born
 loom-checked; the wake-before-switch-out race is the standing proof that SMP interleavings hide
 from this tree's other tools). Until the curve bends, the one lock is the right design, on
 purpose.

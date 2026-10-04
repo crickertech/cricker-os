@@ -24,7 +24,7 @@ The first version converted `ipc_rtt`'s ~705 ns at an assumed 3.2 GHz to ~2,200 
 reported us "4 to 7 times heavier" than an L4-lineage fastpath's 300 to 600. It had three
 independent defects, and they do not point the same way:
 
-1. Wrong plane. `ipc_rtt` is kernel-side: two kernel threads call `sched::ipc_send/recv` directly,
+1. Wrong plane. `ipc_rtt` is kernel-side: two kernel threads call `sched::ipc_send/receive` directly,
    in one address space, taking no trap. L4's published numbers are user-to-user across address
    spaces with the trap included. The benchmark that pays what theirs pays is `ipc_rtt_el0`, which
    existed since the EL0 primitive suite landed; the calibration never followed it. Fixing this
@@ -89,13 +89,13 @@ That is the same class of mistake in the other direction: a debug number in a re
   factor of a tuned fastpath on this silicon", a statement about headroom, not about having matched
   them.
 - Their round trip is two syscalls; the `ipc_rtt_el0` benchmark's is four. seL4 fuses send-and-wait
-  into `Call` and reply-and-wait into `ReplyRecv`. Our benchmark issues `SEND`, `RECV`, `SEND`,
-  `RECV`. At ~27 ns (~110 cycles) per trap, the two extra crossings are ~220 cycles, a sixth to a
+  into `Call` and reply-and-wait into `ReplyRecv`. Our benchmark issues `SEND`, `RECEIVE`, `SEND`,
+  `RECEIVE`. At ~27 ns (~110 cycles) per trap, the two extra crossings are ~220 cycles, a sixth to a
   quarter of our round trip, and self-inflicted rather than structural. The kernel-side
   `call_reply` bench measures the fused shape, but it has no EL0 twin. So the structurally matched
   comparison to seL4's published pair is not measured at all.
   *Corrected 2026-09-04 by milestone 188 (the IPC fastpath): a real service issues `CALL`,
-  `RECV_CAP`, `REPLY`, three syscalls to seL4's two, not four. Four is only `ipc_rtt_el0`'s count.
+  `RECEIVE_CAP`, `REPLY`, three syscalls to seL4's two, not four. Four is only `ipc_rtt_el0`'s count.
   The residual one is the `ReplyRecv` fusion this tree lacks, a syscall-surface question and
   calef's. See [the fastpath footprint appendix](fastpath-footprint-gate.md).*
 - Different measurement methods. seL4 times a single operation through the PMU with the caches hot

@@ -15,7 +15,7 @@
 //! this out of the client's binary and change nothing about what it proves.
 //!
 //! What the pair proves: the socket-contract glue (minting a frame, delegating it, the destination
-//! header, `SENDTO`/`RECV` framing), that the 48 bytes on the wire are a well-formed NTPv4 client
+//! header, `SENDTO`/`RECEIVE` framing), that the 48 bytes on the wire are a well-formed NTPv4 client
 //! packet addressed to port 123, that the nonce is unpredictable, that a reply failing
 //! `Query::accept` moves nothing, and that an accepted sample becomes a *proposal* the clock
 //! service judges.
@@ -69,7 +69,7 @@ use network_time_protocol::{Packet, Short, Timestamp, leap, mode};
 #[allow(dead_code)]
 use socket_protocol::*;
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
-use user_mode_runtime::{Delivered, cap_delete, map_page_frame, recv_request, reply, send};
+use user_mode_runtime::{Delivered, cap_delete, map_page_frame, receive_request, reply, send};
 
 // =================================================================================================
 // The slots, and the one word this program reports.
@@ -113,7 +113,7 @@ const SERVER_TURNAROUND_NANOS: u64 = 1_000;
 /// `socket_protocol`'s.
 const PAGE_FRAME_VA: u64 = address_space_map::pair_page(0x0000_0000_00A0_0000);
 
-// SAFETY: the `OP_ATTACH_PAGE_FRAME` arm below maps one page read/write at PAGE_FRAME_VA, and it is
+// SAFETY: the `OPERATION_ATTACH_PAGE_FRAME` arm below maps one page read/write at PAGE_FRAME_VA, and it is
 // the first request the client makes, before any of `WINDOW`'s accessors are reached (milestone 139).
 const WINDOW: MappedWindow = unsafe { MappedWindow::new(PAGE_FRAME_VA, PAGE) };
 
@@ -131,14 +131,14 @@ fn server(variant: u64, claimed_nanos: u64) -> ! {
     let mut reported = false;
 
     loop {
-        let req = recv_request(STACK);
+        let req = receive_request(STACK);
         let (w0, w1) = (req.w0, req.w1);
         // net_stack's own split (milestone 706 (a `CALL` server can tell a Reply from a
-        // delegation)): ATTACH takes a delegation, every other op a Reply.
+        // delegation)): ATTACH takes a delegation, every other operation a Reply.
         let cap = match req.delivered {
             // A SEND_CAP: the client's shared frame, which we map for ourselves and then drop the
             // capability for, because the mapping outlives it. No reply; nobody is waiting.
-            Delivered::Delegation(frame) if req_op(w0) == OP_ATTACH_PAGE_FRAME => {
+            Delivered::Delegation(frame) if req_operation(w0) == OPERATION_ATTACH_PAGE_FRAME => {
                 map_page_frame(frame, PAGE_FRAME_VA, true, MEMORY_REGION);
                 cap_delete(frame);
                 continue;
@@ -148,11 +148,11 @@ fn server(variant: u64, claimed_nanos: u64) -> ! {
         let Some(cap) = cap else {
             continue;
         };
-        match req_op(w0) {
-            OP_OPEN_UDP | OP_OPEN_TCP => {
+        match req_operation(w0) {
+            OPERATION_OPEN_UDP | OPERATION_OPEN_TCP => {
                 reply(cap, REP_OK, 0);
             }
-            OP_SENDTO => {
+            OPERATION_SENDTO => {
                 // The length the client declared, which is how the real server learns it too.
                 let mut wire = [0u8; network_time_protocol::PACKET_LEN];
                 let n = read_payload(
@@ -173,12 +173,12 @@ fn server(variant: u64, claimed_nanos: u64) -> ! {
                     );
                 }
             }
-            OP_RECV => {
+            OPERATION_RECEIVE => {
                 write_payload(&pending[..pending_len]);
                 w16le(PAGE_FRAME_VA + OFF_LEN, pending_len as u16);
                 reply(cap, pending_len as u64, 0);
             }
-            OP_CLOSE => {
+            OPERATION_CLOSE => {
                 reply(cap, REP_OK, 0);
             }
             _ => {

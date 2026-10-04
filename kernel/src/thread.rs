@@ -43,7 +43,7 @@ pub type ThreadId = u64;
 ///
 ///   - deepest standing path the suite reaches on a thread stack: ~11.7 KiB
 ///     (the high-water report, notes/stack-high-water.md)
-///   - residue of blocking from that depth (`ipc_recv` 656 + `IPC_TABLES.lock` 256 + `schedule` 448
+///   - residue of blocking from that depth (`ipc_receive` 656 + `IPC_TABLES.lock` 256 + `schedule` 448
 ///     + the switch): ~1.4 KiB, resident for as long as the thread stays blocked
 ///   - one preemption landing at the deepest point (trap frame 272 + dispatch + GIC/PLIC claim
 ///     + `canary::check` + `schedule` + a contended `IPC_TABLES.lock` spin): ~2.3 KiB
@@ -297,7 +297,7 @@ pub enum WaitRole {
     /// Parked on an endpoint's sender queue (a `SEND`/`SEND_CAP` with no receiver, or a corpse
     /// holding its death message).
     Sender,
-    /// Parked on an endpoint's receiver queue (a `RECV`/`RECV_CAP` with nothing to take).
+    /// Parked on an endpoint's receiver queue (a `RECEIVE`/`RECEIVE_CAP` with nothing to take).
     Receiver,
     /// A `CALL` caller blocked until `REPLY`; queued as a sender only if no server was waiting.
     Reply,
@@ -468,7 +468,7 @@ pub struct Thread {
     ///
     /// Three words carry ordinary IPC; the extra two exist for the five-word fault/exit message a
     /// dead thread's corpse delivers to its supervisor (DECISIONS §26, abi's `fault` module).
-    /// Ordinary sends leave words 3 and 4 zero, and `RECV` hands all five back, so only a
+    /// Ordinary sends leave words 3 and 4 zero, and `RECEIVE` hands all five back, so only a
     /// supervisor ever reads the top two.
     pub mailbox: [u64; 5],
 
@@ -488,12 +488,12 @@ pub struct Thread {
     pub outgoing_cap: Option<crate::cap::Cap>,
 
     /// **Did the delivery this thread is about to read install a capability?** Set by the paths
-    /// that put one in this thread's table while it was parked in `RECV_CAP` (`ipc_send_cap`,
-    /// `ipc_call_badged`), cleared when it parks there. `ipc_recv_cap` reads it to decide `x1`: a
+    /// that put one in this thread's table while it was parked in `RECEIVE_CAP` (`ipc_send_cap`,
+    /// `ipc_call_badged`), cleared when it parks there. `ipc_receive_cap` reads it to decide `x1`: a
     /// delivery that installed nothing returns `NO_CAP`, never the sender's data word. Without it a
-    /// plain `SEND` that reached a parked `RECV_CAP` receiver left its second word in `x1`, where a
-    /// `CALL` server reads a reply slot (fatal risk 7). See `sched::ipc_recv_cap`.
-    // Added by milestone 634 (a plain SEND received by RECV_CAP never hands the receiver a
+    /// plain `SEND` that reached a parked `RECEIVE_CAP` receiver left its second word in `x1`, where a
+    /// `CALL` server reads a reply slot (fatal risk 7). See `sched::ipc_receive_cap`.
+    // Added by milestone 634 (a plain SEND received by RECEIVE_CAP never hands the receiver a
     // sender-chosen slot).
     pub cap_delivered: bool,
 

@@ -27,11 +27,11 @@ pub enum Object {
     /// An IPC endpoint, by **generational name** (milestone 19a: an endpoint is page-resident,
     /// and this is its `slots` name in the scheduler's registry, stale-safe like a `ThreadId`).
     ///
-    /// Invoking it is a `SEND` or a `RECV` (which one you may do is a matter of rights). Since
+    /// Invoking it is a `SEND` or a `RECEIVE` (which one you may do is a matter of rights). Since
     /// milestone 8 this is how a process reaches the console: it holds a `WRITE` capability on
     /// the console server's endpoint, and printing is sending.
     /// **The second field is the capability's badge** (milestone 599 (a frame per filesystem
-    /// client channel), provisional): a `u64` the kernel delivers to a server's `RECV_CAP` so it
+    /// client channel), provisional): a `u64` the kernel delivers to a server's `RECEIVE_CAP` so it
     /// can tell which of several clients sharing one endpoint made a request. `0` means unbadged,
     /// which every capability is until `abi::rendezvous::BADGE` stamps one, so the 232 sites that
     /// build an endpoint capability through [`rendezvous_cap`] are unchanged. seL4's model: a badge
@@ -370,7 +370,19 @@ pub type CapabilityTable = capability::CapabilityTable<Object, CAPABILITY_TABLE_
 /// two**: the next capability held across a launch buys a slot back or raises
 /// [`CAPABILITY_TABLE_SLOTS`], and that is a decision for whoever adds it, with this paragraph in
 /// front of them.
-pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 30;
+///
+/// **Thirty-one with a gpu and a keyboard** (2026-10-03, UTC, milestone 715 (provisional): the
+/// spawn service holds the display grants, and the shell holds none). The progenitor used to hand
+/// the gpu's four and the keyboard's three to the shell before its login block; it now keeps them
+/// for the life of the boot, so they sit on the login block's peak. Measured on `swish-check`'s
+/// aarch64 leg: the keyboard boot reads 24, 28, 30, 31 before the first prompt (it read 24, then
+/// 30 at the launch, before 715), and the serial arm (gpu, no keyboard) reads 28 (it read 27). A
+/// boot with no gpu is unchanged at 24. **This is the spend that paragraph said is a decision, and
+/// it is recorded here rather than taken quietly**: the headroom is one, on the one configuration
+/// that reaches it, which is QEMU's (argon, radon and xenon have no virtio keyboard and no
+/// virtio-gpu). Buying slots back is proposed in milestone 715's block; raising
+/// [`CAPABILITY_TABLE_SLOTS`] is not done here.
+pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 31;
 
 // The headroom milestone 230 left is what this pair means, so the two cannot silently invert.
 const _: () = assert!(CAPABILITY_TABLE_PEAK_MEASURED < CAPABILITY_TABLE_SLOTS);
@@ -524,7 +536,7 @@ const _: () = assert!(
 
 /// A capability naming an endpoint, with the given rights.
 ///
-/// **`WRITE` lets the holder `SEND`; `READ` lets it `RECV`.** Hand the two ends of one endpoint
+/// **`WRITE` lets the holder `SEND`; `READ` lets it `RECEIVE`.** Hand the two ends of one endpoint
 /// out with opposite rights and you have a one-way pipe that neither side can run backwards.
 pub fn rendezvous_cap(ep: crate::sched::RendezvousId, rights: Rights) -> Cap {
     Cap {
@@ -534,7 +546,7 @@ pub fn rendezvous_cap(ep: crate::sched::RendezvousId, rights: Rights) -> Cap {
 }
 
 /// An endpoint capability carrying a **badge** (milestone 599, provisional). The kernel delivers
-/// `badge` to a server's `RECV_CAP` when this capability's holder `CALL`s or `SEND_CAP`s here, so a
+/// `badge` to a server's `RECEIVE_CAP` when this capability's holder `CALL`s or `SEND_CAP`s here, so a
 /// server serving many clients on one endpoint can tell them apart. `badge` `0` is unbadged and
 /// equivalent to [`rendezvous_cap`]; a non-zero badge is minted once by `abi::rendezvous::BADGE` and
 /// then rides through delegation unchanged, because `SEND_CAP` and `CAP_INSERT` copy the object.

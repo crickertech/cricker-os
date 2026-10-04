@@ -21,7 +21,7 @@
 //!   the mix in this task's own order, report `[jobs, ticks, index]`, block again. A go word of
 //!   [`job_mix::GO_BREAKDOWN`] instead asks for the last subrun's per-kind ticks, untimed. It never exits;
 //!   the supervisor halts the machine when the sweep is done.
-//! - [`job_mix::ROLE_ECHO`]: `RECV_CAP` and `REPLY`, forever. The [`job_mix::ROUND_TRIP`] job's other
+//! - [`job_mix::ROLE_ECHO`]: `RECEIVE_CAP` and `REPLY`, forever. The [`job_mix::ROUND_TRIP`] job's other
 //!   half.
 //!
 //! # BUGS
@@ -75,7 +75,7 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use user_mode_runtime::{call, now, recv, recv_request, reply, send, yield_now};
+use user_mode_runtime::{call, now, receive, receive_request, reply, send, yield_now};
 
 /// The working set the [`job_mix::TOUCH`] job walks: this task's own memory, sized in
 /// `crates/job_mix` against the smallest L1d this project targets.
@@ -251,7 +251,7 @@ fn spawn_job(code_frame: u64) -> Result<u64, Refused> {
         zero(user_mode_runtime::tcb_start(tcb, 0, 0, 0))?;
         // The child's done word. Then reclaim: `DESTROY` refuses a region a live thread occupies,
         // and the child is between its `SEND` and its exit for a moment after this returns.
-        let _ = recv(job_mix::SLOT_CHILD_DONE);
+        let _ = receive(job_mix::SLOT_CHILD_DONE);
         loop {
             let t1 = now();
             let r = user_mode_runtime::destroy_region(child);
@@ -352,7 +352,7 @@ fn run_job(job: u8, seed: u64, code_frame: u64) -> Result<(u64, u64), Refused> {
 pub extern "C" fn _start(role: u64, index: u64, seed: u64) -> ! {
     if role == job_mix::ROLE_ECHO {
         loop {
-            let req = recv_request(job_mix::SLOT_SERVE);
+            let req = receive_request(job_mix::SLOT_SERVE);
             if let Some(to) = req.delivered.into_reply() {
                 reply(to, req.w1, 0);
             }
@@ -372,7 +372,7 @@ pub extern "C" fn _start(role: u64, index: u64, seed: u64) -> ! {
         // The go-ahead. The supervisor hands these out one rendezvous at a time, so a task's own
         // clock starts when it is released rather than when the subrun does; the difference between
         // the two is the release skew the supervisor's own doc comment prices.
-        let (go, _, _) = recv(job_mix::SLOT_GO);
+        let (go, _, _) = receive(job_mix::SLOT_GO);
         if go == job_mix::GO_BREAKDOWN {
             // Untimed: the supervisor stopped its clock before asking.
             for kind in 0..job_mix::JOB_KINDS {

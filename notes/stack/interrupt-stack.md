@@ -93,7 +93,7 @@ like, and the reason is worth reading. The remaining 3728 bytes are almost entir
 own chain: `preempt_if_needed` 16, `schedule` 448, `finish_switch` 224. Then comes the reaper
 freeing a finished predecessor's address space, plus the panic-and-print tail the walker appends to
 any chain that can reach a `panic!`. Every byte of that is the cost of scheduling at all, which a
-thread already pays when it blocks voluntarily in `ipc_recv`. What used to sit beside it on the
+thread already pays when it blocks voluntarily in `ipc_receive`. What used to sit beside it on the
 thread stack, and now cannot, is the handler. That is the GIC or PLIC claim, the tick, the watchdog
 (whose `dump_threads` alone carries a 1728-byte frame in a test build), the inbox drain, the
 interrupt routing.

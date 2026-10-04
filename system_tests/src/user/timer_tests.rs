@@ -3,7 +3,7 @@
 //!
 //! Each proves something the crate's Kani harnesses cannot, because it is about the kernel half:
 //! that the real tick reaches the walk, that the walk's signal wakes a real waiter (and a bound
-//! receiver parked in `RECV`) through §101 (notification objects)'s path, and that the syscall layer checks the right
+//! receiver parked in `RECEIVE`) through §101 (notification objects)'s path, and that the syscall layer checks the right
 //! rights on the right objects. The arithmetic (the cache never passes an armed deadline, a walk
 //! fires exactly the due timers, a replaced or cancelled deadline never fires) is proved in
 //! `crates/inter_process_communication/src/timer.rs` and exercised here only end to end.
@@ -104,8 +104,8 @@ fn a_wait_ends_on_a_signal_before_the_deadline() {
 }
 
 /// **A wait ends at the deadline with no signal, never before it**, both ways a thread can wait:
-/// in `WAIT` on the notification, and blocked in `RECV` on an endpoint with the notification bound
-/// to it (§147's "a thread blocks in RECV with the notification bound to its TCB, and wakes on
+/// in `WAIT` on the notification, and blocked in `RECEIVE` on an endpoint with the notification bound
+/// to it (§147's "a thread blocks in RECEIVE with the notification bound to its TCB, and wakes on
 /// either"). Each wakes with the timer's bits, at or after the deadline by the same counter, and
 /// the second one's registers say `BOUND`, not a message.
 #[test_case]
@@ -146,10 +146,10 @@ fn a_wait_ends_at_the_deadline_with_no_signal() {
         "it fired, so nothing was pending"
     );
 
-    // Blocked in RECV, bound: the net_stack and liveness-watch shape.
+    // Blocked in RECEIVE, bound: the net_stack and liveness-watch shape.
     let ep = sched::create_rendezvous_from(r).expect("rendezvous");
     let receiver = sched::spawn(move || {
-        let m = sched::ipc_recv(ep);
+        let m = sched::ipc_receive(ep);
         RECEIVED_AT.store(now(), Ordering::SeqCst);
         for (slot, w) in RECEIVED.iter().zip(m) {
             slot.store(w, Ordering::SeqCst);
@@ -161,14 +161,14 @@ fn a_wait_ends_at_the_deadline_with_no_signal() {
             w,
             Some(Wait::Rendezvous(e, WaitRole::Receiver)) if e == ep
         ))),
-        "the receiver never parked in RECV"
+        "the receiver never parked in RECEIVE"
     );
     assert_eq!(sched::notification_bind(n, receiver), Ok(()));
     let deadline = now() + ms(50);
     assert_eq!(sched::timer_arm(t, deadline, n, 0b1000), Ok(()));
     assert!(
         wait_for(|| RECEIVED[0].load(Ordering::SeqCst) != u64::MAX),
-        "the deadline did not end a bound RECV"
+        "the deadline did not end a bound RECEIVE"
     );
     let got: [u64; 5] = core::array::from_fn(|i| RECEIVED[i].load(Ordering::SeqCst));
     assert_eq!(

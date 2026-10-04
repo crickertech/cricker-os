@@ -875,7 +875,7 @@ static TICK_CURSOR: AtomicUsize = AtomicUsize::new(0);
 /// The first version signalled **one** rendezvous that every waiter blocked on, and it failed a run
 /// on a loaded host: three of four waiters made no progress for a whole beat and the soak reported
 /// them as wedged. The cause is in `crates/inter_process_communication`'s `Rendezvous`, and it is
-/// correct behaviour there: `recv` takes a **pending** signal before it looks at the receiver
+/// correct behaviour there: `receive` takes a **pending** signal before it looks at the receiver
 /// queue, because a driver must never miss an interrupt that already happened. So when ticks arrive
 /// in a burst, which is what a guest on a busy host sees, whichever waiter is already running
 /// drains the whole backlog through the `pending` path and never queues, while its peers sit at the

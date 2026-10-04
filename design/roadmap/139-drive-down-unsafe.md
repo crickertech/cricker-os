@@ -64,7 +64,7 @@ in `notes/unsafe-obligations.md` beside the marker.
 The three concrete next steps round 1 named, taken in the order it suggested.
 
 `crates/user_rt`'s `SYS_INVOKE` round trip collapsed, a second real §94-shaped reduction. Six
-methods (`recv`, `recv_cap`, `recv_fault`, `call`, `survey`, `list`), each duplicated once per
+methods (`receive`, `receive_cap`, `receive_fault`, `call`, `survey`, `list`), each duplicated once per
 architecture, had each hand-rolled its own `asm!` block asserting the identical invariant
 ("`svc`/`ecall` traps to the kernel, which validates before acting") at a register layout that
 differed only in which of the five return words the caller happened to read back: twelve
@@ -72,8 +72,8 @@ hand-written copies of one assertion. `invoke5` (new, private to the crate, one 
 holds the trap once; every caller above it, including `invoke` itself, is now a safe wrapper with no
 `asm!` of its own -- the exact "collapse N hand-written assertions of one invariant into one" shape
 this block's own text names as the best available reduction. One honest behavioural note recorded in
-`notes/unsafe-obligations.md` and in the code: three of the collapsed functions (`recv`, `recv_cap`,
-`recv_fault`) used to leave one input register unset for the kernel to read as whatever value
+`notes/unsafe-obligations.md` and in the code: three of the collapsed functions (`receive`, `receive_cap`,
+`receive_fault`) used to leave one input register unset for the kernel to read as whatever value
 happened to be there (harmless, since those methods read no input words); routing them through the
 shared primitive means they now pass an explicit `0`, a strict tightening rather than a behaviour
 change. Measured from the diff: 14 `unsafe {` blocks removed, 9 added, net -5, entirely inside
@@ -81,7 +81,7 @@ change. Measured from the diff: 14 `unsafe {` blocks removed, 9 added, net -5, e
 
 `crates/inter_process_communication` read in full: no reduction found, and that is the milestone's own predicted outcome
 for at least one target. Production code carries exactly three `unsafe` blocks, one each inside
-`send`, `recv` and `remove_sender`, and each already asserts a genuinely different fact (which of
+`send`, `receive` and `remove_sender`, and each already asserts a genuinely different fact (which of
 two queues, which node, under what caller contract) rather than the same fact copied three times --
 there is no §94 shape to collapse here. The other 41 sites the crate's `unsafe {` count includes
 (baseline "44 blocks") are doc examples, `#[cfg(kani)]` proof harnesses and `#[cfg(test)]` unit
@@ -167,14 +167,14 @@ functions' bodies for wrapper calls that still took a raw absolute VA (which wou
 invariant at all, per this milestone's own instruction): `Sock.va: u64` (0 meaning "no frame") became
 `Sock.window: Option<MappedWindow>` (`None` meaning the same thing), and the parallel `frame_va:
 [u64; MAX_SOCKETS]` array became `frame_window: [Option<MappedWindow>; MAX_SOCKETS]`, constructed
-once in `OP_ATTACH_FRAME` right after the kernel maps the frame -- the one place in the whole socket
+once in `OPERATION_ATTACH_PAGE_FRAME` right after the kernel maps the frame -- the one place in the whole socket
 lifecycle that needs to assert the invariant, instead of every one of the four functions' bodies.
-Every downstream call site (`read_dst`, `udp_sendto`, `sock_recv`, `tcp_connect`, `tcp_accept`,
+Every downstream call site (`read_dst`, `udp_sendto`, `sock_receive`, `tcp_connect`, `tcp_accept`,
 `udp_bind`, `tcp_send`) now takes or holds a `MappedWindow` rather than a raw VA, so the
 restructuring reaches the caller side. One further site collapsed for the same reason though it was
-never named `a_w8`: `sock_recv`'s payload-write loop had its own hand-rolled `write_volatile`,
+never named `a_w8`: `sock_receive`'s payload-write loop had its own hand-rolled `write_volatile`,
 identical in shape, folded into the same window. 5 `unsafe {` blocks removed (the four functions'
-bodies plus the hand-rolled loop), 1 added (the window construction in `OP_ATTACH_FRAME`), net -4,
+bodies plus the hand-rolled loop), 1 added (the window construction in `OPERATION_ATTACH_PAGE_FRAME`), net -4,
 in `components/src/net_stack.rs` alone. `script/test`'s aarch64 and riscv64 net suites (DHCP, UDP, TCP
 connect/accept/listen, the mDNS responder) passed clean, which is the load-bearing evidence here: the
 restructuring touches per-socket lifecycle state, exactly the kind of change where a mistake shows up
@@ -577,7 +577,7 @@ methods are invoked directly this way across `user/` (by literal `abi::module::C
 call site; calls that compute the method dynamically are not counted, so 18 is a floor, not a
 ceiling), led by `RETYPE` (10 sites), `REPLY` (9), `page_frame::MAP` (8), `page_frame::REVOKE` (3),
 `memory_region::DESTROY` (3), `irq::WAIT` (3), `address_space::MAP_INTO` (3), and nine more at one
-or two sites each. `send`/`recv`/`reap`/`call` and the rest of `user_rt`'s existing safe surface
+or two sites each. `send`/`receive`/`reap`/`call` and the rest of `user_rt`'s existing safe surface
 already cover the handful of methods common to nearly every program; what remains uncovered is
 long-tail and program-specific: page-frame and address-space construction verbs mostly used by the
 handful of programs that build child processes (`hello`, `builder`, `login`, the caretakers), and
@@ -586,7 +586,7 @@ IRQ and virtio methods used only by the drivers that own those devices.
 Why this is an architect's call and not a migration to invent. Building a safe wrapper per
 method the way `send`/`reap` already exist would need a decision this lane has no standing to make:
 whether the per-method obligation is real (as `MAP_INTO`'s is, per milestone 134's own reading) or
-vestigial (as most of `send`/`recv`/`reap`'s turned out to be), for each of at least 18 methods, and
+vestigial (as most of `send`/`receive`/`reap`'s turned out to be), for each of at least 18 methods, and
 whether the wrappers belong in `user_rt` (available to every program, growing that crate's surface
 by a wrapper per verb) or in a smaller per-purpose crate (a construction-verbs module used only by
 the handful of programs that build children). Getting this wrong in either direction costs more than
@@ -603,7 +603,7 @@ A realistic floor for `user/`, as this milestone's own BUGS section asked the fi
 report rather than pick a target here. The `invoke` cluster is the whole question: it is 123 of
 284 blocks, and the achievable reduction ranges from near zero (if most of the 18-plus methods
 turn out to carry the real, per-call obligation `MAP_INTO` does) to on the order of 100 (if most
-turn out to be the same non-obligation `send`/`recv`/`reap` already were). No number in that range
+turn out to be the same non-obligation `send`/`receive`/`reap` already were). No number in that range
 is more than a guess without the method-by-method reading above. Setting the `invoke` cluster
 aside, the rest of `user/` (roughly 161 blocks: the `read_volatile`/`write_volatile`, `asm!`,
 `from_raw_parts` and "everything else" rows above) is close to its practical floor already. Six
@@ -662,7 +662,7 @@ not. What can go wrong after a successful call (aliasing a page a Rust reference
 private, racing a mapping change) is a caller-side correctness question every syscall in this cluster
 already has, `map_page_frame`'s included, and it is the argument the raw call site's own SAFETY
 comment already discharges onto "the caller is trusting the kernel." So round 6's "real vs.
-vestigial" question resolves to: for Rust-safety purposes, all 22 are the `send`/`recv`/`reap` shape,
+vestigial" question resolves to: for Rust-safety purposes, all 22 are the `send`/`receive`/`reap` shape,
 not the exception `MAP_INTO` was flagged as being. The genuinely separate question, "should a
 supervisor be able to remap a child's memory out from under it without the child's cooperation," is
 real, but it is a capability-policy question the kernel's rights model already answers (`WRITE` on
@@ -712,11 +712,11 @@ relocation: eighteen new declarations (plus `granted`, plus four `virtio` functi
 independently-worded `// SAFETY:` comments that all said the same thing.
 
 **The one call site left raw, and why it is not this shape.** `window.rs`'s `ROLE_PROBE_INPUT` path
-calls `invoke(INPUT, abi::rendezvous::RECV, 0, 0, 0)` directly to read the raw negative `abi::Error`
-a `RECV` against an empty capability slot returns. `user_rt::recv`'s own contract assumes success and
+calls `invoke(INPUT, abi::rendezvous::RECEIVE, 0, 0, 0)` directly to read the raw negative `abi::Error`
+a `RECEIVE` against an empty capability slot returns. `user_rt::receive`'s own contract assumes success and
 returns the three data words, discarding the syscall's own return code, so it cannot serve this call
 site's actual purpose (proving the kernel refuses cleanly) without becoming a second, differently-
-shaped `recv` written for one caller. That is not a reduction by this milestone's own test ("the
+shaped `receive` written for one caller. That is not a reduction by this milestone's own test ("the
 number of distinct invariants asserted by hand"), so it stays, with an expanded `# Safety` comment
 recording why it is the one exception rather than an oversight.
 
@@ -965,7 +965,7 @@ sorted the non-FS hits into rough categories a follow-on lane can use rather tha
   migration is a net **increase** in raw block count (+12), unlike every prior round's.
 - **The `invoke` cluster (123 of `user/`'s 284 blocks, the largest single share) is read, resolved,
   and migrated** (round 7): 22 distinct methods, all found to carry the same Rust-safety shape as
-  the five methods already wrapped (`send`/`recv`/`reap`/`reply`/`map_page_frame`), none of them the
+  the five methods already wrapped (`send`/`receive`/`reap`/`reply`/`map_page_frame`), none of them the
   exception milestone 134's census flagged `MAP_INTO` as possibly being. 122 of the 123 call sites
   now go through fourteen new thin wrappers, a new `granted` (the §94 shape, five programs'
   identical probe), and a new opt-in `user_rt::virtio` module; one call site (`window.rs`'s refusal

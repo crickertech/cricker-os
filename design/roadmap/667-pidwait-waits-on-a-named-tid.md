@@ -28,7 +28,7 @@ composing with `pgrep`. The shell has pipes and no `$( … )`, so the composable
 `pgrep | pidwait`, reading decimal tids on its input. That half needs nothing new.
 
 The other half does. Nothing lets a program observe a named tid's exit with less authority than
-`pgrep` holds: `rendezvous::RECV` needs `READ` and would take the death message from the supervisor
+`pgrep` holds: `rendezvous::RECEIVE` needs `READ` and would take the death message from the supervisor
 it was meant for, and polling `SURVEY` needs `ENUMERATE`, which is `pgrep`'s authority and would undo
 the reason §226 made `pidwait` a program of its own.
 

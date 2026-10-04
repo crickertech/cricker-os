@@ -217,7 +217,7 @@ disagreeing.)
   terminal session on the no-keyboard arm holds the boot line discipline's whole endpoint, and the
   discipline does not ask who is holding it, so a compromised session can queue the boot shell's
   next command line. Also: the plain-`SEND` badge is on the wire but not in §230 (badged endpoint
-  capabilities), and a `RECV_CAP`
+  capabilities), and a `RECEIVE_CAP`
   entry in `crates/abi` still said a fixed escape was open. Its follow-up added two more worth
   knowing: the boot shell keeps the seven display capabilities with `GRANT` for its whole life,
   and a real capability delegated to a `CALL` server passes the `NO_CAP` guard, so any client can

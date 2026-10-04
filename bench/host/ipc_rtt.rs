@@ -4,7 +4,7 @@
 //! Two **processes** (fork, so the round trip crosses an address-space boundary, exactly as ours
 //! does over two EL0 processes) connected by a pair of pipes. One iteration is: parent writes a
 //! byte, child reads it and writes a byte back, parent reads it, four syscalls and two context
-//! switches, the same shape as our client SEND / server RECV+SEND / client RECV.
+//! switches, the same shape as our client SEND / server RECEIVE+SEND / client RECEIVE.
 //!
 //! Uses the direct libc `read`/`write` (what a C program and lmbench use), not the generic `syscall`
 //! gate, which is ~200 ns slower here and would under-count. `rustc` emits a benign "suspicious

@@ -126,7 +126,7 @@ Three questions Unix conflates, separated here:
   the window-list page, so a holder of that page, and the kernel test, can witness a focus change
   rather than ask about it.
 
-Input reaches the focused client as `line_editor::proto::OP_BYTES` over a `CALL`: the terminal contract's
+Input reaches the focused client as `line_editor::proto::OPERATION_BYTES` over a `CALL`: the terminal contract's
 driver half, verbatim (notes/terminal-contract.md). So a terminal is a client of this compositor
 without either contract changing, which is what rung three needs and the reason the framing was reused
 rather than reinvented.
@@ -158,7 +158,7 @@ Both halves are proved, and the refusal turns out to have two forms, which is a 
 able to say:
 
 - An empty capability table slot. A client that was not granted an input endpoint has *nothing* in slot 2.
-  Its `RECV` there returns `abi::Error::NoSuchSlot` (-1), whose doc comment has said the right thing
+  Its `RECEIVE` there returns `abi::Error::NoSuchSlot` (-1), whose doc comment has said the right thing
   since milestone 7: "The slot is empty. Not permission denied: there is nothing there." The test
   asserts on exactly that value, because `NotPermitted` would mean the authority existed and was
   withheld, which is a different and weaker world.
@@ -271,7 +271,7 @@ would mean nothing.
 
 The most useful finding of this milestone is a limit, and it shaped everything above.
 
-A process here has exactly one blocking wait point. A thread can be parked in one `RECV`; there is
+A process here has exactly one blocking wait point. A thread can be parked in one `RECEIVE`; there is
 no wait-any and no non-blocking receive (DECISIONS §24 records the same gap from the shell's side), and
 two threads cannot share an address space (`Tcb::CONFIGURE` *consumes* the aspace capability, and the
 address space dies with the thread). A compositor has three classes of sender: its clients, an input

@@ -199,7 +199,11 @@ impl<T: Node> Fifo<T> {
             None => self.head = Some(node),
         }
         self.tail = Some(node);
-        self.len += 1;
+        // Wrapping, because the wrap cannot happen and this is on every IPC (release builds check
+        // overflow, notes/overflow-checks.md). `len` counts nodes linked right now, each a distinct
+        // live object of nonzero size (it holds a link), so it is bounded by the address space and
+        // never reaches `usize::MAX`.
+        self.len = self.len.wrapping_add(1);
     }
 
     /// Detach and return the oldest node. The returned node's link is cleared: it leaves the
@@ -215,7 +219,10 @@ impl<T: Node> Fifo<T> {
             }
             (*node.as_ptr()).set_next(None);
         }
-        self.len -= 1;
+        // Wrapping, because the wrap cannot happen: `head` was `Some`, so a push is outstanding and
+        // `len >= 1`. `any_push_pop_interleaving_is_fifo_and_lossless` below holds `len` equal to
+        // the model's count after every step, so a decrement that wrapped would fail that proof.
+        self.len = self.len.wrapping_sub(1);
         Some(node)
     }
 }

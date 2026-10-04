@@ -69,7 +69,7 @@ gains the case, red before the fix.
 
 ## (e) Confirmed and fixed: the moved `cfg(test)`
 
-`system_tests/src/user.rs`: milestone 634 (a plain SEND received by RECV_CAP never hands the
+`system_tests/src/user.rs`: milestone 634 (a plain SEND received by RECEIVE_CAP never hands the
 receiver a sender-chosen slot) inserted `mod recv_cap_attack_tests;` between `#[cfg(test)]` and
 `mod revocation_in_flight_tests;`. Both now carry their own attribute, and `script/lint`'s "tests
 the suite cannot see" check refuses a bare `mod` in that file: run against the pre-fix file it

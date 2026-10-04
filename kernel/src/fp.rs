@@ -111,7 +111,7 @@ pub unsafe fn hand_over(prev: *mut FpState, next: *const FpState) {
 /// measures the transitive closure of **non-cold** calls from the IPC roots, because Liedtke's
 /// argument is about what a round trip evicts from L1i, and five hundred bytes of register-file
 /// machinery that no IPC executes evicts nothing. Inlined into `schedule`, it put riscv64's
-/// `ipc_send_recv` 7.5% over the 5% bound for code that does not run; out of line and cold, what
+/// `ipc_send_receive` 7.5% over the 5% bound for code that does not run; out of line and cold, what
 /// the fastpath carries is the two loads and the branch in [`hand_over`], which is what it actually
 /// costs.
 ///

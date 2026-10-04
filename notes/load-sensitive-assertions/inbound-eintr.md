@@ -48,7 +48,7 @@ dispatched run (36059579060) with the matrix logs uploaded caught it on `rva23s6
 +35390 ms: read-failed after 35089 ms, 0 bytes (Interrupted, os error Some(4))
 ```
 
-`EINTR`. A signal landed on the blocked `recv`, and the prober treated that as the connection's end.
+`EINTR`. A signal landed on the blocked `receive`, and the prober treated that as the connection's end.
 
 Every `read-failed` in two weeks of CI traces, 60 of them, landed 16 to 454 ms after a multiple of
 five seconds from the prober's start. That is `HostLoad`'s sampling grid: it spawns `uptime` every

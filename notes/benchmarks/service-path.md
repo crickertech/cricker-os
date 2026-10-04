@@ -39,7 +39,7 @@ Milestone 23 (a capability-routed component OS with live replacement), DECISIONS
 "opt-in per channel, never the default" a rule rather than a preference.
 
 The default rung has no benchmark of its own, because it has no cost of its own. A client holds a
-capability to a stable *endpoint*, and whoever is parked in `RECV_CAP` on it answers; a swap changes
+capability to a stable *endpoint*, and whoever is parked in `RECEIVE_CAP` on it answers; a swap changes
 who that is. No process stands in the data path, so the steady state is `call_reply` exactly, and the
 swap adds nothing to it. The kernel's own sender queue buffers the down window: requests that arrive
 while nobody is receiving park there, and the replacement drains them.
@@ -60,7 +60,7 @@ feature used during swaps, so the broker is wired per channel. It sits on the ic
 both ISAs, like `relay_rtt`.
 
 Two notes. First, `broker_rtt` and `relay_rtt` measure the same shape (one confined intermediary) in
-the two idioms the codebase uses, `CALL`/`Reply` and `SEND`/`RECV` pairs. They land within 2.5% of
+the two idioms the codebase uses, `CALL`/`Reply` and `SEND`/`RECEIVE` pairs. They land within 2.5% of
 each other, a small cross-check that the Reply-capability path costs about what a pre-wired reply
 endpoint does. Second, what is measured is the broker's pass-through. During a down window it does
 strictly less work per request (one rendezvous, an enqueue, an immediate answer). That is not the
@@ -109,7 +109,7 @@ sees it.
 The net path has the same shape as the FS path: a confined server the client reaches only through a
 granted `Stack` capability. Its per-request IPC tax is the same `relay_rtt` topology. But a net_stack
 socket round trip is even less gate-able than `fs_read`. net_stack only reaches its serve loop after
-a DHCP handshake, and its RECV path drives smoltcp's own retransmit and delay-ACK timers
+a DHCP handshake, and its RECEIVE path drives smoltcp's own retransmit and delay-ACK timers
 (notes/net/the-outbound-gates.md). So the path is deterministic under neither `-icount` nor, at the socket level, a warm
 HVF loop.
 

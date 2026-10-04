@@ -283,7 +283,10 @@ pub fn build_page() -> [u8; PAGE_BYTES] {
 pub unsafe fn publish(page_va: u64, cpu: u64) {
     // SAFETY: the caller's contract gives us a live, aligned, exclusively written buffer of at
     // least `PAGE_BYTES`, and `OFF_CPU + 8` is exactly `PAGE_BYTES`.
-    let word = unsafe { &*((page_va + OFF_CPU as u64) as *const AtomicU64) };
+    // `wrapping_add` because the wrap cannot happen and this runs on every context switch (release
+    // builds check overflow, notes/overflow-checks.md): the contract says `page_va` starts a live
+    // buffer of `PAGE_BYTES`, and no live buffer runs past the top of the address space.
+    let word = unsafe { &*(page_va.wrapping_add(OFF_CPU as u64) as *const AtomicU64) };
     word.store(cpu, Ordering::Relaxed);
 }
 

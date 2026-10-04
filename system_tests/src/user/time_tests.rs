@@ -22,7 +22,7 @@ fn transcript(clock: Option<u64>, out: &mut [u8; 2048]) -> usize {
 fn clock() -> clock_service::Wiring {
     let image = program("clock").expect("no clock program in the initrd archive");
     let w = clock_service::start(image);
-    let _ = crate::sched::ipc_recv(w.report);
+    let _ = crate::sched::ipc_receive(w.report);
     w
 }
 

@@ -22,7 +22,7 @@
 #![no_main]
 
 use abi::rendezvous;
-use user_mode_runtime::{exit, recv_cap, send, send_cap};
+use user_mode_runtime::{exit, receive_cap, send, send_cap};
 
 const CHANNEL: u64 = 0;
 const REPORT: u64 = 1;
@@ -31,9 +31,9 @@ const LOOPBACK: u64 = 2;
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(_arg0: u64, _arg1: u64, _arg2: u64) -> ! {
     // Receive the delegated capability. It lands in a fresh slot of our own capability table;
-    // RECV_CAP tells us which one. We were never told the slot in advance: the kernel chose it and
+    // RECEIVE_CAP tells us which one. We were never told the slot in advance: the kernel chose it and
     // named it to us.
-    let (_data, got, _) = recv_cap(CHANNEL);
+    let (_data, got, _) = receive_cap(CHANNEL);
     let received = got != rendezvous::NO_CAP;
 
     // Use it. A SEND on the received capability rendezvous with whoever holds the other end, which

@@ -74,7 +74,7 @@ pub struct Server {
     /// The socket contract's endpoint. The server holds `READ`; a client is given `WRITE`.
     pub stack: RendezvousId,
     /// **Drain this before waiting on the client.** The server reports once, with a blocking
-    /// `send`, and the client's `RECV` is queued behind it.
+    /// `send`, and the client's `RECEIVE` is queued behind it.
     pub report: RendezvousId,
 }
 

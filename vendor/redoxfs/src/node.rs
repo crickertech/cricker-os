@@ -71,7 +71,10 @@ impl NodeLevel {
             record_offset -= L3;
         }
 
-        const L4: u64 = 12 * NUM * NUM * NUM * NUM;
+        // nife pin divergence 6: upstream wrote 12 here, but `Node::level4` holds 8 pointers, so
+        // offsets 8 * NUM^4 .. 12 * NUM^4 produced an index of 8 and panicked in the caller.
+        // See vendor/README.md.
+        const L4: u64 = 8 * NUM * NUM * NUM * NUM;
         if record_offset < L4 {
             Some(Self::L4(
                 ((record_offset >> (4 * SHIFT)) & MASK) as usize,
@@ -506,6 +509,24 @@ impl ops::DerefMut for Node {
 #[test]
 fn node_size_test() {
     assert_eq!(mem::size_of::<Node>(), crate::BLOCK_SIZE as usize);
+}
+
+// nife pin divergence 6: before the fix `NodeLevel::new` answered `Some(L4(8, ..))` for the first 4
+// billion records past the tree, and the caller then indexed `level4[8]` and panicked. Every
+// offset past the last record must be `None` (which `transaction.rs` turns into `ERANGE`), and
+// every `L4` index it does return must fit the eight-pointer array.
+#[test]
+fn node_level_ends_where_level4_ends() {
+    const NUM: u64 = 256;
+    let end = 128 + 64 * NUM + 32 * NUM * NUM + 16 * NUM * NUM * NUM + 8 * NUM * NUM * NUM * NUM;
+    assert!(matches!(
+        NodeLevel::new(end - 1),
+        Some(NodeLevel::L4(7, 255, 255, 255, 255))
+    ));
+    assert!(NodeLevel::new(end).is_none());
+    assert!(NodeLevel::new(end + 1).is_none());
+    assert!(NodeLevel::new(end + 4 * NUM * NUM * NUM * NUM).is_none());
+    assert!(NodeLevel::new(u64::MAX).is_none());
 }
 
 #[test]

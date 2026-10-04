@@ -133,7 +133,7 @@ the drift one. The instrument was blind to the drift bug until it gained a fourt
 ### The ninth red is not a timing assertion, and it wants its own lane
 
 Run 31, riscv64, during
-`force_kill_tests::destroy_reclaims_a_region_whose_resident_is_blocked_in_recv`:
+`force_kill_tests::destroy_reclaims_a_region_whose_resident_is_blocked_in_receive`:
 
 ```
 [PANIC] panicked at crates/frames/src/lib.rs:315:9:

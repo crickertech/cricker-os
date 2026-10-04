@@ -90,3 +90,9 @@ claims, and a tail of every lane log. It ran because a human asked, not because 
   head worth retrying from one that would fail again. It now comments once per ejection, holds a
   head whose group run failed (label `queue-ejected`), and releases it when the head moves. See
   [queue-ejection.md](../queue-ejection.md).
+
+  Reversed 2026-10-03 (UTC) by calef's rulings on #1564. The re-arm this item asked for, and the
+  drain's arming behind it, fought the calef account's own dequeues and still left calef as the
+  only detector of an ejection. The drain no longer re-arms or re-queues anything. An ejection is
+  labelled `needs-maintainer` (name provisional) for a maintainer session to pick up, by milestone
+  727 (a queue eviction goes to a maintainer session), provisional.

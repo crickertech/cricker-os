@@ -4,7 +4,7 @@
 //! Everything it decides is `crates/system_log`, host-tested; this file is the receive loop and
 //! the three syscalls around it. One thread, one wait point:
 //!
-//! 1. `RECV` on the intake endpoint, which returns the three words a sender passed and the badge
+//! 1. `RECEIVE` on the intake endpoint, which returns the three words a sender passed and the badge
 //!    the kernel read off the capability it sent through (milestone 613's amendment to §230
 //!    (badged endpoint capabilities): a plain `SEND` carries its badge too).
 //! 2. Hand them to [`system_log::Log::handle`]: a writer's bytes become stamped lines in the ring;
@@ -50,7 +50,7 @@
 //! register writer badge 2 as program "sink_transcript_writer", user "bob"
 //! register badge 9 as the system reader, window 0
 //! spawn two writers, each holding only its badged capability; they print the transcript
-//! SEND (OP_READ, cursor 0) through badge 9, wait on window 0's notification, read the window
+//! SEND (OPERATION_READ, cursor 0) through badge 9, wait on window 0's notification, read the window
 //! ```
 //!
 //! # BUGS
@@ -64,6 +64,15 @@
 //!   spawns gets one 4 KiB stack page, and this one is built unoptimized in a debug image. The
 //!   first version overflowed it by moving 250-byte lines by value; `crates/system_log` now lends
 //!   them. The crowded-writer path (a ninth writer mid-line) runs on the host only.
+//! - **The flush deadline is the first forwarded line's, not the waiting line's** (found 2026-10-04
+//!   UTC by the lane chasing the noteless flake). `drain` arms [`FLUSH_NANOS`] when it forwards a
+//!   line and nothing is armed, whether or not the console queued that line. A line the console
+//!   wrote at once still arms it, so a later line queued mid-line can be flushed far sooner than
+//!   250 ms, and its redraw lands in the middle of what a person is typing. Harmless to what is
+//!   said (the redraw is exact) and cosmetic to a person. Whether it widened the window
+//!   `script/swish-check` misread (`without_redraws` in `xtask/src/swish_check.rs`) is unmeasured.
+//!   The service cannot see the console's queue, so the honest fix moves the deadline into the
+//!   console.
 //!
 //! Name: provisional (milestone 613's lane, 2026-10-02 UTC). §242 calls it "the log service"; the
 //! crate and program share `system_log` so a reader finds both with one grep.
@@ -82,8 +91,8 @@ use system_log_protocol::kernel_ring::{self, Cursor, DETACHED, Read, Ring};
 use system_log_protocol::record::{self, flags};
 use system_log_protocol::{console, read};
 use user_mode_runtime::{
-    cntfrq, exit, monotonic_nanos, notification_signal, now, recv_badged, recv_badged_bound, send,
-    timer_arm,
+    cntfrq, exit, monotonic_nanos, notification_signal, now, receive_badged, receive_badged_bound,
+    send, timer_arm,
 };
 
 /// The intake endpoint, `READ`.
@@ -139,12 +148,12 @@ pub extern "C" fn _start(mode: u64, readers: u64, _a2: u64) -> ! {
     }
     loop {
         let (w0, w1, w2, badge) = if kernel {
-            match recv_badged_bound(INTAKE) {
+            match receive_badged_bound(INTAKE) {
                 Ok(m) => m,
                 Err(word) => {
                     if word & FLUSH_BIT != 0 {
                         flush_armed = false;
-                        send(CONSOLE, console::OP_FLUSH << 56, 0, 0);
+                        send(CONSOLE, console::OPERATION_FLUSH << 56, 0, 0);
                     }
                     if word & kernel_ring::NOTIFY_BIT != 0 {
                         drain(log, &mut flush_armed);
@@ -153,7 +162,7 @@ pub extern "C" fn _start(mode: u64, readers: u64, _a2: u64) -> ! {
                 }
             }
         } else {
-            recv_badged(INTAKE)
+            receive_badged(INTAKE)
         };
         // The intake endpoint was destroyed (its owner reclaimed the region it lived in): this
         // service has nothing left to serve. Only badge 0 can mean it, because the kernel writes

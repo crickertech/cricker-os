@@ -149,38 +149,38 @@
 pub mod proto {
     /// Request opcode, in bits 63:56 of the first `CALL` word. The low 32 bits carry a length
     /// or count; bits 55:32 are reserved and must be zero.
-    pub const OP_SHIFT: u32 = 56;
+    pub const OPERATION_SHIFT: u32 = 56;
     /// Application → terminal: print `len` bytes from the client's output page. Reply when the
     /// bytes are on the wire: r0 = bytes consumed.
-    pub const OP_WRITE: u64 = 1;
+    pub const OPERATION_WRITE: u64 = 1;
     /// Application → terminal: read one line. The low bits carry a prompt length (0 for none);
     /// the prompt bytes are in the client's output page. The reply comes when a line is ready:
     /// r0 = line length (the bytes are in the client's input page), r1 = [`FLAG_EOF`] /
     /// [`FLAG_INTERRUPTED`] or 0.
-    pub const OP_READLINE: u64 = 2;
+    pub const OPERATION_READLINE: u64 = 2;
     /// Input driver → terminal: `count` (1..=8) raw wire bytes, packed little-endian in the
     /// second word. Replied immediately (r0 = 0); the rendezvous is the flow control.
-    pub const OP_BYTES: u64 = 3;
+    pub const OPERATION_BYTES: u64 = 3;
     /// Application → terminal: how many `^C` has the terminal seen since boot? Replied immediately
     /// (r0 = the running count). This is the shell's `^C` sensor while a foreground job runs and no
     /// read is parked to fail: the shell polls this and drives its two-tier interrupt escalation
     /// from the count's advance (DECISIONS §24). Deliberately a poll, not a delivered
     /// signal: there is no non-blocking receive, so a busy-poll with `yield` is how the shell watches
     /// two things (the job and `^C`) at once until the blocking notification primitive arrives.
-    pub const OP_INTRCOUNT: u64 = 4;
+    pub const OPERATION_INTRCOUNT: u64 = 4;
     /// Adapter → terminal: print `len` (1..=8) bytes carried **in registers**, packed
     /// little-endian in the second word. Replied when the bytes are on the wire: r0 = bytes
-    /// consumed, exactly as [`OP_WRITE`] answers.
+    /// consumed, exactly as [`OPERATION_WRITE`] answers.
     ///
     /// Eight, not sixteen, and that is the request shape rather than a choice: a served request
-    /// here arrives through `recv_cap`, which hands the server the reply capability and **two** data
-    /// words. [`OP_BYTES`] carries eight for the same reason, from the other direction. So a
+    /// here arrives through `receive_cap`, which hands the server the reply capability and **two** data
+    /// words. [`OPERATION_BYTES`] carries eight for the same reason, from the other direction. So a
     /// sixteen-byte `byte_sink_protocol` message is two of these, which is the honest cost of a second
     /// writer that needs no page.
     ///
-    /// # Why this exists when `OP_WRITE` already prints
+    /// # Why this exists when `OPERATION_WRITE` already prints
     ///
-    /// [`OP_WRITE`] reads from **the client's output page**, and there is one of those: init maps a
+    /// [`OPERATION_WRITE`] reads from **the client's output page**, and there is one of those: init maps a
     /// single frame into the terminal read-only and into the shell read/write. A second printing
     /// client would need a second frame, and the terminal would have to be told which one a request
     /// meant, which is a protocol change with a page-index in it. `filesystem_protocol` has the same shape and
@@ -190,11 +190,11 @@ pub mod proto {
     /// Register-only sidesteps it entirely, and the sixteen bytes are not a compromise: they are the
     /// three-word fastpath and the exact payload of a `byte_sink_protocol` message, so an adapter that turns
     /// the sink contract into terminal output is one unpack and one `CALL` with **no page at all**.
-    /// [`OP_BYTES`] already proved the shape in the other direction, for the input driver.
+    /// [`OPERATION_BYTES`] already proved the shape in the other direction, for the input driver.
     ///
     /// So the terminal gets a second *writer* without a second page and without a second client
     /// convention, which is what a sink adapter needed (notes/sink-protocol.md).
-    pub const OP_PRINT: u64 = 5;
+    pub const OPERATION_PRINT: u64 = 5;
 
     /// Application → terminal: switch the terminal between line-discipline and raw mode
     /// (milestone 169). `len` is 1 to enter raw mode, 0 to leave it. Replied immediately, r0 = 0.
@@ -202,11 +202,11 @@ pub mod proto {
     /// **Raw mode is the primitive a screen editor needs that the line discipline does not give
     /// it** (design/roadmap/169-kilo-editor.md): DECISIONS §21 says a program "never sees a
     /// keystroke, an escape sequence, or an echo", which is exactly wrong for `kilo`, which needs
-    /// all three. While raw mode is on, [`OP_BYTES`] bypasses [`super::LineDisc`] entirely: no echo, no
+    /// all three. While raw mode is on, [`OPERATION_BYTES`] bypasses [`super::LineDisc`] entirely: no echo, no
     /// editing, no line assembly. A keystroke reaches the application exactly as it arrived, one
-    /// [`OP_READRAW`] reply per burst the driver delivered.
+    /// [`OPERATION_READRAW`] reply per burst the driver delivered.
     ///
-    /// `OP_READLINE` is refused (`BAD_REQUEST`) while raw mode is on, and `OP_READRAW` is refused
+    /// `OPERATION_READLINE` is refused (`BAD_REQUEST`) while raw mode is on, and `OPERATION_READRAW` is refused
     /// while it is off: the two input models do not mix on one terminal at once, and a client that
     /// tries gets a fast, loud refusal rather than a read that silently never completes.
     ///
@@ -215,23 +215,42 @@ pub mod proto {
     /// the same discard `^C` already does to the edit buffer, and it exists for the same reason:
     /// a session must never resume half a line typed under the mode it just left. History and the
     /// kill buffer are untouched, because neither belongs to the in-progress line.
-    pub const OP_RAWMODE: u64 = 6;
+    pub const OPERATION_RAWMODE: u64 = 6;
 
     /// Application → terminal: read raw bytes, no line discipline (milestone 169). Valid only
-    /// while raw mode ([`OP_RAWMODE`]) is on; refused with `BAD_REQUEST` otherwise. Replied when
+    /// while raw mode ([`OPERATION_RAWMODE`]) is on; refused with `BAD_REQUEST` otherwise. Replied when
     /// at least one byte is available, never held back to fill more (raw mode's whole point is
     /// keystroke-at-a-time delivery, not batching): r0 = byte count (1..=8), r1 = the bytes packed
-    /// little-endian, the same register-only shape [`OP_BYTES`] and [`OP_PRINT`] already use, so
+    /// little-endian, the same register-only shape [`OPERATION_BYTES`] and [`OPERATION_PRINT`] already use, so
     /// this needs no page either. **At most one read may be outstanding**, exactly like
-    /// [`OP_READLINE`]; a second one while one is parked is refused with `BAD_REQUEST`.
-    pub const OP_READRAW: u64 = 7;
+    /// [`OPERATION_READLINE`]; a second one while one is parked is refused with `BAD_REQUEST`.
+    pub const OPERATION_READRAW: u64 = 7;
+
+    /// **The badge on a copy of the terminal endpoint that reads keystrokes and nothing else**
+    /// (milestone 709 (a graphical terminal session on the no-keyboard arm holds only the raw half
+    /// of the boot discipline), fatal risk 7). The terminal serves [`OPERATION_RAWMODE`] and
+    /// [`OPERATION_READRAW`] on a capability carrying **any non-zero badge** and refuses every other
+    /// request on it with [`BAD_REQUEST`]: no [`OPERATION_BYTES`], so its holder cannot type a line
+    /// somebody else reads; no [`OPERATION_READLINE`], so it cannot take one; no [`OPERATION_PRINT`] or
+    /// [`OPERATION_WRITE`]; no [`OPERATION_QUIESCE`]. An unbadged capability is served exactly as before, which is
+    /// every holder the boot wires (the input driver, the shell, `login`).
+    ///
+    /// The spawn service mints this one (`abi::rendezvous::BADGE`) for a `graphical_terminal`
+    /// session with no keyboard, whose keystrokes come from the boot's own discipline. The badge is
+    /// the kernel's word on every receive (§230 (badged endpoint capabilities)) and a badged copy
+    /// cannot be re-badged, so a holder cannot widen it back to the unbadged surface. The rule is
+    /// "non-zero", not "this value", so the terminal holds no table; the value is fixed only so the
+    /// one minting site and a test agree on it.
+    ///
+    /// Name: provisional (the lane for milestone 709, 2026-10-03).
+    pub const RAW_ONLY_BADGE: u64 = 1;
 
     /// Supervisor → terminal: **stop serving so a replacement can take over** (milestone 23 (a capability-routed component OS with live replacement), the
     /// `line_editor` swap; ruled by calef 2026-09-26, "1a"). It rides the served endpoint, so its
     /// FIFO does the draining: every request queued ahead of it is served by this instance, and
     /// every one behind it by whoever receives next.
     ///
-    /// Before replying, the terminal answers any parked [`OP_READLINE`] or [`OP_READRAW`] with
+    /// Before replying, the terminal answers any parked [`OPERATION_READLINE`] or [`OPERATION_READRAW`] with
     /// [`FLAG_RETRY`], because a reply capability cannot leave this process and a reader stranded
     /// on it could never be woken. Then it replies r0 = [`QUIESCED`] and stops receiving until its
     /// supervisor says [`CTL_RESUME`] or [`CTL_QUIT`] on its control endpoint.
@@ -241,9 +260,9 @@ pub mod proto {
     /// honoured quiesce would be a dead terminal. See this crate's `BUGS` for who may send it.
     ///
     /// Name: provisional (the lane for milestone 23, 2026-09-26).
-    pub const OP_QUIESCE: u64 = 8;
+    pub const OPERATION_QUIESCE: u64 = 8;
 
-    /// The reply word to [`OP_QUIESCE`]: "QUIT", the value `swap_protocol::QUIESCED` also uses.
+    /// The reply word to [`OPERATION_QUIESCE`]: "QUIT", the value `swap_protocol::QUIESCED` also uses.
     pub const QUIESCED: u64 = 0x5155_4954;
 
     /// Supervisor → quiesced terminal, on its control endpoint: go back to serving. The swap did not
@@ -271,12 +290,12 @@ pub mod proto {
     pub const NOTE_REFUSED: u64 = 2;
 
     /// Pack a request's first word from an opcode and a length/count.
-    pub const fn req(op: u64, len: u64) -> u64 {
-        (op << OP_SHIFT) | (len & 0xffff_ffff)
+    pub const fn req(operation: u64, len: u64) -> u64 {
+        (operation << OPERATION_SHIFT) | (len & 0xffff_ffff)
     }
     /// The opcode of a request word.
-    pub const fn op(w0: u64) -> u64 {
-        w0 >> OP_SHIFT
+    pub const fn operation(w0: u64) -> u64 {
+        w0 >> OPERATION_SHIFT
     }
     /// The length/count of a request word.
     pub const fn len(w0: u64) -> usize {
@@ -292,7 +311,7 @@ pub mod proto {
     /// replaced and could not hold this read across the swap; nothing was typed away. Re-issue the
     /// same request, unchanged, and the terminal that answers it resumes the line where it was.
     ///
-    /// An [`OP_READLINE`] reply carries it in r1 with r0 = 0. An [`OP_READRAW`] reply cannot,
+    /// An [`OPERATION_READLINE`] reply carries it in r1 with r0 = 0. An [`OPERATION_READRAW`] reply cannot,
     /// because r1 is the data there, so it is r0 = 0 (never a byte count, which is 1..=8) with this
     /// flag in r1. [`is_retry`] reads both.
     ///
@@ -417,7 +436,7 @@ impl LineDisc {
     /// Discard whatever line is in progress: the edit buffer, the cursor, and any history
     /// browsing. History and the kill buffer are untouched, because neither belongs to the line
     /// that was in progress. No echo; the caller prints whatever tells the human why, or nothing
-    /// (`^C`'s own `"^C\r\n"` is the caller side of that choice, and [`proto::OP_RAWMODE`]'s
+    /// (`^C`'s own `"^C\r\n"` is the caller side of that choice, and [`proto::OPERATION_RAWMODE`]'s
     /// mode switch prints nothing at all).
     pub fn abandon(&mut self) {
         self.len = 0;
@@ -589,7 +608,7 @@ impl LineDisc {
                 Event::None
             }
             0x0c => {
-                // ^L: clear the screen, repaint prompt and line. The one op that needs the
+                // ^L: clear the screen, repaint prompt and line. The one operation that needs the
                 // prompt, which is why READLINE carries it.
                 out.put(b"\x1b[2J\x1b[H");
                 out.put(&self.prompt[..self.prompt_len]);
@@ -808,14 +827,14 @@ impl LineDisc {
     }
 }
 
-/// How many raw bytes [`RawQueue`] holds for a parked `OP_READRAW`, when bytes arrive faster than
+/// How many raw bytes [`RawQueue`] holds for a parked `OPERATION_READRAW`, when bytes arrive faster than
 /// the raw reader drains them. Sized like [`LINE_MAX`]'s bell-on-overflow precedent: a burst past
 /// this is dropped, audibly, rather than grown without bound. 64 is generous for a keystroke-at-a
 /// time reader (`kilo`'s own event loop reads one key, redraws, reads the next) and still covers a
 /// terminal-paste dumped in one go.
 pub const RAW_QUEUE_MAX: usize = 64;
 
-/// **Raw-mode byte delivery** (milestone 169, `OP_READRAW`): a plain FIFO of wire bytes, with no
+/// **Raw-mode byte delivery** (milestone 169 (`kilo`, the smallest real text editor, as the forcing function for raw terminal input), `OPERATION_READRAW`): a plain FIFO of wire bytes, with no
 /// interpretation of any of them. Kept separate from [`LineDisc`] rather than a mode bit on it,
 /// because raw mode's whole point is that nothing here ever looks at what a byte means; a
 /// `LineDisc` exists to do exactly that.
@@ -1044,7 +1063,7 @@ pub mod component {
     /// **How `terminal_supervisor` is endowed**, by `system_initializer` on a real boot and by the
     /// kernel's own test: one list both builders and the supervisor read (AGENTS.md rule 7). The
     /// supervisor holds every object a `line_editor` is built from, with `GRANT`, so it can build a
-    /// second one; and the terminal endpoint with `WRITE` too, so it can send `OP_QUIESCE`.
+    /// second one; and the terminal endpoint with `WRITE` too, so it can send `OPERATION_QUIESCE`.
     ///
     /// Start arguments: the output sink's mode (`line_editor`'s own `MODE_CONSOLE` = 0 or
     /// `MODE_DISPLAY` = 1), the length of the `line_editor` image copied to [`ELF_VA`](supervisor::ELF_VA), and the slot
@@ -1684,7 +1703,7 @@ mod tests {
             proto::FLAG_RETRY & (proto::FLAG_EOF | proto::FLAG_INTERRUPTED),
             0
         );
-        assert_eq!(proto::OP_QUIESCE, 8);
+        assert_eq!(proto::OPERATION_QUIESCE, 8);
     }
 
     /// **A handoff round trip carries the half-typed line, the cursor, the kill buffer and the
@@ -1787,18 +1806,18 @@ mod tests {
     /// The proto word packing round-trips, and the reserved bits stay zero.
     #[test]
     fn proto_words_round_trip() {
-        let w = proto::req(proto::OP_READLINE, 42);
-        assert_eq!(proto::op(w), proto::OP_READLINE);
+        let w = proto::req(proto::OPERATION_READLINE, 42);
+        assert_eq!(proto::operation(w), proto::OPERATION_READLINE);
         assert_eq!(proto::len(w), 42);
         assert_eq!(w & 0x00ff_ffff_0000_0000, 0);
         // The reply flags are wire ABI shared with every client: pin the values, because a
         // drifted FLAG_INTERRUPTED makes an interrupted read look like a normal empty line.
         assert_eq!(proto::FLAG_EOF, 1);
         assert_eq!(proto::FLAG_INTERRUPTED, 2);
-        // Pinned for the same reason: OP_RAWMODE and OP_READRAW are wire ABI too, and a drifted
-        // opcode number would silently reassign OP_PRINT's or a future opcode's traffic.
-        assert_eq!(proto::OP_RAWMODE, 6);
-        assert_eq!(proto::OP_READRAW, 7);
+        // Pinned for the same reason: OPERATION_RAWMODE and OPERATION_READRAW are wire ABI too, and a drifted
+        // opcode number would silently reassign OPERATION_PRINT's or a future opcode's traffic.
+        assert_eq!(proto::OPERATION_RAWMODE, 6);
+        assert_eq!(proto::OPERATION_READRAW, 7);
     }
 
     /// `abandon` clears the buffer, cursor, and history browsing, but leaves history and the kill
@@ -1827,7 +1846,7 @@ mod tests {
     }
 
     /// [`RawQueue`] delivers bytes in order, packs up to 8 per pop, and drains to empty: the
-    /// primitive `OP_READRAW` is built on, proven with no IPC involved.
+    /// primitive `OPERATION_READRAW` is built on, proven with no IPC involved.
     #[test]
     fn raw_queue_pops_in_order_up_to_eight() {
         let mut q = RawQueue::new();

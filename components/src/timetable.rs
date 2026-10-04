@@ -125,7 +125,7 @@
 //!   computes exactly what a timed wait would block until, so the fix is one line here once
 //!   milestone 106's fork is decided; until then a running timetable costs a core's worth of yields.
 //!   **This program is that fork's fifth consumer** (the block counts four: `net_stack`'s retransmit
-//!   window, milestone 51's `thread::sleep`, `RECV`'s no-timeout limitation, and the shell's `^C`
+//!   window, milestone 51 (wall-clock time)'s `thread::sleep`, `RECEIVE`'s no-timeout limitation, and the shell's `^C`
 //!   poll), and it is the first one whose *whole purpose* is to act at a time.
 //!
 //! - **Corpses are collected lazily, when their memory is needed.** Nothing reaps between fires,
@@ -188,7 +188,7 @@
 //!   because the durable session is for milestone 152 (durable delegation) to rebuild; the kernel test stands in.
 //!
 //! - **A registration is noticed by polling, not received.** The loop loads the page's request
-//!   word once per pass. A `RECV` would block and stop the clock being watched, because a process
+//!   word once per pass. A `RECEIVE` would block and stop the clock being watched, because a process
 //!   has one wait point and there is no timed wait (milestone 106 (a wait that ends on either the interrupt or the deadline)). The cost is one load per pass
 //!   on a loop that already spins; a deadline wait that also ends on a notification removes it.
 //!
@@ -232,7 +232,7 @@
 
 use grant_plan::spawnproto;
 use timetable::{Registry, contract, registration};
-use user_mode_runtime::{cap_delete, exit, monotonic_nanos, reap, recv_fault, send, yield_now};
+use user_mode_runtime::{cap_delete, exit, monotonic_nanos, reap, receive_fault, send, yield_now};
 
 /// The document. Compiled in; see `BUGS`.
 const CONFIG: &str = include_str!("../timetable.conf");
@@ -325,7 +325,7 @@ pub extern "C" fn _start(fires_wanted: u64, initrd_len: u64, registration_page: 
     // authority is built in `fire` and `fire_with_grant` from two sources only: [`CHILD_REPORT`],
     // and a region split for it from [`BUDGET`]. Neither can be the capability unless this process
     // holds it. It can only hold it if a spawn site put it there, because this program never
-    // receives a capability after `_start` (it makes no `RECV_CAP`). So a timetable that does not
+    // receives a capability after `_start` (it makes no `RECEIVE_CAP`). So a timetable that does not
     // hold it at `_start` can never endow a job with it. The probe is sound only now, before
     // anything is allocated: a region split later could land in the slot and read as held.
     // Store mode is a timetable holding `activation/` (`timetable::contract`), probed here with the
@@ -1071,7 +1071,7 @@ fn wall_reading() -> Option<timetable::WallReading> {
 /// reap. Once it is gone, the corpse's region has no live resident left and an ordinary [`reap`]
 /// reclaims the rest, the same as [`collect`].
 fn collect_grant(exits: &mut u64, faults: &mut u64, mem_slot: u64) {
-    let (event, tid, _pc, _addr, _rsvd) = recv_fault(DEATHS);
+    let (event, tid, _pc, _addr, _rsvd) = receive_fault(DEATHS);
     if event == abi::fault::EVENT_EXIT {
         *exits += 1;
     } else {
@@ -1100,7 +1100,7 @@ fn collect_grant(exits: &mut u64, faults: &mut u64, mem_slot: u64) {
 /// The kernel is the only sender on this endpoint (§26 clears the child's fault slot at `START`), so
 /// the tid is trustworthy without a badge.
 fn collect(exits: &mut u64, faults: &mut u64) {
-    let (event, tid, _pc, _addr, _rsvd) = recv_fault(DEATHS);
+    let (event, tid, _pc, _addr, _rsvd) = receive_fault(DEATHS);
     if event == abi::fault::EVENT_EXIT {
         *exits += 1;
     } else {

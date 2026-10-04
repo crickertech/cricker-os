@@ -1,11 +1,11 @@
-Falsifies `inter_process_communication::verification::recv_drains_a_pending_signal_first`.
+Falsifies `inter_process_communication::verification::receive_drains_a_pending_signal_first`.
 
 The defect: the two arms are swapped, so a queued sender is collected before a counted signal.
 It is the ordering a reader would choose on its own merits, because a synchronous message with a
 thread blocked behind it looks more urgent than a count, and the function's own doc comment is
 the only place saying otherwise.
 
-Expected to fail: the harness's `assert_eq!(unsafe { e.recv(...) }, Recv::Signal)` when
+Expected to fail: the harness's `assert_eq!(unsafe { e.receive(...) }, Receive::Signal)` when
 `pending > 0` and a sender is queued. The signal is not dropped, but it waits behind a
 rendezvous, which is the loss this ordering exists to prevent: a signal delivered with nobody
 waiting must not be overtaken by a sender that arrived later.
@@ -14,13 +14,13 @@ diff --git a/crates/inter_process_communication/src/lib.rs b/crates/inter_proces
 --- a/crates/inter_process_communication/src/lib.rs
 +++ b/crates/inter_process_communication/src/lib.rs
 @@ -343,7 +343,7 @@ impl<T: Node> Rendezvous<T> {
-     pub unsafe fn recv(&mut self, me: NonNull<T>) -> Recv<T> {
+     pub unsafe fn receive(&mut self, me: NonNull<T>) -> Receive<T> {
 -        if self.pending > 0 {
 +        if let Some(sender) = self.senders.pop_front() {
-+            Recv::FromSender(sender)
++            Receive::FromSender(sender)
 +        } else if self.pending > 0 {
              self.pending -= 1;
-             Recv::Signal
+             Receive::Signal
 -        } else if let Some(sender) = self.senders.pop_front() {
--            Recv::FromSender(sender)
+-            Receive::FromSender(sender)
          } else {

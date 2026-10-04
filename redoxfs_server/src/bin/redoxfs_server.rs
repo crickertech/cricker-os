@@ -47,11 +47,11 @@ manifest_note::carry_subtree_grants!(manifest_note::Scope::SubtreeScope);
 
 extern crate alloc;
 
-use filesystem_protocol::{blk, fs, op, reply_err, xattr};
+use filesystem_protocol::{blk, fs, operation, reply_err, xattr};
 use redoxfs::Disk;
 use redoxfs_server::{CachedDisk, Server};
 use syscall::error::{EINVAL, EIO, Error, Result};
-use user_mode_runtime::{Reply, call, recv_request, send};
+use user_mode_runtime::{Reply, call, receive_request, send};
 
 /// Capability table slots, by convention with the kernel-side wiring (`kernel/src/user/fs_service.rs`).
 const MEMORY_REGION: u64 = 0;
@@ -168,16 +168,16 @@ impl IpcDisk {
     /// opcode and count pack into the first word ([`filesystem_protocol::blk::req`]), the starting block index
     /// is the second. Returns the reply's first word as a signed result (negative is an error, per
     /// the wire convention). The bulk rides in [`BLK_PAGE`], `count * BLOCK` bytes of it.
-    fn blk_n(op_code: u64, block: u64, count: usize) -> i64 {
+    fn blk_n(operation_code: u64, block: u64, count: usize) -> i64 {
         // SAFETY: `call` traps to the kernel, which validates the endpoint in slot BLK.
-        let (r0, _) = call(BLK, blk::req(op_code, count), block);
+        let (r0, _) = call(BLK, blk::req(operation_code, count), block);
         r0 as i64
     }
 
     /// [`Self::blk_n`] for exactly one block: every call this file made before milestone 138 step
     /// 4, and still the right shape for [`blk::SIZE`] and [`blk::FLUSH`], which ignore the count.
-    fn blk(op_code: u64, block: u64) -> i64 {
-        Self::blk_n(op_code, block, 1)
+    fn blk(operation_code: u64, block: u64) -> i64 {
+        Self::blk_n(operation_code, block, 1)
     }
 
     /// Copy `n` bytes out of the shared block region (a completed read landed there, at its start).
@@ -399,7 +399,7 @@ fn window_base(badge: u64) -> u64 {
 
 /// Answer a caller through its one-shot Reply capability, then return to serving. `None` is a
 /// request nobody is waiting on (a plain `SEND`, or a `SEND_CAP` whose capability
-/// `recv_request` deleted), which gets no answer (milestone 706 (a `CALL` server can tell a Reply
+/// `receive_request` deleted), which gets no answer (milestone 706 (a `CALL` server can tell a Reply
 /// from a delegation)).
 fn reply(to: Option<Reply>, r0: i64, r1: u64) {
     if let Some(to) = to {
@@ -412,7 +412,7 @@ fn reply(to: Option<Reply>, r0: i64, r1: u64) {
 /// below it speaks `syscall::error::Result`.
 fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
     loop {
-        // RECV_CAP delivers (first word, the Reply cap's slot, second word, the caller's badge).
+        // RECEIVE_CAP delivers (first word, the Reply cap's slot, second word, the caller's badge).
         // The Reply names the caller; endpoint-only naming means we never learn who they are, only
         // how to answer. The badge (milestone 599) names which client channel this request's bytes
         // are in, which is the whole of how two clients are now kept apart: `win` is the base of
@@ -429,11 +429,11 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
         // **The Reply is typed by the kernel's `x4`** (milestone 706, DECISIONS §245 (a `CALL`
         // server tells a Reply from a delegation)): a client that `SEND_CAP`s a capability here
         // gets it deleted, never answered into.
-        let req = recv_request(FILE);
+        let req = receive_request(FILE);
         let (w0, w1, badge) = (req.w0, req.w1, req.badge);
         let reply_slot = req.delivered.into_reply();
         let win = window_base(badge);
-        let code = op(w0);
+        let code = operation(w0);
         // **A bound badge's handles go through `subtree_scope`** (milestone 606 (a directory walk
         // costs what it does on Linux), ruling D). Its `ROOT` is its grant's directory, and any
         // other handle must be one it minted; an unbound badge passes through as it always has.
@@ -514,7 +514,7 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
                 // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
                 let name_bytes = unsafe { file_page(win, len) };
                 match core::str::from_utf8(name_bytes) {
-                    Ok(name) if op(w0) == fs::OPENDIR => {
+                    Ok(name) if operation(w0) == fs::OPENDIR => {
                         server.open_dir(handle, name, offset).map(|h| h as i64)
                     }
                     Ok(name) => server.make_dir(handle, name, offset).map(|h| h as i64),
@@ -562,7 +562,9 @@ fn serve(server: &mut Server<CachedDisk<IpcDisk>>) -> ! {
                 // SAFETY: the name is `len` bytes the client wrote at the start of FILE_PAGE.
                 let name_bytes = unsafe { file_page(win, len) };
                 match core::str::from_utf8(name_bytes) {
-                    Ok(name) if op(w0) == fs::UNLINK => server.unlink(handle, name).map(|()| 0),
+                    Ok(name) if operation(w0) == fs::UNLINK => {
+                        server.unlink(handle, name).map(|()| 0)
+                    }
                     Ok(name) => server.rmdir(handle, name).map(|()| 0),
                     Err(_) => Err(Error::new(EINVAL)),
                 }

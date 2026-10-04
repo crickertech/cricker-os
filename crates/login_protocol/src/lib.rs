@@ -24,16 +24,16 @@
 //!
 //! ```text
 //!   client --send(REQUEST, connect_word(), 0, 0)------------------------> login
-//!   client <----------------- recv(RESULT) -> CONNECTED ---------------- login
-//!   client <---- RECV_CAP(RESULT) x 3: priv_request, priv_result, page - login
+//!   client <----------------- receive(RESULT) -> CONNECTED ---------------- login
+//!   client <---- RECEIVE_CAP(RESULT) x 3: priv_request, priv_result, page - login
 //!
 //!   client --place(), send(priv_request, w0, 0, 0)-----------------------> login
-//!   client <----------------- recv(priv_result) -> OK, DENIED or -------- login
+//!   client <----------------- receive(priv_result) -> OK, DENIED or -------- login
 //!                                                   NO_TERMINAL
-//!   client <---- RECV_CAP(priv_result) x 5, only after OK ---------------  login
+//!   client <---- RECEIVE_CAP(priv_result) x 5, only after OK ---------------  login
 //!
 //!   client --send(REQUEST, logout_word(), 0, 0)---------------------------> login
-//!   client <----------------- recv(RESULT) -> LOGGED_OUT ----------------- login
+//!   client <----------------- receive(RESULT) -> LOGGED_OUT ----------------- login
 //! ```
 //!
 //! [`CONNECT`] carries no page: there is nothing in it a client did not already know, so the front
@@ -72,7 +72,7 @@
 //!    mid-request to the file service when a logout arrives, which refuses the very first `DESTROY`
 //!    (the same shape `crates/system_initializer::reclaim` already retries for a directory grant's
 //!    own caretaker); it never refuses permanently, because the caretaker's own client-facing
-//!    endpoint is retyped from this same region, so its steady state (parked in `recv` between
+//!    endpoint is retyped from this same region, so its steady state (parked in `receive` between
 //!    requests) is always reclaimable, never the permanently-blocked case
 //!    `notes/hung-component.md` documents as unfixable. Logging out is optional: a client that never
 //!    calls `DESTROY` costs `login` exactly what it always cost (see that program's BUGS on
@@ -154,7 +154,7 @@
 //!
 //! Identical in shape to [`credential_protocol`]'s: an identity and a secret, because this service's whole
 //! first act is relaying the presented pair to the credential service's own `VERIFY` unchanged. Its
-//! `place`/`read`/`req`/`op` do not encode anything specific to that service's own semantics (`op`
+//! `place`/`read`/`req`/`operation` do not encode anything specific to that service's own semantics (`operation`
 //! is a caller-supplied word), so this contract reuses them rather than defining a second copy of
 //! the same layout and risking the two drifting the way `credentialer.rs`'s own compile-time
 //! assertions exist to catch for `cred`/`credential_protocol`.
@@ -169,7 +169,7 @@
 //! for the whole family**, so this name is final on both halves. The argument is in
 //! `design/naming/vocabulary-rulings.md`, "The `login` stem stays".
 
-pub use credential_protocol::{MAX_IDENTITY, MAX_SECRET, PAGE, op, place, read, wipe};
+pub use credential_protocol::{MAX_IDENTITY, MAX_SECRET, PAGE, operation, place, read, wipe};
 
 /// **The front door's only legal request** (milestone 49's channel-per-client update): "give me my
 /// own private channel." Carries no lengths and touches no page; build the word with
@@ -222,23 +222,23 @@ pub const REDERIVE_SKIPS: u64 = 9;
 /// `send(REQUEST, connect_word(), 0, 0)`. The bare word [`CONNECT`] travels as; a client never calls
 /// [`place`] for this step, because there is no identity or secret to stage.
 pub fn connect_word() -> u64 {
-    CONNECT << credential_protocol::OP_SHIFT
+    CONNECT << credential_protocol::OPERATION_SHIFT
 }
 
 /// `send(REQUEST, suspend_word(), 0, 0)`. The bare word [`SUSPEND`] travels as.
 pub fn suspend_word() -> u64 {
-    SUSPEND << credential_protocol::OP_SHIFT
+    SUSPEND << credential_protocol::OPERATION_SHIFT
 }
 
 /// `send(REQUEST, rederive_skips_word(), 0, 0)`. The bare word [`REDERIVE_SKIPS`] travels as.
 pub fn rederive_skips_word() -> u64 {
-    REDERIVE_SKIPS << credential_protocol::OP_SHIFT
+    REDERIVE_SKIPS << credential_protocol::OPERATION_SHIFT
 }
 
 /// `send(REQUEST, logout_word(), 0, 0)`. The bare word [`LOGOUT`] travels as, on the *front door*
 /// (unlike [`connect_word`]'s answer, this needs no private channel): see [`LOGOUT`]'s own doc.
 pub fn logout_word() -> u64 {
-    LOGOUT << credential_protocol::OP_SHIFT
+    LOGOUT << credential_protocol::OPERATION_SHIFT
 }
 
 /// **A private channel is ready.** Answered on the front door's `RESULT` endpoint, followed by
@@ -253,12 +253,12 @@ pub const OK: u64 = 1;
 
 /// **A bit of [`OK`]'s second word: the sixth capability, the run-unvouched one, follows**
 /// (DECISIONS §219 gate D2). Carried on the reply rather than implied, because a client's sixth
-/// `RECV_CAP` must match a sixth `SEND_CAP` exactly: a `login` spawned without the capability
+/// `RECEIVE_CAP` must match a sixth `SEND_CAP` exactly: a `login` spawned without the capability
 /// (every kernel test harness before this bit) sends five, and a client that always waited for six
 /// would block for ever. Name: provisional.
 pub const RUN_UNVOUCHED_FOLLOWS: u64 = 1;
 /// **A bit of [`OK`]'s second word: the registration page follows** (milestone 152). After the
-/// run-unvouched capability when that is announced too, one more `RECV_CAP` delivers a page frame
+/// run-unvouched capability when that is announced too, one more `RECEIVE_CAP` delivers a page frame
 /// (`WRITE`): the identity's timetable's registration page, `timetable::registration`'s whole
 /// protocol. Announced for the reason [`RUN_UNVOUCHED_FOLLOWS`] is. Name: provisional.
 pub const SCHEDULE_FOLLOWS: u64 = 2;
@@ -816,9 +816,9 @@ mod tests {
         assert!(with_listed(b"chris\n", b"corinne", &mut [0u8; 4]).is_none());
         assert!(without_listed(b"chris\n", b"corinne", &mut [0u8; 2]).is_none());
         assert_eq!(with_listed(b"", b"chris", &mut out), Some(6));
-        assert_eq!(op(suspend_word()), SUSPEND);
-        assert_eq!(op(logout_word()), LOGOUT);
-        assert_eq!(op(connect_word()), CONNECT);
+        assert_eq!(operation(suspend_word()), SUSPEND);
+        assert_eq!(operation(logout_word()), LOGOUT);
+        assert_eq!(operation(connect_word()), CONNECT);
     }
 
     #[test]
@@ -831,7 +831,7 @@ mod tests {
     fn req_and_place_agree_with_cred_proto_on_the_shape() {
         let mut page = [0u8; PAGE];
         let w0 = place(&mut page, b"chris", b"secret", LOGIN).expect("fits");
-        assert_eq!(op(w0), LOGIN);
+        assert_eq!(operation(w0), LOGIN);
         let (id, secret) = read(&page, w0).expect("well-formed");
         assert_eq!(id, b"chris");
         assert_eq!(secret, b"secret");
@@ -840,7 +840,7 @@ mod tests {
     #[test]
     fn connect_word_carries_no_lengths_and_reads_back_as_connect() {
         let w0 = connect_word();
-        assert_eq!(op(w0), CONNECT);
+        assert_eq!(operation(w0), CONNECT);
         // Unlike a LOGIN word, there is nothing else packed into it: the low 32 bits (where `place`
         // packs the two lengths) are zero.
         assert_eq!(w0 & 0xffff_ffff, 0);
@@ -852,10 +852,10 @@ mod tests {
     #[test]
     fn logout_word_carries_no_lengths_and_reads_back_as_logout() {
         let w0 = logout_word();
-        assert_eq!(op(w0), LOGOUT);
+        assert_eq!(operation(w0), LOGOUT);
         assert_eq!(w0 & 0xffff_ffff, 0);
         // Distinguishable from both existing front-door/private-channel opcodes, so a front door
-        // that dispatches on `op(w0)` can never confuse the three.
+        // that dispatches on `operation(w0)` can never confuse the three.
         assert_ne!(LOGOUT, CONNECT);
         assert_ne!(LOGOUT, LOGIN);
     }
@@ -866,9 +866,9 @@ mod tests {
         // are read from different fields by different code and are allowed to share numbers; this
         // checks each namespace is internally distinct, which is the property a dispatch `match`
         // actually relies on.
-        let request_ops = [LOGIN, CONNECT, LOGOUT];
-        for (i, a) in request_ops.iter().enumerate() {
-            for b in &request_ops[i + 1..] {
+        let request_operations = [LOGIN, CONNECT, LOGOUT];
+        for (i, a) in request_operations.iter().enumerate() {
+            for b in &request_operations[i + 1..] {
                 assert_ne!(a, b, "two request opcodes collide");
             }
         }
@@ -878,5 +878,48 @@ mod tests {
                 assert_ne!(a, b, "two verdict codes collide");
             }
         }
+    }
+
+    /// The bare words that travel on the front door are an opcode in the top byte and nothing else.
+    #[test]
+    fn each_bare_word_is_its_opcode_in_the_top_byte_alone() {
+        for (word, operation) in [
+            (suspend_word(), SUSPEND),
+            (rederive_skips_word(), REDERIVE_SKIPS),
+            (logout_word(), LOGOUT),
+        ] {
+            assert_eq!(word >> credential_protocol::OPERATION_SHIFT, operation);
+            assert_eq!(word << (64 - credential_protocol::OPERATION_SHIFT), 0);
+        }
+    }
+
+    /// Two lengths in one word, each from its own half.
+    #[test]
+    fn the_two_schedule_lengths_do_not_share_bits() {
+        let w = schedule_lengths(0xdead_beef, 0x1234_5678);
+        assert_eq!(w, 0x1234_5678_dead_beef);
+        assert_eq!(split_schedule_lengths(w), (0xdead_beef, 0x1234_5678));
+    }
+
+    /// The durable window is the file service's last, and the budgets a spawner sizes from are the
+    /// documented sums. A change to any of these is a decision about what `login` may spend, so it
+    /// is written down twice.
+    #[test]
+    fn the_durable_window_is_the_last_and_the_budgets_are_the_documented_sums() {
+        assert_eq!(
+            DURABLE_WINDOW as usize + 1,
+            filesystem_protocol::fs::CLIENT_WINDOWS
+        );
+        assert_eq!(durable::SESSION_REGION_PAGES, 320);
+        assert_eq!(durable::BUDGET_PAGES, 64 + 320 + 416);
+        assert_eq!(durable::BUDGET_PAGES, 800);
+    }
+
+    /// Skip counts pack one byte each in reason order and saturate at 255, not wrap.
+    #[test]
+    fn skip_counts_pack_one_byte_each_and_saturate() {
+        let packed = durable::pack_skip_counts(&[1, 2, 255, 256, 100_000]);
+        assert_eq!(packed, u64::from_le_bytes([1, 2, 255, 255, 255, 0, 0, 0]));
+        assert_eq!(durable::unpack_skip_counts(packed), [1, 2, 255, 255, 255]);
     }
 }

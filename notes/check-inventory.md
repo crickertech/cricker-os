@@ -131,7 +131,7 @@ into `script/ci-build`'s table; the measurements are still 2026-09-03's, taken u
 | `metrics` | `metrics.yml` | no | unknown, never run |
 | `vendor-watch` | `vendor-watch.yml` | no | green |
 | `toolchain-bump` | **nothing** | no | unknown; `toolchain-bump.yml` reimplements a subset |
-| `interleaving-check` | **nothing** | no | **green, measured today, 12 seconds** |
+| `interleaving-check` | the `interleavings` job in `ci.yml` (milestone 746, provisional) | yes | green, 24 seconds cold (2026-10-03) |
 | `crate-probes` | **nothing** | no | **green, measured today, 43 of 50, about 3 minutes** |
 | `repeat-under-load` | `script/runner-container`, which nothing calls | no | unknown |
 | `soak-test` | **nothing** | no | unknown |
@@ -247,13 +247,11 @@ the commit.
 
 ### 4. Three instruments run nowhere, and two of them are cheap
 
-- **`script/interleaving-check`** (milestone 80, loom over the hand-rolled atomic protocols) is in no
-  workflow and in no gate. It is the only thing in this tree that can falsify a violation of
-  AGENTS.md's fourth rule, assume weak memory ordering. Its header says it is out of `script/test`
-  and the set a developer runs "for the same reason as `script/undefined-behavior-check`", and that analogy is
-  broken: the sibling it names has a weekly workflow and this has nothing. Measured today: 12.4
-  seconds wall clock, 30 crates compiled, all 26 harnesses green, including the falsification
-  witness that passes only when loom finds the pre-fix double free.
+- **`script/interleaving-check`** (milestone 80 (Loom: the hand-rolled atomic protocols,
+  model-checked)) was in no workflow and no gate at audit, though it is the only thing
+  that can falsify a violation of AGENTS.md's fourth rule, assume weak memory ordering. Measured:
+  12.4 seconds, 26 harnesses green, including the falsification witness. Milestone 746 (Loom
+  runs in CI), provisional, added the `interleavings` job in `ci.yml`. It is required (calef, 2026-10-04 UTC).
 - **`script/crate-probes`** is the instrument behind fatal risk 1 (only software written for nife
   runs on nife), which is recorded GREEN. Its own `BUGS` explains why it is not a CI gate: it needs
   the network and it takes the account-wide `nife-dev` toolchain link. Measured today: 43 of 50

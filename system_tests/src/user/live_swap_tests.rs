@@ -206,7 +206,7 @@ fn run_swap(role: u64) -> ([[u64; 5]; MAX_REPORTS], usize) {
     let mut msgs = [[0u64; 5]; MAX_REPORTS];
     let mut n = 0;
     while n < MAX_REPORTS {
-        let msg = sched::ipc_recv(report);
+        let msg = sched::ipc_receive(report);
         assert_ne!(
             msg[0], RPT_FAILED,
             "the swap system could not be built: stage {}. Stages 1-4 are the archive and the \
@@ -520,14 +520,14 @@ fn a_client_keeps_talking_while_the_server_underneath_it_is_replaced() {
 /// server.**
 ///
 /// The milestone rests on rendezvous-only naming, and the obvious worry about it is that a name
-/// with no peer in it is a name anybody can answer to. It is not: `SEND` and `RECV` are gated by
+/// with no peer in it is a name anybody can answer to. It is not: `SEND` and `RECEIVE` are gated by
 /// different rights on the same object, so the same rendezvous handed out two ways is a one-way
 /// pipe in whichever direction each holder was trusted with. The attacker is endowed with
 /// *exactly* what the honest client holds, so the refusal is about rights and not about
 /// wiring.
 ///
 /// Falsification: unfalsified. A real escape here hangs the run instead of failing this
-/// assertion; see notes/confinement-claims.md and milestone 305. `RECV_CAP` is a blocking
+/// assertion; see notes/confinement-claims.md and milestone 305 (the six kernel confinement rows get a falsification a machine can replay). `RECEIVE_CAP` is a blocking
 /// receive, so an attacker the kernel fails to refuse does not report an escape, it takes the
 /// message the honest server was waiting for and every thread blocks. Measured 2026-09-16 with
 /// the rights check deleted from the syscall: a 60-second watchdog reading `a lost-wakeup
@@ -657,7 +657,7 @@ fn survey_awake(w: u64) -> u64 {
 ///
 /// 1. **The domain does not report a hang.** Every member of the survey is `BLOCKED`, none is `DEAD`,
 ///    and that is byte for byte what a healthy idle system reads as: `abi::survey::BLOCKED` is the
-///    state of a server parked in `RECV_CAP`, which is every healthy server between requests. The
+///    state of a server parked in `RECEIVE_CAP`, which is every healthy server between requests. The
 ///    view milestone 126 built is the widest one a supervisor has and it cannot tell the difference.
 /// 2. **The supervisor's whole vocabulary over its domain is refused.** `Rendezvous::REAP` is asked
 ///    about every member and answers `StillAlive` every time, on purpose: §32 authorizes collecting a
@@ -746,7 +746,7 @@ fn a_component_that_stops_answering_without_dying_is_invisible_to_its_supervisor
 
     // No death message had arrived by then either, which is the other half of "nothing noticed":
     // the operator reports every death it collects, and the first of those must come after the
-    // survey. A supervisor blocked in RECV on its supervision rendezvous would simply never wake.
+    // survey. A supervisor blocked in RECEIVE on its supervision rendezvous would simply never wake.
     let at_survey = msgs.iter().position(|m| m[0] == RPT_SURVEY).unwrap();
     let first_death = msgs
         .iter()
@@ -802,7 +802,7 @@ fn a_component_that_stops_answering_without_dying_is_invisible_to_its_supervisor
     }
     assert!(
         !had_step(msgs, STEP_DRAINED),
-        "the operator reported a drain: OP_QUIESCE needs the incumbent to answer, which is the one \
+        "the operator reported a drain: OPERATION_QUIESCE needs the incumbent to answer, which is the one \
          thing a hung component does not do. A run that drained did not test a hang.",
     );
 

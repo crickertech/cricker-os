@@ -14,7 +14,7 @@
 //!
 //! Its whole authority is four things placed before it ran:
 //!
-//! - slot 0, the **request** endpoint (RECV): clients `CALL` here and nothing else;
+//! - slot 0, the **request** endpoint (RECEIVE): clients `CALL` here and nothing else;
 //! - slot 1, an **`Irq`**: the device's completion interrupt;
 //! - slot 2, a **`Virtio`**: the confined transport, and the only way it can reach the device;
 //! - slot 3, a **readiness** endpoint (WRITE): one message once the first bytes are in hand;
@@ -131,7 +131,7 @@ use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
 use user_mode_runtime::virtio::{
     virtio_notify, virtio_read_reg, virtio_ring_barrier, virtio_setup_queue, virtio_write_reg,
 };
-use user_mode_runtime::{exit, irq_ack, irq_wait, recv_request, reply, send};
+use user_mode_runtime::{exit, irq_ack, irq_wait, receive_request, reply, send};
 
 /// Capability slots for the virtio backend, by convention with `kernel/src/user/entropy_service.rs`.
 const REQ: u64 = 0;
@@ -478,7 +478,7 @@ pub extern "C" fn _start(mode: u64, direct_memory_access_phys: u64, _arg2: u64) 
 /// The serve loop: one endpoint, one wait point, forever.
 fn serve(mut pool: Pool, refuse: bool) -> ! {
     loop {
-        let req = recv_request(REQ);
+        let req = receive_request(REQ);
         let w0 = req.w0;
         let Some(cap) = req.delivered.into_reply() else {
             // A plain SEND, or a SEND_CAP, on a CALL-only contract. Nobody is waiting for an
@@ -488,7 +488,7 @@ fn serve(mut pool: Pool, refuse: bool) -> ! {
             // same way for the same reason.)
             continue;
         };
-        let (count, word) = match proto::op(w0) {
+        let (count, word) = match proto::operation(w0) {
             // `refuse` is a device this service condemned at bring-up for answering with zeros. It
             // is answered the way a dry device is: `NO_ENTROPY` already means the one thing a
             // client has to know, which is that it is not getting randomness here.
@@ -603,7 +603,7 @@ mod instr {
     }
 }
 
-/// The instruction-mode serve loop: `RECV` on `I_REQ`, one instruction draw per request, one wait
+/// The instruction-mode serve loop: `RECEIVE` on `I_REQ`, one instruction draw per request, one wait
 /// point. No device, so no bring-up steps and nothing that can [`die`]: the only degenerate case is
 /// a dry source, reported the same way a request's own [`proto::NO_ENTROPY`] answer already is.
 fn serve_instruction() -> ! {
@@ -621,13 +621,13 @@ fn serve_instruction() -> ! {
     // `entropy_protocol`'s `BUGS` carries the number.
     let refuse = report == proto::bringup_failure(proto::STEP_FIRST_ALL_ZERO);
     loop {
-        let req = recv_request(I_REQ);
+        let req = receive_request(I_REQ);
         let w0 = req.w0;
         let Some(cap) = req.delivered.into_reply() else {
             // Same reasoning as `serve`'s identical line: nobody is waiting for an answer.
             continue;
         };
-        let (count, word) = match proto::op(w0) {
+        let (count, word) = match proto::operation(w0) {
             proto::GET if !refuse => match instr::draw() {
                 Some(bytes) => (proto::want(w0), u64::from_le_bytes(bytes)),
                 None => (proto::NO_ENTROPY, 0),

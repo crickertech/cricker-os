@@ -98,7 +98,7 @@ EL0 gets the data path" is one page mapped and another not.
 | what the process is handed and what it is refused | `kernel/src/user/non_volatile_memory_express_service.rs`'s `Spawn` literal |
 
 What the server holds, and it is the complete list, because a capability system has no ambient
-environment: the request endpoint (RECV, `filesystem_protocol::blk`), a readiness endpoint (WRITE,
+environment: the request endpoint (RECEIVE, `filesystem_protocol::blk`), a readiness endpoint (WRITE,
 one message), one page of BAR0 device-typed (the doorbell page at `bar0 + 0x1000`), and the
 **data plane's pages** of one confined DMA region (the two I/O rings and sixteen pages of transfer
 buffer).

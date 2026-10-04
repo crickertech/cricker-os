@@ -142,7 +142,7 @@ a per-connection shared frame delegated at open time.
 - `Socket::connect(ip, port)`, `Socket::bind(port)`, `Socket::listen`, `Socket::send(len)`,
   `Socket::recv() -> len`, `Socket::close`. `send`/`recv` carry only a length; the bytes are already
   in the shared frame. "Data ready" is a message on the socket endpoint, the same way an `Irq`
-  capability delivers an interrupt (WAIT-shaped), so a blocking read is a blocked `RECV`.
+  capability delivers an interrupt (WAIT-shaped), so a blocking read is a blocked `RECEIVE`.
 - DHCP and the interface config live entirely inside the server; a client never sees "the network,"
   only its own sockets. The server runs smoltcp's DHCP socket at startup and does not expose it.
 
@@ -169,7 +169,7 @@ The questions.
    advances a tail and messages the server. Straightforward, but the exact layout (one frame split
    TX/RX, or two frames) is a contract detail to pin.
 
-3. Blocking vs. poll for the PAL. `std::net` is blocking by default. A blocked `RECV` on the
+3. Blocking vs. poll for the PAL. `std::net` is blocking by default. A blocked `RECEIVE` on the
    socket endpoint gives blocking cleanly. Non-blocking/`poll` is a later PAL concern; phase one can
    be blocking-only and still satisfy the roadmap's "no sockets-API mimicry beyond what the PAL
    needs."

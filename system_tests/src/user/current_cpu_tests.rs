@@ -47,7 +47,7 @@ fn a_userspace_thread_reads_a_cpu_that_is_really_online() {
     })
     .expect("spawn failed");
 
-    let [first, second, bound, _, _] = crate::sched::ipc_recv(result);
+    let [first, second, bound, _, _] = crate::sched::ipc_receive(result);
     let online = crate::smp::online_harts_mask();
 
     for (which, cpu) in [("first", first), ("second", second)] {

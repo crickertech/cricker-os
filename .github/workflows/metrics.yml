@@ -268,3 +268,7 @@ jobs:
             gh pr edit "$existing" --title "$title" --body "$body"
             echo "Updated PR #$existing in place."
           fi
+          # **Arms its own pull request** (milestone 727 (a queue eviction goes to a maintainer session), provisional): since 2026-10-03 the merge drain
+          # arms nothing, and a lane arms in the same command as `gh pr ready`. This workflow is the
+          # lane here. If arming fails the pull request is labelled needs-maintainer after 30 minutes.
+          gh pr merge "$branch" --auto --merge || echo "::warning::could not arm the metrics pull request"

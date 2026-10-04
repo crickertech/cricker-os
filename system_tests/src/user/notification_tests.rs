@@ -46,9 +46,9 @@ fn parked(tid: crate::thread::ThreadId, want: impl Fn(Option<Wait>) -> bool) -> 
         .is_some_and(|d| d.state == crate::thread::State::Blocked && want(d.wait_on))
 }
 
-/// **A bound receiver is woken out of `RECV` by a signal, can tell, and the endpoint still works.**
+/// **A bound receiver is woken out of `RECEIVE` by a signal, can tell, and the endpoint still works.**
 ///
-/// The binding's whole mechanism in one test. The receiver blocks in an ordinary `ipc_recv`; a
+/// The binding's whole mechanism in one test. The receiver blocks in an ordinary `ipc_receive`; a
 /// signal on its bound notification must unlink it from the rendezvous's receiver queue, deliver
 /// `(BOUND, word, 0, 0, BOUND)`, and wake it. Then a real message on the same rendezvous must still
 /// reach it: a bound delivery that left a stale link in the queue (the classic intrusive-queue
@@ -57,7 +57,7 @@ fn parked(tid: crate::thread::ThreadId, want: impl Fn(Option<Wait>) -> bool) -> 
 /// And the forgery §101's encoding permitted: the second message is `SEND(BOUND, ...)`, which puts
 /// `BOUND` in `w0`, and the receiver must see `w4 == 0`, a message.
 #[test_case]
-fn a_bound_receiver_is_woken_out_of_recv_and_the_endpoint_still_works() {
+fn a_bound_receiver_is_woken_out_of_receive_and_the_endpoint_still_works() {
     static FIRST: [AtomicU64; 5] = [const { AtomicU64::new(u64::MAX) }; 5];
     static SECOND: [AtomicU64; 5] = [const { AtomicU64::new(u64::MAX) }; 5];
 
@@ -66,11 +66,11 @@ fn a_bound_receiver_is_woken_out_of_recv_and_the_endpoint_still_works() {
     let ep = sched::create_rendezvous_from(r).expect("rendezvous");
 
     let receiver = sched::spawn(move || {
-        let m = sched::ipc_recv(ep);
+        let m = sched::ipc_receive(ep);
         for (slot, w) in FIRST.iter().zip(m) {
             slot.store(w, Ordering::SeqCst);
         }
-        let m = sched::ipc_recv(ep);
+        let m = sched::ipc_receive(ep);
         for (slot, w) in SECOND.iter().zip(m) {
             slot.store(w, Ordering::SeqCst);
         }
@@ -82,7 +82,7 @@ fn a_bound_receiver_is_woken_out_of_recv_and_the_endpoint_still_works() {
             w,
             Some(Wait::Rendezvous(e, WaitRole::Receiver)) if e == ep
         ))),
-        "the receiver never parked in RECV"
+        "the receiver never parked in RECEIVE"
     );
     // Bound while already receiving, with nothing pending: nothing happens yet.
     assert_eq!(sched::notification_bind(n, receiver), Ok(()));
@@ -91,7 +91,7 @@ fn a_bound_receiver_is_woken_out_of_recv_and_the_endpoint_still_works() {
     assert_eq!(sched::notification_signal(n, 0b1010), Ok(()));
     assert!(
         wait_for(|| FIRST[0].load(Ordering::SeqCst) != u64::MAX),
-        "a signal on the bound notification did not end the RECV"
+        "a signal on the bound notification did not end the RECEIVE"
     );
     let first: [u64; 5] = core::array::from_fn(|i| FIRST[i].load(Ordering::SeqCst));
     assert_eq!(
@@ -106,7 +106,7 @@ fn a_bound_receiver_is_woken_out_of_recv_and_the_endpoint_still_works() {
         "a bound delivery must carry the tag in w0 and w4 and the word in w1"
     );
 
-    // Back in RECV on the same rendezvous: the queue must hold exactly this thread again.
+    // Back in RECEIVE on the same rendezvous: the queue must hold exactly this thread again.
     assert!(
         wait_for(|| sched::rendezvous_waiting_receivers(ep) == 1),
         "the receiver did not re-park, or the bound delivery left the queue corrupt"
@@ -126,8 +126,8 @@ fn a_bound_receiver_is_woken_out_of_recv_and_the_endpoint_still_works() {
 }
 
 /// **A signal counted while the bound thread was elsewhere ends its next receive at once**, on
-/// both receive shapes (`RECV` and `RECV_CAP`). §101's rule 3: "counted ... and delivered when the
-/// TCB next enters RECV on any endpoint". Without the receive-side check a server that took a
+/// both receive shapes (`RECEIVE` and `RECEIVE_CAP`). §101's rule 3: "counted ... and delivered when the
+/// TCB next enters RECEIVE on any endpoint". Without the receive-side check a server that took a
 /// signal while busy would sleep on it until an unrelated message arrived.
 #[test_case]
 fn a_signal_counted_while_elsewhere_ends_the_next_receive_at_once() {
@@ -144,14 +144,14 @@ fn a_signal_counted_while_elsewhere_ends_the_next_receive_at_once() {
         while GO.load(Ordering::SeqCst) == 0 {
             sched::yield_now();
         }
-        let m = sched::ipc_recv(ep);
+        let m = sched::ipc_receive(ep);
         for (slot, w) in PLAIN.iter().zip(m) {
             slot.store(w, Ordering::SeqCst);
         }
         while GO.load(Ordering::SeqCst) == 1 {
             sched::yield_now();
         }
-        let m = sched::ipc_recv_cap(ep);
+        let m = sched::ipc_receive_cap(ep);
         for (slot, w) in WITH_CAP.iter().zip(m) {
             slot.store(w, Ordering::SeqCst);
         }
@@ -173,7 +173,7 @@ fn a_signal_counted_while_elsewhere_ends_the_next_receive_at_once() {
             0,
             abi::notification::BOUND
         ],
-        "RECV must take the accumulated word on entry"
+        "RECEIVE must take the accumulated word on entry"
     );
     assert_eq!(
         sched::rendezvous_waiting_receivers(ep),
@@ -194,7 +194,7 @@ fn a_signal_counted_while_elsewhere_ends_the_next_receive_at_once() {
             0,
             abi::notification::BOUND
         ],
-        "RECV_CAP must take it too"
+        "RECEIVE_CAP must take it too"
     );
     reclaim(r);
 }
@@ -407,7 +407,7 @@ fn a_kernel_signal_ends_an_irq_wait_with_the_word_in_x1_and_the_tag_in_x4() {
     reclaim(r);
 }
 
-/// **A program binds a notification to itself and is woken out of `RECV` by it**, through the
+/// **A program binds a notification to itself and is woken out of `RECEIVE` by it**, through the
 /// real syscall boundary and the real user-mode wrapper, on every architecture. The fixture
 /// (`fixtures/src/notification_binder.rs`) checks from inside what it can: accumulation, poll,
 /// wait-without-blocking, a zero signal, bind-once, `WrongObject`, and a counted signal ending its
@@ -415,7 +415,7 @@ fn a_kernel_signal_ends_an_irq_wait_with_the_word_in_x1_and_the_tag_in_x4() {
 /// this test proves the two things only the other side can see: a signal from another thread
 /// wakes it with the tag in `x4`, and a sender forging `BOUND` in `w0` arrives as a message.
 #[test_case]
-fn a_program_binds_a_notification_and_recv_tells_a_signal_from_a_forgery() {
+fn a_program_binds_a_notification_and_receive_tells_a_signal_from_a_forgery() {
     let Some(image) = program("notification_binder") else {
         crate::testing::skip!("no notification_binder program in this archive");
     };
@@ -447,7 +447,7 @@ fn a_program_binds_a_notification_and_recv_tells_a_signal_from_a_forgery() {
     .expect("spawn the binder");
 
     // The delegation: a WRITE-only notification capability, landed in this thread's table.
-    let [_, slot, ..] = sched::ipc_recv_cap(report);
+    let [_, slot, ..] = sched::ipc_receive_cap(report);
     assert_ne!(
         slot,
         abi::rendezvous::NO_CAP,
@@ -461,20 +461,20 @@ fn a_program_binds_a_notification_and_recv_tells_a_signal_from_a_forgery() {
 
     assert!(
         wait_for(|| sched::rendezvous_waiting_receivers(ep) == 1),
-        "the binder never blocked in RECV"
+        "the binder never blocked in RECEIVE"
     );
     let (signalled, _) = invoke(slot, abi::notification::SIGNAL, 0x1_0000);
     assert_eq!(signalled, Ok(0));
-    let m = sched::ipc_recv(report);
+    let m = sched::ipc_receive(report);
     assert_eq!(
         [m[0], m[1], m[2]],
         [abi::notification::BOUND, 0x1_0000, 1],
-        "the program's RECV was not ended by the signal, or could not tell"
+        "the program's RECEIVE was not ended by the signal, or could not tell"
     );
 
     assert!(wait_for(|| sched::rendezvous_waiting_receivers(ep) == 1));
     sched::ipc_send(ep, [abi::notification::BOUND, 0xbad, 0]);
-    let m = sched::ipc_recv(report);
+    let m = sched::ipc_receive(report);
     assert_eq!(
         [m[0], m[1], m[2]],
         [abi::notification::BOUND, 0xbad, 0],

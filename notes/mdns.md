@@ -1,13 +1,13 @@
 # mDNS/DNS-SD: the Time Machine advertisement, and why it is no longer here (milestone 55)
 
-**The code this note describes was retired from the tree on 2026-09-15, on calef's ruling ("Retire
-all three"), by milestone 298.** Every present tense below is the tree as it stood at commit
+The code this note describes was retired from the tree on 2026-09-15, on calef's ruling ("Retire
+all three"), by milestone 298 (retire). Every present tense below is the tree as it stood at commit
 `0652c981`, the last commit that holds it; nothing described here can be built or run from `main`
 any more. This follows the precedent milestone 54's removal set for [smb.md](smb.md): the note is
 kept in full, with this header, because a finding worth keeping lands in `notes/` rather than in a
 commit nobody will check out. Read it in the past tense.
 
-**Why it went.** It was never a general responder. `multicast_dns_protocol` hardcoded exactly Time
+Why it went. It was never a general responder. `multicast_dns_protocol` hardcoded exactly Time
 Machine's three services (`_smb._tcp`, `_adisk._tcp`, `_device-info._tcp`), the
 `multicast_dns_config` grammar could describe nothing else, and the shipped configuration was calef's
 router, advertising two family backup disks. The SMB share it advertised was removed on 2026-08-30,
@@ -16,7 +16,7 @@ cordoba. After that nothing ran the responder but tests, and no live milestone w
 as a naming question (calef had ruled the `multicast_dns` stem without seeing the whole names) and
 dissolved into a retirement once the names said what the program was for.
 
-**What went with it**, all at `0652c981` in git:
+What went with it, all at `0652c981` in git:
 
 - `components/src/multicast_dns_responder.rs`, `components/multicast_dns_responder.conf`,
   `crates/multicast_dns_protocol` (with its three Kani harnesses) and `crates/multicast_dns_config`.
@@ -24,17 +24,17 @@ dissolved into a retirement once the names said what the program was for.
   condition. The scanout and inbound checks are unchanged.
 - The stack half's multicast pieces: the runners' frame-level injection hub (`NIFE_MCAST_PORT`),
   `net_stack`'s join of 224.0.0.251, and smoltcp's `multicast` feature. Each existed only for the
-  responder and its prober, and without them nothing could exercise them. **Nothing in the tree
-  proves multicast receive or send any more**; a future multicast client puts back the feature, the
+  responder and its prober, and without them nothing could exercise them. Nothing in the tree
+  proves multicast receive or send any more; a future multicast client puts back the feature, the
   join, and a host-side peer below slirp, and "The smoltcp multicast answer" and "The QEMU gate"
   below say what each took.
 
-**What stayed**, because it is not mDNS-shaped: the UDP bind grant (`BIND_UDP`,
+What stayed, because it is not mDNS-shaped: the UDP bind grant (`BIND_UDP`,
 `socket_protocol::udp_bind_grant`), still proved by `socket_test_client`'s refusal and exclusivity
-checks inside the accept test, and the source endpoint on a UDP `RECV`, still proved by the TFTP
+checks inside the accept test, and the source endpoint on a UDP `RECEIVE`, still proved by the TFTP
 exchange.
 
-**The one real loss** is general DNS message and name parsing, Kani-checked at the name decoder
+The one real loss is general DNS message and name parsing, Kani-checked at the name decoder
 (compression pointers cannot loop or overrun), which sat beside the Time Machine records. A unicast
 resolver would want that half; milestone 384, `design/roadmap/384-a-name-resolver-and-who-holds-it.md`, says
 where to find it.
@@ -49,20 +49,20 @@ backup system (design/roadmap/55-time-machine.md, "mDNS is required after all").
 
 Four pieces, all built:
 
-- **`crates/multicast_dns_protocol`**: the DNS wire format, compression handling, the DNS-SD PTR/SRV/TXT
+- `crates/multicast_dns_protocol`: the DNS wire format, compression handling, the DNS-SD PTR/SRV/TXT
   structuring, the probe-before-claim wire halves, `respond()` (the responder's entire decision as a
   pure function) and `announcement()` (RFC 6762 §8.3's unsolicited response). Host-tested against
   real captured router packets; Kani harnesses cover the parser's termination and bounds.
-- **The stack half** (both ISAs): smoltcp's `multicast` feature is on and `net_stack` joins
+- The stack half (both ISAs): smoltcp's `multicast` feature is on and `net_stack` joins
   224.0.0.251 at startup; `BIND_UDP` claims a fixed port against a granted range
   (`socket_protocol::udp_bind_grant`, the UDP twin of milestone 107's listen grant, riding the high
-  half of the same spawn word); a UDP `RECV` reply carries the datagram's source endpoint in the
+  half of the same spawn word); a UDP `RECEIVE` reply carries the datagram's source endpoint in the
   frame's dst fields.
-- **`crates/multicast_dns_config` and `components/multicast_dns_responder.conf`**: what this machine advertises, as a
+- `crates/multicast_dns_config` and `components/multicast_dns_responder.conf`: what this machine advertises, as a
   document a person edits rather than constants in a program. See "The configuration" below.
-- **`components/src/multicast_dns_responder.rs`**: the program. Binds 5353 through the grant, announces, then
-  answers queries with `respond()` until it has served its rounds. **One authority and nothing
-  else**: it holds no share, no file, no TCP port, so the process that tells a Mac a backup target
+- `components/src/multicast_dns_responder.rs`: the program. Binds 5353 through the grant, announces, then
+  answers queries with `respond()` until it has served its rounds. One authority and nothing
+  else: it holds no share, no file, no TCP port, so the process that tells a Mac a backup target
   exists cannot serve a byte of it, and the process that serves the bytes (`smb_server`) cannot be
   found. On the reference implementation both are one process with one configuration file.
 
@@ -82,67 +82,67 @@ from the dev machine. The router answered from `192.168.8.1:5353`; the full hex 
 
 Plus an A record (`192.168.8.1`) and an AAAA in every response. Findings that beat the documentation:
 
-- **One `_adisk` instance for all shares.** The disks are `dkN=` entries inside a single TXT record.
+- One `_adisk` instance for all shares. The disks are `dkN=` entries inside a single TXT record.
   Emitting one announcement per share would be wrong.
-- **Two disks is correct.** The roadmap block described three users; graeme migrated from macOS to
+- Two disks is correct. The roadmap block described three users; graeme migrated from macOS to
   Windows and his share was dropped, so the reference advertises corinne and chris (calef confirmed,
   2026-08-15).
-- **`model=MacSamba`, not `TimeCapsule`.** The router's own Samba config sets
+- `model=MacSamba`, not `TimeCapsule`. The router's own Samba config sets
   `fruit:model = TimeCapsule`, and its mDNS advertisement says `MacSamba` anyway: the SMB-side AAPL
   model and the `_device-info` TXT are separate knobs, and the working reference runs with them
   disagreeing. Whatever `fruit:model` buys, it is not this record. The crate therefore takes the
   model as data.
-- **`_adisk` and `_device-info` advertise SRV port 0.** They carry flags, not a connectable service.
-- **Legacy unicast shape confirmed** (RFC 6762 §6.7): our queries came from an ephemeral port, and
+- `_adisk` and `_device-info` advertise SRV port 0. They carry flags, not a connectable service.
+- Legacy unicast shape confirmed (RFC 6762 §6 (SMP).7): our queries came from an ephemeral port, and
   the router echoed the ID, included the question, put all five records in the answer section, set
   no cache-flush bits, and capped every TTL at 10.
 
-The flag values are copied as measured; **the meaning of the `adVF` bits is not decoded here**, and
+The flag values are copied as measured; the meaning of the `adVF` bits is not decoded here, and
 does not need to be until something wants to emit different ones.
 
 ## The smoltcp multicast answer (the question the roadmap block asks first)
 
-**The tree's smoltcp is 0.13.1** (`Cargo.lock`; pinned in `user/Cargo.toml` with
+The tree's smoltcp is 0.13.1 (`Cargo.lock`; pinned in `user/Cargo.toml` with
 `default-features = false` and features `alloc`, `medium-ethernet`, `proto-ipv4`, `proto-dhcpv4`,
 `socket-udp`, `socket-tcp`, `socket-dhcpv4`).
 
-**smoltcp 0.13.1 supports what mDNS needs, and the tree has it switched off.** The `multicast`
+smoltcp 0.13.1 supports what mDNS needs, and the tree has it switched off. The `multicast`
 cargo feature (in smoltcp's own default set, which `default-features = false` discards) provides:
 
 - `Interface::join_multicast_group` / `leave_multicast_group` (`iface/interface/multicast.rs`),
   with IGMP membership reports sent and IGMP queries answered for IPv4 groups (MLD for IPv6).
 - Receive-path acceptance: `process_ipv4` drops any packet whose destination is not us, broadcast,
-  or a joined group (`has_multicast_group`). **Without the feature, the only IPv4 multicast group
-  accepted is `224.0.0.1`** (all-systems, hardcoded), so datagrams to `224.0.0.251` are discarded
+  or a joined group (`has_multicast_group`). Without the feature, the only IPv4 multicast group
+  accepted is `224.0.0.1` (all-systems, hardcoded), so datagrams to `224.0.0.251` are discarded
   before UDP ever sees them. The ethernet layer already accepts multicast MAC frames either way;
   the filter that matters is the IP one.
 
 So the responder is *nearly* ordinary socket code, and the distance was measured in small pieces.
-**All three landed with the stack half** (milestone 55, the lane after the one that wrote this
+All three landed with the stack half (milestone 55, the lane after the one that wrote this
 note), the shapes the sizing proposed:
 
-1. **The feature flag**: `"multicast"` in `user/Cargo.toml`'s smoltcp features. Landed as its own
+1. The feature flag: `"multicast"` in `user/Cargo.toml`'s smoltcp features. Landed as its own
    commit, being a change to a vendored-engine pin's configuration.
-2. **The join**: `net_stack` joins 224.0.0.251 right after DHCP configures, then polls so the IGMP
+2. The join: `net_stack` joins 224.0.0.251 right after DHCP configures, then polls so the IGMP
    membership report carries a real source address. Membership is interface state, not socket
    state, so the join is unconditional; what is granted per client is the port.
-3. **Socket surface.** The three gaps, closed:
-   - `OP_BIND_UDP` (name provisional) binds a **fixed** UDP port, checked against a **UDP bind
-     grant** the spawn site packs with `socket_protocol::udp_bind_grant` into the high half of the
+3. Socket surface. The three gaps, closed:
+   - `OPERATION_BIND_UDP` (name provisional) binds a fixed UDP port, checked against a UDP bind
+     grant the spawn site packs with `socket_protocol::udp_bind_grant` into the high half of the
      same spawn word milestone 107's listen grant occupies. The halves are independent
      authorities; the zero word still grants nothing anywhere. The reply vocabulary is `LISTEN`'s
      three outcomes, which are properties of claiming a port, not of TCP.
-   - A UDP `RECV` reply now writes the datagram's **source endpoint** into the shared frame's
-     `dst_ip`/`dst_port` fields, the dead-space proposal above, taken. TCP `RECV` leaves them
+   - A UDP `RECEIVE` reply now writes the datagram's source endpoint into the shared frame's
+     `dst_ip`/`dst_port` fields, the dead-space proposal above, taken. TCP `RECEIVE` leaves them
      untouched; the peer is fixed by the connection.
-   - `OP_SENDTO` to a multicast destination was measured, not trusted: the QEMU gate's host-side
+   - `OPERATION_SENDTO` to a multicast destination was measured, not trusted: the QEMU gate's host-side
      prober takes the guest's group-addressed datagram off the raw wire.
 
 What was *not* needed is any change to smoltcp itself.
 
 ## The configuration: what a person edits
 
-**`components/multicast_dns_responder.conf`**, parsed by `crates/multicast_dns_config`, host-tested, and the responder's
+`components/multicast_dns_responder.conf`, parsed by `crates/multicast_dns_config`, host-tested, and the responder's
 only source for what it says:
 
 ```
@@ -156,13 +156,13 @@ disk      = chris   0x82
 
 Two properties are worth stating because both were decisions rather than defaults.
 
-**The IP address is not in it.** Which address this machine holds is established by the DHCP lease,
+The IP address is not in it. Which address this machine holds is established by the DHCP lease,
 so the spawn site drains the lease *before* spawning the responder and passes it as an argument; the
 responder announces an A record with it, or no A record at all when it is zero. A configuration file
 naming an address goes stale the first time the network changes, and an announcement with a wrong A
 record is worse than one with none: a Mac caches it and then cannot connect.
 
-**The document is compiled in, not read from disk.** `include_str!`, because a program reading a
+The document is compiled in, not read from disk. `include_str!`, because a program reading a
 file needs a file capability wired through the spawn and a fixture the QEMU gate cannot seed today.
 That is a delivery limitation and not a design one: the format, the parser, the line-numbered errors
 and every test are unaffected by where the bytes come from. The fix is a `FileSpec` grant plus an
@@ -171,20 +171,20 @@ discovery half.
 
 The gate reads the same document (`xtask` depends on `multicast_dns_config`) and derives its expectations
 from it, so editing what this machine advertises moves the assertion with it. What the gate does
-**not** share is the wire format: it decodes the guest's answers with a parser of its own, because a
+not share is the wire format: it decodes the guest's answers with a parser of its own, because a
 check that decoded them with `multicast_dns_protocol` would agree with `multicast_dns_protocol` about anything wrong.
 
 ## The QEMU gate: what it proves, and how
 
 Slirp cannot carry multicast in either direction, so the gate goes under it. When xtask runs the
-suite, the runners attach the mmio NIC to a **QEMU hub** (`-netdev hubport`) with two backends:
+suite, the runners attach the mmio NIC to a QEMU hub (`-netdev hubport`) with two backends:
 slirp, unchanged (DHCP, TFTP, guestfwd, hostfwd all keep working, because a hub floods every frame
-to every port), and a `-netdev socket` listener that xtask's **multicast prober** connects to,
+to every port), and a `-netdev socket` listener that xtask's multicast prober connects to,
 speaking QEMU's frame protocol (4-byte big-endian length, then the raw ethernet frame). The prober
 is the multicast twin of milestone 107's inbound prober: constructed before the child so the runner
 inherits `NIFE_MCAST_PORT`, passive for the whole boot, reported after the suite.
 
-The exchange rides **inside milestone 107's accept test**
+The exchange rides inside milestone 107 (socket)'s accept test
 (`a_host_process_connects_to_the_guest_and_is_answered`, both ISAs), after its TCP rounds, rather
 than in a spawn of its own: a net server's spawn is ~154 frames nothing ever reclaims, and a
 twelfth one died as `Unmappable(OutOfFrames)` in an unrelated later test, the exact failure
@@ -193,39 +193,39 @@ endpoint: `socket_test_client` (socket ids 0 and 1), `smb_server` (2 and 3), and
 (4). Its grant word is `listen_grant(7778, 7779) | udp_bind_grant(5353, 5354)`, so the *composed*
 packing is what the machine exercises, not one half alone.
 
-**The guest side splits in two, and the split says which half can prove what.**
+The guest side splits in two, and the split says which half can prove what.
 
-`socket_test_client`'s `udp_mdns_half` keeps only the **refusals**, because they are what a program
+`socket_test_client`'s `udp_mdns_half` keeps only the refusals, because they are what a program
 holding a granted port cannot demonstrate about itself: 4444 is outside the grant and is refused as
 `LISTEN_DENIED` (authority, a different answer from "in use" and calling for a different response),
 5354 is inside it and binds, and asking for 5354 again on a second socket id collides.
 
 `multicast_dns_responder` does the rest, with real DNS:
 
-1. It binds 5353 (its whole authority), then **announces** all three service types to the group. The
+1. It binds 5353 (its whole authority), then announces all three service types to the group. The
    announcement's arrival at the prober, off the raw wire, is the proof that a multicast `SENDTO`
-   leaves the guest at all, and it is also where the prober learns the guest's address, from the
+   leaves the guest at all, and it is where the prober learns the guest's address, from the
    announcement's own A record.
-2. The prober sends an **ARP request for the guest's address** from the source it spoofs
+2. The prober sends an ARP request for the guest's address from the source it spoofs
    (10.0.2.99). This is load-bearing rather than polite; see the finding below.
-3. The prober injects a **multicast browse**: a real PTR query for `_adisk._tcp.local`, addressed to
+3. The prober injects a multicast browse: a real PTR query for `_adisk._tcp.local`, addressed to
    the group rather than to the guest, from a spoofed source nothing on the virtual network holds.
    The guest's answer must come back to the group with the PTR in the answer section, the instance's
-   SRV, TXT and the host's A as **additionals** (RFC 6763 §12.1), cache-flush set on the three the
+   SRV, TXT and the host's A as additionals (RFC 6763 §12 (call/Reply).1), cache-flush set on the three the
    responder owns and clear on the shared PTR, and every value matching `components/multicast_dns_responder.conf`.
    That the injected datagram is accepted at all is the RX-acceptance proof the `multicast` feature
    exists for: without the join, the IPv4 input path drops it before UDP sees it.
-4. The prober then asks the **same question as a legacy one-shot**, from source port 5399 with
+4. The prober then asks the same question as a legacy one-shot, from source port 5399 with
    transaction id 0x4321. RFC 6762 §6.7 makes the answer a different shape *and a different
-   destination*: it must arrive **unicast at 10.0.2.99:5399**, with the id echoed, the question
+   destination*: it must arrive unicast at 10.0.2.99:5399, with the id echoed, the question
    repeated, every record in the answer section, no cache-flush bits, and every TTL capped at 10.
-   This is also the end-to-end proof that a datagram's source endpoint survives the socket contract,
+   This is the end-to-end proof that a datagram's source endpoint survives the socket contract,
    which is why that leg replaced the stack half's hand-rolled assertion of the same thing.
 
-**The finding worth telling somebody about, because it is the one that could have produced a false
-green.** Slirp is on the same hub, and it forwards a group-addressed datagram out to the *host's
+The finding worth telling somebody about, because it is the one that could have produced a false
+green. Slirp is on the same hub, and it forwards a group-addressed datagram out to the *host's
 real network*. On 2026-08-16 the gate's injected browse for `_adisk._tcp.local` therefore left the
-laptop, and **the reference router answered it**: a 212-byte response from 192.168.8.1, NATed back
+laptop, and the reference router answered it: a 212-byte response from 192.168.8.1, NATed back
 onto the virtual network by slirp as a unicast to the spoofed source, carrying the five records
 notes/mdns.md's capture describes. Those are the records this gate expects, because the expectations
 were captured from that router. A prober that checked whichever answer arrived first would have
@@ -233,16 +233,16 @@ passed on the GL-BE9300's own bytes while the guest said nothing at all, on the 
 and nowhere else. So the prober takes only datagrams whose source is the guest, and the guest's
 announcement must speak from the address its own A record advertises.
 
-**The finding that cost the most to learn**: smoltcp fills its neighbour cache **only from an ARP
-packet whose target is an address the interface holds** (`process_arp` returns early otherwise, in
-0.13.1), and `dispatch` **drops** the datagram that triggers a neighbour resolution rather than
+The finding that cost the most to learn: smoltcp fills its neighbour cache only from an ARP
+packet whose target is an address the interface holds (`process_arp` returns early otherwise, in
+0.13.1), and `dispatch` drops the datagram that triggers a neighbour resolution rather than
 queueing it. So a gratuitous ARP announcing the prober's address is discarded, the guest would have
 to resolve 10.0.2.99 when it answered the legacy query, and that first answer would be lost with
 nothing to retry it. Asking the guest for its own address fills the cache in the same breath, which
 is why step 2 is a request rather than an announcement.
 
-**Retries are self-synchronising, which matters because the responder answers a fixed number of
-queries.** The responder re-announces whenever a receive times out, so an announcement means "the
+Retries are self-synchronising, which matters because the responder answers a fixed number of
+queries. The responder re-announces whenever a receive times out, so an announcement means "the
 last thing you sent me did not arrive"; the prober re-injects the query for the stage it is in, and
 advances only when it has *verified* an answer. Nothing counts a datagram that was lost.
 
@@ -266,7 +266,7 @@ s.sendto(q, ("224.0.0.251", 5353))
 print(s.recvfrom(4096)[0].hex())
 ```
 
-Or, on macOS, the resolver's own view (which exercises the multicast path a Mac actually uses):
+Or, on macOS, the resolver's own view (which exercises the multicast path a Mac uses):
 
 ```sh
 dns-sd -B _adisk._tcp             # browse: who advertises Time Machine disks
@@ -276,7 +276,7 @@ dns-sd -L GL-BE9300 _adisk._tcp local   # resolve: the TXT keys and SRV
 The `-L` output presents decoded TXT entries; the Python capture gives the wire bytes, which is
 what a test vector needs.
 
-**Running the responder here.** The serve-forever boot starts the net server, the SMB adapter and
+Running the responder here. The serve-forever boot starts the net server, the SMB adapter and
 the responder together, each with exactly the port its spawn granted it:
 
 ```sh
@@ -291,7 +291,7 @@ smb-serve:   on a Mac on the SAME SEGMENT: dns-sd -B _adisk._tcp
 smb-serve:   what it advertises is components/multicast_dns_responder.conf, not compiled-in.
 ```
 
-**That `dns-sd` will find nothing under QEMU**, and the reason is the same one the gate exists for:
+That `dns-sd` will find nothing under QEMU, and the reason is the same one the gate exists for:
 user-mode networking does not carry multicast, so the announcement never leaves the emulator for the
 host's segment. The responder is doing its job and nobody can hear it. Proving discovery end to end
 needs the kernel on hardware with a real NIC on the family network, which is milestone 55's bench
@@ -314,17 +314,17 @@ refuses to start and reports `0xE20L`, where `L` is the line number.
   header). It is kept as the list a future multicast responder would start from, not as a
   description of the tree.
 - **What the QEMU gate cannot prove, for the bench to pick up.** The hub is a wire with no router
-  on it, so everything a real network's multicast turns on is out of its reach: **IGMP snooping**
+  on it, so everything a real network's multicast turns on is out of its reach: IGMP snooping
   (a switch that forwards group traffic only to reported members; the gate never checks the
   guest's membership report is well-formed enough to satisfy one, only that acceptance works),
   **TTL handling by real forwarding** (the injected frame carries TTL 255 but nothing routes it),
-  coexistence with a real network's **mDNS chatter** (the gate's group traffic is a handful of known
+  coexistence with a real network's mDNS chatter (the gate's group traffic is a handful of known
   datagrams; a live segment delivers a firehose of other hosts' queries and announcements to every
   member, and nothing here proves the stack keeps up or that the 2048-byte socket buffer survives
-  it), and **a real querier**: no Mac's mDNSResponder has asked this stack anything, and no Time
+  it), and a real querier: no Mac's mDNSResponder has asked this stack anything, and no Time
   Machine UI has listed this share. The bench on hardware, on the family network, with `dns-sd -B`
   and then with System Settings, is where those claims get proven; the gate's job is that the
-  stack's filters, grants, headers and **records** are right.
+  stack's filters, grants, headers and records are right.
 - **No probing before claiming the name** (RFC 6762 §8.1). `multicast_dns_protocol` has the wire halves
   (`probe_query`, `conflicts`, `tiebreak`) and the responder does not use them: it announces
   straight away. Two nife machines with the same `host` in their configuration would both claim it
@@ -352,7 +352,7 @@ refuses to start and reports `0xE20L`, where `L` is the line number.
 - **No AAAA emission.** `Advertisement` carries an optional IPv4 address only. The reference emits
   AAAA; a Mac on an IPv6-only network would not find us. The responder joins no IPv6 group either.
 - **`respond()` does not act on the QU bit** (it parses; the responder answering multicast either
-  way is always legal, just occasionally chattier).
+  way is always legal, occasionally chattier).
 - **Known-answer suppression is PTR-only**, and the responder inherits that: a querier that already
   holds our SRV or TXT is told again. Chatty, not wrong.
 - The crate's own BUGS section (`crates/multicast_dns_protocol/src/lib.rs`) records the remaining wire-level

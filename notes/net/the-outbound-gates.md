@@ -24,7 +24,7 @@ transports, on aarch64 and riscv64:
   `guestfwd` echo peer: the runners add `guestfwd=tcp:10.0.2.9:7777-cmd:/bin/cat` to each NIC's
   `-netdev user`, so a guest connection to 10.0.2.9:7777 is piped to a fresh `/bin/cat`. The client
   does OPEN_TCP, CONNECT (the three-way handshake completes against a real peer), SEND a payload,
-  RECV the echo and check it byte for byte, then CLOSE (the FIN). No host port is bound and nothing
+  RECEIVE the echo and check it byte for byte, then CLOSE (the FIN). No host port is bound and nothing
   outlives QEMU, so the whole round trip, handshake through bidirectional data to teardown, is in the
   committed gate with zero host setup. Verified against QEMU 11.0.2.
 

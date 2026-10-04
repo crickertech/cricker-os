@@ -71,7 +71,7 @@ window, and no commit records a first boot.
 **`USAGE` and its selectors** (`kernel/src/syscall.rs`, `memory_region_usage`;
 `kernel/src/memory_region.rs`, `usage_record`; `crates/memory_regions/src/table.rs`, `spent`).
 Confused deputy: the selector arrives in `a0` and nothing is read from user memory. Slot misuse,
-the class of milestone 634 (a plain SEND received by RECV_CAP never hands the receiver a
+the class of milestone 634 (a plain SEND received by RECEIVE_CAP never hands the receiver a
 sender-chosen slot): no slot goes in and none comes out; the answer is a page count in `x0`.
 Badge: none involved. Bounds: `abi::usage::is_known` (`record <= CHILDREN`) is checked before the
 region is looked up, so the kernel's `_ => PageUse::Children` arm is unreachable today; the sum is

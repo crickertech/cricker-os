@@ -54,7 +54,7 @@ The protocol lane left it open ("both `< file` and a pipe's read end need an inp
 that does not exist"). The decision is the smallest one available:
 
 > A source is the sink contract received rather than sent. An endpoint the program holds with
-> `READ`, on which `OP_BYTES` messages arrive until `OP_EOF`.
+> `READ`, on which `OPERATION_BYTES` messages arrive until `OPERATION_EOF`.
 
 No new protocol, no new opcodes, no reply. Three consequences fall out and all three are wanted:
 
@@ -65,7 +65,7 @@ No new protocol, no new opcodes, no reply. Three consequences fall out and all t
    and writes the sink contract at it, which is what `fixtures/src/file_source.rs` already was
    (`fixtures/src/sink.rs`'s verify role, until milestone 292 gave it its own name). The shell
    itself is a producer when a builtin leads a pipeline.
-3. `OP_EOF` becomes load-bearing rather than tidy. A reader has to be told the producer is
+3. `OPERATION_EOF` becomes load-bearing rather than tidy. A reader has to be told the producer is
    finished; inferring it from a death notification would be a fact about process supervision
    standing in for a fact about a stream. This is why `date` gained an end-of-stream message.
 
@@ -97,7 +97,7 @@ an operator rather than from the wiring. With no `2>` on the line a declaring ch
 second stream, endowed by the progenitor from the manifest the way the clock is.
 
 Order rather than tags, because both sides read the same word: a `SEND_CAP` nobody expects and a
-`RECV_CAP` nobody answers each deadlock both parties.
+`RECEIVE_CAP` nobody answers each deadlock both parties.
 
 The rights are narrowed per direction and that is load-bearing. A pipe's write end travels as
 `WRITE|GRANT` and its read end as `READ|GRANT`, and the progenitor inserts them as `WRITE` and

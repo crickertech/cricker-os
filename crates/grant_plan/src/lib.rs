@@ -523,10 +523,10 @@ programs! {
         /// launched from the swish prompt rather than built at boot).
         ///
         /// The display stack a `graphical_terminal` spawn builds is the progenitor's job, exactly as a
-        /// directory grant's caretaker is: the shell delegates the device capabilities it holds
-        /// (`spawnproto::Wiring::graphics`, from [`spawnproto::SHELL_GPU_SLOT`] and its siblings) and
-        /// the progenitor builds `gpu_driver`, `display_terminal`, the line discipline and, when
-        /// the keyboard's three came with them, `keyboard_driver`, then starts this program wired
+        /// directory grant's caretaker is: the shell asks (`spawnproto::Wiring::graphics`, which
+        /// carries no capability since milestone 715 (provisional)) and the progenitor builds
+        /// `gpu_driver`, `display_terminal`, the line discipline and, when the boot has a
+        /// keyboard, `keyboard_driver` from the devices it holds, then starts this program wired
         /// to the lot. With no keyboard the session's keystrokes come from the boot's own line
         /// discipline over the UART, which is milestone 192 (a keyboard on real silicon)'s option A
         /// at launch rather than at boot.
@@ -664,7 +664,7 @@ impl Prog {
                 flags: NO_FLAGS,
                 // **`date` was speaking the sink contract before the contract existed**, because
                 // its hand-rolled framing is bit for bit a `BYTES` message (notes/sink-protocol.md
-                // on why `OP_BYTES` is zero). So it is the first program that can be piped, and it
+                // on why `OPERATION_BYTES` is zero). So it is the first program that can be piped, and it
                 // needed one change to be one: an end-of-stream message, without which a reader
                 // waits forever on a producer that has already exited.
                 //
@@ -1143,7 +1143,7 @@ pub enum OutputSpec {
     /// One or more raw `u64` answers on the result endpoint, read by the shell and rendered by it.
     /// Older than the sink contract and still right for an integer; not redirectable.
     Words,
-    /// The sink contract (`crates/byte_sink_protocol`): self-framing byte messages ending in `OP_EOF`. The
+    /// The sink contract (`crates/byte_sink_protocol`): self-framing byte messages ending in `OPERATION_EOF`. The
     /// only output that `>` and `|` can substitute, because it is the only one whose meaning does
     /// not depend on who is reading it.
     Bytes,
@@ -3615,7 +3615,7 @@ fn check_streams(m: Manifest, streams: Streams) -> Result<line::Diagnostics, Ref
 ///
 /// # The constraint, which is the kernel's and not the shell's
 ///
-/// A process has **one wait point**. `SEND` blocks until a receiver takes the message, `RECV` blocks
+/// A process has **one wait point**. `SEND` blocks until a receiver takes the message, `RECEIVE` blocks
 /// until one arrives, and there is no select and no poll (a timer and a bound notification can end a
 /// receive since milestones 106 and 151, but not a `SEND`). So a shell that is feeding a chain cannot also be
 /// receiving from it, and the two blocked processes have nothing that could wake either.
@@ -5656,7 +5656,7 @@ mod tests {
     ///
     /// This is the fact the shell was dropping. It planned the stage correctly and then wired the
     /// pipeline off the **line**, which has no `<` on it, so the head was spawned with an empty
-    /// input slot. A `recv` there answers `NoSuchSlot` rather than blocking and every reader reads
+    /// input slot. A `receive` there answers `NoSuchSlot` rather than blocking and every reader reads
     /// that as end of document, so the stage reported an empty stream: a wrong answer, not a hang,
     /// which is why nothing caught it.
     #[test]

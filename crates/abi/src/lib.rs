@@ -171,7 +171,7 @@ pub mod console {
 ///
 /// A rendezvous names a synchronous meeting point, and the two methods are the two sides of it.
 /// Which one you may call is a matter of *rights*, not of the rendezvous: a capability with
-/// `WRITE` can `SEND`, one with `READ` can `RECV`. So the same object, handed out with different
+/// `WRITE` can `SEND`, one with `READ` can `RECEIVE`. So the same object, handed out with different
 /// rights, is a one-way pipe in whichever direction each holder was trusted with. Neither side
 /// can do the other's job, and neither had to be told which end it is.
 pub mod rendezvous {
@@ -187,7 +187,7 @@ pub mod rendezvous {
     /// `crates/byte_sink_protocol`.
     pub const SEND: u64 = 0;
 
-    /// `invoke(cap, RECV, _, _, _)` -> w0, with w1 in x1 and w2 in x2. **Blocks until a message
+    /// `invoke(cap, RECEIVE, _, _, _)` -> w0, with w1 in x1 and w2 in x2. **Blocks until a message
     /// arrives.** `x3` and `x4` are written only by the kernel: for an ordinary message `x3` is the
     /// badge on the endpoint capability the sender invoked ([`BADGE`], `0` when unbadged) and `x4`
     /// is `0`; the fault address and a reserved `0` for a §26 death message; and
@@ -195,7 +195,7 @@ pub mod rendezvous {
     /// the receive (milestone 151 (notification objects)).
     ///
     /// The badge in `x3` is milestone 613 (a system log service: the in-memory half)'s amendment
-    /// to §230 (badged endpoint capabilities), which delivered it on [`RECV_CAP`] only: the log
+    /// to §230 (badged endpoint capabilities), which delivered it on [`RECEIVE_CAP`] only: the log
     /// stamps a byte-sink writer from its badge, and a byte-sink writer `SEND`s. Before it, `x3` was
     /// always `0` for an ordinary message. A death message is told apart by its first word, as
     /// before; nothing reads `x3` before checking that.
@@ -206,9 +206,9 @@ pub mod rendezvous {
     /// `w0` equal to an [`Error`](crate::Error) code is decoded as that error by any wrapper that
     /// checks the sign, and the receiver cannot tell it from a real refusal. Found by milestone 151
     /// while checking the premise of §101 (notification objects) that `w0` could carry a tag; the same fact is why the
-    /// notification tag lives in `x4`. Not fixed: the fix is a register convention for `RECV`'s
+    /// notification tag lives in `x4`. Not fixed: the fix is a register convention for `RECEIVE`'s
     /// status, which every receiver in the tree is written against.
-    pub const RECV: u64 = 1;
+    pub const RECEIVE: u64 = 1;
 
     /// `invoke(cap, SEND_CAP, cap_slot, rights, w0)` -> 0. **Delegate a capability.** Passes the
     /// capability in the sender's `cap_slot`, narrowed to `rights` (see [`crate::rights`]), plus one data
@@ -219,7 +219,7 @@ pub mod rendezvous {
     /// authority moves between processes at runtime instead of being wired by the kernel at spawn.
     pub const SEND_CAP: u64 = 2;
 
-    /// `invoke(cap, RECV_CAP, _, _, _)` -> w0, with the received capability's new slot in x1, a
+    /// `invoke(cap, RECEIVE_CAP, _, _, _)` -> w0, with the received capability's new slot in x1, a
     /// second data word in x2, and the **sender's badge in x3** (milestone 599, provisional), or
     /// [`NO_CAP`] in x1 if the message carried no capability. **Blocks until a message arrives.**
     /// The received capability lands in a free slot of the receiver's own capability table, chosen
@@ -236,8 +236,8 @@ pub mod rendezvous {
     /// **A plain `SEND` received here used to fill `x1` differently depending on who arrived
     /// first**, and on the receiver-first order `x1` was the sender's second word, a number the
     /// sender chose where a `CALL` server reads a Reply slot. Found by milestone 613 (a system log
-    /// service: the in-memory half)'s audit of `RECV` consumers, 2026-10-03 UTC; **fixed the same
-    /// day by milestone 634 (a plain SEND received by `RECV_CAP` never hands the receiver a
+    /// service: the in-memory half)'s audit of `RECEIVE` consumers, 2026-10-03 UTC; **fixed the same
+    /// day by milestone 634 (a plain SEND received by `RECEIVE_CAP` never hands the receiver a
     /// sender-chosen slot)**: the receive side returns [`NO_CAP`] in `x1` unless a capability was
     /// installed for this delivery, on both orders. (This entry said "not fixed" until the
     /// 2026-10-03 security audit found the fix had landed without the record moving.)
@@ -247,8 +247,8 @@ pub mod rendezvous {
     /// `(event, NO_CAP, tid, addr, 0)`: `x1` is `NO_CAP`, `x2` is the dead thread's id, and `pc` is
     /// not returned. The same on both arrival orders since milestone 634; before it, the
     /// receiver-first order returned `tid` in `x1`. No supervisor in the tree receives deaths this
-    /// way; every one uses `RECV` through `user_mode_runtime::recv_fault`. Recorded by the
-    /// 2026-10-03 security audit so the next supervisor written against `RECV_CAP` learns it here.
+    /// way; every one uses `RECEIVE` through `user_mode_runtime::receive_fault`. Recorded by the
+    /// 2026-10-03 security audit so the next supervisor written against `RECEIVE_CAP` learns it here.
     ///
     /// **A real capability passes the `NO_CAP` guard, and a `CALL` server used to have no way to
     /// tell it from a Reply.** Any client with `WRITE` on the endpoint and `GRANT` on a capability
@@ -259,18 +259,18 @@ pub mod rendezvous {
     /// Found by the 2026-10-03 security audit's follow-up; **fixed by milestone 706, DECISIONS §245
     /// (a `CALL` server tells a Reply from a delegation)**: the kernel writes [`REPLY_DELIVERED`]
     /// in `x4` when, and only when, `x1` is a `CALL`'s Reply, and every `CALL` server in the tree
-    /// receives through `user_mode_runtime::recv_request`, whose typed Reply is the only thing
+    /// receives through `user_mode_runtime::receive_request`, whose typed Reply is the only thing
     /// `user_mode_runtime::reply` accepts, and which deletes a delegation the server did not ask
     /// for. **What is still open:** the check lives in the server, so a server that reads `x1` raw
     /// (its own `invoke`, outside the runtime) is as exposed as before. The rung-one answer, an
     /// endpoint that refuses `SEND_CAP` outright, is the milestone's recorded follow-on (option 2
     /// in its block).
-    pub const RECV_CAP: u64 = 3;
+    pub const RECEIVE_CAP: u64 = 3;
 
     /// `invoke(cap, CALL, w0, w1, _)` -> r0, with r1 in x1. **Send two words and block until
     /// replied.** The atomic send-and-wait a server can answer safely: at the rendezvous the kernel
     /// mints a one-shot [`crate::reply`] capability naming *this* caller and hands it to the server (through
-    /// [`RECV_CAP`]), so the server can answer a caller it was never wired to, exactly once, and only
+    /// [`RECEIVE_CAP`]), so the server can answer a caller it was never wired to, exactly once, and only
     /// that caller. Needs `WRITE`. Milestone 12; see notes/ipc-naming.md.
     pub const CALL: u64 = 4;
 
@@ -346,7 +346,7 @@ pub mod rendezvous {
     ///
     /// **Needs [`rights::ENUMERATE`](super::rights::ENUMERATE), and pointedly not `READ`.** This
     /// is the decision that makes the method safe rather than merely scoped. `READ` on a
-    /// supervision endpoint is what [`RECV`] and [`REAP`] take, so a viewer holding `READ` could
+    /// supervision endpoint is what [`RECEIVE`] and [`REAP`] take, so a viewer holding `READ` could
     /// reap a child, and **a domain names its members, it does not act on them** (calef,
     /// 2026-08-17). With a right of its own, a `ps` cannot express a reap rather than being
     /// refused one, and the difference is the ladder's top rung against its middle.
@@ -376,7 +376,7 @@ pub mod rendezvous {
     /// **Mint a badged copy of this endpoint capability** (milestone 599 (a frame per filesystem
     /// client channel), provisional name and number, kept free by DECISIONS §148 (a supervisor restarts by asking)). The new
     /// capability names the same endpoint with the same rights, plus `badge` stamped on it; the
-    /// kernel delivers that `badge` to a server's [`RECV_CAP`] whenever this copy's holder `CALL`s
+    /// kernel delivers that `badge` to a server's [`RECEIVE_CAP`] whenever this copy's holder `CALL`s
     /// or `SEND_CAP`s here, so a server serving many clients on one endpoint can tell them apart.
     ///
     /// Needs `GRANT` (minting a delegatable view is a delegation-class power) and refuses a `badge`
@@ -386,13 +386,13 @@ pub mod rendezvous {
     /// badge rides through that delegation because `SEND_CAP` copies the object.
     pub const BADGE: u64 = 7;
 
-    /// The x1 value from [`RECV_CAP`] when the message carried no capability.
+    /// The x1 value from [`RECEIVE_CAP`] when the message carried no capability.
     pub const NO_CAP: u64 = u64::MAX;
 
     /// **The tag on a receive that delivered a `CALL`'s Reply** (milestone 706 (a `CALL` server
     /// can tell a Reply from a delegation), DECISIONS §245; name provisional).
     ///
-    /// [`RECV_CAP`] returns this in `x4` exactly when the kernel installed the one-shot
+    /// [`RECEIVE_CAP`] returns this in `x4` exactly when the kernel installed the one-shot
     /// [`crate::reply`] capability it minted for a [`CALL`], and `x1` is the slot it landed in.
     /// `x4` is written only by the kernel, so no sender can forge it: a [`SEND_CAP`] delegation, a
     /// plain [`SEND`], an interrupt signal and a §26 death message all leave it `0`, and a bound
@@ -401,10 +401,13 @@ pub mod rendezvous {
     /// [`NO_CAP`] and `x4 == 0`, because there is no Reply to name.
     ///
     /// **Test this, never `x1 != NO_CAP`, before answering.** A delegation passes the `NO_CAP`
-    /// guard; only this says the slot holds a Reply. `user_mode_runtime::recv_request` reads it and
+    /// guard; only this says the slot holds a Reply. `user_mode_runtime::receive_request` reads it and
     /// returns a typed Reply, which is the only thing `user_mode_runtime::reply` accepts.
     ///
     /// Ruled by calef on 2026-10-03 (UTC): "Option 1 with the typed runtime helper."
+    ///
+    /// Name: ratified 2026-10-03 (calef, reviewing milestone 706 (a `CALL` server can tell a Reply from a
+    /// delegation): "Ratify `REPLY_DELIVERED`.").
     pub const REPLY_DELIVERED: u64 = 1;
 
     // `x4` carries both tags, so they must differ from each other and from the untagged `0`.
@@ -553,7 +556,7 @@ pub mod survey {
 /// Methods on a `Reply` capability. **A one-shot answer to a specific caller.**
 ///
 /// The kernel mints one on [`rendezvous::CALL`] and hands it to the server through
-/// [`rendezvous::RECV_CAP`]. It names the exact blocked caller, carries `WRITE` and no `GRANT` (so it
+/// [`rendezvous::RECEIVE_CAP`]. It names the exact blocked caller, carries `WRITE` and no `GRANT` (so it
 /// cannot be passed on), and is consumed the instant it is used, so a server cannot reply twice,
 /// reply to the wrong caller, or hoard it. Those are kernel guarantees, not server discipline.
 pub mod reply {
@@ -601,7 +604,7 @@ pub mod objtype {
 ///
 /// **The binding is what makes it more than a semaphore.** [`BIND`](notification::BIND) attaches a notification to one
 /// thread. From then on, a signal that finds nobody in [`WAIT`](notification::WAIT) and that thread blocked receiving
-/// on an *endpoint* (`RECV`, `RECV_CAP`, or `Irq::WAIT`) wakes it there, so one blocking wait point
+/// on an *endpoint* (`RECEIVE`, `RECEIVE_CAP`, or `Irq::WAIT`) wakes it there, so one blocking wait point
 /// ends on either a message or a signal. How the woken thread tells which is [`BOUND`](notification::BOUND). A signal
 /// that finds the bound thread anywhere else is kept in the word and delivered the next time that
 /// thread enters a receive, or waits or polls.
@@ -641,10 +644,10 @@ pub mod notification {
 
     /// **The tag on a receive that the bound notification ended** rather than a message.
     ///
-    /// A receive (`RECV`, `RECV_CAP`, `Irq::WAIT`) woken by the bound notification returns
+    /// A receive (`RECEIVE`, `RECEIVE_CAP`, `Irq::WAIT`) woken by the bound notification returns
     /// `(BOUND, word, 0, 0, BOUND)`: this value in `x0` as §101 specified, the notification's word
     /// in `x1`, **and this value again in `x4`, which is the one to test.** `x0` is a sender's own
-    /// first word on an ordinary `RECV`, so any sender can put `BOUND` there; `x4` is written only by
+    /// first word on an ordinary `RECEIVE`, so any sender can put `BOUND` there; `x4` is written only by
     /// the kernel, and is `0` on every other receive (ordinary messages, `CALL`s, interrupt
     /// signals, and §26 death messages, whose fifth word is reserved `0`).
     ///
@@ -942,7 +945,7 @@ pub mod fault {
     pub const FAULT_EP_SLOT: u64 = super::CAPABILITY_TABLE_SLOTS - 1;
 
     /// **The message-format convention.** A fault/exit notification is five words, delivered to the
-    /// supervision endpoint's holder through a plain `RECV`:
+    /// supervision endpoint's holder through a plain `RECEIVE`:
     ///
     /// ```text
     ///   w0  event    FAULT or EXIT
@@ -953,7 +956,7 @@ pub mod fault {
     ///   w4  reserved 0 today; a fault-reply / resume protocol arrives here additively (§26.4)
     /// ```
     ///
-    /// `RECV` returns w0 in the syscall's result register and w1..w4 in the next four argument
+    /// `RECEIVE` returns w0 in the syscall's result register and w1..w4 in the next four argument
     /// registers. Ordinary three-word IPC leaves w3 and w4 zero, so a supervisor is the only
     /// receiver that reads them.
     pub const EVENT_FAULT: u64 = 1;

@@ -53,9 +53,9 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use filesystem_protocol::{fs, grant, op, reply_err, reply_errno};
+use filesystem_protocol::{fs, grant, operation, reply_err, reply_errno};
 use user_mode_runtime::mapped_window::MappedWindow;
-use user_mode_runtime::{Reply, call, recv_request, send};
+use user_mode_runtime::{Reply, call, receive_request, send};
 
 /// The FS-service endpoint: the directory capability this process attenuates.
 const FS: u64 = 0;
@@ -138,14 +138,14 @@ fn serve(handle: u64, name: &[u8], writable: bool) -> ! {
         // A CALL-only contract: a plain SEND or a client's SEND_CAP has nobody waiting, so it does
         // no work here, and a delegated capability is deleted rather than answered into (milestone
         // 706 (a CALL server can tell a Reply from a delegation)).
-        let req = recv_request(CLIENT);
+        let req = receive_request(CLIENT);
         let (w0, w1) = (req.w0, req.w1);
         let Some(reply_slot) = req.delivered.into_reply() else {
             continue;
         };
         let len = fs::req_len(w0).min(PAGE);
         let asked = fs::req_handle(w0);
-        let code = op(w0);
+        let code = operation(w0);
 
         // One lookup, and one refusal site for an opcode this contract does not carry. `EBADF` is
         // also what a forged handle gets, exactly as before: a client guessing numbers is guessing

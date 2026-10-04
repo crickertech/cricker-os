@@ -1,6 +1,6 @@
 //! **A terminal can be quiesced for replacement without stranding its reader** (milestone 23 (a
 //! capability-routed component OS with live replacement); calef's ruling of 2026-09-26, "1a and
-//! 2b"). `OP_QUIESCE` rides the terminal endpoint, and a parked `OP_READLINE` or `OP_READRAW` is
+//! 2b"). `OPERATION_QUIESCE` rides the terminal endpoint, and a parked `OPERATION_READLINE` or `OPERATION_READRAW` is
 //! answered `FLAG_RETRY` before the terminal stops receiving, because the reply capability that
 //! names the reader cannot leave `line_editor`'s capability table.
 //!
@@ -23,7 +23,10 @@ fn bytes_call(term: sched::RendezvousId, bytes: &[u8]) {
     for (i, &b) in bytes.iter().enumerate() {
         w1 |= (b as u64) << (8 * i);
     }
-    sched::ipc_call(term, [proto::req(proto::OP_BYTES, bytes.len() as u64), w1]);
+    sched::ipc_call(
+        term,
+        [proto::req(proto::OPERATION_BYTES, bytes.len() as u64), w1],
+    );
 }
 
 /// Let the other threads run for a twentieth of a second: long enough for a spawned reader to
@@ -53,14 +56,14 @@ fn fill(phys: u64, bytes: &[u8]) {
 #[test_case]
 fn a_terminal_with_no_control_endpoint_refuses_to_quiesce() {
     let (w, held) = svc::start();
-    let r = sched::ipc_call(w.term, [proto::req(proto::OP_QUIESCE, 0), 0]);
+    let r = sched::ipc_call(w.term, [proto::req(proto::OPERATION_QUIESCE, 0), 0]);
     assert_eq!(
         r[0],
         proto::BAD_REQUEST,
-        "an unsupervised terminal honoured OP_QUIESCE"
+        "an unsupervised terminal honoured OPERATION_QUIESCE"
     );
     bytes_call(w.term, b"ok\r");
-    let r = sched::ipc_call(w.term, [proto::req(proto::OP_READLINE, 0), 0]);
+    let r = sched::ipc_call(w.term, [proto::req(proto::OPERATION_READLINE, 0), 0]);
     assert_eq!(
         r[0], 2,
         "the terminal stopped serving after refusing a quiesce"
@@ -83,7 +86,7 @@ fn a_parked_line_read_is_handed_back_and_resumes_where_it_was() {
     let term = w.term;
     sched::spawn(move || {
         loop {
-            let r = sched::ipc_call(term, [proto::req(proto::OP_READLINE, 2), 0]);
+            let r = sched::ipc_call(term, [proto::req(proto::OPERATION_READLINE, 2), 0]);
             sched::ipc_send(report, [r[0], r[1], 0]);
             if !proto::is_retry(r[0], r[1]) {
                 break;
@@ -94,9 +97,9 @@ fn a_parked_line_read_is_handed_back_and_resumes_where_it_was() {
     settle();
     bytes_call(w.term, b"ec");
 
-    let q = sched::ipc_call(w.term, [proto::req(proto::OP_QUIESCE, 0), 0]);
+    let q = sched::ipc_call(w.term, [proto::req(proto::OPERATION_QUIESCE, 0), 0]);
     assert_eq!(q[0], proto::QUIESCED, "the quiesce was not acknowledged");
-    let first = sched::ipc_recv(report);
+    let first = sched::ipc_receive(report);
     assert!(
         proto::is_retry(first[0], first[1]),
         "the parked read was not handed back with FLAG_RETRY (r0 {:#x}, r1 {:#x})",
@@ -117,7 +120,7 @@ fn a_parked_line_read_is_handed_back_and_resumes_where_it_was() {
     );
 
     bytes_call(w.term, b"ho\r");
-    let done = sched::ipc_recv(report);
+    let done = sched::ipc_receive(report);
     assert_eq!(done[0], 4, "the resumed read did not return the whole line");
     let got: [u8; 4] = core::array::from_fn(|i| page_byte(w.app_in_phys, i as u64));
     assert_eq!(
@@ -135,21 +138,21 @@ fn a_parked_raw_read_is_handed_back_and_the_terminal_can_be_retired() {
     let control = w
         .control
         .expect("start_replaceable grants a control endpoint");
-    let r = sched::ipc_call(w.term, [proto::req(proto::OP_RAWMODE, 1), 0]);
+    let r = sched::ipc_call(w.term, [proto::req(proto::OPERATION_RAWMODE, 1), 0]);
     assert_eq!(r[0], 0);
 
     let report = sched::create_rendezvous();
     let term = w.term;
     sched::spawn(move || {
-        let r = sched::ipc_call(term, [proto::req(proto::OP_READRAW, 0), 0]);
+        let r = sched::ipc_call(term, [proto::req(proto::OPERATION_READRAW, 0), 0]);
         sched::ipc_send(report, [r[0], r[1], 0]);
     })
     .expect("could not spawn the raw reader");
     settle();
 
-    let q = sched::ipc_call(w.term, [proto::req(proto::OP_QUIESCE, 0), 0]);
+    let q = sched::ipc_call(w.term, [proto::req(proto::OPERATION_QUIESCE, 0), 0]);
     assert_eq!(q[0], proto::QUIESCED);
-    let got = sched::ipc_recv(report);
+    let got = sched::ipc_receive(report);
     assert_eq!(
         (got[0], got[1]),
         (0, proto::FLAG_RETRY),

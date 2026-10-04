@@ -260,7 +260,7 @@ impl PerCpu {
         let q = unsafe { &mut *self.runq.get() };
         let r = f(q);
         // Mirror the depth so other cores can read this core's load without touching its queue
-        // (DECISIONS §28). `Fifo::len` is O(1), so this is one store per queue op. Relaxed: the
+        // (DECISIONS §28). `Fifo::len` is O(1), so this is one store per queue operation. Relaxed: the
         // reader tolerates staleness, and the queue itself is single-owner.
         self.runq_len.store(q.len(), Ordering::Relaxed);
         r
@@ -354,7 +354,7 @@ static PERCPU: [PerCpu; MAX_CPUS] = [const { PerCpu::new() }; MAX_CPUS];
 /// When it is not, every one of those sites grows.
 ///
 /// **The cost is measured, not feared.** Adding one `AtomicU64` field took this struct from 128
-/// bytes to 136 and cost **150 bytes on the riscv64 `ipc_send_recv` closure and 38 on
+/// bytes to 136 and cost **150 bytes on the riscv64 `ipc_send_receive` closure and 38 on
 /// `syscall_entry`**, taking the first from +2.2% to +5.4% against `script/fastpath-footprint`'s
 /// 5% bound and turning a green gate red. The field was never read on that path and the increment
 /// that wrote it cost nothing measurable: removing the `fetch_add` and keeping the field left every
@@ -368,7 +368,7 @@ static PERCPU: [PerCpu; MAX_CPUS] = [const { PerCpu::new() }; MAX_CPUS];
 ///
 /// **`x86_64` is exempt, and the exemption is measured rather than assumed.** There this struct
 /// carries `x86_trap` and is already **152 bytes**, so it has never indexed with a shift, and
-/// `script/fastpath-footprint --arch x86_64` is green with room: +1.0% on `ipc_send_recv`, +1.4%
+/// `script/fastpath-footprint --arch x86_64` is green with room: +1.0% on `ipc_send_receive`, +1.4%
 /// on `ipc_call_reply`, +3.9% on `syscall_entry`. Writing the assertion unconditionally would
 /// assert a property this tree does not hold, which is how a gate teaches people to route around
 /// it. If the cost ever shows up there, the fix is padding this struct to 256 rather than deleting
@@ -409,7 +409,12 @@ pub fn current() -> &'static PerCpu {
 /// This core's logical id: its index into `PERCPU`.
 pub fn id() -> usize {
     let base = PERCPU.as_ptr() as usize;
-    (crate::arch::percpu() - base) / core::mem::size_of::<PerCpu>()
+    // Wrapping, because the wrap cannot happen and this is on every trap and every switch (release
+    // builds check overflow, notes/overflow-checks.md). `init_this_cpu` is the only writer of the
+    // per-CPU register and it stores `&PERCPU[id]`, which is at or above `base`. Were that ever
+    // broken, the wrapped quotient is far past `MAX_CPUS` and the next `PERCPU[id]` index refuses
+    // it, which is a stronger check than the subtraction's.
+    crate::arch::percpu().wrapping_sub(base) / core::mem::size_of::<PerCpu>()
 }
 
 /// Another core's migration inbox, by id. This is the one place a core reaches into a *different*

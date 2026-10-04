@@ -1,0 +1,249 @@
+crate,function,mutation,disposition,reason
+component_plan,Refusal::message,"replace Refusal::message -> &'static str with ""xyzzy""",killed,killed; the ledger's component_plan section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+component_plan,Requirements::problem,replace < with <=,equivalent,at i == len the inner loop starts past the end and nothing indexes caps[i]
+component_plan,Requirements::problem,replace < with ==,killed,killed; the ledger's component_plan section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+component_plan,Requirements::problem,replace < with >,killed,killed; the ledger's component_plan section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+component_plan,dependents,replace += with *=,killed,killed; the ledger's component_plan section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+component_plan,dependents,replace += with -=,killed,killed; the ledger's component_plan section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+component_plan,dependents,replace > with >=,killed,killed; the ledger's component_plan section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+component_plan,plan,replace > with ==,killed,killed; the ledger's component_plan section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+component_plan,plan,replace > with >=,killed,killed; the ledger's component_plan section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+component_plan,slot_of,replace < with <=,killed,killed; the ledger's component_plan section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+entropy_protocol,bringup_failure,replace | with ^,equivalent,"operands are disjoint by contract, or both arms return the same at the boundary"
+entropy_protocol,req,replace | with ^,equivalent,"operands are disjoint by contract, or both arms return the same at the boundary"
+entropy_protocol,want,replace > with >=,equivalent,"operands are disjoint by contract, or both arms return the same at the boundary"
+firmware_configuration,DirectoryEntry::is,replace > with >=,killed,killed; the ledger's firmware_configuration and sealed_pair section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+firmware_configuration,DmaCommand::read,replace | with ^,equivalent,"key << 16, SELECT and READ occupy disjoint bits"
+firmware_configuration,DmaCommand::write,replace | with ^,equivalent,"key << 16, SELECT and WRITE occupy disjoint bits"
+globally_unique_identifier_partition_table,,replace << with >>,equivalent,"disjoint bits, algebra, the next comparison, or a 64-bit usize (see the ledger's section)"
+globally_unique_identifier_partition_table,GloballyUniqueIdentifierPartitionTable<'a>::parse,replace < with <=,equivalent,"disjoint bits, algebra, the next comparison, or a 64-bit usize (see the ledger's section)"
+globally_unique_identifier_partition_table,Guid::try_from_ascii,replace | with ^,equivalent,"disjoint bits, algebra, the next comparison, or a 64-bit usize (see the ledger's section)"
+globally_unique_identifier_partition_table,Guid::v4_from_random,replace | with ^,equivalent,"disjoint bits, algebra, the next comparison, or a 64-bit usize (see the ledger's section)"
+globally_unique_identifier_partition_table,Span::buffer_bytes,replace match guard n <= usize::MAX as u64 with true,equivalent,"disjoint bits, algebra, the next comparison, or a 64-bit usize (see the ledger's section)"
+globally_unique_identifier_partition_table,types::name,delete match arm NIFE_BOOT,killed,killed; the ledger's globally_unique_identifier_partition_table section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,,delete field runtime from struct Manifest expression,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,,replace + with *,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,,replace + with -,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,,replace - with /,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,,replace << with >>,equivalent,1 << 0 as 1 >> 0 is the same number
+grant_plan,Designation::is_here,replace Designation::is_here -> bool with false,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,Flags::try_new,replace < with >,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,Flags::try_new,replace > with ==,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,Flags::try_new,replace > with >=,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,NameSet::keep_smallest,replace - with /,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,NameSet::keep_smallest,replace > with >=,equivalent,differs only for two equal names and a directory lists a name once
+grant_plan,NameSet::last,replace > with >=,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,RunSpec<'a>::is_quoted,replace < with <=,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,SecondDir::mount,replace SecondDir::mount -> nav::Cwd with Default::default(),killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,WordGrant::rights,replace << with >>,equivalent,the rights bits are disjoint; 1 << 0 as 1 >> 0 is the same number
+grant_plan,WordGrant::rights,replace | with ^,equivalent,the rights bits are disjoint; 1 << 0 as 1 >> 0 is the same number
+grant_plan,all_distinct_ids,replace < with <=,equivalent,at i == len the inner loop has nothing to compare
+grant_plan,all_distinct_ids,replace < with ==,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,all_distinct_ids,replace < with >,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,all_distinct_ids,replace all_distinct_ids -> bool with true,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,all_distinct_names,replace < with <=,equivalent,at i == len the inner loop has nothing to compare
+grant_plan,all_distinct_names,replace < with ==,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,all_distinct_names,replace < with >,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,all_distinct_names,replace all_distinct_names -> bool with true,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,check_words,replace + with *,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,check_words,replace += with *=,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,check_words,replace > with ==,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,check_words,replace > with >=,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,image_can_carry,replace && with ||,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,image_region_pages,replace + with *,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,image_region_pages,replace + with -,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,image_region_pages,replace image_region_pages -> u64 with 0,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,image_region_pages,replace image_region_pages -> u64 with 1,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,same_bytes,replace != with ==,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,same_bytes,replace += with *=,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,same_bytes,replace += with -=,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,same_bytes,replace < with <=,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+grant_plan,same_bytes,replace same_bytes -> bool with false,killed,killed; the ledger's grant_plan section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+loaded_image_check,stack_works,replace stack_works -> bool with true,equivalent,"every path returns true; its job is to touch stack, which only a run in the guest shows"
+loaded_image_check,verify,replace verify with (),killed,killed; the ledger's loaded_image_check and uptime section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+paging,,replace << with >>,equivalent,a shift of zero is the same number
+paging,<impl PageFormat for Aarch64>::block_entry,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,<impl PageFormat for Aarch64>::leaf_entry,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,<impl PageFormat for Aarch64>::table_entry,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,<impl PageFormat for Ia32e>::block_entry,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,<impl PageFormat for Ia32e>::leaf_entry,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,<impl PageFormat for Ia32e>::leaf_flags,replace & with ^,killed,killed; the ledger's paging section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+paging,<impl PageFormat for Ia32e>::leaf_flags,replace & with |,killed,killed; the ledger's paging section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+paging,<impl PageFormat for Ia32e>::table_entry,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,<impl PageFormat for Sv39>::is_block,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,<impl PageFormat for Sv39>::leaf_entry,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,<impl PageFormat for Sv39>::table_entry,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,<impl PageFormat for Vtd>::is_present,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,<impl PageFormat for Vtd>::leaf_entry,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,<impl PageFormat for Vtd>::table_entry,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,Flags::device,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,Flags::kernel_code,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,Flags::kernel_data,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,Flags::user_code,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,Flags::user_data,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,Flags::user_device,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,Ia32e::attrs,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+paging,Sv39::attrs,replace | with ^,equivalent,OR of a masked address with flag bits that each sit in their own position
+pgrep,,replace | with ^,equivalent,"the four state bits in state::EVERY are disjoint, so OR and XOR agree"
+pgrep,Selector::mask,replace Selector::mask -> u64 with 0,killed,"killed; the ledger's ps, pgrep, pmap section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps"
+pgrep,Selector::mask,replace Selector::mask -> u64 with 1,killed,"killed; the ledger's ps, pgrep, pmap section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps"
+pgrep,Selector::selects,replace < with <=,killed,"killed; the ledger's ps, pgrep, pmap section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps"
+pmap,kind_name,delete match arm abi::address_space::MAP_RO,killed,"killed; the ledger's ps, pgrep, pmap section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps"
+pmap,refusal,delete match arm Some(abi::Error::NoSuchSlot),killed,"killed; the ledger's ps, pgrep, pmap section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps"
+pmap,refusal,delete match arm Some(abi::Error::WrongObject),killed,"killed; the ledger's ps, pgrep, pmap section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps"
+pmap,write_va,replace + with *,killed,"killed; the ledger's ps, pgrep, pmap section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps"
+pmap,write_va,replace < with <=,killed,"killed; the ledger's ps, pgrep, pmap section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps"
+ps,refusal,delete match arm Some(abi::Error::NoSuchSlot),killed,"killed; the ledger's ps, pgrep, pmap section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps"
+ps,refusal,delete match arm Some(abi::Error::WrongObject),killed,"killed; the ledger's ps, pgrep, pmap section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps"
+ps,state_name,delete match arm abi::survey::BLOCKED,killed,"killed; the ledger's ps, pgrep, pmap section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps"
+ps,state_name,delete match arm abi::survey::READY,killed,"killed; the ledger's ps, pgrep, pmap section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps"
+ps,write_millis,replace - with +,killed,"killed; the ledger's ps, pgrep, pmap section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps"
+ps,write_millis,replace - with /,killed,"killed; the ledger's ps, pgrep, pmap section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps"
+ps,write_thread_id,replace - with +,killed,"killed; the ledger's ps, pgrep, pmap section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps"
+ps,write_thread_id,replace - with /,killed,"killed; the ledger's ps, pgrep, pmap section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps"
+sealed_pair,,replace <impl std::fmt::Display for Unreadable>::fmt -> std::fmt::Result with Ok(Default::default()),killed,killed; the ledger's firmware_configuration and sealed_pair section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+sealed_pair,Seal::explain,replace == with !=,killed,killed; the ledger's firmware_configuration and sealed_pair section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+sealed_pair,Seal::explain,replace match guard !disagreements.is_empty() with true,killed,killed; the ledger's firmware_configuration and sealed_pair section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+socket_protocol,listen_grant,replace | with ^,equivalent,operands are disjoint by contract
+socket_protocol,req,replace | with ^,equivalent,operands are disjoint by contract
+socket_protocol,udp_bind_grant,replace | with ^,equivalent,operands are disjoint by contract
+system_log,,replace + with *,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Assembler::push,replace += with *=,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Assembler::push,replace > with >=,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Log::control,delete !,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Log::control,replace && with ||,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Log::control,replace += with *=,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Log::control,replace += with -=,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Log::control,replace < with <=,equivalent,the registry refuses the third name chunk itself
+system_log,Log::control,replace match guard badge != 0 && arg < 2 && field <= control::USER with true,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Log::control,replace match guard badge != 0 && arg <= severity::DEBUG as u64 with true,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Log::control,replace match guard badge != 0 && field <= control::SCOPE_SYSTEM with true,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Log::control,replace match guard badge != 0 with true,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Log::handle,replace += with *=,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Log::handle,replace += with -=,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Log::held,replace Log::held -> usize with 0,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Log::held,replace Log::held -> usize with 1,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Log::ingest,replace Log::ingest with (),killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Out<'_>::string,delete match arm b'\n',killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Out<'_>::string,delete match arm b'\r',killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Ring::append,replace % with +,equivalent,the head and read position grow past the buffer but every access wraps again
+system_log,Ring::append,replace -= with +=,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Ring::append,replace -= with /=,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Ring::append,replace < with <=,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Ring::held,replace Ring::held -> usize with 0,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Ring::held,replace Ring::held -> usize with 1,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Ring::read,replace % with +,equivalent,the head and read position grow past the buffer but every access wraps again
+system_log,Ring::read,replace && with ||,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Ring::read,replace - with +,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+system_log,Ring::read,replace > with >=,killed,killed; the ledger's system_log section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,,replace + with *,equivalent,only makes the horizon search longer; a rule matching nothing is answered None either way
+timetable,,replace + with -,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,,replace - with /,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,,replace << with >>,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,Error::last_reachable,"delete match arm Error::Calendar(_, recurrence::Refusal::InexactRange(Some(t)))",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,Error::last_reachable,replace % with +,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,Error::last_reachable,replace % with /,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,Error::last_reachable,replace / with %,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,Error::last_reachable,replace / with *,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,Error::last_reachable,"replace Error::last_reachable -> Option<(u8, u8)> with None",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,Error::last_reachable,"replace Error::last_reachable -> Option<(u8, u8)> with Some((0, 0))",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,Error::last_reachable,"replace Error::last_reachable -> Option<(u8, u8)> with Some((0, 1))",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,Error::last_reachable,"replace Error::last_reachable -> Option<(u8, u8)> with Some((1, 0))",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,Error::last_reachable,"replace Error::last_reachable -> Option<(u8, u8)> with Some((1, 1))",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,Refusal::message,"replace Refusal::message -> &'static str with """"",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,Refusal::message,"replace Refusal::message -> &'static str with ""xyzzy""",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,Registry<'a>::arm_after,replace << with >>,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,Registry<'a>::due,replace || with &&,equivalent,redundant with w < wall_next unless the clock reads i64::MAX minutes
+timetable,Registry<'a>::held,replace Registry<'a>::held -> Held with Default::default(),killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,admit_installed,delete field dir from struct Holdings expression,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,admit_installed_row,delete !,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,admit_installed_row,replace match guard !held.clock with false,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,admit_installed_row,replace match guard !held.clock with true,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,date,replace || with &&,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,day_matches,replace > with >=,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,digits,replace || with &&,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,dow,"delete match arm ""sun""",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,dow,"delete match arm ""wed""",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,expect,replace match guard got == w with true,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,hhmm,replace < with <=,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,hhmm,replace || with &&,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,in_phase,replace * with /,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,in_phase,replace - with +,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,in_phase,replace / with *,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,month,"delete match arm ""aug""",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,month,"delete match arm ""dec""",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,month,"delete match arm ""feb""",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,month,"delete match arm ""jun""",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,month,"delete match arm ""may""",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,month,"delete match arm ""nov""",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,month,"delete match arm ""sep""",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,month_day,"delete match arm ""1st""",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,month_day,"delete match arm ""3rd""",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,month_day,"delete match arm ""4th""",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,month_day_matches,replace < with <=,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,month_day_matches,replace > with >=,equivalent,"Nth(0, ..) is not a value the grammar produces"
+timetable,next,replace + with *,equivalent,only makes the horizon search longer; a rule matching nothing is answered None either way
+timetable,next,replace > with ==,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,next,replace > with >=,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,next_time,replace < with ==,equivalent,"the loop skips an hour whose floor is 59 or more anyway; starting at hour 0 changes the work, not the answer"
+timetable,next_time,replace < with >,equivalent,"the loop skips an hour whose floor is 59 or more anyway; starting at hour 0 changes the work, not the answer"
+timetable,operation,replace operation -> u64 with 1,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,parse,replace < with <=,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,range,replace && with ||,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,range,replace * with +,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,range,replace * with /,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,range,replace + with *,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,range,replace - with +,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,range,replace < with ==,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,range,replace < with >,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,range,replace > with >=,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,range,replace >= with <,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,range,replace || with &&,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,request,replace | with ^,equivalent,the pairs of operands have disjoint bits
+timetable,stage,replace < with >,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,times,replace > with >=,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,unbacked,replace || with &&,equivalent,"plan passes no operators, so Diagnostics::File cannot arrive today"
+timetable,unbacked_code,replace unbacked_code -> u8 with 0,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,unbacked_code,replace unbacked_code -> u8 with 1,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,verdict,replace | with ^,equivalent,the pairs of operands have disjoint bits
+timetable,verdicts,replace << with >>,killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,write_rrule,"delete match arm (_, MonthDay::FirstWeekday)",killed,killed; the ledger's timetable section (census-2026-10-03-triage-part-2-part-2.md) says the sweep afterwards reports only that section's equivalents and gaps
+timetable,write_rrule,replace < with <=,equivalent,"Nth(0, ..) is not a value the grammar produces"
+uefi_loader,,replace + with *,gap,CMDLINE_LEN is a bound with deliberate slack; a mutant within the slack changes nothing a caller sees
+uefi_loader,,replace + with -,gap,CMDLINE_LEN is a bound with deliberate slack; a mutant within the slack changes nothing a caller sees
+uefi_loader,,"replace <impl WriteNode for Out<'_>>::prop_empty -> Result<(), Error> with Ok(())",killed,killed; the ledger's uefi_loader section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+uefi_loader,build,replace - with +,killed,killed; the ledger's uefi_loader section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+uefi_loader,cells64,replace >> with <<,killed,killed; the ledger's uefi_loader section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+uefi_loader,find_string,replace < with <=,equivalent,"an empty tail finds no NUL, and falling out of the loop returns the same"
+uefi_loader,string_offset,replace < with <=,killed,killed; the ledger's uefi_loader section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+uefi_loader,unit_name,replace < with <=,killed,killed; the ledger's uefi_loader section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+uefi_loader,with_initrd,replace > with >=,equivalent,"an empty tail finds no NUL, and falling out of the loop returns the same"
+uptime,Writer::push_bytes,replace < with <=,killed,killed; the ledger's loaded_image_check and uptime section (census-2026-10-03-triage.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Price::per_entry,replace - with +,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Price::per_entry,replace - with /,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Price::per_entry,replace / with %,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Price::per_entry,replace / with *,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Price::per_entry,replace Price::per_entry -> f64 with -1.0,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Price::per_entry,replace Price::per_entry -> f64 with 0.0,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Price::per_entry,replace Price::per_entry -> f64 with 1.0,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Price::per_kib,replace - with +,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Price::per_kib,replace - with /,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Price::per_kib,replace / with %,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Price::per_kib,replace / with *,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Price::per_kib,replace Price::per_kib -> f64 with -1.0,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Price::per_kib,replace Price::per_kib -> f64 with 0.0,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Price::per_kib,replace Price::per_kib -> f64 with 1.0,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Split::total,replace + with -,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Split::total,replace Split::total -> u64 with 0,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,Split::total,replace Split::total -> u64 with 1,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,median_ns,replace / with %,equivalent,REPS / 2 and REPS % 2 are both 1 for REPS = 3
+walk_pricing,median_ns,replace median_ns -> io::Result<u64> with Ok(1),killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,price,replace / with %,gap,WHOLE_REPS / 2 picks the median of five timings; a test can assert it only on a clock it controls
+walk_pricing,price,replace > with <,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,price,replace > with ==,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,slope,replace - with +,equivalent,least-squares slope algebra: the mean of y drops out and (x +- mx) sums to the same variance
+walk_pricing,slope,replace / with %,equivalent,least-squares slope algebra: the mean of y drops out and (x +- mx) sums to the same variance
+walk_pricing,slope,replace / with *,equivalent,least-squares slope algebra: the mean of y drops out and (x +- mx) sums to the same variance
+walk_pricing,totals_line,"replace totals_line -> String with ""xyzzy"".into()",killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,totals_line,replace totals_line -> String with String::new(),killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps
+walk_pricing,walk_split,replace += with *=,killed,killed; the ledger's walk_pricing section (census-2026-10-03-triage-part-3.md) says the sweep afterwards reports only that section's equivalents and gaps

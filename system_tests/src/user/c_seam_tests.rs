@@ -150,7 +150,7 @@ fn run_seam() -> [[u64; 5]; EXPECTED_REPORTS] {
              confinement failing, and it is reported here rather than as a watchdog timeout \
              because a timeout says livelock and means nothing to whoever reads it.",
         );
-        let msg = sched::ipc_recv(report);
+        let msg = sched::ipc_receive(report);
         assert_ne!(
             msg[0], RPT_FAILED,
             "the C seam harness could not be built: stage {}. Stages 1-2 are the archive and \

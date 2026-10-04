@@ -478,11 +478,9 @@ evaluates `cfg(loom)` as false for every real target, so:
 - Loom models C11, not aarch64 and not riscv64. Said three times in this note on purpose. A
   failure it reports is real; a clean run is not a proof about the silicon. Milestone 81's HVF leg
   is the complementary evidence, and it is a sample rather than a search.
-- Not a gate, and not in `script/test` or `script/ci-build`'s table. The runtime would allow it today (under
-  a second) and the reason it is out is different: the search cost of a loom model is exponential in
-  the number of threads and the length of the protocol, so a harness added six months from now can
-  take minutes without anyone intending it to. A gate whose cost is a step function is a gate that
-  gets skipped. Revisit when there is a CI job for it.
+- Not in `script/test` or `script/ci-build`'s table, and not a `script/*` table entry. A loom model's search cost is exponential in threads and protocol length, so a harness
+  added later can take minutes unintended. The `interleavings` job in `ci.yml` (milestone 746 (Loom
+  runs in CI), provisional) runs it per pull request as a required status (calef, 2026-10-04 UTC), with a 20-minute budget tripwire.
 - It cannot see the reschedule interrupt. `work_steal_slot`'s liveness claim is that a poked victim
   eventually reaches a scheduler entry and clears its slot, and until it does, every other idle core
   is locked out of that victim. That is outside the model in both directions: loom does not know

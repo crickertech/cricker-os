@@ -256,12 +256,12 @@ fn start_with(
 
 /// **Serve the terminal until the shell says it is finished**, collecting everything it printed.
 ///
-/// One `OP_WRITE` at a time, replied the way the real line discipline replies (the byte count),
+/// One `OPERATION_WRITE` at a time, replied the way the real line discipline replies (the byte count),
 /// because the shell blocks on that reply and a test that answered differently would be testing
 /// a terminal nobody has.
 pub fn transcript(w: &Wiring, sentinel: &[u8], out: &mut [u8]) -> usize {
     loop {
-        let m = crate::sched::ipc_recv_cap(w.term);
+        let m = crate::sched::ipc_receive_cap(w.term);
         let (w0, slot) = (m[0], m[1]);
         let crate::cap::Object::Reply(caller) = crate::sched::current_cap(slot)
             .expect("the shell's terminal write carried no reply capability")
@@ -270,7 +270,7 @@ pub fn transcript(w: &Wiring, sentinel: &[u8], out: &mut [u8]) -> usize {
             panic!("the shell sent the terminal something that was not a CALL");
         };
         let n = line_editor::proto::len(w0);
-        if line_editor::proto::op(w0) == line_editor::proto::OP_WRITE {
+        if line_editor::proto::operation(w0) == line_editor::proto::OPERATION_WRITE {
             let mut buf = TRANSCRIPT.lock();
             let at = WRITTEN.load(Ordering::SeqCst);
             let n = n.min(buf.len().saturating_sub(at));
@@ -370,7 +370,7 @@ pub fn counts(said: &[u8]) -> (u64, u64, u64) {
 /// this path today; both are exercised only against the real progenitor, by `script/swish-check`.
 fn init_service(spawn_ep: RendezvousId, result: RendezvousId) -> ! {
     loop {
-        let m = crate::sched::ipc_recv(spawn_ep);
+        let m = crate::sched::ipc_receive(spawn_ep);
         let (w0, w1, w2) = (m[0], m[1], m[2]);
         let prog = grant_plan::Prog::from_id(grant_plan::spawnproto::prog_id(w0));
         let arg = grant_plan::spawnproto::arg(w1);
@@ -411,7 +411,7 @@ fn init_service(spawn_ep: RendezvousId, result: RendezvousId) -> ! {
         // one, and receiving it anyway is what keeps the two sides in lockstep if one ever
         // does. `user/src/system_initializer.rs` is where a budget actually reaches a child.
         if grant_plan::spawnproto::mem_pages(w2) > 0 {
-            let m = crate::sched::ipc_recv_cap(spawn_ep);
+            let m = crate::sched::ipc_receive_cap(spawn_ep);
             let _ = crate::sched::delete_current_cap(m[1]);
         }
 
@@ -482,7 +482,7 @@ fn init_service(spawn_ep: RendezvousId, result: RendezvousId) -> ! {
 /// away: what the progenitor needs is the *name* of the rendezvous, and holding the capability afterwards
 /// would fill a capability table over a long session for nothing.
 fn take_rendezvous(ep: RendezvousId) -> Option<RendezvousId> {
-    let m = crate::sched::ipc_recv_cap(ep);
+    let m = crate::sched::ipc_receive_cap(ep);
     let slot = m[1];
     let cap = crate::sched::current_cap(slot).ok()?;
     let _ = crate::sched::delete_current_cap(slot);

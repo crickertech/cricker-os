@@ -498,7 +498,7 @@ mod c_seam_tests;
 ///    this a receipt rather than a coincidence.
 /// 4. **The attacker**, `chatty` in its usurper role, endowed with exactly the honest client's
 ///    capabilities including a real working capability to the stable endpoint. It tries to park
-///    itself in `RECV_CAP` and become the server. `NotPermitted`: its capability carries `WRITE`
+///    itself in `RECEIVE_CAP` and become the server. `NotPermitted`: its capability carries `WRITE`
 ///    and not `READ`, so endpoint-only naming does not mean "whoever holds the endpoint is the
 ///    server".
 ///
@@ -574,7 +574,7 @@ mod notification_tests;
 
 /// **Timers** (milestone 106 (a wait that ends on either the interrupt or the deadline), DECISIONS
 /// §147 (a timer a userspace service cannot hold)): the tick reaching the expiry walk, a wait ending
-/// on a signal or on the deadline (in `WAIT` and in a bound `RECV`), a replaced or cancelled deadline
+/// on a signal or on the deadline (in `WAIT` and in a bound `RECEIVE`), a replaced or cancelled deadline
 /// never firing, and the syscall layer's rights. Cross-ISA: the counter each test reads is the one
 /// the walk compares, on every architecture.
 #[cfg(test)]
@@ -779,7 +779,7 @@ mod riscv_virtio_tests;
 /// with the interactive endowment: a terminal, a spawn channel, a result channel, and a budget. The
 /// kernel plays the two parties on the other ends.
 ///
-/// - **The terminal.** The test itself serves `line_editor::proto::OP_WRITE` and collects every byte
+/// - **The terminal.** The test itself serves `line_editor::proto::OPERATION_WRITE` and collects every byte
 ///   the shell prints. So the assertion is made against *what a person would see*, which is the
 ///   strongest form this can take: a pipeline that ran but printed the wrong thing fails here.
 /// - **The progenitor.** A second thread serves `grant_plan::spawnproto`, receiving the delegated sink and source
@@ -874,14 +874,14 @@ mod sink_tests;
 #[cfg(all(test, initrd))]
 mod system_log_tests;
 
-/// **`OP_RAWMODE` and `OP_READRAW`, proved against a real `line_editor`** (milestone 169): echo
+/// **`OPERATION_RAWMODE` and `OPERATION_READRAW`, proved against a real `line_editor`** (milestone 169 (`kilo`, the smallest real text editor, as the forcing function for raw terminal input)): echo
 /// suppression, literal (uninterpreted) delivery of what the line discipline would otherwise
 /// consume as an editing command, the two input models refusing each other, and a read parked
 /// before data arrives still being answered once it does. See the module's own doc for why the
 /// echo-suppression check is proven both ways rather than only the direction that matters.
 #[cfg(all(test, initrd))]
 mod raw_mode_tests;
-/// `OP_QUIESCE` and `FLAG_RETRY` (milestone 23 (a capability-routed component OS with live
+/// `OPERATION_QUIESCE` and `FLAG_RETRY` (milestone 23 (a capability-routed component OS with live
 /// replacement)): a terminal quiesced for replacement hands its parked reader back rather than
 /// stranding it, and resumes a half-typed line without repainting it.
 #[cfg(all(test, initrd))]
@@ -940,8 +940,8 @@ mod thread_leak_police;
 /// parity gate (DECISIONS §19, architectural parity is a tenet) is met by the same test running on
 /// each architecture.
 #[cfg(test)]
-mod recv_cap_attack_tests;
-// Each module carries its own `cfg(test)`: milestone 634 (a plain SEND received by RECV_CAP never
+mod receive_cap_attack_tests;
+// Each module carries its own `cfg(test)`: milestone 634 (a plain SEND received by RECEIVE_CAP never
 // hands the receiver a sender-chosen slot) inserted the line above between the attribute and
 // `revocation_in_flight_tests`, and the attribute silently moved with it. The
 // "tests the suite cannot see" check in `script/lint` now refuses a bare `mod` here.

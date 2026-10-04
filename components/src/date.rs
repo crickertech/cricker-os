@@ -265,7 +265,7 @@ fn source_line(slot: u64, st: u64, generation: u64) {
 /// **Announce the end of the stream, then exit** (milestone 50).
 ///
 /// `date` was already writing the sink contract's `BYTES` framing before that contract had a name,
-/// because `OP_BYTES` is zero and a bytes message's first word is therefore its byte count
+/// because `OPERATION_BYTES` is zero and a bytes message's first word is therefore its byte count
 /// (notes/sink-protocol.md). What it was missing is the other half: a reader downstream of a `|`
 /// has no way to know the producer is finished except by being told, and inferring it from a death
 /// notification would be a fact about process supervision standing in for a fact about a stream.

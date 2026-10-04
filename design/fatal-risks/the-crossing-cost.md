@@ -49,7 +49,7 @@ What is measured, and it is a lot.
   would fail to amortise in the first place. `bench/fastpath-aarch64.txt`, written by
   `script/fastpath-footprint`: `ipc_call_reply` 7,028 bytes plus `syscall_entry` 1,508. The first
   three phases of milestone 188 (the IPC fastpath) took entry from 3,304 to 1,508 and
-  `ipc_send_recv` from 5,888 to 5,356. That work also found that the cheap extraction method of
+  `ipc_send_receive` from 5,888 to 5,356. That work also found that the cheap extraction method of
   milestone 156 (extract the rest and ratchet both ways) does not transfer to a closure walk, which
   is a result rather than a shortfall.
 - One real path closed against itself. Milestone 138 (close the read gap) measured 16x against where

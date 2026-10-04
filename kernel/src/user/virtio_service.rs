@@ -213,7 +213,7 @@ fn wire_net_server(
         .addr();
 
     // **The three endpoints come out of a region of their own, and that is what makes this service
-    // reclaimable at all.** `net_stack` blocks in `recv_cap(STACK)` forever, and DECISIONS §16's
+    // reclaimable at all.** `net_stack` blocks in `receive_cap(STACK)` forever, and DECISIONS §16 (object revocation)'s
     // armed kill is spent by `schedule()`, which a `Blocked` thread never reaches. What wakes it is
     // reclaiming the region its endpoints live in: the reap drains their wait queues and aborts the
     // waiter, and the doomed server is then schedulable enough to die. From the kernel's own
@@ -399,7 +399,7 @@ fn start_net_stack_with(
     // enters its serve loop (the client's first request blocks until it does). This also
     // confirms DHCP completed before the client's exchange runs. The client, spawned above,
     // waits at its first request meanwhile.
-    crate::sched::ipc_recv(net_stack_report);
+    crate::sched::ipc_receive(net_stack_report);
 
     Some((cli_report, held))
 }
@@ -600,7 +600,7 @@ pub fn start_net_std(
 
     // Same discipline as start_net_stack: drain net_stack's blocking DHCP report so it reaches its
     // serve loop before the std program's first request, and confirm DHCP completed.
-    crate::sched::ipc_recv(net_stack_report);
+    crate::sched::ipc_receive(net_stack_report);
 
     held.add_thread(tid);
     held.add_region(std_eps);

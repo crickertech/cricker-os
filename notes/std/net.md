@@ -21,7 +21,7 @@ The records this file cites by number:
 contract (DECISIONS §25, notes/net.md, `crates/socket_protocol/src/lib.rs`). The PAL is a client of
 the frozen contract, nothing more. It holds the `Stack` endpoint (slot 2) and a frame untyped (slot
 3). For each socket it mints a shared `Frame`, maps it, delegates it to net_stack (`SEND_CAP`,
-`OP_ATTACH_FRAME`), and then drives the socket with `CALL`s carrying a socket id. Control words ride
+`OPERATION_ATTACH_PAGE_FRAME`), and then drives the socket with `CALL`s carrying a socket id. Control words ride
 the message; bytes sit in the shared frame. This is the exact path the hand-written
 `socket_test_client` client walks, reached through std's blocking API instead.
 
@@ -32,19 +32,19 @@ numbers change with it, because there is one source.
 
 What binds, and how it maps to the contract:
 
-- `TcpStream::{connect, read, write, ...}` -> `OP_OPEN_TCP`, `OP_CONNECT`, `OP_RECV`, `OP_SEND`,
-  `OP_CLOSE` (on `Drop`). `read` blocks in net_stack until data arrives (a blocked `RECV`), the
+- `TcpStream::{connect, read, write, ...}` -> `OPERATION_OPEN_TCP`, `OPERATION_CONNECT`, `OPERATION_RECEIVE`, `OPERATION_SEND`,
+  `OPERATION_CLOSE` (on `Drop`). `read` blocks in net_stack until data arrives (a blocked `RECEIVE`), the
   blocking semantics std's default API wants. A short `read` keeps the segment's tail in a
   per-socket residual buffer, so a stream never drops bytes.
-- `UdpSocket::{bind, connect, send, recv, send_to, recv_from}` -> `OP_OPEN_UDP`, `OP_SENDTO`,
-  `OP_RECV`. UDP `connect` only fixes a default peer (no contract call, matching Unix). `bind`'s
+- `UdpSocket::{bind, connect, send, recv, send_to, recv_from}` -> `OPERATION_OPEN_UDP`, `OPERATION_SENDTO`,
+  `OPERATION_RECEIVE`. UDP `connect` only fixes a default peer (no contract call, matching Unix). `bind`'s
   local address is validated but not honored: net_stack assigns an ephemeral local port.
 - Errors map by meaning, no errno. A refused TCP connect is `ConnectionRefused`; a net_stack timeout
-  on `RECV` is `TimedOut`; a datagram larger than the frame is `InvalidInput`; an IPv6 address is
+  on `RECEIVE` is `TimedOut`; a datagram larger than the frame is `InvalidInput`; an IPv6 address is
   `Unsupported` (net_stack is IPv4-only). A `CALL` on an empty `Stack` slot (no network granted)
   reads back negative and becomes `Unsupported`, the same answer a program with no net grants gets.
 
-- `TcpListener::{bind, accept}` -> `OP_LISTEN` and `OP_ACCEPT` (milestone 64). This is the inbound
+- `TcpListener::{bind, accept}` -> `OPERATION_LISTEN` and `OPERATION_ACCEPT` (milestone 64). This is the inbound
   half, and the reason it reads differently from everything above is that a listening port is an
   authority this program was granted or was not. `net_stack` is spawned with a listen grant, an
   inclusive port range, and refuses `LISTEN` outside it; `NO_LISTEN_GRANT` is the default, so a std
@@ -58,7 +58,7 @@ What binds, and how it maps to the contract:
   A listener and a connection are two socket ids, and the listener never gets a frame. That is
   DECISIONS §25 showing through the PAL rather than a choice made here: the shared frame is the
   granted resource and a listener carries no bytes, so it has nothing to grant. `accept` allocates a
-  *second* id, attaches that one's frame, and asks `OP_ACCEPT` to install the connection there.
+  *second* id, attaches that one's frame, and asks `OPERATION_ACCEPT` to install the connection there.
   `net_stack` refuses an accept into the listener's own id, so the POSIX move of turning a listening
   descriptor into the connection in place is not expressible from this PAL.
 

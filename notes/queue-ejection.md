@@ -1,8 +1,9 @@
 # A merge-queue ejection, caught before the queue and recovered after it
 
 Milestone 630 (a merge-queue ejection is caught before the queue, and recovered after it),
-2026-10-03 UTC. The name of this note, the `queue-ejected` label and the `ready status` workflow
-are provisional.
+2026-10-03 UTC, and its recovery half rebuilt the same day as milestone 727 (a queue eviction goes
+to a maintainer session), provisional. The name of this note, the `needs-maintainer` label and the
+`ready status` workflow are provisional.
 
 Every merge-group attempt costs 20 to 38 minutes since swish-check joined CI. So an ejection costs
 twice: once for the group that failed, and again for every retry that fails the same way. The
@@ -33,77 +34,114 @@ Falsified live with #1491, a throwaway whose block read IN-PROGRESS on its own b
 
 It was closed and its branch deleted the same minute.
 
-## The pre-push hook runs all of lint
+## The pre-push hook runs what fits in seconds
 
 The hook grew one gate per lost queue cycle: clippy, two prose ratchets, then the baselines check.
-Each new lint check stayed outside it until it cost a cycle too. Measured on patagonia with a warm
-target directory, three runs each, wall clock, beside two lanes' QEMU:
+Milestone 630 (a merge-queue ejection is caught before the queue, and recovered after it) made it
+all of `script/lint`. Measured on patagonia with a warm target directory, three runs each, wall
+clock, beside two lanes' QEMU:
 
 | Command | Runs (s) | Median |
 | --- | --- | --- |
 | `script/lint --clippy` | 27.36, 32.90, 26.71 | 27.4 s |
 | `script/lint` | 56.48, 55.20, 56.65 | 56.5 s |
 
-The rest of lint is about 29 s, of which the three gates it replaced were about 6. No check after
-clippy takes over 3.5 s (spelling 3.4, prose ratchet 3.0, counted claims 2.6, citations 2.6). There
-was no slow tail to leave to CI, so the hook runs the whole thing. Its first push in this lane
-refused a citation to an unmerged milestone that CI would have failed.
+That was a quiet moment. Later the same day, with the load average at 11 to 19, `script/lint` took
+70.3, 110.7 and 119.4 s warm and 201.9 s with a cold target directory. A claim push sat in it for a
+whole lane and lanes took to `--no-verify`. The hook also refused a claim push five times for a
+roadmap block that cannot exist before the claim.
 
-The wider run found one defect too. git exports GIT_DIR to a hook, and
+calef approved the narrower hook on #1564 (2026-10-03 UTC). It runs `script/fmt --check`, then
+`script/lint --no-cargo`, then `--ready-branch`, and skips all three for a push whose commits
+change no files. Clippy stays in CI. Measured on patagonia at load 15 to 17, wall clock:
+
+| Step | Runs (s) |
+| --- | --- |
+| `script/fmt --check` | 1.8 |
+| `script/lint --no-cargo`, warm tree | 41.6, 47.2, 44.7 |
+| `script/fmt --check` and `script/lint --no-cargo`, no `target/` directory | 43.0 |
+
+The proposal estimated 33 s from one loaded run. The measurement is 42 to 47 s, under a load average
+of 15 to 17. The mode is CPU bound (about 46 s of CPU in those runs) and never touches `target/`, so
+a cold target directory costs nothing extra. An empty push costs the
+hook's own startup, under a second.
+
+**The partition is read out of `script/lint`, not listed beside it.** `helpers/lint-no-cargo.awk`
+splits the script at each `echo "==> ` header and drops every section with a line that invokes
+cargo (a command whose first word is `cargo`, a Python `["cargo"` argv, or `command -v cargo`).
+Prose that mentions cargo does not count. A new check therefore lands in exactly one bucket when it
+is written, and a section that runs cargo is dropped unless it carries a `# no-cargo-ok:` marker
+and reads `$LINT_NO_CARGO` to skip its cargo part. A marker on a section with no cargo, a marker
+with no guard, and cargo before the first header each fail the mode. Of 65 sections, 46 run and 19
+are skipped (12 clippy, rustdoc, and 6 that call `cargo metadata` or `cargo machete`;
+`script/lint --no-cargo --list` prints them).
+
+The earlier run found one defect too. git exports GIT_DIR to a hook, and
 `helpers/scope-merge-base-selftest.sh` builds a throwaway repository with it still set. Its
 `git init` and `git config` wrote `core.bare = true` and a fake identity into the shared
 `.git/config` before it failed. Both were restored by hand, no commit carried the identity, and
 the hook and the selftest now clear git's environment first.
 
-## After the queue: the drain
+## After the queue: a label for a maintainer session
 
-`helpers/merge-drain.sh` reads every open pull request's last `RemovedFromMergeQueueEvent` and last
-`AddedToMergeQueueEvent` in one GraphQL call per pass. `helpers/queue-ejected.jq` decides, with
-fixtures in `helpers/queue-ejected-selftest.sh`. A current ejection is a last removal whose
-`reason` is neither `merged` nor `manual`, with no enqueue after it.
+Milestone 630 first built this as a hold: the drain commented on an ejection, labelled
+`queue-ejected`, and declined to re-arm a failed head, re-arming everything else. calef's rulings on
+#1564 (2026-10-03) removed every re-arm and re-queue, because the automation fought his own
+dequeues and still left him as the only detector
+([the correction](coes/2026-10-03-the-queue-judged-one-pull-request-at-a-time.md)). What replaced it
+labels and never acts on the queue.
+
+`helpers/merge-drain.sh` asks GraphQL once per pass for every open pull request (its last
+`RemovedFromMergeQueueEvent` and `AddedToMergeQueueEvent`, `mergeable`, auto-merge, and when it was
+last unarmed), the queue's entries, and the closed pull requests still wearing the label.
+`helpers/needs-maintainer.jq` decides. Each cause adds `needs-maintainer` and posts one comment per
+episode, deduplicated by a marker:
+
+| Cause | When | Evidence in the comment | Cleared when |
+| --- | --- | --- | --- |
+| ejected | last removal neither `merged` nor `manual`, nothing re-added it, same head | reason, time, head, the group's failed runs | back in the queue, or the head moves |
+| conflict | ready and `mergeable` CONFLICTING | the conflicting files, from `git merge-tree` | the conflict is gone |
+| stale | a queue entry whose pull request is merged or closed | entry state, enqueue and merge times, the dequeue command | the entry is gone |
+| unarmed | ready, not armed, not queued, 30 minutes since it was last unarmed | since when, and any resolved `Blocked-by:` | armed, queued, or a draft again |
+
+Every cause but `stale` needs a ready pull request into `main` from this repository, without
+`needs-architect` or `held-for-red-trunk`. A `merge_conflict` ejection names no group commit, so it
+cannot say which head was ejected and is cleared by the conflict going instead. `manual` is not an
+ejection, because a person or `dequeue_held` meant it; if nobody follows up, it is `unarmed` 30
+minutes later. `unarmed` is not raised beside `ejected` or `conflict`, which already say what is
+wrong.
 
 The event's `beforeCommit` is the group's merge commit, not the head, which was a surprise. Its
 second parent is the head that was enqueued, and the group's runs are the `merge_group` runs at
 `beforeCommit`.
 
-| Case | Comment | Label | Arming |
-| --- | --- | --- | --- |
-| A group run failed or timed out, head unchanged | once | applied | held |
-| Group runs cancelled, head unchanged | once | none | re-armed at the same head |
-| `merge_conflict` (no group commit) | once | none | the existing `DIRTY` stall |
-| A new head was pushed | once, if not yet said | removed | armed as usual |
-| Back in the queue, or removed by hand | none | removed | as usual |
+The split milestone 630 measured still matters to whoever reads the comment. Of the 18
+`failed_checks` ejections by 2026-10-03, 5 had a CI run conclude `failure` and 13 had CI
+`cancelled` with every other workflow green, and #1454 merged on its fifth attempt at an unchanged
+head. So the comment lists the group's runs by conclusion: a cancellation is usually runner supply,
+and re-arming is the session's call to make, not the drain's.
 
-The split between failed and cancelled is measured. Of the 18 `failed_checks` ejections on this
-repository by 2026-10-03, 5 had a CI run conclude `failure` (#1402, #1409, #1442, #1443 and #1473).
-The other 13 had CI `cancelled` with every other workflow green. Three pull requests (#1450, #1454 and #1457) were each
-ejected four times at an unchanged head, and #1463 once. Pull request #1454 merged on its fifth attempt with the
-head it had on its first, so holding a cancelled head would have stranded it.
+`helpers/needs-maintainer-selftest.sh` feeds the decision a response recorded live at
+2026-10-03T23:54:15Z, when #1569 had just been ejected on a `merge_conflict`, and one case per
+cause and per clearing. A `--dry-run` pass against the live repository the same minute labelled
+#1569 and nothing else. The scheduled workflow runs only from `main`, so the first real label comes
+after merge.
 
-Removing the label by hand says "that failure was a flake, retry this head". The drain never
-re-applies it for the same ejection. A `needs-architect` pull request is commented and labelled
-like any other and never armed, because the drain's queue excludes it.
-
-The log gains two event lines, countable like `ARMED`:
+The log's event lines:
 
 ```console
-$ grep -c 'merge-drain: EJECTED #' ~/Library/Logs/nife/merge-drain.log    # ejections said on the pull request
-$ grep -c 'merge-drain: RELEASED #' ~/Library/Logs/nife/merge-drain.log   # holds released
+$ gh run view <run id> --log | grep -E 'LABELLED|CLEARED'
 ```
-
-Exercised before landing by stubbing `gh`'s write commands and running the handler against the
-live repository. Pull request #1473 classified as moved, since calef pushed a fix three minutes after its
-ejection. A fixture with the head unchanged produced one hold, one label and one comment. The
-scheduled workflow runs only from `main`, so the first real comment comes after merge.
 
 ## BUGS
 
-- The hold needs `nife-smelter` to apply a label it may have to create. The App holds Contents and
-  Pull requests write. Labelling a pull request needs only the second; creating the label may
-  need Issues. If it fails, the drain prints `STALLED. #N could not be labelled` and re-arms the
-  head as before. One `gh label create queue-ejected` by a person removes the question.
-- An ejection is said at the drain's next pass, which can trail it by minutes. The first pass after
-  this lands also comments on any open pull request whose last removal was an ejection.
+- A labelled pull request waits for a maintainer session. With none running, it waits for the
+  next one, which is slower than the drain's old re-arm and is not calef's job.
+- An ejection is labelled at the drain's next pass, which follows the group's CI completion through
+  `workflow_run` but can trail it under load. The first pass after this lands also labels any open
+  pull request whose last removal was a current ejection.
+- An armed pull request whose required checks never report, or that auto-merge never enqueues, is
+  none of the four causes. The drain used to comment on the first and enqueue the second.
 - `--ready-branch` matches by branch name. A block naming the wrong branch passes it and still
   fails in the group.
 - `notes/check-inventory.md` does not list `--ready-branch` or the hook's wider lint. That table is

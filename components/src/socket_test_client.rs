@@ -153,8 +153,8 @@ fn r16le(va: u64) -> u16 {
     WINDOW.r16(va - PAGE_FRAME_VA)
 }
 
-/// The source endpoint a UDP RECV reply left in the frame header (`socket_protocol`'s layout note).
-fn recv_source() -> ([u8; 4], u16) {
+/// The source endpoint a UDP RECEIVE reply left in the frame header (`socket_protocol`'s layout note).
+fn receive_source() -> ([u8; 4], u16) {
     let mut ip = [0u8; 4];
     for (i, b) in ip.iter_mut().enumerate() {
         *b = r8(PAGE_FRAME_VA + OFF_DST_IP + i as u64);
@@ -198,7 +198,7 @@ fn attach_page_frame(sid: u64) {
         STACK,
         frame,
         rights::READ | rights::WRITE,
-        req(OP_ATTACH_PAGE_FRAME, sid),
+        req(OPERATION_ATTACH_PAGE_FRAME, sid),
     ) < 0
     {
         done(0xE003);
@@ -246,7 +246,7 @@ fn build_dns_query() -> u64 {
 /// a response, still fails: that would be a defect in the socket contract, not in the network.
 fn udp_dns() -> ! {
     attach_page_frame(0);
-    if call(STACK, req(OP_OPEN_UDP, 0), 0).0 != REP_OK {
+    if call(STACK, req(OPERATION_OPEN_UDP, 0), 0).0 != REP_OK {
         done(0xE010);
     }
 
@@ -254,10 +254,10 @@ fn udp_dns() -> ! {
     for _ in 0..DNS_ATTEMPTS {
         let qlen = build_dns_query();
         set_dst(DNS_IP, DNS_PORT);
-        if call(STACK, req(OP_SENDTO, 0), qlen).0 != REP_OK {
+        if call(STACK, req(OPERATION_SENDTO, 0), qlen).0 != REP_OK {
             done(0xE011);
         }
-        let (rlen, _) = call(STACK, req(OP_RECV, 0), 0);
+        let (rlen, _) = call(STACK, req(OPERATION_RECEIVE, 0), 0);
         if rlen != REP_ERR && rlen >= 12 {
             got = rlen;
             break;
@@ -279,7 +279,7 @@ fn udp_dns() -> ! {
         done(0xE014);
     }
 
-    let _ = call(STACK, req(OP_CLOSE, 0), 0);
+    let _ = call(STACK, req(OPERATION_CLOSE, 0), 0);
     done(OK);
 }
 
@@ -294,7 +294,7 @@ fn udp_dns() -> ! {
 /// first data packet back: opcode 3, block 1, and the fixture's bytes exactly.
 fn udp_tftp() -> ! {
     attach_page_frame(0);
-    if call(STACK, req(OP_OPEN_UDP, 0), 0).0 != REP_OK {
+    if call(STACK, req(OPERATION_OPEN_UDP, 0), 0).0 != REP_OK {
         done(0xE040);
     }
 
@@ -313,13 +313,13 @@ fn udp_tftp() -> ! {
     let qlen = p - (PAGE_FRAME_VA + OFF_PAYLOAD);
 
     set_dst(GW_IP, TFTP_PORT);
-    if call(STACK, req(OP_SENDTO, 0), qlen).0 != REP_OK {
+    if call(STACK, req(OPERATION_SENDTO, 0), qlen).0 != REP_OK {
         done(0xE041);
     }
 
     // DATA: { u16 opcode = 3 }{ u16 block = 1 } body. The fixture is one short block, so the whole
     // file arrives in this first packet and no ACK/continuation is needed.
-    let (rlen, _) = call(STACK, req(OP_RECV, 0), 0);
+    let (rlen, _) = call(STACK, req(OPERATION_RECEIVE, 0), 0);
     if rlen == REP_ERR || rlen < 4 + TFTP_BODY.len() as u64 {
         done(0xE042);
     }
@@ -339,12 +339,12 @@ fn udp_tftp() -> ! {
         }
     }
 
-    // The RECV reply now carries the DATA packet's source endpoint in the frame header (milestone
+    // The RECEIVE reply now carries the DATA packet's source endpoint in the frame header (milestone
     // 55's stack half), and this is the slirp-provable check of it: the DATA came from the gateway,
     // from a real port. The port is deliberately not pinned to 69: TFTP's own protocol has the
     // server answer from a transfer-id port of its choosing (RFC 1350 §4), so asserting 69 would
     // pin a libslirp implementation detail.
-    let (src_ip, src_port) = recv_source();
+    let (src_ip, src_port) = receive_source();
     if src_ip != GW_IP {
         done(0xE046); // the reported source is not the server that answered
     }
@@ -366,9 +366,13 @@ fn udp_tftp() -> ! {
     put8(0x00, &mut a);
     put8(0x01, &mut a);
     set_dst(src_ip, src_port);
-    let _ = call(STACK, req(OP_SENDTO, 0), a - (PAGE_FRAME_VA + OFF_PAYLOAD));
+    let _ = call(
+        STACK,
+        req(OPERATION_SENDTO, 0),
+        a - (PAGE_FRAME_VA + OFF_PAYLOAD),
+    );
 
-    let _ = call(STACK, req(OP_CLOSE, 0), 0);
+    let _ = call(STACK, req(OPERATION_CLOSE, 0), 0);
     done(OK);
 }
 
@@ -376,12 +380,12 @@ fn tcp_echo() -> ! {
     const MSG: &[u8] = b"nife-net!";
 
     attach_page_frame(0);
-    if call(STACK, req(OP_OPEN_TCP, 0), 0).0 != REP_OK {
+    if call(STACK, req(OPERATION_OPEN_TCP, 0), 0).0 != REP_OK {
         done(0xE020);
     }
 
     set_dst(ECHO_IP, ECHO_PORT);
-    let (outcome, _) = call(STACK, req(OP_CONNECT, 0), 0);
+    let (outcome, _) = call(STACK, req(OPERATION_CONNECT, 0), 0);
     if outcome != CONNECT_ESTABLISHED {
         done(0xE021); // handshake did not complete (refused/reset)
     }
@@ -389,12 +393,12 @@ fn tcp_echo() -> ! {
     for (i, &b) in MSG.iter().enumerate() {
         w8(PAGE_FRAME_VA + OFF_PAYLOAD + i as u64, b);
     }
-    let (sent, _) = call(STACK, req(OP_SEND, 0), MSG.len() as u64);
+    let (sent, _) = call(STACK, req(OPERATION_SEND, 0), MSG.len() as u64);
     if sent != MSG.len() as u64 {
         done(0xE022);
     }
 
-    let (rlen, _) = call(STACK, req(OP_RECV, 0), 0);
+    let (rlen, _) = call(STACK, req(OPERATION_RECEIVE, 0), 0);
     if rlen != MSG.len() as u64 {
         done(0xE023); // the echo did not come back whole
     }
@@ -404,7 +408,7 @@ fn tcp_echo() -> ! {
         }
     }
 
-    let _ = call(STACK, req(OP_CLOSE, 0), 0);
+    let _ = call(STACK, req(OPERATION_CLOSE, 0), 0);
     done(OK);
 }
 
@@ -419,22 +423,22 @@ fn tcp_reopen() -> ! {
     set_dst(ECHO_IP, ECHO_PORT);
 
     // First connection on socket id 0.
-    if call(STACK, req(OP_OPEN_TCP, 0), 0).0 != REP_OK {
+    if call(STACK, req(OPERATION_OPEN_TCP, 0), 0).0 != REP_OK {
         done(0xE030);
     }
-    if call(STACK, req(OP_CONNECT, 0), 0).0 != CONNECT_ESTABLISHED {
+    if call(STACK, req(OPERATION_CONNECT, 0), 0).0 != CONNECT_ESTABLISHED {
         done(0xE031);
     }
-    let _ = call(STACK, req(OP_CLOSE, 0), 0);
+    let _ = call(STACK, req(OPERATION_CLOSE, 0), 0);
 
     // Reopen the SAME socket id and connect again. This is the exact path that hung before the fix.
-    if call(STACK, req(OP_OPEN_TCP, 0), 0).0 != REP_OK {
+    if call(STACK, req(OPERATION_OPEN_TCP, 0), 0).0 != REP_OK {
         done(0xE032);
     }
-    if call(STACK, req(OP_CONNECT, 0), 0).0 != CONNECT_ESTABLISHED {
+    if call(STACK, req(OPERATION_CONNECT, 0), 0).0 != CONNECT_ESTABLISHED {
         done(0xE033);
     }
-    let _ = call(STACK, req(OP_CLOSE, 0), 0);
+    let _ = call(STACK, req(OPERATION_CLOSE, 0), 0);
 
     done(OK);
 }
@@ -461,7 +465,7 @@ fn tcp_reopen() -> ! {
 fn tcp_accept_inbound() -> ! {
     // A port outside the grant is refused as a matter of AUTHORITY, which is a different answer from
     // "somebody has it" and calls for a different response from a client.
-    match call(STACK, req(OP_LISTEN, LISTEN_SID), DENIED_PORT).0 {
+    match call(STACK, req(OPERATION_LISTEN, LISTEN_SID), DENIED_PORT).0 {
         LISTEN_DENIED => {}
         LISTEN_GRANTED => done(0xE050), // bound a port nothing granted: the whole point, lost
         LISTEN_IN_USE => done(0xE051),
@@ -469,7 +473,7 @@ fn tcp_accept_inbound() -> ! {
     }
 
     // The granted one binds, and this listener is the one the rest of the exchange accepts on.
-    match call(STACK, req(OP_LISTEN, LISTEN_SID), LISTEN_PORT).0 {
+    match call(STACK, req(OPERATION_LISTEN, LISTEN_SID), LISTEN_PORT).0 {
         LISTEN_GRANTED => {}
         LISTEN_DENIED => done(0xE053), // the spawn service granted the wrong range
         LISTEN_IN_USE => done(0xE054),
@@ -478,7 +482,7 @@ fn tcp_accept_inbound() -> ! {
 
     // And it is exclusive, which is the property that makes a port grantable rather than merely a
     // number. Asking again on a second socket id must collide.
-    match call(STACK, req(OP_LISTEN, CONN_SID), LISTEN_PORT).0 {
+    match call(STACK, req(OPERATION_LISTEN, CONN_SID), LISTEN_PORT).0 {
         LISTEN_IN_USE => {}
         LISTEN_GRANTED => done(0xE056), // two listeners on one port
         _ => done(0xE057),
@@ -491,7 +495,7 @@ fn tcp_accept_inbound() -> ! {
     serve_one_inbound(0xE060);
     serve_one_inbound(0xE070);
 
-    let _ = call(STACK, req(OP_CLOSE, LISTEN_SID), 0);
+    let _ = call(STACK, req(OPERATION_CLOSE, LISTEN_SID), 0);
 
     // The UDP bind half rides in this same spawn (milestone 55's stack half), because a second net
     // server does not fit the aarch64 boot: the spawn is ~154 frames nothing ever reclaims, and
@@ -506,11 +510,11 @@ fn tcp_accept_inbound() -> ! {
 /// Accept one inbound connection, check what the host sent, answer it, and close. Reports through
 /// `done` on any failure, so `base` distinguishes the first connection from the second.
 fn serve_one_inbound(base: u64) {
-    if call(STACK, req(OP_ACCEPT, LISTEN_SID), CONN_SID).0 != REP_OK {
+    if call(STACK, req(OPERATION_ACCEPT, LISTEN_SID), CONN_SID).0 != REP_OK {
         done(base); // nobody connected within the server's bounded wait
     }
 
-    let (rlen, _) = call(STACK, req(OP_RECV, CONN_SID), 0);
+    let (rlen, _) = call(STACK, req(OPERATION_RECEIVE, CONN_SID), 0);
     if rlen != IN_MSG.len() as u64 {
         done(base + 1);
     }
@@ -523,12 +527,12 @@ fn serve_one_inbound(base: u64) {
     for (i, &b) in OUT_MSG.iter().enumerate() {
         w8(PAGE_FRAME_VA + OFF_PAYLOAD + i as u64, b);
     }
-    let (sent, _) = call(STACK, req(OP_SEND, CONN_SID), OUT_MSG.len() as u64);
+    let (sent, _) = call(STACK, req(OPERATION_SEND, CONN_SID), OUT_MSG.len() as u64);
     if sent != OUT_MSG.len() as u64 {
         done(base + 3);
     }
 
-    if call(STACK, req(OP_CLOSE, CONN_SID), 0).0 != REP_OK {
+    if call(STACK, req(OPERATION_CLOSE, CONN_SID), 0).0 != REP_OK {
         done(base + 4);
     }
 }
@@ -545,30 +549,30 @@ fn serve_one_inbound(base: u64) {
 ///
 /// **What is deliberately not here any more**: the marker-payload exchange with xtask's multicast
 /// prober. It proved that a joined group receives, that a multicast `SENDTO` reaches the wire, and
-/// that a datagram's source endpoint rides back on `RECV`. The multicast DNS responder took over
+/// that a datagram's source endpoint rides back on `RECEIVE`. The multicast DNS responder took over
 /// the first two with real DNS messages, and milestone 298 retired it and the prober on 2026-09-15
 /// (notes/mdns.md), so **nothing proves multicast now**. The third is still proved, by `udp_tftp`.
 fn udp_bind_half() {
-    match call(STACK, req(OP_BIND_UDP, LISTEN_SID), UDP_DENIED_PORT).0 {
+    match call(STACK, req(OPERATION_BIND_UDP, LISTEN_SID), UDP_DENIED_PORT).0 {
         LISTEN_DENIED => {}
         LISTEN_GRANTED => done(0xE080), // bound a port nothing granted: the whole point, lost
         _ => done(0xE081),
     }
 
-    match call(STACK, req(OP_BIND_UDP, CONN_SID), UDP_GRANTED_PORT).0 {
+    match call(STACK, req(OPERATION_BIND_UDP, CONN_SID), UDP_GRANTED_PORT).0 {
         LISTEN_GRANTED => {}
         LISTEN_DENIED => done(0xE082), // the spawn granted the wrong range
         _ => done(0xE083),
     }
 
     // Exclusive, the property that makes a fixed port grantable rather than merely a number.
-    match call(STACK, req(OP_BIND_UDP, LISTEN_SID), UDP_GRANTED_PORT).0 {
+    match call(STACK, req(OPERATION_BIND_UDP, LISTEN_SID), UDP_GRANTED_PORT).0 {
         LISTEN_IN_USE => {}
         LISTEN_GRANTED => done(0xE084), // two sockets on one fixed port
         _ => done(0xE085),
     }
 
-    let _ = call(STACK, req(OP_CLOSE, CONN_SID), 0);
+    let _ = call(STACK, req(OPERATION_CLOSE, CONN_SID), 0);
 }
 
 /// Where the spawner maps the image's package catalogue (`package_archive::CATALOGUE`) for
@@ -627,17 +631,17 @@ fn http_package(len: u64) -> ! {
 
 /// One fetch on socket 0: `OK`, [`DIGEST_REFUSED`], or the stage code that stopped it.
 fn fetch_and_verify(stem: &str, tampered: bool, expected: &measured_boot::Digest) -> u64 {
-    if call(STACK, req(OP_OPEN_TCP, 0), 0).0 != REP_OK {
+    if call(STACK, req(OPERATION_OPEN_TCP, 0), 0).0 != REP_OK {
         return 0xE092;
     }
     let code = exchange(stem, tampered, expected);
-    let _ = call(STACK, req(OP_CLOSE, 0), 0);
+    let _ = call(STACK, req(OPERATION_CLOSE, 0), 0);
     code
 }
 
 fn exchange(stem: &str, tampered: bool, expected: &measured_boot::Digest) -> u64 {
     set_dst(PACKAGE_IP, PACKAGE_PORT);
-    if call(STACK, req(OP_CONNECT, 0), 0).0 != CONNECT_ESTABLISHED {
+    if call(STACK, req(OPERATION_CONNECT, 0), 0).0 != CONNECT_ESTABLISHED {
         return 0xE093;
     }
 
@@ -656,7 +660,7 @@ fn exchange(stem: &str, tampered: bool, expected: &measured_boot::Digest) -> u64
     for (i, &b) in request[..n].iter().enumerate() {
         w8(PAGE_FRAME_VA + OFF_PAYLOAD + i as u64, b);
     }
-    if call(STACK, req(OP_SEND, 0), n as u64).0 != n as u64 {
+    if call(STACK, req(OPERATION_SEND, 0), n as u64).0 != n as u64 {
         return 0xE095;
     }
 
@@ -664,7 +668,7 @@ fn exchange(stem: &str, tampered: bool, expected: &measured_boot::Digest) -> u64
     let mut hash = measured_boot::Sha256::new();
     let mut chunk = [0u8; DATA_MAX];
     while !response.is_complete() {
-        let (got, _) = call(STACK, req(OP_RECV, 0), 0);
+        let (got, _) = call(STACK, req(OPERATION_RECEIVE, 0), 0);
         if got == 0 || got > DATA_MAX as u64 {
             return 0xE096; // the peer went away (or the stack failed) before the body was whole
         }

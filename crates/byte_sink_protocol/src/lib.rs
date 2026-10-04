@@ -25,8 +25,8 @@
 //! would cost a round trip on the hottest path in the system to say "all of them", which is the
 //! only answer a self-framing message has. Back-pressure is not lost by dropping the reply,
 //! because `SEND` blocks until a receiver takes the message: the rendezvous *is* the flow control,
-//! which is the property `line_editor::proto::OP_BYTES` already documented. And it is what lets the
-//! reader of a pipe be an ordinary program that does nothing but `recv`, with no reply to send and
+//! which is the property `line_editor::proto::OPERATION_BYTES` already documented. And it is what lets the
+//! reader of a pipe be an ordinary program that does nothing but `receive`, with no reply to send and
 //! no protocol knowledge at all.
 //!
 //! # What a writer learns, which is the one thing it must
@@ -89,22 +89,22 @@
 //! ```
 //!
 //! Two claims in the constants are worth checking in code rather than trusting in prose. The first
-//! is why [`OP_BYTES`] is zero: with that opcode the first word **is** the byte count, which is
+//! is why [`OPERATION_BYTES`] is zero: with that opcode the first word **is** the byte count, which is
 //! bit-for-bit the framing std's stdout sent before this crate existed, so unifying the protocol
 //! cost no instruction on the hottest path in the system. The second is that a length the message
 //! cannot hold is refused rather than obeyed, because obeying it is a read past the end of a
 //! buffer:
 //!
 //! ```
-//! use byte_sink_protocol::{INLINE_MAX, Msg, OP_BYTES, len, op, pack, req, unpack};
+//! use byte_sink_protocol::{INLINE_MAX, Msg, OPERATION_BYTES, len, operation, pack, req, unpack};
 //!
 //! let (w0, ..) = pack(b"hi");
 //! assert_eq!(w0, 2); // the whole word, not just its low bits
-//! assert_eq!(op(w0), OP_BYTES);
+//! assert_eq!(operation(w0), OPERATION_BYTES);
 //! assert_eq!(len(w0), 2);
 //!
 //! // A writer claiming more bytes than three words can carry is malformed, not generous.
-//! let lying = req(OP_BYTES, INLINE_MAX as u64 + 1);
+//! let lying = req(OPERATION_BYTES, INLINE_MAX as u64 + 1);
 //! assert_eq!(unpack(lying, 0, 0, &mut [0u8; INLINE_MAX]), Msg::Malformed);
 //! ```
 //!
@@ -138,7 +138,7 @@
 
 /// The opcode's position in the first word: bits 63:56, the same place `filesystem_protocol` and
 /// `line_editor::proto` put theirs. One spelling for "the wire contract" across the tree.
-pub const OP_SHIFT: u32 = 56;
+pub const OPERATION_SHIFT: u32 = 56;
 
 /// **Bytes.** The low 32 bits are the count (1 to [`INLINE_MAX`]); the bytes themselves are in the
 /// second and third words, little-endian, low word first.
@@ -148,7 +148,7 @@ pub const OP_SHIFT: u32 = 56;
 /// unifying the protocol changed no instruction on the fastpath and cost no message, and the
 /// benchmark that prices `println!` cannot tell that anything happened. An opcode is a claim about
 /// what a message means; the cheapest claim to make is the one the wire was already making.
-pub const OP_BYTES: u64 = 0;
+pub const OPERATION_BYTES: u64 = 0;
 
 /// **End of stream.** The writer is finished; no more bytes will come. The low 32 bits are zero.
 ///
@@ -157,7 +157,7 @@ pub const OP_BYTES: u64 = 0;
 /// writer that has exited. Without it "the producer is done" would have to be inferred from a death
 /// notification the reader may not be the supervisor for, which is a fact about process supervision
 /// standing in for a fact about a stream.
-pub const OP_EOF: u64 = 1;
+pub const OPERATION_EOF: u64 = 1;
 
 /// The most bytes one message carries: two 64-bit words. Not a tuning parameter. It is what fits in
 /// the registers a `SEND` already has, and enlarging it means giving a sink a shared page, which is
@@ -173,13 +173,13 @@ pub const INLINE_MAX: usize = 16;
 pub const GONE: i64 = -11;
 
 /// Pack an opcode and a length into a message's first word.
-pub const fn req(op: u64, len: u64) -> u64 {
-    (op << OP_SHIFT) | (len & 0xffff_ffff)
+pub const fn req(operation: u64, len: u64) -> u64 {
+    (operation << OPERATION_SHIFT) | (len & 0xffff_ffff)
 }
 
 /// The opcode of a message's first word.
-pub const fn op(w0: u64) -> u64 {
-    w0 >> OP_SHIFT
+pub const fn operation(w0: u64) -> u64 {
+    w0 >> OPERATION_SHIFT
 }
 
 /// The byte count of a message's first word.
@@ -189,7 +189,7 @@ pub const fn len(w0: u64) -> usize {
 
 /// The first word of an end-of-stream message.
 pub const fn eof() -> u64 {
-    req(OP_EOF, 0)
+    req(OPERATION_EOF, 0)
 }
 
 /// Pack up to [`INLINE_MAX`] bytes into the three words of a `SEND`. Bytes past the sixteenth are
@@ -208,7 +208,7 @@ pub fn pack(bytes: &[u8]) -> (u64, u64, u64, usize) {
     lo.copy_from_slice(&words[..8]);
     hi.copy_from_slice(&words[8..]);
     (
-        req(OP_BYTES, n as u64),
+        req(OPERATION_BYTES, n as u64),
         u64::from_le_bytes(lo),
         u64::from_le_bytes(hi),
         n,
@@ -235,7 +235,7 @@ pub const SEVERITY_SHIFT: u32 = 32;
 pub const KIND_SHIFT: u32 = 40;
 
 /// The one body kind that exists: UTF-8 text, which is what every writer already sends, and 0 for
-/// the reason [`OP_BYTES`] is 0: the wire was already saying it.
+/// the reason [`OPERATION_BYTES`] is 0: the wire was already saying it.
 pub const KIND_TEXT: u8 = 0;
 
 /// The syslog level a bytes message's first word carries, or `None` when the writer did not set
@@ -265,9 +265,9 @@ pub const fn kind(w0: u64) -> u8 {
 /// What one received message was.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Msg {
-    /// [`OP_BYTES`]: this many bytes were written into the caller's buffer, 0 to [`INLINE_MAX`].
+    /// [`OPERATION_BYTES`]: this many bytes were written into the caller's buffer, 0 to [`INLINE_MAX`].
     Bytes(usize),
-    /// [`OP_EOF`]: the writer is finished.
+    /// [`OPERATION_EOF`]: the writer is finished.
     Eof,
     /// An opcode this contract does not define, or a byte count past [`INLINE_MAX`].
     ///
@@ -279,8 +279,8 @@ pub enum Msg {
 
 /// Unpack a received message into `out`. See [`Msg`].
 pub fn unpack(w0: u64, w1: u64, w2: u64, out: &mut [u8; INLINE_MAX]) -> Msg {
-    match op(w0) {
-        OP_BYTES => {
+    match operation(w0) {
+        OPERATION_BYTES => {
             let n = len(w0);
             if n > INLINE_MAX {
                 return Msg::Malformed;
@@ -289,7 +289,7 @@ pub fn unpack(w0: u64, w1: u64, w2: u64, out: &mut [u8; INLINE_MAX]) -> Msg {
             out[8..].copy_from_slice(&w2.to_le_bytes());
             Msg::Bytes(n)
         }
-        OP_EOF => Msg::Eof,
+        OPERATION_EOF => Msg::Eof,
         _ => Msg::Malformed,
     }
 }
@@ -401,7 +401,7 @@ mod tests {
         assert_eq!(len(w0), INLINE_MAX);
     }
 
-    /// The framing that makes the unification free: with [`OP_BYTES`] at zero, a bytes message's
+    /// The framing that makes the unification free: with [`OPERATION_BYTES`] at zero, a bytes message's
     /// first word IS its length, which is the wire std's stdout sent before this contract existed.
     #[test]
     fn a_bytes_messages_first_word_is_its_length() {
@@ -410,7 +410,7 @@ mod tests {
     }
 
     /// The severity bits ride beside the count without disturbing it: every sink that reads only
-    /// [`len`] and [`op`] (a terminal, a pipe, a file) decodes a severity-carrying message exactly
+    /// [`len`] and [`operation`] (a terminal, a pipe, a file) decodes a severity-carrying message exactly
     /// as it decoded one without, and a writer that never set a level reads as "not set", never as
     /// level 0, which is emergency.
     #[test]
@@ -420,7 +420,7 @@ mod tests {
         let marked = with_severity(w0, 3);
         assert_eq!(severity(marked), Some(3));
         assert_eq!(len(marked), 9);
-        assert_eq!(op(marked), OP_BYTES);
+        assert_eq!(operation(marked), OPERATION_BYTES);
         assert_eq!(kind(marked), KIND_TEXT);
         let mut out = [0u8; INLINE_MAX];
         assert_eq!(unpack(marked, w1, w2, &mut out), Msg::Bytes(9));
@@ -447,12 +447,12 @@ mod tests {
     fn a_malformed_message_is_refused_not_repaired() {
         let mut out = [0u8; INLINE_MAX];
         assert_eq!(
-            unpack(req(OP_BYTES, 17), 0, 0, &mut out),
+            unpack(req(OPERATION_BYTES, 17), 0, 0, &mut out),
             Msg::Malformed,
             "a byte count past INLINE_MAX must not be clamped",
         );
         assert_eq!(
-            unpack(req(OP_BYTES, u32::MAX as u64), 0, 0, &mut out),
+            unpack(req(OPERATION_BYTES, u32::MAX as u64), 0, 0, &mut out),
             Msg::Malformed,
         );
         assert_eq!(unpack(req(9, 4), 0, 0, &mut out), Msg::Malformed);

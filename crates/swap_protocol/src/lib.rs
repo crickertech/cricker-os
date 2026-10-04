@@ -12,12 +12,12 @@
 //!
 //! ```text
 //!                     ┌──── the stable name: one endpoint, forever ────┐
-//!    chatty ──CALL──► │                  SVC                           │ ◄──RECV_CAP── rust_swappable v1
-//!   (client)          └────────────────────────────────────────────────┘ ◄──RECV_CAP── c_swappable v2
+//!    chatty ──CALL──► │                  SVC                           │ ◄──RECEIVE_CAP── rust_swappable v1
+//!   (client)          └────────────────────────────────────────────────┘ ◄──RECEIVE_CAP── c_swappable v2
 //! ```
 //!
 //! There is no process in that data path. The client's capability never changes, the client's loop
-//! never branches, and the swap is a change in *who is parked in `RECV_CAP`*. That is the whole
+//! never branches, and the swap is a change in *who is parked in `RECEIVE_CAP`*. That is the whole
 //! trick, and it is DECISIONS §12's endpoint-only naming cashed in: a client names an endpoint and
 //! never a peer, so the peer is free to be somebody else tomorrow.
 //!
@@ -75,15 +75,15 @@ use user_mode_runtime::invoke;
 
 // ===========================================================================================
 // The service protocol. Every request is a `CALL` on the stable endpoint; the component serves it
-// with `RECV_CAP` and answers through the kernel's one-shot `Reply` capability (DECISIONS §12).
+// with `RECEIVE_CAP` and answers through the kernel's one-shot `Reply` capability (DECISIONS §12 (Call/Reply IPC)).
 // ===========================================================================================
 
-/// `call(SVC, OP_PUT, seq)` -> `(digest(seq), (version << 32) | seq)`.
+/// `call(SVC, OPERATION_PUT, seq)` -> `(digest(seq), (version << 32) | seq)`.
 ///
 /// Two words out, two words back, and the reply carries **who answered**. A client that only wanted
 /// the answer would ignore the version word entirely; `chatty` reads it because the version word is
 /// the only way anything outside the operator can tell that a swap happened at all.
-pub const OP_PUT: u64 = 1;
+pub const OPERATION_PUT: u64 = 1;
 
 /// **The sequence number a wedging instance swallows**: it takes the request, files the caller's
 /// one-shot `Reply` capability away, and stops answering *without dying* (milestone 23's third
@@ -116,15 +116,15 @@ pub const WEDGE_SEQ: u64 = 24;
 /// notes/hung-component.md.
 pub const WEDGE_RELEASED: u64 = 0x5245_4c53; // "RELS"
 
-/// `call(SVC, OP_QUIESCE, 0)` -> `(QUIESCED, served)`. The operator's in-band drain.
+/// `call(SVC, OPERATION_QUIESCE, 0)` -> `(QUIESCED, served)`. The operator's in-band drain.
 ///
 /// **It travels on the endpoint being drained, and that is the mechanism, not a shortcut.** The
 /// endpoint's sender queue is FIFO, so by the time this request reaches the component every request
 /// queued ahead of it has already been served and answered. There is no separate "have you finished"
 /// protocol, no quiescence timeout, and no window in which the operator has to guess.
-pub const OP_QUIESCE: u64 = 2;
+pub const OPERATION_QUIESCE: u64 = 2;
 
-/// The `OP_QUIESCE` answer's first word. A distinctive constant rather than `0`, so a reply that
+/// The `OPERATION_QUIESCE` answer's first word. A distinctive constant rather than `0`, so a reply that
 /// was never written cannot be mistaken for an acknowledgement.
 pub const QUIESCED: u64 = 0x5155_4954; // "QUIT"
 
@@ -136,9 +136,9 @@ pub const BAD_REQUEST: u64 = u64::MAX;
 // The broker protocol: the latency ladder's middle rung (`broker`).
 //
 // **Opt-in per channel, never the default.** A producer that chooses this rung speaks the same
-// `OP_PUT` on the front endpoint and gets one of two answers: the backend's own reply (steady
+// `OPERATION_PUT` on the front endpoint and gets one of two answers: the backend's own reply (steady
 // state, pass-through) or `ACCEPTED` (the backend is down and the broker took custody). The
-// control messages travel in band on the same endpoint, for the same reason `OP_QUIESCE` does:
+// control messages travel in band on the same endpoint, for the same reason `OPERATION_QUIESCE` does:
 // synchronous rendezvous means a server blocks on one endpoint, and a second endpoint would need a
 // wait-any primitive the kernel deliberately does not have (DECISIONS §26.5).
 // ===========================================================================================
@@ -183,7 +183,7 @@ pub const QUEUE_FULL: u64 = 0x4655_4c4c; // "FULL"
 
 /// An instance started. `w1` = its version, `w2` = 1 if it could read the device's registers.
 pub const RPT_UP: u64 = 1;
-/// An instance answered `OP_QUIESCE`. `w1` = version, `w2` = how many requests it served.
+/// An instance answered `OPERATION_QUIESCE`. `w1` = version, `w2` = how many requests it served.
 pub const RPT_QUIESCED: u64 = 2;
 /// **A failure, reported positively.** The old instance was told to touch the device *after* the
 /// operator revoked it, and the access succeeded. `w1` = version. A healthy run never sends this;
@@ -197,7 +197,7 @@ pub const RPT_LOG: u64 = 5;
 /// The client's own verdict, computed inside the client from the replies it received.
 /// `w1` = a bitmap of [`client_checks`], `w2` = the sequence number the version changed at.
 pub const RPT_CLIENT: u64 = 6;
-/// The attacker's result. `w1` = the negated error the kernel gave it, `w2` = the op it tried.
+/// The attacker's result. `w1` = the negated error the kernel gave it, `w2` = the operation it tried.
 pub const RPT_ATTACK: u64 = 7;
 /// The broker drained its backlog to a fresh backend. `w1` = items drained now, `w2` = items it
 /// ever took custody of. Both are the queue rung's whole claim: nothing was lost while the backend
@@ -261,7 +261,7 @@ pub mod step {
     /// The replacement is built and endowed, but not started: it cannot race the incumbent for
     /// requests, because a thread that has never been started is in nobody's queue.
     pub const BUILT: u64 = 1;
-    /// The incumbent answered `OP_QUIESCE` and stopped receiving. Detail = requests it served.
+    /// The incumbent answered `OPERATION_QUIESCE` and stopped receiving. Detail = requests it served.
     pub const DRAINED: u64 = 2;
     /// The device capability was revoked from every holder but the operator.
     pub const REVOKED: u64 = 3;
@@ -914,15 +914,15 @@ pub fn serve_with_state(
     loop {
         let mut since = 0u64;
         loop {
-            let req = user_mode_runtime::recv_request(SVC);
-            let (op, arg) = (req.w0, req.w1);
+            let req = user_mode_runtime::receive_request(SVC);
+            let (operation, arg) = (req.w0, req.w1);
             // Only a CALL is answered; a SEND_CAP's capability is deleted (milestone 706 (a `CALL`
             // server can tell a Reply from a delegation)).
             let Some(slot) = req.delivered.into_reply() else {
                 continue;
             };
-            match op {
-                OP_PUT => {
+            match operation {
+                OPERATION_PUT => {
                     log_put(log_base + arg, version);
                     user_mode_runtime::reply(slot, xform(arg), tag(version, tally));
                     tally += 1;
@@ -933,7 +933,7 @@ pub fn serve_with_state(
                         user_mode_runtime::send(NOTE, NOTE_SWAP_NOW, version, tally);
                     }
                 }
-                OP_QUIESCE => {
+                OPERATION_QUIESCE => {
                     write_state(state_blob(layout, tally));
                     user_mode_runtime::send(RPT, RPT_QUIESCED, version, tally);
                     user_mode_runtime::reply(slot, QUIESCED, tally);
@@ -944,7 +944,7 @@ pub fn serve_with_state(
                 }
             }
         }
-        let (what, _, _) = user_mode_runtime::recv(POKE);
+        let (what, _, _) = user_mode_runtime::receive(POKE);
         if what != POKE_RESUME {
             user_mode_runtime::exit()
         }
@@ -993,14 +993,14 @@ pub fn serve(version: u64, xform: fn(u64) -> u64, log_base: u64, device: bool, w
 
     let mut served = 0u64;
     loop {
-        let req = user_mode_runtime::recv_request(SVC);
-        let (op, arg) = (req.w0, req.w1);
+        let req = user_mode_runtime::receive_request(SVC);
+        let (operation, arg) = (req.w0, req.w1);
         // A plain SEND or a SEND_CAP slipped in; the contract says CALL, and there is nobody to
         // answer. A delegated capability is deleted rather than answered into (milestone 706).
         let Some(slot) = req.delivered.into_reply() else {
             continue;
         };
-        match op {
+        match operation {
             // **Stop answering, without dying** (milestone 23's third residual,
             // notes/hung-component.md). Everything a supervisor in this tree can notice is a
             // *death*: a fault or an exit, a kernel-stamped message on the supervision endpoint, a
@@ -1012,14 +1012,14 @@ pub fn serve(version: u64, xform: fn(u64) -> u64, log_base: u64, device: bool, w
             // The hang is a `CALL` on the coordination channel that the operator never replies to,
             // which is the commonest real hang there is: blocked awaiting a peer that will not
             // answer. It is also the only shape whose blocked-ness is *provable* rather than raced.
-            // A `SEND` followed by a `RECV` would leave a window in which this thread was still
+            // A `SEND` followed by a `RECEIVE` would leave a window in which this thread was still
             // `Ready`, and the operator surveying inside that window would read a state it must not
             // be able to read (see notes/hung-component.md, "why the wedge is a CALL").
             //
             // What is deliberately *not* done first: no `log_put`, so the witness page carries a
             // real gap at this sequence number, and no `reply`, so the caller stays parked awaiting
             // a reply that is not coming. Both are facts the operator reads afterwards.
-            OP_PUT if wedge != 0 && arg == wedge => {
+            OPERATION_PUT if wedge != 0 && arg == wedge => {
                 let (what, _) = user_mode_runtime::call(NOTE, NOTE_WEDGED, served);
                 // Reached only because the operator answered, which in a real hang it cannot do.
                 // **The caller first, then the device**, because the device read is expected to
@@ -1034,7 +1034,7 @@ pub fn serve(version: u64, xform: fn(u64) -> u64, log_base: u64, device: bool, w
                 }
                 user_mode_runtime::exit()
             }
-            OP_PUT => {
+            OPERATION_PUT => {
                 log_put(log_base + arg, version);
                 served += 1;
                 user_mode_runtime::reply(slot, xform(arg), tag(version, arg));
@@ -1044,7 +1044,7 @@ pub fn serve(version: u64, xform: fn(u64) -> u64, log_base: u64, device: bool, w
                     user_mode_runtime::send(NOTE, NOTE_SWAP_NOW, version, served);
                 }
             }
-            OP_QUIESCE => {
+            OPERATION_QUIESCE => {
                 user_mode_runtime::send(RPT, RPT_QUIESCED, version, served);
                 user_mode_runtime::reply(slot, QUIESCED, served);
                 break;
@@ -1058,7 +1058,7 @@ pub fn serve(version: u64, xform: fn(u64) -> u64, log_base: u64, device: bool, w
     // Quiesced. We no longer receive on the stable endpoint, so requests arriving from here on park
     // on its sender queue for whoever receives next. We wait for the operator to tell us what to do
     // with the corpse we are about to become.
-    let (what, _, _) = user_mode_runtime::recv(POKE);
+    let (what, _, _) = user_mode_runtime::receive(POKE);
     if what == POKE_PROBE && device {
         // Touch the registers one last time. If the operator's revoke was real this faults, and the
         // kernel's fault message is the receipt. Reaching the line after it is the failure, and it
@@ -1088,7 +1088,7 @@ pub const NOTE_BROKER_DONE: u64 = 4;
 /// `w2` = requests served first. **A `CALL`, not a `SEND`**, and that is the mechanism rather than a
 /// style choice: the `CALL` is what parks the instance, so it is hung *because* it announced.
 ///
-/// The operator serves this one message with `RECV_CAP` and keeps the reply capability, which is the
+/// The operator serves this one message with `RECEIVE_CAP` and keeps the reply capability, which is the
 /// only handle anything in the system has on a wedged component. Everything the operator does next
 /// is done while that component is genuinely, provably stuck.
 ///
@@ -1130,12 +1130,12 @@ pub fn fail() -> ! {
     user_mode_runtime::trap()
 }
 
-/// A raw `RECV_CAP`, returning the kernel's answer rather than a message. The attacker uses it:
-/// `user_mode_runtime::recv_cap` is written for a caller that is allowed to receive, and the whole question
+/// A raw `RECEIVE_CAP`, returning the kernel's answer rather than a message. The attacker uses it:
+/// `user_mode_runtime::receive_cap` is written for a caller that is allowed to receive, and the whole question
 /// here is what happens to one that is not.
-pub fn try_recv_cap(slot: u64) -> i64 {
+pub fn try_receive_cap(slot: u64) -> i64 {
     // SAFETY: a plain syscall. If it succeeds we have stolen a request, which is the failure.
-    unsafe { invoke(slot, abi::rendezvous::RECV_CAP, 0, 0, 0) }
+    unsafe { invoke(slot, abi::rendezvous::RECEIVE_CAP, 0, 0, 0) }
 }
 
 #[cfg(test)]

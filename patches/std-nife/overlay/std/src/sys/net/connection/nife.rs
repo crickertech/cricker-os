@@ -4,7 +4,7 @@
 //! This is the client half of the contract std sees. A std program given the network holds a
 //! `Stack` endpoint at slot 2 and an untyped budget at slot 3 (the slot convention in
 //! `pal/nife/rt.rs`). Opening a socket mints a shared `PageFrame` from the untyped, maps it, and
-//! delegates it to net_stack (`SEND_CAP`, `OP_ATTACH_PAGE_FRAME`); every later operation is one `CALL`
+//! delegates it to net_stack (`SEND_CAP`, `OPERATION_ATTACH_PAGE_FRAME`); every later operation is one `CALL`
 //! carrying a **socket id** and control words, with the payload already sitting in the shared
 //! frame. net_stack drives smoltcp over the confined NIC and replies. Bytes never cross a message.
 //!
@@ -15,7 +15,7 @@
 //!
 //! ## The inbound half: `TcpListener` is a held authority, not a call that happens to work
 //!
-//! `bind` is `OP_LISTEN` and `accept` is `OP_ACCEPT` (milestone 64, the contract's half landed in
+//! `bind` is `OPERATION_LISTEN` and `accept` is `OPERATION_ACCEPT` (milestone 64, the contract's half landed in
 //! milestone 107). The part worth understanding before reading the code is that **a listening port
 //! is a grant this program was given, or was not**, and nothing in the program decides which:
 //! `net_stack` is spawned with a **listen grant** (`netproto::listen_grant`), an inclusive port
@@ -36,7 +36,7 @@
 //! **A listener and a connection are two objects, and this PAL keeps them apart** because the
 //! contract does (notes/net/the-inbound-half.md, "A listener is not a connection"). A listener holds a socket id and
 //! **no shared frame at all**, since no bytes ever cross on it; `accept` allocates a *second* id,
-//! attaches that one's frame, and asks `OP_ACCEPT` to install the connection there. `net_stack`
+//! attaches that one's frame, and asks `OPERATION_ACCEPT` to install the connection there. `net_stack`
 //! refuses an accept into the listener's own id, so the POSIX move of letting a listening descriptor
 //! become the connection in place is not expressible from here.
 //!
@@ -48,11 +48,11 @@
 //!
 //! ## What is honestly Unsupported, and why
 //! - **An accepted connection's peer address.** `accept` must return a `SocketAddr` and the
-//!   contract's `OP_ACCEPT` reply carries no peer, so what comes back is `0.0.0.0:0` and
+//!   contract's `OPERATION_ACCEPT` reply carries no peer, so what comes back is `0.0.0.0:0` and
 //!   `peer_addr()` on an accepted stream reports the same. That is a placeholder and it is named
 //!   as one here rather than dressed up: a server that logs its peers logs zeros on nife.
 //!   Reporting the real peer means changing what two programs agree on (a second reply word, or the
-//!   frame's dead `dst` fields the way a UDP `RECV` already uses them), which is not a PAL
+//!   frame's dead `dst` fields the way a UDP `RECEIVE` already uses them), which is not a PAL
 //!   decision. See notes/net/std-tcp-listener.md.
 //! - **Non-blocking mode and read/write timeouts.** The contract is blocking-only; there is no
 //!   poll verb. `set_nonblocking(true)` and `set_*_timeout(Some(..))` return `Unsupported`;
@@ -106,12 +106,12 @@ struct Slot {
     in_use: bool,
     attached: bool,
     // TCP: bytes received but not yet handed to the caller (a `read` whose buffer was smaller than
-    // the segment net_stack delivered). Served before the next `RECV`, so a stream never drops bytes.
+    // the segment net_stack delivered). Served before the next `RECEIVE`, so a stream never drops bytes.
     res_off: usize,
     res_len: usize,
     res: [u8; DATA_MAX],
     // UDP: the connected peer (set by `connect`) and the most recent send destination, used as the
-    // reported source of `recv_from` since the contract's RECV does not carry the datagram source.
+    // reported source of `recv_from` since the contract's RECEIVE does not carry the datagram source.
     peer: Option<(Ipv4Addr, u16)>,
     last_dst: Option<(Ipv4Addr, u16)>,
 }
@@ -293,7 +293,7 @@ fn ensure_attached(id: u64) -> io::Result<()> {
             abi::rendezvous::SEND_CAP,
             frame,
             abi::rights::READ | abi::rights::WRITE,
-            req(OP_ATTACH_PAGE_FRAME, id),
+            req(OPERATION_ATTACH_PAGE_FRAME, id),
         )
     } < 0
     {
@@ -314,8 +314,8 @@ fn open(is_tcp: bool) -> io::Result<u64> {
         free_id(id);
         return Err(e);
     }
-    let op = if is_tcp { OP_OPEN_TCP } else { OP_OPEN_UDP };
-    let (r0, _) = rt::call(STACK, req(op, id), 0);
+    let operation = if is_tcp { OPERATION_OPEN_TCP } else { OPERATION_OPEN_UDP };
+    let (r0, _) = rt::call(STACK, req(operation, id), 0);
     if is_syscall_err(r0) {
         free_id(id);
         return Err(io::Error::UNSUPPORTED_PLATFORM);
@@ -329,7 +329,7 @@ fn open(is_tcp: bool) -> io::Result<u64> {
 
 /// Close socket `id`: tell net_stack to drop it, then release the id (keeping its attached frame).
 fn abandon(id: u64) {
-    let _ = rt::call(STACK, req(OP_CLOSE, id), 0);
+    let _ = rt::call(STACK, req(OPERATION_CLOSE, id), 0);
     free_id(id);
 }
 
@@ -365,7 +365,7 @@ impl TcpStream {
         let (ip, port) = v4(addr)?;
         let id = open(true)?;
         set_dst(id, ip, port);
-        let (r0, _) = rt::call(STACK, req(OP_CONNECT, id), 0);
+        let (r0, _) = rt::call(STACK, req(OPERATION_CONNECT, id), 0);
         if is_syscall_err(r0) {
             abandon(id);
             return Err(io::Error::UNSUPPORTED_PLATFORM);
@@ -431,7 +431,7 @@ impl TcpStream {
             }
         }
 
-        let (r0, _) = rt::call(STACK, req(OP_RECV, self.id), 0);
+        let (r0, _) = rt::call(STACK, req(OPERATION_RECEIVE, self.id), 0);
         if is_syscall_err(r0) {
             return Err(io::Error::UNSUPPORTED_PLATFORM);
         }
@@ -489,7 +489,7 @@ impl TcpStream {
         }
         let chunk = buf.len().min(DATA_MAX);
         write_payload(self.id, &buf[..chunk]);
-        let (r0, _) = rt::call(STACK, req(OP_SEND, self.id), chunk as u64);
+        let (r0, _) = rt::call(STACK, req(OPERATION_SEND, self.id), chunk as u64);
         if is_syscall_err(r0) {
             return Err(io::Error::UNSUPPORTED_PLATFORM);
         }
@@ -523,7 +523,7 @@ impl TcpStream {
     }
 
     pub fn shutdown(&self, _: Shutdown) -> io::Result<()> {
-        // Teardown happens once, on Drop (`OP_CLOSE`); a half-shutdown verb is not in the contract.
+        // Teardown happens once, on Drop (`OPERATION_CLOSE`); a half-shutdown verb is not in the contract.
         Ok(())
     }
 
@@ -613,7 +613,7 @@ impl TcpListener {
         }))
     }
 
-    /// `OP_LISTEN` on a freshly claimed socket id.
+    /// `OPERATION_LISTEN` on a freshly claimed socket id.
     ///
     /// **The bound address is ignored and the port is not**, which is the honest reading of what
     /// this stack can do: `net_stack` holds exactly one interface with one DHCP-assigned address,
@@ -629,7 +629,7 @@ impl TcpListener {
         let id = alloc_id().ok_or_else(|| {
             io::const_error!(io::ErrorKind::Other, "too many open sockets (contract limit)")
         })?;
-        let (r0, _) = rt::call(STACK, req(OP_LISTEN, id), port as u64);
+        let (r0, _) = rt::call(STACK, req(OPERATION_LISTEN, id), port as u64);
         if is_syscall_err(r0) {
             free_id(id);
             return Err(io::Error::UNSUPPORTED_PLATFORM);
@@ -676,7 +676,7 @@ impl TcpListener {
         )))
     }
 
-    /// **`OP_ACCEPT`: block until a peer connects, and take the connection at a second socket id.**
+    /// **`OPERATION_ACCEPT`: block until a peer connects, and take the connection at a second socket id.**
     ///
     /// The second id is the point rather than an implementation detail. A listener and a connection
     /// are two objects here, so `accept` claims a *new* id, attaches that id's shared frame (which
@@ -693,13 +693,13 @@ impl TcpListener {
             io::const_error!(io::ErrorKind::Other, "too many open sockets (contract limit)")
         })?;
         // The connection carries bytes, so it needs the frame the listener never had. Attaching it
-        // BEFORE the accept is the contract's requirement, not an ordering preference: `OP_ACCEPT`
+        // BEFORE the accept is the contract's requirement, not an ordering preference: `OPERATION_ACCEPT`
         // refuses a target with no frame, because it would have nowhere to deliver the first read.
         if let Err(e) = ensure_attached(conn) {
             free_id(conn);
             return Err(e);
         }
-        let (r0, _) = rt::call(STACK, req(OP_ACCEPT, self.id), conn);
+        let (r0, _) = rt::call(STACK, req(OPERATION_ACCEPT, self.id), conn);
         if is_syscall_err(r0) {
             free_id(conn);
             return Err(io::Error::UNSUPPORTED_PLATFORM);
@@ -752,7 +752,7 @@ impl TcpListener {
 
 impl Drop for TcpListener {
     fn drop(&mut self) {
-        // `OP_CLOSE` on the listener id: `net_stack` drops the parked smoltcp socket and the port
+        // `OPERATION_CLOSE` on the listener id: `net_stack` drops the parked smoltcp socket and the port
         // becomes bindable again. The grant is untouched, because the grant was never the
         // listener's to hold.
         abandon(self.id);
@@ -807,7 +807,7 @@ impl UdpSocket {
 
     pub fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
         let n = self.recv(buf)?;
-        // The contract's RECV does not report the datagram source, so recv_from names the peer set
+        // The contract's RECEIVE does not report the datagram source, so recv_from names the peer set
         // by `connect`, else the most recent send destination (correct for request/response, the
         // pattern the resolver-less demo uses). Recorded in notes/std.md.
         let src = {
@@ -840,7 +840,7 @@ impl UdpSocket {
             let mut g = lock();
             g.slots()[self.id as usize].last_dst = Some((ip, port));
         }
-        let (r0, _) = rt::call(STACK, req(OP_SENDTO, self.id), buf.len() as u64);
+        let (r0, _) = rt::call(STACK, req(OPERATION_SENDTO, self.id), buf.len() as u64);
         if is_syscall_err(r0) {
             return Err(io::Error::UNSUPPORTED_PLATFORM);
         }
@@ -864,7 +864,7 @@ impl UdpSocket {
     }
 
     pub fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
-        let (r0, _) = rt::call(STACK, req(OP_RECV, self.id), 0);
+        let (r0, _) = rt::call(STACK, req(OPERATION_RECEIVE, self.id), 0);
         if is_syscall_err(r0) {
             return Err(io::Error::UNSUPPORTED_PLATFORM);
         }

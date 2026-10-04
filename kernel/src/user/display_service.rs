@@ -359,16 +359,16 @@ pub struct TerminalWiring {
     /// The terminal's status endpoint.
     pub term_report: RendezvousId,
     /// The endpoint the terminal serves. The kernel holds WRITE, so it can play **both** classes
-    /// of sender: an application (`OP_WRITE`) and an input source (`OP_BYTES`).
+    /// of sender: an application (`OPERATION_WRITE`) and an input source (`OPERATION_BYTES`).
     pub term: RendezvousId,
-    /// The application's output page, so the kernel can put the bytes of an `OP_WRITE` there.
+    /// The application's output page, so the kernel can put the bytes of an `OPERATION_WRITE` there.
     pub out: u64,
     /// The scanout frames, so the kernel can read the picture back through the direct map and
     /// grade it against a value it computed itself.
     pub surface: u64,
     /// **What a caller hands back to end it**: the threads, the region its endpoints live in, and
     /// the map budgets. Filled by [`start_screen_terminal`], whose endpoints come out of a region
-    /// for exactly this reason (a server parked in `RECV` on the kernel's own endpoint chunks
+    /// for exactly this reason (a server parked in `RECEIVE` on the kernel's own endpoint chunks
     /// cannot be woken to die; `user::holding`'s BUGS). **Empty on the virtio path**, which
     /// predates it and which no caller tears down. The surface and the output page are not in it:
     /// they are frames rather than regions, and a caller that releases this frees them after.
@@ -579,7 +579,7 @@ pub fn start_screen_terminal(
             .addr();
 
     // **The four endpoints come out of a region of their own**, `virtio_service::wire_net_server`'s
-    // shape and for its reason: both programs park in `RECV` for good, and reclaiming the region
+    // shape and for its reason: both programs park in `RECEIVE` for good, and reclaiming the region
     // their endpoints live in is the only thing that wakes them to die. The boot never tears this
     // down; the suite does, because every service a test leaves standing is frames and region slots
     // a later test cannot have (`user::holding`). One page per endpoint, and one spare.
@@ -650,16 +650,16 @@ pub fn start_screen_terminal(
 }
 
 impl TerminalWiring {
-    /// **Play the application**: put `text` in the output page and `OP_WRITE` it.
+    /// **Play the application**: put `text` in the output page and `OPERATION_WRITE` it.
     ///
     /// Returns when the terminal has drawn it and the GPU driver has put it on the scanout,
-    /// because that is what the terminal contract says an `OP_WRITE` reply means (the bytes are
+    /// because that is what the terminal contract says an `OPERATION_WRITE` reply means (the bytes are
     /// on the console's side). So a test needs no polling and no sleep between writes.
     pub fn print(&self, text: &[u8]) {
         super::term_print(self.out, self.term, text);
     }
 
-    /// **Play the input driver**: `OP_BYTES` these keystrokes, eight to a message.
+    /// **Play the input driver**: `OPERATION_BYTES` these keystrokes, eight to a message.
     ///
     /// Byte for byte the framing `components/src/input.rs` sends and the compositor forwards
     /// (DECISIONS §33), which is the point: the display terminal is fed by the same driver half
@@ -671,7 +671,8 @@ impl TerminalWiring {
             for (k, &b) in chunk.iter().enumerate() {
                 w1 |= (b as u64) << (8 * k);
             }
-            let w0 = line_editor::proto::req(line_editor::proto::OP_BYTES, chunk.len() as u64);
+            let w0 =
+                line_editor::proto::req(line_editor::proto::OPERATION_BYTES, chunk.len() as u64);
             assert_eq!(
                 crate::sched::ipc_call(self.term, [w0, w1])[0],
                 0,

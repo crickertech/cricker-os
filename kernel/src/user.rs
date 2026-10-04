@@ -105,7 +105,12 @@ pub struct AddressSpace {
     /// regressions when the timebase page tried it in `user_address_space_create`; the comment
     /// recording that is still beside that function. So `Drop` frees this frame by hand, the one
     /// thing in this struct that `memory_region::destroy` does not cover.
-    current_cpu_page: Option<PageFrame>,
+    ///
+    /// **The frame and its direct-map address**, the second worked out once by
+    /// `attach_current_cpu_page` rather than on every switch: release builds check overflow
+    /// (notes/overflow-checks.md), so recomputing `phys_to_virt` in `publish_current_cpu` put a
+    /// check on the hottest path that the attach had already passed for the same frame.
+    current_cpu_page: Option<(PageFrame, u64)>,
 }
 
 /// **Who returns the region an [`AddressSpace`] spends, and the reason this is a type rather
@@ -126,7 +131,7 @@ pub struct AddressSpace {
 /// `IPC_TABLES`, releases the lock, and only then drops it. Two `memory_region::destroy` calls for one
 /// region then overlap, both pass the refusal check, and both free every page of the run. That is
 /// the intermittent `double free of frame 0x82a3e000` in
-/// `force_kill_tests::destroy_reclaims_a_region_whose_resident_is_blocked_in_recv`
+/// `force_kill_tests::destroy_reclaims_a_region_whose_resident_is_blocked_in_receive`
 /// (notes/object-revocation.md BUGS, one sighting in 45 runs on riscv64).
 ///
 /// Making it a two-variant enum with the name inside is rung one of AGENTS.md's ladder: a space
@@ -244,15 +249,12 @@ impl AddressSpace {
         // CPU 0. `alloc_zeroed` rather than `alloc` because the *rest* of this frame is mapped
         // into the process too, and whatever the last owner left in it would go with it.
         let bytes = current_cpu_protocol::build_page();
+        let kernel_va = mmu::phys_to_virt(frame.addr());
         // SAFETY: `frame` is freshly allocated and owned by nobody else yet, the direct map is
         // valid for it, and `PAGE_BYTES` (16) is far under `FRAME_SIZE`, so the copy stays inside
         // the frame.
         unsafe {
-            core::ptr::copy_nonoverlapping(
-                bytes.as_ptr(),
-                mmu::phys_to_virt(frame.addr()) as *mut u8,
-                bytes.len(),
-            );
+            core::ptr::copy_nonoverlapping(bytes.as_ptr(), kernel_va as *mut u8, bytes.len());
         };
 
         // Read-only to the process, which is what keeps this out of Tock's necessarily-unsafe
@@ -270,7 +272,7 @@ impl AddressSpace {
             crate::memory::free(frame);
             return;
         }
-        self.current_cpu_page = Some(frame);
+        self.current_cpu_page = Some((frame, kernel_va));
     }
 
     /// **Publish the core this space's thread is about to run on.** Called from the context
@@ -282,12 +284,12 @@ impl AddressSpace {
     /// ordered by the scheduler's own release/acquire handoff rather than by anything this adds.
     #[inline]
     pub fn publish_current_cpu(&self, cpu: u64) {
-        if let Some(frame) = self.current_cpu_page {
+        if let Some((_, kernel_va)) = self.current_cpu_page {
             // SAFETY: the frame is this space's own, allocated by `attach_current_cpu_page` and
             // freed only by `Drop`, so the direct-map view is live and 16 bytes wide here. The
             // caller is the one core switching this thread in, and a thread is on one core, so
             // this is the only writer for as long as the store takes.
-            unsafe { current_cpu_protocol::publish(mmu::phys_to_virt(frame.addr()), cpu) };
+            unsafe { current_cpu_protocol::publish(kernel_va, cpu) };
         }
     }
 
@@ -297,8 +299,7 @@ impl AddressSpace {
     #[cfg(any(test, feature = "system_tests"))]
     #[cfg_attr(not(feature = "system_tests"), allow(dead_code))] // the system tests call it; a unit-test boot on some ISAs does not
     pub fn current_cpu_page_kernel_va(&self) -> Option<u64> {
-        self.current_cpu_page
-            .map(|frame| mmu::phys_to_virt(frame.addr()))
+        self.current_cpu_page.map(|(_, kernel_va)| kernel_va)
     }
 
     /// Map one fresh, zeroed page at `va`, and hand back a **kernel** view of it.
@@ -630,7 +631,7 @@ impl Drop for AddressSpace {
         // region, so `destroy` above does not cover it and ownership has to do the work by hand.
         // Safe to do here, after the root is no longer live: nothing can read the mapping any
         // more, and the only writer was the context switch of a thread that is gone.
-        if let Some(frame) = self.current_cpu_page.take() {
+        if let Some((frame, _)) = self.current_cpu_page.take() {
             crate::memory::free(frame);
         }
 
@@ -1804,12 +1805,12 @@ fn x86_userspace_round() -> Result<X86UserspaceReport, &'static str> {
         )),
         Some(reporter_supervisor),
     )?;
-    let reported = crate::sched::ipc_recv(report_ep)[0];
+    let reported = crate::sched::ipc_receive(report_ep)[0];
 
     // **Collect the corpse before reclaiming the region**, which is what a supervisor is for and
     // what the first draft of this left out: a region still holding a live TCB is refused, and the
     // refusal is silent because `destroy` has nowhere to report it.
-    let exit = crate::sched::ipc_recv(reporter_supervisor);
+    let exit = crate::sched::ipc_receive(reporter_supervisor);
     if exit[0] != EVENT_EXIT {
         return Err("the reporting child's clean exit did not arrive as an EXIT event");
     }
@@ -1827,7 +1828,7 @@ fn x86_userspace_round() -> Result<X86UserspaceReport, &'static str> {
         None,
         Some(fault_ep),
     )?;
-    let msg = crate::sched::ipc_recv(fault_ep);
+    let msg = crate::sched::ipc_receive(fault_ep);
     if msg[0] != EVENT_FAULT {
         return Err("the child's death did not arrive as a FAULT event");
     }
@@ -1882,7 +1883,7 @@ pub fn riscv_least_authority_demo(least_authority_demo: &[u8], n: u64) -> Result
     // The least_authority_demo reads its input from a1 (the second argument); a0 and a2 are unused.
     crate::sched::start_thread_control_block(tid, [0, n, 0]).expect("start");
 
-    Ok(crate::sched::ipc_recv(result)[0])
+    Ok(crate::sched::ipc_receive(result)[0])
 }
 
 /// **Start the interrupt-driven UART driver as an unprivileged userspace process** (milestone 20).
@@ -2331,7 +2332,7 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     };
     if gpu.is_some() {
         crate::println!(
-            "  graphics  : a virtio-gpu and {}; the shell holds the grants, a `graphical_terminal` launch builds from them",
+            "  graphics  : a virtio-gpu and {}; the spawn service holds the grants, a `graphical_terminal` launch builds from them",
             if keyboard.is_some() {
                 "a virtio keyboard"
             } else {
@@ -2639,17 +2640,17 @@ pub mod fs_service;
 pub mod disk_service;
 
 /// **Play an application printing to a display terminal**: put `text` in its output page and
-/// `OP_WRITE` it.
+/// `OPERATION_WRITE` it.
 ///
 /// Shared by both of the terminal's wirings (the whole scanout, and a compositor window) because the
-/// terminal contract does not know which one it is in: an `OP_WRITE` is an `OP_WRITE`. Returns when
+/// terminal contract does not know which one it is in: an `OPERATION_WRITE` is an `OPERATION_WRITE`. Returns when
 /// the reply arrives, which the contract says means the bytes are on the console's side, so a test
 /// needs no polling and no sleep between writes.
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // the milestone-29 tests are the callers
 fn term_print(out: u64, ep: crate::sched::RendezvousId, text: &[u8]) {
     assert!(
         text.len() <= FRAME_SIZE as usize,
-        "an OP_WRITE past its output page",
+        "an OPERATION_WRITE past its output page",
     );
     let base = mmu::phys_to_virt(out);
     for (i, &b) in text.iter().enumerate() {
@@ -2658,13 +2659,13 @@ fn term_print(out: u64, ep: crate::sched::RendezvousId, text: &[u8]) {
     }
     // The bytes must be visible to the terminal before the request that names them.
     //
-    // PAIR: no acquire fence, and none is needed. The terminal is blocked in `recv_cap` and the
+    // PAIR: no acquire fence, and none is needed. The terminal is blocked in `receive_cap` and the
     // `ipc_call` below is what wakes it, so the kernel's release of the `IPC_TABLES` lock and the
     // terminal's acquire of it are the pair (`spin::Mutex` locks `Acquire` and unlocks `Release`).
     // Redundant, kept: it is one `dmb` on a path that prints a line, and the contract does not
     // forbid a terminal that polls its page instead of blocking. See notes/memory-ordering.md.
     core::sync::atomic::fence(core::sync::atomic::Ordering::SeqCst);
-    let w0 = line_editor::proto::req(line_editor::proto::OP_WRITE, text.len() as u64);
+    let w0 = line_editor::proto::req(line_editor::proto::OPERATION_WRITE, text.len() as u64);
     let r = crate::sched::ipc_call(ep, [w0, 0]);
     assert_eq!(
         r[0],
@@ -2795,7 +2796,7 @@ fn boot_clock_page() -> u64 {
             // whose whole life is that receive costs nothing and leaves the propose endpoint live.
             let report = wiring.report;
             let _ = crate::sched::spawn(move || {
-                crate::sched::ipc_recv(report);
+                crate::sched::ipc_receive(report);
                 crate::sched::exit();
             });
             wiring.page_phys
@@ -3098,13 +3099,13 @@ fn boot_screen_terminal() -> Option<display_service::TerminalWiring> {
         "  screen    : handed to a userspace terminal; the kernel writes the UART alone"
     );
     let w = display_service::start_screen_terminal(driver, terminal, screen)?;
-    let [tag, geometry, ..] = crate::sched::ipc_recv(w.driver_report);
+    let [tag, geometry, ..] = crate::sched::ipc_receive(w.driver_report);
     assert_eq!(
         tag,
         graphics_protocol::status::UP,
         "the framebuffer driver did not come up ({tag:#x})",
     );
-    let [tag, cells, ..] = crate::sched::ipc_recv(w.term_report);
+    let [tag, cells, ..] = crate::sched::ipc_receive(w.term_report);
     assert_eq!(
         tag,
         video_terminal::status::TERM_UP,
@@ -3265,7 +3266,7 @@ pub fn wait_for(mut done: impl FnMut() -> bool) -> bool {
 
 /// **The raw-keystroke input primitive** (milestone 169): a real `line_editor` process, wired
 /// exactly as the boot path wires it except that the test plays both the input driver and the
-/// application, so `OP_RAWMODE` and `OP_READRAW` can be driven directly with real keystrokes.
+/// application, so `OPERATION_RAWMODE` and `OPERATION_READRAW` can be driven directly with real keystrokes.
 #[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 // the milestone-169 raw-mode tests are its only caller
 pub mod raw_mode_service;

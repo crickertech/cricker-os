@@ -33,9 +33,9 @@ fn reap(slot: u64, tid: u64) -> Result<i64, Error> {
 }
 
 /// Receive one five-word death message through the ABI.
-fn recv_death(slot: u64) -> [u64; 5] {
+fn receive_death(slot: u64) -> [u64; 5] {
     let mut frame = TrapFrame::for_user_entry(0, 0, [0, 0, 0]);
-    let w0 = invoke(&mut frame, slot, abi::rendezvous::RECV, 0, 0, 0).expect("RECV refused");
+    let w0 = invoke(&mut frame, slot, abi::rendezvous::RECEIVE, 0, 0, 0).expect("RECEIVE refused");
     [
         w0 as u64,
         frame.arg(1),
@@ -115,7 +115,7 @@ fn without_a_collector_a_bounded_job_pool_runs_out() {
             .unwrap_or_else(|| panic!("the pool had no room for job {i}, and it should have"));
         *slot = build_child_in(region, REPORT_STUB, Some(report), Some(deaths));
         assert_eq!(
-            sched::ipc_recv(report)[0],
+            sched::ipc_receive(report)[0],
             REPORT_WORD,
             "job {i} never ran, so this test is not measuring what it thinks",
         );
@@ -135,7 +135,7 @@ fn without_a_collector_a_bounded_job_pool_runs_out() {
     // Tidy: collect the three corpses the way the collector would, then give the pool back.
     let cap = sched::grant(crate::cap::rendezvous_cap(deaths, Rights::READ)).expect("hold deaths");
     for _ in 0..ROOM {
-        let msg = recv_death(cap);
+        let msg = receive_death(cap);
         assert_eq!(msg[0], EVENT_EXIT, "the report stub exits cleanly");
         assert_eq!(reap(cap, msg[1]), Ok(0), "the tidy-up reap failed");
     }
@@ -176,7 +176,11 @@ fn job_undertaker_returns_every_finished_job_to_the_pool() {
             )
         });
         build_child_in(region, REPORT_STUB, Some(report), Some(deaths));
-        assert_eq!(sched::ipc_recv(report)[0], REPORT_WORD, "job {i} never ran",);
+        assert_eq!(
+            sched::ipc_receive(report)[0],
+            REPORT_WORD,
+            "job {i} never ran",
+        );
     }
 
     assert!(

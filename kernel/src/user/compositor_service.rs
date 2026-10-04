@@ -415,7 +415,7 @@ impl Wiring {
         // three: it named `window.rs`, `display_terminal.rs` and `keyboard_driver.rs` and missed the kernel
         // playing the same input-driver role here. Its fix covers all four, because `drain_input` is
         // the single reader. The `ipc_call` below also orders this one on its own (the compositor is
-        // blocked in `recv_cap` on the doorbell), so the reader's fence is not what makes *this*
+        // blocked in `receive_cap` on the doorbell), so the reader's fence is not what makes *this*
         // producer safe; see notes/memory-ordering.md for which producer it is.
         core::sync::atomic::fence(core::sync::atomic::Ordering::SeqCst);
         // SAFETY: inside the ring frame.
@@ -433,8 +433,8 @@ impl Wiring {
     ///
     /// The milestone tour uses it; the compositor tests all type something first.
     #[cfg_attr(any(test, feature = "system_tests"), allow(dead_code))]
-    pub fn ring_doorbell(&self, op: u64) -> u64 {
-        crate::sched::ipc_call(self.doorbell, [compositor::proto::req(op, 0), 0])[0]
+    pub fn ring_doorbell(&self, operation: u64) -> u64 {
+        crate::sched::ipc_call(self.doorbell, [compositor::proto::req(operation, 0), 0])[0]
     }
 
     /// **Spawn a display terminal as window `i`** (milestone 29's text increment).
@@ -445,7 +445,7 @@ impl Wiring {
     /// same claim rung two made about `gpu_driver` one seam down, now made about a client.
     ///
     /// The one addition is an **output page**, and it belongs to the terminal contract rather
-    /// than to the compositor's: it is where an application puts the bytes of an `OP_WRITE`
+    /// than to the compositor's: it is where an application puts the bytes of an `OPERATION_WRITE`
     /// (DECISIONS §10). The kernel holds the other end of that, playing the application.
     ///
     /// **Its input endpoint and its terminal endpoint are the same endpoint**, deliberately.
@@ -547,7 +547,7 @@ pub struct TermClient {
 }
 
 impl TermClient {
-    /// Play the application: `OP_WRITE` this text and return when it is on the screen.
+    /// Play the application: `OPERATION_WRITE` this text and return when it is on the screen.
     pub fn print(&self, text: &[u8]) {
         super::term_print(self.out, self.ep, text);
     }

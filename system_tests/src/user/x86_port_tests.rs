@@ -14,7 +14,7 @@
 //!    first is the hand-off test: if the switch away from the holder had left the TSS permitting the
 //!    port, the non-holder would inherit it and not fault.
 //! 2. **A revoked holder faults on its next `in`/`out`.**
-//!    [`a_revoked_holder_faults_on_its_next_port_write`] parks a holder in `RECV`, revokes its port
+//!    [`a_revoked_holder_faults_on_its_next_port_write`] parks a holder in `RECEIVE`, revokes its port
 //!    range while it is parked, wakes it, and confirms the `out` it then executes faults.
 //! 3. **A holder that drops its own port capability faults on its next `in`/`out`.**
 //!    [`a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write`] is milestone 313's
@@ -63,7 +63,7 @@ const PORT_SLOT_WITHOUT_WAKE: u64 = 1;
 
 /// Build a ring-3 child from `stub` with its whole world in one region (address space, code, stack,
 /// TCB), so a single reclaim frees it. `report` lands in slot 0 (what the stub SENDs on), `wake` in
-/// slot 1 if given (what a `recv_then_port_out` child parks on), the `PortRange` capability next if
+/// slot 1 if given (what a `receive_then_port_out` child parks on), the `PortRange` capability next if
 /// `port` is given (held, never invoked by slot), and `fault_ep` in the reserved fault slot. Returns
 /// `(child_tid, region)`.
 fn build_child(
@@ -115,7 +115,7 @@ fn build_child(
     .expect("insert report");
     assert_eq!(slot, 0, "the report cap must land in slot 0");
 
-    // Slot 1: the wake endpoint a `recv_then_port_out` child parks on, when this build has one.
+    // Slot 1: the wake endpoint a `receive_then_port_out` child parks on, when this build has one.
     if let Some(w) = wake {
         let slot = sched::thread_control_block_insert_cap(
             tid,
@@ -214,7 +214,7 @@ fn port_holder_transmits_then_a_non_holder_faults() {
         true,
         sup,
     );
-    let msg = sched::ipc_recv(report);
+    let msg = sched::ipc_receive(report);
     let (word, cpu_after, cpu_before) = (msg[0], msg[1], msg[2]);
     assert_eq!(
         word, REPORTED,
@@ -231,7 +231,7 @@ fn port_holder_transmits_then_a_non_holder_faults() {
     );
     let holder_cpu = cpu_before;
     assert_eq!(
-        sched::ipc_recv(sup)[0],
+        sched::ipc_receive(sup)[0],
         EVENT_EXIT,
         "the holder should have exited cleanly after transmitting",
     );
@@ -257,7 +257,7 @@ fn port_holder_transmits_then_a_non_holder_faults() {
             false,
             sup2,
         );
-        let msg = sched::ipc_recv(sup2);
+        let msg = sched::ipc_receive(sup2);
         reap(nh_region);
         if msg[0] == EVENT_FAULT
             && msg[2] == CODE_VA + super::x86_programs::PORT_OUT_ON_CPU_WRONG_CPU_PC_OFFSET
@@ -286,7 +286,7 @@ fn port_holder_transmits_then_a_non_holder_faults() {
 }
 
 /// **A revoked holder faults on its next `out`.** The child holds the port range and parks in
-/// `RECV`; while it is parked the test revokes the range (deleting its capability and clearing the
+/// `RECEIVE`; while it is parked the test revokes the range (deleting its capability and clearing the
 /// cached grant the switch installs), then wakes it. The `out` it executes on waking faults, which
 /// is the whole claim: a capability that was real became unusable the instant it was revoked.
 ///
@@ -297,22 +297,22 @@ fn a_revoked_holder_faults_on_its_next_port_write() {
     let wake = sched::create_rendezvous();
     let sup = sched::create_rendezvous();
     let (holder, region) = build_child(
-        &super::x86_programs::recv_then_port_out(SCRATCH_PORT, SCRATCH_VAL),
+        &super::x86_programs::receive_then_port_out(SCRATCH_PORT, SCRATCH_VAL),
         report,
         Some(wake),
         true,
         sup,
     );
 
-    // Revoke the port range while the child is still parked in RECV (it cannot reach its `out`
+    // Revoke the port range while the child is still parked in RECEIVE (it cannot reach its `out`
     // before the wake below, so the revoke provably precedes the port access). This deletes the
     // child's `PortRange` capability and clears the grant the context switch would install.
     crate::revoke::revoke_port_range(COM1_BASE, COM1_COUNT);
 
-    // Wake it. It leaves RECV, executes `out`, and faults, because the port it once held is gone.
+    // Wake it. It leaves RECEIVE, executes `out`, and faults, because the port it once held is gone.
     sched::ipc_send(wake, [0, 0, 0]);
 
-    let msg = sched::ipc_recv(sup);
+    let msg = sched::ipc_receive(sup);
     assert_eq!(
         msg[0], EVENT_FAULT,
         "a revoked holder's next `out` must fault; the word must never arrive",
@@ -359,7 +359,7 @@ fn a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write() {
         sup,
     );
 
-    let msg = sched::ipc_recv(sup);
+    let msg = sched::ipc_receive(sup);
     assert_eq!(
         msg[0], EVENT_FAULT,
         "a holder that deleted its own port capability must fault on its next `out`; it kept the \

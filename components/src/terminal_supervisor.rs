@@ -11,7 +11,7 @@
 //!
 //! ```text
 //!   1 BUILT      lay the replacement out, wired from the same declaration, not started.
-//!   2 QUIESCED   CALL OP_QUIESCE on the terminal endpoint. Its FIFO drains everything ahead; a
+//!   2 QUIESCED   CALL OPERATION_QUIESCE on the terminal endpoint. Its FIFO drains everything ahead; a
 //!                parked reader is answered FLAG_RETRY and asks again; the blob is written.
 //!   3 ABSORBING  start the replacement with START_ABSORB. It reads the blob before it serves.
 //!   4 COMMIT     NOTE_ABSORBED: tell the incumbent CTL_QUIT and collect it.
@@ -46,7 +46,7 @@ use component_plan::Provisions;
 use line_editor::component::{self, supervisor as s};
 use line_editor::proto;
 use supervision_protocol::{ChildEndowment, Retention};
-use user_mode_runtime::{cap_delete, recv, recv_fault, recv_request, reply, send};
+use user_mode_runtime::{cap_delete, receive, receive_fault, receive_request, reply, send};
 
 const MODE_DISPLAY: u64 = 1;
 
@@ -116,12 +116,12 @@ pub extern "C" fn _start(mode: u64, elf_len: u64, swap: u64) -> ! {
     if swap == 0 {
         // No trigger on this boot (see BUGS). Hold everything and wait, so the objects stay ours.
         loop {
-            let _ = recv(faultep);
+            let _ = receive(faultep);
         }
     }
 
     loop {
-        let req = recv_request(swap);
+        let req = receive_request(swap);
         let verb = req.w0;
         // Only a CALL is answered; a delegation is deleted (milestone 706 (a `CALL` server can tell
         // a Reply from a delegation)).
@@ -129,7 +129,8 @@ pub extern "C" fn _start(mode: u64, elf_len: u64, swap: u64) -> ! {
             continue;
         };
         if verb == s::STOP {
-            let (q, _) = user_mode_runtime::call(s::TERMINAL, proto::req(proto::OP_QUIESCE, 0), 0);
+            let (q, _) =
+                user_mode_runtime::call(s::TERMINAL, proto::req(proto::OPERATION_QUIESCE, 0), 0);
             if q != proto::QUIESCED {
                 fail()
             }
@@ -166,7 +167,8 @@ pub extern "C" fn _start(mode: u64, elf_len: u64, swap: u64) -> ! {
             fail()
         };
 
-        let (q, _) = user_mode_runtime::call(s::TERMINAL, proto::req(proto::OP_QUIESCE, 0), 0);
+        let (q, _) =
+            user_mode_runtime::call(s::TERMINAL, proto::req(proto::OPERATION_QUIESCE, 0), 0);
         if q != proto::QUIESCED {
             fail()
         }
@@ -183,7 +185,7 @@ pub extern "C" fn _start(mode: u64, elf_len: u64, swap: u64) -> ! {
         cap_delete(region);
         started += 1;
 
-        let (note, why, _) = recv(notify);
+        let (note, why, _) = receive(notify);
         if note == proto::NOTE_ABSORBED {
             send(controls[current], proto::CTL_QUIT, 0, 0);
             collect(faultep);
@@ -225,7 +227,7 @@ fn launch(image: &elf::Elf, plan: &component_plan::Plan, bay: u64, faultep: u64,
 
 /// Wait for one death and collect it, so the instance's region comes home to the budget.
 fn collect(faultep: u64) {
-    let (_event, tid, _pc, _addr, _) = recv_fault(faultep);
+    let (_event, tid, _pc, _addr, _) = receive_fault(faultep);
     if user_mode_runtime::reap(faultep, tid) != 0 {
         fail()
     }

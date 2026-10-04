@@ -46,7 +46,7 @@ positional is a stream needs the manifest (`InputSpec::Required` plus a bare tok
 the head's input off the `Line`, which has no `<` on it, so a planned `Source::File` was thrown away
 and the stage was spawned with an empty input slot.
 
-It did not hang, and that is the part worth keeping. A `recv` on an empty slot answers `NoSuchSlot`
+It did not hang, and that is the part worth keeping. A `receive` on an empty slot answers `NoSuchSlot`
 rather than blocking. The error word's top byte is an opcode `byte_sink_protocol` does not define,
 so it decodes as `Msg::Malformed`. And every reader in this tree treats a malformed message as the
 end of the document, because a page silently missing a paragraph is worse than a page that stops.
@@ -76,7 +76,7 @@ the same comment disclaimed in its next sentence.
 ### The third one is the rendezvous, and no amount of shell code fixes it
 
 A process here has exactly one wait point. `SEND` blocks until a receiver takes the message,
-`RECV` blocks until one arrives, and there is nothing else: no select, no receive-on-a-set, no poll,
+`RECEIVE` blocks until one arrives, and there is nothing else: no select, no receive-on-a-set, no poll,
 no timed wait. Milestone 51 (wall-clock time) records the timed-wait fork and design/roadmap/106
 is NOT-STARTED, which makes it a kernel-surface decision rather than something a lane may reach for.
 
@@ -93,7 +93,7 @@ So when the shell is the thing feeding a stage, it cannot also be the thing rece
 
 No interleaving schedule fixes this, and that is worth stating because it is the first thing
 anybody reaches for. Alternate send-then-receive and it deadlocks the moment the stage reads twice
-before it writes (both sides in `RECV`). Alternate the other way and it deadlocks the moment the
+before it writes (both sides in `RECEIVE`). Alternate the other way and it deadlocks the moment the
 stage writes twice before it reads. The shell cannot know which, and *the whole point of the sink
 contract is that it cannot ask*: a writer holds an endpoint and has no message that would tell it
 what is on the other end. The property that makes redirection one grant is the same property that
@@ -193,7 +193,7 @@ thing. A third way, found later and not by this page, is taken: see below.
 
 A pull-based source, which is the exact answer to the constraint. The reason the shell needs two
 wait points is that it holds two channels to one child. Make it one: hand the stage a single
-endpoint on which it `CALL`s for input and `SEND`s output, and the shell's loop is one `RECV_CAP`
+endpoint on which it `CALL`s for input and `SEND`s output, and the shell's loop is one `RECEIVE_CAP`
 that either replies with bytes or writes bytes out. One wait point, arbitrary interleaving, no
 deadlock ever. What it costs is everything [this note](../pipes.md) calls a finding: "a source is
 the sink contract received rather than sent" stops being true, `<` and the right-hand side of `|`

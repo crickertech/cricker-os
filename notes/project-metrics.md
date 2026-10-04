@@ -215,7 +215,7 @@ pulled once both panels reach zero. Then `script/metrics` prints "the bold backl
 is zero; retire this chart" and writes it here:
 
 <!-- bold-backlog: script/metrics writes this -->
-2026W40: 14229 spans over, in 812 documents.
+2026W40: 14178 spans over, in 811 documents.
 <!-- /bold-backlog -->
 
 Counted by `helpers/prose_ratchet.py`, from 2026W39.
@@ -248,7 +248,7 @@ Public items removed or changed each week: [definitions](interface-stability.md)
 [per crate](project-metrics/interface-stability.md).
 
 <!-- interface-stability: script/metrics writes this -->
-interface, 2026W37 to 2026W40: 113 breaking changes (784 additions); 2 syscall numbers changed, 0 format bumps; 77% co-change.
+interface, 2026W37 to 2026W40: 157 breaking changes (828 additions); 3 syscall numbers changed, 0 format bumps; 75% co-change.
 <!-- /interface-stability -->
 
 ## How it stays current

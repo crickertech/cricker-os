@@ -61,7 +61,7 @@ Three options the note records, none chosen.
 1. `Tcb::NAME`. Small, and it discloses nothing new: the tid is already in the fault message, so
    turning it into a handle reveals no fact the supervisor did not receive.
 2. **Per-child fault endpoints.** Rejected once already by §26.5, because synchronous rendezvous
-   means `RECV` blocks on one endpoint, so this costs a supervisor thread per child or a wait-any
+   means `RECEIVE` blocks on one endpoint, so this costs a supervisor thread per child or a wait-any
    primitive that does not exist.
 3. The builder reports the tid it created. No kernel change at all, and it makes the supervision
    relationship depend on a userspace protocol between builder and supervisor rather than on

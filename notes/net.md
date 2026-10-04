@@ -29,8 +29,8 @@ message.
 
 `ATTACH_FRAME` is a `SEND_CAP` (it carries the frame). The rest are `CALL`s (which
 mint the reply cap net_stack answers on), the socket id packed into the request word: `OPEN_UDP` /
-`OPEN_TCP`; `SENDTO(len)` and `RECV() -> len` for UDP (destination and payload in the shared
-frame); `CONNECT` / `SEND(len)` / `RECV()` for TCP; `CLOSE`. A blocking `RECV` is net_stack driving the
+`OPEN_TCP`; `SENDTO(len)` and `RECEIVE() -> len` for UDP (destination and payload in the shared
+frame); `CONNECT` / `SEND(len)` / `RECEIVE()` for TCP; `CLOSE`. A blocking `RECEIVE` is net_stack driving the
 smoltcp poll loop (WAIT on the NIC interrupt) until the socket has data, then replying, the disk
 driver's discipline one layer up.
 
@@ -100,7 +100,7 @@ id:
 
 ```rust
 // 1. Bind. No frame is attached anywhere yet, because a listener carries no bytes.
-match call(STACK, req(OP_LISTEN, LISTEN_SID), 7778).0 {
+match call(STACK, req(OPERATION_LISTEN, LISTEN_SID), 7778).0 {
     LISTEN_GRANTED => {}
     LISTEN_DENIED  => /* this stack was never granted 7778: ask the spawner, not again */,
     LISTEN_IN_USE  => /* somebody already holds it: pick another port */,
@@ -112,11 +112,11 @@ attach_frame(CONN_SID);
 
 // 3. Accept, use, close, repeat. The listener re-arms inside ACCEPT, so this loop keeps working.
 loop {
-    if call(STACK, req(OP_ACCEPT, LISTEN_SID), CONN_SID).0 != REP_OK { break; }
-    let (len, _) = call(STACK, req(OP_RECV, CONN_SID), 0);
+    if call(STACK, req(OPERATION_ACCEPT, LISTEN_SID), CONN_SID).0 != REP_OK { break; }
+    let (len, _) = call(STACK, req(OPERATION_RECEIVE, CONN_SID), 0);
     // ... read the request out of the frame at FRAME_VA + OFF_PAYLOAD, write the answer back ...
-    let _ = call(STACK, req(OP_SEND, CONN_SID), reply_len);
-    let _ = call(STACK, req(OP_CLOSE, CONN_SID), 0);   // the listener is untouched by this
+    let _ = call(STACK, req(OPERATION_SEND, CONN_SID), reply_len);
+    let _ = call(STACK, req(OPERATION_CLOSE, CONN_SID), 0);   // the listener is untouched by this
 }
 ```
 
@@ -164,7 +164,7 @@ None of it is needed to use the contract.
 - A listen grant belongs to the `Stack` endpoint, not the client, because an endpoint carries no
   sender identity. Two clients sharing one endpoint share its grant. See
   [the-inbound-half.md](net/the-inbound-half.md).
-- An accepted stream reports its peer as `0.0.0.0:0`, because `OP_ACCEPT`'s reply carries no peer.
+- An accepted stream reports its peer as `0.0.0.0:0`, because `OPERATION_ACCEPT`'s reply carries no peer.
   Both fixes change what two programs agree on, so both are calef's. See
   [std-tcp-listener.md](net/std-tcp-listener.md).
 - `virtio::MAX_DEVICES` never reuses a slot, and a dead net service's DMA page and shadow ring are
@@ -183,8 +183,8 @@ written, in [the-inbound-check.md](net/the-inbound-check.md).*
 ### What is still not proven, and what is deliberately out of scope
 
 - **`std::net::TcpListener` is bound** (milestone 64, 2026-08-18; this bullet used to say it was
-  still `Unsupported`). The prediction above was right in every particular: `bind` is `OP_LISTEN` on
-  a client-allocated socket id, `accept` is `OP_ACCEPT` into another one the PAL allocates and
+  still `Unsupported`). The prediction above was right in every particular: `bind` is `OPERATION_LISTEN` on
+  a client-allocated socket id, `accept` is `OPERATION_ACCEPT` into another one the PAL allocates and
   attaches a frame to, and the std client's stack is now spawned with a real listen grant. See "The
   std client is a server too" in [std-tcp-listener.md](net/std-tcp-listener.md), and notes/std.md.
 - **Only the mmio transport carries the inbound gate.** A PCIe twin would need a second host port,
@@ -196,7 +196,7 @@ written, in [the-inbound-check.md](net/the-inbound-check.md).*
   spawn word the listen grant rides in (`socket_protocol::udp_bind_grant`; the halves are independent
   authorities, and the zero word still grants nothing anywhere). It answers with `LISTEN`'s own
   vocabulary because the three outcomes are properties of claiming a port, not of TCP. In the same
-  change, a UDP `RECV` reply now carries the datagram's source endpoint in the frame's dst
+  change, a UDP `RECEIVE` reply now carries the datagram's source endpoint in the frame's dst
   fields (dead space on a reply), because a responder must see who asked and RFC 6762 §6.7 turns on
   the querier's source port; the TFTP gate consumes it by ACKing to the DATA packet's reported
   source, which is what TFTP's TID scheme wanted all along. The stack also joins 224.0.0.251 at
@@ -204,4 +204,4 @@ written, in [the-inbound-check.md](net/the-inbound-check.md).*
   including what QEMU could and could not prove about multicast, is notes/mdns.md's. **The
   multicast half was retired on 2026-09-15** (milestone 298): the group join, the feature and the
   runners' injection hub went with the responder, so nothing proves multicast now. The UDP bind
-  grant and the `RECV` source endpoint stayed, still proved by the accept test and the TFTP gate.
+  grant and the `RECEIVE` source endpoint stayed, still proved by the accept test and the TFTP gate.
