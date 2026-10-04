@@ -30,7 +30,7 @@
 //! pays a flag store, a counter increment and a flag clear, all on this core's own line. The clock
 //! is read **only on the contended path**, twice per wait, and that is deliberate: on radon a
 //! `rdtime` may be emulated by firmware rather than read from hardware (a recollection about the
-//! SiFive U74, not checked against radon's OpenSBI; marked as such), and reading it on every call
+//! `SiFive` U74, not checked against radon's OpenSBI; marked as such), and reading it on every call
 //! would have added to the cheapest syscall the very cost this module is trying to find.
 //!
 //! - A wait is quantised to the platform timer (4 MHz on radon, 250 ns a tick), so one wait means
