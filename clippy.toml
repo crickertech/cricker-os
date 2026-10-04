@@ -41,6 +41,9 @@ doc-valid-idents = [
     # nothing; rendering it as code costs them the recognition.
     "PCIe",
     "NVMe",
+    # Intel's eXtensible Host Controller Interface, the USB host controller every commodity PC has
+    # (milestone 242 (USB host and HID, because on commodity hardware the keyboard is not a UART)).
+    "xHCI",
     "SMMUv3",
     "GICv2",
     # Its successors, the same category and spelled the same way by Arm (milestone 227).

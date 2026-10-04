@@ -142,6 +142,12 @@ pub const BUS_NUMBERS: u64 = 0x18;
 /// requires of every one of them (NVMe 1.4 §3.1's PCI header requirements).
 pub const CLASS_NVME: u32 = 0x01_08_02;
 
+/// The xHCI class code: serial bus (0x0c) / USB (0x03) / xHCI (0x30). Matched by class for
+/// [`CLASS_NVME`]'s reason: QEMU's `qemu-xhci` is Red Hat 1b36:000d, an Intel PCH's is 8086:a2af
+/// or a hundred others, and the class triple is what the xHCI specification requires of all of
+/// them (xHCI 1.2 section 5.2.1). Milestone 242 (USB host and HID).
+pub const CLASS_XHCI: u32 = 0x0c_03_30;
+
 /// Command register bits we set to bring a device up.
 pub const CMD_MEMORY_SPACE: u16 = 1 << 1;
 /// Bus mastering is DMA permission at the PCI level: without it the device cannot issue a single
@@ -553,10 +559,78 @@ pub struct MsixCap {
     pub table_bar: u8,
     /// The table's byte offset into that BAR. Eight-byte aligned by the field's encoding.
     pub table_offset: u32,
+    /// Which BAR the pending-bit array lives in. Often the table's, sometimes not.
+    pub pba_bar: u8,
+    /// The pending-bit array's byte offset into that BAR. A driver mapped the page this sits on
+    /// could not aim an interrupt, but milestone 242's xHCI driver is denied it anyway, because
+    /// the rule "never the pages the interrupt message lives on" is easier to check whole.
+    pub pba_offset: u32,
 }
 
 /// The MSI-X capability id in a config-space capability list.
 pub const CAP_ID_MSIX: u8 = 0x11;
+
+/// The MSI capability id in a config-space capability list.
+pub const CAP_ID_MSI: u8 = 0x05;
+
+/// MSI Message Control bit 0: **MSI Enable**.
+pub const MSI_ENABLE: u16 = 1 << 0;
+
+/// MSI Message Control bit 7: the function takes a 64-bit message address, which moves the data
+/// register from offset 8 to offset 12.
+pub const MSI_64_BIT: u16 = 1 << 7;
+
+/// A function's **MSI capability** (PCI 3.0 section 6.8.1), decoded: where it is, and where its
+/// message data register sits, which depends on whether the address is 64-bit.
+///
+/// **Why this exists beside [`MsixCap`]** (milestone 242 (USB host and HID)): some functions have
+/// MSI and no MSI-X, and the one that made it matter is the xHCI on an Intel PCH, which is the USB
+/// controller on xenon. MSI keeps its address and data in config space rather than in a BAR, so a
+/// driver mapped every page of its BAR still cannot reach them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MsiCap {
+    /// Where the capability starts in config space.
+    pub cap_offset: u64,
+    /// Whether the message address is 64 bits.
+    pub is_64: bool,
+}
+
+impl MsiCap {
+    /// Config-space offset of the message address's low dword.
+    pub const fn address_low(&self) -> u64 {
+        self.cap_offset + 4
+    }
+
+    /// Config-space offset of the message data word: 8 past the capability for a 32-bit
+    /// address, 12 for a 64-bit one.
+    pub const fn data(&self) -> u64 {
+        self.cap_offset + if self.is_64 { 12 } else { 8 }
+    }
+}
+
+/// Find the **MSI capability** of `bdf`, or `None`. The same bounded walk as [`msix_cap`].
+pub fn msi_cap(bdf: Bdf, read32: &mut dyn FnMut(Bdf, u64) -> u32) -> Option<MsiCap> {
+    let status = (read32(bdf, COMMAND) >> 16) as u16;
+    if status & STATUS_CAP_LIST == 0 {
+        return None;
+    }
+    let mut at = (read32(bdf, CAP_PTR) & 0xfc) as u64;
+    for _ in 0..64 {
+        if at == 0 {
+            return None;
+        }
+        let head = read32(bdf, at);
+        if (head & 0xff) as u8 == CAP_ID_MSI {
+            let control = (head >> 16) as u16;
+            return Some(MsiCap {
+                cap_offset: at,
+                is_64: control & MSI_64_BIT != 0,
+            });
+        }
+        at = ((head >> 8) & 0xfc) as u64;
+    }
+    None
+}
 
 /// Offset of the Message Control word from the start of an MSI-X capability. It is the upper half
 /// of the capability's first dword, so a driver writes it with a 32-bit config write that also
@@ -621,6 +695,7 @@ pub fn msix_cap(bdf: Bdf, read32: &mut dyn FnMut(Bdf, u64) -> u32) -> Option<Msi
         if (head & 0xff) as u8 == CAP_ID_MSIX {
             let control = (head >> 16) as u16;
             let table = read32(bdf, at + 4);
+            let pba = read32(bdf, at + 8);
             return Some(MsixCap {
                 cap_offset: at,
                 // Bits 10:0 hold the count MINUS ONE, so a one-entry table reads as zero and the
@@ -630,6 +705,8 @@ pub fn msix_cap(bdf: Bdf, read32: &mut dyn FnMut(Bdf, u64) -> u32) -> Option<Msi
                 table_size: (control & 0x7ff) + 1,
                 table_bar: (table & 0x7) as u8,
                 table_offset: table & !0x7,
+                pba_bar: (pba & 0x7) as u8,
+                pba_offset: pba & !0x7,
             });
         }
         at = ((head >> 8) & 0xfc) as u64;
@@ -920,6 +997,7 @@ mod tests {
                 u32::from_le_bytes([0x11, 0x00, 0x02, 0x00]),
             );
             s.insert((f.0, f.1, f.2, 0x74), 0x2000 | 1);
+            s.insert((f.0, f.1, f.2, 0x78), 0x2800 | 1); // the pending-bit array, same BAR
 
             // 00:01.1 answers, and must never be enumerated: the header at 00:01.0 says
             // single-function. A device that aliases its config space across all eight functions
@@ -1535,8 +1613,45 @@ mod tests {
                 table_size: 3,
                 table_bar: 1,
                 table_offset: 0x2000,
+                pba_bar: 1,
+                pba_offset: 0x2800,
             }
         );
+    }
+
+    /// **An MSI-only function, the shape of an Intel PCH's xHCI** (milestone 242 (USB host and
+    /// HID)): a power-management capability, then MSI with a 64-bit address, and no MSI-X. The
+    /// data register moves with the address width, and writing the address's high half into the
+    /// data register is the bug a 32-bit assumption would make.
+    #[test]
+    fn an_msi_only_function_decodes_and_places_its_data_by_address_width() {
+        let bdf = Bdf {
+            bus: 0,
+            dev: 20,
+            func: 0,
+        };
+        let mut read = |_: Bdf, o: u64| match o {
+            COMMAND => u32::from(STATUS_CAP_LIST) << 16,
+            CAP_PTR => 0x70,
+            0x70 => 0x01 | 0x80 << 8, // power management, next 0x80
+            0x80 => u32::from(CAP_ID_MSI) | u32::from(MSI_64_BIT | 0x6) << 16, // 64-bit, eight vectors
+            _ => 0,
+        };
+        let cap = msi_cap(bdf, &mut read).expect("the function declares MSI");
+        assert_eq!(
+            cap,
+            MsiCap {
+                cap_offset: 0x80,
+                is_64: true
+            }
+        );
+        assert_eq!((cap.address_low(), cap.data()), (0x84, 0x8c));
+        assert_eq!(msix_cap(bdf, &mut read), None);
+        let narrow = MsiCap {
+            cap_offset: 0x50,
+            is_64: false,
+        };
+        assert_eq!(narrow.data(), 0x58);
     }
 
     /// A function with no capability list at all answers `None` rather than walking from a
