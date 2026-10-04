@@ -142,7 +142,7 @@ pub const PAGE: usize = 4096;
 
 /// Where a request packs its opcode: bits 63:56 of the first `CALL` word, the same position
 /// `filesystem_protocol`, `entropy_protocol` and `line_editor::proto` use, so the contracts read alike.
-pub const OP_SHIFT: u32 = 56;
+pub const OPERATION_SHIFT: u32 = 56;
 
 /// The longest identity, in bytes. An identity here is **an opaque byte string and nothing more**:
 /// no user id, no group, no home directory, no session. milestone 49 (users, login, attribution)
@@ -228,13 +228,13 @@ pub const MAX_CODE: u64 = NO_ENTROPY;
 ///
 /// The lengths ride in the word rather than in the page so the page is payload only, which is what
 /// lets the service zero it unconditionally after reading.
-pub const fn req(op: u64, id_len: usize, secret_len: usize) -> u64 {
-    (op << OP_SHIFT) | ((id_len as u64 & 0xffff) << 16) | (secret_len as u64 & 0xffff)
+pub const fn req(operation: u64, id_len: usize, secret_len: usize) -> u64 {
+    (operation << OPERATION_SHIFT) | ((id_len as u64 & 0xffff) << 16) | (secret_len as u64 & 0xffff)
 }
 
 /// The opcode of a request word.
-pub const fn op(w0: u64) -> u64 {
-    w0 >> OP_SHIFT
+pub const fn operation(w0: u64) -> u64 {
+    w0 >> OPERATION_SHIFT
 }
 
 /// The identity length a request word claims. Not yet checked against [`MAX_IDENTITY`]; that is
@@ -255,7 +255,7 @@ pub const fn secret_len(w0: u64) -> usize {
 /// An empty identity is refused here and not merely at the server, because "the empty name" is the
 /// one string that would otherwise collide with an unwritten slot in the service's fixed-size
 /// store. `credentialer::Store` refuses it too; two refusals for one hazard is deliberate.
-pub fn place(page: &mut [u8], identity: &[u8], secret: &[u8], op: u64) -> Option<u64> {
+pub fn place(page: &mut [u8], identity: &[u8], secret: &[u8], operation: u64) -> Option<u64> {
     if page.len() < SECRET_OFF + MAX_SECRET {
         return None;
     }
@@ -269,7 +269,7 @@ pub fn place(page: &mut [u8], identity: &[u8], secret: &[u8], op: u64) -> Option
     page[ID_OFF..ID_OFF + identity.len()].copy_from_slice(identity);
     page[SECRET_OFF..SECRET_OFF + MAX_SECRET].fill(0);
     page[SECRET_OFF..SECRET_OFF + secret.len()].copy_from_slice(secret);
-    Some(req(op, identity.len(), secret.len()))
+    Some(req(operation, identity.len(), secret.len()))
 }
 
 /// **Server side**: the identity and the secret a request word points at, or `None` if the lengths
@@ -486,7 +486,7 @@ mod tests {
     #[test]
     fn a_request_round_trips_its_opcode_and_both_lengths() {
         let w = req(verify::VERIFY, 7, 260);
-        assert_eq!(op(w), verify::VERIFY);
+        assert_eq!(operation(w), verify::VERIFY);
         assert_eq!(id_len(w), 7);
         assert_eq!(secret_len(w), 260);
     }
@@ -495,12 +495,12 @@ mod tests {
     /// endpoint decodes this word with its own copy of these shifts, so the bit positions are the
     /// contract, not an implementation detail a refactor may move. The opcode is `SEAL` on
     /// purpose: `PUT` and `VERIFY` are both 1, and a test that only ever builds opcode 1 cannot
-    /// tell a working `op` from one that returns a constant.
+    /// tell a working `operation` from one that returns a constant.
     #[test]
     fn the_request_word_is_the_documented_bit_layout() {
         let w = req(provision::SEAL, MAX_IDENTITY, MAX_SECRET);
         assert_eq!(w, 0x0200_0000_0040_0100);
-        assert_eq!(op(w), provision::SEAL);
+        assert_eq!(operation(w), provision::SEAL);
         assert_eq!(id_len(w), MAX_IDENTITY);
         assert_eq!(secret_len(w), MAX_SECRET);
     }
@@ -756,14 +756,14 @@ mod proofs {
     /// Falsification: replayable `crates/credential_protocol/falsifications/proofs.a_request_word_round_trips_every_field.patch`
     #[kani::proof]
     fn a_request_word_round_trips_every_field() {
-        let op_in: u64 = kani::any();
+        let operation_in: u64 = kani::any();
         let i: usize = kani::any();
         let s: usize = kani::any();
-        kani::assume(op_in <= 0xff);
+        kani::assume(operation_in <= 0xff);
         kani::assume(i <= MAX_IDENTITY);
         kani::assume(s <= MAX_SECRET);
-        let w = req(op_in, i, s);
-        assert!(op(w) == op_in);
+        let w = req(operation_in, i, s);
+        assert!(operation(w) == operation_in);
         assert!(id_len(w) == i);
         assert!(secret_len(w) == s);
     }

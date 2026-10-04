@@ -137,7 +137,7 @@ fn run_rm(name: &str, flags: u64) -> (u64, u64) {
     for _ in 0..MAX_MESSAGES {
         let [w0, w1, w2, _, _] = sched::ipc_receive(report);
         // The sink contract's end of stream, which is what `rm` ends with since 2026-08-17; the
-        // verdict rides in the two words `OP_EOF` leaves free. The shell phase above still reports
+        // verdict rides in the two words `OPERATION_EOF` leaves free. The shell phase above still reports
         // a `VERDICT`, because that one is a witness's bitmap and not a byte stream.
         if w0 == eof() {
             return (w1, w2);

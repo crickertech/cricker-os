@@ -260,7 +260,7 @@ impl PerCpu {
         let q = unsafe { &mut *self.runq.get() };
         let r = f(q);
         // Mirror the depth so other cores can read this core's load without touching its queue
-        // (DECISIONS §28). `Fifo::len` is O(1), so this is one store per queue op. Relaxed: the
+        // (DECISIONS §28). `Fifo::len` is O(1), so this is one store per queue operation. Relaxed: the
         // reader tolerates staleness, and the queue itself is single-owner.
         self.runq_len.store(q.len(), Ordering::Relaxed);
         r

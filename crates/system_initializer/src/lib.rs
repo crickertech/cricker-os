@@ -494,7 +494,7 @@ pub struct BootEndowment {
     /// UART system and launches graphics from the prompt), so this endpoint names a firmware
     /// screen's terminal and nothing else.
     pub disp_term_ep: u64,
-    /// The physical page shared with that `display_terminal`, written before an `OP_WRITE` on
+    /// The physical page shared with that `display_terminal`, written before an `OPERATION_WRITE` on
     /// [`disp_term_ep`](BootEndowment::disp_term_ep), and absent exactly when that is. `READ |
     /// WRITE | GRANT`.
     pub disp_term_page: u64,
@@ -890,12 +890,12 @@ const NET_STACK_ROLE_SERVER: u64 = 0;
 /// through the console's bespoke two-endpoint protocol.
 const LINE_EDITOR_MODE_CONSOLE: u64 = 0;
 /// `line_editor.rs`'s own `MODE_DISPLAY`: the `graphical_terminal` session's wiring, prints through
-/// `display_terminal`'s `OP_WRITE`/one-`CALL` contract instead.
+/// `display_terminal`'s `OPERATION_WRITE`/one-`CALL` contract instead.
 const LINE_EDITOR_MODE_DISPLAY: u64 = 1;
 
 // The VAs each program hardcodes; they must match console.rs / input.rs / line_editor.rs / swish.rs.
 const CON_SHARED_VA: u64 = address_space_map::pair_page(0x0060_0000); // console reads text here; line_editor writes it
-/// Where the console maps the page `display_terminal` reads an `OP_WRITE`'s bytes from, when a
+/// Where the console maps the page `display_terminal` reads an `OPERATION_WRITE`'s bytes from, when a
 /// screen was wired beside the UART. Must match `components/src/console.rs`'s `SCREEN_OUT_VA`.
 const CON_SCREEN_OUT_VA: u64 = address_space_map::pair_page(0x0068_0000);
 /// `console.rs`'s own `MODE_SCREEN`: [`LINE_EDITOR_MODE_CONSOLE`]'s reasoning, one program over.
@@ -1744,7 +1744,7 @@ pub fn boot(
     };
 
     // 3. The keystroke source: the input driver, waiting on the UART receive interrupt and
-    // forwarding raw bytes to the terminal, in the same `OP_BYTES` framing a `graphical_terminal` session's
+    // forwarding raw bytes to the terminal, in the same `OPERATION_BYTES` framing a `graphical_terminal` session's
     // `keyboard_driver` uses (milestone 192's "one place decides where a keystroke comes from").
     // The one keystroke source any boot builds: a virtio keyboard's driver is built inside a
     // session the user launched, never here (milestone 632 (provisional)), and nothing downstream
@@ -2079,7 +2079,7 @@ pub fn boot(
     // 5. **The terminal's sink adapter** (milestone 50's last remainder, notes/sink-protocol.md,
     // DECISIONS §67). It holds the terminal `WRITE` and serves the sink contract on an endpoint of
     // its own, so a child can be handed "the terminal" as a place to put bytes **without** being
-    // handed the terminal endpoint, which also carries `OP_READLINE` and would be the keyboard.
+    // handed the terminal endpoint, which also carries `OPERATION_READLINE` and would be the keyboard.
     //
     // **After the shell and before the giveaway, and both halves of that are load-bearing.**
     //
@@ -2649,7 +2649,7 @@ pub fn boot(
     // (provisional)). A `graphical_terminal` session launched with no virtio keyboard takes its keystrokes
     // from the boot's own line discipline, in raw mode, and the only process that can grant a
     // session that endpoint is this one: the shell's copy carries no `GRANT` (deliberately, so
-    // nothing at the prompt can hand the terminal, which also carries `OP_READLINE`, to any
+    // nothing at the prompt can hand the terminal, which also carries `OPERATION_READLINE`, to any
     // program it likes; that widening is exactly what milestone 50's sink adapter exists to
     // avoid), and nobody else holds the discipline's endpoint at all. Keeping it is the file
     // service pair's precedent: the spawn service holds exactly the authority a delivery needs,
@@ -3741,7 +3741,7 @@ fn spawn_service(
                 send(result_ep, failure, 0, 0);
             }
             // **A child that was never built cannot end its own second stream**, and the shell
-            // drains that stream to `OP_EOF` before it reads anything else, so nothing would ever
+            // drains that stream to `OPERATION_EOF` before it reads anything else, so nothing would ever
             // come back. The progenitor closes it on the child's behalf. It is the same hole `SPAWN_OK`
             // closed for the output side, one stream over.
             if !ok && let Some(ep) = diagnostics {
@@ -4591,8 +4591,8 @@ fn graphical_terminal_session_children(
         // **Arm 1 gets the raw half of the boot discipline, not the discipline** (milestone 709
         // (a graphical terminal session on the no-keyboard arm holds only the raw half of the boot
         // discipline)). A copy of `boot_terminal` badged `proto::RAW_ONLY_BADGE`, which the
-        // discipline answers `OP_RAWMODE` and `OP_READRAW` on and refuses everything else, so the
-        // session cannot `OP_BYTES` a line the boot shell then runs with the shell's authority.
+        // discipline answers `OPERATION_RAWMODE` and `OPERATION_READRAW` on and refuses everything else, so the
+        // session cannot `OPERATION_BYTES` a line the boot shell then runs with the shell's authority.
         // Minted per launch and deleted below once the session holds its narrowed copy; one slot
         // for the length of the build, under arm 0's peak (its discipline, pages and report).
         None => {
@@ -4885,8 +4885,8 @@ fn vouched(bytes: &[u8], fs: Option<Fs>, own_ut: u64, fs_mapped: &mut bool) -> b
     };
     let digest = measured_boot::sha256(bytes);
     let d = files.named(
-        fs_op::OPENDIR,
-        fs_op::ROOT,
+        fs_operation::OPENDIR,
+        fs_operation::ROOT,
         activation_set::DIRECTORY,
         dir::READ,
     );
@@ -4926,7 +4926,7 @@ fn endowed_image(
     grant_plan::image_request_fits(&m, arg, mem_pages, words).then_some(m)
 }
 
-use filesystem_protocol::{dir, fs as fs_op};
+use filesystem_protocol::{dir, fs as fs_operation};
 
 /// One page, the unit the file service trades bytes in, and the most a generation may hold.
 const PAGE_BYTES: usize = spawnproto::IMAGE_PAGE as usize;
@@ -4944,7 +4944,7 @@ const PAGE_BYTES: usize = spawnproto::IMAGE_PAGE as usize;
 /// the build is done. One page, not the window's sixteen, because a client of this contract maps
 /// one page (`filesystem_protocol::fs::TRANSFER_PAGES` says a client maps what it uses).
 fn window_page(pool: u64, w: u64) -> Option<u64> {
-    let first = w * fs_op::TRANSFER_PAGES as u64;
+    let first = w * fs_operation::TRANSFER_PAGES as u64;
     // SAFETY: the syscall; the kernel validates the capability, the range and the right.
     let slot = unsafe { invoke(pool, abi::page_frame::SLICE, first, 1, 0) };
     (slot >= 0).then_some(slot as u64)
@@ -5050,15 +5050,21 @@ fn bound_channel(
     let w = windows.take();
     files.unbind(windows, w);
     let handle = files.named(
-        fs_op::OPENDIR,
-        fs_op::ROOT,
+        fs_operation::OPENDIR,
+        fs_operation::ROOT,
         name,
         filesystem_protocol::grant::spec_rights(spec),
     );
     if handle < 0 {
         return None;
     }
-    if call(fs.ep, fs_op::req(fs_op::BIND, handle as u64, 0), w).0 != 0 {
+    if call(
+        fs.ep,
+        fs_operation::req(fs_operation::BIND, handle as u64, 0),
+        w,
+    )
+    .0 != 0
+    {
         files.close(handle);
         return None;
     }
@@ -5066,7 +5072,7 @@ fn bound_channel(
     // SAFETY: as [`job_channel`]'s zeroing: window `w`'s first page, inside the mapped pool.
     unsafe {
         core::ptr::write_bytes(
-            (ACTIVATION_FS_VA + w * fs_op::TRANSFER_MAX as u64) as *mut u8,
+            (ACTIVATION_FS_VA + w * fs_operation::TRANSFER_MAX as u64) as *mut u8,
             0,
             PAGE_BYTES,
         );
@@ -5093,7 +5099,7 @@ fn job_channel(fs: Fs, windows: &mut Windows, own_ut: u64, mapped: &mut bool) ->
     // window `w`'s first page lies inside it; no client is using window `w` between two jobs.
     unsafe {
         core::ptr::write_bytes(
-            (ACTIVATION_FS_VA + w * fs_op::TRANSFER_MAX as u64) as *mut u8,
+            (ACTIVATION_FS_VA + w * fs_operation::TRANSFER_MAX as u64) as *mut u8,
             0,
             PAGE_BYTES,
         );
@@ -5140,7 +5146,7 @@ impl FsCalls {
         let len = name.len().min(PAGE_BYTES);
         // SAFETY: the page is mapped read/write (`map`) and `len` is at most a page.
         unsafe { core::ptr::copy_nonoverlapping(name.as_ptr(), Self::page(), len) };
-        call(self.ep, fs_op::req(verb, handle, len as u64), w1).0 as i64
+        call(self.ep, fs_operation::req(verb, handle, len as u64), w1).0 as i64
     }
 
     /// **Take window `w`'s grant back, if it has one** (milestone 606, ruling D): `UNBIND` closes
@@ -5148,20 +5154,29 @@ impl FsCalls {
     /// window that was never bound.
     fn unbind(&self, windows: &mut Windows, w: u64) {
         if windows.bound & (1 << w) != 0 {
-            call(self.ep, fs_op::req(fs_op::UNBIND, 0, 0), w);
+            call(self.ep, fs_operation::req(fs_operation::UNBIND, 0, 0), w);
             windows.bound &= !(1 << w);
         }
     }
 
     fn close(&self, handle: i64) {
-        call(self.ep, fs_op::req(fs_op::CLOSE, handle as u64, 0), 0);
+        call(
+            self.ep,
+            fs_operation::req(fs_operation::CLOSE, handle as u64, 0),
+            0,
+        );
     }
 
     /// Read a file from offset 0 into `out`, up to `out.len()` bytes (at most a page). `None` on an
     /// error.
     fn read(&self, handle: u64, out: &mut [u8]) -> Option<usize> {
         let want = out.len().min(PAGE_BYTES);
-        let n = call(self.ep, fs_op::req(fs_op::READ, handle, want as u64), 0).0 as i64;
+        let n = call(
+            self.ep,
+            fs_operation::req(fs_operation::READ, handle, want as u64),
+            0,
+        )
+        .0 as i64;
         if n < 0 {
             return None;
         }
@@ -5174,7 +5189,14 @@ impl FsCalls {
     /// Replace a file's contents with `bytes`, a page at a time. `false` at the first short or
     /// refused write.
     fn replace(&self, handle: u64, bytes: &[u8]) -> bool {
-        if call(self.ep, fs_op::req(fs_op::TRUNCATE, handle, 0), 0).0 as i64 != 0 {
+        if call(
+            self.ep,
+            fs_operation::req(fs_operation::TRUNCATE, handle, 0),
+            0,
+        )
+        .0 as i64
+            != 0
+        {
             return false;
         }
         for (i, chunk) in bytes.chunks(PAGE_BYTES).enumerate() {
@@ -5183,7 +5205,7 @@ impl FsCalls {
             let at = (i * PAGE_BYTES) as u64;
             let n = call(
                 self.ep,
-                fs_op::req(fs_op::WRITE, handle, chunk.len() as u64),
+                fs_operation::req(fs_operation::WRITE, handle, chunk.len() as u64),
                 at,
             )
             .0 as i64;
@@ -5196,21 +5218,21 @@ impl FsCalls {
 
     /// Open `name` in `parent` for writing, creating it if it is not there.
     fn open_or_create(&self, parent: u64, name: &str) -> i64 {
-        let h = self.named(fs_op::OPEN, parent, name, 0);
+        let h = self.named(fs_operation::OPEN, parent, name, 0);
         if h >= 0 {
             h
         } else {
-            self.named(fs_op::CREATE, parent, name, 0)
+            self.named(fs_operation::CREATE, parent, name, 0)
         }
     }
 
     /// Descend into `name` in `parent` with every right, making it if it is not there.
     fn directory(&self, parent: u64, name: &str) -> i64 {
-        let h = self.named(fs_op::OPENDIR, parent, name, dir::ALL);
+        let h = self.named(fs_operation::OPENDIR, parent, name, dir::ALL);
         if h >= 0 {
             h
         } else {
-            self.named(fs_op::MKDIR, parent, name, dir::ALL)
+            self.named(fs_operation::MKDIR, parent, name, dir::ALL)
         }
     }
 
@@ -5218,7 +5240,7 @@ impl FsCalls {
     fn generation_exists(&self, act: u64, number: u32) -> bool {
         let mut name = [0u8; 10];
         let h = self.named(
-            fs_op::OPEN,
+            fs_operation::OPEN,
             act,
             activation_set::generation_name(number, &mut name),
             0,
@@ -5235,7 +5257,7 @@ impl FsCalls {
     /// larger than a page: a table that cannot be read vouches for nothing, and must not be
     /// written over either.
     fn live_generation(&self, act: u64, out: &mut [u8; PAGE_BYTES]) -> Result<(u32, usize), ()> {
-        let c = self.named(fs_op::OPEN, act, activation_set::CURRENT, 0);
+        let c = self.named(fs_operation::OPEN, act, activation_set::CURRENT, 0);
         if c < 0 {
             return Ok((0, 0));
         }
@@ -5248,7 +5270,7 @@ impl FsCalls {
             .ok_or(())?;
         let mut name = [0u8; 10];
         let t = self.named(
-            fs_op::OPEN,
+            fs_operation::OPEN,
             act,
             activation_set::generation_name(number, &mut name),
             0,
@@ -5275,7 +5297,7 @@ impl FsCalls {
         if let Some(table) = table {
             let mut name = [0u8; 10];
             let g = self.named(
-                fs_op::CREATE,
+                fs_operation::CREATE,
                 act,
                 activation_set::generation_name(number, &mut name),
                 0,
@@ -5313,8 +5335,8 @@ impl FsCalls {
         }
         let renamed = call(
             self.ep,
-            fs_op::req(fs_op::RENAME, act, src.len() as u64),
-            fs_op::rename_dst(act, dst.len() as u64),
+            fs_operation::req(fs_operation::RENAME, act, src.len() as u64),
+            fs_operation::rename_dst(act, dst.len() as u64),
         )
         .0 as i64;
         if renamed != 0 {
@@ -5324,7 +5346,11 @@ impl FsCalls {
         // followed by a power cut that forgets it would be the prompt saying something untrue.
         // A device that cannot flush answers `EOPNOTSUPP`, and then the generation is written and
         // live and only as durable as the device makes it; that is recorded, not refused.
-        call(self.ep, fs_op::req(fs_op::SYNC, fs_op::ROOT, 0), 0);
+        call(
+            self.ep,
+            fs_operation::req(fs_operation::SYNC, fs_operation::ROOT, 0),
+            0,
+        );
         true
     }
 }
@@ -5407,7 +5433,7 @@ fn activate(
         let Some(files) = FsCalls::map(a.fs, a.own_ut, fs_mapped) else {
             return (S::StoreFailed, 0);
         };
-        let act = files.directory(fs_op::ROOT, activation_set::DIRECTORY);
+        let act = files.directory(fs_operation::ROOT, activation_set::DIRECTORY);
         if act < 0 {
             return (S::StoreFailed, 0);
         }
@@ -5589,7 +5615,7 @@ fn edit(
             };
             // The program's bytes, where a person can run them (DECISIONS §219 option D hashes
             // whatever they run, so where they live is a convenience, not a trust decision).
-            let packages = files.directory(fs_op::ROOT, activation_set::PACKAGES);
+            let packages = files.directory(fs_operation::ROOT, activation_set::PACKAGES);
             if packages < 0 {
                 return (S::StoreFailed, live);
             }
@@ -5686,7 +5712,7 @@ const ARCHITECTURE: &str = if cfg!(target_arch = "aarch64") {
 ///    connection is opened, so a person cannot make this process fetch anything the image would
 ///    not install, and the answer to a typo costs no network.
 /// 2. **One page shared with the stack**, retyped from a region of its own and handed over with
-///    `OP_ATTACH_PAGE_FRAME` on [`FETCH_SID`]. The region is destroyed when the request ends, which
+///    `OPERATION_ATTACH_PAGE_FRAME` on [`FETCH_SID`]. The region is destroyed when the request ends, which
 ///    revokes the page out of the stack too: nothing about a fetch outlives it.
 /// 3. **`GET /<stem>.nifepkg`** from the package source (`socket_protocol::fixture`), read through
 ///    `http_response`, which holds only the head and refuses what it cannot read exactly. The body
@@ -5731,7 +5757,7 @@ fn fetch(
             stack,
             page,
             abi::rights::READ | abi::rights::WRITE,
-            req(OP_ATTACH_PAGE_FRAME, FETCH_SID),
+            req(OPERATION_ATTACH_PAGE_FRAME, FETCH_SID),
         ) >= 0;
     // The mapping and the stack's copy outlive this capability, and the slot is what is scarce.
     cap_delete(page);
@@ -5740,7 +5766,7 @@ fn fetch(
     }
     let window = |off: u64| (FETCH_SOCKET_VA + off) as *mut u8;
 
-    if call(stack, req(OP_OPEN_TCP, FETCH_SID), 0).0 != REP_OK {
+    if call(stack, req(OPERATION_OPEN_TCP, FETCH_SID), 0).0 != REP_OK {
         return Err(S::FetchFailed);
     }
     let got = (|| {
@@ -5755,7 +5781,7 @@ fn fetch(
                 2,
             );
         }
-        if call(stack, req(OP_CONNECT, FETCH_SID), 0).0 != CONNECT_ESTABLISHED {
+        if call(stack, req(OPERATION_CONNECT, FETCH_SID), 0).0 != CONNECT_ESTABLISHED {
             return Err(S::FetchFailed);
         }
         let mut path = [0u8; 1 + package_archive::STEM_LEN + 8];
@@ -5770,13 +5796,13 @@ fn fetch(
             .ok_or(S::FetchFailed)?;
         // SAFETY: as above; `n` is at most 160, well inside the payload area.
         unsafe { core::ptr::copy_nonoverlapping(request.as_ptr(), window(OFF_PAYLOAD), n) };
-        if call(stack, req(OP_SEND, FETCH_SID), n as u64).0 != n as u64 {
+        if call(stack, req(OPERATION_SEND, FETCH_SID), n as u64).0 != n as u64 {
             return Err(S::FetchFailed);
         }
         receive_body(a, stack, staging)
     })();
     // Closed before the answer is judged, so a failed fetch still gives the socket back.
-    let _ = call(stack, req(OP_CLOSE, FETCH_SID), 0);
+    let _ = call(stack, req(OPERATION_CLOSE, FETCH_SID), 0);
     got.map(|()| stem)
 }
 
@@ -5794,7 +5820,7 @@ fn receive_body(
     let mut response = http_response::Response::new();
     let mut filled = 0u64;
     while !response.is_complete() {
-        let (n, _) = call(stack, req(OP_RECEIVE, FETCH_SID), 0);
+        let (n, _) = call(stack, req(OPERATION_RECEIVE, FETCH_SID), 0);
         if n == 0 || n > DATA_MAX as u64 {
             // The peer went away, or the stack failed, before the body was whole.
             return Err(S::FetchFailed);
@@ -5872,7 +5898,7 @@ fn memory_region_split(ut: u64, pages: u64) -> Result<u64, ()> {
 }
 
 /// **Say one sentence at the terminal**, through the line discipline, the way the shell does: stage
-/// the bytes in the shell's output page (mapped here at [`INIT_OUT_VA`]) and `CALL` `OP_WRITE`.
+/// the bytes in the shell's output page (mapped here at [`INIT_OUT_VA`]) and `CALL` `OPERATION_WRITE`.
 ///
 /// The only thing this process ever prints, and it is called before the shell is started so nothing
 /// else is writing that page. It exists for the negative control: a claim about what the progenitor can no
@@ -5884,7 +5910,11 @@ fn announce(term_ep: u64, text: &[u8]) {
         // page.
         unsafe { core::ptr::write_volatile(out.add(i), b) };
     }
-    call(term_ep, proto::req(proto::OP_WRITE, text.len() as u64), 0);
+    call(
+        term_ep,
+        proto::req(proto::OPERATION_WRITE, text.len() as u64),
+        0,
+    );
 }
 
 // -------------------------------------------------------------------------------------------
@@ -5904,7 +5934,7 @@ fn announce(term_ep: u64, text: &[u8]) {
 /// **Build the terminal: `terminal_supervisor`, which builds `line_editor`** (milestone 23 (a
 /// capability-routed component OS with live replacement), calef's ruling of 2026-09-27). `caps` is
 /// in `line_editor::component::supervisor`'s slot order after its budget: the terminal endpoint
-/// with every right (it delegates `READ` and sends `OP_QUIESCE`), the output sink, the three pages,
+/// with every right (it delegates `READ` and sends `OPERATION_QUIESCE`), the output sink, the three pages,
 /// and the console's reply endpoint in console mode. Copies, not moves: this process frees its own
 /// as it always did.
 ///

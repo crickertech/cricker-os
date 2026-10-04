@@ -113,7 +113,7 @@ impl Registry {
         self.entries[i].as_mut()
     }
 
-    /// Apply one [`control::OP_NAME`] chunk. Chunk 0 replaces the field; chunk 1 extends it, and
+    /// Apply one [`control::OPERATION_NAME`] chunk. Chunk 0 replaces the field; chunk 1 extends it, and
     /// only a field chunk 0 filled to sixteen bytes can be extended. `false` when refused.
     pub fn name(&mut self, badge: u64, field: u64, chunk: usize, bytes: &[u8; 16]) -> bool {
         let Some(e) = self.entry(badge) else {

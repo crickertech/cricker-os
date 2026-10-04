@@ -50,7 +50,7 @@
 //! register writer badge 2 as program "sink_transcript_writer", user "bob"
 //! register badge 9 as the system reader, window 0
 //! spawn two writers, each holding only its badged capability; they print the transcript
-//! SEND (OP_READ, cursor 0) through badge 9, wait on window 0's notification, read the window
+//! SEND (OPERATION_READ, cursor 0) through badge 9, wait on window 0's notification, read the window
 //! ```
 //!
 //! # BUGS
@@ -144,7 +144,7 @@ pub extern "C" fn _start(mode: u64, readers: u64, _a2: u64) -> ! {
                 Err(word) => {
                     if word & FLUSH_BIT != 0 {
                         flush_armed = false;
-                        send(CONSOLE, console::OP_FLUSH << 56, 0, 0);
+                        send(CONSOLE, console::OPERATION_FLUSH << 56, 0, 0);
                     }
                     if word & kernel_ring::NOTIFY_BIT != 0 {
                         drain(log, &mut flush_armed);

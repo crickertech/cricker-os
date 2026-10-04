@@ -367,8 +367,8 @@ fn random16() -> Option<[u8; 16]> {
 
 /// One blk `CALL`: the opcode and a block index, with the bulk in [`BLK_PAGE`]. Negative is an
 /// error, and "there is no endpoint in that slot" is one of them.
-fn blk_call(op_code: u64, block: u64) -> i64 {
-    let (r0, _) = call(BLK, req(op_code), block);
+fn blk_call(operation_code: u64, block: u64) -> i64 {
+    let (r0, _) = call(BLK, req(operation_code), block);
     r0 as i64
 }
 

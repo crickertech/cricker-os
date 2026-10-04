@@ -13,7 +13,7 @@ run of bytes out of the shared page.
 diff --git a/crates/credential_protocol/src/lib.rs b/crates/credential_protocol/src/lib.rs
 --- a/crates/credential_protocol/src/lib.rs
 +++ b/crates/credential_protocol/src/lib.rs
-@@ -242,3 +242,3 @@ pub const fn op(w0: u64) -> u64 {
+@@ -242,3 +242,3 @@ pub const fn operation(w0: u64) -> u64 {
  pub const fn id_len(w0: u64) -> usize {
 -    ((w0 >> 16) & 0xffff) as usize
 +    ((w0 >> 15) & 0xffff) as usize

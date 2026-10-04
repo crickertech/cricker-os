@@ -3107,7 +3107,7 @@ fn swish_check_boot(
 /// configuration every one of the three target machines actually has: argon, radon and xenon all
 /// have a serial line and none has a virtio-input device. That arm is milestone 192's option A
 /// (serial input, screen output) at launch rather than at boot: the session reads the boot's own
-/// line discipline raw (`OP_RAWMODE`/`OP_READRAW`, the shell's own §227 shape) and paints the
+/// line discipline raw (`OPERATION_RAWMODE`/`OPERATION_READRAW`, the shell's own §227 shape) and paints the
 /// echo itself.
 ///
 /// **The same two assertions cover both**, and that they can is still the claim. What reaches the

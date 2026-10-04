@@ -155,7 +155,7 @@ impl Wiring {
             panic!("the keyboard driver rang without a reply capability");
         };
         assert_eq!(
-            compositor::proto::op(m[0]),
+            compositor::proto::operation(m[0]),
             compositor::proto::COMMIT,
             "the keyboard driver rang with something other than COMMIT",
         );

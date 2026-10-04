@@ -248,7 +248,7 @@ fn provision(store: &mut Store<CAPACITY>, scratch: &mut [Block]) {
             // replying into a slot that is not a Reply.
             continue;
         };
-        match proto::op(w0) {
+        match proto::operation(w0) {
             proto::provision::PUT => {
                 let verdict = put(store, scratch, w0, w1);
                 // Unconditionally, on every path including the malformed one: the page holds a
@@ -305,7 +305,7 @@ fn serve(store: &Store<CAPACITY>, scratch: &mut [Block]) -> ! {
         let Some(cap) = req.delivered.into_reply() else {
             continue;
         };
-        let verdict = match proto::op(w0) {
+        let verdict = match proto::operation(w0) {
             proto::verify::VERIFY => answer(store, scratch, w0),
             // Every other opcode, including the provisioning ones. A client that tries `PUT` here
             // is not refused by a permission check; it is talking to a loop in which that opcode

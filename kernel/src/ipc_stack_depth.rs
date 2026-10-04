@@ -168,13 +168,13 @@ fn scan(bottom: u64, top: u64) -> u64 {
     unsafe { crate::stack::high_water(bottom, top) }
 }
 
-/// Run `op` with the stack painted beneath it and record how deep it went.
+/// Run `operation` with the stack painted beneath it and record how deep it went.
 #[inline(never)]
-fn measured<R>(series: &Series, span: (u64, u64), op: impl FnOnce() -> R) -> R {
+fn measured<R>(series: &Series, span: (u64, u64), operation: impl FnOnce() -> R) -> R {
     let (bottom, top) = span;
     let caller = top - crate::arch::current_sp();
     let ceiling = arm(bottom);
-    let r = op();
+    let r = operation();
     let used = scan(bottom, top);
     series.record(used, top - ceiling, caller);
     r
@@ -733,7 +733,7 @@ pub fn el0_shapes() -> usize {
 /// the number is the instrument's own frames and margin rather than the kernel's depth). A minimum
 /// at the floor with a median above it is a measurement: it is the shorter of two paths one
 /// operation can take (RECEIVE that finds its sender already waiting does not block).
-fn report(plane: &str, shape: &str, role: &str, op: &str, s: &Series) -> usize {
+fn report(plane: &str, shape: &str, role: &str, operation: &str, s: &Series) -> usize {
     let n = s.n.load(Ordering::Relaxed).min(SAMPLES);
     let mut v = [0u32; SAMPLES];
     for (dst, src) in v.iter_mut().zip(s.depth.iter()).take(n) {
@@ -744,7 +744,7 @@ fn report(plane: &str, shape: &str, role: &str, op: &str, s: &Series) -> usize {
     let floor = s.floor.load(Ordering::Relaxed);
     let caller = s.caller.load(Ordering::Relaxed);
     if n == 0 {
-        println!("ipc-stack-depth: {plane} {shape} {role} {op} NO SAMPLES");
+        println!("ipc-stack-depth: {plane} {shape} {role} {operation} NO SAMPLES");
         return 1;
     }
     let (min, median, max) = (v[0] as u64, v[n / 2] as u64, v[n - 1] as u64);
@@ -753,7 +753,7 @@ fn report(plane: &str, shape: &str, role: &str, op: &str, s: &Series) -> usize {
         // EL0, `after_syscall` and `arm` below `dispatch`, plus the margin). What is true is the
         // bound, so that is what the line says, rather than a median that is the instrument's.
         println!(
-            "ipc-stack-depth: {plane} {shape} {role} {op} AT FLOOR: at most {floor}, shallower than \
+            "ipc-stack-depth: {plane} {shape} {role} {operation} AT FLOOR: at most {floor}, shallower than \
              the instrument can see (max {max}, samples {n})"
         );
         return 1;
@@ -761,7 +761,7 @@ fn report(plane: &str, shape: &str, role: &str, op: &str, s: &Series) -> usize {
     // The excursion below the measuring frame: what the operation itself costs, whatever the
     // caller's own depth. For EL0 the caller offset is zero and the two numbers are the same.
     println!(
-        "ipc-stack-depth: {plane} {shape} {role} {op} median {median} min {min} max {max} \
+        "ipc-stack-depth: {plane} {shape} {role} {operation} median {median} min {min} max {max} \
          below-caller {} floor {floor} samples {n}",
         median - caller,
     );

@@ -43,7 +43,7 @@
 //!
 //! It holds, by convention (the progenitor granted them in this order):
 //!
-//! - slot 0: the terminal rendezvous (CALL: `OP_WRITE` / `OP_READLINE`).
+//! - slot 0: the terminal rendezvous (CALL: `OPERATION_WRITE` / `OPERATION_READLINE`).
 //! - slot 1: a spawn rendezvous (direct the progenitor to start a program; `grant_plan::spawnproto`).
 //! - slot 2: a result rendezvous (receive a spawned program's answer).
 //! - slot 3: an untyped budget, the memory it grants with `--mem`.
@@ -1235,12 +1235,12 @@ fn apropos(nav: &mut Nav, term: &[u8]) -> Say {
     Say::Nothing
 }
 
-/// Print through the terminal: write the text into the shared page, CALL `OP_WRITE`. The reply
+/// Print through the terminal: write the text into the shared page, CALL `OPERATION_WRITE`. The reply
 /// means the bytes are on the wire and the page is ours again.
 fn print(s: &[u8]) {
     let n = s.len().min(4096);
     stage(s, n);
-    call(TERM, proto::req(proto::OP_WRITE, n as u64), 0);
+    call(TERM, proto::req(proto::OPERATION_WRITE, n as u64), 0);
 }
 
 /// Copy `n` bytes into the outgoing shared page.
@@ -1255,13 +1255,17 @@ fn print_num(v: u64) {
     swish::write_num(v, &mut print);
 }
 
-/// Read a command line with the terminal's own editor: stage the prompt, CALL `OP_READLINE`, and
+/// Read a command line with the terminal's own editor: stage the prompt, CALL `OPERATION_READLINE`, and
 /// block until the terminal has a line. Kept for a terminal that refuses raw mode, where the shell
 /// cannot edit its own line; [`edit_line`] is the path every real boot takes.
 fn read_line(prompt: &[u8], out: &mut [u8]) -> (usize, u64) {
     stage(prompt, prompt.len());
     let (len, flags) = loop {
-        let r = call(TERM, proto::req(proto::OP_READLINE, prompt.len() as u64), 0);
+        let r = call(
+            TERM,
+            proto::req(proto::OPERATION_READLINE, prompt.len() as u64),
+            0,
+        );
         // The terminal is being replaced and handed this read back (FLAG_RETRY, milestone 23 (a capability-routed component OS with live replacement)).
         // Ask again, unchanged: whichever terminal answers resumes the line where it was.
         if !proto::is_retry(r.0, r.1) {
@@ -1278,7 +1282,7 @@ fn read_line(prompt: &[u8], out: &mut [u8]) -> (usize, u64) {
 // ---- the shell edits its own line (DECISIONS §227 (how Tab reaches the shell) option D) ----
 
 /// **The line editor, in this process** (milestone 47 (navigation and naming), §227 option D).
-/// The same sans-IO engine the terminal runs, fed from `OP_READRAW`, so a Tab reaches the process
+/// The same sans-IO engine the terminal runs, fed from `OPERATION_READRAW`, so a Tab reaches the process
 /// that holds the authority completion needs. A `static` for `line_editor`'s own reason: the
 /// engine is a few KiB and this shell's stack has run out before (notes/pipes.md).
 static mut EDITOR: line_editor::LineDisc = line_editor::LineDisc::new();
@@ -1296,21 +1300,21 @@ static RAW: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new
 /// Ask the terminal for raw mode, or leave it. `false` when the terminal refused, which a terminal
 /// without raw mode does; the caller then reads lines the old way.
 fn set_raw(on: bool) -> bool {
-    let (r, _) = call(TERM, proto::req(proto::OP_RAWMODE, on as u64), 0);
+    let (r, _) = call(TERM, proto::req(proto::OPERATION_RAWMODE, on as u64), 0);
     let ok = r == 0;
     RAW.store(on && ok, core::sync::atomic::Ordering::Relaxed);
     ok
 }
 
 /// Leave raw mode before a supervised job, so its `^C` is counted where [`watch`] polls for it.
-/// Switching discards whatever was typed ahead into the raw queue, which is `OP_RAWMODE`'s contract.
+/// Switching discards whatever was typed ahead into the raw queue, which is `OPERATION_RAWMODE`'s contract.
 fn leave_raw() {
     if RAW.load(core::sync::atomic::Ordering::Relaxed) {
         set_raw(false);
     }
 }
 
-/// **Echo, staged in the output page and sent with `OP_WRITE`.** The terminal translates `\n` to
+/// **Echo, staged in the output page and sent with `OPERATION_WRITE`.** The terminal translates `\n` to
 /// `\r\n` on output, and the engine already writes `\r\n`, so a `\r` right before a `\n` is dropped
 /// here rather than doubled there.
 struct Echo {
@@ -1320,7 +1324,11 @@ struct Echo {
 impl Echo {
     fn flush(&mut self) {
         if self.used > 0 {
-            call(TERM, proto::req(proto::OP_WRITE, self.used as u64), 0);
+            call(
+                TERM,
+                proto::req(proto::OPERATION_WRITE, self.used as u64),
+                0,
+            );
             self.used = 0;
         }
     }
@@ -1360,7 +1368,7 @@ fn edit_line(nav: &mut Nav, prompt: &[u8], out: &mut [u8]) -> (usize, u64) {
     echo.flush();
     loop {
         if ahead.1 == ahead.2 {
-            let (n, packed) = call(TERM, proto::req(proto::OP_READRAW, 0), 0);
+            let (n, packed) = call(TERM, proto::req(proto::OPERATION_READRAW, 0), 0);
             // The terminal is being replaced and handed this read back (FLAG_RETRY, milestone 23
             // (a capability-routed component OS with live replacement)). The line lives in this
             // process, so nothing was lost and nothing needs painting: ask again. A replacement
@@ -3287,7 +3295,7 @@ fn spawn(e: Endowment, argv: Option<Argv>) {
 ///
 /// This used to stop at the first newline, because the framing was a convention rather than a
 /// contract and there was nothing else to stop at. Milestone 50 gave it an end: it drains until
-/// `OP_EOF`, so a program that prints two lines prints two lines, and the rendezvous is left clean for
+/// `OPERATION_EOF`, so a program that prints two lines prints two lines, and the rendezvous is left clean for
 /// the next command instead of holding a message the next `receive` would mistake for an answer.
 ///
 /// That change is not optional. Before it, a `date` that announced end of stream would leave that
@@ -3345,7 +3353,7 @@ fn drain_text() {
 ///
 /// It is retyped straight out of [`BUDGET`] rather than out of a per-line region, and that is a
 /// decision rather than a shortcut: a pipeline's region is destroyed to turn a dead reader into
-/// `Gone`, and a stream this shell always drains to `OP_EOF` has no dead reader to signal. One
+/// `Gone`, and a stream this shell always drains to `OPERATION_EOF` has no dead reader to signal. One
 /// rendezvous for the session costs one page and saves a SPLIT and a DESTROY per `date`.
 static DIAG_EP: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(u64::MAX);
 
@@ -3433,7 +3441,7 @@ const SCREEN_REAP_ATTEMPTS: usize = 1024;
 /// complaints are all reasons it has no answer.
 ///
 /// `writers` is how many stages were handed the rendezvous, and the drain ends when that many have
-/// announced end of stream. Each declaring stage sends exactly one `OP_EOF`, so the count is the
+/// announced end of stream. Each declaring stage sends exactly one `OPERATION_EOF`, so the count is the
 /// termination condition and no stage's silence can be mistaken for the line being over.
 fn drain_diagnostics(dest: &mut dyn ByteOut, writers: usize) {
     let Some(ep) = diag_rendezvous() else { return };
@@ -3447,7 +3455,7 @@ fn drain_diagnostics(dest: &mut dyn ByteOut, writers: usize) {
         match byte_sink_protocol::unpack(w0, w1, w2, &mut buf) {
             byte_sink_protocol::Msg::Bytes(n) => dest.push(&buf[..n]),
             byte_sink_protocol::Msg::Eof => done += 1,
-            // The progenitor's failure sentinel arrives here too, as an `OP_EOF` it sends on this rendezvous so
+            // The progenitor's failure sentinel arrives here too, as an `OPERATION_EOF` it sends on this rendezvous so
             // this drain can end; anything else is a program that cannot spell the contract.
             byte_sink_protocol::Msg::Malformed => done += 1,
         }
@@ -4233,7 +4241,7 @@ fn run_pipeline(
 /// its output slot, and for the same reason: it is handed a place to push bytes and nothing else.
 trait ByteOut {
     fn push(&mut self, bytes: &[u8]);
-    /// Say the stream is over. On a pipe that is `OP_EOF`; on a file it is the last write.
+    /// Say the stream is over. On a pipe that is `OPERATION_EOF`; on a file it is the last write.
     fn finish(&mut self);
 }
 
@@ -4548,7 +4556,7 @@ struct FileIn {
 
 impl FileIn {
     /// **Stream the file over the sink contract**, which is the whole of `<`: the head stage holds
-    /// the read end of an rendezvous and receives `OP_BYTES` until `OP_EOF`, exactly as it would from
+    /// the read end of an rendezvous and receives `OPERATION_BYTES` until `OPERATION_EOF`, exactly as it would from
     /// a program on the left of a `|`. Nothing about the file reaches it.
     fn stream_into(&mut self, pipe: u64) {
         let mut w = SinkWriter::new(pipe);
@@ -5128,9 +5136,9 @@ fn delegate(slot: u64, rights: u64) {
     user_mode_runtime::send_cap(SPAWN, slot, rights, spawnproto::CAP_TAG);
 }
 
-/// Ask the terminal how many `^C` it has seen (a non-blocking poll; see `proto::OP_INTRCOUNT`).
+/// Ask the terminal how many `^C` it has seen (a non-blocking poll; see `proto::OPERATION_INTRCOUNT`).
 fn intr_count() -> u64 {
-    call(TERM, proto::req(proto::OP_INTRCOUNT, 0), 0).0
+    call(TERM, proto::req(proto::OPERATION_INTRCOUNT, 0), 0).0
 }
 
 // ---- the navigating witness (milestone 47) ----

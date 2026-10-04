@@ -664,7 +664,7 @@ impl Prog {
                 flags: NO_FLAGS,
                 // **`date` was speaking the sink contract before the contract existed**, because
                 // its hand-rolled framing is bit for bit a `BYTES` message (notes/sink-protocol.md
-                // on why `OP_BYTES` is zero). So it is the first program that can be piped, and it
+                // on why `OPERATION_BYTES` is zero). So it is the first program that can be piped, and it
                 // needed one change to be one: an end-of-stream message, without which a reader
                 // waits forever on a producer that has already exited.
                 //
@@ -1143,7 +1143,7 @@ pub enum OutputSpec {
     /// One or more raw `u64` answers on the result endpoint, read by the shell and rendered by it.
     /// Older than the sink contract and still right for an integer; not redirectable.
     Words,
-    /// The sink contract (`crates/byte_sink_protocol`): self-framing byte messages ending in `OP_EOF`. The
+    /// The sink contract (`crates/byte_sink_protocol`): self-framing byte messages ending in `OPERATION_EOF`. The
     /// only output that `>` and `|` can substitute, because it is the only one whose meaning does
     /// not depend on who is reading it.
     Bytes,

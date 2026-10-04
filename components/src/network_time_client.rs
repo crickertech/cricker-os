@@ -229,7 +229,7 @@ fn client(server_ip: u64, server_port: u64) -> ! {
     };
 
     attach_page_frame();
-    if call(STACK, req(OP_OPEN_UDP, SID), 0).0 != REP_OK {
+    if call(STACK, req(OPERATION_OPEN_UDP, SID), 0).0 != REP_OK {
         done(RPT_NET_ERROR, 2, 0);
     }
 
@@ -258,7 +258,7 @@ fn client(server_ip: u64, server_port: u64) -> ! {
         sent += 1;
         if call(
             STACK,
-            req(OP_SENDTO, SID),
+            req(OPERATION_SENDTO, SID),
             network_time_protocol::PACKET_LEN as u64,
         )
         .0 != REP_OK
@@ -266,7 +266,7 @@ fn client(server_ip: u64, server_port: u64) -> ! {
             done(RPT_NET_ERROR, 3, sent as u64);
         }
 
-        let (n, _) = call(STACK, req(OP_RECEIVE, SID), 0);
+        let (n, _) = call(STACK, req(OPERATION_RECEIVE, SID), 0);
         if n == REP_ERR || n == 0 {
             poll_gap();
             continue;
@@ -288,7 +288,7 @@ fn client(server_ip: u64, server_port: u64) -> ! {
                 let corrected = local.now() as i128 + sample.offset.nanos();
                 let proposed = corrected.clamp(0, u64::MAX as i128) as u64;
                 let (status, _wall_after) = call(PROPOSE, propose::req(propose::PROPOSE), proposed);
-                let _ = call(STACK, req(OP_CLOSE, SID), 0);
+                let _ = call(STACK, req(OPERATION_CLOSE, SID), 0);
                 done(RPT_SYNCED, status, proposed);
             }
             Err(reject) => {
@@ -302,7 +302,7 @@ fn client(server_ip: u64, server_port: u64) -> ! {
         }
     }
 
-    let _ = call(STACK, req(OP_CLOSE, SID), 0);
+    let _ = call(STACK, req(OPERATION_CLOSE, SID), 0);
     if last_reject != 0 {
         done(RPT_REJECTED, last_reject, sent as u64);
     }
@@ -444,7 +444,7 @@ fn attach_page_frame() {
         STACK,
         frame,
         rights::READ | rights::WRITE,
-        req(OP_ATTACH_PAGE_FRAME, SID),
+        req(OPERATION_ATTACH_PAGE_FRAME, SID),
     ) < 0
     {
         done(RPT_NET_ERROR, 1, 0);

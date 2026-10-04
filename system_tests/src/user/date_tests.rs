@@ -283,8 +283,8 @@ fn an_unknown_clock_is_said_plainly_rather_than_printed_as_1970() {
 /// transcript. The same `date` binary, spawned with no clock and with a diagnostic endpoint at the
 /// slot its manifest declares:
 ///
-/// - the complaint arrives on the **diagnostic** endpoint, ending in `OP_EOF`;
-/// - the **output** endpoint carries `OP_EOF` and not one byte before it.
+/// - the complaint arrives on the **diagnostic** endpoint, ending in `OPERATION_EOF`;
+/// - the **output** endpoint carries `OPERATION_EOF` and not one byte before it.
 ///
 /// The second half is the one that matters, and it is exactly what `date > when.txt` used to get
 /// wrong: a shell draining the output into a file would write nothing, so the file is empty and the

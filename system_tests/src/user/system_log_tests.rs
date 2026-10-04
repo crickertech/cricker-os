@@ -168,7 +168,12 @@ fn two_badged_writers_are_attributed_by_the_badge_and_a_per_user_read_filters() 
     control(
         intake,
         (
-            control::word(control::OP_READER, control::SCOPE_SYSTEM, 0, SYSTEM_READER),
+            control::word(
+                control::OPERATION_READER,
+                control::SCOPE_SYSTEM,
+                0,
+                SYSTEM_READER,
+            ),
             0,
             0,
         ),
@@ -177,7 +182,12 @@ fn two_badged_writers_are_attributed_by_the_badge_and_a_per_user_read_filters() 
     control(
         intake,
         (
-            control::word(control::OP_READER, control::SCOPE_USER, 1, ALICE_READER),
+            control::word(
+                control::OPERATION_READER,
+                control::SCOPE_USER,
+                1,
+                ALICE_READER,
+            ),
             0,
             0,
         ),

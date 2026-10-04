@@ -195,7 +195,7 @@ fn thrashing_does_not_fragment_the_heap_to_death() {
         let l = layout(size, 8);
         if let Some(p) = h.alloc(l) {
             // Scribble over the whole allocation: if the heap ever hands out overlapping
-            // blocks, the free-list nodes get corrupted and a later op explodes.
+            // blocks, the free-list nodes get corrupted and a later operation explodes.
             // SAFETY: `p` is a live allocation of at least `size` bytes, so writing `size` bytes into it stays in bounds. Scribbling is the point: overlapping blocks would corrupt a free-list node.
             unsafe { core::ptr::write_bytes(p.as_ptr(), 0xA5, size) };
             live.push((p, l));
