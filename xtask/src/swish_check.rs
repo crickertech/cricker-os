@@ -2177,6 +2177,8 @@ fn kvm_is_usable() -> bool {
 /// `graphics` attaches a virtio-gpu (and, for [`Keystrokes::Device`], a virtio keyboard) and, once
 /// `script` is done and the prompt is back, types `graphical_terminal` and reads the screen
 /// ([`launch_graphical_terminal`]). `None` attaches no gpu, which is what the refusal line needs.
+///
+/// Falsification: replayable `xtask/falsifications/swish_check.swish_check_boot.patch`
 fn swish_check_boot(
     arch: &str,
     script: &[Line],

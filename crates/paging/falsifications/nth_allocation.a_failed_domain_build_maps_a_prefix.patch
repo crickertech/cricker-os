@@ -8,8 +8,8 @@ gap device-reachable.
 Expected to fail: assertion (2), "what is left mapped is not a prefix of the request", at
 `build_identity_domain` with allocation 0 failed.
 
-Replay by hand, because `script/falsifications` sweeps Kani harnesses and kernel `#[test_case]`s
-and this is a host `#[test]`; it is reported as a known gap, not as rot:
+`script/falsifications --sweep paging` replays it, weekly and per pull request, since milestone
+742 (every test is falsified as routine). By hand, the same thing is:
 
     git apply crates/paging/falsifications/nth_allocation.a_failed_domain_build_maps_a_prefix.patch
     cargo test -p paging --test nth_allocation a_failed_domain_build_maps_a_prefix        # must fail

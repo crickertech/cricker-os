@@ -275,7 +275,7 @@ fn a_failed_map_block_leaves_nothing<F: PageFormat>(sizes: &[PageSize]) {
     }
 }
 
-/// Falsified by hand-replayable `crates/paging/falsifications/nth_allocation.a_failed_map_block_leaks_no_table.patch`
+/// Falsification: replayable `crates/paging/falsifications/nth_allocation.a_failed_map_block_leaks_no_table.patch`
 /// (unlinks the tables a failed `map_block` installed, orphaning them).
 #[test]
 fn a_failed_map_block_leaks_no_table() {
@@ -298,7 +298,7 @@ fn a_failed_map_range_leaves_a_prefix<F: PageFormat>() {
     );
 }
 
-/// Falsified by hand-replayable `crates/paging/falsifications/nth_allocation.a_failed_map_range_leaks_no_table.patch`
+/// Falsification: replayable `crates/paging/falsifications/nth_allocation.a_failed_map_range_leaks_no_table.patch`
 /// (unlinks the tables a failed `map` installed, orphaning them).
 #[test]
 fn a_failed_map_range_leaks_no_table() {
@@ -327,7 +327,7 @@ fn a_failed_map_span_leaves_a_prefix<F: PageFormat>() {
     );
 }
 
-/// Falsified by hand-replayable `crates/paging/falsifications/nth_allocation.a_failed_map_span_maps_a_prefix.patch`
+/// Falsification: replayable `crates/paging/falsifications/nth_allocation.a_failed_map_span_maps_a_prefix.patch`
 /// (skips a leaf whose tables could not be allocated and maps the rest).
 #[test]
 fn a_failed_map_span_maps_a_prefix() {
@@ -360,7 +360,7 @@ fn a_failed_domain_build_leaves_a_prefix<F: PageFormat>() {
     );
 }
 
-/// Falsified by hand-replayable `crates/paging/falsifications/nth_allocation.a_failed_domain_build_maps_a_prefix.patch`
+/// Falsification: replayable `crates/paging/falsifications/nth_allocation.a_failed_domain_build_maps_a_prefix.patch`
 /// (skips a page whose tables could not be allocated and maps the rest of the grant).
 #[test]
 fn a_failed_domain_build_maps_a_prefix() {
