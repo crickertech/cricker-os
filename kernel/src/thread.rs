@@ -497,8 +497,9 @@ pub struct Thread {
     // sender-chosen slot).
     pub cap_delivered: bool,
 
-    /// **Is the receive this thread is parked in a `RECEIVE_CAP`?** Written at each receive's park:
-    /// `true` by `ipc_receive_cap`, beside its `cap_delivered` reset, and `false` by `ipc_receive`.
+    /// **Is the receive this thread is parked in a `RECEIVE_CAP`?** `true` only between
+    /// `ipc_receive_cap`'s park, where it is set beside the `cap_delivered` reset, and that
+    /// receive's resume, where it is cleared; so a plain `RECEIVE` always parks with it `false`.
     /// A sender that meets a parked receiver reads it to decide whether a capability may be
     /// installed at all: a plain `RECEIVE` never takes one, whichever side reached the rendezvous
     /// first (§246 (a plain `RECEIVE` never takes a capability), PROVISIONAL number; calef's
