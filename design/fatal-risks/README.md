@@ -150,6 +150,8 @@ is roughly 500 runner-hours against 52 minutes today. And one convention is load
 unchecked: whether a timeout counts as a kill moves this entry two points. That rule rests on a
 hand-check of 96 timeouts in August; 206 stood on 2026-09-21.
 
+Fact, 2026-10-04: milestone 745 (count the error paths no test reaches), a provisional number, found that no test executes 586 of the host crates' 1,150 Result-family error paths (51%). 490 of them are a `?` whose error side never ran. A further 1,159 are in the kernel and services, where no coverage run reaches ([untested error paths](../../notes/untested-error-paths.md)).
+
 Fact, 2026-10-03: scheduled-workflow run
 [37108924347](https://github.com/nifeos/nife/actions/runs/37108924347) (a dispatch, milestone 636 (the scheduled workflows are failing, and nothing says so)) is the
 first complete census since 2026-09-21: 85 crates, 14,853 mutants, 13,734 viable, 1,004 missed, 255
@@ -331,6 +333,8 @@ Open security findings that bear on it, each a proposal and none yet built:
   the boot shell keeps the seven display and keyboard capabilities with `GRANT` for its whole life,
   and could map the keyboard's DMA page or take an interrupt wake; it does neither. Severity medium
   as a width, low as a reach (2026-10-03 audit, finding 10).
+
+Fact, 2026-10-04: milestone 745 (count the error paths no test reaches), a provisional number, ranked 20 unreached host-crate error paths that release or grant memory or authority. Twelve are in `paging`, and one is `subtree_scope::unbind` refusing a caller that is not the root. All 75 cleanup-after-failure paths it found are in kernel and service code no coverage run reaches ([untested error paths](../../notes/untested-error-paths.md)).
 
 ## 8. Nobody needs it
 
