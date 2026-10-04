@@ -12,4 +12,5 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Who may write the activation set: a proposal](../who-may-write-the-activation-set.md).
 - [Two boot slots, so a bad upgrade cannot brick the machine](../boot-slots.md).
 - [Packages that build the OS, and divisions that release together: the measurements](../packages-and-divisions.md).
+- [The first repository split: which preconditions hold, which cut goes first, and what basalt must be](../the-first-split.md).
 - [Installing nife onto a disk from a boot stick](../installing.md).
