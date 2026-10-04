@@ -156,6 +156,8 @@ first complete census since 2026-09-21: 85 crates, 14,853 mutants, 13,734 viable
 timeouts, 92.7% killed against 92.4% on 2026-09-21.
 [Appendix](the-mutation-verdict.md).
 
+Fact, 2026-10-03: milestone 517 (what fraction of survivor growth arrives on lines a pull request touched)'s inflow measurement ran once and is not a weekly report; between the 2026-09-21 and 2026-10-03 censuses 600 new survivors sit on lines 58 merged pull requests wrote, 364 in crates with a triage ledger section and 236 in crates with none ([inflow](../../notes/mutation-testing/inflow-2026-10-03.md)).
+
 ## 4. The architecture imposes a per-crossing cost that cannot be engineered away
 
 The claim, and calef named this one first: a capability microkernel pays on every boundary crossing,
