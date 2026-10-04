@@ -73,4 +73,31 @@ Run 37112286561 spliced two gauges into each other (`260.164 spare`) as well as 
   straddles a fix reads as a recurrence. Whoever counts next should split rows at a fix's merge time
   and say which side each falls on.
 - The `noteless` empty answer is now the only flake seen at merge-group since 342. It has its own
-  note and proposal (PR #1594), not this one.
+  note and proposal (PR #1594), not this one. Resolved by milestone 748 (the noteless launch that
+  prints nothing); see below.
+
+## The noteless empty answer, measured (2026-10-04 UTC)
+
+Lane `lane/noteless-flake-chase`. Both failing transcripts show the line typed once (the leg's
+summary counts 8 lines) and echoed twice, a gauge between the copies and the program's sentence
+after the second. That is `system_log_protocol::console::Inserter::flush`: a line end, the queued
+kernel lines, then the partial line again. The flush timer is `FLUSH_NANOS` (250 ms) in
+`components/src/system_log.rs`. Only a flush landing after the last typed character and before
+Enter leaves an exact copy; one mid-typing leaves a prefix, which the gate already read correctly.
+That is why the line was always whole.
+
+Widened window: `NIFE_SWISH_ENTER_PAUSE_MS=400 script/swish-check --arch aarch64` on patagonia,
+alternating builds, each boot bounded by `helpers/qemu-bounded.sh`.
+
+| Harness | Boots | Boots failed | Empty answers |
+| --- | --- | --- | --- |
+| without `without_redraws` | 4 | 4 | 12 (3 a boot: `echo hello world \| wc` and two `package install` lines) |
+| with it | 3 | 0 | 0, both reboot segments run |
+
+The empty answers fall on whichever lines a gauge follows, so the signature was never about
+`noteless`; after the reboot that is its first line. A unit test feeds run 37167978481's bytes
+through the gate's filter and parser: red before the fix with CI's own `""`, green after.
+
+One system-side finding, recorded in `components/src/system_log.rs`'s BUGS: the flush deadline is
+armed by the first forwarded line, not the queued one, so a queued line can be redrawn well inside
+250 ms. Cosmetic; whether it widened the CI window is unmeasured.

@@ -263,13 +263,13 @@ lacks the retry its sibling learned to need.
 
 ## The noteless signature (2026-10-04, UTC)
 
-`packages/noteless/0.1.0/noteless` answered "", wanted "noteless: installed, and carrying no
-manifest note". It evicted #1573 (docs only) from the merge queue.
+`packages/noteless/0.1.0/noteless` answered "", evicting #1573. It answered; the gate misread.
+Both runs (37167978481, 37153714653) were the first launch after the reboot, not after `package
+rollback`. A gauge waited in the console's queue mid-line, the log service's 250 ms flush fell
+between the echo of the last typed character and the echo of Enter, and the console redrew the line
+beneath the gauge (milestone 342's design). Filtered, `$ line` appeared twice and the first copy
+read as silent.
 
-Two hits in the 1000 CI runs from 2026-09-27 to 2026-10-04, both on the aarch64 leg: run
-37167978481 (merge_group, 2026-10-04 01:29, the first launch after the reboot) and run 37153714653
-(pull_request, 2026-10-03 21:09, the launch after `package rollback`). Two of 18 swish-check
-failures; the other 16 were not classified. Reruns that went green are invisible to this count.
-
-Cause unmeasured; nothing remediated. Milestone proposal:
-[the noteless launch that prints nothing](../design/roadmap/proposals/the-noteless-launch-that-prints-nothing.md).
+Fixed in the harness by `without_redraws`, milestone 748 (the noteless launch that prints nothing).
+A 400 ms pause before Enter (`NIFE_SWISH_ENTER_PAUSE_MS`) failed 4 of 4 boots without it and 0 of 3
+with it; rows in [the 2026W40 file](swish-check-flake-2026w40.md).
