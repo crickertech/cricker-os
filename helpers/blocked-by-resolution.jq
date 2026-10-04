@@ -4,14 +4,12 @@
 # Consumed by helpers/merge-drain.sh's unblocked_drafts, spliced the same way
 # helpers/queue-eligible.jq is: jq -c "$(cat helpers/blocked-by-resolution.jq)"'resolution'. The
 # split keeps the decision testable without a `gh` call: helpers/blocked-by-resolution-selftest.sh
-# checks it against fixtures, the same way helpers/queue-stranded-selftest.sh tests its own
-# predicate without touching GitHub. script/lint runs both.
+# checks it against fixtures without touching GitHub, and script/lint runs it.
 #
 # Input: {"has_label": bool, "blockers": [{"number": N, "state": "MERGED"|"CLOSED"|"OPEN"}, ...]}
 #
 # `has_label` short-circuits everything else: a draft already carrying `unblocked` is left alone
-# here (helpers/merge-drain.sh's own admission query normally filters these out first, so this
-# arm mostly guards a caller that did not; the comment marker is still the load-bearing dedupe).
+# here (the comment marker is still the load-bearing dedupe).
 #
 # Output, one of four shapes:
 #   {"status": "already-labelled"}

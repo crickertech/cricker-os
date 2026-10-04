@@ -1,0 +1,752 @@
+{
+ "data": {
+  "repository": {
+   "mergeQueue": {
+    "entries": {
+     "nodes": [
+      {
+       "enqueuedAt": "2026-10-03T02:12:50Z",
+       "state": "AWAITING_CHECKS",
+       "pullRequest": {
+        "id": "PR_3",
+        "number": 3,
+        "state": "OPEN",
+        "mergedAt": null
+       }
+      },
+      {
+       "enqueuedAt": "2026-10-03T21:10:00Z",
+       "state": "AWAITING_CHECKS",
+       "pullRequest": {
+        "id": "PR_16",
+        "number": 16,
+        "state": "OPEN",
+        "mergedAt": null
+       }
+      },
+      {
+       "enqueuedAt": "2026-10-03T22:23:57Z",
+       "state": "QUEUED",
+       "pullRequest": {
+        "id": "PR_kwDOTWyGnM8AAAABGcCjLw",
+        "number": 1555,
+        "state": "MERGED",
+        "mergedAt": "2026-10-03T22:23:57Z"
+       }
+      }
+     ]
+    }
+   },
+   "pullRequests": {
+    "nodes": [
+     {
+      "number": 1,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "4124d6390de36d200e2797616761b584e9dcd850",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T01:45:00Z",
+         "reason": "failed_checks",
+         "beforeCommit": {
+          "oid": "47d8f11eee8260aa479d3905a50900008694fef2",
+          "parents": {
+           "nodes": [
+            {
+             "oid": "b8fa3b1969897741416d96711e7dc884a52d7efd"
+            },
+            {
+             "oid": "4124d6390de36d200e2797616761b584e9dcd850"
+            }
+           ]
+          }
+         }
+        }
+       ]
+      },
+      "added": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T01:11:14Z"
+        }
+       ]
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "RemovedFromMergeQueueEvent",
+         "createdAt": "2026-10-03T01:45:00Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 2,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "cfa72e495b15d03f8c9aa219bceadf156e87ff5f",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-maintainer"
+        }
+       ]
+      },
+      "autoMergeRequest": {
+       "enabledAt": "2026-10-03T21:00:00Z"
+      },
+      "removed": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T01:45:00Z",
+         "reason": "failed_checks",
+         "beforeCommit": {
+          "oid": "47d8f11eee8260aa479d3905a50900008694fef2",
+          "parents": {
+           "nodes": [
+            {
+             "oid": "b8fa3b1969897741416d96711e7dc884a52d7efd"
+            },
+            {
+             "oid": "4124d6390de36d200e2797616761b584e9dcd850"
+            }
+           ]
+          }
+         }
+        }
+       ]
+      },
+      "added": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T01:11:14Z"
+        }
+       ]
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "RemovedFromMergeQueueEvent",
+         "createdAt": "2026-10-03T01:45:00Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 3,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "4124d6390de36d200e2797616761b584e9dcd850",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-maintainer"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T01:45:00Z",
+         "reason": "failed_checks",
+         "beforeCommit": {
+          "oid": "47d8f11eee8260aa479d3905a50900008694fef2",
+          "parents": {
+           "nodes": [
+            {
+             "oid": "b8fa3b1969897741416d96711e7dc884a52d7efd"
+            },
+            {
+             "oid": "4124d6390de36d200e2797616761b584e9dcd850"
+            }
+           ]
+          }
+         }
+        }
+       ]
+      },
+      "added": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T02:12:50Z"
+        }
+       ]
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "RemovedFromMergeQueueEvent",
+         "createdAt": "2026-10-03T01:45:00Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 4,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H4",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "CONFLICTING",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T06:16:15Z",
+         "reason": "merge_conflict",
+         "beforeCommit": null
+        }
+       ]
+      },
+      "added": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T05:54:17Z"
+        }
+       ]
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "RemovedFromMergeQueueEvent",
+         "createdAt": "2026-10-03T06:16:15Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 5,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H5",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-maintainer"
+        }
+       ]
+      },
+      "autoMergeRequest": {
+       "enabledAt": "2026-10-03T21:00:00Z"
+      },
+      "removed": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T06:16:15Z",
+         "reason": "merge_conflict",
+         "beforeCommit": null
+        }
+       ]
+      },
+      "added": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T05:54:17Z"
+        }
+       ]
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "RemovedFromMergeQueueEvent",
+         "createdAt": "2026-10-03T06:16:15Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 6,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H6",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T06:16:15Z",
+         "reason": "merge_conflict",
+         "beforeCommit": null
+        }
+       ]
+      },
+      "added": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T05:54:17Z"
+        }
+       ]
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "RemovedFromMergeQueueEvent",
+         "createdAt": "2026-10-03T06:16:15Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 7,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H7",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:47:33Z",
+         "reason": "manual",
+         "beforeCommit": null
+        }
+       ]
+      },
+      "added": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:17:19Z"
+        }
+       ]
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "RemovedFromMergeQueueEvent",
+         "createdAt": "2026-10-03T20:47:33Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 8,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H8",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-03T21:50:00Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 9,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H9",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-03T21:00:00Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 10,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H10",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-architect"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-03T21:00:00Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 11,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H11",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "Blocked-by: #20, #21",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-03T21:00:00Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 12,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H12",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "Blocked-by: #22",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-03T21:00:00Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 13,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H13",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "CONFLICTING",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": []
+      }
+     },
+     {
+      "number": 14,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H14",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "CONFLICTING",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-03T21:00:00Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 15,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": true,
+      "headRefOid": "H15",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "CONFLICTING",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-03T21:00:00Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 16,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H16",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-maintainer"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T21:10:00Z"
+        }
+       ]
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-03T21:00:00Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 17,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "4124d6390de36d200e2797616761b584e9dcd850",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T01:45:00Z",
+         "reason": "failed_checks",
+         "beforeCommit": {
+          "oid": "47d8f11eee8260aa479d3905a50900008694fef2",
+          "parents": {
+           "nodes": [
+            {
+             "oid": "b8fa3b1969897741416d96711e7dc884a52d7efd"
+            },
+            {
+             "oid": "4124d6390de36d200e2797616761b584e9dcd850"
+            }
+           ]
+          }
+         }
+        }
+       ]
+      },
+      "added": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T01:11:14Z"
+        }
+       ]
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "RemovedFromMergeQueueEvent",
+         "createdAt": "2026-10-03T01:45:00Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 18,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H18",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": {
+       "enabledAt": "2026-10-03T21:00:00Z"
+      },
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-03T21:00:00Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 19,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H19",
+      "createdAt": "2026-10-03T21:45:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": []
+      }
+     }
+    ]
+   }
+  },
+  "search": {
+   "nodes": [
+    {
+     "number": 1555,
+     "state": "MERGED",
+     "labels": {
+      "nodes": [
+       {
+        "name": "needs-maintainer"
+       }
+      ]
+     }
+    },
+    {
+     "number": 1556,
+     "state": "MERGED",
+     "labels": {
+      "nodes": [
+       {
+        "name": "needs-maintainer"
+       }
+      ]
+     }
+    }
+   ]
+  }
+ }
+}

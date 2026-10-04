@@ -14,7 +14,9 @@ The merge drain sat `disabled_manually` from about 21:40 UTC on 2026-09-30 to th
 2026-10-03. `script/cadence-check` called a workflow dead only when its last success was 15 days
 old, so on 10-03 it still called the drain live, 62 hours after its last run. The drain is what
 lands green work, so a stopped drain is a stopped merge rate (notes/coes/2026-10-03-the-merge-rate.md,
-on PR #1513's branch until it lands).
+on PR #1513's branch until it lands). Since 2026-10-03 it no longer arms anything (milestone 727 (a queue eviction goes to a maintainer session),
+provisional), and a stopped drain is a stopped detector instead: an ejected or conflicting pull
+request waits unlabelled.
 
 # THE RULE
 
@@ -165,7 +167,7 @@ def plan(rows, open_titles):
 def issue_body(name, text):
     return (
         "`%s` is not running: %s.\n\n"
-        "The merge drain is what lands green pull requests, and trunk-health is what says main is red. "
+        "The merge drain is what labels a pull request a maintainer must pick up, and trunk-health is what says main is red. "
         "While either is stopped, work waits unattended.\n\n"
         "To restart it: `gh workflow enable %s.yml` if it is disabled, or open its latest run if it "
         "is failing. This issue closes itself the next time the watcher runs.\n\n"

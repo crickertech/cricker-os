@@ -2,7 +2,7 @@
 #
 # helpers/blocked-by-resolution-selftest.sh: the draft-unblock decision, checked against fixtures.
 #
-# Companion to helpers/queue-stranded-selftest.sh in shape: the predicate in
+# Like the drain's other selftests: the predicate in
 # helpers/blocked-by-resolution.jq is checked here without a `gh` call, and script/lint runs this
 # so a change to the decision is a gate rather than a habit.
 #
