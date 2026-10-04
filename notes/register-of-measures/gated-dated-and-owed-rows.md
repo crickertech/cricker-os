@@ -51,9 +51,11 @@ no decline through 32. The instrument kept the best of three repeats. Under that
 not a number: it varied 29.4% across boots of one image.
 
 On 2026-09-19 the instrument changed to the median of 21 repeats. It also gained a page-mapping job
-and a process-creation job. So the 2026-09-16 date is a date for a different instrument, and the row
-says so. The next radon evening re-dates it. `design/fatal-risks/README.md`'s risk 4 and
-`design/decisions/96-process-kernel-or-event-kernel.md` are waiting for that result.
+and a process-creation job. Five radon boots on 2026-10-04 re-dated the row with that instrument:
+every point within 1.7% across boots, 2.62x at four tasks and 2.78x at 32, no decline
+([the evening's page](../job-mix/radon-2026-10-04.md)). That is step 7's first row in
+`notes/job-mix.md`. `design/fatal-risks/README.md`'s risk 4 takes its verdict from it, edited by
+whoever holds that file.
 
 ### The filesystem row
 

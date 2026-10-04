@@ -20,6 +20,11 @@ cost is architectural rather than a matter of tuning.
 
 ### The verdict of record
 
+Superseded 2026-10-04 (UTC): the sweep ran on radon, five boots, and matched step 7's first outcome
+in `notes/job-mix.md`. The README's risk 4 entry has the result and its caveats, and
+[the evening's page](../../notes/job-mix/radon-2026-10-04.md) has the numbers. The paragraph below is
+the 2026-09-23 state.
+
 RUN, 2026-09-23. No verdict, and one bench evening stands between here and one. This is the
 best-covered risk on the list by volume of measurement and it still has no answer, because
 everything measured so far is a single crossing and the claim is about a cost that cannot be

@@ -3,12 +3,10 @@
 *(Milestone 168 (benchmark). Names here are provisional, per
 the naming tenet; an architect names things.)*
 
-This page was written before any boot and has since been used for five. It was written on
-2026-09-04 with the board powered off; five radon boots on 2026-09-16 followed its procedure and
-produced the Results row below, and the lane that closed the instrument's two holes rewrote the
-procedure on 2026-09-19 from what that session taught. Everything else here is either about code in
-this tree, built, host-tested and rehearsed under QEMU on all three architectures, or is a question
-for the bench, marked as one.
+Written on 2026-09-04 with the board off, rewritten on 2026-09-19 after five radon boots, and
+followed by two bench evenings (Results, below). Everything else is about code in this tree, built,
+host-tested and rehearsed under QEMU on all three architectures, or is a question for the bench,
+marked as one.
 
 ## What this instrument is for, in one paragraph
 
@@ -262,11 +260,9 @@ paths that get more expensive under load, which is the attribution a risk 4 verd
 
 ## The next bench evening on radon, start to finish
 
-**What it is for.** The five boots of 2026-09-16 established the curve's shape and showed that
-`tasks=4` was not yet a number. This evening produces the first sweep whose every point is a
-number, with the two jobs that block deepest in the kernel in the mix. **Its result is what
-`design/fatal-risks/README.md`'s risk 4 gets a verdict from**, so the procedure asks for more than the
-last one did.
+**What it is for.** A sweep whose every point is a number, with the two jobs that block deepest
+in the kernel in the mix. **Its result is what `design/fatal-risks/README.md`'s risk 4 gets a
+verdict from.** First run 2026-10-04.
 
 Everything about the card, the console and U-Boot is `notes/bench-runbook.md`'s,
 `notes/visionfive2.md`'s and milestone 257's (network boot); this page does not copy it.
@@ -305,9 +301,8 @@ script/board-console --for 30m --until none --log bench/radon-$(date -u +%F)/job
 
 115200 8N1, a WCH CH343 at `/dev/cu.usbmodem*` on patagonia. `--until none` because this run ends by
 halting rather than by reaching a stage the console recognises (milestone 324): read the log for
-`job-mix: done`. The sweep itself should take under a minute on radon (about eleven seconds of
-timed windows at the old mix's rates, before the two heavier jobs; not yet measured), so most of a
-boot is U-Boot and the fetch.
+`job-mix: done`. The timed windows of the seven-job sweep sum to about 12 seconds on radon
+(2026-10-04), so most of a boot is U-Boot and the fetch.
 
 ### 3. Check the boot is the new instrument before reading any number
 
@@ -391,13 +386,11 @@ spread per point, and the census summary.
 | Date | Machine | Boots | Instrument | Census summary | jpm at 1 / 32 | Notes |
 |---|---|---|---|---|---|---|
 | 2026-09-16 | radon (4 harts, 4 MHz `rdtime`) | 5 | five-job mix, **best of 3** | 32 tasks and 2 servers over 4 cores, 6 to 10 threads a core | 319,013 to 319,072 / 1,032,586 to 1,060,264 | shape solid (1.96x at 2 tasks, plateau past 8, no decline at 32); `tasks=4` spread 29.4% across boots, so **not a number**. Transcripts `bench/radon-2026-09-16/jobmix-boot*.log`; the per-point table is milestone 168's block |
+| 2026-10-04 | radon, `04a8f9e6c` | 5 | seven-job mix, median of 21 | 34 threads over 4 cores; boot 5 placed differently, read the same | 323,951 to 324,033 / 897,375 to 901,122 | every point a number (widest spread 1.67%, `tasks=4` 1.12%); 2.62x at 4 tasks, rising to 2.78x at 32, no decline. Step 7's first row. Transcripts `bench/radon-2026-10-04/jobmix-boot*.log` |
 
-**A reading the new statistic changes, recorded before any new boot.** The 2026-09-16 `tasks=2`
-repeats are **bimodal**: five near 98,000 ticks and ten near 111,000, across the five boots. The best
-of three reported the fast mode on every boot, which is where "1.96x at 2 tasks, nearly free" came
-from. The median of the same fifteen samples is in the slow mode, which would read about 1.73x. So
-the first seven-job evening may well show a less generous `tasks=2` than the old table, and that is
-the statistic being honest about the old one rather than the kernel getting slower.
+The 2026-10-04 evening, read in step 6's order with its step 7 judgement, is
+[its own page](job-mix/radon-2026-10-04.md). It checked this page's prediction that the median would
+read about 1.73x at two tasks where the best of three had read 1.96x: it read 1.76x.
 
 ## A cross-check on the Apple cores, attempted 2026-09-19, and why it did not run
 
@@ -450,6 +443,11 @@ path rather than the whole kernel.
   margin reads as wedged when it is merely slow. `--quiet-after 0` is the escape and it gives up the
   detection. A heartbeat in the supervisor is the real fix and is a kernel change; milestone 324's
   block records it as follow-on.
+- The trap slows when more cores are busy, and nothing here says why. On radon (2026-10-04)
+  `null_syscall`'s `per_job` went from 108 ticks at one task to 202 at four while `compute` grew
+  6%, then 17% more by 32. That saturating shape is not the stack-footprint one, but it is a
+  per-crossing cost under load. The `IPC_TABLES` acquisition counter in
+  `notes/ipc-tables-lock-inventory.md`'s `BUGS`, read against this job, would name it.
 - There is no committed baseline and no `--check`. `script/bench` gates because its icount counts
   are deterministic; a sweep whose entire subject is scheduling under contention is not, on any
   accelerator this tree has. A gate here would be asserting a tolerance nobody has measured.
