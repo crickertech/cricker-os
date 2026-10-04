@@ -182,11 +182,15 @@ faster bench session, not an unattended one.**
 - Firmware half done. calef ticked `Enable UEFI Network Stack` and set Integrated NIC to
   `Enabled w/PXE`. Recorded in the table in `notes/xenon-firmware.md`; photos owed, so no IMG
   numbers are cited yet.
-- Router edit remains, and is in calef's homelab agent's hands, via
-  `xenon-pxe-spec-2026-10-04.md` (reserve `.138` for patagonia's Wi-Fi MAC, add the four PXE lines).
-  Not done as of this record.
-- One photographed power cycle remains, with `script/board-netboot` serving, after the router
-  edit is confirmed. That is the proof; this milestone is not BUILT until it exists.
+- Router edit done (calef's homelab agent, 2026-10-04): the four lines are in the router's
+  `/etc/dnsmasq.conf` inside a BEGIN/END xenon-pxe block, which the GL.iNet UI does not regenerate and
+  firmware upgrades preserve. Server address confirmed `192.168.8.138`, reserved by UCI entry
+  `patagonia-wifi`. Backup `/root/pxe-xenon-backup-2026-10-04.tgz`; rollback:
+  `ssh root@192.168.8.1 'tar -xzf /root/pxe-xenon-backup-2026-10-04.tgz -C / && /etc/init.d/dnsmasq restart'`.
+  `dnsmasq --test` passes, other clients' offers are unchanged, patagonia kept `.138` on reconnect.
+- One photographed power cycle remains, with `script/board-netboot` serving; it is the only thing
+  left. Check `ssh root@192.168.8.1 'logread | grep -i d8:9e:f3:74:b2:a2'` during it (dnsmasq logs no
+  boot filename unless `log-dhcp` is on). Not BUILT until it exists.
 
 ## BUGS
 
@@ -201,9 +205,10 @@ faster bench session, not an unattended one.**
 - The `dhcp-boot` server address is patagonia's current lease, and a lease that moves makes xenon
   TFTP into nothing with no console to say so. That happened on 2026-10-04 (UTC): patagonia was
   at `192.168.8.138` on Wi-Fi `en0` (MAC `10:9f:41:d4:8c:0e`), not the `.216` this block recorded, and
-  the config is corrected to `.138`. The pin is a router-side reservation for that Wi-Fi MAC (the
-  earlier guess, an ethernet MAC, was wrong), requested in a spec for calef's homelab agent and
-  not yet confirmed done. Until it is, `.138` is a lease and can move again.
+  the config is corrected to `.138`. The pin is now in place, but it is bound to macOS's private
+  Wi-Fi address `9e:1a:a1:57:40:a6`, not the hardware MAC, and matches only while patagonia's Private
+  Wi-Fi Address for the home network is Fixed or Off. Set to Rotating, the reservation silently stops
+  matching and `.138` can move again.
 - The transfer rate is a loopback number and is not a LAN number. 9,210,880 bytes in 1.40s
   (6,429 KiB/s) is python talking to itself through a synthetic ethernet with no cable, no switch
   and no loss. radon's real measurement over TFTP on this LAN was 428 KiB/s, and nobody has measured

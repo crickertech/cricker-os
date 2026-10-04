@@ -658,10 +658,10 @@ admin password is set.
 
 ### Step 2: the router, once
 
-`bench/xenon-netboot/dnsmasq.conf` is the whole of it, with the reason for every line beside it.
-Set `dhcp-boot` to patagonia's actual address first (`.138` on 2026-10-04, corrected from `.216`), then apply it.
+`bench/xenon-netboot/dnsmasq.conf` is the whole of it, each line explained.
+`dhcp-boot` names patagonia at `.138` (reserved 2026-10-04; was `.216`).
 
-On OpenWRT, through UCI, which is the form that survives a reboot:
+On OpenWRT, through UCI (survives a reboot):
 
 ```console
 # uci add dhcp host
