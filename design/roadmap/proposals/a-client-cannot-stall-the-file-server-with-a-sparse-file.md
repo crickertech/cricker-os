@@ -36,8 +36,8 @@ the `BUGS` section of `Server::truncate`.
 3. **Bound the work per request** and make a long shrink resumable. Most general, most machinery.
 
 Recommendation, not measured: option 1, with option 2 as the interim if the divergence is refused.
-`MAX_FILE_END`'s `BUGS` section proposes the other vendored fix (a level-4 constant) for the same
-pin, so the two divergences could land together.
+#1606 (`lane/redoxfs-level4`) takes the other vendored fix this lane found, a level-4 constant, as
+a divergence of the same pin.
 
 ## Proof condition: BUILT when
 

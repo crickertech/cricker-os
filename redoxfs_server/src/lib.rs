@@ -87,15 +87,15 @@ use crate::memo::Memo;
 ///
 /// # BUGS
 ///
-/// **This bound stands in for an upstream defect we have not patched.** `redoxfs::NodeLevel::new`
-/// admits `12 * 256^4` level-4 records where `NodeLevelData::level4` holds 8 pointers, so a record
-/// offset in that band indexes past the array and the engine panics, which in this server is a dead
-/// server (found by the `redoxfs_server_session` fuzz target, 2026-10-04 UTC). The fix at the root is
-/// `12` to `8` in `vendor/redoxfs/src/node.rs`, a sixth pin divergence (`vendor/README.md`), and
-/// upstreamable; a divergence is re-applied on every pin bump and the five so far were calef's calls,
-/// so this lane bounds the server instead and proposes the divergence. The bound is conservative: a
-/// file with 8 KiB records (every file this build creates) could address twice this, and no image
-/// this system serves comes within a factor of a million of either.
+/// **This bound was written for an upstream defect.** `redoxfs::NodeLevel::new` admitted
+/// `12 * 256^4` level-4 records where `NodeLevelData::level4` holds 8 pointers, so a record offset
+/// in that band indexed past the array and the engine panicked, which in this server is a dead
+/// server (found by the `redoxfs_server_session` fuzz target, 2026-10-04 UTC). The root fix, `12`
+/// to `8` in `vendor/redoxfs/src/node.rs`, is a pin divergence taken by #1606
+/// (`lane/redoxfs-level4`); this bound is kept beside it because it answers `EFBIG` at the
+/// boundary rather than an engine `ERANGE` deep in a transaction. It is conservative: a file with
+/// 8 KiB records (every file this build creates) could address twice this, and no image this
+/// system serves comes within a factor of a million of either.
 pub const MAX_FILE_END: u64 =
     (128 + 64 * 256 + 32 * 256 * 256 + 16 * 256 * 256 * 256 + 8 * 256 * 256 * 256 * 256)
         * BLOCK as u64;

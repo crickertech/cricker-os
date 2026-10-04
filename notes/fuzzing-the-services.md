@@ -65,8 +65,7 @@ Four real defects, all in `redoxfs_server`, each with a host test that fails wit
    the inline-data path then sliced backwards. Found in about three minutes. Refused with `EFBIG`.
 3. A file end past the engine's node tree killed the server. Upstream's `NodeLevel::new` admits
    twelve level-4 entries where the node holds eight. Found after about 400,000 sessions. The server
-   bounds a file at `MAX_FILE_END` with `EFBIG`; the vendored fix is proposed in that constant's
-   `BUGS` section, because a pin divergence is calef's call.
+   bounds a file at `MAX_FILE_END` with `EFBIG`; the vendored fix is #1606 (`lane/redoxfs-level4`).
 4. Shrinking a huge sparse file stalls the server, walking every record pointer in between. Not
    fixed: recorded in `Server::truncate`'s `BUGS` section and proposed as
    `design/roadmap/proposals/a-client-cannot-stall-the-file-server-with-a-sparse-file.md`. The

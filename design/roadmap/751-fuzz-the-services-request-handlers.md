@@ -51,7 +51,7 @@ Three defects that killed or escaped the file server, each fixed in `redoxfs_ser
 test that fails without the fix. A grant's root could be closed and its slot reused, so a bound
 badge's `ROOT` named an object outside its grant. A write whose end wrapped 64 bits panicked the
 engine. A file end past the engine's node tree panicked it; the server now bounds it at
-`MAX_FILE_END`, and the vendored fix is proposed in that constant's `BUGS`. A fourth, a stall from shrinking a huge sparse
+`MAX_FILE_END`, and #1606 takes the vendored fix. A fourth, a stall from shrinking a huge sparse
 file, is recorded and proposed rather than fixed.
 
 ## Follow-on
@@ -59,11 +59,11 @@ file, is recorded and proposed rather than fixed.
 - **Outstanding.** Proof condition 4, the CI `fuzz` job's wall time with these targets, read from
   the first merge-group runs after this lands. Checked on 2026-10-04 (UTC): none has run, because
   the branch had not merged.
-- **Recorded.** Three limitations, each where a reader meets it. The level-4 `NodeLevel::new`
-  constant, as a sixth RedoxFS pin divergence, is in `MAX_FILE_END`'s `BUGS` section
-  (`redoxfs_server/src/lib.rs`), beside `Server::truncate`'s sparse-file stall, which is also
-  proposed as
-  `design/roadmap/proposals/a-client-cannot-stall-the-file-server-with-a-sparse-file.md`. A host
+- **Done.** The level-4 `NodeLevel::new` constant, as a RedoxFS pin divergence, is #1606
+  (`lane/redoxfs-level4`).
+- **Proposed.** The sparse-file stall in `Server::truncate`'s `BUGS` section, as
+  `design/roadmap/proposals/a-client-cannot-stall-the-file-server-with-a-sparse-file.md`.
+- **Recorded.** A host
   part for `net_stack` and the caretakers is in their `BUGS` sections
   (`components/src/net_stack.rs`).
 
