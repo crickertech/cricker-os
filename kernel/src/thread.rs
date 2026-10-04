@@ -437,23 +437,23 @@ pub struct Thread {
     /// (`sched::reap_switched_out`) takes the stack out under `IPC_TABLES` and drops it after
     /// releasing the lock, because freeing it is six page unmaps, each with a TLB shootdown that
     /// on riscv64 and x86_64 is a synchronous round of inter-processor interrupts, and every other
-    /// core's IPC and syscalls waited behind it. [`Thread::stack_being_freed`] is what keeps the
-    /// thread from looking gone while that happens.
+    /// core's IPC and syscalls waited behind it. [`Thread::being_reaped`] is what keeps the thread
+    /// from looking gone while that happens.
     #[allow(dead_code)]
     pub stack: Option<KernelStack>,
 
-    /// **This thread's kernel stack has been taken out and is being freed, without `IPC_TABLES`
-    /// held** (2026-10-04; name provisional). Set by the reaper between taking the stack and
-    /// removing the thread, and the thread stays in the table, `Finished`, the whole time.
+    /// **This thread's kernel stack and address space have been taken out and are being freed,
+    /// without `IPC_TABLES` held** (2026-10-04; name provisional). Set by the reaper between taking
+    /// them and removing the thread, and the thread stays in the table, `Finished`, the whole time.
     ///
     /// Region teardown reads it as "a core is still standing on this stack": `DESTROY` refuses the
     /// region passively and the owner's retry succeeds once the reaper has removed the thread. That
     /// ordering is the point. An owner that sees `DESTROY` succeed may spend the memory at once (the
-    /// job mix's `spawn` job builds its next child immediately), so the dead child's kernel stack
-    /// must be back before the child stops occupying the region; letting the reaper remove the
-    /// thread first and free the stack afterwards ran QEMU's job mix out of kernel memory within
-    /// a subrun (notes/job-mix/null-syscall-under-load.md).
-    pub stack_being_freed: bool,
+    /// job mix's `spawn` job builds its next child immediately), so everything the dead thread held
+    /// must be back before it stops occupying the region. Removing the thread first and freeing
+    /// the stack afterwards ran QEMU's job mix out of kernel memory within a subrun
+    /// (notes/job-mix/null-syscall-under-load.md).
+    pub being_reaped: bool,
 
     /// The low half of memory, as far as this thread is concerned. `None` for a kernel thread,
     /// which has no business at a low address at all.
@@ -733,7 +733,7 @@ impl Thread {
             outgoing_cap: None,
             cap_delivered: false,
             ipc_refused: false,
-            stack_being_freed: false,
+            being_reaped: false,
             next: None,
             entry: (0, 0), // a kernel thread; never enters EL0 by this path
             start_args: [0; 3],
@@ -773,7 +773,7 @@ impl Thread {
             outgoing_cap: None,
             cap_delivered: false,
             ipc_refused: false,
-            stack_being_freed: false,
+            being_reaped: false,
             next: None,
             entry: (0, 0), // a kernel thread; never enters EL0 by this path
             start_args: [0; 3],
@@ -917,7 +917,7 @@ impl Thread {
                 outgoing_cap: None,
                 cap_delivered: false,
                 ipc_refused: false,
-                stack_being_freed: false,
+                being_reaped: false,
                 next: None,
                 entry: (0, 0), // a kernel thread; becomes a user process via exec, not this path
                 start_args: [0; 3],
@@ -955,7 +955,7 @@ impl Thread {
             outgoing_cap: None,
             cap_delivered: false,
             ipc_refused: false,
-            stack_being_freed: false,
+            being_reaped: false,
             next: None,
             entry: (0, 0),
             start_args: [0; 3],

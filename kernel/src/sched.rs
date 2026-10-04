@@ -2563,24 +2563,29 @@ pub(crate) fn finish_switch() {
 /// **Two short critical sections with the expensive part between them**, since 2026-10-04.
 ///
 /// 1. Under the caller's `IPC_TABLES` guard: take the thread's kernel stack and its address space
-///    out, and mark it [`stack_being_freed`](crate::thread::Thread::stack_being_freed). It stays in
-///    the table, `Finished`, so its name still resolves and region teardown still refuses it.
-/// 2. With no lock held: free the stack. That is six page unmaps, each discharging its TLB
-///    obligation; on riscv64 every one is an SBI remote fence that interrupts every other hart and
-///    waits for them, and on x86_64 an NMI shootdown round. Until 2026-10-04 all of it ran under
-///    `IPC_TABLES`, so every IPC and every capability lookup on every other core waited behind a
-///    thread exiting anywhere. The job mix measured it as the cheapest syscall nearly doubling in
-///    cost once four cores were busy (notes/job-mix/null-syscall-under-load.md).
+///    out, and mark it [`being_reaped`](crate::thread::Thread::being_reaped). It stays in the
+///    table, `Finished`, so its name still resolves and region teardown still refuses it.
+/// 2. With no lock held: free the stack, then the address space. The stack is six page unmaps,
+///    each discharging its TLB obligation; on riscv64 every one is an SBI remote fence that
+///    interrupts every other hart and waits for them, and on x86_64 an NMI shootdown round. Until
+///    2026-10-04 the stack was freed under `IPC_TABLES`, so every IPC and every capability lookup
+///    on every other core waited behind a thread exiting anywhere. The job mix measured it as the
+///    cheapest syscall nearly doubling in cost once four cores were busy
+///    (notes/job-mix/null-syscall-under-load.md). The address space could never be dropped under
+///    the lock: its teardown is `memory_region::destroy` (milestone 14 (kernel objects from
+///    untyped) phase B.4), whose §13 revocation sweep takes `IPC_TABLES` itself.
 /// 3. Under `IPC_TABLES` again: remove the thread. Only now does it stop occupying its region.
 ///
-/// The address space is still hoisted out and dropped last, for its own older reason: its teardown
-/// is `memory_region::destroy` (milestone 14 (kernel objects from untyped) phase B.4), whose §13
-/// revocation sweep takes `IPC_TABLES` itself, so dropping it under the lock would deadlock on our
-/// own lock. The rest of the `Thread` (its quota token, its capability table) still drops under
-/// the lock in step 3.
+/// **Everything the thread owned is gone before step 3, and that order is the point.** Region
+/// teardown (`reclaim_region`) relies on a bound space having died with its thread ("Bound spaces
+/// need no step here"), and an owner whose `DESTROY` succeeds may reuse the memory at once. Before
+/// 2026-10-04 the space was dropped just after the thread was removed, so a `DESTROY` on another
+/// core could reclaim the region in between, while the space's page tables (in that region) and
+/// its revocation-database entries were still live. The rest of the `Thread` (its quota token, its
+/// capability table) still drops under the lock in step 3.
 ///
 /// Nothing else removes a `Finished` thread between steps 1 and 3: the only other remover is region
-/// teardown, and `region_reap_verdict` refuses a thread whose stack is being freed.
+/// teardown, and `region_reap_verdict` refuses a thread that is being reaped.
 #[cold]
 #[inline(never)]
 fn reap_switched_out(mut guard: crate::sync::IrqSafeGuard<'_, Option<IpcTables>>, prev: ThreadId) {
@@ -2589,7 +2594,7 @@ fn reap_switched_out(mut guard: crate::sync::IrqSafeGuard<'_, Option<IpcTables>>
     };
     let (space, stack) = match sched.threads.get_mut(prev) {
         Some(t) => {
-            t.stack_being_freed = true;
+            t.being_reaped = true;
             (t.space.take(), t.stack.take())
         }
         None => return,
@@ -2601,18 +2606,16 @@ fn reap_switched_out(mut guard: crate::sync::IrqSafeGuard<'_, Option<IpcTables>>
     drop(stack);
     #[cfg(feature = "lock_wait")]
     crate::lock_wait::stack_freed(crate::arch::timer::now() - t0);
-
-    {
-        let mut guard = IPC_TABLES.lock();
-        if let Some(sched) = guard.as_mut() {
-            #[cfg(feature = "lock_wait")]
-            let t0 = crate::arch::timer::now();
-            sched.threads.remove(prev);
-            #[cfg(feature = "lock_wait")]
-            crate::lock_wait::reaped(crate::arch::timer::now() - t0);
-        }
-    }
     drop(space);
+
+    let mut guard = IPC_TABLES.lock();
+    if let Some(sched) = guard.as_mut() {
+        #[cfg(feature = "lock_wait")]
+        let t0 = crate::arch::timer::now();
+        sched.threads.remove(prev);
+        #[cfg(feature = "lock_wait")]
+        crate::lock_wait::reaped(crate::arch::timer::now() - t0);
+    }
 }
 
 /// intid -> rendezvous id + 1 (0 means "not routed"). A hardware interrupt, delivered as a
@@ -4585,10 +4588,10 @@ enum RegionReap {
 /// See notes/stack/kernel-stack-freed-under-its-owner.md.
 ///
 /// `standing` is `on_cpu`, or'd since 2026-10-04 with
-/// [`stack_being_freed`](crate::thread::Thread::stack_being_freed): a thread whose kernel stack the
+/// [`being_reaped`](crate::thread::Thread::being_reaped): a thread whose stack and address space the
 /// reaper is freeing outside `IPC_TABLES` is refused the same passive way, for a different reason
 /// with the same shape (the condition clears by itself, and reaping the thread now would let its
-/// owner spend memory the dying stack has not given back yet).
+/// owner reuse memory the dying thread has not given back yet).
 fn region_reap_verdict(state: State, standing: bool) -> RegionReap {
     if matches!(state, State::Ready | State::Running) {
         RegionReap::RefuseAndArm
@@ -4822,10 +4825,8 @@ fn reap_region_objects(base: u64, end: u64) -> Result<(), ()> {
                 let phys = crate::arch::mmu::virt_to_phys(&raw const **t as u64);
                 base <= phys
                     && phys < end
-                    && region_reap_verdict(
-                        t.handshake.state,
-                        t.handshake.on_cpu || t.stack_being_freed,
-                    ) == RegionReap::FinishInPlace
+                    && region_reap_verdict(t.handshake.state, t.handshake.on_cpu || t.being_reaped)
+                        == RegionReap::FinishInPlace
             })
             .map(|t| t.id);
         let Some(tid) = doomed else { break };
@@ -4883,7 +4884,7 @@ fn reap_region_objects(base: u64, end: u64) -> Result<(), ()> {
         if !(base <= phys && phys < end) {
             continue;
         }
-        match region_reap_verdict(t.handshake.state, t.handshake.on_cpu || t.stack_being_freed) {
+        match region_reap_verdict(t.handshake.state, t.handshake.on_cpu || t.being_reaped) {
             RegionReap::RefuseAndArm => {
                 t.killed = true;
                 live = true;
