@@ -40,7 +40,7 @@ The census, run on `1a145fcaa`:
 
 That last point decides part (b). The three confinement defects found on 2026-10-03 were all in
 `kernel/src/sched.rs`: a plain `SEND` delivering badge 0 (#1494), a plain `SEND` handing a
-`RECV_CAP` receiver a sender-chosen slot (milestone 634 (a plain SEND received by RECV_CAP never hands the receiver a sender-chosen slot)), and a staged `outgoing_cap` surviving a
+`RECEIVE_CAP` receiver a sender-chosen slot (milestone 634 (a plain SEND received by RECEIVE_CAP never hands the receiver a sender-chosen slot)), and a staged `outgoing_cap` surviving a
 plain `RECV` (#1525). None was in the proven crates.
 
 ## (a) Host fuzz targets for the services' request handlers
@@ -147,7 +147,7 @@ semihosting exit and the icount determinism conventions". Any snapshot design in
 4. Recommended: an in-guest seeded driver with a shadow model, HYPER-CUBE's shape. One EL0 system
    test program holds a small endowment (two rendezvous, a notification, a timer, a memory region,
    a child thread). From a seed, it issues a random sequence of `SYS_INVOKE`, `SYS_CAP_DELETE`,
-   `SEND_CAP` and `RECV_CAP` with random slots, methods and arguments. It predicts each result from
+   `SEND_CAP` and `RECEIVE_CAP` with random slots, methods and arguments. It predicts each result from
    a model of its own table: rights, badges, consumed Replies. Witness threads endowed with nothing
    assert that they receive nothing and that every badge they see is the one their sender's
    capability carries. A kernel panic ends the run through semihosting as any test does.
