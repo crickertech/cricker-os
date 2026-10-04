@@ -83,6 +83,7 @@ filesystem_protocol = { path = "../crates/filesystem_protocol" }
 system_log = { path = "../crates/system_log" }
 system_log_protocol = { path = "../crates/system_log_protocol" }
 byte_sink_protocol = { path = "../crates/byte_sink_protocol" }
+compositor = { path = "../crates/compositor" }
 
 # **Overflow checks and debug assertions ON in an optimised build**, which is not cargo-fuzz's
 # default profile text but is what its CLI already does. Stated here so the profile is true whatever
@@ -142,6 +143,13 @@ bench = false
 [[bin]]
 name = "system_log_session"
 path = "fuzz_targets/system_log_session.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "compositor_session"
+path = "fuzz_targets/compositor_session.rs"
 test = false
 doc = false
 bench = false
