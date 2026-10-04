@@ -41,6 +41,11 @@ decision on #1564 (2026-10-03 UTC): "Approve the revised decision 3."
 - Clippy and the checks that call `cargo metadata` wait for CI. The `cargo metadata` ones are fast
   and could run here; the rule is "does not invoke cargo" because that is what calef approved.
 
+## Follow-on
+
+- **Recorded.** Clippy and the `cargo metadata` checks waiting for CI is the BUGS entry above, beside
+  the feature in `notes/scripts.md`.
+
 ## Index row
 
 The pre-push hook runs `script/fmt --check`, then every lint check that does not invoke cargo
