@@ -45,6 +45,27 @@ const IMAGE: usize = 4 * 1024 * 1024;
 /// Requests per session after the prologue. Long enough to bind, mint, close and reuse a slot.
 const MAX_REQUESTS: usize = 48;
 
+/// **The largest end a session lets a file reach, below the server's own refusal.** A recorded
+/// limitation, not a rule: shrinking a file costs time linear in its logical size (the `BUGS`
+/// section of `Server::truncate`), so a session that grew a file to terabytes would time out on
+/// every run and hide everything after it. A `WRITE` end or `TRUNCATE` size between this and
+/// `MAX_FILE_END` is folded below it; past `MAX_FILE_END` it is sent as drawn, so the `EFBIG`
+/// refusals stay exercised. Drop this when the proposal that `BUGS` entry names is built.
+const SPARSE_LIMIT: u64 = 64 << 20;
+
+fn sparse(code: u64, len: usize, w1: u64) -> u64 {
+    let end = match code {
+        fs::WRITE => w1.saturating_add(len as u64),
+        fs::TRUNCATE => w1,
+        _ => return w1,
+    };
+    if end > SPARSE_LIMIT && end <= redoxfs_server::MAX_FILE_END {
+        w1 % SPARSE_LIMIT
+    } else {
+        w1
+    }
+}
+
 /// Markers, each filled through a whole file. Eight bytes, so any read of fifteen or more bytes of
 /// the file contains one whole, and a session's writes (a single repeated byte) cannot spell one.
 const MARK_ROOT: &[u8] = b"ROOTONLY";
@@ -284,7 +305,11 @@ impl Session {
             _ => (u.int_in_range(0..=64)?, small),
         };
         let w1 = if u.ratio(1, 64)? { u.arbitrary()? } else { w1 };
-        Ok((badge, fs::req(code, handle, len as u64), w1))
+        Ok((
+            badge,
+            fs::req(code, handle, len as u64),
+            sparse(code, len, w1),
+        ))
     }
 
     /// Send one request through the dispatch, check the rules, and update the model.

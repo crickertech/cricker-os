@@ -435,6 +435,19 @@ impl<D: Disk> Server<D> {
     /// torn or dropped write to check, so that is a design claim and not a measurement. Truncate and
     /// create are the first verbs that change a file's *shape* rather than its bytes, which makes them
     /// the most interesting cases for milestone 37 to attack.
+    ///
+    /// # BUGS
+    ///
+    /// **Shrinking a file costs time linear in its logical size, sparse or not**, and this server
+    /// answers one request at a time, so any client holding a writable handle (a confined one
+    /// included, inside its own grant) can stall every other client with two requests: grow a file
+    /// to near [`MAX_FILE_END`], which is cheap because the engine writes no zero records, then
+    /// shrink it, which walks every record pointer in between. The same walk runs when such a file's
+    /// last name and handle go. Found by the `redoxfs_server_session` fuzz target as a ten-second
+    /// timeout (2026-10-04 UTC); not fixed here, because the two fixes are a pin divergence (skip a
+    /// null subtree in `truncate_node_inner`) or a semantics choice (refuse a sparse size past the
+    /// image), and both are an architect's. Proposed as
+    /// `design/roadmap/proposals/a-client-cannot-stall-the-file-server-with-a-sparse-file.md`.
     pub fn truncate(&mut self, handle: u32, size: u64) -> Result<()> {
         // A truncate carries no bytes, so a guard that only covered `write` would leave a way to
         // destroy a file just as thoroughly. It takes the same right and answers the same word.
