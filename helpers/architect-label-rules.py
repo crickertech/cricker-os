@@ -18,7 +18,10 @@ against literal fixture strings, no repository and no subprocess required, cheap
     python3 helpers/architect-label-rules.py --selftest        # fixtures; script/lint runs this
     git diff --unified=1000000 BASE HEAD | python3 helpers/architect-label-rules.py
         # prints one "rule: file: line" per match on stdout, exits 0 if anything fired, 1 if
-        # nothing did, 2 on a usage error. Nothing here reads BASE/HEAD; a caller diffs first.
+        # nothing did, 2 on a usage error, 3 if it crashed. Nothing here reads BASE/HEAD; a caller
+        # diffs first. A crash is 3 rather than Python's own 1 so that it can never read as
+        # "nothing fired" (milestone 641 (a mechanism that reports clean says over how many units,
+        # and zero is loud), provisional): the workflow routes 2 and 3 to a person.
 
 # The five rules (the brief's wording; this file is the one place that has to agree with it)
 
@@ -823,4 +826,9 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1:]))
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        sys.exit(3)

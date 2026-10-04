@@ -300,6 +300,12 @@ for cells in table(lines, CADENCE_HDR, index_path):
                         f"would fire forever and one that is not a number cannot fire at all")
         continue
     cadence[kind] = dict(zip(COUNTS + ["weeks"], (int(n) for n in nums)))
+# A cadence table with its header and no rows would make `--due` examine no kind and print "none
+# due", which reads exactly like a tree with nothing owed (milestone 641 (a mechanism that reports
+# clean says over how many units, and zero is loud), provisional).
+if not cadence:
+    problems.append("the cadence table has no rows, so --due would examine no kind of audit and "
+                    "report that none is due")
 
 audits = []
 for cells in table(lines, INDEX_HDR, index_path):
