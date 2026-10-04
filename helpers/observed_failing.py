@@ -38,8 +38,9 @@ in its summary) the label applied or the finding reported.
 
 **`never` is accepted only for a workflow this tree already had when the rule landed**, and that is
 derived from git rather than written in the record: the file's earliest commit, following renames,
-must be on or before `CUTOFF`. A new workflow therefore cannot ship with `never`; it ships with a
-run. That is the rung-two half. A clone too shallow to answer is refused rather than guessed at.
+must be an ancestor of `CUTOFF_COMMIT`. A new workflow therefore cannot ship with `never`, on any
+branch however old; it ships with a run. That is the rung-two half. A clone too shallow to answer is
+refused rather than guessed at.
 
 A file with both an observation and a `never` contradicts itself and fails.
 
@@ -53,8 +54,6 @@ A file with both an observation and a `never` contradicts itself and fails.
   one of them. A job added to an existing workflow, or a failure arm added to an existing step,
   inherits the file's record and carries no claim of its own. The milestone asks for the second;
   nothing here can tell a new arm from an edited line.
-- **The cutoff is a date, not a list.** A workflow added on a branch cut before `CUTOFF` and merged
-  after it would still be allowed `never`. Its window closes as those branches land.
 - **Whether the cited run failed for the right reason is a reading, not a check.** `--verify-runs`
   shows the conclusion; a red run that died on infrastructure (`ci-failing.yml`'s first run, on a
   `jq` argument limit) looks the same as one that caught its defect. The record's prose is where
@@ -66,13 +65,14 @@ import os
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 
 WORKFLOW_DIR = ".github/workflows"
-# The day milestone 640 was asked for (calef, 2026-10-04 UTC). Inclusive: a workflow first
-# committed on this day may still say `never`. Provisional, like the rest of the milestone.
+# `main` as milestone 640's lane found it (2026-10-04, about 19:30 UTC; the rule was asked for that
+# day). A commit rather than a date, so a workflow added on a branch cut earlier and merged later is
+# still new: its first commit is not an ancestor of this one, whatever its timestamp says.
+CUTOFF_COMMIT = "4c9cae0a99e90e88163f74db6417981de0820b05"
 CUTOFF = "2026-10-04"
-CUTOFF_END = datetime(2026, 10, 5, tzinfo=timezone.utc).timestamp()
 
 RECORD = re.compile(r"^#\s*Observed failing:\s*(.*)$")
 OBSERVED_RUN = re.compile(r"^(\d{4}-\d{2}-\d{2}), run (\d+)\b(.*)$")
@@ -118,10 +118,10 @@ def parse(text):
     return observed, never, errors
 
 
-def judge(name, text, first_commit_epoch):
+def judge(name, text, predates):
     """Return a list of failure messages for one workflow. Empty means it passes.
 
-    `first_commit_epoch` is the file's earliest commit time, or None if it has none.
+    `predates` is whether the tree already had this file at `CUTOFF_COMMIT`.
     """
     observed, never, errors = parse(text)
     out = [f"{name}: {e}" for e in errors]
@@ -133,20 +133,25 @@ def judge(name, text, first_commit_epoch):
     if observed and never:
         out.append(f"{name}: says both that it was watched failing and that it never was")
     if never and not observed:
-        if first_commit_epoch is None or first_commit_epoch >= CUTOFF_END:
+        if not predates:
             out.append(
-                f"{name}: `never` is only for a workflow the tree had by {CUTOFF}; this one is "
-                "newer, so it ships with a run that watched it fail"
+                f"{name}: `never` is only for a workflow main already had at {CUTOFF_COMMIT[:9]} "
+                f"({CUTOFF}); this one is newer, so it ships with a run that watched it fail"
             )
     return out
 
 
-def first_commit_epoch(path):
+def predates(path):
+    """Whether the file's first commit, following renames, is an ancestor of CUTOFF_COMMIT."""
     out = subprocess.run(
-        ["git", "log", "--follow", "--format=%ct", "--", path],
+        ["git", "log", "--follow", "--format=%H", "--", path],
         capture_output=True, text=True, check=True,
     ).stdout.split()
-    return int(out[-1]) if out else None
+    if not out:
+        return False  # uncommitted: new by definition
+    return subprocess.run(
+        ["git", "merge-base", "--is-ancestor", out[-1], CUTOFF_COMMIT], capture_output=True
+    ).returncode == 0
 
 
 def workflows():
@@ -165,6 +170,11 @@ def lint():
             file=sys.stderr,
         )
         return 1
+    if subprocess.run(["git", "cat-file", "-e", CUTOFF_COMMIT + "^{commit}"],
+                      capture_output=True).returncode != 0:
+        print(f"observed-failing: {CUTOFF_COMMIT} is not in this clone, so `never` cannot be judged",
+              file=sys.stderr)
+        return 1
     paths = workflows()
     if not paths:
         # Zero is loud: a rename of the directory must not turn this into a pass over nothing.
@@ -178,11 +188,11 @@ def lint():
         observed, never, _ = parse(text)
         seen += bool(observed)
         unwatched += bool(never and not observed)
-        failures += judge(p, text, first_commit_epoch(p))
+        failures += judge(p, text, predates(p))
     for msg in failures:
         print(msg, file=sys.stderr)
     print(f"observed-failing: {len(paths)} workflows, {seen} watched failing, "
-          f"{unwatched} never (each older than {CUTOFF})")
+          f"{unwatched} never (each on main by {CUTOFF}, at {CUTOFF_COMMIT[:9]})")
     return 1 if failures else 0
 
 
@@ -225,7 +235,7 @@ def verify_runs():
 
 
 def selftest():
-    old, new = 1_700_000_000, CUTOFF_END + 1
+    old, new = True, False
     run = "# Observed failing: 2026-10-04, run 123: went red on a stale record.\n"
     cases = [
         # (name, text, first commit, should pass)
@@ -234,7 +244,6 @@ def selftest():
         ("old never", "# Observed failing: never. Nobody has; a stub gh would stage it.\n", old, True),
         ("no record", "name: x\non: push\n", old, False),
         ("new never", "# Observed failing: never. Not yet.\n", new, False),
-        ("uncommitted never", "# Observed failing: never. Not yet.\n", None, False),
         ("never, no reason", "# Observed failing: never.\n", old, False),
         ("run, no account", "# Observed failing: 2026-10-04, run 123\n", new, False),
         ("bad date", "# Observed failing: 2026-13-40, run 1: x\n", new, False),
@@ -242,7 +251,7 @@ def selftest():
         ("both", run + "# Observed failing: never. x\n", old, False),
         ("indented is not a record", "jobs:\n  # Observed failing: never. x\n", old, False),
     ]
-    wrong = [name for name, text, epoch, ok in cases if (not judge(name, text, epoch)) != ok]
+    wrong = [name for name, text, had_it, ok in cases if (not judge(name, text, had_it)) != ok]
     if wrong:
         print(f"observed-failing selftest: wrong verdict on {wrong}", file=sys.stderr)
         return 1

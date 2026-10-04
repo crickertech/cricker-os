@@ -3039,8 +3039,8 @@ python3 helpers/job-budget.py --selftest >/dev/null
 python3 helpers/job-budget.py lint
 # Milestone 640 (a gate is not evidence until somebody has watched it fail), provisional: every
 # workflow cites a run where it went red (or fired) for the reason it exists, or says `never`, and
-# only a workflow the tree had by 2026-10-04 may say `never`, which is read from git rather than
-# from the record. The weekly falsification sweep and the COE labeller both shipped unexercised and
+# only a workflow main already had when this landed (2026-10-04) may say `never`, which is read from
+# git ancestry rather than from the record. The weekly falsification sweep and the COE labeller both shipped unexercised and
 # both reported success over nothing. Fixtures first, for the reason the falsification ratchet's
 # run first. See helpers/observed_failing.py and notes/observed-failing.md.
 echo "==> every workflow records the run it was watched failing in"

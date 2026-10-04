@@ -1,7 +1,7 @@
 # A workflow records the run it was watched failing in
 
 *Name provisional, as are `helpers/observed_failing.py`, the `Observed failing:` spelling and the
-cutoff date. Milestone 640 (a gate is not evidence until somebody has watched it fail), number
+cutoff commit. Milestone 640 (a gate is not evidence until somebody has watched it fail), number
 provisional until the queue lands it.*
 
 A new gate ships against a tree where its defect is absent, so its first result is green. Green is
@@ -35,10 +35,11 @@ Two other shapes are accepted:
 
 - `<date>, by script: ...` is for a workflow whose real failure cannot be staged. It names what was
   broken on purpose and what ran against it, and says why a real run was not possible.
-- `never. <reason>` says nobody has watched it fail. It is accepted only for a workflow the tree
-  already had on 2026-10-04, when the rule landed. The helper reads that age from git, following
-  renames, rather than from the record. A new workflow cannot say `never`, and a clone too shallow
-  to answer is refused.
+- `never. <reason>` says nobody has watched it fail. It is accepted only for a workflow `main`
+  already had at `4c9cae0a9` (2026-10-04, the commit this milestone's lane was cut from). The helper
+  reads that from git, following renames, rather than from the record. The test is ancestry, not a
+  timestamp, so an old branch cannot slip a new workflow through. A clone too shallow to answer is
+  refused.
 
 The record lives in the workflow's own header, beside the reasoning already there. That is rung three
 of the ladder: the next person to touch the file is already reading it. The gate that requires it is
@@ -59,7 +60,7 @@ rung two. Nothing keeps a list of which workflows have been watched; `--list` de
 
 ```console
 $ helpers/observed_failing.py
-observed-failing: 20 workflows, 15 watched failing, 5 never (each older than 2026-10-04)
+observed-failing: 20 workflows, 15 watched failing, 5 never (each on main by 2026-10-04, at 4c9cae0a9)
 
 $ helpers/observed_failing.py --list | head -3
 architect-hold.yml               2026-10-04 run 37226530740
@@ -110,7 +111,5 @@ pass either and fail the other.
   `verify.yml`'s about its `re-falsify` leg. A failure arm added to an existing step inherits its
   file's record, though the milestone asks for a fresh observation then. Nothing here can tell a new
   arm from an edited line.
-- The cutoff is a date. A workflow added on a branch cut before it and merged after can still say
-  `never`, until those branches drain.
 - Whether a red run was red for the right reason is a reading, stated in the record's prose. No check
   can tell a gate catching its defect from a runner falling over.
