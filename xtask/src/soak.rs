@@ -76,12 +76,22 @@ pub(crate) fn job_mix_sweep() -> ExitCode {
     // is aarch64 on an Apple host only, and release is what `script/board-image` builds for radon,
     // so the cross-check runs the optimisation level the board does.
     let mut hvf = false;
+    // `--lock-wait` (2026-10-04, fatal risk 4; provisional): build `--features lock_wait`, the job
+    // mix plus kernel/src/lock_wait.rs's count of contended lock acquisitions, which prints
+    // `job-mix-lock:` lines after each point. The kernel feature's name, hyphenated the way this
+    // script's flags are.
+    let mut lock_wait = false;
 
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
             "--hvf" => {
                 hvf = true;
+                i += 1;
+                continue;
+            }
+            "--lock-wait" => {
+                lock_wait = true;
                 i += 1;
                 continue;
             }
@@ -193,7 +203,7 @@ pub(crate) fn job_mix_sweep() -> ExitCode {
         "-p",
         "kernel",
         "--features",
-        "job_mix",
+        if lock_wait { "lock_wait" } else { "job_mix" },
         "--target",
         target,
     ]) {

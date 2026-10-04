@@ -52,11 +52,24 @@ loom-checked; the wake-before-switch-out race is the standing proof that SMP int
 from this tree's other tools). Until the curve bends, the one lock is the right design, on
 purpose.
 
+## What the first measurement found (2026-10-04)
+
+The table above classifies by call path, and a call path's temperature is not its hold time. The
+first measurement of who holds `IPC_TABLES` longest was taken under QEMU, the job mix at four tasks.
+The worst holder was `finish_switch`, and not for its own work: it reaped dead threads under the
+lock, and freeing a thread's kernel stack is six TLB shootdowns that interrupt every core. `start_thread_control_block`, filed as cold, built a stack under the lock too.
+Both now do that work outside it, and the hold time left is the IPC path's own, spread across
+`schedule`, `CALL`, `REPLY` and `current_cap`. The lesson for this table: a cold function that runs
+a cross-core operation under the global lock is hot for everyone else.
+[`job-mix/null-syscall-under-load.md`](job-mix/null-syscall-under-load.md) has the numbers.
+
 ## BUGS
 
-- The temperature classification is by reading call paths, not by counting acquisitions. A
-  test-build acquisition counter on `IPC_TABLES` would turn this table into numbers for one evening of
-  work; it was not built here because the interesting contention only exists on hardware this
-  project cannot rent until milestone 88's boot path lands.
+- The temperature classification is by reading call paths, not by counting acquisitions. Since
+  2026-10-04 there is a counter, though not the per-acquisition one this entry asked for.
+  `--features lock_wait` (kernel/src/lock_wait.rs) counts every *contended* acquisition per lock
+  rank and its spin time, in the job mix's timed windows, and reads no clock on an uncontended one. A per-site hold-time table would turn the rows above into numbers; one was built for QEMU
+  and not committed, because reading the clock on every acquisition may itself be expensive on
+  radon. The contention that matters at scale still needs milestone 88's hardware.
 - `kernel/src/sched.rs` line numbers drift; the inventory is by function name on purpose. Re-grep
   before trusting the count of 41.

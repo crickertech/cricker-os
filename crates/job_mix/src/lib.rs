@@ -283,6 +283,22 @@ pub const CENSUS: &str = "job-mix-census:";
 /// that true rather than hoped. Name provisional (2026-09-19), the same standing as the six above.
 pub const KIND: &str = "job-mix-kind:";
 
+/// **How long one sweep point's threads waited for kernel locks**, summed over every core and every
+/// repeat at that point, timed windows only. Two shapes, after the [`KIND`] lines:
+///
+/// - `job-mix-lock: tasks=<n> rank=<r> name=<word or -> contended=<c> wait_ticks=<w>`, one per lock
+///   rank that was ever found held;
+/// - `job-mix-lock: tasks=<n> site=reap reaps=<r> stack_free_ticks=<f> remove_ticks=<m>`, the
+///   reaper: threads reaped, time freeing their kernel stacks (no lock held), and time its last
+///   critical section held `IPC_TABLES`;
+/// - `job-mix-lock: tasks=<n> site=current_cap calls=<c> contended=<k> wait_ticks=<w>`, the one
+///   lock the cheapest syscall takes: every call, and the ones that found it held.
+///
+/// Printed only by a kernel built with `--features lock_wait` (2026-10-04, for fatal risk 4's
+/// `null_syscall` question; notes/job-mix/null-syscall-under-load.md). Its own word for [`CENSUS`]'s reason. Name
+/// provisional (2026-10-04), the same standing as the seven above.
+pub const LOCK: &str = "job-mix-lock:";
+
 /// A compute-bound arithmetic loop, [`COMPUTE_ITERS`] iterations. No syscall.
 pub const COMPUTE: u8 = 0;
 /// A walk over [`TOUCH_WORDS`] words of the task's own memory, read and written. No syscall.

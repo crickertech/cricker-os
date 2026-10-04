@@ -7,6 +7,7 @@
 #   script/job-mix --release                # the optimisation level script/board-image builds
 #   script/job-mix --hvf --release --smp 4  # the Apple cores (aarch64); refused until milestone 227
 #   script/job-mix --for 20m                # a slower host, or a debug build under TCG
+#   script/job-mix --lock-wait              # ...and count contended kernel locks per point (2026-10-04)
 #   script/job-mix --quiet-after 0          # a host so slow a subrun outlasts the wedge timer
 #
 # `design/decisions/96-process-kernel-or-event-kernel.md` asks whether this kernel should keep a
