@@ -26,11 +26,17 @@ against literal fixture strings, no repository and no subprocess required, cheap
    Detected as any changed `pub const NAME: <int type> = ...` line under that path. Broad on
    purpose: `crates/abi/src/lib.rs` also declares rights bitflags and the register convention's
    constants the same way, so this also fires on those (see BUGS). A false positive there costs a
-   human one look; a syscall number landing unlabelled costs more.
-2. **dependency**: an external dependency entered a `Cargo.toml`'s dependency graph. Computed as a
-   set difference (external deps at head minus external deps at base) per file, not a line match,
-   so a bare version bump of an already-external dependency does NOT fire and a `path = ` entry
-   never counts (see BUGS for what "external" cannot see: a multi-line inline table).
+   human one look; a syscall number landing unlabelled costs more. A removed `pub const A: T = V`
+   paired with an added `pub const B: T = V` (same type, same value) is a rename and does not fire;
+   a changed value, an added constant with no removed partner, and a deleted one still do.
+2. **dependency**: a (name, version requirement) entered a `Cargo.toml` that the base tree does not
+   already have. Computed per file as head's external deps minus base's, then dropped if the pair
+   is in any manifest at the base revision (vendored ones included) or the name is locked in any
+   base `Cargo.lock` at a version the requirement admits. So a dep already in the graph at that
+   version does not fire (#1597), a features-only change does not, a `path = ` entry never counts,
+   and a dep moved to a version nothing at the base uses DOES fire. The base comes from
+   `--base-rev REV`; without it nothing is known and every changed dependency fires. See BUGS for
+   what "external" cannot see: a multi-line inline table.
 3. **format-crate**: a version constant, magic value, or documented on-disk layout moved in a crate
    that is classified, from its own head content, as a format crate: it declares a `pub const`
    ending in `VERSION` or `MAGIC`, or its module doc carries a markdown table with a `version`
@@ -38,13 +44,39 @@ against literal fixture strings, no repository and no subprocess required, cheap
    same file, which is where a layout diagram lives (`crates/nifefs`'s "# The layout" is the model).
 4. **spawnproto**: a `pub const` changed in a file named `spawnproto.rs` (the wire layout
    `crates/grant_plan/src/spawnproto.rs` documents; matched by filename rather than the one path in
-   the tree today, so a second one elsewhere is still caught).
+   the tree today, so a second one elsewhere is still caught). Same-value renames pair off as in
+   rule 1.
 5. **decisions**: `CLAUDE.md` changed at all, or a `design/decisions/*.md` file (excluding the
    generated `README.md`) changed OUTSIDE its YAML frontmatter block (the first `---`-delimited
    section). A frontmatter-only edit (a status flip, a date) is provenance, not the decision's
    substance, and does not fire; see the frontmatter shape in any decision file's first lines.
 
+# Measured rate, 2026-10-04 UTC
+
+The bot's own comments on the 70 most recent PRs labelled `needs-architect` or `architect-ruled`
+(one count per PR per rule; "true" means a new or changed wire value, syscall number, dependency new
+to the graph, or a decisions edit):
+
+    rule          true  false  the false ones
+    abi-surface      2      1  #1584 rename, value unchanged
+    dependency       1      1  #1597 redox_syscall 0.9.0, already in three manifests
+    format-crate     2      7  `//!` prose in a format crate (#1289 #1369 #1374 #1443 #1511 #1527), a diagram (#1584)
+    spawnproto       3      3  #1377 #1419 #1421: IMAGE_MAX_PAGES, not in those PRs' diffs (not reproduced)
+    decisions       23      0  by definition; about 7 are link or rename sweeps (#1369 #1371 #1374 #1427 #1510 #1527 #1289)
+
+Narrowed on this evidence: rules 1, 2 and 4 (above). Not narrowed: format-crate (its prose
+false positives are the largest count but telling a layout edit from prose by text is a guess that
+can miss a real one) and decisions (a sweep is still an edit to a ratified record).
+
 # BUGS
+
+- **Renames pair by one-line value text.** `pub const A: u64 = 1;` against `pub const B: u64 = 1;`
+  pairs; a `const` whose initializer spans lines, or whose type differs, never does (it fires). A
+  pair of unrelated constants that swap to each other's spelling at equal values would pass; that is
+  a rename by definition.
+- **Rule 2's lock test is caret-only.** A requirement with a comma, operator or wildcard is never
+  matched against a lockfile (it fires unless an identical manifest entry exists).
+- **format-crate fires on any `//!` line in a classified crate** (7 false of 9 above).
 
 - **Rule 2 assumes a dependency's TOML value is one line.** Every `Cargo.toml` in this tree writes
   dependencies as `name = "..."`, `name = { version = "...", path = "..." }`, or similar, entirely
@@ -69,6 +101,7 @@ entry-point rule even though it ends in `.py`, matching `helpers/handoff-check.p
 is a standalone CLI, not a module another script imports.
 """
 import re
+import subprocess
 import sys
 
 # ---- parsing a `git diff --unified=<huge>` into one whole-file view per path -------------------
@@ -137,13 +170,49 @@ ABI_CONST_RE = re.compile(
     r'^\s*pub const [A-Za-z_][A-Za-z0-9_]*\s*:\s*(u8|u16|u32|u64|usize|i8|i16|i32|i64|isize)\b')
 
 
+CONST_DECL_RE = re.compile(r'^\s*pub const ([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^=]+?)\s*=\s*(.*)$')
+
+
+def unpaired_const_changes(fd, const_re):
+    """Changed `pub const` lines (matching `const_re`) left over after pairing renames.
+
+    A removed `pub const A: T = V` and an added `pub const B: T = V` in the same file, same type and
+    same value text, is a rename: the number on the wire did not move (§88's concern), only its
+    spelling did, and a spelling is an architect's call that a rename PR has usually already carried
+    (#1584). Each removed line pairs with at most one added line. What stays unpaired still fires: a
+    changed value (the pair's value differs), an added constant with no removed partner, and a
+    removed constant with no added partner (a deleted number is a surface change too). The value
+    text is compared after dropping a trailing `;` and `//` comment, and a multi-line initializer
+    never pairs (its line has no closing `;`), so it fires as before.
+    """
+    removed, added = [], []
+    for prefix, line in changed_lines(fd):
+        if not const_re.match(line):
+            continue
+        m = CONST_DECL_RE.match(line)
+        key = None
+        if m:
+            value = re.sub(r'\s*//.*$', '', m.group(3)).rstrip()
+            if value.endswith(';'):  # a one-line initializer; a multi-line one never pairs
+                key = (m.group(2).strip(), value[:-1].rstrip())
+        (removed if prefix == '-' else added).append((key, line))
+    left = []
+    for key, line in added:
+        hit = next((i for i, (rk, _l) in enumerate(removed) if key is not None and rk == key), None)
+        if hit is None:
+            left.append(line)
+        else:
+            removed.pop(hit)
+    left.extend(line for _k, line in removed)
+    return left
+
+
 def rule_abi_surface(fd, out):
     if not (fd['path'].startswith('crates/abi/') and fd['path'].endswith('.rs')):
         return
-    for _prefix, line in changed_lines(fd):
-        if ABI_CONST_RE.match(line):
-            out.append(('abi-surface', fd['path'], line.strip()))
-            return  # one citation per file is enough for a label; the comment names the file
+    left = unpaired_const_changes(fd, ABI_CONST_RE)
+    if left:
+        out.append(('abi-surface', fd['path'], left[0].strip()))  # one citation per file
 
 
 # ---- rule 2: an external dependency entered a Cargo.toml -----------------------------------------
@@ -152,10 +221,16 @@ SECTION_RE = re.compile(r'^\[(.+)\]$')
 DEP_KEY_RE = re.compile(r'^([A-Za-z0-9_.-]+)\s*=\s*(.*)$')
 
 
-def toml_external_deps(lines):
-    """{dep_name} present in a dependency section, on one line, with no `path = ` on that line.
+VERSION_RE = re.compile(r'\bversion\s*=\s*"([^"]*)"')
+BARE_REQ_RE = re.compile(r'^"([^"]*)"')
 
-    See the module docstring's BUGS entry for what a multi-line inline table does to this.
+
+def toml_external_deps(lines):
+    """{(dep_name, requirement)} in a dependency section, on one line, with no `path = ` on it.
+
+    The requirement is the `version = "..."` string (or the bare `name = "..."` string); a dep with
+    neither (a git or `workspace = true` entry) uses its whole value text, so a changed rev still
+    reads as a change. See the module docstring's BUGS entry for what a multi-line inline table does.
     """
     external = set()
     in_deps = False
@@ -173,16 +248,88 @@ def toml_external_deps(lines):
         name, rest = km.group(1), km.group(2)
         if 'path' in rest:
             continue  # `path = "../crates/x"` somewhere in the value: an in-tree dependency
-        external.add(name)
+        vm = BARE_REQ_RE.match(rest) or VERSION_RE.search(rest)
+        external.add((name, vm.group(1) if vm else rest.strip()))
     return external
 
 
-def rule_dependency(fd, out):
+def lock_versions(text):
+    """{name: {version, ...}} from one Cargo.lock's `[[package]]` blocks."""
+    out, name = {}, None
+    for line in text.splitlines():
+        if line.startswith('name = '):
+            name = line.split('"')[1]
+        elif line.startswith('version = ') and name is not None:
+            out.setdefault(name, set()).add(line.split('"')[1])
+            name = None
+    return out
+
+
+def req_matches(req, version):
+    """Does a plain caret-style requirement (`1.2`, `^0.9.0`, `=0.4.1`, `~1.2`) admit `version`?
+
+    Anything with a comma, comparison operator or wildcard answers False: the tool then fires, which
+    is the direction it is allowed to be wrong in.
+    """
+    r = req.strip().lstrip('^~=').strip()
+    if not re.fullmatch(r'\d+(\.\d+){0,2}', r):
+        return False
+    rp = [int(x) for x in r.split('.')]
+    vp = [int(x) for x in re.split(r'[.+-]', version)[:3]]
+    if len(vp) < 3 or len(rp) > len(vp):
+        return False
+    if req.strip().startswith('='):
+        return rp == vp[:len(rp)]
+    if vp[:len(rp)] < rp:
+        return False  # the locked version is older than the requirement
+    # Caret: the leftmost nonzero requirement component (or the last given one) must match.
+    lead = next((i for i, x in enumerate(rp) if x != 0), len(rp) - 1)
+    return vp[:lead + 1] == rp[:lead + 1]
+
+
+class KnownDeps:
+    """What the base tree already depends on: every non-path (name, requirement) in any manifest,
+    and every (name, version) in any Cargo.lock. Empty by default, which makes rule 2 fire on any
+    dependency the diff touches (the pre-narrowing behaviour, minus a pure features change)."""
+
+    def __init__(self, manifests=(), locks=()):
+        self.pairs = set()
+        for text in manifests:
+            self.pairs |= toml_external_deps(text.splitlines())
+        self.locked = {}
+        for text in locks:
+            for name, vs in lock_versions(text).items():
+                self.locked.setdefault(name, set()).update(vs)
+
+    def has(self, name, req):
+        if (name, req) in self.pairs:
+            return True
+        return any(req_matches(req, v) for v in self.locked.get(name, ()))
+
+
+def known_deps_from_git(rev):
+    """KnownDeps for every Cargo.toml / Cargo.lock at `rev` (vendored ones included).
+
+    The one place this tool runs `git`, and only when the caller names a base with --base-rev;
+    the selftest builds KnownDeps from literal strings instead.
+    """
+    names = subprocess.run(['git', 'ls-tree', '-r', '--name-only', rev], check=True,
+                           capture_output=True, text=True).stdout.splitlines()
+    def show(path):
+        return subprocess.run(['git', 'show', f'{rev}:{path}'], check=True,
+                              capture_output=True, text=True).stdout
+    return KnownDeps(
+        manifests=[show(n) for n in names if n.endswith('Cargo.toml')],
+        locks=[show(n) for n in names if n.endswith('Cargo.lock')])
+
+
+def rule_dependency(fd, out, known):
     if not fd['path'].endswith('Cargo.toml'):
         return
-    added = toml_external_deps(head_lines(fd)) - toml_external_deps(base_lines(fd))
-    for name in sorted(added):
-        out.append(('dependency', fd['path'], name))
+    changed = toml_external_deps(head_lines(fd)) - toml_external_deps(base_lines(fd))
+    for name, req in sorted(changed):
+        if not known.has(name, req):
+            out.append(('dependency', fd['path'], f'{name} {req}'))
 
 
 # ---- rule 3: a format crate's version, magic or documented layout --------------------------------
@@ -218,10 +365,9 @@ SPAWNPROTO_CONST_RE = re.compile(r'^\s*pub const \w+\s*:')
 def rule_spawnproto(fd, out):
     if not fd['path'].endswith('spawnproto.rs'):
         return
-    for _prefix, line in changed_lines(fd):
-        if SPAWNPROTO_CONST_RE.match(line):
-            out.append(('spawnproto', fd['path'], line.strip()))
-            return
+    left = unpaired_const_changes(fd, SPAWNPROTO_CONST_RE)
+    if left:
+        out.append(('spawnproto', fd['path'], left[0].strip()))
 
 
 # ---- rule 5: CLAUDE.md and design/decisions/*.md (outside frontmatter) ---------------------------
@@ -250,15 +396,17 @@ def rule_decisions(fd, out):
             return
 
 
-RULES = (rule_abi_surface, rule_dependency, rule_format_crate, rule_spawnproto, rule_decisions)
+RULES = (rule_abi_surface, rule_format_crate, rule_spawnproto, rule_decisions)
 
 
-def evaluate(diff_text):
+def evaluate(diff_text, known=None):
     """The diff text -> [(rule, path, detail), ...], one entry per file per rule that fired."""
+    known = known if known is not None else KnownDeps()
     out = []
     for fd in parse_diff(diff_text):
         for rule in RULES:
             rule(fd, out)
+        rule_dependency(fd, out, known)
     return out
 
 
@@ -268,6 +416,12 @@ def evaluate(diff_text):
 # (each fixture is deliberately small, well under any real file's line count, so the "one hunk holds
 # the whole file" property the docstring argues for holds trivially here too). Each names the rule
 # it is meant to prove, or `None` for a negative case that must stay quiet.
+
+# What the fixtures' pretend base tree already depends on (one manifest, one lock).
+KNOWN_BASE = KnownDeps(
+    manifests=['[dependencies]\nredox_syscall = { version = "0.9.0", default-features = false }\n'
+               'getrandom = "0.4"\n'],
+    locks=['[[package]]\nname = "libc"\nversion = "0.2.150"\n'])
 
 FIXTURES = [
     ("abi: a new object type constant fires", """\
@@ -301,6 +455,79 @@ diff --git a/crates/other/src/lib.rs b/crates/other/src/lib.rs
 +pub const NEW_THING: u64 = 2;
 """, None),
 
+    ("abi: a rename with the same type and value stays quiet", """\
+diff --git a/crates/abi/src/lib.rs b/crates/abi/src/lib.rs
+--- a/crates/abi/src/lib.rs
++++ b/crates/abi/src/lib.rs
+@@ -1,3 +1,3 @@
+ pub mod method {
+-    pub const RECV: u64 = 1;
++    pub const RECEIVE: u64 = 1;
+ }
+""", None),
+
+    ("abi: a renamed constant whose value also changed fires", """\
+diff --git a/crates/abi/src/lib.rs b/crates/abi/src/lib.rs
+--- a/crates/abi/src/lib.rs
++++ b/crates/abi/src/lib.rs
+@@ -1,3 +1,3 @@
+ pub mod method {
+-    pub const RECV: u64 = 1;
++    pub const RECEIVE: u64 = 2;
+ }
+""", 'abi-surface'),
+
+    ("abi: a changed value under the same name fires", """\
+diff --git a/crates/abi/src/lib.rs b/crates/abi/src/lib.rs
+--- a/crates/abi/src/lib.rs
++++ b/crates/abi/src/lib.rs
+@@ -1,3 +1,3 @@
+ pub mod method {
+-    pub const SEND: u64 = 0;
++    pub const SEND: u64 = 9;
+ }
+""", 'abi-surface'),
+
+    ("abi: a rename paired with an extra added constant still fires for the extra", """\
+diff --git a/crates/abi/src/lib.rs b/crates/abi/src/lib.rs
+--- a/crates/abi/src/lib.rs
++++ b/crates/abi/src/lib.rs
+@@ -1,3 +1,4 @@
+ pub mod method {
+-    pub const RECV: u64 = 1;
++    pub const RECEIVE: u64 = 1;
++    pub const POLL: u64 = 1;
+ }
+""", 'abi-surface'),
+
+    ("abi: a removed constant with no added partner fires", """\
+diff --git a/crates/abi/src/lib.rs b/crates/abi/src/lib.rs
+--- a/crates/abi/src/lib.rs
++++ b/crates/abi/src/lib.rs
+@@ -1,3 +1,2 @@
+ pub mod method {
+-    pub const RECV: u64 = 1;
+ }
+""", 'abi-surface'),
+
+    ("spawnproto: a rename with the same value stays quiet", """\
+diff --git a/crates/grant_plan/src/spawnproto.rs b/crates/grant_plan/src/spawnproto.rs
+--- a/crates/grant_plan/src/spawnproto.rs
++++ b/crates/grant_plan/src/spawnproto.rs
+@@ -1,1 +1,1 @@
+-pub const RUN_UNVOUCHED_SLOT: u64 = 22;
++pub const RUN_UNVOUCHED_ENDPOINT_SLOT: u64 = 22;
+""", None),
+
+    ("spawnproto: a new wire value with no removed partner fires", """\
+diff --git a/crates/grant_plan/src/spawnproto.rs b/crates/grant_plan/src/spawnproto.rs
+--- a/crates/grant_plan/src/spawnproto.rs
++++ b/crates/grant_plan/src/spawnproto.rs
+@@ -1,1 +1,2 @@
+ pub const SPAWN_DISPLAY: u64 = u64::MAX - 3;
++pub const SPAWN_NO_DISPLAY: u64 = u64::MAX - 4;
+""", 'spawnproto'),
+
     ("dependency: a brand-new external crate fires", """\
 diff --git a/entropy_backend/Cargo.toml b/entropy_backend/Cargo.toml
 --- a/entropy_backend/Cargo.toml
@@ -320,7 +547,7 @@ diff --git a/kernel/Cargo.toml b/kernel/Cargo.toml
 +calendar = { version = "0.1.0", path = "../crates/calendar" }
 """, None),
 
-    ("dependency: a version bump of an already-external dep stays quiet", """\
+    ("dependency: an existing dep moved to a version nothing in the base uses fires", """\
 diff --git a/entropy_backend/Cargo.toml b/entropy_backend/Cargo.toml
 --- a/entropy_backend/Cargo.toml
 +++ b/entropy_backend/Cargo.toml
@@ -328,7 +555,53 @@ diff --git a/entropy_backend/Cargo.toml b/entropy_backend/Cargo.toml
  [dependencies]
 -getrandom = "0.4"
 +getrandom = "0.5"
-""", None),
+""", 'dependency', KNOWN_BASE),
+
+    ("dependency: an existing dep at a version the base already uses stays quiet", """\
+diff --git a/fuzz/Cargo.toml b/fuzz/Cargo.toml
+--- a/fuzz/Cargo.toml
++++ b/fuzz/Cargo.toml
+@@ -1,2 +1,3 @@
+ [dependencies]
++redox_syscall = { version = "0.9.0", default-features = false }
+""", None, KNOWN_BASE),
+
+    ("dependency: a crate the base lock holds at a compatible version stays quiet", """\
+diff --git a/fuzz/Cargo.toml b/fuzz/Cargo.toml
+--- a/fuzz/Cargo.toml
++++ b/fuzz/Cargo.toml
+@@ -1,2 +1,3 @@
+ [dependencies]
++libc = "0.2"
+""", None, KNOWN_BASE),
+
+    ("dependency: a crate the base lock holds only at an incompatible version fires", """\
+diff --git a/fuzz/Cargo.toml b/fuzz/Cargo.toml
+--- a/fuzz/Cargo.toml
++++ b/fuzz/Cargo.toml
+@@ -1,2 +1,3 @@
+ [dependencies]
++libc = "0.3"
+""", 'dependency', KNOWN_BASE),
+
+    ("dependency: a crate absent from every base manifest and lock fires", """\
+diff --git a/fuzz/Cargo.toml b/fuzz/Cargo.toml
+--- a/fuzz/Cargo.toml
++++ b/fuzz/Cargo.toml
+@@ -1,2 +1,3 @@
+ [dependencies]
++brand_new = "1.0"
+""", 'dependency', KNOWN_BASE),
+
+    ("dependency: a features-only change to a known dep stays quiet", """\
+diff --git a/fuzz/Cargo.toml b/fuzz/Cargo.toml
+--- a/fuzz/Cargo.toml
++++ b/fuzz/Cargo.toml
+@@ -1,2 +1,2 @@
+ [dependencies]
+-redox_syscall = { version = "0.9.0" }
++redox_syscall = { version = "0.9.0", features = ["std"] }
+""", None, KNOWN_BASE),
 
     ("dependency: a target-specific dependency section is still read", """\
 diff --git a/kernel/Cargo.toml b/kernel/Cargo.toml
@@ -463,8 +736,8 @@ diff --git a/design/naming.md b/design/naming.md
 
 def selftest():
     bad = []
-    for name, diff_text, want_rule in FIXTURES:
-        got = evaluate(diff_text)
+    for name, diff_text, want_rule, *rest in FIXTURES:
+        got = evaluate(diff_text, rest[0] if rest else None)
         got_rules = {r for r, _p, _d in got}
         ok = (want_rule in got_rules) if want_rule else (not got_rules)
         print(f"  {'ok  ' if ok else 'FAIL'}  {name}")
@@ -483,6 +756,7 @@ def selftest():
 USAGE = (
     "usage: python3 helpers/architect-label-rules.py [--selftest]\n"
     "  --selftest   run the fixtures above; no stdin, no git, no repository\n"
+    "  --base-rev REV   with a diff on stdin: rule 2 skips a dependency REV already has\n"
     "  (no args)    read a unified diff on stdin, print each rule that fired, "
     "exit 0 if any did"
 )
@@ -491,11 +765,14 @@ USAGE = (
 def main(argv):
     if argv and argv[0] == '--selftest':
         return selftest()
-    if argv:
+    known = None
+    if len(argv) == 2 and argv[0] == '--base-rev':
+        known = known_deps_from_git(argv[1])
+    elif argv:
         print(USAGE, file=sys.stderr)
         return 2
     diff_text = sys.stdin.read()
-    matches = evaluate(diff_text)
+    matches = evaluate(diff_text, known)
     for rule, path, detail in matches:
         print(f"{rule}: {path}: {detail}")
     return 0 if matches else 1

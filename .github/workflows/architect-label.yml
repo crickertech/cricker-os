@@ -151,7 +151,7 @@ jobs:
           fi
           echo "architect-label: diffing merge-base $base (origin/${{ github.event.pull_request.base.ref }})..HEAD"
           report="$(git diff --unified=1000000 "$base" HEAD | \
-              python3 helpers/architect-label-rules.py || true)"
+              python3 helpers/architect-label-rules.py --base-rev "$base" || true)"
           if [ -n "$report" ]; then
             echo "architect-label: fired:"
             printf '%s\n' "$report" | sed 's/^/  /'
