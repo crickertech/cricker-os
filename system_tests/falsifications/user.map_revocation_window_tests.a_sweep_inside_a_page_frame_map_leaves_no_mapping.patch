@@ -1,0 +1,39 @@
+Falsifies `system_tests::user::map_revocation_window_tests::a_sweep_inside_a_page_frame_map_leaves_no_mapping`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect is the tree as it stood until 2026-10-04 (UTC): the patch puts `PageFrame::MAP` back to
+reading its frame in a critical section of its own, before the seam, and taking the mapping
+registry only afterwards to map and record. The sweep held at the seam deletes the capability and
+scans a log the mapping is not yet in, and the mapping is recorded after it, alive.
+
+This was the live tree, not an invented break. The revocation-race lane recorded it reasoned at
+`syscall::page_frame_map` on 2026-10-04; this test drove it red on aarch64 under both
+`PageFrame::REVOKE` and `MemoryRegion::DESTROY` before the fix existed.
+
+Expected to fail: `assert!(!REPORT.mapped.load(..), "a PageFrame::MAP held while a {sweep:?} ran kept its mapping ...")`, on the `Revoke` round.
+Replayed red on riscv64 on 2026-10-04 (UTC) against the fixed tree, at
+`map_revocation_window_tests.rs:215`, the assertion predicted.
+
+**The assertions above the headline stay green under this patch**: the seam was reached, and the
+sweep reached the mapper's own table, so the red means the claim rather than the fixture.
+
+Nothing here is architecture-specific: the syscall layer, the sweeps and the seam are portable
+code, so one patch serves every leg.
+
+diff --git a/kernel/src/syscall.rs b/kernel/src/syscall.rs
+index 98f833e7c..6554b1b7e 100644
+--- a/kernel/src/syscall.rs
++++ b/kernel/src/syscall.rs
+@@ -1039,10 +1039,10 @@ fn address_space_map_into(
+ /// would have found.
+ #[inline(never)]
+ fn page_frame_map(slot: u64, va: u64, writable: u64, ut_slot: u64) -> Result<i64, Error> {
++    let frame = sched::current_cap(slot).map_err(|_| Error::NoSuchSlot)?;
+     #[cfg(feature = "system_tests")]
+     crate::delegation_pause::here(); // no lock held
+     let mut hold = crate::revoke::hold();
+-    let frame = hold.current_cap(slot).map_err(|_| Error::NoSuchSlot)?;
+     let Object::PageFrame(phys, count) = frame.object else {
+         return Err(Error::NoSuchSlot);
+     };

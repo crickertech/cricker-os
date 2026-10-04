@@ -1,0 +1,39 @@
+Falsifies `system_tests::user::map_revocation_window_tests::a_sweep_inside_a_map_into_leaves_no_mapping`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect is the tree as it stood until 2026-10-04 (UTC): the patch puts `AddressSpace::MAP_INTO`
+back to reading its frame with `sched::current_cap` before the seam, outside the mapping registry,
+and mapping and recording only afterwards. The sweep held at the seam deletes the capability and
+scans a log the mapping is not yet in, and the mapping is recorded after it, alive.
+
+This was the live tree, not an invented break. The revocation-race lane recorded it reasoned on
+2026-10-04; this test drove it red on aarch64 under both `PageFrame::REVOKE` and
+`MemoryRegion::DESTROY` before the fix existed.
+
+Expected to fail: `assert!(!REPORT.mapped.load(..), "an AddressSpace::MAP_INTO held while a {sweep:?} ran kept its mapping ...")`, on the `Revoke` round.
+Replayed red on riscv64 on 2026-10-04 (UTC) against the fixed tree, at
+`map_revocation_window_tests.rs:299`, the assertion predicted.
+
+**The assertions above the headline stay green under this patch**: the seam was reached, and the
+sweep reached the builder's own table.
+
+Nothing here is architecture-specific, so one patch serves every leg.
+
+diff --git a/kernel/src/syscall.rs b/kernel/src/syscall.rs
+index 98f833e7c..4092fbcd0 100644
+--- a/kernel/src/syscall.rs
++++ b/kernel/src/syscall.rs
+@@ -900,11 +900,11 @@ fn address_space_map_into(
+     // section of its own, and a sweep could fall between that read and the record and leave the
+     // mapping live: `revoke::MappingHold` has the whole account. The space's registry comes first
+     // because it ranks above the mapping registry; neither touches `IPC_TABLES`.
++    let frame = sched::current_cap(a1).map_err(|_| Error::NoSuchSlot)?;
+     #[cfg(feature = "system_tests")]
+     crate::delegation_pause::here(); // no lock held
+     crate::user::with_user_address_space(name, |space| {
+         let mut hold = crate::revoke::hold();
+-        let frame = hold.current_cap(a1).map_err(|_| Error::NoSuchSlot)?;
+         // The mappable object is a PageFrame (normal memory) or a DeviceFrame (a device's
+         // MMIO, device-typed): the driver a userspace progenitor builds gets its registers this
+         // way (19d.2). a2 chooses the shape for a PageFrame; a DeviceFrame is always

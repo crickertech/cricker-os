@@ -307,11 +307,14 @@ pub fn forget_root(root: u64) {
 /// A sweep could run wholly between the read and the record: it deleted the capability, scanned a
 /// log the mapping was not yet in, and left the mapping live. Under `PageFrame::REVOKE` that was
 /// authority the revoker had taken back; under `MemoryRegion::DESTROY` it was a mapping of a page
-/// the allocator then handed to somebody else, §13's use-after-free. §13 named it ("the one honest
-/// race") in 2026-07 and deferred it to seL4's answer, a mapping-database lock held across the
-/// whole operation. This is that lock, and it was already there: the registry every unmap pass
-/// takes. `system_tests::user::map_revocation_window_tests` drove a sweep into the gap on both
-/// paths under both sweeps, and all four kept the mapping.
+/// the allocator then handed to somebody else, the use-after-free §13 (capability revocation and
+/// untyped reclamation) exists to prevent. §13 named it ("the one honest race") in 2026-07 and
+/// deferred it to seL4's answer, a mapping-database lock held across the whole operation. This is
+/// that lock, and it was already there: the registry every unmap pass takes.
+/// `system_tests::user::map_revocation_window_tests` drove a sweep into the gap on both paths under
+/// both sweeps, and all four kept the mapping. `MemoryRegion::MAP` had the same window against a
+/// region's `DESTROY` (a retype before the claim, a record after the scan), and it is closed here
+/// the same way.
 ///
 /// **The invariant now is that a mapping of a capability's frame is made and recorded under the
 /// same hold the capability was read under.** [`MappingHold::current_cap`] is the read, and it
@@ -324,10 +327,13 @@ pub fn forget_root(root: u64) {
 /// about to be taken back.
 ///
 /// **Held across page-table construction**, which is the cost: tables come from a region
-/// (`MEMORY_REGION`, 58, beneath this), and a run maps every page under one hold. Every other
+/// (`MEMORY_REGION`, 58, beneath this), and a run maps every page under one hold, so every other
 /// mapping and every unmap pass on the machine waits behind it. `MAP` is spawn-time and setup work,
-/// never a step of the IPC round trip, and before this the registry was already taken once per
-/// recorded page; see the lane's report for what was measured.
+/// never a step of the IPC round trip. On one hart it is cheaper, not dearer, because a run now
+/// takes the registry once rather than once per page: riscv64 icount, 2026-10-04, `map_el0` 120 to
+/// 113 ticks a map (-6.3%) and `spawn_el0` 2,221 to 2,208 a spawn (-0.6%), every other row within
+/// one tick. What the longer hold costs under contention is not measured; it is a held lock on
+/// `MAP`, which no benchmark here runs from two cores at once.
 ///
 /// # BUGS
 ///
@@ -578,9 +584,9 @@ fn unmap_matching(phys: u64, spare: u64, object: Option<u64>) {
 /// **Revoke a single-page frame from everyone.** Delete every `PageFrame(phys, 1)` capability from
 /// every capability table, then unmap `phys` from every address space. Caps go **first**, so a
 /// `PageFrame::MAP` that starts after this cannot re-establish a mapping we would then miss. (The
-/// remaining window, an in-flight map on another core between the cap delete and the unmap, is the
-/// SMP race §13 names; a full mapping-database lock is seL4's answer and this milestone's
-/// deferral.)
+/// window §13 named, a map in flight on another core between the cap delete and the unmap, is
+/// closed since 2026-10-04 by [`MappingHold`]: a map reads its frame under the registry hold this
+/// unmap pass takes, so it is wholly before the cap delete or its record is there to be found.)
 ///
 /// **This is not "no capability names the page afterwards", and the earlier wording that said so
 /// was wrong from the day §102 landed.** The sweep is by exact object, so a `PageFrame(p, n)` run
@@ -735,7 +741,19 @@ pub fn revoke_port_range(base: u16, count: u16) {
 /// The unmap pass is one page per iteration: find a recorded page in range under the registry lock,
 /// release it, then unmap (unmapping retakes the registry lock, so it cannot be called while it is
 /// held). Each pass tombstones every record of its page, so the scan strictly shrinks and
-/// terminates.
+/// terminates. A `MAP` that takes the registry between two iterations finds no capability (the
+/// sweep above is finished) and a claimed region refuses to retype, so the scan cannot grow
+/// ([`MappingHold`]).
+///
+/// # BUGS
+///
+/// **Page tables are not leaves, and this unmaps only leaves** (reasoned from the code by the
+/// map-revocation-window lane, 2026-10-04 UTC; not driven by a test). `PageFrame::MAP` and
+/// `MemoryRegion::MAP` build a space's intermediate tables out of a region the caller names, and
+/// nothing records them. Destroying that region returns those table pages to the allocator while a
+/// live space still links them, and the next owner's writes become that space's translations.
+/// `map_revocation_window_tests::a_destroy_inside_a_memory_region_map_leaves_no_mapping` builds
+/// its tables out of a second region to keep clear of this.
 pub fn revoke_region(base: u64, size: u64) {
     crate::sched::delete_page_frame_caps_overlapping(base, size);
     loop {

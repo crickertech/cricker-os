@@ -1074,7 +1074,7 @@ fn page_frame_map(slot: u64, va: u64, writable: u64, ut_slot: u64) -> Result<i64
     };
     // Page tables come from an untyped the caller holds, so mapping a frame, like everything a
     // process spends, comes out of its own budget and not the kernel's. Read under the hold only
-    // because it sits here in the refusal order: a region is generational (§16), so one destroyed
+    // because it sits here in the refusal order: a region is generational (§16 (object revocation)), so one destroyed
     // after this read refuses to retype, and the hold is not what protects it.
     let ut = sched::current_cap(ut_slot).map_err(|_| Error::NoSuchSlot)?;
     let Object::MemoryRegion(region) = ut.object else {
