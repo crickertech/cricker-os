@@ -48,9 +48,9 @@
 <path class="seg s0" d="M484.2,324.0 V279.9 Q484.2,275.9 488.2,275.9 H518.8 Q522.8,275.9 522.8,279.9 V324.0 Z"><title>2026W39, million tokens per milestone: 217.1</title></path>
 <text class="mut" x="503.5" y="342" font-size="10" text-anchor="middle">2026W39</text>
 <text class="fg val" x="503.5" y="270.9" font-size="10" text-anchor="middle">217.1</text>
-<path class="seg s0" d="M542.8,324.0 V320.7 Q542.8,317.4 546.1,317.4 H578.1 Q581.4,317.4 581.4,320.7 V324.0 Z"><title>2026W40, million tokens per milestone: 29.7</title></path>
+<path class="seg s0" d="M542.8,324.0 V320.8 Q542.8,317.5 546.0,317.5 H578.2 Q581.4,317.5 581.4,320.8 V324.0 Z"><title>2026W40, million tokens per milestone: 29.2</title></path>
 <text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W40</text>
-<text class="fg val" x="562.1" y="312.4" font-size="10" text-anchor="middle">29.7</text>
+<text class="fg val" x="562.1" y="312.5" font-size="10" text-anchor="middle">29.2</text>
 <text class="mut" x="620.7" y="342" font-size="10" text-anchor="middle">2026W41</text>
 <text class="mut" x="620.7" y="308.0" font-size="9" text-anchor="middle">not<tspan x="620.7" dy="10">measured</tspan><title>2026W41: not measured</title></text>
 <rect class="s0" x="672" y="64" width="11" height="11" rx="2"/>
