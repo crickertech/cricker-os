@@ -41,13 +41,13 @@ Measured by reading, not guessing. Transient allocations in test code excluded.
 
 Three families fall out:
 
-1. **Per-thread and per-endpoint objects** (TCB, cspace, wait queues, endpoint state). These are
+1. Per-thread and per-endpoint objects (TCB, cspace, wait queues, endpoint state). These are
    the seL4 kernel objects, and they become *retyped from untyped*: the process that wants a
    thread or an endpoint pays for it out of its own budget. This is the heart of the milestone.
-2. **Fixed machine tables** (per-CPU queues, virtio devices, untyped regions). Small, bounded by
+2. Fixed machine tables (per-CPU queues, virtio devices, untyped regions). Small, bounded by
    the machine rather than by user behavior. These become static fixed-capacity structures; no
    syscall needed, nobody pays but the image.
-3. **The revocation database.** The awkward one: it grows with every user mapping, it is global,
+3. The revocation database. The awkward one: it grows with every user mapping, it is global,
    and no fixed bound is honest. It has to be charged to the processes that create mappings.
 
 ## The seL4 shape, and how far we take it
@@ -84,18 +84,18 @@ surface (configure, start, cap installation) whose requirements only the milesto
 can supply. **Decided: the surface stays narrow; the API is designed against init's real
 requirements later.** What phase B builds instead, per the decisions:
 
-- **B.1** (no decisions): every kernel object gets a fixed shape. The cspace becomes a
+- B.1 (no decisions): every kernel object gets a fixed shape. The cspace becomes a
   const-generic array in `crates/capability`, `KernelStack`'s frame list an array, and the endpoint /
   untyped-region / virtio / stack-VA tables fixed arrays.
-- **B.2**: TCBs move from `Box` to a **static pool** (BSS, MAX_THREADS slots; table slot i is
+- B.2: TCBs move from `Box` to a static pool (BSS, MAX_THREADS slots; table slot i is
   pool slot i). Retype-from-untyped was considered and declined while the kernel is the only
   payer: sub-page packing would rebuild the slab in the milestone that deletes it (see
   notes/tcb.md). The pool upgrades to retype-backed storage behind the table when init lands.
-- **B.3**: spawn's boxed closures move **onto the new thread's own stack**, above the trampoline
+- B.3: spawn's boxed closures move onto the new thread's own stack, above the trampoline
   frame, at their concrete type (a monomorphized call shim in `x20`, the closure address in
   `x19`, no vtable). Call sites unchanged; one reviewed unsafe region; invisible to userspace.
   The fn-pointer alternative taxed every capturing call site forever to avoid one unsafe block.
-- **B.4**: `exec` carves a **per-process untyped region**; image pages and page tables come from
+- B.4: `exec` carves a per-process untyped region; image pages and page tables come from
   its watermark, `AddressSpace` records the region id instead of a frame list, and teardown is
   `untyped::destroy`, which §13 revocation already makes safe (the "reclaim-on-process-death"
   wiring untyped.rs deferred). One budget per process; when init arrives, only the region's
@@ -113,11 +113,11 @@ boots after phase C cannot allocate, structurally: there is no allocator to call
 ## Decision D1: what replaces the IPC wait queues
 
 A blocked thread sits on at most one wait queue (it is blocked; it cannot be in two places).
-The classic answer, seL4's and Linux's alike, is the **intrusive list**: the queue link lives
+The classic answer, seL4's and Linux's alike, is the intrusive list: the queue link lives
 *inside* the TCB, and an endpoint's queue is just a head pointer into TCBs it does not own.
 Queues of any length, zero allocation, O(1) push and pop.
 
-The alternative is a **fixed-capacity ring** in each endpoint: simpler to reason about and to
+The alternative is a fixed-capacity ring in each endpoint: simpler to reason about and to
 prove, but it invents a new failure mode ("queue full: what now, drop the blocker?") that no
 amount of tuning removes honestly.
 
@@ -153,7 +153,7 @@ The path runs through the intrusive-list work, one Tid use at a time:
    precisely because a dead Tid fails the lookup. seL4 makes raw pointers safe with the CDT
    (destroying a TCB revokes every capability naming it); we deferred the CDT deliberately.
 
-The interim table is therefore not a plain array but a **generational slot table**: a Tid is
+The interim table is therefore not a plain array but a generational slot table: a Tid is
 `(generation, slot)` packed in one u64, lookup is an index plus a generation compare, and slot
 reuse bumps the generation, so **a dead thread's name can never resolve again**. That property,
 stale names fail safely, is the same one that eventually lets capabilities carry direct thread
