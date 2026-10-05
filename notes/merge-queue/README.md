@@ -7,5 +7,5 @@ mechanism each, at a length the main page's prose budget cannot hold:
   jobs, and how the required checks stay satisfied.
 
 *Name: provisional, minted by lane/docs-only-ci on 2026-10-05 UTC. The directory follows the
-`notes/<stem>/` appendix convention §212 set, so its name is the main page's stem; the file name
-`prose-only.md` matches the classifier it documents and changes if that is renamed.*
+`notes/<stem>/` appendix convention §212 (a prose budget) set, so its name is the main page's stem;
+the file name `prose-only.md` matches the classifier it documents and changes if that is renamed.*
