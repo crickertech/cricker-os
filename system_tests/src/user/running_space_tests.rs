@@ -418,7 +418,11 @@ fn a_bound_space_dies_with_its_thread_not_with_its_capabilities() {
 fn a_corpse_does_not_keep_a_space_rooted_in_a_destroyed_region() {
     let space_region = crate::memory_region::create(16).expect("no space region");
     let tcb_region = crate::memory_region::create(2).expect("no tcb region");
-    let supervisor = sched::create_rendezvous();
+    // The supervision endpoint comes from a region this test owns and gives back, not from
+    // `sched::create_rendezvous`, whose kernel chunks are never freed (see the BUGS on
+    // `testing::SUITE_PAGE_FRAME_BUDGET`).
+    let ep_region = crate::memory_region::create(1).expect("no endpoint region");
+    let supervisor = sched::create_rendezvous_from(ep_region).expect("no supervision rendezvous");
     let name = user_address_space_create(space_region).expect("no address space");
     lay_out(
         space_region,
@@ -468,6 +472,9 @@ fn a_corpse_does_not_keep_a_space_rooted_in_a_destroyed_region() {
         !sched::is_thread_present(tid),
         "the reaped corpse is still in the table"
     );
+    for r in [tcb_region, ep_region] {
+        sched::reclaim_region(r).expect("a corpse test region did not come back");
+    }
 }
 
 /// The witness's three report words. Mirrored from `fixtures/src/scratch_release_witness.rs`, as
@@ -481,9 +488,10 @@ const REPORT_FAILED: u64 = 9;
 
 /// **Start the witness, with or without a capability to its own space at slot 3**, the way the
 /// kernel starts the progenitor (`user::boot_progenitor`): a space it builds and names, caps
-/// inserted by slot, `CONFIGURE` by name. Returns `(tid, report, regions)`.
+/// inserted by slot, `CONFIGURE` by name. Returns `(tid, report, regions)`; the last region holds
+/// `report`, so the caller gives it back after the others.
 #[cfg(initrd)]
-fn start_witness(own_space: bool) -> (u64, sched::RendezvousId, [u64; 3]) {
+fn start_witness(own_space: bool) -> (u64, sched::RendezvousId, [u64; 4]) {
     let bytes = program("scratch_release_witness").expect("no scratch_release_witness program");
     let elf = Elf::parse(bytes).expect("scratch_release_witness is not loadable");
     let content: u64 = elf
@@ -503,7 +511,9 @@ fn start_witness(own_space: bool) -> (u64, sched::RendezvousId, [u64; 3]) {
     map_timebase_page(&mut space).expect("could not map the witness's timebase page");
     let name = readopt_user_address_space(space).expect("register the witness's space");
 
-    let report = sched::create_rendezvous();
+    // From a region the caller reclaims, not `sched::create_rendezvous`'s never-freed chunks.
+    let ep_region = crate::memory_region::create(1).expect("no endpoint region");
+    let report = sched::create_rendezvous_from(ep_region).expect("no report rendezvous");
     // Seven stack pages and a one-page child with its stack, tables, space and thread, with room
     // over; the scratch window's first table and the two above it.
     let budget = crate::memory_region::create(72).expect("no budget");
@@ -531,7 +541,7 @@ fn start_witness(own_space: bool) -> (u64, sched::RendezvousId, [u64; 3]) {
     sched::configure_thread_control_block(tid, elf.entry(), USER_STACK_TOP, name)
         .expect("configure the witness");
     sched::start_thread_control_block(tid, [0; 3]).expect("start the witness");
-    (tid, report, [budget, tables, tcb_region])
+    (tid, report, [budget, tables, tcb_region, ep_region])
 }
 
 /// The witness's next report, or `None` if it sent nothing within two seconds.
