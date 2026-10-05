@@ -45,12 +45,14 @@
 //! milestone 291's lane). Refused `capability_demo_protocol`, `demo_words`, `capability_demo`, and
 //! folding these into `crates/abi`; the argument for each is below.
 //!
-//! **The ruling is the same one as `address_space_witness`, made the same day**: a thing here is
-//! named for what it proves rather than for the occasion of its existence. Every value in this
-//! crate is a **witness** in the sense this tree already uses the word: DECISIONS §31's *"two
-//! witness pages answering two different questions"*, and `unwritable_clock_witness`. A sentinel
-//! chosen only to be recognised by a second program is exactly a witness value, so the word
-//! describes the contents rather than the milestone that produced them.
+//! **The ruling is the same one as `address_space_witness` (`process_composition_witness` since
+//! §185 (what carries the claim that userspace composes a process from an authority you can count on
+//! one hand), 2026-10-05), made the same day**: a thing here is named for what it proves rather than for
+//! the occasion of its existence. Every value in this crate is a **witness** in the sense this tree
+//! already uses the word: DECISIONS §31 (the foreign-language seam: C holds no capabilities and makes no syscalls)'s *"two witness pages answering two different questions"*,
+//! and `unwritable_clock_witness`. A sentinel chosen only to be recognised by a second program is
+//! exactly a witness value, so the word describes the contents rather than the milestone that
+//! produced them.
 //!
 //! **Refused `capability_demo_protocol`**, this crate's own coinage, which the maintainer
 //! recommended ratifying on the grounds that these really are demonstration fixtures and a name

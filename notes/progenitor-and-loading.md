@@ -277,7 +277,7 @@ discipline, the input driver and `swish`, and a person can then type at the resu
 *...from an authority you can count on one hand.* This is the half `builder` carried alone, and it
 is half-proved today. The progenitor does not carry it: it is granted the NS16550 and the UART's
 interrupt line as well, because it is building a system rather than demonstrating a floor. What does
-carry it is `fixtures/src/address_space_witness.rs`, which holds exactly the same two
+carry it is `fixtures/src/process_composition_witness.rs`, which holds exactly the same two
 capabilities `builder` held, a memory region in slot 0 and a report line in slot 1, and from those
 retypes an address space, retypes a frame, maps the frame into the space it built, and proves the
 kernel enforces break-before-make inside it. It is asserted by
@@ -286,7 +286,7 @@ test kernel can load a user ELF, under `script/test`, which is more coverage tha
 (nothing on a pull request ever executed `builder`; see milestone 406,
 `design/roadmap/406-nothing-in-ci-boots-the-riscv-tour.md`).
 
-**What is proved nowhere is the rest of the sequence.** `address_space_witness` stops where milestone
+**What is proved nowhere is the rest of the sequence.** `process_composition_witness` stopped where milestone
 19b stopped: it builds a space and maps a frame, and nothing runs in it, because threads were 19c's
 object. Reading an ELF out of an archive **by name**, laying its segments down, retyping a TCB,
 endowing it, configuring it and starting it, all from those same two capabilities, was `builder`'s

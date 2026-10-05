@@ -164,6 +164,11 @@ RENAME_PAIRS = (
     ("repos/crickertech", "repos/nifeos"),
     ("orgs/crickertech", "orgs/nifeos"),
     ("organizations/crickertech", "organizations/nifeos"),
+    # The fixture rename of 2026-10-05 (calef, §185 (what carries the claim that userspace composes
+    # a process from an authority you can count on one hand)). A path is navigation and is fixed
+    # even in a BUILT block (design/naming.md, performing a ratified rename, step 7); the name in
+    # that block's account stays.
+    ("fixtures/src/address_space_witness.rs", "fixtures/src/process_composition_witness.rs"),
     # The bare form last: every longer phrase above is tried first, so by the time this one
     # runs, an "an architect" left in the text is not part of one of them, whichever case
     # sentence position gave it.

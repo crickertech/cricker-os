@@ -337,7 +337,7 @@ pub mod delegation_service;
 pub mod retype_ep_service;
 
 /// **Milestone 19b: a process builds an address space, at EL0.** One role: an untyped budget
-/// and a report line; everything else it constructs. See `fixtures/src/address_space_witness.rs`,
+/// and a report line; everything else it constructs. See `fixtures/src/process_composition_witness.rs`,
 /// which milestone 291 split out of the `hello` multiplexer this line still pointed into.
 // Test scaffolding: the `tests` module below is the only caller, and it runs on both ISAs now
 // (milestone 19's user-test port). This wiring was already portable; it was compiled out on riscv64

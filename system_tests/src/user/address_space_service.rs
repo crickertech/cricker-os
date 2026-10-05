@@ -5,9 +5,10 @@ use crate::sched::RendezvousId;
 /// Spawn the witness; returns the report endpoint carrying its verdict bits.
 ///
 /// It was role 19 of the `hello` multiplexer until milestone 291 and is
-/// `fixtures/src/address_space_witness.rs` now, which reads nothing from `x0`.
+/// `fixtures/src/process_composition_witness.rs` now, which reads nothing from `x0`.
 pub fn wire() -> RendezvousId {
-    let image = program("address_space_witness").expect("no address_space_witness in the archive");
+    let image = program("process_composition_witness")
+        .expect("no process_composition_witness in the archive");
     let report = crate::sched::create_rendezvous();
     let region = crate::memory_region::create(8).expect("no region for the builder");
 
