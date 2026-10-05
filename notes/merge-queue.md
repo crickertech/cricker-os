@@ -735,7 +735,13 @@ than doing it. On a draft it earns the `unblocked` label instead.
 the right answer, and the two must not be conflated: one is a queue for an architect's attention,
 the other is a fact about two branches.
 
+## A push to a queued branch
+
+Re-arm after the last push: [push-while-queued.md](push-while-queued.md).
+
 ## BUGS
+
+The queued-push refusal misses cloud lanes: [push-while-queued.md](push-while-queued.md).
 
 **The event lines start from the day they landed, and the 3,355 passes before it cannot be
 backfilled.** The old log holds snapshots only, so the drain's action count begins on 2026-09-23 and
@@ -760,10 +766,9 @@ that needs distinct GitHub identities rather than a better log; the proposal is
   requires. The queue lands on the required checks alone. A merge-group run can conclude
   `cancelled` or `failure` because of a non-required job and still land: `0b72f673` (#1156) did,
   when verify's falsify job hit its 45-minute timeout. That push then re-runs the whole workflow,
-  and it did (verify 36029132635, cancelled by the same timeout). This errs toward running, which
-  is the right direction, but a flaky non-required job costs a full re-run on `main`.
+  and it did (verify 36029132635, cancelled by the same timeout). A flaky non-required job costs a full re-run on `main`.
 - A 240-minute check timeout is four hours in which a genuinely hung group blocks everything
-  behind it. Sixty was right for the work and wrong for runner supply. The honest fix is fewer
+  behind it. The honest fix is fewer
   runs competing for runners, and A′ is the first of those. When the queue stops starving, lower
   the timeout again, because the cost of a long timeout only shows up when a group is actually stuck.
 - **One push can raise two `synchronize` events, and when the cancelled copy is the newer run the

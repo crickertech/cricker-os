@@ -2878,6 +2878,11 @@ python3 "$(dirname "$0")/../helpers/session_steps.py" --selftest
 #     first-class, because a gate's green looks the same as a gate that cannot fire.
 "$(dirname "$0")/../helpers/empty-diff-selftest.sh"
 
+#     The queued-branch push refusal (provisional milestone name: refuse a push to a queued branch;
+#     helpers/push-queued-check.sh, called from .githooks/pre-push): queued refuses, not queued
+#     passes, gh failing warns and passes, against a fake `gh` on PATH.
+"$(dirname "$0")/../helpers/push-queued-selftest.sh" >/dev/null
+
 # 12. The CI-poll refusal hook (helpers/hooks/refuse-ci-polling, wired as a PreToolUse hook on Bash
 #     in .claude/settings.json). calef's 2026-09-26 ruling is that a lane never polls CI; this
 #     self-test is fixtures only, no stdin and no tree, so it costs nothing to run on every lint.
