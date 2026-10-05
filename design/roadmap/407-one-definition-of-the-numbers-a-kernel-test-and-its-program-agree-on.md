@@ -11,14 +11,14 @@ needs_person: no
 
 Filed 2026-09-14 as an unnumbered proposal by milestone 293's lane, which
 reduced one instance of this and then measured the rest of it; numbered 2026-09-19 by milestone
-433's drain of the proposal pile. **Premise re-read against the tree on 2026-09-19 and still true,
-and the tree's counter-example is still in it**: `kernel/src/user/live_swap_tests.rs` still
+433's drain of the proposal pile. Premise re-read against the tree on 2026-09-19 and still true,
+and the tree's counter-example is still in it: `kernel/src/user/live_swap_tests.rs` still
 re-declares `ROLE_DIRECT`, `ROLE_QUEUED` and `ROLE_HUNG` locally although `crates/swap_protocol`
 publishes all three. An independent re-count on 2026-09-19, over `ROLE_*`, `RPT_*`, `F_*` and
 `TERM_MAGIC` declared on both sides of a spawn, found **25 kernel/program file pairs sharing 79
 constant names**; that is a similar method rather than the same one, so it is not byte-comparable
 with the 19 pairs and 76 names below, and what it establishes is that the shape has not shrunk.
-**Three crate names in the table have moved** and the work has to read the current ones:
+Three crate names in the table have moved and the work has to read the current ones:
 `swap_proto` is `crates/swap_protocol`, `login_proto` is `crates/login_protocol`, and
 `components/src/ntp.rs` was split into three programs by milestone 290, so that row's program side
 is now `network_time_client` and its siblings. *(Number provisional until the merge queue lands
@@ -31,8 +31,8 @@ section. The sweep itself is mechanical and a lane could start it today. What it
 settle is the crate names, and there is no useful half of this work that does not create one. See
 "What a lane cannot decide" below, which prices the two shapes so the question arrives answered.
 
-**In brief.** AGENTS.md rule 7 says anything two binaries must agree on is a crate, never a copy.
-**Seventy-six constants across nineteen file pairs are copies**, each held in line by a `// must
+In brief. AGENTS.md rule 7 says anything two binaries must agree on is a crate, never a copy.
+Seventy-six constants across nineteen file pairs are copies, each held in line by a `// must
 match` comment: role numbers, report tags, and report flag bits shared between a kernel test's
 wiring (`kernel/src/user/*_service.rs`, `*_tests.rs`) and the program it spawns
 (`fixtures/src/*.rs`, `components/src/*.rs`). `login_service.rs` and `login_test_client.rs` alone
@@ -80,17 +80,17 @@ written down. Milestone 293 did the same for the credential values three files w
 
 ## What a lane cannot decide
 
-**The crate names.** The numbers a kernel test and its test client agree on are not part of any
+The crate names. The numbers a kernel test and its test client agree on are not part of any
 shipped wire contract: putting `login_test_client`'s six behaviour numbers into `login_proto` would
 widen the protocol a real login client is written against with something no real client needs. So
 each pair either gets a small crate of its own or a shared one, and both are an architect's call.
 That, and not the work, is what this waits on.
 
-**Two shapes worth pricing before asking**, because the question should arrive answered:
+Two shapes worth pricing before asking, because the question should arrive answered:
 
-1. **One crate per pair** (`login_test_contract`, `compositor_test_contract`, ...), which follows
+1. One crate per pair (`login_test_contract`, `compositor_test_contract`, ...), which follows
    `swap_proto`'s precedent, keeps each contract readable in one file, and costs nineteen names.
-2. **One crate for all of them**, which costs one name and makes the crate a grab bag of unrelated
+2. One crate for all of them, which costs one name and makes the crate a grab bag of unrelated
    numbers, which is the shape §46 and the generic-name rule both push against.
 
 ## Where it came from

@@ -29,7 +29,7 @@ neighbourhood (`measured_boot`), not this one."* Milestone 22 is about measuring
 not about firmware trust. `git grep -i 'secure boot'` over `design/` and `notes/` finds the
 instruction to turn it off in five places (`notes/x86-uefi-boot.md`, `notes/serial-less-output.md`,
 `notes/xenon-firmware.md` among them, and xenon's setting photographed as Disabled, IMG_4058) and
-**no block or proposal that owns signing**.
+no block or proposal that owns signing.
 
 **Why it is on a stranger's path and not on ours.** A judgement, recalled rather than read: PCs sold
 with Windows 11 ship with Secure Boot on, and turning it off is a firmware menu that differs by
@@ -45,7 +45,7 @@ and one that touches the OS they already have.
 | **K2. A shim signed by Microsoft's third-party UEFI CA** | Nothing, on most PCs | Ships a signed first-stage loader (`shim`) carrying nife's own key, and signs `BOOTX64.EFI` with that key; the shim goes through the community review Linux distributions use (recalled, process not read) | A private key whose compromise lets anyone boot code on every machine that trusts it; a review process outside this project; a GPL-licensed shim binary conveyed on the page, which DECISIONS §135 requirement 1 ("no conveyed artifact carries copyleft") must then answer (shim's licence is recalled, not read) |
 | **K3. The owner enrols nife's key** | Enrols a key through the firmware's setup or a machine-owner-key tool on first boot | Signs with its own key, publishes the certificate | Fewer strangers succeed than with K1 (more steps), and the key custody of K2 without its reach. Best fit for owners who want Secure Boot kept on |
 
-**K1 and K3 compose**: the page can say "turn it off" and offer K3 to those who will not.
+K1 and K3 compose: the page can say "turn it off" and offer K3 to those who will not.
 
 ## What the tree does in the analogous case
 
@@ -53,8 +53,8 @@ The measured-boot chain (milestone 104, DECISIONS §26) chose a hash over a sign
 K2's reason: *"today they are built by one command in one tree in one sequence, so the hash is
 strictly better"*, and key custody was the objection §26 left standing. The trust fork's T2
 (DECISIONS §195) asks the same custody question for
-packages. **If both a package key and a boot key exist, whether they are one key is a ruling in
-itself**; the safer default is two.
+packages. If both a package key and a boot key exist, whether they are one key is a ruling in
+itself; the safer default is two.
 
 ## Reversibility
 
@@ -73,8 +73,8 @@ depends on it. Rungs 1 to 3 on xenon do not: xenon's Secure Boot is already off.
 
 ## BUGS
 
-- **Every fact above about Microsoft's process, shim's licence and BitLocker's behaviour is
-  recalled**, and a lane taking K2 or K3 reads them first.
+- Every fact above about Microsoft's process, shim's licence and BitLocker's behaviour is
+  recalled, and a lane taking K2 or K3 reads them first.
 - **This says nothing about aarch64 or riscv64**, which have no UEFI path in this tree.
 
 ## Index row

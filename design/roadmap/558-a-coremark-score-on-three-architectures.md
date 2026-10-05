@@ -19,7 +19,7 @@ A CoreMark number under QEMU is fiction, so this wants argon, radon and xenon.
 ## Why it was not trustworthy before
 
 `coremark` sends its own `cntfrq` rather than taking the kernel's, and on riscv64 that was a
-hardcoded 10 MHz against radon's 4 MHz. **No score was ever published from it**, which is the only
+hardcoded 10 MHz against radon's 4 MHz. No score was ever published from it, which is the only
 reason this is an opportunity rather than a correction. After the riscv64 timebase work the program's
 self-reported rate is the machine's on every architecture.
 
@@ -32,18 +32,18 @@ evidence and unusually easy to get wrong in public, which is the same property.
 
 ## What it must carry, because a published score is a fact that leaves the machine
 
-- **Which build.** `notes/benchmarks.md`'s standing caveat is that the bench card's kernel differs
+- Which build. `notes/benchmarks.md`'s standing caveat is that the bench card's kernel differs
   from the shipping one; a score that does not say which it came from is not reproducible.
-- **Iterations, compiler, and flags**, because CoreMark's published scores are meaningless without
+- Iterations, compiler, and flags, because CoreMark's published scores are meaningless without
   them and a reader who knows the benchmark will ask first.
-- **The rate and where it came from**, which is the whole reason this is newly possible.
-- **An honest comparison class.** A score beside a vendor's number for the same part is a statement
+- The rate and where it came from, which is the whole reason this is newly possible.
+- An honest comparison class. A score beside a vendor's number for the same part is a statement
   about our toolchain and our scheduler, not about the microkernel's design, and the note has to say
   so before anybody quotes it as the latter.
 
 ## BUGS
 
-- **A single-threaded integer benchmark says almost nothing about a capability microkernel.** It
+- A single-threaded integer benchmark says almost nothing about a capability microkernel. It
   exercises none of what this project is a demonstration of. Its value is as a sanity check that the
   userspace runtime is not pathologically slow, and as a number strangers can locate. Claiming more
   would be the overclaim this tree's benchmark posture exists to prevent.

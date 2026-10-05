@@ -7,14 +7,14 @@ built: 2026-09-20
 
 *(Number provisional until the merge queue lands it.)*
 
-**This milestone exists because of a false premise, and the premise is the interesting part.**
+This milestone exists because of a false premise, and the premise is the interesting part.
 A lane on milestone 442 (a crypto provider `rustls` can use on all three bare-metal targets)
 reported that `cryptography_provider`, `cryptography_exerciser` and `script/crypto-probes` were
 invisible to `script/names --unratified` because the tool "cannot see
 root-level workspaces or `helpers/`". calef asked for a lane to close that hole. The maintainer ran
 the tool first: on 442's own branch the worklist lists all three, and on `main`
 `script/names entropy_backend` prints that package's full ratified provenance with its three
-refusals. **The hole had been closed a month earlier and the tree was still describing it.**
+refusals. The hole had been closed a month earlier and the tree was still describing it.
 
 That is the defect `AGENTS.md` cares about most in documentation, said from the other side. An
 honest `BUGS` section is the mechanism that makes a newcomer trust the docs; a `BUGS` section
@@ -25,7 +25,7 @@ costs more, because it sends somebody to build a thing that already exists.
 
 `script/names` grew a fourth kind, `package`, on 2026-08-18, after calef found
 `script/names std_exerciser` answering *"neither a name in the tree nor a recorded refusal"*. It is
-**discovered rather than listed**: the tool walks for `Cargo.toml` outside `crates/`, so a package
+discovered rather than listed: the tool walks for `Cargo.toml` outside `crates/`, so a package
 arriving tomorrow is covered without anyone editing the script. `kernel`, `xtask`,
 `redoxfs_server`, `tools/redoxfs_host`, `components`, `fixtures`, `std_exerciser` and
 `entropy_backend` are all in the table today, which `script/names --check` counts as 10 packages of
@@ -52,23 +52,23 @@ convention working.
 The one genuinely uncovered surface besides types is `helpers/`, the helper drawer, as distinct
 from `script/`'s entry points. It was priced rather than assumed, and refused. The numbers:
 
-- **17 files** in `helpers/`, plus the `kani-lint-shim/` directory, which is Rust source rather
+- 17 files in `helpers/`, plus the `kani-lint-shim/` directory, which is Rust source rather
   than a script.
-- **9 of the 17 already carry a `Name:` paragraph** that no gate asked them for. So the question is
+- 9 of the 17 already carry a `Name:` paragraph that no gate asked them for. So the question is
   not whether a helper may argue its own name, since more than half already do, but whether the
   worklist should **enumerate** them.
 - Enumerating costs **about 15 rows on a worklist 76 deep**, a fifth again of the only queue in
   this tree whose sole consumer is an architect's attention.
-- **Zero of the 9 paragraphs records a refusal.** The claim of milestone 115 (the names that were
+- Zero of the 9 paragraphs records a refusal. The claim of milestone 115 (the names that were
   ratified, and the ones that were refused) is that the refusals are the valuable half, and today
   that half is empty here, so leaving `helpers/` out loses nothing that mechanism was built to
   keep. That is the number to re-measure if this is revisited.
-- **The 8 without a paragraph are the machine-invoked ones**: `qemu-runner-aarch64.sh`,
+- The 8 without a paragraph are the machine-invoked ones: `qemu-runner-aarch64.sh`,
   `qemu-runner-riscv64.sh`, `qemu-runner-x86_64.sh`, `qemu-bounded.sh`,
   `qemu-bounded-selftest.sh`, `memory-bounded-runner.sh`, `build-ripgrep.sh` and `rust_source.py`.
   A gate demanding blocks would mostly manufacture rulings on names nobody types.
 
-**The deciding argument is the worklist's own ordering.** `--unratified` prints its rule at the top:
+The deciding argument is the worklist's own ordering. `--unratified` prints its rule at the top:
 a program is typed at the prompt, a crate is what a newcomer greps, a `script/` entry point is typed
 by whoever works on the tree. `design/naming/programs-scripts-and-directories.md`'s **Scripts**
 section defines `helpers/` as the drawer that is called by other scripts and by `xtask`, **not by
@@ -102,7 +102,7 @@ would fire on every honest description of the limitation, which is `git grep -w 
 false-positive rate wearing a different hat, and `script/lint` has dropped checks for exactly that
 signature before.
 
-So the move is **rung three, a written record at the thing itself**: the scope of the naming
+So the move is rung three, a written record at the thing itself: the scope of the naming
 worklist is now stated in exactly one place, `design/naming.md`'s `BUGS` section, and every other
 mention of it (`script/names`' comment, the two `helpers/` python modules, `notes/scripts.md`)
 cites that bullet instead of restating the reason. A copy that is a pointer cannot go stale in the
@@ -121,7 +121,7 @@ in `script/lint` already catches.
   the request named it; a type census would be a much larger count and a different argument, since
   a type name is read by everyone writing against it, which is the opposite exposure to a helper
   script. Nobody has run that count.
-- **The `helpers/` refusal is keyed on a number that will move.** Zero of the nine paragraphs
+- The `helpers/` refusal is keyed on a number that will move. Zero of the nine paragraphs
   records a refusal today. The first `helpers/` helper whose name is argued against a rival that
   loses puts a refusal somewhere `script/names --refused` cannot reach, and the refusal above says
   to re-measure rather than pretending the answer is permanent.

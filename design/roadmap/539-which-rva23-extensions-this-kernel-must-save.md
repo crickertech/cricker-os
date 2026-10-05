@@ -47,11 +47,11 @@ offers and prints it, and the context switch saves what it was written to save. 
 tree state which RVA23 mandatory extensions carry architectural state, which of those this kernel
 preserves across a switch, and which it silently does not. That is exactly the shape
 DECISIONS §19 (architectural parity is a tenet) calls the bug: *a feature works on one ISA and silently not
-another*, except here it is a feature that works on one **core** and silently not after a
+another*, except here it is a feature that works on one core and silently not after a
 preemption.
 
 It is also the near half of the Server Platform work. Server Platform 1.0's content slide mandates
-**RVA23S64**, so the profile is not optional on the machine the other proposal in this directory is
+RVA23S64, so the profile is not optional on the machine the other proposal in this directory is
 about (`a-riscv64-host-that-hands-us-acpi`).
 
 And there is a live consumer. Fatal risk 1's experiment ran unmodified `ripgrep` on all three
@@ -62,28 +62,28 @@ that runs correctly until it is preempted is the worst failure shape available.
 
 ## What the work is
 
-1. **Take the mandatory list from the ratified profile** (not from the talk, not from memory) and
+1. Take the mandatory list from the ratified profile (not from the talk, not from memory) and
    sort each entry into *adds architectural state* or *stateless, discoverable only*.
-2. **Audit the riscv64 context switch against the first pile**, and write the answer down beside the
+2. Audit the riscv64 context switch against the first pile, and write the answer down beside the
    code. Where something is not saved, that is a `BUGS` entry naming the extension, in the FreeBSD
    posture this tree already uses.
-3. **Decide what discovery looks like here**, and this is the part that may hand a fork back. Linux
+3. Decide what discovery looks like here, and this is the part that may hand a fork back. Linux
    answers through `hwprobe` and `/proc/cpuinfo`; nife has neither, and a capability system arguably
    should answer through something a program is *granted* rather than something it reads. That is a
    syscall-surface question if it grows one, so the milestone should stop and write a proposal
    rather than invent an interface.
-4. **Run the tour under `qemu-system-riscv64` configured for the profile** and record the
+4. Run the tour under `qemu-system-riscv64` configured for the profile and record the
    transcript, so the claim is a run rather than a reading.
 
 ## The second finding this should carry, because it has no other home
 
-Asanović's State of the Union introduced **optimization guidance options**, a category that did not
+Asanović's State of the Union introduced optimization guidance options, a category that did not
 exist before: slides 6 and 7, `Oilsm` and `Ovlt`, described as guidance that *"Software should
 assume"* something about performance rather than functionality, because *"Current ISA strings encode
 functionality, not performance"*, and *"Intended to be mandatory for future RVA profiles, but will
 first appear as development options"* (https://riscv-europe.org/summit/2026/presentations#P-N9KRDZ).
 
-**That is a CLAIM about an unratified future profile** and nothing should be built for it. It
+That is a CLAIM about an unratified future profile and nothing should be built for it. It
 belongs in this milestone's block as one paragraph, because the audit above is the place a reader
 will next ask "and what about the O-options", and the answer should be waiting there rather than
 rediscovered.

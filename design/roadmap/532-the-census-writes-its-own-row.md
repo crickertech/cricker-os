@@ -37,12 +37,12 @@ a missed capture is fixable is short and closes silently.
 `script/mutation-census --add` against the same directories and commits the result. The choices,
 which is what makes this a decision:
 
-1. **Commit to `main` from the workflow.** Needs `contents: write`. Smallest mechanism, and it puts
+1. Commit to `main` from the workflow. Needs `contents: write`. Smallest mechanism, and it puts
    a bot commit on the trunk of a repository whose history is otherwise all reviewed work.
-2. **Open a pull request.** Needs `contents: write` and `pull-requests: write`, plus a branch per
+2. Open a pull request. Needs `contents: write` and `pull-requests: write`, plus a branch per
    census. A human still has to merge it, which is a smaller thing to remember than running a
    command, but is not nothing.
-3. **Upload the CSV fragment as a long-lived artifact and leave the commit to a person.** No new
+3. Upload the CSV fragment as a long-lived artifact and leave the commit to a person. No new
    permission. It moves the deadline out rather than removing it, and the deadline is the problem.
 
 **Recommendation: 2.** A census is a fact about the tree and a fact about the tree should arrive the
@@ -51,7 +51,7 @@ censuses and nobody noticed for five days; a pull request is the notification as
 **If calef says no**, option 3 buys time and the habit stays a habit, which is where it is today, so
 nothing gets worse.
 
-**Would we still choose 2 if all three cost the same?** Yes. Option 1 is cheaper to build than 2 and
+Would we still choose 2 if all three cost the same? Yes. Option 1 is cheaper to build than 2 and
 that is not why 2 wins; 2 wins because a bot that can push to `main` is a standing authority and a
 bot that can open a pull request is a request.
 

@@ -9,7 +9,7 @@ Built 2026-09-23. Filed 2026-09-14 as an unnumbered proposal by milestone 265 (`
 broke one and caught it by hand rather than by anything red; numbered 2026-09-19 by milestone 433 (drain the proposal pile), whose
 drain of the proposal pile. *(Number provisional until the merge queue lands it.)*
 
-**In brief.** Several gates pick the things they judge with a pattern, then judge them. When the
+In brief. Several gates pick the things they judge with a pattern, then judge them. When the
 pattern stops matching, the loop body never runs and the gate reports clean. Eight such selectors
 now assert that they selected something. The enumeration, the rule that fell out of it, and what
 each guarded site now guarantees are in [notes/empty-selectors.md](../../notes/empty-selectors.md).
@@ -32,7 +32,7 @@ $ echo $?
 1
 ```
 
-The check would have gone **red**, loudly, naming a crate that does not exist. That is a bad message
+The check would have gone red, loudly, naming a crate that does not exist. That is a bad message
 and a genuine defect; it is not a silent pass. The loop's shape saved it, because its default arm is
 a failure rather than an acceptance, and nobody noticed that the shape was doing the work.
 
@@ -43,20 +43,20 @@ the one that was filed.
 
 ## What was built
 
-**One assertion per selector that can go quiet.** The rule the enumeration produced is narrower than
+One assertion per selector that can go quiet. The rule the enumeration produced is narrower than
 "every selector", and the narrowing is what keeps it from being thirty-five assertions: a selector
-whose empty result is **silent** needs the assertion; one whose empty result **raises** does not. A
+whose empty result is silent needs the assertion; one whose empty result raises does not. A
 shell glob, `git ls-files <pattern>` and Python's `glob`/`rglob` are silent. `os.listdir` and
 `iterdir` raise, which is how `script/citations`, `script/decisions`, `script/roadmap`,
 `script/names`, `script/journeys` and `script/falsifications` read their record directories.
 
 Guarded, with the full table in the note:
 
-- **`script/ci-build`**, and this is the one that earned the milestone. `names_in_tier local` matches
+- `script/ci-build`, and this is the one that earned the milestone. `names_in_tier local` matches
   a literal column value in the `checks` table with `awk`. Rename the tier or reformat the separator
   and the loop iterates nothing, every check is skipped, and the script prints `ci-build: all pass`.
   It is the command a developer runs before pushing and the enumeration CI fans out from.
-- **`script/lint`**, seven sites: the CFI scan over `kernel/src/arch/*/*.s`, the README
+- `script/lint`, seven sites: the CFI scan over `kernel/src/arch/*/*.s`, the README
   script-reference resolve, the module-wide dead-code ratchet over `git ls-files '*.rs'`, the rule 7
   `#[path]` scan (whose greps are all `2>/dev/null`, so a moved source tree reads as clean), the
   icount toolchain stamp over `bench/baseline-*.txt`, the notes-index check over `notes/*.md`, and
@@ -65,7 +65,7 @@ Guarded, with the full table in the note:
   property should not depend on a `case` arm somebody could reorder, and because the message it
   prints now says what actually went wrong.
 
-**Already guarded, and left alone:** `script/vendor-verify` and `script/vendor-watch` both exit on an
+Already guarded, and left alone: `script/vendor-verify` and `script/vendor-watch` both exit on an
 empty `vendor/*.pin`; `script/mutation-census` exits on a run with no outcome artifacts; and
 `script/fatal-risks`' `no-history` check fires when a shallow clone makes its own check unable to
 fail, on the stated ground that a check which cannot fail is worse than one that is absent. That
@@ -82,14 +82,14 @@ distinction, finder against selector, is the thing a lint for this could not mak
   every assertion added here and still covers a fifth of its subject. Catching that needs the right
   count, which is the hand-kept list `script/verify` and `script/falsifications` both moved away
   from.
-- **Nothing gates the convention.** A selector added tomorrow gets no assertion unless its author
+- Nothing gates the convention. A selector added tomorrow gets no assertion unless its author
   reads the note. This is rung three deliberately: a lint would have to tell a selector from a finder
   in someone else's shell, and the two are the same syntax.
-- **The `--exclude` family is untouched and needs a different mechanism.** `cargo` takes an unknown
+- The `--exclude` family is untouched and needs a different mechanism. `cargo` takes an unknown
   `--exclude` silently and `.cargo/mutants.toml`'s exclusion globs are not an error when they match
   nothing. A non-empty test says nothing about an exclusion, because a stale exclusion still covers
   everything else.
-- **The tell is the durable half and no machine can check it.** A gate that passed before your change
+- The tell is the durable half and no machine can check it. A gate that passed before your change
   and passes after it, on a change that is exactly what the gate is about, has probably stopped
   looking.
 

@@ -8,11 +8,11 @@ built: 2026-09-19
 Removed 2026-09-19, the same evening it was built. The work was sound and the premise
 was not: the maintainer read calef's *"we want to drive proposals to zero"* as a ruling to abolish
 `design/roadmap/proposals/`, and his follow-up question, *"shouldn't a proposal become a milestone as
-NOT-STARTED?"*, as a ruling that lanes should skip the proposal step. **He meant neither.** He was
+NOT-STARTED?"*, as a ruling that lanes should skip the proposal step. He meant neither. He was
 saying that proposals should be promoted into milestones rather than left to accumulate, which is
 what milestone 433 did to all 106 of them.
 
-**calef, 2026-09-19, on reading what had been done:** *"There will be future proposals. Deleting
+calef, 2026-09-19, on reading what had been done: *"There will be future proposals. Deleting
 support for them would be short sighted. We just don't want anything to change for future proposals.
 The mechanism was working fine. We just needed to see them into milestones."*
 
@@ -22,7 +22,7 @@ So every cut this block made is reverted: `**Proposed.**` is back in the vocabul
 because the reverted work was careful and its reasoning is worth reading, and because a `REMOVED`
 block is the record a deleted file would not be, which is calef's own argument for promote-then-close.
 
-**Two costs the maintainer failed to price, and they are why he was wrong**, recorded here so the
+Two costs the maintainer failed to price, and they are why he was wrong, recorded here so the
 next person weighing this fork starts from them. **A number is permanent and never reused**: of the
 106 promoted that evening, 12 landed `BUILT` or `SUPERSEDED`, so twelve numbers are spent forever on
 work that was already done or subsumed, where a deleted proposal costs nothing. And **the
@@ -32,7 +32,7 @@ is more than asking for a file with a slug.
 
 *(Number provisional until the merge queue lands it.)*
 
-**It carried `Gate: NONE` while it was open**, because the decision was already made and written
+It carried `Gate: NONE` while it was open, because the decision was already made and written
 down in two places and what was left was the code that had not caught up. The line is gone because a
 finished block's gate can only be stale.
 
@@ -43,7 +43,7 @@ all 106 files out of it, and two records were rewritten to say so:
 `design/decisions/140-follow-on-disposition-vocabulary.md` retired `Proposed.` and left six words,
 and the roadmap's own prose, now `notes/roadmap.md`, says a lane writes the numbered block itself.
 
-**The scripts said otherwise.** `script/roadmap` still accepted `Proposed.` in a follow-on bullet,
+The scripts said otherwise. `script/roadmap` still accepted `Proposed.` in a follow-on bullet,
 still required that bullet to name a file under a directory that no longer exists, still carried a
 `--proposed` mode that listed an empty pile and a `--unclaimed` mode whose only input was the
 `Proposed.` branch, and still spent about sixty lines of header and section prose explaining a
@@ -55,11 +55,11 @@ build. This block is the other half of the same afternoon's work.
 
 ## What was cut, and what was kept
 
-**The reasoning was kept and the remedy was replaced**, which is the distinction that decided every
+The reasoning was kept and the remedy was replaced, which is the distinction that decided every
 paragraph here. `Proposed.` was not a mistake: it named a real hole in the vocabulary, and the
 account of that hole is still true. Three lanes on milestone 247's sweep found work a block had
 named honestly and nobody had taken, found that `Recorded.` lies about intent and `Refused.` lies
-about the decision, and **left the item out**, which is the burial arriving through the gate that
+about the decision, and left the item out, which is the burial arriving through the gate that
 exists to stop it. What changed is only where the work is written down: the word needed a file to
 point at, the file needed a number, and the number is what a lane could not mint. The 2026-09-19
 ruling removed that constraint instead of routing around it.
@@ -144,12 +144,12 @@ decided here.
 lane merged, and no gate in this tree can tell a stale paragraph from a current one. What caught it
 was a person reading the file to change it, which is rung four, and this block does not fix that.
 
-**About forty citations of `design/roadmap/proposals/<slug>.md` still dangle**, in milestone blocks,
+About forty citations of `design/roadmap/proposals/<slug>.md` still dangle, in milestone blocks,
 notes, two audit reports and one shell script. They are untouched here and are milestone 436:
 433 chose deliberately to keep the slug on promotion so that a reader can resolve one with a single
 `ls design/roadmap/ | grep <slug>`, which makes them readable but does not make them true.
 
-**`script/metrics --check` is red on this branch and was red on its base.** The CSV is regenerated
+`script/metrics --check` is red on this branch and was red on its base. The CSV is regenerated
 by `.github/workflows/metrics.yml` on a schedule, this week's `proposals_unnumbered` will fall to 0
 when it next runs, and nothing here touches the generated file.
 

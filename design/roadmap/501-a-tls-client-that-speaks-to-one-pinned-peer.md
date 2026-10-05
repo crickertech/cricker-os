@@ -26,7 +26,7 @@ crate nobody has agreed to take.
 ## What 442 left standing, and what it did not
 
 442 produced a provider that builds and runs on all three architectures and computes what the
-specifications say. It produced **no handshake**. `cryptography_exerciser` constructs the provider,
+specifications say. It produced no handshake. `cryptography_exerciser` constructs the provider,
 asks what it can negotiate, and stops there, deliberately: there is no peer, no certificate and no
 socket in that program at all.
 
@@ -37,14 +37,14 @@ the protocol, and a crypto provider we make work) says so in its own `BUGS`: a `
 HTTP request line in `components/` and `crates/` finds none. `std::net`'s `TcpStream` is bound
 (milestones 27 and 64), so it can be an ordinary `std` program, which is the cheap half.
 
-**Certificate verification, which nothing has exercised.** `rustls-webpki` builds on all three
+Certificate verification, which nothing has exercised. `rustls-webpki` builds on all three
 (442's table) and 442 never called it. There is no ECDSA or RSA signature vector in that
 milestone's program, which its `BUGS` says plainly, so the largest remaining piece of a handshake
 is proven only to compile.
 
 ## The shape §196 already chose
 
-**One root, or one pinned key, held as a capability**, for the one repository this client talks to,
+One root, or one pinned key, held as a capability, for the one repository this client talks to,
 rather than a system trust store. §196's clause 4 gives the reason and it is a circularity rather
 than a preference: a system-wide store has to be updated independently of the system, and the thing
 that updates it is the package manager.
@@ -58,11 +58,11 @@ confidentiality and knowing which host answered.
 
 ## BUGS
 
-- **No rotation story.** 442's block carries this and it does not get smaller here: when the one
+- No rotation story. 442's block carries this and it does not get smaller here: when the one
   pinned key rotates, every installed client is talking to a peer it no longer recognises.
-- **No wall clock a stranger's machine can trust**, so certificate expiry is unenforceable in the
+- No wall clock a stranger's machine can trust, so certificate expiry is unenforceable in the
   ordinary way. 442's block names this too.
-- **No cost is known.** A handshake on a board with no hardware crypto may be slow enough to
+- No cost is known. A handshake on a board with no hardware crypto may be slow enough to
   matter, and 442 made it slower by forcing portable implementations on all three architectures.
 
 ## Index row

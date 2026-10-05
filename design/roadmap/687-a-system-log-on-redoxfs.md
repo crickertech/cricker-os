@@ -26,7 +26,7 @@ Each stored record is a JSONL line, one converted F3 record per line: `seq`, `ti
 service, matching Fork 6 C's shape for a scheduled job's own directory grant, so the same mechanism
 serves both.
 
-**Decided, 2026-09-27: one store**, filtered at read time rather than split by user. The system log
+Decided, 2026-09-27: one store, filtered at read time rather than split by user. The system log
 and per-user logs share one directory of rotated files: the service writes every record it accepts
 into the same files regardless of who wrote it, and a per-user read capability filters by the
 `user` field it already stamps, exactly as the in-memory ring does today. Splitting into per-user
@@ -67,7 +67,7 @@ before the event-driven switch-over above can be wired up.
 
 ## Retention and rotation
 
-**Decided, 2026-09-27: rotated files from the start**, not one growing file per boot. The proposal's
+Decided, 2026-09-27: rotated files from the start, not one growing file per boot. The proposal's
 original reason was wrong and is corrected here: RedoxFS records are capped at 128 KiB regardless
 of file size, so an append's recompression cost (below) is bounded either way, whether the log lives
 in one growing file or many rotated ones. The deciding reason is retention instead: RedoxFS cannot
@@ -127,8 +127,8 @@ invention, but a log's pattern
 (many small appends) meets it far more often per byte than the sequential 4-64 KiB writes
 `notes/benchmarks/filesystem-throughput.md` measured.
 
-**Recommended: batch a transaction to the service's own 64 KiB ring rather than committing per
-line**, flushing on whichever comes first between the ring filling and a time bound. That amortizes
+Recommended: batch a transaction to the service's own 64 KiB ring rather than committing per
+line, flushing on whichever comes first between the ring filling and a time bound. That amortizes
 both the record recompression and the header commit over a batch instead of paying each per line,
 and it needs no new buffer, since the ring §242 already specifies is the batch.
 
@@ -161,8 +161,8 @@ Read live on 2026-09-27; one line below is marked as memory because the fetch fa
   and `minsize` govern rotation by size, alone or combined with age; `maxage` deletes rotated logs
   past an age, checked only when a rotation happens; `rotate` bounds how many old copies survive
   before the oldest is dropped, which matches the oldest-first rule recommended above.
-- **syslog / RFC 5424**: already read for §242's own prior-art table; not re-read here.
-- **Fuchsia persistent logs**: *(memory, unverified)*. A live fetch of Fuchsia's diagnostics pages
+- syslog / RFC 5424: already read for §242's own prior-art table; not re-read here.
+- Fuchsia persistent logs: *(memory, unverified)*. A live fetch of Fuchsia's diagnostics pages
   found how logs are generated (LogSink, debuglog) but no page on whether Archivist logs persist
   across reboot; a linked persistence page 404'd. Treat any claim about Fuchsia log durability as
   unconfirmed until someone reads the source.
@@ -173,15 +173,15 @@ calef ruled all four questions this proposal raised on 2026-09-27 (UTC), each as
 request #1423 (`gh pr view 1423 --comments` has the full text); the sections above carry each
 ruling's reasoning where a reader meets the design it settles.
 
-1. **Rotated files from the start**, not one growing file, corrected to retention rather than
+1. Rotated files from the start, not one growing file, corrected to retention rather than
    record-recompression cost as the reason (Retention and rotation, above).
-2. **One store**, filtered at read time by the stamped `user` field, with two known limitations
+2. One store, filtered at read time by the stamped `user` field, with two known limitations
    recorded where they apply (What persists, and where, above): a shared quota lets one user crowd
    out everyone's history, and deleting one user's records means rewriting files.
 3. **Event-driven, with no timeout** on the switch-over; a fixed delay is used only for the
    persistence-expected marker line. The FS server's grant-readiness signal is an explicit open item
    for the builder (Handoff at boot, above).
-4. **Fixed bytes**, with the quota's size left provisional at about 64 MiB (roughly 18 days at the
+4. Fixed bytes, with the quota's size left provisional at about 64 MiB (roughly 18 days at the
    measured 3.5 MB/day rate) for the builder to set; a journald-style keep-free floor was suggested
    but not ruled on (Retention and rotation, above).
 

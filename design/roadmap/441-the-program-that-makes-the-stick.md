@@ -9,16 +9,16 @@ promoted_from: a-program-that-makes-the-stick
 Built 2026-09-19, on `milestone/the-program-that-makes-the-stick`. *(Number provisional
 until the merge queue lands it.)* Promoted from the proposal *A program that makes the stick*, which
 this block replaces and which was deleted in the same change; DECISIONS §157 cites that path,
-which is milestone 436's class and is left to it. **Built and proved under QEMU and on file-backed
-disks; no physical stick has been written and no board has booted one.** Those are the bench's, and
+which is milestone 436's class and is left to it. Built and proved under QEMU and on file-backed
+disks; no physical stick has been written and no board has booted one. Those are the bench's, and
 the steps are in notes/boot-stick.md.
 
 ## What calef decided, and what this built
 
-DECISIONS §157, amended twice on 2026-09-19: a trivial install starts from **one downloaded program
-per host operating system (macOS, Linux, Windows)** with the boot payload inside it, which writes a
-bootable stick when run; it is **not signed or notarized for now**; and **from any machine it builds a
-boot for any other machine**. The stick is for customers and for the lab alike.
+DECISIONS §157, amended twice on 2026-09-19: a trivial install starts from one downloaded program
+per host operating system (macOS, Linux, Windows) with the boot payload inside it, which writes a
+bootable stick when run; it is **not signed or notarized for now**; and from any machine it builds a
+boot for any other machine. The stick is for customers and for the lab alike.
 
 What exists now:
 
@@ -48,25 +48,25 @@ much as for this. radon's RAM does contain the riscv64 kernel's `0x8020_0000`.
 
 ## The five questions the proposal left to a lane, answered
 
-1. **Finding the stick safely.** One rule, the removable-media bit, read three ways (macOS
+1. Finding the stick safely. One rule, the removable-media bit, read three ways (macOS
    `RemovableMedia`, Linux `/sys/block/*/removable` or an SD `device/type`, Windows
    `DRIVE_REMOVABLE`). Chosen against "external, on USB" by measurement: the development Mac has two
    USB hard disks attached, one holding backups, and both report USB and not internal while clearing
    the removable-media bit. They are the test fixtures. Confirmation is by name and size, and erasing
    asks for the disk's identifier typed back.
-2. **Formatting: the OS's tools**, `diskutil eraseDisk` and `sfdisk` plus `mkfs.vfat`, one FAT32
+2. Formatting: the OS's tools, `diskutil eraseDisk` and `sfdisk` plus `mkfs.vfat`, one FAT32
    partition on MBR. Not an in-tree FAT32 writer, and the reason is not effort: a tree-written
    formatter means this program writing a raw block device, the most dangerous act available to it
    and one the OS tools guard. MBR over GPT was measured: `diskutil`'s GPT layout puts a 200 MB `EFI`
    partition ahead of the data one. Windows prints the `diskpart` steps and does not run them, until
    it can be run against a VHD on Windows.
-3. **Building the host binaries**: `cargo xtask stick --host <triple>...` from the Mac for macOS
+3. Building the host binaries: `cargo xtask stick --host <triple>...` from the Mac for macOS
    arm64 and x86_64 (joined by `lipo` into one universal binary) and static Linux x86_64 and arm64
    (musl, linked by `rust-lld`). **Windows does not link on the Mac**: Rust's Windows targets need a
    MinGW runtime or the Windows SDK. A Windows CI runner builds x86_64 and arm64.
-4. **Testing without a real disk**: hdiutil-attached raw files on macOS, a loop device on Linux (in
+4. Testing without a real disk: hdiutil-attached raw files on macOS, a loop device on Linux (in
    CI, as root). Windows is exercised through discovery only.
-5. **What it says when it finishes**: ejects the stick and says how to boot it per architecture,
+5. What it says when it finishes: ejects the stick and says how to boot it per architecture,
    Secure Boot off; and it leaves `NIFE.TXT` on the stick naming the build and each file's digest.
 
 ## What ran where
@@ -105,10 +105,10 @@ much as for this. radon's RAM does contain the riscv64 kernel's `0x8020_0000`.
 
 ## BUGS
 
-- **Nothing here has touched a physical stick or a board.** Every write was to a file-backed disk and
+- Nothing here has touched a physical stick or a board. Every write was to a file-backed disk and
   every boot was QEMU.
-- **The flash-stick fixture is synthesized** and says so in its first line; capture a real one.
-- **Some flash sticks clear the removable-media bit** and are not offered, with no override, on
+- The flash-stick fixture is synthesized and says so in its first line; capture a real one.
+- Some flash sticks clear the removable-media bit and are not offered, with no override, on
   purpose.
 - **Names are provisional**: `stick_maker`, `portable_executable`, `device_tree_patch`, `cargo xtask
   stick` and `stick-boot`, `helpers/qemu-stick.sh`, `helpers/stick-maker-proof.sh`, the download

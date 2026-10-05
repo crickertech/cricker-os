@@ -32,23 +32,23 @@ a Kani proof is not evidence until somebody has made it go red on purpose and le
 does it beside the harness. The reason is that a proof which cannot fail proves nothing and is
 indistinguishable, from outside, from one that can.
 
-**A CI gate is a claim of exactly that kind, and this tree requires nothing of it.** A new gate
+A CI gate is a claim of exactly that kind, and this tree requires nothing of it. A new gate
 ships against a tree where its defect is absent, so its first result is green, and green is what it
 would also report if it could not fire at all. Nobody can tell which they are looking at, and the
 first green is the one everybody reads as confirmation that the thing works.
 
 ## The two instances that prompted it
 
-**The weekly falsification sweep.** `falsifications.yml` landed on `main` on 2026-09-01. Its first
+The weekly falsification sweep. `falsifications.yml` landed on `main` on 2026-09-01. Its first
 execution of any kind was the cron six days later, which refused to run and reported success. It
 replayed zero patches in three scheduled runs over three weeks, and the population it was not
 checking grew from 40 records to 74 in that window. A dispatch on the day it landed would have shown
 it in 35 seconds.
 
-**`coe-architect-label.yml`**, merged 2026-09-23 so every correction of error reaches calef by
+`coe-architect-label.yml`, merged 2026-09-23 so every correction of error reaches calef by
 default. Also shipped unexercised. On the first COE it ever saw it detected the file correctly,
 failed to apply the label because `gh pr edit` was called without `--repo` in a job with no
-checkout, and reported **pass**. It was found in hours rather than in three weeks only because a
+checkout, and reported pass. It was found in hours rather than in three weeks only because a
 human was reading the log for another reason.
 
 Both are the same shape one level out from the correction's fifth why: the gate's first green is the
@@ -64,11 +64,11 @@ on purpose, once, and the record of that observation lives with it.**
   script against a deliberately broken tree. §134's own standard is a patch that a machine can
   replay; this is weaker on purpose, because a workflow's inputs are not a source tree and a
   replayable version would cost more than it buys.
-- **It lives with the workflow**, in the file's header beside the reasoning already there, which is
+- It lives with the workflow, in the file's header beside the reasoning already there, which is
   rung three of `AGENTS.md`'s ladder: a record at the thing itself, read by the next person to touch
   it. The alternative, a registry, is the shape milestone 115 (the names that were ratified, and the
   ones that were refused) exists to refuse.
-- **It applies to new workflows and to a step whose failure arm is added later**, since that arm is
+- It applies to new workflows and to a step whose failure arm is added later, since that arm is
   what carries the claim. It does not apply retroactively to the 14 workflows already here; auditing
   those is the denominator proposal's survey.
 

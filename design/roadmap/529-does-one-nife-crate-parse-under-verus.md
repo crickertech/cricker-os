@@ -21,8 +21,8 @@ not that.
 
 ## What it is
 
-`notes/verus.md` established, by running both tools, that **Verus stops at the same hardware boundary
-Kani does**: it rejects `asm!` (*"The verifier does not yet support the following Rust feature:
+`notes/verus.md` established, by running both tools, that Verus stops at the same hardware boundary
+Kani does: it rejects `asm!` (*"The verifier does not yet support the following Rust feature:
 inline-asm expressions"*) and rejects the integer-to-pointer cast that is the MMIO idiom (*"Verus
 does not support this cast: `usize` to `*const u32`"*). What it can do that Kani cannot is reason
 without an unwind bound, which is the wall every hard case in `notes/verification.md` and
@@ -32,21 +32,21 @@ That makes the interesting question a plumbing question rather than a proof ques
 `BUGS` says plainly that it is unanswered: **not one line of this tree was put through Verus.** Two
 things are unknown, and either could be fatal to the idea on its own:
 
-1. **Does nife's Rust parse under Verus's subset?** The guide's feature table lists `transmute`,
+1. Does nife's Rust parse under Verus's subset? The guide's feature table lists `transmute`,
    user-defined `Drop`, hardware intrinsics and the standard `Mutex`/`RwLock` as unsupported, and
    `as` casts, `dyn`, `const` generics, iterators, closures with mutable captures and multi-crate
    projects as only partially supported. This tree leans on most of that list.
-2. **Can a verified crate build for `aarch64-unknown-none-softfloat`?** Verus pins Rust **1.98.1
-   stable** and this tree pins a nightly with nightly features. The Verus project documents neither a
+2. Can a verified crate build for `aarch64-unknown-none-softfloat`? Verus pins Rust 1.98.1
+   stable and this tree pins a nightly with nightly features. The Verus project documents neither a
    custom target JSON nor bare metal; the only evidence either way is the Atmosphere authors
    asserting it about their own x86_64 kernel.
 
 ## The smallest honest version
 
-**One crate, `verify` only, no proof written.** Pick a `crates/` member that is already `no_std`,
+One crate, `verify` only, no proof written. Pick a `crates/` member that is already `no_std`,
 already has Kani harnesses, and has the fewest of the unsupported features above (`capability` and
 `timetable` are the obvious candidates; the choice is part of the work). Run `cargo verus verify` on
-it with an empty `verus!{}` and report exactly one thing: **what it says.**
+it with an empty `verus!{}` and report exactly one thing: what it says.
 
 That is a day at most and it is falsifiable in the useful direction. If a `no_std` pure-logic crate
 with no `Drop` and no `dyn` does not parse, the whole question is closed for this tree and the note
@@ -64,7 +64,7 @@ nothing about a subsystem.
 ## What it costs and what it leaves behind
 
 ~450 MB of Verus and one extra rustup toolchain (`1.98.1-aarch64-apple-darwin`), both outside the
-tree; `notes/verus.md`'s EXAMPLES has the commands. **No dependency is added to the workspace**, and
+tree; `notes/verus.md`'s EXAMPLES has the commands. No dependency is added to the workspace, and
 none should be: DECISIONS §46 (thin primitives or whole subsystems; we write everything in between)
 applies with full force to a verifier in the shipping graph, and nothing here proposes putting one
 there.

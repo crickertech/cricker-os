@@ -18,10 +18,10 @@ deliberately did not sweep them. *(Number provisional until the merge queue land
 `boot_progenitor` is already ratified (calef, 2026-09-15), so nothing here waits on a
 naming decision. It is bounded cleanup with a discipline attached, not a fork.
 
-**Premise re-checked 2026-09-19 and the count has grown, which is why this file said to re-enumerate
-rather than trust it.** Neither `fn riscv_shell_boot` nor `fn spawn_init` exists anywhere in the
-tree. `riscv_shell_boot` appears **48 times across 25 files** and `spawn_init` **32 times across 22
-files**, against the roughly 35 occurrences counted mid-rename on one branch. The sites span
+Premise re-checked 2026-09-19 and the count has grown, which is why this file said to re-enumerate
+rather than trust it. Neither `fn riscv_shell_boot` nor `fn spawn_init` exists anywhere in the
+tree. `riscv_shell_boot` appears 48 times across 25 files and `spawn_init` 32 times across 22
+files, against the roughly 35 occurrences counted mid-rename on one branch. The sites span
 `design/`, `notes/`, `kernel/`, `components/` and `xtask/`, and include the test-wiring hotspot this
 file's `BUGS` warns about.
 
@@ -29,12 +29,12 @@ file's `BUGS` warns about.
 
 Two function names survive in prose and code comments after the functions themselves are gone:
 
-- **`riscv_shell_boot`** became `boot_progenitor` at milestone 166, when the per-architecture boot
+- `riscv_shell_boot` became `boot_progenitor` at milestone 166, when the per-architecture boot
   loaders were unified.
-- **`spawn_init`** predates 166 and was already stale before it.
+- `spawn_init` predates 166 and was already stale before it.
 
-The lane counted **roughly 35 occurrences** across `design/`, `notes/`, `kernel/` and `xtask/`. Treat
-that number as a starting point and **re-enumerate rather than trust it**: it was counted on one
+The lane counted roughly 35 occurrences across `design/`, `notes/`, `kernel/` and `xtask/`. Treat
+that number as a starting point and re-enumerate rather than trust it: it was counted on one
 branch, mid-rename, and this tree's rule is that a count spanning the tree is taken at merge from the
 merged tree.
 
@@ -58,12 +58,12 @@ happens, so the lane enumerated, reported, and stopped, which is the behaviour t
 Mechanical in the edits, and the judgment is the whole job. The same rules milestone 166's rename
 followed apply, and they are why this cannot be a single `sed`:
 
-- **Enumerate first, then apply through an assertion-checked list** that aborts when a line is not
+- Enumerate first, then apply through an assertion-checked list that aborts when a line is not
   what was enumerated. 166's lane caught an occurrence wrapping across two lines this way, which a
   tree-wide replace would have silently mangled.
-- **A `BUILT` roadmap block is an account** of what happened and keeps the old name where it narrates
+- A `BUILT` roadmap block is an account of what happened and keeps the old name where it narrates
   history; it moves only where it makes a present-tense claim about the system as it is now.
-- **A measurement table keeps the name it was measured under.** `notes/frames.md` and `notes/net.md`
+- A measurement table keeps the name it was measured under. `notes/frames.md` and `notes/net.md`
   count runs made under the old name, and sweeping them would make a true measurement cite a function
   that never produced it.
 - **A quotation never moves**, whoever said it.

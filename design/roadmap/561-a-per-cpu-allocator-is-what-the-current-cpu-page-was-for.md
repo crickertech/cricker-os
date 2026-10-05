@@ -33,17 +33,17 @@ A small-object allocator in userspace that keeps a free list per CPU id, reads i
 allocation, and falls back correctly when the answer turns out to be the previous core's. The
 fallback is the interesting half and the reason this is a milestone rather than an afternoon: the
 value can be stale the instruction after it is read, Linux solves that with `rseq`'s restartable
-sequences, and this tree deliberately does not have those. So the design question is **what
-correctness argument replaces them**, and the candidates (a per-list lock taken only on the slow
+sequences, and this tree deliberately does not have those. So the design question is what
+correctness argument replaces them, and the candidates (a per-list lock taken only on the slow
 path, a compare-and-swap that tolerates the wrong list, an owner check on free) differ in exactly
 the cost this page was chosen to avoid.
 
 ## What it would prove, which is the point
 
-- **A number.** Allocations per second against the same allocator with the CPU read removed, on all
+- A number. Allocations per second against the same allocator with the CPU read removed, on all
   three architectures, which turns the page from an argument into a measurement.
-- **Whether the staleness matters in practice**, which nothing in this tree currently knows.
-- **Whether `CPU_ID_BOUND` is the right thing to size by.** Eight lists per process is the current
+- Whether the staleness matters in practice, which nothing in this tree currently knows.
+- Whether `CPU_ID_BOUND` is the right thing to size by. Eight lists per process is the current
   answer and it is a guess; an allocator is what makes the cost of that guess visible.
 
 ## What would make it not worth doing

@@ -71,11 +71,11 @@ a job's memory is back. D is chosen on effort, and 205's `BUGS` says so.
 
 ## The seven questions
 
-1. **Considered and refused.** B, C and D above, each with its reason. A caller-side sleep, because
+1. Considered and refused. B, C and D above, each with its reason. A caller-side sleep, because
    there is no timed wait at the prompt (§147 (a timer a userspace service cannot hold) is not wired
    to the shell). Folding the undertaker into the progenitor, because the undertaker exists so that
    a parked report cannot stall spawns (`components/src/job_undertaker.rs`, `report`).
-2. **What the tree does already.** The undertaker already sends `JOB_FAULTED`, after collecting, on
+2. What the tree does already. The undertaker already sends `JOB_FAULTED`, after collecting, on
    the result endpoint; A sends its sibling to the progenitor instead. Milestone 599 built badged
    endpoints for telling senders apart on one endpoint, which is A's discriminator. Jobs the shell
    supervises itself (`spawnproto::Wiring::screen`, §106 (the `terminal_sink_caretaker`
@@ -84,7 +84,7 @@ a job's memory is back. D is chosen on effort, and 205's `BUGS` says so.
 3. **Prior art, from memory and not re-read.** Unix delivers `SIGCHLD` to the parent and a
    `waitpid` names the child, so the parent learns which process ended. seL4 leaves it to the
    user-level manager, which is this tree's shape: the undertaker is that manager's reaping half.
-4. **Is the premise true?** Yes, measured once in CI on 2026-09-27 (#1402, aarch64), with an
+4. Is the premise true? Yes, measured once in CI on 2026-09-27 (#1402, aarch64), with an
    earlier riscv64 failure that fits it, and #1418 found the missing signal independently. A larger pool moves the line and does not
    order the reap.
 5. **Cost.** A: one badged capability in the undertaker's table, one message kind in `spawnproto`
@@ -92,7 +92,7 @@ a job's memory is back. D is chosen on effort, and 205's `BUGS` says so.
    and a receive-until-reaped on a failed split.
 6. **Reversibility.** Inside the tree; no outside program has acted on it. It changes
    `spawnproto`, which the shell, the progenitor and now the undertaker read.
-7. **At equal cost?** A, still, because it serves both consumers with one mechanism.
+7. At equal cost? A, still, because it serves both consumers with one mechanism.
 
 ## What is blocked on the answer
 

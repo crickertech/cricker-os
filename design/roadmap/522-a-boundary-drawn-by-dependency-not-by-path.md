@@ -12,15 +12,15 @@ density 77 per 10,000, `script/lint`'s ceiling 88) answers "how much of the tree
 outside `kernel/src/arch/`", and nothing in that number distinguishes code nothing confines from
 code the kernel's own MMU-plus-capability-table mechanism confines like any other program. A hand
 computation (`notes/trusted-base.md`, the `maintainer/redleaf-comparison` lane, now published in a
-comparison against Tock and RedLeaf) drew that boundary at `kernel/src/**` versus everything else
+comparison against Tock and RedLeaf) drew that boundary at `kernel/src/` versus everything else
 and got 577 kernel blocks against 561 elsewhere. **That boundary is a path prefix, and a path prefix
-is the wrong instrument**: sixteen `crates/` members, `paging` and `dma_validator` and
+is the wrong instrument: sixteen `crates/` members, `paging` and `dma_validator` and
 `inter_process_communication` among them, were lifted out of `kernel/src` on purpose so Kani could
 reach them, and every one of them ships only in the kernel binary. A path-only split cannot see that
 they never leave the trusted base just because their directory changed; it counted their 117 unsafe
 blocks as if they were userspace's.
 
-**The boundary this milestone draws instead is a real dependency edge**, read once from `cargo
+The boundary this milestone draws instead is a real dependency edge, read once from `cargo
 metadata --format-version 1` at the repository root: a crate is kernel-trusted if the `kernel`
 package reaches it over an edge that is not exclusively `dev`, userspace-confined if only
 `components` or `fixtures` (the two packages holding every EL0 program, milestone 175 (split
@@ -30,13 +30,13 @@ hand-drawn line is not, and it is what catches the 117.
 
 ## The four categories, and the four densities
 
-- **kernel, 694 blocks, 48,724 code lines, density 142 per 10,000.** `kernel/src/**` (arch and not)
+- kernel, 694 blocks, 48,724 code lines, density 142 per 10,000. `kernel/src/**` (arch and not)
   plus sixteen `crates/` members reachable only from the `kernel` package: `address_space_identifier`,
   `capability`, `cpu_set`, `dma_validator`, `firmware_configuration`, `generational_table`,
   `inter_process_communication`, `intrusive_fifo`, `jh7110_clock_and_reset`,
   `memory_corruption_canary_gate`, `memory_regions`, `page_frames`, `paging`, `pci`,
   `thread_wake_handshake`, `work_steal_slot`.
-- **userspace, 382 blocks, 31,639 code lines, density 120 per 10,000.** `components/`, `fixtures/`,
+- userspace, 382 blocks, 31,639 code lines, density 120 per 10,000. `components/`, `fixtures/`,
   sixteen `crates/` members reachable only from them, and five packages that are each their own
   cargo workspace and so are invisible to `cargo metadata` run at the repository root at all:
   `redoxfs_server` (its `el0` build; its `hosttest` build never ships), `std_exerciser`,
@@ -45,13 +45,13 @@ hand-drawn line is not, and it is what catches the 117.
   `cargo metadata`'s own resolve graph does not include them; they were found by reading which
   directories declare their own `[workspace]` rather than joining the root one, and confirmed from
   their own provenance comments.
-- **shared, 19 blocks, 5 of 36 crates reachable from both sides.** Not folded into either side. Two
+- shared, 19 blocks, 5 of 36 crates reachable from both sides. Not folded into either side. Two
   of the five, `environment_protocol` and `clock_protocol`, were read closely enough to confirm this
   is not a hedge: the kernel builds a page with the crate's `unsafe fn new`/`from_raw_parts`
   constructor and a userspace `std` program reads it back through the identical accessor, so the
   same unsafe source genuinely executes with kernel privilege in one binary and under confinement in
   the other.
-- **boot chain, 37 blocks.** `uefi_loader` and the one crate only it reaches (`sealed_pair`). It
+- boot chain, 37 blocks. `uefi_loader` and the one crate only it reaches (`sealed_pair`). It
   runs once, before the kernel starts, with the full privilege of the pre-OS environment, to decide
   which kernel image gets control, and its memory is reclaimed before the kernel's isolation
   boundary exists to enforce anything on it. A chain-of-trust question, not a runtime-isolation one.
@@ -65,8 +65,8 @@ never on nife"*); each is read only by `xtask` or invoked directly, never by a n
 under `crates/`, not one of `HOST_ONLY`'s path prefixes (`bench/host/`, `xtask/`, `tools/`, `fuzz/`,
 `helpers/`, `patches/`), so the existing census counts their 6 unsafe blocks as if they ran on nife.
 
-**This was found and is reported here, and `unsafe_census()`/`unsafe_outside_arch`/`script/lint`'s
-ceiling are left exactly as they were.** The 824 and 77 that `script/lint` still gates on mean
+This was found and is reported here, and `unsafe_census()`/`unsafe_outside_arch`/`script/lint`'s
+ceiling are left exactly as they were. The 824 and 77 that `script/lint` still gates on mean
 precisely what they meant before this milestone. Widening `HOST_ONLY` to also exclude these three
 crates is a real, small correction (it would move the published 824 to 818 and the density from 77
 to roughly 81), but it is a decision about an existing gate's inputs, not a byproduct of drawing a
@@ -86,16 +86,16 @@ on), so the classification table, built from today's names, cannot see them unde
 `canary_gate`'s own `src/lib.rs` correctly pairs with `memory_corruption_canary_gate` at 97%. A
 hand-verified alias table for around forty old names, several of which (`mdns_proto`, `smb_proto`,
 `ntlm`) name protocols since removed outright with no current bucket to map to at all, is real work
-this milestone chose not to rush past a false pairing. **A future reader who sees the gap in the
-series and assumes it is a bug should read this instead**: it is a recorded limitation, not an
+this milestone chose not to rush past a false pairing. A future reader who sees the gap in the
+series and assumes it is a bug should read this instead: it is a recorded limitation, not an
 oversight, and it is exact from 2026W38 (2026-09-20) onward.
 
 ## The ceiling question, answered as a recommendation and not a change
 
 `script/lint`'s `<!--count-at-most:unsafe-density-outside-arch-->` (`notes/unsafe-obligations.md`,
 currently 88 against a mixed density of 77) is a ceiling over the population this milestone shows is
-two populations. **If a ceiling is held against the split, kernel density (142 per 10,000) is the
-number it belongs on**, because it is the population a mixed number's blind spot actually lives in:
+two populations. If a ceiling is held against the split, kernel density (142 per 10,000) is the
+number it belongs on, because it is the population a mixed number's blind spot actually lives in:
 unsafe code nothing confines. Userspace density (120) matters less for the same reason a bug there
 is a bug in one confined program rather than in the base. **This is a recommendation. Changing
 `script/lint`'s 88, or setting any ceiling on the new columns, is an architect's, not this
@@ -129,8 +129,8 @@ number; this milestone does not touch it.
   `coremark`, `counter_frequency_protocol`, `grant_plan`, `job_mix`, `network_time_protocol`,
   `pgrep`, `pmap` and `soak_page` all showed as unused kernel dependencies for at least one
   target/feature combination in one run, which is consistent with (but does not prove) test-only use.
-- **`notes/register-of-measures.md` says the live ceiling is 94; the actual gate
-  (`notes/unsafe-obligations.md`) is 88.** Found while reading the register to place this split
+- `notes/register-of-measures.md` says the live ceiling is 94; the actual gate
+  (`notes/unsafe-obligations.md`) is 88. Found while reading the register to place this split
   beside it; a note wanted the correction pointed out, not made, since the historical ratchet
   narrative needs care this milestone did not budget for.
 

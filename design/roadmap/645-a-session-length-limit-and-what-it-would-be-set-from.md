@@ -15,23 +15,23 @@ Promoted from `design/roadmap/proposals/a-session-length-limit-and-what-it-would
 <!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by calef on 2026-09-24, after a measurement across this
-project's session records showed that **98% of every token spent is a cache read** and **0.1% is
-output**: a turn costs roughly the size of its context, not the size of its thought. He asked the
+project's session records showed that 98% of every token spent is a cache read and 0.1% is
+output: a turn costs roughly the size of its context, not the size of its thought. He asked the
 question this file exists to answer: *"How do we set a checkpoint to re-evaluate that will not be
 forgotten?"* The lane that built the measurement wrote this block.
 
 The threshold is an architect's, and it is deliberately not being chosen yet.
 `AGENTS.md`'s *measure first, then decide* rules that a threshold set before the data exists is no
 better than one chosen under attachment, and on the day this was raised there was one measurement,
-which is not a distribution. **The trigger is enough weeks of per-turn context to show a
-distribution, judged by reading the panel**, not a week count: a count would be the same
+which is not a distribution. The trigger is enough weeks of per-turn context to show a
+distribution, judged by reading the panel, not a week count: a count would be the same
 threshold-in-ignorance the tenet refuses, one level up. The panel is
 [`notes/project-metrics.md`](../../notes/project-metrics.md), section *What a turn costs*, and it
 arrives in front of whoever reads that page each week, which is the whole answer to calef's question.
 
 ## What is being deferred
 
-Whether to impose a **session length limit** on the agent harness, and at what threshold. Today
+Whether to impose a session length limit on the agent harness, and at what threshold. Today
 there is none, and a long session's context grows until auto-compaction cuts it.
 
 ## What the numbers say so far
@@ -39,11 +39,11 @@ there is none, and a long session's context grows until auto-compaction cuts it.
 Per ISO week, from `notes/project-metrics/context-per-turn.csv`, columns `lane_turns`,
 `lane_cache_read_share_pct`, `lane_context_per_turn_mean` and `lane_context_per_turn_peak`:
 
-- Cache-read share of all tokens: **95.6% to 98.6%** across six captured weeks.
-- Mean context carried per turn: **230,100 to 358,804 tokens**.
-- Largest single request each week: **933,378 to 999,863**, against a 1M window. Sessions run to the
+- Cache-read share of all tokens: 95.6% to 98.6% across six captured weeks.
+- Mean context carried per turn: 230,100 to 358,804 tokens.
+- Largest single request each week: 933,378 to 999,863, against a 1M window. Sessions run to the
   wall every week.
-- One session measured at roughly **233 million tokens** against 5 million for the twenty lanes it
+- One session measured at roughly 233 million tokens against 5 million for the twenty lanes it
   dispatched (notes/what-a-session-carries.md), which is the shape this would act on.
 
 **This is not a claim that context is waste.** Carrying it is what makes a long session coherent and
@@ -53,32 +53,32 @@ it is why the method in `AGENTS.md` principle 2 works. The finding is where the 
 
 Three levers, and they are not equivalent:
 
-1. **A `UserPromptSubmit` hook that warns past a threshold.** Advisory. It costs nothing when wrong
+1. A `UserPromptSubmit` hook that warns past a threshold. Advisory. It costs nothing when wrong
    and it relies on a person acting on a warning, which is rung four of the ladder and is the rung
    this project's recorded failures live on.
-2. **`autoCompactEnabled: false`.** Converts a slow bleed into a hard stop. It is the strongest of
-   the three and it **would also end sessions mid-task**, which is a cost paid by whatever lane was
+2. `autoCompactEnabled: false`. Converts a slow bleed into a hard stop. It is the strongest of
+   the three and it would also end sessions mid-task, which is a cost paid by whatever lane was
    holding uncommitted work at the time. `AGENTS.md` already names uncommitted work in a lane
    worktree as the one thing no part of this system protects.
-3. **`autoCompactWindow`.** Moves where compaction fires without removing it. The middle option, and
+3. `autoCompactWindow`. Moves where compaction fires without removing it. The middle option, and
    the one whose effect on cost nothing here has measured.
 
 Doing nothing stays available and is the current state.
 
 ## What would have to be true to answer it
 
-- Enough weeks that the mean per turn has a **shape** rather than a level: is it rising, flat, or set
+- Enough weeks that the mean per turn has a shape rather than a level: is it rising, flat, or set
   by the model's window rather than by how anyone works?
 - Some evidence on what a compaction actually costs in re-read tokens, which none of these columns
   can see.
-- A statement of what a limit is **for**. Cash is under a thousand dollars all in against eleven
+- A statement of what a limit is for. Cash is under a thousand dollars all in against eleven
   person-weeks (*What this project costs* on the same page), so a limit justified by money is
   arguing about a rounding error. A limit justified by a session degrading as it lengthens is a
   different claim and would need a different measurement.
 
 ## The instrument's own fragility
 
-The session records are **not in git**, live on **one laptop**, and nothing promises to keep them;
+The session records are **not in git**, live on one laptop, and nothing promises to keep them;
 `script/effort`'s header already records 2026W29 through 2026W33 as unrecoverable. A per-turn context
 history has the same deadline, and with more than one contributor it measures one machine. So the
 trigger above is a race: the distribution either accumulates before the records rotate, or this

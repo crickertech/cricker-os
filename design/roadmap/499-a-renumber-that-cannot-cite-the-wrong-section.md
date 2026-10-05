@@ -20,10 +20,10 @@ sessions in ninety minutes, on the evening calef ruled that the interleaving sta
 
 It is a mode on a script that already exists, over files already in the tree.
 
-**In brief.** When two sessions mint from the same range and one lands first, the other's whole run
+In brief. When two sessions mint from the same range and one lands first, the other's whole run
 shifts. That happened four times on 2026-09-19 in two and a half hours: §156, then §157, then §158,
-then §159, each landing moving one branch's run up by one, from §156-§189 to §160-§194. The shift itself is mechanical. **The hazard is the
-citations**, and it is specific: a `§` rewritten by number can be silently wrong and still pass
+then §159, each landing moving one branch's run up by one, from §156-§189 to §160-§194. The shift itself is mechanical. The hazard is the
+citations, and it is specific: a `§` rewritten by number can be silently wrong and still pass
 every gate in the tree, because the section it now names exists. `script/decisions --check` verifies
 that §174 resolves. Nothing can tell it the sentence meant the section that used to be §173.
 
@@ -31,13 +31,13 @@ that §174 resolves. Nothing can tell it the sentence meant the section that use
 
 The third renumber was done by a script rather than by hand, and it is the shape to land:
 
-1. **Rename descending**, so no rename clobbers the next one.
-2. **Bump each file's own `# N.` heading with its file**, in the same pass, so a heading can never
+1. Rename descending, so no rename clobbers the next one.
+2. Bump each file's own `# N.` heading with its file, in the same pass, so a heading can never
    disagree with its name.
-3. **Rewrite citations keyed on the filename**, never on the number. `157-what-a-subshell-copies.md`
+3. Rewrite citations keyed on the filename, never on the number. `157-what-a-subshell-copies.md`
    is unique across a collision; `§157` is not.
-4. **Move a `§N` sigil only on a line that already names the file it belongs to.**
-5. **Print every remaining bare sigil in the affected range for a person to read.** This is the step
+4. Move a `§N` sigil only on a line that already names the file it belongs to.
+5. Print every remaining bare sigil in the affected range for a person to read. This is the step
    that earns the tool. It is an admission that the last few cannot be decided mechanically, and it
    turns them from a silent rewrite into a short list.
 
