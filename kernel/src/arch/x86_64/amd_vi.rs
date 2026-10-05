@@ -180,14 +180,10 @@ const EFR_HATS_NONE: u64 = 0b11;
 const RING_BYTES: u64 = 4096;
 const RING_LEN_256: u64 = 0b1000 << 56;
 
-// --- Device table entry, 256 bits as four qwords (Table 7). ---
-const DTE_V: u64 = 1 << 0;
-const DTE_TV: u64 = 1 << 1;
-/// `Mode` (bits 11:9) = 4: a four-level host page table, the 48-bit walk `AmdVi` builds.
-const DTE_MODE_4_LEVEL: u64 = 4 << 9;
+// --- Device table entry, 256 bits as four qwords (section 2.2.2.1, Table 7). The two this driver
+// writes are built by `paging::AmdVi`, where Kani proves them; these name fields for the tests. ---
+#[cfg(test)]
 const DTE_ROOT_MASK: u64 = 0x000f_ffff_ffff_f000;
-const DTE_IR: u64 = 1 << 61;
-const DTE_IW: u64 = 1 << 62;
 /// `IV`, bit 128: the interrupt-remapping half of the entry is valid. Never set here.
 #[cfg(test)]
 const DTE_IV: u64 = 1 << 0;
@@ -205,29 +201,26 @@ const COMPLETION_WAIT_STORE: u64 = 1 << 0;
 const INVALIDATE_WHOLE_DOMAIN: u64 = 0x7fff_ffff_ffff_f000 | 0b011;
 
 /// **The device table entry of a device that is confined**: valid, translating through the
-/// four-level table at `root`, read and write allowed so the leaves decide, tagged `domain`.
-/// Everything else zero: no interrupt remapping (`IV` clear), no IOTLB, events not suppressed.
-const fn translating_dte(root: u64, domain: u16) -> [u64; 4] {
-    [
-        DTE_V | DTE_TV | DTE_MODE_4_LEVEL | (root & DTE_ROOT_MASK) | DTE_IR | DTE_IW,
-        domain as u64,
-        0,
-        0,
-    ]
+/// four-level table at `root`, read and write allowed so the leaves decide, tagged `domain`
+/// ([`paging::AmdVi::device_table_entry`], which `no_amd_vi_device_table_entry_sets_a_reserved_bit`
+/// proves over every root and domain). A root the entry cannot hold is a panic, not a mask: the
+/// mask that was here before provisional milestone 767 would have pointed the device at another
+/// table. Every root comes from the frame allocator, so the panic is unreachable on a machine whose
+/// memory ends below 2^52.
+fn translating_dte(root: u64, domain: u16) -> [u64; 4] {
+    paging::AmdVi::device_table_entry(root, domain)
+        .unwrap_or_else(|| panic!("AMD-Vi domain root {root:#x} does not fit a device table entry"))
 }
 
 /// **The device table entry that denies everything**: the default for every device and §163's
-/// quarantine. A four-level walk to `empty_root`, an all-zero table, with read and write both
-/// clear; every access target-aborts and is logged. This module's header says why it is not
-/// `Mode` 0. Domain 0, which no confined device is given, because every blocked device shares the
-/// one root and the specification asks that devices sharing a domain id share their tables.
-const fn blocked_dte(empty_root: u64) -> [u64; 4] {
-    [
-        DTE_V | DTE_TV | DTE_MODE_4_LEVEL | (empty_root & DTE_ROOT_MASK),
-        0,
-        0,
-        0,
-    ]
+/// quarantine ([`paging::AmdVi::blocked_device_table_entry`]). A four-level walk to `empty_root`,
+/// an all-zero table, with read and write both clear; every access target-aborts and is logged.
+/// This module's header says why it is not `Mode` 0. Domain 0, which no confined device is given,
+/// because every blocked device shares the one root and the specification asks that devices
+/// sharing a domain id share their tables.
+fn blocked_dte(empty_root: u64) -> [u64; 4] {
+    paging::AmdVi::blocked_device_table_entry(empty_root)
+        .unwrap_or_else(|| panic!("AMD-Vi empty root {empty_root:#x} does not fit an entry"))
 }
 
 /// One fault, in the portable shape VT-d's driver returns.
