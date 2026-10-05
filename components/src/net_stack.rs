@@ -58,9 +58,11 @@ use smoltcp::wire::{EthernetAddress, HardwareAddress, IpAddress, IpCidr, IpEndpo
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
 use user_mode_runtime::{
     Delivered, cap_delete, cntfrq, irq_wait, map_page_frame, notification_poll, now,
-    receive_request, reply, send, timer_arm, timer_cancel,
+    receive_request, reply, send, sleep_until, timer_arm, timer_cancel,
 };
 
+#[path = "e1000e_transport.rs"]
+mod e1000e_transport;
 #[path = "net_transport.rs"]
 mod net_transport;
 // The socket-contract client rides in this same binary (dispatched by the entry role), because the
@@ -73,6 +75,9 @@ const REPORT: u64 = 0;
 const IRQ: u64 = 1;
 const MEMORY_REGION: u64 = 3;
 const STACK: u64 = 4;
+/// The lease word an `e1000e` server sends instead of an address when its spawn arguments were
+/// not a handoff the kernel could have made. Outside every private /24 a test accepts.
+const BAD_HANDOFF: u64 = 0xDEAD_0001;
 /// The notification bound to this thread, which the retransmit timer signals (milestone 106 (a wait
 /// that ends on either the interrupt or the deadline)). The spawner makes and binds it.
 const WAKE: u64 = 5;
@@ -176,7 +181,21 @@ const SOCK_BUF: usize = 2048;
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(role: u64, direct_memory_access_phys: u64, a2: u64) -> ! {
     if role == 0 {
-        server(direct_memory_access_phys, a2)
+        let dev = Nic::Virtio(net_transport::VirtioNet::bring_up(
+            direct_memory_access_phys,
+        ));
+        server(dev, a2)
+    } else if e1000e::Handoff::is_role(role) {
+        // The `e1000e` server (milestone 494 (a driver for the network card a PC actually has)):
+        // the role word carries the tag and the MAC address, the second word the DMA region.
+        let Some(handoff) = e1000e::Handoff::unpack(role, direct_memory_access_phys) else {
+            send(REPORT, BAD_HANDOFF, 0, 0);
+            user_mode_runtime::exit();
+        };
+        server(
+            Nic::Gigabit(e1000e_transport::GigabitNic::bring_up(handoff)),
+            a2,
+        )
     } else {
         // The client's second word is its own (only the package exchange reads it); the DMA page is
         // the server's.
@@ -185,15 +204,14 @@ pub extern "C" fn _start(role: u64, direct_memory_access_phys: u64, a2: u64) -> 
 }
 
 /// The net server: bring the NIC up, run DHCP, then serve the socket contract.
-fn server(direct_memory_access_phys: u64, grant_word: u64) -> ! {
+fn server(mut dev: Nic, grant_word: u64) -> ! {
     HEAP.init(
         MEMORY_REGION,
         user_mode_runtime::heap::DEFAULT_BASE,
         HEAP_MAX,
     );
 
-    let mut dev = net_transport::VirtioNet::bring_up(direct_memory_access_phys);
-    let mut config = Config::new(HardwareAddress::Ethernet(EthernetAddress(MAC)));
+    let mut config = Config::new(HardwareAddress::Ethernet(EthernetAddress(dev.mac())));
     config.random_seed = now();
     let mut iface = Interface::new(config, &mut dev, instant());
     let mut sockets = SocketSet::new(vec![]);
@@ -462,11 +480,11 @@ fn read_dst(window: MappedWindow) -> IpEndpoint {
 /// whose own retransmit will wake us. When it **does** have a timer pending, do not block: yield and
 /// let the caller re-`poll`, so the timer actually fires. That confines the busy interval to the
 /// short retransmit window, not the whole exchange.
-fn wait_for_nic(
-    iface: &mut Interface,
-    dev: &mut net_transport::VirtioNet,
-    sockets: &mut SocketSet,
-) {
+fn wait_for_nic(iface: &mut Interface, dev: &mut Nic, sockets: &mut SocketSet) {
+    if let Nic::Gigabit(nic) = dev {
+        poll_gigabit(iface, nic, sockets);
+        return;
+    }
     let Some(delay) = iface.poll_delay(instant(), sockets) else {
         irq_wait(IRQ);
         dev.ack_irq();
@@ -498,12 +516,130 @@ fn wait_for_nic(
     dev.ack_irq();
 }
 
+/// **The `e1000e` NIC's wait, which is a sleep** (milestone 494 (a driver for the network card a
+/// PC actually has)). It holds no interrupt (`kernel/src/user/e1000e_service.rs` says why), so the
+/// wait ends at smoltcp's own deadline or after `e1000e_transport::POLL_MS`, whichever is sooner,
+/// and the caller looks at the ring again. A frame already waiting skips the sleep. The timer and
+/// notification are the same pair the virtio server's retransmit wait uses (slots 5 and 6).
+fn poll_gigabit(
+    iface: &mut Interface,
+    nic: &mut e1000e_transport::GigabitNic,
+    sockets: &mut SocketSet,
+) {
+    if nic.frame_waiting() {
+        return;
+    }
+    let poll_micros = e1000e_transport::POLL_MS * 1000;
+    let micros = iface
+        .poll_delay(instant(), sockets)
+        .map_or(poll_micros, |d| d.total_micros().min(poll_micros));
+    if micros == 0 {
+        return;
+    }
+    let ticks = abi::timer::counter_ticks_for(0, (micros * 1000) as u32, cntfrq());
+    if sleep_until(RETRANSMIT, WAKE, now().saturating_add(ticks)) < 0 {
+        user_mode_runtime::yield_now();
+    }
+}
+
+/// **The NIC this server drives**: virtio-net (milestone 30 (the network stack as a confined
+/// component)) or the `e1000e` family (milestone 494). One enum rather than a generic parameter,
+/// so the dispatch below is compiled once.
+enum Nic {
+    Virtio(net_transport::VirtioNet),
+    Gigabit(e1000e_transport::GigabitNic),
+}
+
+impl Nic {
+    fn mac(&self) -> [u8; 6] {
+        match self {
+            Nic::Virtio(_) => MAC,
+            Nic::Gigabit(n) => n.mac(),
+        }
+    }
+    fn ack_irq(&self) {
+        if let Nic::Virtio(v) = self {
+            v.ack_irq();
+        }
+    }
+    fn rx_take(&mut self) -> Option<alloc::vec::Vec<u8>> {
+        match self {
+            Nic::Virtio(v) => v.rx_take(),
+            Nic::Gigabit(n) => n.rx_take(),
+        }
+    }
+    fn tx_send(&mut self, frame: &[u8]) {
+        match self {
+            Nic::Virtio(v) => v.tx_send(frame),
+            Nic::Gigabit(n) => n.tx_send(frame),
+        }
+    }
+}
+
+impl smoltcp::phy::Device for Nic {
+    type RxToken<'a> = NicRxToken;
+    type TxToken<'a> = NicTxToken;
+
+    fn receive(&mut self, _timestamp: Instant) -> Option<(NicRxToken, NicTxToken)> {
+        let frame = self.rx_take()?;
+        Some((NicRxToken { frame }, NicTxToken { dev: self }))
+    }
+
+    fn transmit(&mut self, _timestamp: Instant) -> Option<NicTxToken> {
+        Some(NicTxToken { dev: self })
+    }
+
+    fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
+        let mut caps = smoltcp::phy::DeviceCapabilities::default();
+        caps.medium = smoltcp::phy::Medium::Ethernet;
+        caps.max_transmission_unit = match self {
+            Nic::Virtio(_) => net_transport::MTU,
+            Nic::Gigabit(_) => e1000e::MAX_FRAME,
+        };
+        caps
+    }
+}
+
+struct NicRxToken {
+    frame: alloc::vec::Vec<u8>,
+}
+
+impl smoltcp::phy::RxToken for NicRxToken {
+    fn consume<R, F>(self, f: F) -> R
+    where
+        F: FnOnce(&[u8]) -> R,
+    {
+        f(&self.frame)
+    }
+}
+
+struct NicTxToken {
+    dev: *mut Nic,
+}
+
+impl smoltcp::phy::TxToken for NicTxToken {
+    fn consume<R, F>(self, len: usize, f: F) -> R
+    where
+        F: FnOnce(&mut [u8]) -> R,
+    {
+        let mut buf = vec![0u8; len];
+        let r = f(&mut buf);
+        // SAFETY: single-threaded; the device outlives this token, and the `&mut self` borrow that
+        // produced the token has ended (the token is an owned value). `net_transport`'s own token
+        // made the same argument before this enum took its place.
+        unsafe {
+            (*self.dev).tx_send(&buf);
+        }
+        r
+    }
+}
+
 /// Drive the poll loop until `cond` holds, servicing the NIC on each wakeup. Bounded so a stuck
 /// exchange returns rather than spinning forever; a genuinely lost packet still relies on the
 /// QEMU-level timeout, the disk driver's discipline.
 fn service_until(
     iface: &mut Interface,
-    dev: &mut net_transport::VirtioNet,
+    dev: &mut Nic,
     sockets: &mut SocketSet,
     mut cond: impl FnMut(&mut SocketSet) -> bool,
 ) -> bool {
@@ -525,7 +661,7 @@ fn service_until(
 
 fn udp_sendto(
     iface: &mut Interface,
-    dev: &mut net_transport::VirtioNet,
+    dev: &mut Nic,
     sockets: &mut SocketSet,
     socks: &[Option<Sock>; MAX_SOCKETS],
     sid: usize,
@@ -556,7 +692,7 @@ fn udp_sendto(
 
 fn sock_receive(
     iface: &mut Interface,
-    dev: &mut net_transport::VirtioNet,
+    dev: &mut Nic,
     sockets: &mut SocketSet,
     socks: &[Option<Sock>; MAX_SOCKETS],
     sid: usize,
@@ -611,7 +747,7 @@ fn sock_receive(
 
 fn tcp_connect(
     iface: &mut Interface,
-    dev: &mut net_transport::VirtioNet,
+    dev: &mut Nic,
     sockets: &mut SocketSet,
     socks: &[Option<Sock>; MAX_SOCKETS],
     sid: usize,
@@ -727,7 +863,7 @@ fn tcp_listen(
 /// `REP_ERR` instead of holding the server forever.
 fn tcp_accept(
     iface: &mut Interface,
-    dev: &mut net_transport::VirtioNet,
+    dev: &mut Nic,
     sockets: &mut SocketSet,
     socks: &mut [Option<Sock>; MAX_SOCKETS],
     lsid: usize,
@@ -845,7 +981,7 @@ fn udp_bind(
 
 fn tcp_send(
     iface: &mut Interface,
-    dev: &mut net_transport::VirtioNet,
+    dev: &mut Nic,
     sockets: &mut SocketSet,
     socks: &[Option<Sock>; MAX_SOCKETS],
     sid: usize,

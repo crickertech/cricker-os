@@ -651,6 +651,9 @@ filesystem_protocol = { version = "0.1.0", path = "../crates/filesystem_protocol
 # non_volatile_memory_express.rs is the volatile shell of ring copies and doorbell writes over it,
 # the crate/program pair this tree already uses for `jh7110_entropy` and `line_editor`.
 non_volatile_memory_express = { version = "0.1.0", path = "../crates/non_volatile_memory_express" }
+# The `e1000e` NIC's ring logic (milestone 494 (a driver for the network card a PC actually has)):
+# `net_stack`'s e1000e_transport.rs is the volatile shell of tail writes and window copies over it.
+e1000e = { version = "0.1.0", path = "../crates/e1000e" }
 # usb_keyboard_driver.rs is the volatile shell over these two (milestone 242 (USB host and HID)):
 # descriptors and boot reports, and the xHCI ring and context arithmetic.
 usb = { version = "0.1.0", path = "../crates/usb" }

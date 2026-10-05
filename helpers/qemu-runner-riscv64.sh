@@ -168,7 +168,26 @@ fi
 
 NET=""
 if [ -n "$NIFE_NET" ]; then
-    NET="-netdev user,id=net0,$GUESTFWD,tftp=$TFTPDIR$HOSTFWD -device virtio-net-device,netdev=net0 -netdev user,id=net1,$GUESTFWD,tftp=$TFTPDIR -device virtio-net-pci,netdev=net1,disable-legacy=on,iommu_platform=on"
+    NET="-netdev user,id=net0,$GUESTFWD,tftp=$TFTPDIR$HOSTFWD -device virtio-net-device,netdev=net0 -netdev user,id=net1,$GUESTFWD,tftp=$TFTPDIR -device virtio-net-pci,netdev=net1,disable-legacy=on,iommu_platform=on,addr=0x3.0,multifunction=on"
+fi
+
+# **An `e1000e` NIC beside the two virtio ones** (milestone 494 (a driver for the network card a PC
+# actually has)): QEMU's 82574L, the family xenon's I219 belongs to, on its own slirp network with
+# the same echo peer, package peer and TFTP root, so the same gates run over it. A real PCI device
+# model, so its DMA goes through the IOMMU with no `iommu_platform` knob to forget (see the x86_64
+# runner's note on that flag). Attached on every `NIFE_NET` boot because the kernel touches it only
+# when a test asks `e1000e_service` for it. `mac=` is the address `e1000e_tests` asserts reached
+# `net_stack` through the kernel; `romfile=` skips an option ROM nothing here boots.
+#
+# **Function 1 of the virtio NIC's slot, not a slot of its own**, and that is a constraint rather
+# than taste. This kernel's RISC-V IOMMU driver has a one-level device directory: one frame of
+# 64-byte contexts, so requester ids 0..63, which is bus 0 slots 0 to 7. This runner already used
+# all seven free slots (IOMMU, disk, virtio NIC, GPU, keyboard, RNG, NVMe), so a slot of its own
+# pushed the NVMe to 00:08.0, requester id 64, and the NVMe test panicked in
+# `arch/riscv64/iommu.rs` (#1632's CI, 2026-10-04). As 00:03.1 its requester id is 25 and nothing
+# else moves. The virtio NIC above carries `multifunction=on` for it.
+if [ -n "$NIFE_NET" ]; then
+    NET="$NET -netdev user,id=net2,$GUESTFWD,tftp=$TFTPDIR -device e1000e,netdev=net2,mac=52:54:00:e1:00:0e,romfile=,addr=0x3.1"
 fi
 
 # A virtio-gpu when NIFE_GPU is set (milestone 29), the twin of the aarch64 runner's block. PCIe

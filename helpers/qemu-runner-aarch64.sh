@@ -408,6 +408,17 @@ if [ -n "$NIFE_NET" ]; then
     NET="-netdev user,id=net0,$GUESTFWD,tftp=$TFTPDIR$HOSTFWD -device virtio-net-device,netdev=net0 -netdev user,id=net1,$GUESTFWD,tftp=$TFTPDIR -device virtio-net-pci,netdev=net1,disable-legacy=on,iommu_platform=on"
 fi
 
+# **An `e1000e` NIC beside the two virtio ones** (milestone 494 (a driver for the network card a PC
+# actually has)): QEMU's 82574L, the family xenon's I219 belongs to, on its own slirp network with
+# the same echo peer, package peer and TFTP root, so the same gates run over it. A real PCI device
+# model, so its DMA goes through the IOMMU with no `iommu_platform` knob to forget (see the x86_64
+# runner's note on that flag). Attached on every `NIFE_NET` boot because the kernel touches it only
+# when a test asks `e1000e_service` for it. `mac=` is the address `e1000e_tests` asserts reached
+# `net_stack` through the kernel; `romfile=` skips an option ROM nothing here boots.
+if [ -n "$NIFE_NET" ]; then
+    NET="$NET -netdev user,id=net2,$GUESTFWD,tftp=$TFTPDIR -device e1000e,netdev=net2,mac=52:54:00:e1:00:0e,romfile="
+fi
+
 # Attach a virtio-gpu when NIFE_GPU is set (milestone 29, the display ladder's rung one).
 #
 # PCIe only, and that is not a shortcut: there is no virtio-gpu on this machine's virtio-mmio bus in
