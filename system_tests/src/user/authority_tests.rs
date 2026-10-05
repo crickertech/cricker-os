@@ -198,6 +198,14 @@ fn init_drops_its_construction_authority_and_cannot_build_again() {
 /// no construction authority by then: it deleted its untyped, and the companion test above
 /// confirms it can no longer use it. A process that cannot retype a page cannot have built the
 /// replacement. Authority, not scheduling order, is the evidence.
+///
+/// **It is also where the real tree proves labels** (milestone 105). `sub_server_supervisor` has two
+/// children on one endpoint, identical programs told nothing but an attempt number; one crashes and
+/// one finishes, and it restarts by label alone. The check lives here rather than in a test of its
+/// own because every `run_tree` leaves a parked tree of about 1,100 frames for the rest of the suite,
+/// and a third would put the suite over `SUITE_PAGE_FRAME_BUDGET`, which CI measured on 2026-10-05.
+/// Dropping the label fails this in `run_tree` (stage 23), not at an assertion below, so the kernel
+/// claim's falsification lives in `supervision_tests::a_supervisor_tells_two_dead_children_apart_by_label`.
 #[test_case]
 fn a_dead_sub_server_is_restarted_by_its_supervisor_not_by_init() {
     let msgs = run_tree();
@@ -241,49 +249,23 @@ fn a_dead_sub_server_is_restarted_by_its_supervisor_not_by_init() {
         abi::fault::EVENT_EXIT,
         "attempt 1 exited cleanly, so the supervisor must see EXIT, not FAULT",
     );
-}
-
-/// **`sub_server_supervisor` restarts the child whose label crashed, and only that one**
-/// (milestone 105, DECISIONS §148 (resolves by asking the kernel) as amended 2026-10-04, ruling R3).
-///
-/// `sub_server_supervisor` has two children on one supervision endpoint. Its spawner stamped each
-/// one's capability with a label the supervisor chose, and the children themselves are identical
-/// programs, told nothing but an attempt number. One crashes and one finishes. The supervisor
-/// restarts by label alone, so the evidence is which one it restarted: the crashing child's
-/// replacement must run as attempt 1, and the finishing child, whose first attempt was 10, must
-/// run exactly once.
-///
-/// Falsification: unfalsified, on purpose. Dropping the label in the kernel turns this red, but in
-/// `run_tree` (the supervisor stops with stage 23 rather than guess), not at an assertion below,
-/// which is the wrong-reason hazard milestone 202 (every confinement test is a ritual until
-/// somebody breaks the confinement) names. The kernel claim is falsified where its own assertion
-/// fires: `supervision_tests::a_supervisor_tells_two_dead_children_apart_by_label`. This
-/// test is the real program using it.
-///
-/// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). A test name states its claim as a sentence.
-#[test_case]
-fn sub_server_supervisor_restarts_only_the_child_whose_label_crashed() {
-    let msgs = run_tree();
-
-    let deaths = |label: u64| {
-        let mut events = [0u64; 2];
-        let mut n = 0;
-        for m in of_kind(&msgs, REPORT_SUP_SAW_DEATH).filter(|m| m[1] == label) {
-            assert!(n < 2, "label {label:#x} died more than twice");
-            events[n] = m[2];
-            n += 1;
-        }
-        (events, n)
-    };
-    assert_eq!(
-        deaths(LABEL_CRASHES),
-        ([abi::fault::EVENT_FAULT, abi::fault::EVENT_EXIT], 2),
-        "the crashing child's deaths did not arrive under its label as a FAULT then an EXIT",
+    assert!(
+        crashing.next().is_none(),
+        "the crashing child died more than twice under its label",
     );
+
+    // **The supervisor told its two children apart by label alone** (milestone 105, §148 as
+    // amended). The finishing child, whose first attempt was 10, must have run once and died once
+    // under its own label. A supervisor that confused the two would have restarted it.
+    let mut finishing = of_kind(&msgs, REPORT_SUP_SAW_DEATH).filter(|m| m[1] == LABEL_FINISHES);
     assert_eq!(
-        deaths(LABEL_FINISHES),
-        ([abi::fault::EVENT_EXIT, 0], 1),
-        "the finishing child's one clean exit did not arrive under its label",
+        finishing.next().map(|m| m[2]),
+        Some(abi::fault::EVENT_EXIT),
+        "the finishing child's clean exit did not arrive under its label",
+    );
+    assert!(
+        finishing.next().is_none(),
+        "the finishing child died more than once"
     );
     assert_eq!(
         of_kind(&msgs, REPORT_SERVER_RAN)

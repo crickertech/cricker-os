@@ -76,11 +76,12 @@ the builder set, with the death message. No `RESOLVE` method, so there is nothin
   the child holds carries its label, and a `SEND` through a capability badged with that very label
   reaches the supervisor with label `0`. Falsification replayable for the learn half (leave the slot
   unconsumed); the forge half is unfalsified by patch, and its record says why.
-- `authority_tests::sub_server_supervisor_restarts_only_the_child_whose_label_crashed`: the real
-  tree, `root_supervisor` down, restarts the crashing child as attempt 1 and runs the finishing one
-  exactly once.
+- `authority_tests::a_dead_sub_server_is_restarted_by_its_supervisor_not_by_init` now also checks
+  labels: the real tree, `root_supervisor` down, restarts the crashing child as attempt 1 and runs
+  the finishing one exactly once. It is not a test of its own because each tree run leaves about
+  1,100 frames parked, and a third put the suite over its frame budget in CI.
 
-All three pass on aarch64, riscv64 and x86_64 under QEMU, as do the existing `supervision`,
+These pass on aarch64, riscv64 and x86_64 under QEMU, as do the existing `supervision`,
 `authority` and `reap` tests on aarch64.
 
 ### The benchmark condition, measured against the base commit
