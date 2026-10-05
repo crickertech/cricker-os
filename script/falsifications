@@ -204,6 +204,11 @@
 #   claim names two legs and not three. DECISIONS §19 (architectural parity is a tenet) makes parity
 #   a gate for the *capability*; a record naming fewer legs than the test runs on is a gap in the
 #   *evidence*, and notes/confinement-claims.md names which rows it affects.
+# - **A kernel record can name the machine as well as the architecture** (lane `amd-vi`; the line's
+#   name is PROVISIONAL). `Environment: NIFE_IOMMU=amd` in the patch head sets runner variables for
+#   the replay, because some claims hold on a machine the default runner does not build: AMD-Vi
+#   exists only when `helpers/qemu-runner-x86_64.sh` is asked for it. Only `NIFE_` runner variables
+#   are accepted, so the line can change the emulated machine and never the build.
 # - **A kernel record's red is checked for shape, not for the assertion it names.** The sweep
 #   requires the kernel to have booted and selected exactly one test (`running 1 of N`) before it
 #   will call a non-zero exit red, which is what keeps a patch that does not compile, or a boot that
@@ -324,6 +329,14 @@ HOST_TEST = re.compile(r"^#\[test\]$")
 # boots and every one must come back red.
 ARCH_DECL = re.compile(r"^Architecture:\s*(\w+(?:\s*,\s*\w+)*)\s*$", re.M)
 ARCHES = ("aarch64", "riscv64", "x86_64")
+
+# `Environment: NIFE_IOMMU=amd` in a kernel patch's prose head (lane `amd-vi`; the line's name is
+# PROVISIONAL): runner variables the replay sets, for a claim that holds on a machine the default
+# runner does not build. Space-separated `NAME=value` pairs, each name a `NIFE_` runner variable,
+# because those are the knobs `helpers/qemu-runner-*.sh` reads and anything else would be a way to
+# change the build rather than the machine.
+ENV_DECL = re.compile(r"^Environment:\s*(.+?)\s*$", re.M)
+ENV_PAIR = re.compile(r"^NIFE_[A-Z0-9_]+=[A-Za-z0-9_.,-]+$")
 
 # **A swish-check record** (milestone 742, provisional): a `Falsification:` block above a function
 # in this one file, replayed by booting `script/swish-check`. One file rather than a pattern,
@@ -736,6 +749,27 @@ class KernelTest(Harness):
         hit = ARCH_DECL.search(body.split("diff --git")[0])
         return [a.strip() for a in hit.group(1).split(",")] if hit else ["aarch64"]
 
+    @property
+    def environment(self):
+        """The runner variables `Environment:` in the patch's prose head asks for, as a dict.
+
+        Empty when the line is absent, which is every record written before lane `amd-vi`. A pair
+        that is not a `NIFE_` runner variable is a `--check` problem, not a silent drop.
+        """
+        return dict(p.split("=", 1) for p in self._environment_pairs() if "=" in p)
+
+    def environment_problems(self):
+        """Every `Environment:` pair that is not a `NIFE_NAME=value` runner variable."""
+        return [p for p in self._environment_pairs() if not ENV_PAIR.match(p)]
+
+    def _environment_pairs(self):
+        path = self.patch
+        if not path or not os.path.exists(os.path.join(root, path)):
+            return []
+        body = open(os.path.join(root, path), errors="replace").read()
+        hit = ENV_DECL.search(body.split("diff --git")[0])
+        return hit.group(1).split() if hit else []
+
     def replay_argv(self, arch):
         """What runs this ONE test and nothing else: milestone 210's filter, on one architecture.
 
@@ -1090,6 +1124,11 @@ def check(hs, pkgs, kts=()):
             problems.append("%s:%d: `%s` declares `Architecture: %s`; the three are %s"
                             % (t.rel, t.line, t.patch, t.architecture, ", ".join(ARCHES)))
     for t in kts:
+        if t.kind == "kernel test" and t.state == "replayable" and t.patch:
+            for bad in t.environment_problems():
+                problems.append("%s:%d: `%s` declares `Environment: ... %s ...`; each pair must be a "
+                                "`NIFE_NAME=value` runner variable" % (t.rel, t.line, t.patch, bad))
+    for t in kts:
         if (t.kind == "swish-check line" and t.state == "replayable" and t.patch
                 and os.path.exists(os.path.join(root, t.patch)) and t.line_under_test is None):
             problems.append("%s:%d: `%s` names no `Line:` in its prose head. swish-check fails a "
@@ -1318,7 +1357,7 @@ if _override is not None:
     LIMIT_KANI = LIMIT_KERNEL_TEST = int(_override)
 
 
-def run_bounded(argv, limit):
+def run_bounded(argv, limit, env=None):
     """Run `argv` for at most `limit` seconds. Returns (returncode, output, elapsed, timed_out).
 
     **The whole process group is killed, not the child.** `subprocess.run(timeout=...)` kills only
@@ -1329,7 +1368,8 @@ def run_bounded(argv, limit):
     """
     start = time.monotonic()
     p = subprocess.Popen(argv, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                         text=True, start_new_session=True)
+                         text=True, start_new_session=True,
+                         env=dict(os.environ, **env) if env else None)
     try:
         out, _ = p.communicate(timeout=limit)
         return p.returncode, out, time.monotonic() - start, False
@@ -1416,7 +1456,7 @@ def replay_kernel_test_on(t, arch):
     assertion the patch's prose predicts. The panic line is returned so a reader can judge, which is
     rung three rather than rung two, and this script's BUGS says so.
     """
-    rc, out, _, hung = run_bounded(t.replay_argv(arch), LIMIT_KERNEL_TEST)
+    rc, out, _, hung = run_bounded(t.replay_argv(arch), LIMIT_KERNEL_TEST, t.environment)
     if hung:
         return timed_out(LIMIT_KERNEL_TEST, "the build and boot")
     # One `running K of N` line per test image: a leg boots the kernel's own unit-test image and
@@ -1522,7 +1562,7 @@ def replay_swish_check_on(t, arch):
     which is how every per-line failure is spelled (`` `<line>` answered ..., wanted ... ``). A red
     for any other reason is `error`, because it is not evidence about this line.
     """
-    rc, out, _, hung = run_bounded(t.replay_argv(arch), LIMIT_KERNEL_TEST)
+    rc, out, _, hung = run_bounded(t.replay_argv(arch), LIMIT_KERNEL_TEST, t.environment)
     if hung:
         return timed_out(LIMIT_KERNEL_TEST, "the swish-check build and boots")
     if rc == 0:
