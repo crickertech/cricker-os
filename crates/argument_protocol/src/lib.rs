@@ -349,4 +349,33 @@ mod tests {
         p[12..16].copy_from_slice(&(CAPACITY as u32 + 1).to_le_bytes());
         assert!(ArgPage::parse(&p).is_empty());
     }
+
+    /// **The counts are numbers, not flags.** `count`, `len`, `is_empty` and `size_hint` each have a
+    /// two-value wrong answer (0 or 1) that a one-argument fixture cannot tell from the right one,
+    /// so this uses three arguments and checks the hint shrinks as the iterator is drained.
+    /// Mutation survivor triage, milestone 326 (turn a mutation score upward), batch 3.
+    #[test]
+    fn counts_track_three_arguments_and_the_hint_shrinks() {
+        let mut page = [0; PAGE_BYTES];
+        let mut b = PageBuilder::new(&mut page);
+        assert_eq!(b.count(), 0);
+        for (i, a) in [&b"a"[..], b"bb", b"ccc"].into_iter().enumerate() {
+            b.push(a).unwrap();
+            assert_eq!(b.count(), i as u32 + 1);
+        }
+        assert_eq!(b.finish(), 3);
+
+        let args = ArgPage::parse(&page);
+        assert_eq!(args.len(), 3);
+        assert!(!args.is_empty());
+        let mut it = args.iter();
+        assert_eq!(it.size_hint(), (3, Some(3)));
+        it.next();
+        assert_eq!(it.size_hint(), (2, Some(2)));
+        assert_eq!(it.len(), 2);
+        it.next();
+        it.next();
+        assert_eq!(it.size_hint(), (0, Some(0)));
+        assert_eq!(it.next(), None);
+    }
 }
