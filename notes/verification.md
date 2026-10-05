@@ -806,14 +806,3 @@ how a kernel-only pull request stops paying the 42 minutes.
 - **Guard against vacuity with `kani::cover!`.** Assumptions and bounds can silently empty a harness's
   input set, and a vacuous harness reports `SUCCESSFUL`. A `cover!` fails when a state is unreachable,
   so it is the one check that catches this. See the non-vacuity section above.
-
-## BUGS
-
-- **Stock Kani is unpinned, so a proof result can change with no change in nife** (found 2026-10-05
-  UTC by the lane `lane/verify-args`). `.github/workflows/verify.yml` installs the shards and the
-  aarch64 kernel job with `cargo install --locked kani-verifier`, which takes whatever is newest
-  (0.68.0 on that day), while the riscv64 job builds a pinned 0.67.0 plus
-  `patches/kani-0.67.0-riscv64-target.patch`. A red or green proof can therefore be a Kani release
-  moving, and the two rows are not even proved by the same version. This is a recorded limitation,
-  not a decision: the pin policy is an architect's call. Proposal:
-  `design/roadmap/proposals/pin-stock-kani-to-a-version-bumped-deliberately.md`.
