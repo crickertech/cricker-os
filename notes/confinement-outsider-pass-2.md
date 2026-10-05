@@ -188,6 +188,9 @@ Nothing in the claims file covers it. Findings, strongest first, all read, not b
 6. Faults are attributed from devfn alone under QEMU, so a device off bus 0 is blamed on the wrong
    requester id and the escape tests prove less than they appear to.
 
+Milestone 767 (AMD-Vi hardening before the first AMD boot) closed items 1, 2, 3 and 5 on
+2026-10-05 (UTC), with what QEMU could not show recorded in `amd_vi.rs`'s BUGS; 4 and 6 stand.
+
 Proposed claims:
 
 - Claim 32: an AMD-Vi DTE and I/O page-table entry set no bit the hardware treats as reserved. A

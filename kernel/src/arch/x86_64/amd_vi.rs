@@ -92,37 +92,37 @@
 //!   domain 0 empties every unconfined device's cached faults along with it; a cache miss, not a
 //!   correctness cost.
 //!
-//! The five entries below were found by milestone 633 (an outside agent attacks the confinement
-//! claim)'s second pass (2026-10-05 UTC), reading this driver as a confinement boundary with no row
-//! in `notes/confinement-claims.md`. All are reasoned from the code and the specification; none has
-//! been booted, because QEMU models none of the firmware state they depend on. The first three are
-//! the acceptance items of design/roadmap/767-amd-vi-hardening-before-the-first-amd-boot.md.
+//! Milestone 633 (an outside agent attacks the confinement claim)'s second pass (2026-10-05 UTC)
+//! read this driver as a confinement boundary and recorded five gaps. Provisional milestone 767
+//! (AMD-Vi hardening before the first AMD boot) closed four the same day: the exclusion range is
+//! cleared at enable ([`clear_exclusion_range`]), alias entries are never shared and are
+//! quarantined with their device ([`attach`], [`quarantine`]), a mapping carries its region's
+//! rights (`DmaRegion::writable`), and the entries are built and proved in `paging::AmdVi`. What
+//! stays open from that pass, and what 767 left:
 //!
-//! - **The firmware's exclusion range is never cleared.** `set_up` keeps every `Control` bit it does
-//!   not explicitly clear, and nothing writes the Exclusion Base and Limit registers (`0x0020`,
-//!   `0x0028`). On silicon a firmware-set range with `ExEn`, and above all with `Allow`, lets every
-//!   device reach that range untranslated whatever its entry says. It is the one place a device can
-//!   pass through this driver's default deny, and the guest cannot see it under QEMU.
-//! - **Alias entries are shared between devices and are not quarantined.** [`attach`] writes one
-//!   translating entry under both the requester id and its alias source id. Two functions behind
-//!   one PCIe-to-PCI bridge share a source id, so the second attach moves the first device's aliased
-//!   DMA into the second's domain, and [`quarantine`] resets only the requester id, leaving the
-//!   alias translating. Every device QEMU's `q35` attaches is on bus 0 with no alias, so no boot has
-//!   reached this.
-//! - **Every DMA mapping is read-write.** `build_identity_domain` maps with `Flags::user_data()`, so
-//!   a firmware IVMD marked read-only is writable to the device (the IVRS parser's own BUGS admits
-//!   the bit is dropped), and the virtio shadow page, which is kernel-private by design, is mapped
-//!   writable to the device it shadows.
 //! - **Nothing revokes a device's domain in production.** [`quarantine`] is called only by this
 //!   module's tests; `confine` has no inverse at the seam, so a device keeps its reach for the
 //!   whole boot after its driver dies, and a re-attach leaks the previous domain's tables
-//!   (`kernel/src/iommu.rs` records the leak).
-//! - **The entry builders have no literal permitted-bits guard and no proof.** [`translating_dte`]
-//!   masks the root with `DTE_ROOT_MASK` silently rather than asserting it fits, never narrows to
-//!   the unit's real address width, and the only check is a `#[test_case]` over two concrete
-//!   values that looks at bits 6:2 and 63. VT-d's equivalent, `VTD_PERMITTED_BITS`, is proved over
-//!   every `u64` by `no_vtd_entry_ever_sets_a_reserved_bit`; the AMD-Vi leaf and directory masks
-//!   in `crates/paging` are checked over a few addresses by host tests only.
+//!   (`kernel/src/iommu.rs` records the leak). VT-d, the SMMUv3 and the RISC-V IOMMU have the same
+//!   gap, so the inverse is the seam's question rather than this driver's; milestone 102 (what a
+//!   confined device's fault reaches) is the caller §163 names.
+//! - **The exclusion clear is proved only in half under QEMU, and its effect not at all.** QEMU
+//!   11.1.1 drops writes to the Exclusion Base register and consults neither register, so
+//!   `a_firmware_exclusion_range_is_cleared` proves the limit half and that the boot left both
+//!   zero. Whether firmware on a real AMD board sets a range, and that clearing it takes nothing a
+//!   device still needs, is the first AMD boot's to show. The boot line prints what was found.
+//! - **Two devices behind one alias cannot both work.** The unit cannot tell their DMA apart, so
+//!   the second attach blocks the alias and both lose DMA, loudly. The alternative, one domain
+//!   carrying both devices' grants on purpose (Linux's IOMMU group), needs the portable seam to
+//!   know about groups. No machine this tree has met puts two drivers' devices behind one
+//!   PCIe-to-PCI bridge; QEMU's alias test runs on an empty bridge.
+//! - **An alias in another unit, or an alias that is itself a device's own id, is handled only as
+//!   far as the holder record reaches.** [`attach`] assumes a device and its alias are served by
+//!   the same unit, which every IVRS this tree has read satisfies, and the holder record tracks at
+//!   most [`MAX_ALIASES`] aliases per unit, failing closed past that.
+//! - **The root is checked against the 52-bit field, not against the unit's real address width**,
+//!   which revision 2.62 does not report in the EFR. A frame above the platform's width would be
+//!   refused by the hardware rather than by this driver.
 
 use machine_discovery::acpi::ivrs::{IvrsUnits, MAX_IVHDS};
 
