@@ -1,5 +1,5 @@
 ---
-status: NOT-STARTED
+status: PARTIAL
 raised: 2026-08-04
 milestone_dependencies: none
 decision_dependencies: 162
@@ -46,11 +46,39 @@ That last possibility is why this is not obviously a syscall: the cheapest fix m
 that never holds more than one page, and the measurement that decides it is how much slower a
 one-page-at-a-time loader boots.
 
+## Built, 2026-10-05 (UTC)
+
+`AddressSpace::UNMAP(va)` is built on all three architectures (`abi::address_space::UNMAP`,
+`kernel/src/syscall.rs`'s `address_space_unmap`), proven by `system_tests/src/user/unmap_tests.rs`
+with a replayable falsification for each of its four tests. The two semantics §162 left owed are
+built provisionally and argued in `notes/unmap.md`: a `va` with nothing mapped answers
+`BadPointer`, and no capability is consumed. They are asked of calef on pull request #1678.
+
+**It does not close this block's hole yet**, and the reason is a finding, not a gap in the build.
+No capability names a running address space: `CONFIGURE` retires the name, and the kernel grants
+none at boot. The progenitor's scratch window is in its own running space, so it has nothing to
+invoke `UNMAP` on. That is a fork on the syscall surface, written up as a proposal (below) and not
+built.
+
 ## Scope note
 
 The proof, when it happens, is the shape milestone 22 already used: init writes to a boot server's
 page and faults, as a negative control, rather than an inventory of what init holds. Until then
 the residual is recorded where a reader meets it, in notes/trusted-init.md's BUGS.
+
+## Follow-on
+
+Checked against the tree on 2026-10-05 (UTC), on `lane/95-unmap`.
+
+- **Proposed.** How a running process names its own address space, without which `UNMAP` cannot
+  reach the window this block names: `design/roadmap/proposals/a-running-process-can-name-its-own-address-space.md`.
+- **Outstanding.** The progenitor giving up each scratch page after a boot server is built, and the
+  negative control this block's scope note names (the progenitor writes to a boot server's page and
+  faults). Both wait on the proposal above; `supervision_protocol::map_scratch` still never unmaps.
+- **Outstanding.** The amendment to §162 (whether a holder can give up a mapping) recording the two
+  semantics, once calef rules on them. A lane may not edit `design/decisions/`.
+- **Recorded.** No test shows a remote core losing a translation through `UNMAP`, one page per call,
+  and no `icount` row: `notes/unmap.md`'s `BUGS`.
 
 ## Index row
 

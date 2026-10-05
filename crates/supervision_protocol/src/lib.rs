@@ -271,7 +271,9 @@ static SCRATCH_NEXT: core::sync::atomic::AtomicU64 =
 ///   `AlreadyMapped` error would let the probe say what it means; that is an ABI change, not worth
 ///   one on its own.
 /// - **The builder still maps every live child's pages**, read/write. Wrapping bounds how much
-///   address space that costs, not what it lets the builder reach; that is DECISIONS §162's question.
+///   address space that costs, not what it lets the builder reach. DECISIONS §162 decided the
+///   method (`AddressSpace::UNMAP`), and it cannot be used here yet: no capability names the
+///   builder's own running space. `notes/unmap.md` has the finding.
 /// - **The progenitor's use of it is computed, not measured**: milestone 604's block has the
 ///   arithmetic, and `system_initializer` checks its budgets against the window at compile time.
 ///
