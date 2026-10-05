@@ -310,6 +310,9 @@ pub fn user_pc(stack_top: u64) -> u64 {
 /// `stack_top` must be the top of the kernel stack of a **user** thread that is inside a trap
 /// from user mode (blocked in a syscall, or the caller's own), and nothing else may be writing that
 /// frame. A pure kernel thread has no frame there: those bytes are its own stack.
+///
+/// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). Named for `TrapFrame::set_arg`, which it applies to a
+/// frame found by stack top the way `user_pc` reads one.
 pub unsafe fn set_user_arg(stack_top: u64, i: usize, v: u64) {
     let frame = (stack_top - size_of::<TrapFrame>() as u64) as *mut TrapFrame;
     // SAFETY: the caller's contract: a live user frame at the stack top that nobody else writes.

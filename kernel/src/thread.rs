@@ -627,6 +627,9 @@ pub struct Thread {
     /// It travels with the death message and nowhere else: `depart` hands it to the supervisor in
     /// argument register 5 of a plain `RECEIVE`, beside the five mailbox words rather than in
     /// them, so ordinary IPC stores nothing more than it did (§148's benchmark condition).
+    ///
+    /// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). Chosen to sit beside `fault_ep` and `fault_msg`;
+    /// `fault_badge` was considered and set aside, because §148 calls the word a label.
     pub(crate) fault_label: u64,
 
     /// **The untyped region this TCB's page was retyped out of** (DECISIONS §32), or `None` for a

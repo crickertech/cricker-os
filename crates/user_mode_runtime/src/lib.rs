@@ -185,6 +185,9 @@ pub mod virtio;
 /// # Safety
 /// `svc`/`ecall` traps to the kernel. The kernel validates the capability and the method before
 /// acting; that is its whole job. The caller is trusting the kernel, not the other way around.
+///
+/// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). The six-register twin of the `invoke5` it replaced as the
+/// primitive; `invoke5` survives as a five-word wrapper over it.
 #[cfg(target_arch = "aarch64")]
 unsafe fn invoke6(
     cap: u64,
@@ -220,6 +223,9 @@ unsafe fn invoke6(
 /// # Safety
 /// `ecall` traps to the kernel, which validates the capability and method before acting. Same
 /// contract as the aarch64 twin: the caller trusts the kernel, not the other way around.
+///
+/// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). The six-register twin of the `invoke5` it replaced as the
+/// primitive; `invoke5` survives as a five-word wrapper over it.
 #[cfg(target_arch = "riscv64")]
 unsafe fn invoke6(
     cap: u64,
@@ -264,6 +270,9 @@ unsafe fn invoke6(
 /// # Safety
 /// `syscall` traps to the kernel, which validates the capability and method before acting. Same
 /// contract as the aarch64 twin: the caller trusts the kernel, not the other way around.
+///
+/// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). The six-register twin of the `invoke5` it replaced as the
+/// primitive; `invoke5` survives as a five-word wrapper over it.
 #[cfg(target_arch = "x86_64")]
 unsafe fn invoke6(
     cap: u64,

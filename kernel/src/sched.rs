@@ -3896,6 +3896,9 @@ fn collected_without_serving(sched: &mut IpcTables, sender: ThreadId) {
 /// "not stamped by the kernel" zeroes it before the `RECEIVE` (`user_mode_runtime::receive_fault`
 /// does). That is also why a child cannot forge a label: the badge on a capability it sends with
 /// arrives in word 3, never here.
+///
+/// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). An alternative, `deliver_fault_label`, was suggested
+/// to match its siblings `deliver_death` and `deliver_capability`.
 #[cold]
 #[inline(never)]
 fn hand_over_label(receiver: &crate::thread::Thread, label: u64) {

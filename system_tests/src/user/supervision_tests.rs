@@ -490,6 +490,8 @@ fn reclaim_all(regions: &[u64]) {
 /// passing alone would leave the other route unproven.
 ///
 /// Falsification: replayable `system_tests/falsifications/user.supervision_tests.a_supervisor_tells_two_dead_children_apart_by_label.patch`
+///
+/// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). A test name states its claim as a sentence.
 #[test_case]
 fn a_supervisor_tells_two_dead_children_apart_by_label() {
     // Corpses first: both are parked with their messages before anyone receives.
@@ -550,6 +552,8 @@ fn a_supervisor_tells_two_dead_children_apart_by_label() {
 /// in word 3, and only the kernel's death path writes the label register.
 ///
 /// Falsification: replayable `system_tests/falsifications/user.supervision_tests.a_child_can_neither_learn_nor_forge_its_label.patch`
+///
+/// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). A test name states its claim as a sentence.
 #[test_case]
 fn a_child_can_neither_learn_nor_forge_its_label() {
     let fault_ep = sched::create_rendezvous();

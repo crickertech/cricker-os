@@ -156,6 +156,9 @@ pub const REQ_BUILD: u64 = 1;
 /// on; the second at attempt 10, which it finishes cleanly. So a supervisor that confused the two
 /// would restart the wrong one, which is what makes the difference observable. Mirrored in the
 /// kernel's `authority_tests`.
+///
+/// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). Plural because it holds both children's labels and their
+/// first attempts; `CHILD_LABELS` was considered and is less specific about whose children.
 pub const SUB_SERVER_LABELS: [(u64, u64); 2] = [(0x1abe_0a01, 0), (0x1abe_0b02, 10)];
 
 /// Reply code: the build succeeded.

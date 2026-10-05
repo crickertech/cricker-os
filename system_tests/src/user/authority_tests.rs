@@ -259,6 +259,8 @@ fn a_dead_sub_server_is_restarted_by_its_supervisor_not_by_init() {
 /// somebody breaks the confinement) names. The kernel claim is falsified where its own assertion
 /// fires: `supervision_tests::a_supervisor_tells_two_dead_children_apart_by_label`. This
 /// test is the real program using it.
+///
+/// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). A test name states its claim as a sentence.
 #[test_case]
 fn sub_server_supervisor_restarts_only_the_child_whose_label_crashed() {
     let msgs = run_tree();
