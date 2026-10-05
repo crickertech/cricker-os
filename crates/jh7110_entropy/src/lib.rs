@@ -1173,7 +1173,7 @@ mod verification {
     /// bit says and regardless of what the `RAND` words happen to hold. This is the property the
     /// module doc's "Health testing" section argues for in prose; here it holds for the full
     /// `2^32` space of `istat`, not the two combinations the unit tests above pick.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/jh7110_entropy/falsifications/verification.a_lockup_bit_is_never_overridden.patch`
     #[kani::proof]
     fn a_lockup_bit_is_never_overridden() {
         let stat: u32 = kani::any();
@@ -1218,7 +1218,7 @@ mod verification {
     /// **`NotReady` is the only answer when neither bit is set**, whatever the rest of `istat` or
     /// the stale `RAND` words say: a device that has not finished is not accidentally read as done
     /// or as faulted because some other bit happened to be set.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/jh7110_entropy/falsifications/verification.neither_bit_set_is_always_not_ready.patch`
     #[kani::proof]
     fn neither_bit_set_is_always_not_ready() {
         let stat: u32 = kani::any();
@@ -1234,7 +1234,7 @@ mod verification {
     /// `Unseeded` rather than `Ready`, so no path exists from a latched `RAND_RDY` on an unseeded
     /// device to 32 bytes handed to a caller. This is the property `Outcome::Unseeded`'s doc
     /// argues for in prose, over the full `2^64` space of the two status words.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/jh7110_entropy/falsifications/verification.an_unseeded_core_never_yields_bytes.patch`
     #[kani::proof]
     fn an_unseeded_core_never_yields_bytes() {
         let stat: u32 = kani::any();
