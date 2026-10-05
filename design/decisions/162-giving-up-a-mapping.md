@@ -1,5 +1,5 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-09-19
 decided: 2026-10-05
 ratified_by: calef
@@ -11,6 +11,8 @@ Raised 2026-09-19 by milestone 435 (forty-five milestones are gated on a decisio
 `DECISION` with no decision anywhere a reader can open. The block has called it *"a design fork for
 calef before it is a task"* since it was raised on 2026-08-04 out of milestone 22's closing lane.
 *(Section number provisional until the merge queue lands it.)*
+
+(one amendment block below: milestone 95's two semantics, ruled on 2026-10-05.)
 
 ## Ruling
 
@@ -28,6 +30,7 @@ answer.
 **Two semantics stay open**, and milestone 95's lane owes them as amendments to this section before
 its build merges: what UNMAP does to a va that was never mapped, and whether the frame capability
 survives the unmap. UNMAP must not contradict §13 (capability revocation and untyped reclamation) or §41.
+(Amended 2026-10-05: both are ruled. See the amendment at the end.)
 
 The recommendation below is kept as it was written on 2026-09-19, and is history now.
 
@@ -114,3 +117,38 @@ used.
 
 Not blocked: the record. The residual is written where a reader meets it, in
 `notes/trusted-init.md`'s honest limits, and stays there whatever is decided.
+
+## Amendment (2026-10-05): what UNMAP refuses, and what it leaves alone
+
+Ruled by calef on 2026-10-05 (UTC) on [#1678](https://github.com/nifeos/nife/pull/1678)
+(milestone 95, an unmap primitive, and the mappings init never lets go), answering the lane's
+[`## What I need from you`](https://github.com/nifeos/nife/pull/1678#issuecomment-5989908200).
+Recorded by the maintainer, because a lane does not edit this directory. Both behaviours were
+already built as the lane's provisional answers, so the rulings change no code. The full argument
+and the prior art are in `notes/unmap.md`, which lands with #1678.
+
+**`UNMAP` of a `va` with nothing mapped is refused with `BadPointer`**, and nothing changes. The
+same answer covers a misaligned or kernel-half `va` and a page already given up. calef, 14:14 UTC:
+"Refuse" ([ruling 1](https://github.com/nifeos/nife/pull/1678#issuecomment-5996276244)). The method
+exists to close a window, and a silent success on a wrong address says the window is shut while it
+is still open. Prior art splits: Zircon (`ZX_ERR_NOT_FOUND`) and Mach (`KERN_INVALID_ADDRESS`)
+refuse, Linux `munmap` and seL4 succeed. Refusing is also the more reversible choice. A caller
+written against the error keeps working if it ever becomes success, and the reverse does not hold.
+It matches `MAP_INTO`, which refuses an address already mapped with the same code rather than
+replacing it.
+
+**The frame capability survives `UNMAP` untouched.** `UNMAP` reads, consumes and changes no
+capability; one the caller still holds can map the page again. calef, 14:17 UTC: "Yes"
+([ruling 2](https://github.com/nifeos/nife/pull/1678#issuecomment-5996329151)). `UNMAP` names an
+address, and the mapping record holds only the run's base, which every derivative of a capability
+shares (§132 (what `PageFrame::REVOKE` owes an overlapping run)), so there is no single slot it could
+consume. It matches seL4's `Page_Unmap`, which leaves the capability in its slot, remappable.
+
+Neither contradicts §13 or §41: `UNMAP` touches only the named space's record, so a revoke still
+finds every other mapping of the page.
+
+Not part of this amendment: the lane's third question, how a running process names its own address
+space. As the object model stands, `UNMAP` reaches a space under construction but not the
+progenitor's window into a running one, because no capability names a running space. That fork is
+open, in `design/roadmap/proposals/a-running-process-can-name-its-own-address-space.md`, and it
+blocks milestone 95 reaching BUILT, not #1678's merge.
