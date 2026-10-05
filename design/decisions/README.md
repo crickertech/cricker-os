@@ -275,7 +275,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 163 | DECIDED | [Where a confined device's IOMMU fault is delivered](163-where-a-device-fault-is-delivered.md) |
 | 164 | SUPERSEDED BY 148 | [Whether the kernel resolves a tid it already sent to the supervisor that received it](164-resolving-a-tid-a-supervisor-holds.md) |
 | 165 | PROPOSED | [Where a stored secret comes from on a boot that is not a test](165-where-a-stored-secret-comes-from.md) |
-| 166 | PROPOSED | [The rasteriser dependency, and whether the glyph atlas ships one face or four](166-the-rasteriser-and-how-many-faces.md) |
+| 166 | DECIDED | [The rasteriser dependency, and whether the glyph atlas ships one face or four](166-the-rasteriser-and-how-many-faces.md) |
 | 167 | PROPOSED | [What a profiling session's grant names](167-what-a-profiling-session-may-name.md) |
 | 168 | PROPOSED | [Where a proof-gated credential rotation verb lives](168-where-a-rotation-verb-lives.md) |
 | 169 | PROPOSED | [Whether a clipboard exists here, and what it is scoped to](169-whether-a-clipboard-exists.md) |
