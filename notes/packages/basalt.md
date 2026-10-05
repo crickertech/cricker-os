@@ -22,7 +22,7 @@ The geology also holds up. Basalt is fine-grained because it cools fast; granite
 | Name | Why |
 |---|---|
 | `travertine` | Limestone still forming at hot springs. The best "fresh" candidate, but its meaning needs a geologist's footnote, the same tax that retired `sial`. |
-| `magma` | calef's own idea. It is molten rock, not a rock, so it breaks milestone 120 (nife and the organization)'s convention that a distribution is a rock (an aggregate of minerals). From memory, unverified: the Magma computer algebra system and the Linux Foundation's Magma mobile core already use it. |
+| `magma` | calef's own idea. It is molten rock, not a rock, so it breaks milestone 120 (nife and the organization)'s convention that a distribution is a rock (an aggregate of minerals). From memory, unverified: the Magma computer algebra system and the Linux Foundation's Magma mobile core also use it. |
 | `tufa` | Confused with `tuff`, and the crate name is taken. |
 | `scoria` | Also means slag, and the crate name is taken. |
 | `flowstone` | FlowStone is a commercial product. |
