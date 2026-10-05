@@ -27,7 +27,7 @@ needing one to start.
 `notes/arch-audit.md` is not a review. Reading it as "somebody read the arch tree and looked for
 bugs" is what would make this milestone unpickable, so the shape is worth stating precisely.
 
-**It took exactly one bug class, stated generally before any code was read**, under that note's
+It took exactly one bug class, stated generally before any code was read, under that note's
 heading *The bug class, stated generally* (reproduced without an attribution line because it is a
 block quote there too, and `script/citations` cannot match a quote of a quote past the source's own
 `>` prefixes):
@@ -36,25 +36,25 @@ block quote there too, and `script/citations` cannot match a quote of a quote pa
 > the exception path itself clobbers, across more than one instruction, while an exception,
 > interrupt, or preemption can land in the middle.
 
-**It asked four fixed questions of every candidate**, and the fourth is the one that does the work:
+It asked four fixed questions of every candidate, and the fourth is the one that does the work:
 (a) what is the window, (b) what can land in it, (c) what state is corrupted if something does, and
 (d) **is it reachable**, or is it a window that exists in the instruction stream that nothing can
 ever land in. Two of the three findings turned entirely on (d), and one of them (the RISC-V
 `sstatus` mask) was reported as a *record* defect rather than a code defect: the code was correct,
 and the comment claiming it was correct "by construction" was false on that ISA.
 
-**It recorded the cleared candidates too**, at length, and that section is longer than the findings
+It recorded the cleared candidates too, at length, and that section is longer than the findings
 section. The stated reason is that "we looked and it is fine" is the other half of an audit, and
 that each cleared candidate is a place a future change could break something. A pass that reports
 three findings and nothing else has thrown away most of what it produced.
 
-**It established structural facts that bound the search**, and these are the cheapest thing in the
+It established structural facts that bound the search, and these are the cheapest thing in the
 whole method. Two, on the ISAs it read: there is exactly one `eret` and exactly one `sret` in the
 kernel, both inside the restore sequence, so there is no second way out of the kernel to audit; and
 there are exactly two places that fabricate a trap frame, one per ISA. Establishing those took
 minutes and made the rest of the read finite.
 
-**It named its own general lesson**, which is the finding that outlived the three bugs: when the
+It named its own general lesson, which is the finding that outlived the three bugs: when the
 same fix is applied to two architectures, check whether it is load-bearing for the same reason on
 both. Finding 1 was a complete fix on aarch64 and a partial one on RISC-V, and the symmetry of the
 two patches is what concealed it. Finding 3 was the same shape from the other side: one ISA quietly
@@ -65,13 +65,13 @@ the seam that the class reaches into (`drivers/gic.rs`, `drivers/plic.rs`, `sche
 `cpu.rs`, `smp.rs`'s `secondary_main`, and `user.rs`'s trap-frame placement, read only). It did not
 read for memory ordering, for integer overflow, for time-of-check-to-time-of-use, or for anything
 else; those became milestone 43's lenses precisely because this one did not take them. It closes by
-saying so: **an audit by reading finds what the reader thinks to look for**, and the bug that
+saying so: an audit by reading finds what the reader thinks to look for, and the bug that
 prompted it was found by a failing test rather than by any of the earlier readings of that same
 file.
 
 ## The scale, measured
 
-**How this was counted**, since "lines" is ambiguous and the number should reproduce:
+How this was counted, since "lines" is ambiguous and the number should reproduce:
 
 ```sh
 $ find kernel/src/arch/x86_64 -type f -exec cat {} + | wc -l
@@ -92,7 +92,7 @@ The check that this is also the method the original note used: the same command 
 | `kernel/src/arch/aarch64` + `riscv64`, at the audit (2026-07-29) | 25 | 6,202 | read in full |
 | `kernel/src/arch/aarch64` + `riscv64`, today | 29 | 9,835 | read in full as of 2026-07-29 |
 
-**Two things follow, and the second is a correction to how the sweep put it.**
+Two things follow, and the second is a correction to how the sweep put it.
 
 The unread directory is larger than the entire two-ISA tree that the one affordable pass read in
 full. That is finding 8's claim and it holds exactly.
@@ -107,7 +107,7 @@ who takes 6,797 as "the unaudited fraction" is reading it too favourably.
 
 Three reasons, in the order they matter, and one caveat that cuts against.
 
-**It is in the trusted computing base, and no prover reaches it.** `script/verify`'s Kani harnesses
+It is in the trusted computing base, and no prover reaches it. `script/verify`'s Kani harnesses
 cover the pure-logic crates: `paging`, `frames`, `slab`, `elf`, `capability`, the allocators, the
 ring validators. There is no tool in this project that can prove `trap.s`, which is why
 `notes/arch-audit.md` calls the hand-written architecture assembly the least-verified code in the
@@ -115,12 +115,12 @@ TCB and why milestone 20 (a portable HAL, proven on a second architecture) says 
 by reading is the compensating control, and on the largest of the three trees it has not been paid
 at all.
 
-**It is the newest port and has had the least review time.** aarch64 has been read since 2026-07-12,
+It is the newest port and has had the least review time. aarch64 has been read since 2026-07-12,
 riscv64 since the parity work, and both were read deliberately on 2026-07-29. The x86_64 arch layer
 landed 2026-08-23 (commit `797a20ac`, milestone 161 (the x86_64 kernel port), which is still
 PARTIAL). Four days of elapsed time, no dedicated read.
 
-**Less of it is exercised than on the other two ISAs.** Every x86_64 boot in this tree is QEMU q35,
+Less of it is exercised than on the other two ISAs. Every x86_64 boot in this tree is QEMU q35,
 and that runner's own header says what is not attached: "no virtio disks, no NIC, no GPU, no RNG",
 with NVMe wired as the exception. x86_64 also has no interactive boot at all until milestone 182
 (x86_64's own interactive-boot entry point) lands. So the suite does reach the trap path, the MMU,
@@ -145,23 +145,23 @@ single pass that already proved affordable.
 
 The cut below is a partition: the three sums are 1,741, 1,722 and 3,334, and they total 6,797.
 
-**Pass 1: the entry and exit path (1,741 lines).** `trap.s` (303), `exceptions.rs` (934),
+Pass 1: the entry and exit path (1,741 lines). `trap.s` (303), `exceptions.rs` (934),
 `context.s` (89), `context.rs` (94), `segments.rs` (321). This is where the bug class lives, it is
 smaller than either ISA the original read, and it should go first because everything else is
 measured against what it establishes.
 
 The bounding facts to re-establish here, which is the first hour's work and not the audit proper:
 
-- **One way out, confirmed.** `grep -E '^\s*(iretq|sysretq)'` over the tree finds exactly one
+- One way out, confirmed. `grep -E '^\s*(iretq|sysretq)'` over the tree finds exactly one
   instruction, `trap.s:182`. The original note's "no second way out of the kernel to audit" transfers.
-- **One frame-fabrication site**, `TrapFrame::for_user_entry` at `exceptions.rs:134`, matching both
+- One frame-fabrication site, `TrapFrame::for_user_entry` at `exceptions.rs:134`, matching both
   other ISAs. Transfers.
 - **Two ways *in*, and this one does not transfer.** `exceptions.rs` configures `IA32_LSTAR`,
   `IA32_STAR`, `IA32_FMASK` and `IA32_EFER.SCE`, so `syscall` is a second entry whose masking
   discipline is set by an MSR rather than by a gate descriptor. The original audit's archetype is
   "a path that enters the save/restore sequence with interrupts live", and what `IA32_FMASK` clears
   is exactly the question that archetype asks. Establish it before reading anything else.
-- **`swapgs` is the x86_64 archetype of the class, and neither other ISA has one.** Three
+- `swapgs` is the x86_64 archetype of the class, and neither other ISA has one. Three
   instructions, `trap.s:105`, `:178`, `:206`. The window is single-copy by construction: between the
   exit `swapgs` and the `iretq` the CPU is in ring 0 holding the *user's* GS base, and `mmu.rs:529`
   already documents that window in its own comment. aarch64's per-CPU pointer is `TPIDR_EL1`, a
@@ -169,7 +169,7 @@ The bounding facts to re-establish here, which is the first hour's work and not 
   already cleared. So the class transfers to x86_64 with an instance that has no precedent in the
   note, which is the best possible sign that the lens is still worth aiming.
 
-**Pass 2: masking and the interrupt-controller adapter (1,722 lines).** `irq.rs` (789),
+Pass 2: masking and the interrupt-controller adapter (1,722 lines). `irq.rs` (789),
 `mod.rs` (411), `timer.rs` (351), `port.rs` (109), `interrupts.rs` (62). Second because finding 3 is
 the shape most likely to repeat: it was not a missing barrier, it was one ISA's driver written as if
 its hardware gave a guarantee it does not. The asymmetry that points here is a line count.
@@ -178,7 +178,7 @@ and IOAPIC where the others hold a thin adapter over a driver in `drivers/`. Eig
 adapter is eight times the surface for finding 3's shape, and none of it has a `drivers/gic.rs` to
 have taken a lock already.
 
-**Pass 3: address space, bring-up, and the rest (3,334 lines).** `mmu.rs` (1,295), `machine.rs`
+Pass 3: address space, bring-up, and the rest (3,334 lines). `mmu.rs` (1,295), `machine.rs`
 (618), `boot.s` (457), `iommu.rs` (368), `rtc.rs` (197), `ap_boot.rs` (183), `isa.rs` (156),
 `semihosting.rs` (60). Last because the original pass cleared the analogous code on both ISAs by a
 structural argument that is cheap to re-check: `boot.s` and the MMU-enable sequences run on a core
@@ -186,12 +186,12 @@ with no trap vector installed and interrupts masked, so they are uninterruptible
 rather than by care. If that argument holds on x86_64 the pass is short; `ap_boot.rs` and
 `machine.rs` have no analogue in the note and are where it is most likely not to.
 
-**One finding's disposition must be re-argued rather than inherited.** Finding 2 (riscv64's
+One finding's disposition must be re-argued rather than inherited. Finding 2 (riscv64's
 `trap_entry` parking a user-controlled value in `sscratch` across the faultable frame stores) was
 left documented, on a cost argument: hardening it costs a store and a load on the hottest path in
 the kernel to guard a case behind a kernel-stack overflow that is already fatal. Option 2 in that
-note is "a separate per-hart trap stack, entered when `SPP = 0`", and **x86_64 has that in
-hardware**: `segments.rs` builds a TSS with seven IST slots, and an IST vector switches stacks
+note is "a separate per-hart trap stack, entered when `SPP = 0`", and x86_64 has that in
+hardware: `segments.rs` builds a TSS with seven IST slots, and an IST vector switches stacks
 unconditionally. So the same question reaches x86_64 with the expensive half already paid, and the
 answer may well differ. Inheriting the riscv64 disposition would be the exact mistake finding 1
 recorded as its general lesson.
@@ -199,16 +199,16 @@ recorded as its general lesson.
 ## The cadence question, and why it is a second milestone rather than half of this one
 
 The sweep's second claim is that this gap will never surface on its own, because "the audit cadence
-counts elapsed time and shipped components and has no notion of an architecture". **That sentence is
-in pull request #568's body and in none of the files it landed**, which is the record shape
+counts elapsed time and shipped components and has no notion of an architecture". That sentence is
+in pull request #568's body and in none of the files it landed, which is the record shape
 `AGENTS.md` warns about most directly: a pull request body is read while the diff is open and never
 again. This block is the tracked home it did not have.
 
 The claim was checked here against `script/audits`, `design/audit-reports/README.md` and
-`.github/workflows/audit-cadence.yml`. **It holds, and it is worse than stated in one respect and
-better in another.**
+`.github/workflows/audit-cadence.yml`. It holds, and it is worse than stated in one respect and
+better in another.
 
-**Worse: the counted triggers are measurably blind to an ISA.** `script/audits` has four,
+Worse: the counted triggers are measurably blind to an ISA. `script/audits` has four,
 DECISIONS §74 (audits run on change, not on the calendar): milestones BUILT, components
 (`crates/*/` plus `[[bin]]` targets), ABI constants, and external packages. At commit `797a20ac`,
 which added fourteen files under `kernel/src/arch/x86_64/` in a 2,241-line commit, every one of the
@@ -216,8 +216,8 @@ four was unchanged: built 97 to 97, components 122 to 122, ABI constants 51 to 5
 108 to 108. An
 architecture adds no crate, no program, no syscall constant, and no dependency, so the only counter
 it can ever move is `milestones built`, by one, when milestone 161's row flips from PARTIAL. Against
-a security cadence that fires at 15, **an entire instruction set is worth one fifteenth of a
-trigger.** The script's own BUGS predicts this in general terms ("a change that lands as neither a
+a security cadence that fires at 15, an entire instruction set is worth one fifteenth of a
+trigger. The script's own BUGS predicts this in general terms ("a change that lands as neither a
 milestone nor a component moves no number here") without noticing that the largest single addition
 to the TCB in the project's history is that shape.
 
@@ -230,7 +230,7 @@ next". That is the field holding the information, and nothing ever reads it. In 
 ladder this is a rung-2 gate firing reliably on the wrong question, which is the shape that reports
 green over a real hole.
 
-**Better: one trigger does reach it, by accident, under a question about something else.** The
+Better: one trigger does reach it, by accident, under a question about something else. The
 `security` kind carries an uncountable judgment question, printed on every run: "has this booted on
 a new machine class (a board, a cloud) since the last audit?" A reader could answer yes for x86_64
 under q35. But a machine class and an instruction set are different axes (a Raspberry Pi is a new
@@ -248,7 +248,7 @@ says a gate can be written to pass. A single lane that both teaches the cadence 
 and performs the audit clearing it chooses the trigger's shape knowing what will read green when it
 is done. Two lanes and two pull requests is the cheapest guard available, and it costs nothing.
 
-**2. They are different sizes by an order of magnitude, and bundling makes the small one wait.**
+2. They are different sizes by an order of magnitude, and bundling makes the small one wait.
 The audit is three passes. The cadence change is a cadence row, a judgment entry, and possibly one
 counted trigger: well under a lane. Bundled, the mechanism lands when the last reading pass lands.
 Split, it can land tomorrow, and the tree stops being blind while the audit is still being read.
@@ -265,13 +265,13 @@ own audit kind, means retroactively reclassifying the 2026-07-29 row in
 a global record and a global gate, which `AGENTS.md` assigns to the integrator rather than to a
 lane, and handing it to a lane mid-read is the worst moment to ask.
 
-**The one-milestone case, and why the roadmap row answers it.** The case is that auditing x86_64
+The one-milestone case, and why the roadmap row answers it. The case is that auditing x86_64
 without fixing the blindness leaves the fourth architecture in the same position. That is an
 argument that both must happen, not that they must be one milestone, and this tree's own mechanism
 for "this must not be forgotten" is a tracked row rather than a bundle. Bundling is rung four in a
 milestone's clothes: it relies on the reading lane remembering the second half.
 
-**Ordering: neither blocks the other.** If the cadence milestone lands first the story is tidier,
+Ordering: neither blocks the other. If the cadence milestone lands first the story is tidier,
 because its red light is then what this milestone answers. Sequencing them strictly would delay this
 one for no gain, since we already know x86_64 is unread and do not need a mechanism to tell us.
 
@@ -321,12 +321,12 @@ The rest, specific to this pass:
   two harts hammering the PLIC's enable bits passes with the lock and passes without it. x86_64
   makes it somewhat worse, because the device surface the suite does not attach is a set of callers
   that cannot be made to race at all today.
-- **It proves nothing.** After this milestone the honest position is what it was after the last one:
+- It proves nothing. After this milestone the honest position is what it was after the last one:
   `vectors.s`, `trap.s` and their x86_64 twin are trusted rather than verified, and notes like these
   are how the project pays for that.
 - **It does not re-audit the two ISAs that grew 59% underneath their own audit.** That is named
   above, measured, and left to the cadence milestone to make visible rather than folded in here.
-- **A cleared candidate is cleared as of one commit.** The cleared list is the more durable half of
+- A cleared candidate is cleared as of one commit. The cleared list is the more durable half of
   the output and it is also the half that rots silently, because nothing recomputes it.
 
 ## What a lane taking this should do
@@ -335,7 +335,7 @@ The rest, specific to this pass:
    decide how much of the rest is finite.
 2. Read pass by pass, in the order above, one pull request per pass. A pass that finds nothing still
    ships its cleared list; that section is the deliverable, not the leftovers.
-3. **Fix what is a live defect and record what needs a decision.** The original pass fixed two of
+3. Fix what is a live defect and record what needs a decision. The original pass fixed two of
    three findings on review, as execution inside decided architecture, and left the third documented
    with its options priced. A finding that needs a design fork gets written up and raised, not
    settled mid-read.
@@ -347,18 +347,18 @@ The rest, specific to this pass:
 
 ## What this does not decide
 
-**Whether the two ISAs that were read stay read.** They have grown 3,633 lines since 2026-07-29,
+Whether the two ISAs that were read stay read. They have grown 3,633 lines since 2026-07-29,
 59%, and re-reading the delta is a second body of work with its own size. It is named here because
 the numbers in *The scale, measured* would mislead without it, and it is left to the cadence
 milestone to make visible rather than folded in: a mechanism that can see an unaudited architecture
 should be able to see an audited one that moved, and building it once is cheaper than reading twice.
 
-**How the cadence learns about architectures.** The three questions under *The second milestone,
+How the cadence learns about architectures. The three questions under *The second milestone,
 proposed provisionally* are recorded, not answered. Answering them means touching `script/audits`,
 the audit index, and what `script/lint` runs on every pull request, and this milestone deliberately
 touches none of the three.
 
-**Anything a finding turns out to require.** A finding that needs a memory-ordering decision
+Anything a finding turns out to require. A finding that needs a memory-ordering decision
 (DECISIONS rule 4), a change to the trap frame two programs agree on, or a hot-path cost is a fork
 for calef, raised with its options priced the way finding 2 was. An audit that quietly redesigns the
 thing it is auditing has stopped being an audit.

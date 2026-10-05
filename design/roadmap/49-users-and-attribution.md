@@ -22,12 +22,12 @@ by a real boot) and by `kernel::user::login_tests` (all ten tests, including the
 `login_hands_out_the_terminal_once_and_denies_a_concurrent_second_login_until_logout`) on both ISAs.
 See BUGS for what remains a named, accepted limitation rather than a blocker.
 
-**Per-identity subtree scoping, an earlier update's own piece, is resolved.** `login` used to
+Per-identity subtree scoping, an earlier update's own piece, is resolved. `login` used to
 attenuate every principal to the same fixed subtree; it now attenuates each identity to a subtree
 named by the identity string itself (DECISIONS §117), created beforehand at provisioning time by
 milestone 155's `identity_provisioner`.
 
-**Channel-per-client, this update's own piece, is resolved.** `login`'s front door
+Channel-per-client, this update's own piece, is resolved. `login`'s front door
 (`REQUEST`/`RESULT`) used to be a single endpoint pair sharing one staging page across every client
 this process would ever serve, for its whole life: the structural "one client at a time" limit this
 file's BUGS named. It now accepts exactly one word there, [`login_proto::CONNECT`], and mints a
@@ -41,7 +41,7 @@ before and is blocked on the same thing (DECISIONS §120: no interactive login n
 real hardware entropy is sorted, milestone 159); this update does not move the status line, and says
 so per this file's own convention for a piece that lands without changing it.
 
-**Two resource leaks that piece introduced were found and fixed before it landed**, both of the same
+Two resource leaks that piece introduced were found and fixed before it landed, both of the same
 shape and both worth reading past this milestone, because neither is specific to `login`:
 
 - **`MemoryRegion::DESTROY` does not free the destroyer's own capability-table slot.** It tears down
@@ -54,7 +54,7 @@ shape and both worth reading past this milestone, because neither is specific to
   The kernel's `Error::OutOfMemory` collapsing "your budget is empty" and "your table is full" into
   one code (milestone 153) is what made it expensive to find: four separate memory hypotheses were
   measured and ruled out first.
-- **A region destroyed out of LIFO order strands its pages** until its parent dies (`crates/regions`'
+- A region destroyed out of LIFO order strands its pages until its parent dies (`crates/regions`'
   `return_to_parent`, DECISIONS §16's documented half-answer). A channel is minted before the login
   it carries and destroyed after it, so a channel region carved from the same budget as that login's
   caretaker and client budget is never the top when it goes: 368 pages of holes in one suite run.
@@ -62,18 +62,18 @@ shape and both worth reading past this milestone, because neither is specific to
   child; the general form is that **a short-lived region wants a parent nothing long-lived is carved
   from.**
 
-**A named prerequisite for milestone 152 (durable delegation)**, minted 2026-08-22: a scheduled job
+A named prerequisite for milestone 152 (durable delegation), minted 2026-08-22: a scheduled job
 registered by a specific user (milestone 129's #387) needs a durable principal to be supervised by,
 and login-produces-capabilities is where that principal would first exist. 152 gates on this
 milestone rather than guessing at identity itself, and inherits §109's channel-shaped answer to how
 attribution composes with its own per-user sessions.
 
-**In brief.** Unix's uid does four different jobs at once. Three of them are already answered here,
+In brief. Unix's uid does four different jobs at once. Three of them are already answered here,
 structurally and without anyone having declared it; the fourth has no mechanism whatsoever. This
 milestone writes down the first three, builds a login service that produces capabilities instead of
 changing an identity field, and then decides what to do about the fourth.
 
-**Why it matters.** Users and groups **are** Unix's ambient authority mechanism. A process's authority
+Why it matters. Users and groups **are** Unix's ambient authority mechanism. A process's authority
 comes from who it belongs to rather than from what it was given, which makes every program a confused
 deputy by default; `setuid` is that idea in its purest form, a program running with the union of its
 owner's authority and its invoker's intent, and it has been a security disaster for fifty years.
@@ -155,7 +155,7 @@ survives past what used to be a hard, silent ceiling of eight logins ever (a lea
 slot per login; see BUGS), by taking the shared instance's login count to nine and checking each one's
 directory and budget work.
 
-**Per-identity subtree scoping (DECISIONS §117), landed in this update.** `login` now attenuates
+Per-identity subtree scoping (DECISIONS §117), landed in this update. `login` now attenuates
 each authenticated identity to a subtree named by the identity string itself, used directly with no
 lookup table, matching exactly what milestone 155's `identity_provisioner` creates at provisioning
 time. Proven by `login_scopes_each_identity_to_its_own_provisioned_subtree`: `chris` and `corinne`
@@ -182,7 +182,7 @@ because the uid is present at every syscall and doubles as the answer. Measured 
 *what code* is running and capabilities establish *what it can reach*, but nothing records *who
 asked*, and that gap is real rather than rhetorical.
 
-**Decided (calef, 2026-08-22, DECISIONS §109): channel.** A server that wants to know who is asking
+Decided (calef, 2026-08-22, DECISIONS §109): channel. A server that wants to know who is asking
 gives each principal its own endpoint, established once, and logs which one a request arrived on.
 This tree has already faced this exact question three times, independently, under different names
 (the compositor's shared-endpoint identity, the FS server's confinement, the fault endpoint's sender
@@ -197,7 +197,7 @@ uncapped, resource-bound norm rather than a consumer file-sharing throttle; §10
 earlier draft that used the wrong comparison. Raising `MAX_REGIONS` again, the same cheap move
 already made once, is the expected response as durable sessions are actually built and measured.
 
-**Sequencing.** After 47 (isolation is 47's per-shell root, and login hands out exactly what 47
+Sequencing. After 47 (isolation is 47's per-shell root, and login hands out exactly what 47
 defines; 47 landed 2026-08-22). Built across several lanes: the login service and its channel-shaped
 attribution logging, per-identity subtree scoping (DECISIONS §117), the channel-per-client front
 door, the real virtio-rng entropy chain under the interactive boot (DECISIONS §120), and finally the
@@ -210,7 +210,7 @@ Named here rather than only at the component, because a reader of the milestone 
 in the same place they meet the status line. Each item is also recorded where the reader meets the
 feature (`components/src/login.rs`'s own BUGS, more precisely worded per item).
 
-- **Resolved.** Every principal used to be attenuated to the same subtree,
+- Resolved. Every principal used to be attenuated to the same subtree,
   `fs_proto::fixture::tree::SUB`, with the same rights. `login` now attenuates each identity to a
   subtree named by the identity string itself, used directly (DECISIONS §117, 2026-08-23), created
   at provisioning time by milestone 155's `identity_provisioner` rather than auto-vivified at login.
@@ -243,7 +243,7 @@ feature (`components/src/login.rs`'s own BUGS, more precisely worded per item).
   entropy service DECISIONS §120's amendment already unblocked (see this entry's own prior text for
   that half's account, unchanged). Executing this entry's own three-item plan, in order:
 
-  1. **`credentialer` and `login`, wired into `boot`.** Built via `build_child`, holding narrowed
+  1. `credentialer` and `login`, wired into `boot`. Built via `build_child`, holding narrowed
      views of capabilities `boot` already has (the file service pair, a fresh construction budget
      apiece) plus a client view of the entropy service `boot` built first. **Positioned after the
      shell's own build, not after the sink adapter** where an earlier version of this lane placed it
@@ -252,10 +252,10 @@ feature (`components/src/login.rs`'s own BUGS, more precisely worded per item).
      seventeen against sixteen usable slots. Right after `term_in` goes back and before `term_sink`/
      the undertaker's own supervision endpoint are retyped, this table rests at eight instead,
      found by bisecting the same way the entropy-ordering fault above was.
-  2. **A real subtree and a real credential for whoever logs in**, through `identity_provisioner`
+  2. A real subtree and a real credential for whoever logs in, through `identity_provisioner`
      (milestone 155), run once per boot against the generated password below. `design/roadmap/155-*`
      is updated to match.
-  3. **The demo credential's password, generated rather than baked in**, executing this entry's own
+  3. The demo credential's password, generated rather than baked in, executing this entry's own
      recommendation: `boot` draws twelve bytes from the entropy service it just built, hex-encodes
      them, provisions the demo identity `operator` with the result through `identity_provisioner`,
      and prints it once, before the prompt: `"init: login ready -- generated credentials: identity
@@ -274,7 +274,7 @@ feature (`components/src/login.rs`'s own BUGS, more precisely worded per item).
   `components/src/login.rs`'s own comment on that delegation for the full account. Both were found by
   `script/swish-check`, not reasoned to in advance.
 
-  **`kernel::user::spawn_init`'s and `riscv_shell_boot`'s own construction budget was raised**,
+  `kernel::user::spawn_init`'s and `riscv_shell_boot`'s own construction budget was raised,
   2048 -> 12288 pages, for the same reason `kernel::cap::CAPABILITY_TABLE_SLOTS` was raised
   16 -> 17 (that constant's own comment carries the account): four more permanent components is a
   real, measured cost, and "a one-number change here, paid in TCB size" (`kernel::cap`'s own words)
@@ -286,7 +286,7 @@ feature (`components/src/login.rs`'s own BUGS, more precisely worded per item).
   Milestone 159, a real hardware entropy source (the JH7110's TRNG, minted alongside §120), remains
   unaffected by any of this either way, exactly as §120's own "what this does not decide" already
   said.
-- **Resolved, 2026-08-24.** `login` used to load `fs_subtree_caretaker` by name with no check at all,
+- Resolved, 2026-08-24. `login` used to load `fs_subtree_caretaker` by name with no check at all,
   inconsistent with milestone 104's discipline (init refuses to load a program whose bytes do not
   match the archive's measurement table). Investigating "how a loader outside the boot chain joins
   that chain" found the premise false: `login` maps the identical physical archive the kernel already
@@ -300,7 +300,7 @@ feature (`components/src/login.rs`'s own BUGS, more precisely worded per item).
   that fold is not the same anti-oracle reasoning the wrong-password and no-subtree folds get (this
   check varies with nothing a caller controls, so there is nothing to probe). See
   `kernel::user::login_tests::logins_caretaker_measurement_matches_the_real_table_and_a_tampered_one_would_be_refused`.
-- **Resolved, 2026-08-23 (milestone/49-caretaker-teardown).** A caretaker's construction memory used
+- Resolved, 2026-08-23 (milestone/49-caretaker-teardown). A caretaker's construction memory used
   to be spent forever, with no logout that gave it back. `mint()` now delegates its own copy of the
   caretaker's construction region to the authenticated client as a fourth capability, narrowed to
   `WRITE` (a "logout ticket"), instead of dropping it once the caretaker confirms descent (the
@@ -331,7 +331,7 @@ feature (`components/src/login.rs`'s own BUGS, more precisely worded per item).
   existing multi-client server either serves exactly one principal by construction
   (`fs_subtree_caretaker`) or is anonymous by design (the credential service). Wiring the second half
   into a real multi-tenant consumer is follow-on for whenever such a consumer exists.
-- **Resolved.** `login`'s request and result endpoints used to be a single endpoint pair sharing one
+- Resolved. `login`'s request and result endpoints used to be a single endpoint pair sharing one
   staging page across every client, the same structural limit `credentialer.rs` still documents for
   its own verify page. The front door now accepts exactly one word, `login_proto::CONNECT`, and mints
   a fresh, private request/result pair and staging page per caller before any identity or secret is

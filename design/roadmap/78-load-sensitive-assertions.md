@@ -10,35 +10,35 @@ failed on pull requests that changed no executable code, two of them documentati
 fixed the one that was a real bug. What followed was a family rather than one problem, and it took
 five rounds and an instrument.
 
-**A fourth claim was added on 2026-08-18** by milestone 62, and it corrects this block rather than
+A fourth claim was added on 2026-08-18 by milestone 62, and it corrects this block rather than
 extending it: the three claims below **could not see the timer drift bug at all**. The defect was
 injected and `script/icount` went green with every number byte-identical to a clean run, because
 claim 1 compares each arrival against the deadline that fired and a kernel re-anchoring the whole
 grid arms the timer with the very word it records. The instrument now asserts the re-arm law
 directly. See notes/instruction-clock.md.
 
-**What closed it: `script/icount`**, on both ISAs. The two claims this block was last left holding
+What closed it: `script/icount`, on both ISAs. The two claims this block was last left holding
 are asserted there: that the timer fired at the deadline the kernel armed (on riscv64, that SBI was
 armed with the `DEADLINE` word rather than with something else that leaves the array looking right),
 and that the handler costs fewer than N instructions. A third came free and closed a `BUGS` entry:
-**zero missed ticks**, which is only assertable on this instrument, because the miss taxonomy on both
+zero missed ticks, which is only assertable on this instrument, because the miss taxonomy on both
 ISAs exists to tell a slow handler from a descheduled emulator and virtual time has no deschedules.
 CI runs it beside the bench tripwire. See notes/instruction-clock.md.
 
-**Everything in the evidence table below is closed**, and the table is history rather than a
+Everything in the evidence table below is closed, and the table is history rather than a
 worklist: the disposition column says where each verdict lives. Read it for the diagnosis it
 records, not for work to pick up. The three negative-discrepancy assertions this gate line used to
 send a lane at are done.
 
 ## The day's evidence, which is history rather than a worklist
 
-**All three negative-discrepancy assertions were fixed, and the line numbers in this table are stale**
+All three negative-discrepancy assertions were fixed, and the line numbers in this table are stale
 (corrected 2026-08-17 by the status-accuracy sweep; notes/load-sensitive-assertions.md:465 had already
 named this exact defect, that a reader coming to the block first is sent to three finished sites). The
 reaper count is now at `kernel/src/sched.rs:3978`, rescoped to per-`Tid` waits and `used() <= before`.
 The address-space frame check is `kernel/src/user/tests.rs:2221`, where the old "-19" survives as a
 comment recording the past failure rather than as a live baseline. The frame-hygiene check was
-**removed** rather than rescoped. `threads_round_robin` is at `kernel/src/sched.rs:3809` and waits on
+removed rather than rescoped. `threads_round_robin` is at `kernel/src/sched.rs:3809` and waits on
 the clock. The timer twins were rebuilt against the re-arm law on both ISAs
 (`kernel/src/arch/aarch64/timer.rs:382`, `kernel/src/arch/riscv64/timer.rs:423`). The table is left
 below as the record of the day that prompted the milestone; read it for the failure shapes, not for
@@ -60,7 +60,7 @@ exists to catch, sitting in the paragraph a reader meets first.
 | handler latency | `arch/aarch64/timer.rs:323` | `left: 3, right: 2`, missed ticks rose during a quiet window | **taxonomy**, aarch64 2026-08-15 and riscv64 2026-08-16; the instruction-count claim still wants icount |
 | round-robin fairness | `sched.rs:2709` | `thread {i} never ran`, one thread of several had not been scheduled | **rescoped** 2026-08-03, waits on the property |
 
-**Every argument is in notes/load-sensitive-assertions.md**, one section per assertion, plus the
+Every argument is in notes/load-sensitive-assertions.md, one section per assertion, plus the
 four rounds of sites found by reading rather than by waiting for a red run. That note is the record;
 this block is the spec and the day's evidence.
 
@@ -68,14 +68,14 @@ this block is the spec and the day's evidence.
 it, including the case where the control model `rv64` failed too, which is what proves the failures
 are not model-specific.
 
-**A seventh, found by a lane on 2026-08-03 and reported rather than absorbed.** `sched.rs:2709`,
+A seventh, found by a lane on 2026-08-03 and reported rather than absorbed. `sched.rs:2709`,
 `threads_round_robin`, asserting every spawned thread ran at least once. It failed on one
 `script/gates` run and passed on the immediate re-run, with two full `script/test` runs either side of
 it green. The lane judged it pre-existing on grounds worth repeating, because they are the right shape
 for this call: its own code runs before the scheduler exists, does three register reads and an
 `ecall`, and holds a leaf lock nothing else takes. It could not have starved a thread.
 
-**One of them reproduces off CI.** On 2026-08-03 a local `script/test` on an aarch64 dev machine hit
+One of them reproduces off CI. On 2026-08-03 a local `script/test` on an aarch64 dev machine hit
 `user/tests.rs:1746` with "**-19** frames did not come back", the same value the milestone-71 lane saw.
 That matters because it removes the easy explanation: this family is not an artefact of GitHub's
 runners, and a quiet machine is not a defence against it.
@@ -85,7 +85,7 @@ runners, and a quiet machine is not a defence against it.
 *(The diagnosis, kept in the present tense it was written in. All seven assertions it sorts have since
 been dispositioned; see the column above.)*
 
-**Two are genuinely timing.** Timer drift and the placement probe measure how fast something happened,
+Two are genuinely timing. Timer drift and the placement probe measure how fast something happened,
 and a contended runner is slower than a quiet one. Their margins are a judgement about how slow is
 acceptable, and widening them trades sensitivity for noise honestly.
 
@@ -102,14 +102,14 @@ threads were alive at a later test's baseline, and the count moved.
 
 ## The instrument this project already owns
 
-**The test runner passes no `-icount`. Only the bench does.** So in `script/test`, guest `CNTVCT_EL0`
+The test runner passes no `-icount`. Only the bench does. So in `script/test`, guest `CNTVCT_EL0`
 follows host time, and a QEMU process the host descheduled makes the guest observe a missed deadline
 that says nothing about our handler. The two timing assertions cannot distinguish "our code is slow"
 from "the emulator was not running", and no margin fixes that: widening changes how often you notice,
 not what is being measured.
 
-Under `-icount shift=0,sleep=off`, which the bench already uses, **virtual time is a deterministic
-function of instructions executed**, so host scheduling cannot advance it at all. That removes the
+Under `-icount shift=0,sleep=off`, which the bench already uses, virtual time is a deterministic
+function of instructions executed, so host scheduling cannot advance it at all. That removes the
 confound rather than tolerating it.
 
 So the likely answer for the two genuinely-timing assertions is **not a wider bound but a different
@@ -145,7 +145,7 @@ a framework.
 
 ## Scope note
 
-**39 sites across 7 files** match the shape (`wait_for`, or an assertion against `free_frames`,
+39 sites across 7 files match the shape (`wait_for`, or an assertion against `free_frames`,
 `thread_count` or `used()`). Do not touch all 39. The five with evidence are the milestone; the rest
 are a list to check against the same question and mostly to leave alone.
 
@@ -186,12 +186,12 @@ fails on the first tick. A descheduled emulator cannot fail it: a deschedule lon
 grid increments `MISSED_TICKS`, which is the re-anchor safety valve working, and the window is
 retried.
 
-**One claim moved out of scope rather than being weakened, and it is riscv64's alone.** Nothing
+One claim moved out of scope rather than being weakened, and it is riscv64's alone. Nothing
 proves that SBI actually fired at the software grid's deadlines. `DEADLINE` is our own array; on
 aarch64 the equivalent value is in a register the hardware itself consults, so the readback is
 evidence and on riscv64 it is bookkeeping. The residual gap is an implementation that maintains
-`DEADLINE` correctly and arms SBI with something else, and **no wall-clock margin could distinguish
-that from load either**, which is the same reason the rest of this milestone exists.
+`DEADLINE` correctly and arms SBI with something else, and no wall-clock margin could distinguish
+that from load either, which is the same reason the rest of this milestone exists.
 
 The instrument is the one this project already owns. Under `-icount shift=0,sleep=off`, which
 `script/bench` already uses, virtual time is a deterministic function of instructions executed, so
@@ -200,7 +200,7 @@ becomes a claim a contended runner cannot falsify. Recommended by the lane that 
 not built by it. Cost: it belongs in the bench harness rather than the test suite, because
 `script/test` passes no `-icount` and adding it there would change what the whole suite measures.
 
-**And the placement probe stays where it is**, checked against the same question and left alone
+And the placement probe stays where it is, checked against the same question and left alone
 deliberately. Its wait is on exactly the property under test, its failure direction is purely
 positive, and moving it to the icount instrument is not an option even in principle: the icount
 bench boots `-smp 1` *because* a shared virtual clock makes multi-hart timing fictional, and a
@@ -221,13 +221,13 @@ asserts the two claims above and one that came free.
 The aarch64 numbers are the same on all 64 ticks, minimum equal to maximum, which is the instrument
 proving itself rather than being argued for.
 
-**The riscv64 claim was proved by injection**, twice, with the residual this block named built
+The riscv64 claim was proved by injection, twice, with the residual this block named built
 rather than argued about: an implementation that keeps `DEADLINE` on the grid and arms SBI from
 `now()` sends the arrival latency to 420,400 instructions against a bound of 1,500, and one that
 arms it a *fixed* quarter period off the grid (no drift, no misses, the delivered rate still exactly
 100 Hz) reads 2,500,400 on every tick.
 
-**And the prediction attached to those injections was wrong, which is the more useful finding.** The
+And the prediction attached to those injections was wrong, which is the more useful finding. The
 existing suite catches both. What it does not do is say what is wrong: the first fails as "the
 handler itself is slow, which is this kernel's bug" on the assertion that broke #204, #210 and #215,
 and the second as "either the host is too contended to observe the grid, or the handler is slower
@@ -269,7 +269,7 @@ claims are. And the scope note's remaining sites are still unaudited, for the si
 
 ## Index row
 
-**Seven** distinct failures in one day on PRs that changed no code, two of them documentation
+Seven distinct failures in one day on PRs that changed no code, two of them documentation
 only, and one reproduces off CI. Three reported a NEGATIVE discrepancy, so they were not
 slow-machine timeouts and were rescoped to the property; the two that ARE timing moved to the
 icount instrument (`script/icount`), where a claim is denominated in instructions and a busy host

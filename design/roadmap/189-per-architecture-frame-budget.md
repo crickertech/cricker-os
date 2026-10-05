@@ -24,7 +24,7 @@ use for the icount tripwire.
 `cfg(target_arch)` anywhere in that file. So every architecture is measured, and all three are
 measured against a ceiling that was fitted to one of them.
 
-The value has always been set from **aarch64**, the tighter of the two the ledger's own history
+The value has always been set from aarch64, the tighter of the two the ledger's own history
 discusses. Its doc comment is one of the most carefully maintained records in this tree, a dated
 entry per raise with the measurement behind it, and **not one entry mentions x86_64.**
 
@@ -39,13 +39,13 @@ That would be a nuisance if the three suites were the same size. They are not:
 And the skips are not a random 57. They are `fs_service::NO_FS_SERVER` (vendored RedoxFS's
 unconditional `aes` dependency does not compile for `x86_64-unknown-none`, which milestone 164
 owns), `NO_STD_EXERCISER` (no `x86_64-unknown-nife` target yet, which milestone 184 owns), plus
-`NO_RTC` and `NO_UART_PAGE`. Those name the **heaviest and longest-lived frame consumers in the
-suite**: the file servers, the `std` farm, and the services that keep a session's scratch for the
+`NO_RTC` and `NO_UART_PAGE`. Those name the heaviest and longest-lived frame consumers in the
+suite: the file servers, the `std` farm, and the services that keep a session's scratch for the
 rest of the boot. The tests that do not run on x86_64 are disproportionately the ones that keep
 memory.
 
-**Both named skip causes have since closed, and the 57 above is the 2026-08-28 count, kept as
-measured.** Milestone 164 made `redoxfs_server` build for x86_64 on 2026-09-01, and milestone 184 built
+Both named skip causes have since closed, and the 57 above is the 2026-08-28 count, kept as
+measured. Milestone 164 made `redoxfs_server` build for x86_64 on 2026-09-01, and milestone 184 built
 `x86_64-unknown-nife` and its `std` farm on 2026-09-14, so `std_exerciser` now runs there. The file
 servers still mostly skip on x86_64, for a different reason: no disk the FS service can find
 (`design/roadmap/proposals/an-fs-service-with-no-disk-on-x86-64.md`). Re-count before relying on this
@@ -55,14 +55,14 @@ So x86_64 sits far under a ceiling it cannot approach, and the gate that reads g
 reporting a healthy leg. It is reporting that a number fitted to a different, larger suite was not
 exceeded by a smaller one.
 
-**A leak that appeared only on x86_64 would have to be enormous before this noticed.**
+A leak that appeared only on x86_64 would have to be enormous before this noticed.
 
 ## The fact that makes it worse, and it is a small one
 
-**Nobody had written down what x86_64 keeps**, and it was absent from the constant's history, from
+Nobody had written down what x86_64 keeps, and it was absent from the constant's history, from
 `notes/frames.md`, and from every lane report searched when this milestone was minted.
 
-**Measured 2026-08-28, and it is worse than this milestone assumed.** PR #546's lane reported the
+Measured 2026-08-28, and it is worse than this milestone assumed. PR #546's lane reported the
 figure while re-measuring the other two legs:
 
 | leg | frames kept | against the shared budget |
@@ -71,9 +71,9 @@ figure while re-measuring the other two legs:
 | riscv64 | 21,941 | 276 under aarch64 |
 | **x86_64** | **7,514** | **roughly 14,700 frames of slack** |
 
-So x86_64 keeps **about a third** of what aarch64 keeps, and sits nearly fifteen thousand frames
-below a ceiling it is nominally gated by. The gate is not merely loose there. **x86_64's retained
-frames could triple and the ledger would still report green**, which is not a tripwire in any useful
+So x86_64 keeps about a third of what aarch64 keeps, and sits nearly fifteen thousand frames
+below a ceiling it is nominally gated by. The gate is not merely loose there. x86_64's retained
+frames could triple and the ledger would still report green, which is not a tripwire in any useful
 sense.
 
 That single reading does not remove the need for the milestone's first step. One number is not a
@@ -94,16 +94,16 @@ rather than only as a fix here.
 
 ## What to build
 
-1. **Measure x86_64 first**, on a quiet machine, more than once, and write the number down before
+1. Measure x86_64 first, on a quiet machine, more than once, and write the number down before
    changing anything. If it turns out close to the aarch64 figure, the premise above is wrong and
    this milestone should be rewritten rather than executed.
-2. **Split the constant into three**, one per architecture, selected by `cfg(target_arch)`. Keep the
+2. Split the constant into three, one per architecture, selected by `cfg(target_arch)`. Keep the
    existing narrative doc comment as the shared history it is, and give each constant its own dated
    entry in that voice. Do not fork the prose three ways.
-3. **Choose each headroom on that leg's own evidence.** The ledger's conventions are +15 ordinarily
+3. Choose each headroom on that leg's own evidence. The ledger's conventions are +15 ordinarily
    and +32 where a known flake perturbs the reading; whether x86_64 needs either is a question its
    own measurements answer.
-4. **Say in the failure message which architecture's budget was exceeded**, since a single message
+4. Say in the failure message which architecture's budget was exceeded, since a single message
    naming a single constant will now be ambiguous.
 
 ## What this does not fix
@@ -113,7 +113,7 @@ rather than only as a fix here.
   make that leg run more.
 - **It does not find a leak, it makes one findable.** The ledger is a tripwire on retained frames,
   and a tighter ceiling on x86_64 only helps for growth that happens after the number is recorded.
-- **It cannot say whether today's x86_64 figure is already carrying a leak**, because there is no
+- It cannot say whether today's x86_64 figure is already carrying a leak, because there is no
   earlier reading to compare against. The first measurement establishes a baseline and blesses
   whatever is already there, which is the honest cost of having gone this long without one.
 

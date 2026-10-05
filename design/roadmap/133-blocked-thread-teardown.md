@@ -9,7 +9,7 @@ Built 2026-09-04. Proposed 2026-08-17 by the research lane
 `roadmap/blocked-thread-teardown`, from the residual milestone 23's hung-component lane recorded and
 declined to open.
 
-**The fork was answered before the work: calef chose proposal A on 2026-09-03**, *`DESTROY`
+The fork was answered before the work: calef chose proposal A on 2026-09-03, *`DESTROY`
 finishes what it starts*. Until then this block carried `Gate: DECISION`, because no lane could pick
 one of four proposals whose difference is which held capability expresses the right to end a
 thread. The authority is the region capability, unchanged; nothing is added to the syscall
@@ -27,23 +27,23 @@ verb on a `ThreadControlBlock` capability widens a construction-time authority i
 handle, and nobody has asked to end a thread without owning its region. C is milestone 254, minted
 separately. D is what the tree did until today.
 
-**In brief.** `Untyped::DESTROY` on a region holding a live thread marks the thread `killed` and
+In brief. `Untyped::DESTROY` on a region holding a live thread marks the thread `killed` and
 refuses, so the owner's retry reclaims a runaway (§16's amendment, §24's forcible `^C`). The kill is
 spent at the top of `schedule()` and only for a thread whose state is `Running`. A permanently
 `Blocked` thread never becomes `current` again, so the kill is armed and never lands, the refusal is
-permanent, and the region is unreclaimable for the life of the machine. **No privilege fixes it; it
-is a scheduler property**, which is why §32's "stronger right" is not merely large for this purpose
+permanent, and the region is unreclaimable for the life of the machine. No privilege fixes it; it
+is a scheduler property, which is why §32's "stronger right" is not merely large for this purpose
 but insufficient. `reap_region_objects` records the fact in its own comment, and notes/hung-component.md
 is where it was first stated as a taxonomy: case (c), a thread blocked on an endpoint its supervisor
 cannot reach.
 
 The cost is a capacity cost rather than a tidiness one, and it compounds. A hung server strands its
-callers, and a caller stranded mid-`CALL` is itself permanently `Blocked` in its own region, so **one
+callers, and a caller stranded mid-`CALL` is itself permanently `Blocked` in its own region, so one
 hang can cost two unreclaimable regions and a service with many callers in flight costs one per
-caller.** The number of hangs the system survives is therefore a function of spare budget, which is
+caller. The number of hangs the system survives is therefore a function of spare budget, which is
 the wrong shape for milestone 55's unattended backup target.
 
-**A second, separable defect the research turned up.** `abi::Error::Gone` does not reach a
+A second, separable defect the research turned up. `abi::Error::Gone` does not reach a
 reply-parked caller. The abort machinery walks an endpoint's wait queues, and a caller whose request
 was taken was popped off at the rendezvous; it is woken by `sched::ipc_reply` and by nothing else. So
 a caller stranded by a server that merely *died* is stranded too, which QNX Neutrino has not permitted
@@ -51,17 +51,17 @@ since the 1990s ("If the server thread fails, exits, or disappears, the client t
 with MsgSend() indicating an error"). Nothing in the tree records this as intended. It looks less like
 a fork than the rest of this milestone and may want to be split off.
 
-**And a hazard whichever way the fork goes.** `cap::reply_cap` mints `Object::Reply(tid)`, whose
+And a hazard whichever way the fork goes. `cap::reply_cap` mints `Object::Reply(tid)`, whose
 payload is a generational thread name with no call identity, and `ipc_reply`'s guard checks the
 `WaitRole` and discards the endpoint. That is sound only because nothing can currently leave a reply
-park and enter a second `CALL` while an unconsumed `Reply` names it. **Any proposal that wakes a
-reply-parked caller creates exactly that path**, and a hung server's stale reply capability would then
+park and enter a second `CALL` while an unconsumed `Reply` names it. Any proposal that wakes a
+reply-parked caller creates exactly that path, and a hung server's stale reply capability would then
 forge an answer to a later, unrelated call. L4Re documents the identical hazard as a consequence of
 its own finite receive timeouts. The two known fixes are seL4's: delete the outstanding reply
 capability at abort (a cspace sweep, the pattern `sched::delete_frame_caps` already establishes), or
 do not wake the victim at all.
 
-**What the research established, and it reframes the work.** The mechanism is close to free and the
+What the research established, and it reframes the work. The mechanism is close to free and the
 authority is the whole problem. `thread::WaitRole` is a closed enumeration of three places a blocked
 thread can be (an endpoint's sender queue, its receiver queue, or no queue at all for a `CALL`
 caller); `handshake.wait_on` names the endpoint; `set_ipc_aborted` plus `wake` is the existing
@@ -71,7 +71,7 @@ receiver twin is the same twelve lines; and `reap_region_objects` already reache
 blocked thread today in about thirty lines with no new syscall. **What has never been decided is who
 may ask, and that is the milestone.**
 
-**The prior art says nobody else blocks forever.** seL4 folds cancellation into `seL4_TCB_Suspend`
+The prior art says nobody else blocks forever. seL4 folds cancellation into `seL4_TCB_Suspend`
 (`suspend()` is `cancelIPC` + dequeue + `ThreadState_Inactive`, authorized by a TCB capability, and
 the victim is never handed an error at all). L4 makes it a flag on `ex_regs`. Mach splits
 `thread_abort` from `thread_abort_safely` on exactly the hazard of interrupting a non-restartable
@@ -80,12 +80,12 @@ closing the channel, with `ZX_RIGHT_DESTROY` on a process or job handle as the a
 invent `TASK_KILLABLE` because two states were a false choice. nife is currently alone in having no
 way out, and it is alone by accident rather than by decision.
 
-**Deliberately in scope: refusing.** Proposal D in the note is "accept the leak, bound it with the
+Deliberately in scope: refusing. Proposal D in the note is "accept the leak, bound it with the
 `QuotaToken` machinery that already holds a spawner's slot for precisely this case, make it visible,
 and recover the service rather than the memory". It is argued rather than listed. §40 is "no reaper of
 last resort", Fuchsia deleted this feature after shipping it, and a capacity failure is a visible
 refusal where a forcible teardown's failure is a broken invariant inside a component that was still
-holding something. **If this milestone ends as `RECORDED`, that is a result.**
+holding something. If this milestone ends as `RECORDED`, that is a result.
 
 **What is not in scope.** Detection. Deciding that a component *is* hung needs milestone 106's timed
 wait and is milestone 23's residual, not this one's; this milestone is about what can be done to a
@@ -101,12 +101,12 @@ is deleted from every capability table, and its state is written straight to `Fi
 never woken and never runs another instruction. `crates/inter_process_communication` gains `Rendezvous::remove_receiver`,
 `remove_sender`'s twin.
 
-**The authority is unchanged**, which is why proposal A was the one that could ship without
+The authority is unchanged, which is why proposal A was the one that could ship without
 deciding anything else: the untyped holder could already end every `Ready` and `Running` resident,
 and could already leave every `Blocked` one killed-and-refused. It could not only *finish*. Nothing
 was added to the syscall surface, no right was added, and no new error is visible to userspace.
 
-**Both queues are asked, rather than the recorded `WaitRole`.** The research described the role as
+Both queues are asked, rather than the recorded `WaitRole`. The research described the role as
 deciding which queue holds the thread, and it does not: `ipc_call`'s `Send::Blocked` arm records a
 caller as `WaitRole::Reply` while queueing it as a *sender*, so role and queue disagree on every
 call that meets no server. Each remove compares pointers and reports whether it found anything, so
@@ -117,7 +117,7 @@ asking the wrong queue costs one drain-and-repush of a short queue and cannot be
 its `Thread` would unmap; that is the bug four CI panics taught this path in 2026-08. The condition
 clears itself one context switch later and the owner's existing retry loop finds it.
 
-**The proof it works is two tests**, both in `kernel/src/user/force_kill_tests.rs`, and each was
+The proof it works is two tests, both in `kernel/src/user/force_kill_tests.rs`, and each was
 checked against the mutation it is meant to catch:
 
 - `destroy_reclaims_a_region_whose_resident_blocks_on_a_rendezvous_it_does_not_own` builds a child
@@ -137,12 +137,12 @@ case is the miss rather than the hit, because the kernel asks both queues on eve
 
 - **Milestone 254.** The caller stranded by a server that merely *died*, which `abi::Error::Gone`
   did not reach because the abort machinery walks a rendezvous's wait queues and a reply-parked
-  caller left them at the rendezvous. **It landed the same day as this one**, and the two are
+  caller left them at the rendezvous. It landed the same day as this one, and the two are
   complementary rather than alternatives: this milestone reclaims the hung component's own region,
   254 frees its stranded callers. They also took one of seL4's two answers to the stale-reply hazard
   each, and the merge folded their two copies of the sweep into one function,
-  `sched::delete_reply_caps_naming`, so the invariant they share (**no unconsumed reply capability
-  names a thread that has left its park**) has one implementation. 254's removal-phase
+  `sched::delete_reply_caps_naming`, so the invariant they share (no unconsumed reply capability
+  names a thread that has left its park) has one implementation. 254's removal-phase
   `strand_callers_of` also runs on the residents this milestone finishes, so a hung *server* ended
   here frees its own clients for free.
 - **Milestone 366.** `design/roadmap/366-a-block-site-that-writes-blocked-by-hand.md`. Nothing

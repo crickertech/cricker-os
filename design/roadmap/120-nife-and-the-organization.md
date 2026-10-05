@@ -38,41 +38,41 @@ and principle 3 says they must not have to ask:
 | distributions | **rocks**, `basalt` and whatever others choose | an aggregate assembled from many pieces |
 | programs and components | **minerals**, `kamacite` and `taenite` held for this | what a rock is made of |
 
-**A rock is an aggregate of minerals, and a distribution is an aggregate of programs.** That is what
+A rock is an aggregate of minerals, and a distribution is an aggregate of programs. That is what
 the words already mean rather than an analogy stretched to fit, and it is what makes the scheme
 inferable from two examples instead of needing a specification.
 
-Three properties make it work for people this project will never meet. It is **unbounded**: there are
+Three properties make it work for people this project will never meet. It is unbounded: there are
 hundreds of named rocks, so nobody needs permission, a registry, or an allocation from us, and the
 alternative (everyone wanting to be `nife-something`) is a namespace we would have to police. It is
-**self-classifying**: a reader meeting `anthracite` knows it is a distribution and not a kernel
-before reading anything about it. And it lets a distribution **state its character in its own name**,
+self-classifying: a reader meeting `anthracite` knows it is a distribution and not a kernel
+before reading anything about it. And it lets a distribution state its character in its own name,
 which is what makes a convention get adopted rather than resented: `pumice` for a light one,
 `conglomerate` for one that bundles everything, `quartzite` for a hardened one, `flint` for a
 toolkit.
 
-**Nothing here is reserved beyond `basalt`.** Naming a distribution requires no coordination with
+Nothing here is reserved beyond `basalt`. Naming a distribution requires no coordination with
 this project, and that sentence is the difference between an ecosystem and a trademark.
 
 ## Why `nife`
 
-**Nife** is Eduard Suess's name, from *Das Antlitz der Erde*, for the Earth's nickel-iron core: Ni
+Nife is Eduard Suess's name, from *Das Antlitz der Erde*, for the Earth's nickel-iron core: Ni
 plus Fe. It is the layer everything else rests on and the one nothing is beneath, which is a
 microkernel described geologically rather than by analogy. §39's test is that a name is a claim made
 before a reader sees a line of code, and this claim is true of the thing.
 
 Three things it buys beyond the denotation:
 
-- **The alloy family has receipts.** NiFe is Edison's nickel-iron cell, which runs for thirty to
+- The alloy family has receipts. NiFe is Edison's nickel-iron cell, which runs for thirty to
   fifty years and of which century-old examples still work; permalloy and mu-metal, the standard
-  materials for **magnetic shielding**; and Invar, chosen when a thing must not move. Durable,
+  materials for magnetic shielding; and Invar, chosen when a thing must not move. Durable,
   shielding, dimensionally stable is an unusually apt set for a system claiming dependability.
-- **It is four letters.** `nife`, `nife-dev`, `nifefs`. Terseness is an emergent pressure on words
+- It is four letters. `nife`, `nife-dev`, `nifefs`. Terseness is an emergent pressure on words
   people type constantly, and this one starts short rather than being abbreviated later.
-- **It contains `kamacite`.** Kamacite and taenite are nickel-iron alloys, so the meteorite story
+- It contains `kamacite`. Kamacite and taenite are nickel-iron alloys, so the meteorite story
   stays available, and both remain free as component names inside a family that means something.
 
-**The pronunciation is declared rather than inherited**: *nife*, said like **knife**. Suess wrote in
+The pronunciation is declared rather than inherited: *nife*, said like knife. Suess wrote in
 German, where it is closer to NIF-eh, and no English speaker produces that on sight. `nginx` settles
 its own pronunciation in one line and so does this. The knife reading is apt rather than merely
 tolerable: sharp, single-purpose, and a held tool with no authority of its own.
@@ -84,20 +84,20 @@ search box, so the name will always need a companion word to be findable.
 
 Milestone 115's point is that the refusals are the valuable half.
 
-- **`patina`**. The idiomatic figurative sense in English is a thin attractive surface over
+- `patina`. The idiomatic figurative sense in English is a thin attractive surface over
   something worse, which is the opposite of the claim a verification project makes. Also
   architecturally backwards: a patina is the layer on top, and a microkernel is the bottom.
-- **`lemma`**. Architecturally exact (the small proved thing larger results are built on) and
+- `lemma`. Architecturally exact (the small proved thing larger results are built on) and
   rejected by calef on taste.
-- **`keystone`**. Unavailable: Berkeley's Keystone is an open-source framework for TEEs **on
-  RISC-V**, which is this project's second architecture. Same `capsh` failure: a reader arriving from
+- `keystone`. Unavailable: Berkeley's Keystone is an open-source framework for TEEs on
+  RISC-V, which is this project's second architecture. Same `capsh` failure: a reader arriving from
   RISC-V security would assume ours is that.
-- **`psyche`**. The asteroid is an exposed planetesimal iron core, which is the denotation we
+- `psyche`. The asteroid is an exposed planetesimal iron core, which is the denotation we
   wanted, but it is a NASA mission and a psychology term.
-- **`siderite`, `kamacite`**. Both good, both longer, and kamacite is a phase *inside* a nife rather
+- `siderite`, `kamacite`. Both good, both longer, and kamacite is a phase *inside* a nife rather
   than the material itself. Kept in reserve as component names.
 
-**The distribution's name went through the same test and two candidates lost it.** `sial` and `sima`,
+The distribution's name went through the same test and two candidates lost it. `sial` and `sima`,
 Suess's own terms for the crust, were the first proposal and were dropped for one reason: calef had
 to ask how to say them. That is §39's decisive evidence, the same kind that retired `linedisc`, and
 it lands differently here than it does for the kernel. `nife` earns its declared pronunciation
@@ -105,14 +105,14 @@ because the wrong reading (*knife*) is sharp, single-purpose and a held tool, so
 the project. `sial` has no such compensation: its wrong readings mean nothing at all, and a family in
 which every member needs a pronunciation note stops being a signature and becomes a tax on every
 conversation. `granite` replaced them and was itself passed over, because IBM ships a prominent
-family of open models under that name. **`basalt`** is the most common volcanic rock on the planet's
+family of open models under that name. `basalt` is the most common volcanic rock on the planet's
 surface, which is exactly the workhorse claim a first-party distribution wants, and it is the rock
 that `sima` actually is, so the layering survives the words being retired.
 
 ## Why an organization, and why it is not called `nife`
 
-**The concrete unblock is milestone 119.** GitHub's merge queue is available only in repositories
-owned by an **organization**; this one is owned by a user account, which is why the setting is absent
+The concrete unblock is milestone 119. GitHub's merge queue is available only in repositories
+owned by an organization; this one is owned by a user account, which is why the setting is absent
 from the ruleset page rather than merely hard to find. 119 names the merge queue as one of two
 structural levers and leaves it to calef; this milestone is what makes it reachable at all.
 
@@ -124,7 +124,7 @@ stops being the product and becomes the publisher.
 
 ## The work, measured
 
-**1,001 occurrences of `cricker` across 255 files**, counted from the merged tree on 2026-08-13:
+1,001 occurrences of `cricker` across 255 files, counted from the merged tree on 2026-08-13:
 
 | Identifier | Count |
 |---|---|
@@ -150,7 +150,7 @@ stops being the product and becomes the publisher.
    number alone. A rename that renumbers an on-disk identifier is a data migration wearing a
    cosmetic disguise.
 
-3. **`cricker-dev` is account-wide.** It is a `rustup toolchain link` in `~/.rustup/toolchains`, not a
+3. `cricker-dev` is account-wide. It is a `rustup toolchain link` in `~/.rustup/toolchains`, not a
    file in this tree, and every worktree and lane resolves it. Renaming it is a machine-level
    coordination step: relink from the main checkout, and expect the first lane that gates afterwards
    to take the new name.
@@ -170,12 +170,12 @@ stops being the product and becomes the publisher.
 Every merged pull request adds call sites, and every open pull request conflicts with a
 tree-wide rename. Those pull in opposite directions, so the sequence is not arbitrary:
 
-1. **Drain the open queue to zero.** In flight as of 2026-08-13: #123, #130, #131, #135, #138, #141,
+1. Drain the open queue to zero. In flight as of 2026-08-13: #123, #130, #131, #135, #138, #141,
    #142, #149.
-2. **Create the organization and transfer the repository.** calef; nobody else can.
-3. **Rename in one reviewed pass**, with no lanes open, so the rename conflicts with nothing.
-4. **Relink the toolchain** from the main checkout.
-5. **Enable the merge queue**, which milestone 119 owns. The `merge_group` triggers it needs are
+2. Create the organization and transfer the repository. calef; nobody else can.
+3. Rename in one reviewed pass, with no lanes open, so the rename conflicts with nothing.
+4. Relink the toolchain from the main checkout.
+5. Enable the merge queue, which milestone 119 owns. The `merge_group` triggers it needs are
    already written (pull request #149): without them every required check waits forever on a run
    that never starts, and the symptom looks like a hung queue rather than a missing trigger.
 
@@ -191,7 +191,7 @@ Redox is the closest neighbour in this tree's own reference set and does the opp
 
 ## BUGS
 
-- **A rename cannot be un-published.** CLAUDE.md's own reversibility tenet puts names in the
+- A rename cannot be un-published. CLAUDE.md's own reversibility tenet puts names in the
   expensive column: trivial to change mechanically, expensive in a reader's head. The mitigation is
   timing rather than technique, and it is the reason to do this now: the project has one customer and
   no audience, so the cost is at its lifetime minimum and rises from here.

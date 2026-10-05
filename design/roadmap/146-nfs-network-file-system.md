@@ -19,16 +19,16 @@ stack runs, and the protocol is a published spec rather than a design fork. Noth
 stops a lane starting on either half; whether the first half is the server or the client is a
 sequencing decision, not a dependency.
 
-**In brief.** Two halves sharing one protocol library:
+In brief. Two halves sharing one protocol library:
 
-- **Phase A, the server**: an NFS adapter, like `smb_server` but for NFSv3 over UDP/TCP. A Mac's
+- Phase A, the server: an NFS adapter, like `smb_server` but for NFSv3 over UDP/TCP. A Mac's
   built-in `mount_nfs` or a Linux `mount -t nfs` against this board's IP would traverse the
   share's directory tree, read files, write them, and report free space, all through the same
   `fs_proto` seam the SMB adapter uses. The credential story is simpler than NTLMv2 (AUTH_SYS by
   default, with the option of Kerberos if the LAN demands it), and it is weaker: a uid/gid pair
   is a claim the server chooses to trust rather than a proof.
 
-- **Phase B, the client**: nife mounting a remote NFS share. The shape inverts the adapter: a
+- Phase B, the client: nife mounting a remote NFS share. The shape inverts the adapter: a
   program holds a network endpoint to a remote server and an `fs_proto` *server* endpoint, so any
   nife caller can `ls`, `cat`, `cp` over a remote mount transparently. A `mount -t nfs` at
   swish's prompt is the demo, and `caps` says the mount point has the caller's directory
@@ -45,12 +45,12 @@ because NFSv3 has no session key.
 Milestone 54 chose SMB because it was required for Time Machine, and it was right to. SMB serves
 the macOS/backup path; NFS serves everything else:
 
-- **Linux and BSD workstations** already mount NFS out of the box. A nife machine on a LAN with a
+- Linux and BSD workstations already mount NFS out of the box. A nife machine on a LAN with a
   Linux build server would share build artifacts, package caches, and source trees over NFS while
   serving backups over SMB. Two adapters, one store.
 - **NAS appliances** (Synology, QNAP, TrueNAS) export NFS natively. Phase B mounts them, so nife
   gains terabytes of network-attached storage without a local block device.
-- **The confinement story is the same across both protocols**: an NFS adapter holds exactly one
+- The confinement story is the same across both protocols: an NFS adapter holds exactly one
   directory capability and one network endpoint. It cannot enumerate outside the share, cannot
   reach the block device, and cannot name another share. `caps nfs_server` prints that difference,
   which is the demonstration milestone 123 asks for.
@@ -71,9 +71,9 @@ rule already priced. Each new adapter adds the wire format only.
   one endpoint. Receives `fs_proto` calls from the NFS decode and forwards them; the same
   capability-seam test milestone 54 ran applies: it cannot write outside the share, because no
   capability reaches there.
-- **Read-only mode first** is the responsible build order: an NFS export that a stranger can mount
+- Read-only mode first is the responsible build order: an NFS export that a stranger can mount
   and read, then write after the write path is tested, exactly the order milestone 54 used.
-- **`statfs` is free**, because `fs_proto` already has `STATFS` and the adapter fills the NFS
+- `statfs` is free, because `fs_proto` already has `STATFS` and the adapter fills the NFS
   `FATTR3_SPACE_AVAIL` and `FATTR3_SPACE_FREE` from it. Milestone 54 discovered the same was true
   for SMB, which is how the op 18 decision was made.
 
@@ -82,9 +82,9 @@ rule already priced. Each new adapter adds the wire format only.
 - The client is the inverse adapter: an NFS `CLNT` handle toward a remote server, speaking `fs_proto`
   on the *server* side. A local process opens the endpoint, gets back an `fs_proto` handle that
   transparently resolves to the remote mount.
-- **Read-only mount first**, same sequencing argument: list a remote share, read a file from it,
+- Read-only mount first, same sequencing argument: list a remote share, read a file from it,
   then write.
-- **A mount command**: `mount -t nfs server:/export /mnt` at swish's prompt, which spawns the
+- A mount command: `mount -t nfs server:/export /mnt` at swish's prompt, which spawns the
   client binary with the share's endpoint and a local directory capability.
 - **Authentication**: AUTH_SYS for phase B, with the uid/gid the caller presents; the remote NFS
   server decides whether to trust it. Kerberos (RPCSEC_GSS) is a later phase; recording it here so
@@ -95,7 +95,7 @@ rule already priced. Each new adapter adds the wire format only.
 - `crates/nfs_proto` carries the ONC RPC record marking (RFC 5531), XDR encode/decode, and the
   procedure tables. Built around the same principle as `smb_proto`: no key material lives in the
   protocol crate, and a host test covers every decode path.
-- **No kernel surface changes.** The network stack routes NFS UDP/TCP ports the way it routes any
+- No kernel surface changes. The network stack routes NFS UDP/TCP ports the way it routes any
   socket traffic. The adapter pattern means the kernel never reads an NFS frame.
 - **`crates/portmapper`** as a small sub-crate or inline in `nfs_proto` if any adapter needs to
   register and no other consumer exists yet. The SMB server registers nothing publicly; NFS
@@ -104,23 +104,23 @@ rule already priced. Each new adapter adds the wire format only.
 
 ## What is honestly not decided
 
-- **Whether a second protocol is worth building before milestone 55 lands.** SMB serves the
+- Whether a second protocol is worth building before milestone 55 lands. SMB serves the
   mac; NFS serves everyone else. That everyone-else question is not time-critical, and the
   customer path principle puts a family backup target ahead of Linux interop. This milestone is
   gated by sequencing judgment rather than by a dependency.
-- **UDP versus TCP.** NFSv3 uses both; the early code should support TCP first (the network stack
+- UDP versus TCP. NFSv3 uses both; the early code should support TCP first (the network stack
   is proven there) and add UDP when a NAS that uses only UDP demands it.
-- **The portmapper fork.** A dedicated `rpcbind` process is the Unix shape; a static port
+- The portmapper fork. A dedicated `rpcbind` process is the Unix shape; a static port
   assignment is simpler and leaks nothing a capability system does not already control. Recorded
   here rather than in a separate decision file; the first lane chooses.
-- **The version: v3 versus v4.** NFSv4 replaces the mount protocol, portmapper and `NULL` auth
+- The version: v3 versus v4. NFSv4 replaces the mount protocol, portmapper and `NULL` auth
   with a single port, a single procedure, and a stateful lease model. Milestone 54's table says
   NFSv3 and the existence of macOS's `mount_nfs` on that row; NFSv4 would be the right choice if
   starting fresh, and v3 is the right choice for interop with any ten-year-old appliance.
 
 ## BUGS
 
-- **Nothing here is measured against a real NFS server or client.** The protocol crate would be
+- Nothing here is measured against a real NFS server or client. The protocol crate would be
   host-tested before it sees the guest, but the end-to-end claim (a Mac mounts nife over NFS with
   `mount_nfs -o vers=3`, or nife mounts a Synology) needs hardware and a LAN.
 - **The NFS access model (AUTH_SYS) is not an identity model.** A uid/gid is a claim the server
@@ -128,11 +128,11 @@ rule already priced. Each new adapter adds the wire format only.
   named under "NFSv3" and the reason SMB was required for Time Machine. If the demonstration
   target ever includes a multi-user nife with NFS, the credential story would need RPCSEC_GSS or
   a local mapping layer.
-- **`crates/nfs_proto` would be the third network file or discovery protocol crate this tree has
-  carried** (`smb_proto` and `multicast_dns_protocol` came first, and were retired on 2026-08-30 and
+- `crates/nfs_proto` would be the third network file or discovery protocol crate this tree has
+  carried (`smb_proto` and `multicast_dns_protocol` came first, and were retired on 2026-08-30 and
   2026-09-15), and the milestone-54 and 55 lane experience says the protocol crate is the
   place the bugs concentrate. Budget for it.
-- **No estimate of effort**, because the adapter pattern is proven but the XDR encoder-decoder is
+- No estimate of effort, because the adapter pattern is proven but the XDR encoder-decoder is
   an entire C-callable standard that this tree would own rather than vendor. The SMB adapter
   shipped in one lane per half; NFS's halves share more code and may need fewer.
 

@@ -9,9 +9,9 @@ Raised 2026-08-03. xenon printed `nife self-test: 5 of 5 passed` at
 09:55 UTC on 2026-09-17, which is the criterion calef set that morning. Transcript:
 `bench/xenon-2026-09-17/first-light-095500.log`.
 
-**nife now runs on all three declared architectures on real hardware.**
+nife now runs on all three declared architectures on real hardware.
 
-**How the gate stood, kept as this block's history.** It read `HARDWARE` to the end, and the
+How the gate stood, kept as this block's history. It read `HARDWARE` to the end, and the
 hardware side finished 2026-08-23. What follows is that paragraph as written.
 
 > **Gate: HARDWARE.** It is now the only gate. The hardware side finished 2026-08-23 (the
@@ -36,20 +36,20 @@ nife self-test: 5 of 5 passed
 On the OptiPlex 7040, at xenon's addresses, that unit covers only integrated graphics: the line
 shows a unit translating, not a device confined. Unverified until xenon's DMAR is read.
 
-**The `AlreadyMapped` fix held.** `mmu : fine W^X 4-level map installed` is the line this machine
+The `AlreadyMapped` fix held. `mmu : fine W^X 4-level map installed` is the line this machine
 died before reaching on 2026-09-04, and the boot went straight past it.
 
-**Three numbers nobody had read from real x86_64 hardware:**
+Three numbers nobody had read from real x86_64 hardware:
 
-- **32,824 KiB of page tables**, against `mmu.rs`'s `BUGS` prediction of 0.2% of RAM, which is about
+- 32,824 KiB of page tables, against `mmu.rs`'s `BUGS` prediction of 0.2% of RAM, which is about
   33 MiB of this machine's 17 GB. The estimate was right.
-- **`IA32_PERF_FIXED_CTR1`, 48 bits, perfmon v4.** Milestone 309's probe, merged hours earlier,
+- `IA32_PERF_FIXED_CTR1`, 48 bits, perfmon v4. Milestone 309's probe, merged hours earlier,
   reported `NoPerfmonLeaf` under QEMU and found the real counter here. x86_64 now reports the same
   quantity riscv64 does, unhalted core cycles rather than TSC ticks, which is the parity gap
   milestone 74's scope note names.
-- **TSC 2714 MHz** by PIT calibration, and the timer self-test measured against it.
+- TSC 2714 MHz by PIT calibration, and the timer self-test measured against it.
 
-**One address disagreement, reported rather than assumed:**
+One address disagreement, reported rather than assumed:
 
 ```
 pcie ecam 0xf0000000, buses 0..=127 (mmu::PCI_ECAM_PHYS says 0xb0000000)
@@ -66,25 +66,25 @@ nife: handing the system to the userspace progenitor.
   MEASURED BOOT REFUSED: no measurement for the archive entry 'progenitor'
 ```
 
-**This is the second time this exact defect has reached a bench.** `cargo xtask uefi-image` built the
+This is the second time this exact defect has reached a bench. `cargo xtask uefi-image` built the
 kernel **before** the archive. Packing the archive regenerates `target/init-measure-x86_64.txt`, the
 manifest `kernel/build.rs` compiles in as the measured-boot trust root, so a kernel built first
 vouches for the *previous* archive and the gate refuses the pair at handover.
 
 `script/board-image` had the same defect for riscv64 and the VisionFive 2 refused the pair on
 2026-08-15 (boot 12). The fix there carries a comment reading *"QEMU never hit it because xtask
-orders these correctly"*, which was **true of the riscv64 path and false of this one**, and nothing checked.
+orders these correctly"*, which was true of the riscv64 path and false of this one, and nothing checked.
 
 QEMU does not catch it because a developer running both from one tree usually has both fresh. It
 bites when the kernel is already built, which is every time a lane compiled it earlier in the
 session. That is exactly what happened here.
 
-**Fixed in `xtask::uefi_image` on 2026-09-17**, archive first, with the reasoning at the call site
+Fixed in `xtask::uefi_image` on 2026-09-17, archive first, with the reasoning at the call site
 rather than in a note, because a comment in the other script had already asserted this was handled.
 Verified under OVMF: the corrected pair prints `progenitor: every program measured against the
 archive table` and reaches a ring-3 shell.
 
-**The next boot therefore starts where this one stopped**, and everything past the handover is ground
+The next boot therefore starts where this one stopped, and everything past the handover is ground
 this kernel has never covered on this machine.
 
 ## What the screen showed, and a finding that was nearly invented
@@ -94,19 +94,19 @@ A photograph taken after the halt (`IMG_4143`, filed in `~/projects/xenon/` per
 `notes/xenon-firmware.md`'s convention) shows a sparse dotted grid, which is the panel after the
 machine stopped rather than anything nife drew.
 
-**Recorded because it was nearly written up as a defect.** A maintainer read that photograph alone
+Recorded because it was nearly written up as a defect. A maintainer read that photograph alone
 and had begun drafting a finding that the framebuffer console was broken on xenon, citing
 `uefi_loader`'s own stride warning as the likely cause. calef's correction, that text had been on
 the screen before it, is the only thing that stopped a fabricated defect entering the record. A
 photograph of a halted machine is evidence about a halted machine.
 
-**First light happened on 2026-09-04**, and this block went on reading as though it had not, which
+First light happened on 2026-09-04, and this block went on reading as though it had not, which
 misled a maintainer on 2026-09-16 into saying three times that xenon had never booted nife at all.
 The completion sentence below ("completes when the machine has printed a byte over serial") is the
 cause: bytes were printed, so the sentence is satisfied while the milestone is not, and a reader
 checking the status word against that sentence concludes nothing has happened.
 
-**What actually happened.** The UEFI loader ran from the stick, the kernel started under the
+What actually happened. The UEFI loader ran from the stick, the kernel started under the
 machine's own firmware, the tour printed, and it panicked in the mapper:
 
 ```
@@ -115,27 +115,27 @@ failed to build the kernel page tables: AlreadyMapped
 ```
 
 `notes/x86-uefi-boot.md` carries the session and the diagnosis; `notes/xenon-firmware.md` carries
-the 70 photographs of firmware settings taken the same day. **The diagnosis corrected its own first
-hypothesis** (the framebuffer aperture had not met RAM; the firmware's map does not describe the
+the 70 photographs of firmware settings taken the same day. The diagnosis corrected its own first
+hypothesis (the framebuffer aperture had not met RAM; the firmware's map does not describe the
 32-bit MMIO hole at all), and found something larger than the panic: the fill was mapping the IO
 APIC, the SPI flash and 128 MiB of PCH decode **cacheably**, which is a write that can sit in a
 cache line and never reach the device. Nothing had touched those yet, so nothing had failed; the
 panic is what made it visible.
 
-**The fix is on `main`** (`memory_mapped_io_window`), so the next boot is a **resumption rather than
-a first light**: the line to look for is `mmu : fine W^X 4-level map installed (cr3 ...)`, which is
+The fix is on `main` (`memory_mapped_io_window`), so the next boot is a resumption rather than
+a first light: the line to look for is `mmu : fine W^X 4-level map installed (cr3 ...)`, which is
 one line past where the machine stopped, followed by a page-table cost nobody has ever read from
 real hardware. `notes/x86-uefi-boot.md`'s step list has the procedure and what to do if it panics
 somewhere new, which is progress rather than a failure of the fix.
 
-**The completion criterion is the self-test, ruled by calef on 2026-09-17**, replacing "printed a
+The completion criterion is the self-test, ruled by calef on 2026-09-17, replacing "printed a
 byte over serial":
 
-> **This milestone is `BUILT` when xenon prints `nife self-test: N of N passed`.**
+> This milestone is `BUILT` when xenon prints `nife self-test: N of N passed`.
 
 **Why that line and not one of the obvious alternatives**, because the question turned out to be
 sharper than it looked. "The tour completing" was proposed first and withdrawn: milestone 267
-established that **the tour is three things wearing one name**, and deleted one of them. The
+established that the tour is three things wearing one name, and deleted one of them. The
 narrative program is gone, so a criterion naming "the tour" would cite something that partly does
 not exist.
 
@@ -146,10 +146,10 @@ hardware, which is "this machine runs nife" with a definite answer rather than a
 
 The progenitor handover (`nife: handing the system to the userspace progenitor`) was considered and
 is a stronger claim, but it drags in the archive, ELF loading and the FS service, which are
-**milestone 161's** scope rather than this block's. This block's own text already says the x86_64
+milestone 161's scope rather than this block's. This block's own text already says the x86_64
 port is not gated on the purchase. That line belongs to 161 or 182, not here.
 
-**The sentence below is kept as written** because it is what the block promised, and rewriting a
+The sentence below is kept as written because it is what the block promised, and rewriting a
 promise to match an outcome is how a record stops being one. This paragraph is what a reader should
 believe instead of it.
 
@@ -157,9 +157,9 @@ The bench procedure and its failure triage are in notes/x86-uefi-boot.md's "The 
 
 ## What was built (2026-08-30)
 
-**A UEFI entry, chosen over GRUB Multiboot 2 on a fork this lane priced rather than argued.** Both
+A UEFI entry, chosen over GRUB Multiboot 2 on a fork this lane priced rather than argued. Both
 were real and both could coexist; two commands decided it. OVMF, the open-source UEFI
-implementation, **ships with the QEMU this project already pins**
+implementation, ships with the QEMU this project already pins
 (`/opt/homebrew/share/qemu/edk2-x86_64-code.fd`), and QEMU's `vvfat` driver synthesises the FAT
 filesystem out of a host directory, so the whole path is testable today with nothing installed.
 GRUB is not installable on the development machine at all (`brew info grub`: no formula), so that
@@ -179,7 +179,7 @@ takes them: the ACPI root pointer arrives non-zero (so the BIOS-area `"RSD PTR "
 it is revision 2 with an **XSDT** root rather than revision 0 with an RSDT, the MCFG's ECAM window
 is `0xe0000000` where the hardcoded constant says `0xb0000000` (so "read the table" is finally
 distinguishable from "used the constant", which milestone 165 could not show), and the memory map is
-**118 regions** against PVH's nine. The userspace archive arrives too, through the module list the
+118 regions against PVH's nine. The userspace archive arrives too, through the module list the
 loader writes.
 
 `cargo xtask uefi-boot` gates it and runs inside `script/test --arch x86_64`. See
@@ -187,7 +187,7 @@ notes/x86-uefi-boot.md for the whole account, the measured numbers, and the hone
 (the bench procedure itself is untested, the suite has not been run under firmware, and SMP under
 UEFI has never been exercised).
 
-**Purchased 2026-08-15 (calef), all arrived and installed as of 2026-08-23**: the OptiPlex 7050
+Purchased 2026-08-15 (calef), all arrived and installed as of 2026-08-23: the OptiPlex 7050
 Micro (i5-7500T, 16GB, 256GB NVMe, with its AC adapter, $139), the Dell C4PDJ serial module with
 its cable ($18.88, the with-cable check the earlier draft flagged, answered by the listing's own
 title), and the dev-side RS-232 chain (FTDI USB adapter at 1.5 ft, $15.96, plus a StarTech NM9FF
@@ -209,12 +209,12 @@ host for the same port.
 
 The requirements, each traced to something this tree already does:
 
-- **A real 16550 COM port.** Early bring-up output exists before anything else works, and QEMU's
+- A real 16550 COM port. Early bring-up output exists before anything else works, and QEMU's
   q35 machine emulates the same legacy UART, so one driver spans emulator and silicon. This is the
   NS16550/PL011 pattern both existing ISAs follow, and it eliminates most modern consumer hardware.
-- **VT-d**, because IOMMU-backed driver isolation (milestone 16) is a parity theme (§19), and the
+- VT-d, because IOMMU-backed driver isolation (milestone 16) is a parity theme (§19), and the
   x86 side of the DMA-confinement story needs real hardware eventually.
-- **A NIC QEMU can stand in for.** QEMU 11.0.2 (checked against the pinned binary, not the docs)
+- A NIC QEMU can stand in for. QEMU 11.0.2 (checked against the pinned binary, not the docs)
   emulates two modern Intel families: `e1000e` (I217/I218/I219) and `igb` (82576, whose driver
   family covers i210/i211/i350). It does **not** emulate `igc` (i225/i226), and upstream has
   nothing in flight. An i226 machine is therefore acceptable but taxed: the driver core gets
@@ -222,19 +222,19 @@ The requirements, each traced to something this tree already does:
   the igc deltas are ported on hardware. A minimal driver is 1,500-3,000 lines against Intel's
   public datasheet; the plumbing around it (PCI decode, DMA confinement, the userspace net server)
   already exists.
-- **Four real cores** for the per-CPU scheduler, and any Intel core has the PMU that milestone 25's
+- Four real cores for the per-CPU scheduler, and any Intel core has the PMU that milestone 25's
   `sel4bench` comparison was deferred to real hardware for.
-- **Remote power cycling** by smart plug, not by management firmware. A plug is $15 and works on
+- Remote power cycling by smart plug, not by management firmware. A plug is $15 and works on
   anything.
 
-**The selection: a used Dell OptiPlex 7050 Micro plus the Dell C4PDJ serial module** (calef,
+The selection: a used Dell OptiPlex 7050 Micro plus the Dell C4PDJ serial module (calef,
 2026-08-03, settled after a full pass over the new market): i5-7500T with 16GB was $129 with the
 module at $35, ~$194 all-in with the dev-side serial gear and the smart plug. The used-hardware
 risk was weighed deliberately and priced: eBay's money-back guarantee bounds "does it work" to
 return friction, and at real configured prices every new machine cost $150-350 more. The 7050
 keeps the fastest cores in the field and the I219 NIC in QEMU's `e1000e` family, so the
 one-driver-spans-emulator-and-silicon property holds with no caveats. The module is Dell P/N
-**C4PDJ** (fits 3050/7040/7050 MFF, snaps into the rear punch-out, cables to a motherboard
+C4PDJ (fits 3050/7040/7050 MFF, snaps into the rear punch-out, cables to a motherboard
 header; check the listing includes the cable); used units essentially never ship with it, so buy
 it separately rather than hunting for a factory-configured unit.
 

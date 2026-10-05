@@ -27,7 +27,7 @@ token first, falls through to `github.token`, and prints which rung it took.
 What is left is the provisional secret names (see Follow-on). The App secrets are no longer
 organization-level; see the 2026-10-03 line under the Done items below.
 
-**In brief.** The toolchain-bump workflow authenticates as a fine-grained personal access token
+In brief. The toolchain-bump workflow authenticates as a fine-grained personal access token
 (PAT) on calef's account, because a PR opened by the ephemeral `GITHUB_TOKEN` triggers no CI
 (GitHub's anti-recursion rule; the workflow's own comment records it). A PAT works and has two
 structural flaws: it expires on a personal timer, with "bump PRs silently stop getting checks" as
@@ -41,25 +41,25 @@ person.
 ## The second deliverable: attribution, added 2026-08-16
 
 calef, reading a repository whose every pull request, comment and review carries his name:
-**"it looks like I'm talking to myself a lot and the record would be nice to clarify who is
-talking."** That is a documentation defect as much as a vanity one. This project's whole claim is
+"it looks like I'm talking to myself a lot and the record would be nice to clarify who is
+talking." That is a documentation defect as much as a vanity one. This project's whole claim is
 that a system of this size can be built by one architect and many agents; a timeline in which the
 architect appears to write, review and merge his own work in a single voice is evidence *against*
 the claim it should be evidence for. The provenance tenet applies to authorship the same way it
 applies to names: the record should say who did a thing where a reader meets it.
 
-**Same App, so the setup is shared.** An installation token authors as `<app-name>[bot]` with its
+Same App, so the setup is shared. An installation token authors as `<app-name>[bot]` with its
 own avatar and badge, so a lane's pull request is visibly not the architect's. What exists today
 is half a mechanism: commits carry `Co-Authored-By: Claude ...` and pull request bodies carry the
 Claude Code footer, but the *author* of every pull request and comment is calef's account, and
 that is the half a reader actually sees.
 
-**The alternatives, recorded so the choice is one:**
+The alternatives, recorded so the choice is one:
 
-- **A separate machine account** (`nife-agent` or similar) works today with no App and reads
+- A separate machine account (`nife-agent` or similar) works today with no App and reads
   unambiguously. Cost: a second identity to secure, an org seat, and the same
   `GITHUB_TOKEN`-cannot-trigger-CI trap the App was minted to escape.
-- **Convention only**, a `**Lane:**` line in the body naming the agent and its milestone. Free,
+- Convention only, a `**Lane:**` line in the body naming the agent and its milestone. Free,
   cosmetic, and adopted immediately (2026-08-16) as an interim rather than as the answer, because
   a line of prose is rung four and an identity is rung two.
 
@@ -76,7 +76,7 @@ around it is visibly the agent's.
    Pull requests read/write, the same pair the PAT carries.
 2. Install it on `nife` only, and store the App ID and private key as repository secrets
    (`AUTOMATION_APP_ID`, `AUTOMATION_APP_KEY`).
-3. **Done 2026-09-23.** In `toolchain-bump.yml`, mint the installation token per run (the maintained
+3. Done 2026-09-23. In `toolchain-bump.yml`, mint the installation token per run (the maintained
    `actions/create-github-app-token` action does exactly this, and taking it is a workflow-only
    dependency, not one in the shipping graph; note it in the §46 spirit anyway) and use it where
    `TOOLCHAIN_BUMP_PAT` is used today. Keep the `|| github.token` fallback: a fork without the
@@ -92,7 +92,7 @@ around it is visibly the agent's.
    minting another personal token; that reuse is the milestone's compounding value. The two steps
    to copy are in `notes/automation-identity.md`'s `EXAMPLES`.
 
-6. **Added 2026-09-23, because an inert change and a broken change look identical.** The job prints
+6. Added 2026-09-23, because an inert change and a broken change look identical. The job prints
    which of the three identities it authenticated as and proves that token is live. Without it, a
    reader cannot tell an App run from a PAT run from a fallback run, and the PAT's expiry stays as
    quiet as the milestone says it is. This is the step that made the fallback observable rather
@@ -104,12 +104,12 @@ around it is visibly the agent's.
 The original deferral, written 2026-08-15 and kept here because it is the reasoning the audit
 below tests: with one architect, the PAT and the App fail in the same circumstances and the PAT
 already exists, so the App earns its setup cost at the first of **a second architect joining**,
-**the PAT's first silent expiry**, or **a second workflow needing the same authority**.
+the PAT's first silent expiry, or a second workflow needing the same authority.
 
-**Audited 2026-09-23, each trigger against the tree rather than against a recollection. None has
-fired outright; the third is half-fired, and the audit's own difficulty is the finding.**
+Audited 2026-09-23, each trigger against the tree rather than against a recollection. None has
+fired outright; the third is half-fired, and the audit's own difficulty is the finding.
 
-- **A second architect: no.** One architect. Stated and moved past.
+- A second architect: no. One architect. Stated and moved past.
 
 - **The PAT's first silent expiry: not yet, and the project cannot see how close it is.** The
   evidence that it is alive is positive rather than inferred. `toolchain-bump.yml` has run and
@@ -117,25 +117,25 @@ fired outright; the third is half-fired, and the audit's own difficulty is the f
   `calef` (the PAT's identity, not `github-actions[bot]`), collected sixteen checks including
   `build + test`, `prove` and `cpu matrix`, and merged. A PAT that had expired would have produced
   either a red checkout or a pull request under the ephemeral token with no CI, and neither
-  happened. **What cannot be established from inside the repository is when it expires**: a
+  happened. What cannot be established from inside the repository is when it expires: a
   repository secret is opaque to every API this project can call, and the expiry is visible only to
   the account that minted it. The milestone said the symptom would be silent; the audit's actual
   result is stronger and worse, which is that *the warning* is silent too. There is no way to
   schedule around this trigger, only to be hit by it. That asymmetry is the best argument in this
   block for doing the work before the trigger rather than on it.
 
-- **A second workflow needing the authority: half.** Two workflows calling `gh` landed after this
+- A second workflow needing the authority: half. Two workflows calling `gh` landed after this
   milestone was minted, and they are not the same case as each other.
   - `architect-hold.yml` genuinely needs nothing beyond `GITHUB_TOKEN`. It is read-only (one
     `gh api` call for a pull request's labels) and creates no events, so the anti-recursion rule
-    does not reach it. **This is the case the milestone's trigger would have over-counted**: "calls
+    does not reach it. This is the case the milestone's trigger would have over-counted: "calls
     `gh`" is not "needs a PAT".
   - `coe-architect-label.yml` is the half. It **writes**: it adds `needs-architect` to a pull
     request that adds a correction-of-error record. An event created by `GITHUB_TOKEN` triggers no
     workflow run, and GitHub's rule is not limited to `push` and `pull_request`, so the `labeled`
     event this job creates does not re-run `architect-hold.yml`. The required check on the pull
     request page therefore stays at whatever it last reported, which is green, while the label says
-    the opposite. **The gate itself still holds**, because `architect-hold.yml` also runs on
+    the opposite. The gate itself still holds, because `architect-hold.yml` also runs on
     `merge_group` and reads labels fresh from the API, so the merge queue catches it and evicts the
     entry. So this is a display defect rather than an escape. When this was written the labeller
     had never fired, because `notes/corrections/` was not yet on `main`. *(Corrected 2026-10-03:
@@ -144,26 +144,26 @@ fired outright; the third is half-fired, and the audit's own difficulty is the f
     `notes/coes/` on 2026-09-30, which the workflow has watched since #1515.)* It is a second workflow that **would** be better on the App, not one
     that is broken without it.
 
-**Verdict: still parked as a forced move, and no longer parked as a cheap one.** No trigger
+Verdict: still parked as a forced move, and no longer parked as a cheap one. No trigger
 compels the work today. The preparation that does not need owner rights was done anyway, because
 it costs nothing to carry (the App rung is inert without its secrets) and because it converts the
 expiry from an outage into a fifteen-minute procedure someone can run without reading this block.
 ## BUGS
 
-- **The private key is still a stored secret.** An App swaps a stored *token* for a stored
+- The private key is still a stored secret. An App swaps a stored *token* for a stored
   *signing key*; the win is org ownership and per-run minting, not the absence of a secret. A
   leaked key is revoked in the App's settings, which is at least an org-level act rather than a
   personal-account one.
-- **Bot-authored PRs change the byline.** Bump PRs would arrive as `<app-name>[bot]` rather than
+- Bot-authored PRs change the byline. Bump PRs would arrive as `<app-name>[bot]` rather than
   as calef; anything filtering PRs by author (none known in-tree today) would need updating. The
   workflow's own `**Lane:**` line is computed from which identity it took, for the same reason: a
   pull request that says calef's account is its author is false the day the App lands.
 
-- **Nothing checks the App's permissions after it is installed.** The identity probe proves the
+- Nothing checks the App's permissions after it is installed. The identity probe proves the
   token can read the repository; it cannot prove the installation still holds exactly Contents and
   Pull requests write, or that nobody widened it in the web UI.
 
-- **The App's display name may already belong to somebody else.** `smelter` is ratified (calef,
+- The App's display name may already belong to somebody else. `smelter` is ratified (calef,
   2026-09-23), but App names are globally unique across the whole of GitHub rather than within an
   organization, and that is discovered at the create-App screen and nowhere earlier. The fallback
   is `nife smelter`, rendering `nife-smelter[bot]`; `notes/automation-identity.md` carries both and
