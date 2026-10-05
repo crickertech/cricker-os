@@ -594,6 +594,18 @@ pub fn irq_cap_rights(intid: u32, rights: Rights) -> Cap {
 /// and objects, `SPLIT`, `MAP`, `DESTROY`) but **not delegate it**, because `SEND_CAP` and
 /// `CAP_INSERT` both gate on `GRANT`. This is the spend-only budget a leaf child is handed: least
 /// authority for a process that consumes memory and passes none on.
+///
+/// # BUGS
+///
+/// **What this budget mints is delegable even though the budget is not.** `RETYPE` and
+/// `RETYPE_OBJ` need only `WRITE` on the region and hand back the new frame or object with
+/// `Rights::ALL`, `GRANT` included, so a holder of this capability can retype a page and `SEND_CAP`
+/// the result onward. The sentence on [`memory_region_cap_rights`] that rights "only ever narrow
+/// downward" is true of the region and not of what is carved from it. That is ordinary capability
+/// semantics (full authority over an object you created) and probably the intended design, but
+/// `notes/confinement-claims.md` row 3's test exercises `SPLIT` alone, so nothing states the
+/// retype half. Found by milestone 633 (an outside agent attacks the confinement claim)'s second
+/// pass; a claim or a ruling is owed, not a fix.
 pub fn memory_region_cap(region: u64) -> Cap {
     Cap {
         object: Object::MemoryRegion(region),

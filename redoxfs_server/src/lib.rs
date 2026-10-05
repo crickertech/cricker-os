@@ -624,8 +624,14 @@ impl<D: Disk> Server<D> {
     /// [`Server::unlink`] pairs with the engine's usage table so an unlinked file survives for
     /// whoever holds a handle. **Directory handles are not registered that way**, so a client
     /// holding a handle to the directory this call removes is left naming a node the engine has
-    /// freed, and its next request through that handle fails (`ENOENT`) rather than reaching
-    /// something else. Removing a name is still not revoking a capability: the handle table is per
+    /// freed. ~~Its next request through that handle fails (`ENOENT`) rather than reaching
+    /// something else.~~ **That was wrong, and milestone 633 (an outside agent attacks the
+    /// confinement claim)'s second pass corrected it (2026-10-05 UTC, read from
+    /// `vendor/redoxfs/src/transaction.rs`, not run):** `release_node` frees the tree slot at once
+    /// when its usage count is zero, and `insert_tree` hands the first free slot to the next node
+    /// created anywhere on the image. So the stale handle names whichever directory next takes that
+    /// id, with the stale handle's rights, which is a reach outside the holder's grant rather than
+    /// an `ENOENT`. Removing a name is still not revoking a capability: the handle table is per
     /// *server* and this server cannot enumerate the clients holding handles, so it could not
     /// invalidate them if it wanted to. Recorded rather than fixed, because registering directory
     /// handles is the same change as per-client handle ownership, which is what revocation needs.

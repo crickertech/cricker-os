@@ -496,6 +496,17 @@ pub struct Thread {
     /// (`SEND_CAP`) and no receiver is waiting, it blocks with the capability stashed here, exactly
     /// as `mailbox` stashes the data words. The receiver, running later, reaches in, `take()`s it,
     /// and inserts it into its own capability table. `None` for every ordinary send. See sched.rs.
+    ///
+    /// **BUGS: the revocation sweeps clear this slot, and the teardown paths do not.**
+    /// `sched::delete_page_frame_caps_where`, `delete_device_frame_caps_from_others`,
+    /// `delete_port_range_caps_impl` and `delete_reply_caps_naming` all drop a parked capability
+    /// (`notes/confinement-claims.md` row 30). `depart`, `finish_blocked_resident` and
+    /// `reap_region_objects` never touch it. That is safe today only because a thread that is
+    /// running, exiting or being reaped always has it `None`: a parked sender is unparked through
+    /// `set_ipc_aborted`, which clears it. A new wake path that bypasses `set_ipc_aborted` would
+    /// leave a live capability in a corpse, and `ipc_receive_cap`'s `take()` on any sender would
+    /// deliver it. Found by milestone 633 (an outside agent attacks the confinement claim)'s second
+    /// pass, reasoned from the code; clearing it in the three teardown paths is one line each.
     pub outgoing_cap: Option<crate::cap::Cap>,
 
     /// **Did the delivery this thread is about to read install a capability?** Set by the paths

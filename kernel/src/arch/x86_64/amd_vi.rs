@@ -91,6 +91,38 @@
 //!   flushes the domain the device leaves (`Unit::set_entry` says why), which for the blocked
 //!   domain 0 empties every unconfined device's cached faults along with it; a cache miss, not a
 //!   correctness cost.
+//!
+//! The five entries below were found by milestone 633 (an outside agent attacks the confinement
+//! claim)'s second pass (2026-10-05 UTC), reading this driver as a confinement boundary with no row
+//! in `notes/confinement-claims.md`. All are reasoned from the code and the specification; none has
+//! been booted, because QEMU models none of the firmware state they depend on. The first three are
+//! the acceptance items of design/roadmap/proposals/amd-vi-hardening-before-the-first-amd-boot.md.
+//!
+//! - **The firmware's exclusion range is never cleared.** `set_up` keeps every `Control` bit it does
+//!   not explicitly clear, and nothing writes the Exclusion Base and Limit registers (`0x0020`,
+//!   `0x0028`). On silicon a firmware-set range with `ExEn`, and above all with `Allow`, lets every
+//!   device reach that range untranslated whatever its entry says. It is the one place a device can
+//!   pass through this driver's default deny, and the guest cannot see it under QEMU.
+//! - **Alias entries are shared between devices and are not quarantined.** [`attach`] writes one
+//!   translating entry under both the requester id and its alias source id. Two functions behind
+//!   one PCIe-to-PCI bridge share a source id, so the second attach moves the first device's aliased
+//!   DMA into the second's domain, and [`quarantine`] resets only the requester id, leaving the
+//!   alias translating. Every device QEMU's `q35` attaches is on bus 0 with no alias, so no boot has
+//!   reached this.
+//! - **Every DMA mapping is read-write.** `build_identity_domain` maps with `Flags::user_data()`, so
+//!   a firmware IVMD marked read-only is writable to the device (the IVRS parser's own BUGS admits
+//!   the bit is dropped), and the virtio shadow page, which is kernel-private by design, is mapped
+//!   writable to the device it shadows.
+//! - **Nothing revokes a device's domain in production.** [`quarantine`] is called only by this
+//!   module's tests; `confine` has no inverse at the seam, so a device keeps its reach for the
+//!   whole boot after its driver dies, and a re-attach leaks the previous domain's tables
+//!   (`kernel/src/iommu.rs` records the leak).
+//! - **The entry builders have no literal permitted-bits guard and no proof.** [`translating_dte`]
+//!   masks the root with `DTE_ROOT_MASK` silently rather than asserting it fits, never narrows to
+//!   the unit's real address width, and the only check is a `#[test_case]` over two concrete
+//!   values that looks at bits 6:2 and 63. VT-d's equivalent, `VTD_PERMITTED_BITS`, is proved over
+//!   every `u64` by `no_vtd_entry_ever_sets_a_reserved_bit`; the AMD-Vi leaf and directory masks
+//!   in `crates/paging` are checked over a few addresses by host tests only.
 
 use machine_discovery::acpi::ivrs::{IvrsUnits, MAX_IVHDS};
 

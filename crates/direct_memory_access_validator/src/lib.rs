@@ -22,6 +22,20 @@
 //! map, a test passes closures over ordinary arrays, and Kani passes closures over a symbolic memory
 //! model. No hardware, no kernel globals.
 //!
+//! # BUGS
+//!
+//! **The shadow descriptor is published in two stores, and nothing keeps the device from reading
+//! between them.** [`shadow_one_head`] copies a validated descriptor as `write64(addr)` then
+//! `write64(word)` with no barrier and no check that the shadow slot is idle, and it writes each
+//! descriptor before it has checked the next one in the chain. A driver that republishes a head the
+//! device still holds (a posted receive buffer, say) can have the device observe the new `addr`
+//! with the old `len`, which is a span the validator never admitted. The proof cannot see it: the
+//! Kani memory model checks each descriptor after both halves are written and never models a
+//! concurrent reader. On virtio-mmio there is no IOMMU, so this walk is the only boundary. Found by
+//! milestone 633 (an outside agent attacks the confinement claim)'s second pass as
+//! `notes/confinement-claims.md` row 17's live hazard, reasoned from the code; the fix and its cost
+//! are design/roadmap/proposals/the-shadow-descriptor-is-published-in-two-stores.md.
+//!
 //! # Examples
 //!
 //! The confinement, one descriptor at a time. A driver's granted DMA region is a window, and every
@@ -272,6 +286,11 @@ pub fn validate_and_shadow(
 /// the shadow is ever out-of-region or indirect. The chain is bounded by `qsize`, so a `next` cycle
 /// cannot loop forever. `desc[d] = { u64 addr @0; u32 len @8; u16 flags @12; u16 next @14 }`; the
 /// len/flags/next share one 64-bit word read and copied verbatim.
+///
+/// **BUGS: the two `write64`s below are not one publish.** A device reading shadow slot `d`
+/// between them sees the new address with the old length (the crate's BUGS says what that costs and
+/// where the fix is priced). The walk also overwrites a slot the device may still own, because
+/// nothing here knows which shadow slots are idle.
 #[allow(clippy::too_many_arguments)]
 fn shadow_one_head(
     direct_memory_access_base: u64,
