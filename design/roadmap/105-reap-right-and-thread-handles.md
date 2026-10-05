@@ -119,7 +119,9 @@ both downward, which is what layout noise looks like when it is not a cost.
   where a reader meets the layout, in `notes/abi.md`.
 - **Recorded.** The `std` overlay's `invoke` (`patches/std-nife/overlay/std/src/sys/pal/nife/rt.rs`)
   does not declare register 5. No `std` program receives a death message, which is the only
-  delivery that writes it.
+  delivery that writes it. The same `invoke` on aarch64 and riscv64 also declares `x1..x4` and
+  `a1..a4` as inputs only, where the x86_64 twin makes them outputs. That is a latent clobber for
+  any `RECEIVE`-shaped call through it; none exists today.
 
 ## Index row
 
