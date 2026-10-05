@@ -22,8 +22,9 @@
 //!
 //! A single-stage (`iosatp`, no process context) RISC-V IOMMU translation faults on a leaf PTE
 //! whose U bit is clear, because the device is not "requesting supervisor privilege". So the domain
-//! is built with [`Flags::user_data`], which sets U on Sv39 and read/write on both formats. It is a
-//! device's data window, so user-accessible read/write with no execute is exactly right.
+//! is built with [`Flags::user_data`], which sets U on Sv39 and read/write on both formats, or
+//! [`Flags::user_rodata`] for a region the device may only read ([`DmaRegion::writable`]), which
+//! sets U and read alone. A device's data window is user-accessible with no execute.
 
 use crate::{Flags, Half, MapError, Mapper, PAGE_SIZE, PageFormat, PageTable};
 
@@ -34,6 +35,27 @@ pub struct DmaRegion {
     pub base: u64,
     /// Length in bytes.
     pub size: u64,
+    /// **Whether the device may write the region, as well as read it.** Read is always granted:
+    /// no format this seam builds can say "write but not read", and a region nobody may read is
+    /// not a grant. A required field with no default, so every caller says which it means rather
+    /// than inheriting read-write (lane `amd-vi-hardening`, provisional milestone 767 (AMD-Vi
+    /// hardening before the first AMD boot); the name is provisional). Before it, every page of
+    /// every domain was writable, including the virtio shadow page the device only ever reads and
+    /// a firmware region the IVRS marked read-only.
+    pub writable: bool,
+}
+
+impl DmaRegion {
+    /// The leaf flags a page of this region is mapped with: [`Flags::user_data`] when the device
+    /// may write, [`Flags::user_rodata`] when it may only read. Both set the U bit, which the
+    /// RISC-V IOMMU needs (this module's header says why); neither is executable.
+    pub const fn flags(&self) -> Flags {
+        if self.writable {
+            Flags::user_data()
+        } else {
+            Flags::user_rodata()
+        }
+    }
 }
 
 /// **How many whole 4 KiB pages a grant contains, or why it is not a grant a page-granular domain
@@ -106,8 +128,8 @@ pub fn grant_page(r: DmaRegion, i: u64) -> Option<u64> {
 /// generic `F` selects the format, so one call site builds a VMSAv8-64 domain on aarch64 and an Sv39
 /// domain on riscv from the same code, which is the seam's entire point.
 ///
-/// Every page is mapped [`Flags::user_data`] (read/write, no execute, U-bit set): a device's data
-/// window. Each region is mapped IOVA == PA, so a device emitting an in-region physical address is
+/// Every page is mapped with its region's [`DmaRegion::flags`]: read always, write only when the
+/// region says so, no execute, U-bit set. Each region is mapped IOVA == PA, so a device emitting an in-region physical address is
 /// translated to itself and an out-of-region address faults.
 ///
 /// # Safety
@@ -145,7 +167,7 @@ where
             // nothing to invalidate. The IOMMU has never walked these tables; they are not installed
             // yet. `AlreadyMapped` here would mean two grants in `regions` overlap, which fails the
             // whole build closed rather than quietly merging them.
-            m.map(page, page, Flags::user_data())?;
+            m.map(page, page, r.flags())?;
         }
     }
     Ok(())
@@ -191,6 +213,7 @@ mod verification {
         let r = DmaRegion {
             base: kani::any(),
             size: kani::any(),
+            writable: kani::any(),
         };
         let i: u64 = kani::any();
         let _ = grant_pages(r);
@@ -210,6 +233,7 @@ mod verification {
         let r = DmaRegion {
             base: kani::any(),
             size: kani::any(),
+            writable: kani::any(),
         };
         let i: u64 = kani::any();
         if let Ok(pages) = grant_pages(r) {
@@ -244,6 +268,7 @@ mod verification {
         let r = DmaRegion {
             base: kani::any(),
             size: kani::any(),
+            writable: kani::any(),
         };
         let i: u64 = kani::any();
         if let Ok(pages) = grant_pages(r) {
@@ -271,6 +296,7 @@ mod verification {
         let r = DmaRegion {
             base: kani::any(),
             size: kani::any(),
+            writable: kani::any(),
         };
         let iova: u64 = kani::any();
         if let Ok(pages) = grant_pages(r) {
@@ -317,6 +343,7 @@ mod verification {
         let r = DmaRegion {
             base: kani::any(),
             size: kani::any(),
+            writable: kani::any(),
         };
         let i: u64 = kani::any();
         let j: u64 = kani::any();
@@ -348,6 +375,7 @@ mod verification {
         let r = DmaRegion {
             base: kani::any(),
             size: kani::any(),
+            writable: kani::any(),
         };
         if !r.base.is_multiple_of(PAGE_SIZE) || r.base.checked_add(r.size).is_none() {
             assert!(
@@ -492,6 +520,7 @@ mod tests {
         let regions = [DmaRegion {
             base,
             size: PAGE_SIZE,
+            writable: true,
         }];
         // SAFETY: root and every alloc'd frame are zeroed, page-aligned host frames; identity
         // phys_to_ptr satisfies the contract on the host.
@@ -549,6 +578,7 @@ mod tests {
         let regions = [DmaRegion {
             base,
             size: PAGE_SIZE,
+            writable: true,
         }];
         // SAFETY: as in `one_region_confines`.
         unsafe {
@@ -576,6 +606,54 @@ mod tests {
         );
     }
 
+    /// **A region the device may only read is mapped without write, on every DMA format**, and a
+    /// writable one beside it keeps write: the leaf carries the region's rights rather than one
+    /// answer for the whole domain (provisional milestone 767). Asked through `leaf_flags`, which on
+    /// `Vtd` and `AmdVi` reports only write, so writability is what is compared.
+    fn a_read_only_region_maps_read_only<F: PageFormat>() {
+        let pool = FramePool::new();
+        let root = pool.frame();
+        let ro = pool.frame_at(0x2000_0000);
+        let rw = pool.frame_at(0x3000_0000);
+        let regions = [
+            DmaRegion {
+                base: ro,
+                size: PAGE_SIZE,
+                writable: false,
+            },
+            DmaRegion {
+                base: rw,
+                size: PAGE_SIZE,
+                writable: true,
+            },
+        ];
+        // SAFETY: as in `one_region_confines`.
+        unsafe {
+            build_identity_domain::<_, _, F>(root, || Some(pool.frame()), phys_to_ptr, &regions)
+                .expect("domain build failed");
+        }
+        // SAFETY: `root` is the table the build above populated, reachable through `phys_to_ptr`.
+        let m = unsafe {
+            Mapper::<fn() -> Option<u64>, _, F>::new(root, Half::Low, || None, phys_to_ptr)
+        };
+        let (pa, flags) = m.translate(ro).expect("the read-only region did not map");
+        assert_eq!(pa, ro);
+        assert!(
+            !flags.is_writable(),
+            "a region granted read-only is writable to the device"
+        );
+        let (_, flags) = m.translate(rw).expect("the writable region did not map");
+        assert!(flags.is_writable(), "a writable region lost write");
+    }
+
+    #[test]
+    fn a_read_only_region_maps_read_only_on_every_format() {
+        a_read_only_region_maps_read_only::<Aarch64>();
+        a_read_only_region_maps_read_only::<Sv39>();
+        a_read_only_region_maps_read_only::<crate::Vtd>();
+        a_read_only_region_maps_read_only::<AmdVi>();
+    }
+
     /// **A grant of more than one page maps every whole page in it, and stops at the partial tail.**
     /// Every other test in this module grants exactly one page, and a one-page region is the shape
     /// that can tell nothing apart: a page count and the constant 1 agree on it, and so do
@@ -589,6 +667,7 @@ mod tests {
         let regions = [DmaRegion {
             base,
             size: 2 * PAGE_SIZE + PAGE_SIZE / 2,
+            writable: true,
         }];
         // SAFETY: as in `one_region_confines`.
         unsafe {
@@ -637,10 +716,12 @@ mod tests {
             DmaRegion {
                 base: a,
                 size: PAGE_SIZE,
+                writable: true,
             },
             DmaRegion {
                 base: b,
                 size: PAGE_SIZE,
+                writable: true,
             },
         ];
         // SAFETY: as above.
