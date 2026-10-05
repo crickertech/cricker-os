@@ -670,6 +670,14 @@ mod pmap_tests;
 #[cfg(test)]
 mod unmap_tests;
 
+/// **A running address space stays nameable** (§249 (a running address space stays nameable)):
+/// `UNMAP` through a capability made before `CONFIGURE` faults the running thread, from another
+/// core too; a second bind is refused; a space dies with its thread and not with its capabilities;
+/// a corpse does not keep a space its region gave back; and milestone 95 (an unmap primitive)'s
+/// negative control, a builder faulting on a page it gave its child. Cross-ISA (DECISIONS §19).
+#[cfg(test)]
+mod running_space_tests;
+
 /// **`free`, `vmstat` and `slabtop`'s two sources** (milestone 126 (the `procps` package),
 /// DECISIONS §225 (`free` sees the machine and your share)): `MemoryRegion::USAGE` under
 /// `ENUMERATE` alone, refused to a spender and answering a viewer, and the machine statistics page
