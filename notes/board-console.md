@@ -4,12 +4,12 @@ Milestone 216. `script/console` boots a shell in QEMU. `script/board-image` buil
 2 payload and prints the `dd` commands for a card. Between those two there was nothing, so every
 milestone gated on real hardware needed somebody at a terminal emulator reading with their eyes.
 `script/board-console` is the missing middle: it opens the port, logs every byte, recognises how
-far the boot got, and **stops on a deadline**.
+far the boot got, and stops on a deadline.
 
 The last clause is the only hard part. Opening a serial port is a `screen` invocation. Knowing
 when to stop reading is what kept this a milestone.
 
-**And since milestone 324 it writes, under one rule**: *it writes only what a named mode sends,
+And since milestone 324 it writes, under one rule: *it writes only what a named mode sends,
 and every byte it sends is printed into the log.* calef ruled that on 2026-09-19, replacing this
 note's original *"it reads and never writes to the board"*. There is exactly one named mode today
 and it sends exactly one byte: `--stop`, which ends milestone 249's self-rebooting soak. The
@@ -40,7 +40,7 @@ script/board-console --stop-after 50                # end one with exactly fifty
 | `--stop` | off | `--stop-after 1`. Send the byte that ends milestone 249's rebooting soak, at the next draw. |
 | `--stop-after <n>` | off | Send it at the n-th armed draw this session sees, so the series has exactly n samples. |
 
-**The two stop flags change two other defaults**, because both answer "when does this session
+The two stop flags change two other defaults, because both answer "when does this session
 end" and a stop mode is the answer. `--until` becomes `none` (the escape ends the session, not a
 stage), and an explicit `--until <stage>` alongside a stop is refused rather than overridden: a
 soak is reached long before its reboot loop arms, so `--until soak --stop` would return before
@@ -50,7 +50,7 @@ sending anything. `--for` defaults to `150s` per draw plus two minutes, derived 
 an agreement with anything; getting them wrong costs a re-run. `--stop` with `--replay` is refused
 outright, because a file has no board on the other end of it.
 
-**And one mode that opens no port at all** (milestone 249): `--tally <log>` reads a capture of many
+And one mode that opens no port at all (milestone 249): `--tally <log>` reads a capture of many
 boots and reports what the thread-placement lottery drew on each. It is `board_console::lottery`
 rather than the recogniser, it answers a question no single-boot reader can be asked (how often does
 each arrangement come up), and its exit statuses are only `0` and `4`, because an analysis of a
@@ -92,27 +92,27 @@ preference about tidiness.
 
 ### When it sends, which is the whole of the safety
 
-**Only after the board has printed its arming announcement**, the `THIS BUILD REBOOTS THE BOARD`
+Only after the board has printed its arming announcement, the `THIS BUILD REBOOTS THE BOARD`
 line `kernel/src/soak.rs` prints from `arm_reboot`. Nothing else in a session can cause a byte to
 go out. Four things follow from that one gate:
 
-- **The kernel's own drain is already behind us.** `arm_reboot` calls `console::discard_rx` and
+- The kernel's own drain is already behind us. `arm_reboot` calls `console::discard_rx` and
   *then* prints, so a byte sent any earlier is a byte the kernel deliberately throws away. This is
   the trap worth knowing about: `soak-test: started` is printed **before** `arm_reboot`, with four
   more lines between them, about a kilobyte, roughly ninety milliseconds at 115200 baud. A sender
   triggered on that line would lose the race nearly every time, silently, and the failure would look
   exactly like a board whose receive path is miswired.
-- **There is a reboot loop to stop.** A plain `--features soak_test` kernel never prints the banner
+- There is a reboot loop to stop. A plain `--features soak_test` kernel never prints the banner
   and never polls for an escape.
-- **The board is long past its firmware**, because a kernel that has printed this has been running
+- The board is long past its firmware, because a kernel that has printed this has been running
   for the length of a boot tour. The countdown hazard is closed by the gate rather than by the
   byte.
-- **It counts draws.** One banner per boot of a rebooting build, one-to-one with the
+- It counts draws. One banner per boot of a rebooting build, one-to-one with the
   `soak-test: started` lines `script/board-console --tally` opens a draw on, so a log produced by
   `--stop-after n` tallies as exactly n draws.
 
 So the answer to *what if `--stop` is given and the board is powered off, or at a U-Boot prompt, or
-running a kernel with no soak in it* is one answer in all three cases: **nothing is sent**, the
+running a kernel with no soak in it* is one answer in all three cases: nothing is sent, the
 session ends on its deadline, and the tool says no armed reboot loop announced itself. The cost of
 the gate is one sentence: a session that attaches to a board already mid-draw waits out the rest of
 that draw, up to two minutes, before the next banner arrives.
@@ -158,11 +158,11 @@ line this mode writes into a log reads as a boot marker when that log is replaye
 ## What it recognises, and where each marker came from
 
 Every marker was first quoted from `notes/visionfive2.md`'s bench runbook ("What appears, in order,
-on a good day" and the failure-triage ladder) or from this tree's own source. **They were then
-checked against the board**, on 2026-09-01, against a captured success and a captured failure that
+on a good day" and the failure-triage ladder) or from this tree's own source. They were then
+checked against the board, on 2026-09-01, against a captured success and a captured failure that
 now live in `crates/board_console/tests/fixtures/captured/` and are asserted on by the tests.
 
-**The first four rows are radon's and live in a board profile** (milestone 324 part 3,
+The first four rows are radon's and live in a board profile (milestone 324 part 3,
 `crates/board_console/src/board.rs`); the rest are the kernel's and are shared by every board.
 
 | stage | board | marker | source |
@@ -180,7 +180,7 @@ now live in `crates/board_console/tests/fixtures/captured/` and are asserted on 
 | `sweep` | every | `job_mix::STARTED` | milestone 324, confirmed under QEMU 2026-09-19 |
 | `sweep-done` | every | `job_mix::DONE` | milestone 324, confirmed under QEMU 2026-09-19 |
 
-**xenon's profile is an empty prologue, and that is a measurement rather than a gap.**
+xenon's profile is an empty prologue, and that is a measurement rather than a gap.
 `bench/xenon-2026-09-17/first-light-095500.log` shows nothing before `nife on ` that this tool
 matches, because the machine boots through PVH straight into our banner. A test replays that exact
 file through the xenon profile and asserts the banner, the machine line, the five-of-five verdict
@@ -194,13 +194,13 @@ runs the whole tour and never reaches it, so putting it below `tour` would make 
 imply something that did not happen. It is a detail of a successful boot, like `Moving Image from`,
 and it is the only difference between the two successful captures.
 
-**Since milestone 295 it reads captured logs and nothing else.** calef retired
+Since milestone 295 it reads captured logs and nothing else. calef retired
 `components/src/builder.rs` on 2026-09-14, so no kernel this tree builds prints `init/build` and
 `userspace_ran()` is `false` on every live board. The matcher stays because
 `tests/fixtures/captured/vf2-2026-09-01-userspace.log` carries the line, and that capture is
 evidence off real VisionFive 2 silicon that cannot be re-taken with a different kernel; deleting the
-recogniser to tidy the code would throw the evidence away. **What to ask of a board booted today is
-`reached() >= Stage::Prompt`**, and it is a stronger question: `init/build` meant userspace built one
+recogniser to tidy the code would throw the evidence away. What to ask of a board booted today is
+`reached() >= Stage::Prompt`, and it is a stronger question: `init/build` meant userspace built one
 child out of two capabilities, where the prompt cannot appear unless userspace built the console
 server, the line discipline, the input driver and the shell. The two successful captures are still
 the two successful captures; what distinguishes them is now a fact about 2026-09-01 rather than a
@@ -230,13 +230,13 @@ the four are things a board actually did.
 
 Three of those four are traps for a naive recogniser, and each got a fix:
 
-**Both successes and the measured-boot refusal contain the banner.** The refusal prints
+Both successes and the measured-boot refusal contain the banner. The refusal prints
 `Starting kernel ...`, the whole nife banner, and most of a tour before halting, so a watcher that
 returned the moment `--until banner` was satisfied would report it as a success, in the case a
 bench script most needs to be right about. So reaching the wanted stage starts a **settle window**
 (`settle`, two seconds) rather than ending the session, and a failure arriving inside it wins.
 
-**Silence after the tour is how a good boot ends.** The kernel halts in `wfi`, so the board goes
+Silence after the tour is how a good boot ends. The kernel halts in `wfi`, so the board goes
 quiet and stays quiet. Treating silence alone as a hang would fail every successful boot, so the
 quiet timer is suppressed once the tour completes, whatever `--quiet-after` says. The synthetic hang
 fixture stops *before* the tour, which is exactly the difference.
@@ -311,18 +311,18 @@ seconds, fifteen times that. A board outside that margin will be called wedged w
 slow; `--quiet-after 0` is the answer and it gives up the wedge detection. This is in both `BUGS`
 sections because it is the one number here a bench operator may have to change.
 
-**And the margin is spent by changes nowhere near it.** It was twenty to one against a 2.6-second
+And the margin is spent by changes nowhere near it. It was twenty to one against a 2.6-second
 subrun when this paragraph was first written, earlier on 2026-09-19. Milestone 168 landed the same
 day and took twenty-one repeats of a seven-kind mix where there had been three of a five-kind one,
 which made the slowest subrun half again as long and cost a quarter of the headroom without anybody
 touching `--quiet-after`. A number quoted from a capture is only as current as the capture.
 
-**And `job-mix: done` joins the quiet exemption**, with `tour` and `prompt`, because the kernel
+And `job-mix: done` joins the quiet exemption, with `tour` and `prompt`, because the kernel
 halts in `wfi` after it. `sweep` deliberately does not: silence during a sweep is the wedge.
 
 ## Two things in the design that are not obvious
 
-**A partial line is weaker evidence than a complete one.** The recogniser is offered the
+A partial line is weaker evidence than a complete one. The recogniser is offered the
 incomplete tail of the stream as well as the finished lines, because U-Boot's `StarFive #` prompt
 has no newline after it and a tool that waited for one would sit there while the board sat waiting
 for it. But a tail is ambiguous in two ways that a byte-at-a-time test found and reasoning did
@@ -333,7 +333,7 @@ string, and `[PANIC] ` recorded a panic with no message, both latched before the
 a tail may ratchet a stage, because a substring match is monotone and more bytes cannot unmake it;
 it may not settle a word boundary and it may not capture text.
 
-**The read happens on its own thread, so the deadline holds whatever the reader does.** The port
+The read happens on its own thread, so the deadline holds whatever the reader does. The port
 is configured with `min 0 time 1`, which makes a `read` return after a tenth of a second with
 whatever arrived, including nothing. When that works, a single-threaded loop would be fine. There
 are several ordinary ways for it not to work: an `stty` that failed and was only warned about, a
@@ -344,7 +344,7 @@ exits, and the descriptor goes with it. This is `CLAUDE.md`'s *Never leave QEMU 
 wearing different clothes. An emulator that never exits and a board that never speaks are the same
 bug seen from the tool's side.
 
-**Open the device first, then run `stty` on it, then check that the speed took.** Opening a macOS
+Open the device first, then run `stty` on it, then check that the speed took. Opening a macOS
 `cu` device resets its termios towards the driver's default, so a configuration made before the
 read descriptor exists is undone by the open that follows it; and holding the descriptor is what
 keeps the setting alive, because it reverts when the last user closes. Measured on the rig: the
@@ -393,21 +393,21 @@ involved a booting machine.
 
 - **The recogniser** runs against four fixtures under `crates/board_console/tests/fixtures/`, fed
   one byte at a time, which is the worst case a real UART delivers and the case that catches a
-  recogniser depending on chunk boundaries. Two of them are in `captured/` and are **raw bytes off
-  the wire on 2026-09-01**, control characters and all; two are in `synthetic/` and are cases
+  recogniser depending on chunk boundaries. Two of them are in `captured/` and are raw bytes off
+  the wire on 2026-09-01, control characters and all; two are in `synthetic/` and are cases
   nobody has yet seen at a bench. The directory split is the provenance, deliberately, because a
   claim in a README is a weaker record than a path.
-- **The deadline** runs against sources that block forever, which is what a powered-off board
+- The deadline runs against sources that block forever, which is what a powered-off board
   looks like through a port whose read timeout did not take.
 - **A real descriptor**: a FIFO standing in for a port covers `stty` failing (a warning, not
   fatal) and a source that speaks and then stops (caught as silence, exit 2).
-- **The port layer**, which is the part that looks untestable and mostly is not. The argument list
+- The port layer, which is the part that looks untestable and mostly is not. The argument list
   `stty` is given, the complaint it produces when it fails, the speed read back afterwards, the
   dial-in warning, and the choice between zero, one and several adapters are all pure functions
   with the IO lifted off them, so a host test asserts on the exact words a person meets at a bench.
   `open` itself is exercised against a temporary file holding the real capture, so the path from
   `port::open` to a recognised boot runs in a host test.
-- **The real adapter**, with the board off, covers everything except the board: discovery finds
+- The real adapter, with the board off, covers everything except the board: discovery finds
   `/dev/cu.usbmodem*`, the `stty` moves it to 115200 and it reverts on exit, and the deadline
   returns with zero bytes and exit 3.
 - **The writing mode** (milestone 324) is tested against a `Vec<u8>` standing in for the port, so a
@@ -416,11 +416,11 @@ involved a booting machine.
   armed reboot loop; one byte, once; the n-th draw and not the one before it), the invariant (the
   log names the byte in hex, and names it *before* the write, so a failed write reads correctly),
   the confirmation, a port that refuses the write, and the agreement between this mode's draw count
-  and `--tally`'s. Two more in `watch.rs` run the same thing through the real loop. **What none of
-  them prove is the wire**: no byte has reached a board, and `stop.rs`'s `BUGS` says so where a
+  and `--tally`'s. Two more in `watch.rs` run the same thing through the real loop. What none of
+  them prove is the wire: no byte has reached a board, and `stop.rs`'s `BUGS` says so where a
   reader meets it.
 
-**The residue no host test reaches is one claim: that `tcsetattr` actually took.** Nothing on a
+The residue no host test reaches is one claim: that `tcsetattr` actually took. Nothing on a
 host is a tty, so a test can prove the right arguments were sent and cannot prove the device
 listened. That was checked by hand against the CH343 (9600 before, 115200 while held, reverting on
 exit), and it is what `confirm_speed` gates at runtime, which is the better answer anyway: the
@@ -512,8 +512,8 @@ The second is a wedge manufactured with a one-second quiet window rather than a 
 has wedged on a board, and none has been watched on one. The jobs-per-minute figures are a draw and
 not a result; `notes/job-mix.md` has why.
 
-**These three were re-run on 2026-09-19 after milestone 168 landed, and the numbers moved for a
-reason worth knowing.** The earlier transcripts here showed a whole sweep in 27.9 seconds and a
+These three were re-run on 2026-09-19 after milestone 168 landed, and the numbers moved for a
+reason worth knowing. The earlier transcripts here showed a whole sweep in 27.9 seconds and a
 `--for 12s` cut at the third point. The sweep now takes 164.9 seconds, because each point is
 twenty-one repeats rather than three and the mix has seven job kinds rather than five, so the same
 wall-clock windows cut it far earlier. The commands did not change; the workload underneath them
@@ -522,8 +522,8 @@ did.
 At a board the same question is `script/board-console --until sweep-done --for 30m`, and it returns
 the same statuses because it is the same code.
 
-Ending a rebooting soak from a script, which is the one thing this tool writes for. **No run of
-this against a board exists yet**; what follows is what the code produces, from the transcripts the
+Ending a rebooting soak from a script, which is the one thing this tool writes for. No run of
+this against a board exists yet; what follows is what the code produces, from the transcripts the
 host tests feed it:
 
 ```
@@ -565,16 +565,16 @@ $ echo $?
 
 ## BUGS
 
-**The markers are checked against one board, on one day, in four states.** That is much better than
+The markers are checked against one board, on one day, in four states. That is much better than
 where this started, which was documentation only, and it is not the same as proven. Not covered:
 every other way this board can behave, a different vendor firmware build with differently worded
 banners, the two synthetic cases nobody has yet seen at a bench, and argon, which has never printed
-a byte to this tool. **x86_64 is no longer in that list**: xenon was captured on 2026-09-17
+a byte to this tool. x86_64 is no longer in that list: xenon was captured on 2026-09-17
 (`bench/xenon-2026-09-17/first-light-095500.log`) and the markers that matched were the portable
 ones, which is a second board's worth of evidence for exactly the half of `Stage` that claims to be
 portable and none at all for the half that is radon's firmware.
 
-**There is no real sample of a hang**, which is the outcome this tool exists for, since a hang is
+There is no real sample of a hang, which is the outcome this tool exists for, since a hang is
 what a multicore defect looks like from the far end of a serial cable. The synthetic fixture is a
 real capture truncated before the tour. If risk 5 ever produces a genuine one at a bench, capture
 it; it would be worth more than every other fixture here. A marker whose real text differs by a word is missed, and a
@@ -600,19 +600,19 @@ repeating where the tool is: this reports how far a boot got, and deciding a mil
 the strength of a vendor's boot message is a line nobody has agreed to cross. `Reached` is named
 for what was observed rather than for a verdict.
 
-**It drives no firmware, and the reason that was fatal on this board is gone.** The captured
+It drives no firmware, and the reason that was fatal on this board is gone. The captured
 failure was the proof: the extlinux path from power-on ended at `### ERROR ###`, so reaching nife
-meant interrupting autoboot and typing the four `StarFive #` commands. **Milestone 218 closed that
-on 2026-09-16**, confirmed by a boot whose countdown expired with nobody typing
+meant interrupting autoboot and typing the four `StarFive #` commands. Milestone 218 closed that
+on 2026-09-16, confirmed by a boot whose countdown expired with nobody typing
 (`bench/radon-2026-09-16/tour-083200.log`), so a reader is now enough to get radon from power-on to
 the kernel, and nothing here types at U-Boot. What is not gone is the next bullet, which arrived
 from a different direction and is what the writing mode answers.
 
-**Stopping a rebooting soak no longer needs a person, and no byte of it has reached a board yet**
+Stopping a rebooting soak no longer needs a person, and no byte of it has reached a board yet
 (milestones 249 and 324). `--features reboot_soak_test` makes a board cold-reboot every two
 minutes, and its escape is a byte on the console UART: any byte, checked every five seconds. Until
 milestone 324 this tool held the port and could not send one, so the escape was reached by a
-**person typing**, either into this session's terminal or by detaching it first, and detaching a
+person typing, either into this session's terminal or by detaching it first, and detaching a
 console is not free (notes/soak.md records a 6% rate change from doing it mid-run). `--stop` and
 `--stop-after <n>` are now that escape from a script. **What is not yet proven is the wire.**
 Milestone 324's lane had no board attached to it, so the decision to send is tested against
@@ -620,13 +620,13 @@ captures and the bytes against a buffer standing in for the port, and nothing ha
 write to the descriptor reaches the UART or that the kernel's poll finds it. The first real
 `--stop` is that experiment and its `DISARMED` line is the result.
 
-**The `--stop` gate costs a draw when a session attaches mid-run.** The byte goes out only on the
+The `--stop` gate costs a draw when a session attaches mid-run. The byte goes out only on the
 board's arming announcement, which is printed once per boot, so a `--stop` against a board already
 two minutes into a draw waits for that draw's reboot before it can act. Attaching at power-on has
 no such gap. The gate is what makes every other state safe (see "Writing to a board" above), and
 this is its price, stated rather than hidden.
 
-**An unconfirmed send is three faults wearing one report.** The byte may not have left the host,
+An unconfirmed send is three faults wearing one report. The byte may not have left the host,
 the board's receive path may be dead (`kernel/src/soak.rs`'s own `BUGS` says nothing in the kernel
 can tell), or the kernel may be wedged in a way the beat has not yet shown. The tool says the byte
 went out and was not acknowledged, and cannot say which. The surrounding beats in the log separate
@@ -636,7 +636,7 @@ them by hand: beats still arriving with no `DISARMED` points at the receive path
 this was written, and the roadmap block declines to decide whether this tool should ever drive it.
 A tool that power-cycles is a different and more dangerous object than one that reads.
 
-**The board profile is real now, and exactly one board has ever been checked against one.** calef
+The board profile is real now, and exactly one board has ever been checked against one. calef
 ruled on 2026-09-19 that this is one tool whose profile is the firmware prologue and nothing else,
 and milestone 324 part 3 built it: `crates/board_console/src/board.rs` declares radon's four rungs,
 its two refusals and its relocation note as data, `--board` chooses, and `Stage::Firmware` is what a
@@ -648,36 +648,36 @@ chain read out of vendor documentation and never watched on a wire is the assert
 measurement failure this tree keeps catching. Its prologue stays unwritten until a board prints
 something.
 
-**Nothing gates a profile against the board it claims to describe.** The same gap `crates/boot_ladder`
+Nothing gates a profile against the board it claims to describe. The same gap `crates/boot_ladder`
 records against the kernel, one level out, and the same mechanism: review, plus a capture in
 `tests/fixtures/captured/` for every rung anybody asserts on. A rung declared with a marker no
 machine prints fails in the direction that looks like success.
 
-**A sweep has no heartbeat, so its wedge timer is a guess with headroom.** The sixty-second default
+A sweep has no heartbeat, so its wedge timer is a guess with headroom. The sixty-second default
 on `script/job-mix` is twenty times the longest subrun measured on one host under TCG. A board
 slower than twenty-to-one is called wedged when it is merely slow, and `--quiet-after 0` gives up
 the detection to avoid that. Giving the sweep a real wall-clock heartbeat, the way
 `kernel/src/soak.rs` has one, is a kernel change and was not made here.
 
-**No sweep has been watched on a board.** The recogniser was proved against QEMU on 2026-09-19: a
+No sweep has been watched on a board. The recogniser was proved against QEMU on 2026-09-19: a
 finished sweep exits 0, one wedged by a one-second quiet window exits 2, one cut off by a
 twelve-second cap exits 3, and a refusal is a host test built from `job_mix::FAILED` rather than
 from a capture, because no kernel here has refused one. radon has never run a sweep this tool
 watched; that is milestone 168's own HARDWARE gate and not something part 2 could close.
 
-**The settle window is two seconds, and two seconds is a guess.** It is long enough for the
+The settle window is two seconds, and two seconds is a guess. It is long enough for the
 captured measured-boot refusal, which follows the banner within a tour's worth of printing, and
 there is no principle behind it beyond that. A failure that a board announces three seconds after
 the awaited stage would still be reported as a success. `--until none` has no early exit at all and
 sees everything up to the cap, which is the answer when being right matters more than being quick.
 
-**No test opens a real serial device.** A pseudo-terminal pair would be the honest stand-in, and
+No test opens a real serial device. A pseudo-terminal pair would be the honest stand-in, and
 making one needs `posix_openpt` and its `ioctl`s, which is `libc`, which is §46's decision and not
 a lane's. So the port layer is tested as pure logic plus a regular file, and the one claim that
 leaves unproven is named in the testing section above. If this crate ever takes a serial
 dependency, a pty test should arrive with it.
 
-**Neither the tool nor this note knows whether a session was interrupted.** Ctrl-C kills the
+Neither the tool nor this note knows whether a session was interrupted. Ctrl-C kills the
 process, the descriptor closes, and the log holds every byte that had arrived, but no summary line
 is written and no exit status distinguishes it from a crash. The log is the record; the summary is
 a convenience.

@@ -14,7 +14,7 @@ one party checks and another can rewrite before it is used. This one reads for a
 
 ## The lens, and why this one
 
-> A value a **hostile counterparty supplies in a single message or completion**, which code inside
+> A value a hostile counterparty supplies in a single message or completion, which code inside
 > the machine parses or trusts in one read.
 
 The double-fetch lens needed a *concurrent writer*: two reads of one page with a window between them.
@@ -25,13 +25,13 @@ untrusted source for the first time.
 Two things make it the right lens for today's tree rather than a re-run of
 [security.md](security.md)'s general review:
 
-- **The counterparty is now genuinely outside the machine.** `crates/multicast_dns_protocol` decodes datagrams
+- The counterparty is now genuinely outside the machine. `crates/multicast_dns_protocol` decodes datagrams
   that arrive from the local network, including the DNS name-compression pointers that are the
   canonical decompression-bomb and pointer-loop vector. `crates/non_volatile_memory_express` is a kernel driver that reads
   16-byte completions a PCIe device writes into memory. Neither existed when the shared-page audit
   read the tree, and both take input from a party the threat model (DECISIONS §20, §23, §30, and
   SECURITY.md) declares untrusted.
-- **The secret-material crates were explicitly out of the previous scope.** The shared-page audit
+- The secret-material crates were explicitly out of the previous scope. The shared-page audit
   recorded that `crates/credential_protocol` and `components/src/credentialer.rs` were "being substantially
   rewritten with an NTLM path" and that "the clearance recorded below is of the version on `main` and
   does not transfer." That rewrite has landed (`crates/ntlm`, `crates/credentialer`), so §79's secret-material
@@ -39,10 +39,10 @@ Two things make it the right lens for today's tree rather than a re-run of
 
 The four questions asked of each site are the arch audit's, transposed one more time:
 
-- **(a) The value.** Which field arrives from the untrusted party, and where is it used?
-- **(b) The source.** Is the party a network peer, a bus device, or a local caller, and what does the
+- (a) The value. Which field arrives from the untrusted party, and where is it used?
+- (b) The source. Is the party a network peer, a bus device, or a local caller, and what does the
   threat model say about trusting it?
-- **(c) The corrupted state.** What does the code do with the value if it is a lie?
+- (c) The corrupted state. What does the code do with the value if it is a lie?
 - **(d) Reachable?** Is the misuse closed by a bound, by a proof, or only by the wiring not yet
   existing?
 
@@ -61,18 +61,18 @@ added or rewritten after the shared-page audit read the tree (it read `313a055` 
 
 Stated because a scope nobody wrote down is a scope nobody can check.
 
-- **The SMB server, `smb_proto`, and the mDNS *wiring*.** None is on `main` at the audited commit;
+- The SMB server, `smb_proto`, and the mDNS *wiring*. None is on `main` at the audited commit;
   all are in lanes in flight this session. `multicast_dns_protocol` is audited here as a crate, with the
   reachability caveat below, but the responder that will feed it live datagrams is not on the base and
   is not read. The SMB request parser, which will be the first hand-written parser of attacker bytes
   actually reachable at runtime, is a lane of its own the day it merges, and this note does not claim
   to cover it.
-- **The double-fetch lens itself**, which is [shared-page-audit.md](shared-page-audit.md)'s and would
+- The double-fetch lens itself, which is [shared-page-audit.md](shared-page-audit.md)'s and would
   be the failure this milestone exists to avoid.
 - **Capability-lifetime races** (revocation against an in-flight use) and **the `unsafe` census**,
   both named in the block as candidate lenses and both a whole audit each. Untouched here.
-- **The arch and assembly layer**, which is [arch-audit.md](arch-audit.md)'s.
-- **`crates/dma_validator` and the IOMMU descriptor path**, which have their own machine-checked
+- The arch and assembly layer, which is [arch-audit.md](arch-audit.md)'s.
+- `crates/dma_validator` and the IOMMU descriptor path, which have their own machine-checked
   proofs (DECISIONS §30); reading them by hand adds nothing a prover has not already said. This note
   reads what the driver does with what the device *writes back*, which is the direction those proofs
   do not cover, exactly as shared-page-audit.md's finding 6 established.
@@ -81,7 +81,7 @@ Stated because a scope nobody wrote down is a scope nobody can check.
 
 ### 1. The NVMe kernel driver turns two device-written completion fields into a kernel panic
 
-**(a) The value.** `kernel/src/non_volatile_memory_express.rs`'s `submit_and_poll` reads a 16-byte completion the controller
+(a) The value. `kernel/src/non_volatile_memory_express.rs`'s `submit_and_poll` reads a 16-byte completion the controller
 wrote and then consumes two of its fields:
 
 ```rust
@@ -105,16 +105,16 @@ pub fn note_head(&mut self, head: u16) {
 
 Both `c.sq_head` and `c.cid` come straight out of the dwords the device wrote
 (`Completion::from_dwords`). A device that writes `sq_head >= entries`, or any `cid` other than the
-one command in flight, hits an `assert!` and **panics the kernel**.
+one command in flight, hits an `assert!` and panics the kernel.
 
-**(b) The source.** A PCIe NVMe controller, confined behind the machine's IOMMU
+(b) The source. A PCIe NVMe controller, confined behind the machine's IOMMU
 (`kernel/src/non_volatile_memory_express.rs:9` "confines the device to it," and the test at line 437 refuses to run without
 the IOMMU "without it the confinement claim is untested"). Confined is not trusted: the IOMMU exists
 precisely because the device is not (DECISIONS §20, §23, §30). And the IOMMU confines *where* the
 device may write, not *what* it writes. The completion queue is memory the device legitimately owns
 and fills; the bytes in it are entirely the device's to choose.
 
-**(c) The corrupted state.** A kernel panic, taken deliberately. The `cid` assert's own comment calls
+(c) The corrupted state. A kernel panic, taken deliberately. The `cid` assert's own comment calls
 it "a protocol violation worth dying on legibly." For a userspace driver, dying is one process; for
 this driver, which runs in the kernel, dying is the whole system. **Memory safety is not at risk**:
 the completion is read from `self.dma_va + ... + head*16` where `head` is the driver's own
@@ -122,7 +122,7 @@ value, and the comment at line 274 is correct that "reads of our own DMA region 
 whatever the device is writing there." The failure is liveness only. A confined but hostile or merely
 buggy controller can halt the machine by writing one wrong `u16`.
 
-**(d) Reachable? By a device, yes, and by nothing else.** Under QEMU with its own NVMe model the
+(d) Reachable? By a device, yes, and by nothing else. Under QEMU with its own NVMe model the
 device completes synchronously and honestly, so it is not reachable in the suite. On real hardware,
 a firmware bug or a hostile controller reaches it with a single malformed completion, and the panic
 surfaces as a kernel crash that reads like a kernel bug rather than a device one.
@@ -131,11 +131,11 @@ This is the exact reciprocal of shared-page-audit.md's finding 6, one layer down
 `components/src/net_transport.rs` and `kbd.rs` trusting a `u32` the device wrote into a used ring, and its
 disposition was to **fail closed**: consume the bad completion and drop it, costing one buffer per
 lie. The NVMe driver, newer and in the kernel, made the opposite choice for the same class of value,
-and the pattern shared-page-audit.md named for finding 6 applies verbatim: **a guarantee assumed
-from the wrong side of a boundary.** The IOMMU's guarantee is about where the device may touch. The
+and the pattern shared-page-audit.md named for finding 6 applies verbatim: a guarantee assumed
+from the wrong side of a boundary. The IOMMU's guarantee is about where the device may touch. The
 driver read it as a guarantee about what the device may say.
 
-**Disposition: recorded, and it wants a lane.** The fix is not one line and not zero risk: turning
+Disposition: recorded, and it wants a lane. The fix is not one line and not zero risk: turning
 `note_head` and the `cid` assert into an `Err(Error::...)` that the caller propagates changes the
 error contract of `submit_and_poll` and every path above it, and it needs a negative control (a
 device that lies) to prove the new path fails closed rather than mis-serving. That control is
@@ -151,7 +151,7 @@ an assert.
 Recorded because "we looked and it is fine" is the other half of an audit, and because each is a
 place a future change could break something.
 
-**`crates/multicast_dns_protocol`'s name decoder, `decode_name_into`.** This is the classic DNS parser
+`crates/multicast_dns_protocol`'s name decoder, `decode_name_into`. This is the classic DNS parser
 vulnerability surface (a compression pointer that loops, or a name that expands without bound), and
 it is written to close both by construction:
 
@@ -173,7 +173,7 @@ it is written to close both by construction:
   runtime today*. It is cleared as a crate, on the reading above and its own proof; the wiring that
   will feed it real datagrams is a separate read the day it lands.
 
-**`crates/non_volatile_memory_express`'s `parse_identify_namespace`.** Reads the namespace size and LBA format from the
+`crates/non_volatile_memory_express`'s `parse_identify_namespace`. Reads the namespace size and LBA format from the
 4096-byte identify page the device fills. `data.len()` is checked against 384; `flbas` is a 4-bit
 field so `data[128 + 4*flbas + 2]` reaches at most index 190; and `lbads` (the device's bytes-per-block
 shift) is rejected unless it is in `9..=12`, so `1 << lba_shift` is at most 4096 and cannot
@@ -182,18 +182,18 @@ not used to bound any read into a fixed buffer (transfers go to the device throu
 overflow is benign. The only device-written values that reach control flow unbounded are the two
 completion fields of finding 1.
 
-**`crates/non_volatile_memory_express`'s completion read itself.** The completion is read from the
+`crates/non_volatile_memory_express`'s completion read itself. The completion is read from the
 driver's own `head` slot, not from any device-supplied index, and `CqState::is_owned` distinguishes
 fresh from stale by the phase tag, not by `cid`. So `cid` is never used to index anything (finding 1
 is that it is used in an *assert*, not that it indexes memory), and the read is memory-safe whatever
 the device writes.
 
-**`crates/credentialer` and `crates/ntlm`, against §79.** The secret-material rules are followed, and in
+`crates/credentialer` and `crates/ntlm`, against §79. The secret-material rules are followed, and in
 several places the code is already at the standard an audit would ask for:
 
-- **The tag comparison is constant-time** (`subtle`), and the identity lookup is constant-time and
+- The tag comparison is constant-time (`subtle`), and the identity lookup is constant-time and
   does not stop at the first match, so neither a wrong secret nor a missing identity is
-  distinguishable by timing. `Record` deliberately has **no `PartialEq`**, with a comment naming the
+  distinguishable by timing. `Record` deliberately has no `PartialEq`, with a comment naming the
   reason: a derived one would compare tags with a short-circuiting `memcmp`, the exact timing oracle
   `Store::verify` avoids.
 - **The service stores `NTOWFv2`, not the password and not the NT hash** (`crates/ntlm`'s header,
@@ -201,10 +201,10 @@ several places the code is already at the standard an audit would ask for:
   one domain and is not the reusable secret an NT hash is. The `has_ntlm` flag is selected in
   constant time with the key material so an unprovisioned record does not carry a known HMAC key that
   anyone could forge a proof under.
-- **The no-`zeroize` choice is deliberate and written down**, not an omission: `crates/ntlm`'s header
+- The no-`zeroize` choice is deliberate and written down, not an omission: `crates/ntlm`'s header
   argues that the whole address space is the secret's blast radius already, so scrubbing one local is
   theatre. That is a recorded decision, which is the right rung for it.
-- **The honest limits are named where a reader meets them**: secrets-at-rest is unsolved
+- The honest limits are named where a reader meets them: secrets-at-rest is unsolved
   (notes/credentials.md), there is no rehash-on-verify when cost parameters move, and no lockout.
   Provisioning an NTLM secret *lowers* the strength of a record (an unsalted `NTOWFv2` beside a
   salted Argon2id tag), and `crates/credentialer` says so at the method rather than hiding it. None of these
@@ -216,7 +216,7 @@ several places the code is already at the standard an audit would ask for:
 |---|---|---|
 | 1 | The NVMe kernel driver panics on a device-written `sq_head` out of range and on any `cid` but the one in flight; the IOMMU confines where the device writes, not what it says | **Recorded**, wants a lane (extends shared-page-audit.md's hostile-device harness) |
 
-**Nothing found is a memory-safety hole or a live privilege escalation.** The one finding is a
+Nothing found is a memory-safety hole or a live privilege escalation. The one finding is a
 device-triggered kernel denial of service, not reachable under QEMU, reachable on real hardware behind
 a hostile or buggy controller. It is the same class shared-page-audit.md's finding 6 fixed in
 userspace, reappearing in the kernel with the opposite disposition, which is the single most useful
@@ -236,7 +236,7 @@ server each want their own read the day they land.
 
 ## Correction, 2026-09-15: one of the three subjects is gone
 
-**`crates/multicast_dns_protocol` was retired on 2026-09-15** (milestone 298, on calef's ruling),
+`crates/multicast_dns_protocol` was retired on 2026-09-15 (milestone 298, on calef's ruling),
 together with the responder whose wiring this note said wanted its own read the day it landed. That
 read never happened: the responder landed, fed nothing but the QEMU gate's injected queries, and was
 retired with the crate. The clearance above is therefore a record of a crate at `32f835a1`, not a
@@ -251,7 +251,7 @@ password half, Argon2id behind `verify::VERIFY`, still ships, and its clearance 
 
 ## What wants a lane
 
-**Extend the hostile-device harness (shared-page-audit.md's candidate B) to NVMe, and fail closed.**
+Extend the hostile-device harness (shared-page-audit.md's candidate B) to NVMe, and fail closed.
 The case is finding 1. Something that can write an arbitrary completion under the driver, whether a
 fake transport behind a trait or a QEMU device model, would let a test assert that a bad `sq_head` or
 `cid` fails the operation rather than the kernel. The fix and its proof are one lane: convert the two

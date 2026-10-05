@@ -8,8 +8,8 @@ note calls this part "the easy part once this exists", which was true of four of
 
 The governing constraint is calef's, and it is not a technical one: *"I hate Windows/DOS specifically
 because they went differently than virtually every other OS I've used."* Gratuitous divergence taxes
-every user forever. So the bar is not "is this more capability-pure", it is **"does the model
-actually force this"**, and three divergences clear it. The rest of Unix's surface survives.
+every user forever. So the bar is not "is this more capability-pure", it is "does the model
+actually force this", and three divergences clear it. The rest of Unix's surface survives.
 
 The pure half is `crates/grant_plan/src/nav.rs` (host-tested in milliseconds); the requests are
 `components/src/swish.rs`; the wire verb `rm` needed is `filesystem_protocol::fs::UNLINK` with `Server::unlink` behind
@@ -19,7 +19,7 @@ it; the guest proof is `system_tests/src/user/shell_navigation_tests.rs` and the
 ## They are builtins, and that retires a worry rather than dodging one
 
 Same category as `caps`: they spawn nothing, need no grant, and confer no new authority, because the
-shell is **reading and rebinding a capability it already holds**. A working directory, in capability
+shell is reading and rebinding a capability it already holds. A working directory, in capability
 terms, is a directory capability used as the default base for resolving names, and held by the shell
 that is entirely legitimate, the same as its untyped budget.
 
@@ -29,32 +29,32 @@ refuse. It is not a program. Nothing is granted, so nothing is over-granted.
 
 What is bad about Unix's cwd is three specific things, and `cd` is none of them:
 
-1. **Children inherit it silently**, so every process gets a starting point nobody granted it.
-2. **Relative paths resolve implicitly**, so a program's reach depends on invisible state.
-3. **`..` walks out**, so the cwd bounds nothing.
+1. Children inherit it silently, so every process gets a starting point nobody granted it.
+2. Relative paths resolve implicitly, so a program's reach depends on invisible state.
+3. `..` walks out, so the cwd bounds nothing.
 
 ## The two earned divergences, and the one that was retired
 
-- **`..` stops at your root**, and it is worth being precise about *why*, because "we check for `..`"
-  would be a worse answer. The shell holds a **stack of the directory capabilities it descended
-  through**, one per level. `..` pops one. At the root there is nothing to pop, so nothing is sent
+- `..` stops at your root, and it is worth being precise about *why*, because "we check for `..`"
+  would be a worse answer. The shell holds a stack of the directory capabilities it descended
+  through, one per level. `..` pops one. At the root there is nothing to pop, so nothing is sent
   and there is no check to get wrong. The FS server would refuse the name anyway (`..` is not a
   component `check_component` accepts), so the two mechanisms agree without either relying on the
   other. Chroot's shape, arrived at from the other direction.
-- **`pwd` is relative to your root**, because naming anything above it implies a namespace that does
+- `pwd` is relative to your root, because naming anything above it implies a namespace that does
   not exist.
 
-**The third was "no absolute paths", and it came out on 2026-08-18** (milestone 47's namespace half).
+The third was "no absolute paths", and it came out on 2026-08-18 (milestone 47's namespace half).
 It was never a position, it was the honest state of a system that had no namespace to root a path in:
 the syntax was refused rather than quietly reinterpreted as relative, and `grant_plan::nav::Refused`
 carried an `Absolute` variant saying so. What replaced it is Plan 9's answer, which this note's own
 first paragraph on the subject named as the recommendation for later:
 
-- **`/` is the root of *your* namespace.** `/logs/report.txt` starts at the directory capability you
+- `/` is the root of *your* namespace. `/logs/report.txt` starts at the directory capability you
   were granted and descends from there, so two shells rooted in two subtrees type the same token and
   open two different files, or one of them opens nothing.
 
-**It grants nothing, and that is the whole of the argument for it.** `/a/b` is `cd` to your root
+It grants nothing, and that is the whole of the argument for it. `/a/b` is `cd` to your root
 followed by two descents: exactly the walk you could already take, spelled in one token. `/..` is
 refused for the same reason `..` at the root is, because your root is the only root there is and
 there is no level above it to name. The negative control is in the guest suite rather than in this
@@ -62,7 +62,7 @@ paragraph: the two shells run the same two probes with a leading slash
 (`navscape::ABSOLUTE_REACHED_INNER` and `ABSOLUTE_REACHED_SECRET`) and each reaches exactly the file
 its own root contains. A `/` rooted in anything global would set both bits in both reports.
 
-**What forced it was `pwd` printing a path nobody could type back.** `Cwd::render` has answered
+What forced it was `pwd` printing a path nobody could type back. `Cwd::render` has answered
 `/logs/2026` since the day it was written, because naming a position relative to your own root is the
 only honest rendering; and typing that same token back was a refusal. A round trip that does not
 close is the tell that a refusal has outlived its reason (§71's promotion trigger, met exactly).
@@ -71,14 +71,14 @@ shell, cannot be told to `cd`, and builds paths with `Path::join`, so `current_d
 it could give.
 
 One divergence that is *not* earned and was not taken: `cd` with no operand. Unix goes to `$HOME`;
-there is no environment here (that is out of this lane's scope), so bare `cd` goes to **your root**,
+there is no environment here (that is out of this lane's scope), so bare `cd` goes to your root,
 which is the one distinguished place a shell has and is exactly what it was granted.
 
 ## The cwd stops at the process boundary
 
 This is the rule most likely to be got wrong, and the place it is made true is `grant_plan::FileGrant`.
 
-`wc report.txt` resolves the name against the shell's position **at the moment the grant is made**.
+`wc report.txt` resolves the name against the shell's position at the moment the grant is made.
 `plan_against` walks any leading path once, there, and records where it landed *as a value*:
 
 ```rust
@@ -90,27 +90,27 @@ pub struct FileGrant<'a> {
 ```
 
 The child receives a capability to that one file. It has no cwd, inherits nothing, and cannot
-re-resolve anything: **the convenience is the shell's, the authority is explicit.** A child that
+re-resolve anything: the convenience is the shell's, the authority is explicit. A child that
 could re-resolve a name later would have ambient authority smuggled in through a string.
 
 That `dir` is a value and not a pointer to the shell's position is what makes it structural rather
 than a promise, and there is a host test that moves the shell afterwards and checks the grant did not
 follow. `a_name_is_resolved_against_the_shells_position_at_grant_time` is the whole rule in one test.
 
-A consequence worth naming: **the resolver lives in the client**, which is the roadmap's
+A consequence worth naming: the resolver lives in the client, which is the roadmap's
 recommendation over putting a path walker in the server. The FS server still only ever sees a single
 component relative to a capability presented to it, so §27's rule is intact, and a path is N
 `OPENDIR`s from the shell rather than one walk in a server.
 
 ## `rm` separates two things Unix conflated, and one of them is not offered
 
-- **Unlink (this is what `rm` does).** The *name* goes away. A handle already open on the file keeps
+- Unlink (this is what `rm` does). The *name* goes away. A handle already open on the file keeps
   reading, and the bytes are still there. Atomic replace and the temp-file idiom both depend on it.
 - **Revoke.** The object dies and every capability to it goes stale. **Not offered**, and the shell
   says so rather than letting one word mean either.
 
 Why revoke is absent is a fact about the contract rather than a preference: it would mean
-invalidating handles the FS server minted for clients **it cannot enumerate**. The handle table is
+invalidating handles the FS server minted for clients it cannot enumerate. The handle table is
 per *server* (that is [dir-capability.md](dir-capability.md)'s structural finding), and the server
 does not track which client holds which handle. §13 revokes frames and §16 revokes objects because
 the kernel owns those tables; nothing owns this one that way yet. `crates/generational_table`' generational names
@@ -124,25 +124,25 @@ node. The engine has the right mechanism (`on_open_node`/`on_close_node` and a r
 Unix's deferred delete), and nothing was using it, because our handle table is ours.
 
 So `Server::open_file_at` and `Server::create_file_at` now register the node as open and
-`Server::close` deregisters it, and **that pairing is what makes this verb an unlink**. The sabotage
+`Server::close` deregisters it, and that pairing is what makes this verb an unlink. The sabotage
 check is direct: delete either registration and
 `unlink_takes_the_name_and_leaves_the_object_for_whoever_holds_it` goes red. It caught something the
 first time it was run, too: with only the `open` registration deleted the test stayed green, because
 it exercised only the `create` path, so it now goes through both doors.
 
-The cost is stated where it is paid: **a handle nobody closes pins the node for the life of the
-server**, exactly as a leaked fd does on Unix, and this table outlives its clients.
+The cost is stated where it is paid: a handle nobody closes pins the node for the life of the
+server, exactly as a leaked fd does on Unix, and this table outlives its clients.
 
 ### `rm` refuses a directory, and `rmdir` removes only an empty one
 
-`UNLINK` answers `EISDIR` for a directory, which is POSIX's own answer. **This section said "there
+`UNLINK` answers `EISDIR` for a directory, which is POSIX's own answer. This section said "there
 is no `RMDIR` verb on this contract" until 2026-08-18, and that stopped being true when DECISIONS
-§49 landed one** (`filesystem_protocol::fs::RMDIR`, refusing a non-empty directory with `ENOTEMPTY`, and the
+§49 landed one (`filesystem_protocol::fs::RMDIR`, refusing a non-empty directory with `ENOTEMPTY`, and the
 two halves proven by `navscape::RMDIR_REFUSED_NON_EMPTY` and `RMDIR_REMOVED_EMPTY`). The reasoning
 this paragraph carried survived the change and is what shaped the verb: a single call that removed
 whatever it found is how one word takes a subtree away, so the recursion in `rm -r` lives in
-userspace as a loop of individually safe steps and **no single call on this contract can take a
-subtree away**.
+userspace as a loop of individually safe steps and no single call on this contract can take a
+subtree away.
 
 ## Two shells, two roots, and neither can name the other's files
 
@@ -157,15 +157,15 @@ a reimplementation of it, and the thing being confined is a shell.
   /other       secret               <- shell B is rooted here
 ```
 
-**Neither shell is told which subtree it holds.** Each tries to open `inner` and `secret` and reports
+Neither shell is told which subtree it holds. Each tries to open `inner` and `secret` and reports
 which it reached, so the property is read off the *pair* of reports rather than claimed by either.
 Shell A reaches `inner` and not `secret`; shell B the reverse; and the same crossing holds for what
 their listings contain, because a listing is a rendering of authority and a stranger in one is an
 escape even though nothing was opened.
 
 Not by policy. The FS server can reach both directories on any request it likes, and each caretaker
-one hop up holds the whole image root. What stops each shell is that **no capability reaching the
-other subtree exists in its capability table.**
+one hop up holds the whole image root. What stops each shell is that no capability reaching the
+other subtree exists in its capability table.
 
 The falsification is cheap and was run: point the second shell at `sub` as well, and
 `two_shells_with_different_roots_cannot_name_each_others_files` fails with "it opened a file that
@@ -186,7 +186,7 @@ root, which is the upward escape.
 
 ## What the shell had to be told, because nothing on the wire will say
 
-**There is no verb that reports what a handle carries.** That matters here rather than being a
+There is no verb that reports what a handle carries. That matters here rather than being a
 curiosity: `OPENDIR` refuses with `EPERM` when the intersection is smaller than the request
 (deliberately, per §42's rule against silent degradation), so a shell that asked for `dir::ALL` from
 a narrower capability could not `cd` at all. It has to ask for exactly what it holds.
@@ -208,30 +208,30 @@ should be able to answer for every capability rather than a flag on one verb.
   by construction) but the **endowment**: nothing in this system grants a second directory
   capability to one process, so a union would have exactly one member. See milestone 47's block for
   what a second grant costs.
-- **There is still no environment, and `PATH` is still a closed enum.** `/` answers "where", and
+- There is still no environment, and `PATH` is still a closed enum. `/` answers "where", and
   nothing answers "what may I run" or "what was I configured with". Both need something to arrive
   at spawn that nothing on the wire carries today.
 - **`rm -r` is a program's loop, not a verb.** `UNLINK` refuses a directory and `RMDIR` refuses a
   non-empty one, so removing a subtree takes as many deliberate calls as it has entries, each one
   bounded by the capabilities the walker holds at that level. Argued above.
-- **No revocation**, and the reason is the per-server handle table. Argued above.
-- **The interactive prompt still holds no directory**, so at a real keyboard every one of these five
+- No revocation, and the reason is the per-server handle table. Argued above.
+- The interactive prompt still holds no directory, so at a real keyboard every one of these five
   answers "this shell holds no directory capability; there is nothing here to name". That sentence is
-  **true rather than a placeholder** (it is a fact about that shell's capability table, §27's amendment; the
+  true rather than a placeholder (it is a fact about that shell's capability table, §27's amendment; the
   interactive boot has held a directory since milestone 50), and
   it is the same state the per-file grant has been in since milestone 31. The builtins are gated in
   the navigating role on both ISAs; what is missing is a boot that wires an FS service into the
   interactive system, which is a wiring change and not a change here.
-- **The shell tracks 8 levels and 16-byte components.** Both are `grant_plan::nav`'s constants: the path
+- The shell tracks 8 levels and 16-byte components. Both are `grant_plan::nav`'s constants: the path
   stack is an array because this program has no allocator, and 16 bytes is `filesystem_protocol::grant::MAX_NAME`
   (a name that could be `cd`'d into but not granted would be a place you can reach and cannot talk
   about). Deeper is `TooDeep`, refused rather than truncated, because a truncated path names a
   different directory.
-- **`ls` reads a directory in rounds of 256 bytes** and re-reads it per round, so a name added or
+- `ls` reads a directory in rounds of 256 bytes and re-reads it per round, so a name added or
   removed mid-listing can be seen twice or missed. That is `READDIR`'s own caveat
   ([dir-capability.md](dir-capability.md)), inherited rather than added.
-- **The navigating shell needs two extra stack pages**, and the number is a measurement. With the one
-  page `run` maps it overflowed by **192 bytes**, which presented as a data abort on its own `sp` and
+- The navigating shell needs two extra stack pages, and the number is a measurement. With the one
+  page `run` maps it overflowed by 192 bytes, which presented as a data abort on its own `sp` and
   then as the 60-second lost-wakeup watchdog, because the kernel test was still waiting for a report
   from a process that had died. A shell carries a path stack, a parsed path and a listing buffer by
   value; 4 KiB is genuinely tight. Same discipline as the FS server's stack (§27): sized by what it
