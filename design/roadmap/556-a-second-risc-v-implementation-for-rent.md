@@ -31,7 +31,7 @@ Scaleway's Elastic Metal RV1, read from the product page on 2026-09-20 rather th
 | Own OS | supported: *"access to the server's serial console is available for installing the most exotic operating systems"* |
 | Caveat | a Labs product, 0% SLA |
 
-**The two things that make it usable for nife are the two the page confirms**: a serial console, and
+The two things that make it usable for nife are the two the page confirms: a serial console, and
 permission to install an operating system that is not one of their three Linuxes. Provisioning is
 command-line driven, which is what turns a bench session into a job.
 
@@ -49,7 +49,7 @@ that two implementations of an architecture are what turn "it works on riscv64" 
 board into a claim about an ISA. **This tree has never had a second implementation of any
 architecture.**
 
-**And it fixes an asymmetry that would otherwise be quiet.** DECISIONS §203 (capacity is rented rather
+And it fixes an asymmetry that would otherwise be quiet. DECISIONS §203 (capacity is rented rather
 than bought) moves aarch64 and x86_64 hardware legs to rented runners. Without this, riscv64's legs
 stay bench-bound while the other two become gate-able, and a reader six weeks later sees "hardware
 legs in CI" and assumes three architectures.
@@ -60,21 +60,21 @@ The work is unknown in size and that is the first thing to establish. What is kn
 
 - **The boot path is not radon's.** notes/visionfive2.md records what the JH7110 needed, including a
   UART at an address with different silicon behaviour behind it, and none of that transfers.
-- **What the firmware hands over decides the shape.** Whether the TH1520 boots through OpenSBI, what
+- What the firmware hands over decides the shape. Whether the TH1520 boots through OpenSBI, what
   the device tree contains, and how the console is reached are all facts to be read off the machine
   rather than predicted.
-- **The eMMC and network are not needed for a first light.** A serial console and a kernel that
+- The eMMC and network are not needed for a first light. A serial console and a kernel that
   prints a byte is the same first milestone every board here has had, and it is how this would be
   scoped: first light first, everything else after.
 
 ## What would make this not worth doing
 
-Stated so a lane does not have to discover it: **if the port turns out to need a vendor kernel, a
-signed bootloader, or a firmware blob this tree cannot inspect**, it stops being a nife target and
+Stated so a lane does not have to discover it: if the port turns out to need a vendor kernel, a
+signed bootloader, or a firmware blob this tree cannot inspect, it stops being a nife target and
 becomes a Linux box that happens to be RISC-V. The serial console and the custom-OS statement suggest
 otherwise, but they are marketing until a byte comes out of that port.
 
-The other honest exit: **0% SLA on a Labs product.** A gate that depends on a machine the provider may
+The other honest exit: 0% SLA on a Labs product. A gate that depends on a machine the provider may
 withdraw is a gate that will one day be red for a reason nobody can fix. Anything built on this should
 degrade to a skip that says so loudly, the way milestone 81 (an HVF leg: the test suite on the physical core) already does.
 

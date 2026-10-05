@@ -56,7 +56,7 @@ workaround with its reason attached:
 > `acpi=off`, because EDK2 withholds the device tree when it presents ACPI, and nife on aarch64
 > reads a device tree (measured 2026-09-19; notes/boot-stick.md).
 
-**So the failure is an A/B on this laptop, one flag apart.** Measured 2026-09-23 by this lane, with
+So the failure is an A/B on this laptop, one flag apart. Measured 2026-09-23 by this lane, with
 `BOOTAA64.EFI` built from this branch's tip:
 
 ```
@@ -82,12 +82,12 @@ milestone rather than an expensive one:
 - **The kernel is never entered.** The loader's own `discover` returns before boot services are
   exited, so the failure is a clean, named refusal rather than a machine that goes quiet. A lane
   working on this gets a readable error on every wrong turn.
-- **QEMU accepts the override.** `-machine acpi=on` after the script's own `-machine virt,acpi=off`
+- QEMU accepts the override. `-machine acpi=on` after the script's own `-machine virt,acpi=off`
   wins, so no edit to `helpers/qemu-stick.sh` is needed to reproduce the failure. When this
   milestone is done, that trailing flag is the test: the same transcript as the default boot.
 
-**No hardware, no cloud account, and no money are needed to do this work or to know when it is
-done.** The Oracle Always Free experiment the pricing lane proposed is still worth running, for a
+No hardware, no cloud account, and no money are needed to do this work or to know when it is
+done. The Oracle Always Free experiment the pricing lane proposed is still worth running, for a
 different reason: it says what a real SBBR machine's firmware offers, which QEMU's EDK2 only
 approximates. It is a corroboration, not a gate.
 
@@ -96,8 +96,8 @@ approximates. It is a corroboration, not a gate.
 Read in full on 2026-09-23. It is 1,598 lines, it has no architecture in its name and none in its
 code, and it is host-tested and Kani-proved (milestone 319 (the crate that parses firmware had no
 proofs, and three of its first ones were false), milestone 431 (the ACPI walk is reachable by the
-prover for the first time, and proved by nothing)). **The generic half is done and this milestone
-should add to it rather than start beside it.**
+prover for the first time, and proved by nothing)). The generic half is done and this milestone
+should add to it rather than start beside it.
 
 | What | Where | aarch64 needs it |
 |---|---|---|
@@ -109,8 +109,8 @@ should add to it rather than start beside it.**
 | MCFG: the PCIe ECAM windows | `mcfg_entry` | yes, unchanged, and it is the same question on both |
 | DMAR: Intel VT-d remapping units | `parse_dmar`, `dmar_structures`, `first_drhd` | no. aarch64's IOMMU is the SMMU, described by IORT |
 
-**So the table machinery is architecture-neutral and the table *contents* it decodes are entirely
-x86.** That is the honest shape of the gap: nothing has to be restructured, and four or five decoders
+So the table machinery is architecture-neutral and the table *contents* it decodes are entirely
+x86. That is the honest shape of the gap: nothing has to be restructured, and four or five decoders
 have to be written.
 
 ## What aarch64 additionally needs, item by item
@@ -118,8 +118,8 @@ have to be written.
 Each of these is a table or a field that nothing in this tree reads today. Checked by grep on
 2026-09-23: `GTDT`, `FADT` and `SPCR` appear nowhere in any `.rs` file in this repository.
 
-1. **MADT entry types 0x0B through 0x0F, which are where aarch64's CPUs and interrupt controller
-   live.** On x86 the CPU list is type 0 and the interrupt controller is type 1; on aarch64 they are
+1. MADT entry types 0x0B through 0x0F, which are where aarch64's CPUs and interrupt controller
+   live. On x86 the CPU list is type 0 and the interrupt controller is type 1; on aarch64 they are
    GICC (0x0B, one per CPU, carrying the MPIDR and the ACPI processor UID and an enabled flag),
    GICD (0x0C, the distributor's base address and the GIC version), GIC MSI frame (0x0D),
    GICR (0x0E, the redistributor array a GICv3 needs) and GIC ITS (0x0F). Today all five fall
@@ -128,18 +128,18 @@ Each of these is a table or a field that nothing in this tree reads today. Check
    `machine_discovery::gic::discover` reads out of the device tree, including the GICv2-versus-GICv3
    distinction whose cost `kernel/src/memory.rs` records beside that call: a kernel that booted,
    printed `interrupts ON`, and took none.
-2. **GTDT, the generic timer description, which has no decoder at all.** It is the table that carries
+2. GTDT, the generic timer description, which has no decoder at all. It is the table that carries
    the secure EL1, non-secure EL1, virtual and non-secure EL2 timer interrupt numbers and their
    flags, plus `CntControlBase` and `CntReadBase`. A device tree states the same four interrupts in
-   `arm,armv8-timer`. **This is the gap the pricing lane's Graviton anecdote names precisely**: an
+   `arm,armv8-timer`. This is the gap the pricing lane's Graviton anecdote names precisely: an
    ACPI machine has no timer node, so the generic-timer interrupt IDs have to come from the GTDT or
    the kernel arms nothing and sees no interrupts and no error.
-3. **The FADT's Arm boot architecture flags, for PSCI.** Milestone 100 (read the machine's PSCI and
+3. The FADT's Arm boot architecture flags, for PSCI. Milestone 100 (read the machine's PSCI and
    its CPU list, not QEMU `virt`'s) already recorded the shape of this: "an ACPI machine has no
    device tree at all and states PSCI in the FADT". Two bits decide whether PSCI exists and whether
    the conduit is `hvc` or `smc`, which is exactly what that milestone reads from `/psci`'s
    `method` property today. Nothing in this tree parses a FADT.
-4. **SPCR, or the console has nowhere to come from.** `console::configure_from_dtb` finds the UART in
+4. SPCR, or the console has nowhere to come from. `console::configure_from_dtb` finds the UART in
    the device tree. ACPI's answer is the serial port console redirection table, which names an
    interface type and a base address. Without it an ACPI boot has no console, which is the failure
    milestone 243 (a machine with no serial port has no way to say anything, and no gate can read it)
@@ -151,7 +151,7 @@ Each of these is a table or a field that nothing in this tree reads today. Check
    before boot services are exited. So this is not a table to add; it is a fact that has to cross the
    handover, and the handover on aarch64 has exactly one register in it.
 
-**IORT is deliberately out of scope**, and is named here so the next reader does not think it was
+IORT is deliberately out of scope, and is named here so the next reader does not think it was
 missed. It is ACPI's description of the SMMU, the counterpart of the device tree's `smmuv3` node that
 `memory.rs` reads today. A cloud instance presents no SMMU to a guest, so it costs nothing to leave
 out, and adding it belongs with whatever milestone next touches the IOMMU.
@@ -170,28 +170,28 @@ because it is three lines of behaviour rather than a subsystem:
   `read_acpi(hint)` walks from there: `find_rsdp` with the hint, then `table_at`, then `read_madt`,
   `read_mcfg`, `read_dmar`.
 
-**The aarch64 mirror of the first two is small.** `discover` in
+The aarch64 mirror of the first two is small. `discover` in
 `uefi_loader/src/arch/aarch64/mod.rs` currently searches the same configuration table for
 `efi::DEVICE_TREE_GUID` and errors when it is absent. Searching for the two ACPI GUIDs as well, and
 carrying whichever it found, is the same loop with a second predicate. The x86 GUID constants already
 exist in `uefi_loader::efi`.
 
-**The third is where the fork is**, and this is the one item in this block that is an architect's:
+The third is where the fork is, and this is the one item in this block that is an architect's:
 
-> **How does an ACPI machine's description reach the aarch64 kernel?** The Linux arm64 boot
+> How does an ACPI machine's description reach the aarch64 kernel? The Linux arm64 boot
 > contract this kernel implements is `x0` = the physical address of a device tree, with `x1` to `x3`
 > zero, and there is no second register and no slot for a memory map. Three answers, none of them
 > obviously right:
 >
-> 1. **The loader synthesises a device tree from ACPI and the UEFI memory map**, and the kernel is
+> 1. The loader synthesises a device tree from ACPI and the UEFI memory map, and the kernel is
 >    not changed at all. Smallest diff by a wide margin, and it is what makes the whole handover
 >    question disappear. It is also a fabrication: the kernel would print a machine description that
 >    no firmware wrote, and the next person debugging a wrong timer interrupt has to know that.
-> 2. **The kernel grows a second front door**, and `x0` points at ACPI's RSDP instead, distinguished
+> 2. The kernel grows a second front door, and `x0` points at ACPI's RSDP instead, distinguished
 >    by the `RSD PTR ` signature at that address, which no device tree blob can be mistaken for
 >    (its own magic is `0xd00dfeed`). Honest, and it means the memory map needs a place to live that
 >    is not the device tree.
-> 3. **A nife-specific handover structure on aarch64**, the way x86_64 has `hvm_start_info`. Most
+> 3. A nife-specific handover structure on aarch64, the way x86_64 has `hvm_start_info`. Most
 >    room, most surface, and it is a thing two programs agree on, which this tree treats as the
 >    expensive category.
 >
@@ -202,8 +202,8 @@ exist in `uefi_loader::efi`.
 
 ## The link address, which is the second half and is not this block's to describe
 
-The same `BUGS` section names a second blocker behind the first: **the kernel is linked for
-`0x4008_0000`** (`kernel/link-aarch64.ld`, where `PHYS_START = 0x40080000`), which is QEMU `virt`'s
+The same `BUGS` section names a second blocker behind the first: the kernel is linked for
+`0x4008_0000` (`kernel/link-aarch64.ld`, where `PHYS_START = 0x40080000`), which is QEMU `virt`'s
 RAM, and a machine whose RAM starts elsewhere cannot place the kernel there. `ALLOCATION_CEILING` in
 the loader is the same constraint from the other side: everything the kernel reads early has to be
 below 2 GiB, because `boot.s`'s boot map is one 1 GiB block at `0x4000_0000`.
@@ -212,40 +212,40 @@ below 2 GiB, because `boot.s`'s boot map is one 1 GiB block at `0x4000_0000`.
 comparison)'s, and this block deliberately does not restate it.** 127's port has to lift exactly this
 limit for argon, whose tegra210 DRAM starts at `0x8000_0000`, and the loader's `BUGS` section already
 says so in those words: "the same limit milestone 127's port has to lift for `booti`, not one the
-stick adds". **What this block adds is one fact: the work serves both, and a cloud aarch64 instance
-is a second machine that needs it**, so whichever lane lifts it should know it has two customers and
+stick adds". What this block adds is one fact: the work serves both, and a cloud aarch64 instance
+is a second machine that needs it, so whichever lane lifts it should know it has two customers and
 not one. Nothing here should be read as re-scoping 127.
 
 A lane taking the discovery items below can get a long way before this bites, because QEMU `virt`
 with `acpi=on` has its RAM at `0x4000_0000` like every other `virt` boot. That is the whole reason
-the test bench above is honest about what it does and does not prove: **it proves the discovery path,
-and it cannot prove the placement**.
+the test bench above is honest about what it does and does not prove: it proves the discovery path,
+and it cannot prove the placement.
 
 ## What to build, as lanes, in order
 
-Each is independently shippable and lands something. **None of them needs hardware.** The QEMU A/B
+Each is independently shippable and lands something. None of them needs hardware. The QEMU A/B
 above is the test for all of them.
 
-1. **The aarch64 MADT entries, in `crates/machine_discovery/src/acpi.rs`.** GICC, GICD, GICR, GIC
+1. The aarch64 MADT entries, in `crates/machine_discovery/src/acpi.rs`. GICC, GICD, GICR, GIC
    MSI frame and ITS as new `MadtEntry` arms, host-tested against a table dumped from QEMU's own
    `virt` with `acpi=on` (which is how the x86 decoders were checked against `q35`), and proved the
    way milestone 319 (the crate that parses firmware had no proofs, and three of its first ones were
    false) proved the rest. Touches no kernel and no loader; merges on its own.
-2. **GTDT, in the same crate, the same way.** A new table decoder with no entry list, so it is the
+2. GTDT, in the same crate, the same way. A new table decoder with no entry list, so it is the
    smallest of these. Item 1 and item 2 can be one lane or two; they collide only in one file.
-3. **FADT's Arm boot flags and SPCR**, again in the same crate. Smaller still, and both are a header
+3. FADT's Arm boot flags and SPCR, again in the same crate. Smaller still, and both are a header
    plus a handful of fields.
-4. **The loader finds the RSDP on aarch64.** Mirrors `find_rsdp` from the x86_64 half, carries what
+4. The loader finds the RSDP on aarch64. Mirrors `find_rsdp` from the x86_64 half, carries what
    it found, and changes `discover`'s error message to distinguish "no device tree and no ACPI"
    from "ACPI, which this kernel cannot yet use". Half a lane's work, and it makes the failure
    message tell the truth even before anything downstream exists.
-5. **The handover, which needs calef's decision first.** The fork above. A lane can write the
+5. The handover, which needs calef's decision first. The fork above. A lane can write the
    proposal with the three options priced, which is the shape this tree asks a fork to arrive in;
    it should not pick.
-6. **The kernel's second front door**, once 5 is answered: memory, GIC, timer, CPU list and console
+6. The kernel's second front door, once 5 is answered: memory, GIC, timer, CPU list and console
    sourced from ACPI instead of the tree. This is the large one, and it is the only item here that
    touches `kernel/src/memory.rs`, so it wants the machine to itself.
-7. **Then, and only then, the free experiment**: Oracle Always Free Ampere A1, `BOOTAA64.EFI` on an
+7. Then, and only then, the free experiment: Oracle Always Free Ampere A1, `BOOTAA64.EFI` on an
    EFI system partition, read the serial console. It is not a gate on anything above and it needs an
    account, which is calef's to provide.
 
@@ -259,7 +259,7 @@ above is the test for all of them.
   fields and the FADT's flag bits should be checked against a table dumped from QEMU with `acpi=on`
   before a decoder is written against them, which is what the x86 decoders did against
   `hw/i386/acpi-build.c`. This tree has carried a fabricated quotation through every gate before.
-- **The A/B was run with a debug-profile stick built by hand from this branch**, not by
+- The A/B was run with a debug-profile stick built by hand from this branch, not by
   `cargo xtask stick`, whose three-architecture build was more than this lane needed. The failing
   half is a loader message printed before boot services are exited, so the profile cannot be
   load-bearing, but the transcript above is not a `stick-boot` transcript and should not be quoted as
