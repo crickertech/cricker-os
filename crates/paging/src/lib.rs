@@ -909,6 +909,54 @@ where
         Ok((pa, TlbFlush { va }))
     }
 
+    /// **Cut the intermediate table at physical `table` out of the walk that reaches `va`**, and
+    /// say what span of addresses went with it. Name provisional (the page-tables-outlive-destroy
+    /// lane, 2026-10-05 UTC).
+    ///
+    /// The walk descends from the root along `va`; the first present table entry that points at
+    /// `table` is cleared, and the answer is `(base, span)`: the naturally aligned range of virtual
+    /// addresses that `table` translated, all of which now translate to nothing. `None` when the
+    /// walk to `va` never passes through `table` (it was never linked there, or something above it
+    /// has already been cut), which is not an error: a caller cutting a set of tables top-down
+    /// meets exactly that for every table below the first.
+    ///
+    /// **Why a table, and not every leaf beneath it.** The kernel uses this when the memory a table
+    /// lives in is about to be handed back (`revoke::revoke_region`). Clearing the leaves would leave
+    /// the table itself still linked, and the next owner of that page would be writing this space's
+    /// translations. Cutting the one entry that points at it is the only change that makes the page
+    /// unreachable, and it takes the whole subtree with it in one store.
+    ///
+    /// Nothing is freed: the table is the caller's (it came from the allocator the caller passed),
+    /// and so is everything below it. The root is never a candidate, since no entry points at it.
+    ///
+    /// The [`TlbFlush`] covers the whole span and every level of cached walk, not one page: its
+    /// [`address`](TlbFlush::address) is `base`, and the caller must discharge it with an
+    /// invalidation that reaches non-leaf entries for the whole range (a by-ASID flush does).
+    pub fn unlink_table(&mut self, va: u64, table: u64) -> Option<(u64, u64, TlbFlush)> {
+        if !F::is_in_half(self.half, va) {
+            return None;
+        }
+        let mut table_pa = self.root;
+        for level in 0..F::LEVELS - 1 {
+            let i = F::index(va, level);
+            // SAFETY: `table_pa` is a page-aligned table, per the type's contract.
+            let entry = unsafe { &mut (*(self.phys_to_ptr)(table_pa)).entries[i] };
+            if !F::is_present(*entry) || F::is_block(*entry) {
+                return None;
+            }
+            if F::entry_pa(*entry) == table {
+                // The table one level down translates the span one entry at `level` covers.
+                let span = PAGE_SIZE << (9 * (F::LEVELS - 1 - level));
+                let base = va & !(span - 1);
+                // Break: no walk can reach `table` from here after this store.
+                *entry = 0;
+                return Some((base, span, TlbFlush { va: base }));
+            }
+            table_pa = F::entry_pa(*entry);
+        }
+        None
+    }
+
     /// Walk the tables and report what a virtual address actually maps to. This is what the hardware
     /// does on every access, in silicon, and it is worth having in software: it is the only way to
     /// *check* that the tables say what you think they say.

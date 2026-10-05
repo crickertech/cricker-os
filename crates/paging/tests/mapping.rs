@@ -515,3 +515,72 @@ fn dropping_the_tlb_obligation_is_fatal() {
     let (_pa, _flush) = m.unmap(0x1000).unwrap();
     // _flush drops here, un-discharged. Boom.
 }
+
+/// **Cutting a table takes its whole span out of the walk, and nothing beside it** (the
+/// page-tables-outlive-destroy lane, 2026-10-05 UTC). The kernel cuts a table whose page is about
+/// to be handed back (`revoke::revoke_region`); this pins what the cut does to the walk.
+///
+/// The second chain's L2 is cut. Both pages under it stop translating, the page under the first
+/// chain's L2 keeps translating, the span reported is the 1 GiB that L2 covered, and a table below
+/// the cut one is no longer reachable to cut. A later map rebuilds the walk from fresh tables
+/// rather than descending into the cut one, which is the property the kernel needs: after the cut,
+/// no store goes into a page that has been given back.
+#[test]
+fn unlinking_a_table_cuts_its_whole_span_and_nothing_else() {
+    let _tables = TableGuard;
+    let taken = RefCell::new(Vec::new());
+    let alloc = || {
+        let t = fresh_table();
+        taken.borrow_mut().push(t);
+        Some(t)
+    };
+    // SAFETY: a fresh, zeroed, aligned root; the identity is right for host addresses.
+    let mut m = unsafe {
+        Mapper::<_, _, Fmt>::new(
+            fresh_table(),
+            Half::Low,
+            alloc,
+            phys_to_ptr as fn(u64) -> *mut PageTable,
+        )
+    };
+
+    const GIB: u64 = 1 << 30;
+    m.map(0x1000, 0x4000_0000, Flags::user_data()).unwrap();
+    let first_chain = taken.borrow().len();
+    m.map(2 * GIB, 0x4000_1000, Flags::user_data()).unwrap();
+    m.map(2 * GIB + 0x1000, 0x4000_2000, Flags::user_data())
+        .unwrap();
+    // The second map reused L1 and took a fresh L2 and L3.
+    let (l2, l3) = {
+        let t = taken.borrow();
+        assert_eq!(t.len(), first_chain + 2, "the second chain should share L1");
+        (t[first_chain], t[first_chain + 1])
+    };
+
+    let (base, span, flush) = m
+        .unlink_table(2 * GIB + 0x1000, l2)
+        .expect("the walk to that page passes through its L2");
+    // SAFETY: not installed.
+    unsafe { flush.assume_no_stale_entry() };
+    assert_eq!((base, span), (2 * GIB, GIB));
+
+    assert!(m.translate(2 * GIB).is_none());
+    assert!(m.translate(2 * GIB + 0x1000).is_none());
+    assert_eq!(m.translate(0x1000).map(|(pa, _)| pa), Some(0x4000_0000));
+    assert!(
+        m.unlink_table(2 * GIB, l3).is_none(),
+        "a table below the cut is no longer on any walk"
+    );
+    assert!(
+        m.unlink_table(2 * GIB, l2).is_none(),
+        "a table is cut once; the second ask finds nothing"
+    );
+
+    let before = taken.borrow().len();
+    m.map(2 * GIB, 0x4000_3000, Flags::user_data()).unwrap();
+    assert_eq!(
+        taken.borrow().len(),
+        before + 2,
+        "a map after the cut must build fresh tables, not write into the cut one"
+    );
+}
