@@ -25,11 +25,11 @@ process, there is no shipped in-process linking path today). Neither has a suppo
 ## The blocker is not the one it looks like
 
 The size of this milestone invites the assumption that it repeats the Node.js/V8 finding (see
-`notes/`, or ask whoever holds that research): a JIT wall nothing gets past. **It is a different
-wall.** LLVM's default codegen backend emits object files ahead-of-time; a normal `cargo build`
+`notes/`, or ask whoever holds that research): a JIT wall nothing gets past. It is a different
+wall. LLVM's default codegen backend emits object files ahead-of-time; a normal `cargo build`
 never generates or executes machine code at runtime. This is not nife's static-`ET_EXEC`-only
-loader's problem at all. The actual blocker is that **fork/exec sits at the architectural center of
-both `rustc`'s linking step and `cargo`'s entire build model**, which is exactly what
+loader's problem at all. The actual blocker is that fork/exec sits at the architectural center of
+both `rustc`'s linking step and `cargo`'s entire build model, which is exactly what
 [milestone 172](172-capability-native-subprocess.md) exists to close.
 
 ## What else this needs, once 172 exists
@@ -38,7 +38,7 @@ both `rustc`'s linking step and `cargo`'s entire build model**, which is exactly
   larger in scope than any single-purpose interpreter: not one purpose-built engine but rustc's
   entire general-purpose backend, with its own build system, target infrastructure and optimization
   pipeline. Size this honestly before committing to it; do not assume it is "vim but bigger."
-- **Threading, tunable rather than blocking.** `rustc` parallelizes codegen units across threads and
+- Threading, tunable rather than blocking. `rustc` parallelizes codegen units across threads and
   `cargo` parallelizes the crate graph; both have a real, well-trodden single-threaded fallback
   (`-Z threads=1`, single codegen unit), already used by constrained/embedded toolchain builds
   elsewhere. Slower, not structurally blocked, and does not need reopening

@@ -28,9 +28,9 @@ capability is involved, because the kernel does not need permission to touch its
 
 ## Why `build_child_space` cannot do the same thing
 
-`crates/supervision_protocol::build_child_space` runs in **userspace**, inside whatever process calls
+`crates/supervision_protocol::build_child_space` runs in userspace, inside whatever process calls
 it (`root_supervisor`, `spawner`, and any other builder role), and builds every page of the child it
-constructs by `Untyped::RETYPE`ing a **fresh frame out of its own budget**
+constructs by `Untyped::RETYPE`ing a fresh frame out of its own budget
 (`retype_page_frame_from(build_ut)`). It has no mechanism for mapping a specific, pre-existing physical
 frame it does not itself own, because in this capability model a process can only map what it holds
 a capability for, and nothing today mints or grants a capability naming the kernel's timebase frame
@@ -65,7 +65,7 @@ point. This milestone is where that closing happens.
    RISC-V reads a device-tree constant, so neither will ever need this particular grant; the
    *mechanism* for "hand a builder process a capability it can pass on to children" would be new,
    shared machinery those two architectures simply never exercise).
-3. **Extend `build_child_space`'s own signature** to accept that capability and map it into
+3. Extend `build_child_space`'s own signature to accept that capability and map it into
    whatever child it is building, via `Frame::MAP` (the two-step retype-then-map protocol
    `notes/frames.md` documents), then update every call site (`root_supervisor`, `spawner`, and any
    other current callers of `build_child_space`).
@@ -89,7 +89,7 @@ shape.
 
 ## BUGS
 
-- **Unbuilt.** Everything above is the plan; nothing in this milestone is built yet.
+- Unbuilt. Everything above is the plan; nothing in this milestone is built yet.
 
 ## Index row
 

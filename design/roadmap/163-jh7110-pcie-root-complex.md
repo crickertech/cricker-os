@@ -23,7 +23,7 @@ about the NVMe/network work this is one piece of).
 
 ## What it needs
 
-Drive the JH7110's PCIe root complex, a **PLDA XpressRICH controller**
+Drive the JH7110's PCIe root complex, a PLDA XpressRICH controller
 (`starfive,jh7110-pcie` in mainline device trees). This is not the same device as QEMU's
 `pci-host-ecam-generic`, which is explicitly a QEMU-only fake exposed by the `virt` boards
 (`design/roadmap/16-real-hardware-iommu.md`'s own framing of the two IOMMUs as "structural
