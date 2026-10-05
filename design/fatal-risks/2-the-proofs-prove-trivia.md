@@ -1,3 +1,7 @@
+---
+experiment_status: RUN
+experiment_run: 2026-08-30
+---
 # 2. The proofs prove trivia, and the real bugs live where Kani cannot reach
 
 *Risk 2 of [the nine](README.md). The status vocabulary, the rule an entry meets and the running order are there.*
@@ -8,7 +12,7 @@ that does not matter.
 **The experiment:** milestone 191 (did the proofs catch the bugs?), against this project's own defect
 history, plus a reverse pass asking which harnesses prove a property that could plausibly be false.
 
-**Experiment status: RUN, 2026-08-30, re-read 2026-10-03.** AMBER (calef, 2026-10-03, #1286). The red half is that no standing proof has caught a
+Re-read 2026-10-03. AMBER (calef, 2026-10-03, #1286). The red half is that no standing proof has caught a
 regression: every defect a proof caught was caught while its harness was being written (rule 1's
 survivorship asymmetry). The second reason is reach. Eight harnesses prove kernel
 code on all three architectures; none passes `asm!`, fixed-address MMIO or an `arch/` subtree its

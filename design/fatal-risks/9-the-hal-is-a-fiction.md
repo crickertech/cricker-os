@@ -1,3 +1,7 @@
+---
+experiment_status: RUN
+experiment_run: 2026-09-17
+---
 # 9. The HAL is a fiction, and an architecture costs a restructure rather than a port, and so does the next machine
 
 *Risk 9 of [the nine](README.md). The status vocabulary, the rule an entry meets and the running order are there.*
@@ -15,7 +19,7 @@ one cloud platform but not another is also its own form of risk."* So it reads a
 architecture and an implementation, a particular machine of one. Both words are provisional. The
 implementation grain is the earlier warning, and the only one that can be bought.
 
-**Experiment status: RUN, 2026-09-17.** GREEN.
+GREEN.
 Milestone 87 (the x86_64 bare-metal machine) reached `nife self-test: 5 of 5 passed` on xenon's own
 firmware, so nife runs on all three declared architectures on real hardware. Everything it needed
 lives under `kernel/src/arch/x86_64/`, and its one defect was fixed inside `arch/x86_64/mmu.rs`. The

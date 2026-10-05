@@ -1,3 +1,7 @@
+---
+experiment_status: RUN
+experiment_run: 2026-08-31
+---
 # 7. The confinement claim is false
 
 *Risk 7 of [the nine](README.md). The status vocabulary, the rule an entry meets and the running order are there.*
@@ -9,7 +13,7 @@ tested.
 **The experiment:** milestone 202 (every confinement test is a ritual until somebody breaks the
 confinement and watches it fail).
 
-**Experiment status: RUN, 2026-08-31.** AMBER (calef, 2026-10-03, #1495). In-house passes found and
+AMBER (calef, 2026-10-03, #1495). In-house passes found and
 fixed real defects (tests that could not fail, three times; claims false in audit 313 and on
 2026-09-21) and found no escape on a component's own authority, and the outsider half is unrun. What
 moves it is the adversarial review of milestone 633 (an outside agent attacks the confinement claim). 26 claims

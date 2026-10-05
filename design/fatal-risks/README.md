@@ -52,8 +52,10 @@ without asking, dated and citing its source. Facts arguing for a new verdict go 
 
 ## What an entry's Experiment status says, and the three words it may say it in
 
-Every entry carries one Experiment status line. It answers one question: has the experiment happened.
-calef ratified the field and its three values on 2026-09-23, in
+Every risk file opens with a frontmatter block carrying one Experiment status, `experiment_status:`,
+and, when the status is `RUN`, the date it ran as `experiment_run:` (both names provisional). The
+field answers one question: has the experiment happened. calef moved it out of a bold line and into
+frontmatter on 2026-10-05 (UTC), and `script/fatal-risks` fails on the old bold line. calef ratified the field and its three values on 2026-09-23, in
 §211 (what a fatal-risk verdict says, and what the chart can plot as a result).
 `script/fatal-risks` fails on a fourth value, because the set was open until then and three lanes
 minted three words in one day. The script's own header carries the ratification and the refusals.
@@ -66,7 +68,9 @@ minted three words in one day. The script's own header carries the ratification 
 
 What it does not say is what the experiment found. That is prose, and it is where `GREEN`, `AMBER`,
 `MEASURED` and `AUDITED` live. None of the four is a value of this field. A reader who wants to know
-whether nife is in trouble reads the paragraph.
+whether nife is in trouble reads the paragraph. The colour has one machine-read home, the
+appendix's `color:`, and the entry's verdict sentence is the prose it must agree with; the risk files
+carry no `color:` key.
 
 ## The nine, one file each
 
@@ -117,14 +121,13 @@ Ranked by chance-of-fatal times cheapness-of-test, not by number. Each cell's ve
   Experiment status field at all, and each says at its head that this document is the claim of
   record. That is rung three of AGENTS.md's ladder, and honest about being rung three.
 - The bold the risk files carry is the gate's, not the prose's. `script/fatal-risks` reads the
-  Experiment status lines, the experiment lead-ins and the running order's verdict cells as markup,
-  so those spans are machinery rather than emphasis. Every other bold span is gone, and what is left
-  spends the whole writing-convention budget of four per thousand words. Editing an entry
-  means spending the gate's budget, not your own. calef ruled on 2026-09-24 (UTC) that markup a gate
-  parses is counted like any other bold, so no exclusion exists and the files have none left. He also
-  said the likely answer is to move these fields out of bold entirely, and that the decision waits on
-  the decision-frontmatter pilot, pull request #1195, reporting. Until then, do not add a bolded span
-  to an entry without removing one.
+  experiment lead-ins and the running order's verdict cells as markup, so those spans are machinery
+  rather than emphasis. The Experiment status lines left that list on 2026-10-05 (UTC), when calef
+  moved them into frontmatter. Every other bold span is gone, and what is left spends the whole
+  writing-convention budget of four per thousand words. Editing an entry means spending the gate's
+  budget, not your own. calef ruled on 2026-09-24 (UTC) that markup a gate parses is counted like any
+  other bold, so no exclusion exists. Until the lead-ins move too, do not add a bolded span to an
+  entry without removing one.
 - ~~Two entries have no owner.~~ Closed 2026-08-31: risks 5 and 7 are milestones 201 and 202, both
   scoped by calef and both reframed in the process, risk 7's by §134 (a harness carries a
   machine-replayable falsification record, or it is not evidence). Neither can return a clean green,
