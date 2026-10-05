@@ -1,0 +1,414 @@
+
+nife on x86_64 (long mode, ring 0, 4-level paging)
+  cpu 0 booted: high-half kernel, .bss, and the 16550 console are up.
+  running at  : 0xffffffff8203fcf0  (high half: the long-mode jump landed)
+  boot info   : 0x00000000b9fbb000  (PVH hvm_start_info, not a device tree)
+  screen      : 1920x1080 bgrx at 0xd0000000, 137x67 cells (boot cmdline)
+  cpu         : x86_64, vendor GenuineIntel, cpuid leaves 0..0x16 and 0x80000000..0x80000008
+              : Intel(R) Core(TM) i5-7500T CPU @ 2.70GHz
+  features    : nx syscall invariant-tsc rdseed
+  cr4.smep    : set on core 0; ring 0 faults on a fetch from a ring-3 page
+  traps       : idt installed; a breakpoint was caught and stepped over (1)
+  memory      : 37 regions from the PVH handoff, rsdp 0xcae09000
+                0x000000000000..0x000000008000  ram
+                0x000000008000..0x000000009000  reserved
+                0x000000009000..0x000000058000  ram
+                0x000000058000..0x000000059000  reserved
+                0x000000059000..0x00000009e000  ram
+                0x00000009e000..0x0000000a0000  reserved
+                0x000000100000..0x000002000000  ram
+                0x000002000000..0x000002162000  reserved
+                0x000002162000..0x0000acfc0000  ram
+                0x0000acfc0000..0x0000ad000000  ram
+                0x0000ad000000..0x0000b7a43000  ram
+                0x0000b7a43000..0x0000b82c5000  reserved
+                0x0000b82c5000..0x0000b9efd000  ram
+                0x0000b9efd000..0x0000b9efe000  acpi-nvs
+                0x0000b9efe000..0x0000b9eff000  reserved
+                0x0000b9eff000..0x0000b9fb0000  ram
+                0x0000b9fb0000..0x0000b9fba000  ram
+                0x0000b9fba000..0x0000b9fbb000  ram
+                0x0000b9fbb000..0x0000b9fbf000  reserved
+                0x0000b9fbf000..0x0000c8940000  ram
+                0x0000c8940000..0x0000c8c89000  ram
+                0x0000c8c89000..0x0000c97c4000  ram
+                0x0000c97c4000..0x0000cadfb000  reserved
+                0x0000cadfb000..0x0000cae41000  acpi
+                0x0000cae41000..0x0000cb775000  acpi-nvs
+                0x0000cb775000..0x0000cbd18000  reserved
+                0x0000cbd18000..0x0000cbdff000  reserved
+                0x0000cbdff000..0x0000cbe00000  ram
+                0x000100000000..0x000140000000  ram
+                0x000140000000..0x0001404a7000  ram
+                0x0001404a7000..0x00042e000000  ram
+                0x0000000a0000..0x000000100000  reserved
+                0x0000cbe00000..0x0000d0000000  reserved
+                0x0000f0000000..0x0000f8000000  reserved
+                0x0000fe000000..0x0000fe011000  reserved
+                0x0000fec00000..0x0000fec01000  reserved
+                0x0000fee00000..0x0000fee01000  reserved
+                usable ram: 16627164 KiB
+  acpi        : rsdp at 0xcae09000 (revision 2), root table 0xcae090b8 (xsdt)
+                0x00cae34210  FACP (268 bytes)
+                0x00cae34320  APIC (132 bytes)
+                0x00cae343a8  FPDT (68 bytes)
+                0x00cae343f0  FIDT (172 bytes)
+                0x00cae344a0  MCFG (60 bytes)
+                0x00cae344e0  HPET (56 bytes)
+                0x00cae34518  SSDT (12662 bytes)
+                0x00cae37690  SSDT (9637 bytes)
+                0x00cae39c38  HPET (56 bytes)
+                0x00cae39c70  SSDT (3557 bytes)
+                0x00cae3aa58  SSDT (2996 bytes)
+                0x00cae3b610  UEFI (66 bytes)
+                0x00cae3b658  SSDT (3806 bytes)
+                0x00cae3c538  LPIT (148 bytes)
+                0x00cae3c5d0  SSDT (321 bytes)
+                0x00cae3c718  SSDT (671 bytes)
+                0x00cae3c9b8  SSDT (12290 bytes)
+                0x00cae3f9c0  SSDT (1293 bytes)
+                0x00cae3fed0  DBGP (52 bytes)
+                0x00cae3ff08  DBG2 (84 bytes)
+                0x00cae3ff60  MSDM (85 bytes)
+                0x00cae3ffb8  SLIC (374 bytes)
+                0x00cae40130  TPM2 (52 bytes)
+                0x00cae40168  ASF! (160 bytes)
+                0x00cae40208  BGRT (56 bytes)
+                0x00cae40240  DMAR (204 bytes)
+                local apic 0xfee00000, 4 cpu(s) enabled, 0 disabled, 8259s present (must be masked)
+                io apic 2 at 0xfec00000, gsi base 0
+                isa irq 0 -> gsi 2 (active high, edge)
+                isa irq 9 -> gsi 9 (active high, level)
+                pcie ecam 0xf0000000, buses 0..=127 (q35's default is 0xb0000000)
+                vt-d drhd at 0xfed90000, named devices only
+                vt-d drhd at 0xfed91000, all (the catch-all)
+                vt-d rmrr 0xcac4e000..=0xcac6dfff (128 KiB), identity-mapped for the device(s) it names
+                vt-d rmrr 0xcd800000..=0xcfffffff (40960 KiB), identity-mapped for the device(s) it names
+                fadt reset register: Io 0xb2 (8 bits) <- 0x73
+  smp: 4 core(s) in the madt
+  pci         : ecam at 0xf0000000 (buses 0..=127), decode was already on
+                bar window 0xd0800000..0xd0a00000, from the firmware map and TOLUD, agreeing
+                00:00.0 8086:591f class 060000
+                00:02.0 8086:5912 class 030000
+                00:14.0 8086:a2af class 0c0330
+                00:14.2 8086:a2b1 class 118000
+                00:15.0 8086:a2e0 class 118000
+                00:16.0 8086:a2ba class 078000
+                00:16.3 8086:a2bd class 070002
+                00:17.0 8086:a282 class 010601
+                00:1b.0 8086:a2e7 class 060400 bridge to buses 01..=01
+                00:1c.0 8086:a297 class 060400 bridge to buses 02..=02
+                00:1f.0 8086:a2c6 class 060100
+                00:1f.2 8086:a2a1 class 058000
+                00:1f.3 8086:a2f0 class 040300
+                00:1f.4 8086:a2a3 class 0c0500
+                00:1f.6 8086:15e3 class 020000
+                01:00.0 1344:5411 class 010802
+                02:00.0 8086:24fd class 028000
+                17 function(s) over 3 bus(es) of the 128 described; mapping 3072 KiB of config space
+                17 function(s) on the bus, 0 with a BAR this kernel can neither use nor adopt
+  apic        : local apic 0xfee00000 up, id 0, version 0x15, 8259s masked
+  clocks      : tsc 2713 MHz (PIT calibration, best of 2 windows, worst 2714 MHz), apic timer 1 MHz (measured against the PIT)
+  timer       : 20 ticks in ~0.2s at 100 Hz (0 spurious)
+  io apic     : id 2 at 0xfec00000 up, version 0x20, 120 redirection entries, gsi base 0
+  device irq  : pit irq 0 -> gsi 2 on vector 0x32: 21 interrupts in ~0.2s at 100 Hz
+  frames      : allocator up over 15 ram region(s) (first frame 0x186000)
+  memory          : 17119 MiB total, 16236 MiB free (903856 KiB in use)
+  mmu             : fine W^X 4-level map installed (cr3 0x187000), image 0xffffffff80000000, direct map 0xffff888000000000
+                  : 336 KiB of page tables (ram in 1 GiB blocks), no identity map, guard pages are holes
+  image       : text 0xffffffff8200a000..0xffffffff82052000, stack 0xffffffff820a0000..0xffffffff820b0000
+  entropy     : rdseed supported (cpuid leaf 7 ebx.18), drew 0x13fb78172a2489e0
+  cycles      : IA32_PERF_FIXED_CTR1 (unhalted core cycles), 48 bits, perfmon v4
+  vt-d        : drhd 0xfed90000 up (1 of 2, named devices only), translation enabled (gsts.tes confirmed), 1 rmrr device(s) identity-mapped
+  vt-d        : drhd 0xfed91000 up (2 of 2, the catch-all), translation enabled (gsts.tes confirmed), 1 rmrr device(s) identity-mapped
+  scheduler   : up on 1 cpu, preempting at 100 Hz (idle thread registered)
+  smp: init-sipi-sipi via the local apic, trampoline at 0x8000
+  cr4.smep    : set on core 2; ring 0 faults on a fetch from a ring-3 page
+  cr4.smep    : set on core 4; ring 0 faults on a fetch from a ring-3 page
+  cr4.smep    : set on core 6; ring 0 faults on a fetch from a ring-3 page
+  smp: 4 core(s) online
+
+nife
+  cpu         : x86_64, vendor GenuineIntel, cpuid leaves 0..0x16 and 0x80000000..0x80000008
+              : Intel(R) Core(TM) i5-7500T CPU @ 2.70GHz
+  features    : nx syscall invariant-tsc rdseed
+  stack top       : 0xffffffff820b0000
+  firmware handoff: 0x00000000b9fbb000  (PVH hvm_start_info)
+  processors      : 4 online of 4 described, boot cpu hwid 0x0
+  memory          : 17119 MiB total, 16227 MiB free (912524 KiB in use)
+  console         : 16550 at i/o port 0x03f8, interrupt line 4
+                  : and a screen, 8294400 bytes of framebuffer at 0xffff8880d0000000
+  interrupts      : local apic 0x00000000fee00000 (id 0), io apic 0x00000000fec00000 (120 entries)
+  timer           : 100 Hz tick, counter at 2713 MHz, interrupts ON
+  initrd          : 4081152 bytes at 0x00000000b7ee0000, a nifefs archive of 105 program(s)
+  pcie            : ecam 0x00000000f0000000..0xf8000000, bar window 0xd0800000..0xd0a00000
+  iommu           : VT-d drhd at 0x00000000fed90000, root table default-deny, translating, interrupt remapping offered (unused)
+  iommu           : VT-d drhd at 0x00000000fed91000, root table default-deny, translating, interrupt remapping offered (unused)
+  mmu             : fine W^X 4-level map installed (cr3 0x187000), image 0xffffffff80000000, direct map 0xffff888000000000
+                  : 336 KiB of page tables (ram in 1 GiB blocks), no identity map, guard pages are holes
+  scheduler       : 5 thread(s), round robin, preemptive
+nife machine: x86_64, 4 processor(s), 17119 MiB, 100 Hz
+  self-test       : exceptions ok      a breakpoint was caught and stepped over (1)
+  self-test       : mapping    ok      0xffff88846e000000 -> 0x9fe000, read back 0xc0ffee, unmapped
+  self-test       : frames     ok      one frame out and back at 0x9fe000; used 228133 -> Some(228134) -> Some(228133)
+  self-test       : timer      ok      the 2713MHz counter advanced 54278888 and 8 tick(s) arrived in ~20ms
+  self-test       : scheduler  ok      thread 5 ran and carried its captured state (0x268026802680268)
+nife self-test: 5 of 5 passed
+  kernel task : a spawned thread ran and carried its captured state (0x16100004) after 1 yield(s)
+
+  capability slots: 2 of 32 at peak
+  user thread 12884901893 killed: vector 14 (page fault)
+    rip 0x0000000060000005   addr 0x0000000000a50000   user rsp 0x000000007fff0000   err 0x00000004
+  the kernel is fine.
+
+  user thread 21474836485 killed: vector 14 (page fault)
+    rip 0x0000000060000005   addr 0x0000000000a50000   user rsp 0x000000007fff0000   err 0x00000004
+  the kernel is fine.
+  userspace   : a process built from untyped ran at cpl 3 and sent 0x1610004 on a granted cap
+                thread 12884901893 died at pc 0x60000005 on addr 0xa50000, delivered to its supervisor
+                two children cost 0 frames the first round and 0 the second (steady state)
+  initrd      : 4081152 bytes at 0xb7ee0000, 105 programs, from the PVH module list
+  boot file   : 4836352 bytes at 0xb7a43000, from the PVH module list
+  capability slots: 4 of 32 at peak
+  install     : this system was booted from a file and can install itself.
+  install     :   TARGET: the NVMe disk attached to this machine, 256060514304 bytes.
+  install     :   EVERYTHING ON THAT DISK WILL BE DESTROYED.
+  install     :   Type INSTALL and press return to proceed; anything else continues the boot.
+  install     : > INSTALL
+  install     : partitioning and copying the boot file...
+  capability slots: 5 of 32 at peak
+  install     : installed. nife data at LBA 2048, EFI system at LBA 499068928.
+  install     : filesystem created.
+  install     : DONE. Remove the installation medium and reboot.
+
+nife: handing the system to the userspace progenitor.
+  uart irq  : 4 (machine description)
+  entropy     : the CPU's seed instruction; the progenitor serves it
+  capability slots: 7 of 32 at peak
+  capability slots: 12 of 32 at peak
+  screen    : handed to a userspace terminal; the kernel writes the UART alone
+  screen    : 924x344 pixels of it served by framebuffer_driver, a 132x43 terminal on it
+  capability slots: 24 of 32 at peak
+  progenitor stack: 5728 of 49152 bytes at peak, 43424 spare
+progenitor: construction budget dropped; retype answers NoSuchSlot
+progenitor: every program measured against the archive table
+progenitor: the file server enforces subtree grants itself; directory grants get a bound badge
+progenitor: entropy service up; the kernel built it on the CPU's seed instruction
+progenitor: login credentials provisioned -- identity 'operator' password [redacted] (shown once; use it now)
+nife capability shell. naming a resource in a command IS granting it.
+commands: help, echo <text>, caps [command], time <command>, xargs <command>,
+          cd, pwd, ls, mkdir, touch, apropos <word>, rm, wc, mdr, <prog> [--mem N] [arg]
+          and the operators  >  >>  <  |
+          'quote a whole word'   and   ;  &&  ||   with  echo $?  for the status
+  progenitor stack: 11840 of 49152 bytes at peak, 37312 spare
+$ 
+nife on x86_64 (long mode, ring 0, 4-level paging)
+  cpu 0 booted: high-half kernel, .bss, and the 16550 console are up.
+  running at  : 0xffffffff8203fcf0  (high half: the long-mode jump landed)
+  boot info   : 0x00000000b9fbb000  (PVH hvm_start_info, not a device tree)
+  screen      : 1920x1080 bgrx at 0xd0000000, 137x67 cells (boot cmdline)
+  cpu         : x86_64, vendor GenuineIntel, cpuid leaves 0..0x16 and 0x80000000..0x80000008
+              : Intel(R) Core(TM) i5-7500T CPU @ 2.70GHz
+  features    : nx syscall invariant-tsc rdseed
+  cr4.smep    : set on core 0; ring 0 faults on a fetch from a ring-3 page
+  traps       : idt installed; a breakpoint was caught and stepped over (1)
+  memory      : 49 regions from the PVH handoff, rsdp 0xcae09000
+                0x000000000000..0x000000008000  ram
+                0x000000008000..0x000000009000  reserved
+                0x000000009000..0x000000058000  ram
+                0x000000058000..0x000000059000  reserved
+                0x000000059000..0x00000009e000  ram
+                0x00000009e000..0x0000000a0000  reserved
+                0x000000100000..0x000002000000  ram
+                0x000002000000..0x000002162000  reserved
+                0x000002162000..0x0000acfc0000  ram
+                0x0000acfc0000..0x0000ad000000  ram
+                0x0000ad000000..0x0000b759c000  ram
+                0x0000b759c000..0x0000b7981000  reserved
+                0x0000b7981000..0x0000b7e28000  ram
+                0x0000b7e28000..0x0000b82c5000  reserved
+                0x0000b82c5000..0x0000b9efd000  ram
+                0x0000b9efd000..0x0000b9efe000  acpi-nvs
+                0x0000b9efe000..0x0000b9eff000  reserved
+                0x0000b9eff000..0x0000b9fb0000  ram
+                0x0000b9fb0000..0x0000b9fba000  ram
+                0x0000b9fba000..0x0000b9fbb000  ram
+                0x0000b9fbb000..0x0000b9fbf000  reserved
+                0x0000b9fbf000..0x0000c8940000  ram
+                0x0000c8940000..0x0000c8c89000  ram
+                0x0000c8c89000..0x0000c97c4000  ram
+                0x0000c97c4000..0x0000cadfb000  reserved
+                0x0000cadfb000..0x0000cae41000  acpi
+                0x0000cae41000..0x0000cb775000  acpi-nvs
+                0x0000cb775000..0x0000cbd18000  reserved
+                0x0000cbd18000..0x0000cbdff000  reserved
+                0x0000cbdff000..0x0000cbe00000  ram
+                0x000100000000..0x000140000000  ram
+                0x000140000000..0x0001404a7000  ram
+                0x0001404a7000..0x00042e000000  ram
+                0x0000000a0000..0x000000100000  reserved
+                0x0000cbe00000..0x0000d0000000  reserved
+                0x0000f0000000..0x0000f8000000  reserved
+                0x0000fe000000..0x0000fe011000  reserved
+                0x0000fec00000..0x0000fec01000  reserved
+                0x0000fee00000..0x0000fee01000  reserved
+                0x0000ff000000..0x000100000000  reserved
+                0x000000000000..0x000000000000  unknown
+                0x000000000000..0x000000000000  unknown
+                0x000000000000..0x000000000000  unknown
+                0x000000000000..0x000000000000  unknown
+                0x000000000000..0x000000000000  unknown
+                0x000000000000..0x000000000000  unknown
+                0x000000000000..0x000000000000  unknown
+                0x000000000000..0x000000000000  unknown
+                0x000000000000..0x000000000000  unknown
+                usable ram: 16627164 KiB
+  acpi        : rsdp at 0xcae09000 (revision 2), root table 0xcae090b8 (xsdt)
+                0x00cae34210  FACP (268 bytes)
+                0x00cae34320  APIC (132 bytes)
+                0x00cae343a8  FPDT (68 bytes)
+                0x00cae343f0  FIDT (172 bytes)
+                0x00cae344a0  MCFG (60 bytes)
+                0x00cae344e0  HPET (56 bytes)
+                0x00cae34518  SSDT (12662 bytes)
+                0x00cae37690  SSDT (9637 bytes)
+                0x00cae39c38  HPET (56 bytes)
+                0x00cae39c70  SSDT (3557 bytes)
+                0x00cae3aa58  SSDT (2996 bytes)
+                0x00cae3b610  UEFI (66 bytes)
+                0x00cae3b658  SSDT (3806 bytes)
+                0x00cae3c538  LPIT (148 bytes)
+                0x00cae3c5d0  SSDT (321 bytes)
+                0x00cae3c718  SSDT (671 bytes)
+                0x00cae3c9b8  SSDT (12290 bytes)
+                0x00cae3f9c0  SSDT (1293 bytes)
+                0x00cae3fed0  DBGP (52 bytes)
+                0x00cae3ff08  DBG2 (84 bytes)
+                0x00cae3ff60  MSDM (85 bytes)
+                0x00cae3ffb8  SLIC (374 bytes)
+                0x00cae40130  TPM2 (52 bytes)
+                0x00cae40168  ASF! (160 bytes)
+                0x00cae40208  BGRT (56 bytes)
+                0x00cae40240  DMAR (204 bytes)
+                local apic 0xfee00000, 4 cpu(s) enabled, 0 disabled, 8259s present (must be masked)
+                io apic 2 at 0xfec00000, gsi base 0
+                isa irq 0 -> gsi 2 (active high, edge)
+                isa irq 9 -> gsi 9 (active high, level)
+                pcie ecam 0xf0000000, buses 0..=127 (q35's default is 0xb0000000)
+                vt-d drhd at 0xfed90000, named devices only
+                vt-d drhd at 0xfed91000, all (the catch-all)
+                vt-d rmrr 0xcac4e000..=0xcac6dfff (128 KiB), identity-mapped for the device(s) it names
+                vt-d rmrr 0xcd800000..=0xcfffffff (40960 KiB), identity-mapped for the device(s) it names
+                fadt reset register: Io 0xb2 (8 bits) <- 0x73
+  smp: 4 core(s) in the madt
+  pci         : ecam at 0xf0000000 (buses 0..=127), decode was already on
+                bar window 0xd0800000..0xd0a00000, from the firmware map and TOLUD, agreeing
+                00:00.0 8086:591f class 060000
+                00:02.0 8086:5912 class 030000
+                00:14.0 8086:a2af class 0c0330
+                00:14.2 8086:a2b1 class 118000
+                00:15.0 8086:a2e0 class 118000
+                00:16.0 8086:a2ba class 078000
+                00:16.3 8086:a2bd class 070002
+                00:17.0 8086:a282 class 010601
+                00:1b.0 8086:a2e7 class 060400 bridge to buses 01..=01
+                00:1c.0 8086:a297 class 060400 bridge to buses 02..=02
+                00:1f.0 8086:a2c6 class 060100
+                00:1f.2 8086:a2a1 class 058000
+                00:1f.3 8086:a2f0 class 040300
+                00:1f.4 8086:a2a3 class 0c0500
+                00:1f.6 8086:15e3 class 020000
+                01:00.0 1344:5411 class 010802
+                02:00.0 8086:24fd class 028000
+                17 function(s) over 3 bus(es) of the 128 described; mapping 3072 KiB of config space
+                17 function(s) on the bus, 0 with a BAR this kernel can neither use nor adopt
+  apic        : local apic 0xfee00000 up, id 0, version 0x15, 8259s masked
+  clocks      : tsc 2713 MHz (PIT calibration, best of 2 windows, worst 2714 MHz), apic timer 1 MHz (measured against the PIT)
+  timer       : 20 ticks in ~0.2s at 100 Hz (0 spurious)
+  io apic     : id 2 at 0xfec00000 up, version 0x20, 120 redirection entries, gsi base 0
+  device irq  : pit irq 0 -> gsi 2 on vector 0x32: 21 interrupts in ~0.2s at 100 Hz
+  frames      : allocator up over 16 ram region(s) (first frame 0x186000)
+  memory          : 17119 MiB total, 16236 MiB free (903856 KiB in use)
+  mmu             : fine W^X 4-level map installed (cr3 0x187000), image 0xffffffff80000000, direct map 0xffff888000000000
+                  : 340 KiB of page tables (ram in 1 GiB blocks), no identity map, guard pages are holes
+  image       : text 0xffffffff8200a000..0xffffffff82052000, stack 0xffffffff820a0000..0xffffffff820b0000
+  entropy     : rdseed supported (cpuid leaf 7 ebx.18), drew 0x4da2ee020b80adfd
+  cycles      : IA32_PERF_FIXED_CTR1 (unhalted core cycles), 48 bits, perfmon v4
+  vt-d        : drhd 0xfed90000 up (1 of 2, named devices only), translation enabled (gsts.tes confirmed), 1 rmrr device(s) identity-mapped
+  vt-d        : drhd 0xfed91000 up (2 of 2, the catch-all), translation enabled (gsts.tes confirmed), 1 rmrr device(s) identity-mapped
+  scheduler   : up on 1 cpu, preempting at 100 Hz (idle thread registered)
+  smp: init-sipi-sipi via the local apic, trampoline at 0x8000
+  cr4.smep    : set on core 2; ring 0 faults on a fetch from a ring-3 page
+  cr4.smep    : set on core 4; ring 0 faults on a fetch from a ring-3 page
+  cr4.smep    : set on core 6; ring 0 faults on a fetch from a ring-3 page
+  smp: 4 core(s) online
+
+nife
+  cpu         : x86_64, vendor GenuineIntel, cpuid leaves 0..0x16 and 0x80000000..0x80000008
+              : Intel(R) Core(TM) i5-7500T CPU @ 2.70GHz
+  features    : nx syscall invariant-tsc rdseed
+  stack top       : 0xffffffff820b0000
+  firmware handoff: 0x00000000b9fbb000  (PVH hvm_start_info)
+  processors      : 4 online of 4 described, boot cpu hwid 0x0
+  memory          : 17119 MiB total, 16227 MiB free (912528 KiB in use)
+  console         : 16550 at i/o port 0x03f8, interrupt line 4
+                  : and a screen, 8294400 bytes of framebuffer at 0xffff8880d0000000
+  interrupts      : local apic 0x00000000fee00000 (id 0), io apic 0x00000000fec00000 (120 entries)
+  timer           : 100 Hz tick, counter at 2713 MHz, interrupts ON
+  initrd          : 4081152 bytes at 0x00000000b759c000, a nifefs archive of 105 program(s)
+  pcie            : ecam 0x00000000f0000000..0xf8000000, bar window 0xd0800000..0xd0a00000
+  iommu           : VT-d drhd at 0x00000000fed90000, root table default-deny, translating, interrupt remapping offered (unused)
+  iommu           : VT-d drhd at 0x00000000fed91000, root table default-deny, translating, interrupt remapping offered (unused)
+  mmu             : fine W^X 4-level map installed (cr3 0x187000), image 0xffffffff80000000, direct map 0xffff888000000000
+                  : 340 KiB of page tables (ram in 1 GiB blocks), no identity map, guard pages are holes
+  scheduler       : 5 thread(s), round robin, preemptive
+nife machine: x86_64, 4 processor(s), 17119 MiB, 100 Hz
+  self-test       : exceptions ok      a breakpoint was caught and stepped over (1)
+  self-test       : mapping    ok      0xffff88846e000000 -> 0x9ff000, read back 0xc0ffee, unmapped
+  self-test       : frames     ok      one frame out and back at 0x9ff000; used 228134 -> Some(228135) -> Some(228134)
+  self-test       : timer      ok      the 2713MHz counter advanced 54273664 and 8 tick(s) arrived in ~20ms
+  self-test       : scheduler  ok      thread 5 ran and carried its captured state (0x268026802680268)
+nife self-test: 5 of 5 passed
+  kernel task : a spawned thread ran and carried its captured state (0x16100004) after 1 yield(s)
+
+  user thread 12884901893 killed: vector 14 (page fault)
+    rip 0x0000000060000005   addr 0x0000000000a50000   user rsp 0x000000007fff0000   err 0x00000004
+  the kernel is fine.
+  capability slots: 2 of 32 at peak
+
+  user thread 21474836485 killed: vector 14 (page fault)
+    rip 0x0000000060000005   addr 0x0000000000a50000   user rsp 0x000000007fff0000   err 0x00000004
+  the kernel is fine.
+  userspace   : a process built from untyped ran at cpl 3 and sent 0x1610004 on a granted cap
+                thread 12884901893 died at pc 0x60000005 on addr 0xa50000, delivered to its supervisor
+                two children cost 0 frames the first round and 0 the second (steady state)
+  initrd      : 4081152 bytes at 0xb759c000, 105 programs, from the PVH module list
+  boot file   : none (this boot did not come from a file)
+
+nife: handing the system to the userspace progenitor.
+  uart irq  : 4 (machine description)
+  capability slots: 5 of 32 at peak
+  entropy     : the CPU's seed instruction; the progenitor serves it
+  capability slots: 7 of 32 at peak
+  capability slots: 12 of 32 at peak
+  screen    : handed to a userspace terminal; the kernel writes the UART alone
+  screen    : 924x344 pixels of it served by framebuffer_driver, a 132x43 terminal on it
+  boot slot   : slot 0 was already confirmed; nothing written.
+  capability slots: 24 of 32 at peak
+  progenitor stack: 5728 of 49152 bytes at peak, 43424 spare
+progenitor: construction budget dropped; retype answers NoSuchSlot
+progenitor: every program measured against the archive table
+progenitor: the file server enforces subtree grants itself; directory grants get a bound badge
+progenitor: entropy service up; the kernel built it on the CPU's seed instruction
+progenitor: login credentials provisioned -- identity 'operator' password [redacted] (shown once; use it now)
+nife capability shell. naming a resource in a command IS granting it.
+commands: help, echo <text>, caps [command], time <command>, xargs <command>,
+          cd, pwd, ls, mkdir, touch, apropos <word>, rm, wc, mdr, <prog> [--mem N] [arg]
+          and the operators  >  >>  <  |
+          'quote a whole word'   and   ;  &&  ||   with  echo $?  for the status
+$ 
+  progenitor stack: 11840 of 49152 bytes at peak, 37312 spare
+$ 
+nife x86_64: the progenitor is running at ring 3; 0 of the processes it built stopped on purpose.
+  prompt     : the shell above is served by userspace console and input drivers holding COM1 as a port capability (milestone 299).
+$ 

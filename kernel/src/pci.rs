@@ -372,6 +372,50 @@ pub fn bridge_bus_range(bus: u8, dev: u8, func: u8) -> Option<(u8, u8)> {
     Some((b.secondary, b.subordinate))
 }
 
+/// **Bench diagnostic for fatal risk 6's CompletionTimeout on xenon (2026-10-04).** The command
+/// and status words of the NVMe function `rid` and of every bridge on bus 0 whose range holds its
+/// bus. A root port with Bus-Master clear forwards no upstream DMA, and this kernel sets
+/// Bus-Master on the endpoint only; status bits name an abort the endpoint saw. Two short lines,
+/// at most, so the photograph holds them.
+#[cfg(feature = "disk_throughput")]
+pub fn print_dma_path(rid: u32) {
+    let ep = Bdf {
+        bus: (rid >> 8) as u8,
+        dev: ((rid >> 3) & 0x1f) as u8,
+        func: (rid & 7) as u8,
+    };
+    let w = cfg_read32(ep, pci::COMMAND);
+    crate::println!(
+        "diag pci  {:02x}:{:02x}.{} cmd {:#06x} sts {:#06x} (bme {})",
+        ep.bus,
+        ep.dev,
+        ep.func,
+        w & 0xffff,
+        w >> 16,
+        w >> 2 & 1
+    );
+    for dev in 0..32u8 {
+        for func in 0..8u8 {
+            let Some((sec, sub)) = bridge_bus_range(0, dev, func) else {
+                continue;
+            };
+            if ep.bus == 0 || ep.bus < sec || ep.bus > sub {
+                continue;
+            }
+            let b = Bdf { bus: 0, dev, func };
+            let w = cfg_read32(b, pci::COMMAND);
+            // Secondary status is the upper half of the dword at 0x1c (I/O base and limit below).
+            let sec_sts = cfg_read32(b, 0x1c) >> 16;
+            crate::println!(
+                "diag pci  bridge 00:{dev:02x}.{func} cmd {:#06x} sts {:#06x} secsts {sec_sts:#06x} (bme {})",
+                w & 0xffff,
+                w >> 16,
+                w >> 2 & 1
+            );
+        }
+    }
+}
+
 fn cfg_write32(bdf: Bdf, off: u64, v: u32) {
     let va = mmu::phys_to_virt(ECAM_BASE.load(Ordering::Relaxed) + bdf.ecam_offset() + (off & !3));
     // SAFETY: as above; config writes go to the one function this bdf names.
@@ -1023,6 +1067,76 @@ pub fn find_xhci_device() -> Option<PciXhciDevice> {
         rid: bdf.requester_id(),
         intid,
         withheld,
+    })
+}
+
+/// An enumerated, brought-up `e1000e`-family NIC (milestone 494 (a driver for the network card a
+/// PC actually has)): BAR0 placed and decoding, bus mastering on, the requester id known so the
+/// caller can confine its DMA before the device is told where any ring is. No INTx line, for the
+/// reason [`PciNvmeDevice`] has none: the data plane polls.
+#[derive(Debug, Clone, Copy)]
+pub struct PciE1000eDevice {
+    /// The register file's physical base (BAR0, 128 KiB on the 82574L).
+    pub bar0: u64,
+    /// The PCIe requester id, the key the IOMMU confines DMA by.
+    pub rid: u32,
+    /// The PCI device id, which says which part this is (`e1000e::model`).
+    pub device: u16,
+    bdf: Bdf,
+}
+
+impl PciE1000eDevice {
+    /// Read a dword of this function's configuration space. The I219's descriptor-ring flush
+    /// reads its status word at `0xe4` (`e1000e::pch::flush`), which is the one reason a NIC
+    /// driver here needs configuration space after bring-up.
+    pub fn config_read32(&self, off: u64) -> u32 {
+        cfg_read32(self.bdf, off)
+    }
+}
+
+/// Find the first function `e1000e::is_supported` claims and bring its transport up, in
+/// [`find_nvme_device`]'s order and for its reasons: BARs placed, then memory decoding and bus
+/// mastering last. `None` if no such function is on the bus.
+///
+/// **The same shape as `find_nvme_device` with a different predicate**, and a third copy is where
+/// a shared `find_function(predicate)` should be lifted rather than written (milestone 242 (USB host and a keyboard that is not a UART)'s xHCI
+/// lane is in the same position). Not lifted here, so this lane does not edit the NVMe path.
+pub fn find_e1000e_device() -> Option<PciE1000eDevice> {
+    if !is_host_bridge_present() {
+        return None;
+    }
+    let mut found: Option<(Bdf, u16)> = None;
+    pci::enumerate(
+        ecam_buses(),
+        &mut |b, o| cfg_read32(b, o),
+        &mut |bdf, vendor, device| {
+            if found.is_none() && ::e1000e::is_supported(vendor, device) {
+                found = Some((bdf, device));
+            }
+        },
+    );
+    let (bdf, device) = found?;
+
+    let mut bars = pci::read_bars(bdf, &mut |b, o| cfg_read32(b, o), &mut |b, o, v| {
+        cfg_write32(b, o, v);
+    });
+    if !place_bars(bdf, &mut bars) {
+        return None;
+    }
+    let bar0 = bars[0].as_ref().map(|b| b.base)?;
+
+    let cmd = cfg_read32(bdf, pci::COMMAND) as u16;
+    cfg_write32(
+        bdf,
+        pci::COMMAND,
+        (cmd | pci::CMD_MEMORY_SPACE | pci::CMD_BUS_MASTER) as u32,
+    );
+
+    Some(PciE1000eDevice {
+        bar0,
+        rid: bdf.requester_id(),
+        device,
+        bdf,
     })
 }
 

@@ -909,6 +909,9 @@ pub fn bring_up_memory(info: &BootInfo) -> usize {
     // `user::install_service::confirm` is the one consumer; a boot no chooser started records
     // nothing and confirms nothing.
     crate::memory::record_boot_slot(boot_slot(info));
+    // And whether the boot came from the NVMe disk, the one fact that lets the internal disk be
+    // mounted at all (`boot_slot::medium`; calef's ruling on PR #1652, 2026-10-04 UTC).
+    crate::memory::record_booted_from_nvme(cmdline(info).is_some_and(boot_slot::medium::is_nvme));
 
     crate::memory::bring_up_page_frames(&ram[..count], &forbidden[..forbidden_count]);
     count

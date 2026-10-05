@@ -184,3 +184,42 @@ impl MappedWindow {
         unsafe { core::slice::from_raw_parts_mut(self.base as *mut u8, self.len as usize) }
     }
 }
+
+/// **Order this process's stores to device-visible memory before a store to a device register
+/// that announces them**, and a status read before the payload reads it gates.
+///
+/// For a driver whose doorbell is a direct store to a device-typed page in its own address space,
+/// with no syscall between the ring stores and it: `dmb sy` on aarch64, `fence` on riscv64,
+/// `mfence` on x86_64. Lifted on 2026-10-04 by milestone 494 (a driver for the network card a PC
+/// actually has) from `components/src/non_volatile_memory_express.rs`, whose own comment explains
+/// why it is stronger than [`crate::virtio::virtio_ring_barrier`] (those drivers notify through a
+/// syscall) and must not be merged with it. The `e1000e` data plane was its second caller.
+///
+/// Name: provisional (milestone 494's lane, 2026-10-04).
+pub fn doorbell_barrier() {
+    // SAFETY: a barrier has no operands and cannot be unsound; it only constrains ordering.
+    #[cfg(target_arch = "aarch64")]
+    unsafe {
+        core::arch::asm!("dmb sy", options(nostack, nomem, preserves_flags));
+    }
+    // SAFETY: as above.
+    #[cfg(target_arch = "riscv64")]
+    unsafe {
+        core::arch::asm!("fence", options(nostack, preserves_flags));
+    }
+    // SAFETY: as above.
+    #[cfg(target_arch = "x86_64")]
+    unsafe {
+        core::arch::asm!("mfence", options(nostack, nomem, preserves_flags));
+    }
+    // A fourth architecture fails to build rather than silently ordering nothing.
+    #[cfg(not(any(
+        target_arch = "aarch64",
+        target_arch = "riscv64",
+        target_arch = "x86_64"
+    )))]
+    compile_error!(
+        "doorbell_barrier(): this architecture has no ordering named here. A ring publish must be \
+         visible before the doorbell that announces it; name the instruction that does that."
+    );
+}

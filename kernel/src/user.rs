@@ -2043,7 +2043,8 @@ pub fn riscv_uart_driver_demo(
         feature = "bench",
         feature = "soak_test",
         feature = "job_mix",
-        feature = "disk_throughput"
+        feature = "disk_throughput",
+        feature = "network_bench"
     ),
     allow(dead_code)
 )]
@@ -3220,6 +3221,13 @@ pub mod entropy_service;
 /// only what exercises it.
 #[cfg_attr(not(feature = "system_tests"), allow(dead_code))] // the tests are its callers
 pub mod non_volatile_memory_express_service;
+
+/// **`net_stack` over the `e1000e` NIC** (milestone 494 (a driver for the network card a PC
+/// actually has)): the kernel resets the controller and programs its rings, and the process is
+/// handed the two queue pages of BAR0 and the confined DMA region, in milestone 261 (the NVMe driver leaves the kernel)'s shape. What
+/// it holds and what it is refused is in that module's header.
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))] // the tests are its callers
+pub mod e1000e_service;
 
 /// **The offer a booted stick makes** (milestone 198 (a package manager, and the trivial install
 /// that makes a second customer possible), rung 2a): ask whether to put this system on the
