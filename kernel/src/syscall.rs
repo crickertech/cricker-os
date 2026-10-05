@@ -467,7 +467,7 @@ pub fn invoke(
             // §102 (2026-08-20): `count` rides on the capability, not on the syscall's arguments,
             // so `MAP`'s and `REVOKE`'s wire shape is exactly what it was before the object could
             // name a run. A single-page frame (`count: 1`) runs each loop below once.
-            abi::page_frame::MAP => page_frame_map(cap, phys, count, a0, a1, a2),
+            abi::page_frame::MAP => page_frame_map(slot, a0, a1, a2),
             abi::page_frame::REVOKE => {
                 if !cap.rights.allows(Rights::GRANT) {
                     return Err(Error::NotPermitted);
@@ -669,6 +669,15 @@ fn timer_invoke(
 /// `address_space_list` proved on milestone 126's `LIST`): `syscall_entry` is measured flat, so a rare
 /// administrative arm inlined into the hot dispatcher grows every syscall's footprint for a
 /// method that never runs on an IPC round trip.
+///
+/// **Retype, map and record are one [`MappingHold`](crate::revoke::MappingHold)** (the
+/// map-revocation-window lane, 2026-10-04 UTC). A region is generational, so the window here was
+/// narrower than `PageFrame::MAP`'s, and it was there: a retype that succeeded before
+/// `MemoryRegion::DESTROY` claimed the region (the claim is the generation bump, after which a
+/// retype refuses) and recorded after `revoke_region` had scanned left a live mapping of a page the
+/// allocator then reused. Under the hold, the claim lands before the retype (it refuses) or the
+/// scan lands after the record (it finds it).
+/// `map_revocation_window_tests::a_destroy_inside_a_memory_region_map_leaves_no_mapping` drives it.
 #[inline(never)]
 fn memory_region_map(region: u64, va: u64) -> Result<i64, Error> {
     // Reject the cheap failures BEFORE retyping a page for them: a non-page-aligned or
@@ -680,6 +689,9 @@ fn memory_region_map(region: u64, va: u64) -> Result<i64, Error> {
     if !paging::is_user_page_va::<crate::arch::mmu::Format>(va) {
         return Err(Error::BadPointer);
     }
+    #[cfg(feature = "system_tests")]
+    crate::delegation_pause::here(); // no lock held
+    let mut hold = crate::revoke::hold();
     match mmu::map_current_user_page(va, paging::Flags::user_data(), || {
         crate::memory_region::retype_page(region)
     }) {
@@ -693,7 +705,7 @@ fn memory_region_map(region: u64, va: u64) -> Result<i64, Error> {
             // step, so there is never a `PageFrame` capability and no derivation family to scope a
             // revoke to. Reclamation finds the record regardless, because `revoke_region`'s unmap
             // sweep is object-blind by design.
-            if !crate::revoke::record_mapping(
+            if !hold.record_mapping(
                 phys,
                 mmu::current_user_root(),
                 va,
@@ -883,153 +895,157 @@ fn address_space_map_into(
         return Err(Error::NotPermitted);
     }
     let va = a0;
-    let frame = sched::current_cap(a1).map_err(|_| Error::NoSuchSlot)?;
-    // The mappable object is a PageFrame (normal memory) or a DeviceFrame (a device's
-    // MMIO, device-typed): the driver a userspace progenitor builds gets its registers this
-    // way (19d.2). a2 chooses the shape for a PageFrame; a DeviceFrame is always
-    // device-typed read/write and needs WRITE on the cap.
-    let (phys, count, flags) = match frame.object {
-        Object::DeviceFrame(phys) => {
-            if !frame.rights.allows(Rights::WRITE) {
-                return Err(Error::NotPermitted);
+    // **The frame is read under the hold that maps and records it** (the map-revocation-window
+    // lane, 2026-10-04 UTC). It used to be read here with `sched::current_cap`, in a critical
+    // section of its own, and a sweep could fall between that read and the record and leave the
+    // mapping live: `revoke::MappingHold` has the whole account. The space's registry comes first
+    // because it ranks above the mapping registry; neither touches `IPC_TABLES`.
+    #[cfg(feature = "system_tests")]
+    crate::delegation_pause::here(); // no lock held
+    crate::user::with_user_address_space(name, |space| {
+        let mut hold = crate::revoke::hold();
+        let frame = hold.current_cap(a1).map_err(|_| Error::NoSuchSlot)?;
+        // The mappable object is a PageFrame (normal memory) or a DeviceFrame (a device's
+        // MMIO, device-typed): the driver a userspace progenitor builds gets its registers this
+        // way (19d.2). a2 chooses the shape for a PageFrame; a DeviceFrame is always
+        // device-typed read/write and needs WRITE on the cap.
+        let (phys, count, flags) = match frame.object {
+            Object::DeviceFrame(phys) => {
+                if !frame.rights.allows(Rights::WRITE) {
+                    return Err(Error::NotPermitted);
+                }
+                (phys, 1u64, paging::Flags::user_device())
             }
-            (phys, 1u64, paging::Flags::user_device())
+            // §102 (2026-08-20): `count` is the run's length. A single-page frame is
+            // `count: 1`, so this arm's behavior for every existing caller is unchanged; a
+            // run-capable frame maps the whole run in this one MAP_INTO call, exactly as
+            // `page_frame::MAP` does below.
+            Object::PageFrame(phys, count) => {
+                // 0 read-only, 1 read/write, 2 executable code (a loader's child .text).
+                // Code is W^X: user_code is RX, never writable, so it needs only READ.
+                let flags = match a2 {
+                    abi::address_space::MAP_RW => {
+                        if !frame.rights.allows(Rights::WRITE) {
+                            return Err(Error::NotPermitted);
+                        }
+                        paging::Flags::user_data()
+                    }
+                    abi::address_space::MAP_CODE => {
+                        if !frame.rights.allows(Rights::READ) {
+                            return Err(Error::NotPermitted);
+                        }
+                        paging::Flags::user_code()
+                    }
+                    _ => {
+                        if !frame.rights.allows(Rights::READ) {
+                            return Err(Error::NotPermitted);
+                        }
+                        paging::Flags::user_rodata()
+                    }
+                };
+                (phys, count.get(), flags)
+            }
+            _ => return Err(Error::WrongObject),
+        };
+        // **The run's last page is checked, not only its first** (milestone 142's review,
+        // MAJOR 3). This used to check `va` alone, which was right when a frame was one
+        // page and wrong the moment `count` could exceed 1: a run placed near the top of
+        // the low half passed the check and then walked out of it partway through the loop
+        // below, refused three layers down by `Mapper::map`'s own `Half::Low` re-check
+        // rather than here. Same guard `page_frame_map` uses, same reason: reject the whole
+        // request before mapping any of it.
+        let Some(last_va) = run_end_va(va, count) else {
+            return Err(Error::BadPointer);
+        };
+        if !paging::is_user_page_va::<crate::arch::mmu::Format>(va)
+            || !paging::is_user_page_va::<crate::arch::mmu::Format>(last_va)
+        {
+            return Err(Error::BadPointer);
         }
-        // §102 (2026-08-20): `count` is the run's length. A single-page frame is
-        // `count: 1`, so this arm's behavior for every existing caller is unchanged; a
-        // run-capable frame maps the whole run in this one MAP_INTO call, exactly as
-        // `page_frame::MAP` does below.
-        Object::PageFrame(phys, count) => {
-            // 0 read-only, 1 read/write, 2 executable code (a loader's child .text).
-            // Code is W^X: user_code is RX, never writable, so it needs only READ.
-            let flags = match a2 {
-                abi::address_space::MAP_RW => {
-                    if !frame.rights.allows(Rights::WRITE) {
-                        return Err(Error::NotPermitted);
+        // A `MAP_INTO` naming a space that does not exist fails before it spends a page
+        // table, and the loop's own `NotMapped` would otherwise report that as a mapping
+        // failure with nothing to roll back.
+        let Some(space) = space else {
+            return Err(Error::BadPointer);
+        };
+        let root = space.root();
+        for k in 0..count {
+            let (page_phys, page_va) = (phys + k * paging::PAGE_SIZE, va + k * paging::PAGE_SIZE);
+            // `phys` is the run's base for a `PageFrame` and the page itself for a
+            // `DeviceFrame`, so in both arms it is the object the invoked capability names
+            // (§132). The device case never scopes a revoke by it: `DeviceFrame::REVOKE`
+            // scopes by holder, not by capability, which `revoke_device_from_others`
+            // explains.
+            match space.map_physical_held(
+                &mut hold,
+                page_va,
+                page_phys,
+                flags,
+                crate::revoke::PageMapSource::Capability(phys),
+            ) {
+                Ok(()) => {
+                    // When userspace maps a frame it wrote executable (a spawner building a
+                    // child's code, MAP_CODE), the instruction fetcher must be made to see
+                    // the bytes the writer stored: RISC-V's `fence.i`, aarch64's
+                    // dcache-clean + icache-invalidate, both behind `sync_icache`. The
+                    // kernel-side ELF loader does this (user.rs map_segments); this is the
+                    // userspace-built path, which a fast spawn+reap loop (bench::spawn_el0)
+                    // is the first thing to stress. A child that fetches unsynced code
+                    // takes an illegal-instruction fault at its entry.
+                    if flags.is_user_executable() {
+                        crate::arch::sync_icache(
+                            crate::arch::mmu::phys_to_virt(page_phys),
+                            paging::PAGE_SIZE as usize,
+                        );
                     }
-                    paging::Flags::user_data()
                 }
-                abi::address_space::MAP_CODE => {
-                    if !frame.rights.allows(Rights::READ) {
-                        return Err(Error::NotPermitted);
-                    }
-                    paging::Flags::user_code()
-                }
-                _ => {
-                    if !frame.rights.allows(Rights::READ) {
-                        return Err(Error::NotPermitted);
-                    }
-                    paging::Flags::user_rodata()
-                }
-            };
-            (phys, count.get(), flags)
-        }
-        _ => return Err(Error::WrongObject),
-    };
-    // **The run's last page is checked, not only its first** (milestone 142's review,
-    // MAJOR 3). This used to check `va` alone, which was right when a frame was one
-    // page and wrong the moment `count` could exceed 1: a run placed near the top of
-    // the low half passed the check and then walked out of it partway through the loop
-    // below, refused three layers down by `Mapper::map`'s own `Half::Low` re-check
-    // rather than here. Same guard `page_frame_map` uses, same reason: reject the whole
-    // request before mapping any of it.
-    let Some(last_va) = run_end_va(va, count) else {
-        return Err(Error::BadPointer);
-    };
-    if !paging::is_user_page_va::<crate::arch::mmu::Format>(va)
-        || !paging::is_user_page_va::<crate::arch::mmu::Format>(last_va)
-    {
-        return Err(Error::BadPointer);
-    }
-    // The root the rollback below unmaps out of. Looked up once, before anything is
-    // mapped: a `MAP_INTO` naming a space that does not exist must fail before it
-    // spends a page table, and the loop's own `NotMapped` would otherwise report that
-    // as a mapping failure with nothing to roll back.
-    let Some(root) = crate::user::user_address_space_root(name) else {
-        return Err(Error::BadPointer);
-    };
-    for k in 0..count {
-        let (page_phys, page_va) = (phys + k * paging::PAGE_SIZE, va + k * paging::PAGE_SIZE);
-        // `phys` is the run's base for a `PageFrame` and the page itself for a
-        // `DeviceFrame`, so in both arms it is the object the invoked capability names
-        // (§132). The device case never scopes a revoke by it: `DeviceFrame::REVOKE`
-        // scopes by holder, not by capability, which `revoke_device_from_others`
-        // explains.
-        match crate::user::user_address_space_map(
-            name,
-            page_va,
-            page_phys,
-            flags,
-            crate::revoke::PageMapSource::Capability(phys),
-        ) {
-            Ok(()) => {
-                // When userspace maps a frame it wrote executable (a spawner building a
-                // child's code, MAP_CODE), the instruction fetcher must be made to see
-                // the bytes the writer stored: RISC-V's `fence.i`, aarch64's
-                // dcache-clean + icache-invalidate, both behind `sync_icache`. The
-                // kernel-side ELF loader does this (user.rs map_segments); this is the
-                // userspace-built path, which a fast spawn+reap loop (bench::spawn_el0)
-                // is the first thing to stress. A child that fetches unsynced code
-                // takes an illegal-instruction fault at its entry.
-                if flags.is_user_executable() {
-                    crate::arch::sync_icache(
-                        crate::arch::mmu::phys_to_virt(page_phys),
-                        paging::PAGE_SIZE as usize,
-                    );
+                // **All or nothing across the run** (milestone 142's review, MAJOR 2).
+                // Whatever this loop mapped before failing is unmapped again, so a caller
+                // that gets an error never has to wonder how much of its run landed: the
+                // answer is always none of it. Before this the prefix stayed mapped and
+                // recorded with no way to ask about it, which is the pre-§102 single-page
+                // path's own rollback quietly narrowed to one page by the widening.
+                Err(e) => {
+                    unmap_run_prefix(&mut hold, root, phys, va, k);
+                    return Err(match e {
+                        paging::MapError::OutOfPageFrames => Error::OutOfMemory,
+                        // misaligned, already mapped, unknown space
+                        _ => Error::BadPointer,
+                    });
                 }
             }
-            // **All or nothing across the run** (milestone 142's review, MAJOR 2).
-            // Whatever this loop mapped before failing is unmapped again, so a caller
-            // that gets an error never has to wonder how much of its run landed: the
-            // answer is always none of it. Before this the prefix stayed mapped and
-            // recorded with no way to ask about it, which is the pre-§102 single-page
-            // path's own rollback quietly narrowed to one page by the widening.
-            Err(e) => {
-                unmap_run_prefix(root, phys, va, k);
-                return Err(match e {
-                    paging::MapError::OutOfPageFrames => Error::OutOfMemory,
-                    // misaligned, already mapped, unknown space
-                    _ => Error::BadPointer,
-                });
-            }
         }
-    }
-    Ok(0)
+        Ok(0)
+    })
 }
 
-/// `PageFrame::MAP`: map the run of `count` frames starting at `phys` at consecutive pages starting
-/// at `va` in the caller's own address space (`a1` writable 0/1, `a2` an untyped slot the page
-/// tables come from). Un-share is `page_frame_revoke`; this is the other half.
+/// `PageFrame::MAP`: map the run of frames the capability in `slot` names at consecutive pages
+/// starting at `va` in the caller's own address space (`a1` writable 0/1, `a2` an untyped slot the
+/// page tables come from). Un-share is `page_frame_revoke`; this is the other half.
 /// `#[inline(never)]` for the reason `memory_region_map` gives.
 ///
 /// §102: `count` is fixed on the capability, not passed here, so this is one `MAP` call regardless
 /// of the run's length; a single-page frame (`count: 1`) runs the loop below once, exactly the
 /// pre-§102 behavior.
 ///
-/// # BUGS
-///
-/// **A revocation sweep can fall between the read of the frame and the mapping, and the mapping
-/// then survives it** (found 2026-10-04 UTC by the revocation-race lane; reasoned from the code,
-/// not yet driven by a test). The frame was read by `invoke` in a critical section of its own, and
-/// the map and its record come after. A sweep deletes capabilities first, then unmaps what the
-/// mapping log records (`revoke::revoke_region`, `revoke::revoke_page_frame_run`), so a mapping
-/// recorded after its unmap pass has scanned is never found: under `MemoryRegion::DESTROY` that is
-/// a live mapping of a page the allocator hands out again. The same holds for
-/// [`address_space_map_into`], and for a `DeviceFrame` against `revoke_device_from_others`. It is
-/// the use-side sibling of the delegation gap `sched::Delegation` closed, and it wants a different
-/// fix: a delegation's two steps fit under one lock, a mapping's do not (it builds page tables out
-/// of a region and records under `SPACES`). The likely shape is record first, then re-read the
-/// slot under its table lock and undo the mapping if the source is gone, so a sweep that deletes
-/// after the re-read is guaranteed to find the record.
+/// **It takes the slot, not the capability `invoke` dispatched on** (the map-revocation-window
+/// lane, 2026-10-04 UTC). That read was a critical section of its own, and a sweep could run
+/// wholly between it and the record: the capability was deleted, the unmap pass scanned a log the
+/// mapping was not yet in, and the mapping survived `PageFrame::REVOKE` and `MemoryRegion::DESTROY`
+/// alike. `system_tests::user::map_revocation_window_tests` drove it. The frame is now read again
+/// under the [`MappingHold`](crate::revoke::MappingHold) that maps and records it, and that hold
+/// has the argument. A slot that holds something other than a `PageFrame` by then answers
+/// `NoSuchSlot`: it was emptied in between, and an empty slot is what a `MAP` made at that instant
+/// would have found.
 #[inline(never)]
-fn page_frame_map(
-    cap: crate::cap::Cap,
-    phys: u64,
-    count: core::num::NonZeroU64,
-    va: u64,
-    writable: u64,
-    ut_slot: u64,
-) -> Result<i64, Error> {
+fn page_frame_map(slot: u64, va: u64, writable: u64, ut_slot: u64) -> Result<i64, Error> {
+    #[cfg(feature = "system_tests")]
+    crate::delegation_pause::here(); // no lock held
+    let mut hold = crate::revoke::hold();
+    let frame = hold.current_cap(slot).map_err(|_| Error::NoSuchSlot)?;
+    let Object::PageFrame(phys, count) = frame.object else {
+        return Err(Error::NoSuchSlot);
+    };
     let count = count.get();
     // Checked against the run's last page, not just its first: a `va` that only overflows partway
     // through the run must be refused before anything is mapped, the same "reject the cheap
@@ -1046,18 +1062,20 @@ fn page_frame_map(
     // delegated, narrowed frame is confined: a peer handed READ alone can map it to look, never
     // to change it. One check for the whole run: rights live on the capability, not per page.
     let flags = if writable != 0 {
-        if !cap.rights.allows(Rights::WRITE) {
+        if !frame.rights.allows(Rights::WRITE) {
             return Err(Error::NotPermitted);
         }
         paging::Flags::user_data()
     } else {
-        if !cap.rights.allows(Rights::READ) {
+        if !frame.rights.allows(Rights::READ) {
             return Err(Error::NotPermitted);
         }
         paging::Flags::user_rodata()
     };
     // Page tables come from an untyped the caller holds, so mapping a frame, like everything a
-    // process spends, comes out of its own budget and not the kernel's.
+    // process spends, comes out of its own budget and not the kernel's. Read under the hold only
+    // because it sits here in the refusal order: a region is generational (§16 (object revocation)), so one destroyed
+    // after this read refuses to retype, and the hold is not what protects it.
     let ut = sched::current_cap(ut_slot).map_err(|_| Error::NoSuchSlot)?;
     let Object::MemoryRegion(region) = ut.object else {
         return Err(Error::WrongObject);
@@ -1079,21 +1097,21 @@ fn page_frame_map(
                 // this mapping was made under, derivatives included, which is what lets a later
                 // `REVOKE` take back this authority without touching an overlapping holder's
                 // (DECISIONS §132).
-                if !crate::revoke::record_mapping(
+                if !hold.record_mapping(
                     page_phys,
                     root,
                     page_va,
                     crate::revoke::PageMapSource::Capability(phys),
                 ) {
                     mmu::unmap_user_at(root, page_va);
-                    unmap_run_prefix(root, phys, va, k);
+                    unmap_run_prefix(&mut hold, root, phys, va, k);
                     return Err(Error::OutOfMemory);
                 }
             }
             // **All or nothing across the run** (milestone 142's review, MAJOR 2): see the same
             // rollback at `MAP_INTO`, which fails the same way for the same reasons.
             Err(e) => {
-                unmap_run_prefix(root, phys, va, k);
+                unmap_run_prefix(&mut hold, root, phys, va, k);
                 return Err(match e {
                     paging::MapError::OutOfPageFrames => Error::OutOfMemory,
                     // misaligned, already mapped, or wrong half
@@ -1261,11 +1279,17 @@ mod proofs {
 /// region is spend-only (`MemoryRegion::RETYPE` never un-retypes), so giving them back is not a
 /// matter of calling something; it is the reverse of the model. The mapping is undone, the budget
 /// is not. Recorded in notes/frames.md.
-fn unmap_run_prefix(root: u64, phys: u64, va: u64, mapped: u64) {
+fn unmap_run_prefix(
+    hold: &mut crate::revoke::MappingHold,
+    root: u64,
+    phys: u64,
+    va: u64,
+    mapped: u64,
+) {
     for k in 0..mapped {
         let (page_phys, page_va) = (phys + k * paging::PAGE_SIZE, va + k * paging::PAGE_SIZE);
         mmu::unmap_user_at(root, page_va);
-        crate::revoke::forget_mapping(page_phys, root, page_va);
+        hold.forget_mapping(page_phys, root, page_va);
     }
 }
 

@@ -964,6 +964,15 @@ mod revocation_in_flight_tests;
 #[cfg(test)]
 mod revocation_window_tests;
 
+/// **A revocation sweep that lands inside a `MAP` leaves no mapping behind** (the
+/// map-revocation-window lane, 2026-10-04 UTC, provisional). The use-side sibling of
+/// [`revocation_window_tests`]: `PageFrame::MAP` and `AddressSpace::MAP_INTO` held after their
+/// frame read, under `PageFrame::REVOKE` and `MemoryRegion::DESTROY`. Its own header has the reasoning.
+///
+/// Cross-ISA: the map paths, the sweeps and the seam are portable kernel code (DECISIONS §19).
+#[cfg(test)]
+mod map_revocation_window_tests;
+
 /// **A seeded syscall driver with a shadow model** (milestone 752 (a seeded syscall driver with a
 /// shadow model), provisional). Random capability operations from a seed, every answer and every table
 /// predicted by a model and compared. Its own header has the oracle, the replay and the `BUGS`;

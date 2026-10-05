@@ -1,0 +1,46 @@
+Falsifies `system_tests::user::map_revocation_window_tests::a_destroy_inside_a_memory_region_map_leaves_no_mapping`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect is the tree as it stood until 2026-10-04 (UTC): the patch puts `MemoryRegion::MAP` back
+to retyping and mapping its page first, then taking the mapping registry only to record it, with
+the seam between. `MemoryRegion::DESTROY` held at the seam claims the region, scans a log the
+mapping is not yet in, and hands the page back; the mapping is recorded after it, alive, over a
+page the allocator owns again: the use-after-free §13 (capability revocation and untyped
+reclamation) exists to prevent.
+
+This was the live tree. It was not recorded anywhere before this lane; the map-revocation-window
+lane found it by asking which other mapping paths read their source outside the record's hold.
+
+Expected to fail: `assert!(!REPORT.mapped.load(..), "a MemoryRegion::MAP held while its region was destroyed kept its mapping ...")`.
+Confirmed red on riscv64 on 2026-10-04 (UTC) against the fixed tree, at
+`map_revocation_window_tests.rs:407`, the assertion predicted.
+
+**The assertions above the headline stay green under this patch**: the seam was reached, the
+neighbouring page that builds the tables mapped, and the region no longer resolves.
+
+Nothing here is architecture-specific, so one patch serves every leg.
+
+diff --git a/kernel/src/syscall.rs b/kernel/src/syscall.rs
+index 98f833e7c..7408b4482 100644
+--- a/kernel/src/syscall.rs
++++ b/kernel/src/syscall.rs
+@@ -689,12 +689,13 @@ fn memory_region_map(region: u64, va: u64) -> Result<i64, Error> {
+     if !paging::is_user_page_va::<crate::arch::mmu::Format>(va) {
+         return Err(Error::BadPointer);
+     }
+-    #[cfg(feature = "system_tests")]
+-    crate::delegation_pause::here(); // no lock held
+-    let mut hold = crate::revoke::hold();
+-    match mmu::map_current_user_page(va, paging::Flags::user_data(), || {
++    let mapped = mmu::map_current_user_page(va, paging::Flags::user_data(), || {
+         crate::memory_region::retype_page(region)
+-    }) {
++    });
++    #[cfg(feature = "system_tests")]
++    crate::delegation_pause::here(); // no lock held
++    let mut hold = crate::revoke::hold();
++    match mapped {
+         Ok(phys) => {
+             // Record the mapping so it can be revoked before the region is ever reclaimed (§13).
+             // MemoryRegion::MAP pages are process-private, but they still must be unmapped before

@@ -50,8 +50,11 @@ and handed the copy to `ipc_send_cap`, which filed it under a second hold of the
 and pass by before the copy was filed, so the copy survived the revoke. `CAP_INSERT` and `SLICE`
 had the same shape. `sched::Delegation` carries the argument and
 `system_tests::user::revocation_window_tests` the three tests that drove a sweep into the gap.
-A `MAP` has the use-side version of the same gap and it is not closed yet: see the `BUGS` at
-`syscall::page_frame_map`.
+A `MAP` had the use-side version of the same gap: it read its frame, then mapped and recorded, and
+a sweep that scanned the mapping log in between left the mapping alive. `PageFrame::MAP`,
+`AddressSpace::MAP_INTO` and `MemoryRegion::MAP` now read their source under the hold of the mapping
+registry that maps and records (`revoke::MappingHold`), and
+`system_tests::user::map_revocation_window_tests` drives a sweep into each.
 
 So the sender keeps its capability; the receiver gets a narrowed derivative pointing at the same
 object. That is exactly what lets a frame be shared: a producer holding `READ|WRITE|GRANT` keeps its

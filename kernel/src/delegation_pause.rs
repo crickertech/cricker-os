@@ -9,7 +9,10 @@
 //! question this seam lets a test ask is what happens when the sweep lands *after* the syscall has
 //! started and *before* the copy is filed.
 //!
-//! [`here`] sits at that point in each of the three syscalls. A test arms one thread, that thread
+//! [`here`] sits at that point in each of the three syscalls, and since the map-revocation-window
+//! lane (2026-10-04 UTC) at the same point in `PageFrame::MAP`, `AddressSpace::MAP_INTO` and
+//! `MemoryRegion::MAP`: a mapping is a use rather than a delegation, but the question is the same,
+//! and one seam is one thing to keep in step. Its name says delegation for that history. A test arms one thread, that thread
 //! makes the syscall, and at [`here`] it reports itself [`parked`] and yields until the test calls
 //! [`release`]. Nothing is held at the seam: no lock, no guard, no interrupt mask, so the test can
 //! run a whole revocation sweep while the delegation waits. That is the interleaving two cores can

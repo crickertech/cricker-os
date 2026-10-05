@@ -347,6 +347,15 @@ of §60 (fuzzing complements the proofs) read firmware, disk and network bytes, 
 or syscalls. A proposal for both is
 [`fuzz-the-surface-a-confined-process-can-reach`](../roadmap/proposals/fuzz-the-surface-a-confined-process-can-reach.md).
 
+Dated 2026-10-05 (milestone 762 (a mapping cannot outlive its frame's revoke), PROVISIONAL number,
+PR #1644): a revoked frame is unreachable through mappings as well as capabilities. `PageFrame::MAP`,
+`AddressSpace::MAP_INTO` and `MemoryRegion::MAP` now read their source under the mapping-registry
+hold every unmap pass takes. Before that, a sweep landing between the read and the record left the
+mapping live. `map_revocation_window_tests` drives a revoke and a region destroy into each path, and
+each path's replayable falsification went red on riscv64, one also on aarch64. The gap that remains
+is one level up: a destroyed region's intermediate page tables stay linked into a live space
+(reasoned, not driven; `revoke::revoke_region`'s BUGS). A lane now holds it.
+
 The caveat that keeps the gate closed: it was us attacking our own system. A hole we closed ourselves
 is the same category of evidence as the audit that found it. The outsider trying to escape is gated
 behind milestone 198 (a package manager, and the trivial install that makes a second customer
