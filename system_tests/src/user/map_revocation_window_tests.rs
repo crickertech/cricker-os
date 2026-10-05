@@ -94,12 +94,20 @@ fn call(slot: u64, method: u64, a0: u64, a1: u64, a2: u64) -> Result<i64, Error>
 
 /// Does any slot of `tid`'s table name a `PageFrame` containing `phys`?
 fn holds_frame(tid: crate::thread::ThreadId, phys: u64) -> bool {
-    sched::capability_table_snapshot(tid).is_some_and(|table| {
-        table.iter().flatten().any(|c| match c.object {
-            Object::PageFrame(p, n) => p <= phys && phys < p + n.get() * page_frames::FRAME_SIZE,
-            _ => false,
+    // Lent rather than copied out, as `revocation_window_tests::holds_frame_in` does: a 64-slot copy
+    // in this frame is what put the nth-retype tests over the guard page (milestone 754 (the
+    // capability table grows to 64 slots)).
+    sched::with_capability_table(tid, |table| {
+        (0..crate::cap::CAPABILITY_TABLE_SLOTS as u64).any(|slot| {
+            table.get(slot).is_ok_and(|c| match c.object {
+                Object::PageFrame(p, n) => {
+                    p <= phys && phys < p + n.get() * page_frames::FRAME_SIZE
+                }
+                _ => false,
+            })
         })
     })
+    .unwrap_or(false)
 }
 
 /// A syscall answer as `x0` carries it: the value, or the error's negative code.
