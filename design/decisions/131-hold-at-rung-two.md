@@ -30,7 +30,7 @@ is not something more code produces, and nothing in the tree was positioned to a
 
 ## The decision
 
-**Hold at rung two.** Rungs three and four (milestone 34 among them) stay `NOT-STARTED`,
+Hold at rung two. Rungs three and four (milestone 34 among them) stay `NOT-STARTED`,
 deliberately, until something genuinely useful has been built and proven on text mode. This is not
 a technical finding; it is a ranking call, and it agrees with one this tree has already made rather
 than introducing a new principle. [DECISIONS §14](14-project-direction.md) and `AGENTS.md`'s own
@@ -59,7 +59,7 @@ decision of its own, not on this one.
 
 ## What this does not decide
 
-- **Rungs one and two stay built and unchanged.** This is not a retreat from the display work
+- Rungs one and two stay built and unchanged. This is not a retreat from the display work
   already proven (framebuffer contract, compositor, VT engine, virtio keyboard); it is a hold on
   climbing further, not a reason to strike what exists.
 - **It does not answer the competitor question itself, only defers it again**, on the same terms

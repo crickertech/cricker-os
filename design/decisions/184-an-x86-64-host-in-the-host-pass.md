@@ -12,19 +12,19 @@ until the merge queue lands it.)*
 
 ## What is being decided
 
-**Whether this project pays runner concurrency, on every pull request, for a class of fault it has
-met three times in two months.** That is a standing cost rather than a one-off edit, which is what
+Whether this project pays runner concurrency, on every pull request, for a class of fault it has
+met three times in two months. That is a standing cost rather than a one-off edit, which is what
 routes it here. The edits themselves are minutes.
 
 ## Is the premise true
 
 Checked 2026-09-19 in this worktree, and it is, with one clarification that prices two of the three
 options lower than the proposal assumed. Every `runs-on:` in `.github/workflows/` is
-`ubuntu-24.04-arm` (29 of them) except **one**: `verify.yml`'s `prove-kernel-x86_64`, which runs
+`ubuntu-24.04-arm` (29 of them) except one: `verify.yml`'s `prove-kernel-x86_64`, which runs
 `script/verify --only kernel` because CBMC needs a goto-binary for the host it runs on.
 
-So **no host test pass has ever run on x86_64**, which is the claim, and **the x86_64 runner image
-is already in use** for a different job, so the "we would be introducing a new runner" objection
+So no host test pass has ever run on x86_64, which is the claim, and the x86_64 runner image
+is already in use for a different job, so the "we would be introducing a new runner" objection
 does not apply.
 
 *(Dated note, 2026-09-26, decisions-hygiene lane.)* The runner economics this section prices were
@@ -46,7 +46,7 @@ CI is `ubuntu-24.04-arm`. Milestone 288 made the class unrepresentable where it 
 residue is plain: `b.e_machine = 183` still compiles on every host, as does any other literal
 standing in for a host-relative fact, and nothing in this repository would notice.
 
-**Three instances, each found by a stranger rather than by a gate:**
+Three instances, each found by a stranger rather than by a gate:
 
 - `xtask`'s host pass stopped compiling on x86_64 when three crates took `user_rt` dependencies, and
   *"nobody noticed, because CI moved to `ubuntu-24.04-arm` the same day"*. Found 2026-08-14 by
@@ -58,19 +58,19 @@ standing in for a host-relative fact, and nothing in this repository would notic
 
 ## What this tree already does in the analogous case
 
-**§19 makes parity a gate rather than an aspiration**, and it is worth being precise about what it
+§19 makes parity a gate rather than an aspiration, and it is worth being precise about what it
 reaches: it governs the *kernel capability* shipping on every supported ISA, proved by the same
-suite. The **host** pass is the machine the tests are compiled and run on, which §19 does not name.
+suite. The host pass is the machine the tests are compiled and run on, which §19 does not name.
 So this section widens §19's posture by analogy rather than being forced by it, and saying so keeps
 the citation honest.
 
-**§74 is the closer analogue and it argues against a cadence.** It decided, for audits, that **event
-triggers come first, a count-based trigger second, and the calendar only as a backstop**, on the
+§74 is the closer analogue and it argues against a cadence. It decided, for audits, that event
+triggers come first, a count-based trigger second, and the calendar only as a backstop, on the
 reason that "eventually is the wrong word for an attack surface". A host-portability fault is not an
 attack surface, which is the honest difference, but the three instances above each survived for
 weeks, which is what a cadence would also permit.
 
-**`script/stranger-test` is the mechanism already aimed at this class**, and its existing posture is
+`script/stranger-test` is the mechanism already aimed at this class, and its existing posture is
 periodic rather than per-pull-request. It found instance one.
 
 ## The options
@@ -81,7 +81,7 @@ periodic rather than per-pull-request. It found instance one.
 | **2** | a matrix leg: the host pass on both architectures | same runner cost, tidier shape, and the claim becomes symmetric rather than x86_64 being bolted on |
 | **3** | a periodic run | cheapest, `script/stranger-test`'s existing posture, and it finds the fault a day late |
 
-**Option 3's "a day late" should be read against what actually happened.** Three faults went
+Option 3's "a day late" should be read against what actually happened. Three faults went
 undetected for weeks, so a day late would have been an enormous improvement over the status quo,
 and that is the measurement rather than a concession.
 
@@ -100,16 +100,16 @@ a machine budget AGENTS.md already names as a ceiling.
 
 ## Would we still choose this if both options cost the same
 
-No, and it must be said in those words: if runner concurrency were free, **2**, without hesitation.
+No, and it must be said in those words: if runner concurrency were free, 2, without hesitation.
 The entire case for 3 is cost. That is legitimate, and stating it lets calef weigh it as cost rather
 than mistake it for judgement.
 
 ## How reversible, and who has acted on it
 
-**High.** A CI file edit each way, nothing two programs agree on, and no name a stranger learns. The
+High. A CI file edit each way, nothing two programs agree on, and no name a stranger learns. The
 irreversible part is the runner budget it consumes while it is in place, which is why the answer is
 one sentence and the lane that follows it needs no further ruling.
 
 ## What is blocked until this is answered
 
-**Milestone 403.** Nothing in the tree is incorrect meanwhile; the class is simply unpoliced.
+Milestone 403. Nothing in the tree is incorrect meanwhile; the class is simply unpoliced.

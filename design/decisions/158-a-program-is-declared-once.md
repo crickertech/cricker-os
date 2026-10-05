@@ -17,18 +17,18 @@ the merge queue lands it.)*
 
 Adding a program to this tree meant writing the same fact into eight hand-maintained places, and
 three successive stranger-test runs named that as the highest-value defect a newcomer could fix
-(milestone 150's block has the history). After this section a program is declared in **one** place,
-its `[[bin]]` block, plus **one** row in `crates/grant_plan` if the shell can spawn it. Everything
+(milestone 150's block has the history). After this section a program is declared in one place,
+its `[[bin]]` block, plus one row in `crates/grant_plan` if the shell can spawn it. Everything
 else is generated from those or checked against them.
 
-1. **The archive list is the `[[bin]]` blocks.** `xtask`'s `declared_programs()` reads the `[[bin]]`
+1. The archive list is the `[[bin]]` blocks. `xtask`'s `declared_programs()` reads the `[[bin]]`
    blocks of `components/` and `fixtures/`, and all three initrd builders pack that list. The
    per-architecture `entries` tables are deleted. The reader refuses a `[[bin]]` key it does not
    know rather than silently dropping a program.
-2. **Every archive packs every program.** When the two tables were deleted they disagreed about
+2. Every archive packs every program. When the two tables were deleted they disagreed about
    three programs (`serial_driver`, `jh7110_entropy`, `pmap`) and none of the differences was a
    decision. A test that cannot run on an architecture `skip!()`s with its reason, as before.
-3. **The shell's program table is one `macro_rules!` declaration** (`programs!`, provisional name),
+3. The shell's program table is one `macro_rules!` declaration (`programs!`, provisional name),
    generating the `Prog` enum, `name()`, `id()`, `from_id()`, `from_name()`, `Prog::ALL` and
    `PROG_COUNT`. `manifest()` stays a hand-written match, because the compiler already demands its
    arm and the arms are the most commented code in the crate (`rustfmt` does not format inside a
@@ -41,40 +41,40 @@ else is generated from those or checked against them.
    binary, a program the tree loads by name with no binary, and a spawnable program no
    `SWISH_CHECK_SCRIPT` line runs. A pinned total would be one more hand-maintained number, failing
    on every legitimate addition.
-6. **`swish`'s exhaustive render match became a wildcard**, backed by a test that every program
+6. `swish`'s exhaustive render match became a wildcard, backed by a test that every program
    answering in words renders its answer. Eleven of its thirteen arms were empty, so the compile
-   error asked for a keystroke rather than a decision. **This is rung two in place of rung one, on
-   purpose**, and it is the one place the milestone went down the ladder.
+   error asked for a keystroke rather than a decision. This is rung two in place of rung one, on
+   purpose, and it is the one place the milestone went down the ladder.
 
 `xtask` now depends on `grant_plan`. That is an in-tree crate with no external dependencies, so it
 is not a §46 dependency decision.
 
 ## What was considered and why each lost
 
-- **A shared crate holding a `const` table of programs.** Still a second list beside `Cargo.toml`,
+- A shared crate holding a `const` table of programs. Still a second list beside `Cargo.toml`,
   gated rather than hand-copied, so adding a program stays two edits. It would earn its place only
   if the kernel needed the list at runtime, and everything that loads a program looks it up by name.
-- **`cargo metadata` instead of reading `Cargo.toml`.** Correct by construction, but JSON, and
+- `cargo metadata` instead of reading `Cargo.toml`. Correct by construction, but JSON, and
   `xtask` has no JSON parser; §46 refuses `serde_json` or `toml` for one list. Hand-scanning JSON is
   no less fragile than scanning the four keys this tree writes in a `[[bin]]` block.
-- **Per-architecture tables gated against each other.** They had already diverged without anyone
+- Per-architecture tables gated against each other. They had already diverged without anyone
   deciding it, and the shared table's own comment said not to filter by architecture.
-- **A derive crate that counts variants** (`strum` and the like). A proc-macro dependency in a crate
+- A derive crate that counts variants (`strum` and the like). A proc-macro dependency in a crate
   the kernel and the progenitor link, for one count, is what §46 exists to refuse.
-- **A `const` table of `(Prog, id, name)` beside a hand-written enum.** Still two lists; a variant
+- A `const` table of `(Prog, id, name)` beside a hand-written enum. Still two lists; a variant
   without a row is the original bug moved one line down.
-- **`manifest()` inside the macro.** One fewer edit, but the edit it removes was never silent, and
+- `manifest()` inside the macro. One fewer edit, but the edit it removes was never silent, and
   it would take the crate's most-read code out of `rustfmt`'s reach.
-- **Ids from declaration order.** Refused for the wire-format reason in item 4.
+- Ids from declaration order. Refused for the wire-format reason in item 4.
 
 ## Not decided here, and whose they are
 
-- **`PROG_COUNT`'s name.** It now means "one past the highest id", not a count of programs. Renaming
+- `PROG_COUNT`'s name. It now means "one past the highest id", not a count of programs. Renaming
   it is a naming decision and calef's (design/naming.md).
-- **Whether a program may take both an argument and an input.** Kept as today's behaviour;
+- Whether a program may take both an argument and an input. Kept as today's behaviour;
   `design/roadmap/498-a-program-that-takes-an-argument-and-an-input.md` carries the options
   and recommends keeping it.
-- **Every name the milestone introduced** (`programs!`, `Prog::ALL`, `declared_programs`,
+- Every name the milestone introduced (`programs!`, `Prog::ALL`, `declared_programs`,
   `declared_program_blobs`, `bin_names`, `check_declared_programs`, `PROGRAM_PACKAGES`) is
   provisional.
 

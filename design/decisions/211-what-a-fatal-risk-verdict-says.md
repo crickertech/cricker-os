@@ -10,8 +10,8 @@ ratified_by: calef
 *Amended 2026-09-26: rule text says "an architect" where it said calef, per §217 (every architect
 holds the whole role). Records and quotations keep his name.*
 
-The field is **Experiment status**, with values
-**RUN**, **NOT-RUN**, **CANNOT-RUN**. Raised by calef, 2026-09-23, reading
+The field is Experiment status, with values
+RUN, NOT-RUN, CANNOT-RUN. Raised by calef, 2026-09-23, reading
 `notes/project-metrics/fatal-risks.svg`: it seems like the wrong graph, because it plots tested
 against untested and all nine risks have now been put to an experiment, so it is a flat line at
 nine. He asked for risks by status instead. Implementation on branch
@@ -24,7 +24,7 @@ are decisions, proposals or milestones) was already taken on `main`.)*
 
 ## What is being decided
 
-**What a `**Status:` line in `design/fatal-risks.md` states, in what vocabulary.** The chart is
+What a `**Status:` line in `design/fatal-risks.md` states, in what vocabulary. The chart is
 downstream of that and cannot be fixed first: a status series needs a closed set of statuses, and
 there is not one. Three questions ride on the answer.
 
@@ -50,7 +50,7 @@ there is not one. Three questions ride on the answer.
 | 8 | nobody needs it | `UNTESTED` | 2026-09-23 | pull request #1128, `risk/8-nobody-needs-it` | no |
 | 9 | the HAL is a fiction | `RUN` | 2026-09-23 | same word | n/a |
 
-Three of the five words were minted on **one day, 2026-09-23, by three separate lanes**, none of
+Three of the five words were minted on one day, 2026-09-23, by three separate lanes, none of
 which could see the other two. That is the lane isolation working as designed and the naming rule
 (`AGENTS.md`: anything global to the tree is the integrator's, and a lane ships a provisional name)
 half-applied: one of the three said provisional out loud, two did not.
@@ -72,7 +72,7 @@ one lane that stopped to think about vocabulary, writes that *"this file's vocab
 `MEASURED` and `AUDITED`"*. The script recognises `RUN` and `MEASURED` and has never heard of
 `AUDITED`. The file's own statement of its vocabulary and the gate over it disagree.
 
-**The running order table is a third vocabulary.** The same document's closing table states each
+The running order table is a third vocabulary. The same document's closing table states each
 verdict again in free prose: `**RUN 2026-08-30: amber.**`, `**RUN 2026-09-17: GREEN.**`,
 `**RUN 2026-08-31, extended 2026-09-16, AUDITED 2026-09-17.**`, and for risk 8
 `**none, and none available.**`. Risk 5's row carries no verdict word at all. Two places in one
@@ -89,7 +89,7 @@ Laid side by side, the five (six) words answer four different questions:
 | was the result adversarially reviewed? | `AUDITED` |
 | can the experiment be run at all? | `UNTESTED` |
 
-And the thing a reader most wants, **what it found**, is in none of them. It is in a separate
+And the thing a reader most wants, what it found, is in none of them. It is in a separate
 capitalised word that follows on the same line for three risks (`GREEN` on risks 1 and 9, `AMBER`
 on 2 and 3) and in an English sentence for the rest: risk 6's *"all three of its parts are measured
 on silicon"*, risk 7's *"it found the thing this risk exists to find"* and *"a qualified yes with
@@ -128,8 +128,8 @@ sentence is visible as a wrong reading and a category error looks like data.
 
 ## The decision
 
-**Axis A, split into two fields.** The status field is renamed **Experiment status** and takes three
-values: **RUN**, **NOT-RUN**, **CANNOT-RUN**, gated by an enumeration in `script/fatal-risks`.
+Axis A, split into two fields. The status field is renamed Experiment status and takes three
+values: RUN, NOT-RUN, CANNOT-RUN, gated by an enumeration in `script/fatal-risks`.
 These are enforced, so that adding a fourth value forces a ratification rather than happening by
 accident.
 
@@ -140,7 +140,7 @@ framework cannot express is evidence that the finding does not compress into one
 existing findings (`GREEN`, `AMBER`, `MEASURED`, `AUDITED` and the sentences around them) stay in
 the prose.
 
-**Why axis A won on its own merits.** It needed no hedges; it partitions the nine cleanly. And
+Why axis A won on its own merits. It needed no hedges; it partitions the nine cleanly. And
 `CANNOT-RUN` is exactly the value the current tested-versus-untested chart cannot express for
 risk 8 (which is untestable by this project's own policy until milestone 198 lands). One field,
 three values, one question each value answers: does an experiment have a status, and what is it. The
@@ -163,7 +163,7 @@ stand, using only what the entries already say:
 
 ## The one-word alternative, and its refusal
 
-**Keep a single verdict word and define the legal set precisely.** Something like `RUN-GREEN`,
+Keep a single verdict word and define the legal set precisely. Something like `RUN-GREEN`,
 `RUN-AMBER`, `RUN-RED`, `UNRUN`, `UNTESTABLE`, gated by an enumeration in `script/fatal-risks`.
 
 **Its argument is real and is not a rounding error.** A single verdict is what a reader remembers,
@@ -172,8 +172,8 @@ falsification list is that you can hold the state of it in your head. Two fields
 eighteen cells. A reader scanning it has to do the join themselves, and the join is exactly the
 thing the one-word version does for them.
 
-**And the second half of its argument is sharper: two fields may be two things nobody fills in
-honestly.** This tree has measured that failure. `script/fatal-risks` exists because risk 2 carried
+And the second half of its argument is sharper: two fields may be two things nobody fills in
+honestly. This tree has measured that failure. `script/fatal-risks` exists because risk 2 carried
 `RUN, 2026-08-30. AMBER` for eleven days while the milestone it named read `NOT-STARTED`. A field
 that is easy to leave at its last value is a field that goes stale, and doubling the fields doubles
 the surface. Under the one-word shape there is exactly one thing per risk that can be wrong, and a
@@ -192,7 +192,7 @@ amber (false, it is not a finding) or call it unrun (false, milestone 168 (a mul
 benchmark, the number that would decide the event-kernel question) is built, gated and rehearsed on
 three architectures).
 
-**Two further options, refused shorter.** *Keep the existing five and document them* is the cheapest
+Two further options, refused shorter. *Keep the existing five and document them* is the cheapest
 thing on the table and is refused because `NOT` is a truncation of `NOT YET`, `AUDITED` is a sixth
 word the script cannot see, and documenting a set that mixes four questions ratifies the category
 error rather than fixing it; the one thing it has going for it is that it is honest about what the
@@ -205,7 +205,7 @@ file's rule 1 exists to prevent.
 
 Measured against the tree as it stands, not asserted.
 
-- **Nine entries rewritten**, one status line each, plus risk 7's second line and the nine rows of
+- Nine entries rewritten, one status line each, plus risk 7's second line and the nine rows of
   the running order table, which states every verdict a second time in free prose. Call it eleven
   status lines and nine table cells. The prose underneath each entry does not move: every value in
   the proposal's table above was read straight out of text that is already there.
@@ -216,12 +216,12 @@ Measured against the tree as it stands, not asserted.
   new check costs a fixture. The existing `experiment-ran` and `experiment-pending` checks keep
   working: they need to know *ran versus not ran*, which is axis A exactly, and under the current
   shape they infer it from a two-word allowlist.
-- **`script/metrics`: replace `fatal_risks()` and one chart spec.** The function is nineteen lines
+- `script/metrics`: replace `fatal_risks()` and one chart spec. The function is nineteen lines
   and its docstring is the refusal quoted above, which has to be rewritten rather than deleted,
   because the reason it was right in 2026-09 is part of why the new shape is what it is. The series
   names `fatal_risks_tested` / `fatal_risks_untested` are in the column allowlist at line 208 and in
   the chart table; both change.
-- **History.** The chart is drawn from a metrics series over time. Re-deriving axis B for past dates
+- History. The chart is drawn from a metrics series over time. Re-deriving axis B for past dates
   means reading past revisions of nine entries, and it is not obvious it is worth doing: the honest
   option is to start the new series at the ruling date and say so on the chart, the way the effort
   chart already marks weeks with no surviving records rather than zeroing them.
@@ -233,27 +233,27 @@ Measured against the tree as it stands, not asserted.
 §92 (a caretaker is supervised by the client it serves) carries the test this tree applies to any
 recommendation: *would I still choose this if both options were the same amount of work?*
 
-**Yes.** The one-word option is the cheaper of the two by a small margin (one field to parse, nine
+Yes. The one-word option is the cheaper of the two by a small margin (one field to parse, nine
 lines to rewrite rather than eleven, one chart rather than two), and cost is not what decides it.
 Risk 8 breaks a single scale on the merits: a risk that cannot be observed is not a shade of a risk
 that has been. If the two shapes cost the same I would still split them, because the split is what
 lets the chart show a risk going unanswered for a reason, which is the thing this file is for.
 
-The place cost *does* decide something, said plainly: **the history question**. Starting axis B at
+The place cost *does* decide something, said plainly: the history question. Starting axis B at
 the ruling date rather than re-deriving it backwards is an argument from effort, and it is recorded
 as one.
 
 ## What is an architect's
 
-**The words.** `run`, `not run`, `cannot run yet`, `looks real`, `looks false`, `inconclusive` are
+The words. `run`, `not run`, `cannot run yet`, `looks real`, `looks false`, `inconclusive` are
 provisional and are a naming decision under `AGENTS.md`, whichever shape wins. They are also
 unusually load-bearing for names: they are the vocabulary a reader uses to say whether this project
 should stop, and the one-word alternative's whole argument is that a reader remembers one word.
 
-**The shape**, because two agents already disagreed about it implicitly by minting three words in a
+The shape, because two agents already disagreed about it implicitly by minting three words in a
 day, and because a chart published from it is a fact that leaves the machine.
 
-**And a smaller one that is still an architect's**: whether `MEASURED` and `AUDITED` survive as anything. They
+And a smaller one that is still an architect's: whether `MEASURED` and `AUDITED` survive as anything. They
 are real distinctions that three entries currently carry, and the proposal drops them.
 
 ## What is blocked until this is answered
@@ -270,6 +270,6 @@ are real distinctions that three entries currently carry, and the proposal drops
   alternative's second argument, that two fields are two things that go stale, is not answered here.
   It is answered by a gate or it is not answered, and the gate is named in the costs above rather
   than designed.
-- **Axis B's values are read out of nine prose entries by one agent**, on one evening. Risk 7's
+- Axis B's values are read out of nine prose entries by one agent, on one evening. Risk 7's
   "looks real in part" and risk 2's "inconclusive leaning real" are readings, and a reader who
   disagrees with either is disagreeing with this section rather than with the file.

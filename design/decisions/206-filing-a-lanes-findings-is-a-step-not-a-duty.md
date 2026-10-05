@@ -12,7 +12,7 @@ merge queue lands it.)*
 
 ## What is being decided
 
-Whether to build a **capture step** that reads a finished lane's report and files what it named,
+Whether to build a capture step that reads a finished lane's report and files what it named,
 and whether that overturns `AGENTS.md`'s standing refusal to mechanise this at all.
 
 ## The failure, stated precisely, because a near neighbour of it is working fine
@@ -21,7 +21,7 @@ and whether that overturns `AGENTS.md`'s standing refusal to mechanise this at a
 the two days to 2026-09-22, and the 19 awaiting a number are waiting on triage rather than on
 capture. That path works.
 
-The leak is one step **upstream**. A lane names work it is not doing, in its final report or its
+The leak is one step upstream. A lane names work it is not doing, in its final report or its
 pull request body. Both are read once, by one person, on the day they are written. If the reader
 does not act in that moment the finding is gone, and the only thing that recovers it is calef
 reading a summary later and prompting. `AGENTS.md` predicts this in terms and then leaves it at rung
@@ -32,7 +32,7 @@ four:
 (That is milestone 90 (a guard page under the per-CPU secondary stacks), real kernel work that
 existed only because one person read one report on one day.)
 
-**And it gets worse as lanes get cheaper**, which is why it is worth deciding now rather than when
+And it gets worse as lanes get cheaper, which is why it is worth deciding now rather than when
 it hurts. Every lever this project has pulled in the last week (renting open models, gating in CI,
 raising the lane ceiling) increases the number of reports produced per hour without increasing the
 one person reading them.
@@ -50,22 +50,22 @@ negative is the thing currently being paid for, in the one resource this project
 Optimising against the cheap error was the mistake, and the 82% figure is the tell: it was quoted as
 disqualifying without anyone asking what the other error cost.
 
-**The refusal is also aimed at the wrong mechanism.** A lint scanning prose for intentions has to be
+The refusal is also aimed at the wrong mechanism. A lint scanning prose for intentions has to be
 *right*, because it blocks a merge. A step that files candidates has only to be *useful*, because a
 human culls it. Those are different machines and only the first one has the false-positive problem.
 
 ## The options
 
-**Option 1: leave it at rung four and rely on calef's summary-reading.** Honest about what it is.
+Option 1: leave it at rung four and rely on calef's summary-reading. Honest about what it is.
 Costs the architect's attention continuously, and degrades as lane throughput rises.
 
-**Option 2: a gate on the pull request body.** Require a `## Work I am not doing` section whose
+Option 2: a gate on the pull request body. Require a `## Work I am not doing` section whose
 items each name a home (a proposals path, or a file with a `BUGS` heading), with `None.` valid. The
-check resolves the references rather than reading prose, so it needs no judgement. **Recommended
-against**: it puts the burden on the lane at the moment it is least able to bear it, and `None.` is
+check resolves the references rather than reading prose, so it needs no judgement. Recommended
+against: it puts the burden on the lane at the moment it is least able to bear it, and `None.` is
 a single word away from defeating the whole thing.
 
-**Option 3, recommended: a capture step after every lane.** Something reads the report and the pull
+Option 3, recommended: a capture step after every lane. Something reads the report and the pull
 request body and emits either nothing or N stub files in `design/roadmap/proposals/`. It is
 extraction rather than judgement, which is what §202 (mechanical work goes to a cheaper model, and
 the gates are why that is safe) routes to a cheaper model, and it fires without
@@ -79,7 +79,7 @@ paid continuously and invisibly, in prompts calef should not have to write.
 
 ## What would have to be measured first
 
-**The size of the leak, which is being measured rather than asserted.** Twelve merged pull requests
+The size of the leak, which is being measured rather than asserted. Twelve merged pull requests
 sampled, each named action checked against `design/roadmap/proposals/` and against `BUGS` sections.
 If nearly everything is already tracked, option 1 is correct and this section should be refused on
 the evidence.

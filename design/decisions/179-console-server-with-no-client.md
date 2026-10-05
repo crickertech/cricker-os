@@ -19,7 +19,7 @@ real UART driver at EL0 holding the PL011's registers, which then blocks on `rec
 ever, because nothing on that boot holds a capability naming its endpoint. Its only client was the
 narrator, deleted 2026-09-13 on calef's ruling (milestone 267).
 
-**One question: does that line stay, go, or get a client?**
+One question: does that line stay, go, or get a client?
 
 ## Is the premise true
 
@@ -42,7 +42,7 @@ question open, which is why this is not a reading somebody could dispute.
 Two analogues, and they point opposite ways, which is the reason this is worth a section rather
 than a sweep.
 
-**Authority granted to a program that cannot use it gets taken back.** §41 is the standing shape: a
+Authority granted to a program that cannot use it gets taken back. §41 is the standing shape: a
 device is revoked by taking the endpoint back, and §13 and §16 reclaim what a dead builder held. The
 tree's whole argument is that authority is granted deliberately.
 
@@ -65,7 +65,7 @@ check), and the interactive boot reaches it through `boot_via_progenitor`, never
 
 ## What each option costs, measured rather than asserted
 
-**It costs no correctness and no CPU today, and saying that plainly matters**, because the cheap
+It costs no correctness and no CPU today, and saying that plainly matters, because the cheap
 read is that this is a leak and it is not. The server blocks in a rendezvous rather than spinning,
 and `no_leaked_threads` does not police it because the tour boot is not a test boot.
 
@@ -79,13 +79,13 @@ B is minutes of work. C is unbounded, because nothing has named what would print
 
 ## Recommendation
 
-**B**, and the reason is the mapping rather than the line count. §41's posture is that authority is
+B, and the reason is the mapping rather than the line count. §41's posture is that authority is
 handed over for a reason and taken back when the reason goes; A keeps a device grant alive for a
 reason that no longer exists, and calls it exercise. The honest version of A's "it keeps `console.rs`
 exercised" is that nothing checks the server did anything, which is the same criticism that deleted
 the narrator.
 
-**C is the option that should be chosen deliberately if it is true**, rather than allowed to lose by
+C is the option that should be chosen deliberately if it is true, rather than allowed to lose by
 default: somebody should say the server was infrastructure on this boot, and then say what it
 prints. Nobody has.
 
@@ -97,12 +97,12 @@ refuses, because it leaves a grant standing with no grantee.
 
 ## How reversible, and who has acted on it
 
-**High, and nobody outside this tree has acted.** B is one line and one kernel module; re-adding the
+High, and nobody outside this tree has acted. B is one line and one kernel module; re-adding the
 call is the same edit backwards. Nothing two programs agree on changes, no wire format, no syscall.
 This is the category AGENTS.md says to decide quickly.
 
 ## What is blocked until this is answered
 
-**Nothing.** The boot is correct under any of the three. What is owed is the `#[expect(dead_code)]`,
+Nothing. The boot is correct under any of the three. What is owed is the `#[expect(dead_code)]`,
 which its own doc comment says to delete when this is answered, and whose `reason` string should
 then cite this section rather than milestone 267's block.

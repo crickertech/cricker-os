@@ -13,14 +13,14 @@ it.)*
 
 ## Two questions, because the block's subject was removed under it
 
-1. **Where a secret physically comes from on a real boot.** This is the fork, and it survived the
+1. Where a secret physically comes from on a real boot. This is the fork, and it survived the
    removal of the thing that motivated it.
-2. **Whether milestone 131 is re-aimed or retired**, which the block says is calef's and which no
+2. Whether milestone 131 is re-aimed or retired, which the block says is calef's and which no
    record answers.
 
 ## Why question 2 exists
 
-**The subject was removed on 2026-08-30.** Milestone 131 was about configuring an SMB share and
+The subject was removed on 2026-08-30. Milestone 131 was about configuring an SMB share and
 provisioning its secret, and calef decided that day to remove the SMB implementation
 (`notes/smb.md`). Two of its four deliverables went with it: per-resource credential endpoints for
 the SMB adapter, and the boot that stops admitting guests to the share.
@@ -36,7 +36,7 @@ and minting one is calef's."*
 
 ## Question 1: the options, with what each costs
 
-Milestone 56 built the store and the entropy. What is missing is the path **into** it on a boot
+Milestone 56 built the store and the entropy. What is missing is the path into it on a boot
 that is not a test.
 
 | | where the secret comes from | cost |
@@ -46,42 +46,42 @@ that is not a test.
 | **C** | **Provisioned at image build.** | Simplest, and what the test path does today. The secret is in the image, so **the image becomes the secret** and every copy of it is a copy of the password. |
 | **D** | **Bound by measured boot**, sealed to the measurement milestone 22 already takes. | Strongest and largest. Needs a sealing story this tree does not have, and fails closed in ways that are hard to recover from at 2am. |
 
-**No recommendation, and that is deliberate rather than an omission.** AGENTS.md says to recommend
+No recommendation, and that is deliberate rather than an omission. AGENTS.md says to recommend
 on reversible forks and to give options on irreversible ones, and a secret's resting place is the
 irreversible category by its own definition: it cannot be un-decided by deleting code. The block
 made the same call when it was written and it still holds.
 
-**What can be said without deciding it** is that A and C are not alternatives on the same axis. C is
+What can be said without deciding it is that A and C are not alternatives on the same axis. C is
 what the tree does today and is a known defect rather than a candidate; A is the smallest thing that
 is not that. Whether B or D is needed is a question about whether an unattended boot is in scope,
 which is a different question and should be answered first.
 
 ## What this tree already does in the analogous case
 
-**A secret is already an endpoint rather than a value.** [§41](41-endpoint-as-broker.md) (the
+A secret is already an endpoint rather than a value. [§41](41-endpoint-as-broker.md) (the
 endpoint is the broker) settled that the thing handed to a program is the right to ask, not the
 material. [§111](111-inert-config-is-a-validated-page.md) (inert configuration is a read-only page)
 then split what Unix puts in one environment map into three, and routed secrets to §41's broker
-explicitly rather than letting them ride on a page. So the **shape** of what a program holds is
+explicitly rather than letting them ride on a page. So the shape of what a program holds is
 settled; this decision is only about how the material reaches the broker in the first place.
 
-**The credential store's refusal to be updated is also considered rather than accidental.**
+The credential store's refusal to be updated is also considered rather than accidental.
 `credentialer::Store::put` offers no replacement because *"put twice, second wins"* has a race in
 it, and `credential_protocol::provision::SEAL` says that after it the store cannot be changed short
 of restarting the service. Any provisioning path has to arrive before the seal, or argue with it.
 
 ## How reversible it is
 
-**Question 1 is the least reversible thing in this file**, and it is worth separating the two halves.
+Question 1 is the least reversible thing in this file, and it is worth separating the two halves.
 Choosing wrong is recoverable by choosing again. Having *run* the wrong one is not: a secret that was
 in an image is compromised in every copy of that image, forever, and no later decision retrieves it.
 
-**Question 2 is cheap.** Re-aiming a roadmap block or retiring it is a text edit, and AGENTS.md's
+Question 2 is cheap. Re-aiming a roadmap block or retiring it is a text edit, and AGENTS.md's
 *move fast on what can be undone* says to decide it quickly rather than deliberate it.
 
 ## What is blocked until this is answered
 
-**Milestone 131, both halves.** The configuration-document half could be built against any service
+Milestone 131, both halves. The configuration-document half could be built against any service
 today and is not blocked by question 1; it is blocked by question 2, because nobody knows whether
 this block is the place for it.
 
