@@ -432,4 +432,40 @@ mod tests {
         // Too small a buffer is `None`, not a truncated request.
         assert!(get_request("h", "/p", &mut out[..n - 1]).is_none());
     }
+
+    /// A bare CR inside a line is not a line ending and not a value: a peer that sends one is
+    /// refused, in the status line and in a header alike (the pair a smuggler would use to make two
+    /// parsers disagree about where a line stops).
+    #[test]
+    fn a_bare_carriage_return_inside_a_line_is_refused() {
+        let in_header = b"HTTP/1.0 200 OK\r\nX: a\rb\r\nContent-Length: 0\r\n\r\n";
+        assert_eq!(read_in(in_header, 64).unwrap_err(), Error::BadHeader);
+        let in_status = b"HTTP/1.0 200 O\rK\r\nContent-Length: 0\r\n\r\n";
+        assert_eq!(read_in(in_status, 64).unwrap_err(), Error::BadStatusLine);
+    }
+
+    /// The declared length is unknown until the head has been read, and is exactly the declared one
+    /// after (not zero, not one).
+    #[test]
+    fn the_content_length_appears_with_the_head_and_not_before() {
+        let mut response = Response::new();
+        assert_eq!(response.content_length(), None);
+        response.feed(b"HTTP/1.0 200 OK\r\nContent-Len").unwrap();
+        assert_eq!(response.content_length(), None);
+        response.feed(b"gth: 11\r\n\r\n").unwrap();
+        assert_eq!(response.content_length(), Some(11));
+        let (done, _) = read_in(b"HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n", 64).unwrap();
+        assert_eq!(done.content_length(), Some(0));
+    }
+
+    /// A reader printed in a log says what it is and where it stands, and never the up to 2 KiB of
+    /// head the peer sent.
+    #[test]
+    fn debug_names_the_status_and_leaves_the_head_out() {
+        let (response, _) = read_in(OK, 64).unwrap();
+        let shown = std::format!("{response:?}");
+        assert!(shown.starts_with("Response"), "{shown}");
+        assert!(shown.contains("200"), "{shown}");
+        assert!(!shown.contains("Server"), "{shown}");
+    }
 }

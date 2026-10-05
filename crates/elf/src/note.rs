@@ -644,6 +644,99 @@ mod tests {
         assert_eq!(Elf::parse(&bytes).unwrap().note(b"nife", 1), Ok(None));
     }
 
+    /// A bare ELF header (64 bytes) that claims `phnum` program headers of `phentsize` bytes at
+    /// offset 64, followed by `tail` zero bytes. Mutation-survivor triage helper; provisional name.
+    fn head_with_table(class: u8, data: u8, phentsize: u16, phnum: u16, tail: usize) -> Vec<u8> {
+        let mut v = vec![0u8; 64 + tail];
+        v[0..4].copy_from_slice(&[0x7f, b'E', b'L', b'F']);
+        v[4] = class;
+        v[5] = data;
+        v[32..40].copy_from_slice(&64u64.to_le_bytes());
+        v[54..56].copy_from_slice(&phentsize.to_le_bytes());
+        v[56..58].copy_from_slice(&phnum.to_le_bytes());
+        v
+    }
+
+    /// Each of the three identity checks refuses on its own: a head wrong in exactly one of magic,
+    /// class or data encoding, with a table that would otherwise fit, is not readable.
+    #[test]
+    fn each_identity_byte_is_checked_on_its_own() {
+        assert!(NoteSegments::from_head(&head_with_table(2, 1, 56, 1, 56)).is_ok());
+        assert_eq!(
+            NoteSegments::from_head(&head_with_table(1, 1, 56, 1, 56)).err(),
+            Some(NoteError::NotReadable),
+            "32-bit class"
+        );
+        assert_eq!(
+            NoteSegments::from_head(&head_with_table(2, 2, 56, 1, 56)).err(),
+            Some(NoteError::NotReadable),
+            "big-endian data"
+        );
+        let mut bad_magic = head_with_table(2, 1, 56, 1, 56);
+        bad_magic[3] = b'G';
+        assert_eq!(
+            NoteSegments::from_head(&bad_magic).err(),
+            Some(NoteError::NotReadable)
+        );
+    }
+
+    /// The header is 64 bytes: 64 is enough for an empty table, every shorter prefix is refused
+    /// without reading past its end.
+    #[test]
+    fn a_head_is_readable_from_exactly_one_header_long() {
+        let full = head_with_table(2, 1, 56, 0, 0);
+        assert_eq!(NoteSegments::from_head(&full).unwrap().count(), 0);
+        for cut in 0..64 {
+            assert_eq!(
+                NoteSegments::from_head(&full[..cut]).err(),
+                Some(NoteError::NotReadable),
+                "{cut} bytes"
+            );
+        }
+    }
+
+    /// Entry size 56 is the least that holds a program header; 55 is refused even when the table
+    /// would fit, and a larger entry size is fine.
+    #[test]
+    fn a_program_header_entry_smaller_than_a_header_is_refused() {
+        assert_eq!(
+            NoteSegments::from_head(&head_with_table(2, 1, 55, 1, 200)).err(),
+            Some(NoteError::NotReadable)
+        );
+        assert!(NoteSegments::from_head(&head_with_table(2, 1, 56, 1, 200)).is_ok());
+        assert!(NoteSegments::from_head(&head_with_table(2, 1, 64, 1, 200)).is_ok());
+    }
+
+    /// 64 entries is the most read; 65 is refused even when the head is long enough to hold them.
+    #[test]
+    fn at_most_sixty_four_program_headers_are_read() {
+        assert_eq!(
+            NoteSegments::from_head(&head_with_table(2, 1, 56, 64, 64 * 56))
+                .unwrap()
+                .count(),
+            0,
+            "64 all-zero entries are none of them PT_NOTE"
+        );
+        assert_eq!(
+            NoteSegments::from_head(&head_with_table(2, 1, 56, 65, 65 * 56)).err(),
+            Some(NoteError::NotReadable)
+        );
+    }
+
+    /// A note with no name and no descriptor is exactly its 12-byte header, and a segment holding
+    /// just that is whole, not truncated.
+    #[test]
+    fn a_bare_note_header_filling_the_segment_is_not_truncated() {
+        assert!(note_extent(12, 0, 0, 0, 4).is_ok());
+        assert_eq!(
+            note_extent(11, 0, 0, 0, 4),
+            Err(NoteError::Truncated),
+            "one byte short of the header"
+        );
+        let bytes = image(&[(4, vec![0u8; 12])]);
+        assert_eq!(Elf::parse(&bytes).unwrap().note(b"nife", 1), Ok(None));
+    }
+
     #[test]
     fn an_empty_descriptor_is_found_and_empty() {
         let bytes = image(&[(4, note(b"nife", 1, b""))]);

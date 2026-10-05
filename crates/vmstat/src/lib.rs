@@ -156,4 +156,20 @@ mod tests {
                 .contains("owner has not granted")
         );
     }
+
+    fn right(v: u64, width: usize) -> String {
+        let mut out = Vec::new();
+        write_right(v, width, &mut |b| out.extend_from_slice(b));
+        String::from_utf8(out).unwrap()
+    }
+
+    /// A column pads short numbers and never cuts a long one: the digits decide the width when
+    /// they outrun it.
+    #[test]
+    fn a_number_wider_than_its_column_is_printed_whole() {
+        assert_eq!(right(5, 3), "  5");
+        assert_eq!(right(0, 2), " 0");
+        assert_eq!(right(12345, 3), "12345");
+        assert_eq!(right(u64::MAX, 4), "18446744073709551615");
+    }
 }

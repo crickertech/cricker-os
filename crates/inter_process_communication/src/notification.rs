@@ -511,4 +511,40 @@ mod tests {
         assert_eq!(n.poll(), 4);
         assert_eq!(n.poll(), 0);
     }
+
+    /// The invariant is "no word while anyone waits", and it is the pair that matters: a word with
+    /// nobody waiting is fine, waiters with no word is fine, both is the broken state. The API
+    /// cannot reach the broken one, so this writes the word directly.
+    #[test]
+    fn the_invariant_fails_only_for_a_word_with_a_waiter() {
+        let mut a = Box::new(N { next: None });
+        let pa = NonNull::from(&mut *a);
+        let mut n: Notification<N> = Notification::new();
+        assert!(n.invariant_holds(), "empty");
+        n.word = 0b1;
+        assert!(n.invariant_holds(), "a word, nobody waiting");
+        n.word = 0;
+        // SAFETY: one live boxed local declared before `n`, on no queue.
+        unsafe {
+            assert_eq!(n.wait(pa), Wait::Blocked);
+        }
+        assert!(n.invariant_holds(), "a waiter, no word");
+        n.word = 0b1;
+        assert!(!n.invariant_holds(), "a word and a waiter");
+        n.word = 0;
+        n.drain_waiters(|_| {});
+    }
+
+    /// Counted bits are readable without being taken, and bits that overlap what is already there
+    /// merge into it; the bound path hands over the union, not the bits that differ.
+    #[test]
+    fn counted_bits_accumulate_as_a_union_and_are_readable() {
+        let mut n: Notification<N> = Notification::new();
+        assert_eq!(n.signal(0b0101, false), Signal::Counted);
+        assert_eq!(n.word(), 0b0101);
+        assert_eq!(n.signal(0b0100, false), Signal::Counted);
+        assert_eq!(n.word(), 0b0101, "an overlapping bit is not a toggle");
+        assert_eq!(n.signal(0b0110, true), Signal::ToBound(0b0111));
+        assert_eq!(n.word(), 0);
+    }
 }

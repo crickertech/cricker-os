@@ -973,3 +973,17 @@ fn a_totalsize_past_the_ceiling_is_refused_before_a_slice_is_built() {
     let looked = unsafe { DeviceTreeBlob::from_ptr(buffer.as_ptr()) };
     assert_ne!(looked.err(), Some(Error::TooLarge(MAX_TOTALSIZE)));
 }
+
+/// The ceiling is 2 MiB, a figure borrowed from Linux, so a tree well under it (a board with a
+/// great many nodes) is not turned away as too large: it fails, if at all, as a parse.
+#[test]
+fn a_tree_of_one_and_a_half_mebibytes_is_not_too_large() {
+    let claimed = 3 * 512 * 1024;
+    let mut buffer = minimal_tree();
+    buffer[4..8].copy_from_slice(&(claimed as u32).to_be_bytes());
+    buffer.resize(claimed + 64, 0);
+    // SAFETY: `buffer` is longer than `claimed`, so every byte a slice of that length could
+    // cover is owned, initialised memory that outlives the call.
+    let looked = unsafe { DeviceTreeBlob::from_ptr(buffer.as_ptr()) };
+    assert_ne!(looked.err(), Some(Error::TooLarge(claimed)));
+}

@@ -552,4 +552,52 @@ mod tests {
     ) -> Result<(u8, Rights, &[u8]), Refusal> {
         walk(start, rights, path, hop, tree)
     }
+
+    /// A hop that already names `DESCEND` is still a hop that carries it: the walk adds `DESCEND`
+    /// to what it asks for, it does not toggle it, so the next step can be walked from.
+    #[test]
+    fn a_hop_that_names_descend_itself_still_carries_it() {
+        let all = Rights::root(dir::ALL);
+        let (n, r, last) = down(0, all, b"a/b/x", dir::DESCEND | dir::READ).unwrap();
+        assert_eq!((n, last), (2, &b"x"[..]));
+        assert_eq!(r.bits(), dir::DESCEND | dir::READ);
+        let (n, r, _) = down(0, all, b"a/b/x", dir::DESCEND).unwrap();
+        assert_eq!(n, 2);
+        assert!(r.allows(dir::DESCEND));
+    }
+
+    /// The numbers are the file-service contract's (POSIX errno), spelled once per refusal; a
+    /// server answers a client with them and a client matches on them.
+    #[test]
+    fn each_refusal_answers_with_its_posix_errno() {
+        for (refusal, errno) in [
+            (Refusal::Malformed, 22),
+            (Refusal::NotFound, 2),
+            (Refusal::NotADirectory, 20),
+            (Refusal::Narrowed, 1),
+            (Refusal::Refused, 1),
+            (Refusal::Symlink, 40),
+            (Refusal::MountCrossing, 18),
+            (Refusal::NotYours, 9),
+        ] {
+            assert_eq!(refusal.errno(), errno, "{refusal:?}");
+        }
+    }
+
+    /// A badge exactly at the table's size is the first one it has no window for. It folds to the
+    /// unbadged slot, which neither a bind nor an unbind may touch, and it must not index past the
+    /// array on the way.
+    #[test]
+    fn the_first_badge_past_the_table_is_refused_not_indexed() {
+        let mut t = Bindings::<4>::new();
+        assert_eq!(t.bind(0, 4, 40), Err(Refusal::Refused));
+        assert_eq!(t.unbind(0, 4), Err(Refusal::Refused));
+        assert_eq!(t.of(4), Binding::Revoked);
+        t.bind(0, 3, 40).unwrap();
+        assert_eq!(
+            t.unbind(0, 3),
+            Ok(40),
+            "the last badge in the table is bindable"
+        );
+    }
 }

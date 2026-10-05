@@ -1221,6 +1221,20 @@ mod tests {
         assert_eq!(next_time(1 << 23, 1, -1), Some(23 * 60));
     }
 
+    /// **An hour mask never names an hour that does not exist.** `range` is public over `u16`s and
+    /// an end past midnight is not refused by its signature, so whatever it accepts must still fit
+    /// the 24 bits `next_time` reads, for the minute-stepped and the hour-stepped forms alike.
+    #[test]
+    fn a_range_never_sets_an_hour_past_the_day() {
+        for step in [15u16, 60, 120] {
+            for end in [24 * 60, 24 * 60 + 15, 25 * 60, 30 * 60] {
+                if let Ok((hours, _)) = range(23 * 60, end, step) {
+                    assert_eq!(hours >> 24, 0, "step {step} end {end}");
+                }
+            }
+        }
+    }
+
     /// The edges of `range`, in both of its branches, each chosen so that the neighbouring
     /// comparison would answer differently.
     #[test]

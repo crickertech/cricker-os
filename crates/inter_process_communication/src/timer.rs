@@ -334,4 +334,19 @@ mod tests {
         assert_eq!(fired, vec![0, 2]);
         assert_eq!(earliest(ts.iter()), 30);
     }
+
+    /// The pending-ness accessor follows the slot: armed after a future arm, not after a cancel or
+    /// after the deadline fires.
+    #[test]
+    fn is_armed_follows_the_slot() {
+        let mut t: Timer<u8> = Timer::new();
+        assert!(!t.is_armed());
+        assert_eq!(t.arm(100, 1, 0), Arm::Pending);
+        assert!(t.is_armed());
+        assert_eq!(t.expire(100), Some(1));
+        assert!(!t.is_armed());
+        t.arm(200, 2, 0);
+        assert!(t.cancel());
+        assert!(!t.is_armed());
+    }
 }

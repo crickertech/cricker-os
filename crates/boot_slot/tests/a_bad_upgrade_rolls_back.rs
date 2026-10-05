@@ -218,3 +218,49 @@ fn a_header_needs_a_buffer_and_says_so_rather_than_writing_a_short_one() {
     assert!(!SlotHeader::of(b"x").encode(&mut too_small));
     assert_eq!(SlotHeader::decode(&too_small), None);
 }
+
+/// A confirmed slot is returned untouched however many tries it carries, and an unconfirmed one
+/// with none left is too: only a slot that is both unconfirmed and still has tries spends one.
+#[test]
+fn a_try_is_spent_only_by_an_unconfirmed_slot_that_has_one() {
+    let confirmed_with_tries = State {
+        priority: 3,
+        tries: 5,
+        successful: true,
+    };
+    assert_eq!(confirmed_with_tries.attempted(), confirmed_with_tries);
+    let spent = State {
+        priority: 3,
+        tries: 0,
+        successful: false,
+    };
+    assert_eq!(spent.attempted(), spent);
+    assert_eq!(State::on_trial(3, 2).attempted(), State::on_trial(3, 1));
+}
+
+/// The header is exactly 32 bytes: a buffer of that size is enough to write one and to read it
+/// back, and no shorter prefix of a good header is read, however much of it is right.
+#[test]
+fn a_slot_header_needs_exactly_its_own_length() {
+    let h = SlotHeader::of(b"an image");
+    let mut buf = [0u8; 32];
+    assert!(h.encode(&mut buf));
+    assert!(!h.encode(&mut [0u8; 31]));
+    assert_eq!(SlotHeader::decode(&buf), Some(h));
+    for cut in 0..32 {
+        assert_eq!(SlotHeader::decode(&buf[..cut]), None, "{cut} bytes");
+    }
+}
+
+/// The medium token is written only into a buffer that holds all of it, and a larger buffer is
+/// fine; a buffer one short gets nothing, not a truncated word.
+#[test]
+fn the_medium_token_is_written_whole_or_not_at_all() {
+    use boot_slot::medium;
+    let mut big = [0u8; medium::MAX_LEN + 8];
+    assert_eq!(medium::encode_nvme(&mut big), medium::MAX_LEN);
+    assert_eq!(&big[..medium::MAX_LEN], medium::NVME.as_bytes());
+    let mut short = [0u8; medium::MAX_LEN - 1];
+    assert_eq!(medium::encode_nvme(&mut short), 0);
+    assert_eq!(short, [0u8; medium::MAX_LEN - 1]);
+}

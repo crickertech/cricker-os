@@ -1011,6 +1011,29 @@ mod tests {
         PageFrame(u64),
     }
 
+    /// **The occupied mask is the occupied slots and nothing above them.** A sweep walks this word
+    /// in place of `0..N`, so a bit set for a free slot, or for a slot past `N`, is a visit to
+    /// something that is not there; the sweep's own guard would hide it, so the word is checked
+    /// itself.
+    #[test]
+    fn the_occupied_mask_is_exactly_the_occupied_slots() {
+        let cap = |n| Cap {
+            object: Obj::PageFrame(n),
+            rights: Rights::ALL,
+        };
+        let mut cs: CapabilityTable<Obj, 8> = CapabilityTable::new();
+        assert_eq!(cs.occupied_mask(), 0);
+        cs.insert_at(2, cap(1)).unwrap();
+        cs.insert_at(5, cap(2)).unwrap();
+        assert_eq!(cs.occupied_mask(), 0b0010_0100);
+        cs.delete(2).unwrap();
+        assert_eq!(cs.occupied_mask(), 0b0010_0000);
+        let mut full: CapabilityTable<Obj, 64> = CapabilityTable::new();
+        assert_eq!(full.occupied_mask(), 0);
+        full.insert_at(63, cap(3)).unwrap();
+        assert_eq!(full.occupied_mask(), 1 << 63);
+    }
+
     /// **A new process holds nothing.** The decision, as an assertion.
     #[test]
     fn a_new_capability_table_can_name_nothing() {

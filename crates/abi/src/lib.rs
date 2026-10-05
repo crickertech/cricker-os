@@ -966,6 +966,10 @@ pub mod fault {
     /// working endpoint here and gets mistaken for a supervised one.
     pub const FAULT_EP_SLOT: u64 = super::CAPABILITY_TABLE_SLOTS - 1;
 
+    // "The last slot" is the whole claim above; a wrong operator in the line before would still
+    // compile, so this makes it one that does not (a mutation-survivor triage).
+    const _: () = assert!(FAULT_EP_SLOT + 1 == super::CAPABILITY_TABLE_SLOTS);
+
     /// **The message-format convention.** A fault/exit notification is five words, delivered to the
     /// supervision endpoint's holder through a plain `RECEIVE`:
     ///
@@ -1316,6 +1320,26 @@ impl Error {
 #[cfg(test)]
 mod tests {
     use super::Error;
+
+    /// `usage::is_known` is the kernel's answer to "is this a record I serve": exactly the seven
+    /// numbered `SIZE..=CHILDREN`, and nothing past the last.
+    #[test]
+    fn usage_records_known_are_exactly_the_seven() {
+        use crate::usage;
+        for r in [
+            usage::SIZE,
+            usage::COMMITTED,
+            usage::FRAMES,
+            usage::RENDEZVOUS,
+            usage::ADDRESS_SPACES,
+            usage::THREADS,
+            usage::CHILDREN,
+        ] {
+            assert!(usage::is_known(r), "record {r}");
+        }
+        assert!(!usage::is_known(usage::CHILDREN + 1));
+        assert!(!usage::is_known(u64::MAX));
+    }
 
     /// Every variant round-trips through `from_ret`. The enum's `#[repr(i64)]` discriminants and
     /// `from_ret`'s match arms are two lists that must agree, and this crate is the one place a
