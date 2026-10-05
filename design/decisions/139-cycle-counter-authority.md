@@ -10,7 +10,7 @@ ratified_by: calef
 Answered by calef on 2026-09-02, in three parts, each after the evidence for it
 was gathered rather than before.
 
-**1. The model: option 4**, a per-thread grant enforced at the context switch. The read stays one
+1. The model: option 4, a per-thread grant enforced at the context switch. The read stays one
 instruction with no syscall inside the measured operation, it is what Linux arm64 converged on for
 the same reason, and it costs the compare that `switch_user_root` already pays for `TTBR0_EL1`.
 Option 2 (a first-class capability object) was declined for now on the ground this tree already
@@ -18,7 +18,7 @@ applies elsewhere: it buys a new object type before there is a second consumer, 
 RFC-16 for that shape has been unmerged since 2024-02-02. New methods are allowed within the
 established model (AGENTS.md), so option 2 remains reachable if a consumer appears.
 
-**2. The grant is a field in the spawn manifest**, not a method on a live thread. calef asked
+2. The grant is a field in the spawn manifest, not a method on a live thread. calef asked
 whether milestone 147 (a profiler that holds exactly the counters it was granted) argued for the
 live form, since a consumer already exists; checking found it does not. 147 wants *this profiler may
 read that subtree's counters*, which is cross-thread authority with a named target, and neither
@@ -26,26 +26,26 @@ shape here provides it. So the immutable grant costs nothing 147 needs, and it i
 statement: a program cannot acquire a timing side channel it was not given at creation.
 DECISIONS §28 chose the same shape for thread placement at ratification.
 
-**3. `x86_64` keeps its ambient counter, recorded as a position rather than left as an accident.**
+3. `x86_64` keeps its ambient counter, recorded as a position rather than left as an accident.
 Three options were live and two were closed by measurement, both in this document. There is no
 second user-readable clock on that architecture: Linux's own vDSO fast path cannot work without a
 userspace TSC read, and it deletes the HPET mapping rather than offer it. Trap-and-emulate was
-priced from Xen's "15 to 20 times slower" and measured at **1,667 ns**, which is 4.1x the syscall it
+priced from Xen's "15 to 20 times slower" and measured at 1,667 ns, which is 4.1x the syscall it
 was meant to beat, with an in-kernel minor page fault at 1,219 ns as the floor a nife handler could
 aspire to.
 
 The deciding cost is not the one this document first named. smoltcp would not notice a coarse clock:
-`net_stack.rs`'s `instant()` divides to `Instant::from_millis` and discards the resolution. **The
-wall clock would notice.** `components/src/ntp.rs` advances `local.now()` between syncs by
+`net_stack.rs`'s `instant()` divides to `Instant::from_millis` and discards the resolution. The
+wall clock would notice. `components/src/ntp.rs` advances `local.now()` between syncs by
 `monotonic_nanos().saturating_sub(self.mono0)`, and `monotonic_nanos` reads the cycle counter, so on
 `x86_64` a tick-resolution page would make every timestamp between NTP syncs step in tick-sized
 jumps, with NTP computing corrections against a clock coarser than the corrections. aarch64 and
 riscv64 never meet this, because gating the cycle counter leaves them a generic timer.
 
-**What the grant buys, stated so nobody reads it as more.** Two threads and a shared word
+What the grant buys, stated so nobody reads it as more. Two threads and a shared word
 reconstruct a fine clock with no privileged instruction, measured at 6.8 ns of usable resolution on
 cordoba and matching Schwarz et al. (FC 2017). That holds on all three architectures. So option 4
-buys **accountable authority**, meaning the cheap accurate path is granted rather than ambient and
+buys accountable authority, meaning the cheap accurate path is granted rather than ambient and
 the kernel knows which threads hold it. It does not buy timing confinement, and this tree should not
 claim it does.
 
@@ -62,7 +62,7 @@ the options, and the parts that are calef's are marked as his.
 
 ## What is being decided
 
-**May a program running at EL0 read a cycle counter, and if so by what authority?** Three registers,
+May a program running at EL0 read a cycle counter, and if so by what authority? Three registers,
 one question, three different answers today:
 
 | | the fine counter | opened to EL0 by | state in this tree |
@@ -77,7 +77,7 @@ cannot be scoped at all until the grant unit exists.
 
 ## The premise was half false, and that is the most useful thing in this document
 
-Milestone 75's block frames this as a decision about whether to **open** something that is closed.
+Milestone 75's block frames this as a decision about whether to open something that is closed.
 Three checks say the framing is wrong in three different directions, and each one changes what the
 decision has to cover.
 
@@ -101,14 +101,14 @@ inheritance. **A decision that says "closed unless granted" is not a decision to
 
 ### 2. And closing it on `x86_64` would take the clock away, because there is only one register
 
-`crates/user_rt`'s `now()` on `x86_64` **is** `rdtsc`. There is no coarse alternative on that
+`crates/user_rt`'s `now()` on `x86_64` is `rdtsc`. There is no coarse alternative on that
 architecture the way `CNTVCT_EL0` is the coarse alternative on aarch64. So on `x86_64` the §10
 clock exception (§10 says there is "no ambient authority", and notes/abi.md records the counter as
-its one eyes-open exception) and this milestone's question are the **same register**. Setting
+its one eyes-open exception) and this milestone's question are the same register. Setting
 `CR4.TSD` today would break `Instant`, `thread::sleep`, the random seed, smoltcp's timestamps, and
 the benchmark harness, all at once.
 
-**Checked, and it held**: a research lane went looking for a second source on 2026-09-02 and found
+Checked, and it held: a research lane went looking for a second source on 2026-09-02 and found
 none. The evidence is its own section below.
 
 This is not an argument for leaving it open. It is the statement of what closing it costs, and the
@@ -121,7 +121,7 @@ with a price rather than an exception with no plan.
 
 This is the finding worth acting on regardless of which option wins.
 
-**aarch64.** Nothing in the tree writes `PMUSERENR_EL0`; the grep for it returns milestone 75's own
+aarch64. Nothing in the tree writes `PMUSERENR_EL0`; the grep for it returns milestone 75's own
 block, milestone 147's, and nothing else. Arm's register description says of every field in it,
 `EN`, `CR`, `SW` and the rest:
 
@@ -143,11 +143,11 @@ and describes the exposure as platforms where "the pmu is not probed, therefore 
 register is not reset in the kernel, which means that its value retains the reset value that is
 architecturally UNKNOWN".
 
-Under QEMU this is almost certainly zero and the trap almost certainly fires. **On argon, the
+Under QEMU this is almost certainly zero and the trap almost certainly fires. On argon, the
 Jetson TX1 that milestone 127 (the seL4 machine) is about, it is whatever TF-A and the boot ROM
-left**, and nobody here has looked. This lane did not run a spike to find out; see BUGS.
+left, and nobody here has looked. This lane did not run a spike to find out; see BUGS.
 
-**riscv64.** `kernel/src/arch/riscv64/timer.rs:182` opens the time CSR with
+riscv64. `kernel/src/arch/riscv64/timer.rs:182` opens the time CSR with
 `csrs scounteren, TM`, a set of bit 1 and nothing else. The comment four lines above it says:
 
 > CY (cycle) and IR (instret) stay closed.
@@ -155,12 +155,12 @@ left**, and nobody here has looked. This lane did not run a spike to find out; s
 Nothing clears them. They stay closed only if firmware left them clear, which is the identical
 mistake that file's own comment records having found and fixed two paragraphs earlier: `user_rt`
 documented U-mode `rdtime` as working "because the kernel sets scounteren.TM"; the kernel never set
-it, and it worked on OpenSBI's default. **The same sentence, about the same register, is now true of
-`CY` and untrue of `TM` only because somebody went and looked.** This is a claim stated in a comment
+it, and it worked on OpenSBI's default. The same sentence, about the same register, is now true of
+`CY` and untrue of `TM` only because somebody went and looked. This is a claim stated in a comment
 that the code does not establish, which is rung four wearing rung one's clothes.
 
-**What follows from all three.** Part of milestone 75 is not a decision at all. Whatever authority
-model wins, the kernel has to **write** these registers rather than inherit them, or the answer is
+What follows from all three. Part of milestone 75 is not a decision at all. Whatever authority
+model wins, the kernel has to write these registers rather than inherit them, or the answer is
 firmware's on every board. That part is a defect fix and this document recommends it outright.
 
 ### 4. And 74's aarch64 half is blocked on more than this
@@ -175,9 +175,9 @@ a day early.
 ## Checked: does `x86_64` really have only one user-readable clock?
 
 Finding 2 above was written from knowledge rather than from reading, and the maintainer said so when
-he presented it. A research lane was briefed on 2026-09-02 to check it. **The claim holds. There is
+he presented it. A research lane was briefed on 2026-09-02 to check it. The claim holds. There is
 no second user-readable time source on `x86_64` of resolution meaningfully better than a kernel
-tick, and the ISA routes every user-visible one through the same `CR4.TSD` bit on purpose.** What
+tick, and the ISA routes every user-visible one through the same `CR4.TSD` bit on purpose. What
 follows is what was read, in the order a reader would want to check it.
 
 ### The instruction set: one bit closes three instructions, not one
@@ -211,7 +211,7 @@ Two further instructions come up and neither is a time source.
   at privilege level 0 or in real-address mode; otherwise, a general protection exception #GP(0)
   will be generated."
 
-**`RDPMC` is the one real second door, and it is a door to close rather than a clock to keep.**
+`RDPMC` is the one real second door, and it is a door to close rather than a clock to keep.
 Its gate is a *different* `CR4` bit: "When the PCE flag is set, the RDPMC instruction can be executed
 at any privilege level; when the flag is clear, the instruction can only be executed at privilege
 level 0", with "#GP(0) If the current privilege level is not 0 and the PCE flag in the CR4 register
@@ -220,11 +220,11 @@ fixed counters enabled would have a TSC-rate clock without ever executing `rdtsc
 alternative for `user_rt::now()`, because it needs the kernel to enable the counters through MSRs
 this kernel never writes, and `kernel/src/arch/x86_64/` contains no reference to
 `IA32_PERF_GLOBAL_CTRL` or the fixed counters at all. It is a finding for the *recommended outright*
-list: **`CR4.PCE` must be established as clear by the same code that establishes `CR4.TSD`**, or a
+list: `CR4.PCE` must be established as clear by the same code that establishes `CR4.TSD`, or a
 future decision to close the TSC would be closing the front door while the side door is only shut by
 a reset value nobody wrote. `boot.s`'s two `CR4` writes are still only `or eax, 1 << 5`.
 
-**That finding has a home**: milestone 228 (the cycle counters are closed by assumption) was minted
+That finding has a home: milestone 228 (the cycle counters are closed by assumption) was minted
 on 2026-09-02 to do exactly the "close what we claim is closed" work this document recommends, and
 its x86 item is scoped to leaving `CR4.TSD` alone and writing the record down. It does not mention
 `CR4.PCE`, because nobody had looked. **`RDPMC` is a second user-readable path to a TSC-rate count on
@@ -233,7 +233,7 @@ belongs in that milestone beside the aarch64 and riscv64 writes rather than in a
 
 ### The chipset timers: two exist, and neither is usable from ring 3 at a price worth paying
 
-**The ACPI power management timer.** ACPI 6.5, section 4.8.2.1, read 2026-09-02 at
+The ACPI power management timer. ACPI 6.5, section 4.8.2.1, read 2026-09-02 at
 `uefi.org/specs/ACPI/6.5/04_ACPI_Hardware_Specification.html`:
 
 > The power management timer is a 24-bit or 32-bit fixed rate free running count-up timer that runs
@@ -248,7 +248,7 @@ confined program port access is a strictly larger authority than granting it a c
 is per-task state on the context switch exactly like option 4, with a worse blast radius. This is
 the reverse of what the decision wants.
 
-**The HPET.** This is the strongest candidate on the list, and it is the one that has already been
+The HPET. This is the strongest candidate on the list, and it is the one that has already been
 tried and withdrawn. It is memory mapped, so a kernel *can* map its page read-only into a program's
 address space with no new instruction and no new port authority. The IA-PC HPET Specification 1.0a
 (Intel, 2004), section 2.2's recommendation table, gives "Clock Frequency Fmin = 10 MHz", and the
@@ -274,7 +274,7 @@ and, on the point that decides it here:
 > microseconds), so the added overhead in requiring a syscall to read
 > the HPET is a small fraction of the total code of accessing it.
 
-**A time source whose read costs several microseconds is slower than asking the kernel.** Measured
+A time source whose read costs several microseconds is slower than asking the kernel. Measured
 on cordoba (x86_64, Linux, four cores, load average 3.6) with a throwaway spike on 2026-09-02: a
 `clock_gettime(CLOCK_MONOTONIC)` through the vDSO costs 28.4 ns, and the same call forced through
 `syscall(SYS_clock_gettime, ...)` costs 596.9 ns. So an HPET read at "several microseconds" is
@@ -285,7 +285,7 @@ The HPET is also not free to reach: `crates/machine_discovery/src/acpi.rs` sees 
 the XSDT walk and does nothing with it, so this route costs table parsing, an MMIO mapping, and a way
 to hand that mapping to a program, before it buys a clock that loses to a syscall.
 
-**The local APIC.** Not a candidate, for three independent reasons. In x2APIC mode, which is what
+The local APIC. Not a candidate, for three independent reasons. In x2APIC mode, which is what
 this era's machines and this era's kernels use (cordoba's `/proc/cpuinfo` reports the `x2apic`
 flag), there is no page to map at all. The Intel 64 Architecture x2APIC Specification, reference
 number 318148, read 2026-09-02:
@@ -302,7 +302,7 @@ than a monotonic count. Three ways wrong, and the first one is fatal on its own.
 
 ### What Linux's vDSO fast path actually does, since this is the category most likely to change the answer
 
-**It reads the TSC from userspace, in every mode it has.** This was the specific thing the brief
+It reads the TSC from userspace, in every mode it has. This was the specific thing the brief
 asked to be determined rather than recalled, so it was read from the current tree of
 `torvalds/linux`, fetched 2026-09-02.
 
@@ -351,8 +351,8 @@ in existence declining to build the thing this section went looking for.
 
 ### What a virtualized guest does when the host denies the TSC
 
-The same problem under a different name, and the answer is that **nobody substitutes a different
-clock; the read traps and is emulated, and the guest still gets a TSC.** Xen documents this most
+The same problem under a different name, and the answer is that nobody substitutes a different
+clock; the read traps and is emulated, and the guest still gets a TSC. Xen documents this most
 plainly of the hypervisors. `xen-tscmode(7)`, Dan Magenheimer, read 2026-09-02 at
 `xenbits.xen.org/docs/4.13-testing/man/xen-tscmode.7.html`:
 
@@ -366,7 +366,7 @@ plainly of the hypervisors. `xen-tscmode(7)`, Dan Magenheimer, read 2026-09-02 a
 > OS-provided alternatives (e.g. Linux's gettimeofday).
 
 Two things fall out of that and both are useful here. The industry's answer to "this program may not
-read the raw counter" is **trap and emulate**, which keeps the resolution and pays roughly an order
+read the raw counter" is trap and emulate, which keeps the resolution and pays roughly an order
 of magnitude in latency, and it is a fourth option for the `x86_64` row that neither milestone 75's
 block nor this document had named. And Xen's own measured judgment is that even a trapping TSC beats
 the OS-provided alternative, which is the same conclusion the HPET evidence reached from the other
@@ -379,8 +379,8 @@ Xen's path, and the section above quotes it because it is the industry's answer 
 it is ours. A nife trap would not be a VM exit on hardware built to make VM exits cheap. It would be
 `#GP` to the IDT, a handler, a read of the faulting instruction out of user memory, a decode, an
 emulate, an `RIP` advance and an `iret`. calef asked for our number instead of Xen's, so a research
-lane measured it on 2026-09-02. **It came back at 1,667 ns, which is four times the syscall this
-option existed to avoid.**
+lane measured it on 2026-09-02. It came back at 1,667 ns, which is four times the syscall this
+option existed to avoid.
 
 #### The machine and the method
 
@@ -415,9 +415,9 @@ first.
 
 #### Two reference points in the brief did not reproduce, and one of them cannot be right
 
-This lane was pointed at a native `rdtsc` of **0.25 ns** and a `clock_gettime` syscall of
-**596.9 ns**, both measured on cordoba earlier in the same session. Neither reproduced, and the
-first is worth flagging rather than averaging away: **0.25 ns is under one core cycle** at this
+This lane was pointed at a native `rdtsc` of 0.25 ns and a `clock_gettime` syscall of
+596.9 ns, both measured on cordoba earlier in the same session. Neither reproduced, and the
+first is worth flagging rather than averaging away: 0.25 ns is under one core cycle at this
 machine's 3.4 GHz, and `rdtsc` on Haswell has a documented latency in the low tens of cycles. No
 single `rdtsc` can retire in a quarter of a nanosecond. The 10.0 ns measured here is 34 TSC cycles
 and is what a back-to-back `rdtsc` throughput loop should look like on this part. The 0.25 ns figure
@@ -425,19 +425,19 @@ is most likely a loop the compiler hoisted or an amortization over something oth
 The syscall figure is the same order as the 406 ns measured here and the difference is plausibly
 load and frequency, so nothing turns on it.
 
-**The ratios are the durable quantity** and they do not depend on which absolute number is right:
-the trap costs **4.1x** a `clock_gettime` syscall and **4.5x** a bare ring transition, measured in
+The ratios are the durable quantity and they do not depend on which absolute number is right:
+the trap costs 4.1x a `clock_gettime` syscall and 4.5x a bare ring transition, measured in
 the same program on the same core within the same second.
 
 #### What this is an upper bound on, and what it is a lower bound on
 
-**Upper bound, and it is a generous one.** Linux delivers this as a signal. The path is fault into
+Upper bound, and it is a generous one. Linux delivers this as a signal. The path is fault into
 the kernel, build a signal frame on the user stack, return to ring 3 at the handler, run the
-handler, `rt_sigreturn` back into the kernel, restore. That is **two** ring round trips plus frame
+handler, `rt_sigreturn` back into the kernel, restore. That is two ring round trips plus frame
 construction and teardown, where a nife `#GP` arm would be one. A nife handler would also not be
 running with PTI's address-space switch on every transition. So 1,667 ns is not what nife would pay.
 
-**Lower bound, and this is the row that matters.** The minor page fault at **1,219 ns** is an
+Lower bound, and this is the row that matters. The minor page fault at 1,219 ns is an
 in-kernel fault handler with no signal frame at all: `#PF` to the IDT, Linux allocates and zeroes a
 page, updates the page tables, shoots the TLB entry, `iret`. One ring round trip, on this silicon,
 with these mitigations. It does considerably more work than an `rdtsc` emulate would, so it is not a
@@ -448,7 +448,7 @@ option was implicitly betting against. `SYSCALL`/`SYSRET` is the path Intel buil
 IDT-vectored exception returning through `iret`, a serializing instruction, is the path it did not.
 
 Put together, a nife trap-and-emulate would land somewhere between the 406 ns syscall and the
-1,667 ns measured here, and it would land there **because it is a ring round trip plus extra work**.
+1,667 ns measured here, and it would land there because it is a ring round trip plus extra work.
 It cannot be cheaper than a syscall on the same machine, because a syscall is a ring round trip and
 nothing more. Xen escapes this only because its comparison is against a guest syscall into a guest
 kernel that then does more work still, on parts with hardware-accelerated exits. Our comparison is
@@ -456,32 +456,32 @@ against our own syscall, and that is a fight trap-and-emulate cannot win.
 
 #### The two thresholds the brief named, answered
 
-The brief set them out in advance so the number could not be read after the fact. **"Near 150 ns"
+The brief set them out in advance so the number could not be read after the fact. "Near 150 ns"
 would have meant the performance objection evaporates. "Near or above 1 microsecond" would have
-meant the option is worse than the syscall it was meant to beat.** The measurement is 1,667 ns on
+meant the option is worse than the syscall it was meant to beat. The measurement is 1,667 ns on
 the heaviest honest path and 1,219 ns for the lightest in-kernel analogue available. Both are above
-the microsecond. **Trap-and-emulate fails on its own terms**, and it fails on the one axis it was
+the microsecond. Trap-and-emulate fails on its own terms, and it fails on the one axis it was
 proposed to win on.
 
 #### How often `now()` is actually called, since the brief asked
 
 Every ungranted `now()` would pay this, so the count is part of the price. Measured by grep in the
-merged tree on 2026-09-02: **42 direct call sites** of `user_rt::now`, plus **18** of
+merged tree on 2026-09-02: 42 direct call sites of `user_rt::now`, plus 18 of
 `user_rt::monotonic_nanos`, which is `now()` with a divide. The `Instant::now()` sites in
 `crates/credentialer` and `crates/board_console` reach the same counter through `std`.
 
 Most of them are `let start = now(); ...; now().wrapping_sub(start)` in benchmark and test code and
-would not care. **Four shapes would.**
+would not care. Four shapes would.
 
-1. **`components/src/net_stack.rs:97`**, smoltcp's clock. `service_until` at `:437` calls `instant()`
+1. `components/src/net_stack.rs:97`, smoltcp's clock. `service_until` at `:437` calls `instant()`
    twice per iteration of its poll loop, once to poll and once to check its own 15 second bound, and
    there are eight `iface.poll(instant(), ...)` sites in that file. Every packet the network stack
    services costs at least two counter reads, and at 1.7 microseconds each that is a per-packet tax
    on the one server in this tree with a throughput number.
-2. **`components/src/watch.rs:171`**, `while monotonic_nanos() < deadline { yield_now(); }`. A spin-yield
+2. `components/src/watch.rs:171`, `while monotonic_nanos() < deadline { yield_now(); }`. A spin-yield
    standing in for the timed wait this kernel does not have, one counter read per iteration.
-3. **`components/src/ntp.rs:382`**, the retry gap, the identical shape.
-4. **`fixtures/src/login_test_client.rs:573` to `:580`**, a polling loop reading the counter up to three
+3. `components/src/ntp.rs:382`, the retry gap, the identical shape.
+4. `fixtures/src/login_test_client.rs:573` to `:580`, a polling loop reading the counter up to three
    times per iteration.
 
 The spin loops are the least alarming of the four despite looking the worst, because a loop whose
@@ -501,14 +501,14 @@ where they were and should not be read as answered by a measurement that never t
 - **The x86 port has never booted on metal.** Nothing here was measured on xenon, the Dell OptiPlex,
   which does not exist as a running nife host. Every figure in this section is Linux on cordoba,
   which prices the mechanisms and not the port.
-- **It says nothing about whether the counter should be closed on `x86_64` at all.** That is the
+- It says nothing about whether the counter should be closed on `x86_64` at all. That is the
   confinement position, it is still calef's, and the argument for leaving `rdtsc` ambient there was
   never a performance argument.
 
 #### This was a spike and it was thrown away
 
-Two C programs on cordoba, in `/tmp`, and nothing else. **No `CR4.TSD` change, no fault handler and
-no decode was written for nife, on any branch.** The nife-side spike suggested in the brief was not
+Two C programs on cordoba, in `/tmp`, and nothing else. No `CR4.TSD` change, no fault handler and
+no decode was written for nife, on any branch. The nife-side spike suggested in the brief was not
 run: an x86 nife boot is young enough that
 milestone 165 (x86_64 PCI enumeration: wire `kernel/src/pci.rs` to ACPI's MCFG) found on the same
 day that its ACPI walk was bounded at 1 GiB, so no machine with real RAM could find an ACPI table, and QEMU could have shown the
@@ -517,11 +517,11 @@ answers the question at both ends of the bracket without it.
 
 #### What this does to the `x86_64` row
 
-**It removes an option rather than choosing one.** The recommendation above is unchanged and this
+It removes an option rather than choosing one. The recommendation above is unchanged and this
 lane did not change it: it names trap-and-emulate and a tick-resolution page as the two realistic
 orders for the x86 row, and says `x86_64` keeping `rdtsc` ambient with a recorded reason remains the
-right state until one is chosen. What is new is that **the first of those two is now priced and
-loses**. A published page at tick resolution, which is DECISIONS §43 (reading the clock is a page)
+right state until one is chosen. What is new is that the first of those two is now priced and
+loses. A published page at tick resolution, which is DECISIONS §43 (reading the clock is a page)
 one axis over, is the only remaining candidate for giving `x86_64` a second time source, and it is a
 coarse clock and cannot be anything else, for the arithmetic reason three sections up.
 
@@ -542,13 +542,13 @@ read 2026-09-02 at `gruss.cc/files/fantastictimers.pdf`, built exactly this insi
 > using the shared array buffer.
 
 Reproduced on cordoba in the same throwaway spike, in C, with no privileged instruction of any kind:
-1.692 ns per increment and a smallest observed step of 4 increments, so **6.8 ns of usable resolution
-from two ordinary threads**, on a machine under load average 3.6.
+1.692 ns per increment and a smallest observed step of 4 increments, so 6.8 ns of usable resolution
+from two ordinary threads, on a machine under load average 3.6.
 
 This does not change the recommendation and should not be read as an argument against option 4. It
 changes what option 4 is *for*, and the document already says the true thing in its fatal-risk
-section: nife makes no timing-isolation claim, and a per-thread counter grant buys **comparable
-measurement and accountable authority**, not confinement against a program that wants to measure
+section: nife makes no timing-isolation claim, and a per-thread counter grant buys comparable
+measurement and accountable authority, not confinement against a program that wants to measure
 time. Anything that can spawn a second thread and share memory with it reconstructs a nanosecond
 clock, on aarch64 and riscv64 as much as on `x86_64`. The row that section already asks for in
 `notes/confinement-claims.md` should say this, since it is the concrete reason the claim is not made.
@@ -558,27 +558,27 @@ clock, on aarch64 and riscv64 as much as on `x86_64`. The row that section alrea
 Not "x86 is different", which explains nothing and reads as an excuse. The reason is specific and
 falsifiable, and it has three clauses:
 
-1. **On `x86_64` the coarse clock and the fine counter are the same register**, so `CR4.TSD` is not
+1. On `x86_64` the coarse clock and the fine counter are the same register, so `CR4.TSD` is not
    an analogue of `PMUSERENR_EL0.CR`. It is an analogue of `PMUSERENR_EL0.CR` *and*
    `CNTKCTL_EL1.EL0VCTEN` at once. aarch64 and riscv64 can close the fine one because they have a
    second, coarser, architecturally guaranteed user-readable clock; x86 has no second one at all.
-2. **The alternatives exist and all of them lose to a syscall.** The HPET is mappable and costs
+2. The alternatives exist and all of them lose to a syscall. The HPET is mappable and costs
    several microseconds a read, which Linux measured and acted on in 2016. The ACPI PM timer is
    279 ns but lives behind an I/O port grant that is a larger authority than the thing being denied.
    The APIC is not addressable from ring 3 in x2APIC mode. So closing the TSC on `x86_64` does not
    demote userspace from 0.25 ns to 70 ns; it demotes userspace to a syscall, or to a published page
    at tick resolution, which is DECISIONS §43 (reading the clock is a page) one axis over.
-3. **A published page cannot close the gap by being updated more often**, because its update rate is
+3. A published page cannot close the gap by being updated more often, because its update rate is
    the interrupt rate. Getting from a 10 ms tick to a microsecond costs ten thousand interrupts a
    second, per core, forever. This is arithmetic rather than a measurement, and it is why the page is
    a coarse-clock answer and not a fine-clock one.
 
 The consequence for the plan is the one this document already states in option 4 and is now
-established rather than asserted: **option 4 on `x86_64` is blocked behind giving that architecture a
-second time source, and there is no cheap one to give.** The realistic order for the x86 row is
+established rather than asserted: option 4 on `x86_64` is blocked behind giving that architecture a
+second time source, and there is no cheap one to give. The realistic order for the x86 row is
 therefore a tick-resolution page, and it is a decision with a price rather than a gap in §19
-(architectural parity) that a lane can close by trying harder. **Trap-and-emulate was the other
-candidate and it has since been measured and lost**: this paragraph originally priced it at "roughly
+(architectural parity) that a lane can close by trying harder. Trap-and-emulate was the other
+candidate and it has since been measured and lost: this paragraph originally priced it at "roughly
 the syscall", and the section above measures it at 1,667 ns on cordoba, four times the syscall it
 was meant to beat. `x86_64` keeping `rdtsc` ambient, with a recorded
 reason, remains the right state until one of those is chosen. That is a published confinement
@@ -591,7 +591,7 @@ position and it is still calef's.
   microseconds" directly; it needs root and passwordless `sudo` is not configured there, and the
   machine is the family's live backup server. The 28.4 ns and 596.9 ns figures were measured; the
   HPET read cost is Linux's number, not ours.
-- **Nothing was measured on xenon**, the x86 target machine, which does not exist as a running nife
+- Nothing was measured on xenon, the x86 target machine, which does not exist as a running nife
   host yet. Every x86 measurement here is Linux on cordoba, which prices the mechanisms and not the
   port.
 - **`TPAUSE`'s binary-search argument is reasoned from the instruction's specification, not
@@ -620,23 +620,23 @@ position and it is still calef's.
 Four analogues, and they do not all point the same way, which is why this needed reading rather than
 recalling.
 
-- **The generic timer is ambient, deliberately, and the record says why.** notes/abi.md calls it "the
+- The generic timer is ambient, deliberately, and the record says why. notes/abi.md calls it "the
   one ambient thing" and defends it: "A monotonic counter grants no authority to *affect* anything,
   only to observe the passage of time". `crates/uptime` inherits it and its module docs make the
   point that the program "needed no manifest field, no new capability, and no wiring".
-- **The wall clock is a capability, expressed in objects the kernel already had.** §43 gives read as
-  a read-only page, set as a writable page, and propose as an endpoint, with "**No new syscall, no
-  new method number, no new object type**". That is the shape a cheap answer here would want to
+- The wall clock is a capability, expressed in objects the kernel already had. §43 gives read as
+  a read-only page, set as a writable page, and propose as an endpoint, with "No new syscall, no
+  new method number, no new object type". That is the shape a cheap answer here would want to
   copy: an authority expressed in existing objects rather than a new type.
-- **Entropy and the clock are both services, reached by capability**, so "a program that needs a
+- Entropy and the clock are both services, reached by capability, so "a program that needs a
   privileged read asks a service" is the tree's normal case, not an exotic one.
-- **`CNTKCTL_EL1.EL0VCTEN` and `scounteren.TM` are per-machine bits, set once at init.** There is no
+- `CNTKCTL_EL1.EL0VCTEN` and `scounteren.TM` are per-machine bits, set once at init. There is no
   precedent in this tree for a per-thread system-register bit maintained across a context switch.
   That is the one piece of machinery option 4 below needs and the tree does not have.
 
 ## Prior art, read rather than recalled
 
-**seL4, which is the one that matters, has both answers and ships the weaker one.** Its build option
+seL4, which is the one that matters, has both answers and ships the weaker one. Its build option
 `KernelArmExportPMUUser` is documented on `docs.sel4.systems/projects/sel4/configurations.html`
 (read 2026-09-02) as:
 
@@ -668,11 +668,11 @@ and, on the current ARM situation:
 > configure the kernel to export access to the PMU registers, making the PMU an uncontrolled
 > resource.
 
-Its shape is a new object `seL4_PMU` with **badged** capabilities, the badge naming which counters
+Its shape is a new object `seL4_PMU` with badged capabilities, the badge naming which counters
 are authorised, and a blocking invocation. Its own unresolved questions include "How will the PMU
 object affect verification? Initially it will not be available in verification builds of seL4".
 
-**Linux has both answers too, and the arm64 one is the interesting half.** The global answer is
+Linux has both answers too, and the arm64 one is the interesting half. The global answer is
 `perf_event_paranoid`, documented at `kernel.org/doc/html/latest/admin-guide/sysctl/kernel.html`
 (read 2026-09-02) as controlling "use of the performance events system by unprivileged users
 (without CAP_PERFMON)", default 2, with `-1` allowing "(almost) all events by all users". It is a
@@ -680,16 +680,16 @@ global sysctl, not a per-target grant, which is the criticism milestone 147 alre
 
 The arm64 half is closer to what this decision needs. The commit *"arm64: perf: Enable PMU counter
 userspace access for perf event"* (lkml.rescloud.iu.edu archive `2105.2/02527.html`, read
-2026-09-02) enables `PMUSERENR_EL0`'s `ER` and `CR` bits **per task, on the context-switch hook**,
+2026-09-02) enables `PMUSERENR_EL0`'s `ER` and `CR` bits per task, on the context-switch hook,
 and states its reason:
 
 > Only support user access when explicitly requested on open and only for a thread bound events.
 > This avoids some of the information leaks x86 has and simplifies the implementation.
 
 Two things fall out of that sentence and both bear on this decision. Per-thread, opt-in, maintained
-at context switch is the **mainstream modern answer**, not an exotic one. And the "information leaks
-x86 has" that Linux is avoiding are the consequence of the always-on `rdtsc` that **this tree has
-inherited on `x86_64`** by the same default.
+at context switch is the mainstream modern answer, not an exotic one. And the "information leaks
+x86 has" that Linux is avoiding are the consequence of the always-on `rdtsc` that this tree has
+inherited on `x86_64` by the same default.
 
 **L4Re: I could not source this.** The searches returned a virtualization paper and secondary
 summaries rather than an L4Re or Fiasco.OC authority on PMU access control. Recorded as not
@@ -704,34 +704,34 @@ did not exist in the block.
 
 Set `PMUSERENR_EL0.CR` once at init, set `scounteren.CY`, leave `CR4.TSD` clear.
 
-- **Cost to build:** aarch64 one `msr` in `timer::init` or `cpu` init; riscv64 one more bit in the
+- Cost to build: aarch64 one `msr` in `timer::init` or `cpu` init; riscv64 one more bit in the
   existing `csrs`; `x86_64` nothing at all, since it is the state today. Call it three instructions.
-- **Cost to the claim:** it spends §10's exception a second time on an instrument roughly 160x finer
+- Cost to the claim: it spends §10's exception a second time on an instrument roughly 160x finer
   (0.25 ns against 41 ns), and it is the configuration seL4 declines to verify and declines to ship
   on by default. It is also the one that cannot be walked back: an ambient opening becomes something
   programs depend on, which milestone 75's own scope note names as the worst outcome.
-- **What it is honest about:** it is what we already do on `x86_64`, so choosing it makes the tree
+- What it is honest about: it is what we already do on `x86_64`, so choosing it makes the tree
   consistent rather than making it worse.
 
 ### Option 2: a first-class capability object
 
 A PMU object, a grant in the spawn path, a checked invocation. seL4's RFC-16 shape.
 
-- **Cost to build:** a new object type, a new method number, spawn-path wiring, `caps` output, and
+- Cost to build: a new object type, a new method number, spawn-path wiring, `caps` output, and
   Kani reach. Nothing in this tree prices at a morning. Milestone 147 says the counter-set and
   target-naming parts have "no precedent in this tree to price from".
-- **Cost at the measurement:** this is the one that decides it. If the read is an invocation, the
+- Cost at the measurement: this is the one that decides it. If the read is an invocation, the
   measured operation now contains a syscall, which is option 3's defect arriving through a different
   door. It is only free if the capability's *effect* is to open the register, at which point the
   capability is a grant of option 4 and the object is bookkeeping around it.
-- **Cost to reverse:** highest on the list. A new object type and method number is the syscall
+- Cost to reverse: highest on the list. A new object type and method number is the syscall
   surface, which §10 and §16 put in the expensive category, and milestone 147 would build on it.
 
 ### Option 3: kernel-mediated
 
 EL0 asks the kernel to time an operation; the register never opens.
 
-- **Refused, and 75 already refused it**, correctly: the measurement then contains the syscall it is
+- Refused, and 75 already refused it, correctly: the measurement then contains the syscall it is
   trying to measure. Recorded so it stays visibly rejected.
 - **One thing it is right for, which 75 does not say.** On riscv64 the SBI PMU route (`EID 0x504D55`)
   is inherently this shape: SBI calls are made from S-mode, so a U-mode program cannot make one and
@@ -743,16 +743,16 @@ EL0 asks the kernel to time an operation; the register never opens.
 The thread that was granted it runs with the counter open; every other thread runs with it closed.
 The kernel writes the enable on the switch, the same way it writes the address-space root.
 
-- **Cost at the measurement: zero.** The read stays one `mrs`, no syscall, no trap. It is the same
+- Cost at the measurement: zero. The read stays one `mrs`, no syscall, no trap. It is the same
   instrument seL4's published numbers were taken with, which is what comparability requires.
-- **Cost on the context-switch path: one comparison, and one `msr` only when the value changes.**
+- Cost on the context-switch path: one comparison, and one `msr` only when the value changes.
   That is exactly the shape `kernel/src/arch/aarch64/mmu.rs`'s `switch_user_root` already has (it
   early-returns when `TTBR0_EL1` already holds the wanted value), called from `sched.rs:1870`. If no
   thread is granted, the value never changes and the whole cost is a compare.
-- **Cost to build:** a bit on the TCB, a write at the switch site on three architectures, and a way
+- Cost to build: a bit on the TCB, a write at the switch site on three architectures, and a way
   to set the bit. The last part is the expensive one: setting it is a syscall-surface change, either
   a field on TCB configure or a new spawn-path input, and that is calef's rather than a lane's.
-- **The `x86_64` asymmetry survives this option and has to be decided separately.** `CR4.TSD` is
+- The `x86_64` asymmetry survives this option and has to be decided separately. `CR4.TSD` is
   writable per switch too, but closing it for ungranted threads removes `user_rt::now()` from every
   x86 program, so option 4 on `x86_64` is blocked behind giving that architecture a second time
   source. Until then `x86_64` is option 1 whatever the other two do, and a scope note should say so
@@ -765,7 +765,7 @@ The kernel writes the enable on the switch, the same way it writes the address-s
 
 Split three ways, because the parts have different costs and different owners.
 
-**Recommended outright, and reversible: close what we claim is closed.** Independent of the
+Recommended outright, and reversible: close what we claim is closed. Independent of the
 authority question, and before any of milestone 74 lands:
 
 1. Write `PMUSERENR_EL0 = 0` explicitly in aarch64 CPU init, per-core, rather than inheriting an
@@ -779,7 +779,7 @@ Rung one is not available here (a register cannot be made unrepresentable), so t
 at init, plus a `BUGS` line where the reader meets it. It is three small writes, it is not the
 decision, and it is the difference between a claim and a fact on argon.
 
-**Recommended, and calef's to confirm because it touches the syscall surface: option 4.** It is the
+Recommended, and calef's to confirm because it touches the syscall surface: option 4. It is the
 only option that keeps the measured path free of a syscall while making the authority checkable, it
 is what Linux arm64 converged on for the same reason, and it costs a compare on a path that already
 does exactly this compare for `TTBR0_EL1`. Option 2 is the more seL4-shaped answer and is what
@@ -787,7 +787,7 @@ milestone 147 would eventually want; it is also unbuilt in seL4 after two and a 
 choosing it now buys a new object type before there is a second consumer, which is the speculative
 abstraction both 74's and 147's scope notes already refuse.
 
-**Options rather than a recommendation, because it is irreversible: how the grant is expressed.**
+Options rather than a recommendation, because it is irreversible: how the grant is expressed.
 A field on TCB configure, a new spawn input, or a badge on an existing capability are three shapes
 with three different syscall-surface costs, and a lane should not pick one. Nor should a lane decide
 the `x86_64` row, since keeping `rdtsc` ambient there is a published confinement position and not
@@ -815,7 +815,7 @@ exactly the same reason: so nobody reads the capability rows as covering it.
 
 Real, and smaller than it looks, and it is worth being exact about who pays.
 
-- **Milestone 25's `sel4bench` comparability is the part that genuinely needs it.** seL4's published
+- Milestone 25's `sel4bench` comparability is the part that genuinely needs it. seL4's published
   413 and 426 are single-shot PMU measurements taken from user level. Reproducing that instrument on
   argon needs a user-level cycle read; a kernel-mediated timing of the same operation is not the same
   measurement and would not referee anything.
@@ -825,7 +825,7 @@ Real, and smaller than it looks, and it is worth being exact about who pays.
   a single-operation one, so it is a long-loop measurement and risk 4's decisive experiment is **not**
   blocked by a "no" here. That is worth saying plainly, because the brief that produced this document
   assumed otherwise, and the chain from this decision to risk 4 is weaker than it looks.
-- **Milestone 74's most-cited payoff survives a no.** Turning "roughly 1,120 cycles at an assumed
+- Milestone 74's most-cited payoff survives a no. Turning "roughly 1,120 cycles at an assumed
   3.2 GHz" into a read number needs the counter read *somewhere*, and the kernel may read
   `PMCCNTR_EL0` at EL1 with no EL0 opening at all. What a no costs is the seL4-identical instrument,
   not cycles as a unit.
@@ -834,14 +834,14 @@ So a no is affordable for everything except the one comparison milestone 127 bou
 
 ## What is blocked until this is answered
 
-- **Milestone 74's aarch64 half**, by its own gate. Its riscv64 SBI half is not, and neither is a
+- Milestone 74's aarch64 half, by its own gate. Its riscv64 SBI half is not, and neither is a
   kernel-side EL1 read.
-- **Milestone 147**, entirely, by its own gate, since it cannot know what a grant unit is.
-- **Nothing else.** Milestone 168 and risk 4 are not blocked, per the section above.
+- Milestone 147, entirely, by its own gate, since it cannot know what a grant unit is.
+- Nothing else. Milestone 168 and risk 4 are not blocked, per the section above.
 
 ## BUGS
 
-- **No spike was run.** The claim that an EL0 `mrs x0, pmccntr_el0` traps today under QEMU is
+- No spike was run. The claim that an EL0 `mrs x0, pmccntr_el0` traps today under QEMU is
   inferred from Arm's register description plus the absence of any write to `PMUSERENR_EL0` in this
   tree; it was not observed. It was not run because the answer that matters is on argon, where the
   reset value is UNKNOWN and no emulator can report it, and because the aarch64 EL0 read is the one
@@ -851,8 +851,8 @@ So a no is affordable for everything except the one comparison milestone 127 bou
   read off `switch_user_root`'s structure. Nobody has measured what an added `msr` costs on the
   switch path on any of the three architectures, and on `x86_64` a `CR4` write is serializing and
   would not be free.
-- **The riscv64 `mcounteren` half is untested.** Even with `scounteren.CY` set, U-mode reads of the
+- The riscv64 `mcounteren` half is untested. Even with `scounteren.CY` set, U-mode reads of the
   `cycle` CSR require `mcounteren.CY` from firmware, which is OpenSBI's on radon and is not ours.
   Whether it is set there is unknown and is a bench check, the same shape as milestone 127's
   "`PMCCNTR_EL0` readable at EL1" item.
-- **L4Re is missing from the prior art** and it is the one gap in that section. See above.
+- L4Re is missing from the prior art and it is the one gap in that section. See above.

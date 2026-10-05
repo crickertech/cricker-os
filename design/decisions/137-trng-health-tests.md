@@ -11,9 +11,9 @@ it: a developer does not write a decision.
 
 ## What is being decided
 
-**Whether nife performs its own health tests on hardware entropy, and what it does when one fails.**
+Whether nife performs its own health tests on hardware entropy, and what it does when one fails.
 
-The JH7110's datasheet makes **no SP 800-90B, FIPS 140, or AIS-31 claim anywhere**. It offers a
+The JH7110's datasheet makes no SP 800-90B, FIPS 140, or AIS-31 claim anywhere. It offers a
 random number generator and says nothing about what standard, if any, its output has been validated
 against. That is not unusual for a SoC of this class, and it is the situation nife is actually in
 rather than a hypothetical.
@@ -23,7 +23,7 @@ promises us, and this decision is about who closes it.
 
 ## Why it is a decision rather than an implementation detail
 
-**Entropy is the case where a silent failure is worst.** A file server that breaks stops working. A
+Entropy is the case where a silent failure is worst. A file server that breaks stops working. A
 random number generator that breaks keeps working, returns plausible-looking bytes, and everything
 built on it is compromised without a single error. The failure has no symptom, which is why every
 standard in this area is mostly about detecting it.
@@ -34,27 +34,27 @@ published, cannot be withdrawn from whoever read it.
 
 ## The options
 
-**A. Trust the device.** Read bits, serve them. Simplest, and defensible for a demonstrator that
+A. Trust the device. Read bits, serve them. Simplest, and defensible for a demonstrator that
 makes no cryptographic claim. Requires that nothing in this tree implies otherwise, which is the
 part to check rather than assume.
 
-**B. Continuous health tests in the driver**, SP 800-90B's shape: a repetition count test and an
+B. Continuous health tests in the driver, SP 800-90B's shape: a repetition count test and an
 adaptive proportion test on the raw stream, with a defined action on failure. Well-specified,
 implementable without certification, and the standard exists precisely because vendors do not always
 say what theirs does. Costs a real design decision about the failure action.
 
-**C. Treat the hardware as one source among several and mix**, which is what milestone 162 (real hardware
+C. Treat the hardware as one source among several and mix, which is what milestone 162 (real hardware
 entropy on x86_64 and aarch64: RDSEED and RNDRRS) and the existing backends make possible. A compromised source degrades the
 pool rather than defining it. This is what most operating systems actually do.
 
-**The failure action is the harder half of B and C, and it is a capability question**: refusing to
+The failure action is the harder half of B and C, and it is a capability question: refusing to
 serve is a denial of service that could brick a boot, while serving flagged bytes moves the decision
 to a caller who may not check. §31's headline and the confinement work are the neighbourhood this
 sits in.
 
 ## Recommendation
 
-**C, with B's tests as the thing that decides a source's weight rather than a hard gate**, and A
+C, with B's tests as the thing that decides a source's weight rather than a hard gate, and A
 explicitly recorded as what the tree does today so the gap is visible rather than implied.
 
 The reason is that C is the only option that stays honest when the answer to "is this device good"

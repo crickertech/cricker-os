@@ -12,22 +12,22 @@ under *"The two shapes a grant cannot take"* and carried forward by the 2026-09-
 
 ## What is being decided
 
-Milestone 31's claim is that **typing a name is the grant**. At the top prompt it is false: `rm
+Milestone 31's claim is that typing a name is the grant. At the top prompt it is false: `rm
 rmtree/rm-solo` works and `rm gate.txt` is refused, and the only difference is one level of path.
 
 A subtree caretaker attenuates by performing one `OPENDIR` *into* the directory it was granted. The
 root of the shell's namespace has no name to descend into, so there is nothing to attenuate through.
 Two answers, and they are permanent in different ways:
 
-1. **A narrowing verb on `filesystem_protocol`**, meaning "the directory I already hold, with fewer
+1. A narrowing verb on `filesystem_protocol`, meaning "the directory I already hold, with fewer
    rights", with no name resolution.
-2. **An interactive boot whose shell starts one component below the image root**, so the root the
+2. An interactive boot whose shell starts one component below the image root, so the root the
    user meets always has a parent.
 
 ## The tree as it stands, read rather than recalled
 
 `crates/filesystem_protocol` carries verbs 0 through 22 (`OPEN` through `SETMTIME_AT`) and none of
-them means what option 1 needs. `dir::Rights::attenuate` exists and is **client-side only**:
+them means what option 1 needs. `dir::Rights::attenuate` exists and is client-side only:
 
 ```rust
 pub const fn attenuate(self, requested: u64) -> Self {
@@ -57,7 +57,7 @@ and therefore cannot ask for the right amount; this is about a handle with no pa
 A sentinel in `OPENDIR` still needs a name to open. A narrowing verb still leaves a client unable to
 discover what it holds.
 
-**What they do share is a page in calef's queue.** Both add rights machinery to `filesystem_protocol`
+What they do share is a page in calef's queue. Both add rights machinery to `filesystem_protocol`
 and both are irreversible in the same way. Answering them in one sitting costs less than answering
 them six weeks apart, and answering §98 alone would be the more expensive order, because it ships a
 rights-shaped addition to this wire without the other case in view.
@@ -70,7 +70,7 @@ rights-shaped addition to this wire without the other case in view.
 | **B** | An interactive boot whose shell is rooted one component below the image root. | Nothing on the wire, nothing to un-ship, and no new verb. It changes what every relative path at that prompt means, which cannot be un-taught: every example, every note and every person's habit moves one level. |
 | **C** | Neither, and the limitation is recorded where the reader meets the feature. | Free, and it is the option milestone 31's block did not take, because `notes/dir-capability.md` already carries the sibling case (a grant more than one level down) as a `BUGS` entry and this one is a fork rather than a limitation. |
 
-**No recommendation, deliberately.** Both A and B are in the column AGENTS.md prices as
+No recommendation, deliberately. Both A and B are in the column AGENTS.md prices as
 irreversible: A is a thing two programs agree on, and B is a fact that lands in a reader's head. The
 tenet's own limit says a fork of this kind arrives as options.
 

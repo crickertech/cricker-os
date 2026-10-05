@@ -7,25 +7,25 @@ raised: 2026-09-19
 
 Raised 2026-09-19 by milestone 435 (forty-five milestones are gated on a decision nobody wrote down)'s lane, which found milestone 180 (a clipboard in a system with no ambient authority) gated on
 `DECISION` with no decision anywhere a reader can open. calef minted the block on 2026-08-26 after
-checking the roadmap for a gap and finding that **nothing in `design/` or `notes/` mentions a
-clipboard at all**, not even as a named limitation. *(Section number provisional until the merge
+checking the roadmap for a gap and finding that nothing in `design/` or `notes/` mentions a
+clipboard at all, not even as a named limitation. *(Section number provisional until the merge
 queue lands it.)*
 
 ## What is being decided
 
-**Whether this system has a clipboard, and if so what it is scoped to.** It is not a driver
+Whether this system has a clipboard, and if so what it is scoped to. It is not a driver
 question and not a wiring question: a clipboard is shared, mutable state that more than one
 principal reads and writes, which is the shape this tree has a standing rule against.
 
 ## The tension, stated precisely
 
-**Every existing multi-client object here is minted, held and delegated explicitly.** A directory
+Every existing multi-client object here is minted, held and delegated explicitly. A directory
 capability goes to the principal it names ([§47](47-directory-rights.md), a directory capability
 carries six rights, and a child can never exceed its parent); a channel endpoint is minted per
 connection (`login_protocol::CONNECT`); the compositor's shared windows are each their own object
 rather than one global surface every client can address.
 
-**A clipboard is the opposite of all of it.** One slot, last writer wins, readable by whoever asks,
+A clipboard is the opposite of all of it. One slot, last writer wins, readable by whoever asks,
 with the system deliberately not checking who "whoever" is. That is the entire feature, and it is
 not incidental to it: **a capability-shaped clipboard that required proving you were the principal
 who copied would not be a clipboard**, because the whole point is that the pasting program is not
@@ -36,11 +36,11 @@ rather than as work.
 
 ## Prior art, read rather than recalled
 
-- **X11's `PRIMARY` and `CLIPBOARD` selections**: ambient, the ownerless-buffer shape exactly.
-- **Wayland's data-device protocol**: still ambient, but with an explicit offer and request
+- X11's `PRIMARY` and `CLIPBOARD` selections: ambient, the ownerless-buffer shape exactly.
+- Wayland's data-device protocol: still ambient, but with an explicit offer and request
   handshake rather than X11's poll-on-demand, which is closer to this tree's delegate-explicitly
   grain without escaping the tension.
-- **OSC 52** in terminal emulators: the copying program names its destination, which is a targeted
+- OSC 52 in terminal emulators: the copying program names its destination, which is a targeted
   transfer rather than a clipboard.
 
 Both of the first two are the shape to read before designing this, not to copy.
@@ -58,22 +58,22 @@ actually want while making the ambient region exactly one principal wide, which 
 `SURVEY` made for enumeration (a shell sees its own children and nothing else) rather than a new
 idea. C is the purest and answers a different question than the one a person is asking.
 
-**The effort note AGENTS.md asks for**: B costs more than A and depends on a milestone that has not
+The effort note AGENTS.md asks for: B costs more than A and depends on a milestone that has not
 landed, so if A is chosen for those reasons it is an effort decision and should say so in those
 words.
 
 ## How reversible it is
 
-**The scope is the expensive half.** Whatever a clipboard is scoped to is what every program that
+The scope is the expensive half. Whatever a clipboard is scoped to is what every program that
 uses it is written against, and widening it later is easy while narrowing it later breaks programs.
 That argues for deciding narrow first, which is the argument for B independently of taste.
 
 ## What is blocked until this is answered
 
-**Milestone 180**, entirely: it is the first record of the gap rather than a scoped increment, and
+Milestone 180, entirely: it is the first record of the gap rather than a scoped increment, and
 nothing can be scoped from it until this is ruled.
 
-**Downstream and waiting**: real terminal use, which is the actual motivation. Copying a path from
+Downstream and waiting: real terminal use, which is the actual motivation. Copying a path from
 one pane and an error message from a build is the same *would someone live in this* axis milestone
 142 names for the display half. The sources are the terminal (142) and a pointer for drag-to-select
 (179); the paste target is anything a shell or an editor accepts text into.

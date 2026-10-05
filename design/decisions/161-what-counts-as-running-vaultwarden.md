@@ -13,18 +13,18 @@ effort lands."* *(Section number provisional until the merge queue lands it.)*
 
 ## What is being decided
 
-**The definition of done for the largest single item on this roadmap**, before any of it is built.
+The definition of done for the largest single item on this roadmap, before any of it is built.
 Not the sequence, not the estimate: the sentence that gets published when it works.
 
 ## Why this is a decision and not a scoping note
 
-**It is a fact that leaves the machine.** AGENTS.md's irreversible category names exactly this:
+It is a fact that leaves the machine. AGENTS.md's irreversible category names exactly this:
 *"A published claim, a benchmark number a stranger quotes."* "nife runs Vaultwarden" is a sentence
 other people will repeat, and it cannot be narrowed afterwards without looking like a retraction.
 Deciding it late means deciding it from whatever the effort produced, which is the failure the
 block predicted in its own words.
 
-**And this tree has already been bitten by the milder version.** Milestone 66's own gap table said
+And this tree has already been bitten by the milder version. Milestone 66's own gap table said
 TCP listen and accept were missing for three weeks after the gate line had been corrected to say
 they were not, because a status was fixed where somebody looked and left wrong where they did not.
 A definition of done nobody wrote is the same defect with nothing to correct against.
@@ -37,7 +37,7 @@ each number means and where it is not apples-to-apples: the map 'tie' (zeroing-b
 generous definition and footnote it; it is to write the claim with its qualification attached, and
 an honest tie recorded plainly is worth more than an overclaimed win.
 
-**Milestone 123's demonstration shape is the other precedent**: somebody else's software running
+Milestone 123's demonstration shape is the other precedent: somebody else's software running
 narrow, with a negative control. Under it, "it started" is never the claim; "it ran confined and
 was refused when it reached further" is.
 
@@ -45,16 +45,16 @@ was refused when it reached further" is.
 
 The block's gap table is the measurement and one row of it has already moved once:
 
-- **TCP listen and accept: built.** `OP_LISTEN` and `OP_ACCEPT` have been on the wire since
+- TCP listen and accept: built. `OP_LISTEN` and `OP_ACCEPT` have been on the wire since
   milestone 107 and are bound into the `std` PAL by milestone 64, under
   [§25](25-socket-identity.md) (a socket id in phase one). The remaining limit is **concurrency,
   not the contract**: the backlog is one connection deep.
-- **`std::thread`**: 4 of 6 PAL functions answer `Unsupported`.
-- **`std::fs`**: 32 of 54 answer `Unsupported`.
-- **async runtime**: none. Rocket wants tokio: timers, wakers, a reactor.
-- **TLS**: none. The `rustls`-versus-confined-OpenSSL fork is milestone 387's, and **server-side TLS
-  is this block's**.
-- **SQLite**: a C library, so the [§31](31-foreign-language-seam.md) seam plus real filesystem
+- `std::thread`: 4 of 6 PAL functions answer `Unsupported`.
+- `std::fs`: 32 of 54 answer `Unsupported`.
+- async runtime: none. Rocket wants tokio: timers, wakers, a reactor.
+- TLS: none. The `rustls`-versus-confined-OpenSSL fork is milestone 387's, and server-side TLS
+  is this block's.
+- SQLite: a C library, so the [§31](31-foreign-language-seam.md) seam plus real filesystem
   locking.
 
 So the honest statement of the distance is that every row is milestone-sized on its own.
@@ -68,13 +68,13 @@ So the honest statement of the distance is that every row is milestone-sized on 
 | **C** | **It serves concurrent clients over TLS that nife terminates.** | Everything in B, plus milestone 387's fork answered and a crypto surface this tree does not have. | Nothing. It is also the furthest away by a wide margin. |
 | **D** | **It runs confined, and what it cannot reach is the result.** | Grant it a directory and a listening socket and record what it asks for next. | It is not a "runs it" claim at all. It is a different and more interesting experiment, which the block itself says. |
 
-**Recommendation: B as the claim, with D as the deliverable that comes first.** B is the smallest
+Recommendation: B as the claim, with D as the deliverable that comes first. B is the smallest
 definition a person could actually use, which is the only bar that is not chosen for convenience,
 and it puts the TLS fork where it already lives (milestone 387) instead of importing it. D costs
 almost nothing once the program starts at all, produces the finding this project exists to produce,
 and gives a publishable result on the way to B rather than only at the end.
 
-**The honest note on effort, in the words AGENTS.md asks for**: A is cheaper than B and is not
+The honest note on effort, in the words AGENTS.md asks for: A is cheaper than B and is not
 recommended, so cost is not deciding this. C is rejected on distance rather than on merit, and that
 *is* an effort argument, stated so it can be weighed as one.
 
@@ -86,7 +86,7 @@ asset the benchmark discipline exists to protect.
 
 ## What is blocked until this is answered
 
-**Milestone 66's scoping**, which is its first honest deliverable. Nothing is blocked on it today,
+Milestone 66's scoping, which is its first honest deliverable. Nothing is blocked on it today,
 because 66 also waits on milestone 64 and every row above is unscheduled. That makes this a good
 decision to take early and a cheap one to take late, which is the argument for taking it now while
 nobody is mid-effort and the answer cannot be shaped by sunk cost.

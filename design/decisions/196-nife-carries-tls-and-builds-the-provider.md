@@ -8,24 +8,24 @@ ratified_by: calef
 # 196. nife carries TLS: `rustls` for the protocol, and a crypto provider we make work
 
 calef, 2026-09-19 (22:01 UTC): *"Carrying a TLS stack seems like table stakes
-these days"*, and, on being shown that no provider builds for our targets today, **take `rustls`
-and build the provider**. *(Section number provisional until the merge queue lands it.)*
+these days"*, and, on being shown that no provider builds for our targets today, take `rustls`
+and build the provider. *(Section number provisional until the merge queue lands it.)*
 
-**The ruling, in four clauses:**
+The ruling, in four clauses:
 
-1. **nife carries TLS.** HTTPS is the transport for fetching packages, which also settles hosting:
+1. nife carries TLS. HTTPS is the transport for fetching packages, which also settles hosting:
    GitHub (Releases or GHCR, which is what Homebrew does) redirects plain HTTP, so a GitHub-hosted
    source is reachable only over TLS. DECISIONS §157's web page and §195's per-source model both
    assume a host somebody else runs, and that is the shape this pays for.
-2. **`rustls` for the protocol.** Measured below: `rustls` 0.23.45 with default features off plus
-   `tls12` is **7 crates, all Rust**, and that part builds. `embedded-tls` (58 crates) and OpenSSL
+2. `rustls` for the protocol. Measured below: `rustls` 0.23.45 with default features off plus
+   `tls12` is 7 crates, all Rust, and that part builds. `embedded-tls` (58 crates) and OpenSSL
    are not taken; the table says why.
-3. **The crypto provider is ours to make work, and it is the actual project.** Every candidate
+3. The crypto provider is ours to make work, and it is the actual project. Every candidate
    provider fails on our bare-metal targets today, in two classes: `getrandom` has no backend
    (`ring`, `rustls-rustcrypto`), which is exactly what `entropy_backend` exists to answer and
    which nife can supply because it has an entropy service; and SIMD paths in `sha2` and `polyval`
    fail on the soft-float `x86_64-unknown-none`, which the probe itself says may differ against
-   nife's own target specification and pinned nightly. **Milestone 442** carries that work.
+   nife's own target specification and pinned nightly. Milestone 442 carries that work.
 4. **Roots are held per source, not in a system store**, which is §195's shape one layer down: the
    package client holds one root or one pinned key for the one source it talks to. A system-wide
    trust store would need updating independently of the system, and the thing that updates it is
@@ -36,7 +36,7 @@ and build the provider**. *(Section number provisional until the merge queue lan
 not "is this package genuine". That is why it is table stakes without being urgent, and why rung 3a
 (fetch by digest from a source the owner opted into) does not wait for it.
 
-**Reversibility, and the §46 test.** This adds a dependency to the shipping graph, which §46 makes
+Reversibility, and the §46 test. This adds a dependency to the shipping graph, which §46 makes
 a decision rather than a convenience: the seven crates are the commitment, and a provider we write
 or adapt is code we own. It is reversible until a published web page tells strangers to fetch over
 HTTPS from a named host; after that the transport is what their machines speak.
@@ -45,12 +45,12 @@ HTTPS from a named host; after that the transport is what their machines speak.
 
 ## What the transport has to provide, split into its parts
 
-A package fetched over the internet needs **integrity** (the bytes are the ones meant), and may want
-**confidentiality** (nobody on the path learns what was installed) and **freshness** (nobody replays
+A package fetched over the internet needs integrity (the bytes are the ones meant), and may want
+confidentiality (nobody on the path learns what was installed) and freshness (nobody replays
 an old, vulnerable package list). TLS gives the first two for the connection; it does not give the
 first for the *content*, since a compromised mirror serves bad bytes over perfect TLS.
 
-**Integrity of content is the trust fork's job, whatever the transport**
+Integrity of content is the trust fork's job, whatever the transport
 (DECISIONS §195):
 
 | Trust ruling | Where integrity comes from | Does it need TLS? |
@@ -74,7 +74,7 @@ http://crates.io/                            -> 301
 http://deb.debian.org/debian/dists/stable/Release -> 200 OK
 ```
 
-**A repository on GitHub cannot be fetched over plain HTTP**: it redirects to HTTPS. Plain HTTP
+A repository on GitHub cannot be fetched over plain HTTP: it redirects to HTTPS. Plain HTTP
 means a host that serves it, which is a self-hosted server or a CDN configured for it. So this fork
 and the hosting question (calef's, under §157's step 1) are one decision seen from two sides.
 
@@ -91,7 +91,7 @@ and the hosting question (calef's, under §157's step 1) are one decision seen f
 | **P4. Write TLS** | | | **Refused by §46** in so many words ("take it, do not write it"); listed so the refusal is visible |
 | **P5. OpenSSL, confined** | The existing TLS proposal's third answer | Not probed here | Priced nowhere yet; that proposal's `BUGS` says so |
 
-**The probe's limits, stated so the table is not over-read.** It ran on the stable host toolchain
+The probe's limits, stated so the table is not over-read. It ran on the stable host toolchain
 against the stock bare-metal targets, not against nife's own target specifications and the pinned
 nightly. The `x86_64-unknown-none` failures in `sha2` and `polyval` are the kind a soft-float target
 produces for crates with SIMD paths, which is a reason to expect a different answer on nife's x86_64
@@ -101,11 +101,11 @@ target rather than a finding about it; that was not checked. The `getrandom` fai
 ## The trust store, which is the part of HTTPS nobody prices
 
 HTTPS needs roots to verify against. The existing TLS proposal already found the circularity: a
-trust store has to be updated independently of the system, and the update mechanism **is** the
+trust store has to be updated independently of the system, and the update mechanism is the
 package manager. Shipping roots inside the image freezes them until the next image. It also proposed
 the capability-shaped answer (a client granted exactly the roots its one peer chains to). Under P2
-or P3 for packages, that is the shape to use: **the package client holds one root, or one pinned
-key, for its one repository**, not a system store.
+or P3 for packages, that is the shape to use: the package client holds one root, or one pinned
+key, for its one repository, not a system store.
 
 ## What the tree does in the analogous case
 
@@ -115,8 +115,8 @@ which is P1's shape at boot.
 
 ## Reversibility, and who acts on it
 
-**The day a stranger's installed system fetches from a repository, the transport is fixed for that
-system** until it is reimaged or updates its client, because the client is what reads the answer.
+The day a stranger's installed system fetches from a repository, the transport is fixed for that
+system until it is reimaged or updates its client, because the client is what reads the answer.
 Before that day every option is reversible. A dependency taken under P2 or P3 is §46's expensive
 kind.
 
@@ -137,10 +137,10 @@ build.
 
 ## BUGS
 
-- **No HTTP client exists in the tree** (`git grep` for an HTTP request line in `components/` and
+- No HTTP client exists in the tree (`git grep` for an HTTP request line in `components/` and
   `crates/` finds none). Whichever option is chosen, a small client is part of rung 3; `std::net`'s
   `TcpStream` is bound (milestones 27 and 64), so it can be a `std` program.
 - **DNS is not here**: `a-name-resolver-and-who-holds-it.md` owns it, and `smoltcp`'s `socket-dns`
   feature is still off in `components/Cargo.toml`.
-- **The crate counts are graph sizes, not audit burdens**, and were taken with `cargo tree` on one
+- The crate counts are graph sizes, not audit burdens, and were taken with `cargo tree` on one
   day; they move with every release.

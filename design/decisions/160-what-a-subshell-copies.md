@@ -14,31 +14,31 @@ from a paragraph inside a roadmap block into the place AGENTS.md says an open de
 
 ## What is being decided
 
-**What `( commands )` means in a shell with no `fork`.** Three sub-questions, in the order they
+What `( commands )` means in a shell with no `fork`. Three sub-questions, in the order they
 decide each other:
 
-1. **Is the mechanism scoping or isolation**, given that Unix conflates them because `fork` was the
+1. Is the mechanism scoping or isolation, given that Unix conflates them because `fork` was the
    tool it had.
-2. **If a child is involved, is its endowment derived from the parent's or duplicated from it**,
+2. If a child is involved, is its endowment derived from the parent's or duplicated from it,
    which is the question with no Unix analogue.
-3. **What happens when the endowment holds a capability that cannot be copied**, which is not a
+3. What happens when the endowment holds a capability that cannot be copied, which is not a
    corner case: this tree has already proved two such capabilities exist.
 
 ## What this tree already does in the analogous case
 
-**Milestone 50 answered most of what a subshell is used for, and it is built.** Each side of a
+Milestone 50 answered most of what a subshell is used for, and it is built. Each side of a
 pipe, `$( ... )` substitution and `( ... ) &` backgrounding are all spawn-and-grant today
 (milestone 50, milestone 48). The residue is `(cd /tmp && make)` and `(umask 077; ...)`, and
 `umask` has no subject here because there are no permission bits. So the decision is about
-**scoping a shell's own mutable state**, not about process duplication, and an option priced
+scoping a shell's own mutable state, not about process duplication, and an option priced
 against the Unix requirement is priced against the wrong requirement.
 
-**The separation this decision would make has been made twice before and was right both times.**
+The separation this decision would make has been made twice before and was right both times.
 milestone 47 separated unlink from revoke in `rm`, and milestone 42's own fork separated what a
 filesystem offers from what a caller may assume. Both were the same act: a Unix verb doing two jobs
 because one implementation served both.
 
-**And the tree already refuses "copy the capability".** [§41](41-endpoint-as-broker.md) (a device is revoked by taking it back) gave
+And the tree already refuses "copy the capability". [§41](41-endpoint-as-broker.md) (a device is revoked by taking it back) gave
 `Frame::REVOKE` take-back semantics on a `DeviceFrame` precisely because a device must never have
 two owners, and milestone 23's witness is that the generation never goes backwards. A one-shot
 reply capability is consumed by construction. So **"copy the endowment" is not a total function**,
@@ -53,13 +53,13 @@ and this is measured rather than feared.
 | **C** | **Scoped bindings**, `with cwd = /tmp { ... }`, and no subshell at all. | Says what it means rather than reaching for duplication. Covers the scoping use completely and the isolation use not at all. Diverges from Unix spelling, which milestone 47's rule allows only when the divergence earns it. |
 | **D** | **Hybrid**: scoping by binding, isolation by an explicit verb. | Two mechanisms, each doing one thing, which is the shape §42 and milestone 47 both converged on. Two syntaxes to learn instead of one. |
 
-**Recommendation: D, and derivation rather than duplication inside it.** The argument is not that
+Recommendation: D, and derivation rather than duplication inside it. The argument is not that
 it is less work; it is more. It is that this tree has twice found a Unix verb doing two jobs and
 has twice been right to split them, and that the split is what makes question 3 answerable at all:
 a scoping construct never touches a capability, so the non-duplicable case simply does not arise
 there, and an explicit isolation verb is the one place that has to answer it.
 
-**And derivation beats duplication on machinery that already exists.** If a child's capabilities
+And derivation beats duplication on machinery that already exists. If a child's capabilities
 are derived from the parent's, [§16](16-object-revocation.md) (reclaim the objects a process built)'s revocation and the derivation tree
 already give "destroying the child revokes exactly its copies", and [§40](40-no-reaper-of-last-resort.md) (a supervisor's death is its subtree's death) makes the cleanup automatic. Duplication would need bookkeeping
 for the same result. This is the same shape as §92's caretaker-lifetime answer, where supervision
@@ -67,10 +67,10 @@ was both the better option and the smaller one once it was checked.
 
 ## Whether the premise is true
 
-**Partly, and the part that is false matters.** The block's framing is "what replaces `fork`", and
+Partly, and the part that is false matters. The block's framing is "what replaces `fork`", and
 the honest answer is that `fork` has a third use that has nothing to do with shells: Redis
-`BGSAVE`, the Android and Chrome zygotes, and PostgreSQL's backend-per-connection all want **a copy
-of a running address space**, frozen or warm. Checked 2026-08-17 and unchanged: there is no
+`BGSAVE`, the Android and Chrome zygotes, and PostgreSQL's backend-per-connection all want a copy
+of a running address space, frozen or warm. Checked 2026-08-17 and unchanged: there is no
 copy-on-write machinery in `kernel/src` or `crates/`, and no address-space-copy method on the ABI.
 
 **That is a separate decision and should not be answered here.** It is a kernel question that would
@@ -89,7 +89,7 @@ not.
 
 ## What is blocked until this is answered
 
-**Milestone 52**, and nothing else. Its sequencing dependency on milestone 50 is satisfied: 50 is
+Milestone 52, and nothing else. Its sequencing dependency on milestone 50 is satisfied: 50 is
 BUILT, which is what removed most of the requirement and changed what is left.
 
 **Not blocked:** address-space duplication, which wants its own block and its own trigger. The

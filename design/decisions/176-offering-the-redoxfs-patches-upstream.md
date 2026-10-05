@@ -14,13 +14,13 @@ lands it.)*
 
 Two questions, and the second is the one nobody has asked:
 
-1. **Are the two RedoxFS patches offered upstream at all?**
-2. **Under what identity**, given that both were written by an agent and both carry
+1. Are the two RedoxFS patches offered upstream at all?
+2. Under what identity, given that both were written by an agent and both carry
    `From: Chris Alef <chris@crickertech.com>` in their `git format-patch` headers.
 
 ## Why this is calef's rather than a lane's
 
-**A merge request is a fact that leaves the machine.** AGENTS.md puts that in the irreversible
+A merge request is a fact that leaves the machine. AGENTS.md puts that in the irreversible
 column with names, dependencies and the syscall surface, and gives the reason: *"Nobody can
 un-publish a decision."* [§79](79-password-equivalent-material.md) is the worked precedent, where an
 hour of argument was worth spending because the decision *"cannot be unmade by deleting the code"*.
@@ -33,7 +33,7 @@ mechanically outside a lane: it needs an account on gitlab.redox-os.org, a fork 
 `patches/` holds exactly two files beside its README, checked 2026-09-19. The README's opening
 sentence is the standing commitment: *"Each exists to be upstreamed; an entry leaves this directory
 when the pin that needed it advances past a release containing the fix."* The submission route is
-written out for both in the future tense, and **no merge request is recorded anywhere in the tree**.
+written out for both in the future tense, and no merge request is recorded anywhere in the tree.
 
 | patch | against | state |
 |---|---|---|
@@ -48,7 +48,7 @@ written out for both in the future tense, and **no merge request is recorded any
 | **B** | **Offer only `vec-import`.** | It is the pure bug fix, is written against master, and needs no rebase. `create-uuid` adds API surface, which is a larger thing to ask a maintainer for and a larger thing to defend. |
 | **C** | **Offer neither, and say so in `patches/README.md`.** | Free, and honest in a way the current state is not: the directory's own opening sentence promises upstreaming, so silence reads as intent. The recurring cost stays, since milestone 203's machinery reports every upstream move and each report then re-applies both divergences by hand, with `create-uuid`'s rebase getting more expensive the longer nobody does it. |
 
-**No recommendation on question 1, deliberately**, for the reason above: it is a fact that leaves the
+No recommendation on question 1, deliberately, for the reason above: it is a fact that leaves the
 machine, and AGENTS.md's own limit says those arrive as options.
 
 ## Question 2, which is the part this block never asked
@@ -57,7 +57,7 @@ Both patches carry calef's legal name and address in their `From:` header, which
 AGENTS.md's rule that legal names belong in *"legal and authorship strings ... patch `From:`
 headers"*. Both were written by an agent.
 
-**In this repository that gap is covered by a stated convention**: every pull request and comment an
+In this repository that gap is covered by a stated convention: every pull request and comment an
 agent writes opens by saying so, because until milestone 128 gives the automation a real identity
 *"every artifact in this repository carries calef's name whether he wrote it or not, and a reader
 cannot tell the architect's voice from a lane's"*. That convention is local. A merge request on
@@ -67,8 +67,8 @@ code into their project on the strength of who appears to have written it.
 So the options are: say so in the merge request description, say nothing, or wait for milestone
 128's identity. **This one does want a recommendation, because it is reversible in the way question
 1 is not**: a sentence in a description can be written differently next time, and the honest version
-costs one line. **Recommendation: say so**, in the same words the in-tree convention uses.
+costs one line. Recommendation: say so, in the same words the in-tree convention uses.
 
 ## What is blocked until this is answered
 
-**Milestone 347**, and nothing else. The mechanical part is small; the rest is waiting.
+Milestone 347, and nothing else. The mechanical part is small; the rest is waiting.
