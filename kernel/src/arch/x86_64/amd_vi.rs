@@ -19,7 +19,7 @@
 //! a fault is a 128-bit record in the event log rather than a fault-recording register.
 //!
 //! **No cache maintenance is needed, and that is the specification's answer, not an assumption.**
-//! The device table read is snooped while `Control.Coherent` is 1 (its reset value, section 3.4,
+//! The device table read is snooped while `Control.Coherent` is 1 (its reset value, section 3.3.1,
 //! which this driver never clears); page-table walks are snooped while a device table entry's `SD`
 //! bit is 0 (Table 7), which every entry here leaves clear; and the command ring is always read
 //! coherently (section 2.4). So the `clflush` VT-d's [`Unit::publish`](super::iommu) needs on a
@@ -129,11 +129,13 @@ use machine_discovery::acpi::ivrs::{IvrsUnits, MAX_IVHDS};
 use crate::arch::mmu::phys_to_virt;
 use crate::sync::{IrqSafeMutex, rank};
 
-// --- MMIO register offsets (section 3.4). ---
+// --- MMIO register offsets (section 3.3.1). ---
 const DEVICE_TABLE_BASE: u64 = 0x0000;
 const COMMAND_BUFFER_BASE: u64 = 0x0008;
 const EVENT_LOG_BASE: u64 = 0x0010;
 const CONTROL: u64 = 0x0018;
+const EXCLUSION_BASE: u64 = 0x0020;
+const EXCLUSION_LIMIT: u64 = 0x0028;
 const EXTENDED_FEATURES: u64 = 0x0030;
 const COMMAND_HEAD: u64 = 0x2000;
 const COMMAND_TAIL: u64 = 0x2008;
@@ -146,14 +148,22 @@ const STATUS: u64 = 0x2020;
 /// (`0x80000`); nothing here reads them. QEMU's model is exactly 16 KiB (`AMDVI_MMIO_SIZE`).
 pub const REGISTER_SIZE: u64 = 0x4000;
 
-// Control register bits this driver sets or clears (section 3.4.3).
+// Control register bits this driver sets or clears (section 3.3.1, MMIO 0018h).
 const CONTROL_IOMMU_EN: u64 = 1 << 0;
 const CONTROL_EVENT_LOG_EN: u64 = 1 << 2;
 const CONTROL_EVENT_INT_EN: u64 = 1 << 3;
 const CONTROL_COM_WAIT_INT_EN: u64 = 1 << 4;
 const CONTROL_CMD_BUF_EN: u64 = 1 << 12;
 
-// Status register bits (section 3.4.x, MMIO 2020h).
+// Exclusion Base register bits (section 3.3.1, MMIO 0020h): `ExEn` turns the range on, for every
+// device whose entry sets `EX` (Table 7, bit 103) or, with `Allow`, for every device whatever its
+// entry says.
+// The base and the limit (MMIO 0028h) both carry the address in bits 51:12.
+const EXCLUSION_EN: u64 = 1 << 0;
+const EXCLUSION_ALLOW: u64 = 1 << 1;
+const EXCLUSION_ADDRESS: u64 = 0x000f_ffff_ffff_f000;
+
+// Status register bits (section 3.3.1, MMIO 2020h).
 const STATUS_EVENT_OVERFLOW: u64 = 1 << 0;
 const STATUS_EVENT_LOG_RUN: u64 = 1 << 3;
 const STATUS_CMD_BUF_RUN: u64 = 1 << 4;
@@ -246,6 +256,8 @@ struct Unit {
     enabled: bool,
     /// How many devices an IVMD had attached before the unit was enabled.
     reserved_devices: u32,
+    /// What the firmware left in the exclusion registers, which `set_up` cleared.
+    exclusion: ExclusionFound,
 }
 
 enum Slot {
@@ -400,6 +412,78 @@ fn zeroed_frames(count: usize, what: &str) -> u64 {
         .addr()
 }
 
+/// **What a unit's exclusion registers held when this kernel cleared them**: the raw Exclusion Base
+/// and Exclusion Range Limit (MMIO 0020h and 0028h). Only [`clear_exclusion_range`] makes one, and
+/// [`Unit`] cannot be built without one, so a `set_up` that forgot to clear the range would not
+/// compile. Name: provisional (provisional milestone 767 (AMD-Vi hardening before the first AMD
+/// boot)).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ExclusionFound {
+    base: u64,
+    limit: u64,
+}
+
+impl ExclusionFound {
+    /// Was the range in force? `ExEn` is the enable; `Allow` widens it from the devices whose entry
+    /// sets `EX` (none here) to every device, and means nothing without `ExEn`.
+    fn was_enabled(&self) -> bool {
+        self.base & EXCLUSION_EN != 0
+    }
+}
+
+impl core::fmt::Display for ExclusionFound {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        if self.base == 0 && self.limit == 0 {
+            return write!(f, "no firmware exclusion range");
+        }
+        write!(
+            f,
+            "FIRMWARE EXCLUSION RANGE {:#x}..={:#x} ({}{}) CLEARED",
+            self.base & EXCLUSION_ADDRESS,
+            (self.limit & EXCLUSION_ADDRESS) | 0xfff,
+            if self.was_enabled() {
+                "enabled"
+            } else {
+                "disabled"
+            },
+            if self.base & EXCLUSION_ALLOW != 0 {
+                ", every device"
+            } else {
+                ""
+            },
+        )
+    }
+}
+
+/// **Switch off the unit's exclusion range, and say what it was** (provisional milestone 767).
+///
+/// An exclusion range is a window of device addresses the unit does not translate: with `Allow` set
+/// in the Exclusion Base register, every device's access inside `[base, limit]` goes straight to
+/// memory, untranslated and unchecked, whatever its device table entry says (section 3.3.1, MMIO
+/// 0020h and 0028h; section 2.1.4.4 for translation requests into the range). Firmware sets one to keep a region it DMAs into reachable,
+/// and nothing clears it at reset. So a range left in force would be a hole in this driver's
+/// default deny that no entry it writes can close, and it is the one way a device could pass this
+/// driver untranslated. Both registers are zeroed, `ExEn` and `Allow` with them.
+///
+/// A range the firmware still needs is not lost: an IVMD with `ExclusionRange` set is mapped into
+/// the named devices' domains as a read-write identity region instead, as Linux does (the IVRS
+/// decoder's BUGS). A range set with no IVMD naming it is firmware's alone, and the boot line says
+/// it was cleared, in capitals.
+///
+/// **What QEMU decides here: nothing is excluded.** QEMU 11.1.1 stores both registers and never
+/// reads them back into translation (`amdvi_handle_excllim_write` records the limit; no walk
+/// consults `excl_allow` or `excl_enable`), and its firmware sets no range. So under QEMU this
+/// function is proved to write the registers and nothing more; only silicon shows the effect.
+fn clear_exclusion_range(unit_base: u64) -> ExclusionFound {
+    let found = ExclusionFound {
+        base: r64(unit_base, EXCLUSION_BASE),
+        limit: r64(unit_base, EXCLUSION_LIMIT),
+    };
+    w64(unit_base, EXCLUSION_BASE, 0);
+    w64(unit_base, EXCLUSION_LIMIT, 0);
+    found
+}
+
 /// **Give one unit an all-blocked device table, a command ring and an event log**, with the unit
 /// still disabled. `Err` is a unit this driver will not drive, with the reason the boot prints.
 fn set_up(ivrs: &IvrsUnits, i: usize) -> Result<Unit, &'static str> {
@@ -421,7 +505,7 @@ fn set_up(ivrs: &IvrsUnits, i: usize) -> Result<Unit, &'static str> {
 
     // Firmware may hand over with the unit on. Turn it off before pointing it anywhere new, the
     // same reasoning VT-d's `root_up` gives for clearing `TE`; the base registers may not be
-    // written while their rings run (sections 3.4.2 and 3.4.3).
+    // written while their rings run (section 3.3.1, MMIO 0008h to 0018h).
     let control = r64(base, CONTROL);
     let running = CONTROL_IOMMU_EN
         | CONTROL_EVENT_LOG_EN
@@ -434,6 +518,8 @@ fn set_up(ivrs: &IvrsUnits, i: usize) -> Result<Unit, &'static str> {
             r64(base, STATUS) & (STATUS_CMD_BUF_RUN | STATUS_EVENT_LOG_RUN) == 0
         });
     }
+    // With the unit off, before anything is pointed at it.
+    let exclusion = clear_exclusion_range(base);
 
     // The device table covers every id the IVRS gives this unit, rounded up to a whole page; the
     // hardware target-aborts any id past its end (section 2.2.2).
@@ -450,7 +536,7 @@ fn set_up(ivrs: &IvrsUnits, i: usize) -> Result<Unit, &'static str> {
     let semaphore = zeroed_frames(1, "completion word");
     crate::arch::direct_memory_access_write_barrier();
 
-    // `Size` is pages minus one (section 3.4.1). Writing a ring's base resets its head and tail
+    // `Size` is pages minus one (section 3.3.1, MMIO 0000h). Writing a ring's base resets its head and tail
     // (section 2.4; QEMU does the same in `amdvi_handle_cmdbase_write`).
     w64(base, DEVICE_TABLE_BASE, device_table | (pages - 1));
     w64(base, COMMAND_BUFFER_BASE, command_ring | RING_LEN_256);
@@ -475,6 +561,7 @@ fn set_up(ivrs: &IvrsUnits, i: usize) -> Result<Unit, &'static str> {
         next_domain: 1,
         enabled: false,
         reserved_devices: 0,
+        exclusion,
     })
 }
 
@@ -567,12 +654,13 @@ pub fn init(ivrs: &IvrsUnits) {
             Slot::Up(u) => crate::println!(
                 "  amd-vi      : unit {:#x} up ({} of {n}, ivhd type {:#x}), {} device table \
                  entries all blocked, translation enabled (status confirmed), {} ivmd device(s) \
-                 mapped",
+                 mapped, {}",
                 d.register_base,
                 i + 1,
                 d.kind,
                 u.entries,
                 u.reserved_devices,
+                u.exclusion,
             ),
             Slot::Refused(why) => crate::println!(
                 "  amd-vi      : unit {:#x} NOT up ({} of {n}): {why}; the devices it serves are \
@@ -695,7 +783,7 @@ pub fn scope_of(rid: u32) -> crate::iommu::Scope {
 
 /// **Pop one event, if any unit logged one** (section 2.5). The record's device id, its event
 /// code (bits 63:60 of the first qword; 2 is `IO_PAGE_FAULT`) and its address. An overflowed log
-/// records nothing until software clears `EventOverflow` and restarts logging (section 3.4,
+/// records nothing until software clears `EventOverflow` and restarts logging (section 3.3.1,
 /// status register), so that happens here first, as VT-d's `take_fault` clears `PFO`.
 pub fn take_fault() -> Option<Fault> {
     let g = UNITS.lock();
@@ -900,6 +988,51 @@ mod tests {
         let g = UNITS.lock();
         let Slot::Up(u) = &g[0] else { return };
         assert_eq!(read_dte(u.device_table, id), blocked_dte(u.empty_root));
+    }
+
+    /// **A firmware exclusion range does not survive `set_up`**: every unit's Exclusion Base and
+    /// Limit read zero after boot, and [`clear_exclusion_range`] zeroes a range the test plays
+    /// firmware and sets, reporting what it found (provisional milestone 767).
+    ///
+    /// **What QEMU decides here, and it is most of it.** QEMU 11.1.1 stores the limit register and
+    /// silently drops every write to the base register (`amdvi_mmio_write` has no case for MMIO
+    /// 0020h, so it reads zero whatever is written), and no walk consults either. So under QEMU
+    /// this proves the limit half of the programming and that the boot left both zero; the base
+    /// half, `ExEn` and `Allow` included, and the effect on a device's DMA are only provable on
+    /// silicon. The range written is the last 4 KiB of the 52-bit address space, which no machine
+    /// backs with memory, so on silicon the moment between the write and the clear excludes nothing.
+    ///
+    /// Falsification: replayable `kernel/falsifications/arch.x86_64.amd_vi.tests.a_firmware_exclusion_range_is_cleared.patch`
+    #[test_case]
+    fn a_firmware_exclusion_range_is_cleared() {
+        if !is_active() {
+            crate::testing::skip!("no AMD-Vi unit is up");
+        }
+        const TOP: u64 = 0x000f_ffff_ffff_f000;
+        let g = UNITS.lock();
+        for s in g.iter() {
+            let Slot::Up(u) = s else { continue };
+            assert_eq!(r64(u.base, EXCLUSION_BASE), 0, "unit {:#x}", u.base);
+            assert_eq!(r64(u.base, EXCLUSION_LIMIT), 0, "unit {:#x}", u.base);
+
+            w64(u.base, EXCLUSION_LIMIT, TOP);
+            w64(u.base, EXCLUSION_BASE, TOP | EXCLUSION_ALLOW | EXCLUSION_EN);
+            let found = clear_exclusion_range(u.base);
+            assert_eq!(
+                found.limit, TOP,
+                "the limit the test wrote was not what was found"
+            );
+            assert_eq!(
+                r64(u.base, EXCLUSION_LIMIT),
+                0,
+                "the limit survived the clear"
+            );
+            assert_eq!(
+                r64(u.base, EXCLUSION_BASE),
+                0,
+                "the base survived the clear"
+            );
+        }
     }
 
     /// The two entries this driver writes, spelled against Table 7's bit positions: `V` (0), `TV`
