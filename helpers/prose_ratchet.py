@@ -409,7 +409,7 @@ def sentences(block):
 #
 # The maintainer's ruling of 2026-09-26 (UTC), on #1311, after the lane for §219 (how the shell
 # names an installed program to the spawner) found it: `**Status: …`, `**Built:**`, `**Gate: …**`,
-# the Follow-on and Revisit tags and fatal-risks' experiment fields are read by scripts, and in a short block that bold alone is over 4 per 1,000 words, so the touch
+# the Follow-on and Revisit tags and fatal-risks' experiment lead-ins are read by scripts, and in a short block that bold alone is over 4 per 1,000 words, so the touch
 # rule would have made those documents uneditable. Parsed bold is not counted at all.
 #
 # The set is DERIVED from the parsers, not listed here: every `re.compile`/`re.match`/`re.search`/

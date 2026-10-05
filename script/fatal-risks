@@ -41,7 +41,7 @@
 #    to parse better; it is two answers to a question with one answer, and it now fails.
 #
 # **1. A risk whose experiment has run names a milestone that started.** A risk section carrying
-#    `**Experiment status: RUN ...**` asserts that its experiment happened. The
+#    `experiment_status: RUN` in its frontmatter asserts that its experiment happened. The
 #    experiment is named on a bolded lead-in the `**The experiment:**` form, naming a milestone, and a
 #    milestone that is `NOT-STARTED` cannot be the thing that ran. This is the milestone-191 finding.
 #
@@ -246,7 +246,17 @@ EXPERIMENT = re.compile(r"\*\*The [a-z ]*experiment\b([^*:]*)(?::\*\*|\*\*)", re
 # **The character class is `[A-Z][A-Z-]*` and the hyphen is the point.** It was `([A-Z]+)`, which
 # captured `NOT` out of risk 4's `**Status: NOT YET` and reported a word nobody had written. Two of
 # the three ratified values are hyphenated, so the old class could not have read them either.
-STATUS_LINE = re.compile(r"\*\*Experiment status: ([A-Z][A-Z-]*)\b")
+#
+# **Since 2026-10-05 (UTC) the field is frontmatter, not bold** (calef: "the nine Experiment status:
+# lines should move into frontmatter"). A risk file opens with `experiment_status: RUN` and, for RUN
+# only, `experiment_run: 2026-08-31`; both names ratified 2026-10-05 (calef). `BOLD_STATUS` is no longer a reader,
+# it is the ban: the old bold line fails loudly (check 0b) so a lane copying an old file's shape, or a
+# merge restoring the line, is told rather than silently unread. The flat frontmatter cannot hold
+# "GREEN (calef, 2026-10-05); amber 2026-10-04, #1613" (a value may not contain ` #`), and the colour
+# already has its one machine-read home in the appendix's `color:`, so the verdict stays a sentence.
+BOLD_STATUS = re.compile(r"\*\*Experiment status\b")
+STATUS_KEY, RUN_KEY = "experiment_status", "experiment_run"
+ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 COLOUR_WORD = re.compile(r"\b(GREEN|AMBER|RED)\b")
 FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.S)
 RATIFIED = ("RUN", "NOT-RUN", "CANNOT-RUN")
@@ -280,7 +290,8 @@ def sections_of(text):
     return out
 
 
-def analyse(text, milestones, built_on, decisions, exists, last_touched, appendix_colours=None):
+def analyse(text, milestones, built_on, decisions, exists, last_touched, appendix_colours=None,
+            fields=None):
     """Every disagreement between what `text` says and what the records hold.
 
     The records arrive as arguments rather than being read in here, which is what lets `--selftest`
@@ -302,6 +313,7 @@ def analyse(text, milestones, built_on, decisions, exists, last_touched, appendi
 
     sections = sections_of(text)
     risks = [s for s in sections if s[0]]
+    fields = fields or {}
     if not risks:
         found.append(("no-risks", 1, f"{RISKS}: no numbered risk sections found. Has the shape "
                                      f"of the file changed?"))
@@ -314,42 +326,70 @@ def analyse(text, milestones, built_on, decisions, exists, last_touched, appendi
         # only test of a status word in this script was the two-element membership below, used as a
         # FILTER: anything outside it parsed as None and was silently exempt, so a lane inventing a
         # word cost nothing and was told nothing. Three did, in one day.
-        statuses = list(STATUS_LINE.finditer(body))
-        for m in statuses:
-            if m.group(1) not in RATIFIED:
-                report("status-vocabulary", start + m.start(),
-                       f"{RISKS}:{lineno(start + m.start())}: {label} carries an Experiment status "
-                       f"of {m.group(1)}, which is not one of the three ratified values: "
-                       f"{', '.join(RATIFIED)}.\n"
-                       f"      The set is closed on purpose. calef ratified it on 2026-09-23, after "
-                       f"three lanes minted NOT YET, UNRUN and UNTESTED for this field in one day, "
-                       f"none of them able to see the other two. An open vocabulary is how that "
-                       f"happened, and a field that mixes 'did it run' with 'what did it find' is "
-                       f"what it produced.\n"
-                       f"      The right action is to get a new value ratified by an architect, "
-                       f"not to edit the enumeration in this script. A value here is a name, "
-                       f"names are an architect's, and this list is a record of calef's ruling "
-                       f"rather than a list to extend. If what you want to say is what the "
-                       f"experiment FOUND, say it in the prose under the status line, which is "
-                       f"where this file keeps GREEN, AMBER, MEASURED and AUDITED.")
+        pairs = fields.get(int(num), [])
+        keys = [k for k, _ in pairs]
+        fm = {}
+        for k, v in pairs:
+            fm.setdefault(k, v)  # the first is the one read, as the message says
+        status, run = fm.get(STATUS_KEY), fm.get(RUN_KEY)
+        if status is None:
+            report("no-status", start,
+                   f"{RISKS}:{lineno(start)}: {label} has no `{STATUS_KEY}:` in its frontmatter.\n"
+                   f"      Every risk file opens with a `---` block carrying it, one of "
+                   f"{', '.join(RATIFIED)}. The bold `**Experiment status:` line it replaced is "
+                   f"refused, see below.")
+        elif status not in RATIFIED:
+            report("status-vocabulary", start,
+                   f"{RISKS}:{lineno(start)}: {label} carries an Experiment status "
+                   f"of {status}, which is not one of the three ratified values: "
+                   f"{', '.join(RATIFIED)}.\n"
+                   f"      The set is closed on purpose. calef ratified it on 2026-09-23, after "
+                   f"three lanes minted NOT YET, UNRUN and UNTESTED for this field in one day, "
+                   f"none of them able to see the other two. An open vocabulary is how that "
+                   f"happened, and a field that mixes 'did it run' with 'what did it find' is "
+                   f"what it produced.\n"
+                   f"      The right action is to get a new value ratified by an architect, "
+                   f"not to edit the enumeration in this script. A value here is a name, "
+                   f"names are an architect's, and this list is a record of calef's ruling "
+                   f"rather than a list to extend. If what you want to say is what the "
+                   f"experiment FOUND, say it in the prose under the claim, which is "
+                   f"where this file keeps GREEN, AMBER, MEASURED and AUDITED.")
         # ---- 8: one entry, one status ----------------------------------------
         # Risk 7 carried two `**Status:` lines for six days and this script read only the first, so
-        # `AUDITED` was invisible to every consumer of the file. A second line is not a thing to
+        # `AUDITED` was invisible to every consumer of the file. A second answer is not a thing to
         # parse better; it is two answers to a question with one answer.
-        if len(statuses) > 1:
-            report("two-statuses", start + statuses[1].start(),
-                   f"{RISKS}:{lineno(start + statuses[1].start())}: {label} carries "
-                   f"{len(statuses)} Experiment status lines "
-                   f"({', '.join(m.group(1) for m in statuses)}), and only the first is read.\n"
+        if len(keys) != len(set(keys)):
+            report("two-statuses", start,
+                   f"{RISKS}:{lineno(start)}: {label}'s frontmatter repeats a key "
+                   f"({', '.join(sorted({k for k in keys if keys.count(k) > 1}))}), and only one is "
+                   f"read.\n"
                    f"      That is how risk 7's AUDITED stayed invisible to every tool reading this "
                    f"file. One entry states one Experiment status; how well the experiment was done, "
-                   f"and what it found, go in the prose beneath it.")
+                   f"and what it found, go in the prose beneath the claim.")
+        # `experiment_run` is the date the experiment ran, so it belongs to RUN alone.
+        if status == "RUN" and not (run and ISO_DATE.fullmatch(run)):
+            report("run-date", start,
+                   f"{RISKS}:{lineno(start)}: {label} is RUN and its `{RUN_KEY}:` is "
+                   f"{run!r}, not a YYYY-MM-DD date.")
+        if status in RATIFIED and status != "RUN" and run is not None:
+            report("run-date", start,
+                   f"{RISKS}:{lineno(start)}: {label} is {status} and carries `{RUN_KEY}: {run}`.\n"
+                   f"      An experiment that has not happened has no run date. Say when the "
+                   f"verdict was recorded in the prose.")
+        # ---- 0b: the old bold line is refused, loudly ------------------------
+        for m in BOLD_STATUS.finditer(body):
+            report("bold-status", start + m.start(),
+                   f"{RISKS}:{lineno(start + m.start())}: {label} still carries a bold "
+                   f"`**Experiment status` line.\n"
+                   f"      calef moved the field into frontmatter on 2026-10-05 (UTC): put "
+                   f"`{STATUS_KEY}: RUN` and `{RUN_KEY}: YYYY-MM-DD` in a `---` block at the top of "
+                   f"the file and keep what the experiment found as an ordinary sentence. Nothing "
+                   f"reads the bold form any more, so leaving it would be a status nobody sees.")
 
-        sm = statuses[0] if statuses else None
         # `RUN` is the one value that asserts the experiment happened, which is what checks 1 and 2
         # below need. `NOT-RUN` and `CANNOT-RUN` assert the opposite and make no claim about a
         # milestone having started.
-        verdict = sm.group(1) if sm and sm.group(1) == "RUN" else None
+        verdict = "RUN" if status == "RUN" else None
 
         # ---- 1 and 2: the experiment -----------------------------------------
         for em in EXPERIMENT.finditer(body):
@@ -398,7 +438,7 @@ def analyse(text, milestones, built_on, decisions, exists, last_touched, appendi
                        f"the decision index records {decisions[n]}")
 
         # ---- 6: the entry is older than a status change it depends on --------
-        dates = DATE.findall(body)
+        dates = DATE.findall(body) + ([run] if run and ISO_DATE.fullmatch(run) else [])
         asof = max(dates) if dates else None
         if not asof:
             continue
@@ -516,14 +556,15 @@ def analyse(text, milestones, built_on, decisions, exists, last_touched, appendi
         num = int(num)
         if num not in (appendix_colours or {}):
             continue
-        sm = STATUS_LINE.search(body)
-        if not sm:
-            continue
-        word = COLOUR_WORD.search(body, sm.end())
+        # Since the field left the body there is no status line to anchor on, so the verdict is the
+        # first capitalized colour word anywhere in the entry. Capitalization is the discriminator
+        # ("The red half" is half a finding), and a claim that opens with a bare GREEN, AMBER or RED
+        # would be read as the verdict, so write those lowercase.
+        word = COLOUR_WORD.search(body)
         prose = word.group(1).lower() if word else "none"
         if appendix_colours[num] != prose:
-            report("appendix-colour", start + sm.start(),
-                   f"{RISKS}:{lineno(start + sm.start())}: risk {num}'s status line says {prose} "
+            report("appendix-colour", start,
+                   f"{RISKS}:{lineno(start)}: risk {num}'s verdict sentence says {prose} "
                    f"but its appendix frontmatter says color: {appendix_colours[num]}.\n"
                    f"      The frontmatter is what script/metrics counts, and it aborts the weekly "
                    f"run on this disagreement. One of the two is stale; if the README line is the "
@@ -617,23 +658,38 @@ def git_touched(rel):
 # milestone 7 (user mode: EL0, capabilities, the ELF loader, and IPC),
 # milestone 8 (the console driver leaves the kernel),
 # milestone 9 (a virtio-blk driver at EL0, and an interrupt becomes a message).
+# What a risk file's frontmatter parses to, as (key, value) pairs per risk number. A fixture that does
+# not care about the field gets NOT-RUN for every risk it names, which asserts nothing and dates nothing.
+RUN1 = {1: [("experiment_status", "RUN"), ("experiment_run", "2026-09-10")]}
 MILE = {7: "BUILT", 8: "NOT-STARTED", 9: "PARTIAL"}
 DATES = {7: "2026-09-09"}
 
 SELFTEST = [
     ("experiment-ran", "a risk whose experiment RAN over a NOT-STARTED milestone",
-     "## 1. A risk\n\n**The experiment:** milestone 8.\n\n"
-     "**Experiment status: RUN, 2026-09-10.**\n"),
+     "## 1. A risk\n\n**The experiment:** milestone 8.\n", None, RUN1),
     # ---- the enumeration, which is the check the ratification exists to make --
     ("status-vocabulary", "an Experiment status outside the three ratified values",
-     "## 1. A risk\n\n**Experiment status: UNRUN, 2026-09-23.** No verdict.\n"),
+     "## 1. A risk\n\nNo verdict.\n", None, {1: [("experiment_status", "UNRUN")]}),
+    ("no-status", "a risk file whose frontmatter carries no experiment_status",
+     "## 1. A risk\n\nNo verdict.\n", None, {1: []}),
+    ("bold-status", "the retired bold line, which nothing reads any more",
+     "## 1. A risk\n\n**Experiment status: RUN, 2026-09-10.** No verdict.\n", None, RUN1),
+    ("run-date", "a RUN with no date the experiment ran",
+     "## 1. A risk\n\nNo verdict.\n", None, {1: [("experiment_status", "RUN")]}),
+    ("run-date", "a RUN whose date is not a date",
+     "## 1. A risk\n\nNo verdict.\n", None,
+     {1: [("experiment_status", "RUN"), ("experiment_run", "last Tuesday")]}),
+    ("run-date", "a NOT-RUN that carries the date an experiment ran",
+     "## 1. A risk\n\nNo verdict.\n", None,
+     {1: [("experiment_status", "NOT-RUN"), ("experiment_run", "2026-09-10")]}),
     ("status-vocabulary", "a running-order cell restating a verdict in a word nobody ratified",
      "## 1. A risk\n\n## The running order\n\n| order | risk | experiment | owner | cost |\n"
      "|---|---|---|---|---|\n| -- | 1, a risk | **UNTESTED.** none available | milestone 7 | "
      "blocked |\n"),
-    ("two-statuses", "an entry carrying two Experiment status lines, of which one is unread",
-     "## 1. A risk\n\n**Experiment status: RUN, 2026-08-31.**\n\n"
-     "**Experiment status: RUN, 2026-09-17.**\n"),
+    ("two-statuses", "a frontmatter block stating its status twice, of which one is unread",
+     "## 1. A risk\n\nNo verdict.\n", None,
+     {1: [("experiment_status", "RUN"), ("experiment_run", "2026-08-31"),
+          ("experiment_status", "NOT-RUN")]}),
     ("experiment-pending", "a risk whose experiment has NOT run over a BUILT milestone",
      "## 1. A risk\n\n**The decisive experiment that has not been run:** milestone 7.\n"),
     ("status-word", "a status word this file spells out that the roadmap contradicts",
@@ -648,20 +704,21 @@ SELFTEST = [
     ("proposal-moved", "a cited proposal changed after the entry was last dated",
      "## 1. A risk\n\nAs of 2026-09-01, `design/roadmap/proposals/here.md` is what would fix it.\n"),
     ("appendix-colour", "an appendix frontmatter colour the status line contradicts",
-     "## 1. A risk\n\n**Experiment status: RUN, 2026-10-04.** AMBER (calef).\n", {1: "none"}),
-    (None, "an appendix frontmatter colour that matches the status line",
-     "## 1. A risk\n\n**Experiment status: RUN, 2026-10-04.** AMBER (calef).\n", {1: "amber"}),
-    (None, "a status line with no colour word agrees with `none`",
-     "## 1. A risk\n\n**Experiment status: RUN, 2026-10-04.** No verdict.\n", {1: "none"}),
+     "## 1. A risk\n\nAMBER (calef).\n", {1: "none"}, RUN1),
+    (None, "an appendix frontmatter colour that matches the verdict sentence",
+     "## 1. A risk\n\nAMBER (calef).\n", {1: "amber"}, RUN1),
+    (None, "a verdict sentence with no colour word agrees with `none`",
+     "## 1. A risk\n\nNo verdict.\n", {1: "none"}, RUN1),
+    (None, "a lowercase colour in the claim is half a finding, not the verdict",
+     "## 1. A risk\n\nThe red half is structural. GREEN (calef).\n", {1: "green"}, RUN1),
     # ---- the negatives, which are the more interesting half ------------------
     ("no-history", "a git history too shallow to answer whether a cited proposal moved",
      "## 1. A risk\n\nAs of 2026-09-01, `design/roadmap/proposals/mute.md` is what would fix it.\n"),
     (None, "a RUN verdict over a PARTIAL milestone is evidence for either claim",
-     "## 1. A risk\n\n**The experiment:** milestone 9.\n\n"
-     "**Experiment status: RUN, 2026-09-10.**\n"),
+     "## 1. A risk\n\n**The experiment:** milestone 9.\n", None, RUN1),
     (None, "the two hyphenated values parse whole, which `([A-Z]+)` could not have done",
-     "## 1. A risk\n\n**Experiment status: NOT-RUN, 2026-09-23.**\n\n"
-     "## 2. Another risk\n\n**Experiment status: CANNOT-RUN, 2026-09-23.**\n"),
+     "## 1. A risk\n\nNot run.\n\n## 2. Another risk\n\nCannot run.\n", None,
+     {1: [("experiment_status", "NOT-RUN")], 2: [("experiment_status", "CANNOT-RUN")]}),
     (None, "a running-order cell that opens with prose is describing, not restating a status",
      "## 1. A risk\n\n## The running order\n\n| order | risk | experiment | owner | cost |\n"
      "|---|---|---|---|---|\n| 2 | 1, a risk | the on-board test-suite exit | milestone 7 | "
@@ -677,11 +734,13 @@ SELFTEST = [
 def selftest():
     bad = []
     for want, why, fixture, *extra in SELFTEST:
+        fields = (extra[1] if len(extra) > 1 else None) or {
+            int(n): [("experiment_status", "NOT-RUN")] for n in re.findall(r"(?m)^## (\d+)\.", fixture)}
         got = analyse(fixture, MILE, DATES, {},
                       lambda rel: rel in ("design/roadmap/proposals/here.md",
                                           "design/roadmap/proposals/mute.md"),
                       lambda rel: None if rel.endswith("mute.md") else "2026-09-09",
-                      extra[0] if extra else None)
+                      extra[0] if extra else None, fields)
         codes = sorted({c for c, _, _ in got})
         ok = (codes == [want]) if want else (codes == [])
         print(f"  {'ok  ' if ok else 'FAIL'}  {want or '(quiet)':<20} {why}")
@@ -717,9 +776,24 @@ _appendix_dir = os.path.join(root, "design", "fatal-risks")
 # each line of the joined text came from, so a finding names the file a person must open.
 RISK_FILE = re.compile(r"^(\d+)-[a-z0-9-]+\.md$")
 _files = [(RISKS, open(os.path.join(root, RISKS), errors="replace").read())]
+FIELDS = {}
+
+
+def frontmatter_pairs(body):
+    """(pairs, body) for a file: the `key: value` lines of a leading `---` block, in order and with
+    repeats kept (check 8 needs them), and the file with that block blanked to the same number of
+    lines so every later line number still names the line a person opens."""
+    fm = FRONTMATTER.match(body)
+    if not fm:
+        return [], body
+    pairs = [tuple(s.strip() for s in l.split(":", 1)) for l in fm.group(1).split("\n") if ":" in l]
+    return pairs, "\n" * fm.group(0).count("\n") + body[fm.end():]
+
+
 for _name in sorted((n for n in os.listdir(_appendix_dir) if RISK_FILE.match(n)),
                     key=lambda n: int(RISK_FILE.match(n).group(1))):
-    _body = open(os.path.join(_appendix_dir, _name), errors="replace").read()
+    _pairs, _body = frontmatter_pairs(open(os.path.join(_appendix_dir, _name), errors="replace").read())
+    FIELDS[int(RISK_FILE.match(_name).group(1))] = _pairs
     _files.append((f"design/fatal-risks/{_name}", re.sub(r"(?m)^# (\d+)\. ", r"## \1. ", _body)))
 text, SPANS, _line = "", [], 1
 for _path, _body in _files:
@@ -748,7 +822,7 @@ for _name in sorted(os.listdir(_appendix_dir)) if os.path.isdir(_appendix_dir) e
         APPENDIX_COLOURS[int(_fields["risk"])] = _fields["color"].strip()
 problems = [(None, 1, b) for b in broken] + [(c, n, locate(m)) for c, n, m in analyse(
     text, MILESTONES, BUILT, DECISIONS,
-    lambda rel: os.path.exists(os.path.join(root, rel)), git_touched, APPENDIX_COLOURS)]
+    lambda rel: os.path.exists(os.path.join(root, rel)), git_touched, APPENDIX_COLOURS, FIELDS)]
 
 risks = [s for s in sections_of(text) if s[0]]
 if mode == "--check":
@@ -778,12 +852,12 @@ if mode:
 
 print(f"{len(risks)} risks in {RISKS} and the per-risk files beside it\n")
 for num, title, start, body in risks:
-    sm = STATUS_LINE.search(body)
+    status = dict(FIELDS.get(int(num), [])).get(STATUS_KEY)
     dates = DATE.findall(body)
     cited = sorted({int(m.group(1)) for m in CITE_M.finditer(body)})
     shown = ", ".join(f"{n}:{MILESTONES.get(n, '?')}" for n in cited) or "--"
     print(f"  risk {num:<2} {title[:58]}")
-    print(f"          status  {sm.group(1) if sm else '--':<11} as of "
+    print(f"          status  {status or '--':<11} as of "
           f"{max(dates) if dates else '--'}")
     print(f"          cites   {shown}")
 if problems:

@@ -1,3 +1,7 @@
+---
+experiment_status: RUN
+experiment_run: 2026-08-31
+---
 # 1. Only software written for nife runs on nife
 
 *Risk 1 of [the nine](README.md). The status vocabulary, the rule an entry meets and the running order are there.*
@@ -11,7 +15,7 @@ runs real workloads) claims.
 **The experiment:** milestone 121 (`ripgrep`: enumeration as a capability), for its real dependency
 tree, its filesystem walk and its threads.
 
-**Experiment status: RUN, 2026-08-31.** GREEN on all three architectures since 2026-09-16, and the
+GREEN on all three architectures since 2026-09-16, and the
 blocker is not what anyone predicted. Unmodified `ripgrep` 14.1.1, forty transitive crates, zero
 patches, and three byte-identical transcripts from three separately built binaries
 ([`notes/ripgrep-on-nife.md`](../../notes/ripgrep-on-nife.md)). What stopped it was the missing

@@ -1,3 +1,7 @@
+---
+experiment_status: RUN
+experiment_run: 2026-09-25
+---
 # 5. It cannot be made reliable on multicore, and the bugs appear only on silicon
 
 *Risk 5 of [the nine](README.md). The status vocabulary, the rule an entry meets and the running order are there.*
@@ -5,7 +9,7 @@
 The claim: the concurrency is wrong in ways that QEMU cannot show and that arrive one at a time,
 forever.
 
-**Experiment status: RUN, 2026-09-25, on radon only.** radon soaked 8 h 09 m clean: 4.1 million
+Run on radon only. radon soaked 8 h 09 m clean: 4.1 million
 cross-core handoffs with no refused wake, wrong reply or stall
 ([`notes/visionfive2.md`](../../notes/visionfive2.md)). argon and xenon have not run it. The VisionFive
 2 wakeup this entry once opened with was retracted on 2026-08-15, so the gate has never fired on a

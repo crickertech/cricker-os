@@ -1,3 +1,7 @@
+---
+experiment_status: RUN
+experiment_run: 2026-10-04
+---
 # 6. A capability-confined userspace driver cannot drive real hardware at real speed
 
 *Risk 6 of [the nine](README.md). The status vocabulary, the rule an entry meets and the running order are there.*
@@ -5,7 +9,7 @@
 The claim: the thing that makes the thesis interesting, drivers outside the kernel behind an IOMMU,
 does not survive contact with a real device.
 
-**Experiment status: RUN, 2026-10-04.** AMBER (calef, 2026-10-04). The first silicon evidence was the
+AMBER (calef, 2026-10-04). The first silicon evidence was the
 TRNG, 2026-09-16: its three parts were measured on silicon, and they were never one claim. On radon, milestone 159 (a real hardware entropy source: the JH7110's TRNG)'s
 driver is an EL0 process reaching the TRNG through a capability that names no device. Confined,
 2026-09-03. Driving real hardware, 2026-09-04, reproducibly. At real speed, MEASURED 2026-09-16 at

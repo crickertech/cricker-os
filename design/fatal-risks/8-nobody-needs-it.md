@@ -1,10 +1,13 @@
+---
+experiment_status: CANNOT-RUN
+---
 # 8. Nobody needs it
 
 *Risk 8 of [the nine](README.md). The status vocabulary, the rule an entry meets and the running order are there.*
 
 The claim: everything works and no one has a reason to run it.
 
-**Experiment status: CANNOT-RUN, 2026-09-23.** Untestable by this project's own policy, and no
+Recorded 2026-09-23. Untestable by this project's own policy, and no
 verdict. The other eight can come back red; this one cannot come back at all, which is the most
 dangerous state a fatal risk can be in.
 

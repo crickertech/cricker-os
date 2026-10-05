@@ -1,3 +1,7 @@
+---
+experiment_status: RUN
+experiment_run: 2026-10-04
+---
 # 4. The architecture imposes a per-crossing cost that cannot be engineered away
 
 *Risk 4 of [the nine](README.md). The status vocabulary, the rule an entry meets and the running order are there.*
@@ -5,7 +9,7 @@
 The claim, and calef named this one first: a capability microkernel pays on every boundary crossing,
 and on workloads that cross constantly the cost is architectural rather than a matter of tuning.
 
-**Experiment status: RUN, 2026-10-04.** GREEN (calef, 2026-10-05); amber 2026-10-04, #1613. The throughput defence
+GREEN (calef, 2026-10-05); amber 2026-10-04, #1613. The throughput defence
 held on step 7's first outcome. The one number not fully explained was a per-crossing cost under load, the
 null syscall going from 108 to 202 ticks between one task and four, and that is exactly this risk's
 claim. What turned it green was explaining that

@@ -1531,7 +1531,14 @@ def write_drift_report():
 # is duplicated here rather than imported because `script/fatal-risks` is a shell wrapper around a
 # heredoc with nothing importable in it, and because this reader is asked about HISTORY, where the
 # words were different. A word that leaves the ratified set breaks the gate before it reaches here.
-FATAL_RISK_STATUS = re.compile(r'^\*\*Experiment status: ([A-Z][A-Z-]*)\b', re.M)
+#
+# **Two spellings, because the weekly row is read over history.** Until 2026-10-05 (UTC) the field was
+# a bold line in the entry; calef moved it into each risk file's frontmatter that day (`experiment_status:
+# RUN`, names provisional). `script/fatal-risks` refuses the bold form in the current tree, so the bold
+# pattern survives here only to read old weeks, and the frontmatter pattern reads new ones. Both are
+# anchors for the colour search below, not a value anyone charts: the status word is not a column.
+FATAL_RISK_STATUS_BOLD = re.compile(r'^\*\*Experiment status: ([A-Z][A-Z-]*)\b', re.M)
+FATAL_RISK_STATUS = re.compile(r'^experiment_status: ([A-Z][A-Z-]*)\b', re.M)
 
 # Where a week's tree keeps the nine-entry summary, oldest spelling first. The old path is tried
 # FIRST on purpose, because a tree can hold both: from the directory's mint (2026-09-23) to the move
@@ -1557,7 +1564,10 @@ RETIRED_FATAL_RISK_STATUS = re.compile(r'^\*\*Status: ([A-Z]+)', re.M)
 # stay prose qualifiers and never values here, per the proposal's own rule.
 FATAL_RISK_COLOURS = ('green', 'amber', 'red')
 _COLOUR_WORD = re.compile(r'\b(GREEN|AMBER|RED)\b')
-_APPENDIX = re.compile(r'^design/fatal-risks/[a-z0-9-]+\.md$')
+# An appendix is a lowercase page that is NOT a numbered risk file. The old pattern matched both, so
+# a `risk:` or `color:` key on a risk file (the nine now carry frontmatter of their own) would have
+# overwritten the appendix's colour for that risk, silently, whichever file was read last.
+_APPENDIX = re.compile(r'^design/fatal-risks/(?!\d+-)[a-z0-9-]+\.md$')
 _FRONTMATTER = re.compile(r'\A---\n(.*?)\n---\n', re.S)
 _RISK_FILE = re.compile(r'^design/fatal-risks/(\d+)-[a-z0-9-]+\.md$')
 
@@ -1576,10 +1586,21 @@ def _summary_colours(text):
     for i in range(1, len(parts), 2):
         risk = int(parts[i])
         body = parts[i + 1]
-        m = FATAL_RISK_STATUS.search(body) or RETIRED_FATAL_RISK_STATUS.search(body)
+        m = (FATAL_RISK_STATUS.search(body) or FATAL_RISK_STATUS_BOLD.search(body)
+             or RETIRED_FATAL_RISK_STATUS.search(body))
         word = _COLOUR_WORD.search(body, m.end()) if m else None
         out[risk] = word.group(1).lower() if word else None
     return out
+
+
+def _risk_as_section(text):
+    """A risk file as a `## N.` section, its frontmatter moved from above the heading to just below
+    it. Left where it is, one risk's `experiment_status:` line would land at the tail of the risk
+    before it and anchor the wrong colour search."""
+    block = _FRONTMATTER.match(text)
+    head, rest = ('', text) if not block else (block.group(0), text[block.end():])
+    return re.sub(r'(?m)^# (\d+)\. (.*)\n', lambda m: '## %s. %s\n%s' % (m.group(1), m.group(2), head),
+                  rest, count=1)
 
 
 def fatal_risks_colors(tree):
@@ -1624,8 +1645,7 @@ def fatal_risks_colors(tree):
     split = sorted((p for p in tree.text if _RISK_FILE.match(p)),
                    key=lambda p: int(_RISK_FILE.match(p).group(1)))
     if split:
-        summary = (summary or '') + '\n'.join(
-            re.sub(r'(?m)^# (\d+)\. ', r'## \1. ', tree.text[p]) for p in split)
+        summary = (summary or '') + '\n'.join(_risk_as_section(tree.text[p]) for p in split)
     prose = _summary_colours(summary) if summary else {}
     if from_frontmatter:
         for risk in sorted(from_frontmatter):
@@ -2715,6 +2735,50 @@ def print_table(row):
 # that loses the page around its own output. Each case below is one of those, fixture-built, no
 # git and no real file written. Deliberately not in `script/lint`: run it when touching those.
 
+def _fatal_risk_cases():
+    """The frontmatter reader and the appendix pattern, driven with fixture trees."""
+    from types import SimpleNamespace
+
+    def risk(n, status, verdict):
+        return ('---\nexperiment_status: %s\nexperiment_run: 2026-10-04\n---\n# %d. A risk\n\n'
+                'The red half is a claim. %s\n' % (status, n, verdict))
+
+    def appendix(n, colour):
+        return '---\nrisk: %d\ncolor: %s\nupdated: 2026-10-04\n---\n# Appendix\n' % (n, colour)
+
+    def tree(**files):
+        return SimpleNamespace(text={'design/fatal-risks/' + k.replace('_', '-') + '.md': v
+                                     for k, v in files.items()})
+
+    ok = fatal_risks_colors(tree(**{
+        '1-first': risk(1, 'RUN', 'GREEN (calef).'), '2-second': risk(2, 'RUN', 'AMBER (calef).'),
+        '3-third': risk(3, 'NOT-RUN', 'No verdict.'),
+        'first-appendix': appendix(1, 'green'), 'second-appendix': appendix(2, 'amber')}))
+    # A numbered risk file that carries `risk:` and `color:` must not be read as an appendix.
+    shadowed = fatal_risks_colors(tree(**{
+        '1-first': '---\nrisk: 1\ncolor: red\n' + risk(1, 'RUN', 'GREEN (calef).')[4:],
+        'first-appendix': appendix(1, 'green')}))
+    try:
+        fatal_risks_colors(tree(**{'1-first': risk(1, 'RUN', 'AMBER (calef).'),
+                                   'first-appendix': appendix(1, 'green')}))
+        refused = False
+    except SystemExit:
+        refused = True
+    return [
+        ('frontmatter risk files count by the colour word in their verdict sentence',
+         (ok['fatal_risks_green'], ok['fatal_risks_amber'], ok['fatal_risks_red'],
+          ok['fatal_risks_total']), (1, 1, 0, 3)),
+        ('a lowercase colour in the claim is not the verdict', ok['fatal_risks_red'], 0),
+        ('a risk file with risk and color keys is not an appendix',
+         (shadowed['fatal_risks_green'], shadowed['fatal_risks_red']), (1, 0)),
+        ('an appendix colour that disagrees with the verdict sentence aborts', refused, True),
+        ('the appendix pattern takes the lowercase page and refuses a numbered risk file',
+         [bool(_APPENDIX.match('design/fatal-risks/' + n)) for n in
+          ('multicore-reliability.md', '5-not-reliable-on-multicore.md', 'README.md')],
+         [True, False, False]),
+    ]
+
+
 def selftest():
     rows = {}
     chain = [('2026W01', {'kernel_code_lines': '100'}),
@@ -2825,6 +2889,7 @@ def selftest():
         ('rendering twice writes the same bytes', twice, once),
         ('a chart with no notes left is back to its original bytes', gone, original_page),
     ]
+    cases += _fatal_risk_cases()
     failed = [(name, got, want) for name, got, want in cases if got != want]
     for name, got, want in failed:
         print('metrics selftest: %s\n  got  %r\n  want %r' % (name, got, want), file=sys.stderr)
