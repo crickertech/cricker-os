@@ -161,10 +161,11 @@ Projected, not measured: corpus 92.4% to 95.9%, like-for-like 96.1% to 96.3%. Th
 
 ## The 2026-10-03 inflow, 2026-10-05
 
-On `lane/326-survivors` (base `269c1d48c`), 95 of the inflow check's 310 untriaged keys got a row in
-`notes/project-metrics/mutation-triage.csv`: 71 killed by new tests, 9 already killed on main, 14
-equivalent, 1 recorded gap. 215 remain; the projected survivor count moves from 414 to about 334.
-The detail is in `notes/mutation-testing/inflow-2026-10-03.md`.
+On `lane/326-survivors` (base `269c1d48c`), 95 of 310 untriaged inflow keys got a row in
+`notes/project-metrics/mutation-triage.csv`: 71 killed by new tests, 9 already killed, 14
+equivalent, 1 recorded gap; the projected count fell from 414 to about 334. `lane/326-survivors-2`
+added 111 rows, nearly all killed already, leaving 104. Detail:
+`notes/mutation-testing/inflow-2026-10-03.md`.
 
 ## What the work is, in priority order, and the order is the argument
 
