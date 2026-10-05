@@ -281,4 +281,12 @@ fn a_confined_el0_server_cannot_dma_outside_its_region() {
     // Leave the fault queue as we found it: the RISC-V IOMMU's queue holds records a later test
     // would otherwise read as its own (the gpu escape test records the same).
     while crate::iommu::take_fault().is_some() {}
+
+    // And the frames: the controller's DMA region and the victim, which the suite's frame ledger
+    // would otherwise carry to the end of the boot.
+    assert!(
+        esc.release(),
+        "the DMA-escape wiring could not give its frames back: the attacker never exited, or the \
+         controller would not disable",
+    );
 }

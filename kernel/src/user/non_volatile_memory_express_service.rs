@@ -277,6 +277,11 @@ pub struct DmaEscape {
     pub confined_by_iommu: bool,
     /// The evidence behind `confined_by_iommu`, for the failure message.
     pub scope: crate::iommu::Scope,
+    /// The kernel thread running the attacker, which [`DmaEscape::release`] waits out.
+    thread: crate::thread::ThreadId,
+    /// The controller the attacker was given, kept so [`DmaEscape::release`] can take it down
+    /// before handing its region back.
+    controller: crate::non_volatile_memory_express::NonVolatileMemoryExpress,
 }
 
 #[cfg(feature = "system_tests")]
@@ -292,12 +297,33 @@ impl DmaEscape {
     pub fn canary_intact(&self) -> bool {
         let p = crate::arch::mmu::phys_to_virt(self.victim) as *const u8;
         (0..page_frames::FRAME_SIZE as usize).all(|i| {
-            // SAFETY: `victim` is a frame this wiring allocated and never freed; the direct map
-            // covers all of RAM, and `i` stays inside the one frame. CPU reads bypass the IOMMU,
-            // which is the point: only the device's view of this frame is unmapped.
+            // SAFETY: `victim` is a frame this wiring allocated and frees only in `release`, which
+            // consumes `self`, so it is still ours here. The direct map covers all of RAM, and `i`
+            // stays inside the one frame. CPU reads bypass the IOMMU, which is the point: only the
+            // device's view of this frame is unmapped.
             let byte = unsafe { p.add(i).read_volatile() };
             byte == CANARY_BYTE
         })
+    }
+
+    /// **Give back the frames this wiring took**: the controller's DMA region and the victim, 22
+    /// frames the suite's ledger otherwise counts against it for the rest of the boot. Only once
+    /// the attacker's thread is gone (its address space mapped the data plane) and the controller
+    /// is disabled ([`crate::non_volatile_memory_express::NonVolatileMemoryExpress::retire`]),
+    /// because until both hold, something may still read or DMA into these frames. Returns whether
+    /// everything came back, which the test asserts. The IOMMU domain's tables stay, for the
+    /// reason `retire` gives.
+    pub fn release(self) -> bool {
+        // Ten seconds of TCG, far past an `exit` that follows the report this caller already took.
+        let deadline = crate::arch::timer::now() + 10 * crate::arch::timer::frequency();
+        while crate::sched::is_thread_present(self.thread) && crate::arch::timer::now() < deadline {
+            crate::sched::yield_now();
+        }
+        if crate::sched::is_thread_present(self.thread) || self.controller.retire().is_err() {
+            return false;
+        }
+        crate::memory::free(page_frames::PageFrame::from_addr(self.victim));
+        true
     }
 }
 
@@ -310,9 +336,10 @@ impl DmaEscape {
 /// The kernel picks the victim frame and plants its canary, the way milestone 16b (IOMMU-backed
 /// driver isolation)'s confinement test and the GPU backing-escape test both do: the caller has to know the exact address to look
 /// for in the IOMMU's fault queue, and a server guessing "the frame past my region" guesses wrong
-/// (the next allocation may be inside the domain). The frame is deliberately never freed: it is an
-/// escape target, and returning it to the allocator while the controller has been told to read it
-/// is the use-after-free-by-hardware notes/dma.md warns about.
+/// (the next allocation may be inside the domain). The frame is freed only by
+/// [`DmaEscape::release`], after the controller is disabled: returning it to the allocator while
+/// the controller has been told to read it is the use-after-free-by-hardware notes/dma.md warns
+/// about.
 #[cfg(feature = "system_tests")]
 pub fn start_dma_escape(image: &'static [u8]) -> Option<DmaEscape> {
     // The victim, outside any region bring_up will confine the controller to. Planted with the
@@ -336,7 +363,8 @@ pub fn start_dma_escape(image: &'static [u8]) -> Option<DmaEscape> {
     let rid = found.rid;
     let scope = crate::iommu::scope_of(rid);
     let confined_by_iommu = scope.is_confining();
-    let handoff = found.controller.handoff();
+    let controller = found.controller;
+    let handoff = controller.handoff();
     let words = handoff.pack();
 
     let doorbell_phys = found.bar0 + page_frames::FRAME_SIZE;
@@ -358,7 +386,7 @@ pub fn start_dma_escape(image: &'static [u8]) -> Option<DmaEscape> {
 
     let report = crate::sched::create_rendezvous();
 
-    crate::sched::spawn(move || {
+    let thread = crate::sched::spawn(move || {
         let mut maps = [Mapping {
             va: 0,
             phys: 0,
@@ -398,6 +426,8 @@ pub fn start_dma_escape(image: &'static [u8]) -> Option<DmaEscape> {
         victim,
         confined_by_iommu,
         scope,
+        thread,
+        controller,
     })
 }
 

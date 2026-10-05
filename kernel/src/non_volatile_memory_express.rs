@@ -250,6 +250,31 @@ impl NonVolatileMemoryExpress {
         self.ns.bytes()
     }
 
+    /// **Take the controller down, then give its DMA region back** (milestone 261 (the NVMe driver
+    /// leaves the kernel)'s DMA-escape test, the one caller). Clears `CC.EN` and waits for
+    /// `CSTS.RDY` to follow, the same step [`NonVolatileMemoryExpress::new`] takes before reprogramming a
+    /// controller that was left enabled. A disabled controller fetches no command and posts no
+    /// completion, so only after that are the region's frames freed: freeing them under an enabled
+    /// controller is the use-after-free-by-hardware notes/dma.md warns about.
+    ///
+    /// The IOMMU domain still names the region afterwards, and its tables are not freed: the device
+    /// stays attached to them, and the next [`bring_up`] replaces the domain. A frame reallocated
+    /// meanwhile is reachable only by a controller that is off.
+    ///
+    /// `Err` when the controller will not report not-ready (or reports fatal status), and then
+    /// nothing is freed, because a controller that may still be running may still DMA.
+    #[cfg(feature = "system_tests")]
+    pub fn retire(self) -> Result<(), Error> {
+        self.wr32(regs::CC, 0);
+        self.wait_rdy(false)?;
+        for page in 0..DMA_PAGES {
+            crate::memory::free(page_frames::PageFrame::from_addr(
+                self.direct_memory_access_phys + page * page_frames::FRAME_SIZE,
+            ));
+        }
+        Ok(())
+    }
+
     /// **Everything the EL0 data plane is told**, and the whole of what it could not compute for
     /// itself. See [`non_volatile_memory_express::Handoff`] for why it is three words.
     pub fn handoff(&self) -> Handoff {
