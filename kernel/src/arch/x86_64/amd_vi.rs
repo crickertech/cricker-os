@@ -258,8 +258,22 @@ struct Unit {
     reserved_devices: u32,
     /// What the firmware left in the exclusion registers, which `set_up` cleared.
     exclusion: ExclusionFound,
+    /// **Which device holds each alias entry it wrote**, as (entry, device). An entry absent here
+    /// that is not blocked is held by the device whose id it is. Kept because the device table
+    /// cannot say who wrote an entry, and [`attach`] must refuse to hand one device's alias to
+    /// another (provisional milestone 767).
+    aliases: [Option<(u32, u32)>; MAX_ALIASES],
 }
 
+/// How many alias entries one unit records the holder of. QEMU's machine has none in use; a client
+/// AMD board has a handful of PCIe-to-PCI bridges at most. An attach that would need a slot past
+/// this fails closed, like a conflict. Name: provisional.
+const MAX_ALIASES: usize = 32;
+
+// `Up` is several hundred bytes since the alias holder record (provisional milestone 767) and the
+// others are a pointer at most. Boxing it would buy nothing: the slots live in one static array of
+// `MAX_IVHDS`, built once at boot and never moved.
+#[allow(clippy::large_enum_variant)]
 enum Slot {
     Absent,
     Up(Unit),
@@ -393,6 +407,48 @@ impl Unit {
     /// the only fault logged was its next access, at address 0. Silicon tags its caches by domain
     /// id, so the stale entry would be unreachable there, but the old domain's entries would sit
     /// in the cache until evicted; invalidating them is right on both.
+    /// **Which device's DMA entry `id` translates**, or `None` when it is blocked (or past the
+    /// table, where the hardware target-aborts).
+    fn holder(&self, id: u32) -> Option<u32> {
+        if id >= self.entries || read_dte(self.device_table, id) == blocked_dte(self.empty_root) {
+            return None;
+        }
+        Some(
+            self.aliases
+                .iter()
+                .flatten()
+                .find(|&&(entry, _)| entry == id)
+                .map_or(id, |&(_, owner)| owner),
+        )
+    }
+
+    fn alias_slot_free(&self) -> bool {
+        self.aliases.iter().any(Option::is_none)
+    }
+
+    /// Record that `owner` holds alias entry `entry`, replacing any earlier record of it.
+    fn record_alias(&mut self, entry: u32, owner: u32) {
+        self.forget_alias(entry);
+        if let Some(slot) = self.aliases.iter_mut().find(|s| s.is_none()) {
+            *slot = Some((entry, owner));
+        }
+    }
+
+    fn forget_alias(&mut self, entry: u32) {
+        for slot in self.aliases.iter_mut() {
+            if matches!(slot, Some((e, _)) if *e == entry) {
+                *slot = None;
+            }
+        }
+    }
+
+    /// Set entry `id` to the blocked entry and forget who held it. The caller syncs.
+    fn block(&mut self, id: u32) {
+        self.forget_alias(id);
+        let dte = blocked_dte(self.empty_root);
+        self.set_entry(id, dte);
+    }
+
     fn set_entry(&mut self, id: u32, dte: [u64; 4]) {
         if id >= self.entries {
             return;
@@ -562,6 +618,7 @@ fn set_up(ivrs: &IvrsUnits, i: usize) -> Result<Unit, &'static str> {
         enabled: false,
         reserved_devices: 0,
         exclusion,
+        aliases: [None; MAX_ALIASES],
     })
 }
 
@@ -687,28 +744,75 @@ fn owner_index(rid: u32) -> Option<usize> {
     }
 }
 
-/// **Confine device `rid` to the domain rooted at `root`** (an [`paging::x86_64::AmdVi`] table
-/// the portable seam built), in the unit the IVRS says serves it, and make that unit forget what
-/// it cached. The entry written is the device's own and, when an alias entry says its
-/// transactions carry another id, that id's too; Linux writes both (`clone_aliases`, from memory).
-/// A device no unit serves gets no entry, as on VT-d.
-pub fn attach(rid: u32, root: u64) {
-    let Some(i) = owner_index(rid) else {
-        return;
-    };
+/// **Every device table entry device `rid`'s DMA can arrive under**: its own and, when an IVRS
+/// alias entry covers it, the source id its transactions actually carry (section 5.2.2.1's alias
+/// entries, types 42h and 43h). The second is `None` when there is no alias.
+fn entries_of(rid: u32) -> (u32, Option<u32>) {
     let source = match *IVRS.lock() {
         Some(ivrs) => ivrs.source_id(rid as u16) as u32,
         None => rid,
     };
+    (rid, (source != rid).then_some(source))
+}
+
+/// **Confine device `rid` to the domain rooted at `root`** (an [`paging::x86_64::AmdVi`] table
+/// the portable seam built), in the unit the IVRS says serves it, and make that unit forget what
+/// it cached. The entries written are every one [`entries_of`] names: the device's own and its
+/// alias's, which is where a device behind a PCIe-to-PCI bridge is actually translated; Linux
+/// writes both (`clone_aliases`, from memory). A device no unit serves gets no entry, as on VT-d.
+///
+/// **An alias already held by another device is never shared** (provisional milestone 767 (AMD-Vi
+/// hardening before the first AMD boot)). Two functions behind one bridge reach the unit under one
+/// id, so the unit cannot tell their DMA apart and no pair of entries can confine them separately.
+/// Before 767 the second attach silently moved the first device's aliased DMA into the second's
+/// domain. Now the attach fails closed: every entry either device's DMA arrives under is set to the
+/// blocked entry, and the boot prints the pair in capitals. Both devices stop doing DMA, which is
+/// the honest outcome for a pair this kernel cannot confine apart; giving such a pair one shared
+/// domain on purpose is an alias group, recorded in BUGS.
+pub fn attach(rid: u32, root: u64) {
+    let Some(i) = owner_index(rid) else {
+        return;
+    };
+    let (own, alias) = entries_of(rid);
     let mut g = UNITS.lock();
     let Slot::Up(u) = &mut g[i] else {
         return;
     };
+    let ids = [Some(own), alias];
+    let conflict = ids
+        .into_iter()
+        .flatten()
+        .find_map(|x| u.holder(x).filter(|&h| h != rid).map(|h| (x, h)));
+    // A new alias needs a slot to record its holder in; without one, fail closed as for a conflict.
+    let out_of_slots = alias.is_some_and(|a| u.holder(a) != Some(rid) && !u.alias_slot_free());
+    if conflict.is_some() || out_of_slots {
+        for x in ids.into_iter().flatten() {
+            u.block(x);
+        }
+        if u.enabled {
+            u.sync();
+        }
+        drop(g);
+        match conflict {
+            Some((shared, other)) => crate::println!(
+                "  amd-vi      : DEVICES {rid:#06x} AND {other:#06x} BOTH REACH THE UNIT AS \
+                 {shared:#06x}; they cannot be confined apart, so every entry of {rid:#06x} is \
+                 BLOCKED (fail closed)"
+            ),
+            None => crate::println!(
+                "  amd-vi      : NO SLOT TO RECORD {rid:#06x}'s ALIAS ({MAX_ALIASES} in use), so \
+                 every entry of {rid:#06x} is BLOCKED (fail closed)"
+            ),
+        }
+        return;
+    }
     let domain = u.domain();
     let dte = translating_dte(root, domain);
-    u.set_entry(rid, dte);
-    if source != rid {
-        u.set_entry(source, dte);
+    for x in ids.into_iter().flatten() {
+        u.set_entry(x, dte);
+    }
+    if let Some(a) = alias {
+        u.record_alias(a, rid);
     }
     if u.enabled {
         u.sync();
@@ -716,18 +820,23 @@ pub fn attach(rid: u32, root: u64) {
 }
 
 /// **Switch device `rid` to the blocked entry** (§163's quarantine; milestone 102 is its caller).
-/// The device's next transaction is target-aborted, whatever its domain had mapped.
+/// Every entry the device's DMA can arrive under is reset, its alias's included (provisional
+/// milestone 767): a quarantine that left the alias translating left the DMA of a device behind a
+/// bridge exactly where it was. If another device shares the alias, it loses its DMA too, which is
+/// unavoidable: the unit cannot tell the two apart.
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn quarantine(rid: u32) {
     let Some(i) = owner_index(rid) else {
         return;
     };
+    let (own, alias) = entries_of(rid);
     let mut g = UNITS.lock();
     let Slot::Up(u) = &mut g[i] else {
         return;
     };
-    let dte = blocked_dte(u.empty_root);
-    u.set_entry(rid, dte);
+    for x in [Some(own), alias].into_iter().flatten() {
+        u.block(x);
+    }
     if u.enabled {
         u.sync();
     }
@@ -988,6 +1097,99 @@ mod tests {
         let g = UNITS.lock();
         let Slot::Up(u) = &g[0] else { return };
         assert_eq!(read_dte(u.device_table, id), blocked_dte(u.empty_root));
+    }
+
+    /// Two device ids an IVRS alias range covers, and the source id both carry: the first two ids
+    /// of the first alias range with room for two. On the `NIFE_IOMMU=amd` machine that is the
+    /// runner's empty `pci-bridge`'s secondary bus, aliased to the bridge.
+    fn an_alias_pair() -> Option<(u32, u32, u32)> {
+        let ivrs = (*IVRS.lock())?;
+        let r = ivrs
+            .ranges()
+            .iter()
+            .find(|r| !r.all && r.alias.is_some() && r.first < r.last)?;
+        Some((r.first as u32, r.first as u32 + 1, r.alias? as u32))
+    }
+
+    /// The unit `rid` belongs to, its table and the root a blocked entry points at.
+    fn table_of(rid: u32) -> (u64, u64) {
+        let i = owner_index(rid).expect("no unit serves the alias range");
+        let g = UNITS.lock();
+        let Slot::Up(u) = &g[i] else {
+            panic!("the unit serving {rid:#x} is not up")
+        };
+        (u.device_table, u.empty_root)
+    }
+
+    /// **Two devices behind one alias never share a domain** (provisional milestone 767). The
+    /// first confined behind the bridge gets the alias entry; the second cannot be confined apart
+    /// from it, so the alias is blocked rather than handed over, and neither root is left in it.
+    /// Before 767 the second attach silently moved the first device's DMA into its own domain. Run
+    /// on ids nothing occupies (the runner's bridge is empty), so no device loses DMA.
+    ///
+    /// Falsification: replayable `kernel/falsifications/arch.x86_64.amd_vi.tests.two_devices_behind_one_alias_never_share_a_domain.patch`
+    #[test_case]
+    fn two_devices_behind_one_alias_never_share_a_domain() {
+        let Some((first, second, alias)) = an_alias_pair() else {
+            crate::testing::skip!("no IVRS alias range here (the AMD-Vi runner adds a pci-bridge)");
+        };
+        let (table, empty) = table_of(first);
+        let (a, b) = (
+            zeroed_frames(1, "test root a"),
+            zeroed_frames(1, "test root b"),
+        );
+        attach(first, a);
+        assert_eq!(
+            read_dte(table, alias)[0] & DTE_ROOT_MASK,
+            a,
+            "the alias is not the first's"
+        );
+        attach(second, b);
+        let held = read_dte(table, alias);
+        assert_ne!(
+            held[0] & DTE_ROOT_MASK,
+            b,
+            "the second device took the first's alias"
+        );
+        assert_eq!(
+            held,
+            blocked_dte(empty),
+            "a shared alias was left translating"
+        );
+        assert_eq!(read_dte(table, second), blocked_dte(empty));
+        quarantine(first);
+        quarantine(second);
+    }
+
+    /// **A quarantine resets the alias as well as the device's own entry** (provisional milestone
+    /// 767), and confining the same device again takes its alias back rather than reading as a
+    /// conflict with itself.
+    ///
+    /// Falsification: replayable `kernel/falsifications/arch.x86_64.amd_vi.tests.a_quarantine_blocks_the_alias_too.patch`
+    #[test_case]
+    fn a_quarantine_blocks_the_alias_too() {
+        let Some((first, _, alias)) = an_alias_pair() else {
+            crate::testing::skip!("no IVRS alias range here (the AMD-Vi runner adds a pci-bridge)");
+        };
+        let (table, empty) = table_of(first);
+        let (a, b) = (
+            zeroed_frames(1, "test root a"),
+            zeroed_frames(1, "test root b"),
+        );
+        attach(first, a);
+        attach(first, b);
+        assert_eq!(
+            read_dte(table, alias)[0] & DTE_ROOT_MASK,
+            b,
+            "a second confine of the same device lost its own alias"
+        );
+        quarantine(first);
+        assert_eq!(read_dte(table, first), blocked_dte(empty));
+        assert_eq!(
+            read_dte(table, alias),
+            blocked_dte(empty),
+            "the quarantined device's alias still translates"
+        );
     }
 
     /// **A firmware exclusion range does not survive `set_up`**: every unit's Exclusion Base and
