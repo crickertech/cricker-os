@@ -100,6 +100,17 @@ and against today's lucky one nothing, within an interval of zero either way.
   measurement, and its result goes to risk 4's line whatever it is.
 - `script/fastpath-footprint` and `script/bench` unchanged within their floors on all three ISAs.
 
+## BUGS
+
+- Only `PerCpu` is covered. About thirty other statics are `[T; MAX_CPUS]` arrays, most packed, so
+  a core's slot shares a line with its neighbours'. Some are on hot paths: `sched::PREEMPTIONS_PER_CPU`
+  and each architecture's per-core `TICKS`. `sched::CURRENT_CAPABILITIES` (written on every switch,
+  read by every capability syscall) is `align(64)`, so two cores share each 128-byte Apple line,
+  and this milestone's span would say 128. Unmeasured. The aligned build reads within 0.003 [-0.006, +0.011]
+  ticks a trap of the parent at four Apple cores, so whatever they cost is below this instrument
+  there. Found by reading while building this milestone; it wants a measurement before a remedy, and
+  radon's run is the place to look for it.
+
 ## Follow-on
 
 - **Outstanding.** The radon run, by the parent note's procedure and its one-task guard, against the
