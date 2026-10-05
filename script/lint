@@ -3091,6 +3091,12 @@ python3 helpers/baseline_drift.py --selftest >/dev/null
 # Milestone 721 (each merge-group CI job has a 20-minute budget): every `ci.yml` job carries the wall-time budget steps and a
 # `timeout-minutes` within the budget plus five. The selftest runs first (fixtures, no tree), so a
 # green `lint` is not the checker silently passing everything.
+# The prose-only classifier that lets a Markdown-only diff skip ci.yml's and verify.yml's heavy
+# jobs (helpers/prose_only.py, lane/docs-only-ci, provisional). Fixtures only: code, docs-only, an
+# included .md, a walked directory, a message that is not a read, and mixed. A wrong skip turns a
+# red main green, so the rule is checked wherever it can change.
+echo "==> the prose-only classifier"
+python3 helpers/prose_only.py --selftest >/dev/null
 echo "==> CI job wall-time budgets"
 python3 helpers/job-budget.py --selftest >/dev/null
 python3 helpers/job-budget.py lint
