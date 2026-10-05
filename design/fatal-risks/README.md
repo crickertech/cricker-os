@@ -53,7 +53,7 @@ without asking, dated and citing its source. Facts arguing for a new verdict go 
 ## What an entry's Experiment status says, and the three words it may say it in
 
 Every risk file opens with a frontmatter block carrying one Experiment status, `experiment_status:`,
-and, when the status is `RUN`, the date it ran as `experiment_run:` (both names provisional). The
+and, when the status is `RUN`, the date it ran as `experiment_run:` (both names ratified 2026-10-05 by calef). The
 field answers one question: has the experiment happened. calef moved it out of a bold line and into
 frontmatter on 2026-10-05 (UTC), and `script/fatal-risks` fails on the old bold line. calef ratified the field and its three values on 2026-09-23, in
 §211 (what a fatal-risk verdict says, and what the chart can plot as a result).

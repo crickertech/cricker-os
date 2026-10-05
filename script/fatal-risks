@@ -249,7 +249,7 @@ EXPERIMENT = re.compile(r"\*\*The [a-z ]*experiment\b([^*:]*)(?::\*\*|\*\*)", re
 #
 # **Since 2026-10-05 (UTC) the field is frontmatter, not bold** (calef: "the nine Experiment status:
 # lines should move into frontmatter"). A risk file opens with `experiment_status: RUN` and, for RUN
-# only, `experiment_run: 2026-08-31`; both names are provisional. `BOLD_STATUS` is no longer a reader,
+# only, `experiment_run: 2026-08-31`; both names ratified 2026-10-05 (calef). `BOLD_STATUS` is no longer a reader,
 # it is the ban: the old bold line fails loudly (check 0b) so a lane copying an old file's shape, or a
 # merge restoring the line, is told rather than silently unread. The flat frontmatter cannot hold
 # "GREEN (calef, 2026-10-05); amber 2026-10-04, #1613" (a value may not contain ` #`), and the colour
