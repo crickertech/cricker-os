@@ -9,6 +9,9 @@ the parent's Results row points to it.
 - [`null-syscall-under-load.md`](null-syscall-under-load.md): why that evening's `null_syscall`
   nearly doubled from one busy core to four (the reaper freed kernel stacks under `IPC_TABLES`),
   the fix, and the radon procedure that will size it.
+- [`spawn-destroy-gone.md`](spawn-destroy-gone.md): why the full mix failed every HVF sweep with
+  `Gone` and wedged under aarch64 TCG. A syscall wrapper declared no output register, and the spawn
+  job's retry loop was compiled to trap with the wrong arguments after a yield.
 
 *Name: provisional, minted 2026-10-04 (UTC) by the `lane/radon-jobmix-2026-10-04` lane, for the
 directory and every stem in it. Naming is an architect's; `script/names --unratified` lists each

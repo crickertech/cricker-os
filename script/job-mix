@@ -5,7 +5,7 @@
 #   script/job-mix --arch riscv64           # the architecture radon runs
 #   script/job-mix --arch riscv64 --smp 4   # radon's core count
 #   script/job-mix --release                # the optimisation level script/board-image builds
-#   script/job-mix --hvf --release --smp 4  # the Apple cores (aarch64); refused until milestone 227
+#   script/job-mix --hvf --release --smp 4  # the Apple cores (aarch64)
 #   script/job-mix --for 20m                # a slower host, or a debug build under TCG
 #   script/job-mix --lock-wait              # ...and count contended kernel locks per point (2026-10-04)
 #   script/job-mix --quiet-after 0          # a host so slow a subrun outlasts the wedge timer
@@ -75,9 +75,9 @@
 #   until 2026-09-14 and the second half was false**: `soak` has been in that loop since it was
 #   written. A BUGS section that overstates is the failure mode AGENTS.md names, so it is corrected
 #   rather than quietly narrowed.
-# - **`--hvf` does not run on this project's QEMU (11.1.1) today.** QEMU refuses HVF with a GICv2
-#   and the kernel drives only GICv2, so the run exits 3 with QEMU's own message. Milestone 227 (a
-#   GICv3 driver) is the fix; notes/job-mix.md's cross-check section has the 2026-09-19 attempt.
+# - ~~**`--hvf` does not run on this project's QEMU (11.1.1) today.**~~ Milestone 227 (a GICv3
+#   driver) made it boot, and since 2026-10-05 the sweep completes there, about 16 seconds on an
+#   Apple host (notes/job-mix/spawn-destroy-gone.md). The 2026-09-19 refusal is in notes/job-mix.md.
 # - **The output changed on 2026-09-19**: each point is the median of 21 repeats, printed as
 #   `ticks_median=` and `jpm_median=` beside the ends, and a `job-mix-kind:` line per job kind
 #   follows each point. A transcript from before then says `ticks=` and `jpm=`, is the best of 3 of

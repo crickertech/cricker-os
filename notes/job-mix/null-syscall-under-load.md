@@ -123,8 +123,7 @@ each a few ticks a hold, roughly evenly. That is the contention
 - x86_64's TCG throughput roughly doubled (`jpm_median` 293,839 to 561,875 at four tasks, 316,469
   to 751,072 at 32, one run each), because TCG's NMI shootdowns are very expensive. That is a
   property of the emulator, not a claim about xenon.
-- aarch64's job mix wedges under TCG on `main` too, before and after this change (see BUGS), so
-  it gave no comparison.
+- aarch64's job mix wedged under TCG on `main` too (BUGS), so it gave no comparison.
 
 ## The radon run that decided it
 
@@ -272,10 +271,8 @@ ruling). The open finding's paragraph should read:
   lines and shares two with its neighbours. Their remotely written fields (the inbox, the steal slot)
   can pull away a line that `held_rank`, written twice per lock, lives on. Unmeasured, and not fixed here,
   so as not to change two things in one radon comparison. `#[repr(align(64))]` keeps the size at 128.
-- **aarch64's job mix wedges under TCG on `main`.** On 2026-10-04 `script/job-mix --release --smp 4`
-  went quiet after 2,744,000-tick subruns, at `tasks=2` on `main` and at `tasks=1` on this branch,
-  one run each, on a loaded host. The 2026-09-19 capture completed. It is a multicore hang that
-  wants a bisect, and this entry is where that work lives until someone takes it.
+- ~~**aarch64's job mix wedges under TCG on `main`.**~~ Closed 2026-10-05: a miscompiled yield,
+  not a multicore hang ([`spawn-destroy-gone.md`](spawn-destroy-gone.md)).
 - **`script/fastpath-footprint` leaves `exception_body` out of aarch64's `syscall_entry`**, though
   every aarch64 syscall runs it (riscv64's list has `riscv_trap_body`). Moving the counter from that
   symbol into `syscall::dispatch` once read as 44 bytes of growth when it was 20.

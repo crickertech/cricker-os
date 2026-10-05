@@ -466,8 +466,8 @@ path rather than the whole kernel.
   on silicon exists yet. The map and spawn jobs may widen or narrow `tasks=4`'s spread. Step 6.1
   of the procedure is the check, and if 21 is not enough the count is one constant
   (`job_mix::REPEATS`).
-- The HVF cross-check has no machine until milestone 227 gives the kernel a GICv3 driver; see
-  the section above. `script/job-mix --hvf` exits 3 with QEMU's own refusal until then.
+- Since milestone 227 (a GICv3 driver) `--hvf` boots, and since 2026-10-05 the full mix completes
+  there ([`job-mix/spawn-destroy-gone.md`](job-mix/spawn-destroy-gone.md)).
 - The supervisor is in the kernel, and that is what makes the build special (milestone 523 (moving the job-mix supervisor into userspace, and the five permissions it turns out to need)). A userspace supervisor would delete the whole
   class of problem a diverted boot has, and would measure the more honest thing: its
   own releases and drains would be real `svc` round trips inside the timed window, and it would be
