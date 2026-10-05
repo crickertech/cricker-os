@@ -1,0 +1,26 @@
+Falsifies `system_tests::user::x86_port_tests::a_read_only_port_capability_must_not_grant_port_output`.
+
+Architecture: x86_64
+
+The defect is the one milestone 768 (provisional) fixed: `sched::thread_control_block_insert_from`
+installs `Thread::port_range_grant` for any `PortRange` capability, whatever its rights. The patch
+deletes the `cap.rights.allows(Rights::WRITE)` condition, so a `READ`-only port capability opens the
+TSS I/O bitmap again and the child's `out` is permitted.
+
+Expected to fail: `assert_eq!(msg[0], EVENT_FAULT, "a thread whose only PortRange capability lacks
+WRITE executed `out` without faulting ...")`, with supervision message `[EVENT_EXIT, ..]`.
+diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
+index e02db828a..08b62e500 100644
+--- a/kernel/src/sched.rs
++++ b/kernel/src/sched.rs
+@@ -5777,9 +5777,7 @@ fn thread_control_block_insert_from(
+     // without it opens none. The capability still lands in the table (REVOKE and delegation are
+     // unchanged); only the cached grant is withheld.
+     #[cfg(target_arch = "x86_64")]
+-    if let crate::cap::Object::PortRange(base, count) = cap.object
+-        && cap.rights.allows(crate::cap::Rights::WRITE)
+-    {
++    if let crate::cap::Object::PortRange(base, count) = cap.object {
+         t.port_range_grant = Some((base, count));
+     }
+     Ok(landed)

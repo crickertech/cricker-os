@@ -5,14 +5,12 @@ deliverable and this note is it. What follows the table is what happened when ea
 was broken on purpose.
 
 Risk 7 is *"the confinement claim is false."* The evidence against it is a set of tests this
-project wrote about attacks this project chose, and a passing confinement test is consistent
-with two different worlds: the component was stopped, or it never reached the address and
-the assertion is decorative. Milestone 194 built the mechanism that tells those apart for a Kani
+project wrote about attacks this project chose, and a passing confinement test fits two worlds:
+the component was stopped, or it never reached the address and the assertion is decorative. Milestone 194 built the mechanism that tells those apart for a Kani
 harness (`Falsification:`, `script/falsifications`, a recorded patch that must turn one harness
 red).
 
-Nothing here supports "the confinement holds." What it supports is narrower, and is the
-sentence to quote: *these named claims are tested, and each test has been shown to fail
+Nothing here supports "the confinement holds." It supports a narrower sentence, the one to quote: *these named claims are tested, and each test has been shown to fail
 when the claim is broken.*
 
 ## The claims
@@ -54,6 +52,7 @@ themselves. The last column is this milestone's result.
 | 30 | A revocation reaches a capability in flight, not only the ones sitting in capability tables | Nowhere until 2026-09-21; now `sched::delete_page_frame_caps_where` | `kernel::user::revocation_in_flight_tests::a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver` | yes, 2026-09-21, and it was false in the tree |
 | 31 | An unvouched child holds no capability its caller did not delegate, beyond two read-only pages | §219 (how the shell names an installed program to the spawner) | `script/swish-check`: `installed/unvouched` | yes, 2026-10-03, swept weekly ([patch](../xtask/falsifications/swish_check.swish_check_boot.patch)) |
 | 32 | The boot shell holds no display device | Milestone 715 (provisional) | `script/swish-check`: the `caps` census on the gpu boots | yes, 2026-10-03, swept weekly ([patch](../xtask/falsifications/swish_check.swish_check_leg.patch)) |
+| 33 | No `WRITE`, no x86_64 port I/O | Milestone 768 (provisional) | `kernel::user::x86_port_tests::a_read_only_port_capability_must_not_grant_port_output` | [yes](../system_tests/falsifications/user.x86_port_tests.a_read_only_port_capability_must_not_grant_port_output.patch) |
 
 ## Five claims that are stated nowhere, which is what step 1 was for
 
@@ -135,11 +134,10 @@ IOMMU feature on x86_64, a separate device (the GICv3 ITS) on aarch64, one mode 
 The claim itself stays stated nowhere. Nothing writes an `IRTE`, nothing programs an MSI page
 table, and nothing forges an MSI to see where it lands.
 
-It is latent rather than false, and it stays latent exactly as long as every component that can
+It is latent, not false, and stays latent while every component that can
 reach a BAR is the kernel. It goes live the first time a driver leaves the kernel and wants
 interrupts instead of polling, which is what §86 decides. Whatever §86 settles has to say who owns
-the page holding the MSI-X table; the cheap first move was two runner flags, and milestone 317 took
-it. x86_64's boot path was already running with the hardware present, so what the flag buys there is
+the page holding the MSI-X table; the cheap first move was two runner flags, which milestone 317 took. x86_64's boot path was already running with the hardware present, so what the flag buys there is
 the machine *without* it; aarch64's does not reach the question at all. (`kernel-irqchip=split`
 turned out not to be needed on patagonia: it is a KVM constraint and there is no KVM here. 317's
 block has the three invocations.) The hazard is the one milestone
@@ -168,12 +166,12 @@ milestone 424 (design/roadmap/424-a-ring-0-that-provably-cannot-execute-ring-3-p
 ## What breaking them found
 
 Twenty-five Kani harnesses now carry a recorded patch that turns them red, up from six.
-`script/falsifications --sweep` runs all twenty-five in about 30 seconds and every one goes red.
-Three results are worth more than the count.
+`script/falsifications --sweep` runs all twenty-five in about 30 seconds; every one goes red.
+Three results outweigh the count.
 
 **Milestone 305 added the kernel half** (2026-09-16), which milestone 202 could not: ten kernel
-`#[test_case]`s now carry a record and `--sweep` replays each by booting one architecture. Its own
-results are in the section after this one. Read them first if you only read one: the headline is a
+`#[test_case]`s now carry a record and `--sweep` replays each by booting one architecture. Its
+results are in the next section. Read them first if you read one: the headline is a
 confinement test that stayed green under a patch that broke the thing it claims, and had been
 unable to fail since milestone 41.
 
