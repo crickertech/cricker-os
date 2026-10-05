@@ -4,19 +4,19 @@
 
 ## Every crate, since the first commit
 
-Sorted by breaking changes in the last four weeks (2026W37 to 2026W40), then by all time. Co-change counts a commit once per contract crate it touches, so a column does not sum to the page's weekly share.
+Sorted by breaking changes in the last four weeks (2026W38 to 2026W41), then by all time. Co-change counts a commit once per contract crate it touches, so a column does not sum to the page's weekly share.
 
 | crate | breaking, 4 weeks | additions, 4 weeks | breaking | additions | commits | crossing another division |
 |---|---:|---:|---:|---:|---:|---:|
-| `grant_plan` | 47 | 195 | 85 | 821 | 129 | 109 (84%) |
+| `grant_plan` | 42 | 190 | 86 | 821 | 129 | 109 (84%) |
 | `globally_unique_identifier_partition_table` | 27 | 27 | 28 | 217 | 31 | 24 (77%) |
 | `socket_protocol` | 13 | 17 | 15 | 55 | 25 | 23 (92%) |
 | `line_editor` | 11 | 73 | 12 | 118 | 27 | 24 (89%) |
 | `filesystem_protocol` | 10 | 50 | 42 | 450 | 97 | 88 (91%) |
 | `swap_protocol` | 10 | 26 | 11 | 116 | 36 | 35 (97%) |
+| `abi` | 6 | 30 | 36 | 127 | 81 | 79 (98%) |
 | `byte_sink_protocol` | 5 | 10 | 6 | 48 | 25 | 25 (100%) |
 | `clock_protocol` | 5 | 4 | 5 | 54 | 27 | 25 (93%) |
-| `abi` | 4 | 30 | 34 | 127 | 81 | 79 (98%) |
 | `credential_protocol` | 4 | 12 | 30 | 67 | 30 | 27 (90%) |
 | `graphics_protocol` | 3 | 2 | 11 | 33 | 27 | 27 (100%) |
 | `activation_set` | 3 | 52 | 3 | 52 | 14 | 14 (100%) |
@@ -32,75 +32,17 @@ Sorted by breaking changes in the last four weeks (2026W37 to 2026W40), then by 
 | `compositor` | 0 | 1 | 4 | 93 | 27 | 22 (81%) |
 | `elf` | 0 | 4 | 3 | 53 | 38 | 31 (82%) |
 | `argument_protocol` | 0 | 29 | 0 | 29 | 0 | 0 |
-| `boot_slot` | 0 | 48 | 0 | 48 | 8 | 4 (50%) |
+| `boot_slot` | 0 | 52 | 0 | 52 | 8 | 4 (50%) |
 | `capability_witness_protocol` | 0 | 3 | 0 | 3 | 9 | 7 (78%) |
 | `current_cpu_protocol` | 0 | 13 | 0 | 13 | 4 | 2 (50%) |
 | `manifest_note` | 0 | 40 | 0 | 40 | 8 | 5 (62%) |
 | `measured_boot` | 0 | 0 | 0 | 41 | 19 | 15 (79%) |
 | `std_runtime_protocol` | 0 | 17 | 0 | 17 | 5 | 4 (80%) |
 
-## What broke in 2026W40
+## What broke in 2026W41
 
-Read at `f317cd05d606` against the week before. Each line is one removed or changed public item; a crate rename is one line for the whole crate.
+Read at `4ba9fdab87fa` against the week before. Each line is one removed or changed public item; a crate rename is one line for the whole crate.
 
 - `abi`: syscall changed, method or encoding `CAPABILITY_TABLE_SLOTS`
 - `abi`: syscall changed, method or encoding `fault::FAULT_EP_SLOT`
-- `abi`: syscall removed, method or encoding `rendezvous::RECV`
-- `abi`: syscall renamed, number kept (method or encoding), now `rendezvous::RECEIVE_CAP` `rendezvous::RECV_CAP`
-- `activation_set`: changed `Entry`
-- `activation_set`: changed `Error`
-- `activation_set`: changed `with_entry`
-- `byte_sink_protocol`: removed `OP_BYTES`
-- `byte_sink_protocol`: removed `OP_EOF`
-- `byte_sink_protocol`: removed `OP_SHIFT`
-- `byte_sink_protocol`: removed `op`
-- `clock_protocol`: removed `propose::OP_SHIFT`
-- `clock_protocol`: removed `propose::op`
-- `credential_protocol`: removed `OP_SHIFT`
-- `credential_protocol`: removed `op`
-- `entropy_protocol`: removed `OP_SHIFT`
-- `entropy_protocol`: removed `op`
-- `filesystem_protocol`: removed `OP_SHIFT`
-- `filesystem_protocol`: removed `op`
-- `filesystem_protocol`: changed `verb::TABLE`
-- `filesystem_protocol`: changed `verb::Verb`
-- `filesystem_protocol`: removed `verb::Verb::op`
-- `grant_plan`: changed `ArgSpec::Words`
-- `grant_plan`: changed `Command`
-- `grant_plan`: changed `Manifest`
-- `grant_plan`: changed `PROG_COUNT`
-- `grant_plan`: changed `Prog`
-- `grant_plan`: changed `UNVOUCHED_MANIFEST`
-- `grant_plan`: changed `UNVOUCHED_STD_MANIFEST`
-- `grant_plan`: changed `spawnproto::ActivationStatus`
 - `grant_plan`: changed `spawnproto::RUN_UNVOUCHED_SLOT`
-- `grant_plan`: changed `spawnproto::Wiring`
-- `graphics_protocol`: removed `OP_SHIFT`
-- `graphics_protocol`: removed `op`
-- `line_editor`: changed `Event`
-- `line_editor`: removed `proto::OP_BYTES`
-- `line_editor`: removed `proto::OP_INTRCOUNT`
-- `line_editor`: removed `proto::OP_PRINT`
-- `line_editor`: removed `proto::OP_QUIESCE`
-- `line_editor`: removed `proto::OP_RAWMODE`
-- `line_editor`: removed `proto::OP_READLINE`
-- `line_editor`: removed `proto::OP_READRAW`
-- `line_editor`: removed `proto::OP_SHIFT`
-- `line_editor`: removed `proto::OP_WRITE`
-- `line_editor`: removed `proto::op`
-- `package_archive`: changed `catalogued_stem`
-- `socket_protocol`: removed `OP_ACCEPT`
-- `socket_protocol`: removed `OP_ATTACH_PAGE_FRAME`
-- `socket_protocol`: removed `OP_BIND_UDP`
-- `socket_protocol`: removed `OP_CLOSE`
-- `socket_protocol`: removed `OP_CONNECT`
-- `socket_protocol`: removed `OP_LISTEN`
-- `socket_protocol`: removed `OP_OPEN_TCP`
-- `socket_protocol`: removed `OP_OPEN_UDP`
-- `socket_protocol`: removed `OP_RECV`
-- `socket_protocol`: removed `OP_SEND`
-- `socket_protocol`: removed `OP_SENDTO`
-- `socket_protocol`: removed `req_op`
-- `swap_protocol`: removed `OP_PUT`
-- `swap_protocol`: removed `OP_QUIESCE`
-- `swap_protocol`: removed `try_recv_cap`
