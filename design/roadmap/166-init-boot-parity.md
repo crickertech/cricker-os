@@ -16,13 +16,13 @@ premise" below.
 This block was minted from a naming review that asked whether aarch64's `init -> hello` archive
 mapping should become `init -> builder`. That framing is gone:
 
-- **Milestone 266 (one progenitor)** gave the first process one name, `progenitor`, on all three
+- Milestone 266 (one progenitor) gave the first process one name, `progenitor`, on all three
   architectures, retiring `init` as an alias that meant a different binary per board. The archive's
   `init` slot no longer carries two jobs, so there was no `init`-meaning question left to answer.
-- **Milestone 291 (thirty-one programs wearing one name)** split `hello`'s thirty-one roles into their own programs,
+- Milestone 291 (thirty-one programs wearing one name) split `hello`'s thirty-one roles into their own programs,
   leaving nine `INIT`/child roles that the kernel still re-enters `hello` at. `builder` and its
   `init_boot` role, and `components/src/builder.rs`, are gone.
-- **Milestones 182/268/299** brought `x86_64` onto the same loader riscv64 uses and gave it a
+- Milestones 182/268/299 brought `x86_64` onto the same loader riscv64 uses and gave it a
   `PortRange` console capability.
 
 So `spawn_init`, `boot_via_init`, `INIT_ROLES_ENTRY`, `INIT_BOOT_ROLE`, `components/src/builder.rs`
@@ -31,7 +31,7 @@ built.
 
 ## What actually remained, and what this milestone did
 
-There were **two boot-loader functions doing the same job differently**:
+There were two boot-loader functions doing the same job differently:
 
 - `kernel::user::spawn_progenitor` (aarch64): loaded the `progenitor` archive entry, built its
   address space through the `sched::spawn` closure model, granted the boot capability set from
@@ -48,7 +48,7 @@ There were **two boot-loader functions doing the same job differently**:
 Both reached the already-shared orchestrator `crates/system_initializer::boot()`, which was correct
 and was not touched. The divergence was in the paths that reach it.
 
-**The two functions differed on four things, and only two were the hardware's:**
+The two functions differed on four things, and only two were the hardware's:
 
 | Difference | aarch64 | riscv64 / x86_64 | Real, or history? |
 |---|---|---|---|

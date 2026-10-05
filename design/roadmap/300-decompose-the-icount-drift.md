@@ -10,7 +10,7 @@ baseline commits a new performance floor, which is an architect's call like any 
 milestone was briefed with that latitude and executes Decision 1 of the finding below. Decision 2
 stays open for calef as the follow-on.
 
-**Amended 2026-09-15:** PR #885's first pass classified the drift as an intended feature cost and
+Amended 2026-09-15: PR #885's first pass classified the drift as an intended feature cost and
 re-baselined to absorb it. That was wrong: milestone 237 ships the cycle-counter grant OFF, so the
 cost was a removable regression, an un-`#[cfg]`'d switch tuple, the same class milestone 299 fixed
 for the port grant. A follow-on lane fixed it, confirmed the recovery on both ISAs by measurement,
@@ -40,15 +40,15 @@ nightly's codegen was assumed to invalidate) and asked for two things:
 
 ## What the decomposition found
 
-The premise in (1) that the drift was the nightly's codegen turned out to be **false**, and proving
+The premise in (1) that the drift was the nightly's codegen turned out to be false, and proving
 it was the point. Holding QEMU at 11.1.1 and measuring a 2x2x2 grid of {baseline code, HEAD code} x
 {nightly-08-27, nightly-09-15}, plus the QEMU term (the dev Mac moved 11.0.2 -> 11.1.1 on 2026-08-28,
 after the baseline was saved), splits the drift into three:
 
-- **QEMU (11.0.2 -> 11.1.1): ~0.** The emulator upgrade does not move icount. Measured, not assumed.
-- **Toolchain (nightly-08-27 -> nightly-09-15): ~0.** The two endpoint nightlies emit byte-identical
+- QEMU (11.0.2 -> 11.1.1): ~0. The emulator upgrade does not move icount. Measured, not assumed.
+- Toolchain (nightly-08-27 -> nightly-09-15): ~0. The two endpoint nightlies emit byte-identical
   instruction counts on the same code. The nightly did nothing across this window.
-- **Code (a79fdb95 -> HEAD): the entire move,** and the same move on both ISAs (near-identical
+- Code (a79fdb95 -> HEAD): the entire move, and the same move on both ISAs (near-identical
   percentages, which codegen noise would not produce).
 
 `git bisect` pinned the code component to **one commit**: `57399c34` (2026-09-02), *"sched: write the
@@ -126,7 +126,7 @@ milestone removes, so x86_64's baseline is re-saved against its recovered number
 
 ## BUGS
 
-- **A re-baseline commits a floor measured on one machine, one nightly, one QEMU.** These numbers are
+- A re-baseline commits a floor measured on one machine, one nightly, one QEMU. These numbers are
   TCG icount on the dev Mac. A different runner moves them again, which is the whole reason the
   follow-on argues a bump should re-baseline mechanically rather than have a human eyeball a percent.
 - **The QEMU term was measured out, not eliminated.** Only 11.1.1 is installable locally, so the

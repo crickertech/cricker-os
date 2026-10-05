@@ -5,7 +5,7 @@ built: 2026-08-03
 ---
 # 71. The thread-start fault: a user thread dispatched with `sepc` = 0
 
-Built (2026-08-03), both ISAs. Found, proved on the machine, and fixed. It was **frame placement**,
+Built (2026-08-03), both ISAs. Found, proved on the machine, and fixed. It was frame placement,
 which is where this entry said to look first, and the mechanism is exact rather than plausible:
 `current_sp()` is a real call at opt-level 0, so it returned `sp - 16` and put the frame at
 `sp - 304` while `trap.s` builds an S-mode trap frame at `sp - 288`. Sixteen bytes apart, so the user
@@ -40,9 +40,9 @@ Its context was never built, or was built and not seen by this core.
 
 Three details do the work:
 
-- **`user sp` is zero too.** This is not a bad entry point, it is an entire trap frame reading as
+- `user sp` is zero too. This is not a bad entry point, it is an entire trap frame reading as
   zeros. Whatever `enter_user` is looking at, nobody wrote it.
-- **Core 1**, a secondary rather than the boot core.
+- Core 1, a secondary rather than the boot core.
 - The test was `a_user_program_reaches_el0_and_returns_twice`, which is one of the simplest
   user-entry paths in the suite.
 
@@ -55,7 +55,7 @@ on barriers: the frame is built by the thread ON ITS OWN kernel stack, in `kerne
 around the `current_kernel_stack_top()` call, and `enter_user` runs a few lines later on the same
 core with no yield in between.
 
-The likelier suspect is **where the frame is placed on riscv64**, which is already known to be
+The likelier suspect is where the frame is placed on riscv64, which is already known to be
 delicate and is already commented as such:
 
 ```rust
@@ -65,8 +65,8 @@ let slot = top - size_of::<TrapFrame>() as u64;
 let slot = (crate::arch::current_sp().min(top) - size_of::<TrapFrame>() as u64) & !15;
 ```
 
-aarch64 uses a **fixed** offset from the stack top. riscv64 computes the slot from the **live
-`sp`**, because its TCB entry path is shallow enough that a frame at the top would overlap and
+aarch64 uses a fixed offset from the stack top. riscv64 computes the slot from the live
+`sp`, because its TCB entry path is shallow enough that a frame at the top would overlap and
 corrupt this function's own stack. The existing comment says exactly what that failure looks like:
 "sending the sret to a garbage sepc". `sscratch` is then armed to `frame + size` so re-entries
 rebuild at the same address.

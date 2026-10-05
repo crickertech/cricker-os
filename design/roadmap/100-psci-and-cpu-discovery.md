@@ -9,7 +9,7 @@ Built 2026-08-04 (PR #107). Raised 2026-08-04 from two limitations recorded in t
 in `kernel/src/arch/aarch64/mod.rs:88` and `kernel/src/smp.rs:170`. Both were written by a lane that
 found them while working on something else, and both name the other.
 
-**The finding.** SMP bring-up is the one subsystem that assumes a board instead of asking it. Three
+The finding. SMP bring-up is the one subsystem that assumes a board instead of asking it. Three
 facts are compiled in:
 
 | Fact | Where it is hardcoded | Where the machine states it |
@@ -24,7 +24,7 @@ against the tree in a host test, and the console's hardcoded UART base is checke
 `dtb`'s answer in `crates/device_tree_blob/tests/qemu_aarch64_virt.rs`. **The parser is not what is missing.**
 `Fdt::node_prop` and `Fdt::node_reg` already answer both questions; what is missing is the call.
 
-**Two failure shapes, and only one of them is certain.** The core-list half is a guaranteed silent
+Two failure shapes, and only one of them is certain. The core-list half is a guaranteed silent
 no-op: a board with more than four cores has cores 4 and up never started, with no error to return
 because nothing asks about them. The conduit half is board-specific and untested. `smp.rs` does have
 a degradation path, and it is written for one case, a core that is absent (`PSCI {ret}; not
@@ -32,7 +32,7 @@ present?`); a machine whose firmware answers on `smc` is under no obligation to 
 code from an `hvc` it never agreed to serve. Calling both "silent" is close enough for a warning and
 too loose for a plan, so the plan should treat them separately.
 
-**A third site of the same class, which corrects the code comment that raised this.**
+A third site of the same class, which corrects the code comment that raised this.
 `kernel/src/arch/riscv64/timer.rs:35` hardcodes `TIMEBASE_HZ` at 10 MHz with the comment "hardcoded
 until the DTB parse lands", and the DTB parse landed. aarch64's twin computes the same interval from
 `CNTFRQ_EL0` and asserts the value is nonzero (`arch/aarch64/timer.rs:120`), so the two ISAs
@@ -41,7 +41,7 @@ gap under rule 5, it is in this milestone's family, and it means the `psci_cpu_o
 be "the one place the kernel assumes a board" is one site short. Fix the claim here rather than
 carry it forward.
 
-**What it costs, and who needs it.** Milestone 24 (a second aarch64 board, Virtualization.framework)
+What it costs, and who needs it. Milestone 24 (a second aarch64 board, Virtualization.framework)
 and milestone 88 (nife on rented silicon) both boot a machine that is not QEMU `virt`. A
 bring-up that reports success while starting nothing is the worst way to learn that, because the
 symptom arrives later as a scheduler that never balances.
@@ -55,7 +55,7 @@ and leaves a clean seam for the second source; it does not build ACPI.
 
 **Do not raise `MAX_CPUS` here.** It sizes static per-CPU arrays (the secondary stacks, `TICKS`,
 `MISSED_TICKS`, `RAN_ON`), and milestone 90 is moving the stacks over a guard page. Reading `/cpus`
-means starting the cores the machine reports **up to** the compiled ceiling and saying so when it
+means starting the cores the machine reports up to the compiled ceiling and saying so when it
 reports more; changing the ceiling is a separate decision with a memory cost attached.
 
 ## Follow-on

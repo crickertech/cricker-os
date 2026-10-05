@@ -44,7 +44,7 @@ Red means run the audit. Nothing here ran one, and nothing here can.
 design/audit-reports/README.md says how, and which lens the last one lacked.
 ```
 
-**Both kinds are due, and the security one by seven times its own trigger.** §74 set the security
+Both kinds are due, and the security one by seven times its own trigger. §74 set the security
 count at 15 milestones or 8 components; 112 milestones and 45 components have landed since the last
 audit of any kind. The calendar backstop, the trigger a reader reaches for first, is the only one
 that has *not* fired (31 days against 42), which is the count triggers doing exactly the job §74 gave
@@ -65,14 +65,14 @@ something else.
 2026-09-14  FileNotFoundError: .../user/Cargo.toml              exit 1
 ```
 
-**Four of the five red runs are the tripwire working.** The path defect is the fifth and it is four
+Four of the five red runs are the tripwire working. The path defect is the fifth and it is four
 days old, not five weeks: milestone 175 split `user/` into `components/` and `fixtures/` on
 2026-09-13, and the next scheduled run broke. What the record actually shows is that **an audit has
 been overdue every week since 2026-08-17, this mechanism said so on schedule every single time, and
 no audit was run.** Milestone 92 built a tripwire to stop auditing depending on somebody
 remembering; the tripwire fired for a month, and auditing still depended on somebody remembering.
 
-**Why a month of correct alarms was as invisible as silence.** Red *is* this job's signal, by
+Why a month of correct alarms was as invisible as silence. Red *is* this job's signal, by
 deliberate design (see `.github/workflows/audit-cadence.yml`'s own header: an audit coming due is
 information, not a defect, so it gets its own workflow rather than a gate). The consequence nobody
 priced is that the Actions tab shows the same colour whether the tripwire is firing or the tripwire
@@ -83,7 +83,7 @@ and the wrong one for a live one: a job whose healthy state is red has no green 
 It happened to catch this one because this one's healthy state is red *and* it had never succeeded,
 which is luck rather than coverage.
 
-**This is AGENTS.md's ladder read from the far end.** The cadence check is rung two, a gate that
+This is AGENTS.md's ladder read from the far end. The cadence check is rung two, a gate that
 fires without being remembered, and it fired. What has no rung at all is the step after: a red run
 that repeats identically four times is nobody's, in exactly the way the two green pull requests of
 2026-08-04 were nobody's. Both follow-on items below are about that step rather than about this
@@ -91,10 +91,10 @@ script.
 
 ## The repair
 
-**`script/audits` line 167 and its line 42 comment.** `user/Cargo.toml` became
+`script/audits` line 167 and its line 42 comment. `user/Cargo.toml` became
 `components/Cargo.toml` plus `fixtures/Cargo.toml`.
 
-**Both packages, and the reason is the baseline table rather than the word "component."** Reading
+Both packages, and the reason is the baseline table rather than the word "component." Reading
 only `components/` is the tempting repair, and milestone 175's own classification rule supports it: a
 fixture is a test client or a stand-in server, and a distribution would not ship one. It is also
 wrong, quietly. Every baseline row in `design/audit-reports/README.md` was counted when `user/` held
@@ -111,7 +111,7 @@ delta needs.
 
 ## The sweep, and the one it found that was not crashing
 
-**How.** `git grep -nE '(^|[^a-z/_-])user/'` across the tree with `kernel/src/user` and `vendor/`
+How. `git grep -nE '(^|[^a-z/_-])user/'` across the tree with `kernel/src/user` and `vendor/`
 excluded, then every hit read for tense. Milestone 175 left a great deal of prose that names `user/`
 **correctly**, because it is describing what was true before the split ("it was `user/link.ld` until
 milestone 175", `crates/user_mode_runtime`'s account of a 123-call-site sweep). AGENTS.md's rename
@@ -121,8 +121,8 @@ try to open the path today.
 
 Two were live, and both are in this milestone's diff. The second is the one worth the sweep:
 
-**`script/roadmap`'s `PATHISH` list had stale and missing entries, and only the missing ones
-mattered.** That check decides whether a backticked span in a `**Recorded.**` bullet is a path claim,
+`script/roadmap`'s `PATHISH` list had stale and missing entries, and only the missing ones
+mattered. That check decides whether a backticked span in a `**Recorded.**` bullet is a path claim,
 by testing it against a hand-typed list of "a directory this repository actually has". The list still
 said `user`, and named neither `components` nor `fixtures`; `.cargo` and `.githooks` had never been
 in it. A stale entry is harmless, since a dead `user/...` citation would be caught. **A missing entry
@@ -143,7 +143,7 @@ edits are marked as such in it, and they are named in the Follow-on below.
 
 ## BUGS
 
-- **A red run that repeats is still nobody's.** This milestone fixed the path and changed nothing
+- A red run that repeats is still nobody's. This milestone fixed the path and changed nothing
   about the reason four correct alarms were ignored. `script/cadence-check` reports a workflow with
   no recent success; nothing reports a workflow that has been red for the same reason four weeks
   running, and for this workflow specifically those two states are the healthy one and the ignored
@@ -155,7 +155,7 @@ edits are marked as such in it, and they are named in the Follow-on below.
   dozen lines of a 270-document corpus. `script/lint`'s own header (the 2265 comment) already
   records why a tree-wide version of this check stays ungated: the false-positive rate needs a
   reader, and that reader is the documentation sweep.
-- **Counting `fixtures/` as a component is a continuity choice, and it overcounts what §74 meant.**
+- Counting `fixtures/` as a component is a continuity choice, and it overcounts what §74 meant.
   §74's event trigger is "a new component holding device or network authority", and a fixture holds
   neither by construction. The count now fires on a new test client too. That is the tolerable
   direction and it is the same tolerance the ABI count already takes, but it means the components
@@ -163,7 +163,7 @@ edits are marked as such in it, and they are named in the Follow-on below.
   narrower question has to ask it by hand. Re-baselining both tables against `components/` alone
   would fix it and would also discard every historical row's comparability; that trade was not
   worth making inside a repair.
-- **Nothing here ran an audit.** Both kinds are due, hard, and this block is the record of a
+- Nothing here ran an audit. Both kinds are due, hard, and this block is the record of a
   tripwire, not of a review. Closing the alarm by adding a row to the index is available, cheap, and
   the one thing that makes the mechanism a lie; the index says so too.
 
@@ -197,8 +197,8 @@ edits are marked as such in it, and they are named in the Follow-on below.
 risk 7's path; it had never once succeeded, and `script/cadence-check` reported it. The stale path
 was real and four days old (milestone 175 split `user/` on 2026-09-13 and the next scheduled run
 died on `user/Cargo.toml`), but reading the logs rather than the colours inverted the premise this
-milestone was minted on: **four of the five red runs were the tripwire working, and an audit has been
-overdue every week since 2026-08-17 with nobody acting on it.** Red is this job's signal by design,
+milestone was minted on: four of the five red runs were the tripwire working, and an audit has been
+overdue every week since 2026-08-17 with nobody acting on it. Red is this job's signal by design,
 so a firing tripwire and a broken one are the same colour in the Actions tab, and the defect hid
 inside the alarm it replaced. The count now spans `components/` **and** `fixtures/`, because every
 baseline row was taken when `user/` held both and reading only the first would under-report the

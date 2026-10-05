@@ -11,46 +11,46 @@ needs_person: no
 
 Raised 2026-08-04 by calef. A second "somebody else's real application"
 target beside milestone 66's Vaultwarden, chosen for a different reason: not the hardest workload,
-but the one whose success statement is unanswerable. **A capability microkernel that can hold its
-own source history is a machine that does real work**, and the demo needs no explanation to any
+but the one whose success statement is unanswerable. A capability microkernel that can hold its
+own source history is a machine that does real work, and the demo needs no explanation to any
 audience that has ever used a computer.
 
 (MILESTONE 64 cleared 2026-09-19, when 64 turned BUILT.) The first fork is decided
 (gitoxide, calef, 2026-08-04), and the block sequences the work after 64 measures what a real crate needs, because 64's probe crates are the
 cheap version of this milestone's first week.
 
-**Why this is a better *first* real workload than Vaultwarden**, which the roadmap already calls
+Why this is a better *first* real workload than Vaultwarden, which the roadmap already calls
 the largest single item on it. Local git needs **no network, no threads, no async runtime, and no
 SQLite**: `init`, `add`, `commit`, `log`, `status`, `diff` are a filesystem, a hash, a compressor,
-a clock, and a place to put bytes. **Every one of those but the compressor** is something this tree
+a clock, and a place to put bytes. Every one of those but the compressor is something this tree
 either has or is building. Nothing in the tree compresses, and milestone 258 (archive and compression)
 is `NOT-STARTED` (corrected 2026-09-14; this sentence had said all five since it was written). The
 filesystem half is precisely what milestone 57's write-half just finished. Where
 Vaultwarden's gap list names five subsystems that do not exist, this one's names mostly widths of
 things that do.
 
-**The first fork, and it is the milestone's biggest decision: gitoxide, or C git.**
+The first fork, and it is the milestone's biggest decision: gitoxide, or C git.
 
-- **`gitoxide` (Rust)** rides the `std` PAL milestone 27 built and milestone 64 will widen, so the
+- `gitoxide` (Rust) rides the `std` PAL milestone 27 built and milestone 64 will widen, so the
   work lands as PAL surface this tree wants anyway, and every gap is a Rust `Unsupported` with a
   known owner. It also keeps the whole workload inside the language the verification story is
   written in.
-- **C git** is the real thing, and would prove the C seam (`c_shim`, `c_confiner`) at a scale far
+- C git is the real thing, and would prove the C seam (`c_shim`, `c_confiner`) at a scale far
   past anything it has carried, but it wants a libc surface, `fork`/`exec` semantics this kernel
   deliberately does not have (git spawns itself constantly: hooks, pagers, editors, `git` calling
   `git`), and `mmap` for packfiles.
 
-**Decided 2026-08-04 (calef): gitoxide first.** Its gaps are this project's own roadmap rather
+Decided 2026-08-04 (calef): gitoxide first. Its gaps are this project's own roadmap rather
 than a compatibility project, so every `Unsupported` it hits is PAL surface milestone 64 wants
 anyway and lands with a known owner. C git becomes a later, harder claim rather than a
 prerequisite, and the day it is attempted the `fork`/`exec` question is a design fork of its own
 (this kernel spawns by capability, and git spawns itself constantly), not a porting task.
 
-**The measured gap, so nobody starts blind.** `std::fs` answers `Unsupported` for **32 of its 54**
+The measured gap, so nobody starts blind. `std::fs` answers `Unsupported` for 32 of its 54
 functions today (milestone 64's table). Git's floor needs, at minimum: create and open with the
 right modes, read, write, rename (git's atomicity story is write-a-temp-then-rename, everywhere),
 `unlink`, `mkdir` recursive, `stat` with sizes and mtimes, and directory iteration. Milestone 47
-already notes `rename`, `unlink` and `rmdir` are now **binding gaps rather than missing verbs**,
+already notes `rename`, `unlink` and `rmdir` are now binding gaps rather than missing verbs,
 which is the good kind of gap.
 
 **The staging**, each stage a claim someone can check:

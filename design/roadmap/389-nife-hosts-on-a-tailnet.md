@@ -11,7 +11,7 @@ needs_person: no
 
 Filed 2026-09-05 as an unnumbered proposal after calef asked whether a
 milestone covered Tailscale; numbered 2026-09-19 by milestone 433's drain of the proposal pile.
-**Premise re-read against the tree on 2026-09-19 and still true**: nothing in this repository
+Premise re-read against the tree on 2026-09-19 and still true: nothing in this repository
 implements or depends on `tailscale`, `wireguard`, `headscale`, `curve25519` or `chacha20`, and the
 five places Tailscale is named are all the same finding recorded below (the CGNAT default-route
 hazard, in `xtask/src/main.rs`, milestone 257's block, `notes/visionfive2.md` and
@@ -24,8 +24,8 @@ nife work at all, so nothing here waits on anybody.
 
 ## This question came from the lab, which almost none of them do
 
-AGENTS.md ranks work by the shortest path to a system a customer runs, and **that path has been
-vacant since 2026-08-30**. This is not a workload and does not fill it. It is worth marking anyway,
+AGENTS.md ranks work by the shortest path to a system a customer runs, and that path has been
+vacant since 2026-08-30. This is not a workload and does not fill it. It is worth marking anyway,
 because it is the first requirement in weeks that arrived from the environment the machines actually
 live in rather than from the roadmap's own logic, and the ranking function is supposed to notice
 that difference.
@@ -38,32 +38,32 @@ From `tailscale.com/kb/1019/subnets`, read 2026-09-05:
 > that don't or can't run the Tailscale client**.
 
 So a machine already on the tailnet advertises the route covering the bench LAN, and every tailnet
-device reaches radon and xenon. **Zero nife work**, and it is Tailscale's designed answer for this
+device reaches radon and xenon. Zero nife work, and it is Tailscale's designed answer for this
 case rather than a workaround.
 
-**patagonia is already a tailnet node**, measured the same day: `utun6` at `100.75.22.70`, and that
+patagonia is already a tailnet node, measured the same day: `utun6` at `100.75.22.70`, and that
 interface owns the default route. It is also on the bench LAN at `192.168.8.216`, so it could
-advertise `192.168.8.0/24` today. **cordoba is the better choice if it is on the tailnet**, because
+advertise `192.168.8.0/24` today. cordoba is the better choice if it is on the tailnet, because
 patagonia sleeps and cordoba is the always-on box, and a subnet router that is asleep is a subnet
 that is gone.
 
 ## The hazard this already caused, before any nife work existed
 
-**A Tailscale default route makes "what is my own address" ambiguous, and it cost milestone 257 a
-correct implementation.** That lane's first server-discovery asked the routing table which address to
+A Tailscale default route makes "what is my own address" ambiguous, and it cost milestone 257 a
+correct implementation. That lane's first server-discovery asked the routing table which address to
 advertise, by connecting a UDP socket and reading the local address. On patagonia that answers
 `100.75.22.70` every time, because the default route is the tailnet, and **that is a CGNAT address
 radon has no path to**. A card written that evening would have silently fallen back to its own SD
 copy forever, and a session would have been measuring a stale kernel while believing otherwise.
 
 The lane found it by measurement and replaced the discovery with interface enumeration that drops
-anything outside RFC 1918. **Recorded here because the next thing that needs to know its own address
-will hit the same wall**, and because it is evidence about what joining a tailnet does to a machine
+anything outside RFC 1918. Recorded here because the next thing that needs to know its own address
+will hit the same wall, and because it is evidence about what joining a tailnet does to a machine
 rather than a Tailscale defect.
 
 ## A native client is the wrong target, and their docs say why
 
-**`tailscaled` is Go**, so a client means a Go runtime on nife, which is a project rather than a
+`tailscaled` is Go, so a client means a Go runtime on nife, which is a project rather than a
 milestone. Even on Linux it wants a tunnel device:
 
 > Tailscale works on Linux systems using a device driver called `/dev/net/tun`... However, not all
@@ -80,12 +80,12 @@ maintenance relationship this project should not take on for a convenience.
 
 ## The interesting middle is WireGuard, not Tailscale
 
-Tailscale's data plane **is** WireGuard: Curve25519, ChaCha20-Poly1305, BLAKE2s, over UDP. That is
+Tailscale's data plane is WireGuard: Curve25519, ChaCha20-Poly1305, BLAKE2s, over UDP. That is
 bounded and well specified where the control plane is neither, and
 [§46](../decisions/46-dependency-rule.md) puts the crypto squarely on the take side. It would put
 a nife host on the lab network cryptographically with no coordination plane at all.
 
-**And it is the third instance of one pattern in a single evening**, which is what makes it worth
+And it is the third instance of one pattern in a single evening, which is what makes it worth
 writing down rather than filing as networking work:
 
 | ambient on Unix | a capability here |
@@ -94,7 +94,7 @@ writing down rather than filing as networking work:
 | `/etc/ssl/certs`: any program verifies against all ~150 authorities | a trust store granted as the roots one peer chains to (milestone 387) |
 | a tailnet: joining puts **every process on the box** on the whole network | a peer grant: a program given a tunnel to one peer cannot reach the rest of the tailnet |
 
-**The third row is the one a Tailscale user would feel.** Tailscale's own ACLs are enforced at the
+The third row is the one a Tailscale user would feel. Tailscale's own ACLs are enforced at the
 tailnet's edges, per device; nothing on the device stops one process from using another's
 reachability. A capability system can put that boundary inside the machine, and that is a real
 difference rather than a restatement.
@@ -102,7 +102,7 @@ difference rather than a restatement.
 ## What it sits behind
 
 Everything else does. The crypto surface is `argon2`, `subtle` and `aes`; there is no DNS at all
-(MagicDNS is a resolver); and there is no TLS. **The subnet router removes the whole near-term need**,
+(MagicDNS is a resolver); and there is no TLS. The subnet router removes the whole near-term need,
 which is why this is a proposal with no milestone attached.
 
 ## What would turn it into one
@@ -115,7 +115,7 @@ which is why this is a proposal with no milestone attached.
 
 ## BUGS
 
-- **Nobody has checked whether cordoba is on the tailnet**, and the subnet-router recommendation
+- Nobody has checked whether cordoba is on the tailnet, and the subnet-router recommendation
   rests on it. patagonia is, measured; cordoba is assumed.
 - **No WireGuard implementation has been evaluated.** Rust ones exist and none has been read against
   this tree's `no_std` userspace or §46's test, so "take it" is a direction rather than a choice.

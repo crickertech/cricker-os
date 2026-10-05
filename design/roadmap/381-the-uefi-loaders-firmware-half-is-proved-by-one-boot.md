@@ -11,8 +11,8 @@ needs_person: no
 
 Filed 2026-09-04 as an unnumbered proposal by the
 `maintainer/uefi-loader-mutants` lane, from that crate's own mutation score; numbered 2026-09-19 by
-milestone 433's drain of the proposal pile. **Premise re-read against the tree on 2026-09-19 and
-still true**: `uefi_loader/src/main.rs` is still 790 lines, `.cargo/mutants.toml` still names it in
+milestone 433's drain of the proposal pile. Premise re-read against the tree on 2026-09-19 and
+still true: `uefi_loader/src/main.rs` is still 790 lines, `.cargo/mutants.toml` still names it in
 the exclusion list with the `required-features = ["uefi"]` reason beside it, and `load`,
 `say_conflict`, `copy_trampoline`, `find_screen`, `find_rsdp` and the four `say_*` formatters are
 all still in that one file with nothing on the host executing a line of them.
@@ -23,13 +23,13 @@ already made once, so nothing here is owed to calef; what the work owes is a mea
 it is allowed to come back saying no. Found by the `maintainer/uefi-loader-mutants` lane while making
 that crate's published score honest.
 
-**What would prove it worked:** `cargo mutants -p uefi_loader` reaches `say_conflict`'s memory-map
+What would prove it worked: `cargo mutants -p uefi_loader` reaches `say_conflict`'s memory-map
 walk and whatever else is lifted, scoring it against the same bar as `handoff` and `image`, and
 `cargo xtask uefi-boot` still boots xenon under OVMF.
 
 ## What is there
 
-`uefi_loader/src/main.rs` is 790 lines and **154 of the crate's 189 mutants**. It sits behind
+`uefi_loader/src/main.rs` is 790 lines and 154 of the crate's 189 mutants. It sits behind
 `required-features = ["uefi"]`, so no host test compiles a line of it; it is now excluded from
 mutation for that reason, with a gate deriving the exclusion. Excluding it makes the *number* honest.
 It does not make the file proved, and the only thing that does is `cargo xtask uefi-boot` under OVMF
@@ -50,7 +50,7 @@ The mutants by function, which is the shape of the question rather than a workli
 
 ## Why it is worth a milestone and not a shrug
 
-**This crate has already made the argument once and won it.** `lib.rs`'s own header says the pure
+This crate has already made the argument once and won it. `lib.rs`'s own header says the pure
 half exists because *"a structure layout proved only by booting is proved by nothing that runs in
 milliseconds"*, and that half scores 100% of viable mutants. The functions in the table are the same
 argument not yet applied: `say_conflict`'s walk is arithmetic over descriptors, the four `say_*`
@@ -60,7 +60,7 @@ searches. None of them calls firmware except to print.
 The counter-argument is real and is why this is a proposal rather than a milestone. `load` is 66 of
 the 154 and is genuinely a firmware call sequence; lifting the third of it that is arithmetic may buy
 less than the seam costs, which is exactly the trade milestone 244 measured for `system_initializer`
-and then declined. **The honest version of this work measures that split first**, with
+and then declined. The honest version of this work measures that split first, with
 `cargo mutants --list -p uefi_loader` against a candidate seam, and is allowed to come back saying
 no.
 

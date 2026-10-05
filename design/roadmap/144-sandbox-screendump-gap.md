@@ -40,12 +40,12 @@ passes.
 
 ## What was ruled out at the bench (2026-08-21)
 
-- **QEMU's monitor mechanism itself.** A hand-built `qemu-system-riscv64 -monitor
+- QEMU's monitor mechanism itself. A hand-built `qemu-system-riscv64 -monitor
   unix:...,server,nowait -display none` bound the socket file and answered a connect; the
   banner (`QEMU 11.0.2 monitor - type 'help' for more information`) came back over the wire.
-- **Unix socket creation in `/tmp` on this sandbox.** A plain Python `socket.bind()` to a
+- Unix socket creation in `/tmp` on this sandbox. A plain Python `socket.bind()` to a
   `/tmp` path succeeded with no permission error.
-- **The runner script wiring.** `helpers/qemu-runner-riscv64.sh` passes `-monitor
+- The runner script wiring. `helpers/qemu-runner-riscv64.sh` passes `-monitor
   unix:$NIFE_GPU_MON,server,nowait` exactly when `NIFE_GPU_MON` is set, which is the same
   mechanism `xtask`'s aarch64 leg and this riscv64 leg both use, and neither the socket path
   nor the flag differs from what the note describes as already proven.
@@ -58,7 +58,7 @@ is unmeasured.
 
 ## What would settle it
 
-1. **Isolate host load as a variable.** Re-run `cargo xtask test --arch riscv64` alone, with
+1. Isolate host load as a variable. Re-run `cargo xtask test --arch riscv64` alone, with
    nothing else competing for CPU, and see whether the referee connects. The load-average
    instrumentation this tree already has (see `xtask/src/main.rs`'s host-load reporting, built
    for exactly this class of failure per notes/load-sensitive-assertions.md) should be read at
@@ -85,10 +85,10 @@ of gap this project's own BUGS-section discipline exists to name rather than hid
 
 ## What this does NOT include
 
-- **Fixing an actual scanout bug.** Nothing here suggests the pixels are wrong; the compositor,
+- Fixing an actual scanout bug. Nothing here suggests the pixels are wrong; the compositor,
   display-terminal, and pattern tests all pass on the guest side. This is purely about whether
   the host-side witness can reach the guest at all in this sandbox.
-- **The network referees' underlying protocol correctness.** `InboundProber`, the multicast
+- The network referees' underlying protocol correctness. `InboundProber`, the multicast
   check, and the SMB check are proven elsewhere (this same tree's QEMU CI, presumably, since the
   notes describe them as already working); this milestone is about why they fail specifically
   in this bench sandbox.

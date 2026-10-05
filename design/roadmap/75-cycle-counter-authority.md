@@ -20,7 +20,7 @@ resolution of the counter DECISIONS §10 already excepted, or to make the read a
 block's own: a per-thread grant enforced at the context switch, carried as a field in the spawn
 manifest rather than a method on a live thread, with `x86_64` keeping its ambient counter.
 
-**Found by milestone 435's first slice**, which was sweeping the forty-five blocks whose `DECISION`
+Found by milestone 435's first slice, which was sweeping the forty-five blocks whose `DECISION`
 gate cited no decision. This block was not on that list: its gate paragraph happens to cite §10, so
 the filter counted it as citing one. That is the shape of the defect rather than an exception to
 it, and 435's `Follow-on` records the blind spot.
@@ -35,8 +35,8 @@ integrator's guess while correcting a token.
 
 Milestone 74 needs EL0 to read a cycle counter. On aarch64 the mechanism is `PMUSERENR_EL0`, and
 reaching for it looks like precedent: the kernel already opens `CNTVCT_EL0` to EL0 through
-`CNTKCTL_EL1.EL0VCTEN`, and notes/abi.md argues that exception carefully. **The claim to examine is
-that the second opening inherits the first one's argument.** It does not, and the reason is a number.
+`CNTKCTL_EL1.EL0VCTEN`, and notes/abi.md argues that exception carefully. The claim to examine is
+that the second opening inherits the first one's argument. It does not, and the reason is a number.
 
 ## Why it is not the same decision
 
@@ -64,21 +64,21 @@ finer one should be made on its own evidence, and recorded, rather than inherite
 
 ## Three options, and the second is the one this OS is for
 
-1. **Ambient, like the generic timer.** Open it to every EL0 program. Simplest, matches Linux, and
+1. Ambient, like the generic timer. Open it to every EL0 program. Simplest, matches Linux, and
    spends the §10 exception a second time on a much better side channel.
-2. **A capability.** The benchmark harness holds a token that permits the read; nothing else can. This
-   is the answer the whole system is built to give, and **notes/abi.md already anticipated it**: "A
+2. A capability. The benchmark harness holds a token that permits the read; nothing else can. This
+   is the answer the whole system is built to give, and notes/abi.md already anticipated it: "A
    stricter build could revoke even this and route time through a capability; we have not, and this
    note is the record of that." The consumer is narrow (the primitive suite and `sel4bench`
    comparability), which is what makes gating cheap here and would not have been true for the wall
    clock.
-3. **Kernel-mediated.** EL0 asks the kernel to time an operation; the counter never opens. Strongest,
+3. Kernel-mediated. EL0 asks the kernel to time an operation; the counter never opens. Strongest,
    and it defeats the purpose, because the measurement then includes the syscall it is trying to
    measure. Recorded so it is visibly rejected rather than overlooked.
 
 Option 2 costs a capability type, a grant in the spawn path, and a trap-and-check on the register
-read. It also produces a demonstration the project can use: **a fine-grained timer is exactly the
-resource a capability system should be able to hand out deliberately**, and it would be the first one
+read. It also produces a demonstration the project can use: a fine-grained timer is exactly the
+resource a capability system should be able to hand out deliberately, and it would be the first one
 whose justification is a side channel rather than a resource.
 
 ## Parity, and a caveat about where this bites
@@ -98,6 +98,6 @@ is hardest to walk back: an ambient opening, once shipped, is a thing programs c
 
 ## Index row
 
-Opening `PMCCNTR_EL0` to EL0 is not the same decision as opening `CNTVCT_EL0` was: it is **~160x
-finer** (~0.25 ns against ~41 ns), and the generic timer's coarseness was doing real security
+Opening `PMCCNTR_EL0` to EL0 is not the same decision as opening `CNTVCT_EL0` was: it is ~160x
+finer (~0.25 ns against ~41 ns), and the generic timer's coarseness was doing real security
 work. A capability is the answer this OS already has, and notes/abi.md anticipated it

@@ -28,7 +28,7 @@ survivor, and nothing would have found this one.
 
 `paging::x86_64::no_vtd_entry_ever_sets_a_reserved_bit` is the whole of row 12's evidence for §20's
 claim that an IOMMU entry sets no bit the hardware treats as reserved. It stated all three of its
-assertions, **and its `kani::assume`**, through `VTD_ADDR_MASK`, `VTD_R` and `VTD_W`. Those are the
+assertions, and its `kani::assume`, through `VTD_ADDR_MASK`, `VTD_R` and `VTD_W`. Those are the
 three constants `Vtd::leaf_entry` builds its result out of, so the assertion read
 
 ```rust
@@ -37,11 +37,11 @@ kani::assume(pa & !VTD_ADDR_MASK == 0);
 assert_eq!(leaf & !(VTD_ADDR_MASK | VTD_R | VTD_W), 0);
 ```
 
-and `(pa & M) | bits` sets no bit outside `M | VTD_R | VTD_W` **for every value of M**. The assume
+and `(pa & M) | bits` sets no bit outside `M | VTD_R | VTD_W` for every value of M. The assume
 narrowed the inputs by the same constant, so a widened mask admitted exactly the addresses it had
 just started letting through. The address half of the claim was a tautology.
 
-**Measured both ways on patagonia, 2026-09-16, kani 0.67.0**, with `VTD_ADDR_MASK` widened from bits
+Measured both ways on patagonia, 2026-09-16, kani 0.67.0, with `VTD_ADDR_MASK` widened from bits
 51:12 to bits 62:12:
 
 | Harness | Result |
@@ -53,11 +53,11 @@ just started letting through. The address half of the claim was a tautology.
 Neither the defect nor its consequence is exotic. The constant's own doc comment records that VT-d's
 real address width is `CAP_REG.MGAW`-defined and this driver has never narrowed to it, so the mask is
 a number somebody could plausibly change. And the harness's own doc comment explains why the failure
-would be bad: QEMU's model and real silicon **fault** a transaction over a reserved bit rather than
+would be bad: QEMU's model and real silicon fault a transaction over a reserved bit rather than
 ignoring it, so the symptom is an IOMMU whose every translation fails, which reads as broken hardware
 rather than as a bad table.
 
-**The surprise is that the tree had already recorded the opposite.** Forty lines up, the comment on
+The surprise is that the tree had already recorded the opposite. Forty lines up, the comment on
 `the_leaf_keeps_address_and_permissions_apart` explains this exact trap correctly, in full, and then
 says: *"`no_vtd_entry_ever_sets_a_reserved_bit` in this crate already works this way; this is the same
 move on the portable leaf."* It did not work that way. A lane that had just avoided the trap reached
@@ -67,8 +67,8 @@ deleted, because the citation is the more interesting half: this is `AGENTS.md`'
 rung four exactly as it says it will, and the rung-one fix is that the constant is now a literal that
 no implementation can reach.
 
-The host twin `a_vtd_leaf_sets_no_bit_outside_read_write_and_address` was blind for a **second,
-independent** reason, which is worth naming because a literal alone would not have fixed it: its one
+The host twin `a_vtd_leaf_sets_no_bit_outside_read_write_and_address` was blind for a second,
+independent reason, which is worth naming because a literal alone would not have fixed it: its one
 concrete address `0x10_0000` carries no bits above 51, so the encoder's masking was never exercised
 and a widened mask changed nothing it could observe. It runs three addresses now and catches the same
 defect in microseconds, which is where this tree prefers to catch things.
@@ -82,12 +82,12 @@ assertion. Three were removed because they restate the *guard itself* and no def
 the distinction between redundancy and decoration is the thing worth keeping. Every one is recorded
 beside its claim in `notes/confinement-claims.md`.
 
-**Row 18 is the one to read**, because it inverted. `notes/confinement-claims.md` has a section
+Row 18 is the one to read, because it inverted. `notes/confinement-claims.md` has a section
 crediting `a_plan_never_grants_a_right_the_declaration_did_not_ask_for`'s `& GRANT == 0` line as *the
 only explicit assertion that catches the defect*. Milestone 211 then repaired the assertion above it
 by writing the expected rights out in literals, and since `READ` is `1 << 0`, `WRITE` is `1 << 1` and
-`GRANT` is `1 << 2`, that equality now implies the `& GRANT == 0` line entirely. **The rescue became
-the decoration**, and the note went on describing code that had changed for four weeks. That
+`GRANT` is `1 << 2`, that equality now implies the `& GRANT == 0` line entirely. The rescue became
+the decoration, and the note went on describing code that had changed for four weeks. That
 paragraph is rewritten rather than patched, because the corrected version teaches more than the
 original did.
 
@@ -114,7 +114,7 @@ enough to confirm that there is no excuse for leaving one unconfirmed.
   is unreachable while the harness is green, which is the entire subject here. Every verdict in
   `notes/confinement-claims.md`'s new section will rot the first time somebody rewrites one of these
   harnesses, and nothing will report it.
-- **Twenty-five of the twenty-six verdicts are reasoned from the code rather than measured.** Only
+- Twenty-five of the twenty-six verdicts are reasoned from the code rather than measured. Only
   row 12 was broken on purpose, because only there did the reading predict something a run could
   settle. Milestone 305's own headline is the standing warning about what reasoning is worth here:
   `user_can_read` was readable for four weeks and every gate was green throughout.

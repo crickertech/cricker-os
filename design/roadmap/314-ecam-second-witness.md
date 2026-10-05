@@ -14,13 +14,13 @@ On 2026-09-17 xenon, a Dell OptiPlex 7050, booted nife for the first time and pr
 pcie ecam 0xf0000000, buses 0..=127 (mmu::PCI_ECAM_PHYS says 0xb0000000)
 ```
 
-**A maintainer read that as a defect and carried it to calef as an open thread.** It is not one.
+A maintainer read that as a defect and carried it to calef as an open thread. It is not one.
 Nothing was wrong on xenon, nothing was mapped at the wrong address, and the two numbers were never
 supposed to agree on a machine QEMU did not build. The defect is in the sentence.
 
 ## What the line actually says
 
-`PCI_ECAM_PHYS` is a **second witness**, never a source of truth, and its own doc has said so since
+`PCI_ECAM_PHYS` is a second witness, never a source of truth, and its own doc has said so since
 the window became ACPI-sourced. `pci.rs` reads `ECAM_BASE` from `memory::pci_regions()`, which
 `main.rs` fills from the MCFG; the constant is `#[allow(dead_code)]` outside tests and
 `map_everything` has not mapped it for some time. Printing it beside the discovered base is a
@@ -31,10 +31,10 @@ cross-check, and on xenon the cross-check ran and reported exactly what it shoul
 The same sentence means two different things depending on the architecture, and the wording only
 matched one of them.
 
-- **aarch64 and riscv64** boot QEMU `virt` and nothing else, so there the second witness is an
-  **equality invariant**: a difference would be a finding.
-- **x86_64** runs on machines QEMU did not build. Every one of them sizes and places its own ECAM
-  window, so off q35 the two values differ **permanently and correctly**.
+- aarch64 and riscv64 boot QEMU `virt` and nothing else, so there the second witness is an
+  equality invariant: a difference would be a finding.
+- x86_64 runs on machines QEMU did not build. Every one of them sizes and places its own ECAM
+  window, so off q35 the two values differ permanently and correctly.
 
 "`mmu::PCI_ECAM_PHYS` says `0xb0000000`" names *our* constant, which invites the reading that our
 constant is the expectation and the machine disagreed with it. Naming the machine the number belongs
@@ -96,13 +96,13 @@ authority than it was entitled to.
 
 ## BUGS
 
-- **Nothing checks the two arms stay consistent.** A future architecture that hardcodes an ECAM base
+- Nothing checks the two arms stay consistent. A future architecture that hardcodes an ECAM base
   and prints it beside a discovered one can reintroduce the identical ambiguity, and no gate can tell
   a misleading diagnostic string from a clear one.
 - **The QEMU lines above were read off a local `script/test --arch x86_64` on this lane's worktree**,
   not off a merge. The `buses 0..=255` half is a live value, not a promise, and OVMF's `0xe0000000`
   is that firmware's placement rather than anything nife chose.
-- **`PCI_ECAM_PHYS` is still `#[allow(dead_code)]` outside tests.** That is the correct shape for a
+- `PCI_ECAM_PHYS` is still `#[allow(dead_code)]` outside tests. That is the correct shape for a
   witness nothing consumes, and it also means a typo in it would be caught by nothing but the
   comparison this milestone just made harder to misread as an alarm.
 

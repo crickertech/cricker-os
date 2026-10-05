@@ -21,7 +21,7 @@ QEMU's TCG emulation of both is real rather than a paravirtual stand-in (confirm
 2026-08-24: `query-cpu-model-expansion` on `-cpu max` reports `rdrand`/`rdseed` as enabled props on
 x86_64; QEMU has modeled ARMv8.5-RNG unconditionally under `-cpu max` since QEMU 7.0, though it is not
 independently toggleable, so this milestone confirms the actual instruction executes rather than trusts
-the absence of a prop either way). So this milestone can be fully built **and verified** without
+the absence of a prop either way). So this milestone can be fully built and verified without
 physical hardware, unlike 159. See "What was built" below for why the title says `RDSEED`/`RNDRRS`
 rather than the more familiar `RDRAND`/`RNDR`.
 
@@ -29,38 +29,38 @@ rather than the more familiar `RDRAND`/`RNDR`.
 
 The JH7110's TRNG is a discrete, memory-mapped SoC peripheral: reaching it needs a capability
 (rule 2: a base address, nothing else) the same way virtio-rng needs a `Virtio` capability. RDRAND and
-RNDR are neither: both are **unprivileged CPU instructions**, executable directly at any privilege
+RNDR are neither: both are unprivileged CPU instructions, executable directly at any privilege
 level with no MMIO, no capability, no device discovery. That is a materially different shape of work,
 smaller than either the JH7110 driver or the original virtio-rng backend.
 
-**It is also why this needs care rather than less of it.** `notes/entropy.md` and `components/src/entropy.rs`
+It is also why this needs care rather than less of it. `notes/entropy.md` and `components/src/entropy.rs`
 both state the principle plainly: entropy access here is a *capability*, not ambient authority ("a
 program's dependence on randomness is visible in what it holds"), and that is the whole reason
 `entropy` is its own minimal process holding nothing else, rather than a library any program links.
-Because RDRAND/RNDR need no capability to execute, **the risk is building this as a `getrandom`-style
+Because RDRAND/RNDR need no capability to execute, the risk is building this as a `getrandom`-style
 direct call any program could make, which would silently reintroduce ambient authority into a system
-that deliberately refused it.** The correct shape: these become new backends *inside* `entropy`
+that deliberately refused it. The correct shape: these become new backends *inside* `entropy`
 (replacing what "reads the device" means, for a process that already holds nothing else and already
 speaks the same `entropy_proto` contract to its clients unchanged), never a path a client reaches
 around the service.
 
 ## What it needs
 
-- **Confirm the instructions actually execute under this project's QEMU invocation** (both runner
+- Confirm the instructions actually execute under this project's QEMU invocation (both runner
   scripts use `-cpu max`), not just that a feature flag is reported. A one-instruction probe that
   either returns bytes or is provably not `UD`/`SIGILL` settles this before anything else is built.
-- **A new backend inside `entropy` (`components/src/entropy.rs`), replacing what "reach the device" means**,
+- A new backend inside `entropy` (`components/src/entropy.rs`), replacing what "reach the device" means,
   for each architecture, gated the way this tree already gates architecture-specific code (rule 1)
   wherever userspace's existing arch-specific `asm!` already lives; check the convention before
   inventing one, and do not put raw `asm!` directly in an architecture-neutral file.
-- **Pass the bytes through unmodified, matching the existing backend's own discipline**: "No pool,
+- Pass the bytes through unmodified, matching the existing backend's own discipline: "No pool,
   no whitening, no mixing, no DRBG... these are the device's bytes" (`components/src/entropy.rs`). Whether
   RDRAND/RNDR need this at all is worth checking against the architecture manuals directly: both
   Intel's and Arm's specifications for these instructions describe on-die conditioning as part of the
   instruction's own contract (unlike a raw TRNG register), which may mean the JH7110 driver's software
   health-test question (repetition-count/adaptive-proportion) does not apply here the same way. Check
   the manuals, do not assume either answer.
-- **Honor the retry/failure contract these instructions already define.** Both RDRAND and RNDR can
+- Honor the retry/failure contract these instructions already define. Both RDRAND and RNDR can
   report "no data this cycle" as part of their normal operation (a carry flag / Z flag check, not an
   exception), with documented bounded-retry guidance from both vendors. Follow it rather than
   retrying forever or treating one failure as `entropy_proto::NO_ENTROPY` immediately.
@@ -91,7 +91,7 @@ are rate-limited by the physical source and can run dry under load in a way the 
 do not; a caller that exhausts the retry budget gets `entropy_proto::NO_ENTROPY`, same as a dry
 virtio device, rather than a silent fallback to the DRBG-backed sibling.
 
-**On-die conditioning, checked rather than assumed.** Both Intel's and Arm's specifications describe
+On-die conditioning, checked rather than assumed. Both Intel's and Arm's specifications describe
 an SP800-90B-shaped noise-source-plus-conditioning-function model as part of the instruction's own
 architectural contract, not something the OS adds. So the bytes are passed through unmodified, same
 as the virtio backend; the JH7110 driver's software health-test question (milestone 159) does not
@@ -108,7 +108,7 @@ mode that needs no `Virtio` capability, no DMA page, no `Irq`: two capability sl
 `PSTATE.NZCV` for the architected success/failure signal, the same idiom Linux's own
 `arch/arm64/include/asm/archrandom.h` uses) and a real serve loop for it.
 
-**Proven end to end under QEMU**: `kernel::user::entropy_tests::a_client_obtains_unpredictable_bytes_from_rndrrs_with_no_device_at_all`
+Proven end to end under QEMU: `kernel::user::entropy_tests::a_client_obtains_unpredictable_bytes_from_rndrrs_with_no_device_at_all`
 spawns `entropy` in instruction mode and gets real, unpredictable `RNDRRS` bytes back over the request
 endpoint, 64 words across the refill boundary, none repeated. **But only under `--cpu neoverse-n2`,
 not the suite's default (`cortex-a72`, ARMv8.0-A, predates `FEAT_RNG`) and not `--cpu max` either**:
@@ -119,8 +119,8 @@ question. `neoverse-n2` (Armv9.0-A) has both. The test itself skips cleanly unde
 the same way the virtio tests already skip when `NIFE_RNG` is unset; run it for real with
 `script/test --arch aarch64 --cpu neoverse-n2`.
 
-**x86_64: the scheduling fix is done and proven correct; one prerequisite outside this milestone still
-blocks proving it in this tree's own suite (updated 2026-08-25).**
+x86_64: the scheduling fix is done and proven correct; one prerequisite outside this milestone still
+blocks proving it in this tree's own suite (updated 2026-08-25).
 `kernel/src/arch/x86_64/isa.rs` checks `CPUID` leaf 7 `EBX` bit 18 and gained `draw_rdseed`, proven
 in the boot tour (a kernel-side probe, ring 0, retrying per Intel's own DRNG guide). Ring 3 (milestone
 161 item 3) landed on `main` 2026-08-24, and with it
@@ -129,7 +129,7 @@ in the boot tour (a kernel-side probe, ring 0, retrying per Intel's own DRNG gui
 `false` this section used to describe. The userspace `RDSEED` backend (`components/src/entropy.rs`) needed
 no change at all: it was already written and correct, only unreachable.
 
-**What still blocks the end-to-end proof is a second, separate prerequisite**: milestone 161 item 4's
+What still blocks the end-to-end proof is a second, separate prerequisite: milestone 161 item 4's
 userspace-compilation hand-off. `kernel/build.rs::declare_initrd_cfg` sets `cfg(initrd)` for aarch64
 and riscv64 only; `x86_64` has no `entropy` binary (or any user program) to pack into an initrd until
 that hand-off lands, and `kernel::user::entropy_tests` (this milestone's whole proof, shared
@@ -149,7 +149,7 @@ architectures; **status stays `PARTIAL`** until item 4 lands on `main` and this 
 itself, at which point no further code change is expected, only a status flip once `script/test
 --arch x86_64` shows the test passing rather than absent.
 
-**riscv64: correctly excluded.** Neither `RDSEED` nor `RNDR`/`RNDRRS` exists on this ISA; milestone
+riscv64: correctly excluded. Neither `RDSEED` nor `RNDR`/`RNDRRS` exists on this ISA; milestone
 159's JH7110 TRNG is the real hardware source there, through its own driver, not through this file.
 
 ## Follow-on
@@ -177,5 +177,5 @@ itself, at which point no further code change is expected, only a status flip on
 Parity with 159, asked for once calef said the §120 customer condition is met. Unlike 159, not
 hardware-gated: RDSEED and RNDRRS (not the DRBG-buffered RDRAND/RNDR, checked against the specs)
 are CPU instructions QEMU's TCG genuinely emulates, so this can be built and verified without
-silicon. New backends inside the existing `entropy` process. **Proven end to end under QEMU on
-both aarch64 and x86_64.**
+silicon. New backends inside the existing `entropy` process. Proven end to end under QEMU on
+both aarch64 and x86_64.

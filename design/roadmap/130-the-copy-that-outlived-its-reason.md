@@ -12,7 +12,7 @@ not built, and for those the investigation is the deliverable rather than a gap.
 The number was minted provisionally by the lane against a tree whose highest was 129, and it stuck:
 131 was minted beside it while this was in flight and there was no collision.
 
-**This block's own status was stale for the length of one merge**, which is the failure it is now
+This block's own status was stale for the length of one merge, which is the failure it is now
 an instance of. The lane wrote "the status flip to BUILT is the integrator's at merge" and then
 nobody flipped it, so `main` went red on the check that milestone 78's sweep added days earlier:
 IN-PROGRESS naming a branch the history has already merged. Caught by re-running the gate rather
@@ -22,7 +22,7 @@ is that "owed at merge" is rung four, and the gate that caught it is rung two.
 ## What this is
 
 Four findings, ranked by what they cost. The survey that produced them is worth stating in full,
-because the honest headline is that **the tree is clean**: 155,000 lines carry eleven TODO-shaped
+because the honest headline is that the tree is clean: 155,000 lines carry eleven TODO-shaped
 markers, each with a recorded reason, and thirty-six `#[allow]`s against one workspace lint table.
 A scanner pointed at this repository mostly finds deliberate decisions. These four are the
 exceptions, and only the first is interesting.
@@ -31,22 +31,22 @@ exceptions, and only the first is interesting.
 
 Forty-eight sites across `user/`, `crates/` and `fs_server/` inline the same two `asm!` blocks:
 `brk #0` on aarch64, `ebreak` on riscv64. Fifty-eight `#[panic_handler]`s in userspace have drifted
-into **seven variants** of the same intent.
+into seven variants of the same intent.
 
 The reason it is like this is written down, which is what makes it worth fixing rather than worth
 arguing about. `crates/user_rt/src/lib.rs:14` records a deliberate decision not to put the handler
 in the runtime crate: a panic handler is per-final-binary, putting one in a library forces it on
 every program that links the crate and collides with any program wanting its own, and "each binary
-keeps its own **one-line** handler; it is trivial."
+keeps its own one-line handler; it is trivial."
 
-**The first clause is still right and the last one stopped being true.** The handler is fifteen
+The first clause is still right and the last one stopped being true. The handler is fifteen
 lines with two `unsafe` blocks and two `// SAFETY:` comments, so the tree now asserts a
 load-bearing safety invariant eighty-eight times by copy-paste, against a `DECISIONS` §61 note
 saying a SAFETY comment is an assertion and not a formality. And the same file's header claims
 `user_rt` is "the one place in userspace that names" the two ABIs, which forty-eight files
 falsify.
 
-**The drift is real, and one instance is semantically different.**
+The drift is real, and one instance is semantically different.
 `components/src/terminal_sink_caretaker.rs:101` calls `exit()` and never traps. That is a different
 outcome, not a different spelling: `sched::exit` reports `EVENT_EXIT` where `sched::fault` reports
 `EVENT_FAULT` (`kernel/src/sched.rs:1185-1196`), so a panic there would tell a supervisor the
@@ -108,11 +108,11 @@ undone, and it is worth more written down than the refactor would have been.
 already marked by `cfg` blocks: a 515-line `#[cfg(target_arch = "riscv64")]` boot report, and a
 285-line `#[cfg(not(any(test, feature = "bench")))]` banner and init handoff. Both capture nothing
 from the enclosing scope but `dtb`, so extracting them is mechanically trivial, and the lane did
-it: the two bodies came out **byte-identical**, and `kernel_main` dropped to 112 lines.
+it: the two bodies came out byte-identical, and `kernel_main` dropped to 112 lines.
 
-**It broke the build, in a way that is a real property rather than a lint being fussy.** With the
-blocks inline, all four features (`bench`, `shell`, `smb_serve`, `initboot`) compile with **zero
-warnings on both architectures**. Extracted, `bench` and `shell` warn on riscv64 and `smb_serve`
+It broke the build, in a way that is a real property rather than a lint being fussy. With the
+blocks inline, all four features (`bench`, `shell`, `smb_serve`, `initboot`) compile with zero
+warnings on both architectures. Extracted, `bench` and `shell` warn on riscv64 and `smb_serve`
 warns on both. The cause is that these features park early: each is a `cfg`-gated block ending in
 `arch::halt()` or `bench::run()`, and everything after it is unreachable in that configuration.
 One divergent function absorbs that; two functions do not, and `-D warnings` is a gate.
@@ -128,13 +128,13 @@ So `kernel_main` is long because it is the single divergent boot path, and that 
 defect. `syscall::invoke` was not touched: its length is one arm per object method, which is the
 shape of the thing it dispatches.
 
-**What this costs, honestly:** a reader still meets a 908-line function. The mitigation is that the
+What this costs, honestly: a reader still meets a 908-line function. The mitigation is that the
 reason is now recorded here and the experiment does not need repeating. If someone wants this
 split later, the thing to solve first is the early-park pattern, not the function.
 
 ### Fourth: `xtask`'s `-> bool`, and a finding that did not survive being checked
 
-**Mostly withdrawn.** The survey ranked this on counts, and the counts were real while the defect
+Mostly withdrawn. The survey ranked this on counts, and the counts were real while the defect
 they implied was not. Recorded in full rather than quietly dropped, because a wrong finding that
 gets checked is worth as much as a right one and this file is the only place that record can live.
 
@@ -143,13 +143,13 @@ false` sites each preceded by an `eprintln!`, so every failure is printed and fl
 happens, nothing composes, and no caller can branch on why a step failed. What reading the sites
 showed:
 
-- **The message prefixes are consistent and correct.** Every command prefixes with its own name
+- The message prefixes are consistent and correct. Every command prefixes with its own name
   (`std-src:`, `mkinitrd:`, `bench:`), so a failure says which step failed. That is the thing an
   error type would have been introduced to buy.
 - **Most bare `return false` sites are correct propagation, not silence.** Of the twenty-five with
   no adjacent `eprintln!`, nearly all are `if !build() { return false; }` or `if !cargo(...) {
   return false; }`, where the callee has already reported. Re-reporting would be worse.
-- **The one that looked silent is deliberate.** `screendump` returns `false` when the QEMU monitor
+- The one that looked silent is deliberate. `screendump` returns `false` when the QEMU monitor
   socket is not there, and its doc comment says so: the caller treats it as "try again", so it is
   a retry signal rather than an error. `kernel_test_elf` prints on every failure path it has,
   including the one where cargo's JSON schema changes under it.
@@ -166,7 +166,7 @@ work above; the count stands at ninety-four.
 `main.rs` with no module structure. That is a real navigability cost and a mechanical fix, since
 the compiler verifies a module split completely.
 
-**It should be its own milestone, and it should be scheduled rather than taken by a passing lane.**
+It should be its own milestone, and it should be scheduled rather than taken by a passing lane.
 `xtask/src/main.rs` is one of the three named merge hotspots where every lane wires its test, and
 CLAUDE.md's lane-count rule is built on the measurement that collisions scale through files rather
 than through lane count. A wholesale restructure of this file conflicts with every lane in flight,
@@ -183,7 +183,7 @@ integrator's to mint at merge.
 
 ## BUGS
 
-**Resolved, and it cost a pull request.** This lane was opened on
+Resolved, and it cost a pull request. This lane was opened on
 `claude/code-smells-review-3uipoy`, a prefix `script/lint` does not recognise (§77's list), mandated
 by the harness and unchangeable from inside the lane. CI was unaffected, because `pull_request` runs
 build the merge commit and run detached, which that check skips by design; what failed was a local

@@ -25,12 +25,12 @@ written up in its own file as a local fix and nowhere as a rule. The least-autho
 principle. That is rung zero: the next person to add a behaviour to a fixture had nothing to read
 that said not to add it as a role.
 
-`fixtures/src/hello.rs`'s own provenance block had gone further and declared the problem **closed**:
+`fixtures/src/hello.rs`'s own provenance block had gone further and declared the problem closed:
 
 > *"The limitation that used to be recorded here is closed (milestone 266). It read that the name
 > had outlived the description..."*
 
-266 moved **one** role out. Thirty-one remained, so that sentence was false the day it was written
+266 moved one role out. Thirty-one remained, so that sentence was false the day it was written
 and stayed false for three weeks. Correcting it is part of this milestone, and it is the reason the
 principle is now stated in the file a reader meets rather than in a roadmap block they will not.
 
@@ -104,7 +104,7 @@ abbreviation needing a decoder over an object this tree calls `RENDEZVOUS` every
 kernel's own test starts it directly, because milestone 229 shipped the grant mechanism without a
 syscall method to set it.
 
-**Every split program ignores `x0`.** A one-job program has no role selector, so the role numbers
+Every split program ignores `x0`. A one-job program has no role selector, so the role numbers
 simply stop existing for these fourteen rather than being renumbered. `hello`'s remaining nine keep
 theirs unchanged, gaps and all: a role number is a word the kernel puts in `x0`, so it is a value
 the kernel's wiring and that file agree on, and
@@ -117,13 +117,13 @@ tidiness.
 `fixtures/src/hello.rs` said it out loud: *"One binary, so one constant serves both roles."* That
 sentence is what the split made false.
 
-**`capability_demo_proto`** holds the three words two compilation units must now agree on:
+`capability_demo_proto` holds the three words two compilation units must now agree on:
 `PAGE_FRAME_SENTINEL` (producer and consumer), `USED_WORD` (the delegation receiver and
 `kernel/src/user/delegation_service.rs`, which had its own copy with a "must match" comment beside
 it), and `CYCLE_COUNTER_WORD` (the reader and the kernel test, likewise duplicated).
 
-**`loaded_image_check`** holds the self-check and its `.rodata`/`.data`/`.bss` markers, which two
-fixtures need. **It takes its `fail` as a `fn() -> !` parameter rather than calling `user_rt`**, and
+`loaded_image_check` holds the self-check and its `.rodata`/`.data`/`.bss` markers, which two
+fixtures need. It takes its `fail` as a `fn() -> !` parameter rather than calling `user_rt`, and
 that is worth a sentence: a crate that reaches `user_rt` reaches EL0 syscall `asm!` and compiles for
 aarch64 or riscv64 only, which `script/lint` catches and which would have put this crate in four
 separate host-pass exclusion lists to buy one function call. As a parameter it costs the two callers
@@ -134,7 +134,7 @@ the printing client's self-check is load-bearing to
 `a_user_client_moves_data_through_shared_memory`, which asserts on the *absence of a fault* as well
 as on the bytes, and after a split no other test covers that binary's own image.
 
-**Refused: passing the sentinel in `arg1` instead of sharing a constant**, which would have removed
+Refused: passing the sentinel in `arg1` instead of sharing a constant, which would have removed
 the agreement rather than relocating it, since the spawner could hand the same word to both halves.
 It loses because it moves a fixture's own invariant into the kernel's wiring, where a reader of
 either program can no longer see what value is expected or why; and because AGENTS.md rule 7 is
@@ -143,14 +143,14 @@ written as an absolute, not as a preference to be traded against.
 ## The archive grew, and the directory ceiling was in the way
 
 Fifteen more entries on aarch64 and fourteen on the other two boards put both archives past
-`nifefs::MAX_FILES`, which was 76. **`DIR_BLOCKS` is 10 now, up from 6, so the ceiling is 127.** No
+`nifefs::MAX_FILES`, which was 76. `DIR_BLOCKS` is 10 now, up from 6, so the ceiling is 127. No
 magic bump: `start_block` is absolute and `ENTRIES_IN_FIRST_BLOCK` is a function of `NAME_LEN`, so
 no reader can tell, which is the rule `MAGIC`'s own block records for milestone 24's 4-to-6 move.
 10 rather than the 8 that would have sufficed, because `MAX_FILES`' note says this ceiling is
 crossed by lanes that cannot see each other and it has now been crossed that way three times; the
 headroom costs 2 KB once.
 
-**The aarch64 archive went from 9.0 MB to 11.1 MB** in a debug build, about 140 KB per added
+The aarch64 archive went from 9.0 MB to 11.1 MB in a debug build, about 140 KB per added
 program, which is debug information rather than code. Recorded rather than defended: it is a real
 cost and the number should be re-taken if anyone ever measures boot time against archive size.
 
@@ -168,7 +168,7 @@ raises `DIR_BLOCKS` again.
 
 ## What was not done, and why
 
-**The nine `INIT`/child roles stay in `hello`, and the split of those is a separate milestone.**
+The nine `INIT`/child roles stay in `hello`, and the split of those is a separate milestone.
 Two reasons, and the second is honest about being partly effort:
 
 1. **It is a boot-path change, not a fixtures change.** `kernel::user::spawn_progenitor` picks the
@@ -214,4 +214,4 @@ See the proposal below.
 
 ## Index row
 
-Minted 2026-09-14 by the maintainer on calef's ruling the same day (*"31 role binary is not the right shape. If there is anything left then we can consider a name for what remains"*), following his `components/src/ntp.rs` ruling that morning. Twenty-two of thirty-one roles gone. **Seven deleted outright**: `components/src/block_driver.rs` was already the identical virtio driver over the identical `crates/virtio`, used by the other two boards since parity C, and aarch64 reached the same code through `hello` only because its archive table never packed it; packing it collapsed three `cfg` forks to one line each and corrected 24 test comments. **Fourteen split into programs**, all names provisional, plus two crates (`capability_demo_proto`, `loaded_image_check`) because rule 7 admits no `#[path]` module for what a split pair must agree on. **Nine `INIT`/child roles kept**, proposed as a follow-on: splitting them changes `spawn_progenitor`'s role-to-entry choice, which is the boot path milestone 268 was rebuilding beside this lane. The principle the tree had enacted five times and never written down is now stated where a reader meets the last multiplexer: a program does one thing, and a role is an exception that has to say why. `hello`'s own block claimed the problem closed by 266, which had moved one role out of thirty-two. `nifefs::DIR_BLOCKS` 6 -> 10 (ceiling 76 -> 127) because both archives crossed `MAX_FILES` on the same commit.
+Minted 2026-09-14 by the maintainer on calef's ruling the same day (*"31 role binary is not the right shape. If there is anything left then we can consider a name for what remains"*), following his `components/src/ntp.rs` ruling that morning. Twenty-two of thirty-one roles gone. Seven deleted outright: `components/src/block_driver.rs` was already the identical virtio driver over the identical `crates/virtio`, used by the other two boards since parity C, and aarch64 reached the same code through `hello` only because its archive table never packed it; packing it collapsed three `cfg` forks to one line each and corrected 24 test comments. **Fourteen split into programs**, all names provisional, plus two crates (`capability_demo_proto`, `loaded_image_check`) because rule 7 admits no `#[path]` module for what a split pair must agree on. **Nine `INIT`/child roles kept**, proposed as a follow-on: splitting them changes `spawn_progenitor`'s role-to-entry choice, which is the boot path milestone 268 was rebuilding beside this lane. The principle the tree had enacted five times and never written down is now stated where a reader meets the last multiplexer: a program does one thing, and a role is an exception that has to say why. `hello`'s own block claimed the problem closed by 266, which had moved one role out of thirty-two. `nifefs::DIR_BLOCKS` 6 -> 10 (ceiling 76 -> 127) because both archives crossed `MAX_FILES` on the same commit.
