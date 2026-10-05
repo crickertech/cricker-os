@@ -44,7 +44,7 @@ The pin policy is an architect's call; this lane changed nothing.
 - `patches/kani-0.67.0-riscv64-target.patch` and the patched-Kani build in `script/verify-riscv64`.
 - The `KANI_TARGET` build-time and run-time environment hack.
 - Possibly the arm64 kernel verify job. It exists because `crate::arch` follows the host's
-  `target_arch` (milestone 304), so each host proves one architecture. With `--target`, one host can
+  `target_arch` (milestone 304 (`cargo kani -p kernel` only ever compiled one architecture)), so each host proves one architecture. With `--target`, one host can
   prove all three kernel rows, so the second host has no reason left.
 - The version skew above, since riscv64 would run on the same stock pin as every other row.
 
