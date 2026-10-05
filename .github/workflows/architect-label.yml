@@ -51,7 +51,10 @@ name: architect label
 # re-evaluated, regardless of what its diff still matches. The maintainer applies it together with
 # a comment citing the ruling (which PR, which line, what calef said), the same discipline
 # `Blocked-by: #N` uses for a hold that releases itself (notes/merge-queue.md); this is a hold that
-# a decision releases rather than a commit. It is never applied by this workflow itself, only read
+# a decision releases rather than a commit. **Scope: it sticks until a person removes it.** A later
+# push with a decision the ruling did not cover is not re-flagged; the maintainer removes the label
+# when they see one (helpers/architect-ruled.sh has the record). The check reads the LIVE labels
+# (helpers/architect-ruled.sh), because the payload lost a race on #1712, 2026-10-05. It is never applied by this workflow itself, only read
 # by it, so creating the label in the repository (`gh label create`) is a one-time, out-of-band
 # step, not a run of this job.
 
@@ -137,9 +140,12 @@ jobs:
       - name: Run the diff-reading rules
         id: rules
         env:
-          RULED: ${{ contains(github.event.pull_request.labels.*.name, 'architect-ruled') }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$RULED" = "true" ]; then
+          # **Live labels, not the payload** (the payload snapshot lost a race on #1712, 2026-10-05:
+          # `architect-ruled` at 19:24:14Z, `needs-architect` re-added by this job at 19:24:35Z).
+          # This is the early exit; the add step below asks again, since the diff takes time.
+          if helpers/architect-ruled.sh '${{ github.event.pull_request.number }}' '${{ github.repository }}'; then
             echo "architect-label: architect-ruled is on this PR; an architect has already ruled" >&2
             echo "architect-label: on its surface, so this run is not re-adding needs-architect." >&2
             echo "add=false" >> "$GITHUB_OUTPUT"
@@ -193,6 +199,13 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
+          # Second live check, immediately before the write: a ruling that landed while the diff
+          # was being read must still win. A failed read (exit 2) falls through and labels, which
+          # is the safe side (a spurious hold is visible; a missed one is not).
+          if helpers/architect-ruled.sh "$PR_NUMBER" "$REPO"; then
+            echo "architect-label: architect-ruled appeared during this run; not adding needs-architect." >&2
+            exit 0
+          fi
           if gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label needs-architect 2>&1; then
             echo "architect-label: needs-architect added (or already present) on PR #$PR_NUMBER"
           else

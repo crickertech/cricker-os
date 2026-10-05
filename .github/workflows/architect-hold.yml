@@ -143,6 +143,12 @@ jobs:
           labels="$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER" --jq '.labels[].name')"
           echo "PR #$PR_NUMBER labels:"
           printf '%s\n' "$labels" | sed 's/^/  /'
+          # `architect-ruled` releases the hold even if the labeler (or a race) left needs-architect
+          # on: a ruling is the thing needs-architect waits for. Sticks until a person removes it.
+          if printf '%s\n' "$labels" | grep -qx 'architect-ruled'; then
+            echo "==> architect-ruled is present: an architect has ruled; needs-architect (if on) is stale."
+            exit 0
+          fi
           if printf '%s\n' "$labels" | grep -qx 'needs-architect'; then
             echo "==> needs-architect is present: this PR is outside standing merge authority and must not merge." >&2
             exit 1
