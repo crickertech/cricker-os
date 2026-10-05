@@ -19,6 +19,10 @@
 # to be an empty diff, which cannot fail these proofs differently than `main` already has.
 name: verify
 
+# Observed failing: 2026-10-03, run 37156069481: the `re-falsify` leg went red on a push to main,
+#   naming stale falsification records (timetable::*). One leg of several; the proof shards carry no
+#   record of their own. See notes/observed-failing.md.
+
 on:
   push:
     branches: [main]

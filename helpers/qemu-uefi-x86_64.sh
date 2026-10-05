@@ -245,6 +245,19 @@ fi
 # kernel never acts on interrupt remapping (arch::x86_64::iommu's BUGS), so neither is a boot this
 # tree behaves differently on. Any other value, `hvf` included (the aarch64 runner's, which a shell
 # may still have exported), leaves this runner on TCG, as it always did, rather than refusing.
+# Attach a USB keyboard on an xHCI controller when NIFE_USB_KEYBOARD is set (milestone 242 (USB host
+# and HID)). No iommu_platform flag, NVMe's reason: that knob is virtio's opt-in, and a real PCI
+# device model's DMA always goes through the PCI address space, so the controller sits behind
+# the intel-iommu below with nothing to forget. The keys come from the host over the monitor
+# (`sendkey`), which delivers to the most recently activated keyboard; q35's PS/2 keyboard
+# registers first and never activates, so that is this one. script/swish-check's USB keyboard boot is the one user.
+# NIFE_USB_KEYBOARD_OPTS is appended to the usb-kbd device (`,usb_version=1` makes it full speed),
+# NIFE_USB_CONTROLLER_OPTS to the controller (`,msix=off,msi=on` leaves it MSI only, as an Intel PCH is).
+USBKBD=""
+if [ -n "$NIFE_USB_KEYBOARD" ]; then
+    USBKBD="-device qemu-xhci,id=xhci${NIFE_USB_CONTROLLER_OPTS:-} -device usb-kbd,bus=xhci.0${NIFE_USB_KEYBOARD_OPTS:-}"
+fi
+
 ACCEL=""
 if [ "${NIFE_ACCEL:-}" = "kvm" ]; then
     ACCEL="-accel kvm"
@@ -264,6 +277,7 @@ exec helpers/qemu-bounded.sh "$TIMEOUT" qemu-system-x86_64 \
     $MON \
     $DISK \
     $NVME \
+    $USBKBD \
     -drive "if=pflash,format=raw,unit=0,readonly=on,file=$NIFE_OVMF_CODE" \
     -drive "if=pflash,format=raw,unit=1,file=$VARS" \
     $STICK \

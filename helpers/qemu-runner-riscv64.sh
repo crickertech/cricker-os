@@ -145,6 +145,11 @@ GUESTFWD="guestfwd=tcp:10.0.2.9:7777-cmd:/bin/cat"
 PACKAGE_PEER="$(cd "$(dirname "$0")" && pwd)/package-http-peer"
 GUESTFWD="$GUESTFWD,guestfwd=tcp:10.0.2.9:8080-cmd:$PACKAGE_PEER"
 
+# The name server (milestone 384 (in a capability system the resolver is a grant)), the aarch64
+# runner's twin; that runner says why it is DNS over TCP.
+NAME_SERVER_PEER="$(cd "$(dirname "$0")" && pwd)/name-server-peer"
+GUESTFWD="$GUESTFWD,guestfwd=tcp:10.0.2.9:53-cmd:$NAME_SERVER_PEER"
+
 # slirp's own TFTP server (10.0.2.2:69), which makes the gating UDP test deterministic and offline
 # instead of NAT'ing a DNS query to the host's resolver. The parity twin of the aarch64 runner's
 # block; the fixture must match components/src/socket_test_client.rs. See the aarch64 runner for the full reasoning.
@@ -185,6 +190,20 @@ KBD=""
 if [ -n "$NIFE_KEYBOARD" ]; then
     KBD="-device virtio-keyboard-pci,disable-legacy=on,iommu_platform=on"
 fi
+
+# Attach a USB keyboard on an xHCI controller when NIFE_USB_KEYBOARD is set (milestone 242 (USB host
+# and HID)). No iommu_platform flag, NVMe's reason: that knob is virtio's opt-in, and a real PCI
+# device model's DMA always goes through the PCI address space, so the controller sits behind
+# this machine's IOMMU with nothing to forget. The keys come from the host over the monitor
+# (`sendkey`), which delivers to the most recently activated keyboard; with no virtio keyboard
+# attached, that is this one. script/swish-check's USB keyboard boot is the one user.
+# NIFE_USB_KEYBOARD_OPTS is appended to the usb-kbd device (`,usb_version=1` makes it full speed),
+# NIFE_USB_CONTROLLER_OPTS to the controller (`,msix=off,msi=on` leaves it MSI only, as an Intel PCH is).
+USBKBD=""
+if [ -n "$NIFE_USB_KEYBOARD" ]; then
+    USBKBD="-device qemu-xhci,id=xhci${NIFE_USB_CONTROLLER_OPTS:-} -device usb-kbd,bus=xhci.0${NIFE_USB_KEYBOARD_OPTS:-}"
+fi
+
 
 # Two virtio-rng devices when NIFE_RNG is set (milestone 56), the twin of the aarch64 runner's
 # block and for the same reasons: both transports because the entropy service is one binary on
@@ -283,6 +302,7 @@ exec qemu-system-riscv64 \
     $GPU \
     $SCREEN \
     $KBD \
+    $USBKBD \
     $RNG \
     $NVME \
     $MON \

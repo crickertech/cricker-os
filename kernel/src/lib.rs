@@ -80,6 +80,10 @@ mod pci;
 // cfg-gating a module whose next caller is already known.
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 mod non_volatile_memory_express;
+// The xHCI bring-up policy (milestone 242 (USB host and HID)): find the controller, take it from
+// the firmware, draw the driver's register window and confine its DMA, then hand the whole
+// controller to `usb_keyboard_driver` at EL0. See kernel/src/extensible_host_controller_interface.rs.
+mod extensible_host_controller_interface;
 mod revoke;
 mod sched;
 // **A screen on the two architectures whose firmware never lights one**, milestone 243 (a machine

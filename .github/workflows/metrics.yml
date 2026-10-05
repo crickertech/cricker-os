@@ -1,5 +1,11 @@
 name: project metrics
 
+# Observed failing: never. Three runs went red from 2026-10-01 to 10-03 (37119405627 is the last)
+#   on `metrics: unknown argument --flags`, a defect in the job rather than a finding, and later runs
+#   are green. It publishes rather than judges, and what a red run for its own reason would be is not
+#   written down; milestone 641 (a mechanism that reports clean says over how many units, and zero is
+#   loud) is labelling its suppressions. See notes/observed-failing.md.
+
 # **Append this week's row; never change what a past week said.** The dashboard is
 # notes/project-metrics.md and the data behind it is one CSV per measure in
 # notes/project-metrics/, in the tree, versioned with the code it describes.

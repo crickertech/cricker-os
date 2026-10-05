@@ -1,0 +1,20 @@
+# Boot E, bench boot 1 of 3: main plus the VT-d table write-back (image main-clflush,
+# sha256 ac4604ed.., built at 414eda9de, same code as fef2e3206). Transcribed from calef's
+# photograph, 2026-10-04 UTC. The screen held through both units coming up.
+iommu       : VT-d drhd at 0x00000000fed90000, root table default-deny, translating, interrupt remapping offered (unused)
+iommu       : VT-d drhd at 0x00000000fed91000, root table default-deny, translating, interrupt remapping offered (unused)
+disk-throughput: fatal risk 6 bench boot (milestone 261). WRITES to the NVMe disk.
+disk-throughput: preflight first; a skip is not a pass. release build, 2713519200 Hz counter.
+disk-throughput: measured    non_volatile_memory_express sha256 8bd60d60c3712013.. matches the table this kernel vouches for
+diag nvme cap 0x1000304003ffff vs 0x10400 dstrd 0
+diag nvme pre  cc 0x0 csts 0x0 aqa 0xf000f asq 0xa01000 acq 0xa02000
+diag nvme post cc 0x460001 csts 0x1 aqa 0xf000f asq 0xa01000 acq 0xa02000
+disk-throughput: preflight 1/2 dmar scope : PASS  nvme 01:00.0 (rid 0x0100): drhd 0xfed91000 is the catch-all and no other unit names it
+disk-throughput: preflight 2/2 lba size   : PASS  512-byte lbas, blocks_per 8 (needs 1..=8); namespace 256060514304 bytes
+disk-throughput: ipc floor   2000 SIZE round trips in 2396 us (1198 ns each, no device)
+disk-throughput: write       16384 x 4096 B in 146480 us = 458142471 B/s (8940 ns per block)
+disk-throughput: flush       one FLUSH in 549 us
+disk-throughput: read        16384 x 4096 B in 238305 us = 281608311 B/s (14545 ns per block)
+disk-throughput: verified    16384 of 16384 blocks came back stamped with their own number (window 256..16640 in 4096-byte blocks)
+disk-throughput: verdict CONFINED-AT-RATE: read 281608311 B/s, write 458142471 B/s, EL0 driver; drhd 0xfed91000 is the catch-all and no other unit names it
+disk-throughput: done, halting.

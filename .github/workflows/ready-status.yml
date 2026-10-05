@@ -1,5 +1,8 @@
 name: ready status
 
+# Observed failing: 2026-10-03, run 37159344697: red on milestone/637-survivor-triage-4, a ready
+#   pull request whose own roadmap block still read IN-PROGRESS. See notes/observed-failing.md.
+
 # **A ready pull request's roadmap block already says how the work ended** (milestone 630
 # (a merge-queue ejection is caught before the queue, and recovered after it); name provisional).
 #

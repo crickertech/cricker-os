@@ -63,6 +63,7 @@ libfuzzer-sys = "0.4"
 # this repository, which git pins harder than semver would (see deny.toml's `allow-wildcard-paths`).
 nifefs = { path = "../crates/nifefs" }
 device_tree_blob = { path = "../crates/device_tree_blob" }
+domain_name_system = { path = "../crates/domain_name_system" }
 elf = { path = "../crates/elf" }
 globally_unique_identifier_partition_table = { path = "../crates/globally_unique_identifier_partition_table" }
 http_response = { path = "../crates/http_response" }
@@ -116,6 +117,13 @@ bench = false
 [[bin]]
 name = "globally_unique_identifier_partition_table"
 path = "fuzz_targets/globally_unique_identifier_partition_table.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "domain_name_system_reply"
+path = "fuzz_targets/domain_name_system_reply.rs"
 test = false
 doc = false
 bench = false

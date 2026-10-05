@@ -63,6 +63,10 @@
 #     which obliged an edit in a block nobody in that lane was reading (§207's argument, and the
 #     forced edit milestone 591 (a ruling should make the gate it answers fail until someone updates
 #     it) added for decisions). `decision_dependencies: unwritten` is a fork nobody has written up;
+#   - **a block or proposal raised on or after 2026-10-05 carries a `Reuse:` record** naming what it
+#     considered taking, or `none exists` and what was searched (§46's 2026-10-04 amendment: taking
+#     is the default outside the kernel and the crates Kani proves). Older blocks are exempt; the
+#     comment at `reuse_problems` says why and what that misses;
 #   - every `milestone N` citation TREE-WIDE resolves to a block (vendor/ and patches/ excluded:
 #     other people's text). The old gate checked only the roadmap's own prose, so ~1,988 citations in
 #     code comments were validated by nothing. A citation to a milestone that never existed is drift,
@@ -236,6 +240,70 @@ def unheld_promotions(added, held):
         for fname, slug in added if slug not in held]
 
 
+# ---- `Reuse:`: a new milestone names what it considered taking (§46, 2026-10-04) ------------------
+# calef ruled on 2026-10-04 (UTC) that outside the kernel and the crates Kani proves, the default is
+# to take or adapt existing code, and that writing our own needs a recorded reason. The record is a
+# `**Reuse:**` (or bare `Reuse:`) line in the block's prose, or a `## Reuse` section. It names at
+# least one candidate considered, or says `none exists` and what was searched.
+#
+# **Only blocks raised on or after REUSE_FROM owe one.** A check must not fail the tree it lands
+# in, and every older block was written before the question was asked. That is an exception and a
+# foot gun: an older block reopened by a new lane does not owe the line, and this check cannot tell
+# it has been reopened. Milestones 242, 384 and 494 are exempt this way; their lanes are adding
+# `## Reuse` sections voluntarily. REFUSED blocks are exempt too, because a refusal builds nothing.
+# Proposals under design/roadmap/proposals/ owe it on the same date, since they become blocks.
+#
+# What it cannot check is the same blind spot as the `## Revisit` check: that a named candidate is
+# real, or that it was weighed rather than typed. It proves the question was answered.
+REUSE_FROM = "2026-10-05"
+REUSE_LINE = re.compile(r"(?:\*\*Reuse:\*\*|Reuse:)\s*(.*)$")
+REUSE_PLACEHOLDER = re.compile(r"(?:none|n/?a|tbd|todo|-+|\?+)\.?", re.I)
+
+
+def reuse_problems(fname, status, raised, lines):
+    """`lines` is the block's body after the frontmatter. Problems for a block that owes a `Reuse:`
+    record and has none, or has one that names nothing."""
+    if not raised or raised < REUSE_FROM or status == "REFUSED":
+        return []
+    texts, fence, section = [], False, None
+    for l in lines:
+        if l.lstrip().startswith("```"):
+            fence = not fence
+            continue
+        if fence:
+            continue
+        if l.startswith("## "):
+            section = [] if l.strip() == "## Reuse" else None
+            if section is not None:
+                texts.append(section)
+            continue
+        if section is not None:
+            section.append(l.strip())
+        m = REUSE_LINE.match(l)
+        if m:
+            texts.append([m.group(1).strip()])
+    fix = (f"  Fix: add a line '**Reuse:** <what was considered and why it was or was not taken>', "
+           f"or '**Reuse:** none exists; searched <where>' (§46's 2026-10-04 amendment; "
+           f"notes/roadmap.md, step 3 of adding a milestone)")
+    if not texts:
+        return [f"{fname}: raised {raised}, on or after {REUSE_FROM}, and there is no 'Reuse:' line "
+                f"or '## Reuse' section. Outside the kernel and the crates Kani proves, taking "
+                f"existing code is the default, so a new milestone names what it considered.\n" + fix]
+    out = []
+    for t in texts:
+        body = " ".join(x for x in t if x).strip()
+        low = body.lower()
+        if not body or REUSE_PLACEHOLDER.fullmatch(body):
+            out.append(f"{fname}: its Reuse record is {body!r}, which names no candidate and no "
+                       f"search.\n" + fix)
+        elif low.startswith("none") and not (low.startswith("none exists")
+                                             and len(body[len("none exists"):].split()) >= 3):
+            out.append(f"{fname}: its Reuse record says none without saying what was searched "
+                       f"({body[:60]!r}). 'none exists' is an answer only beside the search that "
+                       f"found nothing.\n" + fix)
+    return out
+
+
 def ready_branch_selftest():
     """Fixtures, no files and no subprocesses, for the reason `script/fatal-risks --selftest` gives:
     a check whose green looks identical to a check that cannot fail must prove it can fail."""
@@ -264,7 +332,33 @@ def ready_branch_selftest():
         ("two blocks, one unheld", [("9-a.md", "x"), ("10-b.md", "y")], {"x"}, 1),
         ("adds no promoting block", [], set(), 0),
     ]
+    new, old = "2026-10-05", "2026-10-04"
+    reuse = [
+        ("a new block with no Reuse record", "NOT-STARTED", new, ["# 9. A fixture", ""], 1),
+        ("an old block with no Reuse record", "BUILT", old, ["# 9. A fixture", ""], 0),
+        ("a REFUSED block with none", "REFUSED", new, ["# 9. A fixture"], 0),
+        ("a bold line naming a candidate", "NOT-STARTED", new,
+         ["# 9. A fixture", "", "**Reuse:** rust-osdev's `xhci`; taken for the register map."], 0),
+        ("a bare line naming a candidate", "PARTIAL", new, ["Reuse: Redox's e1000d, adapted"], 0),
+        ("a section naming a candidate", "NOT-STARTED", new,
+         ["# 9. A fixture", "## Reuse", "", "`simple-dns`, refused: it is not no_std.", "## BUGS"], 0),
+        ("an empty section", "NOT-STARTED", new, ["## Reuse", "", "## BUGS", "x"], 1),
+        ("a bare 'none'", "NOT-STARTED", new, ["**Reuse:** none."], 1),
+        ("'none exists' with no search", "NOT-STARTED", new, ["**Reuse:** none exists"], 1),
+        ("'none' with a reason but no search", "NOT-STARTED", new,
+         ["**Reuse:** none, we prefer ours"], 1),
+        ("'none exists' with the search", "NOT-STARTED", new,
+         ["**Reuse:** none exists; searched crates.io for no_std PL011 drivers"], 0),
+        ("a Reuse line inside a code fence", "NOT-STARTED", new,
+         ["```", "**Reuse:** xhci", "```"], 1),
+    ]
     failed = 0
+    for name, status, raised, lines, want in reuse:
+        got = len(reuse_problems("9-a.md", status, raised, lines))
+        if got != want:
+            print(f"roadmap --selftest: reuse, {name}: {got} problems, expected {want}",
+                  file=sys.stderr)
+            failed += 1
     for name, added, held, want in promo:
         got = len(unheld_promotions(added, held))
         if got != want:
@@ -277,7 +371,8 @@ def ready_branch_selftest():
             failed += 1
     if failed:
         sys.exit(1)
-    print(f"roadmap --selftest: {len(cases)} ready-branch and {len(promo)} promotion fixtures behave")
+    print(f"roadmap --selftest: {len(cases)} ready-branch, {len(promo)} promotion and "
+          f"{len(reuse)} reuse fixtures behave")
     sys.exit(0)
 
 
@@ -759,6 +854,7 @@ for fname in sorted(entries):
     # `helpers/roadmap_proposals.py` for why the citation is a slug and not a path. Collected here
     # and checked against the pile after it is read.
     check_fields(fname, num, status, fields)
+    problems.extend(reuse_problems(fname, status, fields.get("raised"), lines))
     if status == "REFUSED":
         refused_by[num] = {int(x) for x in roadmap_block.tokens(fields.get("refused_by"))
                            if x.isdigit()}
@@ -1040,6 +1136,9 @@ for fname in sorted(os.listdir(pdir)) if os.path.isdir(pdir) else []:
                         f"start is worth as little as a milestone a lane cannot start")
         continue
     check_fields(rel, None, "PROPOSED", pfields)
+    # A proposal owes the Reuse record too: promotion is a `git mv` at merge, and a proposal that
+    # lacked it would fail the check only in the integrator's tree, after the lane is gone.
+    problems.extend(reuse_problems(rel, "PROPOSED", pfields.get("raised"), plines))
     proposals.append((when, rel, title))
 # A proposal's fields were checked as it was read, after the numbered blocks' references resolved,
 # so its own references resolve here.
