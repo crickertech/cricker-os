@@ -2,6 +2,8 @@
 
 *Name: ratified (§75 covers this directory). `notes` predates every convention here and stays for the reason `elf` stays: it is the plain word for what the files are, and renaming it would spend a reader's recognition to buy nothing. (This said `elf` and `dtb` until 2026-09-19, when DECISIONS §154 expanded `dtb` to `device_tree_blob`; `notes` is an ordinary English word and was never an acronym, so §154 does not reach it.)*
 
+`basalt` Name: ratified 2026-10-05 (calef, the distribution's name, reserved by milestone 120; see [basalt](basalt.md)). Refused `travertine` (limestone still forming at hot springs; needs a geologist's footnote, the tax that retired `sial`), `magma` (molten rock, not a rock, so it breaks milestone 120's convention that a distribution is a rock; also used by the Magma computer algebra system and the Linux Foundation's Magma mobile core, from memory, unverified), `tufa` (confused with `tuff`, and the crate name is taken), `scoria` (also means slag, and the crate name is taken), `flowstone` (FlowStone is a commercial product), `tephra` (loose fragments, not a rock; Apache Tephra exists), `obsidian` (the notes app), `pumice` (reads as light, and is milestone 120's example of a third party's distribution).
+
 Running glossary for nife, written as concepts come up. If something in the code or the
 conversation does not make sense, it belongs here.
 
