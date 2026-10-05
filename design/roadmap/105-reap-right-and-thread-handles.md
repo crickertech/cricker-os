@@ -2,7 +2,7 @@
 status: NOT-STARTED
 raised: 2026-08-04
 milestone_dependencies: none
-decision_dependencies: 164
+decision_dependencies: 148
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -21,10 +21,13 @@ corpse without being able to build one), decided 2026-07-29, six days before thi
 and shipped as `abi::rendezvous::REAP`, whose authorization is the supervision relationship rather
 than the rights bit this block proposes. So the block restated a settled question as open, and a
 gate saying `DECISION` for an answered reason spends an architect's attention on a decision already made.
-What remains is fork two, whether a tid becomes a handle, which is
-§164 (whether the kernel resolves a tid it
-already sent), written up 2026-09-19 by milestone 435's lane. Both were recorded in
-notes/trusted-init.md as "calef's call, not a thing to slip in", and fork two still is.
+What remains is fork two, whether a tid becomes a handle, which
+§148 (a supervisor restarts by asking, and resolves by asking the kernel) decided on
+2026-09-05: the kernel owes the supervisor a way to resolve the tid it sends. §148's amendment of
+2026-10-04 settles how: the death message carries the label the builder put on the fault endpoint's
+badge, with no `RESOLVE` method, unless that moves the IPC benchmarks. §164 (whether the kernel resolves a tid it already sent), written up 2026-09-19
+by milestone 435 (forty-five milestones are gated on a decision nobody wrote down)'s lane, asked fork two again and is superseded by §148. Both were recorded in
+notes/trusted-init.md as "calef's call, not a thing to slip in", and calef has now made both.
 
 ## Fork one: a reap-only right, split out of `WRITE`
 

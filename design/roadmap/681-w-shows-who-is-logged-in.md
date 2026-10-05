@@ -3,7 +3,7 @@ status: NOT-STARTED
 raised: 2026-09-26
 promoted_from: w-shows-who-is-logged-in
 milestone_dependencies: none
-decision_dependencies: 164
+decision_dependencies: 148
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -23,9 +23,11 @@ Upstream `w` prints who is logged in and what each of them is running, with idle
 session. Measured against the tree on 2026-09-26, in section 2 of
 `notes/process-view/what-is-left.md`:
 
-- What they are running needs a name for a tid, which is DECISIONS §164 (whether the kernel resolves
-  a tid it already sent), still proposed. §164's own "what is blocked" does not yet list `w`'s
-  `WHAT` column or `ps`'s missing `CMD` column.
+- What they are running needs a name for a tid. DECISIONS §148 (a supervisor restarts by asking,
+  and resolves by asking the kernel) was amended 2026-10-04: a supervisor learns a dead thread's
+  label from the death message. That names a thread to its supervisor, not to `w`. How a
+  non-supervisor learns a tid's name is still unwritten. §164 (whether the kernel resolves a tid it
+  already sent) asked the same question and is superseded by §148.
 - Who is logged in: `components/src/login.rs` runs one session at a time on one terminal, so a `w`
   today would always print one row.
 - CPU time exists since milestone 282 (a thread's CPU time).
@@ -34,4 +36,4 @@ A `w` built before both would demonstrate nothing a reader could not see by look
 
 ## Index row
 
-`w` prints who is logged in and what they are running, but a tid has no name and login serves one session at a time. Proposed: build `w` once DECISIONS §164 (whether the kernel resolves a tid it already sent) is ruled.
+`w` prints who is logged in and what they are running, but a tid has no name and login serves one session at a time. Proposed: build `w` once a tid has a name a viewer can read, which DECISIONS §148 (a supervisor restarts by asking, and resolves by asking the kernel) does not yet give.
