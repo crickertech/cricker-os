@@ -211,6 +211,14 @@ cargo clippy -p kernel -p components -p fixtures -p user_mode_runtime --target a
 echo "==> clippy: system_tests (aarch64)"
 cargo clippy -p system_tests --target aarch64-unknown-none-softfloat --all-targets -- -D warnings
 
+# The confinement tests' attacker roles (milestone 261 (the NVMe driver leaves the kernel)'s
+# DMA-escape test), compiled only under `components/confinement_attackers`. Nothing above reaches
+# them: `components` is built by xtask, not depended on, so `system_tests` cannot turn the feature
+# on, and the shipped lint above must not. One architecture, because the gated code is
+# architecture-neutral; the shipped build is linted on x86_64 below as well.
+echo "==> clippy: components --features confinement_attackers (aarch64)"
+cargo clippy -p components --features confinement_attackers --target aarch64-unknown-none-softfloat --all-targets -- -D warnings
+
 # The third architecture (milestone 161). **The kernel BINARY only, with dead code allowed**, and
 # every one of those narrowings is a scope gap rather than an oversight, so they are named here,
 # where a reader checking what is covered will look.

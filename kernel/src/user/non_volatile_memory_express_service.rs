@@ -254,6 +254,195 @@ fn start(image: &'static [u8]) -> Result<Wiring, crate::non_volatile_memory_expr
     })
 }
 
+/// **The byte a confinement-falsification canary is planted with.** Distinct from `0x00` (a zeroed
+/// frame and the NVMe image's own contents) so "untouched" means "still the canary" rather than
+/// "still zero", and a `READ` escape that landed, copying the image's zeros over it, is caught.
+#[cfg(feature = "system_tests")]
+const CANARY_BYTE: u8 = 0xC1;
+
+/// **One DMA-escape attacker, wired and running** (milestone 261's Outstanding item; milestone 202
+/// (every confinement test is a ritual until somebody breaks the confinement and watches it fail)).
+/// What [`start_dma_escape`] hands its test caller.
+#[cfg(feature = "system_tests")]
+pub struct DmaEscape {
+    /// The attacker's readiness endpoint. One message once it has tried both escapes: word 0 the
+    /// read-escape status, word 1 the write-escape status (see `run_dma_escape`).
+    pub report: RendezvousId,
+    /// The physical base of the victim frame, outside the controller's DMA region. The test looks
+    /// for this in the IOMMU's fault queue and reads its canary back through the direct map.
+    pub victim: u64,
+    /// True when the unit this kernel programmed owns the controller's requester id
+    /// ([`crate::iommu::Scope::is_confining`]). False means the escape would be refused by nothing,
+    /// so the test must not read a pass into it.
+    pub confined_by_iommu: bool,
+    /// The evidence behind `confined_by_iommu`, for the failure message.
+    pub scope: crate::iommu::Scope,
+    /// The kernel thread running the attacker, which [`DmaEscape::release`] waits out.
+    thread: crate::thread::ThreadId,
+    /// The one-page region `report` lives in, so [`DmaEscape::release`] can destroy it. A kernel
+    /// rendezvous (`create_rendezvous`) is never freed, and this one extra pushed the suite over a
+    /// 32-page chunk boundary that a later test then paid for.
+    ep_region: u64,
+    /// The controller the attacker was given, kept so [`DmaEscape::release`] can take it down
+    /// before handing its region back.
+    controller: crate::non_volatile_memory_express::NonVolatileMemoryExpress,
+}
+
+#[cfg(feature = "system_tests")]
+impl DmaEscape {
+    /// Block for the attacker's report (it sends once, after both escapes).
+    pub fn wait(&self) -> [u64; 5] {
+        crate::sched::ipc_receive(self.report)
+    }
+
+    /// True when every byte of the victim frame is still the canary, i.e. the controller's DMA
+    /// never reached it. A `READ` escape that the IOMMU failed to refuse would have copied the
+    /// disk's bytes over it, so this goes false exactly when the confinement does.
+    pub fn canary_intact(&self) -> bool {
+        let p = crate::arch::mmu::phys_to_virt(self.victim) as *const u8;
+        (0..page_frames::FRAME_SIZE as usize).all(|i| {
+            // SAFETY: `victim` is a frame this wiring allocated and frees only in `release`, which
+            // consumes `self`, so it is still ours here. The direct map covers all of RAM, and `i`
+            // stays inside the one frame. CPU reads bypass the IOMMU, which is the point: only the
+            // device's view of this frame is unmapped.
+            let byte = unsafe { p.add(i).read_volatile() };
+            byte == CANARY_BYTE
+        })
+    }
+
+    /// **Give back the frames this wiring took**: the controller's DMA region, the victim and the
+    /// report endpoint's region, which the suite's ledger otherwise counts against it for the rest
+    /// of the boot. Only once
+    /// the attacker's thread is gone (its address space mapped the data plane) and the controller
+    /// is disabled ([`crate::non_volatile_memory_express::NonVolatileMemoryExpress::retire`]),
+    /// because until both hold, something may still read or DMA into these frames. Returns whether
+    /// everything came back, which the test asserts. The IOMMU domain's tables stay, for the
+    /// reason `retire` gives.
+    ///
+    /// Name: ratified 2026-10-05 (calef, #1647).
+    pub fn release(self) -> bool {
+        // Ten seconds of TCG, far past an `exit` that follows the report this caller already took.
+        let deadline = crate::arch::timer::now() + 10 * crate::arch::timer::frequency();
+        while crate::sched::is_thread_present(self.thread) && crate::arch::timer::now() < deadline {
+            crate::sched::yield_now();
+        }
+        if crate::sched::is_thread_present(self.thread) || self.controller.retire().is_err() {
+            return false;
+        }
+        crate::memory::free(page_frames::PageFrame::from_addr(self.victim));
+        crate::sched::reclaim_region(self.ep_region).is_ok()
+    }
+}
+
+/// **Bring the controller up confined, then spawn an EL0 server that aims a PRP outside its region**
+/// (milestone 261's Outstanding item; milestone 202's convention). The storage twin of
+/// `display_service::start_backing_escape`: the attacker gets exactly the honest server's world
+/// (the same confined controller, the same data plane, the same doorbell) and differs only in the
+/// physical address it writes into a command's PRP. `None` when no NVMe controller is on the bus.
+///
+/// The kernel picks the victim frame and plants its canary, the way milestone 16b (IOMMU-backed
+/// driver isolation)'s confinement test and the GPU backing-escape test both do: the caller has to know the exact address to look
+/// for in the IOMMU's fault queue, and a server guessing "the frame past my region" guesses wrong
+/// (the next allocation may be inside the domain). The frame is freed only by
+/// [`DmaEscape::release`], after the controller is disabled: returning it to the allocator while
+/// the controller has been told to read it is the use-after-free-by-hardware notes/dma.md warns
+/// about.
+#[cfg(feature = "system_tests")]
+pub fn start_dma_escape(image: &'static [u8]) -> Option<DmaEscape> {
+    // The victim, outside any region bring_up will confine the controller to. Planted with the
+    // canary before the controller is enabled, so a landed escape is the only thing that could
+    // change it.
+    let victim = crate::memory::alloc()?.addr();
+    // SAFETY: a freshly allocated frame, reached through the direct map; nothing else names it yet.
+    unsafe {
+        core::ptr::write_bytes(
+            crate::arch::mmu::phys_to_virt(victim) as *mut u8,
+            CANARY_BYTE,
+            page_frames::FRAME_SIZE as usize,
+        );
+    }
+
+    // Bring the controller up and confine it to its own DMA region. In the shipped tree
+    // `ESCAPE_TARGET` is zero, so `victim` is not in the controller's domain and the escape below
+    // faults. The replayable falsification inserts a store of `victim` into `ESCAPE_TARGET` right
+    // here, which widens the domain to cover it; that one line is the whole patch.
+    let found = crate::non_volatile_memory_express::bring_up().ok()?;
+    let rid = found.rid;
+    let scope = crate::iommu::scope_of(rid);
+    let confined_by_iommu = scope.is_confining();
+    let controller = found.controller;
+    let handoff = controller.handoff();
+    let words = handoff.pack();
+
+    let doorbell_phys = found.bar0 + page_frames::FRAME_SIZE;
+    let data_plane_phys = handoff.data_plane_phys;
+    let transfer_phys = data_plane_phys + 2 * page_frames::FRAME_SIZE;
+
+    // The control block the EL0 role reads first thing: `[ESCAPE_MAGIC, victim]` at the start of
+    // the transfer buffer. No fence orders it against the reader: these writes complete before the
+    // `crate::sched::spawn` below, and the spawn is the happens-before edge (the scheduler
+    // publishes the new thread after this closure and its captured writes are in place), the same
+    // ordering the honest `start` relies on for the geometry it writes.
+    // SAFETY: `transfer_phys` is the data plane's transfer buffer, a frame this bring-up allocated,
+    // reached through the direct map.
+    unsafe {
+        let p = crate::arch::mmu::phys_to_virt(transfer_phys) as *mut u64;
+        p.write_volatile(non_volatile_memory_express::ESCAPE_MAGIC);
+        p.add(1).write_volatile(victim);
+    }
+
+    // In a region of its own rather than on the kernel's chunk, so `release` can hand it back; the
+    // way `fs_service::start_std_bound` makes its report endpoint.
+    let ep_region = crate::memory_region::create(1).expect("no endpoint region for the attacker");
+    let report = crate::sched::create_rendezvous_from(ep_region)
+        .expect("no report endpoint for the attacker");
+
+    let thread = crate::sched::spawn(move || {
+        let mut maps = [Mapping {
+            va: 0,
+            phys: 0,
+            flags: Flags::user_data(),
+        }; DATA_PLANE_PAGES + 1];
+        super::fs_service::map_channel(
+            &mut maps[..DATA_PLANE_PAGES],
+            DATA_PLANE_VA,
+            data_plane_phys,
+            DATA_PLANE_PAGES,
+        );
+        maps[DATA_PLANE_PAGES] = Mapping {
+            va: DOORBELL_VA,
+            phys: doorbell_phys,
+            flags: Flags::user_device(),
+        };
+        run(
+            image,
+            Spawn {
+                arg0: words[0],
+                arg1: words[1],
+                arg2: words[2],
+                grants: &[
+                    // slot 0 is unused by the attacker (it never serves a client); it keeps the
+                    // slot shape the honest server has. slot 1 is where it reports.
+                    rendezvous_cap(report, Rights::READ),
+                    rendezvous_cap(report, Rights::WRITE),
+                ],
+                maps: &maps,
+            },
+        )
+    })
+    .expect("could not spawn the NVMe DMA-escape attacker");
+
+    Some(DmaEscape {
+        report,
+        victim,
+        confined_by_iommu,
+        scope,
+        thread,
+        ep_region,
+        controller,
+    })
+}
+
 impl Wiring {
     /// Take the startup report, or `None` when this caller was not the one that wired the server.
     /// Word 0 is [`filesystem_protocol::fixture::READY`] when the first command round-tripped, and

@@ -89,6 +89,14 @@ const X86_TARGET: &str = "x86_64-unknown-none";
 /// debug: faster builds, and the tests and the tour want debuginfo and cheap rebuilds.
 static RELEASE: AtomicBool = AtomicBool::new(false);
 
+/// Whether this run's userspace carries the confinement tests' attacker roles
+/// (`components/confinement_attackers`, milestone 261's DMA-escape test). Only `test` sets it, so
+/// the suite and its falsification replays (`cargo xtask test --test ...`) get the attacker
+/// `non_volatile_memory_express` server and every other boot (`run`, `stick`, `install`, the
+/// benches, the soaks, swish-check) packs the shipped one. Read by [`build_programs`]. Name
+/// provisional.
+static CONFINEMENT_ATTACKERS: AtomicBool = AtomicBool::new(false);
+
 /// `"release"` or `"debug"`: the cargo profile directory the built artifacts land in.
 fn profile_dir() -> &'static str {
     if RELEASE.load(Ordering::Relaxed) {
@@ -106,6 +114,28 @@ fn cargo_profiled(args: &[&str]) -> bool {
         v.push("--release");
     }
     cargo(&v)
+}
+
+/// **Build the two program packages, `components` and `fixtures`, for `target`**, in the run's
+/// profile and with the attacker roles only when [`CONFINEMENT_ATTACKERS`] says so. The one place
+/// the three initrd builders ([`user`], [`archive::initrd_riscv`], [`archive::initrd_x86`]) spell
+/// that build, so the feature cannot reach one architecture's archive and not another's. Switching
+/// between a test and any other boot recompiles `components`, because cargo fingerprints features;
+/// that is the price of the shipped image not containing the attacker. Name provisional.
+pub(crate) fn build_programs(target: &str) -> bool {
+    let mut args = vec![
+        "build",
+        "-p",
+        "components",
+        "-p",
+        "fixtures",
+        "--target",
+        target,
+    ];
+    if CONFINEMENT_ATTACKERS.load(Ordering::Relaxed) {
+        args.extend(["--features", "components/confinement_attackers"]);
+    }
+    cargo_profiled(&args)
 }
 
 fn main() -> ExitCode {
@@ -312,15 +342,7 @@ fn build() -> bool {
 /// an **ELF**: the kernel's loader wants program headers, unlike the kernel itself, which QEMU
 /// wants as a flat image. See notes/elf.md.
 pub(crate) fn user() -> bool {
-    cargo_profiled(&[
-        "build",
-        "-p",
-        "components",
-        "-p",
-        "fixtures",
-        "--target",
-        TARGET,
-    ]) && initrd_aarch64()
+    build_programs(TARGET) && initrd_aarch64()
 }
 
 /// The packed initrd archive ([`archive::initrd_path`]) is what `helpers/qemu-runner-aarch64.sh` passes to QEMU as

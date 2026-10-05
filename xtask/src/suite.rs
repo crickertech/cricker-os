@@ -131,6 +131,10 @@ pub(crate) fn test() -> bool {
             return false;
         }
     };
+    // The suite's userspace carries the confinement tests' attacker roles; no other boot's does.
+    // Set before any leg builds its archive, and for the whole run, so a `--test` falsification
+    // replay gets them too. See `CONFINEMENT_ATTACKERS`.
+    crate::CONFINEMENT_ATTACKERS.store(true, std::sync::atomic::Ordering::Relaxed);
     if hvf && flag_value("--cpu").is_some() {
         eprintln!(
             "test: --cpu cannot apply under --hvf (the guest runs the physical core; -cpu host is \

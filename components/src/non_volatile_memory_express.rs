@@ -330,6 +330,27 @@ pub extern "C" fn _start(arg0: u64, arg1: u64, arg2: u64) -> ! {
         flushes: 0,
     };
 
+    // **Test-only: the DMA-escape attacker role** (milestone 261 (the NVMe driver leaves the
+    // kernel)'s Outstanding item; milestone 202
+    // (every confinement test is a ritual until somebody breaks the confinement and watches it
+    // fail)). The confinement-falsification wiring in
+    // `kernel/src/user/non_volatile_memory_express_service.rs::start_dma_escape` writes
+    // `[ESCAPE_MAGIC, victim_phys]` into the first two `u64`s of the transfer buffer before this
+    // process runs; a real boot's data plane is zeroed, so the magic never matches and this falls
+    // through to serving. Read before the readiness transfer, which reuses transfer page 0. This
+    // is the NVMe twin of `block_driver`'s two virtio attacker roles: the attacker is this exact
+    // server differing by one field, the physical address it puts in a PRP, so the attack tests
+    // the IOMMU rather than a straw man.
+    //
+    // **Compiled only with `confinement_attackers`**, which only `cargo xtask test` turns on: a
+    // shipped server has neither this check nor `run_dma_escape`, so the zeroed buffer is not the
+    // only thing standing between it and the attack.
+    #[cfg(feature = "confinement_attackers")]
+    if DATA.r64(TRANSFER_OFF) == non_volatile_memory_express::ESCAPE_MAGIC {
+        let victim = DATA.r64(TRANSFER_OFF + 8);
+        run_dma_escape(&mut plane, victim);
+    }
+
     // **Read one block before reporting ready**, the discipline `entropy.rs` uses: "the service is
     // up" should mean "a client that asks will be answered", not that the spawn completed. It is
     // also the only end-to-end check available here, since this process cannot read `CSTS` to ask
@@ -394,6 +415,42 @@ fn serve(mut plane: Plane) -> ! {
         };
         reply(reply_cap, r0 as u64, 0);
     }
+}
+
+/// **Aim DMA outside this server's region, both directions, and report what the controller did**
+/// (milestone 261's Outstanding item; milestone 202). The honest server only ever asks
+/// [`Handoff::transfer_command`] for a PRP, which refuses a block outside the namespace; this role
+/// goes around that and hands [`Command::read`]/[`Command::write`] a PRP of its own choosing,
+/// `victim`, a physical address outside the DMA window this process was given. A `READ` would have
+/// the controller DMA disk data *into* `victim` (overwriting a frame this server was never granted);
+/// a `WRITE` would have it DMA *out of* `victim` onto the disk (a leak). With the IOMMU confining
+/// the controller to its own region, both faults, and the kernel test then reads `victim`'s canary
+/// (untouched) and the IOMMU's fault record.
+///
+/// **This process holds no name for `victim`.** It is a raw physical number read out of shared
+/// memory, exactly the authority an escaping driver would fabricate from nothing, and the point of
+/// the test is that holding the number buys the controller no reach the IOMMU did not grant it.
+#[cfg(feature = "confinement_attackers")]
+fn run_dma_escape(plane: &mut Plane, victim: u64) -> ! {
+    let blocks = plane.handoff.blocks_per;
+    // disk -> victim: the controller would overwrite a frame outside the region.
+    let rd = {
+        let cid = plane.next_cid();
+        plane.transact(Command::read(cid, NSID, 0, blocks, victim, 0))
+    };
+    // victim -> disk: the controller would read a frame outside the region.
+    let wr = {
+        let cid = plane.next_cid();
+        plane.transact(Command::write(cid, NSID, 0, blocks, victim, 0))
+    };
+    // Report both outcomes on the readiness endpoint: word 1 the read-escape status, word 2 the
+    // write-escape status. A confined controller never completes the transfer, so each is an Err
+    // (a controller status, or u16::MAX for a completion that never came). The kernel test's proof
+    // is the IOMMU fault and the untouched canary, not which status a refused command carried;
+    // these words are for the transcript.
+    let code = |r: Result<(), u16>| r.err().unwrap_or(0) as u64;
+    send(READY, code(rd), code(wr), 0);
+    exit();
 }
 
 /// `count` contiguous blocks, one command each. See this module's `BUGS` for why it is not one

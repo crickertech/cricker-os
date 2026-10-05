@@ -10,5 +10,18 @@ license.workspace = true
 # kernel supplies the volatile MMIO accessors and the DMA memory, so all of this tests on the host
 # in milliseconds and is reachable by the model checker.
 
+[features]
+# Exposes `ESCAPE_MAGIC`, the sentinel that selects the NVMe server's test-only DMA-escape role.
+# Turned on by `components/confinement_attackers` (the server that reads it) and by the kernel's
+# `system_tests` (the wiring that writes it), and by nothing a shipped image is built from.
+# The feature name was ratified by calef, 2026-10-05 (#1647).
+confinement_attackers = []
+
+# The crate's own tests compile with `confinement_attackers` on, so cargo-mutants (which runs
+# `cargo test -p` with default features) rebuilds what it mutates behind it; `documentation` does
+# the same. Consumers do not get the feature from this.
+[dev-dependencies]
+non_volatile_memory_express = { version = "0.1.0", path = ".", features = ["confinement_attackers"] }
+
 [lints]
 workspace = true

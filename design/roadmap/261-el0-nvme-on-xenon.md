@@ -211,10 +211,12 @@ weaker, the fourth is partly answered, and two are new.*
   an accepted handoff produces stay inside the one page mapped, and that no block outside the
   namespace becomes a command. The first two are *about* the confinement's arithmetic rather than
   about the confinement, which is a hardware claim no prover reaches. **The confinement claim's own
-  test is the kernel test's `confined_by_iommu` assertion plus milestone 16b's escape attempts**, and
-  what is missing to meet milestone 202's convention is a replayable falsification: an EL0 server
-  deliberately aiming a PRP outside its region, the way `block_driver`'s two attacker roles do for
-  virtio. That is named in `## Follow-on`.
+  test is now the escape test**: a confined EL0 server aims a PRP outside its region and the IOMMU
+  refuses it, with a replayable falsification that widens the domain and turns the test red
+  (`a_confined_el0_server_cannot_dma_outside_its_region`, done 2026-10-04, in `## Follow-on`). What
+  earlier stood here, the `confined_by_iommu` assertion alone, was the decorative case milestone 202
+  (every confinement test is a ritual until somebody breaks the confinement and watches it fail) was
+  minted against.
 - A confined driver can still aim DMA inside its own confinement. The IOMMU bounds the controller
   to the whole allocation, admin rings included, because the controller fetches from both halves; so
   a server that computes a PRP backwards from its own base can make the controller overwrite the
@@ -238,10 +240,14 @@ weaker, the fourth is partly answered, and two are new.*
 - **Milestone 651.** Milestone 651 (the NVMe boot test on a machine whose IOMMU does not own the controller). `design/roadmap/651-the-nvme-test-on-a-machine-whose-iommu-does-not-own-it.md`:
   the NVMe boot test on a machine whose IOMMU does not own the controller, as the replayable
   falsification of `confined_by_iommu`.
-- **Outstanding.** A replayable falsification for the confinement claim: an EL0 server role that
-  aims a PRP outside its own DMA region, the way `block_driver`'s two attacker roles do for virtio,
-  so milestone 202's convention (a claim, a test, a replayable falsification) is met by a test rather
-  than by an assertion that the IOMMU was on. Checked 2026-09-17.
+- **Done.** (2026-10-04) A replayable falsification for the confinement claim. A test-only role of
+  the server (`run_dma_escape`, wired by `start_dma_escape`) aims a PRP outside its DMA region in
+  both directions, the way `block_driver`'s attacker roles do for virtio. The test is
+  `a_confined_el0_server_cannot_dma_outside_its_region`, green on all three ISAs: the IOMMU faults
+  on the victim frame and its canary is untouched. Its patch widens the controller's domain to the
+  victim (`ESCAPE_TARGET`) and both assertions go red, replayed 2026-10-05. The role is compiled
+  only under `components/confinement_attackers`, which only `cargo xtask test` turns on, so a
+  shipped server does not carry it.
 - **Recorded.** A transfer is one NVMe command per filesystem block, even for a sixteen-block
   request, because `non_volatile_memory_express::prp_pair` refuses anything needing a PRP list. The virtio block server
   issues one request for the same range, so this server is slower on bulk by construction. In

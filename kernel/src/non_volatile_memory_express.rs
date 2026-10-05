@@ -65,6 +65,18 @@ const IO_CQ_PAGE: u64 = 4;
 pub const TRANSFER_PAGES: u64 = filesystem_protocol::blk::TRANSFER_BLOCKS as u64;
 const DMA_PAGES: u64 = 5 + TRANSFER_PAGES;
 
+/// **Test-only escape-target hook for the confinement falsification** (milestone 261's Outstanding
+/// item; milestone 202 (every confinement test is a ritual until somebody breaks the confinement and watches it fail)'s convention: a claim, a test, a replayable falsification). Zero in every
+/// shipped boot and in every passing test, so [`bring_up`] confines the controller to its own DMA
+/// region and nothing else. The replayable falsification
+/// (`system_tests/falsifications/...a_confined_el0_server_cannot_dma_outside_its_region.patch`)
+/// stores the physical base of a frame *outside* that region here; [`bring_up`] then widens the
+/// controller's IOMMU domain to include it, so an EL0 server that aims a PRP at that frame has its
+/// DMA land instead of faulting, and the test's canary is overwritten. That one store is the whole
+/// falsification, and it lives only in the patch, which is why the shipped tree never writes this.
+#[cfg(feature = "system_tests")]
+pub static ESCAPE_TARGET: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
 /// Sixteen entries per I/O ring: one page holds 64 (submission) or 256 (completion), but the EL0
 /// server completes each command before submitting the next, so depth buys nothing and a small
 /// ring keeps the wrap (where the phase discipline earns its keep) inside every test run.
@@ -241,6 +253,33 @@ impl NonVolatileMemoryExpress {
     /// rather than left to ask, because asking means IDENTIFY and IDENTIFY is an admin command.
     pub fn size_bytes(&self) -> u64 {
         self.ns.bytes()
+    }
+
+    /// **Take the controller down, then give its DMA region back** (milestone 261 (the NVMe driver
+    /// leaves the kernel)'s DMA-escape test, the one caller). Clears `CC.EN` and waits for
+    /// `CSTS.RDY` to follow, the same step [`NonVolatileMemoryExpress::new`] takes before reprogramming a
+    /// controller that was left enabled. A disabled controller fetches no command and posts no
+    /// completion, so only after that are the region's frames freed: freeing them under an enabled
+    /// controller is the use-after-free-by-hardware notes/dma.md warns about.
+    ///
+    /// The IOMMU domain still names the region afterwards, and its tables are not freed: the device
+    /// stays attached to them, and the next [`bring_up`] replaces the domain. A frame reallocated
+    /// meanwhile is reachable only by a controller that is off.
+    ///
+    /// `Err` when the controller will not report not-ready (or reports fatal status), and then
+    /// nothing is freed, because a controller that may still be running may still DMA.
+    ///
+    /// Name: ratified 2026-10-05 (calef, #1647).
+    #[cfg(feature = "system_tests")]
+    pub fn retire(self) -> Result<(), Error> {
+        self.wr32(regs::CC, 0);
+        self.wait_rdy(false)?;
+        for page in 0..DMA_PAGES {
+            crate::memory::free(page_frames::PageFrame::from_addr(
+                self.direct_memory_access_phys + page * page_frames::FRAME_SIZE,
+            ));
+        }
+        Ok(())
     }
 
     /// **Everything the EL0 data plane is told**, and the whole of what it could not compute for
@@ -472,13 +511,31 @@ pub fn bring_up() -> Result<Found, Absent> {
         .expect("no DMA region for the NVMe driver")
         .addr();
     if crate::iommu::is_active() {
-        crate::iommu::confine(
-            dev.rid,
-            &[paging::domain::DmaRegion {
-                base: dma,
-                size: DMA_PAGES * page_frames::FRAME_SIZE,
-            }],
-        );
+        // The device's own DMA region, and in a shipped boot nothing else: the controller faults
+        // on any address outside it.
+        let own = paging::domain::DmaRegion {
+            base: dma,
+            size: DMA_PAGES * page_frames::FRAME_SIZE,
+        };
+        // **The confinement falsification's widening point** ([`ESCAPE_TARGET`]). `None` in the
+        // shipped tree (the static is zero), so the confinement is tight. The replayable patch
+        // stores a frame outside the region into `ESCAPE_TARGET`, and that frame then joins the
+        // controller's domain: an EL0 server aiming a PRP at it succeeds, and the confinement
+        // test's canary is overwritten. See milestone 202.
+        #[cfg(feature = "system_tests")]
+        let extra = {
+            let escape = ESCAPE_TARGET.load(core::sync::atomic::Ordering::Relaxed);
+            (escape != 0).then_some(paging::domain::DmaRegion {
+                base: escape,
+                size: page_frames::FRAME_SIZE,
+            })
+        };
+        #[cfg(not(feature = "system_tests"))]
+        let extra: Option<paging::domain::DmaRegion> = None;
+        match extra {
+            Some(x) => crate::iommu::confine(dev.rid, &[own, x]),
+            None => crate::iommu::confine(dev.rid, &[own]),
+        }
     }
     match NonVolatileMemoryExpress::new(mmu::phys_to_virt(dev.bar0), dma, mmu::phys_to_virt(dma)) {
         Ok(controller) => Ok(Found {

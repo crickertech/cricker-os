@@ -223,7 +223,11 @@ soak_page = { version = "0.1.0", path = "../crates/soak_page" }
 # crate)). Only `system_tests/` turns it on. It makes the boot a test boot, the way `cfg(test)` does
 # for `cargo test -p kernel`, exposes `system_test_access` (lib.rs), and calls the suite that crate
 # defines. A kernel binary built with it fails to link, on purpose; lib.rs says why. Name provisional.
-system_tests = ["dep:activation_set"]
+system_tests = [
+    "dep:activation_set",
+    # The DMA-escape wiring writes `ESCAPE_MAGIC` (milestone 261); see that crate's feature.
+    "non_volatile_memory_express/confinement_attackers",
+]
 # The board build (milestone 16a): the kernel targets the VisionFive 2 (JH7110) rather than
 # QEMU's `virt` machine. A property of the target, not the build mode: the board has no
 # sifive_test finisher, so the test exit prints a UART marker and calls SBI SRST shutdown
