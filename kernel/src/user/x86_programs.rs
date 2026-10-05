@@ -55,6 +55,7 @@ macro_rules! packer {
 
 packer!(pack_1, 4, 1);
 packer!(pack_2, 8, 2);
+packer!(pack_4, 16, 4);
 packer!(pack_8, 32, 8);
 packer!(pack_7, 28, 7);
 packer!(pack_9, 36, 9);
@@ -189,6 +190,40 @@ pub const fn port_out(port: u16, val: u8, word: u32) -> [u32; 9] {
 /// past the entry.
 #[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
 pub const PORT_OUT_PC_OFFSET: u64 = 6;
+
+/// **A child that executes one `out` to `port` and, if the CPU permitted it, exits cleanly.**
+///
+/// Unlike [`port_out`] it SENDs nothing, so no receiver is needed and neither branch of the
+/// outcome can park the child on a rendezvous: a permitted `out` falls straight into `SYS_EXIT`
+/// (the supervisor reads `EVENT_EXIT`), and a refused `out` faults at [`PORT_OUT_PC_OFFSET`] (the
+/// supervisor reads `EVENT_FAULT`). That is the shape a port claim needs when the escape under
+/// test is "the `out` was wrongly permitted": [`port_out`] would hang the run in that case because
+/// the child would reach a blocking SEND, which is the row-26 hazard
+/// `notes/confinement-claims.md` names.
+///
+/// ```text
+///   66 ba xx xx       mov dx, port
+///   b0 xx             mov al, val
+///   ee                out dx, al        (offset 6; faults here if the port is denied)
+///   b8 xx xx xx xx    mov eax, SYS_EXIT
+///   0f 05             syscall           (exit; reached only if the `out` was permitted)
+/// ```
+///
+/// Name: provisional (lane/633-outsider-2, 2026-10-05 UTC). The verb-first spelling mirrors
+/// [`port_out_on_cpu_then_exit`]; an architect ratifies the port builders as a set.
+#[cfg(all(any(test, feature = "system_tests"), target_arch = "x86_64"))]
+pub const fn port_out_then_exit(port: u16, val: u8) -> [u32; 4] {
+    let p = port.to_le_bytes();
+    let ext = (abi::SYS_EXIT as u32).to_le_bytes();
+    pack_4([
+        0x66, 0xBA, p[0], p[1], // mov dx, port
+        0xB0, val,  // mov al, val
+        0xEE, // out dx, al (offset 6)
+        0xB8, ext[0], ext[1], ext[2], ext[3], // mov eax, SYS_EXIT
+        0x0F, 0x05, // syscall (exit)
+        NOP, NOP, // pad 14 -> 16 (4 words)
+    ])
+}
 
 /// The address of the current-CPU word a ring-3 thread reads its own core from: the second
 /// eight bytes of `current_cpu_protocol`'s page (the magic is the first eight, and the crate's own

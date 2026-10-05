@@ -70,7 +70,7 @@ fn build_child(
     stub: &[u32],
     report: sched::RendezvousId,
     wake: Option<sched::RendezvousId>,
-    port: bool,
+    port: Option<crate::cap::Rights>,
     fault_ep: sched::RendezvousId,
 ) -> (u64, u64) {
     let region = crate::memory_region::create(16).expect("no region for the child");
@@ -131,10 +131,10 @@ fn build_child(
     // invoked by slot number (the child executes `out` directly), so its slot matters to exactly one
     // child, the one that deletes it: [`PORT_SLOT_WITHOUT_WAKE`] is asserted here so that program
     // cannot delete the wrong thing and pass for the wrong reason.
-    if port {
+    if let Some(port_rights) = port {
         let slot = sched::thread_control_block_insert_cap(
             tid,
-            crate::cap::port_range_cap(COM1_BASE, COM1_COUNT, crate::cap::Rights::WRITE),
+            crate::cap::port_range_cap(COM1_BASE, COM1_COUNT, port_rights),
             None,
         )
         .expect("insert the port range");
@@ -211,7 +211,7 @@ fn port_holder_transmits_then_a_non_holder_faults() {
         &super::x86_programs::port_out_reporting_cpu(SCRATCH_PORT, SCRATCH_VAL, REPORTED as u32),
         report,
         None,
-        true,
+        Some(crate::cap::Rights::WRITE),
         sup,
     );
     let msg = sched::ipc_receive(report);
@@ -254,7 +254,7 @@ fn port_holder_transmits_then_a_non_holder_faults() {
             ),
             report2,
             None,
-            false,
+            None,
             sup2,
         );
         let msg = sched::ipc_receive(sup2);
@@ -300,7 +300,7 @@ fn a_revoked_holder_faults_on_its_next_port_write() {
         &super::x86_programs::receive_then_port_out(SCRATCH_PORT, SCRATCH_VAL),
         report,
         Some(wake),
-        true,
+        Some(crate::cap::Rights::WRITE),
         sup,
     );
 
@@ -355,7 +355,7 @@ fn a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write() {
         ),
         report,
         None,
-        true,
+        Some(crate::cap::Rights::WRITE),
         sup,
     );
 
@@ -400,4 +400,67 @@ fn a_take_back_leaves_the_invokers_own_bitmap_installed() {
         Some((COM1_BASE, COM1_COUNT)),
         "the take-back reset the invoker's own core; the sparing held in the table and not in the TSS",
     );
+}
+
+/// **A `PortRange` capability without `WRITE` must not grant port I/O** (lane/633-outsider-2, an
+/// outsider pass over `notes/confinement-claims.md`, 2026-10-05 UTC).
+///
+/// Rows 27 to 29 claim things about *holding* a port capability, revoking one and deleting one.
+/// None of them claims that the capability's **rights** gate the `in`/`out`, yet the rest of the
+/// tree treats `WRITE` as the right that drives a port: `build_child` grants the driver `WRITE`
+/// with the comment "the rights a driver gets", and `component_plan` maps a `Use` component to
+/// `WRITE` and a `Serve` component to `READ`. So a thread handed a `PortRange` narrowed to `READ`
+/// alone (a `Serve`-shaped grant) should fault on `out`, exactly as a non-holder does.
+///
+/// It does not. `sched::thread_control_block_insert_from` installs `Thread::port_range_grant` for
+/// any inserted `PortRange` object whatever its rights, so a `READ`-only port capability opens the
+/// TSS I/O bitmap and the `out` is permitted. This test asserts the secure behaviour (the `out`
+/// faults) and therefore **fails on the tree as it stands**: it is the escape written up in
+/// `notes/confinement-outsider-pass-2.md`, and the claim it proposes is "port I/O honours the
+/// capability's `WRITE` right".
+///
+/// It is **opt-in** so the default suite stays green until the gap is decided: whether a non-WRITE
+/// `PortRange` should deny I/O is the x86 port syscall surface and so an architect's call, not a
+/// lane's. Run it with `script/test --arch x86_64 --test a_read_only_port_capability`. The stub
+/// is [`super::x86_programs::port_out_then_exit`], chosen over `port_out` so a wrongly-permitted
+/// `out` exits rather than parking on a SEND and hanging the run (the row-26 hazard).
+///
+/// Falsification: unfalsified. It pins a live defect rather than guarding a passing claim, so a
+/// replay patch would have nothing to break; see the note above.
+#[test_case]
+fn a_read_only_port_capability_must_not_grant_port_output() {
+    if !crate::testing::run_was_filtered() {
+        crate::testing::skip!(
+            "opt-in: a READ-only PortRange capability still drives the hardware (port I/O ignores \
+             the capability's rights); the escape is recorded in \
+             notes/confinement-outsider-pass-2.md. Run it with \
+             `script/test --arch x86_64 --test a_read_only_port_capability`."
+        );
+    }
+
+    let sup = sched::create_rendezvous();
+    // No wake and no report: the child only executes `out` and then exits or faults, so there is
+    // nothing to receive on and no way for either outcome to park it on a rendezvous.
+    let report = sched::create_rendezvous();
+    let (child, region) = build_child(
+        &super::x86_programs::port_out_then_exit(SCRATCH_PORT, SCRATCH_VAL),
+        report,
+        None,
+        Some(crate::cap::Rights::READ),
+        sup,
+    );
+
+    let msg = sched::ipc_receive(sup);
+    assert_eq!(
+        msg[0], EVENT_FAULT,
+        "a thread whose only PortRange capability lacks WRITE executed `out` without faulting: \
+         the port grant ignores the capability's rights (supervision message {msg:?})",
+    );
+    assert_eq!(msg[1], child, "the fault named the wrong thread");
+    assert_eq!(
+        msg[2],
+        CODE_VA + super::x86_programs::PORT_OUT_PC_OFFSET,
+        "the faulting pc was not the `out` instruction: a red for the wrong reason",
+    );
+    reap(region);
 }
