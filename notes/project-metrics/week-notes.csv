@@ -11,3 +11,4 @@
 # the whole point, because a bullet that outlives its graph explains nothing to anybody.
 week,chart,note
 2026W40,lines.svg,"the kernel code series fell 46,665 to 33,192 lines because milestone 609 (the system tests leave the kernel crate), pull request #1404, moved 66 test-only files unchanged into the system_tests crate; no code was deleted"
+2026W40,coe-actions.svg,"open items fell 3 to 0 on 2026-10-04 UTC. Milestone 641 (a mechanism that reports clean), 725 (count every vendor) and 640 (a gate is not evidence) turned BUILT."
