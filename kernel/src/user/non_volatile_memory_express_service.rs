@@ -313,6 +313,8 @@ impl DmaEscape {
     /// because until both hold, something may still read or DMA into these frames. Returns whether
     /// everything came back, which the test asserts. The IOMMU domain's tables stay, for the
     /// reason `retire` gives.
+    ///
+    /// Name: ratified 2026-10-05 (calef, #1647).
     pub fn release(self) -> bool {
         // Ten seconds of TCG, far past an `exit` that follows the report this caller already took.
         let deadline = crate::arch::timer::now() + 10 * crate::arch::timer::frequency();

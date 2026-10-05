@@ -24,7 +24,7 @@ license.workspace = true
 # leg's userspace build (`xtask/src/main.rs`'s `CONFINEMENT_ATTACKERS`); nothing else does. A test
 # boot against an initrd built without it fails by name rather than as a missing IOMMU fault.
 # `block_driver`'s two virtio attacker roles predate this and still ship ungated.
-# Name provisional.
+# The feature name was ratified by calef, 2026-10-05 (#1647).
 confinement_attackers = ["non_volatile_memory_express/confinement_attackers"]
 
 # The console server (milestone 19f.3): the second program lifted out of `hello`. `initrd_aarch64` packs

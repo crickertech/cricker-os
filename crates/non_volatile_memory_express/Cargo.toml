@@ -14,7 +14,7 @@ license.workspace = true
 # Exposes `ESCAPE_MAGIC`, the sentinel that selects the NVMe server's test-only DMA-escape role.
 # Turned on by `components/confinement_attackers` (the server that reads it) and by the kernel's
 # `system_tests` (the wiring that writes it), and by nothing a shipped image is built from.
-# Name provisional.
+# The feature name was ratified by calef, 2026-10-05 (#1647).
 confinement_attackers = []
 
 [lints]

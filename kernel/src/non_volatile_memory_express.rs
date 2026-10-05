@@ -263,6 +263,8 @@ impl NonVolatileMemoryExpress {
     ///
     /// `Err` when the controller will not report not-ready (or reports fatal status), and then
     /// nothing is freed, because a controller that may still be running may still DMA.
+    ///
+    /// Name: ratified 2026-10-05 (calef, #1647).
     #[cfg(feature = "system_tests")]
     pub fn retire(self) -> Result<(), Error> {
         self.wr32(regs::CC, 0);
