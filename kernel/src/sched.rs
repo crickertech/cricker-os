@@ -3885,16 +3885,57 @@ fn reply_tag(slot: u64) -> u64 {
 /// If the receiver's capability table is full the capability is dropped and the receiver sees `NO_CAP`; the
 /// data word still arrives. The syscall layer has already checked the sender may delegate this
 /// capability (it holds `GRANT`) and that the rights only narrow.
+///
+/// **For a capability the caller minted, not one read from a table.** A copy of a capability the
+/// sender holds goes through [`ipc_delegate_cap`], which reads the source under the same hold of
+/// `IPC_TABLES` that files the copy; see [`Delegation`] for why the two cannot be separate steps.
+/// Since `SEND_CAP` moved to that path (2026-10-04 UTC) the only callers are system tests that
+/// hand over a capability they built, hence the `allow`.
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u64) {
+    let sent = ipc_send_cap_from(ep, data, badge, |_, _| Ok(cap));
+    debug_assert!(sent.is_ok(), "a minted capability has no source to lose");
+}
+
+/// **`SEND_CAP`'s body: send a narrowed copy of a capability the running thread holds.** The source
+/// is read, checked and copied under the `IPC_TABLES` hold that delivers or parks the copy, so no
+/// revocation sweep can fall between the read and the filing ([`Delegation`]). `Err` is the source's
+/// answer (`NoSuchSlot`, `NotPermitted`), with nothing sent; a stale or refusing rendezvous is
+/// reported as before, through `take_ipc_aborted`. Name provisional.
+pub fn ipc_delegate_cap(
+    ep: RendezvousId,
+    data: u64,
+    delegation: Delegation,
+    badge: u64,
+) -> Result<(), abi::Error> {
+    ipc_send_cap_from(ep, data, badge, |sched, current| {
+        let caps = sched
+            .threads
+            .capabilities(current)
+            .ok_or(abi::Error::NoSuchSlot)?;
+        delegation.derive(&caps.lock())
+    })
+}
+
+/// The body [`ipc_send_cap`] and [`ipc_delegate_cap`] share. `source` runs first, under the hold,
+/// and its error returns before the rendezvous is touched, which is the order the syscall layer
+/// answered in when it read the source itself.
+fn ipc_send_cap_from(
+    ep: RendezvousId,
+    data: u64,
+    badge: u64,
+    source: impl FnOnce(&IpcTables, ThreadId) -> Result<crate::cap::Cap, abi::Error>,
+) -> Result<(), abi::Error> {
     let block = {
         let mut guard = IPC_TABLES.lock();
         let sched = guard.as_mut().expect("no scheduler");
         let current = current_thread_id();
+        let cap = source(sched, current)?;
 
         let me = thread_control_block_ptr(sched, current);
         let Some(rendezvous) = rendezvous_of(sched, ep) else {
             set_ipc_aborted(sched, current);
-            return; // stale rendezvous: aborted, syscall layer errors
+            return Ok(()); // stale rendezvous: aborted, syscall layer errors
         };
         // SAFETY: as in ipc_send.
         match unsafe { rendezvous.send(me) } {
@@ -3946,6 +3987,7 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u6
     if block {
         schedule();
     }
+    Ok(())
 }
 
 /// **File a capability an IPC is delivering in the receiving thread's table**, or [`NO_CAP`] if the
@@ -4694,6 +4736,77 @@ pub fn grant_at(slot: u64, cap: crate::cap::Cap) -> Result<u64, crate::cap::Erro
     current_capabilities().map_or(Err(crate::cap::Error::NoFreeSlot), |mut t| {
         t.insert_at(slot, cap)
     })
+}
+
+/// **A copy of a capability the running thread holds, narrowed, about to be filed somewhere.** The
+/// source slot and the rights the copy keeps; [`Delegation::derive`] is the rule. Name provisional.
+///
+/// # Why the source is a slot and not a capability
+///
+/// A revocation sweep (`delete_page_frame_caps_where`, `delete_device_frame_caps_from_others`,
+/// `x86_64`'s `delete_port_range_caps_impl`) holds `IPC_TABLES` for its whole walk and takes each
+/// table's lock beneath it. A delegation used to read its source with [`current_cap`], let go, and
+/// file the copy in a second critical section, so a sweep could run entirely between the two: it
+/// deleted the source and the copy was filed after it had passed. A `PageFrame` has no generation
+/// to make that copy inert, so under `PageFrame::REVOKE` it was authority the revoker had taken
+/// back, and under `MemoryRegion::DESTROY` it named pages the allocator was about to reuse (§13's
+/// use-after-free). Milestone 761 (capability lookup off the global lock) recorded the gap; `system_tests::user::revocation_window_tests`
+/// drove a sweep into it on `SEND_CAP`, `CAP_INSERT` and `SLICE` and all three filed the copy.
+///
+/// **The invariant now is that a copy is derived from a source read in the same critical section
+/// that files the copy, and that critical section excludes every sweep.** A delegation into
+/// another thread holds `IPC_TABLES` across both ([`ipc_delegate_cap`],
+/// [`thread_control_block_delegate_cap`]), which every sweep holds for its whole walk. A derivation
+/// into the running thread's own table ([`grant_derived`]) holds that table's lock across both,
+/// which every sweep takes to delete from it. Either way the sweep is wholly before (the source is
+/// gone and the delegation answers `NoSuchSlot`, as if it had started after the revoke) or wholly
+/// after (the copy is in a table the sweep then walks). Passing the slot rather than a capability
+/// is what makes the old shape hard to write again: these functions have no parameter a stale copy
+/// could arrive through.
+///
+/// **Objects with generational names do not need this, and the derivations of them that still
+/// read-then-grant are safe for that reason**: `Rendezvous::BADGE` mints a badged copy of an
+/// endpoint, and `MemoryRegion::SPLIT` a child of a region, and a copy minted after its object died
+/// names a dead generation and fails on use (`crates/slots`, §16 (object revocation)).
+#[derive(Clone, Copy)]
+pub struct Delegation {
+    /// The source's slot in the running thread's table.
+    pub slot: u64,
+    /// The rights the copy keeps: a subset of the source's.
+    pub rights: crate::cap::Rights,
+}
+
+impl Delegation {
+    /// **The delegation rule**: the source exists, its holder was trusted to pass it on (`GRANT`),
+    /// and the copy only narrows. Applied to a table the caller holds under a lock every sweep takes.
+    fn derive(self, table: &crate::cap::CapabilityTable) -> Result<crate::cap::Cap, abi::Error> {
+        let src = table.get(self.slot).map_err(|_| abi::Error::NoSuchSlot)?;
+        if !src.rights.allows(crate::cap::Rights::GRANT) {
+            return Err(abi::Error::NotPermitted); // holder may not pass this on
+        }
+        if !self.rights.is_subset_of(src.rights) {
+            return Err(abi::Error::NotPermitted); // delegation may only narrow, never widen
+        }
+        Ok(crate::cap::Cap {
+            object: src.object,
+            rights: self.rights,
+        })
+    }
+}
+
+/// **File, in the running thread's own table, a capability derived from one it holds**, reading the
+/// source and filing the result under one hold of that table's lock ([`Delegation`] has why).
+/// `derive` decides what the copy is from the source as it stands at that instant. `Err` is
+/// `derive`'s answer, `NoSuchSlot` for an empty slot, or `OutOfMemory` for a full table. Name
+/// provisional.
+pub fn grant_derived(
+    slot: u64,
+    derive: impl FnOnce(crate::cap::Cap) -> Result<crate::cap::Cap, abi::Error>,
+) -> Result<u64, abi::Error> {
+    let mut table = current_capabilities().ok_or(abi::Error::NoSuchSlot)?;
+    let src = table.get(slot).map_err(|_| abi::Error::NoSuchSlot)?;
+    let copy = derive(src)?;
+    table.insert(copy).map_err(|_| abi::Error::OutOfMemory)
 }
 
 /// **Retype a TCB out of `region`** (milestone 19c.3): an embryo thread, page-resident in a
@@ -5525,13 +5638,46 @@ pub fn mark_current_fp_live() -> bool {
 /// the capability in a specific free slot, which a supervisor uses to put a child's supervision
 /// rendezvous in the reserved fault slot (milestone 22). A targeted insert into an occupied or
 /// out-of-range slot is `OutOfMemory`, so the reservation cannot be quietly overwritten.
+///
+/// **For a capability the kernel mints, not one read from a table**: `CAP_INSERT` endows an embryo
+/// with a copy of one the spawner holds, and that goes through
+/// [`thread_control_block_delegate_cap`] ([`Delegation`] has why).
 pub fn thread_control_block_insert_cap(
     tid: ThreadId,
     cap: crate::cap::Cap,
     target: Option<u64>,
 ) -> Result<u64, abi::Error> {
+    thread_control_block_insert_from(tid, target, |_, _| Ok(cap))
+}
+
+/// **`ThreadControlBlock::CAP_INSERT`'s body: endow an embryo with a narrowed copy of a capability
+/// the running thread holds**, the source read under the `IPC_TABLES` hold that files the copy
+/// ([`Delegation`]). Name provisional.
+pub fn thread_control_block_delegate_cap(
+    tid: ThreadId,
+    delegation: Delegation,
+    target: Option<u64>,
+) -> Result<u64, abi::Error> {
+    thread_control_block_insert_from(tid, target, |sched, current| {
+        let caps = sched
+            .threads
+            .capabilities(current)
+            .ok_or(abi::Error::NoSuchSlot)?;
+        delegation.derive(&caps.lock())
+    })
+}
+
+/// The body both share. `source` runs first, so its answer comes before the embryo's, the order the
+/// syscall layer answered in when it read the source itself. Its table lock is released before the
+/// embryo's is taken: two tables are never held at once (`sync::rank::CAPABILITY_TABLE`).
+fn thread_control_block_insert_from(
+    tid: ThreadId,
+    target: Option<u64>,
+    source: impl FnOnce(&IpcTables, ThreadId) -> Result<crate::cap::Cap, abi::Error>,
+) -> Result<u64, abi::Error> {
     let mut guard = IPC_TABLES.lock();
     let sched = guard.as_mut().ok_or(abi::Error::NoSuchSlot)?;
+    let cap = source(sched, current_thread_id())?;
     let (t, caps) = sched
         .threads
         .get_mut_with_capabilities(tid)
@@ -8127,6 +8273,89 @@ mod tests {
         assert!(
             spin_until(|| SAW.load(Ordering::SeqCst)),
             "an interrupt that fired before the WAIT was lost",
+        );
+        assert!(
+            wait_for(|| !crate::sched::is_thread_present(tid)),
+            "the interrupt waiter never exited",
+        );
+        crate::sched::reclaim_region(region).expect("test region would not reclaim");
+    }
+
+    /// **An interrupt raised while its line is masked is delivered when the driver ACKs.** The
+    /// third delivery property, and the one a real driver leans on hardest: the handler masks a
+    /// routed line when it fires and the driver's `Irq::ACK` unmasks it, so anything the device
+    /// raises while the driver is busy arrives during the mask, and the ACK is the only thing that
+    /// can deliver it. Nothing else will: the driver goes straight back to `Irq::WAIT`.
+    ///
+    /// The RISC-V leg is the reason this test exists. QEMU's PLIC does not re-evaluate delivery when
+    /// an enable bit is written, so a source that went pending while disabled sat pending, enabled
+    /// and undelivered after the ACK, until some *other* PLIC event happened to re-evaluate it. The
+    /// USB keyboard stalled mid-line that way about one boot in thirty, and a byte typed on the UART
+    /// released it (`drivers::plic::enable`'s doc has the mechanism; notes/usb.md has the
+    /// history). This test raises nothing else in between, which is what makes it deterministic.
+    ///
+    /// The line is lowered and raised again while masked, rather than held, because QEMU's PLIC
+    /// latches a source's pending bit only when its line rises: a line held high across the
+    /// claim would never go pending again under the emulator at all, fixed or not, and the test
+    /// would be asking a different question. On x86_64 the self-IPI has no mask, so the second
+    /// raise is simply delivered; the property holds there trivially and the leg proves the
+    /// portable half (two raises, two messages).
+    ///
+    /// Name: provisional (the USB keyboard lost-wakeup lane, 2026-10-05).
+    ///
+    /// Falsification: replayable `kernel/falsifications/sched.tests.an_interrupt_raised_while_its_line_is_masked_is_delivered_at_the_ack.patch`
+    #[test_case]
+    fn an_interrupt_raised_while_its_line_is_masked_is_delivered_at_the_ack() {
+        use crate::arch::exceptions::ROUTED_IRQS;
+
+        let region = crate::memory_region::create(1).expect("no region for a test rendezvous");
+        let ep = super::create_rendezvous_from(region).expect("no rendezvous from region");
+        super::bind_irq(pending_irq(), ep);
+        arm_test_irq(pending_irq());
+
+        // The first raise: the handler routes it and masks the line, exactly as for a driver.
+        let routed = ROUTED_IRQS.load(Ordering::Relaxed);
+        raise_test_irq(pending_irq());
+        let first = spin_until(|| ROUTED_IRQS.load(Ordering::Relaxed) > routed);
+        quiet_test_irq();
+        assert!(
+            first,
+            "the first interrupt was never routed, so this test could not reach its question",
+        );
+        // **Let the first handler finish.** `ROUTED_IRQS` moves before the handler's `complete`,
+        // and on RISC-V a completion re-evaluates the PLIC. If that hart's completion landed after
+        // the ACK below, it would deliver the second interrupt itself and the test would pass for
+        // a reason that is not the ACK, which is how the first falsification run came back green.
+        // The completion is a few instructions behind the count; 20 ms is margin, not a guess at it.
+        let settle = crate::arch::timer::now() + crate::arch::timer::frequency() / 50;
+        while crate::arch::timer::now() < settle {
+            super::yield_now();
+        }
+
+        // The second raise lands while the line is masked: the device spoke while its driver was
+        // busy. Then the driver's ACK, which is `arch::irq::enable`, the same call `Irq::ACK` makes.
+        let routed = ROUTED_IRQS.load(Ordering::Relaxed);
+        raise_test_irq(pending_irq());
+        arm_test_irq(pending_irq());
+        let second = spin_until(|| ROUTED_IRQS.load(Ordering::Relaxed) > routed);
+        quiet_test_irq();
+        assert!(
+            second,
+            "an interrupt raised while its line was masked was never delivered after the ACK \
+             unmasked it: the driver would sleep in WAIT with its device's interrupt pending",
+        );
+
+        // Both are messages: a driver waiting now collects two signals and does not block.
+        static SAW: AtomicU64 = AtomicU64::new(0);
+        let tid = super::spawn(move || {
+            super::ipc_receive(ep);
+            super::ipc_receive(ep);
+            SAW.store(2, Ordering::SeqCst);
+        })
+        .expect("spawn failed");
+        assert!(
+            spin_until(|| SAW.load(Ordering::SeqCst) == 2),
+            "two interrupts were routed but the waiter did not collect two signals",
         );
         assert!(
             wait_for(|| !crate::sched::is_thread_present(tid)),

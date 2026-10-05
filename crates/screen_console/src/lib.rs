@@ -94,6 +94,10 @@
 //!   xenon transcript that is no bytes read and 30% of the old bytes written
 //!   (`a_scroll_writes_only_the_cells_that_changed`). The kernel's `x86_64` mapping of the
 //!   aperture went write-combining the same day (`kernel/src/arch/x86_64/mmu.rs`).
+//! - **A screen that is not a whole multiple of its scale keeps a sliver the shell never paints.**
+//!   [`Aperture`] covers whole surface pixels, so 2560 wide at scale three leaves one pixel column
+//!   at the right edge in the kernel's black rather than the terminal's paper. xenon (1920x1080 at
+//!   two) and QEMU's 1280x800 (at one) divide exactly.
 //! - **Only 32-bit pixels.** [`machine_discovery::framebuffer::PixelOrder`] expresses the two byte
 //!   orders UEFI reports and nothing else, so a 24-bit packed or 16-bit mode has no console. Every
 //!   machine in the fleet reports one of the two.
@@ -179,9 +183,15 @@ pub const MIN_COLUMNS: u32 = 120;
 /// ring-3 program with no test harness, and this is a pure function of five numbers.
 ///
 /// What it holds is the part of the screen a surface covers: the surface's size clipped to the
-/// screen's, placed at the screen's top-left corner, plus the screen's stride and byte order. A
-/// surface larger than the screen loses its right and bottom edges; a surface smaller than the
-/// screen leaves the rest of it alone.
+/// screen's, placed at the screen's top-left corner, plus the screen's stride and byte order, and
+/// **the scale every surface pixel is drawn at**: [`ScreenConsole::scale_for`] of the screen's
+/// width, the same rule and the same function the kernel's console uses, so the shell after the
+/// handover is the same size of letter as the boot tour before it. A surface pixel becomes a
+/// scale-by-scale block. Clipping is in surface pixels against the screen divided by the scale;
+/// a surface larger than that loses its right and bottom edges, and a smaller one leaves the rest
+/// of the screen alone, so asking for a surface as large as the caller can afford gets one that
+/// covers the whole screen. A screen whose size is not a whole multiple of its scale leaves fewer
+/// than `scale` pixels at its right and bottom edges uncovered (see this crate's BUGS).
 ///
 /// Name: provisional (the shell on the firmware screen's lane). "Aperture" is the word the
 /// tree already uses for the firmware's framebuffer as a device window
@@ -194,7 +204,7 @@ pub const MIN_COLUMNS: u32 = 120;
 /// use screen_console::Aperture;
 ///
 /// // A 4x2 screen with four bytes of padding per row, and a 3x3 surface: the surface is clipped
-/// // to three columns and two rows.
+/// // to three columns and two rows. A screen this narrow draws at scale one.
 /// let screen = Framebuffer { base: 0, width: 4, height: 2, stride: 20, order: PixelOrder::Rgbx };
 /// let aperture = Aperture::new(&screen, 3, 3).expect("a screen and a surface both bigger than 0");
 /// assert_eq!(aperture.size(), (3, 2));
@@ -213,10 +223,13 @@ pub const MIN_COLUMNS: u32 = 120;
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Aperture {
+    /// The covered part, in **surface** pixels.
     width: u32,
     height: u32,
     stride: u32,
     order: PixelOrder,
+    /// Screen pixels per surface pixel, in each direction. At least one.
+    scale: u32,
 }
 
 impl Aperture {
@@ -225,18 +238,27 @@ impl Aperture {
     #[must_use]
     pub fn new(screen: &Framebuffer, surface_width: u32, surface_height: u32) -> Option<Self> {
         screen.span()?;
+        let scale = ScreenConsole::scale_for(screen.width);
         Self::checked(
-            screen.width.min(surface_width),
-            screen.height.min(surface_height),
+            (screen.width / scale).min(surface_width),
+            (screen.height / scale).min(surface_height),
             screen.stride,
             screen.order,
+            scale,
         )
     }
 
-    /// The one validation both constructors share: a non-empty rectangle whose every row fits in
-    /// the stride, and whose last byte is addressable.
-    fn checked(width: u32, height: u32, stride: u32, order: PixelOrder) -> Option<Self> {
-        if width == 0 || height == 0 || (stride as u64) < width as u64 * 4 {
+    /// The one validation both constructors share: a non-empty rectangle whose every scaled row
+    /// fits in the stride, and whose last byte is addressable.
+    fn checked(
+        width: u32,
+        height: u32,
+        stride: u32,
+        order: PixelOrder,
+        scale: u32,
+    ) -> Option<Self> {
+        let screen_width = (width as u64).checked_mul(scale as u64)?;
+        if width == 0 || height == 0 || scale == 0 || (stride as u64) < screen_width * 4 {
             return None;
         }
         let aperture = Self {
@@ -244,13 +266,15 @@ impl Aperture {
             height,
             stride,
             order,
+            scale,
         };
         aperture.checked_span()?;
         Some(aperture)
     }
 
-    /// The covered part, in pixels: `(width, height)`. This is what the driver answers a client's
-    /// `INFO` with, so the client lays its grid out over what can actually be seen.
+    /// The covered part, in **surface** pixels: `(width, height)`. This is what the driver answers
+    /// a client's `INFO` with, so the client lays its grid out over what can actually be seen, and
+    /// it is the surface's size too: the screen terminal's surface is allocated at exactly this.
     #[must_use]
     pub const fn size(&self) -> (u32, u32) {
         (self.width, self.height)
@@ -265,10 +289,17 @@ impl Aperture {
     }
 
     fn checked_span(&self) -> Option<usize> {
+        let rows = (self.height as u64).checked_mul(self.scale as u64)?;
         let bytes = (self.stride as u64)
-            .checked_mul(self.height as u64 - 1)?
-            .checked_add(self.width as u64 * 4)?;
+            .checked_mul(rows - 1)?
+            .checked_add(self.width as u64 * self.scale as u64 * 4)?;
         usize::try_from(bytes).ok()
+    }
+
+    /// Screen pixels per surface pixel. See [`ScreenConsole::scale_for`].
+    #[must_use]
+    pub const fn scale(&self) -> u32 {
+        self.scale
     }
 
     /// **Two words that carry this across a spawn**, for a driver that is told its geometry in
@@ -283,7 +314,7 @@ impl Aperture {
         };
         (
             self.width as u64 | (self.height as u64) << 32,
-            self.stride as u64 | order << 32,
+            self.stride as u64 | order << 32 | (self.scale as u64) << 40,
         )
     }
 
@@ -292,12 +323,22 @@ impl Aperture {
     /// geometry it cannot check.
     #[must_use]
     pub fn from_words(size: u64, layout: u64) -> Option<Self> {
-        let order = match layout >> 32 {
+        let order = match (layout >> 32) & 0xff {
             0 => PixelOrder::Bgrx,
             1 => PixelOrder::Rgbx,
             _ => return None,
         };
-        Self::checked(size as u32, (size >> 32) as u32, layout as u32, order)
+        if layout >> 48 != 0 {
+            return None;
+        }
+        let scale = ((layout >> 40) & 0xff) as u32;
+        Self::checked(
+            size as u32,
+            (size >> 32) as u32,
+            layout as u32,
+            order,
+            scale,
+        )
     }
 
     /// **Copy one rectangle of a surface onto the screen.** `read(x, y)` is the surface's pixel in
@@ -317,19 +358,28 @@ impl Aperture {
         read: impl Fn(u32, u32) -> u32,
         mut write: impl FnMut(usize, u32),
     ) -> bool {
-        let fits = |start: u32, len: u32, limit: u32| {
-            len > 0 && start.checked_add(len).is_some_and(|end| end <= limit)
-        };
-        if !fits(x, w, self.width) || !fits(y, h, self.height) {
+        if !self.fits(x, y, w, h) {
             return false;
         }
-        for row in y..y + h {
+        let k = self.scale;
+        for row in y * k..(y + h) * k {
             let line = row as usize * self.stride as usize;
-            for col in x..x + w {
-                write(line + col as usize * 4, self.order.store(read(col, row)));
+            for col in x * k..(x + w) * k {
+                write(
+                    line + col as usize * 4,
+                    self.order.store(read(col / k, row / k)),
+                );
             }
         }
         true
+    }
+
+    /// Whether a surface rectangle is non-empty and inside the covered part.
+    fn fits(&self, x: u32, y: u32, w: u32, h: u32) -> bool {
+        let fits = |start: u32, len: u32, limit: u32| {
+            len > 0 && start.checked_add(len).is_some_and(|end| end <= limit)
+        };
+        fits(x, w, self.width) && fits(y, h, self.height)
     }
 
     /// **[`Self::copy`] with qword stores where the path permits them** (the paint lane,
@@ -365,15 +415,48 @@ impl Aperture {
         h: u32,
         misalign: u32,
         read: impl Fn(u32, u32) -> u32,
-        mut write64: impl FnMut(usize, u64),
-        mut write32: impl FnMut(usize, u32),
+        write64: impl FnMut(usize, u64),
+        write32: impl FnMut(usize, u32),
     ) -> bool {
-        let fits = |start: u32, len: u32, limit: u32| {
-            len > 0 && start.checked_add(len).is_some_and(|end| end <= limit)
-        };
-        if !fits(x, w, self.width) || !fits(y, h, self.height) {
+        if !self.fits(x, y, w, h) {
             return false;
         }
+        // At scale one the screen rectangle is the surface rectangle and the read is the caller's
+        // own, so the path the TCG-bound swish leg pays is the path it always paid: no division
+        // per pixel. Above one, the same loop runs over the scaled rectangle and every read finds
+        // the surface pixel under it.
+        let k = self.scale;
+        if k == 1 {
+            self.copy_wide_screen(x, y, w, h, misalign, read, write64, write32);
+        } else {
+            self.copy_wide_screen(
+                x * k,
+                y * k,
+                w * k,
+                h * k,
+                misalign,
+                |col, row| read(col / k, row / k),
+                write64,
+                write32,
+            );
+        }
+        true
+    }
+
+    /// [`Self::copy_wide`] over a rectangle already in **screen** pixels, which `copy_wide` has
+    /// checked; `read` is asked for screen coordinates.
+    #[allow(clippy::too_many_arguments)] // `copy_wide`'s own contract, one level down
+    fn copy_wide_screen(
+        &self,
+        x: u32,
+        y: u32,
+        w: u32,
+        h: u32,
+        misalign: u32,
+        read: impl Fn(u32, u32) -> u32,
+        mut write64: impl FnMut(usize, u64),
+        mut write32: impl FnMut(usize, u32),
+    ) {
         for row in y..y + h {
             let line = row as usize * self.stride as usize;
             // The run's byte extent. A qword has two homes to satisfy at once: it must cover
@@ -416,7 +499,6 @@ impl Aperture {
                 write32(at, self.order.store(read(col, row)));
             }
         }
-        true
     }
 }
 
@@ -1654,6 +1736,128 @@ mod tests {
     #[test]
     fn to_words_two_halves_share_no_bit_so_or_and_xor_agree() {
         assert_eq!(u32::MAX as u64 & (u32::MAX as u64) << 32, 0);
+    }
+
+    /// **xenon's screen, covered edge to edge at scale two** (the screen terminal lane,
+    /// 2026-10-04). On 2026-10-04 the shell after the handover drew a fixed 924x344 surface at
+    /// scale one into the top-left of this 1920x1080 monitor. The surface that fills it is
+    /// 960x540, its grid is 137x67 (the boot console's exactly), and one full flush must write
+    /// every byte of every visible pixel, each surface pixel as a 2x2 block.
+    #[test]
+    fn a_1920x1080_screen_is_covered_entirely_at_scale_two() {
+        use super::Aperture;
+        let found = Framebuffer {
+            base: 0,
+            width: 1920,
+            height: 1080,
+            stride: 1920 * 4,
+            order: PixelOrder::Bgrx,
+        };
+        // What the kernel asks for (`display_service::start_screen_terminal`): as much surface as
+        // one terminal grid can cover, and the grid must fit a `Vt`.
+        let aperture = Aperture::new(
+            &found,
+            (video_terminal::MAX_COLS as u32) * bitmap_font::GLYPH_W,
+            u32::MAX,
+        )
+        .expect("xenon's screen");
+        let (w, h) = aperture.size();
+        assert_eq!((w, h), (960, 540));
+        let cells = (w / bitmap_font::GLYPH_W) as usize * (h / bitmap_font::GLYPH_H) as usize;
+        assert!(
+            cells <= video_terminal::MAX_CELLS,
+            "137x67 fits one terminal grid"
+        );
+        assert_eq!(
+            (w / bitmap_font::GLYPH_W, h / bitmap_font::GLYPH_H),
+            ScreenConsole::new(found).expect("xenon's screen").size(),
+            "the shell's grid is the boot console's grid"
+        );
+        assert_eq!((aperture.size(), aperture.scale()), ((960, 540), 2));
+        assert_eq!(
+            aperture.span(),
+            found.span().expect("valid"),
+            "the whole screen"
+        );
+
+        let surface = |x: u32, y: u32| {
+            assert!(x < w && y < h, "read ({x},{y}) outside the surface");
+            (y << 12) ^ x ^ 0x0080_0000
+        };
+        let mut screen = vec![0u8; found.span().expect("valid")];
+        let mut written = vec![false; screen.len() / 4];
+        let cell = core::cell::RefCell::new((&mut screen, &mut written));
+        assert!(aperture.copy_wide(
+            0,
+            0,
+            w,
+            h,
+            0,
+            surface,
+            |at, pair| {
+                let (s, seen) = &mut *cell.borrow_mut();
+                s[at..at + 8].copy_from_slice(&pair.to_le_bytes());
+                seen[at / 4] = true;
+                seen[at / 4 + 1] = true;
+            },
+            |at, word| {
+                let (s, seen) = &mut *cell.borrow_mut();
+                s[at..at + 4].copy_from_slice(&word.to_le_bytes());
+                seen[at / 4] = true;
+            },
+        ));
+        assert!(written.iter().all(|&w| w), "every screen pixel is written");
+        for y in 0..1080 {
+            for x in 0..1920 {
+                assert_eq!(
+                    pixel(&found, &screen, x, y),
+                    surface(x / 2, y / 2),
+                    "({x},{y})"
+                );
+            }
+        }
+    }
+
+    /// The scaled wide copy and the scaled word copy agree byte for byte, on a scale-two screen
+    /// with a padded stride that is 4 off 8, for every base misalignment and a spread of
+    /// rectangles that start and end on odd surface pixels: the paths a damage flush takes.
+    #[test]
+    fn the_scaled_wide_copy_lands_the_same_bytes_as_the_scaled_word_copy() {
+        use super::Aperture;
+        let found = Framebuffer {
+            base: 0,
+            width: 1683,
+            height: 9,
+            stride: 1683 * 4 + 4,
+            order: PixelOrder::Rgbx,
+        };
+        let aperture = Aperture::new(&found, 2000, 2000).expect("a real screen");
+        assert_eq!((aperture.size(), aperture.scale()), ((841, 4), 2));
+        let surface = |x: u32, y: u32| (y << 16) | x;
+        let span = found.span().expect("valid");
+        for (x, y, rw, rh) in [(0, 0, 841, 4), (1, 1, 3, 2), (5, 0, 836, 1), (840, 3, 1, 1)] {
+            let mut narrow = vec![0xa5u8; span];
+            assert!(aperture.copy(x, y, rw, rh, surface, |at, word| {
+                narrow[at..at + 4].copy_from_slice(&word.to_le_bytes());
+            }));
+            for misalign in [0, 4] {
+                let wide = core::cell::RefCell::new(vec![0xa5u8; span]);
+                assert!(aperture.copy_wide(
+                    x,
+                    y,
+                    rw,
+                    rh,
+                    misalign,
+                    surface,
+                    |at, pair| wide.borrow_mut()[at..at + 8].copy_from_slice(&pair.to_le_bytes()),
+                    |at, word| wide.borrow_mut()[at..at + 4].copy_from_slice(&word.to_le_bytes()),
+                ));
+                assert!(
+                    narrow == wide.into_inner(),
+                    "({x},{y}) {rw}x{rh} misalign {misalign}"
+                );
+            }
+        }
     }
 
     /// An rgbx screen gets its red and blue exchanged on the way in, which is the byte-order half

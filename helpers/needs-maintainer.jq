@@ -8,7 +8,7 @@
 # session must pick up, so the session finds it with `gh pr list --label needs-maintainer --state
 # all` and not by watching. Nothing here arms, enqueues or re-queues; it only names.
 #
-# Four causes, each a fact the queue does not report to anyone:
+# Six causes, each a fact the queue does not report to anyone:
 #
 #   ejected   the last removal from the queue was neither `merged` nor `manual`, nothing put it
 #             back since, and the head is still the one that was ejected. A removal whose event
@@ -27,21 +27,37 @@
 #             forgot. Not raised beside `ejected` or `conflict`, which already say what is wrong,
 #             nor while a `Blocked-by:` pull request is still open, which is an unarmed pull
 #             request waiting on purpose.
+#   off-main  ready, not armed, and based on a branch other than `main`, for `$minutes` since it
+#             was opened or marked ready. The merge queue drains `main` only, so nothing will ever
+#             merge this, and `eligible` (below) never shows it to the other causes. #1640 on
+#             2026-10-04: stacked on #1630's branch, green and mergeable, and labelled by nothing
+#             for about three hours until calef merged it into its base by hand. A `Blocked-by:`
+#             pull request still open holds it, as it holds `unarmed`.
+#   red       wearing `ci-failing` (helpers/ci-failing.sh decides that, from the required checks
+#             on the head) for `$minutes` since the label last went on. That label is a report with
+#             no reader: a lane that ended `WAITING` is not running, and a session's queue is this
+#             label, so #1617 and #1653 sat armed and red on 2026-10-04 until calef pointed at them.
+#             Armed or not, any base: an armed pull request whose checks fail never enters the
+#             queue, so nothing else here would see it. A push clears `ci-failing` until its checks
+#             fail, and a fresh label starts a fresh episode.
 #
-# Every cause but `stale` applies only to what `eligible` admits (helpers/queue-eligible.jq, spliced
-# in front of this file) and never to one held with `needs-architect` or `held-for-red-trunk`:
-# a draft is its lane's (converting an ejected pull request to a draft is how a lane says it has
-# it), a fork's pull request is a person's decision, and a held one is waiting on purpose.
+# `ejected`, `conflict` and `unarmed` apply only to what `eligible` admits (helpers/queue-eligible.jq,
+# spliced in front of this file); `off-main` and `red` to a ready pull request from this repository
+# on any base. None applies to one held with `needs-architect` or `held-for-red-trunk`, and only
+# `stale` applies to a draft: a draft is its lane's (converting an ejected pull request to a draft
+# is how a lane says it has it), a fork's pull request is a person's decision, and a held one is
+# waiting on purpose.
 #
 # A cause carries `key`, which names the episode: the ejection's time, the conflicting head, the
-# entry's enqueue time, the moment it was last unarmed. The shell posts one comment per cause per
+# entry's enqueue time, the moment it was last unarmed or made ready, the moment `ci-failing` went
+# on. The shell posts one comment per cause per
 # key, deduplicated by a marker in the comment, so a persisting cause never comments twice and a
 # new episode does.
 #
 # Input: the GraphQL response the drain asks for (helpers/merge-drain.sh, `nm_query`), and:
 #   $label     the label's name
 #   $now       epoch seconds
-#   $minutes   the `unarmed` grace
+#   $minutes   the grace before `unarmed`, `off-main` or `red`
 #   $blockers  { "<number>": ["OPEN", "MERGED", ...] }, the states of the pull requests a ready
 #              pull request's `Blocked-by:` line names (the shell resolves them; this file must
 #              not call `gh`)
@@ -55,10 +71,19 @@ def nm_held: ["needs-architect", "held-for-red-trunk"];
 
 def nm_ts: if . == null or . == "" then 0 else fromdateiso8601 end;
 
-def nm_ready_unheld:
+def nm_unheld:
   ([.labels.nodes[].name]) as $names
-  | eligible
   | select(nm_held | map(. as $h | $names | index($h)) | all(. == null));
+
+def nm_ready_unheld: eligible | nm_unheld;
+
+# Ready, from this repository, unheld, on any base: `eligible` without its `main` clause, for the
+# two causes that exist because something is not on its way to `main`'s queue.
+def nm_ready_unheld_any_base:
+  select(.isDraft == false and .isCrossRepository == false) | nm_unheld;
+
+# The label helpers/ci-failing.sh puts on a red head. Its name is that script's, provisional there.
+def nm_red_label: "ci-failing";
 
 def nm_ejected($queued):
   . as $pr
@@ -87,14 +112,36 @@ def nm_unarmed($queued; $now; $minutes; $blockers):
   | select(($since | nm_ts) <= $now - $minutes * 60)
   | { cause: "unarmed", key: $since, since: $since, blockers: $bs };
 
+def nm_off_main($now; $minutes; $blockers):
+  . as $pr
+  | ([.createdAt, (.unarmed.nodes[-1].createdAt // null)] | map(select(. != null)) | max) as $since
+  | ($blockers[$pr.number | tostring] // []) as $bs
+  | nm_ready_unheld_any_base
+  | select(.baseRefName != "main" and .autoMergeRequest == null)
+  | select(($bs | index("OPEN")) == null)
+  | select(($since | nm_ts) <= $now - $minutes * 60)
+  | { cause: "off-main", key: $since, since: $since, base: $pr.baseRefName, branch: $pr.headRefName };
+
+# When the label went on: the newest LabeledEvent for it among the ones the query fetched. A label
+# older than that window reads as the pull request's creation, which is long enough ago to count.
+def nm_red($now; $minutes):
+  . as $pr
+  | nm_ready_unheld_any_base
+  | select([.labels.nodes[].name] | index(nm_red_label) != null)
+  | ([.labelled.nodes[]? | select(.label.name == nm_red_label) | .createdAt] | max // $pr.createdAt) as $since
+  | select(($since | nm_ts) <= $now - $minutes * 60)
+  | { cause: "red", key: $since, since: $since, head: $pr.headRefOid, branch: $pr.headRefName,
+      armed: ($pr.autoMergeRequest != null) };
+
 def nm_decide($label; $now; $minutes; $blockers):
   .data as $d
   | [$d.repository.mergeQueue.entries.nodes[]? | .pullRequest.number] as $queued
   | ( [ $d.repository.pullRequests.nodes[]
         | . as $pr
-        | ([nm_ejected($queued)] + [nm_conflict]) as $hard
+        | ([nm_ejected($queued)] + [nm_conflict] + [nm_red($now; $minutes)]) as $hard
         | { number, labelled: ([.labels.nodes[].name] | index($label) != null),
-            causes: ($hard + (if $hard == [] then [nm_unarmed($queued; $now; $minutes; $blockers)] else [] end)) } ]
+            causes: ($hard + (if $hard == [] then [nm_unarmed($queued; $now; $minutes; $blockers)]
+                                                + [nm_off_main($now; $minutes; $blockers)] else [] end)) } ]
     + [ $d.repository.mergeQueue.entries.nodes[]?
         | select(.pullRequest.state != "OPEN")
         | { number: .pullRequest.number, labelled: false,

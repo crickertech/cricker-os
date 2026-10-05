@@ -356,7 +356,7 @@ group_runs() {
 }
 
 # **A pull request a maintainer session must pick up wears `needs-maintainer`** (milestone 727,
-# provisional; the label's name is provisional too, and calef's call). The four causes, and why
+# provisional; the label's name is provisional too, and calef's call). The six causes, and why
 # each is one, are in helpers/needs-maintainer.jq, which decides; this carries the decision out:
 #
 #   label   add the label, print `LABELLED #N`, and comment once per cause with the evidence
@@ -380,12 +380,13 @@ NM_QUERY='query($owner: String!, $name: String!, $labelled: String!) {
   repository(owner: $owner, name: $name) {
     mergeQueue(branch: "main") { entries(first: 100) { nodes { enqueuedAt state pullRequest { id number state mergedAt } } } }
     pullRequests(states: OPEN, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) { nodes {
-      number isDraft baseRefName isCrossRepository headRefOid createdAt mergeable body
+      number isDraft baseRefName isCrossRepository headRefName headRefOid createdAt mergeable body
       labels(first: 30) { nodes { name } }
       autoMergeRequest { enabledAt }
       removed: timelineItems(last: 1, itemTypes: [REMOVED_FROM_MERGE_QUEUE_EVENT]) { nodes { ... on RemovedFromMergeQueueEvent { createdAt reason beforeCommit { oid parents(first: 2) { nodes { oid } } } } } }
       added: timelineItems(last: 1, itemTypes: [ADDED_TO_MERGE_QUEUE_EVENT]) { nodes { ... on AddedToMergeQueueEvent { createdAt } } }
       unarmed: timelineItems(last: 1, itemTypes: [READY_FOR_REVIEW_EVENT, AUTO_MERGE_DISABLED_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT]) { nodes { __typename ... on ReadyForReviewEvent { createdAt } ... on AutoMergeDisabledEvent { createdAt } ... on RemovedFromMergeQueueEvent { createdAt } } }
+      labelled: timelineItems(last: 20, itemTypes: [LABELED_EVENT]) { nodes { ... on LabeledEvent { createdAt label { name } } } }
     } }
   }
   search(query: $labelled, type: ISSUE, first: 50) { nodes { ... on PullRequest { number state labels(first: 30) { nodes { name } } } } }
@@ -438,9 +439,31 @@ Rebase or merge \`main\` (briefs/rebase-onto-main.md), push, and arm it. The lab
 	unarmed)
 		since=$(printf '%s' "$c" | jq -r '.since')
 		blockers=$(printf '%s' "$c" | jq -r 'if (.blockers | length) > 0 then " Its `Blocked-by:` pull requests have all resolved (" + (.blockers | join(", ")) + ")." else "" end')
-		what="READY AND UNARMED since $since, over $NM_MINUTES minutes, and not in the merge queue.$blockers Nothing arms a pull request but its lane or a maintainer session.
+		what="READY AND UNARMED since $since, over $NM_MINUTES minutes, and not in the merge queue.$blockers Nothing arms a pull request but its lane or a maintainer session, and a lane that has ended its turn is not running: the maintainer session owns this.
 
 If it is done, arm it: \`gh pr merge $1 --auto --merge\`. If it is not, make it a draft again: \`gh pr ready $1 --undo\`. Either takes the label off."
+		;;
+	off-main)
+		since=$(printf '%s' "$c" | jq -r '.since')
+		base=$(printf '%s' "$c" | jq -r '.base')
+		basepr=$(gh pr list --repo "$REPO" --state open --head "$base" --json number -q '.[0].number // empty' 2>/dev/null) || basepr=""
+		[ -n "$basepr" ] && basepr=" (#$basepr's head)" || basepr=""
+		what="READY SINCE $since, over $NM_MINUTES minutes, and based on \`$base\`$basepr rather than \`main\`. The merge queue drains \`main\` only, so nothing will merge this, and nothing else watching the queue can see it. The maintainer session owns the next step, one of:
+
+- merge it into its base, so it lands with that pull request: \`gh pr merge $1 --merge\`
+- retarget it once its base has landed, then arm it: \`gh pr edit $1 --base main\`
+- if it is waiting on its base on purpose, say so with a \`Blocked-by:\` line naming that pull request, or make it a draft: \`gh pr ready $1 --undo\`
+
+Any of these takes the label off."
+		;;
+	red)
+		since=$(printf '%s' "$c" | jq -r '.since')
+		head=$(printf '%s' "$c" | jq -r '.head')
+		branch=$(printf '%s' "$c" | jq -r '.branch')
+		armed=$(printf '%s' "$c" | jq -r 'if .armed then "It is armed, and an armed pull request whose required checks fail never enters the queue, so it will sit here." else "It is not armed." end')
+		what="RED: \`ci-failing\` has been on this pull request since $since, over $NM_MINUTES minutes, at head \`$head\`. The \`ci-failing\` comment names each failing check and its job. $armed
+
+A lane that ended its turn \`WAITING\` is not running and will not see this. The maintainer session owns it: resume the lane that pushed \`$branch\` with the failing job's log, or fix it in place. A push whose checks pass takes \`ci-failing\` off, and this label with it."
 		;;
 	stale)
 		state=$(printf '%s' "$c" | jq -r '.state')
@@ -460,7 +483,7 @@ The label comes off when the entry is gone."
 	esac
 	printf '%s' "$ME: needs-maintainer. $what
 
-The label is how a maintainer session finds this without anyone watching the queue (milestone 727, provisional; notes/queue-ejection.md has the four causes)."
+The label is how a maintainer session finds this without anyone watching the queue (milestone 727, provisional; helpers/needs-maintainer.jq has the six causes)."
 }
 
 needs_maintainer() {

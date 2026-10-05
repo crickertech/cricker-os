@@ -429,6 +429,7 @@ mod tests {
             Flags::user_data(),
             Flags::user_device(),
             Flags::write_combining(),
+            Flags::user_write_combining(),
         ] {
             let leaf = Ia32e::leaf_entry(0x10_0000, flags);
             assert_eq!(Ia32e::entry_pa(leaf), 0x10_0000);

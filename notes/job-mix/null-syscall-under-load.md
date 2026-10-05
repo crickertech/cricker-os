@@ -175,8 +175,8 @@ moved out of `IPC_TABLES` meet each other there, at 1.6% of the wait.
 ## The next step: each thread's table off the lock
 
 Milestone 761 (capability lookup off the global lock), its number provisional, gives every thread's
-capability table its own lock, so `current_cap` stops taking `IPC_TABLES`. Under TCG the lookups
-that waited fell from about 20% to almost none; the block has the numbers.
+capability table its own lock, so `current_cap` stops taking `IPC_TABLES`. Built; radon's
+measurement is outstanding. Under TCG the lookups that waited fell from about 20% to almost none.
 
 ### The radon run that decides it
 
