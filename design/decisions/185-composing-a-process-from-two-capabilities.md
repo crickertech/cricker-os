@@ -38,7 +38,7 @@ still does one thing. The old name described a step; the new one describes the j
   kernel permitting the sequence. It stays a possible later addition beside (a).
 - **Not chosen, (d).** The claim keeps a carrier; a demonstrator should keep a boot step a stranger
   can read.
-- **Consequence.** Milestone 19b's "nothing runs in the space it built" reading stops holding once
+- **Consequence.** Milestone 19b (run a real workload)'s "nothing runs in the space it built" reading stops holding once
   this is built. The fixture's header and milestone 19b's account say it today; the build lane
   updates the first and leaves the second as the account it was.
 
