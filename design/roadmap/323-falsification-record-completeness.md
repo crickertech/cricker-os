@@ -236,6 +236,15 @@ tell a stale premise from a live one. It is rung three, written where the next p
   `number` is reached by no input (every caller is bounded first), so removing it leaves
   `parse_is_total_on_hostile_bytes` green; that harness is falsified by removing the offset-designator
   check instead, and the guard is defence in depth.
+- **Recorded.** Batch 3 (`lane/falsify-backlog-3`, 2026-10-05, stacked on batch 2) took 3 unfalsified to
+  2 (the two recorded as unfalsifiable stay). (1) Two harnesses had `cover!` and no assertion:
+  `calendar`'s `parse_is_total_on_hostile_bytes` (now asserts a successful parse implies 20 bytes)
+  and `machine_discovery`'s `no_override_writes_outside_the_sixteen_legacy_irqs` (now asserts an IRQ
+  no ISA override names keeps its default entry); both replay red. `--check` now fails a cover-only
+  harness. Kani 0.67.0 has no flag that fails on an unsatisfied cover (`cargo kani --help` and the
+  verification-results page show none). (2) The x86_64 `fp` harness is `attested` with its patch
+  written down, since the sweep and re-falsify jobs run on arm64. A new `sweep-x86_64` job
+  runs `script/falsifications --sweep-attested`; first replay: run 37368707083 (red on a survivor).
 
 ## Index row
 

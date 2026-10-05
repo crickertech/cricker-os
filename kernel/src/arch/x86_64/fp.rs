@@ -324,10 +324,12 @@ mod proofs {
     /// set before the first thread runs, which is this module's whole guarantee. Checked for every
     /// starting value of both registers.
     ///
-    /// Falsification: unfalsified. This lane (2026-09-25) had no x86_64 host with Kani, so the
-    /// harness has been proved only by CI and never seen red. The three mutations to attest it
-    /// with: `init` omitting `CR0_TS`, `disable` storing `CR0_TS` rather than or-ing it in, and
-    /// `init` setting `CR4_OSFXSR` alone.
+    /// Falsification: attested 2026-10-05. `kernel/falsifications/arch.x86_64.fp.proofs.every_fp_edit_changes_exactly_the_bits_it_names.patch`
+    /// First replayed by run 37368707083 of that workflow. It makes `disable` store `CR0_TS` alone, which is the harness's second named mutation. The record
+    /// is `attested` rather than `replayable` because a `#[kani::proof]` compiles for the host and
+    /// only an x86_64 host compiles this module (`script/falsifications`' BUGS); the `sweep-x86_64`
+    /// job in `.github/workflows/falsifications.yml` replays it with `--sweep-attested` and goes red
+    /// if the harness survives.
     #[kani::proof]
     #[kani::stub(super::super::instructions::read_cr0, read_cr0_model)]
     #[kani::stub(super::super::instructions::write_cr0, write_cr0_model)]

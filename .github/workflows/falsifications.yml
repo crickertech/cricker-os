@@ -133,6 +133,46 @@ jobs:
             echo 'DECISIONS §134; the worklist is `script/falsifications --unfalsified`.'
           } >> "$GITHUB_STEP_SUMMARY"
 
+  # **The Kani records no arm64 host can replay** (milestone 323 (the falsification record is incomplete in five ways), batch 3). A `#[kani::proof]`
+  # compiles for the HOST, and `kernel/src/arch/mod.rs` selects `arch/x86_64/` by `#[cfg(target_arch)]`,
+  # so `sweep` above (arm64) and verify.yml's `falsify` job (arm64) cannot make an x86_64 harness
+  # red, and the only x86_64 Kani leg in CI is the proving shards, which prove and never mutate.
+  # Such a record is `attested`, names its patch in backticks, and is replayed here. This job runs
+  # on `ubuntu-24.04` (x86_64) and goes red on a survivor, a stale patch or an empty selection.
+  # Dispatchable on its own, so a lane can get a record replayed without waiting for the cron.
+  sweep-x86_64:
+    name: replay the attested records an arm64 host cannot
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install Kani
+        run: cargo kani --version || (cargo install --locked kani-verifier && cargo kani setup)
+
+      - name: Sweep the attested records
+        shell: bash
+        run: |
+          set -o pipefail
+          uname -m
+          script/falsifications --sweep-attested 2>&1 | tee "$RUNNER_TEMP/sweep-x86.txt"
+
+      - name: Publish the report
+        if: always()
+        run: |
+          {
+            echo '### Attested records replayed on x86_64'
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/sweep-x86.txt" || echo '(the sweep produced no output)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # **The long sweep of the seeded syscall driver** (milestone 752 (a seeded syscall driver with a
   # shadow model), provisional). The suite runs a short committed seed list on every merge; this
   # runs many fresh seeds once a week on the cadence milestone 616 (constrained hardware fuzzing for
