@@ -252,8 +252,9 @@ with the one-task guard held. The open finding's paragraph should read:
   `jpm_median` at four tasks, so the size is a number, but it is radon's.
 - **`PERCPU` straddles cache lines.** It is aligned to 8, so each 128-byte block spans three 64-byte
   lines and shares two with its neighbours. Their remotely written fields (the inbox, the steal slot)
-  can pull away a line that `held_rank`, written twice per lock, lives on. Unmeasured, and not fixed here,
-  so as not to change two things in one radon comparison. `#[repr(align(64))]` keeps the size at 128.
+  can pull away a line that `held_rank`, written twice per lock, lives on. On Apple cores it is the
+  rest of the per-trap growth, and their 128-byte line needs `align(128)`
+  ([the HVF appendix](null-syscall-hvf-full-mix.md), 2026-10-05).
 - ~~**aarch64's job mix wedges under TCG on `main`.**~~ Closed 2026-10-05: a miscompiled yield,
   not a multicore hang ([`spawn-destroy-gone.md`](spawn-destroy-gone.md)).
 - **`script/fastpath-footprint` leaves `exception_body` out of aarch64's `syscall_entry`**, though
