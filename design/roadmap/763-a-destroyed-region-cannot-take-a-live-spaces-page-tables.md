@@ -79,8 +79,9 @@ ran the cut as a second scan of every log after the leaf pass, and that empty sc
 
 - A space's root is not covered. It cannot be cut, and a thread bound to a space whose root is
   in the destroyed region keeps running on the freed root (driven once on aarch64 with a scratch
-  test). calef ruled on 2026-10-05 (UTC) that `DESTROY` kills such a thread as a resident (§16's
-  amendment of that date); milestone 765 builds it. Recorded at `revoke::revoke_region`.
+  test). calef ruled on 2026-10-05 (UTC) that `DESTROY` kills such a thread as a resident as recorded in
+  §16 (object revocation), amended that date; milestone 765 (a destroyed region cannot free the root a running
+  thread walks) builds it. Recorded at `revoke::revoke_region`.
 - Cutting a table takes everything beneath it, including leaves and tables other regions paid
   for. A program that mixes budgets under one table loses all of it when the region holding the
   table goes. That is the honest price of a table being an object of the region that paid for it;

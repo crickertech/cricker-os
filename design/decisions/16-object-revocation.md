@@ -7,7 +7,8 @@ ratified_by: calef
 
 # 16. Object revocation: reclaim the objects a process built (extends §13)
 
-(three amendment blocks below: milestones 31 and 22, and the job pool's holes on 2026-10-03.)
+(four amendment blocks below: milestones 31 and 22, the job pool's holes on 2026-10-03, and a running
+root on 2026-10-05.)
 
 <!-- writing-standards: exception. Marked 2026-10-03 (UTC) by the maintainer session. Reason: this change
 adds a dated amendment that carries no bold of its own, and touches two existing lines only to point
@@ -167,3 +168,30 @@ a program only gets pages back sooner. What stays: a hole *under* a child that s
 not reused, because a carve only bumps, and a phantom child left by a split refused for a full
 table stops the reclaim for that parent for good. Both limits are recorded in the `BUGS` at
 `RegionTable::return_to_parent` (`crates/memory_regions/src/table.rs`).
+
+## Amendment (2026-10-05): a thread whose space is rooted in the region dies as a resident
+
+Ruled by calef on 2026-10-05 (UTC), quoted: "A, queue it after #1665"
+([comment on #1665](https://github.com/nifeos/nife/pull/1665#issuecomment-5988177177)), on the
+options in `design/roadmap/765-a-destroyed-region-cannot-free-a-running-root.md`. Recorded by the
+maintainer.
+
+`CONFIGURE` binds a space to a TCB without requiring both to come from one region. So a space can be
+rooted in region R while its thread's TCB lives elsewhere, and `DESTROY(R)` reaped neither: it
+handed the root back to the allocator while the thread still translated through it. The next owner
+of that page would write the thread's top-level translations, which breaks fatal risk 7's
+confinement claim outright.
+
+Now a live thread whose bound address space has its root in the destroyed span is a resident of
+that span, exactly as a thread whose TCB page is there. This pass refuses, the thread is marked
+killed, and the retry reclaims, root included. A holder of R can therefore end a thread whose TCB
+it does not own; it already owns the memory the thread translates through, so the thread could not
+have kept running whatever the answer.
+
+Refused: refusing without killing, because a borrower that never finishes would pin R forever, the
+shape the amendment for milestone 22 (trusted init) removed. Refused: making `CONFIGURE` reject a space rooted outside
+the TCB's region, because it adds a refusal to the syscall surface and forbids a split a loader may
+want. Refused: both together, because once the kill exists the `CONFIGURE` refusal buys no safety.
+
+No ABI change: no new method, number or refusal. Not yet built; milestone 765 (a destroyed region cannot
+free the root a running thread walks) builds it, after milestone 95 (an unmap primitive). Until then the hole stands as recorded at `revoke::revoke_region`.

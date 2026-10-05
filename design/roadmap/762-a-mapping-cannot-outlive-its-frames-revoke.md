@@ -85,8 +85,8 @@ from two cores at once.
 ## Follow-on
 
 - **Milestone 763.** The destroyed-region page-table hole, driven and fixed: tables are recorded
-  like leaves and cut on `DESTROY`. The root stays open in
-  `design/roadmap/proposals/a-destroyed-region-cannot-free-a-running-root.md`.
+  like leaves and cut on `DESTROY`. The root stays open as
+  milestone 765 (a destroyed region cannot free the root a running thread walks).
 
 ## Index row
 
