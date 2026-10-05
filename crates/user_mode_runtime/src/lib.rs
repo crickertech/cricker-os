@@ -201,9 +201,9 @@ pub mod virtio;
 #[cfg(target_arch = "aarch64")]
 unsafe fn trap6(nr: u64, a: [u64; 6]) -> (u64, u64, u64, u64, u64, u64) {
     let (mut w0, mut w1, mut w2, mut w3, mut w4, mut w5): (u64, u64, u64, u64, u64, u64);
-    // SAFETY: see the function doc; `x8` selects the syscall (DECISIONS §10), `x0..x5` carry the
-    // six-word ABI in both directions. `asm!` is unsafe because the compiler cannot check that,
-    // not because a caller can get it wrong.
+    // SAFETY: see the function doc; `x8` selects the syscall (DECISIONS §10 (process model:
+    // capability-based, microkernel)), `x0..x5` carry the six-word ABI in both directions. `asm!`
+    // is unsafe because the compiler cannot check that, not because a caller can get it wrong.
     unsafe {
         core::arch::asm!(
             "svc #0",
@@ -274,8 +274,8 @@ unsafe fn trap6(nr: u64, a: [u64; 6]) -> (u64, u64, u64, u64, u64, u64) {
 #[cfg(target_arch = "x86_64")]
 unsafe fn trap6(nr: u64, a: [u64; 6]) -> (u64, u64, u64, u64, u64, u64) {
     let (mut w0, mut w1, mut w2, mut w3, mut w4, mut w5): (u64, u64, u64, u64, u64, u64);
-    // SAFETY: see the function doc; `rax` selects the syscall (DECISIONS §10, §124), and the six
-    // argument registers carry the six-word ABI in both directions.
+    // SAFETY: see the function doc; `rax` selects the syscall (DECISIONS §10, §124 (the `x86_64`
+    // syscall ABI)), and the six argument registers carry the six-word ABI in both directions.
     unsafe {
         core::arch::asm!(
             "syscall",
