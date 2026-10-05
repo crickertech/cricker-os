@@ -11,7 +11,7 @@ proposed it as its own milestone rather than routing around it. It was minted **
 the grounds that this was a toolchain and dependency problem rather than a hardware one, and that
 held: a lane made the whole of it without a board.
 
-**The title is now a statement about the past.** x86_64 userspace builds `aes`, `redoxfs_server`
+The title is now a statement about the past. x86_64 userspace builds `aes`, `redoxfs_server`
 and `mkfs`, and the x86_64 archive carries the last two. Both routes this block sized are
 superseded and neither was taken; the section below says why, and is kept rather than deleted
 because the sizing was wrong in an instructive direction.
@@ -32,8 +32,8 @@ That is this block's exact error, reproduced and then cleared. The flag lives in
 `.cargo/config.toml`'s `[target.x86_64-unknown-none]` block, beside the `relocation-model=static`
 the kernel needs.
 
-**It is on the target rather than on the one package that needs it, and the coupling was noticed
-rather than inherited.** This block's own "fact worth knowing" is correct: `x86_64-unknown-none` is
+It is on the target rather than on the one package that needs it, and the coupling was noticed
+rather than inherited. This block's own "fact worth knowing" is correct: `x86_64-unknown-none` is
 the *same* target the kernel builds under, so a `rustflags` entry there reaches the kernel too.
 Cargo has no way to ADD a flag (`RUSTFLAGS` and `--config target.*.rustflags` both REPLACE the
 list), so scoping the cfg to `redoxfs_server_build` would have meant restating
@@ -45,7 +45,7 @@ sets passes for the kernel, for `bench`, and for `user` + `user_rt` with it on.
 
 ## Why both sized routes are superseded
 
-**Route 1 (patch the vendored `aes` for a scalar fallback) is unnecessary**, and `patches/` does not
+Route 1 (patch the vendored `aes` for a scalar fallback) is unnecessary, and `patches/` does not
 grow a third entry. This block named the right next step ("is it a feature flag this tree isn't
 enabling, or a genuine gap in the crate's own portable path") and it took five minutes to answer:
 the portable path is not a gap, it is a cfg nobody had set.
@@ -57,7 +57,7 @@ context-switch path. None of that was built, because none of it is needed to com
 
 **The honest cost of not taking Route 2 is speed, and this block should not let a reader assume
 parity.** The software backend is a bitsliced constant-time implementation; upstream RustCrypto's
-own figures put AES-NI roughly an order of magnitude ahead of it. **Unmeasured here**, and
+own figures put AES-NI roughly an order of magnitude ahead of it. Unmeasured here, and
 deliberately so: nothing on x86_64 mounts an encrypted RedoxFS volume yet, so there is no workload
 to measure and a synthetic number would be a fact leaving the machine with nothing behind it. When
 an x86_64 workload touches the crypto path, that is when the number is owed, and Route 2 is what it
@@ -72,8 +72,8 @@ would be weighed against.
 | before | 200 | 55 |
 | after | 211 | 44 |
 
-**Zero tests were recovered, and reading that table as though eleven were is the mistake this
-paragraph exists to prevent.** All eleven that moved do not skip through `skip!` at all: they
+Zero tests were recovered, and reading that table as though eleven were is the mistake this
+paragraph exists to prevent. All eleven that moved do not skip through `skip!` at all: they
 `println!` a line and `return`, which the harness counts as a pass. They were honestly skipped for
 want of an FS server and are now silently green for want of a disk, which is *less* signal than
 before. Forty-six sites across sixteen files share that shape; see milestone 214 (provisional), on tests that print a skip line and return.
@@ -87,10 +87,10 @@ exactly what stopped being true.
 
 ## What broke after `aes`, and what it costs
 
-**The disk.** With the server packed, `fs_service::wire_servers` still asks
+The disk. With the server packed, `fs_service::wire_servers` still asks
 `virtio::find_block_device_n(1)` for its disk, and `q35` has no virtio-mmio bus at all
 (`arch::x86_64::mmu::VIRTIO_SLOTS` is 0). Attaching the fixtures as `virtio-blk-pci` and making the
-lookup transport-blind was built in this lane, run, and **reverted**, because it does not work and
+lookup transport-blind was built in this lane, run, and reverted, because it does not work and
 the reason is structural rather than a bug:
 
 - `qemu-system-x86_64: Interrupt Mask set, irq is not generated`
@@ -100,14 +100,14 @@ the reason is structural rather than a bug:
 The first line is the whole story and it is already written down in the tree, at
 `arch::x86_64::mmu::PCI_IRQ_BASE`, which is `0` and says honestly that it is a marker rather than a
 value. `pci::intx_irq(0, 4, 1)` is therefore `0`, and `arch::x86_64::irq::enable(0)` resolves that
-through `isa_routing` to the **PIT's** legacy line: the confined block server was armed on the
+through `isa_routing` to the PIT's legacy line: the confined block server was armed on the
 timer and waited forever for an interrupt that was never going to be its. Nothing about that is
 specific to the FS server; it is the first userspace PCI driver this architecture has ever been
 asked to run. See milestone 215, on x86_64 PCI interrupt routing, which fixed it.
 
 ## What this unblocks
 
-**Milestone 87** (the x86_64 bare-metal machine), which is the Dell OptiPlex, is the one that
+Milestone 87 (the x86_64 bare-metal machine), which is the Dell OptiPlex, is the one that
 matters, and this moves it by
 removing the toolchain wall and leaving a machine wall in its place. When calef sits down at the
 null modem, the archive that boots carries a real filesystem server rather than nothing above the
@@ -120,10 +120,10 @@ architecture costs a restructure rather than a port") named this as a piece of.
 
 ## BUGS
 
-- **`mkfs` is packed but has nothing to format on this architecture.** Milestone 57's two
+- `mkfs` is packed but has nothing to format on this architecture. Milestone 57's two
   `disk_service` wirings want the GPT and blank fixtures, which no x86_64 runner attaches; those
   tests skip with an accurate reason and no plan of their own. They ride milestone 215, on x86_64 PCI interrupt routing.
-- **The soft-AES cost is unmeasured**, above.
+- The soft-AES cost is unmeasured, above.
 
 ## Follow-on
 

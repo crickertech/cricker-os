@@ -15,8 +15,8 @@ tell, given that all three are built on their host OS's ambient perf-counter int
 (`perf_event_open` or a vendor driver reachable by any sufficiently-privileged process).
 
 Milestone 75 (cycle counter authority) asks the prior question (whether the cycle counter
-is ambient or a capability) for one consumer (`sel4bench`), and **that question was answered on
-2026-09-02 while this gate went on deferring to it**:
+is ambient or a capability) for one consumer (`sel4bench`), and that question was answered on
+2026-09-02 while this gate went on deferring to it:
 [§139](../decisions/139-cycle-counter-authority.md) (who may read the cycle counter, and by what
 authority) chose a per-thread grant enforced at the context switch, granted in the spawn manifest.
 §139 also says in its own text that neither shape it offers provides what this milestone needs,
@@ -26,7 +26,7 @@ prior one being settled, and it is
 names), written up 2026-09-19 by milestone 435's lane. The `MILESTONE 75` half stays until that
 block records its own answer.
 
-**In brief.** Every HPC profiler this note surveyed reads hardware counters through host-OS ambient
+In brief. Every HPC profiler this note surveyed reads hardware counters through host-OS ambient
 authority: `perf_event_open` targets any pid the caller's privilege reaches, gated only by
 `perf_event_paranoid` (a global sysctl, not a per-target grant) or `CAP_PERFMON` (a capability in
 name that in practice is "root, or nothing"). A profiling tool with that access on a shared HPC node
@@ -35,7 +35,7 @@ counter-based side channels between co-scheduled tenants are the reason `perf_ev
 exists at all, and its own defence is coarse: disable unprivileged profiling everywhere, which is
 why HPC centers frequently run it at `-1` in practice for exactly the tools this milestone answers.
 
-**Independent confirmation this is a real, named gap rather than a nife-specific concern**: Brown,
+Independent confirmation this is a real, named gap rather than a nife-specific concern: Brown,
 "RISC-V for High Performance Computing" (CUG '25, ACM 3757348.3757367), a survey grounded in
 EPCC's own RISC-V ecosystem lab, names immature performance-profiling tooling as one of a handful
 of high-priority action items for the whole RISC-V/HPC community: *"the lack of mature RISC-V
@@ -47,8 +47,8 @@ this milestone frames it (ambient perf interface versus capability), but partly 
 some RISC-V silicon may simply not expose the event set (cache misses, branch mispredicts, and so
 on) a profiling session would want to name. Milestone 74's own ISA-discovery pattern (`Isa`,
 built at boot, probing what is actually present rather than assuming a fixed event catalogue) is
-the right shape to inherit for this: **a counter-set capability should be able to name only the
-events the running silicon actually reports**, discovered rather than assumed, and a probe that
+the right shape to inherit for this: a counter-set capability should be able to name only the
+events the running silicon actually reports, discovered rather than assumed, and a probe that
 asks for an unsupported event should refuse cleanly rather than silently reading zero.
 
 **nife can make a stronger claim than "disabled by default": a profiling session can hold a
@@ -58,10 +58,10 @@ missing per-target authority.
 
 ## What already exists to build on
 
-- **Milestone 74** ports the actual cycle-counter drivers (SBI PMU on riscv64, `PMCCNTR_EL0` on
+- Milestone 74 ports the actual cycle-counter drivers (SBI PMU on riscv64, `PMCCNTR_EL0` on
   aarch64), scoped deliberately narrow: "one counter, read before and after, on two ISAs... do not
   turn this into a profiling framework."
-- **Milestone 75** is the capability-vs-ambient decision for that one counter, for one consumer
+- Milestone 75 is the capability-vs-ambient decision for that one counter, for one consumer
   (`sel4bench`), and it already names the shape this milestone would reuse: "a capability type, a
   grant in the spawn path, and a trap-and-check on the register read."
 - Both of those explicitly parked the general case: 74's scope note refuses to become a profiling
@@ -70,20 +70,20 @@ missing per-target authority.
 
 ## What this milestone owns, once 75 answers the first question
 
-**If 75 chooses option 2 (a capability)**, this milestone is the generalization from "the benchmark
+If 75 chooses option 2 (a capability), this milestone is the generalization from "the benchmark
 harness holds one token for one counter" to "a profiling session holds a token naming a target and a
 counter set":
 
-- **The grant names a target subtree**, not a global "may profile" bit. §47's `enumerate`-style
+- The grant names a target subtree, not a global "may profile" bit. §47's `enumerate`-style
   narrowing is the model: a supervisor handing a profiler a capability over its own child's
   supervision subtree, and nothing above or beside it. `caps <profiler>` prints exactly which
   processes it may read, the way milestone 126's `ps` prints exactly which subtree it may enumerate.
-- **The grant names a counter set**, since the PMU can count dozens of event types and a profiling
+- The grant names a counter set, since the PMU can count dozens of event types and a profiling
   session legitimately wants several (cycles, instructions, cache misses, branch mispredicts) rather
   than the one counter 74 ports. This is where 74's scope note's restraint gets spent: the type
   should be able to hold a *set* from day one so it is not re-designed the day a second event type is
   asked for, but the set is still a capability's contents, not an ambient enable bit.
-- **The read is a syscall against a held capability**, not a register the kernel opened to EL0
+- The read is a syscall against a held capability, not a register the kernel opened to EL0
   wholesale. This is the fork 75 already frames as "trap-and-check on the register read": the
   profiler never gets ambient `PMUSERENR_EL0`/`scounteren` access; every read is checked against the
   capability it presented.
@@ -106,19 +106,19 @@ same shape milestone 123's demonstration already asks every capability claim to 
 
 ## What this does not decide
 
-- **The wire format for reporting samples to a human-facing tool.** CrayPat's `.ap2` format and
+- The wire format for reporting samples to a human-facing tool. CrayPat's `.ap2` format and
   Linaro's merged multi-rank view are UI questions once the counter-read primitive exists; this
   milestone is the primitive, not the report.
-- **Whether sampling (statistical, periodic interrupt) or counting (start/stop, exact) is the first
-  mode.** Milestone 74 ports a counting read; sampling needs an overflow interrupt path this
+- Whether sampling (statistical, periodic interrupt) or counting (start/stop, exact) is the first
+  mode. Milestone 74 ports a counting read; sampling needs an overflow interrupt path this
   milestone does not open. Recorded as follow-on scope.
-- **Multi-node aggregation.** Linaro Forge's distinguishing feature at scale is merging profiles
+- Multi-node aggregation. Linaro Forge's distinguishing feature at scale is merging profiles
   across thousands of MPI ranks; this milestone is single-node, single-board, and says nothing about
   a cluster story, which nife does not have yet in any form.
 
 ## BUGS
 
-- **This is a decision-shaped milestone riding on another decision-shaped milestone (75).** Nothing
+- This is a decision-shaped milestone riding on another decision-shaped milestone (75). Nothing
   here is buildable until 75 resolves, and 75 itself has been NOT-STARTED since 2026-08-03. That is
   not a defect in this file; it is why the gate says so rather than hiding the dependency in prose.
 - **The side-channel argument is asserted from the literature, not measured on this board.** Whether

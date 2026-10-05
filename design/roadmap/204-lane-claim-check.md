@@ -9,20 +9,20 @@ Built (2026-08-31). Minted 2026-08-31 by calef, after two lanes in one session p
 their branches and never opened the draft pull request their briefs named as the first act. *(Number
 provisional until the merge queue lands it.)*
 
-**In brief.** AGENTS.md §90 says a lane's first act is a draft pull request, and says why: **the draft
-is the claim.** It is how two lanes cannot silently take the same milestone, the board is
+In brief. AGENTS.md §90 says a lane's first act is a draft pull request, and says why: the draft
+is the claim. It is how two lanes cannot silently take the same milestone, the board is
 `gh pr list --draft`, it costs one command, and a draft cannot be stuck in the merge queue because a
 draft cannot be merged.
 
-**Nothing checks it.** On 2026-08-31 the lanes for milestones 121 and 194 both pushed
+Nothing checks it. On 2026-08-31 the lanes for milestones 121 and 194 both pushed
 `milestone/*` branches and opened nothing. The board was empty while two milestones were being
 worked, and it was noticed only because calef asked.
 
 ## Why prose was never going to hold this
 
 The instruction was in both briefs, in the section headed *First act*, with the exact command to run.
-Both lanes read it and neither did it. **That is rung four behaving exactly as AGENTS.md says rung
-four behaves**, and it is the second instance of the same shape in this project's short history: the
+Both lanes read it and neither did it. That is rung four behaving exactly as AGENTS.md says rung
+four behaves, and it is the second instance of the same shape in this project's short history: the
 first was lanes ending their turn mid-gate, which that file already records as a recurring failure
 needing a standing rule rather than a per-brief reminder.
 
@@ -38,7 +38,7 @@ git ls-remote --heads origin 'milestone/*'   # what is being worked
 gh pr list --draft --json headRefName        # what has claimed it
 ```
 
-**A report rather than a gate**, in `helpers/merge-drain.sh`'s family: nothing should fail a build
+A report rather than a gate, in `helpers/merge-drain.sh`'s family: nothing should fail a build
 over it, because the lane that most needs telling is one that is mid-work and about to open its pull
 request anyway. What it must do is be visible without anyone asking, which is the property the
 current arrangement lacks entirely.
@@ -57,7 +57,7 @@ current arrangement lacks entirely.
 
 `helpers/lane-claim-check.sh` (provisional name), called once per pass from `helpers/merge-drain.sh`
 before its own empty-queue return. That siting is the answer to the open question below, and the
-reason is that the drain is **the only unattended runner this project has**: it fires every five
+reason is that the drain is the only unattended runner this project has: it fires every five
 minutes under `launchd` on patagonia, and a report nothing runs is the state this milestone was
 minted to end. A GitHub Actions cron was the alternative and is strictly better on one axis (it
 survives patagonia being asleep, which AGENTS.md records as an accepted gap rather than a solved
@@ -66,8 +66,8 @@ and because adding a second unattended runner to say one more sentence is more m
 sentence is worth. If the drain's own launchd job ever goes away, this goes with it, and that is the
 coupling to know.
 
-**The grace period is 15 minutes, and the number was measured rather than picked.** The branch that
-built this took **3 minutes** from `branch_creation` to its draft pull request, and that included
+The grace period is 15 minutes, and the number was measured rather than picked. The branch that
+built this took 3 minutes from `branch_creation` to its draft pull request, and that included
 writing the file that made the branch non-empty, which is not optional: GitHub refuses a pull
 request with no commits between the head and `main`, so the literal first-act command block in every
 brief cannot be run straight through. 15 is five times the observed case and well under
@@ -95,16 +95,16 @@ missing claim.
 - **It cannot see a lane that has not pushed at all**, which is the more dangerous state, because
   AGENTS.md says a lane's pushed branch is the only ledger another session can read and uncommitted
   work in a worktree is the one thing no part of this system protects.
-- **It is only as alive as `merge-drain.sh` is.** Where it runs was decided by siting it inside the
+- It is only as alive as `merge-drain.sh` is. Where it runs was decided by siting it inside the
   drain's pass, so it inherits the drain's own recorded gap: patagonia asleep or shut down means
   nobody is watching. A GitHub Actions cron would close that and remains available.
-- **`milestone/*` only.** A lane on `fix/`, `roadmap/` or `maintainer/` is invisible to it, and
+- `milestone/*` only. A lane on `fix/`, `roadmap/` or `maintainer/` is invisible to it, and
   those are legitimate lane prefixes `script/lint` accepts. Widening the pattern would also sweep in
   short-lived maintainer branches that are not claims, so the narrow version shipped.
-- **The activity feed is read one page deep**, so a branch created more than 100 repository events
+- The activity feed is read one page deep, so a branch created more than 100 repository events
   ago has no visible birth. Such a branch is reported rather than skipped: the fallback errs loud,
   because an old branch with no claim is the case worth seeing.
-- **It reports to stdout only.** The drain can comment on the pull request it is complaining about;
+- It reports to stdout only. The drain can comment on the pull request it is complaining about;
   a branch with no pull request has nowhere to be told.
 
 ## Follow-on
@@ -132,7 +132,7 @@ missing claim.
 ## Index row
 
 Minted by calef on 2026-08-31, after two lanes in one session pushed `milestone/*` branches and
-never opened the draft pull request their briefs named as the first act. §90 says the draft **is**
+never opened the draft pull request their briefs named as the first act. §90 says the draft is
 the claim and nothing checks it; the board was empty while two milestones were being worked. Prose
 in a brief is rung four and behaved like it, for the second time in this project's history. A
 report in `helpers/merge-drain.sh`'s family, never a gate, comparing `git ls-remote --heads origin

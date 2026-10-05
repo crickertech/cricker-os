@@ -8,7 +8,7 @@ built: 2026-09-02
 Built (2026-09-02). Minted 2026-08-30 from milestone 87's (the x86_64 bare-metal machine)
 lane, whose three ordinary handoffs otherwise lived only in a pull request body.
 
-**In brief.** The UEFI loader boots the kernel's tour under OVMF and, once calef has run it, on the
+In brief. The UEFI loader boots the kernel's tour under OVMF and, once calef has run it, on the
 OptiPlex. Three things it did not do yet, each small and each already scoped by the lane that found
 it. All three are done, and the first one was not small.
 
@@ -16,8 +16,8 @@ it. All three are done, and the first one was not small.
 
 ### Run the kernel suite under firmware, not just the tour
 
-`cargo xtask uefi-test` does, and `script/test --arch x86_64` runs it after the tour. **192 passed,
-68 skipped under OVMF, which is the same 192 and the same 68 names as under PVH**, because the runner
+`cargo xtask uefi-test` does, and `script/test --arch x86_64` runs it after the tour. 192 passed,
+68 skipped under OVMF, which is the same 192 and the same 68 names as under PVH, because the runner
 now attaches the PVH runner's `virtio-blk-pci` disk, NVMe controller and `intel-iommu` too. The tree
 can now say *"it passes under real firmware"* rather than only *"it boots under real firmware"*.
 
@@ -29,19 +29,19 @@ nothing else.
 
 Two things came of that:
 
-- **`PHYS_START` moved from 1 MiB to 32 MiB.** 1 MiB is the *lowest* address multiboot permits, never
+- `PHYS_START` moved from 1 MiB to 32 MiB. 1 MiB is the *lowest* address multiboot permits, never
   the only one, and under a hypervisor's loader nothing else is in low memory to say otherwise. This
   is a larger gap rather than a fix, and the linker script says so where the constant is.
-- **The loader names what is in the way.** `uefi_loader::say_conflict` walks the memory map on that
+- The loader names what is in the way. `uefi_loader::say_conflict` walks the memory map on that
   failure and prints every descriptor overlapping the range that is not free RAM, with its UEFI type.
   On the bench that is the difference between `Load Error` and a sentence naming an address.
 
 ### Reclaim boot-services memory
 
-**Re-measured rather than inherited**, because the runner's default moved to 2 GiB. Boot-services
+Re-measured rather than inherited, because the runner's default moved to 2 GiB. Boot-services
 code and data, plus `EfiLoaderCode` (the loader's own PE image and its one-shot trampoline, both dead
-by then), are reported as RAM now: **2032128 KiB of usable RAM on a 2 GiB machine becomes 2068244,
-and 206684 becomes 233148 on a 256 MiB one.** `EfiLoaderData` stays reserved and must: the
+by then), are reported as RAM now: 2032128 KiB of usable RAM on a 2 GiB machine becomes 2068244,
+and 206684 becomes 233148 on a 256 MiB one. `EfiLoaderData` stays reserved and must: the
 `hvm_start_info`, the memory map, the module list, the archive and the kernel image are all in it.
 
 The asymmetry holds without anyone remembering it, which is why it is worth stating: the only
@@ -50,14 +50,14 @@ firmware sets the execute-disable bit on data.
 
 ### SMP under UEFI
 
-The loader asks the firmware for physical `0x8000` by name instead of assuming it. **Two cores come
-up under OVMF, five runs out of five, and `cargo xtask uefi-boot` gates it.** A refusal of that page
+The loader asks the firmware for physical `0x8000` by name instead of assuming it. Two cores come
+up under OVMF, five runs out of five, and `cargo xtask uefi-boot` gates it. A refusal of that page
 is a printed warning rather than a failed boot, because a single-core boot on a machine whose
 firmware wants it is worth more than none.
 
 It was grouped here as "may not be small" against milestone 161's two open `ap_boot` defects. It met
 one of them: `every_secondary_runs_scheduled_work` fails about half the time at two cores, which is
-why the **suite** stays at one core and the **tour** is where the second one is gated. Neither
+why the suite stays at one core and the tour is where the second one is gated. Neither
 defect was touched.
 
 ## What it took off xenon's evening
@@ -75,9 +75,9 @@ the bus and places every BAR before nife exists:
 
 ## BUGS
 
-- **None of this is proved on a Dell.** OVMF is not a vendor firmware, and the one new thing this
+- None of this is proved on a Dell. OVMF is not a vendor firmware, and the one new thing this
   milestone asks of the bench is its own: whether the OptiPlex leaves 32 MiB free.
-- **The kernel is placed at one link-time address.** 32 MiB clears every low reservation OVMF makes
+- The kernel is placed at one link-time address. 32 MiB clears every low reservation OVMF makes
   and nothing more. A physically relocatable image is the real answer and is a milestone rather than a
   constant: `.boot` is linked at its physical address because a 32-bit instruction stream cannot name
   a 64-bit one, and its absolute self-references would have to become position-independent.

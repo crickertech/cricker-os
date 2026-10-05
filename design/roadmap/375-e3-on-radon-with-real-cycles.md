@@ -21,7 +21,7 @@ until a layout control exists. That control is milestone 370. The other half thi
 a cycle column on the rows themselves rather than one conversion probe beside them, is milestone
 374 and is not built: the rows are still tick counts at a 250 ns quantum.
 
-**The body below is left as it was written on 2026-09-04**, including the sentence saying no number
+The body below is left as it was written on 2026-09-04, including the sentence saying no number
 has come off radon and there was no bench session. That was true when it was typed and was overtaken
 within the day, which is the whole of what this block records.
 
@@ -33,38 +33,38 @@ bench session, so what remains of this proposal is the session itself plus the c
 is `design/roadmap/374-cycles-per-ipc-on-the-bench-card.md`.
 
 That lane also found something this proposal assumed away. The padding was reachable only from
-`ipc_send`, so measured on riscv64 it moved `ipc_send_recv` to 2.10x and **`ipc_call_reply` to
-1.00x**: E3 was padding the shape nothing in this tree runs, which is the shape milestone 188 phase 1
+`ipc_send`, so measured on riscv64 it moved `ipc_send_recv` to 2.10x and `ipc_call_reply` to
+1.00x: E3 was padding the shape nothing in this tree runs, which is the shape milestone 188 phase 1
 had just established as the one that matters. `ipc_call` calls `maybe_pad` too now, and both shapes
 pad to roughly 1.85x.
 
 ## In brief
 
-`script/fastpath-footprint` bounds a **quantity**, not a harm. Liedtke's argument is that a kernel
+`script/fastpath-footprint` bounds a quantity, not a harm. Liedtke's argument is that a kernel
 touching a lot of memory per IPC evicts the *application's* working set, so the bill arrives as
 capacity misses spread through the workload. Nothing in this tree has ever observed that: icount
 models no cache, and the HVF development host's L1i is several times the boards'.
 
 Milestone 134's E3 was the experiment built to test it without a PMU. It runs the kernel with
 `--features fastpath_pad`, which pads the fastpath with `nop` to roughly double its footprint, and
-measures what happens. Run under icount on 2026-08-22 it reported **2 to 3% latency effect for a 2x
-footprint growth**, which is what a tripwire that cannot see a cache can see.
+measures what happens. Run under icount on 2026-08-22 it reported 2 to 3% latency effect for a 2x
+footprint growth, which is what a tripwire that cannot see a cache can see.
 
-**Radon can now see cycles.** Milestone 74's riscv64 half landed 2026-09-04
-(`kernel/src/arch/riscv64/pmu.rs`, the SBI PMU extension), on a SiFive U74 with a **32 KB L1i**,
+Radon can now see cycles. Milestone 74's riscv64 half landed 2026-09-04
+(`kernel/src/arch/riscv64/pmu.rs`, the SBI PMU extension), on a SiFive U74 with a 32 KB L1i,
 which is the binding constraint DECISIONS §144's 16 KiB ceiling was derived from. E3 on that machine
 is the same experiment with an instrument that can answer.
 
 ## Why it is worth a lane rather than a paragraph
 
-**It is the measurement that decides milestone 188 phase 4**, a hand-written IPC fastpath, which is
+It is the measurement that decides milestone 188 phase 4, a hand-written IPC fastpath, which is
 a standing verification obligation and a permanent maintenance cost. That block's own recommendation
 is to wait for exactly this. Phases 1 to 3 established that the cheap methods leave the shape the
 system runs 48 to 103% over the 4 KiB target, so the arithmetic case for phase 4 is as strong as it
 will get and the empirical case does not exist.
 
 Two outcomes, both useful. If a 2x padded fastpath costs nothing measurable in cycles on a 32 KB
-L1i, **fatal risk 4 gets its best evidence yet** and phase 4 should be refused in writing. If it
+L1i, fatal risk 4 gets its best evidence yet and phase 4 should be refused in writing. If it
 costs something, phase 4 has a number to be measured against for the first time.
 
 ## What it is not

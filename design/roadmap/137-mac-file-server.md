@@ -9,11 +9,11 @@ needs_person: no
 ---
 # 137. The share as a Mac file server, which is not the same workload as the backup target
 
-**The subject was removed on 2026-08-30** with the SMB implementation
+The subject was removed on 2026-08-30 with the SMB implementation
 (notes/smb.md): this block is entirely about what a Mac's Finder wants from an SMB share, and there
 is no SMB server. Nothing in it is buildable, and unlike milestone 131 no part of it generalizes:
 named streams, resource forks and Apple's directory-enumeration extensions are SMB surface and
-nothing else here wants them. **Retiring this block is an architect's call**; the status word is
+nothing else here wants them. Retiring this block is an architect's call; the status word is
 unchanged because the vocabulary has no word for it.
 
 The first thing this milestone needs is the choice §99 deferred rather than
@@ -26,11 +26,11 @@ Machine backup is a sparse bundle and never touches Apple's metadata surface is 
 55 stop looking blocked on work it never needed, and that reasoning would be worth re-reading by
 anyone who builds a file server here again.
 
-**In brief.** A Mac using this share the way a person uses a file server: Finder metadata, resource
+In brief. A Mac using this share the way a person uses a file server: Finder metadata, resource
 forks, named streams, and the directory-enumeration extensions that make a Finder window feel like a
 local disk. Distinct from milestone 55, which is a Time Machine target.
 
-**Why it matters, and why it is a separate block.** Milestone 55 carried both workloads and nobody
+Why it matters, and why it is a separate block. Milestone 55 carried both workloads and nobody
 had noticed they were two, which made the metadata work look like a backup prerequisite. §99 showed
 it is not: **a Time Machine backup is a sparse bundle, directories and band files, and the metadata a
 Mac cares about lives inside the disk image's own filesystem, which this server never sees.** Three
@@ -43,14 +43,14 @@ appeared blocked on work it never needed. Splitting them is what lets 55 finish.
 
 ## What this milestone owns
 
-- **The `FILE_NAMED_STREAMS` bit**, which §99's evidence says is the *only* switch: macOS decides
+- The `FILE_NAMED_STREAMS` bit, which §99's evidence says is the *only* switch: macOS decides
   everything else from it.
-- **Where a stream lands on disk**, from §99's options 2, 3 and 4, and **the on-disk attribute name**,
+- Where a stream lands on disk, from §99's options 2, 3 and 4, and the on-disk attribute name,
   which is a thing two programs agree on in the strict sense because `redoxfs_host` and any future
   recovery host read it.
-- **The 3 KiB attribute ceiling**, which decides between the options rather than being a detail:
+- The 3 KiB attribute ceiling, which decides between the options rather than being a detail:
   `AFP_AfpInfo` is 60 bytes and fits; `AFP_Resource` is unbounded and does not.
-- **`READ_DIR_ATTR` and the Finder-facing enumeration extensions**, unmeasured in either direction so
+- `READ_DIR_ATTR` and the Finder-facing enumeration extensions, unmeasured in either direction so
   far.
 
 ## What it must fix first
@@ -61,11 +61,11 @@ in its name. §99 records it; whichever lane claims the bit fixes this in the sa
 
 ## BUGS
 
-- **Nothing here has met a real Mac as a file server.** §99 could not answer whether macOS in practice
+- Nothing here has met a real Mac as a file server. §99 could not answer whether macOS in practice
   stamps any extended attribute on a share it merely browses, because that needs hardware. Every
   feature list in this block is derived from source and documentation rather than from observation,
   and the first bench session may reorder all of it.
-- **The line estimates in §99 are estimates**, anchored on `ksmbd`'s ~200 lines of C. They are good
+- The line estimates in §99 are estimates, anchored on `ksmbd`'s ~200 lines of C. They are good
   enough to rank the options and not good enough to schedule against.
 - **This block does not say what "good enough" is.** A Finder window that lists files is not the same
   bar as one that shows the right icons, and nobody has written down which one this is aiming at.
@@ -74,6 +74,6 @@ in its name. §99 records it; whichever lane claims the bit fixes this in the sa
 
 Split out of milestone 55 by calef on 2026-08-18, ruling on §99. A Time Machine backup is a sparse
 bundle and never touches Apple's metadata surface, so the two workloads had two feature lists
-under one block and the backup path looked blocked on work it never needed. This is where `FILE_NAMED_STREAMS`, resource forks and the Finder-facing enumeration extensions lived. **Subject
-removed 2026-08-30** with the SMB implementation (notes/smb.md); nothing here is buildable without
+under one block and the backup path looked blocked on work it never needed. This is where `FILE_NAMED_STREAMS`, resource forks and the Finder-facing enumeration extensions lived. Subject
+removed 2026-08-30 with the SMB implementation (notes/smb.md); nothing here is buildable without
 an SMB server, so the block needs retiring, which is an architect's

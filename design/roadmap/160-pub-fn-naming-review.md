@@ -24,8 +24,8 @@ already uses.
 
 Checked directly, not assumed: across the 47 crates the kernel depends on (its 46 direct
 dependencies plus `glob`, the one crate one level deeper that is not already a direct dependency
-itself), there are **1,753 `fn` items total**, of which **681 are `#[test] fn`** and **392 are
-`pub fn`**.
+itself), there are 1,753 `fn` items total, of which 681 are `#[test] fn` and 392 are
+`pub fn`.
 
 The 681 tests are explicitly out of scope: this tree already has a deliberate, different naming
 discipline for them (descriptive-sentence names, e.g.
@@ -52,11 +52,11 @@ changing their signatures; once they land, the 392-count above is stale in *whic
 function lives in, even though the total should not move. Wait for those four to merge before
 starting the walkthrough, so a function is reviewed under its final crate name.
 
-**392 is a lot more than the 24 crate names just reviewed.** Doing this one function at a time, the
+392 is a lot more than the 24 crate names just reviewed. Doing this one function at a time, the
 discipline this session used throughout, will take many passes. Two shapes worth considering when
 the work actually starts, left as a judgment call for whoever begins it rather than decided here:
 
-- **Prioritize by exposure**, not alphabetically: crates nearest the syscall boundary and most
+- Prioritize by exposure, not alphabetically: crates nearest the syscall boundary and most
   widely depended on (`abi`, `capability`, `inter_process_communication`, `paging`) are the ones a reader meets first and
   most often, so a naming problem there costs more than one in a narrowly-used crate.
 - **Batch mechanically-fine names**, the same way this session batched (or offered to batch, and

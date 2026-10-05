@@ -13,17 +13,17 @@ day milestone 313 (the security audit that was due since August) raised it as fi
 
 It was gated `DECISION` until 2026-09-18, when calef answered
 §153 (how a two-core x86_64 test earns its place),
-[the decision file](../decisions/153-two-core-x86-test-sequencing.md): **close this milestone
+[the decision file](../decisions/153-two-core-x86-test-sequencing.md): close this milestone
 first, then default
-`NIFE_SMP` to 2.** Both halves are done, and the second is the verification of the first.
+`NIFE_SMP` to 2. Both halves are done, and the second is the verification of the first.
 
 ## What it owed, and what landed
 
-1. **The broadcast.** `arch::x86_64::segments::revoke_port_grant_everywhere` resets this core's TSS
+1. The broadcast. `arch::x86_64::segments::revoke_port_grant_everywhere` resets this core's TSS
    I/O permission bitmap and then tells every other online core to do the same, over the TLB
    shootdown's NMI (`mmu::revoke_port_grant_others`). `sched::delete_port_range_caps_impl` calls it
    in place of the core-local reset.
-2. **The default flip.** `helpers/qemu-runner-x86_64.sh` defaults `NIFE_SMP` to 2.
+2. The default flip. `helpers/qemu-runner-x86_64.sh` defaults `NIFE_SMP` to 2.
 
 ## The defect was reproduced before it was fixed
 
@@ -32,7 +32,7 @@ deliverable and would be the first port test able to observe the revocation wind
 316 found that the test already existed. `user::x86_port_tests::a_revoked_holder_faults_on_its_next_port_write`
 became that observer the moment 316 gave it a working two-core substrate.
 
-**7 of 12 full two-core runs** is 316's campaign figure. This lane established its own, on the same
+7 of 12 full two-core runs is 316's campaign figure. This lane established its own, on the same
 host (patagonia, no induced load), against the filtered leg `cargo xtask test --arch x86_64 --test
 x86_port` at `NIFE_SMP=2`:
 
@@ -42,7 +42,7 @@ x86_port` at `NIFE_SMP=2`:
 | filtered, instrumented | 30 | **2** |
 
 Every failure was the same assertion at the same line, `x86_port_tests.rs`'s `left: 2, right: 1`:
-the child's `out` was **permitted** and it exited cleanly (`EVENT_EXIT`) where the test demands a
+the child's `out` was permitted and it exited cleanly (`EVENT_EXIT`) where the test demands a
 fault. The filtered leg runs three tests rather than 326, which is why its rate is lower than the
 full suite's; it is the same failure.
 
@@ -60,7 +60,7 @@ lands before the child reaches its `RECV` the child's `RECV` returns without eve
 the grant core 1 installed at switch-in is still installed when the `out` executes, and core 0's
 reset never touched it.
 
-**Measured rather than argued.** A temporary snapshot of `INSTALLED_PORT_GRANT`, taken at the revoke
+Measured rather than argued. A temporary snapshot of `INSTALLED_PORT_GRANT`, taken at the revoke
 and read by the test after the outcome arrived:
 
 | what the snapshot said at the revoke | runs | outcome |
@@ -109,7 +109,7 @@ been verified by hand and gated by nothing.
 
 ## BUGS
 
-- **Three cores and above are still opt-in and still unmeasured on silicon.** The flip is to 2, not
+- Three cores and above are still opt-in and still unmeasured on silicon. The flip is to 2, not
   to 4 like the other two runners. `ap_boot`'s `BUGS` #1 was closed on QEMU TCG in 2026-09-19 and
   xenon has never been asked to bring all four cores online; the line to read there is
   `smp: N core(s) online`.

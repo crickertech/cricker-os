@@ -6,8 +6,8 @@ built: 2026-09-19
 # 382. Three of AIM7's job categories are missing from the multi-tasking workload
 
 Built 2026-09-19, by milestone 168's own lane, in a different session and on the same
-day this block was numbered. Two of the three categories landed: the job mix gained **page mapping**
-and **process creation**, which are the two the argument below actually rested on. The third, the
+day this block was numbered. Two of the three categories landed: the job mix gained page mapping
+and process creation, which are the two the argument below actually rested on. The third, the
 disk-file category, is deliberately still absent and has its own proposal; see `## Follow-on`.
 
 **The work and the number were minted by two sessions that could not see each other.** This branch
@@ -19,10 +19,10 @@ path that no longer exists. Filed 2026-09-04 as an unnumbered proposal by milest
 `crates/job_mix`'s own `BUGS`; numbered 2026-09-19 by milestone 433's drain. *(Number provisional
 until the merge queue lands it.)*
 
-**It carried `Gate: NONE`** for the design, with the *result* it improves still behind milestone 168's `HARDWARE`. The line is gone because a finished block's gate can only be stale. The
+It carried `Gate: NONE` for the design, with the *result* it improves still behind milestone 168's `HARDWARE`. The line is gone because a finished block's gate can only be stale. The
 jobs themselves are ordinary userspace work and develop under QEMU.
 
-**In brief.** `crates/job_mix` keeps AIM7's four methodological properties and stands in for its
+In brief. `crates/job_mix` keeps AIM7's four methodological properties and stands in for its
 categories with five jobs: a compute grind, a working-set walk, a null syscall, a yield burst and an
 IPC round trip. **Three AIM7 categories have no representative**, each refused for a stated reason
 rather than overlooked:
@@ -36,8 +36,8 @@ rather than overlooked:
 ## Why it matters
 
 DECISIONS §96's question is how much of this kernel's time goes into process-kernel overhead under
-multi-tasking load, and the cost lives in kernel stacks left behind by threads that **block inside
-the kernel**. Two of the three missing categories are exactly that: a filesystem call and a spawn
+multi-tasking load, and the cost lives in kernel stacks left behind by threads that block inside
+the kernel. Two of the three missing categories are exactly that: a filesystem call and a spawn
 both block deep in a kernel path, where a null syscall and a yield do not. So the missing categories
 are not a fidelity nicety; they are plausibly where the effect is largest, and a flat result from the
 present mix is weaker evidence than a flat result from a mix that had them.
@@ -61,9 +61,9 @@ stake is how much weight a flat curve can carry.
 - **Milestone 168.** Where the work landed: *"The second hole"* and *"What changed on 2026-09-19"*
   in that block, with the refusals this one recorded answered there. The map job did not need a new
   capability, and the spawn job's allocator share is now printed.
-- **Milestone 493.** The **disk-file category**, which is the one of the three that did not land and is
+- **Milestone 493.** The disk-file category, which is the one of the three that did not land and is
   not simply deferred. A 2026-09-13 correction to `crates/job_mix`'s `BUGS` established that
-  **Warton's own AIM7 run had the filesystem jobs disabled** (section 5.4, the ramdisk was too
+  Warton's own AIM7 run had the filesystem jobs disabled (section 5.4, the ramdisk was too
   small), so the gap is not a gap against the number this crate exists to chase. Its own proposal is
   milestone 493 (a disk-file job mix needs a disk), `design/roadmap/493-a-disk-file-job-mix-needs-a-disk-radon-can-drive.md`, which names the
   harder half: a disk radon can actually drive.

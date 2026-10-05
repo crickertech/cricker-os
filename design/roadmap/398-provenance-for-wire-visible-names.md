@@ -11,13 +11,13 @@ needs_person: no
 
 Filed 2026-09-13 as an unnumbered proposal, found by milestone 283's gate
 firing on a record nobody knew was there; numbered 2026-09-19 by milestone 433's drain of the
-proposal pile. **Premise re-read against the tree on 2026-09-19 and still true.**
+proposal pile. Premise re-read against the tree on 2026-09-19 and still true.
 `crates/measured_boot/src/lib.rs` still carries the record on `PROGRAM_MEASUREMENTS`, saying in its
 own prose that the entry name is provisional and that it "sits outside the four surfaces
 `script/names` enumerates", and `script/names` still enumerates exactly those four. Two figures
-moved: `--unratified` is **72** deep rather than 97, and the program surface is `components/` and
+moved: `--unratified` is 72 deep rather than 97, and the program surface is `components/` and
 `fixtures/` rather than `user/src/` since milestone 175. **The cheap half this block asks for first
-has a first answer**: `pub const <NAME>: &str` matches **77** times across `crates/`, `components/`,
+has a first answer**: `pub const <NAME>: &str` matches 77 times across `crates/`, `components/`,
 `fixtures/` and `kernel/`, which is the order of magnitude that decides between a list in
 `design/naming.md` and a declared out-of-scope, and it is an upper bound rather than the count,
 since not every one of the 77 is agreed between two binaries.
@@ -46,7 +46,7 @@ pub const PROGRAM_MEASUREMENTS: &str = "program_measurements";
 ```
 
 `"program_measurements"` is an archive entry name. The kernel's trust root names it and init reads
-it out of the archive at boot, so **it is a string two programs agree on**, which `AGENTS.md` puts
+it out of the archive at boot, so it is a string two programs agree on, which `AGENTS.md` puts
 in the expensive, hard-to-reverse category alongside a wire format and an opcode number. It has a
 provisional name, its author said so, and `script/names --unratified` has never listed it because
 the surface does not exist.
@@ -67,7 +67,7 @@ It is also not one instance. Candidates, unenumerated, which is the point:
 
 ## What would have to be decided first
 
-1. **Is a wire string a "name" for this purpose, or is it data?** The argument for yes is that a
+1. Is a wire string a "name" for this purpose, or is it data? The argument for yes is that a
    reader meets it and cannot change it; the argument for no is that the worklist would grow by an
    amount nobody has counted, and `script/names --unratified` is already 97 deep.
 2. **Where does its block live?** Not in the file's header, because milestone 283 reserved that
@@ -77,7 +77,7 @@ It is also not one instance. Candidates, unenumerated, which is the point:
    walk. A wire string is a `const` in an arbitrary file, and a scheme that cannot enumerate its own
    surface is the hole this proposal is about, one level in.
 
-**The counting is the cheap half and should come first.** Before widening anything, a sweep for
+The counting is the cheap half and should come first. Before widening anything, a sweep for
 `pub const <NAME>: &str` and the `*_proto` operation tables would say how many names this actually
 is. If it is a dozen, the answer is probably a list in `design/naming.md` and no new machinery. If it
 is two hundred, the answer is probably that wire strings are out of scope and the record says so on

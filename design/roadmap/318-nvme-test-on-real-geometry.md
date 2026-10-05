@@ -10,7 +10,7 @@ Built by a lane on `milestone/318-nvme-test-on-real-geometry`.
 
 `kernel/src/user/non_volatile_memory_express_tests.rs::a_confined_el0_process_serves_the_block_interface_end_to_end` is
 milestone 261's proof and `design/fatal-risks/README.md` risk 6's decisive experiment. It passed under
-QEMU and **four of its assertions would have failed on xenon's 256 GB Micron**, for reasons with
+QEMU and four of its assertions would have failed on xenon's 256 GB Micron, for reasons with
 nothing to do with confinement. All four now hold on any namespace, and nothing about what the test
 proves has been weakened to get there.
 
@@ -29,14 +29,14 @@ half of the finding.
 | the neighbour block | block 38 reads as zeros | fail on any disk that has held anything |
 | the out-of-range block | block `8 MiB / 4096` is past the end | fail: block 2048 is valid and is read |
 
-**Milestone 261's lane flagged the symptom without connecting it.** Its bench handoff says to check
+Milestone 261's lane flagged the symptom without connecting it. Its bench handoff says to check
 that the namespace size reads about 256 GB rather than 8 MiB. That is precisely the number two of
 these assertions were written against, and nobody noticed the assertions depended on it. It is the
 shape this tree keeps finding: a test whose green depends on a condition nobody wrote down.
 
 ## What each assertion became
 
-**The geometry assertions now compare against the geometry.** `nvme_service::Wiring` gained a
+The geometry assertions now compare against the geometry. `nvme_service::Wiring` gained a
 `size_bytes` field carrying what the kernel's admin plane read from IDENTIFY, which is the number
 `nvme::Handoff` packs into `arg2` for the spawn. The readiness assertion compares `report[1]`
 against it, which is the property it always wanted (*the size survived the handoff into ring 3*)
@@ -48,13 +48,13 @@ smaller than two blocks would make everything below it vacuously true, so `start
 loudly. `kernel/src/non_volatile_memory_express.rs::bring_up` already refuses a zero-block namespace; this says so where
 the assertions that depend on it are.
 
-**The neighbour assertion became a second pattern.** The property is *the write landed where it
+The neighbour assertion became a second pattern. The property is *the write landed where it
 said and not everywhere*. The old shape established it by reading block 38 and expecting the
 image's zeros, which is a claim about the disk's prior contents and is true only of a file that was
 just created. The new shape writes a second, different function-of-offset pattern to block 38,
 then reads both blocks back and requires each to hold its own. A write that went everywhere puts
 `second` into block 37 and the first read-back catches it; a read that always returns the same
-block fails for the same reason. **Both writes happen before either read**, which is what makes the
+block fails for the same reason. Both writes happen before either read, which is what makes the
 block 37 read-back load-bearing rather than a restatement of the write it just did.
 
 This is strictly stronger than what it replaced, which is worth saying because portability
@@ -76,14 +76,14 @@ This cannot be run on xenon from a lane, so the argument is the deliverable. Tak
 be 256,060,514,304 bytes (a typical 256 GB Micron capacity, and nothing below depends on the exact
 figure):
 
-1. **The readiness assertion.** Both sides of it are the same value from the same source:
+1. The readiness assertion. Both sides of it are the same value from the same source:
    `w.size_bytes` is `handoff.size_bytes`, and `report[1]` is the `arg2` word the server was
    spawned with, which `Handoff::pack` takes from the same field. The assertion is now that the
    handoff is lossless, and `Handoff::pack`/`unpack` are Kani-proved to round-trip. It cannot
    depend on the magnitude.
-2. **`SIZE`.** `components/src/non_volatile_memory_express.rs` answers the verb out of the unpacked handoff, and
+2. `SIZE`. `components/src/non_volatile_memory_express.rs` answers the verb out of the unpacked handoff, and
    the assertion compares against the kernel's copy of the same number. Same argument.
-3. **The size floor.** 256 GB is comfortably more than two 4096-byte blocks.
+3. The size floor. 256 GB is comfortably more than two 4096-byte blocks.
 4. **Blocks 37 and 38 exist.** `holds_block(38, 4096)` needs `39 * 4096 <= size`, which holds for
    anything above 160 KiB. On QEMU's 8 MiB it also holds, which is why both legs run the same path.
 5. **Each block reads back its own pattern.** Neither pattern refers to the disk's size or to its
@@ -166,8 +166,8 @@ this tree does not have.
 ## Index row
 
 `a_confined_el0_process_serves_the_block_interface_end_to_end` is milestone 261's proof and fatal
-risk 6's decisive experiment, it passed under QEMU, and **four of its assertions were written
-against QEMU's 8 MiB zeroed image** and would have gone red on xenon's 256 GB Micron for reasons
+risk 6's decisive experiment, it passed under QEMU, and four of its assertions were written
+against QEMU's 8 MiB zeroed image and would have gone red on xenon's 256 GB Micron for reasons
 with nothing to do with confinement: the readiness report's size, the `SIZE` answer, a neighbour
 block expected to read as zeros, and an out-of-range block computed from a hardcoded 8 MiB. The
 first two now compare against the geometry the kernel read from IDENTIFY, which is the property
@@ -176,7 +176,7 @@ told*) rather than a fact about the runner's image; the third writes a second di
 the neighbour and requires each block to read back its own, which establishes *the write landed
 where it said and not everywhere* without any claim about what the disk held before; the fourth
 computes `size / BLOCK_SIZE`, the first refused block for any size whether or not it divides
-evenly. **Milestone 261's lane flagged the symptom without connecting it**: its bench handoff says
+evenly. Milestone 261's lane flagged the symptom without connecting it: its bench handoff says
 to check that the namespace reads about 256 GB rather than 8 MiB, which is exactly the number two
 of these assertions were written against. `xtask::mknvmedisk`'s header and `notes/non-volatile-memory-express.md` both
 recorded the now-retired coupling as a reason and are corrected. No other block-device test carries

@@ -9,7 +9,7 @@ needs_person: yes
 ---
 # 320. Every PCI bus the machine has, not just bus zero
 
-Partial as of 2026-09-17. Built and gated under QEMU; **unconfirmed on xenon**, which is the
+Partial as of 2026-09-17. Built and gated under QEMU; unconfirmed on xenon, which is the
 machine it exists for and the one nobody can boot from a lane. Minted 2026-09-17 by the maintainer,
 from `design/roadmap/proposals/a-kernel-that-maps-one-pci-bus.md`, which this block replaces and
 which carries the full argument. *(Number provisional until the merge queue lands it.)*
@@ -35,7 +35,7 @@ sight for a year because both sentences were true.
 On `q35` an NVMe controller hangs directly off bus 0, so one bus had always been enough. On xenon the
 M.2 slot is believed to be behind a PCIe root port, so the controller sits on a secondary bus and
 `pci::find_nvme_device()` searched a bus the disk was never on. The confinement test did not fail,
-it **skipped**, reporting `NIFE_NVME not set on this leg?`, which is QEMU's explanation for an
+it skipped, reporting `NIFE_NVME not set on this leg?`, which is QEMU's explanation for an
 absence with an entirely different cause.
 
 Transcript: `bench/xenon-2026-09-17/nvme-attempt-2-no-controller-found.log`.
@@ -68,7 +68,7 @@ bus 0. With `NIFE_PCIE_ROOT_PORT=1`, the same boot, the same code:
                 8 function(s) over 2 bus(es) of the 256 described; mapping 2048 KiB of config space
 ```
 
-**The block's premise is therefore neither confirmed nor refuted.** It said to stop if the census
+The block's premise is therefore neither confirmed nor refuted. It said to stop if the census
 found the NVMe on bus 0 all along; under QEMU it does find it on bus 0, and that is the machine
 being flat rather than evidence about xenon. The refutation this block asked for can only come from
 a xenon boot, and the census is what makes that boot decisive in one line instead of a day: it now
@@ -81,13 +81,13 @@ can neither use nor adopt`, both flat and bridged. The number to watch is still 
 
 ## The design fork, decided, and what the measurement changed
 
-**Option 2, the bridge walk.** `crates/pci` grew `bridge_buses` (the type-1 header's primary,
+Option 2, the bridge walk. `crates/pci` grew `bridge_buses` (the type-1 header's primary,
 secondary and subordinate bus numbers), `Function` (what a census needs to print), and `walk`, which
 descends breadth-first over a 256-bit visited set so that a cycle in firmware's bus numbering
 terminates rather than recursing. `enumerate` is now `walk` with the topology dropped.
 
-**The cost argument the block leaned on turned out to be weak, and that is worth recording because
-it nearly decided the fork.** Measured rather than asserted, on `q35` under QEMU with 256 MiB:
+The cost argument the block leaned on turned out to be weak, and that is worth recording because
+it nearly decided the fork. Measured rather than asserted, on `q35` under QEMU with 256 MiB:
 
 | ECAM mapped | page tables |
 |---|---|
@@ -95,15 +95,15 @@ it nearly decided the fork.** Measured rather than asserted, on `q35` under QEMU
 | 2 buses (the root-port topology) | 560 KiB, no measurable change |
 | 128 buses (128 MiB), what xenon's MCFG describes | 812 KiB |
 
-Option 1 would have cost **252 KiB on a boot spending 32,840 KiB on page tables**, which is 0.8%,
+Option 1 would have cost 252 KiB on a boot spending 32,840 KiB on page tables, which is 0.8%,
 not the catastrophe "128 MB of mapping" sounds like. So the recommendation stands on the reason the
-block gave rather than the one it implied: **would we still choose the bridge walk if both cost the
-same? Yes**, because a flat scan over a range ACPI happens to describe is the same species of
+block gave rather than the one it implied: would we still choose the bridge walk if both cost the
+same? Yes, because a flat scan over a range ACPI happens to describe is the same species of
 assumption that produced this bug, and because it issues configuration reads to bus numbers no
 bridge on the machine decodes.
 
 Option 3 (lazy mapping) was not needed and its machinery was not written. The reason is an ordering
-fact rather than a cleverness: `pci::survey` runs from `kernel_main` **before** `arch::mmu::init`,
+fact rather than a cleverness: `pci::survey` runs from `kernel_main` before `arch::mmu::init`,
 and at that point the x86 boot tables still cover the low 4 GiB indiscriminately, so every bus the
 MCFG describes is already readable at no mapping cost at all. `map_everything` runs afterwards and
 maps exactly what the survey found. `arch::mmu::PCI_ECAM_BUSES` stops being the answer and becomes
@@ -111,24 +111,24 @@ the floor; `pci::ecam_buses()` is the answer, and all three architectures' `map_
 
 ## What could not be tested, and why
 
-- **The real topology.** Only xenon has it. `NIFE_PCIE_ROOT_PORT=1` on
+- The real topology. Only xenon has it. `NIFE_PCIE_ROOT_PORT=1` on
   `helpers/qemu-runner-x86_64.sh` (provisional name) puts the NVMe behind a `pcie-root-port`, which
   is the *shape* xenon is believed to have, and `cargo xtask test --arch x86_64` runs one three-second
   boot against it. That gates the walk. It does not confirm anything about xenon.
-- **A working disk behind a bridge.** A bridge forwards memory only inside the window its own
+- A working disk behind a bridge. A bridge forwards memory only inside the window its own
   base/limit registers describe; those are firmware's to write and QEMU's PVH boot has no firmware,
   so the controller on bus 1 enumerates and its BAR does not decode. On xenon, where firmware wrote
   both the bus numbers and the windows, milestone 256's adoption arm keeps every BAR inside a window
   that already works. See `design/roadmap/proposals/a-bridge-window-the-kernel-programs-itself.md`.
-- **A sparse bus numbering.** The mapped range is contiguous (`0..=highest`), which is a waste and
+- A sparse bus numbering. The mapped range is contiguous (`0..=highest`), which is a waste and
   not a hazard on any machine measured. `notes/pcie.md`'s BUGS section carries it.
 
 ## Done when
 
 - [x] The census prints every function on every bus the machine describes. **Built; not yet run on
       xenon**, which is what keeps this block PARTIAL.
-- [ ] `pci::find_nvme_device()` finds the Micron, or the census proves it is not there. **Needs a
-      xenon boot.** One boot answers it either way now.
+- [ ] `pci::find_nvme_device()` finds the Micron, or the census proves it is not there. Needs a
+      xenon boot. One boot answers it either way now.
 - [x] `script/test` green on all three architectures; host tests for the bridge arithmetic in
       `crates/pci`, plus a Kani proof that the walk's queue stays inside its array whatever firmware
       wrote in the bridges.

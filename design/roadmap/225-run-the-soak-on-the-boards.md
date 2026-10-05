@@ -19,15 +19,15 @@ the merge queue lands it.)*
 In milestone 53's sense: the boards are on the desk and this needs hands on
 them. Nothing else blocks, and nothing more can be built for it.
 
-**In brief.** Fatal risk 5's entire premise is that the defects appear only on silicon, **and as of
-2026-09-23 that premise has zero confirmed instances.** This block said until then that radon had
+In brief. Fatal risk 5's entire premise is that the defects appear only on silicon, and as of
+2026-09-23 that premise has zero confirmed instances. This block said until then that radon had
 produced one, a receiver woken with nothing delivered on three harts that no emulator run had shown.
 **That reading was retracted on 2026-08-15**, the day after it was recorded and two weeks before this
 block was written, by `notes/visionfive2.md`'s fifth bench stop: the dumps are the terminal state of
 a completed tour, identified five independent ways. Every multicore defect this project has found was
 found without silicon, including both x86_64 `ap_boot` bugs, which were found under QEMU TCG.
 
-**That strengthens the case for running this, rather than weakening it.** A premise with no instances
+That strengthens the case for running this, rather than weakening it. A premise with no instances
 is untested, not disproved, and this milestone is the experiment that would test it.
 
 Everything needed to run it now exists, and none of it existed on 2026-09-01:
@@ -47,9 +47,9 @@ Everything needed to run it now exists, and none of it existed on 2026-09-01:
 
 ## What it needs
 
-**Bench evenings, one per machine, and the discipline to read the first heartbeat before walking
-away.** Milestone 221's procedure is explicit about this and it is the part most likely to be
-skipped: `wakerate` should be about `100 * harts`, and `crossings` must be **rising** between beats
+Bench evenings, one per machine, and the discipline to read the first heartbeat before walking
+away. Milestone 221's procedure is explicit about this and it is the part most likely to be
+skipped: `wakerate` should be about `100 * harts`, and `crossings` must be rising between beats
 rather than frozen. Eight hours of a non-crossing soak is eight hours of milestone 219's experiment
 rather than 221's, and the difference is invisible afterwards.
 
@@ -57,12 +57,12 @@ Record `rounds`, `rate`, `wakes` and `crossings` for every run, in `notes/soak.m
 
 ## What an answer would and would not be
 
-**A clean run licenses one sentence**, which milestone 219's tooling prints on every green result:
+A clean run licenses one sentence, which milestone 219's tooling prints on every green result:
 this machine did N cross-core round trips without the wake gate refusing one, without a wrong reply,
 and without a worker stalling. It is not proof the concurrency is correct, and the risk's own text is
 honest that this class of question "produces a confidence rather than a verdict".
 
-**A failure is worth far more**, and is the outcome to hope for. It would be the first confirmed defect
+A failure is worth far more, and is the outcome to hope for. It would be the first confirmed defect
 this risk has produced, and the first found by an instrument rather than by somebody watching a bench.
 
 ## radon, 2026-09-25: clean, 8 h 09 m, 4.1 million crossings
@@ -95,7 +95,7 @@ it. What remains on radon is more boots, not longer ones.
   count and says why above; that is a choice, not a standard.
 - One radon boot is one draw. It drew the fastest arrangement seen so far, and a slow draw
   crosses about 275 times less often, so the clean result says little about slow arrangements.
-- **A hung board needs a person**, since nothing can power-cycle radon remotely (milestone 224) and
+- A hung board needs a person, since nothing can power-cycle radon remotely (milestone 224) and
   `script/board-console` reads without writing.
 - **The crossing count varies by more than 2x between identical runs**, recorded in milestone 221's
   BUGS, so it is not a figure to compare machines on without more care than a single run affords.

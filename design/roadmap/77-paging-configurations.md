@@ -9,7 +9,7 @@ needs_person: no
 ---
 # 77. `crates/paging`: a module per ISA, a type per page-table configuration
 
-Not started, and deliberately **waiting for a trigger**. Split out of milestone 73 on
+Not started, and deliberately waiting for a trigger. Split out of milestone 73 on
 2026-08-03 once it stopped being a rename.
 
 Deliberately waiting for a trigger rather than for a lane: the second
@@ -26,19 +26,19 @@ candidate (Apple Silicon's 16 KiB granule); milestone 88's server shapes could s
 | `Sv39` | 3 | 4 KiB | 39 |
 | `Aarch64` | 4 | 4 KiB | 48 |
 
-Both are **configurations**. `Sv39` names one; `Aarch64` names an architecture while describing one.
+Both are configurations. `Sv39` names one; `Aarch64` names an architecture while describing one.
 A reader meeting `paging::Aarch64` beside `paging::Sv39` has to know that the first is not the general
 aarch64 case in order to read the second correctly.
 
 ## The asymmetry is not ours, which is why the obvious fix is wrong
 
-**RISC-V enumerates its configurations and names each one**: Sv39, Sv48, Sv57. The name *is* the
-configuration. **ARM parameterises instead**: there is one format, and the level count and VA width
+RISC-V enumerates its configurations and names each one: Sv39, Sv48, Sv57. The name *is* the
+configuration. ARM parameterises instead: there is one format, and the level count and VA width
 fall out of `TCR_EL1.T0SZ` and the granule field. The 4 KiB, 48-bit, 4-level arrangement has no short
 ARM name; you describe it.
 
 So renaming `aarch64.rs` to `vmsav8_64.rs` trades a name that is under-specific for one that is
-**over**-specific: VMSAv8-64 also covers the 16 KiB and 64 KiB granule configurations this file does
+over-specific: VMSAv8-64 also covers the 16 KiB and 64 KiB granule configurations this file does
 not implement. And renaming `sv39.rs` to `riscv64.rs` is worse, because Sv48 would then have nowhere
 to live, and CLAUDE.md is explicit that a standard term a reader already knows is the best name
 available.
@@ -55,7 +55,7 @@ crates/paging/src/
   lib.rs              trait PageFormat
 ```
 
-**The module carries the ISA and the type carries the configuration**, so each architecture names its
+The module carries the ISA and the type carries the configuration, so each architecture names its
 configurations in its own vocabulary without the flat namespace forcing them into one list. The
 asymmetry stops being visible: you never see `Sv39` beside `Aarch64` again, which is the whole of what
 made it jarring.
@@ -78,12 +78,12 @@ the asymmetry finds the reasoning instead of filing it again.
 
 ## Scope note
 
-When it happens: module move, type rename, and every call site. `Aarch64` and `Sv39` appear **174
-times across 16 files**, including `kernel/src/arch/*/mmu.rs`, both `iommu.rs` files, and
+When it happens: module move, type rename, and every call site. `Aarch64` and `Sv39` appear 174
+times across 16 files, including `kernel/src/arch/*/mmu.rs`, both `iommu.rs` files, and
 `crates/paging/tests/mapping.rs`. No behaviour change, and milestone 69's proof obligation applies.
 
 ## Index row
 
 `Aarch64` names an ISA while describing a configuration, beside `Sv39` which names one properly. A
 second aarch64 configuration is expected, so the fix is room for siblings on both sides rather
-than a rename. **Waits for that configuration**, because it names the axis
+than a rename. Waits for that configuration, because it names the axis

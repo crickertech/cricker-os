@@ -8,7 +8,7 @@ built: 2026-09-02
 Built 2026-09-02. Minted 2026-09-01 by the maintainer, from a boot driven over the
 serial console the same hour. *(Number provisional until the merge queue lands it.)*
 
-**In brief.** The VisionFive 2 boots, starts a user program at U-mode, and then halts:
+In brief. The VisionFive 2 boots, starts a user program at U-mode, and then halts:
 
 ```
 userspace  : a program ran at U-mode and made 0 syscalls (yield/yield/exit via ecall)
@@ -19,7 +19,7 @@ MEASURED BOOT REFUSED: 'init' is not what this kernel image was built against
 halting rather than handing the archive to init.
 ```
 
-**That is the gate working and it should be read as a success**, in the same way DECISIONS §14's
+That is the gate working and it should be read as a success, in the same way DECISIONS §14's
 verified core is a success when it refuses. The kernel on the card was built against a different
 userspace archive than the one on the card, so it declines to hand the archive to `init`. Nothing is
 wrong with either file; they are from different builds.
@@ -48,16 +48,16 @@ started instructing one.
 
 ## What it needs
 
-- **The printed card-prep steps copy all three files**, with the archive no longer described as
+- The printed card-prep steps copy all three files, with the archive no longer described as
   optional.
-- **A word about why**, at the place the reader meets it: the kernel measures the archive and
+- A word about why, at the place the reader meets it: the kernel measures the archive and
   refuses a mismatch, so the two files travel together or the board halts.
-- **Consider making the mismatch impossible to express rather than documented.** The strongest form
+- Consider making the mismatch impossible to express rather than documented. The strongest form
   available here is that the script copies the files itself when given a target volume, so a human
   cannot copy one without the other. That is rung one of AGENTS.md's ladder against this block's
   rung three. It is in tension with the script's deliberate refusal to run anything destructive
-  ("`dd` to a device is a decision the person at the bench makes"), and **that tension is the design
-  question this milestone should answer rather than assume**: copying files onto a mounted
+  ("`dd` to a device is a decision the person at the bench makes"), and that tension is the design
+  question this milestone should answer rather than assume: copying files onto a mounted
   filesystem is not `dd` to a raw device, and the two may not deserve the same caution.
 
 ## What it got, 2026-09-02
@@ -95,7 +95,7 @@ intent fails the person with an unusual mount and protects nobody else.
 ### The one deletion, and why it is content-matched
 
 `--card` removes `<card>/extlinux/extlinux.conf`, and only that path, and only when the file
-contains a `label nife` line. An extlinux config on this board does not fail, it **hangs** U-Boot
+contains a `label nife` line. An extlinux config on this board does not fail, it hangs U-Boot
 before the kernel runs (milestone 218), so a stale one left beside a working boot script would
 quietly undo that fix, and "somebody will notice" is rung zero. Matching the content first is what
 keeps this from being a script that deletes a stranger's boot configuration: an extlinux.conf that
@@ -112,14 +112,14 @@ the build rather than after it. What no host check covers is a real card's files
 
 - **This block does not fix any card.** Re-flashing is a bench action and the pair on the card is
   stale until somebody does it, and radon was powered down on the day this landed.
-- **`--card` has only ever written to a directory on a Mac's own disk.** Nothing here has touched a
+- `--card` has only ever written to a directory on a Mac's own disk. Nothing here has touched a
   real microSD card, and the `sync` it issues afterwards is the ordinary defence against pulling a
   card too early rather than a tested one.
-- **Nothing here checks a card after the fact.** A tool that reads a mounted volume and reports
+- Nothing here checks a card after the fact. A tool that reads a mounted volume and reports
   whether its kernel and archive match would catch this before a power cycle rather than after, and
   is not in scope. `--card` narrows who needs it rather than removing the need: a card written by
   any other means is still unverifiable without booting it.
-- **The measured-boot refusal is only as good as the manifest.** This milestone treats the gate as
+- The measured-boot refusal is only as good as the manifest. This milestone treats the gate as
   correct because it fired on a real mismatch; it makes no claim about what the gate would miss.
 
 ## Follow-on

@@ -15,7 +15,7 @@ killing any user thread during the run, on both architectures. Proven able to fa
 assumed, `components/src/least_authority_demo.rs` was temporarily patched to trap on one argument and the gate went red
 naming the thread.
 
-**In brief.** The `login` thread died on **every** boot, on **both** architectures, and had been
+In brief. The `login` thread died on every boot, on both architectures, and had been
 doing so unnoticed. It does not any more; the rest of this block is written as it was found, because
 the finding is the interesting half.
 
@@ -24,18 +24,18 @@ Measured rather than deduced: instrumenting `login::fail` to fault at `0xFA11_00
 the archive length from `a1`, and `crates/system_initializer` starts it with
 `thread_control_block_start(login_tcb, 0, 0, 0)` and endows it with **no mapping of the archive**.
 
-**And the boot prints `init: login ready`, with a generated password**, because init measured the
+And the boot prints `init: login ready`, with a generated password, because init measured the
 identity provisioning rather than login's survival. So the line is true about what it checked and
 false about what a reader takes it to mean.
 
 That makes this the sharpest member of a family this tree found four of in one day (milestone 232,
-audit every check against two questions): not a check that failed to run, but a check that **passed
-while the thing it named was dead**.
+audit every check against two questions): not a check that failed to run, but a check that passed
+while the thing it named was dead.
 
 ## Why it is coupled to milestone 231
 
-Handing `login` a mapping of the archive costs init capability slots, **at exactly the peak
-milestone 230 measured and sized the table against**: 21 of 24, with three slots of deliberate
+Handing `login` a mapping of the archive costs init capability slots, at exactly the peak
+milestone 230 measured and sized the table against: 21 of 24, with three slots of deliberate
 headroom that its own block calls a guess standing in for a mechanism.
 
 So the fix and the accounting move together, and milestone 231 (nothing counts how many capability
@@ -44,7 +44,7 @@ fourth time, reactively, after another silent failure.
 
 ## What it needed, and what each was decided as
 
-**`login` stopped needing the archive**, which was the open half of this block. It is handed two
+`login` stopped needing the archive, which was the open half of this block. It is handed two
 blobs instead: `fs_subtree_caretaker`'s ELF bytes and the measurement table, at the two addresses
 `login_proto` now names, with their lengths in `x0` and `x1`.
 
@@ -56,12 +56,12 @@ syscall-surface decision and calef's. And it is the wrong shape anyway: this pro
 program's bytes and a table to check them against, and a service that can read every file in the boot
 image to answer a password holds authority it never exercises.
 
-**The deeper defect was that the two spawners disagreed and only one was tested.** The kernel's own
+The deeper defect was that the two spawners disagreed and only one was tested. The kernel's own
 harness could map the archive because it is the kernel; init never could. So the path the whole
 guest suite exercised was the path the real boot never took. Both now lay down the same two blobs,
 which is the part of this fix that stops the class rather than the instance.
 
-**The boot's report stops overstating.** `init: login ready` is now `init: login credentials
+The boot's report stops overstating. `init: login ready` is now `init: login credentials
 provisioned`, and the credential half is unchanged: `identity_provisioner` answering `IDP_RPT_OK`
 means a store exists holding that identity and that secret, which is worth saying. That `login` is
 alive is a different claim, and init cannot make it without a message and a wait it does not have,
@@ -75,8 +75,8 @@ before this milestone.
 
 ## What it cost, which is the thing the block said was interesting
 
-**Nothing in capability slots.** Milestone 231's gauge (nothing counts how many capability slots a
-boot actually uses) reports **21 of 24 both before and after**, on both architectures.
+Nothing in capability slots. Milestone 231's gauge (nothing counts how many capability slots a
+boot actually uses) reports 21 of 24 both before and after, on both architectures.
 `supervision_proto`'s `fill_and_map` holds one frame capability at a time and deletes it, so `blobs`
 reaches the same transient peak `build_child` already reaches copying `login`'s own segments. So
 `CAPABILITY_TABLE_SLOTS` was **not** raised a fourth time, and that is a measurement rather than a
@@ -96,15 +96,15 @@ is not this case.
 
 ## BUGS
 
-- **How long this was true is unknown.** Nobody bisected it, and unlike milestone 230's five days
+- How long this was true is unknown. Nobody bisected it, and unlike milestone 230's five days
   there is no green-to-red transition to search for, since the check that would have noticed was
   itself not running.
-- **The measurement check `login` performs is weaker than it was, and its own docs say so.** It used
+- The measurement check `login` performs is weaker than it was, and its own docs say so. It used
   to read the same physical archive the kernel maps for init, so it was independent of whoever
   spawned it; both blobs now come from init, which has already run the identical check over them, so
   what remains is a consistency check on the hand-over. Kept because it costs one hash and catches a
   spawner that pairs the wrong two blobs.
-- **Nothing else that init starts has been checked program by program.** The no-thread-killed
+- Nothing else that init starts has been checked program by program. The no-thread-killed
   assertion now covers all of them at once, which is stronger than asking the question of each, but
   it only catches a program that *dies*. A service that comes up and answers nothing useful still
   passes every check in the tree, which is milestone 232's (audit every check against two questions)

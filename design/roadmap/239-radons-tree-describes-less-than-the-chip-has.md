@@ -11,7 +11,7 @@ needs_person: yes
 
 Minted 2026-09-03 by calef, from the first bench session that ran milestone
 159's (a real hardware entropy source: the JH7110's TRNG) driver on the board it was written for.
-**The premise in that title is false and the title is kept anyway**, because milestone 241 (what a
+The premise in that title is false and the title is kept anyway, because milestone 241 (what a
 fourth board would have to be for, so that GICv3 is bought rather than justified) cites this
 milestone by that name and a lane does not edit another milestone's block. Read the title as the
 diagnosis this work was minted on; the section below is what it turned out to be. The token follows
@@ -23,16 +23,16 @@ Everything that does not need the board is built, host-tested and merged; what
 remains is two commands at a U-Boot prompt and one boot, and QEMU cannot stand in, because the
 `virt` machine has no JH7110 anything.
 
-**In brief, and the brief is a correction.** radon booted nife hands-free on 2026-09-03 (milestone
+In brief, and the brief is a correction. radon booted nife hands-free on 2026-09-03 (milestone
 218) and the tour reported:
 
 ```
 hw entropy  : skipped (this machine's tree describes no starfive,jh7110-trng; QEMU virt has none)
 ```
 
-The line was true. The conclusion drawn from it, that the tree omits the device, was not. **The tree
+The line was true. The conclusion drawn from it, that the tree omits the device, was not. The tree
 radon hands us does describe the TRNG. It describes it under a different node name and a different
-`compatible` string, and calls it disabled.**
+`compatible` string, and calls it disabled.
 
 ## What it actually is
 
@@ -60,7 +60,7 @@ firmware's build date, and unchanged at that branch's head:
 Linux spells the same device `rng@1600c000`, `compatible = "starfive,jh7110-trng"`, and that is what
 `crates/jh7110_entropy` was written against.
 
-**Every observation from the bench holds, and none of them meant what it was read to mean.**
+Every observation from the bench holds, and none of them meant what it was read to mean.
 
 | What was seen on 2026-09-03 | What it was read as | What it was |
 |---|---|---|
@@ -78,7 +78,7 @@ limits all assume a missing node. Nothing is missing.
 `starfive,trng` is not a different device and it is not a different register block. It is a stale
 fork, and there are two pieces of evidence rather than an argument:
 
-- **StarFive's own kernel driver had already moved on.** `drivers/char/hw_random/starfive-trng.c` in
+- StarFive's own kernel driver had already moved on. `drivers/char/hw_random/starfive-trng.c` in
   `starfive-tech/linux` matched `starfive,jh7110-trng` at commit `202b558ae34c`, 2022-12-14, two
   months before this firmware was built
   (<https://github.com/starfive-tech/linux/blob/202b558ae34c/drivers/char/hw_random/starfive-trng.c>).
@@ -87,7 +87,7 @@ fork, and there are two pieces of evidence rather than an argument:
   `CTRL`/`STAT`/`ISTAT` bit positions mainline's `jh7110-trng.c` carries. Two drivers written
   against one IP block agree completely, which is what makes accepting the vendor string a claim
   about a spelling rather than a claim about silicon.
-- **Nobody on their side had a reason to notice.** Linux on this board is handed the kernel
+- Nobody on their side had a reason to notice. Linux on this board is handed the kernel
   package's own DTB. It never sees U-Boot's, so U-Boot's copy could drift for a year without
   costing StarFive anything. It costs us, because nife takes U-Boot's tree and nothing else.
 
@@ -131,7 +131,7 @@ upper-case C being genuinely irregular rather than a transcription slip.
 
 ## What is left, and it is a bench session
 
-**Nothing in this milestone has run on radon.** The board was powered off when the work was done and
+Nothing in this milestone has run on radon. The board was powered off when the work was done and
 there was no bench session. Two commands and one boot settle all of it.
 
 1. At the `StarFive #` prompt, with a serial terminal that can type (`screen /dev/cu.usbmodem*
@@ -189,7 +189,7 @@ there was no bench session. Two commands and one boot settle all of it.
 
 ## BUGS
 
-- **Nothing here has touched silicon.** The node's presence in the running firmware's tree is
+- Nothing here has touched silicon. The node's presence in the running firmware's tree is
   inferred from that firmware's source at the right vintage, not read off the board. It is a strong
   inference (the model string, the two neighbour nodes, and the PLIC node in
   `crates/machine_discovery/tests/fixtures/visionfive2-uboot-control.dts` all match that source) and
@@ -198,7 +198,7 @@ there was no bench session. Two commands and one boot settle all of it.
   a Jenkins build of a release branch, not a commit, so "the last change before Feb 12 2023 on
   `JH7110_VisionFive2_devel`" is a reasonable reading of which source went in and not a proven one.
   The last row of the table above is what that possibility looks like from the boot tour.
-- **Accepting `starfive,trng` is a claim about a register layout, made from two drivers agreeing.**
+- Accepting `starfive,trng` is a claim about a register layout, made from two drivers agreeing.
   Neither driver was run. If the vendor tree's node were somehow a different block at the same
   address, this change would hand a confined userspace process a mapping of it, which is the same
   authority milestone 159 already grants and no more.
@@ -206,7 +206,7 @@ there was no bench session. Two commands and one boot settle all of it.
   `disabled`, meaning it, will be driven anyway. That is the right trade for this board and it is
   not obviously right for the next one; the field is there so a caller can change its mind without
   changing the decoder.
-- **The `device_tree_blob` crate's `MAX_DEPTH` is 16 and this fixture's node sits at depth 3.** The real control
+- The `device_tree_blob` crate's `MAX_DEPTH` is 16 and this fixture's node sits at depth 3. The real control
   DTB's `/soc/trng@1600C000` is at the same depth, so the limit is not in play, but nothing in the
   test proves that about the real tree because the real tree is not in the test.
 
