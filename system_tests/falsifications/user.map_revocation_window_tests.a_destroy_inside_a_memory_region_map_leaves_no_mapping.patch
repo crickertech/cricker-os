@@ -14,7 +14,7 @@ lane found it by asking which other mapping paths read their source outside the 
 
 Expected to fail: `assert!(!REPORT.mapped.load(..), "a MemoryRegion::MAP held while its region was destroyed kept its mapping ...")`.
 Confirmed red on riscv64 on 2026-10-04 (UTC) against the fixed tree, at
-`map_revocation_window_tests.rs:399`, the assertion predicted.
+`map_revocation_window_tests.rs:407`, the assertion predicted.
 
 **The assertions above the headline stay green under this patch**: the seam was reached, the
 neighbouring page that builds the tables mapped, and the region no longer resolves.

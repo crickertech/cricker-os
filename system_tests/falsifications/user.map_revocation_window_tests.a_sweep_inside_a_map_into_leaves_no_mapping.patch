@@ -13,7 +13,7 @@ This was the live tree, not an invented break. The revocation-race lane recorded
 
 Expected to fail: `assert!(!REPORT.mapped.load(..), "an AddressSpace::MAP_INTO held while a {sweep:?} ran kept its mapping ...")`, on the `Revoke` round.
 Replayed red on riscv64 on 2026-10-04 (UTC) against the fixed tree, at
-`map_revocation_window_tests.rs:299`, the assertion predicted.
+`map_revocation_window_tests.rs:307`, the assertion predicted.
 
 **The assertions above the headline stay green under this patch**: the seam was reached, and the
 sweep reached the builder's own table.

@@ -13,7 +13,7 @@ This was the live tree, not an invented break. The revocation-race lane recorded
 
 Expected to fail: `assert!(!REPORT.mapped.load(..), "a PageFrame::MAP held while a {sweep:?} ran kept its mapping ...")`, on the `Revoke` round.
 Replayed red on riscv64 on 2026-10-04 (UTC) against the fixed tree, at
-`map_revocation_window_tests.rs:215`, the assertion predicted.
+`map_revocation_window_tests.rs:223`, the assertion predicted. Replayed red again on aarch64 on 2026-10-05 (UTC) after main's per-thread table locks (milestone 761 (capability lookup off the global lock)) merged in, at the same line.
 
 **The assertions above the headline stay green under this patch**: the seam was reached, and the
 sweep reached the mapper's own table, so the red means the claim rather than the fixture.
