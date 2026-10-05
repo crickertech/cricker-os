@@ -46,6 +46,12 @@
 //! captured `script/names --unratified` listing in `design/naming.md`; and the dated list of ten
 //! corrected blocks in the `refusals-written-where-the-tool-cannot-read-them` proposal. `hello`'s
 //! `ADDRESS_SPACE_BUILDER` role constant is a different name and was not touched.
+//!
+//! **Renamed again, ratified and not yet performed.** calef ruled 2026-10-05, in §185 (what carries
+//! the claim that userspace composes a process from an authority you can count on one hand), that
+//! this fixture is extended to run a thread in the space it builds, and that it becomes
+//! `process_composition_witness`: "The one thing it does well is
+//! test." The build lane performs the rename and rewrites this block under the new name.
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68's ratchet tracks

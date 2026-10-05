@@ -294,7 +294,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 182 | PROPOSED | [Is a string two binaries agree on a name for `script/names`' purposes, or is it data?](182-provenance-for-wire-visible-names.md) |
 | 183 | PROPOSED | [What `script/ci-build` with no arguments means, and what the two tiers are called](183-what-no-arguments-means.md) |
 | 184 | PROPOSED | [Does the host test pass run on a second architecture, and at what cadence?](184-an-x86-64-host-in-the-host-pass.md) |
-| 185 | PROPOSED | [What carries the claim that userspace composes a process from an authority you can count on one hand](185-composing-a-process-from-two-capabilities.md) |
+| 185 | DECIDED | [What carries the claim that userspace composes a process from an authority you can count on one hand](185-composing-a-process-from-two-capabilities.md) |
 | 186 | PROPOSED | [Where a riscv64 tour-boot check runs, what it asserts, and what it is called](186-where-the-riscv-tour-check-runs.md) |
 | 187 | PROPOSED | [One crate per kernel-test pair, or one crate for all of them?](187-crates-for-the-numbers-a-kernel-test-and-its-program-agree-on.md) |
 | 188 | PROPOSED | [What the lifted `fn check(ok: bool)` is called, now that nine programs write it out by hand](188-one-home-for-the-trap-on-false-helper.md) |
