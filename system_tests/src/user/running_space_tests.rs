@@ -472,9 +472,10 @@ fn a_corpse_does_not_keep_a_space_rooted_in_a_destroyed_region() {
         !sched::is_thread_present(tid),
         "the reaped corpse is still in the table"
     );
-    for r in [tcb_region, ep_region] {
-        sched::reclaim_region(r).expect("a corpse test region did not come back");
-    }
+    // Only the endpoint's region is ours to give back. `reap_supervised` already reclaimed
+    // `tcb_region` (it is the reap's whole teardown), so its name is dead and a second
+    // `reclaim_region` on it is refused.
+    sched::reclaim_region(ep_region).expect("the supervision endpoint's region did not come back");
 }
 
 /// The witness's three report words. Mirrored from `fixtures/src/scratch_release_witness.rs`, as
