@@ -166,8 +166,12 @@ def package_of(path, tree):
         text = tree.get(manifest)
         if text is not None:
             m = re.search(r'^\[package\][^\[]*?^name\s*=\s*"([^"]+)"', text, re.M | re.S)
-            if m:
+            # A name is spliced into a `cargo test -p` line in CI, so anything but a plain
+            # package name is refused here and its reader treated as in no package (run all).
+            if m and re.fullmatch(r"[A-Za-z0-9_-]+", m.group(1)):
                 return m.group(1)
+            if m:
+                return None
         if not d:
             return None
         d = os.path.dirname(d)
@@ -330,6 +334,11 @@ def selftest():
     p, t, r = run(["design/roadmap/1-x.md"],
                   {"crates/abi/src/lib.rs": 'let g = glob("design/roadmap/*.md");\n'})
     cases.append(("glob reader", p is True and "abi" in t))
+
+    # A package name that is not a plain name is never handed to the CI shell.
+    p, t, r = run(["notes/plain.md"], {"evil/Cargo.toml": '[package]\nname = "x; curl y"\n',
+                                        "evil/src/lib.rs": 'let d = "notes";\n'})
+    cases.append(("hostile package name", p is False and t == []))
 
     bad = [name for name, ok in cases if not ok]
     for name, ok in cases:
