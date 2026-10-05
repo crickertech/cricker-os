@@ -926,7 +926,7 @@ mod verification {
 
     /// **No page that overlaps a withheld range is ever in the mask**, for any capability values,
     /// any BAR size and any one withheld range: the MSI-X table is never mapped into the driver.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/extensible_host_controller_interface/falsifications/verification.the_window_never_maps_a_withheld_page.patch`
     #[kani::proof]
     #[kani::unwind(18)]
     fn the_window_never_maps_a_withheld_page() {
@@ -955,7 +955,7 @@ mod verification {
 
     /// **A producer ring never places a TRB on its link slot or past the end**, and places the link
     /// exactly on the last slot, from every reachable state.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/extensible_host_controller_interface/falsifications/verification.a_producer_ring_stays_in_bounds.patch`
     #[kani::proof]
     fn a_producer_ring_stays_in_bounds() {
         let entries: u16 = kani::any();
@@ -977,7 +977,7 @@ mod verification {
     }
 
     /// **The handoff round-trips, and anything `unpack` accepts is a layout the driver can use.**
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/extensible_host_controller_interface/falsifications/verification.the_handoff_round_trips.patch`
     #[kani::proof]
     fn the_handoff_round_trips() {
         let w: [u64; 3] = kani::any();
