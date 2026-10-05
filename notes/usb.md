@@ -61,6 +61,25 @@ echo 'sendkey e' | nc -U /tmp/mon.sock
 
 `NIFE_USB_KEYBOARD_OPTS` and `NIFE_USB_CONTROLLER_OPTS` are appended to the two `-device` options.
 
+## The keystroke stall, and the wrong first diagnosis
+
+Until 2026-10-05 (UTC) the riscv64 leg stalled mid-line about one boot in thirty: the echo of
+`echo hello` stopped partway, and a byte typed on the UART released the held keys. This file's
+BUGS blamed a lost wakeup of `line_editor` across harts. **That was wrong.** A thread dump at the
+stall showed nobody sending to `line_editor`; the driver sat in `Irq::WAIT`, and its PLIC source
+was pending, enabled, above threshold and undelivered.
+
+QEMU's PLIC re-evaluates delivery on a priority, threshold or completion write and on a rising
+line, never on an enable write, and `plic::enable` (which is also the driver's ACK) wrote the
+priority first. An xHCI event raised while the driver was draining was stranded until another
+device's line rose, a UART byte for instance. The fix writes the enable bit first;
+`kernel/src/drivers/plic.rs` has the reasoning, and
+`sched::tests::an_interrupt_raised_while_its_line_is_masked_is_delivered_at_the_ack` holds it on
+all three architectures.
+
+Measured on patagonia with the swish-check keystrokes alone (riscv64, TCG, four harts): 10 stalls in
+300 boots with the old order, 0 in 300 with the fix. aarch64: 0 in 150. x86_64 was not counted.
+
 ## Per architecture
 
 | | aarch64 | riscv64 | x86_64 |
@@ -79,12 +98,3 @@ echo 'sendkey e' | nc -U /tmp/mon.sock
 - A device refused after boot is refused silently: the report endpoint carries one message.
 - Never run on silicon. Every number here is QEMU's: timeouts are the specification's limits,
   not measurements, and QEMU cannot model a low-speed device.
-- **Keystrokes stall mid-line about one boot in twenty on riscv64** (found 2026-10-05 UTC, chasing
-  a red `swish-check` on #1630). The USB leg types `echo hello` and the echo stops partway (after
-  `e`, `echo `, `echo hell`), and later USB keys change nothing for 30 s. It is not the driver
-  losing keys: a line typed on the UART afterwards releases every held USB byte, interleaved with
-  the UART's. So the bytes reach the terminal endpoint, and `line_editor` is not woken for the
-  USB driver's `call` until a second sender (`input`) arrives. That points at a lost wakeup on a
-  two-sender rendezvous across harts, not at xHCI. Measured on `main` at 32dd00175: 3 failures in
-  60 boots of that leg alone (riscv64, TCG, 4 harts); aarch64 and x86_64 not yet counted. Owed:
-  a lane to find the race, which a real keyboard on xenon would also hit.
