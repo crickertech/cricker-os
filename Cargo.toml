@@ -289,6 +289,17 @@ opt-level = 2
 [profile.dev.package.digest]
 opt-level = 2
 
+# The screen console, optimised even in a debug build (2026-10-04, #1645), for `measured_boot`'s
+# reason above with TCG as the multiplier. Its scroll became a redraw of changed cells from RAM, so
+# a full screen of text no longer moves by one optimised `memmove` but by glyph rows built in this
+# crate. Unoptimised, the OVMF kernel suite (`cargo xtask uefi-test`, whose kernel prints every test
+# onto a 1280x800 screen) went from under 30 s to over 60 s against a 90 s bound, and CI's run of
+# it timed out. `bitmap_font` is the lookup inside the loop.
+[profile.dev.package.screen_console]
+opt-level = 2
+[profile.dev.package.bitmap_font]
+opt-level = 2
+
 # Overflow checks in release, ruled by calef 2026-10-04 (UTC) (notes/overflow-checks.md, option A).
 # The shipped build now means by `a + b` what every tested build means: an overflow halts rather
 # than wraps into a quiet wrong answer. Where a hot path wants a wrap, it says so at the site with

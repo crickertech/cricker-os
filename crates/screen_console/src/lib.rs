@@ -27,7 +27,8 @@
 //!   own `println!` emits no escape sequences to parse.
 //! - **The thing being reported is often the reason the machine is broken.** That is the block's
 //!   own constraint on this milestone, and it argues for the console with the least state that
-//!   could work. This one holds a cursor, a geometry and a scale: six `u32`s and no buffer.
+//!   could work. This one holds a cursor, a geometry and a scale (six `u32`s), plus one byte per
+//!   character cell in a [`Cells`] the caller keeps, which is what a scroll redraws from.
 //!
 //! What is deliberately shared is the **font**, so the letters on an early boot screen and the
 //! letters in the graphical terminal are the same letters.
@@ -36,7 +37,7 @@
 //!
 //! No colour changes, no escape sequences, no cursor, no scrollback, no reflow. A newline moves
 //! down, a carriage return moves to column zero, everything else is a glyph, and running off the
-//! bottom scrolls the picture up by one row of cells. **A console that cannot be put into a
+//! bottom scrolls the text up by one row of cells. **A console that cannot be put into a
 //! surprising state is worth more here than a capable one**, because its whole job is to be
 //! working at the moment something else is not.
 //!
@@ -54,7 +55,7 @@
 //!
 //! ```
 //! use machine_discovery::framebuffer::{Framebuffer, PixelOrder};
-//! use screen_console::ScreenConsole;
+//! use screen_console::{Cells, PixelSink, ScreenConsole};
 //!
 //! // Two cells wide, one tall: 14x8 pixels at four bytes each.
 //! let screen = Framebuffer { base: 0, width: 14, height: 8, stride: 56, order: PixelOrder::Bgrx };
@@ -62,7 +63,9 @@
 //! let mut console = ScreenConsole::new(screen).expect("a screen big enough for one cell");
 //!
 //! assert_eq!(console.size(), (2, 1));
-//! console.write(&mut pixels, "F");
+//! let mut cells = Cells::new();
+//! console.clear(&mut cells, &mut PixelSink::new(&mut pixels));
+//! console.write(&mut cells, &mut PixelSink::new(&mut pixels), "F");
 //!
 //! // The top-left pixel of an `F` is background and the one beside it is ink, which is the
 //! // property a mirrored or transposed painter gets wrong. See `bitmap_font`'s own example.
@@ -75,11 +78,22 @@
 //!
 //! # BUGS
 //!
-//! - **Scrolling reads the framebuffer back**, one screenful of bytes per scrolled row, and a
-//!   framebuffer aperture is mapped uncacheable by every caller this crate has. That is cheap under
-//!   QEMU and is the slowest thing here on real silicon; a write-combining mapping or a shadow copy
-//!   in RAM would both fix it and both cost more than this milestone is buying. The boot tour is
-//!   shorter than a 1280x800 screen is tall, so nothing scrolls during the boot this was built for.
+//! - **A screen with more rows than [`Cells::CAPACITY`] holds is drawn on the top rows only.**
+//!   The grid is a fixed 36,000 bytes because it has to exist before any allocator does, and that
+//!   covers every screen up to 1200 pixels tall at scale one and any height that matters at scale
+//!   two. A 1600x1600 panel would leave its bottom 400 pixels blank. Nothing in the fleet is one.
+//!
+//!   Until 2026-10-04 this bullet said something else: **scrolling read the framebuffer back**,
+//!   with `copy_within` over the aperture, and the crate's own note called it the slowest thing
+//!   here on real silicon. On xenon calef saw the console scroll jerkily, redrawing in sections,
+//!   and the code accounts for it: 8 MB read and 8 MB written per new line through a
+//!   strong-uncacheable mapping. (The cause is read off the code; the bench has not yet confirmed
+//!   the fix.) The
+//!   console now keeps its text in a [`Cells`], redraws only the cells a scroll changes, and
+//!   reaches the screen through a [`PixelSink`] that cannot be read at all. On the 2026-09-17
+//!   xenon transcript that is no bytes read and 30% of the old bytes written
+//!   (`a_scroll_writes_only_the_cells_that_changed`). The kernel's `x86_64` mapping of the
+//!   aperture went write-combining the same day (`kernel/src/arch/x86_64/mmu.rs`).
 //! - **Only 32-bit pixels.** [`machine_discovery::framebuffer::PixelOrder`] expresses the two byte
 //!   orders UEFI reports and nothing else, so a 24-bit packed or 16-bit mode has no console. Every
 //!   machine in the fleet reports one of the two.
@@ -406,11 +420,126 @@ impl Aperture {
     }
 }
 
+/// **The framebuffer, as something this crate can only write.**
+///
+/// A framebuffer aperture on real hardware is mapped uncacheable or write-combining, and reading
+/// either is slow by orders of magnitude: a read has to cross to the device and back, one word at a
+/// time, where a write is posted and forgotten. Until 2026-10-04 the scroll moved the picture up
+/// with `copy_within` over the aperture, reading most of 8 MB back for every new line on xenon,
+/// whose console calef saw redraw in sections. **So the console's only handle on the screen is this
+/// type, and it has no way to read.** The slice is private to this module and the one method is a
+/// store, so a painter that reads the screen back does not compile (rung 1: the wrong state is
+/// unrepresentable, and no test has to remember to look for it).
+///
+/// ```compile_fail
+/// let mut bytes = [0u8; 8];
+/// let sink = screen_console::PixelSink::new(&mut bytes);
+/// let _ = sink.bytes[0]; // private: there is no read path
+/// ```
+///
+/// Name: provisional (the console-scroll lane, 2026-10-04). "Sink" for the one direction data
+/// flows; `Framebuffer` is taken by the description this paints into.
+pub struct PixelSink<'a> {
+    bytes: &'a mut [u8],
+    /// How many pixels have been stored, for the tests that measure what a scroll costs.
+    #[cfg(test)]
+    stores: usize,
+}
+
+impl<'a> PixelSink<'a> {
+    /// Wrap the framebuffer's bytes. In a host test that is ordinary memory; in the kernel and the
+    /// loader it is the aperture.
+    #[must_use]
+    pub const fn new(bytes: &'a mut [u8]) -> Self {
+        Self {
+            bytes,
+            #[cfg(test)]
+            stores: 0,
+        }
+    }
+
+    /// A run of whole pixels, already in the screen's byte order, at `at` bytes from pixel (0, 0).
+    /// `false` when the run does not fit, having stored the whole pixels of it that do: a short
+    /// slice truncates the picture rather than panicking (see [`ScreenConsole::write`]).
+    ///
+    /// **A run rather than a pixel, for the emulator's sake** (2026-10-04). One bounds check and
+    /// one `copy_from_slice` per row of a glyph, instead of a check, a font lookup and a four-byte
+    /// copy per pixel, is what kept the OVMF kernel suite inside its 90 s bound under TCG once a
+    /// scroll became a redraw; see `ScreenConsole::draw`.
+    fn store_run(&mut self, at: usize, run: &[u8]) -> bool {
+        let room = self.bytes.len().saturating_sub(at);
+        let fits = run.len().min(room) / 4 * 4;
+        if fits > 0 {
+            self.bytes[at..at + fits].copy_from_slice(&run[..fits]);
+            #[cfg(test)]
+            {
+                self.stores += fits / 4;
+            }
+        }
+        fits == run.len()
+    }
+
+    /// How many bytes of screen this covers.
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        self.bytes.len()
+    }
+
+    /// Whether it covers nothing at all.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
+    }
+}
+
+/// **What the screen says, kept in RAM, one byte per character cell.**
+///
+/// The console redraws from this rather than from the screen, which is what makes a scroll cost
+/// writes and no reads. A byte is the glyph's ASCII code, a space where nothing was drawn. One
+/// colour pair and no attributes, so a byte is the whole cell.
+///
+/// **A separate value from [`ScreenConsole`] rather than a field of it**, because of its size:
+/// [`Cells::CAPACITY`] bytes, about 35 KiB, and the kernel's boot stack is 64 KiB with a recorded
+/// incident from a 16 KiB array on it (`notes/stack.md`). The kernel keeps this in its console's
+/// `static`, initialised at compile time, so it is never built on a stack; [`ScreenConsole`] stays
+/// the small `Copy` value it always was.
+///
+/// Name: provisional (the console-scroll lane, 2026-10-04).
+pub struct Cells {
+    text: [u8; Cells::CAPACITY],
+}
+
+impl Cells {
+    /// **How many cells there is room for**: 240 columns by 150 rows.
+    ///
+    /// 240 is the widest any screen gets. [`ScreenConsole::scale_for`] picks the largest scale
+    /// that leaves [`MIN_COLUMNS`] columns, so a screen gets fewer than `2 * MIN_COLUMNS` columns
+    /// at every scale: at one, because it is narrower than two scales' worth; at a larger scale,
+    /// because the next scale up did not fit. 150 rows is a 1200-pixel-tall screen at scale one,
+    /// the tallest under 1680 wide this tree has a reason to expect. A screen with more rows than
+    /// this leaves room for is drawn on the top rows that fit; see this crate's BUGS.
+    pub const CAPACITY: usize = 2 * MIN_COLUMNS as usize * 150;
+
+    /// A blank grid: every cell a space.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            text: [b' '; Self::CAPACITY],
+        }
+    }
+}
+
+impl Default for Cells {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// A cursor on a screen, and the arithmetic that puts a byte under it.
 ///
-/// It holds no picture. The framebuffer is the only storage, and it is passed in on every call
-/// rather than held, so that this type is a plain value a caller can put in a `static` without a
-/// pointer to device memory living inside it.
+/// It holds no picture. The screen's text lives in a [`Cells`] and the screen itself is a
+/// [`PixelSink`], both passed in on every call rather than held, so that this type is a plain value
+/// a caller can put in a `static` without a pointer to device memory living inside it.
 #[derive(Clone, Copy, Debug)]
 pub struct ScreenConsole {
     screen: Framebuffer,
@@ -443,7 +572,8 @@ impl ScreenConsole {
         screen.span()?;
         let scale = Self::scale_for(screen.width);
         let cols = screen.width / (bitmap_font::GLYPH_W * scale);
-        let rows = screen.height / (bitmap_font::GLYPH_H * scale);
+        let fit = u32::try_from(Cells::CAPACITY / cols.max(1) as usize).unwrap_or(u32::MAX);
+        let rows = (screen.height / (bitmap_font::GLYPH_H * scale)).min(fit);
         if cols == 0 || rows == 0 {
             return None;
         }
@@ -489,42 +619,53 @@ impl ScreenConsole {
     }
 
     /// How many bytes of framebuffer this console addresses, which is what a caller has to map and
-    /// how long the slice it passes to [`Self::write`] must be.
+    /// how long the slice behind the [`PixelSink`] it passes to [`Self::write`] must be.
     #[must_use]
     pub fn span(&self) -> usize {
         self.screen.span().unwrap_or(0)
     }
 
-    /// Paint the whole surface in [`Self::BACKGROUND`] and put the cursor at the top left.
+    /// Paint the whole surface in [`Self::BACKGROUND`], blank `cells`, and put the cursor at the top
+    /// left.
     ///
     /// Called once when a console is armed, because whatever the firmware left on the screen is not
-    /// this kernel's and text drawn over a logo is text nobody can read.
-    pub fn clear(&mut self, pixels: &mut [u8]) {
+    /// this kernel's and text drawn over a logo is text nobody can read. **This is what makes the
+    /// grid and the screen agree**: every cell a space, every pixel paper, which is exactly the
+    /// picture a grid of spaces draws.
+    pub fn clear(&mut self, cells: &mut Cells, pixels: &mut PixelSink<'_>) {
         let paper = self.screen.order.store(Self::BACKGROUND).to_le_bytes();
-        for pixel in pixels.as_chunks_mut::<4>().0 {
-            pixel.copy_from_slice(&paper);
+        // 512 bytes, not a page: a 4 KiB local put this frame over the 4 KiB guard under every
+        // kernel thread stack (`script/stack-frame-check`, #1645's second CI run).
+        let mut run = [0u8; 512];
+        for pixel in run.as_chunks_mut::<4>().0 {
+            *pixel = paper;
         }
+        for at in (0..pixels.len()).step_by(run.len()) {
+            pixels.store_run(at, &run[..run.len().min(pixels.len() - at)]);
+        }
+        cells.text.fill(b' ');
         self.col = 0;
         self.row = 0;
     }
 
     /// Write `text` at the cursor, advancing it.
     ///
-    /// `pixels` is the framebuffer, and a slice shorter than [`Self::span`] simply truncates the
-    /// picture rather than panicking: this is the code that runs when something else has already
-    /// gone wrong, and a bounds panic inside the console would take the message with it.
-    pub fn write(&mut self, pixels: &mut [u8], text: &str) {
+    /// `cells` must be the grid this console was last [`cleared`](Self::clear) with, and `pixels`
+    /// the screen. A screen shorter than [`Self::span`] simply truncates the picture rather than
+    /// panicking: this is the code that runs when something else has already gone wrong, and a
+    /// bounds panic inside the console would take the message with it.
+    pub fn write(&mut self, cells: &mut Cells, pixels: &mut PixelSink<'_>, text: &str) {
         for byte in text.bytes() {
-            self.put(pixels, byte);
+            self.put(cells, pixels, byte);
         }
     }
 
     /// One byte.
-    fn put(&mut self, pixels: &mut [u8], byte: u8) {
+    fn put(&mut self, cells: &mut Cells, pixels: &mut PixelSink<'_>, byte: u8) {
         match byte {
             b'\n' => {
                 self.col = 0;
-                self.newline(pixels);
+                self.newline(cells, pixels);
                 return;
             }
             b'\r' => {
@@ -535,78 +676,132 @@ impl ScreenConsole {
         }
         if self.col >= self.cols {
             self.col = 0;
-            self.newline(pixels);
+            self.newline(cells, pixels);
         }
         // A byte with no glyph is drawn as a space rather than dropped, so that a run of them still
         // occupies the columns it occupies on the UART and the two transcripts line up.
         let glyph = if (0x20..0x7f).contains(&byte) {
-            byte as char
+            byte
         } else {
-            ' '
+            b' '
         };
-        self.draw(pixels, glyph);
+        cells.text[self.cell(self.col, self.row)] = glyph;
+        self.draw(pixels, self.col, self.row, glyph);
         self.col += 1;
     }
 
+    /// Where cell (`col`, `row`) lives in a [`Cells`]. In range by construction: `new` keeps
+    /// `cols * rows` within [`Cells::CAPACITY`].
+    const fn cell(&self, col: u32, row: u32) -> usize {
+        (row * self.cols + col) as usize
+    }
+
     /// Move to the next row, scrolling when there is not one.
-    fn newline(&mut self, pixels: &mut [u8]) {
+    fn newline(&mut self, cells: &mut Cells, pixels: &mut PixelSink<'_>) {
         if self.row + 1 < self.rows {
             self.row += 1;
         } else {
-            self.scroll(pixels);
+            self.scroll(cells, pixels);
         }
     }
 
-    /// Move the picture up by one row of cells and blank the row that opens at the bottom.
+    /// Move the text up by one row of cells and blank the row that opens at the bottom.
     ///
-    /// See this crate's `BUGS`: the read half of this is the expensive half on real silicon.
-    fn scroll(&mut self, pixels: &mut [u8]) {
-        let stride = self.screen.stride as usize;
-        let band = stride * (bitmap_font::GLYPH_H * self.scale) as usize;
-        let live = stride * (self.rows * bitmap_font::GLYPH_H * self.scale) as usize;
-        if live > pixels.len() || band >= live {
+    /// **Redrawn from the grid, and only where it changed.** The picture this produces is exactly
+    /// the one the old copy-up of the screen produced (a host test holds the two side by side), but
+    /// it reads nothing from the screen and writes only the cells whose glyph differs from the one
+    /// already there. A boot transcript is mostly short lines over blank paper, so most cells are a
+    /// space moving onto a space and cost nothing (the test
+    /// `a_scroll_writes_only_the_cells_that_changed` measures how much on a real transcript). A
+    /// one-row console has nowhere to scroll to and is left alone, as it always was.
+    fn scroll(&mut self, cells: &mut Cells, pixels: &mut PixelSink<'_>) {
+        if self.rows < 2 {
             return;
         }
-        pixels.copy_within(band..live, 0);
-        let paper = self.screen.order.store(Self::BACKGROUND).to_le_bytes();
-        for pixel in pixels[live - band..live].as_chunks_mut::<4>().0 {
-            pixel.copy_from_slice(&paper);
+        let cols = self.cols as usize;
+        let live = cols * self.rows as usize;
+        for row in 0..self.rows {
+            for col in 0..self.cols {
+                let at = self.cell(col, row);
+                let next = if row + 1 < self.rows {
+                    cells.text[at + cols]
+                } else {
+                    b' '
+                };
+                if cells.text[at] != next {
+                    self.draw(pixels, col, row, next);
+                }
+            }
         }
+        cells.text.copy_within(cols..live, 0);
+        cells.text[live - cols..live].fill(b' ');
     }
 
-    /// Paint one glyph at the cursor.
-    fn draw(&self, pixels: &mut [u8], glyph: char) {
+    /// Paint one glyph into cell (`col`, `row`).
+    ///
+    /// Each font row is built once, as one screen row's run of `GLYPH_W * scale` pixels, and that
+    /// run is stored `scale` times. Per pixel there is no font lookup and no bounds check, which
+    /// matters more than it looks: under QEMU's TCG an unoptimised per-pixel loop made the
+    /// redrawing scroll slower than the copy it replaced, and the OVMF kernel suite overran its
+    /// bound (#1645's first CI run, 2026-10-04).
+    fn draw(&self, pixels: &mut PixelSink<'_>, col: u32, row: u32, glyph: u8) {
+        /// Room for a glyph row up to scale 16, a screen 13,440 pixels wide (448 bytes, kept small
+        /// because this is a frame on a kernel thread stack). Past that the cell is left unpainted
+        /// rather than drawn wrong.
+        const RUN: usize = bitmap_font::GLYPH_W as usize * 16 * 4;
         let stride = self.screen.stride as usize;
         let k = self.scale as usize;
-        let left = (self.col * bitmap_font::GLYPH_W) as usize * k * 4;
-        let top = (self.row * bitmap_font::GLYPH_H) as usize * k;
-        // Each font pixel becomes a k-by-k block: `y`/`x` walk the screen, `/ k` finds the font
-        // pixel under them.
-        for y in 0..bitmap_font::GLYPH_H as usize * k {
-            let row = (top + y) * stride + left;
-            for x in 0..bitmap_font::GLYPH_W as usize * k {
-                let at = row + x * 4;
-                let Some(pixel) = pixels.get_mut(at..at + 4) else {
+        let len = bitmap_font::GLYPH_W as usize * k * 4;
+        if len > RUN {
+            return;
+        }
+        let left = (col * bitmap_font::GLYPH_W) as usize * k * 4;
+        let top = (row * bitmap_font::GLYPH_H) as usize * k;
+        let ink = self.screen.order.store(Self::FOREGROUND).to_le_bytes();
+        let paper = self.screen.order.store(Self::BACKGROUND).to_le_bytes();
+        let mut run = [0u8; RUN];
+        for (fy, &bits) in bitmap_font::glyph(glyph as char).iter().enumerate() {
+            for (x, pixel) in run[..len].as_chunks_mut::<4>().0.iter_mut().enumerate() {
+                *pixel = if bits >> (x / k) & 1 != 0 { ink } else { paper };
+            }
+            for dy in 0..k {
+                if !pixels.store_run((top + fy * k + dy) * stride + left, &run[..len]) {
                     return;
-                };
-                let colour = bitmap_font::cell_pixel(
-                    glyph,
-                    (x / k) as u32,
-                    (y / k) as u32,
-                    Self::FOREGROUND,
-                    Self::BACKGROUND,
-                );
-                pixel.copy_from_slice(&self.screen.order.store(colour).to_le_bytes());
+                }
             }
         }
     }
 }
 
 #[cfg(test)]
+extern crate std;
+
+#[cfg(test)]
 mod tests {
+    use std::boxed::Box;
+    use std::vec;
+    use std::vec::Vec;
+
     use machine_discovery::framebuffer::{Framebuffer, PixelOrder};
 
-    use super::ScreenConsole;
+    use super::{Cells, PixelSink, ScreenConsole};
+
+    /// [`ScreenConsole::write`] with a fresh grid, for the tests that write once into a cleared
+    /// screen. A grid that is blank while the screen is not would draw a different picture on a
+    /// scroll, so every test that scrolls clears first through [`clear`], which keeps its own grid.
+    fn write(console: &mut ScreenConsole, pixels: &mut [u8], text: &str) {
+        GRID.with_borrow_mut(|cells| console.write(cells, &mut PixelSink::new(pixels), text));
+    }
+
+    /// [`ScreenConsole::clear`], blanking the grid [`write`] uses.
+    fn clear(console: &mut ScreenConsole, pixels: &mut [u8]) {
+        GRID.with_borrow_mut(|cells| console.clear(cells, &mut PixelSink::new(pixels)));
+    }
+
+    std::thread_local! {
+        /// One grid per test thread, so the helpers above read like the old one-argument calls.
+        static GRID: core::cell::RefCell<Box<Cells>> = core::cell::RefCell::new(Box::new(Cells::new()));
+    }
 
     /// A screen with a **padded stride**, which is the geometry that catches the classic
     /// framebuffer bug: a painter that multiplies by the width instead of the stride paints a
@@ -639,7 +834,7 @@ mod tests {
     fn a_letter_is_drawn_the_right_way_up_and_the_right_way_round() {
         let (found, mut pixels) = screen(4, 2, 12, PixelOrder::Bgrx);
         let mut console = ScreenConsole::new(found).expect("four by two cells");
-        console.write(&mut pixels, "F");
+        write(&mut console, &mut pixels, "F");
 
         let art: [[char; 7]; 8] = core::array::from_fn(|y| {
             core::array::from_fn(|x| {
@@ -685,7 +880,7 @@ mod tests {
         assert_eq!(found.span(), Some(pixels.len()));
         let mut console = ScreenConsole::new(found).expect("a wide screen");
         assert_eq!(console.size(), (137, 2));
-        console.write(&mut pixels, &"F".repeat(138));
+        write(&mut console, &mut pixels, &"F".repeat(138));
         for (col, row) in [(0, 0), (0, 1)] {
             for y in 0..16 {
                 for x in 0..14 {
@@ -713,14 +908,14 @@ mod tests {
         const PAD: u32 = 12;
         let (found, mut pixels) = screen(4, 2, PAD, PixelOrder::Bgrx);
         let mut console = ScreenConsole::new(found).expect("four by two cells");
-        console.clear(&mut pixels);
+        clear(&mut console, &mut pixels);
         // Poison the padding, then paint over the whole grid and check it survived.
         let visible = (found.width * 4) as usize;
         for y in 0..found.height as usize {
             let at = y * found.stride as usize + visible;
             pixels[at..at + PAD as usize].fill(0xa5);
         }
-        console.write(&mut pixels, "MMMM\nMMMM");
+        write(&mut console, &mut pixels, "MMMM\nMMMM");
         for y in 0..found.height as usize {
             let at = y * found.stride as usize + visible;
             assert_eq!(
@@ -738,10 +933,10 @@ mod tests {
         let (found, mut pixels) = screen(2, 2, 0, PixelOrder::Bgrx);
         let mut console = ScreenConsole::new(found).expect("two by two cells");
         assert_eq!(console.size(), (2, 2));
-        console.clear(&mut pixels);
+        clear(&mut console, &mut pixels);
 
         // Five characters into a 2x2 grid: "ab" wraps to "cd", then "e" scrolls and lands at (0,1).
-        console.write(&mut pixels, "abcde");
+        write(&mut console, &mut pixels, "abcde");
         let cell = |pixels: &[u8], col: u32, row: u32, ch: char| {
             (0..bitmap_font::GLYPH_H).all(|y| {
                 (0..bitmap_font::GLYPH_W).all(|x| {
@@ -784,7 +979,7 @@ mod tests {
         let (found, mut pixels) = screen(2, 2, 0, PixelOrder::Bgrx);
         pixels.fill(0xa5); // poison: a no-op clear would leave this untouched
         let mut console = ScreenConsole::new(found).expect("two by two cells");
-        console.clear(&mut pixels);
+        clear(&mut console, &mut pixels);
         for y in 0..found.height {
             for x in 0..found.width {
                 assert_eq!(
@@ -802,8 +997,8 @@ mod tests {
     fn a_carriage_return_resets_the_column_without_drawing_a_glyph() {
         let (found, mut pixels) = screen(3, 1, 0, PixelOrder::Bgrx);
         let mut console = ScreenConsole::new(found).expect("three by one cells");
-        console.clear(&mut pixels);
-        console.write(&mut pixels, "a\rb");
+        clear(&mut console, &mut pixels);
+        write(&mut console, &mut pixels, "a\rb");
         let cell = |pixels: &[u8], col: u32, ch: char| {
             (0..bitmap_font::GLYPH_H).all(|y| {
                 (0..bitmap_font::GLYPH_W).all(|x| {
@@ -832,8 +1027,8 @@ mod tests {
     fn scrolling_a_one_row_console_leaves_it_alone_rather_than_blanking_it() {
         let (found, mut pixels) = screen(3, 1, 0, PixelOrder::Bgrx);
         let mut console = ScreenConsole::new(found).expect("three by one cells");
-        console.clear(&mut pixels);
-        console.write(&mut pixels, "abcd"); // the fourth character wraps and tries to scroll
+        clear(&mut console, &mut pixels);
+        write(&mut console, &mut pixels, "abcd"); // the fourth character wraps and tries to scroll
         let cell = |pixels: &[u8], col: u32, ch: char| {
             (0..bitmap_font::GLYPH_H).all(|y| {
                 (0..bitmap_font::GLYPH_W).all(|x| {
@@ -859,29 +1054,274 @@ mod tests {
         assert!(cell(&pixels, 2, 'c'), "same for 'c'");
     }
 
-    /// `scroll`'s `live > pixels.len()` guard, at the one point a `>` and an `==`/`>=` disagree: a
-    /// buffer exactly as long as the live region must still be scrolled, not refused. Every
-    /// `screen()` fixture's buffer (4096 * 16 bytes) is far larger than any `live` this crate's
-    /// tests compute, so this boundary has never been reached before.
+    /// **The old painter, kept as the oracle**: the console as it was before 2026-10-04, which
+    /// scrolled by copying the screen up one row of cells with `copy_within`. That copy read the
+    /// framebuffer back, which is what made xenon's screen sweep visibly on every new line, and it
+    /// is the picture the grid-driven scroll must reproduce exactly. Written out here in full
+    /// rather than sharing `draw` with the code under test, so a bug in the shared half could not
+    /// make the two agree.
+    fn copy_up_reference(found: Framebuffer, pixels: &mut [u8], text: &str) {
+        let k = ScreenConsole::scale_for(found.width) as usize;
+        let (gw, gh) = (bitmap_font::GLYPH_W as usize, bitmap_font::GLYPH_H as usize);
+        let stride = found.stride as usize;
+        let cols = found.width as usize / (gw * k);
+        let rows = found.height as usize / (gh * k);
+        let (mut col, mut row) = (0usize, 0usize);
+        let ink = |c: u32| found.order.store(c).to_le_bytes();
+        for chunk in pixels.as_chunks_mut::<4>().0 {
+            chunk.copy_from_slice(&ink(ScreenConsole::BACKGROUND));
+        }
+        let newline = |row: &mut usize, pixels: &mut [u8]| {
+            if *row + 1 < rows {
+                *row += 1;
+                return;
+            }
+            let band = stride * gh * k;
+            let live = stride * rows * gh * k;
+            if band >= live {
+                return;
+            }
+            pixels.copy_within(band..live, 0);
+            for chunk in pixels[live - band..live].as_chunks_mut::<4>().0 {
+                chunk.copy_from_slice(&ink(ScreenConsole::BACKGROUND));
+            }
+        };
+        for byte in text.bytes() {
+            match byte {
+                b'\n' => {
+                    col = 0;
+                    newline(&mut row, pixels);
+                    continue;
+                }
+                b'\r' => {
+                    col = 0;
+                    continue;
+                }
+                _ => {}
+            }
+            if col >= cols {
+                col = 0;
+                newline(&mut row, pixels);
+            }
+            let glyph = if (0x20..0x7f).contains(&byte) {
+                byte as char
+            } else {
+                ' '
+            };
+            for y in 0..gh * k {
+                for x in 0..gw * k {
+                    let at = (row * gh * k + y) * stride + (col * gw * k + x) * 4;
+                    let c = bitmap_font::cell_pixel(
+                        glyph,
+                        (x / k) as u32,
+                        (y / k) as u32,
+                        ScreenConsole::FOREGROUND,
+                        ScreenConsole::BACKGROUND,
+                    );
+                    pixels[at..at + 4].copy_from_slice(&ink(c));
+                }
+            }
+            col += 1;
+        }
+    }
+
+    /// Text that exercises every path a scroll can take: lines shorter and longer than a row (so
+    /// wrapping scrolls as well as newlines), blank lines, carriage returns over existing text, and
+    /// bytes with no glyph. A fixed linear congruential generator, so a failure is reproducible.
+    fn awkward_text(lines: usize, cols: usize) -> std::string::String {
+        let mut seed = 0x2026_1004u32;
+        let mut next = || {
+            seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+            (seed >> 16) as usize
+        };
+        let mut text = std::string::String::new();
+        for _ in 0..lines {
+            for _ in 0..next() % (cols * 2 + 1) {
+                text.push(match next() % 40 {
+                    0 => '\r',
+                    1 => '\u{7}',
+                    2..=9 => ' ',
+                    n => (b'!' + (n as u8 * 3) % 94) as char,
+                });
+            }
+            text.push('\n');
+        }
+        text
+    }
+
+    /// **The whole correctness claim of the grid**: for every geometry that matters (a padded
+    /// stride, a screen that is not a whole number of cells, both byte orders, and a screen wide
+    /// enough to draw at scale two), text that scrolls many times leaves exactly the bytes the old
+    /// copy-up left, compared over the entire buffer including the padding and the unpainted
+    /// edges, after every one of several writes.
     #[test]
-    fn scroll_accepts_a_buffer_that_is_exactly_as_long_as_the_live_region() {
-        // A two-by-two `screen(2, 2, 0, ..)` geometry, with its `live` region as a compile-time
-        // constant so the buffer below can be sized to match it exactly (this crate is
-        // unconditionally `no_std`, so no `Vec` to size at runtime).
-        const STRIDE: usize = (2 * bitmap_font::GLYPH_W * 4) as usize;
-        const LIVE: usize = STRIDE * (2 * bitmap_font::GLYPH_H) as usize;
-        let (found, _big) = screen(2, 2, 0, PixelOrder::Bgrx);
+    fn the_grid_scroll_paints_exactly_what_the_copy_up_painted() {
+        let geometries = [
+            (5 * 7 + 3, 3 * 8 + 5, 12, PixelOrder::Bgrx),
+            (4 * 7, 2 * 8, 0, PixelOrder::Rgbx),
+            (1680 + 5, 16 * 4 + 3, 20, PixelOrder::Bgrx),
+        ];
+        for (width, height, pad, order) in geometries {
+            let found = Framebuffer {
+                base: 0,
+                width,
+                height,
+                stride: width * 4 + pad,
+                order,
+            };
+            let mut console = ScreenConsole::new(found).expect("a whole cell");
+            let (cols, rows) = console.size();
+            let text = awkward_text(rows as usize * 6, cols as usize);
+            let mut cells = Box::new(Cells::new());
+            let mut grid = vec![0xa5u8; found.span().expect("valid")];
+            console.clear(&mut cells, &mut PixelSink::new(&mut grid));
+            // The oracle paints from the start each time, so a prefix comparison checks the
+            // picture after every chunk rather than only at the end.
+            let mut written = 0;
+            for chunk in text.as_bytes().chunks(97) {
+                let chunk = core::str::from_utf8(chunk).expect("ascii");
+                console.write(&mut cells, &mut PixelSink::new(&mut grid), chunk);
+                written += chunk.len();
+                let mut oracle = vec![0x5au8; grid.len()];
+                copy_up_reference(found, &mut oracle, &text[..written]);
+                assert!(
+                    grid == oracle,
+                    "{width}x{height} pad {pad} {order:?}: pictures differ after {written} bytes"
+                );
+            }
+        }
+    }
+
+    /// **What a scroll costs on xenon, counted rather than estimated**: a real boot transcript
+    /// (the 2026-09-17 tour, `bench/xenon-2026-09-17/`) through a 1920x1080 console at scale two,
+    /// with every store counted. The old copy-up read the live rows minus one band and wrote all
+    /// of them on every scroll; this reads nothing, because it cannot, and writes the cells whose
+    /// glyph changed. Run with `--nocapture` to see the numbers the assertion bounds.
+    #[test]
+    fn a_scroll_writes_only_the_cells_that_changed() {
+        let found = Framebuffer {
+            base: 0,
+            width: 1920,
+            height: 1080,
+            stride: 1920 * 4,
+            order: PixelOrder::Bgrx,
+        };
+        let tour = include_str!("../../../bench/xenon-2026-09-17/tour-display-225100.log");
+        let mut console = ScreenConsole::new(found).expect("xenon's screen");
+        let (cols, rows) = console.size();
+        assert_eq!((cols, rows), (137, 67));
+        let mut cells = Box::new(Cells::new());
+        let mut pixels = vec![0u8; found.span().expect("valid")];
+        let mut sink = PixelSink::new(&mut pixels);
+        console.clear(&mut cells, &mut sink);
+
+        // Fill the screen first, so every line after this is a scroll.
+        let lines: Vec<&str> = tour.lines().collect();
+        let (fill, rest) = lines.split_at(rows as usize);
+        for line in fill {
+            console.write(&mut cells, &mut sink, line);
+            console.write(&mut cells, &mut sink, "\n");
+        }
+        let mut scrolls = 0u64;
+        let mut stored = 0u64;
+        for line in rest {
+            console.write(&mut cells, &mut sink, line);
+            let before = sink.stores;
+            console.write(&mut cells, &mut sink, "\n");
+            stored += (sink.stores - before) as u64 * 4;
+            scrolls += 1;
+        }
+        let band = (found.stride * bitmap_font::GLYPH_H * 2) as u64;
+        let live = band * rows as u64;
+        let (old_read, old_written) = ((live - band) * scrolls, live * scrolls);
+        std::println!(
+            "{scrolls} scrolls on {cols}x{rows}: copy-up read {old_read} and wrote {old_written} \
+             bytes; the grid read 0 and wrote {stored} ({:.1}% of the old writes, {} per scroll)",
+            stored as f64 * 100.0 / old_written as f64,
+            stored / scrolls,
+        );
+        assert!(
+            scrolls > 50,
+            "the transcript must scroll enough to mean something"
+        );
+        assert!(
+            stored * 2 < old_written,
+            "a transcript of short lines must cost less than half the copy-up's writes"
+        );
+    }
+
+    /// The worst case, so the bound above is not mistaken for a promise: a screen where every cell
+    /// differs from the one below it rewrites every cell on a scroll, which is the same number of
+    /// bytes the copy-up wrote. It still reads none.
+    #[test]
+    fn the_worst_scroll_writes_what_the_copy_up_wrote_and_no_more() {
+        let (found, mut pixels) = screen(3, 2, 0, PixelOrder::Bgrx);
+        let mut console = ScreenConsole::new(found).expect("three by two cells");
+        let mut cells = Box::new(Cells::new());
+        let mut sink = PixelSink::new(&mut pixels);
+        console.clear(&mut cells, &mut sink);
+        console.write(&mut cells, &mut sink, "abc\ndef");
+        let before = sink.stores;
+        console.write(&mut cells, &mut sink, "\n");
+        let cell = (bitmap_font::GLYPH_W * bitmap_font::GLYPH_H) as usize;
         assert_eq!(
-            found.stride as usize, STRIDE,
-            "the constant must match the fixture"
+            sink.stores - before,
+            6 * cell,
+            "every one of six cells changed"
         );
-        let mut console = ScreenConsole::new(found).expect("two by two cells");
-        let mut exact = [0xa5u8; LIVE];
-        console.scroll(&mut exact);
-        assert_ne!(
-            exact, [0xa5u8; LIVE],
-            "a buffer exactly as long as the live region must still be scrolled"
-        );
+    }
+
+    /// The blank glyph must be all paper, or a grid of spaces and a cleared screen would be two
+    /// different pictures and skipping a space-onto-space cell would leave ink behind.
+    #[test]
+    fn a_space_is_drawn_entirely_in_paper() {
+        for y in 0..bitmap_font::GLYPH_H {
+            for x in 0..bitmap_font::GLYPH_W {
+                assert_eq!(
+                    bitmap_font::cell_pixel(
+                        ' ',
+                        x,
+                        y,
+                        ScreenConsole::FOREGROUND,
+                        ScreenConsole::BACKGROUND
+                    ),
+                    ScreenConsole::BACKGROUND,
+                    "({x},{y})"
+                );
+            }
+        }
+    }
+
+    /// A screen taller than [`Cells::CAPACITY`] has room for is drawn on the rows that fit, not
+    /// refused and not written past the grid. 1600 pixels at scale one is 228 columns, and
+    /// 1600 rows of pixels would be 200 rows of cells.
+    #[test]
+    fn a_screen_taller_than_the_grid_uses_the_rows_that_fit() {
+        let found = Framebuffer {
+            base: 0,
+            width: 1600,
+            height: 1600,
+            stride: 1600 * 4,
+            order: PixelOrder::Bgrx,
+        };
+        let console = ScreenConsole::new(found).expect("a big screen");
+        let (cols, rows) = console.size();
+        assert_eq!(cols, 228);
+        assert_eq!(rows as usize, Cells::CAPACITY / 228);
+        assert!(rows < 200);
+    }
+
+    /// The column bound [`Cells::CAPACITY`] is built on: no width gets `2 * MIN_COLUMNS` columns
+    /// or more, at any scale. Checked over every width up to five scales' worth.
+    #[test]
+    fn no_screen_is_wider_than_the_grid_allows() {
+        for width in 1..7 * super::MIN_COLUMNS * 6 {
+            let cols = width / (bitmap_font::GLYPH_W * ScreenConsole::scale_for(width));
+            assert!(
+                cols < 2 * super::MIN_COLUMNS,
+                "{width} wide gets {cols} columns"
+            );
+        }
     }
 
     /// The byte order is the one thing that cannot be seen by looking at the screen in a test, and
@@ -890,12 +1330,16 @@ mod tests {
     fn the_two_pixel_orders_store_different_bytes_for_the_same_ink() {
         let (bgrx, mut a) = screen(1, 1, 0, PixelOrder::Bgrx);
         let (rgbx, mut b) = screen(1, 1, 0, PixelOrder::Rgbx);
-        ScreenConsole::new(bgrx)
-            .expect("one cell")
-            .write(&mut a, "#");
-        ScreenConsole::new(rgbx)
-            .expect("one cell")
-            .write(&mut b, "#");
+        write(
+            &mut ScreenConsole::new(bgrx).expect("one cell"),
+            &mut a,
+            "#",
+        );
+        write(
+            &mut ScreenConsole::new(rgbx).expect("one cell"),
+            &mut b,
+            "#",
+        );
         // FOREGROUND is grey, so its red and blue bytes are equal and the two orders agree. That is
         // exactly why the check below uses a colour whose channels differ.
         assert_eq!(
@@ -1243,8 +1687,9 @@ mod tests {
         let (found, _) = screen(8, 8, 0, PixelOrder::Bgrx);
         let mut console = ScreenConsole::new(found).expect("eight by eight cells");
         let mut pixels = [0u8; 64];
-        console.clear(&mut pixels);
-        console.write(
+        clear(&mut console, &mut pixels);
+        write(
+            &mut console,
             &mut pixels,
             "this is far more text than sixty-four bytes can hold\n",
         );

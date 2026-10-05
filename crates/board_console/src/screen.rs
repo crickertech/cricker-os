@@ -219,7 +219,7 @@ fn parse_pixmap(ppm: &[u8]) -> Result<(usize, usize, &[u8]), ReadError> {
 #[cfg(test)]
 mod tests {
     use machine_discovery::framebuffer::{Framebuffer, PixelOrder};
-    use screen_console::ScreenConsole;
+    use screen_console::{Cells, PixelSink, ScreenConsole};
 
     use super::{PAPER, ReadError, read};
 
@@ -251,8 +251,9 @@ mod tests {
         };
         let mut pixels = vec![0u8; screen.span().expect("a valid geometry")];
         let mut console = ScreenConsole::new(screen).expect("a screen of whole cells");
-        console.clear(&mut pixels);
-        console.write(&mut pixels, text);
+        let mut cells = Box::new(Cells::new());
+        console.clear(&mut cells, &mut PixelSink::new(&mut pixels));
+        console.write(&mut cells, &mut PixelSink::new(&mut pixels), text);
 
         // QEMU's screendump is 24-bit RGB with no padding, so this is the conversion the emulator
         // does: drop the stride, drop the unused byte, and reorder to R, G, B.

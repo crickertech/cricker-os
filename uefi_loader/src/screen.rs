@@ -40,9 +40,14 @@
 //!   this being painted, so no gate can assert it on a working machine. What proves it is the
 //!   halted-loader experiment in `notes/serial-less-output.md`.
 //! - **Only ASCII**, like everything else `screen_console` draws.
+//! - **It puts a 36,000-byte `screen_console::Cells` on the firmware's stack** for two lines that
+//!   never scroll (2026-10-04, when the console started keeping its text in RAM so a scroll never
+//!   reads the screen back). The UEFI specification promises an x64 application at least 128 KiB
+//!   of stack (recalled from the specification's calling-convention section, not re-read). A
+//!   `static` would avoid it at the price of `unsafe` shared state in a single-threaded loader.
 
 use machine_discovery::framebuffer::Framebuffer;
-use screen_console::ScreenConsole;
+use screen_console::{Cells, PixelSink, ScreenConsole};
 
 /// **What the screen says while the kernel is coming up, and what it still says if it does not.**
 ///
@@ -65,8 +70,12 @@ pub fn paint_handoff(screen: Framebuffer, pixels: &mut [u8]) -> bool {
     if pixels.len() < console.span() {
         return false;
     }
-    console.clear(pixels);
-    console.write(pixels, HANDOFF);
+    // The grid a scroll would redraw from. Two lines never scroll, so this is pure overhead here,
+    // and it is 36,000 bytes of the firmware's stack; see this module's BUGS.
+    let mut cells = Cells::new();
+    let mut sink = PixelSink::new(pixels);
+    console.clear(&mut cells, &mut sink);
+    console.write(&mut cells, &mut sink, HANDOFF);
     true
 }
 
