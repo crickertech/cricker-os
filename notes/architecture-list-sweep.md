@@ -17,14 +17,14 @@ the script's `BUGS` section, which honestly records four other limitations, did 
 one, so a reader met a section that looked complete.
 
 That is the rung-2 failure `AGENTS.md`'s ladder describes. The coverage decision lived only in a
-hardcoded string, and when a third architecture arrived nothing fired. **The question this note
-answers is how many more of those there are**, which is `notes/arch-audit.md`'s question in a
+hardcoded string, and when a third architecture arrived nothing fired. The question this note
+answers is how many more of those there are, which is `notes/arch-audit.md`'s question in a
 different domain and is asked here for the same reason: the interesting output is not the bug that
 prompted the sweep, it is the count of its siblings.
 
 ## The short answer
 
-**Eleven silent gaps**, in nine files. Seven are lists that were correct when written and were never
+Eleven silent gaps, in nine files. Seven are lists that were correct when written and were never
 widened; two are content (an audit's scope, a script's `EXAMPLES`) rather than lists; one is a
 class of four `#[cfg]` pairs whose failure mode is a silently empty function rather than a missing
 entry; one is a tripwire that exists, is committed, and is not armed.
@@ -35,18 +35,18 @@ somebody else's and became one more of these. The prompting instance, `script/st
 is deliberately **not** in the table: another lane converted it into a recorded gap the same night,
 and that conversion is described below because it is the model for how the rest should end.
 
-**Nine recorded gaps**, which rule 5 explicitly allows and which are working as designed. They are
+Nine recorded gaps, which rule 5 explicitly allows and which are working as designed. They are
 listed below so a later reader does not re-derive them as findings. `script/lint`'s x86_64 block is
 the model and is worth reading before writing another one.
 
-**Fifteen-odd things that are legitimately one architecture's**, which are not findings and are
+Fifteen-odd things that are legitimately one architecture's, which are not findings and are
 listed only so the next sweep does not spend an hour rediscovering that a device tree does not
 apply to a PC.
 
 ## Disposition, 2026-09-23, by milestone 186
 
-Twenty-seven days after the sweep. **Seven of the eleven are closed, one is now a recorded gap, one
-is another milestone's, and two were already closed by other lanes before this one looked**, which
+Twenty-seven days after the sweep. Seven of the eleven are closed, one is now a recorded gap, one
+is another milestone's, and two were already closed by other lanes before this one looked, which
 is the finding worth carrying: a sweep's table is a snapshot, and a lane that acts on it without
 re-checking each row will fix something twice and miss what moved.
 
@@ -72,13 +72,13 @@ by re-running the sweep's own method 3: it had the same two arms, no third, and 
 it was the one copy nobody had even recorded. A sixth `barrier()` exists in
 `components/src/non_volatile_memory_express.rs` and was never in this class: it has all three arms.
 
-**They are now one function**, `user_mode_runtime::virtio::virtio_ring_barrier` (name provisional),
+They are now one function, `user_mode_runtime::virtio::virtio_ring_barrier` (name provisional),
 in the module where those four programs already get `virtio_read_reg` and its siblings. That is a
 higher rung than five `compile_error!` arms would have been, which is what option B priced: the
-fallback now exists **once**, and a seventh driver gets the third architecture by calling the
+fallback now exists once, and a seventh driver gets the third architecture by calling the
 function rather than by remembering to write an arm.
 
-**What x86_64 needed, which the sweep left open as a rule 4 call.** A compiler fence, and the
+What x86_64 needed, which the sweep left open as a rule 4 call. A compiler fence, and the
 reasoning is per-site rather than a default. Every call site in those five programs asks for one of
 two orderings: store-store (publish the descriptor before the available index; publish the index
 before the notify) or load-load (read the used index before the payload it gates). x86_64 gives both
@@ -97,7 +97,7 @@ hardware, different answer, for a stated reason.
 - Finding 8, which is milestone 187 (read the x86_64 arch tree through the lens the first arch
   audit used).
 - The rung-1 limit this note already stated and which still holds: deriving the list removes the
-  **copy**, not the **incompleteness**. Nothing stops a new gate writing `for arch in aarch64
+  copy, not the incompleteness. Nothing stops a new gate writing `for arch in aarch64
   riscv64`, and `deny.toml` cannot read the derivation at all. `virtio_ring_barrier`'s
   `compile_error!` is the one place in this sweep's territory where a missing architecture now
   fails to build rather than failing to order.
@@ -110,7 +110,7 @@ Rule 5 in `AGENTS.md`, from §19 (architectural parity is a tenet):
 > note records the gap and the plan. If a feature works on one ISA and silently not another, that
 > is the bug.
 
-The word doing the work is **silently**. A hit is a finding only when all three of these hold:
+The word doing the work is silently. A hit is a finding only when all three of these hold:
 
 1. An architecture is absent from the list, match, table, file set, or matrix.
 2. The premise would hold there. A stack-frame ceiling means something on x86_64; a device tree
@@ -152,19 +152,19 @@ and the author knew what to look for.
 
 ### Two notes on severity, because overclaiming would waste the reader's time
 
-**Finding 9 is latent; finding 10 is live but rarely reached.** The x86_64 QEMU runner attaches no
+Finding 9 is latent; finding 10 is live but rarely reached. The x86_64 QEMU runner attaches no
 virtio disk, NIC, GPU, or RNG (`helpers/qemu-runner-x86_64.sh` says so in its own header), so no
 x86_64 boot reaches a virtio ring today; the exposure is that the code is compiled, is shipped in
 the archive, and is wrong the day a device is attached, which is a day the roadmap plans for.
 Finding 10 needs no device: any panic in `pgrep` on x86_64 hangs the thread now. It is small only
 because that panic handler is the path the comment above it calls "nothing here should panic".
 
-**Findings 2 through 5 are mitigated by `rust-toolchain.toml`**, which carries
+Findings 2 through 5 are mitigated by `rust-toolchain.toml`, which carries
 `targets = ["aarch64-unknown-none-softfloat", "riscv64imac-unknown-none-elf", "x86_64-unknown-none"]`
 and is the reason CI's clippy job installs only aarch64 explicitly and still lints x86_64
 successfully. rustup reads that array. So the stale `rustup target add` lines are dead weight
 against the pinned toolchain rather than a live breakage. They are still findings, for two
-reasons: `script/drift` and `script/toolchain-bump` both add targets to a **different** toolchain
+reasons: `script/drift` and `script/toolchain-bump` both add targets to a different toolchain
 than the pin, where the file's array does not apply; and a list that is wrong and harmless today is
 the exact shape of `script/stack-frame-check` on 2026-08-24.
 
@@ -174,9 +174,9 @@ Both are the same shape as finding 1 and both were held by the lane on pull requ
 sweep ran. That pull request landed 2026-08-27, and it settled one of them and not the other, which
 is worth recording because the split is instructive.
 
-**`script/stack-frame-check` is now a recorded gap**, and is the best example in the tree of the
+`script/stack-frame-check` is now a recorded gap, and is the best example in the tree of the
 conversion this note keeps asking for. The lane widened it to accept `--arch x86_64`, ran it, and
-**found a real offender the first time**: `kernel::arch::x86_64::iommu::init` at 12,504 bytes
+found a real offender the first time: `kernel::arch::x86_64::iommu::init` at 12,504 bytes
 against a 4,096-byte ceiling, from an `Iommu { ctx: [Option<u64>; 256], .. }`, which is the same
 "`[T; MAX]` local sized to a table maximum" shape that gate's own first `BUGS` entry describes. So
 x86_64 is reachable but deliberately out of the default set, with a `BUGS` entry saying so, saying
@@ -184,15 +184,15 @@ what was found, and saying that whether to fix the offender or except it is not 
 `main` stays green by naming the finding rather than by not looking. That is exactly the phase-3
 outcome milestone 186 plans for, arrived at a day early.
 
-**`script/fastpath-footprint` was assessed and left alone**, and it is still
-`arches="aarch64 riscv64"` with **no x86 mention anywhere in the file**. So it is not a claimed item
+`script/fastpath-footprint` was assessed and left alone, and it is still
+`arches="aarch64 riscv64"` with no x86 mention anywhere in the file. So it is not a claimed item
 any more; it is finding 11, unclaimed, and it is recorded in its own `BUGS` on this branch. It has
 two absent companions worth naming for whoever takes it: `bench/fastpath-x86_64.txt` and
 `kernel/src/arch/x86_64/fastpath_pad.rs` do not exist, where both other architectures have both.
 The two tripwire file sets diverged: `bench/baseline-<arch>.txt` is complete at three and
 `bench/fastpath-<arch>.txt` is at two.
 
-**The ten-versus-eleven count.** The table above is the sweep as it was run, when
+The ten-versus-eleven count. The table above is the sweep as it was run, when
 `script/stack-frame-check` was the prompting instance and `script/fastpath-footprint` was somebody
 else's. Read forward from today it is eleven silent gaps, one of which (`stack-frame-check`) was
 converted to a recorded gap by another lane before this note landed. The table is not renumbered,
@@ -240,8 +240,8 @@ These are worth more than the findings, because each one is a shape that did not
   the file to edit.
 - **`kernel/src/arch/mod.rs`**: three `#[cfg]` module arms and three flat re-exports, and the
   module's own comment says a new ISA is a new directory rather than a diff.
-- **`crates/elf`'s `EXPECTED_MACHINE`**: three explicit arms **because it was two and the default
-  arm was a bug**. It read `#[cfg(not(target_arch = "riscv64"))] EM_AARCH64`, so the x86_64 kernel
+- **`crates/elf`'s `EXPECTED_MACHINE`**: three explicit arms because it was two and the default
+  arm was a bug. It read `#[cfg(not(target_arch = "riscv64"))] EM_AARCH64`, so the x86_64 kernel
   was compiled to accept aarch64 binaries and refuse its own. Its comment states the general lesson
   in one sentence: "A default arm that names one architecture is a trap the moment a third exists."
 - **`xtask`'s `ArchLegs`**: an enum whose doc records the same correction. It was `Both`, its two
@@ -250,11 +250,11 @@ These are worth more than the findings, because each one is a shape that did not
 - **`rust-toolchain.toml`'s `targets`**: three entries, and the only architecture list in the tree
   that a tool reads rather than a human copies.
 - **`.cargo/config.toml`**: three `[target.*] runner` blocks. **`crates/paging/src/`**: `aarch64.rs`,
-  `sv39.rs`, `x86_64.rs`. **`crates/machine_discovery/src/`**, **`bench/baseline-<arch>.txt`**,
-  **`helpers/qemu-runner-<arch>.sh`**, **`kernel/link-<arch>.ld`**, and twelve files under
+  `sv39.rs`, `x86_64.rs`. `crates/machine_discovery/src/`, `bench/baseline-<arch>.txt`,
+  `helpers/qemu-runner-<arch>.sh`, `kernel/link-<arch>.ld`, and twelve files under
   `kernel/src/arch/<arch>/`: all complete at three.
 
-**The pattern.** Everything that stayed complete is either a Rust `match` the compiler pushed on,
+The pattern. Everything that stayed complete is either a Rust `match` the compiler pushed on,
 or a per-architecture file whose absence a build notices. Everything that went stale is a
 space-separated string in a shell script, a YAML step, a TOML array, or a sentence in a note.
 Ten of the eleven silent gaps are in the second group and the eleventh is a `#[cfg]` pair with no `else`.
@@ -279,17 +279,17 @@ the six questions `AGENTS.md` asks of a fork answered where they apply.
 
 ### Option A: one derived list of supported architectures and their triples
 
-**What.** A single place naming each supported architecture and its triple, that every shell script
+What. A single place naming each supported architecture and its triple, that every shell script
 and every `xtask` path reads instead of spelling.
 
-**What the tree already does here, which is most of the answer.** `rust-toolchain.toml` already
+What the tree already does here, which is most of the answer. `rust-toolchain.toml` already
 carries the list, complete at three, and is already the authority for the pinned toolchain: rustup
 reads that array, which is why CI's clippy job explicitly installs only aarch64 and still lints
 x86_64 clean. `script/bootstrap` already parses that same file with a one-line `sed` to get
 `channel`. So the mechanism, the file, and the parsing technique all exist, and the gap is that
 nobody extended the parse by one field.
 
-**What it costs, measured.** The arch-to-triple table is currently written out four times:
+What it costs, measured. The arch-to-triple table is currently written out four times:
 `script/stack-frame-check`, `script/stack-depth-check`, `script/fastpath-footprint` (all three as
 `case "$arch" in ... esac`), and `xtask`'s `TARGET` / `RISCV_TARGET` / `X86_TARGET` constants. The
 bare triple list is written out four more times: `script/bootstrap`, `script/drift`,
@@ -299,28 +299,28 @@ lookup; each `rustup target add` becomes a command substitution. `deny.toml` is 
 call a script, so it stays a hand-maintained list and needs option C or a counted claim to keep it
 honest.
 
-**What it does not do**, and this is the honest limit. It removes the **copy**, not the
-**incompleteness**. A new gate can still write `for arch in aarch64 riscv64` and nothing stops it.
+**What it does not do**, and this is the honest limit. It removes the copy, not the
+incompleteness. A new gate can still write `for arch in aarch64 riscv64` and nothing stops it.
 It also does nothing for findings 6, 7, and 8, which are a missing CI step, a stale `EXAMPLES`
 block, and an unaudited directory. Those are content, not lists.
 
-**Reversibility.** Total. It is one script and its callers, nothing leaves the machine, no wire
+Reversibility. Total. It is one script and its callers, nothing leaves the machine, no wire
 format and no name a stranger has learned. By the *move fast on what can be undone* test, nobody
 outside this repository has acted on it.
 
 ### Option B: a type with no default arm
 
-**What.** An enum the compiler forces exhaustive matching on, and a `compile_error!` arm where
+What. An enum the compiler forces exhaustive matching on, and a `compile_error!` arm where
 `#[cfg]` does the dispatching.
 
-**This half already exists and has already paid for itself.** `ArchLegs` is that enum, and its own
+This half already exists and has already paid for itself. `ArchLegs` is that enum, and its own
 doc records the bug it was created by: two variants, predicates written as `self != the_other_one`,
 and every leg answering `true` once there was a third. `crates/elf`'s `EXPECTED_MACHINE` is the
-same correction in the same week. **Its reach is the problem**: no shell script, YAML step, or TOML
+same correction in the same week. Its reach is the problem: no shell script, YAML step, or TOML
 array can see a Rust enum, and nine of the eleven silent gaps live in exactly those three languages.
 So B is already taken where it applies and cannot apply where the gaps are.
 
-**Where it extends, and this is the half worth building.** Findings 9 and 10 are five `#[cfg]`
+Where it extends, and this is the half worth building. Findings 9 and 10 are five `#[cfg]`
 pairs whose x86_64 behaviour is an empty function body. Adding
 
 ```rust
@@ -348,19 +348,19 @@ than mechanism.
 
 ### Option C: a gate comparing each per-architecture file set against the list
 
-**What.** For every family of files whose name carries an architecture token, assert the set equals
+What. For every family of files whose name carries an architecture token, assert the set equals
 the supported list.
 
-**What the tree already does here.** `script/lint`'s counted-claims check is exactly this shape one
+What the tree already does here. `script/lint`'s counted-claims check is exactly this shape one
 domain over: it re-derives a number from the tree and fails when a written claim disagrees, with
 the marker at the claim (`<!--count:sh-scripts-->`, `notes/counted-claims.md`). A file-set check is
 the same primitive over globs instead of counts.
 
-**What it costs, measured, and this is why it loses.** There are sixteen file-set families in the
+What it costs, measured, and this is why it loses. There are sixteen file-set families in the
 tree today. Three are legitimately incomplete and would need an exception on day one (the `dtb`
 fixtures, the port notes, the shootdown notes). Three more are recorded gaps and would need an
 exception until their milestones land (`targets/*.json`, `bench/fastpath-*.txt`,
-`fastpath_pad.rs`). That is **six exceptions against sixteen families**: the exception table would
+`fastpath_pad.rs`). That is six exceptions against sixteen families: the exception table would
 be more than a third of the check on the day it shipped. `script/stack-frame-check`'s own `BUGS`
 already records what that costs, in the entry that says its exception table is maintained by hand
 and that a function which moves keeps its exemption with nothing noticing.
@@ -387,12 +387,12 @@ Not C, because a check that ships with an exception table a third its own size i
 exceptions become the artifact, which is the failure `stack-frame-check` already documents about
 itself.
 
-**What none of the three fixes**, stated plainly so it is not mistaken for covered: finding 6 wants
+What none of the three fixes, stated plainly so it is not mistaken for covered: finding 6 wants
 a CI step, finding 7 wants two lines of `EXAMPLES`, and finding 8 wants somebody to read 6,797
 lines of x86_64 assembly and Rust the way `notes/arch-audit.md` read the other two. Those are work,
 not mechanism.
 
-**On prior art outside this tree**: not researched. `AGENTS.md` asks for it read rather than
+On prior art outside this tree: not researched. `AGENTS.md` asks for it read rather than
 recalled, and this lane did not go outside the repository, so nothing is claimed. If it is worth an
 hour, the question to ask is how a multi-target project keeps one target list authoritative across
 a build system, a CI matrix, and a package manifest, since that is the general form of option A.
@@ -402,8 +402,8 @@ a build system, a CI matrix, and a package manifest, since that is the general f
 Closing the eleven silent gaps is a real body of work rather than a sed. Finding 1 needs an x86_64
 trap-frame size and dispatch symbol names; finding 6 needs a CI leg that may find real drift the
 first time it runs; finding 8 is an audit. It is **milestone 186 (derive the architecture list, and
-close what it does not reach)**, minted on calef's question against this sweep, and **this note is
-that milestone's worklist**. The block carries the phasing and the scope refusals; the table above
+close what it does not reach)**, minted on calef's question against this sweep, and this note is
+that milestone's worklist. The block carries the phasing and the scope refusals; the table above
 carries the items.
 
 Two things the milestone is explicit about, because both were decided here.
@@ -432,14 +432,14 @@ provisionally, as its own milestone.
 
 Reproduce the sweep, or run it again after a fourth architecture lands.
 
-**The list that should be authoritative:**
+The list that should be authoritative:
 
 ```sh
 $ grep '^targets' rust-toolchain.toml
 targets = ["aarch64-unknown-none-softfloat", "riscv64imac-unknown-none-elf", "x86_64-unknown-none"]
 ```
 
-**Every hand-copied triple list, to diff against it:**
+Every hand-copied triple list, to diff against it:
 
 ```sh
 $ git grep -n 'aarch64-unknown-none-softfloat' -- script scripts .github '*.toml' \
@@ -449,7 +449,7 @@ $ git grep -n 'aarch64-unknown-none-softfloat' -- script scripts .github '*.toml
 Each hit is a place that spells the list and does not mention the third target. Read each one:
 some are legitimately single-target (`script/crate-probes` builds one spec on purpose).
 
-**Per-architecture file sets, and which are incomplete:**
+Per-architecture file sets, and which are incomplete:
 
 ```sh
 $ git ls-files | grep -E 'aarch64|riscv64|x86_64' | grep -v '^vendor/' \
@@ -460,7 +460,7 @@ A family with a count of 3 is complete. A count of 2 is either a recorded gap, a
 or a finding, and only reading it tells you which. This is the method that found
 `bench/fastpath-<ARCH>.txt` at two beside `bench/baseline-<ARCH>.txt` at three.
 
-**Two-arm `#[cfg]` blocks with no fallback**, which is finding 9's shape:
+Two-arm `#[cfg]` blocks with no fallback, which is finding 9's shape:
 
 ```sh
 $ git grep -l 'target_arch' -- '*.rs' | grep -v '^vendor/' | while read f; do
@@ -471,7 +471,7 @@ $ git grep -l 'target_arch' -- '*.rs' | grep -v '^vendor/' | while read f; do
   done
 ```
 
-**Default-arm traps**, which is what made `EXPECTED_MACHINE` wrong:
+Default-arm traps, which is what made `EXPECTED_MACHINE` wrong:
 
 ```sh
 $ git grep -n 'not(target_arch' -- '*.rs' | grep -v '^vendor/'
@@ -482,34 +482,34 @@ $ git grep -n 'not(target_arch' -- '*.rs' | grep -v '^vendor/'
 Four methods, run in this order. Stated because a later reader needs to know the shape of the hole
 rather than trust the count.
 
-1. **Grep for architecture names and triples** across `script/`, `helpers/`, `xtask/src/`,
+1. Grep for architecture names and triples across `script/`, `helpers/`, `xtask/src/`,
    `.github/`, `bench/`, every `Cargo.toml`, `.cargo/config.toml`, `rust-toolchain.toml`,
    `deny.toml`, `kernel/build.rs`, and `notes/`, ranked by hits per file, then read every file with
    a hit. Found findings 1 through 7.
    **Blind to**: a list that derives its members instead of spelling them, and a list that spells
    them in a language I did not think to grep (there is no Makefile or Dockerfile matrix here, but
    a future one would be missed by this method).
-2. **Per-architecture file-set completeness**, by normalising every tracked path's architecture
+2. Per-architecture file-set completeness, by normalising every tracked path's architecture
    token and counting the families. Found the `bench/fastpath-` divergence and confirmed twelve
    families complete at three.
    **Blind to**: a per-architecture thing whose files do not carry the token in the name.
    `crates/paging/src/sv39.rs` is riscv64's page-table format and this method scored that family as
    incomplete until it was read by hand. So the method produces false positives, which is safe, and
    would produce a false negative for any family named the way `sv39` is.
-3. **`#[cfg(target_arch)]` arm counting per file**, then reading every file with a nonzero count
+3. `#[cfg(target_arch)]` arm counting per file, then reading every file with a nonzero count
    and a zero in one column. Found findings 9 and 10, and the `not(target_arch` hazard class.
    **Blind to**: a runtime dispatch on architecture rather than a `cfg`, and a `cfg` written through
    a build-script-generated `cfg` name. `kernel/build.rs`'s `cfg(initrd)` is exactly the second
    shape, and it is complete, but this method would not have told me that; reading `build.rs` did.
 4. **Reading the prose claims**: every "both ISAs", "both architectures", "two architectures", and
    "both bare-metal" in the tree, filtered to those with no x86 mention nearby. About forty hits,
-   and **almost all of them are correct**: a note recording that something was proven on both ISAs
+   and almost all of them are correct: a note recording that something was proven on both ISAs
    on a given day is a record of what happened, not a list a gate reads, and rewriting it would be
    falsifying a record. Only two were coverage claims rather than history: `notes/arch-audit.md`
    (finding 8) and the CI comments cited above.
    **Blind to**: a claim phrased without those words.
 
-**What no method here covers.** This sweep read `notes/`, `script/`, `helpers/`, `xtask/`,
+What no method here covers. This sweep read `notes/`, `script/`, `helpers/`, `xtask/`,
 `.github/`, the manifests, and the `#[cfg]` sites. It did **not** read `design/roadmap/` or
 `design/decisions/` for incomplete architecture lists, on the ground that a roadmap block is intent
 rather than a gate and a decision records what was decided when it was decided. If a decision's
@@ -519,21 +519,21 @@ milestone's first job and doing it here would have turned a sweep into a fix.
 
 ## BUGS
 
-- **It is a snapshot, and the thing it measures moves.** Every finding is against the tree at
+- It is a snapshot, and the thing it measures moves. Every finding is against the tree at
   commit `c4854083`, on 2026-08-27. Findings 2 through 5 in particular are one-line edits that
   somebody may land the same week, and this note will not know.
-- **"Complete" here means three, and three is today's number.** Every judgment in this note assumes
+- "Complete" here means three, and three is today's number. Every judgment in this note assumes
   the supported set is aarch64, riscv64, and x86_64, which is what §19 says today. A fourth
   architecture invalidates the file-set counts and the `not(target_arch = "x86_64")` hazard becomes
   ten live bugs rather than a note.
 - **Severity is not ranked.** The table orders findings by where they live, not by what they cost.
   Finding 8 (an unaudited 6,797-line arch tree in the trusted computing base) and finding 7 (a
   stale `EXAMPLES` block) sit in the same list and are not the same size of problem.
-- **The three classifications are a judgment and two of them are contestable.** In particular,
+- The three classifications are a judgment and two of them are contestable. In particular,
   findings 9 and 10 could be argued as legitimately architecture-specific on the ground that x86 is
   TSO and needs no machine barrier. This note calls them silent gaps because the compiler-reordering
   half is uncovered and because an empty function body records nothing either way, but a reader who
   disagrees is disagreeing with an argument rather than with a count.
-- **No gate enforces any of this.** The sweep is a one-time read, like `notes/arch-audit.md` and
+- No gate enforces any of this. The sweep is a one-time read, like `notes/arch-audit.md` and
   `notes/untracked-work-sweep.md` before it, and it will go stale the same way both of those did.
   That is the argument for option A rather than for a longer note.

@@ -39,14 +39,14 @@ Time Machine path" (a Time Machine backup is a sparse bundle: directories and ba
 xattrs, no resource forks). `ReplaceIfExists` (SMB2/3's own name for this flag,
 `SMB2_FILE_RENAME_INFORMATION`) is framed as "the real defect next door," but never receives the
 same confirmation tying it to Time Machine's actual write pattern. As written, this reads as a
-**general SMB2/3 protocol-conformance gap** (any client that asks "do not replace" is silently
+general SMB2/3 protocol-conformance gap (any client that asks "do not replace" is silently
 given a replace instead, the wrong-direction failure a truthful filesystem should not make) rather
 than a demonstrated blocker on this milestone's actual customer path.
 
 ## The choice, stated plainly
 
-**Building it is nearly free** (the check itself, plus the flag bit) **and closes a real protocol
-lie**: a client that explicitly asks not to clobber a file is currently clobbered anyway with no
+Building it is nearly free (the check itself, plus the flag bit) and closes a real protocol
+lie: a client that explicitly asks not to clobber a file is currently clobbered anyway with no
 error, which is the exact shape of untruthful-filesystem behavior §42's own title argues against
 in general, even though §42's specific reasoning for declining this flag does not survive contact
 with this backend.
@@ -67,7 +67,7 @@ the feature question goes, and §42 is marked `AMENDED` to carry it in place. Th
 stays declined, for the corrected reason (not demonstrated as necessary for this milestone's
 customer path, not "would be racy to build") rather than the original one.
 
-**Build the flag only when a specific client failure is observed on the actual customer path** (a
+Build the flag only when a specific client failure is observed on the actual customer path (a
 real macOS Time Machine or general SMB client operation that needs it), matching this tree's own
 "wait for the customer" pattern elsewhere (DECISIONS §105's `std::thread::spawn`, "we will likely
 do A when there is such a customer"). Recorded here as a known, named, cheap-to-close gap rather

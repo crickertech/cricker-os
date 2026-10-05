@@ -2,13 +2,16 @@
 
 Milestone 95 (an unmap primitive, and the mappings init never lets go), built 2026-10-05 (UTC) on
 §162 (whether a holder can give up a mapping), which calef decided as option A that day. §162 left
-two semantics owed by this milestone. Both are built here provisionally, argued below, and
-waiting on an architect in pull request #1678. The method number (2) is the next free one on the
-object, and `forget_mapping_at` is a provisional name.
+two semantics owed by this milestone; both were built here, argued below, and ruled by calef the
+same day as built (§162's amendment of 2026-10-05). The method number (2) is the next free one on
+the object, and `forget_mapping_at` is a provisional name.
 
-There is a third finding, and it matters more than either semantic: **as the object model stands,
-`UNMAP` cannot reach the window §162 was decided to close.** It is under
-[the finding](#the-finding-no-capability-names-a-running-space).
+There was a third finding, and it mattered more than either semantic: **as the object model stood,
+`UNMAP` could not reach the window §162 was decided to close.** It is under
+[the finding](#the-finding-no-capability-names-a-running-space), kept as it was found. §249 (a
+running address space stays nameable) answered it the same day, and the second build of this
+milestone, under [the progenitor gives its windows back](#the-progenitor-gives-its-windows-back),
+is what that answer made possible.
 
 ## What it does
 
@@ -151,24 +154,75 @@ keeps a bound space in `USER_SPACES` rather than moving it into the thread. Then
 `reap_address_spaces_in_region` sees bound spaces for the first time, and that fix's options A and B
 change shape. The two should be decided together, or the second written knowing the first.
 
+## The progenitor gives its windows back
+
+Built 2026-10-05 (UTC) on §249 (a running address space stays nameable), by the lane
+`lane/space-naming-build`.
+
+- **The registry owns every space**, bound or not (`kernel/src/user.rs`, `USER_SPACES`). `CONFIGURE`
+  consumes the capability it is passed and binds the space in place, so a copy made first keeps
+  naming it. A thread keeps a copy of its root, its tag and its current-CPU page
+  (`user::BoundSpace`), because the context switch runs under `IPC_TABLES` and must not take the
+  registry's lock. A space leaves the registry when its thread is reaped or the region sweep takes
+  it, and `Table::remove` hands it to one of the two.
+- **A second bind is refused** with `WrongObject`, from a bound mark on the entry.
+- **The kernel grants the progenitor its own space** at slot 28, `WRITE` alone
+  (`system_initializer::BootEndowment::own_space`). It hands the slot to
+  `supervision_protocol::give_up_scratch_through` before it builds anything, and the loader then
+  `UNMAP`s each scratch page the moment the page is in the child (`give_up_own_page`). The same call
+  closes the three other windows it opened onto memory it hands on: the shell's output page after
+  the last boot line, and the virtio-rng and NIC DMA pages once their physical base is read.
+
+The proof is `system_tests/src/user/running_space_tests.rs`, six tests on all three
+architectures, each with a replayable falsification:
+
+- `UNMAP` through a copy made before `CONFIGURE` faults the running thread.
+- A reader spinning on one core faults when another core unmaps its page.
+- A second bind is refused.
+- A space dies with its thread and not with its capabilities.
+- A corpse does not keep a space its region gave back.
+- Milestone 95's negative control: a builder holding its own space faults on the page it filled
+  for a child, and one without it writes the same page.
+
 ## What it costs
 
 `UNMAP` is spawn-time and teardown work, never a step of the IPC round trip, and its body is
 `#[inline(never)]` outside `invoke` for the reason `memory_region_map` gives. The dispatch arm adds
-one rights check to `invoke`. Not measured: no `icount` row exists for unmap, so nothing here says
-what one call costs. The record lookup is a linear scan of the space's log, the same shape and
-order as `forget_mapping`, at most `LOG_ENTRIES` (170) entries a page.
+one rights check to `invoke`. No `icount` row exists for unmap itself, so nothing here says what one
+call costs. The record lookup is a linear scan of the space's log, the same shape and order as
+`forget_mapping`, at most `LOG_ENTRIES` (170) entries a page.
+
+What §249's build costs, measured with `script/bench` on aarch64 (TCG and `icount`, single hart),
+the branch against its base `c8b5fd09e`, 2026-10-05:
+
+| row | base | branch | change |
+|---|---|---|---|
+| `spawn_el0` | 1,429,607 | 1,452,643 | +23,036 (+1.6%), 230 ticks a spawn |
+| `spawn_reap` | 229,728 | 230,613 | +885 (+0.4%) |
+| `map_el0` | 355,903 | 356,621 | +718 (+0.2%) |
+| `ctx_switch` | 3,166,067 | 3,156,704 | -9,363 (-0.3%) |
+| `ipc_rtt` | 1,088,038 | 1,064,781 | -23,257 (-2.1%) |
+| `yield_switch`, `null_syscall` | | | identical |
+
+The spawn rows pay for `CONFIGURE` taking `IPC_TABLES` under the registry's lock and for the reaper's
+registry take, which is the cost the ruling buys. The switch rows did not get slower: the switch
+reads three words from the thread instead of following a pointer into an `AddressSpace`. The IPC
+improvement is not claimed; `icount` counts move with code layout (notes/benchmarks.md), and no IPC
+path changed. The registry itself is 21,904 bytes of `.bss` at 288 slots.
 
 ## BUGS
 
-- It cannot reach a running space, so it does not close milestone 95's hole yet. Above, and
-  in the proposal.
-- No TLB is ever stale for it to flush. A space it can reach has never run, so no core caches
-  a translation of it. The flush is issued anyway, by the function revoke already uses across
-  running spaces. No test shows a remote core losing a translation through `UNMAP`, and none can
-  until the fork is answered; the proposal names that test as owed.
+- **A builder can give its windows back only if its builder granted it its own space.** The
+  progenitor is the only process in the tree that holds one. The shell's job-frame window and
+  `login`'s connect window still never shrink (each file's own comment says so); §249 leaves that
+  grant to whoever builds them, and nothing has asked for it.
+- **A page a job's image arrived in is given up after the copy, but the job's own pages are not**,
+  because they are the job's region's to take back when the job is reaped, as they always were.
 - One page per call. A run `MAP_INTO` laid down in one call takes one `UNMAP` per page. §162
   ruled `UNMAP(va)`, and a count argument would be a second semantic to argue. Unmeasured.
 - Intermediate page tables stay linked, and their `TABLE` records stay in the log. They come
   back when the space or the region that paid for them dies, as before.
-- Not measured (above).
+- **The multicore test's falsification is aarch64's alone.** It narrows `tlbi vaae1is` to the
+  local core; the riscv64 and x86_64 shootdowns are different code with no recorded patch, so the
+  test proves the other two flushes reach the reader. No replay shows it would notice if they did
+  not.

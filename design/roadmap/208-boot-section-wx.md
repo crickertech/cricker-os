@@ -10,10 +10,10 @@ Minted 2026-08-31, found by milestone 196's (a physical address on
 *(Number provisional until the merge queue lands it.)* It needed no ruling to start: the change was
 one linker script and the parser that refused the image already existed.
 
-**In brief.** `kernel/link-x86_64.ld` folded `KEEP(*(.text.boot))` and `KEEP(*(.data.boot))` into one
-output section, so the 32-bit trampoline shipped as a **single `RWX` `PT_LOAD` at `0x101000`.**
+In brief. `kernel/link-x86_64.ld` folded `KEEP(*(.text.boot))` and `KEEP(*(.data.boot))` into one
+output section, so the 32-bit trampoline shipped as a single `RWX` `PT_LOAD` at `0x101000`.
 
-**`crates/elf::Elf::parse` refused that image outright**, with `Error::WritableAndExecutable`. So the
+`crates/elf::Elf::parse` refused that image outright, with `Error::WritableAndExecutable`. So the
 kernel's own image violated the W^X rule that `crates/elf` and `paging::Flags` enforce everywhere
 else in the tree.
 
@@ -25,7 +25,7 @@ added the field, then measured rather than assumed: it built the kernel for `x86
 dumped the program headers, and ran the real bytes through `Elf::parse`.
 
 `REFUSED: WritableAndExecutable`. Patching that one segment's `p_flags` from `RWX` to `RX` in a copy
-made **`Elf::parse` accept the whole file**: all ten `PT_LOAD`s, the three `NOLOAD` reservations,
+made `Elf::parse` accept the whole file: all ten `PT_LOAD`s, the three `NOLOAD` reservations,
 and the trampoline's split addresses. Nothing else in the validating parser objected.
 
 So the duplicate reader existed because of a W^X violation, not because of a missing field, and
@@ -33,7 +33,7 @@ nobody knew that until somebody tried to delete it.
 
 ## What was built
 
-**One linker-script split**, `.boot` into `.boot_text` (RX) and `.boot_data` (RW), each page-aligned
+One linker-script split, `.boot` into `.boot_text` (RX) and `.boot_data` (RW), each page-aligned
 because a permission boundary is a page boundary. It costs one 4 KiB page of image and shifts
 everything after it up by that much.
 
@@ -46,22 +46,22 @@ The program headers, before and after, from the shipped debug artifact:
 | `PT_LOAD` count | 10 | 10 |
 | `Elf::parse` | `REFUSED: WritableAndExecutable` | **`ACCEPTED`**, all ten segments |
 
-**The `Elf::parse` result is from the actual shipped artifact**, not a copy with patched flags. The
+The `Elf::parse` result is from the actual shipped artifact, not a copy with patched flags. The
 harness was the tree's own `crates/elf/src/lib.rs` with exactly one line changed, the compile-time
 `EXPECTED_MACHINE` selection, so a host binary would accept `EM_X86_64`; every check under test is
 byte-identical. Run against the pre-fix build it printed `REFUSED: WritableAndExecutable`, and
 against the post-fix build `ACCEPTED`, listing all ten `PT_LOAD`s including the trampoline's
 `p_vaddr 0x8000` / `p_paddr 0x166000`.
 
-**The surprise worth keeping, because reading the source would have found nothing.** `boot.s`
-declares `.section .data.boot, "a"` with **no `w`**, and the contents genuinely are read-only: the
+The surprise worth keeping, because reading the source would have found nothing. `boot.s`
+declares `.section .data.boot, "a"` with no `w`, and the contents genuinely are read-only: the
 boot GDT and its `lgdt` pointer. The assembler overrides it. LLVM gives a section whose name begins
 with `.data` its default ELF flags, `SHF_ALLOC | SHF_WRITE`, and the object file measurably carries
 `WA`. That `W` is the one that was being unioned with `.text.boot`'s `X`. Renaming the input section
 would make `.boot_data` read-only too; that is a `boot.s` change rather than a linker-script one, and
 W^X holds either way.
 
-**`uefi_loader`'s duplicate reader is deleted**, which was this block's stated unlock and which was
+`uefi_loader`'s duplicate reader is deleted, which was this block's stated unlock and which was
 re-measured rather than assumed. `uefi_loader/src/image.rs` was a forty-line header walk with its own
 `Error` enum; it is now `physical_span` over `elf::Segment::paddr`, plus this loader's own wording for
 every way `Elf::parse` can refuse, plus a `parse` that joins them. The premise held with one
@@ -69,14 +69,14 @@ correction: `Elf::parse` does not provide `physical_span`, and should not, becau
 maps at `p_vaddr` and a firmware loader places at `p_paddr`, and on this image the two are unrelated.
 So the module still exists; it is no longer a *reader*.
 
-**And the loader now validates.** The old module argued it need not, because the kernel comes from
+And the loader now validates. The old module argued it need not, because the kernel comes from
 the same build that produced the loader. That made it the one place in the tree where an ELF was
 trusted rather than checked, and it is now moot: a kernel image that regressed to `RWX` fails to boot
 on real firmware with a printed reason. Proved by booting, not by reasoning: `cargo xtask uefi-boot`
 comes up under OVMF and reaches "boot complete", and `script/test --arch x86_64` is 190 passed, 68
 skipped with its UEFI leg green.
 
-**The other two architectures are clean, and structurally rather than luckily.** `link-aarch64.ld`
+The other two architectures are clean, and structurally rather than luckily. `link-aarch64.ld`
 and `link-riscv64.ld` both fold `KEEP(*(.text.boot))` into `.text`, which is `AX`, and neither has a
 `.data.boot` at all: the x86_64 script's low `.boot` section exists only because a multiboot/PVH
 kernel is entered in 32-bit protected mode and needs a trampoline linked at its physical address,
@@ -90,7 +90,7 @@ segment with both bits.
 that is both writable and executable. `--no-build` checks what is already built. In `script/gates`,
 and a CI job of its own.
 
-**Proved both ways before it was wired up**, which is the only way a gate is worth anything: green on
+Proved both ways before it was wired up, which is the only way a gate is worth anything: green on
 the three fixed images, and red on the pre-fix x86_64 one, naming the segment
 (`vaddr 0x101000, paddr 0x101000, memsz 0x1000`).
 
@@ -100,14 +100,14 @@ kernel only ever loads binaries for its own architecture. So a host tool built o
 one of the three kernels, and a W^X gate covering one architecture would have failed DECISIONS §19
 (architectural parity is a tenet) on the day it was written. The script reads two fields, `p_type` and
 `p_flags`, at the offsets ELF64 fixes; it is an auditor rather than a reader, it places nothing and
-maps nothing, and it reports **every** violation rather than the first, which a parser returning one
+maps nothing, and it reports every violation rather than the first, which a parser returning one
 error cannot. `Elf::parse` still does this work on both paths where it can: the kernel's user-program
 loader, and now `uefi_loader` at every real-firmware boot.
 
-**Its false-positive risk, stated rather than asserted.** AGENTS.md's rung two warns about gates whose
+Its false-positive risk, stated rather than asserted. AGENTS.md's rung two warns about gates whose
 only effect is rejecting legitimate work, and `script/lint` has had three checks deleted for exactly
 that. This is not that shape, and the test is falsifiable: it asserts a property the three artifacts
-**genuinely have today**, measured, so a red run means the property is gone rather than that the rule
+genuinely have today, measured, so a red run means the property is gone rather than that the rule
 was too strict. There is also no legitimate reason for a nife kernel image to want the combination:
 the kernel installs fine-grained W^X page tables over its own image on all three architectures, so a
 segment asking for both is asking for something the kernel will not honour anyway. If one is ever
@@ -116,7 +116,7 @@ actually have is the opposite one, a false *negative*: see BUGS.
 
 ## What this does and does not say about the confinement claims
 
-**It says the kernel image no longer contradicts them, and it says nothing about whether they hold.**
+It says the kernel image no longer contradicts them, and it says nothing about whether they hold.
 The claims in `design/fatal-risks/README.md` are about what a confined component can reach at runtime, and
 they are enforced by the page tables and the capability system, neither of which this touches. The
 kernel already installed fine-grained W^X tables over its own image on all three architectures, so
@@ -144,11 +144,11 @@ pointing existing checks at new inputs, which is what the gate now does permanen
   it, so a later segment would quietly overwrite an earlier one. No linker script in this tree can
   produce that (one script, one contiguous physical layout), which is why it is recorded in
   `uefi_loader/src/image.rs`'s own `BUGS` rather than checked.
-- **`.boot_data` is `RW` when its contents are read-only.** The input section says `"a"`; the assembler
+- `.boot_data` is `RW` when its contents are read-only. The input section says `"a"`; the assembler
   gives any `.data*` section `SHF_ALLOC | SHF_WRITE` anyway. Making it genuinely read-only means
   renaming the input section in `boot.s`, which is a boot-path change for a hardening improvement
   rather than a correctness one, and it was left out of a milestone whose subject is the linker script.
-- **The trampoline's addresses are unusual and worth reading before editing**: `p_vaddr` `0x8000`
+- The trampoline's addresses are unusual and worth reading before editing: `p_vaddr` `0x8000`
   against `p_paddr` `0x166000` (it was `0x12b000` when this block was minted; the split moved it),
   because its bytes ship high (`AT()` places them after `.rodata`) and execute low (a STARTUP IPI can
   only name a page below 1 MiB). The image has three different vaddr/paddr relationships and this is
@@ -180,7 +180,7 @@ pointing existing checks at new inputs, which is what the gate now does permanen
 
 Found by milestone 196's lane while trying to delete a duplicate ELF parser: `link-x86_64.ld`
 folded `.text.boot` and `.data.boot` into one output section, so the trampoline shipped as a
-single **RWX** `PT_LOAD` and `crates/elf::Elf::parse` refused the kernel's own image. Split in
+single RWX `PT_LOAD` and `crates/elf::Elf::parse` refused the kernel's own image. Split in
 two; the shipped artifact now parses, `uefi_loader`'s forty-line duplicate reader is deleted and
 the loader validates what it places, and `script/image-permissions` gates all three images so a
 linker script cannot regress it. aarch64 and riscv64 were already clean, structurally.

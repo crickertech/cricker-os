@@ -98,8 +98,8 @@ Failed jobs by name, whole history:
 | 5 | `verify (Kani proofs)`, and 5 `undefined-behavior check` |
 | 4 | `re-falsify the harnesses this change can reach` |
 
-**And the logs still resolve which sub-check fired.** All 309 `clippy` logs were fetched and **none
-had expired**, so the last `==>` marker in each names the `script/lint` check that was running when
+And the logs still resolve which sub-check fired. All 309 `clippy` logs were fetched and none
+had expired, so the last `==>` marker in each names the `script/lint` check that was running when
 it exited. Nineteen distinct checks account for all 309:
 
 | firings | first .. last | check |
@@ -125,26 +125,26 @@ defect catches in git. That is not a contradiction, it is the structural bias st
 measurement: **a check that fires locally, gets fixed, and is pushed green never reaches Actions at
 all**, so the Actions record systematically undercounts exactly the gates that work earliest.
 
-**The list of checks with no trail anywhere shortens from sixteen to fourteen.** `script docs` and
+The list of checks with no trail anywhere shortens from sixteen to fourteen. `script docs` and
 `every fence names its counterpart` each failed a CI job and are no longer trace-free. Every other
 check in the Actions list already had commit evidence.
 
-**The newest gate has the highest rate.** `new citations say what they cite` was added 2026-09-19
+The newest gate has the highest rate. `new citations say what they cite` was added 2026-09-19
 and has fired eight times in two days, which is the birth spike this tree's whole record predicts
 and the pattern `design/fatal-risks/README.md` records for proofs: a mechanism pays most on the day it is
 written.
 
 ### What could not be established
 
-**Fourteen of the 47 `script/lint` checks have no trail in either record.** They are ratchets: each
+Fourteen of the 47 `script/lint` checks have no trail in either record. They are ratchets: each
 encodes a fix already made, and nothing says any of them later caught a new instance. That is not
 evidence against them, because a ratchet that holds leaves no trace by design, and it is exactly the
 case the first recommendation below exists to settle.
 
-**The one conclusion this proposal retracts is about `script/icount --check`.** The first draft named
+The one conclusion this proposal retracts is about `script/icount --check`. The first draft named
 it as the single existing gate whose worth could not be established, on the grounds that no commit
-records it catching a regression. **The mined logs overturn that.** Of its 99 failed `bench` jobs,
-**43 carry the tripwire's own `CHECK FAIL` line**, across seven distinct days between 2026-08-14 and
+records it catching a regression. The mined logs overturn that. Of its 99 failed `bench` jobs,
+43 carry the tripwire's own `CHECK FAIL` line, across seven distinct days between 2026-08-14 and
 2026-09-15, naming specific benchmarks: `spawn_el` 21 times, `map_new` 16, `yield_switch` and
 `ctx_switch` 4 each. It is not a gate that never fires. The retraction is recorded here rather than
 edited away, because the draft's reasoning was the reasoning this whole proposal argues against:
@@ -153,11 +153,11 @@ absence of a commit message was read as absence of a firing.
 Two things survive the retraction and are worth having, both measured rather than argued. **The
 other 56 failures are not the tripwire**, so the majority failure mode of a required check named
 `bench (icount regression tripwire)` is something other than the tripwire, which is a fact about what
-its red means. And **43 firings across seven days is on the order of seven episodes**, since the
+its red means. And 43 firings across seven days is on the order of seven episodes, since the
 clusters (13 on 2026-08-27, 10 the next day) are one condition re-failing rather than ten. The record
 cannot tell a retry from a new event, a regression from a baseline that drifted under a toolchain
-bump, or either from a lane rebasing. **That distinction is what a ledger row can carry and a job
-conclusion cannot.**
+bump, or either from a lane rebasing. That distinction is what a ledger row can carry and a job
+conclusion cannot.
 
 ## Finding 1: the deletion criterion has no record to read
 
@@ -168,66 +168,66 @@ four separate false rejections of legitimate work, each one discovered when some
 fixed by widening an allowlist, until calef asked what the taxonomy was for and the answer was that
 nothing consumed it.
 
-**Every one of those four was learned by being hit.** Nothing counted them. The same is true of the
+Every one of those four was learned by being hit. Nothing counted them. The same is true of the
 cost side generally: the exact-count relations that became a merge hotspot were weakened twice,
 reactively, each time after a lane paid; the unsafe-fn gate needed a trait-impl exclusion that was
 twelve false positives out of thirteen without it, measured by hand at authoring time and never
 since.
 
 And the benefit side was no better instrumented until this proposal was corrected. The em-dash check
-is the clearest case, because both records now agree and neither says what the intuition says: **it
-fires constantly**, roughly twenty-odd commits since 2026-08-01 and **27 CI jobs between 2026-08-05
-and 2026-09-15**, with subjects like "an em-dash the style gate caught, in a block about gates", and
+is the clearest case, because both records now agree and neither says what the intuition says: it
+fires constantly, roughly twenty-odd commits since 2026-08-01 and 27 CI jobs between 2026-08-05
+and 2026-09-15, with subjects like "an em-dash the style gate caught, in a block about gates", and
 **it has never caught a defect**, because it is a house-style rule and not a correctness property.
 Both halves of that sentence are worth having, and neither was available without a pickaxe over
 3,000 commits and 408 log fetches.
 
 ### Addition A: a gate-firing ledger
 
-**What it is.** Every gate that renders a verdict appends one line on failure: UTC timestamp, gate
+What it is. Every gate that renders a verdict appends one line on failure: UTC timestamp, gate
 name, sub-check name, branch. Local file, git-ignored, never read by any gate. `script/lint --fired`
 (or its own entry point) reports firings per check over a window and, more usefully, the checks that
 have never fired.
 
-**Which recorded failure it would have caught.** None directly, and that is the honest statement: it
+Which recorded failure it would have caught. None directly, and that is the honest statement: it
 is an instrument, not a gate. What it would have prevented is the shape this whole audit ran into.
 Milestone 191 (did the proofs catch the bugs? a retrospective of every real defect against the
 harness that should have found it) had to assemble an eighteen-row corpus by hand to establish that
 no Kani harness has ever caught a defect after the day it was written, and that finding is the single
 most load-bearing fact in `design/fatal-risks/README.md`.
 
-**The first draft claimed the equivalent fact about the lint checks was unobtainable. It is
-obtainable, it was obtained above, and the ledger is still worth building**, for three reasons that
+The first draft claimed the equivalent fact about the lint checks was unobtainable. It is
+obtainable, it was obtained above, and the ledger is still worth building, for three reasons that
 are now stated rather than assumed:
 
-- **The structural bias, which is the big one and which the mined data confirms rather than
-  predicts.** Actions sees only the failures that escaped local gating. Thirty-two of the 47 checks
+- The structural bias, which is the big one and which the mined data confirms rather than
+  predicts. Actions sees only the failures that escaped local gating. Thirty-two of the 47 checks
   have never failed a CI job, and that set contains several of the checks with the best documented
   defect catches, because a lane ran `script/lint`, saw red, fixed it and pushed green. Those
-  firings are the cheapest and earliest a gate ever achieves and **they are exactly the ones the
-  Actions record cannot count.** Any ranking built on Actions alone rewards the gates that fail
+  firings are the cheapest and earliest a gate ever achieves and they are exactly the ones the
+  Actions record cannot count. Any ranking built on Actions alone rewards the gates that fail
   late.
-- **Retention.** The mining above worked because this repository is 60 days into a 90-day log
-  retention and nothing has expired yet. **That window closes**: the logs behind the 2026-07 and
+- Retention. The mining above worked because this repository is 60 days into a 90-day log
+  retention and nothing has expired yet. That window closes: the logs behind the 2026-07 and
   2026-08 firings begin disappearing from 2026-10-21, and after that the per-check attribution is
   gone for good. Run and job rows may outlive their logs, which is untested here; the `==>` marker
   will not.
-- **Cost.** The baseline above took 909 run queries plus 408 log fetches and about half an hour of
+- Cost. The baseline above took 909 run queries plus 408 log fetches and about half an hour of
   wall clock. The ledger is one append on failure.
 
-**So the ledger's first task is to absorb the baseline rather than start from zero**, and that
+So the ledger's first task is to absorb the baseline rather than start from zero, and that
 should happen before the logs expire. The mining commands are in this proposal's own history and in
 the measurement section above.
 
-**What it costs a contributor per run.** One append on failure, zero on success. Nothing on the
+What it costs a contributor per run. One append on failure, zero on success. Nothing on the
 success path, which is the path that runs.
 
-**False-positive risk.** None available: it renders no verdict and cannot fail a build. The risk is
+False-positive risk. None available: it renders no verdict and cannot fail a build. The risk is
 the opposite one, a misread. Two biases have to be written at the report rather than discovered:
 `script/lint` exits on first failure, so a check late in the file is under-counted relative to an
 early one; and a lane that re-runs the same failure five times produces five rows.
 
-**What it cannot check.** It counts firings, never value. On this ledger the em-dash check would sit
+What it cannot check. It counts firings, never value. On this ledger the em-dash check would sit
 near the top and the `sh -n` check, which caught a genuine bash 3.2 parser bug that ShellCheck had
 already passed, would sit near the bottom with one row. **A firing count is the cheap half of §61's
 question and not the whole of it**, and it should be labelled that way where it prints. It also sees
@@ -239,8 +239,8 @@ the only one that has genuinely never fired.
 
 ## Finding 2: the tree proves that a proof can fail, and does not prove that a gate can
 
-The most frequently recurring failure in this tree's whole record is **an absent failure signal read
-as a pass**, and it is not close. The instances are not variations on a theme, they are the same
+The most frequently recurring failure in this tree's whole record is an absent failure signal read
+as a pass, and it is not close. The instances are not variations on a theme, they are the same
 defect in twelve places: milestone 214 (a test that prints "skipping" and returns is counted as
 passed); a vacuous Kani harness reporting `SUCCESSFUL`; an assertion that answered "U-mode cannot
 read the kernel" by refusing to look, green through every gate since milestone 41 (dead code: triage
@@ -252,7 +252,7 @@ silently ignoring `--check` for months; a scheduled step piped through `tee` and
 status; `--shard 4/4` dying as an argument error in twenty seconds every week for a month;
 `script/citations` reading exit 0 on a file `git ls-files` could not see.
 
-**This tree already has the answer to that shape and applies it in one direction only.** §134 (a
+This tree already has the answer to that shape and applies it in one direction only. §134 (a
 harness carries a machine-replayable falsification record, or it is not evidence) makes a proof carry
 a demonstration that it can come back red, and `script/falsifications --check` gates it. The same
 discipline has been applied to gates three times, each time by hand and each time by somebody who
@@ -265,14 +265,14 @@ as an instinct rather than as a rule.
 
 ### Addition B: a gate carries a selftest, or it is not evidence
 
-**What it is.** §134's convention, moved from proofs onto checks. Each `script/` entry point that
+What it is. §134's convention, moved from proofs onto checks. Each `script/` entry point that
 renders a verdict grows a `--selftest` that runs it against fixtures which must fail and fixtures
 which must stay quiet, and `script/lint` gains one check: an entry point with a verdict and no
 `--selftest` is refused. The shape is already in the tree and does not need designing;
 `script/fatal-risks --selftest` is the worked example and it costs 0.65 s combined with its
 `--check`.
 
-**Which recorded failures it would have caught.** `script/fmt` ignoring `--check`, which the record
+Which recorded failures it would have caught. `script/fmt` ignoring `--check`, which the record
 calls the same defect as the `tee` fail-open and which went unnoticed for months. The `--shard 4/4`
 argument error, which is a fixture that must produce a shard and did not. `script/citations`' input
 and reading patterns disagreeing about lettered citations, which is precisely a "must fail" fixture
@@ -282,17 +282,17 @@ prospectively, the class `notes/check-inventory.md` closes on: *"Milestone 233's
 somebody asking what a passing check proved, and that remains the only known way to find the next
 one."* A selftest is that question, asked once, in a form that keeps being asked.
 
-**What it costs a contributor per run.** A fixture sweep is milliseconds; the measured combined cost
+What it costs a contributor per run. A fixture sweep is milliseconds; the measured combined cost
 of the one that exists is 0.65 s. The real cost is at authoring time, and it is the point rather than
 a side effect: a gate is roughly a third more work to write, and the third buys the evidence that it
 works.
 
-**False-positive risk, and the method.** Near zero by construction, since a failing selftest means
+False-positive risk, and the method. Near zero by construction, since a failing selftest means
 the gate is broken rather than the tree. The residual risk is a selftest that rots into a nag, and
 the estimate is from the one instance: `script/fatal-risks --selftest` has eleven fixtures and no
 recorded false rejection since 2026-09-11. One data point, stated as one.
 
-**What it cannot check.** That the fixtures cover the failure space. A selftest proves a gate *can*
+What it cannot check. That the fixtures cover the failure space. A selftest proves a gate *can*
 fire, never that it fires on everything it claims, and the record already holds the sharper version
 of this: a harness that restates the reader's own inequality cannot detect that the inequality is
 wrong. A selftest written by the same person in the same hour as the gate inherits the same blind
@@ -302,7 +302,7 @@ also cannot reach a gate whose subject is the live machine: `script/crate-probes
 
 **And it wants a bounded adoption, not a sweep.** §61's corollary applies exactly: nothing goes in
 "to see what it finds", because adding this check is a commitment to write every missing selftest
-first. The defensible shape is the tree's own ratchet: the gate refuses a **new or modified** entry
+first. The defensible shape is the tree's own ratchet: the gate refuses a new or modified entry
 point without one, the existing surface is a worklist, and the worklist is `script/`'s own listing.
 
 ## Finding 3: the hazards that destroy work are all outside the gate surface
@@ -310,24 +310,24 @@ point without one, the existing surface is a worklist, and the worklist is `scri
 `AGENTS.md` names three hazards that destroy work rather than delaying it: uncommitted work in a lane
 worktree ("the one thing no part of this system protects"), disk ("the only pressure here that
 destroys work rather than delaying it"), and the shared stash stack. All three are at rung four
-today. **Nothing in `script/` or `helpers/` runs `git worktree list`, and nothing anywhere reads
-`df`** outside one CI resource trace; both were grepped rather than assumed.
+today. Nothing in `script/` or `helpers/` runs `git worktree list`, and nothing anywhere reads
+`df` outside one CI resource trace; both were grepped rather than assumed.
 
 Measured on patagonia while writing this, 2026-09-21:
 
-- **35 worktrees.** The 2026-07-31 incident that took the volume to zero bytes free was 42.
-- **The main checkout's `target/` is 30 GB.** `AGENTS.md` records it at 7.2 GB and names it as the
+- 35 worktrees. The 2026-07-31 incident that took the volume to zero bytes free was 42.
+- The main checkout's `target/` is 30 GB. `AGENTS.md` records it at 7.2 GB and names it as the
   one nobody watches because it is not a lane and does not appear in `git worktree list`. It has
   quadrupled since, and nothing reported that.
-- **134 GiB free of 460.** Not urgent, and that is the point: the number is fine today and no
+- 134 GiB free of 460. Not urgent, and that is the point: the number is fine today and no
   mechanism would have said otherwise on the day it was not.
-- **Two worktrees carry uncommitted work.** `maintainer/metrics-2026-09-19` holds seven modified
+- Two worktrees carry uncommitted work. `maintainer/metrics-2026-09-19` holds seven modified
   files, its last commit a day old. That is the 2026-08-04 failure verbatim, seven modified files and
   nothing looking, reproduced today and found only because this lane ran the command.
 
 ### Addition C: one watcher over the lane fleet
 
-**What it is.** One script, run from `helpers/trunk-health.sh` the way `script/cadence-check` already
+What it is. One script, run from `helpers/trunk-health.sh` the way `script/cadence-check` already
 is, reporting three readings: worktrees with uncommitted work and no commit inside a window; free
 space on the volume against a floor; worktree count and total `target/` footprint including the main
 checkout's.
@@ -343,16 +343,16 @@ legitimate work" signature acquired on purpose.
 and they share their whole mechanism: one `git worktree list`, one `status --porcelain` per entry,
 one `df`. Three scripts would be three cadences to keep alive and three headers to keep true.
 
-**What it costs.** A poll, on a watcher that already polls. The `du` leg is the only expensive
+What it costs. A poll, on a watcher that already polls. The `du` leg is the only expensive
 reading and it is the one that can be sampled rather than run every pass.
 
-**False-positive risk, estimated with a stated method.** Run today against the live fleet, the
+False-positive risk, estimated with a stated method. Run today against the live fleet, the
 uncommitted-work leg names 2 of 35 worktrees and both are true positives on inspection. The
 shape to design out is the one `lane-claim-check.sh` already priced: a lane legitimately mid-edit.
 A window measured from the last commit rather than from the last write handles it, and the same
 script's five-times-measured grace period is the precedent for choosing the number.
 
-**What it cannot check.** Whether uncommitted work is *wanted*: generated artifacts a lane has
+What it cannot check. Whether uncommitted work is *wanted*: generated artifacts a lane has
 deliberately not committed look identical to work about to be lost, and one of today's two hits is
 regenerated SVG output. It cannot see growth during a long run, so a `df` reading is a snapshot and a
 build that fills the volume in ten minutes passes it and then fails. It reports only the machine it
@@ -365,7 +365,7 @@ unfixed defect one level up: neither existing watcher reports its own death.
 lane's tree, and prescribes a patch file instead. That is rung four for a hazard with a rung-two
 mechanism available, and the mechanism was verified here rather than recalled: git's
 `reference-transaction` hook fires on `refs/stash` and can abort the transaction. Tested in a scratch
-repository: the stash is refused, **the working tree is left exactly as it was**, and ordinary commits
+repository: the stash is refused, the working tree is left exactly as it was, and ordinary commits
 are unaffected. Cost measured over 20 commits with and without the hook: 0.364 s against 0.809 s,
 so about 22 ms per ref transaction, which is process spawn rather than the check. A fetch is one
 transaction and one invocation, not one per ref.
@@ -377,11 +377,11 @@ both are legitimate commands whose damage is indistinguishable from their intent
 
 ## What to weaken, with evidence
 
-**`script/cadence-check`'s DEAD verdict is currently 67% false positive**, measured today by running
+`script/cadence-check`'s DEAD verdict is currently 67% false positive, measured today by running
 it: three workflows reported dead, of which one is true (`undefined-behavior check` has never had a
 successful scheduled run, from 2026-08-10 to now, through two milestones that repaired it, and a
 manual dispatch succeeding on 2026-09-17 is not a cadence). The other two are known-false by
-construction. `audit-cadence`'s red **is** its signal, which the script's own header already records
+construction. `audit-cadence`'s red is its signal, which the script's own header already records
 as a case it cannot tell apart, and milestone 311 (the audit cadence tripwire, and the month of
 correct alarms nobody acted on) is the record of what that costs. `vendor-watch` was monthly until
 2026-09-17 and is now weekly, so its gap is a transition and not a death, which is the second half of
@@ -394,44 +394,44 @@ rather than "did it pass". Nothing else in this audit should be weakened.
 
 ## What this lane refuses to add, and the measurements that refuse it
 
-**A gate on `AGENTS.md`'s lane line.** Every pull request an agent writes must open with it, and the
+A gate on `AGENTS.md`'s lane line. Every pull request an agent writes must open with it, and the
 mechanism is rung four until milestone 128 (the automation gets its own identity, and the agents get
 their own voice) delivers one. Compliance was measured over 400 pull requests since 2026-08-16: **398 carry it, and the two that do not are dependabot's**,
 which are not agent-written and correctly should not. A gate would have zero true positives and two
 false ones in four hundred, which is the retirement signature acquired at birth.
 
-**A gate requiring a gloss on every citation.** Refused by `script/citations` already, on a sweep of
+A gate requiring a gloss on every citation. Refused by `script/citations` already, on a sweep of
 2,911 sites, and the 2026-09-19 census makes the number worse rather than better: 505 of 9,483
 scheme-number pairs are named, 5.3%. The ratchet is the right shape and this lane found no argument
 against it.
 
-**More checks generally.** The tree considered this question on 2026-09-02 after four findings in one
+More checks generally. The tree considered this question on 2026-09-02 after four findings in one
 day and wrote the answer down: the answer to four bad checks is not six more. This lane agrees, and
 two of its three recommendations are not checks.
 
 ## What cannot be gated
 
 This is not a short section because the list is thin. It is short because the tree has already
-written it: a grep for the declarative forms of "nothing checks this" returns **509 lines** across
+written it: a grep for the declarative forms of "nothing checks this" returns 509 lines across
 `notes/`, `design/` and `script/`, most of them deliberate, each sitting where a reader meets the
 thing it is about. That density is the practice working, not a backlog.
 
 The three that bound this proposal:
 
-- **A premise being overtaken.** `design/fatal-risks/README.md` states it best about itself: a green
+- A premise being overtaken. `design/fatal-risks/README.md` states it best about itself: a green
   `script/fatal-risks` means no status word contradicts the record it names, and is not a warrant
   that the arguments still hold. Milestone 275 (a gate that diffs `design/fatal-risks/README.md` against the
   roadmap it cites) closed the mechanical half and found four live disagreements on its first run;
   the larger half has no mechanism and this lane found no candidate for one. The alternative is the
   audit cadence, and the audit cadence is a tripwire whose red nobody acted on for five consecutive
   Mondays.
-- **Whether a comment, a gloss or a name is *true*.** The tree's own worked example is exact: a
+- Whether a comment, a gloss or a name is *true*. The tree's own worked example is exact: a
   `SAFETY:` comment describing capability validation sat above a `write_volatile` into a DMA page and
   passed `clippy::undocumented_unsafe_blocks` for as long as the file existed, because that lint asks
   whether a comment is present and never whether it is about the thing underneath it. The alternative
   is the promotion triggers of §71 (a limitation is promoted when it stops being a fact and becomes
   a plan), and the audits, both of which are reading.
-- **Whether a green result means anything.** `notes/check-inventory.md` answered that question by
+- Whether a green result means anything. `notes/check-inventory.md` answered that question by
   opening each file and asking, found six checks whose green is narrower than their name, and closed
   by saying there is no reason to believe six is the whole set. Addition B is the nearest a gate gets
   to it and it is not the same question: a selftest asks whether a check *can* fail, and this asks
@@ -439,20 +439,20 @@ The three that bound this proposal:
 
 ## The ranking
 
-1. **The ledger (A).** It is the only item that changes what anyone can know, it costs nothing on the
+1. The ledger (A). It is the only item that changes what anyone can know, it costs nothing on the
    success path, and it is what lets calef ask this question again in three months and get an answer
-   instead of a lane. **It has a deadline that nothing else here has**: the Actions logs that carry
+   instead of a lane. It has a deadline that nothing else here has: the Actions logs that carry
    the per-check baseline start expiring on 2026-10-21, so absorbing that baseline is worth doing
    whether or not the rest of this proposal is taken.
-2. **The selftest convention (B).** The highest-value of the three by defects prevented, and the
+2. The selftest convention (B). The highest-value of the three by defects prevented, and the
    most expensive, which is why it goes second and why it wants the ratchet shape rather than a
    sweep. It is a decision rather than a build: the code is already in `script/fatal-risks`.
-3. **The lane-fleet watcher (C).** The only one with a live failure standing in the tree as this was
+3. The lane-fleet watcher (C). The only one with a live failure standing in the tree as this was
    written. Ranked third because it protects against loss rather than against wrongness, and because
    a watcher nobody reads is this tree's most repeated disappointment.
-4. **The stash refusal (D).** Ten lines, verified, and honestly the smallest thing here.
+4. The stash refusal (D). Ten lines, verified, and honestly the smallest thing here.
 
-**If only one is taken, take the first.** The other three are opinions about where the next defect
+If only one is taken, take the first. The other three are opinions about where the next defect
 will come from. The first is the instrument that would tell us whether this proposal was right.
 
 ## Index row

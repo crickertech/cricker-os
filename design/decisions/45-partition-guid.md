@@ -9,7 +9,7 @@ ratified_by: calef
 
 *Exercised by milestone 120 (2026-08-15): the OS renamed from cricker-os to nife, and this GUID did not move, exactly as this decision's title promised. Images written before the rename remain nife partitions by the only identity that counts.*
 
-Milestone 57 needed a GPT partition **type** GUID for a nife data partition (a RedoxFS volume,
+Milestone 57 needed a GPT partition type GUID for a nife data partition (a RedoxFS volume,
 §34). There is no registry to apply to and no upstream value to adopt: RedoxFS ships none, and Redox
 itself does not define one. So one was generated, version 4, on 2026-07-30:
 
@@ -21,7 +21,7 @@ EC5CC08B-D749-4434-AC38-A274C50385BA      gpt::guid::types::CRICKER_DATA
 `globally_unique_identifier_partition_table::guid::types::NIFE_DATA` today: the OS was renamed nife on 2026-08-15 and the crate
 under DECISIONS §154 on 2026-09-18. The GUID itself never changed.)
 
-**It is random on purpose.** A type GUID's entire job is to not collide with anybody else's, and the
+It is random on purpose. A type GUID's entire job is to not collide with anybody else's, and the
 only mechanism for that without a registry is 122 bits of randomness. A memorable value spelling
 something in hex would be a worse GUID for exactly the reason it would be a nicer string.
 
@@ -35,9 +35,9 @@ not a backup.
 
 Two consequences worth writing down:
 
-- **Changing it is a format break**, on the same footing as changing the on-disk filesystem layout,
+- Changing it is a format break, on the same footing as changing the on-disk filesystem layout,
   and would need a migration rather than a version bump.
-- **A `--typecode` on a future `mkpart` must accept an arbitrary GUID**, not a table of ours. A
+- A `--typecode` on a future `mkpart` must accept an arbitrary GUID, not a table of ours. A
   partitioning tool that could only write nife partitions would be useless for the actual job
   (setting up a drive that also carries an EFI system partition and a Linux filesystem).
 

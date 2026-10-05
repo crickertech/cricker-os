@@ -18,7 +18,7 @@ live in `fixtures/`:
 | `ROLE_SERVER` | **`network_time_test_server`** | `fixtures/` | it exists to exercise the client |
 | `ROLE_PROBE_CLOCK` | **`unwritable_clock_witness`** | `fixtures/` | it exists to prove one absence |
 
-**The directory split is part of the ruling rather than tidying afterwards.** Milestone 175 spent 363
+The directory split is part of the ruling rather than tidying afterwards. Milestone 175 spent 363
 files drawing exactly this line, and a test server sitting in `components/` is the defect that line
 exists to prevent.
 
@@ -38,10 +38,10 @@ The module docs claimed the probe had to be the **same binary** as the client: t
 same binary" the client's endowment and watches it fault. **It does not hold, and it was believed for
 six weeks.**
 
-The fault is caused by the **capability set**, not by the code. Any process holding that endowment
+The fault is caused by the capability set, not by the code. Any process holding that endowment
 faults at that address whatever instructions it runs, and no amount of shared machine code would make
 a stale capability list fault. What actually keeps the witness honest is that both processes are
-endowed by **one function**, and that function takes the image as a parameter:
+endowed by one function, and that function takes the image as a parameter:
 
 ```
 start_client(...)  -> spawn_with_client_endowment(image, ip, port, stack, propose, entropy)
@@ -53,22 +53,22 @@ did. **The invariant that matters is one grant list, not one ELF**, and it is st
 in the witness's own header, and in the test's doc comment, because it is the thing a future change
 could quietly break.
 
-**Verified on the machine rather than asserted, in both directions.**
+Verified on the machine rather than asserted, in both directions.
 
-- **Negative control first**, so the positive result cannot be vacuous: the witness's `REPORT` slot
+- Negative control first, so the positive result cannot be vacuous: the witness's `REPORT` slot
   was moved from 0 to 5 with the client's grant list left at five entries.
   `an_ntp_client_holds_no_writable_clock_page` failed, because slot 5 held nothing and the witness's
   first `send` had nowhere to go.
-- **Then the client gained a sixth slot**: one more `rendezvous_cap(report, Rights::WRITE)` appended
+- Then the client gained a sixth slot: one more `rendezvous_cap(report, Rights::WRITE)` appended
   to `spawn_with_client_endowment`'s array, `n_grants` raised to six. With the witness still reporting
-  on slot 5, the test **passed**. The witness received a capability nobody gave it by name, because
+  on slot 5, the test passed. The witness received a capability nobody gave it by name, because
   the only place capabilities are named for either program is the one array.
 - Both changes reverted; the suite is green again on both ISAs.
 
-That is the invariant stated as an experiment: **a slot the client gains is a slot the witness
-gains, and there is nowhere to forget it.**
+That is the invariant stated as an experiment: a slot the client gains is a slot the witness
+gains, and there is nowhere to forget it.
 
-**The failure this guards against is a second capability list.** That is milestone 117's stranger-run
+The failure this guards against is a second capability list. That is milestone 117's stranger-run
 `swish` `caps` bug: a hand-maintained copy of a fact the manifest already held, which decays silently
 instead of breaking a build. There is no second list in this diff and there must not be one.
 
@@ -76,41 +76,41 @@ instead of breaking a build. There is no second list in this diff and there must
 
 `an_ntp_client_holds_no_writable_clock_page` asserts that the user-fault counter rises, that the
 faulting address is exactly `CLOCK_VA`, that no second report is waiting, and that the clock page did
-not change. **Every one of those assertions is unchanged.** What changed is one line: the image the
+not change. Every one of those assertions is unchanged. What changed is one line: the image the
 witness is spawned from.
 
-The fault stays a **translation** fault rather than a permission fault, because the process holds no
+The fault stays a translation fault rather than a permission fault, because the process holds no
 mapping of the clock page at all, and the test still deliberately does not assert the kind. Pinning
 the kind would fail if the page were ever mapped read-only, which is a *weaker* system passing a
 stricter-looking assertion; the comment saying so is kept.
 
 ## A defect this milestone did not go looking for, and fixed
 
-**Running one of these tests on its own hung it, on `main` as well as here.** The split meant running
+Running one of these tests on its own hung it, on `main` as well as here. The split meant running
 `script/test --test <one ntp test>` dozens of times, which nobody had done, and every exchange test
 failed with *"the test server never saw a request: the client failed before it reached the network"*.
 
 It was reproduced at the base commit before anything was concluded from it, which is what kept it from
-being read as this milestone's own breakage: **`3c156f82`, `script/test --arch aarch64 --test
-a_proposal_outside`, same failure; the same commit's full suite, all six green.**
+being read as this milestone's own breakage: `3c156f82`, `script/test --arch aarch64 --test
+a_proposal_outside`, same failure; the same commit's full suite, all six green.
 
 The cause, found by probing the client one stage at a time:
 
-- `ntp_tests::machine_has_no_entropy()` called `entropy_service::ensure` and **threw the `Wiring`
-  away**.
+- `ntp_tests::machine_has_no_entropy()` called `entropy_service::ensure` and threw the `Wiring`
+  away.
 - The first caller of `ensure` is the one handed the service's `ready` endpoint, and the service
-  announces itself with a **blocking** send. Discarding that wiring without draining it parks the
+  announces itself with a blocking send. Discarding that wiring without draining it parks the
   entropy service inside its own startup, before its request loop.
 - Every later `ensure` gets `ready: None` and cannot rescue it, so the client blocks forever in
   `call(ENTROPY, ...)`, two frames from where the failure is reported.
 
 It never showed in a whole-suite run because `entropy_tests` sorts before `ntp_tests` and drains the
-report first. **The file was relying on another file's ordering**, which is the shape of thing that
+report first. The file was relying on another file's ordering, which is the shape of thing that
 holds until somebody runs one test.
 
 `machine_has_no_entropy()` is now `entropy().is_none()`, which is the same question asked through the
 helper that already drains correctly, and the duplicate `ensure` call is gone.
-`script/test --arch aarch64 --test ntp_tests` is **6 passed** where it was a hang, and the full suite
+`script/test --arch aarch64 --test ntp_tests` is 6 passed where it was a hang, and the full suite
 is unchanged on all three architectures.
 
 ## A live inconsistency the split resolves
@@ -122,8 +122,8 @@ needs no qualification, and `components/src/network_time_client.rs` says so wher
 ## What milestone 265 needs to know, and this block does not edit it
 
 `design/roadmap/265-proto-is-a-truncation-not-an-abbreviation.md` owns `ntp_proto` →
-`network_time_protocol` and the `_proto` → `_protocol` sweep across 14 crates and 349 files. **None of
-it is performed here**: these three programs depend on `ntp_proto` spelled the way it is spelled
+`network_time_protocol` and the `_proto` → `_protocol` sweep across 14 crates and 349 files. None of
+it is performed here: these three programs depend on `ntp_proto` spelled the way it is spelled
 today, and 265 will sweep their `use` lines with everything else.
 
 Two things in 265 are overtaken by this ruling and are left for the maintainer rather than edited from
@@ -131,8 +131,8 @@ this lane:
 
 - **Its table does not list the `ntp` program**, because when it was written the program was one
   thing. It is three now, and two of them are in `fixtures/`.
-- **Its paragraph "The `ntp` program stays `ntp`, and that is an exception that must say so"** is
-  superseded. That exception rested on `AGENTS.md` leaving the length of a **typed** command to its
+- Its paragraph "The `ntp` program stays `ntp`, and that is an exception that must say so" is
+  superseded. That exception rested on `AGENTS.md` leaving the length of a typed command to its
   author, and nothing types this one: the kernel's wiring loads it from the archive by name. After
   290 there is no `ntp` program at all, the client's name already carries the `network_time` stem
   calef ruled on 2026-09-13, and the pair `network_time_protocol`/`network_time_client` does not
@@ -140,25 +140,25 @@ this lane:
 
 ## What was built
 
-- **`components/src/network_time_client.rs`**, the client, with the role dispatch gone: `_start`
+- `components/src/network_time_client.rs`, the client, with the role dispatch gone: `_start`
   takes the server's address and port and calls `client`.
-- **`fixtures/src/network_time_test_server.rs`**, three slots (report, `READ` on the socket endpoint,
+- `fixtures/src/network_time_test_server.rs`, three slots (report, `READ` on the socket endpoint,
   a budget), holding no propose endpoint and no entropy endpoint, so its endowment shows on sight
   that the peer answering the client cannot itself reach the clock.
-- **`fixtures/src/unwritable_clock_witness.rs`**, thirteen lines of body: report, write, report again
+- `fixtures/src/unwritable_clock_witness.rs`, thirteen lines of body: report, write, report again
   (which is the failure), exit.
-- **`kernel/src/user/ntp_service.rs`**: `spawn_role` is `spawn_with_client_endowment`
+- `kernel/src/user/ntp_service.rs`: `spawn_role` is `spawn_with_client_endowment`
   (**function name provisional**, minted by this lane), `start_probe` is `start_witness`, the role
   constants are gone, and the module header states the one-list invariant.
-- **`kernel/src/user/ntp_tests.rs`**: one `ntp_image()` becomes `client_image()`,
+- `kernel/src/user/ntp_tests.rs`: one `ntp_image()` becomes `client_image()`,
   `test_server_image()` and `witness_image()`, so a test that spawns the witness where it meant the
   client fails to compile rather than passing for the wrong reason.
-- **`xtask/src/main.rs`**: one archive row becomes three, in both the portable table and the aarch64
+- `xtask/src/main.rs`: one archive row becomes three, in both the portable table and the aarch64
   one. The measured-boot manifest is computed over the archive's entries and sorted, so it picked the
   two new programs up with nothing to edit.
-- **`fixtures/Cargo.toml`** takes `ntp_proto`, `socket_proto` and `clock_proto`, all three already in
+- `fixtures/Cargo.toml` takes `ntp_proto`, `socket_proto` and `clock_proto`, all three already in
   the shipping graph through `components`. Nothing external was added.
-- **`notes/ntp.md`**, including a section on the false "same binary" argument, because that is where a
+- `notes/ntp.md`, including a section on the false "same binary" argument, because that is where a
   reader goes looking.
 
 ## Deliberately not built: a crate for what the three share
@@ -174,7 +174,7 @@ What is duplicated is about forty lines of `r8`/`w8`/`write_payload`/`read_paylo
 `MappedWindow`, and a four-line `stamp`. **That is code over a layout that already lives in a crate,
 not a fact two binaries must agree on**, and it is what `entropy`, `mdns_responder`, `net_transport`
 and `socket_test_client` each already carry: five copies before this milestone, six after. A crate
-for it would be a real improvement and it is a **different milestone**, because it is about all six
+for it would be a real improvement and it is a different milestone, because it is about all six
 and not about these three; it is proposed below.
 
 ## What was measured
@@ -193,7 +193,7 @@ and not about these three; it is proposed below.
 Exit 0. The same command at the base commit `3c156f82` gave aarch64 321/3, so the split adds two
 archive entries and moves no test.
 
-The six NTP tests **run alone** now, which they did not before (see the defect above):
+The six NTP tests run alone now, which they did not before (see the defect above):
 `script/test --test ntp_tests` is 6 passed on aarch64, 6 on riscv64, and on x86_64 2 passed with 4
 skipped for want of a virtio-rng device, which is the documented state of that board.
 `an_ntp_client_holds_no_writable_clock_page` is one of the two that runs there, so the confinement
@@ -206,15 +206,15 @@ three new names ratified and carrying eight refusals between them.
 
 ## BUGS
 
-- **Two entries in `design/decisions/139-cycle-counter-authority.md` cite `components/src/ntp.rs`, a
-  path that no longer exists**, one of them with a line number. A lane may not edit
+- Two entries in `design/decisions/139-cycle-counter-authority.md` cite `components/src/ntp.rs`, a
+  path that no longer exists, one of them with a line number. A lane may not edit
   `design/decisions/`, so they are named here and in this lane's report for the integrator. The
   content is still true of `network_time_client.rs`; only the path is stale.
-- **`design/roadmap/106-deadline-wait.md` cites `components/src/ntp.rs:44`, `:188`** in its table of
+- `design/roadmap/106-deadline-wait.md` cites `components/src/ntp.rs:44`, `:188` in its table of
   what a timed wait would fix. Same shape, same reason it is not edited here (another milestone's
   block), same remedy.
-- **The report vocabulary is one numbering space across three programs that no longer share a
-  binary.** The numbers were kept exactly where they were so that a boot log from before this
+- The report vocabulary is one numbering space across three programs that no longer share a
+  binary. The numbers were kept exactly where they were so that a boot log from before this
   milestone still reads, and `ntp_service::rpt` is the one place that holds all eight. The cost is
   that a reader of `unwritable_clock_witness.rs` sees `RPT_PROBING = 6` with 1..5 and 7..8 declared
   elsewhere, and must look at the kernel side to see why. Renumbering per program was refused: it
@@ -226,7 +226,7 @@ three new names ratified and carrying eight refusals between them.
   blocking report, and dropping it parks the service. The honest remedy is in `ensure` itself (it
   could drain a report nobody asked for) and that is a change to a file six test modules share, which
   is more than this lane should take on the way past. It is proposed below.
-- **Nothing gates the mirror.** `ntp_service::rpt`, `srv` and `reject` are hand-kept copies of
+- Nothing gates the mirror. `ntp_service::rpt`, `srv` and `reject` are hand-kept copies of
   constants in three files, marked "Must match" the way thirty other kernel-side service modules are.
   That convention is the tree's, not this milestone's, and it is not made worse here; it is also not
   made better.

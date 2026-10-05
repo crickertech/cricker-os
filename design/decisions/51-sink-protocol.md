@@ -48,10 +48,10 @@ protocol crate dependency-free per §46.
 
 ## BUGS
 
-- **A sink is not a file and does not seek.** The protocol expresses append and end-of-stream, which
+- A sink is not a file and does not seek. The protocol expresses append and end-of-stream, which
   is what a pipeline needs and less than a file offers. A program that needs to seek needs the file
   contract, and it will then know it has a file, which costs it the indifference above. That trade
   is real and unresolved.
-- **Nothing yet proves the claim end to end.** The protocol, both ends, and a read-back landed
+- Nothing yet proves the claim end to end. The protocol, both ends, and a read-back landed
   together; the operators that would let a *user* compose two programs did not. Until `ls | wc` runs
   at the prompt, indifference is demonstrated by a test rather than exercised by a shell.

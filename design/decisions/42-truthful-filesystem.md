@@ -27,10 +27,10 @@ established decision, not merely be untidy.
 
 Two different things get conflated when someone says a filesystem "can't do that".
 
-- **Rights say what is offered.** A read-only mount offers no `remove` and no `create`. That is not
+- Rights say what is offered. A read-only mount offers no `remove` and no `create`. That is not
   variation in behaviour, it is an honest absence, and milestone 47's directory rights ladder
   (`enumerate` / `open` / `create` / `remove`) already expresses it.
-- **Guarantees say how an offered operation behaves.** If a backend offers a verb, that verb means
+- Guarantees say how an offered operation behaves. If a backend offers a verb, that verb means
   exactly one thing, with one atomicity story, on every mount.
 
 **Behaviour never varies. Availability may.** Uniformity was never "every mount offers everything";
@@ -42,15 +42,15 @@ read-only mount troubling.
 Stated separately in the contract, because saying "atomic" and letting readers assume the stronger one
 is the mistake POSIX made.
 
-- **Concurrency atomicity**: no concurrent observer sees an intermediate state. POSIX *mandates* this
+- Concurrency atomicity: no concurrent observer sees an intermediate state. POSIX *mandates* this
   for `rename(2)` within a filesystem, cross-directory included. Near-universal on anything with
   directories, and cheap to conform to.
-- **Crash atomicity**: after power loss you see old or new, never garbage. **POSIX requires nothing.**
+- Crash atomicity: after power loss you see old or new, never garbage. POSIX requires nothing.
   This is where a decade of data-loss bugs lived, ext4's 2009 delayed-allocation saga being the
   cautionary tale: the rename hit the journal before the data blocks landed, so a crash left a
   correctly-named empty file, and the fix was a heuristic rather than a guarantee.
 
-The temp-file-then-rename idiom, which is how applications get crash-safe updates, needs **both**.
+The temp-file-then-rename idiom, which is how applications get crash-safe updates, needs both.
 `fs_proto` has no `RENAME` at all today and `rename` is `Unsupported` in the std PAL, so this is a
 missing verb rather than a refinement.
 
@@ -59,15 +59,15 @@ missing verb rather than a refinement.
 **A backend that cannot meet a verb's guarantee does not offer that verb.** It still mounts, and it is
 still useful. FAT offers read, write, create and remove but not `rename`; an object store offers no
 `rename` because it has no directories at all; the read-only initrd (nifefs) offers neither
-`remove` nor `create`. All three fail `mv` on **authority**, uniformly, and none of them is excluded
+`remove` nor `create`. All three fail `mv` on authority, uniformly, and none of them is excluded
 from the system.
 
-What mount-time conformance is for is **honesty**: a backend declares what it offers and the
+What mount-time conformance is for is honesty: a backend declares what it offers and the
 conformance suite verifies the declaration. A filesystem *claiming* atomic rename that fails the suite
 does not mount, because it is lying. This is the architecture-parity gate's discipline (rule 5) on a
 new axis: a capability ships everywhere it claims to, proven by one suite, or the gap is recorded.
 
-**Rejected: requiring crash-atomic rename for mountability.** This was my position and it is wrong.
+Rejected: requiring crash-atomic rename for mountability. This was my position and it is wrong.
 An operating system exists to be useful, and it has to work with impure components; refusing to mount
 a FAT SD card to protect a guarantee nobody asked for on that mount trades real utility for purity.
 The concrete cost is not hypothetical: the VisionFive 2 boots via U-Boot from an SD card whose
@@ -77,38 +77,38 @@ on the verb.
 
 ## The danger was never the impure backend; it is the silent fallback
 
-Unix's `rename()` on FAT **succeeds** and simply is not crash-safe, and the caller cannot tell. That
+Unix's `rename()` on FAT succeeds and simply is not crash-safe, and the caller cannot tell. That
 is the actual defect: not that FAT is weak, but that the interface lies about it. So the operative
-rule is **no silent degradation**. A verb that is not offered fails loudly and the application
+rule is no silent degradation. A verb that is not offered fails loudly and the application
 decides; it may choose copy-then-truncate with its eyes open. What it must never receive is an unsafe
 operation wearing a safe operation's name.
 
 ## Discovery costs nothing new
 
-Availability varying would be useless if it were not discoverable, and **the rights are the discovery
-mechanism**: a directory capability carries `rename` or it does not, and rights are already
+Availability varying would be useless if it were not discoverable, and the rights are the discovery
+mechanism: a directory capability carries `rename` or it does not, and rights are already
 introspectable, which is what `caps` prints. No feature-query verb, no capability negotiation.
 
 ## What the contract requires, and what it deliberately does not
 
-- **Require** concurrency-atomic rename, same and cross directory, for any backend offering the verb.
+- Require concurrency-atomic rename, same and cross directory, for any backend offering the verb.
   POSIX mandates it and every local filesystem delivers it, so requiring it costs nothing real. An
   earlier draft of mine proposed levelling cross-directory down to non-atomic everywhere; that
   discards something near-universal in exchange for portability that would never be cashed in.
-- **Require** crash atomicity for the verb, and expect this to be the demanding clause. It is what
+- Require crash atomicity for the verb, and expect this to be the demanding clause. It is what
   FAT cannot do and what ext4 only approximates.
 - **Do not require** the extended operations. Linux's `renameat2` flags (`RENAME_EXCHANGE`,
   `RENAME_NOREPLACE`) work on ext4, btrfs, XFS, f2fs and tmpfs and nowhere else, and emulating
   `NOREPLACE` against a generic backend, a POSIX host filesystem reached through separate `link`
-  and `unlink` syscalls with another writer free to run between them, is racy. **Corrected,
-  [DECISIONS §129](129-rename-noreplace-flag.md), 2026-08-25**: that reason does not describe
+  and `unlink` syscalls with another writer free to run between them, is racy. Corrected,
+  [DECISIONS §129](129-rename-noreplace-flag.md), 2026-08-25: that reason does not describe
   `redoxfs_server` specifically, whose serve loop runs one request to completion before the next,
   so there is no concurrent observer inside that backend for the emulation to race against. The
   requirement stays not-required (no backend is obligated to offer it), and `NOREPLACE` joins
   `EXCHANGE` under the same standing answer: add it, for a specific backend, when a real customer
   needs it.
 
-**Cross-filesystem move is a different verb, and this constraint is what forces it.** No amount of
+Cross-filesystem move is a different verb, and this constraint is what forces it. No amount of
 contract discipline can make an operation spanning two filesystems behave like one inside a single
 filesystem: it is copy-then-unlink, a different object with a different identity, non-atomic by
 nature. If `mv` silently became that operation depending on where its arguments happened to live,

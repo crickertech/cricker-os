@@ -45,7 +45,7 @@ and a creator decides whether to keep or pass on one for each child. It adds aut
 but every process gets it whether its builder wanted that or not, which is a default grant rather
 than an explicit one.
 
-**C. Leave it.** `UNMAP` stays a builder's tool for a space under construction, and the
+C. Leave it. `UNMAP` stays a builder's tool for a space under construction, and the
 progenitor's residual stays recorded in `notes/trusted-init.md`. §162's ruling then closes nothing
 the roadmap block named.
 
@@ -58,7 +58,7 @@ A, because it is the explicit-grant shape the rest of the tree uses, and the pre
 tree is the system this model borrows from. Would we still choose it at equal cost? Yes. B is
 probably less work (a slot convention, no registry change), and that is the only argument for it.
 
-**It interacts with the running-root fix**
+It interacts with the running-root fix
 (`design/roadmap/proposals/a-destroyed-region-cannot-free-a-running-root.md`). Under A, bound spaces
 stay in a registry by name, so `user::reap_address_spaces_in_region` would see them for the first
 time, which changes that proposal's options. Decide the two together.

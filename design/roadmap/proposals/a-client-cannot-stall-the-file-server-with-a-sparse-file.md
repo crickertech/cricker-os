@@ -29,11 +29,11 @@ the `BUGS` section of `Server::truncate`.
 1. **Skip a null subtree** in `truncate_node_inner`: if a level's pointer is null, step past every
    record under it. Fixes the cost at the root and is upstreamable, but it is a sixth pin
    divergence (`vendor/README.md`), re-applied on every bump; the first five were calef's calls.
-2. **Refuse a sparse size past the image** in `Server::truncate` and `Server::write`: no file may
+2. Refuse a sparse size past the image in `Server::truncate` and `Server::write`: no file may
    end past the filesystem's size. Bounds the walk at the image's records (about 131,000 for a
    1 GiB image) inside our own code. It changes what the server accepts: POSIX allows a sparse file
    larger than its disk, and nothing in this tree uses one today (not measured beyond a grep).
-3. **Bound the work per request** and make a long shrink resumable. Most general, most machinery.
+3. Bound the work per request and make a long shrink resumable. Most general, most machinery.
 
 Recommendation, not measured: option 1, with option 2 as the interim if the divergence is refused.
 #1606 (`lane/redoxfs-level4`) takes the other vendored fix this lane found, a level-4 constant, as

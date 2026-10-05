@@ -36,7 +36,7 @@ One tree, one kernel binary, one `script/test --arch aarch64`, two emulators on 
 | apt's 8.2.2 | **FAILS**: `sendkey` never reaches the device | **pass**, pixel for pixel |
 | the pinned 11.0.2 | **passes** | **FAIL**: *"no screendump was ever taken (did QEMU get a monitor?)"* |
 
-`inbound` and `multicast` fail under both. The two versions fail **disjoint** sets of host-side
+`inbound` and `multicast` fail under both. The two versions fail disjoint sets of host-side
 checks, and neither set is empty, so "the host-side referees fail here because the box is headless"
 is true and is not enough to identify anything.
 
@@ -44,7 +44,7 @@ is true and is not enough to identify anything.
 
 The post-run checks are this project's only evidence for the things a guest cannot witness about
 itself: that pixels reached the *device*, that a keystroke crossed the monitor socket, that a host
-process could connect **into** the guest. `script/test`'s own output already goes to some length to
+process could connect into the guest. `script/test`'s own output already goes to some length to
 make a red one readable (the `inbound` check prints the attempt histogram and tells the reader to
 read the timestamps first). The emulator version is the one input to those checks that changes the
 answer and is not in the report.
@@ -52,7 +52,7 @@ answer and is not in the report.
 The concrete cost, paid twice in two days: a lane sees a red post-run check, cannot tell an
 environment failure from its own regression, and spends a control run finding out. The block for the
 `script/bootstrap` milestone landing with [#847](https://github.com/nifeos/nife/pull/847)
-records three `scanout` failures on this box; milestone 288 saw them **pass** there and a different
+records three `scanout` failures on this box; milestone 288 saw them pass there and a different
 check fail. Both accounts are correct and they read as contradicting each other.
 
 ## What would close it

@@ -22,7 +22,7 @@ captured.
 ## The finding that makes this cheap, and it was a surprise
 
 Milestone 519's own `BUGS` said machine effort could not be attributed to a milestone because
-"nothing links a lane to the milestone it worked on". **That turned out to be false.** Every
+"nothing links a lane to the milestone it worked on". That turned out to be false. Every
 assistant record in the harness's session files carries a `gitBranch` field, and `AGENTS.md` requires
 a lane to work on a branch named for its milestone (`milestone/519-cost-inputs`). The join is one
 regular expression over data that is already being read and already being committed.
@@ -37,7 +37,7 @@ per-component cost, because a figure in this shape is exactly the kind a strange
 
 ## Why it is worth a milestone rather than a `BUGS` line
 
-**It is the number the comparison actually wants.** Milestone 519's block opens by naming seL4 at
+It is the number the comparison actually wants. Milestone 519's block opens by naming seL4 at
 about eleven person-years plus nine more at a 20:1 proof-to-code ratio, and Atmosphere at 1.5
 person-years on verification alone. Those are *per-artifact* figures. "This project has spent 22.3
 billion tokens" is not comparable to either of them; "a verified capability-transfer path cost this
@@ -52,16 +52,16 @@ And it is the input `design/fatal-risks/README.md`'s counter-theses need in the 
 These are the questions, not the answers. A lane taking this should expect to argue for a rule and
 record the refusals.
 
-1. **What counts as a lane's work.** A branch prefix and a number in the slug is the obvious rule and
+1. What counts as a lane's work. A branch prefix and a number in the slug is the obvious rule and
    it is not obviously right: a lane that gates from the main checkout, a session that answers a
    question about a milestone from `main`, and a maintainer branch that finishes a lane's work are
    three different cases and only one of them is easy.
-2. **Where the unattributable goes.** The honest options are a named bucket (`main`, `maintainer/`,
+2. Where the unattributable goes. The honest options are a named bucket (`main`, `maintainer/`,
    unattributed) carried beside the attributed total, or nothing. It must not be spread across
    milestones pro rata, which would manufacture a number for every block in the tree.
-3. **Whether the record is per-milestone or per-branch.** Per-branch is what the data says and is
+3. Whether the record is per-milestone or per-branch. Per-branch is what the data says and is
    uninteresting; per-milestone is what a reader wants and needs the mapping above.
-4. **Whether a milestone's cost is ever final.** A block that is corrected, extended, or reopened
+4. Whether a milestone's cost is ever final. A block that is corrected, extended, or reopened
    accrues more. A cumulative figure is honest and never settles; a first-build figure settles and
    understates.
 
@@ -70,7 +70,7 @@ record the refusals.
 **Not time tracking**, on the same grounds 519 refuses it: this is machine effort, and nothing here
 asks a person to log anything.
 
-**Not a per-milestone dollar figure**, unless it carries 519's own labels. This project pays a fixed
+Not a per-milestone dollar figure, unless it carries 519's own labels. This project pays a fixed
 subscription, so the marginal cost of a milestone is zero dollars, and a retail figure is a shadow
 price. A cost-per-milestone number that did not say which of the two it was would be the exact
 failure 519 spends a section refusing.

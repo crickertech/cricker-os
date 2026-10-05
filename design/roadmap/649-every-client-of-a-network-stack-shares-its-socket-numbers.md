@@ -41,14 +41,14 @@ second sentence because it is the true one.
 2. **An endpoint per socket.** `OPEN` answers with a fresh endpoint capability for that socket, the
    `fs_subtree_caretaker` shape; the `sid` disappears from the wire. The larger change and the one
    that matches how this tree already narrows files.
-3. **A stack per client.** One `net_stack` per declaring job. No wire change, but a NIC can back one
+3. A stack per client. One `net_stack` per declaring job. No wire change, but a NIC can back one
    stack, so this only works behind a multiplexer that does not exist.
 
 Recommendation, from reading rather than measurement: option 2, because it is the shape the tree
 already uses for the analogous file case (a narrowed endpoint per grant), and a wire change is owed
 either way. What each costs has not been measured.
 
-**Option 1 is now buildable without its own §10 fork.** calef ruled the analogous filesystem
+Option 1 is now buildable without its own §10 fork. calef ruled the analogous filesystem
 question on 2026-09-26 (milestone 599 (a frame per filesystem client channel), a frame per filesystem client channel) in favour of badged
 endpoint capabilities, which is exactly the "endpoint badges" option 1 says it needs. Milestone 599
 builds the badge machinery on the shared `INVOKE` surface (a `BADGE` method to mint a badged

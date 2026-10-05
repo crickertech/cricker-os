@@ -34,7 +34,7 @@ from what it happens to observe.
 
 The placement record makes the temptation concrete rather than theoretical. A userspace supervisor
 tallying placements over a domain gets a correct census, because the ids it observes are by
-construction a subset of the online set. What it **cannot** do is show an online core with nothing on
+construction a subset of the online set. What it cannot do is show an online core with nothing on
 it, or tell that case apart from a core that is not online.
 
 The obvious workaround is the bug: `for cpu in 0..count` is exactly the shape `cpu_set` was written
@@ -51,13 +51,13 @@ capability that names a supervision subtree.
 
 What remains open is which mechanism does carry it, and the candidates are not equivalent:
 
-- **A method on some existing machine-facing capability**, which keeps the no-ambient-authority
+- A method on some existing machine-facing capability, which keeps the no-ambient-authority
   property: a program learns the topology because somebody handed it the right to ask.
-- **A read-only page**, on the shape calef's 2026-09-21 selector ruling chose for a thread reading
+- A read-only page, on the shape calef's 2026-09-21 selector ruling chose for a thread reading
   its own cpu. Cheap, and the objection that ruling raised against a mapped statistics page
   (ambient authority outliving revocation) is weaker here, because the online set is not a secret
   and barely changes.
-- **Part of whatever a program is already told about its machine at start.** The set changes so
+- Part of whatever a program is already told about its machine at start. The set changes so
   rarely that a value handed over once may be the honest shape, and that makes this a question about
   process startup rather than about a new method.
 
@@ -66,11 +66,11 @@ costs and calef picks.
 
 ## BUGS
 
-- **"Online" is not a constant**, even though this tree currently treats it as one. Nothing here
+- "Online" is not a constant, even though this tree currently treats it as one. Nothing here
   brings a cpu up or down after boot, so a value handed over once is correct today; a mechanism that
   bakes that assumption into a wire is a mechanism that has to be un-shipped if hotplug ever
   arrives. Whichever option is chosen should say which of the two it is promising.
-- **This is not affinity**, and the distinction matters because the two look alike from userspace.
+- This is not affinity, and the distinction matters because the two look alike from userspace.
   Whether a program may *choose* where its threads run remains open, and reading the topology is
   explicitly not a step toward it: seL4 refuses migration by design and this kernel does not
   implement it.

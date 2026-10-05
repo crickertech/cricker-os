@@ -1,0 +1,26 @@
+Falsifies `system_tests::user::running_space_tests::unmap_through_a_copy_made_before_configure_faults_the_running_thread`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect: a capability stops resolving once its space is bound to a thread, which is what
+`CONFIGURE` retiring the name did before §249 (a running address space stays nameable). The kept
+copy then reaches nothing, and `UNMAP` cannot touch the window it exists to close.
+
+Expected to fail: the first assertion after the reader starts, which gets `Err(BadPointer)` from
+`UNMAP` instead of `Ok(0)`.
+
+diff --git a/kernel/src/user.rs b/kernel/src/user.rs
+--- a/kernel/src/user.rs
++++ b/kernel/src/user.rs
+@@ -703,7 +703,10 @@
+ /// whose TLB obligation reaches every core.
+ pub fn with_user_address_space<R>(name: u64, f: impl FnOnce(Option<&mut AddressSpace>) -> R) -> R {
+     let mut spaces = USER_SPACES.lock();
+-    f(spaces.get_mut(name).map(|e| &mut e.space))
++    f(spaces
++        .get_mut(name)
++        .filter(|e| e.bound.is_none())
++        .map(|e| &mut e.space))
+ }
+ 
+ /// **Bind the space `name` to the embryo `tid`** (`ThreadControlBlock::CONFIGURE`'s engine since

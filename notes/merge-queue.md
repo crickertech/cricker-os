@@ -350,10 +350,9 @@ calef asked whether the response existed and it did not: this watcher reported a
 [briefs/main-is-red.md](../briefs/main-is-red.md). It stays a person's to run, for the reason this
 note gives throughout: a queue reports, it does not resolve.
 
-And this watcher has a blind spot worth knowing here, now recorded in its own `BUGS`: it reads
-CI's *conclusion*, and a required check whose steps were skipped posts `success` having run nothing.
-On 2026-09-23 a documentation-only commit broke a `crates/documentation` test that `ci.yml` had
-skipped, and `main` was red for hours while this script said green.
+This watcher reads CI's *conclusion*, and a skipped required check posts `success` (its `BUGS`).
+On 2026-09-23 a documentation-only commit broke a `crates/documentation` test `ci.yml` had skipped.
+A prose-only change now runs that test, among others: [prose-only.md](merge-queue/prose-only.md).
 
 ## `helpers/at-risk-check.sh`, the one watch that stays on your own machine
 
@@ -464,8 +463,7 @@ A push that finds one logs `==> <sha> was tested by merge group run <id>; skippi
 `draft gate` step, with the run's URL on the next line.
 
 `helpers/trunk-health.sh` reads a skipped push run as green, since the run concludes `success`, and
-names the merge-group runs behind it. That keeps this green distinct from the skipped-docs green its
-own `BUGS` still warns about.
+names the merge-group runs behind it.
 
 ## The queue's check timeout is 240 minutes, not 60 (2026-09-24)
 

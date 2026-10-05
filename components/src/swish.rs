@@ -4757,7 +4757,9 @@ const _: () = {
     assert!(address_space_map::PAIR_PAGES.holds(IMAGE_WINDOW, IMAGE_WINDOW_END));
 };
 
-/// The next job frame's address. It advances per job, because there is no unmap syscall: each job
+/// The next job frame's address. It advances per job, because the shell holds no capability to its
+/// own address space to `UNMAP` with (§249 (a running address space stays nameable) leaves that grant
+/// to its builder, and the progenitor does not make it): each job
 /// gets a fresh window and the old mapping is simply left behind (one page of address space, and one
 /// frame from our budget, is the honest per-job cost). Past [`JOBFRAME_WINDOWS`]'s end a job is
 /// refused rather than mapped over whatever lies beyond it.

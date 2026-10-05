@@ -25,9 +25,9 @@ an installer has to write that file to the new disk, and it cannot be carried in
 because the file contains the archive. The answer is that the loader reads its own file back off the
 boot volume while the firmware is still up, and hands it over.
 
-**On `x86_64` it hands it over as PVH module 1**, beside the archive at module 0, and
+On `x86_64` it hands it over as PVH module 1, beside the archive at module 0, and
 `arch::x86_64::machine::boot_file` reads it. On aarch64 and riscv64 the kernel is told about its
-machine through a device tree, and `/chosen` carries **one** initrd (`linux,initrd-start` and
+machine through a device tree, and `/chosen` carries one initrd (`linux,initrd-start` and
 `linux,initrd-end`) with no second slot. So `arch::hand_over` on those two takes the boot file as a
 parameter named `_boot_file` that is always `None`, with the reason written at the signature, and
 `memory::boot_file_region` is dead there.
@@ -37,7 +37,7 @@ That is why `kernel/src/user/install_service.rs` is `#[cfg(target_arch = "x86_64
 
 ## What it would take, priced
 
-**The loader half is small and the shape already exists.**
+The loader half is small and the shape already exists.
 `uefi_loader/src/device_tree_patch.rs` copies the firmware's tree and writes the two `/chosen`
 initrd properties into it; `output_len` already sizes the copy for exactly those additions. Two more
 properties (`nife,boot-file-start` and `nife,boot-file-end`, provisional names) are the same code
@@ -50,30 +50,30 @@ tests `device_tree_patch` already has for the initrd pair.
 riscv64 or aarch64 machine installing itself, and they are worth naming here so that nobody promotes
 this expecting the rung:
 
-1. **A FAT name the writer can produce.** `BOOTRISCV64.EFI` is not 8.3 and
+1. A FAT name the writer can produce. `BOOTRISCV64.EFI` is not 8.3 and
    `crates/file_allocation_table` refuses it; that is its own proposal.
-2. **A disk the firmware will boot from.** Rung 2a's second boot rests on a UEFI firmware finding
+2. A disk the firmware will boot from. Rung 2a's second boot rests on a UEFI firmware finding
    `\EFI\BOOT\<file>` on an NVMe disk with no boot variable. radon boots from a card through vendor
    U-Boot, not from an ESP, so "install onto the disk" is a different sentence there and milestone
    515 (a stick that puts itself on the machine's disk) does not describe it.
-3. **A runner.** There is no aarch64 or riscv64 gate that attaches an empty NVMe controller and an
+3. A runner. There is no aarch64 or riscv64 gate that attaches an empty NVMe controller and an
    ESP at once.
 
-**So the honest reading is that this proposal closes a portability gap in the handoff and nothing
-more**, and that is still worth doing on its own terms: an architecture-shaped hole in a boot
+So the honest reading is that this proposal closes a portability gap in the handoff and nothing
+more, and that is still worth doing on its own terms: an architecture-shaped hole in a boot
 contract is the kind of thing that gets forgotten and then surprises somebody, and this one is
 currently held open by a parameter named `_boot_file`.
 
 ## BUGS
 
-- **A property name is a thing two programs agree on.** `nife,boot-file-start` is provisional and
+- A property name is a thing two programs agree on. `nife,boot-file-start` is provisional and
   the spelling is an architect's, the same way every other name is; a lane should ship one and say
   so rather than wait.
-- **It is not clear a device-tree machine should carry the file at all.** On a board that boots from
+- It is not clear a device-tree machine should carry the file at all. On a board that boots from
   a card there may be no "file the firmware started" in the sense this mechanism means, and the
   answer there may be that the installer reads the card rather than that the loader hands the file
   over. That is a fork this proposal does not settle and a promoter should look at first.
-- **`output_len` is the one place this can go wrong quietly**: a tree copied into a buffer sized for
+- `output_len` is the one place this can go wrong quietly: a tree copied into a buffer sized for
   two properties and then given four overruns, and the failure lands before any console exists on
   some firmware. It has host tests; they would need two more.
 

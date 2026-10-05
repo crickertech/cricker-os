@@ -33,9 +33,9 @@ refusal that went stale rather than a bad one. In September the question was whe
 compiled for x86_64 userspace, and the answer turned out to be a cfg nobody had set. Route 2 would
 have meant an `FXSAVE` area per thread and save/restore in the context-switch path, which
 `kernel/src/arch/x86_64/` does none of today, and none of it was needed to compile `aes`. The
-refusal was correct on its own question and it said so precisely: "not owed **for this blocker**".
+refusal was correct on its own question and it said so precisely: "not owed for this blocker".
 
-**What has happened since is calef's, reported on 2026-09-20.** Milestone 442 (a crypto provider `rustls` can use on all three
+What has happened since is calef's, reported on 2026-09-20. Milestone 442 (a crypto provider `rustls` can use on all three
 bare-metal targets) needs five force-soft build flags; a crate that detects AVX2 at runtime dies in ring 3 with `vector
 6 (invalid opcode)`; and the bitsliced cost the tree declined to measure is starting to have a
 workload. None of that was compared against this refusal, because a refusal had no home that

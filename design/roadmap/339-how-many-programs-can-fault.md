@@ -20,7 +20,7 @@ Nothing is owed and nothing is missing. It is a survey of code already in the tr
 and a lane could start it today.
 
 **In brief.** Milestone 235 fixed a shell that hangs forever when a spawned command traps. Nobody
-knows how many programs could trigger it. The tree ships **68 programs**, and every one that can
+knows how many programs could trigger it. The tree ships 68 programs, and every one that can
 fault reached that path. The work is to go through them and produce a number: which programs have a
 reachable fault (an unwrapped index, a `panic!` on bad input, a syscall that returns an error the
 program does not handle), and which cannot fault by construction.

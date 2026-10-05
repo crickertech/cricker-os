@@ -15,20 +15,20 @@
 # # Why this exists
 #
 # `.github/workflows/architect-label.yml` and nine scope-check steps in `.github/workflows/ci.yml`
-# (the four build jobs test, swish-check, swish-check-graphical and boot-check that the 2026-09-30
-# split minted, the third since folded into swish-check on 2026-10-03, plus cpu matrix, watchdog, bench, fuzz, coverage: each guarded by a step asking
-# "does this change need the thing this job builds") used to diff `github.event.pull_request.base.sha`
-# (or, in ci.yml, `|| github.event.merge_group.base_sha`) straight against HEAD. That field is a
-# snapshot GitHub took when the pull request's base last changed FOR THIS PULL REQUEST (opened, or
-# last synchronized); it does not track the base branch's current tip, so it goes stale the moment
-# another pull request merges into the base branch without any push to this one. #1416 was flagged
-# needs-architect for `dependency: xtask/Cargo.toml: toml`: that dependency is #1405's, added to
-# `main` after #1416 branched, and the payload's cached `base.sha` still pointed at #1414's merge,
-# one commit behind #1405's on `main`. Diffing against that stale commit read #1405's own addition
-# as though #1416 had introduced it. ci.yml's scope-check steps read the field the identical way
-# and share the same exposure (not yet observed to misfire there, only found by inspection when
-# fixing architect-label.yml; fixed here in the same pass rather than left for a second one, since
-# it is the same bug with the same fix).
+# (each heavy job's own "does this change need the thing this job builds" step; since 2026-10-05
+# those are one prose-only classification in the `gate` job of ci.yml and of verify.yml, plus
+# watchdog's own step, all of which call this script) used to diff
+# `github.event.pull_request.base.sha` (or, in ci.yml, `|| github.event.merge_group.base_sha`)
+# straight against HEAD. That field is a snapshot GitHub took when the pull request's base last
+# changed FOR THIS PULL REQUEST (opened, or last synchronized); it does not track the base branch's
+# current tip, so it goes stale the moment another pull request merges into the base branch without
+# any push to this one. #1416 was flagged needs-architect for `dependency: xtask/Cargo.toml: toml`:
+# that dependency is #1405's, added to `main` after #1416 branched, and the payload's cached
+# `base.sha` still pointed at #1414's merge, one commit behind #1405's on `main`. Diffing against
+# that stale commit read #1405's own addition as though #1416 had introduced it. ci.yml's
+# scope-check steps read the field the identical way and share the same exposure (not yet observed
+# to misfire there, only found by inspection when fixing architect-label.yml; fixed here in the same
+# pass rather than left for a second one, since it is the same bug with the same fix).
 #
 # The fix: never trust the payload's cached sha as the primary source when a base-ref is known.
 # `actions/checkout` with `fetch-depth: 0` already fetches every branch fresh in the same job, so

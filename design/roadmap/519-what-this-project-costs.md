@@ -9,15 +9,15 @@ Built 2026-09-21. Minted 2026-09-21 by calef, from a conversation about what nif
 have to be to change anyone else's behaviour. Every honest answer began with a cost number this tree
 cannot state. *(Number provisional until the merge queue lands it.)*
 
-**Built the same day it was minted, and the sequencing was the deadline's**: the capture ran and was
+Built the same day it was minted, and the sequencing was the deadline's: the capture ran and was
 committed before any of the machinery around it was written, because this week's session records
 existed on 2026-09-21 and were not promised to exist on 2026-09-28. What the first capture found, and
 what it found already gone, is in the record below.
 
 ## Why this is a milestone and not a note
 
-`AGENTS.md`'s second principle says the method is a result. A method's result is a **cost**, and this
-tree measures only **scale**: milestones, lines, harnesses, proofs, and since 2026-09-20 a velocity
+`AGENTS.md`'s second principle says the method is a result. A method's result is a cost, and this
+tree measures only scale: milestones, lines, harnesses, proofs, and since 2026-09-20 a velocity
 chart. None of it answers what an outsider asks, which is what a trustworthy system costs to build
 this way.
 
@@ -26,7 +26,7 @@ about eleven person-years plus nine more at a 20:1 proof-to-code ratio; Atmosphe
 person-years on verification alone at 3.32:1. Those numbers move institutions in a way a feature
 list does not.
 
-**And the inputs are known today and unrecoverable tomorrow**, which is what makes this urgent rather
+And the inputs are known today and unrecoverable tomorrow, which is what makes this urgent rather
 than tidy. See the deadline below.
 
 ## What is known, as of 2026-09-21
@@ -40,10 +40,10 @@ than tidy. See the deadline below.
 | Still unpriced | no purchase record in this tree | radon, the UART adapters and the smart plugs. `notes/riscv-port.md`'s "~$70" is a sentence about the market, not a receipt, and the ledger leaves the row out rather than guess |
 | Machine effort | **22.3 billion tokens over six weeks**, captured 2026-09-21 | the harness's session records on patagonia, which this tree now keeps a committed aggregate of in `notes/project-metrics/effort.csv` |
 
-**The shape those numbers make is the finding, and it should be stated before anyone optimises the
-wrong term.** Cash to date is under a thousand dollars all in, against about ten person-weeks of one
-experienced engineer's full attention. At any plausible rate for that person's time, **the human cost
-is on the order of 99% of the economic cost and the machines are a rounding error.** The claim this
+The shape those numbers make is the finding, and it should be stated before anyone optimises the
+wrong term. Cash to date is under a thousand dollars all in, against about ten person-weeks of one
+experienced engineer's full attention. At any plausible rate for that person's time, the human cost
+is on the order of 99% of the economic cost and the machines are a rounding error. The claim this
 project can honestly make is not that software became cheap; it is that the scarce input is still a
 person, and what changed is how much one person's attention can be made to carry.
 
@@ -55,12 +55,12 @@ column were both filled in retroactively.
 
 **Token and wall-clock records are not in git.** They live in session task records outside the
 repository and they are discarded. The ten weeks behind us are already unrecoverable, and every week
-that passes without capture is another one lost. **The small version now beats the complete version
-later**, because this week's numbers exist today and will not exist next week.
+that passes without capture is another one lost. The small version now beats the complete version
+later, because this week's numbers exist today and will not exist next week.
 
 ## What to build
 
-1. **Columns in the weekly series**, in `script/metrics`, because the deck exists and its page already
+1. Columns in the weekly series, in `script/metrics`, because the deck exists and its page already
    has the conventions for being honest about its own numbers:
 
    | column | source | note |
@@ -74,40 +74,40 @@ later**, because this week's numbers exist today and will not exist next week.
 2. **A ledger for what is not weekly**: hardware purchases with dates and prices, and the
    subscription's start date and rate. One committed file, appended to, never regenerated.
 
-3. **One chart, and it is a ratio rather than a total.** Machine effort per milestone built, beside
+3. One chart, and it is a ratio rather than a total. Machine effort per milestone built, beside
    the velocity chart. A total says the project is busy; a ratio says whether the method is getting
    cheaper, which is the claim.
 
-4. **The mechanism that keeps it current**, which is the half that usually fails. Weekly capture must
+4. The mechanism that keeps it current, which is the half that usually fails. Weekly capture must
    not depend on anybody remembering: the metrics workflow already runs on a schedule, and the
-   question a lane has to answer is what it can read without a human present. **If the honest answer
+   question a lane has to answer is what it can read without a human present. If the honest answer
    is that some input needs a person once a week, say so and make the gap visible rather than
-   pretending otherwise** (`script/cadence-check` is this tree's existing shape for a thing that is
+   pretending otherwise (`script/cadence-check` is this tree's existing shape for a thing that is
    due and has not happened).
 
 ## What was built, 2026-09-21
 
-**`script/effort`** (provisional name) reads the harness's session records on this machine and writes
+`script/effort` (provisional name) reads the harness's session records on this machine and writes
 `notes/project-metrics/effort.csv`, one row per ISO week and model. It splits tokens four ways
 because the API prices them between 0.1x and 2x of each other, and splits by model because this
 tree's mix is roughly half `claude-opus-5` and half `claude-sonnet-5` by token. A single blended
 number would have had no derivation behind it, which is what the dollar refusal below is about.
 
-**Five columns in `notes/project-metrics/weekly.csv`**, exactly as the table above specifies, filled
+Five columns in `notes/project-metrics/weekly.csv`, exactly as the table above specifies, filled
 from two committed records rather than from any revision: `effort.csv` and a new
 `notes/project-metrics/ledger.md`. Both are read from the working tree for every week, which is
 `built_by_week`'s precedent and is there for its reason. A sixth column, `merged_pull_requests`,
 arrived on calef's request the same day and is derived from git's own first-parent log: 996 merges,
 backfilled to the first commit, with no dependence on an API that retains ninety days.
 
-**One chart, `effort.svg`, and it is a ratio**: millions of tokens per milestone built, beside the
+One chart, `effort.svg`, and it is a ratio: millions of tokens per milestone built, beside the
 velocity chart. It fell from 307 in 2026W34 to 73 and 68 in 2026W36 and 2026W38.
 
-**The ledger** carries hardware with dates and prices, the subscription's start and rate, and a dated
+The ledger carries hardware with dates and prices, the subscription's start and rate, and a dated
 table of vendor list rates per model, which is what makes the shadow price re-derivable rather than
 asserted.
 
-**The mechanism.** A GitHub runner cannot see the session records, so the weekly workflow cannot
+The mechanism. A GitHub runner cannot see the session records, so the weekly workflow cannot
 capture them and no workflow ever will. `script/effort --snapshot` writes a machine-local cache
 outside the repository, safe to run unattended from `launchd`, so a week's numbers outlive the
 transcripts; `script/cadence-check` gained its one non-workflow row and reports when the committed
@@ -140,17 +140,17 @@ against the literature, tokens with a dated price for the argument that the meth
 cheaper, and cash for calef's own budgeting.
 
 **Not a dollar figure that hides which dollar it means.** This project pays a fixed subscription, so
-its marginal cost per lane is zero. A retail-API figure is a **shadow price**: what somebody else
+its marginal cost per lane is zero. A retail-API figure is a shadow price: what somebody else
 would pay to reproduce the work. Both are legitimate, and quoting one while implying the other is the
 dishonest version.
 
 ## BUGS
 
-- **2026W37 is captured and should be treated as suspect.** 12.2 machine-hours against 110 to 133 on
+- 2026W37 is captured and should be treated as suspect. 12.2 machine-hours against 110 to 133 on
   either side, in a week whose roadmap says 13 milestones were built. Either it was quiet or its
   records were rotated away before the first capture. Nothing can tell those apart after the fact,
   which is the whole argument for the snapshot.
-- **The subscription's first $200 is outside the series.** calef dates it 2026-07-12, a Sunday, which
+- The subscription's first $200 is outside the series. calef dates it 2026-07-12, a Sunday, which
   is 2026W28; the first commit is 2026-07-13 UTC and the series starts at 2026W29. A week has a row
   only when a commit fell in it. `script/metrics` prints the discrepancy on every run rather than
   folding the money into a neighbouring week.
@@ -160,7 +160,7 @@ dishonest version.
 - **The ten person-weeks is a statement, not a measurement**, and nothing will ever make it one
   without time tracking, which this milestone refuses. It is accurate to the bucket the comparisons
   need and no better.
-- **Machine effort cannot be attributed to a milestone yet, and the raw material for it is on disk.**
+- Machine effort cannot be attributed to a milestone yet, and the raw material for it is on disk.
   Every session record carries a `gitBranch`, and a lane's branch is named for its milestone, so the
   join is *available*. It is deliberately not built: a branch is not a milestone (maintainer
   branches, `main`, rebases), and a wrong attribution is worse than none. Until somebody decides what

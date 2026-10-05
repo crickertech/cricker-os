@@ -17,9 +17,9 @@ queue lands it.)*
 
 `script/audits --worklist` runs today and needs nothing built.
 
-**Premise re-checked 2026-09-19: still due, more overdue, and the sibling is gone.**
+Premise re-checked 2026-09-19: still due, more overdue, and the sibling is gone.
 `script/audits --due` still names `documentation`, last swept 2026-08-17, now at +122 milestones
-against a trigger of 10 and 33 days on the calendar. **The security half is no longer due**: it was
+against a trigger of 10 and 33 days on the calendar. The security half is no longer due: it was
 audited on 2026-09-17 by milestone 313, so `documentation` is the only standing example rather than
 one of a pair. The worklist head has also moved since this was filed, which is the ranking working
 as designed rather than a correction: `notes/architecture-list-sweep.md` now leads at 20 of 20 cited
@@ -66,8 +66,8 @@ are fixed in 311. Separating those two categories needs a reader, which is the w
 routing this to a sweep rather than to a gate, and `script/lint`'s own comment on the matter says so.
 
 `design/roadmap/383-a-backticked-path-that-does-not-resolve.md` is the standing proposal for
-gating this class tree-wide. It is worth reading alongside, and it is worth noting that **its own
-enumeration of root directories still lists `user/`**, three days after that directory stopped
+gating this class tree-wide. It is worth reading alongside, and it is worth noting that its own
+enumeration of root directories still lists `user/`, three days after that directory stopped
 existing, which is a small exhibit for why the sweep is due.
 
 ## What closes it
