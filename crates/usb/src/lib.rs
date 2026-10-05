@@ -99,8 +99,8 @@ mod verification {
     /// a keyboard endpoint is a 9-byte header, a 9-byte interface and a 7-byte endpoint, which is
     /// 25 bytes. At 24 the walk could never reach an endpoint descriptor, so the three assertions
     /// below were never evaluated and the harness proved only totality. Found by trying to
-    /// falsify it (milestone 323 batch 2): a walk that accepted an OUT endpoint stayed green.
-    /// Falsification: unfalsified
+    /// falsify it (milestone 323 (the falsification record is incomplete in five ways, and each was found by a different lane), batch 2): a walk that accepted an OUT endpoint stayed green.
+    /// Falsification: replayable `crates/usb/falsifications/verification.the_configuration_walk_is_total_and_accepts_only_an_interrupt_in.patch`
     #[kani::proof]
     #[kani::unwind(27)]
     fn the_configuration_walk_is_total_and_accepts_only_an_interrupt_in() {
@@ -118,7 +118,7 @@ mod verification {
     }
 
     /// **The device descriptor and configuration header parsers are total.**
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/usb/falsifications/verification.the_header_parsers_are_total.patch`
     #[kani::proof]
     fn the_header_parsers_are_total() {
         let bytes: [u8; 20] = kani::any();
@@ -130,7 +130,7 @@ mod verification {
 
     /// **Two reports a keystroke apart produce at most twenty events**: eight modifier changes and
     /// six releases and six presses at the very most, so a driver's fixed buffer cannot overflow.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/usb/falsifications/verification.two_reports_produce_a_bounded_number_of_events.patch`
     #[kani::proof]
     #[kani::unwind(10)]
     fn two_reports_produce_a_bounded_number_of_events() {

@@ -285,12 +285,12 @@ mod proofs {
     /// bytes exist that leave the buffer exactly full with bytes still to place, which is the
     /// truncation [`super::push`]'s own doc describes.
     ///
-    /// **Falsification gap, found 2026-10-05 (milestone 323 batch 2):** the `cover` alone could not
+    /// **Falsification gap, found 2026-10-05 (milestone 323 (the falsification record is incomplete in five ways, and each was found by a different lane), batch 2):** the `cover` alone could not
     /// go red. Kani 0.67.0 reports an unsatisfiable `cover` as "0 of 1 cover properties satisfied"
     /// and still prints `VERIFICATION:- SUCCESSFUL` with exit code zero, so a `push` that reserved
     /// its last byte (`*n + 1 < buf.len()`) kept this harness green. The assertion below states the
     /// same boundary as a check: `push` takes exactly as many bytes as fit.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `components/falsifications/proofs.the_buffer_can_be_filled_exactly.patch`
     #[kani::proof]
     fn the_buffer_can_be_filled_exactly() {
         let mut buf = [UNTOUCHED; CAP];

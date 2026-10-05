@@ -1,0 +1,15 @@
+Falsifies `globally_unique_identifier_partition_table::verification::overlap_is_exactly_sharing_a_block`.
+
+The defect: `Entry::overlaps` compares with `<` where `last_lba` is inclusive. Two partitions that meet in one
+block (one ends exactly where the next begins) are reported as disjoint.
+
+Expected to fail: the harness's `assert_eq!(a.overlaps(&b), shared)`.
+
+diff --git a/crates/globally_unique_identifier_partition_table/src/entry.rs b/crates/globally_unique_identifier_partition_table/src/entry.rs
+--- a/crates/globally_unique_identifier_partition_table/src/entry.rs
++++ b/crates/globally_unique_identifier_partition_table/src/entry.rs
+@@ -211,3 +211,3 @@ impl Entry {
+             && other.is_used()
+-            && self.first_lba <= other.last_lba
++            && self.first_lba < other.last_lba
+             && other.first_lba <= self.last_lba

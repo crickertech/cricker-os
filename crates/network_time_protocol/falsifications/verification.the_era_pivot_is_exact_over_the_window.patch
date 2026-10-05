@@ -1,0 +1,16 @@
+Falsifies `network_time_protocol::verification::the_era_pivot_is_exact_over_the_window`.
+
+The defect: the era pivot in `to_unix` is `2^30` instead of `2^31`. NTP seconds between `2^30` and `2^31` are
+era 1 (2036 onward) but are read as era 0 and saturate to zero.
+
+Expected to fail: the harness's `assert_eq!(t.to_unix().0, secs)` for a second after the 2036 rollover.
+
+diff --git a/crates/network_time_protocol/src/lib.rs b/crates/network_time_protocol/src/lib.rs
+index 209f6bae5..f6a7a7876 100644
+--- a/crates/network_time_protocol/src/lib.rs
++++ b/crates/network_time_protocol/src/lib.rs
+@@ -343,3 +343,3 @@ impl Timestamp {
+         let s = self.seconds() as u64;
+-        let secs = if s >= (1 << 31) {
++        let secs = if s >= (1 << 30) {
+             // Era 0. UNIX_DELTA > 2^31, so this subtraction stays non-negative only for s at or

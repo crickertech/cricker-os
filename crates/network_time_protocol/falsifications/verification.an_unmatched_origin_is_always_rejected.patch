@@ -1,0 +1,16 @@
+Falsifies `network_time_protocol::verification::an_unmatched_origin_is_always_rejected`.
+
+The defect: `accept` compares only the seconds half of the origin timestamp with the nonce. An off-path
+attacker who guesses 32 bits instead of 64 gets a forged reply accepted.
+
+Expected to fail: the harness's `assert!(q.accept(&wire, Timestamp::from_bits(dest)).is_err())`.
+
+diff --git a/crates/network_time_protocol/src/lib.rs b/crates/network_time_protocol/src/lib.rs
+index 209f6bae5..ab926240e 100644
+--- a/crates/network_time_protocol/src/lib.rs
++++ b/crates/network_time_protocol/src/lib.rs
+@@ -795,3 +795,3 @@ impl Query {
+         // Before anything else about the packet is believed: is it ours?
+-        if p.origin != self.nonce {
++        if p.origin.seconds() != self.nonce.seconds() {
+             return Err(Reject::OriginMismatch);

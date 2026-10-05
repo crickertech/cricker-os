@@ -1324,7 +1324,7 @@ mod verification {
 
     /// **Nanoseconds survive the fixed-point conversion**, for every value under [`PROVED_NANOS`].
     /// See that constant for what is and is not covered and why.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/network_time_protocol/falsifications/verification.nanoseconds_survive_the_fixed_point.patch`
     #[kani::proof]
     fn nanoseconds_survive_the_fixed_point() {
         let nanos: u32 = kani::any();
@@ -1345,7 +1345,7 @@ mod verification {
     /// `to_unix` reads each back through its own accessor. That is three lines of the source rather
     /// than an assumption. (It was also a harness, briefly; proving it costs the same intractable
     /// multiplication, for a fact the type layout already gives.)
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/network_time_protocol/falsifications/verification.the_era_pivot_is_exact_over_the_window.patch`
     #[kani::proof]
     fn the_era_pivot_is_exact_over_the_window() {
         let secs: u64 = kani::any();
@@ -1361,7 +1361,7 @@ mod verification {
     /// is under 1e9. The second half is the clamp in [`ticks_to_nanos`], and it matters because a
     /// nanosecond field of exactly 1e9 is the kind of thing that panics inside a `Duration`
     /// constructor three layers away from the packet that caused it.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/network_time_protocol/falsifications/verification.decoding_any_wire_value_is_total.patch`
     #[kani::proof]
     fn decoding_any_wire_value_is_total() {
         let bits: u64 = kani::any();
@@ -1372,7 +1372,7 @@ mod verification {
     /// **Out of range is refused, never aliased.** For every `secs`, `from_unix` returns `Some` if
     /// and only if the value is inside the window. This is the other half of the era decision: the
     /// encoder does not quietly wrap a 2105 timestamp onto 1969.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/network_time_protocol/falsifications/verification.out_of_range_is_refused.patch`
     #[kani::proof]
     fn out_of_range_is_refused() {
         let secs: u64 = kani::any();
@@ -1387,7 +1387,7 @@ mod verification {
     /// **Parse then serialise is the identity, on every 48-byte input there is.** Not "on a
     /// well-formed packet": there is no such qualifier, because parse judges nothing. That is what
     /// makes this provable over 2^384 inputs and what keeps every rejection in one function.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/network_time_protocol/falsifications/verification.parse_then_serialise_is_the_identity.patch`
     #[kani::proof]
     #[kani::unwind(49)]
     fn parse_then_serialise_is_the_identity() {
@@ -1399,7 +1399,7 @@ mod verification {
     /// **A reply whose origin field is not our nonce is always rejected**, over every packet an
     /// attacker could send. The load-bearing security check, proved rather than tested: no
     /// combination of the other 40 bytes gets a packet past it.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/network_time_protocol/falsifications/verification.an_unmatched_origin_is_always_rejected.patch`
     #[kani::proof]
     #[kani::unwind(49)]
     fn an_unmatched_origin_is_always_rejected() {
