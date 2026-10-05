@@ -727,6 +727,27 @@ if mode == "--ratchet":
         now = (head_blob(path) or "").split("\n")
         added[path] = {n for n in added[path] if n > len(now) or now[n - 1] not in same}
 
+    # **An index row whose only edit is its status cell is not added prose either.** The table in
+    # design/decisions/README.md is generated from each decision's frontmatter (milestone 582 (a
+    # decision's status becomes a field, and the index becomes generated)), so marking a decision
+    # AMENDED or SUPERSEDED rewrites its row. Found 2026-10-04 marking §148 (milestone 105's two
+    # forks) AMENDED: its title cites milestone 105, the row read as added, and the ratchet asked
+    # for a gloss in a line `script/decisions --write-index` would overwrite. A row is compared
+    # with its status cell blanked; a new row, or a changed title, is still judged.
+    index = "design/decisions/README.md"
+    if index in added:
+        was = subprocess.run(["git", "-C", root, "show", f"{base}:{index}"], capture_output=True)
+        if was.returncode == 0:
+            row = re.compile(r"^\| (\d+) \| [^|]* \| ")
+            def blank(l):
+                return row.sub(r"| \1 | | ", l)
+            same = {blank(l) for l in was.stdout.decode(errors="replace").split("\n")
+                    if row.match(l)}
+            now = (head_blob(index) or "").split("\n")
+            added[index] = {n for n in added[index]
+                            if n > len(now) or not row.match(now[n - 1])
+                            or blank(now[n - 1]) not in same}
+
     # **A line moved verbatim is not added prose** (milestone 609 (the system tests leave the kernel
     # crate)). That milestone moved 828 lines of declarations from one file to another and renamed
     # the kernel's crate root to `lib.rs` while a new `main.rs` took the old name, so git reports

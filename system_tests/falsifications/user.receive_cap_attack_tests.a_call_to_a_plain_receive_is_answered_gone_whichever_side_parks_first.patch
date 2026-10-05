@@ -22,15 +22,19 @@ receiver-first pass stops the test first.
 Nothing here is architecture-specific: both arms are portable scheduler code. The badge the
 context lines mention is milestone 599 (a frame per filesystem client channel)'s.
 
+Regenerated 2026-10-04 (UTC) by the lane for the proposal "capability lookup off the global lock",
+which moved each thread's capability table behind its own lock: the delivery now goes through
+`deliver_capability`, so the old hunk no longer matched. Same removals, same defect.
+Replayed red on aarch64 the same day, at the receiver-first assertion this record predicts.
+
 Re-cut 2026-10-05 (UTC) by milestone 105 (the two forks)'s lane, because `collected_without_serving`
 grew the death message's label hand-over and the first hunk stopped applying. The defect is
-unchanged; replayed red on aarch64 at the same assertion, `receive_cap_attack_tests.rs:795`.
+unchanged; replayed red on aarch64 at the receiver-first assertion this record predicts.
 
 diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
-index 99bec2784..9f05c3ef1 100644
 --- a/kernel/src/sched.rs
 +++ b/kernel/src/sched.rs
-@@ -3756,9 +3756,6 @@ fn collected_without_serving(sched: &mut IpcTables, sender: ThreadId) {
+@@ -3872,9 +3872,6 @@
          corpse.handshake.wait_on = None;
          let label = corpse.fault_label;
          hand_over_label(sched.threads.get(current_thread_id()).unwrap(), label);
@@ -40,16 +44,16 @@ index 99bec2784..9f05c3ef1 100644
      }
  }
  
-@@ -4073,12 +4070,6 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3]
+@@ -4198,12 +4195,6 @@
                  let receiver = unsafe { (*receiver.as_ptr()).id };
                  // A server is parked in RECEIVE_CAP: hand it the reply cap and the two words now.
-                 let r = sched.threads.get_mut(receiver).unwrap();
+                 let (r, caps) = sched.threads.get_mut_with_capabilities(receiver).unwrap();
 -                if !r.receiving_cap {
 -                    // A plain RECEIVE cannot hold the Reply, so this CALL is answered `Gone`
 -                    // (§246, PROVISIONAL number). Out of line: no server in the tree does this.
 -                    call_meets_plain_receive(sched, receiver, current, msg, badge);
 -                    return [0, 0, 0];
 -                }
-                 let slot = r.capability_table.insert(reply).unwrap_or(NO_CAP);
+                 let slot = deliver_capability(caps, reply);
                  // Word 3 is the caller's badge (milestone 599): the same store as before with a
                  // value instead of a zero, so the server's RECEIVE_CAP surfaces which client called.

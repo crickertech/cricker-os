@@ -8,7 +8,10 @@ built: 2026-10-05
 Raised 2026-08-04. Milestone 22 (trusted init) built the supervision tree and, in
 `notes/trusted-init.md`, recorded two questions it deliberately did not answer, both marked
 "calef's call, not a thing to slip in". This block stated them precisely enough to be decided and
-picked neither. Both are answered now, and the one that needed building is built.
+picked neither. Both are answered now, and the one that needed building is built. §164 (whether
+the kernel resolves a tid it already sent), written up 2026-09-19 by milestone 435 (forty-five
+milestones are gated on a decision nobody wrote down)'s lane, asked fork two again and is
+superseded by §148.
 
 ## Fork one: a reap-only right, answered without one
 
@@ -18,8 +21,8 @@ restart a dead tier-one server would be one able to build processes.
 Answered twice over, and neither answer is a rights bit.
 
 - §32 (a supervisor may collect a corpse without being able to build one)
-  ([file](../decisions/32-reap-without-build.md)), decided 2026-07-29, six days before this block was raised, made reaping a method on
-  the supervision endpoint, `abi::rendezvous::REAP`, authorized by the supervision relationship
+  ([file](../decisions/32-reap-without-build.md)) was decided 2026-07-29, six days before this
+  block was raised. It made reaping a method on the supervision endpoint, `abi::rendezvous::REAP`, authorized by the supervision relationship
   rather than by any right on the region. This block restated a settled question as open, which is
   recorded here rather than quietly fixed.
 - §148 (a supervisor restarts by asking, and resolves by asking the kernel)
@@ -48,10 +51,10 @@ the builder set, with the death message. No `RESOLVE` method, so there is nothin
   consumes the slot exactly as before.
 - **The label rides beside the mailbox, not in it.** Word 3 carries the fault address and word 4 is
   reserved for §26's resume protocol, so the label is a sixth word, in argument register 5: `x5`,
-  `a5`, `r9`. The kernel writes it into the supervisor's saved user frame on the death path only,
-  through `sched::hand_over_label` and the arch helper `exceptions::set_user_arg` on all three
-  ISAs, from both routes a death reaches a supervisor: at the rendezvous (`deliver_death`) and when
-  a supervisor collects a parked corpse (`collected_without_serving`). `Thread::mailbox` and
+  `a5`, `r9`. The kernel writes it into the supervisor's saved user frame on the death path only.
+  `sched::hand_over_label` does it, through the arch helper `exceptions::set_user_arg` on all three
+  ISAs. It is called from both routes a death reaches a supervisor: at the rendezvous
+  (`deliver_death`), and when a supervisor collects a parked corpse (`collected_without_serving`). `Thread::mailbox` and
   `fault_msg` stay five words, so ordinary IPC stores nothing new.
 - **Userspace declares the register.** `user_mode_runtime`'s syscall primitive is now `invoke6`,
   with register 5 an output that goes in as zero, so a `RECEIVE` cannot clobber a value LLVM thought
@@ -91,10 +94,15 @@ results): `ipc_rtt` and `call_reply` unchanged on aarch64 and x86_64, `call_repl
 riscv64. Three rows moved, all inside the 10% band: riscv64 `ipc_rtt` 174 to 176 (+1.15%), riscv64
 `ipc_rtt_el0` 373 to 377 (+1.07%), aarch64 `ipc_rtt_el0` 2194 to 2233 (+1.78%). The riscv64
 `ipc_rtt` move persists with the base kernel built against this branch's userspace, so it is not the
-kernel IPC path; removing the new `Thread` field changed nothing; removing the zeroing `mov` took
+kernel IPC path. Removing the new `Thread` field changed nothing; removing the zeroing `mov` took
 riscv64 `ipc_rtt_el0` back by 2 ticks and aarch64 by none. Those are layout and userspace effects,
 reported rather than explained further. Neither named benchmark left its band, so the ruling stands
 at R3 and the R2 fallback was not reached.
+
+Re-measured after merging main at `d0ca36c5b` (which moved each thread's capability table behind its
+own lock). Both footprint closures are byte-identical to that main on all three ISAs. Against it,
+`script/bench` moves only aarch64 `ipc_rtt_el0` (2200 to 2187) and riscv64 `ipc_rtt` (181 to 178),
+both downward, which is what layout noise looks like when it is not a cost.
 
 ## Follow-on
 

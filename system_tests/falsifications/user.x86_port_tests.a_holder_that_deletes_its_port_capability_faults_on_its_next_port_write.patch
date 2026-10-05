@@ -38,28 +38,27 @@ milestone 315 (a port revoke that reaches every core). That commit moved the bit
 rewrote the comment above it, so the old hunk no longer matched. Same two removals, same defect, new
 surrounding context.
 
+Regenerated 2026-10-04 (UTC) by the lane for the proposal "capability lookup off the global lock",
+which took the delete itself off `IPC_TABLES` and left only a deleted `PortRange` to take the lock
+and clear the grant. Same two removals, same defect, new surrounding code.
+Replayed red on x86_64 the same day at `x86_port_tests.rs:363`, `left: 2`, `right: 1`.
+
 diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
-index 0a86074c2..c72f8cac7 100644
 --- a/kernel/src/sched.rs
 +++ b/kernel/src/sched.rs
-@@ -3499,19 +3499,13 @@ pub fn delete_current_cap(slot: u64) -> Result<(), crate::cap::Error> {
-             };
-         }
-         t.capability_table.delete(slot)?;
--        #[cfg(target_arch = "x86_64")]
--        if dropped_port_grant.is_some() {
+@@ -4534,14 +4534,13 @@ pub fn delete_current_cap(slot: u64) -> Result<(), crate::cap::Error> {
+             .and_then(|sched| sched.threads.get_mut(current))
+             .filter(|t| t.port_range_grant == Some((base, count)));
+         if let Some(t) = held {
 -            t.port_range_grant = None;
--        }
-         // Under the lock, with `delete_port_range_caps_impl`'s broadcast and for its reason
-         // (milestone 315): every writer of a TSS port bitmap holds `IPC_TABLES`, so a revocation
-         // NMI cannot land inside one. No broadcast is owed here. The caller is the thread whose
-         // grant is installed, a core's bitmap only ever permits a range for the thread currently
-         // running on it, and that thread is running here, so this core is the only core to tell.
-         #[cfg(target_arch = "x86_64")]
--        if let Some((base, count)) = dropped_port_grant {
++            let _ = t;
+             // Under the lock, with `delete_port_range_caps_impl`'s broadcast and for its reason
+             // (milestone 315): every writer of a TSS port bitmap holds `IPC_TABLES`, so a
+             // revocation NMI cannot land inside one. No broadcast is owed here. The caller is the
+             // thread whose grant is installed, a core's bitmap only ever permits a range for the
+             // thread currently running on it, and that thread is running here, so this core is
+             // the only core to tell.
 -            crate::arch::segments::revoke_installed_port_grant(base, count);
--        }
-+        let _ = dropped_port_grant;
+         }
      }
-     Ok(())
- }
+     #[cfg(not(target_arch = "x86_64"))]

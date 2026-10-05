@@ -205,7 +205,7 @@ const JOB_DID_NOT_RUN: [&str; 2] = [
 /// for its census, because this is the only boot with a keyboard and so the only one that can show
 /// the keyboard's three slots (26 to 28) are not the shell's either. Before 715 the progenitor
 /// placed them there beside the gpu's four. See the same line in [`SWISH_CHECK_AFTER_REBOOT`].
-const SWISH_CHECK_KEYBOARD_BOOT: &[Line] = &[line(0, "caps", &["slots held: 0 1 2", " 21 30\n"])];
+const SWISH_CHECK_KEYBOARD_BOOT: &[Line] = &[line(0, "caps", &["slots held: 0 1 2", " 21 62\n"])];
 
 /// A [`Line`], positionally, so the script reads as the prompt does. The name is provisional.
 const fn line(jobs: u8, typed: &'static str, answer: &'static [&'static str]) -> Line {
@@ -266,11 +266,11 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     // audit's follow-up; row 32 of notes/confinement-claims.md). On aarch64 and riscv64 this boot
     // has a gpu, and until 715 the progenitor placed its four capabilities in the shell at
     // `spawnproto::SHELL_GPU_SLOT` (22) onward for the life of the boot: measured on aarch64,
-    // `slots held: 0 1 2 3 4 5 20 21 22 23 24 25 30`. Now the spawn service keeps them, so the
-    // census runs straight from the configuration page (21) to the run-unvouched slot (30), and
-    // " 21 30" is the assertion that nothing sits between them. On x86_64 this boot has no gpu and
+    // `slots held: 0 1 2 3 4 5 20 21 22 23 24 25 30` (slot 30 then, 62 since milestone 754 (the capability table grows to 64 slots)). Now the spawn service keeps them, so the
+    // census runs straight from the configuration page (21) to the run-unvouched slot (62; 30 before milestone 754 (the capability table grows to 64 slots)), and
+    // " 21 62" is the assertion that nothing sits between them. On x86_64 this boot has no gpu and
     // the line holds trivially; that leg's gap is milestone 632's (no virtio-gpu in its runner).
-    line(0, "caps", &["slots held: 0 1 2", " 21 30\n"]),
+    line(0, "caps", &["slots held: 0 1 2", " 21 62\n"]),
     line(
         1,
         "packages/noteless/0.1.0/noteless",
@@ -679,7 +679,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "cap 1  page      clock",
             "cap 2  page      config",
             "provenance: unvouched (digest ",
-            "runs on this session's capability to run unvouched bytes (slot 30)",
+            "runs on this session's capability to run unvouched bytes (slot 62)",
             // **What the note asks, beside what is granted** (milestone 597, provisional). The
             // witness's note asks for the three authorities it probes, and §219 says an unvouched
             // note grants nothing: the rows above are the ruling's three and no more.

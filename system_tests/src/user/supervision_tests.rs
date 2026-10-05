@@ -556,18 +556,23 @@ fn a_child_can_neither_learn_nor_forge_its_label() {
     let report = sched::create_rendezvous();
 
     let (child, r1) = labelled_child(fault_ep, LABEL_ONE);
-    let table = sched::capability_table_snapshot(child).expect("the child is gone already");
+    let (slot_empty, carries_label) = sched::with_capability_table(child, |table| {
+        let carries = (0..crate::cap::CAPABILITY_TABLE_SLOTS as u64).any(|slot| {
+            table.get(slot).is_ok_and(|c| {
+                matches!(c.object, crate::cap::Object::Rendezvous(_, badge) if badge == LABEL_ONE)
+            })
+        });
+        (table.get(FAULT_EP_SLOT).is_err(), carries)
+    })
+    .expect("the child is gone already");
     assert!(
-        table[FAULT_EP_SLOT as usize].is_none(),
+        slot_empty,
         "the fault slot still holds a capability after START: the child can read its supervision \
          capability",
     );
     assert!(
-        !table.iter().flatten().any(|c| matches!(
-            c.object,
-            crate::cap::Object::Rendezvous(_, badge) if badge == LABEL_ONE
-        )),
-        "a capability the child holds carries its label",
+        !carries_label,
+        "a capability the child holds carries its label"
     );
 
     let forger_region = crate::memory_region::create(16).expect("no region for the forger");

@@ -73,17 +73,17 @@ The one Kani harness family that ranges over the table size is `crates/component
 `any_slot` assumes `s < abi::CAPABILITY_TABLE_SLOTS`. The five harnesses' verification times on
 patagonia (2026-09-27, one sample each, seconds):
 
-| harness | 24 slots | 32 slots |
-|---|---|---|
-| `too_many_live_instances_never_silently_truncates` | 0.03 | 0.03 |
-| `dependents_finds_exactly_the_non_target_instances_that_declared_it` | 2.89 | 2.47 |
-| `the_device_split_partitions_the_mappings` | 3.43 | 4.02 |
-| `a_missing_route_refuses_rather_than_falling_through_to_a_slot` | 3.87 | 3.28 |
-| `a_plan_never_grants_a_right_the_declaration_did_not_ask_for` | 3.09 | 1.98 |
+| harness | 24 slots | 32 slots | 64 slots (2026-10-04) |
+|---|---|---|---|
+| `too_many_live_instances_never_silently_truncates` | 0.03 | 0.03 | 0.03 |
+| `dependents_finds_exactly_the_non_target_instances_that_declared_it` | 2.89 | 2.47 | 2.37 |
+| `the_device_split_partitions_the_mappings` | 3.43 | 4.02 | 3.01 |
+| `a_missing_route_refuses_rather_than_falling_through_to_a_slot` | 3.87 | 3.28 | 3.12 |
+| `a_plan_never_grants_a_right_the_declaration_did_not_ask_for` | 3.09 | 1.98 | 1.99 |
 
 No change the noise can tell apart; a first 32-slot run read 8.5 s on the second harness and the
 next read 2.5, which is the size of that noise. `crates/capability`'s harnesses fix their own small
-table sizes (2, 3, 4, 8, 16, 32) and do not read the constant, so the raise does not reach them.
+table sizes (2, 3, 4, 8, 16, 32) and do not read the constant, so the raise does not reach them. The 64-slot column was measured by milestone 754 (the capability table grows to 64 slots), on the same harnesses and one sample each; no change the noise can tell apart.
 
 ## What 32 slots cost the fastpath, and how it was paid
 

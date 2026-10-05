@@ -467,17 +467,8 @@ pub struct Thread {
     /// dies. Same mechanism as `stack` above, and for the same reason.
     pub space: Option<crate::user::AddressSpace>,
 
-    /// **Everything this thread can name.**
-    ///
-    /// It starts **empty**, and that is the whole of DECISIONS §10 expressed as a field
-    /// initializer. Under Unix a fresh process inherits every file descriptor its parent held,
-    /// and can `open()` anything its uid permits. Here it can name *nothing at all* until
-    /// somebody hands it something.
-    ///
-    /// It lives in kernel memory and userspace never sees a byte of it. Userspace sees an
-    /// integer. That is the entire unforgeability mechanism, and it is a bounds check.
-    pub capability_table: crate::cap::CapabilityTable,
-
+    // **Everything this thread can name is not a field any more** (2026-10-04 UTC): it lives past the
+    // end of this struct in the same page, behind its own lock. See [`capability_table_of`].
     /// **The IPC message this thread most recently sent or received.** Five words.
     ///
     /// A sender parks its message here before blocking; a receiver reads it here after being
@@ -627,11 +618,11 @@ pub struct Thread {
     /// until reaped; a thread with `None` dies and is reaped immediately, today's behaviour.
     pub(crate) fault_ep: Option<crate::sched::RendezvousId>,
     /// **The label the builder set on this thread's supervision capability** (milestone 105
-    /// (the two forks), DECISIONS §148 (resolves by asking the kernel)
-    /// as amended 2026-10-04, ruling R3), or `0` when the capability was unbadged
-    /// or the thread is unsupervised. Read at `START` from the badge on the capability in the
-    /// reserved fault slot, beside [`Self::fault_ep`], and never afterward. The slot is consumed at
-    /// the same moment, so the child never holds a capability carrying it and cannot learn it.
+    /// (the two forks), DECISIONS §148 (resolves by asking the kernel) as amended 2026-10-04,
+    /// ruling R3), or `0` when the capability was unbadged or the thread is unsupervised. Read at
+    /// `START` from the badge on the capability in the reserved fault slot, beside
+    /// [`Self::fault_ep`], and never afterward. The slot is consumed at the same moment, so the child
+    /// never holds a capability carrying it and cannot learn it.
     ///
     /// It travels with the death message and nowhere else: `depart` hands it to the supervisor in
     /// argument register 5 of a plain `RECEIVE`, beside the five mailbox words rather than in
@@ -680,8 +671,8 @@ const FP_STATE_OFFSET: usize =
 /// A `Thread` is always constructed at the start of a whole 4096-byte page it exclusively owns:
 /// `Threads::insert_at` and `insert_at_in_place` both take `phys_to_virt(page) as *mut Thread`, and
 /// every route into the table (`insert_with` from `kmem`, `insert_from_page` from a user region's
-/// retyped object page) goes through one of the two. Today that leaves 2,944 bytes of the page
-/// unused, so the register file is free: it is not memory this milestone asked anyone for, it is
+/// retyped object page) goes through one of the two. Milestone 754's 64-slot table leaves less of the page
+/// unused than before (the assertion below is the live number), so the register file is free: it is not memory this milestone asked anyone for, it is
 /// memory that was already allocated and idle.
 ///
 /// This assertion is the whole of the mechanism that keeps that true. Grow `Thread` past the point
@@ -720,6 +711,86 @@ pub unsafe fn init_fp_state(thread: *mut Thread) {
     unsafe { fp_state_of(thread).write(crate::arch::fp::FpState::INITIAL) };
 }
 
+/// **Everything a thread can name, behind its own lock** (provisional name, from the proposal
+/// "capability lookup off the global lock", 2026-10-04 UTC).
+///
+/// It starts **empty**, and that is the whole of DECISIONS §10 (the capability-based process model) expressed as an initializer. Under
+/// Unix a fresh process inherits every file descriptor its parent held, and can `open()` anything
+/// its uid permits. Here it can name *nothing at all* until somebody hands it something. It lives in
+/// kernel memory and userspace never sees a byte of it. Userspace sees an integer. That is the
+/// entire unforgeability mechanism, and it is a bounds check.
+///
+/// **Its own lock, at `rank::CAPABILITY_TABLE`, so the running thread's lookup does not take
+/// `IPC_TABLES`.** Until 2026-10-04 this was a field of [`Thread`], and so every syscall's lookup
+/// (`sched::current_cap`) took the global lock to read a table that has exactly one owner. On radon
+/// at four busy cores 41% of those lookups found it held. The order between the two locks is
+/// written at the rank.
+pub type CapabilityTableLock = crate::sync::IrqSafeMutex<crate::cap::CapabilityTable>;
+
+/// **Where a thread's capability table lives: past its FP register file, in the same TCB page.**
+///
+/// **Outside the [`Thread`] struct, and that is the soundness argument rather than a layout
+/// preference.** The running thread reads its own table with `IPC_TABLES` not held, while another
+/// core holding `IPC_TABLES` may hold a `&mut Thread` for the very same thread (a revocation sweep's
+/// `iter_mut`, an IPC writing its mailbox). A `&mut` asserts that nothing else touches any byte it
+/// covers, interior mutability or not, so a lock that lived inside the struct would be read by one
+/// core under another core's exclusive reference. Past the end of the struct, no reference to the
+/// `Thread` covers it, which is the provenance rule [`fp_state_of`] already follows for the same
+/// page.
+const CAPABILITY_TABLE_OFFSET: usize = (FP_STATE_OFFSET + size_of::<crate::arch::fp::FpState>())
+    .next_multiple_of(align_of::<CapabilityTableLock>());
+
+/// The page is the bound for the table too, checked by the compiler as for the FP register file.
+const _: () = assert!(
+    CAPABILITY_TABLE_OFFSET + size_of::<CapabilityTableLock>() <= paging::PAGE_SIZE as usize,
+    "a Thread, its FP register file and its capability table no longer fit in one TCB page"
+);
+
+/// **Nothing in a capability table needs dropping**, which is what lets `Threads::remove` recycle
+/// the page after dropping only the `Thread`. Were a capability ever to own something, this fails
+/// the build at the place that would otherwise leak it.
+const _: () = assert!(
+    !core::mem::needs_drop::<CapabilityTableLock>(),
+    "a capability table now needs dropping; Threads::remove must drop it before recycling the page"
+);
+
+/// An empty table behind an unheld lock, as a constant operand: [`init_capability_table`] copies it
+/// straight into the page rather than building a temporary the size of the table on its own frame
+/// (the reason milestone 754 (the capability table grows to 64 slots) gives for an empty table constant).
+#[allow(clippy::declare_interior_mutable_const)] // only ever moved into a page, never borrowed
+const EMPTY_CAPABILITY_TABLE: CapabilityTableLock = crate::sync::IrqSafeMutex::new(
+    crate::sync::rank::CAPABILITY_TABLE,
+    crate::cap::CapabilityTable::new(),
+);
+
+/// The address of `thread`'s capability table.
+///
+/// # Safety
+///
+/// As [`fp_state_of`]: `thread` must point to a live `Thread` **at the start of its own TCB page**,
+/// as the table stores it, never one derived from a reference.
+pub unsafe fn capability_table_of(thread: *mut Thread) -> *const CapabilityTableLock {
+    // SAFETY: the caller's contract. Inside the page by the assertion above, and aligned because the
+    // offset is a multiple of the lock's alignment and a page is aligned to far more.
+    unsafe { thread.cast::<u8>().add(CAPABILITY_TABLE_OFFSET).cast() }
+}
+
+/// Give a freshly-born thread its empty capability table. Called beside [`init_fp_state`] by both
+/// `Threads` inserts, for its reason: a `kmem` page is not zeroed.
+///
+/// # Safety
+///
+/// As [`capability_table_of`], and no other core may yet be able to reach the table: the thread is
+/// being born, so its name has not been handed to anyone.
+pub unsafe fn init_capability_table(thread: *mut Thread) {
+    // SAFETY: the caller's contract; one aligned write inside the page, over bytes nothing reads.
+    unsafe {
+        capability_table_of(thread)
+            .cast_mut()
+            .write(EMPTY_CAPABILITY_TABLE);
+    }
+}
+
 // SAFETY: plain storage of the link, nothing else, which is all the queue's contract asks.
 unsafe impl intrusive_fifo::Node for Thread {
     fn next(&self) -> Option<core::ptr::NonNull<Self>> {
@@ -750,7 +821,6 @@ impl Thread {
             context: core::ptr::null_mut(),
             stack: None,
             space: None,
-            capability_table: crate::cap::CapabilityTable::new(),
             mailbox: [0; 5],
             quota: None,
             outgoing_cap: None,
@@ -782,38 +852,48 @@ impl Thread {
     /// context filled by the first `switch_to` away from it, `Running`. This becomes that core's
     /// idle thread, so it is never in a run queue; the scheduler falls back to it when the core's
     /// queue is empty. See smp.rs and `sched::adopt_secondary_idle`.
-    pub fn adopt_current() -> Self {
-        Thread {
-            id: UNNAMED, // named at insert, like every thread
-            handshake: thread_wake_handshake::Handshake::on_cpu_now(), // adopted mid-run: standing on its CPU
-            #[cfg(feature = "soak_test")]
-            last_cpu: u8::MAX,
-            placement: u8::MAX, // overwritten by the placement decision at spawn or START
-            context: core::ptr::null_mut(),
-            stack: None,
-            space: None,
-            capability_table: crate::cap::CapabilityTable::new(),
-            mailbox: [0; 5],
-            quota: None,
-            outgoing_cap: None,
-            cap_delivered: false,
-            receiving_cap: false,
-            ipc_refused: false,
-            being_reaped: false,
-            next: None,
-            entry: (0, 0), // a kernel thread; never enters EL0 by this path
-            start_args: [0; 3],
-            thread_control_block_kmem: true,
-            killed: false,
-            fault_ep: None,
-            fault_label: 0,
-            thread_control_block_region: None,
-            fault_msg: None,
-            bound_notification: None,
-            #[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
-            cycle_counter_grant: false,
-            #[cfg(target_arch = "x86_64")]
-            port_range_grant: None,
+    ///
+    /// **Written into `dst`, not returned** (milestone 754 (the capability table grows to 64 slots)): a returned `Thread` is two copies in an
+    /// unoptimised build, and at 64 capability slots two copies is more than the guard page.
+    ///
+    /// # Safety
+    ///
+    /// `dst` is writable, aligned for `Thread`, and holds no live `Thread`.
+    #[inline(never)]
+    pub unsafe fn write_adopted_current(dst: *mut Thread, id: ThreadId) {
+        // SAFETY: the caller's contract.
+        unsafe {
+            dst.write(Thread {
+                id,
+                handshake: thread_wake_handshake::Handshake::on_cpu_now(), // adopted mid-run: standing on its CPU
+                #[cfg(feature = "soak_test")]
+                last_cpu: u8::MAX,
+                placement: u8::MAX, // overwritten by the placement decision at spawn or START
+                context: core::ptr::null_mut(),
+                stack: None,
+                space: None,
+                mailbox: [0; 5],
+                quota: None,
+                outgoing_cap: None,
+                cap_delivered: false,
+                receiving_cap: false,
+                ipc_refused: false,
+                being_reaped: false,
+                next: None,
+                entry: (0, 0), // a kernel thread; never enters EL0 by this path
+                start_args: [0; 3],
+                thread_control_block_kmem: true,
+                killed: false,
+                fault_ep: None,
+                fault_label: 0,
+                thread_control_block_region: None,
+                fault_msg: None,
+                bound_notification: None,
+                #[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
+                cycle_counter_grant: false,
+                #[cfg(target_arch = "x86_64")]
+                port_range_grant: None,
+            });
         }
     }
 
@@ -908,7 +988,7 @@ impl Thread {
     /// wherever this literal sits, its frame carries roughly two `Thread`s. Inside the generic
     /// [`spawn_into`](Self::spawn_into) that cost was paid by *every* monomorphization, on top of
     /// that closure's own capture, and raising `crate::cap::CAPABILITY_TABLE_SLOTS` from 24 to 32
-    /// put two of them over the 4096-byte guard page (`script/stack-frame-check`:
+    /// (and milestone 754 (the capability table grows to 64 slots) from 32 to 64, which doubles it again) put two of them over the 4096-byte guard page (`script/stack-frame-check`:
     /// `spawn_into::<fs_service::spawn_fs_server>` at 4112). Here, non-generic and never inlined,
     /// the temporaries exist once, in a frame that holds nothing else.
     ///
@@ -937,8 +1017,6 @@ impl Thread {
                 context,
                 stack: Some(stack),
                 space: None, // a kernel thread until it calls `user::exec`
-                // and it can name nothing until it is handed something
-                capability_table: crate::cap::CapabilityTable::new(),
                 mailbox: [0; 5],
                 quota: None,
                 outgoing_cap: None,
@@ -978,7 +1056,6 @@ impl Thread {
             context: core::ptr::null_mut(),
             stack: None,
             space: None,
-            capability_table: crate::cap::CapabilityTable::new(),
             mailbox: [0; 5],
             quota: None,
             outgoing_cap: None,

@@ -79,3 +79,12 @@ echo 'sendkey e' | nc -U /tmp/mon.sock
 - A device refused after boot is refused silently: the report endpoint carries one message.
 - Never run on silicon. Every number here is QEMU's: timeouts are the specification's limits,
   not measurements, and QEMU cannot model a low-speed device.
+- **Keystrokes stall mid-line about one boot in twenty on riscv64** (found 2026-10-05 UTC, chasing
+  a red `swish-check` on #1630). The USB leg types `echo hello` and the echo stops partway (after
+  `e`, `echo `, `echo hell`), and later USB keys change nothing for 30 s. It is not the driver
+  losing keys: a line typed on the UART afterwards releases every held USB byte, interleaved with
+  the UART's. So the bytes reach the terminal endpoint, and `line_editor` is not woken for the
+  USB driver's `call` until a second sender (`input`) arrives. That points at a lost wakeup on a
+  two-sender rendezvous across harts, not at xHCI. Measured on `main` at 32dd00175: 3 failures in
+  60 boots of that leg alone (riscv64, TCG, 4 harts); aarch64 and x86_64 not yet counted. Owed:
+  a lane to find the race, which a real keyboard on xenon would also hit.

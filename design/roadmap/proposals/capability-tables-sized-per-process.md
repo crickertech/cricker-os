@@ -75,4 +75,4 @@ table, on all three ISAs. Then put the options, with those numbers, to an archit
 
 ## What it is not
 
-Not a change to how many slots any table has today. That is milestone 754.
+Not a change to how many slots any table has today. That is milestone 754 (the capability table grows to 64 slots).

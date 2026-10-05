@@ -15,15 +15,14 @@ here; CI's re-falsify job covers them. The supervisor-first half would fail the 
 assertion, which the first half's panic keeps from running.
 
 diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
-index 99bec2784..806339294 100644
 --- a/kernel/src/sched.rs
 +++ b/kernel/src/sched.rs
-@@ -5550,7 +5550,7 @@ pub fn start_thread_control_block(tid: ThreadId, args: [u64; 3]) -> Result<(), a
+@@ -5658,7 +5658,7 @@
          && let crate::cap::Object::Rendezvous(ep, label) = fault_cap.object
      {
          t.fault_ep = Some(ep);
 -        t.fault_label = label;
 +        t.fault_label = 0;
-         let _ = t.capability_table.delete(abi::fault::FAULT_EP_SLOT);
+         let _ = table.delete(abi::fault::FAULT_EP_SLOT);
      }
- 
+     drop(table);

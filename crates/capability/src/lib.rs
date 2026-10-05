@@ -242,12 +242,16 @@ pub enum Error {
 
 /// **The most slots a [`CapabilityTable`] may have: one per bit of its free-slot word.**
 ///
-/// The free-slot bitmap is a `u32` (milestone 126 (the `procps` package), calef's ruling on #1360,
-/// 2026-09-27, UTC), so a table of more than 32 slots does not build: [`CapabilityTable::new`]
-/// asserts it at compile time for every `N` anybody instantiates. `kernel/src/cap.rs` asserts it
-/// again beside `CAPABILITY_TABLE_SLOTS`, where the next raise will be typed. Growing past 32 is
-/// widening this word to a `u64`, which costs four bytes a table that today sit in padding.
-pub const MAX_SLOTS: usize = u32::BITS as usize;
+/// The free-slot bitmap is a `u64` (milestone 754 (the capability table grows to 64 slots), calef's
+/// ruling A on #1608, 2026-10-04, UTC; it was a `u32` from milestone 126 (the `procps` package),
+/// calef's ruling on #1360, 2026-09-27), so a table of more than 64 slots does not build:
+/// [`CapabilityTable::new`] asserts it at compile time for every `N` anybody instantiates.
+/// `kernel/src/cap.rs` asserts it again beside `CAPABILITY_TABLE_SLOTS`, where the next raise will
+/// be typed. Growing past 64 is a wider word or a second one, and at that point
+/// `design/roadmap/proposals/capability-tables-sized-per-process.md` is the question to answer
+/// first. The `u32` it replaced fitted in a table with no padding at 32 slots (1,032 bytes); the
+/// `u64` rounds a 64-slot table to 2,064 bytes, eight more than the slots, word and counts need.
+pub const MAX_SLOTS: usize = u64::BITS as usize;
 
 pub use storage::CapabilityTable;
 
@@ -286,9 +290,9 @@ mod storage {
         /// that LLVM unrolled once per slot, which grew the IPC fastpath with every slot added
         /// (`script/fastpath-footprint`); the before and after are in milestone 126's block.
         ///
-        /// A `u32` sits in the four bytes of padding `used` and `peak` left, so the table did not
-        /// grow for it: 1,032 bytes at 32 slots either way.
-        free: u32,
+        /// A `u64` since milestone 754 (the capability table grows to 64 slots) (a `u32` before it); the table is `N` slots, this word and
+        /// two `u16` counts, rounded to eight bytes.
+        free: u64,
         /// How many of the slots are occupied right now. Maintained by the two doors rather than
         /// counted on demand, because the thing that wants it is a high-water mark and a mark
         /// sampled at a convenient moment is not one.
@@ -302,15 +306,15 @@ mod storage {
     impl<O: Copy, const N: usize> CapabilityTable<O, N> {
         /// Every slot free: the low `N` bits. The assertion is the compile-time wall
         /// [`MAX_SLOTS`] describes, evaluated for each `N` that is instantiated.
-        const ALL_FREE: u32 = {
+        const ALL_FREE: u64 = {
             assert!(
                 N <= MAX_SLOTS,
-                "a capability table has one free-slot bit per slot, and the word is a u32"
+                "a capability table has one free-slot bit per slot, and the word is a u64"
             );
             if N == MAX_SLOTS {
-                u32::MAX
+                u64::MAX
             } else {
-                (1u32 << N) - 1
+                (1u64 << N) - 1
             }
         };
 
@@ -345,7 +349,7 @@ mod storage {
 
         /// The free-slot word itself, for the proofs and the tests that check it against the array.
         #[cfg_attr(not(any(test, kani)), allow(dead_code))]
-        pub(super) fn free_mask(&self) -> u32 {
+        pub(super) fn free_mask(&self) -> u64 {
             self.free
         }
 
@@ -356,7 +360,7 @@ mod storage {
         /// milestone 126 (the `procps` package) raised `N` and found the sweep had never made that
         /// trade, on `insert`'s reasoning exactly, in the one caller (revocation, `sched.rs`'s
         /// `delete_page_frame_caps_where`) that runs it over every thread's table for every frame.
-        pub(super) fn occupied_mask(&self) -> u32 {
+        pub(super) fn occupied_mask(&self) -> u64 {
             !self.free & Self::ALL_FREE
         }
 
@@ -372,12 +376,12 @@ mod storage {
             let s = self.slots.get_mut(slot)?;
             let was_empty = s.is_none();
             *s = Some(cap);
-            self.free &= !(1u32 << slot);
+            self.free &= !(1u64 << slot);
             if was_empty {
                 // Wrapping, because the wrap cannot happen and this is on every reply-capability
                 // mint (release builds check overflow, notes/overflow-checks.md). `used` counts
                 // occupied slots (`the_count_is_the_slots` proves it), this slot was empty, so the
-                // result is at most `N`, which the `u32` free mask bounds at 32.
+                // result is at most `N`, which the `u64` free mask bounds at 64.
                 self.used = self.used.wrapping_add(1);
                 if self.used > self.peak {
                     self.peak = self.used;
@@ -396,7 +400,7 @@ mod storage {
         /// milestone 230 (`script/shell-check` is red on `main`) needed and could not get.
         pub(super) fn empty(&mut self, slot: usize) -> Option<Cap<O>> {
             let cap = self.slots.get_mut(slot)?.take()?;
-            self.free |= 1u32 << slot;
+            self.free |= 1u64 << slot;
             self.used -= 1;
             Some(cap)
         }
@@ -745,7 +749,7 @@ mod verification {
     #[kani::proof]
     #[kani::unwind(4)]
     fn the_free_mask_is_the_empty_slots() {
-        fn empties(cs: &CapabilityTable<u8, 3>) -> u32 {
+        fn empties(cs: &CapabilityTable<u8, 3>) -> u64 {
             (0..3)
                 .filter(|&i| cs.slot(i).is_none())
                 .fold(0, |m, i| m | (1 << i))
@@ -1234,23 +1238,24 @@ mod tests {
             object: Obj::PageFrame(3),
             rights: Rights::READ,
         };
-        // Full at thirty-two, the most a table may have (`MAX_SLOTS`). This was forty of sixty-four
-        // until the free-slot word capped a table at one `u32`; now the record is the ceiling, and
-        // the free-slot word's edge test fills a 32-slot table too, which writes the same word.
-        let mut cs: CapabilityTable<Obj, 32> = CapabilityTable::new();
-        for _ in 0..32 {
-            cs.insert(cap).expect("thirty-two slots hold thirty-two");
+        // Full at sixty-four, the most a table may have (`MAX_SLOTS`). This was forty of sixty-four
+        // until the free-slot word capped a table at one `u32`, then 32 of 32; milestone 754 (the capability table grows to 64 slots) made
+        // the word a `u64`, so the ceiling is sixty-four again and the free-slot word's edge test
+        // fills a 64-slot table too, which writes the same word.
+        let mut cs: CapabilityTable<Obj, 64> = CapabilityTable::new();
+        for _ in 0..64 {
+            cs.insert(cap).expect("sixty-four slots hold sixty-four");
         }
 
         assert_eq!(
             highest_seen(),
-            (32, 32),
-            "no table in this test binary can exceed 32 of 32, so this record is the one standing"
+            (64, 64),
+            "no table in this test binary can exceed 64 of 64, so this record is the one standing"
         );
     }
 
-    /// **The free-slot word at its edge, and first-free after a hole.** Thirty-two slots is the
-    /// case where every bit of the `u32` is a slot, so "all free" is `u32::MAX` and "full" is zero
+    /// **The free-slot word at its edge, and first-free after a hole.** Sixty-four slots is the
+    /// case where every bit of the `u64` is a slot, so "all free" is `u64::MAX` and "full" is zero
     /// with no bits above `N` to mistake for room. A hole punched in the middle must be the next
     /// slot `insert` takes, lowest first, because the kernel's Reply mint relies on first-free.
     #[test]
@@ -1259,9 +1264,9 @@ mod tests {
             object: Obj::PageFrame(1),
             rights: Rights::READ,
         };
-        let mut cs: CapabilityTable<Obj, 32> = CapabilityTable::new();
-        assert_eq!(cs.free_mask(), u32::MAX);
-        for want in 0..32u64 {
+        let mut cs: CapabilityTable<Obj, 64> = CapabilityTable::new();
+        assert_eq!(cs.free_mask(), u64::MAX);
+        for want in 0..64u64 {
             assert_eq!(cs.insert(cap), Ok(want));
         }
         assert_eq!(cs.free_mask(), 0, "a full table is a zero word");
@@ -1272,7 +1277,7 @@ mod tests {
         assert_eq!(cs.free_mask(), (1 << 20) | (1 << 7));
         assert_eq!(cs.insert(cap), Ok(7), "lowest hole first");
         assert_eq!(cs.insert(cap), Ok(20));
-        assert_eq!(cs.used(), 32);
+        assert_eq!(cs.used(), 64);
 
         // A small table's bits above N stay clear, so full is still zero there too.
         let mut small: CapabilityTable<Obj, 3> = CapabilityTable::new();

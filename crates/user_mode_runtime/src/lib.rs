@@ -695,7 +695,7 @@ impl Delivered {
     }
 
     /// The Reply, if this was a `CALL`. **A delegation is deleted**, so a server that did not ask
-    /// for one does not keep its slot: the table is [`abi`]'s 32 slots, and a client that could
+    /// for one does not keep its slot: the table is [`abi::CAPABILITY_TABLE_SLOTS`] slots, and a client that could
     /// fill it could stop the server receiving anything.
     pub fn into_reply(self) -> Option<Reply> {
         match self {

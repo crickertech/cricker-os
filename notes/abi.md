@@ -155,7 +155,7 @@ conventions make it work, and neither adds a syscall or a method: a spawn-slot c
 message-format convention (both in `crates/abi`, module `fault`).
 
 The spawn-slot convention. A supervised child is spawned with its supervision endpoint in the
-reserved fault slot, `abi::fault::FAULT_EP_SLOT` (the last capability table slot, `CAPABILITY_TABLE_SLOTS - 1 = 15`).
+reserved fault slot, `abi::fault::FAULT_EP_SLOT` (the last capability table slot, `CAPABILITY_TABLE_SLOTS - 1`, 63 now).
 A supervisor building a child through the TCB surface places it there with
 `ThreadControlBlock::CAP_INSERT`'s explicit target argument (`invoke(tcb, CAP_INSERT, cap_slot,
 rights, target)`, where `target` is `slot + 1` and `0` keeps the original first-free behaviour). At

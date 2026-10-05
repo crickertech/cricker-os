@@ -152,7 +152,14 @@ pub type CapSlot = u64;
 /// every progenitor boot slot below the fault slot named by some boot's grant and needed one more
 /// for the machine statistics page. calef chose eight rather than one, so the next boot grant does
 /// not meet the same wall. [`fault::FAULT_EP_SLOT`] moves from 23 to 31 with it, since it is derived.
-pub const CAPABILITY_TABLE_SLOTS: u64 = 32;
+///
+/// **Raised 32 -> 64** (calef, 2026-10-04, UTC; milestone 754 (the capability table grows to 64
+/// slots)), because a gpu-and-keyboard boot reached 31 of 32 in the progenitor
+/// (`notes/capability-peak-trace.md`). **This is an ABI change**: [`fault::FAULT_EP_SLOT`] moves from
+/// 31 to 63, so a supervisor built against 32 slots would write the fault endpoint to a slot the
+/// kernel no longer reads. Every program that names it is built from this tree, and nothing outside
+/// it is.
+pub const CAPABILITY_TABLE_SLOTS: u64 = 64;
 
 /// Methods on a `Console` capability. **Historical: no longer wired up.**
 ///

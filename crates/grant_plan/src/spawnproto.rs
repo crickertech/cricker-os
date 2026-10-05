@@ -334,7 +334,7 @@ pub const MACHINE_PAGE_SLOT: u64 = 20;
 /// with no GPU leaves all seven empty, and the shell's `_start` probe is what tells that apart.
 ///
 /// **Twenty-two through twenty-eight**, the block between [`crate::SHELL_CONFIG_SLOT`] (21) and
-/// [`RUN_UNVOUCHED_SLOT`] (30): a named block rather than next-free numbering, because the shell
+/// [`RUN_UNVOUCHED_SLOT`] (62): a named block rather than next-free numbering, because the shell
 /// probes these slots rather than being told, and a probe is sound only for a slot nothing else
 /// allocates into. One block of seven, contiguous, so the relation to the two slots that fence it
 /// reads as two assertions rather than seven.
@@ -370,16 +370,17 @@ const NAMESET_BIT: u64 = 1 << 43;
 /// progenitor places it in, `WRITE` only, in the boot shell and in `login`, and the slot `login`
 /// delegates it from.
 ///
-/// Thirty, the highest slot below the kernel's reserved fault slot (`abi::fault::FAULT_EP_SLOT`,
-/// 31; `grant_plan` does not depend on `abi`, so each binary that reads this asserts the relation
+/// Sixty-two, the highest slot below the kernel's reserved fault slot (`abi::fault::FAULT_EP_SLOT`,
+/// 63; `grant_plan` does not depend on `abi`, so each binary that reads this asserts the relation
 /// itself). It was twenty-two until calef raised the table from 24 slots to 32 on 2026-09-27 (UTC),
-/// and it moved with the fault slot so those assertions still hold. A named slot for the reason [`crate::NETWORK_SLOT`] is one: the holder probes it rather
+/// thirty until milestone 754 (the capability table grows to 64 slots) raised it to 64 on 2026-10-04 (UTC), and it moved with the fault slot
+/// both times so those assertions still hold. A named slot for the reason [`crate::NETWORK_SLOT`] is one: the holder probes it rather
 /// than being told, and the probe is sound only at `_start`, before the process has allocated
 /// anything, because a runtime allocation takes the first free slot and could land here only in a
 /// table that is almost full.
 ///
 /// Name: provisional.
-pub const RUN_UNVOUCHED_SLOT: u64 = 30;
+pub const RUN_UNVOUCHED_SLOT: u64 = 62;
 
 /// **What an activation request asks for** (see `ACTIVATION_BIT`). Provisional names, like the
 /// bit's; the prompt spells them `package install`, `package remove` and `package rollback`.

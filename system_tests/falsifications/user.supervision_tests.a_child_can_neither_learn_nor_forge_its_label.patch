@@ -18,14 +18,13 @@ register stays `0` for a `SEND` through a capability badged with the very label,
 by patch.
 
 diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
-index 99bec2784..9dd6648c7 100644
 --- a/kernel/src/sched.rs
 +++ b/kernel/src/sched.rs
-@@ -5551,7 +5551,6 @@ pub fn start_thread_control_block(tid: ThreadId, args: [u64; 3]) -> Result<(), a
+@@ -5659,7 +5659,6 @@
      {
          t.fault_ep = Some(ep);
          t.fault_label = label;
--        let _ = t.capability_table.delete(abi::fault::FAULT_EP_SLOT);
+-        let _ = table.delete(abi::fault::FAULT_EP_SLOT);
      }
+     drop(table);
  
-     t.start_args = args; // the child's x0, x1, x2 (19d/19e)

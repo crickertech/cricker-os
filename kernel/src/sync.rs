@@ -82,6 +82,8 @@ use crate::arch::interrupts;
 ///        |
 ///   58  MEMORY_REGION         the untyped regions
 ///        |
+///   57  CAPABILITY_TABLE  one thread's capability table (one lock per thread)
+///        |
 ///   55  STACK_VA        free thread-stack addresses
 ///        |
 ///   30  FRAMES, RAM     the physical memory map
@@ -102,6 +104,9 @@ use crate::arch::interrupts;
 ///
 /// - **MAPPINGS (59) → `MEMORY_REGION` (58)**: recording a mapping retypes a log page from the paying
 ///   process's own region, while holding the registry lock (milestone 14 phase C).
+/// - **`IPC_TABLES` (60) → `CAPABILITY_TABLE` (57)**: an IPC that delivers a capability, and every
+///   revocation sweep, locks another thread's table while holding the thread table. The reverse
+///   is refused: a holder of a capability table takes nothing (see the rank's own note).
 /// - **anything → CONSOLE (10)**: a panic prints while holding a lock. Which is why the
 ///   console must be the leaf, and why it takes nothing itself.
 ///
@@ -141,6 +146,30 @@ pub mod rank {
     /// held (phase C). Below `IPC_TABLES`, so it may be taken from a syscall that has no
     /// thread-table-or-endpoint business.
     pub const MEMORY_REGION: u32 = 58;
+
+    /// **One thread's capability table** (provisional name, from the proposal "capability lookup off
+    /// the global lock", 2026-10-04 UTC). Every thread's table has its own lock at this rank, in the
+    /// free space of its TCB page (`thread::capability_table_of`).
+    ///
+    /// **The order, written down because the speed depends on it:**
+    ///
+    /// - The running thread's own lookups (`sched::current_cap`, `grant`, `grant_at`) take this
+    ///   lock **alone**, with `IPC_TABLES` not held. That is the whole point: before 2026-10-04
+    ///   every syscall's lookup took the global lock, and at four busy cores on radon 41% of them
+    ///   found it held (notes/job-mix/null-syscall-under-load.md).
+    /// - Everything that touches **another** thread's table (an IPC that delivers a capability,
+    ///   `ThreadControlBlock::CAP_INSERT`, the revocation sweeps) takes it **under `IPC_TABLES`**,
+    ///   which is what keeps a capability in transit between two tables, or a sweep across all of
+    ///   them, atomic against every other cross-table operation.
+    /// - **A holder takes nothing.** The table is a fixed array of `Copy` entries, so no operation
+    ///   on it allocates, frees or prints. Two tables are never held at once (equal rank refuses
+    ///   it), and `IPC_TABLES` is never taken under one (60 > 57 refuses it). Both refusals are this
+    ///   module's ranking check, so an AB-BA between a lookup and a sweep is unrepresentable.
+    ///
+    /// **Below `MEMORY_REGION` (58) and the 59s**, not because anything nests them today but so a
+    /// caller holding one of those could still look a capability up; and above everything the
+    /// table's holder might reach on a panic path, which is only `CONSOLE`.
+    pub const CAPABILITY_TABLE: u32 = 57;
 
     /// The kernel's own object budget (milestone 19c.1): `kmem`, the region kernel stacks draw
     /// from. **Above `MEMORY_REGION`** (it carves and retypes from its region while holding this lock,
@@ -328,7 +357,13 @@ impl<T> IrqSafeMutex<T> {
     pub fn lock(&self) -> IrqSafeGuard<'_, T> {
         // ORDER: mask first, THEN acquire. Reversing these reintroduces the deadlock.
         let irqs_were_enabled = interrupts::disable();
+        self.lock_masked(irqs_were_enabled)
+    }
 
+    /// [`lock`](Self::lock) after the caller has already masked interrupts, handing over the state
+    /// it found so the guard restores that. Private: [`lock_found`] is the one caller with a reason.
+    #[inline]
+    fn lock_masked(&self, irqs_were_enabled: bool) -> IrqSafeGuard<'_, T> {
         // From here to the matching restore in `drop`, interrupts are off, so this core is the
         // only thing that can touch its own held-rank.
         let held_rank = &crate::cpu::current().held_rank;
@@ -381,6 +416,29 @@ impl<T> IrqSafeMutex<T> {
     pub unsafe fn force_unlock(&self) {
         // SAFETY: this function's own `# Safety` contract is exactly the one this call needs; it forwards, it does not weaken.
         unsafe { self.inner.force_unlock() }
+    }
+}
+
+/// **Find a lock with interrupts masked, then take it, masking once** (provisional name,
+/// 2026-10-04 UTC, from the proposal "capability lookup off the global lock").
+///
+/// For a lock whose *identity* is per-core state: `find` reads this core's block and names the lock
+/// to take. The read must happen with interrupts masked, or the thread could be preempted and resumed
+/// on another core between finding this core's block and reading it, and would take the lock that
+/// core's thread owns. [`IrqSafeMutex::lock`] masks too late for that, and masking here and again
+/// inside `lock` is a second save and restore of the interrupt state on the cheapest syscall's path.
+/// `None` from `find` restores the state and takes nothing. The guard restores the state found
+/// before `find` ran, so the whole of it is one critical section.
+#[inline]
+pub fn lock_found<'a, T>(
+    find: impl FnOnce() -> Option<&'a IrqSafeMutex<T>>,
+) -> Option<IrqSafeGuard<'a, T>> {
+    let irqs_were_enabled = interrupts::disable();
+    if let Some(mutex) = find() {
+        Some(mutex.lock_masked(irqs_were_enabled))
+    } else {
+        interrupts::restore(irqs_were_enabled);
+        None
     }
 }
 
