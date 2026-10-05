@@ -21,15 +21,15 @@ DAG cannot happen." What to settle before building: offer hard links at all, giv
 
 **Declined, for now.** No consumer needs them:
 
-- **The atomic-replace idiom people usually reach for hard links to get is already covered.** The
+- The atomic-replace idiom people usually reach for hard links to get is already covered. The
   standard pattern in real Unix practice is write-to-temp-then-`rename()`, not a hard-link trick, and
   `mv`/`RENAME` already exist here.
-- **The one place hard links are load-bearing in a real system near this project's own scope doesn't
-  need them either.** Time Machine's incremental-backup deduplication happens inside the sparse
+- The one place hard links are load-bearing in a real system near this project's own scope doesn't
+  need them either. Time Machine's incremental-backup deduplication happens inside the sparse
   bundle's own filesystem, which the Mac itself manages; nife serves band-file content and never
   sees or needs to implement that. (Named as one data point, not the deciding one: the backup server
   is one goal among several, not the reason this defers.)
-- **No other consumer has asked for cross-subtree aliasing.**
+- No other consumer has asked for cross-subtree aliasing.
 
 **What offering them would have cost, which is why "no customer" settles it rather than "build
 everything, decide never":** not the implementation (small), but the audit. `fs_subtree_caretaker`'s
