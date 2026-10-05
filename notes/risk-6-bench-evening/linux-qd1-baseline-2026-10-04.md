@@ -1,7 +1,7 @@
 # Linux's queue-depth-1 baseline on xenon, 2026-10-04
 
-*Step 5 of [fatal risk 6's bench evening](../risk-6-bench-evening.md), run. This page's stem is
-provisional, per the naming tenet; calef names things.*
+*Step 5 of [fatal risk 6's bench evening](../risk-6-bench-evening.md), run. This page's name is
+recorded in the [directory's README](README.md).*
 
 Run by calef on xenon on 2026-10-04, evening (bench clock 23:12 to 23:45, zone not recorded), from
 a Fedora 44 Workstation Live USB with fio-3.40. The disk (Micron 2450, 256060514304 bytes) and the
