@@ -14,9 +14,10 @@ Raised by the lane for the provisional milestone "a USB keystroke never strands 
 swish-check keystroke stall was an emulator defect that nife's PLIC driver happened to expose. Title
 and slug are drafts.
 
-**Reuse:** none exists to take; this is a report to an upstream, not code. Searched QEMU's
-`hw/intc/sifive_plic.c` at v11.1.1 for any re-evaluation on the enable path (there is none) and
-nife's own tree for an existing upstream report or workaround record (none before #1657).
+**Reuse:** the upstream fix already exists and is reused rather than rewritten: LIU Xu's
+unmerged qemu-devel patch of 2026-03-25 (below). nife writes no patch of its own. Searched QEMU
+master and the qemu-devel archive for an existing fix or report, and nife's own tree for an earlier
+workaround record (none before #1657).
 
 ## The defect
 
@@ -114,36 +115,44 @@ Run it from a worktree after `script/swish-check --arch riscv64` has built the i
 `usbloop.py <worktree> 300 6 200`. It kills each QEMU it started by its socket name, and
 `pgrep -l qemu` afterwards should be empty.
 
-## The one-line patch
+## The fix already exists upstream, unmerged
 
-```diff
---- a/hw/intc/sifive_plic.c
-+++ b/hw/intc/sifive_plic.c
-@@ -219,6 +219,7 @@ static void sifive_plic_write(void *opaque, hwaddr addr, uint64_t value,
- 
-         if (wordid < plic->bitfield_words) {
-             plic->enable[addrid * plic->bitfield_words + wordid] = value;
-+            sifive_plic_update(plic);
-         } else {
-             qemu_log_mask(LOG_GUEST_ERROR,
-                           "%s: Invalid enable write 0x%" HWADDR_PRIx "\n",
-```
+Checked 2026-10-05 (UTC): the defect is still present on QEMU master at d7a65d1793d6 (2026-10-03).
+The fix is not new. LIU Xu posted the identical one line, a `sifive_plic_update(plic)` call after
+the enable store, to qemu-devel on 2026-03-25 as "[PATCH qemu] hw/intc: Call sifive_plic_update()
+after writing interrupt enable" (Message-ID `<177442359063.1954.8266696018975379698-0@git.sr.ht>`).
+It got no replies and was not merged, and it was sent without copying the RISC-V maintainers or
+the qemu-riscv list, which is the likely reason nobody saw it.
 
-This is written against v11.1.1 and has not been built or sent. Upstream's development branch has
-not been checked for a fix that landed after 11.1.1. That check comes first, before anything is
-sent.
+## nife sends no patch
+
+QEMU's `docs/devel/code-provenance.rst` declines contributions derived from AI tools, and
+`checkpatch` enforces it. Everything in this tree that touches the defect was written by an agent,
+so nife does not send a patch, not even a one-line one. What it can send is a bug report and test
+evidence, and calef sends it himself.
+
+The evidence exists. A qtest reproducer that needs no guest fails 3 runs in 3 on master and passes
+3 in 3 with LIU Xu's fix applied, and the rest of `qtest-riscv64` stays green (17 OK) with the fix.
+The reproducer, both build logs, a draft GitLab issue and a draft reply to LIU Xu's thread are in
+`~/projects/qemu-upstream-report/` on patagonia, outside the tree on purpose. They are not part
+of nife, and committing them here would make them look like a contribution.
 
 ## Why this waits on calef
 
-Sending it upstream is a fact that leaves the machine: a public mailing-list post or issue under
-somebody's name, which nobody can take back. That is on the irreversible list in `AGENTS.md`, so it
-is calef's call. The work itself is small: check upstream, build QEMU with the patch, confirm the
-falsification patch goes green on it, and write the report.
+Both remaining actions leave the machine under calef's name, and neither can be taken back. That
+puts them on the irreversible list in `AGENTS.md`:
+
+1. File the GitLab issue, with the qtest reproducer and its results.
+2. Reply on LIU Xu's thread with the same evidence, copying the RISC-V maintainers and qemu-riscv,
+   so his patch reaches the people who can merge it.
+
+When his patch lands and nife's pinned QEMU (`.qemu-version`) moves past it, the write order in
+`plic::enable` stops mattering under the emulator. It stays as it is: a real PLIC does not care
+about the order either.
 
 ## BUGS
 
-- The reproducer above is nife's, not a standalone guest. Upstream will want either a
-  `tests/qtest` case or a few lines of bare-metal assembly, and neither is written.
-- The patch adds a re-evaluation for every enable write, including ones that change nothing. The
-  cost is believed negligible (`sifive_plic_update` already runs on every source line change) but
-  was not measured.
+- The qtest materials live on one machine, outside any repository. If patagonia loses them before
+  calef files the issue, they have to be rebuilt from this file's reproducer steps.
+- Nobody has measured what an extra `sifive_plic_update` per enable write costs. It is believed
+  negligible, since the same call already runs on every change of a source line.
