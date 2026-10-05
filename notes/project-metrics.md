@@ -48,7 +48,7 @@ Each week is read from its own commit, so 2026W39 is the first correction, alrea
 
 ![Fatal risks by colour](project-metrics/fatal-risks-colors.svg)
 
-- 2026W41: risk 4 (the per-crossing cost) turned amber to green on 2026-10-05 UTC (calef), after milestones 761 and 766 cut the null syscall's growth from one task to four from 48 ticks to 10 on radon.
+- 2026W41: risk 4 went green on 2026-10-05 UTC (calef); milestones 761 and 766 cut the null syscall's growth to four tasks from 48 to 10 ticks.
 
 ## Kani proof harnesses, and what can falsify them
 
