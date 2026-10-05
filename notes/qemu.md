@@ -5,7 +5,7 @@
 QEMU is a computer made of software. It simulates a whole machine: a CPU that fetches
 and executes real instructions one at a time, some RAM, and a set of devices.
 
-We need it because **the kernel is not a program that runs on macOS**. It has no OS
+We need it because the kernel is not a program that runs on macOS. It has no OS
 underneath it, because it *is* the OS. It expects to be the first thing running on a
 machine, to own all of RAM, and to talk to hardware by writing values to specific
 physical memory addresses. There is no `main()` for macOS to call, no `malloc`, no files.
@@ -18,7 +18,7 @@ It cannot tell the difference.
 
 ## Why not develop on real hardware
 
-We do, now: **radon** (a VisionFive 2, riscv64) boots nife from a card, and **xenon** (a Dell
+We do, now: radon (a VisionFive 2, riscv64) boots nife from a card, and xenon (a Dell
 OptiPlex, x86_64) is the x86 target (milestones 16a and 87; see [target-hardware.md](target-hardware.md)).
 The Raspberry Pi this section originally named is not the board that got there, and QEMU is still
 the default rather than the fallback. Compare the loops:
@@ -33,7 +33,7 @@ the default rather than the fallback. Compare the loops:
 ## The `virt` machine
 
 `-M virt` tells QEMU which computer to pretend to be. It can imitate many real boards,
-including a Raspberry Pi. But `virt` is a machine that **does not physically exist**. The
+including a Raspberry Pi. But `virt` is a machine that does not physically exist. The
 QEMU developers invented it as a deliberately clean, well-documented, standards-following
 ARM board.
 
@@ -86,7 +86,7 @@ third cost milestone 127's EL2 lane time twice in one session, and caught anothe
 
 ### 1. An idle kernel is not idle
 
-`arch::halt()` is `loop { wfi }`. It **was** `loop { wfe }`, and the difference is enormous:
+`arch::halt()` is `loop { wfi }`. It was `loop { wfe }`, and the difference is enormous:
 
 | Instruction | Waits for | What QEMU does | Host CPU |
 |---|---|---|---|
@@ -108,7 +108,7 @@ perl -e 'alarm 10; exec @ARGV' qemu-system-aarch64 ...     # DOES NOT WORK
 **QEMU installs its own `SIGALRM` handler** (it uses timers internally), so the alarm is
 swallowed and the process runs forever. Every "bounded" run leaks a QEMU.
 
-QEMU *does* honour **SIGTERM**. Use `helpers/qemu-bounded.sh <seconds> <cmd...>`, which
+QEMU *does* honour SIGTERM. Use `helpers/qemu-bounded.sh <seconds> <cmd...>`, which
 starts a detached killer that survives a pipeline whose reader (`head`) exits early. That
 last part matters: `qemu ... | head -20` leaves QEMU alive, because `head` closing the pipe
 does not kill a process that has stopped writing.
@@ -118,9 +118,9 @@ does not kill a process that has stopped writing.
 Found by milestone 127's EL2 lane, twice in one session, and fixed by milestone 226.
 
 The killer above used to have exactly one reason to fire, which was the bound expiring. That
-bounds a run which is allowed to finish. It does nothing for a run whose **wrapper** is killed:
-a dead session, a `pkill -f` at a harness, a closed terminal. The wrapper goes, **QEMU is
-inherited by pid 1, and it runs forever.**
+bounds a run which is allowed to finish. It does nothing for a run whose wrapper is killed:
+a dead session, a `pkill -f` at a harness, a closed terminal. The wrapper goes, QEMU is
+inherited by pid 1, and it runs forever.
 
 The bill arrives on a later run, in a different shape, which is what made it expensive. The
 orphan holds the write lock on whatever disk image it was given, and the next boot fails with
@@ -130,21 +130,21 @@ qemu-system-aarch64: -device virtio-blk-device,drive=d0: Failed to get "write" l
 Is another process using the image [target/nifefs-blank.img]?
 ```
 
-That names a **file**. Nothing in it points at a process, so it reads as a bug in whatever the
+That names a file. Nothing in it points at a process, so it reads as a bug in whatever the
 run was testing, and a lane that has read AGENTS.md's warning about leaked emulators can still
 lose an hour to it because the symptom does not look like that warning.
 
-`helpers/qemu-bounded.sh` now gives the killer two more reasons to fire. It **polls its parent**
+`helpers/qemu-bounded.sh` now gives the killer two more reasons to fire. It polls its parent
 once a second and kills the child as soon as the wrapper is gone, which covers a SIGKILLed
-wrapper and a dead session, neither of which runs a trap anywhere. And it **traps SIGTERM and
-SIGHUP**, so the one process that knows the child's pid does not take that knowledge with it
+wrapper and a dead session, neither of which runs a trap anywhere. And it traps SIGTERM and
+SIGHUP, so the one process that knows the child's pid does not take that knowledge with it
 when `pkill -f` sweeps the wrapper and the killer together.
 
-What is left, and it is not fixable on macOS: a **SIGKILL to the killer itself**. SIGKILL is not
+What is left, and it is not fixable on macOS: a SIGKILL to the killer itself. SIGKILL is not
 trappable and macOS has no `prctl(PR_SET_PDEATHSIG)`, so a supervisor shot in the head cannot
 hand off. For that case the script does the other thing instead of preventing it: when the
 command fails, it runs `lsof` over the image paths in the command line and prints the pid, ppid,
-start time and command of whoever holds one **for writing** (a reader is not reported, and that
+start time and command of whoever holds one for writing (a reader is not reported, and that
 filter is what keeps the message quiet on a green run: the three test legs share one read-only OVMF
 firmware file). **Walk the parent chain up before killing what it
 names**: a QEMU whose parent is a live harness is somebody's gate in flight, not a leak.
@@ -161,11 +161,11 @@ child *is* QEMU. The x86_64 runner deliberately does not `exec` (its own comment
 `isa-debug-exit`'s odd status back into 0 afterwards), so its child is a shell with QEMU beneath
 it; the bound kills the shell on time and QEMU is re-parented to launchd, halted and holding
 nothing but a core's worth of memory. Until one of the two scripts changes (the runner trapping
-TERM and HUP and forwarding them to QEMU would be the smaller fix), **after bounding an x86_64
-run, `pgrep -l qemu-system-x86` and walk the parent chain**, and treat a PPID of 1 as yours.
+TERM and HUP and forwarding them to QEMU would be the smaller fix), after bounding an x86_64
+run, `pgrep -l qemu-system-x86` and walk the parent chain, and treat a PPID of 1 as yours.
 
-**Corrected 2026-09-24: the killer now signals the child's whole tree, which closes the paragraph
-above and a wider case it did not name.** The same shape hit `cargo xtask shell`: cargo, then xtask,
+Corrected 2026-09-24: the killer now signals the child's whole tree, which closes the paragraph
+above and a wider case it did not name. The same shape hit `cargo xtask shell`: cargo, then xtask,
 then the runner that execs QEMU. A bounded run killed cargo on time and left QEMU under pid 1, three
 times out of three with a 25-second bound on patagonia (found by the `audit_sink` rename lane,
 #1228, while confirming the login stack came up). This was not a regression in milestone 226
@@ -182,8 +182,8 @@ handy; it is the same shape as case 9 and should be closed with it.
 Moved here from `AGENTS.md` on 2026-09-23 (UTC), where it was the anecdote attached to the rule that
 a session checks for leaked emulators afterwards. The rule stayed there; this is the evidence.
 
-**Checking `pgrep` is not sufficient after you kill a harness, and on 2026-08-02 it took four
-attempts to notice.** Killing a loop script does not kill its descendants: `pkill -f hunt-...` left
+Checking `pgrep` is not sufficient after you kill a harness, and on 2026-08-02 it took four
+attempts to notice. Killing a loop script does not kill its descendants: `pkill -f hunt-...` left
 `cargo xtask test` running, which kept starting fresh QEMUs. So every check honestly reported "no
 qemu" and the next command found one holding `target/nifefs.img`, which then failed unrelated test
 runs with `Failed to get "write" lock` and looked like a bug in the code under test.
@@ -209,7 +209,7 @@ forever, by design, exactly like real hardware. So every interactive run must be
 
 ## BUGS
 
-- **On macOS the pinned version is not available, and building it by hand has a trap.** `.qemu-version`
+- On macOS the pinned version is not available, and building it by hand has a trap. `.qemu-version`
   pins the version CI and Linux build (`script/ci-qemu`); Homebrew ships only its current release
   and `script/ci-qemu` refuses to run on macOS, so a Mac runs whatever Homebrew has and
   `script/qemu-check` warns. Milestone 117's sixth stranger run built the pinned 11.0.2 by hand and
@@ -218,7 +218,7 @@ forever, by design, exactly like real hardware. So every interactive run must be
   built QEMU on a Mac. And a QEMU installed into `$HOME/.cache/nife-qemu` is honoured by
   `helpers/qemu-path.sh` on macOS too, for every checkout on the account, which is how a build meant
   for one clone changes the emulator under every other lane.
-- **`cargo xtask uefi-boot`'s screen read used to be a race, and is now a handshake** (milestone
+- `cargo xtask uefi-boot`'s screen read used to be a race, and is now a handshake (milestone
   445, superseding this entry's previous text). The check reads the guest's framebuffer through
   QEMU's monitor to assert the claim of milestone 243 (a machine with no serial port has no way to
   say anything, and no gate can read it). It used to *sample*: poll every 50 ms and hope a
@@ -236,12 +236,12 @@ forever, by design, exactly like real hardware. So every interactive run must be
   - **The tour is taller than the screen, so it scrolls**, which is the opposite of what
     `UEFI_SCREEN_MARKER`'s previous comment said and is why the marker is the tour's *tail* again.
     Held still, the OVMF console's first row is the middle of the firmware memory map.
-  - **A spinning guest starves the emulator's own monitor.** The first version of the wait polled
+  - A spinning guest starves the emulator's own monitor. The first version of the wait polled
     the UART with `spin_loop`, and every `screendump` taken during the ten-second hold came back a
     file that would not decode. Parking the core with `wait_for_interrupt` between polls fixed it
     outright. Worth remembering for anything else in this tree that busy-waits inside a guest while
     a host is trying to talk to QEMU.
-- **A process that leaves the tree escapes the bound.** The killer finds what to signal by walking
+- A process that leaves the tree escapes the bound. The killer finds what to signal by walking
   `pgrep -P` down from its child at the moment it fires. A descendant that double-forks or calls
   `setsid` to reparent itself to pid 1 before then is no longer under the child, and is not
   signalled. Nothing in this tree's QEMU paths does that today. A process group would catch it,

@@ -201,6 +201,7 @@ fn region_for(rid: u32) -> u64 {
             &[paging::domain::DmaRegion {
                 base,
                 size: layout::PAGES * page_frames::FRAME_SIZE,
+                writable: true,
             }],
         );
     }

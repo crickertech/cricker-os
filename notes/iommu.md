@@ -39,8 +39,10 @@ driver's `attach`. One call site, every format, which is the whole point. AMD-Vi
 
 One asymmetry worth stating: single-stage RISC-V translation (`iosatp`, no process context) faults
 on a leaf PTE whose U bit is clear, because a device does not "request supervisor privilege." So the
-domain is built with `Flags::user_data`, which sets U on Sv39 and read/write on both formats. It is a
-device's data window, so user-accessible read/write with no execute is exactly right.
+domain is built with `Flags::user_data`, which sets U on Sv39 and read/write on both formats, or
+with `Flags::user_rodata` for a region the device may only read (`DmaRegion::writable`, milestone
+767 (AMD-Vi hardening before the first AMD boot)). The virtio shadow page is the one such region
+today. Neither is executable.
 
 ## The two arch drivers, structural twins
 

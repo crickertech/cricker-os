@@ -48,12 +48,12 @@ clk_prepare_enable(trng->ahb);
 reset_control_deassert(trng->rst);
 ```
 
-**The order is load-bearing**, and Linux's own reset driver says why in a comment: *"if the
+The order is load-bearing, and Linux's own reset driver says why in a comment: *"if the
 associated clock is gated, deasserting might otherwise hang forever"*. `TRNG_BRING_UP` reproduces
 it and a host test pins it, because a plan that deasserted first would wedge a boot on hardware and
 pass every test an emulator can run.
 
-The identifiers are the interesting part, because **radon does not run mainline's device tree**. It
+The identifiers are the interesting part, because radon does not run mainline's device tree. It
 runs the vendor U-Boot's, which spells everything differently and numbers its clocks and resets
 flat across all five domains rather than per domain. Both were fetched on 2026-09-04 and they
 converge:
@@ -70,11 +70,11 @@ The rebase arithmetic is a host test (`the_two_trees_agree_on_the_identifiers`) 
 paragraph, so a renumbering upstream fails the build instead of surprising somebody at the bench.
 Every URL and fetch date is in `crates/jh7110_clock_and_reset/src/lib.rs`'s header.
 
-**Two mechanics worth knowing**, both transcribed rather than inferred:
+Two mechanics worth knowing, both transcribed rather than inferred:
 
-- A clock is **one 32-bit word per index**, at `base + 4 * index`, and bit 31 turns it on
+- A clock is one 32-bit word per index, at `base + 4 * index`, and bit 31 turns it on
   (`JH71X0_CLK_ENABLE`).
-- A reset's **status bit is inverted from what the name suggests**: a *set* bit means the line is
+- A reset's status bit is inverted from what the name suggests: a *set* bit means the line is
   out of reset. Linux's `jh71x0_reset_update` computes `done = mask` for a deassert (the JH7110
   passes `asserted = NULL`) and polls until `(value & mask) == done`. Getting this backwards
   produces a driver that waits forever on a device that came up correctly, which is why
@@ -83,27 +83,27 @@ Every URL and fetch date is in `crates/jh7110_clock_and_reset/src/lib.rs`'s head
 
 ## Where it lives, and who may drive it
 
-**The kernel does it, at wiring time, and no userspace program holds the controller.** That is an
+The kernel does it, at wiring time, and no userspace program holds the controller. That is an
 exception to this project's standing direction of travel, so it owes an argument. DECISIONS §86
 (whether an NVMe driver can leave the kernel, and what capability would let it) states that
 direction in one line, *"the microkernel thesis that drivers are user programs"*, and cites §21
 (the terminal is a userspace component, and the kernel is out of the shell business) and §23
 (multi-queue DMA confinement: the validator's second direction) as the work already spent moving
-components out. The argument here is §86's own, reused rather than reinvented: **the kernel keeps
-the admin plane, EL0 gets the data path, and no new syscall surface is added.**
+components out. The argument here is §86's own, reused rather than reinvented: the kernel keeps
+the admin plane, EL0 gets the data path, and no new syscall surface is added.
 
 Three things make the clock controller a stronger case for that split than NVMe was:
 
-- **Granting it would *widen* a driver's authority, not confine it.** The STG window is one 64 KiB
+- Granting it would *widen* a driver's authority, not confine it. The STG window is one 64 KiB
   block holding the clocks and resets for USB, both PCIe root ports, the DMA engine and the
   security block. Milestone 159's whole demonstration is a driver holding *one page of one
   device's registers and two endpoints*; handing it the CRG would trade the narrowest authority in
-  this tree for the widest. The reset in question is even documented as **shared** upstream
+  this tree for the widest. The reset in question is even documented as shared upstream
   (`devm_reset_control_get_shared`): the same line resets the PL080 DMA at `0x1600_8000`, which is
   why nothing in this crate offers an *assert* at all.
-- **It is one-shot setup, entirely off any hot path.** The performance argument that makes EL0
+- It is one-shot setup, entirely off any hot path. The performance argument that makes EL0
   attractive for NVMe's data path does not exist for three register writes at boot.
-- **It costs zero new syscall surface**, which §86 called the reversible part of its own decision.
+- It costs zero new syscall surface, which §86 called the reversible part of its own decision.
   `start_jh7110` already maps the device page and spawns; this adds three stores before it. If a
   later milestone wants a clock service at EL0 (a power-management story would want one), that is
   a decision taken on its own evidence, and this forecloses none of it.
@@ -117,8 +117,8 @@ controller node, nothing attempted" has spent a trip to the machine and learned 
 independently published trees agree on the number, which is a stronger warrant than most
 device-tree reads get.
 
-But a caller that took that answer unconditionally would store to `0x1023_0000` on **every board
-this kernel boots**, and on QEMU's `virt` that address is unmapped. So the guard is one rung up
+But a caller that took that answer unconditionally would store to `0x1023_0000` on every board
+this kernel boots, and on QEMU's `virt` that address is unmapped. So the guard is one rung up
 from a comment:
 
 - `memory::init` records the window **only when the tree names a JH7110** (a clock controller, or
@@ -128,7 +128,7 @@ from a comment:
 - `no_clock_window_is_mapped_where_there_is_no_jh7110` (`system_tests/src/user/entropy_tests.rs`) pins
   it, because the failure is silent in the direction that matters: a load or store fault during
   boot on a machine nobody would think to blame a clock driver for.
-- The boot tour **prints which source the address came from**, in words, so a transcript can never
+- The boot tour prints which source the address came from, in words, so a transcript can never
   be read as confirmation of an address nobody on that machine confirmed.
 
 ## The bench: bringing the TRNG's clocks up on radon
@@ -163,7 +163,7 @@ $ script/board-console --for 5m
 ### What you should see, in order
 
 The boot proceeds exactly as `notes/visionfive2.md` records, up to the tour. Two lines are the
-whole of this milestone, and **the clock line now comes first**:
+whole of this milestone, and the clock line now comes first:
 
 ```text
   hw clock    : JH7110 STG CRG at 0x10230000 (named by this machine's device tree):
@@ -177,7 +177,7 @@ whole of this milestone, and **the clock line now comes first**:
 
 ### What each outcome means
 
-Read the **clock** line first: it decides how the entropy line should be read.
+Read the clock line first: it decides how the entropy line should be read.
 
 | The `hw clock` line says | What it means | What to do |
 |---|---|---|
@@ -188,7 +188,7 @@ Read the **clock** line first: it decides how the entropy line should be read.
 | reset `STILL HELD` after `1000000` polls | The clocks came up and the reset did not release. Linux's own comment says a gated clock is the usual cause of exactly this hang, so a `running` verdict beside it is contradictory and interesting | Capture the whole line. This is the outcome that most wants a register dump before anyone changes code |
 | `; the firmware had already done all of this` | **The premise was wrong.** The clocks were on and the reset released before nife touched anything | Then a gated clock is *not* why the TRNG read zeros, and milestone 220 does not explain the 2026-09-04 transcript. The next suspect is the base address or the `reg` decode, which is milestone 159's territory again |
 
-Then the **entropy** line:
+Then the entropy line:
 
 | The `hw entropy` line says | What it means |
 |---|---|
@@ -205,7 +205,7 @@ this milestone exists to produce is a *measurement*, and a measurement nobody ca
 
 ## BUGS
 
-- **None of this has run on hardware.** Every register offset, bit position and identifier is
+- None of this has run on hardware. Every register offset, bit position and identifier is
   transcribed from published source; the only thing proven is that the two published trees agree
   with each other and that the arithmetic is right. An emulator cannot do better here, because
   QEMU's `virt` machine has no clock or reset controller to model.
@@ -214,18 +214,18 @@ this milestone exists to produce is a *measurement*, and a measurement nobody ca
   clocks. The milestone's own block named unbounded scope as its main risk; this is the small end
   of it, with the arithmetic general enough that a second domain is a table entry rather than a
   rewrite.
-- **Parent clocks are not programmed, and this is the first thing to suspect if the enable bits do
-  not read back.** The STG domain's own bus clock (`stg_axiahb`) comes from the SYSCRG at
+- Parent clocks are not programmed, and this is the first thing to suspect if the enable bits do
+  not read back. The STG domain's own bus clock (`stg_axiahb`) comes from the SYSCRG at
   `0x1302_0000`, and nothing here touches it. Linux gets away with the same narrow sequence because
   its clock framework walks parents automatically; this does not, and relies on the firmware
   having left the bus clocks running, which is plausible (U-Boot uses the STG domain for USB and
   PCIe) and unverified.
-- **The deassert poll is an iteration count, not a duration.** Linux uses a 1000 µs timeout;
+- The deassert poll is an iteration count, not a duration. Linux uses a 1000 µs timeout;
   `POLL_LIMIT` counts a million reads instead, because this runs before there is a calibrated delay
   to hand. A million MMIO reads is far longer than the microsecond the hardware needs and far
   shorter than a boot anyone would call hung, but it is not a time bound and a slower board would
   scale it silently.
-- **Nothing here can turn a clock off or assert a reset**, deliberately. Gating a clock or
+- Nothing here can turn a clock off or assert a reset, deliberately. Gating a clock or
   asserting a shared reset would stop or interrupt a neighbour mid-transaction, and no caller in
   this tree has a reason to. It also means there is no teardown: a service that dies leaves its
   device clocked. That is the right trade today (nothing reclaims device power) and it is the piece

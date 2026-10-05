@@ -412,32 +412,18 @@ fn a_take_back_leaves_the_invokers_own_bitmap_installed() {
 /// `WRITE` and a `Serve` component to `READ`. So a thread handed a `PortRange` narrowed to `READ`
 /// alone (a `Serve`-shaped grant) should fault on `out`, exactly as a non-holder does.
 ///
-/// It does not. `sched::thread_control_block_insert_from` installs `Thread::port_range_grant` for
-/// any inserted `PortRange` object whatever its rights, so a `READ`-only port capability opens the
-/// TSS I/O bitmap and the `out` is permitted. This test asserts the secure behaviour (the `out`
-/// faults) and therefore **fails on the tree as it stands**: it is the escape written up in
-/// `notes/confinement-outsider-pass-2.md`, and the claim it proposes is "port I/O honours the
-/// capability's `WRITE` right".
-///
-/// It is **opt-in** so the default suite stays green until the gap is decided: whether a non-WRITE
-/// `PortRange` should deny I/O is the x86 port syscall surface and so an architect's call, not a
-/// lane's. Run it with `script/test --arch x86_64 --test a_read_only_port_capability`. The stub
-/// is [`super::x86_programs::port_out_then_exit`], chosen over `port_out` so a wrongly-permitted
+/// **Fixed by milestone 768 (provisional)** (calef's ruling, 2026-10-05 UTC): the TSS bitmap cannot
+/// grant `in` without `out`, so `sched::thread_control_block_insert_from` installs
+/// `Thread::port_range_grant` only for a `PortRange` carrying `WRITE`, and this `READ`-only
+/// capability grants nothing. Before the fix the grant ignored rights and the `out` was permitted
+/// (supervision message `[EVENT_EXIT, ..]`); the escape is written up in
+/// `notes/confinement-outsider-pass-2.md`. The claim is row 33 of `notes/confinement-claims.md`. The
+/// stub is [`super::x86_programs::port_out_then_exit`], chosen over `port_out` so a wrongly-permitted
 /// `out` exits rather than parking on a SEND and hanging the run (the row-26 hazard).
 ///
-/// Falsification: unfalsified. It pins a live defect rather than guarding a passing claim, so a
-/// replay patch would have nothing to break; see the note above.
+/// Falsification: replayable `system_tests/falsifications/user.x86_port_tests.a_read_only_port_capability_must_not_grant_port_output.patch`
 #[test_case]
 fn a_read_only_port_capability_must_not_grant_port_output() {
-    if !crate::testing::run_was_filtered() {
-        crate::testing::skip!(
-            "opt-in: a READ-only PortRange capability still drives the hardware (port I/O ignores \
-             the capability's rights); the escape is recorded in \
-             notes/confinement-outsider-pass-2.md. Run it with \
-             `script/test --arch x86_64 --test a_read_only_port_capability`."
-        );
-    }
-
     let sup = sched::create_rendezvous();
     // No wake and no report: the child only executes `out` and then exits or faults, so there is
     // nothing to receive on and no way for either outcome to park it on a rendezvous.

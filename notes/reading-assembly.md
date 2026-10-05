@@ -4,7 +4,7 @@ aarch64 assembly is far more regular than x86. Five rules decode almost everythi
 
 ## The five rules
 
-**1. Destination comes first.**
+1. Destination comes first.
 
 ```asm
 add x0, x1, x2      ; x0 = x1 + x2
@@ -14,7 +14,7 @@ mov x0, x1          ; x0 = x1
 
 Read `op dest, src1, src2` as `dest = src1 op src2`.
 
-**2. Brackets mean "the memory at this address."** The most important rule.
+2. Brackets mean "the memory at this address." The most important rule.
 
 ```asm
 mov x0, x1          ; copy the VALUE in x1 into x0
@@ -25,12 +25,12 @@ No brackets: a register's contents. Brackets: dereference. It's `x` vs `*x`.
 
 **3. `#` means a literal number.** `#32` is thirty-two.
 
-**4. `ldr` loads, `str` stores.** Memory→register, register→memory. aarch64 is a load/store
+4. `ldr` loads, `str` stores. Memory→register, register→memory. aarch64 is a load/store
 architecture: **these are the only instructions that touch memory.** Everything else works
 on registers.
 
-**5. Lines ending in `:` are labels** (names for addresses). Lines starting with `.` are
-**directives** to the assembler (`.section`, `.global`, `.align`), not CPU instructions.
+5. Lines ending in `:` are labels (names for addresses). Lines starting with `.` are
+directives to the assembler (`.section`, `.global`, `.align`), not CPU instructions.
 
 ## Registers
 
@@ -59,8 +59,8 @@ answer, keep only the flags.
 
 `!` means "write the updated address back into the register."
 
-**Mnemonic for pre vs post: look at where the offset sits relative to the closing
-bracket.** Inside → applied *before* the access. Outside → *after*.
+Mnemonic for pre vs post: look at where the offset sits relative to the closing
+bracket. Inside → applied *before* the access. Outside → *after*.
 
 ```asm
 str xzr, [x0], #8       ; write 8 zero bytes at x0, THEN advance x0 by 8
@@ -75,7 +75,7 @@ ldr x0, =__stack_top
 ```
 
 There is no aarch64 instruction that loads a 64-bit constant, because instructions are
-only 32 bits wide. So this isn't real. The **assembler** sees `=`, stashes the 64-bit value
+only 32 bits wide. So this isn't real. The assembler sees `=`, stashes the 64-bit value
 in a "literal pool" nearby, and rewrites the line as a PC-relative load from there.
 
 Worth knowing: when you disassemble, you won't see `ldr x0, =__stack_top`. You'll see
@@ -86,8 +86,8 @@ Worth knowing: when you disassemble, you won't see `ldr x0, =__stack_top`. You'l
 The privileged register namespace (see [aarch64](aarch64.md)) is not addressable by normal
 instructions. Two special ones:
 
-- `mrs x0, mpidr_el1`: **read** a system register into a general register
-- `msr vbar_el1, x0`: **write** a general register into a system register
+- `mrs x0, mpidr_el1`: read a system register into a general register
+- `msr vbar_el1, x0`: write a general register into a system register
 
 Mnemonic: the general-purpose register is always the one nearer the `r` in the mnemonic.
 (`mrs` = *move register from system*, `msr` = *move system from register*.)
@@ -138,14 +138,14 @@ See [the stack note](stack.md) for why `sp` must be set before that `bl`, and
 
 ## Tools
 
-**[godbolt.org](https://godbolt.org)** (Compiler Explorer). Language: Rust. Target:
+[godbolt.org](https://godbolt.org) (Compiler Explorer). Language: Rust. Target:
 aarch64. Paste a function, watch the assembly appear beside it, color-coded line by line.
 The fastest way to build intuition. Write a loop, see what it becomes. Write a struct, see
 how it's laid out.
 
-**`cargo objdump`** to disassemble our kernel and see what the compiler did with our Rust.
+`cargo objdump` to disassemble our kernel and see what the compiler did with our Rust.
 
-**GDB** (once attached to QEMU):
+GDB (once attached to QEMU):
 
 | Command | Does |
 |---|---|

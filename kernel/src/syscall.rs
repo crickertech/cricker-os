@@ -1287,9 +1287,7 @@ mod proofs {
     /// the harnesses 213 rewrote, the duplication here cannot be removed by calling something,
     /// because what is duplicated is a *caller's* control flow rather than a function.
     ///
-    /// Falsification: unfalsified. Same standing as the harness above, and the same handoff: no
-    /// defect has been proposed against it yet, and inventing one to fill this row is exactly what
-    /// §134's three states exist to refuse.
+    /// Falsification: replayable `kernel/falsifications/syscall.proofs.every_page_between_the_checked_ends_is_itself_a_user_page.patch`
     #[kani::proof]
     fn every_page_between_the_checked_ends_is_itself_a_user_page() {
         let va: u64 = kani::any();

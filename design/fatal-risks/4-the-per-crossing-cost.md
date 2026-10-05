@@ -48,6 +48,14 @@ milestone 761 (capability lookup off the global lock)). Until that is
 measured, the per-crossing cost under load is half explained and half open
 (`notes/job-mix/null-syscall-under-load.md`).
 
+Measured 2026-10-05 (UTC), recorded by `lane/radon-2026-10-05-record` and not yet read by calef.
+Radon ran milestone 761 (capability lookup off the global lock) and milestone 766 (each core's
+PerCpu on its own cache line). The null syscall's growth from one task to four fell from 48 ticks to
+10, and `current_cap` found its lock held on 0.05% of calls. The one-task level moved up to 8 ticks
+with code placement alone, so builds are compared on growth. This paragraph changes no colour and
+no sentence above it. The proposed replacement for the open finding, and the colour, are calef's
+(`notes/job-mix/null-syscall-under-load.md`, "What risk 4's line should say").
+
 Two caveats. The counter-thesis is published: the crossing can be removed rather than made cheap. If
 RedLeaf and the 2017 Rust-kernel paper are right, a capability crossing is a cost this project chose
 rather than inherited, and their open problem is risk 5. And `sel4bench` has never produced a number,

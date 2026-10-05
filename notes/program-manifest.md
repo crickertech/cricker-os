@@ -1,6 +1,6 @@
 # The program manifest: a component contract in embryo
 
-Milestone 31, phase 1. A **manifest** is a program's declared endowment: what it expects to be
+Milestone 31, phase 1. A manifest is a program's declared endowment: what it expects to be
 granted, written down where the shell can check a command against it before spawning anything. It
 is the SHILL idea (OSDI 2014: capability contracts for scripts) shrunk to what phase 1 needs, and
 it is milestone 23's component contract in its smallest honest form. The type and the checker live
@@ -14,7 +14,7 @@ was in a slot that is empty. Grant it something it does not understand and the a
 silently. Both are mystery failures at runtime, far from the command that caused them.
 
 The manifest moves the failure to the prompt. The shell checks the command's grants against the
-named program's manifest **at spawn**, before a child exists, so a mismatch is a legible refusal on
+named program's manifest at spawn, before a child exists, so a mismatch is a legible refusal on
 the line you typed:
 
 ```text
@@ -56,7 +56,7 @@ few programs and the enum carries more.
 
 **The last four are one family and they are the ones a newcomer misreads.** Every other field is
 about something the command line can designate; these four are about authority no token can name, so
-there is nothing to type and nothing to refuse. What they do is tell **The progenitor** which children to
+there is nothing to type and nothing to refuse. What they do is tell The progenitor which children to
 endow, and tell a person reading `caps <program>` that the authority exists at all. `clock` and
 `config` are read-only page mappings; `domain` and `entropy` are endpoints placed at named slots
 (`grant_plan::DOMAIN_SLOT`, `ENTROPY_SLOT`), narrowed to `ENUMERATE` and `WRITE` respectively.
@@ -69,7 +69,7 @@ ambient entropy would be ambient authority (DECISIONS §44, notes/entropy.md).
 ### The file endowment declares a direction, not a name
 
 `FileSpec::Required { writable }` is the phase-2 addition, and the interesting part is the split it
-makes: **the manifest declares the direction, the command line designates the file.** So `wc
+makes: the manifest declares the direction, the command line designates the file. So `wc
 report.txt` reads and `tee report.txt` writes, and the human never types a mode.
 
 That is SHILL's shape and it is the right one on both halves. Whether a program writes is a property
@@ -98,7 +98,7 @@ ignored. A manifest is as much about what a program will *not* accept as what it
 
 No shipped program declares a file yet, because the shell it would be spawned from holds no directory
 to narrow (notes/grant-expression.md says why, and why that refusal is true rather than pending). The
-`FileSpec::Required` logic is not therefore untested: `plan_against` takes an **explicit** manifest
+`FileSpec::Required` logic is not therefore untested: `plan_against` takes an explicit manifest
 rather than reading the static table, so the host tests check a manifest shape no program declares.
 That split was worth making anyway, because milestone 23 needs exactly it: a manifest that travels
 with a component, checked by a composer that did not write the program.
@@ -112,8 +112,8 @@ refusal), with an upper bound the shell's own budget can actually back.
 `grant_plan::plan` resolves a parsed invocation against the manifest and yields either an `Endowment`
 (exactly what to grant) or a typed `Refusal`. The order is: the program name (a name that resolves
 to nothing is a fact about the system, and everything after it is a fact about a program that
-exists), then a flag nothing knows, then **the positional tokens placed into the slots the manifest
-declares** (the integer argument, then the file), then the memory rules.
+exists), then a flag nothing knows, then the positional tokens placed into the slots the manifest
+declares (the integer argument, then the file), then the memory rules.
 
 Placing the tokens is what milestone 47 moved out of the parser. The parser knows a token's shape;
 only the manifest knows what a token *is*, which is why `wc 2026` designates a file named `2026`
@@ -131,11 +131,11 @@ the full refusal catalog.
 
 ## Why it lives in the shell, not the kernel
 
-The manifest is a **userspace** contract, checked by the party doing the granting. The kernel does
+The manifest is a userspace contract, checked by the party doing the granting. The kernel does
 not read it, does not enforce it, and does not need to: even if the shell skipped the check and
 granted a program too little, the program would fault on an empty slot and die, harming only itself,
 because there is no ambient authority to fall back on. The manifest is not a security boundary; the
-capability model is. The manifest is a **usability** boundary, turning a deep mystery hang into a
+capability model is. The manifest is a usability boundary, turning a deep mystery hang into a
 one-line refusal at the prompt. That is exactly the altitude SHILL's contracts sit at, and exactly
 what milestone 23's components will formalize: a component that declares the capabilities it needs,
 checked by whoever wires it up, so a bad wiring is caught at composition, not at runtime.
@@ -148,7 +148,7 @@ checked by whoever wires it up, so a bad wiring is caught at composition, not at
 - **milestone 32** adds file and directory grants to the endowment vocabulary, so a manifest can
   declare "one readable file" and the checker can match a designated name against it. The
   `ArgSpec`/`MemSpec` pattern extends directly to a `FileSpec`.
-- **milestone 47** will have to grow `ArgSpec` into something with **position and arity** the first
+- **milestone 47** will have to grow `ArgSpec` into something with position and arity the first
   time a program wants both an argument and a file (`grep pattern file.txt`), or wants two of
   either. Today's rule (the argument takes the first positional, the file the next) is unambiguous
   only because at most one bare token can be a file. `date` is already pressing on this: it reads

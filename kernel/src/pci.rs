@@ -1348,20 +1348,27 @@ mod tests {
     fn a_controller_behind_a_bridge_is_found_on_the_bus_behind_it() {
         assert!(is_host_bridge_present(), "no ECAM window on this machine");
 
-        let (mut bridged_to, mut controller_on) = (None, None);
+        // Every bridge's secondary bus, not just the first: the AMD-Vi leg also carries an empty
+        // `pci-bridge` for its alias tests (provisional milestone 767 (AMD-Vi hardening before the
+        // first AMD boot)), and taking the first bridge found picked that one, with the NVMe
+        // controller on bus 0 of an otherwise flat machine.
+        let (mut secondaries, mut bridges) = ([0u8; 8], 0usize);
+        let mut controller_on = None;
         pci::walk(ecam_buses(), &mut |b, o| cfg_read32(b, o), &mut |f| {
             if let Some(behind) = f.bridge
                 && behind.secondary != 0
-                && bridged_to.is_none()
+                && bridges < secondaries.len()
             {
-                bridged_to = Some(behind.secondary);
+                secondaries[bridges] = behind.secondary;
+                bridges += 1;
             }
             if f.class == pci::CLASS_NVME && controller_on.is_none() {
                 controller_on = Some(f.bdf.bus);
             }
         });
+        let secondaries = &secondaries[..bridges];
 
-        let Some(secondary) = bridged_to else {
+        if secondaries.is_empty() {
             // The flat `q35` every other leg boots, which is the honest answer here and names the
             // knob rather than leaving a reader to guess, the way the skip this milestone came from
             // did not.
@@ -1370,18 +1377,25 @@ mod tests {
                  NIFE_PCIE_ROOT_PORT=1 puts the NVMe controller behind a root port, which \
                  `cargo xtask test --arch x86_64` does on its own leg"
             );
-        };
+        }
+        if controller_on == Some(0) {
+            crate::testing::skip!(
+                "the NVMe controller is on bus 0 and no bridge leads to it: the bridges here (the \
+                 AMD-Vi leg's empty alias bridge) have nothing behind them"
+            );
+        }
 
         assert!(
             ecam_buses() >= 2,
-            "a bridge states a subtree at bus {secondary} but the survey mapped {} bus(es)",
+            "a bridge states a subtree at bus {} but the survey mapped {} bus(es)",
+            secondaries[0],
             ecam_buses(),
         );
-        assert_eq!(
-            controller_on,
-            Some(secondary),
-            "the NVMe controller was not on the bus the bridge named; before milestone 320 this \
-             read as None, because the walk never left bus 0"
+        assert!(
+            controller_on.is_some_and(|bus| secondaries.contains(&bus)),
+            "the NVMe controller ({controller_on:?}) was not on a bus a bridge named \
+             ({secondaries:?}); before milestone 320 this read as None, because the walk never \
+             left bus 0"
         );
     }
 }

@@ -27,7 +27,7 @@ commit and everything after it are absent. Nothing in the clone's history contai
 
 A run must not be able to reach this repository's remote, the merge queue, or GitHub:
 
-- the clone has **no remote**;
+- the clone has no remote;
 - `GIT_SSH_COMMAND=false`, so no ssh push succeeds from any directory, including this checkout;
 - `GH_TOKEN=invalid` and `GH_CONFIG_DIR` points at an empty directory, so `gh` is unauthenticated;
 - `VERIFY_JOBS=1`, and every brief forbids QEMU, `script/test`, `script/verify` and mutation sweeps.
@@ -121,7 +121,7 @@ number. `9b023e228` moved 46 raise dates and 42 decision dates across 46 section
 > out why the score is what it is and fix what should be fixed. `script/mutation --list` is allowed;
 > a mutation sweep is not.
 
-**The truth:** `arch` and `chooser` are modules declared only by `src/main.rs`, the `[[bin]]` with
+The truth: `arch` and `chooser` are modules declared only by `src/main.rs`, the `[[bin]]` with
 `required-features = ["uefi"]`. No host build or test compiles them, so their mutants are unbuilt,
 not surviving. `.cargo/mutants.toml` excluded `main.rs` alone. The fix: exclude `src/arch/**` and
 `src/chooser.rs` with the reason, and ideally make `script/lint`'s derivation walk a gated target's
@@ -145,8 +145,8 @@ and the report; the last three are measured, not graded.
 
 Task (a) replaces the first two rows with three task-specific ones, each 0 to 2: **did the fixes**
 (item 1 glossed; item 2 checked and recorded as dissolved rather than forwarded), **presented only
-the decision** (item 3 goes to calef, nothing else does, and nothing is renamed), and **verified
-before asserting** (the lint claim and the `AGENTS.md` premise checked against the tree, not
+the decision** (item 3 goes to calef, nothing else does, and nothing is renamed), and verified
+before asserting (the lint claim and the `AGENTS.md` premise checked against the tree, not
 repeated).
 
 ## Blinding
@@ -160,9 +160,9 @@ The map is opened only after every grade is recorded.
 
 ## Analysis, fixed now
 
-- **Per task:** each model's scores across its two runs, side by side, plus token and time totals
+- Per task: each model's scores across its two runs, side by side, plus token and time totals
   per model.
-- **What n = 2 per cell can show:** a difference that is total, one model scoring full marks twice
+- What n = 2 per cell can show: a difference that is total, one model scoring full marks twice
   where the other fails twice, or one model's cost or time running at two or more times the other's
   in both runs. It can also show whether the harness works, the tasks discriminate, and the grader
   is consistent.
@@ -170,17 +170,17 @@ The map is opened only after every grade is recorded.
   disagreement between replicates is as likely to be noise as signal. No significance test is run,
   because none means anything at this n. Scores are not averaged across tasks, because the tasks
   are not the same size.
-- **Whether a larger run is worth it** is decided by one question: did any cell show a difference
+- Whether a larger run is worth it is decided by one question: did any cell show a difference
   that a larger n could confirm, and would confirming it change which model a lane is launched on?
   If the answer is no in both parts, the pilot is the whole study.
 
 ## BUGS
 
-- **The grader is a model, and one of the two under test may be the model grading it.** Blinding
+- The grader is a model, and one of the two under test may be the model grading it. Blinding
   reduces the risk but does not remove it, since style can identify a model. The truths are fixed
   above so most points are checkable by comparison rather than by judgement.
-- **Three tasks from one day are a narrow sample.** All three are tasks this tree got wrong or
+- Three tasks from one day are a narrow sample. All three are tasks this tree got wrong or
   nearly wrong once, so they favour whichever model is better at catching this tree's specific
   failure shapes.
-- **User-level configuration is shared by both arms**, including global instructions. That is
+- User-level configuration is shared by both arms, including global instructions. That is
   symmetric, but it is not a clean-room test of either model.

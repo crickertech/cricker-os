@@ -14,11 +14,11 @@ A plain spinlock in a kernel that takes interrupts is a hang waiting for a sched
                                       until the handler returns.
 ```
 
-**This is not a race.** It is not "sometimes, under load." It is a *deterministic* hang the
+This is not a race. It is not "sometimes, under load." It is a *deterministic* hang the
 moment the timing lines up, and it will look exactly like the mystery in
 [stack.md](stack.md) that cost us two hours.
 
-And note what it does **not** need: a second core. This was written while §6 still said
+And note what it does not need: a second core. This was written while §6 still said
 single-core, and the point was that the decision
 ([DECISIONS](../design/decisions/06-single-core-first.md) §6, since **superseded by §11**) did not
 protect us here at all. One core, one lock, one interrupt, dead machine. Cores 1 to n arriving at
@@ -26,11 +26,11 @@ milestone 41 added races; it did not remove this one.
 
 ## The fix
 
-**Mask interrupts for as long as the lock is held.** The interrupt cannot fire, so it
+Mask interrupts for as long as the lock is held. The interrupt cannot fire, so it
 cannot try to take the lock. Linux calls this `spin_lock_irqsave`; ours is `IrqSafeMutex`
 in `kernel/src/sync.rs`.
 
-On aarch64 that means the `I` bit of **`PSTATE.DAIF`**:
+On aarch64 that means the `I` bit of `PSTATE.DAIF`:
 
 | Bit | Name | Masks |
 |---|---|---|
@@ -47,7 +47,7 @@ touch only the bits you name, so there is no read-modify-write window to lose a 
 
 ## Two orderings that are the entire point
 
-**Acquire: mask interrupts FIRST, then take the lock.**
+Acquire: mask interrupts FIRST, then take the lock.
 
 ```rust
 let irqs_were_enabled = interrupts::disable();   // <- first
@@ -57,7 +57,7 @@ let guard = self.inner.lock();                   // <- second
 The other order leaves a window where you hold the lock with interrupts still live. That
 window is one instruction wide. It is also the exact deadlock.
 
-**Release: drop the lock FIRST, then restore interrupts.**
+Release: drop the lock FIRST, then restore interrupts.
 
 ```rust
 unsafe { ManuallyDrop::drop(&mut self.guard) };  // <- first
@@ -72,12 +72,12 @@ for months.
 
 ## Restore is not the same as enable
 
-`IrqSafeGuard::drop` **restores the interrupt state that was in effect when the lock was
-taken.** It does not simply enable interrupts.
+`IrqSafeGuard::drop` restores the interrupt state that was in effect when the lock was
+taken. It does not simply enable interrupts.
 
 The difference bites when a lock is taken inside a context that *already* had interrupts
 masked: an interrupt handler, or inside an outer lock. Blindly enabling on release would
-unmask interrupts **inside an interrupt handler**, and the resulting fault is one you will
+unmask interrupts inside an interrupt handler, and the resulting fault is one you will
 not enjoy explaining.
 
 This is precisely why Linux's is called `irqsave`/`irqrestore` and not `irqoff`/`irqon`,
@@ -87,12 +87,12 @@ verified against a deliberately broken `restore()`.
 
 ## Why we didn't build per-CPU reserves
 
-Considered seriously, and it turned out to be **an answer to a different question**.
+Considered seriously, and it turned out to be an answer to a different question.
 
-Per-CPU page caches (Linux's PCP lists, slab's per-CPU caches) exist for **scalability**
-(on 64 cores, one global lock is a catastrophe) and **cache locality** (a frame this core
+Per-CPU page caches (Linux's PCP lists, slab's per-CPU caches) exist for scalability
+(on 64 cores, one global lock is a catastrophe) and cache locality (a frame this core
 just freed is warm in this core's L1). They are not an interrupt-safety mechanism, and
-**Linux still wraps them in `local_irq_save`.** Same core, same structure, same deadlock.
+Linux still wraps them in `local_irq_save`. Same core, same structure, same deadlock.
 
 They belong to the SMP conversation, where the problem is lock *contention*, not deadlock.
 
@@ -107,21 +107,21 @@ Not a compromise. Walk the handlers we will actually have:
 | virtio completion | 8 | No. Mark an I/O done, wake a thread. |
 | **Page fault** | 4, 7 | **Yes.** Demand paging, copy-on-write. |
 
-So the whole question is the page fault. And a page fault is **synchronous**: taken from the
+So the whole question is the page fault. And a page fault is synchronous: taken from the
 exact instruction that touched the bad address, on behalf of that context. Which gives the
 rule real kernels use:
 
 > **Kernel memory is never demand-paged.** Kernel pages are mapped eagerly. A page fault
 > taken from **EL1 is a bug** and is fatal (already true in our `fatal()`).
 
-Then every allocating fault comes from **EL0**, and userspace was holding no kernel locks,
+Then every allocating fault comes from EL0, and userspace was holding no kernel locks,
 because it *cannot*. There is nothing to deadlock against, and no reserve pool is needed.
 
 ## The panic path must be able to break the lock
 
 If we fault in the middle of a `println!`, the fault handler's own attempt to print takes
-the console lock again and hangs. **We lose the one message that mattered, at the exact
-moment we needed it.**
+the console lock again and hangs. We lose the one message that mattered, at the exact
+moment we needed it.
 
 So the panic handler and the fatal exception path both call `console::force_unlock()`
 first. Output may be spliced. That is a fine price for getting the message out at all.
@@ -134,13 +134,13 @@ alternative is a silent hang. Unacceptable at literally any other time.
 
 ## The ordering rule, enforced
 
-The other deadlock, and the nastier one: **AB-BA**. Thread 1 takes lock A then wants B; thread
+The other deadlock, and the nastier one: AB-BA. Thread 1 takes lock A then wants B; thread
 2 takes B then wants A. Neither can proceed. Unlike the interrupt deadlock, this one is a
 *real race*: it needs the timing to line up, so it passes tests for months.
 
 We wrote "define a global order and always take them in it," and then relied on remembering.
 
-Now every lock carries a **rank**, and `lock()` asserts:
+Now every lock carries a rank, and `lock()` asserts:
 
 > **You may only acquire a lock strictly LOWER than everything you currently hold.**
 
@@ -152,22 +152,22 @@ Now every lock carries a **rank**, and `lock()` asserts:
   10  CONSOLE         the leaf: everyone may take it, it takes nothing
 ```
 
-**If every acquisition strictly decreases the rank, a cycle is unrepresentable.** Not unlikely.
+If every acquisition strictly decreases the rank, a cycle is unrepresentable. Not unlikely.
 Impossible. Look at [deadlock.md](deadlock.md): this destroys condition 4, circular wait,
 outright.
 
-That makes it **prevention, not detection**. Linux's `lockdep` builds a dependency graph at
+That makes it prevention, not detection. Linux's `lockdep` builds a dependency graph at
 runtime and hunts for cycles: powerful, and expensive. Ranking costs three instructions and
 *cannot be wrong*. FreeBSD (WITNESS) and Solaris use the same mechanism.
 
-Two locks at the **same** rank may never nest (`R < R` is false), which is exactly right: equal
+Two locks at the same rank may never nest (`R < R` is false), which is exactly right: equal
 rank means we have declared no order between them, so nesting them would be choosing one at
 random.
 
 ### A design it would have caught
 
-`memory::ram_regions()` used to return an iterator that **held the RAM lock while the caller
-iterated**. `mmu::map_everything` iterates it and *allocates frames inside the loop*, so it
+`memory::ram_regions()` used to return an iterator that held the RAM lock while the caller
+iterated. `mmu::map_everything` iterates it and *allocates frames inside the loop*, so it
 would have held RAM (30) while taking FRAMES (30), and `30 < 30` is false. The ranking would
 have failed it on the spot. (We happened to fix it for other reasons first, which is not a
 system.)
@@ -176,7 +176,7 @@ system.)
 
 If we panic while holding the console lock, `HELD_RANK` is 10, and the panic handler's own
 print would try to take rank 10 again. `10 < 10` is false, so the ranking would fire a
-violation **inside the panic handler**, and we'd lose the original message to a recursive
+violation inside the panic handler, and we'd lose the original message to a recursive
 panic.
 
 So the panic path calls `sync::force_reset_ranks()` alongside `console::force_unlock()`.
@@ -190,7 +190,7 @@ See [DECISIONS](../design/decisions/09-irq-safe-locking.md) §9 for the full tab
 
 1. All kernel locks are `IrqSafeMutex`.
 2. Mask, then lock. Unlock, then restore.
-3. **Restore**, never blindly enable.
+3. Restore, never blindly enable.
 4. Keep critical sections short: interrupts are off for the whole of it.
 5. Never allocate, block, or `wfi` while holding a lock.
 6. Two locks? Define a global order and always take them in it. Otherwise AB-BA deadlock,
