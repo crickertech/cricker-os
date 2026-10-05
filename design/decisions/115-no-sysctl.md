@@ -19,14 +19,14 @@ tuning surface, with no unifying program at all.
 
 ## The decision
 
-**No `sysctl`.** Each subsystem that grows a runtime tunable exposes it through that subsystem's
+No `sysctl`. Each subsystem that grows a runtime tunable exposes it through that subsystem's
 own service and its own capability, the same shape `notes/net/prior-art-and-the-contract.md`'s `/net/tcp/clone` already uses. There
 is no program on this system that holds a bag of capabilities spanning multiple subsystems for the
 purpose of retuning them.
 
 ## Why, and the precedent that made this an easy call
 
-**This tree already decided the identical question once, for control rather than configuration.**
+This tree already decided the identical question once, for control rather than configuration.
 `pkill` was declined on 2026-08-17 with the ruling "a domain names its members and does not act on
 them": authority stays with whoever already legitimately holds a resource, never centralized into
 a generic tool, even at the cost of a hole in `procps`'s coverage claim. `sysctl` is the same shape
@@ -34,7 +34,7 @@ one layer over -- a single program reaching across subsystems it does not otherw
 the ambient-tunables-namespace `sysctl` would need is exactly the kind of thing this system exists
 to refuse.
 
-**And this tree already *built* the alternative, favorably, before this question was ever asked.**
+And this tree already *built* the alternative, favorably, before this question was ever asked.
 `notes/net/prior-art-and-the-contract.md` already routes configuration through the specific resource's own control surface
 (`announce 80` written to `/net/tcp/clone`), citing Plan 9's per-resource `ctl` file convention over
 a global panel. Declining `sysctl` is not a new design, it is applying a shape this tree already

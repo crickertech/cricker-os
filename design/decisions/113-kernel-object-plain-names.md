@@ -47,8 +47,8 @@ recognizes it immediately and a reader who doesn't gets a running start from the
 
 ## Why each one, with the in-tree evidence that decided it
 
-**`EpId` -> `RendezvousId`, `Tid` -> `ThreadId`, `TcbPtr` -> `ThreadControlBlockPointer`,
-`TidSet` -> `ThreadIdSet`, `EpFail` -> `RendezvousFailure`.** All five are companions of a
+`EpId` -> `RendezvousId`, `Tid` -> `ThreadId`, `TcbPtr` -> `ThreadControlBlockPointer`,
+`TidSet` -> `ThreadIdSet`, `EpFail` -> `RendezvousFailure`. All five are companions of a
 renamed object rather than independent decisions: they identify, point at, collect, or report on
 an `Endpoint`/`Rendezvous` or a `Tcb`/`ThreadControlBlock`. Leaving a companion abbreviated after
 spelling out the object it names would just move the same problem one field over, and the same
@@ -73,7 +73,7 @@ just an unexplained local abbreviation. Its own sibling variants in `kernel/src/
 enum (`Endpoint`, `Untyped`, `Frame`, `Reply`) are unabbreviated; `Aspace` was the outlier before
 this decision touched any of them.
 
-**`Untyped` -> `MemoryRegion`.** `Untyped` is exactly seL4's word (`seL4_Untyped_Retype`,
+`Untyped` -> `MemoryRegion`. `Untyped` is exactly seL4's word (`seL4_Untyped_Retype`,
 confirmed against seL4's own docs), so a reader with seL4 background recognizes it and nobody else
 has anywhere to start, because Linux, Mach and Windows expose no equivalent concept under any name.
 Meanwhile this tree's own implementation never actually says "untyped" once you're inside it:
@@ -87,7 +87,7 @@ rejected: `crates/compositor` already uses "region" for a damaged screen rectang
 ("keeping a region list," "the damaged region is window 1's"), a real in-tree collision.
 `MemoryRegion` keeps the word the tree already converged on and removes the collision.
 
-**`Endpoint` -> `Rendezvous`.** `notes/ipc-naming.md`'s own "Family resemblance" section records
+`Endpoint` -> `Rendezvous`. `notes/ipc-naming.md`'s own "Family resemblance" section records
 that Mach calls this object a `port`, QNX calls it a `channel`, and seL4 calls it `Endpoint` --
 three influential microkernels, three different words, so `Endpoint` privileges a reader with
 seL4 background over one from Mach or Windows (whose ALPC ports descend from Mach's vocabulary)
@@ -104,7 +104,7 @@ and it is already the word this tree's own prose reaches for independently:
 `crates/compositor/src/lib.rs:705` says, of its own IPC, "is a rendezvous, so a compositor that
 narrated each frame would block."
 
-**`Frame` -> `PageFrame`.** `Frame` is generic on its own and collides in-tree the same way bare
+`Frame` -> `PageFrame`. `Frame` is generic on its own and collides in-tree the same way bare
 `Region` did: `crates/compositor` uses "frame" throughout for a rendered screen update ("per
 frame," "the frame's damage," "a compositor that narrated each frame"), which is an unrelated
 concept from the kernel's `Frame` object (one physical page, DECISIONS §102). `PageFrame` is not
@@ -112,7 +112,7 @@ invented vocabulary -- "page frame" is the standard OS term for a physical page 
 memory system, used across the field regardless of kernel lineage -- so the fix is the same shape
 as `Aspace` and `Tcb`: stop truncating the standard term.
 
-**`Tcb` -> `ThreadControlBlock`.** The clean case: "Thread Control Block" is standard OS
+`Tcb` -> `ThreadControlBlock`. The clean case: "Thread Control Block" is standard OS
 terminology taught in essentially every operating systems course, so a reader who already knows
 the acronym loses nothing recognizing the spelled-out form, and a reader who doesn't gets three
 ordinary English words with real content ("thread," "control," "block") instead of three letters
@@ -139,7 +139,7 @@ A systematic sweep of every top-level `struct`/`enum` name in `kernel/src`, prio
 `crates/` per calef's direction (2026-08-23), turned up two groups that were checked against the
 same external-constraint test and are **not** part of this decision:
 
-- **Real hardware and protocol names, exempt like `pci`/`dtb`/`elf`**: `Gic` (ARM's own name for
+- Real hardware and protocol names, exempt like `pci`/`dtb`/`elf`: `Gic` (ARM's own name for
   the Generic Interrupt Controller), `Iommu` (the industry name for the hardware feature, not a
   local coinage), `Ns16550` and `Pl011` (literal chip and ARM PrimeCell part numbers), `Nvme` (the
   protocol's actual name), `Smmu` (ARM's own name for its IOMMU), `PciNvmeDevice`,
@@ -171,7 +171,7 @@ Eleven renames the tree can now execute without re-litigating the name each time
 
 ## Amended 2026-08-25: a twelfth name, checked ad hoc rather than by the promised `crates/` sweep
 
-**`CSpace` -> `CapabilityTable`.** `capability::CSpace<Object, CSPACE_SLOTS>` (`crates/capability`,
+`CSpace` -> `CapabilityTable`. `capability::CSpace<Object, CSPACE_SLOTS>` (`crates/capability`,
 aliased as `kernel/src/cap.rs`'s `CSpace`) sits in `crates/`, which "The sweep's first pass" section
 above says explicitly has "not yet been swept." This name did not wait for that sweep: the architect
 raised it directly, it was checked against this decision's own test on the spot, and he ratified it
@@ -180,7 +180,7 @@ out of band, not a finding from a completed `crates/` sweep -- and it is recorde
 folded silently into "the eleven" above, whose count and table stay exactly as they were decided on
 2026-08-23.
 
-**Why it passes the same test.** `CSpace` is seL4's own contraction (a tree of `CNode`s, in seL4's
+Why it passes the same test. `CSpace` is seL4's own contraction (a tree of `CNode`s, in seL4's
 own vocabulary; this tree uses a flat sixteen-slot array instead, `crates/capability/src/lib.rs`'s
 own module doc explains the divergence), so it fails the same question every one of the eleven
 above failed: nothing external -- no wire format, no hardware spec -- constrains what this tree
@@ -188,7 +188,7 @@ calls its own capability table. Notably, `CSpace` was not among the four names c
 complaint named (`Aspace`, `Endpoint`, `Untyped`, `Tcb`) -- it had not come up yet, not because it
 was judged and kept.
 
-**How the replacement was picked, and why it changed once.** calef's first answer, in conversation,
+How the replacement was picked, and why it changed once. calef's first answer, in conversation,
 was "Rename it to CapabilitySpace" -- the direct spelled-out form, the same shape as `Aspace` ->
 `AddressSpace`. Before building it, the maintainer ran the same evidentiary check this decision's
 own `Untyped` -> `MemoryRegion` entry used: what does this tree's own prose already reach for.
@@ -207,8 +207,8 @@ deliberately left alone. `cspace`, lowercase, is different: it is not a generic 
 with an ambiguous descriptive use elsewhere, it is shorthand for this specific object everywhere
 it appears, including in this project's own governance document. `cspace` (case-insensitive)
 appears in roughly 74 markdown files across this tree, and once in `AGENTS.md` itself (the
-Steward section: "the sixteen-slot cspace"). **Whoever merges the build lane's rename needs to
-update that line by hand** -- a developer lane may not edit `AGENTS.md` under this project's own
+Steward section: "the sixteen-slot cspace"). Whoever merges the build lane's rename needs to
+update that line by hand -- a developer lane may not edit `AGENTS.md` under this project's own
 rules, so that one file is a maintainer follow-up, not part of the lane's own diff.
 
 **What this does not decide.** The mechanical rename itself, same as the original eleven: a
@@ -223,14 +223,14 @@ calef, working the unratified worklist, ruled that all six exempt acronym crates
 exemption this decision codified at "Unlike `elf`, `pci`, `dtb`, `gpt`, `ipc`, `paging`, `glob` and
 `asid`" no longer holds for the acronyms in it.
 
-**This decision stated the winning argument and then applied it to only half its list.** `Tcb` was
+This decision stated the winning argument and then applied it to only half its list. `Tcb` was
 expanded here because *"a reader who already knows the acronym loses nothing recognizing the
 spelled-out form, and a reader who doesn't gets three ordinary English words with real content
 instead of three letters with none."* That is precisely the asymmetry calef named on 2026-09-05 as
 the general acronym test, and nothing in it is special to `Tcb`. Every name in the exempt list
 satisfies it too.
 
-**What held the exemption up was a claim that turns out to be false.** The sentence justifying it
+What held the exemption up was a claim that turns out to be false. The sentence justifying it
 says these are *"names this tree cannot rename without becoming incompatible with what the rest of
 the world calls them."* A crate name is a directory and a Cargo package, not a wire format. Renaming
 `crates/pci` does not change one byte this tree exchanges with anything: the spec's own identifiers
@@ -249,7 +249,7 @@ directory.
 | `ipc` | `rendezvous` | follows this decision's own `Endpoint` -> `Rendezvous` |
 | `elf` | `executable_format` | Executable and Linkable Format, minus a half this crate refuses |
 
-**`ipc` is the one that closes a loop rather than opening one.** This decision renamed the kernel
+`ipc` is the one that closes a loop rather than opening one. This decision renamed the kernel
 object `Endpoint` to `Rendezvous` and left the crate alone because of the exemption. With the
 exemption gone the crate follows the type, which is what the original rename wanted and could not
 have.
@@ -270,12 +270,12 @@ thing; `elf`'s spec identifiers live in the code (`Elf<'a>`, `e_machine`, `ET_EX
 stay whatever the directory is called. The name carries less weight when the spec's own words are
 still on the page beneath it.
 
-**`paging` and `glob` are unaffected.** They were in the exempt list and are not acronyms, so no
+`paging` and `glob` are unaffected. They were in the exempt list and are not acronyms, so no
 expansion test reaches them. The list conflated two kinds of name and only one kind is ruled here.
 
 ### Not performed here, and that is deliberate
 
-**611 file-references across the six**, and `ipc` is load-bearing. `design/naming.md` already says the
+611 file-references across the six, and `ipc` is load-bearing. `design/naming.md` already says the
 acronym sweep is its own milestone for that reason, and
 `design/roadmap/388-an-acronym-sweep-the-tree-can-do-at-once.md` exists because answering one
 name at a time is the failure mode. This amendment answers the *question* for all six at once, which

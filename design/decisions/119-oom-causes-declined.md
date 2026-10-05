@@ -31,22 +31,22 @@ revisit when a customer needs it, not before.
 Two things point at the eventual shape, checked rather than argued, so the deferral is informed
 even though it doesn't commit to anything:
 
-**This tree already solved the identical shape of problem once.** `crates/timetable`'s
+This tree already solved the identical shape of problem once. `crates/timetable`'s
 `Unbacked`/`Refusal` split exists for exactly this reason, in a different subsystem: "a `Refusal` is
 a fact about *the line*... an `Unbacked` is a fact about *the scheduler*." When this tree has
 previously hit "one error code collapsing a caller-fact and a system-fact," it split the code, not
 left it collapsed.
 
-**POSIX already drew this exact line, verified rather than recalled.** `EMFILE` (a process's own
+POSIX already drew this exact line, verified rather than recalled. `EMFILE` (a process's own
 file-descriptor limit exhausted, a per-process fact) is a distinct code from `ENFILE` (the whole
 system's file table full, a system-wide fact nothing the caller does fixes locally) --
 [errno(3), Linux man-pages](https://man7.org/linux/man-pages/man3/errno.3.html). That is nife's
 cause 2 versus cause 3, precisely. `ENOMEM` covers the general allocation-failure case, roughly
 nife's cause 1.
 
-Both precedents point the same direction: **when this is eventually built, new cause-specific
+Both precedents point the same direction: when this is eventually built, new cause-specific
 `Error` variants (matching `timetable`'s `Unbacked`/`Refusal` shape and POSIX's `EMFILE`/`ENFILE`
-split) is the better-supported option**, over a separate diagnostic-only query or leaving it
+split) is the better-supported option, over a separate diagnostic-only query or leaving it
 collapsed forever. This is non-binding guidance for whoever eventually has a real customer, not a
 commitment -- re-check it against what that customer's failures actually look like rather than
 building to a description with nothing to correct it, the same caveat §116 attached to its own

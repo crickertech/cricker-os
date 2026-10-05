@@ -86,7 +86,7 @@ table the credentialer holds, identity to durable-session capability. A manifest
 version of the same shape: a document naming exactly the identities that matter, read by a party that
 already knows where to look, never a directory walk.
 
-**`crates/measured_boot::PROGRAM_MEASUREMENTS` is the closer structural precedent.** It is exactly
+`crates/measured_boot::PROGRAM_MEASUREMENTS` is the closer structural precedent. It is exactly
 this shape already built and load-bearing: one file at a fixed, well-known name in the initrd
 archive, listing names and hashes, read by `crates/system_initializer::boot` and by `login.rs` before
 either will build anything from an archive entry. Nobody enumerates the archive to discover what
@@ -107,7 +107,7 @@ an ordinary, ungated operation, which this tree deliberately does not.
 
 ## What each option costs
 
-**Option (b), the manifest, concretely:**
+Option (b), the manifest, concretely:
 
 - *Format*: a text document, one identity name per line, `#` comments, matching `timetable::parse`'s
   own dialect for the same reason §122 gives for reusing that crate's document shape: a reader who
@@ -151,7 +151,7 @@ own already-proven shape (a table of names, consulted by name) applied one layer
 
 ## How reversible is this, and who has already acted on it
 
-**This lane has acted on it**: `crates/schedule_store` implements the format this decision proposes,
+This lane has acted on it: `crates/schedule_store` implements the format this decision proposes,
 `fixtures/src/fs_test_client.rs`'s `ROLE_SCHEDULE_SEED` writes it, and `components/src/session_reviver.rs`
 reads it, all landing in the same pull request as this decision document, per this lane's own brief
 ("investigate... and if it's a real fork, write it up... rather than guessing"). That is the same
@@ -165,15 +165,15 @@ AGENTS.md's test for when a decision doc is owed rather than optional.
 
 ## What this does not decide
 
-- **Whether the manifest needs anything beyond a bare identity name** (a timestamp of last write, a
+- Whether the manifest needs anything beyond a bare identity name (a timestamp of last write, a
   count of pending jobs, a checksum). Left to whoever builds #387's real registrar, once there is a
   real write pattern to design it against; this lane's own writer needs none of that (it writes
   exactly one identity, once).
-- **What happens when an identity's manifest entry has no corresponding `schedule` file** (a stale
+- What happens when an identity's manifest entry has no corresponding `schedule` file (a stale
   entry from an incomplete removal). `session_reviver`'s own per-identity read already turns this
   into a bounded, per-identity failure rather than an unhandled case, but whether a real deployment
   wants that to be silent, logged, or corrective (removing the stale entry) is not decided here.
-- **The credentialer-held reattachment table** milestone 152's own roadmap doc describes for the
+- The credentialer-held reattachment table milestone 152's own roadmap doc describes for the
   *reconnect* case (a live session finding its own durable session again) is a different mechanism
   for a different question (identity to *session capability*, in memory, established at login) and
   this decision does not touch it; the parallel drawn above ("what this tree already does in the
