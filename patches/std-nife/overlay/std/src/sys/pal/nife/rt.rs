@@ -4,7 +4,7 @@
 //! same register convention, deliberately re-stated here because std cannot depend on an
 //! out-of-tree crate. The ABI *constants* are not re-stated: `abi.rs` next door is generated
 //! verbatim from `crates/abi/src/lib.rs` by `cargo xtask std-src`, so the numbers cannot drift.
-//! Only these few asm wrappers are hand-copied; if `user_mode_runtime`'s change, change these.
+//! Only the one trap, `trap6`, is hand-copied; if `user_mode_runtime`'s changes, change this.
 //!
 //! # The std slot convention
 //!
@@ -86,68 +86,76 @@ pub use super::runtimeproto::{
 
 use super::abi;
 
-/// Invoke a capability. See `crates/user_mode_runtime::invoke`, of which this is a verbatim twin.
-#[cfg(target_arch = "aarch64")]
-pub unsafe fn invoke(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> i64 {
-    let ret: i64;
+/// **The one trap** in this PAL, a twin of `crates/user_mode_runtime`'s `trap6`, whose doc has
+/// the contract: the number in `x8`/`a7`/`rax`, six words in and six back in `x0..x5`,
+/// `a0..a5`, or `rdi`, `rsi`, `rdx`, `r10`, `r8`, `r9`.
+///
+/// **Every syscall comes through here**, and the reason is a defect found on 2026-10-05
+/// (notes/job-mix/spawn-destroy-gone.md). The kernel writes its result into the first register on
+/// the way out of every syscall, and some methods write the next five. A wrapper that declares
+/// fewer outputs than that tells the compiler a register survives the trap when it does not, and
+/// the compiler is entitled to keep a live value there. `user_mode_runtime::yield_now` did, and an
+/// optimised loop sent `DESTROY`'s arguments to the wrong capability after a yield. This file had
+/// the same declarations (`yield_now` with no output, `invoke` with `x1..x4` input-only); no std
+/// program is known to have been miscompiled by them, which is luck rather than a property.
+///
+/// No `nomem`: a `CALL` is how a shared page changes hands (`sys/fs`'s `Page` relies on that),
+/// and a yield is when other threads write memory this one shares with them.
+#[inline(always)]
+unsafe fn trap6(nr: u64, a: [u64; 6]) -> [u64; 6] {
+    let mut w = a;
+    #[cfg(target_arch = "aarch64")]
     unsafe {
         core::arch::asm!(
             "svc #0",
-            in("x8") abi::SYS_INVOKE,
-            inlateout("x0") cap => ret,
-            in("x1") method,
-            in("x2") a0,
-            in("x3") a1,
-            in("x4") a2,
+            in("x8") nr,
+            inlateout("x0") w[0],
+            inlateout("x1") w[1],
+            inlateout("x2") w[2],
+            inlateout("x3") w[3],
+            inlateout("x4") w[4],
+            inlateout("x5") w[5],
             options(nostack),
         );
     }
-    ret
-}
-
-/// Invoke a capability (RISC-V): `ecall`, number in `a7`, args in `a0..a4`, result in `a0`.
-#[cfg(target_arch = "riscv64")]
-pub unsafe fn invoke(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> i64 {
-    let ret: i64;
+    #[cfg(target_arch = "riscv64")]
     unsafe {
         core::arch::asm!(
             "ecall",
-            in("a7") abi::SYS_INVOKE,
-            inlateout("a0") cap => ret,
-            in("a1") method,
-            in("a2") a0,
-            in("a3") a1,
-            in("a4") a2,
+            in("a7") nr,
+            inlateout("a0") w[0],
+            inlateout("a1") w[1],
+            inlateout("a2") w[2],
+            inlateout("a3") w[3],
+            inlateout("a4") w[4],
+            inlateout("a5") w[5],
             options(nostack),
         );
     }
-    ret
-}
-
-/// Invoke a capability (`x86_64`): `syscall`, number in `rax`, args in `rdi, rsi, rdx, r10, r8`,
-/// result in `rdi` (DECISIONS §124). A twin of `user_mode_runtime::invoke5`'s register list, clobbers
-/// included: `syscall` itself overwrites `rcx` (return address) and `r11` (RFLAGS), and the kernel
-/// writes message words back into the argument registers, so every one of them is `inlateout`
-/// rather than `in`. Declaring an argument register as `in` here would promise LLVM the kernel
-/// preserves it, which a RECEIVE-shaped reply does not.
-#[cfg(target_arch = "x86_64")]
-pub unsafe fn invoke(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> i64 {
-    let ret: u64;
+    // `rcx` and `r11` are the `syscall` instruction's own: it writes the return address and
+    // `RFLAGS` there unconditionally.
+    #[cfg(target_arch = "x86_64")]
     unsafe {
         core::arch::asm!(
             "syscall",
-            in("rax") abi::SYS_INVOKE,
-            inlateout("rdi") cap => ret,
-            inlateout("rsi") method => _,
-            inlateout("rdx") a0 => _,
-            inlateout("r10") a1 => _,
-            inlateout("r8") a2 => _,
+            in("rax") nr,
+            inlateout("rdi") w[0],
+            inlateout("rsi") w[1],
+            inlateout("rdx") w[2],
+            inlateout("r10") w[3],
+            inlateout("r8") w[4],
+            inlateout("r9") w[5],
             lateout("rcx") _,
             lateout("r11") _,
             options(nostack),
         );
     }
-    ret as i64
+    w
+}
+
+/// Invoke a capability. See `crates/user_mode_runtime::invoke`, of which this is a twin.
+pub unsafe fn invoke(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> i64 {
+    unsafe { trap6(abi::SYS_INVOKE, [cap, method, a0, a1, a2, 0])[0] as i64 }
 }
 
 /// SEND three words on the endpoint in `slot`. Blocks until a receiver takes them.
@@ -156,128 +164,26 @@ pub fn send(slot: u64, w0: u64, w1: u64, w2: u64) -> i64 {
 }
 
 /// `CALL` the endpoint in `slot`: send two words and block until the server replies through the
-/// one-shot Reply capability the kernel mints. Returns the two reply words. A verbatim twin of
+/// one-shot Reply capability the kernel mints. Returns the two reply words. A twin of
 /// `user_mode_runtime::call`; the net PAL (`sys/net`) drives the socket contract with it.
 ///
 /// On a syscall-level failure (an empty slot, wrong rights) the kernel returns a negative value
 /// in the first result register, which a caller distinguishes from a server reply by reading it
 /// as `i64` (the net server never replies a negative word).
-#[cfg(target_arch = "aarch64")]
 pub fn call(slot: u64, w0: u64, w1: u64) -> (u64, u64) {
-    let (mut r0, mut r1): (u64, u64);
-    // SAFETY: `svc`. CALL returns the two reply words in x0/x1.
-    unsafe {
-        core::arch::asm!(
-            "svc #0",
-            in("x8") abi::SYS_INVOKE,
-            inlateout("x0") slot => r0,
-            in("x1") abi::rendezvous::CALL,
-            lateout("x1") r1,
-            in("x2") w0,
-            in("x3") w1,
-            in("x4") 0u64,
-            options(nostack),
-        );
-    }
-    (r0, r1)
-}
-
-/// `CALL` (RISC-V). See the aarch64 twin; `ecall`, the two reply words in `a0`/`a1`.
-#[cfg(target_arch = "riscv64")]
-pub fn call(slot: u64, w0: u64, w1: u64) -> (u64, u64) {
-    let (mut r0, mut r1): (u64, u64);
-    // SAFETY: `ecall`. CALL returns the two reply words in a0/a1.
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            in("a7") abi::SYS_INVOKE,
-            inlateout("a0") slot => r0,
-            inlateout("a1") abi::rendezvous::CALL => r1,
-            in("a2") w0,
-            in("a3") w1,
-            in("a4") 0u64,
-            options(nostack),
-        );
-    }
-    (r0, r1)
-}
-
-/// `CALL` (`x86_64`). See the aarch64 twin; `syscall`, the two reply words in `rdi`/`rsi`, and the
-/// same clobber list as [`invoke`] for the same reasons.
-#[cfg(target_arch = "x86_64")]
-pub fn call(slot: u64, w0: u64, w1: u64) -> (u64, u64) {
-    let (r0, r1): (u64, u64);
-    // SAFETY: `syscall`. CALL returns the two reply words in rdi/rsi.
-    unsafe {
-        core::arch::asm!(
-            "syscall",
-            in("rax") abi::SYS_INVOKE,
-            inlateout("rdi") slot => r0,
-            inlateout("rsi") abi::rendezvous::CALL => r1,
-            inlateout("rdx") w0 => _,
-            inlateout("r10") w1 => _,
-            inlateout("r8") 0u64 => _,
-            lateout("rcx") _,
-            lateout("r11") _,
-            options(nostack),
-        );
-    }
-    (r0, r1)
+    // SAFETY: CALL returns the two reply words in the first two registers.
+    let w = unsafe { trap6(abi::SYS_INVOKE, [slot, abi::rendezvous::CALL, w0, w1, 0, 0]) };
+    (w[0], w[1])
 }
 
 /// Give up the CPU (`SYS_YIELD`); the timed sleep loop is built on this.
 pub fn yield_now() {
-    #[cfg(target_arch = "aarch64")]
-    unsafe {
-        core::arch::asm!("svc #0", in("x8") abi::SYS_YIELD, options(nostack, nomem));
-    }
-    #[cfg(target_arch = "riscv64")]
-    unsafe {
-        core::arch::asm!("ecall", in("a7") abi::SYS_YIELD, options(nostack, nomem));
-    }
-    #[cfg(target_arch = "x86_64")]
-    unsafe {
-        core::arch::asm!(
-            "syscall",
-            in("rax") abi::SYS_YIELD,
-            lateout("rcx") _,
-            lateout("r11") _,
-            options(nostack, nomem),
-        );
-    }
+    let _ = unsafe { trap6(abi::SYS_YIELD, [0; 6]) };
 }
 
 /// Terminate this process (`SYS_EXIT`). The kernel reaps the thread and frees the address space.
 pub fn exit(code: i64) -> ! {
-    #[cfg(target_arch = "aarch64")]
-    unsafe {
-        core::arch::asm!(
-            "svc #0",
-            in("x8") abi::SYS_EXIT,
-            in("x0") code as u64,
-            options(nostack, nomem),
-        );
-    }
-    #[cfg(target_arch = "riscv64")]
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            in("a7") abi::SYS_EXIT,
-            in("a0") code as u64,
-            options(nostack, nomem),
-        );
-    }
-    #[cfg(target_arch = "x86_64")]
-    unsafe {
-        core::arch::asm!(
-            "syscall",
-            in("rax") abi::SYS_EXIT,
-            in("rdi") code as u64,
-            lateout("rcx") _,
-            lateout("r11") _,
-            options(nostack, nomem),
-        );
-    }
+    let _ = unsafe { trap6(abi::SYS_EXIT, [code as u64, 0, 0, 0, 0, 0]) };
     loop {
         core::hint::spin_loop();
     }

@@ -80,6 +80,12 @@
 //!   That is deliberate (AIM7's subrun ends when every task has finished, and reporting completion
 //!   is part of finishing) and it is a fixed additive cost that grows with N, so it flatters the
 //!   small subruns by a few microseconds.
+//! - **Any message on the report endpoint counts as a report.** `subrun` takes the first three
+//!   words of whatever arrives, so a task's `CALL` there (two words, answered `Gone` under §246 (a
+//!   plain `RECEIVE` never takes a capability)) is counted as that task's report of zero jobs. A
+//!   miscompiled task did exactly that on 2026-10-05, and the miscount wedged sweeps instead of
+//!   naming the fault (notes/job-mix/spawn-destroy-gone.md). Checking the sender's badge and the
+//!   message's shape would turn it into a `FAILED` line.
 
 // **The seven markers in this import moved out of this file** (milestone 324 part 2): `CENSUS`,
 // `DONE`, `FAILED`, `KIND`, `POINT`, `STARTED` and `SUBRUN`. They were private `const`s here and

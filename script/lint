@@ -2985,6 +2985,17 @@ echo "==> every .rs file under a crate is declared by a module tree"
 python3 "$(dirname "$0")/../helpers/orphan_rust.py" --selftest
 python3 "$(dirname "$0")/../helpers/orphan_rust.py"
 
+# 15. **A userspace trap declares every register the kernel answers in** (2026-10-05,
+#     lane/hvf-spawn-destroy-gone; helpers/syscall_asm.py, name provisional). The kernel writes up to
+#     six argument registers on the way out of a syscall. `user_mode_runtime::yield_now` declared
+#     none, and the job mix's spawn job was compiled to trap `DESTROY`'s arguments across a yield
+#     that zeroed `x0`: 19 of 20 HVF sweeps refused with `Gone`, the twentieth wedged
+#     (notes/job-mix/spawn-destroy-gone.md). A missing declaration is invisible in review, which is
+#     why this is a gate. The selftest runs first, for check 14's reason.
+echo "==> every userspace trap declares the registers the kernel writes"
+python3 "$(dirname "$0")/../helpers/syscall_asm.py" --selftest
+python3 "$(dirname "$0")/../helpers/syscall_asm.py"
+
 echo "==> markdown links and the notes index"
 # Two checks, and deliberately NOT a markdown linter. A survey of all 95 markdown files found zero
 # broken relative links and exactly one unindexed note, so generic style rules (heading case, line

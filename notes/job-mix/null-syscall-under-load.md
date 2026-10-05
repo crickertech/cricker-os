@@ -254,17 +254,8 @@ with the one-task guard held. The open finding's paragraph should read:
   lines and shares two with its neighbours. Their remotely written fields (the inbox, the steal slot)
   can pull away a line that `held_rank`, written twice per lock, lives on. Unmeasured, and not fixed here,
   so as not to change two things in one radon comparison. `#[repr(align(64))]` keeps the size at 128.
-- **aarch64's job mix wedges under TCG on `main`.** On 2026-10-04 `script/job-mix --release --smp 4`
-  went quiet after 2,744,000-tick subruns, at `tasks=2` on `main` and at `tasks=1` on this branch,
-  one run each, on a loaded host. The 2026-09-19 capture completed. It is a multicore hang that
-  wants a bisect, and this entry is where that work lives until someone takes it.
-- The same mix fails within two minutes under HVF, in the spawn job. On 2026-10-05
-  `script/job-mix --hvf --release --smp 4` failed all 9 unmodified runs of `d0ca36c5b` and of
-  `1b4e13ef3` (before 761): 7 refusals of `-11` (`Gone`) in a spawn job and 2 wedges. Tagging each
-  step put the refusal at `DESTROY` on the child's region, which maps its own refusals to
-  `NotPermitted`, so `Gone` comes from looking up the region's capability. Counting `DESTROY`'s
-  retries made it pass 3 of 3, so it is timing. Stubbing the spawn job, 31 of 31 completed;
-  riscv64 TCG and radon have never shown it. That is fatal risk 5's shape.
+- ~~**aarch64's job mix wedges under TCG on `main`.**~~ Closed 2026-10-05: a miscompiled yield,
+  not a multicore hang ([`spawn-destroy-gone.md`](spawn-destroy-gone.md)).
 - **`script/fastpath-footprint` leaves `exception_body` out of aarch64's `syscall_entry`**, though
   every aarch64 syscall runs it (riscv64's list has `riscv_trap_body`). Moving the counter from that
   symbol into `syscall::dispatch` once read as 44 bytes of growth when it was 20.
@@ -274,10 +265,6 @@ with the one-task guard held. The open finding's paragraph should read:
 - Capability lookup off `IPC_TABLES`: built as milestone 761 (capability lookup off the global
   lock), number provisional, [its block](../../design/roadmap/761-capability-lookup-off-the-global-lock.md),
   and waiting on the radon evening [above](#the-next-step-each-threads-table-off-the-lock).
-- Proposed milestone (provisional): the job mix's spawn job finds its child's region `Gone` on
-  aarch64. The reproduction is one command and two minutes on patagonia
-  (`script/job-mix --hvf --release --smp 4`, BUGS above). Done means 10 of 10 HVF runs complete
-  unmodified. It also gives risk 4 the full mix on real cores.
 - Only if radon leaves an excess after 761, batch a kernel stack's six unmaps into one remote
   fence (`KernelStack::drop` now makes one SBI `RFENCE` per page). Spawning carries half of TCG's
   remainder, and six fences per reap are the shared event it adds. Untested on silicon; a TCG try

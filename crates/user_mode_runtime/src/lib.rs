@@ -153,6 +153,16 @@ pub mod initrd;
 pub mod mapped_window;
 pub mod virtio;
 
+/// **The one trap in this crate**, one per architecture, used by every syscall since 2026-10-05:
+/// the number in `x8`/`a7`/`rax` and six words in both directions. The kernel writes its result
+/// into the first register on the way out of *every* syscall, and some methods write up to the
+/// sixth. Until 2026-10-05 [`yield_now`] and [`cap_delete`] had their own `asm!` blocks declaring
+/// no output, a promise that `x0` survives the trap. It does not: a yield comes back with `x0 = 0`.
+/// The job mix's spawn job had its retry loop compiled with `DESTROY`'s arguments loaded before
+/// the yield, so the retry sent `invoke(0, 4)`, a `CALL` on the report endpoint, answered `Gone`
+/// (notes/job-mix/spawn-destroy-gone.md). `helpers/syscall_asm.py` now gates every userspace trap.
+/// What follows is this primitive's `SYS_INVOKE` history.
+///
 /// The raw six-register round trip through `SYS_INVOKE` (milestone 139 (drive the unsafe count down) round
 /// 2; the sixth register is milestone 105 (the two forks)'s). `cap`, `method`
 /// and two more arguments go in `x0..x3`/`a0..a3` (the fifth, `x4`/`a4`, is spare and always zero on
@@ -186,30 +196,24 @@ pub mod virtio;
 /// `svc`/`ecall` traps to the kernel. The kernel validates the capability and the method before
 /// acting; that is its whole job. The caller is trusting the kernel, not the other way around.
 ///
-/// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). The six-register twin of the `invoke5` it replaced as the
-/// primitive; `invoke5` survives as a five-word wrapper over it.
+/// Name: provisional, `lane/hvf-spawn-destroy-gone`, 2026-10-05 (UTC): the trap every syscall
+/// shares. It began as milestone 105 (the two forks)'s `invoke6`, which is now a wrapper over it.
 #[cfg(target_arch = "aarch64")]
-unsafe fn invoke6(
-    cap: u64,
-    method: u64,
-    a0: u64,
-    a1: u64,
-    a2: u64,
-) -> (u64, u64, u64, u64, u64, u64) {
+unsafe fn trap6(nr: u64, a: [u64; 6]) -> (u64, u64, u64, u64, u64, u64) {
     let (mut w0, mut w1, mut w2, mut w3, mut w4, mut w5): (u64, u64, u64, u64, u64, u64);
-    // SAFETY: see the function doc; `x8` selects SYS_INVOKE (DECISIONS §10), `x0..x4` carry the
-    // five-word ABI in both directions. `asm!` is unsafe because the compiler cannot check that,
-    // not because a caller can get it wrong.
+    // SAFETY: see the function doc; `x8` selects the syscall (DECISIONS §10 (process model:
+    // capability-based, microkernel)), `x0..x5` carry the six-word ABI in both directions. `asm!`
+    // is unsafe because the compiler cannot check that, not because a caller can get it wrong.
     unsafe {
         core::arch::asm!(
             "svc #0",
-            in("x8") abi::SYS_INVOKE,
-            inlateout("x0") cap => w0,
-            inlateout("x1") method => w1,
-            inlateout("x2") a0 => w2,
-            inlateout("x3") a1 => w3,
-            inlateout("x4") a2 => w4,
-            inlateout("x5") 0u64 => w5,
+            in("x8") nr,
+            inlateout("x0") a[0] => w0,
+            inlateout("x1") a[1] => w1,
+            inlateout("x2") a[2] => w2,
+            inlateout("x3") a[3] => w3,
+            inlateout("x4") a[4] => w4,
+            inlateout("x5") a[5] => w5,
             options(nostack),
         );
     }
@@ -224,29 +228,23 @@ unsafe fn invoke6(
 /// `ecall` traps to the kernel, which validates the capability and method before acting. Same
 /// contract as the aarch64 twin: the caller trusts the kernel, not the other way around.
 ///
-/// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). The six-register twin of the `invoke5` it replaced as the
-/// primitive; `invoke5` survives as a five-word wrapper over it.
+/// Name: provisional, `lane/hvf-spawn-destroy-gone`, 2026-10-05 (UTC): the trap every syscall
+/// shares. It began as milestone 105 (the two forks)'s `invoke6`, which is now a wrapper over it.
 #[cfg(target_arch = "riscv64")]
-unsafe fn invoke6(
-    cap: u64,
-    method: u64,
-    a0: u64,
-    a1: u64,
-    a2: u64,
-) -> (u64, u64, u64, u64, u64, u64) {
+unsafe fn trap6(nr: u64, a: [u64; 6]) -> (u64, u64, u64, u64, u64, u64) {
     let (mut w0, mut w1, mut w2, mut w3, mut w4, mut w5): (u64, u64, u64, u64, u64, u64);
-    // SAFETY: see the function doc; `a7` selects SYS_INVOKE (DECISIONS §10), `a0..a4` carry the
-    // five-word ABI in both directions.
+    // SAFETY: see the function doc; `a7` selects the syscall (DECISIONS §10), `a0..a5` carry the
+    // six-word ABI in both directions.
     unsafe {
         core::arch::asm!(
             "ecall",
-            in("a7") abi::SYS_INVOKE,
-            inlateout("a0") cap => w0,
-            inlateout("a1") method => w1,
-            inlateout("a2") a0 => w2,
-            inlateout("a3") a1 => w3,
-            inlateout("a4") a2 => w4,
-            inlateout("a5") 0u64 => w5,
+            in("a7") nr,
+            inlateout("a0") a[0] => w0,
+            inlateout("a1") a[1] => w1,
+            inlateout("a2") a[2] => w2,
+            inlateout("a3") a[3] => w3,
+            inlateout("a4") a[4] => w4,
+            inlateout("a5") a[5] => w5,
             options(nostack),
         );
     }
@@ -271,9 +269,39 @@ unsafe fn invoke6(
 /// `syscall` traps to the kernel, which validates the capability and method before acting. Same
 /// contract as the aarch64 twin: the caller trusts the kernel, not the other way around.
 ///
-/// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). The six-register twin of the `invoke5` it replaced as the
-/// primitive; `invoke5` survives as a five-word wrapper over it.
+/// Name: provisional, `lane/hvf-spawn-destroy-gone`, 2026-10-05 (UTC): the trap every syscall
+/// shares. It began as milestone 105 (the two forks)'s `invoke6`, which is now a wrapper over it.
 #[cfg(target_arch = "x86_64")]
+unsafe fn trap6(nr: u64, a: [u64; 6]) -> (u64, u64, u64, u64, u64, u64) {
+    let (mut w0, mut w1, mut w2, mut w3, mut w4, mut w5): (u64, u64, u64, u64, u64, u64);
+    // SAFETY: see the function doc; `rax` selects the syscall (DECISIONS §10, §124 (the `x86_64`
+    // syscall ABI)), and the six argument registers carry the six-word ABI in both directions.
+    unsafe {
+        core::arch::asm!(
+            "syscall",
+            in("rax") nr,
+            inlateout("rdi") a[0] => w0,
+            inlateout("rsi") a[1] => w1,
+            inlateout("rdx") a[2] => w2,
+            inlateout("r10") a[3] => w3,
+            inlateout("r8") a[4] => w4,
+            inlateout("r9") a[5] => w5,
+            lateout("rcx") _,
+            lateout("r11") _,
+            options(nostack),
+        );
+    }
+    (w0, w1, w2, w3, w4, w5)
+}
+
+/// The six-register round trip through `SYS_INVOKE`: [`trap6`] with the number fixed and the sixth
+/// word in as zero, so [`receive_fault`] reads `0` for anything the kernel did not stamp.
+///
+/// # Safety
+/// [`trap6`]'s: the kernel validates the capability and the method before acting.
+///
+/// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC).
+#[inline(always)]
 unsafe fn invoke6(
     cap: u64,
     method: u64,
@@ -281,25 +309,8 @@ unsafe fn invoke6(
     a1: u64,
     a2: u64,
 ) -> (u64, u64, u64, u64, u64, u64) {
-    let (mut w0, mut w1, mut w2, mut w3, mut w4, mut w5): (u64, u64, u64, u64, u64, u64);
-    // SAFETY: see the function doc; `rax` selects SYS_INVOKE (DECISIONS §10, §124), and the five
-    // argument registers carry the five-word ABI in both directions.
-    unsafe {
-        core::arch::asm!(
-            "syscall",
-            in("rax") abi::SYS_INVOKE,
-            inlateout("rdi") cap => w0,
-            inlateout("rsi") method => w1,
-            inlateout("rdx") a0 => w2,
-            inlateout("r10") a1 => w3,
-            inlateout("r8") a2 => w4,
-            inlateout("r9") 0u64 => w5,
-            lateout("rcx") _,
-            lateout("r11") _,
-            options(nostack),
-        );
-    }
-    (w0, w1, w2, w3, w4, w5)
+    // SAFETY: forwarded from this function's own contract.
+    unsafe { trap6(abi::SYS_INVOKE, [cap, method, a0, a1, a2, 0]) }
 }
 
 /// [`invoke6`] read to the five words every method but a death delivery uses.
@@ -985,37 +996,15 @@ pub fn send_cap(slot: u64, cap_slot: u64, rights: u64, w1: u64) -> i64 {
 
 /// Give up the CPU (`SYS_YIELD`). Returns when the scheduler runs this thread again; if another
 /// thread is ready, control goes there and back, which is one context-switch round trip.
-#[cfg(target_arch = "aarch64")]
+///
+/// Through [`trap6`] like every other syscall, for the reason its doc gives: the kernel writes its
+/// result into `x0`/`a0`/`rdi` on the way out of a yield too. And not `nomem`: while this thread
+/// is away, others run and write memory it shares with them, so a yield is a point where memory
+/// changes, which is what a caller spinning on a shared word with `yield_now` relies on.
 pub fn yield_now() {
-    // SAFETY: `svc`; SYS_YIELD gives up the CPU and returns with nothing to clean up.
-    unsafe {
-        core::arch::asm!("svc #0", in("x8") abi::SYS_YIELD, options(nostack, nomem));
-    }
-}
-
-/// Give up the CPU (RISC-V). `ecall`, `SYS_YIELD` in `a7`.
-#[cfg(target_arch = "riscv64")]
-pub fn yield_now() {
-    // SAFETY: `ecall`; SYS_YIELD gives up the CPU and returns with nothing to clean up.
-    unsafe {
-        core::arch::asm!("ecall", in("a7") abi::SYS_YIELD, options(nostack, nomem));
-    }
-}
-
-/// Give up the CPU (`x86_64`). `syscall`, `SYS_YIELD` in `rax`. `rcx` and `r11` are clobbered by the
-/// instruction itself, and `nomem` survives that: neither is memory.
-#[cfg(target_arch = "x86_64")]
-pub fn yield_now() {
-    // SAFETY: `syscall`; SYS_YIELD gives up the CPU and returns with nothing to clean up.
-    unsafe {
-        core::arch::asm!(
-            "syscall",
-            in("rax") abi::SYS_YIELD,
-            lateout("rcx") _,
-            lateout("r11") _,
-            options(nostack, nomem),
-        );
-    }
+    // SAFETY: SYS_YIELD gives up the CPU and comes back; it reads no argument and touches no
+    // memory of this thread's own.
+    let _ = unsafe { trap6(abi::SYS_YIELD, [0; 6]) };
 }
 
 /// **Write one byte to an x86 I/O port** (milestone 299). Not a syscall: `out` is an instruction,
@@ -1055,48 +1044,11 @@ pub fn inb(port: u16) -> u8 {
 
 /// Drop the capability in `slot` from this thread's capability table (`SYS_CAP_DELETE`). Deleting an empty
 /// slot is a no-op. A program that retypes many objects (a loader, a spawner) frees each slot as
-/// soon as it is done with it, so its fixed capability table does not fill.
-#[cfg(target_arch = "aarch64")]
+/// soon as it is done with it, so its fixed capability table does not fill. Through [`trap6`] for
+/// [`yield_now`]'s reason: the kernel answers in the register `slot` went in on.
 pub fn cap_delete(slot: u64) {
-    // SAFETY: `svc`; SYS_CAP_DELETE frees a slot in the caller's own capability table, nothing to clean up.
-    unsafe {
-        core::arch::asm!(
-            "svc #0",
-            in("x8") abi::SYS_CAP_DELETE,
-            in("x0") slot,
-            options(nostack, nomem),
-        );
-    }
-}
-
-/// Drop the capability in `slot` (RISC-V). `ecall`, `SYS_CAP_DELETE` in `a7`, slot in `a0`.
-#[cfg(target_arch = "riscv64")]
-pub fn cap_delete(slot: u64) {
-    // SAFETY: `ecall`; SYS_CAP_DELETE frees a slot in the caller's own capability table, nothing to clean up.
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            in("a7") abi::SYS_CAP_DELETE,
-            in("a0") slot,
-            options(nostack, nomem),
-        );
-    }
-}
-
-/// Drop the capability in `slot` (`x86_64`). `syscall`, `SYS_CAP_DELETE` in `rax`, slot in `rdi`.
-#[cfg(target_arch = "x86_64")]
-pub fn cap_delete(slot: u64) {
-    // SAFETY: `syscall`; SYS_CAP_DELETE frees a slot in the caller's own capability table, nothing to clean up.
-    unsafe {
-        core::arch::asm!(
-            "syscall",
-            in("rax") abi::SYS_CAP_DELETE,
-            in("rdi") slot,
-            lateout("rcx") _,
-            lateout("r11") _,
-            options(nostack, nomem),
-        );
-    }
+    // SAFETY: SYS_CAP_DELETE frees a slot in the caller's own capability table, nothing to clean up.
+    let _ = unsafe { trap6(abi::SYS_CAP_DELETE, [slot, 0, 0, 0, 0, 0]) };
 }
 
 /// The virtual counter, `CNTVCT_EL0`: a monotonic tick count for self-timing. Readable at EL0 only
@@ -1410,33 +1362,10 @@ pub fn monotonic_nanos() -> u64 {
 }
 
 /// Terminate this process. The kernel reaps the thread and frees its whole address space. Never
-/// returns; the trailing spin is only there to satisfy the `-> !` type if `svc` ever came back.
+/// returns; the trailing spin is only there to satisfy the `-> !` type if the trap ever came back.
 pub fn exit() -> ! {
     // SAFETY: the syscall never returns; the trailing spin only satisfies the `-> !` type.
-    #[cfg(target_arch = "aarch64")]
-    unsafe {
-        core::arch::asm!("svc #0", in("x8") abi::SYS_EXIT, in("x0") 0u64, options(nostack, nomem));
-    }
-    #[cfg(target_arch = "riscv64")]
-    // SAFETY: `ecall` with SYS_EXIT traps to the kernel, which never returns to this thread. The options promise it touches neither memory nor the stack.
-    unsafe {
-        core::arch::asm!("ecall", in("a7") abi::SYS_EXIT, in("a0") 0u64, options(nostack, nomem));
-    }
-    #[cfg(target_arch = "x86_64")]
-    // SAFETY: `syscall` with SYS_EXIT traps to the kernel, which never returns to this thread. The
-    // options promise it touches neither memory nor the stack; `rcx` and `r11` are the
-    // instruction's own clobbers and are declared as such even here, where nothing comes back, so
-    // this reads the same as every other `syscall` site rather than being a special case.
-    unsafe {
-        core::arch::asm!(
-            "syscall",
-            in("rax") abi::SYS_EXIT,
-            in("rdi") 0u64,
-            lateout("rcx") _,
-            lateout("r11") _,
-            options(nostack, nomem),
-        );
-    }
+    let _ = unsafe { trap6(abi::SYS_EXIT, [0; 6]) };
     loop {
         core::hint::spin_loop();
     }

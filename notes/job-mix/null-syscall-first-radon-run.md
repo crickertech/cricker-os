@@ -15,8 +15,8 @@
 - x86_64's TCG throughput roughly doubled (`jpm_median` 293,839 to 561,875 at four tasks, 316,469
   to 751,072 at 32, one run each), because TCG's NMI shootdowns are very expensive. That is a
   property of the emulator, not a claim about xenon.
-- aarch64's job mix wedges under TCG on `main` too, before and after this change (see BUGS), so
-  it gave no comparison.
+- aarch64's job mix wedged under TCG on `main` too, so it gave no comparison. The cause was a
+  miscompiled yield, not this change ([`spawn-destroy-gone.md`](spawn-destroy-gone.md)).
 
 ## The radon run that decided it
 

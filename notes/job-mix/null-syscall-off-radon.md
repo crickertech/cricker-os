@@ -50,8 +50,8 @@ fence, so that half is not evidence about radon.
 
 Milestone 227 (a GICv3 driver) made `script/job-mix --hvf` boot, which [the job-mix
 note](../job-mix.md#a-cross-check-on-the-apple-cores-attempted-2026-09-19-and-why-it-did-not-run)
-said it could not. The full mix still cannot run there (BUGS), so these runs stub the spawn job
-on both sides. Six runs a side, ticks of the 24 MHz counter per 64-trap job:
+said it could not. The full mix could not run there when these were taken, so these runs stub the
+spawn job on both sides; [`spawn-destroy-gone.md`](spawn-destroy-gone.md) fixed that afterwards. Six runs a side, ticks of the 24 MHz counter per 64-trap job:
 
 | `null_syscall` | 1 task | 2 | 3 | 4 |
 |---|---|---|---|---|
