@@ -1482,7 +1482,7 @@ mod verification {
     /// lengths, the century exceptions and their exception are all *inside* these two functions, and
     /// a bijection cannot have them wrong in a way that cancels (a wrong month length would have to
     /// map two days to one date, which is not injective).
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/calendar/falsifications/verification.the_calendar_algorithms_are_mutual_inverses.patch`
     #[kani::proof]
     fn the_calendar_algorithms_are_mutual_inverses() {
         let days: i64 = kani::any();
@@ -1499,7 +1499,7 @@ mod verification {
     ///
     /// This is the harness that stops the bijection above from being vacuous. A decoder that
     /// consistently invented February 30 would still be a bijection.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/calendar/falsifications/verification.a_day_number_always_decodes_to_a_real_date.patch`
     #[kani::proof]
     fn a_day_number_always_decodes_to_a_real_date() {
         let days: i64 = kani::any();
@@ -1518,7 +1518,7 @@ mod verification {
     ///
     /// `to_unix` appears here in full (it multiplies by 86,400 rather than dividing, which is the
     /// cheap direction), so the range assertion is proved for every representable date.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/calendar/falsifications/verification.every_real_date_survives_its_own_day_number.patch`
     #[kani::proof]
     fn every_real_date_survives_its_own_day_number() {
         let year: i32 = kani::any();
@@ -1554,7 +1554,7 @@ mod verification {
     /// copy of the whole decode: 228s measured for the pair, 38-50s for the adjacent form. Worth
     /// stating rather than quietly enjoying, since it reads like a weaker claim and is not: this is a
     /// proof of the general property, phrased as its induction step.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/calendar/falsifications/verification.each_day_sorts_after_the_one_before_it.patch`
     #[kani::proof]
     fn each_day_sorts_after_the_one_before_it() {
         let days: i64 = kani::any();
@@ -1569,7 +1569,7 @@ mod verification {
     /// **Day of year is 1..=366, and 366 happens only on 31 December of a leap year.** Full range,
     /// every day. The `if and only if` is the part worth having: a day-of-year that saturates at 365,
     /// or that reaches 366 in a common year, both fail this.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/calendar/falsifications/verification.day_of_year_is_bounded_and_366_means_leap.patch`
     #[kani::proof]
     fn day_of_year_is_bounded_and_366_means_leap() {
         let days: i64 = kani::any();
@@ -1590,7 +1590,7 @@ mod verification {
     /// and seven days on is the same weekday. The last is what makes it a cycle rather than a
     /// sequence, and together they pin the `rem_euclid` that a truncating `%` would break for
     /// pre-epoch dates.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/calendar/falsifications/verification.weekdays_advance_one_day_at_a_time.patch`
     #[kani::proof]
     fn weekdays_advance_one_day_at_a_time() {
         let days: i64 = kani::any();
@@ -1615,7 +1615,7 @@ mod verification {
     /// What the bound excludes is the *calendar* behaviour at other years, and that is exactly what
     /// `the_calendar_algorithms_are_mutual_inverses` proves over the full range. The composition is
     /// stated in the module comment above.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/calendar/falsifications/verification.unix_to_civil_and_back_is_the_identity.patch`
     #[kani::proof]
     fn unix_to_civil_and_back_is_the_identity() {
         const START: i64 = days_from_civil(1968, 1, 1) * SECS_PER_DAY;
@@ -1641,7 +1641,7 @@ mod verification {
     /// than a proof through `core::str::from_utf8`: **ASCII is a subset of UTF-8**, so a buffer whose
     /// every byte is ASCII decodes, always. Proving it *through* the standard library's validator
     /// instead costs minutes of symbolic execution and adds nothing.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/calendar/falsifications/verification.every_format_is_ascii.patch`
     #[kani::proof]
     #[kani::unwind(34)]
     fn every_format_is_ascii() {
@@ -1678,7 +1678,7 @@ mod verification {
     /// the longest a signed 64-bit number can be. Separate from the harness above because this arm's
     /// length depends on the magnitude of the number, which is precisely what a fixed buffer is at
     /// risk from, and unbounded because the digit loop is where that risk lives.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/calendar/falsifications/verification.the_unix_format_fits_any_i64.patch`
     #[kani::proof]
     #[kani::unwind(21)]
     fn the_unix_format_fits_any_i64() {
@@ -1698,7 +1698,7 @@ mod verification {
     /// not write, so totality here is a security property rather than tidiness. Nothing is assumed
     /// about the bytes at all: they need not be UTF-8, let alone ASCII, which is why the harness goes
     /// through [`DateTime::parse_rfc3339_bytes`].
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/calendar/falsifications/verification.parse_is_total_on_hostile_bytes.patch`
     #[kani::proof]
     #[kani::unwind(28)]
     fn parse_is_total_on_hostile_bytes() {
@@ -1718,7 +1718,7 @@ mod verification {
     /// This is what makes RFC 3339 usable as the system's interchange form: a timestamp `date` wrote
     /// and `date -s` read is the same instant *and* the same offset (the equality is on the whole
     /// `DateTime`, so an offset silently normalised away would fail it).
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/calendar/falsifications/verification.rfc3339_output_parses_back_to_itself.patch`
     #[kani::proof]
     #[kani::unwind(28)]
     fn rfc3339_output_parses_back_to_itself() {

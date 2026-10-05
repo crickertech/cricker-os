@@ -224,6 +224,18 @@ tell a stale premise from a live one. It is rung three, written where the next p
   to zero"). Batch 1 (`lane/falsify-backlog-1`, 2026-10-05) took 17: 56 became 39. One finding:
   `cq_pop_stays_in_bounds_and_flips_only_at_the_wrap` stayed green under an early-wrap pop, so its
   harness was strengthened before being falsified.
+- **Recorded.** Batch 2 (`lane/falsify-backlog-2`, 2026-10-05, stacked on batch 1) took 36: 39
+  became 3, the three left being the two recorded as unfalsifiable and the x86_64 `fp` harness,
+  which needs an x86 host. Three findings, each with a strengthening commit or a note. (1) A
+  `kani::cover!` cannot turn a Kani 0.67.0 harness red: an unsatisfiable cover prints "0 of 1 cover
+  properties satisfied" and `VERIFICATION:- SUCCESSFUL`, so `printenv`'s
+  `the_buffer_can_be_filled_exactly` stayed green under a `push` that reserved its last byte; it now
+  asserts the boundary. (2) `usb`'s configuration walk was bounded at 24 bytes and the shortest
+  configuration naming an endpoint is 25, so its three endpoint assertions were never evaluated;
+  the bound is 25 now, with a cover that a keyboard is accepted. (3) `calendar`'s length guard in
+  `number` is reached by no input (every caller is bounded first), so removing it leaves
+  `parse_is_total_on_hostile_bytes` green; that harness is falsified by removing the offset-designator
+  check instead, and the guard is defence in depth.
 
 ## Index row
 

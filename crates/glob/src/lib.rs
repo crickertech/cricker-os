@@ -1107,7 +1107,7 @@ mod verification {
     /// and the loop terminates within the unwinding bound. Termination is the property that matters for
     /// an untrusted pattern, and it is what the unwinding assertion establishes: at these lengths
     /// the matcher provably runs out of work, rather than being observed to.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/glob/falsifications/verification.matching_is_total.patch`
     #[kani::proof]
     #[kani::unwind(11)]
     fn matching_is_total() {
@@ -1145,7 +1145,7 @@ mod verification {
     /// The blowup itself is ruled out by two other things: the host test that runs a ten-star pattern
     /// against 100,000 bytes, and the structural argument in the module comment (one backtrack point,
     /// a retry position that only advances). Neither is a solver's job.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/glob/falsifications/verification.the_cost_never_exceeds_the_bound.patch`
     #[kani::proof]
     #[kani::unwind(11)]
     fn the_cost_never_exceeds_the_bound() {
@@ -1171,7 +1171,7 @@ mod verification {
     /// Quantified over every pattern of up to three arbitrary bytes, which includes the escape
     /// corners (`\*`, `\\`, a trailing `\`) and the unterminated brackets that are literals rather
     /// than classes.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/glob/falsifications/verification.no_magic_means_the_pattern_is_its_own_only_match.patch`
     #[kani::proof]
     #[kani::unwind(11)]
     fn no_magic_means_the_pattern_is_its_own_only_match() {
@@ -1198,7 +1198,7 @@ mod verification {
     /// The two base cases, over every name of up to three arbitrary bytes. Stated with
     /// [`Dot::Ordinary`] so they are claims about the matcher; the leading-dot policy is the next
     /// harness, separately, because it is a separate thing.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/glob/falsifications/verification.star_matches_anything_and_question_matches_one_byte.patch`
     #[kani::proof]
     #[kani::unwind(12)]
     fn star_matches_anything_and_question_matches_one_byte() {
@@ -1229,7 +1229,7 @@ mod verification {
     /// *first* byte: empty, `.`, `.x`, `x` and `xy` are every case there is, and a third byte adds
     /// none. The pattern keeps three so `.*`, `\.x` and `[.]` are all reachable, which is where the
     /// rule's interesting inputs actually live.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/glob/falsifications/verification.the_dot_rule_only_touches_names_that_start_with_a_dot.patch`
     #[kani::proof]
     #[kani::unwind(9)]
     fn the_dot_rule_only_touches_names_that_start_with_a_dot() {
@@ -1272,7 +1272,7 @@ mod verification {
     /// close early (`]`) or escape (`\`), which make the two spellings different patterns rather than
     /// one pattern and its negation. All three are about what the two spellings *are*; bracket
     /// parsing itself is quantified over without restriction by the totality harness above.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/glob/falsifications/verification.a_negated_class_is_the_exact_complement_of_the_class.patch`
     #[kani::proof]
     #[kani::unwind(10)]
     fn a_negated_class_is_the_exact_complement_of_the_class() {

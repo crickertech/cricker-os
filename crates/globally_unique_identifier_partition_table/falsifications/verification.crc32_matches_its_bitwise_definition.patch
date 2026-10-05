@@ -1,0 +1,17 @@
+Falsifies `globally_unique_identifier_partition_table::verification::crc32_matches_its_bitwise_definition`.
+
+The defect: the table builder runs seven rounds of the bitwise loop per entry instead of eight. The table
+is self-consistent and every entry is nearly right, which no real-disk test would notice unless it
+happened to hit a byte whose eighth round matters.
+
+Expected to fail: the harness's `assert_eq!(crc::crc32(&bytes), crc::crc32_bitwise(&bytes))`.
+
+diff --git a/crates/globally_unique_identifier_partition_table/src/crc.rs b/crates/globally_unique_identifier_partition_table/src/crc.rs
+index f5353d139..ea80a6ed3 100644
+--- a/crates/globally_unique_identifier_partition_table/src/crc.rs
++++ b/crates/globally_unique_identifier_partition_table/src/crc.rs
+@@ -38,3 +38,3 @@ const TABLE: [u32; 256] = {
+         let mut bit = 0;
+-        while bit < 8 {
++        while bit < 7 {
+             c = if c & 1 != 0 { POLY ^ (c >> 1) } else { c >> 1 };

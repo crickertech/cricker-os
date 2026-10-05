@@ -1,0 +1,17 @@
+Falsifies `globally_unique_identifier_partition_table::verification::a_guid_survives_printing_and_parsing`.
+
+The defect: `to_ascii` prints the first group in storage order instead of byte-reversed, while
+`try_from_ascii` still reverses it. The printed form looks like a GUID and parses back to a
+different one.
+
+Expected to fail: the harness's `assert_eq!(Guid::try_from_ascii(&g.to_ascii()), Some(g))`.
+
+diff --git a/crates/globally_unique_identifier_partition_table/src/guid.rs b/crates/globally_unique_identifier_partition_table/src/guid.rs
+index 11dcf5a3d..2a5ee63d7 100644
+--- a/crates/globally_unique_identifier_partition_table/src/guid.rs
++++ b/crates/globally_unique_identifier_partition_table/src/guid.rs
+@@ -107,3 +107,3 @@ impl Guid {
+         // explicit, so the loop below has no special cases.
+-        const ORDER: [usize; 16] = [3, 2, 1, 0, 5, 4, 7, 6, 8, 9, 10, 11, 12, 13, 14, 15];
++        const ORDER: [usize; 16] = [0, 1, 2, 3, 5, 4, 7, 6, 8, 9, 10, 11, 12, 13, 14, 15];
+ 

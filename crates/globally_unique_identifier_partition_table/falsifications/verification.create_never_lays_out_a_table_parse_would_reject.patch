@@ -1,0 +1,17 @@
+Falsifies `globally_unique_identifier_partition_table::verification::create_never_lays_out_a_table_parse_would_reject`.
+
+The defect: `create` sets `last_usable_lba` one block too high, so the last usable block is the first block of
+the backup entry array. `parse` checks `last_usable + span < alternate` and refuses the table its
+own writer just made.
+
+Expected to fail: the harness's `assert!(h.last_usable_lba + span < h.alternate_lba)`.
+
+diff --git a/crates/globally_unique_identifier_partition_table/src/lib.rs b/crates/globally_unique_identifier_partition_table/src/lib.rs
+index 9445bae78..52b142db9 100644
+--- a/crates/globally_unique_identifier_partition_table/src/lib.rs
++++ b/crates/globally_unique_identifier_partition_table/src/lib.rs
+@@ -437,3 +437,3 @@ impl<'a> GloballyUniqueIdentifierPartitionTable<'a> {
+         }
+-        let last_usable = block_count - array_blocks - 2;
++        let last_usable = block_count - array_blocks - 1;
+ 

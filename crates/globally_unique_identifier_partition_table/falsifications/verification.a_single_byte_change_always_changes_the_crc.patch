@@ -1,0 +1,16 @@
+Falsifies `globally_unique_identifier_partition_table::verification::a_single_byte_change_always_changes_the_crc`.
+
+The defect: `update` masks each input byte to seven bits before the table lookup, as if the input were ASCII.
+Two buffers that differ only in the top bit of one byte then have the same CRC.
+
+Expected to fail: the harness's `assert_ne!(crc::crc32(&bytes), before)`.
+
+diff --git a/crates/globally_unique_identifier_partition_table/src/crc.rs b/crates/globally_unique_identifier_partition_table/src/crc.rs
+index f5353d139..19ee1d35c 100644
+--- a/crates/globally_unique_identifier_partition_table/src/crc.rs
++++ b/crates/globally_unique_identifier_partition_table/src/crc.rs
+@@ -74,3 +74,3 @@ fn update(mut crc: u32, bytes: &[u8]) -> u32 {
+     for &b in bytes {
+-        crc = TABLE[((crc ^ b as u32) & 0xff) as usize] ^ (crc >> 8);
++        crc = TABLE[((crc ^ (b & 0x7f) as u32) & 0xff) as usize] ^ (crc >> 8);
+     }

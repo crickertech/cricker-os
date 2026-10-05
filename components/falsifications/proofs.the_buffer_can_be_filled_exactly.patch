@@ -1,0 +1,17 @@
+Falsifies `printenv::proofs::the_buffer_can_be_filled_exactly`.
+
+The defect: `push`'s guard reserves the last byte of the buffer (`*n + 1 < buf.len()`), as a
+C programmer keeps a slot for a NUL. It is memory-safe, so `push_never_writes_past_the_buffer_it_was_given`
+stays green, but no input fills the buffer any more and the `cover` goes unsatisfiable.
+
+Expected to fail: the harness's `assert_eq!(n, core::cmp::min(CAP, start + bytes.len()))`. (The `cover` beside it goes unsatisfiable but does not turn Kani red; see the strengthening commit.)
+
+diff --git a/components/src/printenv.rs b/components/src/printenv.rs
+index c7b41c8fc..8060b5ccb 100644
+--- a/components/src/printenv.rs
++++ b/components/src/printenv.rs
+@@ -136,3 +136,3 @@ fn push(buf: &mut [u8; 96], n: &mut usize, bytes: &[u8]) {
+     for &b in bytes {
+-        if *n < buf.len() {
++        if *n + 1 < buf.len() {
+             buf[*n] = b;

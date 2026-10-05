@@ -944,7 +944,7 @@ mod verification {
     /// The table is derived by `const` evaluation from the polynomial, which is a second place a
     /// bug can hide and one no amount of testing against real disks would find: a wrong table that
     /// happened to be self-consistent would round-trip our own output perfectly.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/globally_unique_identifier_partition_table/falsifications/verification.crc32_matches_its_bitwise_definition.patch`
     #[kani::proof]
     #[kani::unwind(9)]
     fn crc32_matches_its_bitwise_definition() {
@@ -960,7 +960,7 @@ mod verification {
     /// quantifies over the table. It is true for a reason (an error burst shorter than the 32-bit
     /// polynomial is always detected) and the reason is exactly the sort of thing worth checking
     /// rather than citing.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/globally_unique_identifier_partition_table/falsifications/verification.a_single_byte_change_always_changes_the_crc.patch`
     #[kani::proof]
     #[kani::unwind(9)]
     fn a_single_byte_change_always_changes_the_crc() {
@@ -981,7 +981,7 @@ mod verification {
     /// nothing. That is what makes the property provable over every input at all, and it is why
     /// every rule about whether an entry makes sense lives in
     /// [`GloballyUniqueIdentifierPartitionTable`] instead.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/globally_unique_identifier_partition_table/falsifications/verification.an_entry_survives_the_round_trip.patch`
     #[kani::proof]
     #[kani::unwind(129)]
     fn an_entry_survives_the_round_trip() {
@@ -994,7 +994,7 @@ mod verification {
     ///
     /// The swapping is the one place in this crate where a transposition produces something that
     /// looks entirely reasonable and matches nothing.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/globally_unique_identifier_partition_table/falsifications/verification.a_guid_survives_printing_and_parsing.patch`
     #[kani::proof]
     #[kani::unwind(37)]
     fn a_guid_survives_printing_and_parsing() {
@@ -1010,7 +1010,7 @@ mod verification {
     /// caller supplied. A stamp that quietly normalised more than the format reserves would be
     /// discarding entropy the caller paid a round trip to a service for, and it would look correct
     /// in every sample anyone thought to write down.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/globally_unique_identifier_partition_table/falsifications/verification.stamping_reserves_six_bits_and_keeps_the_other_hundred_and_twenty_two.patch`
     #[kani::proof]
     #[kani::unwind(37)]
     fn stamping_reserves_six_bits_and_keeps_the_other_hundred_and_twenty_two() {
@@ -1043,7 +1043,7 @@ mod verification {
     /// rather than by assumption: everything `encode_into` adds is four bytes at offset 16,
     /// everything `decode` adds is checks, and the CRC field is not one of the nine fields, so
     /// neither half can disturb the other.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/globally_unique_identifier_partition_table/falsifications/verification.a_headers_fields_survive_the_round_trip.patch`
     #[kani::proof]
     #[kani::unwind(513)]
     fn a_headers_fields_survive_the_round_trip() {
@@ -1071,7 +1071,7 @@ mod verification {
     /// were never written back; this is the direction that catches it, because a byte no field
     /// claims comes back zero and a byte two fields claim comes back holding one of them. Together
     /// they say the nine fields **partition** the header's field region.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/globally_unique_identifier_partition_table/falsifications/verification.the_header_fields_partition_the_block.patch`
     #[kani::proof]
     #[kani::unwind(513)]
     fn the_header_fields_partition_the_block() {
@@ -1087,7 +1087,7 @@ mod verification {
     /// most easily got wrong by hand: `last_lba` is inclusive, so ranges that merely touch do
     /// overlap. Stated as the *definition* (the intersection is non-empty) rather than as the
     /// implementation, so the proof is not the code compared with itself.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/globally_unique_identifier_partition_table/falsifications/verification.overlap_is_exactly_sharing_a_block.patch`
     #[kani::proof]
     fn overlap_is_exactly_sharing_a_block() {
         let a = Entry::new(
@@ -1129,7 +1129,7 @@ mod verification {
     ///
     /// `create` is allowed to fail and the harness then returns; what is proved is that whenever it
     /// succeeds, the result satisfies the reader's rules.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/globally_unique_identifier_partition_table/falsifications/verification.create_never_lays_out_a_table_parse_would_reject.patch`
     #[kani::proof]
     fn create_never_lays_out_a_table_parse_would_reject() {
         let part = Entry::new(
