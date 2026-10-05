@@ -33,10 +33,10 @@ watermark (`crates/memory_regions/src/table.rs`, `retype_page`).
   capability per handoff, however large, which is what §102 argued for at 475 pages. Additive:
   every caller today passes zero. The region's watermark advances by the count, or the call
   refuses with `OutOfMemory` and moves nothing.
-- **B. Route N one-page frames.** No kernel change. `component_plan` would need a role that resolves
+- B. Route N one-page frames. No kernel change. `component_plan` would need a role that resolves
   to several slots, and every instance spends N capability-table slots on one blob. Chosen only
   because it is less work, which is AGENTS.md's elegance-over-convenience test failing out loud.
-- **C. Keep one page and drop history across a swap.** The coordinator's default was a page count
+- C. Keep one page and drop history across a swap. The coordinator's default was a page count
   instead, so this is the fallback if A and B are both refused.
 
 ## Ruled

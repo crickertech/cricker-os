@@ -27,7 +27,7 @@ decision is host-tested in `crates/entropy_protocol`, and the drivers' three cal
 anywhere: no machine this repository boots can produce a device that answers with zeros. The one that
 did was radon, whose TRNG has a gated clock, and it is not a machine CI can run.
 
-**The shape.** QEMU can make one: `-object rng-random,filename=/dev/zero,id=zeros` behind a second
+The shape. QEMU can make one: `-object rng-random,filename=/dev/zero,id=zeros` behind a second
 `virtio-rng-device`. What is missing is a way for a test to reach *that* device rather than the real
 one, because `entropy_service::Bus` picks a transport and the scan takes the first virtio-rng it
 finds on it. So this is a runner line plus a way to name which device a wiring should take, and the
@@ -40,7 +40,7 @@ entropy device sitting on a bus every other entropy test scans is a way to make 
 for a reason unrelated to what they assert. That is a design question about how a wiring names a
 device, and it is larger than the defect it would have covered.
 
-**What it would also unlock.** The same lever tests the *dry* device path (`filename=/dev/null`, or a
+What it would also unlock. The same lever tests the *dry* device path (`filename=/dev/null`, or a
 `rng-random` that never answers), which is likewise only ever exercised by a device nobody has.
 
 ## Index row

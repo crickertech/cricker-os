@@ -60,7 +60,7 @@ confined EL0 server are different entries, because what a holder of the roster c
 different: with the driver in the kernel there is no endpoint to name, and with the driver at EL0
 there is.
 
-**Milestone 261 answered it.** A process owns the controller's data plane, it serves
+Milestone 261 answered it. A process owns the controller's data plane, it serves
 `filesystem_protocol::blk` on a request endpoint, and that endpoint is exactly the shape the roster's
 virtio entries already point at. So the wire shape is decidable now and was not before.
 
@@ -69,7 +69,7 @@ virtio entries already point at. So the wire shape is decidable now and was not 
 Two reasons, and the second is the one that decides.
 
 It is off that milestone's scope, which is the driver leaving the kernel. And a roster entry is
-**something two programs agree on**, which AGENTS.md's *move fast on what can be undone* tenet puts
+something two programs agree on, which AGENTS.md's *move fast on what can be undone* tenet puts
 in the irreversible category along with names, dependencies and the syscall surface. §86 names it
 directly as "the genuinely expensive thing" in that section, above the capability question. A lane
 that invented a transport-kind encoding on its way past would be committing the tree to it.

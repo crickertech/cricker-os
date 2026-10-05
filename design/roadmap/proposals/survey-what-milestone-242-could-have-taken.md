@@ -12,7 +12,7 @@ needs_person: no
 Raised on 2026-10-04 (UTC) by `lane/s46-reuse-default`, the lane that wrote the 2026-10-04
 amendment to §46 (thin primitives or whole subsystems). Title and slug are drafts.
 
-**In brief.** Milestone 242 (USB host and HID), in pull request #1629, wrote its xHCI and USB logic
+In brief. Milestone 242 (USB host and HID), in pull request #1629, wrote its xHCI and USB logic
 here, as host crates `usb` and `extensible_host_controller_interface` (names provisional) with six
 Kani harnesses. It was built before §46 made taking the default outside the kernel and the crates
 Kani proves. This survey answers what taking would have bought. It is a measurement, not a rewrite.

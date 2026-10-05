@@ -45,7 +45,7 @@ rule: the protocol under test must be pure logic in a host-reachable crate, with
 `cfg(loom)` type aliases, and no `asm!` fences in the path (loom cannot model those, which is a
 forcing function in the same direction rule 7 already pushes).
 
-The work is a pilot on **one** protocol, chosen for being hand-rolled rather than spin-locked;
+The work is a pilot on one protocol, chosen for being hand-rolled rather than spin-locked;
 candidates are the per-CPU run-queue handoff (DECISIONS §28), the reaper handoff, and the IPC sender
 queue. Deliverables: the protocol lifted (if needed) into a host-testable form, loom tests over it,
 and a note recording the method and whether the second protocol is worth the retrofit.
