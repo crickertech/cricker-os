@@ -654,6 +654,7 @@ pub fn for_each_reserved_region(rid: u32, each: &mut dyn FnMut(paging::domain::D
         each(paging::domain::DmaRegion {
             base: r.base,
             size: r.size,
+            writable: r.device_may_write(),
         });
     });
 }

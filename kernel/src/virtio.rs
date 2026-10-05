@@ -1014,31 +1014,17 @@ pub fn notify(id: usize, queue: u16) -> Result<(), TransportError> {
     Ok(())
 }
 
-/// **Test hook: make device `id` emit an address its IOMMU domain does not map, so the IOMMU must
-/// fault** (milestone 16b confinement proof, kernel/src/iommu.rs).
-///
-/// The software shadow ring refuses an out-of-region descriptor *before* the device is ever rung,
-/// so a normal path can never reach the hardware. To prove the IOMMU itself confines the device we
-/// deliberately go around that: bring the device up at the transport level and point its **available
-/// ring** at `avail_out_of_domain`, a frame the domain does not include. On the kick, the device's
-/// first act is to read the available ring; that read is an out-of-domain IOVA, so the IOMMU faults
-/// it and records the event. The CPU can still fill the frame through the direct map (CPU accesses
-/// do not go through the IOMMU); only the *device's* view of it is unmapped, which is the whole
-/// point. No block-device knowledge is needed: the fault happens before any descriptor is read.
+/// **Reset device `dev` and take it through the modern handshake up to `FEATURES_OK`**, accepting
+/// `VERSION_1` and, when the device offers it, `ACCESS_PLATFORM`, and nothing else. The shared first
+/// half of the two IOMMU test hooks below; the caller sets up a queue and sets `DRIVER_OK`.
 #[cfg(test)]
-pub(crate) fn provoke_iommu_escape(id: usize, avail_out_of_domain: u64) {
+fn reset_to_features_ok(dev: &mut Device) {
     // Status bits and the two feature words, in the mmio vocabulary the transport speaks.
     const S_ACK: u32 = 1;
     const S_DRIVER: u32 = 2;
-    const S_DRIVER_OK: u32 = 4;
     const S_FEATURES_OK: u32 = 8;
     const F_VERSION_1_HI: u32 = 1; // feature bit 32
     const F_ACCESS_PLATFORM_HI: u32 = 1 << 1; // feature bit 33 (set when behind an IOMMU)
-
-    let mut devs = DEVICES.lock();
-    let dev = devs
-        .get_mut(id)
-        .expect("provoke_iommu_escape: no such device");
 
     // Reset, then the modern handshake up to FEATURES_OK.
     dev.transport.write_reg(REG_STATUS, 0);
@@ -1061,6 +1047,81 @@ pub(crate) fn provoke_iommu_escape(id: usize, avail_out_of_domain: u64) {
     dev.transport.write_reg(REG_DRIVER_FEATURES, ack_hi);
     dev.transport
         .write_reg(REG_STATUS, S_ACK | S_DRIVER | S_FEATURES_OK);
+}
+
+/// The status a test hook sets once its queue is up: `ACKNOWLEDGE | DRIVER | FEATURES_OK |
+/// DRIVER_OK`.
+#[cfg(test)]
+const TEST_HOOK_DRIVER_OK: u32 = 1 | 2 | 8 | 4;
+
+/// **Test hook: make device `id` write into its shadow page, which its domain maps read-only, and
+/// return what the page holds afterwards** (provisional milestone 767 (AMD-Vi hardening before the
+/// first AMD boot)).
+///
+/// The used ring is the one structure a split virtqueue's device writes, so this points queue 0's
+/// used ring **into the shadow page** and leaves the descriptor table and available ring in the
+/// driver's (writable) region, so that the device's first touch of the shadow page is through the
+/// used ring. The used ring's `flags` word is filled with `0xffff` from the CPU first. A virtio-blk
+/// device answers a kick by setting and then clearing `VRING_USED_F_NO_NOTIFY` in that word (QEMU
+/// 11.1.1, `virtio_blk_handle_vq` through `virtio_queue_set_notification`, read for this hook; it
+/// does so whenever `VIRTIO_RING_F_EVENT_IDX` is not negotiated, which this handshake never
+/// accepts), so a device that can write the page leaves `0xfffe` there and one that cannot leaves
+/// `0xffff`. The available ring's index is zero, so there is no request to process: the word is
+/// the only thing the device writes.
+///
+/// **What QEMU decides here: no fault record is promised.** The device reads the word before it
+/// writes it, and QEMU's AMD-Vi model caches the read's translation and then refuses the write
+/// from that cache without logging an event (`amdvi_do_translate`'s IOTLB hit returns the cached
+/// permission, read at 11.1.1). The other three units' models were not read for this. So the test
+/// asks whether the write landed, which every unit answers the same way, rather than whether a
+/// fault was recorded.
+#[cfg(test)]
+pub(crate) fn provoke_write_to_shadow(id: usize) -> u16 {
+    let mut devs = DEVICES.lock();
+    let dev = devs
+        .get_mut(id)
+        .expect("provoke_write_to_shadow: no such device");
+    reset_to_features_ok(dev);
+
+    let num = dev.transport.queue_num_max(0).min(QSIZE);
+    let desc = dev.direct_memory_access_base + DESC_OFF;
+    let avail = dev.direct_memory_access_base + AVAIL_OFF;
+    let used = dev.shadow_base + USED_OFF;
+    // avail = { flags, idx = 0 }: nothing to process. used.flags = the canary.
+    direct_memory_access_write16(avail, 0);
+    direct_memory_access_write16(avail + 2, 0);
+    direct_memory_access_write16(used, 0xffff);
+    direct_memory_access_write16(used + 2, 0);
+    crate::arch::direct_memory_access_write_barrier();
+    dev.transport.setup_queue(0, num, desc, avail, used);
+    dev.transport.write_reg(REG_STATUS, TEST_HOOK_DRIVER_OK);
+    // Under TCG QEMU handles the kick synchronously in this vCPU thread, so the device's writes
+    // (or its refused attempts) are done when this returns.
+    dev.transport.notify_queue(0);
+    let flags = direct_memory_access_read16(used);
+    // Reset, as `provoke_iommu_escape` does, so a later test does not inherit this queue.
+    dev.transport.write_reg(REG_STATUS, 0);
+    flags
+}
+
+/// **Test hook: make device `id` emit an address its IOMMU domain does not map, so the IOMMU must
+/// fault** (milestone 16b confinement proof, kernel/src/iommu.rs).
+///
+/// The software shadow ring refuses an out-of-region descriptor *before* the device is ever rung,
+/// so a normal path can never reach the hardware. To prove the IOMMU itself confines the device we
+/// deliberately go around that: bring the device up at the transport level and point its **available
+/// ring** at `avail_out_of_domain`, a frame the domain does not include. On the kick, the device's
+/// first act is to read the available ring; that read is an out-of-domain IOVA, so the IOMMU faults
+/// it and records the event. The CPU can still fill the frame through the direct map (CPU accesses
+/// do not go through the IOMMU); only the *device's* view of it is unmapped, which is the whole
+/// point. No block-device knowledge is needed: the fault happens before any descriptor is read.
+#[cfg(test)]
+pub(crate) fn provoke_iommu_escape(id: usize, avail_out_of_domain: u64) {
+    let mut devs = DEVICES.lock();
+    let dev = devs
+        .get_mut(id)
+        .expect("provoke_iommu_escape: no such device");
+    reset_to_features_ok(dev);
 
     // Queue 0: descriptor table on the (in-domain) shadow, used ring in the (in-domain) driver
     // region, available ring pointed OUT of the domain. Then DRIVER_OK to make the queue live.
@@ -1069,8 +1130,7 @@ pub(crate) fn provoke_iommu_escape(id: usize, avail_out_of_domain: u64) {
     let used = dev.direct_memory_access_base + USED_OFF;
     dev.transport
         .setup_queue(0, num, desc, avail_out_of_domain, used);
-    dev.transport
-        .write_reg(REG_STATUS, S_ACK | S_DRIVER | S_FEATURES_OK | S_DRIVER_OK);
+    dev.transport.write_reg(REG_STATUS, TEST_HOOK_DRIVER_OK);
 
     // Publish an available head from the CPU side (bypassing the IOMMU) so the device has a reason to
     // read the available ring. avail = { u16 flags; u16 idx; u16 ring[] }.
@@ -1636,5 +1696,50 @@ mod tests {
                 f.code, f.rid,
             ),
         }
+    }
+
+    /// **A device cannot write the shadow page it reads its rings from** (provisional milestone 767
+    /// (AMD-Vi hardening before the first AMD boot); every IOMMU this tree drives).
+    ///
+    /// The shadow page is the one frame in a virtio device's domain whose whole purpose is that
+    /// only the kernel shapes it, and the device's job there is to read. Until 767 every page of
+    /// every domain was mapped read-write, so the device could have rewritten the descriptors the
+    /// kernel had validated. This points the device's used ring (the one structure it writes) into
+    /// the shadow page and kicks it, and the write must not land: `provoke_write_to_shadow` says
+    /// why the word is a canary and why no fault record is asked for.
+    ///
+    /// Falsification: replayable `kernel/falsifications/virtio.tests.a_device_write_to_the_read_only_shadow_is_refused.patch`
+    #[test_case]
+    fn a_device_write_to_the_read_only_shadow_is_refused() {
+        let Some(d) = crate::pci::find_block_device() else {
+            crate::testing::skip!("no PCIe disk on the bus, so there is nothing to confine");
+        };
+        assert!(
+            crate::iommu::is_active(),
+            "a PCIe disk is present but the IOMMU is not active: DMA is bypassing translation",
+        );
+        // Quiesce every other block device, for the reason the escape test above gives.
+        for n in 0..8 {
+            let Some(mut other) = find_block_device_n(n) else {
+                break;
+            };
+            if other.rid != Some(d.rid) {
+                other.transport.write_reg(REG_STATUS, 0);
+            }
+        }
+        let dma = crate::memory::alloc_zeroed().expect("no DMA frame").addr();
+        let id = register(
+            Transport::pci(&d),
+            dma,
+            page_frames::FRAME_SIZE,
+            Some(d.rid),
+        );
+        let flags = provoke_write_to_shadow(id);
+        assert_eq!(
+            flags, 0xffff,
+            "the device rewrote its read-only shadow page (used.flags {flags:#06x}): the domain \
+             maps the shadow writable",
+        );
+        while crate::iommu::take_fault().is_some() {}
     }
 }

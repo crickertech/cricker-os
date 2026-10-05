@@ -121,6 +121,7 @@ pub fn bring_up() -> Result<Found, Absent> {
         &[paging::domain::DmaRegion {
             base: dma,
             size: pages * page_frames::FRAME_SIZE,
+            writable: true,
         }],
     );
     Ok(Found {

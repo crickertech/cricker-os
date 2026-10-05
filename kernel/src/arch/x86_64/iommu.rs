@@ -697,6 +697,9 @@ pub fn for_each_reserved_region(rid: u32, each: &mut dyn FnMut(paging::domain::D
             each(paging::domain::DmaRegion {
                 base: r.base,
                 size: r.size(),
+                // An RMRR carries no permission bits: it is memory firmware both reads and writes
+                // through DMA, and VT-d 4.1 section 3.16 asks for it mapped as such.
+                writable: true,
             });
         },
     );

@@ -343,10 +343,12 @@ fn a_failed_domain_build_leaves_a_prefix<F: PageFormat>() {
         DmaRegion {
             base: GIB1 - 2 * PAGE_SIZE,
             size: 3 * PAGE_SIZE,
+            writable: true,
         },
         DmaRegion {
             base: 3 * GIB1,
             size: 2 * PAGE_SIZE,
+            writable: true,
         },
     ];
     let (failures, _) = sweep::<F>("build_identity_domain", |root, pool| {
