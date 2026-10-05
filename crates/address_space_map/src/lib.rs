@@ -460,8 +460,23 @@ mod tests {
             check_image(IMAGE_BASE - PAGE, IMAGE_BASE + PAGE),
             Err(ImagePlacement::OutsideBand { .. })
         ));
-        // An empty image is refused rather than trivially placed.
-        assert!(check_image(IMAGE_BASE, IMAGE_BASE).is_err());
+        // An empty image is refused rather than trivially placed, and as misplaced, not as large.
+        assert_eq!(
+            check_image(IMAGE_BASE, IMAGE_BASE),
+            Err(ImagePlacement::OutsideBand {
+                image_start: IMAGE_BASE,
+                image_end: IMAGE_BASE
+            })
+        );
+        // An image that starts below the band and ends past it is outside it; only one that starts
+        // inside the band and overruns the far edge is too large.
+        assert_eq!(
+            check_image(IMAGE_BASE - PAGE, IMAGE.end + PAGE),
+            Err(ImagePlacement::OutsideBand {
+                image_start: IMAGE_BASE - PAGE,
+                image_end: IMAGE.end + PAGE
+            })
+        );
     }
 
     #[test]

@@ -483,4 +483,33 @@ mod tests {
             );
         }
     }
+
+    /// Setting a level replaces the one already there rather than merging with it, leaves the count
+    /// and the kind alone, and clamps a level nobody defined to debug.
+    #[test]
+    fn a_severity_set_twice_is_the_second_and_the_neighbours_are_untouched() {
+        let w0 = with_severity((0x2a << KIND_SHIFT) | 9, 5);
+        assert_eq!(severity(w0), Some(5));
+        let again = with_severity(w0, 2);
+        assert_eq!(severity(again), Some(2), "not 5 | 2");
+        assert_eq!(kind(again), 0x2a);
+        assert_eq!(len(again), 9);
+        assert_eq!(severity(with_severity(0, 200)), Some(7));
+        assert_eq!(severity(with_severity(0, 7)), Some(7));
+    }
+
+    /// The body kind is its own byte, between the severity above it and nothing below it but the
+    /// count: neither neighbour leaks in, and it reads back whole.
+    #[test]
+    fn the_kind_is_read_from_its_own_byte() {
+        assert_eq!(kind(0), 0);
+        assert_eq!(kind(0xff << KIND_SHIFT), 0xff);
+        assert_eq!(kind(3 << KIND_SHIFT), 3);
+        assert_eq!(kind((5 << SEVERITY_SHIFT) | 17), 0);
+        assert_eq!(
+            kind(0xaa << (KIND_SHIFT + 8)),
+            0,
+            "bits above the kind byte are not it"
+        );
+    }
 }

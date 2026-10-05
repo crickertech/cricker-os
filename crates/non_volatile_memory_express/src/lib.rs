@@ -964,6 +964,26 @@ mod tests {
         assert_eq!(lba_format_shift(&[0u8; 383]), None);
     }
 
+    /// The shift is read at `128 + 4 * FLBAS + 2` for every format the nibble can name, from a
+    /// structure exactly 384 bytes long, with a different shift planted in every slot so a wrong
+    /// stride lands on another format's value.
+    #[test]
+    fn the_reported_shift_is_the_one_in_the_flbas_slot_for_every_format() {
+        for flbas in 0..16u8 {
+            let mut data = [0u8; 384];
+            for format in 0..16usize {
+                data[128 + 4 * format + 2] = 20 + format as u8;
+            }
+            data[26] = flbas | 0x70; // the bits above the format number are not part of it
+            assert_eq!(lba_format_shift(&data), Some(20 + flbas), "flbas {flbas}");
+        }
+        assert_eq!(
+            lba_format_shift(&[0u8; 384]),
+            Some(0),
+            "384 bytes is enough"
+        );
+    }
+
     #[test]
     fn identify_namespace_accepts_the_minimum_length_and_refuses_one_byte_less() {
         // The `[0u8; 100]` case above is far short of the boundary and cannot tell `< 384` from

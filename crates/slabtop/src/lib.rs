@@ -141,4 +141,83 @@ mod tests {
         let out = shown(&Spending::default());
         assert!(out.contains("       0        0  rendezvous"), "{out}");
     }
+
+    fn right(v: u64, width: usize) -> String {
+        let mut out = Vec::new();
+        write_right(v, width, &mut |b| out.extend_from_slice(b));
+        String::from_utf8(out).unwrap()
+    }
+
+    /// Width `0` is "no padding", and a number wider than its column is printed whole.
+    #[test]
+    fn a_number_wider_than_its_column_is_printed_whole() {
+        assert_eq!(right(5, 3), "  5");
+        assert_eq!(right(12345, 3), "12345");
+        assert_eq!(right(u64::MAX, 0), "18446744073709551615");
+    }
+
+    /// The ranking has to move rows, not only keep a table that arrived sorted: every one of the 24
+    /// orders the four kinds can hold comes out largest first, each label with its own count.
+    #[test]
+    fn every_arrangement_of_four_counts_is_ranked_largest_first() {
+        let values = [9u64, 7, 5, 3];
+        let mut seen = 0;
+        for a in 0..4 {
+            for b in (0..4).filter(|b| *b != a) {
+                for c in (0..4).filter(|c| *c != a && *c != b) {
+                    let d = 6 - a - b - c;
+                    let s = Spending {
+                        pages: 512,
+                        committed: 1,
+                        frames: values[a],
+                        threads: values[b],
+                        address_spaces: values[c],
+                        rendezvous: values[d],
+                    };
+                    let out = shown(&s);
+                    let rows: Vec<(u64, String)> = out
+                        .lines()
+                        .skip(2)
+                        .map(|l| {
+                            let mut f = l.split_whitespace();
+                            let pages = f.next().unwrap().parse().unwrap();
+                            let _kib = f.next().unwrap();
+                            (pages, f.collect::<Vec<_>>().join(" "))
+                        })
+                        .collect();
+                    let pages: Vec<u64> = rows.iter().map(|r| r.0).collect();
+                    assert_eq!(pages, [9, 7, 5, 3], "{out}");
+                    for (n, what) in &rows {
+                        let owner = match what.as_str() {
+                            "frames" => values[a],
+                            "threads" => values[b],
+                            "address spaces" => values[c],
+                            "rendezvous" => values[d],
+                            other => panic!("{other}"),
+                        };
+                        assert_eq!(*n, owner, "{what} kept its own count in {out}");
+                    }
+                    seen += 1;
+                }
+            }
+        }
+        assert_eq!(seen, 24);
+    }
+
+    /// Equal counts keep the order the table lists them in (frames, threads, address spaces,
+    /// rendezvous), so two runs of the same budget print the same page.
+    #[test]
+    fn equal_counts_keep_their_listed_order() {
+        let s = Spending {
+            pages: 8,
+            committed: 4,
+            frames: 1,
+            threads: 1,
+            address_spaces: 1,
+            rendezvous: 1,
+        };
+        let out = shown(&s);
+        let names: Vec<&str> = out.lines().skip(2).map(|l| l[19..].trim()).collect();
+        assert_eq!(names, ["frames", "threads", "address spaces", "rendezvous"]);
+    }
 }

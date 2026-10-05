@@ -1629,6 +1629,50 @@ mod tests {
         }
     }
 
+    /// **Every qword store lands on an 8-aligned address of the aperture**, for every base
+    /// misalignment, which is the reason the wide path exists at all: a pair store to an address
+    /// the hardware cannot do in one transaction is a fault on some targets and a split write on
+    /// the rest. The byte-for-byte test above cannot see it, because a misplaced pair of pixels
+    /// lands the same bytes. A stride of 44 gives rows that start 4 off 8, and `misalign` of 2 or
+    /// 6 makes the base 2 off a word, so the row has no aligned pair and must take word stores only.
+    #[test]
+    fn every_qword_store_is_eight_aligned_in_the_apertures_own_address_space() {
+        use super::Aperture;
+        let found = Framebuffer {
+            base: 0,
+            width: 10,
+            height: 3,
+            stride: 44,
+            order: PixelOrder::Bgrx,
+        };
+        let aperture = Aperture::new(&found, 10, 3).expect("a real screen");
+        let (w, h) = aperture.size();
+        for (x, y) in (0..w).flat_map(|x| (0..h).map(move |y| (x, y))) {
+            for (rw, rh) in (1..=w - x).flat_map(|rw| (1..=h - y).map(move |rh| (rw, rh))) {
+                for misalign in 0..8u32 {
+                    let mut qwords = std::vec::Vec::new();
+                    assert!(aperture.copy_wide(
+                        x,
+                        y,
+                        rw,
+                        rh,
+                        misalign,
+                        |_, _| 0,
+                        |at, _| qwords.push(at),
+                        |_, _| {},
+                    ));
+                    for at in qwords {
+                        assert_eq!(
+                            (misalign as usize + at) % 8,
+                            0,
+                            "({x},{y}) {rw}x{rh}, misalign {misalign}: qword at {at}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     /// **What the wide path permits, as a store count.** The scanout's own geometry (924x344,
     /// stride 3696, an even width on an 8-aligned stride) is the best case and the one the swish
     /// leg pays: one qword store per pixel pair, no head or tail words, 158,928 stores for a

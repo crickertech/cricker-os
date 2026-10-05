@@ -664,6 +664,53 @@ mod tests {
         assert_eq!(t.bounds(r), None, "the name is dead, not merely claimed");
     }
 
+    /// `len` and `is_empty` are what the region table prints as its peak (milestone 601): they must
+    /// follow the live count up through inserts and splits and back down through claims.
+    #[test]
+    fn len_and_is_empty_follow_the_live_regions() {
+        let mut t = RegionTable::<4>::new();
+        assert_eq!((t.len(), t.is_empty()), (0, true));
+        let root = t.insert_root(0, 16).unwrap();
+        assert_eq!((t.len(), t.is_empty()), (1, false));
+        let child = t.split(root, 4).unwrap();
+        assert_eq!((t.len(), t.is_empty()), (2, false));
+        let claim = t.claim_for_destroy(child).unwrap();
+        t.return_to_parent(&claim);
+        assert_eq!((t.len(), t.is_empty()), (1, false));
+        assert!(t.claim_for_destroy(root).is_some());
+        assert_eq!((t.len(), t.is_empty()), (0, true));
+    }
+
+    /// Returning the top child after a hole below it lets the parent's watermark fall to the highest
+    /// child still live, measured in the parent's own page offsets: the parent sits at a non-zero
+    /// base so a child's end taken from the wrong origin is a different number.
+    #[test]
+    fn the_watermark_falls_to_the_highest_live_child_after_a_hole() {
+        let mut t = RegionTable::<8>::new();
+        let root = t.insert_root(0x100, 16).unwrap();
+        let a = t.split(root, 4).unwrap();
+        let b = t.split(root, 4).unwrap();
+        let c = t.split(root, 4).unwrap();
+        assert_eq!(t.usage(root), Some((12, 16)));
+
+        let cb = t.claim_for_destroy(b).unwrap();
+        t.return_to_parent(&cb);
+        assert_eq!(
+            t.usage(root),
+            Some((12, 16)),
+            "a hole under `c` keeps the mark"
+        );
+
+        let cc = t.claim_for_destroy(c).unwrap();
+        t.return_to_parent(&cc);
+        assert_eq!(
+            t.usage(root),
+            Some((4, 16)),
+            "down to the end of `a`, not to 8"
+        );
+        assert!(t.bounds(a).is_some());
+    }
+
     #[test]
     fn a_pinned_region_refuses_and_stays_alive() {
         let mut t = RegionTable::<4>::new();

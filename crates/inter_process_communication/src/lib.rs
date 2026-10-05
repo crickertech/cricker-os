@@ -1060,4 +1060,15 @@ mod tests {
         assert_eq!(format!("{:?}", Receive::<N>::Signal), "Signal");
         assert!(format!("{:?}", Receive::<N>::FromSender(sp)).starts_with("FromSender"));
     }
+
+    /// A rendezvous starts as an ordinary one, and binding it to an interrupt is visible and stays.
+    #[test]
+    fn binding_to_an_interrupt_is_visible_and_one_way() {
+        let mut e: Rendezvous<N> = Rendezvous::new();
+        assert!(!e.is_bound_to_interrupt());
+        e.bind_to_interrupt();
+        assert!(e.is_bound_to_interrupt());
+        e.bind_to_interrupt();
+        assert!(e.is_bound_to_interrupt(), "binding twice does not undo it");
+    }
 }

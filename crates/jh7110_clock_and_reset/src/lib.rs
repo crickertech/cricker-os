@@ -830,6 +830,8 @@ mod tests {
     const PMIC_BUS_MAINLINE: &[u8] =
         include_bytes!("../tests/fixtures/jh7110-pmic-bus-mainline.dtb");
     const PMIC_BUS_FOREIGN: &[u8] = include_bytes!("../tests/fixtures/jh7110-pmic-bus-foreign.dtb");
+    const PMIC_BUS_OVERFULL: &[u8] =
+        include_bytes!("../tests/fixtures/jh7110-pmic-bus-overfull.dtb");
 
     #[test]
     fn radons_pmic_bus_is_one_real_gate_and_one_reset_and_the_virtual_clock_is_skipped() {
@@ -891,6 +893,28 @@ mod tests {
         // aoncrg 3, syscrg 190, then 36 - 16 = 20 bytes read as three eight-byte strides, then
         // syscrg 126 in `resets`.
         assert_eq!(bus.skipped, 2 + 3 + 1);
+    }
+
+    /// More usable gates than the plan holds: the first four are kept in order, the rest are
+    /// counted as cut off and not as foreign, and a bus that names clocks but no resets is still
+    /// read (the absence of one property is not the absence of the bus).
+    #[test]
+    fn a_bus_with_more_gates_than_the_plan_holds_keeps_the_first_and_says_so() {
+        let tree = device_tree_blob::DeviceTreeBlob::from_bytes(PMIC_BUS_OVERFULL).unwrap();
+        let bus = pmic_bus(&tree).unwrap();
+        assert_eq!(
+            bus.plan(),
+            &[
+                Step::EnableClock(140),
+                Step::EnableClock(141),
+                Step::EnableClock(142),
+                Step::EnableClock(143)
+            ]
+        );
+        assert_eq!(bus.plan().len(), MAX_PMIC_BUS_STEPS);
+        assert!(bus.truncated);
+        assert!(bus.from_tree);
+        assert_eq!(bus.skipped, 0);
     }
 
     #[test]

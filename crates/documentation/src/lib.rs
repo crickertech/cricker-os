@@ -150,6 +150,12 @@
 //!   `notes/mutation-testing.md` carries the per-function ledger: what was killed, what is proved
 //!   equivalent, and what is an honest deferral. A reader who finds a number for `documentation` in
 //!   a published report can go there for what it is made of.
+//!   **One residue is a hang, not a wrong answer:** in `take_table_row`, the loop that trims
+//!   trailing blanks off the last cell with `j -= 1` has a mutant (`j /= 1`) that never terminates,
+//!   so `cargo mutants` reports a timeout. The suite notices by hanging rather than by failing.
+//!   The fix is to replace the loop with a slice operation (trim the cell's trailing blanks with
+//!   `rposition` or a slice trim), which removes the loop and with it the hang. That is a change to
+//!   the renderer rather than a test (the triage row is `notes/project-metrics/mutation-triage.csv`).
 //! - **Width is counted in characters, not columns.** A UTF-8 continuation byte counts as zero, so
 //!   ASCII and Latin text wrap correctly and a wide CJK character is counted as one column when it
 //!   occupies two. There is no CJK in the corpus and no font that could draw it.

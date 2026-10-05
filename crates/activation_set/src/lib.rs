@@ -1219,4 +1219,98 @@ mod tests {
             assert_eq!(parse_current(bad), None, "{bad:?}");
         }
     }
+
+    /// A row is refused for any one bad name, not only when all three are bad: each of program,
+    /// version and package is checked on its own.
+    #[test]
+    fn a_row_with_one_bad_name_is_malformed() {
+        let hex = "22".repeat(32);
+        for bad in [
+            format!("{hex} #p 1 pkg\n"),
+            format!("{hex} p #1 pkg\n"),
+            format!("{hex} p 1 #pkg\n"),
+        ] {
+            assert_eq!(lookup(&bad, "p"), Err(Error::Malformed), "{bad:?}");
+        }
+        assert!(
+            lookup_digest(&format!("{hex} p 1 pkg\n"), &[0x22; 32])
+                .unwrap()
+                .is_some()
+        );
+    }
+
+    /// `parse_current` takes decimal digits only: `u32::from_str` would also take a leading `+`.
+    #[test]
+    fn a_current_line_with_a_plus_sign_is_not_a_generation() {
+        assert_eq!(parse_current("+5"), None);
+        assert_eq!(parse_current("+5\n"), None);
+        assert_eq!(parse_current("5\n"), Some(5));
+    }
+
+    /// Two default pointers for one program are no single answer, and a removal that needs the
+    /// pointer's digest says so rather than reading the last one.
+    #[test]
+    fn removing_a_version_from_a_table_with_two_pointers_is_malformed() {
+        let (a, b) = ("11".repeat(32), "22".repeat(32));
+        let table = format!("{a} p 1 pkg\n{b} p 2 pkg\ndefault p {a}\ndefault p {b}\n");
+        let mut out = [0u8; 512];
+        assert_eq!(
+            without_version(&table, "p", "1", &mut out),
+            Err(Error::Malformed)
+        );
+    }
+
+    /// Removing one program's version looks only at that program's rows: another program, and
+    /// the owner's vouch for this one, are not survivors, so they cannot make the removal
+    /// ambiguous or take the pointer.
+    #[test]
+    fn other_rows_are_not_survivors_of_a_qualified_removal() {
+        let mut store = Store::new();
+        store.install(row("date", "date", "1.0.0", 9));
+        store.install(vouch("uptime", 7));
+        store.install(row("uptime", "uptime", "0.1.0", 1));
+        store.install(row("uptime", "uptime", "0.2.0", 2));
+        store.remove_version("uptime", "0.2.0").unwrap();
+        assert_eq!(store.bare_version_of("uptime").unwrap(), "0.1.0");
+        assert_eq!(store.bare_version_of("date").unwrap(), "1.0.0");
+        assert!(
+            lookup_digest(store.table(), &[7; 32]).unwrap().is_some(),
+            "the vouch stays"
+        );
+    }
+
+    /// Removing a version that does not hold the pointer leaves the pointer exactly where it was,
+    /// even when the first survivor is some other version; and another program's pointer is never
+    /// the removal's to move.
+    #[test]
+    fn a_removal_moves_only_its_own_programs_pointer_and_only_when_it_held_it() {
+        let mut store = Store::new();
+        store.install(row("date", "date", "1.0.0", 9));
+        store.install(row("uptime", "uptime", "0.1.0", 1));
+        store.install(row("uptime", "uptime", "0.2.0", 2));
+        store.install(row("uptime", "uptime", "0.3.0", 3));
+        store.remove_version("uptime", "0.1.0").unwrap();
+        assert_eq!(store.bare_version_of("uptime").unwrap(), "0.3.0");
+        assert_eq!(store.bare_version_of("date").unwrap(), "1.0.0");
+
+        // The pointer's own version goes, and a second program's pointer sits after it in the file.
+        store.install(row("zed", "zed", "1", 8));
+        store.remove_version("uptime", "0.3.0").unwrap();
+        assert_eq!(store.bare_version_of("uptime").unwrap(), "0.2.0");
+        assert_eq!(store.bare_version_of("zed").unwrap(), "1");
+        assert_eq!(store.bare_version_of("date").unwrap(), "1.0.0");
+    }
+
+    /// A qualified removal takes one row. Two rows sharing a digest (a hand-written table; an
+    /// install relabels instead) are not both taken because they agree on it.
+    #[test]
+    fn a_qualified_removal_takes_one_row_even_when_a_digest_repeats() {
+        let a = "11".repeat(32);
+        let table = format!("{a} p 1 pkg\n{a} p 2 pkg\ndefault p {a}\n");
+        let mut out = [0u8; 512];
+        let n = without_version(&table, "p", "2", &mut out).unwrap();
+        let after = core::str::from_utf8(&out[..n]).unwrap();
+        assert_eq!(versions_of(after, "p").count(), 1);
+        assert!(lookup_version(after, "p", "1").unwrap().is_some());
+    }
 }
