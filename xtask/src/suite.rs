@@ -578,6 +578,44 @@ pub(crate) fn test() -> bool {
                 return false;
             }
         }
+        // **And the whole suite again, on a machine whose IOMMU is AMD-Vi** (lane `amd-vi`,
+        // provisional). `q35` with `-device amd-iommu` writes an IVRS and no DMAR, so the kernel
+        // brings up `arch/x86_64/amd_vi.rs` instead of VT-d, and every confinement test above
+        // (the virtio and NVMe DMA escapes among them) runs against the other unit. The whole
+        // suite rather than the escape tests alone, because the claim is that every device the
+        // kernel confines is confined on this hardware too, and DECISIONS §19 (architectural
+        // parity is a tenet) says the same suite proves a capability on every machine it ships
+        // on; the cost is one more PVH boot of each image. Fresh images first, on the freshness
+        // rule the leg above states.
+        //
+        // Skipped under `--test`, like the root-port boot and for its reason. A caller who wants
+        // one test on this machine sets `NIFE_IOMMU=amd` for the whole run, which is what a
+        // falsification record's `Environment:` line does.
+        if filter.is_none() && std::env::var_os("NIFE_IOMMU").is_none() {
+            eprintln!();
+            eprintln!("--- kernel and system tests, x86_64 with AMD-Vi in place of VT-d ---");
+            if !mkdisk() || !mkredoxfs() || !mknvmedisk() {
+                return false;
+            }
+            // SAFETY: `set_var` became unsafe in edition 2024 because it races other threads. xtask
+            // is single-threaded here: this runs on the main thread before the child that reads it
+            // is spawned, and the only thread xtask ever starts (the transcript reader in
+            // swish_check_leg) copies pipe bytes into a String and never touches the environment.
+            unsafe { std::env::set_var("NIFE_IOMMU", "amd") };
+            let amd = run("cargo", &["test", "-p", "kernel", "--target", X86_TARGET])
+                && run(
+                    "cargo",
+                    &["test", "-p", "system_tests", "--target", X86_TARGET],
+                );
+            // Removed whether or not it passed, so every later boot gets the VT-d machine.
+            //
+            // SAFETY: as above. Single-threaded, on the main thread, and the child that read it
+            // has already exited.
+            unsafe { std::env::remove_var("NIFE_IOMMU") };
+            if !amd {
+                return false;
+            }
+        }
         // **And the same kernel started by real firmware** (milestone 87). The suite above rides
         // QEMU's PVH loader, which is a hypervisor protocol no machine speaks; this boots the same
         // code through OVMF from `\EFI\BOOT\BOOTX64.EFI`, which is what the Dell OptiPlex does.
