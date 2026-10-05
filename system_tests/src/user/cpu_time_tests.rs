@@ -158,7 +158,16 @@ fn the_thread_that_ran_is_the_thread_that_is_charged() {
     // Teardown. The runaway is forcibly killed the way `force_kill_tests` does it: the first
     // reclaim arms the kill and refuses, the next tick on whichever core holds it converts it to a
     // corpse, and a later reclaim succeeds. The wait is time-based for that reason.
-    let deadline = crate::arch::timer::now() + crate::arch::timer::frequency();
+    //
+    // The deadline scales with the slowdown this very run measured, not with a guess about the
+    // model. Teardown needs a tick to land on the runaway's core, and `spun` is how many
+    // milliseconds of the window's `window_ms` that runaway actually collected: an ideal machine
+    // gives `spun == window_ms` (scale 1, the old fixed second), a model that delivers a tenth of
+    // the ticks gives scale 10. The scale is bounded by the `spun >= 50` assertion above (so at
+    // most 10 seconds), which means a real hang still fails, only later on a slow model.
+    let window_ms = window() * 1000 / crate::arch::timer::frequency();
+    let slowdown = (window_ms / spun.max(1)).max(1);
+    let deadline = crate::arch::timer::now() + crate::arch::timer::frequency() * slowdown;
     let mut reclaimed = false;
     while crate::arch::timer::now() < deadline {
         if sched::reclaim_region(spinner_region).is_ok() {
