@@ -86,7 +86,7 @@ park before the tour (milestone 406).
 
 ## What this tree already does in the analogous case
 
-A claim gets a carrier that runs on every pull request, or it is prose. That is §97's posture
+A claim gets a carrier that runs on every pull request, or it is prose. That is §97 (advisory checks)'s posture
 and milestone 406's whole complaint one subsystem over. `builder`'s failure was not that it was
 wrong; it was that the only thing exercising it was a boot no check performs, so a step nothing
 asserts and a step nothing needs produced identical evidence, which is what cost milestone 289 a
