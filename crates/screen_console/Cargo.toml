@@ -33,3 +33,7 @@ machine_discovery = { version = "0.1.0", path = "../machine_discovery" }
 # stride are the framebuffer contract's own numbers, and a test that hardcoded them would keep
 # passing when the contract changed. No build dependency; `Aperture` itself knows no scanout.
 graphics_protocol = { version = "0.1.0", path = "../graphics_protocol" }
+# The terminal engine's grid bounds, in the coverage test only: the screen terminal's surface is
+# capped at what one `Vt` can lay a grid over, and the test that a 1920x1080 screen is covered
+# whole must use the same cap the kernel does. No build dependency.
+video_terminal = { version = "0.1.0", path = "../video_terminal" }

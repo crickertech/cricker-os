@@ -1,0 +1,14 @@
+[package]
+name = "usb"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+# no_std for the driver, std for host tests, like every DECISIONS §7 (testing: host-testable crates, from commit one) pure-logic crate. What a USB
+# device says about itself (descriptors), what a host asks it (setup packets), and what a boot
+# protocol keyboard's eight-byte report means. Every byte this crate parses came from a device a
+# stranger plugged in, so it is written to refuse rather than to trust, and it is the part of the
+# USB keyboard driver the model checker reaches (milestone 242 (USB host and HID)).
+
+[lints]
+workspace = true

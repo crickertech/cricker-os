@@ -113,6 +113,13 @@ mod uuid_tests;
 #[cfg(all(test, initrd))]
 mod non_volatile_memory_express_tests;
 
+/// **Milestone 30 (the network stack as a confined component)'s DHCP, TCP and UDP gates over the `e1000e` NIC** (milestone 494 (a driver for
+/// the network card a PC actually has)): `net_stack` driving QEMU's 82574L at EL0 through two pages
+/// of BAR0 and an IOMMU-confined DMA region, on all three architectures. The first NIC the x86_64
+/// leg has.
+#[cfg(all(test, initrd))]
+mod e1000e_tests;
+
 /// **Randomness that an adversary cannot predict** (milestone 56, DECISIONS §44).
 ///
 /// Not arch-gated and not transport-gated: the same binary, the same contract, the same assertions,

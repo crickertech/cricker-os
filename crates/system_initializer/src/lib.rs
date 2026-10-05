@@ -91,6 +91,9 @@
 //!         kernel_ring: 24,
 //!         kernel_ring_cursor: 25,
 //!         kernel_ring_notification: 26,
+//!         // A USB keyboard driver's attach endpoint (milestone 242 (USB host and HID)): empty on
+//!         // a machine with no xHCI controller.
+//!         usb_keyboard_attach: 27,
 //!         // Empty here. On aarch64 this holds the kernel's report endpoint and a test SGI, because
 //!         // that boot path is shared with milestone 19d's test roles; the progenitor deletes them with the
 //!         // device authority once the drivers exist, rather than keeping delegable authority for
@@ -588,6 +591,15 @@ pub struct BootEndowment {
     /// The notification the kernel signals when it appends to its ring, `READ | WRITE | GRANT`:
     /// bound to the log service's thread before it starts. Name: provisional, as above.
     pub kernel_ring_notification: u64,
+    /// **A USB keyboard driver's attach endpoint** (milestone 242 (USB host and HID)), `WRITE |
+    /// GRANT`, when the kernel started `usb_keyboard_driver` on this machine's xHCI controller.
+    /// [`boot`] delegates `WRITE` on the line discipline's endpoint through it, the one message the
+    /// driver ever receives there, and deletes its own copy: from then on the driver's keystrokes
+    /// reach the terminal exactly as `input`'s do, and nothing downstream can tell the two apart.
+    /// **Absent** on a machine with no controller or one the kernel refused; [`boot`] probes.
+    ///
+    /// Name: provisional, milestone 242's lane, 2026-10-04.
+    pub usb_keyboard_attach: u64,
     /// **Capabilities the kernel granted that the interactive system never uses**, deleted with the
     /// device authority once the drivers exist.
     ///
@@ -1786,6 +1798,19 @@ pub fn boot(
         },
     ));
     must_ok(start_child(input, 0, 0, 0));
+
+    // 3b. **A second keystroke source, a USB keyboard** (milestone 242 (USB host and HID)), when
+    // the kernel started one: `WRITE` on the same terminal endpoint `input` holds, delegated
+    // through the driver's attach endpoint. The driver is already waiting there (it receives
+    // before it does anything else after its bring-up report), so this send does not wait on
+    // anything that could fail to come. Both sources then feed one line discipline, and a person
+    // can type on the keyboard or the serial line alike.
+    if is_granted(g.usb_keyboard_attach) {
+        must_ok(
+            user_mode_runtime::send_cap(g.usb_keyboard_attach, term_ep, abi::rights::WRITE, 0) >= 0,
+        );
+        cap_delete(g.usb_keyboard_attach);
+    }
 
     // **The console's capabilities go back now, before the shell is built**, and that is not
     // tidiness: this capability table has sixteen slots, and milestone 50 added two more kernel grants (the

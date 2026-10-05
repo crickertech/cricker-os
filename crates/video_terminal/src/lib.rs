@@ -149,16 +149,33 @@ pub mod script;
 /// terminal anyone uses. A screen bigger than that gets a bigger constant, and the terminal
 /// component asserts its own geometry fits at compile time so the failure is a build error rather
 /// than a truncated screen.
-pub const MAX_COLS: usize = 132;
+///
+/// **Grown to 240 on 2026-10-04** (the screen terminal lane), when the terminal on a firmware
+/// screen stopped being the contract's 924x344 and started filling the screen at
+/// `screen_console::ScreenConsole::scale_for`'s scale. That rule never gives a screen
+/// `2 * screen_console::MIN_COLUMNS` (240) columns or more, so 240 is every screen's width in
+/// cells; QEMU's 1280x800 OVMF screen is 182, xenon's 1920x1080 is 137. The virtio-gpu scanout
+/// still lays out 132 (`script::COLS`); only the capacity grew.
+pub const MAX_COLS: usize = 240;
 /// The tallest grid this engine can hold, in cells. See [`MAX_COLS`]. Grown from 16 to 90, then
 /// retargeted to 43 (924x344's `HEIGHT` / 8, the font's row height), the VT100/VT220 "wide mode"
-/// row count.
-pub const MAX_ROWS: usize = 43;
+/// row count, then grown to 150 with [`MAX_COLS`] (2026-10-04): a 1200-pixel-tall screen at scale
+/// one. **Not every pair is reachable**: a grid also fits in [`MAX_CELLS`], so 240 columns get 76
+/// rows and 150 rows need 122 columns or fewer.
+pub const MAX_ROWS: usize = 150;
 /// Cells in the largest possible **live** grid (the on-screen viewport; see [`SCROLLBACK_ROWS`] for
 /// the off-screen history alongside it). A real cost, paid once per terminal instance and
 /// auto-provisioned from that program's own region (`kernel/src/user.rs`'s `load` sizes a process's
 /// address-space region from its ELF segments, `.bss` included), not from any shared budget.
-pub const MAX_CELLS: usize = MAX_COLS * MAX_ROWS;
+///
+/// **A budget rather than `MAX_COLS * MAX_ROWS`** (2026-10-04, the screen terminal lane). The grid
+/// is stored at its own width, so any shape up to this many cells fits. 18,432 holds QEMU's
+/// 1280x800 OVMF screen (182x100) and xenon's 1920x1080 at scale two (137x67). The first attempt
+/// sized it 240x150 and grew a `Vt` to 1.73 MB, and `graphical_terminal`'s session, measured at
+/// 490-495 of its 528 pages, could no longer be built. The live grid and the scrollback
+/// ([`SCROLLBACK_CELLS`]) now sum to 44,832 cells, fewer than the 45,276 of 132x43 plus 300 rows
+/// of 132 they replaced, so a `Vt` is no larger than it was.
+pub const MAX_CELLS: usize = 18_432;
 
 /// **Off-screen history**, in whole rows, kept alongside the live grid (milestone 142 increment 2).
 ///
@@ -166,18 +183,24 @@ pub const MAX_CELLS: usize = MAX_COLS * MAX_ROWS;
 /// reaches no allocator, so the capacity is a constant three parties (the terminal, the kernel test,
 /// the host-side check) already agree on the same way they agree on [`MAX_COLS`]/[`MAX_ROWS`].
 ///
-/// **300, chosen as a working depth rather than derived from anything.** At [`MAX_COLS`] (132) and
-/// sixteen bytes a [`Cell`] that is 633,600 bytes of `.bss` (it was half that before the truecolour
-/// pass widened the cell, 2026-09-26), and a whole `Vt` is 724,416 bytes, up from 362,208. That is
+/// **300, chosen as a working depth rather than derived from anything.** At 132 columns and
+/// sixteen bytes a [`Cell`] the ring was 633,600 bytes of `.bss` and a whole `Vt` 724,416 (362,208
+/// before the truecolour pass widened the cell, 2026-09-26); since 2026-10-04 it is the
+/// [`SCROLLBACK_CELLS`] budget instead, and a `Vt`'s cells are 717,312 bytes. That is
 /// 177 page frames per terminal instance, a small fraction of the free page-frame pool a terminal's
 /// own region draws from (see notes/frames.md's measurement that hundreds of page frames are "under
 /// one percent of the free pool"). The kernel's test image holds eight `Vt` statics as witnesses
 /// (`system_tests/src/user/display_tests.rs` and `compositor_tests.rs`), so the widening cost it about
 /// 2.9 MB of `.bss` against QEMU's 256 MiB. There is no principled reason it could not be larger or smaller; it is a constant a
 /// future lane can change without touching the shape of the ring around it.
+///
+/// **The most rows, not always the rows** (2026-10-04): the ring holds [`SCROLLBACK_CELLS`] cells
+/// at the grid's own width, so it is 300 rows deep up to 88 columns and shallower past that: 200
+/// at the virtio scanout's 132, 192 at xenon's 137, 145 at OVMF's 182. See [`Vt::scrollback_depth`].
 pub const SCROLLBACK_ROWS: usize = 300;
-/// Cells in the scrollback ring. See [`SCROLLBACK_ROWS`].
-pub const SCROLLBACK_CELLS: usize = MAX_COLS * SCROLLBACK_ROWS;
+/// Cells in the scrollback ring: 200 rows of the virtio scanout's 132 columns. See
+/// [`SCROLLBACK_ROWS`] and [`MAX_CELLS`] for why it is a cell budget.
+pub const SCROLLBACK_CELLS: usize = 26_400;
 
 // ================================================================================================
 // Colour.
@@ -861,7 +884,7 @@ impl Vt {
     /// `static` does) and call [`Vt::reset_to`] instead.
     pub const fn new(cols: u32, rows: u32) -> Vt {
         let cols = Self::clamp_cols(cols);
-        let rows = Self::clamp_rows(rows);
+        let rows = Self::clamp_rows(rows, cols);
         Vt {
             cells: [Cell::blank(Attr::DEFAULT); MAX_CELLS],
             scrollback: [Cell::blank(Attr::DEFAULT); SCROLLBACK_CELLS],
@@ -905,13 +928,32 @@ impl Vt {
         }
     }
 
-    const fn clamp_rows(rows: u32) -> u32 {
+    /// `rows` clamped to one and to [`MAX_ROWS`], and to what fits in [`MAX_CELLS`] at `cols`.
+    const fn clamp_rows(rows: u32, cols: u32) -> u32 {
+        let fit = (MAX_CELLS / cols as usize) as u32;
+        let most = if fit < MAX_ROWS as u32 {
+            fit
+        } else {
+            MAX_ROWS as u32
+        };
         if rows == 0 {
             1
-        } else if rows > MAX_ROWS as u32 {
-            MAX_ROWS as u32
+        } else if rows > most {
+            most
         } else {
             rows
+        }
+    }
+
+    /// **How many scrolled-off rows this terminal keeps**: [`SCROLLBACK_ROWS`], or fewer when a
+    /// row is wider than [`SCROLLBACK_CELLS`] can hold that many of.
+    #[must_use]
+    pub const fn scrollback_depth(&self) -> u32 {
+        let fit = (SCROLLBACK_CELLS / self.cols as usize) as u32;
+        if fit < SCROLLBACK_ROWS as u32 {
+            fit
+        } else {
+            SCROLLBACK_ROWS as u32
         }
     }
 
@@ -924,7 +966,7 @@ impl Vt {
     /// test that read a window's size off a control page).
     pub fn reset_to(&mut self, cols: u32, rows: u32) {
         let cols = Self::clamp_cols(cols);
-        let rows = Self::clamp_rows(rows);
+        let rows = Self::clamp_rows(rows, cols);
         self.cells = [Cell::blank(Attr::DEFAULT); MAX_CELLS];
         self.scrollback = [Cell::blank(Attr::DEFAULT); SCROLLBACK_CELLS];
         self.sb_tail = 0;
@@ -1015,7 +1057,7 @@ impl Vt {
         }
         // `sb_tail` is the ring slot the *next* push will use, so the most recent row (age 0) is
         // one slot behind it, and each older age is one slot further behind, wrapping.
-        let capacity = SCROLLBACK_ROWS as u32;
+        let capacity = self.scrollback_depth();
         let ring_row = (self.sb_tail + capacity - 1 - age) % capacity;
         self.scrollback[(ring_row * self.cols + col) as usize]
     }
@@ -1359,7 +1401,7 @@ impl Vt {
     /// computes the same `0` on the only input this function is ever given.
     fn push_scrollback_row(&mut self, row: u32) {
         let cols = self.cols;
-        let capacity = SCROLLBACK_ROWS as u32;
+        let capacity = self.scrollback_depth();
         let ring_row = self.sb_tail;
         for c in 0..cols {
             self.scrollback[(ring_row * cols + c) as usize] = self.cells[(row * cols + c) as usize];
@@ -2857,24 +2899,66 @@ mod tests {
         );
     }
 
+    /// **A wide grid keeps a shallower history, and the ring still wraps correctly at its width**
+    /// (2026-10-04): at OVMF's 182 columns [`SCROLLBACK_CELLS`] holds 145 rows, and 200 lines
+    /// through a two-row grid must keep exactly the newest 145, oldest last.
+    #[test]
+    fn a_wide_grid_keeps_the_history_its_cell_budget_holds() {
+        let mut t = vt(182, 2);
+        assert_eq!(t.scrollback_depth(), 145);
+        for i in 0..200u32 {
+            t.feed(std::format!("L{i:03}\r\n").as_bytes());
+        }
+        assert_eq!(t.scrollback_len(), 145);
+        t.scroll_up(u32::MAX);
+        assert_eq!(t.view_offset(), 145);
+        let row0: std::string::String = (0..4).map(|c| t.cell(c, 0).ch).collect();
+        assert_eq!(
+            row0, "L054",
+            "the oldest kept line is the 145th from the newest push"
+        );
+        assert_eq!(
+            vt(4, 2).scrollback_depth(),
+            SCROLLBACK_ROWS as u32,
+            "narrow grids keep 300"
+        );
+    }
+
     /// **The size clamp is exact at the boundary.** `MAX_COLS`/`MAX_ROWS` themselves are legal, one
     /// past either is clamped down, and zero clamps up to one rather than producing an empty grid no
     /// cursor could ever occupy. Milestone 326 (turn a mutation score upward)'s mutation triage.
     #[test]
     fn geometry_clamps_exactly_at_the_boundary_not_one_off_it() {
-        let t = Vt::new(MAX_COLS as u32, MAX_ROWS as u32);
+        // The widest grid gets the rows MAX_CELLS leaves it; the tallest needs a narrow one.
+        let wide_rows = (MAX_CELLS / MAX_COLS) as u32;
+        let tall_cols = (MAX_CELLS / MAX_ROWS) as u32;
+        for (cols, rows) in [(MAX_COLS as u32, wide_rows), (tall_cols, MAX_ROWS as u32)] {
+            let t = Vt::new(cols, rows);
+            assert_eq!(
+                (t.cols(), t.rows()),
+                (cols, rows),
+                "the boundary value itself must not be clamped"
+            );
+            let t = Vt::new(cols, rows + 1);
+            assert_eq!(
+                (t.cols(), t.rows()),
+                (cols, rows),
+                "one row past the boundary must be clamped"
+            );
+        }
+        let t = Vt::new(MAX_COLS as u32 + 1, 1);
         assert_eq!(
-            (t.cols(), t.rows()),
-            (MAX_COLS as u32, MAX_ROWS as u32),
-            "the boundary value itself must not be clamped"
+            t.cols(),
+            MAX_COLS as u32,
+            "one column past the boundary must be clamped"
         );
-
-        let t = Vt::new(MAX_COLS as u32 + 1, MAX_ROWS as u32 + 1);
-        assert_eq!(
-            (t.cols(), t.rows()),
-            (MAX_COLS as u32, MAX_ROWS as u32),
-            "one past the boundary must be clamped"
-        );
+        // The two screens this was sized for fit whole.
+        for (cols, rows) in [(182, 100), (137, 67)] {
+            assert_eq!(
+                (Vt::new(cols, rows).cols(), Vt::new(cols, rows).rows()),
+                (cols, rows)
+            );
+        }
 
         let t = Vt::new(0, 0);
         assert_eq!(

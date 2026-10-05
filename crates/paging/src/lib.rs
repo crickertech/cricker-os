@@ -280,6 +280,7 @@ const CAP_USER_EXEC: u64 = 1 << 2;
 const CAP_KERNEL_EXEC: u64 = 1 << 3;
 const CAP_GLOBAL: u64 = 1 << 4;
 const CAP_DEVICE: u64 = 1 << 5;
+const CAP_WRITE_COMBINE: u64 = 1 << 6;
 
 /// What access a mapping grants: readable always, plus write / execute / user / global / device as
 /// set. **Format-neutral.** There is deliberately no constructor that is both writable and
@@ -306,6 +307,25 @@ impl Flags {
     /// MMIO for the kernel. Device-typed, read/write, and never executable.
     pub const fn device() -> Self {
         Flags(CAP_WRITE | CAP_GLOBAL | CAP_DEVICE)
+    }
+
+    /// **A framebuffer for the kernel: device memory whose writes may be combined.**
+    ///
+    /// Everything [`device`](Self::device) is (never cached, never executable, never in a block
+    /// larger than a page), plus permission for the CPU to gather neighbouring stores into one
+    /// burst and post it later. That is wrong for a register, where every store is a command, and
+    /// it is the whole difference for a screen: on xenon on 2026-10-04 the boot console's 8 MB
+    /// aperture, mapped strong-uncacheable, took one bus transaction per four-byte pixel.
+    ///
+    /// **A request, which a format may answer with plain device memory.** `x86_64` honours it
+    /// (PAT entry 1, programmed to write-combining by `arch::x86_64::init`); aarch64 and Sv39
+    /// encode it exactly as `device()`, which is correct and slower, and neither has a screen
+    /// that is a device aperture today (their `ramfb` is RAM). A reader must therefore not
+    /// expect [`is_write_combining`](Self::is_write_combining) to survive a round trip there.
+    ///
+    /// Name: provisional (the console-scroll lane, 2026-10-04).
+    pub const fn write_combining() -> Self {
+        Flags(CAP_WRITE | CAP_GLOBAL | CAP_DEVICE | CAP_WRITE_COMBINE)
     }
 
     /// User code (milestone 7): executable by user, never by the kernel, never writable.
@@ -341,6 +361,14 @@ impl Flags {
         Flags(CAP_USER | CAP_WRITE | CAP_DEVICE)
     }
 
+    /// **[`write_combining`](Self::write_combining) for a driver at user level**: a userspace
+    /// framebuffer driver's view of its aperture (`framebuffer_driver`, 2026-10-04). Everything
+    /// [`user_device`](Self::user_device) is, plus permission to gather stores, and the same
+    /// caveat: only `x86_64` honours the request. Name: provisional (the screen terminal lane).
+    pub const fn user_write_combining() -> Self {
+        Flags(CAP_USER | CAP_WRITE | CAP_DEVICE | CAP_WRITE_COMBINE)
+    }
+
     /// The raw capability word. Opaque outside this crate; the formats use it to encode.
     pub const fn bits(self) -> u64 {
         self.0
@@ -369,6 +397,13 @@ impl Flags {
     /// Device-typed memory: the CPU must not cache or reorder accesses to it.
     pub const fn is_device(self) -> bool {
         self.0 & CAP_DEVICE != 0
+    }
+
+    /// Device memory whose stores may be gathered and posted: see
+    /// [`write_combining`](Self::write_combining). Implies [`is_device`](Self::is_device).
+    /// Name: provisional (the console-scroll lane, 2026-10-04).
+    pub const fn is_write_combining(self) -> bool {
+        self.0 & CAP_WRITE_COMBINE != 0
     }
 
     /// Global mappings match TLB lookups under every address space; non-global ones only under
@@ -1005,6 +1040,18 @@ mod flag_tests {
         assert_eq!(Flags::user_rodata().bits(), 0b00_0010);
         assert_eq!(Flags::user_data().bits(), 0b00_0011);
         assert_eq!(Flags::user_device().bits(), 0b10_0011);
+        assert_eq!(Flags::write_combining().bits(), 0b111_0001);
+        assert_eq!(Flags::user_write_combining().bits(), 0b110_0011);
+    }
+
+    /// A write-combining mapping is still a device mapping: every rule keyed on `is_device` (no
+    /// caching, pages rather than blocks, no inner shareability) must keep applying to it.
+    #[test]
+    fn write_combining_is_a_kind_of_device_memory() {
+        let f = Flags::write_combining();
+        assert!(f.is_device() && f.is_write_combining() && f.is_writable() && f.is_global());
+        assert!(!f.is_user_accessible() && !f.is_kernel_executable() && !f.is_user_executable());
+        assert!(!Flags::device().is_write_combining());
     }
 }
 

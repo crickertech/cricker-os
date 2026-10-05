@@ -1,0 +1,13 @@
+vt-d drhd at 0xfed90000, named devices only
+vt-d drhd at 0xfed91000, all (the catch-all), translating
+vt-d : drhd 0xfed91000 up (2 of 2 unit(s), the catch-all) translation enabled (gsts.tes confirmed)
+iommu: VT-d drhd at 0x00000000fed91000 root table default-deny, translating, interrupt remapping offered (unused)
+pci: 01:00.0 1344:2410? class 010802  (NVMe behind bridge 00:1d.0 to bus 01, the Micron 2450)
+disk-throughput: fatal risk 6 bench boot (milestone 261). WRITES to the NVMe disk.
+disk-throughput: preflight first; a skip is not a pass. release build, 2713485500 Hz counter
+disk-throughput: measured  non_volatile_memory_express sha256 744ee73b675...ffcab.. matches the table this kernel vouches for
+  non_volatile_memory_express: controller present but failed bring-up: CompletionTimeout
+disk-throughput: preflight 1/2 dmar scope : PASS  nvme 01:00.0 (rid 0x0100): drhd 0xfed91000 is the catch-all and no other unit names it
+disk-throughput: controller 0x0100 failed bring-up: CompletionTimeout
+disk-throughput: verdict FAILED: the controller is present and failed bring-up (line above)
+disk-throughput: done, halting.

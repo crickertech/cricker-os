@@ -184,8 +184,13 @@ impl NonVolatileMemoryExpress {
             regs::ACQ,
             direct_memory_access_phys + ADMIN_CQ_PAGE * page_frames::FRAME_SIZE,
         );
+        #[cfg(feature = "disk_throughput")]
+        c.print_registers("pre ");
         c.wr32(regs::CC, non_volatile_memory_express::cc_enabled());
-        c.wait_rdy(true)?;
+        let ready = c.wait_rdy(true);
+        #[cfg(feature = "disk_throughput")]
+        c.print_registers("post");
+        ready?;
 
         // IDENTIFY the namespace: its block count and LBA format are the two facts the block
         // arithmetic below stands on, and refusing an exotic format here beats corrupting it later.
@@ -302,6 +307,31 @@ impl NonVolatileMemoryExpress {
             }
             core::hint::spin_loop();
         }
+        #[cfg(feature = "disk_throughput")]
+        if done.is_none() {
+            // Bench diagnostic (fatal risk 6, xenon, 2026-10-04): which command, and what the
+            // head slot of the completion ring and the submission entry hold now.
+            // SAFETY: both inside the admin rings' pages of our own DMA region, as above.
+            let (cqe_now, sqe0) = unsafe {
+                let sqe = (self.direct_memory_access_va
+                    + ADMIN_SQ_PAGE * page_frames::FRAME_SIZE
+                    + (slot as u64) * 64) as *const u32;
+                (core::ptr::read_volatile(cqe), core::ptr::read_volatile(sqe))
+            };
+            crate::println!(
+                "diag nvme cid {expect_cid} opcode {:#04x} never completed; csts {:#x}; sq tail {} cq head {head}",
+                cmd.0[0] & 0xff,
+                self.reg32(regs::CSTS),
+                self.admin_sq.tail(),
+            );
+            crate::println!(
+                "diag nvme cqe[{head}] {:#x} {:#x} {:#x} {:#x}; sqe[{slot}] dw0 {sqe0:#x}",
+                cqe_now[0],
+                cqe_now[1],
+                cqe_now[2],
+                cqe_now[3],
+            );
+        }
         let c = done.ok_or(Error::CompletionTimeout)?;
         // Order the completion's phase read before the payload reads that follow (the identify
         // parse): on a weakly-ordered CPU nothing else stops the data read hoisting above the flag
@@ -329,6 +359,29 @@ impl NonVolatileMemoryExpress {
             return Err(Error::Command(c.status));
         }
         Ok(())
+    }
+
+    /// Bench diagnostic (fatal risk 6, xenon, 2026-10-04): the admin plane's registers in one
+    /// line each side of enable, so a photograph says which phase a bring-up died in. CSTS bit 1
+    /// is CFS.
+    #[cfg(feature = "disk_throughput")]
+    fn print_registers(&self, when: &str) {
+        if when == "pre " {
+            crate::println!(
+                "diag nvme cap {:#x} vs {:#x} dstrd {}",
+                self.reg64(regs::CAP),
+                self.reg32(0x08),
+                self.dstrd
+            );
+        }
+        crate::println!(
+            "diag nvme {when} cc {:#x} csts {:#x} aqa {:#x} asq {:#x} acq {:#x}",
+            self.reg32(regs::CC),
+            self.reg32(regs::CSTS),
+            self.reg32(regs::AQA),
+            self.reg64(regs::ASQ),
+            self.reg64(regs::ACQ),
+        );
     }
 
     fn next_cid(&mut self) -> u16 {

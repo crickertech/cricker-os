@@ -1,0 +1,15 @@
+[package]
+name = "extensible_host_controller_interface"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+# no_std for the kernel and the driver, std for host tests, like every DECISIONS §7 (testing: host-testable crates, from commit one) pure-logic
+# crate. The xHCI half of the USB keyboard driver (milestone 242 (USB host and HID)): register offsets and field
+# decode, which register pages a confined driver is mapped, the spawn handoff, TRB construction and
+# decode, the producer and event ring cycle discipline, and device and endpoint context layout. The
+# kernel's bring-up and the EL0 driver supply the volatile accesses; this crate supplies the
+# arithmetic they carry, so it is host-tested and reachable by the model checker.
+
+[lints]
+workspace = true

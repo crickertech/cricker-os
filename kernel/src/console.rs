@@ -22,7 +22,7 @@ use crate::drivers::pl011::Pl011 as ConsoleUart;
 #[cfg(target_arch = "x86_64")]
 type ConsoleUart = crate::drivers::ns16550::Ns16550<crate::arch::PortIo>;
 use machine_discovery::framebuffer::Framebuffer;
-use screen_console::ScreenConsole;
+use screen_console::{Cells, PixelSink, ScreenConsole};
 
 use crate::sync::{IrqSafeMutex, rank};
 
@@ -125,13 +125,26 @@ enum Painter {
 struct KernelConsole {
     uart: ConsoleUart,
     screen: Option<Screen>,
+    /// What the screen says, one byte a cell, which is what a scroll redraws from so that nothing
+    /// ever reads the aperture back (see `screen_console::PixelSink`). **Here rather than inside
+    /// [`Screen`]** because it is 36,000 bytes: as a field of this `static` it is laid down at
+    /// compile time, where inside `Screen` it would be built on the 64 KiB boot stack by
+    /// [`attach_screen`] and moved, which is the shape of the 16 KiB-array incident in
+    /// `notes/stack.md`. It costs the same 36,000 bytes of image on every architecture, whether
+    /// or not the machine has a screen.
+    cells: Cells,
     /// The line being assembled for the kernel's ring (milestone 342 (the kernel and the
     /// `console` server drive one UART from two address spaces)): see [`crate::kernel_log`].
     line: crate::kernel_log::Line,
 }
 
 /// Write `s` to the UART and, while the kernel paints it, the screen.
-fn write_wire(uart: &mut ConsoleUart, screen: &mut Option<Screen>, s: &str) -> core::fmt::Result {
+fn write_wire(
+    uart: &mut ConsoleUart,
+    screen: &mut Option<Screen>,
+    cells: &mut Cells,
+    s: &str,
+) -> core::fmt::Result {
     uart.write_str(s)?;
     if let Some(screen) = screen.as_mut()
         && screen.painter == Painter::Kernel
@@ -144,14 +157,19 @@ fn write_wire(uart: &mut ConsoleUart, screen: &mut Option<Screen>, s: &str) -> c
         // [`yield_screen`] has moved the painter off this arm.
         let bytes =
             unsafe { core::slice::from_raw_parts_mut(screen.pixels as *mut u8, screen.len) };
-        screen.console.write(bytes, s);
+        screen.console.write(cells, &mut PixelSink::new(bytes), s);
+        // The aperture is write-combining on `x86_64` (`arch::x86_64::mmu`), so the last few
+        // stores of this line can sit in a combining buffer rather than on the screen. A fence
+        // drains them, which matters exactly once: the panic path halts after its last line with
+        // interrupts off, and nothing else would ever push those pixels out.
+        crate::arch::direct_memory_access_write_barrier();
     }
     Ok(())
 }
 
 impl core::fmt::Write for KernelConsole {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        write_wire(&mut self.uart, &mut self.screen, s)
+        write_wire(&mut self.uart, &mut self.screen, &mut self.cells, s)
     }
 }
 
@@ -174,6 +192,7 @@ static CONSOLE: IrqSafeMutex<KernelConsole> = IrqSafeMutex::new(
         // `unsafe` did not change.
         uart: unsafe { ConsoleUart::new(UART_BASE) },
         screen: None,
+        cells: Cells::new(),
         line: crate::kernel_log::Line::new(),
     },
 );
@@ -273,7 +292,7 @@ pub unsafe fn attach_screen(found: Framebuffer, virt: u64) -> Option<(u32, u32)>
     let mut guard = CONSOLE.lock();
     // SAFETY: this function's own contract, forwarded.
     let pixels = unsafe { core::slice::from_raw_parts_mut(virt as *mut u8, len) };
-    console.clear(pixels);
+    console.clear(&mut guard.cells, &mut PixelSink::new(pixels));
     let size = console.size();
     guard.screen = Some(Screen {
         console,
@@ -322,14 +341,17 @@ pub fn yield_screen() -> Option<Framebuffer> {
         hold_screen_for_host();
     }
     let mut guard = CONSOLE.lock();
-    let screen = guard.screen.as_mut()?;
+    let kernel = &mut *guard;
+    let screen = kernel.screen.as_mut()?;
     if screen.painter != Painter::Kernel {
         return None;
     }
     // SAFETY: as `write_str`'s: the validated span, mapped for the life of the kernel, and the
     // painter is still the kernel, so nothing else writes it.
     let bytes = unsafe { core::slice::from_raw_parts_mut(screen.pixels as *mut u8, screen.len) };
-    screen.console.clear(bytes);
+    screen
+        .console
+        .clear(&mut kernel.cells, &mut PixelSink::new(bytes));
     screen.painter = Painter::Terminal;
     Some(screen.console.screen())
 }
@@ -478,7 +500,8 @@ fn hold_screen_for_host() {
 /// Call after `force_unlock`, before printing.
 pub fn reclaim_screen_for_panic() {
     let mut guard = CONSOLE.lock();
-    let Some(screen) = guard.screen.as_mut() else {
+    let kernel = &mut *guard;
+    let Some(screen) = kernel.screen.as_mut() else {
         return;
     };
     if screen.painter == Painter::Kernel {
@@ -487,7 +510,9 @@ pub fn reclaim_screen_for_panic() {
     // SAFETY: as `write_str`'s. The userspace painter may still be writing; see the doc above for
     // why that is accepted on this path and no other.
     let bytes = unsafe { core::slice::from_raw_parts_mut(screen.pixels as *mut u8, screen.len) };
-    screen.console.clear(bytes);
+    screen
+        .console
+        .clear(&mut kernel.cells, &mut PixelSink::new(bytes));
     screen.painter = Painter::Kernel;
 }
 
@@ -744,6 +769,7 @@ pub fn tx_bytes() -> u64 {
 struct Wire<'a> {
     uart: &'a mut ConsoleUart,
     screen: &'a mut Option<Screen>,
+    cells: &'a mut Cells,
 }
 
 impl KernelConsole {
@@ -753,6 +779,7 @@ impl KernelConsole {
             Wire {
                 uart: &mut self.uart,
                 screen: &mut self.screen,
+                cells: &mut self.cells,
             },
         )
     }
@@ -760,7 +787,7 @@ impl KernelConsole {
 
 impl core::fmt::Write for Wire<'_> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        write_wire(self.uart, self.screen, s)
+        write_wire(self.uart, self.screen, self.cells, s)
     }
 }
 

@@ -100,6 +100,15 @@ Optional, if a Linux live stick is to hand: the queue-depth-1 `fio` pair in that
 the same window, gives the ratio that says whether the rate is "real speed". Do it before step 2,
 since it reads and writes the same 64 MiB.
 
+Done on 2026-10-04, evening (bench clock 23:12 to about 23:25, zone not recorded): Fedora 44 Live,
+fio-3.40, three runs (psync, pvsync2 `--hipri` which did not engage polling, io_uring `--hipri`
+which did). Best Linux write is 425 MB/s (polled io_uring), so nife's median is 1.08x. Linux read varies
+from 74 to 188 MB/s with drive state, and read median latency matches nife's. ASPM and APST were checked
+and ruled out. Numbers and caveats are in
+[the baseline's page](risk-6-bench-evening/linux-qd1-baseline-2026-10-04.md).
+**Open: the Linux read tail and drive-state variance are unexplained (next check: `nvme smart-log`
+temperature), and nife's counter frequency has not been cross-checked against wall time.**
+
 ### What each line means
 
 | line | what it says | good looks like |
@@ -122,6 +131,15 @@ The full routing for each FAIL wording is [risk-6-bench-evening.md](risk-6-bench
 "What each outcome means".
 
 ## Step 2: the install, then the boot from disk
+
+**Done 2026-10-04 (UTC).** Transcript: `bench/xenon-2026-10-04/install-and-disk-boot.log`. The
+install offer named 256060514304 bytes, `INSTALL` was sent (by a watcher script on patagonia's
+serial port, with calef's go-ahead), the install finished, and after the stick came out xenon
+booted from the disk with `boot file : none` and no offer. **The card's install image was stale:**
+the `a08efc8dc` copy predates the VT-d write-back fix (PR #1636) and would have hit the NVMe
+CompletionTimeout. The image used was built from `lane/xenon-nvme-diag` at `0c16dcaac` (sha256
+starts `69cc518b`). The read-back (item 7) passed at about 22:25 UTC: `1 10 57`, in `bench/xenon-2026-10-04/readback.log`. Photographs owed.
+The steps below are the plan as written.
 
 On the Mac, before powering xenon on, with the FTDI adapter plugged in:
 
@@ -229,7 +247,7 @@ install-boot: PASS
   must be labelled and kept apart from the installer stick.
 - The install's second boot is unmeasured on Dell firmware. Only OVMF has found an installed
   disk's `\EFI\BOOT\BOOTX64.EFI` with no boot variable. Step 6 records which path the firmware took.
-- The prebuilt copies are pinned at `a08efc8dc`, outside any worktree so a prune does not take
+- The prebuilt copies are pinned at `a08efc8dc` and the install image among them is stale (see Step 2: it predates #1636), outside any worktree so a prune does not take
   them. Nothing deletes them either; remove the directory once the evening is recorded.
 - Every xenon-side line above is a prediction. Booting a stick and printing the tour is the
   only part of this xenon has done before (2026-09-05 and 2026-09-17).

@@ -138,7 +138,7 @@ fn net_stack_image() -> &'static [u8] {
 /// The net client's test selectors and its success word, matching `components/src/socket_test_client.rs`. The
 /// client is a nonzero entry role of the `net_stack` binary, so it needs no image of its own.
 #[cfg(target_arch = "aarch64")]
-const NET_TEST_UDP_DNS: u64 = 1;
+const NET_TEST_NAME_RESOLUTION: u64 = 1;
 #[cfg(target_arch = "aarch64")]
 const NET_TEST_TCP_ECHO: u64 = 2;
 #[cfg(target_arch = "aarch64")]
@@ -178,7 +178,7 @@ const NET_UDP_GRANT_TOP: u16 = 5354;
 const NET_CLIENT_OK: u64 = 1;
 
 /// The client could not complete for an ENVIRONMENTAL reason (the host resolver never answered),
-/// not because of a defect here. Only the non-gating real-DNS check can report it.
+/// not because of a defect here. Only the non-gating real-DNS half of the name test can report it.
 #[cfg(target_arch = "aarch64")]
 const NET_CLIENT_NO_ANSWER: u64 = 2;
 
@@ -1604,11 +1604,20 @@ fn the_net_server_acquires_a_dhcp_lease_over_smoltcp() {
     let Some((report, net)) = virtio_service::start_net_server(net_stack_image()) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    let addr = sched::ipc_receive(report)[0] as u32;
+    let [addr, nameserver, ..] = sched::ipc_receive(report);
+    let addr = addr as u32;
     assert_eq!(
         addr & 0xffff_ff00,
         0x0A00_0200,
         "smoltcp's DHCP lease {addr:#010x} is not in QEMU slirp's 10.0.2.0/24",
+    );
+    // slirp's DHCP names 10.0.2.3 as the DNS server, and the lease report carries it in its second
+    // word (`socket_protocol::lease`, provisional) for a resolver's spawner (§248 (the name
+    // resolver is its own confined program)).
+    assert_eq!(
+        socket_protocol::lease::word_ipv4(nameserver),
+        Some([10, 0, 2, 3]),
+        "the lease report did not carry slirp's DNS server (word {nameserver:#x})",
     );
     net.release_or_fail("a net test's net_stack");
 }
@@ -1699,46 +1708,62 @@ fn a_client_completes_a_udp_round_trip_through_the_socket_contract_pci() {
     net.release_or_fail("a net test's net_stack");
 }
 
-/// **Real DNS resolution, deliberately non-gating.** The query goes to 10.0.2.3, which libslirp
-/// NATs to the host's configured nameserver (`get_dns_addr_libresolv`), so whether it is answered
-/// is a fact about the developer's machine, not about this kernel. The client retries like any
-/// resolver client and reports `NO_ANSWER` if the host never replied, which we print and skip: a
-/// committed gate must not depend on somebody's router. What still fails loudly is a response
-/// that arrives and is *wrong* (not our transaction id, or not a response), because that would be
-/// our defect. The deterministic UDP coverage is the TFTP pair above. See notes/net/the-outbound-gates.md.
-// RISC-V twin: `riscv_virtio_tests::a_client_resolves_a_real_dns_name_when_the_host_resolver_answers`. Gated here rather than run twice: that
+/// **A host name resolves through the socket contract, and the lies do not** (milestone 384 (in a
+/// capability system the resolver is a grant)). Two halves in one client, because a second
+/// `net_stack` would need a virtio slot past `MAX_DEVICES`.
+///
+/// **The first half gates.** The client asks the runners' name server peer
+/// (`helpers/name-server-peer`, a `guestfwd` at 10.0.2.9:53, DNS over TCP) about six names through
+/// `domain_name_system`. Two resolve, one through a compressed CNAME, and four must be refused,
+/// each by its own check: a name that does not exist, the right answer under the wrong transaction
+/// id, an address for a name nobody asked about, and a compression pointer to itself. Then it
+/// connects to the address it resolved and gets an echo back. Nothing else in the tree turns a
+/// name into an address.
+///
+/// **The second half is the real-DNS check this test used to be, and it does not gate.** It asks
+/// 10.0.2.3, which libslirp NATs to the host's configured nameserver (`get_dns_addr_libresolv`),
+/// so an answer is a fact about the developer's machine. No answer skips, with a reason that says
+/// the first half passed (milestone 214's partial shape). A reply that arrives and is not a valid
+/// answer to our query still fails, because that would be ours.
+// RISC-V twin: `riscv_virtio_tests::a_name_resolves_through_the_stack_and_a_real_one_when_the_host_answers`. Gated here rather than run twice: that
 // module drives the same property on the other instruction set, through the same `block_driver` and
 // `net_stack` binaries this leg now uses, and a second copy would double the suite's slowest tests
 // to prove nothing new. (It read "through hello's roles" until milestone 291, when aarch64 stopped
 // having any: the two legs differ by ISA now and by nothing else.) See this module's comment on
 // the two kinds of gate.
+/// Falsification: replayable `system_tests/falsifications/user.tests.a_name_resolves_through_the_stack_and_a_real_one_when_the_host_answers.patch`
 #[cfg(target_arch = "aarch64")]
 #[test_case]
-fn a_client_resolves_a_real_dns_name_when_the_host_resolver_answers() {
+fn a_name_resolves_through_the_stack_and_a_real_one_when_the_host_answers() {
     let Some((report, net)) = virtio_service::start_net_stack(
         net_stack_image(),
-        NET_TEST_UDP_DNS,
+        NET_TEST_NAME_RESOLUTION,
         false,
         socket_protocol::NO_LISTEN_GRANT,
     ) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    let verdict = sched::ipc_receive(report)[0];
-    if verdict == NET_CLIENT_NO_ANSWER {
-        // **Not a failure, and not a pass either.** This test's name is conditioned on the host's
-        // resolver answering; when it does not, no name was resolved and the claim was never put
-        // to the test. The old shape printed this line and returned, which the harness counted as
-        // a pass (milestone 214, design/roadmap/214-print-and-return-skips.md).
+    let [gating, real, ..] = sched::ipc_receive(report);
+    assert_eq!(
+        gating, NET_CLIENT_OK,
+        "name resolution against the runners' name server failed (client code {gating:#x}: \
+         0xE1 then the case in NAME_SERVER_CASES then the stage, where F is a wrong verdict)",
+    );
+    net.release_or_fail("a net test's net_stack");
+    if real == NET_CLIENT_NO_ANSWER {
+        // The partial shape milestone 214 (a test that prints "skipping" and returns is counted as
+        // passed) settled on: the gating half ran and was asserted above, and the conditioned half
+        // was never put to the test, so the reason says which is which.
         crate::testing::skip!(
-            "the host's resolver did not answer, so no real DNS name was resolved this run"
+            "the name server half passed; the host's resolver did not answer, so no real DNS name \
+             was resolved this run"
         );
     }
     assert_eq!(
-        verdict, NET_CLIENT_OK,
-        "a DNS response came back but was not a valid reply to our query (client code \
-         {verdict:#x}): a socket-contract defect, not a network problem",
+        real, NET_CLIENT_OK,
+        "a DNS response came back from the host's resolver but was not a valid answer to our \
+         query (client code {real:#x}): a defect here, not a network problem",
     );
-    net.release_or_fail("a net test's net_stack");
 }
 
 /// **The socket contract, TCP end to end** (milestone 30, piece 3 phase B). A client opens a TCP

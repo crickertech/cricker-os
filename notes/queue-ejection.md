@@ -103,13 +103,23 @@ episode, deduplicated by a marker:
 | conflict | ready and `mergeable` CONFLICTING | the conflicting files, from `git merge-tree` | the conflict is gone |
 | stale | a queue entry whose pull request is merged or closed | entry state, enqueue and merge times, the dequeue command | the entry is gone |
 | unarmed | ready, not armed, not queued, 30 minutes since it was last unarmed | since when, and any resolved `Blocked-by:` | armed, queued, or a draft again |
+| off-main | ready, not armed, on a base other than `main`, 30 minutes since it was last unarmed | the base, its pull request, the ways out | armed, merged, an open `Blocked-by:`, or a draft |
+| red | wearing `ci-failing` for 30 minutes | when that label went on, the head, whether armed | `ci-failing` comes off |
 
-Every cause but `stale` needs a ready pull request into `main` from this repository, without
-`needs-architect` or `held-for-red-trunk`. A `merge_conflict` ejection names no group commit, so it
+Every cause but `stale` needs a ready pull request from this repository, without `needs-architect`
+or `held-for-red-trunk`, and the first four need it to be into `main`. A `merge_conflict` ejection names no group commit, so it
 cannot say which head was ejected and is cleared by the conflict going instead. `manual` is not an
 ejection, because a person or `dequeue_held` meant it; if nobody follows up, it is `unarmed` 30
-minutes later. `unarmed` is not raised beside `ejected` or `conflict`, which already say what is
-wrong.
+minutes later. `unarmed` and `off-main` are not raised beside `ejected`, `conflict` or `red`, which
+already say what is wrong.
+
+The last two arrived on 2026-10-04, from pull requests nobody owned until calef noticed them.
+Pull request #1640 was stacked on #1630's branch and sat green, mergeable and unlabelled for about
+three hours. `eligible` admits only a pull request into `main`, so every cause skipped it, and calef
+merged it into its base by hand. Then #1617 and #1653 sat red under `ci-failing`, a label posted
+once that no session reads, while their lanes had ended `WAITING`. `red` routes that label into this one
+rather than teaching every session a second label, so `gh pr list --label needs-maintainer` stays
+the whole queue. Its 30 minutes start when `ci-failing` went on, which a push resets.
 
 The event's `beforeCommit` is the group's merge commit, not the head, which was a surprise. Its
 second parent is the head that was enqueued, and the group's runs are the `merge_group` runs at
@@ -141,7 +151,7 @@ $ gh run view <run id> --log | grep -E 'LABELLED|CLEARED'
   `workflow_run` but can trail it under load. The first pass after this lands also labels any open
   pull request whose last removal was a current ejection.
 - An armed pull request whose required checks never report, or that auto-merge never enqueues, is
-  none of the four causes. The drain used to comment on the first and enqueue the second.
+  none of the causes. One whose checks fail is `red`. The drain used to comment on the first and enqueue the second.
 - `--ready-branch` matches by branch name. A block naming the wrong branch passes it and still
   fails in the group.
 - `notes/check-inventory.md` does not list `--ready-branch` or the hook's wider lint. That table is

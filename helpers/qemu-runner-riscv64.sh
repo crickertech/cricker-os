@@ -145,6 +145,11 @@ GUESTFWD="guestfwd=tcp:10.0.2.9:7777-cmd:/bin/cat"
 PACKAGE_PEER="$(cd "$(dirname "$0")" && pwd)/package-http-peer"
 GUESTFWD="$GUESTFWD,guestfwd=tcp:10.0.2.9:8080-cmd:$PACKAGE_PEER"
 
+# The name server (milestone 384 (in a capability system the resolver is a grant)), the aarch64
+# runner's twin; that runner says why it is DNS over TCP.
+NAME_SERVER_PEER="$(cd "$(dirname "$0")" && pwd)/name-server-peer"
+GUESTFWD="$GUESTFWD,guestfwd=tcp:10.0.2.9:53-cmd:$NAME_SERVER_PEER"
+
 # slirp's own TFTP server (10.0.2.2:69), which makes the gating UDP test deterministic and offline
 # instead of NAT'ing a DNS query to the host's resolver. The parity twin of the aarch64 runner's
 # block; the fixture must match components/src/socket_test_client.rs. See the aarch64 runner for the full reasoning.
@@ -163,7 +168,26 @@ fi
 
 NET=""
 if [ -n "$NIFE_NET" ]; then
-    NET="-netdev user,id=net0,$GUESTFWD,tftp=$TFTPDIR$HOSTFWD -device virtio-net-device,netdev=net0 -netdev user,id=net1,$GUESTFWD,tftp=$TFTPDIR -device virtio-net-pci,netdev=net1,disable-legacy=on,iommu_platform=on"
+    NET="-netdev user,id=net0,$GUESTFWD,tftp=$TFTPDIR$HOSTFWD -device virtio-net-device,netdev=net0 -netdev user,id=net1,$GUESTFWD,tftp=$TFTPDIR -device virtio-net-pci,netdev=net1,disable-legacy=on,iommu_platform=on,addr=0x3.0,multifunction=on"
+fi
+
+# **An `e1000e` NIC beside the two virtio ones** (milestone 494 (a driver for the network card a PC
+# actually has)): QEMU's 82574L, the family xenon's I219 belongs to, on its own slirp network with
+# the same echo peer, package peer and TFTP root, so the same gates run over it. A real PCI device
+# model, so its DMA goes through the IOMMU with no `iommu_platform` knob to forget (see the x86_64
+# runner's note on that flag). Attached on every `NIFE_NET` boot because the kernel touches it only
+# when a test asks `e1000e_service` for it. `mac=` is the address `e1000e_tests` asserts reached
+# `net_stack` through the kernel; `romfile=` skips an option ROM nothing here boots.
+#
+# **Function 1 of the virtio NIC's slot, not a slot of its own**, and that is a constraint rather
+# than taste. This kernel's RISC-V IOMMU driver has a one-level device directory: one frame of
+# 64-byte contexts, so requester ids 0..63, which is bus 0 slots 0 to 7. This runner already used
+# all seven free slots (IOMMU, disk, virtio NIC, GPU, keyboard, RNG, NVMe), so a slot of its own
+# pushed the NVMe to 00:08.0, requester id 64, and the NVMe test panicked in
+# `arch/riscv64/iommu.rs` (#1632's CI, 2026-10-04). As 00:03.1 its requester id is 25 and nothing
+# else moves. The virtio NIC above carries `multifunction=on` for it.
+if [ -n "$NIFE_NET" ]; then
+    NET="$NET -netdev user,id=net2,$GUESTFWD,tftp=$TFTPDIR -device e1000e,netdev=net2,mac=52:54:00:e1:00:0e,romfile=,addr=0x3.1"
 fi
 
 # A virtio-gpu when NIFE_GPU is set (milestone 29), the twin of the aarch64 runner's block. PCIe
@@ -185,6 +209,20 @@ KBD=""
 if [ -n "$NIFE_KEYBOARD" ]; then
     KBD="-device virtio-keyboard-pci,disable-legacy=on,iommu_platform=on"
 fi
+
+# Attach a USB keyboard on an xHCI controller when NIFE_USB_KEYBOARD is set (milestone 242 (USB host
+# and HID)). No iommu_platform flag, NVMe's reason: that knob is virtio's opt-in, and a real PCI
+# device model's DMA always goes through the PCI address space, so the controller sits behind
+# this machine's IOMMU with nothing to forget. The keys come from the host over the monitor
+# (`sendkey`), which delivers to the most recently activated keyboard; with no virtio keyboard
+# attached, that is this one. script/swish-check's USB keyboard boot is the one user.
+# NIFE_USB_KEYBOARD_OPTS is appended to the usb-kbd device (`,usb_version=1` makes it full speed),
+# NIFE_USB_CONTROLLER_OPTS to the controller (`,msix=off,msi=on` leaves it MSI only, as an Intel PCH is).
+USBKBD=""
+if [ -n "$NIFE_USB_KEYBOARD" ]; then
+    USBKBD="-device qemu-xhci,id=xhci${NIFE_USB_CONTROLLER_OPTS:-} -device usb-kbd,bus=xhci.0${NIFE_USB_KEYBOARD_OPTS:-}"
+fi
+
 
 # Two virtio-rng devices when NIFE_RNG is set (milestone 56), the twin of the aarch64 runner's
 # block and for the same reasons: both transports because the entropy service is one binary on
@@ -283,6 +321,7 @@ exec qemu-system-riscv64 \
     $GPU \
     $SCREEN \
     $KBD \
+    $USBKBD \
     $RNG \
     $NVME \
     $MON \

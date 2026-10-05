@@ -2,7 +2,7 @@
 status: NOT-STARTED
 raised: 2026-08-04
 milestone_dependencies: none
-decision_dependencies: 163
+decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -23,10 +23,16 @@ is delivered), written up 2026-09-19 by milestone 435's lane; this gate had name
 the block was raised, which is the same shape as the three documents deferring to a milestone that
 did not exist.
 
+**Ruled 2026-10-05 (calef, "B1"):** the kernel faults the driver process and its supervisor receives
+`EVENT_FAULT` with the DMA address, and quarantines the device's IOMMU entry (one write per driver,
+re-confined on restart), per §163 (where a confined device's IOMMU fault is delivered).
+The large half is now buildable. The small half (the overflow flag on aarch64 and riscv64; x86_64
+already clears it) was never blocked.
+
 **The finding.** An IOMMU stops a device that reaches outside its grant and records the attempt in a
 fault queue. Milestone 16b built both drivers and proved the stop happens on both ISAs. Nothing
 reads the queue in a real boot. `crate::iommu::take_fault` has five call sites and every one is a
-test: `kernel/src/user/display_tests.rs` (three, milestone 29's framebuffer work) and
+test: `system_tests/src/user/display_tests.rs` (three, milestone 29's framebuffer work) and
 `kernel/src/virtio.rs` (two, the DMA-escape test). So a confined device that faults during an
 ordinary boot reports to nobody, and the kernel's evidence that its own hardware confinement fired
 is discarded.
@@ -34,7 +40,7 @@ is discarded.
 **Where it is already written down**, which is the argument that it is owed rather than merely
 possible:
 
-- `notes/iommu.md:116`, under Honest limits: "**No fault handler yet.** `take_fault` is drained by
+- `notes/iommu.md:116`, under Honest limits: "No fault handler yet. `take_fault` is drained by
   the confinement test; routing IOMMU faults to a handler in a production boot is future work."
 - `DECISIONS` §20 (IOMMU-backed DMA isolation) says the same in its own limits list.
 - `notes/framebuffer-contract.md:177`, mirrored into `DECISIONS` §29: "What is left for a
@@ -43,7 +49,7 @@ possible:
 
 Three distinct claims across four sites, all pointing at a milestone number that does not exist.
 
-**The overflow bit is the small half, and it has a witness.** Milestone 29's escape test first
+The overflow bit is the small half, and it has a witness. Milestone 29 (a display terminal: framebuffer, virtio-gpu, and a foreign component)'s escape test first
 attached a 4096-byte buffer, which provoked a flood of faults, and the *next* test in the suite then
 observed no fault and correctly reported the IOMMU as not confining the device. A real regression
 signal from a cause two tests away. The fix was to make the escape four bytes, so exactly one
@@ -53,16 +59,16 @@ overflowing the queue, rather than on a drain that clears the condition. The fla
 sides (the SMMUv3 event queue, and the RISC-V IOMMU's `fqcsr`, whose error bits `kernel/src/arch/riscv64/iommu.rs:48`
 already names), so clearing it is a two-driver change under rule 5.
 
-**The large half is a design fork, and it should be stated as one.** "What does a production kernel
+The large half is a design fork, and it should be stated as one. "What does a production kernel
 do when a confined device faults" has at least three answers with different politics:
 
-1. **Print and continue**, which is what the kernel does with everything else it cannot handle, and
+1. Print and continue, which is what the kernel does with everything else it cannot handle, and
    which puts a security event on a console with no owner.
-2. **Fault the driver process.** The supervision machinery already turns a thread's death into a
+2. Fault the driver process. The supervision machinery already turns a thread's death into a
    message its supervisor holds (§26, milestone 22), so a device escaping its grant could arrive as
    the same kind of event, delivered to whoever holds the driver. That is the capability-shaped
    answer: the party that was granted the device is the party told that the device misbehaved.
-3. **Disable the device**, which is the safest and takes a decision away from the holder.
+3. Disable the device, which is the safest and takes a decision away from the holder.
 
 Option 2 is the one that fits the model, and it is not free: the IOMMU's event queue is an interrupt
 source neither driver currently registers, so this adds an interrupt handler per architecture before
@@ -70,11 +76,11 @@ it adds any policy.
 
 ## Scope note
 
-**Not a general device-fault framework.** The subject is the IOMMU's fault queue on both boards, the
+Not a general device-fault framework. The subject is the IOMMU's fault queue on both boards, the
 one place where hardware already knows something the system throws away. CPU page faults are a
 different path with its own owner (§26, the fault endpoint).
 
-**The proof shape is milestone 16b's, reused.** Point a confined device at a frame outside its
+The proof shape is milestone 16b (real hardware + IOMMU-backed driver isolation)'s, reused. Point a confined device at a frame outside its
 domain, and assert the report arrives where the design says it should, rather than asserting a queue
 entry exists. Milestone 29's flood is the reason to keep the provocation to a single translation.
 

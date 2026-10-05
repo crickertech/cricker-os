@@ -213,8 +213,8 @@ moved out of `IPC_TABLES` meet each other there, at 1.6% of the wait.
 ## The next step: each thread's table off the lock
 
 Milestone 761 (capability lookup off the global lock), its number provisional, gives every thread's
-capability table its own lock, so `current_cap` stops taking `IPC_TABLES`. Under TCG the lookups
-that waited fell from about 20% to almost none; the block has the numbers.
+capability table its own lock, so `current_cap` stops taking `IPC_TABLES`. Built; radon's
+measurement is outstanding. Under TCG the lookups that waited fell from about 20% to almost none.
 
 ### The radon run that decides it
 
@@ -258,7 +258,7 @@ ruling). The open finding's paragraph should read:
 > (2026-10-04) cut the null syscall's growth from one task to four from 94 ticks to 48, and raised
 > throughput 9% at four tasks and 11% at 32. The rest is the one global lock itself: at four tasks
 > 41% of syscalls find it held. That is a lock this kernel chose and can split, not a cost of the
-> capability model, and splitting it is proposed
+> capability model, and the split is built, waiting on radon
 > (`design/roadmap/761-capability-lookup-off-the-global-lock.md`). Until that is measured,
 > the per-crossing cost under load is half explained and half open
 > (notes/job-mix/null-syscall-under-load.md).

@@ -292,6 +292,14 @@ for feat in shell soak_test job_mix lock_wait board; do
         -D warnings -A dead_code -A clippy::reversed_empty_ranges
 done
 
+# `network_bench` (milestone 494 (a driver for the network card a PC actually has)'s bench boot),
+# on x86_64 only because xenon is the machine it is for. Linted because nothing else compiles it:
+# `cargo xtask network-bench` is in no gate, and a bench boot that has rotted is found on the
+# evening rather than here. `disk_throughput` has the same exposure and is not in this file yet.
+echo "==> clippy: kernel --features network_bench (x86_64, the binary only; see the note above)"
+cargo clippy -p kernel --features network_bench --target x86_64-unknown-none -- \
+    -D warnings -A dead_code -A clippy::reversed_empty_ranges
+
 # And userspace on the third architecture (milestone 161, item 4's hand-off). Held to the SAME bar
 # as the aarch64 pass above, with no `-A dead_code` and no narrowings, because there is nothing
 # partial about it: every program in `user/` compiles for this target and `crates/user_mode_runtime` has arms
@@ -3062,6 +3070,17 @@ python3 helpers/baseline_drift.py --selftest >/dev/null
 echo "==> CI job wall-time budgets"
 python3 helpers/job-budget.py --selftest >/dev/null
 python3 helpers/job-budget.py lint
+# Milestone 640 (a gate is not evidence until somebody has watched it fail), provisional: every
+# workflow cites a run where it went red (or fired) for the reason it exists, or says `never`, and
+# only a workflow main already had when this landed (2026-10-04) may say `never`, which is read from
+# git ancestry rather than from the record. The weekly falsification sweep and the COE labeller both shipped unexercised and
+# both reported success over nothing. Fixtures first, for the reason the falsification ratchet's
+# run first. See helpers/observed_failing.py and notes/observed-failing.md.
+# Observed failing: 2026-10-04, run 37230967057: refused a probe workflow, new since the cutoff,
+#   that said `never` (commit 0562ea03b; the commit after it removes the probe).
+echo "==> every workflow records the run it was watched failing in"
+python3 helpers/observed_failing.py --selftest >/dev/null
+python3 helpers/observed_failing.py
 # Milestone 610 (provisional): the interface stability series' classification (what is breaking,
 # what is an addition, what is a syscall or a format event, what counts as co-change), against
 # fixtures, with no git and no cargo. The weekly workflow is the only thing that runs the real

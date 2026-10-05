@@ -40,9 +40,30 @@
 //! that makes this encoding safe. Nothing in this crate can check it, which is why it is said here.
 
 use crate::{
-    CAP_DEVICE, CAP_GLOBAL, CAP_KERNEL_EXEC, CAP_USER, CAP_USER_EXEC, CAP_WRITE, Flags, PageFormat,
-    PageSize,
+    CAP_DEVICE, CAP_GLOBAL, CAP_KERNEL_EXEC, CAP_USER, CAP_USER_EXEC, CAP_WRITE, CAP_WRITE_COMBINE,
+    Flags, PageFormat, PageSize,
 };
+
+/// **What the eight PAT entries mean**, as `arch::x86_64::init` programs `IA32_PAT` on every core.
+/// The same role as aarch64's `mair` module: the encoder below selects an entry by its `PWT`,
+/// `PCD` and `PAT` bits, and the value here is what that entry then means, so the two are one
+/// definition.
+pub mod pat {
+    /// `IA32_PAT`, MSR 0x277.
+    pub const MSR: u32 = 0x277;
+
+    /// The power-on value, entries 0 to 7: WB, WT, UC-, UC, WB, WT, UC-, UC (one byte each, low
+    /// byte first). From the Intel SDM's PAT chapter, recalled rather than re-read; the kernel
+    /// prints what it finds before it writes, so a machine that disagrees says so.
+    pub const RESET: u64 = 0x0007_0406_0007_0406;
+
+    /// **The value this kernel programs: the power-on table with entry 1 changed from
+    /// write-through to write-combining (type 0x01).** Entry 1 is what `PWT` alone selects, and
+    /// before this nothing in the tree set `PWT` alone (device memory is `PCD | PWT`, entry 3,
+    /// strong UC, and everything else is entry 0), so the change touches no mapping that existed.
+    /// Linux makes the same choice for the same entry.
+    pub const VALUE: u64 = (RESET & !0xff00) | 0x01 << 8;
+}
 
 const P: u64 = 1 << 0; // Present
 const RW: u64 = 1 << 1; // Read/Write (clear = read-only)
@@ -97,10 +118,16 @@ impl Ia32e {
         if flags.is_global() {
             bits |= G;
         }
-        if flags.is_device() {
-            // Uncacheable, write-through: the conservative PAT-0 encoding that means "strong
-            // uncacheable" under the reset-time PAT this kernel does not reprogram. A device
-            // register that gets cached reads back a value the device never produced.
+        if flags.is_write_combining() {
+            // `PWT` alone: PAT entry 1, which [`pat::VALUE`] makes write-combining. A PAT type of
+            // WC wins over any MTRR, so this is WC whatever the firmware's MTRRs say about the
+            // range. `SW_DEVICE` as for any device page, and the missing `PCD` is what the decoder
+            // reads back as the combining.
+            bits |= PWT | SW_DEVICE;
+        } else if flags.is_device() {
+            // Uncacheable, write-through: `PCD | PWT` selects PAT entry 3, strong uncacheable,
+            // which [`pat::VALUE`] leaves as it was at reset. A device register that gets cached
+            // reads back a value the device never produced.
             bits |= PCD | PWT | SW_DEVICE;
         }
         // One execute permission, applying at whichever ring `U/S` names. A page executable by
@@ -168,6 +195,9 @@ impl PageFormat for Ia32e {
         }
         if entry & SW_DEVICE != 0 {
             caps |= CAP_DEVICE;
+            if entry & PCD == 0 {
+                caps |= CAP_WRITE_COMBINE;
+            }
         }
         Flags::from_caps(caps)
     }
@@ -398,6 +428,8 @@ mod tests {
             Flags::user_rodata(),
             Flags::user_data(),
             Flags::user_device(),
+            Flags::write_combining(),
+            Flags::user_write_combining(),
         ] {
             let leaf = Ia32e::leaf_entry(0x10_0000, flags);
             assert_eq!(Ia32e::entry_pa(leaf), 0x10_0000);
@@ -433,6 +465,28 @@ mod tests {
             // write-combining. PWT with it selects entry 3, strong UC, which nothing overrides.
             assert_ne!(leaf & PWT, 0, "UC- rather than UC: {flags:?}");
         }
+    }
+
+    /// **A write-combining page selects PAT entry 1, and entry 1 is write-combining.** Checked as
+    /// a pair because either half alone proves nothing: the encoder could pick an entry the
+    /// programmed value never changed, or the value could change an entry nobody selects. The other
+    /// entries this tree uses (0 for memory, 3 for devices) must be what they were at reset.
+    #[test]
+    fn a_write_combining_page_selects_the_entry_that_is_write_combining() {
+        let leaf = Ia32e::leaf_entry(0xd000_0000, Flags::write_combining());
+        let entry = (leaf & PWT != 0) as u64 | ((leaf & PCD != 0) as u64) << 1;
+        assert_eq!(entry, 1, "PWT alone");
+        let memory_type = |table: u64, entry: u64| (table >> (entry * 8)) & 0xff;
+        assert_eq!(memory_type(pat::VALUE, 1), 0x01, "WC");
+        for unchanged in [0, 2, 3, 4, 5, 6, 7] {
+            assert_eq!(
+                memory_type(pat::VALUE, unchanged),
+                memory_type(pat::RESET, unchanged),
+                "entry {unchanged}"
+            );
+        }
+        let device = Ia32e::leaf_entry(0xd000_0000, Flags::device());
+        assert_ne!(device & PCD, 0, "a register stays strong UC");
     }
 
     /// **A leaf's only bits are R, W and the address.** This is the property that matters most for

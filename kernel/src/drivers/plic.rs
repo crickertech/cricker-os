@@ -171,13 +171,28 @@ fn set_enable_bit(source: u32, context: usize, on: bool) {
 /// affinity policy in `arch::irq` chooses which one, so a device line lands on a chosen hart
 /// rather than always the boot hart. The driver is told the context; it does not read the hartid
 /// (rule #2, DECISIONS §4).
+///
+/// **The enable bit first and the priority second, and the order is load-bearing.** This is also
+/// the driver's `Irq::ACK`, so it runs after every interrupt a userspace driver serves, and a
+/// device that spoke while its line was masked has a pending bit waiting here. By the
+/// specification the PLIC delivers that the moment the bit is enabled. QEMU's PLIC (checked in
+/// `hw/intc/sifive_plic.c` at 11.1.1) does not: a write to an enable word changes the word and
+/// re-evaluates nothing, while a priority write, a threshold write, a completion and a rising
+/// source line all do. With the priority written first, the re-evaluation happened while the bit
+/// was still clear, the enable then changed nothing, and the interrupt stayed pending, enabled and
+/// undelivered until some other device's line happened to rise. That was the USB keyboard stalling
+/// mid-line about one boot in thirty on riscv64, released by any UART byte (notes/usb.md). Written
+/// second, the priority write is the re-evaluation. It costs nothing on a PLIC that follows the
+/// specification, where the order does not matter. Proved by
+/// `sched::tests::an_interrupt_raised_while_its_line_is_masked_is_delivered_at_the_ack`.
 pub fn enable(source: u32, context: usize) {
+    set_enable_bit(source, context, true);
     // Priority 1 (the lowest that still interrupts; we do not prioritize among sources yet). Outside
     // the lock deliberately: this is a whole-word write to a register private to `source`, so it
     // shares nothing, and keeping it out keeps the critical section to the two accesses that need it
-    // (§9: keep them short, interrupts are off for the whole of it).
+    // (§9 (locking: IrqSafeMutex, plus a discipline): keep them short, interrupts are off for the
+    // whole of it). After the enable bit, for the reason above.
     write(PRIORITY_BASE + source as usize * 4, 1);
-    set_enable_bit(source, context, true);
 }
 
 /// Disable `source` for `context` (clear its enable bit). The complement of [`enable`]. Called from

@@ -84,7 +84,8 @@ const TERM: u64 = 2;
 /// The untyped it spends on the page tables its own mappings need. [`MODE_DISPLAY`] only; see the
 /// note on [`SURFACE_FRAME`].
 const BUDGET: u64 = 3;
-/// The whole scanout, one `PageFrame` capability naming the `gfx::SURFACE_PAGE_FRAMES`-page run
+/// The whole scanout, one `PageFrame` capability naming the run the surface lives in (on
+/// virtio-gpu the `gfx::SURFACE_PAGE_FRAMES`-page run; on a firmware screen whatever covers it)
 /// (DECISIONS §102), then one more slot for [`OUT_VA`]'s page. **[`MODE_DISPLAY`] only**
 /// (milestone 108).
 ///
@@ -402,7 +403,10 @@ pub extern "C" fn _start(mode: u64, _arg1: u64, _arg2: u64) -> ! {
                 die(E_INFO);
             }
             let (w, h) = ((geometry & 0xffff_ffff) as u32, (geometry >> 32) as u32);
-            (w, h, gfx::STRIDE)
+            // Four bytes a pixel and no padding, at the width `INFO` answered: on virtio-gpu that
+            // is `gfx::STRIDE` exactly, and on a firmware screen the driver's surface was
+            // allocated at this width (2026-10-04, when it started filling the screen).
+            (w, h, w * gfx::BYTES_PER_PIXEL)
         }
         MODE_WINDOW => {
             // `HELLO` first: its reply cannot arrive until the compositor is serving the doorbell,
@@ -437,7 +441,10 @@ pub extern "C" fn _start(mode: u64, _arg1: u64, _arg2: u64) -> ! {
         die(E_GEOMETRY);
     }
     let (cols, rows) = (w / bitmap_font::GLYPH_W, h / bitmap_font::GLYPH_H);
-    if cols as usize > video_terminal::MAX_COLS || rows as usize > video_terminal::MAX_ROWS {
+    if cols as usize > video_terminal::MAX_COLS
+        || rows as usize > video_terminal::MAX_ROWS
+        || cols as usize * rows as usize > video_terminal::MAX_CELLS
+    {
         die(E_GEOMETRY);
     }
     // `reset_to`, not `*term() = Vt::new(cols, rows)` (milestone 142): `cols`/`rows` are runtime
@@ -448,23 +455,17 @@ pub extern "C" fn _start(mode: u64, _arg1: u64, _arg2: u64) -> ! {
     // instead, so no `Vt`-sized value is ever a stack local or a return value here.
     term().reset_to(cols, rows);
 
-    // SAFETY: MODE_DISPLAY mapped `gfx::SURFACE_FRAMES` frames (`gfx::SURFACE_BYTES` bytes) at
-    // SURFACE_VA itself, in the `MAP` loop above; MODE_WINDOW's frames are mapped by the
-    // compositor's `spawn_client_term` before `HELLO`'s reply arrived, sized to the same geometry
-    // (`stride`, `h`) this process just read off the control page it validated above (milestone 139
-    // round 4). `stride * h` stays inside what was mapped in both wirings: it is exactly the bound
-    // in the first case, and it is the compositor's own published geometry, which is what it sized
-    // the mapping to, in the second.
-    let window = unsafe {
-        MappedWindow::new(
-            SURFACE_VA,
-            if mode == MODE_DISPLAY {
-                gfx::SURFACE_BYTES as u64
-            } else {
-                stride as u64 * h as u64
-            },
-        )
-    };
+    // SAFETY: in MODE_DISPLAY this process mapped the whole surface run it was granted at
+    // SURFACE_VA itself, above, and the kernel sized that run from the same geometry the driver
+    // answers `INFO` with: `gfx::SURFACE_PAGE_FRAMES` on virtio-gpu (where `stride * h` is
+    // `gfx::SURFACE_BYTES`), `width * height * 4` rounded up on a firmware screen
+    // (`display_service::start_screen_terminal`). The grid check above also bounds `stride * h`
+    // under 8.2 MB, far short of `OUT_VA`, so even a driver that lied could only fault this
+    // process, never write its output page. MODE_WINDOW's frames are mapped by the compositor's
+    // `spawn_client_term` before `HELLO`'s reply arrived, sized to the same geometry (`stride`,
+    // `h`) this process just read off the control page it validated above (milestone 139 (drive
+    // the unsafe count down), round 4).
+    let window = unsafe { MappedWindow::new(SURFACE_VA, stride as u64 * h as u64) };
 
     let mut wiring = Wiring {
         mode,

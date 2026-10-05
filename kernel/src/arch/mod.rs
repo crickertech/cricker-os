@@ -144,14 +144,15 @@ impl HaltReason {
     }
 
     /// A measurement boot (`bench`, `icount`, `soak_test`, `job_mix`, `disk_throughput`,
-    /// `tsc_probe`): it replaces the hand-over, its last marker is the result, and the harness tears
-    /// QEMU down. Exists only in such a build.
+    /// `network_bench`, `tsc_probe`): it replaces the hand-over, its last marker is the result, and
+    /// the harness tears QEMU down. Exists only in such a build.
     #[cfg(any(
         feature = "bench",
         feature = "icount",
         feature = "soak_test",
         feature = "job_mix",
         feature = "disk_throughput",
+        feature = "network_bench",
         feature = "tsc_probe"
     ))]
     pub fn measurement_boot() -> Self {

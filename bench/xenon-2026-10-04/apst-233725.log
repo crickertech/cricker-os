@@ -1,0 +1,62 @@
+
+=== iommu
+BOOT_IMAGE=(hd0)/boot/x86_64/loader/linux quiet rhgb root=live:CDLABEL=Fedora-WS-Live-44 rd.live.image
+
+=== apst as found
+get-feature:0x0c (Autonomous Power State Transition), Current value:0x00000001
+	Autonomous Power State Transition Enable (APSTE): Enabled
+	Auto PST Entries	.................
+	Entry[ 0]
+	.................
+get-feature:0x02 (Power Management), Current value:0x00000004
+	Workload Hint (WH): 0 - No Workload
+	Power State   (PS): 4
+
+=== read C: as found
+    clat (nsec): min=1413, max=33111k, avg=20901.41, stdev=275863.58
+     | 30.00th=[   16], 40.00th=[   16], 50.00th=[   16], 60.00th=[   16],
+     | 70.00th=[   16], 80.00th=[   18], 90.00th=[   22], 95.00th=[   29],
+     | 99.00th=[   64], 99.50th=[   67], 99.90th=[   87], 99.95th=[   90],
+  cpu          : usr=3.99%, sys=95.48%, ctx=1, majf=0, minf=10
+   READ: bw=170MiB/s (178MB/s), 170MiB/s-170MiB/s (178MB/s-178MB/s), io=64.0MiB (67.1MB), run=377-377msec
+
+=== turn APST off (feature 0x0c = 0), until reboot
+set-feature:0x0c (Autonomous Power State Transition), value:00000000, cdw12:00000000, save:0
+       0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+0000: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "................"
+0010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "................"
+0020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "................"
+0030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "................"
+0040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "................"
+0050: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "................"
+0060: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "................"
+0070: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "................"
+0080: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "................"
+0090: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "................"
+00a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "................"
+00b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "................"
+00c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "................"
+00d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "................"
+00e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "................"
+00f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "................"
+get-feature:0x0c (Autonomous Power State Transition), Current value:00000000
+	Autonomous Power State Transition Enable (APSTE): Disabled
+	Auto PST Entries	.................
+
+=== read D: APST off
+    clat (nsec): min=131, max=33094k, avg=20877.16, stdev=275688.70
+     | 30.00th=[   16], 40.00th=[   16], 50.00th=[   16], 60.00th=[   16],
+     | 70.00th=[   16], 80.00th=[   18], 90.00th=[   22], 95.00th=[   29],
+     | 99.00th=[   64], 99.50th=[   66], 99.90th=[   88], 99.95th=[   93],
+  cpu          : usr=2.65%, sys=96.55%, ctx=4, majf=0, minf=9
+   READ: bw=169MiB/s (178MB/s), 169MiB/s-169MiB/s (178MB/s-178MB/s), io=64.0MiB (67.1MB), run=378-378msec
+
+=== read E: APST off, again
+    clat (usec): min=30, max=250, avg=53.23, stdev= 3.43
+     | 30.00th=[   54], 40.00th=[   54], 50.00th=[   54], 60.00th=[   54],
+     | 70.00th=[   54], 80.00th=[   55], 90.00th=[   55], 95.00th=[   55],
+     | 99.00th=[   64], 99.50th=[   66], 99.90th=[   71], 99.95th=[   77],
+  cpu          : usr=1.99%, sys=97.68%, ctx=10, majf=0, minf=8
+   READ: bw=70.6MiB/s (74.0MB/s), 70.6MiB/s-70.6MiB/s (74.0MB/s-74.0MB/s), io=64.0MiB (67.1MB), run=907-907msec
+
+=== sending results to patagonia

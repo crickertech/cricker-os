@@ -34,6 +34,10 @@ pub const EV_KEY: u16 = 1;
 pub const KEY_LEFTSHIFT: u16 = 42;
 /// `KEY_RIGHTSHIFT`.
 pub const KEY_RIGHTSHIFT: u16 = 54;
+/// `KEY_LEFTCTRL`.
+pub const KEY_LEFTCTRL: u16 = 29;
+/// `KEY_RIGHTCTRL`.
+pub const KEY_RIGHTCTRL: u16 = 97;
 
 /// The highest evdev code this table knows. Above it, [`byte`] answers `None`.
 pub const MAX_CODE: u16 = 57;
@@ -191,6 +195,10 @@ impl Bytes {
 pub struct Keyboard {
     left: bool,
     right: bool,
+    /// Either control key held (milestone 242 (USB host and HID)): what makes `^C` reach the shell
+    /// from a keyboard, since a terminal sends control characters, not chords.
+    control: bool,
+    right_control: bool,
 }
 
 impl Keyboard {
@@ -199,6 +207,8 @@ impl Keyboard {
         Keyboard {
             left: false,
             right: false,
+            control: false,
+            right_control: false,
         }
     }
 
@@ -232,13 +242,30 @@ impl Keyboard {
             }
             return None;
         }
+        if code == KEY_LEFTCTRL || code == KEY_RIGHTCTRL {
+            if code == KEY_LEFTCTRL {
+                self.control = value != 0;
+            } else {
+                self.right_control = value != 0;
+            }
+            return None;
+        }
         if value == 0 {
             return None; // a release types nothing
         }
         if let Some((param, final_byte)) = cluster(code) {
             return Some(Bytes::csi(param, final_byte, self.shift()));
         }
-        byte(code, self.shift()).map(Bytes::one)
+        // Control folds `@` through `_` and their lower-case twins onto 0x00..0x1f, which is what a
+        // terminal sends for a control chord: `^C` is 0x03 whether shift is held or not.
+        let control = self.control || self.right_control;
+        byte(code, self.shift()).map(|b| {
+            Bytes::one(if control && (0x40..0x7f).contains(&b) {
+                b & 0x1f
+            } else {
+                b
+            })
+        })
     }
 }
 
@@ -247,6 +274,21 @@ mod tests {
     use super::*;
     extern crate std;
     use std::vec::Vec;
+
+    /// **Control and a letter is the control character** (milestone 242 (USB host and HID)): `^C`
+    /// is 0x03, with or without shift, and releasing control types letters again.
+    #[test]
+    fn control_and_a_letter_is_a_control_character() {
+        let mut k = Keyboard::new();
+        assert_eq!(k.event(EV_KEY, KEY_LEFTCTRL, 1), None);
+        assert_eq!(k.event(EV_KEY, 46, 1).unwrap().as_slice(), b"\x03"); // KEY_C
+        assert_eq!(k.event(EV_KEY, KEY_LEFTSHIFT, 1), None);
+        assert_eq!(k.event(EV_KEY, 46, 1).unwrap().as_slice(), b"\x03");
+        assert_eq!(k.event(EV_KEY, KEY_LEFTCTRL, 0), None);
+        assert_eq!(k.event(EV_KEY, 46, 1).unwrap().as_slice(), b"C");
+        assert_eq!(k.event(EV_KEY, KEY_RIGHTCTRL, 1), None);
+        assert_eq!(k.event(EV_KEY, 2, 1).unwrap().as_slice(), b"!"); // a digit is not folded
+    }
 
     /// The letters, the digits, and the symbols land where the keycaps say, shifted and unshifted.
     /// A table off by one row would put `s` on the `a` key and nothing else would notice.

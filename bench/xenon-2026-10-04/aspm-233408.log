@@ -1,0 +1,97 @@
+
+=== nvme at 0000:01:00.0, root port 0000:00:1b.0
+NAME            SIZE MODEL
+nvme0n1 256060514304 Micron 2450 NVMe 256GB
+
+=== before
+-- 0000:01:00.0
+		LnkCap:	Port #1, Speed 16GT/s, Width x4, ASPM L1, Exit Latency L1 unlimited
+		LnkCtl:	ASPM Disabled; RCB 64 bytes, LnkDisable- CommClk+
+		LnkSta:	Speed 8GT/s (downgraded), Width x4
+-- 0000:00:1b.0
+		LnkCap:	Port #17, Speed 8GT/s, Width x4, ASPM not supported
+		LnkCtl:	ASPM Disabled; RCB 64 bytes, LnkDisable- CommClk+
+		LnkSta:	Speed 8GT/s, Width x4
+aspm policy: [default] performance powersave powersupersave 
+apst max latency us: 100000
+
+=== read A: as found (polled)
+r: (g=0): rw=read, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=io_uring, iodepth=1
+fio-3.40
+Starting 1 process
+
+r: (groupid=0, jobs=1): err= 0: pid=5826: Sun Oct  4 23:34:09 2026
+  read: IOPS=45.9k, BW=179MiB/s (188MB/s)(64.0MiB/357msec)
+    slat (nsec): min=1759, max=4024.3k, avg=2388.71, stdev=31461.64
+    clat (usec): min=2, max=1063, avg=19.10, stdev=14.88
+     lat (usec): min=14, max=4033, avg=21.49, stdev=34.82
+    clat percentiles (usec):
+     |  1.00th=[   14],  5.00th=[   15], 10.00th=[   15], 20.00th=[   16],
+     | 30.00th=[   16], 40.00th=[   16], 50.00th=[   16], 60.00th=[   16],
+     | 70.00th=[   18], 80.00th=[   18], 90.00th=[   25], 95.00th=[   49],
+     | 99.00th=[   66], 99.50th=[   82], 99.90th=[  128], 99.95th=[  159],
+     | 99.99th=[  486]
+  lat (usec)   : 4=0.01%, 10=0.02%, 20=88.09%, 50=7.25%, 100=4.47%
+  lat (usec)   : 250=0.15%, 500=0.01%
+  lat (msec)   : 2=0.01%
+  cpu          : usr=6.74%, sys=91.29%, ctx=18, majf=0, minf=8
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=16384,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=179MiB/s (188MB/s), 179MiB/s-179MiB/s (188MB/s-188MB/s), io=64.0MiB (67.1MB), run=357-357msec
+
+Disk stats (read/write):
+  nvme0n1: ios=6986/0, sectors=55888/0, merge=0/0, ticks=129/0, in_queue=129, util=50.20%
+
+=== clear ASPM on both ends of the link
+
+=== reload nvme with APST off and poll queues
+modprobe: FATAL: Module nvme_core is in use.
+
+=== after
+-- 0000:01:00.0
+		LnkCtl:	ASPM Disabled; RCB 64 bytes, LnkDisable- CommClk+
+		LnkSta:	Speed 8GT/s (downgraded), Width x4
+-- 0000:00:1b.0
+		LnkCtl:	ASPM Disabled; RCB 64 bytes, LnkDisable- CommClk+
+		LnkSta:	Speed 8GT/s, Width x4
+apst max latency us: 100000
+io_poll: 1
+
+=== read B: ASPM and APST off (polled)
+r: (g=0): rw=read, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=io_uring, iodepth=1
+fio-3.40
+Starting 1 process
+
+r: (groupid=0, jobs=1): err= 0: pid=5847: Sun Oct  4 23:34:10 2026
+  read: IOPS=45.9k, BW=179MiB/s (188MB/s)(64.0MiB/357msec)
+    slat (nsec): min=1753, max=71027, avg=2084.35, stdev=1157.62
+    clat (nsec): min=1712, max=3186.3k, avg=19455.89, stdev=28696.65
+     lat (usec): min=14, max=3188, avg=21.54, stdev=28.80
+    clat percentiles (usec):
+     |  1.00th=[   14],  5.00th=[   15], 10.00th=[   15], 20.00th=[   16],
+     | 30.00th=[   16], 40.00th=[   16], 50.00th=[   16], 60.00th=[   16],
+     | 70.00th=[   18], 80.00th=[   19], 90.00th=[   25], 95.00th=[   50],
+     | 99.00th=[   66], 99.50th=[   83], 99.90th=[  133], 99.95th=[  186],
+     | 99.99th=[  668]
+  lat (usec)   : 2=0.01%, 10=0.02%, 20=87.79%, 50=7.33%, 100=4.69%
+  lat (usec)   : 250=0.13%, 500=0.02%, 750=0.01%
+  lat (msec)   : 4=0.01%
+  cpu          : usr=4.78%, sys=93.26%, ctx=34, majf=0, minf=10
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwts: total=16384,0,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=1
+
+Run status group 0 (all jobs):
+   READ: bw=179MiB/s (188MB/s), 179MiB/s-179MiB/s (188MB/s-188MB/s), io=64.0MiB (67.1MB), run=357-357msec
+
+Disk stats (read/write):
+  nvme0n1: ios=6610/0, sectors=56024/0, merge=0/0, ticks=134/0, in_queue=134, util=54.62%
+
+=== sending results to patagonia

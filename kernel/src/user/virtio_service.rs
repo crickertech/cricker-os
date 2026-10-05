@@ -155,10 +155,10 @@ pub fn start_net_pci(image: &'static [u8]) -> Option<RendezvousId> {
 /// pages, lowered in the same change, so the budget covers the heap's worst case with 32 pages left
 /// for page tables and clients' frame mappings. Both numbers are stated on both sides; if one moves,
 /// the other must. The suite is what proves 96 is enough for smoltcp's socket set and buffers.
-const NET_SERVER_BUDGET_PAGES: u64 = 128;
+pub(super) const NET_SERVER_BUDGET_PAGES: u64 = 128;
 /// smoltcp builds packets on the stack; one mapped stack page is not enough. Eight extra keeps
 /// the poll loop clear (`allocator_exerciser` needed three for `alloc` collections; smoltcp asks more).
-const NET_SERVER_STACK_PAGES: u64 = 8;
+pub(super) const NET_SERVER_STACK_PAGES: u64 = 8;
 
 /// Start the **net server** (milestone 30, piece 3): the `net_stack` binary, which runs smoltcp over
 /// the confined NIC and does DHCP. Like [`wire`] it hands the confined `Virtio` capability, the
@@ -418,7 +418,7 @@ fn start_net_stack_with(
 /// `held` is the caller's [`Holding`]: this client's thread and the three regions behind it are
 /// added to whatever the net server already put there, so one `release` at the end of a test ends
 /// the whole service rather than the server alone.
-fn spawn_stack_client(
+pub(super) fn spawn_stack_client(
     image: &'static [u8],
     arg0: u64,
     arg1: u64,

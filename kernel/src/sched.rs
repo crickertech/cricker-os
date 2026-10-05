@@ -1611,8 +1611,6 @@ pub fn adopt_secondary_idle() {
     // This core's turn at the line in `init` above: it is about to own threads.
     crate::arch::fp::init();
 
-    let idle = Thread::adopt_current();
-
     let id = {
         let mut guard = IPC_TABLES.lock();
         let sched = guard
@@ -1620,10 +1618,10 @@ pub fn adopt_secondary_idle() {
             .expect("adopt_secondary_idle before sched::init");
         let id = sched
             .threads
-            .insert_with(|tid| {
-                let mut idle = idle;
-                idle.id = tid;
-                idle
+            .insert_in_place(|tid, dst| {
+                // SAFETY: `dst` is a fresh, exclusively-owned TCB page, per `insert_in_place`.
+                unsafe { Thread::write_adopted_current(dst, tid) };
+                true
             })
             .expect("thread table full while bringing a core online");
         // This core is currently running that thread.
@@ -4357,7 +4355,7 @@ fn strand_reply_caller(sched: &mut IpcTables, caller: ThreadId) -> bool {
 /// because [`strand_reply_caller`] takes `sched` mutably and deletes out of this very table as it
 /// goes; at 24 slots that was 24 generational lookups per departing thread, and `script/bench`
 /// priced it at about 830 icount ticks on every `spawn_reap` iteration. One lookup, an array of
-/// [`crate::cap::CAPABILITY_TABLE_SLOTS`] victims (256 bytes at 32 slots) in this function's own frame (it is `#[inline(never)]`, so the array is never
+/// [`crate::cap::CAPABILITY_TABLE_SLOTS`] victims (512 bytes at 64 slots, 256 at the 32 it was) in this function's own frame (it is `#[inline(never)]`, so the array is never
 /// on `reap_region_objects`'s), and the empty-table early-out cost nothing and gave it back.
 #[cold]
 #[inline(never)]
@@ -4396,7 +4394,7 @@ fn strand_callers_of(sched: &mut IpcTables, tid: ThreadId) {
 /// server.
 ///
 /// **Rescan rather than list**, which is the opposite choice from [`strand_callers_of`] above and
-/// the difference is the bound: that one lists because a capability table is 32 slots, 256 bytes,
+/// the difference is the bound: that one lists because a capability table is 64 slots, 512 bytes,
 /// and this one cannot because the bound here is `MAX_THREADS`, a kilobyte that grows every time
 /// the thread ceiling does. Both functions sit on the call chain through
 /// [`reap_region_objects`], the deepest frame in the kernel, whose own comment spends a paragraph
@@ -5877,21 +5875,21 @@ pub fn corpse_fault_msg(tid: ThreadId) -> Option<[u64; 5]> {
 ///
 /// The name is generational, so a reaped thread's `ThreadId` never resolves again even if its slot is
 /// reused: `false` here means gone, not "gone or replaced".
-/// **Every slot of `tid`'s capability table, copied out** (test support, milestone 757 (a test
+/// **`tid`'s capability table, read in place** (test support, milestone 757 (a test
 /// kernel fails a process on its Nth retype), provisional name). `None` for a name that does not
 /// resolve. A sweep that fails a service's Nth retype reads this before and after each run, because
-/// a cleanup path that forgets a `cap_delete` crashes nothing and shows up only here.
+/// a cleanup path that forgets a `cap_delete` crashes nothing and shows up only here. It lends the
+/// table to `read` rather than returning a copy: a copy is a 2 KiB array in every frame that holds
+/// it, which at 64 slots put the caller over the guard page (milestone 754 (the capability table
+/// grows to 64 slots)). `read` runs under `IPC_TABLES`, so it must not call back into `sched`.
 #[cfg(feature = "system_tests")]
-pub fn capability_table_snapshot(
+pub fn with_capability_table<R>(
     tid: ThreadId,
-) -> Option<[Option<crate::cap::Cap>; crate::cap::CAPABILITY_TABLE_SLOTS]> {
+    read: impl FnOnce(&crate::cap::CapabilityTable) -> R,
+) -> Option<R> {
     let guard = IPC_TABLES.lock();
     let t = guard.as_ref()?.threads.capabilities(tid)?.lock();
-    let mut out = [None; crate::cap::CAPABILITY_TABLE_SLOTS];
-    for (slot, entry) in out.iter_mut().enumerate() {
-        *entry = t.get(slot as u64).ok();
-    }
-    Some(out)
+    Some(read(&t))
 }
 
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
@@ -8275,6 +8273,89 @@ mod tests {
         assert!(
             spin_until(|| SAW.load(Ordering::SeqCst)),
             "an interrupt that fired before the WAIT was lost",
+        );
+        assert!(
+            wait_for(|| !crate::sched::is_thread_present(tid)),
+            "the interrupt waiter never exited",
+        );
+        crate::sched::reclaim_region(region).expect("test region would not reclaim");
+    }
+
+    /// **An interrupt raised while its line is masked is delivered when the driver ACKs.** The
+    /// third delivery property, and the one a real driver leans on hardest: the handler masks a
+    /// routed line when it fires and the driver's `Irq::ACK` unmasks it, so anything the device
+    /// raises while the driver is busy arrives during the mask, and the ACK is the only thing that
+    /// can deliver it. Nothing else will: the driver goes straight back to `Irq::WAIT`.
+    ///
+    /// The RISC-V leg is the reason this test exists. QEMU's PLIC does not re-evaluate delivery when
+    /// an enable bit is written, so a source that went pending while disabled sat pending, enabled
+    /// and undelivered after the ACK, until some *other* PLIC event happened to re-evaluate it. The
+    /// USB keyboard stalled mid-line that way about one boot in thirty, and a byte typed on the UART
+    /// released it (`drivers::plic::enable`'s doc has the mechanism; notes/usb.md has the
+    /// history). This test raises nothing else in between, which is what makes it deterministic.
+    ///
+    /// The line is lowered and raised again while masked, rather than held, because QEMU's PLIC
+    /// latches a source's pending bit only when its line rises: a line held high across the
+    /// claim would never go pending again under the emulator at all, fixed or not, and the test
+    /// would be asking a different question. On x86_64 the self-IPI has no mask, so the second
+    /// raise is simply delivered; the property holds there trivially and the leg proves the
+    /// portable half (two raises, two messages).
+    ///
+    /// Name: provisional (the USB keyboard lost-wakeup lane, 2026-10-05).
+    ///
+    /// Falsification: replayable `kernel/falsifications/sched.tests.an_interrupt_raised_while_its_line_is_masked_is_delivered_at_the_ack.patch`
+    #[test_case]
+    fn an_interrupt_raised_while_its_line_is_masked_is_delivered_at_the_ack() {
+        use crate::arch::exceptions::ROUTED_IRQS;
+
+        let region = crate::memory_region::create(1).expect("no region for a test rendezvous");
+        let ep = super::create_rendezvous_from(region).expect("no rendezvous from region");
+        super::bind_irq(pending_irq(), ep);
+        arm_test_irq(pending_irq());
+
+        // The first raise: the handler routes it and masks the line, exactly as for a driver.
+        let routed = ROUTED_IRQS.load(Ordering::Relaxed);
+        raise_test_irq(pending_irq());
+        let first = spin_until(|| ROUTED_IRQS.load(Ordering::Relaxed) > routed);
+        quiet_test_irq();
+        assert!(
+            first,
+            "the first interrupt was never routed, so this test could not reach its question",
+        );
+        // **Let the first handler finish.** `ROUTED_IRQS` moves before the handler's `complete`,
+        // and on RISC-V a completion re-evaluates the PLIC. If that hart's completion landed after
+        // the ACK below, it would deliver the second interrupt itself and the test would pass for
+        // a reason that is not the ACK, which is how the first falsification run came back green.
+        // The completion is a few instructions behind the count; 20 ms is margin, not a guess at it.
+        let settle = crate::arch::timer::now() + crate::arch::timer::frequency() / 50;
+        while crate::arch::timer::now() < settle {
+            super::yield_now();
+        }
+
+        // The second raise lands while the line is masked: the device spoke while its driver was
+        // busy. Then the driver's ACK, which is `arch::irq::enable`, the same call `Irq::ACK` makes.
+        let routed = ROUTED_IRQS.load(Ordering::Relaxed);
+        raise_test_irq(pending_irq());
+        arm_test_irq(pending_irq());
+        let second = spin_until(|| ROUTED_IRQS.load(Ordering::Relaxed) > routed);
+        quiet_test_irq();
+        assert!(
+            second,
+            "an interrupt raised while its line was masked was never delivered after the ACK \
+             unmasked it: the driver would sleep in WAIT with its device's interrupt pending",
+        );
+
+        // Both are messages: a driver waiting now collects two signals and does not block.
+        static SAW: AtomicU64 = AtomicU64::new(0);
+        let tid = super::spawn(move || {
+            super::ipc_receive(ep);
+            super::ipc_receive(ep);
+            SAW.store(2, Ordering::SeqCst);
+        })
+        .expect("spawn failed");
+        assert!(
+            spin_until(|| SAW.load(Ordering::SeqCst) == 2),
+            "two interrupts were routed but the waiter did not collect two signals",
         );
         assert!(
             wait_for(|| !crate::sched::is_thread_present(tid)),

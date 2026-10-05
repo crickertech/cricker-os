@@ -1,5 +1,9 @@
 name: architect label
 
+# Observed failing: 2026-10-04, run 37226530701: fired on #1617's `crates/abi` change
+#   (abi-surface), applied `needs-architect` (github-actions[bot], 18:59:39Z) and commented. Green by
+#   design; the label is the arm that carries the claim. See notes/observed-failing.md.
+
 # **The general case of `coe-architect-label.yml`.** That workflow's own header quotes §88 (`needs-
 # architect` as a required check, rather than as a script's restraint): it built the enforcement
 # half of `needs-architect` (`architect-hold.yml` fails while the label sits on a pull request) and

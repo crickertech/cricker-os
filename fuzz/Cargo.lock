@@ -249,6 +249,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "domain_name_system"
+version = "0.1.0"
+
+[[package]]
 name = "elf"
 version = "0.1.0"
 
@@ -302,6 +306,7 @@ dependencies = [
  "byte_sink_protocol",
  "compositor",
  "device_tree_blob",
+ "domain_name_system",
  "elf",
  "filesystem_protocol",
  "globally_unique_identifier_partition_table",
