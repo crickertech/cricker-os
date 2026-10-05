@@ -3885,16 +3885,57 @@ fn reply_tag(slot: u64) -> u64 {
 /// If the receiver's capability table is full the capability is dropped and the receiver sees `NO_CAP`; the
 /// data word still arrives. The syscall layer has already checked the sender may delegate this
 /// capability (it holds `GRANT`) and that the rights only narrow.
+///
+/// **For a capability the caller minted, not one read from a table.** A copy of a capability the
+/// sender holds goes through [`ipc_delegate_cap`], which reads the source under the same hold of
+/// `IPC_TABLES` that files the copy; see [`Delegation`] for why the two cannot be separate steps.
+/// Since `SEND_CAP` moved to that path (2026-10-04 UTC) the only callers are system tests that
+/// hand over a capability they built, hence the `allow`.
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u64) {
+    let sent = ipc_send_cap_from(ep, data, badge, |_, _| Ok(cap));
+    debug_assert!(sent.is_ok(), "a minted capability has no source to lose");
+}
+
+/// **`SEND_CAP`'s body: send a narrowed copy of a capability the running thread holds.** The source
+/// is read, checked and copied under the `IPC_TABLES` hold that delivers or parks the copy, so no
+/// revocation sweep can fall between the read and the filing ([`Delegation`]). `Err` is the source's
+/// answer (`NoSuchSlot`, `NotPermitted`), with nothing sent; a stale or refusing rendezvous is
+/// reported as before, through `take_ipc_aborted`. Name provisional.
+pub fn ipc_delegate_cap(
+    ep: RendezvousId,
+    data: u64,
+    delegation: Delegation,
+    badge: u64,
+) -> Result<(), abi::Error> {
+    ipc_send_cap_from(ep, data, badge, |sched, current| {
+        let caps = sched
+            .threads
+            .capabilities(current)
+            .ok_or(abi::Error::NoSuchSlot)?;
+        delegation.derive(&caps.lock())
+    })
+}
+
+/// The body [`ipc_send_cap`] and [`ipc_delegate_cap`] share. `source` runs first, under the hold,
+/// and its error returns before the rendezvous is touched, which is the order the syscall layer
+/// answered in when it read the source itself.
+fn ipc_send_cap_from(
+    ep: RendezvousId,
+    data: u64,
+    badge: u64,
+    source: impl FnOnce(&IpcTables, ThreadId) -> Result<crate::cap::Cap, abi::Error>,
+) -> Result<(), abi::Error> {
     let block = {
         let mut guard = IPC_TABLES.lock();
         let sched = guard.as_mut().expect("no scheduler");
         let current = current_thread_id();
+        let cap = source(sched, current)?;
 
         let me = thread_control_block_ptr(sched, current);
         let Some(rendezvous) = rendezvous_of(sched, ep) else {
             set_ipc_aborted(sched, current);
-            return; // stale rendezvous: aborted, syscall layer errors
+            return Ok(()); // stale rendezvous: aborted, syscall layer errors
         };
         // SAFETY: as in ipc_send.
         match unsafe { rendezvous.send(me) } {
@@ -3946,6 +3987,7 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u6
     if block {
         schedule();
     }
+    Ok(())
 }
 
 /// **File a capability an IPC is delivering in the receiving thread's table**, or [`NO_CAP`] if the
@@ -4694,6 +4736,77 @@ pub fn grant_at(slot: u64, cap: crate::cap::Cap) -> Result<u64, crate::cap::Erro
     current_capabilities().map_or(Err(crate::cap::Error::NoFreeSlot), |mut t| {
         t.insert_at(slot, cap)
     })
+}
+
+/// **A copy of a capability the running thread holds, narrowed, about to be filed somewhere.** The
+/// source slot and the rights the copy keeps; [`Delegation::derive`] is the rule. Name provisional.
+///
+/// # Why the source is a slot and not a capability
+///
+/// A revocation sweep (`delete_page_frame_caps_where`, `delete_device_frame_caps_from_others`,
+/// `x86_64`'s `delete_port_range_caps_impl`) holds `IPC_TABLES` for its whole walk and takes each
+/// table's lock beneath it. A delegation used to read its source with [`current_cap`], let go, and
+/// file the copy in a second critical section, so a sweep could run entirely between the two: it
+/// deleted the source and the copy was filed after it had passed. A `PageFrame` has no generation
+/// to make that copy inert, so under `PageFrame::REVOKE` it was authority the revoker had taken
+/// back, and under `MemoryRegion::DESTROY` it named pages the allocator was about to reuse (§13's
+/// use-after-free). Milestone 761 (capability lookup off the global lock) recorded the gap; `system_tests::user::revocation_window_tests`
+/// drove a sweep into it on `SEND_CAP`, `CAP_INSERT` and `SLICE` and all three filed the copy.
+///
+/// **The invariant now is that a copy is derived from a source read in the same critical section
+/// that files the copy, and that critical section excludes every sweep.** A delegation into
+/// another thread holds `IPC_TABLES` across both ([`ipc_delegate_cap`],
+/// [`thread_control_block_delegate_cap`]), which every sweep holds for its whole walk. A derivation
+/// into the running thread's own table ([`grant_derived`]) holds that table's lock across both,
+/// which every sweep takes to delete from it. Either way the sweep is wholly before (the source is
+/// gone and the delegation answers `NoSuchSlot`, as if it had started after the revoke) or wholly
+/// after (the copy is in a table the sweep then walks). Passing the slot rather than a capability
+/// is what makes the old shape hard to write again: these functions have no parameter a stale copy
+/// could arrive through.
+///
+/// **Objects with generational names do not need this, and the derivations of them that still
+/// read-then-grant are safe for that reason**: `Rendezvous::BADGE` mints a badged copy of an
+/// endpoint, and `MemoryRegion::SPLIT` a child of a region, and a copy minted after its object died
+/// names a dead generation and fails on use (`crates/slots`, §16 (object revocation)).
+#[derive(Clone, Copy)]
+pub struct Delegation {
+    /// The source's slot in the running thread's table.
+    pub slot: u64,
+    /// The rights the copy keeps: a subset of the source's.
+    pub rights: crate::cap::Rights,
+}
+
+impl Delegation {
+    /// **The delegation rule**: the source exists, its holder was trusted to pass it on (`GRANT`),
+    /// and the copy only narrows. Applied to a table the caller holds under a lock every sweep takes.
+    fn derive(self, table: &crate::cap::CapabilityTable) -> Result<crate::cap::Cap, abi::Error> {
+        let src = table.get(self.slot).map_err(|_| abi::Error::NoSuchSlot)?;
+        if !src.rights.allows(crate::cap::Rights::GRANT) {
+            return Err(abi::Error::NotPermitted); // holder may not pass this on
+        }
+        if !self.rights.is_subset_of(src.rights) {
+            return Err(abi::Error::NotPermitted); // delegation may only narrow, never widen
+        }
+        Ok(crate::cap::Cap {
+            object: src.object,
+            rights: self.rights,
+        })
+    }
+}
+
+/// **File, in the running thread's own table, a capability derived from one it holds**, reading the
+/// source and filing the result under one hold of that table's lock ([`Delegation`] has why).
+/// `derive` decides what the copy is from the source as it stands at that instant. `Err` is
+/// `derive`'s answer, `NoSuchSlot` for an empty slot, or `OutOfMemory` for a full table. Name
+/// provisional.
+pub fn grant_derived(
+    slot: u64,
+    derive: impl FnOnce(crate::cap::Cap) -> Result<crate::cap::Cap, abi::Error>,
+) -> Result<u64, abi::Error> {
+    let mut table = current_capabilities().ok_or(abi::Error::NoSuchSlot)?;
+    let src = table.get(slot).map_err(|_| abi::Error::NoSuchSlot)?;
+    let copy = derive(src)?;
+    table.insert(copy).map_err(|_| abi::Error::OutOfMemory)
 }
 
 /// **Retype a TCB out of `region`** (milestone 19c.3): an embryo thread, page-resident in a
@@ -5525,13 +5638,46 @@ pub fn mark_current_fp_live() -> bool {
 /// the capability in a specific free slot, which a supervisor uses to put a child's supervision
 /// rendezvous in the reserved fault slot (milestone 22). A targeted insert into an occupied or
 /// out-of-range slot is `OutOfMemory`, so the reservation cannot be quietly overwritten.
+///
+/// **For a capability the kernel mints, not one read from a table**: `CAP_INSERT` endows an embryo
+/// with a copy of one the spawner holds, and that goes through
+/// [`thread_control_block_delegate_cap`] ([`Delegation`] has why).
 pub fn thread_control_block_insert_cap(
     tid: ThreadId,
     cap: crate::cap::Cap,
     target: Option<u64>,
 ) -> Result<u64, abi::Error> {
+    thread_control_block_insert_from(tid, target, |_, _| Ok(cap))
+}
+
+/// **`ThreadControlBlock::CAP_INSERT`'s body: endow an embryo with a narrowed copy of a capability
+/// the running thread holds**, the source read under the `IPC_TABLES` hold that files the copy
+/// ([`Delegation`]). Name provisional.
+pub fn thread_control_block_delegate_cap(
+    tid: ThreadId,
+    delegation: Delegation,
+    target: Option<u64>,
+) -> Result<u64, abi::Error> {
+    thread_control_block_insert_from(tid, target, |sched, current| {
+        let caps = sched
+            .threads
+            .capabilities(current)
+            .ok_or(abi::Error::NoSuchSlot)?;
+        delegation.derive(&caps.lock())
+    })
+}
+
+/// The body both share. `source` runs first, so its answer comes before the embryo's, the order the
+/// syscall layer answered in when it read the source itself. Its table lock is released before the
+/// embryo's is taken: two tables are never held at once (`sync::rank::CAPABILITY_TABLE`).
+fn thread_control_block_insert_from(
+    tid: ThreadId,
+    target: Option<u64>,
+    source: impl FnOnce(&IpcTables, ThreadId) -> Result<crate::cap::Cap, abi::Error>,
+) -> Result<u64, abi::Error> {
     let mut guard = IPC_TABLES.lock();
     let sched = guard.as_mut().ok_or(abi::Error::NoSuchSlot)?;
+    let cap = source(sched, current_thread_id())?;
     let (t, caps) = sched
         .threads
         .get_mut_with_capabilities(tid)
