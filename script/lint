@@ -3131,6 +3131,10 @@ python3 helpers/mutation_inflow.py --selftest >/dev/null
 echo "==> the architect-label diff rules"
 python3 helpers/architect-label-rules.py --selftest >/dev/null
 
+# `architect-ruled` is read live, not from the event payload (#1712 race, 2026-10-05); stub-gh fixtures.
+echo "==> the live architect-ruled read"
+helpers/architect-ruled-selftest.sh >/dev/null
+
 # The base-resolution half of the same check, shared with the gates' prose-only classification and watchdog's scope step:
 # helpers/scope-merge-base.sh takes the merge base of HEAD against the base branch's CURRENT tip
 # rather than trusting the event payload's own base.sha, which goes stale the moment an unrelated
