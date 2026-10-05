@@ -49,6 +49,16 @@
 # legacy U-Boot header is two CRCs over a 64-byte layout, which is logic with a right answer and a
 # wrong one, so it lives in `cargo xtask board-script` where it has tests, and this script calls
 # it. Anything else that grows a right answer belongs there for the same reason.
+#
+# BUGS
+#
+# - **The kernel is release and the userspace archive is debug.** `cargo xtask initrd-riscv` packs
+#   target/<target>/debug/ because nothing on this path sets xtask's release flag, so every board
+#   payload, and every job-mix and soak number taken from one, runs debug programs under a release
+#   kernel. On radon (2026-10-05) the syscall stub alone was 3 to 8 ticks of a 110-tick null-syscall
+#   job (notes/job-mix/radon-2026-10-05.md). Fixing it moves every radon baseline at once, so it is
+#   a proposal with a re-baseline, not a flag flip:
+#   design/roadmap/proposals/release-userspace-in-board-images.md.
 
 set -eu
 cd "$(dirname "$0")/.."

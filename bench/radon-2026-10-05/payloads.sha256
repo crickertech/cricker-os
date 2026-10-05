@@ -1,0 +1,6 @@
+abd3f8487dc23669f86fc2e3952835fe69f6b33d8bf19a2318f6a8c1d596ed20  target/board-main/nife-vf2.img
+4654c6a85ec51712a08f1a71e4dd4feaa8e2450f31acb323899a4e7b744ed627  target/board-main/nife-initrd.img
+96d48d3e27b21f22b7723bd5c75ecb965923c89e939574d666848ee27723f986  target/board-main-lock-wait/nife-vf2.img
+4654c6a85ec51712a08f1a71e4dd4feaa8e2450f31acb323899a4e7b744ed627  target/board-main-lock-wait/nife-initrd.img
+044d25c6030c729d9eed3717599ee4af8ebf2c55d2600fb297eaa31bdad0718a  target/board-unaligned/nife-vf2.img
+c34d848d86849a11f43014ae9d29abe9b6333004155018d7d853cdc8fae77e37  target/board-unaligned/nife-initrd.img
