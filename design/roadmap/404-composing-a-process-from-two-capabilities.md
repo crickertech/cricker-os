@@ -27,7 +27,7 @@ written up 2026-09-19 by milestone 435 (forty-five milestones are gated on a dec
 block's status paragraph already records one token correction, from `DESIGN`, which is not in the
 roadmap's gate vocabulary; the section is the other half of that repair, since a token in the
 vocabulary that points at nothing is the defect milestone 435 exists to sweep.)
-**Decided 2026-10-05: option (a), and the fixture becomes `process_composition_witness`.**
+Decided 2026-10-05: option (a), and the fixture becomes `process_composition_witness`.
 What the replacement should *be* was the open question, and the options differ in
 cost by an order of magnitude. Nothing is blocked on it: the tree is no worse off than it was the
 hour before `builder` was deleted, because nothing on a pull request ever ran `builder` either.
