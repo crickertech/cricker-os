@@ -514,6 +514,42 @@ impl MappingHold {
             page_phys = page.next;
         }
     }
+
+    /// **Tombstone whatever record says `root` maps a page at `va`, and return the page it named**
+    /// (milestone 95 (an unmap primitive), `AddressSpace::UNMAP`; name provisional). `None` if no
+    /// record does.
+    ///
+    /// [`Self::forget_mapping`] keyed by the address alone, because `UNMAP` names a window and not
+    /// a frame: the caller may hold no capability for the page. The progenitor, the case §162
+    /// (whether a holder can give up a mapping) was decided for, deletes its frame capabilities the
+    /// moment each page is mapped.
+    ///
+    /// **This half is what keeps a later revoke honest, and it is not optional.** A record left
+    /// behind after its page was unmapped still names `(phys, va)`. If the space then maps a
+    /// different frame at `va`, a revoke of the old frame matches the stale record and unmaps the
+    /// new mapping, which belongs to a capability nobody revoked.
+    /// `kernel::user::unmap_tests::an_unmapped_va_remapped_to_another_frame_survives_the_old_frames_revoke`
+    /// is that case, and its falsification removes this call.
+    ///
+    /// A table record at the same `va` is left alone: tables stay linked until the space or the
+    /// region paying for them dies (`notes/unmap.md`'s `BUGS`).
+    pub fn forget_mapping_at(&mut self, root: u64, va: u64) -> Option<u64> {
+        let space = self.spaces.live_mut().find(|s| s.root == root)?;
+        let mut page_phys = space.head;
+        while page_phys != 0 {
+            // SAFETY: pages in the chain are the log's own; SPACES is held.
+            let page = unsafe { log_page(page_phys) };
+            for e in page.entries.iter_mut().take(page.used as usize) {
+                if e.is_mapping() && e.va == va {
+                    let phys = e.phys;
+                    e.phys = 0; // tombstone, exactly as a revoke leaves it
+                    return Some(phys);
+                }
+            }
+            page_phys = page.next;
+        }
+        None
+    }
 }
 
 /// **One entry of what `root` has mapped, resuming from `cursor`** (`abi::address_space::LIST`,

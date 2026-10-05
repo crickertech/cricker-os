@@ -1,0 +1,24 @@
+Falsifies `system_tests::user::unmap_tests::unmap_of_a_va_with_nothing_mapped_is_refused_and_changes_nothing`.
+
+The defect: `AddressSpace::UNMAP` becomes idempotent, the `munmap` and seL4 `Page_Unmap` answer,
+and reports success for an address with nothing mapped. The misaligned and kernel-half refusals
+come earlier and are unaffected.
+
+Expected to fail: the first case, a `va` never mapped, which gets `Ok(0)` where it wants
+`BadPointer`.
+
+diff --git a/kernel/src/syscall.rs b/kernel/src/syscall.rs
+index f4089be81..09d79f665 100644
+--- a/kernel/src/syscall.rs
++++ b/kernel/src/syscall.rs
+@@ -1065,9 +1065,7 @@ fn address_space_unmap(name: u64, va: u64) -> Result<i64, Error> {
+         // revoke would act on.
+         let unmapped = mmu::unmap_user_at(root, va);
+         let forgotten = hold.forget_mapping_at(root, va);
+-        if unmapped.is_none() && forgotten.is_none() {
+-            return Err(Error::BadPointer);
+-        }
++        let _ = (unmapped, forgotten);
+         Ok(0)
+     })
+ }

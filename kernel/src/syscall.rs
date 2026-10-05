@@ -373,6 +373,16 @@ pub fn invoke(
                 }
                 address_space_list(frame, name, a0)
             }
+            // This space gives up the page it maps at `va` (milestone 95 (an unmap primitive),
+            // DECISIONS §162 (whether a holder can give up a mapping), option A).
+            // `WRITE`, the authority `MAP_INTO` takes: shaping a space is one right in both
+            // directions. See `abi::address_space::UNMAP` and notes/unmap.md.
+            abi::address_space::UNMAP => {
+                if !cap.rights.allows(Rights::WRITE) {
+                    return Err(Error::NotPermitted);
+                }
+                address_space_unmap(name, a0)
+            }
             _ => Err(Error::BadMethod),
         },
 
@@ -1016,6 +1026,47 @@ fn address_space_map_into(
                     });
                 }
             }
+        }
+        Ok(0)
+    })
+}
+
+/// `AddressSpace::UNMAP` (milestone 95, DECISIONS §162 option A; the two semantics §162 left open
+/// are provisional, and `notes/unmap.md` argues each): take the one page at `va` out of the space
+/// `name`, out of every core's TLB, and out of the space's mapping record. `BadPointer` when nothing
+/// is mapped there. No capability is read, consumed or changed. `#[inline(never)]` for the reason
+/// `memory_region_map` gives: giving up a window is setup work, never a step of the IPC round trip.
+///
+/// **Under the space registry and then the mapping hold, the order `MAP_INTO` takes them**
+/// (`ADDRESS_SPACES` above `MAPPINGS`), so an `UNMAP` and a `MAP_INTO` of the same `va` are ordered
+/// whole, and a revoke's unmap pass (which takes the same hold) either finds the record and unmaps
+/// the page itself, or finds neither. The table walk and the record are changed in the same hold,
+/// so no sweep can see one without the other.
+///
+/// **The TLB obligation is `mmu::unmap_user_at`'s**, the function every revoke already unmaps with:
+/// `tlbi vaae1is` on aarch64 (every ASID, every core in the inner-shareable domain), a local
+/// `sfence.vma` plus an SBI remote fence on riscv64, `invlpg` plus the NMI shootdown on x86_64.
+#[inline(never)]
+fn address_space_unmap(name: u64, va: u64) -> Result<i64, Error> {
+    if !paging::is_user_page_va::<crate::arch::mmu::Format>(va) {
+        return Err(Error::BadPointer);
+    }
+    crate::user::with_user_address_space(name, |space| {
+        // A space that no longer resolves (bound by `CONFIGURE`, or reclaimed) has nothing this
+        // capability can reach, which is what `MAP_INTO` answers for it too.
+        let Some(space) = space else {
+            return Err(Error::BadPointer);
+        };
+        let root = space.root();
+        let mut hold = crate::revoke::hold();
+        // Both halves, and neither is allowed to short-circuit the other: a page in the tables with
+        // no record (none should exist since 2026-09-21, when every route began recording) is
+        // still a window to close, and a record with no page behind it is still a record a later
+        // revoke would act on.
+        let unmapped = mmu::unmap_user_at(root, va);
+        let forgotten = hold.forget_mapping_at(root, va);
+        if unmapped.is_none() && forgotten.is_none() {
+            return Err(Error::BadPointer);
         }
         Ok(0)
     })

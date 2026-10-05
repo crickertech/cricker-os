@@ -916,6 +916,29 @@ pub mod address_space {
     /// 2026-08-17 already carries the bit (the `Rights::ALL`-on-creation invariant), so this
     /// method's existence is what turns that bit from inert to live.
     pub const LIST: u64 = 1;
+
+    /// `invoke(cap, UNMAP, va, _, _)` -> 0 (milestone 95 (an unmap primitive), DECISIONS §162
+    /// (whether a holder can give up a mapping), option A). **This space gives up the one page it
+    /// maps at `va`, and no other holder is touched.** The inverse of one
+    /// page of [`MAP_INTO`], and of any other route that put a page there.
+    ///
+    /// - Needs `WRITE` on the address-space capability, the authority `MAP_INTO` takes.
+    /// - One page per call. A run `MAP_INTO` laid down in one call is given up a page at a time;
+    ///   unmapping one page of it leaves the rest mapped.
+    /// - **A `va` with nothing mapped answers [`crate::Error::BadPointer`]** and changes nothing,
+    ///   as does a misaligned or kernel-half one. Not idempotent, deliberately: the caller is
+    ///   closing a window, and "it was never open" is a different fact from "it is now shut".
+    /// - **No capability is consumed or changed.** A frame capability the caller still holds for
+    ///   the page survives and can map it again; one already deleted is not needed.
+    /// - The page is gone from every core's TLB before this returns, and from the space's mapping
+    ///   record, so [`LIST`] stops reporting it and a later revoke of the frame does not reach `va`.
+    ///
+    /// **Both semantics above are provisional** (the milestone 95 lane, 2026-10-05 UTC): §162
+    /// leaves them owed to that lane, and `notes/unmap.md` has the argument for each. So is the
+    /// method number, which is the next free one on this object. **It reaches only a space under
+    /// construction**: `ThreadControlBlock::CONFIGURE` retires the space's name, so no capability
+    /// names a running space, including the caller's own. `notes/unmap.md` has that too.
+    pub const UNMAP: u64 = 2;
 }
 
 /// The rights bits, matching `capability::Rights`, so userspace can name the rights to narrow a
