@@ -104,7 +104,8 @@ Done on 2026-10-04, evening (bench clock 23:12 to about 23:25, zone not recorded
 fio-3.40, three runs (psync, pvsync2 `--hipri` which did not engage polling, io_uring `--hipri`
 which did). Best Linux write is 425 MB/s (polled io_uring), so nife's median is 1.08x. Linux read varies
 from 74 to 188 MB/s with drive state, and read median latency matches nife's. ASPM and APST were checked
-and ruled out. Numbers and caveats are in `risk-6-bench-evening.md`'s "Linux qd1 baseline".
+and ruled out. Numbers and caveats are in
+[the baseline's page](risk-6-bench-evening/linux-qd1-baseline-2026-10-04.md).
 **Open: the Linux read tail and drive-state variance are unexplained (next check: `nvme smart-log`
 temperature), and nife's counter frequency has not been cross-checked against wall time.**
 
