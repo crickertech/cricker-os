@@ -57,6 +57,15 @@ Five words, delivered to the supervision endpoint's holder through a plain `RECE
 mailbox widened from three words to five to carry this; ordinary three-word IPC leaves the top two
 zero, so only a supervisor reads them and no other program's `RECEIVE` changes.
 
+A sixth word, the child's label, arrives in argument register 5 (`x5`, `a5`, `r9`): the badge its
+builder put on the supervision capability with `rendezvous::BADGE` before inserting it, kept by
+the kernel at `START` (milestone 105 (the two forks), §148 (resolves by asking the kernel) as amended 2026-10-04). The kernel
+writes it only on a death delivered to a plain `RECEIVE`, so the mailbox stays five words. A
+receiver zeroes the register first, as `receive_fault` does, so `0` means unbadged or not a death.
+The child holds no capability carrying its label, and a sender's badge arrives in `w3`, so a label
+can be neither learned nor forged. `RECEIVE_CAP` and in-kernel receives do not get it.
+`sub_server_supervisor` uses it to tell two children apart.
+
 Both events flow because restart policy needs to tell "crashed" from "finished": a crash is a reason
 to restart, a clean exit is a reason to stop. The tid is trustworthy without a badge because the
 kernel is the only sender on this path. seL4 solves the general untrusted-sender case with badged

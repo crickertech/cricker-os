@@ -271,11 +271,11 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 159 | DECIDED | [Lab machines upgrade like user machines, and only a new kernel needs a reboot](159-upgrades-without-a-reimage.md) |
 | 160 | PROPOSED | [What a subshell copies, given that a capability set cannot always be copied](160-what-a-subshell-copies.md) |
 | 161 | PROPOSED | [Which subset counts as running Vaultwarden](161-what-counts-as-running-vaultwarden.md) |
-| 162 | PROPOSED | [Whether a holder can give up a mapping, and what gives it up](162-giving-up-a-mapping.md) |
+| 162 | DECIDED | [Whether a holder can give up a mapping, and what gives it up](162-giving-up-a-mapping.md) |
 | 163 | DECIDED | [Where a confined device's IOMMU fault is delivered](163-where-a-device-fault-is-delivered.md) |
 | 164 | SUPERSEDED BY 148 | [Whether the kernel resolves a tid it already sent to the supervisor that received it](164-resolving-a-tid-a-supervisor-holds.md) |
 | 165 | PROPOSED | [Where a stored secret comes from on a boot that is not a test](165-where-a-stored-secret-comes-from.md) |
-| 166 | PROPOSED | [The rasteriser dependency, and whether the glyph atlas ships one face or four](166-the-rasteriser-and-how-many-faces.md) |
+| 166 | DECIDED | [The rasteriser dependency, and whether the glyph atlas ships one face or four](166-the-rasteriser-and-how-many-faces.md) |
 | 167 | PROPOSED | [What a profiling session's grant names](167-what-a-profiling-session-may-name.md) |
 | 168 | PROPOSED | [Where a proof-gated credential rotation verb lives](168-where-a-rotation-verb-lives.md) |
 | 169 | PROPOSED | [Whether a clipboard exists here, and what it is scoped to](169-whether-a-clipboard-exists.md) |
@@ -294,7 +294,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 182 | PROPOSED | [Is a string two binaries agree on a name for `script/names`' purposes, or is it data?](182-provenance-for-wire-visible-names.md) |
 | 183 | PROPOSED | [What `script/ci-build` with no arguments means, and what the two tiers are called](183-what-no-arguments-means.md) |
 | 184 | PROPOSED | [Does the host test pass run on a second architecture, and at what cadence?](184-an-x86-64-host-in-the-host-pass.md) |
-| 185 | PROPOSED | [What carries the claim that userspace composes a process from an authority you can count on one hand](185-composing-a-process-from-two-capabilities.md) |
+| 185 | DECIDED | [What carries the claim that userspace composes a process from an authority you can count on one hand](185-composing-a-process-from-two-capabilities.md) |
 | 186 | PROPOSED | [Where a riscv64 tour-boot check runs, what it asserts, and what it is called](186-where-the-riscv-tour-check-runs.md) |
 | 187 | PROPOSED | [One crate per kernel-test pair, or one crate for all of them?](187-crates-for-the-numbers-a-kernel-test-and-its-program-agree-on.md) |
 | 188 | PROPOSED | [What the lifted `fn check(ok: bool)` is called, now that nine programs write it out by hand](188-one-home-for-the-trap-on-false-helper.md) |

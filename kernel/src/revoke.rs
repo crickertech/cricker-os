@@ -40,7 +40,7 @@
 //! records with the process, and "forget this root" is one registry slot going empty.
 
 use crate::arch::mmu;
-use crate::sync::{IrqSafeMutex, rank};
+use crate::sync::{IrqSafeGuard, IrqSafeMutex, rank};
 
 /// One recorded mapping: `va` in the owning space maps `phys`, **under the capability whose run
 /// starts at `object`**. `phys == 0` is a tombstone (RAM starts at `0x4000_0000` on this board, so
@@ -90,7 +90,7 @@ struct LogEntry {
 /// `16 + 24 * 170 == 4096` exactly, and the `LogPage` size assertion below is what keeps that
 /// arithmetic honest rather than a comment claiming it.
 ///
-/// **This number is a benchmark input, which is not obvious from here.** [`record_mapping`] scans
+/// **This number is a benchmark input, which is not obvious from here.** [`MappingHold::record_mapping`] scans
 /// the head page's used slots for a tombstone before it appends, so the average scan is half of
 /// this constant and the whole cost of recording a mapping is linear in it. Lowering it to 170 took
 /// `map_el0` down 16.9% on aarch64 (464,182 -> 385,919) and 16.4% on riscv64 (73,990 -> 61,868),
@@ -105,7 +105,7 @@ const LOG_ENTRIES: usize = 170;
 /// **How many log pages `n` recorded mappings cost**, for a caller sizing an address space's
 /// backing region.
 ///
-/// Every mapping is recorded ([`record_mapping`]), and the record is paid for out of the mapped
+/// Every mapping is recorded ([`MappingHold::record_mapping`]), and the record is paid for out of the mapped
 /// space's own region, so a caller that carves a budget and then maps a large window has to pay for
 /// the window's records as well as for the page tables reaching it. That was free until 2026-09-21,
 /// because [`crate::user::AddressSpace::map_physical`] recorded nothing; it is not free now, and
@@ -119,7 +119,7 @@ pub fn log_pages_for(n: u64) -> u64 {
     n.div_ceil(LOG_ENTRIES as u64)
 }
 
-/// **What authority a mapping was made under**, which is the question [`record_mapping`] now
+/// **What authority a mapping was made under**, which is the question [`MappingHold::record_mapping`] now
 /// requires an answer to (DECISIONS §132).
 ///
 /// A two-variant enum rather than a bare address, for the ladder's own reason (AGENTS.md, rung
@@ -297,91 +297,153 @@ pub fn forget_root(root: u64) {
     spaces.release(root);
 }
 
-/// Record that the address space rooted at `root` mapped `phys` at `va`, **under the capability
-/// whose run begins at `object`**, and **paid for by that space's own region**: the record goes in
-/// an existing log slot, or a fresh log page is retyped from the region (rank MAPPINGS >
-/// `MEMORY_REGION` makes that legal under this lock). Returns `false` if
-/// the space is unknown or its budget is exhausted, and the caller must then unmap what it just
-/// mapped: an unrecorded mapping is invisible to revocation, which is the §13 use-after-free.
+/// **The mapping registry, held: the one critical section a mapping is read, made and recorded
+/// in** (the map-revocation-window lane, 2026-10-04 UTC; name provisional).
 ///
-/// `under` is a required argument with no default, which is the point (AGENTS.md's ladder, rung
-/// one): a mapping that cannot say which capability made it is exactly the record §132 found
-/// missing, and a caller must now answer the question to compile. See [`PageMapSource`].
-#[must_use]
-pub fn record_mapping(phys: u64, root: u64, va: u64, under: PageMapSource) -> bool {
-    let object = under.object(phys);
-    // The run's base is at or below the page it covers, and a whole number of pages below it. The
-    // enum stops a caller confusing the two arguments; this catches a caller computing the base
-    // wrongly, which would silently scope the record to a family it does not belong to.
-    debug_assert!(
-        object <= phys && (phys - object).is_multiple_of(page_frames::FRAME_SIZE),
-        "a mapping of {phys:#x} recorded under an object at {object:#x}: not a page of that run",
-    );
-    let mut spaces = SPACES.lock();
-    let Some(space) = spaces.live_mut().find(|s| s.root == root) else {
-        return false;
-    };
-
-    // A free slot in the chain: the first tombstone, or headroom in any page.
-    let mut page_phys = space.head;
-    while page_phys != 0 {
-        // SAFETY: pages in the chain are the log's own; SPACES is held.
-        let page = unsafe { log_page(page_phys) };
-        for e in page.entries.iter_mut().take(page.used as usize) {
-            if e.phys == 0 {
-                *e = LogEntry { phys, va, object };
-                return true;
-            }
-        }
-        if (page.used as usize) < LOG_ENTRIES {
-            page.entries[page.used as usize] = LogEntry { phys, va, object };
-            page.used += 1;
-            return true;
-        }
-        page_phys = page.next;
-    }
-
-    // No room anywhere: a fresh page from the space's own budget becomes the new head. Retyped
-    // zeroed, so `used = 0` and `next = 0` need no separate scrub.
-    let Some(fresh) = crate::memory_region::retype_page(space.region) else {
-        return false; // out of budget: the caller unmaps, the process pays for its own limit
-    };
-    // SAFETY: just retyped exclusively for the log; SPACES is held.
-    let page = unsafe { log_page(fresh) };
-    page.next = space.head;
-    page.entries[0] = LogEntry { phys, va, object };
-    page.used = 1;
-    space.head = fresh;
-    true
+/// Every sweep in this module runs two passes in one order: capabilities first (`sched`, under
+/// `IPC_TABLES` and each table's lock), then the unmap pass, which takes this registry and unmaps
+/// what the log holds *when it scans*. A `PageFrame::MAP` or `AddressSpace::MAP_INTO` used to read
+/// its frame capability in a critical section of its own, then build page tables, map and record.
+/// A sweep could run wholly between the read and the record: it deleted the capability, scanned a
+/// log the mapping was not yet in, and left the mapping live. Under `PageFrame::REVOKE` that was
+/// authority the revoker had taken back; under `MemoryRegion::DESTROY` it was a mapping of a page
+/// the allocator then handed to somebody else, the use-after-free §13 (capability revocation and
+/// untyped reclamation) exists to prevent. §13 named it ("the one honest race") in 2026-07 and
+/// deferred it to seL4's answer, a mapping-database lock held across the whole operation. This is
+/// that lock, and it was already there: the registry every unmap pass takes.
+/// `system_tests::user::map_revocation_window_tests` drove a sweep into the gap on both paths under
+/// both sweeps, and all four kept the mapping. `MemoryRegion::MAP` had the same window against a
+/// region's `DESTROY` (a retype before the claim, a record after the scan), and it is closed here
+/// the same way.
+///
+/// **The invariant now is that a mapping of a capability's frame is made and recorded under the
+/// same hold the capability was read under.** [`MappingHold::current_cap`] is the read, and it
+/// takes the running thread's own table lock beneath this one (`CAPABILITY_TABLE`, 57, under
+/// `MAPPINGS`, 59). A sweep deletes from that table before it takes this registry, so it is wholly
+/// before the read (the slot is empty and the `MAP` answers `NoSuchSlot`, as if it had started
+/// after the revoke) or its unmap pass starts after the record (the scan finds it). Nothing in
+/// between can be expressed, and the mapping is never live in a page table a sweep has already
+/// passed: unlike record-then-recheck, there is no instant where a reclaimed page is mapped and
+/// about to be taken back.
+///
+/// **Held across page-table construction**, which is the cost: tables come from a region
+/// (`MEMORY_REGION`, 58, beneath this), and a run maps every page under one hold, so every other
+/// mapping and every unmap pass on the machine waits behind it. `MAP` is spawn-time and setup work,
+/// never a step of the IPC round trip. On one hart it is cheaper, not dearer, because a run now
+/// takes the registry once rather than once per page: riscv64 icount, 2026-10-04, `map_el0` 120 to
+/// 113 ticks a map (-6.3%) and `spawn_el0` 2,221 to 2,208 a spawn (-0.6%), every other row within
+/// one tick. What the longer hold costs under contention is not measured; it is a held lock on
+/// `MAP`, which no benchmark here runs from two cores at once.
+///
+/// # BUGS
+///
+/// - **Rung three, not rung one, for the read.** A caller can still read a capability with
+///   `sched::current_cap` outside a hold and map with it; nothing stops the old shape being written
+///   again except that the two `MAP` handlers no longer receive a capability at all, only the slot,
+///   which is `sched::Delegation`'s defence and no stronger.
+pub struct MappingHold {
+    spaces: IrqSafeGuard<'static, Registry>,
 }
 
-/// **Undo one [`record_mapping`]**: tombstone the record that `root` maps `phys` at `va`, without
-/// touching any other space's view of `phys`.
-///
-/// The counterpart the rollback paths needed and did not have. [`unmap_everywhere`] is the wrong
-/// tool for undoing a half-finished `PageFrame::MAP`, because it is space-blind by design: it pulls
-/// the physical page out of *every* address space that maps it, which for a shared frame would
-/// punish the peers for the mapper's failure. This removes exactly the one record the caller just
-/// wrote, and the caller unmaps exactly the one page it just mapped.
-///
-/// Silent when the space or the record is unknown, because both mean the same thing to a rollback:
-/// there is nothing left to undo.
-pub fn forget_mapping(phys: u64, root: u64, va: u64) {
-    let mut spaces = SPACES.lock();
-    let Some(space) = spaces.live_mut().find(|s| s.root == root) else {
-        return;
-    };
-    let mut page_phys = space.head;
-    while page_phys != 0 {
-        // SAFETY: pages in the chain are the log's own; SPACES is held.
-        let page = unsafe { log_page(page_phys) };
-        for e in page.entries.iter_mut().take(page.used as usize) {
-            if e.phys == phys && e.va == va {
-                e.phys = 0; // tombstone: reusable by the next record, exactly as a revoke leaves it
-                return;
+/// Take the mapping registry. See [`MappingHold`]: hold it from the frame read through the record.
+pub fn hold() -> MappingHold {
+    MappingHold {
+        spaces: SPACES.lock(),
+    }
+}
+
+impl MappingHold {
+    /// **Read the running thread's capability at `slot` under this hold**: the read a mapping must
+    /// be made from. Takes that thread's table lock beneath the registry, which is the order
+    /// `sync::rank` permits and the reason the read can sit inside the hold at all.
+    pub fn current_cap(&self, slot: u64) -> Result<crate::cap::Cap, crate::cap::Error> {
+        crate::sched::current_cap(slot)
+    }
+
+    /// Record that the address space rooted at `root` mapped `phys` at `va`, **under the capability
+    /// whose run begins at `object`**, and **paid for by that space's own region**: the record goes in
+    /// an existing log slot, or a fresh log page is retyped from the region (rank MAPPINGS > `MEMORY_REGION`
+    /// makes that legal under this hold). Returns `false` if
+    /// the space is unknown or its budget is exhausted, and the caller must then unmap what it just
+    /// mapped: an unrecorded mapping is invisible to revocation, which is the §13 use-after-free.
+    ///
+    /// `under` is a required argument with no default, which is the point (AGENTS.md's ladder, rung
+    /// one): a mapping that cannot say which capability made it is exactly the record §132 found
+    /// missing, and a caller must now answer the question to compile. See [`PageMapSource`].
+    #[must_use]
+    pub fn record_mapping(&mut self, phys: u64, root: u64, va: u64, under: PageMapSource) -> bool {
+        let object = under.object(phys);
+        // The run's base is at or below the page it covers, and a whole number of pages below it. The
+        // enum stops a caller confusing the two arguments; this catches a caller computing the base
+        // wrongly, which would silently scope the record to a family it does not belong to.
+        debug_assert!(
+            object <= phys && (phys - object).is_multiple_of(page_frames::FRAME_SIZE),
+            "a mapping of {phys:#x} recorded under an object at {object:#x}: not a page of that run",
+        );
+        let Some(space) = self.spaces.live_mut().find(|s| s.root == root) else {
+            return false;
+        };
+
+        // A free slot in the chain: the first tombstone, or headroom in any page.
+        let mut page_phys = space.head;
+        while page_phys != 0 {
+            // SAFETY: pages in the chain are the log's own; SPACES is held.
+            let page = unsafe { log_page(page_phys) };
+            for e in page.entries.iter_mut().take(page.used as usize) {
+                if e.phys == 0 {
+                    *e = LogEntry { phys, va, object };
+                    return true;
+                }
             }
+            if (page.used as usize) < LOG_ENTRIES {
+                page.entries[page.used as usize] = LogEntry { phys, va, object };
+                page.used += 1;
+                return true;
+            }
+            page_phys = page.next;
         }
-        page_phys = page.next;
+
+        // No room anywhere: a fresh page from the space's own budget becomes the new head. Retyped
+        // zeroed, so `used = 0` and `next = 0` need no separate scrub.
+        let Some(fresh) = crate::memory_region::retype_page(space.region) else {
+            return false; // out of budget: the caller unmaps, the process pays for its own limit
+        };
+        // SAFETY: just retyped exclusively for the log; SPACES is held.
+        let page = unsafe { log_page(fresh) };
+        page.next = space.head;
+        page.entries[0] = LogEntry { phys, va, object };
+        page.used = 1;
+        space.head = fresh;
+        true
+    }
+
+    /// **Undo one [`Self::record_mapping`]**: tombstone the record that `root` maps `phys` at `va`, without
+    /// touching any other space's view of `phys`.
+    ///
+    /// The counterpart the rollback paths needed and did not have. [`unmap_everywhere`] is the wrong
+    /// tool for undoing a half-finished `PageFrame::MAP`, because it is space-blind by design: it pulls
+    /// the physical page out of *every* address space that maps it, which for a shared frame would
+    /// punish the peers for the mapper's failure. This removes exactly the one record the caller just
+    /// wrote, and the caller unmaps exactly the one page it just mapped.
+    ///
+    /// Silent when the space or the record is unknown, because both mean the same thing to a rollback:
+    /// there is nothing left to undo.
+    pub fn forget_mapping(&mut self, phys: u64, root: u64, va: u64) {
+        let Some(space) = self.spaces.live_mut().find(|s| s.root == root) else {
+            return;
+        };
+        let mut page_phys = space.head;
+        while page_phys != 0 {
+            // SAFETY: pages in the chain are the log's own; SPACES is held.
+            let page = unsafe { log_page(page_phys) };
+            for e in page.entries.iter_mut().take(page.used as usize) {
+                if e.phys == phys && e.va == va {
+                    e.phys = 0; // tombstone: reusable by the next record, exactly as a revoke leaves it
+                    return;
+                }
+            }
+            page_phys = page.next;
+        }
     }
 }
 
@@ -461,7 +523,7 @@ pub fn list_mapping(root: u64, cursor: u64) -> (u64, u64) {
 /// The unmapping (TLB broadcast included) happens under the registry lock. The old database
 /// lifted victims out first to keep the §9 critical section short; without a heap there is
 /// nowhere to lift them to, and the honest accounting is: revocation is rare, the lock is
-/// contended only by `record_mapping` (a syscall path that can afford to wait), and a `tlbi`
+/// contended only by mapping syscalls (a [`MappingHold`] spans one, which can afford to wait), and a `tlbi`
 /// completes in hardware regardless of who spins on what.
 ///
 /// `spare` is an address-space root to leave alone (0 spares none). Only the device take-back
@@ -522,9 +584,9 @@ fn unmap_matching(phys: u64, spare: u64, object: Option<u64>) {
 /// **Revoke a single-page frame from everyone.** Delete every `PageFrame(phys, 1)` capability from
 /// every capability table, then unmap `phys` from every address space. Caps go **first**, so a
 /// `PageFrame::MAP` that starts after this cannot re-establish a mapping we would then miss. (The
-/// remaining window, an in-flight map on another core between the cap delete and the unmap, is the
-/// SMP race §13 names; a full mapping-database lock is seL4's answer and this milestone's
-/// deferral.)
+/// window §13 named, a map in flight on another core between the cap delete and the unmap, is
+/// closed since 2026-10-04 by [`MappingHold`]: a map reads its frame under the registry hold this
+/// unmap pass takes, so it is wholly before the cap delete or its record is there to be found.)
 ///
 /// **This is not "no capability names the page afterwards", and the earlier wording that said so
 /// was wrong from the day §102 landed.** The sweep is by exact object, so a `PageFrame(p, n)` run
@@ -679,7 +741,19 @@ pub fn revoke_port_range(base: u16, count: u16) {
 /// The unmap pass is one page per iteration: find a recorded page in range under the registry lock,
 /// release it, then unmap (unmapping retakes the registry lock, so it cannot be called while it is
 /// held). Each pass tombstones every record of its page, so the scan strictly shrinks and
-/// terminates.
+/// terminates. A `MAP` that takes the registry between two iterations finds no capability (the
+/// sweep above is finished) and a claimed region refuses to retype, so the scan cannot grow
+/// ([`MappingHold`]).
+///
+/// # BUGS
+///
+/// **Page tables are not leaves, and this unmaps only leaves** (reasoned from the code by the
+/// map-revocation-window lane, 2026-10-04 UTC; not driven by a test). `PageFrame::MAP` and
+/// `MemoryRegion::MAP` build a space's intermediate tables out of a region the caller names, and
+/// nothing records them. Destroying that region returns those table pages to the allocator while a
+/// live space still links them, and the next owner's writes become that space's translations.
+/// `map_revocation_window_tests::a_destroy_inside_a_memory_region_map_leaves_no_mapping` builds
+/// its tables out of a second region to keep clear of this.
 pub fn revoke_region(base: u64, size: u64) {
     crate::sched::delete_page_frame_caps_overlapping(base, size);
     loop {

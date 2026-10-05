@@ -94,8 +94,9 @@ A passing sweep takes about 16 s on this host.
 
 ## The fix
 
-- One trap per architecture in `crates/user_mode_runtime` (`trap5`), declaring all five ABI
-  words as outputs. `invoke5`, `yield_now`, `cap_delete` and `exit` all go through it, so no
+- One trap per architecture in `crates/user_mode_runtime` (`trap6`), declaring all six ABI
+  words as outputs (the sixth is milestone 105 (the two forks)'s label register). `invoke6`,
+  `invoke5`, `yield_now`, `cap_delete` and `exit` all go through it, so no
   wrapper can declare fewer registers than the kernel writes. `yield_now` also lost `nomem`: a
   yield is when other threads write the memory this one shares with them.
 - The std overlay had the same declarations (`patches/std-nife/overlay/std/src/sys/pal/nife/rt.rs`:
@@ -103,7 +104,7 @@ A passing sweep takes about 16 s on this host.
   trap. No std program is known to have been miscompiled, which is luck rather than a property.
   `thread::sleep`'s yield loop was exposed.
 - A gate, `script/lint` check 15 (`helpers/syscall_asm.py`, provisional name): every
-  `svc`/`ecall`/`syscall` in an `asm!` block outside `kernel/` must declare all five words
+  `svc`/`ecall`/`syscall` in an `asm!` block outside `kernel/` must declare all six words
   (and `rcx`, `r11` on `x86_64`). Against base `f7dec0e65` it names 22 blocks in three files.
   `os_primitives_benchmarker`'s `null_syscall` gained four `lateout`s to pass it. That function is
   `#[inline(never)]` and the registers are caller-saved, so its measured body stays

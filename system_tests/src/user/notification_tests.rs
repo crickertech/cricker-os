@@ -60,6 +60,9 @@ fn parked(tid: crate::thread::ThreadId, want: impl Fn(Option<Wait>) -> bool) -> 
 fn a_bound_receiver_is_woken_out_of_receive_and_the_endpoint_still_works() {
     static FIRST: [AtomicU64; 5] = [const { AtomicU64::new(u64::MAX) }; 5];
     static SECOND: [AtomicU64; 5] = [const { AtomicU64::new(u64::MAX) }; 5];
+    // Published with Release after all five SECOND stores. Waiting on SECOND[0] alone raced: the
+    // main thread read slots 3 and 4 before the receiver wrote them (seen on rva23s64, #1635).
+    static SECOND_DONE: AtomicU64 = AtomicU64::new(0);
 
     let r = region();
     let n = sched::create_notification_from(r).expect("notification");
@@ -72,8 +75,9 @@ fn a_bound_receiver_is_woken_out_of_receive_and_the_endpoint_still_works() {
         }
         let m = sched::ipc_receive(ep);
         for (slot, w) in SECOND.iter().zip(m) {
-            slot.store(w, Ordering::SeqCst);
+            slot.store(w, Ordering::Relaxed);
         }
+        SECOND_DONE.store(1, Ordering::Release);
     })
     .expect("spawn the receiver");
 
@@ -113,10 +117,10 @@ fn a_bound_receiver_is_woken_out_of_receive_and_the_endpoint_still_works() {
     );
     sched::ipc_send(ep, [abi::notification::BOUND, 0xdead, 7]);
     assert!(
-        wait_for(|| SECOND[0].load(Ordering::SeqCst) != u64::MAX),
+        wait_for(|| SECOND_DONE.load(Ordering::Acquire) == 1),
         "a message after a bound delivery never arrived"
     );
-    let second: [u64; 5] = core::array::from_fn(|i| SECOND[i].load(Ordering::SeqCst));
+    let second: [u64; 5] = core::array::from_fn(|i| SECOND[i].load(Ordering::Relaxed));
     assert_eq!(
         second,
         [abi::notification::BOUND, 0xdead, 7, 0, 0],

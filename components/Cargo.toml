@@ -16,6 +16,17 @@ version = "0.1.0"
 edition = "2024"
 license.workspace = true
 
+[features]
+# **The attacker roles the confinement tests spawn, compiled in only for a test boot** (milestone 261
+# (the NVMe driver leaves the kernel)'s DMA-escape test). Off in every shipped image: a production
+# `non_volatile_memory_express` server carries no code that aims a PRP outside its region, so no
+# value planted in its transfer buffer can select one. `cargo xtask test` turns it on for each
+# leg's userspace build (`xtask/src/main.rs`'s `CONFINEMENT_ATTACKERS`); nothing else does. A test
+# boot against an initrd built without it fails by name rather than as a missing IOMMU fault.
+# `block_driver`'s two virtio attacker roles predate this and still ship ungated.
+# The feature name was ratified by calef, 2026-10-05 (#1647).
+confinement_attackers = ["non_volatile_memory_express/confinement_attackers"]
+
 # The console server (milestone 19f.3): the second program lifted out of `hello`. `initrd_aarch64` packs
 # it under "console"; the progenitor loads it by name.
 [[bin]]

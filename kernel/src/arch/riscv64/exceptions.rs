@@ -184,6 +184,25 @@ pub fn user_pc(stack_top: u64) -> u64 {
     unsafe { core::ptr::read_volatile(&raw const (*frame).sepc) }
 }
 
+/// **Write argument register `i` of a thread's saved user frame**, the one at the top of its kernel
+/// stack that [`user_pc`] reads. The thread's return to user mode restores it from there, so this is
+/// how the kernel hands a blocked or trapped user thread a result word that is not one of the five
+/// its syscall path writes. The death message's label uses it, in argument register 5, so that only
+/// the death path pays: DECISIONS §148 (resolves by asking the kernel), as amended 2026-10-04.
+///
+/// # Safety
+/// `stack_top` must be the top of the kernel stack of a **user** thread that is inside a trap
+/// from user mode (blocked in a syscall, or the caller's own), and nothing else may be writing that
+/// frame. A pure kernel thread has no frame there: those bytes are its own stack.
+///
+/// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). Named for `TrapFrame::set_arg`, which it applies to a
+/// frame found by stack top the way `user_pc` reads one.
+pub unsafe fn set_user_arg(stack_top: u64, i: usize, v: u64) {
+    let frame = (stack_top - size_of::<TrapFrame>() as u64) as *mut TrapFrame;
+    // SAFETY: the caller's contract: a live user frame at the stack top that nobody else writes.
+    unsafe { (*frame).set_arg(i, v) }
+}
+
 /// Interrupts routed to a userspace handler (delegated IRQs). Bumped by the trap dispatcher.
 pub static ROUTED_IRQS: AtomicUsize = AtomicUsize::new(0);
 

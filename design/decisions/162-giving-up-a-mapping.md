@@ -1,6 +1,8 @@
 ---
-status: PROPOSED
+status: DECIDED
 raised: 2026-09-19
+decided: 2026-10-05
+ratified_by: calef
 ---
 
 # 162. Whether a holder can give up a mapping, and what gives it up
@@ -10,9 +12,28 @@ Raised 2026-09-19 by milestone 435 (forty-five milestones are gated on a decisio
 calef before it is a task"* since it was raised on 2026-08-04 out of milestone 22's closing lane.
 *(Section number provisional until the merge queue lands it.)*
 
+## Ruling
+
+calef, 2026-10-05 (UTC): *"A now, C optional."*
+
+**A is decided: `AddressSpace::UNMAP(va)`.** This space gives up this window, and no other holder is
+touched. **C, the one-page loader, is optional**: a boot-time refinement that nothing requires.
+
+The reason. C alone cannot close the window, because the last page stays mapped unless something
+gives it up, and only A does that. And a program giving up a window it made for its own reasons is a
+case only A answers. **B is refused**, for the reasons in the table: it reads as a second revoke and
+invites confusion with §41 (the endpoint is the broker, and a device is revoked by taking it back), and a frame mapped at two addresses in one space has no unambiguous
+answer.
+
+**Two semantics stay open**, and milestone 95's lane owes them as amendments to this section before
+its build merges: what UNMAP does to a va that was never mapped, and whether the frame capability
+survives the unmap. UNMAP must not contradict §13 (capability revocation and untyped reclamation) or §41.
+
+The recommendation below is kept as it was written on 2026-09-19, and is history now.
+
 ## What is being decided
 
-**Whether a holder can give up a mapping it made, and if so by what method.** Three parts, and the
+Whether a holder can give up a mapping it made, and if so by what method. Three parts, and the
 third can make the first two moot:
 
 1. Does unmap live on the address space or on the frame.
@@ -34,21 +55,21 @@ progenitor maps each page it lays down for a child in order to write it and neve
 Reaping a job hides this for jobs, because reclaiming a region revokes every mapping of its pages
 first ([§13](13-frame-revocation.md)), but the boot servers are never reclaimed. The note names the
 consequence precisely: the console's, the line editor's, the input driver's, the shell's and the
-terminal sink adapter's memory is still reachable from the progenitor, and **giving the
-construction budget away does not touch that.**
+terminal sink adapter's memory is still reachable from the progenitor, and giving the
+construction budget away does not touch that.
 
 There is a second, smaller instance in the same note: the shell's output frame stays mapped in the
 progenitor for life, because `Frame::REVOKE` would take the page from the shell too.
 
 ## What this tree already does in the analogous case
 
-**Take-back already exists, and it is not this.** [§41](41-endpoint-as-broker.md) (a device is
+Take-back already exists, and it is not this. [§41](41-endpoint-as-broker.md) (a device is
 revoked by taking it back) made `Frame::REVOKE` on an `Object::DeviceFrame` delete every capability
 naming the page from every cspace *except the invoker's*. That is the right shape for handing a
 device between two servers and the wrong shape here: the progenitor wants to drop its own window
 and leave the child's alone, which is the exact inverse.
 
-**And [§13](13-frame-revocation.md) already decides what happens to another holder's mapping** when
+And [§13](13-frame-revocation.md) already decides what happens to another holder's mapping when
 a region is reclaimed. Whatever unmap does must not contradict it, which is a constraint on the
 options rather than an answer.
 
@@ -56,24 +77,24 @@ options rather than an answer.
 
 | | shape | cost |
 |---|---|---|
-| **A** | **`AddressSpace::UNMAP(va)`**, symmetric with the `MAP_INTO` that created the window. | A new method on an existing object, which AGENTS.md allows within the model provided its semantics are recorded here. Says what it means: *this* space gives up *this* window, and no other holder is touched. Needs a rule for unmapping a va that was never mapped, and a decision on whether the frame capability survives. |
-| **B** | **`Frame::UNMAP`**, the holder naming the frame rather than the address. | Reads as a second revoke and invites confusion with §41's take-back, which already dispatches on the object kind. A frame mapped at two addresses in one space has no unambiguous answer. |
-| **C** | **No new method: a one-page loader.** The builder maps a page, writes it, releases it before the next, so the window is never wider than one page and closes when construction ends. | No syscall surface at all, which is the strongest thing that can be said about an option here. It does not remove the window, it bounds it: the last page stays mapped unless something gives it up, so C is likely A plus a loader change rather than an alternative to it. Its price is boot time, and it is measurable. |
+| A | `AddressSpace::UNMAP(va)`, symmetric with the `MAP_INTO` that created the window. | A new method on an existing object, which AGENTS.md allows within the model provided its semantics are recorded here. Says what it means: *this* space gives up *this* window, and no other holder is touched. Needs a rule for unmapping a va that was never mapped, and a decision on whether the frame capability survives. |
+| B | `Frame::UNMAP`, the holder naming the frame rather than the address. | Reads as a second revoke and invites confusion with §41's take-back, which already dispatches on the object kind. A frame mapped at two addresses in one space has no unambiguous answer. |
+| C | No new method: a one-page loader. The builder maps a page, writes it, releases it before the next, so the window is never wider than one page and closes when construction ends. | No syscall surface at all, which is the strongest thing that can be said about an option here. It does not remove the window, it bounds it: the last page stays mapped unless something gives it up, so C is likely A plus a loader change rather than an alternative to it. Its price is boot time, and it is measurable. |
 
-**Recommendation: measure C first, then A.** Not because C is less work (it is a restructure of the
+Recommendation as raised (2026-09-19, superseded by the ruling above): measure C first, then A. Not because C is less work (it is a restructure of the
 loader against a one-line method, so it is more), but because the measurement decides whether the
 syscall surface has to grow at all, and this project's rule is that the surface stays small and
 every method is deliberate. If a one-page loader costs nothing observable at boot, the question
 becomes whether A is still worth a permanent boundary change for the residual last page; if it
 costs real time, A is the answer and the measurement said so.
 
-**The one question C cannot answer** is what a *program* does when it wants to give up a window it
+The one question C cannot answer is what a *program* does when it wants to give up a window it
 made for its own reasons. Nothing in this tree asks for that today, which is why C is worth
 measuring rather than dismissing.
 
 ## Would we still choose this if both options cost the same
 
-**Yes, and this is worth saying because the recommendation looks like the cheap one.** If a loader
+Yes, and this is worth saying because the recommendation looks like the cheap one. If a loader
 restructure and a new syscall were the same amount of work, the ordering would be unchanged: the
 surface is a boundary every future program is written against, and taking the measurement first is
 what makes the addition deliberate rather than reflexive. The effort argument would run the other
@@ -81,15 +102,15 @@ way, since C is the larger change.
 
 ## How reversible it is
 
-**A is the irreversible half.** A new method on the address-space object is part of the surface
+A is the irreversible half, and it is the half calef chose. A new method on the address-space object is part of the surface
 forever. C is a refactor of one program and can be undone in an afternoon. Nothing outside this
 tree has acted on either.
 
-## What is blocked until this is answered
+## What was blocked until this was answered
 
-**Milestone 95.** Its proof shape is already settled and needs nothing from here: the progenitor
+Milestone 95, now unblocked on the method (A) and owing the two amendments above. Its proof shape is already settled and needs nothing from here: the progenitor
 writes to a boot server's page and faults, as a negative control, which is the shape milestone 22
 used.
 
-**Not blocked:** the record. The residual is written where a reader meets it, in
+Not blocked: the record. The residual is written where a reader meets it, in
 `notes/trusted-init.md`'s honest limits, and stays there whatever is decided.

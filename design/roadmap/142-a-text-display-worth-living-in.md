@@ -22,8 +22,8 @@ decision is the font and the dependency that renders it. Half of that was taken 
 the palette is Solarized) chose both the family and the palette. What is left is
 §166 (the rasteriser dependency, and
 whether the glyph atlas ships one face or four), written up by milestone 435's lane: §46 makes the
-crate a decision, and §104 (rich-text) is silent on faces. Increments one and two need neither and are
-built; they were the larger half of the deliverable and none of it is aesthetic.
+crate a decision, and §104 (rich-text) is silent on faces. calef ruled on it 2026-10-05 UTC. Increments one and two needed neither and are built; they were the larger half of the
+deliverable and none of it is aesthetic.
 
 Increments one and two are built (`milestone/142-terminal-size`), and are also
 [journey 1](../journeys/01-login-to-kilo.md)'s own step 6 (calef, 2026-08-27: "I want a full size
@@ -70,7 +70,7 @@ built:
   draw a real bold face later without the parser changing. A cell went from 8 bytes to 16 (a const
   assert holds it), so a `Vt` is 724,416 bytes, up from 362,208. The greeting the three-party
   scanout check grades now carries a 24-bit colour and an underline, so the pixel-exact proof covers
-  both on every ISA that runs the display suite. The faces wait on §166.
+  both on every ISA that runs the display suite. The faces are ruled, four, and wait on the atlas.
 - The navigation cluster is BUILT: home, end, insert, delete, page up and page down, each with
   xterm's shift form, tested against the real line discipline.
 - Scrollback from the keyboard is PROPOSED, not the small follow-up this block called it. In the
@@ -83,8 +83,8 @@ built:
   atlas produces coverage values. Dim is not one: the linear-light midpoint of white and black is
   sRGB 188, which reads as barely dimmed, so dim stays an sRGB midpoint.
 
-Increment 3 remains NOT-STARTED, blocked on §166 (the rasteriser
-dependency, and whether the glyph atlas ships one face or four). Increment 6, the palette, is built
+Increment 3 remains NOT-STARTED, and §166 (the rasteriser dependency, and whether the glyph atlas
+ships one face or four) no longer blocks it (ruled 2026-10-05 UTC). Increment 6, the palette, is built
 (checked 2026-10-03, UTC): milestone 141 (a palette worth looking at) is BUILT and
 `crates/video_terminal/src/lib.rs` holds Solarized Dark with entry 14 moved one unit.
 
@@ -585,7 +585,7 @@ are the larger half of "would use it outside a GUI".
 5. Rich attributes. PARTIAL. Widen `Attr` and `Cell` for truecolour, real weights and underline
    styles; ship the bold, italic and bold-italic faces the widened `Attr` can now name. Retires
    *bold is bright*. The widening and truecolour are built (2026-09-26, see the status note above);
-   the faces wait on §166, and *bold is bright* stands until they land.
+   the faces are ruled and wait on the atlas, and *bold is bright* stands until they land.
 6. The palette. Built: milestone 141's gate exists and the Solarized Dark table passes it.
 
 A seventh, listed and not recommended: a glyph service. A component holding the font files and
@@ -688,19 +688,14 @@ Eventually his and blocking nothing:
   coverage table or regenerate-and-compare gate exists. Checked 2026-09-03.
 - **Outstanding.** Increment five is partial: its widening is built (truecolour, the 256-colour
   table, underline, strikethrough, dim, concealed; 2026-09-26). Real weights and italic need faces
-  and wait on §166, so "bold is bright" stands. Underline styles beyond one line (SGR `4:3` and the
+  and wait on the atlas (the faces are ruled), so "bold is bright" stands. Underline styles beyond one line (SGR `4:3` and the
   rest of the colon forms) and the underline colour (SGR 58) are not built: the parser swallows `:`
   whole, recorded in notes/glyphs.md.
-- **Outstanding.** Whether the atlas ships one face or four is unanswered. §104 chose the family
-  and says nothing about faces, and no other file under `design/decisions/` names the question.
-  Checked 2026-09-03.
+- **Done.** Whether the atlas ships one face or four: four, with italic as DejaVu's Oblique
+  (calef, 2026-10-05 UTC, per §166). §104 chose the family and said nothing about faces.
 - **Done.** The palette increment: milestone 141 is BUILT 2026-09-29,
   and the one-unit nudge §104 flagged is in `crates/video_terminal/src/lib.rs` (entry 14, `0x93a1a0`).
   Whether a nudged palette is still called Solarized is calef's (141's block).
-- **Outstanding.** No rasteriser has been run on either target. The determinism numbers are all
-  host measurements and there is no rasteriser crate in the tree, so there is nothing to run on
-  aarch64 or riscv64, which is what §46's first rule would want before the dependency is taken.
-  Checked 2026-09-03.
 - **Done.** The chosen face is re-measured (2026-09-26, `fontTools`, DejaVu Sans Mono 2.35): 2048
   units per em, every advance 1233, ascender 1901, descender -483, no line gap. Those are Menlo's
   numbers exactly, so the 14x26 cell stands.
@@ -722,7 +717,7 @@ build time and the runtime keeps a coverage table exactly as `bitfont` keeps a b
 what preserves the three-party pixel-exact proof. Increments one and two (the scanout, first grown
 to 1280x720 via DECISIONS §102 then retargeted 2026-08-27 to 924x344 for a 132x43 grid at the
 shipping 7x8 cell, and a real terminal: scrollback, UTF-8, arrow keys) are built. Increment five
-is partial (truecolour and the line renditions built 2026-09-26; the faces wait on §166), the
+is partial (truecolour and the line renditions built 2026-09-26; the faces are ruled and wait on the atlas), the
 navigation cluster is in the keymap, and scrollback from the keyboard is a proposal because its
 route needs a new opcode. Three, four and six remain
-NOT-STARTED, blocked on §166 and milestone 141.
+NOT-STARTED; the ruling of 2026-10-05 UTC and milestone 141 is built, so nothing blocks them.

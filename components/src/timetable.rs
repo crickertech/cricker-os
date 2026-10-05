@@ -1071,7 +1071,7 @@ fn wall_reading() -> Option<timetable::WallReading> {
 /// reap. Once it is gone, the corpse's region has no live resident left and an ordinary [`reap`]
 /// reclaims the rest, the same as [`collect`].
 fn collect_grant(exits: &mut u64, faults: &mut u64, mem_slot: u64) {
-    let (event, tid, _pc, _addr, _rsvd) = receive_fault(DEATHS);
+    let (event, tid, ..) = receive_fault(DEATHS);
     if event == abi::fault::EVENT_EXIT {
         *exits += 1;
     } else {
@@ -1100,7 +1100,7 @@ fn collect_grant(exits: &mut u64, faults: &mut u64, mem_slot: u64) {
 /// The kernel is the only sender on this endpoint (§26 clears the child's fault slot at `START`), so
 /// the tid is trustworthy without a badge.
 fn collect(exits: &mut u64, faults: &mut u64) {
-    let (event, tid, _pc, _addr, _rsvd) = receive_fault(DEATHS);
+    let (event, tid, ..) = receive_fault(DEATHS);
     if event == abi::fault::EVENT_EXIT {
         *exits += 1;
     } else {

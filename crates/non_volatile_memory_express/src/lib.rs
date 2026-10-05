@@ -622,6 +622,22 @@ impl IdentifyNamespace {
 /// the disk driver rather than as a diagnosis.
 pub const MAX_DSTRD: u32 = 8;
 
+/// **The sentinel that selects the test-only DMA-escape role**, written by the confinement
+/// falsification's wiring into the first `u64` of the data plane's transfer buffer before `_start`
+/// runs, with the victim frame's physical address in the next `u64`. The EL0 server reads it first
+/// thing; a real boot's transfer buffer is zeroed (`alloc_contiguous_zeroed`), so the magic never
+/// matches and the server serves.
+///
+/// It lives here, not beside either half, because the kernel binary writes it and the EL0 server
+/// binary reads it: rule 7's case for a constant two programs must agree on. Milestone 261's
+/// Outstanding item (milestone 202 (every confinement test is a ritual until somebody breaks the
+/// confinement and watches it fail)'s convention) is the only caller; the role it selects is the
+/// NVMe twin of `block_driver`'s two virtio attacker roles. Named provisionally.
+///
+/// Behind the `confinement_attackers` feature, so a shipped server cannot even name it.
+#[cfg(feature = "confinement_attackers")]
+pub const ESCAPE_MAGIC: u64 = 0xE5CA_9E00_4E56_4D45;
+
 /// **What the admin plane tells the data plane at spawn**, and the whole of it.
 ///
 /// A process knows virtual addresses; PRP fields carry physical ones, so the physical base has to

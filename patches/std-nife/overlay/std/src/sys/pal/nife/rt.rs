@@ -4,7 +4,7 @@
 //! same register convention, deliberately re-stated here because std cannot depend on an
 //! out-of-tree crate. The ABI *constants* are not re-stated: `abi.rs` next door is generated
 //! verbatim from `crates/abi/src/lib.rs` by `cargo xtask std-src`, so the numbers cannot drift.
-//! Only the one trap, `trap5`, is hand-copied; if `user_mode_runtime`'s changes, change this.
+//! Only the one trap, `trap6`, is hand-copied; if `user_mode_runtime`'s changes, change this.
 //!
 //! # The std slot convention
 //!
@@ -86,13 +86,13 @@ pub use super::runtimeproto::{
 
 use super::abi;
 
-/// **The one trap** in this PAL, a twin of `crates/user_mode_runtime`'s `trap5`, whose doc has
-/// the contract: the number in `x8`/`a7`/`rax`, five words in and five back in `x0..x4`,
-/// `a0..a4`, or `rdi`, `rsi`, `rdx`, `r10`, `r8`.
+/// **The one trap** in this PAL, a twin of `crates/user_mode_runtime`'s `trap6`, whose doc has
+/// the contract: the number in `x8`/`a7`/`rax`, six words in and six back in `x0..x5`,
+/// `a0..a5`, or `rdi`, `rsi`, `rdx`, `r10`, `r8`, `r9`.
 ///
 /// **Every syscall comes through here**, and the reason is a defect found on 2026-10-05
 /// (notes/job-mix/spawn-destroy-gone.md). The kernel writes its result into the first register on
-/// the way out of every syscall, and some methods write the next four. A wrapper that declares
+/// the way out of every syscall, and some methods write the next five. A wrapper that declares
 /// fewer outputs than that tells the compiler a register survives the trap when it does not, and
 /// the compiler is entitled to keep a live value there. `user_mode_runtime::yield_now` did, and an
 /// optimised loop sent `DESTROY`'s arguments to the wrong capability after a yield. This file had
@@ -102,7 +102,7 @@ use super::abi;
 /// No `nomem`: a `CALL` is how a shared page changes hands (`sys/fs`'s `Page` relies on that),
 /// and a yield is when other threads write memory this one shares with them.
 #[inline(always)]
-unsafe fn trap5(nr: u64, a: [u64; 5]) -> [u64; 5] {
+unsafe fn trap6(nr: u64, a: [u64; 6]) -> [u64; 6] {
     let mut w = a;
     #[cfg(target_arch = "aarch64")]
     unsafe {
@@ -114,6 +114,7 @@ unsafe fn trap5(nr: u64, a: [u64; 5]) -> [u64; 5] {
             inlateout("x2") w[2],
             inlateout("x3") w[3],
             inlateout("x4") w[4],
+            inlateout("x5") w[5],
             options(nostack),
         );
     }
@@ -127,6 +128,7 @@ unsafe fn trap5(nr: u64, a: [u64; 5]) -> [u64; 5] {
             inlateout("a2") w[2],
             inlateout("a3") w[3],
             inlateout("a4") w[4],
+            inlateout("a5") w[5],
             options(nostack),
         );
     }
@@ -142,6 +144,7 @@ unsafe fn trap5(nr: u64, a: [u64; 5]) -> [u64; 5] {
             inlateout("rdx") w[2],
             inlateout("r10") w[3],
             inlateout("r8") w[4],
+            inlateout("r9") w[5],
             lateout("rcx") _,
             lateout("r11") _,
             options(nostack),
@@ -152,7 +155,7 @@ unsafe fn trap5(nr: u64, a: [u64; 5]) -> [u64; 5] {
 
 /// Invoke a capability. See `crates/user_mode_runtime::invoke`, of which this is a twin.
 pub unsafe fn invoke(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> i64 {
-    unsafe { trap5(abi::SYS_INVOKE, [cap, method, a0, a1, a2])[0] as i64 }
+    unsafe { trap6(abi::SYS_INVOKE, [cap, method, a0, a1, a2, 0])[0] as i64 }
 }
 
 /// SEND three words on the endpoint in `slot`. Blocks until a receiver takes them.
@@ -169,18 +172,18 @@ pub fn send(slot: u64, w0: u64, w1: u64, w2: u64) -> i64 {
 /// as `i64` (the net server never replies a negative word).
 pub fn call(slot: u64, w0: u64, w1: u64) -> (u64, u64) {
     // SAFETY: CALL returns the two reply words in the first two registers.
-    let w = unsafe { trap5(abi::SYS_INVOKE, [slot, abi::rendezvous::CALL, w0, w1, 0]) };
+    let w = unsafe { trap6(abi::SYS_INVOKE, [slot, abi::rendezvous::CALL, w0, w1, 0, 0]) };
     (w[0], w[1])
 }
 
 /// Give up the CPU (`SYS_YIELD`); the timed sleep loop is built on this.
 pub fn yield_now() {
-    let _ = unsafe { trap5(abi::SYS_YIELD, [0; 5]) };
+    let _ = unsafe { trap6(abi::SYS_YIELD, [0; 6]) };
 }
 
 /// Terminate this process (`SYS_EXIT`). The kernel reaps the thread and frees the address space.
 pub fn exit(code: i64) -> ! {
-    let _ = unsafe { trap5(abi::SYS_EXIT, [code as u64, 0, 0, 0, 0]) };
+    let _ = unsafe { trap6(abi::SYS_EXIT, [code as u64, 0, 0, 0, 0, 0]) };
     loop {
         core::hint::spin_loop();
     }

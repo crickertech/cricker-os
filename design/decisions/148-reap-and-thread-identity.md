@@ -198,6 +198,28 @@ six (`Thread::mailbox`, `fault_msg`, `wide`), every IPC delivery stores one more
 what the benchmark condition watches. Carrying the label beside the mailbox on the death path
 alone avoids the second cost; that is the builder's call.
 
+### Where the label travels, as built 2026-10-05
+
+Built by milestone 105 (the two forks)'s lane, 2026-10-05 (UTC), on all three ISAs. The builder
+labels a child by minting a badged copy of its supervision endpoint with `rendezvous::BADGE`,
+inserting that copy in the reserved fault slot, and deleting its own. `START` keeps the badge as
+`Thread::fault_label` while it consumes the slot, so the child never holds a capability carrying it.
+
+The label travels beside the mailbox, not in it. The kernel writes it into argument register 5
+(`x5`, `a5`, `r9`) of the supervisor's saved user frame, and only when it delivers a death to a
+plain `RECEIVE`. Both routes do it: at the rendezvous, when a supervisor is already waiting
+(`deliver_death`), and when a supervisor later collects a parked corpse
+(`collected_without_serving`). `Thread::mailbox` and `fault_msg` stay five words. No other path
+writes the register, so a receiver zeroes it on entry, as `user_mode_runtime::receive_fault` does,
+and label 0 means the capability was unbadged or the message was not a kernel-stamped death. A
+sender's badge still arrives in word 3, so a child can neither learn nor forge its label.
+`RECEIVE_CAP` and a kernel thread's in-kernel receive do not get it.
+
+The benchmark condition held, so R3 stands. Measured against the base commit and again against
+main after merging: `script/fastpath-footprint`'s `ipc_send_receive` and `ipc_call_reply` were
+byte-identical on all three ISAs. In `script/bench`, every icount move was under 2% and inside its
+band, and none was on the kernel IPC path. Milestone 105's block has the numbers.
+
 ## BUGS
 
 - Fork one is a ruling about a pattern, not a built thing. No tier-one server has a spawner

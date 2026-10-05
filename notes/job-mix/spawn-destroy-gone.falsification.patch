@@ -17,15 +17,15 @@ Apply with `git apply`, revert with `git apply -R`. Only yield_now is restored: 
 the miscompiled loop crossed, so it is the one whose absence of a declaration this proves matters.
 
 diff --git a/crates/user_mode_runtime/src/lib.rs b/crates/user_mode_runtime/src/lib.rs
-index cae3c8493..aeb024677 100644
+index 9d43849b4..d12a35b9d 100644
 --- a/crates/user_mode_runtime/src/lib.rs
 +++ b/crates/user_mode_runtime/src/lib.rs
-@@ -952,15 +952,37 @@ pub fn send_cap(slot: u64, cap_slot: u64, rights: u64, w1: u64) -> i64 {
+@@ -996,15 +996,37 @@ pub fn send_cap(slot: u64, cap_slot: u64, rights: u64, w1: u64) -> i64 {
  
  /// Give up the CPU (`SYS_YIELD`). Returns when the scheduler runs this thread again; if another
  /// thread is ready, control goes there and back, which is one context-switch round trip.
 -///
--/// Through [`trap5`] like every other syscall, for the reason its doc gives: the kernel writes its
+-/// Through [`trap6`] like every other syscall, for the reason its doc gives: the kernel writes its
 -/// result into `x0`/`a0`/`rdi` on the way out of a yield too. And not `nomem`: while this thread
 -/// is away, others run and write memory it shares with them, so a yield is a point where memory
 -/// changes, which is what a caller spinning on a shared word with `yield_now` relies on.
@@ -33,7 +33,7 @@ index cae3c8493..aeb024677 100644
  pub fn yield_now() {
 -    // SAFETY: SYS_YIELD gives up the CPU and comes back; it reads no argument and touches no
 -    // memory of this thread's own.
--    let _ = unsafe { trap5(abi::SYS_YIELD, [0; 5]) };
+-    let _ = unsafe { trap6(abi::SYS_YIELD, [0; 6]) };
 +    // SAFETY: `svc`; SYS_YIELD gives up the CPU and returns with nothing to clean up.
 +    unsafe {
 +        core::arch::asm!("svc #0", in("x8") abi::SYS_YIELD, options(nostack, nomem));

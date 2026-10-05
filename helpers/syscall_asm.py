@@ -10,8 +10,9 @@ provenance is this paragraph.
 
 # WHY
 
-The kernel answers every syscall in the first argument register and may write the next four
-(`kernel/src/syscall.rs` `dispatch`, `frame.set_arg`). An `asm!` block that declares fewer outputs
+The kernel answers every syscall in the first argument register and may write the next five
+(`kernel/src/syscall.rs` `dispatch`, `frame.set_arg`; the sixth is milestone 105 (the two forks)'s
+dead child's label). An `asm!` block that declares fewer outputs
 than that promises the compiler those registers survive the trap, and an optimiser is entitled to
 keep a live value in one. `user_mode_runtime::yield_now` declared none. In the job mix's spawn job
 the compiler loaded `DESTROY`'s five arguments before a yield and trapped with them after it, so
@@ -24,8 +25,8 @@ thing is what a reader does not see. Hence a gate rather than a comment.
 
 Every tracked `.rs` file outside `kernel/` and `vendor/` (the kernel's own traps are EL1 calls into
 firmware, a different contract). For each `asm!(` whose template has `svc`, `ecall` or `syscall`,
-the block must name as an output (`out`, `lateout`, `inout`, `inlateout`) all five words of the
-syscall ABI: `x0..x4`, `a0..a4`, or `rdi rsi rdx r10 r8`, and on `x86_64` also `rcx` and `r11`,
+the block must name as an output (`out`, `lateout`, `inout`, `inlateout`) all six words of the
+syscall ABI: `x0..x5`, `a0..a5`, or `rdi rsi rdx r10 r8 r9`, and on `x86_64` also `rcx` and `r11`,
 which the instruction itself writes.
 
 # WHAT IT CANNOT SEE (recorded where a reader meets it)
@@ -33,8 +34,8 @@ which the instruction itself writes.
 - A trap in `global_asm!`, a `.s` file, or a C file. None exists outside the kernel today; a
   hand-written assembly stub allocates its own registers, so the compiler hazard does not apply.
 - A template built by a macro (`concat!`) is not parsed. One would read as having no trap.
-- It checks declarations, not what the kernel writes. If the kernel ever answers in a sixth
-  register, this list and `trap5` in `crates/user_mode_runtime` change together.
+- It checks declarations, not what the kernel writes. If the kernel ever answers in a seventh
+  register, this list and `trap6` in `crates/user_mode_runtime` change together.
 """
 import os
 import re
@@ -43,9 +44,9 @@ import sys
 import tempfile
 
 REQUIRED = {
-    'svc': {'x0', 'x1', 'x2', 'x3', 'x4'},
-    'ecall': {'a0', 'a1', 'a2', 'a3', 'a4'},
-    'syscall': {'rdi', 'rsi', 'rdx', 'r10', 'r8', 'rcx', 'r11'},
+    'svc': {'x0', 'x1', 'x2', 'x3', 'x4', 'x5'},
+    'ecall': {'a0', 'a1', 'a2', 'a3', 'a4', 'a5'},
+    'syscall': {'rdi', 'rsi', 'rdx', 'r10', 'r8', 'r9', 'rcx', 'r11'},
 }
 TRAP = re.compile(r'"\s*(svc|ecall|syscall)\b')
 OUTPUT = re.compile(r'\b(?:out|lateout|inout|inlateout)\(\s*"(\w+)"\s*\)')
@@ -90,6 +91,7 @@ def findings(path, text):
 def run(root):
     files = subprocess.run(['git', '-C', root, 'ls-files', '*.rs'], capture_output=True, text=True,
                            check=True).stdout.split()
+    files = sorted(set(files))  # an unmerged path is listed once per stage
     bad, traps = [], 0
     for f in files:
         if f.startswith(SKIP):
@@ -103,7 +105,7 @@ def run(root):
 
 def selftest():
     good_arm = 'asm!("svc #0", in("x8") n, inlateout("x0") a => b, lateout("x1") _, out("x2") _,\n' \
-               '     inout("x3") c, lateout("x4") _, options(nostack))'
+               '     inout("x3") c, lateout("x4") _, lateout("x5") _, options(nostack))'
     # The 2026-10-05 defect, verbatim in shape: no output at all.
     old_yield = 'asm!("svc #0", in("x8") abi::SYS_YIELD, options(nostack, nomem));'
     # Declares the result but not the four words a RECEIVE writes.
@@ -148,11 +150,11 @@ def main(argv):
         for b in bad:
             print('  ' + b, file=sys.stderr)
         print('  The compiler may keep a live value in an undeclared register across the trap. '
-              'Route the call through `trap5` (crates/user_mode_runtime), or declare all five words. '
+              'Route the call through `trap6` (crates/user_mode_runtime), or declare all six words. '
               'notes/job-mix/spawn-destroy-gone.md has the miscompilation this caught.',
               file=sys.stderr)
         return 1
-    print(f'syscall asm: {traps} userspace traps, every one declares all five result registers')
+    print(f'syscall asm: {traps} userspace traps, every one declares all six result registers')
     return 0
 
 

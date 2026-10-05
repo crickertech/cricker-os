@@ -347,6 +347,15 @@ of §60 (fuzzing complements the proofs) read firmware, disk and network bytes, 
 or syscalls. A proposal for both is
 [`fuzz-the-surface-a-confined-process-can-reach`](../roadmap/proposals/fuzz-the-surface-a-confined-process-can-reach.md).
 
+Dated 2026-10-05 (milestone 762 (a mapping cannot outlive its frame's revoke), PROVISIONAL number,
+PR #1644): a revoked frame is unreachable through mappings as well as capabilities. `PageFrame::MAP`,
+`AddressSpace::MAP_INTO` and `MemoryRegion::MAP` now read their source under the mapping-registry
+hold every unmap pass takes. Before that, a sweep landing between the read and the record left the
+mapping live. `map_revocation_window_tests` drives a revoke and a region destroy into each path, and
+each path's replayable falsification went red on riscv64, one also on aarch64. The gap that remains
+is one level up: a destroyed region's intermediate page tables stay linked into a live space
+(reasoned, not driven; `revoke::revoke_region`'s BUGS). A lane now holds it.
+
 The caveat that keeps the gate closed: it was us attacking our own system. A hole we closed ourselves
 is the same category of evidence as the audit that found it. The outsider trying to escape is gated
 behind milestone 198 (a package manager, and the trivial install that makes a second customer
@@ -445,8 +454,9 @@ not exist yet", with `crates/paging` unchanged.
 new directory."*
 
 **The experiment for the widened grain, which has not been run:** a second machine of an architecture
-nife already boots, riding on milestone 225 (run the soak on radon, argon and xenon). It is a boot
-rather than a purchase, and finding no difference is a result too.
+nife already boots, riding on milestone 225 (run the soak on radon, argon and xenon). Ruled
+2026-10-05 (calef): *"Both, argon first."* Argon closes the larger gap; milestone 89 (Scaleway
+EM-RV1) then adds a second riscv64 beside radon. No difference is a result too.
 
 Three caveats. The verdict is one machine per architecture, and for aarch64 not even that, since
 argon has never booted nife. So those 42 errors price a third *architecture* and say nothing about a
@@ -471,7 +481,7 @@ Ranked by chance-of-fatal times cheapness-of-test, not by number. Each cell's ve
 | ~~1~~ | 2, the proofs | **RUN, 2026-08-30: amber**, because no standing proof has caught a regression, and `asm!` bounds the reach | milestone 191 | done |
 | 2 | 9, the HAL, on the board that already boots | the on-board test-suite exit, so silicon becomes gate-able | milestone 16 (real hardware and IOMMU-backed driver isolation) | bench time, board proven since 2026-08-14 |
 | ~~3~~ | 9, the HAL, on the architecture that carries the risk | **RUN, 2026-09-17: GREEN**, five of five on xenon, everything it needed inside `arch/x86_64/` | milestone 87 (the x86_64 bare-metal machine) | done |
-| 4 | 9, the HAL, at the implementation grain, widened 2026-09-23 | a second machine of an architecture nife already boots | milestone 225 (run the soak on radon, argon and xenon) | riscv64: about 30 rented hours, €1.51, milestone 89 (Scaleway EM-RV1); still unrented |
+| 4 | 9, the HAL, at the implementation grain, widened 2026-09-23 | a second machine of an architecture nife already boots | milestone 225 (run the soak on radon, argon and xenon) | **RULED 2026-10-05: both, argon first** (calef); then riscv64 on milestone 89 (Scaleway EM-RV1), €1.51; neither run |
 | ~~4~~ | 1, the ecosystem | **RUN, 2026-08-31: GREEN on all three since 2026-09-16.** The blocker is a missing argv, not threads | milestone 121 | done |
 | ~~5~~ | 3, the tests | **RUN, 2026-09-19: amber.** 96.1% like-for-like against 92.4% on 2026-09-21, and 771 missed survivors (414 projected after #1277) hold the amber | milestone 326 | done; the triage remains |
 | 6 | 4, performance | **RUN, 2026-10-04: amber** (calef, 2026-10-04). Throughput held; the null syscall's rise under load is unexplained | milestone 168 | done; the diagnosis remains |

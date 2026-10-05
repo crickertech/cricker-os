@@ -23,11 +23,12 @@ milestone 265 (proto). The gate token was `DESIGN`, which is not in the roadmap'
 
 The decision is
 §185 (what carries the claim that userspace composes a process from an authority you can count on one hand),
-written up 2026-09-19 by milestone 435's slice-c lane because this gate named no section. (This
+written up 2026-09-19 by milestone 435 (forty-five milestones are gated on a decision nobody wrote down)'s slice-c lane because this gate named no section. (This
 block's status paragraph already records one token correction, from `DESIGN`, which is not in the
 roadmap's gate vocabulary; the section is the other half of that repair, since a token in the
 vocabulary that points at nothing is the defect milestone 435 exists to sweep.)
-What the replacement should *be* is the open question, and the options differ in
+Decided 2026-10-05: option (a), and the fixture becomes `process_composition_witness`.
+What the replacement should *be* was the open question, and the options differ in
 cost by an order of magnitude. Nothing is blocked on it: the tree is no worse off than it was the
 hour before `builder` was deleted, because nothing on a pull request ever ran `builder` either.
 

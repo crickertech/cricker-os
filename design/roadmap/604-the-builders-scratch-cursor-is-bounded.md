@@ -16,7 +16,7 @@ pull requests when it was taken.)*
 
 `supervision_protocol`'s loader maps every page it fills for a child into the builder's own address
 space. Its cursor started at `0x1000_0000` and advanced one page per page built. It never came back,
-because nothing in the ABI unmaps (DECISIONS §162 (whether a holder can give up a mapping) is open). The proposal said the progenitor's cursor reaches the kernel's initrd window at `0x2000_0000`
+because nothing in the ABI unmaps (DECISIONS §162 (whether a holder can give up a mapping) was decided as `AddressSpace::UNMAP` on 2026-10-05 and is not built). The proposal said the progenitor's cursor reaches the kernel's initrd window at `0x2000_0000`
 after about a hundred `ripgrep`-sized spawns, and every build fails after that. That is on the
 customer path: `rg` at the prompt is the goal of milestone 595 (the shell runs a `std` program, and
 `rg pattern` works at the prompt).
