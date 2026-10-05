@@ -1706,7 +1706,12 @@ mod verification {
         let bytes: [u8; N] = kani::any();
         let len: usize = kani::any();
         kani::assume(len <= N);
-        let _ = DateTime::parse_rfc3339_bytes(&bytes[..len]);
+        // Totality is the claim, and a panic is what turns it red. The assertion states the one thing
+        // a success implies about the input: the shortest legal text is 20 bytes. A `cover!` alone
+        // can never fail a Kani harness (Kani 0.67.0), so the success path is also asserted on.
+        if DateTime::parse_rfc3339_bytes(&bytes[..len]).is_ok() {
+            assert!(len >= 20);
+        }
         // Not vacuous: some input in this set actually parses, so the harness is proving the
         // success path total and not merely that every early return returns.
         kani::cover!(DateTime::parse_rfc3339_bytes(&bytes[..len]).is_ok());
