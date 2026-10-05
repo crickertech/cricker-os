@@ -5,6 +5,8 @@ built: 2026-09-19
 ---
 # 243. A machine with no serial port has no way to say anything, and no gate can read it
 
+<!-- writing-standards: exception. Granted 2026-10-04 (UTC) by the maintainer for one correction of a false claim (the scroll read-back bullet), not ratified by an architect. Reason: this block stands over the bold density, and a correction must not wait on a rewrite (the class the 2026-09-29 note in milestone 586 (a prose ratchet in lint) records). Bringing it under the density is the debt, and the exception goes when that is done. -->
+
 Built 2026-09-19. Minted 2026-09-03 by calef, from asking how nife reaches commodity
 hardware. Built in two passes: 2026-09-04 put the boot tour on a UEFI machine's framebuffer and
 gave a gate a way to read it under QEMU; 2026-09-19 closed the block's two remaining Outstanding
@@ -173,9 +175,9 @@ replacing it is harder than it looks.
 - **Done.** aarch64 and riscv64 have a screen under QEMU, closed 2026-09-19,, through `ramfb`. The
   arch-neutral halves needed no change, which was the claim they were written to make good on.
   Milestone 157 remains the board half. See the section below.
-- **Recorded.** The aperture is mapped uncacheable and scrolling reads it back, which is slow on real
-  silicon and free under QEMU. Write-combining is a PAT entry this kernel does not program at all.
-  `crates/screen_console/src/lib.rs`'s `BUGS`, and `notes/serial-less-output.md`'s.
+- **Done.** 2026-10-04 (UTC): the scroll redraws from cells in RAM and never reads the aperture,
+  which `x86_64` now maps write-combining (#1645), and the screen terminal fills the screen
+  (#1648). `crates/screen_console/src/lib.rs`'s `BUGS` has the counts.
 - **Recorded.** Only ASCII reaches the screen, so `§` in the tour's last line is two blanks there and
   correct on the UART. `notes/serial-less-output.md`'s `BUGS`.
 - **Refused.** A network console, on the block's own argument: it needs a driver per machine, says

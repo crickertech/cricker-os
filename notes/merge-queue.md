@@ -60,11 +60,10 @@ What a pass does, in order:
 - labels a paused draft `unblocked` once its `Blocked-by:` pull requests resolve
   ([blocked-by-drafts.md](blocked-by-drafts.md));
 - reruns, once, a CI run a concurrency group cancelled as a same-second duplicate (BUGS, below);
-- labels `needs-maintainer` (name provisional) on a pull request that was ejected, conflicts with
-  `main`, is a stale queue entry, or has been ready and unarmed for 30 minutes, comments once per
-  cause with the evidence, and takes the label off when the cause goes.
+- labels `needs-maintainer` (name provisional) on a pull request a maintainer session must pick
+  up, comments once per cause with the evidence, and takes the label off when the cause goes.
 
-The four causes and their comments are in [queue-ejection.md](queue-ejection.md). The decision is
+The six causes and their comments are in [queue-ejection.md](queue-ejection.md). The decision is
 `helpers/needs-maintainer.jq`, checked by `helpers/needs-maintainer-selftest.sh` against a recorded
 response, and that selftest also fails if the drain arms or enqueues again.
 

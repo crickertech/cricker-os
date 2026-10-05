@@ -15,11 +15,14 @@
 //! - slot 0, a **report** endpoint (`WRITE`): one `UP` message once it is serving;
 //! - slot 1, the **display** endpoint (`READ`): where its one client `CALL`s `INFO` and `FLUSH`;
 //! - slot 2, an **untyped**: the budget its surface mapping's page tables come out of;
-//! - slot 3, the **surface**: one `PageFrame` capability naming the contract's run of RAM frames,
-//!   shared with the client, which it maps itself (DECISIONS §102, milestone 108's shape);
-//! - mapped before `_start`: **the covered part of the aperture**, device-typed (uncacheable on
-//!   x86), at [`APERTURE_VA`]. Only the rows the surface can reach, not the whole screen
-//!   (`screen_console::Aperture::span`), and as a spawn-time mapping rather than a capability, so
+//! - slot 3, the **surface**: one `PageFrame` capability naming a run of RAM frames the size of
+//!   the covered part, shared with the client, which it maps itself (DECISIONS §102 (a Frame
+//!   names a run of pages), the shape of milestone 108 (the drivers move onto frame
+//!   capabilities));
+//! - mapped before `_start`: **the covered part of the aperture**, device-typed and, on `x86_64`,
+//!   write-combining (2026-10-04), at [`APERTURE_VA`]. Only the rows the surface can reach
+//!   (`screen_console::Aperture::span`), which is the whole screen unless it is too large to map
+//!   (`display_service::MAX_APERTURE_PAGES`), and as a spawn-time mapping rather than a capability, so
 //!   it holds no name for the screen and cannot map it again, delegate it, or hand it on. That is
 //!   the choice milestone 159's TRNG driver and milestone 261's NVMe server made for the same
 //!   reason; a capability would need a `DeviceFrame` naming more than one page, which the
@@ -34,18 +37,22 @@
 //! The client draws into the surface (RAM) and says which rectangle changed. For virtio-gpu that
 //! is two device commands. For a screen that is already scanning out, it is **a copy**: each pixel
 //! of the rectangle is read from the surface and stored into the aperture in the screen's byte
-//! order, at the screen's stride. The arithmetic is `screen_console::Aperture::copy_wide`,
-//! host-tested there: pairs of pixels staged from the cacheable surface into one qword store,
-//! word stores only where the aperture's alignment leaves an edge. The surface lands at the
-//! screen's top-left corner, clipped to the screen when the screen is the smaller of the two.
+//! order, at the screen's stride, **as a scale-by-scale block**: the scale is
+//! `screen_console::ScreenConsole::scale_for`'s, the rule the kernel's boot console draws by, so a
+//! 1920x1080 monitor shows a 960x540 surface at two and QEMU's 1280x800 shows a 1280x800 surface
+//! at one. The arithmetic is `screen_console::Aperture::copy_wide`, host-tested there: pairs of
+//! pixels staged from the cacheable surface into one qword store, word stores only where the
+//! aperture's alignment leaves an edge. **It never reads the aperture**, only the surface.
 //!
 //! # BUGS
 //!
-//! - **The terminal is the contract's size, not the screen's.** The surface is fixed at
-//!   [`graphics_protocol::WIDTH`] by [`graphics_protocol::HEIGHT`] (924x344, a 132x43 grid), so on
-//!   a 1920x1080 monitor the shell occupies the top-left corner and the rest stays black. Growing it
-//!   means a surface sized at spawn rather than at compile time, which is a change to the contract
-//!   and not to this driver.
+//! - **A full-screen flush is the whole screen.** Until 2026-10-04 the surface was the virtio
+//!   contract's 924x344 at scale one, and on xenon's monitor the shell sat in the top-left corner.
+//!   It now covers the screen, so a scroll (which the terminal reports as whole-surface damage)
+//!   rewrites every visible pixel: 8 MB on xenon, against 1.27 MB before. Under KVM and on
+//!   silicon that is the price of a full screen; under QEMU's TCG, at OVMF's 1280x800, it is 3.2
+//!   times the old full flush, partly repaid by a 100-row grid scrolling less often than a
+//!   43-row one. Unmeasured on the swish leg; CI's timing is the record.
 //! - **Every pixel still crosses an uncacheable mapping; since 2026-09-30 it crosses at half the
 //!   store count.** A full-surface flush is 158,928 qword stores against 317,856 word stores
 //!   (`screen_console::Aperture::copy_wide`'s own test counts them), which under QEMU's TCG, where
@@ -53,12 +60,10 @@
 //!   (`notes/benchmarks/icount-tick-scales.md`), is most of this copy's cost. A `u64` is the widest
 //!   store the `x86_64` target can legalise (`-mmx,-sse,+soft-float`), so the remaining levers are a
 //!   write-combining mapping or a scroll-aware flush contract, both outside this driver. Not
-//!   measured on silicon. **The first lever half exists since 2026-10-04**: the kernel programs a
-//!   write-combining PAT entry on every core and maps its own boot console's aperture through it
-//!   (`paging::Flags::write_combining`), but this driver's spawn-time mapping is still
-//!   device-typed, because there is no user-mode twin of that flag yet. Adding one and using it
-//!   for this mapping is the follow-up; this driver only ever writes the aperture, which is what
-//!   write-combining needs.
+//!   measured on silicon. **The first lever exists since 2026-10-04**: the kernel programs a
+//!   write-combining PAT entry on every core and maps this driver's aperture through it
+//!   (`paging::Flags::user_write_combining`, `DeviceRun::write_combining`). The title of this
+//!   bullet is therefore true on aarch64 and riscv64 only, which have no device-aperture screen.
 //! - **One client, no arbitration.** Whoever holds the display endpoint draws; that is the
 //!   contract's rung-one shape and the compositor is what multiplexes it.
 //!
@@ -116,20 +121,24 @@ pub extern "C" fn _start(size: u64, layout: u64, offset: u64) -> ! {
         die(E_GEOMETRY)
     };
     let (width, height) = aperture.size();
-    // The aperture can never be larger than the surface it shows: the kernel clipped it to the
-    // contract's size, and a larger one would let a flush read past the surface.
-    if width > gfx::WIDTH || height > gfx::HEIGHT || offset >= 4096 {
+    if offset >= 4096 {
         die(E_GEOMETRY);
     }
+    // **The surface is the covered part's size, exactly** (2026-10-04): the kernel allocated
+    // `width * height` pixels at a stride of `width`, and a flush reads only inside that, because
+    // `copy_wide` refuses a rectangle that leaves the covered part. Before, the surface was the
+    // virtio contract's fixed 924x344 and the aperture was clipped to it.
+    let surface_bytes = width as u64 * height as u64 * 4;
 
     if !user_mode_runtime::map_page_frame(SURFACE_FRAME, SURFACE_VA, true, BUDGET) {
         die(E_SURFACE);
     }
-    // SAFETY: the surface run is `SURFACE_PAGE_FRAMES` frames, mapped read/write at SURFACE_VA by
-    // the call just above, and `SURFACE_BYTES` is inside it (`graphics_protocol`'s own arithmetic).
-    let surface = unsafe { MappedWindow::new(SURFACE_VA, gfx::SURFACE_BYTES as u64) };
+    // SAFETY: the surface run is `surface_bytes` rounded up to whole frames
+    // (`display_service::start_screen_terminal` sizes it from the same aperture), mapped read/write
+    // at SURFACE_VA by the call just above.
+    let surface = unsafe { MappedWindow::new(SURFACE_VA, surface_bytes) };
     // SAFETY: the kernel mapped every page from APERTURE_VA through `offset + span` device-typed
-    // and writable before this program's first instruction
+    // (write-combining on `x86_64`) and writable before this program's first instruction
     // (`display_service::start_screen_terminal`), and the geometry that span was computed from is
     // the one `from_words` just validated.
     let screen = unsafe { MappedWindow::new(APERTURE_VA + offset, aperture.span() as u64) };
@@ -148,10 +157,10 @@ pub extern "C" fn _start(size: u64, layout: u64, offset: u64) -> ! {
         let w0 = req.w0;
         let reply_slot = req.delivered.into_reply();
         let (r0, r1): (i64, u64) = match gfx::operation(w0) {
-            // The runtime half of the geometry contract: the part of the screen the surface
-            // covers, which is what a client should lay its grid out over. It is never larger
-            // than the compile-time surface, so a client that maps `SURFACE_BYTES` and paints at
-            // `STRIDE` is right either way.
+            // The runtime half of the geometry contract: the surface's size in its own pixels,
+            // which is what a client lays its grid out over and paints at four bytes a pixel and
+            // no padding. On a scale-two screen it is half the screen in each direction; the
+            // scaling is this driver's, and the client never sees it.
             gfx::display::INFO => (0, width as u64 | ((height as u64) << 32)),
             gfx::display::FLUSH => {
                 let (x, y, w, h) = gfx::unrect(gfx::operand(w0));
@@ -166,10 +175,18 @@ pub extern "C" fn _start(size: u64, layout: u64, offset: u64) -> ! {
                     w,
                     h,
                     (offset % 8) as u32,
-                    |px, py| surface.r32(gfx::offset_of(px, py) as u64),
+                    |px, py| surface.r32((py as u64 * width as u64 + px as u64) * 4),
                     |at, pair| screen.w64(at as u64, pair),
                     |at, word| screen.w32(at as u64, word),
                 );
+                // The aperture is write-combining on `x86_64`, so the last stores of this flush
+                // may sit in a combining buffer. A sequentially consistent fence is `mfence`
+                // there, which drains them before the reply tells the client its pixels are on
+                // the screen; on the other two it is the ordinary barrier.
+                // PAIR: none. Nothing acquires against it: the other party is the display engine
+                // scanning the aperture, and the ordering towards the client is the reply below,
+                // a blocking IPC rendezvous.
+                core::sync::atomic::fence(core::sync::atomic::Ordering::SeqCst);
                 (if copied { 0 } else { gfx::EINVAL }, 0)
             }
             _ => (gfx::EINVAL, 0),

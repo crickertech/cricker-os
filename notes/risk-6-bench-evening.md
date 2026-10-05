@@ -228,8 +228,7 @@ attached.
 to 474990381, 3.8% spread); read 271854622 B/s (237098519 to 281608311, 16% spread); one FLUSH
 549 us (186 to 1305); IPC floor 1197 ns per round trip. The IPC floor is 13% of a median write
 block (8940 ns) and 8% of a median read block (15066 ns). Every figure is one command in flight,
-polled, one pass per boot with no warm-up: a lower bound on the Micron, not its speed. No Linux
-`fio` comparison (step 5) has been run, so "real speed" is unclaimed.
+polled, one pass per boot with no warm-up: a lower bound on the Micron, not its speed.
 
 ### What the first evening found, 2026-10-04
 
@@ -251,6 +250,12 @@ written, then `mfence`. Its BUGS entry has the costs. Main with it passed every 
 the screen held and both units translating, so Boot A's tear was the same defect and the graphics
 RMRR covers the scanout. Diagnostic images came from `lane/xenon-nvme-diag-pre594`; the `diag`
 lines print only under the `disk_throughput` feature.
+
+### Linux qd1 baseline, xenon, 2026-10-04 (step 5, run)
+
+Linux's best qd1 write is 425 MB/s (polled io_uring), so nife's median is about 1.08x; read
+latency matches. Claim parity, not a 2x read.
+[The runs and their caveats](risk-6-bench-evening/linux-qd1-baseline-2026-10-04.md).
 
 ## What this cannot settle, said plainly
 
@@ -276,3 +281,6 @@ remapping (off in this kernel, offered by xenon's unit) is not on this experimen
 - One pass per boot, no warm-up. A second boot is the repeat, and three is this page's floor.
 - The client is in the kernel. A client process would add its own context switches; the server,
   which is what risk 6 is about, is the same process either way.
+- Linux's read rate (74 to 188 MB/s on one drive) and its tail are unexplained, and nife's counter
+  frequency is unchecked against wall time; the
+  [baseline page](risk-6-bench-evening/linux-qd1-baseline-2026-10-04.md) lists the next checks.

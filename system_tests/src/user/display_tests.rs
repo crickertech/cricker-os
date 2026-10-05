@@ -536,10 +536,12 @@ fn a_keystroke_from_a_virtio_keyboard_becomes_a_terminal_byte() {
 /// reads back through its own direct map. Every property is one a real machine could present and
 /// OVMF does not:
 ///
-/// - **narrower than the surface** (21 pixels against the contract's 924), so the driver answers
-///   `INFO` with the clipped width and the terminal lays out 3 columns, not 132;
-/// - **taller than the surface**, so the rows past 344 must never be written (and are never
-///   mapped: `screen_console::Aperture::span`);
+/// - **an odd shape**, 21 pixels wide and 352 tall, which the terminal now covers whole (since
+///   2026-10-04 the surface is the screen's size at its scale rather than the virtio contract's
+///   924x344): the driver answers `INFO` with exactly that and the terminal lays out 3 columns
+///   by 44 rows. The clipping that used to be proved here by a screen taller than the surface is
+///   `screen_console::Aperture`'s own host tests now, along with the scale-two coverage this
+///   suite cannot afford the frames for;
 /// - **a padded stride**, whose padding must survive;
 /// - **rgbx**, so red and blue must be exchanged on the way in, checked on a red and a blue cell
 ///   because every grey in the default picture reads the same in both orders;
@@ -558,8 +560,8 @@ fn a_firmware_screen_shows_the_terminal_through_the_framebuffer_driver() {
     let driver = program("framebuffer_driver").expect("no framebuffer_driver in the archive");
     let terminal = program("display_terminal").expect("no display_terminal in the archive");
 
-    // Three cells wide and one cell row past the surface's height: every property below, in the
-    // fewest frames (thirteen). This suite runs one boot's frame pool through every test and
+    // Three cells wide and 44 cell rows tall: every property below, in the fewest frames
+    // (thirteen for the screen, seven for its surface). This suite runs one boot's frame pool through every test and
     // hands little of it back (`user::holding`'s module note), so a pretend screen the size of a
     // real one would be spending a few hundred frames on pixels nothing reads.
     const WIDTH: u32 = 3 * bitmap_font::GLYPH_W;
@@ -596,11 +598,11 @@ fn a_firmware_screen_shows_the_terminal_through_the_framebuffer_driver() {
     );
     assert_eq!(
         geometry,
-        WIDTH as u64 | ((gfx::HEIGHT as u64) << 32),
-        "the covered part is the narrower width and the shorter height",
+        WIDTH as u64 | ((HEIGHT as u64) << 32),
+        "the covered part is the whole screen",
     );
     let cols = WIDTH / bitmap_font::GLYPH_W;
-    let rows = gfx::HEIGHT / bitmap_font::GLYPH_H;
+    let rows = HEIGHT / bitmap_font::GLYPH_H;
     let [tag, dims, ..] = sched::ipc_receive(w.term_report);
     assert_eq!(
         tag,
@@ -641,11 +643,7 @@ fn a_firmware_screen_shows_the_terminal_through_the_framebuffer_driver() {
     for y in 0..HEIGHT {
         for x in 0..WIDTH {
             let got = read((y * STRIDE + x * 4) as usize);
-            let want = if y < gfx::HEIGHT {
-                PixelOrder::Rgbx.store(expect.pixel(x, y))
-            } else {
-                u32::from_ne_bytes([POISON; 4])
-            };
+            let want = PixelOrder::Rgbx.store(expect.pixel(x, y));
             assert_eq!(
                 got, want,
                 "the screen is wrong at ({x},{y}): {got:#010x}, expected {want:#010x}",
@@ -678,7 +676,7 @@ fn a_firmware_screen_shows_the_terminal_through_the_framebuffer_driver() {
     // screen are frames rather than regions, and are freed only after both are gone.
     w.held
         .release_or_fail("the framebuffer driver and its terminal");
-    for k in 0..gfx::SURFACE_PAGE_FRAMES as u64 {
+    for k in 0..w.surface_frames {
         crate::memory::free(PageFrame::from_addr(w.surface + k * FRAME_SIZE));
     }
     crate::memory::free(PageFrame::from_addr(w.out));

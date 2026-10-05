@@ -38,6 +38,15 @@ commit is an empty diff, so the required `empty diff` check fails on each of the
 `architect hold` check is ignored by name: it goes red on purpose under `needs-architect`, which is a
 person's queue and not a failing build.
 
+## Who acts on it
+
+A maintainer session, through `needs-maintainer`. Until 2026-10-04 this label was a report with no
+reader: #1617 and #1653 wore it, armed and red, until calef pointed at them, because their lanes had
+ended `WAITING` and a session's queue is the other label. So the merge drain reads this one: a
+ready pull request from this repository, not held, that has worn `ci-failing` for 30 minutes gets
+`needs-maintainer` with cause `red` ([queue-ejection.md](queue-ejection.md)). One queue for a
+session to read, rather than two.
+
 ## BUGS
 
 - Only checks that have reported are counted. A required check that never ran (a skipped
@@ -58,8 +67,9 @@ person's queue and not a failing build.
 - A rerun in progress clears the flag early. The newest run being queued or in progress hides an
   older failure, so the label comes off when the rerun starts and the failure is not re-announced if
   it fails again (same SHA, same marker).
-- The label name is read as `ci-failing` in two places (the script's variable and its jq
-  filter in the pull request listing); a rename must change both.
+- The label name is read as `ci-failing` in three places (the script's variable, its jq
+  filter in the pull request listing, and `nm_red_label` in `helpers/needs-maintainer.jq`); a
+  rename must change all three.
 - Nothing reports its own death, the same gap the drain has. A disabled workflow shows in the
   Actions tab for whoever looks.
 - Fork pull requests are included. Their head SHA has check runs in this repository, and the

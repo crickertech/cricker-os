@@ -1,0 +1,34 @@
+# Transcribed by hand from linux-fio-read.jpg and linux-fio-write.jpg (photographs of xenon's screen).
+# Run by calef on xenon, 2026-10-04, evening (bench clock 23:12, zone not recorded).
+# System: Fedora 44 Workstation Live USB, fio-3.40. Both runs were one pass, queue depth 1.
+# Commands are step 5 of notes/risk-6-bench-evening.md, with the same window nife used:
+#   --offset=1M --size=64M --bs=4k --iodepth=1 --direct=1 --ioengine=psync
+
+lsblk: nvme0n1 256060514304 Micron 2450 NVMe 256GB
+
+read:   IOPS=30.7k, BW=120MiB/s (126MB/s), 64.0MiB in 533 ms
+        clat (usec): avg=31.75, median=27, p99=86, p99.99=13173, max=34217
+        cpu: usr=6.58%, sys=12.41%
+
+write:  IOPS=77.6k, BW=303MiB/s (318MB/s), 64.0MiB in 211 ms
+        clat (usec): avg=12.38, median=12, p99=25, p99.99=734, max=790
+        cpu: usr=7.62%, sys=18.10%
+
+# Runs B and C, same evening, same window and shape. The nvme module was reloaded with
+# poll_queues=1 first, and /sys/block/nvme0n1/queue/io_poll printed 1.
+# Photographs: linux-fio-pvsync2-{read,write}.jpg and linux-fio-io_uring-{write,read}.jpg.
+
+# Run B (bench clock about 23:20): --ioengine=pvsync2 --hipri, read then write.
+# Polling did NOT engage: ctx=16384 on read, 16385 on write (one switch per I/O).
+B read:   IOPS=30.5k, BW=126MB/s, 64.0MiB in 533 ms
+          clat (usec): avg=31.87, median=27, p99=87, p99.99=12518
+B write:  IOPS=66.3k, BW=272MB/s, 64.0MiB in 247 ms
+          clat (usec): avg=14.40, median=13, p99=28, p99.99=2737
+
+# Run C (bench clock about 23:25): --ioengine=io_uring --hipri, write FIRST then read
+# (nife's order). Polling engaged: ctx=12 on write, ctx=4 on read; sys 84% and 95%.
+C write:  IOPS=104k, BW=425MB/s, 64.0MiB in 158 ms
+          slat avg=2.2 us; clat (usec): avg=7.19, median=7, p99=19, p99.99=971
+C read:   IOPS=30.7k, BW=126MB/s, 64.0MiB in 533 ms
+          slat avg=1.88 us; clat (usec): avg=30.45, median=16, p99=64, p99.99=12387
+          clat is bimodal: median 16 us, but the 70th percentile and above sit at 49-50 us.
