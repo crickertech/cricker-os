@@ -30,7 +30,7 @@ What the runs settle and what they leave open:
 
 1. The write gap is mostly polling. Polled io_uring, write first (nife's order), reaches 425
    MB/s, within 8% of nife. Interrupt-driven psync reached 318 MB/s, which was 1.44x.
-2. Run B is not a polled run. Cite run C as "Linux polled".
+2. Run B is not a polled run, and why `--hipri` did not engage is unknown. Cite run C as "Linux polled".
 3. The ASPM hypothesis is refuted (`aspm-233408.log`, `apst-233725.log`, run at 23:34 and 23:45 by
    `aspm.sh` and `apst.sh`; they never write the disk, but they did touch link and controller
    state). `LnkCtl` read "ASPM Disabled" on the NVMe (01:00.0) and its root port (00:1b.0),
