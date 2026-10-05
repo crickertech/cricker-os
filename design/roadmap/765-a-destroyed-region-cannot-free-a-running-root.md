@@ -42,6 +42,41 @@ path, and 95's lane is in flight (#1678); building this beside it would be two l
 primitives or whole subsystems) says write it. Each option below reuses an existing mechanism (A the
 resident kill, C the `CONFIGURE` refusal shape).
 
+## What §249's build changed underneath this, 2026-10-05 (UTC)
+
+Recorded by milestone 95 (an unmap primitive)'s lane, `lane/space-naming-build`. It built §249 (a
+running address space stays nameable) and was asked to confirm or refute the corpse gap that
+`notes/naming-a-running-address-space.md` found by reading. Nothing below is built for this
+milestone; it is the ground this milestone now builds on.
+
+The registry owns every space now, so `user::reap_address_spaces_in_region` sees bound spaces. It
+asks `sched::with_binders` about each bound thread, under one hold of `IPC_TABLES`. It takes an
+unbound space whose root is in the span. It takes a bound space whose thread is gone from the
+thread table, wherever its root is. And it takes a bound space whose root is in the span and whose
+thread is a corpse no core stands on. It leaves every bound space whose thread can still run.
+
+The corpse gap was real, and that ownership closes it. This was driven, not reasoned:
+`running_space_tests::a_corpse_does_not_keep_a_space_rooted_in_a_destroyed_region` builds the
+shape (space from R, TCB from A, supervised, faulted and left `Dead`) and destroys R. It asserts the
+space is gone and the revocation registry no longer names the root. Its falsification puts the old
+behaviour back and goes red there.
+
+What remains is this milestone's, and narrower than the hole below. The sweep leaves these in
+place while R's pages go back:
+
+1. A live thread rooted in R, which is the hole this block was raised for.
+2. A bound embryo rooted in R. A later `START` would run it on a freed root, so the
+   refuse-and-kill should count embryos too.
+3. A corpse still on its core, which still has its root installed. That is `RefuseStanding`'s
+   shape.
+4. A race the sweep cannot see. A reaper that has taken a corpse's space out of the registry may
+   still be dropping it when `DESTROY(R)` runs, and the drop's `forget_root` can then land after R's
+   pages are free (`sched::reap_switched_out`'s `BUGS`).
+
+Making `reap_region_objects` refuse while any of the four holds would close them all in the one
+place this milestone already changes. The bound mark on each registry entry names the thread to ask
+about.
+
 ## The hole
 
 `RETYPE_OBJ(ADDRESS_SPACE)` retypes a space's root out of region R. `CONFIGURE` binds that space to
