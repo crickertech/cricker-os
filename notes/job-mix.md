@@ -410,8 +410,8 @@ qemu-system-aarch64: HVF does not support GICv2 emulation
 ```
 
 QEMU 11.1.1 on this host refuses HVF with a GICv2, and `kernel/src/drivers/gic.rs` speaks only
-GICv2 (`notes/hvf-leg.md`, `notes/interrupts.md`'s `BUGS`). So there is no machine for this
-cross-check until **milestone 227** (a GICv3 driver) lands. The transcript is
+GICv2 (`notes/hvf-leg.md`, `notes/interrupts.md`'s `BUGS`). Milestone 227 (GICv3) fixed that;
+the spawn job then fails (2026-10-05, [BUGS](job-mix/null-syscall-under-load.md#bugs)). The transcript is
 `bench/patagonia-hvf-2026-09-19/jobmix-hvf-refused.log`. The flags stay, because the command that
 will take the cross-check once 227 lands is then already written:
 
