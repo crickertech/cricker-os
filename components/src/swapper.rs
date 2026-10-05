@@ -1218,7 +1218,7 @@ fn start_bound(elf: &elf::Elf, plan: &component_plan::Plan, faultep: u64, signal
 /// with all five instance regions back in this budget. The one that is not tidiness is the one
 /// below; the rest are here so the test can assert that a swap system reclaims itself.
 fn collect_corpse(faultep: u64, collected: &mut u64) -> (u64, u64) {
-    let (event, tid, _pc, addr, _) = receive_fault(faultep);
+    let (event, tid, _pc, addr, ..) = receive_fault(faultep);
     send(REPORT, swap_protocol::RPT_DEATH, tid, event);
     // We hold no capability to that region: we deleted it the moment the child was started, and the
     // authority for this is the supervision relationship, not the memory.

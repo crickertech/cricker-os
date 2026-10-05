@@ -1946,7 +1946,10 @@ fn depart(event: u64, pc: u64, addr: u64) -> ! {
         let sched = guard.as_mut().expect("depart before sched::init");
         let current = current_thread_id();
 
-        let fault_ep = sched.threads.get(current).and_then(|t| t.fault_ep);
+        let (fault_ep, label) = sched
+            .threads
+            .get(current)
+            .map_or((None, 0), |t| (t.fault_ep, t.fault_label));
 
         // **A thread that departs answers nobody again** (milestone 254). Whatever `CALL` it
         // collected and never replied to is a caller parked on nothing, discoverable only through
@@ -1972,7 +1975,7 @@ fn depart(event: u64, pc: u64, addr: u64) -> ! {
                     t.mailbox = msg;
                     t.handshake.state = State::Dead;
                 }
-                deliver_death(sched, current, ep, msg);
+                deliver_death(sched, current, ep, msg, label);
             }
         }
         // Not requeued and not removed: we are still on this stack. The switch below leaves it,
@@ -1994,7 +1997,17 @@ fn depart(event: u64, pc: u64, addr: u64) -> ! {
 /// `ipc_receive` recognises a `Dead` sender and leaves it dead after taking its message, the same way
 /// it leaves a `CALL` caller blocked. If the rendezvous itself is gone (the supervisor was torn down
 /// first), the message is simply dropped, like an interrupt with no live rendezvous.
-fn deliver_death(sched: &mut IpcTables, corpse: ThreadId, ep: RendezvousId, msg: [u64; 5]) {
+///
+/// `label` is the badge the builder put on the child's supervision capability (milestone 105 (the
+/// two forks), §148 (resolves by asking the kernel) as amended). It goes to a supervisor already waiting here through [`hand_over_label`]; a
+/// supervisor that arrives later collects it from the corpse in [`collected_without_serving`].
+fn deliver_death(
+    sched: &mut IpcTables,
+    corpse: ThreadId,
+    ep: RendezvousId,
+    msg: [u64; 5],
+    label: u64,
+) {
     let me = thread_control_block_ptr(sched, corpse);
     let Some(rendezvous) = rendezvous_of(sched, ep) else {
         return;
@@ -2008,6 +2021,7 @@ fn deliver_death(sched: &mut IpcTables, corpse: ThreadId, ep: RendezvousId, msg:
             let receiver = unsafe { (*receiver.as_ptr()).id };
             let r = sched.threads.get_mut(receiver).unwrap();
             r.mailbox = msg;
+            hand_over_label(r, label);
             r.handshake.serve(); // delivered: this wake passes the boot-8 gate
             trace::record(trace::Event::Served, receiver, 8);
             wake(sched, receiver);
@@ -3730,14 +3744,53 @@ fn call_meets_plain_receive(
 ///   PROVISIONAL number; calef's ruling A, 2026-10-04 UTC): the sender-first half of
 ///   [`call_meets_plain_receive`]. `set_ipc_aborted` drops the Reply staged in its `outgoing_cap`,
 ///   which was the only copy. Until the ruling it was left parked on that Reply until teardown.
+///
+/// A dead sender's label (milestone 105) is handed to the receiver here, the running thread, since
+/// this is the one place the parked-corpse half of a death delivery reaches it. Only a plain
+/// `RECEIVE` comes through this function, which is the receive §26 names for a death message.
 #[cold]
 #[inline(never)]
 fn collected_without_serving(sched: &mut IpcTables, sender: ThreadId) {
     if sched.threads.get(sender).unwrap().handshake.state == State::Dead {
-        sched.threads.get_mut(sender).unwrap().handshake.wait_on = None;
+        let corpse = sched.threads.get_mut(sender).unwrap();
+        corpse.handshake.wait_on = None;
+        let label = corpse.fault_label;
+        hand_over_label(sched.threads.get(current_thread_id()).unwrap(), label);
     } else {
         set_ipc_aborted(sched, sender);
         wake(sched, sender);
+    }
+}
+
+/// **Hand a death message's label to the supervisor receiving it** (milestone 105, DECISIONS §148
+/// as amended 2026-10-04, ruling R3): argument register 5 of its saved user frame, which is `x5`,
+/// `a5` or `r9`. Caller holds `IPC_TABLES`.
+///
+/// **Beside the mailbox, not in it, and that is the benchmark condition.** Word 3 already carries
+/// the fault address and word 4 is reserved for §26.4's resume protocol, so the label needs a sixth
+/// word. Widening `Thread::mailbox` to six would make every IPC delivery store one more word; written
+/// here, only a death pays, and `ipc_send_receive` and `ipc_call_reply` run no new instruction.
+///
+/// Only a **plain `RECEIVE`** gets it. A `RECEIVE_CAP` receiver lays its result out differently
+/// (`x1` is a slot), and §26 names `RECEIVE` as the death message's receive. Neither does a kernel
+/// thread receiving in the kernel, which has no user frame: the bytes at its stack top are its own
+/// stack. A thread with an address space only ever reaches a receive by trapping from user mode.
+///
+/// An ordinary message writes nothing to this register, so a supervisor that wants `0` to mean
+/// "not stamped by the kernel" zeroes it before the `RECEIVE` (`user_mode_runtime::receive_fault`
+/// does). That is also why a child cannot forge a label: the badge on a capability it sends with
+/// arrives in word 3, never here.
+#[cold]
+#[inline(never)]
+fn hand_over_label(receiver: &crate::thread::Thread, label: u64) {
+    if receiver.receiving_cap || receiver.space.is_none() {
+        return;
+    }
+    if let Some(stack) = receiver.stack.as_ref() {
+        // SAFETY: `receiver` is a user thread (it has an address space) parked in, or running, a
+        // plain RECEIVE it trapped into from user mode, so its frame is at its stack top; it is
+        // blocked or is this core's current thread, and IPC_TABLES is held, so nothing else writes it.
+        unsafe { crate::arch::exceptions::set_user_arg(stack.top(), 5, label) };
     }
 }
 
@@ -5487,10 +5540,17 @@ pub fn start_thread_control_block(tid: ThreadId, args: [u64; 3]) -> Result<(), a
     // a Rendezvous capability, this thread is supervised: record it as the fault target
     // and consume the slot, so the child cannot forge fault messages on it (the kernel stays the
     // only sender on this path, §26.5). Supervision is fixed here, at spawn, and never changes.
+    //
+    // **The capability's badge is the child's label, and it is kept** (milestone 105, DECISIONS
+    // §148 as amended 2026-10-04, ruling R3). The builder sets it with `rendezvous::BADGE` before
+    // the insert, and the kernel delivers it with the death message so a supervisor of several
+    // children can say which one died. Consuming the slot below is also what keeps it from the
+    // child: no capability it holds carries it, and nothing else reports it.
     if let Ok(fault_cap) = t.capability_table.get(abi::fault::FAULT_EP_SLOT)
-        && let crate::cap::Object::Rendezvous(ep, _) = fault_cap.object
+        && let crate::cap::Object::Rendezvous(ep, label) = fault_cap.object
     {
         t.fault_ep = Some(ep);
+        t.fault_label = label;
         let _ = t.capability_table.delete(abi::fault::FAULT_EP_SLOT);
     }
 

@@ -1,0 +1,29 @@
+Falsifies `system_tests::user::supervision_tests::a_supervisor_tells_two_dead_children_apart_by_label`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect is the kernel discarding the label: `START` still records the supervision endpoint and
+still consumes the fault slot, but keeps `0` instead of the badge on the capability it found
+there. That is the tree as it stood before milestone 105 (the two forks), where the match arm read
+`Object::Rendezvous(ep, _)`. Every death still arrives, with the right tid, on both delivery
+paths; only the label is gone.
+
+Expected to fail, on the first (corpses-first) half: `assert_eq!(..., "a parked corpse's death
+arrived without its own label (each pair is tid, label)")`, with both labels read back as `0`.
+Replayed red on aarch64 on 2026-10-05 (UTC) at that assertion. Not replayed on riscv64 or x86_64
+here; CI's re-falsify job covers them. The supervisor-first half would fail the same way at its own
+assertion, which the first half's panic keeps from running.
+
+diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
+index 99bec2784..806339294 100644
+--- a/kernel/src/sched.rs
++++ b/kernel/src/sched.rs
+@@ -5550,7 +5550,7 @@ pub fn start_thread_control_block(tid: ThreadId, args: [u64; 3]) -> Result<(), a
+         && let crate::cap::Object::Rendezvous(ep, label) = fault_cap.object
+     {
+         t.fault_ep = Some(ep);
+-        t.fault_label = label;
++        t.fault_label = 0;
+         let _ = t.capability_table.delete(abi::fault::FAULT_EP_SLOT);
+     }
+ 

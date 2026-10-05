@@ -1,0 +1,31 @@
+Falsifies `system_tests::user::supervision_tests::a_child_can_neither_learn_nor_forge_its_label`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect is `START` reading the supervision capability out of the reserved fault slot and
+leaving it there. The child then holds a capability carrying its own label (and a `READ` view of
+its supervisor's endpoint), which is the "learn" half of this test's claim.
+
+Expected to fail: `assert!(table[FAULT_EP_SLOT as usize].is_none(), "the fault slot still holds a
+capability after START: the child can read its supervision capability")`. Replayed red on aarch64
+on 2026-10-05 (UTC) at that assertion. Not replayed on riscv64 or x86_64 here; CI's re-falsify
+job covers them.
+
+**What this record does not cover: the "forge" half.** Its defect would be the kernel writing a
+sender's badge into the label register on an ordinary delivery, which is code the kernel does not
+have and a patch would have to add to `ipc_receive`'s hot path. That half is a check that the label
+register stays `0` for a `SEND` through a capability badged with the very label, and is unfalsified
+by patch.
+
+diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
+index 99bec2784..9dd6648c7 100644
+--- a/kernel/src/sched.rs
++++ b/kernel/src/sched.rs
+@@ -5551,7 +5551,6 @@ pub fn start_thread_control_block(tid: ThreadId, args: [u64; 3]) -> Result<(), a
+     {
+         t.fault_ep = Some(ep);
+         t.fault_label = label;
+-        let _ = t.capability_table.delete(abi::fault::FAULT_EP_SLOT);
+     }
+ 
+     t.start_args = args; // the child's x0, x1, x2 (19d/19e)

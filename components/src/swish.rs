@@ -3322,7 +3322,7 @@ fn screen_rendezvous() -> Option<u64> {
 /// region still holds something schedulable, and yielding between attempts is what lets that settle
 /// without spinning the only core there is.
 fn await_screen(ep: u64) {
-    let (_event, tid, _pc, _addr, _rsvd) = receive_fault(ep);
+    let (_event, tid, ..) = receive_fault(ep);
     for _ in 0..SCREEN_REAP_ATTEMPTS {
         if reap(ep, tid) == 0 {
             return;

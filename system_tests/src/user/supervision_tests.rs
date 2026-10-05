@@ -94,6 +94,28 @@ pub(super) fn build_child_in(
     report: Option<sched::RendezvousId>,
     fault_ep: Option<sched::RendezvousId>,
 ) -> u64 {
+    let report = report.map(|rep| {
+        crate::cap::rendezvous_cap(
+            rep,
+            crate::cap::Rights::WRITE.union(crate::cap::Rights::GRANT),
+        )
+    });
+    // Rights do not matter for the fault capability (the kernel reads only the endpoint name and
+    // its badge, and consumes the slot at START, so the child cannot forge fault messages on it);
+    // READ is the minimum.
+    let fault = fault_ep.map(|fe| crate::cap::rendezvous_cap(fe, crate::cap::Rights::READ));
+    build_child_with(region, stub, report.as_slice(), fault)
+}
+
+/// [`build_child_in`] with the capabilities spelled out: `caps` land in slots 0, 1, ... in order,
+/// and `fault`, if given, in the reserved fault slot, so `START` records it as the child's
+/// supervision endpoint and keeps its badge as the child's label (milestone 105 (the two forks)).
+fn build_child_with(
+    region: u64,
+    stub: &[u32],
+    caps: &[crate::cap::Cap],
+    fault: Option<crate::cap::Cap>,
+) -> u64 {
     let aspace = user_address_space_create(region).expect("no aspace");
 
     let code_phys = crate::memory_region::retype_page(region).expect("no code frame");
@@ -125,22 +147,15 @@ pub(super) fn build_child_in(
     .expect("map stack");
 
     let tid = sched::create_thread_control_block(region).expect("no tcb");
-    if let Some(rep) = report {
-        let cap = crate::cap::rendezvous_cap(
-            rep,
-            crate::cap::Rights::WRITE.union(crate::cap::Rights::GRANT),
-        );
-        let slot = sched::thread_control_block_insert_cap(tid, cap, None).expect("insert report");
+    for (want, &cap) in caps.iter().enumerate() {
+        let slot = sched::thread_control_block_insert_cap(tid, cap, None).expect("insert cap");
         assert_eq!(
-            slot, 0,
-            "the report cap must land in slot 0 (the stub assumes it)"
+            slot, want as u64,
+            "a child's capability landed out of order (its stub names slots by number)"
         );
     }
-    if let Some(fe) = fault_ep {
+    if let Some(cap) = fault {
         // The spawn-slot convention: the supervision endpoint goes in the reserved fault slot.
-        // Rights do not matter here (the kernel reads only the endpoint name and consumes the
-        // slot at START, so the child cannot forge fault messages on it); READ is the minimum.
-        let cap = crate::cap::rendezvous_cap(fe, crate::cap::Rights::READ);
         sched::thread_control_block_insert_cap(tid, cap, Some(FAULT_EP_SLOT))
             .expect("insert fault ep");
     }
@@ -253,4 +268,331 @@ fn a_clean_exit_reports_the_exit_event_not_a_fault() {
         super::wait_for(|| sched::reclaim_region(region).is_ok()),
         "reaping the exited corpse's region failed",
     );
+}
+
+// ===========================================================================================
+// Milestone 105: the death message carries the builder's label (DECISIONS §148 (resolves by
+// asking the kernel) as amended 2026-10-04, ruling R3).
+// ===========================================================================================
+
+/// **A supervisor that reports what it hears, label included, twice.** Slot 0 is a report endpoint
+/// (WRITE), slot 1 the supervision endpoint (READ). Each round zeroes argument register 5, does a
+/// plain `RECEIVE` on slot 1, and `SEND`s `[tid, label, event]` on slot 0, which is `[w1, r5, w0]`
+/// of what it received. Two rounds, then `SYS_EXIT`.
+///
+/// It is a hand-assembled stub rather than a program because what is under test is one register on
+/// three architectures, and a stub names it outright: `x5`, `a5`, `r9`.
+#[cfg(target_arch = "aarch64")]
+const LABEL_REPORTER_STUB: &[u32] = &label_reporter_aarch64();
+#[cfg(target_arch = "riscv64")]
+const LABEL_REPORTER_STUB: &[u32] = &label_reporter_riscv64();
+#[cfg(target_arch = "x86_64")]
+const LABEL_REPORTER_STUB: &[u32] = &label_reporter_x86_64();
+
+/// `movz xd, #imm` (aarch64).
+#[cfg(target_arch = "aarch64")]
+const fn movz(rd: u32, imm: u64) -> u32 {
+    0xD280_0000 | ((imm as u32) << 5) | rd
+}
+
+#[cfg(target_arch = "aarch64")]
+const fn label_reporter_aarch64() -> [u32; 32] {
+    const SVC: u32 = 0xD400_0001;
+    let round = [
+        movz(0, 1),                        // slot 1: the supervision endpoint
+        movz(1, abi::rendezvous::RECEIVE), //
+        movz(2, 0),                        //
+        movz(3, 0),                        //
+        movz(4, 0),                        //
+        movz(5, 0),                        // the label register, zero unless the kernel writes it
+        movz(8, abi::SYS_INVOKE),          //
+        SVC,                               // RECEIVE: x0 = event, x1 = tid, x5 = label
+        0xAA01_03E2,                       // mov x2, x1   (tid)
+        0xAA05_03E3,                       // mov x3, x5   (label)
+        0xAA00_03E4,                       // mov x4, x0   (event)
+        movz(0, 0),                        // slot 0: the report endpoint
+        movz(1, abi::rendezvous::SEND),    //
+        movz(8, abi::SYS_INVOKE),          //
+        SVC,                               // SEND [tid, label, event]
+    ];
+    let mut out = [0u32; 32];
+    let mut i = 0;
+    while i < 15 {
+        out[i] = round[i];
+        out[15 + i] = round[i];
+        i += 1;
+    }
+    out[30] = movz(8, abi::SYS_EXIT);
+    out[31] = SVC;
+    out
+}
+
+/// `addi rd, x0, imm`, which is `li` for a small immediate (riscv64).
+#[cfg(target_arch = "riscv64")]
+const fn li(rd: u32, imm: u64) -> u32 {
+    0x13 | (rd << 7) | ((imm as u32) << 20)
+}
+
+#[cfg(target_arch = "riscv64")]
+const fn label_reporter_riscv64() -> [u32; 32] {
+    const ECALL: u32 = 0x0000_0073;
+    let round = [
+        li(10, 1),                        // a0: slot 1, the supervision endpoint
+        li(11, abi::rendezvous::RECEIVE), // a1
+        li(12, 0),                        // a2
+        li(13, 0),                        // a3
+        li(14, 0),                        // a4
+        li(15, 0),                        // a5: the label register
+        li(17, abi::SYS_INVOKE),          // a7
+        ECALL,                            // RECEIVE: a0 = event, a1 = tid, a5 = label
+        0x0005_8613,                      // mv a2, a1   (tid)
+        0x0007_8693,                      // mv a3, a5   (label)
+        0x0005_0713,                      // mv a4, a0   (event)
+        li(10, 0),                        // a0: slot 0, the report endpoint
+        li(11, abi::rendezvous::SEND),    // a1
+        li(17, abi::SYS_INVOKE),          // a7
+        ECALL,                            // SEND [tid, label, event]
+    ];
+    let mut out = [0u32; 32];
+    let mut i = 0;
+    while i < 15 {
+        out[i] = round[i];
+        out[15 + i] = round[i];
+        i += 1;
+    }
+    out[30] = li(17, abi::SYS_EXIT);
+    out[31] = ECALL;
+    out
+}
+
+/// The `x86_64` twin. One round, 48 bytes:
+///
+/// ```text
+///   bf 01 00 00 00    mov edi, 1          (slot 1: the supervision endpoint)
+///   be xx xx xx xx    mov esi, RECEIVE
+///   31 d2             xor edx, edx
+///   45 31 d2          xor r10d, r10d
+///   45 31 c0          xor r8d, r8d
+///   45 31 c9          xor r9d, r9d        (the label register)
+///   b8 xx xx xx xx    mov eax, SYS_INVOKE
+///   0f 05             syscall             (RECEIVE: rdi = event, rsi = tid, r9 = label)
+///   48 89 f2          mov rdx, rsi        (tid)
+///   4d 89 ca          mov r10, r9         (label)
+///   49 89 f8          mov r8, rdi         (event)
+///   31 ff             xor edi, edi        (slot 0: the report endpoint)
+///   31 f6             xor esi, esi        (SEND, which is 0)
+///   b8 xx xx xx xx    mov eax, SYS_INVOKE
+///   0f 05             syscall             (SEND [tid, label, event])
+/// ```
+///
+/// Two rounds, then `mov eax, SYS_EXIT; syscall` and one `nop` to fill the last word.
+#[cfg(target_arch = "x86_64")]
+const fn label_reporter_x86_64() -> [u32; 26] {
+    const {
+        assert!(
+            abi::rendezvous::SEND == 0,
+            "`xor esi, esi` encodes SEND as zero"
+        );
+    }
+    let rcv = (abi::rendezvous::RECEIVE as u32).to_le_bytes();
+    let inv = (abi::SYS_INVOKE as u32).to_le_bytes();
+    let ext = (abi::SYS_EXIT as u32).to_le_bytes();
+    let round: [u8; 48] = [
+        0xBF, 0x01, 0x00, 0x00, 0x00, // mov edi, 1
+        0xBE, rcv[0], rcv[1], rcv[2], rcv[3], // mov esi, RECEIVE
+        0x31, 0xD2, // xor edx, edx
+        0x45, 0x31, 0xD2, // xor r10d, r10d
+        0x45, 0x31, 0xC0, // xor r8d, r8d
+        0x45, 0x31, 0xC9, // xor r9d, r9d
+        0xB8, inv[0], inv[1], inv[2], inv[3], // mov eax, SYS_INVOKE
+        0x0F, 0x05, // syscall (RECEIVE)
+        0x48, 0x89, 0xF2, // mov rdx, rsi
+        0x4D, 0x89, 0xCA, // mov r10, r9
+        0x49, 0x89, 0xF8, // mov r8, rdi
+        0x31, 0xFF, // xor edi, edi
+        0x31, 0xF6, // xor esi, esi
+        0xB8, inv[0], inv[1], inv[2], inv[3], // mov eax, SYS_INVOKE
+        0x0F, 0x05, // syscall (SEND)
+    ];
+    let mut b = [0x90u8; 104];
+    let mut i = 0;
+    while i < 48 {
+        b[i] = round[i];
+        b[48 + i] = round[i];
+        i += 1;
+    }
+    let tail = [0xB8, ext[0], ext[1], ext[2], ext[3], 0x0F, 0x05];
+    let mut k = 0;
+    while k < 7 {
+        b[96 + k] = tail[k];
+        k += 1;
+    }
+    let mut out = [0u32; 26];
+    let mut w = 0;
+    while w < 26 {
+        out[w] = u32::from_le_bytes([b[4 * w], b[4 * w + 1], b[4 * w + 2], b[4 * w + 3]]);
+        w += 1;
+    }
+    out
+}
+
+/// Two labels a builder might choose. Distinctive, and nothing like a tid or a slot number.
+const LABEL_ONE: u64 = 0x1abe_0001;
+const LABEL_TWO: u64 = 0x1abe_0002;
+
+/// Build [`LABEL_REPORTER_STUB`] reporting on `report` and receiving on `fault_ep`, unsupervised,
+/// in its own region. Returns `(tid, region)`.
+fn label_reporter(report: sched::RendezvousId, fault_ep: sched::RendezvousId) -> (u64, u64) {
+    let region = crate::memory_region::create(16).expect("no region for the supervisor stub");
+    let caps = [
+        crate::cap::rendezvous_cap(report, crate::cap::Rights::WRITE),
+        crate::cap::rendezvous_cap(fault_ep, crate::cap::Rights::READ),
+    ];
+    (
+        build_child_with(region, LABEL_REPORTER_STUB, &caps, None),
+        region,
+    )
+}
+
+/// A child that faults at once, supervised on `fault_ep` with `label` stamped on its capability,
+/// the way a builder stamps it with `rendezvous::BADGE`. Returns `(tid, region)`.
+fn labelled_child(fault_ep: sched::RendezvousId, label: u64) -> (u64, u64) {
+    let region = crate::memory_region::create(16).expect("no region for the child");
+    let fault = crate::cap::rendezvous_cap_badged(fault_ep, crate::cap::Rights::READ, label);
+    (
+        build_child_with(region, FAULT_STUB, &[], Some(fault)),
+        region,
+    )
+}
+
+/// Reclaim every region a test built, once its threads are gone. Clock-bounded retries for the
+/// reason [`a_faulting_child_reports_to_its_supervisor_and_is_reaped_then_respawned`] gives.
+fn reclaim_all(regions: &[u64]) {
+    for &region in regions {
+        assert!(
+            super::wait_for(|| sched::reclaim_region(region).is_ok()),
+            "a region this test built could not be reclaimed",
+        );
+    }
+}
+
+/// **A supervisor tells two dead children apart by the label the kernel delivers** (milestone 105,
+/// DECISIONS §148 as amended 2026-10-04, ruling R3).
+///
+/// Two children die on one supervision endpoint, each with its builder's label on its supervision
+/// capability. A supervisor running in user mode receives both deaths and reports the tid and the
+/// label it read. Each tid must arrive with its own child's label.
+///
+/// **Both delivery paths, because the label reaches the supervisor by two routes.** First the
+/// corpses park before the supervisor exists, so it collects each from the sender queue
+/// (`collected_without_serving`). Then a supervisor is already blocked in `RECEIVE` when each
+/// child dies, so the kernel hands the label over at the rendezvous (`deliver_death`). Either half
+/// passing alone would leave the other route unproven.
+///
+/// Falsification: replayable `system_tests/falsifications/user.supervision_tests.a_supervisor_tells_two_dead_children_apart_by_label.patch`
+#[test_case]
+fn a_supervisor_tells_two_dead_children_apart_by_label() {
+    // Corpses first: both are parked with their messages before anyone receives.
+    let fault_ep = sched::create_rendezvous();
+    let report = sched::create_rendezvous();
+    let (one, r1) = labelled_child(fault_ep, LABEL_ONE);
+    let (two, r2) = labelled_child(fault_ep, LABEL_TWO);
+    assert!(
+        super::wait_for(|| sched::rendezvous_waiting_senders(fault_ep) == 2),
+        "the two children never parked their deaths on the supervision endpoint",
+    );
+    let (_sup, rs) = label_reporter(report, fault_ep);
+    let mut heard = [sched::ipc_receive(report), sched::ipc_receive(report)];
+    heard.sort_unstable_by_key(|m| m[1]);
+    assert_eq!(
+        [(heard[0][0], heard[0][1]), (heard[1][0], heard[1][1])],
+        [(one, LABEL_ONE), (two, LABEL_TWO)],
+        "a parked corpse's death arrived without its own label (each pair is tid, label)",
+    );
+    assert_eq!(
+        heard[0][2], EVENT_FAULT,
+        "the first child did not die of its fault"
+    );
+    reclaim_all(&[r1, r2, rs]);
+
+    // Supervisor first: it is blocked in RECEIVE when each child dies.
+    let fault_ep = sched::create_rendezvous();
+    let report = sched::create_rendezvous();
+    let (_sup, rs) = label_reporter(report, fault_ep);
+    let mut regions = [rs, 0, 0];
+    for (i, label) in [LABEL_TWO, LABEL_ONE].into_iter().enumerate() {
+        assert!(
+            super::wait_for(|| sched::rendezvous_waiting_receivers(fault_ep) == 1),
+            "the supervisor never blocked in RECEIVE",
+        );
+        let (child, region) = labelled_child(fault_ep, label);
+        regions[i + 1] = region;
+        let msg = sched::ipc_receive(report);
+        assert_eq!(
+            (msg[0], msg[1]),
+            (child, label),
+            "a death delivered to a waiting supervisor arrived without its own label \
+             (each pair is tid, label)",
+        );
+    }
+    reclaim_all(&regions);
+}
+
+/// **A child can neither learn its label nor forge one** (milestone 105, DECISIONS §148 as amended).
+///
+/// *Learn.* After `START`, no capability the child holds carries its label: the kernel consumed the
+/// fault slot and kept the badge itself. The child is started with zeroed argument registers, so
+/// there is nowhere else it could read it from.
+///
+/// *Forge.* A second child holds a `WRITE` capability to the same supervision endpoint, badged with
+/// the very label the first child has, and `SEND`s on it. That is the strongest forgery a holder
+/// can attempt, and its message must reach the supervisor with label `0`: a sender's badge arrives
+/// in word 3, and only the kernel's death path writes the label register.
+///
+/// Falsification: replayable `system_tests/falsifications/user.supervision_tests.a_child_can_neither_learn_nor_forge_its_label.patch`
+#[test_case]
+fn a_child_can_neither_learn_nor_forge_its_label() {
+    let fault_ep = sched::create_rendezvous();
+    let report = sched::create_rendezvous();
+
+    let (child, r1) = labelled_child(fault_ep, LABEL_ONE);
+    let table = sched::capability_table_snapshot(child).expect("the child is gone already");
+    assert!(
+        table[FAULT_EP_SLOT as usize].is_none(),
+        "the fault slot still holds a capability after START: the child can read its supervision \
+         capability",
+    );
+    assert!(
+        !table.iter().flatten().any(|c| matches!(
+            c.object,
+            crate::cap::Object::Rendezvous(_, badge) if badge == LABEL_ONE
+        )),
+        "a capability the child holds carries its label",
+    );
+
+    let forger_region = crate::memory_region::create(16).expect("no region for the forger");
+    let forged = crate::cap::rendezvous_cap_badged(fault_ep, crate::cap::Rights::WRITE, LABEL_ONE);
+    let forger = build_child_with(forger_region, REPORT_STUB, &[forged], None);
+
+    let (_sup, rs) = label_reporter(report, fault_ep);
+    let heard = [sched::ipc_receive(report), sched::ipc_receive(report)];
+    let real = heard
+        .iter()
+        .find(|m| m[2] == EVENT_FAULT)
+        .expect("the labelled child's death never reached the supervisor");
+    assert_eq!(
+        (real[0], real[1]),
+        (child, LABEL_ONE),
+        "the real death did not carry its label, so the forgery check below proves nothing",
+    );
+    let fake = heard
+        .iter()
+        .find(|m| m[2] == REPORT_WORD)
+        .expect("the forger's message never reached the supervisor");
+    assert_eq!(
+        fake[1], 0,
+        "a message a child sent arrived carrying a label: a label can be forged \
+         (the forger {forger} sent through a capability badged with it)",
+    );
+    reclaim_all(&[r1, forger_region, rs]);
 }

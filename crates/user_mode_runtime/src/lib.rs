@@ -153,7 +153,8 @@ pub mod initrd;
 pub mod mapped_window;
 pub mod virtio;
 
-/// The raw five-register round trip through `SYS_INVOKE` (milestone 139 round 2). `cap`, `method`
+/// The raw six-register round trip through `SYS_INVOKE` (milestone 139 (drive the unsafe count down) round
+/// 2; the sixth register is milestone 105 (the two forks)'s). `cap`, `method`
 /// and two more arguments go in `x0..x3`/`a0..a3` (the fifth, `x4`/`a4`, is spare and always zero on
 /// input); the kernel's reply comes back in the same five registers, `x0..x4`/`a0..a4`. This is now
 /// the one place the actual trap instruction and register file appear for a `SYS_INVOKE` call:
@@ -172,12 +173,27 @@ pub mod virtio;
 /// primitive means they now pass an explicit `0` there instead, which is a strict tightening, not a
 /// behaviour change: the kernel still ignores it.
 ///
+/// **The sixth register is an output, and goes in as zero** (milestone 105, DECISIONS §148 (resolves by
+/// asking the kernel) as amended 2026-10-04). The kernel writes argument register 5 (`x5`, `a5`, `r9`) with a dead
+/// child's label when it delivers a death message to a plain `RECEIVE`, and leaves it alone on
+/// every other path. Declared as an input only, LLVM would assume the register survived the trap
+/// and keep a live value in it that a `RECEIVE` on a supervision endpoint then silently replaced.
+/// Zero in makes the result defined everywhere: [`receive_fault`] reads `0` for anything the
+/// kernel did not stamp. One `mov` per call, in userspace; the kernel paths `script/bench` gates
+/// run nothing new.
+///
 /// # Safety
 /// `svc`/`ecall` traps to the kernel. The kernel validates the capability and the method before
 /// acting; that is its whole job. The caller is trusting the kernel, not the other way around.
 #[cfg(target_arch = "aarch64")]
-unsafe fn invoke5(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> (u64, u64, u64, u64, u64) {
-    let (mut w0, mut w1, mut w2, mut w3, mut w4): (u64, u64, u64, u64, u64);
+unsafe fn invoke6(
+    cap: u64,
+    method: u64,
+    a0: u64,
+    a1: u64,
+    a2: u64,
+) -> (u64, u64, u64, u64, u64, u64) {
+    let (mut w0, mut w1, mut w2, mut w3, mut w4, mut w5): (u64, u64, u64, u64, u64, u64);
     // SAFETY: see the function doc; `x8` selects SYS_INVOKE (DECISIONS §10), `x0..x4` carry the
     // five-word ABI in both directions. `asm!` is unsafe because the compiler cannot check that,
     // not because a caller can get it wrong.
@@ -190,10 +206,11 @@ unsafe fn invoke5(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> (u64, u64
             inlateout("x2") a0 => w2,
             inlateout("x3") a1 => w3,
             inlateout("x4") a2 => w4,
+            inlateout("x5") 0u64 => w5,
             options(nostack),
         );
     }
-    (w0, w1, w2, w3, w4)
+    (w0, w1, w2, w3, w4, w5)
 }
 
 /// The raw five-register round trip (RISC-V). See the aarch64 twin's doc for the contract this
@@ -204,8 +221,14 @@ unsafe fn invoke5(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> (u64, u64
 /// `ecall` traps to the kernel, which validates the capability and method before acting. Same
 /// contract as the aarch64 twin: the caller trusts the kernel, not the other way around.
 #[cfg(target_arch = "riscv64")]
-unsafe fn invoke5(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> (u64, u64, u64, u64, u64) {
-    let (mut w0, mut w1, mut w2, mut w3, mut w4): (u64, u64, u64, u64, u64);
+unsafe fn invoke6(
+    cap: u64,
+    method: u64,
+    a0: u64,
+    a1: u64,
+    a2: u64,
+) -> (u64, u64, u64, u64, u64, u64) {
+    let (mut w0, mut w1, mut w2, mut w3, mut w4, mut w5): (u64, u64, u64, u64, u64, u64);
     // SAFETY: see the function doc; `a7` selects SYS_INVOKE (DECISIONS §10), `a0..a4` carry the
     // five-word ABI in both directions.
     unsafe {
@@ -217,10 +240,11 @@ unsafe fn invoke5(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> (u64, u64
             inlateout("a2") a0 => w2,
             inlateout("a3") a1 => w3,
             inlateout("a4") a2 => w4,
+            inlateout("a5") 0u64 => w5,
             options(nostack),
         );
     }
-    (w0, w1, w2, w3, w4)
+    (w0, w1, w2, w3, w4, w5)
 }
 
 /// The raw five-register round trip (`x86_64`, milestone 161). See the aarch64 twin's doc for the
@@ -241,8 +265,14 @@ unsafe fn invoke5(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> (u64, u64
 /// `syscall` traps to the kernel, which validates the capability and method before acting. Same
 /// contract as the aarch64 twin: the caller trusts the kernel, not the other way around.
 #[cfg(target_arch = "x86_64")]
-unsafe fn invoke5(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> (u64, u64, u64, u64, u64) {
-    let (mut w0, mut w1, mut w2, mut w3, mut w4): (u64, u64, u64, u64, u64);
+unsafe fn invoke6(
+    cap: u64,
+    method: u64,
+    a0: u64,
+    a1: u64,
+    a2: u64,
+) -> (u64, u64, u64, u64, u64, u64) {
+    let (mut w0, mut w1, mut w2, mut w3, mut w4, mut w5): (u64, u64, u64, u64, u64, u64);
     // SAFETY: see the function doc; `rax` selects SYS_INVOKE (DECISIONS §10, §124), and the five
     // argument registers carry the five-word ABI in both directions.
     unsafe {
@@ -254,11 +284,23 @@ unsafe fn invoke5(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> (u64, u64
             inlateout("rdx") a0 => w2,
             inlateout("r10") a1 => w3,
             inlateout("r8") a2 => w4,
+            inlateout("r9") 0u64 => w5,
             lateout("rcx") _,
             lateout("r11") _,
             options(nostack),
         );
     }
+    (w0, w1, w2, w3, w4, w5)
+}
+
+/// [`invoke6`] read to the five words every method but a death delivery uses.
+///
+/// # Safety
+/// Exactly [`invoke6`]'s contract.
+#[inline(always)]
+unsafe fn invoke5(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> (u64, u64, u64, u64, u64) {
+    // SAFETY: forwarded from this function's own contract.
+    let (w0, w1, w2, w3, w4, _) = unsafe { invoke6(cap, method, a0, a1, a2) };
     (w0, w1, w2, w3, w4)
 }
 
@@ -392,9 +434,15 @@ pub fn receive_badged_bound(slot: u64) -> Result<(u64, u64, u64, u64), u64> {
 /// restart policy needs the event and the tid, but a *checker* needs the faulting address, which is
 /// the only word that says where the dead thread actually pointed. No new syscall and no new method
 /// (§26's whole surface claim): just the rest of a result that was already being returned.
-pub fn receive_fault(slot: u64) -> (u64, u64, u64, u64, u64) {
-    // SAFETY: forwarded from `invoke5`'s contract.
-    unsafe { invoke5(slot, abi::rendezvous::RECEIVE, 0, 0, 0) }
+///
+/// **The sixth word is the dead child's label** (milestone 105, DECISIONS §148 as amended
+/// 2026-10-04): the badge its builder put on the supervision capability before inserting it in
+/// `abi::fault::FAULT_EP_SLOT`, so a supervisor of several children can tell which one died without
+/// asking anybody. `0` when the capability was unbadged, and `0` for any message the kernel did not
+/// stamp, because [`invoke6`] zeroes the register on the way in. See `abi::fault`.
+pub fn receive_fault(slot: u64) -> (u64, u64, u64, u64, u64, u64) {
+    // SAFETY: forwarded from `invoke6`'s contract.
+    unsafe { invoke6(slot, abi::rendezvous::RECEIVE, 0, 0, 0) }
 }
 
 /// `RECEIVE_CAP` on the endpoint capability in `slot`: receive a message that may carry a

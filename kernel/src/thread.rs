@@ -626,6 +626,17 @@ pub struct Thread {
     /// faults or exits, the kernel delivers a five-word message here and the corpse goes `Dead`
     /// until reaped; a thread with `None` dies and is reaped immediately, today's behaviour.
     pub(crate) fault_ep: Option<crate::sched::RendezvousId>,
+    /// **The label the builder set on this thread's supervision capability** (milestone 105
+    /// (the two forks), DECISIONS §148 (resolves by asking the kernel)
+    /// as amended 2026-10-04, ruling R3), or `0` when the capability was unbadged
+    /// or the thread is unsupervised. Read at `START` from the badge on the capability in the
+    /// reserved fault slot, beside [`Self::fault_ep`], and never afterward. The slot is consumed at
+    /// the same moment, so the child never holds a capability carrying it and cannot learn it.
+    ///
+    /// It travels with the death message and nowhere else: `depart` hands it to the supervisor in
+    /// argument register 5 of a plain `RECEIVE`, beside the five mailbox words rather than in
+    /// them, so ordinary IPC stores nothing more than it did (§148's benchmark condition).
+    pub(crate) fault_label: u64,
 
     /// **The untyped region this TCB's page was retyped out of** (DECISIONS §32), or `None` for a
     /// kernel-created thread whose page came from `kmem`. Recorded at `create_thread_control_block`, which is the one
@@ -753,6 +764,7 @@ impl Thread {
             thread_control_block_kmem: true,
             killed: false,
             fault_ep: None,
+            fault_label: 0,
             thread_control_block_region: None,
             fault_msg: None,
             bound_notification: None,
@@ -794,6 +806,7 @@ impl Thread {
             thread_control_block_kmem: true,
             killed: false,
             fault_ep: None,
+            fault_label: 0,
             thread_control_block_region: None,
             fault_msg: None,
             bound_notification: None,
@@ -939,6 +952,7 @@ impl Thread {
                 thread_control_block_kmem: true,
                 killed: false,
                 fault_ep: None,
+                fault_label: 0,
                 thread_control_block_region: None,
                 fault_msg: None,
                 bound_notification: None,
@@ -978,6 +992,7 @@ impl Thread {
             thread_control_block_kmem: false, // a user-retyped TCB page; the region owns it
             killed: false,
             fault_ep: None,
+            fault_label: 0,
             thread_control_block_region: None,
             fault_msg: None,
             bound_notification: None,
