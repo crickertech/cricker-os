@@ -62,7 +62,7 @@ Every beat is one line, printed by `kernel/src/soak.rs`:
 soak-test: t=<s>s beat=<n> rounds=<n> rate=<n>/s wakes=<n> wakerate=<n>/s workers=<n> refused=<n> mismatch=<n> stalled=<n> drifted=<n> crossings=<n> remote=<n> steals=<n> deferred=<n>
 ```
 
-Take the **last** such line of the boot. `hours` is its `t=` divided by 3,600, `crossings` and
+Take the last such line of the boot. `hours` is its `t=` divided by 3,600, `crossings` and
 `beats` are read off it, and `result` is `clean` when its three failure counters are all zero and no
 `soak-test: FAILED` line appears anywhere in the log. Milestone 297 (`soak` becomes `soak-test`)
 landed on 2026-09-14; logs from before it spell the prefix `soak:`, which `crates/board_console`
@@ -88,8 +88,8 @@ recorded with workload `soak-test (not crossing)` and excluded from the curve.
 The start times are Pacific local times from `notes/soak.md` converted to UTC; the note does not
 state its zone, and the conversion is inferred from the commits that recorded them (2026-09-03
 20:45 UTC and 2026-09-04 00:11 UTC), which only a Pacific reading fits. None of the three logs is
-in the tree and none records its build, which is why their columns are thin. **So radon's curve
-starts at roughly three and a half hours and 5,500-plus crossings with zero defects**, which is a
+in the tree and none records its build, which is why their columns are thin. So radon's curve
+starts at roughly three and a half hours and 5,500-plus crossings with zero defects, which is a
 confidence about one architecture and one workload, not a verdict about anything.
 
 E4 is the first row with a log in the tree and a build recorded, and on the crossings axis it
@@ -112,11 +112,11 @@ the boots axis it is still four points.
 | `fixed` | date (UTC) and milestone, commit or pull request; or `open` |
 | `source` | where the defect is recorded at the code |
 
-Classes: **`race`**, a defect that depends on the interleaving of two or more cores; **`multicore`**,
+Classes: `race`, a defect that depends on the interleaving of two or more cores; `multicore`,
 one that exists only with more than one core but is deterministic once placement is fixed;
 **`instrument`**, a defect in the stress workload or its hook rather than in the kernel;
 **`retracted`**, a reading since overturned, kept so it is never counted again by someone who read
-the old version; **`unclassified`**, not yet understood. Test-only defects (an assertion wrong under
+the old version; `unclassified`, not yet understood. Test-only defects (an assertion wrong under
 load) do not belong here; [`load-sensitive-assertions.md`](load-sensitive-assertions.md) is their
 register.
 
@@ -157,18 +157,18 @@ exactly the class risk 5 names and should not be quietly argued away.
 
 ## BUGS
 
-- **The history table is a lane's sweep, not a census.** It was assembled on 2026-09-24 from
+- The history table is a lane's sweep, not a census. It was assembled on 2026-09-24 from
   `notes/`, the `BUGS` sections cited, and `git log`, by searching for the words these defects were
   recorded under. A multicore defect recorded under different words, or fixed in a commit whose
   message never said so, is missing. The rows found are the ones the tree already told a reader
   about, which biases the table towards defects somebody thought were interesting.
-- **D5's date is when loom modelled it, not when it was found.** `notes/scheduler.md` records it as
+- D5's date is when loom modelled it, not when it was found. `notes/scheduler.md` records it as
   a race "observed on the machine" without a date or an instrument; `notes/interleaving.md` says the
   protocol's races "were found by flakes and bench boots first". Which it was is not recorded, and
   a bench boot would make it the one row that bears on risk 5's premise.
-- **E1 to E3 lack builds and final beats.** Their logs were read at the bench and summarised into
+- E1 to E3 lack builds and final beats. Their logs were read at the bench and summarised into
   `notes/soak.md`, never committed. Milestone 225 should commit each boot's log under `bench/` so a
   row can cite a file rather than a paragraph.
-- **Nothing computes the curve.** It is a table a reader sums by hand. That is adequate at three
+- Nothing computes the curve. It is a table a reader sums by hand. That is adequate at three
   rows and will not be at thirty; a script reading these two tables is small work, but it earns its
   keep only once 225 has appended enough rows to plot.

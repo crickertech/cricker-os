@@ -9,6 +9,12 @@ boot reaches 31, a gpu boot with no keyboard 28, and a boot with no gpu 24. This
 capabilities make up those numbers, how long each is held, and what each option for lowering the
 peak would actually save.
 
+**Each of the three is one higher since 2026-10-05 (UTC): 32, 29 and 25.** §249 (a running address
+space stays nameable) has the kernel grant the progenitor its own address space at slot 28 on every
+boot, held for life so the loader can give up each scratch page (milestone 95 (an unmap primitive)).
+The trace below was taken before that slot existed and is not rerun; add one held-for-life row to
+each boot's table to read it against today.
+
 ## How it was measured
 
 There was no trace path in the tree, so the instrument is a patch kept beside this note rather than

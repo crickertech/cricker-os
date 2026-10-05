@@ -29,24 +29,24 @@ NVMe disk) is already held on.
   install     :   EVERYTHING ON THAT DISK WILL BE DESTROYED.
 ```
 
-**That is the single most load-bearing sentence a stranger reads in this system.** Everything else
+That is the single most load-bearing sentence a stranger reads in this system. Everything else
 the installer does is recoverable by reinstalling; this one is not, and the whole safety property of
 the install is that a person read it and agreed. Milestone 515 (a stick that puts itself on the
 machine's disk)'s own `BUGS` says the confirmation *"must name the disk by model and size, not by an
-ordinal"*, and today it names the size and hedges the rest: **"the NVMe disk attached to this
-machine"**, because on a machine with two it could not say which.
+ordinal"*, and today it names the size and hedges the rest: "the NVMe disk attached to this
+machine", because on a machine with two it could not say which.
 
 ## Why it says that and not more
 
 Not for want of the data. NVMe's `IDENTIFY` with `CNS = 1` returns the controller structure, whose
 first sixty bytes are ASCII: a 20-byte serial number, a 40-byte model number, and an 8-byte firmware
-revision. `crates/non_volatile_memory_express` already declares `CNS_CONTROLLER` and **nothing in
-this tree has ever issued that command**: the one `Command::identify` call site
+revision. `crates/non_volatile_memory_express` already declares `CNS_CONTROLLER` and nothing in
+this tree has ever issued that command: the one `Command::identify` call site
 (`kernel/src/non_volatile_memory_express.rs`) asks for `CNS_NAMESPACE`, because geometry is all the
 driver needed.
 
 The limit that is real, and worth stating precisely because it is easy to overclaim, is on the
-**data plane**. `non_volatile_memory_express::Handoff` is what the admin plane tells the confined
+data plane. `non_volatile_memory_express::Handoff` is what the admin plane tells the confined
 server at spawn, and its own header says why it is shaped as it is: *"Three `u64`s because a spawn
 carries three scalars"*, which is `kernel/src/user.rs`'s `Spawn`. All three are spent:
 
@@ -56,14 +56,14 @@ carries three scalars"*, which is `kernel/src/user.rs`'s `Spawn`. All three are 
 | 1 | `data_plane_phys` |
 | 2 | `size_bytes` |
 
-Forty ASCII bytes do not fit in a spawn, so **a program cannot be told the model the way it is told
-the geometry.** That is the sentence the rung 2a lane wrote down, and it is true; what it does not
+Forty ASCII bytes do not fit in a spawn, so a program cannot be told the model the way it is told
+the geometry. That is the sentence the rung 2a lane wrote down, and it is true; what it does not
 say is that the kernel does not need the spawn at all.
 
 ## Two halves, and only one of them is an architect's
 
-**A. The kernel prints the model. Reversible, needs no ruling, and is the whole of the sentence
-above.** The offer is printed by `install_service`, in the kernel, which is also where the admin
+A. The kernel prints the model. Reversible, needs no ruling, and is the whole of the sentence
+above. The offer is printed by `install_service`, in the kernel, which is also where the admin
 plane lives. A second `IDENTIFY` into the DMA region the admin queue already owns, a `[u8; 40]` on
 the kernel-side `Wiring` (a Rust struct, not a wire), and the sentence names the drive. Cost: one
 more admin command at bring-up, roughly thirty lines, and a parser for a fixed-offset ASCII field
@@ -73,7 +73,7 @@ that is space-padded rather than NUL-terminated.
 naming *which*, and a machine with two NVMe controllers needs an identity a person can match against
 the thing in their hand. A serial number is that; a model number on its own is not.
 
-**B. A program names the disk. This is the wire question and it is an architect's.** `disk_surveyor`
+B. A program names the disk. This is the wire question and it is an architect's. `disk_surveyor`
 is what would list the machine's drives for a person to choose between, and it cannot see an NVMe
 controller at all: `crates/block_roster` encodes two transport kinds and neither is NVMe. That is
 milestone 421 (the block roster cannot name an NVMe disk) exactly, held since 2026-09-19 on
@@ -92,10 +92,10 @@ the first machine with two.
 
 - **This proposal does not price option B**, because its cost is whatever §193 rules the roster entry
   to be, and a price written before that ruling would be a price for a shape nobody has chosen.
-- **A model number is not an identity.** Two identical drives in one machine report the same model,
+- A model number is not an identity. Two identical drives in one machine report the same model,
   and the serial is what separates them. Option A as written would print the model and could print
   the serial as easily; what it cannot do is let a person *choose*, which is option B.
-- **Nothing here helps a SATA disk**, which has no driver at all (milestone 515's `BUGS`), or an
+- Nothing here helps a SATA disk, which has no driver at all (milestone 515's `BUGS`), or an
   NVMe controller hidden behind Intel RST or VMD.
 
 ## Index row

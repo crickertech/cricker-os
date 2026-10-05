@@ -52,31 +52,31 @@ integer registers.** What a spawned process is handed is `kernel::user::Spawn`: 
 of capabilities, and a list of physical mappings. That is the whole of it. The mechanisms that exist
 were checked rather than recalled, and none of them carries a string:
 
-- **`grant_plan::ArgSpec`** is the shell-side declaration, and it carries exactly one *integer*
+- `grant_plan::ArgSpec` is the shell-side declaration, and it carries exactly one *integer*
   ("`least_authority_demo 9`'s `9`"); the positional arity it would need is deferred work its own
   doc names. `FileSpec` and `DirSpec` do designate by name, but they resolve the name to a
   *capability* before the program starts, which is the opposite of handing over a string.
-- **`environment_proto`** is a page of inert configuration, and it is validated against curated
-  domains **precisely so that a secret cannot ride on it**: its own module doc is the refusal, in
+- `environment_proto` is a page of inert configuration, and it is validated against curated
+  domains precisely so that a secret cannot ride on it: its own module doc is the refusal, in
   those words. Disqualified by design rather than by preference.
-- **`Spawn::maps`** can place a page at a chosen VA, and the login service's own wiring already uses
+- `Spawn::maps` can place a page at a chosen VA, and the login service's own wiring already uses
   a kernel-side `map_blob` to hand `login` two program images this way. It would work. It costs a
   frame the spawner allocates, fills and maps, plus a parse on the far side, for two short strings
   that are already compiled into both sides of the tree.
 
-So the bytes live in a crate both sides already link and the register names **which one**:
+So the bytes live in a crate both sides already link and the register names which one:
 `credential_proto::fixture` grows the roster of three people the tree's credential fixtures
 authenticate, and `identity` and `secret` are indices into it. `credential_proto` was already a
 dependency of both `kernel` and `fixtures`, so this is not a dependency decision.
 
-**The composition is the point.** The two indices are separate arguments, so the wrong-secret run is
+The composition is the point. The two indices are separate arguments, so the wrong-secret run is
 `(CHRIS, WRONG)`: the same behaviour as the honest `(CHRIS, CHRIS)` with one input changed.
 
 That is what the file was already claiming and could not enforce. Its own argument for being one
 binary reads *"a program that shares the honest path with an attempted-wrong-secret run is a fairer
 test of a refusal than a different program failing for its own reasons."* A dispatch table delivers
-that **by convention**: the honest arm and the refusal arm are two pieces of code that happen to
-agree today. An argument delivers it **by construction**: there is one arm.
+that by convention: the honest arm and the refusal arm are two pieces of code that happen to
+agree today. An argument delivers it by construction: there is one arm.
 
 `fixture::WRONG` is `PEOPLE.len()`, derived rather than written as `3`, so growing the roster cannot
 turn the wrong-secret index into a fourth person's real secret. `fixture::NONE` is neither an
@@ -93,14 +93,14 @@ principle or an argument. Both were priced.
 **Six programs** costs six `[[bin]]` entries, six archive entries, and six copies of the
 connect-and-authenticate preamble: send `CONNECT`, receive `CONNECTED`, receive three capabilities
 in order, map the delegated page from a scratch region, `place` the credential, send `LOGIN`,
-receive the verdict, then receive five more capabilities **in `login_proto`'s fixed order**. Avoiding
+receive the verdict, then receive five more capabilities in `login_proto`'s fixed order. Avoiding
 six copies means lifting that preamble into a crate, which is a new crate and a new name.
 
 **One binary** costs one `match` after the preamble, at the point where the behaviours genuinely
 diverge.
 
-**Would we still choose one binary if both cost the same? Yes**, and the reason is the fixed order
-in that last sentence. The preamble is not shared setup, it is **the contract under test**: five
+Would we still choose one binary if both cost the same? Yes, and the reason is the fixed order
+in that last sentence. The preamble is not shared setup, it is the contract under test: five
 delegated capabilities arriving in one order on one channel. Six copies of a wire order is six
 places for it to drift, and a drifted copy fails as a mysterious `RECV_CAP` on the wrong object
 rather than as a diff. The sibling lane splitting `fixtures/src/hello.rs` (291, unmerged as this is
@@ -120,8 +120,8 @@ and the same shape". It does not, and this is recorded rather than quietly skipp
 
 Its three roles are `ROLE_PROVISIONER` (fills the store through a **provision** endpoint in slot 0),
 `ROLE_HONEST` (asks four verify questions) and `ROLE_ATTACKER` (sends five things the contract does
-not offer, then asks whether any of it installed a credential). There is **no role-to-credential
-lookup** here at all: the credentials in this file are fixture *data* a behaviour uses, not a
+not offer, then asks whether any of it installed a credential). There is no role-to-credential
+lookup here at all: the credentials in this file are fixture *data* a behaviour uses, not a
 selector that picks one. All three are behaviours, and nothing about them dissolves into an argument.
 
 What it did hold is the definition the other two files were copying. `PEOPLE` lived here, and:
@@ -138,7 +138,7 @@ paired rather than parallel so an identity cannot drift away from its own secret
 call sites now read it. `identity_provisioning_tests`' second spelling of the same name as a `&str`
 is now a `const` conversion of the first rather than a second literal.
 
-**Every other `const ROLE_` in the tree was checked** (`fixtures/`, `components/`, `crates/`,
+Every other `const ROLE_` in the tree was checked (`fixtures/`, `components/`, `crates/`,
 `kernel/`: 24 files). Every one of them dispatches a role to a *function*. `login_test_client`'s
 `credentials(role)` was the only role-to-data lookup in the repository; the nearest thing to a
 second is `kernel/src/soak.rs`'s `role_letter`, which maps a role to the character a census prints
@@ -157,7 +157,7 @@ limitations, and the fact that a spawn argument is visible wherever a spawn is r
 - **Milestone 407.** Numbered on 2026-09-19 by milestone 433's drain of the pile.
   This milestone was briefed to grep the values rather than the constant names, and the grep found
   the other half of its own file's problem: `kernel/src/user/login_service.rs` and
-  `fixtures/src/login_test_client.rs` declare **fifteen** of the same constants twice, held in line
+  `fixtures/src/login_test_client.rs` declare fifteen of the same constants twice, held in line
   by a `// must match` comment, and the tree holds seventy-six such constants across nineteen file
   pairs. AGENTS.md rule 7 already forbids it. Not fixed here because the fix needs a crate, a crate
   needs a name, and doing one pair inside the test-wiring hotspot three other lanes were in would be
@@ -181,4 +181,4 @@ which is milestone 115's own rule.
 
 ## Index row
 
-Minted 2026-09-14 by calef, deliberately apart from 290/291/292, which he ruled into separate programs the same day: the answer here is not eleven programs. `fixtures/src/login_test_client.rs` had eleven roles and its first act was a lookup from role number to a pair of byte strings. Classified by code rather than by name: **five of the eleven were pure credential**, byte-identical runs differing only in that pair (`ROLE_TERM_SECOND` included, whose distinguishing fact was a precondition the caller arranges), and two more were one behaviour written twice because the only thing separating them was the identity written into a marker file. `_start` now takes `(behaviour, identity, secret)`, so the wrong-secret run is `LOGIN` with a different secret rather than an arm that could drift from the honest one. Credentials travel as `credential_proto::fixture` indices because nothing here hands a `no_std` program a string it was not compiled against, recorded in the file's BUGS. Six behaviours stayed in one binary and the equal-cost test says so: the preamble they share is the contract under test. 293's premise about `credentialer_test_client` was **false** and checking it was the work; what it did hold was the `PEOPLE` definition two other files hand-copied, one saying it had *chosen* to match. All 24 `const ROLE_` files swept: the only role-to-data lookup in the tree. Behaviour names provisional.
+Minted 2026-09-14 by calef, deliberately apart from 290/291/292, which he ruled into separate programs the same day: the answer here is not eleven programs. `fixtures/src/login_test_client.rs` had eleven roles and its first act was a lookup from role number to a pair of byte strings. Classified by code rather than by name: five of the eleven were pure credential, byte-identical runs differing only in that pair (`ROLE_TERM_SECOND` included, whose distinguishing fact was a precondition the caller arranges), and two more were one behaviour written twice because the only thing separating them was the identity written into a marker file. `_start` now takes `(behaviour, identity, secret)`, so the wrong-secret run is `LOGIN` with a different secret rather than an arm that could drift from the honest one. Credentials travel as `credential_proto::fixture` indices because nothing here hands a `no_std` program a string it was not compiled against, recorded in the file's BUGS. Six behaviours stayed in one binary and the equal-cost test says so: the preamble they share is the contract under test. 293's premise about `credentialer_test_client` was **false** and checking it was the work; what it did hold was the `PEOPLE` definition two other files hand-copied, one saying it had *chosen* to match. All 24 `const ROLE_` files swept: the only role-to-data lookup in the tree. Behaviour names provisional.

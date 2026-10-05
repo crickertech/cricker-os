@@ -16,7 +16,7 @@ modification time to the instant you assert rather than to now: `touch -t 2030-0
 report.txt` backdates or postdates the name, deliberately, which is the ability DECISIONS §112
 calls "the ability to lie about history."
 
-A **builtin**, in `mkdir`'s category rather than `rm`'s, for both halves: even `-t` takes no more
+A builtin, in `mkdir`'s category rather than `rm`'s, for both halves: even `-t` takes no more
 than a directory capability (`dir::WRITE` for the bare form, `dir::WRITE | dir::SETTIME` for `-t`),
 so there is nothing to attenuate and nothing gained by confining it to a program with its own
 grant. `mkdir` already established the shape (`fs::MKDIR` mints a name and hands the capability
@@ -28,7 +28,7 @@ as `UNLINK`'s name is: neither mtime verb opens what it acts on.
 ## Rights: DECISIONS §112, and why it needed a decision at all
 
 `touch` does two different things to a timestamp, and the question milestone 47 left open for two
-days was whether they are the same authority. **They are not.** Setting a name's mtime to *now* is
+days was whether they are the same authority. They are not. Setting a name's mtime to *now* is
 bounded by what the server itself observed: the value recorded is one nothing the caller supplied,
 the same way a `WRITE`'s byte count is a fact rather than an assertion. Setting it to an *arbitrary*
 instant is unbounded: the caller can claim the file is older or newer than it has any reason to be,
@@ -38,7 +38,7 @@ So:
 
 - **Bare `touch`** needs `dir::WRITE`, the same right `mkdir`'s create half already uses. No new
   grant is needed for a shell that could already write into the directory.
-- **`touch -t`** needs `dir::WRITE` **and** `dir::SETTIME`, a seventh rung added to the directory
+- **`touch -t`** needs `dir::WRITE` and `dir::SETTIME`, a seventh rung added to the directory
   rights ladder (DECISIONS §47 extended by §112) alongside `ENUMERATE`/`READ`/`WRITE`/`CREATE`/
   `REMOVE`/`DESCEND`. A shell holding `WRITE` but not `SETTIME` can `touch` a name to now and cannot
   `touch -t` it to anything else; see `kernel::user::shell_navigation_tests`'s
@@ -58,7 +58,7 @@ The FS server has no RTC wired to it. "Now" for `SETMTIME` is the server's own a
 clock, the same mechanism that has stamped every `WRITE`, `CREATE`, `TRUNCATE` and the extended
 attribute verbs since before this lane: a `touch` on two names in sequence is guaranteed to observe
 the second mtime strictly greater than the first (what a make-style staleness check depends on), and
-is **not** guaranteed to agree with a wall-clock reading (`date`, DECISIONS §43) taken at the same
+is not guaranteed to agree with a wall-clock reading (`date`, DECISIONS §43) taken at the same
 instant. Wiring the FS server to the real wall clock milestone 51 landed is a follow-up (see `BUGS`
 below), not a difference in what `SETMTIME` promises today.
 
@@ -175,7 +175,7 @@ mtime probes are not (yet) independently witnessed from the host, see `BUGS`.
 
 ## BUGS
 
-- **"Now" is this server's own advancing logical clock, not a reading of the real wall clock**
+- "Now" is this server's own advancing logical clock, not a reading of the real wall clock
   milestone 51 landed (`clock_protocol`, DECISIONS §43). Two bare touches in sequence are guaranteed to
   observe strictly increasing mtimes; a bare touch is not guaranteed to observe a mtime close to
   what `date` reports at the same instant. Wiring the FS server with a read-only mapping of the

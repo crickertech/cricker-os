@@ -96,6 +96,10 @@ const _: () = assert!(
     "the page must fit the frame it is mapped as"
 );
 const _: () = assert!(
+    PAGE_BYTES == core::mem::size_of::<[u64; WORDS]>(),
+    "the page is exactly the words the kernel writes, eight bytes each"
+);
+const _: () = assert!(
     PAGE_VA.is_multiple_of(4096),
     "a mapping starts on a page boundary"
 );
@@ -343,5 +347,39 @@ mod tests {
         let mut w = prepared();
         w[word::MAGIC] ^= 1;
         assert!(Snapshot::from_words(&w).is_none());
+    }
+
+    /// **Every accessor sums only the online cores, and each answers its own word.** Two online
+    /// cores carry distinct values in every counter and a third, offline, carries values that would
+    /// show if it were counted. Distinct non-0, non-1 values separate an accessor from a constant
+    /// and from its neighbours. Mutation survivor triage, milestone 326 (turn a mutation score
+    /// upward), batch 3.
+    #[test]
+    fn each_total_is_its_own_counter_summed_over_online_cores_only() {
+        let mut w = prepared();
+        w[word::TOTAL_FRAMES] = 11;
+        w[word::FREE_FRAMES] = 5;
+        for (id, base) in [(0, 10u64), (2, 100)] {
+            let at = word::cpu(id);
+            w[at + word::ONLINE] = 1;
+            w[at + word::BUSY_TICKS] = base + 1;
+            w[at + word::IDLE_TICKS] = base + 2;
+            w[at + word::CONTEXT_SWITCHES] = base + 3;
+            w[at + word::INTERRUPTS] = base + 4;
+            w[at + word::RUNNABLE] = base + 5;
+        }
+        let off = word::cpu(1);
+        for k in 1..=5 {
+            w[off + k] = 1_000_000;
+        }
+        let s = Snapshot::from_words(&w).unwrap();
+        assert_eq!(s.total_bytes(), 11 * 4096);
+        assert_eq!(s.free_bytes(), 5 * 4096);
+        assert_eq!(s.online_cpus(), 2);
+        assert_eq!(s.busy_ticks(), 11 + 101);
+        assert_eq!(s.idle_ticks(), 12 + 102);
+        assert_eq!(s.context_switches(), 13 + 103);
+        assert_eq!(s.interrupts(), 14 + 104);
+        assert_eq!(s.runnable(), 15 + 105);
     }
 }

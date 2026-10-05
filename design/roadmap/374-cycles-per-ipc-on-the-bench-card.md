@@ -59,8 +59,8 @@ sharpening a ruler nobody needed.
 ## What it still would not see
 
 Cycles say *whether* a round trip got slower. They do not say the instruction cache is why. That is
-M6 (instruction-cache misses per IPC) in milestone 134's tier B, and **nothing in this tree reads a
-cache-miss counter on any architecture**; whether the U74's PMU counts what M6 wants is unverified,
+M6 (instruction-cache misses per IPC) in milestone 134's tier B, and nothing in this tree reads a
+cache-miss counter on any architecture; whether the U74's PMU counts what M6 wants is unverified,
 and that block's own BUGS warns that real PMUs do not implement every architected event.
 
 ## Where it came from

@@ -22,7 +22,7 @@ in DECISIONS §34's 2026-07-31 amendment.
   REMOVEXATTR h "user.x" ►    write the blob back
 ```
 
-Attributes key on the **node**, not on a path, because that is what the FS server already works in
+Attributes key on the node, not on a path, because that is what the FS server already works in
 (`handles: Vec<Option<TreePtr<Node>>>`). Everything interesting follows from that one choice.
 
 ## The four verbs
@@ -60,17 +60,17 @@ looked intact and was not.
 
 An attribute is part of what a file *is*, not a separate object with its own authority, so a
 capability that may read a file may read what is attached to it. The other half of the argument is
-mechanical: adding a rung would silently widen or narrow **every grant that already exists**,
+mechanical: adding a rung would silently widen or narrow every grant that already exists,
 depending on which way the default fell, and milestone 47's whole monotonicity property is that a
 capability's meaning cannot change out from under its holder.
 
 ## Why a layer, and why that is not the usual bad idea
 
 On Linux, layering metadata above a filesystem is worthless: anything can `open(2)` the file
-directly and walk around the layer. **Here nothing can.** Every path to these bytes goes through
+directly and walk around the layer. Here nothing can. Every path to these bytes goes through
 `filesystem_protocol`, so a layer above the filesystem is as authoritative as the filesystem.
 
-The argument that actually decided it was **reversibility** (DECISIONS §34). `filesystem_protocol` hides which
+The argument that actually decided it was reversibility (DECISIONS §34). `filesystem_protocol` hides which
 implementation was chosen, so if attributes later prove central enough to justify diverging from a
 pinned upstream, or if the change is accepted into RedoxFS, the implementation moves and no client
 changes. Choosing the layer is therefore low-regret rather than a bet.
@@ -81,8 +81,8 @@ write land together and a delete removes both or neither.
 
 ## The property only available here: rename is free
 
-Set an attribute on a file, rename the file, read the attribute back. It works, and **nothing in
-the rename path knows attributes exist**, because a rename changes a directory entry and the store
+Set an attribute on a file, rename the file, read the attribute back. It works, and nothing in
+the rename path knows attributes exist, because a rename changes a directory entry and the store
 keys on the node.
 
 AppleDouble sidecars get exactly this wrong: a `._file` beside `file` has to be moved by hand, and
@@ -101,8 +101,8 @@ Node ids are recycled. If a file's attributes outlive the file, the next node th
 that id gets somebody else's metadata attached to it. That is a correctness bug wearing a
 housekeeping costume.
 
-The purge asks the engine rather than guessing: `remove_node` answers `Some(id)` **exactly when a
-node's last link went**, and `None` when a link remains, so `unlink` and `rmdir` purge on `Some`
+The purge asks the engine rather than guessing: `remove_node` answers `Some(id)` exactly when a
+node's last link went, and `None` when a link remains, so `unlink` and `rmdir` purge on `Some`
 and the decision is never ours to get wrong.
 
 Rename replacement is the one removal the engine cannot tell us about. `rename_node` calls
@@ -110,7 +110,7 @@ Rename replacement is the one removal the engine cannot tell us about. `rename_n
 itself, and only when the destination's links were down to one.
 
 The test provokes the reuse rather than reasoning about it (create, set, unlink, then create until
-a node comes back with the freed id) and **asserts that the reuse happened**. Without that
+a node comes back with the freed id) and asserts that the reuse happened. Without that
 assertion the interesting half of the test would go quietly vacuous the day the allocator changed.
 
 ### 2. The store must be invisible, in both directions
@@ -120,7 +120,7 @@ listing (`Server::read_dir`). A store a client could name would be part of the n
 "the attributes of a file" would be reachable as ordinary bytes by anything holding the directory
 they live in.
 
-The filter runs **before the cursor is applied**, not after. A filter after `skip(cursor)` would
+The filter runs before the cursor is applied, not after. A filter after `skip(cursor)` would
 make one real entry vanish at whichever offset the store happened to sort to, which is the sort of
 bug that shows up as "one file is missing from `ls` on Tuesdays".
 
@@ -139,7 +139,7 @@ indistinguishable from one that never had any.
 
 Both routes to empty are tested, because they are different code: `remove_xattr` writes an empty
 blob and goes through `write_attrs`, while `unlink` purges one and does not. The assertion in the
-middle is the one that keeps the test honest, and it says the store must **stay** while a second
+middle is the one that keeps the test honest, and it says the store must stay while a second
 node still has attributes; without it the test would pass just as well against an implementation
 that removed the store on every removal.
 
@@ -153,18 +153,18 @@ checksums cannot see it: every block is exactly what somebody wrote.
 
 ## The type code, which nothing reads
 
-Every attribute carries a `u32` **kind**. The layer stores it, returns it, and never interprets it.
+Every attribute carries a `u32` kind. The layer stores it, returns it, and never interprets it.
 `xattr::RAW` is zero, so a POSIX-style client that knows nothing about kinds writes the right one by
 writing nothing.
 
 Carrying a field nothing reads is speculative surface, and it is deliberate. `design/haiku-bfs-and-packages.md`
-is the reason: BFS made attributes **typed and indexed**, with live queries over them, and its
+is the reason: BFS made attributes typed and indexed, with live queries over them, and its
 author went on to build Spotlight. That is the ambitious version of this feature and it is a real
 destination. A store of untyped blobs cannot become an indexed one later without a format migration
 *and* a wire break; a store that round-trips a type code can. Four bytes a record and one packed
 word, paid once, buys the option.
 
-The structural link worth carrying: a BFS query returns **a set of files**, and milestone 47 already
+The structural link worth carrying: a BFS query returns a set of files, and milestone 47 already
 decided that a set of files is granted by an `fs_nameset_caretaker` attenuated to a name set. So if
 attributes ever become queryable here, the granting story is already designed.
 
@@ -193,20 +193,20 @@ through rather than an inconsistency:
 
 That last row is the one worth staring at. `fs_nameset_caretaker` asks "is this name in the set" on
 every verb whose operand is a name in the granted directory, and the four attribute verbs carry a
-name in the shared page that is **not** such a name. Filtering it would have refused a program its
+name in the shared page that is not such a name. Filtering it would have refused a program its
 own file's attributes on the grounds that `user.com.apple.metadata` is not a name the pattern
 matched. The distinction is a variant of `filesystem_protocol::verb::Operand` (`Name` versus `Payload`) rather
 than a comment, so it is checked by a host test instead of remembered.
 
-**How it is proven**, both ISAs, three witnesses, each with a control that must fail:
+How it is proven, both ISAs, three witnesses, each with a control that must fail:
 
 - A **read-only per-file grant** lists and gets (so the verbs reach the store) and its `SETXATTR` is
-  refused. A **writable** grant of the same shape sets, reads back with the type code, and removes.
+  refused. A writable grant of the same shape sets, reads back with the type code, and removes.
   Without the second run the first is equally consistent with a caretaker that refuses everything.
-- A **read-only subtree** grant reads attributes and cannot set one; the **full** and
+- A **read-only subtree** grant reads attributes and cannot set one; the full and
   **append-only** runs (both carrying `dir::WRITE`) can. Same three configurations milestone 47's
   rights ladder already used, one bit wider.
-- A **name-set** grant of exactly one name reads and writes that file's attributes and still cannot
+- A name-set grant of exactly one name reads and writes that file's attributes and still cannot
   open the entry beside it, which is the naming property asked with `READ` rather than with `rm`'s
   `REMOVE`.
 
@@ -271,27 +271,27 @@ Named here because a reader who meets the feature deserves to meet its edges at 
   per-file grant could not read its own file's attributes. They forward now, and the rights model on
   this page is what makes that safe rather than a widening. See [the caretakers'
   section](#the-caretakers-forward-them-milestone-61) below.
-- **An unlinked-but-open file loses its attributes immediately.** POSIX would let `fgetxattr` keep
+- An unlinked-but-open file loses its attributes immediately. POSIX would let `fgetxattr` keep
   working through the open handle until the last one closed; here the purge is in the unlink's
   transaction, because that is the only place it can be crash-atomic with the removal. Deferring it
   to the close would mean a server that died in between leaked the blob. The name goes and the bytes
   stay (that is `unlink`, and it is measured); the attributes go with the name.
-- **All blobs live in one flat directory.** RedoxFS directories are H-trees, so lookup is hashed
+- All blobs live in one flat directory. RedoxFS directories are H-trees, so lookup is hashed
   rather than linear, but a filesystem where most files carry attributes has a directory with an
   entry per file. That is fine for a backup target and is untested at a million entries.
 - **No `XATTR_CREATE`/`XATTR_REPLACE`.** Set is set-or-replace, one operation. Linux's flags are
   emulable above a store only racily, and §42 forbids offering a verb whose guarantee we cannot
   meet. An attribute has no handle and no identity of its own, so "it already had a value" is not a
   fact a caller can act on differently.
-- **`MAX_VALUE` is 3 KiB, and Samba's `streams_xattr` can be asked to hold whole alternate data
-  streams.** A resource fork larger than 3 KiB is refused with `E2BIG`, loudly. Lifting the limit
+- `MAX_VALUE` is 3 KiB, and Samba's `streams_xattr` can be asked to hold whole alternate data
+  streams. A resource fork larger than 3 KiB is refused with `E2BIG`, loudly. Lifting the limit
   means chunking the transfer across requests, which this contract does not do for anything today.
   Whether Time Machine over `fruit:metadata = stream` ever exceeds it is unmeasured, and the board
   is where it will be measured.
 
 ## How it is proven
 
-**Host, milliseconds, no emulator.** The whole of the layer's semantics is pure functions over a
+Host, milliseconds, no emulator. The whole of the layer's semantics is pure functions over a
 byte slice (`filesystem_protocol::xattr::store`), so what replaces what, which ceiling refuses, and what a
 truncated blob means are all tested without a filesystem: seven tests in `filesystem_protocol`, including a
 sweep that cuts a blob at every byte and asserts it reads back **short rather than wrong**. Ten more
@@ -300,13 +300,13 @@ attribute was not written in, the rename property, the purge with a provoked nod
 replaced-destination purge, the store's invisibility to seven verbs and to a listing, both rights
 directions, every ceiling, and the shrink-without-a-tail.
 
-**Crash-consistent, measured rather than argued** (milestone 57, closing what used to be a BUGS
+Crash-consistent, measured rather than argued (milestone 57, closing what used to be a BUGS
 entry here). The old claim was sound and second-hand: every mutation runs inside one `fs.tx`, and
 milestone 37's sweep proves prefix consistency for whatever a transaction contains, so the property
 held by construction. It is now in the sweep. `redoxfs_server/tests/crash_consistency.rs` reads each
 name's attributes as part of the filesystem's state, and the workload grew four attribute operations
-covering the three shapes the store has: **creating** it (two node creations in one commit),
-**growing** a blob, and **shrinking** one, which is the path that must truncate afterwards. They are
+covering the three shapes the store has: creating it (two node creations in one commit),
+growing a blob, and shrinking one, which is the path that must truncate afterwards. They are
 interleaved with a write to the same file, so the claim being decided is the interesting one: an
 attribute lives in a *different file* from the data it describes, and a recovery holding the new
 bytes without the new attribute (or the reverse) is a state that never existed and fails the sweep.
@@ -315,8 +315,8 @@ The workload's own sanity check does double duty here. An attribute operation ch
 observable unless the snapshot reads attributes, so a harness that quietly stopped looking fails at
 the fixture rather than passing everywhere below it.
 
-**On device, both ISAs** (DECISIONS §19). `fixtures/src/fs_test_client.rs`'s proof role carries a witness that
-reports a bitmap, and the kernel test asserts an **exact** set, so a client that could do nothing
+On device, both ISAs (DECISIONS §19). `fixtures/src/fs_test_client.rs`'s proof role carries a witness that
+reports a bitmap, and the kernel test asserts an exact set, so a client that could do nothing
 and one that could do everything both fail. Eight claims: set and read back *with the type code*,
 listed and nothing else, survived a rename, gone after a remove, gone after an unlink and remake,
 an over-long value refused with `E2BIG`, the store unnameable, and the store absent from a full

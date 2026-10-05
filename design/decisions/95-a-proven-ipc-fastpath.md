@@ -13,31 +13,31 @@ still make it proven?"* It follows milestone 132, whose gate measured the gap an
 not close it.
 
 **What "don't decide yet" ratifies, precisely.** This decision has two tiers, and calef's answer is
-not one word covering both. **Option 3, the fastpath itself**, is what stays undecided: it needs
+not one word covering both. Option 3, the fastpath itself, is what stays undecided: it needs
 milestone 74's cycle counters and milestone 127's Jetson TX1 to produce the one measurement that
 would justify it, and neither exists yet, so building it now would be arguing on an estimate rather
-than measuring, exactly the move this project's benchmark discipline refuses. **Option 2, the
+than measuring, exactly the move this project's benchmark discipline refuses. Option 2, the
 eligibility predicate and its proof in `crates/inter_process_communication`, is ratified as
-buildable now**: it is cheap, touches no syscall surface, and turns "the fastpath would be correct"
+buildable now: it is cheap, touches no syscall surface, and turns "the fastpath would be correct"
 from an argument into a harness whether or not a fastpath is ever built on top of it. A lane may
 pursue Option 2 without further sign-off; Option 3 stays gated on the measurement per this
 decision's own text.
 
-**What is blocked until this is answered:** nothing is blocked. The gate holds the number still, and
+What is blocked until this is answered: nothing is blocked. The gate holds the number still, and
 `ipc_fastpath` at 5.6 KiB against a 4 KiB target is a gap that is not widening. This is a decision
 about whether to spend, not a decision something is waiting on.
 
 ## The short answer
 
-**Yes, and the precedent is the strongest one available: seL4's C fastpath is inside its
-functional-correctness proof rather than being the unverified escape hatch.** That inverts the usual
+Yes, and the precedent is the strongest one available: seL4's C fastpath is inside its
+functional-correctness proof rather than being the unverified escape hatch. That inverts the usual
 expectation about high-assurance software, and it is worth stating precisely because the detail
 changes what we would have to do:
 
-- The fastpath is machine-checked to **refine an executable detailed specification of the fastpath**.
+- The fastpath is machine-checked to refine an executable detailed specification of the fastpath.
   There is no abstract-level specification of it; the tie to the abstract spec runs through the
   slowpath.
-- **An assembly variant was written and is neither verified nor used.** That is a direct instruction
+- An assembly variant was written and is neither verified nor used. That is a direct instruction
   for us: a fastpath written in Rust can be reasoned about, and one written in assembly buys the last
   few percent and leaves the proof behind.
 
@@ -48,18 +48,18 @@ transitive dependency closure, and **`cargo kani` never compiles the kernel.** S
 `kernel/src/` is directly proved, and no fastpath living there could be.
 
 What we have instead is better than it sounds, and notes/verification.md names the property: the
-decision core is a pure crate and **the kernel calls it rather than keeping a copy.**
+decision core is a pure crate and the kernel calls it rather than keeping a copy.
 `crates/ipc::Endpoint` (`inter_process_communication::Rendezvous` since §113 and 2026-09-19) is the
 kernel's real endpoint state, not a model kept in sync, which is why that note calls it "the first
 place a proof reaches all the way into the running kernel". Six harnesses cover the rendezvous
 decisions, including `send_rendezvous_iff_a_receiver_waited`.
 
-So the question is not "can Kani prove the fastpath". It is **"can the fastpath be built so that the
-part which decides is still the proved part".**
+So the question is not "can Kani prove the fastpath". It is "can the fastpath be built so that the
+part which decides is still the proved part".
 
 ## The obligation, and it is small and the right shape
 
-The hazard a fastpath introduces is not slowness or unsafety. It is **divergence**: two paths that
+The hazard a fastpath introduces is not slowness or unsafety. It is divergence: two paths that
 disagree about when a rendezvous happens, where the fast one is the one that runs and the proved one
 is the one nobody executes. That failure is invisible to every instrument this tree owns, because
 both paths individually look correct.
@@ -68,12 +68,12 @@ It is also exactly what a pure predicate kills. The shape:
 
 1. Add an eligibility predicate to `crates/inter_process_communication`, beside the state machine
    it is about.
-2. Prove, in the same inductive-step style as the six existing harnesses, that **eligible implies the
-   general path would have returned `Rendezvous` with the same partner**.
+2. Prove, in the same inductive-step style as the six existing harnesses, that eligible implies the
+   general path would have returned `Rendezvous` with the same partner.
 3. Require the kernel's fastpath to call that predicate rather than reimplement it, which is the
    Phase-2 rewire's argument applied one layer down.
 
-**The proof is one-directional, and that is what makes it cheap.** The predicate must be
+The proof is one-directional, and that is what makes it cheap. The predicate must be
 conservative: any doubt bails to the slowpath. So we owe "eligible implies same outcome" and we owe
 nothing about the ineligible case, because being wrong there costs performance and never correctness.
 seL4's eligibility test has the same character, a conjunction of simple state tests.
@@ -92,8 +92,8 @@ compares outcomes against a build that does not is a real gate and is rung two.
 ### Amended 2026-08-18: the boundary is further away than the paragraph above implies
 
 calef read the original as trading provability for specialisation and asked whether there is not
-already an unproven subset, and therefore a judgement rather than a line. **He is right, and the
-correction is larger than the question assumed.**
+already an unproven subset, and therefore a judgement rather than a line. He is right, and the
+correction is larger than the question assumed.
 
 `script/verify` states it: the proofs are a function of the harness crates and their dependency
 closure, and `cargo kani` never compiles the kernel. So the tiers are:
@@ -110,7 +110,7 @@ kernel.** `ipc_send` is unproved today; what is proved is the decision core it c
 therefore crosses no proof boundary at all, and the sentence above, while true, puts the line nearer
 than it is.
 
-The quantity actually being spent is **unverified TCB**: how much unproved code sits on a
+The quantity actually being spent is unverified TCB: how much unproved code sits on a
 security-critical path, and what compensating control covers it. That is a trade this tree has
 already priced once. Milestone 20 accepted a new architecture knowing it "enlarges the unverified TCB
 (one hand-written boot/MMU/trap/syscall layer per arch, the least-verifiable code)" and paid for it
@@ -127,47 +127,47 @@ that assembler implementations are no longer justified by performance arguments.
 dropped its assembler fastpath commercially, on maintenance cost alone and with no verification
 motive.
 
-**How they got there is the fact that matters here**, and the original text of this decision missed
-it. The fastpath was hand-crafted in C by "manually re-ordering statements, making use of **(verified)
-invariants that the compiler is unable to determine by static analysis**". The proof was not a tax on
-the optimisation. It was an **input** to it: a verified invariant licenses a reordering the compiler
+How they got there is the fact that matters here, and the original text of this decision missed
+it. The fastpath was hand-crafted in C by "manually re-ordering statements, making use of (verified)
+invariants that the compiler is unable to determine by static analysis". The proof was not a tax on
+the optimisation. It was an input to it: a verified invariant licenses a reordering the compiler
 cannot justify by itself.
 
 That is a stronger argument for option 2 than the one this file originally gave, which was only that
 the predicate cannot be retrofitted honestly. It is also why the three decisions here are separable
 and should not be taken as one:
 
-- **Assembly** is refused on two grounds that are independent of proof: maintenance cost, and the
+- Assembly is refused on two grounds that are independent of proof: maintenance cost, and the
   evidence that it no longer buys anything.
-- **A Rust fastpath** is an unverified-TCB increase, the same class of decision milestone 20 made.
-- **The predicate** strictly increases proof coverage, and is what makes aggressive optimisation of
+- A Rust fastpath is an unverified-TCB increase, the same class of decision milestone 20 made.
+- The predicate strictly increases proof coverage, and is what makes aggressive optimisation of
   the mechanism defensible rather than merely tested.
 
 ## The risk is not where it looks, and this is the part worth arguing about
 
-The assembly is not the dangerous part. **The scheduling semantics are.**
+The assembly is not the dangerous part. The scheduling semantics are.
 
 `ipc_send` today does not switch to the receiver on a rendezvous. It fills the mailbox, calls
 `handshake.serve()`, wakes the receiver onto the run queue and returns, so the sender keeps running.
-seL4's fastpath switches **directly** to the receiver and donates the remaining timeslice, and most
+seL4's fastpath switches directly to the receiver and donates the remaining timeslice, and most
 of its win is that, not the byte count.
 
 So a real fastpath here is a change to when threads run, not a trimmed copy of an existing path, and
 it lands on the machinery with the subtlest invariants in the tree: the handshake states, the boot-8
 gate that `serve()` exists to pass, the reaper's interaction with a thread that is queued and
-Blocked, and §26's dead-sender corpse case that `ipc_recv` handles inline. **Those are the
-invariants that would need to hold under a second path, and none of them is about speed.**
+Blocked, and §26's dead-sender corpse case that `ipc_recv` handles inline. Those are the
+invariants that would need to hold under a second path, and none of them is about speed.
 
 ## The other thing it touches, which makes it calef's rather than a lane's
 
 `syscall::dispatch` at 2,024 bytes is the largest single item in the measured footprint, and skipping
-it means decoding the operation before the general decoder runs. **That is the syscall surface**
+it means decoding the operation before the general decoder runs. That is the syscall surface
 (§10, §16), which this project treats as a boundary rather than a habit, so the shape of the check
 is a design fork even though no new syscall number appears.
 
 ## Options
 
-1. **Do nothing.** The gate holds 5.6 KiB. We are within the right order of magnitude of the target
+1. Do nothing. The gate holds 5.6 KiB. We are within the right order of magnitude of the target
    and the cost of being over it is unmeasured, because nothing here models a cache. Cheapest, and it
    keeps the claim "the IPC decision the kernel runs is the proved one" completely unqualified.
 2. **The predicate and the proof first, with no fastpath.** Land the eligibility predicate and its
@@ -175,15 +175,15 @@ is a design fork even though no new syscall number appears.
    no-op assertion. This buys nothing in bytes and makes the later fastpath a mechanical change
    against a proved precondition. It is also the honest way to find out whether the obligation is as
    small as this file claims.
-3. **A Rust fastpath behind the proved predicate**, direct-switching to the receiver, bailing to the
+3. A Rust fastpath behind the proved predicate, direct-switching to the receiver, bailing to the
    slowpath on anything unusual, with a differential gate. This is seL4's shape and the only option
    that closes the gap.
-4. **An assembly fastpath.** Explicitly refused here rather than listed as a live option: seL4 wrote
+4. An assembly fastpath. Explicitly refused here rather than listed as a live option: seL4 wrote
    one, did not verify it, and does not use it. Recorded so the next person does not rediscover it.
 
 ## Recommendation
 
-**Option 2 now, option 3 only behind a measurement.**
+Option 2 now, option 3 only behind a measurement.
 
 The predicate and its proof are worth having on their own, because they turn "the fastpath would be
 correct" from an argument into a harness, and because they cost little and are the part that cannot

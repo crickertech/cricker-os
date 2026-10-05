@@ -21,15 +21,15 @@ This is the third application of calef's 2026-09-14 ruling, in his own words: *"
 why we would want to write a program that does multiple things. Part of the beauty of Unix that I
 think we want to retain is small programs with specific functions."* One concurrent lane is splitting
 `components/src/ntp.rs` and another `fixtures/src/hello.rs`'s thirty-one roles, and he asked for this
-case to have its own milestone rather than being folded into the second. **Neither of those lanes had
-landed when this block was written**, so their milestone numbers are not cited here; the integrator
+case to have its own milestone rather than being folded into the second. Neither of those lanes had
+landed when this block was written, so their milestone numbers are not cited here; the integrator
 can wire them at merge, and this note is what says a pointer is missing rather than absent.
 
 ## The argument is not that three programs are tidier
 
 **It is that a dispatch number nobody can get wrong is one that does not exist.**
 
-The role numbers were **three hand-maintained copies of a fact two binaries had to agree on**, which
+The role numbers were three hand-maintained copies of a fact two binaries had to agree on, which
 is what AGENTS.md rule 7 exists to prevent, and all three were invisible to `script/lint` check 5
 because none of them was a `#[path]` module:
 
@@ -39,7 +39,7 @@ because none of them was a `#[path]` module:
 | `kernel/src/user/sink_tests.rs:9` | `ROLE_WRITER = 0` |
 | `kernel/src/user/fs_service.rs:1272-1273` | `SINK_ROLE_FILE = 1`, `SINK_ROLE_VERIFY = 2` |
 
-**Three sites, six constant definitions, and the split deleted every one.** Counted by grepping the
+Three sites, six constant definitions, and the split deleted every one. Counted by grepping the
 values and not only the names, because a bare `arg0: 1` would not have shown up in a search for
 `ROLE_`; there were none. (`components/src/disk_partitioner.rs` and
 `fixtures/src/os_primitives_benchmarker.rs` have their own role numbers. They are different programs
@@ -54,11 +54,11 @@ too low a rung:
 
 A comment asking the next person to remember is rung four of AGENTS.md's ladder. Three programs are
 rung one: the wrong state is unrepresentable, because there is no number to get wrong. The failure it
-guarded against was real and nasty (**a mismatch hangs rather than fails**, since the wrong role
+guarded against was real and nasty (a mismatch hangs rather than fails, since the wrong role
 blocks on a rendezvous nobody is serving), and a hang in a kernel test boot is diagnosed from a
 timeout rather than from an assertion.
 
-**A second duplicate went with them, unasked.** The single binary needed two report-slot constants,
+A second duplicate went with them, unasked. The single binary needed two report-slot constants,
 `REPORT_WRITER = 1` and `REPORT_FS = 2`, because the writer role held no FS endpoint and so its
 report sat one slot lower than the other two roles'. Each program now has one `REPORT`, at the slot
 it actually uses.
@@ -69,9 +69,9 @@ Milestone 175 spent 363 files drawing the line between `components/` (what a dis
 because somebody wants its function) and `fixtures/` (what exists to exercise the system), so the
 directory is part of the ruling rather than tidying afterwards.
 
-**The brief said to check whether `ROLE_FILE` belongs in `components/`, on the grounds that
+The brief said to check whether `ROLE_FILE` belongs in `components/`, on the grounds that
 `kernel/src/user/fs_service.rs` spawns it "in the live path". That premise is false, and checking it
-was the point of asking.** `fs_service.rs` carries its own answer at the module declaration in
+was the point of asking. `fs_service.rs` carries its own answer at the module declaration in
 `kernel/src/user.rs`:
 
 > `#[cfg_attr(not(test), allow(dead_code))] // spawned only by the phase-2 test`
@@ -92,22 +92,22 @@ So: three fixtures, and the directory question is answered rather than assumed.
 Each program's own header carries its provenance block and its refusals (`script/names`), which is
 where a reader meets them. Gathered here because calef rules them together:
 
-- **`sink_transcript_writer`** (was `ROLE_WRITER`). Refused `writer` (generic), `indifferent_writer`
+- `sink_transcript_writer` (was `ROLE_WRITER`). Refused `writer` (generic), `indifferent_writer`
   (names the property being proved rather than the program, which is `flaky`'s mistake applied to a
   conclusion), `sink_writer` (reads as "writes a sink" rather than "writes to one", and says nothing
   about what it writes).
-- **`file_sink`** (was `ROLE_FILE`). It is the name the kernel side already spelled:
+- `file_sink` (was `ROLE_FILE`). It is the name the kernel side already spelled:
   `fs_service::FileSink`, `fs_service::start_file_sink`. Refused `file_sink_caretaker`, which nearly
   won on analogy with `terminal_sink_caretaker` (the same adapter for a different backend) and lost
   on collision with the existing and different `fs_file_caretaker`.
-- **`file_source`** (was `ROLE_VERIFY`). `source` is this tree's own word for the reading end of the
+- `file_source` (was `ROLE_VERIFY`). `source` is this tree's own word for the reading end of the
   sink contract: `grant_plan::spawnproto::Wiring` carries `sink` and `source` as the two directions,
   and `sink_tests` already names the endpoint `source` at the call site. Refused `sink_verifier` and
   `verify` (they name the *test* this serves; the program verifies nothing, it reads a file and sends
   bytes), `file_reader` (generic), and `cat` (a standard term a reader knows from outside, and
   therefore one that would promise a name argument and a general program, which this is not).
 
-**`sink` survives as the contract word**, under the structural-versus-current test calef set on
+`sink` survives as the contract word, under the structural-versus-current test calef set on
 2026-09-13 (design/naming.md). `byte_sink_proto` is a wire contract named for what it carries and
 makes no disposal claim; `file_sink`'s terminus is structural, because its client holds a capability
 over which no message but *append* is expressible and no grant anybody could make would change that.
@@ -131,7 +131,7 @@ which image each spawn names:
   behind a role number.
 - `fs_service::start_file_sink` takes a `file_sink_image` and spawns it with `arg0: 0`.
 - `fs_service::start_sink_verify` is `start_file_source`, takes a `file_source_image`, and spawns it
-  with `arg0: 0`. **Renaming that function is a judgement call this lane made and flags**: leaving
+  with `arg0: 0`. Renaming that function is a judgement call this lane made and flags: leaving
   `start_sink_verify` pointing at a program called `file_source` is exactly the drift this milestone
   is about, and a `pub fn` inside one kernel module with one caller is the reversible end of the
   naming rule. It is provisional like the rest.
@@ -150,7 +150,7 @@ The initrd tables in `xtask/src/main.rs` pack `sink_transcript_writer`, `file_si
 ## Records this milestone deliberately did not edit
 
 `design/roadmap/50-pipes-and-redirection.md` and `design/decisions/51-sink-protocol.md` both cite
-`fixtures/src/sink.rs`, and both keep the old path. Milestone 50 is **BUILT**, which design/naming.md
+`fixtures/src/sink.rs`, and both keep the old path. Milestone 50 is BUILT, which design/naming.md
 makes an account of what happened under the names it happened under, and a decision records what was
 decided in the words used then. A reader arriving from either lands here, because this block names
 both. The live documents (notes/sink-protocol.md, notes/pipes.md, notes/shared-page-audit.md,
@@ -164,13 +164,13 @@ split too.
 
 ## BUGS
 
-- **The shared-frame duplication got one file wider rather than narrower.** `file_sink` and
+- The shared-frame duplication got one file wider rather than narrower. `file_sink` and
   `file_source` each carry their own `PAGE_VA`, their own `MappedWindow`, and their own `put`/`get`,
   which is the same dozen lines every other FS client in the tree carries. The split did not create this and could
   not honestly avoid it: a crate for it is a naming and dependency decision, and the `ntp` split lane
   has already proposed exactly that crate. Recorded in both programs' `BUGS` sections rather than
   only here.
-- **`file_sink` and `file_source` both open one hard-coded name**, `byte_sink_proto::fixture::SINK_NAME`.
+- `file_sink` and `file_source` both open one hard-coded name, `byte_sink_proto::fixture::SINK_NAME`.
   They are two halves of one fixture rather than general programs, and nothing takes a name from
   anywhere. Recorded in both headers.
 - **`file_source` reports the size it found, not the size it delivered.** Every caller compares what
@@ -198,4 +198,4 @@ split too.
 
 ## Index row
 
-Minted 2026-09-14 by calef, the third application of his ruling that a program does one thing (concurrent lanes are splitting `ntp` and `hello`), and he asked for this case to have its own milestone. One binary picked `ROLE_WRITER`, `ROLE_FILE` or `ROLE_VERIFY` out of `arg0`. The argument for splitting is not tidiness: the role numbers were **three hand-maintained copies of a fact two binaries had to agree on** (the program, `kernel/src/user/sink_tests.rs`, `kernel/src/user/fs_service.rs`), six constant definitions in all, invisible to `script/lint` check 5 because none was a `#[path]` module, and a mismatch **hangs** rather than fails. Three programs deleted all six, and the writer's two report-slot constants with them. All three stay in `fixtures/`: the brief's premise that `fs_service` spawns the file role in the live path is false (`// spawned only by the phase-2 test`), and `>` at a prompt is `fs_file_caretaker`, which narrows a protocol where this one translates between two. Names `sink_transcript_writer`, `file_sink`, `file_source` are **provisional**, gathered in the block with their refusals; `byte_sink_proto` is untouched. Found and did not settle: `caretaker` is defined two incompatible ways across `fs_file_caretaker` and `terminal_sink_caretaker`.
+Minted 2026-09-14 by calef, the third application of his ruling that a program does one thing (concurrent lanes are splitting `ntp` and `hello`), and he asked for this case to have its own milestone. One binary picked `ROLE_WRITER`, `ROLE_FILE` or `ROLE_VERIFY` out of `arg0`. The argument for splitting is not tidiness: the role numbers were three hand-maintained copies of a fact two binaries had to agree on (the program, `kernel/src/user/sink_tests.rs`, `kernel/src/user/fs_service.rs`), six constant definitions in all, invisible to `script/lint` check 5 because none was a `#[path]` module, and a mismatch hangs rather than fails. Three programs deleted all six, and the writer's two report-slot constants with them. All three stay in `fixtures/`: the brief's premise that `fs_service` spawns the file role in the live path is false (`// spawned only by the phase-2 test`), and `>` at a prompt is `fs_file_caretaker`, which narrows a protocol where this one translates between two. Names `sink_transcript_writer`, `file_sink`, `file_source` are **provisional**, gathered in the block with their refusals; `byte_sink_proto` is untouched. Found and did not settle: `caretaker` is defined two incompatible ways across `fs_file_caretaker` and `terminal_sink_caretaker`.

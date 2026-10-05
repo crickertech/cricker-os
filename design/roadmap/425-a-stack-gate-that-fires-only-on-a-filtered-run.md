@@ -35,7 +35,7 @@ boot stack high-water 62456 exceeded 61440
 ```
 
 four times out of four, byte-identical. The **full** `x86_64` suite on the same tree, both boot
-modes, ends green with the boot stack at **53144** (PVH, 243 passed) and **50272** (UEFI, 214
+modes, ends green with the boot stack at 53144 (PVH, 243 passed) and 50272 (UEFI, 214
 passed). So the same test drives the boot stack about 9 KiB deeper when it is the only test selected
 than when it runs inside the suite, and the gate that would catch real growth trips on the filtered
 run and not on the one CI runs.
@@ -49,7 +49,7 @@ A filtered run is how a person reproduces one failure, and it is how milestone 2
 is noise, which is the wrong lesson about a stack gate.
 
 And `script/falsifications --sweep` replays every kernel record as a filtered single-test run. A
-record whose test happens to sit on a deep chain would report **error** ("the kernel never reached
+record whose test happens to sit on a deep chain would report error ("the kernel never reached
 its test runner" is not the shape; it would be a red at `stack.rs:621` rather than at the assertion
 the patch names), and the sweep's whole discipline is that a red for the wrong reason is not
 evidence. No record today names that test, so nothing is wrong yet.

@@ -49,8 +49,8 @@ uses. The day the new method starts consulting the bit, every existing holder of
 had a reason to strip a bit that did nothing yet -- gains a real new power nobody assessed at
 delegation time. This is not hypothetical: the milestone's own first stratum already found and
 fixed the identical shape once (a `ps` riding on `READ` could reap, because `READ` covered a right
-nobody had separated out yet). **Whoever builds `pmap` audits existing address-space delegation
-sites before the method ships**, narrowing any that should not carry `ENUMERATE` the same way the
+nobody had separated out yet). Whoever builds `pmap` audits existing address-space delegation
+sites before the method ships, narrowing any that should not carry `ENUMERATE` the same way the
 `READ`/`ENUMERATE` split was applied retroactively for `Endpoint`. This does not change the
 decision; it changes what "built" requires to be true before the method goes live.
 

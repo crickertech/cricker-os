@@ -1,0 +1,18 @@
+Falsifies `extensible_host_controller_interface::verification::the_window_never_maps_a_withheld_page`.
+
+The defect: `register_window` tests a withheld range against a page with `a <= start` in place of
+`a < end`, so a range that begins in the middle of a page (the MSI-X table rarely starts on a page
+boundary) no longer withholds that page. The line still reads as an overlap test.
+
+Expected to fail: the harness's `assert!(!(a < e && s < a + len))`: the mask now contains a page the withheld
+range overlaps, which is the MSI-X table mapped into the driver.
+
+diff --git a/crates/extensible_host_controller_interface/src/lib.rs b/crates/extensible_host_controller_interface/src/lib.rs
+index 7d0a29d9f..bd7cbe503 100644
+--- a/crates/extensible_host_controller_interface/src/lib.rs
++++ b/crates/extensible_host_controller_interface/src/lib.rs
+@@ -142,3 +142,3 @@ pub fn register_window(
+         let (start, end) = (page * PAGE, (page + 1) * PAGE);
+-        if !withheld.iter().any(|&(a, b)| a < end && start < b) {
++        if !withheld.iter().any(|&(a, b)| a <= start && start < b) {
+             mask |= 1 << page;

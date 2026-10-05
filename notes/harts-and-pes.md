@@ -6,15 +6,15 @@ physical core can present two or more independent instruction streams (Intel's
 hyper-threading is the famous case: two register files and program counters sharing one
 core's execution units). Both architectures therefore coined a precise word.
 
-**Hart** is RISC-V's: a **har**dware **t**hread, one independent instruction stream with
+**Hart** is RISC-V's: a hardware thread, one independent instruction stream with
 its own register file and PC. A core might contain one hart or several; the ISA and the
 firmware only ever talk about harts. This is why OpenSBI's CPU-management extension is
-called **HSM** (Hart State Management), why our riscv kernel starts secondary CPUs with
-`sbi_hart_start`, and why the boot notes talk about surviving the **hart lottery**
+called HSM (Hart State Management), why our riscv kernel starts secondary CPUs with
+`sbi_hart_start`, and why the boot notes talk about surviving the hart lottery
 (OpenSBI races every hart at reset; the winner boots, the losers park in HSM STOPPED
 until asked for).
 
-**PE** (Processing Element) is ARM's word for exactly the same idea, coined for the same
+PE (Processing Element) is ARM's word for exactly the same idea, coined for the same
 reason. The ARM ARM defines architecture behavior per-PE; PSCI's `CPU_ON` starts a PE.
 
 On every machine this project targets they are one-to-one with cores: QEMU's `virt`

@@ -13,12 +13,12 @@ that **an issue tracker cannot be stuck in a merge queue.**
 
 ## Two problems that look like one
 
-**Claiming.** Nothing stops two lanes taking the same work. The roadmap cannot serve as the claim
+Claiming. Nothing stops two lanes taking the same work. The roadmap cannot serve as the claim
 board, and the reason is structural rather than a matter of discipline: claiming would mean
 editing `design/roadmap/`, which means a pull request, which means the merge queue, which is
 twelve minutes and not atomic. By the time a claim lands the other lane is half finished.
 
-**Closing.** The roadmap's status field lags the tree. Four instances in one week: milestone 43
+Closing. The roadmap's status field lags the tree. Four instances in one week: milestone 43
 was BUILT eleven days before its status said so, 65 and 107 the same, and 54 was hidden behind
 them. Milestone 31's lane discovered its own phase 3 had been built by milestone 50. That is
 §76's subject, and it is a *closing* failure, not a claiming one, so it needs its own mechanism.
@@ -30,12 +30,12 @@ record here.
 
 ## The claim: a draft pull request, opened when the branch is cut
 
-**A lane opens a draft pull request the moment it cuts its branch**, before any work. The board is
+A lane opens a draft pull request the moment it cuts its branch, before any work. The board is
 `gh pr list --draft`, and the milestone number is already in the branch name by the prefix
 convention.
 
-The property that makes this the right shape rather than a second tracker: **the claim and the
-deliverable are one object.** It is atomic (a ref push and an API call), instant, and *cannot* be
+The property that makes this the right shape rather than a second tracker: the claim and the
+deliverable are one object. It is atomic (a ref push and an API call), instant, and *cannot* be
 stuck in the merge queue, because a draft is unmergeable by construction. It becomes the real
 pull request when the lane is done, so nothing has to be reconciled or closed by hand. A lane that
 dies leaves a visible stale draft rather than an invisible gap, which is the correct direction for
@@ -65,11 +65,11 @@ notice, which is rung zero.
 
 **One caveat that must be understood or the gate reads as wrong.** Lanes are forbidden to edit
 `design/` (numbers and names are global to the tree and minted by the integrator). So this gate
-is **aimed at the integrator at merge**, not at the developer: the lane reports what status it
+is aimed at the integrator at merge, not at the developer: the lane reports what status it
 believes its milestone should carry, and the integrator lands that flip in the merge. A lane that
 trips this check locally has found the integrator's job, not its own.
 
-**The escape, and it is deliberate.** A `milestone/N-*` branch that genuinely changes nothing
+The escape, and it is deliberate. A `milestone/N-*` branch that genuinely changes nothing
 about milestone N's status still has to touch the file, if only to record why it did not move.
 That is a feature: "we worked on N and its status is unchanged, because X" is exactly the sentence
 that was missing four times this week.
@@ -84,17 +84,17 @@ draft pull request claims work that has a branch; a design question with no bran
 
 ## Amendment, 2026-09-05: the claim needs an empty commit, and one sentence here was false
 
-**A draft pull request whose head holds nothing its base does not will be closed by GitHub as
-`merged`, while still a draft.** So the claim disappears from the board without anybody doing
+A draft pull request whose head holds nothing its base does not will be closed by GitHub as
+`merged`, while still a draft. So the claim disappears from the board without anybody doing
 anything, and `gh pr list --draft` reads empty while a lane is working. That is the one outcome this
 section exists to prevent.
 
-**The window is narrow, which is why it took three days to see.** It opens when a lane bases on a
+The window is narrow, which is why it took three days to see. It opens when a lane bases on a
 `maintainer/mint-*` branch (the milestone block is not on `main` yet, so the lane has to) and closes
 at the lane's first commit. If the mint pull request lands inside that window, the head has no commit
 of its own, GitHub concludes the work is already in `main`, and the draft is marked merged.
 
-**The fix is one line and it closes the window by construction**, rather than making it smaller:
+The fix is one line and it closes the window by construction, rather than making it smaller:
 
 ```sh
 git commit --allow-empty -m "claim: milestone N"
@@ -103,8 +103,8 @@ git commit --allow-empty -m "claim: milestone N"
 The head then carries something the base never will, so nothing that happens to the base can conclude
 the pull request is finished. AGENTS.md's instruction now says this; this section carries the reason.
 
-**The sentence this corrects.** AGENTS.md used to justify the convention with *"a draft cannot be
-stuck in the merge queue because a draft cannot be merged."* A draft cannot be **enqueued**, which is
+The sentence this corrects. AGENTS.md used to justify the convention with *"a draft cannot be
+stuck in the merge queue because a draft cannot be merged."* A draft cannot be enqueued, which is
 the useful half and is still true. It can be merged, by GitHub, without passing through the queue at
 all.
 
@@ -120,12 +120,12 @@ Measured 2026-09-05 over the last two hundred merged pull requests:
 | `milestone/260-xenon-netboot` | 2026-09-05 |
 
 The first is the day the `maintainer/mint-*` pattern began, so this has been true for as long as the
-pattern has. **It went unnoticed because it is rate-dependent**, and that is the part worth carrying
+pattern has. It went unnoticed because it is rate-dependent, and that is the part worth carrying
 to the next rare failure in this tree: at one occurrence every couple of days it reads as noise and
-nobody connects two incidents two days apart. Two in one evening reads as a pattern. **Nothing about
-the mechanism changed on 2026-09-05, only the number of lanes**, which is AGENTS.md's own observation
+nobody connects two incidents two days apart. Two in one evening reads as a pattern. Nothing about
+the mechanism changed on 2026-09-05, only the number of lanes, which is AGENTS.md's own observation
 about the bottleneck moving, arriving as a defect becoming visible rather than as a constraint.
 
-**Both 2026-09-05 lanes recovered on their own** by opening a replacement pull request, so nothing was
+Both 2026-09-05 lanes recovered on their own by opening a replacement pull request, so nothing was
 lost. What was lost is the property the board is for: for part of that evening it showed no claim on
 two milestones that were actively being worked.

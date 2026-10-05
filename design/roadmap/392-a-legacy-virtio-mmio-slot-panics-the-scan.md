@@ -11,8 +11,8 @@ needs_person: no
 
 Filed 2026-09-10 as an unnumbered proposal by the lane that built milestone
 306, which met this as a boot panic in a step that had nothing to do with virtio; numbered
-2026-09-19 by milestone 433's drain of the proposal pile. **Premise re-read against the tree on
-2026-09-19 and still true**: `kernel/src/virtio.rs` still reaches the `debug_assert_eq!` on
+2026-09-19 by milestone 433's drain of the proposal pile. Premise re-read against the tree on
+2026-09-19 and still true: `kernel/src/virtio.rs` still reaches the `debug_assert_eq!` on
 `REG_VERSION` at line 67, inside `find_by_device_id`'s walk, immediately after the `DeviceID` match
 and before the device is returned, with the message still reading "expected modern virtio-mmio" and
 naming neither the slot nor the runner flag. The runner bug that exposed it was fixed in both
@@ -25,17 +25,17 @@ should stand in its place, plus a test that a legacy slot is not returned.
 **In brief.** `virtio::find_by_device_id` walks the mmio slots, matches on `DeviceID`, and then
 `debug_assert_eq!`s that the slot's `VERSION` register is 2 (modern virtio). A slot that reports 1
 is a device this kernel deliberately does not drive, and the honest answer to meeting one is the
-same as meeting a slot of the wrong type: **keep walking**. What happens instead is a panic, in a
+same as meeting a slot of the wrong type: keep walking. What happens instead is a panic, in a
 debug build, at whatever point in the boot happened to ask.
 
-**How it presented, which is the argument for changing it.** On 2026-09-10 the riscv64 boot tour
+How it presented, which is the argument for changing it. On 2026-09-10 the riscv64 boot tour
 grew a step that scans for a virtio-rng. Booted with `NIFE_RNG=1` and no `NIFE_DISK`, the runner
 attached a legacy RNG (the `-global` that selects modern mmio lived inside the disk block; fixed
 separately, in both runners) and the kernel panicked with `expected modern virtio-mmio, left: 1,
 right: 2` at a point in the tour that names no device and gives a reader nothing to go on. The
 runner bug is fixed; the shape that turned a missing command-line flag into a kernel panic is not.
 
-**Why it survived.** Every leg of the suite builds disks, so the global was always present and no
+Why it survived. Every leg of the suite builds disks, so the global was always present and no
 legacy slot has ever existed on a machine this repository boots. The assertion has therefore never
 fired in CI and never will; it fires only for someone assembling a QEMU command line by hand, which
 is exactly the person least equipped to read it.

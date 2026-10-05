@@ -58,7 +58,7 @@ because nothing in the message pointed at the feature.
 
 **And the inverse is the security-shaped case.** The tool reads "digest present" as "will refuse".
 Any future build that carries the digest for some other reason while not reaching the check would
-read as **SEALED** while verifying nothing. That is the direction worth fixing even though nothing
+read as SEALED while verifying nothing. That is the direction worth fixing even though nothing
 in the tree does it today.
 
 ## Three options

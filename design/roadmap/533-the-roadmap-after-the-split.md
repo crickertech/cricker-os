@@ -122,9 +122,9 @@ because the section it now names exists."*
   in a released `basalt` image cannot open a pull request against a roadmap block.
 - **Cross-repository work items.** After §151 there is no single tree that can hold "this needs a
   change in the kernel and in `basalt`". Today every work item is inside one tree by construction.
-- **Assignment and notification**, which this project substitutes for with `helpers/merge-drain.sh`
+- Assignment and notification, which this project substitutes for with `helpers/merge-drain.sh`
   and a steward, both of which `notes/merge-queue.md` is honest do not report their own death.
-- **A backlog with an owner.** `script/roadmap --proposed` shows **24 unnumbered proposals**, all
+- A backlog with an owner. `script/roadmap --proposed` shows 24 unnumbered proposals, all
   dated 2026-09-19. The pile is young, so there is no ageing evidence yet, and the block for
   milestone 247 (follow-on work named by a finished milestone goes nowhere) has its own
   reasoning says a due-date gate *"would be routed around by not writing proposals, which is
@@ -173,8 +173,8 @@ Occurrence counts, for the size of any sweep: 3,148 `milestone N` in 288 `.rs` f
 `kernel/`, `crates/` and `components/`; 1,796 more in `notes/`; 2,939 inside `design/roadmap/`
 itself.
 
-**So 62% of cited milestones are cited from more than one of the three groups most likely to become
-separate repositories.** Per-repository numbering does not decompose the citation graph; it cuts
+So 62% of cited milestones are cited from more than one of the three groups most likely to become
+separate repositories. Per-repository numbering does not decompose the citation graph; it cuts
 across it. Whatever the grain of the split turns out to be, the majority of citations are
 cross-repository citations the day it happens.
 
@@ -195,7 +195,7 @@ GLOSSED CITATIONS (560)
   title           465
 ```
 
-**465 of 560, or 83%, resolve against the target's own title.** Nothing requires a gloss;
+465 of 560, or 83%, resolve against the target's own title. Nothing requires a gloss;
 `notes/citations.md` is explicit that *"the rule is 'what you write is checked', not 'you must write
 it'"*. Authors wrote titles anyway, because a number does not say what it names and they wanted the
 sentence to be readable.
@@ -207,7 +207,7 @@ split-proof citation convention by habit, and nobody decided to do it.
 
 ### Options for what a citation means after the split, priced. No winner.
 
-**A. Records travel with their code; each repository numbers its own.**
+A. Records travel with their code; each repository numbers its own.
 Blocks move to the repository they describe; `nife-kernel` milestone 1 (boot to Rust on QEMU
 `virt`) and `basalt` milestone 1 both
 exist. *Cost:* the 62% figure. Every cross-group citation needs a repository prefix added by hand or
@@ -215,12 +215,12 @@ becomes ambiguous, and `script/citations`' path mode (24 citations) breaks outri
 resolving in the local checkout. Its title mode (465) survives only if the sibling repository is
 checked out. *Kills the strongest gate this tree has for cross-repository citations.*
 
-**B. Per-repository prefixes on a single scheme**, `nife-kernel#443`, `basalt#12`.
+B. Per-repository prefixes on a single scheme, `nife-kernel#443`, `basalt#12`.
 *Cost:* a new thing every reader learns, doing real work in 62% of citations rather than the rare
 case, plus a mechanical rewrite of 3,148 sites whose failure mode §194 names: silently wrong and
 still passing. *Buys:* nothing that C does not buy, unless numbers stay authoritative.
 
-**C. The slug becomes the identity; the number becomes a nickname.**
+C. The slug becomes the identity; the number becomes a nickname.
 The record is `design/roadmap/decouple-the-lanes.md`; the number is a display convenience that may
 be dropped, duplicated across repositories, or left with gaps. Citations resolve by the gloss, which
 83% of them already do. *Cost:* the tree must stop treating the number as authoritative, which
@@ -228,15 +228,15 @@ be dropped, duplicated across repositories, or left with gaps. Citations resolve
 today. *Buys:* every existing well-formed citation survives the split untouched, and no sweep is
 required, because the gloss is already there in the cases that matter.
 
-**D. A citation resolver that knows several repositories.**
+D. A citation resolver that knows several repositories.
 `script/citations` grows a manifest of sibling checkouts and resolves across them. *Cost:* a gate
 whose answer depends on what the operator has cloned, which is the opposite of the offline property
 measured in section 2 above, and which degrades to a warning in CI. *Buys:* it is the only option
 that
-keeps a machine-checked cross-repository citation at all, so it is probably a **companion** to C
+keeps a machine-checked cross-repository citation at all, so it is probably a companion to C
 rather than an alternative to it.
 
-**E. One roadmap forever, in `basalt`; code repositories cite it and hold none of it.**
+E. One roadmap forever, in `basalt`; code repositories cite it and hold none of it.
 *Cost:* it contradicts "records travel with their code" and re-creates a single global namespace
 that every independent release depends on, which is the coupling §151 exists to remove. *Buys:*
 nothing changes for 441 blocks or 3,148 citations, and the split touches code only.
@@ -245,10 +245,10 @@ nothing changes for 441 blocks or 3,148 citations, and the split touches code on
 
 FreeBSD's ports tree has run exactly this problem for thirty years and solved it with a flat file.
 From the Porter's Handbook: each line of `MOVED` is *"the name of the port, where the port was
-moved, when, and why,"* in the form **`old name|new name (blank for deleted)|date of move|reason`**,
+moved, when, and why,"* in the form `old name|new name (blank for deleted)|date of move|reason`,
 and *"if the port was removed, the section detailing where it was moved can be left blank."*
 
-A `design/roadmap/MOVED` of that shape, written **at the split**, turns every option above from
+A `design/roadmap/MOVED` of that shape, written at the split, turns every option above from
 lossy into merely indirect: a number that no longer resolves locally resolves to a line saying where
 it went and why. It is rung three of the ladder (a written record at the thing itself), it costs one
 file, and it is the only part of this page that is cheap in every option.
@@ -268,24 +268,24 @@ Fetched 2026-09-19. Every quotation below was read from the URL given.
 | **FreeBSD ports** | `Makefile`, `distinfo`, plus tree-wide `UPDATING` and `MOVED` | port origin path (`category/name`) | by the tree | Bugzilla PR number, referenced from commits by string |
 | **Homebrew** | formula file in a tap | **`user/repo/formula`**, a path-shaped name | by the tap | issues per tap |
 
-**Four things this table says that are worth saying out loud.**
+Four things this table says that are worth saying out loud.
 
-**Every one of the eight keeps the durable record in a versioned tree.** Not one of them put the
+Every one of the eight keeps the durable record in a versioned tree. Not one of them put the
 argument in the tracker. The projects that use a tracker heavily (Go, Kubernetes) use it for the
 *number* and the *state*, and still check the design document into a repository. That is a strong
 answer to question (1), and it is unanimous.
 
-**The dominant pattern is that the tracker mints the identifier and the tree holds the record.**
+The dominant pattern is that the tracker mints the identifier and the tree holds the record.
 Rust: *"Don't assign an RFC number yet; This is going to be the PR number and we'll rename the file
-accordingly if the RFC is accepted."* Go: *"A **proposal** is a suggestion filed as a GitHub issue,
+accordingly if the RFC is accepted."* Go: *"A proposal is a suggestion filed as a GitHub issue,
 identified by having the Proposal label,"* and *"The design doc should be checked in to the proposal
 repository as `design/NNNN-shortname.md`, where `NNNN` is the GitHub issue number."* Kubernetes:
 *"KEPs are now prefixed with their associated tracking issue number. This gives both the KEP a
 unique identifier and provides an easy breadcrumb."*
 
 This tree already opens a claim pull request as a lane's first act (§90), and GitHub already mints a
-unique never-reused number for it. **The hand-minted contiguous number that two sessions collided on
-three times in one day is a number GitHub was already giving us and we were throwing away.** That is
+unique never-reused number for it. The hand-minted contiguous number that two sessions collided on
+three times in one day is a number GitHub was already giving us and we were throwing away. That is
 a real option and it is listed as such in the BUGS below, not recommended here, because PR numbers
 are per-repository and therefore have option B's problem after the split, and because reconciling
 441 existing blocks with a PR counter now past 999 is §194's dangerous edit at full scale.
@@ -299,16 +299,16 @@ to the PR number that prompted the change."* Homebrew qualifies across taps by p
 `brew install username/repository/vim`."* Nothing structural survives a split; a grep-able string
 does. Option C is that observation applied to this tree.
 
-**A project that moved, with its reason**, since the brief asked for one. LLVM moved from Bugzilla
+A project that moved, with its reason, since the brief asked for one. LLVM moved from Bugzilla
 to GitHub Issues, and the RFC's stated reason is entirely about the tool, not about where records
 belong: *"Our bugzilla installation is...not great. It's been not-great for a long time now,"* and
 *"Importantly, Github Issues is significantly less user-hostile than our bugzilla is, for new
 contributors and downstream developers who just want to tell us about bugs!"* The move is
-tracker-to-tracker for **bug reports from strangers**, which is the first item in section 2's "genuinely
+tracker-to-tracker for bug reports from strangers, which is the first item in section 2's "genuinely
 better at" list and not the roadmap.
 
-**A correction to this lane's own research, recorded because this tree carried a fabricated block
-quote for twelve days.** A first pass reported that the LLVM RFC discussed preserving `PRxxxxx`
+A correction to this lane's own research, recorded because this tree carried a fabricated block
+quote for twelve days. A first pass reported that the LLVM RFC discussed preserving `PRxxxxx`
 numbers already baked into source comments, which would have been a direct precedent for the 3,148
 sites here. Fetching the page found no such discussion. The claim is withdrawn and is not used
 anywhere above. Rust's move in the opposite direction is also worth one line since it was checked:
@@ -323,12 +323,12 @@ what makes the identifier decision cheap whenever it is taken.**
 
 Concretely, three items, smallest first:
 
-1. **A ratchet on new citations: a `milestone N` or `§N` on a line this commit adds must carry a
-   gloss.** **Answered and built on 2026-09-20**: calef approved it the day this was filed, and
+1. A ratchet on new citations: a `milestone N` or `§N` on a line this commit adds must carry a
+   gloss. Answered and built on 2026-09-20: calef approved it the day this was filed, and
    milestone 444 (a citation says what it cites) shipped it as `script/citations --ratchet`, wired
    into `script/lint`. Its census also corrected this file's own number, and the correction is worth
    carrying: the 83% below is 83% *of the citations that already carry a gloss*, which is 505 of
-   9,483 (file, scheme, number) pairs, or **5.3%** of the tree. The ratchet's rate argument is
+   9,483 (file, scheme, number) pairs, or 5.3% of the tree. The ratchet's rate argument is
    unaffected and the starting point is far lower than this file assumed. Two limits the ratchet
    turned out to have are in `notes/citations.md`'s BUGS. `script/lint` already has this shape at line 1995 (`git merge-base HEAD origin/main`),
    and the word "ratchet" appears in it eleven times. This answers `notes/citations.md`' standing
@@ -337,14 +337,14 @@ Concretely, three items, smallest first:
    meant... So the rule is 'what you write is checked', not 'you must write it'."* A ratchet reads
    nothing retroactively and writes no gloss mechanically. It moves the tree from 83% split-proof to
    asymptotically 100%, at the rate the tree changes, starting now.
-2. **Write `design/roadmap/MOVED` when the split happens**, in FreeBSD's four-field form. One file,
+2. Write `design/roadmap/MOVED` when the split happens, in FreeBSD's four-field form. One file,
    and it makes every option in section 3 survivable.
-3. **Use issues for the two things a tree cannot do**, as soon as either one is real: a stranger's
+3. Use issues for the two things a tree cannot do, as soon as either one is real: a stranger's
    bug report on a released artifact, and a work item spanning two repositories. Not for milestones,
    not for status, not for claims. §90's reason against a second place for truth is intact; that
    reason is about the *same* fact in two places, and neither of these facts is in the tree at all.
 
-**The §92 test.** *Would I still recommend this if all the options cost the same?* Yes, and the
+The §92 test. *Would I still recommend this if all the options cost the same?* Yes, and the
 reason is not effort. A slug says what it names and a number does not; that is why 465 of 560 glosses
 are titles although nothing required them. An in-tree record answers a question about the revision
 you are standing on and a tracker cannot; that is a property, not a saving. The one place cost is
@@ -352,11 +352,11 @@ genuinely deciding is the refusal to renumber, and that is said plainly rather t
 renumbering 441 blocks is cheap in agent-hours and expensive in §194's terms, and the recommendation
 is to not do it because it is dangerous, not because it is long.
 
-**Reversibility, per the *move fast on what can be undone* test, which is "who else has already
-acted on this".** The gloss ratchet is reversible: delete the check, keep the glosses. Which script
+Reversibility, per the *move fast on what can be undone* test, which is "who else has already
+acted on this". The gloss ratchet is reversible: delete the check, keep the glosses. Which script
 reads what is reversible; the decouple-the-lanes lane on #999 is proving it this week by moving two
-gates off the generated index. `MOVED` is append-only and additive. **The identifier convention is the only
-irreversible thing on this page**, which is why it is presented as five options with no winner, and
+gates off the generated index. `MOVED` is append-only and additive. The identifier convention is the only
+irreversible thing on this page, which is why it is presented as five options with no winner, and
 why item 1 exists: a gloss ratchet makes options A, B, C and E converge, so the decision gets cheaper
 every week it is deferred rather than more expensive. That is unusual enough to be worth stating,
 because the normal shape of a deferred decision here is the opposite.
@@ -370,30 +370,30 @@ too; and `script/decisions` no longer fails on a gap, with `design/naming.md` ga
 the index coupling growing back, allowing only `script/metrics` and `script/catch-up`, which read
 historical revisions where no block-derived answer exists.
 
-**What remains painful after that, which is the real case for changing anything further:**
+What remains painful after that, which is the real case for changing anything further:
 
-- **The number is still hand-minted and still global.** 443 makes a collision cheap to *resolve*
+- The number is still hand-minted and still global. 443 makes a collision cheap to *resolve*
   (take the next free number, leave the hole) rather than impossible to *have*. Two sessions that
   cannot see each other still both reach for the next number, and the integrator still arbitrates at
   merge. The prior art's answer to this (let the tracker mint it) is untouched by 443.
 - **The citation identifier is a bare number and 443 does not look at it.** This is the whole of
   section 3
   above and it is entirely unaffected.
-- **21 scripts under `script/` read `design/roadmap/`**, not 12 as first estimated: `audits`, `bench`,
+- 21 scripts under `script/` read `design/roadmap/`, not 12 as first estimated: `audits`, `bench`,
   `board-netboot`, `boot-check`, `catch-up`, `ci-build`, `citations`, `fastpath-footprint`,
   `fatal-risks`, `icount`, `job-mix`, `journeys`, `lint`, `metrics`, `names`, `repeat-under-load`,
   `roadmap`, `swish-check`, `vendor-verify`, `vendor-watch`, `verify`, plus `xtask/src/main.rs` and
   two files under `helpers/`. Every one of them is a reason the record must stay readable from a
   checkout with no network. 443 changes which *file* two of them read, not that they read the tree.
-- **The proposals pile has no owner.** 24 files, all dated the same day, promoted only by an
+- The proposals pile has no owner. 24 files, all dated the same day, promoted only by an
   integrator who happens to look. Milestone 247 argued a due-date gate would be routed around, and
   that argument is good; it leaves the pile's health depending on someone noticing, which is rung
   zero in the vocabulary AGENTS.md uses for exactly this.
-- **Nothing here works for a person without a clone**, and §151's third-party programs are the point
+- Nothing here works for a person without a clone, and §151's third-party programs are the point
   of the split.
 
-**So the honest answer to "are we sure our current approach is still the right approach" is: yes for
-the record, yes for the gates, and the scheduling layer already left.** What is not right is that
+So the honest answer to "are we sure our current approach is still the right approach" is: yes for
+the record, yes for the gates, and the scheduling layer already left. What is not right is that
 the identifier is a number, and that is not a problem 443 was scoped to touch.
 
 ## BUGS
@@ -405,7 +405,7 @@ the identifier is a number, and that is not a problem 443 was scoped to touch.
   a PR counter past 999 without §194's dangerous edit, and because it would make `script/lint` and
   `script/roadmap` depend on numbers minted by a host this project might leave. A lane could price it
   properly; nobody has.
-- **The 62% cross-group figure assumes the split's grain is `kernel/` / `crates/` / `components/`.**
+- The 62% cross-group figure assumes the split's grain is `kernel/` / `crates/` / `components/`.
   §151 explicitly does not decide the grain (*"This decides the goal, not the grain"*), so the figure
   is an indication rather than a prediction. The direction is robust: any grain finer than one
   repository makes some citations cross-repository, and the citation graph was never built to
@@ -415,7 +415,7 @@ the identifier is a number, and that is not a problem 443 was scoped to touch.
   trip it, and `git grep -w TODO`'s 82% false-positive rate is this tree's standing warning about
   greps that judge prose. Whoever builds it should measure the rate against the last two hundred
   commits before turning it into a failure rather than a report.
-- **Nothing here measures how often a citation is actually followed.** The whole argument that
+- Nothing here measures how often a citation is actually followed. The whole argument that
   citations must resolve rests on the assumption that readers follow them. That is plausible, it is
   what `script/citations` exists for, and it is unmeasured.
 

@@ -18,20 +18,20 @@ tractable, so the parsers were the gap the proofs could not cover rather than a 
 to yet. §46's rule that we write what is on the verification path is what put this logic in
 host-testable crates, and that is why the fuzzers could reach it at all.
 
-**The justification is empirical, not aesthetic: it found three real defects in its first sitting.**
+The justification is empirical, not aesthetic: it found three real defects in its first sitting.
 Two panics in `dtb` on a hostile device tree, which is boot-path code parsing bytes the *firmware*
 wrote; and `nifefs` writing a name containing a NUL that could then never be read back, from the
 one-file input `[("\0", [])]`, in under a minute. Each is fixed with a regression test beside the
-fix, so the finding survives whether or not anyone reruns the fuzzer. **A found bug is a permanent
-test, not a permanent fuzzing job.**
+fix, so the finding survives whether or not anyone reruns the fuzzer. A found bug is a permanent
+test, not a permanent fuzzing job.
 
-The CI job is a **time-boxed sweep on a fixed budget per target, not a regression tripwire.** It does
+The CI job is a time-boxed sweep on a fixed budget per target, not a regression tripwire. It does
 not prove a pull request introduced nothing, and `notes/fuzzing.md` says so plainly, including that
 `gpt_table` barely reaches `check_backup`.
 
 ## BUGS
 
-- **Coverage is stated, not measured.** The note records where each target reaches by reading the
+- Coverage is stated, not measured. The note records where each target reaches by reading the
   code, and a target whose corpus stops covering a branch will not say so.
-- **The seeds are in the tree and the corpus is not**, so a long CI sweep starts from near scratch
+- The seeds are in the tree and the corpus is not, so a long CI sweep starts from near scratch
   each time and rediscovers shallow ground before it reaches new ground.

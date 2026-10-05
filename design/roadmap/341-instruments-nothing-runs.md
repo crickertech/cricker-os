@@ -10,8 +10,8 @@ needs_person: no
 # 341. Give the three instruments nothing runs a caller
 
 Filed 2026-09-03 as an unnumbered proposal by the milestone 247 sweep,
-from milestone 232's block; numbered 2026-09-19 by milestone 433. **Premise re-checked 2026-09-19 and
-it holds, with one name corrected.** None of `script/interleaving-check`, `script/crate-probes` or
+from milestone 232's block; numbered 2026-09-19 by milestone 433. Premise re-checked 2026-09-19 and
+it holds, with one name corrected. None of `script/interleaving-check`, `script/crate-probes` or
 `script/rule-violations --check` appears in `script/ci-build`'s check table, in any workflow under
 `.github/workflows/`, or in `script/cadence-check`'s schedule, so all three still answer only when a
 person types them. **`script/gates` no longer exists**: milestone 286 retired it on 2026-09-13 and
@@ -32,7 +32,7 @@ schedule.
 
 ## Why this matters
 
-`design/fatal-risks/README.md`'s first risk stands **GREEN on a hand-run instrument**. That is a claim the
+`design/fatal-risks/README.md`'s first risk stands GREEN on a hand-run instrument. That is a claim the
 project makes about whether it should continue, resting on somebody having typed a command once.
 Nothing re-runs it, nothing notices when it goes red, and the green will keep reading as current for
 as long as nobody looks. The other two are the same shape at lower stakes: `crate-probes` sits at 43
