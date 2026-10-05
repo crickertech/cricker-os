@@ -8,7 +8,7 @@ use crate::farm::{cryptography_exerciser_elf, ripgrep_elf, std_exerciser_elf};
 use crate::host::{bin_elf, workspace_root};
 use crate::inspect::read_stripped;
 use crate::measure::{boot_programs, measurement_table, write_measure_manifest};
-use crate::{RISCV_TARGET, TARGET, X86_TARGET, cargo_profiled, profile_dir};
+use crate::{RISCV_TARGET, TARGET, X86_TARGET, profile_dir};
 
 /// Where the packed initrd archive is written.
 pub(crate) fn initrd_path() -> String {
@@ -317,15 +317,7 @@ pub(crate) fn initrd_riscv() -> bool {
     //
     // Profiled since `swish-check --release` (milestone progenitor-stack (provisional)), which
     // packed debug programs under a release kernel until this read `profile_dir()`.
-    if !crate::cargo_profiled(&[
-        "build",
-        "-p",
-        "components",
-        "-p",
-        "fixtures",
-        "--target",
-        RISCV_TARGET,
-    ]) {
+    if !crate::build_programs(RISCV_TARGET) {
         return false;
     }
 
@@ -483,15 +475,7 @@ pub(crate) fn x86_initrd_path() -> String {
 /// `initrd_riscv64` / `initrd_x86_64`, would also rename two already-typed, already-documented
 /// subcommand names for a smaller win). Confirm or redirect.
 pub(crate) fn initrd_x86() -> bool {
-    if !cargo_profiled(&[
-        "build",
-        "-p",
-        "components",
-        "-p",
-        "fixtures",
-        "--target",
-        X86_TARGET,
-    ]) {
+    if !crate::build_programs(X86_TARGET) {
         return false;
     }
 

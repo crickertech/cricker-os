@@ -633,6 +633,9 @@ pub const MAX_DSTRD: u32 = 8;
 /// Outstanding item (milestone 202 (every confinement test is a ritual until somebody breaks the
 /// confinement and watches it fail)'s convention) is the only caller; the role it selects is the
 /// NVMe twin of `block_driver`'s two virtio attacker roles. Named provisionally.
+///
+/// Behind the `confinement_attackers` feature, so a shipped server cannot even name it.
+#[cfg(feature = "confinement_attackers")]
 pub const ESCAPE_MAGIC: u64 = 0xE5CA_9E00_4E56_4D45;
 
 /// **What the admin plane tells the data plane at spawn**, and the whole of it.

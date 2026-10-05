@@ -10,5 +10,12 @@ license.workspace = true
 # kernel supplies the volatile MMIO accessors and the DMA memory, so all of this tests on the host
 # in milliseconds and is reachable by the model checker.
 
+[features]
+# Exposes `ESCAPE_MAGIC`, the sentinel that selects the NVMe server's test-only DMA-escape role.
+# Turned on by `components/confinement_attackers` (the server that reads it) and by the kernel's
+# `system_tests` (the wiring that writes it), and by nothing a shipped image is built from.
+# Name provisional.
+confinement_attackers = []
+
 [lints]
 workspace = true

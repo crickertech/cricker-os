@@ -226,6 +226,18 @@ fn a_confined_el0_server_cannot_dma_outside_its_region() {
     // both are nonzero; they ride in the transcript, not the assertions.
     let [rd, wr, ..] = esc.wait();
 
+    // **A server that served instead of attacking** sends the honest readiness word. That is an
+    // initrd built without `components/confinement_attackers` (a boot outside `cargo xtask test`),
+    // and it would otherwise surface below as "the IOMMU recorded no fault", blaming the IOMMU
+    // for a build that never tried.
+    assert_ne!(
+        rd,
+        filesystem_protocol::fixture::READY,
+        "the NVMe server reported ready rather than attacking: this initrd was built without \
+         `components/confinement_attackers`, so it has no DMA-escape role. Run the suite through \
+         `cargo xtask test`, which builds it in",
+    );
+
     // **The evidence the controller actually tried the out-of-region DMA.** QEMU records the fault
     // as it processes the doorbell under TCG, so a bounded spin is plenty; the bound turns "no
     // fault ever" into a failure rather than a hang. Without this a pass would be consistent with
