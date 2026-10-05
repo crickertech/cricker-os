@@ -181,9 +181,9 @@ five-word message to its supervision endpoint, taken by a plain `RECEIVE`:
 `RECEIVE` returns `w0` in the syscall's result register and `w1..w4` in the next four argument
 registers (`x1..x4` on aarch64, `a1..a4` on riscv). Ordinary three-word IPC leaves `w3` and `w4`
 zero, so a supervisor is the only receiver that reads the top two, and no other program's `RECEIVE`
-changes. The tid is trustworthy without a badge because the kernel is the only sender on this
-path; seL4's badged-endpoint machinery is what you would reach for if untrusted senders ever
-shared a supervision endpoint, and it returns as its own decision if that day comes.
+changes. The tid is trustworthy because the kernel is the only sender on this path. A sixth word,
+the child's label, rides in argument register 5; notes/supervision.md has it (milestone 105 (the
+two forks)).
 
 The userspace side of that is two functions rather than one, and the split is not an ABI difference:
 `user_mode_runtime::receive` reads three words and `user_mode_runtime::receive_fault` reads all five, both from the same `RECEIVE`.

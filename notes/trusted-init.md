@@ -270,13 +270,14 @@ there rather than here because it is an exception-path fact, not a progenitor fa
    reap-only right out of `WRITE` (a rights bit, or a distinct `Untyped::REAP`) would let a root
    supervisor recover without regaining construction authority. That is a kernel surface change and a
    rights-model change, so it is an architect's call, not a thing to slip in.
-2. A supervisor cannot turn a tid into a handle. The kernel's fault message names the dead thread
-   by tid (§26.5), but no method turns a tid into something a builder holds, so `sub_server_supervisor` names
-   instances by a handle the *spawner* issues instead. That works because this tree runs one
-   sub-server at a time; a supervisor with many children would need the mapping. The options are a
-   `Tcb::NAME` method (small, and the tid is already exposed in the fault message, so it discloses
-   nothing new), per-child fault endpoints (costs a thread or a wait-any primitive, which §26.5
-   rejected), or the builder reporting the tid it created. Recorded, not chosen.
+2. A supervisor cannot turn a tid into a handle. The death message names the dead thread by tid
+   (§26 (the fault endpoint), item 5), and nothing turned a tid into something a builder holds.
+   The options were `Tcb::NAME`, per-child fault endpoints, or the builder reporting the tid.
+
+Both are answered. Fork one by §32 (a supervisor may collect a corpse without being able to build
+one) and §148 (a supervisor restarts by asking)'s spawner pattern. Fork two by §148 as amended
+2026-10-04: the death message carries the builder's label, and `sub_server_supervisor` tells two
+children apart by it. See milestone 105 (the two forks).
 
 ## The interactive boot, migrated
 
