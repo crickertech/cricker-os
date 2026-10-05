@@ -1079,6 +1079,11 @@ pub mod virtio {
     /// a constant in a crate rather than a number in four places (AGENTS.md rule 7). Milestone 600
     /// (provisional) moved it here; it was a number in two places before. Name: provisional.
     pub const DMA_PHYS_OFFSET: u64 = 4096 - 8;
+
+    // The word is the page's last eight bytes, as the documentation says; a wrong operator in the
+    // subtraction put it past the page or in the middle of a driver's rings, and nothing ran the
+    // arithmetic. Mutation survivor triage, milestone 326 (turn a mutation score upward), batch 3.
+    const _: () = assert!(DMA_PHYS_OFFSET + 8 == 4096);
 }
 
 /// Methods on a `MemoryRegion` capability. **How a process spends its own memory.**
