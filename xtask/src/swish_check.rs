@@ -205,7 +205,7 @@ const JOB_DID_NOT_RUN: [&str; 2] = [
 /// for its census, because this is the only boot with a keyboard and so the only one that can show
 /// the keyboard's three slots (26 to 28) are not the shell's either. Before 715 the progenitor
 /// placed them there beside the gpu's four. See the same line in [`SWISH_CHECK_AFTER_REBOOT`].
-const SWISH_CHECK_KEYBOARD_BOOT: &[Line] = &[line(0, "caps", &["slots held: 0 1 2", " 21 30\n"])];
+const SWISH_CHECK_KEYBOARD_BOOT: &[Line] = &[line(0, "caps", &["slots held: 0 1 2", " 21 62\n"])];
 
 /// A [`Line`], positionally, so the script reads as the prompt does. The name is provisional.
 const fn line(jobs: u8, typed: &'static str, answer: &'static [&'static str]) -> Line {
@@ -266,11 +266,11 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
     // audit's follow-up; row 32 of notes/confinement-claims.md). On aarch64 and riscv64 this boot
     // has a gpu, and until 715 the progenitor placed its four capabilities in the shell at
     // `spawnproto::SHELL_GPU_SLOT` (22) onward for the life of the boot: measured on aarch64,
-    // `slots held: 0 1 2 3 4 5 20 21 22 23 24 25 30`. Now the spawn service keeps them, so the
-    // census runs straight from the configuration page (21) to the run-unvouched slot (30), and
-    // " 21 30" is the assertion that nothing sits between them. On x86_64 this boot has no gpu and
+    // `slots held: 0 1 2 3 4 5 20 21 22 23 24 25 30` (slot 30 then, 62 since milestone 754 (the capability table grows to 64 slots)). Now the spawn service keeps them, so the
+    // census runs straight from the configuration page (21) to the run-unvouched slot (62; 30 before milestone 754 (the capability table grows to 64 slots)), and
+    // " 21 62" is the assertion that nothing sits between them. On x86_64 this boot has no gpu and
     // the line holds trivially; that leg's gap is milestone 632's (no virtio-gpu in its runner).
-    line(0, "caps", &["slots held: 0 1 2", " 21 30\n"]),
+    line(0, "caps", &["slots held: 0 1 2", " 21 62\n"]),
     line(
         1,
         "packages/noteless/0.1.0/noteless",
@@ -679,7 +679,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "cap 1  page      clock",
             "cap 2  page      config",
             "provenance: unvouched (digest ",
-            "runs on this session's capability to run unvouched bytes (slot 30)",
+            "runs on this session's capability to run unvouched bytes (slot 62)",
             // **What the note asks, beside what is granted** (milestone 597, provisional). The
             // witness's note asks for the three authorities it probes, and §219 says an unvouched
             // note grants nothing: the rows above are the ruling's three and no more.
@@ -829,8 +829,9 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "package install greeting@0.1.0",
         &["fetched and installed; generation 2 is live"],
     ),
-    // x86_64 has no NIC, so it installs the same package from the disk instead; the two legs that
-    // fetch omit this line ([`swish_check_omits`]). Either way generation 2 is the same table.
+    // x86_64's booted system has no network stack (the progenitor builds one from virtio-mmio
+    // only), so it installs the same package from the disk instead; the two legs that fetch omit
+    // this line ([`swish_check_omits`]). Either way generation 2 is the same table.
     line(
         0,
         "package install downloads/greeting.nifepkg",
@@ -1366,9 +1367,10 @@ fn swish_check_omits(arch: &str, line: &str) -> Option<&'static str> {
     // to find one on. Milestone 595 (provisional) gave the progenitor the kernel's service on
     // `RDSEED` instead (`kernel::user::boot_instruction_entropy`), so they run.
     match line {
-        // The kernel grants the progenitor a NIC only from a virtio-mmio slot, and the x86_64
-        // runner attaches no
-        // `-netdev` at all until milestone 494 (a driver for the network card a PC actually has).
+        // The kernel grants the progenitor a NIC only from a virtio-mmio slot. Since milestone 494
+        // (a driver for the network card a PC actually has) the x86_64 runners attach an `e1000e`
+        // and the kernel can drive it, but only a test wires it: the progenitor does not build a
+        // stack from it yet, which is the follow-on that block names.
         // The preview and the witness stay: neither needs a device, and the witness's refusal is
         // the same on a boot with no stack as on one that has a stack and did not endow it.
         // And the package source is reached over that network (milestone 198 rung 3a's fetch).
@@ -1377,8 +1379,9 @@ fn swish_check_omits(arch: &str, line: &str) -> Option<&'static str> {
         "network_echo_client --mem 4"
         | "package install uptime"
         | "package install greeting@0.1.0" => Some(
-            "x86_64 has no NIC the progenitor can build a network stack from (virtio-net is \
-                 found on virtio-mmio only, and the x86_64 runner attaches none)",
+            "x86_64 has no NIC the progenitor can build a network stack from (it builds one \
+                 from virtio-mmio only; the e1000e this leg attaches is wired by tests, not by the \
+                 progenitor)",
         ),
         _ => None,
     }
@@ -2220,6 +2223,208 @@ fn swish_check_leg(arch: &str) -> bool {
                 false,
                 Some(Keystrokes::Device),
             ))
+        && (probe() == Probe::Panic || usb_keyboard_boot(arch))
+}
+
+/// The boot line the kernel prints when the USB keyboard driver configured a keyboard. Spelled
+/// here rather than imported, as [`JOB_DID_NOT_RUN`] is: a phrase is enough for a transcript.
+const USB_KEYBOARD_FOUND: &str = "  usb       : a keyboard on port ";
+
+/// What [`usb_keyboard_boot`] types, as QEMU's `sendkey` names the keys.
+const USB_KEYBOARD_KEYS: [&str; 11] = ["e", "c", "h", "o", "spc", "h", "e", "l", "l", "o", "ret"];
+
+/// **The USB keyboard boot** (milestone 242 (USB host and HID, because on commodity hardware the
+/// keyboard is not a UART)): the image the first boot built, with an xHCI controller and a USB
+/// keyboard attached and nothing else, `echo hello` typed on that keyboard through the QEMU
+/// monitor's `sendkey`, and `hello` required back on the console. On all three architectures,
+/// behind each one's IOMMU (`iommu=smmuv3`, `riscv-iommu-pci`, `intel-iommu`), which the kernel
+/// refuses to hand the controller over without.
+///
+/// What it proves, end to end: the kernel found and confined the controller, the EL0 driver reset
+/// it, enumerated the keyboard and configured its interrupt endpoint (the `usb       :` line says
+/// so before the prompt), the progenitor delegated the line discipline's endpoint to it, and a
+/// key pressed on the device reached the shell as the same bytes a serial line sends. **The serial
+/// line types nothing in this boot**, so the echo can have come from nowhere else.
+///
+/// The keyboard enumerates at **full speed** (`usb_version=1`), the speed real keyboards use, so
+/// the Evaluate Context step and the frame-based interval encoding run here rather than first on
+/// the bench. What it does not prove: a real keyboard on real silicon, which is calef's bench step
+/// in milestone 242's block; a hub; a low-speed device, which QEMU cannot model. The name is
+/// provisional.
+fn usb_keyboard_boot(arch: &str) -> bool {
+    use std::io::Read;
+    use std::sync::{Arc, Mutex};
+    use std::time::{Duration, Instant};
+
+    let x86 = arch == "x86_64";
+    let riscv = arch == "riscv64";
+    let kvm = x86 && kvm_is_usable();
+    eprintln!();
+    eprintln!(
+        "--- swish-check ({arch}): a USB keyboard on an xHCI controller types `echo hello` ---"
+    );
+    let sock = gpu_mon_socket(&format!("{arch}-usb-keyboard"));
+    let _ = std::fs::remove_file(&sock);
+    let boot_secs = if x86 {
+        SWISH_CHECK_BOOT_SECS * 2
+    } else {
+        SWISH_CHECK_BOOT_SECS
+    };
+
+    let mut cmd = if x86 {
+        let mut c = Command::new("helpers/qemu-uefi-x86_64.sh");
+        c.arg(esp_dir());
+        c.env(
+            "NIFE_UEFI_TIMEOUT",
+            (boot_secs + 2 * SWISH_CHECK_X86_LINE_SECS).to_string(),
+        );
+        c.env_remove("NIFE_NVME");
+        c.env_remove("NIFE_DISK");
+        if kvm {
+            c.env("NIFE_ACCEL", "kvm");
+        }
+        c
+    } else {
+        let target = if riscv { RISCV_TARGET } else { TARGET };
+        let mut c = Command::new(if riscv {
+            "helpers/qemu-runner-riscv64.sh"
+        } else {
+            RUNNER
+        });
+        c.arg(format!("target/{target}/{}/kernel", profile_dir()));
+        c.env(
+            "NIFE_INITRD",
+            if riscv {
+                riscv_initrd_path()
+            } else {
+                initrd_path()
+            },
+        );
+        c
+    };
+    // The keyboard and nothing that could also type: no virtio keyboard (which `sendkey` would
+    // reach instead), no gpu, no NIC.
+    for var in [
+        "NIFE_KEYBOARD",
+        "NIFE_GPU",
+        "NIFE_GPU_MON",
+        "NIFE_NET",
+        "NIFE_DISK",
+        "NIFE_NVME",
+    ] {
+        cmd.env_remove(var);
+    }
+    cmd.env("NIFE_USB_KEYBOARD", "1");
+    // **Full speed**, the speed a real keyboard enumerates at. QEMU's `usb-kbd` defaults to high
+    // speed on an xHCI, which takes a different packet size for endpoint 0 and a different
+    // interval encoding; `usb_version=1` makes it the device xenon will actually see.
+    cmd.env("NIFE_USB_KEYBOARD_OPTS", ",usb_version=1");
+    // **And on x86_64, MSI with no MSI-X**, which is what an Intel PCH's xHCI offers (xenon's), so
+    // the kernel's MSI fallback is what delivers the interrupt here rather than first on the bench.
+    // QEMU drops the MSI capability as well unless `msi=on` says to keep it. The other two
+    // architectures route the controller's INTx pin and ignore both.
+    if x86 {
+        cmd.env("NIFE_USB_CONTROLLER_OPTS", ",msix=off,msi=on");
+    }
+    cmd.env("NIFE_SCREEN_MON", &sock);
+    cmd.stdin(std::process::Stdio::piped());
+    cmd.stdout(std::process::Stdio::piped());
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("swish-check ({arch}): failed to start the runner: {e}");
+            return false;
+        }
+    };
+    let mut stdout = child.stdout.take().expect("piped stdout");
+    let seen = Arc::new(Mutex::new(String::new()));
+    let collector = Arc::clone(&seen);
+    let reader = std::thread::spawn(move || {
+        let mut buf = [0u8; 1024];
+        while let Ok(n) = stdout.read(&mut buf) {
+            if n == 0 {
+                return;
+            }
+            let text = String::from_utf8_lossy(&buf[..n]).replace('\r', "");
+            collector.lock().expect("transcript lock").push_str(&text);
+        }
+    });
+    let wait = |from: usize, done: &dyn Fn(&str) -> bool, secs: u64| -> bool {
+        let deadline = Instant::now() + Duration::from_secs(secs);
+        while Instant::now() < deadline {
+            if done(&degauge(&seen.lock().expect("transcript lock")[from..])) {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        false
+    };
+
+    let mut failed: Option<String> = None;
+    if !wait(0, &|t| t.ends_with("$ "), boot_secs) {
+        failed = Some("the boot never reached a prompt".to_string());
+    } else if !seen
+        .lock()
+        .expect("transcript lock")
+        .contains(USB_KEYBOARD_FOUND)
+    {
+        failed = Some(format!(
+            "the boot printed no `{}` line: the kernel or the driver did not configure the \
+             keyboard (the `usb       :` line, if any, says why)",
+            USB_KEYBOARD_FOUND.trim()
+        ));
+    } else {
+        let mark = seen.lock().expect("transcript lock").len();
+        for key in USB_KEYBOARD_KEYS {
+            sendkey(&sock, key);
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        if !wait(
+            mark,
+            &|t| t.contains("echo hello\nhello\n"),
+            SWISH_CHECK_LINE_SECS,
+        ) {
+            failed = Some(
+                "`echo hello` typed on the USB keyboard did not come back as `hello`".to_string(),
+            );
+        }
+    }
+
+    // SIGTERM on x86_64, for `swish_check_boot`'s reason: that runner is `qemu-bounded.sh`.
+    if x86 {
+        let _ = Command::new("kill")
+            .args(["-TERM", &child.id().to_string()])
+            .status();
+    } else {
+        let _ = child.kill();
+    }
+    let _ = child.wait();
+    let _ = reader.join();
+    let _ = std::fs::remove_file(&sock);
+
+    match failed {
+        None => {
+            eprintln!(
+                "swish-check ({arch}): `echo hello` typed on a USB keyboard answered `hello`, \
+                 through the xHCI driver behind the IOMMU"
+            );
+            true
+        }
+        Some(why) => {
+            let t = seen.lock().expect("transcript lock").clone();
+            let tail: String = t
+                .chars()
+                .rev()
+                .take(3000)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect();
+            eprintln!("{tail}");
+            eprintln!("swish-check ({arch}): FAIL: {why}");
+            false
+        }
+    }
 }
 
 /// **Whether the `x86_64` leg can run on the host's own cores**: an `x86_64` Linux host whose

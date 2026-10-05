@@ -151,6 +151,14 @@ pci = { version = "0.1.0", path = "../crates/pci" }
 # The NVMe queue mechanics (milestone 53's storage half): pure logic, host-tested and proved; the
 # kernel's non_volatile_memory_express module is its volatile half, the same split as `pci` above.
 non_volatile_memory_express = { version = "0.1.0", path = "../crates/non_volatile_memory_express" }
+# The `e1000e` NIC family's register map, descriptors and ring logic (milestone 494 (a driver for the
+# network card a PC actually has)): the kernel resets the device and programs the rings' bases from
+# it, and hands `net_stack` its `Handoff`. Same split as the NVMe crate above.
+e1000e = { version = "0.1.0", path = "../crates/e1000e" }
+# The xHCI half of the USB keyboard (milestone 242 (USB host and HID)): the register window the
+# driver is mapped and the handoff it is spawned with. The kernel's extensible_host_controller_interface
+# module is its volatile half, the same split as `non_volatile_memory_express` above.
+extensible_host_controller_interface = { version = "0.1.0", path = "../crates/extensible_host_controller_interface" }
 elf = { version = "0.1.0", path = "../crates/elf" }
 page_frames = { version = "0.1.0", path = "../crates/page_frames" }
 intrusive_fifo = { version = "0.1.0", path = "../crates/intrusive_fifo" }
@@ -280,6 +288,12 @@ lock_wait = ["job_mix"]
 # OVMF and stages the stick image. See kernel/src/disk_throughput.rs and
 # notes/risk-6-bench-evening.md. Name provisional.
 disk_throughput = []
+# **Milestone 494 (a driver for the network card a PC actually has)'s bench boot**: after the tour,
+# bring up the `e1000e` NIC, print which IOMMU unit owns it, take a DHCP lease, drain a TCP stream
+# from the peer named at build time (`NIFE_NETWORK_BENCH_PEER=a.b.c.d:port`) and halt with one
+# verdict. Off by default and in no gate; `cargo xtask network-bench` rehearses it under OVMF and
+# stages the stick. See kernel/src/network_bench.rs and notes/e1000e.md. Name provisional.
+network_bench = []
 # The rebooting soak (milestone 249 (the boot lottery is sampled by a person walking to the board)): after a fixed window the soak asks the firmware for a **cold
 # reboot** instead of beating forever, so the boot-time thread-placement lottery can be drawn fifty
 # times unattended rather than nine times by a person walking to the board. All three

@@ -1,0 +1,12 @@
+#!/bin/sh
+# The peer `cargo xtask network-bench` rehearses milestone 494 (a driver for the network card a PC
+# actually has)'s bench boot against. QEMU's slirp runs this once per connection to 10.0.2.9:9494
+# (a `guestfwd` in helpers/qemu-uefi-x86_64.sh), with the connection on stdin and stdout, the same
+# way the TCP echo peer at 10.0.2.9:7777 is a `/bin/cat`: it writes NIFE_NETWORK_BENCH_BYTES bytes
+# (8 MiB unless set) and closes, which is what the bench boot's drain client reads and times.
+#
+# On the bench the peer is a real host on the LAN doing the same thing; notes/e1000e.md has the
+# one line for that. A number this produces under QEMU is a number about QEMU.
+#
+# Name: provisional (milestone 494's lane, 2026-10-04).
+exec head -c "${NIFE_NETWORK_BENCH_BYTES:-8388608}" /dev/zero

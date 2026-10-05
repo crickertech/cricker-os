@@ -1,0 +1,15 @@
+Falsifies `e1000e::proofs::a_delivered_frame_always_fits_the_buffer_and_the_room`.
+
+The defect: the receive verdict forgets the caller's room. Every length the device can state up to
+a full frame is then accepted, so a caller offering a 576-byte buffer is told to copy 1514.
+
+Expected to fail: the harness's `assert!(n <= room)`, on any word with a valid length above room.
+
+diff --git a/crates/e1000e/src/lib.rs b/crates/e1000e/src/lib.rs
+--- a/crates/e1000e/src/lib.rs
++++ b/crates/e1000e/src/lib.rs
+@@ -330,3 +330,3 @@ pub fn rx_verdict(word: u64, room: usize) -> RxVerdict {
+     let len = (word & 0xffff) as usize;
+-    let fits = (14..=MAX_FRAME).contains(&len) && len <= room && len as u64 <= BUFFER_SIZE;
++    let fits = (14..=MAX_FRAME).contains(&len) && len as u64 <= BUFFER_SIZE;
+     if status & RX_STATUS_EOP == 0 || errors & RX_ERRORS_FRAME != 0 || !fits {

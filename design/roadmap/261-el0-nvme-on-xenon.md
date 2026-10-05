@@ -166,6 +166,22 @@ kernel brought up the DMAR's first VT-d unit, very likely xenon's graphics unit,
 device confined while any unit translated; that page's first night-of condition has the evidence
 and the fix.
 
+## The first silicon runs, 2026-10-04
+
+Three boots, transcribed in `bench/xenon-2026-10-04/` from calef's photographs. Main (milestone
+594 in) tore the screen as the VT-d units came up. The image from before milestone 594 passed
+preflight 1, the catch-all unit `0xfed91000` owning the NVMe at 01:00.0, then failed bring-up with
+`CompletionTimeout`. A diagnostic image found why: the catch-all unit does not snoop the CPU caches
+(`ECAP.C` = 0) and the kernel never wrote its VT-d tables back, so the controller's first admin
+fetch faulted on a root entry the unit read as absent. The fix is in
+`kernel/src/arch/x86_64/iommu.rs` (`Unit::publish`); the reading, and why QEMU could not show it,
+is in notes/risk-6-bench-evening.md.
+
+Main with that fix then passed all three bench boots: both preflights PASS, 16384 of 16384
+blocks verified each time, `CONFINED-AT-RATE`. Medians: write 458142471 B/s, read 271854622 B/s
+(16% spread across boots). Queue depth 1, polled, one pass, and no Linux comparison yet; the
+bench note's Results have the spread and the caveats.
+
 ## The proof that this milestone worked
 
 **A confined EL0 process drives xenon's real NVMe at a measured throughput, with VT-d translating
@@ -180,12 +196,12 @@ about a real device at real speed.
 *Reviewed 2026-09-17 against what the build learned. The first entry got sharper rather than
 weaker, the fourth is partly answered, and two are new.*
 
-- Whether xenon's DMAR gives the NVMe to the unit this kernel translates is still unread, and
-  with the driver at EL0 it is the whole confinement story. The bench boot's first preflight line
-  now answers it in print; the catch-all path has run only against host-test tables.
-- Nothing here is measured. "At throughput" still has no number attached. Nothing in this lane's
-  work produced one and nothing should be read as one: a QEMU figure is a figure about QEMU, and
-  risk 6's clause is specifically about a real device at real speed.
+- Answered 2026-10-04: xenon's DMAR gives the NVMe to the catch-all unit, and preflight 1
+  passed on the real table. The unit then failed to read its own tables (above), so confinement
+  on silicon is proven only in the negative so far: the unit did fault the device.
+- Measured on xenon on 2026-10-04, but at queue depth 1, polled, one pass per boot. The figures
+  are a lower bound on the device. With no Linux `fio` run on the same disk and shape, "real speed"
+  is still unclaimed.
 - xenon halts at POST without a keyboard, so every boot here is attended until the two settings
   milestone 260 names are changed. That makes an iteration loop expensive in exactly the way the
   netboot work was meant to fix. Unchanged, and it is now the main cost of the remaining step,
@@ -215,10 +231,10 @@ weaker, the fourth is partly answered, and two are new.*
 
 ## Follow-on
 
-- **Outstanding.** The bench step, which is the whole of what remains and is the only part that
-  answers fatal risk 6, including whether xenon's DMAR scope covers the NVMe: three boots of the
-  bench image, photographed, read by
-  [notes/risk-6-bench-evening.md](../../notes/risk-6-bench-evening.md). Checked 2026-09-24.
+- **Done.** The bench step that answers fatal risk 6, 2026-10-04: three boots of main with the
+  table write-back, photographed, all `CONFINED-AT-RATE` with the NVMe owned by the catch-all
+  unit (`bench/xenon-2026-10-04/`, read by
+  [notes/risk-6-bench-evening.md](../../notes/risk-6-bench-evening.md)).
 - **Milestone 594.** Milestone 594 (every VT-d unit translates its own devices): every unit up,
   each device routed to its owner, RMRRs identity-mapped (number provisional, promoted 2026-09-25).
 - **Milestone 651.** Milestone 651 (the NVMe boot test on a machine whose IOMMU does not own the controller). `design/roadmap/651-the-nvme-test-on-a-machine-whose-iommu-does-not-own-it.md`:

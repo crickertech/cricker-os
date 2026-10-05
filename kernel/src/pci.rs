@@ -372,6 +372,50 @@ pub fn bridge_bus_range(bus: u8, dev: u8, func: u8) -> Option<(u8, u8)> {
     Some((b.secondary, b.subordinate))
 }
 
+/// **Bench diagnostic for fatal risk 6's CompletionTimeout on xenon (2026-10-04).** The command
+/// and status words of the NVMe function `rid` and of every bridge on bus 0 whose range holds its
+/// bus. A root port with Bus-Master clear forwards no upstream DMA, and this kernel sets
+/// Bus-Master on the endpoint only; status bits name an abort the endpoint saw. Two short lines,
+/// at most, so the photograph holds them.
+#[cfg(feature = "disk_throughput")]
+pub fn print_dma_path(rid: u32) {
+    let ep = Bdf {
+        bus: (rid >> 8) as u8,
+        dev: ((rid >> 3) & 0x1f) as u8,
+        func: (rid & 7) as u8,
+    };
+    let w = cfg_read32(ep, pci::COMMAND);
+    crate::println!(
+        "diag pci  {:02x}:{:02x}.{} cmd {:#06x} sts {:#06x} (bme {})",
+        ep.bus,
+        ep.dev,
+        ep.func,
+        w & 0xffff,
+        w >> 16,
+        w >> 2 & 1
+    );
+    for dev in 0..32u8 {
+        for func in 0..8u8 {
+            let Some((sec, sub)) = bridge_bus_range(0, dev, func) else {
+                continue;
+            };
+            if ep.bus == 0 || ep.bus < sec || ep.bus > sub {
+                continue;
+            }
+            let b = Bdf { bus: 0, dev, func };
+            let w = cfg_read32(b, pci::COMMAND);
+            // Secondary status is the upper half of the dword at 0x1c (I/O base and limit below).
+            let sec_sts = cfg_read32(b, 0x1c) >> 16;
+            crate::println!(
+                "diag pci  bridge 00:{dev:02x}.{func} cmd {:#06x} sts {:#06x} secsts {sec_sts:#06x} (bme {})",
+                w & 0xffff,
+                w >> 16,
+                w >> 2 & 1
+            );
+        }
+    }
+}
+
 fn cfg_write32(bdf: Bdf, off: u64, v: u32) {
     let va = mmu::phys_to_virt(ECAM_BASE.load(Ordering::Relaxed) + bdf.ecam_offset() + (off & !3));
     // SAFETY: as above; config writes go to the one function this bdf names.
@@ -709,23 +753,7 @@ fn bring_up(bdf: Bdf, device_type: u32) -> Option<PciVirtioDevice> {
         (cmd | pci::CMD_MEMORY_SPACE | pci::CMD_BUS_MASTER) as u32,
     );
 
-    // **How this function's interrupt reaches a driver**, and the machine decides rather than this
-    // module. `arch::irq::alloc_msi_vector` answers `Some` only where the machine wants MSI-X;
-    // both `virt` boards answer `None` and fall through to the INTx swizzle they have always used.
-    // See milestone 215 (a PCI function's interrupt on x86_64) for why x86_64 differs.
-    let (intid, msix_vector) = match crate::arch::irq::alloc_msi_vector() {
-        Some((intid, target)) => {
-            // **A refusal rather than a fallback**, and the reason is the bug this milestone
-            // exists to fix. A machine that answered `Some` has no other way to deliver a PCI
-            // interrupt, so falling back to `intx_intid` here would compute
-            // `intx_irq(PCI_IRQ_BASE, ..)` with a base that is 0 and admits it, hand back an
-            // intid that resolves to the PIT's line, and produce a driver armed on the timer with
-            // nothing anywhere saying so. That is precisely what milestone 164's lane measured.
-            let vector = program_msix(bdf, &bars, target)?;
-            (intid, vector)
-        }
-        None => (intx_intid(bdf)?, pci::VIRTIO_MSIX_NO_VECTOR),
-    };
+    let (intid, msix_vector) = function_interrupt(bdf, &bars, false)?;
 
     Some(PciVirtioDevice {
         bdf,
@@ -738,6 +766,70 @@ fn bring_up(bdf: Bdf, device_type: u32) -> Option<PciVirtioDevice> {
         rid: bdf.requester_id(),
         device_type,
     })
+}
+
+/// **How this function's interrupt reaches a driver**: `(intid, msix_vector)`, and the machine
+/// decides rather than this module. `arch::irq::alloc_msi_vector` answers `Some` only where the
+/// machine wants message-signalled interrupts; both `virt` boards answer `None` and fall through to
+/// the INTx swizzle they have always used. See milestone 215 (a PCI function's interrupt on
+/// x86_64) for why x86_64 differs.
+///
+/// `msi_fallback` lets a function with **MSI and no MSI-X** take plain MSI (milestone 242 (USB
+/// host and HID)): the xHCI on an Intel PCH, xenon's USB controller, is one. The virtio functions
+/// pass `false`, because every one of them has MSI-X and a virtio queue names its vector by MSI-X
+/// table index, which MSI has no equivalent of. `msix_vector` is
+/// `pci::VIRTIO_MSIX_NO_VECTOR` whenever the answer was not MSI-X.
+fn function_interrupt(bdf: Bdf, bars: &[Option<Bar>; 6], msi_fallback: bool) -> Option<(u32, u16)> {
+    match crate::arch::irq::alloc_msi_vector() {
+        Some((intid, target)) => {
+            // **A refusal rather than a fallback to INTx**, and the reason is the bug milestone
+            // 215 exists to fix. A machine that answered `Some` has no other way to deliver a PCI
+            // interrupt, so falling back to `intx_intid` here would compute
+            // `intx_irq(PCI_IRQ_BASE, ..)` with a base that is 0 and admits it, hand back an
+            // intid that resolves to the PIT's line, and produce a driver armed on the timer with
+            // nothing anywhere saying so. That is precisely what milestone 164's lane measured.
+            if msi_fallback
+                && pci::msix_cap(bdf, &mut |b, o| cfg_read32(b, o)).is_none()
+                && program_msi(bdf, target)
+            {
+                return Some((intid, pci::VIRTIO_MSIX_NO_VECTOR));
+            }
+            let vector = program_msix(bdf, bars, target)?;
+            Some((intid, vector))
+        }
+        None => Some((intx_intid(bdf)?, pci::VIRTIO_MSIX_NO_VECTOR)),
+    }
+}
+
+/// **Point this function's one MSI vector at `target` and enable it** (milestone 242 (USB host and
+/// HID)). `false`, having touched nothing, when the function has no MSI capability.
+///
+/// Address and data first, enable last, so no half-written message is ever live; one vector
+/// (Multiple Message Enable left 0), because one is what every driver here asks for.
+fn program_msi(bdf: Bdf, target: pci::MsiTarget) -> bool {
+    let Some(cap) = pci::msi_cap(bdf, &mut |b, o| cfg_read32(b, o)) else {
+        return false;
+    };
+    cfg_write32(bdf, cap.address_low(), target.address as u32);
+    if cap.is_64 {
+        cfg_write32(bdf, cap.address_low() + 4, (target.address >> 32) as u32);
+    }
+    // The data register is 16 bits, and the dword holding it has the (64-bit) layout's reserved
+    // half or the next register above it; a read-modify-write keeps whichever it is.
+    let old = cfg_read32(bdf, cap.data());
+    cfg_write32(
+        bdf,
+        cap.data(),
+        (old & 0xffff_0000) | (target.data & 0xffff),
+    );
+    let head = cfg_read32(bdf, cap.cap_offset);
+    let control = ((head >> 16) as u16 & !(0x7 << 4)) | pci::MSI_ENABLE;
+    cfg_write32(
+        bdf,
+        cap.cap_offset,
+        (head & 0xffff) | (control as u32) << 16,
+    );
+    true
 }
 
 /// The INTx path: read the function's interrupt pin and swizzle it onto this board's controller.
@@ -891,6 +983,160 @@ pub fn find_nvme_device() -> Option<PciNvmeDevice> {
     Some(PciNvmeDevice {
         bar0,
         rid: bdf.requester_id(),
+    })
+}
+
+/// **An enumerated, brought-up xHCI controller** (milestone 242 (USB host and HID)): its register
+/// file placed and decoding, bus mastering on, its interrupt resolved, and the byte ranges of BAR0
+/// its MSI-X structures occupy, which the driver must never be mapped.
+#[derive(Debug, Clone, Copy)]
+pub struct PciXhciDevice {
+    /// The register file's physical base (BAR0).
+    pub bar0: u64,
+    /// BAR0's size in bytes.
+    pub bar_bytes: u64,
+    /// The PCIe requester id the IOMMU confines DMA by.
+    pub rid: u32,
+    /// The interrupt a driver binds and waits on, as [`PciVirtioDevice::intid`].
+    pub intid: u32,
+    /// The MSI-X table and pending-bit array, as byte ranges into BAR0, `(0, 0)` where one is
+    /// absent or lives in another BAR. Withheld from the driver's mapping.
+    pub withheld: [(u64, u64); 2],
+}
+
+/// **Find the first xHCI controller on the bus and bring its transport up**, the
+/// [`find_nvme_device`] shape plus an interrupt: size and place the BARs, enable memory decoding and
+/// bus mastering, resolve how its interrupt arrives. `None` if no function carries the xHCI class
+/// code, or one does and has no BAR0 or no interrupt this machine can route.
+///
+/// Bus-Master before confinement, as [`find_nvme_device`] does and for its reason: on a machine
+/// with an IOMMU the controller cannot reach a byte until `iommu::confine` maps its region.
+pub fn find_xhci_device() -> Option<PciXhciDevice> {
+    if !is_host_bridge_present() {
+        return None;
+    }
+    let mut found: Option<Bdf> = None;
+    pci::enumerate(
+        ecam_buses(),
+        &mut |b, o| cfg_read32(b, o),
+        &mut |bdf, _, _| {
+            if found.is_none() && cfg_read32(bdf, pci::CLASS_REVISION) >> 8 == pci::CLASS_XHCI {
+                found = Some(bdf);
+            }
+        },
+    );
+    let bdf = found?;
+
+    let mut bars = pci::read_bars(bdf, &mut |b, o| cfg_read32(b, o), &mut |b, o, v| {
+        cfg_write32(b, o, v);
+    });
+    if !place_bars(bdf, &mut bars) {
+        return None;
+    }
+    let bar = bars[0].as_ref()?;
+    let (bar0, bar_bytes) = (bar.base, bar.size);
+
+    let cmd = cfg_read32(bdf, pci::COMMAND) as u16;
+    cfg_write32(
+        bdf,
+        pci::COMMAND,
+        (cmd | pci::CMD_MEMORY_SPACE | pci::CMD_BUS_MASTER) as u32,
+    );
+
+    let (intid, _) = function_interrupt(bdf, &bars, true)?;
+
+    // The MSI-X table's and pending-bit array's byte ranges in BAR0, whether or not this machine
+    // uses MSI-X: a driver that could write the table could enable and aim it, whatever this
+    // kernel chose.
+    let mut withheld = [(0, 0); 2];
+    if let Some(cap) = pci::msix_cap(bdf, &mut |b, o| cfg_read32(b, o)) {
+        if cap.table_bar == 0 {
+            let at = u64::from(cap.table_offset);
+            withheld[0] = (at, at + u64::from(cap.table_size) * pci::MSIX_ENTRY_BYTES);
+        }
+        if cap.pba_bar == 0 {
+            let at = u64::from(cap.pba_offset);
+            // One bit per entry, in whole quadwords.
+            withheld[1] = (at, at + u64::from(cap.table_size).div_ceil(64) * 8);
+        }
+    }
+
+    Some(PciXhciDevice {
+        bar0,
+        bar_bytes,
+        rid: bdf.requester_id(),
+        intid,
+        withheld,
+    })
+}
+
+/// An enumerated, brought-up `e1000e`-family NIC (milestone 494 (a driver for the network card a
+/// PC actually has)): BAR0 placed and decoding, bus mastering on, the requester id known so the
+/// caller can confine its DMA before the device is told where any ring is. No INTx line, for the
+/// reason [`PciNvmeDevice`] has none: the data plane polls.
+#[derive(Debug, Clone, Copy)]
+pub struct PciE1000eDevice {
+    /// The register file's physical base (BAR0, 128 KiB on the 82574L).
+    pub bar0: u64,
+    /// The PCIe requester id, the key the IOMMU confines DMA by.
+    pub rid: u32,
+    /// The PCI device id, which says which part this is (`e1000e::model`).
+    pub device: u16,
+    bdf: Bdf,
+}
+
+impl PciE1000eDevice {
+    /// Read a dword of this function's configuration space. The I219's descriptor-ring flush
+    /// reads its status word at `0xe4` (`e1000e::pch::flush`), which is the one reason a NIC
+    /// driver here needs configuration space after bring-up.
+    pub fn config_read32(&self, off: u64) -> u32 {
+        cfg_read32(self.bdf, off)
+    }
+}
+
+/// Find the first function `e1000e::is_supported` claims and bring its transport up, in
+/// [`find_nvme_device`]'s order and for its reasons: BARs placed, then memory decoding and bus
+/// mastering last. `None` if no such function is on the bus.
+///
+/// **The same shape as `find_nvme_device` with a different predicate**, and a third copy is where
+/// a shared `find_function(predicate)` should be lifted rather than written (milestone 242 (USB host and a keyboard that is not a UART)'s xHCI
+/// lane is in the same position). Not lifted here, so this lane does not edit the NVMe path.
+pub fn find_e1000e_device() -> Option<PciE1000eDevice> {
+    if !is_host_bridge_present() {
+        return None;
+    }
+    let mut found: Option<(Bdf, u16)> = None;
+    pci::enumerate(
+        ecam_buses(),
+        &mut |b, o| cfg_read32(b, o),
+        &mut |bdf, vendor, device| {
+            if found.is_none() && ::e1000e::is_supported(vendor, device) {
+                found = Some((bdf, device));
+            }
+        },
+    );
+    let (bdf, device) = found?;
+
+    let mut bars = pci::read_bars(bdf, &mut |b, o| cfg_read32(b, o), &mut |b, o, v| {
+        cfg_write32(b, o, v);
+    });
+    if !place_bars(bdf, &mut bars) {
+        return None;
+    }
+    let bar0 = bars[0].as_ref().map(|b| b.base)?;
+
+    let cmd = cfg_read32(bdf, pci::COMMAND) as u16;
+    cfg_write32(
+        bdf,
+        pci::COMMAND,
+        (cmd | pci::CMD_MEMORY_SPACE | pci::CMD_BUS_MASTER) as u32,
+    );
+
+    Some(PciE1000eDevice {
+        bar0,
+        rid: bdf.requester_id(),
+        device,
+        bdf,
     })
 }
 

@@ -4,7 +4,7 @@
 //!
 //! Milestone 515 (a stick that puts itself on the machine's disk) is the proposal it follows.
 //!
-//! # Why it is two boots
+//! # Why it is two boots, and then a third
 //!
 //! **A sequence that only works while the stick is still attached has not installed anything.** The
 //! second boot is therefore the whole gate: the first one is a setup step for it, and everything the
@@ -20,16 +20,23 @@
 //!   leftovers, and it is the measurement milestone 515 calls B1 and calls unmeasured.
 //! - **The NVMe image is created empty**, every run, so nothing survives from the last one.
 //!
+//! The third boot is the stick again, on the machine it installed, with nobody typing anything
+//! ([`stick_on_the_installed_machine`]). It is the live stick proposal's G1 and G2 as a measurement:
+//! which system ran, and whether the disk changed by a single byte.
+//!
 //! # EXAMPLES
 //!
 //! ```console
 //! $ cargo xtask install-boot
-//! --- boot 1 of 2: the stick installs itself onto an empty NVMe disk ---
+//! --- the stick installs itself onto an empty NVMe disk ---
 //!   install     : installed. nife data at LBA 2048, EFI system at LBA 1046528.
-//! --- boot 2 of 2: the same machine with the stick detached ---
+//! --- boot 2 of 3: the same machine with the stick detached ---
 //! BdsDxe: loading Boot0001 "UEFI QEMU NVMe Ctrl nife-nvme 1" ...
 //! $ ls
 //!   made-on-target
+//! --- boot 3 of 3: the stick again, with the installed disk attached ---
+//! uefi_loader: the boot slots here are on another disk; this file's medium has none, so it is using the image in this file
+//! install-boot: boot 3 left the installed disk byte-for-byte unchanged
 //! install-boot: PASS
 //! ```
 //!
@@ -44,6 +51,14 @@
 //!   two boots were said to take several minutes under TCG. Measured 2026-10-03 on an Apple M-series
 //!   host, warm: 42.5 seconds for the whole gate. Nothing schedules it either, so a break is found
 //!   by whoever next runs it by hand: `design/roadmap/712-the-install-gates-run-nowhere.md`.
+//! - **Boot 3 proves the stick left the disk alone under OVMF, and only there.** What keeps it so
+//!   is the `boot_slot::medium` token (calef's ruling on PR #1652, 2026-10-04 UTC): the loader
+//!   writes it only when its file is on an NVMe namespace, and a real firmware that built that
+//!   device path differently would leave an installed machine without its filesystem rather than
+//!   a stick with one.
+//! - **Boot 3 needs the disk in the firmware's boot order.** OVMF connects only the devices its boot
+//!   options name, so with the stick alone the loader never sees the disk and G1 cannot happen.
+//!   `NIFE_NVME_DEVICE_OPTS=,bootindex=1` is what makes it the machine a boot menu would give.
 //! - **A failure leaves the NVMe image behind**, on purpose: it is the evidence, and
 //!   `hdiutil attach -imagekey diskimage-class=CRawDiskImage` on the partition reads the EFI system
 //!   partition it wrote.
@@ -96,7 +111,7 @@ pub(crate) fn install_boot() -> bool {
     }
 
     eprintln!();
-    eprintln!("--- boot 2 of 2: the same machine with the stick detached ---");
+    eprintln!("--- boot 2 of 3: the same machine with the stick detached ---");
     let Some(second) = boot(
         &empty_esp_dir(),
         true,
@@ -145,10 +160,180 @@ pub(crate) fn install_boot() -> bool {
         eprintln!("install-boot: boot 2 offered to install over an installed machine");
         ok = false;
     }
+    if !ok {
+        return false;
+    }
+    if !stick_on_the_installed_machine() {
+        return false;
+    }
+    eprintln!("install-boot: PASS");
+    true
+}
+
+/// **Boot 3: the stick again, on the machine it just installed, and nobody types anything.**
+///
+/// The live stick proposal (`design/roadmap/proposals/a-live-stick.md`, G1 and G2) read two defects
+/// out of the code: the stick's loader chain-loads the installed disk's boot slot instead of
+/// running its own image, and a stick boot mounts the internal disk, which writes it. This boot is
+/// the measurement. It asserts which system ran, and it compares the disk byte for byte before and
+/// after, so a write anywhere (the partition table, the filesystem, the EFI system partition) fails
+/// it and is named by region.
+///
+/// It comes after boot 2 on purpose: by then the installed system has booted once and confirmed
+/// itself, so anything this boot changes is the stick's doing and not the install settling.
+fn stick_on_the_installed_machine() -> bool {
+    eprintln!();
+    eprintln!("--- boot 3 of 3: the stick again, with the installed disk attached ---");
+    let before = workspace_root().join("target/nife-install-before-stick.img");
+    let _ = std::fs::remove_file(&before);
+    // `fs::copy` clones on APFS, so a 1 GiB sparse image costs nothing to keep.
+    if let Err(e) = std::fs::copy(install_disk_path(), &before) {
+        eprintln!("install-boot: could not snapshot the installed disk: {e}");
+        return false;
+    }
+    let Some(third) = boot_lingering(
+        &install_esp_dir(),
+        false,
+        // `ls` asks for the filesystem, which is what a person at a live stick does first.
+        &[("the progenitor is running at ring 3", "ls\r")],
+        "nife capability shell.",
+        300,
+        // A few seconds after the prompt, so a write the mount or `ls` started has landed.
+        5,
+        // **The disk is a boot option too**, second to the stick. That is what makes OVMF connect
+        // the NVMe controller's block devices before it starts the stick: with the stick alone in
+        // the boot order it connects only the stick, the loader then sees two `BlockIo` handles
+        // and no slots, and G1 cannot happen (measured 2026-10-04). A real firmware's one-time
+        // boot menu has to enumerate every disk to list them, so this is the faithful machine.
+        &[("NIFE_NVME_DEVICE_OPTS", ",bootindex=1")],
+    ) else {
+        return false;
+    };
+
+    // **The firmware must have started the stick**, or nothing below measures the stick at all.
+    // The first run of this boot did not: OVMF preferred the disk, and the gate read the installed
+    // system's own boot as the stick's.
+    if third
+        .lines()
+        .any(|l| l.contains("BdsDxe: starting") && l.contains("NVMe"))
+    {
+        eprintln!(
+            "install-boot: boot 3's firmware started the disk, not the stick; nothing was measured"
+        );
+        return false;
+    }
+    let mut ok = true;
+    // G1: which system ran. A slot is the installed disk's system; this file is the stick's own.
+    if third.contains("uefi_loader: starting boot slot") || third.contains("started from boot slot")
+    {
+        eprintln!(
+            "install-boot: boot 3 ran the INSTALLED system: the stick's loader chain-loaded the disk's boot slot (G1)"
+        );
+        ok = false;
+    }
+    if !third.contains("uefi_loader: the boot slots here are on another disk") {
+        eprintln!("install-boot: boot 3 never said it left the other disk's boot slots alone");
+        ok = false;
+    }
+    if third.contains("EVERYTHING ON THAT DISK WILL BE DESTROYED") {
+        eprintln!("install-boot: boot 3 offered to install over an installed machine");
+        ok = false;
+    }
+    // G2, and G1's write: nothing on the disk may change.
+    let changed = disk_changes(&before, &install_disk_path());
+    match changed {
+        None => ok = false,
+        Some(regions) if regions.is_empty() => {
+            eprintln!("install-boot: boot 3 left the installed disk byte-for-byte unchanged");
+        }
+        Some(regions) => {
+            for r in regions {
+                eprintln!("install-boot: boot 3 WROTE the installed disk: {r}");
+            }
+            ok = false;
+        }
+    }
     if ok {
-        eprintln!("install-boot: PASS");
+        let _ = std::fs::remove_file(&before);
     }
     ok
+}
+
+/// **Which regions of `after` differ from `before`**, named by the partition table `before` carries,
+/// or `None` when either image cannot be read. Empty means the two are identical.
+fn disk_changes(before: &std::path::Path, after: &std::path::Path) -> Option<Vec<String>> {
+    use globally_unique_identifier_partition_table as gpt;
+    const LBA: u64 = 512;
+    let (Ok(mut a), Ok(mut b)) = (std::fs::File::open(before), std::fs::File::open(after)) else {
+        eprintln!("install-boot: could not reopen the disk images to compare them");
+        return None;
+    };
+    let total = a.metadata().ok()?.len();
+    // The regions, from the table as it was before the boot: LBA 0 to 33, every partition, and the
+    // backup table in the last 33 blocks.
+    let mut head = vec![0u8; 34 * LBA as usize];
+    a.read_exact(&mut head).ok()?;
+    let mut regions: Vec<(u64, u64, String)> = vec![(
+        0,
+        33,
+        "LBA 0-33, the protective MBR and the primary partition table".into(),
+    )];
+    if let Ok(table) = gpt::GloballyUniqueIdentifierPartitionTable::parse(
+        &head[LBA as usize..2 * LBA as usize],
+        &head[2 * LBA as usize..],
+    ) {
+        for (i, p) in table.partitions() {
+            let name = gpt::guid::types::name(p.type_guid).unwrap_or("unknown type");
+            regions.push((
+                p.first_lba,
+                p.last_lba,
+                format!("partition {i} ({name}, LBA {}-{})", p.first_lba, p.last_lba),
+            ));
+        }
+    }
+    let last = total / LBA - 1;
+    regions.push((last - 32, last, "the backup partition table".into()));
+
+    use std::io::Seek;
+    a.seek(std::io::SeekFrom::Start(0)).ok()?;
+    let mut hits: Vec<(String, u64, u64)> = Vec::new();
+    let mut x = vec![0u8; 1 << 20];
+    let mut y = vec![0u8; 1 << 20];
+    let mut at = 0u64;
+    while at < total {
+        let n = ((total - at) as usize).min(x.len());
+        a.read_exact(&mut x[..n]).ok()?;
+        b.read_exact(&mut y[..n]).ok()?;
+        if x[..n] != y[..n] {
+            for (k, (p, q)) in x[..n]
+                .chunks(LBA as usize)
+                .zip(y[..n].chunks(LBA as usize))
+                .enumerate()
+            {
+                if p == q {
+                    continue;
+                }
+                let lba = at / LBA + k as u64;
+                let name = regions
+                    .iter()
+                    .find(|(f, l, _)| (*f..=*l).contains(&lba))
+                    .map_or_else(|| "outside every partition".to_string(), |r| r.2.clone());
+                match hits.iter_mut().find(|h| h.0 == name) {
+                    Some(h) => {
+                        h.1 = h.1.min(lba);
+                        h.2 += 1;
+                    }
+                    None => hits.push((name, lba, 1)),
+                }
+            }
+        }
+        at += n as u64;
+    }
+    Some(
+        hits.into_iter()
+            .map(|(name, first, count)| format!("{count} block(s) in {name}, first at LBA {first}"))
+            .collect(),
+    )
 }
 
 /// **Build everything and write an empty disk**, which is what any gate starting from a bare
@@ -256,6 +441,20 @@ pub(crate) fn boot(
     until: &str,
     timeout_secs: u64,
 ) -> Option<String> {
+    boot_lingering(esp, detached, sends, until, timeout_secs, 0, &[])
+}
+
+/// [`boot`], but keep the machine running `linger_secs` after `until` appears, for a gate that
+/// measures what the machine wrote rather than what it printed.
+fn boot_lingering(
+    esp: &PathBuf,
+    detached: bool,
+    sends: &[(&str, &str)],
+    until: &str,
+    timeout_secs: u64,
+    linger_secs: u64,
+    env: &[(&str, &str)],
+) -> Option<String> {
     // The firmware's variables, fresh. See the module header for why this is the load-bearing line
     // of the second boot.
     let _ = std::fs::remove_file(vars_path());
@@ -274,8 +473,13 @@ pub(crate) fn boot(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    command.envs(env.iter().copied());
     if detached {
         command.env("NIFE_UEFI_NO_STICK", "1");
+    } else {
+        // The person at the machine picked the stick. Harmless on an empty disk, where the stick
+        // is the only thing to boot, and load-bearing on an installed one: see the runner.
+        command.env("NIFE_UEFI_STICK_FIRST", "1");
     }
     let mut child = match command.spawn() {
         Ok(c) => c,
@@ -332,6 +536,21 @@ pub(crate) fn boot(
         if next.is_none() && transcript.contains(until) {
             break;
         }
+    }
+    if linger_secs > 0 && transcript.contains(until) {
+        // Drained on a thread so the guest's console cannot block on a full pipe meanwhile.
+        let drain = std::thread::spawn(move || {
+            let mut rest = Vec::new();
+            let _ = output.read_to_end(&mut rest);
+            String::from_utf8_lossy(&rest).into_owned()
+        });
+        std::thread::sleep(std::time::Duration::from_secs(linger_secs));
+        let _ = Command::new("kill")
+            .args(["-TERM", &child.id().to_string()])
+            .status();
+        let rest = drain.join().unwrap_or_default();
+        print!("{rest}");
+        transcript.push_str(&rest);
     }
 
     // The kernel never exits, so the machine is stopped rather than waited out: SIGTERM to the

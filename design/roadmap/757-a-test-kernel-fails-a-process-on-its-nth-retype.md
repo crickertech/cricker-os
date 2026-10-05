@@ -52,7 +52,7 @@ core's current thread, the one identity the kernel has at those functions withou
   the way. For each N the Nth of a `RETYPE`, a `RETYPE_OBJ` and a `SPLIT` is refused and moves
   nothing, and the others succeed. A fault armed on another thread neither fails nor counts this one.
 
-Support: `sched::capability_table_snapshot` (test kernel only) and `login_service::Wiring::tid`.
+Support: `sched::with_capability_table` (test kernel only) and `login_service::Wiring::tid`.
 
 **Why a shipping kernel cannot contain it.** The module and every call into it are under
 `cfg(feature = "system_tests")`. In any other build the module does not exist, so a hook written
@@ -64,7 +64,7 @@ be a second thing to keep out of shipping builds and would buy nothing, because 
 one relaxed load on paths that are never the IPC round trip. At equal cost the choice is the same.
 
 Names are provisional: `retype_fault` and its `arm`, `disarm`, `Tally` and `fails_now`;
-`capability_table_snapshot`; `Wiring::tid`; the test module and both tests; `lay_out_child` and
+`with_capability_table`; `Wiring::tid`; the test module and both tests; `lay_out_child` and
 `endow_child` in `supervision_protocol`.
 
 ## Measured, 2026-10-04 (UTC), QEMU on a developer machine

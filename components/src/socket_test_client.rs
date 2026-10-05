@@ -56,7 +56,7 @@ use abi::rights;
 use domain_name_system::{Query, Reject, TcpReply};
 use socket_protocol::*;
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
-use user_mode_runtime::{call, exit, map_page_frame, retype_page_frame, send, send_cap};
+use user_mode_runtime::{call, exit, map_page_frame, now, retype_page_frame, send, send_cap};
 
 const REPORT: u64 = 0;
 const STACK: u64 = 1;
@@ -69,6 +69,11 @@ pub const TEST_TCP_REOPEN: u64 = 3;
 pub const TEST_UDP_TFTP: u64 = 4;
 pub const TEST_TCP_ACCEPT: u64 = 5;
 pub const TEST_HTTP_PACKAGE: u64 = 6;
+/// **Drain a TCP stream from a peer named at spawn, and time it** (milestone 494 (a driver for the
+/// network card a PC actually has)'s bench boot). The second start word is the peer, packed
+/// `ipv4 << 16 | port`. Not a gate: its peer is a host on a real LAN, or a slirp `guestfwd` command
+/// in the rehearsal, and what it reports is a number rather than a verdict.
+pub const TEST_TCP_DRAIN: u64 = 7;
 const OK: u64 = 1;
 /// Reported when an exchange could not be completed **for an environmental reason** rather than a
 /// defect in our stack: today only the real-DNS half of `TEST_NAME_RESOLUTION`, whose upstream is
@@ -834,8 +839,44 @@ fn exchange(stem: &str, tampered: bool, expected: &measured_boot::Digest) -> u64
     }
 }
 
+/// [`TEST_TCP_DRAIN`]: connect to `peer` (`ipv4 << 16 | port`), read until the stream ends, and
+/// report `(OK or a stage code, bytes, counter ticks from the handshake completing to the last
+/// byte)`.
+///
+/// "Ends" is the peer closing or `net_stack`'s 15-second receive bound, whichever comes first,
+/// and neither is counted: the clock stops at the last byte that arrived, so the tail of waiting
+/// for a close that never comes does not dilute the rate. It starts when the handshake completes,
+/// so the first byte's round trip is in the figure, which understates a rate by one RTT.
+fn tcp_drain(peer: u64) -> ! {
+    let ip = ((peer >> 16) as u32).to_be_bytes();
+    let port = peer as u16;
+    attach_page_frame(0);
+    if call(STACK, req(OPERATION_OPEN_TCP, 0), 0).0 != REP_OK {
+        done(0xE0A0);
+    }
+    set_dst(ip, port);
+    if call(STACK, req(OPERATION_CONNECT, 0), 0).0 != CONNECT_ESTABLISHED {
+        done(0xE0A1); // nobody listening at the peer, or no route to it
+    }
+    let mut bytes: u64 = 0;
+    let first = now();
+    let mut last = first;
+    loop {
+        let (got, _) = call(STACK, req(OPERATION_RECEIVE, 0), 0);
+        if got == 0 || got > DATA_MAX as u64 {
+            break;
+        }
+        last = now();
+        bytes += got;
+    }
+    let _ = call(STACK, req(OPERATION_CLOSE, 0), 0);
+    send(REPORT, OK, bytes, last.saturating_sub(first));
+    exit();
+}
+
 /// Run the selected client exchange. Entered from `net_stack`'s `_start` when the entry role is
-/// nonzero; `arg` is the second start word, which only [`TEST_HTTP_PACKAGE`] reads.
+/// nonzero; `arg` is the second start word, which [`TEST_HTTP_PACKAGE`] and [`TEST_TCP_DRAIN`]
+/// read.
 pub fn run(test: u64, arg: u64) -> ! {
     match test {
         TEST_HTTP_PACKAGE => http_package(arg),
@@ -844,6 +885,7 @@ pub fn run(test: u64, arg: u64) -> ! {
         TEST_TCP_ECHO => tcp_echo(),
         TEST_TCP_REOPEN => tcp_reopen(),
         TEST_TCP_ACCEPT => tcp_accept_inbound(),
+        TEST_TCP_DRAIN => tcp_drain(arg),
         _ => done(0xE0FF),
     }
 }

@@ -80,11 +80,11 @@ timetable", and a planted untracked-then-added file failed as a path with no hom
 |---|---|---|---|---|
 | `boot` | base | crates: `bitmap_font*`, `board_console`, `screen_console*`, `sealed_pair*`, `uefi_loader`; programs: `uefi_loader` | interfaces only; 1 dated exception(s) | `boot` (provisional) |
 | `coreutils` | base | programs: `date`, `printenv`, `rm`, `wc` | interfaces only | `coreutils` (provisional) |
-| `drivers` | base | crates: `jh7110_entropy`, `non_volatile_memory_express`, `virtio`; programs: `block_driver`, `jh7110_entropy`, `non_volatile_memory_express`, `serial_driver` | interfaces only | `drivers` (provisional) |
+| `drivers` | base | crates: `e1000e*`, `jh7110_entropy`, `non_volatile_memory_express`, `virtio`; programs: `block_driver`, `jh7110_entropy`, `non_volatile_memory_express`, `serial_driver` | interfaces only | `drivers` (provisional) |
 | `entropy` | base | programs: `entropy` | interfaces only | `entropy` (provisional) |
 | `filesystem` | base | crates: `subtree_scope*`; programs: `fs_file_caretaker`, `fs_nameset_caretaker`, `fs_subtree_caretaker` | interfaces only | `filesystem` (provisional) |
 | `init` | base | crates: `components`, `system_initializer`, `system_log`; programs: `broker`, `job_undertaker`, `progenitor`, `root_supervisor`, `spawner`, `sub_server_supervisor`, `swapper`, `system_log` | `timetable`; 2 dated exception(s) | `init` (provisional) |
-| `kernel` | base | crates: `address_space_identifier`, `capability`, `cpu_set`, `direct_memory_access_validator`, `firmware_configuration`, `generational_table`, `inter_process_communication`, `intrusive_fifo`, `jh7110_clock_and_reset`, `kernel`, `memory_corruption_canary_gate`, `memory_regions`, `page_frames`, `paging`, `pci`, `thread_wake_handshake`, `work_steal_slot`; programs: `kernel` | interfaces only; 6 dated exception(s) | `kernel` (provisional) |
+| `kernel` | base | crates: `address_space_identifier`, `capability`, `cpu_set`, `direct_memory_access_validator`, `firmware_configuration`, `generational_table`, `inter_process_communication`, `intrusive_fifo`, `jh7110_clock_and_reset`, `kernel`, `memory_corruption_canary_gate`, `memory_regions`, `page_frames`, `paging`, `pci`, `thread_wake_handshake`, `work_steal_slot`; programs: `kernel` | interfaces only; 7 dated exception(s) | `kernel` (provisional) |
 | `login` | base | crates: `credentialer`; programs: `credentialer`, `identity_provisioner`, `login`, `login_audit_receiver`, `session` | `timetable` | `login` (provisional) |
 | `mdr` | base | programs: `mdr` | interfaces only | `mdr` (provisional) |
 | `network` | base | crates: `domain_name_system`, `http_response`; programs: `net_stack`; paths: `components/src/net_transport.rs`, `components/src/socket_test_client.rs` | interfaces only | `network` (provisional) |
@@ -95,7 +95,7 @@ timetable", and a planted untracked-then-added file failed as a path with no hom
 | `timetable` | base | crates: `schedule_store`, `timetable`; programs: `timetable`; paths: `components/timetable.conf` | interfaces only | `timetable` (provisional) |
 | `util-linux` | base | programs: `disk_partitioner`, `disk_surveyor`, `uuid` | interfaces only | `util-linux` (provisional) |
 | `demos` | optional | programs: `least_authority_demo` | interfaces only | `demos` (provisional) |
-| `display` | optional | crates: `compositor*`, `video_terminal`; programs: `compositor`, `display_terminal`, `framebuffer_driver`, `gpu_driver`, `graphical_terminal`, `keyboard_driver` | interfaces only | `display` (provisional) |
+| `display` | optional | crates: `compositor*`, `extensible_host_controller_interface`, `usb`, `video_terminal`; programs: `compositor`, `display_terminal`, `framebuffer_driver`, `gpu_driver`, `graphical_terminal`, `keyboard_driver`, `usb_keyboard_driver` | interfaces only | `display` (provisional) |
 | `installer` | optional | programs: `installer` | interfaces only | `installer` (provisional) |
 | `redoxfs` | optional | crates: `redoxfs`, `redoxfs_host`, `redoxfs_server`; programs: `mkfs`, `redoxfs`, `redoxfs-ar`, `redoxfs-clone`, `redoxfs-mkfs`, `redoxfs-resize`, `redoxfs_host`, `redoxfs_server`, `second_mount`; paths: `vendor/redoxfs.divergence.patch`, `vendor/redoxfs.pin` | interfaces only | undecided: the server and host tool are ours and the library is Redox's; whether the port goes upstream is open |
 | `rmle` | optional | programs: `rmle` | interfaces only | `rmle` (provisional) |

@@ -1,0 +1,144 @@
+//! **The `e1000e` data plane inside `net_stack`** (milestone 494 (a driver for the network card a PC
+//! actually has); notes/e1000e.md).
+//!
+//! The volatile shell around `crates/e1000e`'s [`DataPlane`]: two windows and a barrier. The ring
+//! logic, the descriptor formats and the judgement of every word the device writes are in the
+//! crate, host-tested against a simulated device; this file is only the accesses the crate cannot
+//! make for itself. The kernel already reset the device, read its MAC address and set both ring
+//! bases (`kernel/src/e1000e.rs`); what is mapped here, and what is not, is
+//! `kernel/src/user/e1000e_service.rs`'s header.
+//!
+//! A `#[path]` module of `net_stack` beside `net_transport.rs`, which is milestone 494's
+//! recommendation: the driver runs in the process that runs the stack, as virtio-net does. A
+//! separate driver process would put a NIC parser and a TCP stack in different address spaces, and
+//! the block records that at equal cost that would be preferred; the reason it is not done here is
+//! effort (a frame protocol two programs agree on), said in those words.
+//!
+//! # BUGS
+//!
+//! - **Polled.** No interrupt is granted (the service's header says why), so a wait for a frame is
+//!   a sleep of [`POLL_MS`] between looks at the ring. Latency is up to that much worse than the
+//!   virtio server's on an idle link; nothing polls while no request is being served.
+//! - **A full transmit ring drops the frame** after a bounded wait, and the stack above retransmits.
+//!   The virtio transport makes the same trade.
+//!
+//! Name: provisional (milestone 494's lane, 2026-10-04). `<device>_transport` after
+//! `net_transport`, its sibling in the same binary; `e1000e` is the family name, as in
+//! `crates/e1000e`, whose own header carries the argument and leaves the choice to an architect.
+
+use alloc::vec::Vec;
+
+use e1000e::process::{DATA_PLANE_VA, RX_QUEUE_VA, TX_QUEUE_VA};
+use e1000e::{DataPlane, Handoff, MAX_FRAME, Region, TAIL_IN_PAGE, Tails, layout};
+use user_mode_runtime::mapped_window::{MappedWindow, PAGE, doorbell_barrier};
+
+/// How long the poll loop sleeps between looks at the receive ring when smoltcp has nothing sooner.
+pub const POLL_MS: u64 = 1;
+
+// SAFETY: the spawner maps `layout::PAGES` pages of the DMA region read/write at DATA_PLANE_VA,
+// and one device-typed page at each queue VA, before `_start` runs (`e1000e_service`).
+const PLANE: MappedWindow = unsafe { MappedWindow::new(DATA_PLANE_VA, layout::PAGES * PAGE) };
+// SAFETY: as above.
+const RX_QUEUE: MappedWindow = unsafe { MappedWindow::new(RX_QUEUE_VA, PAGE) };
+// SAFETY: as above.
+const TX_QUEUE: MappedWindow = unsafe { MappedWindow::new(TX_QUEUE_VA, PAGE) };
+
+/// The region, through its window: every offset bounds-checked by `MappedWindow`.
+struct Plane;
+
+impl Region for Plane {
+    fn read_u64(&self, off: u64) -> u64 {
+        PLANE.r64(off)
+    }
+    fn write_u64(&mut self, off: u64, v: u64) {
+        PLANE.w64(off, v);
+    }
+    fn read_bytes(&self, off: u64, out: &mut [u8]) {
+        let (words, rest) = out.as_chunks_mut::<8>();
+        let mut at = off;
+        for w in words {
+            *w = PLANE.r64(at).to_le_bytes();
+            at += 8;
+        }
+        for b in rest {
+            *b = PLANE.r8(at);
+            at += 1;
+        }
+    }
+    fn write_bytes(&mut self, off: u64, src: &[u8]) {
+        let (words, rest) = src.as_chunks::<8>();
+        let mut at = off;
+        for w in words {
+            PLANE.w64(at, u64::from_le_bytes(*w));
+            at += 8;
+        }
+        for &b in rest {
+            PLANE.w8(at, b);
+            at += 1;
+        }
+    }
+}
+
+/// The two tails, each on its own mapped page of BAR0.
+struct Queues;
+
+impl Tails for Queues {
+    fn set_rx_tail(&mut self, v: u32) {
+        RX_QUEUE.w32(TAIL_IN_PAGE, v);
+    }
+    fn set_tx_tail(&mut self, v: u32) {
+        TX_QUEUE.w32(TAIL_IN_PAGE, v);
+    }
+    fn barrier(&mut self) {
+        doorbell_barrier();
+    }
+}
+
+/// The NIC as `net_stack` sees it.
+pub struct GigabitNic {
+    plane: DataPlane,
+    mac: [u8; 6],
+}
+
+impl GigabitNic {
+    /// Post the receive buffers and clear the transmit ring; the device is already running.
+    pub fn bring_up(handoff: Handoff) -> GigabitNic {
+        let mut plane = DataPlane::new(handoff.data_plane_phys);
+        plane.start(&mut Plane, &mut Queues);
+        GigabitNic {
+            plane,
+            mac: handoff.mac,
+        }
+    }
+
+    /// The station address the kernel read from the device.
+    pub fn mac(&self) -> [u8; 6] {
+        self.mac
+    }
+
+    /// The next received frame, if the device has written one.
+    pub fn rx_take(&mut self) -> Option<Vec<u8>> {
+        let mut buf = [0u8; MAX_FRAME];
+        let n = self.plane.receive(&mut Plane, &mut Queues, &mut buf)?;
+        Some(buf[..n].to_vec())
+    }
+
+    /// Queue `frame`, waiting a bounded while for a descriptor if the ring is full.
+    pub fn tx_send(&mut self, frame: &[u8]) {
+        for _ in 0..100_000 {
+            if self.plane.can_transmit(&mut Plane) {
+                break;
+            }
+            core::hint::spin_loop();
+        }
+        // Full after the wait, or a frame smoltcp should never have built: dropped, and the stack
+        // above retransmits what mattered (this module's BUGS).
+        let _ = self.plane.transmit(&mut Plane, &mut Queues, frame);
+    }
+
+    /// Whether a frame is waiting, without taking it, so the poll loop can skip a sleep.
+    pub fn frame_waiting(&self) -> bool {
+        let word = PLANE.r64(layout::rx_descriptor(self.plane.rx_cursor()) + 8);
+        e1000e::rx_verdict(word, MAX_FRAME) != e1000e::RxVerdict::NotYet
+    }
+}

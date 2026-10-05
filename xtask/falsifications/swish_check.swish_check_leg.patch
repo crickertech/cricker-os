@@ -21,9 +21,10 @@ at `spawnproto::SHELL_GPU_SLOT` onward, with `GRANT`, which is what it did from 
 (graphics on demand) to milestone 715. The spawn service still holds its own, so launches keep
 working; only the shell's table is wider.
 
-Expected to fail: the second boot (a gpu, no keyboard) wants the census to end ` 21 30`, and the
-shell reports `slots held: 0 1 2 3 4 5 20 21 22 23 24 25 30`. Replayed 2026-10-03 (UTC): exit 1
-at that line; the fixed tree reads `slots held: 0 1 2 3 4 5 20 21 30` and exits 0 past it.
+Expected to fail: the second boot (a gpu, no keyboard) wants the census to end ` 21 62`, and the
+shell reports `slots held: 0 1 2 3 4 5 20 21 22 23 24 25 62`. Replayed 2026-10-03 (UTC): exit 1
+at that line; the fixed tree reads `slots held: 0 1 2 3 4 5 20 21 62` and exits 0 past it. (The
+run-unvouched slot was 30 on that date and is 62 since milestone 754 (the capability table grows to 64 slots); the replay was not repeated.)
 
 diff --git a/crates/system_initializer/src/lib.rs b/crates/system_initializer/src/lib.rs
 index 41bfd4914..4af5fef66 100644

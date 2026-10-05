@@ -1,6 +1,7 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-09-24
+built: 2026-10-04
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: x86_64 silicon with two VT-d units and RMRRs
@@ -13,7 +14,11 @@ needs_person: yes
 on 2026-09-25 from the proposal `every-vt-d-unit-translates-its-own-devices`, which milestone 261
 (the NVMe driver leaves the kernel)'s bench rehearsal filed on 2026-09-24. It also closes milestone
 378 (read the DMAR on xenon)'s third item, carrying more than one DRHD. Built and proven on
-patagonia; what is left needs xenon.
+patagonia, then BUILT on 2026-10-04 by bench boot 1 on xenon
+(`bench/xenon-2026-10-04/boot-e-main-clflush-1.log`): both units translating, the screen intact,
+the NVMe confined by the catch-all. That boot needed the VT-d table write-back (`Unit::publish` in
+`kernel/src/arch/x86_64/iommu.rs`), which lands with this status in the same pull request; on xenon
+this milestone does not work without it.
 
 Of the second kind: the machine exists and somebody has to be at it. QEMU
 presents one VT-d unit and no RMRRs, so the two-unit route and the RMRR path are proven on host
@@ -104,10 +109,21 @@ Each is also written beside the code, in `kernel/src/arch/x86_64/iommu.rs`'s BUG
 - The graphics unit translates with nothing but its RMRR mapped. The screen survives only if that
   RMRR covers what the display engine scans; Linux translates the same unit on Skylake and Kaby
   Lake without a quirk. notes/risk-6-bench-evening.md says what to watch.
+- **xenon's first boot under this kernel (2026-10-04, at a08efc8dc) tore the screen** as the
+  `vt-d ... up` lines printed, the outcome step 2 of the bench note predicted for an RMRR that
+  misses the scanout. The same evening showed a likelier cause: the catch-all unit does not snoop
+  (`ECAP.C` = 0) and this driver never wrote its tables back, so the graphics RMRR was mapped into
+  tables the graphics unit could not read either. That is inference, since the graphics unit's
+  `ECAP` was not read. Fixed in `kernel/src/arch/x86_64/iommu.rs` (`Unit::publish`).
+  **Answered the same evening:** main with the write-back booted on xenon with both units
+  translating and the screen intact (`bench/xenon-2026-10-04/boot-e-main-clflush-1.log`). The
+  tear was the cache defect; the graphics RMRR covers the scanout.
 
 ## Follow-on
 
-- **Outstanding.** One xenon boot under this kernel, read against notes/risk-6-bench-evening.md.
+- **Done.** On 2026-10-04 xenon booted this kernel with the table write-back: both units up and
+  translating, the screen alive, and the NVMe owned by the catch-all (preflight 1 PASS). The
+  first boot, without the write-back, tore the screen (BUGS).
   It must show both units up, the screen alive past the `vt-d` lines, and preflight 1 passing with
   the NVMe owned by whichever unit the DMAR names. That boot is milestone 261's bench evening; no
   second trip is needed.
@@ -117,4 +133,4 @@ Each is also written beside the code, in `kernel/src/arch/x86_64/iommu.rs`'s BUG
 The x86_64 kernel brings up every VT-d unit the DMAR names and routes each device to its owner. It
 identity-maps the firmware's RMRRs before translation. Reading the specification found three
 driver defects that would have fired on xenon, the worst a domain id too wide for its unit.
-Proven on host tables and under QEMU; xenon confirms it.
+Proven on host tables, under QEMU, and on xenon on 2026-10-04 once the tables were written back.

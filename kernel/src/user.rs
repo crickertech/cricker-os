@@ -2043,7 +2043,8 @@ pub fn riscv_uart_driver_demo(
         feature = "bench",
         feature = "soak_test",
         feature = "job_mix",
-        feature = "disk_throughput"
+        feature = "disk_throughput",
+        feature = "network_bench"
     ),
     allow(dead_code)
 )]
@@ -2401,6 +2402,23 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
             assert_eq!(s, slot, "{what} landed in the wrong slot");
         }
     }
+    // **A USB keyboard** (slot 27, milestone 242 (USB host and HID)): the attach endpoint of a
+    // driver the kernel already started on the machine's xHCI controller, `WRITE | GRANT`, so the
+    // progenitor can delegate the line discipline's endpoint through it once it has built one and
+    // then delete its own copy. Past the kernel ring's floor (slot 26) for the reason every
+    // conditional group above gives. Empty on a machine with no controller, one the kernel refused,
+    // or one whose driver reported a failure (nobody would receive the delegation). See
+    // [`boot_usb_keyboard`].
+    let usb_keyboard = boot_usb_keyboard();
+    if let Some(k) = &usb_keyboard {
+        let s27 = crate::sched::thread_control_block_insert_cap(
+            tid,
+            crate::cap::rendezvous_cap(k.attach, Rights::WRITE.union(Rights::GRANT)),
+            Some(27),
+        )
+        .expect("insert the USB keyboard's attach endpoint");
+        assert_eq!(s27, 27);
+    }
     // **Or a terminal on the screen the firmware left running** (the shell on the firmware screen,
     // milestone 198's rung 1b), when there is no GPU: slots 10 and 11, the terminal's endpoint and
     // its output page. (They were the graphical stack's slots too, until milestone 600
@@ -2570,6 +2588,44 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     #[cfg(target_arch = "x86_64")]
     let _ = (&virtio_rng, &virtio_net);
     Ok(tid)
+}
+
+/// **The USB keyboard, when this machine has an xHCI controller** (milestone 242 (USB host and
+/// HID)): start its driver and say what it found. `None`, having printed why, for a controller the
+/// kernel would not hand over or a driver that failed; `None` silently for a machine with no
+/// controller at all, which is every QEMU boot that attached none.
+///
+/// **A report of no keyboard still grants the attach endpoint**, because the driver keeps
+/// watching its ports and a keyboard plugged in after boot is found: the controller is up, so there
+/// is something to delegate to.
+///
+/// **The kernel starts this driver, not the progenitor**, and the reason is the mappings. The
+/// driver is handed a dozen register pages and eleven DMA pages as spawn-time mappings, which a
+/// process holds no name for and so can neither delegate nor revoke (`non_volatile_memory_express_service`'s
+/// choice, for its reason). Built by the progenitor instead, each would be a capability in its
+/// table, and a `DeviceFrame` names one page. Name provisional.
+#[cfg_attr(
+    any(
+        test,
+        feature = "bench",
+        feature = "soak_test",
+        feature = "job_mix",
+        feature = "disk_throughput"
+    ),
+    allow(dead_code)
+)]
+fn boot_usb_keyboard() -> Option<usb_keyboard_service::Wiring> {
+    let image = program("usb_keyboard_driver")?;
+    match usb_keyboard_service::start(image) {
+        Ok(w) => {
+            usb_keyboard_service::describe(&w.report);
+            (w.report[0] != extensible_host_controller_interface::report::FAILED).then_some(w)
+        }
+        Err(why) => {
+            usb_keyboard_service::describe_refusal(why);
+            None
+        }
+    }
 }
 
 /// Bringing the console driver up in userspace, and wiring a client to it.
@@ -2756,6 +2812,22 @@ pub mod compositor_service;
 // progenitor builds the driver (milestone 600 (provisional)).
 #[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 pub mod keyboard_service;
+
+/// **The USB keyboard driver's wiring** (milestone 242 (USB host and HID)): the whole xHCI
+/// controller, confined, handed to one EL0 process that turns a boot keyboard's reports into the
+/// terminal contract's bytes. What it holds and what it is refused is written in that module's own
+/// header. Spawned by [`boot_progenitor`] alone, so it is dead in exactly the builds that function is.
+#[cfg_attr(
+    any(
+        test,
+        feature = "bench",
+        feature = "soak_test",
+        feature = "job_mix",
+        feature = "disk_throughput"
+    ),
+    allow(dead_code)
+)]
+pub mod usb_keyboard_service;
 
 /// **The clock service** (milestone 51 lane A, DECISIONS §43): the RTC's registers, the wall
 /// clock's offset, and the propose endpoint, in one confined userspace process.
@@ -3149,6 +3221,13 @@ pub mod entropy_service;
 /// only what exercises it.
 #[cfg_attr(not(feature = "system_tests"), allow(dead_code))] // the tests are its callers
 pub mod non_volatile_memory_express_service;
+
+/// **`net_stack` over the `e1000e` NIC** (milestone 494 (a driver for the network card a PC
+/// actually has)): the kernel resets the controller and programs its rings, and the process is
+/// handed the two queue pages of BAR0 and the confined DMA region, in milestone 261 (the NVMe driver leaves the kernel)'s shape. What
+/// it holds and what it is refused is in that module's header.
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))] // the tests are its callers
+pub mod e1000e_service;
 
 /// **The offer a booted stick makes** (milestone 198 (a package manager, and the trivial install
 /// that makes a second customer possible), rung 2a): ask whether to put this system on the

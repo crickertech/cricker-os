@@ -1,0 +1,25 @@
+[package]
+name = "e1000e"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+# no_std for the kernel and for `net_stack`, std for host tests, like every pure-logic crate under §7 (the testing harness). It
+# owns what the two halves of the Intel `e1000e`-family driver agree on (milestone 494 (a driver for the network card a PC actually has)): register
+# offsets and bits, the descriptor formats, the DMA region's layout, the spawn handoff, and the
+# whole receive and transmit ring logic behind two small traits. The kernel supplies the volatile
+# register accesses at bring-up and `net_stack` supplies them on the data path; everything they
+# compute is here, host-tested against a simulated device and reachable by the model checker.
+#
+# Name: PROVISIONAL (milestone 494's lane, 2026-10-04). `e1000e` is the family name QEMU's
+# `-device e1000e` and Linux's driver directory both use, so it arrives across somebody else's
+# interface (design/naming.md, the acronym test's second paragraph). An architect may prefer a
+# name for what it is rather than whose driver it resembles.
+
+[lints]
+workspace = true
+
+[dependencies]
+# For the two virtual addresses the kernel maps and `net_stack` reads, which rule 7 puts here
+# rather than in a "must match" comment on each side.
+address_space_map = { version = "0.1.0", path = "../address_space_map" }

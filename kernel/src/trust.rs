@@ -157,7 +157,8 @@ pub fn require_program_measurements(fs: &nifefs::Fs<'_>) {
         feature = "bench",
         feature = "soak_test",
         feature = "job_mix",
-        feature = "disk_throughput"
+        feature = "disk_throughput",
+        feature = "network_bench"
     )),
     allow(dead_code)
 )]

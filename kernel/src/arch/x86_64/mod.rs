@@ -429,6 +429,9 @@ pub fn secondary_boot_entry(secondary_boot_addr: u64) -> u64 {
 /// not obviously: an IDT entry names a code **selector**, so the GDT that selector indexes has to be
 /// the one installed before any trap can be delivered through it.
 pub fn init() {
+    // First, before this core prints anything or adopts the fine map: the fine map's framebuffer
+    // pages select PAT entry 1, and on a core that has not run this, entry 1 is write-through.
+    give_write_combining_a_page_attribute_entry();
     // SAFETY: called once per CPU during boot, with a valid stack, before interrupts are unmasked.
     unsafe { segments::init() };
     exceptions::init();
@@ -443,6 +446,60 @@ pub fn init() {
 
     close_performance_counters_to_ring3();
     close_ring3_pages_to_ring0_execution();
+}
+
+/// **Program `IA32_PAT` so that `PWT` alone means write-combining** (the console-scroll lane,
+/// 2026-10-04), which is what `paging::Flags::write_combining()` encodes and what the kernel maps
+/// the framebuffer with (`mmu::direct_map_claims`).
+///
+/// # Why
+///
+/// Until this, the framebuffer was mapped like a register: `PCD | PWT`, strong uncacheable, one
+/// bus transaction per four-byte store and nothing the MTRRs could relax. xenon's 1920x1080
+/// aperture is 8 MB, so every full redraw was two million of them, and the boot console's
+/// scrolling swept visibly down the screen. Write-combining lets the core gather a run of stores
+/// into one burst. A PAT type of WC also wins over whatever the firmware's MTRRs say about the
+/// range, so this does not depend on the firmware having done anything.
+///
+/// # Why entry 1 can simply be rewritten
+///
+/// The Intel SDM asks for a cache flush around a PAT change because a mapping that already uses
+/// the changed entry would otherwise hold lines of the old type. **No mapping uses entry 1 when
+/// this runs**: `boot.s`'s coarse map sets neither `PWT` nor `PCD`, every fine-map device page is
+/// `PCD | PWT` (entry 3), and on the boot core this runs before `mmu::init` builds the fine map, on
+/// a secondary before `mmu::init_secondary` adopts it. What is left is consistency between cores,
+/// which is why it runs on every one: `smp::secondary_main` calls [`init`] too.
+///
+/// # Gated on CPUID
+///
+/// `CPUID.1:EDX[16]` advertises the PAT. Every `x86_64` processor this tree knows of has one
+/// (from memory, not a specification citation). Without it `PWT` alone is write-through, which
+/// for a screen nothing reads back is merely slow, and the boot line says so.
+///
+/// Name: provisional (the console-scroll lane).
+fn give_write_combining_a_page_attribute_entry() {
+    /// `CPUID.1:EDX` bit 16: "PAT".
+    const CPUID_1_EDX_PAT: u32 = 1 << 16;
+    if isa::cpuid(1).edx & CPUID_1_EDX_PAT == 0 {
+        crate::println!(
+            "  pat         : not offered by cpuid on core {}; the screen is write-through here",
+            crate::cpu::id()
+        );
+        return;
+    }
+    // SAFETY: CPUID advertised the MSR, so neither access can `#GP`, and every entry in the value
+    // is a defined memory type. The one entry it changes is selected by no mapping on this core
+    // (see above), so no cached line or TLB entry has the old type to disagree with.
+    let found = unsafe { read_msr(paging::x86_64::pat::MSR) };
+    if found != paging::x86_64::pat::VALUE {
+        // SAFETY: as the read's.
+        unsafe { write_msr(paging::x86_64::pat::MSR, paging::x86_64::pat::VALUE) };
+    }
+    crate::println!(
+        "  pat         : {:#018x} on core {} (was {found:#018x}); entry 1 is write-combining",
+        paging::x86_64::pat::VALUE,
+        crate::cpu::id()
+    );
 }
 
 /// Establish `CR4.SMEP` set, so ring 0 cannot execute an instruction fetched from a page whose

@@ -1,9 +1,12 @@
 //! A virtio-net transport for smoltcp, at EL0, behind the multi-queue DMA confinement.
 //!
 //! This is the driver half of the net server (milestone 30, piece 3): it brings the NIC up through
-//! the confined `Virtio` capability, manages the receive and transmit rings, and presents smoltcp's
-//! `phy::Device` interface. smoltcp does the TCP/IP; this file only moves Ethernet frames across the
-//! virtqueue, the same confinement the disk and the by-hand net driver use.
+//! the confined `Virtio` capability, manages the receive and transmit rings, and hands frames to
+//! `net_stack`'s `Nic`, which presents smoltcp's `phy::Device` over this NIC and the `e1000e` one
+//! (milestone 494 (a driver for the network card a PC actually has) moved the `Device` impl there
+//! on 2026-10-04 so one stack can drive either). smoltcp does the TCP/IP; this file only moves
+//! Ethernet frames across the virtqueue, the same confinement the disk and the by-hand net driver
+//! use.
 //!
 //! Everything the device DMAs stays inside the one DMA page the spawn service maps, so the kernel's
 //! validator confines it exactly as it does the disk. The page is small, so the MTU is small
@@ -20,8 +23,6 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
-use smoltcp::phy::{self, Device, DeviceCapabilities, Medium};
-use smoltcp::time::Instant;
 use user_mode_runtime::irq_ack;
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
 use user_mode_runtime::virtio::{
@@ -130,7 +131,7 @@ fn write_desc(desc_base: u64, i: u64, addr: u64, len: u32, flags: u16, next: u16
     WINDOW.write(b + 14, next);
 }
 
-/// The virtio-net device, presenting smoltcp's `Device`. Holds the ring bookkeeping; the buffers
+/// The virtio-net device, behind `net_stack`'s `Nic`. Holds the ring bookkeeping; the buffers
 /// and descriptor tables live in the DMA page at fixed offsets.
 pub struct VirtioNet {
     direct_memory_access_phys: u64,
@@ -219,7 +220,7 @@ impl VirtioNet {
 
     /// Take one received frame, if the receive used ring has advanced. Copies the frame out (minus
     /// the virtio header) and re-posts the buffer so the device can fill it again.
-    fn rx_take(&mut self) -> Option<Vec<u8>> {
+    pub fn rx_take(&mut self) -> Option<Vec<u8>> {
         let used_idx = r16(RX_USED + 2);
         if used_idx == self.rx_seen {
             return None;
@@ -274,7 +275,7 @@ impl VirtioNet {
 
     /// Transmit one frame: prepend the zero virtio header, post the next transmit buffer's
     /// descriptor, and ring the device. Waits briefly for a buffer to free if all are in flight.
-    fn tx_send(&mut self, frame: &[u8]) {
+    pub fn tx_send(&mut self, frame: &[u8]) {
         let i = self.tx_next;
         // Do not overwrite a buffer the device has not finished sending. Under slirp this never
         // actually spins, but a bounded wait keeps a slow completion from corrupting an in-flight
@@ -311,71 +312,5 @@ impl VirtioNet {
         virtio_ring_barrier();
         self.notify(TX_Q);
         self.tx_next = (self.tx_next + 1) % TX_BUFS;
-    }
-}
-
-impl Device for VirtioNet {
-    type RxToken<'a> = VnetRxToken;
-    type TxToken<'a> = VnetTxToken;
-
-    fn receive(&mut self, _timestamp: Instant) -> Option<(VnetRxToken, VnetTxToken)> {
-        let frame = self.rx_take()?;
-        Some((VnetRxToken { frame }, VnetTxToken { dev: self }))
-    }
-
-    fn transmit(&mut self, _timestamp: Instant) -> Option<VnetTxToken> {
-        Some(VnetTxToken { dev: self })
-    }
-
-    fn capabilities(&self) -> DeviceCapabilities {
-        let mut caps = DeviceCapabilities::default();
-        caps.medium = Medium::Ethernet;
-        caps.max_transmission_unit = MTU;
-        caps
-    }
-}
-
-/// Holds the received frame by value, so it never borrows the device.
-///
-/// Name: provisional, flagged 2026-09-25 by the lane that re-derived the x86 port falsifications
-/// (design/naming/boolean-predicates-worklist.md, "`rx` and `tx`"). calef asked what `rx` stands
-/// for in his #1255 review; recommended keeping `VnetRxToken`, because it implements smoltcp's
-/// `phy::RxToken` trait, and the upstream word is what a reader of smoltcp looks for.
-pub struct VnetRxToken {
-    frame: Vec<u8>,
-}
-impl phy::RxToken for VnetRxToken {
-    fn consume<R, F>(self, f: F) -> R
-    where
-        F: FnOnce(&[u8]) -> R,
-    {
-        f(&self.frame)
-    }
-}
-
-/// Carries a raw pointer to the device rather than a borrow, so a receive token and a transmit
-/// token can coexist (both are returned from one `&mut self` call). `net_stack` is single-threaded, and
-/// the device outlives any token within a poll, so the deref in `consume` is sound.
-///
-/// Name: provisional, flagged 2026-09-25 by the lane that re-derived the x86 port falsifications
-/// (design/naming/boolean-predicates-worklist.md, "`rx` and `tx`"). calef asked what `rx` stands
-/// for in his #1255 review; recommended keeping `VnetTxToken`, because it implements smoltcp's
-/// `phy::TxToken` trait, and the upstream word is what a reader of smoltcp looks for.
-pub struct VnetTxToken {
-    dev: *mut VirtioNet,
-}
-impl phy::TxToken for VnetTxToken {
-    fn consume<R, F>(self, len: usize, f: F) -> R
-    where
-        F: FnOnce(&mut [u8]) -> R,
-    {
-        let mut buf = vec![0u8; len];
-        let r = f(&mut buf);
-        // SAFETY: single-threaded; the device outlives this token, and the `&mut self` borrow that
-        // produced the token has ended (the token is an owned value).
-        unsafe {
-            (*self.dev).tx_send(&buf);
-        }
-        r
     }
 }

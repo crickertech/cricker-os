@@ -9,7 +9,7 @@ and the three things the building changed.
 The exit criterion, from milestone 198's own rungs table, is a sentence a stranger could check:
 
 > OVMF boots the stick image with an empty NVMe attached; the installer names the disk, asks,
-> partitions, formats and copies; the machine reboots **with the stick detached**, reaches `$`, and
+> partitions, formats and copies; the machine reboots with the stick detached, reaches `$`, and
 > reads back a file written before the reboot. One `cargo xtask` gate.
 
 `cargo xtask install-boot` is that gate and it passes.
@@ -72,7 +72,7 @@ the authority to wipe the disk does not exist until the answer does.
 too, so an offer that did not look at the disk first would ask every installed machine, once per
 boot, whether to wipe itself. Looking means reading a partition table, and the kernel does not parse
 partition tables (notes/block-devices.md). So the looking is done by a process holding the disk and
-**no entropy endpoint**: the `disk_partitioner` verify role of milestone 57 (partitioning and
+no entropy endpoint: the `disk_partitioner` verify role of milestone 57 (partitioning and
 formatting a real drive), one milestone along, and
 the same demonstration: a program that cannot draw a unique id cannot write a table anything reads
 back.
@@ -84,11 +84,11 @@ back.
 This is milestone 515's central finding and it is worth restating because it is easy to meet twice.
 `uefi_loader` places the kernel's segments, hands the archive over as a PVH module, and then the PE
 file that contained both is gone. An installer must write that file to the new disk's EFI system
-partition, and it cannot be carried inside the archive, because **the file contains the archive**.
+partition, and it cannot be carried inside the archive, because the file contains the archive.
 
 So the loader reads it back off the volume it was started from, through `HandleProtocol` on its own
 image handle and the boot volume's `SimpleFileSystem`, while the firmware is still up and can read a
-FAT volume in one call. It hands it over as **module 1**; module 0 stays the archive, and the order
+FAT volume in one call. It hands it over as module 1; module 0 stays the archive, and the order
 is a contract stated at both ends.
 
 **The kernel and the archive therefore move as a set for free**, which was the failure this had to
@@ -102,7 +102,7 @@ on milestone 242 (USB host and HID), which milestone 192 (a keyboard on real sil
 *"months rather than weeks"*; and writing the installer as a UEFI application discards milestone 57's confined
 partitioner entirely.
 
-**It is x86_64 only.** A device-tree handoff has one initrd slot in `/chosen` and no second one, so
+It is x86_64 only. A device-tree handoff has one initrd slot in `/chosen` and no second one, so
 `hand_over`'s boot-file argument is threaded through the other two architectures as `None` with the
 gap recorded at the signature. The trivial install of §157 (a trivial install is a web page, a USB
 drive, and packages) is a PC, which is why this is where it was needed first.
@@ -121,7 +121,7 @@ the `blk` wire (which is a wire value two programs agree on, and therefore calef
 process in the middle of every filesystem block. `kernel/src/user/fs_service.rs` grew an NVMe arm and
 nothing else.
 
-**What it costs is real and is recorded** in `installer`'s `BUGS`: the filesystem server on an
+What it costs is real and is recorded in `installer`'s `BUGS`: the filesystem server on an
 installed machine can address the EFI system partition and the partition table. What keeps it inside
 the partition today is that `mkfs` created it bounded by a `PartitionDisk`, so its allocator never
 learns about the blocks past the end, a property of the filesystem rather than a capability, which
@@ -141,20 +141,20 @@ Two numbers in it are load-bearing and neither is obvious.
 **The cluster count decides the FAT type**, whatever the boot sector claims. Microsoft's own
 specification defines it that way and drivers in the field follow; below 65525 data clusters the
 volume *is* FAT16. At 4096-byte clusters that floor is a little over 256 MiB, which is why the EFI
-system partition the installer lays out is **512 MiB** and not the 100 MiB a reader expects. The
+system partition the installer lays out is 512 MiB and not the 100 MiB a reader expects. The
 crate refuses to build a smaller one rather than handing firmware a lie about itself.
 
 **The data area has to be cluster-aligned, and FAT32's own sizing arithmetic does not align it.**
 The specification's formula produced 1023 sectors per table on a 512 MiB volume, and
 `32 + 2 * 1023` is not a multiple of eight, so cluster 5 began at partition sector 2102. The
 installer writes whole 4096-byte blocks through `filesystem_protocol::blk`, so
-`2102 / 8` truncated and **ten megabytes landed six sectors early on a real disk**. The file was
+`2102 / 8` truncated and ten megabytes landed six sectors early on a real disk. The file was
 there, complete, and shifted; the firmware would not start it.
 
 Three things came out of that one bug, in the order AGENTS.md's ladder asks for them. The crate now
 rounds the table up until the data area starts on a cluster boundary, which is what every modern
 `mkfs.vfat` does. A host test checks the alignment across seven volume sizes. And the installer
-**refuses** a volume whose file does not land on a transfer block, rather than dividing and writing
+refuses a volume whose file does not land on a transfer block, rather than dividing and writing
 somewhere else.
 
 ## What was measured, and by whom
@@ -165,12 +165,14 @@ the strong ones from a distance.
 | claim | checked by | strength |
 |---|---|---|
 | the FAT volume's bytes match the specification | this tree's own unit tests | weakest: a writer checked against its own reading of the spec |
-| the volume is FAT32 and the file reads back byte-exact | **macOS's `msdos` driver**, 2026-09-21 | strong: somebody else's driver, and it names the FAT type independently |
-| the installed disk boots | **OVMF**, with its variable store deleted first | strong: the firmware found `\EFI\BOOT\BOOTX64.EFI` with no `Boot####` variable and no `bootindex` |
+| the volume is FAT32 and the file reads back byte-exact | macOS's `msdos` driver, 2026-09-21 | strong: somebody else's driver, and it names the FAT type independently |
+| the installed disk boots | OVMF, with its variable store deleted first | strong: the firmware found `\EFI\BOOT\BOOTX64.EFI` with no `Boot####` variable and no `bootindex` |
 | the filesystem survived the reboot | the installed system's own shell: `ls`, then `wc made-on-target` → `1 10 57` | strong: the file was written by `mkfs` on the previous boot |
-| any of this works on real firmware | **nothing** | rung 2b, on xenon, and it is somebody's hands rather than a lane's |
+| a stick booted on the installed machine boots the stick, not the disk's slot | OVMF, boot 3 of `install-boot`, the disk a second boot option | strong for G1 of the live stick proposal; the loader says `the boot slots here are on another disk` |
+| that stick boot leaves the disk unchanged | the same boot, comparing the image byte for byte | strong: byte-identical since the boot medium token, below |
+| any of this works on real firmware | nothing | rung 2b, on xenon, and it is somebody's hands rather than a lane's |
 
-The third row is milestone 515's **B1**, which that proposal recommended and called unmeasured on
+The third row is milestone 515's B1, which that proposal recommended and called unmeasured on
 anything but OVMF. It is now measured on OVMF and on nothing else. The deletion of the variable store
 is what makes it a measurement at all: the default store persists across runs in a checkout, so
 without it the second boot would have been riding a boot option the first one left behind.
@@ -187,11 +189,20 @@ proposal in `design/roadmap/proposals/`. The five, and what each is actually abo
 
 | proposal | the thing it is about |
 |---|---|
-| `the-disk-an-installer-names-has-no-model.md` | the offer says "the NVMe disk attached to this machine", which is a guess on the first machine with two. **The single most load-bearing sentence a stranger reads** |
+| `the-disk-an-installer-names-has-no-model.md` | the offer says "the NVMe disk attached to this machine", which is a guess on the first machine with two. The single most load-bearing sentence a stranger reads |
 | `the-install-offer-should-say-what-is-already-on-the-disk.md` | the survey asks only whether nife is there, so a disk holding Windows is described as an unqualified target |
 | `there-is-no-way-back-from-the-stick.md` | an installed disk is never offered an install again, which is right, and turns a power cut between the installer and `mkfs` into an unrecoverable state |
 | `a-long-file-name-or-riscv64-cannot-be-installed.md` | `BOOTRISCV64.EFI` is not 8.3 and the FAT writer refuses it rather than mangling it |
 | `the-boot-file-has-nowhere-to-go-on-a-device-tree-machine.md` | `/chosen` has one initrd slot and no second one, which is why this rung is an `x86_64` claim |
+
+A stick boot used to write the installed disk (the live stick proposal's G2, measured 2026-10-04).
+With no virtio disk the kernel mounted the NVMe filesystem whatever the boot medium was, and RedoxFS
+writes on mount: boot 3 of `install-boot` changed 3 blocks of the nife data partition with nobody
+typing anything. calef ruled the fix on PR #1652, 2026-10-04 (UTC): the loader writes
+`boot-medium=nvme` (provisional, `boot_slot::medium`) when its file is on an NVMe disk, or when a
+chooser started it from a slot, and the kernel mounts the NVMe only when that token is there. A
+stick, a `-kernel` boot and the device-tree architectures leave the internal disk alone. Boot 3 now
+finds the disk byte-identical.
 
 The sixth, the partition-bounded mount, is a `BUGS` entry in `installer` rather than a proposal,
 because what closes it is a wire value two programs agree on and that is an architect's to name
