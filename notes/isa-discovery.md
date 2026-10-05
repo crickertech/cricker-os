@@ -34,22 +34,22 @@ Everything on those lines was previously either unknown to the kernel or assumed
 ## The three tiers, and the one RISC-V does not have
 
 The roadmap entry names three ways to learn what a machine is, in decreasing order of how much you
-should like them: a **firmware claim** (a device-tree property), a **targeted measurement** (write a
-value, read back what stuck), and **trap-and-detect** (execute it and catch the illegal-instruction
+should like them: a firmware claim (a device-tree property), a targeted measurement (write a
+value, read back what stuck), and trap-and-detect (execute it and catch the illegal-instruction
 fault). We do the first two and none of the third.
 
 Building both ISAs at once exposed a tier the list is missing, and it is the reason the two halves
 of the crate look nothing alike.
 
-**aarch64 has a tier 0: the CPU describes itself.** `MIDR_EL1` and the `ID_AA64*` space are
+aarch64 has a tier 0: the CPU describes itself. `MIDR_EL1` and the `ID_AA64*` space are
 architected, mandatory, and read straight off the part in front of you. Not hearsay, and not a
 measurement anyone had to design. So the aarch64 half is a **decoder**: three `mrs` reads and a
 handful of shifts.
 
-**RISC-V removed that tier deliberately.** `misa` exists, is coarse, is permitted to read as zero,
+RISC-V removed that tier deliberately. `misa` exists, is coarse, is permitted to read as zero,
 and cannot name a multi-letter extension, which is every extension ratified after 2015. So the
 architected answer is a property firmware wrote into the device tree, and the RISC-V half is a
-**parser**. It keeps its tier-2 probe (`satp.ASID`) even now that the tree answers, because a claim
+parser. It keeps its tier-2 probe (`satp.ASID`) even now that the tree answers, because a claim
 and a measurement are different things and when they disagree the machine wins.
 
 That asymmetry is worth stating plainly rather than smoothing over with a trait: the same question
@@ -58,8 +58,8 @@ has genuinely different best answers on the two architectures.
 ## How many call sites actually vary
 
 The entry's own effort note said the unknown was how many call sites genuinely need to branch on a
-discovered fact, and measuring that honestly was part of the deliverable. **The answer is four, and
-two of the entry's four candidates turned out not to be among them.**
+discovered fact, and measuring that honestly was part of the deliverable. The answer is four, and
+two of the entry's four candidates turned out not to be among them.
 
 | Candidate | Verdict |
 |---|---|
@@ -81,7 +81,7 @@ and a fact nothing branches on yet, both look like they need a record and do not
 
 Both after the host tests were green, which is the whole argument for booting the thing.
 
-**The SBI spec version is 24 bits of minor and 7 of major.** Not the obvious 16 and 16. QEMU's
+The SBI spec version is 24 bits of minor and 7 of major. Not the obvious 16 and 16. QEMU's
 firmware reports `0x0300_0000`, which is SBI 3.0; decoded as 16/16 that is version 0.0, and since no
 conforming firmware reports 0.0 the kernel used it as the signal for "the base extension did not
 answer". So the boot line reported firmware that had answered perfectly well as silent, and the test
@@ -131,8 +131,8 @@ than the first, and the record carries two sets:
 `mmu-type` is taken the same way: the narrowest any hart declares, because Sv57 on one core is no
 use to a thread the scheduler might place on the Sv39 one.
 
-The test fixture for this (`crates/machine_discovery/tests/fixtures/mixed-cpus.dts`) is **hand-written and says so
-in its own header**. It is modelled on the shape of a heterogeneous RISC-V SoC; the values are
+The test fixture for this (`crates/machine_discovery/tests/fixtures/mixed-cpus.dts`) is hand-written and says so
+in its own header. It is modelled on the shape of a heterogeneous RISC-V SoC; the values are
 invented. When the board arrives, dump its real tree and add it beside this one.
 
 ## Silence is not a failure
@@ -141,7 +141,7 @@ The truthfulness habit here cuts both ways, and getting only one direction right
 layer becomes a liability.
 
 A machine missing something the kernel needs is refused, loudly, with the missing thing named. A
-machine that simply **does not describe itself** is not. A device tree with no `riscv,isa` at all
+machine that simply does not describe itself is not. A device tree with no `riscv,isa` at all
 describes a machine that is nonetheless executing the code asking the question, and firmware too old
 to implement the SBI base extension cannot be asked what it implements. Treating either as a failure
 would refuse to boot on hardware that works.
@@ -156,10 +156,10 @@ extension did not answer, so nothing here is verified" rather than reporting zer
 `if isa.has_x()` sprouting across the kernel turns a fact into a hundred branches, and a chip
 abstraction built on one board is the wrong abstraction built early. Two guards, both structural:
 
-The record is `Copy` with public fields and exactly **one verb**, `missing_requirements`, which is
+The record is `Copy` with public fields and exactly one verb, `missing_requirements`, which is
 the only thing a call site is meant to branch on. Everything else exists for the boot print.
 
-And there is **no trait**, no `Cpu` abstraction, nothing shared between `machine_discovery::riscv64`
+And there is no trait, no `Cpu` abstraction, nothing shared between `machine_discovery::riscv64`
 and `machine_discovery::aarch64` but the module tree. Two records that share no code is the honest
 shape when two architectures answer the same question by unrelated mechanisms. The second real board
 is what should tell us what the abstraction is, if there is one.
@@ -184,14 +184,14 @@ territory) and `identcpu` (FreeBSD's actual name, but narrower: register-only, n
 
 `TABLE` (extensions), `SBI_TABLE`, `IMPLEMENTATIONS` (SBI firmware) and `aarch64::IMPLEMENTERS`
 (chip vendors) are all arrays with a `const` assertion over them, and all four could have been a
-`match`. The reason they are not is a bug class a `match` cannot be checked for: **a duplicated key
-compiles, silently, and makes the second arm unreachable forever.** In a vendor table that is a chip
+`match`. The reason they are not is a bug class a `match` cannot be checked for: a duplicated key
+compiles, silently, and makes the second arm unreachable forever. In a vendor table that is a chip
 whose name can never be printed; in the extension table it would be a fact the kernel can never
 report. As arrays the duplicate is a compile error, and the lookup being a loop over data means a
 test can walk the rows rather than copy them into a test file, which is the difference between
 checking a table and restating it.
 
-The SBI extension ids go one better and are **derived** from their tags (`eid("TIME")`), so the only
+The SBI extension ids go one better and are derived from their tags (`eid("TIME")`), so the only
 thing anybody can get wrong is a four-character string rather than a hex constant. That one is worth
 the extra step because a mistyped id probes an extension that does not exist, gets "no", and refuses
 to boot on correct firmware. The vendor codes are not derivable: most are the ASCII of the vendor's
@@ -231,12 +231,12 @@ machines anyone ran.
 
 ### The two failure shapes were not the same, and the plan had to say so
 
-**The core list was a guaranteed silent no-op.** A machine with more than four cores had cores 4 and
+The core list was a guaranteed silent no-op. A machine with more than four cores had cores 4 and
 up never started, and there was no error available, because nothing asked about them. That is the
 worst shape a failure can take: success reported, work not done, and the symptom arriving later as a
 scheduler that never balances.
 
-**The conduit was board-specific and untested.** `smp.rs` did have a degradation path, written for
+The conduit was board-specific and untested. `smp.rs` did have a degradation path, written for
 one case (a core that is absent, `PSCI {ret}; not present?`), and a machine whose firmware answers on
 `smc` is under no obligation to produce a PSCI error code from an `hvc` it never agreed to serve. It
 would more likely be an undefined-instruction trap. Calling both "silent" was close enough for a
@@ -249,12 +249,12 @@ The decoding is in `crates/machine_discovery` (`cpu_list` for the roster, `aarch
 is host-testable; the kernel halves are the reads and the refusals, exactly the split milestone 60
 set up.
 
-Still assumed, **and now checked rather than assumed silently**: that a core's hardware id equals its
+Still assumed, and now checked rather than assumed silently: that a core's hardware id equals its
 logical id. Using a hardware id that differs would need three other things to move with it, and none
 of them is in this milestone. `cpu::PERCPU`, the secondary stacks and the RISC-V trap stashes are
 arrays indexed by logical id; the GICv2 targets an SPI by CPU-interface number and `send_sgi` by that
 same number; the PLIC's S-mode context is `2 * hart + 1` and the SBI IPI mask is a bitmap of hart
-ids. So `bring_up_secondaries` reads the real ids, compares each to its index, and **refuses by name**
+ids. So `bring_up_secondaries` reads the real ids, compares each to its index, and refuses by name
 the ones that differ:
 
 ```
@@ -283,18 +283,18 @@ function id to look up, because a kernel entered in S-mode has firmware under it
 
 QEMU `virt` states `method = "hvc"`, so for a while it looked as though the other branch could only
 be exercised by hand-writing a tree. It cannot, quite: `-machine virt,virtualization=on` puts
-something at EL2 and QEMU's own PSCI moves to EL3, so **the same board, one option different, states
-`smc`**. That dump is `crates/device_tree_blob/tests/fixtures/qemu-aarch64-virt-smc.dtb`, and the host test that
+something at EL2 and QEMU's own PSCI moves to EL3, so the same board, one option different, states
+`smc`. That dump is `crates/device_tree_blob/tests/fixtures/qemu-aarch64-virt-smc.dtb`, and the host test that
 compares the two is the whole finding in one assertion: the conduit is not a property of aarch64, of
 QEMU, or of the `virt` board.
 
-It does not make the `smc` **call** tested. That configuration enters the kernel at EL2 and this
+It does not make the `smc` call tested. That configuration enters the kernel at EL2 and this
 kernel expects EL1, so nothing here boots it. Parsed, not called; the `arch::psci_cpu_on` BUGS block
 says so where a reader meets the function.
 
 ## BUGS
 
-- **Discovery does not make the kernel portable, it makes it honest.** Knowing an extension is
+- Discovery does not make the kernel portable, it makes it honest. Knowing an extension is
   missing and doing something useful about it are different milestones. Today the kernel does
   exactly one thing with a missing requirement: it says so and stops.
 - **A core whose hardware id is not its logical id is refused, not used** (milestone 100). See
@@ -312,7 +312,7 @@ says so where a reader meets the function.
   the conclusion was not: userspace cannot *read* the device tree, but the kernel can *hand it a
   page*, which is not an ABI addition because the mechanism already existed and shipped on `x86_64`
   (`counter_frequency_protocol`, from milestone 161 (the x86_64 kernel port)). The fix was to widen a `cfg`,
-  not to design a handoff. **The lesson is the one worth keeping**: a limitation recorded with a
+  not to design a handoff. The lesson is the one worth keeping: a limitation recorded with a
   proposed fix attached stops being re-examined, and this one went two months without anybody asking
   whether the tree already solved it somewhere else. What made it urgent was radon, whose rate is
   4 MHz, so the "honest gap" was a silent 2.5x on the one board that matters.
@@ -320,18 +320,18 @@ says so where a reader meets the function.
   a core the OS will never run on, and including it narrows `common` further than it needs to be.
   That is the safe direction and it is not free: a board describing a disabled core with no FPU
   would make us report no FPU. Left alone until a real board shows the case.
-- **`VARange` reporting 52 on aarch64 does not mean the kernel could use 52.** `ARMv8.2`-LVA needs a
+- `VARange` reporting 52 on aarch64 does not mean the kernel could use 52. `ARMv8.2`-LVA needs a
   64 KiB granule, and `ARMv8.7`-LPA2 is a separate feature bit this record does not read. Reported
   because it is what the machine says; acting on it is a milestone, not a branch.
-- **`OpenSBI`'s implementation version prints as raw hex** (`0x10007`). The encoding is
+- `OpenSBI`'s implementation version prints as raw hex (`0x10007`). The encoding is
   implementation-defined, so decoding it as `1.7` would be a guess that happens to be right for one
   vendor, which is the sort of guess `implementer_name` deliberately refuses elsewhere.
-- **Nothing here has met a real board.** Every fixture is QEMU's or hand-written. That is the
+- Nothing here has met a real board. Every fixture is QEMU's or hand-written. That is the
   limitation the milestone exists to prepare for, not one it removes.
 
 ## See also
 
-- [The CPU-model matrix](cpu-models.md), milestone 59, which found that **zero** call sites needed
+- [The CPU-model matrix](cpu-models.md), milestone 59, which found that zero call sites needed
   to branch across five QEMU CPU models and that QEMU reports 16 `satp.ASID` bits on every one of
   them, including `sifive-u54`. That is what made discovery worth building anyway: the one place a
   real chip may differ is the one place no emulator can tell us about.

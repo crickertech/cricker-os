@@ -1,0 +1,28 @@
+Falsifies `kernel::arch::x86_64::amd_vi::tests::two_devices_behind_one_alias_never_share_a_domain`.
+
+Architecture: x86_64
+Environment: NIFE_IOMMU=amd
+
+The defect: `attach` ignores a conflict and fails closed only when it has no slot to record an
+alias in. A second device behind the same bridge then writes its domain into the alias entry the
+first device's DMA arrives under, which is what the driver did before provisional milestone 767
+(AMD-Vi hardening before the first AMD boot): the first device's DMA moves into the second's
+domain with nothing printed.
+
+Expected to fail: `assert_ne!(held[0] & DTE_ROOT_MASK, b, "the second device took the first's
+alias")`. Measured on patagonia 2026-10-05 (UTC), QEMU 11.1.1, on the runner's `pci-bridge` alias
+range (bus 1 aliased to 0x0018).
+
+diff --git a/kernel/src/arch/x86_64/amd_vi.rs b/kernel/src/arch/x86_64/amd_vi.rs
+index 40fd2ee15..11507adbc 100644
+--- a/kernel/src/arch/x86_64/amd_vi.rs
++++ b/kernel/src/arch/x86_64/amd_vi.rs
+@@ -781,7 +781,7 @@ pub fn attach(rid: u32, root: u64) {
+         .find_map(|x| u.holder(x).filter(|&h| h != rid).map(|h| (x, h)));
+     // A new alias needs a slot to record its holder in; without one, fail closed as for a conflict.
+     let out_of_slots = alias.is_some_and(|a| u.holder(a) != Some(rid) && !u.alias_slot_free());
+-    if conflict.is_some() || out_of_slots {
++    if out_of_slots {
+         for x in ids.into_iter().flatten() {
+             u.block(x);
+         }

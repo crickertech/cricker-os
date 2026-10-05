@@ -30,6 +30,13 @@ extend-exclude = ["vendor/", "patches/", "*.lock", "target/", "bench/**/*.log"]
 # excuse: a spell checker aimed at an operating system meets register mnemonics constantly, and they
 # are chosen by specification authors who were not optimising for English. Each entry below is a
 # real name in a real document, not a word we decided to spell unusually.
+[default]
+# A hex digest prefix is not a word. `typos` skips a full sha256 but splits a 12-digit prefix, which
+# is how the bench READMEs and run sheets name a payload, and on 2026-10-05 it read
+# `abd3f8487dc2` (radon's main payload) as a misspelt "abd". Twelve or more hex digits is a digest:
+# no English word is spelt from a to f alone at that length.
+extend-ignore-re = ["\\b[0-9a-f]{12,}\\b"]
+
 [default.extend-words]
 # Eduard Suess's 1909 name for the Earth's nickel-iron core, Ni plus Fe, and the name this OS takes
 # under milestone 120. `typos` reports it as a misspelling of "knife" and is not wrong to: the whole

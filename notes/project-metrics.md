@@ -215,7 +215,7 @@ Weeks before the ratification are derived by `--backfill`, each from its own tre
 ![Documents over the bold budget](project-metrics/bold-backlog-documents.svg)
 
 This chart is temporary. calef ruled on 2026-09-26 that bold should be rare: 4 spans per 1,000
-words, met by any document a change touches. He chose not to sweep the rest. The chart is
+words, met by any document a change touches. He chose not to sweep the rest. calef asked for the sweep on 2026-10-05 (UTC). The chart is
 pulled once both panels reach zero. Then `script/metrics` prints "the bold backlog
 is zero; retire this chart" and writes it here:
 

@@ -1,7 +1,8 @@
-# toolchain: nightly-2026-10-04
+# toolchain: nightly-2026-10-05
 # qemu: 11.1.1
 # date: 2026-10-04
 # why: 2026-10-04, fatal risk 4 (lane/null-syscall-contention): arch::exceptions::SVC_COUNT's fetch_add left every non-test build, so null_syscall drops 52,497 ticks (-12.8%; on aarch64 without LSE the increment was an exclusive-load loop). riscv64 and x86_64 moved within their 10% band and are not re-saved. See notes/job-mix/null-syscall-under-load.md.
+# why: 2026-10-05: restamped from nightly-2026-10-04 to nightly-2026-10-05 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: sink_throughput -0.007%, ipc_rtt_el0 -0.006% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: sink_throughput -0.007%, ipc_rtt_el0 -0.006%
 # bench/baseline-aarch64.txt: deterministic icount tick counts (cargo xtask bench --save).
 # Recorded against the QEMU pinned in .qemu-version. icount counts guest instructions, so the
 # emulator version is part of what these numbers mean: script/qemu-check warns when the QEMU on

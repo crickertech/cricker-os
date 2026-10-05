@@ -1,0 +1,39 @@
+diff --git a/crates/user_mode_runtime/src/lib.rs b/crates/user_mode_runtime/src/lib.rs
+index 87bf2f3be..bff49db58 100644
+--- a/crates/user_mode_runtime/src/lib.rs
++++ b/crates/user_mode_runtime/src/lib.rs
+@@ -322,9 +322,34 @@ unsafe fn invoke5(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> (u64, u64
+ /// acting; that is its whole job. The caller is trusting the kernel, not the other way around.
+ pub unsafe fn invoke(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> i64 {
+     // SAFETY: forwarded from this function's own contract, which is `invoke5`'s contract exactly.
++    #[cfg(target_arch = "riscv64")]
++    return unsafe { bisect_invoke5_direct(cap, method, a0, a1, a2).0 as i64 };
++    #[cfg(not(target_arch = "riscv64"))]
+     unsafe { invoke5(cap, method, a0, a1, a2).0 as i64 }
+ }
+ 
++/// BISECT ONLY (radon 2026-10-05): b500b3d48's riscv64 `invoke5`, a direct `ecall` with five
++/// registers, plus `a5` declared clobbered so the control is sound against the six-register kernel.
++#[cfg(target_arch = "riscv64")]
++unsafe fn bisect_invoke5_direct(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> (u64, u64, u64, u64, u64) {
++    let (mut w0, mut w1, mut w2, mut w3, mut w4): (u64, u64, u64, u64, u64);
++    // SAFETY: as `trap6`.
++    unsafe {
++        core::arch::asm!(
++            "ecall",
++            in("a7") abi::SYS_INVOKE,
++            inlateout("a0") cap => w0,
++            inlateout("a1") method => w1,
++            inlateout("a2") a0 => w2,
++            inlateout("a3") a1 => w3,
++            inlateout("a4") a2 => w4,
++            lateout("a5") _,
++            options(nostack),
++        );
++    }
++    (w0, w1, w2, w3, w4)
++}
++
+ /// `SEND` three words on the endpoint capability in `slot`. Blocks until a receiver takes them.
+ pub fn send(slot: u64, w0: u64, w1: u64, w2: u64) -> i64 {
+     // SAFETY: `svc` traps to EL1, which validates the capability named by `slot`.

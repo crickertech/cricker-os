@@ -5,9 +5,9 @@ rung 2b, built 2026-09-21 on calef's ruling the same day: *"Yes, write the tries
 attributes in 2b."* [Installing nife onto a disk](installing.md) is rung 2a and this builds
 directly on it; read it first if you have not.
 
-The promise, and it is the whole page in one sentence: **an installed nife machine that is handed a
+The promise, and it is the whole page in one sentence: an installed nife machine that is handed a
 boot image which does not come up goes back to the previous one by itself, with nobody at the
-console.**
+console.
 
 ## Running it
 
@@ -54,7 +54,7 @@ Number  Start (sector)    End (sector)  Size       Code  Name
 | nife slot 0, nife slot 1 | one boot image each, raw, behind a 4096-byte header |
 | nife boot | a FAT32 EFI system partition holding `\EFI\BOOT\BOOTX64.EFI`, which is **the chooser** |
 
-There are therefore **three** copies of the boot image on a freshly installed disk, and the third
+There are therefore three copies of the boot image on a freshly installed disk, and the third
 one is not waste. The chooser is what the firmware starts, and it is a complete nife image, so a
 machine whose slots are both unbootable still has something known-good to fall back to. That falls
 out of the chooser and the image being the same binary and is the answer to "what if everything is
@@ -86,9 +86,9 @@ ChromeOS gets firmware-level selection because **depthcharge is a coreboot paylo
 UEFI**: its firmware is a program Google wrote. We have UEFI, so the first code of ours that runs is
 the selector, and the first code of ours that runs is `\EFI\BOOT\BOOTX64.EFI`.
 
-That cuts both ways and both halves matter. The bits are the **right** place for the state, because
+That cuts both ways and both halves matter. The bits are the right place for the state, because
 they are ours by specification and no other operating system's partition tool will touch them, which
-a file in a filesystem cannot claim. And the selector has to be **ours**, which is why this rung has
+a file in a filesystem cannot claim. And the selector has to be ours, which is why this rung has
 a chooser in it at all.
 
 For that to be true the slots must be partitions of a type that is ours, which is why `NIFE_BOOT`
@@ -98,8 +98,8 @@ partition those bits would be Microsoft's.
 ### The design that was evaluated and refused
 
 UEFI `Boot####` variables with `BootOrder` and `BootNext`, which firmware genuinely does read and
-which is how a Linux distribution would do this. Refused for a reason specific to this tree: **rung
-2a deliberately proved its boot with the firmware variable store deleted**, so that "the firmware
+which is how a Linux distribution would do this. Refused for a reason specific to this tree: rung
+2a deliberately proved its boot with the firmware variable store deleted, so that "the firmware
 found the file on its own" was a claim about the disk and not about leftovers in a checkout. A
 rollback design that needs those variables to survive contradicts the one property that boot was
 built to demonstrate. It would also put the state somewhere only firmware runtime services can
@@ -111,7 +111,7 @@ reach, which this kernel does not map.
 decision the feature stands on.
 
 A chooser that only read the state, leaving the booted system to mark itself good once it was up,
-protects against an image that **crashes visibly** and not against one that **hangs**. A machine
+protects against an image that crashes visibly and not against one that hangs. A machine
 that wedges before userspace would retry the same bad image on every power cycle, forever, showing
 nothing to the console nobody is standing at. That is the failure that actually strands people, and
 the only thing that bounds it is a decrement already on the disk before control leaves.
@@ -153,8 +153,8 @@ cannot see is what tries are for.
 | the decrement survives a power cycle | boot 3 of that gate never mentions slot 1 | strong: the machine was killed in between |
 | any of this works on real firmware | **nothing** | rung 2b's bench half, and calef's hands |
 
-On the fifth row, the part worth being precise about: **the machine is killed at the instant of the
-handoff**, as soon as the chooser says it is starting slot 1. From the disk's point of view a kernel
+On the fifth row, the part worth being precise about: the machine is killed at the instant of the
+handoff, as soon as the chooser says it is starting slot 1. From the disk's point of view a kernel
 that wedges, a driver that spins and a power cut are the same event, which is that the try was spent
 and nothing came back, so this is the hang rather than a stand-in for it. And the image staged into
 slot 1 is a byte-for-byte copy of the working one on purpose: garbage would be caught by the header
@@ -172,7 +172,7 @@ it, or a perfectly good upgrade rolls back once its tries are spent.
 handoff, so a slot started on its last try is no longer `is_bootable` and `select` now names the
 other one. The one boot a confirmation exists for is the one the inference gets backwards.
 
-**The criterion is the filesystem server mounting the installed disk and reporting ready**, with the
+The criterion is the filesystem server mounting the installed disk and reporting ready, with the
 progenitor built and measured and about to run. That is everything between power-on and the last
 thing this machine can check without a person, and the bias is deliberately late: confirming early
 would keep an upgrade that comes up and cannot do its job, which is the failure the whole feature
@@ -188,7 +188,7 @@ blocks, the same parser, one attribute word put back. It holds no entropy endpoi
 draw the unique ids a new table carries and the only table it can write is the one it read; and no
 boot file, so it cannot rewrite the image it is vouching for.
 
-**What keeps it from colliding with the filesystem server is an ordering, not a mechanism**, and
+What keeps it from colliding with the filesystem server is an ordering, not a mechanism, and
 that is worth knowing before you move the call. One block server has one transfer region shared by
 every holder of its endpoint. `install_service::confirm` runs between the filesystem server's ready
 report and the progenitor's first instruction, when that server is blocked in receive with no client
@@ -197,18 +197,18 @@ ordering stops holding silently. See
 [milestone 573 (two programs share one disk's transfer region, and only an ordering keeps them
 apart)](../design/roadmap/573-two-programs-share-one-disks-transfer-region.md).
 
-`cargo xtask confirm-boot` is `rollback-boot`'s exact negative: a good upgrade with **one** try is
+`cargo xtask confirm-boot` is `rollback-boot`'s exact negative: a good upgrade with one try is
 tried, confirms itself, and is still chosen on boot 3 with no tries left. The single try is the
 strength of the test rather than its cost: a slot with tries to spare would be chosen by priority
 alone and the gate would pass on a machine whose confirmation did nothing.
 
 ## What this does not do
 
-**Nothing writes the second slot on a running machine**, because there is no upgrader. The gate
+Nothing writes the second slot on a running machine, because there is no upgrader. The gate
 stages one from the host, through the same crates the installer uses, so the format is exercised end
 to end and the program that will one day do it is not.
 
-**Two disks carrying boot slots is a refusal.** The chooser enumerates whole disks and gives up if
+Two disks carrying boot slots is a refusal. The chooser enumerates whole disks and gives up if
 more than one has slots. Telling which disk this image was started from means walking its own
 device path to the `HARDDRIVE` node, which is the same parser `place_boot_file` has wanted since
 rung 2a.
@@ -229,11 +229,11 @@ frames from anything that mentions memory. `user::load` now takes the number and
 it from `spawn.maps`, so no caller has to remember it: the same move as any other accounting that
 was a comment and is now a computation.
 
-**The first version of that fix overcharged, and the frame ledger caught it**, which is worth
+The first version of that fix overcharged, and the frame ledger caught it, which is worth
 recording because it is the gate working rather than a detour. Charging the full window put a frame
 into every long-lived process's region that the region never used, sixty-eight of them, to pay for a
 window one caller has; the aarch64 suite went from 22249 kept frames to 22317 and failed. What a
-caller owes is the cost **above** what `AS_OVERHEAD`'s margin was already providing, which is
+caller owes is the cost above what `AS_OVERHEAD`'s margin was already providing, which is
 `WINDOW_IN_OVERHEAD` and its reasoning at the arithmetic.
 
 ## See also

@@ -194,12 +194,21 @@ IOMMU="-device intel-iommu${NIFE_INTREMAP:+,intremap=$NIFE_INTREMAP}"
 # `intremap` is passed through exactly as for VT-d. The kernel never enables AMD-Vi's interrupt
 # remapping either (every device table entry leaves IV clear), so either value boots the same.
 #
+# **The AMD-Vi machine also carries an empty conventional `pci-bridge`** (provisional milestone 767
+# (AMD-Vi hardening before the first AMD boot)). A PCIe-to-PCI bridge is where AMD-Vi aliasing
+# comes from: devices behind it reach the IOMMU under the bridge's requester id, not their own.
+# QEMU's IVRS describes this with an "alias start of range" entry (type 43h) covering every id on
+# the bridge's secondary bus, aliased to the bridge itself (`insert_ivhd` in
+# hw/i386/acpi-build.c, QEMU 11.1.1). That is the only alias entry this tree can get before an
+# AMD board, and `amd_vi::tests` drive the alias rules through it. Nothing sits behind the bridge,
+# so no DMA ever arrives under the alias; the tests read the device table, not a device.
+#
 # `none` builds the machine with neither, which is every PC whose firmware publishes no DMAR and no
 # IVRS: the kernel must keep booting there and say loudly that nothing is confined. Nothing in the
 # suite runs on it; it is for looking at that boot.
 case "$NIFE_IOMMU" in
     ""|intel) ;;
-    amd) IOMMU="-device amd-iommu,dma-remap=on${NIFE_INTREMAP:+,intremap=$NIFE_INTREMAP}" ;;
+    amd) IOMMU="-device amd-iommu,dma-remap=on${NIFE_INTREMAP:+,intremap=$NIFE_INTREMAP} -device pci-bridge,id=amdvi-alias-bridge,chassis_nr=1" ;;
     none) IOMMU="" ;;
     *)
         echo "qemu-runner-x86_64: NIFE_IOMMU=$NIFE_IOMMU is not 'intel', 'amd' or 'none'" >&2
