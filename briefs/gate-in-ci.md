@@ -93,6 +93,10 @@ When the maintainer resumes you with both runs green, mark it ready and arm it i
 
     gh pr ready <N> && gh pr merge <N> --auto --merge
 
+Arm it only after your last push: a push to a queued branch removes the pull request from the queue,
+throws away its group build and cancels its auto-merge (the pre-push hook refuses it; see
+`notes/merge-queue.md`, "A push to a queued branch").
+
 Nothing else arms it. The merge drain stopped arming on 2026-10-03 (milestone 727 (a queue eviction goes to a maintainer session), provisional),
 and a ready pull request left unarmed for 30 minutes is labelled `needs-maintainer` for a
 maintainer session to pick up.
