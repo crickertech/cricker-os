@@ -98,6 +98,16 @@
 # - **One falsification can take half an hour.** `nifefs::a_short_image_is_refused_not_indexed` and
 #   `package_archive::a_short_file_is_refused` run 20 to 31 minutes each at over 3 GB (verify.yml
 #   records it), so an entry that reaches either crate makes this walk that much longer.
+# - **`--act` acts on a stale snapshot of the queue.** It reads the queue once at the start, has no
+#   skip list, and does not re-check that an entry is still queued before it comments on or dequeues
+#   it. If the queue changes during a long walk (a manual dequeue, a fix pushed), `--act` can comment
+#   on or disarm a pull request someone else already handled. Both `--act` runs on 2026-10-05 had to
+#   be stopped before acting. Workaround: use `--dry-run` while the queue is moving, and act by hand
+#   on what it reports after checking each entry is still red and still queued.
+# - **The falsifications rung dominates wall time.** About 24 minutes on #1701 and over 75 minutes on
+#   #1713 (Kani on `machine_discovery`), measured 2026-10-05. A walk that reaches one can take hours,
+#   and it is Kani, the heavy kind of job (memory, one at a time). Workaround: expect it, start the
+#   walk when nothing else needs the machine, and do not run it beside lanes that gate.
 # - **Host tests are per touched crate, not per dependent.** A change to a crate's API that breaks a
 #   dependent is caught by the aarch64 suite rung (whose host pass is the whole workspace) or by
 #   lint's clippy pass, not by this rung.
