@@ -362,7 +362,15 @@ fn wire_servers(
             let (ep, ready, shared) = spawn_block_server(blk_image, dev);
             (ep, Some(ready), shared)
         }
-        None if crate::virtio::find_block_device_n(0).is_none() => nvme_disk()?,
+        // **Only when the boot came from that disk.** A stick booted on an installed machine
+        // would otherwise mount it, and RedoxFS writes on mount: measured as 3 changed blocks by
+        // boot 3 of `cargo xtask install-boot` (the live stick proposal's G2; calef ruled the
+        // `boot_slot::medium` token that answers it on PR #1652, 2026-10-04 UTC).
+        None if crate::virtio::find_block_device_n(0).is_none()
+            && crate::memory::booted_from_nvme() =>
+        {
+            nvme_disk()?
+        }
         None => return None,
     };
     // Window 0 is the default channel every legacy single-client path maps; windows 1.. are the

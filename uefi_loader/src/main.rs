@@ -187,9 +187,16 @@ fn load(handle: Handle, table: &SystemTable, services: &BootServices) -> Result<
     #[cfg(not(target_arch = "x86_64"))]
     let from_slot: Option<u8> = None;
 
+    // Whether the kernel may mount the internal disk: only when this boot came from it. See
+    // `chooser::booted_from_nvme`.
+    #[cfg(target_arch = "x86_64")]
+    let on_nvme = chooser::booted_from_nvme(handle, services, from_slot);
+    #[cfg(not(target_arch = "x86_64"))]
+    let on_nvme = false;
+
     // --- 5. The architecture's handover, which ends in the kernel or in an error ---
     arch::hand_over(
-        handle, table, services, found, &kernel, module, boot_file, from_slot,
+        handle, table, services, found, &kernel, module, boot_file, from_slot, on_nvme,
     )
 }
 

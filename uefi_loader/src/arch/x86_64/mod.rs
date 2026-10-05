@@ -121,6 +121,9 @@ pub fn hand_over(
     // the boot worked. `None` for a stick, a `-kernel` boot, and a chooser's own fallback to the
     // image in its file; all three are boots with nothing to confirm.
     from_slot: Option<u8>,
+    // **Whether this boot came from the NVMe disk**, which is the only boot whose kernel may mount
+    // it (`boot_slot::medium`; calef's ruling on PR #1652, 2026-10-04 UTC).
+    on_nvme: bool,
 ) -> Result<(), &'static str> {
     // --- The page the kernel's AP bring-up needs, asked for by name ---
     //
@@ -300,7 +303,8 @@ pub fn hand_over(
     let mut token = [0u8; CMDLINE_LEN];
     // The one writer, so what this places is decoded in a host test by the kernel's own parsers;
     // `handoff::cmdline` says what each token is and what `screen_hold` adds.
-    let written = uefi_loader::handoff::cmdline(found.screen.as_ref(), from_slot, &mut token);
+    let written =
+        uefi_loader::handoff::cmdline(found.screen.as_ref(), from_slot, on_nvme, &mut token);
     let cmdline = if written == 0 {
         0
     } else {

@@ -213,6 +213,14 @@ STICK="-drive format=raw,file=fat:rw:$ESP"
 if [ -n "$NIFE_UEFI_NO_STICK" ]; then
     STICK=""
 fi
+# **The stick, chosen first**, which is what a person does from the firmware's one-time boot menu.
+# Without it OVMF prefers an NVMe disk that carries \EFI\BOOT\BOOTX64.EFI, so a gate meaning to boot
+# the stick on an installed machine would quietly boot the disk instead (measured: boot 3 of
+# `cargo xtask install-boot`, 2026-10-04). Same AHCI bus the plain `-drive` lands on; only the
+# boot index is new. Name provisional.
+if [ -n "$NIFE_UEFI_STICK_FIRST" ] && [ -z "$NIFE_UEFI_NO_STICK" ]; then
+    STICK="-drive if=none,id=stick,format=raw,file=fat:rw:$ESP -device ide-hd,drive=stick,bus=ide.0,bootindex=0"
+fi
 
 NVME=""
 if [ -n "$NIFE_NVME" ]; then
