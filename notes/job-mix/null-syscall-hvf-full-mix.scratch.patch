@@ -88,3 +88,24 @@ index 7fd982a82..4327ee9b2 100644
  pub struct PerCpu {
      /// The lowest lock rank this core currently holds (`rank::NONE` when it holds nothing).
      ///
+diff --git a/kernel/src/cpu.rs b/kernel/src/cpu.rs
+index 7fd982a82..f97b37eb8 100644
+--- a/kernel/src/cpu.rs
++++ b/kernel/src/cpu.rs
+@@ -353,7 +353,15 @@ static ADOPTED: [AtomicU64; MAX_CPUS] = [const { AtomicU64::new(0) }; MAX_CPUS];
+ ///
+ /// Statically allocated on purpose: a core's block must be reachable from its first instruction
+ /// of Rust, long before any allocator exists. `TPIDR_EL1` points at one element of this array.
+-static PERCPU: [PerCpu; MAX_CPUS] = [const { PerCpu::new() }; MAX_CPUS];
++// SCRATCH (lane/percpu-own-line, never committed): the positive control. Puts the blocks at 24
++// mod 128, the parent lane's condition A layout, which today's link happens not to.
++#[repr(C, align(128))]
++struct Shifted {
++    _pad: [u8; 24],
++    blocks: [PerCpu; MAX_CPUS],
++}
++static PERCPU_SHIFTED: Shifted = Shifted { _pad: [0; 24], blocks: [const { PerCpu::new() }; MAX_CPUS] };
++static PERCPU: &[PerCpu; MAX_CPUS] = &PERCPU_SHIFTED.blocks;
+ 
+ /// **`PerCpu`'s size must stay a power of two, and this is the check that says so.**
+ /// Added by milestone 541 (a timed window that excludes preemption).

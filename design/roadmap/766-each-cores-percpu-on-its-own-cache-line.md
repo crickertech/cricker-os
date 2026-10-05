@@ -47,8 +47,9 @@ lookups contended). It is about 1.7 ns on a 33 ns trap there. Radon's size is un
 ## What was built
 
 - `PerCpu` is `repr(align(128))` on aarch64 and riscv64. x86_64 keeps its `repr(align(256))`
-  (milestone 758 (the IPC fast paths shrink back inside their band), where the struct is 160 bytes). The size stays 128 on the first two, so the
-  power-of-two assertion below `PERCPU` still holds and no core pays padding.
+  (milestone 758 (the IPC fast paths shrink back inside their band)), where the struct is 160
+  bytes. The size stays 128 on the first two, so the power-of-two assertion below `PERCPU` still
+  holds and no core pays padding.
 - A private constant `FALSE_SHARING_SPAN` (128) and a compile-time assertion that
   `align_of::<PerCpu>() >= FALSE_SHARING_SPAN`. Size is a multiple of alignment, so that one check
   is what puts every element of `PERCPU` on a span of its own. Losing either attribute, or adding an
@@ -72,7 +73,23 @@ crate is involved, since the change is one attribute and one assertion in the ke
 
 ## What HVF said
 
-MEASUREMENT PENDING
+Patagonia, 2026-10-05 (UTC), by the parent note's method; the full reading is the
+[note's section on this milestone](../../notes/job-mix/null-syscall-hvf-full-mix.md#milestone-766-from-committed-code).
+Per-trap excess at four tasks, 24 MHz ticks, bootstrap 95% intervals, boots interleaved:
+
+| Build | boots | excess at 4 | minus the parent commit |
+|---|---|---|---|
+| parent commit `1cf413329` | 32 | -0.058 [-0.065, -0.050] | |
+| this milestone | 32 | -0.055 [-0.060, -0.051] | +0.003 [-0.006, +0.011] |
+| parent, blocks forced to 24 mod 128 (scratch) | 21 | -0.018 [-0.022, -0.013] | +0.040 [+0.030, +0.049] |
+
+**The proposal's E did not reproduce as a difference, because the parent commit no longer has the
+defect's layout.** Its link puts `PERCPU` at 8 mod 128, where only a neighbour's `rng` and
+`need_resched` share a block's line; the job-mix build the proposal measured had it at 24 mod 64.
+Forcing that layout back brings the residual back in A's shape (+0.010, +0.023, +0.040 at two,
+three, four tasks), so the defect is real and depended on where the linker happened to put a static.
+This milestone removes the dependence: against the forced layout it is worth 0.040 ticks a trap,
+and against today's lucky one nothing, within an interval of zero either way.
 
 ## Done means
 
