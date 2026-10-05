@@ -93,7 +93,7 @@ because two tests do not move a twelve-second figure.
 Two samples each, on a machine that was not otherwise idle (another lane was building). Subtract
 the 14 seconds of host crates that only the TCG row contains and the comparison is about 40 s
 against about 14 s for the same fixtures, the same 234 tests, and the same post-run image checks:
-roughly a **3x** win on the leg, and more than that on the booted suite alone, since a fixed few
+roughly a 3x win on the leg, and more than that on the booted suite alone, since a fixed few
 seconds of both numbers is cargo and image building.
 
 So the leg adds 12 to 16 seconds to the local run. Timing it before adopting it was the condition
@@ -109,7 +109,7 @@ that gap and is deliberately not part of this: it couples CI to a laptop that sl
 `script/ci-build` with no arguments is the one command a person or an agent runs before pushing,
 which makes it the place where every lane on this machine picks the leg up for free. The leg is a
 `local` row in its table, and there is no CI job for it at all. When the host cannot supply HVF
-the leg **skips loudly**, naming the reason (not macOS, not Apple Silicon, `kern.hv_support` off,
+the leg skips loudly, naming the reason (not macOS, not Apple Silicon, `kern.hv_support` off,
 or a QEMU built without the accelerator) and saying in plain words that nothing in the run executed
 on a physical core. A silent omission would let a Linux CI transcript read exactly like one from
 this laptop, and the whole point of the leg is that those are not the same evidence.
@@ -117,8 +117,8 @@ this laptop, and the whole point of the leg is that those are not the same evide
 ## Semihosting is not answered under HVF, and this is what that looks like
 
 The test harness reports its verdict by asking the host to exit: `testing::runner` ends in
-`semihosting::exit`, and so do the panic handler and both watchdogs. **QEMU 11.0.2 does not
-intercept ARM semihosting on the HVF path.** The tree already believed this (`notes/benchmarks.md`
+`semihosting::exit`, and so do the panic handler and both watchdogs. QEMU 11.0.2 does not
+intercept ARM semihosting on the HVF path. The tree already believed this (`notes/benchmarks.md`
 records "semihosting does not work under HVF" and the bench kernel parks in `wfi` instead of
 exiting); milestone 81 measured it, and measured what happens next.
 
@@ -134,8 +134,8 @@ Booting the real kernel says what the guest sees. The trap is **not swallowed**:
 synchronous exception into the guest's own vector table, `EC 0x00` ("Unknown reason",
 `ESR_EL1 = 0x02000000`), with `x0 = 0x18` and `x9 = 0x20026` still in the registers. Our handler
 does the correct thing for an exception it does not know, which is to panic, and the panic handler
-under `cfg(test)` calls `semihosting::exit`, which takes the same trap again. **Four cores doing
-that write interleaved garbage at native speed, forever.** `kernel/src/arch/aarch64/semihosting.rs`
+under `cfg(test)` calls `semihosting::exit`, which takes the same trap again. Four cores doing
+that write interleaved garbage at native speed, forever. `kernel/src/arch/aarch64/semihosting.rs`
 predicted exactly this in a comment ("without one it raises a real exception") without knowing it
 had a case.
 
@@ -167,7 +167,7 @@ machine overruled the comment.
 ## What the physical core found: five assertions about "has it happened yet"
 
 Every failure belonged to the milestone-78 family (`notes/load-sensitive-assertions.md`), and every
-one was found from the **opposite direction**. That note's diagnostic is that a slow machine
+one was found from the opposite direction. That note's diagnostic is that a slow machine
 produces a deficit; HVF is a *fast* machine, and it produces the same deficit for the mirror-image
 reason. A yield count is not a duration in either direction: on a loaded host this core burns cheap
 yields while another core is descheduled, and on the physical core it burns them in nanoseconds
@@ -196,14 +196,14 @@ failing sibling.
 - **`user::reap_tests::reaping_an_uncollected_corpse_leaves_no_ghost_on_the_endpoint`** ("the
   corpse never parked on its supervision endpoint"). 4000 yields waiting for a dying child on
   another core to park its death message. This one passed three HVF runs and failed the fourth,
-  which is worth stating: **the leg samples this defect, it does not detect it.** Now
+  which is worth stating: the leg samples this defect, it does not detect it. Now
   `wait_for(|| endpoint_waiting_senders(fault_ep) == 1)`.
 - **`user::supervision_tests`'s reclaim after a respawn** (2000 yields, no assertion at all, so a
   timeout silently left an unreclaimed region for a neighbour to trip over). Not a failure; fixed
   on inspection, and it now asserts.
 
 - **`sched::a_thread_that_never_yields_is_preempted_anyway`** ("the spinner never ran at all"). Not
-  a yield count, and the most interesting of the five, because it is a **vacuity** guard that the
+  a yield count, and the most interesting of the five, because it is a vacuity guard that the
   faster machine turned into a failure. The test spawns a hostile spinner and a polite thread on
   the same core, waits for the polite one to report, sets `STOP`, and then checks the spinner had
   spun at least once, since a polite thread running on a core nobody was monopolizing proves
@@ -223,7 +223,7 @@ because timers were what the milestone expected to be perturbed.
 Under HVF guest time is host time (`CNTVCT_EL0` is passed through at the host's 24 MHz) and there
 is no icount instrument, so the milestone expected the wall-clock assertions to be the casualties.
 None of them failed. The reason is milestone 78, which landed the night before: the timer-drift
-twins had already been re-aimed at the **re-arm law** (over a window in which `MISSED_TICKS` did
+twins had already been re-aimed at the re-arm law (over a window in which `MISSED_TICKS` did
 not move, the deadline advanced by exactly one interval per delivered tick), and that law is a
 statement about state the kernel owns, not about how fast the clock runs. A test that measures the
 right thing does not care which accelerator it is on, which is a stronger endorsement of that work
@@ -234,7 +234,7 @@ The assertions that *do* keep wall-clock exposure passed here as well: the handl
 `ticks_arrive_at_the_configured_rate`'s surviving bound. HVF makes them no worse in principle: a
 deschedule of a host thread running a vCPU produces the same missed tick either way.
 
-***Half of that is history as of 2026-08-18.*** Milestone 62 deleted the handler-latency pair on
+*Half of that is history as of 2026-08-18.* Milestone 62 deleted the handler-latency pair on
 both ISAs rather than fixing the taxonomy, and made `ticks_arrive_at_the_configured_rate`'s retry
 budget report `UNMEASURED` instead of failing, so the only wall-clock timer exposure this leg still
 inherits is that report. The local tier runs `script/icount` before `script/test`, which means this
@@ -242,7 +242,7 @@ leg is now preceded by an instrument the accelerator cannot influence at all.
 
 ### The settle windows the leg makes weaker, not flakier
 
-Three sites spend 400 yields to "let it settle" and then assert that **nothing more** happened
+Three sites spend 400 yields to "let it settle" and then assert that nothing more happened
 (`user::c_seam_tests` line ~122, `user::authority_tests` ~121, `user::live_swap_tests` ~185, each
 asserting `endpoint_waiting_senders(report) == 0`). These do not fail under HVF and will not: a
 shorter real settle window makes a negative assertion easier to pass, so the leg quietly proves
@@ -253,7 +253,7 @@ silence for a clean bill.
 
 ## BUGS
 
-- **Most of the measurements below were taken on QEMU 11.0.2 and a GICv2**, before milestone 227
+- Most of the measurements below were taken on QEMU 11.0.2 and a GICv2, before milestone 227
   (a GICv3 driver) put the leg back on a machine QEMU 11.1.1 will start. When the probe cannot start
   that machine, `script/ci-build` skips the leg out loud, which is milestone 222 (a leg that fails
   instead of skipping), and a loud skip is a record of a gap and not a substitute for one.
@@ -265,27 +265,27 @@ silence for a clean bill.
   assertion, and `kernel/src/ipc_stack_depth.rs` has the measurement. It is the same shape as the
   five yield-count assertions below, found from the same direction, and the only mechanism that
   would have caught it sooner is running this leg.
-- **With the calibration fixed, two older failures are what stand between this leg and green**,
+- With the calibration fixed, two older failures are what stand between this leg and green,
   measured on 2026-09-24 over six runs on a host that other lanes held at a 1-minute load of 14 to
   25 on 8 cores: two runs green (355 passed, 3 skipped, every host check), three hung at
   `a_std_program_serves_a_granted_listening_port`, and one passed the whole suite and then failed
   the scanout referee on the display-terminal and display-pattern checks (the referee sampled too
-  late; the guest's own tests passed). The listener hang had **one prober shape in all four runs
-  that showed it**: two rounds answered around +19 s, then a connection opened within a millisecond
+  late; the guest's own tests passed). The listener hang had one prober shape in all four runs
+  that showed it: two rounds answered around +19 s, then a connection opened within a millisecond
   of the second answer that waited 90 s and was never accepted, while the std program aborted
   (`BRK`) on its bounded `accept`. That is the shape the hypothesis at the top of this page
   predicts, a connection handed to the hand-written listener's socket after its last round, now seen
   four times rather than inferred. It is not fixed here: the prober holds connections on purpose
   (`xtask/src/inbound.rs`), and changing that is the work notes/net/the-inbound-check.md says to read first.
-- **One failure ends the suite, on both legs.** The custom test framework does not unwind, so a
+- One failure ends the suite, on both legs. The custom test framework does not unwind, so a
   panicking test is the end of the run under TCG too; what differs here is only the exit. The scanout
   and inbound checks still report afterwards and can fail because the guest never reached their
   tests, so the leg now says to fix the first failure before reading them.
-- **A failing run leaves an exception storm behind it.** The kernel has no way to know its
+- A failing run leaves an exception storm behind it. The kernel has no way to know its
   semihosting exit will not be answered, so any failure under HVF ends in an unbounded panic loop
   on four cores. The host stops reading and kills the child, so the cost is bounded in practice,
   but a transcript from a failed HVF run ends in interleaved garbage after the 200-line budget, and
-  anyone driving the runner **by hand** under HVF (rather than through `xtask`) will get a QEMU
+  anyone driving the runner by hand under HVF (rather than through `xtask`) will get a QEMU
   that never stops. Use `helpers/qemu-bounded.sh` for that. A guest-side fix (recognising the
   semihosting trap in the Unknown-reason handler and parking in `wfi` instead of panicking) is not
   built here; it would touch the exception path for a test-only benefit, and on its own it would
@@ -294,13 +294,13 @@ silence for a clean bill.
   would have to land together, the host stopping on a marker the parked guest prints.
 - **The leg is not a CI gate and cannot be one.** Nothing enforces that it ran. `script/ci-build`'s
   no-argument path is the enforcement, and running that is a convention.
-- **One machine, one model, no variation.** `-cpu host` is mandatory under HVF, so this leg says
+- One machine, one model, no variation. `-cpu host` is mandatory under HVF, so this leg says
   nothing about other aarch64 implementations; that job stays with `script/cpu-matrix` (which is
   riscv64's) and with the second board.
-- **The leg samples the yield-count defect rather than detecting it.** One of the four found here
+- The leg samples the yield-count defect rather than detecting it. One of the four found here
   passed three consecutive HVF runs before failing. So a green HVF leg is evidence, not proof, and
   a red one on an unchanged tree should be read as this family before anything else.
-- **The suite still exits through semihosting on the TCG leg**, so the two legs report their
+- The suite still exits through semihosting on the TCG leg, so the two legs report their
   verdicts by different mechanisms. A change to the harness's final line
   (`test result: ok. N passed`) would silently turn this leg into one that always fails, and no
   test asserts that string. It is matched in `hvf_kernel_leg`.

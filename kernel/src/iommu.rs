@@ -159,7 +159,11 @@ pub fn confine(rid: u32, regions: &[DmaRegion]) {
     // left out rather than mapped twice, which would fail the whole build: the grant already
     // covers those pages, and a firmware region overlapping kernel-allocated memory is a firmware
     // bug the boot print names.
-    let mut all = [DmaRegion { base: 0, size: 0 }; MAX_CONFINED_REGIONS];
+    let mut all = [DmaRegion {
+        base: 0,
+        size: 0,
+        writable: false,
+    }; MAX_CONFINED_REGIONS];
     assert!(
         regions.len() <= all.len(),
         "a DMA grant of {} regions is more than confine carries",
@@ -215,6 +219,14 @@ pub(crate) fn build_identity<F: paging::PageFormat>(regions: &[DmaRegion]) -> u6
 /// used half and its data buffers) and the kernel-private shadow page (the descriptor table and
 /// available ring the device actually reads). Both are frame-granular. See notes/dma.md for why the
 /// device reads a shadow the driver cannot write.
+///
+/// **The shadow page is read-only to the device** (provisional milestone 767 (AMD-Vi hardening
+/// before the first AMD boot)). A split virtqueue's descriptor table and available ring are the
+/// driver's half: the device reads them and never writes either (virtio 1.2, section 2.7; the
+/// device's writes go to the used ring, which lives in the driver's region). So write permission on
+/// the shadow was authority the device never needed, over the one page whose whole purpose is that
+/// nothing but the kernel shapes it. `virtio::tests::a_device_write_to_the_read_only_shadow_is_refused`
+/// is the proof, on every architecture's IOMMU.
 pub fn virtio_regions(
     direct_memory_access_base: u64,
     direct_memory_access_size: u64,
@@ -224,10 +236,12 @@ pub fn virtio_regions(
         DmaRegion {
             base: direct_memory_access_base,
             size: direct_memory_access_size,
+            writable: true,
         },
         DmaRegion {
             base: shadow_base,
             size: page_frames::FRAME_SIZE,
+            writable: false,
         },
     ]
 }

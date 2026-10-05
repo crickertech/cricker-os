@@ -14,7 +14,7 @@ disk behind it, hands the bytes to `crates/globally_unique_identifier_partition_
 blocks at the far end and checks the backup table against the primary. The kernel never sees a
 partition table; every byte of judgement happens in a userspace crate whose tests run on the host.
 
-**The provenance is the point.** The test image is built by `xtask::mkgptdisk` from
+The provenance is the point. The test image is built by `xtask::mkgptdisk` from
 `crates/globally_unique_identifier_partition_table/tests/fixtures/sgdisk-64m.{head,tail}`: the first 34 and last 33 blocks of a 64 MiB disk
 that `sgdisk` 1.0.10 (gptfdisk, C++) partitioned, with the 64 MiB of nothing between them left out
 and put back as zeros. So the guest parses a table written by people who have never heard of this
@@ -26,8 +26,8 @@ Nothing is *in* the partitions. What is under test is finding them.
 
 ### The block-size mismatch, which is the only real arithmetic here
 
-A GPT counts in **logical blocks**, 512 bytes on every disk this project has met. The block service
-a program holds moves one **filesystem block** per request, 4096 bytes, because that is
+A GPT counts in logical blocks, 512 bytes on every disk this project has met. The block service
+a program holds moves one filesystem block per request, 4096 bytes, because that is
 `redoxfs::BLOCK_SIZE` and what keeps a mount's device round trips affordable (notes/fs-server.md).
 So "read LBA 1" is "read transfer block 0, take bytes 512..1024", and the backup table's 33 logical
 blocks start partway into a transfer block at an offset that depends on the disk's size.
@@ -47,7 +47,7 @@ On the 64 MiB test disk the three reads work out as:
 
 ### The 512 assumption, stated where a reader meets it
 
-The block protocol (`filesystem_protocol::blk`) carries **no logical block size**. There is nowhere for the
+The block protocol (`filesystem_protocol::blk`) carries no logical block size. There is nowhere for the
 surveyor to read the device's from, so it assumes 512. `crates/globally_unique_identifier_partition_table` handles 4096 and has a test at
 it; a 4Kn disk would be read here as though its LBA 1 were at byte 512, which is a wrong answer
 rather than an error. The fix is a field on the wire, not a change in the program.
@@ -56,7 +56,7 @@ rather than an error. The fix is a field on the wire, not a change in the progra
 
 This is the design claim, and milestone 57's entry has been making it since 2026-07-30:
 
-> Partitioning and `mkfs` are **destructive** and need authority over a *whole block device*. So the
+> Partitioning and `mkfs` are destructive and need authority over a *whole block device*. So the
 > tool holds one device capability and can destroy exactly that device and nothing else. Compare
 > `parted /dev/sda` as root, where a typo reaches any disk in the machine, and calef's own
 > instructions carry a "confirm the target device path before proceeding" warning precisely because
@@ -82,11 +82,11 @@ at read time, because the authorization happened when the mapping was made.
 An entry is an ordinal and a transport. That is all. Two reasons, and the first is the interesting
 one:
 
-- **A size is a fact about a device you hold.** You learn it by asking (`filesystem_protocol::blk::SIZE`),
+- A size is a fact about a device you hold. You learn it by asking (`filesystem_protocol::blk::SIZE`),
   which takes the endpoint. An enumerator that answered "how big" would be answering a question only
   a holder should be able to ask, which quietly makes the listing the more powerful of the two
   authorities.
-- **Finding out would have side effects.** Reading a virtio-blk capacity off a PCIe function means
+- Finding out would have side effects. Reading a virtio-blk capacity off a PCIe function means
   sizing and assigning BARs and enabling memory decoding (`kernel/src/pci.rs::bring_up`), which is
   not something a *listing* has any business causing, and which would disturb whichever driver
   already owns the function. So `pci::count_block_devices` reads config space and stops.
@@ -125,8 +125,8 @@ DMA and nothing else".
 
 ## The test disk is the fourth one, and command-line order is reversed
 
-QEMU's `virt` assigns virtio-mmio devices to slots in **reverse** command-line order, so the GPT
-image goes **first** on the line to land at slot 3, leaving nifefs at 0, RedoxFS at 1 and the
+QEMU's `virt` assigns virtio-mmio devices to slots in reverse command-line order, so the GPT
+image goes first on the line to land at slot 3, leaving nifefs at 0, RedoxFS at 1 and the
 crash image at 2. Both runner scripts explain this where they do it; getting it backwards silently
 hands a test the wrong disk. Its own image, for the same reason milestone 37's crash test has one:
 a test that shares a fixture couples its result to whether some other test ran first.
@@ -135,7 +135,7 @@ a test that shares a fixture couples its result to whether some other test ran f
 
 The two items this section used to list as "deliberately not done" were done later the same day, by
 the lane that took the vendor divergence. They are recorded here because they change the picture
-above: **there is now a fifth mmio disk, at slot 4, and it is blank on purpose.**
+above: there is now a fifth mmio disk, at slot 4, and it is blank on purpose.
 
 - **`disk_partitioner`** (provisional name) writes the table `disk_surveyor` reads, drawing its
   unique GUIDs from the entropy service. notes/globally-unique-identifier-partition-table.md has the details, including why every write is
@@ -144,27 +144,27 @@ above: **there is now a fifth mmio disk, at slot 4, and it is blank on purpose.*
   partition of that table. notes/fs-server.md has the details, including the vendor divergence it
   needed and why the first attempt at that divergence did not work.
 
-**The claim both are built to make is about the pair.** A disk endpoint and an entropy endpoint are
+The claim both are built to make is about the pair. A disk endpoint and an entropy endpoint are
 jointly sufficient to partition and format a drive, and separately neither is; the kernel test
 withholds each in turn from the same binary, with the same budget, the same stack and the same
 shared page, and then *reads the disk* to show that a refused run wrote nothing.
 
 `mkfs`'s wiring needed `grant_at` rather than `run`'s fill-in-order grants, and the reason
-generalises: **when the missing capability is not the last slot, withholding it has to leave a
-hole.** A shorter grant list renumbers everything above the gap, so a program that was meant to find
+generalises: when the missing capability is not the last slot, withholding it has to leave a
+hole. A shorter grant list renumbers everything above the gap, so a program that was meant to find
 slot 1 empty would instead find its report endpoint there and write a verdict into a block server.
 
 The blank disk is regenerated every run and shared with nothing, for milestone 37's reason
-(DECISIONS §27). The riscv `virt` machine now uses **seven of its eight** mmio transports (five
+(DECISIONS §27). The riscv `virt` machine now uses seven of its eight mmio transports (five
 disks, a NIC, an RNG), which is worth knowing before anything wires an eighth: QEMU drops a
 virtio-mmio device past the last transport silently, and the symptom is a test *skipping*.
 
 ## What this lane deliberately did not do
 
-- **No hot plug.** The roster is written once and never again. A hot-plug story would change
+- No hot plug. The roster is written once and never again. A hot-plug story would change
   `block_roster` (a published-page discipline, the way `clock_protocol` has one) rather than its
   readers.
-- **No partition-aware mount.** Nothing yet opens a filesystem *at* a partition's offset. The blk
+- No partition-aware mount. Nothing yet opens a filesystem *at* a partition's offset. The blk
   wire protocol has no base-block field, so a partition capability (an endpoint bound to a window of
   a disk, the way a directory capability is bound to a subtree) has nowhere to live yet. That is the
   natural next rung and it is a protocol change, not a program.
@@ -177,7 +177,7 @@ PT_LOAD began wherever `.rodata` happened to end, the two segments shared a page
 refused the program with `SegmentsOverlap`. Every earlier program happened to have some initialized
 data. The surveyor's 44 KiB of table buffers are all `.bss`, so it was the first to meet it.
 
-**One stack page is not enough**, and the symptom is not a stack overflow. A debug-build
+One stack page is not enough, and the symptom is not a stack overflow. A debug-build
 `GloballyUniqueIdentifierPartitionTable::parse` walking 128 entries (an `Entry` is 128 bytes by
 value) plus a second `Header::decode` for the backup overran the single mapped stack page by about
 200 bytes, which presents as a data abort on the program's own `sp` and then, thirty seconds later,
@@ -188,7 +188,7 @@ died. `spawn_fs_client` records exactly this twice; it is now three times.
 table slot forever, because a transport is never unregistered. The constant's comment now says the
 fix is an unregister on process death rather than counting to seven.
 
-**And then the write half counted to seven**, the same day, for the blank disk's block server. The
+And then the write half counted to seven, the same day, for the blank disk's block server. The
 comment records that it was told not to and why it did anyway: the unregister has to decide what a
 `Virtio` capability *is* once its holder is dead, and whether a transport may be handed to a second
 driver after the first programmed the device, which is a lifetime decision about a kernel object

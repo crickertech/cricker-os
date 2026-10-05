@@ -21,7 +21,7 @@ hot path of a microkernel: switches are what an IPC-heavy system does all day.
    re-caching the same kernel translation per process.
 2. **The ASID rides in `TTBR0_EL1`'s top bits**, written together with the table root as one
    composed value (`mmu::ttbr0_value`). Installing an address space *is* installing its tag.
-3. **Each address space owns one ASID for life** (`crates/address_space_identifier`): allocated at creation, freed
+3. Each address space owns one ASID for life (`crates/address_space_identifier`): allocated at creation, freed
    at teardown after `tlbi aside1is` has destroyed every entry wearing it. That flush-then-free
    order is the whole reuse contract, stated at the drop site.
 
@@ -47,16 +47,16 @@ ASIDs (one TCR bit plus an ID-register check), not a new algorithm.
 Milestone 58 brought this to the second ISA, and every part of the mechanism above has a twin whose
 *shape* differs enough to be worth naming.
 
-1. **Non-global is the default**, not an opt-in. Sv39 has a `G` bit meaning global, where aarch64 has
+1. Non-global is the default, not an opt-in. Sv39 has a `G` bit meaning global, where aarch64 has
    `nG` meaning the opposite, so a user mapping is tagged unless somebody says otherwise. The kernel
    half is `G`, for the same reason it is global on aarch64.
 2. **The tag rides in `satp[59:44]`**, above the root PPN and below MODE, packed with no slack. One
    register holds mode, tag and root, which is why installing an address space is a single `csrw`.
-3. **Teardown is not one instruction.** `sfence.vma` is local. Discharging an ASID machine-wide means
+3. Teardown is not one instruction. `sfence.vma` is local. Discharging an ASID machine-wide means
    an IPI to every other hart through SBI RFENCE and an acknowledgement, which is the whole of
    milestone 58 and is written up in notes/riscv-tlb-shootdown.md.
 
-And one thing that is *not* a twin: RISC-V permits `satp.ASID` to be **zero bits wide** where aarch64
+And one thing that is *not* a twin: RISC-V permits `satp.ASID` to be zero bits wide where aarch64
 mandates eight. The paragraph above about 255 numbers being safely below the smallest hardware ASID
 space is an aarch64 fact. RISC-V probes the width at boot and keeps flushing on every switch if the
 machine cannot tell the numbers apart.
@@ -76,7 +76,7 @@ The flush-before-reuse half of the contract is kernel-side and runs on hardware,
 *witnessed* rather than proved: `asid_tagging_keeps_address_spaces_apart_without_flushes` maps
 the same VA to different bytes in two spaces, switches between them with no flush, and demands
 each space read its own byte. If `nG` were missing, the tag were not in TTBR0, or two spaces
-shared an ASID, that test reads the wrong byte. **It runs on both ISAs since milestone 58**; before
+shared an ASID, that test reads the wrong byte. It runs on both ISAs since milestone 58; before
 that it could not be ported honestly, because RISC-V's context switch flushed everything and the
 twin would have passed for the wrong reason.
 

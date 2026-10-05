@@ -1,6 +1,6 @@
 # The CI log baseline: per-check attribution mined before the logs expire
 
-*Names: `notes/ci-log-baseline.md`, `script/ci-log-baseline` and the CSV below are **provisional**.
+*Names: `notes/ci-log-baseline.md`, `script/ci-log-baseline` and the CSV below are provisional.
 Naming is an architect's (AGENTS.md); a lane ships a provisional name and says so.*
 
 This tree cannot currently answer "has this gate ever fired in CI?" GitHub Actions keeps a failed
@@ -15,7 +15,7 @@ on 2026-09-21 and found the window closing around 2026-10-21. This page and
 mining into a committed, re-derivable record, and extend it to every other CI job whose log names a
 sub-check the same way, before more of it is gone.
 
-**This is not the gate-firing ledger** proposed alongside it. That ledger (still an architect's to
+This is not the gate-firing ledger proposed alongside it. That ledger (still an architect's to
 rule on) would capture every future, local firing, the ones that never reach Actions because a lane
 ran `script/lint`, saw red, fixed it, and pushed green. This page captures only the past, and only
 the slice of the past that escaped local gating and reached GitHub. It is not a ranking of which
@@ -30,13 +30,13 @@ distinguishable check: `run_id,job_id,date,workflow,job_name,attributed_check,br
 `script/ci-log-baseline --update` writes it and `--report` reads it back; its own header carries the
 usage, the `EXAMPLES` and its `BUGS`.
 
-**Reused rather than refetched, where it was safe to.** A prior research lane (the gate-audit
+Reused rather than refetched, where it was safe to. A prior research lane (the gate-audit
 proposal above) had already fetched all 309 `clippy` job logs and all 99 `bench (icount regression
 tripwire)` job logs while writing its proposal, and left the mined output in its session
 scratchpad rather than the repo, per its own report. This lane found it there, and re-verified it
-rather than adopting it on trust: **five `clippy` rows spread across the full date range (the
+rather than adopting it on trust: five `clippy` rows spread across the full date range (the
 oldest failure, one from 2026-08-17, one from 2026-08-25, one from 2026-09-16, and the newest
-distinct-check firing) were re-fetched live and matched the cached marker exactly**, and two `bench`
+distinct-check firing) were re-fetched live and matched the cached marker exactly, and two `bench`
 rows (one `TRIPWIRE`, one generic failure) were re-fetched and matched too, down to the exact
 benchmark name and the exact `##[error]` line. Everything else in this record (`supply chain`, `cpu
 matrix`, `verify (Kani proofs)`, and the run-to-branch mapping) was fetched fresh by this lane, not
@@ -57,7 +57,7 @@ Three more job types share that convention closely enough to use the same techni
   <crate> (<what it proves>)` line per harness, `set -e`, last marker names the harness. Only five
   of these have ever failed.
 - **`cpu matrix (riscv64 across QEMU CPU models)`** runs `script/cpu-matrix`, and its last `==>`
-  marker is **not** useful on its own: the script prints `==> matrix` as a section header after
+  marker is not useful on its own: the script prints `==> matrix` as a section header after
   every model has run, whether any failed or not, so that marker is identical on all 213 failures
   and would attribute nothing. What does distinguish them is the line the script prints to stderr,
   `cpu-matrix: failed on: <models>`, or, for the rarer case where the probe that confirms `-cpu` is
@@ -77,8 +77,8 @@ Three more job types share that convention closely enough to use the same techni
   `##[error]Process completed with exit code 1`-style line, which this record captures too (truncated)
   rather than reducing to a bare "unattributable".
 
-**Every other failed job type is a single check, and GitHub's job name already is the finest
-attribution available.** Examined and ruled out for that reason: `build + test (host + QEMU)`
+Every other failed job type is a single check, and GitHub's job name already is the finest
+attribution available. Examined and ruled out for that reason: `build + test (host + QEMU)`
 (327 failures), `coverage (host crates)` (104), `rustfmt` (55), `fastpath footprint (the IPC path
 must stay L1i-sized)` (33), `stack frames (no frame over a third of a thread stack)` (14),
 `undefined-behavior check (host crates, sampled paths)` (5), `build against the latest nightly`
@@ -109,9 +109,9 @@ record uses everywhere else, and is left as a `BUGS` entry rather than folded in
 | Newest date reached | 2026-09-21 |
 | Roughly how many GitHub API calls this lane made | ~275: 1 total-run-count probe, ~10 paginated pages to re-list all 909 failed runs with their branch, ~10 probe fetches to check log survival across the date range by hand, 232 fresh log fetches (14 supply chain + 213 cpu matrix + 5 verify), 7 re-verification fetches (5 clippy, 2 bench), ~10 fetches re-probing the three job ids calef flagged as expired (three attempts each, one with response headers, plus the run-level archive for the same run), plus the calls the discovery process above made while locating and reading the reused cache. The 309 clippy and 99 bench log fetches were **not** repeated; they were reused from a prior lane's cache and spot-checked live instead. |
 
-**Zero rows in this record are unattributable because of expiry, via the run-level archive, which is
+Zero rows in this record are unattributable because of expiry, via the run-level archive, which is
 the endpoint `script/ci-log-baseline` now prefers to fall back to and which has not begun expiring
-as far as either measurement below can tell.** That qualification is new and load-bearing; read the
+as far as either measurement below can tell. That qualification is new and load-bearing; read the
 next section before trusting the unqualified version of this sentence anywhere else.
 
 ### Two clocks, and they disagreed with each other
@@ -126,22 +126,22 @@ oldest. That reading was written up as a correction to the brief and to the gate
 own same-day measurement, which projects deletion starting around 2026-10-21: nothing had expired
 yet, full stop.
 
-**calef then measured the same three job ids directly** (89101327085, 89101327099, 89101327127, all
+calef then measured the same three job ids directly (89101327085, 89101327099, 89101327127, all
 from run 29973830663) and got `expired` at the job endpoint for all three, while the *run-level*
 archive (`/actions/runs/29973830663/logs`) for the same run still served its logs. Told this, this
 lane re-probed the identical three job ids immediately afterward, three times each with response
 headers, and got `200 OK` every time, with `Last-Modified` matching the run's own creation time
-(`Thu, 23 Jul 2026 02:13:47 GMT`) and a stable `ETag` across repeated requests. **Both readings are
-real; neither side mis-typed an id or misread a response.** The honest conclusion is that GitHub's
+(`Thu, 23 Jul 2026 02:13:47 GMT`) and a stable `ETag` across repeated requests. Both readings are
+real; neither side mis-typed an id or misread a response. The honest conclusion is that GitHub's
 per-job log endpoint is, at minimum, inconsistent near wherever its retention boundary actually
 sits: two probes of the identical id, close together in time, returned `200` and `410` respectively.
 Plausible mechanisms include a deletion sweep that has started but not finished, or a storage
 tier/CDN replica that has not caught up with one that has; nothing here can distinguish those, and
 nothing here re-derives which one it is.
 
-**What is not in dispute, and is the more important fact operationally: the run-level archive
+What is not in dispute, and is the more important fact operationally: the run-level archive
 (`/actions/runs/{id}/logs`) returned every job's log intact, for every run and every job this lane
-tried, including the three the job endpoint failed on for calef.** `script/ci-log-baseline` was
+tried, including the three the job endpoint failed on for calef. `script/ci-log-baseline` was
 rewritten to use this as a fallback rather than a primary, because it is one larger fetch (a zip of
 every job in the run, `2_build + test (host + QEMU).txt`-style names) rather than one small one, but
 `fetch_log` now tries the per-job endpoint first and, on ANY failure there, pulls the matching entry
@@ -149,10 +149,10 @@ out of the run zip. So: **the accounting above ("of which 'log expired': 0") is 
 script can now reach, via whichever endpoint answers, and is not a claim that the job endpoint alone
 has never returned expired**: it plainly has, for calef, for the very ids this lane also checked.
 
-**This changes the date to watch.** The gate-audit proposal's 2026-10-21 estimate was for *a*
+This changes the date to watch. The gate-audit proposal's 2026-10-21 estimate was for *a*
 retention window, not necessarily the one that matters now that the job endpoint has apparently
 already started misbehaving for the oldest logs. The date worth watching going forward is whether
-the **run-level archive** starts failing, since that is the endpoint this script now depends on and
+the run-level archive starts failing, since that is the endpoint this script now depends on and
 the one with no evidence of expiry yet. If it holds past 2026-10-21, the proposal's estimate was
 about the wrong clock; if it starts failing before or at that date, the two clocks were closer
 together than either measurement suggested. Either way, do not read "the window closes 2026-10-21"
@@ -171,7 +171,7 @@ riscv64 shell-feature pass. That means the proposal's derived finding, **that 32
 catches in the tree (`conflict markers`, `sh -n`, `unsafe fn contracts`), is preserved and
 cross-checked here rather than merely repeated.
 
-**One number is corrected rather than repeated.** The proposal states 13 firings for "the aarch64
+One number is corrected rather than repeated. The proposal states 13 firings for "the aarch64
 clippy pass, under its three successive names". Grouping this record's own three aarch64 marker
 texts gives 16: `kernel + user + user_rt (aarch64)` 10, `kernel + user + user_mode_runtime
 (aarch64)` 3, and the oldest form, from before the runtime crate existed as its own name,
@@ -197,20 +197,20 @@ caught anything."
 - **`coverage (host crates)`'s per-file detail is not captured**, see above; a future extension would
   need to grep the `coverage: <file>:` lines specifically rather than the `==>` convention this record
   otherwise relies on throughout.
-- **The four `cpu matrix` failures attributed to a QEMU build/install step are a real category this
-  record does not further distinguish**: a failure there means the runner's QEMU cache was cold or
+- The four `cpu matrix` failures attributed to a QEMU build/install step are a real category this
+  record does not further distinguish: a failure there means the runner's QEMU cache was cold or
   stale, not that any CPU model actually ran and failed, and `script/ci-log-baseline` records the
   install-log marker verbatim rather than inventing a category for it.
-- **`architect hold` and `is an audit due` are gates over process state, not over code**, and were
+- `architect hold` and `is an audit due` are gates over process state, not over code, and were
   ruled out of this record for that reason; a "which check fired" question does not apply to a label
   or a cadence date the way it does to a script with named sub-checks.
-- **Which endpoint `script/ci-log-baseline` uses, stated plainly because a re-runner in November
-  needs it more than anything else here.** It tries `/actions/jobs/{id}/logs` first (smaller fetch)
+- Which endpoint `script/ci-log-baseline` uses, stated plainly because a re-runner in November
+  needs it more than anything else here. It tries `/actions/jobs/{id}/logs` first (smaller fetch)
   and falls back to pulling the matching entry out of `/actions/runs/{id}/logs`'s zip on any
   failure there, matched by the job's own name against the archive's `<index>_<job name>.txt`
   filenames (safe only because no run in this record has ever carried two failed jobs of the same
-  attributable-type name; checked before relying on it, not assumed). **A future run of this script
+  attributable-type name; checked before relying on it, not assumed). A future run of this script
   that reports `log expired at both the job endpoint and the run archive` means the run archive
-  itself has started expiring**, which is the deadline actually worth watching (see "Two clocks"
+  itself has started expiring, which is the deadline actually worth watching (see "Two clocks"
   above); a job-endpoint-only failure it now recovers from silently via the fallback and never
   surfaces as expiry at all.

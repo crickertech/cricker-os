@@ -6,7 +6,7 @@
 
 Milestone 14's thesis was: the kernel allocates nothing after boot; every byte it touches is
 static or comes from an untyped a process paid for. It got almost everything. The one draw it
-left open-ended was the **kernel stack**: every thread has a 16 KiB (4-page) kernel stack for
+left open-ended was the kernel stack: every thread has a 16 KiB (4-page) kernel stack for
 its syscalls and exceptions, and `KernelStack::new` took those pages straight from the frame
 allocator, open-endedly, one thread at a time. Bounded only by MAX_THREADS in the worst case,
 but drawn from the shared allocator rather than a budget the kernel owns.
@@ -35,9 +35,9 @@ worth recording:
 creation. And every thread is created by `spawn` (a kernel act) before it ever becomes a user
 process: `exec` runs *on* an already-built thread and cannot move the stack out from under
 itself. So there is no such thing as a user-created kernel stack to give a separate budget to.
-Every kernel stack is kernel-created, so **one source** (the kernel's budget) covers all of
+Every kernel stack is kernel-created, so one source (the kernel's budget) covers all of
 them. The owned-vs-borrowed split feared in round 2, and dismissed as "fifteen lines" in round
-3, turned out to be **zero lines**: there is only one owner.
+3, turned out to be zero lines: there is only one owner.
 
 This is why the kernel stack is kernel-budget-paid and not creator-paid in the per-process
 sense, and that is correct on its own terms besides: the kernel stack is the memory kernel code

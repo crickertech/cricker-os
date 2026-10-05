@@ -58,7 +58,7 @@ cannot see; the detail sections say which is which.
 | 24 | Two shells name each other's files | Held (filter); same TOCTOU near miss | `check_component` plus `subtree_scope::walk`, DESCEND per hop. |
 | 25 | Reach a neighbour's pixels or the screen | Held | `commit_damage` intersects `win.bounds()`; no client-controlled source index found. |
 | 26 | A client of a rendezvous becomes its server | Held | RECEIVE and RECEIVE_CAP both require `Rights::READ`. |
-| 27 | A thread with no port cap touches a port | Held; escape of a neighbour | A port cap narrowed to READ still drives the hardware: `thread_control_block_insert_from` installs `port_range_grant` for any `PortRange` object whatever its rights. Failing test and proposed claim 31 below. |
+| 27 | A thread with no port cap touches a port | Held; escape of a neighbour | A port cap narrowed to READ still drives the hardware: `thread_control_block_insert_from` installs `port_range_grant` for any `PortRange` object whatever its rights. Failing test and proposed claim below. **Fixed by milestone 768 (provisional) as claim 33** (31 and 32 were taken by then). |
 | 28 | A revoked port holder keeps the ports | Held | `delete_port_range_caps_impl` matches `(base,count)`, clears the grant and `outgoing_cap`. |
 | 29 | A thread keeps ports after deleting its cap | Held, row-5 near miss | Self-delete clears the grant; the sibling-copy case is row 5. |
 | 30 | A revocation misses a cap in flight | Held, near miss | The three sweeps clear `outgoing_cap`. But `depart`, `finish_blocked_resident` and `reap_region_objects` do not, safe only because a running thread holds it `None`. A `PageFrame` slice is a distinct object that survives a revoke of its parent run. That one is deliberate, option B of §132 (what `PageFrame::REVOKE` owes an overlapping run), and recorded in `revoke_page_frame_run`'s BUGS. |
@@ -143,7 +143,7 @@ A note is not a home. Each finding is recorded where a reader meets the code, or
   site in `sched::thread_control_block_insert_from`.
 - AMD-Vi: five entries in `amd_vi.rs`'s module `BUGS` (the devfn fault was already there), a
   pointer in `notes/amd-vi.md`, and
-  `design/roadmap/proposals/amd-vi-hardening-before-the-first-amd-boot.md` with the exclusion
+  `design/roadmap/767-amd-vi-hardening-before-the-first-amd-boot.md` with the exclusion
   range, alias quarantine and read-only IVMD as its acceptance items.
 - Row 17: `BUGS` in `direct_memory_access_validator`'s module doc and on `shadow_one_head`, and
   `design/roadmap/proposals/the-shadow-descriptor-is-published-in-two-stores.md`.
@@ -187,6 +187,9 @@ Nothing in the claims file covers it. Findings, strongest first, all read, not b
    silently rather than asserted.
 6. Faults are attributed from devfn alone under QEMU, so a device off bus 0 is blamed on the wrong
    requester id and the escape tests prove less than they appear to.
+
+Milestone 767 (AMD-Vi hardening before the first AMD boot) closed items 1, 2, 3 and 5 on
+2026-10-05 (UTC), with what QEMU could not show recorded in `amd_vi.rs`'s BUGS; 4 and 6 stand.
 
 Proposed claims:
 

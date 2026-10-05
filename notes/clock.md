@@ -7,7 +7,7 @@ three different capabilities. Milestone 51 lane A; the decision and its argument
 ## The thing this replaced
 
 `SystemTime` used to be the monotonic counter offset from `UNIX_EPOCH`. That means the machine
-reported **1 January 1970 plus however long it had been up**, and the interface said nothing about
+reported 1 January 1970 plus however long it had been up, and the interface said nothing about
 it. `notes/std.md` carried the caveat, honestly, and the caveat was the problem: a program does not
 read the notes. Differencing two `SystemTime`s gave a correct duration; any absolute reading was a
 fiction that looked exactly like a fact.
@@ -74,7 +74,7 @@ The clock page is four words: a magic, a sequence, a state, and the offset. Read
 writers are few, and there is no lock a process could hold across an address-space boundary, so it is
 a seqlock:
 
-- a writer claims the sequence with a **compare-exchange** from even to odd (writers are multiple by
+- a writer claims the sequence with a compare-exchange from even to odd (writers are multiple by
   the capability layout, even if two racing is not a design anyone wants), stores the data, then
   releases the sequence to even;
 - a reader takes the sequence, reads the data, fences, and takes the sequence again; equal and even
@@ -123,7 +123,7 @@ the page.
 | max step backward | **1 second** |
 
 Forward and backward are not the same problem. Moving forward skips over instants nobody has
-observed yet. Moving backward makes instants happen **twice**, which is what breaks log ordering,
+observed yet. Moving backward makes instants happen twice, which is what breaks log ordering,
 cache expiries, build stamps, and anything that recorded a timestamp and assumed it would not be
 reissued. Hence three orders of magnitude between the two constants, and a test that fails if
 somebody tidies them into one.
@@ -142,13 +142,13 @@ hole: a machine that does not know the time holds no belief a step limit could p
 Both drivers are in the one portable `clock` binary, compiled on both ISAs, each taking a base
 address and knowing nothing else (rule 2).
 
-**Discovery is by `compatible`, and this is where matching on the node name finally ran out.** The
+Discovery is by `compatible`, and this is where matching on the node name finally ran out. The
 aarch64 board calls the node `pl031@9010000`; the RISC-V board calls its RTC `rtc@101000`. No name
 prefix finds both, so `dtb::node_reg_compatible` is new for this milestone. `node_reg`'s own comment
 had predicted needing it ("a real driver would match `arm,cortex-a15-gic`... written down for the Pi
 port"), and this is that day. Two wrinkles the fixture tests pin: `compatible` is a NUL-separated
-list and a match on **any** entry counts (the PL031 declares `"arm,pl031", "arm,primecell"`), and the
-node writes `reg` **before** `compatible`, so the decode has to wait for the node to close rather
+list and a match on any entry counts (the PL031 declares `"arm,pl031", "arm,primecell"`), and the
+node writes `reg` before `compatible`, so the decode has to wait for the node to close rather
 than decide at the `reg` property.
 
 The kernel passes the *binding* to the service at spawn, so the driver picks its layout from what
@@ -158,7 +158,7 @@ garbage on the first real board.
 
 ## Where the interactive boot puts it (milestone 51's wiring)
 
-Both ISAs' `--features shell` boots start the clock service before the progenitor exists and grant **the progenitor** the
+Both ISAs' `--features shell` boots start the clock service before the progenitor exists and grant the progenitor the
 page with `READ` and `GRANT`: slot 3 on every architecture (`boot_progenitor`, which milestone 166
 made one function; until then it was slot 3 on RISC-V and slot 5 on aarch64). The progenitor hands
 a read-only copy plus a read-only mapping at `0x00c0_0000` to any child whose `grant_plan` manifest
@@ -170,7 +170,7 @@ Three things about that shape are deliberate:
   gets a zeroed frame instead, which reads as `UNKNOWN` and is the honest answer. Slot numbers that
   moved with the hardware would be a wiring nobody could check by reading.
 - **The shell cannot put a clock on the path.** It was granted none at all until milestone 86; since
-  then it holds one with **`READ` and no `GRANT`**, which it reads to time a command (`time
+  then it holds one with `READ` and no `GRANT`, which it reads to time a command (`time
   <command>`, notes/time-command.md) and cannot hand to anything it spawns. Either way the set of
   processes that can read the time is decided by manifests the progenitor reads rather than by anything typed
   at a prompt. `caps date` prints the child's row and `caps` prints the shell's, rights included, so
@@ -184,11 +184,11 @@ which is the one word neither unknown-clock sentence contains.
 ## What a std program sees
 
 `SystemTime::now()` is the clock page plus the counter, and a std program's whole wall-clock
-authority is **slot 5** (a `Frame` capability with `READ`) and a read-only mapping at
+authority is slot 5 (a `Frame` capability with `READ`) and a read-only mapping at
 `rt::CLOCK_PAGE`. See notes/std.md.
 
-The uncomfortable part, recorded rather than smoothed over: `SystemTime::now()` has **no error
-channel**, so the only loud refusal available when the clock is unknown is a **panic**. That is what
+The uncomfortable part, recorded rather than smoothed over: `SystemTime::now()` has no error
+channel, so the only loud refusal available when the clock is unknown is a panic. That is what
 it does, with a message naming which of the two causes it was. A program that never asks the time is
 unaffected, but a program cannot ask whether it *can* ask, because std has no way to represent "I do
 not know". The readable form of the state lives one level down in `clock_protocol` for anything that
@@ -196,7 +196,7 @@ wants to check first, and a `no_std` component simply reads the page.
 
 ## What this lane did not build
 
-- **No timed wait.** There is still no sleep, no timeout, and no deadline anywhere in the kernel;
+- No timed wait. There is still no sleep, no timeout, and no deadline anywhere in the kernel;
   `thread::sleep` is a yield-spin and stays one. The three candidate shapes are in the milestone 51
   block and the choice is open. The distinction worth holding onto: *reading* time is ambient and
   harmless, *blocking* on time is a scheduler interaction, and that is the part that wants a
@@ -204,19 +204,19 @@ wants to check first, and a `no_std` component simply reads the page.
 - **No calendar, no `date`, no NTP.** Sibling lanes. The propose endpoint is the seam NTP arrives
   at, and the sanity floor above is the anchor its NTS bootstrap needs. (`crates/calendar` and
   `date` have since landed; see notes/calendar.md and notes/date.md.)
-- **No alarm interrupt.** Both RTCs have one; nothing here uses it. The service reads the clock once
+- No alarm interrupt. Both RTCs have one; nothing here uses it. The service reads the clock once
   at startup and lets the monotonic counter carry the time, because re-reading would import the
   RTC's drift and coarse resolution into a clock that already has better.
-- **The unknown-clock path is not proven in the guest.** Both QEMU boards always have a working RTC,
+- The unknown-clock path is not proven in the guest. Both QEMU boards always have a working RTC,
   so the service's refusal to publish an implausible reading is host-tested and the std panic is
   proven by construction rather than by a booted test.
 
   **Half of that is no longer true, and the reasoning was the part that was wrong.** It is about the
   *machine*, and what a reader tests against is the *page*: a frame nobody has published to reads as
   `UNKNOWN`, which is exactly what a reader on a machine with no believable RTC holds. So the
-  `date` lane proves the **reader's** unknown-clock path in the guest, on both ISAs, by allocating a
+  `date` lane proves the reader's unknown-clock path in the guest, on both ISAs, by allocating a
   blank frame and granting it (notes/date.md,
   `kernel::user::date_tests::an_unknown_clock_is_said_plainly_rather_than_printed_as_1970`). What
-  remains proven only by construction is the **service's** side: its refusal to publish an
+  remains proven only by construction is the service's side: its refusal to publish an
   implausible RTC reading is still host-tested, because that genuinely does need a machine whose RTC
   lies, and neither QEMU board has one.
