@@ -948,6 +948,15 @@ mod receive_cap_attack_tests;
 #[cfg(test)]
 mod revocation_in_flight_tests;
 
+/// **A revocation sweep that lands inside a delegation leaves no copy behind** (the
+/// revocation-race lane, 2026-10-04 UTC, provisional). Milestone 761 (capability lookup off the global lock)'s `BUGS` recorded the gap
+/// between a delegating syscall's read of its source and its filing of the copy; these tests hold a
+/// thread in that gap with `delegation_pause` and run the sweep. Its own header has the reasoning.
+///
+/// Cross-ISA: the delegations, the sweeps and the seam are portable kernel code (DECISIONS §19).
+#[cfg(test)]
+mod revocation_window_tests;
+
 /// **A seeded syscall driver with a shadow model** (milestone 752 (a seeded syscall driver with a
 /// shadow model), provisional). Random capability operations from a seed, every answer and every table
 /// predicted by a model and compared. Its own header has the oracle, the replay and the `BUGS`;

@@ -1,6 +1,6 @@
 # toolchain: nightly-2026-10-04
 # date: 2026-10-04
-# why: milestone 758 (the IPC fast paths shrink back inside their band): a shrink, not growth. The lock-order panic and trace::record moved out of line on every ISA, and x86_64 reads its per-CPU pointer with a gs-relative load and pads PerCpu to 256. Measured against main 6ac73e9f6: ipc_send_receive -14.2/-17.4/-18.5% and ipc_call_reply -14.5/-17.6/-19.2% (aarch64/riscv64/x86_64). The gate is symmetric (milestone 156 (extract the rest and ratchet both ways)), so a shrink past the band must be saved. syscall_entry is NOT re-floored upward: aarch64 and riscv64 keep 1612 and 1976 by hand, since this milestone did not move them and their +1.7%/+1.6% predates it; x86_64's falls 1813 -> 1797.
+# why: revocation window (2026-10-04 UTC): SEND_CAP and CAP_INSERT no longer read their source in the syscall layer; sched::ipc_delegate_cap and thread_control_block_delegate_cap read it under the hold that files the copy, so invoke lost the inline read and checks. Only syscall_entry is re-floored (1797 -> 1669); the two IPC shapes keep 5335 and 6650 by hand, because their +0.1%/+1.5% is milestone 761 (capability lookup off the global lock)'s, not this change's, and saving it here would hide it.
 # bench/fastpath-x86_64.txt: an upper bound on the IPC fastpath's instruction footprint.
 # Written by script/fastpath-footprint --save. Updating this file is a statement that a
 # footprint change is intended and understood; do it in the commit that causes it.
@@ -13,4 +13,4 @@
 ipc_send_receive 5335
 ipc_call_reply 6650
 ipc_fastpath 6650
-syscall_entry 1797
+syscall_entry 1669
