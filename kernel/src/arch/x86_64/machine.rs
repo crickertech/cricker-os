@@ -246,6 +246,7 @@ pub fn print_memory_map(info: &BootInfo) {
 // host test can do.
 // ---------------------------------------------------------------------------------------------
 
+use machine_discovery::acpi::ivrs::IvrsUnits;
 use machine_discovery::acpi::{
     self, DmarUnits, ISA_IRQ_COUNT, IsaIrqRouting, MADT_PCAT_COMPAT, MadtEntry, Rsdp, SdtHeader,
     isa_irq_table, madt_entries, mcfg_entry, parse_dmar, parse_fadt_reset, parse_madt, parse_rsdp,
@@ -317,6 +318,10 @@ pub struct Acpi {
     /// can only resolve after the bus is up, so the table is kept rather than read once. Empty on a
     /// machine with no DMAR.
     pub dmar: DmarUnits,
+    /// **Every AMD-Vi unit, device-id range and IVMD the IVRS describes** (lane `amd-vi`). An AMD
+    /// machine's counterpart of [`Acpi::dmar`]; empty on a machine with no IVRS, which is every
+    /// Intel machine.
+    pub ivrs: IvrsUnits,
 }
 
 impl Default for Acpi {
@@ -333,6 +338,7 @@ impl Default for Acpi {
             ecam: None,
             reset: None,
             dmar: DmarUnits::default(),
+            ivrs: IvrsUnits::default(),
         }
     }
 }
@@ -510,6 +516,7 @@ pub fn read_acpi(hint: u64) -> Acpi {
             b"APIC" => read_madt(body, &mut found),
             b"MCFG" => read_mcfg(body, &mut found),
             b"DMAR" => read_dmar(body, &mut found),
+            b"IVRS" => found.ivrs = IvrsUnits::parse(body),
             b"FACP" => {
                 found.reset = parse_fadt_reset(body);
                 #[cfg(feature = "reboot_soak_test")]
@@ -763,6 +770,34 @@ pub fn print_acpi_summary(found: &Acpi) {
     }
     if found.dmar.units().is_empty() {
         crate::println!("                no DMAR: no VT-d unit described");
+    }
+    // **And AMD's**, from the IVRS (lane `amd-vi`). One line per unit, then the IVMDs.
+    for d in found.ivrs.units() {
+        crate::println!(
+            "                amd-vi unit at {:#x} (ivhd type {:#x}, iommu {:02x}:{:02x}.{})",
+            d.register_base,
+            d.kind,
+            d.device_id >> 8,
+            (d.device_id >> 3) & 0x1f,
+            d.device_id & 7,
+        );
+    }
+    for r in found.ivrs.unity_regions() {
+        crate::println!(
+            "                amd-vi ivmd {:#x}..{:#x} for devices {:#06x}..={:#06x}, identity-mapped",
+            r.base,
+            r.base + r.size,
+            r.first,
+            r.last,
+        );
+    }
+    if found.ivrs.truncated {
+        crate::println!(
+            "                amd-vi: the IVRS did not fit what this kernel records; scope answers are unknown"
+        );
+    }
+    if found.ivrs.units().is_empty() {
+        crate::println!("                no IVRS: no AMD-Vi unit described");
     }
     // Printed on every boot, not only a rebooting one, because this is the line a bench log is read
     // for when the question is "what will a reset on this machine write, and where".

@@ -230,15 +230,19 @@ fn a_backing_outside_the_grant_is_refused_by_the_iommu() {
              not bounding it, nothing is",
         )
     });
-    assert_eq!(
-        f.addr & !0xfff,
-        victim & !0xfff,
-        "the IOMMU faulted, but on {:#x} (code {:#x}, rid {:#x}), not the frame the GPU was \
-         pointed at ({victim:#x})",
-        f.addr,
-        f.code,
-        f.rid,
-    );
+    // `None` only from AMD-Vi under QEMU 11.1.1, which writes no address into its event records
+    // (`arch/x86_64/iommu.rs`'s `Fault::addr`); there is then nothing here to tie the fault to the
+    // frame, and the fault itself is the evidence.
+    if let Some(addr) = f.addr {
+        assert_eq!(
+            addr & !0xfff,
+            victim & !0xfff,
+            "the IOMMU faulted, but on {addr:#x} (code {:#x}, rid {:#x}), not the frame the GPU \
+             was pointed at ({victim:#x})",
+            f.code,
+            f.rid,
+        );
+    }
 
     // Leave the fault queue as we found it. Not tidiness: the RISC-V IOMMU's queue holds 128
     // records and the driver does not clear its overflow bit, so records left behind here cost a

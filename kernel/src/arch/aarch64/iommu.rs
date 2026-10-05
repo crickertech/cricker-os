@@ -89,7 +89,10 @@ const CMD_SYNC: u32 = 0x46;
 pub struct Fault {
     pub rid: u32,
     pub code: u32,
-    pub addr: u64,
+    /// The device address that faulted. Always `Some` from this unit; `None` exists for `x86_64`'s
+    /// AMD-Vi, whose QEMU model writes no address into its event records (see
+    /// `arch/x86_64/amd_vi.rs`'s BUGS), so a test can tell "no address" from "address 0".
+    pub addr: Option<u64>,
 }
 
 struct Smmu {
@@ -240,6 +243,14 @@ pub fn print_summary() {
             "  iommu           : none (this machine's device tree names no smmuv3 node)",
         ),
     }
+}
+
+/// **Build a DMA domain over exactly `regions`, in the format this IOMMU walks**, and return its
+/// root. The SMMUv3's stage 1 translates with VMSAv8-64, the CPU's own format. One function per
+/// architecture rather than a type alias since lane `amd-vi`, because `x86_64` has two IOMMUs that
+/// walk two formats and only a running machine says which.
+pub fn build_domain(regions: &[paging::domain::DmaRegion]) -> u64 {
+    crate::iommu::build_identity::<paging::Aarch64>(regions)
 }
 
 pub fn is_active() -> bool {
@@ -424,7 +435,7 @@ pub fn take_fault() -> Option<Fault> {
     Some(Fault {
         rid,
         code,
-        addr: (hi as u64) << 32 | lo as u64,
+        addr: Some((hi as u64) << 32 | lo as u64),
     })
 }
 

@@ -117,23 +117,13 @@
 
 use core::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, AtomicUsize, Ordering};
 
-use paging::x86_64::{Ia32e, Vtd};
+use paging::x86_64::Ia32e;
 use paging::{Flags, Half, MapError, Mapper, PAGE_SIZE, PageSize, PageTable};
 
 use crate::memory;
 
 /// This architecture's page-table format. Portable code names it as `arch::mmu::Format`.
 pub type Format = Ia32e;
-
-/// The format used to build IOMMU (VT-d) translation domains: [`Vtd`], not [`Ia32e`] (milestone
-/// 161, roadmap item 6). Both share the CPU's four-level, 9-bit-per-level, 4 KiB-leaf shape, which
-/// is not a coincidence: VT-d's second-level tables were designed to be walked by the same
-/// hardware logic. **They are not the same leaf encoding**, and `Vtd`'s own doc says why reusing
-/// `Ia32e` here would be a real bug rather than an approximation: a second-level leaf has exactly
-/// two meaningful bits (`R`, `W`), and everything `Ia32e` sets beyond those (`US`, `XD`, the
-/// software bits) is reserved-must-be-zero on this hardware.
-#[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
-pub type DmaFormat = Vtd;
 
 /// The base of the kernel **image**'s virtual addresses.
 ///
@@ -965,6 +955,9 @@ pub fn memory_mapped_io_window(ecam: (u64, u64)) -> Result<(u64, u64), MemoryMap
         for (base, size) in memory::vtd_regions().into_iter().flatten() {
             avoid(base, base + size);
         }
+        for (base, size) in memory::amd_vi_regions().into_iter().flatten() {
+            avoid(base, base + size);
+        }
         if let Some((base, size)) = memory::framebuffer() {
             avoid(base, base + size);
         }
@@ -1100,6 +1093,16 @@ fn direct_map_claims(each: &mut dyn FnMut(Claim)) {
     for (base, size) in memory::vtd_regions().into_iter().flatten() {
         each(Claim {
             what: "vt-d registers",
+            lo: base,
+            hi: base + size,
+            flags: Flags::device(),
+            guarded: false,
+        });
+    }
+    // AMD-Vi's register files (lane `amd-vi`), the same claim on a machine whose IVRS named them.
+    for (base, size) in memory::amd_vi_regions().into_iter().flatten() {
+        each(Claim {
+            what: "amd-vi registers",
             lo: base,
             hi: base + size,
             flags: Flags::device(),

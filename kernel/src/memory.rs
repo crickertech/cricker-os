@@ -725,6 +725,27 @@ pub fn record_vtd_region(base: u64, size: u64) {
     *slot = Some((base, size));
 }
 
+/// **Every AMD-Vi unit's register block** (start, size), both physical, one per IVHD the IVRS
+/// named, in table order; `None` past the last. [`vtd_regions`]' counterpart on an AMD machine,
+/// and read by `mmu::map_everything` for the same reason. Name: provisional (lane `amd-vi`).
+#[cfg_attr(not(target_arch = "x86_64"), allow(dead_code))]
+pub fn amd_vi_regions() -> [Option<(u64, u64)>; machine_discovery::acpi::ivrs::MAX_IVHDS] {
+    *AMD_VI_REGIONS.lock()
+}
+
+/// **Record one AMD-Vi unit's register block.** Must run before `mmu::init`, as
+/// [`record_vtd_region`] must, and a unit past the array is a panic for the same reason. Name:
+/// provisional (lane `amd-vi`).
+#[cfg_attr(not(target_arch = "x86_64"), allow(dead_code))]
+pub fn record_amd_vi_region(base: u64, size: u64) {
+    let mut g = AMD_VI_REGIONS.lock();
+    let slot = g
+        .iter_mut()
+        .find(|r| r.is_none())
+        .expect("more AMD-Vi units than the IVRS decoder records");
+    *slot = Some((base, size));
+}
+
 /// **The screen's aperture** (start, size), both **physical**, as the boot handoff described it.
 /// `None` on a machine that reported no linear framebuffer, which is every machine booted by
 /// anything but `uefi_loader` today.
@@ -1005,6 +1026,13 @@ static SMMU_REGION: IrqSafeMutex<Option<(u64, u64)>> = IrqSafeMutex::new(rank::R
 /// mapped).
 static VTD_REGIONS: IrqSafeMutex<[Option<(u64, u64)>; machine_discovery::acpi::MAX_DRHDS]> =
     IrqSafeMutex::new(rank::RAM, [None; machine_discovery::acpi::MAX_DRHDS]);
+
+/// AMD-Vi's register blocks (base, size), one per IVHD the IVRS names (lane `amd-vi`). The same
+/// role as [`VTD_REGIONS`] on an AMD machine, kept apart rather than shared because the two are
+/// named for the hardware they hold and a machine has one kind or the other.
+static AMD_VI_REGIONS: IrqSafeMutex<
+    [Option<(u64, u64)>; machine_discovery::acpi::ivrs::MAX_IVHDS],
+> = IrqSafeMutex::new(rank::RAM, [None; machine_discovery::acpi::ivrs::MAX_IVHDS]);
 
 /// The screen the boot handoff described (milestone 243). See [`framebuffer`].
 static FRAMEBUFFER: IrqSafeMutex<Option<(u64, u64)>> = IrqSafeMutex::new(rank::RAM, None);

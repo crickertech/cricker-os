@@ -129,7 +129,7 @@ impl PageFormat for Aarch64 {
         entry & ADDR_MASK
     }
 
-    fn table_entry(pa: u64) -> u64 {
+    fn table_entry(pa: u64, _level: usize) -> u64 {
         // A table descriptor: address plus valid/table bits, no attributes. Permissions on an
         // intermediate table would be an additional restriction on everything beneath it; we want
         // the leaf to be the single source of truth.
@@ -235,7 +235,7 @@ mod tests {
     /// meant as a table pointer.
     #[test]
     fn a_descriptor_carries_the_table_or_page_bit_as_well_as_valid() {
-        assert_eq!(Aarch64::table_entry(0x4000_0000) & 0b11, 0b11);
+        assert_eq!(Aarch64::table_entry(0x4000_0000, 0) & 0b11, 0b11);
         assert_eq!(
             Aarch64::leaf_entry(0x4000_0000, Flags::kernel_data()) & 0b11,
             0b11,
@@ -444,7 +444,7 @@ mod verification {
     #[kani::proof]
     fn a_table_entry_is_never_a_block() {
         let pa: u64 = kani::any();
-        assert!(!Aarch64::is_block(Aarch64::table_entry(pa)));
+        assert!(!Aarch64::is_block(Aarch64::table_entry(pa, 0)));
     }
 
     /// **A leaf keeps the address and the permissions apart, and the permissions round-trip.**

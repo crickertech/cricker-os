@@ -507,6 +507,11 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         for d in acpi.dmar.units() {
             memory::record_vtd_region(d.register_base, d.register_size);
         }
+        // AMD-Vi's, for the same reason and in the same place (lane `amd-vi`). Its IVHD carries no
+        // size, so the window is the 16 KiB every register this kernel reads lives in.
+        for d in acpi.ivrs.units() {
+            memory::record_amd_vi_region(d.register_base, arch::amd_vi::REGISTER_SIZE);
+        }
 
         // Turn the MCFG's ECAM window on and record it where kernel/src/pci.rs already knows to
         // look: `memory::pci_regions()`, the same static a device-tree machine fills from its
@@ -806,8 +811,20 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
             // below is the hardware's own status register, not an assumption that the write
             // succeeded. It prints one `vt-d` line per unit, including any it refused and why.
             arch::iommu::init(&acpi.dmar);
+        } else if !acpi.ivrs.units().is_empty() {
+            // **An AMD machine** (lane `amd-vi`): no DMAR, an IVRS instead. Every unit it names,
+            // each enabled over an all-blocked device table; one `amd-vi` line per unit, read back
+            // from the unit's own status register, as the VT-d line is.
+            println!("  vt-d        : skipped, no DMAR (this machine's IOMMU is AMD-Vi)");
+            arch::amd_vi::init(&acpi.ivrs);
         } else {
+            // Loud, because the alternative is a boot that reads like every other one while
+            // nothing stands between a device and all of memory.
             println!("  vt-d        : skipped, no DMAR");
+            println!(
+                "  iommu       : NONE: this machine's ACPI names neither a DMAR (VT-d) nor an IVRS \
+                 (AMD-Vi), so no device's DMA is confined; every driver below runs unconfined"
+            );
         }
 
         // **The scheduler** (milestone 161, roadmap item 4). Everything below this line is a

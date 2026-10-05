@@ -1537,6 +1537,10 @@ mod tests {
     /// Skipped only when there is no PCIe disk on the bus (nothing to confine). An IOMMU that is
     /// absent while a disk *is* present is the failure this test exists to catch, so that path
     /// asserts rather than skips.
+    ///
+    /// The record below is AMD-Vi's (lane `amd-vi`), replayed on the `NIFE_IOMMU=amd` machine; the
+    /// other three units carry this claim without one.
+    /// Falsification: replayable `kernel/falsifications/virtio.tests.the_iommu_faults_a_dma_that_escapes_the_domain.patch`
     #[test_case]
     fn the_iommu_faults_a_dma_that_escapes_the_domain() {
         let Some(d) = crate::pci::find_block_device() else {
@@ -1611,14 +1615,26 @@ mod tests {
             "the device read an out-of-domain address and the IOMMU recorded no fault: it is not \
              confining the device in hardware",
         );
-        assert_eq!(
-            f.addr & !0xfff,
-            victim_page,
-            "the IOMMU faulted, but on {:#x} (code {:#x}, rid {:#x}), not the escape frame {:#x}",
-            f.addr,
-            f.code,
-            f.rid,
-            victim_page,
-        );
+        match f.addr {
+            Some(addr) => assert_eq!(
+                addr & !0xfff,
+                victim_page,
+                "the IOMMU faulted, but on {addr:#x} (code {:#x}, rid {:#x}), not the escape \
+                 frame {victim_page:#x}",
+                f.code,
+                f.rid,
+            ),
+            // **AMD-Vi under QEMU 11.1.1 reports no address** (`arch/x86_64/iommu.rs`'s
+            // `Fault::addr` says why). The fault is then tied to this device by its requester id
+            // and nothing more, which is weaker: it says the device was refused something, not
+            // that it was refused the victim. What still makes it falsifiable on that machine is
+            // the record above this test: with translation off in the device table entry, the
+            // escape lands and no fault is recorded at all.
+            None => assert_eq!(
+                f.rid, d.rid,
+                "the IOMMU faulted (code {:#x}) for requester {:#x}, not this disk",
+                f.code, f.rid,
+            ),
+        }
     }
 }

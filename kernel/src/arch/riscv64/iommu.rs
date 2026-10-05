@@ -110,7 +110,10 @@ const TA_PSCID_SHIFT: u32 = 12;
 pub struct Fault {
     pub rid: u32,
     pub code: u32,
-    pub addr: u64,
+    /// The device address that faulted. Always `Some` from this unit; `None` exists for `x86_64`'s
+    /// AMD-Vi, whose QEMU model writes no address into its event records (see
+    /// `arch/x86_64/amd_vi.rs`'s BUGS), so a test can tell "no address" from "address 0".
+    pub addr: Option<u64>,
 }
 
 struct Iommu {
@@ -314,6 +317,13 @@ pub fn print_summary() {
     }
 }
 
+/// **Build a DMA domain over exactly `regions`, in the format this IOMMU walks**, and return its
+/// root. The RISC-V IOMMU's single-stage (`iosatp`) translation is Sv39, the CPU's own format.
+/// `aarch64`'s twin says why this is a function rather than a type alias.
+pub fn build_domain(regions: &[paging::domain::DmaRegion]) -> u64 {
+    crate::iommu::build_identity::<paging::Sv39>(regions)
+}
+
 pub fn is_active() -> bool {
     IOMMU.lock().is_some()
 }
@@ -429,7 +439,7 @@ pub fn take_fault() -> Option<Fault> {
     Some(Fault {
         rid: (hdr >> 40) as u32 & 0xff_ffff, // DID, bits [63:40]
         code: (hdr & 0xfff) as u32,          // CAUSE, bits [11:0]
-        addr: iotval,
+        addr: Some(iotval),
     })
 }
 

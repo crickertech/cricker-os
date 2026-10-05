@@ -11,6 +11,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [The `e1000e` NIC](../e1000e.md): the network card a PC actually has, driven from `net_stack` behind the IOMMU, and its bench step on xenon.
 - [Confining DMA without an IOMMU](../dma.md): kernel validation of every descriptor a driver submits.
 - [Confining DMA with an IOMMU](../iommu.md): hardware DMA confinement with SMMUv3 and the RISC-V IOMMU.
+- [AMD-Vi](../amd-vi.md): confining DMA on an AMD machine, where the IOMMU is in the IVRS rather than the DMAR, and where QEMU's model differs from the specification.
 - [Block devices: what is attached, and what holding one means](../block-devices.md).
 - [A machine with no serial port](../serial-less-output.md): screen output for machines without a UART.
 - [The framebuffer contract](../framebuffer-contract.md): how a confined client gets pixels onto a screen.

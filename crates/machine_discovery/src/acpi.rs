@@ -20,7 +20,8 @@
 //!         |
 //!         +-- APIC ("MADT")       the local APICs, the IO APICs, and the interrupt rewiring
 //!         +-- MCFG                where the PCIe ECAM window is
-//!         +-- DMAR                where the IOMMU is
+//!         +-- DMAR                where the IOMMU is, on an Intel machine (VT-d)
+//!         +-- IVRS                where the IOMMU is, on an AMD machine (AMD-Vi): [`ivrs`]
 //!         +-- FACP, HPET, WAET, ...
 //! ```
 //!
@@ -585,6 +586,10 @@ pub fn mcfg_entry(body: &[u8], index: usize) -> Option<McfgEntry> {
 // ---------------------------------------------------------------------------------------------
 // The DMAR: where VT-d is.
 // ---------------------------------------------------------------------------------------------
+
+// The IVRS, AMD's counterpart, is a module of its own beside this section: a different table with
+// a different idea of how a device is named (by id, where the DMAR names it by path).
+pub mod ivrs;
 
 /// The DMAR's fixed part, before its list of remapping structures: the machine's physical
 /// address width and a flags byte, then ten reserved bytes. Verified against QEMU's own table

@@ -48,7 +48,7 @@ index 2c96e5bfc..3dcb5e553 100644
 @@ -699,6 +706,7 @@ where
                  }
  
-                 *entry = F::table_entry(new);
+                 *entry = F::table_entry(new, level);
 +                first.get_or_insert(entry as *mut u64);
              } else if F::is_block(*entry) {
                  // A block already maps this address. Descending would take the block's frame for

@@ -22,7 +22,7 @@ The payoff of the format-generic `paging` crate (DECISIONS §17) shows up a seco
 IOMMU walks the *CPU's own* page-table format: the aarch64 SMMUv3 walks VMSAv8-64, the ratified
 RISC-V IOMMU (v1.0.1) walks Sv39. Those are the same two formats `Mapper` already builds for process
 address spaces. So a device's DMA domain is not a new kind of table. It is a `Mapper` filled with an
-**identity map** (IOVA == PA) over exactly the frames the device is allowed to reach:
+identity map (IOVA == PA) over exactly the frames the device is allowed to reach:
 `paging::domain::build_identity_domain`, host-tested on both formats.
 
 Identity, because the userspace virtio driver already puts *physical* addresses into its descriptors
@@ -31,10 +31,11 @@ those same numbers as IOVAs, and the domain translates each to the identical PA.
 does not change, because IOVA == PA means the addresses it computes still name the right memory. The
 domain is an allow-list of frames, expressed as a page table.
 
-`kernel/src/iommu.rs` is the portable seam over that builder. `confine(rid, regions)` allocates a
-root frame, calls `build_identity_domain` through `DmaFormat` (an arch alias: `Aarch64` here, `Sv39`
-there), and hands the root to the arch driver's `attach`. One call site, two formats, which is the
-whole point.
+`kernel/src/iommu.rs` is the portable seam over that builder. `confine(rid, regions)` asks the arch
+driver's `build_domain` for a root (it names the format: `Aarch64` here, `Sv39` there, and on
+`x86_64` VT-d's or AMD-Vi's, whichever unit the machine has), and hands the root to the arch
+driver's `attach`. One call site, every format, which is the whole point. AMD-Vi is
+[notes/amd-vi.md](amd-vi.md).
 
 One asymmetry worth stating: single-stage RISC-V translation (`iosatp`, no process context) faults
 on a leaf PTE whose U bit is clear, because a device does not "request supervisor privilege." So the
@@ -61,7 +62,7 @@ and the translation cache so a re-attach cannot use a stale table. `take_fault` 
 
 ## The requester id is the key
 
-A PCIe function stamps a 16-bit **requester id** (`bus:8 | dev:5 | fn:3`) on every memory transaction
+A PCIe function stamps a 16-bit requester id (`bus:8 | dev:5 | fn:3`) on every memory transaction
 it issues (`pci::Bdf::requester_id`). Both `virt` boards publish an identity `iommu-map` in the
 device tree, so that id is exactly what the IOMMU looks a device up by (SMMU StreamID, RISC-V
 `device_id`). It is threaded from `pci::find_block_device` through `virtio::register`, which gained an

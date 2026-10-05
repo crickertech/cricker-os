@@ -179,6 +179,34 @@ if [ -n "$NIFE_INTREMAP" ] && [ "$NIFE_INTREMAP" != "on" ] && [ "$NIFE_INTREMAP"
 fi
 IOMMU="-device intel-iommu${NIFE_INTREMAP:+,intremap=$NIFE_INTREMAP}"
 
+# **NIFE_IOMMU=amd puts AMD-Vi on the machine instead of VT-d** (lane `amd-vi`; the name and its
+# values are PROVISIONAL). Unset, or `intel`, is the machine every boot before this got. With
+# `amd`, QEMU builds an IVRS rather than a DMAR, so the kernel finds no VT-d unit and brings up
+# kernel/src/arch/x86_64/amd_vi.rs instead, which is the only way this tree can run that driver
+# before an AMD board is on the bench.
+#
+# **`dma-remap=on` is not optional, and nothing inside the guest can tell it is missing.** Without
+# it QEMU's model routes every device's DMA around the unit whatever the device table says
+# (`amdvi_switch_address_space` in hw/i386/amd_iommu.c, QEMU 11.1.1): the driver would come up,
+# every test that reads the unit's own registers would pass, and no DMA would be translated at
+# all. The DMA-escape tests are what notice, which is why they run on this machine too.
+#
+# `intremap` is passed through exactly as for VT-d. The kernel never enables AMD-Vi's interrupt
+# remapping either (every device table entry leaves IV clear), so either value boots the same.
+#
+# `none` builds the machine with neither, which is every PC whose firmware publishes no DMAR and no
+# IVRS: the kernel must keep booting there and say loudly that nothing is confined. Nothing in the
+# suite runs on it; it is for looking at that boot.
+case "$NIFE_IOMMU" in
+    ""|intel) ;;
+    amd) IOMMU="-device amd-iommu,dma-remap=on${NIFE_INTREMAP:+,intremap=$NIFE_INTREMAP}" ;;
+    none) IOMMU="" ;;
+    *)
+        echo "qemu-runner-x86_64: NIFE_IOMMU=$NIFE_IOMMU is not 'intel', 'amd' or 'none'" >&2
+        exit 1
+        ;;
+esac
+
 # An NVMe controller when NIFE_NVME names an image (milestone 53's storage half; decisions §86's
 # x86_64/VT-d data point), the twin of the aarch64 and riscv64 runners' blocks. No
 # `iommu_platform` flag, same reason as the other two: that knob is virtio's opt-in, and a real

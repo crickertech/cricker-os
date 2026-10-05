@@ -41,6 +41,8 @@ use core::arch::{asm, global_asm};
 
 // The AP real-mode trampoline's copy-and-prepare step (milestone 161's SMP item). See its own
 // header, and `boot.s`'s `secondary_boot` for what it prepares.
+// AMD's IOMMU (lane `amd-vi`), beside VT-d's `iommu`, which forwards to it on an AMD machine.
+pub mod amd_vi;
 pub mod ap_boot;
 pub mod context;
 pub mod exceptions;
