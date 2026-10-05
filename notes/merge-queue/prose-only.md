@@ -10,7 +10,7 @@ Added 2026-10-05 on lane/docs-only-ci, which calef approved that day. The classi
 
 ## Why
 
-On 2026-10-05 twelve bold-backlog pull requests, each removing `**` from Markdown, took GitHub's
+On 2026-10-05 twelve bold-backlog pull requests, each removing `**` from Markdown, took all of GitHub's
 hosted runner pool. Required jobs on #1708 and #1712 were cancelled with "The job was not acquired
 by Runner of type hosted even after multiple attempts", and real code waited behind them. Each
 heavy job already had a step-level "documentation only" regex, so it ran nothing, but each still
