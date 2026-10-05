@@ -279,6 +279,10 @@ pub struct DmaEscape {
     pub scope: crate::iommu::Scope,
     /// The kernel thread running the attacker, which [`DmaEscape::release`] waits out.
     thread: crate::thread::ThreadId,
+    /// The one-page region `report` lives in, so [`DmaEscape::release`] can destroy it. A kernel
+    /// rendezvous (`create_rendezvous`) is never freed, and this one extra pushed the suite over a
+    /// 32-page chunk boundary that a later test then paid for.
+    ep_region: u64,
     /// The controller the attacker was given, kept so [`DmaEscape::release`] can take it down
     /// before handing its region back.
     controller: crate::non_volatile_memory_express::NonVolatileMemoryExpress,
@@ -306,8 +310,9 @@ impl DmaEscape {
         })
     }
 
-    /// **Give back the frames this wiring took**: the controller's DMA region and the victim, 22
-    /// frames the suite's ledger otherwise counts against it for the rest of the boot. Only once
+    /// **Give back the frames this wiring took**: the controller's DMA region, the victim and the
+    /// report endpoint's region, which the suite's ledger otherwise counts against it for the rest
+    /// of the boot. Only once
     /// the attacker's thread is gone (its address space mapped the data plane) and the controller
     /// is disabled ([`crate::non_volatile_memory_express::NonVolatileMemoryExpress::retire`]),
     /// because until both hold, something may still read or DMA into these frames. Returns whether
@@ -325,7 +330,7 @@ impl DmaEscape {
             return false;
         }
         crate::memory::free(page_frames::PageFrame::from_addr(self.victim));
-        true
+        crate::sched::reclaim_region(self.ep_region).is_ok()
     }
 }
 
@@ -386,7 +391,11 @@ pub fn start_dma_escape(image: &'static [u8]) -> Option<DmaEscape> {
         p.add(1).write_volatile(victim);
     }
 
-    let report = crate::sched::create_rendezvous();
+    // In a region of its own rather than on the kernel's chunk, so `release` can hand it back; the
+    // way `fs_service::start_std_bound` makes its report endpoint.
+    let ep_region = crate::memory_region::create(1).expect("no endpoint region for the attacker");
+    let report = crate::sched::create_rendezvous_from(ep_region)
+        .expect("no report endpoint for the attacker");
 
     let thread = crate::sched::spawn(move || {
         let mut maps = [Mapping {
@@ -429,6 +438,7 @@ pub fn start_dma_escape(image: &'static [u8]) -> Option<DmaEscape> {
         confined_by_iommu,
         scope,
         thread,
+        ep_region,
         controller,
     })
 }

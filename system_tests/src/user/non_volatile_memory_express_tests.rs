@@ -282,11 +282,11 @@ fn a_confined_el0_server_cannot_dma_outside_its_region() {
     // would otherwise read as its own (the gpu escape test records the same).
     while crate::iommu::take_fault().is_some() {}
 
-    // And the frames: the controller's DMA region and the victim, which the suite's frame ledger
-    // would otherwise carry to the end of the boot.
+    // And the frames: the controller's DMA region, the victim and the report endpoint's region,
+    // which the suite's frame ledger would otherwise carry to the end of the boot.
     assert!(
         esc.release(),
-        "the DMA-escape wiring could not give its frames back: the attacker never exited, or the \
-         controller would not disable",
+        "the DMA-escape wiring could not give its frames back: the attacker never exited, the \
+         controller would not disable, or its endpoint region would not reclaim",
     );
 }
