@@ -1,3 +1,4 @@
+// throwaway: a code change, to prove the full run (never merges)
 //! What the renderer must get right, and the two properties that make it usable at all.
 //!
 //! The interesting tests here are the last two. `framing_does_not_matter` is what lets `doc` render
