@@ -13,7 +13,7 @@ csrw satp, a0
 sfence.vma
 ```
 
-The second instruction throws away **the whole TLB on that hart**, kernel translations included, and
+The second instruction throws away the whole TLB on that hart, kernel translations included, and
 it ran on every switch. Meanwhile the kernel was carefully allocating an ASID per address space,
 packing it into `satp[59:44]`, and getting nothing for it: the tag cannot keep two spaces' entries
 apart if there are no entries left to keep apart.
@@ -24,7 +24,7 @@ a parity gap rather than a design question, and DECISIONS §19 makes parity a ga
 
 ## Why it was not a one-line deletion
 
-**The flush was load-bearing for correctness, not merely slow.** Three separate things had to be
+The flush was load-bearing for correctness, not merely slow. Three separate things had to be
 true first, and only one of them was.
 
 ### 1. User mappings must be ASID-tagged
@@ -40,7 +40,7 @@ space maps it identically, and tagging it would cost one TLB entry per process f
 
 ### 2. `satp.ASID` must actually be wide enough
 
-**RISC-V permits zero implemented ASID bits.** The field is WARL, and hardwiring it to zero is the
+RISC-V permits zero implemented ASID bits. The field is WARL, and hardwiring it to zero is the
 cheap option for a small core. aarch64 *mandates* eight. `crates/address_space_identifier` hands out 255 numbers on the
 stated assumption that even the smallest hardware ASID space is 256, which is true of one ISA and not
 of the other.
@@ -78,7 +78,7 @@ holds an entry wearing the tag by the time the call returns. Linux depends on th
 `flush_tlb_mm` does no waiting of its own), which is the reason to believe it rather than a reading
 of ours.
 
-**The IPI arrives as an M-mode software interrupt**, so a hart with S-mode interrupts masked still
+The IPI arrives as an M-mode software interrupt, so a hart with S-mode interrupts masked still
 services it. That is not a footnote: without it, any kernel code that disables interrupts and spins
 would deadlock whoever was flushing, and this kernel disables interrupts routinely.
 
@@ -107,7 +107,7 @@ because the switch had just flushed everything, not because the tagging works. A
 fail for its stated reason is worse than no test. It runs on both ISAs now, which is what makes this
 one suite rather than two claims.
 
-`an_asid_flush_reaches_the_other_cores` is new, portable, and **fails without the shootdown**. That
+`an_asid_flush_reaches_the_other_cores` is new, portable, and fails without the shootdown. That
 was checked rather than assumed, by making `flush_asid` local again and running the suite:
 
 ```
@@ -118,16 +118,16 @@ test kernel::user::tests::an_asid_flush_reaches_the_other_cores ...
 
 The shape:
 
-1. a probe thread on **another** core installs an address space, reads a user VA (which is what pulls
+1. a probe thread on another core installs an address space, reads a user VA (which is what pulls
    the translation into *that* core's TLB, tagged with that space's ASID), and leaves it installed
-2. this core moves the VA onto a different frame **with no per-address invalidation at all**
+2. this core moves the VA onto a different frame with no per-address invalidation at all
 3. this core calls `flush_asid`
 4. the probe reads the same VA again, on the same core, with the same space still installed
 
 Two of those choices are load-bearing. **The space is never re-installed between the reads**, because
 a `satp` write is a second event a core or an emulator may treat as a flush, and then step 4 would be
-right for a reason that has nothing to do with the shootdown. And the mapping is **changed rather
-than recycled**: tearing the space down and handing its ASID to a new one is the scenario that
+right for a reason that has nothing to do with the shootdown. And the mapping is changed rather
+than recycled: tearing the space down and handing its ASID to a new one is the scenario that
 matters in production, but the allocator would likely hand the new space the dead one's frames, and
 reading the right byte off the right frame by accident is the same failure of proof.
 
@@ -184,14 +184,14 @@ for the "already installed?" early return `switch_user_root` gained (aarch64 has
 milestone 15; it fires on every switch between two kernel threads, which is most of them on an idle
 machine). The baseline is re-saved to match, because the change is intended and understood.
 
-**This is a tie recorded plainly rather than a win overclaimed.** The measurement that would settle it
+This is a tie recorded plainly rather than a win overclaimed. The measurement that would settle it
 needs hardware with a real TLB: `--real` runs under Hypervisor.framework, which executes the host's
 own ISA and so has no RISC-V leg, and the VisionFive 2 had not arrived when this was written. It has
 since (radon, about 2026-08-21), and this note does not record whether the number was taken there.
 
 ## Two things this turned up that nobody had written down
 
-**S-mode may not read a user page.** The ported witness test faulted on RISC-V for a reason with
+S-mode may not read a user page. The ported witness test faulted on RISC-V for a reason with
 nothing to do with flushing: `sstatus.SUM` gates whether S-mode may load or store through a page
 marked `U`, and this kernel never sets it. EL1 reading an EL0 page is simply allowed, because we
 never set `PSTATE.PAN`. So the two ISAs disagree about the default, and a test that reads through a
@@ -209,13 +209,13 @@ the executing hart's own page-table writes.
 
 ## BUGS
 
-- **A firmware that implemented RFENCE asynchronously would break this silently**, and S-mode has no
+- A firmware that implemented RFENCE asynchronously would break this silently, and S-mode has no
   way to detect it. The SBI spec's wording is "instructs the remote harts to execute", which OpenSBI
   reads as synchronous and another implementation might not.
   `isa::the_firmware_implements_what_the_kernel_calls` checks the extension is present; nothing
   checks it is synchronous, because nothing can. The failure would be a stale translation on another
   hart, arbitrarily far from the cause.
-- **The hart mask is a bitmap relative to base 0**, so the shootdown reaches harts 0..63 on rv64. Fine
+- The hart mask is a bitmap relative to base 0, so the shootdown reaches harts 0..63 on rv64. Fine
   for `cpu::MAX_CPUS`, wrong for a bigger machine, and the same limitation
   `smp::bring_up_secondaries` documents for logical-id-equals-hart-id.
 - **QEMU cannot exercise the case the probe measures for the reason a real core would.** QEMU's
@@ -223,12 +223,12 @@ the executing hart's own page-table writes.
   works around that by never re-installing the space between its two reads, so the entry it depends
   on genuinely survives, but a hardware TLB and QEMU's are not the same object and only the board
   will prove the tagging behaves as the architecture says.
-- **`AddressSpace::drop` frees the region before it sweeps the ASID.** Between those two lines
+- `AddressSpace::drop` frees the region before it sweeps the ASID. Between those two lines
   another hart could still hold entries wearing the tag, pointing at frames now on the free list.
   Nothing can *use* them (a hart must install that ASID to match, and no live space carries it until
   after the sweep, which is when the number is freed), so the order is sound. It is stated here
   because it reads alarmingly and the reason it is fine is not local to either line.
-- **`share_kernel_half` copies the kernel's top-level entries once, at space creation.** A kernel
+- `share_kernel_half` copies the kernel's top-level entries once, at space creation. A kernel
   mapping that later needs a *new* top-level entry would be invisible to every space created before
   it. Pre-existing, untouched by this milestone, and not currently reachable (the direct map covers
   all of RAM from `mmu::init`), but it is the neighbouring hazard a reader of this file should know

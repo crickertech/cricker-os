@@ -1,6 +1,6 @@
 # The device tree
 
-**The machine describing itself.** Where RAM is, where the UART is, where the interrupt
+The machine describing itself. Where RAM is, where the UART is, where the interrupt
 controller lives, how many CPUs exist, what firmware has already claimed.
 
 The alternative is hardcoding, which is what milestone 1 did (`0x0900_0000` for the UART,
@@ -12,8 +12,8 @@ See [boot-protocol.md](boot-protocol.md).
 
 ## Everything is big-endian
 
-The FDT format predates the little-endian consensus and never changed. **Every integer in
-the blob is big-endian**, on a machine that is little-endian.
+The FDT format predates the little-endian consensus and never changed. Every integer in
+the blob is big-endian, on a machine that is little-endian.
 
 Forget one byte-swap and you get a plausible-looking number that is wrong by a factor of
 16 million, which is exactly the kind of bug that survives a code review. Our parser routes
@@ -37,7 +37,7 @@ does `u32::from_be(magic)`.
 +------------------+
 ```
 
-**The reservation block is deliberately dead simple**, and it comes first, precisely so a
+The reservation block is deliberately dead simple, and it comes first, precisely so a
 kernel can honour it without parsing anything. It's the firmware saying "I have things in
 here." QEMU's `virt` leaves it empty; real boards often don't, and a kernel that skips it
 will happily allocate over the firmware's own tables.
@@ -60,10 +60,10 @@ indirection.
 
 ## The part that will bite you: cells
 
-A `reg` property is a list of (address, size) pairs. **But how many 32-bit words each of
-those takes is not fixed.**
+A `reg` property is a list of (address, size) pairs. But how many 32-bit words each of
+those takes is not fixed.
 
-It's declared by `#address-cells` and `#size-cells` **on the parent node**. So to decode a
+It's declared by `#address-cells` and `#size-cells` on the parent node. So to decode a
 `/memory` node's `reg`, you first need the *root's* cell counts.
 
 ```dts
@@ -116,7 +116,7 @@ Milestone 3 read exactly two things: the `/memory` nodes (where RAM is) and the 
 | `/chosen`'s initrd range | the loader | milestone 12 |
 | the console UART node: register shape (`reg-shift`, `reg-io-width`, `clock-frequency`, `compatible`), and its interrupt line (`interrupts`, the inheritable `interrupt-parent`, the parent's `#interrupt-cells`) | `console::configure_from_dtb` (riscv, the shape); `memory::init` via `machine_discovery::interrupt_id` (both ISAs, the line) | the VisionFive 2 prep and its boot-13 fix, 2026-08-14/15 |
 
-**The UART's *address* is still hardcoded, and that is correct**, for a nice chicken-and-egg
+The UART's *address* is still hardcoded, and that is correct, for a nice chicken-and-egg
 reason: the parser is the thing most likely to have a bug, and `println!` is how you would debug
 it. So the console has to come up *before* the device tree is parsed, which means the console
 cannot depend on it. What it can do is be checked against the tree afterwards, which
@@ -130,8 +130,8 @@ The Pi port wants all of it, because none of the addresses will match.
 
 ## BUGS
 
-**The blob is the first thing this kernel reads and the last thing it can check against anything
-else.** The pointer comes from firmware, before there is a frame allocator or any way to report a
+The blob is the first thing this kernel reads and the last thing it can check against anything
+else. The pointer comes from firmware, before there is a frame allocator or any way to report a
 failure, so every limitation here is a limitation on the boot path specifically.
 
 - **A node nested deeper than 16 is invisible to `node_reg` and `node_reg_compatible`.** Both carry
@@ -139,10 +139,10 @@ failure, so every limitation here is a limitation on the boot path specifically.
   tracking, so they refuse to match rather than decode a region with cell widths they no longer
   know. Nothing in the trees we boot nests past 4. `node_prop` keeps no per-depth state and so has
   no such limit, which means the two lookups disagree about how deep a tree can be. Until
-  2026-08-02 `node_reg` did **not** refuse: it matched at any depth and then indexed past the stack,
+  2026-08-02 `node_reg` did not refuse: it matched at any depth and then indexed past the stack,
   which was an out-of-bounds panic on a 17-deep tree (milestone 42, notes/fuzzing.md).
-- **A `reg` pair whose `start + size` wraps 64 bits is `Error::RegionOverflow`, not a clamped
-  region.** `kernel/src/memory.rs` decides where RAM is from these, and "the firmware's memory map
+- A `reg` pair whose `start + size` wraps 64 bits is `Error::RegionOverflow`, not a clamped
+  region. `kernel/src/memory.rs` decides where RAM is from these, and "the firmware's memory map
   is impossible" is something a boot path should be told. `Region::end()` saturates as a backstop,
   because the type is `pub` with `pub` fields.
 - **`memory_regions` finds `/memory` nodes by NAME, not by `device_type`.** `device_type = "memory"`
@@ -151,7 +151,7 @@ failure, so every limitation here is a limitation on the boot path specifically.
 - **`node_reg` matches a node-name prefix rather than `compatible`.** That is a deliberate
   simplification for two boards, documented at the function. `node_reg_compatible` is the correct
   one and is what milestone 51's RTC lookup uses.
-- **Nothing validates the structure block's nesting balance.** A blob with more `FDT_END_NODE`
+- Nothing validates the structure block's nesting balance. A blob with more `FDT_END_NODE`
   tokens than `FDT_BEGIN_NODE` is walked rather than refused: the three `usize` walkers saturate
   their depth at zero and the three `i32` ones let it go negative. Neither can index anything (every
   array access is guarded and the negative depths simply match nothing), so it is a wart rather than

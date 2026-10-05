@@ -28,7 +28,7 @@ what `invlpg` does. The comment above it, written when this port had one core, s
 
 > a multi-CPU kernel needs a software shootdown protocol (an IPI), the same problem RISC-V solves
 > with SBI RFENCE. There is one CPU here (roadmap item 5), so the local invalidate is the whole of
-> it, **and this is the line that will need company.**
+> it, and this is the line that will need company.
 
 Item 5 landed a second core. The line never got its company. That is the whole bug, and the reason
 it is worth writing down is that nothing failed when SMP arrived: the gap was invisible until a
@@ -44,12 +44,12 @@ one and has had it since milestone 58. So the same portable `sched`/`thread` cod
 The mechanism is exact, which is what makes it fixable rather than mysterious.
 
 1. A thread exits. `thread::KernelStack::drop` unmaps its six stack pages, recycles the physical
-   frames to `kmem`, and pushes the **address range** onto `FREE_STACK_ADDRESS_SPACE` so the next
+   frames to `kmem`, and pushes the address range onto `FREE_STACK_ADDRESS_SPACE` so the next
    thread lands in page tables that already exist. That reuse is deliberate and documented; without
    it every 2 MiB of address space costs an L2 and an L3 forever.
 2. The unmap invalidates the reaping core's TLB. The *other* core still translates that range to the
    old frames.
-3. A new thread takes the recycled range and gets **different** frames. `KernelStack::new` paints
+3. A new thread takes the recycled range and gets different frames. `KernelStack::new` paints
    them, and `Context::for_kernel_thread` writes a real context at `top - 56`.
 4. The stale core is handed that thread, and `switch_to` does `mov rsp, rsi` then six `pop`s and a
    `ret`, through a translation naming the *old* frames. Those frames have been recycled into
@@ -67,8 +67,8 @@ hypothesis in without the fix being able to flatter itself.
 
 This is the design point, and it is not a preference.
 
-`mmu::unmap_page` takes `KERNEL_MMU`, which is an `IrqSafeMutex`: **it masks interrupts and then
-acquires.** So the core sending a shootdown has interrupts off, and so does every other core running
+`mmu::unmap_page` takes `KERNEL_MMU`, which is an `IrqSafeMutex`: it masks interrupts and then
+acquires. So the core sending a shootdown has interrupts off, and so does every other core running
 the same code. Now the deadlock, which is certain rather than theoretical because two cores spawning
 and reaping threads do this continuously:
 
@@ -100,7 +100,7 @@ architecture rather than made by taste.
   spinning here is still reachable by the only message that matters.
 - `SHOOTDOWN_VA`, one page or a sentinel meaning "everything" (`flush_asid`'s case, which reloads
   `CR3` because with `CR4.PGE` clear that discards every entry).
-- `SHOOTDOWN_PENDING`, a **bitmask of cpu ids** rather than a countdown. The sender sets it, each
+- `SHOOTDOWN_PENDING`, a bitmask of cpu ids rather than a countdown. The sender sets it, each
   target clears its own bit, the sender spins until it reads zero. A mask so that an NMI from any
   other source, or a late one from the previous round, finds its bit already clear and is a no-op
   instead of an acknowledgement nobody owed.
@@ -123,7 +123,7 @@ hardware ground truth and needs no per-CPU pointer: `smp::seat_cpus_from_acpi` s
 the slot its own APIC id names, so on this port the two numbers are the same, and the sender
 `debug_assert`s that rather than assuming it.
 
-The NMI is also served **before** the trap path picks a stack and before the deferred `schedule()`,
+The NMI is also served before the trap path picks a stack and before the deferred `schedule()`,
 and both matter. It may not move to the per-CPU interrupt stack, because it can arrive inside a
 handler already running there and would overwrite the frames underneath it. And it may not owe a
 context switch, because its target is routinely mid-critical-section with interrupts masked.
@@ -141,7 +141,7 @@ shootdown:
 and passes with it. The suite then reaches `test result: ok. 177 passed` at `NIFE_SMP=2`, and 20
 further runs produced no paint fault at all.
 
-**It is gated as of 2026-09-23, and it took three more fixes to get there.**
+It is gated as of 2026-09-23, and it took three more fixes to get there.
 `helpers/qemu-runner-x86_64.sh` defaulted `NIFE_SMP` to 1 for a year of this port's life because
 other failures could fail a two-core run, and they were closed one at a time: the boot-core-identity
 bug that made `smp::tests::every_secondary_runs_scheduled_work` fail about half the time at two
@@ -167,7 +167,7 @@ delivery are the parts that are hard, and there is no second copy of them to kee
 NMI is forced here for the same reason as for a page: the target core is routinely spinning for
 `IPC_TABLES` with interrupts masked, because the revoker is holding it.
 
-**The lock is what makes the far end safe**, and it is worth stating as a rule because the handler
+The lock is what makes the far end safe, and it is worth stating as a rule because the handler
 writes a TSS from an arbitrary instruction boundary: a core's port bitmap is written only by a
 thread holding `IPC_TABLES`, or by an NMI such a thread sent. Milestone 315 moved `schedule`'s
 `install_port_grant` inside the locked region to make that true; before it, a core could read a
@@ -180,12 +180,12 @@ either had no grant installed anywhere or had the holder switch away in time.
 
 ## BUGS
 
-- **One page per round trip.** A thread reap unmaps six pages and pays for six full shootdowns,
+- One page per round trip. A thread reap unmaps six pages and pays for six full shootdowns,
   where a batched protocol would pay for one. Correct and unbatched was chosen over fast and first:
   batching needs `unmap_page` to hand its caller an undischarged obligation, which is the one thing
   `paging::TlbFlush` exists to prevent. Worth revisiting with `script/bench` numbers rather than by
   argument, and there are no numbers yet because the bench path pins a single hart.
-- **Nothing shoots down a core that is online-but-not-yet-listed.** A secondary between installing
+- Nothing shoots down a core that is online-but-not-yet-listed. A secondary between installing
   the kernel `CR3` and setting its bit in `ONLINE_MASK` is not a target. Its TLB is fresh and the
   only addresses it touches in that window are the direct map and its own never-recycled boot stack,
   so there is nothing stale for it to hold; the window is narrow rather than closed, and

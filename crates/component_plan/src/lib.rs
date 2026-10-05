@@ -1842,7 +1842,7 @@ mod proofs {
     /// child with whatever the supervisor keeps in slot 0, which in every program in this tree is its
     /// construction budget. Proved over every arrangement of the two names being routed or not, and
     /// over arbitrary slots.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/component_plan/falsifications/proofs.a_missing_route_refuses_rather_than_falling_through_to_a_slot.patch`
     #[kani::proof]
     #[kani::unwind(10)]
     fn a_missing_route_refuses_rather_than_falling_through_to_a_slot() {
@@ -2079,7 +2079,7 @@ mod proofs {
     /// check is a single `>` against a fixed constant, but the point of proving it at all is that a
     /// truncated answer here is the dangerous failure: a supervisor that got fewer dependents back
     /// than exist would swap out from under an unwarned client).
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/component_plan/falsifications/proofs.too_many_live_instances_never_silently_truncates.patch`
     #[kani::proof]
     fn too_many_live_instances_never_silently_truncates() {
         let entries: [LiveInstance; MAX_LIVE + 1] = [LiveInstance {

@@ -219,6 +219,11 @@ tell a stale premise from a live one. It is rung three, written where the next p
   record. The `attenuate` defect turns the read-only one red on aarch64 only through a vacuity
   guard at line 974 of `kernel/src/user/fs_service.rs`, so it would show the test is wired and not that a
   widened capability is refused. Written where a reader meets it, in `notes/confinement-claims.md`.
+- **Recorded.** The unfalsified-harness backlog (56 of 228 on 2026-10-05) has no milestone of its
+  own; a provisional one is proposed in the lane report ("drive the unfalsified Kani harness count
+  to zero"). Batch 1 (`lane/falsify-backlog-1`, 2026-10-05) took 17: 56 became 39. One finding:
+  `cq_pop_stays_in_bounds_and_flips_only_at_the_wrap` stayed green under an early-wrap pop, so its
+  harness was strengthened before being falsified.
 
 ## Index row
 

@@ -7,17 +7,17 @@ table with an unusual shape.
 
 **The console that user programs use is now a userspace process.** A program that wants to print
 holds a `WRITE` capability on the console server's endpoint and sends to it. The server, running
-at **EL0**, owns a mapping of the PL011's registers and does the `while TXFF { } ; DR = byte`
+at EL0, owns a mapping of the PL011's registers and does the `while TXFF { } ; DR = byte`
 that used to live in `kernel/src/drivers/pl011.rs`. That loop is the same; only its exception
 level changed.
 
-What **stays** in the kernel is a *debug* UART: `println!`, for boot messages, panics, and the
+What stays in the kernel is a *debug* UART: `println!`, for boot messages, panics, and the
 test harness. This is not a cheat and it is not a failure of the thesis. **seL4 does exactly
 this**: a debug `putchar`, compiled out of release builds, entirely separate from the console
 anyone actually uses. A kernel cannot IPC to a userspace console *while it is panicking*, so it
 must be able to put a byte on a wire by itself. The honest claim is therefore narrow and true:
 
-> **There is no code path a user program can take that reaches kernel UART code.**
+> There is no code path a user program can take that reaches kernel UART code.
 
 `Object::Console` is gone from the syscall dispatch. `console::write_bytes` is gone. The kernel
 no longer reads a user's bytes and puts them on the wire. That is the part that left.
@@ -27,7 +27,7 @@ no longer reads a user's bytes and puts them on the wire. That is the part that 
 Here is the deep change, and it is worth dwelling on.
 
 In milestone 7d, printing was `write(console_cap, ptr, len)`: the user handed the kernel a
-**pointer**, and the kernel read the user's memory and wrote it to the UART. That is why 7d needed
+pointer, and the kernel read the user's memory and wrote it to the UART. That is why 7d needed
 `user_can_read` (the `AT S1E0R` trick): a user could pass `0xffff_0000_...`, the kernel's own
 memory, and a careless kernel would print it *on the user's behalf, using its own authority*. The
 confused deputy.
@@ -46,12 +46,12 @@ Milestone 8 **dissolves that bug** rather than defending against it. The data pa
 ```
 
 The bytes never enter the kernel. The client writes them into a page it *shares* with the server;
-only the **length** crosses the endpoint, in a register. The kernel copies nothing, validates no
+only the length crosses the endpoint, in a register. The kernel copies nothing, validates no
 pointer, and **cannot be a confused deputy because it is not a deputy**: it does no I/O for
 anyone. The thing that could be confused no longer exists.
 
-This is DECISIONS §10's rule, executed exactly: **IPC carries control, shared memory carries
-data.** Put the bytes in the message and you copy twice and you are Mach; put a shared frame under
+This is DECISIONS §10's rule, executed exactly: IPC carries control, shared memory carries
+data. Put the bytes in the message and you copy twice and you are Mach; put a shared frame under
 them and the data moves once, by the client's own store and the server's own load.
 
 (`mmu::user_can_read` stays in the tree, marked `allow(dead_code)`. Its caller left with the
@@ -60,7 +60,7 @@ console, but it is the tool the *next* syscall that takes a user pointer: a file
 
 ## One binary, several roles
 
-The console server and its client are the **same ELF**. There is one file in the initrd, and the
+The console server and its client are the same ELF. There is one file in the initrd, and the
 kernel tells the copies apart by the value it puts in `x0` at `_start`, the way a real kernel
 hands a new process its `argv`:
 
@@ -74,14 +74,14 @@ authority over anything.
 
 ## The mechanism that lets a driver hold hardware
 
-`AddressSpace::map_physical(va, phys, flags)` maps an **existing** physical page into a user
+`AddressSpace::map_physical(va, phys, flags)` maps an existing physical page into a user
 address space, without recording it as owned (so it is not freed when the process dies, because
 the process does not own it: it is shared, or it is a device). Two uses, both new:
 
-- The **UART's registers** at `phys 0x0900_0000`, into the server, with `Flags::user_device()`:
+- The UART's registers at `phys 0x0900_0000`, into the server, with `Flags::user_device()`:
   device-typed (no caching, no reordering of register writes), EL0 read/write, never executable.
   This one mapping is what a userspace driver *is*.
-- The **shared buffer**, into both client and server, one `user_data()` (RW) and one
+- The shared buffer, into both client and server, one `user_data()` (RW) and one
   `user_rodata()` (RO).
 
 `Flags::user_device()` is the new page-permission, and it is the smallest possible statement of
@@ -113,17 +113,17 @@ hardware the kernel handed it:
 ## What a driver bug costs now
 
 Everything §10 promised. The console server is a process. If its driver loop dereferences a bad
-pointer, **it faults alone** (`user_fault` → `sched::exit`, milestone 7a), the kernel prints the
+pointer, it faults alone (`user_fault` → `sched::exit`, milestone 7a), the kernel prints the
 death on its debug UART, and the machine keeps running. A driver bug is a crashed process, not a
 dead kernel. We could restart it. That is the entire reason the microkernel argument exists, and
 it is now a property of this system rather than a claim about other ones.
 
 ## What is still scaffolding
 
-- The shared buffer is wired up **at spawn** by the kernel, not delegated at runtime. Handing
+- The shared buffer is wired up at spawn by the kernel, not delegated at runtime. Handing
   memory over as a first-class `Frame` capability (so a process can share a page it already holds,
   with rights that narrow) is the natural next object type. Today the sharing is static.
-- There is **one** client and **one** server. A real console multiplexes many clients; that is a
+- There is one client and one server. A real console multiplexes many clients; that is a
   server-side concern (a queue, a lock) and does not change the kernel.
 - The kernel still allocates the shared frame and the server's stack from its own heap. That is
   §10's deferred third axis (untyped memory, milestone 11), where the kernel stops allocating at

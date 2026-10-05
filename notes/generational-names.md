@@ -21,8 +21,8 @@ too, which milestone 14 forbids.
 A name is `(generation, slot)` packed in one u64: slot in the low 32 bits, generation in the
 high 32.
 
-- **Lookup** indexes the slot and compares the generation. O(1), two loads.
-- **Remove** bumps the slot's generation. Every outstanding name for the old occupant now fails
+- Lookup indexes the slot and compares the generation. O(1), two loads.
+- Remove bumps the slot's generation. Every outstanding name for the old occupant now fails
   the compare, *forever*, including after the slot is reused: the new occupant's names carry the
   new generation.
 
@@ -44,7 +44,7 @@ required. The table is therefore the first step of the capability-only path, not
 the intrusive-list work (D1) removes the lookups one structure at a time, and what remains of
 the table at the end is exactly this validity check.
 
-**Recorded-accepted by milestone 94's sweep** (2026-08-04): "we deferred the CDT" reads like an
+Recorded-accepted by milestone 94's sweep (2026-08-04): "we deferred the CDT" reads like an
 unpaid debt and is not one. A derivation tree and generational names are two answers to the same
 safety question, and this tree took the second, on purpose, for the reason in the paragraph above.
 notes/live-replacement.md still says the real tree is wanted; that is the same object, blessed here
@@ -58,9 +58,9 @@ audit may pass over it; §71 says what would promote it. See notes/untracked-wor
 - **`u64::MAX` can never be minted** (slot would have to be 2^32-1 with 128 slots), so
   `cpu::NO_TID` keeps working as the "no thread" sentinel, and it is also the `UNNAMED`
   placeholder a `Thread` carries between construction and insertion.
-- **Generations are 32-bit and wrap.** A single slot reused 2^32 times could resurrect an
+- Generations are 32-bit and wrap. A single slot reused 2^32 times could resurrect an
   ancient name. Recorded honestly in the crate doc; not a bound anything real approaches.
-- **Insert is O(N)** (scan for a free slot); lookup, the hot-path operation, is O(1).
+- Insert is O(N) (scan for a free slot); lookup, the hot-path operation, is O(1).
 
 ## What is proved (milestone 18 style, before anything leans on it)
 

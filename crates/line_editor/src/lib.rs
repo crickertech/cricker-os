@@ -1127,6 +1127,10 @@ pub mod component {
         component_plan::slot_of(&DISPLAY, "supervisor")
             == component_plan::slot_of(&DISPLAY, "control") + 1
     );
+    // Two instances of INSTANCE_PAGES (48) and sixteen pages of the supervisor's own, written out
+    // so a changed operator in the sum is a build error. Mutation survivor triage, milestone 326
+    // (turn a mutation score upward), batch 3.
+    const _: () = assert!(supervisor::BUDGET_PAGES == 112);
 }
 
 /// **The line editor's state as a handoff blob** (milestone 23 (a capability-routed component OS
@@ -1897,6 +1901,21 @@ mod tests {
             out.extend_from_slice(&packed.to_le_bytes()[..n]);
         }
         assert_eq!(out, [9, 10, 11, 12, 13]);
+    }
+
+    /// **`head` is a ring index after every pop**, not a count that merely reads the same through
+    /// `% RAW_QUEUE_MAX` later. `save` and `restore` walk the ring from `head`, and a `head` that
+    /// grew by a whole ring each pop would still deliver the same bytes while no longer naming a
+    /// slot, so the bytes alone cannot catch it. Mutation survivor triage, milestone 326 (turn a
+    /// mutation score upward), batch 3.
+    #[test]
+    fn raw_queue_head_stays_inside_the_ring() {
+        let mut q = RawQueue::new();
+        for round in 0..20u8 {
+            q.push(&[round; 5]);
+            q.pop8().unwrap();
+            assert!(q.head < RAW_QUEUE_MAX, "round {round}: head {}", q.head);
+        }
     }
 
     /// The control-character encodings of movement (^B ^A ^E ^F), which the CSI tests do not
