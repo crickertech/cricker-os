@@ -9,14 +9,14 @@ Built (2026-09-02). Minted 2026-09-02 by the maintainer, the moment calef approv
 option D in DECISIONS 138 (how a saturated workload is made to hand threads across cores). *(Number
 provisional until the merge queue lands it.)*
 
-**In brief.** Milestone 219 (the boot tour ends and the kernel halts, so there is nothing to soak)
+In brief. Milestone 219 (the boot tour ends and the kernel halts, so there is nothing to soak)
 built a workload that lasts and then found something nobody expected: **a saturated workload never
 migrates between cores.** Measured on both multicore architectures, the crossing count freezes
 within the first second while the machine does tens of thousands of IPC round trips a second.
 
 DECISIONS 138 established why, and it is three structural facts rather than a bug: rendezvous wakes
 are local by design (DECISIONS §28.2), `wake_load_aware` is reachable only from a device interrupt,
-and a work steal needs an idle core **and** a queued thread elsewhere, which a saturated machine
+and a work steal needs an idle core and a queued thread elsewhere, which a saturated machine
 does not have. It also found that nife has counterparts for three of Linux v6.12's four balancing
 moments, all event-driven, and that a saturated rendezvous workload starves all three of their
 triggers. That is the whole explanation.
@@ -24,7 +24,7 @@ triggers. That is the whole explanation.
 **So the second half of fatal risk 5's decisive experiment has never been runnable**, and it was
 believed to be the half that mattered: at the time this milestone was minted, the one defect this
 risk had produced, on radon, was read as a receiver made Ready with nothing delivered, on the
-`irq_notify` to `wake_load_aware` path. **That reading is retracted** (`notes/visionfive2.md`'s fifth
+`irq_notify` to `wake_load_aware` path. That reading is retracted (`notes/visionfive2.md`'s fifth
 bench stop, 2026-08-15, before this milestone was minted): the dumps were a completed tour's terminal
 state, not a stranded receiver, so radon has not actually produced a confirmed instance of risk 5's
 defining claim. Found still repeating the retracted reading here 2026-09-23. What still stands: the
@@ -34,13 +34,13 @@ below.
 
 ## What it needs
 
-**A `--features soak` hook that signals a routed rendezvous from `sched::on_tick`**, so soak workers
+A `--features soak` hook that signals a routed rendezvous from `sched::on_tick`, so soak workers
 block on it through the `Irq::WAIT` that already exists. `sched::on_tick` is called by all three
 timer dispatchers in real interrupt context on every core, so the hook runs the identical sequence a
 device interrupt runs, down through `wake_load_aware`, `pick_wake_target`, `place_on` and the
 reschedule IPI.
 
-**The research lane spiked this and threw the spike away**, so the shape is known rather than
+The research lane spiked this and threw the spike away, so the shape is known rather than
 guessed: about 53 lines across three files, no syscall, no architecture-specific code. Measured:
 
 | | today | with the spike |
@@ -52,7 +52,7 @@ Round-trip rate falls (aarch64 64,000 to 44,500 a second), which is expected and
 rather than hidden: the machine is doing more work per round trip.
 
 **Being architecture-neutral is load-bearing, not incidental.** riscv64 has no software-raisable
-line reaching `irq_route`, so an aarch64 `send_sgi` or an x86 self-IPI would have left **radon** out.
+line reaching `irq_route`, so an aarch64 `send_sgi` or an x86 self-IPI would have left radon out.
 (Radon was believed to be the machine that produced the risk-5 defect this milestone exists to hunt;
 that reading is retracted, see below. Staying architecture-neutral is still the right call regardless,
 since radon is the only board with no other software-raisable interrupt path to lean on.)
@@ -80,8 +80,8 @@ summary carry the new field and the sentence that says what the crossings are.
 No syscall, no architecture-specific code, and no new feature: it is all behind the `soak` feature
 milestone 219 already had.
 
-**Measured on patagonia under QEMU, 2026-09-02, `script/soak --for 30s`, each pair back to back on
-an otherwise idle machine, read at the 25-second beat (20 on x86, whose runner is single-core):**
+Measured on patagonia under QEMU, 2026-09-02, `script/soak --for 30s`, each pair back to back on
+an otherwise idle machine, read at the 25-second beat (20 on x86, whose runner is single-core):
 
 | Architecture | Cores | Round trips before | after | Crossings before | after |
 |---|---|---|---|---|---|
@@ -89,22 +89,22 @@ an otherwise idle machine, read at the 25-second beat (20 on x86, whose runner i
 | riscv64 | 4 | 871,047 and 886,428 | 662,787 and 823,783 | 10 and 14, frozen | 2,573 and 4,358, rising |
 | x86_64 | 1 | 77,372 | 51,749 | 0 | 0, and one core is the whole reason |
 
-**Two runs of each leg, because one would have been misleading and the first pass was**: it was taken
+Two runs of each leg, because one would have been misleading and the first pass was: it was taken
 while another lane's suite ran on the same laptop and measured the host's load rather than this
 change. aarch64 pays nothing measurable (0.6% *more* round trips after, which is noise, and the
 workers that complete them are the same set in both legs). riscv64 pays about 7% on the
 closest-matched pair. x86_64 pays about a third, which is arithmetic: two more threads on one core
-in a round-robin scheduler. **All three are far below DECISIONS 138's spike, which saw 30% and 55%**,
+in a round-robin scheduler. All three are far below DECISIONS 138's spike, which saw 30% and 55%,
 and the difference is recorded rather than explained away: the spike was thrown away and cannot be
 re-measured.
 
-**A production build is unchanged**, checked rather than asserted. Without the feature, on all three
+A production build is unchanged, checked rather than asserted. Without the feature, on all three
 architectures, every symbol and every loaded section has the same size and `ipc_fastpath` and
 `syscall_entry` are unchanged at 6,687 and 1,637 bytes. The loadable image differs by 45 bytes on
 aarch64, all of them panic-location line numbers below the insertion point, and rebuilding the base
 commit with ten comment lines at the same place gives a byte-identical image on all three.
 
-**Two bugs, both found by running it, both about ordering, both recorded in `notes/soak.md`.** A
+Two bugs, both found by running it, both about ordering, both recorded in `notes/soak.md`. A
 single shared tick rendezvous starves all but one waiter on a loaded host, because `Rendezvous::recv`
 takes a pending signal before it looks at the receiver queue (right for a driver, wrong for four
 peers); each group has its own route now. And binding the routes *after* spawning the waiters races:
@@ -115,9 +115,9 @@ are bound before the first waiter; only the signalling is switched on last.
 
 - **This does not run the experiment**, it makes it runnable. The run needs a bench evening on radon,
   argon or xenon, and that is milestone 219's other proposed follow-on rather than this one.
-- **It says nothing about what a crossing rate should be.** The spike's numbers are a shape, not a
+- It says nothing about what a crossing rate should be. The spike's numbers are a shape, not a
   target, and there is no baseline to compare a board against until a board has run one.
-- **The hook fires on a timer, which is the one thing the workload cannot starve.** That is why it
+- The hook fires on a timer, which is the one thing the workload cannot starve. That is why it
   works, and it is also why it is not evidence about what happens without it.
 
 ## Follow-on
@@ -149,11 +149,11 @@ wake path down through `wake_load_aware`, `pick_wake_target`, `place_on` and the
 That is DECISIONS 138's option D, which calef approved: no syscall, no architecture-specific code,
 and nothing in a production build (checked, not asserted: every symbol and every loaded section
 the same size on all three architectures, and a base commit padded with ten comment lines builds a
-byte-identical image). **aarch64 went from 15 crossings, frozen from the first beat, to 1,452 and
-3,779 across two runs; riscv64 from 10 and 14 to 2,573 and 4,358.** The round-trip cost is nothing
+byte-identical image). aarch64 went from 15 crossings, frozen from the first beat, to 1,452 and
+3,779 across two runs; riscv64 from 10 and 14 to 2,573 and 4,358. The round-trip cost is nothing
 measurable on aarch64 and about 7% on riscv64, far below the spike's 30% and 55%, and that
 difference is recorded rather than explained away. Running it found two ordering bugs in the
-mechanism itself, both written up. **What crosses is the waiters, not the rendezvous pairs**, and
+mechanism itself, both written up. What crosses is the waiters, not the rendezvous pairs, and
 the kernel and the tool both say so in words, because only a rebalancer would move the pairs and
 138 declines one. It makes risk 5's second experiment runnable; it does not run it, which needs a
 bench evening on radon.

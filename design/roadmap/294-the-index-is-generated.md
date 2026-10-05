@@ -8,7 +8,7 @@ built: 2026-09-14
 Built 2026-09-14. Minted by the maintainer on 2026-09-14, out of a session that
 resolved eight merge conflicts and found every one of them in the same table.
 
-**The table this built was retired on 2026-09-21**, by calef: *"I don't think the milestone index
+The table this built was retired on 2026-09-21, by calef: *"I don't think the milestone index
 table is worth building any more. It has too many rows to be digestible as a table."* **That is not
 this milestone being undone.** The migration below is exactly what made the retirement cost nothing:
 by the time the table went, every cell in it was a rendering of text living in a milestone's own
@@ -51,21 +51,21 @@ the milestone's own file:
 **Two of the five were not derivable from anything the blocks already said**, and measuring that
 is what decided the shape of this milestone rather than discovering it late.
 
-**The summary is a hand-written precis, median 369 characters and up to 1832.** Deriving it from
+The summary is a hand-written precis, median 369 characters and up to 1832. Deriving it from
 the block's own opening paragraph was the option that needed no migration, and it was measured
-before it was refused: across 288 milestones the row's summary scored a **median similarity of
-0.07** against the block's first body paragraph, above 0.4 for three milestones and above 0.6 for
+before it was refused: across 288 milestones the row's summary scored a median similarity of
+0.07 against the block's first body paragraph, above 0.4 for three milestones and above 0.6 for
 none. An opening paragraph is written to open a document. Taking it would have silently rewritten
 what the index said about 288 milestones, in one commit, and each of those cells is the tree's own
 account of its history.
 
-**The Built date was worse.** 129 of 288 blocks did not state it anywhere a parser could find, and
+The Built date was worse. 129 of 288 blocks did not state it anywhere a parser could find, and
 the ones that did used at least eight spellings: `**Status: BUILT.**` with the date in a later
 sentence, `**Status: BUILT, 2026-08-26.**`, `**Status: BUILT (2026-08-01).**`, `**Status: BUILT**
 on 2026-08-18 (PR #320)`, `**Status: BUILT**, 2026-08-27, as ...`. Canonicalising 129 status lines
 would have been rewriting prose in 129 blocks to serve a parser, which is the wrong direction.
 
-So both were **moved, verbatim**. The migration cut each cell's text and pasted it into the block;
+So both were moved, verbatim. The migration cut each cell's text and pasted it into the block;
 the only transformations were unescaping `\|` (an artefact of living in a table cell, where a bare
 pipe would end it) and line wrapping. Nothing was regenerated, paraphrased or shortened, and the
 reconstruction below is the proof.
@@ -73,13 +73,13 @@ reconstruction below is the proof.
 ## The proof: reconstruction, not inspection
 
 Generating the table from the migrated blocks and diffing it against the committed one reproduced
-**271 of 288 rows byte for byte**. All 17 differences were pre-existing drift in the
+271 of 288 rows byte for byte. All 17 differences were pre-existing drift in the
 hand-maintained table, none of them a defect in the generator:
 
-- **12 whitespace.** Eight rows carried a doubled space in an empty `Built` cell (131, 224, 258,
+- 12 whitespace. Eight rows carried a doubled space in an empty `Built` cell (131, 224, 258,
   260, 261, 262, 263, 265) and four padded the date (135, 196, 202, 208). Invisible in rendering,
   invisible to the old gate, which anchored on the first four fields.
-- **5 titles**, where the row had drifted from its own block's H1. Resolved in favour of the
+- 5 titles, where the row had drifted from its own block's H1. Resolved in favour of the
   block, because there is now one title per milestone rather than two:
 
   | # | The row said | The block's H1 says |
@@ -111,13 +111,13 @@ and tree-wide citation resolution, where all four used to key on the index table
 the generated table, `--write` rewrites it between the markers in the README, and `--check`
 validates the blocks.
 
-**A committed row that disagrees with its block no longer fails the build.** That was the
+A committed row that disagrees with its block no longer fails the build. That was the
 milestone-69 check, and it was a real defect *because both records were hand-maintained and both
 looked authoritative*, so a reader could not tell which was lying. Once the row is derived there is
 nothing to decide: a table that disagrees with a block is stale, and the fix is one command. So
 `--check` reports the staleness, with the count and the command, and passes.
 
-**It has to pass, and the reason is the whole milestone.** Failing would force every lane whose
+It has to pass, and the reason is the whole milestone. Failing would force every lane whose
 status moves to regenerate, which means editing the table, which is the hotspot coming straight
 back. The cost of not failing is in BUGS below, named rather than hidden.
 
@@ -141,7 +141,7 @@ back. The cost of not failing is in BUGS below, named rather than hidden.
 
 ## BUGS
 
-- **The committed table can be stale, and nothing fails when it is.** A lane does not regenerate it,
+- The committed table can be stale, and nothing fails when it is. A lane does not regenerate it,
   so between a merge and the integrator running `script/roadmap --write` the table in the README is
   behind the blocks. `--check` prints the count and the command on every run, which is rung two for
   detection and rung four for action, and that is an exception AGENTS.md's ladder asks to be
@@ -153,11 +153,11 @@ back. The cost of not failing is in BUGS below, named rather than hidden.
   and failing the gate on a stale table brings the hotspot back. A stale *derived* artifact is also
   a much smaller defect than the one it replaces, because nobody has to work out which record is
   right.
-- **A lane still cannot see another lane's rows, and now it cannot see their blocks either.** Two
+- A lane still cannot see another lane's rows, and now it cannot see their blocks either. Two
   lanes minting the same milestone number still collide, exactly as before; what changed is that
   the collision is now two files claiming one number (which `script/roadmap` has always called
   fatal) rather than two rows in one table.
-- **The five title corrections are the generator asserting the block over the row**, and one of
+- The five title corrections are the generator asserting the block over the row, and one of
   them reads worse in a narrow table than what it replaced (milestone 16's parenthetical recast).
   It was not reworded, because rewording a block's H1 is a naming decision and this lane had
   permission to move text and nothing else.

@@ -26,7 +26,7 @@ memory and device windows into what a confined component can reach.
 
 ## What it found, in one paragraph each
 
-**One confinement claim was false as stated, and it is fixed.** A thread that `SYS_CAP_DELETE`d its
+One confinement claim was false as stated, and it is fixed. A thread that `SYS_CAP_DELETE`d its
 own `x86_64` `PortRange` capability kept `in`/`out` access to the ports for life, because the grant
 the context switch installs is a cached field and the delete cleared the table and not the cache.
 DECISIONS §12 says a consumed capability cannot be used again; for the one object enforced outside
@@ -39,13 +39,13 @@ hung the suite rather than turning an assertion red: `notes/confinement-claims.m
 one object over, found when the new test's first draft did exactly that. The fixtures now exit
 after an `out` that is expected to fault, and both tests carry records replayed on `x86_64`.
 
-**Ring 0 could execute a confined component's pages on `x86_64`, and the tree said otherwise.**
+Ring 0 could execute a confined component's pages on `x86_64`, and the tree said otherwise.
 `crates/paging`'s decoder reported every user page as not kernel-executable and milestone 307 wrote
 that the hardware made it so; x86 does so only with `CR4.SMEP`, which nothing had set. Set now, on
 every core whose CPUID offers it, with a console line either way; the sentence and the encoder
 comment are corrected rather than deleted.
 
-**And three things recorded rather than fixed**, each with a proposal: `PortRange::REVOKE` reaches
+And three things recorded rather than fixed, each with a proposal: `PortRange::REVOKE` reaches
 one core and `x86_64` no longer runs one (a one-tick window, accepted with the reason and a `BUGS`
 section at the function); row 21's `x86_64` leg carries no falsification because the mechanism
 admits one architecture per record; and, outside the lens, one `x86_64` language test trips the
@@ -72,8 +72,8 @@ code was touched and a comment in a shared crate is code that was touched.
   this entry and of the report's finding 7 read the filtered result as this machine disagreeing with
   CI, and the full run corrected it. It matters for `script/falsifications --sweep`, which replays
   every kernel record as a filtered run; no record names that test today.
-- **The lane's own falsification sweep was green while CI's was red, on the same mechanism, by
-  scope alone.** The lane ran `script/falsifications --sweep kernel` (16 swept, 0 survivors) and
+- The lane's own falsification sweep was green while CI's was red, on the same mechanism, by
+  scope alone. The lane ran `script/falsifications --sweep kernel` (16 swept, 0 survivors) and
   CI ran `--affected-since <base>`, which follows the diff into `crates/` and found that the SMEP
   comment added above `Ia32e::attrs`'s `XD` branch had moved the context of
   `crates/paging/falsifications/x86_64.verification.no_encoded_leaf_is_both_writable_and_executable.patch`.
@@ -82,7 +82,7 @@ code was touched and a comment in a shared crate is code that was touched.
   and confirmed red by hand at the harness's only assertion. The lesson for the next lane is the
   form to run before pushing: `--affected-since <base SHA>`, never a package-scoped `--sweep`, because
   the package a change reaches is not the package the lane was thinking about.
-- **Finding 3 has no test.** `CR4.SMEP` is set and a boot line says so; a falsification would need
+- Finding 3 has no test. `CR4.SMEP` is set and a boot line says so; a falsification would need
   ring 0 to survive its own page fault, which this kernel cannot do. The boot line is rung three.
 - **The cross-core port window is accepted, not closed.** One tick at most, cache cleared so it
   cannot reopen, no consumer runs a port holder on two cores; the IPI shootdown is proposed.
@@ -91,7 +91,7 @@ code was touched and a comment in a shared crate is code that was touched.
   corrected; the decision is the maintainer's.
 - **`design/fatal-risks/README.md` risk 7 does not yet carry this audit's answer** (one claim false as
   stated, fixed), for the same reason.
-- **The report reads no `arch/` assembly and none of the IPC model.** Its own scope section says
+- The report reads no `arch/` assembly and none of the IPC model. Its own scope section says
   what it excluded; the syscall surface is the remaining untaken lens.
 
 ## Follow-on
@@ -120,7 +120,7 @@ code was touched and a comment in a shared crate is code that was touched.
 The security audit `script/audits` had reported overdue every week since 2026-08-17, run under the
 userspace-confinement lens on a bounded scope: the device and port authority minted in the window,
 the six claims milestone 307 marked unreachable, and the two boards that booted real silicon. It found
-**one confinement claim false as stated and fixed it**: a thread that deleted its own `x86_64`
+one confinement claim false as stated and fixed it: a thread that deleted its own `x86_64`
 `PortRange` capability kept the ports, because the grant is a cached field the context switch
 installs and `SYS_CAP_DELETE` cleared the table and not the cache, which `system_initializer` did on
 every `x86_64` boot. The two existing port tests could not go red for the defects they exist to
