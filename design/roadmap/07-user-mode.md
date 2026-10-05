@@ -17,12 +17,12 @@ The build then landed as lettered commits, same day:
 - `a34d002` **7a**: EL0. "The machine now runs code it does not trust," two `svc` round trips
   ("one proves we left; two prove we came back"), and a hostile program killed for touching
   kernel memory while the kernel survived.
-- `0c7793d` **7c**: the ELF loader; the kernel runs a binary it has never seen, delivered by
+- `0c7793d` 7c: the ELF loader; the kernel runs a binary it has never seen, delivered by
   initrd the way Linux's initramfs is, parsed by a host-testable crate so forging a malicious
   binary for a test is eleven lines.
-- `ec6f1b5` **7d**: three syscalls: `exit`, `yield`, `invoke`. No open, no read, no write, no
+- `ec6f1b5` 7d: three syscalls: `exit`, `yield`, `invoke`. No open, no read, no write, no
   fork; the same binary spawned with an empty capability table cannot print one byte.
-- `54596b6` **7e**: IPC as synchronous rendezvous, three words in registers, memory never touched
+- `54596b6` 7e: IPC as synchronous rendezvous, three words in registers, memory never touched
   on the way.
 
 An honest gap: there is no commit titled 7b, and no surviving record of what the lettering

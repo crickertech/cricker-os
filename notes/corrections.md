@@ -3,7 +3,7 @@
 **Provisional name** (`notes/corrections.md`): calef names what a reader meets, and this page was
 split out of `README.md` on 2026-09-21 at his suggestion rather than minted with a ratified name.
 
-**Kept on purpose, because the corrections were the most instructive part.** This tree's habit is to
+Kept on purpose, because the corrections were the most instructive part. This tree's habit is to
 fix the record loudly rather than quietly: `AGENTS.md` says the machine overrules the documentation
 and it overrules you, and when it does, the record gets fixed on purpose. These are the cases where
 that happened, in the order they were written.
@@ -21,7 +21,7 @@ tests hold the line. See [boot-protocol.md](boot-protocol.md).
 address goes into register `x30`, and the stack is where it gets *parked* when a function
 needs `x30` for a call of its own. See [stack.md](stack.md).
 
-**`into_iter()` on a big array is a kernel footgun.** Milestone 3 (hand out physical memory, and
+`into_iter()` on a big array is a kernel footgun. Milestone 3 (hand out physical memory, and
 detect a smashed stack) hung the machine for
 150 seconds with no output. `[Option<Frame>; 1024].into_iter().flatten()` moves 16 KiB by
 value, twice, onto a 64 KiB stack; `sp` walked through `.bss` and `.data` into `.text` and
@@ -38,7 +38,7 @@ whys, and action items that resolve to a decision, a proposal or a milestone. Th
 scars, which is a record that something healed. These are records of what was changed so it would not
 happen again.
 
-**[The weekly falsification sweep replayed nothing and reported success](corrections/2026-09-23-the-sweep-that-swept-nothing.md)**
+[The weekly falsification sweep replayed nothing and reported success](corrections/2026-09-23-the-sweep-that-swept-nothing.md)
 (2026-09-23). A `tee` into the checkout dirtied the tree before the sweep's own dirty-tree guard read
 it, and `continue-on-error` swallowed the refusal, so three scheduled runs published the refusal as
 their report and went green. The fifth why reaches the habit rather than the `tee`: a check that

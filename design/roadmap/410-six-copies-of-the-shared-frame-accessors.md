@@ -18,7 +18,7 @@ A lane can close this. It is a refactor inside userspace with no wire format, no
 syscall surface and no name calef has not already ruled on, unless a new crate is wanted, in which
 case the name is his.
 
-**Premise re-checked 2026-09-19: five copies, not six, and this file already records why.**
+Premise re-checked 2026-09-19: five copies, not six, and this file already records why.
 `multicast_dns_responder` went at milestone 298 and the table below struck it out at the time. The
 five that remain are `components/src/socket_test_client.rs`, `components/src/network_time_client.rs`
 and `fixtures/src/network_time_test_server.rs`, which carry the absolute-VA accessors the title is
@@ -67,12 +67,12 @@ if the window abstraction moves again.
 
 ## The shape, and the one question a lane has to answer
 
-**Four of the six speak the socket contract**, and for those the natural home is `crates/socket_protocol`
+Four of the six speak the socket contract, and for those the natural home is `crates/socket_protocol`
 beside the offsets they already use: a small type holding the window and the base address, with
 `payload_write`, `payload_read`, `dst_ip`, `dst_port` and `len` as methods rather than free functions
 over an absolute VA.
 
-**Two are virtio DMA users** and are a different shape: their offsets are device descriptor rings, not
+Two are virtio DMA users and are a different shape: their offsets are device descriptor rings, not
 `socket_protocol`'s header, and `crates/virtio` is where that belongs if anywhere. **Price them
 separately and do not force one abstraction over both**, which is the speculative trait-ification
 AGENTS.md refuses.

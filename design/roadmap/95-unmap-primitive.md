@@ -1,8 +1,9 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-08-04
+built: 2026-10-05
 milestone_dependencies: none
-decision_dependencies: 162
+decision_dependencies: 162, 249
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -54,35 +55,68 @@ with a replayable falsification for each of its four tests. The two semantics §
 built provisionally and argued in `notes/unmap.md`: a `va` with nothing mapped answers
 `BadPointer`, and no capability is consumed. They are asked of calef on pull request #1678.
 
-**It does not close this block's hole yet**, and the reason is a finding, not a gap in the build.
+**It did not close this block's hole then** (kept as written; the second half below closed it),
+and the reason was a finding, not a gap in the build.
 No capability names a running address space: `CONFIGURE` retires the name, and the kernel grants
 none at boot. The progenitor's scratch window is in its own running space, so it has nothing to
 invoke `UNMAP` on. That is a fork on the syscall surface, written up as a proposal (below) and not
 built.
 
-## Scope note
+## Built, the second half, 2026-10-05 (UTC): the windows are closed
 
-The proof, when it happens, is the shape milestone 22 already used: init writes to a boot server's
-page and faults, as a negative control, rather than an inventory of what init holds. Until then
-the residual is recorded where a reader meets it, in notes/trusted-init.md's BUGS.
+On §249 (a running address space stays nameable), which calef ruled the same day as option A with
+amendments (a) and (b), and whose 2026-10-05 amendment put init's capability at slot 28. Lane
+`lane/space-naming-build`, pull request #1692.
+
+- A running space stays nameable. The address-space registry owns every space, bound or not;
+  `CONFIGURE` consumes the capability it is passed and binds the space in place, so a copy made
+  first keeps naming it while the thread runs. Each thread keeps a copy of its root, tag and
+  current-CPU page (`user::BoundSpace`; provisional), so the context switch takes no registry lock.
+  A space dies when its thread is reaped or the region sweep takes it, and every capability then
+  fails; the two removals are one take-once `Table::remove`. `MAX_USER_SPACES` is now the
+  revocation registry's `MAX_SPACES` (288), the most spaces that can exist at once, so a full
+  registry is an impossible state rather than an error; it costs 21,904 bytes of `.bss`.
+- A second bind is refused with `WrongObject`, from a bound mark on the registry entry, so §105
+  (`std::thread::spawn` stays declined) stands.
+- The kernel grants the progenitor its own space at slot 28, `WRITE` alone, on every boot
+  (`boot_progenitor`'s `assert_eq!(s28, 28)`, `components/src/progenitor.rs`'s `own_space: 28`).
+- The progenitor gives up each scratch page with `UNMAP` the moment the page is in the child
+  (`supervision_protocol::give_up_own_page`, provisional), and the shell's output page and the two
+  DMA pages it used to keep for the life of the boot. So the scratch window is never wider than the
+  one page being filled, which is §162's optional C (a one-page loader) reached through A rather
+  than built as a loader restructure.
+
+The proof is `system_tests/src/user/running_space_tests.rs`: six tests, green on aarch64, riscv64
+and x86_64 (the multicore one skips on x86_64's one-core UEFI image). Each has a replayable
+falsification under `system_tests/falsifications/`, and all six replayed red on aarch64 on
+2026-10-05. Two of them are what this block owed. One is the negative control: a
+builder holding its own space, as the progenitor does, writes to the page it filled for a child and
+faults at that address. Without its own space the same write lands. The other is the multicore test
+`notes/unmap.md`'s `BUGS` said could not exist. A reader spinning on one core faults when another
+core unmaps its page. `script/swish-check` passes on aarch64 and riscv64 with the boot
+giving every window back; the capability-slot peak is one higher on every boot (32, 29, 25), which
+`kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED` records. The costs are in `notes/unmap.md`:
+`spawn_el0` +1.6% on aarch64, the switch rows unchanged.
 
 ## Follow-on
 
-Checked against the tree on 2026-10-05 (UTC), on `lane/95-unmap`.
+Checked against the tree on 2026-10-05 (UTC), on `lane/space-naming-build`.
 
-- **Proposed.** How a running process names its own address space, without which `UNMAP` cannot
-  reach the window this block names: `design/roadmap/proposals/a-running-process-can-name-its-own-address-space.md`.
-- **Outstanding.** The progenitor giving up each scratch page after a boot server is built, and the
-  negative control this block's scope note names (the progenitor writes to a boot server's page and
-  faults). Both wait on the proposal above; `supervision_protocol::map_scratch` still never unmaps.
-- **Outstanding.** The amendment to §162 (whether a holder can give up a mapping) recording the two
-  semantics, once calef rules on them. A lane may not edit `design/decisions/`.
-- **Recorded.** No test shows a remote core losing a translation through `UNMAP`, one page per call,
-  and no `icount` row: `notes/unmap.md`'s `BUGS`.
+- **Done.** How a running process names its own address space: §249, built above.
+- **Done.** The progenitor giving up each scratch page and the negative control: above, and in
+  `system_tests/src/user/running_space_tests.rs`.
+- **Done.** The amendment to §162 recording the two semantics: §162's amendment of 2026-10-05.
+- **Milestone 765.** A thread that can still run on a space rooted in a destroyed region, and the
+  narrower windows registry ownership leaves. Recorded in the block of milestone 765 (a destroyed
+  region cannot free the root a running thread walks), which builds the refusal.
+- **Recorded.** The shell's job-frame window and `login`'s connect window still never shrink, since
+  neither holds its own space: `notes/unmap.md`'s `BUGS`, and each file's own comment.
+- **Recorded.** One page per call, and the multicore falsification being aarch64's alone:
+  `notes/unmap.md`'s `BUGS`.
 
 ## Index row
 
-Milestone 22's largest residual: `build_child` maps every page it writes for a child and nothing
-in the ABI can unmap it, so init keeps a writable window onto every boot server for the life of
-the machine. A design fork, decided as A by §162 on 2026-10-05; the cheapest fix may be a one-page loader
-rather than a new syscall
+The largest residual of milestone 22 (trusted init): `build_child` mapped every page it wrote for a child and nothing
+could unmap it, so init kept a writable window onto every boot server for the life of the machine.
+Closed 2026-10-05 (UTC): `AddressSpace::UNMAP` (§162), a running space that stays nameable (§249),
+init's own space at slot 28, and a loader that gives each page back the moment it is in the child.

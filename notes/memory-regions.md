@@ -20,7 +20,7 @@ fork bombs, fd floods, socket buffers, every one of them is "make the kernel all
 behalf until it can't."
 
 Memory regions remove the allocator from the hot path. A process holds a capability to a chunk of
-raw physical memory (a **memory region**), and to get a page it **retypes** part of that memory
+raw physical memory (a **memory region**), and to get a page it retypes part of that memory
 into the page. The kernel is a bookkeeper: it advances a watermark and hands back a physical
 address. It does not choose a page from a pool it owns, because it owns no pool. Every page a
 process spends comes from the region it was handed.
@@ -33,7 +33,7 @@ process spends comes from the region it was handed.
 ```
 
 That flat frame count is the whole thing. The process allocated twenty-three pages of memory, and
-the kernel's free memory **did not change**, because the pages came out of the process's own
+the kernel's free memory did not change, because the pages came out of the process's own
 region, carved once at the start. A process cannot make the kernel allocate, so it cannot exhaust
 kernel memory. It runs out of *its own* budget, the retype returns `OutOfMemory`, and the kernel is
 untouched. There is a test that asserts exactly this equality, and it fails loudly if the memory
@@ -46,21 +46,21 @@ thirty thousand pages and the kernel loses thirty thousand frames).
   watermark. `kernel/src/memory_region.rs` is the whole allocator: `retype_page` advances the
   watermark and returns the next page, zeroed, or `None` when the region is spent.
 - `invoke(region, MAP, va)` retypes one page and maps it, writable, at `va` in the caller's own
-  address space. **Both the page and any page tables it needs come from the region** (the mapper's
+  address space. Both the page and any page tables it needs come from the region (the mapper's
   only source of memory is a closure that bumps the watermark), so the kernel allocates nothing.
-- The region's backing is carved from the frame allocator **once**, when the region is created.
+- The region's backing is carved from the frame allocator once, when the region is created.
   That single allocation is the seL4 boundary, where all free RAM becomes a region handed to the
   first process. Everything after spends it.
 
 ## What this is, and what it is not
 
-This converts **a process's memory** (its pages and their page tables) to region-backed, and
+This converts a process's memory (its pages and their page tables) to region-backed, and
 demonstrates the property with a hard number. It is honest to be equally clear about the
 boundary: the kernel's *own* objects still come from the kernel heap. `Thread` structs, the
 scheduler's `BTreeMap` and `VecDeque`, rendezvous objects, capability tables, thread stacks: all
 still allocated the old way.
 
-Converting each of those is the **same retype mechanism applied to a kernel object** rather than a
+Converting each of those is the same retype mechanism applied to a kernel object rather than a
 page. In seL4 you retype untyped into a TCB, into a CNode, into an endpoint, into a page table, and
 the kernel genuinely has no heap at all. That is the long tail, the part seL4 spent years and a
 proof on, and it is what "the allocators leave" in the milestone table ultimately means. What

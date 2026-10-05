@@ -25,7 +25,7 @@ has, and the gap is written out here rather than folded into a token that would 
 already running: QEMU's virtio devices, the PL011 and NS16550 consoles, the PLIC. Real SoC
 peripherals do not, and the JH7110 is the first case in reach.
 
-Linux's own JH7110 TRNG driver takes **two clocks and a reset line** before it touches a register.
+Linux's own JH7110 TRNG driver takes two clocks and a reset line before it touches a register.
 nife's driver takes neither, because nothing in this tree can supply them. So the most likely
 outcome of milestone 159's first bench boot is not a driver bug: it is a register window that reads
 as nothing because the device is held in reset or its clock is gated.
@@ -39,8 +39,8 @@ Its `hw entropy` line carries a raw `(STAT << 32) | ISTAT` bring-up diagnostic, 
 separates the two failures a bench session otherwise cannot tell apart:
 
 - **All zeros**: the register window read as nothing. Gated clock, undeasserted reset, or a wrong
-  base address. **That is this milestone.**
-- **Anything else**: the device answered and the sequence is wrong. That is milestone 159's.
+  base address. That is this milestone.
+- Anything else: the device answered and the sequence is wrong. That is milestone 159's.
 
 So this block exists so that a single observation at the bench routes to a milestone rather than to
 a person's memory of a conversation.
@@ -48,7 +48,7 @@ a person's memory of a conversation.
 ## What it would need
 
 A clock and reset generator driver for the JH7110, and a decision this block does not make about
-**where such a thing lives in a capability system**. That is the interesting question and it is why
+where such a thing lives in a capability system. That is the interesting question and it is why
 this is not simply a small driver:
 
 - A clock controller is a shared resource that many drivers need, so it is a service rather than a
@@ -60,7 +60,7 @@ this is not simply a small driver:
 
 ## The bench settled the premise, 2026-09-04
 
-**It is a measurement now.** Two boots of radon, byte-identical:
+It is a measurement now. Two boots of radon, byte-identical:
 
 ```text
 hw entropy  : FAILED: JH7110 TRNG at 0x1600c000 (tree says starfive,trng, status disabled):
@@ -69,36 +69,36 @@ hw entropy  : FAILED: JH7110 TRNG at 0x1600c000 (tree says starfive,trng, status
 ```
 
 Transcript: `target/board/radon-2026-09-04-trng-bringup.log`. The diagnostic is the raw
-`(STAT << 32) | ISTAT`, so **the whole register file read back as zeros**, which is the outcome
+`(STAT << 32) | ISTAT`, so the whole register file read back as zeros, which is the outcome
 milestone 159's own table routes here rather than to a defect in that driver.
 
-**Two independent signals agree.** The device tree marks the node `status disabled` and the
+Two independent signals agree. The device tree marks the node `status disabled` and the
 register window reads nothing. Milestone 239 (radon's device tree does not describe the TRNG, so a working driver never runs)
 deliberately *reports* `status` without acting on it, because that same tree calls the S7 monitor
 core `okay` and gives it an MMU it does not have; here the tree and the hardware say the same
 thing, so the agreement is corroboration rather than circularity.
 
-**The mechanism that made this attributable was built before the answer was known**, which is the
+The mechanism that made this attributable was built before the answer was known, which is the
 part worth keeping: 159's lane declined to write this driver on spec and instead made one boot
 separate the two candidate failures. It cost a diagnostic word and it saved a bench session.
 
 ## What was built on 2026-09-04, and what it proves
 
-- **`crates/jh7110_clock_and_reset`**, pure logic, 20 host tests. The STG domain's register arithmetic (one
+- `crates/jh7110_clock_and_reset`, pure logic, 20 host tests. The STG domain's register arithmetic (one
   32-bit word per clock at `base + 4*index`, enable bit 31; 32 resets to a word at `0x74`, watched
   at `0x78`), the TRNG's three-step bring-up plan, and the device-tree query that finds the
   controller. No pointer is dereferenced anywhere in it.
-- **The identifiers, resolved from two published trees that disagree on every name.** Mainline
+- The identifiers, resolved from two published trees that disagree on every name. Mainline
   Linux calls them `JH7110_STGCLK_SEC_AHB` (15), `JH7110_STGCLK_SEC_MISC_AHB` (16) and
-  `JH7110_STGRST_SEC_AHB` (3). The vendor U-Boot **radon actually runs** calls them
+  `JH7110_STGRST_SEC_AHB` (3). The vendor U-Boot radon actually runs calls them
   `JH7110_SEC_HCLK` (205), `JH7110_SEC_MISCAHB_CLK` (206) and `RSTN_U0_SEC_TOP_HRESETN` (131),
   numbered flat across all five domains; rebased on their group starts (190 and 128) they are 15,
-  16 and 3. **Both name the same window at `0x1023_0000`.** The rebase is a host test, not a
+  16 and 3. Both name the same window at `0x1023_0000`. The rebase is a host test, not a
   paragraph, so an upstream renumbering fails the build instead of surprising somebody at the
   bench. Every URL and fetch date is in the crate header.
-- **`kernel/src/drivers/jh7110_clock_and_reset.rs`**, the twenty lines that store to a register, and the
+- `kernel/src/drivers/jh7110_clock_and_reset.rs`, the twenty lines that store to a register, and the
   argument for why they are in the kernel (below).
-- **A `hw clock` line in the riscv64 boot tour**, printed before `hw entropy` because it decides
+- A `hw clock` line in the riscv64 boot tour, printed before `hw entropy` because it decides
   how that line should be read, and reporting the *before* words as well as the after ones. That
   is the field that can refute this milestone: clocks already enabled would mean the TRNG's zeros
   have some other cause.
@@ -106,7 +106,7 @@ separate the two candidate failures. It cost a diagnostic word and it saved a be
   observable outcome to which milestone it belongs to. Written the way `notes/x86-uefi-boot.md`
   was, by a lane that could not reach the machine.
 
-**What CI actually exercises is the absence path**, and saying so is the point. QEMU's `virt`
+What CI actually exercises is the absence path, and saying so is the point. QEMU's `virt`
 board names no clock controller, so `memory::init` records no window, nothing is mapped, and
 nothing is stored. `no_clock_window_is_mapped_where_there_is_no_jh7110` pins exactly that, because
 the dangerous failure is silent in the other direction: `jh7110_crg::discover` deliberately never
@@ -117,8 +117,8 @@ took it unconditionally would store to `0x1023_0000` on every board this kernel 
 
 The block left this open as the interesting question. It is answered by reusing DECISIONS §86
 (whether an NVMe driver can leave the kernel, and what capability would let it) rather than by
-inventing a second argument: **the kernel keeps the admin plane, EL0 gets the data path, and no
-new syscall surface is added.** Three things make a clock controller a stronger case for that
+inventing a second argument: the kernel keeps the admin plane, EL0 gets the data path, and no
+new syscall surface is added. Three things make a clock controller a stronger case for that
 split than NVMe was:
 
 - **Granting it would widen a driver's authority, not confine it.** One 64 KiB window holds the
@@ -127,9 +127,9 @@ split than NVMe was:
   two endpoints; handing it this would trade the narrowest authority in the tree for the widest.
   The reset is documented **shared** upstream: the same line resets the PL080 DMA at
   `0x1600_8000`, which is why nothing here offers an assert.
-- **It is one-shot setup, off every hot path.** The performance argument that makes EL0 attractive
+- It is one-shot setup, off every hot path. The performance argument that makes EL0 attractive
   for a data path does not exist for three register writes at boot.
-- **Zero new syscall surface**, which is what makes it a decision a lane could take: nothing two
+- Zero new syscall surface, which is what makes it a decision a lane could take: nothing two
   programs agree on changed, so an EL0 clock service remains available to a later milestone that
   has evidence for it.
 
@@ -175,24 +175,24 @@ split than NVMe was:
 
 ## BUGS
 
-- **Nothing here has run on hardware.** Every offset, bit position and identifier is transcribed
+- Nothing here has run on hardware. Every offset, bit position and identifier is transcribed
   from published source; what is proven is that two independently published trees agree with each
   other and that the arithmetic is right. An emulator cannot do better, because QEMU's `virt`
   machine has no clock or reset controller to model. The honest scope, and what each bench outcome
   would mean, is `notes/jh7110-clock-and-reset.md`.
-- **It says nothing about argon or xenon**, which have their own bring-up assumptions that nothing
+- It says nothing about argon or xenon, which have their own bring-up assumptions that nothing
   has tested either.
-- **Scope is unbounded as written**, and the 2026-09-04 pass took the small end deliberately: the
+- Scope is unbounded as written, and the 2026-09-04 pass took the small end deliberately: the
   STG domain only, and within it only the two clocks and one reset the TRNG needs. The other four
   domains and their hundreds of clocks are untouched and unmodelled.
 
 ## Index row
 
 Linux's JH7110 TRNG driver takes two clocks and a reset line before touching a register; nife has
-never programmed either. **The premise stopped being a prediction on 2026-09-04**: radon's TRNG
+never programmed either. The premise stopped being a prediction on 2026-09-04: radon's TRNG
 register file read back all zeros on two byte-identical boots, and the vendor tree independently
-marks the node disabled. **A driver was written 2026-09-04 and radon was powered off with no bench
-session**, so the token says what the outcome is rather than what was built: the STG domain's
+marks the node disabled. A driver was written 2026-09-04 and radon was powered off with no bench
+session, so the token says what the outcome is rather than what was built: the STG domain's
 arithmetic, the TRNG's three-step plan resolved identically from mainline Linux and the vendor
 U-Boot, a kernel-resident controller with §86's argument for why, and a boot-tour line whose *before* words can refute the whole premise. QEMU's `virt` has no clock controller, so CI
 exercises only the absence path. The block carries the bench procedure and what each outcome would

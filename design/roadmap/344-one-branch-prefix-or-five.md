@@ -5,7 +5,7 @@ built: 2026-08-18
 ---
 # 344. The branch-prefix taxonomy is a gate enforcing a convention with one consumer
 
-Built 2026-08-18, sixteen days **before** the proposal that asks for it was filed on
+Built 2026-08-18, sixteen days before the proposal that asks for it was filed on
 2026-09-03 by the milestone 247 sweep, from milestone 130's block; numbered 2026-09-19 by milestone
 433, which checked the premise and found it already answered. calef asked what the taxonomy was for,
 got the same answer this proposal reaches (nothing consumes it except the check), and retired it.
@@ -19,7 +19,7 @@ the vocabulary as a convention and states it plainly: *"This is a convention and
 ever rejects valid work is measuring the wrong thing.
 
 **One thing did not follow the decision**, and it is recorded rather than fixed here because
-`design/decisions/` is the integrator's: **§77 still describes the enforced allowlist as current.**
+`design/decisions/` is the integrator's: §77 still describes the enforced allowlist as current.
 Its `Status` is `DECIDED` on the 2026-08-16 vocabulary question, its prose says `script/lint` check 4
 "accepts `milestone/`, `fix/`, `bench/`, `audit/`, `integration/`, `finalize/` and `feature/`, and
 rejects everything else", and its "Practical impact until answered" paragraph describes a gate that

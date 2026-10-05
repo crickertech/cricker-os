@@ -32,7 +32,7 @@ masquerading as structure, and the collection, not the pointer, should have the 
   with its README beside it" as the rule for anything new (`notes/coes/` is the first). The flat
   notes and the `notes/README/` pages remain as the legacy shape, migrated area by area only when
   an area is next swept anyway.
-- **C. Keep the `README/` convention.** Extend it with new area pages as notes accumulate.
+- C. Keep the `README/` convention. Extend it with new area pages as notes accumulate.
 
 ## The recommendation
 

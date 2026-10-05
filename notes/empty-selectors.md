@@ -9,8 +9,8 @@ Name provisional.
 
 ## The rule
 
-**A selector whose empty result is silent needs a post-selection assertion that it selected
-something. A selector whose empty result raises does not.**
+A selector whose empty result is silent needs a post-selection assertion that it selected
+something. A selector whose empty result raises does not.
 
 That split is the whole finding, and it is what keeps this from being 35 assertions. Three families
 go quiet:
@@ -110,7 +110,7 @@ Read and judged not to need one:
   `.cargo/mutants.toml`'s exclusion globs are not an error when they match nothing. Those are the
   adjacent failure `design/naming.md` already records, and they need a different mechanism: an
   exclusion that goes stale still covers everything else, so a non-empty test says nothing about it.
-- **The tell is still the durable half, and no machine can check it.** A gate that passed before your
+- The tell is still the durable half, and no machine can check it. A gate that passed before your
   change and passes after it, on a change that is exactly what the gate is about, has probably
   stopped looking.
 

@@ -113,6 +113,10 @@ const GRANTS: BootEndowment = BootEndowment {
     // A USB keyboard driver's attach endpoint (milestone 242 (USB host and HID)), past the kernel
     // ring's floor. Empty on a machine with no xHCI controller; `system_initializer::boot` probes.
     usb_keyboard_attach: 27,
+    // This process's own address space (§249 (a running address space stays nameable), its
+    // 2026-10-05 amendment), `WRITE` alone and no `GRANT`, granted on every boot: what lets the
+    // loader `UNMAP` each scratch page once it is in the child (milestone 95 (an unmap primitive)).
+    own_space: 28,
     // Nothing. Since milestone 166 the boot loader is not shared with milestone 19d's test roles on
     // any architecture, so the kernel grants exactly what the interactive system uses. aarch64 once
     // carried a report endpoint (slot 1) and the 19d.2b test interrupt (slot 3) here.

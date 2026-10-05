@@ -327,6 +327,16 @@ path = "src/scratch_window_exerciser.rs"
 test = false
 bench = false
 
+# The scratch release witness (milestone 95 (an unmap primitive), §249 (a running address space
+# stays nameable)): builds one child the way the progenitor builds a boot server, then writes to the
+# scratch page it filled. Given a capability to its own space, the loader gave that page up and the
+# write faults; without one, the write lands. Name provisional.
+[[bin]]
+name = "scratch_release_witness"
+path = "src/scratch_release_witness.rs"
+test = false
+bench = false
+
 # The delegation pair's giving half (milestone 10): hands a capability on, narrowed.
 # `hello`'s GRANTER role until milestone 291.
 [[bin]]

@@ -12,7 +12,7 @@ calef, 2026-08-22, on a milestone 40 (searchable, rendered, and installed by pac
 recommend as long as we have a milestone to address the fix"* (the caretaker-hop display race,
 tracked at milestone 151).
 
-**Minted 106 rather than the lane's own citation of 105**: §105 (`std::thread::spawn` declined) was
+Minted 106 rather than the lane's own citation of 105: §105 (`std::thread::spawn` declined) was
 minted the same day on a concurrent branch (pull request #394) and had not merged when this was
 written.
 
@@ -37,7 +37,7 @@ condition `Wiring::sink == false` already tests) is delegated to `terminal_sink_
 default instead of to the shell's own synchronous read loop, the same adapter a program's *declared
 second* stream already reaches by default under §67.
 
-**This is cheaper than the fork's own write-up estimated, and that mattered to the decision.**
+This is cheaper than the fork's own write-up estimated, and that mattered to the decision.
 `SINK_BIT`'s existing contract (`crates/grant_plan/src/spawnproto.rs`) already makes the child's
 output slot opaque to the program: *"the shell delegates an endpoint and init puts it where the
 result endpoint would have gone, so the child writes to a pipe or a file sink without knowing
@@ -50,19 +50,19 @@ programs-must-agree-to category the fork's own write-up filed this under; the no
 analysis (question 6, reversibility) did not check `SINK_BIT`'s own design closely enough to catch
 this.
 
-**What ships alongside it, reusing proven mechanism rather than inventing new:**
+What ships alongside it, reusing proven mechanism rather than inventing new:
 
 - **The completion signal.** The shell loses its "read the child's `OP_EOF`" signal for a
   caretaker-routed child, and gains DECISIONS §26's already-built, already-proven fault/exit
   endpoint instead (built at milestone 22, today wired only for supervised/interruptible foreground
   jobs). Wiring it for ordinary sink-declaring children is shell-side plumbing comparable in size to
   the existing `spawn_interruptible` job-watching path, not a new kernel primitive.
-- **The narrowing rule.** Applies only when the line has no `>` and no `|`, decidable from the plan
+- The narrowing rule. Applies only when the line has no `>` and no `|`, decidable from the plan
   before anything spawns, so redirected or piped output is completely unaffected.
 
 ## The known cost, and why it is carried rather than blocking
 
-**The caretaker-hop display race**, named for the first time in this fork's write-up: kernel
+The caretaker-hop display race, named for the first time in this fork's write-up: kernel
 exit-delivery (§26) tells the shell a child is dead-until-reaped, which is a stronger signal than
 "the child painted its own last line," but `terminal_sink_caretaker` is a separate long-lived
 process, and its own trailing `CALL` to `line_editor` can still be in flight when the shell prints
@@ -77,8 +77,8 @@ client has drained" instead of racing it.
 
 ## What this does not decide
 
-**The notification object itself** is milestone 151's build, not this decision's; §101 already
-specified its shape in full. **Phase 3, the graphical viewer**, still waits on the display ladder
+The notification object itself is milestone 151's build, not this decision's; §101 already
+specified its shape in full. Phase 3, the graphical viewer, still waits on the display ladder
 (milestone 29's font rendering, milestone 33's compositor) regardless of this fork.
 
 ## What it unblocks

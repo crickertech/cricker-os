@@ -32,8 +32,8 @@ and where there is a framebuffer it says where it is and how many bytes it is:
                   : and a screen, 4096000 bytes of framebuffer at 0xffff8880c0000000
 ```
 
-That is what the kernel's console holds. It is not what a person bringing up a board needs. **The
-width, the height and the pixel order** arrive in the boot handoff, are printed by the `x86_64`
+That is what the kernel's console holds. It is not what a person bringing up a board needs. The
+width, the height and the pixel order arrive in the boot handoff, are printed by the `x86_64`
 arm's own `screen` line, and are the three numbers that decide whether a picture will be legible or
 scrambled:
 

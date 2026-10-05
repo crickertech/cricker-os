@@ -516,6 +516,7 @@ pub fn bring_up() -> Result<Found, Absent> {
         let own = paging::domain::DmaRegion {
             base: dma,
             size: DMA_PAGES * page_frames::FRAME_SIZE,
+            writable: true,
         };
         // **The confinement falsification's widening point** ([`ESCAPE_TARGET`]). `None` in the
         // shipped tree (the static is zero), so the confinement is tight. The replayable patch
@@ -528,6 +529,7 @@ pub fn bring_up() -> Result<Found, Absent> {
             (escape != 0).then_some(paging::domain::DmaRegion {
                 base: escape,
                 size: page_frames::FRAME_SIZE,
+                writable: true,
             })
         };
         #[cfg(not(feature = "system_tests"))]

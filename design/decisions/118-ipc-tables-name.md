@@ -21,7 +21,7 @@ picking a replacement, deliberately reserving the call for calef.
 
 ## The decision
 
-**`Scheduler` becomes `IpcTables`; `SCHED` becomes `IPC_TABLES`.** The module keeps `sched`.
+`Scheduler` becomes `IpcTables`; `SCHED` becomes `IPC_TABLES`. The module keeps `sched`.
 
 ## Why, and why not the alternatives considered first
 
@@ -30,7 +30,7 @@ has: there are two kinds held, not any kind) and `Objects` (too vague, exactly w
 warns a generic word does). `IpcState` was proposed and considered next but rejected for the same
 underlying weakness one level down: "state" says *that* IPC-relevant data lives here without saying
 *what*, so a reader still has to open the file to learn it's a thread table and an endpoint
-registry. Milestone 98's own instruction is explicit -- **"Propose with what it holds, and wait"**
+registry. Milestone 98's own instruction is explicit -- "Propose with what it holds, and wait"
 -- which is a naming rule, not a suggestion: name the type for its concrete contents, the pattern
 already used this session for `AddressSpace`, `MemoryRegion`, `ThreadControlBlock`. `IpcTables`
 passes that test where `IpcState` does not: it says, correctly, that there are tables (plural)
@@ -38,7 +38,7 @@ inside, and a reader expects to find exactly what is there.
 
 The `Ipc` half is not invented for this decision; it is already this tree's own finding.
 `notes/sched-lock-inventory.md` classified every `SCHED.lock()` call site by reading, not
-guessing, and its conclusion is on record: **"The hot set is IPC."** The oddity milestone 98 names
+guessing, and its conclusion is on record: "The hot set is IPC." The oddity milestone 98 names
 (`grant`/`current_cap`/`delete_current_cap` taking the scheduler lock for no reason connected to
 scheduling) stops being a puzzle under this name: cspaces live inside thread-table entries, and
 thread-table lookups are IPC's business, so of course IPC-shaped operations take this lock.

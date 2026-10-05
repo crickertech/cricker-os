@@ -30,7 +30,7 @@ tables and nothing else is needed. The whole structure is self-hosting on 4 KiB 
 | all **zero** | `TTBR0_EL1` | userspace (low half) |
 | all **one** | `TTBR1_EL1` | the kernel (high half) |
 
-The 48-bit index is extracted from bits 47:12 **identically for both**. Which means, within a
+The 48-bit index is extracted from bits 47:12 identically for both. Which means, within a
 single table, these are *the same entry*:
 
 ```
@@ -38,12 +38,12 @@ single table, these are *the same entry*:
 0x0000_0000_4008_0000
 ```
 
-So a **higher-half kernel works because `TTBR1` is a separate set of tables**, not because
+So a higher-half kernel works because `TTBR1` is a separate set of tables, not because
 high addresses index somewhere different. That is not what you would guess, and a host test
 found it: an assertion that the physical address "would not be mapped" failed, because it
 was the same descriptor.
 
-Anything in between (top bits neither all-zero nor all-one) is a **non-canonical address**
+Anything in between (top bits neither all-zero nor all-one) is a non-canonical address
 and faults before any table is consulted. There is no memory there and there never can be.
 
 `Half::Low` / `Half::High` in the `paging` crate encode this, and `map()` refuses an address
@@ -62,12 +62,12 @@ Bits [1:0]:
 | `0b01` | **block** (1 GiB at L1, 2 MiB at L2) | reserved |
 | `0b00` / `0b10` | invalid | invalid |
 
-**A descriptor is not self-describing.** There is no "I am a page" bit; the *level* says it.
+A descriptor is not self-describing. There is no "I am a page" bit; the *level* says it.
 Which is why you cannot walk a page table without tracking what level you're at.
 
 ### AF, bit 10. Forget it and nothing works.
 
-If the **Access Flag** is clear, the *first* access to that page raises an "Access Flag fault"
+If the Access Flag is clear, the *first* access to that page raises an "Access Flag fault"
 instead of succeeding.
 
 The bit exists so an OS can do page-replacement policy: hardware sets it on first touch, and
@@ -95,11 +95,11 @@ Read it as: **bit 7 means read-only, bit 6 means userspace may touch it.**
 distinction matters enormously:
 
 **`PXN` on user pages is not paranoia.** Without it, a kernel bug that jumps into a user page
-executes **user-controlled instructions at EL1**. Total compromise. The defence is one bit.
+executes user-controlled instructions at EL1. Total compromise. The defence is one bit.
 
 ### AttrIndx, bits [4:2]: memory *type* is indirect
 
-The descriptor doesn't say "this is device memory." It says **"look up slot N"**, and
+The descriptor doesn't say "this is device memory." It says "look up slot N", and
 `MAIR_EL1` says what slot N means. Eight slots, three bits per page.
 
 We use:
@@ -109,8 +109,8 @@ We use:
 | 0 | **Device-nGnRnE.** No gathering, no reordering, no early write acknowledgement. |
 | 1 | **Normal, write-back cacheable.** |
 
-**MMIO must be device-typed.** Map the UART as *normal* memory and the CPU may cache it,
-reorder writes to it, merge two writes into one, and **speculatively read it**. Every one of
+MMIO must be device-typed. Map the UART as *normal* memory and the CPU may cache it,
+reorder writes to it, merge two writes into one, and speculatively read it. Every one of
 those is catastrophic for a device, because reading a FIFO register *has a side effect*. The
 byte is consumed.
 
@@ -119,8 +119,8 @@ as cacheable normal memory and the machine behaves like it is haunted.
 
 ## W^X, enforced by construction
 
-`Flags` has named constructors and no bag-of-bools builder. There is deliberately **no
-`Flags::writable_and_executable()`**.
+`Flags` has named constructors and no bag-of-bools builder. There is deliberately no
+`Flags::writable_and_executable()`.
 
 A page that is both writable and executable is how a buffer overflow becomes code execution.
 The test `nothing_is_both_writable_and_executable` iterates every constructor, so adding a bad
@@ -137,11 +137,11 @@ one is a build failure rather than a security hole.
 
 ## The TLB obligation
 
-Change a mapping without invalidating the TLB and **the CPU keeps using the old translation.**
+Change a mapping without invalidating the TLB and the CPU keeps using the old translation.
 Memory reads back as the previous owner's data.
 
-That is a security hole, and it is close to undebuggable: **the page tables in memory are
-correct.** The lie lives in a CPU cache you cannot inspect.
+That is a security hole, and it is close to undebuggable: the page tables in memory are
+correct. The lie lives in a CPU cache you cannot inspect.
 
 So `unmap` doesn't do the work and trust you to remember. It hands back a `TlbFlush`.
 
@@ -152,23 +152,23 @@ nothing about
 let (pa, _) = mapper.unmap(va)?;   // obligation destructured away, silently
 ```
 
-which is exactly the shape the mistake takes in real code. **Rust has no linear types**, so the
+which is exactly the shape the mistake takes in real code. Rust has no linear types, so the
 only way to make "you must consume this" enforceable is to make *not* consuming it fail loudly:
 `TlbFlush` has a `Drop` that panics. The only ways out are `.flush()` or the `unsafe`
 `.assume_no_stale_entry()`, which makes you say why.
 
 There is a kernel test that makes staleness *observable*: map a VA to frame A (holding
-`0xAAAA…`), **read it** (which is what populates the TLB), unmap, invalidate, map the same VA to
+`0xAAAA…`), read it (which is what populates the TLB), unmap, invalidate, map the same VA to
 frame B (holding `0xBBBB…`), and read again. If the second read returns `0xAAAA…`, the TLB is
 stale and we have exactly the bug that reads back another process's memory.
 
 ## Break-before-make
 
-On aarch64, changing a **valid** descriptor directly into a *different* **valid** descriptor is
+On aarch64, changing a valid descriptor directly into a *different* valid descriptor is
 architecturally unsafe. It can raise a TLB conflict abort, and the hardware is permitted to do
-essentially anything. The legal sequence is valid → **invalid** → invalidate → valid.
+essentially anything. The legal sequence is valid → invalid → invalidate → valid.
 
-`MapError::AlreadyMapped` is what forces it. **It is load-bearing, not defensive:** `map`
+`MapError::AlreadyMapped` is what forces it. It is load-bearing, not defensive: `map`
 refuses to overwrite, so to *change* a mapping you must `unmap` (which yields an obligation you
 cannot ignore) and then `map`.
 
@@ -176,11 +176,11 @@ The API cannot be used incorrectly, rather than documenting the rule and hoping.
 
 ## Blocks: the optimization we haven't taken yet
 
-A **block** descriptor at L1 or L2 short-circuits the walk and maps a big contiguous region
+A block descriptor at L1 or L2 short-circuits the walk and maps a big contiguous region
 directly: 1 GiB at L1, 2 MiB at L2.
 
-Mapping 128 MiB of RAM with 4 KiB pages costs **32768 descriptors and 64 tables**. With 2 MiB
-blocks it costs **64 descriptors and one table**. The kernel's direct map will want them.
+Mapping 128 MiB of RAM with 4 KiB pages costs 32768 descriptors and 64 tables. With 2 MiB
+blocks it costs 64 descriptors and one table. The kernel's direct map will want them.
 
 We aren't using them yet, because correctness first and the tests are easier with one code
 path. The constant is defined and the reason is written down, which is the honest state.
@@ -192,8 +192,8 @@ The page table format is pure logic: addresses in, descriptors out. So it lives 
 
 **The trick that makes it work:** a `Box<PageTable>` is 4 KiB-aligned (the type declares it)
 and has a real address. So the tests hand those addresses to the mapper as pretend "physical"
-frames, and `phys_to_ptr` is the identity cast. **The pointer arithmetic is bit-for-bit what
-the kernel does.** We are testing the real code path, not a model of it.
+frames, and `phys_to_ptr` is the identity cast. The pointer arithmetic is bit-for-bit what
+the kernel does. We are testing the real code path, not a model of it.
 
 That's what caught the `Half` discovery above, at zero cost, before a single instruction ran
 on the machine.

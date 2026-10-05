@@ -50,7 +50,7 @@ anything.
 - **A wrapper can hide an obligation rather than discharge it**, which is the failure mode round 6
   flagged for the mapped windows: if the wrapper's own safety argument is weaker than the six it
   replaced, the count improves and the kernel does not. The measure is the argument, not the number.
-- **Nothing here has a customer.** It is verification hygiene, so under the ranking function it
+- Nothing here has a customer. It is verification hygiene, so under the ranking function it
   loses to anything on a customer path the day one exists.
 
 ## Index row

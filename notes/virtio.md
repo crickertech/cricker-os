@@ -6,43 +6,43 @@ syscall surface (7d), IPC (7e), the userspace-driver pattern (8), and interrupt-
 
 ## What virtio is, briefly
 
-virtio is a standard for **paravirtualized** devices: the "hardware" is cooperating software (QEMU,
+virtio is a standard for paravirtualized devices: the "hardware" is cooperating software (QEMU,
 or a hypervisor) that agreed on an interface designed to be efficient across the guest/host
 boundary, rather than emulating some real chip register-for-register. A virtio device is driven
 through three things:
 
 - **MMIO registers** for setup and notification (feature negotiation, queue addresses, "go").
-- **A virtqueue** in shared memory: a descriptor table and two rings, through which the driver
+- A virtqueue in shared memory: a descriptor table and two rings, through which the driver
   hands the device buffers and the device hands them back.
-- **An interrupt**, raised when the device has finished with a buffer.
+- An interrupt, raised when the device has finished with a buffer.
 
 QEMU's `virt` machine exposes virtio over **virtio-mmio**: 32 device slots at `0x0a000000`, 0x200
-bytes apart, with interrupts SPI 16..47 (INTID 48..79). We force **modern** virtio (version 2),
+bytes apart, with interrupts SPI 16..47 (INTID 48..79). We force modern virtio (version 2),
 whose register interface gives separate physical addresses for the descriptor table and each ring.
 
 ## Who does what: the kernel enumerates, the driver operates
 
 The kernel reads three standardized registers of each slot (magic, device-id, version) to find the
-block device and route it to a driver. **That is bus enumeration**: the same thing firmware does
+block device and route it to a driver. That is bus enumeration: the same thing firmware does
 walking a PCI bus, and it is the smallest amount of virtio knowledge that lets the kernel say
 "the block device is in slot 31, its interrupt is INTID 79." It does not set up a queue, negotiate
 a feature, or move a byte. Everything else is the driver's, at EL0.
 
 The kernel hands the driver, and nothing more:
 
-- **the device's registers**, mapped as user device memory (`Flags::user_device`). A slot is not
+- the device's registers, mapped as user device memory (`Flags::user_device`). A slot is not
   page-aligned, so the kernel maps the containing page and passes the in-page offset;
-- **a DMA page**, mapped read/write, *and its physical address* (in a register), because
+- a DMA page, mapped read/write, *and its physical address* (in a register), because
   descriptors speak physical addresses and a process only knows virtual ones;
 - **an `Irq` capability** for INTID 79;
-- **an endpoint** to report what it read.
+- an endpoint to report what it read.
 
 ## DMA: the one place a process needs a physical address
 
 Everywhere else, a process deals only in virtual addresses; the kernel and the MMU keep it that
 way on purpose. A device is the exception. The virtio device is *not* behind our MMU (there is no
 IOMMU on QEMU `virt`), so when the driver puts a buffer address in a descriptor, it must be the
-**physical** address the device will actually read and write. The driver cannot compute that from a
+physical address the device will actually read and write. The driver cannot compute that from a
 virtual address, so the kernel hands it the DMA region's physical base at spawn, and the driver
 works out physical addresses as `direct_memory_access_phys + offset`.
 
@@ -62,9 +62,9 @@ physical addresses. To read a block it builds a **three-descriptor chain**:
   desc[2]  status   1 byte                   device WRITES it    (end)
 ```
 
-then publishes the head index in the **available ring**, bumps the ring's index, and pokes
+then publishes the head index in the available ring, bumps the ring's index, and pokes
 `QueueNotify`. The device does the read, writes the data and a status byte, puts the head on the
-**used ring**, and raises its interrupt. The driver waits for that interrupt (below), then checks
+used ring, and raises its interrupt. The driver waits for that interrupt (below), then checks
 the status byte is 0 (OK) and reads the 512 bytes the device left in the buffer.
 
 ## The completion arrives as a message
@@ -80,7 +80,7 @@ completion path *is* interrupt-as-message.
 The first time the driver `WAIT`ed for its interrupt with nothing else to run, the kernel
 **panicked**: "every thread is blocked on IPC: a deadlock." It was wrong. A thread blocked on a
 device interrupt is not deadlocked; it is waiting for an event that will arrive. The scheduler had
-no **idle thread**, so a moment where every thread was legitimately waiting for I/O looked
+no idle thread, so a moment where every thread was legitimately waiting for I/O looked
 identical to a genuine deadlock.
 
 The fix is the idle thread every real kernel has: a thread whose entire body is `wfi`, kept out of
@@ -89,14 +89,14 @@ makes something runnable. See notes on the scheduler.
 
 ## And a real race it also flushed out
 
-While chasing the above, the test suite started failing **intermittently** with a lock-order
+While chasing the above, the test suite started failing intermittently with a lock-order
 violation: `schedule()` taking the run-queue lock while it was already held. The cause was a
 one-instruction window that had been latent since milestone 6:
 
 > `schedule()`'s "nobody else is ready, keep running" path called
-> `interrupts::restore(was_enabled)` **while still holding the scheduler lock**, then returned
+> `interrupts::restore(was_enabled)` while still holding the scheduler lock, then returned
 > (which is what actually dropped the lock). Between the restore and the return, interrupts were
-> **on** and the lock was **held**. A timer firing in that window re-entered `schedule()` and tried
+> on and the lock was held. A timer firing in that window re-entered `schedule()` and tried
 > to take the lock again.
 
 It was invisible until milestone 9 added enough scheduler churn (more threads, the idle thread, a
@@ -112,13 +112,13 @@ The virtio driver is a process. A wrong descriptor into its own memory, a mis-pa
 bad pointer: each faults the driver alone (7a's `user_fault`), the kernel reports it, and the
 machine keeps running. That is fault isolation, and it was true from milestone 9.
 
-**Malice needed a second fix, and it now has one.** There is no IOMMU on QEMU `virt`: the device
+Malice needed a second fix, and it now has one. There is no IOMMU on QEMU `virt`: the device
 is a second bus master doing DMA against raw physical addresses, with no MMU in front of it, so
 page-table permissions do not apply to it. A hostile driver that could program the queue and ring
 the device itself could point a descriptor at the kernel image or another process's frames and the
 device would read or write it. So the kernel keeps the two DMA-critical powers: programming the
-ring addresses and the "go" signal, and **validates that every descriptor stays within the
-driver's own DMA region** before the device sees it. The driver operates the device through a
+ring addresses and the "go" signal, and validates that every descriptor stays within the
+driver's own DMA region before the device sees it. The driver operates the device through a
 `Virtio` capability (status, features, submit) but cannot aim it outside its region. A malicious
 descriptor pointing at kernel memory is refused, end to end, and the device is never told to go.
 See [dma.md](dma.md).
@@ -141,7 +141,7 @@ follow, block-aligned. The driver reads block 0, walks the directory to find `mo
 data block. It is deliberately the least thing that is still a real filesystem, in the same spirit
 as `crates/elf`: milestone 9 is about drivers and block I/O, not filesystem design.
 
-The driver is the format's **third reader** (the kernel and `xtask` are the others), and the only one
+The driver is the format's third reader (the kernel and `xtask` are the others), and the only one
 that walks the directory without holding the whole image: it has one block buffered, so it can see
 `nifefs::ENTRIES_IN_FIRST_BLOCK` entries and no more. It used to restate the offsets by hand and
 was the one place that had to be found by hand when the entry layout widened on 2026-08-01. It now

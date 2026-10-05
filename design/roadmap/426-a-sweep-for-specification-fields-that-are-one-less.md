@@ -38,7 +38,7 @@ Milestone 319 found both spellings within one crate:
 - **Broken.** `machine_discovery::acpi::parse_dmar` read `body[0] + 1` into a `u8`, so a DMAR whose
   `HostAddressWidth` byte is `0xff` overflowed. `kernel/src/arch/x86_64/machine.rs` calls that
   directly on firmware bytes, so the panic was on the x86 boot path.
-- **Correct.** `machine_discovery::riscv64::CounterInfo::bits` reads
+- Correct. `machine_discovery::riscv64::CounterInfo::bits` reads
   `Some(self.raw_width as u32 + 1)` for the SBI PMU counter width, widening first.
 
 `device_tree_blob::be32`'s unchecked `at + 4` (milestone 18) is the same family one step removed.

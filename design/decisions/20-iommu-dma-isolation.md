@@ -33,7 +33,7 @@ command queue for invalidations, and a fault/event queue where a blocked transac
 until `confine` writes its entry; `attach` points a device at a domain and invalidates the caches;
 `take_fault` drains the fault queue.
 
-**The requester id is the key.** A PCIe function stamps `bus:8 | dev:5 | fn:3` on every transaction
+The requester id is the key. A PCIe function stamps `bus:8 | dev:5 | fn:3` on every transaction
 (`Bdf::requester_id`), and both boards publish an identity `iommu-map` in the device tree, so that
 id is exactly what the IOMMU looks a device up by. It is threaded from `pci::find_block_device`
 through `virtio::register` (a new `Option<u32>` argument: `Some` for a PCI device, `None` for
@@ -42,13 +42,13 @@ device is entered in the transport table and before it is ever rung, so the doma
 moment the device could DMA. New lock rank `IOMMU` (54), a leaf below `VIRTIO`: the domain's
 page-table frames are allocated before the lock is taken, so it is never held across an allocation.
 
-**Discovery differs by arch; the rest is portable.** The SMMUv3 is a device-tree platform node
+Discovery differs by arch; the rest is portable. The SMMUv3 is a device-tree platform node
 (`smmu_region`, mapped by `mmu::init`); the RISC-V IOMMU is itself a PCI function (`riscv-iommu-pci`,
 1b36:0014), so `pci::init_iommu` enumerates it and places its BAR from a now-shared cursor before
 handing the base to the driver. `init` is therefore called per-arch in boot; `active` / `confine` /
 `take_fault` are the portable surface.
 
-**Loud on bypass.** Every virtio-pci device needs `iommu_platform=on`, which puts it behind the
+Loud on bypass. Every virtio-pci device needs `iommu_platform=on`, which puts it behind the
 IOMMU and makes it offer VIRTIO_F_ACCESS_PLATFORM (bit 33); the driver negotiates that bit only when
 offered, so the same binary drives the bare mmio disk and the IOMMU-fronted PCIe disk. A device
 without the flag silently bypasses translation, the same manufactured-fact hazard the runners
@@ -59,12 +59,12 @@ translation were absent (a missing `iommu=smmuv3` / `riscv-iommu-pci`, or a drop
 `iommu_platform=on`), the escaping read would succeed and no fault would appear, so the test fails
 rather than passing on a fiction. It runs on both ISAs.
 
-**QEMU vs ours.** The RISC-V IOMMU emulation is newer than the SMMUv3's, so the record says which is
+QEMU vs ours. The RISC-V IOMMU emulation is newer than the SMMUv3's, so the record says which is
 which: both behaved exactly as their specs describe, and no bug (QEMU's or ours) surfaced during the
 build. The existing disk and both attacker suites pass behind the IOMMU on both ISAs (aarch64 118
 kernel tests, riscv 60), and the shadow ring stays as defence in depth.
 
-**Honest limits.** QEMU tier only; silicon carries the riscv driver over when a board ships the
+Honest limits. QEMU tier only; silicon carries the riscv driver over when a board ships the
 ratified spec (the emulate-then-carry pattern the kernel was built on). The domain is an identity map
 over frame-granular regions, so it cannot confine below a page. Fault reporting is drained by the
 confinement test; routing faults to a handler in a production boot is future work. The IOMMU buys

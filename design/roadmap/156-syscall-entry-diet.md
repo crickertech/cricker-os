@@ -8,7 +8,7 @@ built: 2026-08-23
 Built 2026-08-23. Minted 2026-08-23, found while fixing milestone 126's `pmap` (`abi::aspace::LIST`
 tripped `script/fastpath-footprint`'s 5% bound, +6.7% on riscv64). Extracting `LIST` alone into an
 `#[inline(never)]` function fixed that one regression; measuring why turned up a bigger, pre-existing
-gap this milestone tracks. **Scope widened 2026-08-23** (calef, answering "do we have a mechanism to
+gap this milestone tracks. Scope widened 2026-08-23 (calef, answering "do we have a mechanism to
 ratchet down our performance benchmark" with "add it to milestone 156's scope"): the gate itself has
 the same one-directional problem the extraction work is about to make concrete, and both belong in
 one milestone since the second is what makes the first's gains actually stick.
@@ -112,7 +112,7 @@ In `script/fastpath-footprint`'s Python comparison, change the one-sided `if del
 a check on `abs(delta) > TOL` for both directions, with distinct messages: growth keeps its existing
 "shrink it, or re-record with --save and say why"; a shrink past tolerance prints "this is smaller
 than the recorded baseline by more than the tolerance band -- re-record with --save to lock in the
-tighter bound" and **also fails**, on the same reasoning growth does: an inaccurate baseline in
+tighter bound" and also fails, on the same reasoning growth does: an inaccurate baseline in
 either direction is a gate that is no longer measuring what it claims to. No `--save`-side change
 needed; the flag already does the right thing once something calls it.
 

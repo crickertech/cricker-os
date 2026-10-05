@@ -22,16 +22,16 @@ No decision is owed. It changes `Object::Reply`'s payload, which is kernel-inter
 user program agrees on its shape), and it wants a lane that can also state the new invariant as a
 Kani property.
 
-**In brief.** `cap::reply_cap` mints `Object::Reply(tid)`: a generational **thread** name and
+**In brief.** `cap::reply_cap` mints `Object::Reply(tid)`: a generational thread name and
 nothing else. No call sequence number, no rendezvous, no nonce. So `sched::ipc_reply`'s guard can
-only ask *is this thread parked awaiting some reply*, not *is this thread awaiting **this** reply*,
+only ask *is this thread parked awaiting some reply*, not *is this thread awaiting this reply*,
 and the rendezvous in `wait_on` is discarded with a `_`. Give the payload a call identity, and the
 guard can ask the second question.
 
 ## Why it is worth doing, given that the hazard is closed
 
-**It is closed by a sweep, which is rung two of AGENTS.md's ladder, and a call identity is rung
-one.** Milestone 254 deletes every `Object::Reply(caller)` in the machine before it frees a stranded
+It is closed by a sweep, which is rung two of AGENTS.md's ladder, and a call identity is rung
+one. Milestone 254 deletes every `Object::Reply(caller)` in the machine before it frees a stranded
 caller, which is seL4's non-MCS answer (`cteDeleteOne(callerCap)`, reached from `cancelIPC`). That
 is correct today because the sweep runs at all four places a server can stop being able to answer.
 The property it maintains is *"no unconsumed reply capability names a thread that has left its
@@ -47,7 +47,7 @@ reply to the caller at a later, unexpected time specifying an arbitrary IPC labe
 same about `zx_channel_call` timing out: a later reply *"could match another outbound request"*.
 Both quotes and their sources are in notes/blocked-thread-teardown.md.
 
-**And it removes a cost.** The sweep is 128 x 16 comparisons per caller freed, on a teardown path
+And it removes a cost. The sweep is 128 x 16 comparisons per caller freed, on a teardown path
 today. A deadline on `CALL` (milestone 106) would move that cost onto a timer, where it is a
 different question.
 
