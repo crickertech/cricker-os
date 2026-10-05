@@ -57,25 +57,49 @@ const MAX_N: u64 = 256;
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 struct Census {
     occupied: usize,
-    /// `(slot, region, pages spent)` for each `MemoryRegion` capability, by slot.
-    regions: [Option<(usize, u64, u64)>; crate::cap::CAPABILITY_TABLE_SLOTS],
+    /// `(slot, region, pages spent)` for each `MemoryRegion` capability, by slot, in the first
+    /// `held` entries. Bounded small and not per-slot: a `[Option<_>; CAPABILITY_TABLE_SLOTS]` here
+    /// is a 1.5 KiB value at 64 slots, copied through every frame (milestone 754 (the capability
+    /// table grows to 64 slots)).
+    regions: [(usize, u64, u64); MAX_REGIONS_HELD],
+    held: usize,
 }
 
+/// More memory regions than `login` has ever held at once, with room; `census` panics past it.
+const MAX_REGIONS_HELD: usize = 8;
+
 fn census(tid: crate::thread::ThreadId) -> Census {
-    let table = sched::capability_table_snapshot(tid).expect("login's thread is gone");
-    let mut regions = [None; crate::cap::CAPABILITY_TABLE_SLOTS];
-    for (slot, cap) in table.iter().enumerate() {
+    let mut regions = [(0, 0, 0); MAX_REGIONS_HELD];
+    let mut held = 0;
+    for slot in 0..crate::cap::CAPABILITY_TABLE_SLOTS {
+        // One slot per lock acquisition: `memory_region::usage` takes a lock of higher rank than the
+        // capability table's, so it must run after the table is released (the lock-order check
+        // panicked on exactly this at the first push).
+        let cap = slot_of(tid, slot);
         if let Some(cap) = cap
             && let Object::MemoryRegion(region) = cap.object
         {
             let spent = crate::memory_region::usage(region).map_or(u64::MAX, |(spent, _)| spent);
-            regions[slot] = Some((slot, region, spent));
+            assert!(
+                held < MAX_REGIONS_HELD,
+                "login holds more than {MAX_REGIONS_HELD} regions"
+            );
+            regions[held] = (slot, region, spent);
+            held += 1;
         }
     }
     Census {
-        occupied: table.iter().flatten().count(),
+        occupied: sched::with_capability_table(tid, |table| table.used())
+            .expect("login's thread is gone"),
         regions,
+        held,
     }
+}
+
+/// What `tid` holds in `slot`, read under the capability table's lock and nothing else.
+fn slot_of(tid: crate::thread::ThreadId, slot: usize) -> Option<crate::cap::Cap> {
+    sched::with_capability_table(tid, |table| table.get(slot as u64).ok())
+        .expect("login's thread is gone")
 }
 
 /// One `LOGOUT` login as `corinne`, then the front-door round trip that proves `login` is back at the
@@ -145,10 +169,9 @@ fn login_gives_back_everything_when_any_retype_of_a_login_fails() {
         let tally = retype_fault::disarm();
         let after = census(w.tid);
         if after != before {
-            let now = sched::capability_table_snapshot(w.tid).expect("login's thread is gone");
             crate::println!("    login's table after failing retype {n}:");
-            for (slot, cap) in now.iter().enumerate() {
-                if let Some(cap) = cap {
+            for slot in 0..crate::cap::CAPABILITY_TABLE_SLOTS {
+                if let Some(cap) = slot_of(w.tid, slot) {
                     crate::println!("      slot {slot}: {:?}", cap.object);
                 }
             }

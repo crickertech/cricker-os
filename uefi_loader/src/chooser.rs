@@ -33,8 +33,10 @@
 //!
 //! # What it does, in order
 //!
-//! 1. Find the one whole disk on this machine whose GPT carries boot slots. **One**: two candidate
-//!    disks is a refusal rather than a guess, see `BUGS`.
+//! 1. Find the disk **this file is on**, and read the boot slots in its GPT. Slots on any other disk
+//!    are another system's and are never started or written: a stick booted on an installed machine
+//!    boots the stick (the live stick proposal's G1, measured in boot 3 of `cargo xtask
+//!    install-boot`). Which disk is "this one" is a device-path prefix, `uefi_loader::device_path`.
 //! 2. Pick the bootable slot of highest priority ([`boot_slot::select_excluding`]).
 //! 3. **Spend a try and write the table back, flushed, before anything else.** This is the crux of
 //!    the design rather than an ordering detail; the next section is about it.
@@ -90,12 +92,10 @@
 //!
 //! # BUGS
 //!
-//! - **Two disks carrying boot slots is a refusal, not a choice.** The chooser enumerates whole
-//!   disks and gives up if more than one has slots, falling back to the image in its own file. The
-//!   correct answer is to boot the slots on *this* disk, which means reading this image's own
-//!   `LoadedImage::file_path` device path, walking it to the `HARDDRIVE` node and matching that
-//!   node's partition GUID against each disk's table. That is a device-path parser this loader does
-//!   not have, and the same parser `place_boot_file`'s `BUGS` already wants for a different reason.
+//! - **It sees only the disks the firmware connected.** Started from a boot option naming only the
+//!   stick, OVMF connects the stick alone and this loader sees no other disk at all (measured
+//!   2026-10-04: two `BlockIo` handles). That is harmless now that only this file's own disk counts,
+//!   and it is why `install-boot`'s third boot names the disk as a second boot option.
 //! - **The logical block size is assumed to be 512.** A disk reporting anything else is skipped
 //!   rather than misread, which is the honest half; the GPT crate reads other sizes and nothing
 //!   here passes the size through. `installer` has the same assumption and the same note.
@@ -119,8 +119,13 @@
 //! - **An image started from a slot has no boot file**, because `LoadImage` from a buffer leaves
 //!   the child's `DeviceHandle` null and there is no volume to read a file back from. So an
 //!   installed machine cannot install itself onto a second disk; only a machine booted from the
-//!   stick or from the chooser's own file can. That is a narrowing rather than a loss, and the
-//!   fix is the same device path the first `BUGS` entry wants.
+//!   stick or from the chooser's own file can. That is a narrowing rather than a loss; the fix
+//!   would hand the child the slot's device path, which nothing here builds yet.
+//! - **A slot-started image says it came from the NVMe disk without looking**, in
+//!   [`booted_from_nvme`], because it has no device handle to look with. That holds while the
+//!   installer writes slots only to NVMe (`installer`'s whole-disk, NVMe-only scope). A slot on
+//!   another kind of disk would have its kernel mount the NVMe one; passing the medium in the
+//!   child's load options is the fix, and nothing needs it yet.
 //! - **x86_64 only**, the same scope as the rest of rung 2a and 2b (DECISIONS §19 (architectural parity is a tenet; the targets are aarch64, riscv64 and x86_64)): the
 //!   device-tree architectures have no second module slot for a boot file, which
 //!   `design/roadmap/568-the-boot-file-has-nowhere-to-go-on-a-device-tree-machine.md` prices.
@@ -133,9 +138,11 @@ use boot_slot::{SlotHeader, State, select_excluding};
 use globally_unique_identifier_partition_table as gpt;
 use gpt::guid::{Guid, types};
 use gpt::{Entry, GloballyUniqueIdentifierPartitionTable as Table};
+use uefi_loader::device_path;
 use uefi_loader::efi::{
-    BLOCK_IO_PROTOCOL_GUID, BY_PROTOCOL, BlockIo, BlockIoMedia, BootServices, Handle,
-    LOADED_IMAGE_PROTOCOL_GUID, LoadedImage, SUCCESS, SystemTable, memory_type,
+    BLOCK_IO_PROTOCOL_GUID, BY_PROTOCOL, BlockIo, BlockIoMedia, BootServices,
+    DEVICE_PATH_PROTOCOL_GUID, Handle, LOADED_IMAGE_PROTOCOL_GUID, LoadedImage, SUCCESS,
+    SystemTable, memory_type,
 };
 
 use crate::{BOOT_FILE_MAX, PAGE, allocate_below, say, say_decimal};
@@ -210,9 +217,19 @@ pub fn started_from_slot(handle: Handle, services: &BootServices) -> Option<u8> 
 /// firmware console, and a machine that silently did something other than what its disk asked for
 /// is the worst outcome available here.
 pub fn choose(handle: Handle, table: &SystemTable, services: &BootServices) {
-    let Some(mut disk) = the_disk_with_slots(table, services) else {
-        // Not an installed machine, or a machine whose disks this loader will not guess between.
-        // Both are ordinary; the stick reaches here on every boot.
+    // **Where this file came from.** Without it there is no telling a stick from the installed
+    // disk, and the answer to not knowing is the image in hand: a stick that boots the disk's
+    // system is the defect this is here to prevent (the live stick proposal's G1).
+    let Some(own) = loaded_image(handle, services).and_then(|l| path_of(l.device_handle, services))
+    else {
+        say(
+            table,
+            "uefi_loader: the firmware did not say which disk this file is on; using the image in this file\r\n",
+        );
+        return;
+    };
+    let Some(mut disk) = the_disk_with_slots(table, services, own) else {
+        // Not an installed machine, or a stick on one. Both are ordinary.
         return;
     };
 
@@ -280,12 +297,13 @@ struct Disk {
     slots: usize,
 }
 
-/// **Find the one whole disk on this machine whose GPT carries boot slots.**
+/// **Find the disk this file is on, if its GPT carries boot slots.**
 ///
-/// More than one is `None` and so is none at all, for the reason in `BUGS`: this loader cannot yet
-/// tell which disk it was started from, and booting the wrong machine's slots is worse than
-/// booting the image in hand.
-fn the_disk_with_slots(table: &SystemTable, services: &BootServices) -> Option<Disk> {
+/// `own` is the device path of the medium this file was loaded from, without its end node. A disk
+/// carrying slots that is not that medium is another machine's system as far as this boot is
+/// concerned (an installed disk under a stick), and is said out loud and left alone: not read past
+/// its table, and never written.
+fn the_disk_with_slots(table: &SystemTable, services: &BootServices, own: &[u8]) -> Option<Disk> {
     let mut count = 0usize;
     let mut handles: *mut Handle = ptr::null_mut();
     if (services.locate_handle_buffer)(
@@ -303,22 +321,65 @@ fn the_disk_with_slots(table: &SystemTable, services: &BootServices) -> Option<D
     // valid until boot services end.
     let handles = unsafe { core::slice::from_raw_parts(handles, count) };
 
-    let mut found: Option<Disk> = None;
+    let mut elsewhere = false;
     for &h in handles {
         let Some(disk) = read_table(h, services) else {
             continue;
         };
-        if found.is_some() {
-            say(
-                table,
-                "uefi_loader: two disks carry boot slots; this loader cannot yet tell which is \
-                 its own, so it is using the image in this file\r\n",
-            );
-            return None;
+        if path_of(h, services).is_some_and(|path| device_path::is_on(own, path)) {
+            // One file is on one disk, so the first match is the only one.
+            return Some(disk);
         }
-        found = Some(disk);
+        elsewhere = true;
     }
-    found
+    if elsewhere {
+        say(
+            table,
+            "uefi_loader: the boot slots here are on another disk; this file's medium has none, \
+             so it is using the image in this file\r\n",
+        );
+    }
+    None
+}
+
+/// **Did this boot come from the NVMe disk?** The answer the loader writes as
+/// `boot_slot::medium::NVME`, and the only case in which the kernel mounts that disk (the live stick
+/// proposal's G2; calef ruled the token on PR #1652, 2026-10-04 UTC).
+///
+/// An image a chooser started has no device handle of its own (`LoadImage` from a buffer), so for
+/// it the answer is the chooser's: since G1 a chooser starts only slots on its own disk, and the
+/// installer writes slots only to an NVMe disk. See `BUGS`.
+pub fn booted_from_nvme(handle: Handle, services: &BootServices, from_slot: Option<u8>) -> bool {
+    if from_slot.is_some() {
+        return true;
+    }
+    loaded_image(handle, services)
+        .and_then(|l| path_of(l.device_handle, services))
+        .is_some_and(device_path::is_nvme)
+}
+
+/// **A handle's device path, without its end node**, or `None` when the firmware has none for it or
+/// it does not parse. See `uefi_loader::device_path`.
+fn path_of(handle: Handle, services: &BootServices) -> Option<&'static [u8]> {
+    if handle.is_null() {
+        return None;
+    }
+    let mut interface: *mut c_void = ptr::null_mut();
+    if (services.handle_protocol)(handle, &DEVICE_PATH_PROTOCOL_GUID, &mut interface) != SUCCESS
+        || interface.is_null()
+    {
+        return None;
+    }
+    let base = interface.cast::<u8>().cast_const();
+    let len = device_path::length(|at| {
+        // SAFETY: `length` asks only for the header at the start of a node it has reached by
+        // adding the lengths of the nodes before it, none of them past the end node, and stops
+        // within `MAX_LEN`; the firmware's path is at least that long up to its end node.
+        Some(unsafe { ptr::read_unaligned(base.add(at).cast::<[u8; 4]>()) })
+    })?;
+    // SAFETY: `length` walked these `len` bytes node by node; the firmware owns them until boot
+    // services end, which is after the chooser is done with them.
+    Some(unsafe { core::slice::from_raw_parts(base, len) })
 }
 
 /// Read one handle's table, and answer `Some` only if it is a whole disk carrying boot slots.

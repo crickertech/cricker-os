@@ -43,6 +43,7 @@ mod inspect;
 mod install;
 mod manual;
 mod measure;
+mod network_bench;
 mod package;
 mod restamp;
 mod rollback;
@@ -240,6 +241,10 @@ fn main() -> ExitCode {
         // Fatal risk 6's bench boot (milestone 261 (the NVMe driver leaves the kernel)): stage the stick image and rehearse its four
         // verdicts under OVMF. Name provisional. See xtask/src/disk_throughput.rs.
         "disk-throughput" => return disk_throughput::disk_throughput(),
+        // Milestone 494 (a driver for the network card a PC actually has)'s bench boot: stage the
+        // stick image and rehearse its verdict under OVMF against a slirp peer. Name provisional.
+        // See xtask/src/network_bench.rs.
+        "network-bench" => return network_bench::network_bench(),
         // The card's U-Boot script (milestone 218): what makes the board boot without a person at
         // its prompt. `script/board-image` calls this; it is a separate verb so the script it
         // produces can be rebuilt and read on its own.

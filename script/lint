@@ -292,6 +292,14 @@ for feat in shell soak_test job_mix lock_wait board; do
         -D warnings -A dead_code -A clippy::reversed_empty_ranges
 done
 
+# `network_bench` (milestone 494 (a driver for the network card a PC actually has)'s bench boot),
+# on x86_64 only because xenon is the machine it is for. Linted because nothing else compiles it:
+# `cargo xtask network-bench` is in no gate, and a bench boot that has rotted is found on the
+# evening rather than here. `disk_throughput` has the same exposure and is not in this file yet.
+echo "==> clippy: kernel --features network_bench (x86_64, the binary only; see the note above)"
+cargo clippy -p kernel --features network_bench --target x86_64-unknown-none -- \
+    -D warnings -A dead_code -A clippy::reversed_empty_ranges
+
 # And userspace on the third architecture (milestone 161, item 4's hand-off). Held to the SAME bar
 # as the aarch64 pass above, with no `-A dead_code` and no narrowings, because there is nothing
 # partial about it: every program in `user/` compiles for this target and `crates/user_mode_runtime` has arms

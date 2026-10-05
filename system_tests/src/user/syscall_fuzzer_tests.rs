@@ -302,8 +302,15 @@ struct Verdict {
     woken: [Option<Answer>; ACTORS],
 }
 
+/// **The model lives in a static, not in `run_seed`'s frame** (milestone 754 (the capability table grows to 64 slots)). Its tables are
+/// `ACTORS` times `SLOTS` capabilities, so doubling the kernel's table doubled it, and an unoptimised
+/// build keeps a copy per by-value hop: with the model in `run_seed`'s frame the x86_64 boot stack's
+/// high-water went from the suite's usual margin to 64,912 of 65,504 bytes, past the 61,440 gate in
+/// `kernel/src/stack.rs`. One seed runs at a time, so one model is enough. Name provisional.
+static FUZZ_MODEL: spin::Mutex<Model> = spin::Mutex::new(Model::new());
+
 impl Model {
-    fn new() -> Self {
+    const fn new() -> Self {
         Model {
             tables: [[None; SLOTS]; ACTORS],
             park: [Park::Idle; ACTORS],
@@ -311,8 +318,40 @@ impl Model {
             receivers: [Queue::new(); EPS],
             word: 0,
             waiters: Queue::new(),
-            census: Census::default(),
+            census: Census {
+                calls: 0,
+                refused: 0,
+                parked: 0,
+                delegated: 0,
+                replied: 0,
+                revoked: 0,
+                staged_frame_revoked: 0,
+                cap_to_plain_receive: 0,
+            },
         }
+    }
+
+    /// Back to [`Model::new`], in place: `*self = Model::new()` would build the value in this frame
+    /// first. Every field is named so a new one cannot be left out.
+    fn reset(&mut self) {
+        let Model {
+            tables,
+            park,
+            senders,
+            receivers,
+            word,
+            waiters,
+            census,
+        } = self;
+        for t in tables.iter_mut() {
+            t.fill(None);
+        }
+        park.fill(Park::Idle);
+        senders.fill(Queue::new());
+        receivers.fill(Queue::new());
+        *word = 0;
+        *waiters = Queue::new();
+        *census = Census::default();
     }
 
     fn insert(&mut self, a: usize, c: MCap) -> u64 {
@@ -780,14 +819,14 @@ fn actor(i: usize, doorbell: RendezvousId) {
                 }
             }
         };
-        let mut table = [None; SLOTS];
-        for (s, t) in table.iter_mut().enumerate() {
-            *t = sched::current_cap(s as u64).ok();
-        }
+        // Written straight into the mail: a local `[Option<Cap>; SLOTS]` is a 2 KiB array in this
+        // thread-stack frame (5,360 bytes on x86_64 at 64 slots, over the guard page).
         {
             let mut m = MAIL[i].lock();
             m.answer = answer;
-            m.table = table;
+            for (s, t) in m.table.iter_mut().enumerate() {
+                *t = sched::current_cap(s as u64).ok();
+            }
         }
         DONE[i].store(seq, Ordering::SeqCst);
     }
@@ -832,13 +871,14 @@ impl Stage {
         })
     }
 
-    fn answer(a: usize) -> (Answer, [Option<Cap>; SLOTS]) {
-        let m = MAIL[a].lock();
-        (m.answer, m.table)
+    /// The answer actor `a` last posted. Its table stays in [`MAIL`] and is read there, because a
+    /// returned table is a 2 KiB copy in every frame that holds it (milestone 754 (the capability table grows to 64 slots)).
+    fn answer(a: usize) -> Answer {
+        MAIL[a].lock().answer
     }
 
     /// Run `cmd` on idle actor `a` and wait for it to finish (`Some`) or park (`None`).
-    fn run(&mut self, a: usize, cmd: Cmd) -> Option<(Answer, [Option<Cap>; SLOTS])> {
+    fn run(&mut self, a: usize, cmd: Cmd) -> Option<Answer> {
         let seq = self.post(a, cmd);
         assert!(
             wait_for(|| Self::finished(a, seq) || self.parked(a)),
@@ -883,7 +923,7 @@ fn real_cap(m: MCap, w: &World) -> Cap {
 struct Run<'a> {
     seed: u64,
     step: usize,
-    model: Model,
+    model: &'a mut Model,
     world: World,
     stage: &'a mut Stage,
 }
@@ -898,6 +938,12 @@ macro_rules! mismatch {
 }
 
 impl Run<'_> {
+    /// [`check_table`](Self::check_table) on the table actor `a` last posted, read where it sits.
+    fn check_mail_table(&self, a: usize, what: &dyn core::fmt::Debug) {
+        let mail = MAIL[a].lock();
+        self.check_table(a, &mail.table, what);
+    }
+
     fn check_table(&self, a: usize, real: &[Option<Cap>; SLOTS], what: &dyn core::fmt::Debug) {
         for s in 0..SLOTS {
             let got = real[s].map(|c| abstract_cap(&c, &self.world, &self.stage.tids));
@@ -927,14 +973,14 @@ impl Run<'_> {
                     "{what:?} should have woken actor {b} with {want:?}; it stayed parked"
                 );
             }
-            let (got, table) = Stage::answer(b);
+            let got = Stage::answer(b);
             if !want.matches(&got) {
                 mismatch!(
                     self,
                     "{what:?} woke actor {b} with {got:?}; the model says {want:?}"
                 );
             }
-            self.check_table(b, &table, what);
+            self.check_mail_table(b, what);
         }
     }
 
@@ -972,7 +1018,7 @@ impl Run<'_> {
             if self.model.park[b] != Park::Idle {
                 let seq = MAIL[b].lock().seq;
                 if Stage::finished(b, seq) {
-                    let (got, _) = Stage::answer(b);
+                    let got = Stage::answer(b);
                     mismatch!(
                         self,
                         "actor {b} answered {got:?} while the model holds it parked as {:?}",
@@ -987,16 +1033,16 @@ impl Run<'_> {
         let verdict = self.model.step(a, op);
         let what = (a, op);
         match (self.stage.run(a, Cmd::Op(op)), verdict.me) {
-            (Some((got, table)), Some(want)) => {
+            (Some(got), Some(want)) => {
                 if !want.matches(&got) {
                     mismatch!(
                         self,
                         "actor {a} {op:?} answered {got:?}; the model says {want:?}"
                     );
                 }
-                self.check_table(a, &table, &what);
+                self.check_mail_table(a, &what);
             }
-            (Some((got, _)), None) => mismatch!(
+            (Some(got), None) => mismatch!(
                 self,
                 "actor {a} {op:?} answered {got:?}; the model says it parks as {:?}",
                 self.model.park[a]
@@ -1017,11 +1063,10 @@ impl Run<'_> {
         // Every idle actor's table, once more, before reclaiming the objects it names.
         for a in 0..ACTORS {
             if self.model.park[a] == Park::Idle {
-                let (_, table) = self
-                    .stage
+                self.stage
                     .run(a, Cmd::Look)
                     .expect("an idle actor parked on a look");
-                self.check_table(a, &table, &"the look before teardown");
+                self.check_mail_table(a, &"the look before teardown");
             }
         }
         let woken = self.model.teardown();
@@ -1055,7 +1100,7 @@ impl Run<'_> {
             if !wait_for(|| Stage::finished(b, seq)) {
                 mismatch!(self, "teardown should have woken actor {b} with {want:?}");
             }
-            let (got, table) = Stage::answer(b);
+            let got = Stage::answer(b);
             if !want.matches(&got) {
                 mismatch!(
                     self,
@@ -1063,13 +1108,14 @@ impl Run<'_> {
                 );
             }
             // A frame cap may or may not survive its region's reclaim; that is not this oracle's.
-            let mut table = table;
-            for t in table.iter_mut() {
+            // The mail is rewritten by the actor's next command, so editing it in place is safe.
+            let mut mail = MAIL[b].lock();
+            for t in mail.table.iter_mut() {
                 if matches!(t, Some(c) if matches!(c.object, Object::PageFrame(..))) {
                     *t = None;
                 }
             }
-            self.check_table(b, &table, &"teardown");
+            self.check_table(b, &mail.table, &"teardown");
         }
     }
 }
@@ -1227,10 +1273,12 @@ fn run_seed(stage: &mut Stage, seed: u64) -> Census {
             .expect("frame")
             .0
     });
+    let mut model = FUZZ_MODEL.lock();
+    model.reset();
     let mut run = Run {
         seed,
         step: 0,
-        model: Model::new(),
+        model: &mut model,
         world: World {
             region,
             eps,
@@ -1241,10 +1289,10 @@ fn run_seed(stage: &mut Stage, seed: u64) -> Census {
     };
 
     for a in 0..WITNESS {
-        let caps = endow(&mut rng, &mut run.model, a);
+        let caps = endow(&mut rng, run.model, a);
         for c in caps.iter().flatten() {
             let cap = real_cap(*c, &run.world);
-            let (got, _) = run.stage.run(a, Cmd::Grant(cap)).expect("a grant parked");
+            let got = run.stage.run(a, Cmd::Grant(cap)).expect("a grant parked");
             assert!(got.r.is_ok(), "seed {seed:#x}: endowing actor {a} failed");
         }
     }
@@ -1261,7 +1309,7 @@ fn run_seed(stage: &mut Stage, seed: u64) -> Census {
             let k = rng.below(idle[..WITNESS].iter().filter(|&&i| i).count() as u64) as usize;
             (0..WITNESS).filter(|&a| idle[a]).nth(k).unwrap()
         };
-        let op = pick_op(&mut rng, &run.model, a);
+        let op = pick_op(&mut rng, run.model, a);
         run.step = steps;
         run.one(a, op);
         steps += 1;

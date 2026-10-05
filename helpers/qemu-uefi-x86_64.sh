@@ -213,6 +213,14 @@ STICK="-drive format=raw,file=fat:rw:$ESP"
 if [ -n "$NIFE_UEFI_NO_STICK" ]; then
     STICK=""
 fi
+# **The stick, chosen first**, which is what a person does from the firmware's one-time boot menu.
+# Without it OVMF prefers an NVMe disk that carries \EFI\BOOT\BOOTX64.EFI, so a gate meaning to boot
+# the stick on an installed machine would quietly boot the disk instead (measured: boot 3 of
+# `cargo xtask install-boot`, 2026-10-04). Same AHCI bus the plain `-drive` lands on; only the
+# boot index is new. Name provisional.
+if [ -n "$NIFE_UEFI_STICK_FIRST" ] && [ -z "$NIFE_UEFI_NO_STICK" ]; then
+    STICK="-drive if=none,id=stick,format=raw,file=fat:rw:$ESP -device ide-hd,drive=stick,bus=ide.0,bootindex=0"
+fi
 
 NVME=""
 if [ -n "$NIFE_NVME" ]; then
@@ -263,6 +271,23 @@ if [ "${NIFE_ACCEL:-}" = "kvm" ]; then
     ACCEL="-accel kvm"
 fi
 
+# **The NIC, said out loud** (milestone 494 (a driver for the network card a PC actually has)).
+# Until 2026-10-04 this runner named no network at all, and QEMU filled the gap with its default:
+# on `q35` that is an `e1000e` on user networking, which every boot here carried without anybody
+# having chosen it. Milestone 494's lane found it when its UDP gate reached slirp's TFTP server and
+# was told the fixture did not exist: the implicit network had no `tftp=` and no echo peer. So the
+# device is now the one the default already was, on the slirp network the other runners give their
+# NICs: DHCP on 10.0.2.0/24, the echo peer at 10.0.2.9:7777, the package peer at 10.0.2.9:8080 and
+# the TFTP root (helpers/qemu-runner-aarch64.sh has the reason for each), plus the bench boot's
+# rehearsal peer at 10.0.2.9:9494 (helpers/network-bench-peer). `romfile=` keeps OVMF from
+# loading the card's iPXE option ROM, which this tree never boots from.
+PACKAGE_PEER="$(cd "$(dirname "$0")" && pwd)/package-http-peer"
+TFTPDIR="$(dirname "$0")/../target/tftp"
+mkdir -p "$TFTPDIR"
+printf 'nife-tftp!' > "$TFTPDIR/nife"
+BENCH_PEER="$(cd "$(dirname "$0")" && pwd)/network-bench-peer"
+NET="-netdev user,id=net0,guestfwd=tcp:10.0.2.9:7777-cmd:/bin/cat,guestfwd=tcp:10.0.2.9:8080-cmd:$PACKAGE_PEER,guestfwd=tcp:10.0.2.9:9494-cmd:$BENCH_PEER,tftp=$TFTPDIR -device e1000e,netdev=net0,mac=52:54:00:e1:00:0e,romfile="
+
 exec helpers/qemu-bounded.sh "$TIMEOUT" qemu-system-x86_64 \
     $ACCEL \
     -machine q35 \
@@ -277,6 +302,7 @@ exec helpers/qemu-bounded.sh "$TIMEOUT" qemu-system-x86_64 \
     $MON \
     $DISK \
     $NVME \
+    $NET \
     $USBKBD \
     -drive "if=pflash,format=raw,unit=0,readonly=on,file=$NIFE_OVMF_CODE" \
     -drive "if=pflash,format=raw,unit=1,file=$VARS" \

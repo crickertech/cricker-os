@@ -1611,8 +1611,6 @@ pub fn adopt_secondary_idle() {
     // This core's turn at the line in `init` above: it is about to own threads.
     crate::arch::fp::init();
 
-    let idle = Thread::adopt_current();
-
     let id = {
         let mut guard = IPC_TABLES.lock();
         let sched = guard
@@ -1620,10 +1618,10 @@ pub fn adopt_secondary_idle() {
             .expect("adopt_secondary_idle before sched::init");
         let id = sched
             .threads
-            .insert_with(|tid| {
-                let mut idle = idle;
-                idle.id = tid;
-                idle
+            .insert_in_place(|tid, dst| {
+                // SAFETY: `dst` is a fresh, exclusively-owned TCB page, per `insert_in_place`.
+                unsafe { Thread::write_adopted_current(dst, tid) };
+                true
             })
             .expect("thread table full while bringing a core online");
         // This core is currently running that thread.
@@ -4357,7 +4355,7 @@ fn strand_reply_caller(sched: &mut IpcTables, caller: ThreadId) -> bool {
 /// because [`strand_reply_caller`] takes `sched` mutably and deletes out of this very table as it
 /// goes; at 24 slots that was 24 generational lookups per departing thread, and `script/bench`
 /// priced it at about 830 icount ticks on every `spawn_reap` iteration. One lookup, an array of
-/// [`crate::cap::CAPABILITY_TABLE_SLOTS`] victims (256 bytes at 32 slots) in this function's own frame (it is `#[inline(never)]`, so the array is never
+/// [`crate::cap::CAPABILITY_TABLE_SLOTS`] victims (512 bytes at 64 slots, 256 at the 32 it was) in this function's own frame (it is `#[inline(never)]`, so the array is never
 /// on `reap_region_objects`'s), and the empty-table early-out cost nothing and gave it back.
 #[cold]
 #[inline(never)]
@@ -4396,7 +4394,7 @@ fn strand_callers_of(sched: &mut IpcTables, tid: ThreadId) {
 /// server.
 ///
 /// **Rescan rather than list**, which is the opposite choice from [`strand_callers_of`] above and
-/// the difference is the bound: that one lists because a capability table is 32 slots, 256 bytes,
+/// the difference is the bound: that one lists because a capability table is 64 slots, 512 bytes,
 /// and this one cannot because the bound here is `MAX_THREADS`, a kilobyte that grows every time
 /// the thread ceiling does. Both functions sit on the call chain through
 /// [`reap_region_objects`], the deepest frame in the kernel, whose own comment spends a paragraph
@@ -5877,21 +5875,21 @@ pub fn corpse_fault_msg(tid: ThreadId) -> Option<[u64; 5]> {
 ///
 /// The name is generational, so a reaped thread's `ThreadId` never resolves again even if its slot is
 /// reused: `false` here means gone, not "gone or replaced".
-/// **Every slot of `tid`'s capability table, copied out** (test support, milestone 757 (a test
+/// **`tid`'s capability table, read in place** (test support, milestone 757 (a test
 /// kernel fails a process on its Nth retype), provisional name). `None` for a name that does not
 /// resolve. A sweep that fails a service's Nth retype reads this before and after each run, because
-/// a cleanup path that forgets a `cap_delete` crashes nothing and shows up only here.
+/// a cleanup path that forgets a `cap_delete` crashes nothing and shows up only here. It lends the
+/// table to `read` rather than returning a copy: a copy is a 2 KiB array in every frame that holds
+/// it, which at 64 slots put the caller over the guard page (milestone 754 (the capability table
+/// grows to 64 slots)). `read` runs under `IPC_TABLES`, so it must not call back into `sched`.
 #[cfg(feature = "system_tests")]
-pub fn capability_table_snapshot(
+pub fn with_capability_table<R>(
     tid: ThreadId,
-) -> Option<[Option<crate::cap::Cap>; crate::cap::CAPABILITY_TABLE_SLOTS]> {
+    read: impl FnOnce(&crate::cap::CapabilityTable) -> R,
+) -> Option<R> {
     let guard = IPC_TABLES.lock();
     let t = guard.as_ref()?.threads.capabilities(tid)?.lock();
-    let mut out = [None; crate::cap::CAPABILITY_TABLE_SLOTS];
-    for (slot, entry) in out.iter_mut().enumerate() {
-        *entry = t.get(slot as u64).ok();
-    }
-    Some(out)
+    Some(read(&t))
 }
 
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]

@@ -904,6 +904,25 @@ pub fn boot_slot() -> Option<u8> {
     }
 }
 
+/// **Whether this boot came from the internal NVMe disk** (`arch::x86_64::machine`), from the
+/// `boot_slot::medium` token `uefi_loader` writes. `false` for a stick, a `-kernel` boot, and every
+/// other architecture, all of which leave the internal disk unmounted: RedoxFS writes on mount, and
+/// a boot that did not come from the disk has not been asked to change it (the live stick
+/// proposal's G2; calef's ruling on PR #1652, 2026-10-04 UTC).
+#[cfg_attr(not(target_arch = "x86_64"), allow(dead_code))]
+pub fn record_booted_from_nvme(yes: bool) {
+    BOOTED_FROM_NVME.store(yes, core::sync::atomic::Ordering::Relaxed);
+}
+
+/// What [`record_booted_from_nvme`] recorded.
+pub fn booted_from_nvme() -> bool {
+    BOOTED_FROM_NVME.load(core::sync::atomic::Ordering::Relaxed)
+}
+
+/// Written once at boot, before any reader exists; see [`INITRD_START`].
+static BOOTED_FROM_NVME: core::sync::atomic::AtomicBool =
+    core::sync::atomic::AtomicBool::new(false);
+
 /// Where [`record_boot_slot`] puts it. Zero means no chooser; see [`INITRD_START`] for why this is
 /// an atomic written once at boot rather than a lock.
 static BOOT_SLOT_PLUS_ONE: AtomicUsize = AtomicUsize::new(0);

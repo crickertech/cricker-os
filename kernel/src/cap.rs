@@ -183,13 +183,13 @@ pub type Cap = capability::Cap<Object>;
 // variant, `PageFrame` is that variant, and it grew by a word. Nothing measured it, so §102's own
 // figure went stale inside §102. That is what this assertion is for; it is the fact, not a target.
 //
-// Thirty-two slots is 1,024 bytes a capability table, so the option §102 priced at
-// 12 KiB a thread for 512 slots would now be 16 KiB. The refusal does not change (the decision's
+// Sixty-four slots is 2,048 bytes a capability table, so the option §102 priced at
+// 12 KiB a thread for 512 slots would now be 32 KiB. The refusal does not change (the decision's
 // argument was never really about the bytes), but the number a future reader quotes should be the
 // one the compiler agrees with. Update these two and re-read §102 when they fire.
 //
 // **Sixteen when this note was written, seventeen after milestone 49 (users, login, and attribution), twenty-four after milestone
-// 230, thirty-two now** (see that constant's own doc, below). The count changed; the per-slot
+// 230, thirty-two after #1360, sixty-four now** (see that constant's own doc, below). The count changed; the per-slot
 // arithmetic this note exists to pin did not.
 //
 // **And the other half of §102's arithmetic moved too**: `MAX_THREADS` was raised from 128 to 256
@@ -267,23 +267,33 @@ const _: () = assert!(core::mem::size_of::<Cap>() == 32);
 /// (`crate::thread`'s page-fit assertion is the check), and no static memory at all. The fault
 /// slot, derived, moves from 23 to 31; the machine page takes 23. The headroom account is
 /// [`CAPABILITY_TABLE_PEAK_MEASURED`]'s.
-pub const CAPABILITY_TABLE_SLOTS: usize = 32;
+///
+/// **Raised 32 -> 64** (calef, 2026-10-04, UTC; milestone 754 (the capability table grows to 64
+/// slots), his ruling A on #1608). A gpu-and-keyboard boot under QEMU reached 31 of the
+/// progenitor's 32 slots, and the next capability added at boot would have halted that boot with
+/// no message. Milestone 753 (trace the progenitor's login block peak) itemised the 31 and replayed
+/// the alternatives (`notes/capability-peak-trace.md`); calef chose to grow the table over moving
+/// holdings into a new process. The cost is 1,032 bytes a thread, in a TCB page that had at least
+/// 2,112 bytes idle (`crate::thread`'s page-fit assertion is the check), and no static memory. The
+/// free-slot word widened from `u32` to `u64` with it, and the fault slot, derived, moves from 31
+/// to 63. Whether a table should be sized for its process instead is
+/// `design/roadmap/proposals/capability-tables-sized-per-process.md`.
+pub const CAPABILITY_TABLE_SLOTS: usize = 64;
 
-// **The free-slot word is a `u32`, so thirty-two is also the ceiling the type allows** (milestone
-// 126 (the `procps` package), calef's ruling on #1360, 2026-09-27, UTC). `capability::CapabilityTable`
-// asserts this for every size it is built at; it is repeated here because this line is where the
-// next raise will be typed, and the message should meet that person here rather than inside a
-// const evaluation in another crate. Raising past it is widening that word to a `u64`, which the
-// constant's doc on `capability::MAX_SLOTS` prices.
+// **The free-slot word is a `u64`, so sixty-four is also the ceiling the type allows** (milestone
+// 126 (the `procps` package), calef's ruling on #1360, 2026-09-27, UTC, widened by milestone 754 (the capability table grows to 64 slots)).
+// `capability::CapabilityTable` asserts this for every size it is built at; it is repeated here
+// because this line is where the next raise will be typed, and the message should meet that person
+// here rather than inside a const evaluation in another crate. Raising past it is a wider word or
+// a second one, which the constant's doc on `capability::MAX_SLOTS` prices.
 const _: () = assert!(
     CAPABILITY_TABLE_SLOTS <= capability::MAX_SLOTS,
-    "the capability table's free-slot bitmap is one u32; widen it before raising the slot count"
+    "the capability table's free-slot bitmap is one u64; widen it before raising the slot count"
 );
-// And the word cost nothing: it sits in the four bytes of padding after `used` and `peak`, so the
-// table is 1,032 bytes with the bitmap and was 1,032 without it (32 slots of 32 bytes, two `u16`s,
-// rounded to eight). If this fires, the layout moved and `crate::thread`'s page-fit check is the
-// next thing to read.
-const _: () = assert!(core::mem::size_of::<CapabilityTable>() == 1032);
+// The table's layout, pinned: 64 slots of 32 bytes, the `u64` free word and two `u16` counts, which
+// is 2,060 bytes rounded to eight. It was 1,032 at 32 slots with a `u32` word. If this fires, the
+// layout moved and `crate::thread`'s page-fit check is the next thing to read.
+const _: () = assert!(core::mem::size_of::<CapabilityTable>() == 2064);
 pub type CapabilityTable = capability::CapabilityTable<Object, CAPABILITY_TABLE_SLOTS>;
 
 /// **What a real interactive boot actually reaches**, and the number the three slots of headroom
@@ -382,6 +392,11 @@ pub type CapabilityTable = capability::CapabilityTable<Object, CAPABILITY_TABLE_
 /// that reaches it, which is QEMU's (argon, radon and xenon have no virtio keyboard and no
 /// virtio-gpu). Buying slots back is proposed in milestone 715's block; raising
 /// [`CAPABILITY_TABLE_SLOTS`] is not done here.
+///
+/// **Still thirty-one at sixty-four slots** (2026-10-04, UTC, milestone 754 (the capability table grows to 64 slots)): the raise bought
+/// headroom, not a different peak, so the gpu-and-keyboard boot reads 31 of 64 and the recorded
+/// figure is unchanged. The headroom is thirty-two, which is a licence for the next boot grants
+/// and still not for a reflexive spend; `notes/capability-peak-trace.md` itemises the 31.
 pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 31;
 
 // The headroom milestone 230 left is what this pair means, so the two cannot silently invert.

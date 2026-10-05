@@ -279,6 +279,25 @@ if [ -n "$NIFE_NVME" ]; then
     fi
 fi
 
+# **The network card a PC actually has** (milestone 494 (a driver for the network card a PC actually
+# has)), when `NIFE_NET` is set: QEMU's `e1000e`, an Intel 82574L, the family xenon's I219 belongs
+# to. Until this the x86_64 leg attached no NIC at all, because the only driver this tree had was
+# virtio-net and the kernel finds that on virtio-mmio, which `q35` does not have. The slirp network
+# is the other two runners' in every detail that a gate reads: DHCP on 10.0.2.0/24, the TCP echo
+# peer at 10.0.2.9:7777, the package peer at 10.0.2.9:8080 and the TFTP root. See the aarch64
+# runner for why each exists. A real PCI device model, so its DMA goes through `-device
+# intel-iommu` with no `iommu_platform` knob (the paragraph above `$DISK` explains that knob).
+# `mac=` is the address `e1000e_tests` asserts reached `net_stack` through the kernel.
+NET=""
+if [ -n "$NIFE_NET" ]; then
+    PACKAGE_PEER="$(cd "$(dirname "$0")" && pwd)/package-http-peer"
+    GUESTFWD="guestfwd=tcp:10.0.2.9:7777-cmd:/bin/cat,guestfwd=tcp:10.0.2.9:8080-cmd:$PACKAGE_PEER"
+    TFTPDIR="$(dirname "$0")/../target/tftp"
+    mkdir -p "$TFTPDIR"
+    printf 'nife-tftp!' > "$TFTPDIR/nife"
+    NET="-netdev user,id=net0,$GUESTFWD,tftp=$TFTPDIR -device e1000e,netdev=net0,mac=52:54:00:e1:00:0e,romfile="
+fi
+
 # `-no-reboot` turns a triple fault into an exit instead of a silent reset loop, which is the
 # difference between seeing that early boot died and watching a blank terminal. Every failure in
 # this port's bring-up so far has been a triple fault; add `-d int,cpu_reset` to see the state.
@@ -327,6 +346,7 @@ qemu-system-x86_64 \
     $IOMMU \
     $DISK \
     $NVME \
+    $NET \
     -kernel "$ELF" \
     $INITRD \
     "$@" <&3 3<&- &

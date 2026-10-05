@@ -1768,7 +1768,7 @@ mod proofs {
 
     /// **A slot a supervisor could route, bounded to the capability table that exists.**
     ///
-    /// A slot number at or past `abi::CAPABILITY_TABLE_SLOTS` (thirty-two since 2026-09-27) is not
+    /// A slot number at or past `abi::CAPABILITY_TABLE_SLOTS` (sixty-four since 2026-10-04, thirty-two before) is not
     /// a routing a supervisor could make: the kernel refuses it. Raising the table from twenty-four
     /// did not move these harnesses' times past their noise (measured by milestone 126 (the `procps` package), in
     /// notes/process-view/the-machine-and-your-share.md). Bounding it here is not a weakening of the property, which

@@ -203,6 +203,7 @@ dependencies = [
  "credentialer",
  "documentation",
  "domain_name_system",
+ "e1000e",
  "elf",
  "entropy_protocol",
  "environment_protocol",
@@ -376,6 +377,13 @@ dependencies = [
 [[package]]
 name = "domain_name_system"
 version = "0.1.0"
+
+[[package]]
+name = "e1000e"
+version = "0.1.0"
+dependencies = [
+ "address_space_map",
+]
 
 [[package]]
 name = "elf"
@@ -610,6 +618,7 @@ dependencies = [
  "current_cpu_protocol",
  "device_tree_blob",
  "direct_memory_access_validator",
+ "e1000e",
  "elf",
  "entropy_protocol",
  "environment_protocol",
