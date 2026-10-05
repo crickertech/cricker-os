@@ -1,10 +1,12 @@
 # The nine things that would kill nife
 
-*Name: the directory and the appendix stems are provisional (minted 2026-09-23 by the lane that
-split the file, `7b4c6b4f2`); each appendix's own preamble says so. The nine risk files are
-ratified 2026-10-05 (calef, PR #1675: "Use the claim forms."), meaning each stem states its risk's
-claim. Refused `5-multicore-reliability` and `6-userspace-driver-speed`, which name a topic rather
-than the claim. `script/names --unratified` lists the rest.*
+*Name: provisional, minted 2026-09-23 by the lane that split the file (`7b4c6b4f2`), for the
+directory and every appendix stem in it. Each appendix's own preamble says the same of its stem.
+Naming is calef's; `script/names --unratified` lists each stem.*
+
+The nine risk files are ratified (2026-10-05, UTC; calef, PR #1675: "Use the claim forms."): each
+stem states its risk's claim. Refused `5-multicore-reliability` and `6-userspace-driver-speed`,
+which name a topic rather than the claim.
 
 calef, 2026-08-30: *"something that would kill nife for me as a project is a fatal characteristic
 that would demonstrate the approach isn't viable... We should then try to prove or disprove those
