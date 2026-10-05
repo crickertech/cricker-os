@@ -5,7 +5,7 @@ updated: 2026-09-23
 ---
 # Appendix to risk 9: The HAL is a fiction, and an architecture costs a restructure rather than a port
 
-*An appendix to [`README.md`](README.md)'s risk 9. That entry is the claim of
+*An appendix to [`9-the-hal-is-a-fiction.md`](9-the-hal-is-a-fiction.md) (risk 9). That entry is the claim of
 record, and it is written so that a reader can decide what to work on next without opening this
 file. This one exists to be verified or challenged: it holds the evidence, the dates, the numbers,
 the corrections and the refusals behind the verdict, at the length they need rather than the length

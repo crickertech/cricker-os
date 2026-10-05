@@ -1559,6 +1559,7 @@ FATAL_RISK_COLOURS = ('green', 'amber', 'red')
 _COLOUR_WORD = re.compile(r'\b(GREEN|AMBER|RED)\b')
 _APPENDIX = re.compile(r'^design/fatal-risks/[a-z0-9-]+\.md$')
 _FRONTMATTER = re.compile(r'\A---\n(.*?)\n---\n', re.S)
+_RISK_FILE = re.compile(r'^design/fatal-risks/(\d+)-[a-z0-9-]+\.md$')
 
 
 def _summary_colours(text):
@@ -1592,7 +1593,7 @@ def fatal_risks_colors(tree):
     **Where both sources exist they must agree, and a disagreement fails the run** naming the risk.
     The frontmatter exists to be the machine-read surface of a verdict the README states in prose;
     if the two drifted, the chart would be counting an edit nobody made to the record of record.
-    `script/fatal-risks` gates the README alone (its own BUGS: nothing gates an appendix), so this
+    `script/fatal-risks` gates the README and the nine risk files, never an appendix (its own BUGS), so this
     cross-check is the only thing that holds the new field to the old one, and it runs wherever the
     row is computed rather than only in a gate nobody has to run.
 
@@ -1617,6 +1618,14 @@ def fatal_risks_colors(tree):
             from_frontmatter[int(fields['risk'])] = colour
 
     summary = next((tree.text.get(p) for p in FATAL_RISKS_SUMMARY if tree.text.get(p)), None)
+    # From 2026-10-05 UTC each risk is its own file (`N-slug.md`, provisional names) and the README
+    # holds no `## N.` entry. Join them, in numeric order, under the heading the walks below expect,
+    # so a week before the split and a week after it read through one parse.
+    split = sorted((p for p in tree.text if _RISK_FILE.match(p)),
+                   key=lambda p: int(_RISK_FILE.match(p).group(1)))
+    if split:
+        summary = (summary or '') + '\n'.join(
+            re.sub(r'(?m)^# (\d+)\. ', r'## \1. ', tree.text[p]) for p in split)
     prose = _summary_colours(summary) if summary else {}
     if from_frontmatter:
         for risk in sorted(from_frontmatter):

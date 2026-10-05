@@ -5,7 +5,7 @@ updated: 2026-09-19
 ---
 # Appendix to risk 3: The tests do not test anything, and the quality is illusory
 
-*An appendix to [`README.md`](README.md)'s risk 3. That entry is the claim of
+*An appendix to [`3-the-tests-do-not-test.md`](3-the-tests-do-not-test.md) (risk 3). That entry is the claim of
 record, and it is written so that a reader can decide what to work on next without opening this
 file. This one exists to be verified or challenged: it holds the evidence, the dates, the numbers,
 the corrections and the refusals behind the verdict, at the length they need rather than the length
