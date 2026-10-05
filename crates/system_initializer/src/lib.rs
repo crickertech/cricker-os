@@ -94,6 +94,8 @@
 //!         // A USB keyboard driver's attach endpoint (milestone 242 (USB host and HID)): empty on
 //!         // a machine with no xHCI controller.
 //!         usb_keyboard_attach: 27,
+//!         // This process's own address space (§249): granted on every boot, `WRITE` alone.
+//!         own_space: 28,
 //!         // Empty here. On aarch64 this holds the kernel's report endpoint and a test SGI, because
 //!         // that boot path is shared with milestone 19d's test roles; the progenitor deletes them with the
 //!         // device authority once the drivers exist, rather than keeping delegable authority for
@@ -311,15 +313,20 @@
 //! escalate and a hung session holds its region until something reboots the machine. The
 //! supervised-session shape is real follow-on work, recorded in the milestone's block.
 //!
-//! The loader's scratch window is never unmapped, so the progenitor keeps a **writable mapping of every page
-//! it ever laid down for a child**. Reaping a job undoes that (region reclaim revokes every mapping
-//! of the pages first, §13), but the boot servers are never reclaimed, so the progenitor can still read and
-//! write the console's, the line editor's, the input driver's, the shell's and the sink adapter's
-//! memory. Giving the construction budget away does not reach that, and nothing in the ABI unmaps a
-//! page.
+//! **The progenitor gives up every page it lays down for a child as soon as the page is in the
+//! child** (milestone 95 (an unmap primitive, and the mappings init never lets go), §249 (a running
+//! address space stays nameable)). Until 2026-10-05 the loader's scratch window was never unmapped,
+//! so the progenitor kept a writable mapping of every page of every boot server it built, for the
+//! life of the machine, and giving the construction budget away did not reach it. The kernel now
+//! grants it its own address space at slot 28 (`BootEndowment::own_space`), and the loader `UNMAP`s
+//! each scratch page through it (`supervision_protocol::give_up_own_page`). The other three windows
+//! it opened onto memory it hands on go the same way: the shell's output page once the last boot
+//! line is printed, and the virtio-rng and NIC DMA pages once their physical base is read.
+//! `system_tests`' `running_space_tests` has the negative control, a builder faulting on the page.
 //!
-//! Printing the negative control costs one more of those: the shell's output frame stays mapped here
-//! for life, because there is no unmap and `PageFrame::REVOKE` would take it from the shell too.
+//! What it keeps: a kernel that grants no slot 28 leaves every window open, as before; and pages a
+//! *job's* image arrives in from the shell are given up after the copy, but a job's own pages are
+//! the job's region's to take back, as they always were.
 //!
 //! **A boot with a NIC waits for DHCP before it has a prompt** (milestone 590 (provisional)).
 //! `net_stack` reports its lease with a blocking send and serves nobody until that send is taken, so
@@ -329,12 +336,6 @@
 //! unreached rather than closed. Taking the lease later, when the first declaring child is spawned,
 //! would unblock the boot and cost the report endpoint a permanent slot (the peak is 23 of 32,
 //! `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED`); milestone 590's block records it.
-//!
-//! **And it keeps a writable view of the NIC's DMA page**, at `NET_DMA_PEEK_VA`, for the rng's
-//! reason (reading the physical base the kernel wrote there) and with its cost: there is no unmap.
-//! This process can therefore write `net_stack`'s rings for the life of the boot. It could already
-//! write every child's memory (the paragraph above), so this is one more page of an exposure it
-//! already has, not a new kind.
 //!
 //! **The progenitor's capability table is finite, and running out of it prints nothing at all.** Every
 //! capability held across a `build_child` is one the child's address space, frames and TCB cannot
@@ -600,6 +601,17 @@ pub struct BootEndowment {
     ///
     /// Name: provisional, milestone 242's lane, 2026-10-04.
     pub usb_keyboard_attach: u64,
+    /// **This process's own address space** (§249 (a running address space stays nameable), its
+    /// 2026-10-05 amendment ruling the slot): an `AddressSpace` capability with `WRITE` alone, no
+    /// `GRANT`, granted on every boot. [`boot`] hands it to `supervision_protocol` before it builds
+    /// anything, so every page the loader fills for a child is given up with `UNMAP` the moment it
+    /// is in the child, and the progenitor keeps no window onto a boot server's memory (milestone
+    /// 95 (an unmap primitive, and the mappings init never lets go)). Kept for the life of the
+    /// process, because the spawn service builds a job's pages the same way. Never delegated:
+    /// without `GRANT` it cannot be.
+    ///
+    /// Name: provisional, milestone 95's §249 lane, 2026-10-05 (UTC).
+    pub own_space: u64,
     /// **Capabilities the kernel granted that the interactive system never uses**, deleted with the
     /// device authority once the drivers exist.
     ///
@@ -844,8 +856,9 @@ const INIT_OUT_VA: u64 = address_space_map::pair_page(0x0f00_0000);
 
 /// Where the progenitor briefly maps the virtio-rng DMA page, in **its own** address space, to read
 /// [`VIRTIO_DMA_PHYS_OFFSET`] back out before handing the same frame on to entropy. Distinct from
-/// [`INIT_OUT_VA`] and never unmapped (this file's own BUGS: there is no unmap in the ABI), the
-/// same permanent-scratch cost that address already carries.
+/// [`INIT_OUT_VA`]. Given up with `UNMAP` the moment the offset is read (milestone 95 (an unmap
+/// primitive), §249 (a running address space stays nameable)); it was mapped for the life of the
+/// boot until then.
 const RNG_DMA_PEEK_VA: u64 = address_space_map::pair_page(0x0f10_0000);
 
 /// The DMA region's own physical base, written inside the page itself at its last eight bytes
@@ -868,10 +881,9 @@ const RNG_MODE_VIRTIO: u64 = 0;
 // -------------------------------------------------------------------------------------------
 
 /// Where this process briefly maps the network card's DMA page to read [`VIRTIO_DMA_PHYS_OFFSET`]
-/// back out, [`RNG_DMA_PEEK_VA`]'s twin and with its cost: never unmapped, because there is no
-/// unmap in the ABI, so this process keeps a writable view of the NIC's rings for the life of the
-/// boot. It already keeps one of every page it laid down for a child (this module's BUGS), so the
-/// exposure is one more page of a kind it already has, not a new kind.
+/// back out, [`RNG_DMA_PEEK_VA`]'s twin: given up with `UNMAP` once the offset is read (milestone 95
+/// (an unmap primitive)). Until then this process kept a writable view of the NIC's rings for the
+/// life of the boot.
 const NET_DMA_PEEK_VA: u64 = address_space_map::pair_page(0x0f30_0000);
 
 /// Where `net_stack` maps its DMA page. Must match `components/src/net_transport.rs`'s `DMA_VA`, the
@@ -1084,6 +1096,15 @@ pub fn boot(
     let Ok(fs) = nifefs::Fs::parse(archive) else {
         fail()
     };
+
+    // **Give every scratch page back as soon as it is in the child** (milestone 95 (an unmap
+    // primitive, and the mappings init never lets go), §249 (a running address space stays
+    // nameable)). First, before anything is built, so no boot server's page is ever left mapped
+    // here. A kernel that granted no slot 28 leaves the loader as it was: each page mapped until the
+    // child's region is destroyed, which for a boot server is never.
+    if is_granted(g.own_space) {
+        supervision_protocol::give_up_scratch_through(g.own_space);
+    }
 
     // **The table the progenitor measures what it loads against** (milestone 104). The kernel vouched for this
     // entry before it started us, exactly as it vouched for our own bytes
@@ -1389,6 +1410,8 @@ pub fn boot(
                             .cast::<u64>(),
                     )
                 };
+                // Read; the page is entropy's from here, so our view of it goes (milestone 95).
+                supervision_protocol::give_up_own_page(RNG_DMA_PEEK_VA);
                 let request = must(retype_obj(ut, abi::objtype::RENDEZVOUS));
                 let ready = must(retype_obj(ut, abi::objtype::RENDEZVOUS));
                 let entropy = must(build_child(
@@ -2494,9 +2517,9 @@ pub fn boot(
     let own_ut = must(memory_region_split(ut, INIT_OWN_PAGES));
     let jobs_ut = must(memory_region_split(ut, JOBS_BUDGET_PAGES));
     let images_ut = must(memory_region_split(ut, IMAGE_POOL_PAGES));
-    // The shell's output page, in our own space, so we can say what just happened. This mapping is
-    // permanent (there is no unmap, and `PageFrame::REVOKE` would take the page from the shell too); see
-    // this module's BUGS.
+    // The shell's output page, in our own space, so we can say what just happened. Given up with
+    // `UNMAP` after the last line, before the shell starts (`PageFrame::REVOKE` would have taken the
+    // page from the shell too); see this module's BUGS.
     // SAFETY: `invoke` traps to the kernel, which validates the capability and the method before
     // acting (user_mode_runtime's contract).
     if unsafe { invoke(term_out, abi::page_frame::MAP, INIT_OUT_VA, 1, ut) } != 0 {
@@ -2649,6 +2672,11 @@ pub fn boot(
     // `WRITE | GRANT` on an endpoint it never receives on. One resting slot, which the table has
     // (the peak is inside the login block above, and this capability was live through it anyway).
     cap_delete(term_out);
+    // And the window onto the shell's output page, which every line above was staged through and
+    // nothing below writes (milestone 95 (an unmap primitive), §249 (a running address space stays
+    // nameable)): given up before the shell starts, so this process cannot read what the shell
+    // prints or write into it.
+    supervision_protocol::give_up_own_page(INIT_OUT_VA);
 
     // 6. The undertaker, out of what is left of our own budget. Two capabilities and nothing else:
     // `READ` on the supervision endpoint, so it can free a job's memory and can never spend it, and
@@ -4057,6 +4085,8 @@ fn build_net_stack(ut: u64, program: &elf::Elf, g: &BootEndowment) -> (u64, u64)
                 .cast::<u64>(),
         )
     };
+    // Read; the rings are `net_stack`'s from here, so our view of them goes (milestone 95).
+    supervision_protocol::give_up_own_page(NET_DMA_PEEK_VA);
     let stack = must(retype_obj(ut, abi::objtype::RENDEZVOUS));
     let report = must(retype_obj(ut, abi::objtype::RENDEZVOUS));
     let budget = must(memory_region_split(ut, NET_STACK_BUDGET_PAGES));
@@ -4667,6 +4697,9 @@ fn copy_args(own_ut: u64, region: u64, theirs: u64) -> Option<u64> {
             spawnproto::IMAGE_PAGE as usize,
         );
     }
+    // Written, and the child's from here: give our window onto it up (milestone 95, §249). Without
+    // a capability to our own space this does nothing, and the region's reap takes it back as before.
+    supervision_protocol::give_up_own_page(ours);
     Some(page)
 }
 
@@ -4767,6 +4800,9 @@ fn receive_image(spawn_ep: u64, len: u64, own_ut: u64, images_ut: u64, stage: bo
                 core::ptr::copy_nonoverlapping(theirs as *const u8, ours as *mut u8, n);
             }
         }
+        // Copied (or abandoned): our view of the caller's frame is no longer needed, so give it up
+        // now rather than when the caller reclaims it (milestone 95, §249).
+        supervision_protocol::give_up_own_page(theirs);
     }
     match (staging, ok) {
         (Some(st), true) => Some(st),

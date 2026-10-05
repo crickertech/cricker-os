@@ -9,7 +9,7 @@ Built 2026-09-13. Minted the same day by the maintainer, from being one message 
 from asking calef to ratify `serial_driver` a second time. He had ratified it on 2026-09-08.
 *(Number provisional until the merge queue lands it.)*
 
-**This is a ladder move from rung four to rung two.** "One `Name:` block per file, in the parsed
+This is a ladder move from rung four to rung two. "One `Name:` block per file, in the parsed
 form" was already the rule. It existed as a convention 205 files happened to follow, with nothing
 that fires when one does not, which is `AGENTS.md`'s rung four wearing the clothes of a design. The
 two files that broke it broke it silently for a week.
@@ -22,7 +22,7 @@ ratified 2026-09-05. Two defects compounding, and neither alone would have been 
 1. **A stale `Name: provisional` block sat above the ratified one.** The lane that *proposed* each
    rename wrote a provisional block arguing the case; when the rename was performed and calef ruled
    it, a second block was added below and the first was never removed. `name_provenance.block()`
-   returns the **first** `Name:` block it finds, so the proposal is what the gate read.
+   returns the first `Name:` block it finds, so the proposal is what the gate read.
 2. **The ratified block could not have been read anyway.** Both were written
    `//! **Name: ratified 2026-09-08 (calef, milestone 264).**` and the parse is
    `^{prefix} ?Name:`, which the bold prefix does not match. These were the only two bolded blocks
@@ -83,7 +83,7 @@ That file's line 24 begins a paragraph `Name: provisional, minted by milestone 2
 2026-09-11.` inside its module docstring, deliberately, because `script/names` puts `helpers/` out
 of its own scope so the module carries no real block and that paragraph is the record instead.
 
-**It is handled by scope and needs no exemption**, which is worth saying plainly because the
+It is handled by scope and needs no exemption, which is worth saying plainly because the
 opposite would have been a foot gun `AGENTS.md` requires marking as one. `script/names` enumerates
 four surfaces (`crates/*/src/lib.rs`, `user/src/*.rs`, `script/*`, and every `Cargo.toml` outside
 `crates/`) and opens only those files. `helpers/name_provenance.py` is none of them and is never
@@ -92,7 +92,7 @@ one: the same posture `script/lint` check 5 keeps.
 
 ## What it found that nobody knew about
 
-**A third instance**, `crates/measured_boot/src/lib.rs:297`:
+A third instance, `crates/measured_boot/src/lib.rs:297`:
 
 ```
 /// Name: **provisional**. Under `nifefs`'s `NAME_LEN = 32` with room to spare.
@@ -117,12 +117,12 @@ question for calef rather than a lint to loosen.
   existing `NO_STATUS` / `NO_DATE` / `NO_CITATION`, so the judgement is shared and the wording stays
   at the caller.
 - `script/names`: `stray_problems()`, wired into `--check` and therefore into `script/lint`, and
-  reported **before** the "no `Name:` block" case rather than instead of it, because a file whose
+  reported before the "no `Name:` block" case rather than instead of it, because a file whose
   only block is unreadable is exactly the file whose unreadable block is worth pointing at.
 - `crates/measured_boot/src/lib.rs`: the item-level record above, reworded.
 - design/naming.md's *What is checked, and what cannot be*, item 7.
 
-**Verified in both directions.** Five faults were injected into a scratch copy of a clean file
+Verified in both directions. Five faults were injected into a scratch copy of a clean file
 (`crates/glob/src/lib.rs`) one at a time and the gate was watched to fire on each with the right
 reason: a stacked second block (`second`), a bolded header (`markup`), a two-space indented header
 (`indent`), a `///` header in a `//!` file (`marker`), and a `### Name:` heading (`markup`). The
@@ -132,17 +132,17 @@ right reason.
 
 ## BUGS
 
-- **It checks the header, not the block.** A file with exactly one well-spelled `Name:` line and
+- It checks the header, not the block. A file with exactly one well-spelled `Name:` line and
   three paragraphs of continuation contradicting it passes. That is the same limit `script/names`
   already records for the reason itself, and it is not closeable by a script.
-- **A continuation line that begins `Name:` would be read as a stray.** No block does this and it
+- A continuation line that begins `Name:` would be read as a stray. No block does this and it
   would be a strange thing to write, but the check reads lines rather than blocks, so a block whose
   second sentence started a line with the word "Name:" would report. The fix in that case is to
   reflow the sentence, and the gate names the line.
-- **An angle-bracket placeholder is the escape hatch and is not spelled out anywhere a contributor
-  meets it.** It is documented in the module and here. A lane that hits the gate on a genuine
+- An angle-bracket placeholder is the escape hatch and is not spelled out anywhere a contributor
+  meets it. It is documented in the module and here. A lane that hits the gate on a genuine
   example will read the module, which is one hop further than ideal.
-- **Nothing checks the fifth surface, because there is no fifth surface.** Names on things that are
+- Nothing checks the fifth surface, because there is no fifth surface. Names on things that are
   not a crate, a program, a `script/` entry point or a Cargo package (archive entries, wire strings,
   public functions since 2026-08-23, types, `helpers/` helpers) carry no gate at all. This milestone
   makes their records *quieter* rather than louder: the header spelling is now reserved for the

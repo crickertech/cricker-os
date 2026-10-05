@@ -39,14 +39,14 @@ workflow, no `script/ci-build` row, no ruleset entry.
   explicit that the mechanism is not refuted and the story is, so what would change this is evidence
   about pull requests as they land rather than about the diff in hand.
 
-  **MET on 2026-09-21, and this is the first refusal in the tree whose condition has come true.**
+  MET on 2026-09-21, and this is the first refusal in the tree whose condition has come true.
   Milestone 517 (what fraction of survivor growth arrives on lines a pull request touched) ran
-  exactly that experiment across the six weeks between the baseline and the census: **629 of 771
-  survivors sit on lines a merged pull request wrote**, against 142 on older lines of which **one**
+  exactly that experiment across the six weeks between the baseline and the census: 629 of 771
+  survivors sit on lines a merged pull request wrote, against 142 on older lines of which one
   is a genuine regression. Adoption would have meant 62 of 761 pull requests (8.1%) carrying
   untriaged survivors, median 6 each.
 
-  **calef ruled on 2026-09-21: it stays refused**, with the condition met and the measurement in
+  calef ruled on 2026-09-21: it stays refused, with the condition met and the measurement in
   hand. The evidential objection this condition named is answered; the other two that milestone 438
   (would a diff-scoped mutation check have caught the 55) raised are not, and they are what the
   refusal now rests on.
@@ -63,17 +63,17 @@ workflow, no `script/ci-build` row, no ruleset entry.
   cargo-mutants build directory: `xtask/src/suite.rs` builds the initrd, the images and the disks
   before the boot.
 
-  **And it has no rule for an artifact of the exclusion mechanism.** In milestone 438 (would a
+  And it has no rule for an artifact of the exclusion mechanism. In milestone 438 (would a
   diff-scoped mutation check have caught the 55)'s own sample, two of six survivors were artifacts
   rather than missing tests, on the pull request that added machine-checked proofs to that crate.
-  **A gate whose first act is to block a proof lane teaches the wrong thing about proofs**, and
+  A gate whose first act is to block a proof lane teaches the wrong thing about proofs, and
   nothing in the mechanism tells the two cases apart today.
 
   **What does not reopen it: more evidence that survivors arrive on touched lines.** That is settled
   at 629 against one, and `design/fatal-risks/README.md`'s risk 3 carries a green condition built on it
   which was deliberately written so the verdict does not depend on this gate existing. The triage it
-  asks for is measurable after the merge, weekly, without blocking anybody. **What this gate would
-  change is when the triage happens, not whether.**
+  asks for is measurable after the merge, weekly, without blocking anybody. What this gate would
+  change is when the triage happens, not whether.
 
 ## Index row
 

@@ -10,8 +10,8 @@ needs_person: no
 # 327. A credential endpoint that is the credential for one resource
 
 Filed 2026-09-03 as an unnumbered proposal by the milestone 247 sweep,
-from milestone 54's block; numbered 2026-09-19 by milestone 433. **Premise re-checked 2026-09-19 and
-it holds.** `crates/credential_protocol`'s `verify::VERIFY` is still one opcode whose request carries
+from milestone 54's block; numbered 2026-09-19 by milestone 433. Premise re-checked 2026-09-19 and
+it holds. `crates/credential_protocol`'s `verify::VERIFY` is still one opcode whose request carries
 the identity in the shared page (`place(&mut page, b"corinne", b"hunter2", verify::VERIFY)`), so a
 holder of a verify endpoint still chooses which record to test. Nothing has narrowed the wire since;
 the only change in that crate was the 2026-08-30 removal of `NTLM_PROOF` with the SMB
@@ -42,7 +42,7 @@ it was the caller that named a resource it was configured with. What remains is 
 on top. The extra authority is still on the wire and still unchosen, but nothing today is visibly
 harmed by it.
 
-**What makes it worth doing anyway is the direction of the cost.** Every program written against the
+What makes it worth doing anyway is the direction of the cost. Every program written against the
 current shape makes the change more expensive, and the next thing that authenticates anything will
 be written against it. Fixing a wire while it has four callers is a morning; fixing it after a
 rebuilt file service is a project. `notes/smb.md` recorded this as a next step rather than as an

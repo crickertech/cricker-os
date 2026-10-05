@@ -528,8 +528,9 @@ fn an_address_space_never_frees_a_region_it_was_lent() {
     let run = crate::testing::RegionRun::of(region);
     let name = user_address_space_create(region).expect("no address space from the region");
 
-    // Out of the registry, exactly as `ThreadControlBlock::CONFIGURE` does: from here the space is an owned value
-    // whose `Drop` is the thing under test, which is the shape the reaper holds it in.
+    // Out of the registry, exactly as a dead thread's reaper takes it (§249 (a running address
+    // space stays nameable)): from here the space is an owned value whose `Drop` is the thing under
+    // test, which is the shape the reaper holds it in.
     let space = take_user_address_space(name).expect("the space was not in the registry");
 
     // `reclaim_region`'s unpin, arriving BEFORE the drop. This one line is the whole race.

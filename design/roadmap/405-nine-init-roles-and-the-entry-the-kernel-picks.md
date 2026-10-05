@@ -18,7 +18,7 @@ still declares exactly those nine roles (`INIT` 20, `CHILD` 21, `DEV_CHILD` 22, 
 29), `ROLES_ENTRY` is still `"hello"` and is still read by `init_build` and one other parent to
 re-enter this binary's own image, `kernel::user::spawn_hello` still takes a role and always enters
 `HELLO_ENTRY`, and `crates/capability_witness_protocol` is there for the agreed words. The gate was
-`MILESTONE 268` and **it is cleared**: milestone 268 (every architecture boots the same way) turned
+`MILESTONE 268` and it is cleared: milestone 268 (every architecture boots the same way) turned
 BUILT on 2026-09-19, so nothing is rebuilding the boot sequence any more and this is ready to start.
 **This block also absorbs** milestone 399 (the six `init` roles in `hello`), which proposed
 renaming six of these nine constants and is `SUPERSEDED` for the reason 399's own successor gave
@@ -43,11 +43,11 @@ The other twenty-two came apart cheaply because the kernel spawns each of them d
 `run(image, Spawn { .. })`, so the only change was which bytes the caller passed. These nine do not,
 for two reasons:
 
-1. **`spawn_hello` always re-enters `HELLO_ENTRY`**, since milestone 166 moved the boot role's own
+1. **`spawn_hello` always re-enters `HELLO_ENTRY`, since milestone 166 moved the boot role's own
    entry out to `boot_progenitor`. Six parents becoming six programs makes that choice a table, or
    makes the entry a parameter the six call sites supply. The second is the smaller surface and is
    probably right; it is still a boot-path signature change.
-2. **The parents find their children by looking themselves up.** `ROLES_ENTRY` is the string
+2. **The parents find their children by looking themselves up. `ROLES_ENTRY` is the string
    `"hello"`, and `init_build` reads *this binary's own ELF* out of the archive and re-enters it at
    a different role. Split, each parent names its child's archive entry instead, which is the
    shape `init_console`, `init_least_authority_demo` and `init_coremark` already have (they load

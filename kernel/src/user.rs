@@ -96,8 +96,8 @@ pub struct AddressSpace {
     /// argument; this field is the kernel's end of it.
     ///
     /// **Per address space is per thread only because of §105 (`std::thread::spawn` stays
-    /// declined)**: `Tcb::CONFIGURE` consumes the address-space capability, so no two TCBs name one
-    /// space. The crate's `BUGS` section carries what has to change if that ever stops being true.
+    /// declined)**: `Tcb::CONFIGURE` refuses a space already bound to a thread (§249's amendment
+    /// (b)), so no two TCBs share one space. The crate's `BUGS` section carries what has to change if that ever stops being true.
     ///
     /// Allocated from the global frame allocator rather than retyped from `backing`'s region, which
     /// is the one place this differs from every other page a space owns. A lent region is sized by
@@ -282,6 +282,12 @@ impl AddressSpace {
     /// ordering argument is `current_cpu_protocol`'s and is not repeated here; its short form is
     /// that writer and reader are the same hardware thread, and that two successive writers are
     /// ordered by the scheduler's own release/acquire handoff rather than by anything this adds.
+    ///
+    /// The context switch reads [`BoundSpace::publish_current_cpu`] instead since §249, because the
+    /// space lives in the registry and the thread keeps a copy; this form is the tests' way to make
+    /// the same write by hand.
+    #[cfg(any(test, feature = "system_tests"))]
+    #[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
     #[inline]
     pub fn publish_current_cpu(&self, cpu: u64) {
         if let Some((_, kernel_va)) = self.current_cpu_page {
@@ -432,7 +438,6 @@ impl AddressSpace {
     /// The physical address of the L0 table: what page-table walks (translate, unmap,
     /// revocation) use. Not what goes in `TTBR0_EL1` any more; that is [`ttbr0`](Self::ttbr0),
     /// which carries the ASID too.
-    #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))] // the walkers that use it live in the tests
     pub fn root(&self) -> u64 {
         self.root.addr()
     }
@@ -451,23 +456,129 @@ static ASIDS: crate::sync::IrqSafeMutex<address_space_identifier::Allocator> =
         address_space_identifier::Allocator::new(),
     );
 
-/// The most user-built address spaces alive at once (milestone 19b). They are immortal until
-/// 19c wires process death, so this bounds creations for now; the revocation registry's
-/// `MAX_SPACES` (160) leaves room for all of them beside the exec-built spaces.
-const MAX_USER_SPACES: usize = 32;
+/// **How many address spaces the registry can name at once: every one the machine can hold.**
+///
+/// §249 (a running address space stays nameable) made the registry the owner of every space, bound
+/// to a thread or not, so a running process now holds an entry for as long as it lives. Until then
+/// this was 32 and named only spaces under construction, which was right while `CONFIGURE` moved a
+/// space out into its thread.
+///
+/// **The number is [`crate::revoke::MAX_SPACES`], and that is an argument rather than a
+/// coincidence.** Every [`AddressSpace`] registers with the revocation registry when it is built
+/// and leaves it only when it drops, so no more than that many spaces can exist at once, and an
+/// entry here holds exactly one. Sized the same, this table cannot fill while a space that wants an
+/// entry exists, which is what lets [`register_bound_address_space`] treat a full table as a broken
+/// invariant rather than an error every kernel spawn path would have to carry. The `const` assert
+/// below keeps the two from drifting apart; the revocation registry's own constant is the thread
+/// ceiling plus headroom, so the argument follows the thread ceiling when it moves.
+///
+/// What it costs, measured from the type rather than estimated: `registry_footprint`, which
+/// `system_tests`' `running_space_tests` prints, is 21,904 bytes of `.bss` on all three
+/// architectures at 288 slots (at 32 it was about a ninth of that; not measured then): 72 bytes an entry and a 4-byte
+/// generation each. That is the whole of what every process holding an entry needs, because the
+/// space's pages were always paid from its own region. Nothing walks the empty slots:
+/// `generational_table::Table` bounds every sweep by its highest live slot, and the context switch
+/// never reads this table at all ([`BoundSpace`]).
+const MAX_USER_SPACES: usize = crate::revoke::MAX_SPACES;
+const _: () = assert!(MAX_USER_SPACES >= crate::revoke::MAX_SPACES);
 
-/// **The user address-space registry** (milestone 19b): the kernel-side records behind
-/// `Object::AddressSpace` capabilities, named generationally like everything since milestone 14. The
-/// `AddressSpace` in the slot is the same type exec builds, so every mechanism that works on a
-/// process's space (region-paid tables, revocation logs, ASID tagging) works on a user-built
-/// one identically. Entries are never removed in 19b; their `Drop` (which would destroy a
-/// region the creator still holds a capability to) stays dormant until 19c designs teardown.
+/// **One registry entry: a space, and the thread bound to it if there is one** (§249; name
+/// provisional).
+///
+/// `bound` is ruling (b) of §249 made a field: `CONFIGURE` used to be stopped from binding a space
+/// twice only because it consumed the one name the space had, and §105 (`std::thread::spawn` stays
+/// declined) rested on that. The name survives a bind now, so the refusal is stated here instead,
+/// and [`bind_user_address_space`] reads it.
+struct Registered {
+    space: AddressSpace,
+    bound: Option<crate::thread::ThreadId>,
+}
+
+/// **What a thread keeps of the space it is bound to** (§249; name provisional): the registry's
+/// name for it, and the three values the context switch reads, copied out once at bind time.
+///
+/// The space itself lives in the registry, which owns it. The switch reads this instead, because
+/// it runs under `IPC_TABLES` and the registry's lock ranks above that one, so the switch could not
+/// take it, and should not want to on the hottest path in the kernel. All three are immutable for
+/// the life of the space: a space's root and its TLB tag are fixed at creation, and its current-CPU
+/// page is attached before the bind and freed only by its `Drop`.
+///
+/// **What makes the copy safe is who may drop the space**, and that is [`reap_address_spaces_in_region`]'s
+/// and the reaper's rule, not this type's: a bound space is dropped only once its thread can never
+/// be switched in again (it is gone from the thread table, or it is a corpse no core is standing
+/// on). So no switch ever reads a `BoundSpace` whose space has been freed.
+#[derive(Clone, Copy)]
+pub struct BoundSpace {
+    name: u64,
+    root: u64,
+    ttbr0: u64,
+    current_cpu_page: Option<u64>,
+}
+
+impl BoundSpace {
+    fn of(name: u64, space: &AddressSpace) -> Self {
+        BoundSpace {
+            name,
+            root: space.root(),
+            ttbr0: space.ttbr0(),
+            current_cpu_page: space.current_cpu_page.map(|(_, kernel_va)| kernel_va),
+        }
+    }
+
+    /// The registry's name for the space, which is what a thread's reaper takes it out by.
+    pub fn name(&self) -> u64 {
+        self.name
+    }
+
+    /// The physical address of the space's root table.
+    pub fn root(&self) -> u64 {
+        self.root
+    }
+
+    /// The composed `TTBR0_EL1` (or `satp`, or `CR3`) value the context switch installs.
+    pub fn ttbr0(&self) -> u64 {
+        self.ttbr0
+    }
+
+    /// `AddressSpace::publish_current_cpu`, from the copy: one branch and one relaxed store.
+    #[inline]
+    pub fn publish_current_cpu(&self, cpu: u64) {
+        if let Some(kernel_va) = self.current_cpu_page {
+            // SAFETY: the frame is the bound space's own, freed only by that space's `Drop`, and
+            // the space is dropped only after its thread can never be switched in again (this
+            // type's own doc). The caller is the one core switching this thread in, so it is the
+            // only writer for as long as the store takes.
+            unsafe { current_cpu_protocol::publish(kernel_va, cpu) };
+        }
+    }
+}
+
+/// **The address-space registry** (milestone 19b (run a real workload); since §249, the owner of every space a capability
+/// or a thread can name): the kernel-side records behind `Object::AddressSpace` capabilities, named
+/// generationally like everything since milestone 14 (kernel objects from untyped). The `AddressSpace` in the slot is the same
+/// type exec builds, so every mechanism that works on a process's space (region-paid tables,
+/// revocation logs, ASID tagging) works on a user-built one identically.
+///
+/// **Two removers, and a removal is take-once.** A space leaves when its thread is reaped
+/// (`sched::reap_switched_out`, by the name in the thread's [`BoundSpace`]) or when the region
+/// sweep takes it ([`reap_address_spaces_in_region`]). Both go through `Table::remove`, which hands
+/// the space out once and makes the name dead in the same step, so whichever comes second finds
+/// nothing and a double free is not representable. Deleting a capability removes nothing (§249's
+/// amendment (a)): a capability is a name, and it simply stops resolving once the space is gone.
 static USER_SPACES: crate::sync::IrqSafeMutex<
-    generational_table::Table<AddressSpace, MAX_USER_SPACES>,
+    generational_table::Table<Registered, MAX_USER_SPACES>,
 > = crate::sync::IrqSafeMutex::new(
     crate::sync::rank::ADDRESS_SPACES,
     generational_table::Table::new(),
 );
+
+/// **The registry's static footprint in bytes**, for the boot that reports it (§249's
+/// `MAX_USER_SPACES` raise; name provisional).
+#[cfg(any(test, feature = "system_tests"))]
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
+pub const fn registry_footprint() -> usize {
+    size_of::<generational_table::Table<Registered, MAX_USER_SPACES>>()
+}
 
 /// Create an address space **in and backed by** `region` (the `RETYPE_OBJ(ADDRESS_SPACE)` engine): the
 /// root page is retyped from it (pinning it, atomically with the carve), and the region becomes
@@ -496,7 +607,7 @@ pub fn user_address_space_create(region: u64) -> Option<u64> {
         // **Not attached here**, for the same reason the timebase page is not mapped here (the
         // comment below): this syscall serves every purpose that wants a bare address-space
         // object, most of which never run a thread and some of which are sized to the page. The
-        // space gets its page when a TCB binds it, in `sched::configure_thread_control_block`,
+        // space gets its page when a TCB binds it, in `bind_user_address_space`,
         // which is the moment it becomes a thread's space and therefore the moment the question
         // "which CPU am I on" starts having an answer.
         current_cpu_page: None,
@@ -513,9 +624,13 @@ pub fn user_address_space_create(region: u64) -> Option<u64> {
     // belongs: see that crate's own code for the targeted fix, which writes the page from the rate
     // the *parent* already holds, so a child reads its parent's measured number and a parent that
     // knows nothing hands down nothing rather than a plausible constant.
-    let name = USER_SPACES.lock().insert_with(|_| space);
+    let name = USER_SPACES
+        .lock()
+        .insert_with(|_| Registered { space, bound: None });
     if name.is_none() {
-        // Undo the bookkeeping; the page stays spent on the caller's budget.
+        // Undo the bookkeeping; the page stays spent on the caller's budget. (Unreachable while
+        // `MAX_USER_SPACES` covers the revocation registry, which `register_space` above already
+        // admitted this space to; kept because the value would otherwise be dropped unregistered.)
         crate::revoke::forget_root(root);
         ASIDS.lock().free(asid);
     }
@@ -544,7 +659,7 @@ pub fn user_address_space_map(
     under: crate::revoke::PageMapSource,
 ) -> Result<(), MapError> {
     let mut spaces = USER_SPACES.lock();
-    let space = spaces.get_mut(name).ok_or(MapError::NotMapped)?;
+    let space = &mut spaces.get_mut(name).ok_or(MapError::NotMapped)?.space;
 
     // `map_physical` maps and records in one step since 2026-09-21, including the unmap-and-refuse
     // on an unrecordable mapping that used to live here: this function was the one caller that
@@ -562,73 +677,166 @@ pub fn user_address_space_map(
     Ok(())
 }
 
-/// The root table of a user-built space, named generationally like the registry it reads.
+/// The root table of a space the registry names, bound or not.
 ///
 /// Built for tests (so a walker can ask what a space really maps) and now also
 /// `abi::address_space::LIST`'s way in (milestone 126's `pmap`, DECISIONS §114): the syscall handler
 /// resolves the capability's `name` to a root here before consulting `revoke::list_mapping` and
-/// `arch::mmu::translate_at`. `None` once the name is gone from the registry, which is
-/// `ThreadControlBlock::CONFIGURE`'s doing the moment a space is bound to a thread (`take_user_address_space` removes
-/// the entry): a `LIST` against a capability that outlived its space's registry membership reads
-/// as "nothing to report," the same as an empty space, because the capability itself was never
-/// refused and the kernel has nothing left to say about where it used to point.
+/// `arch::mmu::translate_at`. `None` once the space is gone: its thread was reaped or its region
+/// destroyed (§249). A `LIST` against a capability that outlived its space reads as "nothing to
+/// report," the same as an empty space, because the capability itself was never refused and the
+/// kernel has nothing left to say about where it used to point.
 pub fn user_address_space_root(name: u64) -> Option<u64> {
-    USER_SPACES.lock().get(name).map(|s| s.root())
+    USER_SPACES.lock().get(name).map(|e| e.space.root())
 }
 
-/// **Run `f` with the user-built space `name` under the registry lock**, `None` if the name does not
-/// resolve. `AddressSpace::MAP_INTO`'s way in (the map-revocation-window lane, 2026-10-04 UTC; name
-/// provisional): it must hold this registry (`ADDRESS_SPACES`, 61) *above* the mapping registry
-/// (`MAPPINGS`, 59) for its whole run, so it cannot go through [`user_address_space_map`], which
-/// takes and drops this lock once per page. The `Option` is handed in rather than checked here so
-/// the caller keeps its own refusal order: a frame that is not there answers before a space that is
-/// not there, as it always has.
+/// **Run `f` with the space `name` under the registry lock**, `None` if the name does not
+/// resolve. `AddressSpace::MAP_INTO`'s and `UNMAP`'s way in (the map-revocation-window lane,
+/// 2026-10-04 UTC; name provisional): it must hold this registry (`ADDRESS_SPACES`, 61) *above* the
+/// mapping registry (`MAPPINGS`, 59) for its whole run, so it cannot go through
+/// [`user_address_space_map`], which takes and drops this lock once per page. The `Option` is
+/// handed in rather than checked here so the caller keeps its own refusal order: a frame that is
+/// not there answers before a space that is not there, as it always has.
+///
+/// Since §249 a running space resolves here too, so a mapping changed through it may be one a core
+/// is translating through right now. That is why `UNMAP` unmaps with the function every revoke uses,
+/// whose TLB obligation reaches every core.
 pub fn with_user_address_space<R>(name: u64, f: impl FnOnce(Option<&mut AddressSpace>) -> R) -> R {
     let mut spaces = USER_SPACES.lock();
-    f(spaces.get_mut(name))
+    f(spaces.get_mut(name).map(|e| &mut e.space))
 }
 
-/// **Take a user-built address space out of the registry** (milestone 19c.3): `ThreadControlBlock::CONFIGURE`
-/// moves it into the TCB, so it stops being a standalone object and starts dying with the
-/// thread. `None` if the name does not resolve. This is what retires 19b's "immortal until 19c"
-/// note: a bound space is reaped, an unbound one still leaks until teardown wiring, which is the
-/// half-built audit's job.
-pub fn take_user_address_space(name: u64) -> Option<AddressSpace> {
-    USER_SPACES.lock().remove(name)
-}
-
-/// **Tear down every user address space whose root page lies in `[base, end)`** (object revocation,
-/// the address-space case): each removed `AddressSpace` drops here, and its `Drop` forgets its
-/// revocation records and frees its ASID (its region's memory comes back at the enclosing
-/// `reclaim_region`, which unpins after this). This retires the "an unbound one still leaks" note on
-/// `take_user_address_space`: a space created but never bound into a TCB is reclaimed with its region.
+/// **Bind the space `name` to the embryo `tid`** (`ThreadControlBlock::CONFIGURE`'s engine since
+/// §249; name provisional). The space stays in the registry and keeps its name, which is the whole
+/// of §249's option A: a copy of the capability made before `CONFIGURE` still names the space while
+/// its thread runs.
 ///
-/// Bound spaces are **not** here: `CONFIGURE` moved them out of this registry into a TCB, so they
-/// die with the thread (`Thread`'s drop), not through this sweep. Takes only the address-space registry
-/// lock, no `IPC_TABLES`, so `sched::reclaim_region` runs it as a step separate from the thread reap.
+/// `NoSuchSlot` if the name does not resolve. **`WrongObject` if the space is already bound**, which
+/// is §249's amendment (b), the answer a second `CONFIGURE` of a started thread already gives:
+/// §105 (`std::thread::spawn` stays declined) stands because this refusal is stated rather than
+/// inherited from a consumed name.
+///
+/// `bind` is called with the copy the thread will keep, under this registry's lock, and takes
+/// `IPC_TABLES` itself (60, below this one's 61, so the nesting is the rank order's own direction).
+/// That makes the bind one critical section across both tables: no region sweep can see a space
+/// marked bound to a thread that does not have it, or the reverse. If `bind` refuses, the entry is
+/// left unbound. The current-CPU page is attached first, because the copy carries its address; a
+/// space that goes on to be refused keeps it, which is harmless (the attach is idempotent, and the
+/// page dies with the space).
+pub fn bind_user_address_space(
+    name: u64,
+    tid: crate::thread::ThreadId,
+    bind: impl FnOnce(BoundSpace) -> Result<(), abi::Error>,
+) -> Result<(), abi::Error> {
+    let mut spaces = USER_SPACES.lock();
+    let entry = spaces.get_mut(name).ok_or(abi::Error::NoSuchSlot)?;
+    if entry.bound.is_some() {
+        return Err(abi::Error::WrongObject);
+    }
+    entry.space.attach_current_cpu_page();
+    bind(BoundSpace::of(name, &entry.space))?;
+    entry.bound = Some(tid);
+    Ok(())
+}
+
+/// **Put a space the kernel built into the registry, already bound to `tid`** (`sched::adopt_address_space`'s
+/// half, §249; name provisional), and return the copy the thread keeps.
+///
+/// Infallible because it cannot fail: [`MAX_USER_SPACES`] covers every space the revocation
+/// registry can hold, and this one is registered there. A full table here is a broken invariant,
+/// not a resource limit, so it panics with that sentence rather than handing every kernel spawn
+/// path an error it could never act on.
+pub fn register_bound_address_space(
+    space: AddressSpace,
+    tid: crate::thread::ThreadId,
+) -> BoundSpace {
+    let mut spaces = USER_SPACES.lock();
+    let mut copy = None;
+    spaces
+        .insert_with(|name| {
+            copy = Some(BoundSpace::of(name, &space));
+            Registered {
+                space,
+                bound: Some(tid),
+            }
+        })
+        .expect("the address-space registry is full, which MAX_USER_SPACES says cannot happen");
+    copy.expect("insert_with names the entry before it stores it")
+}
+
+/// **Take a space out of the registry**: the reaper's half of the take-once removal (§249), and the
+/// system tests' way of ending a space without a thread. `None` if the name does not resolve, which
+/// for the reaper means the region sweep took it first. The space drops in the caller, outside this
+/// registry's lock, because its `Drop` takes the revocation, region and ASID locks.
+pub fn take_user_address_space(name: u64) -> Option<AddressSpace> {
+    USER_SPACES.lock().remove(name).map(|e| e.space)
+}
+
+/// **Tear down every space a region's destruction ends** (object revocation, the address-space
+/// case; widened by §249). Each removed `AddressSpace` drops here, and its `Drop` forgets its
+/// revocation records and frees its ASID (its region's memory comes back at the enclosing
+/// `reclaim_region`, which unpins after this).
+///
+/// Three kinds of entry go, and the registry owning bound spaces (§249) is what made the second and
+/// third reachable here at all:
+///
+/// 1. **An unbound space whose root is in `[base, end)`**: built from the region, never bound.
+/// 2. **A bound space whose thread is gone from the thread table**, wherever its root lives. This is
+///    a thread `reap_region_objects` just removed because its TCB was in the region: removing a
+///    `Thread` drops nothing of its space now, so the space is collected here, in the same
+///    `reclaim_region`, before the region is unpinned.
+/// 3. **A bound space whose root is in the span and whose thread is a corpse no core stands on**
+///    (`Dead` or `Finished`, off its stack). The corpse can never be switched in again, so taking its
+///    space is safe, and it is what closes the gap `notes/naming-a-running-address-space.md` found
+///    by reading: a corpse whose TCB is outside the region used to keep its space, so the region came
+///    back while the corpse still owned the root, and the corpse's later drop forgot the revocation
+///    records of whoever was given that page next. Its reaper now finds the name dead and drops
+///    nothing.
+///
+/// **A bound space whose thread can still run is left alone**, root in the span or not. That is the
+/// hole milestone 765 (a destroyed region cannot free the root a running thread walks) closes, by
+/// making `reap_region_objects` refuse and kill such a thread first; until then it stands exactly as
+/// it stood before §249, recorded at `revoke::revoke_region`. A corpse still standing on its stack
+/// (`on_cpu`) is counted with the runnable ones for the same reason: a core still has its root
+/// installed.
+///
+/// Takes the registry lock and, under it, `IPC_TABLES` once per scan to ask about the threads (61
+/// then 60, the rank order's direction). Never drops an `AddressSpace` under either.
 pub fn reap_address_spaces_in_region(base: u64, end: u64) {
-    // Find-then-remove one at a time, never dropping an `AddressSpace` while holding the registry
-    // lock: its `Drop` takes the revocation, region, and ASID locks, and must not do so under ours.
     loop {
         let victim = {
             let spaces = USER_SPACES.lock();
-            spaces.iter().find_map(|(name, space)| {
-                let root = space.root.addr();
-                (base <= root && root < end).then_some(name)
+            crate::sched::with_binders(|binder| {
+                spaces.iter().find_map(|(name, entry)| {
+                    let root = entry.space.root.addr();
+                    let in_span = base <= root && root < end;
+                    let goes = match entry.bound {
+                        None => in_span,
+                        Some(tid) => match binder(tid) {
+                            crate::sched::Binder::Gone => true,
+                            crate::sched::Binder::Corpse => in_span,
+                            crate::sched::Binder::CanRun => false,
+                        },
+                    };
+                    goes.then_some(name)
+                })
             })
         };
         let Some(name) = victim else { break };
-        // `remove` returns the space; the registry lock is released at the `;`, then the space drops.
+        // `remove` returns the entry; the registry lock is released at the `;`, then the space drops.
         let space = USER_SPACES.lock().remove(name);
         drop(space);
     }
 }
 
-/// Put a space back into the registry (milestone 19c.3): the unwind path if `CONFIGURE` took a
-/// space and then could not bind it. It gets a fresh name; the caller's stale address space cap will no
-/// longer resolve, which is correct (the operation failed, but the space is not lost).
+/// Put a space the kernel built into the registry, unbound, and return its name: how a kernel
+/// spawn path that builds a process the way userspace does (`CONFIGURE` by name) gets one. Named for
+/// milestone 19c.3's unwind path, which it no longer serves: since §249 a refused bind leaves the
+/// space where it was.
 pub fn readopt_user_address_space(space: AddressSpace) -> Option<u64> {
-    USER_SPACES.lock().insert_with(|_| space)
+    USER_SPACES
+        .lock()
+        .insert_with(|_| Registered { space, bound: None })
 }
 
 impl Drop for AddressSpace {
@@ -2048,7 +2256,7 @@ pub fn riscv_uart_driver_demo(
 /// at 13-15 (milestone 590 (the booted system starts its network stack)) when each is present.
 /// That fills sixteen of the table's
 /// thirty-two slots at spawn (the GPU and keyboard grants at 17-22 and the machine statistics page
-/// at 23 came later), which is why the progenitor spends the net trio before anything else.
+/// at 23 came later, and the progenitor's own address space at 28, §249, later still), which is why the progenitor spends the net trio before anything else.
 /// `components/src/progenitor.rs`'s single `GRANTS` table reads exactly this. Until milestone 166
 /// aarch64's boot carried two extra capabilities at slots 1 and 3 (a report endpoint and a test
 /// interrupt) that the interactive system never used, only because its loader was shared with
@@ -2404,6 +2612,25 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     )
     .expect("insert the machine statistics page");
     assert_eq!(s23, 23);
+    // **The progenitor's own address space** (slot 28, §249 (a running address space stays
+    // nameable), its 2026-10-05 amendment; field name `own_space`, provisional). `WRITE` alone, so
+    // the progenitor can `UNMAP` each scratch page it filled for a child once the page is in the
+    // child (milestone 95 (an unmap primitive)), and `MAP_INTO` its own space, which `PageFrame::MAP`
+    // already let it do. No `GRANT`: nothing else is ever handed authority over the progenitor's
+    // memory, and a right it does not hold is one it cannot pass on by mistake. No `ENUMERATE`
+    // either, because nothing it does needs to list itself.
+    //
+    // Granted on every boot so its slot never moves, past the USB keyboard's conditional slot 27 for
+    // the reason every conditional group above gives. It names `aspace_name`, which `CONFIGURE`
+    // below no longer retires (§249's option A), so this capability goes on resolving while the
+    // progenitor runs and goes dead the moment its thread is reaped.
+    let s28 = crate::sched::thread_control_block_insert_cap(
+        tid,
+        crate::cap::address_space_cap(aspace_name, Rights::WRITE),
+        Some(28),
+    )
+    .expect("insert the progenitor's own address space");
+    assert_eq!(s28, 28);
     // **The kernel's ring, its cursor page and its notification** (slots 24 to 26, milestone 342
     // (the kernel and the `console` server drive one UART from two address spaces), calef's
     // ruling F): the ring read-only so the log service can copy kernel lines out and never write

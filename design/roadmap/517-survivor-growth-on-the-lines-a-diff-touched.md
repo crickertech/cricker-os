@@ -10,15 +10,15 @@ Built 2026-09-21 (all dates UTC; the measurements ran through the evening of
 number milestone 438 (would a diff-scoped mutation check have caught the 55) named as his to ask
 rather than a lane's to answer. *(Number provisional until the merge queue lands it.)*
 
-**The answer is 81.6%, and the shape of the other 18.4% is the part that decides anything.** Of the
-771 survivors standing in the 2026-09-14 census, **629 sit on a line a pull request in the window
-rewrote or added**, and a diff-scoped check running on that pull request would have reported them.
-The remaining **142 sit on lines older than the window**, and every one of them was checked against
+The answer is 81.6%, and the shape of the other 18.4% is the part that decides anything. Of the
+771 survivors standing in the 2026-09-14 census, 629 sit on a line a pull request in the window
+rewrote or added, and a diff-scoped check running on that pull request would have reported them.
+The remaining 142 sit on lines older than the window, and every one of them was checked against
 a mutation run of the tree as it stood on 2026-08-03: **141 were already survivors then, and one was
 not**.
 
 So the inflow hypothesis holds on the measurement: survivors arrive with new code, not by old code
-quietly losing its tests. **One counter-example exists and is named below**, which is what keeps this
+quietly losing its tests. One counter-example exists and is named below, which is what keeps this
 a measurement rather than a slogan.
 
 ## Nothing here is switched on
@@ -32,10 +32,10 @@ answers that condition, and this lane does not answer it.
 ## The method, because the method is what the number rests on
 
 Milestone 438's own `BUGS` said the experiment needed pull requests its clone did not contain, and
-that this tree could not replay them. **That is no longer true for two reasons, and neither of them
-is a deeper fetch.**
+that this tree could not replay them. That is no longer true for two reasons, and neither of them
+is a deeper fetch.
 
-**The main checkout has the whole history.** 4,957 commits back to 2026-07-12, so every pull request
+The main checkout has the whole history. 4,957 commits back to 2026-07-12, so every pull request
 in the window is present and `git archive` reaches any of them.
 
 **And the census does not have to be re-run, because it kept its receipts.** The weekly workflow
@@ -45,16 +45,16 @@ uploads one artifact per shard, each with `missed.txt` naming every survivor by
 [2026-09-19](https://github.com/nifeos/nife/actions/runs/35421192143) are both still
 downloadable. `design/fatal-risks/README.md`'s risk 3 says the 2026-09-14 census's per-crate numbers
 "were never written into the tree", and that is true of the tree; the artifacts carry something
-stronger than per-crate numbers, one line per survivor, and have been sitting there the whole time. The 2026-09-14 run's 8 shards hold exactly **771** lines, the
+stronger than per-crate numbers, one line per survivor, and have been sitting there the whole time. The 2026-09-14 run's 8 shards hold exactly 771 lines, the
 census's own number, at head `e25f519a`.
 
 So the measurement is two steps and no census:
 
-1. **Blame every survivor line** at the census commit. A survivor whose line's last touch is inside
+1. Blame every survivor line at the census commit. A survivor whose line's last touch is inside
    the window is a line some pull request in the window wrote; one whose last touch predates
    2026-08-03 is a line no in-window diff contained, so no diff-scoped check running in the window
    could ever have seen it.
-2. **Replay `cargo mutants --in-diff` against the pull requests blame names**, to find out whether
+2. Replay `cargo mutants --in-diff` against the pull requests blame names, to find out whether
    the proxy tells the truth. It is a proxy in a specific direction: blame reports the *last* touch,
    so a rename or a lint fix that rewrites a line re-blames a survivor that is much older than the
    commit it now points at, and the gate at that commit would not have reported it.
@@ -67,9 +67,9 @@ So the measurement is two steps and no census:
 | on a line last touched **in the window** (after 2026-08-03) | **629** | **81.6%** |
 | on a line **older than the window** | 142 | 18.4% |
 
-**The 629 are concentrated, which is the finding under the finding.** They are blamed to **80
-commits** in **62 pull requests**, out of **761 pull requests merged in the window**. The median
-such pull request carries **6** survivors; the largest carries 79.
+The 629 are concentrated, which is the finding under the finding. They are blamed to 80
+commits in 62 pull requests, out of 761 pull requests merged in the window. The median
+such pull request carries 6 survivors; the largest carries 79.
 
 | pull request | what landed | survivors |
 |---|---|---|
@@ -79,14 +79,14 @@ such pull request carries **6** survivors; the largest carries 79.
 | [#130](https://github.com/nifeos/nife/pull/130) | milestone 40 (documentation as a system service), renderer and all | 43 |
 | [#451](https://github.com/nifeos/nife/pull/451) | milestone 161 (the x86_64 kernel port), ACPI parsing included | 42 |
 
-**A whole new crate landing is what this instrument sees**, which is the same thing
+A whole new crate landing is what this instrument sees, which is the same thing
 `design/fatal-risks/README.md`'s risk 3 already says from the corpus side when it reports that the
 like-for-like gap is "exactly the 26 crates that did not exist at baseline". The two records agree,
 measured from opposite ends.
 
 ### The bound on 81.6%, stated as a range
 
-**It is 68% to 85% across the plausible boundaries, and 81.6% at the right one.** The baseline run
+It is 68% to 85% across the plausible boundaries, and 81.6% at the right one. The baseline run
 is dated 2026-08-03 with no hour recorded, so the cut is a day rather than an instant, and the
 window's first two days are unusually dense:
 
@@ -96,7 +96,7 @@ window's first two days are unusually dense:
 | **2026-08-03 (the baseline's own date)** | **81.6%** |
 | 2026-08-05 | 68.1% |
 
-The 13-point drop between the third row and the second is **one day**: 104 survivors are blamed to
+The 13-point drop between the third row and the second is one day: 104 survivors are blamed to
 commits of 2026-08-04, the day after the baseline. Those are unambiguously in the window; the row is
 in the table to show how much of the answer rides on two days of a six-week window, not because
 68.1% is a candidate answer.
@@ -105,8 +105,8 @@ in the table to show how much of the answer rides on two days of a six-week wind
 
 Each replay is `cargo mutants --in-diff` against that commit's own diff, inside a `git archive` of
 the commit, tool pinned at 27.1.0, the same shape milestone 438 used. The question is not how many
-survivors the gate reports; it is whether **the survivors blame attributes to that commit are among
-them**.
+survivors the gate reports; it is whether the survivors blame attributes to that commit are among
+them.
 
 | replay | commit | survivors blame attributes | reported by `--in-diff` | mutants, wall clock |
 |---|---|---|---|---|
@@ -124,40 +124,40 @@ include both the concentrated case and the tail, and the two smallest samples we
 clippy fix, where blame would plausibly be pointing at a cosmetic rewrite of an older line. Both
 reported their attributed survivor.
 
-**One of them nearly read as a failure and the reason is worth keeping.** `858a1268` reported
+One of them nearly read as a failure and the reason is worth keeping. `858a1268` reported
 `crates/isa/src/plic.rs: replace < with <= in PlicContexts::from_device_tree` and the census names
 `crates/machine_discovery/src/plic.rs` for the same mutant: `isa` was renamed to `machine_discovery`
 later in the window. A comparison keyed on the path scores that as a miss. Mutants have to be
 matched on the function and the mutation, not on where the file lived that week.
 
-**The replays also report more than blame attributes**, 82 against 76 and 22 against 5, because a
+The replays also report more than blame attributes, 82 against 76 and 22 against 5, because a
 pull request's diff contains lines other commits wrote and the gate mutates all of them. That
 direction costs a contributor work and does not change this fraction.
 
 ## The other 18.4%: pre-existing, with exactly one exception
 
 The 142 survivors on old lines are the population an inflow gate is structurally blind to, and
-whether that matters depends entirely on whether they are **old survivors** (which the corpus rate
-owns and which no inflow gate was ever meant to catch) or **regressions**, code that used to be
+whether that matters depends entirely on whether they are old survivors (which the corpus rate
+owns and which no inflow gate was ever meant to catch) or regressions, code that used to be
 tested and quietly stopped being.
 
 That is answerable without a census: run the mutation over the tree as it stood at the window's
 start and ask, mutant by mutant, whether each of the 142 was already a survivor then. The tree at
 `c87c1575`, the 2026-08-03 merge of milestone 85 (mutation testing over the host crates), is that
-tree, and every crate holding an old-line survivor was run against it: **4,730 mutants over 27
-packages, 2 hours 9 minutes on this laptop, 152 survivors.**
+tree, and every crate holding an old-line survivor was run against it: 4,730 mutants over 27
+packages, 2 hours 9 minutes on this laptop, 152 survivors.
 
 | the 142 survivors on old lines | count |
 |---|---|
 | already a survivor on 2026-08-03 | **141** |
 | caught on 2026-08-03, surviving at the census | **1** |
 
-**The one regression is `compositor`'s `replace * with + in Rect::area`.** On 2026-08-03 that mutant
+The one regression is `compositor`'s `replace * with + in Rect::area`. On 2026-08-03 that mutant
 is in `caught.txt`, with the three others the same function generates; at the census it is a
 survivor, on a line nobody in the window touched. It is exactly the case a diff-scoped inflow gate
 cannot see, it is real, and out of 771 survivors it is one.
 
-**Three near-misses are worth recording because they are the trap in this comparison**, and all three
+Three near-misses are worth recording because they are the trap in this comparison, and all three
 read as regressions until the rename is undone: `page_frames`' two (`FrameAllocator` became
 `PageFrameAllocator`) and `inter_process_communication`'s one (`Endpoint` became `Rendezvous`). The
 mutation text is identical and the type name is not, so a comparison keyed on the printed mutant
@@ -168,11 +168,11 @@ on `isa` becoming `machine_discovery`, in a tree that renames deliberately and o
 
 This is milestone 438's third objection and the one that decides whether an inflow gate can carry
 risk 3 at all: a kernel change passes by construction today, because
-`.cargo/mutants.toml` excludes both trees. **The honest answer is that it is mechanically possible,
-nobody has to invent anything, and the price is between two and three orders of magnitude.**
+`.cargo/mutants.toml` excludes both trees. The honest answer is that it is mechanically possible,
+nobody has to invent anything, and the price is between two and three orders of magnitude.
 
-**The corpus would roughly double.** `cargo mutants --no-config --list` generates **7,529** mutants
-for `kernel` and **3,482** for `components`, against a census corpus of about 9,300 viable mutants
+The corpus would roughly double. `cargo mutants --no-config --list` generates 7,529 mutants
+for `kernel` and 3,482 for `components`, against a census corpus of about 9,300 viable mutants
 today.
 
 **The mechanism already exists and is not the problem.** `.cargo/config.toml` sets a `runner` for
@@ -183,8 +183,8 @@ reason, that these are "crates whose lines cannot execute on the host", is true 
 
 **The price is the test command, and it is not a harness problem, it is a wall-clock problem.** The
 kernel suite is one QEMU boot that runs every test: `xtask/src/suite.rs` records the aarch64 leg at
-**about 53 seconds for 312 tests**, and `kernel/build.rs` records a kernel relink at **about 2.3
-seconds**. So a kernel mutant costs about **55 seconds**, against the fraction of a second a host
+about 53 seconds for 312 tests, and `kernel/build.rs` records a kernel relink at about 2.3
+seconds. So a kernel mutant costs about 55 seconds, against the fraction of a second a host
 crate's mutant costs.
 
 | | mutants | at ~55s each, serial | per architecture, 8 shards |
@@ -193,18 +193,18 @@ crate's mutant costs.
 | `components` | 3,482 | 53 hours | 7 hours |
 | both | 11,011 | **168 hours** | **21 hours** |
 
-§19 (architectural parity is a tenet) makes it a gate, so multiply by three architectures: **about 500 hours of
-runner time per census**, against the 52 minutes the whole host corpus costs today. A 21-hour shard
+§19 (architectural parity is a tenet) makes it a gate, so multiply by three architectures: about 500 hours of
+runner time per census, against the 52 minutes the whole host corpus costs today. A 21-hour shard
 also exceeds GitHub's per-job ceiling, so the sharding would have to be roughly quadrupled before
 the run is even expressible.
 
-**Three things make it worse than that arithmetic, and one makes it better.**
+Three things make it worse than that arithmetic, and one makes it better.
 
 - **A kernel mutant that hangs the boot costs the timeout, not the suite.** Mutating a scheduler or
   an MMU path does not fail a test, it wedges the machine, and the suite has no way to fail fast. On
   the host corpus, timeouts are already the dominant cost of the one parser change milestone 438
   measured.
-- **`components` has no tests of its own.** Zero `#[test]` and zero `#[cfg(test)]` in
+- `components` has no tests of its own. Zero `#[test]` and zero `#[cfg(test)]` in
   `components/src`; what proves it is `kernel/src/user/tests.rs`, 3,195 lines of kernel-side tests
   that boot the whole system and run the programs. cargo-mutants can express that
   (`--test-package kernel`), so the mutant is testable, but every components mutant pays the full
@@ -212,18 +212,18 @@ the run is even expressible.
 - **The kernel test leg is not `cargo test`, it is `cargo xtask test`,** and the difference is
   scaffolding: `suite.rs` builds the std exerciser, every user program, the initrd, the RedoxFS
   images, a GPT disk, a blank disk and an NVMe image, and sets `NIFE_GPU`, `NIFE_KEYBOARD`,
-  `NIFE_RNG` and `NIFE_NVME` before the boot. Several tests **assert** those devices are present
+  `NIFE_RNG` and `NIFE_NVME` before the boot. Several tests assert those devices are present
   rather than skipping. In a cargo-mutants build directory none of that exists, so the unmutated
   baseline fails and the run refuses to start. Making the runner self-sufficient under a mutation
   flag is real work, and it is the smallest piece of this.
-- **The one thing in its favour:** `--in-diff` makes the wall clock scale with the diff rather than
+- The one thing in its favour: `--in-diff` makes the wall clock scale with the diff rather than
   the corpus, so a *diff-scoped* kernel check is affordable where a kernel census is not. A pull
   request touching ten kernel lines is a handful of mutants at 55 seconds, which is minutes. The
   expensive thing is the standing corpus, not the derivative.
 
-**So the honest verdict has two halves.** A kernel *census* at the current cadence is not feasible
+So the honest verdict has two halves. A kernel *census* at the current cadence is not feasible
 and should not be attempted: 500 hours a week to measure a suite is a worse use of the machine than
-anything it would find. A kernel **diff-scoped** check is feasible, costs minutes on a kernel pull
+anything it would find. A kernel diff-scoped check is feasible, costs minutes on a kernel pull
 request, and is the only version of "put the kernel in the corpus" that this project can pay for.
 Nobody has priced the scaffolding half, which is the piece that would need a lane.
 
@@ -233,28 +233,28 @@ Nobody has priced the scaffolding half, which is the piece that would need a lan
 it. The condition below is offered against the ruling of 2026-09-20 that the green condition should
 be inflow, with the corpus rate as a lagging indicator.
 
-**The measurement supports the inflow framing, and it says how strongly.** Over six weeks the tree
-gained **629 survivors on lines pull requests wrote** and **one** on a line nobody touched. Decay of
+The measurement supports the inflow framing, and it says how strongly. Over six weeks the tree
+gained 629 survivors on lines pull requests wrote and one on a line nobody touched. Decay of
 old code is real and it is running about three orders of magnitude behind inflow, so inflow is not
 merely most of the problem, it is nearly all of it, and a condition written about it is a condition
 written about the thing that is happening.
 
-**That one is still why the condition needs a second clause.** An inflow-only condition cannot see
+That one is still why the condition needs a second clause. An inflow-only condition cannot see
 `Rect::area` at all, and the failure it would miss is silent by construction: nobody is editing the
 code, so nothing prompts anyone to look. A trailing clause costs nothing, because the census already
 runs weekly, and it is what stops this entry repeating the defect risk 3's own text names in its
 predecessor, "a condition written for one quantity being applied to another".
 
-**Proposed wording, two clauses, and the second is what makes the first safe:**
+Proposed wording, two clauses, and the second is what makes the first safe:
 
-> **Green when both hold.** (a) **Inflow:** the survivors a merged pull request adds on its own
+> Green when both hold. (a) Inflow: the survivors a merged pull request adds on its own
 > lines, measured by `cargo mutants --in-diff` on the merged diff, are zero or triaged into a test,
 > an exclusion with a reason, or a recorded gap, under milestone 85's rule, for every pull request
-> since the last census. (b) **Trailing:** the like-for-like census rate has not fallen between the
+> since the last census. (b) Trailing: the like-for-like census rate has not fallen between the
 > two most recent censuses. Amber if (a) holds and (b) does not, because that is coverage decaying
 > on code nobody is editing, which is a different defect and wants a different repair.
 
-**Why (a) rather than "the gate is on".** A condition that requires a blocking gate makes the fatal
+Why (a) rather than "the gate is on". A condition that requires a blocking gate makes the fatal
 risk hostage to a decision milestone 479 refused on evidence that has not changed. The measurement
 is available without the gate: the replay costs four seconds on a documentation change and under two
 minutes on the largest crate landing in six weeks, and it can run after the merge, weekly, over the
@@ -264,8 +264,8 @@ window since the last census, which is exactly what this lane did for six weeks 
 which is the argument milestone 326 (nobody has been assigned to turn a mutation score upward) makes;
 "has not fallen" cannot be, because the exclusions change both sides of the comparison.
 
-**What this costs if it is adopted, priced rather than asserted.** An inflow condition measured over
-the window would have named **62 pull requests of 761** (8.1%) as carrying untriaged survivors, with
+What this costs if it is adopted, priced rather than asserted. An inflow condition measured over
+the window would have named 62 pull requests of 761 (8.1%) as carrying untriaged survivors, with
 a median of 6 each. That is a real worklist and it is the honest shape of the claim: "new code does
 not arrive less tested" is a promise about roughly one pull request in twelve.
 
@@ -276,11 +276,11 @@ follow-on.
 
 ## What could not be replayed, and what was not attempted
 
-- **Every pull request in the window can now be replayed; 6 were.** The limit is wall clock, not
+- Every pull request in the window can now be replayed; 6 were. The limit is wall clock, not
   history. The 6 cover 197 of the 629 attributed survivors.
 - **The baseline's own survivor list does not exist.** `.cargo/mutants-baseline.txt` is per-crate
   counts, and the 2026-08-03 run's output was never kept, which is why section 3 re-ran the tree at
-  `c87c1575` instead of comparing against it. Those counts are also **pre-triage**, as the file's own
+  `c87c1575` instead of comparing against it. Those counts are also pre-triage, as the file's own
   header says, so the re-run finds fewer survivors than the file records and the re-run is the better
   reference for "what was already a survivor when the window opened".
 - **The census was not re-run.** Every number here comes from the 2026-09-14 artifacts, from blame,
@@ -310,7 +310,7 @@ follow-on.
 
 ## BUGS
 
-- **Blame is a proxy and it was checked on 31% of the population.** 197 of 629, all confirmed. The
+- Blame is a proxy and it was checked on 31% of the population. 197 of 629, all confirmed. The
   residual risk is a commit that rewrote a line cosmetically *and* was not sampled; the two sampled
   cosmetic commits both confirmed, so the correction is small, but it is not zero and the fraction
   should be read as "about 82%" rather than to the tenth.
@@ -324,18 +324,18 @@ follow-on.
   match.
 - **A replay is not a live run**, milestone 438's own caveat and it still holds: `--in-diff` against
   a merged diff sees the code as it landed, not as it was proposed.
-- **The 55-second kernel mutant is derived, not measured here.** It is `xtask/src/suite.rs`'s 53
+- The 55-second kernel mutant is derived, not measured here. It is `xtask/src/suite.rs`'s 53
   seconds plus `kernel/build.rs`'s 2.3-second relink, both recorded in the tree by the milestones
   that measured them, on this hardware. A mutation run's rebuild is not always a relink, and a hung
   boot costs the timeout instead, so the real figure is a floor.
-- **Nothing here measures whether the survivors matter.** Milestone 85's rule is triage into a test,
+- Nothing here measures whether the survivors matter. Milestone 85's rule is triage into a test,
   an exclusion with a reason, or a recorded gap, and a count of survivors is not a count of defects.
 
 ## Index row
 
 Milestone 438 ended at the measurement that refused a diff-scoped gate and named the one nobody had:
 what share of the mutation corpus's survivor growth arrives on lines a pull request touched. It is
-**81.6%**. Of the 771 survivors in the 2026-09-14 census, 629 sit on lines last touched inside the
+81.6%. Of the 771 survivors in the 2026-09-14 census, 629 sit on lines last touched inside the
 window that opened at the 2026-08-03 baseline, blamed to 80 commits in 62 pull requests out of 761
 merged; all 142 on older lines were checked against a mutation run of the tree as it stood on
 2026-08-03, and 141 were already survivors then. The exception is `compositor`'s

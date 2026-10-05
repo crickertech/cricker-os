@@ -12,8 +12,8 @@ needs_person: no
 Filed 2026-09-14 as an unnumbered proposal, left open by milestone 288,
 which fixed four instances of "a test that states a fact about the author's laptop" in `crates/elf`
 and could not stop a fifth; numbered 2026-09-19 by milestone 433's drain of the proposal pile.
-**Premise re-read against the tree on 2026-09-19 and still true, with one clarification worth
-having**: every `runs-on:` in `.github/workflows/` is `ubuntu-24.04-arm` except one, and that one is
+Premise re-read against the tree on 2026-09-19 and still true, with one clarification worth
+having: every `runs-on:` in `.github/workflows/` is `ubuntu-24.04-arm` except one, and that one is
 `verify.yml`'s `prove-kernel-x86_64`, which runs `script/verify --only kernel` because CBMC needs a
 goto-binary for the host it runs on. So **no host test pass has ever run on x86_64**, which is this
 block's claim, and the x86_64 runner image is already in use for a different job, which prices
@@ -59,9 +59,9 @@ assumed no.
 1. **A second CI job on `ubuntu-24.04` (x86_64) running only the host pass.** Smallest thing that
    closes the class. Costs one runner slot per pull request, competing with group builds for the
    same concurrency, which `AGENTS.md` already names as a real ceiling.
-2. **A matrix leg**, host pass on both architectures. Same cost, tidier shape, and it makes the
+2. A matrix leg, host pass on both architectures. Same cost, tidier shape, and it makes the
    claim symmetric rather than making x86_64 a special case bolted on.
-3. **A periodic run rather than a per-pull-request one**, which is `script/stranger-test`'s existing
+3. A periodic run rather than a per-pull-request one, which is `script/stranger-test`'s existing
    posture. Cheapest, and it finds the fault a day late rather than at the pull request. Given that
    the three instances above went undetected for weeks, a day late would have been an enormous
    improvement over what actually happened.
@@ -73,8 +73,8 @@ somewhere, and does).
 
 ## What it costs to answer
 
-Option 3 is probably minutes of work and the other two are a CI file edit each. **The expensive part
-is none of those**: it is whether the project wants to pay runner concurrency on every pull request
+Option 3 is probably minutes of work and the other two are a CI file edit each. The expensive part
+is none of those: it is whether the project wants to pay runner concurrency on every pull request
 for a class of fault it has met three times in two months. That is a judgement about a standing
 cost, which is why this is a proposal with the numbers attached rather than a lane that picked one.
 

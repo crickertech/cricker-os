@@ -45,7 +45,7 @@ Milestone 286 put `script/bootstrap` at the head of the command a developer runs
 That was calef's ruling and it is right. It also made this conflation expensive for the first time,
 because a bootstrap that exits non-zero now ends the whole local tier.
 
-**Measured on that lane's container**: packaged QEMU is 8.2.2, which lacks `riscv-iommu-pci`
+Measured on that lane's container: packaged QEMU is 8.2.2, which lacks `riscv-iommu-pci`
 (milestone 16b, `DECISIONS §20`). `script/bootstrap` installed nothing, broke nothing, found
 everything it looks for present, and exited 1 on the adequacy check. On that machine
 `script/ci-build fmt`, `script/ci-build lint` and `script/ci-build image-permissions` all pass
@@ -65,7 +65,7 @@ to type those by hand on a machine that is merely out of date.
 | **C** | split: `bootstrap` provisions and returns zero when it installed everything it could; a separate adequacy check is its own row in `script/ci-build`'s table | the honest shape, and it changes what a canonical entry point's exit code means, which four callers read |
 | **D** | `bootstrap` keeps both jobs but distinguishes the exit codes (say 1 for "could not install", 2 for "installed, still inadequate") | small; callers that do not look still see non-zero, and one that cares can |
 
-**C is the shape this tree already reaches for**, and it is worth saying why rather than asserting
+C is the shape this tree already reaches for, and it is worth saying why rather than asserting
 it. An adequacy check is a check: it renders a verdict about the machine, it is cheap, and
 `script/ci-build`'s table is now the place a check lives. `script/qemu-check` already exists as its
 own entry point, so most of C is wiring rather than writing. Against it: `script/setup` and
@@ -73,7 +73,7 @@ own entry point, so most of C is wiring rather than writing. Against it: `script
 from a newcomer running `script/setup` on a fresh machine, which is exactly the reader the check was
 written for.
 
-**D is the cheap one and should be priced honestly as cheap.** It does not fix the conflation; it
+D is the cheap one and should be priced honestly as cheap. It does not fix the conflation; it
 makes it legible to one caller. If the answer is "not worth a split", D is better than A.
 
 **B is refused unless calef wants it**, because it puts the decision "is this machine good enough"

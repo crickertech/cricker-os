@@ -40,13 +40,13 @@ cycle later.
 ## What it would be
 
 The kernel prints its own feature set, once, in the same breath as the banner it already prints, so
-the fact lives **in the capture** rather than beside it. Rung three: a written record at the thing
+the fact lives in the capture rather than beside it. Rung three: a written record at the thing
 itself. Roughly `env!` over the enabled features at compile time, or a small `const` list assembled
 from `cfg!`s; the choice between them is exactly the sort of thing that is cheaper to decide with
 the code open than in a proposal.
 
 Two properties worth holding it to. It should cost an ordinary boot nothing but one line. And it
-should name the **whole** feature set rather than a curated list, because the next feature somebody
+should name the whole feature set rather than a curated list, because the next feature somebody
 adds is the one that will be missing from a curated one.
 
 ## What it does not fix

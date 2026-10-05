@@ -23,11 +23,11 @@ a double reply, or a stale reply landing on a client that has moved on.
 
 One new endpoint method and one new object. The syscall count stays at three (exit/yield/invoke).
 
-- **`CALL`** (endpoint method): send two words and block until replied. At the rendezvous the kernel
+- `CALL` (endpoint method): send two words and block until replied. At the rendezvous the kernel
   mints a one-shot `Reply` capability naming *this* caller and delivers it to the server through the
   existing `RECV_CAP` (x1 = the reply slot, x2 = the second word). Needs `WRITE`, like `SEND`.
-- **`Reply`** (a capability object, `Object::Reply(Tid)`): kernel-minted, naming the blocked caller.
-  Invoking it (`REPLY`) delivers the answer, wakes the caller, and **consumes the capability**. Minted
+- `Reply` (a capability object, `Object::Reply(Tid)`): kernel-minted, naming the blocked caller.
+  Invoking it (`REPLY`) delivers the answer, wakes the caller, and consumes the capability. Minted
   `WRITE`-only and without `GRANT`, so it is non-transferable as well as single-use.
 
 The server side reuses `RECV_CAP` rather than growing a new receive method: receiving a call looks
@@ -39,7 +39,7 @@ the reply handle. That is fine under §10's rule that IPC carries control and bu
 
 1. **Reply to an anonymous caller, no pre-wiring**: the kernel mints the cap; the server never knew
    the caller.
-2. **One-shot**: consumed on use, so a second reply is `NoSuchSlot`. No double reply, no hoarding.
+2. One-shot: consumed on use, so a second reply is `NoSuchSlot`. No double reply, no hoarding.
 3. **This caller, not another**: `Reply(Tid)` names the exact blocked caller; misrouting is
    unrepresentable.
 
@@ -50,11 +50,11 @@ reply is refused).
 
 ## Deferred, deliberately
 
-- **The call chain and priority donation.** seL4's Reply cap also threads a kernel call chain so the
+- The call chain and priority donation. seL4's Reply cap also threads a kernel call chain so the
   server runs on the caller's priority. nife is round-robin with no priorities, so donation is
   moot; building the chain now would be machinery with no consumer (§4). It is the natural extension
   when priorities arrive.
-- **Timeouts.** A server that never replies (or whose cspace is full, so the reply cap is dropped)
+- Timeouts. A server that never replies (or whose cspace is full, so the reply cap is dropped)
   leaves the caller blocked until torn down, the same no-timeout limitation as any lost reply today.
 
 ## One rule the mechanism assumes

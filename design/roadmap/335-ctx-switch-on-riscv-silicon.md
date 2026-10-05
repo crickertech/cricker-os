@@ -10,8 +10,8 @@ needs_person: yes
 # 335. The ctx_switch number on real RISC-V silicon
 
 Filed 2026-09-03 as an unnumbered proposal by the milestone 247 sweep,
-from milestone 58's block; numbered 2026-09-19 by milestone 433. **Premise re-checked 2026-09-19 and
-it holds.** `bench/baseline-riscv64.txt` still carries `ctx_switch 495050 5000` from QEMU and no
+from milestone 58's block; numbered 2026-09-19 by milestone 433. Premise re-checked 2026-09-19 and
+it holds. `bench/baseline-riscv64.txt` still carries `ctx_switch 495050 5000` from QEMU and no
 radon run exists: none of `bench/radon-2026-09-04`, `bench/radon-2026-09-05` or
 `bench/radon-2026-09-16` has a `ctx_switch` row. `notes/riscv-tlb-shootdown.md` line 189 also still
 says the VisionFive 2 "has not arrived", which stopped being true on 2026-08-14.
@@ -36,7 +36,7 @@ status `OPTIONAL`: an aarch64 target that cannot produce a RISC-V number under a
 the pointer is an edit to milestone 58's block, not a question for anybody, and it is named in the
 handoff rather than done here because this lane does not hold that file.
 
-**In brief.** Milestone 58 removed the unconditional `sfence.vma` from `write_satp` behind a probe,
+In brief. Milestone 58 removed the unconditional `sfence.vma` from `write_satp` behind a probe,
 which is the whole reason ASIDs exist on RISC-V. The number that would show the win has never been
 taken. QEMU's softmmu TLB is not ASID-tagged and flushes wholesale whenever `satp.ASID` changes, so
 it charges for the added probe gate and credits nothing for the removed flush; icount came back

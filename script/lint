@@ -3091,6 +3091,12 @@ python3 helpers/baseline_drift.py --selftest >/dev/null
 # Milestone 721 (each merge-group CI job has a 20-minute budget): every `ci.yml` job carries the wall-time budget steps and a
 # `timeout-minutes` within the budget plus five. The selftest runs first (fixtures, no tree), so a
 # green `lint` is not the checker silently passing everything.
+# The prose-only classifier that lets a Markdown-only diff skip ci.yml's and verify.yml's heavy
+# jobs (helpers/prose_only.py, lane/docs-only-ci, provisional). Fixtures only: code, docs-only, an
+# included .md, a walked directory, a message that is not a read, and mixed. A wrong skip turns a
+# red main green, so the rule is checked wherever it can change.
+echo "==> the prose-only classifier"
+python3 helpers/prose_only.py --selftest >/dev/null
 echo "==> CI job wall-time budgets"
 python3 helpers/job-budget.py --selftest >/dev/null
 python3 helpers/job-budget.py lint
@@ -3129,7 +3135,7 @@ python3 helpers/architect-label-rules.py --selftest >/dev/null
 echo "==> the live architect-ruled read"
 helpers/architect-ruled-selftest.sh >/dev/null
 
-# The base-resolution half of the same check, shared with ci.yml's nine scope-check steps:
+# The base-resolution half of the same check, shared with the gates' prose-only classification and watchdog's scope step:
 # helpers/scope-merge-base.sh takes the merge base of HEAD against the base branch's CURRENT tip
 # rather than trusting the event payload's own base.sha, which goes stale the moment an unrelated
 # pull request merges into the base branch without a push to this one (#1416's false `dependency`

@@ -14,11 +14,11 @@ cover.
 
 ## The axis §46 left out
 
-§46 decides **write versus take**, and its amendment decides **vendor versus depend**. Neither
+§46 decides write versus take, and its amendment decides vendor versus depend. Neither
 decides which implementation to take when the same capability exists in both languages, which is the
 question every compressor, every archive format and every database poses.
 
-**The tree has already been answering it, unanimously and in writing nowhere.** §46 names crypto as
+The tree has already been answering it, unanimously and in writing nowhere. §46 names crypto as
 the case where you take rather than write, and what was actually taken is RustCrypto: `digest`,
 `hmac`, `md-5` and `md4` in `crates/ntlm`, all pure Rust. Nobody reached for a C library, and nobody
 recorded why not. That is the exact condition §46 itself was created to fix, in its own opening
@@ -27,8 +27,8 @@ produces an inconsistent decision the first time someone does not share the inst
 
 ## The rule
 
-**When a dependency is available as a maintained Rust implementation and as a C one, take the Rust
-implementation.** The C option needs a reason, recorded where the dependency is taken.
+When a dependency is available as a maintained Rust implementation and as a C one, take the Rust
+implementation. The C option needs a reason, recorded where the dependency is taken.
 
 ## Why, and it is sharpest exactly where this came up
 
@@ -38,23 +38,23 @@ the various zip implementations is dominated by heap overflows and out-of-bounds
 class Rust removes by construction rather than by care, and it is the class that matters most for a
 component whose entire job is to consume hostile bytes.
 
-**It is also cheaper here, which is measured rather than assumed.** Milestone 64 sorted the crates
+It is also cheaper here, which is measured rather than assumed. Milestone 64 sorted the crates
 that failed to build, and class C is "a C library or C sources": `zip` via `zstd-sys`, `ring` via C
 and assembly, `diesel` failing at link on `-lsqlite3`. The note observes that class C is *"the only
 class where 'make it build' and 'make it work' are the same task."* Preferring Rust does not solve
 that class, it avoids it.
 
-**And it is the corollary of §82.** You do not replace a C and ambient-authority ecosystem by
+And it is the corollary of §82. You do not replace a C and ambient-authority ecosystem by
 depending on it. A system whose thesis is that the old ecosystem should be rewritten cannot reach for
 that ecosystem by default and remain coherent.
 
 ## Four qualifications, without which this breaks on first contact
 
-**§46's exposure test survives as the tiebreaker.** Rule 4 prefers depending when correctness is won
+§46's exposure test survives as the tiebreaker. Rule 4 prefers depending when correctness is won
 by *exposure* rather than by reading a specification, and that is still true. Maturity varies sharply
 across candidates: `miniz_oxide` is mature and already in milestone 64's built-with-no-change set,
 while `ruzstd`, `lzma-rs` and `sevenz-rust` are younger and differ in whether they encode or only
-decode. **Prefer means prefer.** An immature Rust implementation of a hostile-input parser is not
+decode. Prefer means prefer. An immature Rust implementation of a hostile-input parser is not
 automatically safer than a battle-tested C one, and the assessment belongs next to the dependency
 rather than in this section.
 
@@ -84,12 +84,12 @@ than ported.
 
 ## BUGS
 
-- **"Maintained" and "credible" are not defined here**, and they are doing real work in the rule. The
+- "Maintained" and "credible" are not defined here, and they are doing real work in the rule. The
   assessment is per dependency and this section deliberately does not attempt a threshold, which
   means two people can reach different answers about the same crate.
-- **Nothing enforces it.** §81's foreclosure check is a lint; this is prose, which is rung three of
+- Nothing enforces it. §81's foreclosure check is a lint; this is prose, which is rung three of
   CLAUDE.md's ladder. A `-sys` crate can enter the tree without anything asking whether a Rust
   implementation existed.
-- **It says nothing about vendored C already present.** RedoxFS is vendored under §34 and is not
+- It says nothing about vendored C already present. RedoxFS is vendored under §34 and is not
   affected; whether a future Rust filesystem should replace it is a separate decision nobody has
   raised.

@@ -14,8 +14,8 @@ conversation, not yet built): channel.
 
 Milestone 49's "In brief" names Unix's uid as doing four jobs at once, three already answered here
 structurally. The fourth, attribution ("who did this?"), has no mechanism at all. The fork the
-milestone names to settle first: does attribution become **a property of a capability** (an
-invocation carries a stamped origin, seL4's badge mechanism), or **a property of a channel** (a
+milestone names to settle first: does attribution become a property of a capability (an
+invocation carries a stamped origin, seL4's badge mechanism), or a property of a channel (a
 server logs which endpoint a request arrived on, established once when that endpoint was handed
 out)?
 
@@ -29,7 +29,7 @@ time:
   identity. Rather than badge it, the message is made to carry nothing and every per-client fact
   lives in per-client memory instead. "There are no badged capabilities here (DECISIONS §26.5
   records that decision and what would bring it back)."
-- **The FS server / directory confinement** (`notes/dir-capability.md`): a shared endpoint's handle
+- The FS server / directory confinement (`notes/dir-capability.md`): a shared endpoint's handle
   table is per-server, not per-client, so rights on a handle are not confinement. Badging is named
   as seL4's answer and explicitly not taken; the fix is a whole separate caretaker process, its own
   address space.
@@ -60,7 +60,7 @@ established once (at login, at spawn, wherever the principal is created), and lo
 request arrived on. This is not a new mechanism; it is the pattern this tree already uses
 everywhere identity-shaped information has mattered, generalized rather than invented.
 
-**It composes with milestone 152 for free.** 152's durable per-user sessions already give every
+It composes with milestone 152 for free. 152's durable per-user sessions already give every
 downstream capability a traceable per-user origin: once a user's session exists, every service it
 reaches through session-derived capabilities is reachable through a channel unique to that user.
 Attribution at user granularity, which is what audit actually wants, falls out of 152's own shape
@@ -68,16 +68,16 @@ with no additional mechanism.
 
 ## What this costs, and what it does not
 
-**Channel: no kernel change**, reuses proven machinery (§26's fault endpoint, caretaker
+Channel: no kernel change, reuses proven machinery (§26's fault endpoint, caretaker
 supervision, `SINK_BIT`-shaped delegation). The cost lands on server structure (one endpoint or
 region per principal) rather than on the kernel.
 
-**Badging would touch the IPC fast path** (the single most gated, most measured surface in this
+Badging would touch the IPC fast path (the single most gated, most measured surface in this
 kernel: `fastpath-footprint`, milestone 132's L1i-sized budget) for the first time in the project,
 and would need new, proven kernel semantics for how a badge interacts with capability derivation,
 copying and revocation. Real cost, for a feature with no current consumer.
 
-**Where the channel model's own cost eventually bites, named rather than assumed away**: each durable
+Where the channel model's own cost eventually bites, named rather than assumed away: each durable
 session, as milestone 152 designs it, plausibly owns at least one kernel region (`MAX_REGIONS = 256`,
 `kernel/src/untyped.rs`, a system-wide concurrently-live cap), plus whatever caretakers it holds
 long-term. A rough estimate, not a measurement: on the order of 50-70 concurrently-durable sessions
@@ -86,8 +86,8 @@ consuming some of that budget. `MAX_REGIONS` has been raised once already (16 to
 `notes/heap.md`) and raising it again is the first, cheap response if this tree ever approaches that
 number, long before badging would be the right call.
 
-**Comparative context, corrected from an earlier draft of this decision that anchored the wrong
-number.** nife is a general-purpose operating system; file serving (Time Machine) is one workload
+Comparative context, corrected from an earlier draft of this decision that anchored the wrong
+number. nife is a general-purpose operating system; file serving (Time Machine) is one workload
 on it, not the one this fork's headroom should be measured against. An earlier pass here cited
 Windows Home/Pro's 5/20 concurrent-SMB-connection cap and macOS's 5-simultaneous-user fast-switching
 limit, both of which are real, sourced numbers, but they measure a specific, deliberately
@@ -99,7 +99,7 @@ built-in ceiling since the 1970s. Shared systems have run that for accounts numb
 hundreds as ordinary practice, though this note does not have a single precise citation for a
 figure and should not be read as claiming one.
 
-**seL4 itself supplies no comparison at all, and that is worth being precise about too.** seL4 has
+seL4 itself supplies no comparison at all, and that is worth being precise about too. seL4 has
 no user, login, or account concept anywhere in the kernel; badging distinguishes *senders on a
 shared endpoint*, for whatever a downstream system builds (VMs in a hypervisor, components in a
 CAmkES system), never "logged-in end users" as such. Citing seL4 as having solved "how many users"
@@ -120,7 +120,7 @@ are actually built and measured, not a distant hypothetical to defer indefinitel
 
 ## What this does not decide
 
-**How a login service hands out per-principal channels**, and **the login service itself**, are
+How a login service hands out per-principal channels, and the login service itself, are
 milestone 49's own build, not decided here. This settles only which shape attribution takes once
 that exists.
 

@@ -22,8 +22,8 @@ Everything this needs exists: the pinned sha, the five recorded divergences,
 `script/vendor-verify --write-patch`, the suite, and milestone 37's crash injector. One clause is
 calef's if it comes up, and it is named below rather than blocking the start.
 
-**In brief.** `script/vendor-watch`'s first run found upstream RedoxFS **37 non-merge commits ahead
-of the pinned sha**, including `fix: do not hardcode # of sectors per block`, with 0.9.1 still the
+**In brief.** `script/vendor-watch`'s first run found upstream RedoxFS 37 non-merge commits ahead
+of the pinned sha, including `fix: do not hardcode # of sectors per block`, with 0.9.1 still the
 newest published version. Bumping the pin means raising it, re-applying the five divergences,
 regenerating the patch with `script/vendor-verify --write-patch`, and re-running the suite plus
 milestone 37's crash injector. Nobody has ever performed this job in this tree, which is the second

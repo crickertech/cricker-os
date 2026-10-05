@@ -30,7 +30,7 @@ as a QEMU-only stopgap, or wait.
 
 ## The decision
 
-**Declined for now.** No customer needs interactive login working before real hardware entropy is
+Declined for now. No customer needs interactive login working before real hardware entropy is
 sorted. Same shape as `std::thread::spawn` (§105), hard links (§110), state handoff (§116), and
 `OutOfMemory`'s cause collapse (§119): revisit when a customer needs it, not before.
 
@@ -64,7 +64,7 @@ it does not require revisiting this fork -- the two were only coupled by both ro
 
 ## The amendment, 2026-08-26: reversed
 
-**Grant the QEMU-only virtio-rng stopgap.** The premise the original decision turned on, "no
+Grant the QEMU-only virtio-rng stopgap. The premise the original decision turned on, "no
 customer needs interactive login working before real hardware entropy is sorted," no longer holds:
 calef is that customer, for a reason specific to this project's own method rather than a change of
 mind. Milestone 159 was raised as the alternative and does not substitute: it gives real login on

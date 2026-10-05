@@ -7,26 +7,26 @@ this note's name is provisional.)*
 Milestone 25 is done except for `sel4bench`, which times single operations through the PMU cycle
 counter that neither QEMU-TCG nor Apple HVF provides (notes/benchmarks.md, notes/pmu.md). Milestone
 74 is the driver that will read that counter; this survey picks the board it reads it on. The
-purpose constrains the choice more than usual: the point is nife and seL4 **on the same
-silicon**, so a board seL4 merely boots on fails the milestone even if our port to it is easy.
+purpose constrains the choice more than usual: the point is nife and seL4 on the same
+silicon, so a board seL4 merely boots on fails the milestone even if our port to it is easy.
 
 ## The deciding criterion: where sel4bench really runs
 
 "seL4 supports it" spans three tiers, and only the top two serve this milestone. All three are read
 from seL4's own trees, not from the marketing page:
 
-- **Published.** The seL4 performance page carries exactly **one aarch64 platform: the Jetson TX1**
+- Published. The seL4 performance page carries exactly one aarch64 platform: the Jetson TX1
   (Cortex-A57 at 1.9 GHz, IPC call 413 cycles, reply 426, regenerated 2026-08-13). Those are the
   numbers notes/benchmarks.md already compares against.
   Source: <https://sel4.systems/performance.html>.
-- **CI-run on hardware.** Every push to sel4bench master builds and runs on the Foundation's
-  machine queue. The aarch64 platforms in the run matrix: **tx1, tx2, odroid_c2, imx8mm_evk**
+- CI-run on hardware. Every push to sel4bench master builds and runs on the Foundation's
+  machine queue. The aarch64 platforms in the run matrix: tx1, tx2, odroid_c2, imx8mm_evk
   (the rest are armv7a, x86, riscv). Results land in seL4/sel4bench-results (private); only TX1's
   reach the public page.
   Source: `.github/workflows/sel4bench.yml` `hw-run` matrix in <https://github.com/seL4/sel4bench>,
   and `sel4bench-hw/builds.yml` in <https://github.com/seL4/ci-actions>.
-- **Builds only.** sel4bench CI builds images for essentially every armv8a platform in
-  `seL4-platforms/platforms.yml`, including **rpi4, odroid_c4, and rpi5**, but never runs them:
+- Builds only. sel4bench CI builds images for essentially every armv8a platform in
+  `seL4-platforms/platforms.yml`, including rpi4, odroid_c4, and rpi5, but never runs them:
   RPI4 is marked `no_hw_test: true` (the Foundation runs no hardware CI on it at all, sel4test
   included), and RPI5's entry says in a comment "the seL4 foundation has no RPI5 hardware".
   ODROID-C4 has two units in the machine queue for sel4test but is absent from the bench matrix.
@@ -38,25 +38,25 @@ Foundation has never validated, which is the "seL4 only boots there" failure wit
 
 ## Requirements, traced to the tree
 
-- **GICv2, and since milestone 227 GICv3.** When this survey was taken `kernel/src/drivers/gic.rs`
+- GICv2, and since milestone 227 GICv3. When this survey was taken `kernel/src/drivers/gic.rs`
   spoke GICv2 only, and a GICv3-only board (any recent Rockchip or i.MX8M) bought a new
   interrupt-controller driver before the first interrupt; the tables below are priced that way.
-  **As of 2026-09-19 the kernel drives GICv3 too** (`drivers/gicv3.rs`,
+  As of 2026-09-19 the kernel drives GICv3 too (`drivers/gicv3.rs`,
   `arch/aarch64/gic_cpu_interface.rs`, `notes/interrupts.md`), proven under QEMU's TCG and under
   HVF but on no GICv3 silicon, so the "new GICv3 driver" cells below are now "an unproven one".
-- **PL011 or NS16550 UART.** `kernel/src/drivers/pl011.rs` and `ns16550.rs`; the 16550 driver
+- PL011 or NS16550 UART. `kernel/src/drivers/pl011.rs` and `ns16550.rs`; the 16550 driver
   already parameterizes `reg-shift` and `reg-io-width` (built for the JH7110's DW-8250), which is
   exactly the shape Tegra's 8250-compatible UART needs.
-- **DTB boot.** The device-tree front door (milestone 60) is how the kernel learns the machine;
+- DTB boot. The device-tree front door (milestone 60) is how the kernel learns the machine;
   `kernel/src/smp.rs` reads `/psci` from it.
-- **PSCI for SMP.** `smp.rs` starts secondaries with PSCI `CPU_ON` on the conduit the DTB names
+- PSCI for SMP. `smp.rs` starts secondaries with PSCI `CPU_ON` on the conduit the DTB names
   (`hvc` or `smc`, `arch/aarch64/mod.rs`) and explicitly does not speak `spin-table`. The Pi
   family's stock firmware default is spin-table (the 16a note records this), so a Pi is
   single-core for us until TF-A's upstream BL31 port is installed as the armstub.
-- **A PMU readable at EL1.** Milestone 74's aarch64 half reads `PMCCNTR_EL0`; PMUv3 is architected
+- A PMU readable at EL1. Milestone 74's aarch64 half reads `PMCCNTR_EL0`; PMUv3 is architected
   on every core surveyed here, so this differentiates nothing below, but firmware must not inhibit
   it (a to-verify item).
-- **A reachable serial console** (notes/target-hardware.md's third question), priced into the
+- A reachable serial console (notes/target-hardware.md's third question), priced into the
   all-in cost.
 - **RAM** is a non-constraint for the bench boot; anything at 1 GB or above clears it.
 
@@ -98,9 +98,9 @@ Hardkernel's shop pages for C2/C4 status, and eBay listings for the used prices.
 
 What is genuinely new for nife on each board, given rule 1's board boundary and the
 VisionFive 2 experience (a board directory, not a diff across the tree). Every board below shares
-three items, so they are the baseline rather than rows: an **EL2 to EL1 entry drop** in `boot.s`
+three items, so they are the baseline rather than rows: an EL2 to EL1 entry drop in `boot.s`
 (every real bootloader here enters at EL2; QEMU's ELF path enters at EL1, so this code does not
-exist yet), a **board memory map** (DRAM base, MMIO windows), and the **bench runbook** work 16a
+exist yet), a **board memory map** (DRAM base, MMIO windows), and the bench runbook work 16a
 already modeled. The aarch64 `image_header.s` (Linux Image header) already exists, so U-Boot
 `booti` and the Pi's `kernel8.img` load path are covered.
 
@@ -113,7 +113,7 @@ already modeled. The aarch64 `image_header.s` (Linux Image header) already exist
 | Pi 4 | none: PL011 (route it to GPIO 14/15, `dtoverlay=disable-bt`) | none | GPU firmware loads `kernel8.img` from FAT32; TF-A `bl31.bin` as armstub for PSCI | PSCI only with TF-A installed | ~nothing but config and the baseline |
 | Pi 5 | none (PL011 debug header) | none | as Pi 4, newer chain | as Pi 4 | RP1 southbridge if IO beyond UART is ever wanted |
 
-The honest reading: **the Pi 4 and the TX1 are the two cheap ports**, and they fail in opposite
+The honest reading: the Pi 4 and the TX1 are the two cheap ports, and they fail in opposite
 directions. The Pi 4 is the cheapest port with the weakest seL4 story; the i.MX8MM EVK is the
 strongest purchasable seL4 story with the most expensive port.
 
@@ -132,12 +132,12 @@ TF-A BL31 the board ships with. The used-market risk is the same one milestone 8
 deliberately for the x86 machine: eBay's money-back guarantee bounds "does it work" to return
 friction, and the new-market alternative costs $300 more plus two drivers.
 
-If the answer is no: the fallback that keeps the deciding criterion is the **i.MX8MM EVK** at
+If the answer is no: the fallback that keeps the deciding criterion is the i.MX8MM EVK at
 $388-462 new plus a GICv3 driver and an i.MX UART driver, which converts a $105 purchase into a
-multi-week port. The fallback that keeps the price is the **Pi 4**, which converts the milestone
+multi-week port. The fallback that keeps the price is the Pi 4, which converts the milestone
 into self-refereed seL4 numbers on a configuration seL4's own CI never exercises.
 
-**Runners-up, with reasons:**
+Runners-up, with reasons:
 
 - **i.MX8MM EVK**: the only first-class bench platform purchasable new, and the GICv3 driver it
   forces is work the tree eventually wants anyway (every modern aarch64 SoC is v3). Stays the
@@ -166,21 +166,21 @@ into self-refereed seL4 numbers on a configuration seL4's own CI never exercises
 
 ## Unknowns, to verify at purchase
 
-- **The listing's contents.** Kits vary; the carrier board is required (the J21 serial header and
+- The listing's contents. Kits vary; the carrier board is required (the J21 serial header and
   the SD slot live on it), and the PSU and antennas are frequently missing. Verify photos.
-- **The flashed boot chain.** Which L4T revision is on it decides whether U-Boot comes up at all;
+- The flashed boot chain. Which L4T revision is on it decides whether U-Boot comes up at all;
   reflashing an old JetPack needs an old Ubuntu host, a real detour. Prefer a listing that shows a
   boot log, or budget the detour.
-- **Entry state from U-Boot** (`go` vs `booti`, EL2 expected, DTB pointer register). The EL2 drop
+- Entry state from U-Boot (`go` vs `booti`, EL2 expected, DTB pointer register). The EL2 drop
   is planned work regardless; the specifics are read at the bench, per the VisionFive 2 runbook
   pattern.
-- **PSCI visible to a non-Linux payload** on the shipped firmware revision (expected from the TF-A
-  tegra210 BL31, verified with a probe boot), and **`PMCCNTR_EL0` readable at EL1** with the
+- PSCI visible to a non-Linux payload on the shipped firmware revision (expected from the TF-A
+  tegra210 BL31, verified with a probe boot), and `PMCCNTR_EL0` readable at EL1 with the
   shipped secure-world settings.
-- **Clock pinning.** The published seL4 numbers are at 1.9 GHz; confirm what pins the A57 cluster
+- Clock pinning. The published seL4 numbers are at 1.9 GHz; confirm what pins the A57 cluster
   clock during a bare-metal boot (DVFS is normally the OS's job, so likely whatever the boot chain
   left, but confirm rather than assume).
-- **sel4bench from SD.** The Foundation's CI boots over its machine-queue rig; our path is SD plus
+- sel4bench from SD. The Foundation's CI boots over its machine-queue rig; our path is SD plus
   U-Boot per seL4's TX1 page (which also warns stock U-Boot lacks TFTP). Confirm the sel4bench
   image runs that way before trusting our numbers against the published ones.
 - **A57 errata**: nothing benchmark-relevant recorded in the standard A57 errata list, but check
@@ -196,6 +196,6 @@ into self-refereed seL4 numbers on a configuration seL4's own CI never exercises
   NVIDIA's own design, not an SMMUv3), so milestone 16b's aarch64-on-silicon half remains ungated
   by this purchase, whatever is chosen.
 - This note recorded that the kernel drives GICv2 only, and said the i.MX8MM's disqualifier would
-  weaken if that changed. **It changed on 2026-09-19 (milestone 227)**, so the survey should be
+  weaken if that changed. It changed on 2026-09-19 (milestone 227), so the survey should be
   re-read before being cited: the i.MX8MM's GIC cost is now a proving run rather than a driver, and
   its UART driver is the item left.

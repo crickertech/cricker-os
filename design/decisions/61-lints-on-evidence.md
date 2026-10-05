@@ -8,7 +8,7 @@ ratified_by: calef
 # 61. A lint is adopted on evidence from this tree, not on its description
 
 Milestone 68 turned on eight candidate lints and kept five. The three that lost were not bad lints;
-they are all defensible defaults that many Rust projects run. They were wrong **here**, and nothing
+they are all defensible defaults that many Rust projects run. They were wrong here, and nothing
 short of running them over this tree and reading the output would have shown it.
 
 `cast_possible_truncation` is the clearest case. The argument for it in a kernel is strong: address
@@ -30,7 +30,7 @@ CNTKCTL_EL1.set(CNTKCTL_EL1.get() | EL0VCTEN);
 The constant sits beside its use, under the paragraph explaining it. Obeying the lint hoists all 43
 to the tops of their functions, separating each from its explanation and piling unrelated constants
 where a reader looks for the function's first action. The lint is enforcing a general rule against a
-**specific convention this project chose on purpose** (CLAUDE.md: keep the constraint next to the
+specific convention this project chose on purpose (CLAUDE.md: keep the constraint next to the
 code it constrains), and the convention is better.
 
 `format_code_in_doc_comments` is the same lesson inside code rather than around it. It collapsed a
@@ -85,7 +85,7 @@ was reverted.
 **A safety comment is an assertion, not a formality.** Its entire value is that the next reader can
 rely on it instead of re-deriving the argument, so one that is plausible and wrong is worse than an
 absent one: absence prompts a check, and a confident falsehood prevents it. The workable test for
-whether a batch of sites may share one sentence is not "does this code look similar" but **"is the
-sentence checkable at each site"**. It was, at 58 byte-identical panic-handler traps and at 73
+whether a batch of sites may share one sentence is not "does this code look similar" but "is the
+sentence checkable at each site". It was, at 58 byte-identical panic-handler traps and at 73
 `invoke` calls whose contract places no obligation on the caller at all. It was not, in a test module
 where the pointers differ in what they are and when they are queued.

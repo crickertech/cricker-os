@@ -10,8 +10,8 @@ needs_person: no
 # 436. Forty citations of a proposal path that now resolve to nothing
 
 Minted 2026-09-19 by milestone 434's lane, which found the citations while
-retiring the token and deliberately did not fix them. **It minted this as 435 and the integrator
-renumbered it to 436 at merge**, because a concurrently-running maintainer session had minted 435 for
+retiring the token and deliberately did not fix them. It minted this as 435 and the integrator
+renumbered it to 436 at merge, because a concurrently-running maintainer session had minted 435 for
 a different sweep from a commit this lane's base predates. That is the collision the rule adopted the
 same evening predicts, on its first use, resolved the way that rule says: the newer file moves and
 the older number stands, so a block already collecting citations never renumbers. It cost one
@@ -23,13 +23,13 @@ reading rather than deciding.
 
 ## What is broken
 
-`design/roadmap/proposals/` was drained by milestone 433 and no longer exists. About **forty**
+`design/roadmap/proposals/` was drained by milestone 433 and no longer exists. About forty
 backticked citations of `design/roadmap/proposals/<slug>.md` survive it, spread across roughly
 twenty-seven files: milestone blocks (296 has five, 267 and 304 have three each), two audit reports
 under `design/audit-reports/`, `design/naming.md`, `design/decisions/152-port-range-capability.md`,
 four notes, `kernel/src/pci.rs` and `helpers/qemu-runner-x86_64.sh`.
 
-**A handful of finished blocks also describe the directory in the present tense**, which is a
+A handful of finished blocks also describe the directory in the present tense, which is a
 smaller defect of the same family: milestone 276's block says `script/roadmap --proposed` "already
 computes" a number, and milestone 301 (one grant order for the progenitor)'s says `helpers/roadmap_proposals.py` "matches PROPOSED and
 nothing else, so a proposal cannot be retired" in place. Both were true when written. A BUILT block
@@ -49,7 +49,7 @@ paths true.
 
 ## The two halves, and only one is mechanical
 
-**The resolvable ones.** Where the slug survives on a numbered block, the rewrite is mechanical:
+The resolvable ones. Where the slug survives on a numbered block, the rewrite is mechanical:
 `design/roadmap/303-x86-64-fs-disk.md` cites
 `design/roadmap/proposals/an-unclaimed-function-behind-the-iommu.md` in its body, and its own
 `## Follow-on` section already names milestone 325 for the same item, so the body is simply behind
