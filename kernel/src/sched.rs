@@ -5769,15 +5769,17 @@ fn thread_control_block_insert_from(
     // cached here, because no consumer does that and the enforcement is a creation-time grant, the
     // same posture `cycle_counter_grant` takes.
     //
-    // BUGS: **the grant is installed whatever the capability's rights.** A `PortRange` narrowed to
-    // `READ`, or to no rights at all, opens the bitmap exactly as a `WRITE` one does, because the
-    // match below reads `cap.object` and never `cap.rights`. Found by milestone 633 (an outside
-    // agent attacks the confinement claim)'s second pass and booted red on x86_64 by
-    // `x86_port_tests::a_read_only_port_capability_must_not_grant_port_output` (opt-in). What a
-    // non-WRITE port capability should grant is the syscall surface, so it is a proposal rather
-    // than a fix: design/roadmap/proposals/a-read-only-port-range-still-drives-the-hardware.md.
+    // **A `PortRange` without `WRITE` grants nothing** (milestone 768 (provisional), calef's ruling
+    // of 2026-10-05 UTC on the second outsider pass, DECISIONS §121 (what a device capability is
+    // when the device has no page: x86 port I/O)). The TSS I/O bitmap has one bit per port and
+    // cannot permit `in` without `out`, so there is no honest read-only grant to install; READ
+    // cannot be granted without WRITE, so WRITE is the right that opens the ports and a capability
+    // without it opens none. The capability still lands in the table (REVOKE and delegation are
+    // unchanged); only the cached grant is withheld.
     #[cfg(target_arch = "x86_64")]
-    if let crate::cap::Object::PortRange(base, count) = cap.object {
+    if let crate::cap::Object::PortRange(base, count) = cap.object
+        && cap.rights.allows(crate::cap::Rights::WRITE)
+    {
         t.port_range_grant = Some((base, count));
     }
     Ok(landed)

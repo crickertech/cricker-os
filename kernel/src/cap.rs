@@ -154,7 +154,10 @@ pub enum Object {
     /// It is the honest analogue of [`Object::DeviceFrame`]: `DeviceFrame` names a device's MMIO page and
     /// the MMU enforces it; `PortRange` names a device's ports and the **TSS I/O permission bitmap**
     /// enforces it. A thread that holds one may execute `in`/`out` on `[base, base + count)` from
-    /// ring 3, and no other port; a thread that holds none may touch no port at all. The granularity
+    /// ring 3, and no other port; a thread that holds none may touch no port at all. **The capability must
+    /// carry `WRITE`** (milestone 768 (provisional), calef 2026-10-05 UTC): the bitmap cannot grant `in`
+    /// without `out`, so a `PortRange` without `WRITE` opens no port at all (`sched::thread_control_block_insert_from`).
+    /// The granularity
     /// is a range because a 16550 UART is eight consecutive ports (COM1 is `0x3F8..=0x3FF`).
     ///
     /// **`x86_64` only**, because the other two architectures have no port space and no TSS I/O
