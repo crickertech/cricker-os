@@ -62,7 +62,7 @@ spawn service.
 prints. `swish-check` strips the gauge's lines out of the transcript as they arrive, since they land
 between a prompt and the next echo.
 
-**Fixed with the numbers.** `INIT_STACK_PAGES` went from 8 to 12: the debug peak is now 66%, and the
+Fixed with the numbers. `INIT_STACK_PAGES` went from 8 to 12: the debug peak is now 66%, and the
 gate fires 8.5 KB above it. The more elegant fix is to stop the spawn service standing on `boot`'s
 frame, and that is proposed separately
 ([696-the-spawn-service-runs-outside-boots-frame.md](696-the-spawn-service-runs-outside-boots-frame.md))

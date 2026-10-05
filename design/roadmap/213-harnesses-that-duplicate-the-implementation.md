@@ -53,18 +53,18 @@ same function.
 
 ## The sweep, and what it found
 
-**One finding in 148, and the block named it in advance.** `nifefs`'s harness was measured blind
+One finding in 148, and the block named it in advance. `nifefs`'s harness was measured blind
 in both directions: `read` slicing from `(start_block + DIR_BLOCKS) * BLOCK`, a directory span
 past what `parse` accepted, left the old phrasing verifying in 0.04 seconds, and the rewrite goes
 red on the same patch.
 
-**The repair earned its keep, which this block said to decide rather than assume.** It did,
+The repair earned its keep, which this block said to decide rather than assume. It did,
 for a reason that is not the proof: the duplication was in the implementation first. `parse`
 validated with three lines and `read` sliced with a copy of them, and `read`'s unchecked index
 was sound only because a reader could see the two matched. `Fs::entry_bounds` has two ordinary
 callers and turns that into one expression, so §46's refusal of machinery-for-tidiness does not
-bite. The test for the next case: **would this function be worth extracting if there were no
-harness?**
+bite. The test for the next case: would this function be worth extracting if there were no
+harness?
 
 **The mechanical narrowing this block predicted was not attempted, and should not have been.**
 The absence of a call to the crate is easy to grep for and is the wrong question: almost every
@@ -74,23 +74,23 @@ whole family. Every harness was read.
 
 ## BUGS
 
-- **Some duplication is correct.** `intrusive_fifo` keeps a model queue on purpose and compares
+- Some duplication is correct. `intrusive_fifo` keeps a model queue on purpose and compares
   the real one against it, which is the good version of this and must not be swept up. The
   difference is whether the crate's own function is on the other side of the comparison. That
   sentence turned out to be the whole discriminator, and it survived the sweep unchanged.
-- **The repair can be worse than the defect**, and the check for it is above rather than here now
+- The repair can be worse than the defect, and the check for it is above rather than here now
   that one case has been decided. It did not bite in `nifefs`; it would have if the two conditions
   had not already been duplicated in the source.
-- **One is a floor, and a lower one than 211's eleven.** A harness with the crate on neither side
+- One is a floor, and a lower one than 211's eleven. A harness with the crate on neither side
   of its assertion is the pure form of this defect and there was one. A harness whose subject
   comes from the crate can still rest on a recomputed *assumption*, and telling a safe restatement
   from an unsafe one took reading the code rather than applying a rule.
-- **A model of a caller cannot be repaired this way.**
+- A model of a caller cannot be repaired this way.
   `kernel::every_page_between_the_checked_ends_is_itself_a_user_page` restates the guard two
   syscall paths apply. Both were read and both still match, so it is faithful; there is nothing to
   extract and call, because what is duplicated is control flow rather than a function, and nothing
   re-reads those call sites when they change.
-- **The 147 cleared harnesses carry no artefact**, the same limit 211 records for its own 135. A
+- The 147 cleared harnesses carry no artefact, the same limit 211 records for its own 135. A
   refactor that inlines a function a harness calls turns that harness into this defect silently.
 
 ## Follow-on

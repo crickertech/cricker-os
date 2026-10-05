@@ -145,9 +145,9 @@
 //!   read-only page is a language-level question, not settled here; a raw atomic load that never
 //!   forms the reference is the likely shape if it is not.
 //! - **A thread that shares an address space with another thread would share this page, and both
-//!   would read one of the two answers.** That cannot happen today: `Tcb::CONFIGURE` consumes the
-//!   address-space capability, so no two TCBs name one space: §105 (`std::thread::spawn` stays
-//!   declined). This page is per address space,
+//!   would read one of the two answers.** That cannot happen today: `Tcb::CONFIGURE` refuses a
+//!   space already bound to a thread (§249 (a running address space stays nameable), amendment
+//!   (b)), so no two TCBs share one space: §105 (`std::thread::spawn` stays declined). This page is per address space,
 //!   which is per thread only because of that. **Whoever lifts §105 must make this per thread by
 //!   something other than the address space**, and a shared page indexed by a slot the thread
 //!   learns at startup is the obvious shape, with the false-sharing cost of packed slots to weigh.

@@ -16,27 +16,27 @@ Every machine named below is in the pinned QEMU already. Nothing has to be bough
 ported or decided first; `script/cpu-matrix` is the shape to copy and milestone 59 already argued
 the general case for narrowing an emulator rather than forking one.
 
-**In brief.** Milestone 59 built a matrix over `-cpu` and left `-machine` at `virt` on every
-architecture. **Every RISC-V, aarch64 and x86_64 result this project has is from one board per
-architecture**, which is the same blind spot 59 found in `-cpu rv64` one axis over: a single machine
+In brief. Milestone 59 built a matrix over `-cpu` and left `-machine` at `virt` on every
+architecture. Every RISC-V, aarch64 and x86_64 result this project has is from one board per
+architecture, which is the same blind spot 59 found in `-cpu rv64` one axis over: a single machine
 that has never told the kernel anything it did not want to hear.
 
 ## The evidence that this is not hypothetical
 
-**A machine option already boots the whole tour and silently loses every interrupt.** Milestone 222
+A machine option already boots the whole tour and silently loses every interrupt. Milestone 222
 measured `-machine virt,gic-version=3` on 2026-09-02, and the result is the most dangerous shape a
 failure has: the kernel boots, brings four cores online, prints `timer: 100 Hz tick, interrupts ON`,
-and then takes **zero interrupts and zero preemptions, with nothing faulting and nothing said**.
+and then takes zero interrupts and zero preemptions, with nothing faulting and nothing said.
 `memory::gic_regions()` matches `intc@` by name and takes the first two `reg` blocks, so a GICv3 node
-hands it the distributor and the **redistributor**, and `gic::init_this_cpu` writes `GICC_PMR` and
+hands it the distributor and the redistributor, and `gic::init_this_cpu` writes `GICC_PMR` and
 `GICC_CTLR` into registers that are not there.
 
 That was found by a person running a command by hand, not by a gate, and it is why the runner's
-`gic-version=2` pin is load-bearing rather than tidy. **A machine matrix is the gate that would have
-found it**, and it is the same failure this project keeps meeting from other directions: a run that
+`gic-version=2` pin is load-bearing rather than tidy. A machine matrix is the gate that would have
+found it, and it is the same failure this project keeps meeting from other directions: a run that
 is indistinguishable from a passing one.
 
-**And a machine's firmware has already hidden a missing boot path.** `notes/x86-port/boot.md`: PVH is a
+And a machine's firmware has already hidden a missing boot path. `notes/x86-port/boot.md`: PVH is a
 hypervisor protocol and no real firmware speaks it, so the kernel booted under QEMU for weeks by a
 route the OptiPlex could not offer. QEMU's convenience concealed the gap until real hardware refused
 it. A second machine profile is the cheap half of noticing that class earlier.
@@ -46,16 +46,16 @@ it. A second machine profile is the cheap half of noticing that class earlier.
 **It is not "run every machine".** The pinned QEMU offers 112 aarch64, 43 x86_64 and 10 riscv64
 machines (measured 2026-09-18 on 11.0.2), and a matrix over them would be a very slow way to test one
 memory map many times. The axis worth
-covering is **what a machine makes the kernel negotiate**: its memory map, its interrupt controller,
+covering is what a machine makes the kernel negotiate: its memory map, its interrupt controller,
 whether it describes itself by device tree or ACPI, and how its PCI configuration space is reached.
 Each row earns its place by answering one of those differently from `virt`.
 
 **It is not a substitute for silicon, and nothing here should be read as one.** notes/cpu-models.md's
 `BUGS` is the standard: *"a narrower QEMU model is still QEMU"* and *"a green matrix is not a portable
 kernel. It is the absence of one specific class of failure."* Cache behaviour, real memory maps,
-errata and real firmware stay silicon's. **This entry used to claim `design/fatal-risks/README.md`'s risk 5
-had already fired there** (a VisionFive 2 reading of a receiver woken with nothing delivered, on
-three harts, that no emulator run had ever shown). **That reading is retracted**
+errata and real firmware stay silicon's. This entry used to claim `design/fatal-risks/README.md`'s risk 5
+had already fired there (a VisionFive 2 reading of a receiver woken with nothing delivered, on
+three harts, that no emulator run had ever shown). That reading is retracted
 (`notes/visionfive2.md`'s fifth bench stop, 2026-08-15): the dumps were a completed tour's terminal
 state, not a stranded receiver. Found still repeating it here 2026-09-23. Risk 5's own defining claim
 (a defect QEMU cannot show) has no confirmed instance today; the argument that silicon still matters
@@ -63,28 +63,28 @@ does not need one to hold, and stands on the general case notes/cpu-models.md al
 
 ## The rows, and why each one differs from `virt`
 
-**Confirmed against the pinned QEMU 11.0.2 on 2026-09-18**, which was this block's first deliverable
+Confirmed against the pinned QEMU 11.0.2 on 2026-09-18, which was this block's first deliverable
 and is now discharged: every machine and option below exists on the pin. The list was first drafted
-against a container's QEMU 8.2.2, a version `script/qemu-check` **rejects** (it lacks
+against a container's QEMU 8.2.2, a version `script/qemu-check` rejects (it lacks
 `riscv-iommu-pci`, milestone 16b and DECISIONS §20), so it was drafted against an emulator this tree
 refuses to run on. Confirming it moved three things, all recorded below.
 
 **aarch64**
 
 - `virt,gic-version=3`, and then `4`. The interrupt controller, which is the case above. This row is
-  red until milestone 227 lands a GICv3 driver, and **that is the point**: it turns 227 from a
+  red until milestone 227 lands a GICv3 driver, and that is the point: it turns 227 from a
   judgement into a failing gate. Confirmed: the pin accepts `2, 3, 4, host and max`.
 - `virt,its=off`. The pin offers `auto, gicv2m, its, off`, so interrupt translation is a machine
   option too, and every result so far is from the default.
 
 **`virt,iommu=smmuv3` is deliberately NOT a row here, and the reason is a correction.** A draft of
 this block proposed it, on the finding that `-machine virt,help` offers an IOMMU option and the
-claim that nothing in this tree boots with one. **That claim was false and one grep would have shown
-it.** `helpers/qemu-runner-aarch64.sh` sets `iommu=smmuv3` on both the TCG and HVF paths
+claim that nothing in this tree boots with one. That claim was false and one grep would have shown
+it. `helpers/qemu-runner-aarch64.sh` sets `iommu=smmuv3` on both the TCG and HVF paths
 unconditionally, and has since milestone 81 (an HVF leg: the test suite on the physical core); `helpers/qemu-runner-riscv64.sh` carries
 `-device riscv-iommu-pci` with `iommu_platform=on` on its PCI disk, net and GPU (milestone 16b's
 twin); and `helpers/qemu-runner-x86_64.sh` carries `intel-iommu` with a recorded analysis of its
-`intremap` capability bits. **All three architectures already boot behind an IOMMU**, which is why
+`intremap` capability bits. All three architectures already boot behind an IOMMU, which is why
 `script/qemu-check` gates on `riscv-iommu-pci` existing in the pin at all.
 
 **What the confirmation pass actually found on that axis is not a machine row at all**, which is why
@@ -94,7 +94,7 @@ boot-time confinement test was the whole of riscv64's assurance, on one board. T
 under §19 (architectural parity is a tenet) rather than a coverage gap this matrix could close, and
 milestone 432 (design/roadmap/432-the-riscv-iommu-driver-has-no-proof.md) closed it on 2026-09-25:
 `arch/riscv64/iommu.rs` now carries two harnesses of its own, proved from an aarch64 host.
-- `sbsa-ref`. Describes itself by **ACPI with no device tree**, which is the discovery seam x86_64
+- `sbsa-ref`. Describes itself by ACPI with no device tree, which is the discovery seam x86_64
   already exercises and aarch64 never has.
 - `raspi3b`, and `raspi4b` which is also on the pin. A real SoC memory map with a different UART,
   which is the shape milestone 20's portable HAL claims to make cheap.
@@ -104,33 +104,33 @@ milestone 432 (design/roadmap/432-the-riscv-iommu-driver-has-no-proof.md) closed
 - `sifive_u`. A real SoC map rather than `virt`'s, closest in kind to the U74 on radon.
 - `spike`, `microchip-icicle-kit`. Different again, and cheap; keep whichever says something new.
 
-**And a thing the confirmation settles rather than proposes: the pin has no JH7110 or VisionFive 2
-machine at all.** Its ten riscv64 machines are the three above plus `virt`, `sifive_e`, `shakti_c`,
+And a thing the confirmation settles rather than proposes: the pin has no JH7110 or VisionFive 2
+machine at all. Its ten riscv64 machines are the three above plus `virt`, `sifive_e`, `shakti_c`,
 `none`, and three this block does not want (`amd-microblaze-v-generic`, `boston-aia`,
 `xiangshan-kunminghu`). So there is no upstream model of radon's own SoC to adopt, which is the fact
 the question "should we feed our silicon learnings back into QEMU" turns on: adopting a model is
 cheap, writing one is a project in somebody else's tree.
 
-**x86_64**
+x86_64
 
 - `pc` (i440fx) beside `q35`. Legacy PCI configuration against PCIe ECAM, which is exactly what
   milestones 165, 215 and 314 reason about, tested today on one of the two.
 
 ## Whether more CPU models belong here too
 
-**Only where a model negotiates differently, and the criterion is the deliverable.** Milestone 59's
+Only where a model negotiates differently, and the criterion is the deliverable. Milestone 59's
 five models earn their keep by saying no to distinct things: `svadu` (hardware A/D bits, absent on
 `sifive-u54` and `thead-c906`, inverted on the RVA profiles), Sv39 against `rv64`'s Sv57, and `sstc`
 (timer compare in a CSR against an SBI call). A sixth model that refuses nothing the five already
 refuse buys runtime and no coverage.
 
-So this milestone should **write that criterion down and apply it once per architecture**, which is
+So this milestone should write that criterion down and apply it once per architecture, which is
 work neither 59 nor this block has done: aarch64 and x86_64 have no CPU matrix at all, and whether
 they want one is the same question answered with their own feature lists rather than by analogy.
 The pin offers 37 aarch64, 27 riscv64 and 243 x86_64 CPU models, so the criterion is doing the whole
 of the work; a count is no help at all.
 
-**The riscv64 list is larger on the pin than 59's five suggest**, and applying the criterion to it is
+The riscv64 list is larger on the pin than 59's five suggest, and applying the criterion to it is
 part of this milestone rather than assumed settled: `rv64i` is the base integer ISA with none of
 `imac`, which refuses more than any model 59 tests and may simply refuse to run the kernel at all,
 and that outcome is itself worth knowing once rather than guessing.

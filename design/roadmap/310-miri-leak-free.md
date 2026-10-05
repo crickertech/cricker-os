@@ -32,13 +32,13 @@ script/undefined-behavior-check  5429.38s user  18.55s system  47% cpu  3:09:41.
 [exited with code 0]
 ```
 
-**Three hours nine minutes, and green.** No failure appeared behind the leak, which is worth saying
+Three hours nine minutes, and green. No failure appeared behind the leak, which is worth saying
 plainly because the workflow's header warns to expect one: `cargo miri test` stops at the first
 failure, and the last time this job was taken apart a three-week red turned out to have three
 causes. This time the first fix was the only fix.
 
-**And it passes in CI, which is the measurement that settles it.** `workflow_dispatch` on this
-branch, run 35256118545 on `ubuntu-24.04-arm`: **success in 2:58:13**, the workflow's first green
+And it passes in CI, which is the measurement that settles it. `workflow_dispatch` on this
+branch, run 35256118545 on `ubuntu-24.04-arm`: success in 2:58:13, the workflow's first green
 since it was written. The two figures agreeing within eleven minutes across two very different
 machines is worth having, because it means three hours is the job's cost rather than this laptop's.
 
@@ -63,8 +63,8 @@ One test out of four, five frames, five weeks of red.
 That is `AGENTS.md`'s ladder, rung four, failing the way rung four fails, and the whole list of
 sites confirms it: `page_frame_at` was the only function allocating, `page_frame` the only other
 caller of it, and the thread-local `PHYS` had no third writer anywhere in the crate. Nothing was
-subtle. **Binding the missing line would have restored the identical defect for the next test
-author**, and the next author is exactly who this file says cannot be relied on to remember.
+subtle. Binding the missing line would have restored the identical defect for the next test
+author, and the next author is exactly who this file says cannot be relied on to remember.
 
 So the fix goes up the ladder to rung one, *make the wrong state unrepresentable*: `frame` and
 `frame_at` are now methods on `FramePool`, the free functions are gone, and **a test that allocates
@@ -73,35 +73,35 @@ point of it.
 
 Three smaller things came with it, each closing a way the fix itself could be wrong:
 
-- **The layout is named once** (`frame_layout()`), because `alloc` and `dealloc` must agree exactly
+- The layout is named once (`frame_layout()`), because `alloc` and `dealloc` must agree exactly
   and a `dealloc` with a mismatched layout is itself undefined behaviour. Failing a UB check with UB
   introduced by the UB fix is an available outcome and it is now unreachable by construction.
-- **`FramePool::new` refuses a second live pool on one thread.** Nesting would make the inner drop
+- `FramePool::new` refuses a second live pool on one thread. Nesting would make the inner drop
   free the outer's frames, leaving live entries in `PHYS` pointing at freed memory: a use-after-free
   discovered later instead of a panic discovered now. `PHYS` is thread-local, which is what makes
   one-pool-per-thread the right invariant; the test harness runs each test on its own thread and no
   test in the crate spawns one.
-- **A `BUGS` section on `FramePool` itself**, where a reader meets the fixture, saying why the frames
+- A `BUGS` section on `FramePool` itself, where a reader meets the fixture, saying why the frames
   are freed and what breaks if they are not.
 
 ## The two options that were refused, and why
 
 calef ruled on 2026-09-17. Recording the refusals rather than only the choice, per §75:
 
-**`-Zmiri-ignore-leaks`, workspace-wide. Refused.** It trades a permanent reduction in what Miri
+`-Zmiri-ignore-leaks`, workspace-wide. Refused. It trades a permanent reduction in what Miri
 checks for a one-time cost, which is the wrong direction on a check that had already gone five weeks
 without anybody noticing it was checking nothing. This project's `no_std` crates are host-testable on
 purpose, and a future host test of an allocator is precisely the thing leak checking would earn its
 keep on; turning it off now spends that in advance to save an afternoon.
 
-**A `paging`-scoped ignore. Refused.** Narrower, and still an ignore, but it also does not exist:
+A `paging`-scoped ignore. Refused. Narrower, and still an ignore, but it also does not exist:
 `cargo xtask undefined-behavior-check` runs one `cargo miri test --workspace` with a static exclusion
 list and `MIRIFLAGS` is a process-wide environment variable, so per-crate flags would need a
 mechanism built first. Paying for machinery whose purpose is to check less is the losing side of both
 arguments at once.
 
-The honest cost of what was done instead: **one afternoon, one crate, 60 lines changed in one test
-module, no production code touched, and no test covering less than it did.** That comparison is why
+The honest cost of what was done instead: one afternoon, one crate, 60 lines changed in one test
+module, no production code touched, and no test covering less than it did. That comparison is why
 the decision was not close.
 
 ## Freeing changed nothing about what the tests cover
@@ -119,12 +119,12 @@ and the crate's other thirty pass unchanged.
   memory and lets the process clean up) is caught only by the weekly Miri run, which is exactly the
   detection latency that let this sit for five weeks. `script/cadence-check` shortens the latency on
   the *job going quiet*, not on the job going red.
-- **The weekly run's cost is now measured and still unjudged.** Three hours nine minutes locally and
+- The weekly run's cost is now measured and still unjudged. Three hours nine minutes locally and
   2:58:13 in CI, and the workflow's header asks for its 240-minute budget to be tightened once `compositor` is
   sampled. This milestone supplies the number the header was missing and does not answer whether the
   cadence is worth it. See the follow-on.
-- **`crates/paging/tests/mapping.rs` still has the opt-in shape this milestone removed from
-  `domain.rs`.** `TableGuard` must be bound by hand; every test in the file does bind one today, so
+- `crates/paging/tests/mapping.rs` still has the opt-in shape this milestone removed from
+  `domain.rs`. `TableGuard` must be bound by hand; every test in the file does bind one today, so
   nothing leaks, and nothing keeps that true. Recorded in a `BUGS` section at `TableGuard` rather
   than fixed, because converting it touches twenty-one call sites in a file that is not failing.
 - **`FramePool` is a provisional name** (a private type inside `#[cfg(test)] mod tests`, not a public
@@ -166,10 +166,10 @@ leaked five zeroed host frames, which `cargo test` ignores and Miri's default le
 The interesting part is that the guard was not missing. `PoolGuard` had been added on 2026-08-03 for
 exactly this leak, and a test written afterwards simply did not bind one, which is AGENTS.md's rung
 four failing the way rung four fails; binding the missing line would have restored the identical
-defect for the next author. So allocation moved onto the pool itself and **a test that allocates a
-frame without holding one no longer compiles.** calef refused both alternatives on 2026-09-17,
+defect for the next author. So allocation moved onto the pool itself and a test that allocates a
+frame without holding one no longer compiles. calef refused both alternatives on 2026-09-17,
 `-Zmiri-ignore-leaks` globally and a `paging`-scoped ignore, on the ground that a permanent
 reduction in what Miri checks is the wrong trade for a one-time cost; the refusals and their reasons
-are in the block. **Measured: three hours nine minutes, exit 0, full sampled workspace**, with no
+are in the block. Measured: three hours nine minutes, exit 0, full sampled workspace, with no
 second failure hiding behind the first, which supplies the honest cost figure the workflow's own
 header says is "not yet known", and confirmed green in CI at 2:58:13.

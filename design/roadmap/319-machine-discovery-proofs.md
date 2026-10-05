@@ -102,26 +102,26 @@ the harness run, required red, reverted.
 
 Three of these deserve their own sentence, because the argument for them is not "it parses bytes".
 
-**The RSDP checksum is the crate's one security-shaped claim.** The module header already says why:
+The RSDP checksum is the crate's one security-shaped claim. The module header already says why:
 the RSDP is found by *scanning low memory for an eight-byte string*, so the checksum is the only
 thing between a coincidence and a physical address the kernel will follow. The hand-written tests
 flip one byte and expect `BadChecksum`; the harness quantifies over every 36-byte pattern, including
 the ones where a second error cancels the first.
 
-**The RISC-V privilege-letter reading is the one the bench already paid for.** The VisionFive 2's
+The RISC-V privilege-letter reading is the one the bench already paid for. The VisionFive 2's
 vendor firmware marks its M/U-only S7 monitor core `"okay"` with `mmu-type = "riscv,sv39"`, both
 false, and starting it crashed the firmware (2026-08-14, `notes/visionfive2.md`). The hart's own
 `riscv,isa` is the only thing that tells the truth, and `supervisor_mode_claim` returning
 `Some(false)` is the only thing `Cpu::startable` has to refuse it with. The claim is stated as an
-**invariance** rather than as a restatement of the code: appending a multi-letter extension to an ISA
+invariance rather than as a restatement of the code: appending a multi-letter extension to an ISA
 string never changes what it says about privilege modes. A scan that reaches past the first `_` reads
 QEMU's own `_sstc` as a supervisor claim and turns that `Some(false)` into a `Some(true)`.
 
-**The screen token is a wire format, which is what earns it a prover rather than a test.** The
+The screen token is a wire format, which is what earns it a prover rather than a test. The
 loader writes it and the kernel reads it, so they are separate binaries, and a description one can
 write that the other cannot read is a black screen with nothing to say why (`parse` is documented to
 read a malformed token as no screen at all). `MAX_LEN`'s own doc records the near miss: the token was
-`fb=` when 64 was chosen, `screen=` is four characters longer, and the worst case went to **63 of 64**
+`fb=` when 64 was chosen, `screen=` is four characters longer, and the worst case went to 63 of 64
 with nothing noticing.
 
 ## What was deliberately not proved
@@ -129,18 +129,18 @@ with nothing noticing.
 Risk 2's retrospective is specific about how this goes wrong, so the refusals are listed rather than
 implied.
 
-- **`interrupt_id`, `cpu_list` and `plic`'s real logic needs a symbolic `Dtb`**, which is the wall
+- `interrupt_id`, `cpu_list` and `plic`'s real logic needs a symbolic `Dtb`, which is the wall
   `crates/device_tree_blob` already records for its own structure-block token loop and `crates/elf` records for the
   loader. Their leaf decoders (`be32_word`, `hwid_from_reg`, `cells_to_u64`, `is_okay`) are written
   with `get`, `>=` guards and `checked_mul` already, so a totality harness over any of them is
   `capability::subset_is_reflexive`'s cousin: true of every plausible implementation, and evidence of
   nothing. They are not proved and this is why.
-- **`Cpu::startable` is three booleans and a `matches!`.** A harness over it would restate its own
+- `Cpu::startable` is three booleans and a `matches!`. A harness over it would restate its own
   body. The property that matters about it is about `supervisor_mode_claim`, which is proved.
-- **`aarch64::Isa` is bitfield extraction from architected ID registers**, which are read from the
+- `aarch64::Isa` is bitfield extraction from architected ID registers, which are read from the
   part in front of you rather than parsed from anything. It is the crate's one module that is not a
   parser, and it is out of scope for that reason.
-- **The whole-table walk from the RSDP through the XSDT to each table** needs a symbolic pointer into
+- The whole-table walk from the RSDP through the XSDT to each table needs a symbolic pointer into
   memory this crate never holds. The leaves and the two self-describing entry walks are what bounded
   model checking reaches, so they are what is proved. The volatile half of that walk,
   `kernel/src/arch/x86_64/machine.rs`'s 836 lines reading raw pointers into the direct map, was
@@ -157,8 +157,8 @@ implied.
 Milestone 197's abandoned properties, with their costs, were worth more than the ones it proved, so
 this one is reported the same way.
 
-**The whole-token round trip, `parse(encode(x)) == Some(x)` for every `Framebuffer` the encoder
-accepts, was still running after 18 minutes** on the dev Mac at `--unwind 18`, and was killed rather
+The whole-token round trip, `parse(encode(x)) == Some(x)` for every `Framebuffer` the encoder
+accepts, was still running after 18 minutes on the dev Mac at `--unwind 18`, and was killed rather
 than waited out. For scale: the whole suite's serial time is 30.3 minutes, its sharding floor is
 `glob::the_dot_rule_only_touches_names_that_start_with_a_dot` at 10.8, and the other two framebuffer
 harnesses in the same run finished in 4.8 and 1.6 seconds. One harness at 18-plus minutes would have
@@ -168,34 +168,34 @@ The cost is not the round trip's logic, it is `parse`'s front end: `split_ascii_
 `find_map` over a `str` whose length is symbolic, so every byte position is a branch before any of
 the four converters is reached.
 
-**What replaced it is the half that carries the risk**, which is the converters rather than the
+What replaced it is the half that carries the risk, which is the converters rather than the
 tokenizer: `every_hex_field_the_loader_writes_is_one_the_kernel_reads_back`. The disagreement this
 property exists to catch is `write_hex` emitting a sixteenth digit that `parse_hex` refuses, and that
 is now proved for every `u64` with no tokenizer in the formula. The whole-token round trip stays a
 hand-written test over six realistic geometries, which is what it was before this lane and is honest
 about what it covers.
 
-**The decimal twin was written, measured, and dropped: 911 seconds.** `write_decimal` divides a
+The decimal twin was written, measured, and dropped: 911 seconds. `write_decimal` divides a
 symbolic `u32` by ten, ten times, and symbolic division is the one operation bit-blasting does
 badly; `parse_decimal` multiplies it back. 15.2 minutes for one harness would have become the
 suite's atomic floor, above `glob` at 15.0, which is the number the whole sharding argument in
-`script/verify` is built on. The hex twin is shifts and masks and costs **135 seconds**, which is
+`script/verify` is built on. The hex twin is shifts and masks and costs 135 seconds, which is
 still most of this crate's row and is why the row reads 180 rather than 60.
 
 So the decimal converters are **not proved**, and the boundary that matters about them (`4294967295`
 accepted, `4294967296` refused) is covered by a hand-written test rather than for every `u32`. That
 is a worse guarantee and it is the one the measurement bought.
 
-**And the span property was rewritten twice for the same reason, which is the pattern worth taking
-away.** The natural spelling, `span >= width * 4 * height`, reaches `2^64` at the type extremes and
-so has to be done in `u128`: **20 minutes**, killed. Restating it as a conjunction did not help,
+And the span property was rewritten twice for the same reason, which is the pattern worth taking
+away. The natural spelling, `span >= width * 4 * height`, reaches `2^64` at the type extremes and
+so has to be done in `u128`: 20 minutes, killed. Restating it as a conjunction did not help,
 because the second half (`span == stride * height`) asks the solver to equate two 64-by-64-bit
-multiplies: **9 minutes**, killed. What ships is the half that carries the defect,
-`stride >= width * 4`, at **0.04 seconds**.
+multiplies: 9 minutes, killed. What ships is the half that carries the defect,
+`stride >= width * 4`, at 0.04 seconds.
 
 That is a 30,000-fold spread over three spellings of one claim, and the cheapest one is the one that
 found the bug. The lesson is not that wide arithmetic is slow, which everyone knows. It is that
-`span == stride * height` **restates the function's own definition**, so proving it was never going
+`span == stride * height` restates the function's own definition, so proving it was never going
 to catch anything, and it was costing all of the time. Ask what a clause could falsify before paying
 for it.
 
@@ -208,7 +208,7 @@ for it.
 | `script/verify` row | absent | `machine_discovery 180` |
 
 The 180 seconds is a dev-Mac measurement rather than a CI-log one, which is the wrong machine for
-that column, the same caveat `jh7110_entropy` and `kernel` carry. **135 of the 190 solver seconds are one harness**,
+that column, the same caveat `jh7110_entropy` and `kernel` carry. 135 of the 190 solver seconds are one harness,
 `every_hex_field_the_loader_writes_is_one_the_kernel_reads_back`; the other fourteen together are
 about fifty-five, and the two slowest of those are 17.6 and 14.5.
 

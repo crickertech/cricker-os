@@ -40,7 +40,7 @@ capacity is famously scarce in popular regions, Oracle reclaims idle always-free
 the account is upgraded to pay-as-you-go (which keeps the free tier free but adds a card), and
 the 4 OCPUs can be split across at most two instances.
 
-**What it costs in engineering, named up front.** No cloud takes a kernel image; it takes a disk
+What it costs in engineering, named up front. No cloud takes a kernel image; it takes a disk
 image that boots via UEFI, so the kernel needs a boot path it does not have (an EFI stub or a
 bootloader stage). Server aarch64 VMs describe the machine with **ACPI, not a device tree**,
 which is a new discovery front door (milestone 60 built the DTB one). None of this is wasted
@@ -51,7 +51,7 @@ and Google's Ampere shapes become reachable with the same boot path. One cross-r
 stages should honor: if stage 2 finds OCI's serial console is virtio-console rather than a
 16550, the driver it forces is milestone 24's named artifact; build it once.
 
-**The staging that keeps it honest**, each stage a deliverable on its own:
+The staging that keeps it honest, each stage a deliverable on its own:
 
 1. Boot under UEFI locally (QEMU `virt` with AAVMF firmware), serial byte out. No cloud yet.
 2. The always-free A1 shape: custom image imported, a byte on the OCI serial console. This is the

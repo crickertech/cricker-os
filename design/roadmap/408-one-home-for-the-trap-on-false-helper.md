@@ -63,14 +63,14 @@ trap are not the same path, though they arrive at the same instruction).
 
 ## Why it is a proposal and not a change
 
-**291 chose the duplicate deliberately**, because the alternative was adding a public function to
+291 chose the duplicate deliberately, because the alternative was adding a public function to
 `user_rt` in a lane already touching two archive tables and the filesystem's directory geometry,
 and because `user_rt` is the crate every program in the tree links. The existing two copies were
 the tree's established pattern; following it kept the change reviewable. The argument for fixing it
 is that "fewer places to be wrong" is AGENTS.md's own definition of elegance, and nine is past the
 point where a pattern is a convention.
 
-**The name is the whole decision.** `check` is one of the generic words AGENTS.md names as a failure
+The name is the whole decision. `check` is one of the generic words AGENTS.md names as a failure
 mode: half the tree checks something. `require` is the kernel's own word for the same shape
 (`trust::require` halts on a mismatch). `insist` and `must` were considered and are worse for
 opposite reasons: the first is unusual enough to need explaining, the second reads as a modal verb

@@ -2716,8 +2716,9 @@ pub(crate) fn finish_switch() {
 /// 3. Under `IPC_TABLES` again: remove the thread. Only now does it stop occupying its region.
 ///
 /// **Everything the thread owned is gone before step 3, and that order is the point.** Region
-/// teardown (`reclaim_region`) relies on a bound space having died with its thread ("Bound spaces
-/// need no step here"), and an owner whose `DESTROY` succeeds may reuse the memory at once. Before
+/// teardown (`reclaim_region`) relies on a resident thread's space being gone before the thread is
+/// (its `being_reaped` refusal holds the region until step 3), and an owner whose `DESTROY` succeeds
+/// may reuse the memory at once. Before
 /// 2026-10-04 the space was dropped just after the thread was removed, so a `DESTROY` on another
 /// core could reclaim the region in between, while the space's page tables (in that region) and
 /// its revocation-database entries were still live. The rest of the `Thread` (its quota token, its
@@ -2725,6 +2726,21 @@ pub(crate) fn finish_switch() {
 ///
 /// Nothing else removes a `Finished` thread between steps 1 and 3: the only other remover is region
 /// teardown, and `region_reap_verdict` refuses a thread that is being reaped.
+///
+/// **Since §249 the space is taken out of the address-space registry in step 2**, by the name in the
+/// thread's copy, and the region sweep may have taken it already (this thread is a corpse off its
+/// stack); `Table::remove` hands it to one of the two.
+///
+/// # BUGS
+///
+/// - **A corpse whose TCB is outside region R and whose root is inside it still has a narrow
+///   window.** If this reaper takes the space in step 2 and a `DESTROY(R)` on another core runs
+///   wholly before the drop finishes, the sweep finds no entry, R comes back, and the drop's
+///   `revoke::forget_root` can land on a root that page has been given to since. The sweep taking
+///   the space first is the common order and is safe; this is the other order. Before §249 it was open for the whole life of an unreaped corpse rather than for one drop. It is
+///   handed to
+///   milestone 765 (a destroyed region cannot free the root a running thread walks), whose refusal
+///   is the natural place to count a space that is still being dropped.
 #[cold]
 #[inline(never)]
 fn reap_switched_out(mut guard: crate::sync::IrqSafeGuard<'_, Option<IpcTables>>, prev: ThreadId) {
@@ -2745,7 +2761,14 @@ fn reap_switched_out(mut guard: crate::sync::IrqSafeGuard<'_, Option<IpcTables>>
     drop(stack);
     #[cfg(feature = "lock_wait")]
     crate::lock_wait::stack_freed(crate::arch::timer::now() - t0);
-    drop(space);
+    // The thread kept a copy; the registry owns the space (§249). `None` here means the region
+    // sweep already took it from under this corpse, which is the take-once removal working, not a
+    // leak. Taken and dropped as two statements so the registry's lock is released before the
+    // `Drop`, which takes the revocation, region and ASID locks.
+    if let Some(bound) = space {
+        let space = crate::user::take_user_address_space(bound.name());
+        drop(space);
+    }
 
     let mut guard = IPC_TABLES.lock();
     if let Some(sched) = guard.as_mut() {
@@ -5364,9 +5387,11 @@ pub fn reclaim_region(region: u64) -> Result<(), ()> {
         return Err(());
     }
     let (base, size) = crate::memory_region::region_bounds(region).ok_or(())?;
-    // Threads first (IPC_TABLES), then any unbound address spaces (the address space registry lock). Two
-    // separate lock domains, sequenced, never nested: neither is held across the other. Bound
-    // spaces need no step here, they died with their thread in the reap above.
+    // Threads first (IPC_TABLES), then the address spaces the region's destruction ends (the
+    // registry's lock, which takes IPC_TABLES beneath it to ask about bound threads). Since §249 the
+    // registry owns bound spaces too, so this second step also collects the space of every thread
+    // the first step removed, and takes a corpse's space whose root is in the region; it leaves a
+    // space whose thread can still run, which is milestone 765's to refuse in the first step.
     reap_region_objects(base, base + size)?;
     crate::user::reap_address_spaces_in_region(base, base + size);
     crate::memory_region::unpin(region);
@@ -5548,20 +5573,27 @@ const fn survey_state(state: State) -> u64 {
     }
 }
 
-/// **Configure an embryo** (milestone 19c.3): bind the address space named by `aspace_name`
-/// (moved out of the user address-space registry into the TCB, so it now dies with the thread) and set
-/// the EL0 entry and user stack. Refuses anything but an `Embryo`, so a running thread cannot be
-/// reconfigured under itself. `Ok(())` or a reason.
+/// **Configure an embryo** (milestone 19c (run a real workload), step 19c.3; §249 (a running address
+/// space stays nameable)): bind
+/// the address space named by `aspace_name` and set the EL0 entry and user stack. Refuses anything
+/// but an `Embryo`, so a running thread cannot be reconfigured under itself. `Ok(())` or a reason.
+///
+/// **The space stays in the registry and keeps its name** (§249's option A). Until 2026-10-05 this
+/// moved the space out of the registry into the thread, which retired the name, so no capability
+/// could name a running space and `UNMAP` could not reach the window milestone 95 (an unmap
+/// primitive) exists to close. Now the thread keeps a copy of what the context switch reads, and the
+/// registry records which thread the space is bound to, which is also what refuses a second bind
+/// (§249's amendment (b), `WrongObject`; §105 (`std::thread::spawn` stays declined) stands on it).
+///
+/// The embryo check runs first, alone, so a TCB that is not an embryo answers `WrongObject` before
+/// a stale space name answers `NoSuchSlot`, the order this function has always refused in. It runs
+/// again inside the bind, under both locks, because the first answer can be stale by then.
 pub fn configure_thread_control_block(
     tid: ThreadId,
     entry: u64,
     user_sp: u64,
     aspace_name: u64,
 ) -> Result<(), abi::Error> {
-    // Take the space out of the registry FIRST (outside IPC_TABLES: it takes the address space lock, ranked
-    // above IPC_TABLES). If the TCB then turns out not to be a configurable embryo, put nothing back
-    // is wrong, so check the embryo state first, under IPC_TABLES, and only take the space once the
-    // bind will succeed.
     {
         let guard = IPC_TABLES.lock();
         let sched = guard.as_ref().ok_or(abi::Error::NoSuchSlot)?;
@@ -5570,35 +5602,23 @@ pub fn configure_thread_control_block(
             return Err(abi::Error::WrongObject); // only an unstarted TCB may be configured
         }
     }
-    let mut space =
-        crate::user::take_user_address_space(aspace_name).ok_or(abi::Error::NoSuchSlot)?;
 
     // **This is the moment a bare address space becomes a thread's**, so it is the moment the
-    // current-CPU page belongs in it (calef's 2026-09-21 ruling on a thread observing itself; the
-    // decision's section is on another branch and is named here rather than cited). A space the
-    // kernel built already has one and this does nothing; a space userspace built gets one here,
-    // which is the only way `supervision_protocol::build_child_space`'s children ever get a real
-    // one rather than a placeholder the kernel cannot write. Silent on failure by design: see
-    // `AddressSpace::attach_current_cpu_page`.
-    space.attach_current_cpu_page();
-
-    let mut guard = IPC_TABLES.lock();
-    let sched = guard.as_mut().ok_or(abi::Error::NoSuchSlot)?;
-    let Some(t) = sched.threads.get_mut(tid) else {
-        // The TCB vanished between the checks (it cannot, without a teardown path, but be
-        // honest): give the space back to the registry rather than leak it.
-        drop(guard);
-        crate::user::readopt_user_address_space(space);
-        return Err(abi::Error::NoSuchSlot);
-    };
-    if t.handshake.state != State::Embryo {
-        drop(guard);
-        crate::user::readopt_user_address_space(space);
-        return Err(abi::Error::WrongObject);
-    }
-    t.space = Some(space);
-    t.entry = (entry, user_sp);
-    Ok(())
+    // current-CPU page belongs in it (calef's 2026-09-21 ruling on a thread observing itself), and
+    // `bind_user_address_space` attaches it before handing over the copy. The closure runs under the
+    // registry's lock (`ADDRESS_SPACES`, 61) and takes `IPC_TABLES` (60) beneath it, so the
+    // registry's bound mark and the thread's copy are written in one critical section.
+    crate::user::bind_user_address_space(aspace_name, tid, |bound| {
+        let mut guard = IPC_TABLES.lock();
+        let sched = guard.as_mut().ok_or(abi::Error::NoSuchSlot)?;
+        let t = sched.threads.get_mut(tid).ok_or(abi::Error::NoSuchSlot)?;
+        if t.handshake.state != State::Embryo {
+            return Err(abi::Error::WrongObject);
+        }
+        t.space = Some(bound);
+        t.entry = (entry, user_sp);
+        Ok(())
+    })
 }
 
 /// **Grant an embryo the cycle counter** (milestone 229, DECISIONS 139 option 4): the thread this
@@ -5864,10 +5884,15 @@ pub fn start_thread_control_block(tid: ThreadId, args: [u64; 3]) -> Result<(), a
 
 /// Hand the current thread an address space, and install it.
 ///
-/// From here the thread owns its low half: the reaper's `drop` will unmap and free it, and
-/// every context switch back to this thread will re-install it.
+/// The space goes into the address-space registry, bound to this thread (§249: the registry owns
+/// every space), and the thread keeps the copy the context switch reads. From here the reaper takes
+/// it out of the registry and drops it when the thread dies, and every context switch back to this
+/// thread re-installs it.
 pub fn adopt_address_space(space: crate::user::AddressSpace) {
-    let ttbr = space.ttbr0();
+    let current = current_thread_id();
+    // Before `IPC_TABLES`: the registry's lock ranks above it. The thread is live and running, so
+    // the region sweep cannot take the entry in the moment before the thread holds its copy.
+    let bound = crate::user::register_bound_address_space(space, current);
 
     // **The current-CPU page is written here as well as at switch-in**, and the test that found
     // this is the reason it is not obvious. `schedule()` writes the page of the thread it is
@@ -5877,23 +5902,59 @@ pub fn adopt_address_space(space: crate::user::AddressSpace) {
     // instruction ran against a page nobody had touched and `current_cpu` answered `None` until the
     // next preemption. This is that thread's switch-in, arriving late; `cpu::id()` is the core it
     // is standing on right now, which is exactly what the switch would have written.
-    space.publish_current_cpu(cpu::id() as u64);
+    bound.publish_current_cpu(cpu::id() as u64);
 
     {
         let mut guard = IPC_TABLES.lock();
         let sched = guard.as_mut().expect("no scheduler");
-        let current = current_thread_id();
         sched
             .threads
             .get_mut(current)
             .expect("no current thread")
-            .space = Some(space);
+            .space = Some(bound);
     }
 
-    // SAFETY: `ttbr` is the composed value of the `AddressSpace` the block above just moved into
-    // the *current* thread's slot. The current thread is the one executing this line, so it is on a
-    // CPU and cannot be reaped, and the space it now owns is live until that thread's `Drop` runs.
-    unsafe { crate::arch::mmu::switch_user_root(ttbr) };
+    // SAFETY: `bound` is the copy of a space the registry now owns, bound to the *current* thread.
+    // The current thread is the one executing this line, so it is on a CPU and cannot be reaped,
+    // and the space is dropped only once its thread can never be switched in again.
+    unsafe { crate::arch::mmu::switch_user_root(bound.ttbr0()) };
+}
+
+/// **Can the thread a bound address space names still run?** (§249; name provisional.) What the
+/// region sweep asks before it takes a bound space: `user::reap_address_spaces_in_region` has the
+/// rule each answer feeds.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Binder {
+    /// The name no longer resolves: the thread was reaped. Generational, so it is never a newer
+    /// thread in the same slot.
+    Gone,
+    /// `Dead` or `Finished`, and no core is standing on its stack: it will never be switched in
+    /// again, so nothing will install its root.
+    Corpse,
+    /// Anything else, an embryo included (a `START` would run it), and a corpse still on a core.
+    CanRun,
+}
+
+/// **Answer [`Binder`] questions under one hold of `IPC_TABLES`**: `f` is given the question and may
+/// ask it as often as it likes. One hold rather than one per thread, because the sweep asks about
+/// every bound space on every scan. Taken under the address-space registry's lock (61 above 60). A
+/// scheduler that does not exist yet has bound nothing, and answers `CanRun` so nothing is freed on
+/// a guess.
+pub fn with_binders<R>(f: impl FnOnce(&dyn Fn(ThreadId) -> Binder) -> R) -> R {
+    let guard = IPC_TABLES.lock();
+    let Some(sched) = guard.as_ref() else {
+        return f(&|_| Binder::CanRun);
+    };
+    f(&|tid| match sched.threads.get(tid) {
+        None => Binder::Gone,
+        Some(t)
+            if matches!(t.handshake.state, State::Dead | State::Finished)
+                && !t.handshake.on_cpu =>
+        {
+            Binder::Corpse
+        }
+        Some(_) => Binder::CanRun,
+    })
 }
 
 /// The top of the current thread's kernel stack: **where its `TrapFrame` belongs.**

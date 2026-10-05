@@ -355,17 +355,14 @@ the program ids `spawnproto` already sends in word 0.
   pipeline stage outliving its producer) permanently costs one region, so a long enough session of
   concurrent pipelines still ends at "could not spawn". Six job slots is generous for a prompt and
   small enough to keep the gate honest, which is the trade.
-- Init still holds a writable mapping of everything it ever built. `build_child`'s scratch window
-  is never unmapped (it cannot be: nothing in the ABI unmaps a page), so the progenitor can read and write any
-  page it laid down for a child. Reaping a job undoes this for jobs (§13 (capability revocation and
-  untyped reclamation)), but the boot servers are never reclaimed, so the console's, the line
-  editor's, the input driver's, the shell's and the terminal sink adapter's memory stays reachable
-  from the progenitor. *Corrected 2026-10-05 (UTC); the parenthesis
-  stays because §162 (whether a holder can give up a mapping) quotes it:* `AddressSpace::UNMAP` now
-  exists, and cannot reach this window: nothing names the progenitor's running space
-  (`notes/unmap.md`).
-- The one line the progenitor prints costs one more of those: the shell's output frame stays mapped in the progenitor
-  for life, because `Frame::REVOKE` would take the page from the shell too.
+- Init held a writable mapping of everything it ever built, until 2026-10-05 (UTC). `build_child`'s
+  scratch window is never unmapped (it cannot be: nothing in the ABI unmaps a page), so the progenitor can read and write any
+  page it laid down for a child. That included every boot server's. *Closed 2026-10-05; the
+  parenthesis stays because §162 (whether a holder can give up a mapping) quotes it.* §249 (a
+  running address space stays nameable) let the kernel grant the progenitor its own space at slot
+  28, and the loader now `UNMAP`s each page once it is in the child. The shell's output page and
+  the two DMA pages the progenitor peeks at go the same way. `system_tests`' `running_space_tests`
+  has the negative control: a builder writes to a page it filled for a child and faults.
 - The boot servers are not supervised. Endowing them a supervision endpoint with nobody to
   restart them would make their corpses persist forever instead of being reaped by the kernel, which
   is strictly worse. A dead console is still a halt, which is §26's fail-closed floor and correct for

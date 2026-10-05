@@ -20,14 +20,14 @@ after milestone 74 (cycle counters)'s aarch64 half landed (PR #972).
 The code can be written and exercised under QEMU, but QEMU counts no cache or
 TLB event that means anything; the reading needs radon and argon.
 
-**In brief.** Milestone 134's M6 (I-cache misses per IPC), M7 (D-cache misses, and whether they fall
+In brief. Milestone 134's M6 (I-cache misses per IPC), M7 (D-cache misses, and whether they fall
 in the stack region) and M8 (TLB misses) have no instrument on any architecture. Checked
 2026-09-19: nothing in `kernel/src` or `crates/` writes `PMEVTYPER<n>_EL0` or configures an SBI PMU
 cache event. The hardware is there: aarch64's boot line reports six event counters visible since
 milestone 74's `HPMN` fix, and the SBI PMU extension radon's firmware implements can match
 `SBI_PMU_HW_CACHE_*` events.
 
-**What to build**, in 74's own shape: per ISA, one L1I refill, one L1D refill and one TLB refill
+What to build, in 74's own shape: per ISA, one L1I refill, one L1D refill and one TLB refill
 event, started once, read before and after, kernel-internal, printed as `bench-probe:` lines. No
 generic event interface; milestone 74's scope note held that back until a second consumer, and
 these three measures are that consumer. Milestone 147's profiler would be a third.
@@ -36,7 +36,7 @@ these three measures are that consumer. Milestone 147's profiler would be a thir
 Cortex-A57 actually count, and whether they count them correctly. Milestone 134's own BUGS expects
 some not to. That is the same order milestone 74's riscv64 half took.
 
-**Two things to settle as it goes.** Each `PMEVTYPER<n>_EL0` carries its own exception-level
+Two things to settle as it goes. Each `PMEVTYPER<n>_EL0` carries its own exception-level
 filter, so the question calef is deciding for `PMCCFILTR_EL0`
 (`design/roadmap/proposals/the-aarch64-half-of-74.md`, decision A) comes up again here, and the
 answer should be the same one. And M7's attribution half (do the missing lines fall in the stack

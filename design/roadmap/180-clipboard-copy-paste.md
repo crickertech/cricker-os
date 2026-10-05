@@ -10,7 +10,7 @@ needs_person: no
 # 180. Copy and paste: a clipboard in a system with no ambient authority
 
 Minted 2026-08-26, calef, checking the roadmap for a gap that turned out
-not to be a gap at all: **nothing in `design/` or `notes/` mentions a clipboard**, not even as a
+not to be a gap at all: nothing in `design/` or `notes/` mentions a clipboard, not even as a
 named limitation the way mouse support is (see milestone 179). This file is that gap's first record.
 
 Not a driver or a wiring question, as milestone 179 (pointer input) was: a clipboard is shared,
@@ -38,7 +38,7 @@ paste target is anything a shell or an editor (milestone 169's `kilo`) accepts t
 directory capability is handed to exactly the principal it names (DECISIONS §117); a channel
 endpoint is minted per connection (milestone 49's login front door, `login_protocol::CONNECT`); even
 the compositor's shared windows are each their own object, not one global surface every client can
-address. **A clipboard, in the form anyone has ever used one, is the opposite of all of that**: one
+address. A clipboard, in the form anyone has ever used one, is the opposite of all of that: one
 slot, last-writer-wins, readable by whoever asks, with the OS deliberately not checking who "whoever"
 is. That is the entire feature. A capability-shaped clipboard that required proving you were the
 same principal who copied something would not be a clipboard; the whole point is that the pasting
@@ -52,7 +52,7 @@ program is not the copying program and the system introduces them anyway.
   "anything running on this machine can read the last thing copied," which is a real, named
   exception to the standing rule rather than an accidental one if it is chosen. AGENTS.md's own
   ladder has a place for exactly this ("an exception is allowed and must say so").
-- **Scoped to a login session** (milestone 49's identity model), so a clipboard exists per
+- Scoped to a login session (milestone 49's identity model), so a clipboard exists per
   authenticated principal rather than machine-wide, and reading it costs the same proof anything else
   under that principal's subtree already costs. Closer to this tree's own grain, and it means a
   clipboard cannot exist at all until milestone 49's login-boot-wiring piece does, which today it

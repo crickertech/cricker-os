@@ -8,20 +8,20 @@ promoted_from: cycles-per-tick-on-the-other-two-architectures
 
 Promoted from
 `design/roadmap/proposals/cycles-per-tick-on-the-other-two-architectures.md`, whose central
-recommendation is **corrected here rather than implemented**. Built by a lane on
+recommendation is corrected here rather than implemented. Built by a lane on
 `milestone/309-x86-64-core-cycles`.
 *(Number provisional until the merge queue lands it.)*
 
-**Nothing gated building it**, and that was the proposal's own reading: the counter is
+Nothing gated building it, and that was the proposal's own reading: the counter is
 architectural and this kernel already had every mechanism it needs (`CPUID`, `rdmsr`, `wrmsr`). What
-no machine here has is one that *models* it. QEMU-TCG reports **no** architectural performance
+no machine here has is one that *models* it. QEMU-TCG reports no architectural performance
 monitoring at all, so the only outcome this probe can print on the merge machine is `unavailable`,
 honestly, and `xenon` is where a number comes from. That is a caveat on the reading rather than a
 gate on the work, which is why it is in BUGS below and not in a status line.
 
 ## The measurement, first, because it is the deliverable
 
-**QEMU, `-cpu max` (`script/bench --x86`):**
+QEMU, `-cpu max` (`script/bench --x86`):
 
 ```
   probe: cycles_per_tick unavailable (NoPerfmonLeaf)
@@ -33,11 +33,11 @@ gate on the work, which is why it is in BUGS below and not in a status line.
   cycles      : no architectural performance monitoring (cpuid leaf 0x0a); TSC ticks only
 ```
 
-**`-cpu max,pmu=on` prints exactly the same two lines.** The property is a KVM one; under TCG QEMU
+`-cpu max,pmu=on` prints exactly the same two lines. The property is a KVM one; under TCG QEMU
 zeroes `CPUID` leaf `0x0A` either way, which is worth recording because it is the obvious next thing
 a reader would try. `script/test --arch x86_64 --cpu max,pmu=on`: 241 passed, 41 skipped.
 
-**That is the result, and it is a real one rather than a shortfall.** The emulator models no
+That is the result, and it is a real one rather than a shortfall. The emulator models no
 performance monitoring unit, this kernel asked, was told no, and said so in the place a reader meets
 the number. The alternative outcome, a probe that printed something, is the failure this milestone
 exists to prevent.
@@ -48,7 +48,7 @@ The proposal's closing paragraph says: *"Build the x86_64 probe now with the TSC
 for what it measures."* **Do not.** It also, to its credit, names the alternative and calls it "the
 design fork inside this option"; the fork has an answer and the answer is not the TSC.
 
-**`kernel/src/arch/x86_64/timer.rs`'s `now()` is `rdtsc`.** One line, checked rather than recalled:
+`kernel/src/arch/x86_64/timer.rs`'s `now()` is `rdtsc`. One line, checked rather than recalled:
 
 ```rust
 pub fn now() -> u64 {
@@ -57,10 +57,10 @@ pub fn now() -> u64 {
 ```
 
 So a `cycles_per_tick` probe on this architecture built the proposal's way would read the TSC at
-both ends of the window and divide it by itself. It would print **exactly `1.00`**, on QEMU, on
+both ends of the window and divide it by itself. It would print exactly `1.00`, on QEMU, on
 `xenon`, and on every part ever made. That is milestone 16a's "implausibly exact 100.00" again, with
 one difference that makes it worse: 16a's artifact is *emulated* (one virtual clock driving two
-CSRs) and goes away on silicon, and this one is **structural** and never would.
+CSRs) and goes away on silicon, and this one is structural and never would.
 
 The other two architectures do not have the problem, because on both of them the OS clock and the
 cycle counter are different hardware. Verified in this tree rather than assumed:
@@ -82,18 +82,18 @@ left to print. Labelling cannot rescue a number that is 1.00 by construction.
 `kernel/src/arch/x86_64/pmu.rs`, following `arch/riscv64/pmu.rs`'s shape because that module already
 solved this problem once:
 
-- **`IA32_PERF_FIXED_CTR1`**, architectural fixed-function counter 1, `CPU_CLK_UNHALTED.CORE`. That
+- `IA32_PERF_FIXED_CTR1`, architectural fixed-function counter 1, `CPU_CLK_UNHALTED.CORE`. That
   is the same quantity riscv64's SBI PMU `CPU_CYCLES` and aarch64's `PMCCNTR_EL0` give, so the three
   architectures now report one thing under one name.
 - Enabled through `IA32_FIXED_CTR_CTRL` (counter 1's field, both rings) and
   `IA32_PERF_GLOBAL_CTRL` (bit 33), read-modify-written so firmware's other bits survive.
-- **Gated on `CPUID` leaf `0x0A` before any MSR is touched**, because `rdmsr` on an unimplemented
+- Gated on `CPUID` leaf `0x0A` before any MSR is touched, because `rdmsr` on an unimplemented
   MSR is a `#GP` and this kernel has no recovery path for a probe that could have asked first. Same
   discipline `isa::draw_rdseed` keeps for `RDSEED` one file over. This is what makes the QEMU
   outcome a printed line rather than a dead machine.
-- **An outcome enum with five ways of saying no**, each with its own boot line:
+- An outcome enum with five ways of saying no, each with its own boot line:
   `NoPerfmonLeaf`, `NoFixedCounter`, `Stuck`, `InStepWithTheTsc`, `Running`.
-- **No fallback to the TSC, anywhere.** `cycles()` answers `None` and the caller prints the reason.
+- No fallback to the TSC, anywhere. `cycles()` answers `None` and the caller prints the reason.
   A probe that quietly degraded would reproduce the exact artifact above, in a line somebody would
   later quote as a fact about a machine.
 
@@ -122,7 +122,7 @@ first four and a number for the last, which is riscv64's existing contract uncha
 
 ## What the printed line says, and why there are two of them
 
-A rate printed under one name on three machines **will** be compared across them, and that is a fact
+A rate printed under one name on three machines will be compared across them, and that is a fact
 that leaves the machine (AGENTS.md's *move fast on what can be undone*). So the meaning is printed
 beside the number rather than left to this file:
 
@@ -136,22 +136,22 @@ and on `x86_64` the second line reads:
 > unhalted core cycles (`IA32_PERF_FIXED_CTR1`) per TSC tick; the TSC is constant-rate and core
 > cycles are not, so this ratio moves with frequency scaling and turbo
 
-**That difference is information rather than noise, and it is the whole reason the TSC alone cannot
-answer this.** On riscv64 the denominator is a timebase the device tree states (10 MHz on QEMU
+That difference is information rather than noise, and it is the whole reason the TSC alone cannot
+answer this. On riscv64 the denominator is a timebase the device tree states (10 MHz on QEMU
 `virt`, 4 MHz on radon's JH7110) and the ratio is a property of the core's clock. On `x86_64` the
 denominator is constant-rate and the numerator is not, so a machine that scales frequency or turbos
 prints a *different* ratio at a different load, correctly.
 
-**The second line is printed on riscv64 too**, which is a change to an existing architecture's
+The second line is printed on riscv64 too, which is a change to an existing architecture's
 output and deliberate. Levelling up rather than down: milestone 74's block is largely an account of
 how badly a tick-versus-cycle confusion has already gone here, and a reader of radon's transcript
 benefits from the same sentence. `bench-probe:` lines are echoed by `xtask` and never enter a
-baseline, so nothing gates on either. riscv64's **numeric** line is untouched: `cycles_per_tick
+baseline, so nothing gates on either. riscv64's numeric line is untouched: `cycles_per_tick
 100.00` under QEMU, the same value milestone 74 recorded.
 
 ## Parity, and what is deliberately not here
 
-**DECISIONS §19 is satisfied by construction and the scope note is the aarch64 half.** Everything
+DECISIONS §19 is satisfied by construction and the scope note is the aarch64 half. Everything
 added under `kernel/src/arch/x86_64/` is `x86_64` code by definition; `script/test` is green on all
 three architectures (below). What §19 wants said out loud is the gap:
 
@@ -178,18 +178,18 @@ match the other two architectures'; counting in ring 3 is not reading from ring 
   stopped in the mapper at `mmu.rs`'s `AlreadyMapped`, which is before anything this module touches.
   That cause is diagnosed and fixed on `main` and the next boot resumes one line further on
   (notes/x86-uefi-boot.md has the session, notes/xenon-firmware.md the firmware settings). So the
-  honest caveat is about the counter, not about the machine. **Until that boot happens, the four
-  refusal paths are untested against a part that actually implements the leaf**: QEMU takes the
+  honest caveat is about the counter, not about the machine. Until that boot happens, the four
+  refusal paths are untested against a part that actually implements the leaf: QEMU takes the
   first branch and returns, so `NoFixedCounter`, `Stuck`, `InStepWithTheTsc` and `Running` are
   reasoned code rather than measured code.
-- **The in-step check is bit-exact equality, and that is a deliberate under-detection.** A real core
+- The in-step check is bit-exact equality, and that is a deliberate under-detection. A real core
   pegged at exactly its base frequency has core cycles and TSC ticks at the same *rate*, so an
   approximate band would refuse a legitimate counter on a legitimate machine. Two independent
   counters read by two different instructions a few tens of cycles apart do not produce equal deltas
   over a ten-millisecond window; one counter read twice does. A hypervisor that aliased the two
   *with an offset* would pass this check and print `1.00`. The printed meaning line is the defence
   that does not depend on a heuristic.
-- **The boot CPU only.** These MSRs are per-logical-processor, `init` runs once, and a secondary
+- The boot CPU only. These MSRs are per-logical-processor, `init` runs once, and a secondary
   that never ran it has fixed counter 1 disabled and would read zero. The one consumer today is a
   single-threaded bench probe. A per-CPU record is real work and belongs with a caller that needs
   it.
@@ -198,15 +198,15 @@ match the other two architectures'; counting in ring 3 is not reading from ring 
 - **`IA32_PERF_GLOBAL_CTRL` is read-modify-written, not assigned.** Nothing else in this kernel
   programs a performance counter, so the preserved bits are firmware's. A second consumer would have
   to raise the arbitration; this module does not assume one.
-- **No `--check` tolerance and no baseline row**, by the same reasoning riscv64's probe carries: it
+- No `--check` tolerance and no baseline row, by the same reasoning riscv64's probe carries: it
   is a rate rather than a duration, and a 10% gate would fail on any machine that scales frequency,
   which is every machine this is interesting on.
 
 ## What xenon's first bench boot has to do, and what it will answer
 
 One file, `target/esp/EFI/BOOT/BOOTX64.EFI`, written by `cargo xtask uefi-image`;
-`notes/x86-uefi-boot.md`'s "The bench" section is the procedure. **That boot is calef's and is not a
-lane's.** What it decides, in order:
+`notes/x86-uefi-boot.md`'s "The bench" section is the procedure. That boot is calef's and is not a
+lane's. What it decides, in order:
 
 1. Whether the boot line says `IA32_PERF_FIXED_CTR1 ... perfmon vN` at all, which is the first time
    anything in this tree learns whether the 7050's part answers leaf `0x0A` the way the SDM says.
@@ -272,13 +272,13 @@ last one is the one to look at hardest, because it is the only one that leaves t
 
 `kernel/src/bench.rs`'s `cycles_per_tick`, the one number that converts a whole tick-denominated
 board bench into cycles, existed on one of three architectures. The proposal that raised this said to
-build the `x86_64` half **with the TSC**, and that recommendation is wrong in a way worth keeping on
+build the `x86_64` half with the TSC, and that recommendation is wrong in a way worth keeping on
 the record: `arch::x86_64::timer::now()` *is* `rdtsc`, so such a probe would divide one counter by
 itself and print an exact `1.00` on every part ever made, which is milestone 16a's "implausibly exact
 100.00" made structural rather than emulated. Built instead on `IA32_PERF_FIXED_CTR1`, unhalted core
 cycles, the same quantity riscv64's SBI PMU `CPU_CYCLES` and aarch64's `PMCCNTR_EL0` give, so two
 architectures now report one thing under one name and each prints what its own ratio is a ratio of.
-**Measured under QEMU: `cycles_per_tick unavailable (NoPerfmonLeaf)`**, with `-cpu max,pmu=on`
+Measured under QEMU: `cycles_per_tick unavailable (NoPerfmonLeaf)`, with `-cpu max,pmu=on`
 identical, because TCG zeroes `CPUID` leaf `0x0A`; the `CPUID` gate is what makes that a printed line
 rather than a `#GP`. Presence is not enough, so a counter stuck at zero and one advancing bit-exactly
 with the TSC are each refused with their own reason, and there is no fallback to the TSC anywhere.

@@ -2,8 +2,8 @@
 
 ## One mechanism, three purposes
 
-The most important thing to see before building any of it: on aarch64 these are **the same
-mechanism**.
+The most important thing to see before building any of it: on aarch64 these are the same
+mechanism.
 
 | | Cause | Milestone |
 |---|---|---|
@@ -18,11 +18,11 @@ milestones 5 and 7 are mostly a matter of adding cases to a `match`.
 ## The table's shape is dictated by silicon
 
 `VBAR_EL1` holds the base address of the vector table. When an exception fires, the hardware
-computes the target as **`VBAR_EL1 + a fixed offset`**, where the offset is determined by two
+computes the target as `VBAR_EL1 + a fixed offset`, where the offset is determined by two
 things: where the exception came from, and what kind it is.
 
-Four sources × four kinds = **16 entries, each exactly 128 bytes**, and the whole table must
-be **2048-byte aligned**.
+Four sources × four kinds = 16 entries, each exactly 128 bytes, and the whole table must
+be 2048-byte aligned.
 
 ```
 offset  source                    kind
@@ -53,24 +53,24 @@ test for it.
 - **Synchronous**: caused by the instruction being executed. Data abort, instruction abort,
   illegal instruction, `svc`, `brk`, alignment fault. *Precise*: `ELR_EL1` points at (or just
   past) the offending instruction.
-- **IRQ**: a normal interrupt. Asynchronous; it has nothing to do with what you were running.
-- **FIQ**: "fast interrupt," a higher-priority class. Mostly used by the secure world these
+- IRQ: a normal interrupt. Asynchronous; it has nothing to do with what you were running.
+- FIQ: "fast interrupt," a higher-priority class. Mostly used by the secure world these
   days. We treat it as fatal.
-- **SError**: System Error. Asynchronous, and usually a bus error or ECC failure. Genuinely
+- SError: System Error. Asynchronous, and usually a bus error or ECC failure. Genuinely
   bad news; the machine is broken.
 
 ### The four sources
 
-- **Current EL, SP_EL0**: we're at EL1 but using `SP_EL0`. Kernels almost never do this.
-- **Current EL, SP_ELx**: we're at EL1 using `SP_EL1`. **This is where our own bugs land.**
-- **Lower EL, AArch64**: came from EL0. **This is where userspace lands**, and where milestone
+- Current EL, SP_EL0: we're at EL1 but using `SP_EL0`. Kernels almost never do this.
+- Current EL, SP_ELx: we're at EL1 using `SP_EL1`. This is where our own bugs land.
+- Lower EL, AArch64: came from EL0. This is where userspace lands, and where milestone
   7's syscalls will arrive.
-- **Lower EL, AArch32**: 32-bit userspace. We will never support it.
+- Lower EL, AArch32: 32-bit userspace. We will never support it.
 
 ## 128 bytes is 32 instructions
 
-That's enough to save state and branch. It is nowhere near enough to do real work. **This
-constraint is why every aarch64 kernel on earth looks nearly identical right here**: each slot
+That's enough to save state and branch. It is nowhere near enough to do real work. This
+constraint is why every aarch64 kernel on earth looks nearly identical right here: each slot
 saves the register file, records which slot it was, and branches to common code.
 
 Our `VECTOR_ENTRY` macro comes to 24 instructions. Comfortable, but not by much.
@@ -80,15 +80,15 @@ Our `VECTOR_ENTRY` macro comes to 24 instructions. Comfortable, but not by much.
 `SAVE_CONTEXT` pushes 272 bytes onto the kernel stack: `x0`–`x30`, plus `ELR_EL1`, plus
 `SPSR_EL1`, plus 8 bytes of padding to keep `sp` 16-byte aligned ([stack.md](stack.md)).
 
-This is the [registers.md](registers.md) punchline made real. **The register file is the CPU's
-state.** Save it, and you have frozen exactly what the machine was doing. Restore it, and
+This is the [registers.md](registers.md) punchline made real. The register file is the CPU's
+state. Save it, and you have frozen exactly what the machine was doing. Restore it, and
 execution resumes with no way to detect the interruption ever happened.
 
 Two registers beyond the general-purpose file are essential:
 
-- **`ELR_EL1`**: Exception Link Register. *Where the interrupted code resumes.* `eret` reloads
+- `ELR_EL1`: Exception Link Register. *Where the interrupted code resumes.* `eret` reloads
   the program counter from it.
-- **`SPSR_EL1`**: Saved Program Status Register. The processor state (condition flags,
+- `SPSR_EL1`: Saved Program Status Register. The processor state (condition flags,
   exception level, interrupt masks) at the moment of the exception. `eret` restores it, and
   **that includes the exception level**, which is exactly how milestone 7 entered userspace:
   set `SPSR_EL1` to say EL0, and `eret` drops privilege.
@@ -100,7 +100,7 @@ The compiler cannot check this. There is a `const _: () = assert!(size_of::<Trap
 272)`, which catches maybe half the ways to get it wrong. It will not catch two same-typed
 fields being swapped.
 
-A bug here is the **nastiest possible failure**: it scrambles a register while still returning
+A bug here is the nastiest possible failure: it scrambles a register while still returning
 happily to the right address, corrupting the caller's state and blaming a completely innocent
 piece of code thousands of instructions later. `registers_survive_an_exception` exists purely
 to catch it.
@@ -119,18 +119,18 @@ the single most useful field in the machine when something has gone wrong.
 | `0x26` | SP alignment fault: `sp` wasn't 16-byte aligned |
 | `0x3c` | `BRK` instruction |
 
-**`FAR_EL1`** (Fault Address Register) holds the address that faulted, but **only for aborts
-and alignment faults.** For anything else it's stale garbage from some earlier fault. Printing
+`FAR_EL1` (Fault Address Register) holds the address that faulted, but only for aborts
+and alignment faults. For anything else it's stale garbage from some earlier fault. Printing
 it unconditionally would be a lie, so `fatal()` checks the EC first.
 
 ## `brk` vs `svc`: the gotcha
 
-`ELR_EL1` points at **different places** depending on the exception.
+`ELR_EL1` points at different places depending on the exception.
 
-For **`svc`**, the hardware sets `ELR_EL1` to the instruction *after* the `svc`. You handle the
+For `svc`, the hardware sets `ELR_EL1` to the instruction *after* the `svc`. You handle the
 syscall and `eret`, and the program continues normally.
 
-For **`brk`**, `ELR_EL1` points **at the `brk` itself.** So a naive `eret` re-executes it,
+For `brk`, `ELR_EL1` points at the `brk` itself. So a naive `eret` re-executes it,
 forever.
 
 Stepping over it means advancing `ELR_EL1` by one instruction:
@@ -139,7 +139,7 @@ Stepping over it means advancing `ELR_EL1` by one instruction:
 frame.elr += 4;
 ```
 
-Four, because **every aarch64 instruction is exactly 4 bytes**. The fixed-width design we
+Four, because every aarch64 instruction is exactly 4 bytes. The fixed-width design we
 admired in [aarch64.md](aarch64.md) is what makes this a `+= 4` rather than an instruction
 decode. On x86 you would have to *disassemble the instruction* to know how long it was.
 
@@ -150,11 +150,11 @@ VBAR_EL1.set(base);
 barrier::isb(barrier::SY);
 ```
 
-An **Instruction Synchronization Barrier** forces the CPU to discard everything it has already
+An Instruction Synchronization Barrier forces the CPU to discard everything it has already
 fetched or speculated past this point, and start again.
 
-Without it, the write to `VBAR_EL1` is **not architecturally guaranteed to be in effect for the
-very next instruction**. And "the very next instruction" is exactly when a fault might arrive.
+Without it, the write to `VBAR_EL1` is not architecturally guaranteed to be in effect for the
+very next instruction. And "the very next instruction" is exactly when a fault might arrive.
 
 One line. Easy to leave out. Leaving it out produces a bug that appears only under timing you
 cannot reproduce.
@@ -190,11 +190,11 @@ Found 2026-07-29, while landing milestone 22 phase B.2, from a failure that read
   SPSR_EL1  0x0000000060000345      <- M[3:0] = 0b0101 = EL1h
 ```
 
-The kernel was at **EL1**, executing at the *user's* entry point, and faulted because a user code
+The kernel was at EL1, executing at the *user's* entry point, and faulted because a user code
 page is not executable from EL1 (PXN). x0 held the init role and x1 the initrd length, so the trap
 frame we had just fabricated was intact and correct. Only the exception level was wrong.
 
-**The mechanism.** `SPSR_EL1` and `ELR_EL1` are the `eret`'s only record of where to go and at what
+The mechanism. `SPSR_EL1` and `ELR_EL1` are the `eret`'s only record of where to go and at what
 level, and they are single copies the hardware overwrites on *every* exception. `RESTORE_CONTEXT`
 wrote them from the frame, then restored the general registers, then `eret`'d. An interrupt taken
 between the `msr spsr_el1` and the `msr elr_el1` two instructions later does this:
@@ -202,15 +202,15 @@ between the `msr spsr_el1` and the `msr elr_el1` two instructions later does thi
 1. hardware saves the interrupted EL1 state into `SPSR_EL1`/`ELR_EL1`, clobbering ours;
 2. the nested handler runs and its own `RESTORE_CONTEXT` puts the *EL1* state back (SPSR = EL1h);
 3. execution resumes at `msr elr_el1, x1`, which sets ELR back to the user entry;
-4. our `eret` returns to the user's entry point **at EL1**.
+4. our `eret` returns to the user's entry point at EL1.
 
-**Why it was rare, and why it showed up now.** On a normal trap return the window is already closed,
+Why it was rare, and why it showed up now. On a normal trap return the window is already closed,
 because taking the exception set `PSTATE.DAIF`. The exposed path is `enter_userspace`, which branches
 into `exception_restore` from ordinary kernel code with interrupts *enabled*, so every first entry to
 a process carried a two-instruction window. Phase B.2's supervision-tree tests enter several more
 processes per run, and the suite started failing about one run in four.
 
-**The fix** is one instruction at the top of `RESTORE_CONTEXT`:
+The fix is one instruction at the top of `RESTORE_CONTEXT`:
 
 ```asm
     msr     daifset, #0xf
@@ -220,7 +220,7 @@ It costs nothing at the far end, because the `eret` restores DAIF from SPSR anyw
 return to is unchanged. It lives in the macro rather than in `enter_userspace` so that any future
 path reaching the restore with interrupts on is covered by construction.
 
-**RISC-V had the same window**, found by inspection rather than by a failure: `trap_return` writes
+RISC-V had the same window, found by inspection rather than by a failure: `trap_return` writes
 `sepc` and then `sstatus`, and a trap taken between the two leaves `sepc` pointing at kernel code
 while `sstatus` says "return to U-mode", so the `sret` would drop a user thread into a kernel address.
 Closed the same way, with `csrci sstatus, 2` (clear `SIE`) at the top of `trap_return`. On that side
@@ -228,8 +228,8 @@ the trap-return path was already safe, because trap entry clears `SIE` and the f
 carries `SIE = 0` through the `csrw`; again it is the first-entry path (`user_return`) that was
 exposed.
 
-The general lesson, which generalizes past these two files: **any sequence that stages
-return-from-exception state in architectural registers must be atomic with respect to exceptions.**
+The general lesson, which generalizes past these two files: any sequence that stages
+return-from-exception state in architectural registers must be atomic with respect to exceptions.
 There is one copy of those registers, so a nested exception is a write to the thing you are building.
 
 So we went looking for the siblings, in both architectures' assembly, and wrote down what we found
@@ -245,10 +245,10 @@ it.
 Every case currently falls into `fatal()`. As the kernel grows, they migrate into real
 handlers:
 
-- **Milestone 4:** data aborts become **page faults**, and most become *recoverable* (the page
+- Milestone 4: data aborts become page faults, and most become *recoverable* (the page
   was swapped out, or copy-on-write needs to duplicate it).
-- **Milestone 5:** IRQ stops being fatal and becomes the timer tick that drives preemption.
-- **Milestone 7:** EC `0x15` (`svc`) stops being fatal and becomes the syscall dispatcher.
+- Milestone 5: IRQ stops being fatal and becomes the timer tick that drives preemption.
+- Milestone 7: EC `0x15` (`svc`) stops being fatal and becomes the syscall dispatcher.
 
 The plumbing is already there. Those milestones are mostly a matter of adding arms to a
 `match`.

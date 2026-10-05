@@ -25,7 +25,7 @@ lane's initiative: the field is read by every spawn path in the tree.
 
 **In brief.** §142 gave `ChildEndowment` a `retention` field, so one struct literal now states both
 what a child is given and what its spawner keeps. What it states is the disposal of one capability,
-the child's `ThreadControlBlock`, which the tree's own audit showed is **inert** after `START`: all
+the child's `ThreadControlBlock`, which the tree's own audit showed is inert after `START`: all
 three of its methods refuse anything but an `Embryo`. The capability that is *not* inert, and that
 actually decides whether a child can be ended, is the region it was built from, and the endowment
 says nothing about that one.
@@ -63,7 +63,7 @@ than a lane:
 - **A second field beside it**, since the region is passed to `build_child` as an argument
   (`build_ut`) rather than named in the endowment, and the two capabilities have different
   lifetimes: the TCB is disposed of at `START` and the region at reap, which may be much later.
-- **Leave it out and say so** in `Retention`'s own docs, on the ground that the region's disposal is
+- Leave it out and say so in `Retention`'s own docs, on the ground that the region's disposal is
   a property of the *builder's* bookkeeping rather than of the child, and that a field which cannot
   be acted on at one moment is a declaration the code cannot enforce.
 

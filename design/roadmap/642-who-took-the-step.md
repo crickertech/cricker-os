@@ -101,8 +101,8 @@ calef, 2026-09-23: *"What I care about is attribution to automation versus mysel
 when automation is taking a step and when I'm acting manually or through the API on my own
 behalf."*
 
-**The property: can a reader of the record tell, for any action, whether a person or the machinery
-took it?**
+The property: can a reader of the record tell, for any action, whether a person or the machinery
+took it?
 
 The word doing the work is *any*. A mechanism that labels what the machinery did is only half an
 answer, because the other half is the negative: an action **not** labelled must be reliably a
@@ -114,18 +114,18 @@ them.
 Everything. `gh auth status` on patagonia reports one account, `calef`, with scopes
 `admin:public_key, gist, read:org, repo, workflow`, and three distinct actors use it:
 
-1. **`helpers/merge-drain.sh`**, running unattended under `launchd`: arms auto-merge, dequeues held
+1. `helpers/merge-drain.sh`, running unattended under `launchd`: arms auto-merge, dequeues held
    pull requests, posts stall comments.
-2. **A maintainer session and its lanes**: `gh pr create`, `gh pr comment`, labels, merges, and the
+2. A maintainer session and its lanes: `gh pr create`, `gh pr comment`, labels, merges, and the
    lane worktrees' pushes.
-3. **calef himself**, in the browser or from a shell.
+3. calef himself, in the browser or from a shell.
 
 GitHub records one actor for all three. So does this project's own log, and so does every pull
 request timeline.
 
 ## Option (b), refused: attribute in our own logs and take no credential
 
-**This is the cheapest option and it cannot satisfy the requirement**, which is worth writing down
+This is the cheapest option and it cannot satisfy the requirement, which is worth writing down
 because it is the one that looks like it does. It is what the logging half of this lane's pull
 request already builds: `merge-drain: ARMED #N` says the drain enqueued something, countable,
 free, no credential anywhere.
@@ -137,7 +137,7 @@ exactly where it matters: when something unexpected happened, which is the only 
 the record closely. A drain that died mid-pass, a line lost to a rotated log, a code path that
 forgot to log, and a person acting by hand all produce the same evidence, which is none.
 
-**Only distinct identities give the negative half**: once the machinery is `smelter[bot]` or
+Only distinct identities give the negative half: once the machinery is `smelter[bot]` or
 `smelter-bot`, anything still attributed to `calef` is genuinely calef, with no inference required.
 That is the whole difference between rung three and rung two of `AGENTS.md`'s ladder, applied to
 attribution.
@@ -164,16 +164,16 @@ $ gh api /orgs/nifeos/audit-log -X GET
 {"message":"Not Found", ..., "status":"404"}
 ```
 
-**So there is no audit-log API on this organization**, and paying for Enterprise Cloud to answer a
-metrics question is not a proposal anybody is making. What identities buy is therefore the **pull
-request timeline**, which is per-pull-request and readable, plus whatever this project logs itself.
+So there is no audit-log API on this organization, and paying for Enterprise Cloud to answer a
+metrics question is not a proposal anybody is making. What identities buy is therefore the pull
+request timeline, which is per-pull-request and readable, plus whatever this project logs itself.
 That is a real argument for keeping the local log whichever option wins: it is the only thing that
 can be counted in aggregate.
 
 ## What stays a named human, which is the other half calef asked for
 
-**With multiple contributors, each person's own account is their identity, and that is the answer
-rather than a gap.** Anything not `smelter` is a named human, and the ambiguity that exists today
+With multiple contributors, each person's own account is their identity, and that is the answer
+rather than a gap. Anything not `smelter` is a named human, and the ambiguity that exists today
 exists only because there is exactly one human.
 
 Taking the three conflated actors in turn:
@@ -184,13 +184,13 @@ Taking the three conflated actors in turn:
 | A lane's / session's `gh pr create`, comments, labels, merges | `calef` | `calef`, and with a second contributor, `<that person>`: correct attribution to the human accountable for the lane | `smelter[bot]`, which **loses** which human is accountable unless an instance tag carries it |
 | calef by hand or by his own API calls | `calef` | `calef`, and now unambiguously so | `calef` |
 
-**Read the middle row twice, because it reverses the obvious conclusion.** A lane authenticating as
+Read the middle row twice, because it reverses the obvious conclusion. A lane authenticating as
 its operator is not a failure of attribution; with several contributors it is the *better* answer,
 because the accountable party for a lane is the person who briefed and reviewed it. Making every
 lane `smelter[bot]` would flatten several humans into one bot, which is the same defect as today's
 with the sign reversed.
 
-What remains genuinely unseparated is **"X by hand" against "X's agent session"**, within one
+What remains genuinely unseparated is "X by hand" against "X's agent session", within one
 person. No GitHub identity separates that unless each contributor holds a second credential, which
 is a per-person credential-at-rest problem multiplied by the number of contributors. That is the
 decision this proposal recommends **not** taking now. The `**Lane:**` convention line from
@@ -204,27 +204,27 @@ covers it in the meantime, at rung four and honest about it.
 A real GitHub user added to `crickertech` with write access to `nife`; local automation
 authenticates as it.
 
-**For.** `gh` works unchanged, no JWT-minting step in `merge-drain.sh`. The credential is one
+For. `gh` works unchanged, no JWT-minting step in `merge-drain.sh`. The credential is one
 individually-revocable token that mints nothing else. GitHub's terms permit it explicitly: *"You may
 maintain no more than one free machine account in addition to your free Personal Account."* It costs
 nothing on a free organization.
 
-**Against, and these are what decide it.**
+Against, and these are what decide it.
 
-- **A classic PAT is invisible and unrevokable to an organization owner.** GitHub: *"Organization
+- A classic PAT is invisible and unrevokable to an organization owner. GitHub: *"Organization
   owners can only view and revoke fine-grained personal access tokens in this UI, not personal
   access tokens (classic),"* and *"any personal access token (classic) can access organization
   resources until the token expires."* A fine-grained PAT is visible and revokable; a classic one is
   not. Removing the member cuts organization access but leaves the token alive for everything else
   it reaches. This is the single sharpest difference between (a) and (d).
-- **Write access is broader than the App's two permissions.** Repository write carries issues,
+- Write access is broader than the App's two permissions. Repository write carries issues,
   releases, wiki, Actions, projects and deployments. Merge-queue admission needs it (*"a user with
   write access to the repository can add the pull request to the queue"*), so it cannot be trimmed.
-- **It reads as a human.** A machine account renders as an ordinary user with no badge; the
+- It reads as a human. A machine account renders as an ordinary user with no badge; the
   `[bot]` suffix and badge are the App's. Distinguishing `smelter-bot` from a person is then a
   convention about a username, which is rung three, and milestone 128's second deliverable
   ("it looks like I'm talking to myself a lot") is exactly the problem conventions did not solve.
-- **Two-factor is a new surface.** An unattended account under a 2FA requirement needs a TOTP seed
+- Two-factor is a new surface. An unattended account under a 2FA requirement needs a TOTP seed
   stored somewhere, which is a second secret on the laptop rather than a replacement for the first.
 
 **The milestone 128 block refuses a machine account for the toolchain-bump case on the ground that
@@ -238,10 +238,10 @@ subject to it at all. Neither option has an edge here, and 128's refusal must no
 
 ### (c) Leave local automation as `calef` and accept the gap
 
-**For.** No credential moves, nothing to secure, zero work. It is the status quo and the status quo
+For. No credential moves, nothing to secure, zero work. It is the status quo and the status quo
 has not hurt anybody yet.
 
-**Against.** It fails the property outright, and it fails the milestone this work belongs to. 128's
+Against. It fails the property outright, and it fails the milestone this work belongs to. 128's
 second deliverable is that the record should say who is talking, and the argument recorded there is
 not about convenience: *"a timeline in which the architect appears to write, review and merge his
 own work in a single voice is evidence against the claim it should be evidence for."* Accepting the
@@ -256,26 +256,26 @@ question can wait. His sharpened wording says it cannot.
 
 `merge-drain.sh` and lanes mint an installation token from the App's private key and use it.
 
-**For.**
+For.
 
-- **Attribution is rung two rather than rung three.** `smelter[bot]` carries a badge and a suffix
+- Attribution is rung two rather than rung three. `smelter[bot]` carries a badge and a suffix
   GitHub renders; nothing has to be remembered or agreed.
-- **The permission set is already exactly two and already scoped to `nife` alone**, narrower than
+- The permission set is already exactly two and already scoped to `nife` alone, narrower than
   the repository write (a) needs and far narrower than `calef`'s `repo` scope, which reaches every
   repository he can see.
-- **An organization owner can see it, rotate it, suspend it or uninstall it.** Private keys are
+- An organization owner can see it, rotate it, suspend it or uninstall it. Private keys are
   listed in App settings and deletable; a suspended installation *"cannot access resources owned by
   that installation account"*, effective immediately. Compare (a)'s classic PAT, which an owner
   cannot see at all.
-- **It is the same identity `toolchain-bump.yml` already uses** once pull request #1167 lands, so
+- It is the same identity `toolchain-bump.yml` already uses once pull request #1167 lands, so
   the tree gains one automation identity rather than two.
 
-**Against.**
+Against.
 
 - **The key at rest is the durable secret and it does not expire.** GitHub: *"Private keys do not
-  expire and instead need to be manually revoked."* A leaked **token** is an hour of exposure and
-  dies by itself; a leaked **key** mints fresh tokens indefinitely until somebody rotates it.
-- **So the App's usual advantage is weaker on a laptop than it is in Actions**, and this is worth
+  expire and instead need to be manually revoked."* A leaked token is an hour of exposure and
+  dies by itself; a leaked key mints fresh tokens indefinitely until somebody rotates it.
+- So the App's usual advantage is weaker on a laptop than it is in Actions, and this is worth
   stating plainly because it is the part that is easy to get backwards. In a workflow, nothing
   durable is stored on the runner and the App's "nothing stored expires" argument is clean. On
   patagonia the durable thing is the key itself, and a key that does not expire is not obviously
@@ -284,34 +284,34 @@ question can wait. His sharpened wording says it cannot.
   requests write means opening, commenting and arming anything. Bounded, and narrower than what the
   same laptop already holds.
 
-**The comparison that actually matters, and it is closer than it looks.** The credential already on
+The comparison that actually matters, and it is closer than it looks. The credential already on
 patagonia is calef's own token with `repo` and `workflow` across every repository he can reach. Both
-(a) and (d) are **narrower than what is already there**, so neither is an increase in exposure on
+(a) and (d) are narrower than what is already there, so neither is an increase in exposure on
 this machine; the question is what is added, what an owner can see, and what can be revoked without
 touching the architect's own access. On those three, (d) wins on visibility and revocation and loses
 on the key's immortality.
 
 ## Recommendation: (e) first, which defers (a) against (d) rather than deciding it
 
-**The recommendation changed when the multi-contributor question was answered, and saying so is the
-point.** Before it, the fork was (a) against (d) and the answer was (d) on visibility and
-revocation. After it, most of what needed a credential turns out not to need a **local** one.
+The recommendation changed when the multi-contributor question was answered, and saying so is the
+point. Before it, the fork was (a) against (d) and the answer was (d) on visibility and
+revocation. After it, most of what needed a credential turns out not to need a local one.
 
 ### The recommendation
 
-1. **Move `merge-drain.sh`, `lane-claim-check.sh` and the trunk half of `trunk-health.sh` into
-   scheduled Actions workflows authenticating as `smelter`.** They read GitHub and nothing else,
+1. Move `merge-drain.sh`, `lane-claim-check.sh` and the trunk half of `trunk-health.sh` into
+   scheduled Actions workflows authenticating as `smelter`. They read GitHub and nothing else,
    which was checked rather than assumed. This attributes every action they take to `smelter[bot]`
    at rung two, makes the singleton a singleton by construction, publishes the run log where every
-   contributor can read it, and **puts no key on anybody's laptop**.
-2. **Keep `at-risk-check.sh` per developer**, one per machine, because it reads that machine's
+   contributor can read it, and puts no key on anybody's laptop.
+2. Keep `at-risk-check.sh` per developer, one per machine, because it reads that machine's
    worktrees and can read nothing else. It needs no credential.
-3. **Leave lanes and maintainer sessions authenticating as their operator**, which is already the
+3. Leave lanes and maintainer sessions authenticating as their operator, which is already the
    right answer for several contributors and becomes more right as contributors are added.
-4. **Add an instance tag** to the drain's log lines and to `notify`'s marker comment, under whichever
+4. Add an instance tag to the drain's log lines and to `notify`'s marker comment, under whichever
    option wins, because "`smelter` did it" is unattributable once `smelter` runs in two places.
 
-**(a) against (d) then applies only to step 3**, if calef decides a lane should be visibly not its
+(a) against (d) then applies only to step 3, if calef decides a lane should be visibly not its
 operator. That is a smaller surface, a later question, and the one where a credential at rest
 actually bites. Deciding it now would be deciding it on the wrong facts.
 
@@ -324,25 +324,25 @@ and the `cli/cli#7213` premise to test. Cost is pushing *against* this recommend
 
 Three reasons, in order:
 
-1. **It removes a decision instead of making one.** The credential-at-rest question is the
+1. It removes a decision instead of making one. The credential-at-rest question is the
    irreversible part of this whole area, and (e) means it does not have to be answered for the
    automation that runs today. `AGENTS.md`'s own test is not "can I revert the commit" but "who else
    has already acted"; the best available move on an irreversible fork is the one that makes the
    fork unnecessary.
-2. **It fixes a worse problem than the one asked about.** The attribution gap is ambiguity. A
+2. It fixes a worse problem than the one asked about. The attribution gap is ambiguity. A
    singleton that exists only because one laptop is awake, whose stopped state lives in one
    transcript, is invisibility, and `AGENTS.md` names that exact shape as the failure the whole
    steward-and-watcher apparatus exists to prevent. This lane found it while answering a different
    question, which is how that failure is normally found.
-3. **It is the only option that gets better with a second contributor rather than worse.** (a), (c)
+3. It is the only option that gets better with a second contributor rather than worse. (a), (c)
    and (d) all leave "whose machine runs the drain" unanswered, and each new contributor makes the
    question harder. (e) answers it once.
 
 ### What is lost, since this is not a clean win
 
-**Cadence**, five minutes at best with delayed and dropped runs under load, against the current 150
-seconds. **A refactor** of a script two lanes have touched this month. And **the local drain becomes
-harder to run by hand** for a maintainer debugging the queue, though `--once` already works from any
+Cadence, five minutes at best with delayed and dropped runs under load, against the current 150
+seconds. A refactor of a script two lanes have touched this month. And the local drain becomes
+harder to run by hand for a maintainer debugging the queue, though `--once` already works from any
 checkout and would keep working. If calef weighs the cadence loss heavily, (d) plus the instance tag
 is the fallback, and the ranking of the remaining three is unchanged: (d), then (a), then (c).
 
@@ -355,8 +355,8 @@ laptop has sat on it, and reverting does not un-sit it. That asymmetry is why th
 call and not a lane's.
 
 Who has acted so far: calef created the App, generated a key and stored it as two organization
-secrets on 2026-09-23, so **a key file was downloaded to a browser's downloads folder and, per
-notes/automation-identity.md's own instruction, deleted afterwards**. Whether that copy still exists
+secrets on 2026-09-23, so a key file was downloaded to a browser's downloads folder and, per
+notes/automation-identity.md's own instruction, deleted afterwards. Whether that copy still exists
 is a fact only calef holds. Nothing else has acted. The private key has not been placed on patagonia
 and this lane has not touched it.
 
@@ -365,10 +365,10 @@ and this lane has not touched it.
 Nothing is blocked, and the honest version of that is two sentences rather than one. The logging
 half landed independently and answers the metrics question on its own terms.
 
-**If calef says no, or says nothing**, the watchers keep running on patagonia as `calef`, milestone
+If calef says no, or says nothing, the watchers keep running on patagonia as `calef`, milestone
 128's second deliverable stays half-built with the `**Lane:**` convention line doing rung-three
-duty, and **the singleton problem keeps its current answer, which is that one laptop happens to be
-awake**. That last one is the cost worth weighing, because it is not ambiguity, it is a thing that
+duty, and the singleton problem keeps its current answer, which is that one laptop happens to be
+awake. That last one is the cost worth weighing, because it is not ambiguity, it is a thing that
 can stop without anybody finding out, and it gets worse rather than staying flat as contributors are
 added.
 

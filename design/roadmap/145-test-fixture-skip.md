@@ -47,7 +47,7 @@ The kernel's test harness has no notion of "skip." `kernel/src/testing.rs`'s `Te
 `Fn()`: a test either returns (pass) or panics (fail, caught by the panic handler which prints
 `NIFE-TEST-EXIT: FAIL <code>` and calls `arch::semihosting::exit`). There is no third outcome.
 
-The boot **tour** (not a `#[test_case]`, the ordinary non-test boot path in `kernel/src/main.rs`)
+The boot tour (not a `#[test_case]`, the ordinary non-test boot path in `kernel/src/main.rs`)
 already has the pattern this milestone would extend to tests: `println!("... skipped (no 'outlaw'
 program in the initrd)")` instead of asserting the fixture is there. The tour was always meant to
 run on a machine of unknown provisioning; the test suite was never designed for that, because it
@@ -78,13 +78,13 @@ never needed to be until a board existed to boot it on.
 
 ## What this does NOT include
 
-- **Building synthetic fixtures the board can actually attach** (an SD-card-resident RNG source,
+- Building synthetic fixtures the board can actually attach (an SD-card-resident RNG source,
   a USB NVMe enclosure, etc.). That is a hardware-acquisition question, is much more expensive
   than a software mechanism, and does not scale: forty env vars is forty pieces of hardware.
 - **Fixing any of the six bugs milestone 16a's bench session already found and fixed.** Those
   were wrong assumptions about real hardware and are done (PR #380). This milestone is about the
   tests that are correct and simply need hardware the board doesn't have.
-- **Deciding which mechanism, yet.** The three candidates above are options, not a recommendation.
+- Deciding which mechanism, yet. The three candidates above are options, not a recommendation.
   This block exists to scope the question; the decision belongs in a `design/decisions/` entry
   once someone has weighed the trade (a new trait touches every existing `#[test_case]`'s type
   signature implicitly through the blanket impl; a macro touches only the ~31 sites that need it;

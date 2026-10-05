@@ -35,7 +35,7 @@ summary (a late fault, a triple fault on the way to `isa-debug-exit`, the firmwa
 make the failure message say which, since the one a reader gets today invites a QEMU-version theory
 the evidence does not support. Say at the failure that the VT-d lines are expected.
 
-**Reversible**, and on the customer path only by way of trust: a gate that goes red for a reason nobody
+Reversible, and on the customer path only by way of trust: a gate that goes red for a reason nobody
 can name costs every contributor who meets it an hour, which is what it cost run 6.
 
 ## Index row
