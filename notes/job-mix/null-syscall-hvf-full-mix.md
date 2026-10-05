@@ -31,7 +31,7 @@ Patagonia has four performance cores, and QEMU's own threads want one. That is w
 is a live possibility here and would not transfer to radon.
 
 Every condition runs at least ten boots of `script/job-mix --hvf --release --smp 4`. The tree is
-`main` (`b3b9f92f0`) with #1663 merged (`5bd8c1e68`, not yet on `main`). One scratch change applies
+`main` (`b3b9f92f0`) with #1663 merged (`5bd8c1e68`, then not yet on `main`; it has since merged). One scratch change applies
 throughout: the sweep is 1, 2, 3, 4 tasks instead of 1, 2, 4, 8, 16, 32. Condition C adds a second
 scratch patch to the task. Neither is committed.
 
@@ -113,8 +113,9 @@ syscall's growth under load is a cache line, about 5% of a trap at four tasks on
 
 ## What risk 4's line should say
 
-For the maintainer. The colour is calef's. This lane would leave it AMBER until radon sizes 761,
-and propose this sentence after the one ending "half explained and half open":
+For the maintainer, in [risk 4's file](../../design/fatal-risks/4-the-per-crossing-cost.md). The
+colour is calef's. This lane would leave it AMBER until radon sizes 761, and proposes this sentence
+after the one ending "half explained and half open":
 
 > 2026-10-05 (UTC): on four Apple cores under HVF, with 761 in and the full mix running (spawning
 > included, after #1663), the null syscall's per-trap growth from one busy core to four is 1.7 ns
