@@ -16,12 +16,12 @@ An unmap method is a syscall-surface addition, which the block calls a design
 fork for calef before it is a task: whether unmap belongs on the address space or on the frame,
 what it does to a mapping another holder also has, and whether restructuring the loader to map one
 page at a time avoids the new method entirely. **It is
-§162 (whether a holder can give up a mapping)**, written
+§162 (whether a holder can give up a mapping)**, decided as A, `AddressSpace::UNMAP(va)`, on 2026-10-05; written
 up 2026-09-19 by milestone 435's lane, which found this gate naming no decision though the block had
 called it a fork since 2026-08-04.
 
 **The finding.** `build_child` maps each page it lays down for a child into init's own address
-space to write it, and **never unmaps it**, because nothing in the ABI can: there is no unmap.
+space to write it, and never unmaps it, because nothing in the ABI can: there is no unmap.
 Reaping a job hides the problem for jobs, since §13's revoke takes mappings with the region, but
 the boot servers are never reclaimed, so init keeps a writable window onto every page of
 every server it built, for the life of the machine.
@@ -32,9 +32,9 @@ its device capability and its interrupt, and the kernel itself confirms `RETYPE`
 it rather than shrinking a budget to make the number look better, which is the right call and
 leaves the work here.
 
-**What this milestone is.** A way for a holder to give up a mapping it made: an unmap method on
+What this milestone is. A way for a holder to give up a mapping it made: an unmap method on
 the address-space object, symmetric with the map that created the window. That is a syscall
-surface addition, so it is **a design fork for calef before it is a task** (CLAUDE.md: a new
+surface addition, so it is a design fork for calef before it is a task (CLAUDE.md: a new
 method is fine within the model, but its semantics are recorded in `design/decisions/`, and a brand-new
 syscall number is a fork). The questions the fork has to answer: whether unmap is a method on the
 address space or on the frame capability; what it does to a mapping some other holder also has
@@ -42,8 +42,8 @@ address space or on the frame capability; what it does to a mapping some other h
 enough or the scratch window wants a narrower shape, mapping one page at a time and releasing it
 before the next, which needs no new method at all if the loader is restructured instead.
 
-That last possibility is why this is not obviously a syscall: **the cheapest fix may be a loader
-that never holds more than one page**, and the measurement that decides it is how much slower a
+That last possibility is why this is not obviously a syscall: the cheapest fix may be a loader
+that never holds more than one page, and the measurement that decides it is how much slower a
 one-page-at-a-time loader boots.
 
 ## Scope note
@@ -56,5 +56,5 @@ the residual is recorded where a reader meets it, in notes/trusted-init.md's BUG
 
 Milestone 22's largest residual: `build_child` maps every page it writes for a child and nothing
 in the ABI can unmap it, so init keeps a writable window onto every boot server for the life of
-the machine. A design fork before it is a task, and the cheapest fix may be a one-page loader
+the machine. A design fork, decided as A by §162 on 2026-10-05; the cheapest fix may be a one-page loader
 rather than a new syscall
