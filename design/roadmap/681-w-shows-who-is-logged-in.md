@@ -3,7 +3,7 @@ status: NOT-STARTED
 raised: 2026-09-26
 promoted_from: w-shows-who-is-logged-in
 milestone_dependencies: none
-decision_dependencies: 148
+decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -25,8 +25,9 @@ session. Measured against the tree on 2026-09-26, in section 2 of
 
 - What they are running needs a name for a tid. DECISIONS §148 (a supervisor restarts by asking,
   and resolves by asking the kernel) was amended 2026-10-04: a supervisor learns a dead thread's
-  label from the death message. That names a thread to its supervisor, not to `w`. How a
-  non-supervisor learns a tid's name is still unwritten. §164 (whether the kernel resolves a tid it
+  label from the death message. So this block's decision dependency is `unwritten`, not 148: R3
+  tells only the supervisor which thread died, and a viewer such as `w` needs a different answer
+  that has not been written yet. §164 (whether the kernel resolves a tid it
   already sent) asked the same question and is superseded by §148.
 - Who is logged in: `components/src/login.rs` runs one session at a time on one terminal, so a `w`
   today would always print one row.
