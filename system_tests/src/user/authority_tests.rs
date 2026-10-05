@@ -254,9 +254,10 @@ fn a_dead_sub_server_is_restarted_by_its_supervisor_not_by_init() {
         "the crashing child died more than twice under its label",
     );
 
-    // **The supervisor told its two children apart by label alone** (milestone 105, §148 as
-    // amended). The finishing child, whose first attempt was 10, must have run once and died once
-    // under its own label. A supervisor that confused the two would have restarted it.
+    // The supervisor told its two children apart by label alone (milestone 105, §148 (resolves by
+    // asking the kernel) as amended). The finishing child, whose first attempt was 10, must have
+    // run once and died once under its own label. A supervisor that confused the two would have
+    // restarted it.
     let mut finishing = of_kind(&msgs, REPORT_SUP_SAW_DEATH).filter(|m| m[1] == LABEL_FINISHES);
     assert_eq!(
         finishing.next().map(|m| m[2]),
