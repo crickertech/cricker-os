@@ -1,0 +1,120 @@
+# 7. The confinement claim is false
+
+*Risk 7 of [the nine](README.md). The status vocabulary, the rule an entry meets and the running order are there.*
+
+The claim: a confined component escapes, and the property the whole system is built to provide does
+not hold. What was missing: every test of it was written by the same people who wrote the thing being
+tested.
+
+**The experiment:** milestone 202 (every confinement test is a ritual until somebody breaks the
+confinement and watches it fail).
+
+**Experiment status: RUN, 2026-08-31.** AMBER (calef, 2026-10-03, #1495). In-house passes found and
+fixed real defects (tests that could not fail, three times; claims false in audit 313 and on
+2026-09-21) and found no escape on a component's own authority, and the outsider half is unrun. What
+moves it is the adversarial review of milestone 633 (an outside agent attacks the confinement claim). 26 claims
+enumerated at that date (the table now has 32 rows, counted 2026-10-03 in `notes/confinement-claims.md`),
+three of them stated nowhere, and 25 harnesses carried a replayable falsification, up
+from 6 ([`notes/confinement-claims.md`](../../notes/confinement-claims.md); PR #614). The finding is
+worse than a missing test. A page-table assertion was patched to remove the check it exists for and
+still passed, because it answered "U-mode cannot read the kernel" by refusing to look. It had done so
+since milestone 41 (dead code: triage the suppressions, and un-blindfold the gate), with every gate
+green throughout. A test that cannot come back red is indistinguishable from a test that passes, and
+three independent sweeps have each found confinement tests that could not fail.
+
+The adversarial pass is AUDITED, 2026-09-17: a qualified yes with one exception, found and fixed.
+Milestone 313 (the security audit that was due since August) found DECISIONS §12 (call/reply IPC: a
+one-shot reply capability)'s claim that a consumed capability cannot be used again false on x86_64,
+on a path every boot takes.
+
+Dated 2026-10-03 (§216, from #1495): later passes are not in the paragraph above. An in-house adversarial pass on
+2026-09-21 (PR #1059) found a revoked capability parked in `outgoing_cap` delivered afterwards, fixed in
+three sweeps. The audit of 2026-09-24 (new trust boundaries) fixed 5 and found no confinement claim false
+(`design/audit-reports/2026-09-24-new-trust-boundaries.md`). The audit of 2026-09-29 (the syscall surface
+as a whole) fixed 0, minted 0, accepted 3 and found no confinement claim false
+(`design/audit-reports/2026-09-29-syscall-surface-whole.md`). The audit of 2026-10-03 (eight constants
+and thirteen components, with its follow-up) fixed 5, minted 4, accepted 6 and found no kernel
+confinement claim false; its three findings that bear here are listed below
+(`design/audit-reports/2026-10-03-eight-constants-and-thirteen-components.md`). PR #1494's RECEIVE-consumer audit then
+found two confinement defects, both confirmed under QEMU: a plain `SEND` delivers badge 0 whatever
+the endpoint capability's badge, so a bound `redoxfs_server` client that `SEND`s is seen as root
+(closed by #1494, merged 2026-10-03), and a plain `SEND` received by `RECEIVE_CAP` handed the receiver a
+sender-chosen slot on one arrival order, a `net_stack`-shaped escape (fixed by milestone 634 (a plain SEND received by RECEIVE_CAP never hands the receiver a sender-chosen slot)). The
+appendix has both. Milestone 633 (An outside agent attacks the confinement claim) found a third route to the same RECEIVE-path escape, by PR #1525: a plain `RECEIVE` collecting a `SEND_CAP` sender left the sender's `outgoing_cap` staged, so the sender's next plain `SEND` delivered the capability to a `RECEIVE_CAP` receiver on another endpoint. Fixed in `sched::ipc_receive` with a test and a replayable falsification. Same class as #1494 and milestone 634. The first outsider pass on 2026-10-03 found nothing else on the claims it reached; rows 25 and 26 were not attacked and row 11 was proved on `x86_64` only. Dated 2026-10-03, afterwards: milestone 718 (No page is both writable and executable, proved on every ISA) in PR #1534 proved row 11 on aarch64, riscv64 and x86_64, and milestone 719 (Compositor confinement claim 25 is attacked part by part) in PR #1536 attacked row 25 part by part on aarch64; row 26 is still unattacked. This does not support green, and the human-outsider half remains behind milestone 198. Dated 2026-10-03: the same pass recorded that `subtree_scope::Bindings::of` mapped a nonzero badge at or past its table size to the whole endpoint's authority, not reachable by a confined client because `BADGE` refuses an already-badged source; calef ruled it should refuse, and milestone 726 (an unknown badge fails closed in subtree_scope) makes it so, with a Kani harness and a replayable falsification, and the harness fails when the old arm is restored.
+
+Dated 2026-10-03 (§216, milestone 706 (a `CALL` server can tell a Reply from a delegation)): the
+2026-10-03 audit's finding 11 is built, on calef's ruling of the same day. A client could `SEND_CAP`
+a real capability where a `CALL` server expected a Reply, so the server's `reply` blocked on it or
+leaked a slot of 32: a denial of service, not an escape, severity medium. `RECEIVE_CAP` now tags a
+`CALL`'s Reply in `x4` (DECISIONS §245 (a `CALL` server tells a Reply from a delegation)), and every
+`CALL` server in the tree receives through a runtime helper whose typed Reply is the only thing
+`reply` accepts. One test, with a replayable falsification replayed red on aarch64, covers the tag
+on both arrival orders. It tests the tag, not the hang. A server that reads `x1` raw, outside the
+runtime, is still exposed.
+
+Dated 2026-10-04 (§246 (a plain `RECEIVE` never takes a capability), PROVISIONAL number, PR #1611):
+a `SEND_CAP` or `CALL` that found a plain `RECEIVE` already parked installed its capability in the
+receiver's table, while the other order did not, so a confined program holding a `GRANT` capability
+could fill the table of a server draining its output (found by milestone 752 (a seeded syscall
+driver with a shadow model)). calef ruled option A; a plain `RECEIVE` now takes no capability on
+either order and a `CALL` reaching one is answered `Gone`. Two kernel tests with replayable
+falsifications, replayed red on aarch64.
+
+Dated 2026-10-04: nothing fuzzes what a confined process can reach. The six `cargo-fuzz` targets
+of §60 (fuzzing complements the proofs) read firmware, disk and network bytes, not IPC requests
+or syscalls. A proposal for both is
+[`fuzz-the-surface-a-confined-process-can-reach`](../roadmap/proposals/fuzz-the-surface-a-confined-process-can-reach.md).
+
+Dated 2026-10-05 (milestone 762 (a mapping cannot outlive its frame's revoke), PROVISIONAL number,
+PR #1644): a revoked frame is unreachable through mappings as well as capabilities. `PageFrame::MAP`,
+`AddressSpace::MAP_INTO` and `MemoryRegion::MAP` now read their source under the mapping-registry
+hold every unmap pass takes. Before that, a sweep landing between the read and the record left the
+mapping live. `map_revocation_window_tests` drives a revoke and a region destroy into each path, and
+each path's replayable falsification went red on riscv64, one also on aarch64. The gap that remains
+is one level up: a destroyed region's intermediate page tables stay linked into a live space
+(reasoned, not driven; `revoke::revoke_region`'s BUGS). A lane now holds it.
+
+The caveat that keeps the gate closed: it was us attacking our own system. A hole we closed ourselves
+is the same category of evidence as the audit that found it. The outsider trying to escape is gated
+behind milestone 198 (a package manager, and the trivial install that makes a second customer
+possible), by calef's no-third-parties position. Nothing here says the confinement holds. What it
+supports is that these named claims are tested, and each shown to fail when broken.
+[Appendix](the-confinement-claims.md).
+
+Open security findings that bear on it, each a proposal and none yet built:
+
+- [The confinement table lists the unvouched child](../roadmap/673-the-confinement-table-lists-the-unvouched-child.md):
+  a claim tested and falsified by hand three times, with no row in the table. Severity not recorded.
+  Dated 2026-10-03: row 31 of the table now states it, tested by the `installed/unvouched` line of
+  `script/swish-check` on three ISAs, with a replayable falsification (a patch, replayed by hand on
+  aarch64, red with exit 1).
+- [Reset unowned PCI functions before the IOMMU enables](../roadmap/693-reset-unowned-pci-functions-before-iommu-enable.md):
+  Bus Master Enable is already set on functions the kernel never owns, so DMA can outlive the
+  confinement. Severity not recorded; an architect's call.
+- [Every client of a network stack shares its socket numbers](../roadmap/649-every-client-of-a-network-stack-shares-its-socket-numbers.md):
+  one holder of the network capability can read and close another's sockets. Severity not
+  recorded; the fix changes a wire format.
+- [The sibling RECEIVE_CAP paths get a receiver-first test](../roadmap/714-the-sibling-receive-cap-paths-get-a-receiver-first-test.md):
+  two paths now correct by reading, unmeasured. Severity not recorded. Dated 2026-10-03, afterwards:
+  a receiver-first test for each is in PR #1576, with a replayable falsification that turns it red
+  on aarch64; riscv64 and x86_64 build it and run it in CI.
+- [A graphical terminal session on the no-keyboard arm holds only the raw half of the boot discipline](../roadmap/709-arm-1-holds-only-the-raw-half-of-the-boot-discipline.md):
+  the session's copy of the boot line discipline's endpoint also answers `OPERATION_BYTES`, so a
+  compromised session can queue a command line the boot shell runs with its own authority. A
+  userspace grant wider than its use, not a kernel escape; read, not demonstrated. Severity
+  medium (2026-10-03 audit, finding 2). Dated 2026-10-03, afterwards: PR #1586 gives the session a
+  badged copy the discipline answers only `OPERATION_RAWMODE` and `OPERATION_READRAW` on. A badged `OPERATION_BYTES` was
+  served before the fix (a system test, red on aarch64) and is refused after it, with a replayable
+  falsification; riscv64 and x86_64 run the test in CI. A session can still switch the
+  discipline's mode under the shell.
+- [The spawn service holds the display grants, and the shell holds none](../roadmap/715-the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md):
+  the boot shell keeps the seven display and keyboard capabilities with `GRANT` for its whole life,
+  and could map the keyboard's DMA page or take an interrupt wake; it does neither. Severity medium
+  as a width, low as a reach (2026-10-03 audit, finding 10). Dated 2026-10-03, afterwards: PR
+  #1585 keeps the seven in the spawn service, which lends each session's drivers copies, and the
+  shell holds none. A `caps` census in `script/swish-check` read slots 22 to 25 held before the fix
+  and none after, on aarch64, with a replayable falsification; riscv64 runs it in CI, and x86_64
+  has no gpu to hold. The progenitor's capability peak rose from 30 to 31 of 32 on a gpu and
+  keyboard boot.
+
+Fact, 2026-10-04: milestone 745 (count the error paths no test reaches), a provisional number, ranked 20 unreached host-crate error paths that release or grant memory or authority. Twelve are in `paging`, and one is `subtree_scope::unbind` refusing a caller that is not the root. All 75 cleanup-after-failure paths it found are in kernel and service code no coverage run reaches ([untested error paths](../../notes/untested-error-paths.md)).

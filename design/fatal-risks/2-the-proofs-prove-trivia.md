@@ -1,0 +1,35 @@
+# 2. The proofs prove trivia, and the real bugs live where Kani cannot reach
+
+*Risk 2 of [the nine](README.md). The status vocabulary, the rule an entry meets and the running order are there.*
+
+The claim: the verification half of DECISIONS §14 is real but narrow, and narrow in the direction
+that does not matter.
+
+**The experiment:** milestone 191 (did the proofs catch the bugs?), against this project's own defect
+history, plus a reverse pass asking which harnesses prove a property that could plausibly be false.
+
+**Experiment status: RUN, 2026-08-30, re-read 2026-10-03.** AMBER (calef, 2026-10-03, #1286). The red half is that no standing proof has caught a
+regression: every defect a proof caught was caught while its harness was being written (rule 1's
+survivorship asymmetry). The second reason is reach. Eight harnesses prove kernel
+code on all three architectures; none passes `asm!`, fixed-address MMIO or an `arch/` subtree its
+host skips. Files with `asm!` hold 15,966 of `kernel/src`'s 86,528 lines, about 18%
+([`notes/kernel-proofs.md`](../../notes/kernel-proofs.md)). Reworded 2026-09-25 on the architect's
+ruling; it said "the red half is structural", naming a crate boundary milestone 193 (put
+`kernel/src` within reach of the prover) removed on 2026-08-30
+([`notes/proof-retrospective.md`](../../notes/proof-retrospective.md); PR #589). Dated 2026-10-03
+(§216, from #1286): the riscv64 kernel harnesses are checked against the host's machine model
+(`arm64`/`macos` on patagonia; `arm64`/`linux` in CI, observed 2026-10-03 by run 37108539047). All
+seven gave identical verdicts and SAT counts under both models, so this is a gap waiting to bite,
+not a hole. The fix and its gate are milestone 635
+(riscv64 proofs check against the riscv64 model); see [its block](../roadmap/635-riscv64-proofs-check-against-the-riscv64-model.md).
+
+*Measured 2026-10-04 (UTC) by milestone 741 (does a standing proof notice a regression), under §216:*
+across 189 harnesses in 26 packages (glob and calendar not measured), 178 of the 184 that reach a
+cargo-mutants mutant kill at least one. In reach, the proofs kill 1,668 of 2,626 viable mutants (64%),
+and the census tests catch 91%. Six harnesses reach mutants and kill none, four of them panic-freedom
+proofs. Four `inter_process_communication` harnesses prove `unsafe fn`s, which cargo-mutants never
+mutates, so they reach no mutant and go unscored. 17 mutants are killed by a proof alone.
+[`notes/kani-reach-2026-10-04.md`](../../notes/kani-reach-2026-10-04.md).
+
+The first x86_64 proof went red on a latent defect, the first of the class this risk asks about. The
+claim: proofs over the pure crates and slices of a mostly unverified kernel. [Appendix](proofs-and-their-reach.md).

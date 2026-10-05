@@ -1,6 +1,7 @@
 #!/bin/sh
 #
-# script/fatal-risks: does design/fatal-risks/README.md still agree with the records it cites?
+# script/fatal-risks: do design/fatal-risks/README.md and the nine risk files beside it still agree
+# with the records they cite?
 #
 # PROVISIONAL NAME. See the `Name:` block at the end of this comment.
 #
@@ -706,19 +707,48 @@ MILESTONES = record("roadmap", r"^\s+(\d+)\s+\S", broken)
 DECISIONS = record("decisions", r"^\s+§(\d+)\s", broken)
 # Read before `broken` is turned into problems below, because it can add to it.
 BUILT = built_dates(broken)
-text = open(os.path.join(root, RISKS), errors="replace").read()
-APPENDIX_COLOURS = {}
 _appendix_dir = os.path.join(root, "design", "fatal-risks")
+
+# The page plus the nine per-risk files, one text. Since 2026-10-05 each risk lives in
+# `design/fatal-risks/N-slug.md` (provisional names) and the README keeps only what is shared, so
+# every check below still reads one string: the README first, then each risk file in numeric order.
+# A risk file opens with `# N. title` as a page of its own; it is read as `## N. title`, which is
+# the heading the checks and `script/metrics` were written against. `SPANS` remembers which file
+# each line of the joined text came from, so a finding names the file a person must open.
+RISK_FILE = re.compile(r"^(\d+)-[a-z0-9-]+\.md$")
+_files = [(RISKS, open(os.path.join(root, RISKS), errors="replace").read())]
+for _name in sorted((n for n in os.listdir(_appendix_dir) if RISK_FILE.match(n)),
+                    key=lambda n: int(RISK_FILE.match(n).group(1))):
+    _body = open(os.path.join(_appendix_dir, _name), errors="replace").read()
+    _files.append((f"design/fatal-risks/{_name}", re.sub(r"(?m)^# (\d+)\. ", r"## \1. ", _body)))
+text, SPANS, _line = "", [], 1
+for _path, _body in _files:
+    _body = _body.rstrip("\n") + "\n\n"
+    SPANS.append((_line, _path))
+    text += _body
+    _line += _body.count("\n")
+
+
+def locate(msg):
+    """Rewrite `design/fatal-risks/README.md:N` (a line of the joined text) to the file and line."""
+    def one(m):
+        n = int(m.group(1))
+        start, path = [s for s in SPANS if s[0] <= n][-1]
+        return f"{path}:{n - start + 1}"
+    return re.sub(re.escape(RISKS) + r":(\d+)", one, msg)
+
+
+APPENDIX_COLOURS = {}
 for _name in sorted(os.listdir(_appendix_dir)) if os.path.isdir(_appendix_dir) else []:
-    if not _name.endswith(".md") or _name == "README.md":
+    if not _name.endswith(".md") or _name == "README.md" or RISK_FILE.match(_name):
         continue
     _fm = FRONTMATTER.match(open(os.path.join(_appendix_dir, _name), errors="replace").read())
     _fields = dict(l.split(":", 1) for l in _fm.group(1).split("\n") if ":" in l) if _fm else {}
     if "risk" in _fields and "color" in _fields:
         APPENDIX_COLOURS[int(_fields["risk"])] = _fields["color"].strip()
-problems = [(None, 1, b) for b in broken] + analyse(
+problems = [(None, 1, b) for b in broken] + [(c, n, locate(m)) for c, n, m in analyse(
     text, MILESTONES, BUILT, DECISIONS,
-    lambda rel: os.path.exists(os.path.join(root, rel)), git_touched, APPENDIX_COLOURS)
+    lambda rel: os.path.exists(os.path.join(root, rel)), git_touched, APPENDIX_COLOURS)]
 
 risks = [s for s in sections_of(text) if s[0]]
 if mode == "--check":
@@ -746,7 +776,7 @@ if mode:
           file=sys.stderr)
     sys.exit(2)
 
-print(f"{len(risks)} risks in {RISKS}\n")
+print(f"{len(risks)} risks in {RISKS} and the per-risk files beside it\n")
 for num, title, start, body in risks:
     sm = STATUS_LINE.search(body)
     dates = DATE.findall(body)

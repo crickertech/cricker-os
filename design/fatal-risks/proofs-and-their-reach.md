@@ -5,7 +5,7 @@ updated: 2026-08-31
 ---
 # Appendix to risk 2: The proofs prove trivia, and the real bugs live where Kani cannot reach
 
-*An appendix to [`README.md`](README.md)'s risk 2. That entry is the claim of
+*An appendix to [`2-the-proofs-prove-trivia.md`](2-the-proofs-prove-trivia.md) (risk 2). That entry is the claim of
 record, and it is written so that a reader can decide what to work on next without opening this
 file. This one exists to be verified or challenged: it holds the evidence, the dates, the numbers,
 the corrections and the refusals behind the verdict, at the length they need rather than the length

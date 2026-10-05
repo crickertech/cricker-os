@@ -5,7 +5,7 @@ updated: 2026-10-03
 ---
 # Appendix to risk 7: The confinement claim is false
 
-*An appendix to [`README.md`](README.md)'s risk 7. That entry is the claim of
+*An appendix to [`7-the-confinement-claim.md`](7-the-confinement-claim.md) (risk 7). That entry is the claim of
 record, and it is written so that a reader can decide what to work on next without opening this
 file. This one exists to be verified or challenged: it holds the evidence, the dates, the numbers,
 the corrections and the refusals behind the verdict, at the length they need rather than the length

@@ -5,7 +5,7 @@ updated: 2026-08-31
 ---
 # Appendix to risk 8: Nobody needs it
 
-*An appendix to [`README.md`](README.md)'s risk 8. That entry is the claim of
+*An appendix to [`8-nobody-needs-it.md`](8-nobody-needs-it.md) (risk 8). That entry is the claim of
 record, and it is written so that a reader can decide what to work on next without opening this
 file. This one exists to be verified or challenged: it holds the evidence, the dates, the numbers,
 the corrections and the refusals behind the verdict, at the length they need rather than the length
