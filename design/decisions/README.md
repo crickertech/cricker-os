@@ -271,7 +271,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 159 | DECIDED | [Lab machines upgrade like user machines, and only a new kernel needs a reboot](159-upgrades-without-a-reimage.md) |
 | 160 | PROPOSED | [What a subshell copies, given that a capability set cannot always be copied](160-what-a-subshell-copies.md) |
 | 161 | PROPOSED | [Which subset counts as running Vaultwarden](161-what-counts-as-running-vaultwarden.md) |
-| 162 | PROPOSED | [Whether a holder can give up a mapping, and what gives it up](162-giving-up-a-mapping.md) |
+| 162 | DECIDED | [Whether a holder can give up a mapping, and what gives it up](162-giving-up-a-mapping.md) |
 | 163 | DECIDED | [Where a confined device's IOMMU fault is delivered](163-where-a-device-fault-is-delivered.md) |
 | 164 | SUPERSEDED BY 148 | [Whether the kernel resolves a tid it already sent to the supervisor that received it](164-resolving-a-tid-a-supervisor-holds.md) |
 | 165 | PROPOSED | [Where a stored secret comes from on a boot that is not a test](165-where-a-stored-secret-comes-from.md) |
