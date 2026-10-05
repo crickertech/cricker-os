@@ -143,7 +143,7 @@ A note is not a home. Each finding is recorded where a reader meets the code, or
   site in `sched::thread_control_block_insert_from`.
 - AMD-Vi: five entries in `amd_vi.rs`'s module `BUGS` (the devfn fault was already there), a
   pointer in `notes/amd-vi.md`, and
-  `design/roadmap/proposals/amd-vi-hardening-before-the-first-amd-boot.md` with the exclusion
+  `design/roadmap/767-amd-vi-hardening-before-the-first-amd-boot.md` with the exclusion
   range, alias quarantine and read-only IVMD as its acceptance items.
 - Row 17: `BUGS` in `direct_memory_access_validator`'s module doc and on `shadow_one_head`, and
   `design/roadmap/proposals/the-shadow-descriptor-is-published-in-two-stores.md`.

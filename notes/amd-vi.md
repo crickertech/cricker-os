@@ -120,5 +120,5 @@ A boot on silicon is the outstanding piece. Read these lines:
   BUGS. The firmware exclusion range is never cleared; alias entries are shared and not
   quarantined; every mapping is read-write; nothing revokes a domain in production; and the entry
   builders have no permitted-bits proof. The first three are the acceptance items of
-  design/roadmap/proposals/amd-vi-hardening-before-the-first-amd-boot.md. The claims the row
+  design/roadmap/767-amd-vi-hardening-before-the-first-amd-boot.md. The claims the row
   should make are proposed in notes/confinement-outsider-pass-2.md.

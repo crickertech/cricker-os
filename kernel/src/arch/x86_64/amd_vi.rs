@@ -96,7 +96,7 @@
 //! claim)'s second pass (2026-10-05 UTC), reading this driver as a confinement boundary with no row
 //! in `notes/confinement-claims.md`. All are reasoned from the code and the specification; none has
 //! been booted, because QEMU models none of the firmware state they depend on. The first three are
-//! the acceptance items of design/roadmap/proposals/amd-vi-hardening-before-the-first-amd-boot.md.
+//! the acceptance items of design/roadmap/767-amd-vi-hardening-before-the-first-amd-boot.md.
 //!
 //! - **The firmware's exclusion range is never cleared.** `set_up` keeps every `Control` bit it does
 //!   not explicitly clear, and nothing writes the Exclusion Base and Limit registers (`0x0020`,
