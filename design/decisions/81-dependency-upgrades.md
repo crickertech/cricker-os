@@ -69,8 +69,8 @@ is worth exactly as much as our ability to move off `digest` 0.10 that week, and
 foreclosed the major has a cold, unpracticed, unbuilt upgrade path at the moment it needs a warm one.
 So the same argument that made these crates dependencies makes freezing them the wrong shape.
 
-The general form: **an advisory pipeline is a detection mechanism, and a detection mechanism whose
-remediation is unreachable is DECISIONS §35's wallpaper failure**, an alert nobody can disposition.
+The general form: an advisory pipeline is a detection mechanism, and a detection mechanism whose
+remediation is unreachable is DECISIONS §35's wallpaper failure, an alert nobody can disposition.
 
 ## What this does not cover
 
@@ -82,8 +82,8 @@ emulator legitimately moves them. Those are raised deliberately, by a commit tha
 `rust-toolchain.toml` is the same kind of pin and has a whole workflow devoted to proposing bumps to
 it.
 
-The test is not "is a version written down". It is **"if a newer version exists, does anything
-here ever tell us?"**
+The test is not "is a version written down". It is "if a newer version exists, does anything
+here ever tell us?"
 
 ## The mechanism
 
@@ -97,14 +97,14 @@ dependency genuinely must be held, write the marker and the reason and the gate 
 
 ## BUGS
 
-- **The gate sees one file.** A dependency can be frozen in ways `.github/dependabot.yml` never
+- The gate sees one file. A dependency can be frozen in ways `.github/dependabot.yml` never
   mentions: a caret constraint in a `Cargo.toml` that upstream has moved past, a vendored copy under
   `vendor/` whose pin nobody raises, an upstream that stopped publishing. None of those trip this
   check, and the only thing watching them is a person reading `cargo outdated` or an advisory.
-- **A group converts many small failures into one large one.** Four unbuildable pull requests become
+- A group converts many small failures into one large one. Four unbuildable pull requests become
   one pull request that is also red until somebody does the migration. That is better, because it is
   red for a reason a human can act on rather than for a reason nothing could ever fix, but it is not
   free and the work does not disappear.
-- **This says nothing about when to take an upgrade**, only that it must remain possible to. A major
+- This says nothing about when to take an upgrade, only that it must remain possible to. A major
   bump still has to earn its way through the queue like anything else, and nothing here makes a
   migration urgent that was not already.

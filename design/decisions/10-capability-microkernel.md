@@ -21,13 +21,13 @@ integer. The unforgeability is not cryptographic and there is no magic. You cann
 fabricate slot 7 for the same reason you cannot fabricate `fd 7`: the table is not yours to
 write.
 
-The difference from Unix is not the fd. **Unix already has capabilities.** The difference is
+The difference from Unix is not the fd. Unix already has capabilities. The difference is
 that Unix *also* has a back door, `open(path)` checked against your uid, which lets a process
-**mint** authority out of who it is. We are not building the back door.
+mint authority out of who it is. We are not building the back door.
 
 ## Rejected: Unix-like (fork/exec, paths, uids)
 
-Not rejected because it is bad. Rejected on an **asymmetry**, and it is the same asymmetry
+Not rejected because it is bad. Rejected on an asymmetry, and it is the same asymmetry
 that decided §5.
 
 | Direction | Cost |
@@ -35,9 +35,9 @@ that decided §5.
 | capabilities to a Unix-shaped API | **Additive.** A POSIX shim in userspace. Fuchsia's `fdio` is exactly this: `open`/`read`/`write` on top of capability handles. Nothing is thrown away. |
 | Unix to capabilities | **A rewrite, and historically it fails.** |
 
-The second row is not speculation. **FreeBSD's Capsicum** (2010) added `cap_enter()`, which
+The second row is not speculation. FreeBSD's Capsicum (2010) added `cap_enter()`, which
 drops a process into capability mode with no ambient authority. It works. It is in the base
-system. It has been there for fifteen years, and **almost nothing uses it**, because every
+system. It has been there for fifteen years, and almost nothing uses it, because every
 program assumes it may call `open("/etc/resolv.conf")`, and once that assumption is baked
 into a million lines of userspace you cannot take it back. OpenBSD's `pledge`/`unveil` and
 Linux's `seccomp` and Landlock are the same story: revoke-after-the-fact, all partial, none
@@ -54,9 +54,9 @@ We lose `fork`, copy-on-write, a VFS, and pipes as things we build with our own 
 are each instructive, and they are the mechanisms in the system calef uses every day. That is
 a real loss, taken knowingly.
 
-Against it: **on the Unix path you transcribe; on the capability path you derive.** xv6 exists,
+Against it: on the Unix path you transcribe; on the capability path you derive. xv6 exists,
 is 10,000 lines, has a book, and holds a canonical answer to every question the Unix path
-raises. That is a feature if the goal is to ship and a **hazard** if the goal is to understand,
+raises. That is a feature if the goal is to ship and a hazard if the goal is to understand,
 because the path of least resistance becomes "look at how xv6 did it," and the result is a
 working kernel you did not think through. There is no xv6 for this path. Every design question
 is ours.
@@ -65,13 +65,13 @@ For a project whose stated purpose is understanding, that is not a cost. It is t
 
 ## Not a reason: differentiation
 
-It was floated, and it is **factually wrong**, and it is worth writing down so it does not come
+It was floated, and it is factually wrong, and it is worth writing down so it does not come
 back.
 
-aarch64 is not virgin ground for capability microkernels. **It is their home turf.** seL4 is
+aarch64 is not virgin ground for capability microkernels. It is their home turf. seL4 is
 primarily an ARM story. L4 runs on every Qualcomm baseband. An L4 derivative runs the Secure
 Enclave. QNX runs most cars. Trusty runs on essentially every Android phone. Zircon runs on ARM.
-And in the hobby-Rust space, **Redox is already a Rust microkernel that runs on aarch64.**
+And in the hobby-Rust space, Redox is already a Rust microkernel that runs on aarch64.
 
 Building a capability microkernel on ARM is not unusual. It is the single most ARM-shaped thing
 one could build.
@@ -92,55 +92,55 @@ since they were asked for:
 | **Untyped memory** | **~Zero**, possibly negative: the allocator moves to userspace, where it has no kernel lock and no boundary to cross. |
 | **Microkernel (servers in userspace)** | **The entire cost. All of it.** |
 
-And even there, the shape surprises. **One IPC is not slow**: seL4's fastpath is a few hundred
+And even there, the shape surprises. One IPC is not slow: seL4's fastpath is a few hundred
 cycles, comparable to a Linux syscall (and *better* than one post-Spectre). Liedtke fixed that
-in 1995, and it stayed fixed. The cost is that **you need more crossings**: a `read()` that was
-one syscall becomes six. And the real bite is not cycles but **cache and TLB pollution**, which
+in 1995, and it stayed fixed. The cost is that you need more crossings: a `read()` that was
+one syscall becomes six. And the real bite is not cycles but cache and TLB pollution, which
 UNSW have measured at several times the direct cost.
 
 The discipline that recovers most of it, which every serious microkernel converges on:
 
-> **IPC carries control. Shared memory carries data.**
+> IPC carries control. Shared memory carries data.
 
 Put the bytes *in* the message and you copy twice and you are Mach, and slow. Put a *frame
 capability* in the message and the receiver maps it: zero copies.
 
-Ballpark: **none** on compute-bound work, **low single-digit percent** for general-purpose work
-(L4Linux is the cleanest apples-to-apples number that exists), a **bad tail** on I/O-heavy and
+Ballpark: none on compute-bound work, low single-digit percent for general-purpose work
+(L4Linux is the cleanest apples-to-apples number that exists), a bad tail on I/O-heavy and
 per-packet workloads.
 
-And the gap has closed **from both directions**. Spectre and Meltdown mitigations made Linux's
+And the gap has closed from both directions. Spectre and Meltdown mitigations made Linux's
 syscall boundary genuinely expensive. `io_uring` exists precisely because of it, and its answer
-(a shared-memory ring, batch the operations, stop crossing the boundary per call) **is the
-microkernel discipline under another name**. DPDK and SPDK moved networking and storage drivers
+(a shared-memory ring, batch the operations, stop crossing the boundary per call) is the
+microkernel discipline under another name. DPDK and SPDK moved networking and storage drivers
 into userspace for the same reason. Those are microkernels. They just had to bolt the isolation
 on afterward, with an IOMMU, instead of getting it free from an address space they already had.
 
 ## The three things this actually buys, none of which is speed
 
-1. **A driver bug is a crashed process, not a dead machine.** Drivers are the majority of a
+1. A driver bug is a crashed process, not a dead machine. Drivers are the majority of a
    monolithic kernel's code and carry far higher bug density than its core. In Linux every one of
    them runs at EL1 in the kernel's address space. Here a driver holds a capability to some MMIO
-   and an endpoint, and when it faults, it faults **alone**.
+   and an endpoint, and when it faults, it faults alone.
 
-2. **Least privilege by construction, not by policy.** A compromised network driver in Linux owns
+2. Least privilege by construction, not by policy. A compromised network driver in Linux owns
    the machine. Here it holds a capability to the NIC's frames and an endpoint to the network
-   stack, and **it cannot express reading your disk**. Not "the attempt is denied." The attempt is
+   stack, and it cannot express reading your disk. Not "the attempt is denied." The attempt is
    not constructible. That is the confused-deputy problem made unrepresentable, which is the same
    move as `TlbFlush`'s `Drop` and the lock-rank assertion in §9: prevention, not detection.
 
-3. **A kernel small enough to hold in your head.** seL4 is ~10,000 lines and has a machine-checked
+3. A kernel small enough to hold in your head. seL4 is ~10,000 lines and has a machine-checked
    proof. Linux is over 30 million. For a project whose purpose is understanding, that is not
    incidental.
 
-And one that is pure Rust luck: **a capability is an owned, unforgeable, non-copyable token.** It
+And one that is pure Rust luck: a capability is an owned, unforgeable, non-copyable token. It
 is a `Box` with teeth. Learning Rust and learning OS design turn out, here, to be the same
 education.
 
 ## An interrupt becomes a message
 
 Worth stating early, because it is where §5's exception model meets this one. A driver holds an
-**IRQ capability** bound to a notification, and blocks. The kernel's handler does one thing:
+IRQ capability bound to a notification, and blocks. The kernel's handler does one thing:
 signal it. The driver has no interrupt handler. It has a loop:
 
 ```rust
@@ -162,14 +162,14 @@ heap. Memory is a capability type (`Untyped`), and userspace hands the kernel a 
 kernel-memory exhaustion disappears as an attack class, and formal verification becomes tractable
 because there are no allocation-failure paths to reason about.
 
-**Deferred, deliberately, and it is not a dodge.** Of the three axes, it is the only one that
-**retracts working code**: `crates/frames`, `crates/heap`, and `crates/slab` would leave the
+Deferred, deliberately, and it is not a dodge. Of the three axes, it is the only one that
+retracts working code: `crates/frames`, `crates/heap`, and `crates/slab` would leave the
 kernel entirely. Those are four milestones that work and are well tested.
 
 Capabilities plus a microkernel, with a kernel that still allocates its own page tables, TCBs, and
-endpoints out of the heap we already have, is **exactly Zircon's model** and entirely coherent.
+endpoints out of the heap we already have, is exactly Zircon's model and entirely coherent.
 
-And untyped memory stays genuinely available, because it is **additive**: add `Untyped` as a
+And untyped memory stays genuinely available, because it is additive: add `Untyped` as a
 capability type, move the allocator to a userspace library. It is a fantastic milestone to reach
 once IPC and servers already run, and a punishing one to attempt before. It is milestone 11.
 
@@ -185,4 +185,4 @@ once IPC and servers already run, and a punishing one to attempt before. It is m
 
 Rule 4 of §4 ("a driver never reaches into a kernel global") was an option bought on day one,
 before there was code, for exactly this moment. `drivers/pl011.rs` takes a base address and knows
-nothing else. **That driver is already shaped like a process.** Milestone 8 makes it one.
+nothing else. That driver is already shaped like a process. Milestone 8 makes it one.
