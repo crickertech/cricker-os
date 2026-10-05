@@ -9,7 +9,7 @@ starts.
 
 ## Why the matcher is a lane on its own
 
-Milestone 47's finding about globbing is that the interesting question is **not how to match**. That
+Milestone 47's finding about globbing is that the interesting question is not how to match. That
 is a solved problem with fifty years of prior art and no thesis in it. The interesting question is
 **what a match grants**.
 
@@ -29,7 +29,7 @@ wiring job, it needs the directory-capability verb, and it is a different lane.
 
 What falls out is this crate: a total function on two byte strings, which is exactly the part that
 can be machine-checked. The property the wiring lane wants from it is worth stating, because it is
-the whole demonstration: **the expansion you see is the grant.** `echo *.txt` prints literally the
+the whole demonstration: the expansion you see is the grant. `echo *.txt` prints literally the
 authority `rm *.txt` would transfer, because the matched set *is* the namespace the caretaker will
 serve. Unix cannot make that claim, since `rm`'s authority never came from the command line at all.
 That only means anything if the matcher is one matcher, used in both places, that cannot be talked
@@ -54,15 +54,15 @@ pub const fn cost_bound(pattern_len: usize, name_len: usize) -> usize;
 Six functions, and each is there for a caller that exists:
 
 - **`matches`** is the matcher.
-- **`has_magic`** and **`literal`** are the two questions the shell asks of a word *before* it plans
+- **`has_magic`** and `literal` are the two questions the shell asks of a word *before* it plans
   a grant: is this a pattern at all, and if not, what name is it with the escapes stripped? A word
   with no magic names one file and wants a single-name caretaker; a word with magic is an
   enumeration and wants a caretaker over the matched set. `literal` exists so escape-stripping is
   written once: `a\*b` is the file called `a*b`, and getting that wrong means asking the filesystem
   for a name nobody has.
-- **`match_steps`** and **`cost_bound`** are the anti-blowup claim made checkable. See below.
+- **`match_steps`** and `cost_bound` are the anti-blowup claim made checkable. See below.
 
-Everything is **bytes**. A name here is a byte string (`filesystem_protocol::grant::MAX_NAME` is sixteen of
+Everything is bytes. A name here is a byte string (`filesystem_protocol::grant::MAX_NAME` is sixteen of
 them), so a matcher that decoded UTF-8 would have to decide what to do with a name that is not valid
 UTF-8, which is a question the filesystem never asks. `?` therefore matches one byte, which is half
 of a two-byte UTF-8 character. Same as `fnmatch(3)` in the C locale.
@@ -91,23 +91,23 @@ subdirectory, which in this system means *holding a capability for it*. That is 
 granting. Putting `**` inside a string matcher hides an authority question inside a pure function,
 which is the exact mistake this OS exists to not make.
 
-So the crate matches **one name**, a single path component, which is what `filesystem_protocol` actually
+So the crate matches one name, a single path component, which is what `filesystem_protocol` actually
 carries. When path syntax is settled, recursive descent lands as a traversal layer *above* this
-crate: walk the directory capabilities you hold, call `matches` per component. `**` belongs there,
+crate: walk the directory capabilities you hold, call `matches` per component. `` belongs there,
 because that is where the authority to descend is.
 
-**The honest cost:** nothing here treats `/` as special, so handing `matches` a whole path lets `*`
+**The honest cost: nothing here treats `/` as special, so handing `matches` a whole path lets `*`
 match across separators. That is a caller error, not a mode, and the type system cannot catch it
 while a name is `&[u8]`. Written down instead, in the crate docs where a reader meets the function.
 
 ### zsh's glob qualifiers are out, and the reason is authority
 
 `*(.)` for regular files, `*(om[1])` for the newest, `*(Lm+1)` for over a megabyte. The best thing
-in zsh's glob engine, and none of it is here. The roadmap said to settle this **before** building the
+in zsh's glob engine, and none of it is here. The roadmap said to settle this before building the
 matcher around them; settled, out, and the matcher is not built around them.
 
-The reason is not scope discipline. A qualifier needs type, mtime and size **per candidate**, so one
-`enumerate` becomes N `FSTAT` calls and needs a **read right beyond enumerate**. That makes `echo
+The reason is not scope discipline. A qualifier needs type, mtime and size per candidate, so one
+`enumerate` becomes N `FSTAT` calls and needs a read right beyond enumerate. That makes `echo
 *(.)`, which reads like a display, an operation requiring strictly more authority than listing the
 directory. In a capability system that is a change to what the command *is*, not a feature flag.
 
@@ -123,7 +123,7 @@ strings.
 ### A leading dot is special by default, because the default should grant less
 
 `Dot::Special`, what `matches` uses: a name beginning with `.` is matched only by a pattern beginning
-with a **literal** `.`. So `*` does not match `.config`, `?` does not match `.`, and `[.]config` does
+with a literal `.`. So `*` does not match `.config`, `?` does not match `.`, and `[.]config` does
 not match `.config` either. That last one is glibc's `FNM_PERIOD` rule exactly, and the reason a
 bracket expression does not count is that the rule exists to stop a *wildcard* reaching a dotfile,
 and a class is a wildcard however few members it has.
@@ -136,7 +136,7 @@ A user who wants the dotfiles asks for them, and gets the larger grant deliberat
 ### POSIX character classes are out, and the syntax does something else instead
 
 `[[:alpha:]]` is not a character class here. The inner `[:` and `:]` are not syntax, so it parses as
-the class `[[:alpha:]` (members `[`, `:`, `a`, `l`, `p`, `h`) followed by a **literal `]`**, and it
+the class `[[:alpha:]` (members `[`, `:`, `a`, `l`, `p`, `h`) followed by a literal `]`, and it
 matches the two-byte names `[]`, `:]`, `a]`, `l]`, `p]`, `h]`. Locale-dependent classes have no
 meaning on a system with no locale, but a quiet wrong answer is worse than a missing feature, so this
 is in the crate docs and pinned by a test.
@@ -161,8 +161,8 @@ together they are the whole argument:
 - Between two backtracks, `i + j` (name position plus pattern position) strictly increases, so at
   most `name.len() + pattern.len() + 1` iterations happen.
 
-The work is therefore polynomial in the two lengths, with **no term that grows with the number of
-`*`s**. That last part is the entire difference between this and the naive matcher.
+The work is therefore polynomial in the two lengths, with no term that grows with the number of
+`*`s. That last part is the entire difference between this and the naive matcher.
 
 The bound is not left as prose. `cost_bound(pattern_len, name_len)` computes it from the two lengths
 alone, before any matching happens, saturating rather than wrapping (a wrapped bound would be a small
@@ -199,38 +199,38 @@ unterminated bracket and two stars. What it does not buy is quantification over 
 Two things had to change to get there, and both are DECISIONS §46 rule 1 in practice: restructure the
 code, do not weaken the claim.
 
-- **The bracket expression is scanned once, not twice.** The first version found the closing `]` in
+- The bracket expression is scanned once, not twice. The first version found the closing `]` in
   one loop and tested membership in another, and Kani unrolls both, nested inside the match loop it
   is already unrolling. Merging them into a single pass that decides membership as it goes removed a
   whole loop from the unrolling. It is also less work at runtime, which is the usual shape of these.
-- **The unwind bounds are measured, not guessed.** Every outer iteration adds at least one to the
+- The unwind bounds are measured, not guessed. Every outer iteration adds at least one to the
   step count, so the worst step count over a domain is a safe upper bound for the iteration count
   over it. `the_worst_case_over_the_proof_domain_is_what_the_unwind_bounds_are_set_from` enumerates
-  the harnesses' own domain and pins the answer: **10 steps at three bytes, 17 at four**. The unwind
+  the harnesses' own domain and pins the answer: 10 steps at three bytes, 17 at four. The unwind
   is 11. Guessing 20 instead cost nothing in correctness and a great deal in solver time, because an
   unwind bound too high grows the formula for iterations that cannot happen.
 
-**The honest cost, since a gate people skip is worse than none.** The six harnesses take about **ten
-minutes** of solver time, which makes this the largest single entry in `script/verify` after
+The honest cost, since a gate people skip is worse than none. The six harnesses take about ten
+minutes of solver time, which makes this the largest single entry in `script/verify` after
 `calendar`'s seven. Two thirds of it is the two harnesses that quantify over a symbolic-length
-pattern **and** a symbolic-length name (199s and 186s); the other four are 92, 57, 53 and 1. The
+pattern and a symbolic-length name (199s and 186s); the other four are 92, 57, 53 and 1. The
 lever that worked was cutting the dot rule's name bound from three bytes to two, which is sound
 because that rule is a predicate on the name's first byte. The lever that did not work, measured and
 recorded so nobody re-tries it, was restating a restriction as `kani::assume` instead of an early
 `return`: 181s became 186s, which is noise.
 
-**Kani found a real defect in a harness, which is worth recording because it was not in the code.**
+Kani found a real defect in a harness, which is worth recording because it was not in the code.
 The negation-complement property failed in 42 seconds with a counterexample, and the counterexample
 was right: with the class body fully symbolic, `[!y]` is not "the class of `!` and `y`", it is
 *already* a negated class, so `[!!y]` is its complement rather than its double. The assumption that
 excludes `!` and `^` at the head of the body is about what the two spellings *are*, not a weakening
 of the claim.
 
-**The length-independent claims are the host tests' job, and that is the `network_time_protocol` lesson applied**
+The length-independent claims are the host tests' job, and that is the `network_time_protocol` lesson applied
 (see [ntp.md](ntp.md)): a model checker is the tool for domains too big to enumerate, not a better
 tool for domains that are not. Two places it decided the design here:
 
-- **Equivalence with exhaustive search.** The property that would settle "is the greedy
+- Equivalence with exhaustive search. The property that would settle "is the greedy
   single-backtrack loop actually correct" is "it agrees with a naive matcher that tries everything".
   A solver is bad at that, because the reference is recursive and has to be unwound. Enumeration is
   perfect at it: every pattern of length 0..=5 over an alphabet holding one representative of each
@@ -244,11 +244,11 @@ tool for domains that are not. Two places it decided the design here:
   thought to write them down. Length five rather than four because five is the shortest pattern that
   reaches a full range (`[a-b]`) and a full negated class (`[!ab]`).
 
-  The reference shares `decode` with the real matcher **on purpose**. What the
+  The reference shares `decode` with the real matcher on purpose. What the
   cross-check compares is therefore the search strategy and nothing else: if the two disagree, the
   greedy loop is wrong rather than the syntax being read two ways.
 
-- **The blowup itself.** `cost_bound(3, 3)` is 285, and no matcher at all is slow enough to exceed
+- The blowup itself. `cost_bound(3, 3)` is 285, and no matcher at all is slow enough to exceed
   that on three bytes, so the Kani harness is not where exponential backtracking would be caught.
   What it catches is an error in the *accounting*, which is what would otherwise let the big test
   pass while measuring the wrong thing. The blowup evidence is the host test: it runs
@@ -283,12 +283,12 @@ The unit tests exist for these. Every one is a place a real glob implementation 
 - No allocation. `literal` writes into a caller buffer and returns `None` rather than truncating,
   because a truncated filename is a different file and this is the path that decides what gets
   granted.
-- No `**`, no qualifiers, no POSIX classes, no locale, no case folding, no path separator.
-- **No grant.** The attenuated-to-a-name-set work, the shell's expansion, `grant_plan::plan` seeing the
+- No ``, no qualifiers, no POSIX classes, no locale, no case folding, no path separator.
+- **No grant. The attenuated-to-a-name-set work, the shell's expansion, `grant_plan::plan` seeing the
   expanded set rather than the pattern, and `ARG_MAX` as a capability limit are milestone 47's
   globbing lane, built on top of this crate and written up in [glob-grant.md](glob-grant.md). This
   crate is the part with no authority in it, which is why it could be finished and proved on its own,
   and it did not change by one line when the granting arrived. It did not change by one line when
-  **batching** arrived either (milestone 109, `xargs`), which is the same claim made a second time:
+  batching arrived either (milestone 109, `xargs`), which is the same claim made a second time:
   what a pattern designates is decided here, and how much of it one invocation is handed is decided
   three layers up.

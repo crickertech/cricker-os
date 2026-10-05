@@ -37,10 +37,10 @@ cannot be changed by anything short of restarting the service." Both are conside
 accidental: the sealed store is what lets `credentialer.rs` promise a client that a stored secret
 is exactly what an operator vouched for at boot, with nothing able to move it later.
 
-So this is not "add an update path to `Store::put`." Provisioning's trust model is **capability
-held**: whoever holds `WRITE` on the provision endpoint may write any record, because the whole
+So this is not "add an update path to `Store::put`." Provisioning's trust model is capability
+held: whoever holds `WRITE` on the provision endpoint may write any record, because the whole
 system trusts the operator who wired that endpoint at boot. A self-service password change needs a
-different trust model entirely: **identity proven**, the same shape login itself already uses,
+different trust model entirely: identity proven, the same shape login itself already uses,
 where holding a capability proves nothing and presenting the current secret proves everything. Only
 that second model actually avoids `Store::put`'s own named race (concurrent writers), because a
 change gated on proving the *old* secret can only ever be initiated by whoever already is that
@@ -60,7 +60,7 @@ tenet puts in the irreversible column. Options, not decided here:
 - **A dedicated rotation endpoint**, held separately from both provision and verify, minted and
   handed out its own way. More machinery, and a third capability shape to reason about for a
   service whose two-endpoint design (`notes/credentials.md`) is otherwise deliberately minimal.
-- **Reuse provisioning's own shape**, scoped to one record: reopen a single identity's slot for a
+- Reuse provisioning's own shape, scoped to one record: reopen a single identity's slot for a
   bounded window rather than the whole store. Closest to what `Store::put`'s comment already refuses
   and for the same reason (a second, harder-to-see version of "which of two concurrent writers
   won"); likely the wrong shape, named for completeness rather than as a real candidate.

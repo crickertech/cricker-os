@@ -28,11 +28,11 @@ One fact, how many ticks make a second, now reaches userspace three different wa
 
 ## What collapsing them onto the page would buy, and cost
 
-**Buys: one refusal path.** Today aarch64 literally cannot say "unknown", so its `cntfrq_checked` is
+Buys: one refusal path. Today aarch64 literally cannot say "unknown", so its `cntfrq_checked` is
 `Some` by construction. That is honest rather than wrong, but it means the three architectures do not
 share a failure mode, and a caller written against one of them can be surprised by another.
 
-**Costs, measured rather than asserted.** aarch64's read is a single `mrs` with `nomem`; the page is
+Costs, measured rather than asserted. aarch64's read is a single `mrs` with `nomem`; the page is
 a load that can miss, and `monotonic_nanos` calls it per measurement. Collapsing costs a frame per
 machine plus a mapping per process, spending intermediate table pages from each process's own budget,
 and it would put aarch64 on the same footing the other two have, where a path that forgets to map it
@@ -41,13 +41,13 @@ missed; aarch64 would find the same class.
 
 ## The lane's recommendation, which is a recommendation because this is reversible until it ships
 
-**Keep the register.** A fact the machine architecturally states is a better source than a fact the
+Keep the register. A fact the machine architecturally states is a better source than a fact the
 kernel copies, and §19 (architectural parity) asks for the capability on every architecture rather
 than for the same implementation on every architecture.
 
 ## BUGS
 
-- **The asymmetry is a real foot gun and this proposal does not remove it.** If the answer is "keep
+- The asymmetry is a real foot gun and this proposal does not remove it. If the answer is "keep
   the register", the thing that should change is documentation: `cntfrq_checked`'s aarch64 arm should
   say out loud that it cannot return `None`, where a reader meets it.
 

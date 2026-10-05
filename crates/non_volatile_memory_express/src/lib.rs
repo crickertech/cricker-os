@@ -1156,7 +1156,7 @@ mod verification {
 
     /// **The completion head stays in bounds and flips the phase exactly at the wrap**, for every
     /// reachable state, not just the ones a test happened to walk.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/non_volatile_memory_express/falsifications/verification.cq_pop_stays_in_bounds_and_flips_only_at_the_wrap.patch`
     #[kani::proof]
     fn cq_pop_stays_in_bounds_and_flips_only_at_the_wrap() {
         let entries: u16 = kani::any();
@@ -1171,13 +1171,20 @@ mod verification {
         let ret = cq.pop();
         assert!(cq.head < entries);
         assert_eq!(ret, cq.head);
+        // The head advanced by exactly one, modulo the ring. Without this the two assertions above
+        // hold for a pop that wraps one slot early (or late by a lap), which a device writing
+        // completions into every slot would then never be read from.
+        assert_eq!(
+            u32::from(cq.head),
+            (u32::from(head) + 1) % u32::from(entries)
+        );
         // The phase flipped if and only if the head wrapped to zero.
         assert_eq!(cq.phase != phase, cq.head == 0);
     }
 
     /// **A submission push from any non-full state lands in bounds**, and the doorbell value it
     /// leaves behind is a legal tail.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/non_volatile_memory_express/falsifications/verification.sq_push_stays_in_bounds.patch`
     #[kani::proof]
     fn sq_push_stays_in_bounds() {
         let entries: u16 = kani::any();
@@ -1198,7 +1205,7 @@ mod verification {
     /// **No two doorbells collide**, for any queue ids and any stride the controller can report:
     /// distinct (queue, role) pairs always compute distinct offsets, so a tail write can never
     /// land on a head register. This is the arithmetic the kernel's volatile writes trust.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/non_volatile_memory_express/falsifications/verification.distinct_doorbells_never_collide.patch`
     #[kani::proof]
     fn distinct_doorbells_never_collide() {
         let qa: u16 = kani::any();
@@ -1223,7 +1230,7 @@ mod verification {
     /// length and power-of-two page size, `prp_pair` either refuses or returns a pair whose two
     /// pointers cover the whole transfer: PRP2 is zero exactly when one page suffices, and is
     /// page-aligned whenever it is used (the spec's requirement on every pointer after the first).
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/non_volatile_memory_express/falsifications/verification.prp_pair_is_total_and_page_disciplined.patch`
     #[kani::proof]
     fn prp_pair_is_total_and_page_disciplined() {
         let base: u64 = kani::any();
@@ -1246,7 +1253,7 @@ mod verification {
     /// **Identify parsing is total for any device response.** The 4096 bytes come from the
     /// controller's DMA; no contents may panic the parse, and an accepted answer always carries a
     /// shift the block driver's arithmetic (`blocks_per(4096)`) can serve.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/non_volatile_memory_express/falsifications/verification.identify_parse_is_total_and_bounds_the_shift.patch`
     #[kani::proof]
     fn identify_parse_is_total_and_bounds_the_shift() {
         let data: [u8; 384] = kani::any();
@@ -1262,7 +1269,7 @@ mod verification {
     /// split of DECISIONS §86's option 2a makes this the only channel by which the data plane
     /// learns its own geometry, so a shift expression that was not its own inverse would be a
     /// driver addressing the wrong LBA with nothing in between to notice.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/non_volatile_memory_express/falsifications/verification.the_spawn_handoff_round_trips.patch`
     #[kani::proof]
     fn the_spawn_handoff_round_trips() {
         let h = Handoff {
@@ -1281,7 +1288,7 @@ mod verification {
     /// constant exists: a stride the spec permits and QEMU never reports computes a doorbell
     /// offset outside the one page of BAR0 the EL0 data plane is mapped, which is the one
     /// arithmetic error in this driver that reaches hardware.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/non_volatile_memory_express/falsifications/verification.an_accepted_handoff_keeps_its_doorbells_inside_the_mapped_page.patch`
     #[kani::proof]
     fn an_accepted_handoff_keeps_its_doorbells_inside_the_mapped_page() {
         let words: [u64; 3] = [kani::any(), kani::any(), kani::any()];
@@ -1302,7 +1309,7 @@ mod verification {
     /// overflows computing one.** This is the bounds check option 2a leans on: the IOMMU bounds
     /// where the controller may *write*, and nothing but this bounds *which LBA* is asked for, so
     /// a caller-supplied `u64` must not be able to wrap into a valid-looking address.
-    /// Falsification: unfalsified
+    /// Falsification: replayable `crates/non_volatile_memory_express/falsifications/verification.a_transfer_command_is_only_built_for_a_block_the_namespace_has.patch`
     #[kani::proof]
     fn a_transfer_command_is_only_built_for_a_block_the_namespace_has() {
         let h = Handoff {

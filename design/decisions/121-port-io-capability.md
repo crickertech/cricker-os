@@ -9,22 +9,22 @@ ratified_by: calef
 
 Reopened and reversed 2026-09-15. The original ruling (calef, 2026-08-25, *"Ratify option 2
 permanently"*) stood on a premise the boot-to-a-prompt goal has since falsified; calef reversed it to
-**option 1, the port-range capability**, on 2026-09-15, on this file's own named trigger. The
+option 1, the port-range capability, on 2026-09-15, on this file's own named trigger. The
 reasoning below is kept as the record of what was decided and why it held while it held; the reversal
 is the last section. Raised 2026-08-23 by milestone 161's
 lane, which found it while wiring the x86_64 console and could not decide it: what a capability *is*
 is the centre of this system's claim, not an implementation choice a lane makes on the way past. The
 number is **provisional**, minted by a lane against the current README rather than by an integrator.
 
-**What is blocked: nothing today, and one thing soon.** Milestone 161's boot is entirely in ring 0,
-so the kernel drives COM1 directly and no grant is needed. What is blocked is a **userspace console
-or input driver on x86**, which is the arrangement both other architectures already have and one of
-the things "parity" means (DECISIONS §19). `user::UART_PHYS` is **zero** on x86_64 today, and that
+What is blocked: nothing today, and one thing soon. Milestone 161's boot is entirely in ring 0,
+so the kernel drives COM1 directly and no grant is needed. What is blocked is a userspace console
+or input driver on x86, which is the arrangement both other architectures already have and one of
+the things "parity" means (DECISIONS §19). `user::UART_PHYS` is zero on x86_64 today, and that
 zero is a marker for this file rather than an address.
 
 ## The rule this collides with
 
-On aarch64 and RISC-V, **a device is a page**. A driver holds a mapping with
+On aarch64 and RISC-V, a device is a page. A driver holds a mapping with
 `paging::Flags::user_device()`, its user-mode stores go straight to the hardware, and the MMU is what
 enforces that it can touch that device and no other. That is the mechanism behind the whole
 userspace-driver claim: the console server holds the UART's registers as a capability, and nothing
@@ -43,23 +43,23 @@ capability over something that is not a frame.
 
 Two mechanisms, and only one has usable granularity.
 
-- **`RFLAGS.IOPL`**, two bits in the flags register: ring 3 may use `in`/`out` on *every* port, or on
+- `RFLAGS.IOPL`, two bits in the flags register: ring 3 may use `in`/`out` on *every* port, or on
   none. All-or-nothing. Granting it is granting the whole machine, including the interrupt
   controller and the CMOS clock, which is not a capability in any sense this project means.
-- **The TSS I/O permission bitmap**: one bit per port, 8 KiB for the full 64 Ki ports, at an offset
+- The TSS I/O permission bitmap: one bit per port, 8 KiB for the full 64 Ki ports, at an offset
   the TSS names. The CPU consults it on every `in`/`out` from ring 3 and faults when the bit is set.
   This has exactly the right granularity, and it is the only thing that does.
 
 The bitmap's awkwardness, and the reason this is a decision rather than a task, is that it is
 **per-task state, not per-address-space state**. A page mapping lives in the address space and
-travels with it; the I/O bitmap lives in the TSS, and the TSS is **per-CPU**. So a thread's port
+travels with it; the I/O bitmap lives in the TSS, and the TSS is per-CPU. So a thread's port
 rights have to be re-established on every context switch that changes which thread is running, on
 whichever CPU it lands on. That is a cost and a synchronisation problem the mapping model does not
 have.
 
 ## The options
 
-**Option 1: a port-range capability, enforced by the TSS bitmap.** A new capability type naming a
+Option 1: a port-range capability, enforced by the TSS bitmap. A new capability type naming a
 `(base, count)` range of ports. Granting it sets bits; revoking clears them; the scheduler writes the
 holder's bitmap into the current CPU's TSS on switch-in.
 
@@ -72,7 +72,7 @@ holder's bitmap into the current CPU's TSS on switch-in.
   Revocation has to reach every CPU that might hold a stale bitmap, which is a shootdown protocol of
   its own.
 
-**Option 2: keep legacy devices in the kernel on x86, and grant only MMIO devices.** The console
+Option 2: keep legacy devices in the kernel on x86, and grant only MMIO devices. The console
 stays a kernel driver on this architecture; PCI devices, whose BARs *are* memory, get the existing
 mapping-based capability and work identically on all three architectures.
 
@@ -80,12 +80,12 @@ mapping-based capability and work identically on all three architectures.
   memory-mapped anyway, so the userspace-driver claim still holds for every device that matters on a
   machine built after about 1995, including everything on milestone 87's OptiPlex except the serial
   port.
-- *Against*: it is a **parity gap with a scope note**, not parity. The one device the tree
+- *Against*: it is a parity gap with a scope note, not parity. The one device the tree
   demonstrates userspace drivers with is exactly the one that would stay in the kernel, so the x86
   demo would be weaker in precisely the visible place. And it puts a device driver back in the kernel
   after milestone 8 spent the effort taking one out.
 
-**Option 3: an I/O-port *service*.** A kernel-side port broker holding the ranges, with userspace
+Option 3: an I/O-port *service*. A kernel-side port broker holding the ranges, with userspace
 drivers issuing reads and writes as IPC.
 
 - *For*: no new capability type in the syscall surface; the grant is an endpoint, which the system
@@ -108,19 +108,19 @@ confirm this, so it is stated as inference from general PC architecture, not a v
 is the reason this reads as a permanent property of x86 legacy serial rather than a QEMU emulation
 artifact: real hardware likely has the identical shape.
 
-**Nothing on the actual customer path is affected.** Every device the Time Machine backup-server
+Nothing on the actual customer path is affected. Every device the Time Machine backup-server
 thesis touches -- network, NVMe/disk, everything SMB needs -- is already PCI/PCIe, already
 memory-mapped, and already gets the full userspace-driver treatment identically on all three
 architectures under the existing mapping-based capability model. The gap this decision accepts is
 confined entirely to a debug/developer serial console a customer never interacts with.
 
-**The measured cost (below) supports closing this rather than leaving it open.** ~2,682 ns per
+The measured cost (below) supports closing this rather than leaving it open. ~2,682 ns per
 context switch, a 423% overhead on the naive always-write implementation, refined to note a
 lazy/conditional write would cost far less but still needs real, currently unbuilt engineering with
 no present motivation to build it. That is exactly the kind of cost this tree measures rather than
 argues, and the number argues for the status quo.
 
-**This is the same posture DECISIONS §19 already accepts elsewhere in this tree**: a documented scope
+This is the same posture DECISIONS §19 already accepts elsewhere in this tree: a documented scope
 note is a legitimate answer to a parity gap, not a failure to work around. An honest, recorded
 exception is worth more than an overclaimed parity, which is this project's own stated culture.
 
@@ -144,7 +144,7 @@ comes back. It can, and neither half needs the feature it is pricing.
 
 **Option 3's cost is already on record, just never cited here.** The dominant cost of an I/O-port
 broker is one IPC round trip per register access, and this kernel's own IPC round trip is measured:
-**~337 ns** (release, HVF, aarch64), against a **null syscall at ~27 ns**, both from
+~337 ns (release, HVF, aarch64), against a null syscall at ~27 ns, both from
 `notes/benchmarks.md`'s cross-OS table. Neither number is x86-specific, and citing it here is not a
 claim that it transfers unchanged to different silicon; it is the order-of-magnitude confirmation
 this file's own "obviously wrong for a UART" already asserted without a number. A raw `in`/`out`
@@ -157,7 +157,7 @@ The dominant cost is the TSS I/O bitmap write on every context switch, and that 
 capability type built to measure: a micro-benchmark that writes an 8 KiB bitmap into the current
 CPU's TSS on every switch, timed against a switch that does not, is a far smaller thing than option 1
 itself, in the same shape `script/bench`'s existing icount-based measures already take. What it needs
-that does not exist yet is **real context switching between two threads on x86_64**, which is
+that does not exist yet is real context switching between two threads on x86_64, which is
 downstream of ring 3 (this milestone's item 3, in a lane as of 2026-08-24) but not necessarily
 delivered by it: that lane's own proof may run only one program in ring 3, not switch between two.
 Whether it does is this decision's own next input, not something to guess now.
@@ -177,7 +177,7 @@ into a CPU-owned static, never wired to the live TSS's `iomap_base`. It measures
 would add, not the enforcement. Full methodology and five-run medians for both a debug and a release
 kernel: `notes/benchmarks/x86-tss-iomap.md`, "2026-08-24: the TSS I/O-bitmap switch cost".
 
-**No icount leg exists on this ISA** (`icount()` already refuses `--arch x86_64`, and this port's
+No icount leg exists on this ISA (`icount()` already refuses `--arch x86_64`, and this port's
 runner attaches no image to pin QEMU's virtual clock to), so every number below is plain TCG on this
 Apple Silicon host: no KVM, no HVF for `x86_64`, statistical, and not a stand-in for real x86 silicon
 cycle counts. `cargo xtask bench --x86` runs it and refuses `--check`/`--save` for the same reason.
@@ -187,21 +187,21 @@ cycle counts. `cargo xtask bench --x86` runs it and refuses `--check`/`--save` f
 | debug, median of 6 | 12,320 ns/iter | 15,360 ns/iter | 3,040 ns/iter | ~1,520 ns | +25% |
 | release, median of 5 | 1,267 ns/iter | 6,769 ns/iter | 5,363 ns/iter | ~2,682 ns | +423% |
 
-**The debug row is the reassuring one and the release row is the honest one, and they disagree by
-17x on "how bad is this."** A debug build's baseline switch carries so much fixed cost (unelided
+The debug row is the reassuring one and the release row is the honest one, and they disagree by
+17x on "how bad is this." A debug build's baseline switch carries so much fixed cost (unelided
 checks, unoptimized bookkeeping) that the write is a modest ~25% addition to a slow number. Strip
-that in release and the baseline switch itself gets **~10x faster** while the write's own cost barely
+that in release and the baseline switch itself gets ~10x faster while the write's own cost barely
 moves, both being close to plain memory bandwidth. On the switch path option 1 would actually run on,
-the write does not add a quarter of the cost, **it is most of the cost**, which is a stronger
+the write does not add a quarter of the cost, it is most of the cost, which is a stronger
 statement than this file's own prose made before there was a number to check it against: "the
-dominant cost" undersold it. **Correcting the record rather than the prose that was already
-qualified**: nothing above was wrong, the amendment already named this the dominant cost from
+dominant cost" undersold it. Correcting the record rather than the prose that was already
+qualified: nothing above was wrong, the amendment already named this the dominant cost from
 architecture alone; the number says the margin is wider than "dominant" implied.
 
 **This does not change the recommendation.** Option 2 still stands for the reason it always did:
 nothing today asks for a userspace console on `x86_64` specifically, and option 1's cost, now
 measured rather than assumed, is exactly as unattractive as the prose already argued, arguably more
-so. What changes is that **the next 1-vs-3 call is now made on both sides' numbers**: option 3's
+so. What changes is that the next 1-vs-3 call is now made on both sides' numbers: option 3's
 ~337 ns per IPC round trip (already on record above) against option 1's ~1.5-2.7 us per switch for
 the write alone, before the capability type, the revocation shootdown, or anything else option 1
 would also cost. Whether that gap is worth paying for a userspace `x86_64` console is still calef's
@@ -240,31 +240,31 @@ is this decision's own deliverable.
 
 ## Reopened 2026-09-15: the trigger this file named has fired, and the call is option 1
 
-**This file wrote its own reopening condition, and it is now met.** The "reopening trigger" section
+This file wrote its own reopening condition, and it is now met. The "reopening trigger" section
 above said, verbatim: *"if a real userspace console on x86 ever becomes something calef actively wants
 demonstrated, rather than something the other two architectures merely happen to have, that is what
 justifies building option 1 for real."* Two changes since 2026-08-25 met it exactly:
 
-- **The customer path the original ruling leaned on is gone.** Option 2 rested on *"the gap this
+- The customer path the original ruling leaned on is gone. Option 2 rested on *"the gap this
   decision accepts is confined entirely to a debug/developer serial console a customer never interacts
   with,"* which was true while the customer path was the Time Machine backup server (journey 2, all
   MMIO). Journey 2 was retired 2026-08-30. The serial console is no longer beside the customer path.
-- **A prompt on every architecture became the goal.** Milestones 268 and 182 made x86 boot into
+- A prompt on every architecture became the goal. Milestones 268 and 182 made x86 boot into
   userspace and stop one step short of a shell, because §121 left the console in the kernel. On a
   headless x86 machine (xenon, driven over serial by design), the serial console is not a debug
-  side-channel; it is the **only** interface anyone operates the machine through. By principle 1's own
+  side-channel; it is the only interface anyone operates the machine through. By principle 1's own
   rule, the operator at that prompt is the first customer of x86 nife. So the serial console is the
   customer this file assumed did not exist.
 
-**The call is option 1: the port-range capability, enforced by the TSS I/O bitmap** (calef,
+The call is option 1: the port-range capability, enforced by the TSS I/O bitmap (calef,
 2026-09-15). x86's serial console and input drivers become userspace processes holding a `(base, count)`
 port capability, exactly as the other two architectures' UART drivers hold a memory-mapped device
 capability. This restores "every driver is a userspace process" on real x86 hardware, with no
 exception, which is the choice seL4 (this project's own benchmark), Genode and L4Re all made with the
 same TSS-bitmap mechanism.
 
-**calef chose this over §149 option 1 (a kernel thread serving the console) deliberately, and over
-sequencing through it.** The maintainer's first framing was "kernel thread now, port capability later,
+calef chose this over §149 option 1 (a kernel thread serving the console) deliberately, and over
+sequencing through it. The maintainer's first framing was "kernel thread now, port capability later,
 the console endpoint hides the migration." calef ruled straight to the port capability, on the tenet
 that this project is not built out of convenience: the endpoint would have let userspace stay
 unchanged, but the driver would have sat in the kernel until someone did the expensive work anyway, and
@@ -272,15 +272,15 @@ the only thing "later" bought was a faster prompt and a chance to measure the sw
 accepted both give-ups. See DECISIONS §149, now resolved by this reversal, and milestone 299, which
 builds it.
 
-**Build the lazy write, not the naive one this file measured.** The "Refined 2026-08-25" section is
+Build the lazy write, not the naive one this file measured. The "Refined 2026-08-25" section is
 now load-bearing rather than a footnote: the ~2,682 ns/switch release figure is the worst-case
 always-write, and the real cost is the lazy version, where the TSS `iomap_base` is set to a real
 bitmap only when a thread that actually holds a port capability is on either side of a switch. In a
 system where realistically one process (the console driver) ever holds one, that is near-zero for the
-overwhelming majority of switches. **Milestone 299's own first measurement is the lazy write's real
-cost**, taken the way this file already specified, not a second run of `tss_iomap_switch`.
+overwhelming majority of switches. Milestone 299's own first measurement is the lazy write's real
+cost, taken the way this file already specified, not a second run of `tss_iomap_switch`.
 
-**What this does not reopen.** Option 3 (the I/O-port broker, a syscall per register access) stays
+What this does not reopen. Option 3 (the I/O-port broker, a syscall per register access) stays
 refused on its measured ~337 ns-per-round-trip cost against single-digit-cycle `in`/`out`; nothing
 here revisits it. And the mapping-based capability for MMIO devices is unchanged: this adds a second
 kind of device capability for the one class that has no page, it does not replace the first.

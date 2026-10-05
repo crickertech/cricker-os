@@ -1,0 +1,23 @@
+Falsifies `system_tests::user::running_space_tests::a_second_bind_of_a_bound_space_is_refused`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect: the registry stops refusing a bind of a space already bound, the amendment (b) of
+§249 (a running address space stays nameable) undone. A space's name survives `CONFIGURE` now, so a second capability reaches a second bind,
+and two threads share one space, which §105 (`std::thread::spawn` stays declined) declines.
+
+Expected to fail: the `WrongObject` assertion, which gets `Ok(0)`.
+
+diff --git a/kernel/src/user.rs b/kernel/src/user.rs
+--- a/kernel/src/user.rs
++++ b/kernel/src/user.rs
+@@ -730,9 +730,6 @@
+ ) -> Result<(), abi::Error> {
+     let mut spaces = USER_SPACES.lock();
+     let entry = spaces.get_mut(name).ok_or(abi::Error::NoSuchSlot)?;
+-    if entry.bound.is_some() {
+-        return Err(abi::Error::WrongObject);
+-    }
+     entry.space.attach_current_cpu_page();
+     bind(BoundSpace::of(name, &entry.space))?;
+     entry.bound = Some(tid);

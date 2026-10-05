@@ -36,6 +36,9 @@
 # helpers/lane-claim-check.sh already use for exactly this act, the empty commit plus draft pull
 # request that makes a lane visible before it has anything else to show. calef has not ruled on it.
 #
+# The claim commit carries a Co-Authored-By trailer because .githooks/commit-msg requires one of any
+# agent's commit; without it this script died at its own first commit (found 2026-10-05 UTC).
+#
 # See notes/scripts.md.
 
 set -eu
@@ -134,7 +137,14 @@ claim_text="${title:-$branch}"
 echo "==> claim: empty commit, push, draft pull request"
 (
     cd "$worktree"
-    git commit --allow-empty -m "claim: $claim_text"
+    # .githooks/commit-msg refuses an agent's commit (CLAUDECODE or OPENCODE set) that has no
+    # Co-Authored-By trailer, and the claim is made by agents, so the bare message failed there and
+    # lanes pushed their claims by hand. `Claude Code` is the one tool-level value script/metrics
+    # already files under other_models; an empty claim commit carries no model's work, so naming the
+    # tool is accurate. $NIFE_CLAIM_MODEL names a model instead, e.g. "Claude Opus 5.5".
+    git commit --allow-empty -m "claim: $claim_text
+
+Co-Authored-By: ${NIFE_CLAIM_MODEL:-Claude Code} <noreply@anthropic.com>"
     git push -u origin HEAD
     # The account is whoever `gh` is logged in as, read rather than spelled, because more than one
     # architect can run a lane (ARCHITECTS.md) and the line exists to say whose name GitHub shows.

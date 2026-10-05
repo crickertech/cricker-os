@@ -21,8 +21,8 @@ It needs patagonia, or any Apple Silicon Mac with HVF, and nothing else.
 
 ## In brief
 
-`kernel::user::tests::a_std_program_serves_a_granted_listening_port` **hung in two of the three full
-`script/test --hvf` runs that reached it** (the third was green end to end), and passes when run alone under HVF
+`kernel::user::tests::a_std_program_serves_a_granted_listening_port` hung in two of the three full
+`script/test --hvf` runs that reached it (the third was green end to end), and passes when run alone under HVF
 (`cargo xtask test --hvf --test a_std_program_serves_a_granted_listening_port`) and in every TCG run,
 GICv2 and GICv3 alike. It is the one flaky test left on the HVF leg, and `script/ci-build` names it when the
 leg fails so a contributor can tell it is not theirs. That sentence should go when this lands.
@@ -47,7 +47,7 @@ inbound check (aarch64) FAILED: the guest served 2 of the 4 inbound connections 
     +109147 ms: stopped-while-waiting after 90324 ms, 0 bytes
 ```
 
-`0x40e7dc` in `std_exerciser` is `__rust_abort`, so the std program **panicked**, and its message
+`0x40e7dc` in `std_exerciser` is `__rust_abort`, so the std program panicked, and its message
 went nowhere a transcript reads.
 
 ## The likeliest reading, which is not established
@@ -59,8 +59,8 @@ is answered or the run ends. So if the prober opened a connection in the gap bet
 hand-written listener's window and the std one, and that connection is never delivered to the std
 listener, the prober waits on it for the rest of the run (the 90-second `stopped-while-waiting`
 above) and the std listener's bounded wait expires with nobody connecting. HVF runs the suite about
-three times faster than TCG, which reshapes that gap. **None of this was confirmed by
-instrumenting it.**
+three times faster than TCG, which reshapes that gap. None of this was confirmed by
+instrumenting it.
 
 ## Two defects may be here, and the second is independent of HVF
 

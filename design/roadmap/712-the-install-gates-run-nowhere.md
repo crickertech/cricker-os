@@ -28,7 +28,7 @@ because anything checked.
 
 The reason recorded for leaving `install-boot` out of `script/test`'s default legs was cost:
 *"The two boots take several minutes under TCG"* (`xtask/src/install.rs`, `BUGS`). Measured on
-patagonia on 2026-10-03, warm: **42.5 seconds** wall for the whole gate, build included. The
+patagonia on 2026-10-03, warm: 42.5 seconds wall for the whole gate, build included. The
 comment is corrected in the same change as this proposal.
 
 ## What the work is

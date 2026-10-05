@@ -24,13 +24,13 @@ itself is measured, and nothing external blocks it.
 three orders of magnitude slower than native. `glob`, `network_time_protocol`, `calendar` and
 `globally_unique_identifier_partition_table` already
 handle this by sampling their exhaustive loops under `cfg(miri)` rather than running them whole.
-`compositor` has **six full-screen per-pixel sweeps** and only one of them has been strided; it fell
-from over 44 minutes to **57 seconds**. The other five are untouched and are now the whole remaining
+`compositor` has six full-screen per-pixel sweeps and only one of them has been strided; it fell
+from over 44 minutes to 57 seconds. The other five are untouched and are now the whole remaining
 cost of the check. The work is to stride them the same way, then measure the real end-to-end run.
 
 ## Why this matters
 
-The check is currently affordable only because its budget was **raised to 240 minutes**, not because
+The check is currently affordable only because its budget was raised to 240 minutes, not because
 its cost was reduced. Milestone 238 did that deliberately to get the workflow green after three
 weeks red, and said so. The consequence is that the true end-to-end cost of the Miri run has never
 been measured: the budget is a ceiling nobody has pushed against, so nobody knows whether the check

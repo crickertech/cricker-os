@@ -29,7 +29,7 @@ expected-fault slot, which is the expensive half this block prices.
 
 Two halves, one lane, because they need the same new thing.
 
-1. **A kernel test that ring 0 cannot fetch from a user page**, on all three architectures, with a
+1. A kernel test that ring 0 cannot fetch from a user page, on all three architectures, with a
    falsification record each. On aarch64 the defect is a user page without `PXN`; on riscv64 there
    is no defect to write (the hardware refuses unconditionally, and the test documents that); on
    `x86_64` the defect is not setting `CR4.SMEP`, which was the tree's state until 2026-09-17.

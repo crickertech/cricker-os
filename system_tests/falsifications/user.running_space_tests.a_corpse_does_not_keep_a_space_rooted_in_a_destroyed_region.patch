@@ -1,0 +1,23 @@
+Falsifies `system_tests::user::running_space_tests::a_corpse_does_not_keep_a_space_rooted_in_a_destroyed_region`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect: the region sweep leaves a corpse's space alone, which is the shape the tree had before
+§249 (a running address space stays nameable) put bound spaces in the registry. The region comes
+back while the corpse still owns a root in it, and the revocation registry goes on naming that
+root and the log pages the region just handed back.
+
+Expected to fail: the assertion after the region's `DESTROY`, that the corpse's space is gone.
+
+diff --git a/kernel/src/user.rs b/kernel/src/user.rs
+--- a/kernel/src/user.rs
++++ b/kernel/src/user.rs
+@@ -814,7 +814,7 @@
+                         None => in_span,
+                         Some(tid) => match binder(tid) {
+                             crate::sched::Binder::Gone => true,
+-                            crate::sched::Binder::Corpse => in_span,
++                            crate::sched::Binder::Corpse => false,
+                             crate::sched::Binder::CanRun => false,
+                         },
+                     };

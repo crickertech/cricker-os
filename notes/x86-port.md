@@ -11,21 +11,21 @@ genuinely do not fit the existing seam, and an honest account of what is built.
 
 ## Status, and it is a partial port
 
-**Built, running, and gated:** the boot path, the console, the GDT/TSS, the IDT and trap frame, the
+Built, running, and gated: the boot path, the console, the GDT/TSS, the IDT and trap frame, the
 page-table format, the boot-handoff parser, the ACPI tables (the RSDP scan, the root-table walk with
-checksums, the MADT and the MCFG), **the local APIC and a calibrated periodic timer**, the frame
-allocator, **the fine-grained W^X kernel page tables**, **the IO APIC and a routed device line**,
-**user address spaces, the `syscall` pair and ring 3**, **the scheduler, preemption, kernel threads
-and real ring-3 processes**, **the kernel's own test suite and a `script/test` leg**, the address
+checksums, the MADT and the MCFG), the local APIC and a calibrated periodic timer, the frame
+allocator, the fine-grained W^X kernel page tables, the IO APIC and a routed device line,
+user address spaces, the `syscall` pair and ring 3, the scheduler, preemption, kernel threads
+and real ring-3 processes, the kernel's own test suite and a `script/test` leg, the address
 arithmetic, interrupt masking, the context switch, and the test exit. A boot under QEMU's `q35`
 prints a tour, takes real hardware interrupts from the CPU's own timer *and* from a device, builds
 and installs its own page tables, brings up the scheduler, runs a kernel thread, builds two
 processes out of untyped memory and runs them at CPL 3 (one invokes a capability and exits, one
 faults and is delivered to its supervisor), and halts.
 
-**And since 2026-08-24, userspace:** every program in `user/` compiles for `x86_64-unknown-none`,
+And since 2026-08-24, userspace: every program in `user/` compiles for `x86_64-unknown-none`,
 `xtask` packs the same archive RISC-V's leg does, QEMU's PVH loader hands it over as a module, and
-`cfg(initrd)` is on. `script/test --arch x86_64` runs **170 tests and skips 67**, where it ran 97
+`cfg(initrd)` is on. `script/test --arch x86_64` runs 170 tests and skips 67, where it ran 97
 and skipped 7 the day before.
 
 **Not built:** VT-d and SMP bring-up, both loud `unimplemented!()`s in `arch/x86_64/` that name
@@ -129,7 +129,7 @@ argued where the gate is (see `script/lint`):
   userspace (the services, the drivers). Code dead on *all three* architectures is still caught by
   the other two passes; what can hide is code dead on x86_64 alone.
 
-**There is a `script/test` leg**: `--arch x86_64`, in `xtask`'s `test`, and it runs by default
+There is a `script/test` leg: `--arch x86_64`, in `xtask`'s `test`, and it runs by default
 alongside the other two. That sentence used to end "it builds nothing before it boots, because there
 is no userspace archive to pack and the runner attaches no disks", and every clause of it has since
 stopped being true: milestone 161 packed an archive, 164 added the FS server, 215 attached the first
@@ -139,18 +139,18 @@ the nifefs, RedoxFS and NVMe images before it boots.
 ## What had to change above `arch/`
 
 This is the part that matters for the milestone-20 claim, so it is stated as a list rather than as a
-conclusion. Making the entire kernel compile for a third architecture took **42 compiler errors**,
+conclusion. Making the entire kernel compile for a third architecture took 42 compiler errors,
 every one of them "this `arch::` name does not exist yet", and:
 
 - **`crates/paging` did not change at all.** `paging::x86_64::Ia32e` is sixty lines of bit encoding
   behind the existing `PageFormat` trait; `LEVELS = 4` and `SPLIT_SHIFT = 47` were the whole of the
   geometry, and the shared `Mapper` walk needed nothing.
-- **`drivers/ns16550.rs` gained a type parameter and no second driver.** The same 16550 QEMU's
-  RISC-V `virt` puts at physical `0x1000_0000` is, on every x86 machine, at **I/O port** `0x3f8`: a
+- `drivers/ns16550.rs` gained a type parameter and no second driver. The same 16550 QEMU's
+  RISC-V `virt` puts at physical `0x1000_0000` is, on every x86 machine, at I/O port `0x3f8`: a
   separate address space reached only by `in`/`out`. That is a difference in how eight registers are
   *reached* and in nothing else, so it is a `RegisterSpace` implementation (defaulting to `Mmio`, so
   every existing use means what it always did) with the port-space half under `arch/x86_64/`.
-- **`console.rs`, `user.rs`, `drivers/mod.rs` and `user/fs_service.rs` gained `cfg` arms**, in the
+- `console.rs`, `user.rs`, `drivers/mod.rs` and `user/fs_service.rs` gained `cfg` arms, in the
   same places they already had two.
 
 That is the whole diff above `arch/`. A new ISA was a new directory.
@@ -175,7 +175,7 @@ part of milestone 161 (the x86_64 kernel port). None of them is needed to build,
 
 ## BUGS
 
-- **Multiboot is still not an option, and nothing here added a header.** The refusal in [boot.md](x86-port/boot.md) is a
+- Multiboot is still not an option, and nothing here added a header. The refusal in [boot.md](x86-port/boot.md) is a
   property of QEMU's loader rather than of this kernel, so it stands. GRUB Multiboot 2 remains the
   path for a BIOS-only machine and would cost a header plus a second handoff decoder; it was priced
   against UEFI and lost on testability (`brew info grub`: no formula on this machine at all). See
@@ -193,7 +193,7 @@ part of milestone 161 (the x86_64 kernel port). None of them is needed to build,
 The bound on everything above, listed because it is the next lane's brief rather than a caveat.
 Every item is a device or a toolchain, and none is `user_mode_runtime` any more.
 
-- **No device a ring-3 process can reach.** The console UART is in the I/O port space, so
+- No device a ring-3 process can reach. The console UART is in the I/O port space, so
   `user::UART_PHYS` is zero and `console`, `input`, `keyboard_driver` and `swapper` are packed but cannot run;
   their arms `trap()` rather than no-op, so a boot that reached one would say so on the first byte.
   That is DECISIONS §121, still PROPOSED. **One foot gun is marked rather than removed**:
@@ -202,48 +202,48 @@ Every item is a device or a toolchain, and none is `user_mode_runtime` any more.
   capability and every role that names it, and there is nothing better to put there until §121 is
   answered. Nothing reaches it: every fixture that would map it asks
   `user::machine_has_no_device_page_for_the_console()` first.
-- **The PCI bus is enumerated, and one function is driven** (milestones 165 and 215). ACPI's MCFG
+- The PCI bus is enumerated, and one function is driven (milestones 165 and 215). ACPI's MCFG
   fills `memory::pci_regions()`, and a `virtio-blk-pci` disk is attached, confined behind VT-d, and
   read and written by a driver at ring 3. What is still not attached is a NIC, a GPU, a keyboard,
   an RNG, or a second disk: each is a line in `helpers/qemu-runner-x86_64.sh` and a wiring, not a
   mechanism.
-- **The ACPI walk reads the boot map, and the boot map ends at 4 GiB.**
+- The ACPI walk reads the boot map, and the boot map ends at 4 GiB.
   `arch::x86_64::machine::BOOT_DIRECT_MAP_LIMIT` is that bound, and it said 1 GiB until 2026-09-02
   on a comment `boot.s` had never matched. Firmware puts its tables just under the top of RAM, both
   QEMU runners passed `-m 256M`, and so every gate booted a machine whose tables happened to fit:
-  at 2 GiB under OVMF the same kernel found **no RSDP, no MADT, no MCFG and no DMAR**, and came up
+  at 2 GiB under OVMF the same kernel found no RSDP, no MADT, no MCFG and no DMAR, and came up
   with no APIC, no timer, no PCI and no VT-d on a machine that described all four. That was
   unconditional on any real machine. `cargo xtask uefi-boot` now boots at 2 GiB for exactly this
   reason (`NIFE_MEM` sets it back), and an unreachable table says so during the walk rather than
-  being skipped with the checksum failures. A machine that put its tables **above** 4 GiB (none
+  being skipped with the checksum failures. A machine that put its tables above 4 GiB (none
   seen; firmware keeps ACPI low so 32-bit loaders can read it) needs `boot.s` widened, not the
   bound loosened.
-- **The 32-bit BAR window is a constant, and this kernel moves most of the bus into it.**
+- The 32-bit BAR window is a constant, and this kernel moves most of the bus into it.
   `arch::mmu::PCI_BAR_PHYS` is `0xc000_0000` with 2 MiB mapped, checked once against QEMU's
   `info mtree`, because the window a real machine wants BARs in is in its host bridge's `_CRS` and
   `_CRS` is AML. `place_bars` relocates every BAR outside it, which is correct and exercised;
   `pci::bar_census` prints how many that is on the boot line, and it is not a corner case:
-  **5 of 8 functions under PVH, 3 of 6 under OVMF, 4 of 7 with a `virtio-blk-pci` disk attached**
+  5 of 8 functions under PVH, 3 of 6 under OVMF, 4 of 7 with a `virtio-blk-pci` disk attached
   (2026-09-02). On xenon that number is the first thing to read: a machine whose RAM reaches above
   `0xc000_0000` would have this kernel move most of its bus on top of memory.
-- **No MCFG means no PCI, deliberately.** There is no fallback to the legacy `0xcf8`/`0xcfc`
+- No MCFG means no PCI, deliberately. There is no fallback to the legacy `0xcf8`/`0xcfc`
   configuration mechanism, which this kernel could reach and which would enumerate bus 0. Those
   ports see only the first 256 bytes of a function's configuration space, so a machine that fell
-  back would enumerate a **different** set of capabilities than one that did not, every extended
+  back would enumerate a different set of capabilities than one that did not, every extended
   capability absent, and a driver that then failed would fail somewhere else entirely. Milestone
   215 refused the same shape one level down (a machine that wants MSI and meets a function without
   MSI-X fails loudly rather than falling back to a pin).
-- **An MCFG whose first bus is not 0 is refused rather than adjusted.** `kernel/src/pci.rs`
+- An MCFG whose first bus is not 0 is refused rather than adjusted. `kernel/src/pci.rs`
   addresses a function as `base + (bus << 20 | ...)` with an absolute bus number, and the
   subtraction that looks like the fix names a base below the window `mmu::map_everything` maps.
   Every machine seen reports 0; none is required to.
-- ~~**No RedoxFS image is attached**~~: closed by milestone 303. The runner attaches the
+- ~~No RedoxFS image is attached~~: closed by milestone 303. The runner attaches the
   `-redoxfs.img` fixture as a second `virtio-blk-pci` function, and `virtio::find_block_device_n`
   spans virtio-mmio and virtio-pci so a wiring on a machine with no mmio bus can find it. What is
   still missing is the rest of the fixture set (milestone 37's crash disk, milestone 57's GPT and
   blank disks); see design/roadmap/420-the-rest-of-the-x86-64-fixture-set.md.
-- ~~**No `std`**~~: closed by milestone 184. `x86_64-unknown-nife` and its farm exist, and
+- ~~No `std`~~: closed by milestone 184. `x86_64-unknown-nife` and its farm exist, and
   `std_exerciser` passes here. `std::fs` runs since milestone 303 gave the FS service a disk;
   `std::net` is compiled and unexercised for the NIC reason above. See notes/std.md.
-- **No second core** (item 5), and **no ASID tags**, because `CR4.PCIDE` is off (item 3, calef's
+- **No second core** (item 5), and no ASID tags, because `CR4.PCIDE` is off (item 3, calef's
   call, and it wants a number rather than an argument).

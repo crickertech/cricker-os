@@ -10,11 +10,10 @@
 //!
 //! # BUGS
 //!
-//! - **No test here watches a TLB on another core, and none can yet.** `UNMAP` reaches only a space
-//!   no thread runs in (`CONFIGURE` retires the name a capability resolves through), so no core can
-//!   be caching a translation of it. The flush is still issued, by the function every revoke uses,
-//!   and it becomes load-bearing the day a running space can be named: `notes/unmap.md` has the
-//!   fork, and the test it then owes.
+//! - **No test here watches a TLB on another core.** These four build spaces no thread runs in.
+//!   `running_space_tests` has the ones that do, since §249 (a running address space stays
+//!   nameable) made a running space nameable: a reader spinning on another core faults once its
+//!   page is given up.
 //! - **Intermediate tables are not checked.** `UNMAP` leaves them linked on purpose, and this module
 //!   does not assert either way.
 

@@ -34,24 +34,24 @@ shape as a manifest mismatch being "a refusal at the prompt rather than a myster
 
 ## Why validation, not just "the page"
 
-**The question that surfaced this**: calef asked whether "inert configuration" leaves room for
+The question that surfaced this: calef asked whether "inert configuration" leaves room for
 someone to store a secret there out of convenience and expose it more broadly than intended, the
 exact class of accident that makes `AWS_SECRET_KEY`-as-env-var a real, repeated problem in practice
 (and one this tree's own survey of Unix's environment-variable history, `LANG`/`NLSPATH`-driven
 message-catalog loading and `TERM`/terminfo path bugs, shows is not hypothetical).
 
-**Capabilities alone don't answer that question, and it is worth being precise about why.** A
+Capabilities alone don't answer that question, and it is worth being precise about why. A
 capability governs reach, not meaning; once a value is bytes on a page, nothing about the capability
 model can tell a password from a timezone. The classification mistake happens before the data becomes
 bytes, which is a different problem than anything a capability can gate.
 
-**What does answer it is this tree's own strongest tool, applied to value shape instead of authority:
-make the wrong state unrepresentable.** A byte sequence has to parse as a member of a specific
+What does answer it is this tree's own strongest tool, applied to value shape instead of authority:
+make the wrong state unrepresentable. A byte sequence has to parse as a member of a specific
 known-safe set to go through this channel at all. An API key doesn't parse as `America/Los_Angeles`,
 so it cannot ride through disguised as one. This closes the door for every key whose domain is worth
 validating, which is effectively all of "inert configuration" as this milestone names it.
 
-**A cheap, complementary catch for anything a domain hasn't been written for yet**: `caps run prog`
+A cheap, complementary catch for anything a domain hasn't been written for yet: `caps run prog`
 already previews what a program will see before it runs (decided elsewhere in this milestone). Extend
 that preview to print the actual values of declared inert config, not just the key names, so a
 misclassified value is visible to whoever is about to run something, not silently embedded in a page

@@ -1052,8 +1052,9 @@ fn address_space_unmap(name: u64, va: u64) -> Result<i64, Error> {
         return Err(Error::BadPointer);
     }
     crate::user::with_user_address_space(name, |space| {
-        // A space that no longer resolves (bound by `CONFIGURE`, or reclaimed) has nothing this
-        // capability can reach, which is what `MAP_INTO` answers for it too.
+        // A space that no longer resolves (its thread reaped, or its region reclaimed) has nothing
+        // this capability can reach, which is what `MAP_INTO` answers for it too. A running space
+        // does resolve since §249, and `unmap_user_at`'s flush is what reaches its thread's core.
         let Some(space) = space else {
             return Err(Error::BadPointer);
         };
@@ -1286,9 +1287,7 @@ mod proofs {
     /// the harnesses 213 rewrote, the duplication here cannot be removed by calling something,
     /// because what is duplicated is a *caller's* control flow rather than a function.
     ///
-    /// Falsification: unfalsified. Same standing as the harness above, and the same handoff: no
-    /// defect has been proposed against it yet, and inventing one to fill this row is exactly what
-    /// §134's three states exist to refuse.
+    /// Falsification: replayable `kernel/falsifications/syscall.proofs.every_page_between_the_checked_ends_is_itself_a_user_page.patch`
     #[kani::proof]
     fn every_page_between_the_checked_ends_is_itself_a_user_page() {
         let va: u64 = kani::any();
@@ -1393,7 +1392,7 @@ fn page_frame_revoke(phys: u64, count: u64) -> Result<i64, Error> {
 }
 
 /// `ThreadControlBlock::CONFIGURE`: bind an address space to an embryo thread and set its entry point and stack
-/// (`a0` entry, `a1` stack, `a2` the address space cap slot, consumed). `#[inline(never)]` for the
+/// (`a0` entry, `a1` stack, `a2` the address space cap slot, consumed; the space keeps its name). `#[inline(never)]` for the
 /// reason `memory_region_map` gives.
 #[inline(never)]
 fn thread_control_block_configure(
@@ -1411,9 +1410,11 @@ fn thread_control_block_configure(
         return Err(Error::NotPermitted);
     }
     sched::configure_thread_control_block(tid, entry, stack, aspace_name)?;
-    // Consume the address space cap: it is the thread's now, and a second bind must not find it. (The
-    // space already left the registry, so the cap is inert regardless; this keeps the caller's
-    // capability table honest.)
+    // Consume the capability passed, which §249 (a running address space stays nameable) keeps: a
+    // builder that wants to go on naming the child's space makes a copy first and says so, as §142
+    // (what a spawner retains over a child after `START`) asks. The name itself is not retired, and
+    // a second bind through some other copy is refused by the registry's bound mark, not by this
+    // delete.
     let _ = sched::delete_current_cap(aspace_slot);
     Ok(0)
 }
@@ -1535,9 +1536,9 @@ fn memory_region_usage(cap: crate::cap::Cap, region: u64, record: u64) -> Result
 /// worth of bytes in `invoke` costs far less than this loop's own bytes would.
 #[inline(never)]
 fn address_space_list(frame: &mut TrapFrame, name: u64, cursor: u64) -> Result<i64, Error> {
-    // The capability names a registry entry by generation; once `ThreadControlBlock::CONFIGURE` binds this space
-    // to a thread, `take_user_address_space` removes it, and `root` is `None` from here on for every
-    // capability that pointed at it. That is not a refusal (the capability is real and was never
+    // The capability names a registry entry by generation; once the space dies (its thread reaped
+    // or its region destroyed, §249 (a running address space stays nameable)), the entry is gone
+    // and `root` is `None` from here on for every capability that pointed at it. That is not a refusal (the capability is real and was never
     // widened past what it always held): it reads as an empty listing, symmetric to `SURVEY`'s
     // "before the scheduler exists there is no domain to report."
     let Some(root) = crate::user::user_address_space_root(name) else {

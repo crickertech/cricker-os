@@ -43,8 +43,8 @@ fit in a block.
 Two of those rows are the whole decision.
 
 **`DIR_BLOCKS` had to move with `NAME_LEN`, and the margin was zero rather than thin.** Widening
-alone would have taken `MAX_FILES` from 63 down to 50, and the riscv64 initrd holds **exactly 50
-files**. It would have built, once, and the next program added to it would have failed. That was
+alone would have taken `MAX_FILES` from 63 down to 50, and the riscv64 initrd holds exactly 50
+files. It would have built, once, and the next program added to it would have failed. That was
 measured after the fact rather than predicted, which is the argument for measuring: the plan in the
 roadmap reasoned about the aarch64 archive, which carries 46, and the riscv64 one carries four more
 because its progenitor is a separate program from `hello`.
@@ -55,7 +55,7 @@ causes it and lands on whoever merges. Six blocks put the ceiling above where it
 of image bytes in a multi-megabyte initrd. Five blocks would have given exactly 63, which optimises
 for the number looking unchanged rather than for the failure it exists to prevent.
 
-**The kernel-stack cost is zero, and that is new.** `Fs` used to copy every directory entry into a
+The kernel-stack cost is zero, and that is new. `Fs` used to copy every directory entry into a
 fixed `[Entry; MAX_FILES]`, and `Fs` is a stack local on the kernel's boot and spawn paths, so
 `MAX_FILES` was kernel stack: raising it to 63 on 2026-07-30 overflowed a four-page kernel stack the
 same day, faulting on the guard page while parsing the initrd. That array was removed in the fix, and
@@ -72,14 +72,14 @@ instead of faulting a guard page during boot.
 
 `os_primitives_benchmarker` at 25 is the longest name anyone has argued for, and 32 clears it by
 seven bytes. Every extra 8 bytes of name is 8 bytes off every entry in every image, and the next
-raise is exactly as cheap as this one was, because **there is no data migration**: every image
+raise is exactly as cheap as this one was, because there is no data migration: every image
 regenerates from this crate on every build. Buying headroom now buys nothing that cannot be bought
 later at the same price.
 
 ## Why the magic changed, when last time it did not
 
 `CRKR0001` survived the 2026-07-30 two-to-four-block change on an explicit argument: `start_block` is
-an **absolute** block number, so no reader has to know `DIR_BLOCKS` to find data, and bumping the
+an absolute block number, so no reader has to know `DIR_BLOCKS` to find data, and bumping the
 version would only have broken the blk driver's hardcoded check for no reader-visible gain.
 
 The same argument bumps it here, because a wider entry is the opposite case. A reader still striding
@@ -92,11 +92,11 @@ from before the change fail loudly, and it forced every reader to be visited rat
 
 A format change has to reach all of them, and one of them was the reason this needed care.
 
-1. **The kernel** (`kernel/src/user.rs`, `kernel/src/main.rs`), which parses the initrd to find
+1. The kernel (`kernel/src/user.rs`, `kernel/src/main.rs`), which parses the initrd to find
    `progenitor`. Uses `nifefs::Fs`.
 2. **`xtask`** (`initrd_aarch64`, `initrd_riscv`, `initrd_x86`, `mkdisk`), which writes every image and then parses it
    back to hash the boot programs. Uses `nifefs::write_image` and `Fs`.
-3. **The EL0 blk driver** (`crates/virtio`), which walked the directory out of a 512-byte DMA buffer
+3. The EL0 blk driver (`crates/virtio`), which walked the directory out of a 512-byte DMA buffer
    with the offsets **restated by hand**: stride 32, start block at +24, a `count.min(15)` bound with
    the 15 written as a literal. It was the only place in the tree that had to be found rather than
    recompiled, so it now depends on `nifefs` and takes `HEADER_LEN`, `ENTRY_LEN`, `NAME_LEN` and
@@ -106,7 +106,7 @@ A format change has to reach all of them, and one of them was the reason this ne
 ## A silent truncation, found on the way and fixed
 
 `write_image` used to write `name.len().min(NAME_LEN)` bytes, so a name that was too long was
-**silently truncated**. Two names agreeing in their first `NAME_LEN` bytes become one directory
+silently truncated. Two names agreeing in their first `NAME_LEN` bytes become one directory
 entry, and `progenitor` then loads whichever program was packed first, arbitrarily far from the edit that
 caused it. Packing `os_primitives_benchmarker` under the old limit would have produced
 `os_primitives_benchmark` and no error at all.
@@ -116,7 +116,7 @@ archive is never a half-written one. The build stops and names the file. This is
 worth stating where a reader meets it (the crate's `# Names` and `# BUGS` sections) rather than only
 in a constant.
 
-**The same failure had a second half, and it took a fuzzer to find it** (2026-08-02, milestone 42,
+The same failure had a second half, and it took a fuzzer to find it (2026-08-02, milestone 42,
 notes/fuzzing.md). A name is NUL-padded on disk and every reader stops at the first NUL, so a name
 with a NUL *inside* it is unrepresentable in exactly the way a name over `NAME_LEN` is: `"a\0b"` was
 accepted, written, and decoded back as `"a"`, and `read("a\0b")` answered `None`. Data written and
@@ -131,7 +131,7 @@ here. Nothing panicked. The property that broke had never been written down.
 
 ## BUGS
 
-- **A duplicate name is not an error, and the first one wins.** `Fs::read` returns the first entry
+- A duplicate name is not an error, and the first one wins. `Fs::read` returns the first entry
   whose name matches, so packing two files under one name silently hides the second. The disk tool
   builds its list from a directory listing, where names are unique by construction, which is why this
   has never bitten; nothing in the format prevents it. Surfaced by the round-trip fuzz target, which
@@ -140,10 +140,10 @@ here. Nothing panicked. The property that broke had never been written down.
   only, so it can find the first `ENTRIES_IN_FIRST_BLOCK` files (12) and no more. It walks the tiny
   three-file test disk, not the initrd, so nothing hits it today, and nothing in the format announces
   the limit either.
-- **`MAX_FILES` still grows with the suite, not with the system.** 76 is 26 clear of the fuller of
+- `MAX_FILES` still grows with the suite, not with the system. 76 is 26 clear of the fuller of
   the two initrds (riscv64, at 50), and the pressure on it is the number of programs the test suite
   ships. The real fix, if it recurs, is not another `DIR_BLOCKS` bump but a directory whose size is
   written in the superblock, so a reader learns it from the image instead of from a constant every
   reader has to agree on.
-- **The archive has no directories, no writes, and no permissions.** That is the design, not a gap:
+- The archive has no directories, no writes, and no permissions. That is the design, not a gap:
   the read-write filesystem is the RedoxFS server in `redoxfs_server/` (DECISIONS §34).

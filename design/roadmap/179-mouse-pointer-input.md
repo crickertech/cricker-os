@@ -45,15 +45,15 @@ get wrong, just "here is where the pointer now is").
 
 ## What it needs
 
-- **Device discovery**: read `virtio-input`'s configuration space to select a tablet over a keyboard
+- Device discovery: read `virtio-input`'s configuration space to select a tablet over a keyboard
   when both are present, rather than the current "attach only a keyboard" default. A third
   `NIFE_`-prefixed test-leg flag, alongside the existing `NIFE_GPU`/`NIFE_KBD` pair, is the obvious
   shape once a lane picks its name, matching how each
   device milestone before this one gated itself.
-- **A pointer capability and its confinement**: the identical shape milestone 29's keyboard driver
+- A pointer capability and its confinement: the identical shape milestone 29's keyboard driver
   already proves (a confined EL0 driver, an event rendezvous, an IOMMU domain), applied to a second
   device rather than invented fresh.
-- **Routing through the compositor**: milestone 33's own multiplexing model picks which window (or
+- Routing through the compositor: milestone 33's own multiplexing model picks which window (or
   which pane of a windowed terminal) a click or a motion event belongs to. This is the part most
   likely to need design work the driver side does not, because nothing in the compositor's event
   model has had to answer "which client owns this coordinate" before; input has so far only ever
@@ -62,7 +62,7 @@ get wrong, just "here is where the pointer now is").
 
 ## What is not yet checked
 
-**Whether the compositor's client model has anywhere to put a pointer event at all.** Milestone 33's
+Whether the compositor's client model has anywhere to put a pointer event at all. Milestone 33's
 own text should be read against this before any driver work starts, because if the answer is "the
 compositor has no per-window hit-testing today," that is a real design fork (does pointer routing
 piggyback on the existing window list, or does it need a coordinate-to-client index milestone 33

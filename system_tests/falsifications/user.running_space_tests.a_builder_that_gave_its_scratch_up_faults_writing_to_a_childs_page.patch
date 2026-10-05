@@ -1,0 +1,24 @@
+Falsifies `system_tests::user::running_space_tests::a_builder_that_gave_its_scratch_up_faults_writing_to_a_childs_page`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect: the loader stops giving a scratch page up once the page is in the child, which is
+what it did before milestone 95 (an unmap primitive) had a running space to unmap from. The
+builder keeps a read/write window onto every page it built, exactly as the progenitor kept one
+onto every boot server.
+
+Expected to fail: in the run with its own space, the assertion that no second report arrives,
+because the write landed and the witness said so.
+
+diff --git a/crates/supervision_protocol/src/lib.rs b/crates/supervision_protocol/src/lib.rs
+--- a/crates/supervision_protocol/src/lib.rs
++++ b/crates/supervision_protocol/src/lib.rs
+@@ -790,7 +790,7 @@
+     // The page is written and in the child (or the build failed): either way this builder is done
+     // with its own window onto it. Given up here, one page at a time, rather than after the child
+     // is built, so the window is never wider than the page being filled.
+-    give_up_own_page(scratch);
++    let _ = scratch;
+     if mapped { Ok(()) } else { Err(()) }
+ }
+ 

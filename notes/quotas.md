@@ -10,7 +10,7 @@ spawn. This is the bound for those.
 
 A spawner is given a **quota**: at most N children alive at once. The clever part is *when* a slot
 comes back. It is not a timer, not a scan, not a reference count the kernel has to maintain. The
-slot is a value that lives **inside the child's `Thread`**, and Rust's ownership returns it at
+slot is a value that lives inside the child's `Thread`, and Rust's ownership returns it at
 exactly the right moment:
 
 ```rust
@@ -24,10 +24,10 @@ Reserving a slot is one atomic decrement (a compare-exchange loop that never dip
 `QuotaToken` holding that reservation is a field of the spawned `Thread`. When the reaper drops a
 finished thread, the token drops with it and the slot returns. So:
 
-- A child that **exits** frees its slot the instant it is reaped. A well-behaved workload never
+- A child that exits frees its slot the instant it is reaped. A well-behaved workload never
   touches the limit: the shell ran ten `run` commands back to back under a budget of eight, with
   zero refusals, because each worker exited and returned its slot before the next was asked for.
-- A child that **blocks forever** (on an endpoint nobody drains, an interrupt that never fires)
+- A child that blocks forever (on an endpoint nobody drains, an interrupt that never fires)
   keeps holding its slot, which is exactly right: it is still consuming a thread, a stack, and an
   address space. The budget counts *live* children, and a leaked child is a live child.
 
@@ -37,7 +37,7 @@ lifetime.
 
 ## What it bounds
 
-`sched::spawn_with_quota(&BUDGET, closure)` returns `None` when the budget is spent **or** the
+`sched::spawn_with_quota(&BUDGET, closure)` returns `None` when the budget is spent or the
 kernel is out of memory: the caller cannot tell the two apart and does not need to. The shell's
 process service used a budget of eight (`shell_service::SPAWN_QUOTA`) and, on `None`, reported "could
 not spawn a process" to the shell rather than panicking (the audit's other spawn finding). So a
@@ -47,9 +47,9 @@ bounded, per spawner, for the first time.
 
 ## Where this stands today (corrected 2026-07-30, milestone 41)
 
-**The mechanism is in the kernel and nothing calls it.** Its one caller was the kernel-wired
+The mechanism is in the kernel and nothing calls it. Its one caller was the kernel-wired
 `shell_service`'s spawn service, which DECISIONS §28 retired and milestone 41 deleted; `Thread.quota`
-is `None` on every thread that exists. That is not a regression, because **the bound moved**: a
+is `None` on every thread that exists. That is not a regression, because the bound moved: a
 userspace process spawns out of its own untyped budget (§10, §16), so the budget *is* the quota and
 retyping enforces it instead of a counter. What remains uncovered is a *kernel* thread spawned in a
 loop by something untrusted, and nothing does that.
@@ -60,7 +60,7 @@ dead-code cleanup. The rest of this note describes the mechanism as designed; re
 
 ## What it is not
 
-It is a **per-spawner** quota, and when it had a caller there was exactly one spawner (the shell's
+It is a per-spawner quota, and when it had a caller there was exactly one spawner (the shell's
 service), so it was a per-process quota for the process that mattered. Generalizing to many spawners is a table of
 counters instead of one static, not a new idea. And it bounds *spawns*; it does not bound every
 kind of kernel object a future syscall might create. The complete answer is still the

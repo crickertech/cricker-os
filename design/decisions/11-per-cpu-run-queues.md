@@ -18,7 +18,7 @@ premature insurance. We build the per-CPU design directly rather than staging th
 intermediate global-lock scheduler.
 
 The one real fork, how cores share scheduling work, was decided against work-stealing and for
-**message-based migration**: no core ever touches another core's run queue; work moves by a message
+message-based migration: no core ever touches another core's run queue; work moves by a message
 to the target's inbox and an SGI. This keeps scheduling coherent with the rest of the kernel, where
 coordination is already IPC (§10) and an interrupt is already a message (9a), and it makes the
 cross-core race class unrepresentable instead of merely guarded. The trade accepted: no pull-based
@@ -28,11 +28,11 @@ load-balancing, and migration costs an IPI, neither of which matters on a 4-core
 
 Two earlier decisions paid forward, and the starting point is cleaner for it:
 
-- **`IrqSafeMutex` is already a real cross-core spinlock.** Its inner primitive is `spin::Mutex`
+- `IrqSafeMutex` is already a real cross-core spinlock. Its inner primitive is `spin::Mutex`
   (sync.rs), which provides mutual exclusion and the acquire/release fences on lock and unlock.
   Anything touched under a lock is already correct across cores. §9's "every kernel lock is an
   `IrqSafeMutex`" was SMP groundwork we didn't label as such.
-- **TLB invalidation is already broadcast.** Every `tlbi` we emit is the inner-shareable form
+- TLB invalidation is already broadcast. Every `tlbi` we emit is the inner-shareable form
   (`vmalle1is`, `vaae1is`); `flush_tlb`'s own comment says "wait for every core." aarch64's DVM
   broadcasts invalidation in hardware, so cross-core TLB shootdown needs no IPI for the cases DVM
   covers. This is a place aarch64 is simply better than x86, where shootdown is an IPI storm. §4
@@ -40,20 +40,20 @@ Two earlier decisions paid forward, and the starting point is cleaner for it:
 
 What has no SMP story, the four gaps:
 
-1. **Secondary bring-up: none.** Cores 1..n park in `wfi` at `boot.s` with no wake path. No PSCI.
-2. **Per-CPU storage: none.** `TPIDR_EL1` is unused; there is one boot stack in `link-aarch64.ld`.
-3. **`HELD_RANK` is a single global** (sync.rs). A second core clobbers it and the lock-rank
+1. Secondary bring-up: none. Cores 1..n park in `wfi` at `boot.s` with no wake path. No PSCI.
+2. Per-CPU storage: none. `TPIDR_EL1` is unused; there is one boot stack in `link-aarch64.ld`.
+3. `HELD_RANK` is a single global (sync.rs). A second core clobbers it and the lock-rank
    assertion starts firing on phantom violations.
-4. **`SGIR` / `ITARGETSR` are hardcoded to core 0** (gic.rs).
+4. `SGIR` / `ITARGETSR` are hardcoded to core 0 (gic.rs).
 
 ## The design
 
-**Per-CPU identity via `TPIDR_EL1`.** Each core holds a pointer to its own per-CPU block in
+Per-CPU identity via `TPIDR_EL1`. Each core holds a pointer to its own per-CPU block in
 `TPIDR_EL1`, set once during that core's init; `cpu::current()` reads it back. `MPIDR_EL1`'s
 affinity gives the physical id at bring-up, mapped to a dense logical `0..N`. This is the standard
 aarch64 per-CPU base; Linux uses `TPIDR_EL1` identically.
 
-**The per-CPU block.** One `PerCpu` per core, in a fixed `[PerCpu; MAX_CPUS]`: its run queue, `current`,
+The per-CPU block. One `PerCpu` per core, in a fixed `[PerCpu; MAX_CPUS]`: its run queue, `current`,
 `idle`, `need_resched`, held-rank, timer counters, and a cross-core **inbox**. Everything except the
 inbox is touched by that core alone.
 
@@ -67,7 +67,7 @@ alternatives discussion): stealing means shared mutable queues and cross-core lo
 message-based migration is the coherent fit for a kernel whose whole thesis is that coordination is
 IPC.
 
-**Two consequences fall out:**
+Two consequences fall out:
 
 - **The run queue needs no cross-core lock at all.** Only its owning core reads or writes it, and
   reentrancy from that core's own timer/IRQ is handled by masking IRQs around the access. §9's
@@ -80,39 +80,39 @@ IPC.
   the raw `ctx` pointer is valid because a thread leaves every queue before the reaper frees it. This
   is the "decouple" answer to the run-queue↔global-map ordering question: the map is off the hot path.
 
-**What stays global, behind a lock:** the `threads` map (Tid → Thread; owner and directory, touched
+What stays global, behind a lock: the `threads` map (Tid → Thread; owner and directory, touched
 on spawn/reap, not on the switch) and `endpoints` (IPC rendezvous; shared, because a send on one core
 wakes a receiver bound to an endpoint). Neither is on the scheduling hot path.
 
-**The inbox is the one cross-core structure.** A per-core `IrqSafeMutex<VecDeque<Tid>>`. A producer
+The inbox is the one cross-core structure. A per-core `IrqSafeMutex<VecDeque<Tid>>`. A producer
 (another core) locks it, pushes a Tid, unlocks, and SGIs the target. The owner locks it, drains into
 a local, unlocks, then enqueues into its own run queue (no lock). Touched only on migration, which is
 rare; the hot path never sees it. (Lock-free MPSC inbox is a later exercise; a tiny spinlock is the
 correct first cut.)
 
-**Lock ordering.** With no run-queue locks, the surface is small:
+Lock ordering. With no run-queue locks, the surface is small:
 
-- **`THREADS` and `ENDPOINTS` rank above `INBOX`.** Spawn or IPC-wake finds/creates a thread (holding
+- `THREADS` and `ENDPOINTS` rank above `INBOX`. Spawn or IPC-wake finds/creates a thread (holding
   THREADS or ENDPOINTS), then pushes to a target inbox. Always that order.
 - **Inboxes are equal rank and never nested.** A core locks at most one inbox at a time (the
   target's), so §9's rule that `R < R` is false forbids the only possible cycle.
-- **`HELD_RANK` becomes a `PerCpu` field.** Each core tracks its own; `force_reset_ranks` resets only
+- `HELD_RANK` becomes a `PerCpu` field. Each core tracks its own; `force_reset_ranks` resets only
   the caller's.
 
-**Placement and waking.** Prefer the **current core**: a `spawn` or an IPC-wake whose thread can run
+Placement and waking. Prefer the current core: a `spawn` or an IPC-wake whose thread can run
 here just enqueues locally, no lock, no IPI. Only when a thread must run elsewhere (spreading across
 idle cores at spawn, or waking a thread whose target core is idle in `wfi`) do we message the target
 inbox and SGI it; the SGI handler drains the inbox and re-runs `schedule()`. That is also the
 reschedule-a-remote-core primitive. Spreading policy stays trivial (round-robin idle cores);
 balancing cleverness is unmeasurable on QEMU.
 
-**Bring-up via PSCI.** QEMU `virt` implements PSCI. Core 0, after its own init and once the heap
+Bring-up via PSCI. QEMU `virt` implements PSCI. Core 0, after its own init and once the heap
 exists, calls `PSCI CPU_ON` (via `SMC`) for each secondary, passing an entry point and a per-core
-stack **allocated from the frame allocator** (the heap is up by then, so no static stack array).
+stack allocated from the frame allocator (the heap is up by then, so no static stack array).
 Each secondary sets `sp`, sets `TPIDR_EL1`, enables its own GICC (PMR + CTLR) and its timer PPI,
 then enters the scheduler and runs its idle thread.
 
-**Memory ordering, as one invariant.** The rule that keeps this tractable:
+Memory ordering, as one invariant. The rule that keeps this tractable:
 
 > **Per-CPU state is touched only by its own core. All cross-core work movement is exactly: lock
 > the target's inbox, push a Tid, unlock, SGI.**
@@ -124,7 +124,7 @@ mechanical: any lock-free atomic read or written by more than one core either be
 Acquire/Release. The known suspects, all `Relaxed` today (`NEED_RESCHED`, `IDLE_TID`, the timer
 counters), all become per-CPU, which resolves them.
 
-**GIC.** The SGI is now the migration primitive, so it matters more than I first framed. Parameterize
+GIC. The SGI is now the migration primitive, so it matters more than I first framed. Parameterize
 `send_sgi(intid, target)` off the core-0 hardcode; each core runs its own GICC enable + PMR. SPI
 routing (`ITARGETSR`) stays on core 0: the only sources are the per-core timer PPI (needs no routing)
 and virtio SPIs (one core fields them). The timer being a PPI means preemption is already per-core for
@@ -136,17 +136,17 @@ The migration path came online *with* the queues, not after: there was no separa
 stealing phase to bolt on, because we are not stealing. All of this landed and passes under
 `-smp 4` (91 kernel tests):
 
-1. **Per-CPU infrastructure** ✅ (3a, 3b-i). `TPIDR_EL1`, the `PerCpu` block, `cpu::current()`, and
+1. Per-CPU infrastructure ✅ (3a, 3b-i). `TPIDR_EL1`, the `PerCpu` block, `cpu::current()`, and
    `HELD_RANK` / run queue / `current` / `idle` / `need_resched` → per-CPU. Behavior-neutral on one
    core, verified in isolation.
-2. **Secondary bring-up** ✅ (step 2). PSCI `CPU_ON`, per-core stacks. Cores come up and idle.
-3. **Secondaries schedule** ✅ (3b-ii). Per-core idle thread, GIC CPU interface, timer, and the fine
+2. Secondary bring-up ✅ (step 2). PSCI `CPU_ON`, per-core stacks. Cores come up and idle.
+3. Secondaries schedule ✅ (3b-ii). Per-core idle thread, GIC CPU interface, timer, and the fine
    map; the reaper fixed to run after the switch, not during. Each core schedules from its own queue.
-4. **Cross-core migration** ✅ (3c). The inbox + reschedule SGI; `spawn_on(core, f)` places work on
+4. Cross-core migration ✅ (3c). The inbox + reschedule SGI; `spawn_on(core, f)` places work on
    any core. The memory-ordering invariant held: the inbox lock's release/acquire orders the handoff,
    no extra barriers needed.
 
-**Remaining, and deliberately deferred:** wiring `spawn` itself to round-robin over `spawn_on` (auto
+Remaining, and deliberately deferred: wiring `spawn` itself to round-robin over `spawn_on` (auto
 load-balancing). The mechanism is done; making it the default placement policy would scatter the
 existing tests' threads across cores and make their yield-based synchronization timing-dependent, so
 it wants those tests audited first. Also still deferred (unchanged): per-CPU allocator caches for
@@ -162,7 +162,7 @@ lock masks *my* timer." The clean starting point (`IrqSafeMutex` already a real 
 ## Testing
 
 `-smp 4` in `qemu-runner-aarch64.sh`. New invariants, each proving something one core could not: a shared
-counter incremented by threads on multiple cores under a lock sums **exactly** (cross-core mutual
+counter incremented by threads on multiple cores under a lock sums exactly (cross-core mutual
 exclusion); a spawned thread runs on a core other than the spawner (the inbox/SGI path actually
 delivers work); an IPC send on one core wakes a receiver that runs on another; the per-CPU rank
 tracking does not false-positive under concurrent locking. The semihosting exit stays single-caller:
@@ -170,7 +170,7 @@ core 0 drives the runner, the others idle at suite end.
 
 ## Risks, named
 
-The race that eats SMP schedulers, two cores mutating one run queue, is **gone by construction**: no
+The race that eats SMP schedulers, two cores mutating one run queue, is gone by construction: no
 core touches another's queue. What is left is smaller and more legible: the inbox handoff (a Tid
 published under a lock, consumed after an SGI), the memory ordering of that handoff, and PSCI
 bring-up. First-encounter weak-memory bugs are still heisenbugs, so the ordering invariant above is
@@ -179,7 +179,7 @@ choice removed its worst part.
 
 ## Out of scope
 
-**Work-stealing** (pull-based migration, an idle core reaching into a busy core's queue) is
+Work-stealing (pull-based migration, an idle core reaching into a busy core's queue) is
 deliberately not built: it is the shared-mutable-queue design we chose against. It stays available as
 a contained later exercise ("replace the inbox push with a stolen queue") once the foundation is
 solid. Also out: CPU affinity/pinning, NUMA, CPU hotplug, per-CPU reserve pools for allocation

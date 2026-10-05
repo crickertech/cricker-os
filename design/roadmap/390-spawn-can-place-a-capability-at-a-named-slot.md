@@ -11,7 +11,7 @@ needs_person: no
 
 Filed 2026-09-05 as an unnumbered proposal by milestone 111's lane, which
 hit this and worked around it; numbered 2026-09-19 by milestone 433's drain of the proposal pile.
-**Premise re-read against the tree on 2026-09-19 and still true, to the digit**: `kernel::user::Spawn`
+Premise re-read against the tree on 2026-09-19 and still true, to the digit: `kernel::user::Spawn`
 in `kernel/src/user.rs` still carries `arg0`, `arg1`, `arg2`, `grants` and `maps` and no `placed`,
 its `grants` field still documents "granted into slots 0, 1, 2, ... in order", and there are still
 exactly 91 `Spawn { .. }` literals in `kernel/`. The three named slots are still
@@ -24,7 +24,7 @@ The mechanism already exists one layer up
 deciding is whether the 91 `Spawn { .. }` literals get a `..Spawn::new()` idiom or an added field,
 which is a taste call inside the kernel and not a design fork.
 
-**In brief.** `kernel::user::Spawn` grants capabilities into a child's table at slots 0, 1, 2, ... in
+In brief. `kernel::user::Spawn` grants capabilities into a child's table at slots 0, 1, 2, ... in
 order, and offers no way to place one at a slot the caller names. Three named slots now exist
 (`grant_plan::DOMAIN_SLOT` at 7, `DIAGNOSTICS_SLOT` at 8, `ENTROPY_SLOT` at 9), and **no test under
 `script/test` can spawn a program holding any of them**, because the only builder that can place at a
@@ -38,7 +38,7 @@ by `script/swish-check`, which boots the real init twice and is one gate rather 
   plainly: "the guest tests wire the shell from the kernel, whose `Spawn` fills a capability table
   from zero and cannot place a capability at the slot a manifest names, so `date` there never
   receives a second stream." Four assertions about `2>` live in swish-check for that reason alone.
-- **Milestone 111's entropy endowment.** The refusal direction is a guest test on all three
+- Milestone 111's entropy endowment. The refusal direction is a guest test on all three
   architectures (`kernel::user::uuid_tests`), because an *empty* slot needs no placement. The
   endowed direction has no guest test at all, on any ISA, and the milestone's own `BUGS` records it.
 

@@ -25,13 +25,13 @@ Due on or after 2026-10-01; before then there is not a week of data.
 Re-run milestone 587's measurement over the week's `ci.yml` and `verify.yml` jobs: created to
 started per job, grouped by hour and by runner label, the same shape as that block's table.
 
-- **If the four arm64 jobs** (`build + test`, `cpu matrix`, `re-falsify`, `prove the kernel on
+- If the four arm64 jobs (`build + test`, `cpu matrix`, `re-falsify`, `prove the kernel on
   aarch64`) still wait a median over ten minutes in busy hours, the next lever is milestone 587's
   option D: split the x86_64 guest legs out of `build + test` into an x86_64 job, about ten minutes
   off the arm64 job.
-- **If the x86_64 jobs have started waiting the way arm64 did**, the premise that x86_64 supply is
+- If the x86_64 jobs have started waiting the way arm64 did, the premise that x86_64 supply is
   looser was one afternoon, and milestone 587's split is revisited rather than extended.
-- **Otherwise** record the numbers in milestone 587's block and retire this proposal.
+- Otherwise record the numbers in milestone 587's block and retire this proposal.
 
 ## Index row
 

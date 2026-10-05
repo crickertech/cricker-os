@@ -6,10 +6,10 @@ rests on a table this note replaces. §196 was
 right to be provisional about it: its own limits paragraph says the probe ran on the stable host
 toolchain against the stock bare-metal targets, and that those are not nife's targets.)*
 
-**The short answer: `rustls` plus a pure-Rust provider builds and runs on all three nife
+The short answer: `rustls` plus a pure-Rust provider builds and runs on all three nife
 architectures, and the two things that stopped it were a `getrandom` major and a handful of
-compiler flags.** Neither was a wall. One is now closed in this tree; the other is six lines of
-build configuration recorded where a reader meets it, and one of those six is a **run-time**
+compiler flags. Neither was a wall. One is now closed in this tree; the other is six lines of
+build configuration recorded where a reader meets it, and one of those six is a run-time
 hazard rather than a build one, which is the part worth carrying past this milestone.
 
 **The provider that builds is `rustls-rustcrypto` 0.0.2-alpha, and calef refused it**, 2026-09-20:
@@ -66,8 +66,8 @@ the soft-implementation flags of [the x86_64 finding](#the-x86_64-finding) appli
 | `ed25519-dalek` | 2.2.0 | PASS | PASS | FAIL `sha2` | PASS |
 | `rsa` | 0.9.10 | PASS | PASS | PASS | PASS |
 
-**Read it against §196's and the difference is the whole milestone.** That table had every
-candidate failing on every target. This one has **one** real failure class left, and it is the one
+Read it against §196's and the difference is the whole milestone. That table had every
+candidate failing on every target. This one has one real failure class left, and it is the one
 §196 could already see the shape of: C.
 
 ## The two failures, and what each one was
@@ -75,33 +75,33 @@ candidate failing on every target. This one has **one** real failure class left,
 ### `getrandom`, which was a major-version gap rather than a missing backend
 
 `rustls-rustcrypto` and `ring` both died at `getrandom`'s `compile_error!`, exactly as §196
-recorded, and `entropy_backend` was already the answer to that class. It answered **0.3 and 0.4**,
+recorded, and `entropy_backend` was already the answer to that class. It answered 0.3 and 0.4,
 whose hook is a bare `__getrandom_v03_custom` symbol. `rustls-rustcrypto` reaches `getrandom`
-**0.2** through `rand_core` 0.6, and 0.2's hook is a different symbol with a different signature,
+0.2 through `rand_core` 0.6, and 0.2's hook is a different symbol with a different signature,
 emitted by the `register_custom_getrandom!` macro.
 
 `entropy_backend`'s own `BUGS` section had named this and forecast it: *"nothing currently needs
 the second shape. Something will."* It did. The crate now defines both symbols. Two details are
 worth carrying:
 
-- **0.2's hook returns a bare `u32`** (zero for success), not a `Result`, so defining it needs no
-  type from `getrandom`. What it needs is 0.2's `custom` **feature**, and only a manifest can turn
+- 0.2's hook returns a bare `u32` (zero for success), not a `Result`, so defining it needs no
+  type from `getrandom`. What it needs is 0.2's `custom` feature, and only a manifest can turn
   a feature on, which is why `entropy_backend` now depends on 0.2 as well. The cost is one extra
   crate in the graph of a consumer that only ever needed 0.4.
-- **`use entropy_backend as _;` is still load-bearing**, for the 0.2 symbol exactly as for the
+- `use entropy_backend as _;` is still load-bearing, for the 0.2 symbol exactly as for the
   other. Upstream's documentation says a registration "can only be registered in the root binary
   crate", which is not quite the rule; the rule is that an rlib nothing references is not linked.
 
 `ring` moved one class along as a result: it no longer fails at `getrandom`, it fails in its own
 `cc` build script, which is what notes/crates-io-on-nife.md's class C predicted and what §196
 already recorded from a different angle. `aws-lc-rs`, which §196 never probed, fails the same way
-in `aws-lc-sys`. **Neither is available to this project at any price a lane can pay**, and that is
+in `aws-lc-sys`. Neither is available to this project at any price a lane can pay, and that is
 a finding rather than a disappointment: it is §46's "no C in the shipping graph" holding.
 
 ### The x86_64 finding
 
 `x86_64-unknown-nife` sets `+soft-float` and switches off `mmx`, every `sse` level, `avx` and
-`avx2`. The RustCrypto crates compile their x86 intrinsic paths **anyway**, because they select at
+`avx2`. The RustCrypto crates compile their x86 intrinsic paths anyway, because they select at
 run time through `cpufeatures` rather than at compile time through a `cfg` a target specification
 could influence. LLVM then cannot legalize a 128-bit vector operation and rustc dies with:
 
@@ -132,8 +132,8 @@ it for that reason and says so.
 
 ### The one that does not fail at build time, and cost most of a day
 
-Every row above except the last fails *loudly*, when rustc dies. **`chacha20` compiles perfectly
-for `x86_64-unknown-nife` and then executes an AVX2 instruction in ring 3.** That target's own
+Every row above except the last fails *loudly*, when rustc dies. `chacha20` compiles perfectly
+for `x86_64-unknown-nife` and then executes an AVX2 instruction in ring 3. That target's own
 description is "softfloat ring 3, no SSE state", so there is nowhere for the register state to
 live, and the program dies:
 
@@ -147,12 +147,12 @@ asking the compiler, and the CPU under `-cpu max` truthfully has AVX2. The disag
 what the processor can do and what this operating system has set up for ring 3, and no part of the
 toolchain models it.
 
-**That is a hazard for this target in general, not a fact about crypto.** Any crate that
+That is a hazard for this target in general, not a fact about crypto. Any crate that
 runtime-detects SIMD is in the same position, and the failure it produces is a dead program with no
 message rather than a build error. It is written here because this is where it was found; it
 belongs to `x86_64-unknown-nife` rather than to any provider.
 
-**The cost is real and unmeasured.** A `.cargo/config.toml` cannot vary rustflags by target when
+The cost is real and unmeasured. A `.cargo/config.toml` cannot vary rustflags by target when
 the target is a JSON specification path, so the cfgs apply to all three architectures and aarch64
 and riscv64 run portable code their vector units could have done faster. Nobody has a number for
 what that costs a handshake; milestone 442's block already carries that as a `BUGS` entry.
@@ -163,7 +163,7 @@ what that costs a handshake; milestone 442's block already carries that as a `BU
 and is a weak claim here specifically: on x86_64 every one of these crates is running an
 implementation almost nobody runs.
 
-So `cryptography_exerciser` is a `std` program that runs **published test vectors** against the
+So `cryptography_exerciser` is a `std` program that runs published test vectors against the
 primitives directly and against `cryptography_provider`, the provider this tree assembles, transcribed
 from the specification that publishes each one and named beside it, in the shape
 `crates/measured_boot` already uses for its hand-written SHA-256 ("the published FIPS 180-4
@@ -187,24 +187,24 @@ QEMU on all three architectures.
 | `chain refusals ok` | one flipped signature bit, and a certificate offered for another host's name |
 | `provider ok 3 suites 2 groups 3 signature algorithms` | **this tree's own provider** constructs and offers what it claims |
 
-**The rule that goes with a transcribed vector, and it is in the program's own docs:** if one
+The rule that goes with a transcribed vector, and it is in the program's own docs: if one
 fails, do not adjust the vector. Either the transcription is wrong, in which case check it against
 the specification rather than against the output, or the implementation is wrong on this target,
 which is the whole reason the program exists.
 
-**That rule was tested on 2026-09-20 and it held, with a third answer nobody had listed.** The
+That rule was tested on 2026-09-20 and it held, with a third answer nobody had listed. The
 Poly1305 vector failed. The transcription was right, checked against RFC 8439 rather than against
-the output, and the crate was right: the **call** was wrong. `update_padded` zero-fills the last
+the output, and the crate was right: the call was wrong. `update_padded` zero-fills the last
 partial block, which is what the AEAD construction does and is not what section 2.5.2's standalone
 34-byte example does; `compute_unpadded` produces the RFC's tag exactly, on this target and on the
-host. So the list is: the transcription, the implementation, **or the way the test asks**, and the
+host. So the list is: the transcription, the implementation, or the way the test asks, and the
 third is the one that bit.
 
-**`entropy 0.2 ok` is the line with no vector and the one that is genuinely new.** A linker
+`entropy 0.2 ok` is the line with no vector and the one that is genuinely new. A linker
 resolving `__getrandom_custom` says nothing about where bytes come from, so the program draws twice
 through `rand_core` 0.6 and asserts the draws differ and are not all zero. That is milestone 56's
 claim for `std::random`, made again one layer out, and it is what a silently-stubbed RNG would
-fail. A draw with no entropy capability granted **panics** rather than weakening, which is
+fail. A draw with no entropy capability granted panics rather than weakening, which is
 milestone 56's deliberate choice and is the behaviour this tree wants: a provider that quietly
 falls back to a weak source is worse than one that does not build.
 
@@ -223,17 +223,17 @@ this repository's build is a dependency decision, not a lane's convenience.
 
 ## The refusal: `rustls-rustcrypto`
 
-**calef, 2026-09-20:** *"rustls-rustcrypto doesn't seem like a high quality dependency."* Refused.
+calef, 2026-09-20: *"rustls-rustcrypto doesn't seem like a high quality dependency."* Refused.
 
 The numbers that justify it, so the next person to reach for it finds the refusal rather than
 re-deriving it. Read from crates.io on 2026-09-20 rather than recalled:
 
-- **Version 0.0.2-alpha, published 2024-04-24**, which was **seventeen months** before this
+- Version 0.0.2-alpha, published 2024-04-24, which was seventeen months before this
   refusal. Three versions have ever existed and two of them are yanked, so the live release is
   both the newest and an alpha.
-- **73 crates** in its graph with `rustls` included, against `rustls` alone at 7.
+- 73 crates in its graph with `rustls` included, against `rustls` alone at 7.
 - It is pre-1.0 in the one category DECISIONS §46 (thin primitives or whole subsystems; we write
-  everything in between) singles out as bought by **exposure** rather than by reading a
+  everything in between) singles out as bought by exposure rather than by reading a
   specification. An alpha abandoned for seventeen months has had the least exposure of anything in
   the graph it assembles, which is the argument in one sentence: the glue is the weakest link in a
   chain of otherwise well-worn primitives.
@@ -257,7 +257,7 @@ priced the same way before a line of it was written.
 `cargo tree -e normal`, normal edges only, so build scripts and proc-macro crates that run on the
 host are excluded from every column. The earlier figure of 107 in this milestone's pull request was
 `Cargo.lock` lines, which counts build dependencies too; it is superseded here by a like-for-like
-count, and the honest headline is that **the glue path is barely smaller.**
+count, and the honest headline is that the glue path is barely smaller.
 
 | | crates | `rsa` in the graph | alpha crate in the trust path |
 |---|---|---|---|
@@ -265,14 +265,14 @@ count, and the honest headline is that **the glue path is barely smaller.**
 | **`cryptography_provider` as built** | **67** | yes | **no** |
 | the same without `rsa`, which was built first and then ruled against | 53 | no | no |
 
-**Re-priced on 2026-09-20, after calef ruled "Take rsa".** The provider is **67 crates**, which is
+Re-priced on 2026-09-20, after calef ruled "Take rsa". The provider is 67 crates, which is
 exactly the figure this note predicted for "the glue at equal algorithm coverage" before the code
 existed, and it is **six fewer than the refused alpha**. The whole of that six is
 `rustls-rustcrypto` itself plus `base64ct`, `paste`, `pem-rfc7468`, `pkcs5` and a second, older
 `rustls-webpki` it pinned beside the one `rustls` already wants.
 
-**So the size argument is now as weak as it can be, and the record says so rather than quietly
-dropping the comparison.** 67 against 73 is not why the glue was written. It was written because
+So the size argument is now as weak as it can be, and the record says so rather than quietly
+dropping the comparison. 67 against 73 is not why the glue was written. It was written because
 the glue is the piece with the least exposure in the chain, which is DECISIONS §198 (the glue is
 ours, the primitives are not).
 
@@ -287,13 +287,13 @@ portable paths with no flag and no opportunity to execute an instruction the tar
 for. That is the opposite of `chacha20`, which selects by asking the CPU and therefore needed
 `--cfg chacha20_force_soft`. Confirmed by the x86_64 leg running both real certificate chains.
 
-**73 against 67 is not an argument, and saying so is the point.** The full glue graph is a strict
-**subset** of `rustls-rustcrypto`'s: there is nothing in it that crate does not also pull. Writing
+73 against 67 is not an argument, and saying so is the point. The full glue graph is a strict
+subset of `rustls-rustcrypto`'s: there is nothing in it that crate does not also pull. Writing
 the glue removes exactly six crates, and one of the six is `rustls-rustcrypto` itself. The others
 are `base64ct`, `paste`, `pem-rfc7468`, `pkcs5`, and a second, older copy of `rustls-webpki`
 (0.102.8) that it pins beside the 0.103 `rustls` already wants.
 
-**The third row is where the real difference is, and it is not size.** Writing the glue means
+The third row is where the real difference is, and it is not size. Writing the glue means
 choosing which primitives are in the trust path at all, and the one worth choosing about is `rsa`.
 
 ### Quality, per primitive, read rather than recalled
@@ -317,18 +317,18 @@ that ships inside each crate, so any reader can check it without leaving their d
 DECISIONS §135 (running GPL software is aggregation, the capability boundary is what makes it so,
 and packages are how it arrives).
 
-**The two audited crates are the two AEADs**, and they are the ones handling every byte of every
+The two audited crates are the two AEADs, and they are the ones handling every byte of every
 record. The NCC Group engagement was commissioned by MobileCoin, reported publicly in February
 2020, and both crates state its outcome in their own README. That is the strongest evidence in the
 table and it covers the record layer.
 
-**`p256` says in its own README that it has never been independently audited.** It is in the path
+`p256` says in its own README that it has never been independently audited. It is in the path
 either way, because TLS 1.3 negotiates it and because GitHub's own certificate chain is ECDSA
 P-256, so this is a fact to record rather than a choice to make.
 
 ### The one that was a choice: `rsa`, and how it was answered
 
-**calef, 2026-09-20: "Take rsa."** It is in, and this section keeps the argument because the entry
+calef, 2026-09-20: "Take rsa." It is in, and this section keeps the argument because the entry
 it produced in `deny.toml` is the tree's first suppression and the next person will read it as
 precedent.
 
@@ -340,23 +340,23 @@ precedent.
 **Why the advisory does not describe this use.** Marvin is a timing side channel in RSA PKCS#1 v1.5
 **decryption**: it recovers a private key from an oracle that decrypts attacker-chosen
 ciphertexts. `cryptography_provider` calls `rsa` in exactly one file, `src/verify.rs`, and only for
-signature **verification**, which is a public-key operation. It holds no RSA private key, decrypts
+signature verification, which is a public-key operation. It holds no RSA private key, decrypts
 nothing, and offers no oracle. The provider being TLS 1.3 only is part of what holds that up, since
 TLS 1.3 removed RSA key transport altogether.
 
-**What would end the claim**, which is the half that makes it bounded rather than a dismissal: any
+What would end the claim, which is the half that makes it bounded rather than a dismissal: any
 use of `rsa` here to decrypt, to sign, or for key transport. That sentence is in `deny.toml` beside
 the entry, in the `reason` field rather than only in a comment, so `cargo-deny` prints it with the
 finding.
 
-**And the suppression is now scanned rather than asserted.** `script/supply-chain` ran over four
+And the suppression is now scanned rather than asserted. `script/supply-chain` ran over four
 manifests and neither of these packages was among them, so an `ignore` entry would have been a
 claim about a graph no gate looked at. Both are on that list now, which also brought three
 licences onto the allow-list with their own reasons (ISC for `rustls-webpki` and `untrusted`,
 Unicode-3.0 for a proc-macro dependency that ships nothing) and made `publish = false` necessary,
 because `cargo-deny` forgives a path dependency only in a package that could not be published.
 
-**What it cost to leave out**, measured rather than argued, and the reason the ruling went this
+What it cost to leave out, measured rather than argued, and the reason the ruling went this
 way:
 
 | host | chain |
@@ -369,11 +369,11 @@ A client without RSA verification reaches GitHub and cannot download the file.
 
 ### §46's test, said out loud
 
-§46 says this tree **writes what is on the verification path** and **takes what is won by exposure
-rather than by reading a spec**, and it says in so many words that cryptography is the second kind:
+§46 says this tree writes what is on the verification path and takes what is won by exposure
+rather than by reading a spec, and it says in so many words that cryptography is the second kind:
 *"take it, do not write it."* So the line has to be drawn deliberately rather than assumed:
 
-- **The primitives are taken.** AES-GCM, ChaCha20-Poly1305, SHA-2, HMAC, HKDF, X25519, P-256 and
+- The primitives are taken. AES-GCM, ChaCha20-Poly1305, SHA-2, HMAC, HKDF, X25519, P-256 and
   RSA verification are all the second kind. Their correctness includes constant-time behaviour and
   resistance to attacks no specification states, which is exactly what years of use and the NCC
   Group audit above buy and what a proof against a spec would not.
@@ -383,40 +383,40 @@ rather than by reading a spec**, and it says in so many words that cryptography 
   it is secret-dependent in a way a timing attack could read, because every secret-dependent
   operation is inside a primitive.
 - **The one place the line could be crossed, and is not.** The temptation with `rsa` gone is to
-  write RSA PKCS#1 v1.5 **verification** here, which is genuinely only public-key arithmetic and a
+  write RSA PKCS#1 v1.5 verification here, which is genuinely only public-key arithmetic and a
   padding check. It is refused: the classic failures there (Bleichenbacher's signature forgery, and
   BERserk after it) are spec-reading failures in exactly this code, which is §46's argument for
   taking rather than writing, restated. `crypto-bigint` being already in the graph is a
   convenience argument and this tree's tenets say to distrust that one.
-- **The random source is ours and always was.** `SecureRandom` reaches `entropy_backend` and the
+- The random source is ours and always was. `SecureRandom` reaches `entropy_backend` and the
   entropy service. That is not a §46 question: it is this system's own capability.
 
 ### What the pricing concluded, and what happened next
 
-**The glue path is barely smaller and meaningfully better in the one dimension calef named.** At
+The glue path is barely smaller and meaningfully better in the one dimension calef named. At
 equal coverage it is 67 crates against 73, which is nothing, and it takes an abandoned alpha out of
 the trust path and replaces it with code this tree can read, over primitives that are individually
-maintained, widely used, and in two cases audited. It also unpins the superseded majors. **If the
-argument for it were crate count it would be a bad argument**, and that is recorded here rather
+maintained, widely used, and in two cases audited. It also unpins the superseded majors. If the
+argument for it were crate count it would be a bad argument, and that is recorded here rather
 than smoothed over.
 
 calef ruled on both halves: `rustls-rustcrypto` refused (DECISIONS §198, the glue is ours, the
-primitives are not), and then, on 2026-09-20, **"Take rsa."** The provider is built, the two real
+primitives are not), and then, on 2026-09-20, "Take rsa." The provider is built, the two real
 chains verify on all three architectures, and the milestone's own list is finished.
 
 ## BUGS
 
-- **A program that aborts is never heard, and it cost this lane a day and a wrong record.**
+- A program that aborts is never heard, and it cost this lane a day and a wrong record.
   `drain_sink` ends only on the sink's end-of-stream marker, which the std runtime sends after
   `main` returns; a panic under `panic = "abort"` traps instead, so every byte the program printed,
-  **including the panic message**, is delivered to the endpoint and thrown away. The transcript
+  including the panic message, is delivered to the endpoint and thrown away. The transcript
   reads as empty and the reader hangs, which is indistinguishable from a program that never
   started. It was read as exactly that, and a whole finding was written up on that basis before
   `cryptography_exerciser` grew a panic hook that prints and exits cleanly, at which point the
   failure named itself in one run. `design/roadmap/496-a-dying-programs-last-words-reach-nobody.md`
   has the shapes a real fix could take, and `std_tests::drain_sink` now carries the warning where a
   reader meets it.
-- **No signature verification is exercised at all.** There is no ECDSA or RSA vector in the
+- No signature verification is exercised at all. There is no ECDSA or RSA vector in the
   program and `rustls-webpki` is never called, so certificate verification, which is the largest
   remaining piece of a handshake, is proven only to *compile*. `rsa` and `p256` both build on all
   three; that is all this note claims about them.
@@ -424,18 +424,18 @@ chains verify on all three architectures, and the milestone's own list is finish
   that is correct and not constant-time passes every line. On x86_64 the fallbacks are exactly what
   runs, and constant-time behaviour is the property §46 says is bought by exposure and not by a
   specification. This is the gap most worth closing and this note does not close it.
-- **No cost is measured.** Milestone 442's block already says a handshake on a board with no
+- No cost is measured. Milestone 442's block already says a handshake on a board with no
   hardware crypto may be slow enough to matter and that no number exists. The soft-implementation
   cfgs make that worse on the two architectures that did not need them, and there is still no
   number.
-- **`script/crate-probes` may be measuring the wrong toolchain.** It builds its probes under
+- `script/crate-probes` may be measuring the wrong toolchain. It builds its probes under
   `target/`, inside this repository, with `RUSTUP_TOOLCHAIN` alone. Milestone 442's lane measured
-  that configuration compiling `std` from the **unpatched** sysroot, which fails in `sys/alloc`'s
+  that configuration compiling `std` from the unpatched sysroot, which fails in `sys/alloc`'s
   `cfg_select!` and reads exactly like the crate under test failing. `script/crypto-probes` builds
   outside the repository for that reason; nobody has re-run the fifty of milestone 64 (enough `std` to run somebody else's crate)
   since, and the
   43/7 split in notes/crates-io-on-nife.md has not been rechecked against this.
-- **A toolchain FILE is not a fix for that, and the failure it produces is worse.** Giving a probe
+- A toolchain FILE is not a fix for that, and the failure it produces is worse. Giving a probe
   its own `rust-toolchain.toml` naming `nife-dev` gets riscv64 and x86_64 right and still gets
   `aarch64-unknown-nife` wrong on an aarch64 host. Two architectures then agree and the third reads
   as a real finding about the crate.

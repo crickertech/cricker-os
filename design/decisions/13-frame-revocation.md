@@ -32,12 +32,12 @@ design/roadmap/13-capability-revocation.md has the argument.
 
 ## The mechanism
 
-A **mapping database, lite** (revoke.rs): every mapping of an untyped-derived page, `(phys, root,
+A mapping database, lite (revoke.rs): every mapping of an untyped-derived page, `(phys, root,
 va)`, recorded at `Untyped::MAP` and `Frame::MAP`, and forgotten when an address space is torn down
 (so a stale root is never walked after its tables are freed and reused). To revoke a page:
 
-> **Correction, 2026-08-05 (milestone 108).** "Every mapping" was false as written, and had been since
-> the `Frame` object existed. There are **three** routes into an address space and only two are
+> Correction, 2026-08-05 (milestone 108). "Every mapping" was false as written, and had been since
+> the `Frame` object existed. There are three routes into an address space and only two are
 > recorded: `Frame::MAP` and `Aspace::MAP_INTO` both reach the database, while **`Spawn::maps` does
 > not**, because `AddressSpace::map_physical` establishes the mapping and returns. A spawn-delivered page
 > **could not be revoked**: `Frame::REVOKE` found no capability to delete and no record to unmap, and
@@ -52,8 +52,8 @@ va)`, recorded at `Untyped::MAP` and `Frame::MAP`, and forgotten when an address
 2. Unmap it from every address space that held it, with the broadcast TLB flush we already use, so
    SMP and the no-ASID case are covered.
 
-Two entry points: **`Frame::REVOKE`** (a method needing `GRANT`, the un-share trigger; it does not
-reclaim, since the untyped is spend-only) and **`untyped::destroy`** (revoke every mapped page in the
+Two entry points: `Frame::REVOKE` (a method needing `GRANT`, the un-share trigger; it does not
+reclaim, since the untyped is spend-only) and `untyped::destroy` (revoke every mapped page in the
 region, then return the pages to the allocator, the reclaim trigger). Reclamation is now safe because
 "no live mapping survives" replaces "spend-only, never reused".
 

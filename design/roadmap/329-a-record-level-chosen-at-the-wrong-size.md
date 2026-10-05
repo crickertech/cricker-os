@@ -12,7 +12,7 @@ needs_person: no
 Filed 2026-09-03 as an unnumbered proposal by the milestone 247 sweep,
 from milestone 138's block; numbered 2026-09-19 by milestone 433. **Premise re-checked 2026-09-19 and
 it holds.** `bench/record-level-sweep.sh` is still in the tree, `filesystem_protocol::fs::TRANSFER_PAGES`
-is still 16 (64 KiB), and milestone 138's block still publishes **5.13x** as its headline read ratio
+is still 16 (64 KiB), and milestone 138's block still publishes 5.13x as its headline read ratio
 in its opening paragraph and at four more sites, every one of them taken at 4 KiB. Nothing has re-run
 the sweep at the shipped size.
 

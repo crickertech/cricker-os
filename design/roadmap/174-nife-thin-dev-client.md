@@ -26,7 +26,7 @@ treat the editor as practically necessary even though it is not listed as a form
 
 nife edits and version-controls a working tree locally (milestones 169/170/171), then hands the
 actual `cargo build`/`rustc` invocation to a remote build service over the network, rather than
-running the compiler on nife itself. The dependency list this needs is **much smaller** than
+running the compiler on nife itself. The dependency list this needs is much smaller than
 milestone 173's: a network client and a remote-build protocol, no
 [capability-native subprocess primitive](172-capability-native-subprocess.md), no threading
 questions, no LLVM port.
@@ -36,7 +36,7 @@ questions, no LLVM port.
 - **A network client.** Real TCP/UDP already exists as a userspace program (`smoltcp`, milestone
   30's `net_stack`), so the transport layer is not new work; what is new is a client speaking
   whatever remote-build protocol this milestone defines.
-- **A remote-build protocol.** Not designed here. Could be as simple as "rsync the working tree,
+- A remote-build protocol. Not designed here. Could be as simple as "rsync the working tree,
   run `cargo build` over SSH, rsync results back" replicated by hand, or a purpose-built protocol;
   sizing that choice is this milestone's own first task.
 - **TLS is not a hard prerequisite for a first cut.** nife has no TLS/crypto stack today

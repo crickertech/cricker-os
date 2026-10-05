@@ -845,10 +845,20 @@ pub mod timer {
 /// `design/roadmap/229-the-counter-grant.md` and `notes/abi.md`.
 pub mod thread_control_block {
     /// `invoke(cap, CONFIGURE, entry, user_sp, address_space_slot)` -> 0. Bind the address space
-    /// named by the capability in `address_space_slot` (which is **consumed**: it becomes the
-    /// thread's, and dies with it), and set where EL0 execution begins and on what user stack.
-    /// Needs `WRITE` on the TCB cap and `WRITE` on the address-space cap. Only an unstarted
-    /// (embryo) TCB.
+    /// named by the capability in `address_space_slot`, and set where EL0 execution begins and on
+    /// what user stack. Needs `WRITE` on the TCB cap and `WRITE` on the address-space cap. Only an
+    /// unstarted (embryo) TCB.
+    ///
+    /// **The capability passed is consumed; the space's name is not** (§249 (a running address
+    /// space stays nameable), option A, 2026-10-05). A copy made before `CONFIGURE` goes on naming
+    /// the space while the thread runs, which is how a builder that chooses to keep one (or a
+    /// process granted its own, as the progenitor is at boot) can [`UNMAP`](super::address_space::UNMAP) a page
+    /// of a running space. The space dies when its thread is reaped or the region its root came
+    /// from is destroyed, and every capability still naming it then fails; deleting a capability
+    /// never frees it.
+    ///
+    /// **A space already bound to a thread is refused with `WrongObject`** (§249's amendment (b)),
+    /// so one space never has two threads: §105 (`std::thread::spawn` stays declined) stands.
     pub const CONFIGURE: u64 = 0;
 
     /// `invoke(cap, CAP_INSERT, cap_slot, rights, target)` -> `child_slot`. Copy the capability in
@@ -872,7 +882,9 @@ pub mod thread_control_block {
 /// Methods on an `AddressSpace` capability (milestone 19b): **another process's memory, under
 /// construction.** Created by [`memory_region::RETYPE_OBJ`] with [`objtype::ADDRESS_SPACE`]; nothing can
 /// run in it until TCBs arrive (19c), so today it is a structure you build, revocation can reach,
-/// and (milestone 126, `pmap`) `ENUMERATE` can look at without touching.
+/// and (milestone 126, `pmap`) `ENUMERATE` can look at without touching. Since §249 (a running
+/// address space stays nameable) the capability keeps naming the space after a thread is bound to
+/// it, until that thread is reaped or the space's region is destroyed.
 pub mod address_space {
     /// `invoke(cap, MAP_INTO, va, frame_slot, writable)` -> 0. Map the frame in `frame_slot`
     /// into THIS address space at `va`, read-only or read/write. Needs `WRITE` on the
@@ -933,11 +945,13 @@ pub mod address_space {
     /// - The page is gone from every core's TLB before this returns, and from the space's mapping
     ///   record, so [`LIST`] stops reporting it and a later revoke of the frame does not reach `va`.
     ///
-    /// **Both semantics above are provisional** (the milestone 95 lane, 2026-10-05 UTC): §162
-    /// leaves them owed to that lane, and `notes/unmap.md` has the argument for each. So is the
-    /// method number, which is the next free one on this object. **It reaches only a space under
-    /// construction**: `ThreadControlBlock::CONFIGURE` retires the space's name, so no capability
-    /// names a running space, including the caller's own. `notes/unmap.md` has that too.
+    /// Both semantics above were ruled by calef on 2026-10-05 (UTC) and are §162's amendment of
+    /// that date; `notes/unmap.md` has the argument for each.
+    ///
+    /// **It reaches a running space** since §249 (a running address space stays nameable): a
+    /// capability to a space keeps naming it after `ThreadControlBlock::CONFIGURE`, so a holder
+    /// can take a page out from under the thread running there, which faults on its next touch of
+    /// it wherever it runs.
     pub const UNMAP: u64 = 2;
 }
 
@@ -1079,6 +1093,11 @@ pub mod virtio {
     /// a constant in a crate rather than a number in four places (AGENTS.md rule 7). Milestone 600
     /// (provisional) moved it here; it was a number in two places before. Name: provisional.
     pub const DMA_PHYS_OFFSET: u64 = 4096 - 8;
+
+    // The word is the page's last eight bytes, as the documentation says; a wrong operator in the
+    // subtraction put it past the page or in the middle of a driver's rings, and nothing ran the
+    // arithmetic. Mutation survivor triage, milestone 326 (turn a mutation score upward), batch 3.
+    const _: () = assert!(DMA_PHYS_OFFSET + 8 == 4096);
 }
 
 /// Methods on a `MemoryRegion` capability. **How a process spends its own memory.**

@@ -20,12 +20,12 @@ both, or does the second need something more?
 
 ## The decision
 
-**No, they are not the same right.** Plain **write** covers setting mtime to now. **Setting an
-arbitrary value needs a separate right**, not folded into write.
+**No, they are not the same right.** Plain write covers setting mtime to now. Setting an
+arbitrary value needs a separate right, not folded into write.
 
 ## Why, and the two independent precedents that converge on it
 
-**POSIX already drew this exact line**, checked rather than assumed: `utime()`'s semantics
+POSIX already drew this exact line, checked rather than assumed: `utime()`'s semantics
 distinguish setting to the current time (ordinary write permission suffices) from setting an
 arbitrary timestamp (the caller must *own* the file; write permission alone is not enough). The
 reason POSIX splits it this way is the same reason this milestone names: setting to now only records
@@ -33,8 +33,8 @@ something already true and independently observable; setting to an arbitrary val
 nothing bounds. [utime(3p) POSIX](https://www.unix.com/man_page/posix/3p/utime/),
 [utime(2) Linux](https://www.man7.org/linux//man-pages/man2/utime.2.html).
 
-**And it lands exactly on this tree's own precedent, one level down, which is what the milestone's
-own text predicted** ("that is §43's asymmetry again... one level down"). §43 already treats reading
+And it lands exactly on this tree's own precedent, one level down, which is what the milestone's
+own text predicted ("that is §43's asymmetry again... one level down"). §43 already treats reading
 the clock as broadly grantable and setting it as a separate, more tightly held authority (a distinct
 writable page from the read-only one). `touch`'s two behaviors are the same shape applied to one
 file's timestamp: "now" is bounded by what the clock already says and cannot lie; "arbitrary" is

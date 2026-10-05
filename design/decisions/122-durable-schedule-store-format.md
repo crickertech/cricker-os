@@ -30,23 +30,23 @@ in this tree persists a schedule entry written by a live session and reads it ba
 
 Checked directly rather than assumed, in two directions.
 
-**Confirmed: no write path or read-at-boot path exists anywhere.** A repo-wide grep for anything that
+Confirmed: no write path or read-at-boot path exists anywhere. A repo-wide grep for anything that
 opens a file and writes a schedule-shaped record finds nothing: `crates/timetable::parse` takes a
 `&str` that every caller (`components/src/timetable.rs`, its own host tests) gets from `include_str!` or a
 literal, never from a live read. There is no `timetable`-side `fs_proto` client at all today.
 
-**Corrected: milestone 152's own doc misdescribes its nearest precedent, and this matters for what
-"already does this" means below.** 152's design section calls "the credential store's own existing
+Corrected: milestone 152's own doc misdescribes its nearest precedent, and this matters for what
+"already does this" means below. 152's design section calls "the credential store's own existing
 persistence (milestone 56's sealed store)" one of the two things boot-time trust rests on. Reading
 `crates/credentialer/src/lib.rs`, `components/src/credentialer.rs` and `notes/credentials.md` directly finds the
 opposite: `credentialer::Store<N>` is an in-memory, `no_std`, no-`alloc` structure built during a **Provision**
 phase and never written to any block device, and `notes/credentials.md`'s own BUGS section says so in
-so many words: **"Nothing survives a reboot. The store is memory only, provisioned at boot... Secrets
-at rest is the open question."** "Sealed" there means *write-locked* (the provision endpoint is
+so many words: "Nothing survives a reboot. The store is memory only, provisioned at boot... Secrets
+at rest is the open question." "Sealed" there means *write-locked* (the provision endpoint is
 `cap_delete`d once `SEAL` arrives, so no client can ever write another record), not *durable*. It is
 real prior art for the *write-once-then-lock* shape a schedule store might also want, but it is not
 prior art for on-disk persistence, and citing it as though it were would have this decision reach the
-wrong analog. There is, as of this writing, **no durable on-disk store of any kind in this tree** built
+wrong analog. There is, as of this writing, no durable on-disk store of any kind in this tree built
 by a userspace service; the only thing on disk is what `RedoxFS` holds through `filesystem_proto`, which
 several other things already write and read back across reboots (the SMB share's own files, the
 provisioning fixtures milestone 63's gate reads back). That is the tree's actual closest analog, and it
@@ -54,7 +54,7 @@ is named as Option 1 below.
 
 ## What else was considered, and prior art outside the tree
 
-**A binary, fixed-record format** (mirroring `credentialer::Record`'s `encode`/`decode` shape: no allocator,
+A binary, fixed-record format (mirroring `credentialer::Record`'s `encode`/`decode` shape: no allocator,
 fixed field widths, a round-trip test). Considered and folded into Option 1 below as an *encoding*
 choice rather than a separate option, because the harder question is where the bytes live and who may
 write them, not whether they are text or binary.
@@ -75,7 +75,7 @@ database, and is worth naming because it is the same shape Option 1 below lands 
 
 ## What the tree already does in the analogous case
 
-**`crates/timetable::parse`'s own document format** is the closest *parsing* precedent, and it is real
+`crates/timetable::parse`'s own document format is the closest *parsing* precedent, and it is real
 prior art worth reusing rather than re-deriving: two schedule words (`every <interval>`, `at-boot`),
 `#` comments, one entry per line, a grant expression as the payload, `no_std`/no-`alloc`, fixed-size
 inline table (`MAX_ENTRIES = 8`), and host-tested in milliseconds. It already answers "what does a
@@ -83,16 +83,16 @@ schedule entry look like" for the in-image case; what it does not answer is wher
 that parser come from at boot, or how they get there during a live session, which is what has no
 precedent (see "Is the premise true?" above).
 
-**`filesystem_proto` plus RedoxFS is the tree's only real durable store**, proven repeatedly: milestone
+`filesystem_proto` plus RedoxFS is the tree's only real durable store, proven repeatedly: milestone
 55's write path, the durability-under-crash tests (`filesystem_proto::fixture::durability`), and every SMB
 write the gate makes durable through `fs::SYNC`. Nothing about a schedule entry needs a new persistence
 primitive; it needs a place in the one that already exists.
 
 ## What each option costs
 
-**Option 1 (recommended): an ordinary file, `timetable::parse`'s own text format, one file per
+Option 1 (recommended): an ordinary file, `timetable::parse`'s own text format, one file per
 identity's subtree, written through `filesystem_proto` by whatever process is standing up a durable
-session, read at boot by whatever process performs re-derivation.**
+session, read at boot by whatever process performs re-derivation.
 
 - *Format*: reuse `crates/timetable::parse` byte-for-byte. Zero new parsing code; the crate is already
   `no_std`, host-tested, and its own doc already states the reason calendar syntax is deliberately
@@ -116,7 +116,7 @@ session, read at boot by whatever process performs re-derivation.**
   only genuinely new code is the two IPC call sites (write it, read it), which is a page of client code
   each, not a new subsystem.
 
-**Option 2: a binary, fixed-record format purpose-built for this store**, `credentialer::Record`'s
+Option 2: a binary, fixed-record format purpose-built for this store, `credentialer::Record`'s
 `encode`/`decode` shape applied to a schedule entry (identity, schedule, grant expression, as fixed
 fields).
 
@@ -130,8 +130,8 @@ fields).
   (the shipped `timetable.conf` is plain text, checked into the repo, edited by whoever has commit
   access), so the property option 2 buys is not one this decision needs to buy.
 
-**Option 3: extend `crates/credentialer`'s `Store<N>` shape (or a sibling crate built the same way) as a
-dedicated "schedule store" service**, mirroring the credentialer's provision/serve split.
+Option 3: extend `crates/credentialer`'s `Store<N>` shape (or a sibling crate built the same way) as a
+dedicated "schedule store" service, mirroring the credentialer's provision/serve split.
 
 - *For*: reuses a real in-tree pattern (fixed-size, `no_std`, no-`alloc`, a round-trip-tested record
   encoding) rather than the filesystem.
@@ -154,7 +154,7 @@ already-built, already-proven pieces (the parser and the filesystem) together wi
 
 ## How reversible is this, and who has already acted on it
 
-**Nobody has acted on this yet**, and this decision only names a *format* (text, `timetable::parse`'s
+Nobody has acted on this yet, and this decision only names a *format* (text, `timetable::parse`'s
 dialect) and a *location* (inside the identity's own subtree). Both are the AGENTS.md-flagged expensive
 kind of change once something depends on them ("anything two programs agree on"), which is the reason
 this is a proposal rather than code: once a durable session's registrar writes files in this shape and
@@ -165,16 +165,16 @@ a decision doc rather than just build it.
 
 ## What this does not decide, and is blocked on
 
-- **The exact write path's call sites** (which process performs the write: the durable session itself,
+- The exact write path's call sites (which process performs the write: the durable session itself,
   a program it spawns, some other component) are not named here, because that depends on piece 1's
   `DurableSession` (this lane's own structural work) eventually being wired to a real registrar
   (milestone 129/#387), which is explicitly out of this lane's scope.
-- **Whether a schedule entry needs anything beyond what `timetable::Entry` already carries** (line,
+- Whether a schedule entry needs anything beyond what `timetable::Entry` already carries (line,
   schedule, grant-expression bytes) for the durable case (e.g., a record of *when it was last known to
   have pending work*), which §123's own BUGS-adjacent question ("unconditional re-derivation vs.
   scoped to sessions with pending work at shutdown") may need. Left to whoever builds the write path,
   once §123 answers the scoping question this decision does not.
-- **This decision is a dependency of §123's boot-time re-derivation mechanism**, named there as "some
+- This decision is a dependency of §123's boot-time re-derivation mechanism, named there as "some
   read capability over that store," not designed there. The two are independent in shape (this is about
   the bytes, §123 is about the privilege that reads them) but sequenced: re-derivation cannot be built
   until both are answered.
