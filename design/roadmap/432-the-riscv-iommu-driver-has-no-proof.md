@@ -15,7 +15,7 @@ instead. *(Number provisional until the merge queue lands it.)*
 
 Premise re-checked 2026-09-19 and still true, by count.
 `kernel/src/arch/aarch64/iommu.rs` carries two `kani::proof` harnesses and
-`kernel/src/arch/riscv64/iommu.rs` carries **zero**. `notes/iommu.md`'s "What is proved, as against
+`kernel/src/arch/riscv64/iommu.rs` carries zero. `notes/iommu.md`'s "What is proved, as against
 tested" still says the RISC-V IOMMU has no counterpart, and still records that the register offsets
 and bit constants are not proved and cannot be. This is the newest block in milestone 433's promotion
 and the only one of the twenty-five whose premise needed no qualification at all.
@@ -32,10 +32,10 @@ so that first property does not apply to it, **and nothing was written in its pl
 
 The boot-time confinement test is what stands in for a proof on both sides, and the same note says
 what it cannot do: it *"proves the hardware stops an escaping device. It cannot prove the kernel
-wrote the **right** entry, because a wrong entry that still confines this device on this board is
+wrote the right entry, because a wrong entry that still confines this device on this board is
 invisible to it, and this board is the only one either driver has ever run on."*
 
-So on riscv64 that test is the **whole** of the assurance, with no proof beside it, on exactly one
+So on riscv64 that test is the whole of the assurance, with no proof beside it, on exactly one
 board. §19 makes architectural parity a gate rather than an aspiration, and this is a parity gap in
 the isolation boundary that milestone 35 calls *"the one isolation boundary we test instead of
 prove"*.
@@ -45,8 +45,8 @@ prove"*.
 Not "port the aarch64 harnesses". The property they prove is about a 64-bit physical address
 surviving a split across two 32-bit words without colliding with the control bits sharing the low
 word. The RISC-V device context has no such split, so a transliteration would prove a hazard that
-does not exist there and miss whatever the real one is. **Finding the right property is most of this
-work**, and writing it down is the deliverable even if the harness that follows is short.
+does not exist there and miss whatever the real one is. Finding the right property is most of this
+work, and writing it down is the deliverable even if the harness that follows is short.
 
 Not a claim that the riscv64 driver is wrong. Nothing here reports a defect. It reports that one
 of two rhyming drivers is checked in a way the other is not, which is the asymmetry §19 exists to
@@ -62,8 +62,8 @@ completeness it cannot have.
 
 ## What was built (2026-09-25, UTC)
 
-**The block's original gate, NONE, rested on a premise that was half wrong, and the fix is how
-this got built.** `script/verify` reaches `kernel/src` since milestone 193 (put `kernel/src` within
+The block's original gate, NONE, rested on a premise that was half wrong, and the fix is how
+this got built. `script/verify` reaches `kernel/src` since milestone 193 (put `kernel/src` within
 reach of the prover), but only the host's `arch/` subtree, and no host here is riscv64, so these harnesses could not run where the gate said. The `lane/price-kani-kernel-reach`
 lane (pull request #1276) measured that `iommu.rs` compiles unchanged on an aarch64 host anyway, and
 its proposal's option 1 is what this milestone built:

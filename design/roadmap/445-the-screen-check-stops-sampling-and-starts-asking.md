@@ -16,10 +16,10 @@ lands it.)*
 `cargo xtask uefi-boot` asserts the claim of milestone 243 (a machine with no serial port has no
 way to say anything, and no gate can read it), by photographing the guest's framebuffer through
 QEMU's monitor. It used to do
-that by **sampling**: `screen_watch` polled `screendump` every 50 ms and had to catch the kernel's
+that by sampling: `screen_watch` polled `screendump` every 50 ms and had to catch the kernel's
 marker on a screen that does not stay that way.
 
-On **2026-09-20** a full `script/test` run caught **zero** rows and reported *"the tour was never
+On 2026-09-20 a full `script/test` run caught zero rows and reported *"the tour was never
 readable on the screen"*. The same leg, run alone a minute later, read 56. Under load the
 dump-write-read-decode round trip stretches; the guest's window does not stretch with it, because it
 closes in **guest** time. No host-side deadline widens it.
@@ -32,10 +32,10 @@ order, the stride and the mapping surviving `mmu::init`, none of which was wrong
 
 Three options were put to him on 2026-09-20, and §199 records the ruling in his own terms:
 
-- **A, a handshake**, so the window closes when the host says it has seen the screen. **Chosen.**
+- A, a handshake, so the window closes when the host says it has seen the screen. **Chosen.**
 - **B, an xtask-only mode where the handover simply does not clear.** Refused: it makes the
   screen-check boot differ from a real boot at exactly the moment under test.
-- **C, keep sampling and only fix the verdict's honesty.** Not taken: sampling a transient state and
+- C, keep sampling and only fix the verdict's honesty. Not taken: sampling a transient state and
   hoping is rung four of `AGENTS.md`'s ladder, and a longer deadline does not help for the reason
   above.
 
@@ -43,7 +43,7 @@ Three options were put to him on 2026-09-20, and §199 records the ruling in his
 
 ### The kernel holds the screen, when it is asked to
 
-A boot-time knob, **off by default**, on the same command line the framebuffer description already
+A boot-time knob, off by default, on the same command line the framebuffer description already
 travels on (`machine_discovery::framebuffer::Framebuffer::KEY`, `screen=`). The new token is
 `SCREEN_HOLD`, the bare word `screen-hold`. With it present:
 
@@ -53,11 +53,11 @@ travels on (`machine_discovery::framebuffer::Framebuffer::KEY`, `screen=`). The 
    the tour guaranteed to be on the framebuffer, decodes it, and writes a byte.
 4. The kernel drains that byte and clears and hands over exactly as it does today.
 
-**A boot without the token is untouched**: one relaxed load of an `AtomicBool` on a path taken once
+A boot without the token is untouched: one relaxed load of an `AtomicBool` on a path taken once
 per boot, no serial read, no added latency. The doc comment on `hold_screen_at_handover` says in as
 many words that it is a debugging affordance.
 
-**The token rather than a build of the kernel, deliberately.** The kernel `uefi-boot` boots is
+The token rather than a build of the kernel, deliberately. The kernel `uefi-boot` boots is
 byte-identical to the one on a stick; only the loader differs, by one word it writes. That is the
 narrowest form of calef's refusal of option B that still lets a gate ask a question.
 
@@ -65,34 +65,34 @@ narrowest form of calef's refusal of option B that still lets a gate ask a quest
 
 A knob that can wedge a machine forever is a worse defect than the one it fixes.
 
-- **Ten seconds of scheduler ticks** (`TICK_HZ` is 100 on all three architectures). The host's round
+- Ten seconds of scheduler ticks (`TICK_HZ` is 100 on all three architectures). The host's round
   trip is a monitor command, an asynchronous PPM write, a read and a glyph decode, about 50 ms idle.
   Ten seconds is two orders of magnitude of headroom for the loaded machine that broke the old gate,
   and short enough that a knob set by mistake on a bench is a pause somebody waits out.
-- **A flat poll count**, paid down only while the tick counter has not yet moved. Ticks come from
+- A flat poll count, paid down only while the tick counter has not yet moved. Ticks come from
   the timer interrupt, so a clock that has stopped would otherwise turn the first bound into no
   bound at all.
 
 ### Two things had to be found by building it, and both are corrections
 
-**A spinning guest starves the emulator's own monitor.** The first working version polled the UART
+A spinning guest starves the emulator's own monitor. The first working version polled the UART
 with `core::hint::spin_loop`. Every `screendump` taken during the ten-second hold came back a file
 that would not decode, and the gate failed for a reason with nothing to do with the kernel. Parking
 the core with `arch::wait_for_interrupt` between polls fixed it outright, and the `clock_alive`
 guard above is what makes parking safe. Worth carrying: anything in this tree that busy-waits inside
 a guest while a host is trying to talk to QEMU has this failure available to it.
 
-**The tour is taller than the screen, so it scrolls.** `UEFI_SCREEN_MARKER` was
+The tour is taller than the screen, so it scrolls. `UEFI_SCREEN_MARKER` was
 `boot_ladder::BANNER`, the tour's *first* line, moved there hours earlier by milestone 243's second
 lane on a measurement saying the tour "tops out at 98 non-blank rows" against a screen of 100, so
-nothing scrolls. **Held still and photographed, the OVMF console's first row is**
+nothing scrolls. Held still and photographed, the OVMF console's first row is
 
 ```text
                 0x00007ea8a000..0x00007eab4000  ram
 ```
 
 the middle of the firmware memory map, with 95 rows below it and no banner anywhere. So what the old
-sampler was catching was the banner **early in the boot**, before the scroll, which is a window at
+sampler was catching was the banner early in the boot, before the scroll, which is a window at
 the other end of the tour from the one its own comment described, and which is why a loaded machine
 read zero: the first dump landed after the scroll rather than after the clear. The marker is the
 self-test verdict again, the tour's tail, which the handshake makes deterministic.
@@ -112,7 +112,7 @@ The middle row is what the milestone bought. The bottom row is what cost a reade
 ## Evidence, under the condition that broke it
 
 Three consecutive `cargo xtask uefi-boot` runs on patagonia (8 cores) against fourteen detached
-spinners, at one-minute load averages of **17, 32 and 38**:
+spinners, at one-minute load averages of 17, 32 and 38:
 
 ```text
 uefi-boot: read 95 non-blank row(s) of the tour back off the framebuffer (its last page; ...), ending
@@ -127,7 +127,7 @@ rather than of the host's spare capacity.
 §19 (architectural parity is a tenet; the targets are aarch64, riscv64, and x86_64) makes parity a
 gate, so the answer is stated rather than implied.
 
-**The mechanism is arch-neutral.** `yield_screen` consults the flag on all three architectures, the
+The mechanism is arch-neutral. `yield_screen` consults the flag on all three architectures, the
 wait is one piece of code, and both console UART drivers grew the receive half it needs: the NS16550
 pair came out from behind `reboot_soak_test`, and the PL011 gained `rx_waiting` and `discard_rx` of
 its own.
@@ -159,12 +159,12 @@ next person meets it.
   a bench by accident.
 - **Nothing gates the two directories apart.** The separation is a function name and two comments,
   which is rung three. A lint that knew which directory a `cp` came from would be guessing.
-- **The release byte is any byte**, so a person typing at a held boot releases it. That is the
+- The release byte is any byte, so a person typing at a held boot releases it. That is the
   intended behaviour for somebody at a bench and is worth knowing before it surprises anyone.
-- **`hold_screen_for_host` takes the console lock once per poll**, at 100 Hz while parked. It is a
+- `hold_screen_for_host` takes the console lock once per poll, at 100 Hz while parked. It is a
   boot-time path taken once and never on a machine anybody runs, so the cost is a fact rather than a
   concern; it is recorded because the lock is an `IrqSafeMutex` and somebody will want to know.
-- **The deep marker is dead on QEMU's OVMF console.** `boot_ladder::BANNER` cannot be on a 1280x800
+- The deep marker is dead on QEMU's OVMF console. `boot_ladder::BANNER` cannot be on a 1280x800
   screen at the handover, so that branch of the report has never been exercised here. It fires on a
   taller screen or a shorter tour and is kept because a tour that stops scrolling should say so.
 

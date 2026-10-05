@@ -51,7 +51,7 @@ the document was last edited. Its head on 2026-09-17:
    14/19           53  2026-09-14  design/roadmap/158-kernel-object-rename-build.md
 ```
 
-**Read `notes/documentation-audit.md` first.** It is the procedure, it says what counts as a finding,
+Read `notes/documentation-audit.md` first. It is the procedure, it says what counts as a finding,
 and it is honest that the ranking has never read a sentence: a document at the top may be perfectly
 true, and one absent from the list may be a year out of date. 138 of 269 documents cite no resolvable
 code path and are simply not on it.

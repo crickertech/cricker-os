@@ -34,7 +34,7 @@ question returns: does `bench` need to be a kernel build at all?
 
 ## Why the answer is "some of it", and why that needs measuring
 
-**Some of what `bench` times is genuinely kernel-internal.** A context switch measured from a
+Some of what `bench` times is genuinely kernel-internal. A context switch measured from a
 userspace supervisor includes the syscalls that got in and out, which is precisely the cost the
 measurement is trying to exclude. Moving those would not relocate a measurement, it would replace it
 with a different one that has the same name, which is the most damaging thing a benchmark can do.
@@ -49,13 +49,13 @@ why in one sentence, so nobody asks again.
 
 ## What makes this worth doing rather than leaving alone
 
-- **The icount tripwire is a required check** and its baselines are committed. Anything that moves a
+- The icount tripwire is a required check and its baselines are committed. Anything that moves a
   measurement moves those baselines, and the work on milestone 519 (what this project costs, tracked where it cannot rot) has just made the cost of churn
   visible. Getting the classification right once is cheaper than discovering it per-benchmark.
 - **`bench` has never run on a board**, so every number it produces is a QEMU number. Any benchmark
   that becomes a program becomes runnable on radon, argon and xenon the day it moves, which is a
   larger gain than the tidiness.
-- **DECISIONS §96 (process kernel or event kernel)** rests on exactly this distinction: what the
+- DECISIONS §96 (process kernel or event kernel) rests on exactly this distinction: what the
   kernel costs on a crossing, against what a workload experiences. A benchmark suite that cannot say
   which side of that line each of its numbers sits on is weaker evidence than it looks.
 

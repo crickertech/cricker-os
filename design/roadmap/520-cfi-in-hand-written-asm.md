@@ -36,20 +36,20 @@ reported empty output on every architecture, for hand-written assembly and for c
 Rust functions alike. Fixing the link scripts turned out to need its own investigation, recorded in
 full in `notes/cfi-unwind.md`; three placements were tried and two were rejected:
 
-1. **Left unmentioned.** LLD's default orphan placement keeps `.eh_frame*` ALLOC and slots it
+1. Left unmentioned. LLD's default orphan placement keeps `.eh_frame*` ALLOC and slots it
    between `.rodata` and `.data` -- before `__image_end`, the point this kernel's own boot code
    reads to fill in the arm64/RISC-V Image header's `image_size` field for a real bootloader.
    Measured: `__image_size` grew by the CFI's own size, about 100 KiB, for a debugging convenience
    that has nothing to do with how much RAM the image needs.
-2. **An explicit `(NOLOAD)` output section**, to move it off ALLOC. This turned it into
+2. An explicit `(NOLOAD)` output section, to move it off ALLOC. This turned it into
    `SHT_NOBITS`, the same representation `.bss` uses: LLD dropped the actual bytes, and
    `--dwarf=frames` went back to empty. Wrong mechanism entirely: NOLOAD is for address space whose
    content does not matter, and CFI content is the whole point.
-3. **An explicit `(INFO)` output section**, to keep the bytes and drop ALLOC. This let LLD place
+3. An explicit `(INFO)` output section, to keep the bytes and drop ALLOC. This let LLD place
    the section multiple megabytes from `.text` and broke a real `R_AARCH64_PREL32` relocation
    elsewhere in the image outright: `rust-lld: error: relocation ... out of range`.
 
-**What worked**: an ordinary output section -- no `NOLOAD`, no `INFO` -- placed in the script text
+What worked: an ordinary output section -- no `NOLOAD`, no `INFO` -- placed in the script text
 *after* `__image_end`/`__image_size` are already computed, instead of left to orphan placement.
 Stays ALLOC (bytes survive), keeps LLD's normal sequential layout (lands right after `.bss`, close
 enough to `.text` that nothing overflows), and costs `__image_size` nothing because that symbol is
@@ -58,15 +58,15 @@ assigned before this section exists.
 **Verified, not assumed.** A from-scratch build of the commit immediately before this milestone
 (`ece6d72c`) gives `__image_size = 0x350000` on aarch64. This tree, with CFI present throughout,
 gives the identical `0x350000`. The flat `Image` binary the two builds' `objcopy -O binary` produce
--- the actual bytes a bootloader or QEMU's `-kernel Image` path loads -- is **byte-for-byte
-identical**, `cmp` confirmed. aarch64's flat-image steps (`helpers/qemu-runner-aarch64.sh`,
+-- the actual bytes a bootloader or QEMU's `-kernel Image` path loads -- is byte-for-byte
+identical, `cmp` confirmed. aarch64's flat-image steps (`helpers/qemu-runner-aarch64.sh`,
 `xtask/src/inspect.rs`'s `image()`) now `--remove-section` the CFI back out before boot, since that
 is the one place a bootloader actually reads these bytes into memory; the full ELF `gdb <elf>`
 reads keeps the content either way. riscv64 and x86_64 have no such strip and none was added (see
 BUGS): neither port has a flat-image step at all, so the CFI rides into QEMU's guest RAM alongside
 everything else, harmlessly, in a VM with the usual hundreds of megabytes.
 
-`script/fastpath-footprint` is **byte-identical before and after** on every reported number
+`script/fastpath-footprint` is byte-identical before and after on every reported number
 (`ipc_send_recv` 6300, `ipc_call_reply` 8234, `ipc_fastpath` 8234, `syscall_entry` 1701): CFI lives
 in `.eh_frame`, a section distinct from `.text`, and the measurement confirms it moved nothing. That
 and the `__image_size`/flat-image evidence above are the proof that annotating every hand-written
@@ -78,8 +78,8 @@ nothing else about what this kernel boots or how fast its IPC path runs.
 Ordinary leaf functions (`fp_save`/`fp_restore`, `dispatch_on_interrupt_stack`) get the same CFI a
 compiler would emit: nothing architecture-specific to say. The two cases worth naming:
 
-**A context switch is a function that returns somewhere else, and needs no special CFI at the
-swap.** `switch_to` (all three ISAs) swaps its stack-pointer register to a *different thread's*
+A context switch is a function that returns somewhere else, and needs no special CFI at the
+swap. `switch_to` (all three ISAs) swaps its stack-pointer register to a *different thread's*
 stack mid-function. `.cfi_def_cfa_offset N` defines the CFA as "the CURRENT stack-pointer register
 plus N" -- a live formula, not a frozen address -- and `next_context` is, by construction, exactly
 the value that thread's own identical prologue (or a synthetic `Context::for_*_thread` frame) left
@@ -94,7 +94,7 @@ Whether they can *also* recover the interrupted PC -- and so keep an unwind goin
 boundary, into whatever kernel code took the interrupt -- is where the three architectures diverge,
 and this is recorded here rather than only in a note nobody reads twice:
 
-- **x86_64 can, in full.** The hardware trap frame puts the interrupted RIP and RSP at fixed
+- x86_64 can, in full. The hardware trap frame puts the interrupted RIP and RSP at fixed
   offsets from the software frame's own CFA, and the SysV DWARF register mapping already treats
   register 16 (RIP) as the ordinary return-address column and register 7 (RSP) as an ordinary
   describable register. `isr_common` states `.cfi_offset 16, 16` / `.cfi_offset 7, 40` and the
@@ -130,17 +130,17 @@ Captured with GDB 17.2 against two builds of the identical source tree -- commit
 (immediately before this milestone) and this branch's tip -- on aarch64, the only architecture
 `cargo xtask gdb` currently drives. Full transcripts in `notes/cfi-unwind.md`.
 
-**Before**, breaking on `switch_to` and asking for a backtrace: GDB's own frame-pointer fallback
+Before, breaking on `switch_to` and asking for a backtrace: GDB's own frame-pointer fallback
 (there was no CFI at all to consult, the compiler's included, because of the discard line above)
 correctly walked four real Rust frames using the AAPCS64 `x29` chain ordinary functions still build
 regardless of CFI, then walked into `exception_vectors`, which builds a raw trap frame rather than a
-conventional `x29` link -- and looped, printing the identical bogus frame past **#9976**, three
+conventional `x29` link -- and looped, printing the identical bogus frame past #9976, three
 minutes and forty-five seconds before being killed by hand. This is the sharpest evidence in the
 whole milestone that "no CFI" is not merely "less information": GDB's own fallback trusted a
 hand-written function that looked frame-pointer-shaped and was not, and had nothing telling it when
 to stop.
 
-**After**, the same breakpoint, on a kernel thread resumed out of `sched::ipc_recv` by a timer
+After, the same breakpoint, on a kernel thread resumed out of `sched::ipc_recv` by a timer
 preemption: the backtrace walks seven real Rust frames -- `switch_to -> schedule -> ipc_recv ->
 syscall::invoke -> syscall::dispatch -> exception_body -> exception_dispatch` -- GDB labels the trap
 frame `<signal handler called>` (recognising `.cfi_signal_frame`), and stops there with "frame did
@@ -162,16 +162,16 @@ transcripts above, not the gate.
 - **RISC-V's trap boundary has no forward-looking directive to offer**, unlike AArch64's dormant-but-
   correct `ELR_mode` one. Not this milestone's to fix; it would need an ecosystem-level DWARF
   convention, not a project-local one.
-- **AArch64's spec-correct `ELR_mode` column is unconsumed by GDB today.** Re-test if GDB ever gains
+- AArch64's spec-correct `ELR_mode` column is unconsumed by GDB today. Re-test if GDB ever gains
   AArch64 return-column support (cited above); the directive costs nothing to leave in place.
 - **riscv64 and x86_64 do not strip CFI from what QEMU actually boots.** Neither port has a
   flat-image/objcopy step at all; QEMU's `-kernel` loads each ELF's `PT_LOAD` segments directly. The
   CFI (a few hundred bytes to ~30 KiB depending on the build) rides into guest RAM harmlessly. If
   either port grows a real flat-image path this is the thing to revisit.
-- **`cargo xtask gdb` is aarch64-only**, so the live-GDB evidence above is aarch64-only too. x86_64's
+- `cargo xtask gdb` is aarch64-only, so the live-GDB evidence above is aarch64-only too. x86_64's
   and riscv64's CFI is built and inspected with `llvm-objdump --dwarf=frames` (notes/cfi-unwind.md
   has the FDE listings) but not exercised against a live GDB session in this pass.
-- **The gate is a presence check, at file granularity**, stated above and repeated here because it
+- The gate is a presence check, at file granularity, stated above and repeated here because it
   is the kind of limit that is easy to forget once the check is green: it cannot confirm every
   function in a multi-function file has its own directives, or that an offset is right rather than
   merely present.

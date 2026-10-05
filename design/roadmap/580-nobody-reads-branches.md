@@ -83,7 +83,7 @@ prefix it watches. The gap is prefix, not shape: of five such branches found liv
 section says it does not watch, on purpose, because widening its pattern would also catch the
 short-lived branches its narrow scope is protecting.
 
-**4. A branch whose pull request was closed without merging.** Two found:
+4. A branch whose pull request was closed without merging. Two found:
 `maintainer/baselines-and-282` (PR #1078) and `maintainer/icount-baselines-stale` (PR #883). Both
 closed PRs carry a body and at least one comment, so the reasoning likely survives on GitHub even
 after the branch goes, but "likely" is doing real work in that sentence and `lane-claim-check.sh`
@@ -93,8 +93,8 @@ leans on, worth fixing on its own account; flagging it here is this proposal's w
 home rather than letting it die a second time in a lane report nobody re-reads, which is the exact
 failure this whole document is about.
 
-**The bystander shape: a stale draft holding real work, whose one existing report already fired and
-was ignored.** PR #1087 is not branch-without-PR (it has one, open, draft), so it is out of this
+The bystander shape: a stale draft holding real work, whose one existing report already fired and
+was ignored. PR #1087 is not branch-without-PR (it has one, open, draft), so it is out of this
 proposal's scope by definition. It earns a mention because it is the cleanest evidence available for
 the design argument below: `merge-drain.sh`'s `stale_drafts` check fired on it correctly, at
 2026-09-22T02:22:54Z, posting the comment it is built to post ("has not committed in over 75
@@ -149,20 +149,20 @@ push and draft, versus days to catch one that never will) and different actions 
 pull request, versus a person deciding whether to claim, land-and-delete, or just delete). Folding
 the second into the first risks breaking the tuning that is currently working.
 
-**Overruled 2026-09-23; see "What calef decided" above.** The risk named here was real but
+Overruled 2026-09-23; see "What calef decided" above. The risk named here was real but
 narrower than the refusal treated it: it is a risk to a *shared* threshold, not to folding the
 checks into one file. Two separate grace windows in one script, `GRACE_MINUTES` untouched for
 `milestone/*` and a new `GRACE_HOURS` for everything else, keep the 15-minute tuning exactly as it
 was measured while adding the wider sweep beside it.
 
-**A new `helpers/` watcher of the same shape**, run on the existing five-minute `launchd` cadence
+A new `helpers/` watcher of the same shape, run on the existing five-minute `launchd` cadence
 and reporting once per stall the way `merge-drain.sh`'s `notify()` already does. Refused on the
 strongest evidence available: this shape already exists for the nearest analogous case (`stale_drafts`)
 and PR #1087 shows it firing exactly on schedule and changing nothing. A fourth reporter, printing to
 a log on patagonia that nobody tails, repeats a failure this tree has already measured rather than
 fixing it.
 
-**A scheduled GitHub Actions workflow**, running independent of any session. `notes/merge-queue.md`
+A scheduled GitHub Actions workflow, running independent of any session. `notes/merge-queue.md`
 records that calef declined exactly this shape on 2026-08-26 for the analogous case, "an unattended
 scheduled agent," preferring something that "shuts down when the session driving it does" over
 "standing on a timer with nobody watching." That reasoning was about an agent empowered to *resolve*
@@ -173,7 +173,7 @@ above with GitHub Actions minutes spent to reach it. If it were extended to also
 branches unattended, that runs straight into AGENTS.md's own caution that deleting a branch destroys
 work and needs a person's judgment first.
 
-**Make it the steward's standing duty**, in prose, with no new script. Refused for a reason this
+Make it the steward's standing duty, in prose, with no new script. Refused for a reason this
 proposal does not have to argue for, because AGENTS.md already argues it: the steward tried exactly
 this shape once and the tree's own record of what happened is "it reported and never acted."
 Assigning one more duty to a role that has already failed at prose-only duties, in the same
@@ -200,17 +200,17 @@ distinction is not cosmetic: PR #1087's comment is also rung four, correctly bui
 nothing, because a PR comment and a `launchd` log are both channels nobody has a standing habit of
 rereading once the moment passes.
 
-**Two design choices aim this report at a channel that is already read**, rather than inventing one
+Two design choices aim this report at a channel that is already read, rather than inventing one
 that will not be:
 
-- **Land the output next to the check AGENTS.md already makes a session read every time.**
+- Land the output next to the check AGENTS.md already makes a session read every time.
   AGENTS.md's own merge-queue section already tells a maintainer session to read
   `gh pr list --json number,mergeStateStatus,statusCheckRollup` for `DIRTY`, `CONFLICTING`, or a
   `FAILURE` conclusion, "a standing check, same priority as keeping lanes full." Every fact this
   proposal is built on came from running commands in that same family by hand. Putting the orphan
   survey there, as one more thing that command line checks, costs a maintainer nothing new to
   remember; it extends a habit already proven to work rather than asking for a second one.
-- **Let branch age do the escalating, because it is already the only state that exists.** A branch
+- Let branch age do the escalating, because it is already the only state that exists. A branch
   that shows up in this survey unresolved does not go quiet between one session and the next; it
   shows up again, older. No counter, no database, no second file to keep synchronized with the
   branches themselves, which is the same reasoning `lane-claim-check.sh` already applies by reading
@@ -231,8 +231,8 @@ correctly. `maintainer/subscription-stays`, pushed the same session and in the s
 `capture-the-actions`, is the clean case for why the window has to exist at all: it stopped being
 orphaned on its own, gaining PR #1106, before anyone had to act on a report about it.
 
-**Judgment cost per flagged branch is small and case-dependent, which is the point of keeping the
-four shapes separate rather than a single list.** Six of the 24 (case 2) and five more (case 3) need
+Judgment cost per flagged branch is small and case-dependent, which is the point of keeping the
+four shapes separate rather than a single list. Six of the 24 (case 2) and five more (case 3) need
 no judgment at all, delete is always correct. Two (case 4) need one look at the closed pull
 request's own thread, which GitHub keeps regardless of the branch, to confirm the closure carries
 its reasoning. The remaining eleven, including the seven detailed above, are the ones actually worth
@@ -242,7 +242,7 @@ rule" would have cost instead.
 ## Threshold and action, per shape
 
 No single threshold, because no single action fits every shape. All four share one constraint:
-**the mechanism reports; a person deletes.** Nothing here is proposed to run unattended and delete
+the mechanism reports; a person deletes. Nothing here is proposed to run unattended and delete
 anything, for the reason the refused Actions-workflow option already names.
 
 | Shape | Past the 24h grace window | Action, and who decides |

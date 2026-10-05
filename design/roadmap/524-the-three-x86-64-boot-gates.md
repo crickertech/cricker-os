@@ -20,7 +20,7 @@ part that reports `CPUID.80000007H:EDX[8]`. QEMU's TCG will not, on any invocati
 work here can clear it: milestone 87 (the x86_64 bare-metal machine) is the machine, and the trigger is
 a boot there reporting the bit.
 
-**The defect was one defect.** `kernel/src/arch/x86_64/isa.rs`'s own `BUGS` said it plainly:
+The defect was one defect. `kernel/src/arch/x86_64/isa.rs`'s own `BUGS` said it plainly:
 *"Nothing is recorded or checked yet. The other two implementations gate the boot on the features
 the kernel actually uses (RISC-V refuses a firmware without the SBI extensions it calls). The x86
 equivalents worth gating on are NX, SYSCALL, and the invariant TSC; this reports and does not
@@ -82,15 +82,15 @@ qemu-system-x86_64: warning: TCG doesn't support requested feature: CPUID[eax=80
 
 and clears the bit (QEMU 11, measured 2026-09-21). It is a KVM-only feature there, because QEMU
 will not promise rate constancy across a migration it does not control. The x86_64 suite runs
-entirely under TCG, on an Apple Silicon host where KVM is not available at all, so **every x86
-machine this project can run on today reports zero**, and a refusal would refuse every boot.
+entirely under TCG, on an Apple Silicon host where KVM is not available at all, so every x86
+machine this project can run on today reports zero, and a refusal would refuse every boot.
 
 That is worth stating as a finding rather than as an obstacle: **the assumption
 `arch::x86_64::timer` had been making since the port landed is one the machine underneath has never
 promised.** The old `BUGS` entry in `timer.rs` said "QEMU's TSC is invariant". It is not, or at
 least the machine declines to say so, and nothing had ever asked.
 
-**What was built instead of a two-valued flag.** The other two architectures' feature tables carry
+What was built instead of a two-valued flag. The other two architectures' feature tables carry
 `required: bool`, and two values were enough for them. This one has three:
 
 | `Gate` | Means |
@@ -104,7 +104,7 @@ optional convenience, which is the shape of record that goes stale without anyon
 `REQUIRED` and `WARNED` are both derived from the table at compile time, so a row's `Gate` is the
 only thing anyone can get wrong, and a host test pins today's three values.
 
-**The promotion trigger** (the `BUGS`-to-roadmap convention): a boot on real silicon that reports
+The promotion trigger (the `BUGS`-to-roadmap convention): a boot on real silicon that reports
 the bit. Milestone 87 (the x86_64 bare-metal machine) is that machine, every x86 part since about 2008
 has had it, and the change is one token in one table row.
 
@@ -113,14 +113,14 @@ has had it, and the change is one token in one table row.
 **A gate that has never refused is a gate nobody has tested**, and every machine available here has
 NX and `syscall`. Both halves of the answer are in the tree.
 
-**On the host**, `crates/machine_discovery/tests/x86_64_cpu_features.rs`: the decision function
+On the host, `crates/machine_discovery/tests/x86_64_cpu_features.rs`: the decision function
 takes the `CPUID` words as an argument, so a part that does not exist can be handed to it and the
 refusal watched happening, in milliseconds and without an emulator. Nine tests, one per required
 feature cleared on its own (so a decode reading the wrong bit cannot pass by clearing everything at
 once), plus the two maximum-leaf cases, which are the rule x86 actually needs: `CPUID` has no way
 to report "I do not implement that leaf" other than answering with some other leaf's bits.
 
-**And on a real boot**, which is the stronger test and turned out to be available: QEMU can hide a
+And on a real boot, which is the stronger test and turned out to be available: QEMU can hide a
 feature from the guest.
 
 ```
@@ -156,18 +156,18 @@ On QEMU `q35`, `-cpu max`, TCG, on an Apple Silicon host, 2026-09-21:
   features    : nx syscall no-invariant-tsc rdseed
 ```
 
-**The vendor is `AuthenticAMD`**, which is not what anyone guesses about QEMU's `max` model, and
+The vendor is `AuthenticAMD`, which is not what anyone guesses about QEMU's `max` model, and
 the maximum extended leaf is `0x80000021`, well past Intel's. Both are now in the host fixture
 rather than in a guess.
 
 ## What is not done
 
-- **The gates are checked on the boot CPU only.** Every secondary replays `boot.s`'s `EFER` write
+- The gates are checked on the boot CPU only. Every secondary replays `boot.s`'s `EFER` write
   and `arch::init`'s `syscall` MSRs with nothing re-reading `CPUID`. Right on a uniform part;
   wrong on a hybrid one, where Intel's P-cores and E-cores differ in what leaf 7 reports.
   `machine_discovery::riscv64` already solves the twin problem (the intersection over every hart),
   so the shape to copy exists. Recorded in `kernel/src/arch/x86_64/isa.rs`'s `BUGS`.
-- **The invariant TSC is untested on silicon**, which is the same sentence as the promotion trigger
+- The invariant TSC is untested on silicon, which is the same sentence as the promotion trigger
   above and is why this milestone is PARTIAL rather than BUILT.
 
 ## Follow-on

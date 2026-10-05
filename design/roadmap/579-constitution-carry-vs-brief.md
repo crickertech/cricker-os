@@ -51,7 +51,7 @@ file. Using the budget as the reason would be circular: it is exactly the tempta
 
 ## The test
 
-**Does this passage need to fire when nobody is looking for it?**
+Does this passage need to fire when nobody is looking for it?
 
 - **Yes → carry.** The rule has to already be in an agent's head at the moment it would otherwise be
   violated, because nothing prompts a lookup. Most of the file is this shape: the three principles,
@@ -69,7 +69,7 @@ moves:**
    keeps it carry even though the passage reads like a procedure. Rebasing onto `main`, by contrast,
    is a task a lane names to itself before doing it, which is why `briefs/rebase-onto-main.md`
    already exists and works.
-2. **Is the failure mode already caught somewhere if the passage moves?** Either the ambient trigger
+2. Is the failure mode already caught somewhere if the passage moves? Either the ambient trigger
    survives as a short carried stub ("after a QEMU session, verify ownership before you kill
    anything, see `briefs/...`"), or a role already carries the duty elsewhere in the file (the
    steward's "cleans up behind finished work" line already commits to worktree pruning happening; the
@@ -247,8 +247,8 @@ genuine reason the split did not resolve cleanly, listed in the table.
 
 ## What could go wrong
 
-**The QEMU-hunting cut is the one most likely to be forgotten, and it is the highest-consequence
-one.** If line 908's carried stub stays exactly as written ("check `pgrep` and clean up") and the
+The QEMU-hunting cut is the one most likely to be forgotten, and it is the highest-consequence
+one. If line 908's carried stub stays exactly as written ("check `pgrep` and clean up") and the
 safe-killing mechanics move out wholesale, a lane that has not internalized "verify ownership before
 killing" from memory alone might `pkill` on sight, which is the precise failure already recorded
 here: a maintainer killed a lane's mid-suite emulator this way and that lane's run failed for a
@@ -257,8 +257,8 @@ carried stub to compress the landmine into one clause, e.g. "check `pgrep`, but 
 walk the process tree in both directions first, see `briefs/hunt-leaked-qemu.md`," so the warning
 survives even for a reader who never opens the brief.
 
-**`merge-and-cleanup.md` carries the file's worst recorded failure (zero bytes free, two lanes died
-mid-work), but the risk here is lower than the QEMU one**, because the ambient duty already survives
+`merge-and-cleanup.md` carries the file's worst recorded failure (zero bytes free, two lanes died
+mid-work), but the risk here is lower than the QEMU one, because the ambient duty already survives
 in the carried steward role definition ("cleans up behind finished work"), which commits to the
 outcome happening even if the exact commands are only in the brief. What would catch a lapse: disk
 pressure is visible (a failing write, a full volume), unlike the QEMU case, which fails silently as

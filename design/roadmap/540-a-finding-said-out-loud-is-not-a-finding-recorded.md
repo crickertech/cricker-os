@@ -19,13 +19,13 @@ agent may edit. Everything else here is either already built or a few lines.
 
 ## The hole, stated precisely
 
-`AGENTS.md` already binds a **lane**: *identified work leaves the lane in a tracked form, or the
+`AGENTS.md` already binds a lane: *identified work leaves the lane in a tracked form, or the
 merge waits*, in exactly two shapes, a proposed milestone or a recorded limitation where a reader
 meets the feature. That rule works. Milestone 448 (a refusal gets a number, a status, and a
 condition that would change it) exists because the same rule had no word for a **decision not to**,
 and the refusals that named work had nowhere to live.
 
-**There is no counterpart for the maintainer, and the maintainer is the one doing the talking.** A
+There is no counterpart for the maintainer, and the maintainer is the one doing the talking. A
 lane reports once, in writing, to one reader who is processing it. A maintainer session says dozens
 of things to calef across a day: a defect met while resolving a conflict, a gate that lied, a claim
 of a lane's that turned out to be stale, a deferral. Each is a finding with the same standing as a
@@ -47,24 +47,24 @@ The day this was raised produced at least these, none of which reached the tree 
 
 ## A second clause the same day argued for: a lane's job ends at green
 
-**A lane that has pushed a green branch is finished.** The merge queue is the maintainer's, and a
+A lane that has pushed a green branch is finished. The merge queue is the maintainer's, and a
 lane that stays alive to watch it spends frontier tokens reading a status page.
 
-Measured on 2026-09-20: one lane reported the same completed result **three times** while polling
+Measured on 2026-09-20: one lane reported the same completed result three times while polling
 CI, for about 550,000 tokens in total, and was stopped by hand. Its work had been correct and
 pushed at the first report. **Nothing in `AGENTS.md` says when a lane is done**, which is why it
 kept going: the standing instruction is that a lane continues until it needs a human or it is done,
 and "done" was never defined against the merge queue.
 
-The wording this proposes, for calef: **a lane's work ends when its branch is green and pushed and
-its report is written.** Watching a queue is the maintainer's, and a watcher on it should be a shell
+The wording this proposes, for calef: a lane's work ends when its branch is green and pushed and
+its report is written. Watching a queue is the maintainer's, and a watcher on it should be a shell
 loop or nothing.
 
 ## Two more from the same day, listed because they are still homeless
 
-- **`AGENTS.md`'s disk paragraph is out of date by a factor of four.** It names *"7.2 GB in the main
+- `AGENTS.md`'s disk paragraph is out of date by a factor of four. It names *"7.2 GB in the main
   checkout's own `target/`"* as part of the budget that took a 252 GB volume to 1.9 GB free.
-  Measured 2026-09-21: **30 GB**, and the main checkout is invisible to `git worktree list`, which
+  Measured 2026-09-21: 30 GB, and the main checkout is invisible to `git worktree list`, which
   is why nobody watches it. That file is an architect's, so this is a finding rather than an edit.
 - **One mutation survivor found by a lane that could not route it.** A lane measuring
   milestone 517 (what fraction of survivor growth arrives on touched lines) found
@@ -75,27 +75,27 @@ loop or nothing.
 
 ## What cannot be mechanised, said first
 
-**Nothing can read the conversation.** No gate can know that a maintainer said something to calef
+Nothing can read the conversation. No gate can know that a maintainer said something to calef
 and did not write it down, and a lint that hunted for finding-shaped English in reports and pull
 request bodies would be `git grep -w TODO`'s 82% false-positive rate wearing a different hat: a
 report *discussing* a limitation reads exactly like one *reporting* a new one. That was measured
 here (notes/untracked-work-sweep.md) and the conclusion has not changed.
 
-So the mechanism cannot detect a miss. **It can make the absence visible at the moment it happens**,
+So the mechanism cannot detect a miss. It can make the absence visible at the moment it happens,
 which is a different and achievable thing.
 
 ## The proposal, three parts, strongest first
 
 ### Capture, then report
 
-**Every finding in a message to calef carries the path where it lives.** A finding the maintainer
+Every finding in a message to calef carries the path where it lives. A finding the maintainer
 cannot cite a path for gets one before the message is sent, or the message says plainly that it is
 uncaptured and why.
 
 The rung this sits on is honest: it is rung four, a rule somebody has to follow. What makes it
-stronger than the rule it replaces is **who checks it and when**. Today a missed capture is
+stronger than the rule it replaces is who checks it and when. Today a missed capture is
 invisible until calef asks, hours or days later, and asking requires him to remember a thing he was
-told once. Under this rule the omission is visible **in the same message he is already reading**, as
+told once. Under this rule the omission is visible in the same message he is already reading, as
 a finding with no path after it. That converts a memory problem into a proofreading problem, and the
 reader is already there.
 
@@ -119,9 +119,9 @@ makes the inbox usable: nobody is tempted to keep the number down by not writing
 The tree cannot check that a finding was entered. It can check that what was entered does not rot.
 Two reports, on the cadence the audit and stranger workflows already run:
 
-- **Proposals past an age with no disposition.** The data is in the file's own
+- Proposals past an age with no disposition. The data is in the file's own
   `**Status: PROPOSED <date>**` line, which `helpers/roadmap_proposals.py` already parses.
-- **Refusals whose condition has come true.** Built on 2026-09-20 as `script/roadmap --revisit`, and
+- Refusals whose condition has come true. Built on 2026-09-20 as `script/roadmap --revisit`, and
   honest about its reach: only 2 of 42 conditions name a milestone at all, and it prints that
   denominator on every run.
 

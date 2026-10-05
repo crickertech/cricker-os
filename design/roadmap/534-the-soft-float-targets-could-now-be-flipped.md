@@ -18,10 +18,10 @@ calef's ruling rather than a lane's, which is what makes this a proposal.
 
 ## Why this is a proposal and not a change
 
-Every target in `targets/` is soft-float. Until 2026-09-20 that was **a correctness requirement**,
+Every target in `targets/` is soft-float. Until 2026-09-20 that was a correctness requirement,
 in the words of milestone 184 (extend the `std` port to x86_64), because `kernel/src/arch/x86_64/`
 saved no FPU or SSE state on a context switch and neither did the other two architectures.
-Milestone 447 built the save, on all three, so the feature strings are now a **choice**.
+Milestone 447 built the save, on all three, so the feature strings are now a choice.
 
 Taking that choice is not a lane's. Turning `+soft-float` off changes the calling convention for
 every userspace binary and every `std` crate built against it, which is an ABI two programs agree
@@ -41,20 +41,20 @@ Four edits and a rebuild.
    the 2026-08-18 cross-contamination that makes that a rule rather than a courtesy.
 4. Rebuild every user program and every archive.
 
-**The kernel stays `softfloat`, and should.** A kernel that emitted FP into its own fastpath would
+The kernel stays `softfloat`, and should. A kernel that emitted FP into its own fastpath would
 pay the register-file save on every switch instead of only on the switches of threads that asked
 for the unit, which is the whole of 447's cost argument.
 
 ## What it would buy, honestly accounted
 
-- **Seven flags disappear, and this line was wrong when it was written.** It said there was one,
+- Seven flags disappear, and this line was wrong when it was written. It said there was one,
   `--cfg aes_force_soft` in `.cargo/config.toml`'s `[target.x86_64-unknown-none]` block, and that
   `grep` found no other. That was true of the commit this lane branched from and false of `main`
   within the hour: milestone 442 (a crypto provider `rustls` can use on all three bare-metal
   targets) landed `cryptography_provider`, which carries a `force-soft` feature on `sha2` and five
   `--cfg` flags selecting portable implementations. Corrected 2026-09-20 by the integrator.
 
-  **The correction is worth more than the count.** A lane measures the tree it branched from, and a
+  The correction is worth more than the count. A lane measures the tree it branched from, and a
   claim of the form "grep finds no other" is a statement about a moment. This one went stale before
   its own pull request merged, which is the hazard every block asserting an absence carries.
 - **But not all seven, and this is the sharpest thing 447 can say about the flip.** 447 saves the
@@ -62,14 +62,14 @@ for the unit, which is the whole of 447's cost argument.
   `CR4.OSXSAVE` stays clear and that is precisely what makes every VEX-encoded instruction `#UD`
   rather than a silent corruption (447's `arch/x86_64/fp.rs` carries this as its first `BUGS`
   entry). `cryptography_exerciser/.cargo/config.toml` says `chacha20_force_soft` is there for a
-  **run-time** reason where the others are compile-time ones: `chacha20` "compiles fine and then
+  run-time reason where the others are compile-time ones: `chacha20` "compiles fine and then
   executes an AVX2 instruction in ring 3", and the program "dies with `vector 6 (invalid opcode)`
-  before it prints a byte". Flipping the targets does not change that one byte. **A crate that picks
+  before it prints a byte". Flipping the targets does not change that one byte. A crate that picks
   its implementation by asking the CPU rather than by asking the compiler stays a hazard after the
-  flip**, and `chacha20_force_soft` stays with it until this kernel grows an `xsave` path and sets
+  flip, and `chacha20_force_soft` stays with it until this kernel grows an `xsave` path and sets
   `XCR0`. Anyone pricing the flip should count the flags it retires, not the flags that exist.
-- **AES-NI instead of a bitsliced software backend**, roughly an order of magnitude by upstream
-  RustCrypto's own figures. **Still unmeasured, and 164's refusal to measure it still stands**:
+- AES-NI instead of a bitsliced software backend, roughly an order of magnitude by upstream
+  RustCrypto's own figures. Still unmeasured, and 164's refusal to measure it still stands:
   nothing on x86_64 mounts an encrypted RedoxFS volume, so there is no workload and a synthetic
   number would be a fact leaving the machine with nothing behind it. What 447 changed is that the
   number is obtainable rather than blocked.
@@ -84,26 +84,26 @@ for the unit, which is the whole of 447's cost argument.
 ## What it would cost
 
 Every thread that executes an FP instruction takes one trap and then saves and restores the whole
-register file on **every subsequent switch for the rest of its life**, because 447's `live` flag
+register file on every subsequent switch for the rest of its life, because 447's `live` flag
 never clears (its first `BUGS` entry). Today that costs nothing, because no thread in this tree has
 ever taken the trap and `crate::fp::ENABLES` is zero on every boot. A hard-float userspace means
-`memcpy`, `std` formatting and anything LLVM feels like vectorising will take it, so **most threads
-become live and 447's common case stops being common**. 512 bytes each way per switch, against a
+`memcpy`, `std` formatting and anything LLVM feels like vectorising will take it, so most threads
+become live and 447's common case stops being common. 512 bytes each way per switch, against a
 switch that costs about 565 instructions on aarch64 today.
 
 Nothing measures that, and nothing can until there is a hard-float userspace to run.
 
 ## The two measurements that should come first, and neither needs the decision made
 
-1. **Re-measure 442's soft-float failures against nife's own targets.** Its block
+1. Re-measure 442's soft-float failures against nife's own targets. Its block
    records that `sha2` and `polyval` "fail on soft-float x86_64", met through `embedded-tls`, and in
    the next sentence warns that the probe behind that finding "ran against stock bare targets on the
-   stable host toolchain, not against nife's own target specifications and pinned nightly". **442
-   has since done exactly that and is BUILT**: `script/crypto-probes` measures against
+   stable host toolchain, not against nife's own target specifications and pinned nightly". 442
+   has since done exactly that and is BUILT: `script/crypto-probes` measures against
    `targets/*-unknown-nife.json`, and the answer was that those crates do build here, with the
    force-soft flags above. So this item is closed rather than owed, and what it hands the flip is
    the concrete list of seven flags, not an unknown.
-2. **Price a live thread's switch.** Build one user program hard-float against a scratch target
+2. Price a live thread's switch. Build one user program hard-float against a scratch target
    (not the committed ones), run `script/bench`'s `yield_switch` and `ctx_switch` with it in the
    mix, and report what a switch costs when both threads are `live`. That turns the paragraph above
    from an argument into a number, and it is the number the flip is actually deciding.

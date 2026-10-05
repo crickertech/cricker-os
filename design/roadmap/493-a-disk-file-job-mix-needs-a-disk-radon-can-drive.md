@@ -21,9 +21,9 @@ The first blocker is a block driver for radon; the second is
 a change to how the file service shares memory with its clients, which is a wire agreement between
 two programs and so is an architect's call rather than a lane's.
 
-**In brief.** Milestone 168's mix now covers AIM7's compute, user-memory, pipe, page-mapping and process-creation
+In brief. Milestone 168's mix now covers AIM7's compute, user-memory, pipe, page-mapping and process-creation
 categories (see its block). The disk-file category is the one left, and the proposal that asked for it
-(absorbed into 168's block on 2026-09-19) said it should be **a second mix**, so a run without a disk
+(absorbed into 168's block on 2026-09-19) said it should be a second mix, so a run without a disk
 stays comparable with one that has. That shape is still right. What stops it is below, checked
 against the tree rather than assumed.
 
@@ -37,7 +37,7 @@ because only QEMU attaches a controller (`notes/visionfive2.md`, the milestone 1
 or eMMC driver exists. So a disk mix built today would run only under QEMU, and **no QEMU number is a
 result** for this instrument (milestone 168's gate). It would be a job whose only output is fiction.
 
-**2. The file service shares one channel among all its clients.** `fs_service::ensure` wires one
+2. The file service shares one channel among all its clients. `fs_service::ensure` wires one
 FS server with one contiguous file channel (`file_channel()`, `filesystem_protocol::fs::TRANSFER_PAGES`
 pages) and `spawn_fs_client` maps that **same** channel into every client. That is safe today because
 each client is started one at a time by a test and every request is a blocking `CALL`. It is not
@@ -46,19 +46,19 @@ task B overwrites it before A's `CALL` is served. The job would measure a data r
 
 ## The options
 
-1. **One FS server and one disk per task.** No protocol change: `wire_servers` already knows how to
+1. One FS server and one disk per task. No protocol change: `wire_servers` already knows how to
    build a second server on a second disk (`start_crash` does). Costs 32 disks and 32 servers at the
    top of the sweep, which measures 32 independent filesystems rather than contention on one, and
    AIM7's disk jobs contend on one filesystem. Cheap to build, wrong shape.
-2. **A channel per client on one server.** The FS server accepts a per-client channel at connect
+2. A channel per client on one server. The FS server accepts a per-client channel at connect
    (for example, a client grants its own frame on its first request), so N clients contend on one
    server and one disk, which is the AIM7 shape. Costs a `filesystem_protocol` change, which every
    file client in the tree speaks. This is the fork.
-3. **Serialise file jobs in the mix** behind a lock held across the request. Refused: it turns the
+3. Serialise file jobs in the mix behind a lock held across the request. Refused: it turns the
    one category that should show kernel blocking under load into a queue the workload itself
    builds, and the number would measure the lock.
 
-**Recommendation: none, deliberately**, because option 2 is a wire format and AGENTS.md
+Recommendation: none, deliberately, because option 2 is a wire format and AGENTS.md
 says an irreversible fork arrives with options rather than a winner. What can be said
 is that option 1's lower cost is no argument for it: at equal cost it still loses, on the shape
 reason above.
@@ -66,8 +66,8 @@ reason above.
 ## Why it matters for fatal risk 4
 
 `design/fatal-risks/README.md`'s risk 4 is decided by milestone 168's sweep on radon. Two of the three jobs
-that block deep in a kernel path (map and spawn) are now in the mix; the file job is the third. **A
-flat curve without it is still evidence**, weaker than a flat curve with it, and milestone 168's
+that block deep in a kernel path (map and spawn) are now in the mix; the file job is the third. A
+flat curve without it is still evidence, weaker than a flat curve with it, and milestone 168's
 block says so where the verdict will be read. Nothing here blocks the first bench evening.
 
 ## What is blocked until it is answered

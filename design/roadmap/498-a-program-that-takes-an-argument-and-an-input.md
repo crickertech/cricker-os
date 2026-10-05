@@ -23,7 +23,7 @@ is cheap to carry out.
 
 ## In brief
 
-**The question:** may a program's manifest declare `ArgSpec::Required` together with
+The question: may a program's manifest declare `ArgSpec::Required` together with
 `InputSpec::Required`, so that `nth 21 report.txt` runs `nth` with the integer 21 and `report.txt`
 streamed into it?
 
@@ -34,13 +34,13 @@ plans exactly that line and gets a clean grant). The one thing that used to brea
 milestone 150 taught that sweep to supply every operand the manifest asks for, so **adding such a
 program no longer needs an edit anywhere outside its own declaration**.
 
-**What is left is whether the combination is wanted**, and that is the call this asks for.
+What is left is whether the combination is wanted, and that is the call this asks for.
 
 ## Why it is a question at all
 
 Milestone 117's fifth stranger picked the combination deliberately, as the one manifest shape nothing
 had used, and hit the swish sweep. `notes/adding-a-program.md` then recorded it as open because the
-planner's comment ruled out the neighbouring case, **a file together with an input**, and said
+planner's comment ruled out the neighbouring case, a file together with an input, and said
 nothing about this one. The 2026-08-22 correction established by test that the two are not
 analogous: `FileSpec` and `InputSpec` both take a bare name, so a manifest with both would leave the
 parser two indistinguishable positions, while an argument is numeric-shaped and claims position 0
@@ -48,21 +48,21 @@ before the input's bare-name fallback looks at what remains.
 
 ## Options
 
-1. **Allow it, as today.** Nothing to build. A program like `head 5 report.txt` or `nth 21
+1. Allow it, as today. Nothing to build. A program like `head 5 report.txt` or `nth 21
    report.txt` is one declaration. The cost is that the positional grammar grows a third shape
    (`arg`, `arg file`, `arg input`) before milestone 47's deferred positional-arity work has decided
    what the general grammar is, so that work inherits one more case to stay compatible with.
-2. **Refuse it at declaration**, the way the tree treats file-plus-input. A host test in
+2. Refuse it at declaration, the way the tree treats file-plus-input. A host test in
    `grant_plan` (about twenty lines, beside the one milestone 150 added for file-plus-input) fails on
    any manifest declaring both, with the reason written where the next person meets it. The planner
    code that composes them stays, unreached. Reversal later is deleting the test.
-3. **Defer to milestone 47's positional arity**, recording that the combination waits on that
+3. Defer to milestone 47's positional arity, recording that the combination waits on that
    widening. In practice this is option 2 with a pointer, since nothing would be refused or allowed
    differently until 47 lands.
 
 ## Recommendation
 
-**Option 1**, because it is reversible and it is already true: no program declares the combination,
+Option 1, because it is reversible and it is already true: no program declares the combination,
 so refusing it later costs nothing and nobody has acted on its being allowed. It is also the shape
 Unix users will reach for first (`head -n 5 file` is the everyday case), and the planner already gets
 it right without special-casing.

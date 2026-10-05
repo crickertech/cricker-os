@@ -15,7 +15,7 @@ rung four again.
 
 Everything it needs is in `crates/filesystem_protocol` and a `macro_rules!`.
 
-**It is the last proposal this tree will ever carry, by about four hours.** The lane wrote it under
+It is the last proposal this tree will ever carry, by about four hours. The lane wrote it under
 `design/roadmap/proposals/` because it branched before calef abolished that directory the same
 evening (milestone 433, decision §140), and could not know. The integrator numbered it at merge,
 which is what the new rule says a lane's provisional number saves everyone from doing by hand.
@@ -28,13 +28,13 @@ The in-QEMU confinement tests report their outcome as a bitmask. `fixture::navsc
 `fixture::twodir` 6, each declared as `pub const NAME: u64 = 1 << n;` and each module carrying an
 `EXPECTED` constant that ors together the ones a correct run reports.
 
-**A bit that is zero is a probe that reports nothing while its boot passes.** Nothing in the
+A bit that is zero is a probe that reports nothing while its boot passes. Nothing in the
 declaration stops two bits sharing an `n`, and nothing stops a constant being wrong. What stands
-between the tree and that is one host test per module, each a **hand-written list of the module's
-names**, checked for distinctness and non-zero.
+between the tree and that is one host test per module, each a hand-written list of the module's
+names, checked for distinctness and non-zero.
 
-**The list is rung four of AGENTS.md's ladder and it has failed twice in the one module that logs
-it.** `the_navigation_bits_are_distinct`'s own body carries this comment, written on 2026-08-24:
+The list is rung four of AGENTS.md's ladder and it has failed twice in the one module that logs
+it. `the_navigation_bits_are_distinct`'s own body carries this comment, written on 2026-08-24:
 
 > These six were added after this list was last touched (touch's create half on 2026-08-22, its
 > mtime half on 2026-08-24) and neither addition updated it; adding them now rather than leaving
@@ -49,7 +49,7 @@ five of its six bits could each be zero, two of them the structural finding
 
 ## What to build
 
-**A declaration macro, so the list cannot be separate from the constants.** Something of this shape,
+A declaration macro, so the list cannot be separate from the constants. Something of this shape,
 in `crates/filesystem_protocol`:
 
 ```rust
@@ -67,7 +67,7 @@ position, plus `pub const ALL: &[(&str, u64)]` naming them. Then one generic tes
 `ALL`, and **a bit that is not in the list cannot exist**, because the list is where bits come from.
 That is rung one for the numbering (a position cannot collide with itself) and rung two for the rest.
 
-**The names stay exactly as they are.** This is a change to how they are written down, not to what
+The names stay exactly as they are. This is a change to how they are written down, not to what
 they are called; every constant keeps its spelling, its doc comment and its value, and `EXPECTED`
 keeps being written by hand because which bits a correct run reports is a claim rather than a
 derivation.
@@ -80,7 +80,7 @@ derivation.
 - **It does not reach the other crates.** `crates/swish` and the kernel's own test vocabularies have
   bit sets of the same shape; whether the macro should live somewhere both can reach is a question
   for whoever takes this, and putting it in `filesystem_protocol` first is the cheaper start.
-- **A macro is a thing to read**, and AGENTS.md's elegance tenet refuses machinery for tidiness. The
+- A macro is a thing to read, and AGENTS.md's elegance tenet refuses machinery for tidiness. The
   argument for this one is that it *removes* a thing to remember rather than adding an abstraction:
   six hand-maintained lists become zero.
 
@@ -93,7 +93,7 @@ no such block, and the reason is only that they are constants rather than a tabl
 
 ## BUGS
 
-- **It cannot be gated into existence.** A module that declines the macro and writes its constants
+- It cannot be gated into existence. A module that declines the macro and writes its constants
   by hand compiles fine, and a lint that looked for `1 << n` in a `fixture` module would have to
   know which ones are witness bits and which are ordinary flags. So this is rung one for the modules
   that adopt it and rung zero for a module that does not, which is worth knowing before anyone calls
