@@ -227,7 +227,7 @@ fn launch(image: &elf::Elf, plan: &component_plan::Plan, bay: u64, faultep: u64,
 
 /// Wait for one death and collect it, so the instance's region comes home to the budget.
 fn collect(faultep: u64) {
-    let (_event, tid, _pc, _addr, _) = receive_fault(faultep);
+    let (_event, tid, _pc, _addr, _, _) = receive_fault(faultep);
     if user_mode_runtime::reap(faultep, tid) != 0 {
         fail()
     }

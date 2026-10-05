@@ -161,7 +161,7 @@ pub extern "C" fn _start(_a0: u64, initrd_len: u64, _a2: u64) -> ! {
 
         // Block until the child dies, one way or the other. All five words, because the fourth is the
         // faulting address and this is the program that cares where the C code pointed.
-        let (event, tid, pc, addr, _reserved) = receive_fault(faultep);
+        let (event, tid, pc, addr, ..) = receive_fault(faultep);
         send(REPORT, c_seam::RPT_DEATH, tid, event);
         send(REPORT, c_seam::RPT_SITE, pc, addr);
         send(
@@ -190,7 +190,7 @@ pub extern "C" fn _start(_a0: u64, initrd_len: u64, _a2: u64) -> ! {
 
     // Park rather than exit, so we do not become a death of our own for somebody else to handle.
     loop {
-        let (event, tid, pc, addr, _) = receive_fault(faultep);
+        let (event, tid, pc, addr, ..) = receive_fault(faultep);
         send(REPORT, c_seam::RPT_DEATH, tid, event);
         send(REPORT, c_seam::RPT_SITE, pc, addr);
     }

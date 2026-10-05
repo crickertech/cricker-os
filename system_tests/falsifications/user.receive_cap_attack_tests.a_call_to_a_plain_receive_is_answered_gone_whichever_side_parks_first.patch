@@ -27,20 +27,24 @@ which moved each thread's capability table behind its own lock: the delivery now
 `deliver_capability`, so the old hunk no longer matched. Same removals, same defect.
 Replayed red on aarch64 the same day, at the receiver-first assertion this record predicts.
 
+Re-cut 2026-10-05 (UTC) by milestone 105 (the two forks)'s lane, because `collected_without_serving`
+grew the death message's label hand-over and the first hunk stopped applying. The defect is
+unchanged; replayed red on aarch64 at the receiver-first assertion this record predicts.
+
 diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
 --- a/kernel/src/sched.rs
 +++ b/kernel/src/sched.rs
-@@ -3853,9 +3853,6 @@ fn call_meets_plain_receive(
- fn collected_without_serving(sched: &mut IpcTables, sender: ThreadId) {
-     if sched.threads.get(sender).unwrap().handshake.state == State::Dead {
-         sched.threads.get_mut(sender).unwrap().handshake.wait_on = None;
+@@ -3872,9 +3872,6 @@
+         corpse.handshake.wait_on = None;
+         let label = corpse.fault_label;
+         hand_over_label(sched.threads.get(current_thread_id()).unwrap(), label);
 -    } else {
 -        set_ipc_aborted(sched, sender);
 -        wake(sched, sender);
      }
  }
  
-@@ -4147,12 +4144,6 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3]
+@@ -4198,12 +4195,6 @@
                  let receiver = unsafe { (*receiver.as_ptr()).id };
                  // A server is parked in RECEIVE_CAP: hand it the reply cap and the two words now.
                  let (r, caps) = sched.threads.get_mut_with_capabilities(receiver).unwrap();

@@ -679,6 +679,16 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 ///
 /// Raising or lowering it is a decision, not a formality: read the `[that test kept N frames]`
 /// lines the run prints, find who grew or shrank, and be able to say why.
+///
+/// # BUGS
+///
+/// A test that calls `sched::create_rendezvous` costs the suite a page for good. That function
+/// carves from the kernel's own rendezvous pool, which grows in 32-page chunks and never frees one,
+/// so the ledger moves in steps of +32, charged to whichever later test crosses the boundary and
+/// usually one that looks unrelated. It has tripped this budget at least twice: #1647 (the NVMe
+/// escape test's report endpoint) and #1659 (the label tests of milestone 105 (the two forks)). The
+/// workaround is to carve a test's endpoints with `sched::create_rendezvous_from` from a region the
+/// test owns and reclaim it after the threads that held them, as `system_log_tests` does.
 const SUITE_PAGE_FRAME_BUDGET: usize = 26_745;
 
 /// **The longest run of free frames the boot must still have at the end**, in frames.

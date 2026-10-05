@@ -981,6 +981,22 @@ pub mod fault {
     /// `RECEIVE` returns w0 in the syscall's result register and w1..w4 in the next four argument
     /// registers. Ordinary three-word IPC leaves w3 and w4 zero, so a supervisor is the only
     /// receiver that reads them.
+    ///
+    /// **A sixth word, the label, rides beside the five** (milestone 105 (the two
+    /// forks), DECISIONS §148 (resolves by asking the kernel) as amended 2026-10-04, ruling R3):
+    ///
+    /// ```text
+    ///   r5  label    the badge the builder put on the child's supervision capability with
+    ///                rendezvous::BADGE before inserting it in FAULT_EP_SLOT; 0 if it was unbadged
+    /// ```
+    ///
+    /// `r5` is argument register 5: `x5` on aarch64, `a5` on riscv64, `r9` on `x86_64`. The kernel
+    /// keeps the badge when `START` consumes the slot and writes it there on a death delivered to a
+    /// plain `RECEIVE`, and on nothing else, so ordinary IPC stores no extra word. A receiver that
+    /// wants `0` to mean "not a kernel-stamped death" zeroes the register before the `RECEIVE`, as
+    /// `user_mode_runtime::receive_fault` does. The child never holds a capability carrying its
+    /// label, and the badge on a capability a sender uses arrives in `w3`, never in `r5`, so a
+    /// label can be neither learned nor forged by the child it names.
     pub const EVENT_FAULT: u64 = 1;
     /// `w0`: the thread called `exit` (or was reaped), rather than faulting.
     pub const EVENT_EXIT: u64 = 2;

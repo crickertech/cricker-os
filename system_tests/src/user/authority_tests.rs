@@ -8,6 +8,13 @@ const REPORT_SERVER_RAN: u64 = 2;
 const REPORT_SUP_SAW_DEATH: u64 = 3;
 const REPORT_SUP_GAVE_UP: u64 = 4;
 const REPORT_FAILED: u64 = 9;
+/// `sub_server_supervisor`'s two children: the label it gives each, and the attempt each starts
+/// at. Mirrors `supervision_protocol::SUB_SERVER_LABELS` (milestone 105 (the two forks)). The first starts at the
+/// attempt `flaky` crashes on and the second at one it finishes, so the two must be told apart for
+/// the right one to be restarted.
+const LABEL_CRASHES: u64 = 0x1abe_0a01;
+const LABEL_FINISHES: u64 = 0x1abe_0b02;
+const FIRST_ATTEMPT_FINISHES: u64 = 10;
 
 /// Pages in `root_supervisor`'s construction budget. It builds two servers out of this, splits the
 /// spawner's budget from it, and then deletes it; the spawner's split is the only memory the tree
@@ -90,11 +97,12 @@ fn spawn_tree() -> sched::RendezvousId {
     report
 }
 
-/// How many reports a healthy run of the tree makes: the progenitor's drop, the first instance running, its
-/// crash reaching the supervisor, the replacement running, and the replacement's clean exit
-/// reaching the supervisor. Exactly five, which is itself an assertion: a sixth would mean the
-/// supervisor restarted something it should have left finished, or a tier-one server died.
-const EXPECTED_REPORTS: usize = 5;
+/// How many reports a healthy run of the tree makes: the progenitor's drop; the crashing child's first
+/// instance running, its crash reaching the supervisor, its replacement running, and the
+/// replacement's clean exit reaching the supervisor; and the finishing child running once and its
+/// clean exit reaching the supervisor. Exactly seven, which is itself an assertion: an eighth would
+/// mean the supervisor restarted something it should have left finished, or a tier-one server died.
+const EXPECTED_REPORTS: usize = 7;
 
 /// **Run one tree from spawn to quiescence**, returning every report it made.
 ///
@@ -104,7 +112,7 @@ const EXPECTED_REPORTS: usize = 5;
 /// (`destroy_force_kills_a_runaway` counts threads before and after). A test that leaves work
 /// running is a test that fails somebody else.
 ///
-/// The order of the five is not fixed (the progenitor's drop races the sub-server's first run), so callers
+/// The order of the seven is not fixed (the progenitor's drop races the sub-server's first run), so callers
 /// filter by kind; within a kind the order is causal and asserted.
 fn run_tree() -> [[u64; 5]; EXPECTED_REPORTS] {
     let report = spawn_tree();
@@ -180,56 +188,91 @@ fn init_drops_its_construction_authority_and_cannot_build_again() {
 /// **A dead sub-server is restarted by its own supervisor, in userspace, and the progenitor cannot have
 /// helped.**
 ///
-/// The sequence: the sub-server runs as attempt 0 and crashes on a load from an unmapped address;
-/// its supervisor receives the kernel's fault message, reaps the corpse through the spawner (§16
-/// revocation), and asks for attempt 1; attempt 1 runs and exits cleanly; the supervisor reads
-/// EXIT as "finished" and does **not** restart it again. Every decision in that paragraph is code
-/// in an unprivileged process that holds no memory at all, and the kernel's whole contribution is
-/// one message.
+/// The sequence, for the child the supervisor starts at attempt 0: it crashes on a load from an
+/// unmapped address; its supervisor receives the kernel's fault message, reaps the corpse (§32 (a supervisor may collect a corpse)), and
+/// asks for attempt 1; attempt 1 runs and exits cleanly; the supervisor reads EXIT as "finished" and
+/// does **not** restart it again. Every decision in that paragraph is code in an unprivileged
+/// process that holds no memory at all, and the kernel's whole contribution is one message per death.
 ///
 /// **How "without the progenitor's involvement" is proven, and why it is not a timing argument.** The progenitor has
 /// no construction authority by then: it deleted its untyped, and the companion test above
 /// confirms it can no longer use it. A process that cannot retype a page cannot have built the
 /// replacement. Authority, not scheduling order, is the evidence.
+///
+/// **It is also where the real tree proves labels** (milestone 105). `sub_server_supervisor` has two
+/// children on one endpoint, identical programs told nothing but an attempt number; one crashes and
+/// one finishes, and it restarts by label alone. The check lives here rather than in a test of its
+/// own because every `run_tree` leaves a parked tree of about 1,100 frames for the rest of the suite,
+/// and a third would put the suite over `SUITE_PAGE_FRAME_BUDGET`, which CI measured on 2026-10-05.
+/// Dropping the label fails this in `run_tree` (stage 23), not at an assertion below, so the kernel
+/// claim's falsification lives in `supervision_tests::a_supervisor_tells_two_dead_children_apart_by_label`.
 #[test_case]
 fn a_dead_sub_server_is_restarted_by_its_supervisor_not_by_init() {
     let msgs = run_tree();
 
-    let mut ran = of_kind(&msgs, REPORT_SERVER_RAN);
-    let first = ran.next().expect("the sub-server never ran at all");
-    assert_eq!(first[1], 0, "the first instance should be attempt 0");
-    let second = ran
-        .next()
-        .expect("the crashed sub-server was never restarted");
+    let attempts = |n: u64| {
+        of_kind(&msgs, REPORT_SERVER_RAN)
+            .filter(|m| m[1] == n)
+            .count()
+    };
     assert_eq!(
-        second[1], 1,
-        "the replacement was not started as attempt 1: the supervisor's restart policy did not \
-         run, or ran with the wrong state",
+        attempts(0),
+        1,
+        "the crashing child's first instance should run once"
     );
-    assert!(
-        ran.next().is_none(),
-        "a third instance ran: the supervisor restarted a server that had finished",
+    assert_eq!(
+        attempts(1),
+        1,
+        "the crashed sub-server was not restarted as attempt 1 exactly once: the supervisor's \
+         restart policy did not run, or ran with the wrong state",
+    );
+    assert_eq!(
+        of_kind(&msgs, REPORT_SERVER_RAN).count(),
+        3,
+        "an unexpected instance ran: the supervisor restarted a server that had finished",
     );
 
-    let mut deaths = of_kind(&msgs, REPORT_SUP_SAW_DEATH);
-    let crash = deaths.next().expect("the supervisor saw no death");
+    let mut crashing = of_kind(&msgs, REPORT_SUP_SAW_DEATH).filter(|m| m[1] == LABEL_CRASHES);
+    let crash = crashing.next().expect("the supervisor saw no death");
     assert_eq!(
         crash[2],
         abi::fault::EVENT_FAULT,
         "the crash should reach the supervisor as a FAULT event",
     );
-    assert_ne!(
-        crash[1], 0,
-        "the fault message carried no tid: the supervisor cannot tell who died",
-    );
     // The other half of §26's "both events flow": a clean exit must arrive as EXIT, because that
     // is what lets a userspace policy tell "finished" from "crashed" without guessing.
-    let finished = deaths
+    let finished = crashing
         .next()
         .expect("the replacement's clean exit never reached the supervisor");
     assert_eq!(
         finished[2],
         abi::fault::EVENT_EXIT,
         "attempt 1 exited cleanly, so the supervisor must see EXIT, not FAULT",
+    );
+    assert!(
+        crashing.next().is_none(),
+        "the crashing child died more than twice under its label",
+    );
+
+    // The supervisor told its two children apart by label alone (milestone 105, §148 (resolves by
+    // asking the kernel) as amended). The finishing child, whose first attempt was 10, must have
+    // run once and died once under its own label. A supervisor that confused the two would have
+    // restarted it.
+    let mut finishing = of_kind(&msgs, REPORT_SUP_SAW_DEATH).filter(|m| m[1] == LABEL_FINISHES);
+    assert_eq!(
+        finishing.next().map(|m| m[2]),
+        Some(abi::fault::EVENT_EXIT),
+        "the finishing child's clean exit did not arrive under its label",
+    );
+    assert!(
+        finishing.next().is_none(),
+        "the finishing child died more than once"
+    );
+    assert_eq!(
+        of_kind(&msgs, REPORT_SERVER_RAN)
+            .filter(|m| m[1] == FIRST_ATTEMPT_FINISHES)
+            .count(),
+        1,
+        "the finishing child ran other than once: the supervisor confused it with the one that crashed",
     );
 }

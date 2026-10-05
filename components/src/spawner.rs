@@ -38,7 +38,7 @@
 // builds nothing, the supervisor holds no memory), so the unused halves are expected, not dead. This
 // is the one shape where a blanket allow is the honest one: no single binary uses all of it (§38).
 use supervision_protocol::{ChildEndowment, REP_BUILT, REP_FAILED, REQ_BUILD, Retention};
-use user_mode_runtime::{cap_delete, receive, send};
+use user_mode_runtime::{badge, cap_delete, receive, send};
 
 /// The capabilities `root_supervisor` endowed us with, in order.
 const REQ: u64 = 0; // READ: build/reap requests arrive here
@@ -63,10 +63,10 @@ pub extern "C" fn _start(_a0: u64, image_len: u64, _a2: u64) -> ! {
     };
 
     loop {
-        let (operation, arg, _w2) = receive(REQ);
+        let (operation, attempt, label) = receive(REQ);
         match operation {
             REQ_BUILD => {
-                let ok = build(&elf, arg);
+                let ok = build(&elf, attempt, label);
                 send(REP, if ok { REP_BUILT } else { REP_FAILED }, 0, 0);
             }
             _ => {
@@ -79,11 +79,30 @@ pub extern "C" fn _start(_a0: u64, image_len: u64, _a2: u64) -> ! {
 /// Build one instance in its own region, endowed with a report endpoint and its supervision endpoint,
 /// started with `attempt` in its second argument register.
 ///
+/// **`label` is stamped on the supervision capability, not handed to the child** (milestone 105 (the two
+/// forks), DECISIONS §148 (resolves by asking the kernel) as amended 2026-10-04). We mint a badged copy of our supervision endpoint, insert
+/// that copy in the child's fault slot, and delete ours. `START` consumes the slot, the kernel keeps
+/// the badge, and it comes back to the supervisor with the child's death message. The child holds
+/// no capability carrying it and is started with nothing but `attempt`, so it cannot learn which
+/// label it has, and a label is not a thing it could lie about.
+///
 /// We keep nothing afterwards, and there is nothing left for us to keep: the TCB capability is not
 /// the thread (dropping it leaves the thread running), and since §32 the region capability is not the
 /// reap either. The supervisor collects the corpse through its supervision endpoint, and these pages
 /// come back to this budget when it does.
-fn build(elf: &elf::Elf, attempt: u64) -> bool {
+fn build(elf: &elf::Elf, attempt: u64, label: u64) -> bool {
+    let labelled = badge(CHILDFAULT, label);
+    if labelled < 0 {
+        return false; // a zero label, which BADGE refuses, or a full capability table
+    }
+    let labelled = labelled as u64;
+    let built = build_labelled(elf, attempt, labelled);
+    cap_delete(labelled);
+    built
+}
+
+/// [`build`] with the labelled supervision capability already minted in slot `fault`.
+fn build_labelled(elf: &elf::Elf, attempt: u64, fault: u64) -> bool {
     let Ok(region) = supervision_protocol::memory_region_split(BUDGET, INSTANCE_PAGES) else {
         return false;
     };
@@ -95,7 +114,7 @@ fn build(elf: &elf::Elf, attempt: u64) -> bool {
             caps: &[(REPORT, abi::rights::WRITE)],
             maps: &[],
             blobs: &[],
-            fault: Some(CHILDFAULT),
+            fault: Some(fault),
             ..ChildEndowment::new(Retention::Nothing)
         },
     ) else {

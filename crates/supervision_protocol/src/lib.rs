@@ -118,7 +118,11 @@ use user_mode_runtime::{cap_delete, invoke};
 pub const REPORT_INIT_DROPPED: u64 = 1;
 /// A sub-server instance ran. `w1` = which attempt it is (0 = the original, 1+ = a restart).
 pub const REPORT_SERVER_RAN: u64 = 2;
-/// The sub-server's supervisor saw its child die. `w1` = tid, `w2` = the event (fault or exit).
+/// The sub-server's supervisor saw one of its children die. `w1` = the child's label (one of
+/// [`SUB_SERVER_LABELS`]) as the kernel delivered it with the death message, `w2` = the event
+/// (fault or exit). `root_supervisor` reports its own children's deaths under the same kind, with
+/// the tid in `w1`, because it labels nobody. *(The label in `w1` is milestone 105 (the two forks)'s; it
+/// was the tid until then.)*
 pub const REPORT_SUP_SAW_DEATH: u64 = 3;
 /// The supervisor's retry budget ran out; its policy is to stop. `w1` = restarts attempted.
 pub const REPORT_SUP_GAVE_UP: u64 = 4;
@@ -138,8 +142,24 @@ pub const REPORT_FAILED: u64 = 9;
 // spawner had to invent to name an instance the kernel names by tid.
 // ===========================================================================================
 
-/// `send(req, REQ_BUILD, attempt, 0)` -> `(REP_BUILT, 0, 0)` or `(REP_FAILED, 0, 0)`.
+/// `send(req, REQ_BUILD, attempt, label)` -> `(REP_BUILT, 0, 0)` or `(REP_FAILED, 0, 0)`. The
+/// spawner starts the child with `attempt` in its second argument register and stamps `label` on
+/// its supervision capability (milestone 105), so the kernel hands `label` back with its death
+/// message. `label` must be nonzero, because `rendezvous::BADGE` refuses zero; the child is never
+/// told it.
 pub const REQ_BUILD: u64 = 1;
+
+/// **The labels `sub_server_supervisor` gives its two children, and the attempt each starts at**
+/// (milestone 105, DECISIONS §148 (resolves by asking the kernel) as amended 2026-10-04; name
+/// provisional). The supervisor
+/// tells its children apart by nothing else. The first starts at attempt 0, which `flaky` crashes
+/// on; the second at attempt 10, which it finishes cleanly. So a supervisor that confused the two
+/// would restart the wrong one, which is what makes the difference observable. Mirrored in the
+/// kernel's `authority_tests`.
+///
+/// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). Plural because it holds both children's labels and their
+/// first attempts; `CHILD_LABELS` was considered and is less specific about whose children.
+pub const SUB_SERVER_LABELS: [(u64, u64); 2] = [(0x1abe_0a01, 0), (0x1abe_0b02, 10)];
 
 /// Reply code: the build succeeded.
 pub const REP_BUILT: u64 = 1;
