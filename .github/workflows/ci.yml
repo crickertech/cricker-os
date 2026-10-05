@@ -231,6 +231,32 @@ jobs:
   # evidence either, even when the queue landed it on the strength of its required checks alone:
   # 0b72f673 (#1156) landed with verify's run `cancelled` by a non-required falsify job's timeout,
   # and under this rule its push re-proves in full.
+  #
+  # **Prose-only: a change that is only Markdown nobody reads skips every job but `clippy`**
+  # (lane/docs-only-ci, calef approved the lane 2026-10-05 UTC). On 2026-10-05 twelve bold-backlog
+  # pull requests took the hosted pool and required jobs on #1708 and #1712 were cancelled with
+  # "not acquired by Runner of type hosted". Until then each heavy job ran a step-level "documentation
+  # only" regex, so every one of them still took a runner to learn it had nothing to do, and the regex
+  # was wrong about notes/pipes.md, which xtask installs in the disk image and swish-check searches.
+  # `helpers/prose_only.py` decides once: a changed file is prose when it is `.md` under `notes/`,
+  # `design/`, `briefs/` or the root and no code names it as a path, and the change is prose-only
+  # when every file is. Its header has the whole rule and its BUGS.
+  #
+  # **There is no list of the files that are build inputs, on purpose.** A list someone must extend
+  # when they add an `include_str!` is rung three and rots; the classifier derives the readers from
+  # the tree under test on every run, so a reference added in the same diff is seen. It prints the
+  # rule that kept or skipped each file, which is where to look after a wrong skip.
+  #
+  # **Why the job-level `if:` satisfies the required checks.** GitHub's "Troubleshooting required
+  # status checks" (read 2026-10-05): a job skipped by a conditional reports Success; a workflow
+  # skipped by a path filter leaves its checks Pending and blocks the merge. So the skip is a job
+  # condition, never `paths-ignore:`, and #567 (2026-08-28, mergeable with thirteen skipped checks)
+  # is this tree's own record of the first half. In a merge group the diff is the group head against
+  # `merge_group.base_sha`, which spans every queued pull request, so one code change anywhere in the
+  # group runs everything. `clippy` (script/lint: roadmap, citations, decisions, prose ratchet) never
+  # skips, and runs the tests of any package whose Rust walks a directory the change touched.
+  #
+  # **Fails toward running.** A classifier error leaves `prose` empty and `!= 'true'` admits it.
   gate:
     name: draft gate
     runs-on: ubuntu-24.04
@@ -243,8 +269,12 @@ jobs:
       pull-requests: read
     outputs:
       run: ${{ steps.state.outputs.run }}
+      prose: ${{ steps.prose.outputs.prose }}
+      prose_tests: ${{ steps.prose.outputs.prose_tests }}
     timeout-minutes: 25
     steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - id: state
         env:
           GH_TOKEN: ${{ github.token }}
@@ -281,12 +311,41 @@ jobs:
             echo "==> live draft state is '${draft:-unreadable}'; running everything"
           fi
           exit 0
+      # The prose-only rule: see the comment above this job. Only asked when something would run.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Is this change prose that no build or test reads?
+        id: prose
+        if: steps.state.outputs.run != 'false'
+        run: |
+          # The base, resolved exactly as the scope checks this replaced resolved it.
+          # `helpers/scope-merge-base.sh` (its header has #1416) takes the merge base against the
+          # base branch's current tip rather than the payload's possibly stale base.sha. In a merge
+          # group the payload's `merge_group.base_sha` is the base branch under the whole group, so
+          # the diff is every queued pull request's changes at once: the group is prose-only only if
+          # every pull request in it is.
+          base="$(helpers/scope-merge-base.sh \
+              '${{ github.event.pull_request.base.ref }}' \
+              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
+          # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
+          # a lane whose last commit was documentation skipped the build its earlier commits needed
+          # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
+          # HEAD itself, so the newest commit stays the scope there.
+          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
+          [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
+          echo "==> classifying $base..HEAD"
+          # A classifier that fails writes no `prose`, and every heavy job reads empty as "run".
+          python3 helpers/prose_only.py classify "$base"
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
   test:
     name: test (host crates and the kernel suite under QEMU)
     runs-on: ubuntu-24.04-arm
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     # A hung kernel means QEMU never exits and the runner would block until the 6-hour default.
     # Fail loudly instead. The bound is a hang detector, not a budget, so it sits well above an
     # honest run. Derivation: this job runs a subset of the legs the chained job ran, whose whole
@@ -303,84 +362,11 @@ jobs:
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
-          # Needs history to diff against the base for the scope check below.
+          # Full history: it was for a scope check here that the gate's prose classifier replaced
+          # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
           fetch-depth: 0
 
-      # **The same predicate `cpu-matrix` and `verify` use, for the same reason.** These are among
-      # the most expensive required checks on a docs-only pull request, and a change to a markdown
-      # file cannot alter what the kernel does under QEMU. Do NOT drop this to a bare
-      # `paths-ignore:` on the workflow trigger instead: the four job names the 2026-09-30 split
-      # minted are required status checks in the merge queue's ruleset (the header's ruleset note
-      # says what that edit is and whose it is). A job that never runs never posts a status, so a
-      # docs-only pull request would sit on "Expected" forever, the exact failure `merge_group:`'s
-      # own comment above already warns about for a different trigger gap. Skipping the STEPS while
-      # the JOB still runs is what keeps the required check satisfied either way.
-      #
-      # The predicate is deliberately identical to `cpu-matrix`'s rather than tuned narrower, for the
-      # same reason that job gives: one rule that is easy to believe beats two that have to be kept
-      # in agreement, and the asymmetry argument is the same: skipping a run that was needed is a
-      # broken gate, running one that was not costs minutes.
-      - name: Does this change need the build?
-        id: scope
-        run: |
-          # `helpers/scope-merge-base.sh` (its own header has the full story): a raw
-          # `pull_request.base.sha` is a snapshot from when THIS pull request's base last changed,
-          # not the base branch's current tip, so it goes stale the moment an unrelated pull
-          # request merges into the base branch without a push to this one. The script takes the
-          # merge base of HEAD against `origin/<base-ref>` instead, the base branch's actual
-          # current tip (already fetched fresh by this job's own `fetch-depth: 0` checkout above),
-          # falling back to the payload sha (still `|| merge_group.base_sha` for that event, whose
-          # own base is short-lived enough that this staleness is not its risk) only if the local
-          # ref cannot be resolved. Every one of this workflow's other eight scope-check steps uses
-          # the identical call, for the identical reason.
-          base="$(helpers/scope-merge-base.sh \
-              '${{ github.event.pull_request.base.ref }}' \
-              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
-          # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
-          # a lane whose last commit was documentation skipped the build its earlier commits needed
-          # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
-          # HEAD itself, so the newest commit stays the scope there.
-          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
-          [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
-          changed="$(git diff --name-only "$base" HEAD)"
-          echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          # `-n "$changed"` first (milestone 641 (a mechanism that reports clean says over how many
-          # units, and zero is loud), provisional): with no changed files the filter below prints
-          # nothing, so an empty set used to read as "documentation only" and skip the build. Zero files is a scope that failed to resolve, so it fails toward building.
-          # Every other copy of this predicate in this file carries the same guard.
-          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
-            echo "needed=false" >> "$GITHUB_OUTPUT"
-            echo "==> documentation only; nothing a build or a boot can catch"
-          else
-            echo "needed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      # **The one thing a documentation-only change CAN break, and the skip above used to hide it.**
-      # `crates/documentation`'s corpus tests walk `notes/`, `design/decisions/` and
-      # `design/roadmap/` and assert that the renderer loses no characters on any page in them,
-      # which is precisely the set the predicate above calls "nothing a build or a boot can catch".
-      # It was wrong about that. On 2026-09-23 `notes/rented-metal.md` landed with a twelve-column
-      # table against a renderer bound of eight, this job skipped, the required check posted success,
-      # and `main` was red while reading green until the next branch that happened to touch a
-      # non-prose path opened the gate. A test whose entire subject is documents must not sit behind
-      # a gate that a documentation change does not open.
-      #
-      # This runs INSTEAD of the build rather than beside it, which is what keeps the skip's own
-      # reason intact: no QEMU, no `script/bootstrap`, no cache restore, one host crate, seconds.
-      # The `needed == 'true'` arm already runs these tests inside `script/ci-build`, so between the
-      # two arms the corpus is checked on every pull request whatever it touched.
-      #
-      # It is deliberately NOT a widening of the predicate above. Adding `notes/` and `design/` to
-      # the "needs the build" side would drag QEMU, a bootstrap and a ten-minute kernel build onto
-      # every prose commit to catch a three-second host test, and the predicate is shared verbatim
-      # with the three sibling build jobs, `cpu matrix` and `verify`, none of which a markdown file
-      # genuinely affects.
-      - name: The corpus tests, which are what a documentation-only change can break
-        if: steps.scope.outputs.needed != 'true'
-        run: cargo test -p documentation
-
       - uses: Swatinem/rust-cache@v2
-        if: steps.scope.outputs.needed == 'true'
       # QEMU, built from source and cached. Ubuntu 24.04 ships 8.2 and `-device riscv-iommu-pci`
       # (milestone 16b) arrived later, so the runner's packaged QEMU cannot boot the riscv leg at all.
       # apt cannot fix it: it already installs the newest package for the release, and there is no
@@ -390,16 +376,13 @@ jobs:
       # script/bootstrap on purpose, because bootstrap skips its apt install when QEMU is already on
       # PATH, which is how the built one wins.
       - name: Cache QEMU
-        if: steps.scope.outputs.needed == 'true'
         uses: actions/cache@v6
         with:
           path: ~/.cache/nife-qemu
           key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
       - name: Build QEMU if the cache missed
-        if: steps.scope.outputs.needed == 'true'
         run: script/ci-qemu
       - name: Put it on PATH
-        if: steps.scope.outputs.needed == 'true'
         run: echo "$HOME/.cache/nife-qemu/bin" >> "$GITHUB_PATH"
 
       # **The provisioning step is explicit** (milestone 286), the same shape the `bench` and `cpu
@@ -408,14 +391,12 @@ jobs:
       # installed exactly what it needs in its own steps, and a bare `script/ci-build fmt` must not
       # drag an apt install of QEMU onto the rustfmt runner.
       - run: script/bootstrap
-        if: steps.scope.outputs.needed == 'true'
 
       # The host-logic crates and the kernel under QEMU (TCG), exiting through semihosting, named
       # out of `script/ci-build`'s table, which is the one place the gating set lives;
       # `script/ci-build --list` prints it. Until 2026-09-30 this step chained three more checks
       # behind it in one runner; the three jobs below carry them, each for its own recorded reasons.
       - run: script/ci-build test
-        if: steps.scope.outputs.needed == 'true'
       - name: Check the job's wall time against its budget
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
@@ -429,7 +410,7 @@ jobs:
     name: swish-check (the interactive shell, three architectures)
     runs-on: ubuntu-24.04-arm
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     # A hung kernel means QEMU never exits and the runner would block until the 6-hour default.
     # Fail loudly instead. The bound is a hang detector, not a budget, so it sits well above an
     # honest run. Derivation, from when this job carried x86_64's leg: that leg alone was about 17
@@ -457,48 +438,11 @@ jobs:
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
-          # Needs history to diff against the base for the scope check below.
+          # Full history: it was for a scope check here that the gate's prose classifier replaced
+          # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
           fetch-depth: 0
 
-      # The same predicate the suite job, `cpu-matrix` and `verify` use, for the same reason: a
-      # change to a markdown file cannot alter what the shell does at a prompt under QEMU. Steps
-      # are guarded rather than the job, so a doc-only run reports green instead of gambling on
-      # how a skipped required check is treated. The predicate is deliberately identical rather
-      # than tuned narrower, for the reason `cpu-matrix` gives: one rule that is easy to believe
-      # beats two that have to be kept in agreement.
-      - name: Does this change need the build?
-        id: scope
-        run: |
-          # `helpers/scope-merge-base.sh` (its own header has the full story): a raw
-          # `pull_request.base.sha` is a snapshot from when THIS pull request's base last changed,
-          # not the base branch's current tip, so it goes stale the moment an unrelated pull
-          # request merges into the base branch without a push to this one. The script takes the
-          # merge base of HEAD against `origin/<base-ref>` instead, the base branch's actual
-          # current tip (already fetched fresh by this job's own `fetch-depth: 0` checkout above),
-          # falling back to the payload sha (still `|| merge_group.base_sha` for that event, whose
-          # own base is short-lived enough that this staleness is not its risk) only if the local
-          # ref cannot be resolved. Every one of this workflow's other eight scope-check steps uses
-          # the identical call, for the identical reason.
-          base="$(helpers/scope-merge-base.sh \
-              '${{ github.event.pull_request.base.ref }}' \
-              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
-          # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
-          # a lane whose last commit was documentation skipped the build its earlier commits needed
-          # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
-          # HEAD itself, so the newest commit stays the scope there.
-          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
-          [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
-          changed="$(git diff --name-only "$base" HEAD)"
-          echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
-            echo "needed=false" >> "$GITHUB_OUTPUT"
-            echo "==> documentation only; nothing a build or a boot can catch"
-          else
-            echo "needed=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: Swatinem/rust-cache@v2
-        if: steps.scope.outputs.needed == 'true'
       # QEMU, built from source and cached. Ubuntu 24.04 ships 8.2 and `-device riscv-iommu-pci`
       # (milestone 16b (real hardware + IOMMU-backed driver isolation)) arrived later, so the
       # runner's packaged QEMU cannot boot the riscv leg at all.
@@ -509,16 +453,13 @@ jobs:
       # script/bootstrap on purpose, because bootstrap skips its apt install when QEMU is already on
       # PATH, which is how the built one wins.
       - name: Cache QEMU
-        if: steps.scope.outputs.needed == 'true'
         uses: actions/cache@v6
         with:
           path: ~/.cache/nife-qemu
           key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
       - name: Build QEMU if the cache missed
-        if: steps.scope.outputs.needed == 'true'
         run: script/ci-qemu
       - name: Put it on PATH
-        if: steps.scope.outputs.needed == 'true'
         run: echo "$HOME/.cache/nife-qemu/bin" >> "$GITHUB_PATH"
 
       # **The provisioning step is explicit** (milestone 286 (one enumeration of the checks that
@@ -528,7 +469,6 @@ jobs:
       # installed exactly what it needs in its own steps, and a bare `script/ci-build fmt` must not
       # drag an apt install of QEMU onto the rustfmt runner.
       - run: script/bootstrap
-        if: steps.scope.outputs.needed == 'true'
 
       # The interactive shell, one row of `script/ci-build`'s table and its own job since the
       # 2026-09-30 split (#1468). Until then it rode the suite job, for arithmetic that was true
@@ -556,7 +496,6 @@ jobs:
       # thread dying while the progenitor prints shuffles the two lines together at byte
       # granularity. Local-only would have kept it invisible.
       - run: script/ci-build swish-check-aarch64-riscv64
-        if: steps.scope.outputs.needed == 'true'
       - name: Check the job's wall time against its budget
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
@@ -578,7 +517,7 @@ jobs:
     name: swish-check-x86_64 (the interactive shell, x86_64 under KVM)
     runs-on: ubuntu-24.04
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     # A hang detector, not a budget: setup and build are about ten minutes, a cold QEMU build can
     # add 10-20, and the leg itself is measured in the note above. Kept at the arm64 job's 60 so a
     # run that falls back to TCG (no /dev/kvm on some future image) still finishes and says so
@@ -592,48 +531,11 @@ jobs:
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
-          # Needs history to diff against the base for the scope check below.
+          # Full history: it was for a scope check here that the gate's prose classifier replaced
+          # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
           fetch-depth: 0
 
-      # The same predicate the suite job, `cpu-matrix` and `verify` use, for the same reason: a
-      # change to a markdown file cannot alter what the shell does at a prompt under QEMU. Steps
-      # are guarded rather than the job, so a doc-only run reports green instead of gambling on
-      # how a skipped required check is treated. The predicate is deliberately identical rather
-      # than tuned narrower, for the reason `cpu-matrix` gives: one rule that is easy to believe
-      # beats two that have to be kept in agreement.
-      - name: Does this change need the build?
-        id: scope
-        run: |
-          # `helpers/scope-merge-base.sh` (its own header has the full story): a raw
-          # `pull_request.base.sha` is a snapshot from when THIS pull request's base last changed,
-          # not the base branch's current tip, so it goes stale the moment an unrelated pull
-          # request merges into the base branch without a push to this one. The script takes the
-          # merge base of HEAD against `origin/<base-ref>` instead, the base branch's actual
-          # current tip (already fetched fresh by this job's own `fetch-depth: 0` checkout above),
-          # falling back to the payload sha (still `|| merge_group.base_sha` for that event, whose
-          # own base is short-lived enough that this staleness is not its risk) only if the local
-          # ref cannot be resolved. Every one of this workflow's other eight scope-check steps uses
-          # the identical call, for the identical reason.
-          base="$(helpers/scope-merge-base.sh \
-              '${{ github.event.pull_request.base.ref }}' \
-              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
-          # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
-          # a lane whose last commit was documentation skipped the build its earlier commits needed
-          # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
-          # HEAD itself, so the newest commit stays the scope there.
-          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
-          [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
-          changed="$(git diff --name-only "$base" HEAD)"
-          echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
-            echo "needed=false" >> "$GITHUB_OUTPUT"
-            echo "==> documentation only; nothing a build or a boot can catch"
-          else
-            echo "needed=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: Swatinem/rust-cache@v2
-        if: steps.scope.outputs.needed == 'true'
       # QEMU, built from source and cached. Ubuntu 24.04 ships 8.2 and `-device riscv-iommu-pci`
       # (milestone 16b (real hardware + IOMMU-backed driver isolation)) arrived later, so the
       # runner's packaged QEMU cannot boot the riscv leg at all.
@@ -644,16 +546,13 @@ jobs:
       # script/bootstrap on purpose, because bootstrap skips its apt install when QEMU is already on
       # PATH, which is how the built one wins.
       - name: Cache QEMU
-        if: steps.scope.outputs.needed == 'true'
         uses: actions/cache@v6
         with:
           path: ~/.cache/nife-qemu
           key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
       - name: Build QEMU if the cache missed
-        if: steps.scope.outputs.needed == 'true'
         run: script/ci-qemu
       - name: Put it on PATH
-        if: steps.scope.outputs.needed == 'true'
         run: echo "$HOME/.cache/nife-qemu/bin" >> "$GITHUB_PATH"
 
       # **The provisioning step is explicit** (milestone 286 (one enumeration of the checks that
@@ -663,13 +562,11 @@ jobs:
       # installed exactly what it needs in its own steps, and a bare `script/ci-build fmt` must not
       # drag an apt install of QEMU onto the rustfmt runner.
       - run: script/bootstrap
-        if: steps.scope.outputs.needed == 'true'
 
       # GitHub's documented recipe for KVM on its hosted Linux runners: the device exists and is
       # root's, and this hands it to every user. The leg prints "on KVM" in its header when it took
       # it, and the per-line bound it then holds is the other legs' 30 s, not TCG's 45 s.
       - name: Open /dev/kvm to the runner user
-        if: steps.scope.outputs.needed == 'true'
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
@@ -677,7 +574,6 @@ jobs:
           ls -l /dev/kvm
 
       - run: script/ci-build swish-check-x86_64
-        if: steps.scope.outputs.needed == 'true'
       - name: Check the job's wall time against its budget
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
@@ -686,7 +582,7 @@ jobs:
     name: boot-check (the default kernels' interactive boot)
     runs-on: ubuntu-24.04-arm
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     # A hung kernel means QEMU never exits and the runner would block until the 6-hour default.
     # Fail loudly instead. The bound is a hang detector, not a budget, so it sits well above an
     # honest run. Derivation: three debug boots are about a minute against a warm target, so the
@@ -701,48 +597,11 @@ jobs:
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
-          # Needs history to diff against the base for the scope check below.
+          # Full history: it was for a scope check here that the gate's prose classifier replaced
+          # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
           fetch-depth: 0
 
-      # The same predicate the suite job, `cpu-matrix` and `verify` use, for the same reason: a
-      # change to a markdown file cannot alter which kernel a default boot loads or what its tour
-      # prints. Steps are guarded rather than the job, so a doc-only run reports green instead of
-      # gambling on how a skipped required check is treated. The predicate is deliberately
-      # identical rather than tuned narrower, for the reason `cpu-matrix` gives: one rule that is
-      # easy to believe beats two that have to be kept in agreement.
-      - name: Does this change need the build?
-        id: scope
-        run: |
-          # `helpers/scope-merge-base.sh` (its own header has the full story): a raw
-          # `pull_request.base.sha` is a snapshot from when THIS pull request's base last changed,
-          # not the base branch's current tip, so it goes stale the moment an unrelated pull
-          # request merges into the base branch without a push to this one. The script takes the
-          # merge base of HEAD against `origin/<base-ref>` instead, the base branch's actual
-          # current tip (already fetched fresh by this job's own `fetch-depth: 0` checkout above),
-          # falling back to the payload sha (still `|| merge_group.base_sha` for that event, whose
-          # own base is short-lived enough that this staleness is not its risk) only if the local
-          # ref cannot be resolved. Every one of this workflow's other eight scope-check steps uses
-          # the identical call, for the identical reason.
-          base="$(helpers/scope-merge-base.sh \
-              '${{ github.event.pull_request.base.ref }}' \
-              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
-          # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
-          # a lane whose last commit was documentation skipped the build its earlier commits needed
-          # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
-          # HEAD itself, so the newest commit stays the scope there.
-          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
-          [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
-          changed="$(git diff --name-only "$base" HEAD)"
-          echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
-            echo "needed=false" >> "$GITHUB_OUTPUT"
-            echo "==> documentation only; nothing a build or a boot can catch"
-          else
-            echo "needed=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: Swatinem/rust-cache@v2
-        if: steps.scope.outputs.needed == 'true'
       # QEMU, built from source and cached. Ubuntu 24.04 ships 8.2 and `-device riscv-iommu-pci`
       # (milestone 16b) arrived later, so the runner's packaged QEMU cannot boot the riscv leg at all.
       # apt cannot fix it: it already installs the newest package for the release, and there is no
@@ -752,16 +611,13 @@ jobs:
       # script/bootstrap on purpose, because bootstrap skips its apt install when QEMU is already on
       # PATH, which is how the built one wins.
       - name: Cache QEMU
-        if: steps.scope.outputs.needed == 'true'
         uses: actions/cache@v6
         with:
           path: ~/.cache/nife-qemu
           key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
       - name: Build QEMU if the cache missed
-        if: steps.scope.outputs.needed == 'true'
         run: script/ci-qemu
       - name: Put it on PATH
-        if: steps.scope.outputs.needed == 'true'
         run: echo "$HOME/.cache/nife-qemu/bin" >> "$GITHUB_PATH"
 
       # **The provisioning step is explicit** (milestone 286), the same shape the `bench` and `cpu
@@ -770,7 +626,6 @@ jobs:
       # installed exactly what it needs in its own steps, and a bare `script/ci-build fmt` must not
       # drag an apt install of QEMU onto the rustfmt runner.
       - run: script/bootstrap
-        if: steps.scope.outputs.needed == 'true'
 
       # `boot-check` (milestone 268 (every architecture boots the same way)), its own job since
       # the 2026-09-30 split (#1468) and before that a rider on the suite job. It is the only
@@ -781,7 +636,6 @@ jobs:
       # a checkpoint that could never fire on two of three architectures, and it hid for months
       # because nothing read the channel it was supposed to appear on.
       - run: script/ci-build boot-check
-        if: steps.scope.outputs.needed == 'true'
       - name: Check the job's wall time against its budget
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
@@ -790,7 +644,7 @@ jobs:
     name: cpu matrix (riscv64 across QEMU CPU models)
     runs-on: ubuntu-24.04-arm
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     # Five QEMU boots plus a std-farm build. Generous because a hung guest must fail loudly rather
     # than sit on the runner's 6-hour default, the same reason the test job has one.
     # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
@@ -802,54 +656,21 @@ jobs:
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
-          # Needs history to diff against the base for the scope check below.
+          # Full history: it was for a scope check here that the gate's prose classifier replaced
+          # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
           fetch-depth: 0
 
-      # **The same predicate the proofs use, for the same reason.** This is five full riscv boots,
-      # the slowest job after `verify`, and a change to a markdown file cannot alter what a QEMU CPU
-      # model executes. Adding it here was prompted by watching a notes-only pull request skip the
-      # 42-minute proof in 17 seconds and then sit in this job anyway.
-      #
-      # The predicate is deliberately identical rather than tuned narrower (this job's own comment
-      # notes that what breaks it is a change to kernel/src/arch/riscv64/). One rule that is easy to
-      # believe beats two that have to be kept in agreement, and the asymmetry argument is the same:
-      # skipping a run that was needed is a broken gate, running one that was not costs minutes.
-      - name: Does this change need the matrix?
-        id: scope
-        run: |
-          base="$(helpers/scope-merge-base.sh \
-              '${{ github.event.pull_request.base.ref }}' \
-              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
-          # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
-          # a lane whose last commit was documentation skipped the build its earlier commits needed
-          # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
-          # HEAD itself, so the newest commit stays the scope there.
-          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
-          [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
-          changed="$(git diff --name-only "$base" HEAD)"
-          echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
-            echo "needed=false" >> "$GITHUB_OUTPUT"
-            echo "==> documentation only; no CPU model can be affected"
-          else
-            echo "needed=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: Swatinem/rust-cache@v2
-        if: steps.scope.outputs.needed == 'true'
       # The same cached QEMU the test and bench jobs use, restored before script/bootstrap for the
       # same reason (bootstrap skips its apt install when QEMU is already on PATH).
       - name: Cache QEMU
-        if: steps.scope.outputs.needed == 'true'
         uses: actions/cache@v6
         with:
           path: ~/.cache/nife-qemu
           key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
       - name: Build QEMU if the cache missed
-        if: steps.scope.outputs.needed == 'true'
         run: script/ci-qemu
       - name: Put it on PATH
-        if: steps.scope.outputs.needed == 'true'
         run: echo "$HOME/.cache/nife-qemu/bin" >> "$GITHUB_PATH"
 
       # A JOB OF ITS OWN, not extra work inside `test`, and the reason is wall clock: the matrix is
@@ -863,9 +684,7 @@ jobs:
       #
       # See notes/cpu-models.md, including its BUGS section: a narrower QEMU model is still QEMU.
       - run: script/bootstrap
-        if: steps.scope.outputs.needed == 'true'
       - run: script/ci-build cpu-matrix
-        if: steps.scope.outputs.needed == 'true'
       # The per-model logs, kept only when something failed. `script/cpu-matrix` now prints an
       # excerpt inline, which answers most questions without leaving the browser; this is for the
       # ones it does not, because the full boot log is thousands of lines and belongs in a download
@@ -886,7 +705,7 @@ jobs:
     name: watchdog (x86_64 TCO reset under q35)
     runs-on: ubuntu-24.04-arm
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     # Two soaks that wait on the wall clock (about six minutes together) plus two kernel builds.
     # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
     # UTC). Any derivation above that argues for a longer bound predates it and describes a job
@@ -900,9 +719,10 @@ jobs:
           fetch-depth: 0
 
       # **Milestone 593 (a wedged kernel resets itself), provisional number, and a NARROWER predicate
-      # than the other QEMU jobs, deliberately.** The other jobs use one shared rule for the reason
-      # `cpu-matrix` gives. This one costs a runner for six minutes of mostly waiting, and nothing
-      # outside these paths changes what it checks: the TCO driver, the soak that arms it, the harness
+      # than the other QEMU jobs, deliberately.** The other jobs skip only on the gate's prose-only
+      # rule, which this one also obeys at the job level. This one costs a runner for six minutes of
+      # mostly waiting, and nothing outside these paths changes what it checks: the TCO driver, the
+      # soak that arms it, the harness
       # that judges it, the runner that starts QEMU, and the kernel's features. Not a required check,
       # so a skipped run posts nothing that blocks a merge. A push to `main` always runs it, so a
       # predicate that was wrong about a path shows up one merge later rather than never.
@@ -960,7 +780,7 @@ jobs:
     name: rustfmt
     runs-on: ubuntu-24.04
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
     # UTC). Any derivation above that argues for a longer bound predates it and describes a job
     # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
@@ -1024,6 +844,25 @@ jobs:
           command -v cargo-machete >/dev/null || cargo install cargo-machete --locked
           command -v typos        >/dev/null || cargo install typos-cli     --locked
       - run: script/ci-build lint
+      # **What a prose-only change can still break, run here because this is the one job that a
+      # prose-only change does not skip.** The gate's classifier names every package whose Rust
+      # walks a directory the change touched (`crates/documentation`'s corpus test walks `notes/`,
+      # `design/decisions/` and `design/roadmap/`, and went red on main on 2026-09-23 while the old
+      # step-level skip hid it). On any other change `test` runs these tests inside
+      # `script/ci-build test`, so between the two the corpus is checked on every pull request.
+      - name: The tests of the code that reads the prose this change touched
+        if: needs.gate.outputs.prose == 'true' && needs.gate.outputs.prose_tests != ''
+        # Through the environment, never spliced into the script: the names come from the tree
+        # under test. The classifier also refuses any name that is not `[A-Za-z0-9_-]+`.
+        env:
+          PROSE_TESTS: ${{ needs.gate.outputs.prose_tests }}
+        run: |
+          set -eu
+          args=""
+          for p in $PROSE_TESTS; do args="$args -p $p"; done
+          echo "==> cargo test$args"
+          # shellcheck disable=SC2086 # one word per package, split on purpose
+          cargo test $args
       - name: Check the job's wall time against its budget
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
@@ -1032,7 +871,7 @@ jobs:
     name: fastpath footprint (the IPC path must stay L1i-sized)
     runs-on: ubuntu-24.04
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
     # UTC). Any derivation above that argues for a longer bound predates it and describes a job
     # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
@@ -1064,7 +903,7 @@ jobs:
     name: boot file size (the release BOOTX64.EFI against its slot budget)
     runs-on: ubuntu-24.04
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     timeout-minutes: 20
     steps:
       - name: Start the job wall-time clock
@@ -1088,7 +927,7 @@ jobs:
     name: interleavings (loom, every thread interleaving of the atomic protocols)
     runs-on: ubuntu-24.04
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     # Milestone 746 (loom runs in CI), provisional number. Measured 24 seconds wall clock on the dev
     # machine in a cold worktree (compile included, 26 harnesses), against the 20-minute budget. The
     # bound is the budget plus margin; a hung search must fail loudly.
@@ -1099,32 +938,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
-      # **The same documentation-only predicate `cpu-matrix` and `verify` use.** A markdown change
-      # cannot alter an atomic protocol. The job still runs when the steps are skipped, so a
-      # docs-only pull request posts a status instead of sitting on "Expected" (see the build jobs'
-      # scope comment for why a trigger-level `paths-ignore:` is wrong here).
-      - name: Does this change need the interleaving search?
-        id: scope
-        run: |
-          base="$(helpers/scope-merge-base.sh \
-              '${{ github.event.pull_request.base.ref }}' \
-              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
-          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
-          [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
-          changed="$(git diff --name-only "$base" HEAD)"
-          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
-            echo "needed=false" >> "$GITHUB_OUTPUT"
-            echo "==> documentation only; no protocol changed"
-          else
-            echo "needed=true" >> "$GITHUB_OUTPUT"
-          fi
       - uses: Swatinem/rust-cache@v2
-        if: steps.scope.outputs.needed == 'true'
       # `memory_regions` carries the falsification witness: that harness passes only when loom finds
       # the pre-#316 double free, so a green run also proves the search can still see a bug.
       - run: script/interleaving-check
-        if: steps.scope.outputs.needed == 'true'
       - name: Check the job's wall time against its budget
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
@@ -1133,7 +950,7 @@ jobs:
     name: reproducible build (the same commit builds the same bytes)
     runs-on: ubuntu-24.04
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     # Measured, not guessed: 11.1 seconds for both builds on the arm64 runner (2026-09-18, its own first
     # run; 11 seconds on x86_64 on 2026-09-24), against 5 seconds for one cold `-p kernel` release build on the dev machine. This job
     # was first written with a 45-minute timeout on the assumption that two cold builds are slow.
@@ -1162,7 +979,7 @@ jobs:
     name: image permissions (no kernel image ships a writable-executable segment)
     runs-on: ubuntu-24.04
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
     # UTC). Any derivation above that argues for a longer bound predates it and describes a job
     # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
@@ -1197,7 +1014,7 @@ jobs:
     name: stack frames (no frame over a third of a thread stack)
     runs-on: ubuntu-24.04
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
     # UTC). Any derivation above that argues for a longer bound predates it and describes a job
     # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
@@ -1248,7 +1065,7 @@ jobs:
     name: bench (icount regression tripwire)
     runs-on: ubuntu-24.04
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
     # UTC). Any derivation above that argues for a longer bound predates it and describes a job
     # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
@@ -1258,35 +1075,11 @@ jobs:
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
-          # Needs history to diff against the base for the scope check below.
+          # Full history: it was for a scope check here that the gate's prose classifier replaced
+          # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
           fetch-depth: 0
 
-      # The same predicate the proofs and the cpu matrix use, for the same reason: a markdown
-      # change cannot move an instruction count. Steps are guarded rather than the job, so a
-      # doc-only run reports green instead of gambling on how a skipped required check is treated.
-      - name: Does this change need the tripwire?
-        id: scope
-        run: |
-          base="$(helpers/scope-merge-base.sh \
-              '${{ github.event.pull_request.base.ref }}' \
-              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
-          # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
-          # a lane whose last commit was documentation skipped the build its earlier commits needed
-          # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
-          # HEAD itself, so the newest commit stays the scope there.
-          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
-          [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
-          changed="$(git diff --name-only "$base" HEAD)"
-          echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
-            echo "needed=false" >> "$GITHUB_OUTPUT"
-            echo "==> documentation only; no instruction count can be affected"
-          else
-            echo "needed=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: Swatinem/rust-cache@v2
-        if: steps.scope.outputs.needed == 'true'
       # Milestone 21's stated requirement is to catch "the *introduction* of performance problems
       # proximate to the changes that introduce them", and a tripwire that only fires on a
       # developer's laptop cannot do that. icount was chosen for determinism precisely so this is
@@ -1307,22 +1100,17 @@ jobs:
       # script/bootstrap on purpose, because bootstrap skips its apt install when QEMU is already on
       # PATH, which is how the built one wins.
       - name: Cache QEMU
-        if: steps.scope.outputs.needed == 'true'
         uses: actions/cache@v6
         with:
           path: ~/.cache/nife-qemu
           key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
       - name: Build QEMU if the cache missed
-        if: steps.scope.outputs.needed == 'true'
         run: script/ci-qemu
       - name: Put it on PATH
-        if: steps.scope.outputs.needed == 'true'
         run: echo "$HOME/.cache/nife-qemu/bin" >> "$GITHUB_PATH"
 
       - run: script/bootstrap
-        if: steps.scope.outputs.needed == 'true'
       - run: script/ci-build bench
-        if: steps.scope.outputs.needed == 'true'
       # Three legs, three architectures, since 2026-09-15: `script/ci-build`'s `bench` row is
       # `script/bench --check && script/bench --riscv --check && script/bench --x86 --check`, so
       # this one step pulls all three tripwires. **This comment said the opposite for six days**,
@@ -1335,8 +1123,8 @@ jobs:
       # See notes/benchmarks.md, 2026-09-21.
 
       # The instruction-count instrument (milestone 78), here rather than in its own job because it
-      # wants exactly what this job already has: the pinned QEMU, the same cache, and the same "a
-      # markdown change cannot move an instruction count" predicate. It costs about seven seconds
+      # wants exactly what this job already has: the pinned QEMU, the same cache, and the same skip on
+      # a prose-only change (the gate's), which cannot move an instruction count. It costs about seven seconds
       # for both ISAs, against this job's forty-five minute budget.
       #
       # It is not in `script/test`, and notes/instruction-clock.md carries the reason: `-icount`
@@ -1347,7 +1135,6 @@ jobs:
       # asserted the opposite for a month**, having been written before milestone 62 put the
       # instrument in the local set, and nothing compared the claim against the script.
       - run: script/ci-build icount
-        if: steps.scope.outputs.needed == 'true'
       - name: Check the job's wall time against its budget
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
@@ -1356,7 +1143,7 @@ jobs:
     name: supply chain (advisories, licences, vendored integrity)
     runs-on: ubuntu-24.04
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     # No permissions block of its own: the workflow-level `contents: read` above already gives every
     # job the least privilege that works, and this job wants exactly that (read the source, read the
     # advisory database, fetch a tarball from crates.io). Adding a redundant per-job copy would make
@@ -1394,7 +1181,7 @@ jobs:
     name: fuzz (parsers, 60s per target)
     runs-on: ubuntu-24.04
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     # Build, then one-minute runs: six parsers and, since the fuzz-service-handlers lane, the
     # services' request handlers (`script/fuzz --list`). Generous against a cold `-Zbuild-std`, which compiles the
     # standard library with the sanitizer on the first run of the day.
@@ -1407,35 +1194,11 @@ jobs:
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
-          # Needs history to diff against the base for the scope check below.
+          # Full history: it was for a scope check here that the gate's prose classifier replaced
+          # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
           fetch-depth: 0
 
-      # The same predicate the proofs and the cpu matrix use, for the same reason: a markdown
-      # change cannot alter what a parser accepts. Steps are guarded rather than the job, so a
-      # doc-only run reports green instead of gambling on how a skipped required check is treated.
-      - name: Does this change need the sweep?
-        id: scope
-        run: |
-          base="$(helpers/scope-merge-base.sh \
-              '${{ github.event.pull_request.base.ref }}' \
-              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
-          # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
-          # a lane whose last commit was documentation skipped the build its earlier commits needed
-          # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
-          # HEAD itself, so the newest commit stays the scope there.
-          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
-          [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
-          changed="$(git diff --name-only "$base" HEAD)"
-          echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
-            echo "needed=false" >> "$GITHUB_OUTPUT"
-            echo "==> documentation only; no parser can be affected"
-          else
-            echo "needed=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: Swatinem/rust-cache@v2
-        if: steps.scope.outputs.needed == 'true'
       # No install step: `script/fuzz` installs the version pinned in `.cargo-fuzz-version` when the
       # one on PATH does not match, exactly as it does on a developer's machine. That is the opposite
       # trade from the supply-chain and coverage jobs, which take a prebuilt binary because they
@@ -1477,7 +1240,6 @@ jobs:
       # the repository alone. Every run starts from exactly the committed seeds and the two fixture
       # directories, which is the same starting point a developer gets.
       - run: script/ci-build fuzz
-        if: steps.scope.outputs.needed == 'true'
       - name: Check the job's wall time against its budget
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
@@ -1486,7 +1248,7 @@ jobs:
     name: coverage (host crates)
     runs-on: ubuntu-24.04
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
     # UTC). Any derivation above that argues for a longer bound predates it and describes a job
     # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
@@ -1496,49 +1258,21 @@ jobs:
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
-          # Needs history to diff against the base for the scope check below.
+          # Full history: it was for a scope check here that the gate's prose classifier replaced
+          # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
           fetch-depth: 0
 
-      # The same predicate the proofs and the cpu matrix use, for the same reason: a markdown
-      # change cannot change what a test executes. Steps are guarded rather than the job, so a
-      # doc-only run reports green instead of gambling on how a skipped required check is treated.
-      - name: Does this change need the measurement?
-        id: scope
-        run: |
-          base="$(helpers/scope-merge-base.sh \
-              '${{ github.event.pull_request.base.ref }}' \
-              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
-          # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
-          # a lane whose last commit was documentation skipped the build its earlier commits needed
-          # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
-          # HEAD itself, so the newest commit stays the scope there.
-          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
-          [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
-          changed="$(git diff --name-only "$base" HEAD)"
-          echo "changed files:"; echo "$changed" | sed 's/^/  /'
-          if [ -n "$changed" ] && [ -z "$(printf '%s\n' "$changed" | grep -vE '^(notes/|design/|[A-Z_]+\.md$)' || true)" ]; then
-            echo "needed=false" >> "$GITHUB_OUTPUT"
-            echo "==> documentation only; no coverage can be affected"
-          else
-            echo "needed=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Install llvm-tools (pinned nightly)
-        if: steps.scope.outputs.needed == 'true'
         run: rustup toolchain install nightly --profile minimal --component llvm-tools
       - uses: taiki-e/install-action@v2.87.22
-        if: steps.scope.outputs.needed == 'true'
         with:
           tool: cargo-llvm-cov
       - uses: Swatinem/rust-cache@v2
-        if: steps.scope.outputs.needed == 'true'
       # Measures the pure-logic host crates only; the kernel/user crates run under QEMU, out of
       # reach of host instrumentation. Gates on the 80%-per-file line-coverage floor (the floor
       # lives in script/coverage, next to the check itself); the report is still published below.
       - run: script/ci-build coverage
-        if: steps.scope.outputs.needed == 'true'
       - name: Publish the summary to the run
-        if: steps.scope.outputs.needed == 'true'
         run: |
           {
             echo '### Coverage: host-logic crates'
@@ -1547,7 +1281,6 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload the lcov + HTML report
-        if: steps.scope.outputs.needed == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: coverage-report
