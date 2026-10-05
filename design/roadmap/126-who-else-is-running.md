@@ -40,7 +40,7 @@ package's long description omits `pidwait`, which is how the first table here mi
 | `sysctl` | declined, §115 (no `sysctl`) | this block |
 | `kill`, `pkill`, `skill`, `snice` | refused, milestone 455 (the signalling stratum of `procps`) | `design/roadmap/455-the-signalling-stratum.md` |
 | `pwdx` | declined 2026-09-26, §224 (no `pwdx`): only the shell has a working directory | `design/decisions/224-no-pwdx.md` |
-| `w` | moved out: waits on §164 and a second session | `design/roadmap/681-w-shows-who-is-logged-in.md` |
+| `w` | moved out: waits on a tid's name and a second session | `design/roadmap/681-w-shows-who-is-logged-in.md` |
 | `free`, `vmstat` | built 2026-09-26 under §225 (`free` sees the machine and your share) | `crates/free`, `crates/vmstat`, the-machine-and-your-share.md |
 | `slabtop` | built 2026-09-26: no slab since milestone 14 (kernel objects from untyped), so it breaks down a job budget by object kind | `crates/slabtop` |
 | `tload` | built 2026-09-26 as a line in `top`'s summary, not a program | `crates/top` |
@@ -173,9 +173,9 @@ The machine overruled this block in four places, found by re-reading the tree ra
 - `pwdx` was filed as "print a name for a tid", blocked on a display name. Upstream `pwdx` prints
   another process's current working directory. Here only the shell has one, as a value in its own
   `grant_plan::Holdings`. It was waiting on the wrong fork for a month.
-- The block's own display-name fork is the same question as §164, raised independently on
-  2026-09-19. The fork here is withdrawn in favour of §164, and `w` and `ps`'s missing `CMD` column
-  are two consumers that §164's "what is blocked" does not yet list.
+- The block's own display-name fork is withdrawn in favour of §148 (a supervisor restarts by
+  asking, and resolves by asking the kernel). `w` and `ps`'s missing `CMD` column are consumers it
+  does not list.
 
 The same sweep found two members of the statistics row the block never examined. `slabtop` has
 nothing to report, because milestone 14 removed the kernel heap and its slab. `tload` needs a load
@@ -223,7 +223,7 @@ this wrong looks like `ps` working beautifully while the confinement is decorati
 - **Decision.** `pwdx` is not built and will not be: `design/decisions/224-no-pwdx.md` (calef,
   2026-09-26). Upstream prints another process's working directory, and here only the shell holds
   one (`grant_plan::nav::Cwd`), which it already prints with `pwd`.
-- **Milestone 681.** Milestone 681 (`w`: who is logged in, and what they are running). `w` waits on §164 (whether the kernel resolves a tid it already sent), because a
+- **Milestone 681.** Milestone 681 (`w`: who is logged in, and what they are running). `w` waits on §148, because a
   tid has no name, and on a second session existing:
   `design/roadmap/681-w-shows-who-is-logged-in.md`.
 - **Decision.** How `free` and `vmstat` learn about memory is ruled in

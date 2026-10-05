@@ -257,7 +257,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 145 | PROPOSED | [Compartmentalization at process cost: is Qubes' mission the reason the world needs this OS?](145-compartmentalization-at-process-cost.md) |
 | 146 | PROPOSED | [Archive and compression: which pieces we write, which we take, and which we refuse](146-archive-and-compression-write-or-take.md) |
 | 147 | AMENDED | [A timer a userspace service cannot hold](147-a-timer-a-userspace-service-cannot-hold.md) |
-| 148 | DECIDED | [Milestone 105's two forks: a supervisor restarts by asking, and resolves by asking the kernel](148-reap-and-thread-identity.md) |
+| 148 | AMENDED | [Milestone 105's two forks: a supervisor restarts by asking, and resolves by asking the kernel](148-reap-and-thread-identity.md) |
 | 149 | DECIDED | [May the kernel answer on an endpoint, where §121 leaves no userspace holder?](149-kernel-served-console-endpoint.md) |
 | 150 | DECIDED | [How does a thread's CPU time reach userspace?](150-per-thread-cpu-accounting.md) |
 | 151 | DECIDED | [The goal of the repository split is independent release and third-party programs](151-repository-goal-is-independent-release.md) |
@@ -273,7 +273,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 161 | PROPOSED | [Which subset counts as running Vaultwarden](161-what-counts-as-running-vaultwarden.md) |
 | 162 | PROPOSED | [Whether a holder can give up a mapping, and what gives it up](162-giving-up-a-mapping.md) |
 | 163 | PROPOSED | [Where a confined device's IOMMU fault is delivered](163-where-a-device-fault-is-delivered.md) |
-| 164 | PROPOSED | [Whether the kernel resolves a tid it already sent to the supervisor that received it](164-resolving-a-tid-a-supervisor-holds.md) |
+| 164 | SUPERSEDED BY 148 | [Whether the kernel resolves a tid it already sent to the supervisor that received it](164-resolving-a-tid-a-supervisor-holds.md) |
 | 165 | PROPOSED | [Where a stored secret comes from on a boot that is not a test](165-where-a-stored-secret-comes-from.md) |
 | 166 | PROPOSED | [The rasteriser dependency, and whether the glyph atlas ships one face or four](166-the-rasteriser-and-how-many-faces.md) |
 | 167 | PROPOSED | [What a profiling session's grant names](167-what-a-profiling-session-may-name.md) |
