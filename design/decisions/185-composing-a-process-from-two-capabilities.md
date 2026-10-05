@@ -1,6 +1,8 @@
 ---
-status: PROPOSED
+status: DECIDED
 raised: 2026-09-19
+decided: 2026-10-05
+ratified_by: calef
 ---
 
 # 185. What carries the claim that userspace composes a process from an authority you can count on one hand
@@ -9,6 +11,38 @@ Raised 2026-09-19 by milestone 435 (forty-five milestones are gated on a decisio
 `DECISION` gate naming no section. The gap was opened deliberately by milestone 295, performing
 calef's ruling to retire `components/src/builder.rs`, and that lane recorded it rather than closing
 it. *(Section number provisional until the merge queue lands it.)*
+
+## Ruling
+
+Decided 2026-10-05 (UTC) by calef: **option (a), and the fixture is renamed
+`process_composition_witness`.** His words:
+
+> I like the UNIX convention of a program doing one thing well. So adding on to an existing program
+> rubs me the wrong way. But process_composition_witness seems reasonable. The one thing it does
+> well is test.
+
+The maintainer reads that as (a) plus a rename, and the reading is recorded here so it can be
+corrected. The extended fixture's one job is witnessing that a process can be composed from two
+capabilities. Building an address space is a step of that job, not a second one, so the program
+still does one thing. The old name described a step; the new one describes the job.
+
+- **Chosen, (a).** Extend `fixtures/src/address_space_witness.rs` to start and run a thread in the
+  space it builds, still from the same two capabilities, with its verdict asserted on every pull
+  request.
+- **Name.** The fixture becomes `process_composition_witness`, ratified by calef 2026-10-05. The
+  rename is **ratified and not yet performed**: it happens in the build lane, which also rewrites
+  the fixture's `Name:` block.
+- **Not chosen, (b).** A second fixture would be a second program in every archive, and the one
+  thing it would do is already the extended fixture's.
+- **Not chosen, (c).** A host-side Kani proof is not a replacement, because it does not witness the
+  kernel permitting the sequence. It stays a possible later addition beside (a).
+- **Not chosen, (d).** The claim keeps a carrier; a demonstrator should keep a boot step a stranger
+  can read.
+- **Consequence.** Milestone 19b's "nothing runs in the space it built" reading stops holding once
+  this is built. The fixture's header and milestone 19b's account say it today; the build lane
+  updates the first and leaves the second as the account it was.
+
+The text below is the proposal as raised, kept as the argument that was ruled on.
 
 ## What is being decided
 
@@ -27,14 +61,15 @@ whether it should be carried at all.
 
 Checked 2026-09-19 in this worktree, and it is, on all three legs. *(The two `tests.rs` line
 citations were re-pointed 2026-09-26 against `main` at `508333ebe` by the decisions-hygiene lane,
-from 3022 and 2706; both tests still assert what is described.)*
+from 3022 and 2706, and again 2026-10-05 to `system_tests/src/user/tests.rs`, where the tests now
+live, at 269c1d48c; both still assert what is described.)*
 
 - `fixtures/src/address_space_witness.rs` exists and holds the **same two capabilities**, retypes an
   address space, retypes a page frame, maps the frame into the space it built, and proves the kernel
-  enforces break-before-make inside it. `kernel/src/user/tests.rs:3139`
+  enforces break-before-make inside it. `system_tests/src/user/tests.rs:3264`
   (`a_process_can_build_an_address_space_from_el0`) asserts the verdict on both architectures whose
   test kernel can load a user ELF, under `script/test`, on every pull request.
-- `kernel/src/user/tests.rs:2812` (`a_process_can_build_start_and_run_a_child_thread`) drives the
+- `system_tests/src/user/tests.rs:2937` (`a_process_can_build_start_and_run_a_child_thread`) drives the
   whole sequence and the child runs and reports, on both architectures. It is a **kernel-side**
   test: it calls `memory_region::create`, `user_address_space_map`, `configure` and `start`
   directly, not through `ecall`/`svc` out of a granted budget.

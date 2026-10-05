@@ -23,7 +23,7 @@ milestone 265 (proto). The gate token was `DESIGN`, which is not in the roadmap'
 
 The decision is
 §185 (what carries the claim that userspace composes a process from an authority you can count on one hand),
-written up 2026-09-19 by milestone 435's slice-c lane because this gate named no section. (This
+DECIDED 2026-10-05 as option (a) plus the rename to `process_composition_witness`, written up 2026-09-19 by milestone 435's slice-c lane because this gate named no section. (This
 block's status paragraph already records one token correction, from `DESIGN`, which is not in the
 roadmap's gate vocabulary; the section is the other half of that repair, since a token in the
 vocabulary that points at nothing is the defect milestone 435 exists to sweep.)
