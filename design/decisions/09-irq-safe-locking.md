@@ -9,16 +9,16 @@ ratified_by: calef
 
 Settled before milestone 5 (the GIC and the timer: the kernel is preemptible) brings interrupts.
 
-**The problem.** A plain spinlock in a kernel that takes interrupts is a guaranteed hang.
-On **one core**: kernel code takes the lock, a timer interrupt fires, the handler tries to
+The problem. A plain spinlock in a kernel that takes interrupts is a guaranteed hang.
+On one core: kernel code takes the lock, a timer interrupt fires, the handler tries to
 take the same lock, and spins forever waiting for code that cannot run until the handler
 returns. Not a race. Not "under load." A deterministic deadlock the moment the timing
 lines up. SMP makes it worse; single-core does not save us.
 
-**The decision: A + B.**
+The decision: A + B.
 
-**A. Every kernel lock is an `IrqSafeMutex`** (`kernel/src/sync.rs`). It masks IRQs on
-acquire and **restores the previous state** on release. This is Linux's
+A. Every kernel lock is an `IrqSafeMutex` (`kernel/src/sync.rs`). It masks IRQs on
+acquire and restores the previous state on release. This is Linux's
 `spin_lock_irqsave`.
 
 **B. Interrupt handlers do not allocate.** They acknowledge, record what happened, and
@@ -27,7 +27,7 @@ what makes A's cost acceptable.
 
 ## Rejected: per-CPU reserve pools
 
-Considered, and it turned out to be **an answer to a different question**. Per-CPU page
+Considered, and it turned out to be an answer to a different question. Per-CPU page
 caches (Linux's PCP lists) exist for *scalability* and *cache locality*, not interrupt
 safety: Linux still wraps them in `local_irq_save`. They do not solve this deadlock. They
 belong to the SMP conversation (§6), where the problem is lock *contention*, not deadlock.
@@ -62,11 +62,11 @@ fatal exception path. Linux does the same and calls it `bust_spinlocks`.
 ## The ordering rule is now enforced, not merely written down
 
 We wrote "define a global order and always take them in it" and then relied on remembering.
-Now every lock carries a **rank**, and `IrqSafeMutex::lock` asserts:
+Now every lock carries a rank, and `IrqSafeMutex::lock` asserts:
 
-> **You may only acquire a lock strictly LOWER than everything you currently hold.**
+> You may only acquire a lock strictly LOWER than everything you currently hold.
 
-If every acquisition strictly decreases, a **cycle is unrepresentable**. Not unlikely.
+If every acquisition strictly decreases, a cycle is unrepresentable. Not unlikely.
 Impossible. It destroys the circular-wait Coffman condition outright (notes/deadlock.md),
 which is *prevention*, not detection: Linux's `lockdep` builds a dependency graph at runtime
 and hunts for cycles; this costs three instructions and cannot be wrong. FreeBSD (WITNESS) and
@@ -80,13 +80,13 @@ Solaris use the same mechanism.
   10  CONSOLE         the leaf: everyone may take it, it takes nothing
 ```
 
-Two locks at the **same** rank may never nest (`R < R` is false), which is exactly right:
+Two locks at the same rank may never nest (`R < R` is false), which is exactly right:
 equal rank means we declared no order between them, so nesting would be picking one at random.
 
 The nestings this permits are the ones that actually happen:
 
-- **SLAB (50) → FRAMES (30)**: a size class runs dry and takes a page while holding its lock.
-- **anything → CONSOLE (10)**: a panic prints while holding a lock. Which is *why* the console
+- SLAB (50) → FRAMES (30): a size class runs dry and takes a page while holding its lock.
+- anything → CONSOLE (10): a panic prints while holding a lock. Which is *why* the console
   must be the leaf.
 
 The panic path calls `sync::force_reset_ranks()` alongside `console::force_unlock()`. Panicking
