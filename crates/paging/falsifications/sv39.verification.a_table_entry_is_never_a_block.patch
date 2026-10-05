@@ -20,7 +20,7 @@ diff --git a/crates/paging/src/sv39.rs b/crates/paging/src/sv39.rs
 +++ b/crates/paging/src/sv39.rs
 @@ -83,7 +83,7 @@ impl PageFormat for Sv39 {
  
-     fn table_entry(pa: u64) -> u64 {
+     fn table_entry(pa: u64, _level: usize) -> u64 {
          // A pointer PTE: PPN plus V, and R=W=X=0 (that zero is what marks it a pointer, not a leaf).
 -        (((pa >> 12) & PPN_MASK) << PPN_SHIFT) | V
 +        (((pa >> 12) & PPN_MASK) << PPN_SHIFT) | V | R

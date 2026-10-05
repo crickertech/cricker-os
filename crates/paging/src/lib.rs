@@ -163,7 +163,7 @@ pub mod x86_64;
 pub use aarch64::Aarch64;
 pub use domain::{DmaRegion, build_identity_domain};
 pub use sv39::Sv39;
-pub use x86_64::{Ia32e, Vtd};
+pub use x86_64::{AmdVi, Ia32e, Vtd};
 
 /// 4 KiB, the smallest leaf every format here maps, and the unit every table is.
 pub const PAGE_SIZE: u64 = 4096;
@@ -480,7 +480,16 @@ pub trait PageFormat {
 
     /// Encode an intermediate entry pointing at `pa` (a next-level table). No permissions: a leaf
     /// is the single source of truth for access rights, so intermediate entries carry none.
-    fn table_entry(pa: u64) -> u64;
+    ///
+    /// `level` is the level of the table this entry is written INTO, counted the way
+    /// [`index`](Self::index) counts it (0 = the top), so the table `pa` names is at `level + 1`.
+    /// Three of the four formats ignore it. **AMD-Vi cannot**: its directory entry carries a
+    /// `NextLevel` field that must name the level of the table it points at, and a wrong value is
+    /// not a slightly different encoding but a skipped level (AMD 48882 rev 2.62, section 2.2.3).
+    /// Required rather than a second method with a default, for the reason
+    /// [`block_entry`](Self::block_entry) gives: a default that dropped the level would let a new
+    /// format inherit the wrong encoding without saying so.
+    fn table_entry(pa: u64, level: usize) -> u64;
 
     /// Encode a leaf entry mapping physical `pa` with `flags`.
     fn leaf_entry(pa: u64, flags: Flags) -> u64;
@@ -733,7 +742,7 @@ where
                     (*(self.phys_to_ptr)(new)).entries = [0; ENTRIES];
                 }
 
-                *entry = F::table_entry(new);
+                *entry = F::table_entry(new, level);
             } else if F::is_block(*entry) {
                 // A block already maps this address. Descending would take the block's frame for
                 // a page table and write a leaf into somebody's data.
@@ -797,7 +806,7 @@ where
                 unsafe {
                     (*(self.phys_to_ptr)(new)).entries = [0; ENTRIES];
                 }
-                *entry = F::table_entry(new);
+                *entry = F::table_entry(new, level);
             } else if F::is_block(*entry) {
                 return Err(MapError::AlreadyMapped);
             }

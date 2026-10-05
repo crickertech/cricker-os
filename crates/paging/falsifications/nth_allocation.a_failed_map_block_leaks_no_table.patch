@@ -44,7 +44,7 @@ index 2c96e5bfc..d0ea285ec 100644
                  unsafe {
                      (*(self.phys_to_ptr)(new)).entries = [0; ENTRIES];
                  }
-                 *entry = F::table_entry(new);
+                 *entry = F::table_entry(new, level);
 +                first.get_or_insert(entry as *mut u64);
              } else if F::is_block(*entry) {
                  return Err(MapError::AlreadyMapped);

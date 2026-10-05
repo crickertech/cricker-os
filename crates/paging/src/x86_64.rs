@@ -165,7 +165,7 @@ impl PageFormat for Ia32e {
         entry & ADDR_MASK
     }
 
-    fn table_entry(pa: u64) -> u64 {
+    fn table_entry(pa: u64, _level: usize) -> u64 {
         // Maximally permissive, because x86 ANDs the levels together and the leaf must be able to
         // grant anything. See this module's header for what that trades away.
         (pa & ADDR_MASK) | P | RW | US
@@ -298,7 +298,7 @@ impl PageFormat for Vtd {
     /// Both bits set: VT-d ANDs permissions down the walk exactly as the CPU's own tables do (an
     /// intermediate entry's `R`/`W` gate every leaf beneath it), so an intermediate must grant
     /// everything and let the leaf decide, the same reasoning `Ia32e::table_entry` documents.
-    fn table_entry(pa: u64) -> u64 {
+    fn table_entry(pa: u64, _level: usize) -> u64 {
         (pa & VTD_ADDR_MASK) | VTD_R | VTD_W
     }
 
@@ -338,6 +338,117 @@ impl PageFormat for Vtd {
     /// somebody else wrote; this format never writes one.
     fn is_block(entry: u64) -> bool {
         entry & (1 << 7) != 0
+    }
+}
+
+/// **AMD-Vi's host page-table format** (provisional name, lane `amd-vi`): what an AMD IOMMU walks
+/// to translate a device's DMA address. Four levels of 512 eight-byte entries and 4 KiB leaves, the
+/// same shape as [`Vtd`] and [`Ia32e`], and an encoding that is neither. Every bit below is from
+/// AMD document 48882 revision 2.62, section 2.2.3 (Figures 9 and 10, Tables 17 and 18), read for
+/// this format rather than recalled.
+///
+/// **What makes it different is the `NextLevel` field (bits 11:9).** A directory entry names the
+/// level of the table it points at, which lets the hardware skip levels whose address bits are
+/// zero. This format never skips: a directory entry written into the table at walk level `L`
+/// (0 = top, as [`PageFormat::index`] counts) points at AMD level `LEVELS - 1 - L`, so the top
+/// table's entries say 3 and the bottom directory's say 1. That is why
+/// [`PageFormat::table_entry`] takes the level: there is no level-free encoding of an AMD-Vi
+/// directory entry. A leaf (a "page translation entry") says 0, which means "the default page
+/// size of this level"; at the bottom that is 4 KiB.
+///
+/// **Permissions are combined by AND down the walk** (`IR` bit 61, `IW` bit 62, at every level and in the
+/// device table entry as well), so a directory entry grants both and the leaf decides, the same
+/// argument [`Vtd::table_entry`] makes. **`FC` (bit 60) is set on every leaf**: it makes the IOMMU
+/// clear the PCI No Snoop attribute, so a device's DMA through this domain stays coherent with the
+/// CPU caches whatever the device asks for. Linux sets it on every leaf too
+/// (`drivers/iommu/amd/io_pgtable.c`, read at v6.12). Bit 60 is reserved in a directory entry
+/// (Table 18), so only leaves carry it.
+pub struct AmdVi;
+
+/// `PR`: present. Bit 0, at every level.
+const AMD_VI_PR: u64 = 1 << 0;
+/// `NextLevel`, bits 11:9.
+const AMD_VI_NEXT_LEVEL_SHIFT: u64 = 9;
+const AMD_VI_NEXT_LEVEL_MASK: u64 = 0b111 << AMD_VI_NEXT_LEVEL_SHIFT;
+/// `FC`: force coherent. Leaf only.
+const AMD_VI_FC: u64 = 1 << 60;
+/// `IR`: the device may read through this entry.
+const AMD_VI_IR: u64 = 1 << 61;
+/// `IW`: the device may write through this entry.
+const AMD_VI_IW: u64 = 1 << 62;
+/// Bits 51:12, the next table's or the page's physical address.
+const AMD_VI_ADDR_MASK: u64 = 0x000f_ffff_ffff_f000;
+
+/// **Every bit an AMD-Vi leaf this format writes may carry**: `PR`, the address, `FC`, `IR`, `IW`.
+/// `NextLevel` is zero in a 4 KiB leaf, and bits 58:52 are reserved and fault the walk with
+/// `IO_PAGE_FAULT` (Table 17). Spelled as a literal for the reason [`VTD_PERMITTED_BITS`] gives:
+/// written through the encoder's own constants, the check would move with them.
+#[cfg(test)]
+const AMD_VI_LEAF_PERMITTED_BITS: u64 = 0x700f_ffff_ffff_f001;
+/// The same for a directory entry: `PR`, `NextLevel`, the address, `IR`, `IW`. Bit 60 is reserved
+/// here (Table 18), which is the one place the two entry kinds differ.
+#[cfg(test)]
+const AMD_VI_DIRECTORY_PERMITTED_BITS: u64 = 0x600f_ffff_ffff_fe01;
+
+impl PageFormat for AmdVi {
+    const LEVELS: usize = 4;
+
+    /// Not an AMD-Vi concept either; kept equal to [`Vtd`]'s for the same reason [`Vtd`] gives.
+    const SPLIT_SHIFT: u32 = 47;
+
+    fn is_present(entry: u64) -> bool {
+        entry & AMD_VI_PR != 0
+    }
+
+    fn entry_pa(entry: u64) -> u64 {
+        entry & AMD_VI_ADDR_MASK
+    }
+
+    /// A directory entry at walk level `level`, naming the AMD level of the table at `pa`
+    /// (`LEVELS - 1 - level`), granting read and write so the leaf decides.
+    fn table_entry(pa: u64, level: usize) -> u64 {
+        let next = (Self::LEVELS - 1 - level) as u64;
+        (pa & AMD_VI_ADDR_MASK)
+            | AMD_VI_PR
+            | (next << AMD_VI_NEXT_LEVEL_SHIFT)
+            | AMD_VI_IR
+            | AMD_VI_IW
+    }
+
+    /// A 4 KiB leaf: present, `NextLevel` 0, force coherent, readable, and writable when `flags`
+    /// says so. A device has no privilege level and no execute permission in this mode, so `US`
+    /// and `XD` have nowhere to go, exactly as on [`Vtd`].
+    fn leaf_entry(pa: u64, flags: Flags) -> u64 {
+        let mut bits = AMD_VI_PR | AMD_VI_FC | AMD_VI_IR;
+        if flags.is_writable() {
+            bits |= AMD_VI_IW;
+        }
+        (pa & AMD_VI_ADDR_MASK) | bits
+    }
+
+    fn leaf_flags(entry: u64) -> Flags {
+        let mut caps = 0;
+        if entry & AMD_VI_IW != 0 {
+            caps |= CAP_WRITE;
+        }
+        Flags::from_caps(caps)
+    }
+
+    /// **Pages only**, the same call [`Vtd`] makes and for the same reason: a DMA domain is a few
+    /// granted pages. AMD-Vi could say 2 MiB with a level-2 entry whose `NextLevel` is 0; nothing
+    /// here needs it yet.
+    fn block_entry(pa: u64, flags: Flags, size: PageSize) -> Option<u64> {
+        match size {
+            PageSize::Size4KiB => Some(Self::leaf_entry(pa, flags)),
+            PageSize::Size2MiB | PageSize::Size1GiB => None,
+        }
+    }
+
+    /// Above the bottom level, an entry whose `NextLevel` is 0 or 7 is a page translation entry
+    /// rather than a directory (section 2.2.3's definition), so a walk stops at it.
+    fn is_block(entry: u64) -> bool {
+        let next = (entry & AMD_VI_NEXT_LEVEL_MASK) >> AMD_VI_NEXT_LEVEL_SHIFT;
+        next == 0 || next == 7
     }
 }
 
@@ -395,7 +506,7 @@ mod tests {
     /// three formats genuinely disagree, so it gets its own test rather than a comment.
     #[test]
     fn a_table_entry_grants_everything_and_leaves_the_leaf_to_decide() {
-        let e = Ia32e::table_entry(0x20_0000);
+        let e = Ia32e::table_entry(0x20_0000, 0);
         assert_ne!(e & P, 0);
         assert_ne!(
             e & RW,
@@ -559,13 +670,85 @@ mod tests {
     /// intermediate would veto a writable leaf beneath it.
     #[test]
     fn a_vtd_table_entry_grants_everything() {
-        let e = Vtd::table_entry(0x20_0000);
+        let e = Vtd::table_entry(0x20_0000, 0);
         assert_eq!(e & (VTD_R | VTD_W), VTD_R | VTD_W);
         assert_eq!(Vtd::entry_pa(e), 0x20_0000);
         assert_eq!(
             e & !(VTD_ADDR_MASK | VTD_R | VTD_W),
             0,
             "no reserved bit in a table entry either"
+        );
+    }
+
+    /// **An AMD-Vi leaf sets no bit outside `PR`, the address, `FC`, `IR` and `IW`**, for every
+    /// `Flags` constructor and for addresses with bits above 51 set, which is the input that asks
+    /// the encoder to mask (the same reasoning as the VT-d test above). Reserved bits 58:52 fault
+    /// the walk, and a nonzero `NextLevel` in a bottom-level entry would read as a directory.
+    #[test]
+    fn an_amd_vi_leaf_sets_no_bit_outside_its_permitted_set() {
+        for flags in [
+            Flags::kernel_code(),
+            Flags::kernel_rodata(),
+            Flags::kernel_data(),
+            Flags::device(),
+            Flags::user_code(),
+            Flags::user_rodata(),
+            Flags::user_data(),
+            Flags::user_device(),
+        ] {
+            for pa in [0x10_0000, 0x00ff_ffff_ffff_f000, 0xffff_ffff_ffff_f000] {
+                let leaf = AmdVi::leaf_entry(pa, flags);
+                assert_eq!(
+                    leaf & !AMD_VI_LEAF_PERMITTED_BITS,
+                    0,
+                    "a reserved bit was set for {flags:?} at {pa:#x}: {leaf:#x}"
+                );
+                assert_eq!(leaf & 0xe00, 0, "a 4 KiB leaf's NextLevel is 0");
+                assert_eq!(leaf & 1, 1, "a leaf is present");
+                assert_eq!(leaf & (1 << 61), 1 << 61, "every leaf is readable");
+                assert_eq!(leaf & (1 << 60), 1 << 60, "every leaf forces coherence");
+            }
+        }
+    }
+
+    /// **A directory entry names the level it points at**, 3 from the top table down to 1 from
+    /// the last directory, grants both permissions, and sets no reserved bit (bit 60 included,
+    /// which a leaf may carry and a directory may not). The level arithmetic is the thing a wrong
+    /// value would turn into a skipped level, so each level is spelled out rather than derived.
+    #[test]
+    fn an_amd_vi_directory_entry_names_the_next_level() {
+        for (walk_level, next_level) in [(0usize, 3u64), (1, 2), (2, 1)] {
+            for pa in [0x20_0000, 0xffff_ffff_ffff_f000] {
+                let e = AmdVi::table_entry(pa, walk_level);
+                assert_eq!((e >> 9) & 7, next_level, "walk level {walk_level}");
+                assert_eq!(e & !AMD_VI_DIRECTORY_PERMITTED_BITS, 0, "{e:#x}");
+                assert_eq!(e & (3 << 61), 3 << 61, "a directory grants read and write");
+                assert_eq!(AmdVi::entry_pa(e), pa & 0x000f_ffff_ffff_f000);
+                assert!(AmdVi::is_present(e));
+                assert!(!AmdVi::is_block(e), "a directory is not a page");
+            }
+        }
+    }
+
+    /// **The permissions round-trip, and only pages are written.** `IW` is what `Flags` gets back;
+    /// a page translation entry met above the bottom (`NextLevel` 0 or 7) stops a walk.
+    #[test]
+    fn an_amd_vi_leaf_reads_back_and_pages_are_the_only_size() {
+        let rw = AmdVi::leaf_entry(0x10_0000, Flags::user_data());
+        let ro = AmdVi::leaf_entry(0x10_0000, Flags::kernel_rodata());
+        assert!(AmdVi::leaf_flags(rw).is_writable());
+        assert!(!AmdVi::leaf_flags(ro).is_writable());
+        assert!(!AmdVi::is_present(0));
+        assert!(AmdVi::is_block(rw));
+        assert!(AmdVi::is_block(1 | (7 << 9)));
+        let data = Flags::user_data();
+        assert_eq!(
+            AmdVi::block_entry(0x10_0000, data, PageSize::Size4KiB),
+            Some(rw)
+        );
+        assert_eq!(
+            AmdVi::block_entry(0x20_0000, data, PageSize::Size2MiB),
+            None
         );
     }
 
@@ -601,7 +784,7 @@ mod tests {
         assert_eq!(Vtd::block_entry(0x20_0000, data, PageSize::Size2MiB), None);
         assert!(Vtd::is_block(VTD_R | (1 << 7)));
         assert!(!Vtd::is_block(Vtd::leaf_entry(0x10_0000, data)));
-        assert!(!Vtd::is_block(Vtd::table_entry(0x10_0000)));
+        assert!(!Vtd::is_block(Vtd::table_entry(0x10_0000, 0)));
     }
 
     /// A leaf with no software kernel-exec bit is not kernel code, however its other bits sit. The
@@ -816,7 +999,7 @@ mod verification {
     #[kani::proof]
     fn a_table_entry_is_never_a_block() {
         let pa: u64 = kani::any();
-        assert!(!Ia32e::is_block(Ia32e::table_entry(pa)));
+        assert!(!Ia32e::is_block(Ia32e::table_entry(pa, 0)));
     }
 
     /// **No `Vtd` leaf or table entry ever sets a bit VT-d treats as reserved**, over every
@@ -886,7 +1069,7 @@ mod verification {
         );
         assert_eq!(Vtd::entry_pa(leaf), pa & ADDRESS_BITS);
 
-        let table = Vtd::table_entry(pa);
+        let table = Vtd::table_entry(pa, 0);
         assert_eq!(
             table & !VTD_PERMITTED_BITS,
             0,

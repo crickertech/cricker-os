@@ -81,7 +81,7 @@ impl PageFormat for Sv39 {
         ((entry >> PPN_SHIFT) & PPN_MASK) << 12
     }
 
-    fn table_entry(pa: u64) -> u64 {
+    fn table_entry(pa: u64, _level: usize) -> u64 {
         // A pointer PTE: PPN plus V, and R=W=X=0 (that zero is what marks it a pointer, not a leaf).
         (((pa >> 12) & PPN_MASK) << PPN_SHIFT) | V
     }
@@ -171,7 +171,7 @@ mod tests {
     /// **A table-pointer entry has R=W=X=0** (that is what distinguishes it from a leaf) and V=1.
     #[test]
     fn a_table_entry_is_a_pointer_not_a_leaf() {
-        let e = Sv39::table_entry(0x8100_0000);
+        let e = Sv39::table_entry(0x8100_0000, 0);
         assert_ne!(e & V, 0);
         assert_eq!(e & (R | W | X), 0, "a pointer must have R=W=X clear");
         assert_eq!(Sv39::entry_pa(e), 0x8100_0000);
@@ -209,7 +209,7 @@ mod tests {
         for bits in [R, W, X, R | W, R | X] {
             assert!(Sv39::is_block(V | bits), "{bits:#x}");
         }
-        assert!(!Sv39::is_block(Sv39::table_entry(0x8020_0000)));
+        assert!(!Sv39::is_block(Sv39::table_entry(0x8020_0000, 0)));
     }
 
     /// **A write-combining request is encoded as plain device memory here** (the console-scroll
@@ -368,7 +368,7 @@ mod verification {
     #[kani::proof]
     fn a_table_entry_is_never_a_block() {
         let pa: u64 = kani::any();
-        assert!(!Sv39::is_block(Sv39::table_entry(pa)));
+        assert!(!Sv39::is_block(Sv39::table_entry(pa, 0)));
     }
 
     /// **A leaf keeps the address and the permissions apart, and the permissions round-trip.**

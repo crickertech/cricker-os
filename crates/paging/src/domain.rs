@@ -365,7 +365,7 @@ mod tests {
     use std::vec::Vec;
 
     use super::*;
-    use crate::{Aarch64, Sv39};
+    use crate::{Aarch64, AmdVi, Sv39};
 
     // A SYNTHETIC physical address space, and the reason it exists is a CI failure worth recording.
     //
@@ -533,6 +533,47 @@ mod tests {
     #[test]
     fn sv39_domain_confines_a_region() {
         one_region_confines::<Sv39>();
+    }
+
+    /// **An AMD-Vi domain confines through the shared walk**, which is the one claim about the
+    /// format that only a whole build can make: [`build_identity_domain`] writes a directory entry
+    /// at every level with the level it is at, and the walk then stops only at the leaf. A wrong
+    /// `NextLevel` would read as a page one level up (`is_block`), and the in-region page would
+    /// translate to the wrong place or not at all. `leaf_flags` carries only `IW` on this format,
+    /// so the flags are checked for writability rather than compared whole.
+    #[test]
+    fn amd_vi_domain_confines_a_region() {
+        let pool = FramePool::new();
+        let root = pool.frame();
+        let base = pool.frame_at(0x2000_0000);
+        let regions = [DmaRegion {
+            base,
+            size: PAGE_SIZE,
+        }];
+        // SAFETY: as in `one_region_confines`.
+        unsafe {
+            build_identity_domain::<_, _, AmdVi>(
+                root,
+                || Some(pool.frame()),
+                phys_to_ptr,
+                &regions,
+            )
+            .expect("domain build failed");
+        }
+        // SAFETY: `root` is the table the build above populated, reachable through `phys_to_ptr`.
+        let m = unsafe {
+            Mapper::<fn() -> Option<u64>, _, AmdVi>::new(root, Half::Low, || None, phys_to_ptr)
+        };
+        let (pa, flags) = m
+            .translate(base)
+            .expect("an in-region IOVA did not translate");
+        assert_eq!(pa, base);
+        assert!(flags.is_writable());
+        assert_eq!(
+            m.translate(base + PAGE_SIZE),
+            None,
+            "a page past the region translated"
+        );
     }
 
     /// **A grant of more than one page maps every whole page in it, and stops at the partial tail.**
