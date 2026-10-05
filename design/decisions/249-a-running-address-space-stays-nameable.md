@@ -110,19 +110,19 @@ test, once init's slot is ruled.
 calef, 2026-10-05 (ruled at the time `date -u` read 16:51 UTC): "A, slot 28, WRITE only". This
 answers the "still open" paragraph above. Recorded by the maintainer.
 
-- **Where.** The kernel grants init a capability to its own address space at boot as a new
+- Where. The kernel grants init a capability to its own address space at boot as a new
   `BootEndowment` field, `own_space` (provisional name), at slot 28 in `components/src/progenitor.rs`'s
   table. It is granted on every boot and appended past the highest slot in use (27,
   `usb_keyboard_attach`), per the table's convention.
-- **Rights: WRITE only, no GRANT.** `UNMAP` needs WRITE. Without GRANT, init cannot delegate
+- Rights: WRITE only, no GRANT. `UNMAP` needs WRITE. Without GRANT, init cannot delegate
   authority over its own space to anyone it spawns. GRANT can be added later; taking it away once a
   program has relied on it is harder, so the narrower grant goes first.
 
 Refused:
 
-- **B, a tree-wide constant beside `FAULT_EP_SLOT` (63), such as 62.** Builders would adopt it for
+- B, a tree-wide constant beside `FAULT_EP_SLOT` (63), such as 62. Builders would adopt it for
   children, a process-wide convention drifting toward the default grant this section refused as its
   option B.
-- **C, seL4's slot 3.** It renumbers every slot from 3 up for no gain.
+- C, seL4's slot 3. It renumbers every slot from 3 up for no gain.
 
 This unblocks milestone 95 (an unmap primitive, and the mappings init never lets go) reaching BUILT.
