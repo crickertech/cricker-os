@@ -258,15 +258,26 @@ fn a_confined_el0_server_cannot_dma_outside_its_region() {
             esc.victim,
         )
     });
-    assert_eq!(
-        f.addr & !0xfff,
-        esc.victim & !0xfff,
-        "the IOMMU faulted, but on {:#x} (code {:#x}, rid {:#x}), not the victim frame {:#x}",
-        f.addr,
-        f.code,
-        f.rid,
-        esc.victim,
-    );
+    match f.addr {
+        Some(addr) => assert_eq!(
+            addr & !0xfff,
+            esc.victim & !0xfff,
+            "the IOMMU faulted, but on {addr:#x} (code {:#x}, rid {:#x}), not the victim frame \
+             {:#x}",
+            f.code,
+            f.rid,
+            esc.victim,
+        ),
+        // **AMD-Vi under QEMU 11.1.1 reports no address** (`arch/x86_64/iommu.rs`'s
+        // `Fault::addr`). The fault is tied to the controller by its requester id instead, and the
+        // canary below, which never depended on the fault queue, is what proves the READ escape
+        // did not land.
+        None => assert_eq!(
+            f.rid, esc.rid,
+            "the IOMMU faulted (code {:#x}) for requester {:#x}, not the NVMe controller {:#x}",
+            f.code, f.rid, esc.rid,
+        ),
+    }
 
     // **And the frame is verifiably untouched.** A READ escape the IOMMU had failed to refuse would
     // have copied the disk's bytes over the canary. This is the direct memory proof, independent of

@@ -28,7 +28,7 @@ use paging::domain::{DmaRegion, build_identity_domain};
 // fields without ever naming the type, so both re-exports are allowed to be locally unused.
 #[allow(unused_imports)]
 pub use crate::arch::iommu::{Fault, take_fault};
-use crate::arch::mmu::{DmaFormat, phys_to_virt};
+use crate::arch::mmu::phys_to_virt;
 
 /// Is an IOMMU present and initialized on this machine? False on a `virt` boot without
 /// `iommu=smmuv3` (aarch64) or without a `riscv-iommu-pci` function (riscv), where the kernel
@@ -142,8 +142,9 @@ fn zeroed_page_frame() -> u64 {
 }
 
 /// **Confine PCI device `rid` to exactly `regions`.** Builds a DMA domain in this architecture's
-/// page-table format (the seam's whole point: one call, `DmaFormat` picks VMSAv8-64 on aarch64 and
-/// Sv39 on riscv) and attaches the device to it. After this returns, the device faults on any
+/// page-table format (the seam's whole point: one call, and `arch::iommu::build_domain` picks
+/// VMSAv8-64 on aarch64, Sv39 on riscv, and VT-d's or AMD-Vi's format on `x86_64`) and attaches
+/// the device to it. After this returns, the device faults on any
 /// address outside `regions`.
 ///
 /// `rid` is the PCIe requester id (bus/dev/fn), which both IOMMUs key their tables on (each `virt`
@@ -177,14 +178,25 @@ pub fn confine(rid: u32, regions: &[DmaRegion]) {
     });
     let regions = &all[..n];
 
+    // The format is the architecture's to choose, and on `x86_64` the running machine's: VT-d and
+    // AMD-Vi walk different tables (lane `amd-vi`).
+    let root = crate::arch::iommu::build_domain(regions);
+
+    // The domain's cache tag (ASID on aarch64, PSCID on riscv). One per device; the requester id is
+    // unique per device and never zero for a real PCI function (dev >= 1), so it is a fine tag.
+    crate::arch::iommu::attach(rid, root, rid as u16);
+}
+
+/// **Build an identity domain over exactly `regions` in format `F`, and return its root.** The
+/// architecture's `build_domain` names `F`; this is the part that is the same everywhere: the
+/// frame allocator and the pointer projection the kernel's own `Mapper` uses.
+pub(crate) fn build_identity<F: paging::PageFormat>(regions: &[DmaRegion]) -> u64 {
     let root = zeroed_page_frame();
-    // Build the identity domain over `regions`. The frame allocator and the pointer projection are
-    // the same the kernel's own `Mapper` uses; `DmaFormat` selects the format for this ISA.
     // SAFETY: `root` is a freshly zeroed, page-aligned frame; `zeroed_page_frame` returns the same for
     // every intermediate table; `phys_to_virt` yields a pointer the Mapper contract accepts. Nobody
-    // installs `root` until `attach` below, which happens only after this returns Ok.
+    // installs `root` until the driver's `attach`, which happens only after this returns.
     unsafe {
-        build_identity_domain::<_, _, DmaFormat>(
+        build_identity_domain::<_, _, F>(
             root,
             || Some(zeroed_page_frame()),
             |pa| phys_to_virt(pa) as *mut paging::PageTable,
@@ -196,10 +208,7 @@ pub fn confine(rid: u32, regions: &[DmaRegion]) {
     // the root. The driver's `attach` issues its own invalidation + sync after installing the STE /
     // device context, so a stale cached entry cannot survive either.
     crate::arch::direct_memory_access_write_barrier();
-
-    // The domain's cache tag (ASID on aarch64, PSCID on riscv). One per device; the requester id is
-    // unique per device and never zero for a real PCI function (dev >= 1), so it is a fine tag.
-    crate::arch::iommu::attach(rid, root, rid as u16);
+    root
 }
 
 /// The physical regions a virtio device's domain must cover: the driver's DMA region (its rings'

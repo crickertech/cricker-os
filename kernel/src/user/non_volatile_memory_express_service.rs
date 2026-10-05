@@ -277,6 +277,9 @@ pub struct DmaEscape {
     pub confined_by_iommu: bool,
     /// The evidence behind `confined_by_iommu`, for the failure message.
     pub scope: crate::iommu::Scope,
+    /// The controller's PCIe requester id, which ties a fault to it when the IOMMU reports no
+    /// address (AMD-Vi under QEMU 11.1.1; see `arch/x86_64/iommu.rs`'s `Fault::addr`).
+    pub rid: u32,
     /// The kernel thread running the attacker, which [`DmaEscape::release`] waits out.
     thread: crate::thread::ThreadId,
     /// The one-page region `report` lives in, so [`DmaEscape::release`] can destroy it. A kernel
@@ -437,6 +440,7 @@ pub fn start_dma_escape(image: &'static [u8]) -> Option<DmaEscape> {
         victim,
         confined_by_iommu,
         scope,
+        rid,
         thread,
         ep_region,
         controller,

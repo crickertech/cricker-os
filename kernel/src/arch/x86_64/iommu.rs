@@ -43,6 +43,19 @@
 //! remapping, queued invalidation and PASID/scalable mode are real VT-d features this driver does
 //! not build; see the BUGS section for what each costs and where the next piece would go.
 //!
+//! # This file is also `x86_64`'s IOMMU front door, and AMD-Vi lives next door
+//!
+//! An AMD machine has no VT-d. Its IOMMU is AMD-Vi, described by the IVRS rather than the DMAR,
+//! driven by a command ring rather than registers, and walking its own page-table format; that
+//! driver is [`super::amd_vi`] (lane `amd-vi`, provisional name). A machine has one kind or the
+//! other, so every public entry point the portable seam calls (`attach`, `scope_of`, `is_active`,
+//! `take_fault`, `for_each_reserved_region`, `build_domain`, `print_summary`) first asks whether
+//! an AMD-Vi unit is up and hands the call over if one is. That is the only AMD-Vi code in this
+//! file. The forwarding sits here rather than in a dispatcher module of its own because this
+//! file's path is cited across the tree as where `x86_64`'s IOMMU lives, §163 (where a confined
+//! device's IOMMU fault is delivered) among them, and moving VT-d out from under it would leave
+//! every one of those citations naming the wrong code.
+//!
 //! # A device no unit owns
 //!
 //! Section 8.3 requires at least one DRHD per PCI segment and says the `INCLUDE_PCI_ALL` unit
@@ -294,7 +307,13 @@ const CTX_DID_SHIFT: u64 = 8; // bits 23:8 of the upper qword
 pub struct Fault {
     pub rid: u32,
     pub code: u32,
-    pub addr: u64,
+    /// The device address that faulted, or `None` when the unit did not say. VT-d always says.
+    /// AMD-Vi's event record has the field, and QEMU 11.1.1's model never fills it: its
+    /// `amdvi_setevent_bits` builds the address's mask with a shift of 64, undefined in C and
+    /// zero in the Homebrew build (fixed upstream in QEMU commit 4adfb431c0, 2026-08-14, in no
+    /// release as of 2026-10-05). So [`super::amd_vi::take_fault`] reports a zero address as
+    /// `None`, and a test that wants to tie a fault to a frame has to use another witness.
+    pub addr: Option<u64>,
 }
 
 /// One VT-d unit this kernel brought up.
@@ -661,6 +680,9 @@ fn owner_index(rid: u32) -> Option<usize> {
 /// builds, so confining a USB controller or the GPU never takes away memory the firmware still
 /// DMAs into. Name: provisional (milestone 594).
 pub fn for_each_reserved_region(rid: u32, each: &mut dyn FnMut(paging::domain::DmaRegion)) {
+    if super::amd_vi::is_active() {
+        return super::amd_vi::for_each_reserved_region(rid, each);
+    }
     let Some(units) = *DMAR.lock() else {
         return;
     };
@@ -691,6 +713,9 @@ pub fn for_each_reserved_region(rid: u32, each: &mut dyn FnMut(paging::domain::D
 /// kernel refused (`owner: Some`) or no owner at all (`owner: None`).
 pub fn scope_of(rid: u32) -> crate::iommu::Scope {
     use crate::iommu::Scope;
+    if super::amd_vi::is_active() {
+        return super::amd_vi::scope_of(rid);
+    }
     // Copied out rather than held, so the config-space reads that resolve a path run with no
     // lock taken.
     let mut up = [false; MAX_DRHDS];
@@ -767,6 +792,9 @@ pub fn interrupt_remapping_available() -> Option<bool> {
     allow(dead_code)
 )]
 pub fn print_summary() {
+    if super::amd_vi::print_summary() {
+        return;
+    }
     let g = IOMMU.lock();
     let mut any = false;
     for s in g.iter() {
@@ -793,14 +821,28 @@ pub fn print_summary() {
     }
     if !any {
         crate::println!(
-            "  iommu           : none (this machine's ACPI names no DMAR, or it names no DRHD)",
+            "  iommu           : none (this machine's ACPI names neither a DMAR nor an IVRS); device \
+             DMA is NOT confined",
         );
     }
 }
 
-/// Is any VT-d unit up? The portable seam asks this to decide whether attaching is possible.
+/// Is any VT-d or AMD-Vi unit up? The portable seam asks this to decide whether attaching is
+/// possible.
 pub fn is_active() -> bool {
-    IOMMU.lock().iter().any(|s| matches!(s, Slot::Up(_)))
+    super::amd_vi::is_active() || IOMMU.lock().iter().any(|s| matches!(s, Slot::Up(_)))
+}
+
+/// **Build a DMA domain over exactly `regions` in the format this machine's IOMMU walks**, and
+/// return its root: [`paging::x86_64::AmdVi`] when an AMD-Vi unit is up, [`Vtd`] otherwise. The two
+/// share the CPU's four-level, 4 KiB-leaf shape and nothing else that matters: `Vtd`'s and
+/// `AmdVi`'s own docs say why neither encoding, nor `Ia32e`'s, would work in the other's place.
+pub fn build_domain(regions: &[paging::domain::DmaRegion]) -> u64 {
+    if super::amd_vi::is_active() {
+        crate::iommu::build_identity::<paging::x86_64::AmdVi>(regions)
+    } else {
+        crate::iommu::build_identity::<Vtd>(regions)
+    }
 }
 
 /// Register-based, global invalidation: the context cache first (a stale context entry would
@@ -840,6 +882,9 @@ fn invalidate_all(s: &Unit) {
 /// DMA would be looked up in: see this module's "A device no unit owns". [`scope_of`] is how a
 /// caller learns that, and every caller that claims confinement asks it.
 pub fn attach(rid: u32, root: u64, _tag: u16) {
+    if super::amd_vi::is_active() {
+        return super::amd_vi::attach(rid, root);
+    }
     let Some(i) = owner_index(rid) else {
         return;
     };
@@ -911,6 +956,9 @@ pub fn attach(rid: u32, root: u64, _tag: u16) {
 /// DMA escape was stopped by the hardware, not merely absent.
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn take_fault() -> Option<Fault> {
+    if super::amd_vi::is_active() {
+        return super::amd_vi::take_fault();
+    }
     let g = IOMMU.lock();
     for slot in g.iter() {
         let Slot::Up(s) = slot else { continue };
@@ -938,7 +986,7 @@ pub fn take_fault() -> Option<Fault> {
         return Some(Fault {
             rid: (hi & 0xffff) as u32,
             code: ((hi >> 32) & 0xff) as u32,
-            addr: lo & !0xfff,
+            addr: Some(lo & !0xfff),
         });
     }
     None
@@ -952,6 +1000,9 @@ pub fn take_fault() -> Option<Fault> {
 /// and context entries for `rid` as the CPU sees them. Bounded at about eight lines.
 #[cfg(feature = "disk_throughput")]
 pub fn print_faults(rid: u32) {
+    if super::amd_vi::is_active() {
+        return super::amd_vi::print_faults(rid);
+    }
     // Before the lock: `owner_index` reads configuration space and takes `DMAR`.
     let owner = owner_index(rid);
     let g = IOMMU.lock();
@@ -1046,6 +1097,9 @@ fn print_context_entry(s: &Unit, ctx_tables: &[Option<u64>; 256], rid: u32) {
 /// shows the entry the unit accepted, not only the one it refused.
 #[cfg(feature = "disk_throughput")]
 pub fn print_context(rid: u32) {
+    if super::amd_vi::is_active() {
+        return super::amd_vi::print_faults(rid);
+    }
     let owner = owner_index(rid);
     let g = IOMMU.lock();
     let Some(i) = owner else { return };
