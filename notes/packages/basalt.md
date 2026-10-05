@@ -1,10 +1,9 @@
 # basalt
 
-*The name of nife's first-party distribution, the `nifeos/basalt` repository that milestone 120
-reserved. The ruling and its refusals are recorded in [the notes index](README.md), where
+*The name of nife's first-party distribution, the `nifeos/basalt` repository that milestone 120 (nife and the organization)
+reserved. The ruling and its refusals are recorded in [this directory's index](README.md), where
 `script/names` reads them. What basalt assembles is decided in
-[§151](../design/decisions/151-repository-goal-is-independent-release.md) and built by milestone 198
-(the package manager).*
+[§151 (repository goal is independent release)](../../design/decisions/151-repository-goal-is-independent-release.md) and built by milestone 198 (a package manager).*
 
 ## Why the name stands
 
@@ -23,10 +22,10 @@ The geology also holds up. Basalt is fine-grained because it cools fast; granite
 | Name | Why |
 |---|---|
 | `travertine` | Limestone still forming at hot springs. The best "fresh" candidate, but its meaning needs a geologist's footnote, the same tax that retired `sial`. |
-| `magma` | calef's own idea. It is molten rock, not a rock, so it breaks milestone 120's convention that a distribution is a rock (an aggregate of minerals). From memory, unverified: the Magma computer algebra system and the Linux Foundation's Magma mobile core already use it. |
+| `magma` | calef's own idea. It is molten rock, not a rock, so it breaks milestone 120 (nife and the organization)'s convention that a distribution is a rock (an aggregate of minerals). From memory, unverified: the Magma computer algebra system and the Linux Foundation's Magma mobile core already use it. |
 | `tufa` | Confused with `tuff`, and the crate name is taken. |
 | `scoria` | Also means slag, and the crate name is taken. |
 | `flowstone` | FlowStone is a commercial product. |
 | `tephra` | Loose fragments, not a rock. Apache Tephra exists. |
 | `obsidian` | The notes app. |
-| `pumice` | Reads as "light", and is milestone 120's example of a third party's distribution. |
+| `pumice` | Reads as "light", and is milestone 120 (nife and the organization)'s example of a third party's distribution. |
