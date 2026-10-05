@@ -465,6 +465,19 @@ fn labelled_child(fault_ep: sched::RendezvousId, label: u64) -> (u64, u64) {
     )
 }
 
+/// A supervision endpoint and a report endpoint, carved from a two-page region the test owns, so
+/// that reclaiming it gives both pages back. `sched::create_rendezvous` would carve them from the
+/// kernel's own chunk supply instead, which is never freed: six of those across this file's label
+/// tests crossed one more 32-page chunk and put the suite over its frame ledger. Reclaim the region
+/// last, after the regions of every thread that held a capability to either endpoint. Returns
+/// `(fault_ep, report, region)`.
+fn label_endpoints() -> (sched::RendezvousId, sched::RendezvousId, u64) {
+    let region = crate::memory_region::create(2).expect("no region for the test's endpoints");
+    let fault_ep = sched::create_rendezvous_from(region).expect("no supervision rendezvous");
+    let report = sched::create_rendezvous_from(region).expect("no report rendezvous");
+    (fault_ep, report, region)
+}
+
 /// Reclaim every region a test built, once its threads are gone. Clock-bounded retries for the
 /// reason [`a_faulting_child_reports_to_its_supervisor_and_is_reaped_then_respawned`] gives.
 fn reclaim_all(regions: &[u64]) {
@@ -495,8 +508,7 @@ fn reclaim_all(regions: &[u64]) {
 #[test_case]
 fn a_supervisor_tells_two_dead_children_apart_by_label() {
     // Corpses first: both are parked with their messages before anyone receives.
-    let fault_ep = sched::create_rendezvous();
-    let report = sched::create_rendezvous();
+    let (fault_ep, report, re) = label_endpoints();
     let (one, r1) = labelled_child(fault_ep, LABEL_ONE);
     let (two, r2) = labelled_child(fault_ep, LABEL_TWO);
     assert!(
@@ -515,13 +527,12 @@ fn a_supervisor_tells_two_dead_children_apart_by_label() {
         heard[0][2], EVENT_FAULT,
         "the first child did not die of its fault"
     );
-    reclaim_all(&[r1, r2, rs]);
+    reclaim_all(&[r1, r2, rs, re]);
 
     // Supervisor first: it is blocked in RECEIVE when each child dies.
-    let fault_ep = sched::create_rendezvous();
-    let report = sched::create_rendezvous();
+    let (fault_ep, report, re) = label_endpoints();
     let (_sup, rs) = label_reporter(report, fault_ep);
-    let mut regions = [rs, 0, 0];
+    let mut regions = [rs, 0, 0, re];
     for (i, label) in [LABEL_TWO, LABEL_ONE].into_iter().enumerate() {
         assert!(
             super::wait_for(|| sched::rendezvous_waiting_receivers(fault_ep) == 1),
@@ -556,8 +567,7 @@ fn a_supervisor_tells_two_dead_children_apart_by_label() {
 /// Name: provisional, milestone 105 (the two forks)'s lane, 2026-10-05 (UTC). A test name states its claim as a sentence.
 #[test_case]
 fn a_child_can_neither_learn_nor_forge_its_label() {
-    let fault_ep = sched::create_rendezvous();
-    let report = sched::create_rendezvous();
+    let (fault_ep, report, re) = label_endpoints();
 
     let (child, r1) = labelled_child(fault_ep, LABEL_ONE);
     let (slot_empty, carries_label) = sched::with_capability_table(child, |table| {
@@ -603,5 +613,5 @@ fn a_child_can_neither_learn_nor_forge_its_label() {
         "a message a child sent arrived carrying a label: a label can be forged \
          (the forger {forger} sent through a capability badged with it)",
     );
-    reclaim_all(&[r1, forger_region, rs]);
+    reclaim_all(&[r1, forger_region, rs, re]);
 }
