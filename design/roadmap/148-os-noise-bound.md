@@ -23,15 +23,15 @@ argument that follows the measurement is where this milestone earns its number, 
 decision to start either: it needs the kernel's own preemption sources enumerated, which is reading
 code that is already written.
 
-**In brief.** OS noise is the interference a running compute thread experiences from anything other
+In brief. OS noise is the interference a running compute thread experiences from anything other
 than its own instructions: timer ticks, interrupt delivery, other threads, softirq-shaped kernel
 work. At HPC scale it is not a curiosity: Petrini et al.'s ASCI Q study showed noise amplifying
 across a barrier-synchronized job of thousands of nodes into slowdowns wildly disproportionate to
 the noise's own size on one node, which is why lightweight kernels (IBM's CNK, Cray's CNL) exist as
 a category. Every tool that quantifies it today (Netgauge's FTQ port, LLNL's `system-noise` FWQ
 suite, the Linux `osnoise` tracer) reports **what happened on one run**, at whatever confidence a
-histogram carries. This milestone's claim is different in kind: **enumerate every kernel-side event
-that can ever preempt a running thread, and bound each one's worst-case cost**, the way milestone
+histogram carries. This milestone's claim is different in kind: enumerate every kernel-side event
+that can ever preempt a running thread, and bound each one's worst-case cost, the way milestone
 132's fastpath-footprint gate already turned "the IPC path is fast" from a benchmark into an
 enumerated, gated call-graph walk.
 
@@ -50,14 +50,14 @@ citation of it does not overclaim support it does not offer.
 
 ### Phase A: measure, and compare (buildable today)
 
-- **Port FTQ** (BSD-licensed, plain C, the serial variant needs no threads) as a nife user program
+- Port FTQ (BSD-licensed, plain C, the serial variant needs no threads) as a nife user program
   against milestone 51's clock service. `notes/benchmarks.md` already has the discipline (matched
   virtualization tier, same device, same noise controls) this needs to reuse rather than invent.
-- **Run it on both boards** (aarch64 QEMU/HVF, riscv64 VisionFive 2) and against Linux on the same
+- Run it on both boards (aarch64 QEMU/HVF, riscv64 VisionFive 2) and against Linux on the same
   hardware, the same controlled-comparison shape milestone 140's ext2 stratum argues for filesystem
   work: **holding the machine constant isolates the kernel**, which is the only comparison worth
   publishing.
-- **The expected finding, stated as a prediction so it is falsifiable rather than assumed**: nife's
+- The expected finding, stated as a prediction so it is falsifiable rather than assumed: nife's
   noise floor should be near the width of its own timer tick and IPC latency, because there is no
   softirq-shaped deferred work, no opaque driver thread pool, and no per-CPU load-balancer running
   underneath a compute thread the way Linux's does. If the measurement disagrees, that disagreement
@@ -65,20 +65,20 @@ citation of it does not overclaim support it does not offer.
 
 ### Phase B: enumerate, and bound (the differentiator)
 
-**A histogram is a claim about one run; an enumeration is a claim about every run.** Phase B is
+A histogram is a claim about one run; an enumeration is a claim about every run. Phase B is
 walking the kernel's own preemption sources and pricing each one, which is possible here specifically
 because the kernel is small enough to read completely (the same property that makes milestone 132's
 call-graph walk and milestone 84's stack high-water mark tractable at all):
 
-- **Every interrupt source the confined scheduler can take**: the timer tick (bounded, periodic,
+- Every interrupt source the confined scheduler can take: the timer tick (bounded, periodic,
   known period), IPC delivery (milestone 101 already measures this path's cost), and device
   interrupts routed to a confined driver (milestone 108's frame-capability drivers name exactly which
   ones exist). List them exhaustively; a fourth one appearing later is this gate's job to catch.
-- **A worst-case cost per source**, not an average. The fastpath-footprint gate's method (walk the
+- A worst-case cost per source, not an average. The fastpath-footprint gate's method (walk the
   release disassembly rather than trust a benchmark that could get lucky) is the right instrument
   here too: an interrupt handler's own worst-case path length is a static property of the compiled
   binary, not a sampled one.
-- **A published bound**, in the same register-of-measures discipline milestone 134 already keeps:
+- A published bound, in the same register-of-measures discipline milestone 134 already keeps:
   "a compute thread on this kernel is preempted for at most N cycles per tick, from these M
   enumerated sources, and no others exist" is a sentence CrayPat, VTune and Linaro Forge cannot let
   their host kernel say, because none of those kernels are small enough for a reader to check the
@@ -99,40 +99,40 @@ get from Cray, Intel, or Linaro's tools, because those tools profile a kernel no
 
 ## What each phase needs to answer
 
-- **What counts as "noise" versus legitimate scheduled work.** A thread yielding voluntarily is not
+- What counts as "noise" versus legitimate scheduled work. A thread yielding voluntarily is not
   noise; a thread preempted involuntarily is. The enumeration in Phase B should distinguish them
   explicitly, because conflating them is how FTQ-style tools sometimes over-report on systems that
   are, in fact, behaving correctly.
-- **Whether the bound is per-tick or amortized.** A single expensive but rare event (say, a TLB
+- Whether the bound is per-tick or amortized. A single expensive but rare event (say, a TLB
   shootdown, milestone 58) may cost more than a tick's worth of budget once, which is a different
   claim than "no tick ever exceeds N".
-- **Where confined drivers fit.** Milestone 108's frame-capability drivers each own an interrupt
+- Where confined drivers fit. Milestone 108's frame-capability drivers each own an interrupt
   source; Phase B's enumeration is only complete if it reads every driver's interrupt registration,
   not just the kernel's own timer and IPC paths.
 
 ## What this does not decide
 
-- **Multi-node noise amplification.** Petrini's finding is about noise compounding across a
+- Multi-node noise amplification. Petrini's finding is about noise compounding across a
   barrier-synchronized job at scale; nife has no cluster story yet (milestone 54's SMB and milestone 146's NFS are
   single-node file service, not job scheduling), so this milestone is single-node evidence for a
   claim that would need a cluster to demonstrate fully. Recorded as the natural follow-on once nife
   runs on more than one board at a time.
-- **Real-time scheduling classes.** A bound on preemption cost is adjacent to real-time guarantees
+- Real-time scheduling classes. A bound on preemption cost is adjacent to real-time guarantees
   but is not one; this milestone does not add a scheduling policy, only a measured and enumerated
   ceiling on the one that exists today.
 
 ## BUGS
 
-- **Nothing here has run on real hardware yet.** Phase A's comparison needs the VisionFive 2 (present)
+- Nothing here has run on real hardware yet. Phase A's comparison needs the VisionFive 2 (present)
   and a matched Linux boot on the same board (not yet arranged), the same "controlled comparison"
   gap milestone 140's ext2 stratum names for its own benchmark.
-- **Phase B's enumeration is a claim about today's kernel and will rot the moment a new interrupt
-  source is added without updating it.** This is the same defect class milestone 125's counted-claims ratchet
+- Phase B's enumeration is a claim about today's kernel and will rot the moment a new interrupt
+  source is added without updating it. This is the same defect class milestone 125's counted-claims ratchet
   exists to catch elsewhere in the tree; Phase B should ship its own version of that check (a
   registered list of preemption sources the build fails to compile against if one exists that the
   list does not name) rather than a one-time document, or it becomes exactly the kind of prose claim
   that goes stale silently.
-- **No effort estimate.** Phase A is a port with a precedent (FTQ already exists, benchmarks.md's
+- No effort estimate. Phase A is a port with a precedent (FTQ already exists, benchmarks.md's
   discipline already exists); Phase B has no precedent in this tree beyond the two static-analysis
   gates (fastpath-footprint, stack high-water) it most resembles, and both of those took real
   iteration to land honestly rather than optimistically.

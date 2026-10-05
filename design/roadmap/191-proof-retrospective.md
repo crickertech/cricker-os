@@ -15,14 +15,14 @@ experiment as `RUN, 2026-08-30. AMBER` in two separate places while the roadmap 
 begun, and nothing in the tree compared the two. The §76 defect class, in the one place no gate was
 looking. Corrected 2026-09-11 by the lane that built the gate that found it.
 
-**In brief.** DECISIONS §14 (a verified-Rust capability microkernel) promises a verified core. There are 112+ Kani
-harnesses and `notes/verification.md` explains how they work. **Nothing in this tree asks whether
-they caught anything.** This milestone answers that against the only evidence that cannot be
+In brief. DECISIONS §14 (a verified-Rust capability microkernel) promises a verified core. There are 112+ Kani
+harnesses and `notes/verification.md` explains how they work. Nothing in this tree asks whether
+they caught anything. This milestone answers that against the only evidence that cannot be
 arranged: the project's own record of real defects.
 
 ## The question, stated so it can come back red
 
-**For every real bug this project has found, could a proof have caught it, and did one exist?**
+For every real bug this project has found, could a proof have caught it, and did one exist?
 
 A red result is a finding that the harnesses cluster on pure algorithmic properties while every
 defect that actually cost time was a concurrency, hardware-contract, or integration bug that no
@@ -31,24 +31,24 @@ narrow in the direction that does not matter, which is a serious wound to half t
 
 A green result is at least as valuable and is the more likely one: proofs caught a class of thing
 early enough that it never became a bug, which is invisible in a defect list precisely because it
-worked. **That asymmetry is the hard part of this milestone**, and the method below is what keeps it
+worked. That asymmetry is the hard part of this milestone, and the method below is what keeps it
 from being a study that can only confirm.
 
 ## The method, because the shape decides whether the answer means anything
 
-**One pass, four fixed questions per defect**, the same discipline `notes/arch-audit.md` used and
+One pass, four fixed questions per defect, the same discipline `notes/arch-audit.md` used and
 milestone 187 (read the x86_64 arch tree through the lens the first arch audit used) is repeating:
 
-1. **What was the defect, stated as a property that was false?** Not "the board hung", but the
+1. What was the defect, stated as a property that was false? Not "the board hung", but the
    invariant that did not hold.
-2. **Was that property provable at all?** Some are not: a property about what real silicon does with
+2. Was that property provable at all? Some are not: a property about what real silicon does with
    a store buffer is not a property of our source.
-3. **Did a harness exist that covered it?** If yes and it passed anyway, that is the most
+3. Did a harness exist that covered it? If yes and it passed anyway, that is the most
    interesting outcome on this list and deserves its own writeup.
-4. **What would it have cost to have one?** This is the question that turns the study into a
+4. What would it have cost to have one? This is the question that turns the study into a
    worklist rather than a scoreboard.
 
-**And one pass in the other direction**, which is what makes the result honest: walk the harnesses
+And one pass in the other direction, which is what makes the result honest: walk the harnesses
 and ask which ones constrain something that could plausibly have gone wrong, and which prove a
 property that could not have been false. A harness over an algorithm nobody could have written
 incorrectly is a passing check that buys nothing, and counting it is how a verification claim
@@ -65,14 +65,14 @@ This project writes its failures down, so the defect history is real rather than
   this entry should not have named it "the single most important" item in the corpus. Found still
   standing here 2026-09-23, by the lane sweeping the retraction's propagation; see
   `notes/scheduler.md:70`.
-- **The load-sensitive assertions** (notes/load-sensitive-assertions.md), including the run that
+- The load-sensitive assertions (notes/load-sensitive-assertions.md), including the run that
   went red on a clean kernel.
-- **The arch audit's own bug class** (notes/arch-audit.md): state staged in single-copy hardware
+- The arch audit's own bug class (notes/arch-audit.md): state staged in single-copy hardware
   registers across more than one instruction while an exception can land in the middle.
-- **The FS-server stack bug**, the PLIC hart lottery, the timer drift (notes/instruction-clock.md),
+- The FS-server stack bug, the PLIC hart lottery, the timer drift (notes/instruction-clock.md),
   the two-core crash (milestone 161's lane), the `std-src` toolchain race, and the record-level
   re-run that corrected stale counts (notes/fs-server.md).
-- **The nine misrecorded roadmap statuses** and the fabricated block quote that survived twelve days
+- The nine misrecorded roadmap statuses and the fabricated block quote that survived twelve days
   of gates. These are not code defects and they belong in the study anyway, because they are the
   same question one level out: what did the mechanisms fail to see?
 
@@ -84,11 +84,11 @@ more than an expensive one that probably will not**, and this is the cheapest on
 
 ## BUGS
 
-- **A retrospective cannot prove a counterfactual.** "A proof would have caught this" is a judgement,
+- A retrospective cannot prove a counterfactual. "A proof would have caught this" is a judgement,
   and the study should mark each one as such rather than presenting it as measurement.
-- **Survivorship runs both ways and the second pass only partly fixes it.** Bugs that proofs
+- Survivorship runs both ways and the second pass only partly fixes it. Bugs that proofs
   prevented never entered the record, and bugs nobody has found yet are not in the corpus either.
-- **It has no gate and produces no artifact the build checks.** Its output is a note and, probably, a
+- It has no gate and produces no artifact the build checks. Its output is a note and, probably, a
   worklist of harnesses worth writing; nothing stops that worklist from going the way milestone 94's
   inventory went.
 

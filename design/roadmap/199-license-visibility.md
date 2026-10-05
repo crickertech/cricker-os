@@ -16,11 +16,11 @@ provisional until the merge queue lands it.)*
 The terms are already ratified by DECISIONS §87; what is missing is that one tool
 cannot see them, and finding the fix needs only a look at what GitHub renders.
 
-**In brief.** `gh repo view nifeos/nife --json licenseInfo` returns **none**. The tree carries
+In brief. `gh repo view nifeos/nife --json licenseInfo` returns none. The tree carries
 `LICENSE-MIT`, `LICENSE-APACHE` and `license = "MIT OR Apache-2.0"` in the workspace manifest, and
 DECISIONS §87 (MIT OR Apache-2.0, and why the GPL's lesson does not transfer) ratifies the choice.
-GitHub's licence detector does not recognise the dual-file Rust convention, so **a stranger opening
-this repository is shown a public project with no stated terms.**
+GitHub's licence detector does not recognise the dual-file Rust convention, so a stranger opening
+this repository is shown a public project with no stated terms.
 
 ## What the block used to argue, kept for the record
 
@@ -31,8 +31,8 @@ sidebar been silent, this would all have held.
 
 AGENTS.md's third principle is that a newcomer must be able to succeed without asking anyone, and
 its test is whether a competent stranger with only this repository can get to a passing build and a
-correct mental model. **Licence terms are the first thing a cautious stranger checks and the first
-thing an employer's policy asks about**, and here the answer at the place they look is silence. That
+correct mental model. Licence terms are the first thing a cautious stranger checks and the first
+thing an employer's policy asks about, and here the answer at the place they look is silence. That
 is the same defect class as a name that misleads: the reader meets it before they meet anything
 else.
 
@@ -47,26 +47,26 @@ obvious and should be measured rather than assumed**:
 
 - A root `LICENSE` that merely points at the two files may still not be detected, since the detector
   matches known licence texts rather than prose.
-- Copying one licence's full text to `LICENSE` would make GitHub display **that one**, which would
+- Copying one licence's full text to `LICENSE` would make GitHub display that one, which would
   misstate a dual licence in the direction of whichever was copied. That is worse than silence.
 - `README.md` almost certainly already states the terms; being right in the README and silent in the
   sidebar is exactly the split this milestone is about.
 
-The likely honest answer is a root file carrying **both** texts with the `OR` stated first, checked
+The likely honest answer is a root file carrying both texts with the `OR` stated first, checked
 by actually looking at what the sidebar renders afterwards. **Verify by observation, not by
 expectation**, since the detector's behaviour is the whole question.
 
 ## BUGS
 
-- **This is cosmetic in the way a name is cosmetic**, which is to say it is not, but it also blocks
+- This is cosmetic in the way a name is cosmetic, which is to say it is not, but it also blocks
   nothing and no gate will ever notice it.
-- **Nothing here checks the claim stays true.** A licence-visibility check would have to ask GitHub's
+- Nothing here checks the claim stays true. A licence-visibility check would have to ask GitHub's
   API, which no gate in this tree does, so the fix is a one-time act that can silently regress.
-- **The dual-licence convention is Rust's, and GitHub's detector is not going to change for us.**
+- The dual-licence convention is Rust's, and GitHub's detector is not going to change for us.
   Any fix is working around somebody else's heuristic and may break when that heuristic does.
 
 ## Index row
 
-**Retracted the day it was minted.** The premise was false: the sidebar reads "Apache-2.0, MIT
+Retracted the day it was minted. The premise was false: the sidebar reads "Apache-2.0, MIT
 licenses found" and `gh api repos/<slug>` returns a full licence object. The `none` came from one `gh repo view --json licenseInfo` field, which was read as the world's answer without anyone
 opening the page. Kept because the tooling defect is real and the next person will hit it.

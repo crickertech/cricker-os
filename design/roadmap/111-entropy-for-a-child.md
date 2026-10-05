@@ -9,7 +9,7 @@ Built 2026-09-05. Raised 2026-08-04 from `notes/entropy.md`, which called it "fu
 work with no design problem in it". That was right: no new mechanism, no new right, nothing on the
 wire. The smallest entry in that sweep, and the block said so rather than dressing it up.
 
-*(The gate this block carried was answered by calef on 2026-09-05: **give it a lane now**, against
+*(The gate this block carried was answered by calef on 2026-09-05: give it a lane now, against
 this block's own recommendation, which was to fold it into milestone 65 or milestone 31's phase two.
 It is written as prose rather than as a live gate line because nothing gates finished work.)*
 
@@ -24,12 +24,12 @@ would be one the roadmap gate could not resolve). A GPT gives every partition a 
 `crates/globally_unique_identifier_partition_table` refuses to invent one, so the moment that disk is partitioned from a prompt this is on
 the path.
 
-**The ranking argument against a lane was that this has no consumer today**, and calef's answer is
+The ranking argument against a lane was that this has no consumer today, and calef's answer is
 sequencing: the work is an afternoon whichever way it is done, and doing it now means it lands
 before 261 needs it rather than after. Folding it would have made it arrive late for the one
 consumer that can be named.
 
-**The finding.** Milestone 56 built the entropy service and the grant that reaches it. Nothing at
+The finding. Milestone 56 built the entropy service and the grant that reaches it. Nothing at
 the prompt can pass that grant on. The note, under BUGS:
 
 > **`init` does not endow the shell with entropy.** The std wiring and the milestone-56 tests do.
@@ -39,14 +39,14 @@ the prompt can pass that grant on. The note, under BUGS:
 
 So a program that needs randomness works when the system spawns it and cannot be run by a person.
 
-**Why the design is already settled.** The manifest already expresses per-program endowments and the
+Why the design is already settled. The manifest already expresses per-program endowments and the
 shell already plans grants against what it holds (`crates/grant_plan`). Entropy is one more
 endowment of the same kind: a program declares it needs the service, the shell hands over the
 endpoint it holds, and a program that did not declare it gets nothing. There is no new mechanism,
 no new right, and no question about what "ambient" would mean, because the answer is the same answer
 the rest of the shell already gives.
 
-**What it costs.** Init endows the shell, the manifest grows an entropy endowment, and the shell's
+What it costs. Init endows the shell, the manifest grows an entropy endowment, and the shell's
 planner learns one more capability to place. The interesting part is not the wiring: it is that
 `caps <program>` then prints "entropy" for a program that draws random numbers, which is the visible
 form of the property milestone 56 built the service to have.
@@ -59,11 +59,11 @@ view of the entropy service's request endpoint at `grant_plan::ENTROPY_SLOT` (ni
 `DIAGNOSTICS_SLOT`, so the named slots stay one contiguous block); a program that did not declare it
 holds an empty slot there. `caps <program>` prints the row. `components/src/uuid.rs` is the consumer.
 
-**`WRITE` alone, and the narrowing is the grant.** On a rendezvous that is the right to `CALL`: a
+`WRITE` alone, and the narrowing is the grant. On a rendezvous that is the right to `CALL`: a
 declaring child may ask the service for bytes, may not `RECV` another client's request out from
 under the service, and holds no `GRANT`, so it cannot hand a random source to anything it spawns.
 
-**Three departures from what this block predicted**, each smaller than it sounds and each recorded
+Three departures from what this block predicted, each smaller than it sounds and each recorded
 because a reader comparing the two paragraphs would otherwise find a discrepancy with no reason
 beside it.
 
@@ -78,14 +78,14 @@ beside it.
   is its draw with the disk taken away: the same sixteen bytes from the same service through the
   same `gpt::guid::Guid::v4_from_random`, which is the half a prompt can reach today. The name is
   **provisional**.
-- **Init keeps a capability it used to release.** The entropy service's request endpoint was
+- Init keeps a capability it used to release. The entropy service's request endpoint was
   `cap_delete`d once `credentialer` held its own copy; it is now held for the life of the boot,
   because init is the only process that can make this grant. That is one slot on init's peak, and
   it moved `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED` from 21 to 22 of 24.
 
 ## What was demonstrated
 
-**The endowment, at the real prompt, through the real init.** `script/swish-check` is the only gate
+The endowment, at the real prompt, through the real init. `script/swish-check` is the only gate
 that runs `crates/system_initializer` at all, and it is the only thing in this tree that can put a
 capability at a slot a manifest names (the kernel's own `Spawn` fills a capability table from slot 0
 upward). On aarch64 and riscv64:
@@ -112,7 +112,7 @@ No byte of the identifier is asserted, and that is the point: a version-4 UUID a
 would be one drawn from nothing. What is asserted is the framing (36 characters and a newline) and
 the **silence of the second stream**, which this program breaks in exactly one case.
 
-**The refusal, deterministically, on all three architectures.**
+The refusal, deterministically, on all three architectures.
 `kernel::user::uuid_tests::a_process_granted_no_entropy_prints_no_identifier` spawns the real `uuid`
 binary holding nothing but somewhere to print, so `ENTROPY_SLOT` is empty. It asserts silence: the
 whole stream is the one refusal sentence, not one hyphen of identifier-shaped output reaches the
@@ -129,29 +129,29 @@ row, and exactly one program in the whole manifest table declares the field.
 
 ## BUGS
 
-- **The endowed direction has no kernel-harness proof, on any ISA.** `Spawn::grants` fills a child's
+- The endowed direction has no kernel-harness proof, on any ISA. `Spawn::grants` fills a child's
   capability table from slot 0 upward and cannot place a capability at the slot a manifest names, so
   nothing under `script/test` can spawn a `uuid` that actually holds entropy. It is proven only by
   `script/swish-check`, which does run in `script/gates` and in CI's `script/ci-build` since
   milestone 230, but which is one gate rather than the suite. This is the same gap `xtask`'s own
   swish-check list already records for `date`'s declared second stream; see the Follow-on.
-- **Two slots of headroom left in init.** The measured peak is 22 of 24 and this milestone spent one
+- Two slots of headroom left in init. The measured peak is 22 of 24 and this milestone spent one
   of the three milestone 230 left. The next thing that holds a capability across init's login block
   should expect to spend another and should read `kernel::cap::CAPABILITY_TABLE_SLOTS`'s own
   arithmetic before assuming there is a third. The ceiling was deliberately not raised.
-- **One identifier per invocation, version 4 only.** `uuidgen -n 10` has no spelling here because
+- One identifier per invocation, version 4 only. `uuidgen -n 10` has no spelling here because
   `ArgSpec` carries no positional argument yet, which is the same gap `date`'s and `printenv`'s
   module docs name. No v7, so nothing sortable; nothing wants one.
-- **"Unpredictable" is still a claim about the boot.** The bytes are whatever the entropy service
+- "Unpredictable" is still a claim about the boot. The bytes are whatever the entropy service
   delivers, which on QEMU is a virtio-rng backed by the host (DECISIONS §120's stopgap). Endowing a
   grant does not change what is behind it, and `notes/entropy.md`'s health-test, rate-limit and
   hardware-TRNG entries are all still open. In particular "nife has a cryptographic random source"
   remains a claim about QEMU until the JH7110's TRNG is verified on radon.
-- **No rate limit reaches the prompt either.** A `uuid` a person types can `CALL` the service as
+- No rate limit reaches the prompt either. A `uuid` a person types can `CALL` the service as
   fast as it likes, the same as any other client; `notes/entropy.md` already records that the
   service has no quota, and putting a client at the prompt makes it easier to reach rather than
   worse in kind.
-- **`design/roadmap/README.md` and `231`'s own block still quote 21 of 24.** They are accurate as
+- `design/roadmap/README.md` and `231`'s own block still quote 21 of 24. They are accurate as
   history (that is what 231 measured on the day) and a lane does not edit another milestone's
   block; `notes/frames.md` and `kernel/src/cap.rs` carry the current number.
 
@@ -185,13 +185,13 @@ row, and exactly one program in the whole manifest table declares the field.
 
 **This may not deserve its own lane, and the honest options are two.**
 
-- **Fold into milestone 65 (a secrets service).** 65 holds keys and exposes operations, so it will
+- Fold into milestone 65 (a secrets service). 65 holds keys and exposes operations, so it will
   need the shell to endow a child with a *service* endpoint under exactly this pattern. If 65 is
   scheduled, this is one endowment inside it and should not be a separate lane.
-- **Fold into milestone 31 (a capability shell), phase two.** 31 owns per-file grants pointing at FS
+- Fold into milestone 31 (a capability shell), phase two. 31 owns per-file grants pointing at FS
   server directory capabilities, which is the same planner change with a different capability in it.
 
-**What would decide it:** whether anything at the prompt needs entropy before 65 or 31 runs. Today
+What would decide it: whether anything at the prompt needs entropy before 65 or 31 runs. Today
 nothing does, which is why this has sat unbuilt without hurting. The moment a typed command needs
 randomness (a `uuid`, a key generator, anything in 65's family), it stops being foldable and becomes
 a prerequisite. Until then, folding is the better answer and this block exists so the work is not

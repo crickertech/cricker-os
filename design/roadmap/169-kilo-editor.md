@@ -47,20 +47,20 @@ anything else that wants a screen editor's shape of input.
 
 Checked directly against `kilo.c`'s own structure, not assumed from its reputation:
 
-- **No subprocess.** `kilo` has no shell-out, no external spell-checker, no `:!cmd` equivalent. Its
+- No subprocess. `kilo` has no shell-out, no external spell-checker, no `:!cmd` equivalent. Its
   one filesystem interaction beyond open/read/write is a plain save, so it needs nothing from a
   fork/exec primitive nife does not have.
-- **No dynamic linking.** `kilo` links nothing beyond the C standard library it's built against, and
+- No dynamic linking. `kilo` links nothing beyond the C standard library it's built against, and
   `crates/elf` already only ever loads a static `ET_EXEC` image; this is not a new constraint for
   it to hit.
-- **No threads.** `kilo` is a single-threaded event loop (read a key, act, redraw); §105's decline
+- No threads. `kilo` is a single-threaded event loop (read a key, act, redraw); §105's decline
   of `std::thread::spawn` does not affect it.
 - **Signals are decorative, not load-bearing.** `kilo` installs a `SIGWINCH` handler for terminal
   resize as a convenience; without it, the editor simply does not notice a resized terminal until
   the next redraw. [DECISIONS §101](../decisions/101-notification-objects.md)'s notification
   objects are a plausible nife-native substitute if a lane wants the feature, but a first cut can
   ship without it and note the gap.
-- **File I/O is a straight port.** Open the file named on the command line, read it into `kilo`'s
+- File I/O is a straight port. Open the file named on the command line, read it into `kilo`'s
   in-memory row array, write it back on save. This is `files.c`-sized work translated onto whatever
   capability the program is handed for its target file, not a new mechanism.
 
@@ -70,7 +70,7 @@ Directly, [DECISIONS §31](../decisions/31-foreign-language-seam.md)'s foreign-l
 first real, load-bearing C program beyond the confined `c_seam.c` spike, and the raw-keystroke
 primitive this milestone has to build is reusable infrastructure, not a `kilo`-specific hack.
 
-**[Milestone 170](170-nano-editor.md) is the direct follow-on**, sequenced to start only
+[Milestone 170](170-nano-editor.md) is the direct follow-on, sequenced to start only
 once this milestone's raw-input primitive exists: nano needs the exact same terminal capability at
 roughly 25x the code size, plus an optional (skippable) subprocess dependency for spell-check and
 external filtering that `kilo` never has to answer. Building `kilo` first is what turns "design a

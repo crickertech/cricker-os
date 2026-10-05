@@ -8,7 +8,7 @@ built: 2026-08-01
 Built, 2026-08-01, both ISAs. Raised 2026-08-01, after `fsserver` was fixed and the
 survey behind it found the rest.
 
-**Every table and paragraph below keeps the OLD spellings**, because this block is the record of the
+Every table and paragraph below keeps the OLD spellings, because this block is the record of the
 decision and a name's argument is unreadable once the name it argued against is gone. Everywhere
 else in the tree carries the new ones. What landed, and the three things that did not, are in
 [design/naming.md](../naming.md).
@@ -20,10 +20,10 @@ says nothing about **directories**, and the tree has three spellings as a result
 
 The rule that already fits the tree and needs only to be written down:
 
-- **A directory that holds a Rust package is named exactly as the package**, so `snake_case`. Thirteen
+- A directory that holds a Rust package is named exactly as the package, so `snake_case`. Thirteen
   of the multiword directories under `crates/` already do this (`fs_proto`, `dma_validate`,
   `supervision_proto`).
-- **Any other directory is lowercase, and hyphenated if it needs two words**, the same convention as
+- Any other directory is lowercase, and hyphenated if it needs two words, the same convention as
   markdown filenames and `script/` entry points, because a directory is a path element and paths are
   hyphenated in the world outside this repository.
 
@@ -60,7 +60,7 @@ out: a package directory is a Rust name, and everything else is a path.
 These are folded in here rather than given their own milestone because a crate rename is a
 directory rename, which is what this milestone already is.
 
-**One member of the agent-noun family cited above has since left it** (2026-09-13). The
+One member of the agent-noun family cited above has since left it (2026-09-13). The
 `os_primitives_benchmarker` row argues the form by listing `broker`, `spawner`, `painter`,
 `budgeter`, `compositor` and `credentialer`, and `budgeter` is now `memory_grant_depleter`: calef
 ratified the rename because the old stem read as a program that *manages* a budget where it exists
@@ -74,11 +74,11 @@ reader meeting the list does not go looking for a `budgeter` that `script/names`
 `shell` is a category, not a name. `bash`, `zsh`, `fish` and `rc` are names; this project's most
 demonstrable artifact was filed under the noun for what kind of thing it is.
 
-**`capsh` was the obvious candidate and is unavailable.** Linux's libcap ships `capsh(1)`, a
+`capsh` was the obvious candidate and is unavailable. Linux's libcap ships `capsh(1)`, a
 "capability shell wrapper" for testing POSIX capabilities, which is adjacent enough that a reader who
 knows Linux capabilities would assume ours is that tool.
 
-**Why `swish` rather than something descriptive.** Shell names are identities rather than
+Why `swish` rather than something descriptive. Shell names are identities rather than
 descriptions: `fish` describes nothing and nobody minds. But this one happens to carry the thesis
 anyway, which is the combination shell names almost never manage.
 
@@ -90,7 +90,7 @@ a check that could be wrong.
 It also reads as a shell on sight, because the `sh` is built in, the same trick `bash` plays with a
 pun.
 
-**`sheesh` was considered and set aside on two grounds**, both recorded because they are the kind of
+`sheesh` was considered and set aside on two grounds, both recorded because they are the kind of
 thing that is obvious only once said. It carries a timestamp: the word spiked as a meme around
 2020-21, where `bash` and `fish` are era-neutral, and this project expects to be shown off years from
 now. And *sheesh* is an interjection of **exasperation**, while this shell's most characteristic
@@ -110,7 +110,7 @@ a system where you do not ask for authority, you hold it.
 | `tools/redoxfs-host/`, package `redoxfs-host` | `tools/redoxfs_host/`, package `redoxfs_host` | same |
 | `user-std/`, package **`hellostd`** | one name, spelled once | **the real defect** |
 
-**`user-std` is the one worth doing even if the others are deferred.** The directory says one thing,
+`user-std` is the one worth doing even if the others are deferred. The directory says one thing,
 the package says another, and the package name is squished besides. Neither name describes what is
 in it: `user-std/src/main.rs` is "the std proof (milestone 27): an ordinary Rust program, no
 `no_std`, running on the native capability ABI", which is one of this project's better
@@ -120,8 +120,8 @@ demonstrations and is currently filed under a name that suggests a hello-world.
 
 Milestone 61 is already moving about 532 tokens plus eight programs, and a directory rename touches
 roughly forty files by path. Two renames in flight would collide in `notes/`, `DECISIONS.md` and
-`kernel/src/user.rs`, which is exactly the avoidable collision CLAUDE.md has three rules about. **This
-starts after 61 lands.**
+`kernel/src/user.rs`, which is exactly the avoidable collision CLAUDE.md has three rules about. This
+starts after 61 lands.
 
 ## BUGS
 
@@ -129,13 +129,13 @@ starts after 61 lands.**
   doing this at all. `wasm-bindgen` and `tracing-subscriber` are ordinary, Cargo normalises a hyphen
   to an underscore for `use`, and nothing is broken today. The case for the change is internal
   consistency (37 crates against 3) rather than correctness, and it should be weighed as such.
-- **`target/` and `targets/` sit next to each other** and mean unrelated things: build output, and the
+- `target/` and `targets/` sit next to each other and mean unrelated things: build output, and the
   custom target JSON specs (`aarch64-unknown-nife.json`). Nothing enforces the distinction and one
   is gitignored while the other is tracked. Worth folding in.
 
 ## `exerciser`, not `demo` (calef, 2026-08-01)
 
-**"Exercise" is this tree's own verb**, 130 uses across it, and these programs use it about
+"Exercise" is this tree's own verb, 130 uses across it, and these programs use it about
 themselves: "exercises the capability-shaped contract", "exercises the platform", "every line
 exercises a PAL surface". `demo` was never the word they reached for.
 
@@ -151,7 +151,7 @@ memory is genuinely reusable. Its own header calls that "the allocator **workloa
 It is an agent noun, so it joins `broker`, `spawner`, `painter`, `credentialer` and `benchmarker`,
 which is where the noun rule points.
 
-**This category is distinct from the `_test_client` trio and the distinction is real.** A client
+This category is distinct from the `_test_client` trio and the distinction is real. A client
 exercises a **service contract from the outside**, with a server on the other end; that is what
 `client` means in those names. An exerciser demonstrates a capability of the system in itself, with
 no contract being probed from a client side. `std_test_program` was considered and rejected for
@@ -159,7 +159,7 @@ importing the clients' vocabulary into the wrong family.
 
 ## Why the three clients carry `test` (calef, 2026-08-01)
 
-`fs_client`, `credentialer_client` and `socket_client` are **the names the real things will want**,
+`fs_client`, `credentialer_client` and `socket_client` are the names the real things will want,
 and the real things are coming: milestone 55 needs an actual credentialer client for SMB
 authentication, milestone 54 needs actual socket clients, and any program that wants files is an FS
 client. Giving those names to test programs squats them, and the bill arrives later as a rename or as
@@ -182,17 +182,17 @@ this project's stated audience arrives from Linux rather than from formal method
 
 ## Raise `NAME_LEN` FIRST, because one rename now depends on it
 
-**DONE, 2026-08-01, ahead of the rename and on its own merits.** `NAME_LEN` is 32, `ENTRY_LEN` 40,
+DONE, 2026-08-01, ahead of the rename and on its own merits. `NAME_LEN` is 32, `ENTRY_LEN` 40,
 `DIR_BLOCKS` 6, `MAX_FILES` 76 (up from 63), and the magic is `CRKR0002`. `os_primitives_benchmarker`
-fits with seven bytes to spare, so the rename below is unblocked. **One thing in the paragraphs below
-was wrong and is worth reading before trusting them:** the kernel-stack cost had already been
+fits with seven bytes to spare, so the rename below is unblocked. One thing in the paragraphs below
+was wrong and is worth reading before trusting them: the kernel-stack cost had already been
 retired, because `Fs` stopped holding a fixed entry array when the FS-server stack bug was fixed, so
 the raise was much cheaper than the trade described here. The measured numbers and the reasoning are
 in [notes/nifefs.md](../../notes/nifefs.md). The paragraphs are kept as written because the
 decision to do this first, rather than under pressure from a name, is the part that generalises.
 
-`nifefs` caps archive names at 24 bytes, and **three naming decisions have crowded it while a
-fourth exceeds it**: `fs_subtree_caretaker` at 20, `sub_server_supervisor` at 21, and
+`nifefs` caps archive names at 24 bytes, and three naming decisions have crowded it while a
+fourth exceeds it: `fs_subtree_caretaker` at 20, `sub_server_supervisor` at 21, and
 `os_primitives_benchmarker` at **25, which does not fit at all**.
 
 That makes this a **prerequisite rather than a tidy-up**, and the ordering matters: raise the cap on
@@ -209,7 +209,7 @@ spend casually. There is no data migration, because every image regenerates from
 
 Do it here, with the numbers written down, rather than under pressure from a name that will not fit.
 
-**Effort: small**, and almost entirely mechanical, but it touches paths in `script/`, `xtask`,
+Effort: small, and almost entirely mechanical, but it touches paths in `script/`, `xtask`,
 `deny.toml`, CI, and a long tail of notes.
 
 ## Follow-on
@@ -227,6 +227,6 @@ Do it here, with the numbers written down, rather than under pressure from a nam
 
 ## Index row
 
-**built, both ISAs.** Eight crates, fourteen programs and modules, and the three violating
+built, both ISAs. Eight crates, fourteen programs and modules, and the three violating
 directories renamed to the spellings settled in review; `fs-server` is `fs_server`, `user-std`/`hellostd` is `std_exerciser` twice, and the shell has a name (`swish`). Its tables
 keep the old spellings on purpose, because they are the record of the decision

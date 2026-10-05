@@ -15,7 +15,7 @@ that 16b's block always recorded as "a hardware fact nobody can schedule."
 
 **The hardware fact changed on 2026-09-17, and the gate did not.** The survey below, re-run that
 day, found a buyable board that ships the ratified spec: the SpacemiT K3, about $299. What now
-blocks the milestone is two pieces of **our own** engineering rather than the silicon, a platform
+blocks the milestone is two pieces of our own engineering rather than the silicon, a platform
 discovery path beside 16b's PCI one and an APLIC/IMSIC driver, and the gate stays HARDWARE only
 because nobody has bought the board (milestone 241, `Gate: DECISION`, holds that call). The original
 claim, that no such board exists at any price, is superseded and kept below as what it was.
@@ -48,14 +48,14 @@ A RISC-V board or SoC that:
 
 ### The survey, re-run 2026-09-17
 
-The 2026-08-20 answer was "no board at any price." **That answer is now wrong on requirement 1 and
-still right overall, for a different reason than before.** A board exists, it is buyable for about
+The 2026-08-20 answer was "no board at any price." That answer is now wrong on requirement 1 and
+still right overall, for a different reason than before. A board exists, it is buyable for about
 $299, and what blocks it is our driver's discovery path and our interrupt controller, not the
 silicon. Every claim below carries the source that establishes it and the date it was fetched
 (2026-09-17 throughout).
 
 The three states are kept apart deliberately, because conflating them is how this question goes
-wrong: **ratified** (implements the RISC-V IOMMU spec's own register interface), **vendor**
+wrong: ratified (implements the RISC-V IOMMU spec's own register interface), vendor
 (something the datasheet calls an IOMMU that is not the ratified spec), and **none**. A candidate
 whose status could not be established is recorded as **unconfirmed**, which is not a maybe-yes.
 
@@ -71,7 +71,7 @@ whose status could not be established is recorded as **unconfirmed**, which is n
 | **lowRISC / revflex** | Unconfirmed. Nothing found either way | No | (nothing found; recorded as a gap, not as a negative) |
 | **StarFive JH7110** (the VisionFive 2, which we own) | **None** | Yes, owned | 16a's block |
 
-**The spec itself.** v1.0.1 was ratified 2024-09-11 and is archived under that date; the current
+The spec itself. v1.0.1 was ratified 2024-09-11 and is archived under that date; the current
 rendering carries a 2026-02-22 stamp on the same v1.0.1 version number, so the block's "ratified
 2024" is right and the newer date is a re-publication rather than a new version.
 ([v20240911 archive](https://docs.riscv.org/reference/hardware/iommu/v20240911/_attachments/riscv-iommu.pdf),
@@ -79,7 +79,7 @@ rendering carries a 2026-02-22 stamp on the same v1.0.1 version number, so the b
 
 ### The K3, measured against the three requirements
 
-1. **Ratified spec: yes, and this is the strong claim.** The Linux dt-binding for the SpacemiT T100
+1. Ratified spec: yes, and this is the strong claim. The Linux dt-binding for the SpacemiT T100
    lists `spacemit,k3-t100` and `spacemit,v100-t100`, each falling back through `spacemit,t100` to
    the generic **`riscv,iommu`**. That fallback is the evidence: it is the compatible the generic
    RISC-V IOMMU driver binds to, so the K3's IOMMU answers at the spec's own register interface and
@@ -89,18 +89,18 @@ rendering carries a 2026-02-22 stamp on the same v1.0.1 version number, so the b
    interrupt count from 4 to 68. Author Lv Zheng, 2026-02-28, v5 of the series.
    ([patch](https://lkml.iu.edu/2602.3/08975.html))
 
-2. **Reachable as a PCI function: no, and this is what actually blocks us.** The K3's IOMMU is a
+2. Reachable as a PCI function: no, and this is what actually blocks us. The K3's IOMMU is a
    device-tree platform device, not a PCI function. The spec allows both and QEMU emulates the PCI
    form, which is the form 16b's bring-up path was written against
    ([QEMU riscv-iommu](https://www.qemu.org/docs/master/specs/riscv-iommu.html); Linux carries both
    backends, `iommu-pci.c` and `iommu-platform.c`). So requirement 2 is not a hardware fact at all.
-   **It is a gap in our driver**, and a small one: the register interface is identical, only
+   It is a gap in our driver, and a small one: the register interface is identical, only
    discovery differs.
 
-3. **Firmware contract: half yes.** OpenSBI has upstream K3 platform support, Linux detects **SBI
-   v3.0 and the HSM extension**, and all 16 harts come online, so the SBI half is satisfied
+3. Firmware contract: half yes. OpenSBI has upstream K3 platform support, Linux detects SBI
+   v3.0 and the HSM extension, and all 16 harts come online, so the SBI half is satisfied
    ([OpenSBI series](https://ratatoskr.run/opensbi/2026/09/17546622/t)). **The interrupt controller
-   is not.** The K3 is RVA23 and uses **AIA: APLIC and IMSIC**, and this kernel's riscv64
+   is not.** The K3 is RVA23 and uses AIA: APLIC and IMSIC, and this kernel's riscv64
    `arch::irq` resolves to `drivers::plic` with nothing else behind it. A PLIC node was not found in
    the upstream K3 device tree. ([K3 DT series](https://patchew.org/linux/20260115-k3-basic-dt-v5-0-6990ac9f4308@riscstar.com/))
 
@@ -108,8 +108,8 @@ rendering carries a 2026-02-22 stamp on the same v1.0.1 version number, so the b
 yield text, so the IOMMU, PCIe and MMU claims here rest on the kernel patches and press coverage
 rather than on the vendor's own document
 ([datasheet](https://cdn-resource.spacemit.com/file/chip/K3/k3_datasheet_en.pdf)). No `iommu` node
-wired into the upstream K3 `.dtsi` was found, only the binding and the HPM driver, so **whether the
-T100 is enabled on a shipping K3 board or only described is unconfirmed**. Sv39 is assumed from the
+wired into the upstream K3 `.dtsi` was found, only the binding and the HPM driver, so whether the
+T100 is enabled on a shipping K3 board or only described is unconfirmed. Sv39 is assumed from the
 RVA23 S-mode baseline and was not verified against the part. And the EIC7700X, SG2042/SG2044 and
 lowRISC entries are gaps in the search, not established negatives.
 
@@ -125,8 +125,8 @@ avoid.
 
 ### Why this is worth more on riscv64 than on the other two ISAs
 
-riscv64 is the only one of the three architectures that puts **MSI remapping inside the IOMMU's own
-device context**. `kernel/src/arch/riscv64/iommu.rs` reads `CAP_MSI_FLAT` and widens the device
+riscv64 is the only one of the three architectures that puts MSI remapping inside the IOMMU's own
+device context. `kernel/src/arch/riscv64/iommu.rs` reads `CAP_MSI_FLAT` and widens the device
 context from 32 to 64 bytes when the IOMMU reports it. On x86_64 interrupt remapping is a separate
 IOMMU feature (`intremap=on`, off in every boot here) and on aarch64 it is a separate device (the
 GICv3 ITS, absent here).
@@ -139,22 +139,22 @@ table exists to confine. That argument was written down nowhere before this surv
 
 ### The verdict, and what would change it
 
-**As of 2026-09-17: still no, but the reason moved from the silicon to us.** A board shipping the
+As of 2026-09-17: still no, but the reason moved from the silicon to us. A board shipping the
 ratified RISC-V IOMMU is buyable today for about $299. What stands between it and 16b's driver is
 two pieces of our own engineering, neither of them a hardware wait:
 
-- **A platform (MMIO, device-tree) discovery path for the riscv64 IOMMU driver**, beside the PCI one
+- A platform (MMIO, device-tree) discovery path for the riscv64 IOMMU driver, beside the PCI one
   16b built. The register interface is the same; only the bring-up differs.
-- **An APLIC/IMSIC driver for riscv64**, because an RVA23 part does not speak PLIC. This is larger
+- An APLIC/IMSIC driver for riscv64, because an RVA23 part does not speak PLIC. This is larger
   than the first and is not specific to this milestone.
 
-**What to watch.** An `iommu` node landing in the upstream SpacemiT K3 `.dtsi`, which is the thing
+What to watch. An `iommu` node landing in the upstream SpacemiT K3 `.dtsi`, which is the thing
 that would confirm the T100 is enabled on shipping silicon rather than merely described. An
 `riscv,iommu` PCI-function implementation in any part, which would remove the first gap entirely.
 And the SpacemiT V100's late-2026 deployments, since the server variant is the one with coherent
 page-table walk and is where a PCI-attached IOMMU would most plausibly appear.
 
-**What would make this question worth asking again.** The K3 gaps being closed by other work (an
+What would make this question worth asking again. The K3 gaps being closed by other work (an
 APLIC/IMSIC driver arriving for its own reasons would change the price of this milestone sharply),
 or a confirmed IOMMU on a part we already own or would buy anyway. Note that **whether to buy a
 fourth board is a decision this survey does not make**: milestone 241 holds it, `Gate: DECISION`,
@@ -174,10 +174,10 @@ was written against, which is the thing only the board can answer.
 
 ## What this does NOT include
 
-- **SMMUv3 on aarch64 silicon.** That is a separate hardware wait (a Pi 5 or similar ARM board
+- SMMUv3 on aarch64 silicon. That is a separate hardware wait (a Pi 5 or similar ARM board
   with SMMUv3). 16b's aarch64 IOMMU driver carries over the same way, but the aarch64 board story
   is weaker (notes/target-hardware.md flags it) and not bundled here.
-- **The shadow descriptor ring.** It stays as defence in depth everywhere, on silicon and in
+- The shadow descriptor ring. It stays as defence in depth everywhere, on silicon and in
   emulation, regardless of whether the IOMMU is present.
 
 ## Prior art

@@ -29,7 +29,7 @@ next section is unchanged. See notes/adding-a-program.md for the corrected count
 
 ## What was built
 
-**The archives are generated from `Cargo.toml`.** `xtask`'s `declared_programs()` reads the
+The archives are generated from `Cargo.toml`. `xtask`'s `declared_programs()` reads the
 `[[bin]]` blocks of `components/` and `fixtures/` and all three packers (`initrd_aarch64`,
 `initrd_riscv`, `initrd_x86`) pack exactly that list. Both hand-written tables are gone. They had
 drifted when deleted: `serial_driver` and `jh7110_entropy` were absent from aarch64's and `pmap` from
@@ -37,7 +37,7 @@ both, none of it decided, so aarch64's archive gained three programs and the oth
 reader is strict (an unknown key in a `[[bin]]` block stops the pack), because a lenient one would
 silently drop a program. This retires sites 2 and 4 of the list below, and site 3 was already gone.
 
-**`Prog` is one `macro_rules!` declaration** (`programs!`, provisional), a row of
+`Prog` is one `macro_rules!` declaration (`programs!`, provisional), a row of
 `Variant { id: N, name: "..." }` per program, generating the enum, `name()`, `id()`, `from_id()`,
 `from_name()`, a new `Prog::ALL`, and `PROG_COUNT`. `manifest()` stays a hand-written match because
 the compiler already demands its arm. Ids are written, never positional; `PROG_COUNT` is one past the
@@ -45,11 +45,11 @@ highest id, so a removed program leaves a hole rather than renumbering; duplicat
 the build in a `const` assertion. A host test written before the refactor pins the thirteen shipped
 `(name, id)` pairs and refuses both renumbering and reuse. Site 5 goes from seven edits to two.
 
-**`swish`'s render match is a wildcard** plus a host test that every `OutputSpec::Words` program
+`swish`'s render match is a wildcard plus a host test that every `OutputSpec::Words` program
 renders its answer. Eleven of thirteen arms were empty, so the compile error it used to raise asked
 most authors for a keystroke. Site 6 now applies only to the programs it means something for.
 
-**The gate on count is three relationship checks rather than a number** (item 4 below). A pinned
+The gate on count is three relationship checks rather than a number (item 4 below). A pinned
 total was refused because it would be a hand-maintained number failing on every legitimate
 addition. Instead: packing refuses a `programs!` row with no `[[bin]]`; a host test refuses a
 program the kernel or the progenitor still loads by string literal after its block is deleted (the
@@ -57,7 +57,7 @@ removal that used to become a test that `skip!()`s forever); and a host test req
 spawnable program to have a `SWISH_CHECK_SCRIPT` line or a stated reason. That last one found
 `memory_grant_depleter` had none, and it gained one. Site 7 is now enforced rather than remembered.
 
-**The eighth edit site is closed**: `the_arg_line_follows_the_manifest_for_every_program` types
+The eighth edit site is closed: `the_arg_line_follows_the_manifest_for_every_program` types
 every operand a manifest asks for, so an argument-plus-input program needs no edit in `crates/swish`.
 Whether such a program is *wanted* (item 3) is an architect's call and is written up as
 [a-program-that-takes-an-argument-and-an-input.md](498-a-program-that-takes-an-argument-and-an-input.md),
@@ -70,19 +70,19 @@ way", for the integrator to mint a `design/decisions/` section from.
 
 ### BUGS and honest caveats
 
-- **The removal gate is textual**: it reads `program("...")` and `.read("...")` literals in
+- The removal gate is textual: it reads `program("...")` and `.read("...")` literals in
   `kernel/src` and `crates/system_initializer/src`. A name built at runtime is invisible to it. It
   counts what it matched and fails below fifty, so it cannot pass on nothing.
 - **A stale `SWISH_CHECK_SCRIPT` line is not caught on the host.** Removing a spawnable program
   leaves its transcript line, which `script/swish-check` then fails at the cost of a boot. The walk
   measured this: it was the one edit nothing named. Recorded in notes/adding-a-program.md's `BUGS`.
-- **The wire-id pin covers ids shipped before 2026-09-19.** Reuse of a later program's id after that
+- The wire-id pin covers ids shipped before 2026-09-19. Reuse of a later program's id after that
   program is removed is not gated; the written id makes a renumbering visible in review only.
-- **The `[[bin]]` reader knows four keys.** The first program to need `required-features` must teach
+- The `[[bin]]` reader knows four keys. The first program to need `required-features` must teach
   it, by design.
-- **`write_outcome`'s wildcard is rung two where rung one stood.** It is the one place this milestone
+- `write_outcome`'s wildcard is rung two where rung one stood. It is the one place this milestone
   went down the ladder, deliberately, and the test that replaced it is recorded beside the match.
-- **`cargo xtask build` still packs only aarch64.** That no longer hides a packing mistake, since
+- `cargo xtask build` still packs only aarch64. That no longer hides a packing mistake, since
   all three archives pack one list, but it is not a build of the other two.
 
 ### Provisional names
@@ -159,18 +159,18 @@ would need to answer:
    the initrd lists) and the shell (for dispatch) can read is the shape the current seven-edit list
    already gestures at with `Prog`; whether `xtask` can depend on `grant_plan` without pulling
    `no_std` machinery into a host binary is the first thing to check, not assume.
-2. **Whether `PROG_COUNT` can be replaced by something the compiler derives**, rather than a
+2. Whether `PROG_COUNT` can be replaced by something the compiler derives, rather than a
    number a human widens. Rust has no built-in way to count an enum's variants without a derive
    macro, and this tree has deliberately not taken one (DECISIONS §46: write it if it's on the
    verification path). Whether a hand-rolled `const fn` count, a macro this tree writes itself, or
    accepting the manual count with a stronger gate is the right trade is exactly the kind of
    question that belongs in `design/decisions/`, not assumed by a lane.
-3. **Whether the argument-plus-input manifest gap (run 5's eighth edit site) is closed by the same
-   mechanism or needs its own decision.** `notes/adding-a-program.md`'s `BUGS` section already
+3. Whether the argument-plus-input manifest gap (run 5's eighth edit site) is closed by the same
+   mechanism or needs its own decision. `notes/adding-a-program.md`'s `BUGS` section already
    records this as open: whether that combination is wanted at all, or should be refused the way
    file-plus-input already is refused with a comment at `plan_against_with`. This milestone's
    generalization would likely force that question rather than let it stay implicit.
-4. **What a gate on program *count* would look like**, since nothing today notices a program was
+4. What a gate on program *count* would look like, since nothing today notices a program was
    added or removed. A `PROG_COUNT`-vs-archive-entry-count assertion in a host test is the cheapest
    candidate and should be weighed against the cost of computing "how many programs are actually in
    this archive" outside a QEMU boot.
@@ -180,10 +180,10 @@ would need to answer:
 
 ## What this does NOT include
 
-- **Rewriting `notes/adding-a-program.md` a fifth time as prose.** That is the move this milestone
+- Rewriting `notes/adding-a-program.md` a fifth time as prose. That is the move this milestone
   exists to stop making. If any hand-maintained step survives this milestone, it gets documented,
   but the target is fewer steps, not a better description of the current eight.
-- **Deciding the generation mechanism up front.** The three candidate shapes above are starting
+- Deciding the generation mechanism up front. The three candidate shapes above are starting
   points for the design fork, not a recommendation; this block scopes the question.
 - **Touching the riscv/aarch64 archive-content asymmetry** (that `mkinitrd()` packs `hello` as
   `init` and `initrd_riscv()` packs `builder`). That is a separate, already-recorded finding
@@ -218,8 +218,8 @@ milestone 117's handoff."
   three relationship checks in place of a pinned count) is reasoned with what lost in
   `notes/adding-a-program.md` under "Why it works this way", for the integrator to mint a
   `design/decisions/` section at merge. No section exists yet; this lane does not mint one.
-  **Minted by the maintainer on 2026-09-19 as
-  [DECISIONS §158](../decisions/158-a-program-is-declared-once.md).**
+  Minted by the maintainer on 2026-09-19 as
+  [DECISIONS §158](../decisions/158-a-program-is-declared-once.md).
 - **Recorded.** The stale `SWISH_CHECK_SCRIPT` line a removal leaves, the textual removal gate, the
   wire-id pin's cut-off date, and the four-key `[[bin]]` reader, in `notes/adding-a-program.md`'s
   `BUGS`.
