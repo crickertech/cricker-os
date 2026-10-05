@@ -6,7 +6,7 @@ confuse, so they are separated here on purpose:
 
 - **Doc examples**, which is whether a crate has a worked example at all. FreeBSD's standard, the
   one AGENTS.md sets: *a page without a worked example has not finished explaining itself.*
-- **Item documentation**, which is whether every public item has a doc comment. This is what
+- Item documentation, which is whether every public item has a doc comment. This is what
   `missing_docs` checks, and it is what blocks adopting that lint.
 
 ## The numbers the roadmap block carried were stale, and one of them measured the wrong thing
@@ -29,8 +29,8 @@ crates arrived with none: `ntlm` and `system_initializer` (2026-08-04), `nvme` (
 what is missing is a moving target in a tree
 adding a crate every few days, which is the argument for a gate rather than a number in a block.
 
-**The coverage range is measured by `rustdoc --show-coverage`, and it is not the same measure as
-`missing_docs`.** This matters because the block used the first to justify deferring the second. Six
+The coverage range is measured by `rustdoc --show-coverage`, and it is not the same measure as
+`missing_docs`. This matters because the block used the first to justify deferring the second. Six
 crates report 100% documented and still have `missing_docs` hits, because `--show-coverage` does not
 count struct fields, type aliases or `macro_rules!` and the lint does. Take a `missing_docs` decision
 from `missing_docs` output.
@@ -40,7 +40,7 @@ from `missing_docs` output.
 Every crate under `crates/` now has at least one worked example. Three treatments, and the third is a
 recorded limitation rather than a pass:
 
-1. **An executing doctest** (28 crates). Preferred always: a doctest that runs is a test, and this
+1. An executing doctest (28 crates). Preferred always: a doctest that runs is a test, and this
    project's whole method is pure logic in host-testable crates. Each example was written to carry the
    crate's own argument rather than to restate a signature, so `elf` forges a writable-and-executable
    segment and watches it be refused, `paging` builds real page tables on the host and demonstrates
@@ -52,7 +52,7 @@ recorded limitation rather than a pass:
    machine with no nife kernel under it is a fault, not a syscall. The examples are type-checked
    against the real signatures and executed by the QEMU boot and `script/swish-check`.
 
-3. **An executing doctest that the gate does not run** (`swap_protocol`, `supervision_protocol`, and the
+3. An executing doctest that the gate does not run (`swap_protocol`, `supervision_protocol`, and the
    two above that are not `no_run`). See BUGS below; this is the one honest gap.
 
 ## BUGS
@@ -60,7 +60,7 @@ recorded limitation rather than a pass:
 - **Five crates' doctests are never run by `script/test`.** `user_mode_runtime`, `swap_protocol`, `virtio`,
   `supervision_protocol` and `system_initializer` take unconditional `user_mode_runtime` dependencies, so the host
   test selection excludes them (the list is in `xtask/src/suite.rs`, derived and checked by
-  `script/lint`). Their examples run under `cargo test --doc -p <crate>` **on an aarch64 host** and
+  `script/lint`). Their examples run under `cargo test --doc -p <crate>` on an aarch64 host and
   are checked by nothing in CI. On an x86_64 host they do not even compile, which is a property of the
   packages and not of the examples. The fix is to split each crate's pure half out from its syscall
   half, which is a lane of its own and is what would let the arithmetic in `swap_protocol::digest` and
@@ -69,7 +69,7 @@ recorded limitation rather than a pass:
 - **`rustdoc --show-coverage` undercounts.** See the section above. It is still the right tool for
   "does this crate have any example at all", which is what the examples half is about.
 
-- **A crate can lose the ratchet by deleting one line.** The `#![warn(missing_docs)]` opt-in below is
+- A crate can lose the ratchet by deleting one line. The `#![warn(missing_docs)]` opt-in below is
   rung two of AGENTS.md's ladder for the crates that carry it and rung zero for the ones that do not:
   nothing requires a crate that becomes clean to adopt it, and nothing requires a *new* crate to.
   Closing that needs a `script/lint` check, and the cost is a second workspace clippy pass with
@@ -78,7 +78,7 @@ recorded limitation rather than a pass:
 
 ## `missing_docs`: the ratchet, and the worklist
 
-**401 undocumented public items across 32 of the 55 crates**, measured 2026-08-17 with one
+401 undocumented public items across 32 of the 55 crates, measured 2026-08-17 with one
 workspace-wide `cargo clippy --workspace --lib -- -W missing_docs` into a clean target directory.
 Measure it that way or not at all: cargo replays cached diagnostics, and a per-package loop reports
 other crates' warnings as the selected crate's. A first attempt at this measurement said 647 across
@@ -88,8 +88,8 @@ Adopting the lint tree-wide is a commitment to write those 401 first, so it was 
 at first. A milestone 68 follow-up lane re-measured on 2026-08-22 (the trap-avoiding way: one
 workspace-wide `cargo clippy --workspace --lib -- -W missing_docs` into a clean target directory) and
 found the honest count had already drifted to 404 across 31 crates, five days on. That lane closed 169
-of those 404, crate by crate, re-measuring the same way after every batch: **235 items remain, across
-7 of the 57 crates under `crates/`**. The other 50 carry the per-crate opt-in, spelled
+of those 404, crate by crate, re-measuring the same way after every batch: 235 items remain, across
+7 of the 57 crates under `crates/`. The other 50 carry the per-crate opt-in, spelled
 `#![warn(missing_docs)]` beside each crate's `#![no_std]`. Under `script/lint`'s `-D warnings` that is
 a hard gate, so those crates cannot regress:
 
@@ -117,7 +117,7 @@ Every crate that was one item from clean on 2026-08-17, and every crate under ab
 now closed. What remains is seven substantially larger crates (19 to 54 items each); none is close to
 clean, so there is no more "cheapest item" shortcut left in this table.
 
-Outside `crates/`: **`xtask` has 176**, **`user` has 50**, and **`kernel` has 2** (both
+Outside `crates/`: `xtask` has 176, `user` has 50, and `kernel` has 2 (both
 `#[macro_export]` macros in `console.rs`, documented in the original pass). Unmeasured by this
 follow-up lane, since `--lib` (required to avoid the cache-replay trap) does not reach a `[[bin]]`-only
 package, and none of xtask/user/kernel were touched. The kernel's near-zero count is not a surprise

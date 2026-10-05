@@ -9,7 +9,7 @@ fifteen years. Nothing in this note is about a language model.)
 ## Why the OS needs it before it needs anything else about disks
 
 `parted /dev/sda mkpart`, then `mkfs.ext4`, then mount. That is calef's router setup, and nife
-had **no equivalent of the first step at all**. It is not optional, and not only because we might
+had no equivalent of the first step at all. It is not optional, and not only because we might
 want to partition something: **you cannot find a partition on a disk you did not create without
 reading its table.** A block device hands you 131,072 blocks of undifferentiated bytes. Which of
 them is the filesystem is written in the table and nowhere else.
@@ -29,12 +29,12 @@ anything itself.
 ```
 
 Four CRC-32s carry the whole integrity story: a header CRC and an array CRC, each stored twice. That
-is the property worth naming, because it is unusual: **a GPT is a format that can tell you it is
-broken.** Most on-disk structures cannot. It is also why every check in the crate is an error rather
+is the property worth naming, because it is unusual: a GPT is a format that can tell you it is
+broken. Most on-disk structures cannot. It is also why every check in the crate is an error rather
 than a warning: a table that half-validates is a table somebody is about to write a filesystem onto.
 
 The header is 92 bytes of a 512-byte block, and the other 420 must be zero. The entry array is
-128 entries whether or not you have 128 partitions; an entry is unused when its **type GUID** is all
+128 entries whether or not you have 128 partitions; an entry is unused when its type GUID is all
 zeros, which is the only thing that marks it, and not (this is the trap) its LBA fields.
 
 ## The crate does no I/O, and that is the whole design
@@ -65,7 +65,7 @@ scattered through the decoder.
 
 ### 1. A GUID is mixed-endian, and only partly
 
-Everybody writes `C12A7328-F81F-11D2-BA4B-00A0C93EC93B`. The five groups are **not** stored the same
+Everybody writes `C12A7328-F81F-11D2-BA4B-00A0C93EC93B`. The five groups are not stored the same
 way. The first three are integers and go on disk little-endian; the last two are byte strings and go
 in the order written:
 
@@ -82,7 +82,7 @@ the on-disk bytes and does the swapping in two functions, one of which is proved
 ### 2. `last_lba` is inclusive
 
 A one-block partition has `first_lba == last_lba`. Two partitions where one ends on the block the
-next begins on **overlap**, and two filesystems then fight over one sector forever. Half-open
+next begins on overlap, and two filesystems then fight over one sector forever. Half-open
 thinking gives you an off-by-one that a casual test will not find, because the tables real tools
 write are 2048-aligned with gaps.
 
@@ -140,8 +140,8 @@ board is dead, can I get my data") depends on a `sgdisk -p` five years from now 
 
 ## How it is proved, and the division of labour
 
-This crate is the clearest case yet of the rule `network_time_protocol` wrote down: **where a domain is small
-enough to count, count it; a model checker is for the domains that are not.**
+This crate is the clearest case yet of the rule `network_time_protocol` wrote down: where a domain is small
+enough to count, count it; a model checker is for the domains that are not.
 
 ### Counted, exhaustively
 
@@ -157,7 +157,7 @@ ignored, because 4.18 million CRC-32s over 16 KiB each is 68 GB of polynomial. I
 passes; the bit-flip sweep is what the gate runs.
 
 The 163 seconds is worth recording as a measurement rather than a guess: a byte-at-a-time
-table-driven CRC-32 runs at about **400 MB/s**, roughly eight cycles per byte, because the table
+table-driven CRC-32 runs at about 400 MB/s, roughly eight cycles per byte, because the table
 load is a serial dependency in the loop. That is the number that decided the test structure.
 
 ### Proved, symbolically
@@ -192,17 +192,17 @@ values, and it would fail on every real disk.
 
 **A symbolic CRC-32 is very expensive, and it decided the shape of two harnesses.** The first
 attempt at the header round trip went through `encode_into` and `decode`, so the formula carried two
-92-byte CRC-32s over symbolic bytes. It ran **274 seconds without finishing**, against a
+92-byte CRC-32s over symbolic bytes. It ran 274 seconds without finishing, against a
 `script/verify` budget of about three minutes per harness (the same budget the DMA harnesses record
 in notes/verification.md). The measured reason is in the two CRC harnesses above: one table CRC plus
-one bitwise CRC over 8 symbolic bytes is 20 s, two table CRCs over the same 8 bytes is 33 s, so **the
-table version costs roughly five times the bitwise one** for the solver. A table lookup on a symbolic
+one bitwise CRC over 8 symbolic bytes is 20 s, two table CRCs over the same 8 bytes is 33 s, so the
+table version costs roughly five times the bitwise one for the solver. A table lookup on a symbolic
 index is a 256-way multiplexer, and there is one per byte from the first symbolic byte onward.
 
 So `Header` grew a `decode_fields`/`encode_fields` pair, and the round trip is proved in two halves
 that compose for a reason you can read in three lines of source rather than assume: everything
 `encode_into` adds is four bytes at offset 16, everything `decode` adds is checks, and the CRC field
-is not one of the nine fields, so neither half can disturb the other. **3 seconds instead of 274**,
+is not one of the nine fields, so neither half can disturb the other. 3 seconds instead of 274,
 and it is a better decomposition anyway: the layout and the integrity are different claims.
 
 The same reasoning moved the create-then-parse harness. A byte-level version has four symbolic CRC
@@ -211,7 +211,7 @@ proved *completely*, in `tests/real_disks.rs`: `GloballyUniqueIdentifierPartitio
 reproduces `sgdisk`'s 512-byte header, its backup header and its 16 KiB array exactly. What that
 test cannot do is vary the disk size, so the harness takes that dimension and asserts every geometry
 rule `GloballyUniqueIdentifierPartitionTable::parse` enforces on what
-`GloballyUniqueIdentifierPartitionTable::create` produced, for **every** `u64` disk size. A writer
+`GloballyUniqueIdentifierPartitionTable::create` produced, for every `u64` disk size. A writer
 that emits a table its own reader rejects is the worst failure available to this crate, and an
 unusual disk size is exactly where it would hide.
 
@@ -224,7 +224,7 @@ rather than as the implementation, so the proof is not the code compared against
 Stated plainly, because a demonstrator's docs are part of the deliverable:
 
 - **No I/O, by design.** Somebody still has to read LBA 1. That is the block-device lane of
-  milestone 57, and it is separate on purpose. **Built 2026-08-03** (notes/block-devices.md):
+  milestone 57, and it is separate on purpose. Built 2026-08-03 (notes/block-devices.md):
   `disk_surveyor` reads the table off a virtio-blk device, backup half included, on both ISAs. The
   crate gained one module for it, `globally_unique_identifier_partition_table::span`, which computes *where* to read when the disk's
   logical block (512) and the block service's transfer unit (4096) are different numbers. That is
@@ -234,7 +234,7 @@ Stated plainly, because a demonstrator's docs are part of the deliverable:
   random is not unique, this crate has no randomness, and inventing one from a counter would be
   worse than refusing. Milestone 55's entropy work is where a caller gets one.
 
-  **This turns out to be the same wall `mkfs` on the target hits, and that is worth knowing**
+  This turns out to be the same wall `mkfs` on the target hits, and that is worth knowing
   (measured 2026-08-01, design/roadmap/57-partitioning-and-xattrs.md). RedoxFS stamps a v4 UUID into a
   fresh header with `uuid::Uuid::new_v4()`, so `FileSystem::create` is `std`-gated for the same
   reason this crate refuses to invent a GUID: an identifier that has to be unique needs randomness,
@@ -247,34 +247,34 @@ Stated plainly, because a demonstrator's docs are part of the deliverable:
   reserves, leaving the other 122 exactly as they arrived. That is pure computation, so it belongs
   here; the randomness stays in the program that holds an entropy endpoint. The section below is
   what uses it.
-- **No alignment policy.** `GloballyUniqueIdentifierPartitionTable::create` places partitions
+- No alignment policy. `GloballyUniqueIdentifierPartitionTable::create` places partitions
   exactly where it is told. The 2048-block (1 MiB) convention that keeps a partition off an SSD
   erase-block boundary is policy, and a format crate that silently moved a partition would be doing
   policy behind its caller's back.
-- **Entry sizes over 128 bytes are read as 128.** The spec allows the entry to grow; nothing writes
+- Entry sizes over 128 bytes are read as 128. The spec allows the entry to grow; nothing writes
   a bigger one, and decoding the first 128 bytes and ignoring the rest is what a reader that does
   not know a later revision can honestly do.
-- **The reserved-tail check is the strictest thing here**, and the likeliest to need relaxing. UEFI
+- The reserved-tail check is the strictest thing here, and the likeliest to need relaxing. UEFI
   2.10 §5.3.2 says the block after the 92-byte header must be zero, both fixtures comply, and a
   header with a perfectly good CRC is still refused if one byte after it is not zero. If a real disk
   ever trips it, relax the check and record the disk; do not weaken the CRC.
-- **4K-native disks are tested but not witnessed.** The block size is taken from the length of the
+- 4K-native disks are tested but not witnessed. The block size is taken from the length of the
   block the caller passes, there is a test that builds and parses a 4096-byte-block table, and no
   real 4Kn disk has been through it because we do not have one.
 
 ## Writing a table on the target (milestone 57's write half, 2026-08-03)
 
 `disk_partitioner` (provisional name) is the program. It holds two capabilities and they are the
-whole of it: a block-service endpoint for **one** disk, and an **entropy endpoint**. Every byte of
+whole of it: a block-service endpoint for one disk, and an entropy endpoint. Every byte of
 judgement is still this crate's; the program is I/O, a layout, and a refusal.
 
 ### The version-4 stamp, and the one way to get it wrong
 
-`Guid::v4_from_random` sets four version bits and two variant bits. They live in **printed**
+`Guid::v4_from_random` sets four version bits and two variant bits. They live in printed
 positions, so this is the mixed-endian rule from the top of this note one more time: the version
 nibble is the high nibble of the third group, which is stored little-endian and therefore lands in
-**on-disk byte 7**; the variant bits are the top of the fourth group, stored as written, so on-disk
-**byte 8**.
+on-disk byte 7; the variant bits are the top of the fourth group, stored as written, so on-disk
+byte 8.
 
 Setting them at the wrong offsets produces a GUID that is still unique, still unpredictable, and
 reads as some other UUID version to every tool that ever looks at the disk, forever. Nothing in a
@@ -284,14 +284,14 @@ where `sgdisk -i` and `uuidgen` read them.
 ### Read-modify-write, because a partitioner describes a disk rather than owning it
 
 The primary table is 34 logical blocks and the block service's transfer unit is eight of them, so
-the last transfer block is **three quarters table and one quarter somebody's partition**. Writing
+the last transfer block is three quarters table and one quarter somebody's partition. Writing
 whole transfer blocks would zero the first 3 KiB of a partition the program was only supposed to be
 describing. So every block is read first and the table bytes laid over it. On the test's blank disk
 this is invisible; on a disk with data on it, it is the difference between `parted` and a shredder.
 
 ### The refusal is the demonstration
 
-Four GUIDs are drawn **before** the layout is built and long before the first write, so a process
+Four GUIDs are drawn before the layout is built and long before the first write, so a process
 with no entropy endpoint reports and exits with the disk exactly as it found it. The kernel test
 then runs the *same binary* in its verify role, which holds no entropy at all, and reads the disk:
 that is what turns "it refused" into "it wrote nothing". After the successful run the same reader

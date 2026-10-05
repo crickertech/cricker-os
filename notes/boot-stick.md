@@ -1,8 +1,8 @@
 # The boot stick, and the program that makes it
 
-DECISIONS §157, as amended on 2026-09-19: a trivial install starts from **one downloaded program per
-host operating system**, with the boot payload inside it, which writes a bootable stick when run;
-it is **not signed**; and **from any machine it builds a boot for any other machine**. This note is
+DECISIONS §157, as amended on 2026-09-19: a trivial install starts from one downloaded program per
+host operating system, with the boot payload inside it, which writes a bootable stick when run;
+it is not signed; and from any machine it builds a boot for any other machine. This note is
 how that was built, what it was proved on, and what it was not. The roadmap block is
 `design/roadmap/441-the-program-that-makes-the-stick.md` (number provisional).
 
@@ -160,7 +160,7 @@ virt, boot with acpi=off; ...)` and stopped, and under `acpi=off` it booted. Tha
 as a kernel limit the loader reported rather than one it added, and it was the reason
 `helpers/qemu-stick.sh` passed `acpi=off`.
 
-**It is fixed, 2026-09-23.** The loader now reads the tables and **writes the device tree** the kernel would have been
+**It is fixed, 2026-09-23.** The loader now reads the tables and writes the device tree the kernel would have been
 handed (`uefi_loader/src/device_tree_from_acpi.rs`), so `NIFE_ACPI=on helpers/qemu-stick.sh aarch64
 target/stick` reaches the same shell prompt `acpi=off` does. The firmware's own tree still wins when
 a machine offers both, because it is the richer description. What the two boots differ by, measured
@@ -185,8 +185,8 @@ run nife; this is the half of that which was ours to fix.
 
 ### The seal, which is structural now
 
-Each boot file is a loader carrying its kernel and the archive that kernel measures, and **the
-loader's build refuses a pair that does not match** (`uefi_loader/build.rs`,
+Each boot file is a loader carrying its kernel and the archive that kernel measures, and the
+loader's build refuses a pair that does not match (`uefi_loader/build.rs`,
 `refuse_an_unsealed_pair`): it hashes the archive's `progenitor`, `hello` and
 `program_measurements` and requires each digest to occur in the kernel image. Proved both ways on
 2026-09-19: the current pair builds, and this tree's kernel beside the main checkout's two-day-old
@@ -225,13 +225,13 @@ rung 4 of §157 and calef's act.
 
 ## At the bench: radon and argon
 
-Nothing below has been run. Both boards reach the stick through U-Boot, and **the five-command check
-comes first** (radon: notes/visionfive2.md, "To measure at the bench", item 10; argon: milestone
+Nothing below has been run. Both boards reach the stick through U-Boot, and the five-command check
+comes first (radon: notes/visionfive2.md, "To measure at the bench", item 10; argon: milestone
 127's block): `usb start`, `usb storage`, `fatls usb 0:1 /`, `help bootefi`, `printenv boot_targets`.
 
 ### radon (VisionFive 2)
 
-**A microSD card is a stick too**, and on radon it removes USB from the question entirely: U-Boot
+A microSD card is a stick too, and on radon it removes USB from the question entirely: U-Boot
 reads the card already, every boot. So write the card with `stick_maker` (it offers SD cards; a card
 that is already FAT32 is copied onto, and the existing `nife-vf2.img`, `nife-initrd.img` and
 `boot.scr.uimg` stay beside the new files), put it in, interrupt autoboot, and:
@@ -252,7 +252,7 @@ place of `mmc 1:1` boot it from USB.
 | `uefi_loader: wanted 0x0000000080200000..` and a list of what is in the way | U-Boot's EFI memory map holds the kernel's fixed load address; the listed ranges are the answer |
 | The loader's lines and then silence on the console | The handover or the kernel; the same triage as `script/board-image`'s boots, since from `hart N booted` on it is the same kernel |
 
-The riscv64 boot file carries the **`board`** kernel, the one radon runs, and it was proved under
+The riscv64 boot file carries the `board` kernel, the one radon runs, and it was proved under
 QEMU's EDK2 in that build. Whether radon's U-Boot 2021.10 offers `RISCV_EFI_BOOT_PROTOCOL` or
 `/chosen/boot-hartid` is recalled rather than read: both are said to postdate or coincide with that
 release, which is exactly why the loader prints which one answered.
@@ -308,33 +308,33 @@ $ shasum -a 256 /Volumes/NIFE/EFI/BOOT/*
 
 ## BUGS
 
-- **No real stick, card or board has been written or booted by any of this.** Every write was to a
+- No real stick, card or board has been written or booted by any of this. Every write was to a
   file-backed disk, every boot was QEMU. The first physical stick is calef's, and so is the first
   board boot.
-- **The flash-stick fixture is synthesized**, because no stick was attached when the fixtures were
+- The flash-stick fixture is synthesized, because no stick was attached when the fixtures were
   captured; its first line says so. Capture a real one (`diskutil info -plist diskN`) the first time
   one is at hand and replace it.
-- **Some flash sticks clear the removable-media bit** (models sold as "fixed disks", for Windows To
+- Some flash sticks clear the removable-media bit (models sold as "fixed disks", for Windows To
   Go) and are not offered. There is no override flag, deliberately: the bit is what keeps backup
   disks out, and an override is the flag a stranger reaches for first.
 - **Windows cannot erase**, and prints the `diskpart` steps; see `crates/stick_maker/src/windows.rs`.
 - **Windows cannot be built on the development Mac.** CI builds it; a release process that wants all
   six downloads from one machine needs a MinGW or the Windows SDK there, or a Windows runner.
-- **The program is not signed**, by decision (§157). macOS Gatekeeper refuses it on first open and
+- The program is not signed, by decision (§157). macOS Gatekeeper refuses it on first open and
   Windows SmartScreen warns; the steps past each are rung 4's web page to write, and they move
   between OS releases.
-- **The downloads are large, and the profile is not chosen yet.** Measured 2026-09-19 for macOS
-  arm64: **41.6 MB** from `cargo xtask stick` (debug payloads: 10.2, 16.0 and 14.4 MB), **20.0 MB**
+- The downloads are large, and the profile is not chosen yet. Measured 2026-09-19 for macOS
+  arm64: 41.6 MB from `cargo xtask stick` (debug payloads: 10.2, 16.0 and 14.4 MB), 20.0 MB
   from `cargo xtask stick --release` (2.6, 8.3 and 8.2 MB). Both sets boot on all three firmwares.
   The numbers move with every build, as `BOOTX64.EFI`'s already do in notes/x86-uefi-boot.md: the
   debug download was 45.1 MB the same evening, after rebasing onto that day's `main`.
   `cargo xtask stick` defaults to debug like every other xtask build, which is what the bench has
   used; which one a customer downloads is rung 4's choice.
-- **A universal macOS binary carries the payload twice**, once per slice: 82.9 MB against 41.6 MB
+- A universal macOS binary carries the payload twice, once per slice: 82.9 MB against 41.6 MB
   for the debug build. Carrying the payload outside the Mach-O slices would halve it, at the cost
   of the program being two files or reading itself.
 - **The aarch64 payload runs on QEMU `virt` and nowhere else yet**, for the load-address reason under
   argon. The riscv64 payload is linked for `0x8020_0000`, which radon's RAM contains.
-- **Each QEMU proof boot runs to its time bound**, because nife hands over to a shell and never
+- Each QEMU proof boot runs to its time bound, because nife hands over to a shell and never
   exits; `stick-boot` takes about six minutes and the proof script about twelve. Watching the
   transcript and stopping at the progenitor line would cut both to seconds.

@@ -21,12 +21,12 @@ every hundredth, except every four-hundredth. 1900 is not a leap year; 2000 is. 
 are in the test table, alongside the dates either side of them, because the failure is not that the
 predicate returns the wrong boolean, it is that a whole day's worth of dates shift.
 
-**Negative timestamps are where truncating division lies to you.** In Rust `-1 / 86400` is `0`, so a
+Negative timestamps are where truncating division lies to you. In Rust `-1 / 86400` is `0`, so a
 converter that divides seconds by a day to get a day number reports 1970-01-01 for every instant in
 the last day of 1969. The fix is `div_euclid`/`rem_euclid`, and the test that catches it is a
 timestamp of `-1`. A date library that only tests dates after the epoch will not find this.
 
-**The month lengths have no formula, unless you move the start of the year.** The algorithms here are
+The month lengths have no formula, unless you move the start of the year. The algorithms here are
 Howard Hinnant's (the same pair inside libc++ and most serious date libraries), and the trick is to
 treat March as month zero. Then February, the irregular one, is the last month of the year, the leap
 day is appended rather than inserted, and every month length collapses into `(153*m + 2)/5`. The
@@ -84,7 +84,7 @@ which second, in a crate whose entire job is to say which second.
 
 ## Time zones: the scope note, stated plainly
 
-**A fixed UTC offset is in scope. The IANA time zone database is not, and not merely "not yet".**
+A fixed UTC offset is in scope. The IANA time zone database is not, and not merely "not yet".
 
 `UtcOffset` is minutes from UTC, ±23:59 (RFC 3339's grammar, not geography). It is enough to print a
 timestamp the way a local user expects and enough to read one someone else printed, and it is what the
@@ -109,7 +109,7 @@ separate crate with a file behind it, not a growth of this one.
 | `Human` | `Thu 2026-07-30 12:34:56 UTC` | what `date` with no arguments should print |
 | `Unix` | `1785414896` | arithmetic, and handing the number back to the clock service |
 
-**Why not a format-string interpreter.** `strftime` is a second parser: its errors appear at runtime,
+Why not a format-string interpreter. `strftime` is a second parser: its errors appear at runtime,
 in a `no_std` program with no allocator, over a string no compiler checked, in exchange for
 combinations nothing in this system asks for. `%c` alone drags in locales. Five constructors cover
 every consumer milestone 51 has, and adding a sixth is a match arm and a test, which is a cheaper way
@@ -137,12 +137,12 @@ Accepted beyond the strict letter, each because RFC 3339 itself says so:
 - **lowercase `t` and `z`** (§5.6 permits them);
 - **a space in place of `T`** (§5.6's NOTE permits it by agreement, and it is what a person types at
   a prompt);
-- **fractional seconds, parsed and discarded.** This clock has one-second resolution. Keeping them
+- fractional seconds, parsed and discarded. This clock has one-second resolution. Keeping them
   would mean lying about precision or growing the type; refusing them would reject ordinary
   timestamps other systems emit.
 
-Everything else is strict: four year digits and two of everything else, no unpadded fields, **no
-missing offset** (which is the whole difference between RFC 3339 and bare ISO 8601), no trailing
+Everything else is strict: four year digits and two of everything else, no unpadded fields, no
+missing offset (which is the whole difference between RFC 3339 and bare ISO 8601), no trailing
 bytes. `Error::Syntax` for malformed text, and a specific error for text that is well-formed and
 unrepresentable (`LeapSecond`) or out of range (`BadDay`, `BadOffset`, ...), so a `date -s` verb can
 say what it did not like.
@@ -155,7 +155,7 @@ one of the harnesses.
 the opposite of the usual arrangement and was decided by the proof. RFC 3339 is ASCII, so bytes are
 what the grammar is defined on; a caller holding a network buffer would otherwise have to validate
 UTF-8 first, for a function that rejects every non-ASCII byte anyway. And the totality harness can
-then quantify over **arbitrary bytes**, including sequences that are not UTF-8 at all, which is
+then quantify over arbitrary bytes, including sequences that are not UTF-8 at all, which is
 exactly what a network client will hand it. It also happened to take the harness from over ten
 minutes to seventeen seconds; see notes/verification.md.
 
@@ -163,10 +163,10 @@ minutes to seventeen seconds; see notes/verification.md.
 
 Eleven harnesses, all `SUCCESSFUL`, about seven minutes. See notes/verification.md for the table and
 for the finding that came out of building them, which is worth more than the harnesses themselves:
-**the calendar arithmetic is cheap to prove and a 64-bit division by 86,400 is not**, and iterating a
+the calendar arithmetic is cheap to prove and a 64-bit division by 86,400 is not, and iterating a
 slice whose length is symbolic costs more than the parser wrapped around it.
 
-Ten of the eleven run over the **full supported range**, unbounded below the type: the two Hinnant
+Ten of the eleven run over the full supported range, unbounded below the type: the two Hinnant
 algorithms are mutual inverses for every one of the 3,652,425 days, every day number decodes to a
 date that exists, the calendar never steps backwards, day-of-year is 366 exactly on 31 December of a
 leap year, the parser is total on arbitrary bytes, and everything the crate prints it reads back for
@@ -175,7 +175,7 @@ four-year window straddling the epoch, because that one division is what bounded
 cannot swallow whole; the window is chosen so it contains the bug it exists to catch (truncating
 division, which only shows up on a negative timestamp).
 
-Both load-bearing properties were **falsified before being believed**: reducing the leap-year rule to
+Both load-bearing properties were falsified before being believed: reducing the leap-year rule to
 "divisible by four" fails the round trip in 8 seconds, and replacing `div_euclid` with `/` fails the
 seconds harness in 32.
 
@@ -186,10 +186,10 @@ mutual inverses; only an independent witness says they are inverses of the *righ
 
 ## What it deliberately does not do
 
-- **No durations or calendar arithmetic.** "One month after January 31" has no single correct answer,
+- No durations or calendar arithmetic. "One month after January 31" has no single correct answer,
   and the caller that wants it does not exist yet.
-- **No week numbers.** ISO 8601 week-of-year has its own edge cases (a January date can be in week 52
+- No week numbers. ISO 8601 week-of-year has its own edge cases (a January date can be in week 52
   of the previous year) and nothing asks for it.
-- **No sub-second resolution.** The clock this will read is a one-second RTC plus an offset.
+- No sub-second resolution. The clock this will read is a one-second RTC plus an offset.
 - **No `no_std` gymnastics for a `Display` on `Civil`.** Formatting is explicit through `Format`, so
   a caller never accidentally prints a shape the parser cannot read back.

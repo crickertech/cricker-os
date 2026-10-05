@@ -71,12 +71,12 @@ declared first so it drops after the mapper that reads the tables.
 
 **And then it came back, which is the part worth learning from** (milestone 310). The guard above
 was opt-in: each test had to remember to bind one. A `domain.rs` test written after that fix did
-not, five frames leaked, and **the weekly workflow was red on every scheduled run from 2026-08-11
-to 2026-09-17** with nobody able to see it, because a scheduled job's red is an entry in the Actions
+not, five frames leaked, and the weekly workflow was red on every scheduled run from 2026-08-11
+to 2026-09-17 with nobody able to see it, because a scheduled job's red is an entry in the Actions
 tab with no badge. So the fix here was not the missing line, which would have restored the same
 defect for the next author. `domain.rs`'s pool now owns the allocation: `frame` and `frame_at` are
 methods on `FramePool`, the free functions are gone, and a test that allocates without holding a
-pool **does not compile**. That is AGENTS.md's ladder moving from rung four to rung one, on a
+pool does not compile. That is AGENTS.md's ladder moving from rung four to rung one, on a
 mechanism that had already been given one chance at rung four and lost it.
 
 `tests/mapping.rs`'s `TableGuard` is still the opt-in shape and every test in that file currently
@@ -115,7 +115,7 @@ written next to the test:
 
 ### The `manual` row is a different kind of skip, and worth telling apart
 
-Every other row is a **sampling** decision: the test is too slow under an interpreter, so it runs a
+Every other row is a sampling decision: the test is too slow under an interpreter, so it runs a
 smaller version of the same claim. The `manual` row is not that. That test does host I/O, and Miri's
 isolation refuses `open` and `opendir` outright; there is no smaller version, only a decision about
 `-Zmiri-disable-isolation`.
@@ -123,11 +123,11 @@ isolation refuses `open` and `opendir` outright; there is no smaller version, on
 **It was refused, on measurement rather than principle** (milestone 238). `crates/documentation` has no
 dependencies and no `unsafe`, so the rules Miri enforces cannot be broken by any line it would
 interpret there. Against that, `every_character_survives` costs 0.74 seconds natively and had not
-finished after **12 minutes** under Miri with isolation off, and the flag is not per-test: it would
+finished after 12 minutes under Miri with isolation off, and the flag is not per-test: it would
 relax isolation for the whole workspace run, which is the reproducibility every other crate here is
 getting for free.
 
-**These two are also the entire content of the three weeks the weekly workflow spent red.** It
+These two are also the entire content of the three weeks the weekly workflow spent red. It
 reported failure from 2026-08-10 to 2026-09-03 and never once for undefined behaviour: first an
 environment variable Miri does not forward, then a `read_dir` behind it, then five `board_console`
 tests behind that, each hidden by the one before because `cargo miri test` stops at the first. The
@@ -148,16 +148,16 @@ stops at the first failure, so a broken run reports exactly one problem however 
 232's audit read that message and reasonably estimated a one-flag fix. Behind it, in order, sat:
 `read_dir` against isolation; five `board_console` tests doing host I/O; five more in `board_console`
 that are wall-clock driven; `board_console`'s 55-minute cost; and a `compositor` test sweeping
-317,856 pixels that ran **44 minutes without finishing**.
+317,856 pixels that ran 44 minutes without finishing.
 
 None of those were regressions. They accumulated while the job was red, invisibly, because a job
-that fails in two minutes never reaches the code that would take an hour. **The 27-minute figure
-this note and the workflow both quote is from 2026-08-03 and has not described the run since.** The
+that fails in two minutes never reaches the code that would take an hour. The 27-minute figure
+this note and the workflow both quote is from 2026-08-03 and has not described the run since. The
 general lesson is the one `script/cadence-check` exists for: a check that has been failing is not
 merely not-checking, it is also not-measuring, and the bill accrues the whole time.
 
 **`board_console` is excluded from the run entirely, which is the fourth exclusion and the
-expensive one** (milestone 238). It measured **3,307 seconds, 55 minutes, for its lib tests alone**
+expensive one** (milestone 238). It measured 3,307 seconds, 55 minutes, for its lib tests alone
 on 2026-09-03, against roughly four minutes for the whole rest of the workspace, and it has no
 dependencies and no `unsafe`. Ten of its forty-one tests could not run under the interpreter
 regardless: five reach the host filesystem, and five in `watch` are wall-clock driven, so a

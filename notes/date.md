@@ -22,7 +22,7 @@ at all gets what a person typing `date` wants.
 | 3 | `Time` | `12:34:56` |
 | 4 | `Unix` | `1785414896` |
 
-`a1` is a UTC offset in **minutes**, signed. `a1 = 330` prints `Thu 2026-07-30 18:04:56 +05:30`.
+`a1` is a UTC offset in minutes, signed. `a1 = 330` prints `Thu 2026-07-30 18:04:56 +05:30`.
 That is a fixed offset and not a time zone: `-480` is Pacific Standard Time for part of the year and
 wrong for the rest, and notes/calendar.md records why the IANA database is a data-distribution
 problem rather than a calendar one.
@@ -55,8 +55,8 @@ No `date` on a Unix can print this, because Unix has one clock and no notion of 
 ## It reads. It does not set. And that is a property of its wiring.
 
 DECISIONS §43 splits the clock into three authorities that are three *different objects*: read is a
-**read-only mapping** of the clock page, set is the **same page mapped read/write**, propose is an
-**endpoint**. `date` holds the first.
+**read-only mapping** of the clock page, set is the same page mapped read/write, propose is an
+endpoint. `date` holds the first.
 
 So there is no `date -s`, and its absence is not a `TODO`. There is no flag `date` could be passed
 and no method it could call, because the authority it lacks is a page permission rather than a
@@ -74,8 +74,8 @@ reduced to a command anyone can type.
 published to is zero, and zero reads as unknown. A machine with no RTC, or one whose RTC read a time
 the clock service did not believe, leaves its readers holding exactly that.
 
-`std`'s `SystemTime::now()` has no error channel, so its only loud refusal is a **panic**. `date`
-has an error channel, namely its output, so it **reads the state word before it reads the offset**
+`std`'s `SystemTime::now()` has no error channel, so its only loud refusal is a panic. `date`
+has an error channel, namely its output, so it reads the state word before it reads the offset
 and prints a sentence:
 
 ```text
@@ -107,10 +107,10 @@ space before the offset) and parsed too. A wrong epoch, a nanoseconds-for-second
 offset applied twice, or a calendar that is simply wrong all fail that, and none of them fails a
 regex.
 
-**`an_unknown_clock_is_said_plainly_rather_than_printed_as_1970`** closes a gap DECISIONS §43 named
+`an_unknown_clock_is_said_plainly_rather_than_printed_as_1970` closes a gap DECISIONS §43 named
 in its own "what this lane did not do": *"the unknown-clock path is not proven in the guest"*, on the
 grounds that both QEMU boards always have a working RTC. That reasoning was about the *machine*, and
-the thing under test is the *page*. A frame nobody has published to **is** the machine that does not
+the thing under test is the *page*. A frame nobody has published to is the machine that does not
 know what time it is, as far as every reader is concerned, so the test allocates one, grants it, and
 requires the sentence. Both causes are covered: the blank page, and no capability at all.
 
@@ -118,7 +118,7 @@ Falsified before it was believed. Removing the state check makes `date` print
 `Thu 1970-01-01 00:00:04 UTC`, and the test fails with exactly that string in the diff, which is the
 old lie caught in the act.
 
-**`date_reports_where_the_time_came_from`** pins the provenance line across a step: `rtc,
+`date_reports_where_the_time_came_from` pins the provenance line across a step: `rtc,
 generation 1` before a proposal, `synced, generation 2` after one the service accepted. The propose
 endpoint is an authority `date` does not hold, which is the point: the provenance follows the page
 rather than the process.
@@ -127,7 +127,7 @@ rather than the process.
 
 Named here rather than in a tracker, next to the feature.
 
-- **One-second resolution, and the page read is not atomic with the counter sample.** The seqlock
+- One-second resolution, and the page read is not atomic with the counter sample. The seqlock
   makes the *page* read consistent; the counter is read just after it. A clock stepped between the
   two is printed as the new time, which is right, but the two lines of an `a2` run can straddle a
   step and disagree. Nothing here needs better.
@@ -135,7 +135,7 @@ Named here rather than in a tracker, next to the feature.
   manifest, so typing `date` at the shell runs it (`Human`, UTC, no provenance line). The three
   register selectors are not reachable from there: `ArgSpec` is `Required`/`Forbidden` with no
   position or arity, and growing it is deferred until a program wants both an argument and a file.
-  See notes/program-manifest.md. **Recorded-accepted by milestone 94's sweep** (2026-08-04): the
+  See notes/program-manifest.md. Recorded-accepted by milestone 94's sweep (2026-08-04): the
   deferral carries its own trigger, and a manifest grammar grown ahead of a program that needs it
   would be a mechanism with no requirement. An audit may pass over it; see
   notes/untracked-work-sweep.md.
@@ -146,19 +146,19 @@ Named here rather than in a tracker, next to the feature.
   showing only what the line designates would be off by one capability), and that is the honest shape
   rather than a gap.
 
-  Since milestone 86 the shell holds a clock **of its own**, which it reads to time a command, and it
+  Since milestone 86 the shell holds a clock of its own, which it reads to time a command, and it
   holds it with `READ` and no `GRANT`. So the sentence that matters is unchanged: the shell cannot
   put a clock in a child's hands, and which processes can read the time is still decided by manifests
   the progenitor reads. See notes/time-command.md.
-- **The clock service is parked in its startup announcement for the whole interactive boot.** It
+- The clock service is parked in its startup announcement for the whole interactive boot. It
   publishes the RTC reading and *then* announces, with a blocking send, so the page is right before
   anybody could read it; the boot spawns one thread whose only job is to take that message, which
   leaves the propose endpoint live. Nothing at the prompt proposes a time, so nothing exercises it,
   and the first `date` after a boot with a broken RTC would read `UNKNOWN` rather than block.
-- **Nothing at the prompt can set or propose a time**, and `date -s` is still not a missing flag. The
+- Nothing at the prompt can set or propose a time, and `date -s` is still not a missing flag. The
   boot grants the progenitor `READ` on the frame, so there is no writable mapping anywhere on the path from the
   kernel to a spawned child. A setter would be a different program holding a different capability,
   and the progenitor would have to be handed one to hand on.
-- **A fixed UTC offset is not a time zone.** See above, and notes/calendar.md.
-- **No `strftime`.** Five named formats. A format-string interpreter is a second parser with runtime
+- A fixed UTC offset is not a time zone. See above, and notes/calendar.md.
+- No `strftime`. Five named formats. A format-string interpreter is a second parser with runtime
   errors in a program that has no allocator, for combinations nothing here asks for.
