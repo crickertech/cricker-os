@@ -145,7 +145,7 @@ after the one ending "half explained and half open":
 
 ## Proposed work
 
-- [Each core's `PerCpu` on its own cache line](../../design/roadmap/proposals/each-cores-percpu-on-its-own-cache-line.md)
+- [Each core's `PerCpu` on its own cache line](../../design/roadmap/766-each-cores-percpu-on-its-own-cache-line.md)
   (provisional). `align(128)` on aarch64 and riscv64, which supersedes the parent note's
   `align(64)`. Its acceptance measurement is radon's run.
 - [Cross-core wake latency under HVF](../../design/roadmap/proposals/cross-core-wake-latency-under-hvf.md)
