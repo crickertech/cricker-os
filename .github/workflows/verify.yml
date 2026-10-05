@@ -17,6 +17,12 @@
 # Every job here also skips on a draft pull request, the same guard and the same reason ci.yml's
 # header records: this is the ~47-minute half of the suite, and a §90 claim commit's whole point is
 # to be an empty diff, which cannot fail these proofs differently than `main` already has.
+#
+# BUGS: stock Kani is installed below with an unpinned `cargo install --locked kani-verifier`
+# (0.68.0 on 2026-10-05), while the riscv64 job is pinned to 0.67.0 plus a carried patch. A proof
+# result can change because a Kani release moved, with no change in nife, and the rows are not proved
+# by one version. Recorded, not decided: see notes/verification.md BUGS and
+# design/roadmap/proposals/pin-stock-kani-to-a-version-bumped-deliberately.md.
 name: verify
 
 # Observed failing: 2026-10-03, run 37156069481: the `re-falsify` leg went red on a push to main,
