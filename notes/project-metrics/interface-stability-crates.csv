@@ -189,6 +189,10 @@ week,crate,breaking,additions,commits,commits_crossing
 2026W40,package_archive,1,9,3,1
 2026W40,socket_protocol,12,12,2,2
 2026W40,swap_protocol,3,3,3,3
-2026W41,abi,2,0,0,0
-2026W41,boot_slot,0,4,0,0
+2026W41,abi,2,0,3,3
+2026W41,activation_set,0,0,1,1
+2026W41,boot_slot,0,4,1,1
+2026W41,byte_sink_protocol,0,0,1,1
+2026W41,elf,0,0,1,1
 2026W41,grant_plan,1,0,0,0
+2026W41,supervision_protocol,0,1,2,2

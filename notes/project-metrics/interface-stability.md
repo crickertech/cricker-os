@@ -14,15 +14,15 @@ Sorted by breaking changes in the last four weeks (2026W38 to 2026W41), then by 
 | `line_editor` | 11 | 73 | 12 | 118 | 27 | 24 (89%) |
 | `filesystem_protocol` | 10 | 50 | 42 | 450 | 97 | 88 (91%) |
 | `swap_protocol` | 10 | 26 | 11 | 116 | 36 | 35 (97%) |
-| `abi` | 6 | 30 | 36 | 127 | 81 | 79 (98%) |
-| `byte_sink_protocol` | 5 | 10 | 6 | 48 | 25 | 25 (100%) |
+| `abi` | 6 | 30 | 36 | 127 | 84 | 82 (98%) |
+| `byte_sink_protocol` | 5 | 10 | 6 | 48 | 26 | 26 (100%) |
 | `clock_protocol` | 5 | 4 | 5 | 54 | 27 | 25 (93%) |
 | `credential_protocol` | 4 | 12 | 30 | 67 | 30 | 27 (90%) |
 | `graphics_protocol` | 3 | 2 | 11 | 33 | 27 | 27 (100%) |
-| `activation_set` | 3 | 52 | 3 | 52 | 14 | 14 (100%) |
+| `activation_set` | 3 | 52 | 3 | 52 | 15 | 15 (100%) |
 | `component_plan` | 3 | 14 | 3 | 126 | 20 | 16 (80%) |
 | `entropy_protocol` | 3 | 2 | 3 | 17 | 18 | 16 (89%) |
-| `supervision_protocol` | 2 | 4 | 22 | 64 | 43 | 39 (91%) |
+| `supervision_protocol` | 2 | 5 | 22 | 65 | 45 | 41 (91%) |
 | `nifefs` | 2 | 0 | 7 | 41 | 37 | 26 (70%) |
 | `counter_frequency_protocol` | 1 | 3 | 1 | 15 | 12 | 10 (83%) |
 | `environment_protocol` | 1 | 0 | 1 | 44 | 8 | 8 (100%) |
@@ -30,9 +30,9 @@ Sorted by breaking changes in the last four weeks (2026W38 to 2026W41), then by 
 | `package_archive` | 1 | 97 | 1 | 97 | 13 | 8 (62%) |
 | `user_mode_heap` | 1 | 0 | 1 | 11 | 0 | 0 |
 | `compositor` | 0 | 1 | 4 | 93 | 27 | 22 (81%) |
-| `elf` | 0 | 4 | 3 | 53 | 38 | 31 (82%) |
+| `elf` | 0 | 4 | 3 | 53 | 39 | 32 (82%) |
 | `argument_protocol` | 0 | 29 | 0 | 29 | 0 | 0 |
-| `boot_slot` | 0 | 52 | 0 | 52 | 8 | 4 (50%) |
+| `boot_slot` | 0 | 52 | 0 | 52 | 9 | 5 (56%) |
 | `capability_witness_protocol` | 0 | 3 | 0 | 3 | 9 | 7 (78%) |
 | `current_cpu_protocol` | 0 | 13 | 0 | 13 | 4 | 2 (50%) |
 | `manifest_note` | 0 | 40 | 0 | 40 | 8 | 5 (62%) |
@@ -41,7 +41,7 @@ Sorted by breaking changes in the last four weeks (2026W38 to 2026W41), then by 
 
 ## What broke in 2026W41
 
-Read at `4ba9fdab87fa` against the week before. Each line is one removed or changed public item; a crate rename is one line for the whole crate.
+Read at `e1f3ddf8cf95` against the week before. Each line is one removed or changed public item; a crate rename is one line for the whole crate.
 
 - `abi`: syscall changed, method or encoding `CAPABILITY_TABLE_SLOTS`
 - `abi`: syscall changed, method or encoding `fault::FAULT_EP_SLOT`
