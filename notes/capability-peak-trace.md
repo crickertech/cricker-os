@@ -4,7 +4,7 @@
 `lane/capability-peak-trace`, for milestone 753 (provisional), which was the proposal
 `trace-the-progenitors-login-block-peak`.*
 
-The progenitor's table has 32 slots (`kernel::cap::CAPABILITY_TABLE_SLOTS`). A gpu-and-keyboard
+The progenitor's table had 32 slots when this was traced (`kernel::cap::CAPABILITY_TABLE_SLOTS`; 64 since milestone 754 (the capability table grows to 64 slots)). A gpu-and-keyboard
 boot reaches 31, a gpu boot with no keyboard 28, and a boot with no gpu 24. This note says which
 capabilities make up those numbers, how long each is held, and what each option for lowering the
 peak would actually save.
@@ -143,19 +143,45 @@ Neither changes a gpu boot's peak either, for the plateau reason above. The bloc
 decision is [milestone 753](../design/roadmap/753-trace-the-progenitors-login-block-peak.md), and
 the costs and the seven questions for each option are there.
 
-## What the raise would cost, measured
+## What the raise cost, measured
 
-The free-slot word is a `u32`, so 32 is the ceiling the type allows (`capability::MAX_SLOTS`).
-Anything above 32 widens it to a `u64`. Each slot is 32 bytes, so 64 slots add 1,024 bytes to every
-thread's table. The table lives inside the thread's TCB page with the FP register file. Measured
-2026-10-04 by a compile-time probe of `FP_STATE_OFFSET + size_of::<FpState>()`, that page uses
-1,984 of 4,096 bytes on aarch64, 1,968 on x86_64 and 1,712 on riscv64. Sixty-four slots fit on all
-three, and cost no new memory, because the page is already allocated whole.
+Done by milestone 754 (the capability table grows to 64 slots), calef's ruling A on 2026-10-04 UTC.
 
-`abi::fault::FAULT_EP_SLOT` is `CAPABILITY_TABLE_SLOTS - 1`, so it moves from 31 to 63. Every
+The free-slot word went from `u32` to `u64`, and `capability::MAX_SLOTS` from 32 to 64. The table is
+64 slots of 32 bytes plus the word and two `u16` counts, so 2,064 bytes against 1,032: **1,032 more
+per thread, not 1,024**, because the wider word is eight bytes. The table lives inside the thread's
+TCB page with the FP register file, so it is no new memory. Before the change, a compile-time probe of
+`FP_STATE_OFFSET + size_of::<FpState>()` read 1,984 of 4,096 bytes on aarch64, 1,968 on x86_64 and
+1,712 on riscv64. Adding 1,032 puts them at 3,016, 3,000 and 2,744. That is arithmetic from the
+table's size, not a second probe. `crate::thread`'s page-fit assertion holds on all three.
+
+`abi::fault::FAULT_EP_SLOT` is `CAPABILITY_TABLE_SLOTS - 1`, so it moved from 31 to 63. Every
 supervisor and every child agrees on it, which makes it an ABI fact. Nothing outside this tree is
-built against it today. The IPC fastpath footprint and kernel stack temporaries at 64 were not
-measured.
+built against it.
+
+**IPC fastpath footprint** (`script/fastpath-footprint`, bytes, before to after; aarch64, riscv64,
+x86_64):
+
+| Closure | aarch64 | riscv64 | x86_64 |
+|---|---|---|---|
+| `ipc_send_receive` | 5,612 to 5,612 | 5,002 to 5,118 | 6,832 to 6,832 |
+| `ipc_call_reply` | 6,912 to 6,904 | 6,094 to 6,218 | 8,467 to 8,467 |
+| `syscall_entry` | 1,640 to 1,640 | 2,008 to 2,008 | 1,797 to 1,797 |
+
+x86_64 `ipc_send_receive` was already at +4.4% of its 5% band and did not move. riscv64
+`ipc_send_receive` went from +2.0% to +4.4% against its baseline, inside the band, and is now the
+other one to watch. No closure went over; the budget was not touched.
+
+**Kernel stack temporaries.** The wider table did what the milestone 126 (the `procps` package) note predicted. An
+unoptimised build kept `CapabilityTable::new()` as a 2,064-byte temporary beside the `Thread` it
+was copied into, and `script/stack-frame-check` failed on `Thread::write_kernel_thread` (4,960
+bytes), `sched::adopt_secondary_idle` (5,040) and its insert closure (5,024), over the 4,096-byte
+guard page, on aarch64 and riscv64 alike. Two changes fixed it. The `Thread` literals take the empty
+table from a constant (`NO_CAPABILITIES`, name provisional), which is copied from read-only memory
+with no temporary. And `adopt_secondary_idle` writes its `Thread` into the TCB page in place
+(`Thread::write_adopted_current`), where it used to return one by value through two closures. After:
+`write_kernel_thread` 2,896 (aarch64), 2,896 (riscv64), 2,856 (x86_64); `write_adopted_current`
+2,848, 2,880 and 2,840. The gate passes on aarch64 and riscv64 with the test images included.
 
 ## BUGS
 

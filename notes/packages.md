@@ -212,7 +212,7 @@ $ caps packages/noteless/0.1.0/noteless
   packages/noteless/0.1.0/noteless would grant the new process, and nothing else:
     ...
     provenance: unvouched (digest ...)
-    runs on this session's capability to run unvouched bytes (slot 30)
+    runs on this session's capability to run unvouched bytes (slot 62)
 $ package rollback
   rolled back; generation 1 is live
 $ packages/noteless/0.1.0/noteless

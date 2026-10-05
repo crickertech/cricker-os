@@ -220,7 +220,7 @@ TLB shootdowns that interrupt every core. Fixing it on radon (2026-10-04) cut th
 growth from one task to four from 94 ticks to 48, and raised throughput 9% at four tasks and 11% at
 32. The rest is the one global lock itself: at four tasks 41% of syscalls find it held. That is a
 lock this kernel chose and can split, not a cost of the capability model, and splitting it is
-proposed (`design/roadmap/proposals/capability-lookup-off-the-global-lock.md`). Until that is
+proposed (`design/roadmap/761-capability-lookup-off-the-global-lock.md`). Until that is
 measured, the per-crossing cost under load is half explained and half open
 (`notes/job-mix/null-syscall-under-load.md`).
 
