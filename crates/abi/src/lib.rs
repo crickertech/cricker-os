@@ -1163,6 +1163,10 @@ pub mod page_frame {
     /// it read-only (needs `READ`). Page tables to reach `va` come from the untyped named by
     /// `memory_region_slot`, so the kernel allocates nothing. `BadPointer` for a misaligned or high `va`,
     /// `OutOfMemory` when that untyped is exhausted.
+    ///
+    /// The tables belong to that untyped, so its `DESTROY` cuts them out of this address space,
+    /// and every page mapped beneath them stops translating, this frame's included. A mapping
+    /// meant to outlive the untyped needs its tables from a region that lives as long.
     pub const MAP: u64 = 0;
 
     /// `invoke(cap, REVOKE, _, _, _)` -> 0. **Un-share this page** (milestone 13). Unmap it from every

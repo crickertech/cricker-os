@@ -80,8 +80,40 @@ use crate::sync::{IrqSafeGuard, IrqSafeMutex, rank};
 struct LogEntry {
     phys: u64,
     va: u64,
-    /// The base address of the run named by the capability this mapping was made under.
+    /// The base address of the run named by the capability this mapping was made under, or
+    /// [`TABLE`] for a page table rather than a mapping.
     object: u64,
+}
+
+/// **The `object` of a record that is a page table, not a mapping** (the page-tables-outlive-destroy
+/// lane, 2026-10-05 UTC; name provisional).
+///
+/// `PageFrame::MAP` and `MemoryRegion::MAP` build the intermediate tables a mapping needs out of a
+/// region the caller names, which need not be the space's own. Until this record existed nothing
+/// said so, and `MemoryRegion::DESTROY` handed such a table back while the space still linked it:
+/// the next owner of the page would have been writing that space's translations. A table record is
+/// `(table, va, TABLE)`: the table's own page, the address whose map built it, and this marker.
+/// [`revoke_region`] cuts it out of that walk before the page goes back.
+///
+/// **A word that can never be an object**, which is why it is a marker and not a fourth field: a
+/// real object is a page address (a run's base, or the page itself), so it is page aligned and
+/// at least `0x4000_0000`, and 1 is neither. A fourth word would cost 43 entries a log page
+/// ([`LOG_ENTRIES`]' own arithmetic) to carry one bit.
+///
+/// **Every reader of a record has to ask** [`LogEntry::is_table`], and that is rung three: the
+/// four readers in this file do, and a fifth that forgot would treat a table as a mapped page.
+const TABLE: u64 = 1;
+
+impl LogEntry {
+    /// A page-table record ([`TABLE`]) rather than a mapping. A tombstone is neither.
+    fn is_table(&self) -> bool {
+        self.phys != 0 && self.object == TABLE
+    }
+
+    /// A mapping record: live, and not a table.
+    fn is_mapping(&self) -> bool {
+        self.phys != 0 && self.object != TABLE
+    }
 }
 
 /// How many entries fit a log page after its header.
@@ -174,6 +206,9 @@ const _: () = assert!(size_of::<LogPage>() == page_frames::FRAME_SIZE as usize);
 struct SpaceLog {
     root: u64,
     region: u64,
+    /// The space's TLB tag, which [`revoke_region`] flushes after cutting a table out of it: a cut
+    /// takes a whole span, and only a flush by tag reaches every page and every cached walk in it.
+    asid: u16,
     /// Physical address of the newest log page; 0 until the first record needs one.
     head: u64,
 }
@@ -277,13 +312,14 @@ unsafe fn log_page(phys: u64) -> &'static mut LogPage {
     unsafe { &mut *(mmu::phys_to_virt(phys) as *mut LogPage) }
 }
 
-/// Enter a newly created address space into the registry. `false` (and the caller should fail
-/// creation) if the registry is full.
-pub fn register_space(root: u64, region: u64) -> bool {
+/// Enter a newly created address space into the registry, with the TLB tag it runs under.
+/// `false` (and the caller should fail creation) if the registry is full.
+pub fn register_space(root: u64, region: u64, asid: u16) -> bool {
     let mut spaces = SPACES.lock();
     spaces.claim(SpaceLog {
         root,
         region,
+        asid,
         head: 0,
     })
 }
@@ -380,6 +416,39 @@ impl MappingHold {
             object <= phys && (phys - object).is_multiple_of(page_frames::FRAME_SIZE),
             "a mapping of {phys:#x} recorded under an object at {object:#x}: not a page of that run",
         );
+        self.file(root, LogEntry { phys, va, object })
+    }
+
+    /// **Retype a page table out of `region` for the space rooted at `root`, and record it there
+    /// before anyone can link it** (the page-tables-outlive-destroy lane, 2026-10-05 UTC; name
+    /// provisional). The allocator `PageFrame::MAP` and `MemoryRegion::MAP` hand the mapper, so
+    /// every table a caller-named region pays for is in the space's log as a [`TABLE`] record by
+    /// the time the mapper writes the entry that points at it.
+    ///
+    /// Record first, then link, and both under this hold: [`revoke_region`]'s cut pass takes the
+    /// same registry, so it either runs before the retype (the region is claimed and the retype
+    /// fails) or after the mapper has linked the table (and the record finds it).
+    ///
+    /// `None` when the region is spent or the space cannot afford the record. In the second case the
+    /// retyped page stays spent, the same loss a failed `MemoryRegion::MAP` already takes for its
+    /// leaf: a region is spend-only until it is destroyed.
+    pub fn retype_table(&mut self, region: u64, root: u64, va: u64) -> Option<u64> {
+        let table = crate::memory_region::retype_page(region)?;
+        self.file(
+            root,
+            LogEntry {
+                phys: table,
+                va,
+                object: TABLE,
+            },
+        )
+        .then_some(table)
+    }
+
+    /// File `entry` in `root`'s log, paid for by that space's own region: an existing free slot,
+    /// or a fresh log page retyped from the region. `false` if the space is unknown or its budget
+    /// is exhausted.
+    fn file(&mut self, root: u64, entry: LogEntry) -> bool {
         let Some(space) = self.spaces.live_mut().find(|s| s.root == root) else {
             return false;
         };
@@ -391,12 +460,12 @@ impl MappingHold {
             let page = unsafe { log_page(page_phys) };
             for e in page.entries.iter_mut().take(page.used as usize) {
                 if e.phys == 0 {
-                    *e = LogEntry { phys, va, object };
+                    *e = entry;
                     return true;
                 }
             }
             if (page.used as usize) < LOG_ENTRIES {
-                page.entries[page.used as usize] = LogEntry { phys, va, object };
+                page.entries[page.used as usize] = entry;
                 page.used += 1;
                 return true;
             }
@@ -411,7 +480,7 @@ impl MappingHold {
         // SAFETY: just retyped exclusively for the log; SPACES is held.
         let page = unsafe { log_page(fresh) };
         page.next = space.head;
-        page.entries[0] = LogEntry { phys, va, object };
+        page.entries[0] = entry;
         page.used = 1;
         space.head = fresh;
         true
@@ -437,7 +506,7 @@ impl MappingHold {
             // SAFETY: pages in the chain are the log's own; SPACES is held.
             let page = unsafe { log_page(page_phys) };
             for e in page.entries.iter_mut().take(page.used as usize) {
-                if e.phys == phys && e.va == va {
+                if e.is_mapping() && e.phys == phys && e.va == va {
                     e.phys = 0; // tombstone: reusable by the next record, exactly as a revoke leaves it
                     return;
                 }
@@ -498,7 +567,8 @@ pub fn list_mapping(root: u64, cursor: u64) -> (u64, u64) {
         while index < page.used as usize {
             let entry = page.entries[index];
             index += 1;
-            if entry.phys != 0 {
+            // A table record is not something the space maps, so `LIST` never shows one.
+            if entry.is_mapping() {
                 // `page_phys` is always nonzero (RAM starts at 0x4000_0000), so `page_phys |
                 // index` can never collide with the `(0, 0)` DONE sentinel below, even for the
                 // very last real entry in a space, where `index` has just walked off the end of
@@ -571,7 +641,7 @@ fn unmap_matching(phys: u64, spare: u64, object: Option<u64>) {
             // SAFETY: chain pages under the held SPACES lock.
             let page = unsafe { log_page(page_phys) };
             for e in page.entries.iter_mut().take(page.used as usize) {
-                if e.phys == phys && object.is_none_or(|o| e.object == o) {
+                if e.is_mapping() && e.phys == phys && object.is_none_or(|o| e.object == o) {
                     mmu::unmap_user_at(space.root, e.va);
                     e.phys = 0; // tombstone: reusable by the next record
                 }
@@ -745,44 +815,112 @@ pub fn revoke_port_range(base: u16, count: u16) {
 /// sweep above is finished) and a claimed region refuses to retype, so the scan cannot grow
 /// ([`MappingHold`]).
 ///
+/// **Then the tables, because page tables are not leaves.** `PageFrame::MAP` and
+/// `MemoryRegion::MAP` build a space's intermediate tables out of a region the caller names, which
+/// need not be the space's own, so the region going away can be a page table going away under a
+/// space that still walks it. The map-revocation-window lane reasoned this from the code on
+/// 2026-10-04 UTC; the page-tables-outlive-destroy lane drove it on 2026-10-05 UTC
+/// (`system_tests::user::page_table_region_tests`: before this pass the space still translated
+/// through a table the region had given back, and a later map wrote its leaf into it). Each such
+/// table is in the space's log as a [`TABLE`] record ([`MappingHold::retype_table`]), and this
+/// pass cuts each one in the range out of the walk that reaches it, flushes the space's tag, and
+/// tombstones the records of everything that hung beneath it, under the registry so no `MAP` is
+/// halfway through that walk. The space keeps running and loses that span, which is what already
+/// happens to a leaf the region paid for. One record per iteration, tombstoned as it is taken, so
+/// the scan strictly shrinks; a table below one already cut answers `None` and is simply dropped.
+///
 /// # BUGS
 ///
-/// **Page tables are not leaves, and this unmaps only leaves** (reasoned from the code by the
-/// map-revocation-window lane, 2026-10-04 UTC; not driven by a test). `PageFrame::MAP` and
-/// `MemoryRegion::MAP` build a space's intermediate tables out of a region the caller names, and
-/// nothing records them. Destroying that region returns those table pages to the allocator while a
-/// live space still links them, and the next owner's writes become that space's translations.
-/// `map_revocation_window_tests::a_destroy_inside_a_memory_region_map_leaves_no_mapping` builds
-/// its tables out of a second region to keep clear of this.
+/// - **An address space's root is a page table too, and nothing here cuts it** (found by the
+///   page-tables-outlive-destroy lane, 2026-10-05 UTC). The root of a space
+///   `RETYPE_OBJ(ADDRESS_SPACE)` built lives in the region it was built from, and `CONFIGURE` binds
+///   that space to a thread whose TCB can come from another. `sched::reclaim_region` reaps a bound
+///   space only through its thread's TCB, so destroying the space's region while the thread lives
+///   frees the root it runs on. Driven once on aarch64 by a scratch test (a kernel thread adopting
+///   such a space): `reclaim_region` answered `Ok`, and the thread went on running on the freed
+///   root. The `CONFIGURE` route from userspace is reasoned. Nothing can be cut, because no entry
+///   points at a root, so the fix is a choice of who dies or who refuses. It belongs to §16 (object
+///   revocation) and an architect:
+///   `design/roadmap/proposals/a-destroyed-region-cannot-free-a-running-root.md`.
 pub fn revoke_region(base: u64, size: u64) {
     crate::sched::delete_page_frame_caps_overlapping(base, size);
+    // One scan finds either kind of record, so the common case (nothing left) costs one pass over
+    // the logs, not one per kind. A second, table-only loop cost `spawn_el0` 3,072 ticks a spawn
+    // on aarch64 icount (+21.5%), every one of them the extra empty scan. The order between the
+    // kinds does not matter: a leaf beneath a table cut first is tombstoned with the cut, and an
+    // unmap through a cut table finds nothing and tombstones anyway.
     loop {
-        let victim = {
-            let spaces = SPACES.lock();
+        let leaf = {
+            let spaces = &mut *SPACES.lock();
             let mut found = None;
-            'scan: for space in spaces.live() {
+            'scan: for space in spaces.live_mut() {
                 let mut page_phys = space.head;
                 while page_phys != 0 {
                     // SAFETY: chain pages under the held SPACES lock.
                     let page = unsafe { log_page(page_phys) };
-                    for e in page.entries.iter().take(page.used as usize) {
-                        if e.phys >= base && e.phys < base + size {
-                            found = Some(e.phys);
-                            break 'scan;
+                    for e in page.entries.iter_mut().take(page.used as usize) {
+                        if e.phys < base || e.phys >= base + size {
+                            continue;
                         }
+                        if e.is_table() {
+                            found = Some(Victim::Table(
+                                space.root, space.asid, space.head, e.va, e.phys,
+                            ));
+                            e.phys = 0;
+                        } else {
+                            found = Some(Victim::Leaf(e.phys));
+                        }
+                        break 'scan;
                     }
                     page_phys = page.next;
                 }
             }
-            found
+            match found {
+                None => break,
+                // Cut under the registry, so no `MAP` is halfway down this walk.
+                Some(Victim::Table(root, asid, head, va, table)) => {
+                    if let Some((cut, span)) = mmu::cut_user_table(root, va, table, asid) {
+                        forget_mappings_within(head, cut, span);
+                    }
+                    None
+                }
+                Some(Victim::Leaf(phys)) => Some(phys),
+            }
         };
-        match victim {
-            // Unmap only: the capability sweep above already covered the whole range, and calling
-            // `revoke_page_frame` here would re-run an exact-match sweep per page that by
-            // construction can no longer find anything.
-            Some(phys) => unmap_everywhere(phys, 0),
-            None => break,
+        // Unmap only, after the registry is released (unmapping retakes it): the capability sweep
+        // above already covered the whole range, and calling `revoke_page_frame` here would re-run
+        // an exact-match sweep per page that by construction can no longer find anything.
+        if let Some(phys) = leaf {
+            unmap_everywhere(phys, 0);
         }
+    }
+}
+
+/// What one pass of [`revoke_region`]'s scan found: a mapped page to unmap everywhere, or a table
+/// record `(root, asid, log head, va, table)` to cut.
+enum Victim {
+    Leaf(u64),
+    Table(u64, u16, u64, u64, u64),
+}
+
+/// Tombstone every mapping record in the log chain starting at `head` whose address lies in
+/// `[base, base + span)`: what hung beneath a table [`revoke_region`] has just cut, which no
+/// longer translates and must not go on being listed or revoked. Table records in the span are
+/// left alone: one that was beneath the cut is unreachable and its own region's destroy drops it,
+/// and one above it is still linked and still owed its own cut.
+///
+/// The caller holds `SPACES`.
+fn forget_mappings_within(head: u64, base: u64, span: u64) {
+    let mut page_phys = head;
+    while page_phys != 0 {
+        // SAFETY: chain pages, and the caller holds SPACES.
+        let page = unsafe { log_page(page_phys) };
+        for e in page.entries.iter_mut().take(page.used as usize) {
+            if e.is_mapping() && e.va >= base && e.va - base < span {
+                e.phys = 0;
+            }
+        }
+        page_phys = page.next;
     }
 }
 

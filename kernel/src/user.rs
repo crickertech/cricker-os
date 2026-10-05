@@ -192,20 +192,20 @@ impl AddressSpace {
         // is a no-op. See arch::mmu::share_kernel_half and DECISIONS §17.
         mmu::share_kernel_half(root);
 
-        // Into the revocation registry (phase C): this is how a later revoke finds our mapping
-        // log, whose pages this same region will pay for. Full registry = no address space.
-        if !crate::revoke::register_space(root, region) {
-            crate::memory_region::destroy(region);
-            return None;
-        }
-
-        // A TLB tag of our own (milestone 15). Cannot exhaust: the allocator holds 255 and the
-        // registry above admitted us, bounding live spaces at 160. The `?` is honesty, not a path.
+        // A TLB tag of our own (milestone 15 (tagged address spaces)). Taken before the registry below, because the
+        // registry records it: a revoke that cuts a table out of this space flushes by this tag.
         let Some(asid) = ASIDS.lock().alloc() else {
-            crate::revoke::forget_root(root);
             crate::memory_region::destroy(region);
             return None;
         };
+
+        // Into the revocation registry (phase C): this is how a later revoke finds our mapping
+        // log, whose pages this same region will pay for. Full registry = no address space.
+        if !crate::revoke::register_space(root, region, asid) {
+            ASIDS.lock().free(asid);
+            crate::memory_region::destroy(region);
+            return None;
+        }
 
         let mut space = AddressSpace {
             root: PageFrame::from_addr(root),
@@ -480,13 +480,12 @@ pub fn user_address_space_create(region: u64) -> Option<u64> {
     )?;
     mmu::share_kernel_half(root); // RISC-V single-satp: the process root carries the kernel high half
 
-    if !crate::revoke::register_space(root, region) {
+    // The tag first, because the registry records it (see `AddressSpace::new`).
+    let asid = ASIDS.lock().alloc()?;
+    if !crate::revoke::register_space(root, region, asid) {
+        ASIDS.lock().free(asid);
         return None; // registry full; the carved page is spent, the caller's own loss (B.4 rule)
     }
-    let Some(asid) = ASIDS.lock().alloc() else {
-        crate::revoke::forget_root(root);
-        return None;
-    };
 
     let space = AddressSpace {
         root: PageFrame::from_addr(root),

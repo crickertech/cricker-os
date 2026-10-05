@@ -21,26 +21,39 @@ neighbouring page that builds the tables mapped, and the region no longer resolv
 
 Nothing here is architecture-specific, so one patch serves every leg.
 
+**Re-cut on 2026-10-05 (UTC) by the page-tables-outlive-destroy lane**, because `memory_region_map`
+now retypes its leaf itself and its tables through the hold (`MappingHold::retype_table`), so the
+old hunk no longer applied. The defect is the same: the page is retyped and mapped in one hold of
+the registry and recorded in another, with the seam between. Replayed red on aarch64 against the
+re-cut, at the headline assertion.
+
 diff --git a/kernel/src/syscall.rs b/kernel/src/syscall.rs
-index 98f833e7c..7408b4482 100644
+index cfd6facc8..f0a6dbae8 100644
 --- a/kernel/src/syscall.rs
 +++ b/kernel/src/syscall.rs
-@@ -689,12 +689,13 @@ fn memory_region_map(region: u64, va: u64) -> Result<i64, Error> {
+@@ -689,8 +689,6 @@ fn memory_region_map(region: u64, va: u64) -> Result<i64, Error> {
      if !paging::is_user_page_va::<crate::arch::mmu::Format>(va) {
          return Err(Error::BadPointer);
      }
 -    #[cfg(feature = "system_tests")]
 -    crate::delegation_pause::here(); // no lock held
--    let mut hold = crate::revoke::hold();
--    match mmu::map_current_user_page(va, paging::Flags::user_data(), || {
-+    let mapped = mmu::map_current_user_page(va, paging::Flags::user_data(), || {
-         crate::memory_region::retype_page(region)
+     let mut hold = crate::revoke::hold();
+     let root = mmu::current_user_root();
+     // The leaf first, then the tables, recorded as tables as they are retyped: the region pays
+@@ -699,9 +697,14 @@ fn memory_region_map(region: u64, va: u64) -> Result<i64, Error> {
+     let Some(phys) = crate::memory_region::retype_page(region) else {
+         return Err(Error::OutOfMemory);
+     };
+-    match mmu::map_current_user_page_frame(va, phys, paging::Flags::user_data(), || {
++    let mapped = mmu::map_current_user_page_frame(va, phys, paging::Flags::user_data(), || {
+         hold.retype_table(region, root, va)
 -    }) {
 +    });
++    drop(hold);
 +    #[cfg(feature = "system_tests")]
 +    crate::delegation_pause::here(); // no lock held
 +    let mut hold = crate::revoke::hold();
 +    match mapped {
-         Ok(phys) => {
+         Ok(()) => {
              // Record the mapping so it can be revoked before the region is ever reclaimed (§13).
              // MemoryRegion::MAP pages are process-private, but they still must be unmapped before

@@ -662,8 +662,8 @@ fn timer_invoke(
 
 /// `MemoryRegion::MAP`: retype a page out of the untyped and map it, writable, at `va` in the caller's
 /// own address space. Both the page and any page tables come from the untyped, so the KERNEL
-/// ALLOCATES NOTHING: `mmu::map_current_user_page`'s only source of memory is the closure below,
-/// which bumps the untyped's watermark.
+/// ALLOCATES NOTHING: the leaf is retyped here and the tables by the closure below, both bumping
+/// the untyped's watermark.
 ///
 /// Pulled out of [`invoke`] and marked `#[inline(never)]` (milestone 156, the pattern
 /// `address_space_list` proved on milestone 126's `LIST`): `syscall_entry` is measured flat, so a rare
@@ -692,10 +692,17 @@ fn memory_region_map(region: u64, va: u64) -> Result<i64, Error> {
     #[cfg(feature = "system_tests")]
     crate::delegation_pause::here(); // no lock held
     let mut hold = crate::revoke::hold();
-    match mmu::map_current_user_page(va, paging::Flags::user_data(), || {
-        crate::memory_region::retype_page(region)
+    let root = mmu::current_user_root();
+    // The leaf first, then the tables, recorded as tables as they are retyped: the region pays
+    // for both, and its `DESTROY` has to find the tables to cut them out of this walk before the
+    // pages go back (`revoke::revoke_region`). An already-mapped `va` spends the leaf, as before.
+    let Some(phys) = crate::memory_region::retype_page(region) else {
+        return Err(Error::OutOfMemory);
+    };
+    match mmu::map_current_user_page_frame(va, phys, paging::Flags::user_data(), || {
+        hold.retype_table(region, root, va)
     }) {
-        Ok(phys) => {
+        Ok(()) => {
             // Record the mapping so it can be revoked before the region is ever reclaimed (§13).
             // MemoryRegion::MAP pages are process-private, but they still must be unmapped before
             // memory_region::destroy frees the region under them. The record is paid from the caller's
@@ -705,13 +712,8 @@ fn memory_region_map(region: u64, va: u64) -> Result<i64, Error> {
             // step, so there is never a `PageFrame` capability and no derivation family to scope a
             // revoke to. Reclamation finds the record regardless, because `revoke_region`'s unmap
             // sweep is object-blind by design.
-            if !hold.record_mapping(
-                phys,
-                mmu::current_user_root(),
-                va,
-                crate::revoke::PageMapSource::NoCapability,
-            ) {
-                mmu::unmap_user_at(mmu::current_user_root(), va);
+            if !hold.record_mapping(phys, root, va, crate::revoke::PageMapSource::NoCapability) {
+                mmu::unmap_user_at(root, va);
                 return Err(Error::OutOfMemory);
             }
             Ok(0)
@@ -1086,8 +1088,11 @@ fn page_frame_map(slot: u64, va: u64, writable: u64, ut_slot: u64) -> Result<i64
     let root = mmu::current_user_root();
     for k in 0..count {
         let (page_phys, page_va) = (phys + k * paging::PAGE_SIZE, va + k * paging::PAGE_SIZE);
+        // Each table is recorded against this space as it is retyped, because the region it comes
+        // from need not be the space's own, and its `DESTROY` has to find the table to cut it out
+        // of this walk before the page goes back (`revoke::revoke_region`).
         match mmu::map_current_user_page_frame(page_va, page_phys, flags, || {
-            crate::memory_region::retype_page(region)
+            hold.retype_table(region, root, page_va)
         }) {
             Ok(()) => {
                 // Record the mapping so a later REVOKE (or memory_region::destroy) can pull this

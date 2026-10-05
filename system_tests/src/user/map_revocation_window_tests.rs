@@ -335,8 +335,8 @@ fn a_sweep_inside_a_map_into_leaves_no_mapping() {
 ///
 /// The page tables `VA` needs are built first, out of a second region, by mapping the page beside
 /// it. Otherwise the region under test would also pay for those tables, and destroying it would
-/// free tables the mapper's space still links, which is a different defect than this test asks
-/// about (recorded in `revoke::revoke_region`'s `BUGS`).
+/// cut tables out of the mapper's space as well, which is a different property than this test asks
+/// about (`page_table_region_tests` drives that one).
 ///
 /// The premise is that the region really is gone when the mapper goes on: its name no longer
 /// resolves.

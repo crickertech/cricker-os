@@ -1,0 +1,43 @@
+Falsifies `system_tests::user::page_table_region_tests::a_destroyed_region_takes_no_live_spaces_page_tables_with_it`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect is the tree as it stood until 2026-10-05 (UTC), as near as the fixed tree can say it:
+`revoke_region` finds every page-table record in the destroyed range, tombstones it, and cuts
+nothing. The tables
+`PageFrame::MAP` and `MemoryRegion::MAP` built out of the region go back to the allocator while the
+space still links them. Before the fix nothing recorded them at all; the records the patch leaves
+behind are inert, so the space's walk is exactly the old one.
+
+It was recorded in `revoke::revoke_region`'s `BUGS` by the map-revocation-window lane (milestone
+762, provisional), reasoned from the code and not driven.
+
+Expected to fail: `assert!(load(&REPORT.tables_from_r2) > 0, "MemoryRegion: a map beside VA after
+R's DESTROY built no tables from R2, so it wrote its leaf into a table R had given back ...")`, on
+the first round. Confirmed red on aarch64 on 2026-10-05 (UTC) against the fixed tree, at
+`page_table_region_tests.rs:236`, the assertion predicted. Before the fix existed, the same test
+went red on aarch64 at the same assertion with the `MemoryRegion` round first, and at the
+`mapped_after` assertion with the `PageFrame` round first.
+
+**The assertions above the headline stay green under this patch**: the first map spent tables
+from R, R's `DESTROY` succeeded and its name no longer resolves, and (for this round, whose leaf is
+R's own) the leaf pass still unmapped VA and tombstoned its record.
+
+The patch leaves `cut_user_table` and `forget_mappings_within` unused, so the build warns twice;
+it does not fail. Nothing here is architecture-specific, so one patch serves every leg.
+
+diff --git a/kernel/src/revoke.rs b/kernel/src/revoke.rs
+index d4e84dd05..0b0f92a3d 100644
+--- a/kernel/src/revoke.rs
++++ b/kernel/src/revoke.rs
+@@ -879,9 +879,7 @@ pub fn revoke_region(base: u64, size: u64) {
+                 None => break,
+                 // Cut under the registry, so no `MAP` is halfway down this walk.
+                 Some(Victim::Table(root, asid, head, va, table)) => {
+-                    if let Some((cut, span)) = mmu::cut_user_table(root, va, table, asid) {
+-                        forget_mappings_within(head, cut, span);
+-                    }
++                    let _ = (root, asid, head, va, table);
+                     None
+                 }
+                 Some(Victim::Leaf(phys)) => Some(phys),

@@ -1023,3 +1023,13 @@ mod scratch_window_tests;
 /// each architecture.
 #[cfg(test)]
 mod spawn_mapping_revocation_tests;
+
+/// **A destroyed region takes no live address space's page tables with it** (the
+/// page-tables-outlive-destroy lane, 2026-10-05 UTC, provisional). `PageFrame::MAP` and
+/// `MemoryRegion::MAP` build tables out of a region the caller names, and `DESTROY` handed those
+/// back while the space still linked them. Its own header has the reasoning; a module of its own
+/// for [`tests`]' merge-hotspot reason, named to sort before [`thread_leak_police`].
+///
+/// Cross-ISA: the map paths, the log and the cut are portable kernel code (DECISIONS §19).
+#[cfg(test)]
+mod page_table_region_tests;
