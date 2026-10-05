@@ -385,6 +385,13 @@ fn null_syscall() {
             "svc #0",
             in("x8") 0xFFFFu64, // no defined syscall has this number
             lateout("x0") _,    // the kernel writes an error here; discard it
+            // It writes nothing else for an unknown number today, but the ABI lets it answer in
+            // five registers, and helpers/syscall_asm.py holds every trap to that. This function
+            // is `#[inline(never)]` and these are caller-saved, so the measured code is unchanged.
+            lateout("x1") _,
+            lateout("x2") _,
+            lateout("x3") _,
+            lateout("x4") _,
             options(nostack, nomem),
         );
     }
@@ -395,6 +402,10 @@ fn null_syscall() {
             "ecall",
             in("a7") 0xFFFFu64,
             lateout("a0") _,
+            lateout("a1") _, // the other four ABI words, for the aarch64 arm's reason
+            lateout("a2") _,
+            lateout("a3") _,
+            lateout("a4") _,
             options(nostack, nomem),
         );
     }
@@ -408,6 +419,10 @@ fn null_syscall() {
             "syscall",
             in("rax") 0xFFFFu64,
             lateout("rdi") _,
+            lateout("rsi") _, // the other four ABI words, for the aarch64 arm's reason
+            lateout("rdx") _,
+            lateout("r10") _,
+            lateout("r8") _,
             lateout("rcx") _,
             lateout("r11") _,
             options(nostack, nomem),
