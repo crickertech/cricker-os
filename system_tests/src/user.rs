@@ -662,6 +662,14 @@ mod cpu_time_tests;
 #[cfg(test)]
 mod pmap_tests;
 
+/// **`AddressSpace::UNMAP`** (milestone 95 (an unmap primitive), DECISIONS §162 (whether a
+/// holder can give up a mapping), option A): one page out of the tables
+/// and out of the mapping record, a viewer refused, a `va` with nothing mapped refused, and the
+/// record half proved by a revoke that must not reach the frame mapped at that address since.
+/// Cross-ISA: the method is portable kernel code over `arch::mmu::unmap_user_at` (DECISIONS §19).
+#[cfg(test)]
+mod unmap_tests;
+
 /// **`free`, `vmstat` and `slabtop`'s two sources** (milestone 126 (the `procps` package),
 /// DECISIONS §225 (`free` sees the machine and your share)): `MemoryRegion::USAGE` under
 /// `ENUMERATE` alone, refused to a spender and answering a viewer, and the machine statistics page

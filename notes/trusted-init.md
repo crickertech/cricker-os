@@ -357,11 +357,13 @@ the program ids `spawnproto` already sends in word 0.
   small enough to keep the gate honest, which is the trade.
 - Init still holds a writable mapping of everything it ever built. `build_child`'s scratch window
   is never unmapped (it cannot be: nothing in the ABI unmaps a page), so the progenitor can read and write any
-  page it laid down for a child. Reaping a job undoes this for jobs, because reclaiming a region
-  revokes every mapping of its pages first (§13), but the boot servers are never reclaimed. So the
-  console's, the line editor's, the input driver's, the shell's and the terminal sink adapter's memory
-  is still reachable from the progenitor, and giving the construction budget away does not touch that. It is the largest remaining
-  residual and it wants an unmap primitive, not a smaller budget.
+  page it laid down for a child. Reaping a job undoes this for jobs (§13 (capability revocation and
+  untyped reclamation)), but the boot servers are never reclaimed, so the console's, the line
+  editor's, the input driver's, the shell's and the terminal sink adapter's memory stays reachable
+  from the progenitor. *Corrected 2026-10-05 (UTC); the parenthesis
+  stays because §162 (whether a holder can give up a mapping) quotes it:* `AddressSpace::UNMAP` now
+  exists, and cannot reach this window: nothing names the progenitor's running space
+  (`notes/unmap.md`).
 - The one line the progenitor prints costs one more of those: the shell's output frame stays mapped in the progenitor
   for life, because `Frame::REVOKE` would take the page from the shell too.
 - The boot servers are not supervised. Endowing them a supervision endpoint with nobody to

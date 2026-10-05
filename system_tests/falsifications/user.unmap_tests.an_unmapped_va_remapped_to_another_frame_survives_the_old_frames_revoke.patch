@@ -1,0 +1,23 @@
+Falsifies `system_tests::user::unmap_tests::an_unmapped_va_remapped_to_another_frame_survives_the_old_frames_revoke`.
+
+The defect: `AddressSpace::UNMAP` takes the page out of the tables and leaves its record in the
+space's mapping log. Every other test of the method stays green, because the tables are right.
+The stale record still names `(a, VA)`, so when `VA` is reused for frame `b`, a revoke of `a`
+matches the record and unmaps `VA`, which is `b`'s.
+
+Expected to fail: the last assertion, which finds nothing mapped at `VA` where it wants `b`.
+
+diff --git a/kernel/src/syscall.rs b/kernel/src/syscall.rs
+index f4089be81..ac322ad9b 100644
+--- a/kernel/src/syscall.rs
++++ b/kernel/src/syscall.rs
+@@ -1064,7 +1064,8 @@ fn address_space_unmap(name: u64, va: u64) -> Result<i64, Error> {
+         // still a window to close, and a record with no page behind it is still a record a later
+         // revoke would act on.
+         let unmapped = mmu::unmap_user_at(root, va);
+-        let forgotten = hold.forget_mapping_at(root, va);
++        let forgotten: Option<u64> = None;
++        let _ = &mut hold;
+         if unmapped.is_none() && forgotten.is_none() {
+             return Err(Error::BadPointer);
+         }

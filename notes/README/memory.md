@@ -11,6 +11,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Memory regions: the kernel stops allocating](../memory-regions.md): processes spend pages from their own memory capability.
 - [A split refused for a full region table](../region-split-on-a-full-table.md): PROPOSED; why a refused split holds its parent forever, and the options.
 - [PageFrame capabilities](../frames.md): shared memory a process owns, maps and delegates.
+- [Giving up a mapping](../unmap.md): `AddressSpace::UNMAP`, its two provisional semantics, and why it cannot yet reach a running space.
 - [`PageFrame::SLICE`](../page-frame-slice.md): a capability naming part of a run, and the file service's window pool it serves.
 - [Naming a running address space](../naming-a-running-address-space.md): research for the #1678 fork; what seL4 and Zircon do, and what option A must say.
 - [ASIDs: tagged address spaces](../address-space-identifiers.md): per-space TLB tags so context switches flush nothing.

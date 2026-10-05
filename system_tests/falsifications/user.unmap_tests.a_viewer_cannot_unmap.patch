@@ -1,0 +1,25 @@
+Falsifies `system_tests::user::unmap_tests::a_viewer_cannot_unmap`.
+
+The defect: `AddressSpace::UNMAP` stops checking `WRITE`, so a capability narrowed to `ENUMERATE`
+for `pmap` can take pages out of the space it was only allowed to look at.
+
+Expected to fail: the `NotPermitted` assertion, which gets `Ok(0)`.
+
+diff --git a/kernel/src/syscall.rs b/kernel/src/syscall.rs
+index f4089be81..6a93ac35a 100644
+--- a/kernel/src/syscall.rs
++++ b/kernel/src/syscall.rs
+@@ -377,12 +377,7 @@ pub fn invoke(
+             // DECISIONS §162 (whether a holder can give up a mapping), option A).
+             // `WRITE`, the authority `MAP_INTO` takes: shaping a space is one right in both
+             // directions. See `abi::address_space::UNMAP` and notes/unmap.md.
+-            abi::address_space::UNMAP => {
+-                if !cap.rights.allows(Rights::WRITE) {
+-                    return Err(Error::NotPermitted);
+-                }
+-                address_space_unmap(name, a0)
+-            }
++            abi::address_space::UNMAP => address_space_unmap(name, a0),
+             _ => Err(Error::BadMethod),
+         },
+ 
