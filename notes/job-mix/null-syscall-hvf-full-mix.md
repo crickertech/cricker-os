@@ -134,19 +134,18 @@ and propose this sentence after the one ending "half explained and half open":
   at two and three tasks its spawn job takes 108,000 to 167,000 ticks against A's 2,700. And the
   other cores do no kernel work at all. C tests syscall-free load, not A's load minus its syscalls.
 - The spawn job is about twenty times slower at one task than on radon. 59,000 ticks a job at
-  24 MHz (2.5 ms) against radon's 1,172 at 10 MHz (117 us). It falls to 2,700 at four tasks. A child
-  placed on an idle vCPU waits for HVF to wake it. That makes one-task throughput here meaningless.
-  Whether a thread placed on a busy core waits for that core's 10 ms tick is the open part (C above).
+  24 MHz (2.5 ms) against radon's 1,172 at 10 MHz (117 us). It falls to 2,700 at four tasks. That
+  makes one-task throughput here meaningless. This lane first guessed that a child placed on a busy
+  core waits for its 10 ms tick. The code says otherwise: the reschedule SGI drains the inbox and
+  preempts. So the wait is most likely SGI delivery under HVF
+  ([the proposal](../../design/roadmap/proposals/cross-core-wake-latency-under-hvf.md)).
 - The excess is near the instrument's floor. One boot's excess at four tasks scatters by about
   0.1 ticks. The medians of twenty to thirty boots carry the result, and the intervals say how far.
 
 ## Proposed work
 
-- Proposed milestone (provisional): each core's `PerCpu` on its own cache line, on every
-  architecture. aarch64 and riscv64 align `PerCpu` to 8; x86_64 already pads to 256. Align to 128
-  where the line can be 128, and to 64 at least. This supersedes the parent note's `align(64)`
-  for Apple silicon. Done means E's result from committed code, and a radon run with the parent
-  note's one-task guard.
-- Proposed measurement (provisional): does a thread placed on a busy remote core wait for its
-  tick? C's spawned children took 2 to 3.5 ms each on cores running syscall-free code. Read the
-  placement path for a reschedule interrupt, then time it under TCG and on radon.
+- [Each core's `PerCpu` on its own cache line](../../design/roadmap/proposals/each-cores-percpu-on-its-own-cache-line.md)
+  (provisional). `align(128)` on aarch64 and riscv64, which supersedes the parent note's
+  `align(64)`. Its acceptance measurement is radon's run.
+- [Cross-core wake latency under HVF](../../design/roadmap/proposals/cross-core-wake-latency-under-hvf.md)
+  (provisional): where the spawn job's milliseconds go when another core is idle or busy.
