@@ -2256,7 +2256,7 @@ pub fn riscv_uart_driver_demo(
 /// at 13-15 (milestone 590 (the booted system starts its network stack)) when each is present.
 /// That fills sixteen of the table's
 /// thirty-two slots at spawn (the GPU and keyboard grants at 17-22 and the machine statistics page
-/// at 23 came later), which is why the progenitor spends the net trio before anything else.
+/// at 23 came later, and the progenitor's own address space at 28, §249, later still), which is why the progenitor spends the net trio before anything else.
 /// `components/src/progenitor.rs`'s single `GRANTS` table reads exactly this. Until milestone 166
 /// aarch64's boot carried two extra capabilities at slots 1 and 3 (a report endpoint and a test
 /// interrupt) that the interactive system never used, only because its loader was shared with
@@ -2612,6 +2612,25 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     )
     .expect("insert the machine statistics page");
     assert_eq!(s23, 23);
+    // **The progenitor's own address space** (slot 28, §249 (a running address space stays
+    // nameable), its 2026-10-05 amendment; field name `own_space`, provisional). `WRITE` alone, so
+    // the progenitor can `UNMAP` each scratch page it filled for a child once the page is in the
+    // child (milestone 95 (an unmap primitive)), and `MAP_INTO` its own space, which `PageFrame::MAP`
+    // already let it do. No `GRANT`: nothing else is ever handed authority over the progenitor's
+    // memory, and a right it does not hold is one it cannot pass on by mistake. No `ENUMERATE`
+    // either, because nothing it does needs to list itself.
+    //
+    // Granted on every boot so its slot never moves, past the USB keyboard's conditional slot 27 for
+    // the reason every conditional group above gives. It names `aspace_name`, which `CONFIGURE`
+    // below no longer retires (§249's option A), so this capability goes on resolving while the
+    // progenitor runs and goes dead the moment its thread is reaped.
+    let s28 = crate::sched::thread_control_block_insert_cap(
+        tid,
+        crate::cap::address_space_cap(aspace_name, Rights::WRITE),
+        Some(28),
+    )
+    .expect("insert the progenitor's own address space");
+    assert_eq!(s28, 28);
     // **The kernel's ring, its cursor page and its notification** (slots 24 to 26, milestone 342
     // (the kernel and the `console` server drive one UART from two address spaces), calef's
     // ruling F): the ring read-only so the log service can copy kernel lines out and never write
