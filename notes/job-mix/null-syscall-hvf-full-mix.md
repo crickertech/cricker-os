@@ -125,6 +125,45 @@ after the one ending "half explained and half open":
 > the capability model forces; radon owes the size
 > (notes/job-mix/null-syscall-hvf-full-mix.md).
 
+## Milestone 766, from committed code
+
+Measured 2026-10-05 (UTC) on patagonia by `lane/percpu-own-line`, the same method: the 1-to-4
+sweep scratch, `script/job-mix --hvf --release --smp 4`, boots interleaved in rotation, excess per
+boot and a bootstrap 95% interval. Three builds:
+
+- base: `main` at `1cf413329`, the commit milestone 766 (each core's `PerCpu` on its own cache
+  line) branched from.
+- aligned: base plus 766 (`41c1fc525`).
+- shifted: base with the blocks forced to 24 mod 128 by a scratch wrapper (the last hunk of
+  [the patch file](null-syscall-hvf-full-mix.scratch.patch)). That is A's layout, added as a
+  positive control once base read flat.
+
+Two boots overlapped another lane's x86_64 QEMU and are left out (`foreign_qemu=1`). Raw rows are
+in the `null-syscall-hvf-full-mix.766-*.csv` files.
+
+| Build | boots | excess at 2 | at 3 | at 4 | at 4, minus base |
+|---|---|---|---|---|---|
+| base | 32 | -0.044 [-0.049, -0.041] | -0.055 [-0.064, -0.047] | -0.058 [-0.065, -0.050] | |
+| aligned | 32 | -0.044 [-0.048, -0.040] | -0.056 [-0.064, -0.054] | -0.055 [-0.060, -0.051] | +0.003 [-0.006, +0.011] |
+| shifted | 21 | -0.034 [-0.039, -0.028] | -0.032 [-0.041, -0.025] | -0.018 [-0.022, -0.013] | +0.040 [+0.030, +0.049] |
+
+`compute` per job was 647, 672, 713, 730 in base and within three ticks of that in the other two.
+
+**The defect reproduces, and the committed fix is a no-op against today's base.** Base no longer
+shows A's residual because of where the linker put `PERCPU`, not because anything was fixed. In
+today's job-mix build it sits at 8 mod 128. The aarch64 layout (from `offset_of!`) puts `current`
+at 0, `inbox` at 48, `inbox_len` at 96, `held_rank` at 112, `steal_request` at 116, `rng` at 120 and
+`need_resched` at 124. At 8 mod 128 only a neighbour's last eight bytes (`rng`, `need_resched`)
+share a block's line. At 24 mod 128 the neighbour's `held_rank` and `steal_request` share a line
+with this block's `current` and `inbox`. There the residual returns with A's shape: +0.010, +0.023
+and +0.040 over base at two, three and four tasks, against A's 0.009, 0.021 and 0.041. The milestone's
+value here is that the next unrelated static cannot put it back. Before it, a few bytes of shift
+elsewhere in `.data` was the difference between none and 1.7 ns a trap at four cores.
+
+The whole curve sits about 0.05 lower than the first batches (base's one-task `null_syscall` is
+52.9 ticks against A's 50.7). Nothing here explains that shift, and it moves every build alike;
+only differences within this batch are read.
+
 ## BUGS
 
 - One machine, one host. Patagonia ran its usual load (load average 2 to 7) and the batches
@@ -145,8 +184,8 @@ after the one ending "half explained and half open":
 
 ## Proposed work
 
-- [Each core's `PerCpu` on its own cache line](../../design/roadmap/proposals/each-cores-percpu-on-its-own-cache-line.md)
-  (provisional). `align(128)` on aarch64 and riscv64, which supersedes the parent note's
-  `align(64)`. Its acceptance measurement is radon's run.
+- [Each core's `PerCpu` on its own cache line](../../design/roadmap/766-each-cores-percpu-on-its-own-cache-line.md)
+  (milestone 766, provisional): built, PARTIAL. `align(128)` on aarch64 and riscv64, which
+  supersedes the parent note's `align(64)`. Its acceptance measurement is radon's run.
 - [Cross-core wake latency under HVF](../../design/roadmap/proposals/cross-core-wake-latency-under-hvf.md)
   (provisional): where the spawn job's milliseconds go when another core is idle or busy.
