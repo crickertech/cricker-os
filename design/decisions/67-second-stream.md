@@ -7,6 +7,13 @@ ratified_by: calef
 
 # 67. A program's second stream is a declaration, not a number
 
+<!-- writing-standards: exception. Marked 2026-10-05 (UTC) by lane/bold-backlog-12 (calef's ruling
+of 2026-10-05 UTC: "Bold-backlog lanes can edit all of design/"). Reason: the opening line below keeps its
+bold because script/decisions' restated-key check anchors on a line that starts "Decided <date>" and
+sees it only through the markup; unbolded, the document fails that check, and bold-free it would need a
+rewording that this lane may not make. It is a foot gun: the bold is a workaround, and the fix is to
+reword the opening in a later pass, after which this exception should be removed. -->
+
 **Decided 2026-08-03 (calef), from notes/pipes.md's open fork.** `2>` gets built on option (c):
 a program that has diagnostics declares a second output in its manifest (`OutputSpec` grows
 the position), the shell plans a second endpoint only for programs that declare one, and `2>`
