@@ -151,4 +151,5 @@ Not part of this amendment: the lane's third question, how a running process nam
 space. As the object model stands, `UNMAP` reaches a space under construction but not the
 progenitor's window into a running one, because no capability names a running space. That fork is
 open, in `design/roadmap/proposals/a-running-process-can-name-its-own-address-space.md`, and it
-blocks milestone 95 reaching BUILT, not #1678's merge.
+blocks milestone 95 reaching BUILT, not #1678's merge. (Ruled the same day as
+§249 (a running address space stays nameable), except the slot init's capability occupies.)
