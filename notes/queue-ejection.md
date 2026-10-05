@@ -105,9 +105,11 @@ episode, deduplicated by a marker:
 | unarmed | ready, not armed, not queued, 30 minutes since it was last unarmed | since when, and any resolved `Blocked-by:` | armed, queued, or a draft again |
 | off-main | ready, not armed, on a base other than `main`, 30 minutes since it was last unarmed | the base, its pull request, the ways out | armed, merged, an open `Blocked-by:`, or a draft |
 | red | wearing `ci-failing` for 30 minutes | when that label went on, the head, whether armed | `ci-failing` comes off |
+| stale-draft | a draft whose head commit is 6 hours old by committer date | the date, the branch, the four ways out | a commit, an open `Blocked-by:`, or closed |
 
-Every cause but `stale` needs a ready pull request from this repository, without `needs-architect`
-or `held-for-red-trunk`, and the first four need it to be into `main`. A `merge_conflict` ejection names no group commit, so it
+Every cause but `stale` needs a pull request from this repository, without `needs-architect` or
+`held-for-red-trunk`. All but `stale-draft` need it ready, and `ejected`, `conflict` and `unarmed`
+need it to be into `main`. A `merge_conflict` ejection names no group commit, so it
 cannot say which head was ejected and is cleared by the conflict going instead. `manual` is not an
 ejection, because a person or `dequeue_held` meant it; if nobody follows up, it is `unarmed` 30
 minutes later. `unarmed` and `off-main` are not raised beside `ejected`, `conflict` or `red`, which
@@ -120,6 +122,12 @@ merged it into its base by hand. Then #1617 and #1653 sat red under `ci-failing`
 once that no session reads, while their lanes had ended `WAITING`. `red` routes that label into this one
 rather than teaching every session a second label, so `gh pr list --label needs-maintainer` stays
 the whole queue. Its 30 minutes start when `ci-failing` went on, which a push resets.
+
+The seventh, `stale-draft`, came on 2026-10-05. Draft #1644 was stacked on #1640 and #1630, its
+lane's session ended, and it had no commit after 22:11 UTC the day before. Every other cause skips
+a draft, because a draft is its lane's, and that only holds while the lane is alive. The age is the
+head commit's committer date, since `updatedAt` moves with every bot comment and every retarget.
+A draft holding only its claim commit is not exempt, as it is the clearest sign of a dead lane.
 
 The event's `beforeCommit` is the group's merge commit, not the head, which was a surprise. Its
 second parent is the head that was enqueued, and the group's runs are the `merge_group` runs at
