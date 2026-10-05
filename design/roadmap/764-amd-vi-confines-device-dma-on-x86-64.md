@@ -9,7 +9,7 @@ needs_person: yes
 ---
 # 764. AMD-Vi confines device DMA on x86_64
 
-*(Number provisional: minted by the lane, to be confirmed at merge.)* Raised 2026-10-05 (UTC) by
+Raised 2026-10-05 (UTC) by
 calef's plan to use a recent AMD desktop as fatal risk 9's second x86 machine, after argon. On an AMD
 machine the ACPI tables carry an IVRS and no DMAR, so the kernel found no IOMMU and printed
 `skipped, no DMAR`. The confinement claim silently did not hold there: the NVMe driver ran
