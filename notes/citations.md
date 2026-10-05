@@ -32,7 +32,7 @@ right often enough to survive.
 
 ## The convention
 
-**A citation may carry a gloss, and a gloss is checked.**
+A citation may carry a gloss, and a gloss is checked.
 
 ```
 milestone 24 (a second aarch64 board)
@@ -43,8 +43,8 @@ Both are self-checking: the parenthetical can be compared against the record's o
 the comparison neither existing gate can make. Write one and it binds.
 
 Until 2026-09-19 the other half of that sentence was "write the citation without a gloss and nothing
-new happens", and for everything already in the tree it still is. **On a line a commit adds, it is
-no longer true**: see the ratchet below.
+new happens", and for everything already in the tree it still is. On a line a commit adds, it is
+no longer true: see the ratchet below.
 
 ### The tolerance rule
 
@@ -52,13 +52,13 @@ A title is long (*"Interrupting the foreground process: two-tier, shell-held, no
 surface"*) and a citation should be able to name a distinctive fragment rather than the whole thing.
 A gloss passes on either of two tiers.
 
-**Tier 1, the title.** Every content word of the gloss appears in the record's H1, order-free and
+Tier 1, the title. Every content word of the gloss appears in the record's H1, order-free and
 ignoring a short stopword list. A gloss abbreviates and reorders, so `§31 (the foreign-language
 seam)` matches *"The foreign-language seam: C holds no capabilities and makes no policy"*, and
 `milestone 55 (Time Machine over SMB3 with Apple's extensions)` matches a title that differs from it
 by one preposition. 76 of the tree's 106 glosses pass here.
 
-**Tier 2, the quotation.** The gloss appears as a contiguous phrase in the record's body, matched on
+Tier 2, the quotation. The gloss appears as a contiguous phrase in the record's body, matched on
 normalized whitespace. This is a different act rather than a weaker tier 1: `§4 ("a driver never
 reaches into a kernel global")` quotes what a decision *says* rather than what it is *called*, and
 no title check can accept it. Contiguous is deliberate. "Every word appears somewhere in a
@@ -71,7 +71,7 @@ and a path into a numbered record must carry the number that cited it.
 
 ### The diagnostic that matters
 
-When a gloss fails, the script asks whether it matches **the same number under the other scheme**,
+When a gloss fails, the script asks whether it matches the same number under the other scheme,
 and says so when it does. That turns the symptom into the fix, and it is the defect this whole thing
 was built for:
 
@@ -112,18 +112,18 @@ gloss is a string a reader or a `grep` resolves wherever the block ends up.
 
 ### What it cannot catch
 
-- **A citation that arrives in a merge commit.** The diff is `base..HEAD`, and a merge brings in
+- A citation that arrives in a merge commit. The diff is `base..HEAD`, and a merge brings in
   lines this branch never wrote. Deliberate: the alternative fires on a lane for another lane's text.
-- **A grounded gloss that is still the wrong citation**, which is this page's standing BUGS entry and
+- A grounded gloss that is still the wrong citation, which is this page's standing BUGS entry and
   is not made smaller by the ratchet. It is made more *visible*: a wrong gloss is something a reader
   can see, and a bare number is not.
-- **A file that has already glossed the number keeps the escape forever**, including for a later
+- A file that has already glossed the number keeps the escape forever, including for a later
   mention that means something else. That is the price of the per-file rule, and it is the right
   price: the reader has the name in front of them.
-- **A parenthetical that opens with the citation** (`(milestone 298, notes/mdns.md)`) is not a gloss
+- A parenthetical that opens with the citation (`(milestone 298, notes/mdns.md)`) is not a gloss
   in this scheme and never was, because `CITE` looks for `milestone N (`. The ratchet asks such a
   site to be rephrased (`milestone 298 (retire the multicast DNS responder), notes/mdns.md`).
-- **Captured logs and the generated roadmap index are out of the corpus**, with `vendor/`,
+- Captured logs and the generated roadmap index are out of the corpus, with `vendor/`,
   `patches/` and lockfiles. Nobody wrote those lines as prose, and a fixture is the one thing a lane
   must not edit to satisfy a gate.
 - **It reads `HEAD`, not the working tree**, because the line numbers in a `base..HEAD` diff are
@@ -135,14 +135,14 @@ gloss is a string a reader or a `grep` resolves wherever the block ends up.
 ### What it costs, measured before it was turned on
 
 Over the 42 pull request merges from #953 to #1002, replaying each lane's own diff against its merge
-base: a **median of 16 asks per pull request**, each answered by one parenthetical. The distribution
+base: a median of 16 asks per pull request, each answered by one parenthetical. The distribution
 is skewed rather than flat: 8 of the 42 would have been silent, and the one outlier is #970 at 893,
 which landed 24 proposal files at once. That number is the cost of writing 24 new documents that
 cite the roadmap heavily, which is exactly the case the gate is for.
 
 ## The census: the population nothing had ever counted
 
-`script/citations --census` counts the citations that carry **no gloss at all**, which `--check`
+`script/citations --census` counts the citations that carry no gloss at all, which `--check`
 cannot see, because `--check` reads only the parentheticals that exist. The first run was 2026-09-19
 and it corrected the framing of milestone 444 (a citation says what it cites)'s own brief:
 
@@ -162,13 +162,13 @@ everything else        70        284       1      217          0
 total                1447      18517     505     8978          0
 ```
 
-**Read the last two columns first.** 18,517 citations, in 1,447 files, and **505 of the 9,483
-(file, scheme, number) pairs are named**: 5.3%. The roadmap-after-the-split proposal reported the
+Read the last two columns first. 18,517 citations, in 1,447 files, and 505 of the 9,483
+(file, scheme, number) pairs are named: 5.3%. The roadmap-after-the-split proposal reported the
 tree as "83% split-proof by habit", and that number is true of the 560 citations that carry a gloss.
 Over the whole population it is 5%. Both numbers are honest and they are about different sets; the
 second is the one that prices the backfill, and nobody had it before.
 
-**The zero is the other finding, and it was re-checked before being believed.** Not one cited number
+The zero is the other finding, and it was re-checked before being believed. Not one cited number
 in the tree fails to resolve to a block or a section. That is `script/roadmap --check` and
 `script/decisions --check` doing exactly their job, for 18,517 citations. The check on the zero
 matters because a `git grep` for citations does turn up six-digit numbers that resolve to nothing.
@@ -183,11 +183,11 @@ which is how the backfill below chose what to do.
 
 ## The backfill, and the rule that chose it
 
-Milestone 444 glossed **25 pairs across three files**: `README.md`, `CONTRIBUTING.md` and
+Milestone 444 glossed 25 pairs across three files: `README.md`, `CONTRIBUTING.md` and
 `SECURITY.md`. That is 0.3% of the backlog, chosen rather than sampled, and the rule is one
 question.
 
-**Gloss where the citation is the reader's only route to what is meant.** `SECURITY.md` is the
+Gloss where the citation is the reader's only route to what is meant. `SECURITY.md` is the
 worked case and it is why those three files were picked: a person reporting a vulnerability met
 *"(DECISIONS §20, §23, §30; `crates/dma_validator`, notes/iommu.md)"* and had no way to know what
 those three sections claim without cloning the repository and opening three files. They now read
@@ -199,11 +199,11 @@ footnote.
 **Do not gloss where the surrounding text already says what the target is.** Two cases were looked
 at and deliberately left:
 
-- **`notes/scripts.md`, 50 pairs.** Its citations sit in a table whose row already describes the
+- `notes/scripts.md`, 50 pairs. Its citations sit in a table whose row already describes the
   script. The `script/icount` row says it is the instruction-count instrument and what it boots, and
   the parenthetical records only which milestone built it. That number is provenance, not a pointer,
   and a gloss would add a clause to a dense table row saying what the next clause already says.
-- **`notes/README.md`, 128 pairs.** The notes index, same shape: each row links the note and
+- `notes/README.md`, 128 pairs. The notes index, same shape: each row links the note and
   describes it, and the milestone number records which milestone wrote it.
 
 **And do not gloss a dated account, a quotation, or a block's own history**, which is
@@ -217,7 +217,7 @@ it has to be kept in a note that will go stale.
 ## --moved: when a status flips, who was citing that milestone
 
 Milestone 385 (when a milestone's status flips, tell the lane which notes cite it) is the fourth
-mode and the only one that **cannot fail**. The other three say something is wrong. This one says
+mode and the only one that cannot fail. The other three say something is wrong. This one says
 something might be, and it cannot tell which, so it prints a worklist and returns zero.
 
 The failure it answers has a measured shape. Six "is there a milestone for X" questions in one
@@ -243,7 +243,7 @@ boot successful)'s block still described 525 as the proposal it had been.
 
 DECISIONS §207 (the roadmap is a graph, and the block says so in fields a script can walk) ruled on
 this exact coupling from the other direction, and cites milestone 385 by number as its evidence.
-§207 retired `Gate: MILESTONE N` because the rule **obliged an edit** in every dependent block when
+§207 retired `Gate: MILESTONE N` because the rule obliged an edit in every dependent block when
 a dependency landed, made by somebody in another lane who was not looking, so a milestone being
 satisfied turned unrelated branches red on a line they never touched.
 
@@ -258,22 +258,22 @@ edits would reintroduce what §207 refused three weeks after it was decided, whi
    one note, median 3 and mean 4.4. Three files is a thing a lane reads.
 2. **It fires per branch, not over the tree.** Sixty-eight rows flipped to `BUILT` in fourteen days.
    Tree-wide that is fifteen note-reads a day owned by nobody, which is how a check becomes noise.
-3. **It keys on the bare `milestone N`.** Only 4% of milestone citations in `notes/` carry a gloss,
+3. It keys on the bare `milestone N`. Only 4% of milestone citations in `notes/` carry a gloss,
    so reading the glossed form `--check` reads would find one citation in twenty-five. It uses the
    same regex `--census` uses, for the same reason.
-4. **It reads the block file and nothing else.** 385's own `BUGS` feared a status moving without the
+4. It reads the block file and nothing else. 385's own `BUGS` feared a status moving without the
    pull request touching the index, and asked the implementation to read both. There is no longer a
    both: `design/roadmap/README.md` was generated from the blocks by
    milestone 294 (`design/roadmap/README.md`'s index is generated, not hand-maintained) and retired
-   on 2026-09-21, so the `**Status:` line in the block is the single record.
+   on 2026-09-21, so the `Status:` line in the block is the single record.
 
 ### What it costs, measured over history
 
-Over the 150 most recent merges into `main` on 2026-09-23, **50 moved at least one status** and the
+Over the 150 most recent merges into `main` on 2026-09-23, **50 moved at least one status and the
 other 100 printed a single line saying nothing moved. A lane that edits its own block without
 changing its status, which `script/lint` 4b makes every lane do, sees that line and nothing else.
 
-Of the 50, the **median is 4 citing files**. Those 50 merges hold 262 individual flips, and per
+Of the 50, the median is 4 citing files. Those 50 merges hold 262 individual flips, and per
 flip the median is **1** citing file and the mean 3.4.
 
 The tail is real and is worth naming rather than averaging away, because it is where a reader would
@@ -300,7 +300,7 @@ The second half. A block quote may name the file it came from, and the passage m
 > -- design/decisions/09-irq-safe-locking.md
 ```
 
-Matching is on **normalized whitespace**, which is the only reason this is affordable. A note wraps
+Matching is on normalized whitespace, which is the only reason this is affordable. A note wraps
 at 100 columns and a block quote of it wraps at 96 after the `> ` prefix, so byte equality would
 fail on every correct quote in the tree and the check would be thrown away inside a week. An
 ellipsis (`...`) splits the quote into segments that must appear in order, so a quote may skip the
@@ -360,7 +360,7 @@ $ script/citations --ratchet
 citations: every citation on the 121 lines this branch adds says what it cites
 ```
 
-**The proof that it fires**, run on 2026-09-19 by planting one line in this very file and committing
+The proof that it fires, run on 2026-09-19 by planting one line in this very file and committing
 it. The planted line cited three records, and the interesting part is which two were reported:
 
 ```
@@ -407,25 +407,25 @@ and this page fails the build until it is brought back into agreement.
 
 ## BUGS
 
-**The scanner sees across one line break, and only one.** Until milestone 583 (`script/citations`
+The scanner sees across one line break, and only one. Until milestone 583 (`script/citations`
 could not see a citation a line break split, or a lettered milestone) the gap between a number and
 its `(` had to be a single literal space, so reflowing a paragraph until the wrap fell between
 a citation of milestone 326 (nobody has been assigned to turn a mutation score upward) and its `(` removed the citation from the gate's view without failing anything. Three
-lanes hit that in one week. **A closing emphasis marker is part of the gap too**, for the same
+lanes hit that in one week. A closing emphasis marker is part of the gap too, for the same
 reason. This tree bolds the number and leaves the gloss plain:
 
 ```
 **milestone 41** (dead code: triage the suppressions)
 ```
 
-so the `**` sat where nothing was allowed to be, hiding thirteen sites across ten files. A citation split across *two* line breaks is
+so the `` sat where nothing was allowed to be, hiding thirteen sites across ten files. A citation split across *two* line breaks is
 still invisible, because
 the one-newline cap is what stops a stray `(` on line 40 pairing with a `)` on line 900, and nothing
 in the tree wraps that way today. `script/citations --selftest` pins both the shapes that must be
 seen and the near-misses that must stay quiet, and it runs in `script/lint` ahead of `--check`: a
 green check looks identical whether the scanner works or has quietly stopped seeing a shape.
 
-**A lettered citation is glossed against its parent unless the letter has a file.** milestone 20a (name the seams)
+**A lettered citation is glossed against its parent unless the letter has a file. milestone 20a (name the seams)
 is read against `design/roadmap/20a-name-the-seams.md`, which is a block of its own. The letters
 with no file (7a, 9a, 16a, 16b, and milestone 19 (run a real workload)'s 19a through 19f) are
 read against their parent block, which is
@@ -433,7 +433,7 @@ where those sub-parts are actually described. The ratchet's per-file key drops t
 way, so a file that glosses milestone 19 has answered for milestone 19d as well; that matches
 the per-number rule the ratchet is built on, and it means a sub-part can ride on its parent's gloss.
 
-**The candidate pre-filter is deliberately looser than the scanner.** It accepts a line that *ends*
+The candidate pre-filter is deliberately looser than the scanner. It accepts a line that *ends*
 in a citation, because that is what a wrapped one looks like to a line-based `git grep`, which
 widens the file list from 649 to 853 and costs about a second. Tightening it for speed is how the
 gate goes blind again, and the selftest is what would notice.
@@ -444,11 +444,11 @@ rejects `milestone 128's (the automation gets its own identity, ...)`, reporting
 itself as "cited with no gloss anywhere in this file". The possessive form is ordinary English and
 already appears in the tree: milestone 218 (every boot of the VisionFive 2 needs a human typing four
 commands into U-Boot) is cited in exactly that possessive shape in `design/roadmap/`, among others,
-and those files pass only because they predate the ratchet. **This very entry tripped the gate while
-being written**, on the line above, which is as good a demonstration as the entry could ask for. Found 2026-09-23 by the `maintainer/what-the-machinery-did` lane, which spent three commits
+and those files pass only because they predate the ratchet. This very entry tripped the gate while
+being written, on the line above, which is as good a demonstration as the entry could ask for. Found 2026-09-23 by the `maintainer/what-the-machinery-did` lane, which spent three commits
 on it: the failure names the right line and gives no hint that the apostrophe is what broke it, so
-the obvious response is to reword the gloss rather than to move it. **The workaround is to rewrite
-the sentence so the number is followed directly by its parenthesis**, which is what that lane did.
+the obvious response is to reword the gloss rather than to move it. The workaround is to rewrite
+the sentence so the number is followed directly by its parenthesis, which is what that lane did.
 Either the matcher should allow `'s` before the gloss, or the message should say which form it
 wants.
 
@@ -458,7 +458,7 @@ it is listed every time 30's block is touched. The output is a prompt to look. I
 usually wasted the mode will be skipped, and that, rather than a false negative, is the failure mode
 to watch for.
 
-**`--moved` misses the worse half of the class it was raised for, and the miss is inherent.** A page
+`--moved` misses the worse half of the class it was raised for, and the miss is inherent. A page
 saying "there is no networking" cites nothing, because a negative claim has no anchor to hang a
 check on. That is the shape of the worst of the four instances that prompted milestone 385 (when a
 milestone's status flips, tell the lane which notes cite it), and it is not detectable without
@@ -477,7 +477,7 @@ and skips a file that is gone, so a number retired out from under its citers pri
 That case is already a hard failure elsewhere: `script/roadmap --check` fails a `milestone N` that
 resolves to no block at all.
 
-**An untracked file is invisible to this check, and a green run says nothing about it.** The walk is
+An untracked file is invisible to this check, and a green run says nothing about it. The walk is
 `git ls-files "*.md"`, so a file that has been written but not yet `git add`ed is not in the corpus:
 the check reads the tracked tree, reports honestly about it, and exits 0. Found on 2026-09-19, the
 expensive way. A maintainer wrote a new roadmap block containing a block quote that ended
@@ -485,29 +485,29 @@ mid-sentence, ran `script/citations --check`, read exit 0, committed and pushed.
 been read. The same run after the commit failed on it, and a lane that had branched from the pushed
 commit reported the gate red on its own base.
 
-**It is the pattern this tree keeps meeting, which is an absent failure signal read as a pass**, and
+It is the pattern this tree keeps meeting, which is an absent failure signal read as a pass, and
 the same shape as `script/decisions` silently skipping a binary file and `script/roadmap`'s
 merged-branch check spending a day unable to fail. Nothing here is wrong: a check over the tracked
 tree is the right corpus, since that is what a reader clones. What is wrong is reading its exit code
 as a statement about the working directory.
 
-**The habit that fixes it costs nothing: stage before you check.** `git add -A` and then run the
+The habit that fixes it costs nothing: stage before you check. `git add -A` and then run the
 gate, or run it again after committing and before pushing. `script/lint` does not have this hole for
 the same files because it is invoked on a committed tree in CI, which is why the defect survives
 locally and not on a pull request.
 
-**A gloss is optional, so an unglossed citation is checked by nothing here.** This is the honest
+A gloss is optional, so an unglossed citation is checked by nothing here. This is the honest
 limit and it was a deliberate choice, measured rather than assumed. Requiring a gloss on the first
-mention of each number in each file means **2,911 sites**, every one of which has to be read to know
+mention of each number in each file means 2,911 sites, every one of which has to be read to know
 what its author meant (that is the whole premise; a pattern-applied gloss would be a confident
 falsehood next to every wrong number). That is not a sweep this project can do correctly in one
 pass, and a mechanically-inserted gloss would make the 28 milestone-24 defects *look* verified. So
 the rule is "what you write is checked", not "you must write it". The number is recorded here so
 that whoever revisits it is arguing against a measurement.
 
-**That measurement was itself too small, and the census above replaced it on 2026-09-19.** 2,911 was
-first mentions counted one way; the census counts **9,483 (file, scheme, number) pairs, of which
-8,978 carry no gloss**, over 18,517 citations. The conclusion does not move, it gets stronger: a
+That measurement was itself too small, and the census above replaced it on 2026-09-19. 2,911 was
+first mentions counted one way; the census counts 9,483 (file, scheme, number) pairs, of which
+8,978 carry no gloss, over 18,517 citations. The conclusion does not move, it gets stronger: a
 sweep of that size cannot be done correctly in one pass, and it is why milestone 444 shipped a
 ratchet plus 25 hand-read glosses rather than a rewrite.
 
@@ -515,13 +515,13 @@ ratchet plus 25 hand-read glosses rather than a rewrite.
 tree is still checked by nothing, and the escape in the per-file rule means a file that glosses a
 number once satisfies the ratchet for every other mention in it forever.
 
-**A `--ratchet` replay of an old commit judges it against today's records.** The decision and
+A `--ratchet` replay of an old commit judges it against today's records. The decision and
 milestone tables are loaded from the working tree, not from the revision under test, so a range
 replayed over history can report a number that had no block at the time, or ground a gloss in a title
 that has since been rewritten. That is harmless for the live check, where the tree and HEAD are the
 same thing, and it is worth knowing before quoting a replayed number as history.
 
-**A wrong citation whose gloss is also wrong in the same direction passes.** The first of these
+A wrong citation whose gloss is also wrong in the same direction passes. The first of these
 grounds in nothing and fails; the second grounds fine and is still in the wrong place if it sits
 next to interrupt code:
 
@@ -534,22 +534,22 @@ The check proves the gloss and the number agree, never that either matches the s
 (Writing this paragraph is what proved the fence exemption above is load-bearing: the first line
 failed the gate until it went inside a fence.)
 
-**Tier 2 is only as strong as the target document is short.** A long decision file contains many
+Tier 2 is only as strong as the target document is short. A long decision file contains many
 phrases, so a wrong-but-plausible quotation of one has more room to land in another. Nothing in the
 tree does this today; it is the direction the rule is weakest in.
 
-**A gloss may span at most one line break.** Long glosses in Rust doc comments wrap, and the
+A gloss may span at most one line break. Long glosses in Rust doc comments wrap, and the
 scanner joins one continuation. Two is not read, and a three-line gloss is invisible. The cap exists
 because an unbounded one lets a stray `(` on line 40 pair with a `)` on line 900 and swallow the
 file. This is a real limit, not a theoretical one: the line-based first draft of this script read
 **zero** wrapped glosses and missed one of the milestone-24 defects for exactly that reason.
 
-**Fenced code blocks in markdown are skipped entirely.** A page documenting this convention has to
+Fenced code blocks in markdown are skipped entirely. A page documenting this convention has to
 be able to show a wrong citation, and this page does. The cost is that a genuine citation inside a
 fence is unchecked. `script/lint`'s TODO gate exempts *all* of markdown for the same reason, so this
 is the narrower version of a carve-out the tree already makes.
 
-**Lettered milestones resolve to their base number.** `milestone 19e` is checked against milestone
+Lettered milestones resolve to their base number. `milestone 19e` is checked against milestone
 19's file, because there is no `19e` file. A gloss describing what 19e specifically did will not be
 found in 19's text and has to be phrased as commentary instead.
 
@@ -569,11 +569,11 @@ to it, which pulled the file onto the list and surfaced a lettered gloss that ha
 the gate reported a defect on line 31 in response to an edit on line 167, which is how the blind
 spot was noticed at all. That one was fixed in the same lane; the other three were left, because
 fixing the pattern is one character and then four sites need rewording or an allowlist entry, which
-wants a lane rather than a drive-by. **The general shape is worth more than the bug**: when a
+wants a lane rather than a drive-by. The general shape is worth more than the bug: when a
 checker chooses its inputs with one pattern and reads them with another, the gap between the two is
 unreachable by any test that only runs the checker.
 
-**Nothing checks `design/decisions/`'s index rows' own titles against the files they link to**,
+Nothing checks `design/decisions/`'s index rows' own titles against the files they link to,
 which is `script/decisions`' stated non-goal (a row may abbreviate). A row that abbreviates
 *wrongly* is still invisible. The roadmap left this class on 2026-09-14: milestone 294 generates its
 index from the blocks, so a roadmap row's title is its block's H1 by construction, and the migration
@@ -582,7 +582,7 @@ found five rows that had drifted.
 ## What it found on the first run
 
 - **28** comments crediting the `^C` work to milestone 24 rather than §24.
-- **31** glosses that could not be grounded, of which **6** were the wrong record (two `§49` for
+- **31** glosses that could not be grounded, of which 6 were the wrong record (two `§49` for
   milestone 49, one `§51` for milestone 51, one `milestone 6` for `§6`, one `milestone 8` that is
   not a filesystem, and one roadmap index row repeating the `§51` error), and the rest were
   paraphrases or commentary that read as a gloss.
@@ -615,28 +615,28 @@ otherwise.** `--ratchet` diffs against the branch's base and reads each file wit
 gloss you have just typed and not committed is invisible to it. Found on 2026-09-20 by a maintainer
 who fixed three unglossed citations, re-ran the ratchet, and read the same three failures back; a
 one-line "Commit first." note was added, and on 2026-09-24 it was missed beside a failure, the
-uncommitted fix was right, and CI failed on the committed line. So since 2026-09-24 **a file whose
+uncommitted fix was right, and CI failed on the committed line. So since 2026-09-24 a file whose
 uncommitted edits add or remove a line citing a real `milestone N` or `§N` (or an untracked file
-containing one) fails the run**, names the file, and checks nothing else: any report would be about
-text you are no longer looking at. **Commit, then run it.** Dirty files whose edits cite nothing
+containing one) fails the run, names the file, and checks nothing else: any report would be about
+text you are no longer looking at. Commit, then run it. Dirty files whose edits cite nothing
 still get the one-line note and the verdict stands, which is what keeps `script/lint` usable on a
 work-in-progress tree. The scan is looser than the ratchet (it reads raw diff lines, fences and all),
 so it can ask for a commit that would not have changed the verdict; that is the cheap direction to be
 wrong in. Checking the working tree instead was refused because it would make a local pass mean
 something different from a CI pass, which only ever sees commits.
 
-**A gloss must sit on the same line as the number it explains.** The parenthetical is matched near
+A gloss must sit on the same line as the number it explains. The parenthetical is matched near
 its citation, so a citation at the end of a line whose gloss wraps onto the next one is read as
 unglossed, and the fix is to rewrap rather than to reword. This is the price of matching by
 proximity rather than by parsing prose, it is cheap to pay once you know, and knowing is what this
 entry is for. It bites hardest in a long table row and in markdown wrapped at 100 columns, which is
 most of this tree.
 
-**A tool that reads only stdout can report this gate as clean while it is failing.** `script/citations`
+A tool that reads only stdout can report this gate as clean while it is failing. `script/citations`
 writes some findings to stderr, so a script that captures `stdout` alone and looks for
 `cited with no gloss` sees nothing and concludes the tree is clean. A maintainer's gloss-fixing loop
 did exactly that on 2026-09-20: it printed `clean`, and `script/lint` failed on the same tree
-seconds later. **This is the same family as the entries above** and the fix is one flag: capture
+seconds later. This is the same family as the entries above and the fix is one flag: capture
 both streams, or check the exit code rather than the text. The exit code is right; it was the
 transcript that lied.
 

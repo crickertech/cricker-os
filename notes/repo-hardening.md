@@ -1,7 +1,7 @@
 # Hardening the repository itself
 
 Milestone 44 splits cleanly in two. The files are in the tree (`SECURITY.md`, `deny.toml`,
-`script/supply-chain`, `script/vendor-verify`, the CI job); the rest is **repository settings**,
+`script/supply-chain`, `script/vendor-verify`, the CI job); the rest is repository settings,
 which live in GitHub's web UI and cannot be committed. This note is the exact procedure for those,
 written to be followed rather than interpreted. The reasoning behind each is DECISIONS §36.
 
@@ -9,7 +9,7 @@ Everything below needs admin on `nifeos/nife`.
 
 ## 1. Private vulnerability reporting
 
-**What it does.** Adds a "Report a vulnerability" button to the repository's Security tab, which
+What it does. Adds a "Report a vulnerability" button to the repository's Security tab, which
 opens a draft advisory visible only to the reporter and the maintainers, with a private fork for the
 fix. Without it, the only way to report a bug in a project whose whole subject is confinement is a
 public issue, which is the opposite of what you want.
@@ -17,8 +17,8 @@ public issue, which is the opposite of what you want.
 Free on public repositories. `SECURITY.md` already tells reporters to use it, so this is the one item
 where the committed file is currently ahead of the setting.
 
-**Steps.** Settings → Advanced Security (older UI: "Code security and analysis") → find **Private
-vulnerability reporting** → **Enable**.
+Steps. Settings → Advanced Security (older UI: "Code security and analysis") → find Private
+vulnerability reporting → Enable.
 
 Or, in one command:
 
@@ -26,22 +26,22 @@ Or, in one command:
 gh api -X PUT repos/nifeos/nife/private-vulnerability-reporting
 ```
 
-**Verify:** open <https://github.com/nifeos/nife/security/advisories> and confirm the "Report a
+Verify: open <https://github.com/nifeos/nife/security/advisories> and confirm the "Report a
 vulnerability" button is present.
 
 ## 2. The ruleset on `main`
 
 This is the item with real consequences, and the argument for it is in §36. The short version: on
-2026-07-30 `gh pr merge --auto` was used and **silently did nothing**, because GitHub only queues
+2026-07-30 `gh pr merge --auto` was used and silently did nothing, because GitHub only queues
 auto-merge when something is actually blocking the merge, and with no required checks nothing was.
 The merge landed unchecked and looked exactly like one that had waited. "Merge when green" is
 currently a habit, not a property of the repository.
 
-**Apply this only after the milestone-44 branch has merged**, because one of the required checks
+Apply this only after the milestone-44 branch has merged, because one of the required checks
 below does not exist yet, and a required check that never reports blocks every merge forever. That
 is the single most likely way to get this wrong.
 
-**Steps.** Settings → Rules → Rulesets → **New ruleset** → **New branch ruleset**.
+Steps. Settings → Rules → Rulesets → New ruleset → New branch ruleset.
 
 | Field | Value |
 |---|---|
@@ -50,7 +50,7 @@ is the single most likely way to get this wrong.
 | Bypass list | **empty** |
 | Target branches | Include **default branch** |
 
-**Leave the bypass list empty, deliberately.** This is the difference between a ruleset and classic
+Leave the bypass list empty, deliberately. This is the difference between a ruleset and classic
 branch protection: with classic protection, admins bypassed by default unless you ticked "do not
 allow bypassing", and it was easy to leave the exemption in place. A ruleset exempts nobody unless
 you add them. On a solo repository an exemption for the one person who pushes is an exemption for
@@ -61,28 +61,28 @@ maintainer is untrustworthy.
 
 - **Restrict deletions**: `main` should not be deletable by accident.
 - **Block force pushes**: a rewritten `main` is the one mistake with no local copy to recover from.
-- **Require a pull request before merging**
-  - Required approvals: **0**. A solo repository that requires an approval is a repository that
+- Require a pull request before merging
+  - Required approvals: 0. A solo repository that requires an approval is a repository that
     cannot merge. The gate here is the checks, not a second person.
-  - **Require approval of the most recent reviewable push: OFF.** This one requires an approver who
+  - Require approval of the most recent reviewable push: OFF. This one requires an approver who
     is not the pusher, so it is unsatisfiable for one maintainer.
-  - Require conversation resolution before merging: **on**. Cheap, and it catches the review comment
+  - Require conversation resolution before merging: on. Cheap, and it catches the review comment
     everyone forgot.
   - Allowed merge methods: leave all three enabled.
-- **Require status checks to pass**: the list is below.
-  - **Require branches to be up to date before merging: OFF.** With several branches in flight at
+- Require status checks to pass: the list is below.
+  - Require branches to be up to date before merging: OFF. With several branches in flight at
     once this turns every merge into a race to update first, and the value it adds (catching a
     semantic conflict between two green branches) is largely already covered, because a
     `pull_request` run tests the *merge result*, not the branch tip.
 
 ### Do NOT enable
 
-- **Require linear history.** This repository's merge commits carry information: `merge
+- Require linear history. This repository's merge commits carry information: `merge
   bench/service-and-smp: the post-§28 benchmark follow-up` is a sentence about a milestone, not
   bookkeeping. Linear history would force squash or rebase and delete that. The property linear
   history is usually wanted for, "every commit on `main` was tested as a unit", is already supplied
   by required checks running against the merge result.
-- **Require signed commits.** Nothing here is signed today; turning this on would block every merge
+- Require signed commits. Nothing here is signed today; turning this on would block every merge
   until signing is set up. Worth doing eventually, as its own decision, not as a side effect of this
   one.
 
@@ -112,13 +112,13 @@ Its findings are still dispositioned; that is DECISIONS §35's policy, and it do
 gate to work. Add `CodeQL` to the required list later if it proves stable, and expect to revisit it
 whenever the detected-language set changes.
 
-**Verify:** open a throwaway PR with a trivial change. It should show seven required checks, a
+Verify: open a throwaway PR with a trivial change. It should show seven required checks, a
 merge button disabled until they pass, and `gh pr merge --auto` should now actually queue rather than
 merging immediately. That last one is the whole point, so it is worth confirming rather than assuming.
 
 ### One thing to fix first, or at least to know about
 
-**`build + test (host + QEMU)` is currently flaky on the CI runner**, and requiring it will surface
+`build + test (host + QEMU)` is currently flaky on the CI runner, and requiring it will surface
 that as blocked merges. Commit `91564e9` on `main` failed twice on 2026-07-30 in two *different*
 places, both timing-shaped and both green on a developer machine:
 
@@ -136,11 +136,11 @@ gate that was never there is how `main` stayed red for two days. Fix it, then re
 
 Already enabled and running (three languages: rust, c-cpp, actions). §36 records the reasoning for
 staying on default setup instead of committing a workflow, along with the number that should be read
-next to every "0 alerts": on 2026-07-30 the Rust extractor reported **176 of 176 files scanned, 60 of
-them extracted with errors**, running against the *host* target with default features, for a kernel
+next to every "0 alerts": on 2026-07-30 the Rust extractor reported 176 of 176 files scanned, 60 of
+them extracted with errors, running against the *host* target with default features, for a kernel
 that does not build for the host at all.
 
-Nothing to do now. Revisit on a stated trigger: an alert lands in `vendor/**` (upstream's to fix, and
+Nothing to do now. Revisit on a stated trigger: an alert lands in `vendor/` (upstream's to fix, and
 noise here), the extracted-with-errors count stops falling as the extractor matures, or a query we
 want turns out to be unavailable by default.
 
@@ -154,11 +154,11 @@ gh run list --repo nifeos/nife --workflow CodeQL --limit 1 --json databaseId --j
 
 ## 4. What is deliberately still missing
 
-- **Fuzzing** (milestone 42's third leg). Which parsers get harnesses and how a fuzzer's findings
+- **Fuzzing (milestone 42's third leg). Which parsers get harnesses and how a fuzzer's findings
   are triaged against §35's three dispositions needs its own design pass.
-- **Signed commits and signed tags.** Related to §36 and to milestone 22's measured boot, and a
+- Signed commits and signed tags. Related to §36 and to milestone 22's measured boot, and a
   separate decision.
-- **A published advisory workflow.** GitHub advisories become useful once there is something to
+- A published advisory workflow. GitHub advisories become useful once there is something to
   advise *about*, i.e. once there are releases (milestone 39).
 
 
@@ -167,13 +167,13 @@ gh run list --repo nifeos/nife --workflow CodeQL --limit 1 --json databaseId --j
 **Not done, and queued deliberately behind the in-flight branches.** Recorded here because it has
 already been noted once in a commit message and lost.
 
-On 2026-08-02 a `git add -A` during the milestone 63 merge (`1952f8df`) committed **23,222 build
-artifacts** across three nested workspaces: `fs-server/target/` (14,405), `tools/redoxfs-host/target/`
+On 2026-08-02 a `git add -A` during the milestone 63 merge (`1952f8df`) committed 23,222 build
+artifacts across three nested workspaces: `fs-server/target/` (14,405), `tools/redoxfs-host/target/`
 (8,814) and `user-std/target/` (680). The first count recorded here said 680, because that was the
 directory the first symptom pointed at and nobody counted the rest until the hardened checker named
-a second one. **The tree is 470 files.** The artifacts were 98% of the repository. They are untracked now and `.gitignore` is fixed (`/target` was **anchored**, so
+a second one. The tree is 470 files. The artifacts were 98% of the repository. They are untracked now and `.gitignore` is fixed (`/target` was anchored, so
 three nested workspace `target/` directories were never ignored; it is `target/` now, matching at any
-depth). **They remain in history.**
+depth). They remain in history.
 
 | | |
 |---|---|
