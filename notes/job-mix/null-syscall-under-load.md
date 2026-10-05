@@ -3,7 +3,9 @@
 *Fatal risk 4's open finding from [the 2026-10-04 radon evening](radon-2026-10-04.md), measured on
 2026-10-04 (UTC) by the `lane/null-syscall-contention` lane. The cause and the fix were found under
 QEMU's TCG, which models no cache and no real inter-processor interrupt; radon then ran the fix the
-same night, and [its result](#what-radon-said) is PARTIAL by the thresholds written before it.*
+same night, and [its result](#what-radon-said) is PARTIAL by the thresholds written before it.
+2026-10-05 (UTC): [the rest was the lock](#is-the-rest-the-lock-measured-2026-10-05-off-radon) on two
+emulated machines; radon's size is still owed.*
 
 ## The question
 
@@ -112,48 +114,8 @@ each a few ticks a hold, roughly evenly. That is the contention
 [`ipc-tables-lock-inventory.md`](../ipc-tables-lock-inventory.md) predicted, and its "free win"
 (capability tables off the global lock) is the next step, not this one.
 
-### What TCG cannot say, plainly
-
-- **The `null_syscall` job itself shrank less than its lock wait did under TCG.** After the fix it
-  read 671 / 1,125 ticks at one and four tasks: the growth fell from about 600 to about 450, where
-  the wait alone fell by about 440 ticks a job. Under TCG a remote fence stops every vCPU whether or
-  not anyone holds a lock, and TCG's own costs rise with busy vCPUs, so the rest is not evidence about
-  radon either way. The host was also loaded by other lanes for part of the session, and a later run
-  read `compute` at one task as 555 rather than 330; it is not used.
-- x86_64's TCG throughput roughly doubled (`jpm_median` 293,839 to 561,875 at four tasks, 316,469
-  to 751,072 at 32, one run each), because TCG's NMI shootdowns are very expensive. That is a
-  property of the emulator, not a claim about xenon.
-- aarch64's job mix wedges under TCG on `main` too, before and after this change (see BUGS), so
-  it gave no comparison.
-
-## The radon run that decided it
-
-Two payloads, built from this branch's tip, so no build happens at the bench:
-
-```sh
-cd ~/projects/nife-worktrees/null-syscall-contention
-script/board-netboot --root target/board-fix          # boots 1 to 3: the kernel that ships
-script/board-netboot --root target/board-lock-wait    # boots 4 and 5: the same plus lock_wait
-```
-
-Power-cycle smart plug 2 for each boot, and capture each boot with step 2 of
-[`notes/job-mix.md`](../job-mix.md)'s procedure. Never smart plug 3, never the USB hub. Steps 3 and 5
-apply unchanged. Then read, in this order:
-
-1. `null_syscall`'s `per_job` at 1 and 4 tasks on boots 1 to 3, against 108 and 202 from 2026-10-04
-   (every boot then read 195 to 207 at four).
-2. On boots 4 and 5, `job-mix-lock: ... site=current_cap`: `wait_ticks / calls` at 4 tasks, in ticks
-   per trap, against the job's per-trap growth `(per_job(4) - per_job(1)) / 64`.
-3. `site=reap`: `stack_free_ticks / reaps` is what used to be held under the lock per reap, on
-   silicon, for the first time.
-
-What each outcome means, written before the numbers exist:
-
-| Boots 1 to 3 at 4 tasks | Reading |
-|---|---|
-| 130 or below | the excess was this defect; the remainder is in line with `compute`'s preemption share |
-| 130 to 180 | the defect was part of it; boots 4 and 5's residual wait says how much of the rest is the IPC path's own contention |
-| 180 or above | this was not radon's cause. Boots 4 and 5's `current_cap` wait says whether it is still the lock. If that wait is small, suspect the line traffic the counters cannot see (BUGS) |
+What TCG could not say about this fix, and the procedure radon ran it by, are in
+[the first radon run](null-syscall-first-radon-run.md).
 
 ## What radon said
 
@@ -226,7 +188,7 @@ script/board-netboot --root target/board-caplock             # boots 1 to 3: the
 script/board-netboot --root target/board-caplock-lock-wait   # boots 4 and 5: the same plus lock_wait
 ```
 
-Bench rules as [above](#the-radon-run-that-decided-it); transcripts to `bench/radon-<date>-caplock/`.
+Bench rules as [the first run's](null-syscall-first-radon-run.md#the-radon-run-that-decided-it); transcripts to `bench/radon-<date>-caplock/`.
 Read, in this order:
 
 1. `null_syscall`'s `per_job` at 1 and 4 tasks on boots 1 to 3, against 99 and 147 from
@@ -247,20 +209,40 @@ One guard on the single-task cost, since a lock path dearer when uncontended wou
 four-task number. **`null_syscall` at 1 task above 101** (99 today, plus 2%) is a regression to
 explain before any row above is claimed.
 
+## Is the rest the lock? Measured 2026-10-05 off radon
+
+Milestone 761 reached `main` inside #1617 before #1630 landed, so this compares `main` with an
+ablation that puts `IPC_TABLES` back around the lookup and changes nothing else.
+[The appendix](null-syscall-off-radon.md) has the questions and both tables.
+
+- TCG, riscv64, eight runs a side. At four tasks the job read 1,170 with the lock and 1,000
+  without, ranges apart. The lock's excess grew with each contender, and 1.6 ticks a trap remain
+  that no lock explains; half of that travels with spawning.
+- HVF, aarch64, four real cores, spawn stubbed. `main` is flat from one task to four (48, 47,
+  46, 47). The ablation rises to 61, and its excess equals its measured wait.
+
+The lock was a cause, this kernel chose it, and 761 removed it. Radon's size is still owed, from
+these payloads or 761's own, by the thresholds above:
+
+```sh
+cd ~/projects/nife-worktrees/null-syscall-under-load   # keep this worktree until the boots run
+script/board-netboot --root target/board-main             # boots 1 to 3, built from d0ca36c5b
+script/board-netboot --root target/board-main-lock-wait   # boots 4 and 5
+```
+
 ## What risk 4's line should say
 
-For the maintainer, who owns `design/fatal-risks/README.md`. The colour stays AMBER (calef's
-ruling). The open finding's paragraph should read:
+For the maintainer, who owns `design/fatal-risks/README.md`. The colour is calef's ruling; this
+lane proposes AMBER until radon's evening, and GREEN if boots 1 to 3 read 115 or below at four tasks
+with the one-task guard held. The open finding's paragraph should read:
 
-> The null syscall's near-doubling from one busy core to four was half a defect and half
-> contention. The defect: the reaper held the global `IPC_TABLES` lock while freeing a dead
-> thread's kernel stack, six TLB shootdowns that interrupt every core. Fixing it on radon
-> (2026-10-04) cut the null syscall's growth from one task to four from 94 ticks to 48, and raised
-> throughput 9% at four tasks and 11% at 32. The rest is the one global lock itself: at four tasks
-> 41% of syscalls find it held. That is a lock this kernel chose and can split, not a cost of the
-> capability model, and splitting it is proposed
-> (`design/roadmap/761-capability-lookup-off-the-global-lock.md`). Until that is measured,
-> the per-crossing cost under load is half explained and half open
+> The null syscall's near-doubling from one busy core to four was two defects, neither of them the
+> capability model. The reaper held the global `IPC_TABLES` lock while freeing a dead thread's
+> kernel stack; fixing it on radon (2026-10-04) cut the growth from one task to four from 94 ticks
+> to 48 and raised throughput 9% at four tasks. The rest was the same lock on every capability
+> lookup, which milestone 761 removed. On four real Apple cores the null syscall is now flat from
+> one task to four, and putting the lock back alone brings the rise back, by exactly its measured
+> wait. Radon has not yet measured the size
 > (notes/job-mix/null-syscall-under-load.md).
 
 ## BUGS
@@ -276,6 +258,13 @@ ruling). The open finding's paragraph should read:
   went quiet after 2,744,000-tick subruns, at `tasks=2` on `main` and at `tasks=1` on this branch,
   one run each, on a loaded host. The 2026-09-19 capture completed. It is a multicore hang that
   wants a bisect, and this entry is where that work lives until someone takes it.
+- The same mix fails within two minutes under HVF, in the spawn job. On 2026-10-05
+  `script/job-mix --hvf --release --smp 4` failed all 9 unmodified runs of `d0ca36c5b` and of
+  `1b4e13ef3` (before 761): 7 refusals of `-11` (`Gone`) in a spawn job and 2 wedges. Tagging each
+  step put the refusal at `DESTROY` on the child's region, which maps its own refusals to
+  `NotPermitted`, so `Gone` comes from looking up the region's capability. Counting `DESTROY`'s
+  retries made it pass 3 of 3, so it is timing. Stubbing the spawn job, 31 of 31 completed;
+  riscv64 TCG and radon have never shown it. That is fatal risk 5's shape.
 - **`script/fastpath-footprint` leaves `exception_body` out of aarch64's `syscall_entry`**, though
   every aarch64 syscall runs it (riscv64's list has `riscv_trap_body`). Moving the counter from that
   symbol into `syscall::dispatch` once read as 44 bytes of growth when it was 20.
@@ -285,3 +274,11 @@ ruling). The open finding's paragraph should read:
 - Capability lookup off `IPC_TABLES`: built as milestone 761 (capability lookup off the global
   lock), number provisional, [its block](../../design/roadmap/761-capability-lookup-off-the-global-lock.md),
   and waiting on the radon evening [above](#the-next-step-each-threads-table-off-the-lock).
+- Proposed milestone (provisional): the job mix's spawn job finds its child's region `Gone` on
+  aarch64. The reproduction is one command and two minutes on patagonia
+  (`script/job-mix --hvf --release --smp 4`, BUGS above). Done means 10 of 10 HVF runs complete
+  unmodified. It also gives risk 4 the full mix on real cores.
+- Only if radon leaves an excess after 761, batch a kernel stack's six unmaps into one remote
+  fence (`KernelStack::drop` now makes one SBI `RFENCE` per page). Spawning carries half of TCG's
+  remainder, and six fences per reap are the shared event it adds. Untested on silicon; a TCG try
+  on a loaded host could not separate it.
