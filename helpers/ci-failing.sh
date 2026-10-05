@@ -26,6 +26,10 @@
 #     still announced once, and a new push is a new SHA and a new comment.
 #   - Green on every required check it has run: take the label off.
 #
+# The owner of a red pull request is a maintainer session, and this label alone never reached one:
+# the merge drain turns 30 minutes of it into `needs-maintainer` (cause `red`, helpers/needs-maintainer.jq),
+# which is the queue a session reads. Rename this label and that file must follow.
+#
 # It never dequeues, disables auto-merge, reruns or changes anything else. A queue reports, it does
 # not resolve. Drafts are skipped because a draft is its lane's.
 #
@@ -109,7 +113,7 @@ gh pr list --repo "$REPO" --state open --limit 200 --json number,isDraft,headRef
 
 $(echo "$bad" | jq -r '.[] | "- \(.name): \(.url)"')
 
-This comment is posted once per commit. The \`$LABEL\` label comes off when every required check that has run is green on the head.
+This comment is posted once per commit. The \`$LABEL\` label comes off when every required check that has run is green on the head. Owner: a maintainer session. If it is still red in 30 minutes the merge drain adds \`needs-maintainer\`, which is where a session looks.
 
 $marker"
 				w gh pr comment "$num" --repo "$REPO" --body "$body"
