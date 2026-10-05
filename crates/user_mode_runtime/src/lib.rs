@@ -153,17 +153,29 @@ pub mod initrd;
 pub mod mapped_window;
 pub mod virtio;
 
-/// The raw five-register round trip through `SYS_INVOKE` (milestone 139 round 2). `cap`, `method`
-/// and two more arguments go in `x0..x3`/`a0..a3` (the fifth, `x4`/`a4`, is spare and always zero on
-/// input); the kernel's reply comes back in the same five registers, `x0..x4`/`a0..a4`. This is now
-/// the one place the actual trap instruction and register file appear for a `SYS_INVOKE` call:
-/// [`invoke`] and every multi-word method below ([`receive`], [`receive_cap`], [`receive_fault`], [`call`],
-/// [`survey`], [`list`]) used to each hand-roll their own `asm!` block asserting the identical
-/// invariant ("`svc`/`ecall` traps to the kernel, which validates before acting") at a register
-/// layout that differed only in which of the five words the caller happened to read back. Six
-/// functions, two architectures, twelve hand-written copies of one assertion: the §94 shape this
-/// milestone names as the reduction worth making. Now there are two, one per architecture, and
-/// every caller above is a safe wrapper that just picks which return words it wants.
+/// **The one trap in this crate** (milestone 139 (drive the unsafe count down) round 2; every
+/// syscall since 2026-10-05). The number goes in `x8`/`a7`, five words in `x0..x4`/`a0..a4`, and
+/// the kernel's reply comes back in the same five registers. For `SYS_INVOKE` that is `cap`, `method` and three arguments (see
+/// [`invoke5`]); `SYS_YIELD`, `SYS_CAP_DELETE` and `SYS_EXIT` pass zeros where they read nothing.
+///
+/// **Why every syscall comes through here, and not only `SYS_INVOKE`.** The kernel writes its
+/// result into the first register on the way out of *every* syscall (`kernel/src/syscall.rs`
+/// `dispatch`, `frame.set_arg(0, ..)`), and some methods write the next four too. Until
+/// 2026-10-05 [`yield_now`] and [`cap_delete`] had their own `asm!` blocks that declared no output
+/// at all, which tells the compiler `x0` survives the trap. It does not: a yield comes back with
+/// `x0 = 0`. The job mix's spawn job (`fixtures/src/job_mix_task.rs`) had its retry loop compiled
+/// with `DESTROY`'s five arguments loaded *before* the yield, so after a yield it sent
+/// `invoke(0, 4)`: method 4 on slot 0, which is `CALL` on the report endpoint, answered `Gone` by a
+/// supervisor in a plain `RECEIVE`. That was the HVF job mix's `-11`, and its wedges.
+/// `notes/job-mix/spawn-destroy-gone.md` has the evidence. One block per architecture that
+/// declares all five registers is the shape that cannot get this wrong for a new syscall.
+///
+/// [`invoke`] and every multi-word method below ([`receive`], [`receive_cap`], [`receive_fault`],
+/// [`call`], [`survey`], [`list`]) used to each hand-roll their own `asm!` block asserting the
+/// identical invariant ("`svc`/`ecall` traps to the kernel, which validates before acting") at a
+/// register layout that differed only in which of the five words the caller happened to read back.
+/// Six functions, two architectures, twelve hand-written copies of one assertion: the §94 shape
+/// milestone 139 named as the reduction worth making. Now there is one per architecture.
 ///
 /// One behavioural note for a reader diffing this against the asm the individual functions used to
 /// carry: a few of them ([`receive`], [`receive_cap`], [`receive_fault`]) left `x2`/`a2` with no `in`
@@ -173,59 +185,60 @@ pub mod virtio;
 /// behaviour change: the kernel still ignores it.
 ///
 /// # Safety
-/// `svc`/`ecall` traps to the kernel. The kernel validates the capability and the method before
-/// acting; that is its whole job. The caller is trusting the kernel, not the other way around.
+/// `svc` traps to the kernel. The kernel validates the capability and the method before acting;
+/// that is its whole job. The caller is trusting the kernel, not the other way around.
 #[cfg(target_arch = "aarch64")]
-unsafe fn invoke5(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> (u64, u64, u64, u64, u64) {
+unsafe fn trap5(nr: u64, a: [u64; 5]) -> (u64, u64, u64, u64, u64) {
     let (mut w0, mut w1, mut w2, mut w3, mut w4): (u64, u64, u64, u64, u64);
-    // SAFETY: see the function doc; `x8` selects SYS_INVOKE (DECISIONS §10), `x0..x4` carry the
-    // five-word ABI in both directions. `asm!` is unsafe because the compiler cannot check that,
-    // not because a caller can get it wrong.
+    // SAFETY: see the function doc; `x8` selects the syscall (DECISIONS §10 (process model:
+    // capability-based, microkernel)), `x0..x4` carry the five-word ABI in both directions. `asm!`
+    // is unsafe because the compiler cannot check that, not because a caller can get it wrong.
     unsafe {
         core::arch::asm!(
             "svc #0",
-            in("x8") abi::SYS_INVOKE,
-            inlateout("x0") cap => w0,
-            inlateout("x1") method => w1,
-            inlateout("x2") a0 => w2,
-            inlateout("x3") a1 => w3,
-            inlateout("x4") a2 => w4,
+            in("x8") nr,
+            inlateout("x0") a[0] => w0,
+            inlateout("x1") a[1] => w1,
+            inlateout("x2") a[2] => w2,
+            inlateout("x3") a[3] => w3,
+            inlateout("x4") a[4] => w4,
             options(nostack),
         );
     }
     (w0, w1, w2, w3, w4)
 }
 
-/// The raw five-register round trip (RISC-V). See the aarch64 twin's doc for the contract this
-/// collapses; only the trap instruction and register file differ: `ecall`, number in `a7`, the five
+/// The one trap (RISC-V). See the aarch64 twin's doc for the contract this collapses and why
+/// every syscall uses it; only the trap instruction and register file differ: `ecall`, number in `a7`, the five
 /// words in `a0..a4`.
 ///
 /// # Safety
 /// `ecall` traps to the kernel, which validates the capability and method before acting. Same
 /// contract as the aarch64 twin: the caller trusts the kernel, not the other way around.
 #[cfg(target_arch = "riscv64")]
-unsafe fn invoke5(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> (u64, u64, u64, u64, u64) {
+unsafe fn trap5(nr: u64, a: [u64; 5]) -> (u64, u64, u64, u64, u64) {
     let (mut w0, mut w1, mut w2, mut w3, mut w4): (u64, u64, u64, u64, u64);
-    // SAFETY: see the function doc; `a7` selects SYS_INVOKE (DECISIONS §10), `a0..a4` carry the
+    // SAFETY: see the function doc; `a7` selects the syscall (DECISIONS §10), `a0..a4` carry the
     // five-word ABI in both directions.
     unsafe {
         core::arch::asm!(
             "ecall",
-            in("a7") abi::SYS_INVOKE,
-            inlateout("a0") cap => w0,
-            inlateout("a1") method => w1,
-            inlateout("a2") a0 => w2,
-            inlateout("a3") a1 => w3,
-            inlateout("a4") a2 => w4,
+            in("a7") nr,
+            inlateout("a0") a[0] => w0,
+            inlateout("a1") a[1] => w1,
+            inlateout("a2") a[2] => w2,
+            inlateout("a3") a[3] => w3,
+            inlateout("a4") a[4] => w4,
             options(nostack),
         );
     }
     (w0, w1, w2, w3, w4)
 }
 
-/// The raw five-register round trip (`x86_64`, milestone 161). See the aarch64 twin's doc for the
-/// contract this collapses; only the trap instruction and register file differ. `syscall`, the
-/// number in `rax`, the five words in `rdi`, `rsi`, `rdx`, `r10`, `r8` (DECISIONS §124).
+/// The one trap (`x86_64`, milestone 161 (the `x86_64` kernel port)). See the aarch64 twin's doc
+/// for the contract this collapses and why every syscall uses it; only the trap instruction and
+/// register file differ. `syscall`, the number in `rax`, the five words in `rdi`, `rsi`, `rdx`,
+/// `r10`, `r8` (DECISIONS §124 (the `x86_64` syscall ABI)).
 ///
 /// **Two operands here have no counterpart on the other two architectures**, and both are the
 /// instruction rather than a choice. `syscall` writes the return address into `rcx` and the
@@ -241,25 +254,36 @@ unsafe fn invoke5(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> (u64, u64
 /// `syscall` traps to the kernel, which validates the capability and method before acting. Same
 /// contract as the aarch64 twin: the caller trusts the kernel, not the other way around.
 #[cfg(target_arch = "x86_64")]
-unsafe fn invoke5(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> (u64, u64, u64, u64, u64) {
+unsafe fn trap5(nr: u64, a: [u64; 5]) -> (u64, u64, u64, u64, u64) {
     let (mut w0, mut w1, mut w2, mut w3, mut w4): (u64, u64, u64, u64, u64);
-    // SAFETY: see the function doc; `rax` selects SYS_INVOKE (DECISIONS §10, §124), and the five
+    // SAFETY: see the function doc; `rax` selects the syscall (DECISIONS §10, §124), and the five
     // argument registers carry the five-word ABI in both directions.
     unsafe {
         core::arch::asm!(
             "syscall",
-            in("rax") abi::SYS_INVOKE,
-            inlateout("rdi") cap => w0,
-            inlateout("rsi") method => w1,
-            inlateout("rdx") a0 => w2,
-            inlateout("r10") a1 => w3,
-            inlateout("r8") a2 => w4,
+            in("rax") nr,
+            inlateout("rdi") a[0] => w0,
+            inlateout("rsi") a[1] => w1,
+            inlateout("rdx") a[2] => w2,
+            inlateout("r10") a[3] => w3,
+            inlateout("r8") a[4] => w4,
             lateout("rcx") _,
             lateout("r11") _,
             options(nostack),
         );
     }
     (w0, w1, w2, w3, w4)
+}
+
+/// The raw five-register round trip through `SYS_INVOKE`: [`trap5`] with the number fixed. Every
+/// capability method in this crate goes through here.
+///
+/// # Safety
+/// [`trap5`]'s: the kernel validates the capability and the method before acting.
+#[inline(always)]
+unsafe fn invoke5(cap: u64, method: u64, a0: u64, a1: u64, a2: u64) -> (u64, u64, u64, u64, u64) {
+    // SAFETY: forwarded from this function's own contract.
+    unsafe { trap5(abi::SYS_INVOKE, [cap, method, a0, a1, a2]) }
 }
 
 /// Invoke a capability: the one syscall a userspace program makes. `cap` names a capability in the
@@ -928,37 +952,15 @@ pub fn send_cap(slot: u64, cap_slot: u64, rights: u64, w1: u64) -> i64 {
 
 /// Give up the CPU (`SYS_YIELD`). Returns when the scheduler runs this thread again; if another
 /// thread is ready, control goes there and back, which is one context-switch round trip.
-#[cfg(target_arch = "aarch64")]
+///
+/// Through [`trap5`] like every other syscall, for the reason its doc gives: the kernel writes its
+/// result into `x0`/`a0`/`rdi` on the way out of a yield too. And not `nomem`: while this thread
+/// is away, others run and write memory it shares with them, so a yield is a point where memory
+/// changes, which is what a caller spinning on a shared word with `yield_now` relies on.
 pub fn yield_now() {
-    // SAFETY: `svc`; SYS_YIELD gives up the CPU and returns with nothing to clean up.
-    unsafe {
-        core::arch::asm!("svc #0", in("x8") abi::SYS_YIELD, options(nostack, nomem));
-    }
-}
-
-/// Give up the CPU (RISC-V). `ecall`, `SYS_YIELD` in `a7`.
-#[cfg(target_arch = "riscv64")]
-pub fn yield_now() {
-    // SAFETY: `ecall`; SYS_YIELD gives up the CPU and returns with nothing to clean up.
-    unsafe {
-        core::arch::asm!("ecall", in("a7") abi::SYS_YIELD, options(nostack, nomem));
-    }
-}
-
-/// Give up the CPU (`x86_64`). `syscall`, `SYS_YIELD` in `rax`. `rcx` and `r11` are clobbered by the
-/// instruction itself, and `nomem` survives that: neither is memory.
-#[cfg(target_arch = "x86_64")]
-pub fn yield_now() {
-    // SAFETY: `syscall`; SYS_YIELD gives up the CPU and returns with nothing to clean up.
-    unsafe {
-        core::arch::asm!(
-            "syscall",
-            in("rax") abi::SYS_YIELD,
-            lateout("rcx") _,
-            lateout("r11") _,
-            options(nostack, nomem),
-        );
-    }
+    // SAFETY: SYS_YIELD gives up the CPU and comes back; it reads no argument and touches no
+    // memory of this thread's own.
+    let _ = unsafe { trap5(abi::SYS_YIELD, [0; 5]) };
 }
 
 /// **Write one byte to an x86 I/O port** (milestone 299). Not a syscall: `out` is an instruction,
@@ -998,48 +1000,11 @@ pub fn inb(port: u16) -> u8 {
 
 /// Drop the capability in `slot` from this thread's capability table (`SYS_CAP_DELETE`). Deleting an empty
 /// slot is a no-op. A program that retypes many objects (a loader, a spawner) frees each slot as
-/// soon as it is done with it, so its fixed capability table does not fill.
-#[cfg(target_arch = "aarch64")]
+/// soon as it is done with it, so its fixed capability table does not fill. Through [`trap5`] for
+/// [`yield_now`]'s reason: the kernel answers in the register `slot` went in on.
 pub fn cap_delete(slot: u64) {
-    // SAFETY: `svc`; SYS_CAP_DELETE frees a slot in the caller's own capability table, nothing to clean up.
-    unsafe {
-        core::arch::asm!(
-            "svc #0",
-            in("x8") abi::SYS_CAP_DELETE,
-            in("x0") slot,
-            options(nostack, nomem),
-        );
-    }
-}
-
-/// Drop the capability in `slot` (RISC-V). `ecall`, `SYS_CAP_DELETE` in `a7`, slot in `a0`.
-#[cfg(target_arch = "riscv64")]
-pub fn cap_delete(slot: u64) {
-    // SAFETY: `ecall`; SYS_CAP_DELETE frees a slot in the caller's own capability table, nothing to clean up.
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            in("a7") abi::SYS_CAP_DELETE,
-            in("a0") slot,
-            options(nostack, nomem),
-        );
-    }
-}
-
-/// Drop the capability in `slot` (`x86_64`). `syscall`, `SYS_CAP_DELETE` in `rax`, slot in `rdi`.
-#[cfg(target_arch = "x86_64")]
-pub fn cap_delete(slot: u64) {
-    // SAFETY: `syscall`; SYS_CAP_DELETE frees a slot in the caller's own capability table, nothing to clean up.
-    unsafe {
-        core::arch::asm!(
-            "syscall",
-            in("rax") abi::SYS_CAP_DELETE,
-            in("rdi") slot,
-            lateout("rcx") _,
-            lateout("r11") _,
-            options(nostack, nomem),
-        );
-    }
+    // SAFETY: SYS_CAP_DELETE frees a slot in the caller's own capability table, nothing to clean up.
+    let _ = unsafe { trap5(abi::SYS_CAP_DELETE, [slot, 0, 0, 0, 0]) };
 }
 
 /// The virtual counter, `CNTVCT_EL0`: a monotonic tick count for self-timing. Readable at EL0 only
@@ -1353,33 +1318,10 @@ pub fn monotonic_nanos() -> u64 {
 }
 
 /// Terminate this process. The kernel reaps the thread and frees its whole address space. Never
-/// returns; the trailing spin is only there to satisfy the `-> !` type if `svc` ever came back.
+/// returns; the trailing spin is only there to satisfy the `-> !` type if the trap ever came back.
 pub fn exit() -> ! {
     // SAFETY: the syscall never returns; the trailing spin only satisfies the `-> !` type.
-    #[cfg(target_arch = "aarch64")]
-    unsafe {
-        core::arch::asm!("svc #0", in("x8") abi::SYS_EXIT, in("x0") 0u64, options(nostack, nomem));
-    }
-    #[cfg(target_arch = "riscv64")]
-    // SAFETY: `ecall` with SYS_EXIT traps to the kernel, which never returns to this thread. The options promise it touches neither memory nor the stack.
-    unsafe {
-        core::arch::asm!("ecall", in("a7") abi::SYS_EXIT, in("a0") 0u64, options(nostack, nomem));
-    }
-    #[cfg(target_arch = "x86_64")]
-    // SAFETY: `syscall` with SYS_EXIT traps to the kernel, which never returns to this thread. The
-    // options promise it touches neither memory nor the stack; `rcx` and `r11` are the
-    // instruction's own clobbers and are declared as such even here, where nothing comes back, so
-    // this reads the same as every other `syscall` site rather than being a special case.
-    unsafe {
-        core::arch::asm!(
-            "syscall",
-            in("rax") abi::SYS_EXIT,
-            in("rdi") 0u64,
-            lateout("rcx") _,
-            lateout("r11") _,
-            options(nostack, nomem),
-        );
-    }
+    let _ = unsafe { trap5(abi::SYS_EXIT, [0; 5]) };
     loop {
         core::hint::spin_loop();
     }
