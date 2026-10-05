@@ -356,7 +356,7 @@ group_runs() {
 }
 
 # **A pull request a maintainer session must pick up wears `needs-maintainer`** (milestone 727,
-# provisional; the label's name is provisional too, and calef's call). The six causes, and why
+# provisional; the label's name is provisional too, and calef's call). The seven causes, and why
 # each is one, are in helpers/needs-maintainer.jq, which decides; this carries the decision out:
 #
 #   label   add the label, print `LABELLED #N`, and comment once per cause with the evidence
@@ -387,6 +387,7 @@ NM_QUERY='query($owner: String!, $name: String!, $labelled: String!) {
       added: timelineItems(last: 1, itemTypes: [ADDED_TO_MERGE_QUEUE_EVENT]) { nodes { ... on AddedToMergeQueueEvent { createdAt } } }
       unarmed: timelineItems(last: 1, itemTypes: [READY_FOR_REVIEW_EVENT, AUTO_MERGE_DISABLED_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT]) { nodes { __typename ... on ReadyForReviewEvent { createdAt } ... on AutoMergeDisabledEvent { createdAt } ... on RemovedFromMergeQueueEvent { createdAt } } }
       labelled: timelineItems(last: 20, itemTypes: [LABELED_EVENT]) { nodes { ... on LabeledEvent { createdAt label { name } } } }
+      commits(last: 1) { nodes { commit { committedDate } } }
     } }
   }
   search(query: $labelled, type: ISSUE, first: 50) { nodes { ... on PullRequest { number state labels(first: 30) { nodes { name } } } } }
@@ -465,6 +466,18 @@ Any of these takes the label off."
 
 A lane that ended its turn \`WAITING\` is not running and will not see this. The maintainer session owns it: resume the lane that pushed \`$branch\` with the failing job's log, or fix it in place. A push whose checks pass takes \`ci-failing\` off, and this label with it."
 		;;
+	stale-draft)
+		since=$(printf '%s' "$c" | jq -r '.since')
+		branch=$(printf '%s' "$c" | jq -r '.branch')
+		what="A DRAFT WITH NO COMMIT SINCE $since, by its head commit's committer date, on \`$branch\`. Its lane may have ended: a lane that ended its turn is not running, and nothing else will move this. The maintainer session owns it, by one of:
+
+- resume or adopt the lane that pushed \`$branch\`
+- mark it ready if the work is done: \`gh pr ready $1\`
+- if it is waiting on purpose, say so with a \`Blocked-by:\` line naming what it waits on
+- close it, after recording anything it knows in \`notes/\` (CLAUDE.md: an unmerged branch is not the record)
+
+A new commit, a \`Blocked-by:\` on an open pull request, or closing it takes the label off."
+		;;
 	stale)
 		state=$(printf '%s' "$c" | jq -r '.state')
 		merged=$(printf '%s' "$c" | jq -r '.merged // "an unrecorded time"')
@@ -483,7 +496,7 @@ The label comes off when the entry is gone."
 	esac
 	printf '%s' "$ME: needs-maintainer. $what
 
-The label is how a maintainer session finds this without anyone watching the queue (milestone 727, provisional; helpers/needs-maintainer.jq has the six causes)."
+The label is how a maintainer session finds this without anyone watching the queue (milestone 727, provisional; helpers/needs-maintainer.jq has the seven causes)."
 }
 
 needs_maintainer() {
@@ -496,11 +509,11 @@ needs_maintainer() {
 		return 0
 	fi
 
-	# A ready pull request's `Blocked-by:` pull requests, resolved here because the jq file must not
-	# call `gh`: { "<number>": ["OPEN", "MERGED", ...] }.
+	# A pull request's `Blocked-by:` pull requests, draft or ready (`stale-draft` honours them too),
+	# resolved here because the jq file must not call `gh`: { "<number>": ["OPEN", "MERGED", ...] }.
 	blockers='{}'
 	for num in $(printf '%s' "$resp" | jq -r '.data.repository.pullRequests.nodes[]
-			| select(.isDraft == false and (.body // "" | test("(?i)blocked-by:"))) | .number'); do
+			| select(.body // "" | test("(?i)blocked-by:")) | .number'); do
 		body=$(printf '%s' "$resp" | jq -r --argjson n "$num" '.data.repository.pullRequests.nodes[] | select(.number == $n) | .body')
 		states='[]'
 		for b in $(nife_blocked_by "$body"); do

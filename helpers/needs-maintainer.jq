@@ -8,7 +8,7 @@
 # session must pick up, so the session finds it with `gh pr list --label needs-maintainer --state
 # all` and not by watching. Nothing here arms, enqueues or re-queues; it only names.
 #
-# Six causes, each a fact the queue does not report to anyone:
+# Seven causes, each a fact the queue does not report to anyone:
 #
 #   ejected   the last removal from the queue was neither `merged` nor `manual`, nothing put it
 #             back since, and the head is still the one that was ejected. A removal whose event
@@ -40,17 +40,24 @@
 #             Armed or not, any base: an armed pull request whose checks fail never enters the
 #             queue, so nothing else here would see it. A push clears `ci-failing` until its checks
 #             fail, and a fresh label starts a fresh episode.
+#   stale-draft  a draft from this repository whose head commit is `nm_stale_draft_hours` (6,
+#             calef's figure, 2026-10-05) old by its committer date. Not `updatedAt`, which every
+#             bot comment and every retarget bumps. #1644 had no commit after 2026-10-04 22:11 UTC
+#             once its lane's session ended, and every other cause skips a draft. A draft holding
+#             only its claim commit is not exempt: that is the clearest case of a lane that died.
+#             An open `Blocked-by:` holds it, as it holds `unarmed`.
 #
 # `ejected`, `conflict` and `unarmed` apply only to what `eligible` admits (helpers/queue-eligible.jq,
 # spliced in front of this file); `off-main` and `red` to a ready pull request from this repository
-# on any base. None applies to one held with `needs-architect` or `held-for-red-trunk`, and only
-# `stale` applies to a draft: a draft is its lane's (converting an ejected pull request to a draft
+# on any base; `stale-draft` to a draft from this repository on any base. None applies to one held
+# with `needs-architect` or `held-for-red-trunk`, and only `stale` and `stale-draft` apply to a
+# draft: a draft is its lane's while the lane is alive (converting an ejected pull request to a draft
 # is how a lane says it has it), a fork's pull request is a person's decision, and a held one is
 # waiting on purpose.
 #
 # A cause carries `key`, which names the episode: the ejection's time, the conflicting head, the
 # entry's enqueue time, the moment it was last unarmed or made ready, the moment `ci-failing` went
-# on. The shell posts one comment per cause per
+# on, the draft's last commit. The shell posts one comment per cause per
 # key, deduplicated by a marker in the comment, so a persisting cause never comments twice and a
 # new episode does.
 #
@@ -84,6 +91,9 @@ def nm_ready_unheld_any_base:
 
 # The label helpers/ci-failing.sh puts on a red head. Its name is that script's, provisional there.
 def nm_red_label: "ci-failing";
+
+# How long a draft's head may sit without a commit before its lane is presumed gone.
+def nm_stale_draft_hours: 6;
 
 def nm_ejected($queued):
   . as $pr
@@ -133,6 +143,16 @@ def nm_red($now; $minutes):
   | { cause: "red", key: $since, since: $since, head: $pr.headRefOid, branch: $pr.headRefName,
       armed: ($pr.autoMergeRequest != null) };
 
+def nm_stale_draft($now; $blockers):
+  . as $pr
+  | ($blockers[$pr.number | tostring] // []) as $bs
+  | (.commits.nodes[-1].commit.committedDate // null) as $at
+  | select(.isDraft == true and .isCrossRepository == false and $at != null)
+  | nm_unheld
+  | select(($bs | index("OPEN")) == null)
+  | select(($at | nm_ts) <= $now - nm_stale_draft_hours * 3600)
+  | { cause: "stale-draft", key: $at, since: $at, head: $pr.headRefOid, branch: $pr.headRefName, blockers: $bs };
+
 def nm_decide($label; $now; $minutes; $blockers):
   .data as $d
   | [$d.repository.mergeQueue.entries.nodes[]? | .pullRequest.number] as $queued
@@ -141,7 +161,8 @@ def nm_decide($label; $now; $minutes; $blockers):
         | ([nm_ejected($queued)] + [nm_conflict] + [nm_red($now; $minutes)]) as $hard
         | { number, labelled: ([.labels.nodes[].name] | index($label) != null),
             causes: ($hard + (if $hard == [] then [nm_unarmed($queued; $now; $minutes; $blockers)]
-                                                + [nm_off_main($now; $minutes; $blockers)] else [] end)) } ]
+                                                + [nm_off_main($now; $minutes; $blockers)] else [] end)
+                     + [nm_stale_draft($now; $blockers)]) } ]
     + [ $d.repository.mergeQueue.entries.nodes[]?
         | select(.pullRequest.state != "OPEN")
         | { number: .pullRequest.number, labelled: false,
