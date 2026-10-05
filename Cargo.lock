@@ -202,9 +202,11 @@ dependencies = [
  "credential_protocol",
  "credentialer",
  "documentation",
+ "domain_name_system",
  "elf",
  "entropy_protocol",
  "environment_protocol",
+ "extensible_host_controller_interface",
  "file_allocation_table",
  "filesystem_protocol",
  "free",
@@ -239,6 +241,7 @@ dependencies = [
  "tock-registers",
  "top",
  "uptime",
+ "usb",
  "user_mode_runtime",
  "video_terminal",
  "virtio",
@@ -371,6 +374,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "domain_name_system"
+version = "0.1.0"
+
+[[package]]
 name = "elf"
 version = "0.1.0"
 
@@ -387,6 +394,10 @@ name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
+
+[[package]]
+name = "extensible_host_controller_interface"
+version = "0.1.0"
 
 [[package]]
 name = "file_allocation_table"
@@ -602,6 +613,7 @@ dependencies = [
  "elf",
  "entropy_protocol",
  "environment_protocol",
+ "extensible_host_controller_interface",
  "filesystem_protocol",
  "firmware_configuration",
  "generational_table",
@@ -1341,6 +1353,10 @@ checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
 
 [[package]]
 name = "uptime"
+version = "0.1.0"
+
+[[package]]
+name = "usb"
 version = "0.1.0"
 
 [[package]]

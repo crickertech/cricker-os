@@ -1,0 +1,13 @@
+# Boot D: the diagnostic image with wbinvd when ECAP.C=0 (lane/xenon-nvme-diag-pre594 at
+# d3dbe8cf2, 120 columns, sha256 e583b593..), 2026-10-04 UTC. Transcribed from calef's photograph;
+# the reason byte reads 0x0b, checked against the photograph by the lane.
+diag build: vt-d tables written back (wbinvd) when ecap.c=0
+diag nvme post cc 0x460001 csts 0x1 aqa 0xf000f asq 0x9e1000 acq 0x9e2000
+diag nvme cid 1 opcode 0x06 never completed; csts 0x1; sq tail 1 cq head 0
+diag pci  01:00.0 cmd 0x0106 sts 0x0010 (bme 1)
+diag pci  bridge 00:1b.0 cmd 0x0107 sts 0x2010 secsts 0x2000 (bme 1)
+diag vt-d 0xfed91000 cap 0xd2008c40660462 ecap 0xf050da c=0 pt=1 nfr 1
+diag vt-d gsts 0xc0000000 fsts 0x3 (ppf 1 pfo 1 fri 0)
+diag vt-d frcd0 sid 01:00.0 reason 0x0b read addr 0x9e1000
+diag vt-d root[1] 0x9fa001 ctx 0x9f6001 0x10002
+disk-throughput: verdict FAILED: the controller is present and failed bring-up (line above)

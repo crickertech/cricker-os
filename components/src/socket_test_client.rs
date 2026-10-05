@@ -10,12 +10,17 @@
 //!   - `TEST_UDP_TFTP`: a UDP request/response round trip against **slirp's own built-in TFTP
 //!     server** (10.0.2.2:69), which libslirp answers itself with no host network involved. This is
 //!     the gating UDP test: deterministic and offline, the UDP twin of the guestfwd echo peer.
-//!   - `TEST_UDP_DNS`: a real DNS query for `example.com` via 10.0.2.3:53. **This leaves the
-//!     machine.** 10.0.2.3 is not a resolver; libslirp NATs anything sent there to the *host's*
-//!     configured nameserver (`get_dns_addr_libresolv`), so this exchange depends on the developer's
-//!     DNS working at that instant. It is therefore **non-gating**: a host resolver that does not
-//!     answer reports `NO_ANSWER` and the kernel test skips loudly. A malformed or mismatched
-//!     response still fails, because that would be our bug. See notes/net/the-outbound-gates.md.
+//!   - `TEST_NAME_RESOLUTION` (milestone 384 (in a capability system the resolver is a grant)):
+//!     two exchanges through `domain_name_system`, reported as two words. **The first gates**: six
+//!     queries over TCP to the runners' name server peer (10.0.2.9:53, `helpers/name-server-peer`),
+//!     two of which must resolve and four of which are lies or failures the resolver must refuse
+//!     for the right reason, then a TCP connection to the address a name resolved to. **The second
+//!     does not**: a real query for `example.com` over UDP to 10.0.2.3, which is not a resolver;
+//!     libslirp NATs anything sent there to the *host's* configured nameserver
+//!     (`get_dns_addr_libresolv`), so it depends on the developer's DNS at that instant and a host
+//!     that does not answer reports `NO_ANSWER`. A reply that arrives and is not ours still fails,
+//!     because that would be our bug. See notes/net/the-outbound-gates.md and
+//!     notes/name-resolution.md.
 //!   - `TEST_TCP_ECHO`: a full TCP round trip to slirp's guestfwd echo peer (10.0.2.9:7777 -> a
 //!     `/bin/cat`): connect (handshake), send, receive the echo, close (teardown).
 //!   - `TEST_TCP_ACCEPT`: **the inbound half** (milestone 107), and the only exchange here that is
@@ -48,6 +53,7 @@
 //! single-consumer `#[path]` module rather than a `[[bin]]`.
 
 use abi::rights;
+use domain_name_system::{Query, Reject, TcpReply};
 use socket_protocol::*;
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
 use user_mode_runtime::{call, exit, map_page_frame, retype_page_frame, send, send_cap};
@@ -57,7 +63,7 @@ const STACK: u64 = 1;
 const MEMORY_REGION: u64 = 2;
 
 /// Test selectors (the entry role), and the success word the kernel test asserts.
-pub const TEST_UDP_DNS: u64 = 1;
+pub const TEST_NAME_RESOLUTION: u64 = 1;
 pub const TEST_TCP_ECHO: u64 = 2;
 pub const TEST_TCP_REOPEN: u64 = 3;
 pub const TEST_UDP_TFTP: u64 = 4;
@@ -65,7 +71,8 @@ pub const TEST_TCP_ACCEPT: u64 = 5;
 pub const TEST_HTTP_PACKAGE: u64 = 6;
 const OK: u64 = 1;
 /// Reported when an exchange could not be completed **for an environmental reason** rather than a
-/// defect in our stack: today only the real-DNS check, whose upstream is the host's resolver. The
+/// defect in our stack: today only the real-DNS half of `TEST_NAME_RESOLUTION`, whose upstream is
+/// the host's resolver. The
 /// kernel test prints and skips on this instead of failing, so the gate never depends on the
 /// developer's network. Distinct from `OK` and from every `0xE0xx` protocol failure.
 const NO_ANSWER: u64 = 2;
@@ -91,6 +98,37 @@ const ECHO_IP: [u8; 4] = socket_protocol::fixture::ECHO_PEER_IP;
 const ECHO_PORT: u16 = socket_protocol::fixture::ECHO_PEER_PORT;
 
 const DNS_TXID: u16 = 0x1234;
+
+/// **The runners' name server** (milestone 384), a `guestfwd` that runs `helpers/name-server-peer`
+/// once per connection, the package source's address on DNS's port. Local rather than in
+/// `socket_protocol::fixture` because this is the only program that dials it; the peer spells the
+/// zone below again in Python, so the two sides are written independently.
+const NAME_SERVER_IP: [u8; 4] = [10, 0, 2, 9];
+/// The transaction id for the name server exchanges. Fixed, because over TCP to a peer the test
+/// owns the id defends against nothing; a resolver that queries over UDP draws it from the entropy
+/// service, which this client is not granted.
+const NAME_SERVER_TXID: u16 = 0x384;
+
+/// What the peer's zone must produce. Two names resolve (one through a CNAME the peer compresses
+/// the way a recursive server does), and four are refused, each by a different check in
+/// `Query::accept`: a name that does not exist, the right answer under the wrong id, an address for
+/// a name nobody asked about, and a compression pointer to itself.
+enum Expect {
+    Address([u8; 4]),
+    Refused(Reject),
+}
+
+const NAME_SERVER_CASES: [(&str, Expect); 6] = [
+    ("packages.nife.test", Expect::Address(NAME_SERVER_IP)),
+    ("mirror.nife.test", Expect::Address(NAME_SERVER_IP)),
+    ("nosuch.nife.test", Expect::Refused(Reject::NoSuchName)),
+    ("forged.nife.test", Expect::Refused(Reject::IdMismatch)),
+    ("poisoned.nife.test", Expect::Refused(Reject::NoAddress)),
+    (
+        "loop.nife.test",
+        Expect::Refused(Reject::Malformed(domain_name_system::Error::PointerForward)),
+    ),
+];
 
 /// **The inbound half** (milestone 107). The guest listens on `LISTEN_PORT`; the host reaches it
 /// because the runners add a QEMU `hostfwd` from a host port to this one, the mirror of the
@@ -211,76 +249,173 @@ fn put8(v: u8, at: &mut u64) {
     *at += 1;
 }
 
-/// Build a DNS A-record query for "example.com" into the frame payload. Returns its length.
-fn build_dns_query() -> u64 {
-    let mut p = PAGE_FRAME_VA + OFF_PAYLOAD;
-    // header: id, flags(0x0100 recursion desired), qd=1, an=ns=ar=0
-    put8((DNS_TXID >> 8) as u8, &mut p);
-    put8(DNS_TXID as u8, &mut p);
-    put8(0x01, &mut p);
-    put8(0x00, &mut p);
-    put8(0x00, &mut p);
-    put8(0x01, &mut p);
-    for _ in 0..6 {
-        put8(0x00, &mut p);
-    }
-    // qname: 7 "example" 3 "com" 0
-    for &(len, label) in &[(7u8, b"example" as &[u8]), (3, b"com")] {
-        put8(len, &mut p);
-        for &c in label {
-            put8(c, &mut p);
+/// **`TEST_NAME_RESOLUTION`**: the gating exchange against the runners' name server, then the
+/// non-gating one against the host's resolver, reported together as `(gating, real)`. One role and
+/// one `net_stack` for both, because every stack a test starts holds a virtio slot for the rest of
+/// the boot and the table is at its ceiling (`MAX_DEVICES` in kernel/src/virtio.rs).
+fn name_resolution() -> ! {
+    attach_page_frame(0);
+    let gating = against_the_name_server();
+    let real = against_the_host_resolver();
+    send(REPORT, gating, real, 0);
+    exit();
+}
+
+/// Each name in [`NAME_SERVER_CASES`] over its own TCP connection, every verdict checked, and then
+/// an echo through the address `packages.nife.test` resolved to: a name the guest did not know the
+/// address of, carried to a connection. `OK`, or `0xE1` with the case in the next nibble and the
+/// stage in the last.
+fn against_the_name_server() -> u64 {
+    let mut resolved = None;
+    for (case, (host, expect)) in NAME_SERVER_CASES.iter().enumerate() {
+        let code = |stage: u64| 0xE100 | ((case as u64) << 4) | stage;
+        let Ok(query) = Query::new(NAME_SERVER_TXID, host) else {
+            return code(0x0);
+        };
+        let verdict = match ask_over_tcp(&query) {
+            Ok(verdict) => verdict,
+            Err(stage) => return code(stage),
+        };
+        match (expect, verdict) {
+            (Expect::Address(want), Ok(answer)) if answer.addresses() == [*want] => {
+                resolved.get_or_insert(answer.addresses()[0]);
+            }
+            (Expect::Refused(want), Err(got)) if *want == got => {}
+            _ => return code(0xF), // the wrong verdict: the lie was believed, or the truth refused
         }
     }
-    put8(0x00, &mut p); // root label
-    put8(0x00, &mut p); // qtype A = 0x0001
-    put8(0x01, &mut p);
-    put8(0x00, &mut p); // qclass IN = 0x0001
-    put8(0x01, &mut p);
-    p - (PAGE_FRAME_VA + OFF_PAYLOAD)
+    match resolved {
+        Some(address) => echo_at(address),
+        None => 0xE1F0,
+    }
+}
+
+/// One query on socket 0 over TCP: the reply's verdict, or the stage that stopped the exchange.
+fn ask_over_tcp(query: &Query) -> Result<Result<domain_name_system::Answer, Reject>, u64> {
+    if call(STACK, req(OPERATION_OPEN_TCP, 0), 0).0 != REP_OK {
+        return Err(0x1);
+    }
+    let verdict = exchange_over_tcp(query);
+    let _ = call(STACK, req(OPERATION_CLOSE, 0), 0);
+    verdict
+}
+
+fn exchange_over_tcp(query: &Query) -> Result<Result<domain_name_system::Answer, Reject>, u64> {
+    set_dst(NAME_SERVER_IP, domain_name_system::PORT);
+    if call(STACK, req(OPERATION_CONNECT, 0), 0).0 != CONNECT_ESTABLISHED {
+        return Err(0x2);
+    }
+    let mut request = [0u8; 2 + domain_name_system::UDP_MESSAGE_MAX];
+    let n = query.request_tcp(&mut request).map_err(|_| 0x3u64)?;
+    for (i, &b) in request[..n].iter().enumerate() {
+        w8(PAGE_FRAME_VA + OFF_PAYLOAD + i as u64, b);
+    }
+    if call(STACK, req(OPERATION_SEND, 0), n as u64).0 != n as u64 {
+        return Err(0x4);
+    }
+    let mut buf = [0u8; 2 + domain_name_system::UDP_MESSAGE_MAX];
+    let mut reply = TcpReply::new(&mut buf);
+    let mut chunk = [0u8; DATA_MAX];
+    loop {
+        let (got, _) = call(STACK, req(OPERATION_RECEIVE, 0), 0);
+        if got == 0 || got > DATA_MAX as u64 {
+            return Err(0x5); // the peer went away (or the stack failed) before the reply was whole
+        }
+        let got = got as usize;
+        for (i, b) in chunk[..got].iter_mut().enumerate() {
+            *b = r8(PAGE_FRAME_VA + OFF_PAYLOAD + i as u64);
+        }
+        match reply.feed(&chunk[..got]) {
+            Ok(true) => break,
+            Ok(false) => {}
+            Err(_) => return Err(0x6), // longer than announced, or than a reply here may be
+        }
+    }
+    let message = reply.message().ok_or(0x7u64)?;
+    Ok(query.accept(message))
+}
+
+/// Connect to `address` on the echo peer's port and see one payload come back: the resolved address
+/// is one a connection can be made to, which is what resolving it was for.
+fn echo_at(address: [u8; 4]) -> u64 {
+    const MSG: &[u8] = b"nife-by-name";
+    if call(STACK, req(OPERATION_OPEN_TCP, 0), 0).0 != REP_OK {
+        return 0xE1F1;
+    }
+    set_dst(address, ECHO_PORT);
+    let mut code = OK;
+    if call(STACK, req(OPERATION_CONNECT, 0), 0).0 != CONNECT_ESTABLISHED {
+        code = 0xE1F2;
+    } else {
+        for (i, &b) in MSG.iter().enumerate() {
+            w8(PAGE_FRAME_VA + OFF_PAYLOAD + i as u64, b);
+        }
+        if call(STACK, req(OPERATION_SEND, 0), MSG.len() as u64).0 != MSG.len() as u64 {
+            code = 0xE1F3;
+        } else if call(STACK, req(OPERATION_RECEIVE, 0), 0).0 != MSG.len() as u64
+            || MSG
+                .iter()
+                .enumerate()
+                .any(|(i, &b)| r8(PAGE_FRAME_VA + OFF_PAYLOAD + i as u64) != b)
+        {
+            code = 0xE1F4;
+        }
+    }
+    let _ = call(STACK, req(OPERATION_CLOSE, 0), 0);
+    code
 }
 
 /// **Real DNS resolution, and therefore NOT a gate.** The query goes to 10.0.2.3, which libslirp
 /// NATs to the *host's* nameserver, so whether it is answered is a fact about the developer's
 /// machine. Retries like any resolver client, then reports `NO_ANSWER` if the host never answered,
-/// which the kernel test turns into a loud skip. A response that arrives but is not ours, or is not
-/// a response, still fails: that would be a defect in the socket contract, not in the network.
-fn udp_dns() -> ! {
-    attach_page_frame(0);
+/// which the kernel test turns into a loud skip. A server that answers with a failure (SERVFAIL from
+/// an offline host, NXDOMAIN from a filtering one) is environmental too. A reply that is not ours,
+/// or that `Query::accept` finds malformed, or one for `example.com` with no address in it, still
+/// fails: that would be a defect here, not in the network.
+fn against_the_host_resolver() -> u64 {
     if call(STACK, req(OPERATION_OPEN_UDP, 0), 0).0 != REP_OK {
-        done(0xE010);
+        return 0xE010;
     }
+    let code = ask_the_host_resolver();
+    let _ = call(STACK, req(OPERATION_CLOSE, 0), 0);
+    code
+}
 
-    let mut got = 0u64;
+fn ask_the_host_resolver() -> u64 {
+    let Ok(query) = Query::new(DNS_TXID, "example.com") else {
+        return 0xE012;
+    };
+    let mut request = [0u8; domain_name_system::UDP_MESSAGE_MAX];
+    let Ok(n) = query.request(&mut request) else {
+        return 0xE012;
+    };
+    let mut reply = [0u8; DATA_MAX];
     for _ in 0..DNS_ATTEMPTS {
-        let qlen = build_dns_query();
+        for (i, &b) in request[..n].iter().enumerate() {
+            w8(PAGE_FRAME_VA + OFF_PAYLOAD + i as u64, b);
+        }
         set_dst(DNS_IP, DNS_PORT);
-        if call(STACK, req(OPERATION_SENDTO, 0), qlen).0 != REP_OK {
-            done(0xE011);
+        if call(STACK, req(OPERATION_SENDTO, 0), n as u64).0 != REP_OK {
+            return 0xE011;
         }
         let (rlen, _) = call(STACK, req(OPERATION_RECEIVE, 0), 0);
-        if rlen != REP_ERR && rlen >= 12 {
-            got = rlen;
-            break;
+        if rlen == REP_ERR || rlen == 0 || rlen > DATA_MAX as u64 {
+            continue;
         }
+        let rlen = rlen as usize;
+        for (i, b) in reply[..rlen].iter_mut().enumerate() {
+            *b = r8(PAGE_FRAME_VA + OFF_PAYLOAD + i as u64);
+        }
+        return match query.accept(&reply[..rlen]) {
+            Ok(_) => OK,
+            Err(Reject::NoSuchName | Reject::ServerError(_) | Reject::Truncated) => NO_ANSWER,
+            Err(Reject::IdMismatch) => 0xE013,
+            Err(Reject::NotAResponse) => 0xE014,
+            Err(_) => 0xE015,
+        };
     }
-    if got == 0 {
-        // The host's resolver never answered. Environmental, not ours.
-        done(NO_ANSWER);
-    }
-
-    // Verify it is a response to our query: transaction id matches, and the QR bit is set.
-    let rid = ((r8(PAGE_FRAME_VA + OFF_PAYLOAD) as u16) << 8)
-        | r8(PAGE_FRAME_VA + OFF_PAYLOAD + 1) as u16;
-    let qr = r8(PAGE_FRAME_VA + OFF_PAYLOAD + 2) & 0x80;
-    if rid != DNS_TXID {
-        done(0xE013);
-    }
-    if qr == 0 {
-        done(0xE014);
-    }
-
-    let _ = call(STACK, req(OPERATION_CLOSE, 0), 0);
-    done(OK);
+    // The host's resolver never answered. Environmental, not ours.
+    NO_ANSWER
 }
 
 /// **The gating UDP test: a round trip against slirp's own TFTP server.** libslirp implements TFTP
@@ -704,7 +839,7 @@ fn exchange(stem: &str, tampered: bool, expected: &measured_boot::Digest) -> u64
 pub fn run(test: u64, arg: u64) -> ! {
     match test {
         TEST_HTTP_PACKAGE => http_package(arg),
-        TEST_UDP_DNS => udp_dns(),
+        TEST_NAME_RESOLUTION => name_resolution(),
         TEST_UDP_TFTP => udp_tftp(),
         TEST_TCP_ECHO => tcp_echo(),
         TEST_TCP_REOPEN => tcp_reopen(),

@@ -183,7 +183,7 @@ The claim, and calef named this one first: a capability microkernel pays on ever
 and on workloads that cross constantly the cost is architectural rather than a matter of tuning.
 
 **Experiment status: RUN, 2026-10-04.** AMBER (calef, 2026-10-04, #1613). The throughput defence
-held on step 7's first outcome. The one unexplained number is a per-crossing cost under load, the
+held on step 7's first outcome. The one number not fully explained is a per-crossing cost under load, the
 null syscall going from 108 to 202 ticks between one task and four, and that is exactly this risk's
 claim. With the caveats below, the defence is narrow. What turns it green is explaining that
 slowdown and showing it is a fixable defect, such as lock contention on `IPC_TABLES`, rather than an
@@ -213,10 +213,16 @@ retired, and five things bound it:
   shapes the plateau: a curve held flat by a server bottleneck is a weaker witness than one held
   flat by spare cores.
 
-One finding stays open. The null syscall nearly doubles per job from one task to four (108 to 202
-ticks) while compute grows 6%, then grows only 17% more by 32. That is a per-crossing cost that
-rises with busy cores and saturates, which is not the stack-footprint shape, and it is unexplained.
-It is recorded in `notes/job-mix.md`'s `BUGS`.
+One finding was open, and is now half explained. The null syscall's near-doubling from one busy core
+to four was half a defect and half contention. The defect:
+the reaper held the global `IPC_TABLES` lock while freeing a dead thread's kernel stack, six
+TLB shootdowns that interrupt every core. Fixing it on radon (2026-10-04) cut the null syscall's
+growth from one task to four from 94 ticks to 48, and raised throughput 9% at four tasks and 11% at
+32. The rest is the one global lock itself: at four tasks 41% of syscalls find it held. That is a
+lock this kernel chose and can split, not a cost of the capability model, and splitting it is
+proposed (`design/roadmap/proposals/capability-lookup-off-the-global-lock.md`). Until that is
+measured, the per-crossing cost under load is half explained and half open
+(`notes/job-mix/null-syscall-under-load.md`).
 
 Two caveats. The counter-thesis is published: the crossing can be removed rather than made cheap. If
 RedLeaf and the 2017 Rust-kernel paper are right, a capability crossing is a cost this project chose
@@ -257,25 +263,23 @@ no result here can be green, since a flattening curve is only a confidence.
 The claim: the thing that makes the thesis interesting, drivers outside the kernel behind an IOMMU,
 does not survive contact with a real device.
 
-**Experiment status: RUN, 2026-09-16.** All three of its parts are now measured on silicon, and they
-were never one claim. On radon, milestone 159 (a real hardware entropy source: the JH7110's TRNG)'s
+**Experiment status: RUN, 2026-10-04.** AMBER (calef, 2026-10-04). The first silicon evidence was the
+TRNG, 2026-09-16: its three parts were measured on silicon, and they were never one claim. On radon, milestone 159 (a real hardware entropy source: the JH7110's TRNG)'s
 driver is an EL0 process reaching the TRNG through a capability that names no device. Confined,
 2026-09-03. Driving real hardware, 2026-09-04, reproducibly. At real speed, MEASURED 2026-09-16 at
 about 8.4 us per round trip. The committed boots read 973,384 to 992,248 bytes/s (four boots; the
 original 955,223 bytes/s has no committed transcript, corrected 2026-10-03 per §216 from #1495).
 
-**The decisive experiment:** one real, non-virtio device on real silicon, confined, at throughput.
-Every piece now exists and the remaining distance is a bench evening. Milestone 261 (the NVMe driver
-leaves the kernel, on the machine that can finally confine it) is §86 (whether an NVMe driver can
-leave the kernel, and what capability would let it)'s option 2a. xenon has a plain PCIe NVMe function
-and VT-d, booted nife on 2026-09-17, and calef wiped its disk that day.
+**The decisive experiment: RUN, 2026-10-04, on xenon.** An EL0 process holding one page of the Micron 2450's BAR0 and a DMA window confined by VT-d drove the real NVMe in three boots, all `CONFINED-AT-RATE`: both preflights PASS (the catch-all unit `0xfed91000` owns 01:00.0; 512-byte LBAs), and 16384 of 16384 blocks verified each time. Medians: write 458142471 B/s (range 457744197 to 474990381), read 271854622 B/s (237098519 to 281608311, a 16% spread), and an IPC floor of 1197 ns per round trip, which is 13% of a write block and 8% of a read block. Getting there found and fixed a kernel defect: xenon's VT-d units do not snoop the CPU caches (`ECAP.C` = 0), and the kernel never wrote its tables back, which QEMU cannot show (`bench/xenon-2026-10-04/`, milestone 261 (the NVMe driver leaves the kernel)).
 
-Two caveats. This does not retire the risk, and the reason is the device. A TRNG has no DMA and one
-register window, so it is the smallest real device on the board. The rate is not comparable to a
-Linux `hwrng` figure either, which is a read from an in-kernel driver with no IPC in it. And on the
-night two things must hold, neither of them code: the DMAR's device scope must cover the NVMe
-function, and the LBA size must give `blocks_per` in `1..=8`, or the line reads `skipped`. A skip is
-not a pass. [Appendix](the-confined-driver.md).
+**Verdict: AMBER, leaning to GREEN (calef, 2026-10-04).** Real hardware (a real NVMe with DMA), driven correctly (16384 of 16384 verified, three of three boots), from EL0 behind a translating VT-d unit, at 458 MB/s write and 272 MB/s read (medians, queue depth 1). Two things stand between this and GREEN, each written down before it is run:
+
+1. "Real speed" has no reference. A Linux `fio` run at queue depth 1 on the same disk and window must come out with nife within about 0.8x of Linux for both read and write.
+2. "Confined" is asserted, not attacked. A replayable test where an EL0 server aims a PRP outside its DMA region must go red with the IOMMU skipped and be refused with it on. Milestone 261 lists this as Outstanding.
+
+Not GREEN, because a risk about speed would be scored without a reference speed. Not RED, because nothing on the night came close to falsifying the claim.
+
+Caveats. Every figure is one command in flight, polled completion, and one pass per boot with no warm-up, so it is a lower bound on the device and not comparable to `fio` at queue depth 32. No Linux `fio` run on the same disk at queue depth 1 has been made, so "at real speed" is still unclaimed: the figures say "confined, on silicon, at this rate," and the Linux ratio is what would turn that into "real speed." Read varied 16% across boots. [Appendix](the-confined-driver.md).
 
 ## 7. The confinement claim is false
 
