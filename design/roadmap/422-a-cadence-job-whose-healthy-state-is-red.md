@@ -16,7 +16,7 @@ smaller half. *(Number provisional until the merge queue lands it.)*
 
 It reads GitHub's run history, the same source `script/cadence-check` already reads.
 
-**Premise re-checked 2026-09-19 and still true, and the overdue run is now five weeks long.**
+Premise re-checked 2026-09-19 and still true, and the overdue run is now five weeks long.
 `helpers/trunk-health.sh` still reports nothing about a repeated failure, and `script/cadence-check`
 still asks only when a workflow last succeeded. `script/audits --due` still names `documentation`,
 whose last sweep is 2026-08-17 and whose milestone trigger now reads +122 against a threshold of 10.
@@ -25,11 +25,11 @@ so `documentation` is now the only standing example.
 
 ## In brief
 
-`.github/workflows/audit-cadence.yml` reports "an audit is due" by **failing**. That is deliberate
+`.github/workflows/audit-cadence.yml` reports "an audit is due" by failing. That is deliberate
 and correct: its own header argues, at length, that an audit coming due is information about the tree
 rather than a defect in a commit, which is why it is a scheduled workflow instead of a gate.
 
-The consequence nobody priced is that **red is now ambiguous**. These two rows look identical in the
+The consequence nobody priced is that red is now ambiguous. These two rows look identical in the
 Actions tab:
 
 ```
@@ -46,13 +46,13 @@ And these four look identical to each other, which is the part that actually cos
 2026-09-07  audits: 7 on record, DUE: documentation, security   exit 1
 ```
 
-**An audit was overdue every week for a month, the mechanism said so on schedule every time, and no
-audit was run.** Milestone 92 built this tripwire to stop auditing depending on somebody remembering
+An audit was overdue every week for a month, the mechanism said so on schedule every time, and no
+audit was run. Milestone 92 built this tripwire to stop auditing depending on somebody remembering
 to ask. The tripwire fired four times and auditing still depended on somebody remembering.
 
 ## Why `script/cadence-check` does not cover it
 
-Milestone 238's check asks **when a workflow last succeeded**, and reports one whose last success is
+Milestone 238's check asks when a workflow last succeeded, and reports one whose last success is
 more than fifteen days old. That is the right question for a job whose healthy state is green, and it
 is why the mutation and undefined-behaviour workflows were caught.
 
@@ -80,7 +80,7 @@ that watches scheduled workflows dies the way its subjects die.
 
 ## The open question, which is what makes this a proposal rather than a lane brief
 
-**Who is the report for, and what closes it?** A repeat report on `audit-cadence` says "run the
+Who is the report for, and what closes it? A repeat report on `audit-cadence` says "run the
 audit", and running an audit is a lane and a day, not a fix somebody applies between tasks. Reported
 to a maintainer session it becomes rung four again, a message somebody has to read; reported into a
 pull request there is no pull request to hang it on. AGENTS.md's answer for work waiting on a person
@@ -92,7 +92,7 @@ reported and never acted" failure of 2026-08-04 raised without settling.
 
 ## What this does not propose
 
-**Not making the job green when an audit is due.** A cadence checker that cannot report "overdue" is
+Not making the job green when an audit is due. A cadence checker that cannot report "overdue" is
 decoration, and the workflow's own header and `design/audit-reports/README.md`'s `BUGS` both already
 say that closing this by editing the index is the one thing that makes the mechanism a lie. The
 ambiguity is the cost of a correct design, and the fix is a second signal rather than a quieter

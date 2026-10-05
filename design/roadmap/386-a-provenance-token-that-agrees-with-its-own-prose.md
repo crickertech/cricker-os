@@ -11,10 +11,10 @@ needs_person: no
 
 Filed 2026-09-05 as an unnumbered proposal by milestone 264, whose largest
 single finding was that a third of its worklist was this bug rather than missing research; numbered
-2026-09-19 by milestone 433's drain of the proposal pile. **The premise has decayed and the block is
-still real work, which is a distinction worth keeping.** The *instances* are gone: on 2026-09-05,
+2026-09-19 by milestone 433's drain of the proposal pile. The premise has decayed and the block is
+still real work, which is a distinction worth keeping. The *instances* are gone: on 2026-09-05,
 21 of 60 `unrecorded` names carried a complete argument in their own prose; on 2026-09-19
-`script/names` reports **1 unrecorded name of 222**, and that one (`hello`) is honest, saying
+`script/names` reports 1 unrecorded name of 222, and that one (`hello`) is honest, saying
 outright that nobody wrote down why it is called that. So the check would fire on nothing today and
 its value is as a regression guard rather than as a sweep. The *gate* is still unbuilt:
 `script/names` has grown `--provisional`, `--recorded` and `--unrecorded` views and still never
@@ -57,7 +57,7 @@ For a block whose token is `unrecorded`, fail if its own text contains `provisio
 calef`, `not put to calef`, or `Refused`. Each of those is the block asserting that an argument
 exists, which is what `provisional` means and what `unrecorded` denies.
 
-**The false positives are enumerable, which is what keeps this on rung two.** A block may legitimately
+The false positives are enumerable, which is what keeps this on rung two. A block may legitimately
 say "nobody recorded a decision because nobody had to make one", and none of the four phrases appears
 in it. The risk runs the other way: a block that argues its name at length without using any of the
 four phrases is missed, and that is acceptable, since a gate that catches the common shape is worth
@@ -73,7 +73,7 @@ and no gate compares an entry against the vocabulary it was written under.
 
 ## BUGS
 
-- **It cannot tell a stale `provisional` from a live one.** A name calef has since ratified in
+- It cannot tell a stale `provisional` from a live one. A name calef has since ratified in
   conversation and nobody transcribed reads exactly like one he has not seen. That is the same limit
   the parent tool records and is not closeable by a script.
 

@@ -220,7 +220,10 @@ struct SpaceLog {
 /// 2026-08-27**, when the thread ceiling doubled and this was one of four numbers that had to
 /// move with it. The 32 is the same headroom the old literal carried (160 - 128); what changed is
 /// that the relationship is now in the code instead of only in this sentence.
-const MAX_SPACES: usize = crate::sched::MAX_THREADS + 32;
+///
+/// `pub(crate)` since §249 (a running address space stays nameable), because the address-space
+/// registry is sized to it: `user::MAX_USER_SPACES` carries the argument.
+pub(crate) const MAX_SPACES: usize = crate::sched::MAX_THREADS + 32;
 
 /// **The registry of live address spaces.** Fixed (milestone 14 phase C): the records themselves
 /// live in the spaces' own regions, so this is just the index that finds them, bounded by how

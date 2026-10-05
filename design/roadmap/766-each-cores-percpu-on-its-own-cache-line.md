@@ -13,7 +13,7 @@ needs_person: yes
 
 Raised 2026-10-05 (UTC) by `lane/null-syscall-hvf`, measuring fatal risk 4's null syscall under
 load, and promoted from `design/roadmap/proposals/` the same day by `lane/percpu-own-line`. The
-number 766 is provisional until the queue lands it. *(Title, slug and every name below are drafts.)*
+number 766 was minted by the maintainer on 2026-10-05 (UTC). *(Title, slug and every name below are drafts.)*
 `needs_person` is yes only because the acceptance measurement is taken at radon's bench.
 
 ## Index row

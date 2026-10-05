@@ -8,7 +8,7 @@ action items are decisions, proposals or milestones).
 A Kani harness is a proof that some property of the code holds, checked by a model checker rather
 than by running the code. A proof like that has a failure mode a test does not: it can be green
 because nothing it asserts can ever fail, and from outside that looks exactly like a proof of
-something. So each harness here carries a **falsification record**, a patch that deliberately breaks
+something. So each harness here carries a falsification record, a patch that deliberately breaks
 the code the harness covers. Applying the patch must turn the harness red. If it does not, the proof
 was never evidence about that code and nobody would have known. That is §134 (a harness carries a
 machine-replayable falsification record, or it is not evidence), and it is the reason the sweep
@@ -76,14 +76,14 @@ into is the file that stopped the sweep.
 | 2026-09-24 17:22:38 | The maintainer dispatches the fixed workflow on `main` (run 36031723556), and it is the first run in this workflow's life to replay a record: 73 of the 144 replayable records go red as required in about fifteen minutes, then `nifefs::a_short_image_is_refused_not_indexed` hangs from 17:37:58 until the job's 120-minute `timeout-minutes` cancels it at 19:22:23, so the remaining 70 are never reached and the run reports **cancelled**, not success. |
 | 2026-09-24 20:15:20 | After #1217 bounds the nifefs record, the maintainer's second dispatch on `main` (run 36053521935, at `ce46107c1`) replays 76 of 144 red, nifefs's `a_short_image_is_refused_not_indexed` now among them in 2.5 s, then hangs on `package_archive::a_short_file_is_refused` from 20:31:45 until the 120-minute job limit cancels it at 22:15:06, leaving 67 unreached; #1243 (that record's bound) and #1242 (a per-record time limit in `script/falsifications`) merged while it ran, but after its commit. |
 
-**Six completed runs, six refusals. The count of falsification patches this workflow has replayed in
-its lifetime is zero.** The one run that carried the fix was cancelled by its own concurrency group
+Six completed runs, six refusals. The count of falsification patches this workflow has replayed in
+its lifetime is zero. The one run that carried the fix was cancelled by its own concurrency group
 before it got there.
 
 ## Impact
 
-**Every scheduled sweep the mechanism has ever had produced no evidence, and published a refusal as
-though it were a report.** That is 22 days from the workflow landing on `main` to the finding, covering the
+Every scheduled sweep the mechanism has ever had produced no evidence, and published a refusal as
+though it were a report. That is 22 days from the workflow landing on `main` to the finding, covering the
 three Mondays of 2026-09-07, -14 and -21.
 
 **The population it was not checking was growing the whole time**, which matters because the value
@@ -127,23 +127,23 @@ itself, and saying so in green.
 
 ## Root cause: five whys
 
-**1. Why did three weekly sweeps replay nothing?**
+1. Why did three weekly sweeps replay nothing?
 Because `script/falsifications --sweep` refused to run and its non-zero exit was discarded by
 `continue-on-error: true`, so the job's only assertion was one that had been deliberately switched
 off.
 
-**2. Why did it refuse?**
+2. Why did it refuse?
 Because `tee sweep.txt` wrote an untracked file into the checkout before the script read the tree,
 and the script's dirty-tree guard is a guard on the whole tree rather than on the files it patches.
 The guard is right to be that broad: it cannot know in advance which files a patch will touch.
 
-**3. Why did nobody notice a report about 40 records that contained no records?**
+3. Why did nobody notice a report about 40 records that contained no records?
 Because the report has no reader with an expectation. It is published to a job summary, consumed by
 a human on a Monday if anyone opens it, and nothing downstream reads its contents. Its emptiness was
 not a signal that anything consumed, so it was not a signal at all. This is the first half of what
 went wrong, and it is a property of the design rather than of anyone's attention.
 
-**4. Why was a job with no assertion on its content built that way on purpose?**
+4. Why was a job with no assertion on its content built that way on purpose?
 Because `continue-on-error` was implementing a genuine ruling about the **verdict**: §134 says a
 survivor is a worklist entry and not a defect in whatever commit happened to precede the cron, so a
 survivor must not go red. The mistake is that a step's exit status was carrying two different claims
@@ -158,21 +158,21 @@ Because a gate is written against the defect it hunts, and the empty-input case 
 author is not thinking about while writing it. From outside, checking nothing is indistinguishable
 from finding nothing, and it is what every new gate does on the day it lands, before its subject
 exists. The review that follows asks whether the gate catches the defect; nothing asks what it does
-when its input set is empty. **This was the fourth instance of the shape found in a single day, and two more arrived while
-this document was being written**; that recurrence, not the `tee`, is the finding:
+when its input set is empty. This was the fourth instance of the shape found in a single day, and two more arrived while
+this document was being written; that recurrence, not the `tee`, is the finding:
 
-- **Milestone 401 (a gate that selects the set it judges can pass by checking nothing)**, pull
+- Milestone 401 (a gate that selects the set it judges can pass by checking nothing), pull
   request #1130, went looking for the class in `script/` and found it. Eight selectors now assert
   they selected something, enumerated in `notes/empty-selectors.md`.
 - **`script/ci-build`'s tier selector.** It picks its checks by matching a literal tier string in
   its own table with `awk`. Retagging every `local` row to `default` makes the command a developer
   runs before pushing run zero checks and print `ci-build: all pass`, exit 0. Reproduced twice
   independently, by 401's lane and by pull request #1134.
-- **The draft gate.** `ci.yml`'s own comment names it: a skipped job still posts a conclusion and
+- The draft gate. `ci.yml`'s own comment names it: a skipped job still posts a conclusion and
   still satisfies a required check, so skipping is never the safe default. That file's `gate` job
   exists because it had to learn it more than once.
-- **This sweep**, where the skipped work is the whole subject of the workflow.
-- **And the falsification ratio itself**, which is the strongest member because it is a measurement
+- This sweep, where the skipped work is the whole subject of the workflow.
+- And the falsification ratio itself, which is the strongest member because it is a measurement
   rather than a gate. It counts harnesses, so code carrying no harness is not in its denominator and
   a crate can read 100% falsified while proving nothing about most of itself. Milestone 524 (the
   three x86_64 boot gates) put 338 new lines into `crates/machine_discovery/src/x86_64.rs` on
@@ -180,7 +180,7 @@ this document was being written**; that recurrence, not the `tee`, is the findin
   that parses firmware had no proofs, and three of its first ones were false) lane on
   pull request #1155 closed that one hole and the blind spot is still open. `design/fatal-risks/README.md`'s
   risk 2 is answered by this number.
-- **One found by this document's own pull request**, which is the strongest evidence in it that the
+- One found by this document's own pull request, which is the strongest evidence in it that the
   shape is a habit rather than four coincidences. The workflow that labels a COE for
   calef's attention reported success while applying no label. Its detection step names the
   repository explicitly and worked; its labelling step inferred the repository from a git remote
@@ -190,8 +190,8 @@ this document was being written**; that recurrence, not the `tee`, is the findin
   API call failed. The result is still a green tick over nothing.
 
 The ladder in `AGENTS.md` ranks how hard to make a rule hold. It has nothing to say about a
-mechanism proving it had something to hold. **A gate that reported clean should have to say over how
-many units**, and zero should be loud. That is a rung-two artefact this tree does not have a
+mechanism proving it had something to hold. A gate that reported clean should have to say over how
+many units, and zero should be loud. That is a rung-two artefact this tree does not have a
 convention for, and building one is what the second action item below is.
 
 **And there is a sharper cause than any of the above, which is that this workflow was never once
@@ -200,11 +200,11 @@ was the cron six days later, which refused. No dispatch, no trial run, nothing. 
 shown itself in 35 seconds of somebody's attention instead took three weeks and a lane reading a log
 for another reason.
 
-**This tree already knows the argument, in the one place where it is a ruling.** §134 (a harness
+This tree already knows the argument, in the one place where it is a ruling. §134 (a harness
 carries a machine-replayable falsification record, or it is not evidence) says a Kani proof is not
 evidence until somebody has made it go red on purpose, because a proof that cannot fail proves
-nothing and looks exactly like one that can. **A CI gate is a claim of the same kind, and this tree
-requires nothing of it.** A gate ships green against a tree where its defect is absent, which is
+nothing and looks exactly like one that can. A CI gate is a claim of the same kind, and this tree
+requires nothing of it. A gate ships green against a tree where its defect is absent, which is
 indistinguishable from a gate that cannot fire. That is the fifth why's shape one level out: the gate's
 first green is the "checked nothing" case, and it is the case everybody reads as success.
 

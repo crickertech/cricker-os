@@ -15,7 +15,7 @@
 # `actions/checkout` leaves a `pull_request` job's worktree.
 #
 # Every check is a property that mattered in a real failure, either #1416's (1-3) or one of the
-# ways `ci.yml`'s nine scope-check callers reach this script with an argument #1416 never exercised
+# ways the workflows' scope-check callers reach this script with an argument #1416 never exercised
 # (4-6: an empty base-ref, the shape a `merge_group` or plain `push` event passes):
 #   1. the merge base resolves to the fork point, not the post-fork "main" tip.
 #   2. a diff against that merge base does NOT include the unrelated commit's file (the bug: a

@@ -55,8 +55,8 @@ Every item below is unmeasured and from general knowledge.
 Inventory the syscalls and libc functions a headless Firefox build uses, and diff them against what
 nife's std PAL and libc layer provide.
 
-- **The question it answers:** how large the platform gap is, in counted functions.
-- **What it would decide:** whether the port is one milestone or a program of milestones.
+- The question it answers: how large the platform gap is, in counted functions.
+- What it would decide: whether the port is one milestone or a program of milestones.
 
 Until it is run, nothing here is an estimate.
 

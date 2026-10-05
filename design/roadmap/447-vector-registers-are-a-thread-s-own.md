@@ -93,12 +93,12 @@ meets them rather than only here.
 ### RISC-V does not tell you, so this retries rather than decodes
 
 `sstatus.FS` is the best control register of the three: a four-state machine (Off / Initial / Clean
-/ Dirty) with a **hardware-maintained dirty bit**, designed by people who had context switching in
+/ Dirty) with a hardware-maintained dirty bit, designed by people who had context switching in
 mind. What it does not do is say why an instruction was illegal. An FP instruction under `FS == Off`
 arrives as `scause` 2, exactly like a bad opcode, and `stval` is permitted to be zero for that cause
 and is on some parts.
 
-The handler therefore does not decode the instruction, **it retries it.** `FS == Off` in the frame
+The handler therefore does not decode the instruction, it retries it. `FS == Off` in the frame
 is the whole guard: open the unit, leave `sepc` where it is, and let the `sret` re-execute whatever
 trapped. A genuinely illegal instruction traps a second time with `FS` no longer Off, fails the
 guard, and falls through to the fault it deserved. The cost of being wrong is one extra trap on a
@@ -117,8 +117,8 @@ and that thread's frame carries the same value for the same reason.
 ## What it found: one architecture's boot path does not run `arch::init`
 
 `arch::fp::init` shuts the unit for a core before any thread exists. The obvious home was
-`arch::init`, and that is where it went first. It was green on aarch64 and x86_64 and **silently
-wrong on RISC-V**, and the test that caught it is the one written to catch exactly this.
+`arch::init`, and that is where it went first. It was green on aarch64 and x86_64 and silently
+wrong on RISC-V, and the test that caught it is the one written to catch exactly this.
 
 `main`'s RISC-V tour installs `stvec` by calling `arch::exceptions::init()` directly. It reaches
 `sched::init` and never passes through `arch::init` at all. OpenSBI hands the kernel a hart with
@@ -126,8 +126,8 @@ wrong on RISC-V**, and the test that caught it is the one written to catch exact
 thread, `hand_over` took its early return every time, and two threads shared a register file with
 nothing in the system saying so.
 
-The fix is not a third call site. **The invariant is about threads, so it lives where threads begin
-to exist**: `sched::init` and `sched::adopt_secondary_idle`, both portable, both on the path of
+The fix is not a third call site. The invariant is about threads, so it lives where threads begin
+to exist: `sched::init` and `sched::adopt_secondary_idle`, both portable, both on the path of
 every core that will ever own a thread. That is AGENTS.md's ladder read downward: the rung-four
 version (remember to call it from each architecture's bring-up) is what failed, and the property
 and the mechanism are now in the same function.
@@ -150,24 +150,24 @@ are different bugs with the same symptom.
 | x86_64 | 5356 → 5432 (+1.4%) | 7028 → 7104 (+1.1%) | 1504 → 1504 (0) |
 
 **The first measurement was not that**, and the correction is the useful part. Inlined into
-`schedule`, `hand_over`'s expensive half put riscv64's `ipc_send_recv` **7.5% over** the 5% bound
+`schedule`, `hand_over`'s expensive half put riscv64's `ipc_send_recv` 7.5% over the 5% bound
 and `ipc_call_reply` 5.8% over, for code that no thread in this tree executes. The gate measures the
-transitive closure of **non-cold** calls, because Liedtke's argument is about what a round trip
+transitive closure of non-cold calls, because Liedtke's argument is about what a round trip
 evicts from L1i, and five hundred bytes of register-file machinery that no IPC runs evicts nothing.
 So the half that touches registers is `#[cold]` and out of line, and so is `enable_for_current`.
 
 `#[cold]` here is a claim about this tree rather than a hint about taste, and it is checkable:
-`crate::fp::ENABLES` counts the threads that have ever asked for the unit and is **zero on every
-shipping boot**. `enable_for_current` being cold matters a second time on RISC-V, where it is called
-from `riscv_trap_body`, one of the symbols this gate measures **flat**: the trap decoder's bytes are
+`crate::fp::ENABLES` counts the threads that have ever asked for the unit and is zero on every
+shipping boot. `enable_for_current` being cold matters a second time on RISC-V, where it is called
+from `riscv_trap_body`, one of the symbols this gate measures flat: the trap decoder's bytes are
 on every `ecall`, so an arm that inlined a register-file load there would be charged to every
 syscall this kernel serves. That is the +2.5% row above, and it is the decoder's own compare and
 branch.
 
 ### The benchmarks: the switch costs one to three percent more instructions
 
-`script/bench`, deterministic icount, against the committed baselines. **Re-recorded in the commit
-that moved them**, per `bench/baseline-*.txt`'s own header.
+`script/bench`, deterministic icount, against the committed baselines. Re-recorded in the commit
+that moved them, per `bench/baseline-*.txt`'s own header.
 
 | | aarch64 | riscv64 | x86_64 |
 |---|---|---|---|
@@ -181,10 +181,10 @@ that moved them**, per `bench/baseline-*.txt`'s own header.
 
 Every figure is inside the 10% tripwire. Read the table as two facts rather than one:
 
-- **A context switch costs about seventeen more instructions on aarch64** (550.6 → 567.4 per
+- A context switch costs about seventeen more instructions on aarch64 (550.6 → 567.4 per
   `yield_switch` iteration) and about 1.9 on riscv64. That is `hand_over`'s two loads and branch,
   plus the two `fp_state_of` offsets `schedule` computes under the lock.
-- **`spawn_reap` went the other way when the register file moved out of `Thread`**: 215841 with the
+- `spawn_reap` went the other way when the register file moved out of `Thread`: 215841 with the
   field inline, 214922 with it in the page. Spawning copies a `Thread` and a smaller struct is a
   smaller copy, so the shape the stack gate forced is also the cheaper one to spawn. Still +2.2%
   against `main`, because the initial write of the register file is real work a spawn did not do
@@ -201,11 +201,11 @@ lives is on the syscall path.
 
 ### The memory: none, and that is not a rounding of 544 down
 
-**The register file costs no memory at all.** A `Thread` is always constructed at the start of a
+The register file costs no memory at all. A `Thread` is always constructed at the start of a
 whole 4096-byte TCB page it exclusively owns: `Threads::insert_at` and `insert_at_in_place` both
 take `phys_to_virt(page) as *mut Thread`, and every route into the table goes through one of the
-two. `size_of::<Thread>()` is 1152, so **2,944 bytes of that page were already allocated and
-idle**, and the register file (544 on aarch64, 528 on x86_64, 272 on riscv64) goes there.
+two. `size_of::<Thread>()` is 1152, so 2,944 bytes of that page were already allocated and
+idle, and the register file (544 on aarch64, 528 on x86_64, 272 on riscv64) goes there.
 
 `thread::fp_state_of` is the accessor, and one line is the whole of the mechanism that keeps the
 fit true:
@@ -227,7 +227,7 @@ well, so nothing was paid for the move.
 
 ### What the gate caught: a struct that gets copied through a caller's frame
 
-**The first shape put `FpState` inline in `Thread`, and `script/stack-frame-check` failed it.** Not
+The first shape put `FpState` inline in `Thread`, and `script/stack-frame-check` failed it. Not
 a flake and not a tuning problem: the gate exists because a frame larger than the 4096-byte guard
 page can move `sp` from inside a stack to below the guard in one step, touching nothing in between,
 so the guard never faults and the write lands in the neighbouring thread's stack.
@@ -238,7 +238,7 @@ so the guard never faults and the write lands in the neighbouring thread's stack
 | `spawn_into::<fs_service::spawn_fs_server>` | 3536 | 4656 | 3536 |
 | `Thread::spawn::<sched::init>` | 3504 | 5152 | 3504 |
 
-**The delta is 1120 for a 544-byte field, which is the finding.** An unoptimised build materialises
+The delta is 1120 for a 544-byte field, which is the finding. An unoptimised build materialises
 the `Thread` value and then copies it, so a byte added to the struct costs two bytes of frame.
 `Thread::spawn` wraps `spawn_into` and paid 1648, half again as much, because the value passes
 through one more frame on the way. Milestone 124 (a thread is born where it
@@ -247,7 +247,7 @@ lives: the spawn path's copies) is the block that already measured this shape, t
 stopped one hop short of removing the last temporary. 447 spent that remaining headroom in one
 field.
 
-**Building the `Thread` in place, field by field, was priced and refused**; it is the `## Follow-on`
+Building the `Thread` in place, field by field, was priced and refused; it is the `## Follow-on`
 entry. It would fix the rest of the 3552 as well as this milestone's 1120, and it converts a
 struct literal the compiler checks for completeness into twenty-five raw writes it does not. That
 is the wrong direction on `AGENTS.md`'s ladder, in a lane about floating point, on the spawn path.
@@ -281,7 +281,7 @@ on.
 
 Five `#[test_case]`s in `kernel/src/fp.rs`, running on all three architectures.
 
-- **`two_threads_doing_vector_work_do_not_see_each_others_registers`** is the milestone. Two threads
+- `two_threads_doing_vector_work_do_not_see_each_others_registers` is the milestone. Two threads
   fill the whole register file with distinct patterns, yield two hundred times each, and check their
   own values after every turn. They are placed with `spawn_on(cpu::id(), ..)` and **not** with
   `spawn`, because §28 (SMP placement: two random choices at spawn) and its "spawn placement: the
@@ -290,20 +290,20 @@ Five `#[test_case]`s in `kernel/src/fp.rs`, running on all three architectures.
   this thread (which never touches FP) between them, so the scrub-and-disable arm runs between
   every pair of turns as well.
 
-  **Falsified on purpose**: with `save` removed from `hand_over` and nothing else changed, it fails
+  Falsified on purpose: with `save` removed from `hand_over` and nothing else changed, it fails
   with "a thread found another thread's values in its own vector registers". Run on aarch64 before
   the other two architectures existed.
-- **`a_thread_with_no_vector_state_finds_the_registers_scrubbed`** drives the fourth row directly.
+- `a_thread_with_no_vector_state_finds_the_registers_scrubbed` drives the fourth row directly.
   Two threads both using FP catch a missing *save* loudly; a thread that stops using FP while its
-  values sit in a file nobody scrubs fails **silently, forever**, and is what CVE-2018-3665 was. It
+  values sit in a file nobody scrubs fails silently, forever, and is what CVE-2018-3665 was. It
   reads the hardware back through a helper that deliberately does not go through the enable trap,
   because that trap installs the initial state itself and would prove nothing.
-- **`the_whole_register_file_survives_a_save_and_a_restore`** checks every register by name. A save
+- `the_whole_register_file_survives_a_save_and_a_restore` checks every register by name. A save
   that copies the right bytes to the wrong lane passes the concurrency test whenever both threads
   are preempted at matching offsets; the per-register pattern fails here.
-- **`the_first_floating_point_instruction_takes_a_trap`** is above: it is why the RISC-V bug was
+- `the_first_floating_point_instruction_takes_a_trap` is above: it is why the RISC-V bug was
   found rather than shipped.
-- **`two_threads_that_never_used_the_unit_leave_it_shut`** asserts the case every switch in this
+- `two_threads_that_never_used_the_unit_leave_it_shut` asserts the case every switch in this
   tree actually takes. If it stopped being true the cost would be a kilobyte of memory traffic per
   switch and the only symptom would be a slower benchmark.
 
@@ -316,58 +316,58 @@ thing that changes if the flip below is taken.
 
 ## What this does NOT do: the target flip is not taken
 
-**No target JSON is changed and no force-soft flag is removed.** Turning `+soft-float` off changes
+No target JSON is changed and no force-soft flag is removed. Turning `+soft-float` off changes
 the calling convention for every userspace binary and every `std` crate built against it, which is
 an ABI two programs agree on, which AGENTS.md's *move fast on what can be undone* tenet puts in the
 irreversible category, and which §22 (Rust `std` on the native ABI, the Hermit way)
 chose deliberately when it specified nife's target JSON as "softfloat, and `singlethread = true`".
 
-This milestone makes that flip **possible**. It is an architect's to make, and the point of the
+This milestone makes that flip possible. It is an architect's to make, and the point of the
 section below is that it can now be made on evidence.
 
 ### The proposal
 
-**What it would take.** Four edits and a rebuild. Drop `+soft-float` and the `-sse`/`-neon` feature
+What it would take. Four edits and a rebuild. Drop `+soft-float` and the `-sse`/`-neon` feature
 strings from the three files in `targets/`, drop `"rustc-abi": "softfloat"` from the two that carry
 it, rebuild the `std` farm (`xtask std-src`, which every lane already takes the `nife-dev` toolchain
 link for), and rebuild every user program. Nothing in the kernel changes: it stays `softfloat`, and
 should, because a kernel that emits FP into its own fastpath would pay the save on every switch
 rather than on the switches of threads that asked.
 
-**What it would buy.** Less than the framing suggests, and the honest accounting is worth having
+What it would buy. Less than the framing suggests, and the honest accounting is worth having
 before the decision rather than after:
 
-- **`aes_force_soft` could go**, and it is currently the *only* force-soft flag in this tree. 164's
+- `aes_force_soft` could go, and it is currently the *only* force-soft flag in this tree. 164's
   block and the brief for this milestone both suggest a family of them; there is one, in
   `.cargo/config.toml`'s `[target.x86_64-unknown-none]` block, and `grep` finds no other. Worth
   saying plainly because the flip's case is weaker than "six flags disappear".
-- **AES-NI against the bitsliced software backend.** Upstream RustCrypto puts the hardware path
+- AES-NI against the bitsliced software backend. Upstream RustCrypto puts the hardware path
   roughly an order of magnitude ahead. 164 refused to measure this and was right to: nothing on
   x86_64 mounts an encrypted RedoxFS volume, so there is no workload and a synthetic number would
-  be a fact leaving the machine with nothing behind it. **That refusal still stands after this
-  milestone.** What changed is that the number is now *obtainable* rather than blocked.
-- **The second failure class of milestone 442 (a crypto provider `rustls` can use on all three
-  bare-metal targets).**
+  be a fact leaving the machine with nothing behind it. That refusal still stands after this
+  milestone. What changed is that the number is now *obtainable* rather than blocked.
+- The second failure class of milestone 442 (a crypto provider `rustls` can use on all three
+  bare-metal targets).
   Its block records that `sha2` and `polyval` "fail on soft-float x86_64", met through
   `embedded-tls`, and immediately warns that the probe behind that finding "ran against stock bare
   targets on the stable host toolchain, not against nife's own target specifications". 442 is
   NOT-STARTED and owes that re-measurement. **It should be run before the flip, not after**, because
   if those crates build against nife's targets on the pinned nightly then this half of the case
   evaporates, and if they do not, 442 has the specific list the flip would have to fix.
-- **§31's seam widens.** A C component
+- §31's seam widens. A C component
   compiled by bare-metal clang currently cannot use vector registers at all. After the flip it can,
   and §31's sentence about "a trap or a corruption depending on which of those two bit first" stops
   being true, which is a real gain for the vendored-component rung the seam exists to de-risk.
 
-**What it would cost.** Every thread that then executes an FP instruction takes one trap and pays
+What it would cost. Every thread that then executes an FP instruction takes one trap and pays
 512 bytes of save and restore on every subsequent switch for the rest of its life, because `live`
 never clears (this is `crate::fp`'s first `BUGS` entry). Soft-float userspace pays nothing today
 because nothing takes the trap; hard-float userspace means `memcpy`, `std` formatting and anything
-LLVM feels like vectorising will take it, so **most threads become live, and the common case in the
-table above stops being the common case.** Nothing in this tree measures that, and the measurement
+LLVM feels like vectorising will take it, so most threads become live, and the common case in the
+table above stops being the common case. Nothing in this tree measures that, and the measurement
 does not exist until there is a hard-float userspace to run.
 
-**What would have to be rebuilt.** The `std` farm at minimum, and therefore every user program and
+What would have to be rebuilt. The `std` farm at minimum, and therefore every user program and
 every archive; `nife-dev` is one symlink per user account, so the rebuild is machine-global and has
 to be sequenced against other lanes (AGENTS.md's `std_src` rule, and notes/std.md's 2026-08-18
 cross-contamination).
@@ -383,25 +383,25 @@ are measurements rather than arguments, and neither needs this decision made fir
   hardware and this does not use it: a uniform rule across three ISAs was judged worth more than one
   ISA's optimisation while no workload exists to measure the difference on. Recorded in
   `kernel/src/fp.rs` and in `arch/riscv64/fp.rs`, which has the four-state table it declines to use.
-- **x86_64 uses `fxsave`, not `xsave`.** A thread using **AVX** would have `ymm` upper halves this
+- **x86_64 uses `fxsave`, not `xsave`.** A thread using AVX would have `ymm` upper halves this
   does not move. Safe only because `CR4.OSXSAVE` is clear, so every VEX-encoded instruction raises
-  `#UD` and no thread can get into that state. **The day this kernel sets `XCR0`,
-  `arch/x86_64/fp.rs` has to grow an `xsave` path with it, and nothing enforces that coupling**; it
+  `#UD` and no thread can get into that state. The day this kernel sets `XCR0`,
+  `arch/x86_64/fp.rs` has to grow an `xsave` path with it, and nothing enforces that coupling; it
   is stated in that file's `BUGS` where the next reader meets it. `xsave`'s init optimisation
   (skipping components in their initial configuration) is left on the table with it.
 - **aarch64 does not disable SVE or SME.** `CPACR_EL1.ZEN` and `SMEN` are left at their reset
   values, which on every machine this kernel has run on means trapped. A part that reset them open
   would let a thread keep vector state this file does not move. Nothing in this tree emits SVE and
   the check belongs with `arch::isa`'s feature reading; recorded, not built.
-- **A RISC-V hart without the D extension refuses rather than loops**, and nothing tests it.
+- A RISC-V hart without the D extension refuses rather than loops, and nothing tests it.
   `sstatus.FS` is hardwired to zero on such a part, so the enable does not take, `is_enabled` says
   so, and the first-use trap becomes an ordinary fault. Every machine in this tree's matrix
-  (`qemu-system-riscv64 -cpu rv64`, the JH7110's U74) has D. **F without D is worse**: 32-bit
+  (`qemu-system-riscv64 -cpu rv64`, the JH7110's U74) has D. F without D is worse: 32-bit
   registers where `fp.s` writes 64, so the save would be wrong rather than refused.
-- **A migrating thread carries its register file through memory**, saved on the core it leaves and
+- A migrating thread carries its register file through memory, saved on the core it leaves and
   restored on the core it arrives at. Correct, and a kilobyte of traffic a same-core switch does not
   pay. Nothing measures it.
-- **This is proved under QEMU only.** No board has run it. The one line most likely to be wrong on
+- This is proved under QEMU only. No board has run it. The one line most likely to be wrong on
   silicon is the one QEMU cannot falsify: `arch::fp::init` writes `CPACR_EL1` to a value QEMU's
   reset already supplies, so on the emulator it could be deleted without a test noticing, and the
   architecture says the reset value is UNKNOWN.
@@ -413,8 +413,8 @@ are measurements rather than arguments, and neither needs this decision made fir
   would take, buy and cost, and the two measurements that should come before it. Written up rather
   than recommended, because it is an ABI two programs agree on and §22 chose the current one
   deliberately; the *fork reaches calef with its questions already answered* tenet asks for options
-  and costs on an irreversible fork and explicitly not for a winner. **A `design/decisions/` section
-  is owed when calef rules on it**; this lane does not write one, per its brief.
+  and costs on an irreversible fork and explicitly not for a winner. A `design/decisions/` section
+  is owed when calef rules on it; this lane does not write one, per its brief.
 - **Milestone 534.** First on that same file's list, in
   `design/roadmap/534-the-soft-float-targets-could-now-be-flipped.md`: re-measure milestone
   442's soft-float x86_64 failures against nife's own target specifications on the pinned nightly,
@@ -433,7 +433,7 @@ are measurements rather than arguments, and neither needs this decision made fir
   ladder ranks highest: a struct literal is checked for completeness by the compiler and
   twenty-five `addr_of_mut!` writes are not, and a forgotten field is uninitialised memory in a TCB
   with nothing to catch it. 124 stopped one hop short of this for the same reason. It is the right
-  next move **if** the frame ever needs more headroom, and it was not needed here: the register
+  next move if the frame ever needs more headroom, and it was not needed here: the register
   file moved out of the struct instead and the numbers went back to 124's exactly.
 - **Refused.** Growing `Context` so that `switch_to` saves the register file with the callee-saved
   set. It looks tidier and keeps `thread.rs`'s line that a thread's whole saved state is one stack
@@ -452,7 +452,7 @@ are measurements rather than arguments, and neither needs this decision made fir
 ## Index row
 
 Milestone 164's refused Route 2, reopened by calef. The kernel saved no FP or vector state anywhere,
-which is why every target in `targets/` is soft-float as **a correctness requirement** rather than a
+which is why every target in `targets/` is soft-float as a correctness requirement rather than a
 preference; it now saves the whole register file across a context switch on all three architectures,
 under one rule: the file holds the running thread's data or the initial state, never a stranger's.
 Eager and not lazy, because the trap this uses on x86 is `CR0.TS` and deferring the restore behind

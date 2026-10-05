@@ -10,10 +10,10 @@ needs_person: no
 # 340. `script/image-permissions` reports and does not gate, because it is not in the ruleset
 
 Filed 2026-09-03 as an unnumbered proposal by the milestone 247 sweep,
-from milestone 208's block; numbered 2026-09-19 by milestone 433. **Premise re-checked 2026-09-19 and
-it holds.** `script/image-permissions` is a `local` row in `script/ci-build`'s table and has a job of
+from milestone 208's block; numbered 2026-09-19 by milestone 433. Premise re-checked 2026-09-19 and
+it holds. `script/image-permissions` is a `local` row in `script/ci-build`'s table and has a job of
 its own in `.github/workflows/ci.yml`, and `notes/check-inventory.md`'s row for it still answers
-**no** under required. So it still reports and does not gate, and the one checkbox is still
+no under required. So it still reports and does not gate, and the one checkbox is still
 unflipped.
 
 The decision is [§97](../decisions/97-advisory-checks.md), which this block
@@ -36,7 +36,7 @@ date, and it is the seventh. What §97 did **not** decide is this check by name,
 an ask; what it did decide is that the arrangement is wrong and that a fix wants one visit to one
 page. A reader who wants the argument should read §97 and not this paragraph.
 
-**In brief.** Milestone 208 built `script/image-permissions`, which refuses a kernel image carrying
+In brief. Milestone 208 built `script/image-permissions`, which refuses a kernel image carrying
 a writable-and-executable `PT_LOAD`. It runs in CI and its result is visible. It is not on the list
 of checks the merge queue requires, so a red run merges anyway.
 

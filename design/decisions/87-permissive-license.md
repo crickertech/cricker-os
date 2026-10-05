@@ -44,10 +44,10 @@ maintenance, the velocity, and the documentation culture, stay wherever the meth
 
 ## The costs, accepted with eyes open
 
-- **The Sun scenario is allowed.** A fork can take improvements out of the commons and
+- The Sun scenario is allowed. A fork can take improvements out of the commons and
   contribute nothing back. Accepted because there is no commons to drain yet, and the
   mitigation is the one that always worked: be the upstream worth staying close to.
-- **This is the most irreversible decision on the books.** Relicensing requires the consent of
+- This is the most irreversible decision on the books. Relicensing requires the consent of
   every contributor whose work survives in the tree, so the practical cost of changing course
   grows with every outside contribution. That is exactly the "who else has already acted on
   this" category, and it is why this entry exists: the reasoning should be findable when
@@ -55,11 +55,11 @@ maintenance, the velocity, and the documentation culture, stay wherever the meth
 
 ## What was not chosen
 
-- **GPLv2/v3**: the friction argument above, plus kernel-specific evidence (seL4) that copyleft
+- GPLv2/v3: the friction argument above, plus kernel-specific evidence (seL4) that copyleft
   costs adoption in exactly the embedded and vendor contexts a microkernel courts.
-- **MPL-2.0 and other file-level copyleft**: a middle ground with the legal-review burden of
+- MPL-2.0 and other file-level copyleft: a middle ground with the legal-review burden of
   copyleft and the drain-resistance of neither camp; nothing in the reference set uses it.
-- **A single license rather than the dual grant**: MIT alone lacks the patent grant; Apache
+- A single license rather than the dual grant: MIT alone lacks the patent grant; Apache
   alone is incompatible with GPLv2 consumers and heavier than small-crate reuse wants. The dual
   grant is the ecosystem's solved problem, and inventing differently here would cost readers
   the recognition the naming tenet already values.

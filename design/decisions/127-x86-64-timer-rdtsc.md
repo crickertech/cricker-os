@@ -31,8 +31,8 @@ or the disagreement is visible rather than silently trusted. `now()` is a bare `
 fence: the 10ms calibration window is coarse enough that reordering noise does not matter at the
 call site.
 
-**The `cntfrq()` contract, matching the other two architectures' own shape rather than inventing
-one**: aarch64 and riscv64 both answer it as an ambient, no-syscall read (a system register on
+The `cntfrq()` contract, matching the other two architectures' own shape rather than inventing
+one: aarch64 and riscv64 both answer it as an ambient, no-syscall read (a system register on
 aarch64; a hardcoded QEMU constant on riscv64, whose own doc comment already predicts its eventual
 real-hardware answer is "an aux-vector entry, the way Linux passes `AT_HWCAP`", since real riscv64
 silicon has no register either). x86_64's answer, a kernel-computed frequency delivered to
@@ -47,10 +47,10 @@ riscv64's own comment already named where this was going.
   Correctly deferred to real-hardware bring-up rather than blocking the QEMU-only path this
   project runs under today (TCG, per this tree's own `.qemu-version` pin; no KVM/HVF on the dev
   machine per AGENTS.md's environment notes).
-- **Calibration precision**, also self-documented rather than glossed: "a single 10ms window on a
+- Calibration precision, also self-documented rather than glossed: "a single 10ms window on a
   busy host under TCG can be off by a per cent or so." Named where the reader meets it, not a
   blocker.
-- **Prior art.** Linux's `arch/x86/kernel/tsc.c` calibrates the TSC against the PIT (or HPET, or
+- Prior art. Linux's `arch/x86/kernel/tsc.c` calibrates the TSC against the PIT (or HPET, or
   the ACPI PM timer, with the PIT as the universal fallback when neither is available) in the same
   shape. PIT-calibrated invariant TSC is the standard answer to this problem, not an idiosyncratic
   choice.

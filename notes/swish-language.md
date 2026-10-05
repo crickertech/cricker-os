@@ -11,8 +11,8 @@ milestone adds the three things that were missing and settles the one design for
 - **Quoting.** `'...'` and `"..."`, which decide what a *word* is, and in this shell a word is often
   the thing you are handing over.
 - **Sequencing.** `;`, `&&` and `||`, outside everything else on the line.
-- **Exit status.** `$?`, and the decision about what a status means **when the thing that failed was
-  a refusal rather than an error**.
+- Exit status. `$?`, and the decision about what a status means when the thing that failed was
+  a refusal rather than an error.
 
 Two rows of the roadmap's table were already done when this was written: `>>` and `2>` landed with
 milestone 50's later work on 2026-08-03. See notes/pipes.md.
@@ -41,7 +41,7 @@ written to a file called `"my`, and `wc` would have been handed two unplaceable 
 
 This is the decision the whole design turns on, and it is forced by something real.
 
-Every token in this shell is a **slice of the line you typed**. Nothing is copied and nothing is
+Every token in this shell is a slice of the line you typed. Nothing is copied and nothing is
 reassembled, which is what lets a shell with no allocator hand a name straight to the grant planner,
 and it is why `line::split` can keep a stage's command text as a slice rather than rebuilding it. A
 backslash escape would have to *remove* a byte from the middle of a word, and a word with a byte
@@ -55,20 +55,20 @@ removed is not a slice of anything. So:
 | `'it''s'` | the same refusal. Write it `"it's"` |
 | `'unclosed` | `Refusal::UnclosedQuote`, and the whole line is refused |
 
-What that buys is worth the corners it costs: **what is between the quotes is exactly what is
-designated, byte for byte.** There is no rewriting step between what you typed and what moves, so a
+What that buys is worth the corners it costs: what is between the quotes is exactly what is
+designated, byte for byte. There is no rewriting step between what you typed and what moves, so a
 preview and a grant cannot come to disagree about what a name is.
 
 ### What quoting does and does not change about authority
 
-It changes **what is designated**, and that is the whole list:
+It changes what is designated, and that is the whole list:
 
 - It changes a word's boundaries, so a name with a space, a `>` or a `|` in it can be named at all.
   That is new authority only in the sense that a resource you could not name was a resource you
   could not grant.
-- It **suppresses pattern expansion**, which is a *narrowing*. `rm "*.txt"` designates one name
+- It suppresses pattern expansion, which is a *narrowing*. `rm "*.txt"` designates one name
   spelled `*.txt`; `rm *.txt` designates the set.
-- It **stops a token being an option**, which is the sharpest edge here. `rm "-r"` names a file
+- It stops a token being an option, which is the sharpest edge here. `rm "-r"` names a file
   called `-r`. Reading it as the flag that widens a directory grant from "may take a name out of
   this directory" to "may walk everything under it" would be the loudest possible version of a typo
   becoming a capability transfer.
@@ -117,13 +117,13 @@ what lets one place refuse `a"b"` for every scanner: the tokenizer's job is wher
 
 ## Sequencing splits outermost, and that is a decision
 
-`caps`, `time` and `xargs` are prefix words whose operand is **a whole command line**, which is why
+`caps`, `time` and `xargs` are prefix words whose operand is a whole command line, which is why
 `swish::route` answers them before the line is split on `|`. Sequencing has the opposite need:
 `time a && b` must time `a` and then run `b`, not hand `time` the string `a && b`.
 
 So the split is outside everything: `dispatch_line` cuts the line into segments and hands each to
-`dispatch`, which is the function every path in the shell already went through. **A segment is a
-whole command line and nothing under it learned a new grammar.** It is also bash's binding, where a
+`dispatch`, which is the function every path in the shell already went through. A segment is a
+whole command line and nothing under it learned a new grammar. It is also bash's binding, where a
 connector joins pipelines and `time` applies to one pipeline.
 
 ```text
@@ -136,8 +136,8 @@ segment   := <a whole command line: stages, operators, prefix words>
 
 This is where a shell usually leaks. On Unix a `&&` chain runs inside one process holding one
 ambient authority, so "what the second command may touch" is a question the connector never has to
-answer. Here it does, and the answer is that **each segment is planned from scratch against what the
-shell holds**, exactly as if it had been typed alone.
+answer. Here it does, and the answer is that each segment is planned from scratch against what the
+shell holds, exactly as if it had been typed alone.
 
 The concrete thing that could have gone wrong is the pipeline region. Each line splits a region off
 the shell's budget, mints its endpoints in it, and `DESTROY`s it when the line is over, and that
@@ -151,10 +151,10 @@ inside it.
 
 ### Two things that are deliberately not connectors
 
-**A single `|` is the pipe.** Only the doubled form is a connector, and getting that wrong would
+A single `|` is the pipe. Only the doubled form is a connector, and getting that wrong would
 turn every pipeline in the system into two commands.
 
-**A single `&` is an ordinary byte**, so `date &` runs `date` with a word `&` on the line. Job
+A single `&` is an ordinary byte, so `date &` runs `date` with a word `&` on the line. Job
 control is milestone 48's, and this module reads only the doubled form so that milestone can give
 `&` a meaning without one having been taken away first.
 
@@ -162,7 +162,7 @@ control is milestone 48's, and this module reads only the doubled form so that m
 
 This is the fork the milestone was raised to settle.
 
-**Unix cannot draw the line.** `127` (no such command) and a program's own `exit(1)` are the same
+Unix cannot draw the line. `127` (no such command) and a program's own `exit(1)` are the same
 kind of integer there, and `&&` cannot tell them apart because the shell has nothing better to say.
 Here the two are genuinely different events and the shell knows which:
 
@@ -190,15 +190,15 @@ $ echo $?
 2
 ```
 
-`&&` and `||` read **one bit** out of it, because they ask one question and both non-zero answers
+`&&` and `||` read one bit out of it, because they ask one question and both non-zero answers
 are "no". A third connector that distinguished them would be inventing a control-flow word nobody
 has asked for; the distinction stays where a person can see it, in `$?`.
 
 ### What the status is *not*, stated because the gap is real
 
-**No program in this system reports an exit status**, and `$?` does not pretend one did. A spawned
+No program in this system reports an exit status, and `$?` does not pretend one did. A spawned
 program answers with a *value* (`least_authority_demo 7` answers 49), with bytes, or through a job frame, and none
-of those is a status. So `$?` is the **shell's own reading of what happened to the line**, which
+of those is a status. So `$?` is the shell's own reading of what happened to the line, which
 today is all there is.
 
 Inventing a per-program status would mean a `spawnproto` bit, a delegation position, and an edit to
@@ -232,8 +232,8 @@ segment has to read the previous segment's answer *while* accumulating its own: 
 is exactly the case one cell could not serve.
 
 `CURRENT` was an `AtomicBool` called `TROUBLE` until this milestone, set by whichever printer had bad
-news and read by `xargs` to stop a sweep. **Widening it from a bit to a status is the whole of what
-`$?` needed**: the shell already knew that something had gone wrong, and what it did not record was
+news and read by `xargs` to stop a sweep. Widening it from a bit to a status is the whole of what
+`$?` needed: the shell already knew that something had gone wrong, and what it did not record was
 which kind. `xargs` now reads it the same way `&&` does.
 
 ## EXAMPLES
@@ -280,13 +280,13 @@ the same script rather than by a second implementation.
 
 ## What the guest test proves, on both ISAs
 
-`kernel::user::language_tests` reads the tail of the **same run of the same script**
+`kernel::user::language_tests` reads the tail of the same run of the same script
 `redirection_tests` reads: the real shell binary with a terminal, a spawn channel, a result channel,
 a budget, and a directory narrowed by an `fs_subtree_caretaker` to one subtree of the real RedoxFS
 image. Both halves of the milestone need that wiring: a quoted name is only worth something if it
 reaches a filesystem, and a `&&` needs a command that can succeed.
 
-**It shares the witness rather than wiring its own, and that is a memory finding worth keeping.**
+It shares the witness rather than wiring its own, and that is a memory finding worth keeping.
 The first version had a seventh role, `ROLE_LANGUAGE`, with the identical endowment. Every scripted
 shell in this suite is a live process whose frames nothing reclaims, and the seventh one put
 `time_tests` over the frame pool *intermittently*: two consecutive runs of unchanged code, one green
@@ -313,27 +313,27 @@ line proving "it printed something" would pass on a shell that ignored quoting e
 
 ## BUGS, named where the reader meets them
 
-- **No backslash escape, and none is planned while tokens are slices.** `my\ notes.txt` is a file
+- No backslash escape, and none is planned while tokens are slices. `my\ notes.txt` is a file
   whose name contains a backslash, and `nav::component_fits` refuses that byte, so the line is
   refused rather than misread. The quoted spelling is the one that works.
 - **Adjacent pieces are not joined.** `a"b"` is `Refusal::PartlyQuoted` where POSIX reads `ab`, and
   `'it''s'` is the same where POSIX joins three pieces. Both are refused by name rather than
   silently misread, and `"it's"` is the spelling that works.
-- **`"$?"` prints `$?`**, because both quote forms are literal today. When variables arrive the two
+- `"$?"` prints `$?`, because both quote forms are literal today. When variables arrive the two
   forms have to stop being the same thing, and that decision belongs with them.
-- **`$?` is readable only in `echo`.** `least_authority_demo $?` treats the two characters as an argument and is
+- `$?` is readable only in `echo`. `least_authority_demo $?` treats the two characters as an argument and is
   refused for not being an integer. Substituting a word anywhere else needs the machinery milestone
   47's variables need anyway, and building half of it here would be building it twice.
-- **There is no grouping.** `a && b || c` is left to right with no precedence between `&&` and `||`,
+- There is no grouping. `a && b || c` is left to right with no precedence between `&&` and `||`,
   which is bash's rule, and there is no `{ }` or `( )` to override it. Subshells are milestone 52's
   and grouping should arrive with them.
-- **`time a && b` times only `a`.** That is the outermost-split binding and it matches bash, but a
+- `time a && b` times only `a`. That is the outermost-split binding and it matches bash, but a
   person who wanted the chain timed has no spelling for it until grouping exists.
-- **A single `&` runs nothing in the background.** It is an ordinary byte on the line. Job control is
+- A single `&` runs nothing in the background. It is an ordinary byte on the line. Job control is
   milestone 48's.
-- **A sequence is at most eight commands and a pipeline at most four stages.** Past either the line
+- A sequence is at most eight commands and a pipeline at most four stages. Past either the line
   is refused rather than truncated, which is the same posture `line::MAX_STAGES` already took.
-- **`xargs <program>` still stops after planning batch one**, unchanged by this milestone: the shell
+- `xargs <program>` still stops after planning batch one, unchanged by this milestone: the shell
   cannot yet ask the progenitor to mint a per-batch caretaker, which is milestone 47's delegation chain. A
   sweep that stops is a segment that did not succeed, so `xargs rm *.txt && echo done` will not print
   `done`, which is the right answer for the wrong reason.
@@ -346,7 +346,7 @@ line proving "it printed something" would pass on a shell that ignored quoting e
   what stopped the line and a later printer describing a consequence should not overwrite the cause.
   Nothing in this system reports a per-stage status anyway, so the two rules cannot yet disagree
   about anything a person could observe.
-- **Scripting is still nowhere.** `if`, `while`, `for`, functions, and reading a script file are not
+- Scripting is still nowhere. `if`, `while`, `for`, functions, and reading a script file are not
   here and were never in scope: this project has no story yet for what a script *is* when a program
   namespace is an endowment. Doing quoting and sequencing first is what makes that question
   answerable rather than theoretical.

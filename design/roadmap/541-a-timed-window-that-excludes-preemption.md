@@ -8,7 +8,7 @@ promoted_from: map-new-times-a-window-too-short-to-mean-anything
 
 *(Number provisional until the merge queue lands it.)*
 
-**Promoted from a proposal on calef's instruction of 2026-09-21**, which was to promote the
+Promoted from a proposal on calef's instruction of 2026-09-21, which was to promote the
 `map_new` proposal and launch a lane on it. It was written the same day as
 `design/roadmap/proposals/map-new-times-a-window-too-short-to-mean-anything.md` by the lane
 attributing the x86_64 `map_new` regression (`mapnew/attribute-the-x86-map-new-regression`, pull
@@ -29,10 +29,10 @@ between them. The marginal cost of one map is 2,726 ticks in both. So `map_new` 
 quarter-sized regression in a path that had not changed, and the 10% tripwire fired or did not
 depending only on how many iterations the row happens to run.
 
-**What the window actually is, which the proposal did not have.** `map_new` is roughly **250
-microseconds of guest time on every architecture** (15,870 ticks at 62.5 MHz on aarch64, 2,410 at
-10 MHz on riscv64, 180,537 TSC ticks on x86_64), against a scheduler tick period of **10 ms**
-(`arch::timer::TICK_HZ` is 100 on all three). **The window is about 2.5% of a tick period**, so
+**What the window actually is, which the proposal did not have.** `map_new` is roughly 250
+microseconds of guest time on every architecture (15,870 ticks at 62.5 MHz on aarch64, 2,410 at
+10 MHz on riscv64, 180,537 TSC ticks on x86_64), against a scheduler tick period of 10 ms
+(`arch::timer::TICK_HZ` is 100 on all three). The window is about 2.5% of a tick period, so
 whether a timer interrupt lands inside it is a one-in-forty coin flip on the phase the boot left
 the timer in, and that phase moves when any unrelated kernel code changes size. x86_64 is not
 fragile where the other two are sound; it is where the coin came up heads.
@@ -50,7 +50,7 @@ measurement is the same perturbation applied to both builds:
 | before, x86_64 | 180,604 | 228,356 | **47,752** |
 | after, x86_64 | 180,537 | 180,537 | **0** |
 
-The row is now **byte-identical across the perturbation that used to move it by a quarter**, and
+The row is now byte-identical across the perturbation that used to move it by a quarter, and
 the 67-tick difference from the old baseline is the mask instruction pair, not the map path.
 
 **The `-icount` caveat, stated rather than skipped, because it is a real trade.** All vCPUs share
@@ -70,27 +70,27 @@ starving the scheduler would be worse than the defect.
 
 ## Why the other two lost, and one of them lost to a measurement the proposal did not have
 
-**Option 2, raise `MAP_ITERS` so the lump is small against the window.** It loses because
+Option 2, raise `MAP_ITERS` so the lump is small against the window. It loses because
 **the lump is not a constant, so the dilution factor is not predictable.** The proposal's table
 showed the same 47,752 at 64 and at 192 iterations and read it as a fixed quantity, but that is
-one preemption measured twice; at 4,096 iterations the identical event cost **6,670** ticks on
+one preemption measured twice; at 4,096 iterations the identical event cost 6,670 ticks on
 x86_64, a factor of seven less. The cost of an in-window preemption is bounded below by the trap
 and switch and above by however much of a quantum another runnable thread takes, so raising the
 iteration count buys an unknown number of somethings rather than a smaller fraction of one known
 thing. It is also the option that hides the noise instead of removing it, and it costs run time in
 proportion: 4,096 iterations is a 62-fold longer window on a row that CI runs on every push.
 
-**Option 3, report the marginal cost `(ticks(2n) - ticks(n)) / n`.** It was the most attractive of
-the two, because 2,726 was stable across the whole episode. It loses on two counts. It needs **two
-windows instead of one**, each still individually preemptible, and the subtraction cancels the lump
+Option 3, report the marginal cost `(ticks(2n) - ticks(n)) / n`. It was the most attractive of
+the two, because 2,726 was stable across the whole episode. It loses on two counts. It needs two
+windows instead of one, each still individually preemptible, and the subtraction cancels the lump
 only if the same number of preemptions land in both, which nothing arranges: at 4,096 iterations
 the unmasked aarch64 window took two preemptions and the riscv64 one took one, so the arithmetic
 that was meant to cancel the noise would have been differencing two different amounts of it.
-And it is **redundant against option 1**, which is the honest reason: with the window masked the
+And it is redundant against option 1, which is the honest reason: with the window masked the
 total is already stable to 0.04% across the perturbation, so the marginal number would buy a second
 derivation of a number that no longer moves.
 
-**Would option 1 still win if all three cost the same?** Yes, and by more. It is the only one of
+Would option 1 still win if all three cost the same? Yes, and by more. It is the only one of
 the three that makes the row measure what its name says; the other two make a row that measures
 mapping *and scheduling* easier to live with.
 
@@ -101,10 +101,10 @@ The proposal's second `BUGS` entry was that only x86_64 had been swept. Measured
 - **The perturbation does not trip them.** The `schedule()` shape change moves aarch64 by 1 tick
   (15,874 to 15,873) and riscv64 by 1 tick (2,412 to 2,411), and both take zero preemptions in the
   window. That is phase, not immunity.
-- **One preemption would trip aarch64 on its own.** Pricing it at 4,096 iterations, where two
-  preemptions land in the unmasked aarch64 window and none in the masked one, gives **~1,759 ticks
-  per preemption against a shipping window of 15,870: 11.1%, over the tripwire.** riscv64's is
-  ~112 ticks against 2,410, **4.6%**, which would not fire alone but would turn any real 6%
+- One preemption would trip aarch64 on its own. Pricing it at 4,096 iterations, where two
+  preemptions land in the unmasked aarch64 window and none in the masked one, gives ~1,759 ticks
+  per preemption against a shipping window of 15,870: 11.1%, over the tripwire. riscv64's is
+  ~112 ticks against 2,410, 4.6%, which would not fire alone but would turn any real 6%
   regression into a failure or any real 15% one into a pass.
 
 So the fix ships on all three, and the three baselines are saved in their own commit with the
@@ -118,7 +118,7 @@ riscv64 `ipc_send_recv` grew 5.4% (4,632 to 4,884) against a 5% bound, and `sysc
 That gate exists for Liedtke's 1995 argument that Mach's IPC was slow because a kernel touching a
 lot of memory per IPC evicts the *application's* working set, so it is not a style bound.
 
-**The attribution, by A/B, because three plausible causes were all wrong:**
+The attribution, by A/B, because three plausible causes were all wrong:
 
 | what was changed | riscv64 `ipc_send_recv` |
 |---|---|
@@ -129,26 +129,26 @@ lot of memory per IPC evicts the *application's* working set, so it is not a sty
 | base plus the `cpu::PerCpu` field and **nothing else** | **4,884** |
 | the counter in its own array, `PerCpu` untouched | **4,734** |
 
-So it was **neither the increment nor the field's position**. It was `size_of::<PerCpu>()` going
-from **128 to 136**. `PERCPU[id]` is an index into an array of these, so the address is
+So it was neither the increment nor the field's position. It was `size_of::<PerCpu>()` going
+from 128 to 136. `PERCPU[id]` is an index into an array of these, so the address is
 `base + id * size_of`; at 128 that multiply is a shift and `cpu::current()` inlines to a couple of
 instructions at each of its many call sites, several on the IPC fastpath, and at 136 every one of
 them grows. **A field added to `PerCpu` is not free even when the fastpath never reads it**, and
 nothing in that file had ever said so.
 
 The counter now lives in `sched::PREEMPTIONS_PER_CPU`, its own array, written on the timer
-preemption path which no IPC path reaches. **The fastpath is byte-identical to before this
-milestone on all three architectures**, and `bench/fastpath-*.txt` is untouched.
+preemption path which no IPC path reaches. The fastpath is byte-identical to before this
+milestone on all three architectures, and `bench/fastpath-*.txt` is untouched.
 
-**`cpu.rs` now carries a `const` assertion that `size_of::<PerCpu>()` is a power of two**, so the
+`cpu.rs` now carries a `const` assertion that `size_of::<PerCpu>()` is a power of two, so the
 next person meets this as a failing build rather than as a CI gate they did not run. It is
-**exempt on x86_64**, and the exemption is measured rather than assumed: there the struct carries
+exempt on x86_64, and the exemption is measured rather than assumed: there the struct carries
 `x86_trap` and is already 152 bytes, and that architecture's gate is green with room (+1.0%,
 +1.4%, +3.9%). Asserting a property the tree does not hold is how a gate teaches people to route
 around it.
 
-**And one thing this says about the instruments.** Between the two shapes, every row of
-`script/bench` moved by at most **0.12%**. A benchmark tripwire that gates on time could not see a
+And one thing this says about the instruments. Between the two shapes, every row of
+`script/bench` moved by at most 0.12%. A benchmark tripwire that gates on time could not see a
 change that the footprint gate failed on, which is the argument for having both.
 
 ## BUGS
@@ -162,15 +162,15 @@ change that the footprint gate failed on, which is the argument for having both.
   compiles the tour out and runs no tests, so nothing in the suite ever executes `map_new`'s
   window. The tests assert the primitive it rests on, one level down. A future change that removed
   the masking from `map_new` while leaving `arch::interrupts` correct would pass every test here.
-- **`sched::PREEMPTIONS_PER_CPU` is written on every preemption on every core**, one relaxed
+- `sched::PREEMPTIONS_PER_CPU` is written on every preemption on every core, one relaxed
   increment beside the global one, in a build with no `bench` or `test` feature. Its *code size*
   is now measured and is zero (`script/fastpath-footprint` is byte-identical to base on all three
   ISAs); its *time* cost is not measured in isolation, and `script/bench --check` bounds it only at
   under 10% of every row.
-- **The power-of-two assertion is a tripwire, not an explanation.** It fires on the size, so a
+- The power-of-two assertion is a tripwire, not an explanation. It fires on the size, so a
   future field that happens to land on 256 will pass it while still growing every `PerCpu` by
   128 bytes of mostly padding. Nothing checks that the size is *tight*, only that it is a shift.
-- **The 2.5% window-to-tick ratio is arithmetic over one measurement of each architecture**, not a
+- The 2.5% window-to-tick ratio is arithmetic over one measurement of each architecture, not a
   distribution. Nothing here sweeps the phase, so "one in forty" is the shape of the exposure and
   not a measured rate.
 

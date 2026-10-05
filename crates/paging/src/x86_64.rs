@@ -452,9 +452,89 @@ impl PageFormat for AmdVi {
     }
 }
 
+// --- The AMD-Vi device table entry (AMD 48882 rev 2.62, section 2.2.2.1, Table 7). ---
+//
+// The entry that points a device at an `AmdVi` table. It lives here rather than in the kernel's
+// driver so Kani can prove it on any host: the kernel's x86_64 proofs compile only on an x86_64
+// host (notes/kernel-proofs.md), and this one is about bit positions, not about the machine
+// (provisional milestone 767 (AMD-Vi hardening before the first AMD boot)).
+
+/// `V`, bit 0: the entry's bits 127:1 are valid.
+const DTE_V: u64 = 1 << 0;
+/// `TV`, bit 1: the translation fields are valid.
+const DTE_TV: u64 = 1 << 1;
+/// `Mode` (bits 11:9) = 100b: a four-level host table, the depth [`AmdVi::LEVELS`] builds.
+const DTE_MODE_4_LEVEL: u64 = 4 << 9;
+/// `IR` (bit 61) and `IW` (bit 62): the device may read and write, as far as the table allows.
+const DTE_IR: u64 = 1 << 61;
+const DTE_IW: u64 = 1 << 62;
+
+/// **Every bit of a device table entry's first qword this crate may set**: `V`, `TV`, `Mode`, the
+/// page table root pointer (51:12), `IR` and `IW`. Bits 8:2, 54:52 and 63 are reserved and reported
+/// as an `ILLEGAL_DEV_TABLE_ENTRY` event when `V` = 1; bits 60:55 are guest-translation fields
+/// that must be zero when `GTSup` is clear, and this driver never uses them. Written out as a
+/// literal for the reason [`VTD_PERMITTED_BITS`] gives.
+#[cfg(any(test, kani))]
+const AMD_VI_DTE_PERMITTED_BITS: u64 = 0x600f_ffff_ffff_fe03;
+
+impl AmdVi {
+    /// **The device table entry of a device confined to the table at `root`**: valid, translating,
+    /// four levels, read and write allowed so the leaves decide, tagged `domain` (Table 7). Every
+    /// other bit is zero: no interrupt remapping (`IV`, bit 128, clear), no IOTLB, no exclusion
+    /// (`EX`), events not suppressed. `None` when `root` is not a 4 KiB-aligned address the 40-bit
+    /// root field can hold, because the alternative is a silent mask that points the device at a
+    /// different table. Name: provisional.
+    pub const fn device_table_entry(root: u64, domain: u16) -> Option<[u64; 4]> {
+        if root & !AMD_VI_ADDR_MASK != 0 {
+            return None;
+        }
+        Some([
+            DTE_V | DTE_TV | DTE_MODE_4_LEVEL | root | DTE_IR | DTE_IW,
+            domain as u64,
+            0,
+            0,
+        ])
+    }
+
+    /// **The device table entry that denies everything**: a four-level walk to `empty_root`, an
+    /// all-zero table, with `IR` and `IW` clear, in domain 0. Every access target-aborts and is
+    /// logged. Why not `Mode` 0 with `IR` = `IW` = 0 is the kernel driver's header. `None` as for
+    /// [`device_table_entry`](Self::device_table_entry). Name: provisional.
+    pub const fn blocked_device_table_entry(empty_root: u64) -> Option<[u64; 4]> {
+        if empty_root & !AMD_VI_ADDR_MASK != 0 {
+            return None;
+        }
+        Some([DTE_V | DTE_TV | DTE_MODE_4_LEVEL | empty_root, 0, 0, 0])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **The two device table entries, spelled against Table 7**: the host-speed twin of
+    /// `no_amd_vi_device_table_entry_sets_a_reserved_bit`, over the roots where a mask goes wrong
+    /// (the top and bottom of the field, one bit past each end, an unaligned one).
+    #[test]
+    fn the_amd_vi_device_table_entries_are_what_table_7_says() {
+        assert_eq!(
+            AmdVi::device_table_entry(0x1234_5000, 7),
+            Some([0x6000_0000_1234_5803, 7, 0, 0])
+        );
+        assert_eq!(
+            AmdVi::blocked_device_table_entry(0x9000),
+            Some([0x0000_0000_0000_9803, 0, 0, 0])
+        );
+        for root in [0x1000, 0x000f_ffff_ffff_f000] {
+            let e = AmdVi::device_table_entry(root, 0xffff).unwrap();
+            assert_eq!(e[0] & !AMD_VI_DTE_PERMITTED_BITS, 0);
+            assert_eq!(e[0] & 0x000f_ffff_ffff_f000, root);
+        }
+        for root in [0x0010_0000_0000_0000, 0x1234_5800, u64::MAX] {
+            assert_eq!(AmdVi::device_table_entry(root, 1), None, "{root:#x}");
+            assert_eq!(AmdVi::blocked_device_table_entry(root), None, "{root:#x}");
+        }
+    }
 
     /// **Every leaf is present and accessed**, so no page faults on its own first touch.
     #[test]
@@ -806,6 +886,55 @@ mod tests {
 mod verification {
     use super::*;
     use crate::{Half, PAGE_SIZE, PageSize};
+
+    /// **No AMD-Vi device table entry ever sets a reserved bit, and none loses its root**, over
+    /// every `u64` root and every domain id (provisional milestone 767 (AMD-Vi hardening before the
+    /// first AMD boot)). The twin of `no_vtd_entry_ever_sets_a_reserved_bit`, and spelled the same
+    /// way: every assertion is a literal from Table 7 rather than one of the constants the encoder
+    /// is built from, so widening the root mask or moving a field fails here instead of moving the
+    /// check with it. A refused root must be one the 51:12 field cannot hold; an accepted one must
+    /// read back whole, so a mask that narrowed the root silently fails too.
+    /// Falsification: replayable `crates/paging/falsifications/x86_64.verification.no_amd_vi_device_table_entry_sets_a_reserved_bit.patch`
+    #[kani::proof]
+    fn no_amd_vi_device_table_entry_sets_a_reserved_bit() {
+        const ROOT_BITS: u64 = 0x000f_ffff_ffff_f000;
+        let root: u64 = kani::any();
+        let domain: u16 = kani::any();
+        let fits = root & !ROOT_BITS == 0;
+
+        match AmdVi::device_table_entry(root, domain) {
+            None => assert!(!fits, "a root the field can hold was refused"),
+            Some(e) => {
+                assert!(fits, "a root the field cannot hold was accepted");
+                assert_eq!(
+                    e[0] & !AMD_VI_DTE_PERMITTED_BITS,
+                    0,
+                    "a reserved bit is set"
+                );
+                assert_eq!(e[0] & ROOT_BITS, root, "the root did not read back whole");
+                assert_eq!(e[0] & 0b11, 0b11, "V and TV");
+                assert_eq!((e[0] >> 9) & 0b111, 0b100, "Mode is not four levels");
+                assert_eq!((e[0] >> 61) & 0b11, 0b11, "IR and IW");
+                assert_eq!(e[1], domain as u64, "anything but DomainID in bits 127:64");
+                assert_eq!((e[2], e[3]), (0, 0), "interrupt remapping or reserved bits");
+            }
+        }
+        match AmdVi::blocked_device_table_entry(root) {
+            None => assert!(!fits, "a root the field can hold was refused"),
+            Some(e) => {
+                assert!(fits, "a root the field cannot hold was accepted");
+                assert_eq!(
+                    e[0] & !AMD_VI_DTE_PERMITTED_BITS,
+                    0,
+                    "a reserved bit is set"
+                );
+                assert_eq!(e[0] & ROOT_BITS, root, "the root did not read back whole");
+                assert_eq!((e[0] >> 61) & 0b11, 0, "the blocked entry grants IR or IW");
+                assert_eq!((e[0] >> 9) & 0b111, 0b100, "Mode is not four levels");
+                assert_eq!((e[1], e[2], e[3]), (0, 0, 0));
+            }
+        }
+    }
 
     /// **The walk never indexes past a table** (four levels here).
     /// Falsification: replayable `crates/paging/falsifications/x86_64.verification.index_is_always_in_bounds.patch`

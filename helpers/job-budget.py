@@ -29,7 +29,8 @@ check a number.
   ends a job at 25 minutes rather than burning 45 a group. A job with no `timeout-minutes` gets
   GitHub's six hours, which is how the old bound was never a bound.
 - A job with no `actions/checkout` has no `helpers/` to run, so it is exempt from the two steps and
-  still needs the timeout. Today that is `gate`, which only makes API calls.
+  still needs the timeout. No ci.yml job is exempt today: `gate` checks out the tree for the
+  prose-only classifier (helpers/prose_only.py) since 2026-10-05.
 
 `lint` is the rung-two mechanism: a new job added without the steps fails `script/lint`, so the
 budget does not depend on anyone remembering to give the next job one.

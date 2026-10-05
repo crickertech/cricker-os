@@ -14,7 +14,7 @@ milestone block is named here in prose rather than cited.
 **This block answers that proposal and does not retire it**, which is deliberate rather than an
 oversight: retiring it means editing milestone 525's block, whose `**Proposed.**` follow-on row and
 `BUGS` both name the proposal file and are both now stale, and that block belongs to a lane still
-working. **For the integrator at merge**: delete
+working. For the integrator at merge: delete
 `design/roadmap/proposals/nothing-marks-a-trial-boot-successful.md`, and change milestone 525 (a bad upgrade cannot brick the machine: two boot slots, tries and priority)'s two rows to
 point here. `script/roadmap --check` fails on the deletion until the second half is done.
 
@@ -25,7 +25,7 @@ back. This built the thing that says a boot worked.
 ## The problem, stated so a stranger can check it
 
 `crates/boot_slot` has a `successful` bit and a `State::confirmed`, the installer sets the bit on
-the slot it writes, and **nothing on a running machine ever set it again**. So an upgrade written
+the slot it writes, and nothing on a running machine ever set it again. So an upgrade written
 into the spare slot, which boots perfectly and runs for a week, was abandoned the moment its tries
 ran out, and the machine quietly returned to the older image.
 
@@ -47,20 +47,20 @@ something else.
 ## The decision: what counts as "this boot worked"
 
 A promise rather than a mechanism, and the reason it deserves a section is that both directions of
-error are real. **Confirm too early** and a machine happily keeps an upgrade that comes up and
-cannot do its job, which is the failure the whole feature exists to prevent. **Confirm too late**
+error are real. Confirm too early and a machine happily keeps an upgrade that comes up and
+cannot do its job, which is the failure the whole feature exists to prevent. Confirm too late
 and nothing ever confirms on a machine that boots to a prompt and waits for a person, which is what
 this system is today, so every upgrade reverts. The bias has to be late.
 
-**The criterion: the filesystem server mounted the installed disk and reported ready, and the
-progenitor is built and measured and about to run.** Everything between power-on and the last thing
+The criterion: the filesystem server mounted the installed disk and reported ready, and the
+progenitor is built and measured and about to run. Everything between power-on and the last thing
 this machine can check without a person: the kernel and its self-tests, userspace, the NVMe
 controller and its ring-3 server, the block server, the filesystem, and the boot program's
 measurement against the trust root.
 
 The proposal recommended one row stronger, *filesystem mounted and the shell reachable*, and the
-shell half is not reached. That is not a cost saving and is not claimed as one: **it is the ordering
-below.** The confirming program needs the disk, the filesystem server holds the disk, and the one
+shell half is not reached. That is not a cost saving and is not claimed as one: it is the ordering
+below. The confirming program needs the disk, the filesystem server holds the disk, and the one
 window in which both are true and nothing is concurrent is between the mount and the progenitor's
 first instruction. Reaching a prompt is past it.
 
@@ -72,11 +72,11 @@ the system can.
 
 The honest half, and it is repeated in `crates/boot_slot`'s `BUGS` where a reader meets the feature:
 
-- **Anything nothing exercises at boot**: the network stack, the compositor, a driver for a device
+- Anything nothing exercises at boot: the network stack, the compositor, a driver for a device
   the boot path does not touch. An upgrade that breaks only those is confirmed and kept.
-- **The shell**, for the reason above. The filesystem is mounted and the progenitor is built, and
+- The shell, for the reason above. The filesystem is mounted and the progenitor is built, and
   nothing has typed anything. A regression between there and a prompt survives.
-- **Anything that fails after the first few seconds**: a leak, a wedge under load, a filesystem that
+- Anything that fails after the first few seconds: a leak, a wedge under load, a filesystem that
   mounts and then corrupts. This is a statement about coming up, not about running.
 
 ## The authority to write a live partition table
@@ -85,13 +85,13 @@ The honest half, and it is repeated in `crates/boot_slot`'s `BUGS` where a reade
 `blk` endpoint, the page it shares with that disk's server, and a budget for the one page it maps
 itself.
 
-**No entropy endpoint**, which is what makes it narrow rather than merely small: a partition table
+No entropy endpoint, which is what makes it narrow rather than merely small: a partition table
 carries unique ids, so a process that cannot draw one cannot write a table anything would read back
 as new. The only table it can write is the table it read with the nine bits `boot_slot` owns
-changed. **No boot file**, so it cannot rewrite the image it is vouching for. No console, no
+changed. No boot file, so it cannot rewrite the image it is vouching for. No console, no
 filesystem, no network.
 
-**The gap, named rather than papered over**: a `blk` endpoint is the whole disk, because nothing in
+The gap, named rather than papered over: a `blk` endpoint is the whole disk, because nothing in
 `filesystem_protocol::blk` bounds a client to a block range. So this process *could* write anywhere
 on that disk. It is the same limitation `installer`'s own `BUGS` records for the filesystem server,
 it is one wire field away from fixed, and it is why this is a boot-path call rather than an
@@ -117,23 +117,23 @@ endpoint bounded to a block range; both are wire decisions.
 
 ## The write itself
 
-**Idempotent twice over.** A slot already successful is returned without the disk being written at
+Idempotent twice over. A slot already successful is returned without the disk being written at
 all, because an installed machine boots its confirmed slot every day of its life and a write on
 every one of those boots is a write that can be interrupted on every one of them. And setting a bit
 that is set writes the same bytes, so the cheap check is an optimisation rather than the property.
 
-**Safe to interrupt.** The bits that change are nine, inside one `u64`, inside one 128-byte entry,
+Safe to interrupt. The bits that change are nine, inside one `u64`, inside one 128-byte entry,
 inside one 512-byte logical block, so the entry on the disk is always either the old one or the new
 one and never a third thing. The four-write sequence that puts the array and the two headers back
-goes **backup first**, so at every instant at least one complete self-consistent copy of the table
+goes backup first, so at every instant at least one complete self-consistent copy of the table
 is on the disk. The worst outcome of an interrupted confirmation is a slot that is not confirmed,
 which is the state the machine was in a moment earlier and rolls back safely.
 
 ## The gate
 
 `cargo xtask confirm-boot`, the exact negative of `rollback-boot`. Install; stage a good upgrade
-into slot 1 with **one** try; boot 2 chooses it, spends the try, comes up, and confirms; boot 3
-chooses it **again**, on a slot with no tries left.
+into slot 1 with one try; boot 2 chooses it, spends the try, comes up, and confirms; boot 3
+chooses it again, on a slot with no tries left.
 
 Boot 3 is the whole assertion, and the single try is what makes it one rather than a convenience: a
 slot with tries left would be chosen by priority alone, and the gate would pass on a machine whose
@@ -143,24 +143,24 @@ separate QEMU processes with nothing between them but the disk.
 
 ## BUGS
 
-- ~~**The slot token's spelling is provisional.**~~ **Ratified by calef on 2026-09-22**, after he
+- ~~**The slot token's spelling is provisional.**~~ Ratified by calef on 2026-09-22, after he
   asked what a slot is and why the number cannot be recomputed. The answer is what the ruling turned
   on and it is now in `boot_slot`'s own docs: the chooser spends a try *before* handing off, so
   inferring the slot from the table afterwards names the wrong one on exactly the trial boot a
   confirmation exists for. `boot-slot=` is a value two programs agree on and is now committed to.
 - **The criterion does not reach a shell**, which is the row the proposal recommended. See above:
   it is the disk-sharing ordering and not an effort argument.
-- **Nothing serialises the confirming write against the filesystem server** except where it sits.
+- Nothing serialises the confirming write against the filesystem server except where it sits.
   See above.
-- **The interrupted-confirmation case is argued and untested.** Nothing in this tree cuts power to a
+- The interrupted-confirmation case is argued and untested. Nothing in this tree cuts power to a
   QEMU between two block writes, which is `rollback-boot`'s own caveat for the decrement.
-- **The chooser's own table write still goes primary-first**, so it has a window in which neither
+- The chooser's own table write still goes primary-first, so it has a window in which neither
   copy parses. The confirming write does not. Making the two agree is the chooser's lane.
-- **Nothing reads the backup table when the primary fails to parse.** The backup-first write order
+- Nothing reads the backup table when the primary fails to parse. The backup-first write order
   above buys a recovery that no reader in this tree performs yet; a foreign tool can do it.
 - **The upgrade is staged by the gate and not by nife**, because nothing in this tree upgrades a
   running machine. The format is exercised end to end; the program that will do it is not.
-- **x86_64 only** (DECISIONS §19 (architectural parity is a tenet; the targets are aarch64, riscv64, and x86_64)), because the
+- x86_64 only (DECISIONS §19 (architectural parity is a tenet; the targets are aarch64, riscv64, and x86_64)), because the
   chooser is, and the device-tree architectures have no installed disk to choose slots on. A scope
   note rather than a portability claim; the parameter the number would arrive on is already on
   every architecture's `hand_over`.

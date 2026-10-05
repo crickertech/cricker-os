@@ -26,15 +26,15 @@ the problem before it happens:
 Four places wrote a machine **literal** where the meaning was host-relative. That is the whole
 defect, restated four times:
 
-1. **`Builder::new()` hardcoded `EM_AARCH64`.** Twenty of the twenty-five unit tests forge a header
+1. `Builder::new()` hardcoded `EM_AARCH64`. Twenty of the twenty-five unit tests forge a header
    to reach some property past the machine check (a bad load address, a writable-executable
    segment), and on a non-aarch64 host all twenty died at the check instead.
-2. **`a_binary_for_the_other_supported_machine_is_refused` iterated `[EM_RISCV, EM_X86_64]`**, under
+2. `a_binary_for_the_other_supported_machine_is_refused` iterated `[EM_RISCV, EM_X86_64]`, under
    a doc comment reading *"these host tests build with `EXPECTED_MACHINE == EM_AARCH64`"*. On an
    x86_64 host that asserts an x86_64 binary is refused, which is the opposite of what this crate
-   does and must do. **The comment is the bug's own confession**: a statement about the architect's
+   does and must do. The comment is the bug's own confession: a statement about the architect's
    laptop filed as a statement about the crate.
-3. **The module doc-test wrote `62u16` as its "foreign" machine.** Both proposals said this test
+3. The module doc-test wrote `62u16` as its "foreign" machine. Both proposals said this test
    passed because its *header* uses `NATIVE_MACHINE`; one screen further down it does not, and it
    failed. Recorded because the diagnosis was handed over as complete and was not, and a reader who
    trusts the proposal over the run fixes three sites and is still red.
@@ -48,18 +48,18 @@ invisible.
 
 ## What was built
 
-**Rung one twice, and the ladder position is the point rather than the four edits.** A comment is
+Rung one twice, and the ladder position is the point rather than the four edits. A comment is
 what this crate already had, in the very doc comment quoted above, and it did not work: three of the
 four sites are *within one screen* of the constant that exists to prevent them.
 
-**`FOREIGN_MACHINES`, derived rather than listed.** `KNOWN_MACHINES` names the three machines nife
+`FOREIGN_MACHINES`, derived rather than listed. `KNOWN_MACHINES` names the three machines nife
 runs, in one place, and `FOREIGN_MACHINES` is that list minus `EXPECTED_MACHINE`, computed in a
 `const fn`. A test can no longer write out "the other supported machines" by hand, because the
 phrase now has a definition, decided by the same `cfg` that decides what is *accepted*. Its length
 is `KNOWN_MACHINES.len() - 1`, so a new architecture that reaches `EXPECTED_MACHINE` without
 reaching the list **fails the build** on the host that adds it.
 
-**`machine_no_nife_build_accepts`, checked at compile time.** The "a machine nife does not run at
+`machine_no_nife_build_accepts`, checked at compile time. The "a machine nife does not run at
 all" test uses SPARC (2), and its own doc comment records that the number *used to be* `x86_64`'s
 and had to move the day x86_64 became a target (milestone 161). That number now goes through a
 `const fn` asserting it is in none of `KNOWN_MACHINES`, so the next time this happens it is a build
@@ -69,7 +69,7 @@ which is to say only on a machine nobody working on this had. Checking against a
 the aarch64 laptop where the mistake gets made. A gate that fires only where nobody is standing is
 not a gate.
 
-**Three fuzz seeds, one per machine.** `fuzz/seeds/elf_parse/` held `minimal_rx.elf`, aarch64, under
+Three fuzz seeds, one per machine. `fuzz/seeds/elf_parse/` held `minimal_rx.elf`, aarch64, under
 an honest note that a riscv64 build would reject it; the note predated x86_64 being a target and
 never grew the third case. One seed cannot be right for three machines. There are now three, 120
 bytes each, differing in the two bytes at offset 18 and nowhere else. `script/fuzz` already passed
@@ -77,10 +77,10 @@ the *directory* rather than a filename, so it needed no change. Selection is by 
 the seed's own header, **not** a `cfg` chain, because a default arm naming one architecture is the
 precise shape of the milestone 161 trap; the choice cannot disagree with the bytes.
 
-**The `allow(dead_code)` attributes on the three `EM_` constants are gone**, which is the tell that
+The `allow(dead_code)` attributes on the three `EM_` constants are gone, which is the tell that
 this got better rather than bigger. They existed because each build could see only its own machine.
 
-**`every_machine_nife_runs_has_a_seed`** replaced an assertion that *the* seed matched this build.
+`every_machine_nife_runs_has_a_seed` replaced an assertion that *the* seed matched this build.
 The old one was true and useful right up until the seed's machine was not yours, at which point it
 reported a defect with no available fix. The new one compares the directory against
 `elf::KNOWN_MACHINES`, so a fourth architecture with no seed fails on whatever host adds it rather
@@ -98,7 +98,7 @@ cargo test --workspace --no-fail-fast --exclude kernel --exclude components --ex
     --exclude system_initializer
 ```
 
-**150 test binaries, three failing targets, all three in `crates/elf`.** Nothing else in the host
+150 test binaries, three failing targets, all three in `crates/elf`. Nothing else in the host
 pass carries a host-architecture assumption that an x86_64 machine can see. The three other places
 that forge ELF headers were read by hand as well and all three already do it right, each with a
 comment saying why: `crates/measured_boot` (*"`elf::NATIVE_MACHINE` exists for exactly this"*),
@@ -107,9 +107,9 @@ comment saying why: `crates/measured_boot` (*"`elf::NATIVE_MACHINE` exists for e
 defines it.
 
 That is a result worth stating plainly rather than leaving as a gap: the answer to "where else" is
-**nowhere else the host pass can reach**. The other three host facts a test could accidentally
+nowhere else the host pass can reach. The other three host facts a test could accidentally
 assume were swept for too, and the answer is better than expected rather than merely empty:
-`target_pointer_width` and `target_endian` appear **nowhere in this tree's Rust at all**, and the one
+`target_pointer_width` and `target_endian` appear nowhere in this tree's Rust at all, and the one
 `PAGE_SIZE` in a host-tested crate (`crates/paging`) is a plain `4096` with no `cfg(target_arch)`
 near it, because page size here is a *parameter* threaded through the API (`Segment::page_range`
 takes it, and `elf`'s fuzz target deliberately drives both 4 KiB and 16 KiB) rather than a fact read
@@ -117,7 +117,7 @@ off the host. The machine number was the only host fact any of this code had bak
 
 ## What was verified, and how
 
-Every mechanism above was **falsified before being believed**, which is notes/verification.md's rule
+Every mechanism above was falsified before being believed, which is notes/verification.md's rule
 applied to a gate rather than to a proof:
 
 | Fault injected | Result |
@@ -134,25 +134,25 @@ failed with `index out of bounds` rather than the intended message, so the bound
 of the write and the build error now names its cause.
 
 The seed generator in `fuzz/seeds/README.md` was re-run and reproduces the aarch64 seed
-**byte-identically** to the file it replaces (`md5 b559ce57`), which is how the other two were
+byte-identically to the file it replaces (`md5 b559ce57`), which is how the other two were
 trusted; it is idempotent over all three.
 
 ## Where `script/test` gets to on this box, and a control that says why
 
-**The host pass is green end to end**, `crates/elf` included (25 + 2 + 1), through the vendored
+The host pass is green end to end, `crates/elf` included (25 + 2 + 1), through the vendored
 RedoxFS round trip and the `redoxfs_server` sans-IO core. That is the criterion this milestone was
 set: the pass now *reaches* the kernel legs, which on this machine it had never done.
 
-`script/test` still exits 1, on the **aarch64 kernel leg**, at
+`script/test` still exits 1, on the aarch64 kernel leg, at
 `a_keystroke_from_a_virtio_keyboard_becomes_a_terminal_byte`, whose own failure message names the
 cause: *"the host's `sendkey a` is not reaching the device (is the monitor socket attached?)"*. That
 is host-side QEMU interaction in a headless sandbox, and this lane changed no code the kernel runs:
 outside `#[cfg(test)]` the whole diff is three removed `allow(dead_code)` attributes and three
-additive `const` items, and `grep` finds **no caller of any of the three** outside `crates/elf`'s own
+additive `const` items, and `grep` finds no caller of any of the three outside `crates/elf`'s own
 tests.
 
-**The control is better than that argument, because the failure flips with the emulator and nothing
-else.** This box has apt's QEMU 8.2.2 (no `riscv-iommu-pci`, which `script/qemu-check` reports) and
+The control is better than that argument, because the failure flips with the emulator and nothing
+else. This box has apt's QEMU 8.2.2 (no `riscv-iommu-pci`, which `script/qemu-check` reports) and
 also a pinned 11.0.2 in `$HOME/.cache/nife-qemu`, built here by the lane that fixed `script/bootstrap`.
 Same tree, same binary, same test:
 
@@ -163,22 +163,22 @@ Same tree, same binary, same test:
 
 `inbound` and `multicast` fail under both, which is the host networking a sandbox does not have.
 
-**That table is a finding rather than a formality.** The standing account of this box is that its
+That table is a finding rather than a formality. The standing account of this box is that its
 host-side referees fail because it is headless, full stop. They do fail, but *which* ones is decided
 by the emulator version, and the two versions fail disjoint sets. Anybody reading a red post-run
 check here has to know which QEMU was on PATH before the result means anything.
 
 ## Parity, and what could not be run here
 
-**This lane executed exactly one of the three hosts** (`x86_64-unknown-linux-gnu`). DECISIONS §19
+This lane executed exactly one of the three hosts (`x86_64-unknown-linux-gnu`). DECISIONS §19
 cuts both ways here, and the honest statement is that the aarch64 and riscv64 host cases are
 *reasoned*, not run:
 
 - **aarch64.** `NATIVE_MACHINE == EM_AARCH64`, so `Builder::new()` writes exactly what it wrote
   before and the twenty tests take the identical path. `FOREIGN_MACHINES` evaluates to
   `[EM_RISCV, EM_X86_64]`, which is the literal pair the old code listed. `seed_for_this_build()`
-  finds `minimal_rx_aarch64.elf`, byte-identical to the file that was there. **Every aarch64
-  behaviour is bit-for-bit what it was**, which is the strongest form this argument can take, and it
+  finds `minimal_rx_aarch64.elf`, byte-identical to the file that was there. Every aarch64
+  behaviour is bit-for-bit what it was, which is the strongest form this argument can take, and it
   is why the change is safe to land from a machine that cannot run it.
 - **riscv64.** The same derivation yields `[EM_AARCH64, EM_X86_64]` and `minimal_rx_riscv64.elf`,
   which is the case the old code was *documented as failing* and never tested. It should pass for
@@ -186,25 +186,25 @@ cuts both ways here, and the honest statement is that the aarch64 and riscv64 ho
 
 ## BUGS
 
-- **No host in CI is anything but aarch64, so nothing stops this returning.** Both proposals raised
+- No host in CI is anything but aarch64, so nothing stops this returning. Both proposals raised
   it and it is not closed here: CI is `ubuntu-24.04-arm` and the development machine is Apple
   Silicon, so a fifth site written tomorrow with a literal would pass every check in this
   repository. The two compile-time guards narrow the class (a foreign list cannot be written out by
   hand; a never-a-nife-machine number is checked on every host) but a plain `b.e_machine = 183`
   still compiles anywhere. The proposal below is the mechanism; this entry is what the record says
   in the meantime.
-- **`machine_no_nife_build_accepts` guards exactly one call site.** A general facility with a single
+- `machine_no_nife_build_accepts` guards exactly one call site. A general facility with a single
   user is usually a smell. It is kept because that one user is the specimen that already failed once
   and cost a milestone, and because a second user is one `const` away.
 - **The riscv64 seed has never been parsed by anything**, and neither had the x86_64 one before this
   lane. `the_fuzz_seed_is_a_valid_executable` only ever runs against the seed for the host running
   it, so on this box the riscv64 seed is asserted to exist and nothing more. The evidence that it is
   good is that it is byte-identical to the aarch64 seed, which *is* parsed and validated on every
-  aarch64 run, **except at the single byte** the generator varies: `cmp` puts the only difference at
+  aarch64 run, except at the single byte the generator varies: `cmp` puts the only difference at
   offset 18, in all three directions. That is stronger than an argument and weaker than a run.
-- **Nothing checks the committed seed bytes against the generator that claims to produce them.**
+- Nothing checks the committed seed bytes against the generator that claims to produce them.
   Recorded in `fuzz/seeds/README.md`'s own `BUGS`, where a reader meets the directory.
-- **The module doc-test uses `FOREIGN_MACHINES[0]`, an index into a derived array.** It means "any
+- The module doc-test uses `FOREIGN_MACHINES[0]`, an index into a derived array. It means "any
   foreign machine" and any element would do, so the `[0]` is a wart the reader has to translate.
   Iterating would cost three lines of noise in an example whose whole job is to be readable.
 
@@ -229,7 +229,7 @@ cuts both ways here, and the honest statement is that the aarch64 and riscv64 ho
   when 277 itself was promoted.
 - **Recorded.** A second proposal describing this same defect,
   `host-tests-that-assume-the-host-is-aarch64.md`, was written 2026-09-13 by a lane that could not
-  see the first and **lands with [#847](https://github.com/nifeos/nife/pull/847)**. It was not
+  see the first and lands with [#847](https://github.com/nifeos/nife/pull/847). It was not
   on this lane's base, so it could not be retired here, and this bullet is the record of that:
   whoever merges second deletes the file. A proposal whose work has landed is a second reading of
   the tree that disagrees with it. That two lanes filed the same proposal eight days apart is itself

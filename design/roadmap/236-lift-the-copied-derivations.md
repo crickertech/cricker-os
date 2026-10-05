@@ -9,16 +9,16 @@ Minted 2026-09-02 by calef, from milestone 234's (the project's own numbers,
 one row per ISO week) lane, which had to copy them to do its job. Built 2026-09-03; what was
 actually decided, and what the block deliberately left open, is at the bottom.
 
-**In brief.** Three derivations now exist twice:
+In brief. Three derivations now exist twice:
 
-- the **`unsafe` census**, in `script/lint` and again in `script/metrics`;
-- the **code and comment line split**, likewise;
-- the **harness count**, in `script/falsifications` and again in `script/metrics`.
+- the `unsafe` census, in `script/lint` and again in `script/metrics`;
+- the code and comment line split, likewise;
+- the harness count, in `script/falsifications` and again in `script/metrics`.
 
 They are copied rather than imported because each lives inside a `#!/bin/sh` script's inline python
 heredoc, where nothing can import anything.
 
-**So if a gate changes its definition, the dashboard keeps the old one silently.** The numbers on
+So if a gate changes its definition, the dashboard keeps the old one silently. The numbers on
 `notes/project-metrics.md` would drift away from the numbers the gates enforce, both would look
 authoritative, and no check would fire. That is rung four of AGENTS.md's ladder holding together the
 page whose entire purpose is measurement.
@@ -28,29 +28,29 @@ page whose entire purpose is measurement.
 The obvious fix is a host crate both callers depend on, and it may well be right, but two things make
 it a decision rather than a refactor:
 
-- **These are shell entry points on purpose.** `script/` is the "Scripts to Rule Them All" front door
+- These are shell entry points on purpose. `script/` is the "Scripts to Rule Them All" front door
   and its members are `#!/bin/sh` by convention; turning three of them into consumers of a Rust crate
   changes what a `script/` command is. AGENTS.md's naming table already treats `script/` as its own
   domain.
-- **A derivation used by a gate has different requirements from one used by a report.** The gate must
+- A derivation used by a gate has different requirements from one used by a report. The gate must
   be fast enough to run on every push and refuse ambiguity; the report must run over eight historical
   checkouts and tolerate a tree that no longer parses. Those may not want the same code, and saying
   so is part of the work.
 
 ## What it needs
 
-**One definition per question, or a check that fires when two disagree.** The second is weaker and
+One definition per question, or a check that fires when two disagree. The second is weaker and
 much cheaper, and this block does not choose: a test that runs both derivations on the current tree
 and fails on a mismatch would catch every drift that matters without moving any code, at the cost of
 keeping two implementations honest rather than removing one.
 
 ## BUGS
 
-- **Nobody has seen this drift yet.** It is a hazard rather than a defect, which is the argument for
+- Nobody has seen this drift yet. It is a hazard rather than a defect, which is the argument for
   the cheap answer and against a large refactor.
-- **The count may be higher than three.** Those are the three milestone 234's lane needed; nothing has
+- The count may be higher than three. Those are the three milestone 234's lane needed; nothing has
   swept `script/` for others, and the same shape may exist between gates that never talk to a report.
-- **`script/metrics` deliberately tolerates old trees** that the gates would reject, so a shared
+- `script/metrics` deliberately tolerates old trees that the gates would reject, so a shared
   implementation would have to grow that tolerance and might then be looser than a gate should be.
 
 ## What was built, 2026-09-03
@@ -58,7 +58,7 @@ keeping two implementations honest rather than removing one.
 **Status: BUILT.** Both answers, split by which question each derivation is being asked. The block
 declined to choose and was right to: measurement showed the choice is not one decision but three.
 
-**The premise was false, and checking it is what shrank this from a refactor to an afternoon.** The
+The premise was false, and checking it is what shrank this from a refactor to an afternoon. The
 block says the derivations are copied "because each lives inside a `#!/bin/sh` script's inline python
 heredoc, where nothing can import anything." A heredoc with a stable working directory imports
 perfectly well, and `script/lint`, `script/metrics` and `script/falsifications` all `cd` to the
@@ -67,7 +67,7 @@ get one definition, and the thing that made it a decision (three `script/` comma
 consumers of a built artifact) does not arise. `helpers/rust_source.py` is a plain module, nothing
 executes it, and no caller's shape changed.
 
-**Two derivations are now one definition.** The comment-and-literal stripper, which is what makes a
+Two derivations are now one definition. The comment-and-literal stripper, which is what makes a
 code-line count a code-line count and is the shared half of the code and comment line split, and the
 whole `unsafe` census with every exclusion and its reason. `script/lint` and `script/metrics` import
 both. There is no check on them because there is nothing left to compare.
@@ -93,7 +93,7 @@ sentence breaks when somebody improves the sentence), and `rust_source.harness_c
 to fire by perturbing the shared regex and its exclusion list: `147, 147, 145`, and `script/lint`
 exited 1.
 
-**The sweep for a fourth copy, which the block asked for.** Every constant and regex definition in
+The sweep for a fourth copy, which the block asked for. Every constant and regex definition in
 `script/` and `helpers/` was compared across files. Two more shapes turned up and neither is this
 hazard:
 
@@ -106,7 +106,7 @@ hazard:
   python, a machine configuration rather than a measurement, and out of this block's scope. Recorded
   here rather than turned into a milestone, because nothing yet says the two runners should be one.
 
-**No committed data moved.** `script/metrics --backfill` was run before and after: all seven
+No committed data moved. `script/metrics --backfill` was run before and after: all seven
 historical rows are byte-identical, and only the current week's row changes, because `HEAD` moved
 between the last workflow run and this branch. Two consecutive backfills produce identical bytes, so
 the idempotence guarantee holds. The generated CSV and SVGs are deliberately not in this branch's
@@ -124,7 +124,7 @@ diff.
   specifically and a module named for it would read as holding only that; `measures`, which collides
   with `notes/register-of-measures.md`, the same collision `script/metrics`' own header refused;
   `common` and `util`, which claim nothing, and DECISIONS §39 says a name is a claim.
-- **The module is Python in a tree that is otherwise Rust and shell.** It adds no dependency
+- The module is Python in a tree that is otherwise Rust and shell. It adds no dependency
   (DECISIONS §46 untouched: it imports `re` and nothing else) and no build step, but it is a third
   language in the tooling, and that was accepted rather than argued for at length because the
   alternative was a `cargo build` in front of three `script/` commands.

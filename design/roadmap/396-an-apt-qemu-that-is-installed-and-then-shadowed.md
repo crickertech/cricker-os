@@ -38,8 +38,8 @@ They are a few hundred megabytes downloaded to be overridden.
 
 The two firmware packages were the reason to be careful, and they may be redundant too. `ipxe-qemu`
 supplies `efi-virtio.rom`, the option ROM `-device virtio-blk-device` loads; `ovmf` supplies
-milestone 87's UEFI firmware, and Ubuntu 24.04 spells it `OVMF_CODE_4M.fd`. **Measured on the prefix
-QEMU's own `make install` output** (`~/.cache/nife-qemu/share/qemu`, 71 files):
+milestone 87's UEFI firmware, and Ubuntu 24.04 spells it `OVMF_CODE_4M.fd`. Measured on the prefix
+QEMU's own `make install` output (`~/.cache/nife-qemu/share/qemu`, 71 files):
 
 ```
 efi-virtio.rom          pxe-e1000.rom     pxe-virtio.rom     edk2-x86_64-code.fd
@@ -47,7 +47,7 @@ edk2-aarch64-code.fd    edk2-i386-vars.fd edk2-riscv-code.fd (and nine more edk2
 ```
 
 So QEMU ships both of them itself, into the prefix, and `helpers/qemu-uefi-x86_64.sh` already
-searches `<prefix>/share/qemu/edk2-x86_64-code.fd` **first**, ahead of the `/usr/share/OVMF` entries,
+searches `<prefix>/share/qemu/edk2-x86_64-code.fd` first, ahead of the `/usr/share/OVMF` entries,
 for a reason its own header records: CI builds QEMU into a cached prefix, so no absolute path in a
 list can ever name the firmware.
 
@@ -61,7 +61,7 @@ against the configuration it changes.
 
 There is a second-order effect worth stating, because milestone 287 introduced it. `script/bootstrap`
 now sources `helpers/qemu-path.sh` before its `command -v` probes, so on a machine where the prefix
-already holds the pinned QEMU **the whole apt branch is skipped**, firmware packages included. A box
+already holds the pinned QEMU the whole apt branch is skipped, firmware packages included. A box
 that ran `script/ci-qemu` before its first `script/setup` therefore never gets `ovmf` or `ipxe-qemu`
 at all. That is believed fine, on the measurement above, and it is currently believed rather than
 shown.

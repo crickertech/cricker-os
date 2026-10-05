@@ -23,8 +23,8 @@ would be operating on a resource that was never granted. A refusal that read as 
 
 > not "permission denied" but "there is nothing you hold that could grant this."
 
-That is an **absence**, not a failed check. A program that ran and failed needs a fix. A refusal needs
-a **grant**. Collapsing both into an undifferentiated non-zero throws away the one distinction this
+That is an absence, not a failed check. A program that ran and failed needs a fix. A refusal needs
+a grant. Collapsing both into an undifferentiated non-zero throws away the one distinction this
 shell was built to make visible, and a script that wants to react to "you were not given this" would
 have no way to.
 
@@ -39,8 +39,8 @@ The convention exists and predates us:
 | 128+n | killed by signal n |
 
 POSIX reserves the top of the range for **"the shell could not run this"**, separately from "the
-program ran and failed". So `Refusal::NoSuchProgram` maps to **127** and that is not a new convention,
-it is the existing one. Only the capability refusal needs a value, and **126** is the closest in
+program ran and failed". So `Refusal::NoSuchProgram` maps to 127 and that is not a new convention,
+it is the existing one. Only the capability refusal needs a value, and 126 is the closest in
 spirit: found it, could not run it for you.
 
 This is CLAUDE.md's guard rail applied to a protocol rather than a name. A convention a reader already
@@ -59,13 +59,13 @@ it needs.
 §65 says a refusal that is not passive cannot be used as a question. Read quickly, that forbids
 `cmd || fallback` and `if cmd; then` in this shell, and it does not.
 
-**The kernel's `reclaim_region` refusal is destructive**: it arms §16's kill on every live thread in
-the region and then returns `Err`, so asking destroys the answer. **The shell's refusal is pure**:
+The kernel's `reclaim_region` refusal is destructive: it arms §16's kill on every live thread in
+the region and then returns `Err`, so asking destroys the answer. The shell's refusal is pure:
 `plan()` takes a `RunSpec`, a `Holdings` and an `Expansion`, and returns `Result<Endowment, Refusal>`
 having done nothing at all. Nothing is spawned, nothing is granted, no state moves.
 
 So probing is legitimate here and was not there, and the rule that separates them is not "refusals are
-safe to ask" but **"an operation whose failure path mutates state is not a predicate"**. The shell's
+safe to ask" but "an operation whose failure path mutates state is not a predicate". The shell's
 does not, so it is one.
 
 Worth stating explicitly because the two sections are adjacent, both are about refusals, and they

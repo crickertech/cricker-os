@@ -7,18 +7,18 @@ and `TTBR0_EL1`.
 
 At milestone 7, every process gets its own page tables, and a context switch swaps them.
 
-**If the kernel lived in `TTBR0`, swapping `TTBR0` would delete the kernel.** The first
+If the kernel lived in `TTBR0`, swapping `TTBR0` would delete the kernel. The first
 context switch into a user process would unmap the code doing the switching, mid-instruction.
 
-aarch64 hands us the answer directly: **two translation table base registers.**
+aarch64 hands us the answer directly: two translation table base registers.
 
 | Top 16 bits of the VA | Register | Who |
 |---|---|---|
 | all **zero** | `TTBR0_EL1` | the process (swapped on every context switch) |
 | all **one** | `TTBR1_EL1` | the kernel (never moves) |
 
-The kernel's mappings are in `TTBR1` and simply never change. A syscall requires **no address
-space switch at all**: the trap goes to EL1, the kernel is already mapped, and it can read the
+The kernel's mappings are in `TTBR1` and simply never change. A syscall requires no address
+space switch at all: the trap goes to EL1, the kernel is already mapped, and it can read the
 user's memory through `TTBR0`, which is still loaded.
 
 x86_64 has only one such register and has to achieve the same effect by convention. This is
@@ -26,8 +26,8 @@ one of the places aarch64's clean-sheet design visibly pays.
 
 ## The chicken and egg
 
-Link the kernel at a high virtual address, and **every absolute address the compiler baked
-into the binary is a VA that doesn't work until the MMU is on.** But the code that turns the
+Link the kernel at a high virtual address, and every absolute address the compiler baked
+into the binary is a VA that doesn't work until the MMU is on. But the code that turns the
 MMU on is inside that binary, and it's running at a *physical* address, because that is where
 the bootloader put it.
 
@@ -39,14 +39,14 @@ Two facts get us out.
 adrp x0, __stack_top        // x0 = (PC & ~0xfff) + linker_offset
 ```
 
-The linker computes `linker_offset` from **virtual** addresses. But `PC` is currently a
-**physical** address, and `VA - PA` is a constant (`0xffff_0000_0000_0000`). The two
-differences cancel, and you get the **physical** address of the symbol. Free of charge.
+The linker computes `linker_offset` from virtual addresses. But `PC` is currently a
+physical address, and `VA - PA` is a constant (`0xffff_0000_0000_0000`). The two
+differences cancel, and you get the physical address of the symbol. Free of charge.
 
 Which is why `boot.s` uses `adrp` and never `ldr x0, =symbol` before the MMU is on: a literal
 pool holds the absolute VA, which is exactly the thing that doesn't work yet.
 
-*(Literal pools holding **constants** are fine. The load itself is PC-relative; it's the value
+*(Literal pools holding constants are fine. The load itself is PC-relative; it's the value
 that would be wrong.)*
 
 ### 2. Bits 63:48 aren't translated, so ONE table is both maps
@@ -54,10 +54,10 @@ that would be wrong.)*
 `KERNEL_VA_BASE = 0xffff_0000_0000_0000` touches **only bits 63:48**, which are never part of
 any page-table index ([page-tables.md](page-tables.md)).
 
-So `PA` and `PA | KERNEL_VA_BASE` have **identical L0/L1/L2/L3 indices**. The identity map and
+So `PA` and `PA | KERNEL_VA_BASE` have identical L0/L1/L2/L3 indices. The identity map and
 the high-half map are the *same table contents*.
 
-Which means `boot.s` can build **one** two-page table and point *both* `TTBR0` and `TTBR1` at
+Which means `boot.s` can build one two-page table and point *both* `TTBR0` and `TTBR1` at
 it. There is no careful dance. That is the whole trick.
 
 Three things fall out of choosing that base, and all three are load-bearing:
@@ -123,12 +123,12 @@ Turning `TTBR0` off is what made the errors *loud*, and it caught two immediatel
   FAR_EL1   0x0000000044000000
 ```
 
-That's a test dereferencing the device tree's **physical** address. Before, the identity map
+That's a test dereferencing the device tree's physical address. Before, the identity map
 made it work by accident. Now, a low address does not exist, and the mistake faults on the
 spot with the offending address printed.
 
-Same for the UART. That's a feature: **an identity map that lingers is an identity map that
-hides physical/virtual confusion**, right up until userspace shows up and the confusion becomes
+Same for the UART. That's a feature: an identity map that lingers is an identity map that
+hides physical/virtual confusion, right up until userspace shows up and the confusion becomes
 a security hole.
 
 ## What this unblocks

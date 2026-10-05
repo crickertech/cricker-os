@@ -233,3 +233,9 @@ one place.
 - The Zircon `zx_vmar_root_self` declaration and the dead-process VMAR behaviour are recalled.
 - The corpse gap under 765 is reasoned from `region_reap_verdict` and `AddressSpace::drop`, not
   driven. It is handed to milestone 765's lane to confirm or refute before building.
+  *Corrected 2026-10-05 (UTC), by the lane that built §249 (a running address space stays
+  nameable):* confirmed real before §249 and closed by registry ownership, driven rather than
+  reasoned. `system_tests`' `running_space_tests::a_corpse_does_not_keep_a_space_rooted_in_a_destroyed_region`
+  builds the shape. Its falsification, the sweep leaving a corpse's space alone as the old tree did,
+  goes red at exactly this gap: the space outlives its region and the root stays registered. What
+  remains is narrower and is in milestone 765's block.

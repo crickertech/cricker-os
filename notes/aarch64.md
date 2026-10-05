@@ -7,7 +7,7 @@ instructions exist, what registers there are, how memory is addressed, how privi
 works. Compile for aarch64 and you get bytes an aarch64 CPU knows how to execute. Feed
 those bytes to an x86 CPU and you get garbage.
 
-**aarch64 is the 64-bit mode of ARM's architecture**, introduced with ARMv8-A in 2011.
+aarch64 is the 64-bit mode of ARM's architecture, introduced with ARMv8-A in 2011.
 
 Also called ARM64, arm64, and AArch64. Apple says arm64, Rust and GCC say aarch64, ARM's
 own docs say AArch64. Same thing. The naming is just a mess.
@@ -24,9 +24,9 @@ boots in a 16-bit mode from 1978, transitions to 32-bit, then to 64-bit. Instruc
 aarch64 was designed clean, in one go, by people who had watched x86 accumulate scar
 tissue for thirty years:
 
-- **Fixed 32-bit instruction width.** Every instruction is exactly 4 bytes.
-- **31 general-purpose 64-bit registers** (`x0`–`x30`), plus a stack pointer. x86 has 16.
-- **Load/store architecture.** Arithmetic happens only on registers. Touching memory
+- Fixed 32-bit instruction width. Every instruction is exactly 4 bytes.
+- 31 general-purpose 64-bit registers (`x0`–`x30`), plus a stack pointer. x86 has 16.
+- Load/store architecture. Arithmetic happens only on registers. Touching memory
   requires an explicit load or store. x86 lets you add directly to a memory location;
   ARM makes you load, add, store. More instructions, far simpler model.
 
@@ -46,13 +46,13 @@ Clean, numbered, orthogonal. Higher number, more power.
 x86's equivalent is rings 0–3 (nobody uses 1 and 2), plus System Management Mode bolted
 on the side, plus VMX root/non-root for virtualization, layered on over decades.
 
-**The EL0/EL1 boundary is the single most important line in the OS.** Everything until
+The EL0/EL1 boundary is the single most important line in the OS. Everything until
 milestone 7 runs at EL1. Milestone 7 is the moment we construct a world at EL0, drop into
 it, and catch it when it asks us for something. That transition *is* what an operating
 system is.
 
-**But the kernel does not always *arrive* at EL1, and until 2026-09-02 this tree assumed it
-did.** QEMU's `virt` starts a payload at EL1; every real aarch64 bootloader starts one at EL2,
+But the kernel does not always *arrive* at EL1, and until 2026-09-02 this tree assumed it
+did. QEMU's `virt` starts a payload at EL1; every real aarch64 bootloader starts one at EL2,
 because that is where a hypervisor would go and firmware does not know you are not one. U-Boot
 on the Jetson TX1 (milestone 127, the seL4 machine) does exactly this, with TF-A's tegra210 BL31
 at EL3 below it providing PSCI.
@@ -68,11 +68,11 @@ is UNKNOWN or because a bootloader may leave it however it liked, which means th
 either invisible or reads as something the kernel would then believe. Two are worth knowing
 about away from the code:
 
-- **`CNTVOFF_EL2`** is subtracted from the physical counter to produce the virtual one, and
+- `CNTVOFF_EL2` is subtracted from the physical counter to produce the virtual one, and
   `arch/aarch64/timer.rs` uses the *virtual* timer deliberately (it is the one an EL1 kernel can
   always reach). Leaving `CNTVOFF_EL2` as found is leaving the system clock offset by an
   arbitrary 64-bit number.
-- **`VPIDR_EL2` and `VMPIDR_EL2`** are what `MIDR_EL1` and `MPIDR_EL1` *return* once EL2 is
+- `VPIDR_EL2` and `VMPIDR_EL2` are what `MIDR_EL1` and `MPIDR_EL1` *return* once EL2 is
   implemented and you are reading them from EL1. Not copying the real values across would have
   the core-parking branch, `arch::isa`'s refusal check and the SMP bring-up all reading garbage,
   each failing somewhere far from the cause.
@@ -87,7 +87,7 @@ because on a board's first boot they are the two different questions. See
 registers.) `x30` is the link register: it holds the return address after a `bl` call.
 The stack pointer `sp` is separate. The program counter `pc` is not directly writable.
 
-**System registers:** a separate namespace only privileged code can touch. Read/written
+System registers: a separate namespace only privileged code can touch. Read/written
 with the special `MRS` and `MSR` instructions. A userspace program can never touch these.
 A kernel does almost nothing else.
 
@@ -108,17 +108,17 @@ bit position wrong.
 
 `b label` is a plain unconditional jump. Sets `pc` to the target. A `goto`.
 
-`bl label` (**b**ranch with **l**ink) does the same jump **and** stores the address of the
+`bl label` (branch with link) does the same jump and stores the address of the
 *next* instruction into `x30`. "Link" = "remember where to come back to."
 
 `ret` is just: *jump to the address in `x30`*. That's the entire instruction.
 
-So a function call on aarch64 is `bl foo` ... `ret`. **No stack involved.** Compare x86,
+So a function call on aarch64 is `bl foo` ... `ret`. No stack involved. Compare x86,
 where `call` pushes the return address to the stack and `ret` pops it.
 
 ### The consequence
 
-`x30` holds exactly **one** return address. If `foo` calls anything, that second `bl`
+`x30` holds exactly one return address. If `foo` calls anything, that second `bl`
 overwrites `x30` and `foo` has forgotten how to get home. Which is exactly why the
 prologue in [the stack note](stack.md) exists:
 
@@ -126,10 +126,10 @@ prologue in [the stack note](stack.md) exists:
 stp  x29, x30, [sp, #-32]!   ; stash x30 before it gets clobbered
 ```
 
-The stack is not where return addresses *go* on ARM. It's where they get **parked** when
+The stack is not where return addresses *go* on ARM. It's where they get parked when
 a function needs `x30` for a call of its own.
 
-Corollary: a **leaf** function (calls nothing) never has to save `x30`, so it skips the
+Corollary: a leaf function (calls nothing) never has to save `x30`, so it skips the
 prologue entirely and just `ret`s.
 
 ### The four variants
@@ -143,7 +143,7 @@ prologue entirely and just `ret`s.
 
 The register forms exist because `b`/`bl` encode the target as a signed offset *inside the
 instruction*, and instructions are only 32 bits wide. 26 bits are available for the
-offset, scaled by 4, giving a reach of **±128 MiB**. To call farther, load the full 64-bit
+offset, scaled by 4, giving a reach of ±128 MiB. To call farther, load the full 64-bit
 address into a register and use `blr`. Function pointers and virtual dispatch use `blr`
 for the same reason: the target isn't known at assembly time.
 
@@ -157,11 +157,11 @@ milestone 41; it is now just the reset path, because a secondary is started deli
 
 ## Decoding `aarch64-unknown-none-softfloat`
 
-That's our Rust **target triple**, and every piece is meaningful:
+That's our Rust target triple, and every piece is meaningful:
 
 - **`aarch64`**: the ISA.
 - **`unknown`**: the vendor. Nobody in particular.
-- **`none`**: **the operating system: there isn't one.** This is what "bare metal" means,
+- **`none`**: the operating system: there isn't one. This is what "bare metal" means,
   spelled out in the target name. No syscalls, no libc, no `std`. It's why the kernel is
   `#![no_std]`.
 - **`softfloat`**: do not use the hardware floating-point / SIMD registers.

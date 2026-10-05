@@ -18,10 +18,10 @@ Expected to fail: assertion (2), "what is left mapped is not a prefix of the req
 Run on 2026-10-04 (UTC), patagonia: red as predicted, green again after the revert.
 
 diff --git a/crates/paging/src/domain.rs b/crates/paging/src/domain.rs
-index 7fd6cba1d..7939151ff 100644
+index 45c366914..8fae8bb2a 100644
 --- a/crates/paging/src/domain.rs
 +++ b/crates/paging/src/domain.rs
-@@ -130,6 +130,7 @@ where
+@@ -152,6 +152,7 @@ where
      // silently building a mapping the IOMMU would never consult.
      // SAFETY: forwarded from this function's contract.
      let mut m = unsafe { Mapper::<A, P, F>::new(root, Half::Low, alloc_page_frame, phys_to_ptr) };
@@ -29,13 +29,13 @@ index 7fd6cba1d..7939151ff 100644
      for r in regions {
          // The page set is decided by [`grant_pages`]/[`grant_page`], the proved arithmetic, rather
          // than by `map_range`'s unchecked `va + i * PAGE_SIZE`. That is what makes "the domain maps
-@@ -145,10 +146,13 @@ where
+@@ -167,10 +168,13 @@ where
              // nothing to invalidate. The IOMMU has never walked these tables; they are not installed
              // yet. `AlreadyMapped` here would mean two grants in `regions` overlap, which fails the
              // whole build closed rather than quietly merging them.
--            m.map(page, page, Flags::user_data())?;
+-            m.map(page, page, r.flags())?;
 +            // Best effort: map the rest of the grant and report the first failure.
-+            if let Err(e) = m.map(page, page, Flags::user_data()) {
++            if let Err(e) = m.map(page, page, r.flags()) {
 +                failed.get_or_insert(e);
 +            }
          }

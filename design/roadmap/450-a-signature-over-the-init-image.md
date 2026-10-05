@@ -34,7 +34,7 @@ different property: it lets the thing being verified change without the verifier
 pays for that with keys, a certificate chain and verification code inside the trusted computing
 base.
 
-**A note on the citation inside the quote**, which is not this block's to fix: it names
+A note on the citation inside the quote, which is not this block's to fix: it names
 `DECISIONS §26` for the sequence, and §26 ("the signature variant we did not build") does carry
 that section, under a title about the fault endpoint. It resolves, and a reader going by title will
 not find it, so it is flagged here rather than corrected.

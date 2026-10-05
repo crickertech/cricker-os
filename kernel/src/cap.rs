@@ -154,7 +154,10 @@ pub enum Object {
     /// It is the honest analogue of [`Object::DeviceFrame`]: `DeviceFrame` names a device's MMIO page and
     /// the MMU enforces it; `PortRange` names a device's ports and the **TSS I/O permission bitmap**
     /// enforces it. A thread that holds one may execute `in`/`out` on `[base, base + count)` from
-    /// ring 3, and no other port; a thread that holds none may touch no port at all. The granularity
+    /// ring 3, and no other port; a thread that holds none may touch no port at all. **The capability must
+    /// carry `WRITE`** (milestone 768 (provisional), calef 2026-10-05 UTC): the bitmap cannot grant `in`
+    /// without `out`, so a `PortRange` without `WRITE` opens no port at all (`sched::thread_control_block_insert_from`).
+    /// The granularity
     /// is a range because a 16550 UART is eight consecutive ports (COM1 is `0x3F8..=0x3FF`).
     ///
     /// **`x86_64` only**, because the other two architectures have no port space and no TSS I/O
@@ -397,7 +400,15 @@ pub type CapabilityTable = capability::CapabilityTable<Object, CAPABILITY_TABLE_
 /// headroom, not a different peak, so the gpu-and-keyboard boot reads 31 of 64 and the recorded
 /// figure is unchanged. The headroom is thirty-two, which is a licence for the next boot grants
 /// and still not for a reflexive spend; `notes/capability-peak-trace.md` itemises the 31.
-pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 31;
+///
+/// **Thirty-two** (2026-10-05, UTC, §249 (a running address space stays nameable) and its amendment
+/// ruling the slot). The kernel grants the progenitor a capability to its own address space at slot
+/// 28 on every boot, and the progenitor keeps it for life, because its spawn service gives up each
+/// scratch page it fills for a job the same way it does for a boot server (milestone 95 (an unmap
+/// primitive)). So every boot sits one higher: measured on `swish-check`'s aarch64 leg, the no-gpu
+/// boot reads 25 (was 24), the gpu-no-keyboard boot 29 (was 28), and the keyboard boot 32 (was 31).
+/// It is a slot spent on purpose rather than taken quietly; the headroom is thirty-two.
+pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 32;
 
 // The headroom milestone 230 left is what this pair means, so the two cannot silently invert.
 const _: () = assert!(CAPABILITY_TABLE_PEAK_MEASURED < CAPABILITY_TABLE_SLOTS);

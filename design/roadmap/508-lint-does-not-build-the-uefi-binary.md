@@ -47,11 +47,11 @@ being a thin shim while nothing was watching its build.
 
 A lint stage that compiles the UEFI binaries for every architecture the tree produces one for, with
 clippy's `-D warnings` the way the other stages do. The question worth answering with a measurement
-rather than an opinion is **how much it costs**: `script/lint` is run before every push, so a stage
+rather than an opinion is how much it costs: `script/lint` is run before every push, so a stage
 that adds a minute is a different proposition from one that adds five. Time it against a warm and a
 cold target directory and say so in the block.
 
-**Two cheaper shapes, if the cost is bad**: build only on the architectures whose loader files
+Two cheaper shapes, if the cost is bad: build only on the architectures whose loader files
 changed (a path-triggered stage, which the tree does not do anywhere else and would be a new habit),
 or move it into `script/ci-build` so CI holds it and a contributor learns at push time rather than
 at commit time. The tree's own precedent argues for the plain version: `script/lint` already builds
@@ -62,7 +62,7 @@ three kernels.
 - **This proposal does not check whether anything else is unbuilt by lint.** The same question
   applies to every non-host target in the tree, and the honest version of this work starts by
   listing what `script/lint` compiles and comparing it with what `script/test` compiles.
-- **A gate that only compiles proves compilation.** The loader's behaviour is still proved by an
+- A gate that only compiles proves compilation. The loader's behaviour is still proved by an
   OVMF boot, and nothing here changes that.
 
 ## Index row

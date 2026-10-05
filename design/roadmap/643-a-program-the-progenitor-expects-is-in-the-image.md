@@ -58,7 +58,7 @@ line.
    require the `login credentials provisioned` line. That catches every cause of a silent skip, not
    only a rename: a program missing from the image, a manifest mismatch, an entropy failure. Its
    weakness is that it costs nothing to run but says less about why the line is missing.
-3. **Make an absent program loud in `system_initializer` itself.** It would print a line naming each
+3. Make an absent program loud in `system_initializer` itself. It would print a line naming each
    looked-up program that is absent, alongside the existing unvouched report. That is cheap and
    helps a person at the console, but no gate reads the console, so on its own it is rung three.
 

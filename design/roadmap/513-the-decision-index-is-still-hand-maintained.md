@@ -40,8 +40,8 @@ row holds: the number, the title and the status. The fourth is the filename. `sc
 already parses all of them, and already checks that the row and the file agree, which is the check
 that becomes unnecessary the moment one is derived from the other.
 
-So the work is the same three pieces 294 had, minus its hard part: there is **no hand-written
-summary column** to migrate, which was 294's whole expense (288 blocks, a median similarity of 0.07
+So the work is the same three pieces 294 had, minus its hard part: there is no hand-written
+summary column to migrate, which was 294's whole expense (288 blocks, a median similarity of 0.07
 against the opening paragraph, so the column had to move verbatim rather than be derived).
 
 1. `script/decisions --write` renders the table between markers, `--index` prints it.
@@ -55,7 +55,7 @@ against the opening paragraph, so the column had to move verbatim rather than be
 which §194 rules stays. It removes the *conflict in the table* and leaves the duplicate, which is the
 right division: a duplicate number is a real defect and should be a merge conflict somebody reads.
 
-**And it inherits the open question next door.** A generated index that no lane may edit is only as
+And it inherits the open question next door. A generated index that no lane may edit is only as
 current as whoever regenerates it, and nothing does;
 `design/roadmap/510-nothing-regenerates-the-roadmap-index.md` is that question and this would
 be its second customer rather than a second instance of it.

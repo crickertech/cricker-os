@@ -6,8 +6,8 @@ any physical memory. This note is how that hole was closed.
 ## Why it was a hole
 
 The whole kernel is built to confine what a process can touch, and the MMU enforces it perfectly:
-a process at EL0 cannot read, write, or execute a byte it was not mapped. But **the device is not
-a process, and it is not behind the MMU.** A virtio block device is a second bus master: it reads
+a process at EL0 cannot read, write, or execute a byte it was not mapped. But the device is not
+a process, and it is not behind the MMU. A virtio block device is a second bus master: it reads
 descriptors and does DMA against raw *physical* addresses, and page-table permissions: W^X, the
 AP bits, the TTBR0/TTBR1 split, everything: simply do not apply to it.
 
@@ -25,8 +25,8 @@ succeeds). That is the gap.
 ## Why not an IOMMU
 
 An IOMMU is the *clean* answer: it sits between the device and memory and translates every address
-the device emits, confining it to a region the kernel programmed: **generically, with zero device
-knowledge in the kernel.** That is why real systems use one, and it is what DECISIONS §10 meant by
+the device emits, confining it to a region the kernel programmed: generically, with zero device
+knowledge in the kernel. That is why real systems use one, and it is what DECISIONS §10 meant by
 "they had to bolt the isolation on afterwards with an IOMMU."
 
 It is not reachable from here. QEMU `virt`'s SMMUv3 only covers the PCIe bus, not the platform
@@ -54,8 +54,8 @@ to the driver:
    go.
 
 Everything else stays in the userspace driver: feature negotiation, the block request format,
-sectors, reading results. The kernel owns the virtio **transport** (the descriptor and available
-ring layout, enough to validate DMA) and knows nothing about **block devices**. The driver reaches
+sectors, reading results. The kernel owns the virtio transport (the descriptor and available
+ring layout, enough to validate DMA) and knows nothing about block devices. The driver reaches
 the device only through a `Virtio` capability; the device registers are no longer mapped into it.
 
 This is a software stand-in for an IOMMU. It is less general (it understands the transport) but it
@@ -75,15 +75,15 @@ that matters for milestone 16a:
 | An address in a **device command payload** (virtio-gpu resource backings) | the IOMMU, and nothing else | **Partly proved, by the row above, and only there.** The validator cannot see these addresses at all: they are not in its input, so nothing about them is provable *from the transport*. What the domain proof buys is that the barrier's allow-list is exact; that the hardware then faults an address outside it stays an attacker test. |
 
 Note what the middle row does for the third, because it is the one useful thing milestone 35 could prove
-about the payload path and it is easy to miss. A payload-borne address is stopped by having **no
-translation in the device's domain**, so "the domain maps exactly the grant" is precisely the property
+about the payload path and it is easy to miss. A payload-borne address is stopped by having no
+translation in the device's domain, so "the domain maps exactly the grant" is precisely the property
 that barrier needs, and it is now proved for every grant rather than tested on a few. The payload path
 therefore improved from "tested end to end" to "the allow-list is proved exact, the hardware honouring it
 is tested end to end". That is a real narrowing of the gap and it is *not* the same as closing it: the
 transport still cannot see these addresses, and the hardware is still doing the enforcing.
 
 That third row is the one to carry away. A virtio-gpu's backing addresses ride inside a
-`RESOURCE_ATTACH_BACKING` **command payload** (DECISIONS §29, notes/framebuffer-contract.md). The
+`RESOURCE_ATTACH_BACKING` command payload (DECISIONS §29, notes/framebuffer-contract.md). The
 kernel bounds the descriptor that *carries* the command, so the payload bytes are in-region; the
 addresses inside those bytes are never parsed. Proving the validator harder does nothing for this,
 because the addresses never enter it, and teaching the transport to read virtio-gpu commands would put
@@ -91,7 +91,7 @@ device knowledge in the layer DECISIONS §18 keeps device-neutral and start a pe
 `the_iommu_refuses_the_gpu_a_framebuffer_outside_the_drivers_grant` is the evidence that the IOMMU
 catches it, on both ISAs, by asserting on the hardware's own fault queue.
 
-**And this is exactly where the argument for proving the validator now, rather than later, inverts.**
+And this is exactly where the argument for proving the validator now, rather than later, inverts.
 The reason milestone 35 was load-bearing is that milestone 16a's board, the VisionFive 2, **has no
 IOMMU**: on first silicon the validator stops being defence in depth and becomes the sole DMA
 confinement, so it had better be proved rather than sampled. That reasoning holds for the descriptor
@@ -111,7 +111,7 @@ Since milestone 35 (prove the DMA-confinement boundary) the validation logic liv
 escapes the granted region or is indirect, for every input (both directions, multi-queue, chain
 cycles, ring-index wraparound, and the mutated-after-validation race), and that the walk terminates.
 This was the last isolation boundary that was attacker-tested but not proved; notes/verification.md
-has the harness table and, more important, **the bounds with their justifications** (the short
+has the harness table and, more important, the bounds with their justifications (the short
 version: the queue size the proof fixes is the system's own `QSIZE`, not a proof convenience, and
 the loop bounds are set one above what the code can need so Kani's unwinding assertion turns them
 into a termination proof). The crate also now *owns* the ring layout constants that
@@ -184,8 +184,8 @@ The fix has two layers, both cheap:
    costs one branch and makes the confinement fail closed if layer 1 ever regresses.
 
 The deeper lesson is that both of these, and the time-of-check/time-of-use question below, are the
-same shape of problem: **the validator reads descriptors out of memory the driver keeps mapped
-writable.** Patching each feature is treating symptoms. The cure is to stop reading from shared
+same shape of problem: the validator reads descriptors out of memory the driver keeps mapped
+writable. Patching each feature is treating symptoms. The cure is to stop reading from shared
 memory at all.
 
 ## The residual race, and the complete fix: a shadow descriptor ring
@@ -253,7 +253,7 @@ descriptors.
 
 ## The write direction (milestone 32 phase 1)
 
-The write-capable block path needed **no kernel change**, and it is worth recording why that is a
+The write-capable block path needed no kernel change, and it is worth recording why that is a
 property and not luck: the validator bounds *addresses*, never directions. A blk read marks the
 data descriptor device-writable (the device fills the buffer); a blk write leaves the flag clear
 (the device consumes the buffer). Either way `validate_and_shadow` checks the same thing, that
@@ -287,7 +287,7 @@ round trip. Three facts make the abandoned request harmless, and all three are l
   count of validated submissions, not completions, so an uncollected completion leaves nothing
   dangling; the next operator of the physical device resets it (status 0) and programs its own
   registration's rings from scratch.
-- **The completion is the used ring, not the interrupt.** This one was missing at first, and the
+- The completion is the used ring, not the interrupt. This one was missing at first, and the
   test caught it: the kill-mid-write case failed intermittently, `report_code(0xE3)` ("woke, but
   the device did not complete the request"), roughly one run in two. The abandoned write's
   completion still raises the device's interrupt line, and the kernel turns that into a pending
@@ -308,9 +308,9 @@ notes/riscv-parity-scope.md.
 
 ## BUGS: the confinement is one-directional, and two drivers read it as if it were not
 
-Everything above confines the **driver to device** direction: which addresses the device will be
+Everything above confines the driver to device direction: which addresses the device will be
 sent to, and (through the IOMMU) which it can translate at all. Nothing here says anything about
-what the device **writes back**, and it cannot: the used ring is inside the driver's own granted
+what the device writes back, and it cannot: the used ring is inside the driver's own granted
 region, so a device writing it is a device doing its job.
 
 Milestone 43's audit (notes/shared-page-audit.md, finding 6) found two drivers reading that as a
@@ -321,7 +321,7 @@ that lies once makes the network driver copy its heap into a frame and hand it t
 receive length was unbounded the same way. Both now fail closed, and `entropy.rs` had always
 clamped, so the shape was an omission and not a policy.
 
-**What is still missing is the negative control.** This tree tests DMA confinement by making the
+What is still missing is the negative control. This tree tests DMA confinement by making the
 *driver* attack (`crates/virtio`'s `run_attack` and the indirect-descriptor variant, both proving
 the kernel refuses). There is no way to make the *device* attack, so the direction the IOMMU and the
 validator exist for is the one with no test, and the two fixes above are unproven for that reason. A
@@ -344,7 +344,7 @@ one, on both boards: an SMMUv3 on aarch64 and the ratified RISC-V IOMMU on riscv
 PCIe bus, each confining a device to a domain the kernel programs (notes/iommu.md, DECISIONS §20).
 So the clean answer is now the real answer for the PCIe transport.
 
-This shadow ring is **not** removed. It is demoted to defence in depth. Two reasons it stays. First,
+This shadow ring is not removed. It is demoted to defence in depth. Two reasons it stays. First,
 virtio-mmio has no IOMMU in front of it on either board, so the software confinement is still the
 only thing guarding the mmio disk. Second, even where the IOMMU is present, keeping both means a
 regression in either layer is caught by the other: the transport still refuses a format it cannot
@@ -359,7 +359,7 @@ The disk uses one virtqueue. A NIC uses two: receive (queue 0) and transmit (que
 the reason the confinement grew a second queue, and receive is the reason it is worth stating what
 "a second direction" does and does not mean.
 
-**The plumbing that is new.** Each device now carries a per-queue last-validated index and a
+The plumbing that is new. Each device now carries a per-queue last-validated index and a
 per-queue ring block. `setup_queue(id, num, queue)` and `notify(id, queue)` take a queue number, and
 queue `q`'s descriptor table, available ring, and used ring sit at `q * RING_BLOCK` (0x200) in both
 the driver's DMA region and the one kernel-private shadow frame (two queues fit in 0x400 of a 4 KiB
@@ -368,7 +368,7 @@ disk driver did not change: its data buffers already start at 0x200, which is qu
 disk has no queue 1. The `Virtio` capability's methods grew a queue argument rather than gaining new
 methods; the disk passes queue 0 and its ABI is byte-identical (DECISIONS §23).
 
-**The validation that is NOT new, and why that is the honest finding.** `validate_and_shadow` did not
+The validation that is NOT new, and why that is the honest finding. `validate_and_shadow` did not
 change. It bounds the *address* of every descriptor, `addr..addr+len` inside the driver's region,
 whichever way the device moves the bytes. Receive is where the *device writes into* driver memory
 (the driver posts an empty buffer, the device fills it with a packet), and that is exactly the shape

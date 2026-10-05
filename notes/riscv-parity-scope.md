@@ -1,6 +1,6 @@
 # Scoping RISC-V / aarch64 feature parity
 
-The RISC-V port proved the **capability core** on a second ISA: boot, MMU (Sv39), traps, the SBI
+The RISC-V port proved the capability core on a second ISA: boot, MMU (Sv39), traps, the SBI
 timer, the scheduler, preemption, U-mode programs and syscalls, capability invocation, IPC,
 userspace-built processes, and device interrupts serviced by an unprivileged userspace driver. Rule
 #1 held: a new ISA was a new `arch/` directory, not a diff across the kernel.
@@ -8,7 +8,7 @@ userspace-built processes, and device interrupts serviced by an unprivileged use
 aarch64 is a strict **superset**. This note scopes the gap: what it would take to bring RISC-V to
 parity, what each item proves, and in what order to do them.
 
-A key framing runs through the whole list: **the demonstrator's thesis is about the kernel** (a
+A key framing runs through the whole list: the demonstrator's thesis is about the kernel (a
 verified, portable capability microkernel). So the parity items that prove *kernel* properties on the
 second arch are worth more than the ones that only port *userspace* apps.
 
@@ -25,8 +25,8 @@ four steps: **A1** the per-hart trap state (`sscratch` points at a per-hart `Tra
 kernel `tp` and stack, replacing the single global that could not scale past one hart); **A2**
 secondary bring-up via SBI HSM `sbi_hart_start` into a `secondary_boot` that replays the higher-half
 transition, made robust to QEMU's non-deterministic boot hart by keying everything to
-`arch::boot_cpu_id()` (logical id == hart id); **A3** IPIs via the SBI IPI extension (a supervisor
-software interrupt, `scause` = 1, draining the inbox), lighting up `send_reschedule`; **A4** the SMP
+`arch::boot_cpu_id()` (logical id == hart id); A3 IPIs via the SBI IPI extension (a supervisor
+software interrupt, `scause` = 1, draining the inbox), lighting up `send_reschedule`; A4 the SMP
 tests un-gated and generalized off "boot core is 0". The subtle one was **TLB shootdown**: RISC-V has
 no hardware TLB broadcast, so `flush_tlb` follows its local `sfence.vma` with an SBI RFENCE to the
 other online harts, or a thread migrated to a core faults on a stale translation of its own stack.
@@ -38,23 +38,23 @@ RISC-V runs single-hart today; `send_reschedule` is a no-op and the runner passe
 the last big *primitive* aarch64 claims and riscv does not, and the only parity item that is genuine
 new kernel work rather than porting userspace.
 
-- **Prerequisite: per-hart trap state.** The leak-free `tp` fix uses a single global `KERNEL_TP`,
+- Prerequisite: per-hart trap state. The leak-free `tp` fix uses a single global `KERNEL_TP`,
   and the trap frame is placed below `sp`. SMP needs each hart to have its own per-CPU pointer and
   trap-frame area: the standard approach is `sscratch` holding this hart's kernel context, swapped in
   at trap entry, set up per-hart at bring-up. This refactor touches the trap path (trap.s) and is the
   enabling step; it was flagged as a follow-up during the `tp` saga.
-- **Secondary bring-up** via SBI HSM (`sbi_hart_start(hartid, addr, opaque)`): the boot hart starts
+- Secondary bring-up via SBI HSM (`sbi_hart_start(hartid, addr, opaque)`): the boot hart starts
   the others into a secondary entry path that mirrors aarch64's `secondary_main`: set `stvec`, `tp`/
   `sscratch`, adopt the kernel `satp`, arm the timer (`sie.STIE`), create an idle thread and run
   queue, become a scheduler participant.
-- **Per-hart PLIC context.** `plic::init` hardcodes context 1 (hart 0 S-mode). Each hart's context
+- Per-hart PLIC context. `plic::init` hardcodes context 1 (hart 0 S-mode). Each hart's context
   is `2*hart + 1` and needs its own threshold and enable bits; wire this into `arch::irq::init_this_cpu`
   (a no-op today).
-- **IPIs** via the SBI IPI extension (`sbi_send_ipi`) → supervisor software interrupt (`scause` = 1)
+- IPIs via the SBI IPI extension (`sbi_send_ipi`) → supervisor software interrupt (`scause` = 1)
   → drain inbox + reschedule, the riscv twin of the `RESCHED_SGI` path. This lights up the
   `send_reschedule` no-op.
 - **Cross-hart shootdown**: `sfence.vma` / `fence.i` IPIs for TLB and icache coherence.
-- **Proves:** the scheduler and capability model are SMP-safe on a second *weakly-ordered* ISA. The
+- Proves: the scheduler and capability model are SMP-safe on a second *weakly-ordered* ISA. The
   weak-memory discipline (built for ARM) should carry over; SMP is where it gets its second witness.
 
 ### B. In-kernel test suite on RISC-V: DONE.
@@ -76,12 +76,12 @@ the properties that differ between the ISAs were asserted on one side only. The 
 written, and they found three defects nothing else would have: the timer delivering 80 Hz against a
 configured 100 (the relative-re-arm drift bug aarch64 shipped and fixed back at milestone 5, arrived
 at here by a different route), `missed_ticks` a stub returning 0, and a single global tick counter
-for a per-hart timer. **The lesson is B's own lesson repeated one level down:** a parity claim is only as
+for a per-hart timer. The lesson is B's own lesson repeated one level down: a parity claim is only as
 wide as the suite that checks it, and "both ISAs run the same suite" was true of the portable half
 and not of the arch half. See notes/riscv-arch-tests.md, which also sizes the remaining
 `kernel::user::tests` port.
 
-**Follow-on (milestone 19, 2026-07-31): the last two gated portable tests are gated no longer.**
+Follow-on (milestone 19, 2026-07-31): the last two gated portable tests are gated no longer.
 `kernel::sched::tests::an_interrupt_becomes_a_message` and
 `an_interrupt_that_arrives_before_the_wait_is_not_lost` were the "two SGI interrupt tests" named
 above. Neither property is architectural (IRQ-to-IPC delivery, and a lost-wakeup race); only the
@@ -93,15 +93,15 @@ candidates are worse (the SBI IPI lands on the software-interrupt arm, which nev
 That leaves `kernel::sched::tests` fully portable, and the remaining aarch64-only tests are the ones
 that genuinely need aarch64 machine code or a GIC.
 
-**Follow-on (milestone 19, 2026-07-31): `kernel::user::tests` runs on both ISAs.** It was the last
+Follow-on (milestone 19, 2026-07-31): `kernel::user::tests` runs on both ISAs. It was the last
 whole module gated to one architecture, and the reason turned out not to be the tests. The module
 comment said "every test drives a hand-written aarch64 program through `exec` and reads aarch64 fault
 registers", which was true and was the wrong thing to fix: the *scaffolding* was aarch64, and the
 tests came along unchanged once three things moved.
 
-1. **A portable last-fault record.** `arch::UserFault` (Permission / Translation / Other, each
+1. A portable last-fault record. `arch::UserFault` (Permission / Translation / Other, each
    carrying Read / Write / Fetch) plus the address, in place of two public `ESR`/`FAR` statics every
-   test decoded inline. This is what keeps the assertion "a **permission** fault at exactly this
+   test decoded inline. This is what keeps the assertion "a permission fault at exactly this
    address" rather than softening it to "a fault happened", which would have been a test converted
    into something that passes for the wrong reason. **The two ISAs are not symmetric here and the
    asymmetry is documented in the code:** aarch64 is *told* (`ESR_EL1`'s fault status code
@@ -111,7 +111,7 @@ tests came along unchanged once three things moved.
    and is written up as a `BUGS` note on `riscv64::exceptions::classify`. aarch64's answer is a
    measurement; RISC-V's is an inference.
 
-2. **The hand-assembled programs became real ELFs.** Five `global_asm!` blobs (three aarch64, two
+2. The hand-assembled programs became real ELFs. Five `global_asm!` blobs (three aarch64, two
    RISC-V) are gone, along with `exec`, the one-page raw-machine-code loader they needed. Their
    behaviours are ordinary, so they are the `outlaw` binary (two roles: read a forbidden address,
    round-trip through user mode) and the `interrupt_ignorer` that §24's interrupt work already built. Every program the
@@ -119,7 +119,7 @@ tests came along unchanged once three things moved.
    the program in a register rather than baking a constant into machine code, which is the trick that
    makes one program serve two ISAs with different kernel address spaces.
 
-3. **`hello` builds for RISC-V, and always could have.** It carries the milestone 7-19 role catalogue
+3. `hello` builds for RISC-V, and always could have. It carries the milestone 7-19 role catalogue
    (the printing client, the untyped demo, the granter and receiver, the call server, the aspace
    builder, the init roles), and xtask's comment claimed it was "aarch64-wired". Three quarters of
    that claim was already false (console, input and shell were in the riscv build list directly
@@ -129,9 +129,9 @@ tests came along unchanged once three things moved.
    comment stood in for a real blocker for a year, which is this note's recurring lesson in a new
    costume.
 
-**Three defects the port surfaced, all invisible until the tests ran on the second machine.**
+Three defects the port surfaced, all invisible until the tests ran on the second machine.
 
-- **init built the wrong program.** Several init roles in `hello` build a child out of *this
+- init built the wrong program. Several init roles in `hello` build a child out of *this
   binary's own* ELF and re-enter it at another role, and they found that ELF by reading the archive
   entry literally named `"init"`. Right on aarch64, where hello *is* the boot program; wrong on
   RISC-V, where `init` is the portable `builder` demo. init built a child out of `builder`, started
@@ -140,7 +140,7 @@ tests came along unchanged once three things moved.
   and the 90 s ceiling fired. `hello::ROLES_ENTRY` now names the entry per ISA, matching the kernel's
   `HELLO_ENTRY`, and the two must agree.
 
-- **The fault record was published before it was written.** Every test that reads the last-fault
+- The fault record was published before it was written. Every test that reads the last-fault
   record watches `USER_FAULTS` rise and then calls `last_user_fault()`, so the counter is the
   record's publication flag; it was being bumped *first*, on both ISAs, all relaxed. A reader
   therefore gets either an earlier fault's record (the assertion satisfied by the wrong evidence) or,
@@ -149,7 +149,7 @@ tests came along unchanged once three things moved.
   by storing the record first and making the counter's `fetch_add` the `Release`, with an `Acquire`
   fence in the accessor.
 
-- **A reap wait that was really waiting for the whole machine.**
+- A reap wait that was really waiting for the whole machine.
   `reclaim_frees_a_started_then_exited_childs_regions` waited for `thread_count()` to return to a
   baseline it sampled at the top of the test. `thread_count()` is the size of the *entire* thread
   table, and the top of the test is exactly when the previous tests' processes are still tearing
@@ -158,12 +158,12 @@ tests came along unchanged once three things moved.
   the signature of a wait written against something wider than the property.
   `sched::is_thread_present` asks whether *this* child was reaped. Third time for this shape: the
   wait was a yield count until the cross-core placement of §28 (SMP placement) broke it, then a
-  clock-bounded headcount until this. **Widening the timeout would have hidden it each time.**
+  clock-bounded headcount until this. Widening the timeout would have hidden it each time.
 
-**The assertions were broken on purpose to check they still bite** (a ported test that has never
+The assertions were broken on purpose to check they still bite (a ported test that has never
 failed is not evidence it still catches what the original caught). Four representative properties,
 one per category, each broken in the kernel or in the user program and each confirmed red on
-**both** ISAs before being restored:
+both ISAs before being restored:
 
 | Category | What was broken | What happened, on both ISAs |
 | --- | --- | --- |
@@ -175,7 +175,7 @@ one per category, each broken in the kernel or in the user program and each conf
 The first of those is also what found the publication-ordering defect above, because breaking a test
 and running it *alone* puts it in a state the full suite never reaches.
 
-**What stays aarch64-only, and why.** Each is written at the test, not in a blanket module comment,
+What stays aarch64-only, and why. Each is written at the test, not in a blanket module comment,
 because a blanket comment is exactly how the old claim survived past being true.
 
 | Test | Reason |
@@ -191,14 +191,14 @@ because a blanket comment is exactly how the old claim survived past being true.
 
 `riscv64::mmu` did the whole ASID dance. `asid_bits()` probed the implemented width at boot,
 `ttbr0_value` packed the ASID into `satp[59:44]`, `flush_asid` existed for teardown. And then
-`write_satp` ended with a bare `sfence.vma`, which invalidates **everything**, on every address-space
+`write_satp` ended with a bare `sfence.vma`, which invalidates everything, on every address-space
 switch. So the tagging cost what it cost and bought nothing: RISC-V was still swinging the
 sledgehammer aarch64 put down at milestone 15.
 
 Found while deciding whether `asid_tagging_keeps_address_spaces_apart_without_flushes` could be
 ported. It could not, honestly, and that was the finding.
 
-**Milestone 58 closed it**, and the sequencing is the lesson. The flush was not merely slow, it was
+Milestone 58 closed it, and the sequencing is the lesson. The flush was not merely slow, it was
 covering for two things: `flush_asid` was local, because `sfence.vma` does not broadcast and RISC-V
 has no hardware equivalent of `tlbi aside1is`; and `satp.ASID` may be zero bits wide on conforming
 hardware where aarch64 mandates eight, so `crates/address_space_identifier`'s 255 numbers rest on an assumption that
@@ -215,10 +215,10 @@ plumbing. Now that `tests` runs on both, 24 of its tests are gated to aarch64 so
 exists.
 
 The finishing pass measured the overlap rather than guessing at it, and the answer is more
-encouraging than "not textually identical" suggested. Of the 24 shared names, **nine bodies are
-byte-for-byte identical** (the five socket-contract tests, `std_net`, the two smoltcp DHCP tests, and
-the FS server's stack-headroom check). Of the fifteen that differ, thirteen differ **only in which
-image drives the driver**: aarch64 passes `init_image()`, because there the virtio driver is a role
+encouraging than "not textually identical" suggested. Of the 24 shared names, nine bodies are
+byte-for-byte identical (the five socket-contract tests, `std_net`, the two smoltcp DHCP tests, and
+the FS server's stack-headroom check). Of the fifteen that differ, thirteen differ only in which
+image drives the driver: aarch64 passes `init_image()`, because there the virtio driver is a role
 of `hello`, and RISC-V passes `blk_image()`, the dedicated binary. The remaining two differ only in a
 comment and in an assertion message. There is no behavioural divergence anywhere in the 24.
 
@@ -234,18 +234,18 @@ estimated one.
 
 ### CLOSED 2026-08-02: `no_leaked_threads` has never policed `user::tests`
 
-**Fixed, and the scope below turned out to be right on every point.** The gap is closed, the two
+Fixed, and the scope below turned out to be right on every point. The gap is closed, the two
 spinners are reaped, and the probe (now `thread_leak_police`, named to sort after `tests`) runs last
 and is green on both ISAs: 216 aarch64, 215 riscv64.
 
 Three things worth keeping from doing it, because the analysis below could not have predicted them:
 
-- **The bug bit on CI before the fix landed**, on 2026-08-02, exactly as this section forecast and in
-  the forecast's own words. `reclaim_frees_a_started_then_exited_childs_regions` ran **90 s against a
-  budget it normally clears in under 5**, tripping the watchdog on a pull request that had touched
+- The bug bit on CI before the fix landed, on 2026-08-02, exactly as this section forecast and in
+  the forecast's own words. `reclaim_frees_a_started_then_exited_childs_regions` ran 90 s against a
+  budget it normally clears in under 5, tripping the watchdog on a pull request that had touched
   only `dtb` and `nifefs`. The starvation reaches a test on a branch that cannot have caused it,
   which is what made it look like a flake worth re-running. **It was not a flake.**
-- **The probe was proven to bite before being believed.** Leaking the spinner on purpose fails it,
+- The probe was proven to bite before being believed. Leaking the spinner on purpose fails it,
   `1 thread(s) are still runnable after the suite quiesced`, with the dump. A reordered probe that
   has never failed is not evidence it polices anything.
 - **The free-frame shift this section flagged as the reason it needed a full run did not materialise.**
@@ -271,13 +271,13 @@ never-exiting spinners accumulated in it unnoticed until one of them starved
 ```
 
 Identical on both legs. The two are `untyped_demo` (pc deep inside `hello`) and `interrupt_ignorer` (pc at its
-entry, a tight loop), exactly the two named below. The other 85 threads in the table are **Blocked**,
+entry, a tight loop), exactly the two named below. The other 85 threads in the table are Blocked,
 which is the healthy steady state: they are the long-lived userspace servers earlier tests started,
 waiting on endpoints. A thread dump full of Blocked user threads is not a leak, and reading it as one
 sends the investigation to the wrong place.
 
 Worth stating plainly, because the direction is counter-intuitive: **de-gating the module did not make
-this worse in aggregate.** aarch64 carried **four** of these before (`interrupt_ignorer`, `untyped_demo`,
+this worse in aggregate.** aarch64 carried four of these before (`interrupt_ignorer`, `untyped_demo`,
 `printing_client`, `self_check_client`); making the two one-shot roles `exit()` cut it to two. RISC-V
 went from zero to two, because the module did not run there at all. So RISC-V now sits in exactly the
 condition aarch64 has been in for many milestones, rather than a worse one, and aarch64 improved.
@@ -298,11 +298,11 @@ bare user thread by `Tid`, which is a kernel change with its own design question
 reordering. Recorded here rather than done under a test lane. Reordering the runner *without* that
 change would simply turn a silent gap into a permanently red gate.
 
-**What the change would be, precisely, so it can be scoped without rediscovering it.** The mechanism
+What the change would be, precisely, so it can be scoped without rediscovering it. The mechanism
 already exists and is proven: `reap_region_objects` sets `t.killed = true` on every live thread in a
 region and the scheduler converts a killed thread to a corpse at its next preemption (DECISIONS §16's
 armed kill, the tier §24's `^C` escalation stands on). What is missing is only the ability to name
-**one thread** instead of a region.
+one thread instead of a region.
 
 1. `sched::kill_thread(tid: Tid)`, test-support, roughly ten lines: take `SCHED`, resolve `tid`, set
    `killed = true`. No new syscall and no change to the user-visible surface (rule 3 is about the
@@ -311,24 +311,24 @@ armed kill, the tier §24's `^C` escalation stands on). What is missing is only 
    false.
 3. `no_leaked_threads` then moves to run last, and polices the module for the first time.
 
-**The risk that makes it its own piece of work rather than a footnote:** killing `untyped_demo` frees
+The risk that makes it its own piece of work rather than a footnote: killing `untyped_demo` frees
 its frames, so every later free-frame baseline in the suite may shift. That is precisely the class of
 change that needs a full run on both ISAs to believe, and it is why it does not belong bolted onto a
 test-portability lane.
 
 ### CORRECTED 2026-08-02: most of this was a placement bug, not host load
 
-**The section below is kept because its measurement is sound and its conclusion was wrong**, and the
+The section below is kept because its measurement is sound and its conclusion was wrong, and the
 way it was wrong is the useful part.
 
 `every_secondary_runs_scheduled_work` was failing because each secondary's probe was spawned with
-plain `sched::spawn`, which places by **§28's power of two choices**: the lighter of two randomly
+plain `sched::spawn`, which places by §28's power of two choices: the lighter of two randomly
 sampled cores, deliberately not the spawner's. The probes scattered, and any core nobody sampled
 never set its `RAN_ON` slot. **The test was waiting on a condition that could not become true**, and
 passed only when the random placement happened to cover every core. Fixed by spawning the probe with
 `spawn_on(cpu::id(), ..)`, which is what the test always meant.
 
-**Why "host-load sensitive" was a believable wrong answer.** A random placement moves between runs
+Why "host-load sensitive" was a believable wrong answer. A random placement moves between runs
 *exactly* the way a contended runner does. On 2026-08-02 it failed three pull requests in a row on
 three different RISC-V CPU models, and that wandering was read as evidence about the host. It is
 equally the signature of nondeterministic placement, and nothing in the failure distinguishes them.
@@ -337,17 +337,17 @@ equally the signature of nondeterministic placement, and nothing in the failure 
 nothing. A deadline cannot fix an unreachable condition, so the failure surviving a 6x wider bound
 ruled out slowness in a way no amount of re-running could have. The corroboration was in the same
 logs the whole time: `a_batch_of_cpu_bound_work_reaches_every_core` and `all_secondaries_came_online`
-**pass** in the runs where this fails, so the cores are online and running work and only the per-core
+pass in the runs where this fails, so the cores are online and running work and only the per-core
 attribution breaks.
 
-**This is the second time §28 has invalidated a placement assumption in a test**, and both are in
+This is the second time §28 has invalidated a placement assumption in a test, and both are in
 this file. The reap wait above was a yield count until the cross-core placement of §28 (SMP
 placement) broke it. The shape is worth naming: a test that spawns a thread and then asserts
 something about *where* it ran is relying on placement, and §28 made placement random.
 `sched::spawn` is now the wrong call in any test whose subject is a particular core; `spawn_on` is
 the one that means what such a test says.
 
-The load sensitivity below is **real and separately measured**, and the 60 s bound was kept for it.
+The load sensitivity below is real and separately measured, and the 60 s bound was kept for it.
 It was the wrong explanation for this failure, not a wrong measurement.
 
 ---
@@ -364,7 +364,7 @@ run 4: FAIL secondary cores did not run scheduled work in time
 TOTAL main: pass=5 fail=1
 ```
 
-That is **unmodified `main`**, six runs under synthetic load. The same tests pass reliably on a quiet
+That is unmodified `main`, six runs under synthetic load. The same tests pass reliably on a quiet
 machine. So a failure in `kernel::smp::tests` is evidence about the host before it is evidence about
 the diff, and the control worth running first is *the same load against `main`*. These tests run
 before `kernel::user::*`, so nothing that module leaks can reach them; the ordering alone rules out
@@ -373,20 +373,20 @@ the tempting explanation.
 ### B (original scope). In-kernel test suite on RISC-V: M, low-medium risk. Highest value per effort.
 
 The 116 kernel tests boot under QEMU on aarch64 and signal pass/fail via semihosting exit. RISC-V has
-no in-kernel test run. **The hard part is already done:** `arch::semihosting::exit` exists on riscv
+no in-kernel test run. The hard part is already done: `arch::semihosting::exit` exists on riscv
 (QEMU virt's test-finisher). What remains:
 
 - `xtask test()` grows a riscv kernel-test build + boot (the `riscv64imac` target, the riscv runner,
   TCG for deterministic semihosting).
 - Gate the arch-specific tests (the SGI-triggered interrupt tests) to aarch64; the rest test portable
   logic (scheduler, caps, page-table math) and should pass on riscv unchanged.
-- **Proves:** the same verified behavior holds on both arches. This is the strongest *parity signal*
+- Proves: the same verified behavior holds on both arches. This is the strongest *parity signal*
   there is, and it aligns with the verified-Rust thesis. Do it first: cheap, and it makes every later
   parity claim checkable on riscv.
 
 ### C. virtio-blk + on-disk filesystem: DONE, over BOTH transports; and the "blocked" record was WRONG (correction below).
 
-**Correction (2026-07-27, evening).** The blocker recorded below does not reproduce. Booting the
+Correction (2026-07-27, evening). The blocker recorded below does not reproduce. Booting the
 riscv kernel with the runner's exact flags (QEMU 11.0.2, `-global virtio-mmio.force-legacy=false
 -device virtio-blk-device`) finds a modern virtio-mmio block device at slot 7 (0x10008000, PLIC
 IRQ 8); `find_block_device` reports it and the kernel registers the transport. The most likely
@@ -400,14 +400,14 @@ documentation; the PCIe transport keeps its own justification (notes/pcie-transp
 door to NVMe and real hardware) but is **not** a parity-C prerequisite. The original, wrong entry
 is kept below, unedited, because the correction is the instructive part.
 
-**Completed (2026-07-27, the same night).** Over mmio: the `blk` dedicated binary (the shared
+Completed (2026-07-27, the same night). Over mmio: the `blk` dedicated binary (the shared
 `virtio` module behind the 19f skeleton), `virtio_service` wiring unchanged, and the three disk
 tests (read, DMA-escape attacker, indirect attacker) green on riscv; found and fixed the PLIC
 boot-hart-lottery bug on the way (every plic::init site hardcoded context 1 while sie.SEIE was set
 on whatever hart OpenSBI elected). Then over PCIe as well: the PCIe transport (DECISIONS §18,
 notes/pcie.md) runs the byte-identical driver against the same image attached as virtio-blk-pci,
-with the completion arriving as INTx through the PLIC. **Every parity workstream (A-E) is now
-done; aarch64 and riscv64 are at feature parity, DMA confinement included.**
+with the completion arriving as INTx through the PLIC. Every parity workstream (A-E) is now
+done; aarch64 and riscv64 are at feature parity, DMA confinement included.
 
 ### C (superseded record). PARTIAL (kernel-side discovery done; blocked on QEMU transport).
 
@@ -416,7 +416,7 @@ The kernel-side enumeration is arch-correct on RISC-V now: the virtio-mmio slot 
 window is mapped device-typed, and `find_block_device` probes it and reads valid magic on riscv. The
 userspace driver itself is nearly portable (342 lines, one `dmb ish` to arch-gate to `fence`).
 
-**Blocked, and honestly:** QEMU 11's riscv `virt` does not auto-plug `-device virtio-blk-device` into
+Blocked, and honestly: QEMU 11's riscv `virt` does not auto-plug `-device virtio-blk-device` into
 the virtio-mmio slots (all eight read magic ok but device-id 0 = empty); it prefers the PCIe
 transport. So there is no mmio block device for the kernel's mmio driver to find. Finishing C needs
 either a way to force a virtio-mmio disk on riscv `virt`, or a PCIe virtio transport (a larger driver
@@ -434,7 +434,7 @@ driver run. The virtio-mmio driver is largely portable (MMIO + virtqueues + DMA)
 - Kernel: `find_block_device` (from the DTB `virtio_mmio@` nodes or by probing), route the device's
   PLIC IRQ to the userspace driver (the routing mechanism is done), hand it DMA-capable frames.
 - Runner: attach a `virtio-blk` disk (`NIFE_DISK`, as aarch64 does).
-- **Proves:** userspace device drivers *with DMA* on the second arch, and the "kernel issued no
+- Proves: userspace device drivers *with DMA* on the second arch, and the "kernel issued no
   virtio command and touched no DMA" claim on riscv. Self-contained; depends on nothing else here.
 
 ### D. Full integrated boot + interactive shell: DONE.
@@ -463,7 +463,7 @@ mostly porting userspace, not proving new kernel behavior.
 - A riscv `spawn_progenitor` (or a generalized one) that grants the PLIC/NS16550 equivalents of the
   GIC/PL011/IRQ capabilities aarch64's grants.
 - Wire the riscv boot to hand off to progenitor-as-PID-1 instead of halting.
-- **Proves:** the full interactive system runs on riscv. Lowest *kernel* value of the list; highest
+- Proves: the full interactive system runs on riscv. Lowest *kernel* value of the list; highest
   app-porting cost. Do last, or skip if the goal is "prove the kernel," not "ship the system."
 
 ### E. Benchmarks: DONE.
@@ -475,7 +475,7 @@ userspace spawn+reap loop): os_primitives_benchmarker's 9-instruction `CHILD_STU
 riscv `li`/`ecall` version), and the `MAP_CODE` syscall never synced the icache on the userspace
 map-executable path (a correctness fix for both arches, latent until a spawn loop stressed it).
 
-**And the numbers are now comparable.** `cargo xtask bench --riscv` runs the same suite on riscv under
+And the numbers are now comparable. `cargo xtask bench --riscv` runs the same suite on riscv under
 the same deterministic `-icount` instrument (single hart, so an idle `wfi` cannot jump virtual time to
 the timer and inflate the spawn primitives), with its own baseline (`bench/baseline-riscv64.txt`) for
 `--check`/`--save`. The comparable metric is **ns/iter**: under `-icount shift=0` virtual time advances
@@ -498,7 +498,7 @@ spawn), plus cross-OS comparisons. RISC-V runs none. The workloads are userspace
   read-only into every process, which is the mechanism `x86_64` already used
   (`counter_frequency_protocol`). Userspace reads the machine's number on all three architectures now,
   and a process that cannot learn it refuses rather than substituting a constant.
-- **Proves:** comparable performance on a second arch: the "measure, don't argue" ethos, with riscv
+- Proves: comparable performance on a second arch: the "measure, don't argue" ethos, with riscv
   as a new data point next to the L4 lineage. Depends on the timing fix for the numbers to be honest.
 
 ---
@@ -513,18 +513,18 @@ E (bench) ── needs the timebase-to-userspace fix for honest numbers
 D (boot/shell) ── needs console/input ported to NS16550
 ```
 
-**Recommended order, by kernel-value-per-effort:**
+Recommended order, by kernel-value-per-effort:
 
-1. **B: tests.** Cheapest real win; the semihosting primitive is already there. Makes the same suite
+1. B: tests. Cheapest real win; the semihosting primitive is already there. Makes the same suite
    green on both arches and every later claim checkable. Start here.
-2. **A: SMP.** The last true primitive, and the only new kernel work. Highest value for "the kernel
+2. A: SMP. The last true primitive, and the only new kernel work. Highest value for "the kernel
    is portable," highest risk. The per-hart trap refactor is the gate.
-3. **C: virtio + DMA.** Self-contained; proves the driver/DMA model on riscv.
-4. **E: benchmarks.** Cross-arch numbers, once the timebase caveat is fixed.
-5. **D: full boot / shell.** Most app-porting, least new kernel proof. Do last, or treat as optional.
+3. C: virtio + DMA. Self-contained; proves the driver/DMA model on riscv.
+4. E: benchmarks. Cross-arch numbers, once the timebase caveat is fixed.
+5. D: full boot / shell. Most app-porting, least new kernel proof. Do last, or treat as optional.
 
-If the goal is **"the kernel is at parity,"** A + B + C + E is the set, and D is system integration
-rather than a kernel claim. If the goal is **"the whole system runs on riscv,"** add D.
+If the goal is "the kernel is at parity," A + B + C + E is the set, and D is system integration
+rather than a kernel claim. If the goal is "the whole system runs on riscv," add D.
 
 ---
 

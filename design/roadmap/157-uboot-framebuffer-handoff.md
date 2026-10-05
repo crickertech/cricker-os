@@ -45,14 +45,14 @@ buffer is and write pixels into it, not to program a display controller.
   witnesses in two address spaces, and the contract is deliberately transport-agnostic. This
   milestone's driver should be a new backend behind that same contract -- read a pre-set buffer
   instead of negotiating virtio queues -- not a reason to design a second contract.
-- **The DMA trust question, inherited rather than reopened.** `notes/verification.md` already found
+- The DMA trust question, inherited rather than reopened. `notes/verification.md` already found
   this: the JH7110 has no IOMMU, so "a display driver on the VisionFive 2 is therefore either
   *trusted* with all of physical memory, or the transport grows a virtio-gpu-aware check and pays
   the §18 cost knowingly." A `simple-framebuffer` driver inherits the same fact -- it is a fixed,
   pre-negotiated buffer rather than a virtqueue, so there is no descriptor to validate against.
   State the resulting confinement (or its absence) plainly, the way `notes/verification.md` already
   asks whoever sequences board display work to.
-- **Serial input in the interim.** No keyboard driver work here; USB HID gets its own milestone per
+- Serial input in the interim. No keyboard driver work here; USB HID gets its own milestone per
   rung five's own text. The terminal's input side keeps using the serial console until that lands.
 
 ## What this does not decide

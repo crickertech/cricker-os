@@ -11,7 +11,7 @@ request's `**Lane:**` line for the record CLAUDE.md asks for). `components/src/i
 and `MKDIR`s its home subtree, as one tool invocation, tested end to end against a real credential
 service and a real filesystem (`kernel/src/user/identity_provisioning_tests.rs`,
 `kernel/src/user/identity_provisioner_service.rs`). All three questions this block itself raised
-were answered by precedent, without a design fork (it needed none: minted with **Gate: NONE**, and
+were answered by precedent, without a design fork (it needed none: minted with Gate: NONE, and
 that held); see "What it needs" below for each.
 
 ## What this is, in brief
@@ -43,7 +43,7 @@ holds the principal tree.
   `a_duplicate_identity_is_refused_without_disturbing_the_original`.
 - **One transaction or two.** Two, honestly: this system has no cross-server commit protocol between
   the credential service and the file service, and building one would be a real architectural
-  undertaking, not a detail of this tool. **The subtree is created first.** A failed `MKDIR` is a
+  undertaking, not a detail of this tool. The subtree is created first. A failed `MKDIR` is a
   clean no-op (nothing written to the credential store yet). A failed credential `PUT` *after* a
   successful `MKDIR` leaves an orphaned, empty, inert subtree, which is the accepted failure mode:
   nobody can authenticate as an identity with no stored credential, so the orphan is harmless and
@@ -69,8 +69,8 @@ separate lookup.
 
 ## BUGS
 
-~~Not wired into the interactive boot.~~ **Resolved, 2026-08-27, milestone 49's boot-wiring
-update.** `crates/system_initializer::boot` now spawns this tool once per real boot, on both ISAs,
+~~Not wired into the interactive boot.~~ Resolved, 2026-08-27, milestone 49's boot-wiring
+update. `crates/system_initializer::boot` now spawns this tool once per real boot, on both ISAs,
 staging a boot-generated password into its request page and holding both of its capabilities
 (`credentialer`'s own provision endpoint, before its seal, and the file service's root) itself,
 provisioning a demo identity (`operator`) before `login` can serve anyone. See
@@ -95,8 +95,8 @@ interleaving a real deployment's retries could hit. The two servers this tool ta
 proved independently and at length elsewhere (`cred_proto`'s Kani harnesses, `fs_proto`'s); the
 orchestration between them is this milestone's own and is tested rather than proved.
 
-**This milestone found and fixed a latent single-instance assumption in `credential_service.rs`
-that predates it**, because it is the first caller to need a second, independently wired instance
+This milestone found and fixed a latent single-instance assumption in `credential_service.rs`
+that predates it, because it is the first caller to need a second, independently wired instance
 in the same boot. The module used to remember each shared frame in one bare global (`FRAMES`,
 keyed only on a virtual address) and hand it back through `verify_frame()`/`provision_frame()`;
 every earlier caller happened to be correct only because `credential_tests::provisioned()`'s
