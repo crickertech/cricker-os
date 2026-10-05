@@ -44,6 +44,10 @@ Do what #1647 did for NVMe:
 
 Both tests' replayable falsifications have to keep applying and going red.
 
+**Reuse:** the mechanism milestone 261 (the NVMe driver leaves the kernel) built in #1647, taken
+whole: the `components/confinement_attackers` feature, `xtask`'s `CONFINEMENT_ATTACKERS` switch and
+`build_programs`, and `script/lint`'s feature clippy. Nothing outside the tree is involved.
+
 ## BUGS
 
 - `VIRTIO_BLK_WRITE_ABANDON` (31, panics mid-operation) looks test-only as well. Whether it belongs
