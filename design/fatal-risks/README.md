@@ -1,8 +1,10 @@
 # The nine things that would kill nife
 
-*Name: provisional, minted 2026-09-23 by the lane that split the file (`7b4c6b4f2`), for the
-directory and every stem in it; the nine numbered risk files were minted 2026-10-05, also provisional. Each appendix's own preamble says the same of its stem. Naming is
-calef's; `script/names --unratified` lists each stem.*
+*Name: the directory and the appendix stems are provisional (minted 2026-09-23 by the lane that
+split the file, `7b4c6b4f2`); each appendix's own preamble says so. The nine risk files are
+ratified 2026-10-05 (calef, PR #1675: "Use the claim forms."), meaning each stem states its risk's
+claim. Refused `5-multicore-reliability` and `6-userspace-driver-speed`, which name a topic rather
+than the claim. `script/names --unratified` lists the rest.*
 
 calef, 2026-08-30: *"something that would kill nife for me as a project is a fatal characteristic
 that would demonstrate the approach isn't viable... We should then try to prove or disprove those
@@ -66,14 +68,14 @@ whether nife is in trouble reads the paragraph.
 
 ## The nine, one file each
 
-A risk's file holds the claim of record: its status, its experiment, its cost and its caveats. Each links an appendix with the evidence. File names are provisional.
+A risk's file holds the claim of record: its status, its experiment, its cost and its caveats. Each links an appendix with the evidence.
 
 1. [Only software written for nife runs on nife](1-only-software-written-for-nife.md)
 2. [The proofs prove trivia, and the real bugs live where Kani cannot reach](2-the-proofs-prove-trivia.md)
 3. [The tests do not test anything, and the quality is illusory](3-the-tests-do-not-test.md)
 4. [The architecture imposes a per-crossing cost that cannot be engineered away](4-the-per-crossing-cost.md)
-5. [It cannot be made reliable on multicore, and the bugs appear only on silicon](5-multicore-reliability.md)
-6. [A capability-confined userspace driver cannot drive real hardware at real speed](6-userspace-driver-speed.md)
+5. [It cannot be made reliable on multicore, and the bugs appear only on silicon](5-not-reliable-on-multicore.md)
+6. [A capability-confined userspace driver cannot drive real hardware at real speed](6-a-confined-driver-is-too-slow.md)
 7. [The confinement claim is false](7-the-confinement-claim.md)
 8. [Nobody needs it](8-nobody-needs-it.md)
 9. [The HAL is a fiction, and an architecture costs a restructure rather than a port, and so does the next machine](9-the-hal-is-a-fiction.md)
