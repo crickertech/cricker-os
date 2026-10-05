@@ -19,7 +19,7 @@ already are.
 
 ## What is skipping, and why this is the cheapest fix in the inventory
 
-Four `#[test_case]`s skip on **every** x86_64 test run, all for the same reason:
+Four `#[test_case]`s skip on every x86_64 test run, all for the same reason:
 `helpers/qemu-runner-x86_64.sh` wires no `virtio-gpu-pci` and no `virtio-input` function onto the
 PCI bus it enumerates.
 
@@ -28,7 +28,7 @@ PCI bus it enumerates.
 
 Each site's own comment already states the cause correctly and calls it "an honest, expected gap
 rather than a bug" (milestone 164's shape: a scope gap named where the reader meets the feature).
-**It is not a capability gap.** virtio-gpu and virtio-input are PCIe, their BARs are memory, and
+It is not a capability gap. virtio-gpu and virtio-input are PCIe, their BARs are memory, and
 neither driver maps device registers directly; both hold a kernel-mediated `Virtio` capability
 (`components/src/gpu_driver.rs`, `components/src/keyboard_driver.rs`). DECISIONS §121 does not touch them. The
 `xtask` comment that once lumped `gpu_driver` in with the port-I/O programs it cannot run was
