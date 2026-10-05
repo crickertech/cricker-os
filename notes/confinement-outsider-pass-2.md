@@ -37,7 +37,7 @@ cannot see; the detail sections say which is which.
 | 3 | No-GRANT budget produces a child that can delegate | Near miss | SPLIT is sound (`mint_child` copies rights). `RETYPE`/`RETYPE_OBJ` need only WRITE and mint the new object with `Rights::ALL`, GRANT included, which SEND_CAP then passes on. The `cap.rs` comment "GRANT never appears anywhere it was not present at the root" overstates this. |
 | 4 | Reuse a consumed capability | Held | `delete` empties the slot; a later `get` is `NoSuchSlot`. |
 | 5 | Disturb one cap by dropping another | Near miss | On x86 `delete_current_cap` of a `PortRange` clears the thread-wide `port_range_grant` with no sibling check, so deleting one of two copies disables the other. Fails safe. |
-| 6 | Reap a corpse you do not supervise | Held, near miss | `reap_supervised` gates `NotSupervised` before `reclaim_region`. But `reclaim_region`'s liveness check is per named tid, so a co-resident thread in the same TCB region is reclaimed before the live-resident bail. Needs several TCBs in one self-owned region, so no cross-component authority. |
+| 6 | Reap a corpse you do not supervise | Held, near miss | `reap_supervised` gates `NotSupervised` before `reclaim_region`. But `reclaim_region`'s liveness check is per named tid, so a co-resident thread in the same TCB region is reclaimed before the live-resident bail. Needs several TCBs in one self-owned region, so no cross-component authority. Already recorded in `reclaim_region`'s BUGS. |
 | 7 | Learn a stranger's liveness from a refusal | Held | `reap_decision` returns `NotSupervised` for a non-supervised tid regardless of `dead`. |
 | 8 | Show a supervisor a thread that is not its child | Held | `survey_includes` is `fault_ep == ep`. A builder may point its own child's `fault_ep` at a victim's rendezvous, but exposes only its own thread and gains nothing. |
 | 9 | Make view and reap disagree in scope | Held | Both use `fault_ep == ep`; one decision function. |
@@ -50,7 +50,7 @@ cannot see; the detail sections say which is which.
 | 16 | One queue's validation touches another's rings | Held | Distinct shadow blocks. |
 | 17 | A post-validation change reaches the device | Near miss | `shadow_one_head` writes the shadow descriptor as two non-atomic `write64`s with no barrier and no idle-slot check. A device reading a republished live slot sees a new `addr` with an old `len`. virtio-mmio has no IOMMU, so the validator is the only boundary. The Kani model treats table and shadow as disjoint and cannot see it. |
 | 18 | Grant a right the declaration did not ask for | Held | Literal `Serve => READ`, `Use => WRITE`. |
-| 19 | Name a file above a directory cap's subtree | Held (filter); near miss elsewhere | `check_component` is byte-exact and refuses `.`, `..`, `/`, `\`, `:`, NUL and the attribute store. The near misses need a hostile-client boot: a name checked then re-read from the client's window (TOCTOU); a handle dangling after `rmdir`; `mtime` as an existence oracle without ENUMERATE; a badge-0 endpoint as whole-image authority. |
+| 19 | Name a file above a directory cap's subtree | Held (filter); near miss elsewhere | `check_component` is byte-exact and refuses `.`, `..`, `/`, `\`, `:`, NUL and the attribute store. The near misses need a hostile-client boot: a name checked then re-read from the client's window (TOCTOU); a directory handle that dangles after `rmdir` and names whichever directory next takes the freed tree id. |
 | 20 | A C component changes memory outside its grant | Held; test-integrity near miss | The confined C holds `REPORT` with WRITE, the channel the verdict arrives on, so it could forge a `CONFINED` verdict. |
 | 21 | Read a kernel address from user mode | Held | aarch64 asks `AT S1E0R`; riscv walks the U bit. The claims note records that x86 has no `user_can_read` and SMAP is off. |
 | 22 | Load an ELF over the kernel, or a W+X page | Held | ELF refuses W+X and overlap; `check_image_band` plus a `Half::Low` mapper refuse the over-kernel case per page. |
@@ -61,7 +61,7 @@ cannot see; the detail sections say which is which.
 | 27 | A thread with no port cap touches a port | Held; escape of a neighbour | A port cap narrowed to READ still drives the hardware: `thread_control_block_insert_from` installs `port_range_grant` for any `PortRange` object whatever its rights. Failing test and proposed claim 31 below. |
 | 28 | A revoked port holder keeps the ports | Held | `delete_port_range_caps_impl` matches `(base,count)`, clears the grant and `outgoing_cap`. |
 | 29 | A thread keeps ports after deleting its cap | Held, row-5 near miss | Self-delete clears the grant; the sibling-copy case is row 5. |
-| 30 | A revocation misses a cap in flight | Held, near miss | The three sweeps clear `outgoing_cap`. But `depart`, `finish_blocked_resident` and `reap_region_objects` do not, safe only because a running thread holds it `None`; and a `PageFrame` slice is a distinct object that survives a revoke of its parent run. |
+| 30 | A revocation misses a cap in flight | Held, near miss | The three sweeps clear `outgoing_cap`. But `depart`, `finish_blocked_resident` and `reap_region_objects` do not, safe only because a running thread holds it `None`. A `PageFrame` slice is a distinct object that survives a revoke of its parent run. That one is deliberate, option B of §132 (what `PageFrame::REVOKE` owes an overlapping run), and recorded in `revoke_page_frame_run`'s BUGS. |
 
 ## The escape: port I/O ignores the capability's rights
 
@@ -133,6 +133,29 @@ Row 30, the fields a sweep forgets. The live claim holds; two adjacent limbs are
 `depart`, `finish_blocked_resident` and `reap_region_objects` never clear `outgoing_cap`, safe only
 because a running thread's is `None`. A `PageFrame` slice is a distinct object whose capability and
 mapping survive a revoke of its parent run.
+
+## Where each finding lives
+
+A note is not a home. Each finding is recorded where a reader meets the code, or as a proposal:
+
+- Row 27's escape: `design/roadmap/proposals/a-read-only-port-range-still-drives-the-hardware.md`
+  (the defect, the failing test, and the design question), plus a `BUGS` line at the grant-install
+  site in `sched::thread_control_block_insert_from`.
+- AMD-Vi: five entries in `amd_vi.rs`'s module `BUGS` (the devfn fault was already there), a
+  pointer in `notes/amd-vi.md`, and
+  `design/roadmap/proposals/amd-vi-hardening-before-the-first-amd-boot.md` with the exclusion
+  range, alias quarantine and read-only IVMD as its acceptance items.
+- Row 17: `BUGS` in `direct_memory_access_validator`'s module doc and on `shadow_one_head`, and
+  `design/roadmap/proposals/the-shadow-descriptor-is-published-in-two-stores.md`.
+- Row 3: `BUGS` on `cap::memory_region_cap`. Row 5: `BUGS` on `sched::delete_current_cap`. Row 11:
+  `BUGS` on `paging::Flags`. Row 30: `BUGS` on `Thread::outgoing_cap`.
+- Rows 19 and 24: a `BUGS` section in `redoxfs_server/src/dispatch.rs` for the window TOCTOU.
+  Two existing records were corrected rather than added to. `Server::rmdir`'s doc said a dangling
+  handle fails with `ENOENT`, and `system_initializer`'s `Windows` `BUGS` said a job whose window
+  is reused loses its grant. Both now say what the code does.
+- Row 6 was already in `reclaim_region`'s `BUGS`; the slice half of row 30 in
+  `revoke_page_frame_run`'s.
+- Claims 31 to 33 stay here as proposals; `notes/confinement-claims.md` is not edited.
 
 ## Untestable here
 

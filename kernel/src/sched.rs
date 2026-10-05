@@ -4706,6 +4706,17 @@ fn delete_port_range_caps_impl(base: u16, count: u16, keeper: Option<ThreadId>) 
 /// steps no user code runs: the thread whose grant it is, is the one executing this syscall, and a
 /// core's bitmap only ever permits a range for the thread running on it. A concurrent
 /// `PortRange::REVOKE` that clears the grant first leaves this step nothing to do.
+///
+/// # BUGS
+///
+/// **Deleting one of two copies of the same `PortRange` disturbs the other.** The grant is one
+/// `Option` on the thread rather than a record per capability, so a thread holding the range in two
+/// slots loses `in`/`out` the moment it deletes either, while the surviving slot still names the
+/// range. §12's "dropping one capability does not disturb the others" (`notes/confinement-claims.md`
+/// row 5) is therefore false for this one object on this one architecture. It fails safe (authority
+/// is removed, never granted) and no real consumer holds a range twice, so it is recorded rather
+/// than fixed; a count or a table scan on delete would close it. Found by milestone 633 (an outside
+/// agent attacks the confinement claim)'s second pass.
 pub fn delete_current_cap(slot: u64) -> Result<(), crate::cap::Error> {
     // Read before the delete, under the same hold: a deleted slot names nothing.
     let deleted = {
@@ -5757,6 +5768,14 @@ fn thread_control_block_insert_from(
     // BUGS. A `PortRange` delegated to an *already running* thread by `SEND_CAP` is likewise not
     // cached here, because no consumer does that and the enforcement is a creation-time grant, the
     // same posture `cycle_counter_grant` takes.
+    //
+    // BUGS: **the grant is installed whatever the capability's rights.** A `PortRange` narrowed to
+    // `READ`, or to no rights at all, opens the bitmap exactly as a `WRITE` one does, because the
+    // match below reads `cap.object` and never `cap.rights`. Found by milestone 633 (an outside
+    // agent attacks the confinement claim)'s second pass and booted red on x86_64 by
+    // `x86_port_tests::a_read_only_port_capability_must_not_grant_port_output` (opt-in). What a
+    // non-WRITE port capability should grant is the syscall surface, so it is a proposal rather
+    // than a fix: design/roadmap/proposals/a-read-only-port-range-still-drives-the-hardware.md.
     #[cfg(target_arch = "x86_64")]
     if let crate::cap::Object::PortRange(base, count) = cap.object {
         t.port_range_grant = Some((base, count));

@@ -115,3 +115,10 @@ A boot on silicon is the outstanding piece. Read these lines:
 - No fault interrupt; `take_fault` is drained only by tests. Milestone 102 owns it.
 - `notes/confinement-claims.md` has no AMD-Vi row, because that note is over its word budget and a
   row would grow it. This note is where the AMD-Vi claims are recorded until it is trimmed.
+- Milestone 633 (an outside agent attacks the confinement claim)'s second pass read the driver as
+  the confinement boundary that row would describe. It recorded five gaps in `amd_vi.rs`'s own
+  BUGS. The firmware exclusion range is never cleared; alias entries are shared and not
+  quarantined; every mapping is read-write; nothing revokes a domain in production; and the entry
+  builders have no permitted-bits proof. The first three are the acceptance items of
+  design/roadmap/proposals/amd-vi-hardening-before-the-first-amd-boot.md. The claims the row
+  should make are proposed in notes/confinement-outsider-pass-2.md.

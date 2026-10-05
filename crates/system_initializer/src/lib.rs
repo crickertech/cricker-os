@@ -4900,9 +4900,17 @@ fn window_zero(fs: Fs) -> Option<Fs> {
 ///   undertaker to report the death to this process, which is a channel that does not exist.
 /// - **A bound window is taken back when it is reused, not when its job is reaped** (milestone 606,
 ///   ruling D's default "UNBIND at reap"), for the same missing signal: `UNBIND` runs here, just
-///   before the window is handed out again. A job still running when its window comes round
+///   before the window is handed out again. ~~A job still running when its window comes round
 ///   again loses its grant (every request answers `EBADF`) rather than sharing it, which is the
-///   safe direction. Lane 205's "job reaped" signal will move both to reap.
+///   safe direction.~~ **Only until the window is bound again, a few instructions later, and
+///   milestone 633 (an outside agent attacks the confinement claim)'s second pass corrected this
+///   (2026-10-05 UTC, read, not run).** `subtree_scope::Bindings::bind` admits a `Revoked` badge,
+///   which is what lets this pool recycle one; once [`bound_channel`] binds window `w` to the new
+///   job's root, the old job's badged endpoint, which nothing here severs, resolves `ROOT` to the
+///   new job's directory, and its still-mapped window shows the new job's request names and file
+///   bytes. That is the sharing the sentence above said does not happen, in the unsafe direction.
+///   Lane 205's "job reaped" signal will move both to reap; until then a window must not be reused
+///   while its last holder lives, which needs the same signal.
 struct Windows {
     next: u64,
     /// Bit `w` set means window `w`'s badge is bound to a grant and must be unbound before reuse.

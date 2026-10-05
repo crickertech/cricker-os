@@ -12,6 +12,20 @@
 //!
 //! Names: `handle`, `ServeEdges` and this module's are provisional, minted by the fuzz lane
 //! (`lane/fuzz-service-handlers`) on 2026-10-04 (UTC); an architect names things.
+//!
+//! # BUGS
+//!
+//! **A name is checked in the client's own window and then used from it.** Every name-taking arm
+//! below does `core::str::from_utf8(&window[..len])`, which borrows the client's shared page, and
+//! `check_component` then runs over that borrow; the engine later resolves the same bytes. A second
+//! writer on the page (window 0 is shared by design, and `system_initializer`'s window pool reuses
+//! a window while its last job may still hold it; see `Windows`'s BUGS there) can change a checked
+//! name into `..`, a name with `/`, the attribute store's directory, or invalid UTF-8 under a
+//! `&str`, which is undefined behaviour. `fs_nameset_caretaker` rewrites the bytes it checked, but
+//! this server reads them again afterwards. Copying the name out of the window before the check
+//! closes it at the cost of one bounded copy per request. Found by milestone 633 (an outside agent
+//! attacks the confinement claim)'s second pass, reasoned from the code; `notes/confinement-claims.md`
+//! rows 19 and 24 are the claims it touches.
 
 use filesystem_protocol::{blk, fs, operation, reply_err, xattr};
 use redoxfs::Disk;

@@ -285,6 +285,18 @@ const CAP_WRITE_COMBINE: u64 = 1 << 6;
 /// What access a mapping grants: readable always, plus write / execute / user / global / device as
 /// set. **Format-neutral.** There is deliberately no constructor that is both writable and
 /// executable (W^X): a page that is both is how a buffer overflow becomes code execution.
+///
+/// # BUGS
+///
+/// **W^X is a property of the constructors, not of the encoders.** None of the three `leaf_entry`
+/// implementations refuses a `Flags` carrying both `CAP_WRITE` and an exec bit; they encode what
+/// they are given. The only thing standing between a caller and a W+X leaf is that no `pub`
+/// constructor builds one and `from_caps` is `pub(crate)`. The `nothing_is_both_writable_and_executable`
+/// test walks the constructors it knows and does not iterate `write_combining`. So the claim in
+/// `notes/confinement-claims.md` row 11 holds for every mapping the kernel makes today and would
+/// not survive a new in-crate constructor that got it wrong. A refusal (or a `debug_assert!`) in
+/// each encoder would move it one rung up. Found by milestone 633 (an outside agent attacks the
+/// confinement claim)'s second pass.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Flags(u64);
 
