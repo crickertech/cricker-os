@@ -12,12 +12,12 @@ queue lands it.)*
 It was minted with no gate and needed none: the measurement was already taken, the pattern
 (`--features soak`) already existed in this tree, and nothing external blocked it.
 
-**In brief.** Milestone 229 (build the cycle-counter grant DECISIONS 139 decided) put a per-thread
+In brief. Milestone 229 (build the cycle-counter grant DECISIONS 139 decided) put a per-thread
 grant on the context switch, which is where it has to be: `PMUSERENR_EL0` is one register shared by
 every thread on a core, so the only moment a per-thread grant can mean anything is when a thread
 starts running. The read is the enforcement, not overhead around it.
 
-**Measured on aarch64, per symbol, against the commit the baseline was saved at:**
+Measured on aarch64, per symbol, against the commit the baseline was saved at:
 
 | symbol | baseline | now | delta |
 |---|---|---|---|
@@ -30,17 +30,17 @@ starts running. The read is the enforcement, not overhead around it.
 
 **Correction, and it is the useful kind: those 200 bytes are not all this milestone's.** Building
 the kernel both ways, which is a thing that could not be done until the feature existed, splits them
-exactly. With `--features cycle_counter_grant` off, `schedule` returns to 1244 and **every other row
-above stays where it is**: `finish_switch` is still 880, `ipc_recv` still 1324, `ipc_send` still 956.
-So the grant's whole cost is **136 bytes in `sched::schedule`**, and the other 64 belong to milestone
+exactly. With `--features cycle_counter_grant` off, `schedule` returns to 1244 and every other row
+above stays where it is: `finish_switch` is still 880, `ipc_recv` still 1324, `ipc_send` still 956.
+So the grant's whole cost is 136 bytes in `sched::schedule`, and the other 64 belong to milestone
 231 (capability-slot high-water mark), which is also what 231's own recorded figure of 5852 says.
 
     5788 (baseline)  +  64 (milestone 231)  +  136 (milestone 229)  =  5988
 
 The block was minted reading 192, which is `schedule` plus `finish_switch`, and it was the best
 reading available from one binary. It is worth leaving the original table standing above rather than
-editing it away: **the reason the attribution was wrong is the same mechanism failure this milestone
-is about.** With no build that lacks the instrument, "what did 229 cost" can only be answered by
+editing it away: the reason the attribution was wrong is the same mechanism failure this milestone
+is about. With no build that lacks the instrument, "what did 229 cost" can only be answered by
 diffing against a stored number that two milestones had moved, and a stored number cannot say which
 of them moved which byte. The feature is now the thing that can answer it.
 
@@ -58,10 +58,10 @@ field read that feeds it along with the call.
 
 **And its only consumer is a benchmark on a machine that has never booted nife.** DECISIONS 139's
 own accounting: a user-level cycle read is what milestone 25 (cross-OS performance comparison) needs
-to reproduce seL4's published 413 and 426 cycle figures on **argon**, and nothing else in the tree
+to reproduce seL4's published 413 and 426 cycle figures on argon, and nothing else in the tree
 wants it. The kernel may read `PMCCNTR_EL0` at EL1 with no grant at all, and milestone 168 (a
 multi-tasking workload benchmark) is a long-loop measurement the generic timer already serves. Since
-229's ABI was deliberately deferred, **no program can request the grant today**: the only writer is a
+229's ABI was deliberately deferred, no program can request the grant today: the only writer is a
 `#[cfg(test)]` helper.
 
 ## What to do, and why it is not deletion
@@ -69,17 +69,17 @@ multi-tasking workload benchmark) is a long-loop measurement the generic timer a
 calef's question was whether the code can be switched off once the benchmark is taken. It can, and
 doing so would cost two things:
 
-- **The number would stop being reproducible.** A cycle figure published against a competitor's,
+- The number would stop being reproducible. A cycle figure published against a competitor's,
   taken once with an instrument that was then removed, is a claim nobody can re-check, including us
   the next time IPC changes. `notes/register-of-measures.md` opens with exactly that complaint.
-- **It would quietly reverse DECISIONS 139**, which answered who may read the counter and by what
+- It would quietly reverse DECISIONS 139, which answered who may read the counter and by what
   authority. Deleting the enforcement returns the answer to "closed for everyone", which is not the
   answer that was given.
 
-**So: a measurement build, the way `--features soak` is.** Production never carries it; anyone can
+So: a measurement build, the way `--features soak` is. Production never carries it; anyone can
 rebuild and re-measure at any time.
 
-- The production fastpath returns to **5852**, keeping milestone 231's slot counter, which has a real
+- The production fastpath returns to 5852, keeping milestone 231's slot counter, which has a real
   consumer and prints on every boot. Measured, not assumed: 5852 exactly.
 - The instrument stays reproducible rather than being spent once.
 - DECISIONS 139's authority model still stands: the grant is how it works when built.
@@ -94,8 +94,8 @@ provisional** like everything a lane mints. It is the field it builds
 and that is the answer to this block's first `BUGS` entry. Milestone 229's proofs are the only
 things in the tree that exercise this path (the embryo refusal in `sched::tests`, the EL0 round trip
 and its ungranted-faults half in `user::tests`, the register-field assertions in each architecture's
-`timer::tests`), so folding `test` into the predicate makes **every `script/test` run a keep-alive on
-all three architectures** rather than a CI job that only builds it. The release kernel
+`timer::tests`), so folding `test` into the predicate makes every `script/test` run a keep-alive on
+all three architectures rather than a CI job that only builds it. The release kernel
 `script/fastpath-footprint` measures has no `test` cfg, so production still pays nothing. Confirmed:
 all four suites green with the grant's tests reported `ok`, the negative half faulting with the real
 `esr 0x6230e51b` on aarch64 and `scause 0x2` on riscv64.
@@ -107,7 +107,7 @@ because seven of the nine build-mode features select a boot path x86_64 has not 
 feature selects no boot path at all, which is why it can be linted there when `shell` and `soak`
 cannot.
 
-**Gated:** `Thread::cycle_counter_grant` and its four initializers, the read out of the locked block
+Gated: `Thread::cycle_counter_grant` and its four initializers, the read out of the locked block
 beside `ttbr0` in `sched::schedule`, the `arch::timer::set_cycle_counter_grant` call beside
 `switch_user_root`, `sched::grant_cycle_counter`, and all three architectures'
 `set_cycle_counter_grant` / `cycle_counter_grantable`.
@@ -128,8 +128,8 @@ as what it is.
 
 ## The comparability caveat, and where a reader meets it
 
-A benchmark build has 136 more bytes in `sched::schedule` than production, so **a cycle figure taken
-with the instrument on is slightly pessimistic about nife**. That is recorded in `notes/benchmarks.md`,
+A benchmark build has 136 more bytes in `sched::schedule` than production, so a cycle figure taken
+with the instrument on is slightly pessimistic about nife. That is recorded in `notes/benchmarks.md`,
 in the "why that is not a win" list beside the seL4 calibration, which is where milestone 25
 (cross-OS performance comparison) already keeps its comparison and its caveats; and in `notes/abi.md`
 beside the mechanism itself. It is milestone 221 (a soak that crosses cores)'s rule one instrument
@@ -142,14 +142,14 @@ unit. While useful for benchmarking, this option opens the possibility of timing
 default value of `OFF` (docs.sel4.systems/projects/sel4/configurations.html, read 2026-09-03). Both
 sides measure in a benchmarking build, which is like for like.
 
-**The comparability question answers itself, and in our favour.** A gated build is not the production
+The comparability question answers itself, and in our favour. A gated build is not the production
 binary, so its numbers carry a caveat, which milestone 221 (the soak never crosses cores) already
 records for soak builds. But seL4's published figures come from `KernelArmExportPMUUser`, a
 configuration seL4 **does not verify and does not ship on by default**. Both sides would be measuring
 in a benchmarking build, which is like-for-like and more honest than comparing our production kernel
 against their benchmark one.
 
-**The residual cost is worth recording rather than hiding**: a benchmark build has 136 more bytes in
+The residual cost is worth recording rather than hiding: a benchmark build has 136 more bytes in
 `schedule` than production, so the number it produces is slightly pessimistic about nife.
 Understating ourselves is the right direction to err in a comparison we intend to publish.
 
@@ -160,9 +160,9 @@ fixed rather than left standing wrong where a reader meets it first.)*
 
 ## The mechanism failure this came out of, which outlives the fix
 
-**Two lanes each measured "within bound" against the same stale baseline, and neither re-saved it.**
+Two lanes each measured "within bound" against the same stale baseline, and neither re-saved it.
 Milestone 231 took the aarch64 figure from 5788 to 5852, milestone 229 from 5852 to 5988. Both were
-honest, both were under the 5% bound, and the bound is measured against a **stored** number, so the
+honest, both were under the 5% bound, and the bound is measured against a stored number, so the
 growth accumulated with nothing firing. Headroom went from 3.9 points to 1.5 without anyone deciding
 to spend it.
 
@@ -173,7 +173,7 @@ that a footprint change is intended and understood; do it in the commit that cau
 
 ## BUGS
 
-- **A gated path rots unless something builds it.** Answered above by folding `test` into the
+- A gated path rots unless something builds it. Answered above by folding `test` into the
   predicate, so `script/test` compiles and *runs* it on all three architectures, plus `script/lint`
   compiling the feature without `test`. That is a stronger keep-alive than `soak`'s, which is built
   and not run; it is not free, because the configuration a production kernel actually ships
@@ -182,13 +182,13 @@ that a footprint change is intended and understood; do it in the commit that cau
 - **This block does not price milestone 74's arrival.** Unchanged, and cheaper than it looked: the
   fastpath churn is 136 bytes in one function, and when 74's aarch64 half lands it turns the feature
   on rather than reverting anything.
-- **Only the aarch64 baseline was re-recorded, and only to 5852.** That is what this commit
+- Only the aarch64 baseline was re-recorded, and only to 5852. That is what this commit
   deliberately leaves behind and the 64 bytes it is above 5788 are attributed above to milestone 231.
-  riscv64 sits at 5132 against a 5106 baseline and x86_64 at 6687 against 6639, and **those residuals
-  are not attributed to anything**, so re-saving them would be exactly the absorb-the-growth move
+  riscv64 sits at 5132 against a 5106 baseline and x86_64 at 6687 against 6639, and those residuals
+  are not attributed to anything, so re-saving them would be exactly the absorb-the-growth move
   this milestone exists to refuse. Whoever attributes them should re-record them in the commit that
   does it.
-- **Nothing here fixes the accumulating-baseline problem**, only this instance of it. Whether the
+- Nothing here fixes the accumulating-baseline problem, only this instance of it. Whether the
   gate should compare against `main` rather than a stored file is a separate question with its own
   costs.
 

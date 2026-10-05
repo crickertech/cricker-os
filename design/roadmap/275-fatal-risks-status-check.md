@@ -10,8 +10,8 @@ Minted 2026-09-11 by calef, from a maintainer review of
 warning ("nothing gates this file") firing four separate ways in one pass. *(Number provisional
 until the merge queue lands it.)*
 
-Built the same day as `script/fatal-risks`, wired into `script/lint`. **It found all four of the
-review's findings on its first run against the tree**, which had not been corrected in the
+Built the same day as `script/fatal-risks`, wired into `script/lint`. It found all four of the
+review's findings on its first run against the tree, which had not been corrected in the
 meantime, and the corrections are part of this milestone rather than a follow-on: milestone 191's
 block and index row (both `NOT-STARTED` twelve days after pull request #589 merged its study), and
 three dated corrections in `design/fatal-risks/README.md` for risks 3, 6 and 9.
@@ -31,12 +31,12 @@ Four instances, one review, no gate involved in catching any of them:
   exhausts the CI runner's memory and kills the shard, inside the timeout meant to catch it. Already
   diagnosed in `mutation.yml`'s own header on 2026-09-03; `design/fatal-risks/README.md` was not updated for
   eight more days.
-- **Risk 6** said "unmeasured, nothing timestamps the step" for hours after the instrument that
+- Risk 6 said "unmeasured, nothing timestamps the step" for hours after the instrument that
   measures it (`design/roadmap/306-time-the-hw-entropy-step.md`) merged and gave a real number.
-- **Risk 9** cited milestone 164 as blocking (no `fs_server`) ten days after 164 was `BUILT`, and
+- Risk 9 cited milestone 164 as blocking (no `fs_server`) ten days after 164 was `BUILT`, and
   cited milestone 177's premise a day after that premise stopped holding (`DECISIONS §149`).
 
-**The pattern across all four:** each is a fact `design/fatal-risks/README.md` states about a milestone or
+The pattern across all four: each is a fact `design/fatal-risks/README.md` states about a milestone or
 decision it names, and every one of the four went stale the moment the thing it named changed status,
 because nothing reads the two together. `script/decisions --check` and `script/roadmap --check` both
 prove a citation *resolves*; neither asks whether what `fatal-risks.md` says about what it resolved to
@@ -44,21 +44,21 @@ is still true.
 
 ## What this needs
 
-1. **Extract every milestone and decision citation in `design/fatal-risks/README.md`**, the same way
+1. Extract every milestone and decision citation in `design/fatal-risks/README.md`, the same way
    `script/citations` already extracts them tree-wide, but scoped to this one file since its citations
    carry a stated status claim (`RUN`, `MEASURED`, `unmeasured`, `blocking`, and similar) that a bare
    `§N` cross-reference elsewhere in the tree does not.
-2. **Compare the claimed status against the roadmap's or decisions' own recorded status.** The
+2. Compare the claimed status against the roadmap's or decisions' own recorded status. The
    simplest version: a risk marked with a specific milestone's status word (e.g. "milestone 191...
    AMBER" implying 191 is done) should fail loudly if that milestone's own `Status:` line disagrees
    in a way that matters (`NOT-STARTED` when the risk entry assumes it ran, `SUPERSEDED` when the risk
    entry assumes it stands).
-3. **This cannot be fully mechanical**, and the block should say so rather than overpromise: risk 9's
+3. This cannot be fully mechanical, and the block should say so rather than overpromise: risk 9's
    two stale claims were about a *premise* (does 177 need the graphical stack) that changed for a
    reason no status field encodes. The gate's honest scope is catching the *first* kind of drift
    (a status word disagreeing with the roadmap), not the second (an argument's premise being
    overtaken). Naming the boundary now is cheaper than a gate that claims more than it checks.
-4. **Where in `script/lint` or `script/gates` this belongs**, and whether it runs on every push or on
+4. Where in `script/lint` or `script/gates` this belongs, and whether it runs on every push or on
    a cadence: `design/fatal-risks/README.md` does not change often, so a cheap weekly check (the shape
    `script/cadence-check` already uses for scheduled workflows) may fit better than a per-push cost
    on every unrelated pull request.
@@ -68,7 +68,7 @@ is still true.
 `script/fatal-risks`, **name provisional**, with the provenance block every `script/` entry carries.
 Three modes: a report, `--check` (wired into `script/lint`), and `--selftest`.
 
-**Eight checks, each anchored on a marker the file already writes**, because the alternative is
+Eight checks, each anchored on a marker the file already writes, because the alternative is
 reading a status claim out of free prose and that is a false-positive generator. A risk whose
 `**Status: RUN**`/`MEASURED` names an experiment milestone that is `NOT-STARTED`; a risk whose
 experiment is explicitly *not* run naming one that is `BUILT` (the rule `script/roadmap` already
@@ -77,20 +77,20 @@ started; a status word the file spells out (`milestone 161 is PARTIAL`) that the
 a cited path that does not exist; a cited proposal changed after the entry that cites it was last
 dated; and a risk entry whose own latest date precedes the `Built` date of a milestone it cites.
 
-**Question 1 (extraction) reused `script/citations`' shape** rather than inventing a second parser,
-and **the records come from `script/roadmap` and `script/decisions`' own report output** rather than
+Question 1 (extraction) reused `script/citations`' shape rather than inventing a second parser,
+and the records come from `script/roadmap` and `script/decisions`' own report output rather than
 a second derivation of what a status is. Only the `Built` column is read from the index, because the
 reports do not carry a date, and that column's shape is already enforced by `script/roadmap --check`.
 
-**Question 2 (what "disagrees in a way that matters" means)** came out as a vocabulary split rather
+Question 2 (what "disagrees in a way that matters" means) came out as a vocabulary split rather
 than a similarity measure. `NOT-STARTED` is the only token that can contradict "this ran";
-`BUILT`/`REMOVED` are the only ones that can contradict "this has not run yet"; and **`PARTIAL` sits
-in neither on purpose**, because a partial milestone is honest evidence for either claim. That one
+`BUILT`/`REMOVED` are the only ones that can contradict "this has not run yet"; and `PARTIAL` sits
+in neither on purpose, because a partial milestone is honest evidence for either claim. That one
 choice is most of what keeps the check quiet, which is what the `BUGS` section below demands.
 
-**Question 3 (this cannot be fully mechanical)** is unchanged and is stated in three places now: the
+Question 3 (this cannot be fully mechanical) is unchanged and is stated in three places now: the
 script's header, its `--check` failure message, and `design/fatal-risks/README.md`'s own `BUGS` entry, which
-this milestone struck through **for the mechanical half only** and which now says in as many words
+this milestone struck through for the mechanical half only and which now says in as many words
 that a green run is not a warrant that the arguments still hold.
 
 **Question 4 (where it runs) resolved to `script/lint`, per push, not a cadence.** The precedent that
@@ -101,7 +101,7 @@ this file being written against a tree that has since changed, so the commit tha
 commit that caused it and the lane holding it can fix it in the same breath. That is the definition
 of a lint. The measured cost is about a second, nearly all of it the two report subprocesses.
 
-**The cost of that choice, stated rather than discovered:** 35 milestones are cited by
+The cost of that choice, stated rather than discovered: 35 milestones are cited by
 `design/fatal-risks/README.md`, so roughly one lane in ten that turns a cited milestone `BUILT` will trip
 the "as of" check and owe a dated correction paragraph. That is the intended bill. The file's own
 idiom for paying it already exists (*"Two corrections, 2026-09-03, from the §86 research lane"*) and
@@ -109,7 +109,7 @@ the failure message names it.
 
 ## How it is known to be able to fail
 
-**`script/fatal-risks --selftest`, eleven fixtures, run by `script/lint` beside `--check`.** Eight
+`script/fatal-risks --selftest`, eleven fixtures, run by `script/lint` beside `--check`. Eight
 positive fixtures must each come back red on exactly their own check; three negative ones must stay
 quiet. One of the eight is a check that *refuses* rather than answers: a shallow clone has no commit
 touching a tracked file, so the proposal check would pass vacuously in one and reports instead, which
@@ -120,8 +120,8 @@ running-order row over a `BUILT` owner (row 5 owns risk 3 to milestone 85, which
 experiment is a re-run that has not happened), and a milestone built before the citing entry's own
 date.
 
-**And all three of the 2026-09-10 review's mechanical findings were reproduced against the real
-file**, by reverting each correction in turn and watching `--check` go red:
+And all three of the 2026-09-10 review's mechanical findings were reproduced against the real
+file, by reverting each correction in turn and watching `--check` go red:
 
 | reverted | what the check said |
 |---|---|
@@ -140,8 +140,8 @@ once, and by this file's own standard that is an attestation rather than evidenc
   `design/fatal-risks/README.md`'s `BUGS` all say it. The worked example is risk 9's *other* stale claim,
   that milestone 177's premise was overtaken by `DECISIONS §149`, which no status field encodes and
   which this gate reports nothing about.
-- **The "as of" check reads a risk section's latest stated date, which is a proxy for when somebody
-  last looked at it.** A lane that fixes a typo without touching a date leaves the proxy correct; one
+- The "as of" check reads a risk section's latest stated date, which is a proxy for when somebody
+  last looked at it. A lane that fixes a typo without touching a date leaves the proxy correct; one
   that adds a date while changing nothing else silences a real finding. The proxy is the file's own
   convention rather than something invented here (every verdict in it is dated), and it is still a
   proxy. It also fires on a gap of one day: risk 3 was dated 2026-08-03 against milestone 85's
@@ -168,7 +168,7 @@ once, and by this file's own standard that is an attestation rather than evidenc
 - **Done.** Risk 3's green was from 2026-08-03 and the weekly mutation workflow had published
   nothing since, so the re-run this gate made visible was nobody's until milestone 277 bounded the
   runaway mutant that blocked it. The workflow then completed on 2026-09-14 and calef read the
-  census on 2026-09-19; risk 3 is **MEASURED, AMBER** and the proposal that held the re-read was
+  census on 2026-09-19; risk 3 is MEASURED, AMBER and the proposal that held the re-read was
   drained with the ruling.
 - **Milestone 306.** Risk 6's remaining half was one boot of radon against an instrument that now
   exists. The proposal this bullet used to name was promoted and the boot happened on 2026-09-16:

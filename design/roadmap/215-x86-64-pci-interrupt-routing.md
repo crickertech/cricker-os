@@ -11,7 +11,7 @@ wiring, ran it, watched it wedge, and reverted it.
 It was minted with no hardware gate, on the grounds that QEMU's `q35` reproduces all of it, and
 that held: this whole milestone was made on patagonia.
 
-**The title is now a statement about the past.** A userspace driver on x86_64 reads a file off a
+The title is now a statement about the past. A userspace driver on x86_64 reads a file off a
 `virtio-blk-pci` disk and writes a block back to it, and the completion arrives as an **MSI-X**
 message the device writes straight to the local APIC. Measured below.
 
@@ -20,53 +20,53 @@ message the device writes straight to the local APIC. Measured below.
 `pci::intx_irq(base, dev, pin)` is `base + ((dev + pin - 1) % 4)`, and
 `arch::x86_64::mmu::PCI_IRQ_BASE` was `0` and said in its own comment that it was a marker rather
 than a value. So the virtio-blk function at device 4 pin 1 resolved to intid `0`, and
-`arch::x86_64::irq::enable(0)` put that through `isa_routing` to the **PIT's** line: the confined
+`arch::x86_64::irq::enable(0)` put that through `isa_routing` to the PIT's line: the confined
 block server was armed on the timer. Nothing said so, which is the shape of the bug rather than an
 aside. The wiring succeeded, the driver blocked on an interrupt that was never going to be its, and
 the suite wedged with no verdict.
 
 ## What was chosen, and what it refused
 
-**Route B, MSI-X.** The routing question is not answered, it is **deleted**: the device is handed
+Route B, MSI-X. The routing question is not answered, it is deleted: the device is handed
 the address to write and the value to write there, so nothing board-specific has to be encoded
 anywhere.
 
-**Route A, legacy INTx, is refused, and the refusal is the valuable half.** Two versions were
+Route A, legacy INTx, is refused, and the refusal is the valuable half. Two versions were
 available and both lose:
 
 - *Read ACPI's `_PRT`.* It is AML, this tree has no interpreter, and growing one for four numbers
   is a project that would then have to be maintained and verified. `notes/x86-port/acpi-and-pci.md` had already
   written that refusal down before there was a device on the bus to need it.
-- *Hardcode `q35`'s swizzle.* It would pass every gate on this machine. **It fails on the
-  OptiPlex**, or rather it might, and nobody could tell which from here, so milestone 87 would
+- *Hardcode `q35`'s swizzle.* It would pass every gate on this machine. It fails on the
+  OptiPlex, or rather it might, and nobody could tell which from here, so milestone 87 would
   discover it at a null modem. That is this project's most expensive place to discover anything,
   and the reason a route with no board-specific table beats one with a plausible table.
 
 MSI-X was more code than the hardcode and much less than the interpreter, so it is not the
 convenient answer either way; it won on the OptiPlex risk. `AGENTS.md`'s test applies cleanly:
-**yes, it would still be the choice if both options cost the same.**
+yes, it would still be the choice if both options cost the same.
 
-**And a third thing was refused: the `PCI_IRQ_BASE` fallback.** When a machine says it wants MSI
+And a third thing was refused: the `PCI_IRQ_BASE` fallback. When a machine says it wants MSI
 and the function has no MSI-X, bring-up **fails loudly**. Falling back to `intx_irq(0, ..)` there
 is the original bug wearing the clothes of a graceful degradation.
 
 ## The design, and why the trap handler is three lines
 
 An intid on x86_64 was already two things: a **vector** for a local APIC source (there is no
-controller input to name) and a **legacy IRQ number** for an IO APIC line. An MSI is a local APIC
+controller input to name) and a legacy IRQ number for an IO APIC line. An MSI is a local APIC
 source in the only sense that matters, because the device writes the vector straight to the APIC.
-So an MSI intid **is** its vector, and three things collapse rather than needing building:
+So an MSI intid is its vector, and three things collapse rather than needing building:
 
 - `irq::enable` has nothing to do for one, and that is an answer rather than a stub: the message is
   edge-delivered and already over. A driver's `Irq::ACK` is correspondingly a no-op.
-- `exceptions.rs` asks `sched::irq_route(vector)` directly. The **vector-to-intid inversion** that
+- `exceptions.rs` asks `sched::irq_route(vector)` directly. The vector-to-intid inversion that
   file's BUGS section records as owed for an IO APIC line never arises here, because there is no
   line in between to have named it. That entry is still true and still owed; it is now owed only
   for the console UART, which is the last candidate.
 - Nothing above `arch/` changed shape. `kernel/src/pci.rs` asks `arch::irq::alloc_msi_vector`,
   which answers `None` on both `virt` boards, and their INTx swizzle runs exactly as before.
 
-The three vector bands are disjoint **by construction** rather than by anyone remembering:
+The three vector bands are disjoint by construction rather than by anyone remembering:
 `MAX_REDIRECTION_ENTRIES` is now `MSI_VECTOR_BASE - GSI_VECTOR_BASE`, so an IO APIC that reported an
 absurd entry count cannot reach an MSI vector.
 
@@ -83,18 +83,18 @@ qemu-system-x86_64: vtd_iommu_translate: detected translation failure (dev=00:04
 **Neither is a confinement gap, and the first line is not about the device at all.** Both come out
 of the VT-d unit: `Interrupt Mask set, irq is not generated` is emitted by `vtd_generate_interrupt`
 when the unit wants to *report a fault by interrupt* and its own Fault Event Control mask bit is
-set. That bit is set because this kernel never programs the fault-event registers: it **polls**
+set. That bit is set because this kernel never programs the fault-event registers: it polls
 (`iommu::take_fault`). Read as "the virtio device's INTx is masked", which is how it looks beside a
 PCI bug, it is evidence for a diagnosis it has nothing to do with.
 
-**And the confinement is proved rather than argued.** `kernel::virtio::tests::the_iommu_faults_a_dma_that_escapes_the_domain`
+And the confinement is proved rather than argued. `kernel::virtio::tests::the_iommu_faults_a_dma_that_escapes_the_domain`
 now runs on x86_64 for the first time (it early-returned before, for want of a PCI disk to confine)
 and passes: it points a confined device at a frame outside its domain, and VT-d faults on exactly
 that frame. The same pair of QEMU lines is what that test's success looks like from outside. Two
 userspace round trips through the same confined device complete in the same boot, so `iommu::confine`
 covers a real virtio-pci device's DMA region correctly.
 
-That answers the "one piece of work or two" question this block asked: **one.** No fatal-risk-7
+That answers the "one piece of work or two" question this block asked: one. No fatal-risk-7
 finding here.
 
 ## What it delivered, measured
@@ -116,7 +116,7 @@ what the passing tests *prove*. The read test asserts `ROUTED_IRQS` increased, s
 completion arrives by polling rather than by interrupt; and the IOMMU escape test stopped being a
 no-op on this architecture.
 
-**Correction, 2026-09-04** (the `maintainer/msix-completion-flake` lane): that sentence about the
+Correction, 2026-09-04 (the `maintainer/msix-completion-flake` lane): that sentence about the
 read test was not true on this architecture when it was written. `arch::x86_64::exceptions::
 ROUTED_IRQS` also counted the local APIC timer, which aarch64's and riscv64's never did, so a timer
 tick landing in the test's window satisfied the assertion whatever the device had done, and a
@@ -127,19 +127,19 @@ handoff below.
 
 ## What this does not cover
 
-**The rest of the fixtures.** One `virtio-blk-pci` disk is attached. The RedoxFS image, the GPT and
+The rest of the fixtures. One `virtio-blk-pci` disk is attached. The RedoxFS image, the GPT and
 blank disks, the NIC, the GPU, the keyboard and the RNG are each a line in
 `helpers/qemu-runner-x86_64.sh` plus a wiring, and every one of them now has a working interrupt
-underneath it. That is a **proposed milestone** and this lane deliberately does not number it
+underneath it. That is a proposed milestone and this lane deliberately does not number it
 (numbers are the integrator's, and 216 is already the board console): its measure is the 36 tests
 taking a "no RedoxFS disk attached" arm, and its first item is making the FS server's disk lookup
 transport-blind, which is the half of milestone 164's revert that outlived the interrupt bug.
 
-**The `NIFE_DISK` comment in `xtask` still claims more than the runner attaches**, in the sense
+The `NIFE_DISK` comment in `xtask` still claims more than the runner attaches, in the sense
 that both other runners derive four sibling images from it and this one derives one. That is the
 same proposed milestone, not a separate defect.
 
-**Interrupt remapping.** A VT-d unit with `intremap=on` reinterprets a write to
+Interrupt remapping. A VT-d unit with `intremap=on` reinterprets a write to
 `0xfee0_0000..0xfef0_0000` as an index into a remapping table and rejects the compatibility-format
 message this builds. The runner does not enable it and firmware leaves it off by default, so this
 holds today; it is recorded in `arch::x86_64::irq`'s BUGS as the first thing to check if MSI stops
@@ -150,9 +150,9 @@ arriving on a machine whose firmware turns it on.
 - **An MSI vector is never handed back.** `alloc_msi_vector` is a bump counter over a 63-vector
   band, so a device brought up twice (which the suite does) spends two. A free list with no free
   path would be machinery nothing calls; the number to watch is `find_*_device` calls per boot.
-- **Every message is addressed to the boot core**, exactly as `route_gsi`'s destination is. Nothing
+- Every message is addressed to the boot core, exactly as `route_gsi`'s destination is. Nothing
   distributes device interrupts on this architecture yet.
-- **One MSI-X vector per function, entry 0.** Every driver here waits on a single queue's
+- One MSI-X vector per function, entry 0. Every driver here waits on a single queue's
   completion; a multi-queue driver would want more, and would want a per-queue table index rather
   than the one `PciVirtioDevice::msix_vector` carries.
 - **Proved on QEMU, not on silicon.** What only xenon can confirm is in `notes/x86-port/acpi-and-pci.md`: that
@@ -201,11 +201,11 @@ arriving on a machine whose firmware turns it on.
 ## Index row
 
 A userspace driver now reads a file off a `virtio-blk-pci` disk on x86_64 and writes a block back,
-with the completion arriving as an **MSI-X** message the device writes straight to the local APIC. **MSI-X, and the INTx refusal is the valuable half**: reading ACPI's `_PRT` needs an AML
+with the completion arriving as an MSI-X message the device writes straight to the local APIC. MSI-X, and the INTx refusal is the valuable half: reading ACPI's `_PRT` needs an AML
 interpreter, and hardcoding q35's swizzle would pass every gate here and might fail on xenon,
 which milestone 87 would discover at a null modem. MSI-X has no board-specific table to be wrong
-about. The design fell out rather than being built: an MSI intid **is** its vector, so `irq::enable` and `Irq::ACK` are correctly no-ops and the vector-to-intid inversion an IO APIC
-line would need never arises. A machine that wants MSI and meets a function without it now **refuses loudly** instead of falling back to `intx_irq(0, ..)`, which was the original bug. **The
+about. The design fell out rather than being built: an MSI intid is its vector, so `irq::enable` and `Irq::ACK` are correctly no-ops and the vector-to-intid inversion an IO APIC
+line would need never arises. A machine that wants MSI and meets a function without it now refuses loudly instead of falling back to `intx_irq(0, ..)`, which was the original bug. **The
 VT-d fault milestone 164 saw is not a confinement gap**: both QEMU lines come from the VT-d unit
 itself (`Interrupt Mask set` is its own fault-event interrupt, masked because this kernel polls),
 and the escape test now runs on x86_64 for the first time and passes. Legs: aarch64 310/3, riscv64

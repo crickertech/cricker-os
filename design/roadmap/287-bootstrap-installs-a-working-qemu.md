@@ -8,8 +8,8 @@ built: 2026-09-13
 Built 2026-09-13. Minted by the maintainer after reproducing the whole failure on a
 stock Ubuntu box. *(Number provisional until the merge queue lands it.)*
 
-**This is AGENTS.md's third principle failing, and the tell is that the fix for it had already been
-written once.** *A newcomer must be able to succeed without asking anyone.* Milestone 117's second
+This is AGENTS.md's third principle failing, and the tell is that the fix for it had already been
+written once. *A newcomer must be able to succeed without asking anyone.* Milestone 117's second
 stranger run found that `script/setup` could not complete on a stock Linux box; the remedy applied
 was a better error message; the message never printed, would have been the ladder's floor if it had,
 and named two commands that could not work. `notes/stranger-test.md` recorded it as fixed and stayed
@@ -35,18 +35,18 @@ is nothing better for apt to get. `script/ci-qemu`'s header has had this right a
 tempting workaround (drop the IOMMU device when QEMU lacks it) stays rejected: it would let the
 DMA-confinement tests pass while testing nothing.
 
-Three defects sat on top of it, and **each one hid the next**, which is why a milestone was spent
+Three defects sat on top of it, and each one hid the next, which is why a milestone was spent
 here rather than a patch.
 
-**One: the Linux branch was dead.** `script/bootstrap` guarded its advice with `[ "$os" = linux ]`
+One: the Linux branch was dead. `script/bootstrap` guarded its advice with `[ "$os" = linux ]`
 while `os="$(uname -s)"` produces `Linux`. Milestone 117's message had never once reached a reader;
 bootstrap simply exited 1 with no Linux advice at all. Nothing caught it because nothing on Linux ran
 bootstrap from cold again.
 
-**Two: printing is rung four.** Even working, a script that knows the next two commands and asks a
+Two: printing is rung four. Even working, a script that knows the next two commands and asks a
 human to type them is describing a mechanism instead of being one.
 
-**Three, and this is the load-bearing one: the printed remedy looped.** `script/ci-qemu` installs
+Three, and this is the load-bearing one: the printed remedy looped. `script/ci-qemu` installs
 into `${QEMU_PREFIX:-$HOME/.cache/nife-qemu}`. The **only** thing in the entire tree that ever put
 that prefix on PATH was `.github/workflows/ci.yml`, at three separate `$GITHUB_PATH` lines. Nothing
 in `script/`, nothing in `helpers/`, nothing in `xtask`. So a Linux developer following the
@@ -54,43 +54,43 @@ instructions verbatim spent twelve minutes building the right QEMU, re-ran `scri
 and `qemu-check`'s `command -v qemu-system-aarch64` found `/usr/bin`'s 8.2.2 again. Same failure,
 same message, same remedy, forever.
 
-**Why nobody met it.** Every contributor's machine was warm, and CI sets the PATH itself, so the only
+Why nobody met it. Every contributor's machine was warm, and CI sets the PATH itself, so the only
 configuration that exercises this path is a cold Linux clone: exactly what the stranger test exists
 to be, and exactly what the fix it prompted was never run against.
 
 ## Who owns the PATH, which was the real question
 
-The emulator is invoked **by bare name from 38 sites across 16 files**, in three languages:
+The emulator is invoked by bare name from 38 sites across 16 files, in three languages:
 `exec qemu-system-aarch64` at the bottom of `helpers/qemu-runner-aarch64.sh`, the riscv64 and x86_64
 runners beside it, `helpers/qemu-uefi-x86_64.sh`, a `subprocess` argument list in
 `script/netboot-rehearsal`, probe lines in `script/gates` and `script/cpu-matrix`, and
 `script/qemu-check` itself. **So the mechanism is PATH inherited by children, not one spawn site to
 patch.** Four options were priced.
 
-**Refused: `export PATH` from bootstrap and setup for their own children.** It is the cheapest thing
+Refused: `export PATH` from bootstrap and setup for their own children. It is the cheapest thing
 that makes `script/setup` finish, and it is disqualified on behaviour rather than on effort: a
 process cannot edit its parent's environment, so the developer's *next* `script/test` in a fresh
 terminal gets 8.2.2 again. That is the same loop one turn later, and `script/test` does not call
 bootstrap (by design; notes/scripts.md says why).
 
-**Refused: resolve the emulator at each call site.** Thirty-eight copies of one fact, in shell and
+Refused: resolve the emulator at each call site. Thirty-eight copies of one fact, in shell and
 Python, and every future site a chance to forget. `script/ci-qemu`'s own header already argues
 against exactly this shape for exactly this reason, about the device list: *"Two copies of 'what QEMU
 must provide' would drift, and the copy in CI is the one nobody reads."*
 
-**Refused: put the resolution in `xtask`, on the grounds that xtask is where QEMU is launched.** This
+Refused: put the resolution in `xtask`, on the grounds that xtask is where QEMU is launched. This
 was the first recommendation and the premise is false. `cargo xtask` spawns the runner shells, so it
 would cover `script/test` and its siblings, but it reaches neither `script/qemu-check` nor
 `script/cpu-matrix`'s direct probe nor `script/netboot-rehearsal`. Covering those as well would mean
 two mechanisms, and the Rust one would need its own copy of "where is the prefix and is it the pinned
 version", which is the drift above.
 
-**Taken: one sourced fragment, `helpers/qemu-path.sh`, read by every entry point that can reach an
-emulator.** It has no shebang because it is sourced rather than executed: it exists to edit the
+Taken: one sourced fragment, `helpers/qemu-path.sh`, read by every entry point that can reach an
+emulator. It has no shebang because it is sourced rather than executed: it exists to edit the
 caller's PATH, which an executed script cannot do. One copy of the logic, one line per entry point,
 and every one of the 38 bare-name invocations gets the right emulator without being touched.
 
-**Would we still choose it if the options cost the same?** Yes, and that is the honest answer rather
+Would we still choose it if the options cost the same? Yes, and that is the honest answer rather
 than a convenient one. Against the call-site option it has fewer moving parts and fewer places to be
 wrong, which is what this project means by elegance. Against the xtask option it is one mechanism
 instead of two with a duplicated fact between them. The `export PATH` option is cheaper than all of
@@ -98,18 +98,18 @@ them and loses on a measurement, not on taste.
 
 ## What was built
 
-- **`helpers/qemu-path.sh`** (**name provisional**, minted by this lane): prepends
+- `helpers/qemu-path.sh` (**name provisional**, minted by this lane): prepends
   `${QEMU_PREFIX:-$HOME/.cache/nife-qemu}/bin` to PATH when that prefix holds the pinned version.
   Idempotent, so an entry point calling another cannot stack the prefix up.
-- **`script/bootstrap`**: the dead `linux` comparison is `Linux`; on a Linux `qemu-check` failure it
-  now says what the next twelve minutes are for and then **runs `script/ci-qemu`**, sources the
+- `script/bootstrap`: the dead `linux` comparison is `Linux`; on a Linux `qemu-check` failure it
+  now says what the next twelve minutes are for and then runs `script/ci-qemu`, sources the
   fragment, and re-checks. It also sources the fragment before its `command -v` probes, so a second
   bootstrap does not re-run the whole apt branch against a prefix that already holds what is wanted.
-- **Twenty-five other `script/` entry points**: one `. helpers/qemu-path.sh` each, immediately after
+- Twenty-five other `script/` entry points: one `. helpers/qemu-path.sh` each, immediately after
   the `cd` to the repository root.
-- **`script/lint`**, *the project's QEMU is on PATH*: a file under `script/` that runs `cargo xtask`,
+- `script/lint`, *the project's QEMU is on PATH*: a file under `script/` that runs `cargo xtask`,
   names a `qemu-system-*` binary, or calls a `helpers/qemu-*` helper must source the fragment.
-- **`notes/scripts.md`** and **`notes/stranger-test.md`** (the correction above).
+- `notes/scripts.md` and `notes/stranger-test.md` (the correction above).
 
 ## The version gate, and the demotion it prevents
 
@@ -119,7 +119,7 @@ ships a new enough emulator. The fragment reads `.qemu-version` and prepends onl
 **That is a third reader of the pin, not a fourth copy of the number**: the file stays the single
 source of truth, which is the distinction `script/qemu-check`'s header draws.
 
-It finds the pin by **walking up from `$PWD`** rather than reading it from the current directory.
+It finds the pin by walking up from `$PWD` rather than reading it from the current directory.
 Every `script/` entry point cds to the root as its first act except `script/crate-probes`, which
 keeps a `$ROOT` and never cds, so a contract spelled "be at the root" would have had exactly one
 exception on the day it was written. Four lines removed the exception instead of documenting it.
@@ -137,7 +137,7 @@ out without either needing an exemption. `script/lint` still trips the rule thro
 check's own source, because a checker necessarily carries every pattern it looks for; it takes the
 line rather than an exemption.
 
-**Verified in both directions.** Four faults were injected one at a time and the gate watched to fire
+Verified in both directions. Four faults were injected one at a time and the gate watched to fire
 on each: the source line dropped from `script/test`, the fragment deleted, a new entry point that
 runs `cargo xtask` and forgets, and a backticked mention that must stay quiet (it did).
 
@@ -146,23 +146,23 @@ runs `cargo xtask` and forgets, and a backticked mention that must stay quiet (i
 Reproduced first, on this Ubuntu box with apt's 8.2.2 on `/usr/bin`: `script/qemu-check` exit 1,
 `riscv-iommu-pci` absent. Then, after the change:
 
-- **A completely clean environment** (`env -i`, PATH holding only the system directories, so 8.2.2
+- A completely clean environment (`env -i`, PATH holding only the system directories, so 8.2.2
   is the only emulator reachable by the old rules) runs `script/qemu-check` and gets
   `QEMU 11.0.2 matches the pin, with every required device present`.
-- **A genuinely cold prefix.** `QEMU_PREFIX` pointed at an empty directory and `script/bootstrap` run
+- A genuinely cold prefix. `QEMU_PREFIX` pointed at an empty directory and `script/bootstrap` run
   against it: the Linux branch fires, the twelve-minute warning prints, `script/ci-qemu` builds
   11.0.2 into that prefix, the fragment picks it up, and the re-check passes, all in one command with
   nothing typed in between.
-- **A fresh shell afterwards** finds `/root/.cache/nife-qemu/bin/qemu-system-aarch64`, which is the
+- A fresh shell afterwards finds `/root/.cache/nife-qemu/bin/qemu-system-aarch64`, which is the
   criterion that failed before: `script/setup` from cold completes (`==> QEMU present: QEMU emulator
   version 11.0.2`, with the apt branch skipped entirely), and a later `script/test` in a new terminal
   resolves the pinned emulator rather than apt's.
-- **The riscv64 kernel boots**, which is the sharpest form of the proof available: `script/test
+- The riscv64 kernel boots, which is the sharpest form of the proof available: `script/test
   --arch riscv64` from a shell whose PATH held only the system directories brought up OpenSBI and
   printed `nife on RISC-V (rv64, S-mode, Sv39)`. QEMU 8.2.2 cannot do that at all, because
   `-device riscv-iommu-pci` is not a device it has.
 
-**And a control run, because two numbers are worth more than one.** This box is a headless sandbox,
+And a control run, because two numbers are worth more than one. This box is a headless sandbox,
 so five post-run checks fail on both architectures: three `scanout` (no monitor for a screendump) and
 `inbound`/`multicast` (host networking). Those are **not** this change: the same
 `script/test --arch aarch64` with `QEMU_PREFIX` pointed at an empty directory, so the fragment
@@ -185,40 +185,40 @@ half is fixed and proven, and a different wall is standing behind it.
   evaluates `if [ "$os" != Linux ]` and then `exit 1`. On macOS those are the same two statements, so
   that path is bit-for-bit what it was. The only other macOS-visible change is the added
   `. helpers/qemu-path.sh` lines, which no-op unless `$HOME/.cache/nife-qemu/bin/qemu-system-aarch64`
-  exists, and `script/ci-qemu` (the only thing that creates it) refuses to run off Linux. **Nobody
-  has run any of that on a Mac**, which is the honest end of the sentence: no gate in this repository
+  exists, and `script/ci-qemu` (the only thing that creates it) refuses to run off Linux. Nobody
+  has run any of that on a Mac, which is the honest end of the sentence: no gate in this repository
   runs on macOS, so the architect's own machine is the first one that will.
-- **The gate cannot check that the source line is in the right place.** It checks presence. A line
+- The gate cannot check that the source line is in the right place. It checks presence. A line
   placed before the `cd`, or after the work it is supposed to affect, passes. Ordering inside a shell
   script is not something a grep can hold.
-- **The gate cannot see `helpers/`, `xtask`, or a Makefile.** Its scope is `script/*`, on the
+- The gate cannot see `helpers/`, `xtask`, or a Makefile. Its scope is `script/*`, on the
   reasoning that everything else is spawned by something in there and inherits. If a future cargo
   `runner` or CI step invokes an emulator without passing through a `script/` entry point, nothing
   fires.
-- **A prefix built from a different `.qemu-version` is silently ignored rather than reported.** The
+- A prefix built from a different `.qemu-version` is silently ignored rather than reported. The
   fragment no-ops, `qemu-check` then warns about whatever system QEMU it finds, and nothing says "you
   have a stale build at `$HOME/.cache/nife-qemu`". Re-running `script/ci-qemu` fixes it; nothing
   tells you to.
-- **Sourced from outside the repository, the fragment is a no-op**, because the upward walk for
+- Sourced from outside the repository, the fragment is a no-op, because the upward walk for
   `.qemu-version` reaches `/` and stops. Only `script/crate-probes` can be in that position, and it
   boots no emulator.
-- **Bootstrap still installs apt's emulator packages on a cold Linux box and then shadows them.**
+- Bootstrap still installs apt's emulator packages on a cold Linux box and then shadows them.
   See the follow-on below; removing them was not proven safe here.
 
 ## Follow-on
 
 - **Milestone 396.** Stop installing the QEMU packages apt cannot make useful. On a cold Linux box
   `script/bootstrap` installs `qemu-system-arm qemu-system-misc qemu-system-x86 ipxe-qemu ovmf` and
-  then builds a QEMU that shadows the three emulator packages entirely. **Measured on the built
-  prefix**, QEMU's own `make install` ships `efi-virtio.rom`, six `pxe-*.rom` option ROMs and every
+  then builds a QEMU that shadows the three emulator packages entirely. Measured on the built
+  prefix, QEMU's own `make install` ships `efi-virtio.rom`, six `pxe-*.rom` option ROMs and every
   `edk2-*.fd` firmware into `$prefix/share/qemu` (71 files), which is also where
   `helpers/qemu-uefi-x86_64.sh` already looks first, so the two firmware packages look redundant too.
-  **That is where the evidence stops**, and proving it needs the x86_64 UEFI gate and the netboot
+  That is where the evidence stops, and proving it needs the x86_64 UEFI gate and the netboot
   rehearsal run green with those packages absent, which is more than this lane could show. Nothing
   was removed. 396 names the four runs that would close it and prices the prize honestly: a few
   hundred megabytes, not correctness. Numbered on 2026-09-19 by milestone 433's drain of the pile.
 - **Milestone 288.** `crates/elf`'s host tests assume the host is aarch64, so `script/test` cannot go
-  green on an **x86_64 Linux** box: twenty of twenty-five tests fail at the machine check and the
+  green on an x86_64 Linux box: twenty of twenty-five tests fail at the machine check and the
   host pass never reaches the kernel legs. Found here because this is the first machine in the
   project's history to gate from a host that is not aarch64; it is pre-existing on `main` and this
   milestone touches no Rust. The crate exports `NATIVE_MACHINE` for exactly this and its own test
@@ -226,8 +226,8 @@ half is fixed and proven, and a different wall is standing behind it.
   premise out loud (*"these host tests build with `EXPECTED_MACHINE == EM_AARCH64`"*). Written up as a proposal, which
   milestone 288 has since absorbed and closed (`design/roadmap/288-host-tests-that-assume-an-aarch64-host.md`);
   the proposal file was deleted at that merge, 2026-09-14, as one of two written eight days apart
-  for the same defect. **It matters to this
-  milestone's own principle**: 287 removes the first wall a Linux newcomer hits and this is the
+  for the same defect. It matters to this
+  milestone's own principle: 287 removes the first wall a Linux newcomer hits and this is the
   second one, louder, because twenty red tests in a crate named `elf` read as "this project is
   broken".
 - **Recorded.** The six limitations above stay limitations and live in this block's `BUGS`, which is

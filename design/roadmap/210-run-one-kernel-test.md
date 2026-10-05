@@ -10,15 +10,15 @@ lane, which paid the cost twenty-five times. *(Number provisional until the merg
 `cargo xtask test --test <substring>` filters the kernel suite; the filter is baked into the test
 binary by `kernel/build.rs` and read by `kernel/src/testing.rs`'s runner. See notes/scripts.md.
 
-**The boot was measured and the premise below is wrong**, in the direction that makes this worth
-more rather than less. QEMU start to `running 312 tests` is **0.50 s**; the 312 tests are **53.1
-s**. Boot is about 1% of the QEMU leg, not "most of the four minutes". A warm filtered run of one
+The boot was measured and the premise below is wrong, in the direction that makes this worth
+more rather than less. QEMU start to `running 312 tests` is 0.50 s; the 312 tests are 53.1
+s. Boot is about 1% of the QEMU leg, not "most of the four minutes". A warm filtered run of one
 test is 8.6 s end to end, and what remains is fixture building (the archive, the `std` exerciser,
 five disk images), not the boot.
 
-**In brief.** `kernel/src/testing.rs`'s runner takes no filter, `cargo xtask test` parses only
-`--arch`, `--cpu` and `--hvf`, and arguments after `--` go to QEMU. **So there is no way to run one
-kernel test.**
+In brief. `kernel/src/testing.rs`'s runner takes no filter, `cargo xtask test` parses only
+`--arch`, `--cpu` and `--hvf`, and arguments after `--` go to QEMU. So there is no way to run one
+kernel test.
 
 Every host crate has this for free: `cargo test <name>` and `cargo kani --harness <name> --exact`
 both work, which is why DECISIONS §134's falsification sweep is thirty seconds over twenty-five
@@ -28,13 +28,13 @@ test whose break manifested as a watchdog timeout.
 
 ## Why it is worth its own block
 
-It is not only 202's problem. **Every lane that has waited out a whole suite to see one test has paid
-this**, and the tree records the shape without naming the cause: the load-sensitive assertions, the
+It is not only 202's problem. Every lane that has waited out a whole suite to see one test has paid
+this, and the tree records the shape without naming the cause: the load-sensitive assertions, the
 scanout checks, the two-core crash hunt, and this session's own `ci-build` runs that failed on timing
 under load and told us nothing about the change under test.
 
 It also gates something specific. `kernel/falsifications/` exists on `main` as of milestone 202 and
-**nothing sweeps it**, because a sweep that runs the whole suite per record is not a sweep. Six
+nothing sweeps it, because a sweep that runs the whole suite per record is not a sweep. Six
 kernel confinement claims have no mechanism for that reason.
 
 ## What it needs
@@ -42,7 +42,7 @@ kernel confinement claims have no mechanism for that reason.
 A filter reaching `kernel/src/testing.rs`'s runner from the command line, and an `xtask` argument to
 carry it. The runner already has the test names; nothing has to be discovered, only passed through.
 
-**The interesting constraint is the boot.** A kernel test is not a function a harness calls; it runs
+The interesting constraint is the boot. A kernel test is not a function a harness calls; it runs
 inside a booted kernel under QEMU, so "run one test" means "boot, run one, exit", and the boot is
 most of the four minutes. A filter makes the *selection* cheap and does not by itself make the *run*
 cheap, which is worth knowing before anybody promises a fast inner loop.
@@ -52,11 +52,11 @@ cheap, which is worth knowing before anybody promises a fast inner loop.
 - ~~**This block does not price the boot.**~~ Priced: 0.50 s of boot against 53.1 s of tests, so
   the feared outcome did not happen. What bounds a filtered run instead is fixture building, which
   nothing here filters and nothing records which test needs.
-- **A filtered run cannot fail the whole-suite instruments**: the frame ledger's kept-frames
+- A filtered run cannot fail the whole-suite instruments: the frame ledger's kept-frames
   ceiling, the thread peak and the stack high-water are totals over 312 tests. And tests are not
   independent, so one that only passes after an earlier test wired a service fails alone. Both are
   in notes/scripts.md's BUGS beside the flag.
-- ~~**It says nothing about the three architectures.**~~ Settled: `--test` selects tests and never
+- ~~It says nothing about the three architectures.~~ Settled: `--test` selects tests and never
   architectures, so all three legs still run and `--arch` remains the explicit narrowing. The cost
   is that filtering an architecture-specific test without `--arch` fails on the other two legs,
   which the failure message names.
@@ -98,5 +98,5 @@ cheap, which is worth knowing before anybody promises a fast inner loop.
 Minted from milestone 202's lane, which paid the cost twenty-five times. `kernel/src/testing.rs`'s
 runner takes no filter and `cargo xtask test` parses only `--arch`, `--cpu` and `--hvf`, so one
 kernel test costs a full suite run of about four minutes. Every host crate has this for free. It
-also gates a real thing: `kernel/falsifications/` exists on `main` and **nothing sweeps it**,
+also gates a real thing: `kernel/falsifications/` exists on `main` and nothing sweeps it,
 because a sweep that runs the whole suite per record is not a sweep.
