@@ -290,12 +290,14 @@ impl DmaEscape {
     /// never reached it. A `READ` escape that the IOMMU failed to refuse would have copied the
     /// disk's bytes over it, so this goes false exactly when the confinement does.
     pub fn canary_intact(&self) -> bool {
-        // SAFETY: `victim` is a frame this wiring allocated and never freed; the direct map covers
-        // all of RAM. CPU reads bypass the IOMMU, which is the point: only the device's view of
-        // this frame is unmapped.
         let p = crate::arch::mmu::phys_to_virt(self.victim) as *const u8;
-        (0..page_frames::FRAME_SIZE as usize)
-            .all(|i| unsafe { p.add(i).read_volatile() } == CANARY_BYTE)
+        (0..page_frames::FRAME_SIZE as usize).all(|i| {
+            // SAFETY: `victim` is a frame this wiring allocated and never freed; the direct map
+            // covers all of RAM, and `i` stays inside the one frame. CPU reads bypass the IOMMU,
+            // which is the point: only the device's view of this frame is unmapped.
+            let byte = unsafe { p.add(i).read_volatile() };
+            byte == CANARY_BYTE
+        })
     }
 }
 
