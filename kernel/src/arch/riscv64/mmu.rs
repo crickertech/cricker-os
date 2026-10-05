@@ -783,18 +783,6 @@ pub fn current_user_root() -> u64 {
     current_root_pa()
 }
 
-/// Map one user page at `va`, allocating the leaf and any intermediate tables from `alloc`, into the
-/// currently installed address space. Returns the leaf's physical address (for revocation records).
-pub fn map_current_user_page(
-    va: u64,
-    flags: Flags,
-    mut alloc: impl FnMut() -> Option<u64>,
-) -> Result<u64, MapError> {
-    let leaf = alloc().ok_or(MapError::OutOfPageFrames)?;
-    map_current_user_page_frame(va, leaf, flags, alloc)?;
-    Ok(leaf)
-}
-
 /// Unmap one user page at `va` in the space rooted at `root`, invalidate the TLB, and return the
 /// frame it named.
 pub fn unmap_user_at(root: u64, va: u64) -> Option<u64> {
@@ -804,6 +792,24 @@ pub fn unmap_user_at(root: u64, va: u64) -> Option<u64> {
     let (pa, flush) = mapper.unmap(va).ok()?;
     flush.flush(flush_tlb);
     Some(pa)
+}
+
+/// **Cut the page table at `table` out of the walk that reaches `va` in the space rooted at
+/// `root`**, and flush that space's tag. Returns the span of addresses that went with it, as
+/// `(base, size)`, or `None` if the walk to `va` no longer passes through `table`. Name
+/// provisional (the page-tables-outlive-destroy lane, 2026-10-05 UTC).
+///
+/// `revoke::revoke_region` calls this for each table a region paid for before the region's pages
+/// go back: see `paging::Mapper::unlink_table` for why the cut is one entry. The flush is by ASID
+/// rather than by page because the span is up to a whole table's reach and the walk caches above
+/// the leaves have to go too, and a by-tag flush reaches both on every core.
+pub fn cut_user_table(root: u64, va: u64, table: u64, asid: u16) -> Option<(u64, u64)> {
+    // SAFETY: `root` is a live low-half table (the registry forgets a root before its space frees
+    // it); the direct map makes `phys_to_ptr` valid; a cut allocates nothing.
+    let mut mapper = unsafe { Mapper::<_, _, Sv39>::new(root, Half::Low, || None, phys_to_ptr) };
+    let (base, span, flush) = mapper.unlink_table(va, table)?;
+    flush.flush(|_| flush_asid(asid));
+    Some((base, span))
 }
 
 /// Translate `va` in the space rooted at physical `root`.

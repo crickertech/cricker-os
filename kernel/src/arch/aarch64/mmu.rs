@@ -839,26 +839,6 @@ pub fn current_user_root() -> u64 {
     TTBR0_EL1.get_baddr()
 }
 
-/// Map one page at `va` into the **currently installed** user address space, pulling the leaf
-/// page and any intermediate page tables from `alloc`. Used by the untyped `MAP` syscall, where
-/// `alloc` hands out pages from the process's own untyped region rather than the kernel allocator.
-///
-/// # Safety
-/// The caller must be the thread that owns the installed address space (it is, being the one that
-/// made the syscall), and `alloc` must return zeroed, page-aligned physical pages.
-pub fn map_current_user_page(
-    va: u64,
-    flags: Flags,
-    mut alloc: impl FnMut() -> Option<u64>,
-) -> Result<u64, MapError> {
-    // The leaf is a fresh page from `alloc`; the page tables to reach it come from the same
-    // `alloc`. This is the MemoryRegion::MAP path: everything, page and tables, out of one source. The
-    // leaf's physical address is returned so the caller can record the mapping for revocation (§13).
-    let leaf = alloc().ok_or(MapError::OutOfPageFrames)?;
-    map_current_user_page_frame(va, leaf, flags, alloc)?;
-    Ok(leaf)
-}
-
 /// Unmap one page at `va` from the user address space rooted at `root`, discharging the TLB
 /// obligation. Returns the physical frame it pointed at, or `None` if nothing was mapped there.
 ///
@@ -875,6 +855,24 @@ pub fn unmap_user_at(root: u64, va: u64) -> Option<u64> {
     Some(pa)
 }
 
+/// **Cut the page table at `table` out of the walk that reaches `va` in the space rooted at
+/// `root`**, and flush that space's tag. Returns the span of addresses that went with it, as
+/// `(base, size)`, or `None` if the walk to `va` no longer passes through `table`. Name
+/// provisional (the page-tables-outlive-destroy lane, 2026-10-05 UTC).
+///
+/// `revoke::revoke_region` calls this for each table a region paid for before the region's pages
+/// go back: see `paging::Mapper::unlink_table` for why the cut is one entry. The flush is by ASID
+/// rather than by page because the span is up to a whole table's reach and the walk caches above
+/// the leaves have to go too, and a by-tag flush reaches both on every core.
+pub fn cut_user_table(root: u64, va: u64, table: u64, asid: u16) -> Option<(u64, u64)> {
+    // SAFETY: `root` is a live low-half table (the registry forgets a root before its space frees
+    // it); the direct map makes `phys_to_ptr` valid; a cut allocates nothing.
+    let mut mapper = unsafe { Mapper::<_, _, Aarch64>::new(root, Half::Low, || None, phys_to_ptr) };
+    let (base, span, flush) = mapper.unlink_table(va, table)?;
+    flush.flush(|_| flush_asid(asid));
+    Some((base, span))
+}
+
 /// Ask the user page tables rooted at `root` what `va` maps to. Like [`translate_user`], but for an
 /// arbitrary root rather than the installed one, so revocation (and its tests) can inspect another
 /// address space, and (milestone 126, `pmap`, DECISIONS §114) so `abi::address_space::LIST` can turn a
@@ -889,9 +887,8 @@ pub fn translate_at(root: u64, va: u64) -> Option<(u64, Flags)> {
 /// Map an **already-owned** physical page `phys` at `va` in the caller's address space, drawing
 /// only the intermediate page tables from `alloc`.
 ///
-/// The `PageFrame::MAP` path. Unlike [`map_current_user_page`], the leaf is not freshly allocated: it
-/// is the page the frame capability names, which the caller already holds and which outlives this
-/// mapping. `alloc` supplies page-table nodes only, so a caller can point them at an untyped and
+/// The `PageFrame::MAP` and `MemoryRegion::MAP` path. The leaf is not allocated here: it is the
+/// page the frame capability names, or the page `MemoryRegion::MAP` has just retyped. `alloc` supplies page-table nodes only, so a caller can point them at an untyped and
 /// keep the kernel out of the allocation entirely.
 pub fn map_current_user_page_frame(
     va: u64,

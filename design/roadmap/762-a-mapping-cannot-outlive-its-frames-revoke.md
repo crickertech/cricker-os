@@ -78,16 +78,15 @@ from two cores at once.
   `sched::current_cap` and map it outside a hold; the map handlers' taking a slot is the defence,
   the same one `sched::Delegation` relies on. Written at `MappingHold`.
 - `DeviceFrame` through `MAP_INTO` is covered by construction and not driven.
-- A destroyed region's page tables stay linked (found here, reasoned, not driven). A space's
-  intermediate tables come from a region its owner names, nothing records them, and
-  `MemoryRegion::DESTROY` returns them to the allocator while a live space still walks them.
-  Recorded at `revoke::revoke_region`. It is the same risk 7 claim one level up the page table.
+- A destroyed region's page tables stayed linked: `MemoryRegion::DESTROY` returned tables a live
+  space walked. Fixed by milestone 763 (a destroyed region cannot take a live space's page tables
+  with it), provisional, #1665; the root is left as that lane's proposal.
 
 ## Follow-on
 
-- **Recorded.** The destroyed-region page-table hole, in `revoke::revoke_region`'s `BUGS`. It wants
-  a lane of its own: drive it, then decide whether tables are recorded like leaves or whether a
-  region that paid for a live space's tables refuses `DESTROY`.
+- **Milestone 763.** The destroyed-region page-table hole, driven and fixed: tables are recorded
+  like leaves and cut on `DESTROY`. The root stays open in
+  `design/roadmap/proposals/a-destroyed-region-cannot-free-a-running-root.md`.
 
 ## Index row
 
