@@ -470,7 +470,10 @@ pub(crate) fn uefi_boot() -> bool {
         // The kernel handed the screen to a userspace terminal and both halves came up (the shell
         // on the firmware screen). Said on the UART because the screen has been handed away by
         // the time it is printed.
-        "served by framebuffer_driver, a 132x43 terminal on it",
+        // Since 2026-10-04 the terminal fills the screen at the boot console's scale: OVMF's
+        // 1280x800 is scale one, 182 columns by 100 rows, where it was the virtio contract's
+        // 924x344 corner (132x43).
+        "1280x800 pixels of it at scale 1 served by framebuffer_driver, a 182x100 terminal on it",
     ] {
         if !transcript.contains(wanted) {
             eprintln!("uefi-boot: the boot transcript is missing {wanted:?}");

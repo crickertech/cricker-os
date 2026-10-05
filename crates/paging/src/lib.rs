@@ -361,6 +361,14 @@ impl Flags {
         Flags(CAP_USER | CAP_WRITE | CAP_DEVICE)
     }
 
+    /// **[`write_combining`](Self::write_combining) for a driver at user level**: a userspace
+    /// framebuffer driver's view of its aperture (`framebuffer_driver`, 2026-10-04). Everything
+    /// [`user_device`](Self::user_device) is, plus permission to gather stores, and the same
+    /// caveat: only `x86_64` honours the request. Name: provisional (the screen terminal lane).
+    pub const fn user_write_combining() -> Self {
+        Flags(CAP_USER | CAP_WRITE | CAP_DEVICE | CAP_WRITE_COMBINE)
+    }
+
     /// The raw capability word. Opaque outside this crate; the formats use it to encode.
     pub const fn bits(self) -> u64 {
         self.0
@@ -1033,6 +1041,7 @@ mod flag_tests {
         assert_eq!(Flags::user_data().bits(), 0b00_0011);
         assert_eq!(Flags::user_device().bits(), 0b10_0011);
         assert_eq!(Flags::write_combining().bits(), 0b111_0001);
+        assert_eq!(Flags::user_write_combining().bits(), 0b110_0011);
     }
 
     /// A write-combining mapping is still a device mapping: every rule keyed on `is_device` (no

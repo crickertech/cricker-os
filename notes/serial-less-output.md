@@ -300,8 +300,8 @@ Everything is on the monitor. Nothing else is connected.
 2. The screen clears, which is the kernel's console arming.
 3. The boot tour, beginning `nife on x86_64 (long mode, ring 0, 4-level paging)`, with a
    `screen      :` line naming the geometry.
-4. The screen clears a second time and the shell's banner and `$ ` appear in the top-left corner
-   (a 132x43 terminal whatever the panel's size). There is no keyboard yet on a machine without a
+4. The screen clears a second time and the shell's banner and `$ ` fill it at the tour's
+   scale (137x67 on 1920x1080). There is no keyboard yet on a machine without a
    serial port (milestone 242), so the prompt is as far as it goes.
 
 **Photograph the screen at that point.** That is the record, and it is the only record this machine
