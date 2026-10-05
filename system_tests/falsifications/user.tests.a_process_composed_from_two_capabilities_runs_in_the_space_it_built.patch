@@ -1,0 +1,34 @@
+Falsifies `system_tests::user::tests::a_process_composed_from_two_capabilities_runs_in_the_space_it_built`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect: `ThreadControlBlock::START`, invoked from userspace, answers success and starts
+nothing. Every step before it still works, so the witness reads its child out of the archive,
+builds the space, is refused the double map, configures the thread and is told it started. Only
+the thread never runs. This is the claim the test exists for and the one the witness carried
+nowhere before §185 (what carries the claim that userspace composes a process from an authority
+you can count on one hand): that a thread a two-capability process built runs in the space it
+built. The kernel-side `start_thread_control_block` is untouched, so the harness still starts the
+witness itself; only the witness's own `START` is broken.
+
+Expected to fail: the deadline assertion, "the witness sent no verdict in 30 s: it is still
+waiting for a child it started", because the witness is parked in its receive for an answer that
+cannot come. Confirmed red on aarch64 on 2026-10-05 (UTC) with `cargo xtask test --arch aarch64
+--test a_process_composed_from_two_capabilities`, at that assertion; the same command without the
+patch passes. riscv64 and x86_64 are first replayed by the per-PR `--affected-since` sweep.
+
+Nothing here is architecture-specific, so one patch serves every leg.
+
+diff --git a/kernel/src/syscall.rs b/kernel/src/syscall.rs
+index cfd6facc8..0b217d2c4 100644
+--- a/kernel/src/syscall.rs
++++ b/kernel/src/syscall.rs
+@@ -398,7 +398,7 @@ pub fn invoke(
+                 if !cap.rights.allows(Rights::WRITE) {
+                     return Err(Error::NotPermitted);
+                 }
+-                sched::start_thread_control_block(tid, [a0, a1, a2])?; // the child's x0, x1, x2 (19d/19e)
++                let _ = (tid, a0, a1, a2);
+                 Ok(0)
+             }
+             _ => Err(Error::BadMethod),

@@ -53,7 +53,7 @@ than demonstrating a floor. So the tree keeps *userspace composes a process* and
 Where that half went is the question this milestone was told to answer rather than assume, and the
 answer is **half-proved, and the missing half is real**:
 
-- **Proved.** `fixtures/src/address_space_witness.rs` holds the *same two capabilities* `builder`
+- **Proved.** `fixtures/src/process_composition_witness.rs` holds the *same two capabilities* `builder`
   held, a memory region in slot 0 and a report line in slot 1, and from those retypes an address
   space, retypes a frame, maps the frame into the space it built, and proves the kernel enforces
   break-before-make inside it. `kernel::user::tests::a_process_can_build_an_address_space_from_el0`

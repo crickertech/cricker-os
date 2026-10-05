@@ -274,36 +274,29 @@ server and input driver stop on first use, because a ring-3 process cannot reach
 This half is better off than it was: the progenitor composes the console server, the line
 discipline, the input driver and `swish`, and a person can then type at the result.
 
-*...from an authority you can count on one hand.* This is the half `builder` carried alone, and it
-is half-proved today. The progenitor does not carry it: it is granted the NS16550 and the UART's
-interrupt line as well, because it is building a system rather than demonstrating a floor. What does
-carry it is `fixtures/src/address_space_witness.rs`, which holds exactly the same two
-capabilities `builder` held, a memory region in slot 0 and a report line in slot 1, and from those
-retypes an address space, retypes a frame, maps the frame into the space it built, and proves the
-kernel enforces break-before-make inside it. It is asserted by
-`kernel::user::tests::a_process_can_build_an_address_space_from_el0` on **both** architectures whose
-test kernel can load a user ELF, under `script/test`, which is more coverage than `builder` ever had
-(nothing on a pull request ever executed `builder`; see milestone 406,
+*...from an authority you can count on one hand.* This is the half `builder` carried alone. The
+progenitor does not carry it: it is granted the NS16550 and the UART's interrupt line as well,
+because it is building a system rather than demonstrating a floor.
+
+What carries it since 2026-10-05 is `fixtures/src/process_composition_witness.rs`, built for §185
+(what carries the claim that userspace composes a process from an authority you can count on one
+hand) as milestone 404 (composing a process from two capabilities is proved for two verbs and no
+more). It holds the same two capabilities `builder` held, a memory region in slot 0 and a report
+line in slot 1, plus the archive mapped read-only. From those it reads `least_authority_demo` out of
+the archive by name, mints a rendezvous, builds the child through
+`supervision_protocol::build_child_space`, maps a frame of its own into the child's space and is
+refused the same address twice, then configures and starts the thread and receives its answer.
+`system_tests::user::tests::a_process_composed_from_two_capabilities_runs_in_the_space_it_built`
+asserts every step on all three architectures under `script/test`, which is more than `builder` ever
+had: nothing on a pull request executed `builder` (milestone 406 (nothing on a pull request boots
+the riscv64 tour, so its userspace step is unasserted),
 `design/roadmap/406-nothing-in-ci-boots-the-riscv-tour.md`).
 
-**What is proved nowhere is the rest of the sequence.** `address_space_witness` stops where milestone
-19b stopped: it builds a space and maps a frame, and nothing runs in it, because threads were 19c's
-object. Reading an ELF out of an archive **by name**, laying its segments down, retyping a TCB,
-endowing it, configuring it and starting it, all from those same two capabilities, was `builder`'s
-whole body and no other program in this tree does it from two. `os_primitives_benchmarker` starts a
-child from userspace and is a benchmark holding more than two; `supervision_proto::build_child` is
-the loader all of them share, and its callers are endowed for their jobs rather than trimmed to a
-floor.
-
-**The verbs are proved from the kernel's side**, which is what makes this a join rather than a hole:
-`kernel::user::tests::a_process_can_build_start_and_run_a_child_thread` drives the whole sequence and
-the child runs and reports, on both architectures, by calling `memory_region::create`,
-`user_address_space_map`, `configure` and `start` directly rather than across the syscall boundary.
-So: two verbs from userspace at a two-capability floor, and every verb from the kernel at no floor at
-all. `builder` was the only thing that was both.
-
-**That is a real gap and it is recorded rather than papered over**, which is the only reason to write
-this section. Milestone 295's block carries it as its handoff.
+Until then the fixture was `address_space_witness` and stopped where milestone 19b (run a real
+workload) stopped, with nothing running in the space it built, while
+`system_tests::user::tests::a_process_can_build_start_and_run_a_child_thread` drove the whole
+sequence from the kernel's side. The gap was a join rather than a hole, and the block of milestone
+295 (retire `components/src/builder.rs`) carried it as its handoff until 404 closed it.
 
 ## What is not here yet
 

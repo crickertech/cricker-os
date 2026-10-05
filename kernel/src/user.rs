@@ -504,8 +504,9 @@ pub fn user_address_space_create(region: u64) -> Option<u64> {
 
     // The timebase page is **not** mapped unconditionally here (an earlier version of this
     // lane's work did, and a full-suite run under `script/test --arch x86_64` caught two
-    // regressions: `a_process_can_build_an_address_space_from_el0`'s hand-sized demo region ran
-    // out of table budget, and it makes no sense for the many callers of this syscall that build
+    // regressions: the hand-sized demo region of the test now named
+    // `a_process_composed_from_two_capabilities_runs_in_the_space_it_built` ran out of table
+    // budget, and it makes no sense for the many callers of this syscall that build
     // nothing resembling a real ELF process at all). This syscall is shared by every purpose that
     // needs a bare address space object, not only the userspace ELF loader
     // (`supervision_protocol::build_child_space`), and the loader is where this page actually

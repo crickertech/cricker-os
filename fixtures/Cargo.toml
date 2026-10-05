@@ -406,11 +406,12 @@ path = "src/rendezvous_peer.rs"
 test = false
 bench = false
 
-# The address-space builder (milestone 19b): constructs an address space from EL0 and
-# finds break-before-make enforced inside it. `hello`'s ADDRESS_SPACE_BUILDER role until 291.
+# The process-composition witness (milestone 19b (run a real workload)): constructs an address space from EL0 and
+# finds break-before-make enforced inside it. `hello`'s ADDRESS_SPACE_BUILDER role until 291;
+# `address_space_witness` until 2026-10-05.
 [[bin]]
-name = "address_space_witness"
-path = "src/address_space_witness.rs"
+name = "process_composition_witness"
+path = "src/process_composition_witness.rs"
 test = false
 bench = false
 
