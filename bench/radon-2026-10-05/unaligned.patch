@@ -1,0 +1,38 @@
+diff --git a/kernel/src/cpu.rs b/kernel/src/cpu.rs
+index 0c22dda52..ecf9779d4 100644
+--- a/kernel/src/cpu.rs
++++ b/kernel/src/cpu.rs
+@@ -57,7 +57,7 @@ pub const MAX_CPUS: usize = current_cpu_protocol::CPU_ID_BOUND;
+ /// padding also keeps its size a power of two (see the assertion below [`PERCPU`]). The assertion
+ /// below [`FALSE_SHARING_SPAN`] is what fails if either attribute is lost or lowered.
+ #[cfg_attr(target_arch = "x86_64", repr(align(256)))]
+-#[cfg_attr(not(target_arch = "x86_64"), repr(align(128)))]
++// SCRATCH (radon-2026-10-05, never committed): 766 undone, so the blocks can be shifted below.
+ pub struct PerCpu {
+     /// The lowest lock rank this core currently holds (`rank::NONE` when it holds nothing).
+     ///
+@@ -358,7 +358,15 @@ static ADOPTED: [AtomicU64; MAX_CPUS] = [const { AtomicU64::new(0) }; MAX_CPUS];
+ ///
+ /// Statically allocated on purpose: a core's block must be reachable from its first instruction
+ /// of Rust, long before any allocator exists. `TPIDR_EL1` points at one element of this array.
+-static PERCPU: [PerCpu; MAX_CPUS] = [const { PerCpu::new() }; MAX_CPUS];
++// SCRATCH (radon-2026-10-05, never committed): the positive control from
++// notes/job-mix/null-syscall-hvf-full-mix.scratch.patch's last hunk. Blocks at 24 mod 128.
++#[repr(C, align(128))]
++struct Shifted {
++    _pad: [u8; 24],
++    blocks: [PerCpu; MAX_CPUS],
++}
++static PERCPU_SHIFTED: Shifted = Shifted { _pad: [0; 24], blocks: [const { PerCpu::new() }; MAX_CPUS] };
++static PERCPU: &[PerCpu; MAX_CPUS] = &PERCPU_SHIFTED.blocks;
+ 
+ /// **`PerCpu`'s size must stay a power of two, and this is the check that says so.**
+ /// Added by milestone 541 (a timed window that excludes preemption).
+@@ -416,6 +424,7 @@ const FALSE_SHARING_SPAN: usize = 128;
+ /// of its own. This is the check that keeps it so: dropping the `repr(align)` on [`PerCpu`], or
+ /// adding an architecture without one, fails the build here rather than costing every core a
+ /// shared line nobody measures.
++#[cfg(target_arch = "x86_64")] // SCRATCH (radon-2026-10-05): 766 undone off x86_64
+ const _: () = assert!(
+     core::mem::align_of::<PerCpu>() >= FALSE_SHARING_SPAN,
+     "PerCpu must be aligned to at least FALSE_SHARING_SPAN so no two cores' blocks share a cache \

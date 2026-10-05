@@ -1,0 +1,19 @@
+board-netboot: serving /Users/calef/projects/nife-worktrees/radon-2026-10-05/target/board-main on udp/69
+            boot.cmd  (1523 bytes)
+            boot.scr.uimg  (1595 bytes)
+            nife-initrd.img  (12094976 bytes)
+            nife-vf2.img  (3177792 bytes)
+
+The card's boot script expects one of these, and says which at boot.
+If it names a different one, the lease moved and this is the fix:
+            StarFive # setenv nife_boot_server 192.168.8.138
+            StarFive # setenv nife_boot_server 192.168.8.206
+
+For a UEFI client (xenon, milestone 260) the same address goes in the router's
+dhcp-boot line; see bench/xenon-netboot/dnsmasq.conf. There is no prompt to fix it at.
+
+Ctrl-C to stop.
+board-netboot: 192.168.8.185 <- nife-vf2.img (3177792 bytes, blksize 1468)
+board-netboot: nife-vf2.img done, 3177792 bytes in 0.48s (6410 KiB/s)
+board-netboot: 192.168.8.185 <- nife-initrd.img (12094976 bytes, blksize 1468)
+board-netboot: nife-initrd.img done, 12094976 bytes in 1.63s (7250 KiB/s)

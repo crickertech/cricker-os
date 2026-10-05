@@ -4,8 +4,9 @@
 2026-10-04 (UTC) by the `lane/null-syscall-contention` lane. The cause and the fix were found under
 QEMU's TCG, which models no cache and no real inter-processor interrupt; radon then ran the fix the
 same night, and [its result](#what-radon-said) is PARTIAL by the thresholds written before it.
-2026-10-05 (UTC): [the rest was the lock](#is-the-rest-the-lock-measured-2026-10-05-off-radon) on two
-emulated machines; radon's size is still owed.*
+2026-10-05 (UTC): [the rest was the lock](#is-the-rest-the-lock-measured-2026-10-05-off-radon), and
+[radon measured milestone 761](#what-radon-said-on-2026-10-05): the rise from one task to four fell
+from 48 ticks to 10.*
 
 ## The question
 
@@ -174,30 +175,15 @@ moved out of `IPC_TABLES` meet each other there, at 1.6% of the wait.
 
 ## The next step: each thread's table off the lock
 
-Milestone 761 (capability lookup off the global lock), its number provisional, gives every thread's
-capability table its own lock, so `current_cap` stops taking `IPC_TABLES`. Built; radon's
-measurement is outstanding. Under TCG the lookups that waited fell from about 20% to almost none.
+Milestone 761 (capability lookup off the global lock) gives every thread's capability table its own
+lock, so `current_cap` stops taking `IPC_TABLES`. Under TCG the lookups that waited fell from about
+20% to almost none.
 
 ### The radon run that decides it
 
-Two payloads from `74bbb19a1`, built before the bench:
-
-```sh
-cd ~/projects/nife-worktrees/capability-lock-per-thread
-script/board-netboot --root target/board-caplock             # boots 1 to 3: the kernel that would ship
-script/board-netboot --root target/board-caplock-lock-wait   # boots 4 and 5: the same plus lock_wait
-```
-
-Bench rules as [the first run's](null-syscall-first-radon-run.md#the-radon-run-that-decided-it); transcripts to `bench/radon-<date>-caplock/`.
-Read, in this order:
-
-1. `null_syscall`'s `per_job` at 1 and 4 tasks on boots 1 to 3, against 99 and 147 from
-   `bench/radon-2026-10-04-fix/`.
-2. On boots 4 and 5, `site=current_cap`: `contended / calls` at 4 tasks, against 41% on that evening.
-3. On boots 4 and 5, `rank=60 name=ipc_tables`: contended count and wait at 4 tasks, against that
-   evening's boots 4 and 5.
-
-What each outcome means, written 2026-10-04 (UTC) before any boot:
+Boots 1 to 3 of the kernel that ships, read against 99 and 147 from `bench/radon-2026-10-04-fix/`;
+boots 4 and 5 with `lock_wait`, read for `site=current_cap` and `rank=60 name=ipc_tables` at four
+tasks. What each outcome means, written 2026-10-04 (UTC) before any boot:
 
 | Boots 1 to 3, `null_syscall` at 4 tasks | Reading |
 |---|---|
@@ -221,28 +207,47 @@ ablation that puts `IPC_TABLES` back around the lookup and changes nothing else.
 - HVF, aarch64, four real cores, spawn stubbed. `main` is flat from one task to four (48, 47,
   46, 47). The ablation rises to 61, and its excess equals its measured wait.
 
-The lock was a cause, this kernel chose it, and 761 removed it. Radon's size is still owed, from
-these payloads or 761's own, by the thresholds above:
+## What radon said on 2026-10-05
 
-```sh
-cd ~/projects/nife-worktrees/null-syscall-under-load   # keep this worktree until the boots run
-script/board-netboot --root target/board-main             # boots 1 to 3, built from d0ca36c5b
-script/board-netboot --root target/board-main-lock-wait   # boots 4 and 5
-```
+Nineteen boots, built from `c8b5fd09e` with 761 and 766 in it, by a
+[run sheet](../../bench/radon-2026-10-05/RUN-SHEET.md) written before any boot.
+[The appendix](radon-2026-10-05.md) has every table.
+
+| `main`, three boots | 1 task | 4 tasks | growth 1 to 4 |
+|---|---|---|---|
+| 2026-10-04 | 99 | 147 | 48 |
+| 2026-10-05 | 110 | 120 (120, 121, 120) | 10 |
+
+- 761 worked. `current_cap` found its lock held on 0.05% of calls at four tasks, against 41%.
+  The whole `IPC_TABLES` wait halved. Of the 10 ticks of growth left, `compute`'s preemption share
+  is about 5.
+- The four-task median, 120, falls in the "partial" band, and the guard failed (110 at one
+  task, above 101). The rule says explain it first. A rebuilt `b500b3d48` read 99 again. A bisect
+  put the step at #1659, with no instruction added to the trap path. Shifting `main`'s whole text by
+  0 to 48 bytes, changing no code, moved one task from 110 to 118. **Radon's single-crossing number
+  moves about 8 ticks (7%) with code placement.** About 3 ticks of the 11 are the userspace stub and
+  1 the in-table empty slot (milestone 754 (the capability table grows to 64 slots)); the rest is
+  placement. The growth with cores held at 10 or 11 across those layouts, so growth is the
+  comparison to trust, and it fell from 48 to 10. By the band, PARTIAL. By what the band was asking
+  (is the lock the rest?), the lock is gone, and about 5 ticks a job, 20 ns a trap, remain
+  unexplained.
+- 766 is material on radon. Undoing it with `PERCPU` forced to 24 mod 128 raised the growth
+  from 10 to 17.5, `D` = 7.5 ticks, the run sheet's "6 or more" band. That is 29 ns a trap, about
+  17 times what HVF's cost scaled to radon predicted.
 
 ## What risk 4's line should say
 
-For the maintainer, who owns `design/fatal-risks/README.md`. The colour is calef's ruling; this
-lane proposes AMBER until radon's evening, and GREEN if boots 1 to 3 read 115 or below at four tasks
-with the one-task guard held. The open finding's paragraph should read:
+For the maintainer, who owns `design/fatal-risks/README.md`. The colour is calef's ruling. This
+lane proposes replacing the open finding's last three sentences ("The rest is the one global lock
+itself ... half explained and half open") with:
 
-> The null syscall's near-doubling from one busy core to four was two defects, neither of them the
-> capability model. The reaper held the global `IPC_TABLES` lock while freeing a dead thread's
-> kernel stack; fixing it on radon (2026-10-04) cut the growth from one task to four from 94 ticks
-> to 48 and raised throughput 9% at four tasks. The rest was the same lock on every capability
-> lookup, which milestone 761 removed. On four real Apple cores the null syscall is now flat from
-> one task to four, and putting the lock back alone brings the rise back, by exactly its measured
-> wait. Radon has not yet measured the size
+> The rest was the same lock on every capability lookup, which milestone 761 removed, and false
+> sharing between cores' per-core blocks, which milestone 766 (each core's PerCpu on its own cache
+> line) removed. On radon (2026-10-05) the
+> null syscall's growth from one task to four fell from 48 ticks to 10, half of it the preemption
+> every job pays; undoing 766 alone puts back 7.5. One caveat travels with every single-crossing
+> number on radon: moving the kernel's text by a few bytes, with no code change, moves the null
+> syscall by up to 8 ticks (7%), so builds are compared on growth, not level
 > (notes/job-mix/null-syscall-under-load.md).
 
 ## BUGS
@@ -250,11 +255,12 @@ with the one-task guard held. The open finding's paragraph should read:
 - The fix is sized on one machine, radon, with four harts, over five boots of one evening. The
   three plain boots agreed to within one tick at every `null_syscall` point and 0.64% on
   `jpm_median` at four tasks, so the size is a number, but it is radon's.
-- **`PERCPU` straddles cache lines.** It is aligned to 8, so each 128-byte block spans three 64-byte
-  lines and shares two with its neighbours. Their remotely written fields (the inbox, the steal slot)
-  can pull away a line that `held_rank`, written twice per lock, lives on. On Apple cores it is the
-  rest of the per-trap growth, and their 128-byte line needs `align(128)`
-  ([the HVF appendix](null-syscall-hvf-full-mix.md), 2026-10-05).
+- ~~**`PERCPU` straddles cache lines.**~~ Fixed by milestone 766, which aligns each block to 128
+  bytes. On radon the straddling layout cost 7.5 ticks of growth a job
+  ([2026-10-05](radon-2026-10-05.md#milestone-766-the-alignment-is-material-on-radon)).
+- Radon's single-crossing cost moves with code placement, about 8 ticks across four text
+  shifts of `main`. A level difference under that between two builds means nothing without a
+  layout control. Proposed: `design/roadmap/proposals/pin-the-hot-trap-paths-placement.md`.
 - ~~**aarch64's job mix wedges under TCG on `main`.**~~ Closed 2026-10-05: a miscompiled yield,
   not a multicore hang ([`spawn-destroy-gone.md`](spawn-destroy-gone.md)).
 - **`script/fastpath-footprint` leaves `exception_body` out of aarch64's `syscall_entry`**, though
@@ -263,10 +269,10 @@ with the one-task guard held. The open finding's paragraph should read:
 
 ## Proposed work
 
-- Capability lookup off `IPC_TABLES`: built as milestone 761 (capability lookup off the global
-  lock), number provisional, [its block](../../design/roadmap/761-capability-lookup-off-the-global-lock.md),
-  and waiting on the radon evening [above](#the-next-step-each-threads-table-off-the-lock).
-- Only if radon leaves an excess after 761, batch a kernel stack's six unmaps into one remote
-  fence (`KernelStack::drop` now makes one SBI `RFENCE` per page). Spawning carries half of TCG's
-  remainder, and six fences per reap are the shared event it adds. Untested on silicon; a TCG try
-  on a loaded host could not separate it.
+- Capability lookup off `IPC_TABLES`: milestone 761, measured on radon 2026-10-05.
+- Pin the hot trap path's placement, so a radon per-crossing number stops moving with unrelated
+  code ([proposal](../../design/roadmap/proposals/pin-the-hot-trap-paths-placement.md)).
+- Release userspace in board images
+  ([proposal](../../design/roadmap/proposals/release-userspace-in-board-images.md)).
+- Only if the 5 ticks a job left on radon matter, batch a kernel stack's six unmaps into one remote
+  fence (`KernelStack::drop` makes one SBI `RFENCE` per page). Untested on silicon.

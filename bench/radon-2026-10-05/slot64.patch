@@ -1,0 +1,13 @@
+diff --git a/fixtures/src/job_mix_task.rs b/fixtures/src/job_mix_task.rs
+index a28dfcb7c..1fc9b90bb 100644
+--- a/fixtures/src/job_mix_task.rs
++++ b/fixtures/src/job_mix_task.rs
+@@ -89,7 +89,7 @@ static mut WORKING_SET: [u64; job_mix::TOUCH_WORDS] = [0; job_mix::TOUCH_WORDS];
+ /// refused on. Past every slot `kernel/src/job_mix.rs` grants, and it must stay that way: a slot
+ /// that ever held an object would make the job invoke it rather than bounce off the kernel's
+ /// slot check.
+-const EMPTY_SLOT: u64 = 63;
++const EMPTY_SLOT: u64 = 64;
+ 
+ /// A non-elidable integer grind, the same shape as `kernel/src/bench.rs`'s `busy`: an LCG mixed
+ /// with an xorshift, folded into a returned value the caller accumulates so the optimizer cannot
