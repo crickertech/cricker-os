@@ -6,18 +6,18 @@ and migration inboxes are built on. See design/kernel-objects-from-untyped.md, d
 ## The idea
 
 An ordinary queue (`VecDeque`) owns storage and puts your data in it. An intrusive queue owns
-nothing: the "next" pointer lives **inside the thing being queued**, and the queue is just a
+nothing: the "next" pointer lives inside the thing being queued, and the queue is just a
 head pointer and a tail pointer. Pushing a thread means writing its link field and the tail
 pointer. Popping means reading the head and unhooking it.
 
 Every serious kernel does scheduler queues this way (Linux `list_head`, seL4's TCB queues),
 because of what it removes:
 
-- **Allocation.** A push writes two pointers. It cannot allocate, so it cannot fail, so it is
+- Allocation. A push writes two pointers. It cannot allocate, so it cannot fail, so it is
   legal anywhere, including the paths where allocation is forbidden (our §9: IRQ context). The
   scheduler used to pre-reserve VecDeque capacity so a push from the timer IRQ could never
   reallocate; that standing apology is gone, because the rule became structural.
-- **The lookup.** The old queues held Tids; every pop paid a table lookup to reach the thread.
+- The lookup. The old queues held Tids; every pop paid a table lookup to reach the thread.
   An intrusive pop hands back the TCB itself. The migration path got the full benefit: draining
   an inbox into a run queue is now pure pointer movement and touches no table at all, which is
   why `drain_inbox` needs no scheduler lock.
@@ -55,8 +55,8 @@ safety is a discipline, stated once and kept:
 
 ## What is proved
 
-The crate's Kani harness (`script/verify`) drives the real `Fifo` with a **symbolic operation
-sequence**: six steps, each an arbitrary push-or-pop over three nodes, checked against a
+The crate's Kani harness (`script/verify`) drives the real `Fifo` with a symbolic operation
+sequence: six steps, each an arbitrary push-or-pop over three nodes, checked against a
 trivially-correct model. Every interleaving up to that depth at once, including the
 drained-to-empty transitions where head/tail bugs live. FIFO order, no loss, no invention,
 lengths agree, and no stale link is ever dereferenced (Kani checks the pointer accesses
@@ -70,7 +70,7 @@ Moving the wait queues (A.3) surfaced a scheduler race that predated it: the sui
 different ways. The race:
 
 1. Thread T (core A) queues itself on an endpoint, marks itself `Blocked`, releases `SCHED`.
-   **T is still executing**; its saved context is stale until A's `schedule()` switches away.
+   T is still executing; its saved context is stale until A's `schedule()` switches away.
 2. Core B rendezvouses with T (or an interrupt signals its endpoint): pops T, wakes it, queues
    it on B's run queue.
 3. B switches into T's **stale context** while A is still running T's present one. Two cores in
@@ -79,7 +79,7 @@ different ways. The race:
 The window existed with Tid queues too; the pointer rewire only shifted the timing enough to
 observe it. The tell that it was old: the kernel had already solved the *same race for death*.
 A `Finished` thread cannot be freed while its core is still switching off its stack, so §11
-reaps it from its **successor**, after the switch (`finish_switch`). Being woken is the same
+reaps it from its successor, after the switch (`finish_switch`). Being woken is the same
 hazard as being freed, for the same reason, with the same fix:
 
 - `on_cpu` (on the thread's embedded `thread_wake_handshake::Handshake`): set when a core schedules a

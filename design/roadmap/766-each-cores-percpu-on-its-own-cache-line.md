@@ -1,6 +1,7 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-10-05
+built: 2026-10-05
 promoted_from: each-cores-percpu-on-its-own-cache-line
 milestone_dependencies: none
 decision_dependencies: none
@@ -12,7 +13,7 @@ needs_person: yes
 
 Raised 2026-10-05 (UTC) by `lane/null-syscall-hvf`, measuring fatal risk 4's null syscall under
 load, and promoted from `design/roadmap/proposals/` the same day by `lane/percpu-own-line`. The
-number 766 is provisional until the queue lands it. *(Title, slug and every name below are drafts.)*
+number 766 was minted by the maintainer on 2026-10-05 (UTC). *(Title, slug and every name below are drafts.)*
 `needs_person` is yes only because the acceptance measurement is taken at radon's bench.
 
 ## Index row
@@ -91,6 +92,26 @@ three, four tasks), so the defect is real and depended on where the linker happe
 This milestone removes the dependence: against the forced layout it is worth 0.040 ticks a trap,
 and against today's lucky one nothing, within an interval of zero either way.
 
+## What radon said
+
+2026-10-05 (UTC), five interleaved boots by a run sheet written before any boot
+([`bench/radon-2026-10-05/`](../../bench/radon-2026-10-05/README.md); the full reading is
+[the appendix](../../notes/job-mix/radon-2026-10-05.md#milestone-766-the-alignment-is-material-on-radon)).
+`main` at `c8b5fd09e` against the same commit with this milestone undone and the blocks forced to
+24 mod 128, `null_syscall` `per_job` in 4 MHz ticks:
+
+| | 1 task | 4 tasks | growth |
+|---|---|---|---|
+| `main`, boots 1, 3, 5 | 110, 110, 110 | 120, 121, 120 | 10 |
+| forced layout, boots 2, 4 | 110, 110 | 128, 127 | 17.5 |
+
+**`D` = 7.5 ticks a job, 29 ns a trap: the run sheet's "6 or more" band, material.** The one-task
+difference is 0, and the two forced boots spread no more than the three `main` boots, so both
+guards hold. HVF's 1.7 ns, scaled, predicted 0.43 ticks a job, under radon's resolution. Radon paid
+about 17 times that, so a coherence miss on the U74 costs far more than on Apple's cores. The same
+evening showed radon's single-crossing level moves up to 8 ticks with code placement alone, but the
+growth with cores held within a tick across those layouts, and `D` is a difference of growths.
+
 ## Done means
 
 - E's result from committed code: the HVF sweep above, at least 18 boots interleaved against the
@@ -108,10 +129,14 @@ and against today's lucky one nothing, within an interval of zero either way.
   read by every capability syscall) is `align(64)`, so two cores share each 128-byte Apple line,
   and this milestone's span would say 128. Unmeasured. The aligned build reads within 0.003 [-0.006, +0.011]
   ticks a trap of the parent at four Apple cores, so whatever they cost is below this instrument
-  there. Found by reading while building this milestone; it wants a measurement before a remedy, and
-  radon's run is the place to look for it.
+  there. Found by reading while building this milestone; it wants a measurement before a remedy.
+  Radon's 2026-10-05 run did not isolate it, and now that radon prices a shared line at about 29 ns
+  a trap, it is the place to do so.
 
 ## Follow-on
 
-- **Outstanding.** The radon run, by the parent note's procedure and its one-task guard, against the
-  parent commit. No bench session was available on 2026-10-05.
+- **Done.** The radon run, 2026-10-05 (UTC), above. It was taken against `main` with this milestone
+  undone, not against the parent commit: the parent's lucky layout was the thing the milestone
+  removes the dependence on, and HVF had already shown it. The one-task guard is the parent note's
+  and it failed for every build that evening (110 against 101), for a reason that is not this
+  milestone ([the appendix](../../notes/job-mix/radon-2026-10-05.md#why-one-task-rose-from-99-to-110)).

@@ -7,7 +7,7 @@ existed.
 
 From [registers.md](registers.md), milestone 1:
 
-> **That is not a metaphor. It is the complete and literal definition.**
+> That is not a metaphor. It is the complete and literal definition.
 
 And here it is, written down:
 
@@ -20,7 +20,7 @@ pub struct Thread {
 }
 ```
 
-**A suspended thread's whole CPU state is one stack pointer.** Everything else: the registers,
+A suspended thread's whole CPU state is one stack pointer. Everything else: the registers,
 the return address, the frame pointer: is sitting on the stack it points at, pushed there by
 `switch_to`. Eight bytes.
 
@@ -46,19 +46,19 @@ switch_to:                      // x0 = &prev.context,  x1 = next.context
     ret                         // <- returns into a DIFFERENT THREAD
 ```
 
-**The last instruction is the trick.** `ret` jumps to `x30`, and by that point `x30` has been
-loaded from the *other thread's* stack. So it does not return to the caller. **It resumes a
+The last instruction is the trick. `ret` jumps to `x30`, and by that point `x30` has been
+loaded from the *other thread's* stack. So it does not return to the caller. It resumes a
 different thread, at the point where that thread last called `switch_to`, possibly seconds
-ago.**
+ago.
 
 A context switch is a function call that returns somewhere else.
 
 ### Why only twelve registers, when the trap frame saves thirty-three
 
-`vectors.s` saves **all 31** general registers, because an exception lands between two
+`vectors.s` saves all 31 general registers, because an exception lands between two
 arbitrary instructions and the interrupted code has no idea.
 
-`switch_to` is an ordinary **function call**. AAPCS64 already says the caller must assume
+`switch_to` is an ordinary function call. AAPCS64 already says the caller must assume
 `x0`–`x18` are destroyed by any call it makes: the compiler has already spilled anything it
 cared about. So we save only what the convention promises a callee will preserve: `x19`–`x28`,
 `x29` (frame pointer), `x30` (link register), and `sp`.
@@ -71,16 +71,16 @@ milestone 1 for a completely unrelated reason. `d8`–`d15` simply do not appear
 
 ## Starting a thread that has never run
 
-A new thread has no saved registers to restore. So we **fake them**: write a `Context` onto the
+A new thread has no saved registers to restore. So we fake them: write a `Context` onto the
 fresh stack with `x30` pointing at `thread_trampoline`.
 
 Which means the very same `ret` that *resumes* an existing thread also *starts* a new one.
-**There is no separate first-run path.** The trampoline just happens to be what `x30` points at.
+There is no separate first-run path. The trampoline just happens to be what `x30` points at.
 
 The closure travels in `x19`: a callee-saved register, chosen precisely because `switch_to`
 restores it on the way in.
 
-> `Box<dyn FnOnce()>` is a **fat** pointer (data + vtable), two words, and we have one register.
+> `Box<dyn FnOnce()>` is a fat pointer (data + vtable), two words, and we have one register.
 > So box it twice: `Box<Box<dyn FnOnce()>>` is a *thin* pointer to a fat one, and fits.
 
 ### The trampoline must unmask interrupts, but AFTER `finish_switch`, not before
@@ -93,10 +93,10 @@ a cooperative scheduler with extra steps.
 
 The trap, and a real intermittent hang it caused (found by a watchdog dumping thread states, see
 notes/deadlock.md): the trampoline first called `thread_entry`, whose first act is `finish_switch`,
-and it unmasked interrupts **before** that call. `finish_switch` reaps the predecessor and completes
+and it unmasked interrupts before that call. `finish_switch` reaps the predecessor and completes
 any wake it deferred, by reading this core's `switched_from`. If a timer IRQ lands between an early
-unmask and `finish_switch`, it runs `schedule()`, which **overwrites `switched_from` with the fresh
-thread**: the predecessor is stranded. Its `on_cpu` never clears, so every future wake for it is
+unmask and `finish_switch`, it runs `schedule()`, which overwrites `switched_from` with the fresh
+thread: the predecessor is stranded. Its `on_cpu` never clears, so every future wake for it is
 deferred forever (`wake_pending` set, never completed). It blocks on some later IPC and never wakes.
 
 So the ordering is load-bearing:
@@ -114,9 +114,9 @@ extern "C" fn thread_entry(...) {
 }
 ```
 
-For a **user** thread the unmask is even freer: `finish_switch` runs masked, and the `eret` that
+For a user thread the unmask is even freer: `finish_switch` runs masked, and the `eret` that
 drops to EL0 restores an `SPSR` with IRQs on, so the EL0 thread is preemptible from its first
-instruction with no explicit `enable`. Same rule either way: **`finish_switch` runs masked.** The
+instruction with no explicit `enable`. Same rule either way: `finish_switch` runs masked. The
 general statement is that the whole switch, from `schedule` masking IRQs to the successor's
 `finish_switch` completing, is one atomic region; a fresh thread's entry is inside that region and
 must not open it early.
@@ -133,54 +133,54 @@ if sched::take_need_resched() {
 }
 ```
 
-We're still on the interrupted thread's kernel stack, with its **full TrapFrame sitting below
-us**: `vectors.s` saved it before Rust ever ran.
+We're still on the interrupted thread's kernel stack, with its full TrapFrame sitting below
+us: `vectors.s` saved it before Rust ever ran.
 
-`schedule()` may switch to another thread entirely. When it does, that call **does not return
-here**. It returns *in some other thread*. We come back only when somebody schedules us again,
+`schedule()` may switch to another thread entirely. When it does, that call does not return
+here. It returns *in some other thread*. We come back only when somebody schedules us again,
 and then `exception_restore` pops the TrapFrame and `eret` resumes the instruction we
 interrupted, **which never knew any of this happened.**
 
 That is the whole of preemption. The register-saving machinery already existed, built at
 milestone 2 for exception handling, with no thought of threads.
 
-Note the EOI comes **first**. Switching away with the interrupt unacknowledged would leave the
+Note the EOI comes first. Switching away with the interrupt unacknowledged would leave the
 GIC refusing to deliver anything of equal or lower priority to the thread we switch *to*.
 
 ## Three rules, and each is a bug if you get it wrong
 
-**1. Release the run-queue lock BEFORE switching.** Switch away holding it and the lock is now
+1. Release the run-queue lock BEFORE switching. Switch away holding it and the lock is now
 held by a thread that is not running. The next thread to want it spins forever, waiting for a
 thread that can only be scheduled by taking the lock. A deadlock that would take a day to find.
 
-**2. Interrupts stay masked across the switch.** Between "I decided to switch" and "I switched"
+2. Interrupts stay masked across the switch. Between "I decided to switch" and "I switched"
 there must be no window for the timer to decide *again*.
 
-And the saved interrupt state is a **local, on this thread's stack**, which is exactly what
+And the saved interrupt state is a local, on this thread's stack, which is exactly what
 makes it work. When somebody eventually switches back to us, `switch_to` returns into
 `schedule()`, and that frame, with the right `was_enabled` in it, is still sitting where we left
 it.
 
 **3. A thread cannot free the stack it is standing on.** `exit()` marks itself `Finished` and
-calls `schedule()`. The **next** thread reaps it, once we are safely off it. Every kernel has
+calls `schedule()`. The next thread reaps it, once we are safely off it. Every kernel has
 something called a reaper, and this is why.
 
 ## The address-space leak that hid behind a two-frame test failure
 
-The reaper test failed with **two frames leaked**, not thirty-two. So the stacks *were* being
+The reaper test failed with two frames leaked, not thirty-two. So the stacks *were* being
 freed.
 
-The two were **page tables**. The stack area is a fresh region of virtual address space, so the
+The two were page tables. The stack area is a fresh region of virtual address space, so the
 first `map_page` there had to build an L2 and an L3. And `unmap_page` frees the leaf mapping but
-**leaves the intermediate tables standing** (the TODO on `paging::unmap`).
+leaves the intermediate tables standing (the TODO on `paging::unmap`).
 
 Which exposed a real leak hiding behind it: stack virtual addresses were **bump-allocated and
 never reused**. Threads come and go, but every 2 MiB of address space ever consumed keeps its
 page tables forever.
 
 The fix is a free list of dead threads' address ranges, so a new thread lands in page tables that
-already exist. There is now a test asserting that a **second** batch of eight threads costs
-**exactly zero** additional frames.
+already exist. There is now a test asserting that a second batch of eight threads costs
+exactly zero additional frames.
 
 ## The test
 
@@ -215,7 +215,7 @@ At boot:
   neither asked to be interrupted. both were.
 ```
 
-**The argument was right, and the kernel can host untrusted code.**
+The argument was right, and the kernel can host untrusted code.
 
 ---
 

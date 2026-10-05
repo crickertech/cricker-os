@@ -189,6 +189,18 @@ const TAIL: usize = SHARE + 1;
 
 const _: () = assert!(TAIL + 1 == DESCRIPTOR_LEN);
 
+/// Four bytes at `at`, in order. `const` because a note is built at compile time, and a helper
+/// because four hand-written copies of this loop each hid an `at - i` that no value in the notes
+/// could tell from `at + i` (every word written is under 256 and lands on zeros), so the loop is
+/// written once and tested with a word whose four bytes differ.
+const fn put4(out: &mut [u8], at: usize, v: [u8; 4]) {
+    let mut i = 0;
+    while i < 4 {
+        out[at + i] = v[i];
+        i += 1;
+    }
+}
+
 const fn put8(out: &mut [u8; DESCRIPTOR_LEN], at: usize, v: u64) {
     let b = v.to_le_bytes();
     let mut i = 0;
@@ -434,14 +446,14 @@ impl Note {
         let namesz = ((OWNER.len() + 1) as u32).to_le_bytes();
         let descsz = (DESCRIPTOR_LEN as u32).to_le_bytes();
         let kind = MANIFEST.to_le_bytes();
-        let mut i = 0;
-        while i < 4 {
-            out[i] = namesz[i];
-            out[4 + i] = descsz[i];
-            out[8 + i] = kind[i];
-            out[HEADER_LEN + i] = OWNER[i];
-            i += 1;
-        }
+        put4(&mut out, 0, namesz);
+        put4(&mut out, 4, descsz);
+        put4(&mut out, 8, kind);
+        put4(
+            &mut out,
+            HEADER_LEN,
+            [OWNER[0], OWNER[1], OWNER[2], OWNER[3]],
+        );
         let d = encode(m);
         let mut i = 0;
         while i < DESCRIPTOR_LEN {
@@ -550,16 +562,16 @@ impl SubtreeGrantsNote {
         let kind = SUBTREE_GRANTS.to_le_bytes();
         let version = SUBTREE_GRANTS_VERSION.to_le_bytes();
         let word = scope.word().to_le_bytes();
-        let mut i = 0;
-        while i < 4 {
-            out[i] = namesz[i];
-            out[4 + i] = descsz[i];
-            out[8 + i] = kind[i];
-            out[HEADER_LEN + i] = OWNER[i];
-            out[HEADER_LEN + NAME_FIELD + i] = version[i];
-            out[HEADER_LEN + NAME_FIELD + 4 + i] = word[i];
-            i += 1;
-        }
+        put4(&mut out, 0, namesz);
+        put4(&mut out, 4, descsz);
+        put4(&mut out, 8, kind);
+        put4(
+            &mut out,
+            HEADER_LEN,
+            [OWNER[0], OWNER[1], OWNER[2], OWNER[3]],
+        );
+        put4(&mut out, HEADER_LEN + NAME_FIELD, version);
+        put4(&mut out, HEADER_LEN + NAME_FIELD + 4, word);
         Self(out)
     }
 }
@@ -891,5 +903,15 @@ mod tests {
         assert_eq!(&n.0[12..20], b"nife\0\0\0\0");
         assert_eq!(&n.0[20..24], &SUBTREE_GRANTS_VERSION.to_le_bytes());
         assert_eq!(&n.0[24..28], &1u32.to_le_bytes());
+    }
+
+    /// `put4` lays four bytes forward from `at`, in order, touching nothing else. The notes' own
+    /// words are all under 256, so only a word with four different bytes tells `at + i` from
+    /// `at - i`. Mutation survivor triage, milestone 326 (turn a mutation score upward), batch 3.
+    #[test]
+    fn put4_writes_four_bytes_forward_and_nothing_else() {
+        let mut out = [0u8; 12];
+        put4(&mut out, 4, [1, 2, 3, 4]);
+        assert_eq!(out, [0, 0, 0, 0, 1, 2, 3, 4, 0, 0, 0, 0]);
     }
 }

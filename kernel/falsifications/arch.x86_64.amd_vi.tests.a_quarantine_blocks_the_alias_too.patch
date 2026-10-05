@@ -1,0 +1,26 @@
+Falsifies `kernel::arch::x86_64::amd_vi::tests::a_quarantine_blocks_the_alias_too`.
+
+Architecture: x86_64
+Environment: NIFE_IOMMU=amd
+
+The defect: `quarantine` blocks the device's own entry and not its alias, which is what it did
+before provisional milestone 767 (AMD-Vi hardening before the first AMD boot). A device behind a
+PCIe-to-PCI bridge reaches the unit under the alias, so its DMA keeps translating through the
+domain the quarantine was meant to take away.
+
+Expected to fail: `assert_eq!(read_dte(table, alias), blocked_dte(empty), "the quarantined
+device's alias still translates")`. Measured on patagonia 2026-10-05 (UTC), QEMU 11.1.1.
+
+diff --git a/kernel/src/arch/x86_64/amd_vi.rs b/kernel/src/arch/x86_64/amd_vi.rs
+index 40fd2ee15..39db15b00 100644
+--- a/kernel/src/arch/x86_64/amd_vi.rs
++++ b/kernel/src/arch/x86_64/amd_vi.rs
+@@ -830,7 +830,7 @@ pub fn quarantine(rid: u32) {
+     let Slot::Up(u) = &mut g[i] else {
+         return;
+     };
+-    for x in [Some(own), alias].into_iter().flatten() {
++    for x in [Some(own), alias.and(None)].into_iter().flatten() {
+         u.block(x);
+     }
+     if u.enabled {

@@ -1,6 +1,7 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-10-04
+built: 2026-10-05
 promoted_from: capability-lookup-off-the-global-lock
 milestone_dependencies: none
 decision_dependencies: none
@@ -20,7 +21,8 @@ radon's bench.
 The cheapest syscall stops taking the kernel's one global lock: each thread's capability table gets
 its own lock, so a lookup contends with nobody. Fatal risk 4's open finding is the null syscall
 costing 147 ticks a job at four busy cores on radon against 99 at one. 41% of its lookups found
-`IPC_TABLES` held. This is the change that finding pointed at, built and waiting on radon.
+`IPC_TABLES` held. This is the change that finding pointed at. On radon (2026-10-05) the lookups
+that wait fell to 0.05% and the job's rise from one task to four from 48 ticks to 10.
 
 ## Why
 
@@ -85,10 +87,25 @@ the null-syscall note's own caveat. The size of the win is radon's to say.
   (the per-switch pointer store, in the bench's debug kernel), `ipc_rtt_el0` -0.6%.
 - Five falsification patches re-cut against the moved code and replayed red as predicted.
 
-## Outstanding: the radon evening
+## What radon said
 
-Two payloads are built from `74bbb19a1`, the same shapes as the diagnosis evening. The procedure and
-the thresholds, written before any boot, are in the null-syscall note's section on this milestone.
+2026-10-05 (UTC), by a run sheet written before any boot
+([`bench/radon-2026-10-05/`](../../bench/radon-2026-10-05/README.md), read in full in
+[the appendix](../../notes/job-mix/radon-2026-10-05.md)). Built from `c8b5fd09e`, which also
+carries milestone 766 (each core's PerCpu on its own cache line). At four tasks:
+
+| | 2026-10-04 | 2026-10-05 |
+|---|---|---|
+| `current_cap` calls that found their lock held (`lock_wait` boots) | 41.4%, 41.8% | 0.048%, 0.049% |
+| `IPC_TABLES` wait (`lock_wait` boots) | 2,593,130 ticks | 1,241,793 and 1,278,777 |
+| `null_syscall` `per_job`, 1 / 4 tasks (three boots) | 99 / 147 | 110 / 120 |
+| growth from 1 task to 4 | 48 | 10 |
+
+By the pre-written bands, 120 reads PARTIAL and the one-task guard failed (110, above 101). The
+guard's rise is code placement, not this milestone: a rebuild of the old commit read 99 again, and
+shifting `main`'s text alone moved one task from 110 to 118. Growth with cores held within a tick
+across those layouts, and it is what fell. This milestone is done; what remains of the rise, about
+5 ticks a job, is not a lock.
 
 ## BUGS
 
@@ -101,16 +118,19 @@ the thresholds, written before any boot, are in the null-syscall note's section 
 - `current_capabilities` returns a guard typed `'static` to a table that lives as long as its
   thread. Sound because no caller blocks or switches while holding it, and private to `sched`; a
   caller that held it across `schedule()` would be the bug.
+- **Even-numbered capability slots straddle a cache line.** The table starts at byte 696 of the
+  thread page and a slot is 32 bytes, so slot `i` starts at 56 mod 64 for every even `i` and spans
+  two 64-byte lines. The same in every build measured on 2026-10-05, so not that evening's one-task
+  rise, and the job's empty slot (63) is odd. Unmeasured; aligning the table's start to 64 would
+  remove it. Found reading the layout for the radon bisect.
 - The `site=current_cap` counter now measures the thread's own table lock. Its meaning is the same
   (how often the cheapest syscall waited), and its rank in the per-rank lines moved from 60 to 57.
 
 ## Follow-on
 
-- **Outstanding.** The radon evening: five boots of the two payloads, read against the thresholds in
-  `notes/job-mix/null-syscall-under-load.md`. Checked 2026-10-04 (UTC): both payloads exist under
-  the lane's worktree, built from `74bbb19a1`; no boot has run.
+- **Done.** The radon evening, 2026-10-05 (UTC), above, from `c8b5fd09e` rather than `74bbb19a1`.
 - **Milestone 17.** The IPC and scheduler rows (`schedule`, `CALL`, `REPLY`, `finish_switch`) stay on
   `IPC_TABLES`; splitting the thread table is milestone 17 (multikernel-leaning scheduler)'s question.
-- **Recorded.** `PERCPU` straddling cache lines, in `notes/job-mix/null-syscall-under-load.md`'s BUGS,
-  unchanged here so the radon comparison moves one thing.
-- **Recorded.** The derive-then-grant window and the `'static` guard, in this block's BUGS.
+- **Milestone 766.** `PERCPU` straddling cache lines, built and material on radon (7.5 ticks a job).
+- **Recorded.** The derive-then-grant window, the `'static` guard and the straddling even slots, in
+  this block's BUGS.

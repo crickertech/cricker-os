@@ -11,13 +11,13 @@ that decision was made against, kept as written.
 
 ## The question in one sentence
 
-`std::thread::spawn` needs N schedulable things that see **one shared, live, growable heap**.
+`std::thread::spawn` needs N schedulable things that see one shared, live, growable heap.
 nife's capability model gives every `Thread` (TCB) its own private `AddressSpace`, and that
-space is **consumed** at bind time and **owned outright** for automatic teardown. Nothing lets
+space is consumed at bind time and owned outright for automatic teardown. Nothing lets
 two TCBs point at the same address space today, and that is not an oversight: it is exactly
 what `Tcb::CONFIGURE`'s own contract says (`crates/abi/src/lib.rs`): the `aspace_slot` capability
 "is **consumed**: it becomes the thread's, and dies with it." `kernel/src/thread.rs` mirrors it
-on the `Thread` struct: `space: Option<AddressSpace>` is "**owned**, so the reaper's `drop` unmaps
+on the `Thread` struct: `space: Option<AddressSpace>` is "owned, so the reaper's `drop` unmaps
 and frees the entire address space when the thread dies."
 
 So "what is a std thread" is really "what does it mean for the kernel's address-space object to
@@ -35,7 +35,7 @@ right now.
 | **B. Sibling processes, shared frames** | Keep every existing verb's contract unchanged (`RETYPE_OBJ`, `MAP_INTO`, `CONFIGURE`, `CAP_INSERT`, `START`, all exactly as they are). A "thread" is a second TCB with its own fresh `AddressSpace`, into which the parent re-maps its own frames at matching virtual addresses. | Looks free (no syscall touched) until you account for what a *growing* heap needs: every future allocation has to be mapped into every sibling space, at the same VA, before either side can safely dereference it. That is a live synchronization protocol built from scratch in userspace, is race-prone the instant two "threads" grow the heap concurrently (which is the ordinary case), and no prior art actually does this for the general shared-heap case. Costed in full below. |
 | **C. Decline** | `thread::spawn` stays `Unsupported`, permanently rather than "phase one". Parallelism on nife stays process-plus-IPC-shaped, which is what the rest of the system already is. | Not really a loser: it is the cheapest, most reversible option and the one this note ends up suggesting for *now*, precisely because it forecloses nothing. |
 
-Two things that were **not** separately costed. A pure userspace "green threads" library
+Two things that were not separately costed. A pure userspace "green threads" library
 (cooperative, stack-switching inside one existing TCB, no kernel involvement) was set aside
 without a table row: DECISIONS §5 already closed this door for the kernel's own execution model
 ("async cannot be the execution model for userspace... a userspace process is an arbitrary ELF
@@ -66,13 +66,13 @@ liveness tracking to match" is not a new category for this kernel to reason abou
 be extending a pattern that Endpoint already proves out, to AddressSpace and (if a thread also
 needs to invoke capabilities the spawning thread already holds, for IO from a worker) to CapabilityTable.
 
-**Frame sharing across address spaces is already the tree's workhorse pattern for exactly one
-of the two things Option B needs.** `notes/net.md`, `notes/framebuffer-contract.md` and
+Frame sharing across address spaces is already the tree's workhorse pattern for exactly one
+of the two things Option B needs. `notes/net.md`, `notes/framebuffer-contract.md` and
 `notes/line-discipline.md` all describe the same shape: one side mints a frame, keeps its own
 mapping, and grants a capability the other side maps into its own space at a VA of its own
 choosing. That proves the single-buffer case (control by message, bulk data by shared frame)
 works and is cheap. What none of those consumers do, and what a std thread would need, is
-replicate a **whole, dynamically growing heap**, not one fixed buffer, which is the finding in
+replicate a whole, dynamically growing heap, not one fixed buffer, which is the finding in
 §5 below.
 
 ## 3. Prior art outside the tree
@@ -104,8 +104,8 @@ contexts, never many address spaces kept in sync.** Linux's `pthread_create` is 
 `CLONE_VM` (share the mm_struct, do not copy it); it is the same shape as seL4's and Zircon's,
 a single shared address-space *object*, referenced by multiple schedulable entities, rather than
 several address spaces kept mutually consistent by replaying every mutation into each one.
-**No prior art surveyed does Option B's shape (independent address spaces, kept aliased by
-replicated mappings) for the general shared-heap case.** The pattern exists everywhere for a
+No prior art surveyed does Option B's shape (independent address spaces, kept aliased by
+replicated mappings) for the general shared-heap case. The pattern exists everywhere for a
 fixed producer/consumer buffer between two different logical processes (exactly what nife
 already uses it for), never for "these N things are secretly one heap." That absence, across
 three independent designs that solved the identical problem, is itself evidence.
@@ -162,7 +162,7 @@ scratch:
   comment already names as missing regardless of the kernel side (TLS story, park/unpark on a
   kernel primitive, join).
 
-**Option B, sibling processes with replicated frames.** Touches no syscall and no capability
+Option B, sibling processes with replicated frames. Touches no syscall and no capability
 method, matching §22's own discipline for `std::fs`/`std::net` ("no new syscall and no new
 capability method"). The cost is not at the kernel boundary; it is what "shared heap" actually
 demands once you look past the first allocation:
@@ -171,7 +171,7 @@ demands once you look past the first allocation:
   matching VAs) is genuinely cheap and needs nothing new: it is the exact client/server
   shared-frame pattern `net_stack` and the compositor already use, aimed at a sibling instead of
   a server.
-- A **general, growing** heap is not that. Rust's global allocator (`crates/user_mode_heap`) grows by
+- A general, growing heap is not that. Rust's global allocator (`crates/user_mode_heap`) grows by
   minting and mapping new frames on demand, from whichever thread happens to allocate. For two
   "threads" to keep seeing the same heap, every growth by either side has to be mapped into the
   other's address space, at the same VA, before either side may safely dereference a pointer that
@@ -187,7 +187,7 @@ demands once you look past the first allocation:
   `rayon`'s work-stealing pool and `tokio`'s executor both allocate continuously across worker
   threads; a fixed arena sized in advance is a real constraint they were not written to expect.
 
-**Option C, decline.** Zero kernel cost, zero std-side plumbing beyond what already exists
+Option C, decline. Zero kernel cost, zero std-side plumbing beyond what already exists
 (`Unsupported` is already the answer). The cost is entirely in the roadmap: milestone 149's
 Rayon-parallel NPB-Rust variants stay out of scope permanently rather than pending, and any
 future crate that needs `thread::spawn` (`crossbeam-channel`'s and `tokio`'s more advanced uses,
@@ -201,7 +201,7 @@ method promises, and every future program written against `CONFIGURE` inherits t
 Once something depends on shared-VSpace semantics, walking it back costs a rewrite of whatever
 was built on it.
 
-**Option B is not actually cheap to reverse either, and that is the finding worth carrying**: it
+Option B is not actually cheap to reverse either, and that is the finding worth carrying: it
 looks reversible because no syscall changes, but a fixed-arena version ships a real constraint
 into every consumer built against it (rayon-shaped or not), and *that* is exactly as hard to
 walk back as a capability promise once real programs exist that assume a bounded shared arena.
