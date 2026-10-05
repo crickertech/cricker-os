@@ -51,8 +51,13 @@ pub const MAX_CPUS: usize = current_cpu_protocol::CPU_ID_BOUND;
 
 /// One core's private data.
 ///
-/// Aligned to 256 on x86_64 so its size stays a power of two; see the assertion below [`PERCPU`].
+/// **Each block starts on its own [`FALSE_SHARING_SPAN`], on every architecture**, so no two cores'
+/// blocks share a cache line (milestone 766 (each core's `PerCpu` on its own cache line),
+/// provisional). 128 on aarch64 and riscv64; 256 on x86_64, where the struct is 160 bytes and the
+/// padding also keeps its size a power of two (see the assertion below [`PERCPU`]). The assertion
+/// below [`FALSE_SHARING_SPAN`] is what fails if either attribute is lost or lowered.
 #[cfg_attr(target_arch = "x86_64", repr(align(256)))]
+#[cfg_attr(not(target_arch = "x86_64"), repr(align(128)))]
 pub struct PerCpu {
     /// The lowest lock rank this core currently holds (`rank::NONE` when it holds nothing).
     ///
@@ -386,6 +391,35 @@ const _: () = assert!(
     core::mem::size_of::<PerCpu>().is_power_of_two(),
     "PerCpu's size must be a power of two so PERCPU[id] indexes with a shift; see the note above \
      this assertion for the 150 bytes of IPC fastpath the last violation cost",
+);
+
+/// **The span within which one core's writes slow another core's reads of a neighbouring word**:
+/// the unit [`PerCpu`] is aligned to, so that no block shares one with another core's.
+///
+/// 128, not 64, on every architecture. Apple's cores have a 128-byte line, and the common 64-byte
+/// parts commonly prefetch lines in adjacent pairs (Intel's spatial prefetcher; recalled, not
+/// measured here), so 64 would leave the sharing in place on the one machine this was measured on
+/// and plausibly on others. Measured, not assumed:
+/// with the blocks packed at 128 bytes and 8-aligned (`PERCPU` at 24 mod 64), the null syscall's
+/// per-trap excess from one busy core to four on an Apple M3 under HVF was 0.041 ticks of a 24 MHz
+/// counter, about 1.7 ns on a 33 ns trap, and grew one step per added core; aligned, it was within
+/// noise of zero. Each core writes `held_rank` twice per lock it takes, and other cores write the
+/// neighbouring block's `inbox` and `steal_request` when spawning places work. See
+/// notes/job-mix/null-syscall-hvf-full-mix.md.
+///
+/// The cost is padding only where the struct is smaller than the span, which it is not today: 128
+/// bytes on aarch64 and riscv64, so the alignment adds nothing per core.
+const FALSE_SHARING_SPAN: usize = 128;
+
+/// **No two cores' `PerCpu` blocks share a [`FALSE_SHARING_SPAN`].** A type's size is a multiple of
+/// its alignment, so an alignment of at least the span puts every element of [`PERCPU`] on a span
+/// of its own. This is the check that keeps it so: dropping the `repr(align)` on [`PerCpu`], or
+/// adding an architecture without one, fails the build here rather than costing every core a
+/// shared line nobody measures.
+const _: () = assert!(
+    core::mem::align_of::<PerCpu>() >= FALSE_SHARING_SPAN,
+    "PerCpu must be aligned to at least FALSE_SHARING_SPAN so no two cores' blocks share a cache \
+     line; see the note on FALSE_SHARING_SPAN for the cost that was measured",
 );
 
 /// Point this core's `TPIDR_EL1` at its `PerCpu` block.
