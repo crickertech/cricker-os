@@ -37,6 +37,10 @@ not a caption, it is a register entry.
 
 ![Action items the corrections of error still owe](project-metrics/coe-actions.svg)
 
+<!-- week-notes: script/metrics writes this -->
+- 2026W40: open items fell 3 to 0 on 2026-10-04 UTC. Milestone 641 (a mechanism that reports clean), 725 (count every vendor) and 640 (a gate is not evidence) turned BUILT.
+<!-- /week-notes -->
+
 Open while what an item names is not done; the direction is down (`script/roadmap --coe-actions`).
 Each week is read from its own commit, so 2026W39 is the first correction, already in this form.
 
@@ -216,7 +220,7 @@ pulled once both panels reach zero. Then `script/metrics` prints "the bold backl
 is zero; retire this chart" and writes it here:
 
 <!-- bold-backlog: script/metrics writes this -->
-2026W40: 14178 spans over, in 811 documents.
+2026W40: 12237 spans over, in 753 documents.
 <!-- /bold-backlog -->
 
 Counted by `helpers/prose_ratchet.py`, from 2026W39.
@@ -236,7 +240,7 @@ past 5% since fixed anchors (calef, 2026-09-26). Every row and reason: [the drif
 report](project-metrics/baseline-drift.md).
 
 <!-- baseline-drift: script/metrics writes this -->
-2026W40: aarch64 `spawn_reap` +26.41%, riscv64 `spawn_reap` +22.67%, x86_64 `spawn_reap` +10.54%; 25 rows past 5%.
+2026W41: aarch64 `spawn_reap` +28.69%, riscv64 `spawn_reap` +22.67%, x86_64 `spawn_reap` +10.54%; 25 rows past 5%.
 <!-- /baseline-drift -->
 
 - 2026W39: milestone 447 (a thread's vector registers are its own), #1015, 2026-09-21, added 1 to 3% to switch and IPC rows, taking rows past 5% from 2 to 7 (aarch64), 3 to 6 (riscv64), 1 to 2 (x86_64). Nightly bump #1112 added less.
