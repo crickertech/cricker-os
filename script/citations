@@ -765,8 +765,13 @@ if mode == "--ratchet":
     # the verbatim match runs, and a swept line joins a moved line in not counting. The recurrence
     # threshold is the guard: a citation someone rewrites does not differ from its removal by a
     # path token twice.
+    #
+    # **A line whose only edit is bold markers is not added prose either** (the bold backlog sweep,
+    # 2026-10-05): dropping `**` from a line changes no citation on it, and §213 rule 3's sweep
+    # touches hundreds of lines whose citations are older than the sweep. Both sides are compared
+    # with `**` removed, so the sweep does not owe a gloss to every sentence it unbolds.
     removed = collections.Counter(
-        line[1:].strip() for line in diff.split("\n")
+        line[1:].strip().replace("**", "") for line in diff.split("\n")
         if line.startswith("-") and not line.startswith("---") and line[1:].strip())
     path_pairs = collections.Counter()
     for path in sorted(added):
@@ -800,7 +805,7 @@ if mode == "--ratchet":
         kept = set()
         for n in sorted(added[path]):
             text = now[n - 1].strip() if n <= len(now) else ""
-            text = unsweep(text)
+            text = unsweep(text).replace("**", "")
             if text and removed[text] > 0:
                 removed[text] -= 1
             else:
