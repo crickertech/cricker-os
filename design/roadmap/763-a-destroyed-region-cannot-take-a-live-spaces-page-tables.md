@@ -12,8 +12,7 @@ needs_person: no
 
 Approved by calef on 2026-10-05 (UTC) as a follow-on of milestone 762 (a mapping cannot outlive its
 frame's revoke). That lane recorded the hole in `revoke::revoke_region`'s `BUGS` without driving
-it. Built by the lane `lane/page-tables-outlive-destroy`. The number 763 is provisional until the
-queue lands it. *(Title and slug are drafts.)*
+it. Built by the lane `lane/page-tables-outlive-destroy`; 763 is minted, landed by #1665. *(Title and slug are drafts.)*
 
 ## Why
 
@@ -80,9 +79,9 @@ ran the cut as a second scan of every log after the leaf pass, and that empty sc
 
 - A space's root is not covered. It cannot be cut, and a thread bound to a space whose root is
   in the destroyed region keeps running on the freed root (driven once on aarch64 with a scratch
-  test). Every fix changes what `DESTROY` does to a thread, so it is an architect's call:
-  `design/roadmap/proposals/a-destroyed-region-cannot-free-a-running-root.md`. Recorded at
-  `revoke::revoke_region`.
+  test). calef ruled on 2026-10-05 (UTC) that `DESTROY` kills such a thread as a resident as recorded in
+  §16 (object revocation), amended that date; milestone 765 (a destroyed region cannot free the root a running
+  thread walks) builds it. Recorded at `revoke::revoke_region`.
 - Cutting a table takes everything beneath it, including leaves and tables other regions paid
   for. A program that mixes budgets under one table loses all of it when the region holding the
   table goes. That is the honest price of a table being an object of the region that paid for it;
@@ -92,8 +91,8 @@ ran the cut as a second scan of every log after the leaf pass, and that empty sc
 
 ## Follow-on
 
-- **Proposed.** The root of a space, which no cut can reach:
-  `design/roadmap/proposals/a-destroyed-region-cannot-free-a-running-root.md`, for calef.
+- **Milestone 765.** The root of a space, which no cut can reach: ruled option A by calef on
+  2026-10-05 (UTC), not yet built.
 - **Recorded.** Cutting a table takes what other regions paid for beneath it, at `abi::page_frame::MAP`
   and in this block's `BUGS`.
 
@@ -102,4 +101,4 @@ ran the cut as a second scan of every log after the leaf pass, and that empty sc
 A region's `DESTROY` no longer hands back page tables a live space still walks. Tables that
 `PageFrame::MAP` and `MemoryRegion::MAP` build from a caller-named region are recorded in the space's
 mapping log, and the destroy cuts each one out of the walk before the page goes back. Driven red on
-aarch64 first; the root of a space is still open, as a proposal for calef.
+aarch64 first; the root of a space is milestone 765.

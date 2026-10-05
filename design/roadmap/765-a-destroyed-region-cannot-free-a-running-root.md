@@ -1,19 +1,42 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-05
-milestone_dependencies: none
-decision_dependencies: none
+milestone_dependencies: 763, 95
+decision_dependencies: 16
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A destroyed region cannot free the root a running thread walks
+# 765. A destroyed region cannot free the root a running thread walks
 
 Raised by the page-tables-outlive-destroy lane on 2026-10-05 (UTC), while cutting intermediate page
-tables out of live walks when their region is destroyed. The root is the one table that cannot be
-cut, so it needs a different answer, and every answer changes what `MemoryRegion::DESTROY` does to a
-thread. That makes it a question for §16 (object revocation: reclaim the objects a process built)
-and an architect's call.
+tables out of live walks when their region is destroyed, in milestone 763 (a destroyed region cannot take a
+live space's page tables with it). The root is the one table
+that cannot be cut, so it needed a different answer, and every answer changes what
+`MemoryRegion::DESTROY` does to a thread.
+
+**Decided.** calef ruled option A on 2026-10-05 (UTC), quoted: "A, queue it after #1665"
+([comment on #1665](https://github.com/nifeos/nife/pull/1665#issuecomment-5988177177)). The record
+is §16 (object revocation)'s amendment of that date. B, C, and A plus C were refused; the reasons
+are under the options below, which are kept as the record of what was weighed. Promoted from
+`design/roadmap/proposals/` to this milestone by the maintainer at the ruling's merge.
+
+It is sequenced after milestone 95 (an unmap primitive). Both touch `revoke` and `sched`'s reap
+path, and 95's lane is in flight (#1678); building this beside it would be two lanes in one file.
+
+## Acceptance
+
+- `reap_region_objects`' finish and refuse phases treat a live thread whose bound space's root lies
+  in the destroyed span as a resident: this pass refuses, the thread is marked killed, and the
+  retry reclaims the region, root included. No new method, number or refusal on the syscall
+  surface.
+- A kernel test builds the shape (space rooted in region R, bound to a TCB from a second region),
+  destroys R, and proves the thread never runs again on R's root and R's pages come back. It passes
+  on aarch64, riscv64 and x86_64.
+- A falsification patch under `system_tests/falsifications/` that drops the root test from the
+  reap replays red at the test's assertion.
+- `revoke::revoke_region`'s `BUGS` entry for the root and milestone 763's matching `BUGS` line are
+  removed or rewritten to what remains.
 
 **Reuse:** none exists to take; this is §16's teardown path in the kernel, where §46 (thin
 primitives or whole subsystems) says write it. Each option below reuses an existing mechanism (A the
@@ -29,14 +52,14 @@ only `USER_SPACES`). A bound space whose thread lives elsewhere is neither, so `
 still runs on that root. The next owner of the page writes that thread's top-level translations,
 which is fatal risk 7's confinement claim broken outright.
 
-**Is the premise true?** Driven once on aarch64 by a scratch test that was not kept: a kernel
-thread adopted a space built by `user_address_space_create(R)`, the test called
-`sched::reclaim_region(R)`, and it answered `Ok(())` with R no longer resolving and the thread still
+Is the premise true? Driven once on aarch64 by a scratch test that was not kept: a kernel
+thread adopted a space built by `user_address_space_create(R)`, and the test called
+`sched::reclaim_region(R)`. It answered `Ok(())` with R no longer resolving and the thread still
 on root `0x4001c000`, inside R's old span. The userspace route (`CONFIGURE` with a TCB retyped from a
 second region) is reasoned from `configure_thread_control_block`, which checks only that the TCB is
 an embryo.
 
-**Who builds this shape today?** Nobody. Every `ADDRESS_SPACE` retype in the tree takes its TCB from
+Who builds this shape today? Nobody. Every `ADDRESS_SPACE` retype in the tree takes its TCB from
 the same region: `supervision_protocol::build_child_space` (`build_ut` for both),
 `fixtures/src/job_mix_task.rs` and `os_primitives_benchmarker.rs` (the child's region for both),
 `system_tests/src/user/reap_tests.rs`, and `address_space_witness`, which binds nothing. So the hole
@@ -66,28 +89,37 @@ holding the TCB budget, a child holding its own space).
 
 ## The seven questions
 
-1. **Considered and lost.** Cutting the root, the answer the intermediate tables got: nothing points
-   at a root, so there is no entry to clear; the closest equivalent is switching the thread to the
+1. Considered and lost. Cutting the root, the answer the intermediate tables got: nothing points
+   at a root, so there is no entry to clear. The closest equivalent is switching the thread to the
    reserved root, which leaves a thread that faults on its next instruction and is option A with
    extra steps. Recording the root in the mapping log like a table: the registry already knows
    every root, and what is missing is a reaction, not a record.
-2. **What the tree does in the analogous case.** A thread whose TCB is in the region is killed and
+2. What the tree does in the analogous case. A thread whose TCB is in the region is killed and
    the destroy retried (§16's force-kill amendment; `reclaim_region`'s `BUGS` calls a refused
    reclaim destructive). Option A extends that to the second page a thread cannot live without.
-3. **Prior art.** From memory, not re-read for this file: in seL4, revoking an untyped deletes
-   every object derived from it, including a VSpace root, and a TCB whose VSpace capability is
+3. Prior art. From memory, not re-read for this file: in seL4, revoking an untyped deletes
+   every object derived from it, including a VSpace root. A TCB whose VSpace capability is
    deleted is left with a null root and faults to its handler on its next run. That is closest to
    option A: the thread survives as an object and cannot run.
-4. **Premise.** True on aarch64 as above; the other two ISAs share the code path
+4. Premise. True on aarch64 as above; the other two ISAs share the code path
    (`reclaim_region`, `reap_address_spaces_in_region`) and were not run.
-5. **Cost.** A: one more comparison per thread in two scans that are already a walk of the thread
+5. Cost. A: one more comparison per thread in two scans that are already a walk of the thread
    table, on `DESTROY` only; not measured. B: the same comparison, plus a pinned region for as long
    as the borrower's thread lives. C: one region lookup per `CONFIGURE`, which is spawn-time; not
    measured.
-6. **Reversibility.** All three are §16 semantics, which every future program is written against.
+6. Reversibility. All three are §16 semantics, which every future program is written against.
    Nobody has acted on the current behaviour, because nothing in the tree builds the shape.
-7. **Effort.** Each is small, and C is the smallest. That is an effort argument, said as one; it is
+7. Effort. Each is small, and C is the smallest. That is an effort argument, said as one; it is
    not a reason to prefer C.
 
-Options only, because this is on the irreversible list. What is blocked until it is answered: only
-this hole. The intermediate-table fix landed without it.
+Options only were given, because this is on the irreversible list. calef chose A. B lost because a
+runaway borrower would pin the region forever, which is the shape §16's milestone 22 (trusted init) amendment
+removed. C lost because it adds a refusal to `CONFIGURE` and forbids a split a loader may want; A
+plus C lost because once A exists, C buys no safety and still costs the new refusal.
+
+## Index row
+
+A region's `DESTROY` still hands back a space's root while a thread bound to that space runs on it,
+when the thread's TCB came from another region. calef ruled on 2026-10-05 (UTC) that such a thread
+dies as a resident: the pass refuses, the thread is killed, the retry reclaims. It is the hole in
+fatal risk 7's confinement claim that milestones 762 and 763 left at the top of the page table.
