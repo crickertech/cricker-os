@@ -118,6 +118,19 @@
 #   therefore reports `weeks.csv` stale when it is not. It matters less than it reads: this check is
 #   run by the weekly workflow rather than by `script/lint` or CI, so nothing gates on it, and the
 #   next scheduled run heals it. Noted 2026-09-20 after a maintainer chased it twice in one session.
+# - **The model-line churn cells differ by a few lines between GitHub Actions and macOS, for the
+#   same commit.** `models.csv` is derived from one `git log --numstat`, and for identical history
+#   2026W29's `model_lines_pre_convention` is 28737 when the Actions runner writes it and 28735 when
+#   a Mac does (every other week's churn moves by a few lines too, in both directions, e.g. W31
+#   Opus 5 90192 on Actions against 90198 on the Mac). Actions values are treated as canonical: when
+#   a local `--update` restates older weeks, keep the committed cells for them and take only the
+#   week you meant to write (PR #1660 did this for 2026W40). THE CAUSE IS NOT FOUND. Guesses only,
+#   none tested against the runner: rename detection (`--numstat` follows renames by default; with
+#   it off the same range's total moves by tens of thousands of lines on this Mac, so a small
+#   difference would need a small difference in what git pairs), line endings in checked-out
+#   blobs, or a different git version (this Mac runs 2.55.0; the runner's was not recorded).
+#   Found 2026-10-05 UTC while re-reading 2026W40. A fix would run the numstat with pinned
+#   `-c diff.renames=...` and `--no-textconv` flags and compare on both machines.
 # - **Which files carry a name is written twice**: here in `name_surfaces`, and in `script/names`'
 #   SURFACES table. The parse is shared (`helpers/name_provenance.py`); the enumeration is not,
 #   because this script reads a historical `git ls-tree` and that one reads the working tree. The
