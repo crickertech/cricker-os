@@ -13,9 +13,8 @@ the parent's Results row points to it.
   that fix, and the procedure radon sized it by, moved out of the note above for §212 (a prose budget).
 - [`null-syscall-off-radon.md`](null-syscall-off-radon.md): the rest was the global lock on every
   capability lookup, measured under TCG and on four Apple cores under HVF (2026-10-05).
-- [`spawn-destroy-gone.md`](spawn-destroy-gone.md): why the full mix failed every HVF sweep with
-  `Gone` and wedged under aarch64 TCG. A syscall wrapper declared no output register, and the spawn
-  job's retry loop was compiled to trap with the wrong arguments after a yield.
+- [`spawn-destroy-gone.md`](spawn-destroy-gone.md): why the full mix failed under HVF. A yield
+  wrapper declared no output. The spawn job then trapped with stale arguments.
 
 *Name: provisional, minted 2026-10-04 (UTC) by the `lane/radon-jobmix-2026-10-04` lane, for the
 directory and every stem in it; `lane/null-syscall-under-load` added two stems on 2026-10-05. Naming is an architect's; `script/names --unratified` lists each
