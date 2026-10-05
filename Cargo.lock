@@ -783,6 +783,9 @@ version = "0.1.0"
 [[package]]
 name = "non_volatile_memory_express"
 version = "0.1.0"
+dependencies = [
+ "non_volatile_memory_express",
+]
 
 [[package]]
 name = "nu-ansi-term"
