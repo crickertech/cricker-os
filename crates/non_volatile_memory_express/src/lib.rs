@@ -1171,6 +1171,10 @@ mod verification {
         let ret = cq.pop();
         assert!(cq.head < entries);
         assert_eq!(ret, cq.head);
+        // The head advanced by exactly one, modulo the ring. Without this the two assertions above
+        // hold for a pop that wraps one slot early (or late by a lap), which a device writing
+        // completions into every slot would then never be read from.
+        assert_eq!(u32::from(cq.head), (u32::from(head) + 1) % u32::from(entries));
         // The phase flipped if and only if the head wrapped to zero.
         assert_eq!(cq.phase != phase, cq.head == 0);
     }
