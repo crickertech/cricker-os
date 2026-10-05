@@ -28,30 +28,30 @@ supervisor in the kernel.
 invoke(cap, SURVEY, cursor, record, 0) -> (next_cursor, tid, word)
 ```
 
-- **No new syscall number and no new method number.** `SURVEY` is still method 6 on a rendezvous
+- No new syscall number and no new method number. `SURVEY` is still method 6 on a rendezvous
   capability, and still takes `ENUMERATE` and pointedly not `READ`. What changed is that its second
   argument now means something.
-- **x0 and x1 are the frame; only x2 belongs to the record.** The cursor walk and the tid do not
+- x0 and x1 are the frame; only x2 belongs to the record. The cursor walk and the tid do not
   depend on the selector, so a caller wanting two facts walks the domain twice and joins on the tid,
   and a caller wanting one is unaffected by every record it does not ask for. That is what makes a
   new record cost an existing reader nothing, and it is asserted rather than assumed, because the
   cheap way to build a selector is to let each record drive its own walk and that version makes the
   tids unjoinable while passing everything else.
-- **`abi::survey::record::STATE` is 0.** Every caller written before the selector existed passed a
+- `abi::survey::record::STATE` is 0. Every caller written before the selector existed passed a
   zero into an argument it believed was padding, so it selects the record it was already reading.
   Backward compatibility on a wire is a claim rather than a hope, so it is pinned by a host test on
   the constant itself and by a kernel test that walks one domain both ways and compares word for
   word.
-- **`abi::survey::record::PLACEMENT` is 1**, and answers a cpu id or `record::NO_CPU`.
-- **An unknown record is `abi::Error::BadMethod`, refused before the walk begins.** The selector is
+- `abi::survey::record::PLACEMENT` is 1, and answers a cpu id or `record::NO_CPU`.
+- An unknown record is `abi::Error::BadMethod`, refused before the walk begins. The selector is
   part of the method's name, so an unrecognised one gets the refusal an unrecognised method word
   gets; no new error code was needed, and none was added. It is checked before the walk rather than
-  at the point the record is extracted because of exactly one case: against an **empty** domain a
+  at the point the record is extracted because of exactly one case: against an empty domain a
   check at extraction never runs, the walk falls off the end, and the caller is handed `DONE` and
   prints "no threads" when it actually asked a question this kernel does not understand. A plausible
   wrong answer is worse than an error, which is the ruling this tree already made about a counter it
   could not trust.
-- **The rights check still runs first.** A holder without `ENUMERATE` gets `NotPermitted` whatever
+- The rights check still runs first. A holder without `ENUMERATE` gets `NotPermitted` whatever
   record it names, so the selector is never a way to probe which records a kernel answers.
 
 ## Why a selector rather than a fourth word
@@ -64,29 +64,29 @@ The deciding input was a forecast rather than an argument about elegance. A regi
 fourth word with no new mechanism, and appending one is the fewest moving parts *if the row stops*.
 calef expects a third and a fourth fact, which settles it: a mechanism that must be redesigned at
 the sixth field is the wrong mechanism at the fourth. The systems that already went through this
-agree, and were read rather than recalled: Linux reached **52 fields** in
-`/proc/[pid]/task/[tid]/stat` behind a pseudo-file, and Zircon reached **41 topics** behind
+agree, and were read rather than recalled: Linux reached 52 fields in
+`/proc/[pid]/task/[tid]/stat` behind a pseudo-file, and Zircon reached 41 topics behind
 `zx_object_get_info(handle, topic, buffer, size)`, which is this selector. Nobody grows a register
 row.
 
-**What §150 still rules is untouched.** Tick-sampled, per-thread, scheduled on-CPU time is still
+What §150 still rules is untouched. Tick-sampled, per-thread, scheduled on-CPU time is still
 what milestone 282's figure means. Only how it reaches a reader moved.
 
 ## Placement, and why it is not "where it is running now"
 
 `record::PLACEMENT` reports the core `sched::pick_spawn_target` chose when the thread started.
 `sched::spawn_reporting_placement` has handed that fact to the in-kernel job-mix supervisor since
-milestone 240 (the soak reports what happened and not where) as a **return value**, which is only
+milestone 240 (the soak reports what happened and not where) as a return value, which is only
 available to whoever did the spawning. A userspace supervisor did not do the spawning, and that
 missing path is what kept that supervisor in the kernel.
 
-**It is placement rather than location, and the reason is measured.** Keeping the core a thread is
+It is placement rather than location, and the reason is measured. Keeping the core a thread is
 on *now* means a store in the context switch, which is the hottest line of the hottest function. The
 kernel has exactly that field, `Thread::last_cpu`, and it is behind a soak-build feature gate
-because shipping it unconditionally cost **5.7% of `ipc_fastpath`'s footprint on aarch64** (5788 ->
+because shipping it unconditionally cost 5.7% of `ipc_fastpath`'s footprint on aarch64 (5788 ->
 6120 bytes), over milestone 132 (the fast path's footprint, and a gate)'s 5% bound, with
-riscv64 and x86_64 growing 4.7% and 4.6% behind it. A placement is **one store per thread
-creation**, on a path that is cold by definition, so the same information that was too expensive to
+riscv64 and x86_64 growing 4.7% and 4.6% behind it. A placement is one store per thread
+creation, on a path that is cold by definition, so the same information that was too expensive to
 keep continuously is free to keep once. `Thread::placement` is therefore unconditional where
 `last_cpu` is not, and it is written at `sched::spawn_on` and `sched::start_thread_control_block`
 rather than inside `place_on`, which is also the wake path.
@@ -102,12 +102,12 @@ index put `init` into a parked core's inbox and took three boots to diagnose on 
 is why `crates/cpu_set` exists, and a record handing userspace a core id is a fresh invitation to
 the same bug.
 
-**So the answer, stated rather than left implied: a placement census needs no online mask at all.**
+So the answer, stated rather than left implied: a placement census needs no online mask at all.
 Key a tally by the id the record returns and never iterate a range. The ids a census observes are by
 construction a subset of the online set, and that subset relation is asserted in the suite rather
 than asserted in prose. A census built that way is correct on both machines.
 
-**What it cannot do is show an online core with nothing on it**, because such a core appears in no
+What it cannot do is show an online core with nothing on it, because such a core appears in no
 thread's record, and it cannot tell that case from a parked core. Nothing in this tree gives
 userspace the online mask, and this record deliberately does not smuggle it out: the mask is a fact
 about the machine and a survey answers questions about a domain. That gap is a `BUGS` entry in
@@ -145,11 +145,11 @@ plus the x86_64 UEFI-firmware leg.
 
 ## BUGS
 
-- **This moves the growth problem from registers to records rather than abolishing it.** Each record
+- This moves the growth problem from registers to records rather than abolishing it. Each record
   layout is still a wire format, and a new record value is as expensive to un-ship as a fourth word
   would have been. What is bought is that adding one requires no change to what an existing reader
   already parses.
-- **A reader that wants two facts pays two walks**, and the two walks are separate snapshots of a
+- A reader that wants two facts pays two walks, and the two walks are separate snapshots of a
   domain that may change between them. The join on tid is safe (a tid that vanished is simply absent
   from the second walk), but a thread born between the walks appears in one and not the other. The
   same `readdir` bargain `SURVEY` already took, one axis over.
@@ -157,7 +157,7 @@ plus the x86_64 UEFI-firmware leg.
   is `Thread::placement` and `user_mode_runtime::survey_record`. Zircon calls these *topics*;
   *record* was chosen for being the noun for "the fields you get back" rather than for the thing you
   ask about, but calef names public items.
-- **`ps` and `pgrep` still ask only for the state record**, so nothing at the prompt displays a
+- `ps` and `pgrep` still ask only for the state record, so nothing at the prompt displays a
   placement yet. `ps::collect` is hard-wired to that record, which is why this milestone's tests
   drive the cursor walk directly instead of through the real program's loop, and that is a departure
   from `survey_tests`' discipline worth knowing about before copying it.
@@ -182,7 +182,7 @@ plus the x86_64 UEFI-firmware leg.
 ## Index row
 
  `abi::rendezvous::SURVEY` took a cursor and returned three fixed words; it now
-takes a **record selector** in the argument that was always a zero, and only the third word belongs
+takes a record selector in the argument that was always a zero, and only the third word belongs
 to the record, so the cursor and the tid are the same for every record and a new fact costs an
 existing reader nothing. `record::STATE` is 0 precisely so that every pre-selector caller, which
 passed a zero as padding, keeps reading what it read; an unknown record is `BadMethod`, refused
