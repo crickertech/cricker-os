@@ -1,16 +1,46 @@
-//! **Building another address space from EL0**, milestone 19b.
+//! **A process composed from two capabilities, run in the space it was built in** (milestone 19b
+//! (run a real workload), extended by §185 (what carries the claim that userspace composes a process
+//! from an authority you can count on one hand), as milestone 404 (composing a process from two
+//! capabilities is proved for two verbs and no more)).
 //!
-//! Holds a memory region (slot 0) and a report line (slot 1). It retypes part of its own memory
-//! into an address space, retypes a frame, maps the frame into the space it built, and proves the
-//! kernel keeps the rules there too: the same virtual address twice is refused.
+//! Holds exactly two capabilities, a memory region (slot 0) and a report line (slot 1), which is
+//! what the retired `builder` held. From those and nothing else it:
 //!
-//! Nothing can run in the built space (threads are 19c's object). What this witnesses is that a
-//! process can *construct* one at all, out of memory it was handed, with the kernel allocating
-//! nothing.
+//! 1. reads `least_authority_demo` out of the archive by name and parses its ELF,
+//! 2. mints a rendezvous out of its own memory, for the child to answer on,
+//! 3. builds the child through `supervision_protocol::build_child_space`, the loader every composer
+//!    in this tree shares: an address space retyped from the budget, each segment laid down W^X, a
+//!    stack, a thread control block, and one capability (`WRITE` on that rendezvous) in its slot 0,
+//! 4. maps a frame of its own into the same space and maps it again, which milestone 19b's claim
+//!    needs refused (break-before-make holds in a space a process built),
+//! 5. configures the thread at the child's entry in that space and starts it with an input,
+//! 6. and receives the child's answer, the input squared, on the rendezvous it minted.
 //!
-//! The verdict is three bits: bit 0 the space was retyped, bit 1 the frame mapped into it, bit 2
-//! the double map was refused. `kernel::user::tests` asserts `0b111` and prints the bit meanings on
-//! failure.
+//! The kernel allocates nothing on the way: every object is retyped out of the memory region it was
+//! handed. The verdict is one word, a bit per step, laid out in
+//! `capability_witness_protocol::process_composition`; the kernel's test asserts the whole word and
+//! prints the bit meanings on failure.
+//!
+//! **Reading the archive is not a third capability.** The kernel maps the archive read-only at
+//! `user_mode_runtime::initrd::INITRD_VA` and passes its length in `x1`, which is what it did for
+//! `builder` and does for the progenitor. That mapping lets this program read bytes; it names no
+//! kernel object and can do nothing with the system. A reader who counts it as authority anyway
+//! should know it is there.
+//!
+//! **Milestone 19b's "nothing runs in the space it built" reading no longer holds.** It held while
+//! threads were 19c's object, and §185 chose to extend this fixture rather than add a second one. The
+//! account of 19b says it as it was.
+//!
+//! # BUGS
+//!
+//! - **A child that never answers hangs this program**, because the receive in step 6 has no
+//!   deadline and the child is not supervised. The kernel's test waits with one instead, so the
+//!   failure is a test that says the child never answered rather than a watchdog dump; the witness
+//!   itself stays parked until the test kernel exits. Supervising the child (`fault` in the
+//!   endowment) would cost a third capability or a second minted object, and the claim is about the
+//!   floor.
+//! - **The child is loaded unmeasured**, as `builder` loaded it: nothing here consults
+//!   `measured_boot::PROGRAM_MEASUREMENTS`. notes/trusted-init.md lists the demo loaders that do not.
 //!
 //! Name: ratified 2026-10-05 (calef, §185 (what carries the claim that userspace composes a process
 //! from an authority you can count on one hand), replacing `address_space_witness`, which he
@@ -69,32 +99,87 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use user_mode_runtime::{exit, map_into, retype_object, retype_page_frame, send};
+use capability_witness_protocol::process_composition::{
+    CHILD_ANSWERED, CHILD_FOUND, DOUBLE_MAP_REFUSED, FRAME_MAPPED, SPACE_BUILT, STARTED,
+};
+use supervision_protocol::{
+    ChildEndowment, Retention, build_child_space, configure_child, start_child,
+};
+use user_mode_runtime::{exit, map_into, receive, retype_object, retype_page_frame, send};
 
 const MEMORY_REGION: u64 = 0;
 const REPORT: u64 = 1;
+
+/// The child this composes: one capability in slot 0, squares the input in `x1`, sends it there.
+const CHILD: &str = "least_authority_demo";
+const INPUT: u64 = 9;
+
+/// Where the witness maps a frame of its own into the child's space for milestone 19b's probe: in
+/// the pair band, so nothing the loader lays down can be there already.
 const VA: u64 = address_space_map::pair_page(0x0040_0000);
 
 #[unsafe(no_mangle)]
-pub extern "C" fn _start(_arg0: u64, _arg1: u64, _arg2: u64) -> ! {
-    let aspace = retype_object(MEMORY_REGION, abi::objtype::ADDRESS_SPACE);
-    let mut verdict = 0u64;
-    if aspace >= 0 {
-        verdict |= 1; // built a space out of our own pages
-        let frame = retype_page_frame(MEMORY_REGION);
-        if frame >= 0 {
-            let mapped = map_into(aspace as u64, VA, frame as u64, 1);
-            if mapped == 0 {
-                verdict |= 2; // mapped our frame into the space we built
-            }
-            let again = map_into(aspace as u64, VA, frame as u64, 1);
-            if again < 0 {
-                verdict |= 4; // the same va twice was refused: break-before-make holds there too
-            }
+pub extern "C" fn _start(_arg0: u64, initrd_len: u64, _arg2: u64) -> ! {
+    send(REPORT, compose(initrd_len), 0, 0);
+    exit()
+}
+
+/// Every step, returning the verdict bits it reached. Stops at the first step that fails, so the
+/// word says where.
+fn compose(initrd_len: u64) -> u64 {
+    // SAFETY: forwarded from user_mode_runtime::initrd::initrd_bytes's own contract: the kernel
+    // mapped the archive at INITRD_VA and passed its length in x1.
+    let archive = unsafe { user_mode_runtime::initrd::initrd_bytes(initrd_len) };
+    let Some(elf) = nifefs::Fs::parse(archive)
+        .ok()
+        .and_then(|fs| fs.read(CHILD))
+        .and_then(|bytes| elf::Elf::parse(bytes).ok())
+    else {
+        return 0;
+    };
+    let mut verdict = CHILD_FOUND;
+
+    let answer = retype_object(MEMORY_REGION, abi::objtype::RENDEZVOUS);
+    if answer < 0 {
+        return verdict;
+    }
+    let answer = answer as u64;
+    let caps = [(answer, abi::rights::WRITE)];
+    let endow = ChildEndowment {
+        caps: &caps,
+        ..ChildEndowment::new(Retention::Nothing)
+    };
+    // One budget pays for both the child and our own scratch mappings: there is only the one, and
+    // nothing here destroys it while the child lives.
+    let Ok((child, aspace)) = build_child_space(MEMORY_REGION, MEMORY_REGION, &elf, &endow) else {
+        return verdict;
+    };
+    verdict |= SPACE_BUILT;
+
+    let frame = retype_page_frame(MEMORY_REGION);
+    if frame >= 0 {
+        let frame = frame as u64;
+        if map_into(aspace, VA, frame, abi::address_space::MAP_RW) == 0 {
+            verdict |= FRAME_MAPPED;
+        }
+        if map_into(aspace, VA, frame, abi::address_space::MAP_RW) < 0 {
+            verdict |= DOUBLE_MAP_REFUSED;
         }
     }
-    send(REPORT, verdict, 0, 0);
-    exit()
+
+    // CONFIGURE consumes the address space capability; START, with `Retention::Nothing`, our
+    // thread control block capability. After this the child is reachable only through what it holds.
+    if configure_child(child.tcb, aspace, elf.entry()).is_err() || !start_child(child, 0, INPUT, 0)
+    {
+        return verdict;
+    }
+    verdict |= STARTED;
+
+    let (word, _, _) = receive(answer);
+    if word == INPUT * INPUT {
+        verdict |= CHILD_ANSWERED;
+    }
+    verdict
 }
 
 user_mode_runtime::panic_handler!();

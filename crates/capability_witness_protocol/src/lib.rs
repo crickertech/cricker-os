@@ -7,9 +7,9 @@
 //! roles into programs made that sentence false, and AGENTS.md rule 7 is what it becomes: anything
 //! two binaries must agree on is a crate.
 //!
-//! Everything here is a **sentinel**: a value chosen only to be recognised. None of them is a wire
-//! format, and changing one costs a rebuild rather than a migration, which is why they can sit
-//! together in one crate instead of one crate each.
+//! Everything here but [`process_composition`]'s verdict bits is a **sentinel**: a value chosen
+//! only to be recognised. None of them is a wire format, and changing one costs a rebuild rather
+//! than a migration, which is why they can sit together in one crate instead of one crate each.
 //!
 //! # Examples
 //!
@@ -108,3 +108,33 @@ pub const USED_WORD: u64 = 0x5A;
 /// and 2, and the kernel's test checks they moved forward only where the kernel itself says the
 /// counter runs (milestone 74; the reasoning is on the test).
 pub const CYCLE_COUNTER_WORD: u64 = 0xC1C1E;
+
+/// **The verdict `process_composition_witness` reports**, one bit per step, so a failure says which
+/// step stopped (milestone 404 (composing a process from two capabilities is proved for two verbs
+/// and no more), building §185 (what carries the claim that userspace composes a process from an
+/// authority you can count on one hand)).
+///
+/// Not a sentinel like the words above: a bit layout the fixture writes and the kernel's test reads,
+/// which is the same rule 7 reason to live here. It was the literal `0b111` on both sides while the
+/// fixture stopped at milestone 19b (run a real workload)'s three steps.
+///
+/// Name: provisional (the §185 build lane, 2026-10-05), with every constant in it.
+pub mod process_composition {
+    /// The child's ELF was found in the archive by name and parsed.
+    pub const CHILD_FOUND: u64 = 1 << 0;
+    /// An address space was retyped from the witness's budget and the child laid into it: segments,
+    /// stack, a thread control block and its one capability.
+    pub const SPACE_BUILT: u64 = 1 << 1;
+    /// A frame of the witness's own was mapped into that space at a fresh address.
+    pub const FRAME_MAPPED: u64 = 1 << 2;
+    /// Mapping the same address again was refused: break-before-make holds in a space a process built.
+    pub const DOUBLE_MAP_REFUSED: u64 = 1 << 3;
+    /// The thread was configured at the child's entry, in that space, and started.
+    pub const STARTED: u64 = 1 << 4;
+    /// The child's word arrived on the rendezvous the witness minted for it, and it was the input
+    /// squared: the thread ran, in the space it was built in, with the capability it was given.
+    pub const CHILD_ANSWERED: u64 = 1 << 5;
+    /// Every step.
+    pub const WHOLE: u64 =
+        CHILD_FOUND | SPACE_BUILT | FRAME_MAPPED | DOUBLE_MAP_REFUSED | STARTED | CHILD_ANSWERED;
+}

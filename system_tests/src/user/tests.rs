@@ -3257,16 +3257,71 @@ fn spawn_to_reap_repeats_without_leaking() {
     }
 }
 
-/// **Milestone 19b, end to end: a process constructs an address space from EL0.** The
-/// builder retypes a space and a frame from its own budget, maps the frame in, and checks
-/// the kernel enforces break-before-make inside the space it built. Verdict 0b111 or bust.
+/// **A process composed from two capabilities runs in the space it was built in** (milestone 19b
+/// (run a real workload), extended by §185 (what carries the claim that userspace composes a process
+/// from an authority you can count on one hand)).
+///
+/// The witness holds a memory region and a report line, and nothing else. It reads a child out of
+/// the archive by name, mints a rendezvous, builds the child's space through the shared loader, maps
+/// a frame of its own into that space and is refused the same address twice, then configures and
+/// starts the thread and receives its answer. Every bit set is one verb the kernel allowed a
+/// two-capability process; `CHILD_ANSWERED` is the one nothing else in the suite asserts from
+/// userspace, that a thread a process built ran in the space it built.
+///
+/// **The wait has a deadline**, for `c_seam_tests::wait_for_report`'s reason: a child that never
+/// runs leaves the witness parked in its receive, and a bare receive here would surface that as a
+/// watchdog dump rather than as this sentence.
+///
+/// Falsification: replayable `system_tests/falsifications/user.tests.a_process_composed_from_two_capabilities_runs_in_the_space_it_built.patch`
+#[cfg(initrd)]
 #[test_case]
-fn a_process_can_build_an_address_space_from_el0() {
-    let report = address_space_service::wire();
+fn a_process_composed_from_two_capabilities_runs_in_the_space_it_built() {
+    use capability_witness_protocol::process_composition as bits;
+    let witness = process_composition_service::wire();
+    let report = witness.report;
+    // Each predicate is asked once per pass and its first `true` is the answer: the reclaim below
+    // is a predicate with a side effect, and asking it again after it succeeded would ask about a
+    // region that no longer exists.
+    let within_30_s = |done: &mut dyn FnMut() -> bool| {
+        let deadline = timer::now() + 30 * timer::frequency();
+        loop {
+            if done() {
+                return true;
+            }
+            if timer::now() >= deadline {
+                return false;
+            }
+            sched::yield_now();
+        }
+    };
+    assert!(
+        within_30_s(&mut || sched::rendezvous_waiting_senders(report) > 0),
+        "the witness sent no verdict in 30 s: it is still waiting for a child it started, so the \
+         thread it built never ran or never answered on the capability it was given",
+    );
     let verdict = sched::ipc_receive(report)[0];
+
+    // Hand the memory back before judging, so a wrong verdict does not also read as a leak in the
+    // frame ledger. The witness exits after its send; its space is bound to it and goes with it.
+    // The child exited before the witness sent anything, so the budget it was built from is free
+    // once the reaper has it; the retry is for that reap, which may land on another core.
+    assert!(
+        within_30_s(&mut || !sched::is_thread_present(witness.tid)),
+        "the witness sent its verdict and was never reaped",
+    );
+    assert!(
+        within_30_s(&mut || sched::reclaim_region(witness.budget).is_ok()),
+        "the witness's budget would not reclaim: something it built is still alive",
+    );
+    sched::reclaim_region(witness.thread_control_block_region)
+        .expect("reclaim the witness's thread control block region");
+
     assert_eq!(
-        verdict, 0b111,
-        "address space build verdict {verdict:#b}: bit0 retype, bit1 map_into, bit2 double-map refused",
+        verdict,
+        bits::WHOLE,
+        "process composition verdict {verdict:#08b}: bit0 child read from the archive, bit1 space \
+         built and child laid into it, bit2 own frame mapped into it, bit3 double map refused, bit4 \
+         configured and started, bit5 the child answered",
     );
 }
 
