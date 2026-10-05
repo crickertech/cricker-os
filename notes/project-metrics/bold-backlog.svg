@@ -22,36 +22,36 @@
 <text class="mut" x="56" y="127.5" font-size="10" text-anchor="end">15000</text>
 <line class="grid" x1="64" y1="58.0" x2="650.0" y2="58.0" stroke-width="1"/>
 <text class="mut" x="56" y="61.0" font-size="10" text-anchor="end">20000</text>
-<path class="seg s0" d="M74.0,324.0 V284.9 Q74.0,280.9 78.0,280.9 H108.6 Q112.6,280.9 112.6,284.9 V324.0 Z"><title>2026W31, bold spans over the budget: 3241</title></path>
-<text class="mut" x="93.3" y="342" font-size="10" text-anchor="middle">2026W31</text>
-<text class="fg val" x="93.3" y="275.9" font-size="10" text-anchor="middle">3241</text>
-<path class="seg s0" d="M132.6,324.0 V258.5 Q132.6,254.5 136.6,254.5 H167.2 Q171.2,254.5 171.2,258.5 V324.0 Z"><title>2026W32, bold spans over the budget: 5224</title></path>
-<text class="mut" x="151.9" y="342" font-size="10" text-anchor="middle">2026W32</text>
-<text class="fg val" x="151.9" y="249.5" font-size="10" text-anchor="middle">5224</text>
-<path class="seg s0" d="M191.2,324.0 V243.3 Q191.2,239.3 195.2,239.3 H225.8 Q229.8,239.3 229.8,243.3 V324.0 Z"><title>2026W33, bold spans over the budget: 6370</title></path>
-<text class="mut" x="210.5" y="342" font-size="10" text-anchor="middle">2026W33</text>
-<text class="fg val" x="210.5" y="234.3" font-size="10" text-anchor="middle">6370</text>
-<path class="seg s0" d="M249.8,324.0 V204.5 Q249.8,200.5 253.8,200.5 H284.4 Q288.4,200.5 288.4,204.5 V324.0 Z"><title>2026W34, bold spans over the budget: 9282</title></path>
-<text class="mut" x="269.1" y="342" font-size="10" text-anchor="middle">2026W34</text>
-<text class="fg val" x="269.1" y="195.5" font-size="10" text-anchor="middle">9282</text>
-<path class="seg s0" d="M308.4,324.0 V192.3 Q308.4,188.3 312.4,188.3 H343.0 Q347.0,188.3 347.0,192.3 V324.0 Z"><title>2026W35, bold spans over the budget: 10205</title></path>
-<text class="mut" x="327.7" y="342" font-size="10" text-anchor="middle">2026W35</text>
-<text class="fg val" x="327.7" y="183.3" font-size="10" text-anchor="middle">10205</text>
-<path class="seg s0" d="M367.0,324.0 V145.0 Q367.0,141.0 371.0,141.0 H401.6 Q405.6,141.0 405.6,145.0 V324.0 Z"><title>2026W36, bold spans over the budget: 13762</title></path>
-<text class="mut" x="386.3" y="342" font-size="10" text-anchor="middle">2026W36</text>
-<text class="fg val" x="386.3" y="136.0" font-size="10" text-anchor="middle">13762</text>
-<path class="seg s0" d="M425.6,324.0 V137.6 Q425.6,133.6 429.6,133.6 H460.2 Q464.2,133.6 464.2,137.6 V324.0 Z"><title>2026W37, bold spans over the budget: 14319</title></path>
-<text class="mut" x="444.9" y="342" font-size="10" text-anchor="middle">2026W37</text>
-<text class="fg val" x="444.9" y="128.6" font-size="10" text-anchor="middle">14319</text>
-<path class="seg s0" d="M484.2,324.0 V88.4 Q484.2,84.4 488.2,84.4 H518.8 Q522.8,84.4 522.8,88.4 V324.0 Z"><title>2026W38, bold spans over the budget: 18014</title></path>
-<text class="mut" x="503.5" y="342" font-size="10" text-anchor="middle">2026W38</text>
-<text class="fg val" x="503.5" y="79.4" font-size="10" text-anchor="middle">18014</text>
-<path class="seg s0" d="M542.8,324.0 V128.3 Q542.8,124.3 546.8,124.3 H577.4 Q581.4,124.3 581.4,128.3 V324.0 Z"><title>2026W39, bold spans over the budget: 15015</title></path>
-<text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W39</text>
-<text class="fg val" x="562.1" y="119.3" font-size="10" text-anchor="middle">15015</text>
-<path class="seg s0" d="M601.4,324.0 V165.2 Q601.4,161.2 605.4,161.2 H636.0 Q640.0,161.2 640.0,165.2 V324.0 Z"><title>2026W40, bold spans over the budget: 12237</title></path>
-<text class="mut" x="620.7" y="342" font-size="10" text-anchor="middle">2026W40</text>
-<text class="fg val" x="620.7" y="156.2" font-size="10" text-anchor="middle">12237</text>
+<path class="seg s0" d="M74.0,324.0 V258.5 Q74.0,254.5 78.0,254.5 H108.6 Q112.6,254.5 112.6,258.5 V324.0 Z"><title>2026W32, bold spans over the budget: 5224</title></path>
+<text class="mut" x="93.3" y="342" font-size="10" text-anchor="middle">2026W32</text>
+<text class="fg val" x="93.3" y="249.5" font-size="10" text-anchor="middle">5224</text>
+<path class="seg s0" d="M132.6,324.0 V243.3 Q132.6,239.3 136.6,239.3 H167.2 Q171.2,239.3 171.2,243.3 V324.0 Z"><title>2026W33, bold spans over the budget: 6370</title></path>
+<text class="mut" x="151.9" y="342" font-size="10" text-anchor="middle">2026W33</text>
+<text class="fg val" x="151.9" y="234.3" font-size="10" text-anchor="middle">6370</text>
+<path class="seg s0" d="M191.2,324.0 V204.5 Q191.2,200.5 195.2,200.5 H225.8 Q229.8,200.5 229.8,204.5 V324.0 Z"><title>2026W34, bold spans over the budget: 9282</title></path>
+<text class="mut" x="210.5" y="342" font-size="10" text-anchor="middle">2026W34</text>
+<text class="fg val" x="210.5" y="195.5" font-size="10" text-anchor="middle">9282</text>
+<path class="seg s0" d="M249.8,324.0 V192.3 Q249.8,188.3 253.8,188.3 H284.4 Q288.4,188.3 288.4,192.3 V324.0 Z"><title>2026W35, bold spans over the budget: 10205</title></path>
+<text class="mut" x="269.1" y="342" font-size="10" text-anchor="middle">2026W35</text>
+<text class="fg val" x="269.1" y="183.3" font-size="10" text-anchor="middle">10205</text>
+<path class="seg s0" d="M308.4,324.0 V145.0 Q308.4,141.0 312.4,141.0 H343.0 Q347.0,141.0 347.0,145.0 V324.0 Z"><title>2026W36, bold spans over the budget: 13762</title></path>
+<text class="mut" x="327.7" y="342" font-size="10" text-anchor="middle">2026W36</text>
+<text class="fg val" x="327.7" y="136.0" font-size="10" text-anchor="middle">13762</text>
+<path class="seg s0" d="M367.0,324.0 V137.6 Q367.0,133.6 371.0,133.6 H401.6 Q405.6,133.6 405.6,137.6 V324.0 Z"><title>2026W37, bold spans over the budget: 14319</title></path>
+<text class="mut" x="386.3" y="342" font-size="10" text-anchor="middle">2026W37</text>
+<text class="fg val" x="386.3" y="128.6" font-size="10" text-anchor="middle">14319</text>
+<path class="seg s0" d="M425.6,324.0 V88.4 Q425.6,84.4 429.6,84.4 H460.2 Q464.2,84.4 464.2,88.4 V324.0 Z"><title>2026W38, bold spans over the budget: 18014</title></path>
+<text class="mut" x="444.9" y="342" font-size="10" text-anchor="middle">2026W38</text>
+<text class="fg val" x="444.9" y="79.4" font-size="10" text-anchor="middle">18014</text>
+<path class="seg s0" d="M484.2,324.0 V128.3 Q484.2,124.3 488.2,124.3 H518.8 Q522.8,124.3 522.8,128.3 V324.0 Z"><title>2026W39, bold spans over the budget: 15015</title></path>
+<text class="mut" x="503.5" y="342" font-size="10" text-anchor="middle">2026W39</text>
+<text class="fg val" x="503.5" y="119.3" font-size="10" text-anchor="middle">15015</text>
+<path class="seg s0" d="M542.8,324.0 V165.2 Q542.8,161.2 546.8,161.2 H577.4 Q581.4,161.2 581.4,165.2 V324.0 Z"><title>2026W40, bold spans over the budget: 12237</title></path>
+<text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W40</text>
+<text class="fg val" x="562.1" y="156.2" font-size="10" text-anchor="middle">12237</text>
+<path class="seg s0" d="M601.4,324.0 V166.4 Q601.4,162.4 605.4,162.4 H636.0 Q640.0,162.4 640.0,166.4 V324.0 Z"><title>2026W41, bold spans over the budget: 12151</title></path>
+<text class="mut" x="620.7" y="342" font-size="10" text-anchor="middle">2026W41</text>
+<text class="fg val" x="620.7" y="157.4" font-size="10" text-anchor="middle">12151</text>
 <rect class="s0" x="672" y="64" width="11" height="11" rx="2"/>
 <text class="fg" y="74" font-size="11"><tspan x="689" dy="0">bold spans over the</tspan><tspan x="689" dy="13">budget</tspan></text>
 </svg>

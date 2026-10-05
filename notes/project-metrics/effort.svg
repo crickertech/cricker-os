@@ -26,33 +26,33 @@
 <text class="mut" x="56" y="105.3" font-size="10" text-anchor="end">1000</text>
 <line class="grid" x1="64" y1="58.0" x2="650.0" y2="58.0" stroke-width="1"/>
 <text class="mut" x="56" y="61.0" font-size="10" text-anchor="end">1200</text>
-<text class="mut" x="93.3" y="342" font-size="10" text-anchor="middle">2026W31</text>
-<text class="mut" x="93.3" y="308.0" font-size="9" text-anchor="middle">not<tspan x="93.3" dy="10">measured</tspan><title>2026W31: not measured</title></text>
-<text class="mut" x="151.9" y="342" font-size="10" text-anchor="middle">2026W32</text>
-<text class="mut" x="151.9" y="308.0" font-size="9" text-anchor="middle">not<tspan x="151.9" dy="10">measured</tspan><title>2026W32: not measured</title></text>
-<text class="mut" x="210.5" y="342" font-size="10" text-anchor="middle">2026W33</text>
-<text class="mut" x="210.5" y="308.0" font-size="9" text-anchor="middle">not<tspan x="210.5" dy="10">measured</tspan><title>2026W33: not measured</title></text>
-<path class="seg s0" d="M249.8,324.0 V259.9 Q249.8,255.9 253.8,255.9 H284.4 Q288.4,255.9 288.4,259.9 V324.0 Z"><title>2026W34, million tokens per milestone: 307.3</title></path>
-<text class="mut" x="269.1" y="342" font-size="10" text-anchor="middle">2026W34</text>
-<text class="fg val" x="269.1" y="250.9" font-size="10" text-anchor="middle">307.3</text>
-<path class="seg s0" d="M308.4,324.0 V101.6 Q308.4,97.6 312.4,97.6 H343.0 Q347.0,97.6 347.0,101.6 V324.0 Z"><title>2026W35, million tokens per milestone: 1021.5</title></path>
-<text class="mut" x="327.7" y="342" font-size="10" text-anchor="middle">2026W35</text>
-<text class="fg val" x="327.7" y="92.6" font-size="10" text-anchor="middle">1021.5</text>
-<path class="seg s0" d="M367.0,324.0 V311.7 Q367.0,307.7 371.0,307.7 H401.6 Q405.6,307.7 405.6,311.7 V324.0 Z"><title>2026W36, million tokens per milestone: 73.4</title></path>
-<text class="mut" x="386.3" y="342" font-size="10" text-anchor="middle">2026W36</text>
-<text class="fg val" x="386.3" y="302.7" font-size="10" text-anchor="middle">73.4</text>
-<path class="seg s0" d="M425.6,324.0 V321.2 Q425.6,318.4 428.4,318.4 H461.4 Q464.2,318.4 464.2,321.2 V324.0 Z"><title>2026W37, million tokens per milestone: 25.5</title></path>
-<text class="mut" x="444.9" y="342" font-size="10" text-anchor="middle">2026W37</text>
-<text class="fg val" x="444.9" y="313.4" font-size="10" text-anchor="middle">25.5</text>
-<path class="seg s0" d="M484.2,324.0 V313.4 Q484.2,309.4 488.2,309.4 H518.8 Q522.8,309.4 522.8,313.4 V324.0 Z"><title>2026W38, million tokens per milestone: 65.7</title></path>
-<text class="mut" x="503.5" y="342" font-size="10" text-anchor="middle">2026W38</text>
-<text class="fg val" x="503.5" y="304.4" font-size="10" text-anchor="middle">65.7</text>
-<path class="seg s0" d="M542.8,324.0 V279.9 Q542.8,275.9 546.8,275.9 H577.4 Q581.4,275.9 581.4,279.9 V324.0 Z"><title>2026W39, million tokens per milestone: 217.1</title></path>
-<text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W39</text>
-<text class="fg val" x="562.1" y="270.9" font-size="10" text-anchor="middle">217.1</text>
-<path class="seg s0" d="M601.4,324.0 V320.7 Q601.4,317.3 604.7,317.3 H636.7 Q640.0,317.3 640.0,320.7 V324.0 Z"><title>2026W40, million tokens per milestone: 30.2</title></path>
-<text class="mut" x="620.7" y="342" font-size="10" text-anchor="middle">2026W40</text>
-<text class="fg val" x="620.7" y="312.3" font-size="10" text-anchor="middle">30.2</text>
+<text class="mut" x="93.3" y="342" font-size="10" text-anchor="middle">2026W32</text>
+<text class="mut" x="93.3" y="308.0" font-size="9" text-anchor="middle">not<tspan x="93.3" dy="10">measured</tspan><title>2026W32: not measured</title></text>
+<text class="mut" x="151.9" y="342" font-size="10" text-anchor="middle">2026W33</text>
+<text class="mut" x="151.9" y="308.0" font-size="9" text-anchor="middle">not<tspan x="151.9" dy="10">measured</tspan><title>2026W33: not measured</title></text>
+<path class="seg s0" d="M191.2,324.0 V259.9 Q191.2,255.9 195.2,255.9 H225.8 Q229.8,255.9 229.8,259.9 V324.0 Z"><title>2026W34, million tokens per milestone: 307.3</title></path>
+<text class="mut" x="210.5" y="342" font-size="10" text-anchor="middle">2026W34</text>
+<text class="fg val" x="210.5" y="250.9" font-size="10" text-anchor="middle">307.3</text>
+<path class="seg s0" d="M249.8,324.0 V101.6 Q249.8,97.6 253.8,97.6 H284.4 Q288.4,97.6 288.4,101.6 V324.0 Z"><title>2026W35, million tokens per milestone: 1021.5</title></path>
+<text class="mut" x="269.1" y="342" font-size="10" text-anchor="middle">2026W35</text>
+<text class="fg val" x="269.1" y="92.6" font-size="10" text-anchor="middle">1021.5</text>
+<path class="seg s0" d="M308.4,324.0 V311.7 Q308.4,307.7 312.4,307.7 H343.0 Q347.0,307.7 347.0,311.7 V324.0 Z"><title>2026W36, million tokens per milestone: 73.4</title></path>
+<text class="mut" x="327.7" y="342" font-size="10" text-anchor="middle">2026W36</text>
+<text class="fg val" x="327.7" y="302.7" font-size="10" text-anchor="middle">73.4</text>
+<path class="seg s0" d="M367.0,324.0 V321.2 Q367.0,318.4 369.8,318.4 H402.8 Q405.6,318.4 405.6,321.2 V324.0 Z"><title>2026W37, million tokens per milestone: 25.5</title></path>
+<text class="mut" x="386.3" y="342" font-size="10" text-anchor="middle">2026W37</text>
+<text class="fg val" x="386.3" y="313.4" font-size="10" text-anchor="middle">25.5</text>
+<path class="seg s0" d="M425.6,324.0 V313.4 Q425.6,309.4 429.6,309.4 H460.2 Q464.2,309.4 464.2,313.4 V324.0 Z"><title>2026W38, million tokens per milestone: 65.7</title></path>
+<text class="mut" x="444.9" y="342" font-size="10" text-anchor="middle">2026W38</text>
+<text class="fg val" x="444.9" y="304.4" font-size="10" text-anchor="middle">65.7</text>
+<path class="seg s0" d="M484.2,324.0 V279.9 Q484.2,275.9 488.2,275.9 H518.8 Q522.8,275.9 522.8,279.9 V324.0 Z"><title>2026W39, million tokens per milestone: 217.1</title></path>
+<text class="mut" x="503.5" y="342" font-size="10" text-anchor="middle">2026W39</text>
+<text class="fg val" x="503.5" y="270.9" font-size="10" text-anchor="middle">217.1</text>
+<path class="seg s0" d="M542.8,324.0 V320.7 Q542.8,317.4 546.1,317.4 H578.1 Q581.4,317.4 581.4,320.7 V324.0 Z"><title>2026W40, million tokens per milestone: 29.7</title></path>
+<text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W40</text>
+<text class="fg val" x="562.1" y="312.4" font-size="10" text-anchor="middle">29.7</text>
+<text class="mut" x="620.7" y="342" font-size="10" text-anchor="middle">2026W41</text>
+<text class="mut" x="620.7" y="308.0" font-size="9" text-anchor="middle">not<tspan x="620.7" dy="10">measured</tspan><title>2026W41: not measured</title></text>
 <rect class="s0" x="672" y="64" width="11" height="11" rx="2"/>
 <text class="fg" y="74" font-size="11"><tspan x="689" dy="0">million tokens per</tspan><tspan x="689" dy="13">milestone</tspan></text>
 </svg>
