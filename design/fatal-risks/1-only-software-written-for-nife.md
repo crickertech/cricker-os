@@ -22,6 +22,15 @@ patches, and three byte-identical transcripts from three separately built binari
 argument vector, milestone 205 (how a foreign program is told what to do). Correction, 2026-09-27:
 205 is BUILT, and what keeps `ripgrep` from the prompt now is the 256 KiB image ceiling (#1399).
 
+Correction, 2026-10-06 (UTC), from `notes/ripgrep-on-nife.md`'s own `BUGS` and
+`system_tests/src/user/ripgrep_tests.rs`: `rg` has never searched. Of the three things it was chosen
+to exercise, it reached one, the dependency tree. It stopped at argument parsing, so its walk never
+ran and its threads were never asked for. The walk was run instead by an in-tree `std` walker
+(`crates/walk_pricing`), which is our code. Milestones 205 and 206 are BUILT, yet the harness still
+starts `rg` with no arguments, so nothing has yet tried a search. When one is tried, PR #1777
+measured `rg --threads 1 --no-mmap` over this tree peaking at 3.0 MiB on macOS, against a `std`
+heap of about 1 MiB.
+
 DECISIONS §105 (`std::thread::spawn` stays declined, until a customer needs it) was never reached,
 and that reverses the premise. `ripgrep` asks `available_parallelism()` rather than assuming it, and
 nife answers `Ok(1)` honestly. A platform answering `Unsupported` there would have failed this
