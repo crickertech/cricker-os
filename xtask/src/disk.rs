@@ -237,11 +237,6 @@ pub(crate) const TAMPERED_PACKAGE: &str = "downloads/tampered.nifepkg";
 /// the line proving that refusal. Provisional.
 pub(crate) const DOWNLOADED_NOTELESS: &str = "downloads/noteless.nifepkg";
 
-/// **`greeting`'s package, on the disk for the leg that cannot fetch it** (milestone 198 rung 3a):
-/// `x86_64` has no NIC, so its `script/swish-check` leg installs from here what the other two fetch.
-/// Written on every leg, typed only on `x86_64` (`swish_check_omits`).
-pub(crate) const DOWNLOADED_GREETING: &str = "downloads/greeting.nifepkg";
-
 /// **`greeting` at 0.2.0, the second version, on the disk for every leg** (milestone 614 (two
 /// installed versions of one program, each runnable, and a caller granted the one it needs)): the
 /// recipe-built package whose member is `greeting_two`'s bytes under the name `greeting`, so its
@@ -425,8 +420,8 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
         .transpose()
         .map_err(|e| format!("could not read std_echo: {e}"))?;
 
-    // `greeting`, the package whose program no image carries: to the disk for x86_64, and to the
-    // gate's package source (with the lying `uptime`) for the legs that fetch.
+    // `greeting`, the package whose program no image carries: to the gate's package source, with
+    // the lying `uptime`. Every leg fetches it (x86_64 since 2026-10-05, over the `e1000e`).
     let greeting_stem = format!("greeting-0.1.0-{architecture}");
     let greeting_built = root.join(format!("target/packages/{greeting_stem}.nifepkg"));
     let greeting = std::fs::read(&greeting_built).map_err(|e| {
@@ -503,12 +498,11 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
     if let Some(bytes) = &std_grep {
         write(tree.join(INSTALLED_STD_GREP), bytes)?;
     }
-    write(tree.join(DOWNLOADED_GREETING), &greeting)?;
     write(tree.join(DOWNLOADED_NOTELESS), &noteless)?;
     write(tree.join(DOWNLOADED_GREETING_0_2_0), &greeting_two)?;
     eprintln!(
         "seed_installed ({architecture}): {stem} ({} bytes, digest {}) at {DOWNLOADED_PACKAGE}, \
-         a tampered copy, {greeting_stem} at {DOWNLOADED_GREETING}, {noteless_stem} at \
+         a tampered copy, {noteless_stem} at \
          {DOWNLOADED_NOTELESS}, {greeting_two_stem} at {DOWNLOADED_GREETING_0_2_0}, and three \
          unvouched programs; no activation set. The package source at {} serves {greeting_stem} \
          and a lying {stem}",

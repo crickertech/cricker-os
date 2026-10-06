@@ -117,6 +117,12 @@ const GRANTS: BootEndowment = BootEndowment {
     // 2026-10-05 amendment), `WRITE` alone and no `GRANT`, granted on every boot: what lets the
     // loader `UNMAP` each scratch page once it is in the child (milestone 95 (an unmap primitive)).
     own_space: 28,
+    // A network stack the kernel built on an `e1000e` NIC (milestone 198 (a package manager)), its
+    // endpoint and the endpoint its lease arrives on, past `own_space`. Empty on a boot with a
+    // virtio-net NIC (slot 13's trio) and on one with no NIC the kernel may drive;
+    // `system_initializer::boot` probes.
+    net_stack_ep: 29,
+    net_stack_report: 30,
     // Nothing. Since milestone 166 the boot loader is not shared with milestone 19d's test roles on
     // any architecture, so the kernel grants exactly what the interactive system uses. aarch64 once
     // carried a report endpoint (slot 1) and the 19d.2b test interrupt (slot 3) here.

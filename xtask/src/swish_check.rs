@@ -787,8 +787,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         &["carries a manifest note that cannot be read"],
     ),
     // **Fetching, refused before the network is touched**: the catalogue names no such package,
-    // so nothing is asked of the package source. Runs on all three legs, because x86_64's missing
-    // NIC is asked about only after the catalogue is.
+    // so nothing is asked of the package source.
     line(
         0,
         "package install nosuch",
@@ -815,7 +814,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // nothing orders versions, so a bare fetch names no one package. Before this refusal the first
     // catalogue line won, which recipe filenames ordered as 0.2.0; the source serves only 0.1.0,
     // and every leg that fetched answered "the package source did not send a whole package". The
-    // catalogue refuses before the network is asked, so x86_64 types this too.
+    // catalogue refuses before the network is asked.
     line(
         0,
         "package install greeting",
@@ -828,14 +827,6 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         0,
         "package install greeting@0.1.0",
         &["fetched and installed; generation 2 is live"],
-    ),
-    // x86_64's booted system has no network stack (the progenitor builds one from virtio-mmio
-    // only), so it installs the same package from the disk instead; the two legs that fetch omit
-    // this line ([`swish_check_omits`]). Either way generation 2 is the same table.
-    line(
-        0,
-        "package install downloads/greeting.nifepkg",
-        &["installed; generation 2 is live"],
     ),
     // **And it runs** (rung 3a's second gap): bytes no boot image carries, vouched only by the
     // generation just written. The line it prints is its own; no program in the image prints it.
@@ -959,7 +950,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // so the same bytes now run vouched, endowed from the manifest note they carry (milestone 597
     // (a program carries its manifest in an ELF note)). The witness's note asks for the process
     // domain, entropy and the network and no clock, so the census moves from D2's `0 1 2` to
-    // `0 7 9`, plus 10 on a leg with a network stack (x86_64 has none): the grant changed with the
+    // `0 7 9 10` (10 is the network stack's endpoint): the grant changed with the
     // vouch, and nothing else on the line did. The probe lines then read as reached, which their
     // wording ("declared no ...") was not written for. A rollback takes the vouch away and the
     // census is D2's again.
@@ -1353,38 +1344,18 @@ const SWISH_CHECK_RUNNING: &str = "^C interrupts it.";
 ///
 /// A function over the line rather than a second table, so a line added to [`SWISH_CHECK_SCRIPT`]
 /// is typed on every leg by default and an omission is the thing that has to be argued for. `None`
-/// means the line runs. Every omission but one is `x86_64`'s; the one the other two legs make is
-/// the disk install that stands in, on `x86_64`, for a fetch they make over the network.
+/// means the line runs, and since 2026-10-05 every line runs on every leg.
 fn swish_check_omits(arch: &str, line: &str) -> Option<&'static str> {
-    if arch != "x86_64" {
-        return (line == "package install downloads/greeting.nifepkg").then_some(
-            "this leg fetched the same package over the network the line before; x86_64 has no \
-             NIC, so it installs it from the disk instead",
-        );
-    }
     // The four `uuid` lines and `std_exerciser` used to be here, for want of an entropy service at
     // the x86_64 prompt: the progenitor built one only from a virtio-rng, and `q35` has no mmio bus
     // to find one on. Milestone 595 (provisional) gave the progenitor the kernel's service on
-    // `RDSEED` instead (`kernel::user::boot_instruction_entropy`), so they run.
-    match line {
-        // The kernel grants the progenitor a NIC only from a virtio-mmio slot. Since milestone 494
-        // (a driver for the network card a PC actually has) the x86_64 runners attach an `e1000e`
-        // and the kernel can drive it, but only a test wires it: the progenitor does not build a
-        // stack from it yet, which is the follow-on that block names.
-        // The preview and the witness stay: neither needs a device, and the witness's refusal is
-        // the same on a boot with no stack as on one that has a stack and did not endow it.
-        // And the package source is reached over that network (milestone 198 rung 3a's fetch).
-        // `package install nosuch` stays: the catalogue refuses it before the network is asked,
-        // and so does the bare `package install greeting` (two versions catalogued).
-        "network_echo_client --mem 4"
-        | "package install uptime"
-        | "package install greeting@0.1.0" => Some(
-            "x86_64 has no NIC the progenitor can build a network stack from (it builds one \
-                 from virtio-mmio only; the e1000e this leg attaches is wired by tests, not by the \
-                 progenitor)",
-        ),
-        _ => None,
-    }
+    // `RDSEED` instead (`kernel::user::boot_instruction_entropy`), so they run. The network lines
+    // followed on 2026-10-05: milestone 198 (a package manager) granted the progenitor the stack
+    // the kernel builds on x86_64's `e1000e` (`kernel::user::boot_e1000e_network`), and the
+    // disk install that stood in for the fetch there went with them. Nothing is omitted today;
+    // the function stays because the next leg-specific gap needs somewhere to say why.
+    let _ = (arch, line);
+    None
 }
 
 /// The first thing `x86_hand_over` prints (`kernel/src/lib.rs`), where the `x86_64` leg starts
@@ -2638,9 +2609,12 @@ fn swish_check_boot(
     // and what `CAPABILITY_TABLE_PEAK_MEASURED` records, so it is left for whoever owns that.
     if !x86 && graphics != Some(Keystrokes::Device) {
         cmd.env("NIFE_NET", "1");
-        // **What the package source serves this leg** (milestone 198 rung 3a's fetch). The runner
-        // starts `helpers/package-http-peer` once per connection, and it inherits this through
-        // QEMU; `disk::stage_installed` filled the directory.
+    }
+    // **What the package source serves this leg** (milestone 198 rung 3a's fetch). The runner
+    // starts `helpers/package-http-peer` once per connection, and it inherits this through QEMU;
+    // `disk::stage_installed` filled the directory. Every leg, x86_64's included: its runner
+    // attaches the `e1000e` and the peer whether or not `NIFE_NET` is set.
+    if graphics != Some(Keystrokes::Device) {
         cmd.env(
             "NIFE_PACKAGE_SOURCE",
             crate::disk::package_source_dir(arch).display().to_string(),
@@ -3370,9 +3344,10 @@ fn swish_check_boot(
             ""
         };
         let network = if x86 {
-            "refused the network to a program that did not declare it, ran bytes nobody vouched \
-             for holding nothing the line did not grant but the two pages, vouched for them as \
-             the owner and rolled the vouch back, "
+            "reached the network twice through the stack the kernel built on the e1000e and \
+             refused it to a program that did not declare it, ran bytes nobody vouched for holding \
+             nothing the line did not grant but the two pages, vouched for them as the owner and \
+             rolled the vouch back, "
         } else {
             "reached the network twice through the stack the progenitor built and refused it to a \
              program that did not declare it, ran bytes nobody vouched for holding nothing the line \
@@ -3865,16 +3840,6 @@ $ outlaw
     /// transcript line somebody remembered to type, and three of thirteen had none. The check is a
     /// token match (the program's name as a whole word anywhere in a line), which is weaker than
     /// "the line ran it" and is enough to make forgetting loud.
-    /// **The `x86_64` install line names the file the seed writes** (milestone 198 rung 3a): the two
-    /// are spelled in two files, and a drift would make the line install nothing.
-    #[test]
-    fn the_greeting_install_line_names_the_seeded_file() {
-        let line = format!("package install {}", crate::disk::DOWNLOADED_GREETING);
-        assert!(SWISH_CHECK_SCRIPT.iter().any(|l| l.typed == line));
-        assert!(swish_check_omits("aarch64", &line).is_some());
-        assert!(swish_check_omits("x86_64", &line).is_none());
-    }
-
     /// **And the line every leg installs from names the file the seed writes**, for the same reason
     /// (milestone 47's bare-name lane, 2026-09-27).
     #[test]

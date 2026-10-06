@@ -31,6 +31,14 @@
 //! - **A `DeviceFrame` or `PageFrame` capability** for either window: they arrive as spawn-time
 //!   mappings, so it holds no name for them and cannot delegate or remap them.
 //!
+//! # Who starts it
+//!
+//! The tests and the bench boot, through [`start_net_server`], and the booted system, through
+//! [`start_for_boot`] (milestone 198 (a package manager)): `kernel::user::boot_progenitor` calls it
+//! when there is no virtio-net NIC, and grants the progenitor the `Stack` endpoint and the report.
+//! The booted system refuses two cases a test does not, each recorded at [`NotAtBoot`]: a PCH part
+//! no gate has driven, and a link that is down.
+//!
 //! # BUGS
 //!
 //! - **The ring base registers are on the queue pages**, so the server can point a ring anywhere
@@ -88,22 +96,77 @@ pub struct Wiring {
     pub lease: u32,
 }
 
-/// The last server's thread, so a second wiring can refuse while it lives.
+/// The last server's thread, so a second wiring can refuse while it lives. On a booted system with
+/// the stack, that is the boot's own server, so a later bring-up there refuses rather than reset it.
 static SERVER: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(u64::MAX);
 
 /// **Bring the NIC up and start `net_stack` over it.** `listen_grant` is the virtio server's: the
 /// inbound ports this stack may bind.
 pub fn start_net_server(image: &'static [u8], listen_grant: u64) -> Result<Wiring, Absent> {
-    use core::sync::atomic::Ordering;
-    let previous = SERVER.load(Ordering::Acquire);
+    refuse_if_busy()?;
+    Ok(spawn_server(image, listen_grant, bring_up()?))
+}
+
+/// Why the booted system has no stack over this NIC, when one is on the bus.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NotAtBoot {
+    /// What [`start_net_server`] would have said.
+    Absent(Absent),
+    /// **A part no gate has driven**, an I219 or another PCH part ([`::e1000e::pch::is_pch`]). Left
+    /// untouched: bring-up on one runs FreeBSD's MAC-register steps, which no run here has executed
+    /// (notes/e1000e.md), and a hang in them would take the prompt with it on xenon, the one PC on
+    /// the bench. Milestone 494's bench boot (`cargo xtask network-bench`) is how a part earns its
+    /// way out of this arm.
+    Unproven {
+        /// The PCI device id.
+        device: u16,
+    },
+    /// The link was down when bring-up finished waiting. `net_stack`'s DHCP loop has no bound and
+    /// the progenitor waits for its lease before the prompt, so a stack with no cable behind it
+    /// would be a boot that never reaches `$`.
+    NoLink {
+        /// The PCI device id.
+        device: u16,
+    },
+}
+
+/// **The booted system's stack over this NIC** (milestone 198 (a package manager): rung 3a on the
+/// third architecture). [`start_net_server`] with no listen grant, the virtio stack's inbound
+/// authority at the prompt, and two refusals of its own ([`NotAtBoot`]) that a test does not want
+/// and a boot does: a test that hangs is stopped by its runner, a boot that hangs has no prompt to
+/// say why.
+pub fn start_for_boot(image: &'static [u8]) -> Result<Wiring, NotAtBoot> {
+    let dev = crate::pci::find_e1000e_device().ok_or(NotAtBoot::Absent(Absent::NoController))?;
+    if ::e1000e::pch::is_pch(dev.device) {
+        return Err(NotAtBoot::Unproven { device: dev.device });
+    }
+    refuse_if_busy().map_err(NotAtBoot::Absent)?;
+    let found = bring_up().map_err(NotAtBoot::Absent)?;
+    if !found.link_up {
+        return Err(NotAtBoot::NoLink {
+            device: found.device,
+        });
+    }
+    Ok(spawn_server(image, socket_protocol::NO_LISTEN_GRANT, found))
+}
+
+fn refuse_if_busy() -> Result<(), Absent> {
+    let previous = SERVER.load(core::sync::atomic::Ordering::Acquire);
     if previous != u64::MAX && crate::sched::is_thread_present(previous) {
         return Err(Absent::Busy);
     }
+    Ok(())
+}
 
-    let found = crate::e1000e::bring_up().map_err(|e| match e {
+fn bring_up() -> Result<crate::e1000e::Found, Absent> {
+    crate::e1000e::bring_up().map_err(|e| match e {
         crate::e1000e::Absent::NoController => Absent::NoController,
         crate::e1000e::Absent::Refused { rid, why } => Absent::Refused { rid, why },
-    })?;
+    })
+}
+
+fn spawn_server(image: &'static [u8], listen_grant: u64, found: crate::e1000e::Found) -> Wiring {
+    use core::sync::atomic::Ordering;
     let confined_by_iommu = crate::iommu::scope_of(found.rid).is_confining();
     let [arg0, arg1] = found.handoff.pack();
 
@@ -184,7 +247,7 @@ pub fn start_net_server(image: &'static [u8], listen_grant: u64) -> Result<Wirin
     held.add_region(ep_region);
     held.add_region_after_death(budget);
     held.add_region_after_death(stack_region);
-    Ok(Wiring {
+    Wiring {
         report,
         stack,
         held,
@@ -193,7 +256,7 @@ pub fn start_net_server(image: &'static [u8], listen_grant: u64) -> Result<Wirin
         link_up: found.link_up,
         device: found.device,
         lease: 0,
-    })
+    }
 }
 
 /// [`start_net_server`] plus one socket-contract client, `virtio_service::start_net_stack`'s shape:

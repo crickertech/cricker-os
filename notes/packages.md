@@ -304,9 +304,8 @@ removed) is met, and so is §219's gate D2. The boot prompt is the owner's conso
 - The catalogue is one file in `target/` and one archive entry, not a repository index. The
   image's own source is the only source; §195's per-source trust needs a catalogue per source the
   owner opted into, and a way to add one.
-- x86_64 fetches nothing: its QEMU runner attaches no `-netdev`. It installs `greeting` from the
-  disk instead. Milestone 494 (a driver for the network card a PC actually has) is where x86
-  networking starts.
+- x86_64 fetches under QEMU only: xenon's I219 is left alone at boot
+  ([packages/fetching.md](packages/fetching.md)).
 - `greeting` and `noteless` (which has no manifest note) prove the path, not a useful program.
 - The package peer is a `guestfwd` process, not a server on a LAN. It speaks HTTP to the guest
   over slirp's forwarding, which is enough to prove the client and not enough to prove a real

@@ -60,11 +60,20 @@ points `helpers/package-http-peer` there with `NIFE_PACKAGE_SOURCE`, which QEMU 
 it starts per connection. So a lying mirror is one line: a well-formed exchange of a well-formed
 package that only the catalogue can refuse.
 
-x86_64's booted system has no network stack, because the progenitor builds one only from
-virtio-mmio. The `e1000e` the x86_64 runners attach since milestone 494 (a driver for the network
-card a PC actually has) is wired by tests, not at boot (notes/e1000e.md). The leg installs the same `greeting` package from the disk
-(`downloads/greeting.nifepkg`) and omits the two fetch lines, each with its reason in
-`swish_check_omits`. After the reboot, removing `uptime` leaves `greeting` running.
+x86_64 fetches over the `e1000e` its runners attach (milestone 494 (a driver for the network card
+a PC actually has)), since 2026-10-05. `q35` has no virtio-mmio bus, so the kernel builds that
+stack itself and grants the progenitor its endpoint and its lease
+(`kernel::user::boot_e1000e_network`). The progenitor takes the lease exactly as it does from a
+stack it built, and from there the two paths are one. Until then the x86_64 leg installed
+`greeting` from the disk and omitted the two fetch lines. After the reboot, removing `uptime`
+leaves `greeting` running.
+
+The kernel drives an `e1000e` at boot only when the part is one a gate has driven and its link is
+up, and says which refusal it took. xenon's I219 is neither yet: its bring-up runs FreeBSD's
+MAC-register steps, which nothing here has executed, so its booted system has no network until
+milestone 494's bench boot proves the part. A link with no DHCP server behind it still holds the
+prompt back, as on the virtio path (milestone 590 (the booted system starts its network stack)'s
+`BUGS`).
 
 ## What proves it
 
