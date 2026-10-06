@@ -1,8 +1,8 @@
 #!/bin/sh
 # shellcheck shell=sh
 #
-# helpers/architect-ruled.sh: exit 0 if a pull request carries `architect-ruled` RIGHT NOW, 1 if it
-# does not, 2 if the labels could not be read.
+# helpers/architect-ruled.sh: exit 0 if a pull request carries `architect-ruled` or `held-by-lane`
+# RIGHT NOW, printing which one, 1 if it carries neither, 2 if the labels could not be read.
 #
 #     helpers/architect-ruled.sh <pr-number> <owner/repo>
 #
@@ -23,6 +23,8 @@
 # read-then-write race cannot be fully closed and a person can add needs-architect by hand.
 # `needs-architect` means "waiting on calef" and nothing else: applying `architect-ruled` removes it
 # (architect-ruled-clears-hold.yml, 2026-10-06), so the label pair never shows on the queue.
+# `held-by-lane` counts too (2026-10-06): it marks a send-back, a ruling that asked the lane for a
+# change, and the labelers must not put `needs-architect` back on while the lane does that work.
 # Not in notes/merge-queue.md: that note is over its §212 (a prose budget) cap and may not grow.
 # Callers: architect-label.yml and coe-architect-label.yml (do not add), architect-hold.yml (pass).
 # Selftest: helpers/architect-ruled-selftest.sh. Name: provisional, 2026-10-05.
@@ -34,7 +36,10 @@ labels="$(gh api "repos/$repo/issues/$pr" --jq '.labels[].name' 2>/dev/null)" ||
 	echo "architect-ruled: could not read the labels of PR #$pr" >&2
 	exit 2
 }
-if printf '%s\n' "$labels" | grep -qx 'architect-ruled'; then
-	exit 0
-fi
+for l in architect-ruled held-by-lane; do
+	if printf '%s\n' "$labels" | grep -qx "$l"; then
+		echo "$l"
+		exit 0
+	fi
+done
 exit 1

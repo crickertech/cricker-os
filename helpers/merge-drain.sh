@@ -14,8 +14,8 @@
 #   - Labels `needs-maintainer` (name provisional) on a pull request a maintainer session must pick
 #     up, comments once per cause with the evidence, and takes the label off when the cause is
 #     gone (`needs_maintainer`, below; the decision is helpers/needs-maintainer.jq).
-#   - Dequeues a pull request that picked up `needs-architect` or `held-for-red-trunk` after it was
-#     enqueued (`dequeue_held`).
+#   - Dequeues a pull request that picked up `needs-architect`, `held-by-lane` or
+#     `held-for-red-trunk` after it was enqueued (`dequeue_held`).
 #   - Labels a paused draft `unblocked` once its `Blocked-by:` pull requests have resolved.
 #   - Reruns, once, a CI run a concurrency group cancelled as a same-second duplicate.
 #   - Runs helpers/lane-claim-check.sh, which reports a pushed lane branch with no pull request.
@@ -48,6 +48,9 @@ cd "$(dirname "$0")/.."
 
 REPO="nifeos/nife"
 HELD_LABEL="needs-architect"
+# A send-back: calef has ruled and the lane owes a change. Its own label, so `needs-architect` stays
+# calef's worklist; architect-hold.yml fails on it ahead of the `architect-ruled` release.
+LANE_HELD_LABEL="held-by-lane"
 
 # **Which drain spoke.** A GitHub App installation token carries the App and not the caller, so
 # GitHub cannot tell a reader whether the workflow or a laptop acted; the tag lives in the content.
@@ -103,10 +106,10 @@ w() {
 # work.
 dequeue_held() {
 	gh pr list --repo "$REPO" --state open --json number,labels,title 2>/dev/null |
-		jq -r --arg L "$HELD_LABEL" --arg R "$RED_TRUNK_LABEL" '
+		jq -r --arg L "$HELD_LABEL" --arg B "$LANE_HELD_LABEL" --arg R "$RED_TRUNK_LABEL" '
 			.[]
 			| (.labels | map(.name)) as $names
-			| ([$L, $R] | map(select(. as $l | $names | index($l))) | first) as $why
+			| ([$L, $B, $R] | map(select(. as $l | $names | index($l))) | first) as $why
 			| select($why != null)
 			| "\(.number)\t\($why)\t\(.title)"' 2>/dev/null |
 		while IFS="$(printf '\t')" read -r num why title; do

@@ -1494,6 +1494,41 @@
         }
        ]
       }
+     },
+     {
+      "number": 40,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H40",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": [
+        {
+         "name": "held-by-lane"
+        },
+        {
+         "name": "architect-ruled"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-03T21:00:00Z"
+        }
+       ]
+      }
      }
     ]
    }

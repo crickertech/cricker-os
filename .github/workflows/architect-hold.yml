@@ -135,7 +135,7 @@ jobs:
       # Reads the PR's labels fresh from the API rather than trusting the pull_request event
       # payload's own label list, so a label added or removed a moment ago is always what this
       # check sees, on both trigger paths, through one piece of logic instead of two.
-      - name: Fail if the resolved PR carries needs-architect
+      - name: Fail if the resolved PR carries needs-architect or held-by-lane
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
@@ -143,6 +143,14 @@ jobs:
           labels="$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER" --jq '.labels[].name')"
           echo "PR #$PR_NUMBER labels:"
           printf '%s\n' "$labels" | sed 's/^/  /'
+          # `held-by-lane` is a send-back: calef ruled, and the ruling asked the lane for a change it
+          # has not pushed yet. It is checked first because it normally sits beside
+          # `architect-ruled`, which would otherwise release it. A label rather than a return to draft,
+          # because drafts skip CI and the rework needs its gates (2026-10-06).
+          if printf '%s\n' "$labels" | grep -qx 'held-by-lane'; then
+            echo "==> held-by-lane is present: sent back to its lane for a change; must not merge until the lane removes it." >&2
+            exit 1
+          fi
           # `architect-ruled` releases the hold even if the labeler (or a race) left needs-architect
           # on: a ruling is the thing needs-architect waits for. Sticks until a person removes it.
           if printf '%s\n' "$labels" | grep -qx 'architect-ruled'; then

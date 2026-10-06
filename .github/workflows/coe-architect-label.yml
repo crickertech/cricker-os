@@ -319,10 +319,11 @@ jobs:
           # indistinguishable from success.
           REPO: ${{ github.repository }}
         run: |
-          # `architect-ruled` wins, read live (see architect-label.yml). Inlined rather than calling
-          # helpers/architect-ruled.sh because this job never checks the repository out.
-          if gh api "repos/$REPO/issues/$PR_NUMBER" --jq '.labels[].name' 2>/dev/null | grep -qx 'architect-ruled'; then
-            echo "coe-label: architect-ruled is on PR #$PR_NUMBER; not adding needs-architect." >&2
+          # `architect-ruled` or a send-back's `held-by-lane` wins, read live (see architect-label.yml).
+          # Inlined rather than calling helpers/architect-ruled.sh because this job never checks the
+          # repository out.
+          if on="$(gh api "repos/$REPO/issues/$PR_NUMBER" --jq '.labels[].name' 2>/dev/null | grep -xE 'architect-ruled|held-by-lane' | head -1)" && [ -n "$on" ]; then
+            echo "coe-label: $on is on PR #$PR_NUMBER; not adding needs-architect." >&2
             exit 0
           fi
           if gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label needs-architect 2>&1; then

@@ -74,7 +74,8 @@
 #
 # helpers/needs-maintainer-selftest.sh feeds recorded responses through this; script/lint runs it.
 
-def nm_held: ["needs-architect", "held-for-red-trunk"];
+# `held-by-lane` is the hold a send-back places: calef has ruled, and the lane owes a change.
+def nm_held: ["needs-architect", "held-by-lane", "held-for-red-trunk"];
 
 def nm_ts: if . == null or . == "" then 0 else fromdateiso8601 end;
 

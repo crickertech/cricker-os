@@ -145,8 +145,8 @@ jobs:
           # **Live labels, not the payload** (the payload snapshot lost a race on #1712, 2026-10-05:
           # `architect-ruled` at 19:24:14Z, `needs-architect` re-added by this job at 19:24:35Z).
           # This is the early exit; the add step below asks again, since the diff takes time.
-          if helpers/architect-ruled.sh '${{ github.event.pull_request.number }}' '${{ github.repository }}'; then
-            echo "architect-label: architect-ruled is on this PR; an architect has already ruled" >&2
+          if on="$(helpers/architect-ruled.sh '${{ github.event.pull_request.number }}' '${{ github.repository }}')"; then
+            echo "architect-label: $on is on this PR; an architect has already ruled" >&2
             echo "architect-label: on its surface, so this run is not re-adding needs-architect." >&2
             echo "add=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -202,8 +202,8 @@ jobs:
           # Second live check, immediately before the write: a ruling that landed while the diff
           # was being read must still win. A failed read (exit 2) falls through and labels, which
           # is the safe side (a spurious hold is visible; a missed one is not).
-          if helpers/architect-ruled.sh "$PR_NUMBER" "$REPO"; then
-            echo "architect-label: architect-ruled appeared during this run; not adding needs-architect." >&2
+          if on="$(helpers/architect-ruled.sh "$PR_NUMBER" "$REPO")"; then
+            echo "architect-label: $on appeared during this run; not adding needs-architect." >&2
             exit 0
           fi
           if gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label needs-architect 2>&1; then
