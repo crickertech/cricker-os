@@ -247,7 +247,7 @@ impl Outcome {
 /// A stable small number for each `domain_name_system::Reject`, the detail of a
 /// [`status::REFUSED`]: which check refused the reply, so that a forged answer and a broken server
 /// are not one word.
-pub fn reject_code(reject: domain_name_system::Reject) -> u8 {
+pub const fn reject_code(reject: domain_name_system::Reject) -> u8 {
     use domain_name_system::Reject;
     match reject {
         Reject::Malformed(_) => 1,
@@ -297,6 +297,94 @@ pub mod endowment {
     pub const fn port_and_transport_fields(word: u64) -> (u16, u64) {
         (word as u16, word >> 16)
     }
+}
+
+/// **The boot test's cases**, in one place for the two programs that must agree on them: the test
+/// client asks each name in order, and the kernel's test (`system_tests/src/user/name_resolver_tests.rs`)
+/// judges each reply by its index. `socket_protocol::fixture`'s split: the peer that answers,
+/// `helpers/name-server-peer`, spells its zone again in Python, so the two sides are written
+/// independently.
+pub mod fixture {
+    use domain_name_system::{Error, Reject};
+
+    use super::{reject_code, status};
+
+    /// The zone the test grants its client.
+    pub const ZONE: &str = "nife.test";
+    /// The runners' name server peer, a `guestfwd` to `helpers/name-server-peer` on DNS's port, and
+    /// the address its zone answers with.
+    pub const SERVER: [u8; 4] = [10, 0, 2, 9];
+
+    /// The test client's `arg0` when it was given a stack and ends by connecting to what it
+    /// resolved.
+    pub const WITH_NETWORK: u64 = 1;
+    /// The socket id the test client uses on the stack it shares with the resolver, which the
+    /// kernel's test starts at socket 0: the two must differ, because a stack's socket numbers are
+    /// shared by all its clients (milestone 649 (every client of a network stack shares its socket
+    /// numbers)).
+    pub const CLIENT_SID: u64 = 1;
+    /// The test client's last report carries one of these: the echo through the resolved address
+    /// came back,
+    pub const ECHO_OK: u64 = 1;
+    /// it was given no stack,
+    pub const ECHO_SKIPPED: u64 = 2;
+    /// the first name did not resolve, so there was nowhere to connect,
+    pub const ECHO_NO_ADDRESS: u64 = 3;
+    /// or the connection or the echo failed.
+    pub const ECHO_FAILED: u64 = 4;
+
+    /// One name, and the reply the client must get for it.
+    pub struct Case {
+        /// The host name the client writes in its page.
+        pub name: &'static str,
+        /// The status the reply must carry.
+        pub status: u8,
+        /// Its detail byte.
+        pub detail: u8,
+    }
+
+    const fn case(name: &'static str, status: u8, detail: u8) -> Case {
+        Case {
+            name,
+            status,
+            detail,
+        }
+    }
+
+    /// The cases, in the order the client asks them. The first resolves, and is the address the
+    /// client then connects to.
+    pub const CASES: [Case; 10] = [
+        case("packages.nife.test", status::OK, 0),
+        // A compressed CNAME to the name above, the way a recursive server answers.
+        case("mirror.nife.test", status::OK, 0),
+        case("nosuch.nife.test", status::NO_SUCH_NAME, 0),
+        // The peer's catch-all answer is REFUSED, response code 5.
+        case("unlisted.nife.test", status::SERVER_ERROR, 5),
+        // The right answer under the wrong transaction id.
+        case(
+            "forged.nife.test",
+            status::REFUSED,
+            reject_code(Reject::IdMismatch),
+        ),
+        // An address for bank.nife.test, and none for the name asked.
+        case(
+            "poisoned.nife.test",
+            status::REFUSED,
+            reject_code(Reject::NoAddress),
+        ),
+        // An owner that is a compression pointer to itself.
+        case(
+            "loop.nife.test",
+            status::REFUSED,
+            reject_code(Reject::Malformed(Error::PointerForward)),
+        ),
+        // Outside the zone, so never asked.
+        case("example.com", status::DENIED, 0),
+        // Ends in the zone's text and is not under it.
+        case("evilnife.test", status::DENIED, 0),
+        // Not a host name at all.
+        case("two words.nife.test", status::BAD_NAME, 0),
+    ];
 }
 
 // =================================================================================================

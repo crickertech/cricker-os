@@ -91,6 +91,10 @@ page_frames = { version = "0.1.0", path = "../crates/page_frames" }
 machine_statistics_protocol = { version = "0.1.0", path = "../crates/machine_statistics_protocol" }
 paging = { version = "0.1.0", path = "../crates/paging" }
 socket_protocol = { version = "0.1.0", path = "../crates/socket_protocol" }
+# The name resolver's grant messages and endowment, and the boot test's cases the test client
+# agrees on (milestone 384, provisional name). `domain_name_system` for DNS's port.
+name_resolution_protocol = { version = "0.1.0", path = "../crates/name_resolution_protocol" }
+domain_name_system = { version = "0.1.0", path = "../crates/domain_name_system" }
 spin = { version = "0.12", default-features = false, features = ["spin_mutex"] }
 std_runtime_protocol = { version = "0.1.0", path = "../crates/std_runtime_protocol" }
 video_terminal = { version = "0.1.0", path = "../crates/video_terminal" }

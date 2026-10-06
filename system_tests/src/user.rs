@@ -120,6 +120,13 @@ mod non_volatile_memory_express_tests;
 #[cfg(all(test, initrd))]
 mod e1000e_tests;
 
+/// **A host name resolves through a confined resolver, and only inside the zone the client was
+/// granted** (milestone 384 (in a capability system the resolver is a grant), §248 (the name
+/// resolver is its own confined program)): `net_stack` over the `e1000e`, `name_resolver` as its
+/// client, and a test client holding one badged capability to the resolver. All three architectures.
+#[cfg(all(test, initrd))]
+mod name_resolver_tests;
+
 /// **Randomness that an adversary cannot predict** (milestone 56, DECISIONS §44).
 ///
 /// Not arch-gated and not transport-gated: the same binary, the same contract, the same assertions,
