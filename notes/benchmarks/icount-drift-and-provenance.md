@@ -95,6 +95,17 @@ under the ruling, `nightly-2026-09-24` (PR #1250), is the worked example. On ide
 aarch64 and x86_64 did not move at all and riscv64 `ipc_rtt` got 0.58% faster. The x86_64 floors
 were already 0.4% to 2.3% under the tree on `main`.
 
+**The compiler term depends on the host that runs the compiler** (2026-10-06, PR #1755). The bump
+to `nightly-2026-10-06` moved aarch64 `ipc_rtt_el0` by +0.603% on the ubuntu-24.04 runner, in both
+the restamp job and the ordinary bench job, so the restamp refused. The same `--restamp` on
+patagonia moved no row by 0.01%, and the two nightlies' EL0 benchmarker came out
+instruction-identical there. The two hosts already disagree on the count itself (10,975,081 on the
+runner against 10,966,032 on patagonia under the old nightly, same tree), so a host term rides
+inside every number. Its cause is unexplained. The floor was restamped from patagonia with the
+runner's larger terms written into the cumulative ledger, so the next CI restamp compounds onto what
+CI measured. If a bump refuses on one host and passes on the other again, that is the case to
+investigate, by diffing the guest binaries the two hosts build from one commit.
+
 ### The emulator is the other half of the same fact (2026-09-21)
 
 An icount count is a function of two things: the compiler that emitted the instructions and the
