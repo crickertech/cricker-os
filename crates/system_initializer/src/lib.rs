@@ -915,7 +915,7 @@ const RNG_MODE_VIRTIO: u64 = 0;
 /// life of the boot.
 const NET_DMA_PEEK_VA: u64 = address_space_map::pair_page(0x0f30_0000);
 
-/// Where `net_stack` maps its DMA page. Must match `components/src/net_transport.rs`'s `DMA_VA`, the
+/// Where `net_stack` maps its DMA page. Must match `components/src/virtio_net_transport.rs`'s `DMA_VA`, the
 /// same kernel-and-spawner convention [`RNG_DMA_VA`] is.
 const NET_DMA_VA: u64 = address_space_map::pair_page(0x0000_0000_0090_0000);
 
@@ -4173,7 +4173,7 @@ fn build_net_stack(ut: u64, program: &elf::Elf, g: &BootEndowment) -> (u64, u64)
     } == 0;
     must_ok(mapped);
     // SAFETY: just mapped read/write, one page; the offset is inside it and outside
-    // `net_transport`'s rings and buffers (`kernel::user::VIRTIO_DMA_PHYS_OFFSET`'s own doc).
+    // `virtio_net_transport`'s rings and buffers (see `kernel::user::VIRTIO_DMA_PHYS_OFFSET`).
     let direct_memory_access_phys = unsafe {
         core::ptr::read_unaligned(
             (NET_DMA_PEEK_VA as *const u8)

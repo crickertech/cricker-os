@@ -337,7 +337,8 @@ to resolve. That is why the defect was invisible from the syscall and only appea
 
 ### The worst SAFETY comment in the tree, and it passed every gate
 
-`components/src/net_transport.rs`'s `w16` carried this, over a `write_volatile` into the DMA page:
+`components/src/virtio_net_transport.rs`'s `w16` carried this, over a `write_volatile` into the DMA
+page:
 
 ```
 // SAFETY: `invoke` traps to the kernel, which validates the capability and the method
@@ -404,7 +405,7 @@ reads rather than in a report:
 
 | Site | The comment's claim |
 |---|---|
-| `components/src/net_transport.rs` `r8` `r16` `r32` `w8` `w16` `write_desc` | "callers pass offsets inside it" (the DMA frame) |
+| `components/src/virtio_net_transport.rs` `r8` `r16` `r32` `w8` `w16` `write_desc` | "callers pass offsets inside it" (the DMA frame) |
 | `fixtures/src/fs_test_client.rs:854` `fill_page` | "the caller keeps within it" |
 | `components/src/fs_file_caretaker.rs:77` `get` | "callers clamp `out` to the page" |
 | `components/src/fs_nameset_caretaker.rs:107` `get_at` | "every caller clamps `out` and `off` to the page" |

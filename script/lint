@@ -2513,7 +2513,7 @@ esac
 #    drift would have surfaced as a C component writing to the wrong offset.
 #
 #    A module with exactly ONE consumer is fine and stays fine: that is an ordinary submodule, and
-#    the rule is about agreement between binaries, not about file layout. `net_transport` and
+#    the rule is about agreement between binaries, not about file layout. `virtio_net_transport` and
 #    `socket_test_client` are that case today.
 #
 #    This check is the one that would have caught the whole class. It counts consumers per include

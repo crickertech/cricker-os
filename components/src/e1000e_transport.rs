@@ -8,7 +8,7 @@
 //! bases (`kernel/src/e1000e.rs`); what is mapped here, and what is not, is
 //! `kernel/src/user/e1000e_service.rs`'s header.
 //!
-//! A `#[path]` module of `net_stack` beside `net_transport.rs`, which is milestone 494's
+//! A `#[path]` module of `net_stack` beside `virtio_net_transport.rs`, which is milestone 494's
 //! recommendation: the driver runs in the process that runs the stack, as virtio-net does. A
 //! separate driver process would put a NIC parser and a TCP stack in different address spaces, and
 //! the block records that at equal cost that would be preferred; the reason it is not done here is
@@ -23,8 +23,8 @@
 //!   The virtio transport makes the same trade.
 //!
 //! Name: ratified 2026-10-06 (calef, "Yes", in conversation). A network card transport is
-//! `<device family>_transport`, as `net_transport` beside it in the same binary; the family is
-//! qualified only when its name covers more than one kind of device, as DesignWare does. Refused
+//! `<device family>_transport`, as `virtio_net_transport` beside it in the same binary; the family
+//! is qualified only when its name covers more than one kind of device, as Synopsys's does. Refused
 //! `intel_e1000e_transport` and `e1000e_ethernet_transport` (nothing else is called e1000e; Linux
 //! names the driver `e1000e` and puts the vendor in the directory; vendors rebrand while family
 //! names stay). The vendor, Intel, is recorded here and in `crates/e1000e`'s header instead.

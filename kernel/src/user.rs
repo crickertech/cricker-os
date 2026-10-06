@@ -3211,9 +3211,10 @@ struct VirtioBootGrant {
 /// layout reaches the first page's tail. Entropy's ring
 /// (`components/src/entropy.rs`'s `Q_DESC`/`Q_AVAIL`/`Q_USED`) and its one pool buffer (`POOL_OFF`
 /// 0x400, `POOL_LEN` 256 bytes) end at byte 0x500; `net_stack`'s two rings and four frame buffers
-/// (`components/src/net_transport.rs`'s `BUF_BASE` 0x400 plus four `BUF`s of 0x2C0) end at 0xF00.
-/// This sits in the last eight bytes, past all of them, so a future widening of any has room to
-/// move without colliding. The value is `abi::virtio::DMA_PHYS_OFFSET`, which every reader shares.
+/// (`components/src/virtio_net_transport.rs`'s `BUF_BASE` 0x400 plus four `BUF`s of 0x2C0) end at
+/// 0xF00. This sits in the last eight bytes, past all of them, so a future widening of any has room
+/// to move without colliding. The value is `abi::virtio::DMA_PHYS_OFFSET`, which every reader
+/// shares.
 pub(crate) const VIRTIO_DMA_PHYS_OFFSET: u64 = abi::virtio::DMA_PHYS_OFFSET;
 const _: () = assert!(VIRTIO_DMA_PHYS_OFFSET + 8 <= FRAME_SIZE);
 

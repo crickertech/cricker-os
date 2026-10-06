@@ -34,10 +34,10 @@
 //! # BUGS
 //!
 //! **No host fuzz target reaches this dispatch** (proposal #1592 part a, rank 2). The request match
-//! and every helper under it live in this EL0 binary and take `net_transport::VirtioNet`, the
-//! clock and two blocking waits directly, so nothing builds for the host. What a host part would
-//! cost, measured by reading on 2026-10-04 (UTC): about 630 lines moved into a sans-IO crate over
-//! smoltcp's `phy::Device`, with the clock and the waits behind an edge trait. See
+//! and every helper under it live in this EL0 binary and take `virtio_net_transport::VirtioNet`,
+//! the clock and two blocking waits directly, so nothing builds for the host. What a host part
+//! would cost, measured by reading on 2026-10-04 (UTC): about 630 lines moved into a sans-IO crate
+//! over smoltcp's `phy::Device`, with the clock and the waits behind an edge trait. See
 //! `notes/fuzzing-the-services.md`.
 
 #![no_std]
@@ -63,8 +63,8 @@ use user_mode_runtime::{
 
 #[path = "e1000e_transport.rs"]
 mod e1000e_transport;
-#[path = "net_transport.rs"]
-mod net_transport;
+#[path = "virtio_net_transport.rs"]
+mod virtio_net_transport;
 // The socket-contract client rides in this same binary (dispatched by the entry role), because the
 // initrd directory holds at most 15 files; see components/src/socket_test_client.rs.
 #[path = "socket_test_client.rs"]
@@ -181,7 +181,7 @@ const SOCK_BUF: usize = 2048;
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(role: u64, direct_memory_access_phys: u64, a2: u64) -> ! {
     if role == 0 {
-        let dev = Nic::Virtio(net_transport::VirtioNet::bring_up(
+        let dev = Nic::Virtio(virtio_net_transport::VirtioNet::bring_up(
             direct_memory_access_phys,
         ));
         server(dev, a2)
@@ -546,7 +546,7 @@ fn poll_gigabit(
 /// component)) or the `e1000e` family (milestone 494). One enum rather than a generic parameter,
 /// so the dispatch below is compiled once.
 enum Nic {
-    Virtio(net_transport::VirtioNet),
+    Virtio(virtio_net_transport::VirtioNet),
     Gigabit(e1000e_transport::GigabitNic),
 }
 
@@ -593,7 +593,7 @@ impl smoltcp::phy::Device for Nic {
         let mut caps = smoltcp::phy::DeviceCapabilities::default();
         caps.medium = smoltcp::phy::Medium::Ethernet;
         caps.max_transmission_unit = match self {
-            Nic::Virtio(_) => net_transport::MTU,
+            Nic::Virtio(_) => virtio_net_transport::MTU,
             Nic::Gigabit(_) => e1000e::MAX_FRAME,
         };
         caps
@@ -625,8 +625,8 @@ impl smoltcp::phy::TxToken for NicTxToken {
         let mut buf = vec![0u8; len];
         let r = f(&mut buf);
         // SAFETY: single-threaded; the device outlives this token, and the `&mut self` borrow that
-        // produced the token has ended (the token is an owned value). `net_transport`'s own token
-        // made the same argument before this enum took its place.
+        // produced the token has ended (the token is an owned value). `virtio_net_transport`'s own
+        // token made the same argument before this enum took its place.
         unsafe {
             (*self.dev).tx_send(&buf);
         }

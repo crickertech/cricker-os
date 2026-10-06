@@ -13,12 +13,13 @@
 //! (`MTU`); a demonstrator with a single-page DMA region cannot post full 1514-byte buffers, and
 //! that is a recorded caveat, not a bug (see notes/net.md).
 //!
-//! Name: ratified 2026-08-01 (calef, milestone 63), replacing `vnet`. Refused `vnet` (an
-//! abbreviation) and `virtio_net` (`crates/virtio` also drives net, so the device-class name would
-//! collide). Named for its role: the adapter that presents smoltcp's `phy::Device` so frames can
-//! cross the virtqueue, which is a different job from the driver underneath. This file is a
-//! single-consumer `#[path]` module rather than a `[[bin]]`, which is why rule 7's check leaves it
-//! alone.
+//! Name: ratified 2026-10-06 (calef, "Yes", in conversation), replacing `net_transport`, itself
+//! ratified 2026-08-01 (calef, milestone 63 (one spelling per thing)) replacing `vnet`. A network
+//! card transport is `<device family>_transport`, as `e1000e_transport` beside it. Refused
+//! `net_transport` (right while it was the only one; beside a second card's transport it no longer
+//! says which), `vnet` (an abbreviation, milestone 63) and `virtio_net` (milestone 63: `crates/virtio`
+//! also drives net, so the device-class name alone would collide). This file is a single-consumer
+//! `#[path]` module rather than a `[[bin]]`, which is why rule 7's check leaves it alone.
 
 use alloc::vec;
 use alloc::vec::Vec;

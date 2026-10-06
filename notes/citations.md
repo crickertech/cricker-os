@@ -596,7 +596,7 @@ found five rows that had drifted.
 Worth naming, because it says what the general defect is and this gate only covers part of it.
 
 Milestone 112 (the SAFETY comments that bind nobody) found a `// SAFETY:` comment in
-`components/src/net_transport.rs` whose paragraph described `invoke` and capability validation, sitting
+`components/src/virtio_net_transport.rs` whose paragraph described `invoke` and capability validation, sitting
 above a `write_volatile` into a DMA page. It described a different operation entirely, and it passed
 `clippy::undocumented_unsafe_blocks` for as long as the file existed, because that lint asks whether
 a comment is *present*, never whether it is *about the thing underneath it*.

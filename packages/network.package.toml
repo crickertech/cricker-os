@@ -9,4 +9,4 @@ kind = "base"
 home = { repo = "network", status = "provisional" }
 crates = ["domain_name_system", "http_response"]
 programs = ["net_stack"]
-paths = ["components/src/net_transport.rs", "components/src/socket_test_client.rs"]
+paths = ["components/src/virtio_net_transport.rs", "components/src/socket_test_client.rs"]

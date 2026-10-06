@@ -93,9 +93,9 @@ early."* The same sentence applies here one level out.
 
 ## What it does not decide
 
-Whether `net_transport` gets lifted into a crate (milestone 175's block leaves that open), and
-whether `crates/` gets 39's three-audience split (39 named that as a separate strain and 175
-explicitly refused to fold it in).
+Whether `virtio_net_transport` gets lifted into a crate (milestone 175 (split `user/`)'s block
+leaves that open), and whether `crates/` gets 39's three-audience split (39 named that as a
+separate strain and 175 explicitly refused to fold it in).
 
 ## Index row
 
