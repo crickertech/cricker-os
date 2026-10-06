@@ -67,8 +67,8 @@
 //! - **One client, no arbitration.** Whoever holds the display endpoint draws; that is the
 //!   contract's rung-one shape and the compositor is what multiplexes it.
 //!
-//! Name: provisional. Introduced 2026-09-19 by the shell on the firmware screen's lane, in the
-//! `<device>_driver` shape `gpu_driver`, `block_driver` and `keyboard_driver` take, the device
+//! Name: ratified 2026-10-06 (calef, "Ratify" it, in conversation). Introduced
+//! 2026-09-19 by the shell on the firmware screen's lane, in the `<device>_driver` shape `gpu_driver`, `block_driver` and `keyboard_driver` take, the device
 //! being a linear framebuffer.
 //! Considered `screen_driver`, which names a thing every display driver drives, and
 //! `firmware_screen_driver`, which names who set it up rather than what it is and would be wrong on

@@ -82,10 +82,12 @@
 //!   process has no name, a generational tid that is a large ugly number after slot reuse, and a
 //!   table that is a sequence of snapshots rather than one.
 //!
-//! Name: provisional. `top` is the standard term for a view ranked by resource consumption, which
-//! the naming tenet calls the best name available, and both DECISIONS §150 (how does a thread's CPU time reach userspace?) and milestone 281 (`watch` holds exactly what `ps` holds)
-//! named this program in advance. Provisional because calef has not ruled, and because the prior
-//! question is whether this is a program at all or a flag on `ps`.
+//! Name: ratified 2026-10-06 (calef, "Ratify" it, in conversation). `top` is the standard term for
+//! a view ranked by resource consumption, which the naming tenet calls the best name available, and
+//! both DECISIONS §150 (how does a thread's CPU time reach userspace?) and milestone 281 (`watch` holds exactly what `ps` holds)
+//! named this program in advance. It stays its own program rather than a flag on `ps`, which was
+//! the prior question here; that follows calef's one-program-one-thing preference (the `pidwait`
+//! ruling, 2026-09-26).
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68 (code-quality gates: one lint policy)'s ratchet
