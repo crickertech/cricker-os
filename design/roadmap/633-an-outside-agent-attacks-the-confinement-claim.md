@@ -1,6 +1,7 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-10-03
+built: 2026-10-06
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
@@ -83,10 +84,9 @@ order of `design/fatal-risks/README.md`.
 
 ## What the first outsider pass found (2026-10-03 UTC)
 
-PARTIAL. A Fable reviewer attacked the confinement surface by reading the enforcement and, where it
-could prove a result cheaply, by a test. The full three-ISA QEMU sweep of all thirty claims and the
-human-outsider half remain, so this is the first outsider pass and not the last, as the premise
-check above says.
+A Fable reviewer attacked the confinement surface by reading the enforcement and, where it could
+prove a result cheaply, by a test. It left the three-ISA QEMU sweep undone; the third pass below
+ran it. The human-outsider half is milestone 198's, as the premise check above says.
 
 ### One escape, found and fixed
 
@@ -179,6 +179,68 @@ five ways, and each was found by a different lane)'s and is not re-raised here.
   a proposal, already noted against milestone 305 (the six kernel confinement rows get a
   falsification a machine can replay)). This pass confirms both and adds nothing new to
   them.
+
+## The second and third outsider passes (2026-10-05 and 2026-10-06 UTC)
+
+BUILT. Every claim has now been attacked three times by reviewers briefed only with the claims
+table and the source, and the third pass booted what it could on all three ISAs. The human half
+stays milestone 198's.
+
+### The second pass (#1687): one kernel escape, by read and one boot
+
+Recorded whole in [`notes/confinement-outsider-pass-2.md`](../../notes/confinement-outsider-pass-2.md).
+A `PortRange` capability narrowed to `READ` still drove x86 port I/O, because the grant install
+checked no rights: booted red on x86_64, fixed by milestone 768 (a read-only port range grants
+nothing) and now claim 33. It also read AMD-Vi, which had no claim (milestone 767 (AMD-Vi hardening before the first AMD boot) closed four of its
+six findings), and eight near misses, each given a `BUGS` home. Most of its verdicts were read, not
+booted, which its own `BUGS` said.
+
+### The third pass: booted, one escape at the application boundary, fixed
+
+Recorded whole in [`notes/confinement-outsider-pass-3.md`](../../notes/confinement-outsider-pass-3.md)
+(name provisional). A Fable reviewer, told to count an attack only when it boots, ran the full suite
+on each ISA (aarch64 134 passed, riscv64 137, x86_64 216 with 79 skipped) and added three dispatcher
+tests in `system_tests::user::confinement_attack_tests`, green on all three. Counts: 1 escape, 4 near
+misses, 28 held, 0 untestable. Rows 1, 4, 5 and 10 to 18 are host proofs or host tests, one artifact
+for every ISA; rows 31 and 32 are `script/swish-check` censuses graded by read.
+
+- **The escape.** A client holding only `WRITE` on the swap demonstrator's endpoint made the server
+  write a byte into the device register page the server holds and the client does not:
+  `OPERATION_PUT` wrote at `LOG_VA + log_base + arg` with `arg` unbounded. Booted red on aarch64 and
+  riscv64 (x86_64 has no device page). The kernel gate held throughout; this is a confused deputy,
+  and it is still a component reaching an object it was not granted. Fixed here in
+  `swap_protocol::log_put`, with
+  `live_swap_tests::a_confined_client_drives_the_server_to_write_past_its_log` and a replayable
+  falsification, red on aarch64 under the patch. `system_initializer` starts none of the
+  demonstrator's programs, so the class (a server trusting an offset in a request word) is the
+  finding more than this instance.
+- **Claim 26's cited test could only fail by hanging**, and drove one of its four gated methods on
+  two ISAs. `a_write_only_rendezvous_holder_cannot_receive_reap_or_survey` drives all four through
+  the dispatcher on three, with a parked peer so a broken gate fails an assertion.
+- **Claim 24 is the finding most likely to be a live escape in a shipped boot**, and two independent
+  passes have now read it. A directory-granted job's file-server window is reused round robin while
+  its last holder may still run, and the server writes the new job's file bytes into a page the old
+  job still maps. Not booted: it needs the production job pool, a disk and seven concurrent jobs.
+  Its fix is milestone 685 (a job is finished when its memory is back)'s "job reaped" signal, and
+  that block does not yet say it closes a confinement gap; the maintainer should add that and weigh
+  685's priority against risk 7.
+- Near misses, each with a home. Claim 3: a `GRANT`-less budget retypes a `GRANT`-bearing frame,
+  booted as a characterization on all three ISAs, with `BUGS` on `cap::memory_region_cap`. Whether
+  retypes should withhold `GRANT` is an architect's question. Claim 17: the regression test cannot
+  fail, with `BUGS` on it in `kernel/src/virtio.rs`. Claim 25: stale pixels on a respawn nobody
+  performs, in an existing `BUGS`. Claim 28: the test does not check the fault pc, with `BUGS` on
+  it. The unauthenticated `OPERATION_QUIESCE` is a denial of service, with `BUGS` at its arm.
+
+### What risk 7's appendix should cite (for the maintainer, under §216)
+
+- Pass 2's port-rights escape and its fix by milestone 768, and the AMD-Vi findings by milestone 767.
+- Pass 3: the kernel's confinement held under a booted attack on three ISAs by a third reviewer.
+  It found one application-boundary escape (the swap deputy), now fixed with a falsifiable test.
+  Claim 24's window reuse is the open gap most likely to be a real escape, owned by milestone 685.
+- Proposed verdict, which is calef's to move: **AMBER, unchanged.** Three same-vendor outsider
+  passes found three escapes between them, every one fixed, and no kernel escape survived; that is
+  the evidence the premise check scopes and it does not support green. An escape that is still open
+  (claim 24) argues against moving toward green until 685 lands.
 
 ## Index row
 
