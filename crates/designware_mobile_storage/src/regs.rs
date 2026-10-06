@@ -224,3 +224,36 @@ pub const fn dma_64bit(hcon: u32) -> bool {
 
 /// The highest offset this driver reads or writes, plus one word. The kernel maps at least this.
 pub const WINDOW_USED: u32 = 0x204;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hcon_names_every_fifo_width_and_refuses_the_reserved_codes() {
+        assert_eq!(fifo_width(0), Some(2));
+        assert_eq!(fifo_width(1 << 7), Some(4));
+        assert_eq!(fifo_width(2 << 7), Some(8));
+        for code in 3..8 {
+            assert_eq!(fifo_width(code << 7), None, "code {code}");
+        }
+        // Bits outside 9:7 do not leak into the width.
+        assert_eq!(fifo_width(!(7 << 7) | (1 << 7)), Some(4));
+        assert!(dma_64bit(1 << 27));
+        assert!(!dma_64bit(!(1 << 27)));
+    }
+
+    #[test]
+    fn the_fifo_moves_at_release_2_40a_and_the_pio_thresholds_straddle_half() {
+        assert_eq!(fifo_offset(0x5342_2309), 0x100);
+        assert_eq!(fifo_offset(0x5342_240a), 0x200);
+        assert_eq!(fifo_offset(0x5342_290a), 0x200);
+        // depth 32: receive watermark 15, transmit 16, OpenBSD's burst code 2.
+        assert_eq!(fifoth_for_pio(32), (2 << 28) | (15 << 16) | 16);
+        assert_eq!(fifoth_rx_watermark(fifoth_for_pio(32)), 15);
+        // A one-word FIFO cannot go below zero.
+        assert_eq!(fifoth_rx_watermark(fifoth_for_pio(1)), 0);
+        assert_eq!(fifo_count(0x1fff << 17), 0x1fff);
+        assert_eq!(fifo_count(!(0x1fff << 17)), 0);
+    }
+}

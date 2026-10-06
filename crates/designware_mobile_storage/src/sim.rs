@@ -31,10 +31,23 @@ pub enum CardKind {
     SdHighCapacity,
     /// An SD 1.x card: ignores CMD8, standard capacity, byte addressed.
     SdV1,
+    /// An SD 2.0 card of standard capacity: answers CMD8, byte addressed.
+    SdV2,
     /// An eMMC: ignores CMD8 in idle and CMD55, answers CMD1, takes its address from the host.
     Mmc,
     /// An empty slot: nothing answers.
     Empty,
+}
+
+/// What an injected fault does to the command it hits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fault {
+    /// The card does not answer: `RTO`.
+    NoResponse,
+    /// The card answers with the R1 `ERROR` bit (19) set.
+    ErrorStatus,
+    /// The card answers `CMD8` with the wrong check pattern.
+    EchoWrong,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -88,6 +101,17 @@ pub struct Sim {
     verid: u32,
     /// Set when the driver wrote the FIFO with no write transfer in progress.
     pub stray_fifo_write: bool,
+    /// Faults to inject: the command index, which of its occurrences (from 0), and what happens.
+    pub faults: Vec<(u8, usize, Fault)>,
+    /// How many times each command index has been sent.
+    seen: [usize; 64],
+    /// The CSD reports a structure this driver does not size (3), so the capacity reads as 0.
+    pub zero_capacity: bool,
+    /// Only the first `n` write commands store their data; later ones are acknowledged and lost,
+    /// the way a card that has failed into read-only mode can behave.
+    pub writes_stored: Option<usize>,
+    /// How many write commands have completed.
+    write_commands: usize,
     /// Raise `RXDR` only above the receive watermark the driver programmed in `FIFOTH`, as the
     /// databook says, rather than whenever the FIFO holds anything. A read whose tail is shorter
     /// than the watermark then ends with words in the FIFO and only `DTO` to say so.
@@ -124,6 +148,11 @@ impl Sim {
             clockless_command: false,
             verid: VERID,
             stray_fifo_write: false,
+            faults: Vec::new(),
+            seen: [0; 64],
+            zero_capacity: false,
+            writes_stored: None,
+            write_commands: 0,
             strict_watermark: false,
         };
         s.regs[(regs::VERID / 4) as usize] = VERID;
@@ -149,7 +178,7 @@ impl Sim {
     }
 
     fn high_capacity(&self) -> bool {
-        self.kind != CardKind::SdV1
+        !matches!(self.kind, CardKind::SdV1 | CardKind::SdV2)
     }
 
     fn r1(&self) -> u32 {
@@ -174,6 +203,10 @@ impl Sim {
                 }
             }
         };
+        if self.zero_capacity {
+            put(126, 2, 3);
+            return r;
+        }
         match self.kind {
             CardKind::SdHighCapacity => {
                 put(126, 2, 1);
@@ -220,7 +253,9 @@ impl Sim {
                 self.power_up_polls = 0;
                 None
             }
-            (8, false, CardKind::SdHighCapacity) if self.state == State::Idle => short(arg & 0xfff),
+            (8, false, CardKind::SdHighCapacity | CardKind::SdV2) if self.state == State::Idle => {
+                short(arg & 0xfff)
+            }
             (55, _, CardKind::Mmc) => None,
             (55, _, _) => {
                 self.app = true;
@@ -280,7 +315,25 @@ impl Sim {
         if *self.reg(regs::CLKENA) & regs::CLKENA_ENABLE == 0 {
             self.clockless_command = true;
         }
-        let answer = self.card(index, arg);
+        let nth = self.seen[usize::from(index)];
+        self.seen[usize::from(index)] += 1;
+        let fault = self
+            .faults
+            .iter()
+            .find(|f| f.0 == index && f.1 == nth)
+            .map(|f| f.2);
+        let mut answer = if fault == Some(Fault::NoResponse) {
+            None
+        } else {
+            self.card(index, arg)
+        };
+        if let Some(r) = answer.as_mut() {
+            match fault {
+                Some(Fault::ErrorStatus) => r[0] |= 1 << 19,
+                Some(Fault::EchoWrong) => r[0] ^= 0xff,
+                _ => {}
+            }
+        }
         let mut rint = regs::INT_CD;
         match answer {
             None if word & regs::CMD_RESPONSE_EXPECT != 0 => rint |= regs::INT_RTO,
@@ -334,10 +387,14 @@ impl Sim {
                 t.buffer.extend_from_slice(&w.to_le_bytes());
             }
             if t.buffer.len() >= t.bytes {
+                let store = self.writes_stored.is_none_or(|n| self.write_commands < n);
+                self.write_commands += 1;
                 for (i, block) in t.buffer.as_chunks::<512>().0.iter().enumerate() {
                     let lba = t.first_lba + i as u64;
                     self.written.push(lba);
-                    if let Some(b) = self.storage.get_mut(lba as usize) {
+                    if let Some(b) = self.storage.get_mut(lba as usize)
+                        && store
+                    {
                         b.copy_from_slice(block);
                     }
                 }

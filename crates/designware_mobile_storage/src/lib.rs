@@ -125,6 +125,7 @@ mod sim;
 #[cfg(test)]
 mod tests {
     use crate::bench::{self, WriteVerdict};
+    use crate::card;
     use crate::host::{Error, Host};
     use crate::sd::{self, BLOCK, InitError, IoError, Kind};
     use crate::sim::{CardKind, Sim};
@@ -362,6 +363,269 @@ mod tests {
         )
         .unwrap();
         assert_eq!(h.fifo_depth(), 16);
+    }
+
+    // **The error paths.** Each test below injects one fault the sim can produce and checks that
+    // the driver names the step it happened at, because a bench transcript that stops is only as
+    // useful as what its last line says.
+
+    use crate::sim::Fault;
+
+    fn faulty(kind: CardKind, blocks: usize, faults: &[(u8, usize, Fault)]) -> Host<Sim> {
+        let mut sim = Sim::new(kind, blocks, 32);
+        sim.faults = faults.to_vec();
+        Host::new(sim, 50_000_000, Some(32)).unwrap().0
+    }
+
+    #[test]
+    fn an_sd_2_0_standard_capacity_card_answers_the_echo_and_is_still_byte_addressed() {
+        let mut h = host(CardKind::SdV2, 4096);
+        let card = sd::identify(&mut h, 4).unwrap();
+        assert_eq!(card.kind, Kind::SdV2);
+        assert!(!card.block_addressed);
+        // It answered CMD8 but did not set CCS in its OCR, so it is not mistaken for SDHC.
+        assert_eq!(card.address(2), 1024);
+    }
+
+    #[test]
+    fn a_wrong_interface_echo_is_refused_rather_than_guessed_at() {
+        let mut h = faulty(CardKind::SdHighCapacity, 8192, &[(8, 0, Fault::EchoWrong)]);
+        assert!(matches!(
+            sd::identify(&mut h, 4),
+            Err(InitError::InterfaceCondition(r)) if r & 0xfff != 0x1aa
+        ));
+    }
+
+    #[test]
+    fn a_card_that_never_finishes_power_up_is_reported_with_its_last_ocr() {
+        for kind in [CardKind::SdHighCapacity, CardKind::Mmc] {
+            let mut sim = Sim::new(kind, 16_384, 32);
+            sim.busy_polls = u32::MAX;
+            let mut h = Host::new(sim, 50_000_000, Some(32)).unwrap().0;
+            assert!(matches!(
+                sd::identify(&mut h, 4),
+                Err(InitError::PowerUp(ocr)) if ocr & card::OCR_BUSY_DONE == 0
+            ));
+        }
+    }
+
+    #[test]
+    fn an_sd_2_0_card_silent_to_its_first_app_command_is_no_card_not_an_emmc() {
+        let mut h = faulty(
+            CardKind::SdHighCapacity,
+            8192,
+            &[(55, 0, Fault::NoResponse)],
+        );
+        assert!(matches!(
+            sd::identify(&mut h, 4),
+            Err(InitError::NoCard(Error::NoResponse(55)))
+        ));
+    }
+
+    #[test]
+    fn each_identification_step_names_itself_when_the_card_goes_silent() {
+        for index in [2u8, 3, 9, 7] {
+            let mut h = faulty(
+                CardKind::SdHighCapacity,
+                8192,
+                &[(index, 0, Fault::NoResponse)],
+            );
+            assert_eq!(
+                sd::identify(&mut h, 4),
+                Err(InitError::Identify(index, Error::NoResponse(index))),
+                "CMD{index}"
+            );
+        }
+        let mut h = faulty(CardKind::Mmc, 16_384, &[(3, 0, Fault::NoResponse)]);
+        assert_eq!(
+            sd::identify(&mut h, 8),
+            Err(InitError::Identify(3, Error::NoResponse(3)))
+        );
+    }
+
+    #[test]
+    fn each_configuration_step_names_itself_when_the_card_goes_silent() {
+        // ACMD41 takes four CMD55s (three busy polls), so the fifth is ACMD6's.
+        for (index, nth) in [(55u8, 4usize), (6, 0), (16, 0)] {
+            let mut h = faulty(
+                CardKind::SdHighCapacity,
+                8192,
+                &[(index, nth, Fault::NoResponse)],
+            );
+            assert_eq!(
+                sd::identify(&mut h, 4),
+                Err(InitError::Configure(index, Error::NoResponse(index))),
+                "CMD{index}"
+            );
+        }
+        // An eMMC's first CMD8 is the interface probe it never answers; its second is EXT_CSD.
+        let mut h = faulty(CardKind::Mmc, 16_384, &[(8, 1, Fault::NoResponse)]);
+        assert_eq!(
+            sd::identify(&mut h, 8),
+            Err(InitError::Configure(8, Error::NoResponse(8)))
+        );
+    }
+
+    #[test]
+    fn an_error_bit_in_a_status_answer_stops_identification_at_that_command() {
+        let mut h = faulty(
+            CardKind::SdHighCapacity,
+            8192,
+            &[(7, 0, Fault::ErrorStatus)],
+        );
+        assert!(
+            matches!(sd::identify(&mut h, 4), Err(InitError::Status(7, r)) if r & (1 << 19) != 0)
+        );
+        let mut h = faulty(CardKind::Mmc, 16_384, &[(3, 0, Fault::ErrorStatus)]);
+        assert!(matches!(
+            sd::identify(&mut h, 8),
+            Err(InitError::Status(3, _))
+        ));
+        let mut h = faulty(
+            CardKind::SdHighCapacity,
+            8192,
+            &[(16, 0, Fault::ErrorStatus)],
+        );
+        assert!(matches!(
+            sd::identify(&mut h, 4),
+            Err(InitError::Status(16, _))
+        ));
+    }
+
+    #[test]
+    fn a_csd_this_driver_cannot_size_is_refused_with_its_structure() {
+        let mut sim = Sim::new(CardKind::SdHighCapacity, 8192, 32);
+        sim.zero_capacity = true;
+        let mut h = Host::new(sim, 50_000_000, Some(32)).unwrap().0;
+        assert_eq!(sd::identify(&mut h, 4), Err(InitError::Capacity(3)));
+    }
+
+    #[test]
+    fn a_status_error_on_a_transfer_is_reported_not_swallowed() {
+        let mut h = faulty(
+            CardKind::SdHighCapacity,
+            8192,
+            &[(17, 0, Fault::ErrorStatus)],
+        );
+        let card = sd::identify(&mut h, 4).unwrap();
+        let mut one = [0u8; BLOCK];
+        assert!(matches!(
+            sd::read_blocks(&mut h, &card, 0, &mut one),
+            Err(IoError::Status(_))
+        ));
+        // A single-block write is CMD24; its R1, then the status after programming, are each
+        // checked.
+        let mut h = faulty(
+            CardKind::SdHighCapacity,
+            8192,
+            &[(24, 0, Fault::ErrorStatus)],
+        );
+        let card = sd::identify(&mut h, 4).unwrap();
+        assert!(matches!(
+            sd::write_blocks(&mut h, &card, 9, &one),
+            Err(IoError::Status(_))
+        ));
+        let mut h = faulty(
+            CardKind::SdHighCapacity,
+            8192,
+            &[(13, 0, Fault::ErrorStatus)],
+        );
+        let card = sd::identify(&mut h, 4).unwrap();
+        assert!(matches!(
+            sd::write_blocks(&mut h, &card, 9, &one),
+            Err(IoError::Status(_))
+        ));
+        let mut h = host(CardKind::SdHighCapacity, 8192);
+        let card = sd::identify(&mut h, 4).unwrap();
+        one[0] = 0x77;
+        sd::write_blocks(&mut h, &card, 9, &one).unwrap();
+        assert_eq!(h.registers().storage[9][0], 0x77);
+        assert_eq!(
+            h.registers().commands.iter().rev().nth(1).map(|c| c.0),
+            Some(24)
+        );
+    }
+
+    #[test]
+    fn a_byte_addressed_card_stops_where_a_32_bit_byte_address_does() {
+        let last = (1u64 << 32) / BLOCK as u64;
+        assert!(sd::in_range(1 << 40, false, last - 1, 1));
+        assert!(!sd::in_range(1 << 40, false, last, 1));
+        assert!(sd::in_range(1 << 40, true, last, 1));
+    }
+
+    #[test]
+    fn the_read_only_probe_says_which_block_it_could_not_read() {
+        // The second CMD17 is partition 1's boot sector; the first CMD18 is the timed read.
+        let mut sim = mbr_card(8192, 2048);
+        sim.faults = vec![(17, 1, Fault::ErrorStatus)];
+        let mut h = Host::new(sim, 50_000_000, Some(32)).unwrap().0;
+        let mut buf = vec![0u8; 8 * BLOCK];
+        assert!(matches!(
+            bench::read_only(&mut h, 4, &mut buf, 64),
+            Err(bench::ReadFailure::Read(2048, IoError::Status(_)))
+        ));
+        let mut sim = mbr_card(8192, 2048);
+        sim.faults = vec![(18, 1, Fault::ErrorStatus)];
+        let mut h = Host::new(sim, 50_000_000, Some(32)).unwrap().0;
+        assert!(matches!(
+            bench::read_only(&mut h, 4, &mut buf, 64),
+            Err(bench::ReadFailure::Read(2056, IoError::Status(_)))
+        ));
+    }
+
+    /// Run the write test on a card prepared by `setup`, after a read-only probe that times
+    /// nothing, and return its verdict and the card.
+    fn write_test(setup: impl FnOnce(&mut Sim), len: usize) -> (WriteVerdict, Sim) {
+        let mut sim = mbr_card(8192, 2048);
+        setup(&mut sim);
+        let mut h = Host::new(sim, 50_000_000, Some(32)).unwrap().0;
+        let mut buf = vec![0u8; 8 * BLOCK];
+        let r = bench::read_only(&mut h, 4, &mut buf, 0).unwrap();
+        let (mut a, mut b) = (vec![0u8; len], vec![0u8; len]);
+        let v = bench::scratch_write(&mut h, &r.card, r.mbr.as_ref(), &mut a, &mut b);
+        (v, h.into_registers())
+    }
+
+    #[test]
+    fn the_write_test_refuses_buffers_too_small_for_its_range_before_touching_the_card() {
+        let (v, sim) = write_test(|_| {}, 7 * BLOCK);
+        assert_eq!(v, WriteVerdict::Failed(0, IoError::Length));
+        assert!(sim.written.is_empty());
+    }
+
+    #[test]
+    fn the_write_test_names_the_phase_that_failed() {
+        // Phase 0 reads with CMD18, 1 writes with CMD25, 2 reads back block by block with CMD17
+        // (the probe already sent two), 3 writes the original back, 4 reads it back.
+        for (index, nth, phase) in [
+            (18u8, 0usize, 0u8),
+            (25, 0, 1),
+            (17, 2, 2),
+            (25, 1, 3),
+            (18, 1, 4),
+        ] {
+            let (v, _) = write_test(
+                |s| s.faults = vec![(index, nth, Fault::ErrorStatus)],
+                8 * BLOCK,
+            );
+            assert!(
+                matches!(v, WriteVerdict::Failed(p, IoError::Status(_)) if p == phase),
+                "CMD{index}#{nth}: {v:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_card_that_drops_writes_is_a_pattern_mismatch_and_one_that_drops_the_restore_says_so() {
+        let (v, sim) = write_test(|s| s.writes_stored = Some(0), 8 * BLOCK);
+        assert_eq!(v, WriteVerdict::PatternMismatch(2040));
+        assert!(sim.storage[2040].iter().all(|&b| b == 0));
+        let (v, sim) = write_test(|s| s.writes_stored = Some(1), 8 * BLOCK);
+        assert_eq!(v, WriteVerdict::RestoreMismatch(2040));
+        // The pattern stayed, inside the gap, and partition 1 was never touched.
+        assert!(sim.storage[2040].iter().any(|&b| b != 0));
+        assert!(sim.written.iter().all(|&lba| lba < 2048));
     }
 }
 
