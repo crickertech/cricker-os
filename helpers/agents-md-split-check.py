@@ -36,12 +36,17 @@ import sys
 DEFAULT_BASE = 'cde620b1ddd55b47561f7e35c66ef6f7cb538ed6'
 
 # Sentences of the old AGENTS.md cut on purpose, normalized the way `norm` does (a prefix of the
-# sentence is enough). The only one is the word-count marker, rewritten because its number moved.
+# sentence is enough). They are the retired word-cap exception's marker and pointer.
 # Principle 2 was going to be cut to its rule sentences and was not: design/tenets/three-principles.md
 # says its argument and caveats live in AGENTS.md itself, so the tenet does not hold them.
 CONDENSED = [
-    # The marker's word count and wording changed with the split, which is the point of it.
+    # The word-cap exception: its marker, and the sentence pointing at it. calef retired the
+    # exception on 2026-10-06 (UTC), "Retire the word-cap exception", once the split took the file
+    # under the cap, so both went rather than moved.
     '<!-- prose-budget: exception.',
+    'Ratified by calef on 2026-09-24 (UTC) at 5,873 words',
+    'Reason: this file is nothing but rules',
+    'It is a ratified exception to the 3,000-word cap',
 ]
 
 

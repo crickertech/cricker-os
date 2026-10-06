@@ -1,18 +1,9 @@
 # Working on nife
 
-<!-- prose-budget: exception. 2,728 words (wc -w, this marker included) against a 3,000-word cap.
-     Ratified by calef on 2026-09-24 (UTC) at 5,873 words; later rulings moved it here, and git log
-     has each step; calef ratified the commit-trailer rule on 2026-10-03 (UTC). On 2026-10-06 (UTC)
-     lane/agents-md-skills moved the sections one kind of work needs into notes/skills/, so the
-     figure fell below the cap and this exception may no longer be needed; calef has not yet
-     reviewed that move. Reason: this file is
-     nothing but rules, every reason having moved to design/tenets/, and the imperatives alone do
-     not fit the cap; rules were not cut to make them fit. helpers/prose_ratchet.py (the prose ratchet in script/lint) reads this marker. -->
-
 *Two renames and one pivot sit behind the old names a reader will meet in older records:
 [design/tenets/project-history.md](design/tenets/project-history.md). Every reason, measurement and
 anecdote behind a rule here lives in [design/tenets/](design/tenets/), linked from the rule it
-explains. It is a ratified exception to the 3,000-word cap; the comment atop the source says why.*
+explains.*
 
 ## What this project is
 
