@@ -103,7 +103,13 @@ fn a_write_only_rendezvous_holder_cannot_receive_reap_or_survey() {
         "a WRITE-only holder REAPed: it could collect a corpse it does not supervise",
     );
     assert_eq!(
-        call(client, abi::rendezvous::SURVEY, 0, abi::survey::record::STATE, 0),
+        call(
+            client,
+            abi::rendezvous::SURVEY,
+            0,
+            abi::survey::record::STATE,
+            0
+        ),
         Err(Error::NotPermitted),
         "a WRITE-only holder SURVEYed: it could enumerate a domain it does not supervise",
     );
@@ -199,4 +205,48 @@ fn a_read_only_holder_cannot_send_and_an_ungranted_slot_names_nothing() {
         "the receiver thread never finished after a message reached it",
     );
     sched::reclaim_region(region).expect("the endpoint's region did not come back");
+}
+
+/// **A spend-only (GRANT-less) budget still mints a GRANT-bearing frame** (claim 3's retype side,
+/// milestone 633 third pass). Characterization, booted.
+///
+/// `memory_region_cap` hands a child a `WRITE`-only untyped so it may spend memory but not lend it,
+/// and `SPLIT` honors that: the budget cannot split a GRANT-bearing child, which claim 3's host
+/// proof `split_never_widens_rights` covers. But `MemoryRegion::RETYPE` needs only `WRITE` and
+/// returns the new `PageFrame` with `Rights::ALL`, GRANT included, through the real dispatcher, so a
+/// holder of a non-delegating budget can retype a page and then delegate it. The "rights only
+/// narrow" sentence is true of the region, not of what is carved from it. It is the holder's own
+/// memory, so this is a scope gap rather than a cross-domain reach, and a claim or ruling is owed
+/// (`kernel/src/cap.rs` records it). This asserts the gap at boot so it cannot close unnoticed:
+/// should the retype side ever withhold GRANT, the GRANT assertion below flips and this test is the
+/// thing that says so.
+#[test_case]
+fn a_grant_less_budget_mints_a_grant_bearing_frame() {
+    let region = crate::memory_region::create(8).expect("no region");
+    // WRITE alone: no GRANT. The spend-only leaf budget a child is handed.
+    let budget = sched::grant(crate::cap::memory_region_cap(region)).expect("grant the budget");
+    assert_eq!(
+        sched::current_cap(budget).expect("budget cap").rights,
+        Rights::WRITE,
+        "the spend-only budget should hold WRITE alone, with no GRANT",
+    );
+    // Retype one page out of it, through the real dispatcher.
+    let slot = call(budget, abi::memory_region::RETYPE, 0, 0, 0)
+        .expect("RETYPE refused a WRITE-only budget");
+    let frame = sched::current_cap(slot as u64).expect("no frame capability at the returned slot");
+    assert!(
+        frame.rights.allows(Rights::GRANT),
+        "a GRANT-less budget minted a frame without GRANT ({:?}); if this ever holds, the retype \
+         side of claim 3 was closed and this characterization should become a held assertion",
+        frame.rights,
+    );
+    assert_eq!(
+        frame.rights,
+        Rights::ALL,
+        "the retyped frame should carry full rights, the Rights::ALL invariant RETYPE documents; a \
+         GRANT-less budget thus hands on a fully delegatable frame",
+    );
+    let _ = sched::delete_current_cap(slot as u64);
+    let _ = sched::delete_current_cap(budget);
+    sched::reclaim_region(region).expect("the budget region did not come back");
 }
