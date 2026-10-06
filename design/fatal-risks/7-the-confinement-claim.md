@@ -94,6 +94,18 @@ boot is claim 24's file-server window reuse, read by two passes and not booted; 
 685 (a job is finished when its memory is back). All three passes were one vendor's models, so this
 is the evidence the 633 premise check scopes and not the human half.
 
+Dated 2026-10-06 (UTC): calef re-affirmed the verdict ("Agreed Amber.") and agreed what green needs:
+(a) no known live escape, so claim 24 closed by milestone 685 (a job is finished when its memory is
+back), proven by a host test of the window-reuse rule (`Windows::take` never hands out a window
+whose last holder is unreaped) that goes red without the fix, plus a booted test of the reap protocol
+on all three ISAs; (b) a replayable
+falsification on all 32 rows of `notes/confinement-claims.md`; (c) two consecutive independent
+attacks with no escape on a shipped path, at least one by a non-Anthropic model or a human, where a
+pass that leaves a refusal on a shipped path unexamined does not count (calef, "Add the refusal
+log."); and
+(d) the milestone that fuzzes the surface a confined process can reach (numbered 779 in #1734,
+not yet merged) run to a set budget with no escape.
+
 The caveat that keeps the gate closed: it was us attacking our own system. A hole we closed ourselves
 is the same category of evidence as the audit that found it. The outsider trying to escape is gated
 behind milestone 198 (a package manager, and the trivial install that makes a second customer
