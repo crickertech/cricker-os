@@ -174,6 +174,9 @@ jobs:
     if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     outputs:
       needed: ${{ steps.scope.outputs.needed }}
+      base: ${{ steps.scope.outputs.base }}
+      falsify-shards: ${{ steps.plan.outputs.shards }}
+      falsify-count: ${{ steps.plan.outputs.count }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -188,6 +191,7 @@ jobs:
           # HEAD itself, so the newest commit stays the scope there.
           [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
           [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
           scope="$(script/verify --affected-since "$base")"
           echo "$scope"
           if [ "$(echo "$scope" | tail -1)" = "verify-scope: not-needed" ]; then
@@ -196,6 +200,17 @@ jobs:
           else
             echo "needed=true" >> "$GITHUB_OUTPUT"
           fi
+      # How many re-falsify shards this diff needs, planned here so a diff that reaches no record
+      # starts no Kani runner at all. See the `falsify-shard` job.
+      - name: Plan the re-falsify shards
+        id: plan
+        if: steps.scope.outputs.needed == 'true'
+        run: |
+          plan="$(script/falsifications --plan-since "${{ steps.scope.outputs.base }}")"
+          echo "$plan"
+          shards="$(echo "$plan" | tail -1)"
+          echo "shards=$shards" >> "$GITHUB_OUTPUT"
+          echo "count=$(echo "$shards" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')" >> "$GITHUB_OUTPUT"
 
   prove:
     name: prove (shard ${{ matrix.shard }}/2)
@@ -369,17 +384,37 @@ jobs:
   # over 10 merge-group runs, it finished after both shards once (by about four minutes) and before
   # them nine times. It rides `scope.needed` so a documentation-only change does not pay for a Kani
   # install.
-  falsify:
-    name: re-falsify the harnesses this change can reach
+  # **Sharded, sized by the diff** (calef, 2026-10-06 UTC: "I feel like the full sweep should be
+  # sharded now with a target for 20 minutes for our long pole"). The scope job runs
+  # `script/falsifications --plan-since`, which packs the records this diff reaches into the fewest
+  # shards whose estimated replay is at most 20 minutes, weighed by each record's measured time
+  # (notes/project-metrics/falsification-times.tsv, written back by the weekly sweep). A diff that
+  # reaches nothing gets no shard and spends no runner here; one crate gets one; the full set of
+  # 225 records, measured at 3,513 s on 2026-10-05, gets three at about 1,180 s each.
+  #
+  # Why it had to change: #1726 and #1734 each reached every record and were cancelled at this
+  # job's old 45-minute limit (#1734 in run 37399689439, 125 of 225 replayed), once `glob` and
+  # `machine_discovery` landed 35 minutes of solver-heavy records between them. A single job sized
+  # to the full sweep was the other option and lost to this ruling: it would put an hour on the
+  # merge queue's critical path, where the prove shards take 16 to 29 minutes.
+  falsify-shard:
+    name: re-falsify (shard ${{ matrix.shard }}/${{ needs.scope.outputs.falsify-count }})
     needs: [gate, scope]
     if: >-
       !cancelled() &&
       needs.scope.outputs.needed == 'true' &&
+      needs.scope.outputs.falsify-shards != '[]' &&
+      needs.scope.outputs.falsify-shards != '' &&
       needs.gate.outputs.run != 'false'
     runs-on: ubuntu-24.04-arm
-    # Kani's install dominates; the sweep itself is seconds today. Generous against growth in the
-    # record count, tight enough that a hung solver fails loudly.
-    timeout-minutes: 45
+    # 30 against the 20-minute target: 1.5 times, for a stale weight, a cold Kani install, or one
+    # record at its own 15-minute limit. A shard that needs more is a packing input to fix (the
+    # times file, or SHARD_TARGET in script/falsifications), not a limit to raise.
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.scope.outputs.falsify-shards) }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -389,16 +424,41 @@ jobs:
         run: |
           cargo install --locked kani-verifier
           cargo kani setup
-      - name: script/falsifications --affected-since
+      - name: script/falsifications --affected-since --shard
         run: |
-          base="${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}"
-          # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
-          # a lane whose last commit was documentation skipped the build its earlier commits needed
-          # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
-          # HEAD itself, so the newest commit stays the scope there.
-          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
-          [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
-          script/falsifications --affected-since "$base"
+          script/falsifications --affected-since "${{ needs.scope.outputs.base }}" \
+            --shard "${{ matrix.shard }}/${{ needs.scope.outputs.falsify-count }}"
+
+  # The name the rest of the tree knows this check by, kept stable over the matrix the way
+  # `verify (Kani proofs)` stands over the prove shards. It reads one result and needs no runner
+  # time beyond that.
+  falsify:
+    name: re-falsify the harnesses this change can reach
+    needs: [gate, scope, falsify-shard]
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Report the shards' combined result
+        run: |
+          shards='${{ needs.scope.outputs.falsify-shards }}'
+          result="${{ needs['falsify-shard'].result }}"
+          echo "shards: $shards"
+          echo "falsify-shard: $result"
+          case "${{ needs.scope.result }}" in
+            success|skipped) ;;
+            *) echo "==> the scope job did not finish, so nothing planned the shards" >&2; exit 1 ;;
+          esac
+          case "$result" in
+            success) echo "==> every reachable falsification still turns its harness red" ;;
+            skipped)
+              # Skipped is green only when the scope job decided it: no proofs needed, or no shard.
+              if [ "${{ needs.scope.outputs.needed }}" = "true" ] && [ "$shards" != "[]" ]; then
+                echo "==> the shards were skipped although the plan named some" >&2; exit 1
+              fi
+              echo "==> nothing in this change can reach a falsification" ;;
+            *) echo "==> a re-falsify shard reported '$result'" >&2; exit 1 ;;
+          esac
 
   verify:
     name: verify (Kani proofs)

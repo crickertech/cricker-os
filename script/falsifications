@@ -129,6 +129,10 @@
 #   script/falsifications --sweep-attested [package]   replay the `attested` records that carry a
 #                                           patch, on a host whose architecture compiles them
 #   script/falsifications --affected-since <base>   sweep only what a diff can reach (the per-PR half)
+#   script/falsifications --plan-since <base>       how many shards that needs, as a JSON list last
+#   script/falsifications --affected-since <base> --shard k/n   replay one of those shards
+#   script/falsifications --record-times <transcript>...      merge a sweep's per-record times into
+#                                           notes/project-metrics/falsification-times.tsv
 #
 # Both sweeps give each record **at most 15 minutes (a kernel test 30)** and report one that runs
 # out as `ERROR ... no verdict`, then go on to the next record and exit non-zero at the end.
@@ -1220,6 +1224,31 @@ def selftest():
         if comment_only_change(before, after, docs) != want:
             print("falsifications --selftest: %s: wanted %s" % (what, want))
             bad += 1
+    # The shard packer verify.yml's re-falsify matrix uses: every record in exactly one shard, a
+    # package kept whole when it fits, split when it alone is over the target.
+    class R:
+        def __init__(self, package, name):
+            self.package, self.name = package, name
+    recs = [R("big", "r%d" % i) for i in range(6)] + [R("mid", "m%d" % i) for i in range(4)] \
+        + [R("small", "s0"), R("new", "n0")]
+    times = {"big::r%d" % i: 400.0 for i in range(6)}
+    times.update({"mid::m%d" % i: 200.0 for i in range(3)})  # mid::m3 unmeasured: its package mean
+    times["small::s0"] = 10.0  # new::n0 unmeasured: the median, 400; 3,610 s in all is 4 shards
+    shards, loads = pack(recs, times, target=1200)
+    flat = [record_key(h) for sh in shards for h in sh]
+    packing = [
+        ("every record lands in exactly one shard", sorted(flat) == sorted(record_key(h) for h in recs)),
+        ("the fewest shards that fit the target", len(shards) == 4 and max(loads) <= 1200),
+        ("a package under the target stays on one shard",
+         sum(1 for sh in shards if any(h.package == "mid" for h in sh)) == 1),
+        ("a package over the target is split", sum(1 for sh in shards if any(h.package == "big" for h in sh)) == 2),
+        ("a fixed shard count is honored", len(pack(recs, times, n=5, target=1200)[0]) == 5),
+        ("nothing reachable packs into no shard", pack([], times) == ([], [])),
+    ]
+    for what, ok in packing:
+        if not ok:
+            print("falsifications --selftest: packing: %s (loads %s)" % (what, loads))
+            bad += 1
     for what, base, head, want in cases:
         got = len(unrecorded_new_tests(base, head))
         if got != want:
@@ -1849,6 +1878,7 @@ def sweep(hs, only=None, empty_is_clean=False, attested=False):
         print("broken selection and not a clean sweep (see the docstring of sweep()).")
         return 4
     survivors, broken, hung = [], [], []
+    sweep_began = time.monotonic()
     for h in todo:
         patch = os.path.join(root, h.state_patch)
         print("==> %s::%s" % (h.package, h.name))
@@ -1892,8 +1922,10 @@ def sweep(hs, only=None, empty_is_clean=False, attested=False):
             print("    " + rev.stderr.strip())
             return 3
     print("")
-    print("%d swept, %d survivors, %d stale or broken, %d without a verdict"
-          % (len(todo), len(survivors), len(broken), len(hung)))
+    # The total, beside the per-record times `--record-times` reads, so a shard's estimate can be
+    # checked against what it took.
+    print("%d swept, %d survivors, %d stale or broken, %d without a verdict (%.0f s)"
+          % (len(todo), len(survivors), len(broken), len(hung), time.monotonic() - sweep_began))
     for h in survivors:
         print("  survivor  %s::%s" % (h.package, h.name))
     for h in broken:
@@ -1989,6 +2021,150 @@ def affected_packages(base, hs):
     return out
 
 
+# **Sharding the per-pull-request replay** (calef, 2026-10-06 UTC: "the full sweep should be
+# sharded now with a target for 20 minutes for our long pole"). `--plan-since` decides how many
+# shards a diff needs and `--affected-since <base> --shard k/n` replays one of them; verify.yml runs
+# the first in its scope job, which already exists, so a diff that reaches nothing costs no runner
+# beyond that one. The shard count follows the diff: a change to one crate gets one shard, and a
+# full sweep gets as many as keep each under SHARD_TARGET.
+#
+# The packing weighs each record by its measured replay time, read from TIMES, which the weekly
+# sweep writes back (`--record-times`, falsifications.yml). Measured rather than guessed, and a
+# stale or missing number only unbalances the shards: every reachable record lands in exactly one
+# shard whatever the weights say. A record with no measurement weighs its package's mean, or the
+# tree's median when its package has none.
+#
+# A package is the packing unit, so a crate is built on one runner, unless the package alone is
+# over the target; then its records are dealt into chunks that each fit. `glob` (6 records, about
+# 1,050 s) and `machine_discovery` (16, about 1,060 s) were the cases that set this, each near 17.5
+# minutes against the 20.
+TIMES = "notes/project-metrics/falsification-times.tsv"
+SHARD_TARGET = 20 * 60
+SHARD_MAX = 8
+
+
+def record_key(h):
+    return "%s::%s" % (h.package, h.name)
+
+
+def read_times():
+    out = {}
+    try:
+        with open(os.path.join(root, TIMES)) as f:
+            for line in f:
+                if line.startswith("#") or not line.strip():
+                    continue
+                key, secs = line.rstrip("\n").split("\t")[:2]
+                out[key] = float(secs)
+    except FileNotFoundError:
+        pass
+    return out
+
+
+def weights(records, times):
+    known = sorted(times.values())
+    median = known[len(known) // 2] if known else 60.0
+    by_pkg = {}
+    for k, v in times.items():
+        by_pkg.setdefault(k.split("::")[0], []).append(v)
+    out = {}
+    for h in records:
+        key = record_key(h)
+        if key in times:
+            out[key] = times[key]
+        elif h.package in by_pkg:
+            out[key] = sum(by_pkg[h.package]) / len(by_pkg[h.package])
+        else:
+            out[key] = median
+    return out
+
+
+def pack(records, times, n=None, target=SHARD_TARGET):
+    """Deal `records` into shards by weight. With `n`, exactly n shards; without, the fewest whose
+    heaviest is at most `target` (capped at SHARD_MAX). Returns (shards, loads), each shard a list
+    of records. Deterministic, because every shard job recomputes it and they must agree."""
+    w = weights(records, times)
+    groups = {}
+    for h in sorted(records, key=record_key):
+        groups.setdefault(h.package, []).append(h)
+    items = []  # (weight, name, records)
+    for pkg, hs in sorted(groups.items()):
+        total = sum(w[record_key(h)] for h in hs)
+        if total <= target:
+            items.append((total, pkg, hs))
+            continue
+        chunks = []  # longest first into the lightest chunk that fits, else a new chunk
+        for h in sorted(hs, key=lambda h: (-w[record_key(h)], record_key(h))):
+            fit = [c for c in chunks if c[0] + w[record_key(h)] <= target]
+            if fit:
+                c = min(fit, key=lambda c: c[0])
+            else:
+                c = [0.0, []]
+                chunks.append(c)
+            c[0] += w[record_key(h)]
+            c[1].append(h)
+        for i, (load, chunk) in enumerate(chunks):
+            items.append((load, "%s#%d" % (pkg, i), chunk))
+    items.sort(key=lambda it: (-it[0], it[1]))
+
+    def deal(k):
+        bins = [[0.0, []] for _ in range(k)]
+        for load, _, hs in items:
+            b = min(range(k), key=lambda i: (bins[i][0], i))
+            bins[b][0] += load
+            bins[b][1].extend(hs)
+        return bins
+
+    if not items:
+        return [], []
+    if n is None:
+        n = max(1, -(-int(sum(it[0] for it in items)) // target))
+        while n < min(SHARD_MAX, len(items)) and max(b[0] for b in deal(n)) > target:
+            n += 1
+    bins = deal(n)
+    return [b[1] for b in bins], [b[0] for b in bins]
+
+
+def reachable_records(base, cheap):
+    names = affected_packages(base, cheap)
+    return names, [h for h in cheap if h.state == "replayable" and h.package in names]
+
+
+def record_times(logs):
+    """Merge the per-record times in sweep transcripts into TIMES. A record absent from the logs
+    keeps its old number; nothing here drops one, since a stale weight only unbalances."""
+    times = read_times()
+    found = 0
+    for log in logs:
+        cur = None
+        for line in open(log, errors="replace"):
+            m = re.search(r"==> (\S+::\S+)\s*$", line)
+            if m:
+                cur = m.group(1)
+                continue
+            m = re.search(r"\s{4}(?:red|SURVIVOR|ERROR|STALE)\b.*\(([0-9.]+) s\)\s*$", line)
+            if m and cur:
+                times[cur] = float(m.group(1))
+                found += 1
+                cur = None
+    path = os.path.join(root, TIMES)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write("# Seconds each falsification record took to replay, build included, from the weekly\n"
+                "# sweep's transcript (`script/falsifications --record-times`). Read by `--plan-since`\n"
+                "# and `--shard` to balance verify.yml's re-falsify shards; a stale number only\n"
+                "# unbalances them. Generated: do not edit by hand.\n")
+        for k in sorted(times):
+            f.write("%s\t%.1f\n" % (k, times[k]))
+    print("%d record time(s) read; %s holds %d" % (found, TIMES, len(times)))
+    return 0 if found else 1
+
+
+if mode == "--record-times":
+    if len(args) < 2:
+        sys.exit("usage: script/falsifications --record-times <sweep transcript>...")
+    sys.exit(record_times(args[1:]))
+
 if mode == "--selftest":
     # Fixtures only, before any `cargo metadata`, so `script/lint` can run it first for nothing.
     sys.exit(selftest())
@@ -2062,12 +2238,30 @@ elif mode == "--affected-since":
     # Host-test records ride the per-PR half too (milestone 742): a replay is one `cargo test`,
     # seconds, so the cost argument that keeps kernel and swish-check records weekly does not apply.
     cheap = hs + [t for t in kts if t.kind == "host test"]
-    names = affected_packages(args[1], cheap)
+    names, todo = reachable_records(args[1], cheap)
     if not names:
         print("no harness package is reachable from this change; nothing to re-falsify")
         sys.exit(0)
     print("reachable harness packages: %s" % ", ".join(sorted(names)))
-    sys.exit(sweep(cheap, names, empty_is_clean=True))
+    if len(args) >= 4 and args[2] == "--shard":
+        k, n = (int(x) for x in args[3].split("/"))
+        shards, loads = pack(todo, read_times(), n=n)
+        if not 1 <= k <= len(shards):
+            sys.exit("--shard %d/%d: this diff packs into %d shard(s)" % (k, n, len(shards)))
+        todo = shards[k - 1]
+        print("shard %d/%d: %d record(s), estimated %.0f s" % (k, n, len(todo), loads[k - 1]))
+    sys.exit(sweep(todo, None, empty_is_clean=True))
+elif mode == "--plan-since":
+    # verify.yml's scope job reads the last line, a JSON list of shard indices for the matrix.
+    if len(args) < 2:
+        sys.exit("usage: script/falsifications --plan-since <base-ref>")
+    cheap = hs + [t for t in kts if t.kind == "host test"]
+    names, todo = reachable_records(args[1], cheap)
+    shards, loads = pack(todo, read_times())
+    for i, (sh, load) in enumerate(zip(shards, loads), 1):
+        print("shard %d: %d record(s), estimated %.0f s (%s)" % (
+            i, len(sh), load, ", ".join(sorted({h.package for h in sh}))))
+    print(json.dumps(list(range(1, len(shards) + 1))))
 elif mode in ("", "--all"):
     table(hs, pkgs, kts)
 else:
