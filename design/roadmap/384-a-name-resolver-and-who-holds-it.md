@@ -3,7 +3,7 @@ status: BUILT
 raised: 2026-09-05
 built: 2026-10-06
 milestone_dependencies: none
-decision_dependencies: none
+decision_dependencies: 248, 252
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -26,9 +26,9 @@ proposal as the reason the link-local responder was not the answer here.
 ## Built 2026-10-06: the resolver, the grant and the gate on three architectures
 
 A second lane (`lane/384-resolver`, PR #1760) built what the first one stopped at, after calef ruled
-Fork 1 (§248 (the name resolver is its own confined program)). Forks 2 and 3 are built on the first
-lane's leaning answers **provisionally**, and their ratification is that pull request's
-`needs-architect` ask.
+Fork 1 (§248 (the name resolver is its own confined program)). Forks 2 and 3 were built on the first
+lane's leaning answers. calef ratified both on 2026-10-06 (UTC). §252 (a resolver grant is one zone
+per client badge) records them.
 
 - `components/src/name_resolver.rs` (name provisional): §248's confined program. It holds a `Stack`
   endpoint, an entropy endpoint and the name server its spawner names, and serves clients over its
@@ -140,9 +140,6 @@ Kani-proven not to loop or overrun, is in `crates/multicast_dns_protocol` at com
 - `socket-dns`'s cost was read rather than built (2026-10-04): 1,503 lines of `smoltcp` source, and
   the three findings above. An enabled feature nothing calls links to nothing, so a size delta
   without a caller would measure nothing.
-- The capability shape (Fork 2) and the protocol (Fork 3) are built provisionally and await calef's
-  ratification on #1760. A "no" changes `crates/name_resolution_protocol` and the resolver's
-  `serve`, and nothing a real client has been written against, since none has yet.
 - The resolver is started only by the test harness. The booted system starting it from the lease is
   milestone 801 (packages over the internet)'s, whose package client is its first real client.
 - The resolver's UDP path, with its source check and its keep-listening on a forged reply, has run
@@ -153,11 +150,10 @@ Kani-proven not to loop or overrun, is in `crates/multicast_dns_protocol` at com
 - **Decision.** `design/decisions/248-the-resolver-is-its-own-confined-program.md` holds Fork 1.
   calef ruled it on 2026-10-04. The resolver is its own confined program.
 - **Done.** The resolver program, `components/src/name_resolver.rs`, by #1760.
-- **Done.** The grant's shape and what enforces it (Fork 2), built provisionally by #1760 as a zone
-  per client badge. calef's ratification is that pull request's `needs-architect` ask, and the
-  maintainer mints its `design/decisions/` section at merge.
-- **Done.** The client protocol (Fork 3), `crates/name_resolution_protocol`, built provisionally by
-  #1760 as P1, under the same ask.
+- **Done.** The grant's shape (Fork 2) is a zone per client badge, built by #1760. The client
+  protocol (Fork 3) is P1, in `crates/name_resolution_protocol`. calef ratified both on 2026-10-06
+  (UTC). `design/decisions/252-a-resolver-grant-is-a-zone-per-badge-over-the-socket-contracts-shape.md`
+  holds them.
 - **Milestone 801.** Starting the resolver on the booted system, with the lease's name server, and
   granting the package client its source's host: milestone 801 (packages over the internet), whose
   package client is the resolver's first real client.

@@ -3,9 +3,9 @@
 Milestone 384 (in a capability system the resolver is a grant), lanes of 2026-10-04 and 2026-10-06
 (UTC). Nothing in this tree turned a host name into an address. The first lane built the wire format
 and stopped at three forks; calef ruled the first (§248 (the name resolver is its own confined
-program)). The second built the resolver on the other two's leaning answers, **provisionally**, and
-those two answers are what calef is asked to ratify on its pull request (#1760). Fork 2 and Fork 3
-below say what was built and what changes if the answer is no.
+program)). The second built the resolver on the other two's leaning answers. calef ratified both
+on its pull request (#1760) on 2026-10-06 (UTC), and §252 (a resolver grant is one zone per client
+badge) records them. Fork 2 and Fork 3 below keep the options and the reasoning.
 
 ## What is built
 
@@ -62,8 +62,8 @@ refused.
 ## The proposal: three forks
 
 Each is a wire format two programs agree on or a choice 384 leaves open. The first lane built none
-of them; the second built Forks 2 and 3 provisionally, after Fork 1 was ruled. Whether to write the parser at all, or take a crate, comes
-first, because §46 (thin primitives or whole subsystems; we write everything in between) makes
+of them. The second built Forks 2 and 3 after Fork 1 was ruled, and calef ratified both (§252).
+Whether to write the parser at all, or take a crate, comes first, because §46 (thin primitives or whole subsystems; we write everything in between) makes
 it a decision.
 
 ### Write or take: the §46 question
@@ -155,8 +155,8 @@ parser's location and the grant Fork 2 needs a holder for, none of which is effo
 
 ### Fork 2. The grant's shape, and what enforces it
 
-**Built provisionally on 2026-10-06 (UTC) as G3 by badge, the check on the name asked.** Held for
-calef's ratification, because a grant shape is what every client will be written against.
+**Built on 2026-10-06 (UTC) as G3 by badge, the check on the name asked, and ratified the same day:**
+calef, *"Yes on Fork 2"*, recorded in §252.
 
 | Option | A client may resolve | Note |
 |---|---|---|
@@ -188,8 +188,8 @@ client's code does not, because it never sees the grant.
 
 ### Fork 3. The client protocol
 
-**Built provisionally as P1, in `crates/name_resolution_protocol`.** Held for ratification, since it
-is a wire format two programs agree on.
+**Built as P1, in `crates/name_resolution_protocol`, and ratified on 2026-10-06 (UTC):** calef,
+*"Yes on Fork 3"*, recorded in §252.
 
 - P1. The socket contract's shape: the client attaches a page, writes the name, calls a resolve verb,
   and reads up to eight addresses, a TTL and a status word from the page. One round trip.
@@ -211,7 +211,7 @@ spawner that starts a resolver hands that address on as its endowment.
 
 ### What is left, and whose it is
 
-Nothing in milestone 384 waits now: the forks are built and held for ratification. Starting the
+Nothing in milestone 384 waits now: the forks are built and ratified (§252). Starting the
 resolver at boot is milestone 801 (packages over the internet)'s, because the package client is its
 first client. The progenitor reads the name server from `net_stack`'s lease, as the gate does, and
 hands it to `name_resolver`. It then grants the package client's badge its package source's host.
