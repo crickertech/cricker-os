@@ -773,6 +773,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "name_resolution_protocol"
+version = "0.1.0"
+dependencies = [
+ "domain_name_system",
+]
+
+[[package]]
 name = "network_time_protocol"
 version = "0.1.0"
 

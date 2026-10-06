@@ -7,6 +7,6 @@
 name = "network"
 kind = "base"
 home = { repo = "network", status = "provisional" }
-crates = ["domain_name_system", "http_response"]
+crates = ["domain_name_system", "http_response", "name_resolution_protocol"]
 programs = ["net_stack"]
 paths = ["components/src/virtio_net_transport.rs", "components/src/socket_test_client.rs"]

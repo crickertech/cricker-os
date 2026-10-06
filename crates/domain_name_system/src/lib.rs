@@ -671,6 +671,13 @@ impl Query {
         })
     }
 
+    /// A query for a name already in wire form. The resolver parses a client's text once, checks it
+    /// against the client's grant, and asks about exactly the name it checked, rather than parsing
+    /// the text a second time and trusting the two parses to agree.
+    pub fn for_name(id: u16, name: Name) -> Query {
+        Query { id, name }
+    }
+
     /// The transaction id.
     pub fn id(&self) -> u16 {
         self.id
