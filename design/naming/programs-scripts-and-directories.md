@@ -114,6 +114,16 @@ A `_test_client` exercises a service contract from outside, with a server on the
 unqualified names (`fs_client`, `socket_client`, `credentialer_client`) belong to the real clients
 milestones 54 and 55 will need, and giving them to test programs squats them.
 
+### A network card transport is `<device family>_transport`
+
+calef, 2026-10-06 UTC, renaming `net_transport` to `virtio_net_transport` beside `e1000e_transport`
+once a second card's transport made the old name ambiguous. Qualify the family only when its name
+covers more than one kind of device: `designware_ethernet_transport`, because Synopsys DesignWare
+also names USB, MMC, I2C and PCIe blocks. No vendor prefix, because vendors rebrand while family
+names stay, and Linux likewise names the driver `e1000e` and puts the vendor in the directory. The
+vendor goes in the crate and module headers. Refused `intel_e1000e_transport` and
+`e1000e_ethernet_transport`, since nothing else is called e1000e.
+
 ## Shell builtins
 
 A builtin is a word the shell answers itself. It is the most reader-facing name in the tree after a
