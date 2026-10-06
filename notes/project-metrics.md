@@ -198,21 +198,6 @@ failing build. 2026W31 to 2026W38 were backfilled on 2026-09-24 from each week's
 calef ratified a 3,000-word cap per document on 2026-09-23, enforced as a ratchet. The first chart
 is the debt in words and the second the documents holding it.
 
-## The bold backlog
-
-![Bold spans over the budget](project-metrics/bold-backlog.svg)
-
-![Documents over the bold budget](project-metrics/bold-backlog-documents.svg)
-
-This chart is temporary. calef ruled on 2026-09-26 that bold should be rare: 4 spans per 1,000
-words, met by any document a change touches. He chose not to sweep the rest. calef asked for the sweep on 2026-10-05 (UTC). The chart is
-pulled once both panels reach zero. Then `script/metrics` prints "the bold backlog
-is zero; retire this chart" and writes it here:
-
-<!-- bold-backlog: script/metrics writes this -->
-2026W41: 1 spans over, in 1 documents.
-<!-- /bold-backlog -->
-
 ## Homes
 
 ![Packages](project-metrics/homes-packages.svg)

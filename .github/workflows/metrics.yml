@@ -197,9 +197,9 @@ jobs:
         run: |
           set -e
           # The page too, not only the directory: `script/metrics` writes generated lines onto
-          # notes/project-metrics.md (the table of contents, the bold backlog's line, the drift
-          # line), and the pathspec `notes/project-metrics` does not match that file. Until
-          # 2026-09-26 those lines were rewritten here and then dropped.
+          # notes/project-metrics.md (the table of contents, the drift line), and the pathspec
+          # `notes/project-metrics` does not match that file. Until 2026-09-26 those lines were
+          # rewritten here and then dropped.
           if git diff --quiet -- notes/project-metrics notes/project-metrics.md; then
             echo "Nothing moved this week; no pull request."
             exit 0

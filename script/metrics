@@ -426,9 +426,10 @@ MEASURES = [
     ('coe-actions', ['coe_actions_open', 'coe_actions_closed']),
     ('coverage', ['coverage_lines_pct', 'coverage_min_file_pct']),
     ('prose-budget', ['prose_excess_words', 'prose_documents_over_cap']),
-    # Temporary, and it says so where it is drawn: see `bold_backlog` and BOLD_RETIRE below. The
-    # file name and both column names are provisional (lane/faux-headings, 2026-09-26).
-    ('bold-backlog', ['bold_excess_spans', 'bold_documents_over']),
+    # `bold-backlog.csv` (2026W29 to 2026W41) is history that nothing writes or reads any more. The
+    # bold backlog reached zero on 2026-10-06 (UTC) and calef asked that it stop being tracked; the
+    # gate that holds it at zero is `check` in helpers/prose_ratchet.py, which refuses any bold
+    # ceiling in design/prose-baseline.tsv.
     # Milestone 611. File and column names provisional (that lane's, 2026-09-27).
     ('homes', HOMES_COLUMNS),
     # Milestone 415 (sub-tripwire drift accumulates across baseline saves), item 3: icount drift
@@ -1387,75 +1388,9 @@ def prose_budget(tree):
     return {'prose_excess_words': excess, 'prose_documents_over_cap': over}
 
 
-# The bold backlog: §213 (writing standards) rule 3's budget of 4 bold spans per 1,000 words.
-# calef ruled on 2026-09-26 (UTC) that any document a change touches must meet it, and chose not
-# to sweep the rest, relying on this chart to drive it down. Two series, the prose budget's pair
-# again: the spans that would have to go for every document to meet the budget, and how many
-# documents they sit in.
-#
-# THIS SERIES IS TEMPORARY. calef, 2026-09-26: once the backlog is fixed the chart is pulled from
-# the metrics. `bold_retire_line` is what makes that nobody's memory: the first week both cells are
-# 0, this script prints BOLD_RETIRE and writes it onto the page beside the chart. Pulling it means
-# deleting the measure, both CHARTS entries, this block, and the page section.
-#
-# Counted with the gate's own reader, `prose_ratchet.measure` and `prose_ratchet.bold_excess`, over
-# the gate's own scope, so the chart and `script/lint` cannot disagree about what a bold span is.
-# Every document counts, a marked exception included, for the prose budget's reason above.
-BOLD_RETIRE = 'the bold backlog is zero; retire this chart'
-BOLD_BEGIN = '<!-- bold-backlog: script/metrics writes this -->'
-BOLD_END = '<!-- /bold-backlog -->'
-
-
-def bold_backlog(tree):
-    """Bold spans over 4 per 1,000 words, summed over documents, and how many documents hold them."""
-    excess = 0
-    over = 0
-    for _path, text in _prose_documents(tree):
-        spans = prose_ratchet.bold_excess(prose_ratchet.measure(text))
-        if spans:
-            over += 1
-            excess += spans
-    return {'bold_excess_spans': excess, 'bold_documents_over': over}
-
-
-def bold_retire_line(rows):
-    """BOLD_RETIRE if the latest week measured both cells at 0, else None."""
-    measured = [w for w in sorted(rows) if rows[w].get('bold_excess_spans', '') not in ('', None)]
-    if not measured:
-        return None
-    last = rows[measured[-1]]
-    if str(last.get('bold_excess_spans')) == '0' and str(last.get('bold_documents_over')) == '0':
-        return BOLD_RETIRE
-    return None
-
-
-def write_bold_status(rows):
-    """The generated line beside the bold chart on the page: the week's numbers, or BOLD_RETIRE."""
-    path = pathlib.Path(PAGE)
-    text = path.read_text()
-    if text.count(BOLD_BEGIN) != 1 or text.count(BOLD_END) != 1:
-        raise SystemExit('metrics: %s must carry exactly one %r and one %r'
-                         % (PAGE, BOLD_BEGIN, BOLD_END))
-    measured = [w for w in sorted(rows) if rows[w].get('bold_excess_spans', '') not in ('', None)]
-    if not measured:
-        return
-    week = measured[-1]
-    line = bold_retire_line(rows)
-    if line:
-        body = '%s: %s.' % (week, line)
-    else:
-        body = ('%s: %s spans over, in %s documents.'
-                % (week, rows[week]['bold_excess_spans'], rows[week]['bold_documents_over']))
-    head, rest = text.split(BOLD_BEGIN)
-    _old, tail = rest.split(BOLD_END)
-    new = head + BOLD_BEGIN + '\n' + body + '\n' + BOLD_END + tail
-    if new != text:
-        path.write_text(new)
-
-
 # Cumulative icount drift since a fixed anchor: milestone 415 item 3, which calef ruled on
 # 2026-09-26 (UTC) is a report and not a gate (§190). The arithmetic and its selftest are
-# helpers/baseline_drift.py. Three outputs, the bold backlog's shape: two cells per architecture in
+# helpers/baseline_drift.py. Three outputs: two cells per architecture in
 # `baseline-drift.csv` (the largest upward drift, and rows past half the tripwire), one generated
 # line on the page between DRIFT_BEGIN and DRIFT_END, and the whole report, every row and every
 # save's `# why:` lines, regenerated as the appendix DRIFT_REPORT. The line and the appendix read
@@ -1733,7 +1668,7 @@ def row_for(rev, week, coverage='', person_weeks='', coverage_min=''):
     for part in (proposals(tree), lines(tree), bugs(tree), harnesses(tree),
                  unsafe_census(tree), unsafe_trust_census(tree),
                  fatal_risks_colors(tree), coe_action_counts(tree), prose_budget(tree),
-                 bold_backlog(tree), homes(tree)):
+                 homes(tree)):
         row.update(part)
     row.update(baseline_drift.series_cells(rev))
     return row
@@ -2365,14 +2300,6 @@ CHARTS = [
      'the same debt by where it sits; one split book moves the chart above and not this one',
      [('documents over the cap', 'prose_documents_over_cap')], 1.0, None,
      'prose_documents_over_cap'),
-    # Temporary: see `bold_backlog`. The pair's reason again, spans and documents on two panels.
-    ('bold-backlog.svg', 'Bold spans over 4 per 1,000 words',
-     'what would go for every document to meet §213 (writing standards) rule 3; a touched document must already. '
-     'Temporary: retired when both panels reach zero',
-     [('bold spans over the budget', 'bold_excess_spans')], 1.0, None, 'bold_excess_spans'),
-    ('bold-backlog-documents.svg', 'Documents over 4 bold per 1,000 words',
-     'the same backlog by where it sits',
-     [('documents over the budget', 'bold_documents_over')], 1.0, None, 'bold_documents_over'),
     # Milestone 611. Packages stack by where their home stands, with the ones that have left on
     # top: the end state is one band. Paths are a separate panel because a path that has left is
     # not in the tree to count, so that panel's end state is empty rather than full.
@@ -2700,13 +2627,9 @@ def draw_charts(rows, only=None):
     """Every chart and the generated lines on the page, or with `only` (a set of column names)
     just the charts that plot one of them and nothing on the page."""
     if only is None:
-        write_bold_status(rows)
         write_drift_report()
         write_interface_line(rows)
         write_week_notes_bullets()
-        retire = bold_retire_line(rows)
-        if retire:
-            print('metrics: %s (notes/project-metrics.md, "The bold backlog")' % retire)
     weeks = sorted(rows)[-CHART_WEEKS:]
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     for name, title, subtitle, columns, scale, ceiling, absent_field, *rest in CHARTS:
