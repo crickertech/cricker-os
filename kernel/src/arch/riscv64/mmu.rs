@@ -11,18 +11,25 @@
 use core::ffi::c_void;
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
-use paging::{Flags, Half, MapError, Mapper, PAGE_SIZE, PageSize, PageTable, Sv39};
+use paging::{Flags, Half, MapError, Mapper, PAGE_SIZE, PageSize, PageTable};
 
 use super::instructions;
 use crate::memory;
 
 /// This architecture's page-table format. Portable code names it as `arch::mmu::Format` (see the
 /// aarch64 module's alias for why), so the user-VA gate and the user `Mapper` land on Sv39 here.
-pub type Format = Sv39;
+///
+/// **Per machine** since milestone 89 (Scaleway EM-RV1): on the T-Head TH1520 the leaves also carry
+/// T-Head's memory types, because firmware has turned `XTheadMae` on and plain Sv39's zeros there are
+/// undefined. `arch::isa::init` refuses a hart that disagrees with the format chosen here.
+#[cfg(not(feature = "board_th1520"))]
+pub type Format = paging::Sv39;
+#[cfg(feature = "board_th1520")]
+pub type Format = paging::Sv39Mae;
 
 /// The UART, mapped as device memory in the direct map. Without it the machine goes silent the
-/// instant we switch off the coarse boot table.
-const UART_BASE: u64 = 0x1000_0000;
+/// instant we switch off the coarse boot table. Per machine, so it is [`super::machine`]'s.
+const UART_BASE: u64 = super::machine::CONSOLE_UART_PHYS;
 const UART_SIZE: u64 = 0x1000;
 
 /// The `satp` MODE field value for Sv39 (bits 63:60).
@@ -180,9 +187,27 @@ struct BootTable([u64; paging::ENTRIES]);
 const fn boot_table() -> BootTable {
     // Sv39 gigapage leaf: V R W X A D set. RWX is deliberate and temporary (see above).
     const LEAF: u64 = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 6) | (1 << 7);
+    // **T-Head's memory type** (milestone 89): on a hart with `XTheadMae` on, every leaf names one,
+    // including these. Memory is cacheable, bufferable and shareable; the device window is strongly
+    // ordered and shareable. Linux's `_PAGE_PMA_THEAD` and `_PAGE_IO_THEAD`, and the same values
+    // `paging::Sv39Mae` writes into the fine tables. Zero on every other build, where bits 63:59
+    // are reserved and a set one is a page fault.
+    #[cfg(feature = "board_th1520")]
+    const MEMORY: u64 = 0b0111 << 60;
+    #[cfg(feature = "board_th1520")]
+    const DEVICE: u64 = 0b1001 << 60;
+    #[cfg(not(feature = "board_th1520"))]
+    const MEMORY: u64 = 0;
+    #[cfg(not(feature = "board_th1520"))]
+    const DEVICE: u64 = 0;
     // A 1 GiB-aligned physical base, as a gigapage PTE (PPN at bits 53:10).
     const fn giga(pa: u64) -> u64 {
-        ((pa >> 12) << 10) | LEAF
+        let memory_type = if pa >= DEVICE_WINDOW_PA {
+            DEVICE
+        } else {
+            MEMORY
+        };
+        ((pa >> 12) << 10) | LEAF | memory_type
     }
     let mut t = [0u64; paging::ENTRIES];
     t[0] = giga(0x0000_0000); // identity: 0..1 GiB, covers the UART at 0x1000_0000
@@ -191,6 +216,21 @@ const fn boot_table() -> BootTable {
     t[256] = t[0]; // high alias of index 0 (KERNEL_VA_BASE adds 256 to the top-level index)
     t[257] = t[1]; // high alias of index 1
     t[258] = t[2]; // high alias of index 2
+    // **The TH1520's whole 16 GiB** (milestone 89). Its DRAM starts at 0, and Scaleway's U-Boot
+    // places the device tree and the archive wherever `bootm` decides, which nothing here has seen.
+    // radon learned that a tree above the boot table's reach dies before the trap path can print,
+    // and fixed it with `fdt move` at the U-Boot prompt; the RV1 has no prompt anyone is promised.
+    // So this build names all of RAM from the first instruction. Not done for radon or QEMU,
+    // whose maps stay byte-identical, though it would be as inert there.
+    #[cfg(feature = "board_th1520")]
+    {
+        let mut g = 3;
+        while g < 16 {
+            t[g] = giga(g as u64 * (1 << 30));
+            t[256 + g] = t[g];
+            g += 1;
+        }
+    }
     // The device window (milestone 89), so a machine whose console is up there can print before
     // `mmu::init`. High alias only: nothing touches a device while the PC is still low. Inert on
     // QEMU `virt` and radon, which have nothing in that gigabyte.
@@ -347,7 +387,7 @@ pub fn init() {
     // SAFETY: `root` is zeroed and page-aligned; `phys_to_ptr` is valid because the boot table's
     // direct-map gigapages cover all of RAM (so every frame the mapper allocates is addressable).
     let mut mapper = unsafe {
-        Mapper::<_, _, Sv39>::new(
+        Mapper::<_, _, Format>::new(
             root,
             Half::High,
             || memory::alloc().map(|f| f.addr()),
@@ -507,7 +547,7 @@ pub fn init_secondary() {
 
 /// Build every mapping the kernel needs: the direct map of RAM, the W^X kernel sections, the stack,
 /// and the UART. Mirrors the aarch64 `map_everything`.
-fn map_everything<A, P>(m: &mut Mapper<A, P, Sv39>) -> Result<(), MapError>
+fn map_everything<A, P>(m: &mut Mapper<A, P, Format>) -> Result<(), MapError>
 where
     A: FnMut() -> Option<u64>,
     P: Fn(u64) -> *mut PageTable,
@@ -634,7 +674,7 @@ where
 
 /// Map a range of *virtual* addresses to the physical ones they were linked against.
 fn map_range<A, P>(
-    m: &mut Mapper<A, P, Sv39>,
+    m: &mut Mapper<A, P, Format>,
     va_start: u64,
     va_end: u64,
     flags: Flags,
@@ -658,7 +698,7 @@ where
 /// stay in 4 KiB pages: they are a handful of pages each, and keeping them small is the same
 /// choice the x86 port makes for its own reasons (`arch/x86_64/mmu.rs`'s BUGS on the MTRRs).
 fn direct_map<A, P>(
-    m: &mut Mapper<A, P, Sv39>,
+    m: &mut Mapper<A, P, Format>,
     pa_start: u64,
     pa_end: u64,
     flags: Flags,
@@ -687,7 +727,7 @@ where
 
 /// Walk the tables in software and check the things that would kill us, before the hardware bets the
 /// machine on them. The RISC-V counterpart of the aarch64 `verify`.
-fn verify<A, P>(m: &Mapper<A, P, Sv39>)
+fn verify<A, P>(m: &Mapper<A, P, Format>)
 where
     A: FnMut() -> Option<u64>,
     P: Fn(u64) -> *mut PageTable,
@@ -882,7 +922,7 @@ fn translate_in_either_half(va: u64) -> Option<(u64, Flags)> {
     let root = current_root_pa();
     // SAFETY: `root` is the live installed root; the direct map makes `phys_to_ptr` valid; a
     // translate allocates nothing, so the `|| None` allocator is never called.
-    let half = |h| unsafe { Mapper::<_, _, Sv39>::new(root, h, || None, phys_to_ptr) };
+    let half = |h| unsafe { Mapper::<_, _, Format>::new(root, h, || None, phys_to_ptr) };
     half(Half::Low)
         .translate(va)
         .or_else(|| half(Half::High).translate(va))
@@ -920,7 +960,7 @@ pub fn current_user_root() -> u64 {
 pub fn unmap_user_at(root: u64, va: u64) -> Option<u64> {
     // SAFETY: `root` is a live low-half-owning root; `unmap` allocates nothing; the direct map makes
     // `phys_to_ptr` valid.
-    let mut mapper = unsafe { Mapper::<_, _, Sv39>::new(root, Half::Low, || None, phys_to_ptr) };
+    let mut mapper = unsafe { Mapper::<_, _, Format>::new(root, Half::Low, || None, phys_to_ptr) };
     let (pa, flush) = mapper.unmap(va).ok()?;
     flush.flush(flush_tlb);
     Some(pa)
@@ -938,7 +978,7 @@ pub fn unmap_user_at(root: u64, va: u64) -> Option<u64> {
 pub fn cut_user_table(root: u64, va: u64, table: u64, asid: u16) -> Option<(u64, u64)> {
     // SAFETY: `root` is a live low-half table (the registry forgets a root before its space frees
     // it); the direct map makes `phys_to_ptr` valid; a cut allocates nothing.
-    let mut mapper = unsafe { Mapper::<_, _, Sv39>::new(root, Half::Low, || None, phys_to_ptr) };
+    let mut mapper = unsafe { Mapper::<_, _, Format>::new(root, Half::Low, || None, phys_to_ptr) };
     let (base, span, flush) = mapper.unlink_table(va, table)?;
     flush.flush(|_| flush_asid(asid));
     Some((base, span))
@@ -947,7 +987,7 @@ pub fn cut_user_table(root: u64, va: u64, table: u64, asid: u16) -> Option<(u64,
 /// Translate `va` in the space rooted at physical `root`.
 pub fn translate_at(root: u64, va: u64) -> Option<(u64, Flags)> {
     // SAFETY: `root` is a page table; the direct map makes `phys_to_ptr` valid; no allocation.
-    let mapper = unsafe { Mapper::<_, _, Sv39>::new(root, Half::Low, || None, phys_to_ptr) };
+    let mapper = unsafe { Mapper::<_, _, Format>::new(root, Half::Low, || None, phys_to_ptr) };
     mapper.translate(va)
 }
 
@@ -962,7 +1002,7 @@ pub fn map_current_user_page_frame(
 ) -> Result<(), MapError> {
     let root = current_root_pa();
     // SAFETY: `root` is the live installed root; the direct map makes `phys_to_ptr` valid.
-    let mut mapper = unsafe { Mapper::<_, _, Sv39>::new(root, Half::Low, alloc, phys_to_ptr) };
+    let mut mapper = unsafe { Mapper::<_, _, Format>::new(root, Half::Low, alloc, phys_to_ptr) };
     mapper.map(va, phys, flags)?;
     flush_tlb(va);
     Ok(())
@@ -1013,7 +1053,7 @@ static KERNEL_MMU: crate::sync::IrqSafeMutex<()> =
 /// `KERNEL_ROOT` rather than `satp` back because both harts share one kernel root; **call only while
 /// holding [`KERNEL_MMU`].**
 #[allow(clippy::type_complexity)]
-fn kernel_mapper() -> Mapper<impl FnMut() -> Option<u64>, fn(u64) -> *mut PageTable, Sv39> {
+fn kernel_mapper() -> Mapper<impl FnMut() -> Option<u64>, fn(u64) -> *mut PageTable, Format> {
     let root = KERNEL_ROOT.load(Ordering::Relaxed);
     // SAFETY: `root` is the fine kernel table built by `init`; the direct map makes `phys_to_ptr`
     // valid for every table frame.
@@ -1096,7 +1136,7 @@ pub fn is_mapped_in_current_space(va: u64) -> bool {
     let root = current_root_pa();
     // SAFETY: `root` is the live installed root; the direct map makes `phys_to_ptr` valid; a
     // translate allocates nothing, so the `|| None` allocator is never called.
-    let half = |h| unsafe { Mapper::<_, _, Sv39>::new(root, h, || None, phys_to_ptr) };
+    let half = |h| unsafe { Mapper::<_, _, Format>::new(root, h, || None, phys_to_ptr) };
     half(Half::Low).translate(va).is_some() || half(Half::High).translate(va).is_some()
 }
 
@@ -1117,7 +1157,7 @@ pub fn is_mapped(va: u64) -> bool {
     let root = current_root_pa();
     // SAFETY: `root` is the live installed root; the direct map makes `phys_to_ptr` valid; a
     // translate allocates nothing, so the `|| None` allocator is never called.
-    let mapper = unsafe { Mapper::<_, _, Sv39>::new(root, Half::High, || None, phys_to_ptr) };
+    let mapper = unsafe { Mapper::<_, _, Format>::new(root, Half::High, || None, phys_to_ptr) };
     mapper.translate(va).is_some()
 }
 

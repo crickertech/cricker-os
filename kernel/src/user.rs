@@ -1313,7 +1313,7 @@ pub fn uart_irq_and_source() -> (u32, &'static str) {
 pub const UART_PHYS: u64 = 0x0900_0000;
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 #[cfg(target_arch = "riscv64")]
-pub const UART_PHYS: u64 = 0x1000_0000;
+pub const UART_PHYS: u64 = crate::arch::machine::CONSOLE_UART_PHYS;
 /// `x86_64` has **no physical address for its console at all**: COM1 lives in the I/O port space,
 /// which has no page tables in front of it, so there is nothing here for a device capability to be
 /// a mapping *of*. The console is reached through [`X86_COM1_PORT_BASE`] as a `PortRange` capability

@@ -55,6 +55,21 @@ pub(super) fn read_satp() -> u64 {
     satp
 }
 
+/// `csrr th.sxstatus` (CSR `0x5c0`): T-Head's supervisor-visible extension status, whose bit 21 is
+/// `MAEE`, whether the hart reads memory types out of PTE bits 63:59 (milestone 89 (Scaleway EM-RV1)).
+///
+/// **Only on a T-Head hart.** Anywhere else `0x5c0` is a custom CSR nobody implements and the read is
+/// an illegal-instruction trap; `isa::probe_thead` asks the firmware for `mvendorid` first. QEMU's
+/// `thead-c906` implements it and returns `MAEE` clear, because QEMU does not model MAE
+/// (`target/riscv/tcg/th_csr.c`, read 2026-10-06 at `d7a65d17`).
+#[inline(always)]
+pub(super) fn read_th_sxstatus() -> u64 {
+    let v: u64;
+    // SAFETY: reads a CSR. No side effects. The caller has established that this is a T-Head hart.
+    unsafe { asm!("csrr {}, 0x5c0", out(reg) v, options(nomem, nostack, preserves_flags)) };
+    v
+}
+
 /// `csrw satp`: install an address space. **No `nomem`**: every load and store after this one
 /// translates through the new root, so the compiler must not move one across it.
 ///

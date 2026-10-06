@@ -29,8 +29,9 @@ use crate::sync::{IrqSafeMutex, rank};
 /// The console UART's **physical** address on QEMU's `virt` machine.
 #[cfg(target_arch = "aarch64")]
 const UART_PHYS: u64 = 0x0900_0000; // PL011
+/// RISC-V's is per machine, so it lives under `arch/` (`arch::machine`), not here.
 #[cfg(target_arch = "riscv64")]
-const UART_PHYS: u64 = 0x1000_0000; // NS16550
+const UART_PHYS: u64 = crate::arch::machine::CONSOLE_UART_PHYS; // NS16550
 /// **A port number, not a physical address**, which is why it does not go through `phys_to_virt`
 /// below: x86's I/O space has no page tables in front of it and nothing to translate. COM1 has been
 /// at 0x3f8 since the PC/AT and is there on QEMU's `q35`.
@@ -47,7 +48,7 @@ const UART_PORT: usize = crate::arch::mmu::COM1_PORT;
 #[cfg(target_arch = "aarch64")]
 pub(crate) const UART_NODE: &[u8] = b"pl011@9000000";
 #[cfg(target_arch = "riscv64")]
-pub(crate) const UART_NODE: &[u8] = b"serial@10000000";
+pub(crate) const UART_NODE: &[u8] = crate::arch::machine::CONSOLE_UART_NODE;
 /// x86 has no device tree, so there is no node to name. The empty slice keeps the constant's shape
 /// across the three architectures for the portable readers (`memory::init`); nothing on x86 looks
 /// the console up by name, because ACPI does not describe a legacy COM port that way.
