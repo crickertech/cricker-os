@@ -48,6 +48,11 @@ name: merge drain
 #     take the run list as a heartbeat: a gap means "no run", never "nothing to do", and the drain
 #     has no way to tell the difference either. calef accepted this cost on 2026-09-23 when he
 #     approved the move; what is bought for it is that nothing depends on one laptop being awake.
+#   - **GitHub can leave a run `waiting` on a deployment with nothing to approve, and it never
+#     moves.** 2026-10-06, 10:47 to 21:40 UTC: run 37452061017 held the `merge-drain` group, sixty
+#     later runs were replaced while pending, and three ejections went unlabeled until calef saw
+#     them. The `unstick` job below cancels such a run on the next trigger; helpers/watcher_watch.py
+#     (THE STUCK RUN) has the rule and the evidence. It cannot help if no trigger fires at all.
 #   - **Nothing reports this workflow's own death.** Same gap the `launchd` jobs had, one level
 #     along: a disabled workflow shows in the Actions tab, but only to somebody who looks. It is
 #     better than an unloaded `launchd` job, whose stopped state lived in one transcript, and it is
@@ -65,13 +70,6 @@ on:
     workflows: [ci]
     types: [completed]
 
-# One drain, and the platform holds it rather than a person remembering. `cancel-in-progress: false`
-# because a pass that is part way through labelling should finish; a queued duplicate is the thing
-# to drop, and GitHub drops it.
-concurrency:
-  group: merge-drain
-  cancel-in-progress: false
-
 permissions:
   contents: read
   # `actions: write` is for exactly one call, `gh run rerun` on a CI run a concurrency group
@@ -86,6 +84,27 @@ permissions:
   issues: write
 
 jobs:
+  # **Frees a run GitHub left waiting on nothing** (lane/drain-revival, 2026-10-06). A job that names
+  # an environment waits on its deployment, and a waiting job holds its concurrency group. On
+  # 2026-10-06 one drain run waited eleven hours on an `automation` deployment with no reviewer and
+  # no timer, and every later run was replaced while pending. This job names no environment and no
+  # group, so it runs on every trigger whatever the drain job is doing, and it cancels any such run
+  # in the repository (ci-failing hit the same that day). The rule, and what it never touches, is
+  # THE STUCK RUN in helpers/watcher_watch.py.
+  unstick:
+    name: free a run stuck waiting on no rule
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: helpers/watcher_watch.py
+          sparse-checkout-cone-mode: false
+      - name: cancel stuck runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 helpers/watcher_watch.py unstick
+
   drain:
     name: drain the merge queue
     # The App's secrets live in the `automation` environment (name provisional), whose deployment
@@ -98,6 +117,13 @@ jobs:
     # org secret would have been visible to every job whatever its environment. Only jobs that mint the App token name it,
     # because each run of a job that does records a deployment.
     environment: automation
+    # One drain, and the platform holds it rather than a person remembering. `cancel-in-progress:
+    # false` because a pass that is part way through labeling should finish; a queued duplicate is
+    # the thing to drop, and GitHub drops it. On the job, not the workflow, since 2026-10-06: a
+    # workflow-level group also held back `unstick` below, the one job that can free it.
+    concurrency:
+      group: merge-drain
+      cancel-in-progress: false
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     steps:
