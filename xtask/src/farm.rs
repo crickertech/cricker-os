@@ -85,6 +85,16 @@ pub(crate) fn cryptography_exerciser_elf(triple: &str) -> PathBuf {
     ))
 }
 
+/// **The pinned TLS client's workload, if somebody built it**: milestone 501 (a TLS client that
+/// speaks to one pinned peer). `helpers/build-pinned-tls-exerciser.sh` puts it here, on
+/// [`cryptography_exerciser_elf`]'s terms and for its reason, and
+/// `system_tests/src/user/pinned_tls_tests.rs` skips when the archive has none.
+pub(crate) fn pinned_tls_exerciser_elf(triple: &str) -> PathBuf {
+    workspace_root().join(format!(
+        "target/pinned-tls-exerciser/{triple}/pinned_tls_exerciser"
+    ))
+}
+
 /// A cheap FNV-1a over a byte slice, folded into the running hash. No crypto, no dep: this only
 /// needs to notice when a PAL input changed so the farm (and thus the build-std cache) is rebuilt.
 fn fnv(mut h: u64, bytes: &[u8]) -> u64 {

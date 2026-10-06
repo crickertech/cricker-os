@@ -321,14 +321,18 @@ fi
 # to. Until this the x86_64 leg attached no NIC at all, because the only driver this tree had was
 # virtio-net and the kernel finds that on virtio-mmio, which `q35` does not have. The slirp network
 # is the other two runners' in every detail that a gate reads: DHCP on 10.0.2.0/24, the TCP echo
-# peer at 10.0.2.9:7777, the package peer at 10.0.2.9:8080 and the TFTP root. See the aarch64
-# runner for why each exists. A real PCI device model, so its DMA goes through `-device
-# intel-iommu` with no `iommu_platform` knob (the paragraph above `$DISK` explains that knob).
+# peer at 10.0.2.9:7777, the package peer at 10.0.2.9:8080, the TLS peer at 10.0.2.9:8443 and the
+# TFTP root. See the aarch64 runner for why each exists. A real PCI device model, so its DMA goes
+# through `-device intel-iommu` with no `iommu_platform` knob (the paragraph above `$DISK` explains
+# that knob).
 # `mac=` is the address `e1000e_tests` asserts reached `net_stack` through the kernel.
 NET=""
 if [ -n "$NIFE_NET" ]; then
     PACKAGE_PEER="$(cd "$(dirname "$0")" && pwd)/package-http-peer"
-    GUESTFWD="guestfwd=tcp:10.0.2.9:7777-cmd:/bin/cat,guestfwd=tcp:10.0.2.9:8080-cmd:$PACKAGE_PEER"
+    # The TLS peer at 10.0.2.9:8443 (milestone 501 (a TLS client that speaks to one pinned peer)),
+    # the aarch64 runner's twin; that runner says what it serves.
+    TLS_PEER="$(cd "$(dirname "$0")" && pwd)/tls-peer"
+    GUESTFWD="guestfwd=tcp:10.0.2.9:7777-cmd:/bin/cat,guestfwd=tcp:10.0.2.9:8080-cmd:$PACKAGE_PEER,guestfwd=tcp:10.0.2.9:8443-cmd:$TLS_PEER"
     TFTPDIR="$(dirname "$0")/../target/tftp"
     mkdir -p "$TFTPDIR"
     printf 'nife-tftp!' > "$TFTPDIR/nife"

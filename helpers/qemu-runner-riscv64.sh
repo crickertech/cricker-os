@@ -150,6 +150,11 @@ GUESTFWD="$GUESTFWD,guestfwd=tcp:10.0.2.9:8080-cmd:$PACKAGE_PEER"
 NAME_SERVER_PEER="$(cd "$(dirname "$0")" && pwd)/name-server-peer"
 GUESTFWD="$GUESTFWD,guestfwd=tcp:10.0.2.9:53-cmd:$NAME_SERVER_PEER"
 
+# The TLS peer (milestone 501 (a TLS client that speaks to one pinned peer)), the aarch64 runner's
+# twin; that runner says what it serves.
+TLS_PEER="$(cd "$(dirname "$0")" && pwd)/tls-peer"
+GUESTFWD="$GUESTFWD,guestfwd=tcp:10.0.2.9:8443-cmd:$TLS_PEER"
+
 # slirp's own TFTP server (10.0.2.2:69), which makes the gating UDP test deterministic and offline
 # instead of NAT'ing a DNS query to the host's resolver. The parity twin of the aarch64 runner's
 # block; the fixture must match components/src/socket_test_client.rs. See the aarch64 runner for the full reasoning.

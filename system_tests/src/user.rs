@@ -297,6 +297,14 @@ mod ripgrep_tests;
 #[cfg(all(test, initrd))]
 mod cryptography_tests;
 
+/// **A TLS 1.3 handshake against a peer that is not ours, trusting one pinned root**, for milestone
+/// 501 (a TLS client that speaks to one pinned peer), on `cryptography_tests`' terms: present only
+/// when `helpers/build-pinned-tls-exerciser.sh` has been run. Every ISA, over the `e1000e` each
+/// runner attaches, per DECISIONS §19 (architectural parity is a tenet; the targets are aarch64,
+/// riscv64 and x86_64).
+#[cfg(all(test, initrd))]
+mod pinned_tls_tests;
+
 /// **Capability delegation: authority moves between processes at runtime.**
 ///
 /// Every other capability in nife is minted by the kernel and handed to a process at spawn.

@@ -1,4 +1,5 @@
-# cryptography: the rustls crypto provider a program links for TLS. Debian's libssl.
+# cryptography: the rustls crypto provider a program links for TLS, and the pinned client over it.
+# Debian's libssl.
 #
 # Milestone 611 (every program and crate belongs to a package). The package's name, kind, home
 # and membership are provisional, the lane's proposal for calef to ratify; the format is
@@ -7,4 +8,9 @@
 name = "cryptography"
 kind = "sdk"
 home = { repo = "cryptography", status = "provisional" }
-interfaces = ["cryptography_provider"]
+# `pinned_tls_client` since milestone 501 (a TLS client that speaks to one pinned peer), 2026-10-06
+# (UTC): the client a program links to speak TLS to one pinned host, over the provider above.
+interfaces = ["cryptography_provider", "pinned_tls_client"]
+# `network` for `http_response`, the request writer and response reader `pinned_tls_client` sends
+# through TLS (milestone 501 (a TLS client that speaks to one pinned peer)).
+depends = ["network"]
