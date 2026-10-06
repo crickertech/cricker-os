@@ -50,8 +50,8 @@ The evidence today, counted rather than characterised, and it points one way.
   problem, not the evidence of absence: an untested claim cannot be quoted in either direction, and
   this entry is worth nothing if it is read as "probably fine, nobody has complained."
 - Nothing installs, so there is nothing to count. Milestone 576 (how many systems are out there, and
-  what do they run) is `NOT-STARTED`. It is gated on rung 3c (over the internet: a public repository) of milestone 198 (a package manager, and the
-  trivial install that makes a second customer possible). Its gate read `DECISION` until
+  what do they run) is `NOT-STARTED`. It is gated on milestone 801 (packages over the internet), which was rung 3c of milestone 198
+  (a package manager) until 198 was split on 2026-10-06. Its gate read `DECISION` until
   2026-09-24; the three forks were ruled by 2026-09-23: §195 (a reviewed recipe vouches for a
   package), §197 (a package is one archive file) and §208. It reads `DECISION` again, on §219,
   since the fetch-and-verify lane of the same day found the next fork.

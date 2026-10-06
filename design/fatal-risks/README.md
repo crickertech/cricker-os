@@ -102,7 +102,7 @@ Ranked by chance-of-fatal times cheapness-of-test, not by number. Each cell's ve
 | 7 | 9 and 6 together | journey 3, end to end on three boards | journey 3 | months, and it is the capstone |
 | -- | 5, multicore | **RUN on radon, 2026-09-25:** 8 hours clean, 4.1 million crossings. A linear defect-discovery curve is the red result | milestone 201 (is multicore reliability converging) | weeks, hardware |
 | -- | 7, confinement | **RUN, 2026-08-31, extended 2026-09-16, AUDITED 2026-09-17: amber** (calef, 2026-10-03). A confinement test could not fail, and DECISIONS §12 was false on x86_64. Fixed. The outsider half remains | milestone 633 (an outside agent attacks the confinement claim); 202, 305 and 313 done | one agent run, token cost uncosted |
-| -- | 8, nobody needs it | **CANNOT-RUN, 2026-09-23.** No experiment, and none available: milestone 576 (how many systems are out there, and what do they run) is behind rung 3c (over the internet: a public repository) of milestone 198 (a package manager, and the trivial install that makes a second customer possible) | milestone 576 | blocked, not costed |
+| -- | 8, nobody needs it | **CANNOT-RUN, 2026-09-23.** No experiment, and none available: milestone 576 (how many systems are out there, and what do they run) is behind milestone 801 (packages over the internet), rung 3c of milestone 198 (a package manager) until 198 was split on 2026-10-06 | milestone 576 | blocked, not costed |
 
 ## BUGS
 

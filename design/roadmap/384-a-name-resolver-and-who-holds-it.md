@@ -114,9 +114,8 @@ Kani-proven not to loop or overrun, is in `crates/multicast_dns_protocol` at com
 - The capability shape is the whole design and is still open. The zone test it would need,
   `Name::is_within`, exists and is tested label by label; `notes/name-resolution.md`'s Fork 2 has
   the options and the two enforcement mechanisms the tree already uses.
-- The consumer is rung 3c of milestone 198 (a package manager, and the trivial install that makes
-  a second customer possible), the package client fetching by host name, which waits on the forks
-  below.
+- The consumer is milestone 801 (packages over the internet), rung 3c of milestone 198 (a package
+  manager) until it was split on 2026-10-06: the package client fetching by host name, which waits on the forks below.
 
 ## Follow-on
 
