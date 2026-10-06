@@ -137,7 +137,7 @@ those numbers are fine and stated: it is a process with a 32-page stack, and
 `system_tests/src/user/timetable_tests.rs` says why it maps 32 pages. In the kernel they are exactly
 what `script/stack-frame-check` refuses, because a frame larger than the 4096-byte guard page can
 move `sp` from inside a thread's stack to below the guard in one step, touching nothing in between,
-so the guard never faults and the write lands in the neighbouring thread's stack. This tree measured
+so the guard never faults and the write lands in the neighboring thread's stack. This tree measured
 that on riscv64 on 2026-08-14, at 4088 bytes below the bottom of a 4096-byte guard; eight more bytes
 would have produced no fault at all. See notes/stack-high-water.md.
 
@@ -233,7 +233,7 @@ second 64-bit modulo is where CBMC stops finishing (the direct spelling, the che
 cheaper one bounded to `1 << 32` all failed to return). Shipping a harness bounded far enough down to
 finish would read as proved while covering a range no schedule lives in, which is worse than shipping
 none. `next_after_is_strictly_in_the_future_and_keeps_its_phase` samples the law up to `u64::MAX / 4`
-instead, and the implementation's shape is the real defence: the phase is not computed and then
+instead, and the implementation's shape is the real defense: the phase is not computed and then
 preserved, it is the only thing that expression can produce.
 
 ## The primitive that is missing, and what it costs

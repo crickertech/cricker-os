@@ -22,7 +22,7 @@ in place.
   Both ends are outside the 2026-08-17 run's 26.1 to 63.0 band. The low end catches a run before its
   spinners had ramped the average up. The high end is harsher than anything the first acceptance
   run saw, with three separate runs touching 90.
-- A few runs shared the host with a neighbouring QEMU (peak QEMUs seen reached 3 in run 14, and 2 in
+- A few runs shared the host with a neighboring QEMU (peak QEMUs seen reached 3 in run 14, and 2 in
   five others); most ran alone. That is recorded rather than smoothed over, per the first run's
   convention.
 

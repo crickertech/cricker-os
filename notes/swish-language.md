@@ -212,7 +212,7 @@ the difference between this and a shell where the second command inherits the fi
 
 ### `$?` is a word the expander knows, not a variable
 
-There is no variable mechanism in this shell at all, so `$?` is one word `echo` recognises, in the
+There is no variable mechanism in this shell at all, so `$?` is one word `echo` recognizes, in the
 same category as a pattern. It is spelled `$?` because that is the spelling every shell user already
 arrives with, and this project does not respell a name a reader already knows.
 
@@ -295,7 +295,7 @@ watchdog sixty seconds later. The wiring the new lines needed was already there,
 of it bought nothing but the flake. The transcript buffer grew from 4 KiB to 8 KiB to hold the longer
 script, which is kernel `.bss` and costs no frames at all.
 
-The lesson generalises past this milestone: **a scripted-shell witness is not free, and the price is
+The lesson generalizes past this milestone: **a scripted-shell witness is not free, and the price is
 paid by whatever test runs last.** A new claim about the shell should look for a witness whose
 endowment already matches before it asks for a role of its own.
 

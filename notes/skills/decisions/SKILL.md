@@ -66,7 +66,7 @@ The test, and it is one question. *Would I still choose this if both options wer
 work?* If the answer is no, the recommendation is about effort and must say so out loud, in those
 words, so the reader can weigh it as effort rather than mistake it for judgment.
 
-It is not a licence to gold-plate. Elegance here means the option with fewer moving parts, fewer
+It is not a license to gold-plate. Elegance here means the option with fewer moving parts, fewer
 things to remember, and fewer places to be wrong. It does not mean more abstraction, more
 generality, or more machinery: those are usually *less* elegant and always more to maintain.
 

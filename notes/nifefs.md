@@ -52,7 +52,7 @@ because its progenitor is a separate program from `hello`.
 That ceiling gets crossed by lanes that cannot see each other. It went from 31 to 63 on 2026-07-30
 when three of them landed together and made 32 files, so the cost is invisible to every branch that
 causes it and lands on whoever merges. Six blocks put the ceiling above where it was, at 76, for 1 KB
-of image bytes in a multi-megabyte initrd. Five blocks would have given exactly 63, which optimises
+of image bytes in a multi-megabyte initrd. Five blocks would have given exactly 63, which optimizes
 for the number looking unchanged rather than for the failure it exists to prevent.
 
 The kernel-stack cost is zero, and that is new. `Fs` used to copy every directory entry into a

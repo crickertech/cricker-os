@@ -17,7 +17,7 @@ $ time wc report.txt
 around its own dispatch, and hands the command nothing. So `wc`, whose entire endowment is one
 endpoint and which has never been able to ask what time it is, gets timed anyway.
 
-That is the Unix behaviour, and it is also the capability-model answer, which is why the two agree
+That is the Unix behavior, and it is also the capability-model answer, which is why the two agree
 here rather than needing a trade. A program does not consent to being timed and cannot tell that it
 is; a duration is observable to anybody who can watch a thing start and stop, and the shell is that
 observer by construction, because it is what started the thing and what noticed it finish.

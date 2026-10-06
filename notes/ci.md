@@ -62,7 +62,7 @@ The two proposals this reading leaves for an architect:
    function's Safety contract states.
 2. **Wire the guard-page diagnostic into x86_64's trap path** ([filed](../design/roadmap/716-x86-64-names-a-kernel-stack-overflow-the-way-aarch64-and-riscv64-do.md)), or scope-note its absence. The
    other two architectures name a guard-page fault before the machine reports it as an address
-   nothing recognises; x86_64 has the stacks and skips the naming.
+   nothing recognizes; x86_64 has the stacks and skips the naming.
 
 And the sweep the BUGS entry already owns: the per-item allowances for x86_64's test-called items,
 mirroring the aarch64 twins. This note's table is that sweep's worklist, with each item's caller

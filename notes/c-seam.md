@@ -380,7 +380,7 @@ much about the expensive thing.
 - The C ABI surface is one function shape. See "what crosses" above.
 - **Nothing here is verified.** DECISIONS §18's proof toolchain does not reach C and never will. The C
   is confined, not correct. That is the whole point, and it is also the limit of the claim: this
-  milestone says nothing about the component's behaviour, only about its blast radius.
+  milestone says nothing about the component's behavior, only about its blast radius.
 - The grant is one page and the workload is trivial. No claim is made about the cost of the seam at
   volume: no benchmark, no copy-avoidance story, no measurement of what a C component costs versus a
   Rust one. A real component gets that treatment when there is a real component.

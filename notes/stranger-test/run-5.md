@@ -125,7 +125,7 @@ read item 4 (`notes/capabilities.md`) and skipped item 3. Its statements about w
 architecture-specific code lives, and about the project's ladder, paraphrase `CONTRIBUTING.md`'s
 summary of a file it never read. Across runs 3, 4 and 5, `AGENTS.md` came twelfth, seventh, and not
 at all. The not-at-all is the run that read `CONTRIBUTING.md` earliest. That is a result about the
-reading order: the reader met a shorter document summarising the longer one, and stopped. Its
+reading order: the reader met a shorter document summarizing the longer one, and stopped. Its
 reason: *"66 KB is a large upfront cost when a task is in front of you, and everything I actually
 needed turned out to be reachable from code."*
 
@@ -234,7 +234,7 @@ not how it wrote. The disclosure changed its program, so the null result a fresh
 have produced is not available. Its prose should be discounted, as run 4's was. The tree leaked the
 measurement in the first minutes, from `README.md`, the fifth confirmation and the earliest. The
 machine was warm, so B2 measures nothing. And the operator has read `AGENTS.md`, and read
-`script/stranger-test` before running it, so its judgement that the harness worked leans on the
+`script/stranger-test` before running it, so its judgment that the harness worked leans on the
 harness's own account.
 
 The mitigations are unchanged. The task text is runs 1 to 4's. The rubric predates every run and was

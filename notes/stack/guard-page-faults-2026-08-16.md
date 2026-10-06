@@ -127,7 +127,7 @@ table. That number predates milestone 124, which took the worst `spawn_on` insta
 4592 bytes to 1040, so it describes a kernel that no longer exists.
 
 A fault at a slot's guard-page base needs `sp` at 20480 bytes into a 16384-byte stack. That is
-6768 bytes deeper than the modelled worst case and 9880 deeper than the deepest thing 31 runs of the
+6768 bytes deeper than the modeled worst case and 9880 deeper than the deepest thing 31 runs of the
 suite ever measured. The walker's imprecision is measured in hundreds of bytes and the gap is
 measured in thousands, which is the only reason the imprecision does not matter here.
 

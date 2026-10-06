@@ -189,7 +189,7 @@ answered.
 
 **Corrected 2026-10-02 UTC: this section's conclusion is wrong.** The cluster was milestone 614's
 defect, not a host-side race. Its 0.2.0 recipe put a second `greeting` stem in the image's
-catalogue, the lookup took the first line (0.2.0, by recipe filename order), and the source
+catalog, the lookup took the first line (0.2.0, by recipe filename order), and the source
 served only 0.1.0, so the "fast refusal" was a 404. The two merge-queue runs below batched #1443
 itself. The code reading of the fetch path below still holds; the slirp hypothesis does not. The
 fix and its record are in milestone 614's roadmap block.
@@ -226,7 +226,7 @@ The refusal answered fast.
 What the six runs pin down. Runs 36635825171, 36635855388, 36637445269, 36637505183, 36662722651
 and 36667068219, 2026-09-29T21:49 through 2026-09-30T04:02, every one at `package install greeting`,
 always the second fetch of the boot. The first fetch, the lying `uptime`, had finished a whole
-exchange seconds earlier: its catalogue refusal needs the whole body and its digest. Two of the six
+exchange seconds earlier: its catalog refusal needs the whole body and its digest. Two of the six
 were the merge queue of pr-1452 and pr-1443 together, so no pull request's diff is the trigger. The
 run before the cluster, 21:41, was green; the next failure on the branch, 15:56 on 2026-09-30, is a
 different signature (an inbound-prober leg).

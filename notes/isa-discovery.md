@@ -132,7 +132,7 @@ than the first, and the record carries two sets:
 use to a thread the scheduler might place on the Sv39 one.
 
 The test fixture for this (`crates/machine_discovery/tests/fixtures/mixed-cpus.dts`) is hand-written and says so
-in its own header. It is modelled on the shape of a heterogeneous RISC-V SoC; the values are
+in its own header. It is modeled on the shape of a heterogeneous RISC-V SoC; the values are
 invented. When the board arrives, dump its real tree and add it beside this one.
 
 ## Silence is not a failure

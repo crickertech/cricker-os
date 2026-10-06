@@ -18,7 +18,7 @@ retired on 2026-09-27 (fork 7).
 
 It is proven again on the object a login session actually is:
 `kernel::user::login_tests::a_login_session_with_pending_work_refuses_logout_until_the_work_is_gone`.
-`login_test_client`'s `PENDING_WORK` behaviour (provisional) logs in, splits a one-page child off the
+`login_test_client`'s `PENDING_WORK` behavior (provisional) logs in, splits a one-page child off the
 budget `login` delegated, and attempts the logout. The budget's `DESTROY` is refused `NotPermitted`,
 the budget keeps working, and once the child is destroyed the logout completes in the order
 `LOGOUT` uses, with the same proofs that both capabilities came down. It runs wherever the rest of

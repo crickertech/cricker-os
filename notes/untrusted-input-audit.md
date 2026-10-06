@@ -155,7 +155,7 @@ place a future change could break something.
 vulnerability surface (a compression pointer that loops, or a name that expands without bound), and
 it is written to close both by construction:
 
-- **Termination.** A `fence`, initialised to the name's start offset, bounds every compression
+- **Termination.** A `fence`, initialized to the name's start offset, bounds every compression
   pointer: a pointer must target strictly below the current `fence`, and following it lowers the
   fence to the target. Each pointer therefore strictly decreases a non-negative integer, so the
   number of pointers is bounded and a loop is impossible. Between pointers, each label emits at least
@@ -203,7 +203,7 @@ several places the code is already at the standard an audit would ask for:
   anyone could forge a proof under.
 - The no-`zeroize` choice is deliberate and written down, not an omission: `crates/ntlm`'s header
   argues that the whole address space is the secret's blast radius already, so scrubbing one local is
-  theatre. That is a recorded decision, which is the right rung for it.
+  theater. That is a recorded decision, which is the right rung for it.
 - The honest limits are named where a reader meets them: secrets-at-rest is unsolved
   (notes/credentials.md), there is no rehash-on-verify when cost parameters move, and no lockout.
   Provisioning an NTLM secret *lowers* the strength of a record (an unsalted `NTOWFv2` beside a

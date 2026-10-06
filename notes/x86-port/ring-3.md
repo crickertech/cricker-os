@@ -32,7 +32,7 @@ so one copy shares all of it. The entries point at the kernel's own intermediate
 shares the map rather than a snapshot: a page the kernel maps afterwards appears in every process,
 which is what a shared half has to mean.
 
-Where x86 is neither: the ASID. PCID lives in `CR3[11:0]` and is honoured only with `CR4.PCIDE`
+Where x86 is neither: the ASID. PCID lives in `CR3[11:0]` and is honored only with `CR4.PCIDE`
 set, and it is not set here. So `ttbr0_value` drops the tag `crates/address_space_identifier` hands it, because with
 PCIDE clear those bits are reserved-zero and `root | asid` would `#GP` rather than tag anything; and
 `flush_asid` flushes the whole TLB, because there is no tag for it to select on. Both say so

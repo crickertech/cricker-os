@@ -62,7 +62,7 @@ due. A machine that does not know the date should not guess it at 02:00.
 ## Reversibility
 
 The grammar is stored on disk per identity (§122), so once a user writes `daily 02:00` it is a
-format somebody has acted on. That makes G3 the expensive half. The step rule is behaviour, cheap
+format somebody has acted on. That makes G3 the expensive half. The step rule is behavior, cheap
 to change until a housekeeping job depends on it.
 
 ## Would we still choose G3 and S3 at equal cost

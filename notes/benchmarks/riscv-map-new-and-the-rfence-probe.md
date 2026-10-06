@@ -63,7 +63,7 @@ bench time on both trees and compare. Neither was built on 2026-08-15.
 Nothing else noticed. `build + test (host + QEMU)` passed on #176. So did `cpu matrix (riscv64
 across QEMU CPU models)`, which exists to boot RISC-V across CPU models. The kernel worked; it did
 more than it needed to, on the one configuration where the extra work is provably unnecessary. A
-bug that leaves behaviour correct is invisible to every test by construction, and an instruction
+bug that leaves behavior correct is invisible to every test by construction, and an instruction
 counter is the only instrument here that can see it.
 
 The stated purpose of milestone 21 (performance measurement) for the tripwire is catching "the *introduction* of performance

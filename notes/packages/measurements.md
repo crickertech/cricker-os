@@ -78,7 +78,7 @@ as a performance claim.
 | Messages on the spawn endpoint | 2 `SEND`s (the request and the name) | 2 |
 | Package file | 82,715 bytes | 28,291 bytes |
 | Prompt to prompt under TCG | 1.28 s | 0.76 s |
-| Refused by the catalogue (`nosuch`) | 0.11 s, no connection | 0.11 s |
+| Refused by the catalog (`nosuch`) | 0.11 s, no connection | 0.11 s |
 | Refused by digest (the lying `uptime`) | 0.22 s | 0.22 s |
 | Progenitor capability peak | 23 of 24, unchanged | 23 of 24, unchanged |
 

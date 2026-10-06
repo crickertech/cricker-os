@@ -144,7 +144,7 @@ B4 fails, with six entries:
 2. The test log is binary to `grep` without `-a`.
 3. The pinned QEMU cannot be had on macOS by any documented route.
 4. Building it by hand needs `--disable-cocoa --disable-pvg`.
-5. `helpers/qemu-path.sh` honours a hand-built prefix on macOS too.
+5. `helpers/qemu-path.sh` honors a hand-built prefix on macOS too.
 6. The VT-d lines above are expected.
 
 ### The mental model, scored: seven answered, one absent

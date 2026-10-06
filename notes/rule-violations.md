@@ -43,7 +43,7 @@ Columns:
 
 - date. When the incident (or the batch) happened, not when the row was added.
 - rule. The rule's own words or a close paraphrase, so two rows about the same rule can be
-  told apart mechanically (see BUGS: today that means *identical text*, not judgement).
+  told apart mechanically (see BUGS: today that means *identical text*, not judgment).
 - instances. How many times it happened. Usually 1; a source that reports an aggregate
   ("three agents... in one day") without naming each one gets a single row with that count, which is
   honest about what is known rather than inventing distinct incidents to hit a row-per-count shape.

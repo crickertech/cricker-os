@@ -97,8 +97,8 @@ it is worth stating exactly, because the next person to try will otherwise spend
 rustc-LLVM ERROR: Do not know how to split the result of this operator!
 ```
 
-at every optimisation level, zero included. The cause is the target spec rather than the crate:
-`x86_64-unknown-none` is `-mmx,-sse,+soft-float`, so LLVM has no 128-bit vector register to legalise
+at every optimization level, zero included. The cause is the target spec rather than the crate:
+`x86_64-unknown-none` is `-mmx,-sse,+soft-float`, so LLVM has no 128-bit vector register to legalize
 an AES block into and no scalar fallback for that operator. Nothing on this side fixes it. The two
 routes out are a RedoxFS built without its crypto (a patch against a vendored crate, which
 `patches/README.md` is the place for) or an x86 userspace target that keeps SSE. Both are their own

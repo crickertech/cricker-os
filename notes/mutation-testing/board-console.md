@@ -175,5 +175,5 @@ and a genuine error after it. The test checks that the interrupted read was retr
 sent, the loop kept going). It also checks that the real error was not retried, and propagated as
 the `Err` that `watch` returns.
 
-No defect in shipped behaviour was found. Every survivor here was a missing test, or one of the two
+No defect in shipped behavior was found. Every survivor here was a missing test, or one of the two
 documented, measured equivalences above.

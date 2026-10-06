@@ -24,7 +24,7 @@ only waits for a panic would miss the class it exists for.
 Two extractions made the first and third drive the code the binaries run rather than a copy.
 `Server::handle` is the file server's 285-line request match, moved from the binary with its IO
 behind a `ServeEdges` trait. `compositor::commit_damage` is the ten-line damage decode from
-`serve_frame`. Neither changed behaviour.
+`serve_frame`. Neither changed behavior.
 
 ## Rates
 

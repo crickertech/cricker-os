@@ -104,14 +104,14 @@ milestone 78's `stack::warn_if_guard_page` had merged in between:
 ```
 
 The address is the lesson. It is 4088 bytes below the stack bottom, on a 4096-byte guard page.
-Eight more bytes and there would have been no fault at all, just a corrupted neighbour.
+Eight more bytes and there would have been no fault at all, just a corrupted neighbor.
 
 ## The rule that came out of it
 
 A frame larger than the guard page defeats the guard page. One page is 4096 bytes; a function
 whose frame exceeds that can move `sp` from inside the stack to below the guard in a single step,
 touching nothing in between. No access lands in the guard, so nothing faults, and the write goes into
-the neighbouring thread's stack. The mechanism that makes overflow legible is bypassed entirely.
+the neighboring thread's stack. The mechanism that makes overflow legible is bypassed entirely.
 
 `script/stack-frame-check` gates exactly this, at 4096 rather than at any fraction of the stack, and
 the first version of that gate got it wrong by picking a third of the stack instead. Ten `spawn_on`

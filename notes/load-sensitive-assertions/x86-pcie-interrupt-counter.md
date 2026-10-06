@@ -25,7 +25,7 @@ the answer rather than raced for it, which is unusual for a family that usually 
 Three links, none of them timing-dependent:
 
 1. `Irq::WAIT` is not a poll. `syscall::irq_wait` is `sched::irq_route(intid)` followed by
-   `sched::ipc_receive(ep)`. It returns only when that endpoint is signalled or has a counted pending
+   `sched::ipc_receive(ep)`. It returns only when that endpoint is signaled or has a counted pending
    signal, and both come from `sched::irq_notify`.
 2. Every architecture's trap handler bumps `ROUTED_IRQS` immediately before calling `irq_notify`,
    never after (`arch/aarch64/exceptions.rs`, `arch/riscv64/exceptions.rs`,

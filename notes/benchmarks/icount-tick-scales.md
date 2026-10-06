@@ -111,7 +111,7 @@ percent of CI are that path and the OVMF boot, not scheduler instructions.
 ### The two adjacent facts, and what they do not explain
 
 - The x86_64 kernel and the initrd userspace build for one target, `x86_64-unknown-none`, whose spec
-  is `-mmx,-sse,+soft-float`; `xtask/src/archive.rs` records it (it is why `aes` cannot legalise, and
+  is `-mmx,-sse,+soft-float`; `xtask/src/archive.rs` records it (it is why `aes` cannot legalize, and
   why `aes_force_soft` exists in `.cargo/config.toml`). The std-farm target `targets/x86_64-unknown-nife.json` carries the
   full `-mmx,-sse,-sse2,-sse3,-ssse3,-sse4.1,-sse4.2,-avx,-avx2,+soft-float`. Nothing on the leg has
   a vector unit.

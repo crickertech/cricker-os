@@ -333,7 +333,7 @@ error, and the loader placing images physically owns that judgment.
   breaking the W^X rule `crates/elf` and `paging::Flags` enforce everywhere else, and the parser
   refusing it is that rule catching the tree. `script/image-permissions` is what keeps it caught.
 
-## The loader honours permissions and does not widen them
+## The loader honors permissions and does not widen them
 
 An ELF's `.rodata` segment is `PF_R` alone. The tempting shortcut is to map every
 non-executable segment as `user_data()`, which is writable, quietly granting the program

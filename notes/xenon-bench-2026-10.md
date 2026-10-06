@@ -244,7 +244,7 @@ install-boot: PASS
 - The offer names the disk by size, not model (milestone 569). On xenon there is one disk, so
   the size cross-check against step 1 is enough; on a machine with two it would not be.
 - Running step 1 again after step 2 destroys the install, without asking. The bench stick
-  must be labelled and kept apart from the installer stick.
+  must be labeled and kept apart from the installer stick.
 - The install's second boot is unmeasured on Dell firmware. Only OVMF has found an installed
   disk's `\EFI\BOOT\BOOTX64.EFI` with no boot variable. Step 6 records which path the firmware took.
 - The prebuilt copies are pinned at `a08efc8dc` and the install image among them is stale (see Step 2: it predates #1636), outside any worktree so a prune does not take

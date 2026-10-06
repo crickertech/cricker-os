@@ -167,7 +167,7 @@ and the validator's execute-only branch was dead in the suite. Now:
 - An execute-only segment asserts both sides.
 - The header-table bounds get their exact edges.
 - `u16le` is pinned on bytes whose halves differ. Every field in the old fixtures had a zero high
-  byte, so reading the wrong neighbour byte read the same.
+  byte, so reading the wrong neighbor byte read the same.
 
 ### `entropy_protocol` (3)
 

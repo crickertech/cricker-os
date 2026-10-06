@@ -137,7 +137,7 @@ in its history has been.
 ## Why rustdoc JSON and not a semver tool
 
 rustdoc's JSON is on the pinned nightly and adds no dependency. `cargo-semver-checks` and
-`cargo-public-api` both read the same JSON. What they add is a catalogue of rules for whether a
+`cargo-public-api` both read the same JSON. What they add is a catalog of rules for whether a
 change needs a new major version (from memory, not verified here). This series asks a narrower
 question, whether the public surface moved, so neither is needed. Both also pin a rustdoc JSON
 format version, which would tie the tool's version to the nightly pin. That argues against taking

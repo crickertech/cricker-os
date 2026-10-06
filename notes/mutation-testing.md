@@ -214,7 +214,7 @@ This is the note's `BUGS` section.
   runs under QEMU (`script/test`'s redoxfs leg), so a host-only score would overstate the gap.
   Deferred, on the record.
 - A survivor count is not a quality score across crates. Crates differ in how much of their surface
-  a host test can assert. Compare a crate to its own last census, not to its neighbours.
+  a host test can assert. Compare a crate to its own last census, not to its neighbors.
 - `script/mutation --report`'s `(baseline missed)` column is not "last week". It is
   `.cargo/mutants-baseline.txt`, one fixed run from 2026-08-03. Milestone 512 (the census blamed one
   pull request for 55 survivors it did not write) recorded this on 2026-09-23, and the trap is also

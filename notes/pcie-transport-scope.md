@@ -44,7 +44,7 @@ Effort is session-sized: S = part of a session, M = one to two, L = several.
 - Map the ECAM window device-typed (base and size from the DTB `pci-host-ecam-generic` `reg`). A
   config address is `ecam + (bus << 20) | (dev << 15) | (fn << 12) | offset` (ECAM's flat layout).
 - Config accessors (`cfg_read8/16/32`, `cfg_write*`), then enumerate: walk the buses (QEMU `virt` is
-  flat on bus 0, but honour `bus-range` and recurse through bridges for generality), reading the
+  flat on bus 0, but honor `bus-range` and recurse through bridges for generality), reading the
   vendor/device id at each `(bus, dev, fn)`. Virtio devices are vendor `0x1AF4`; virtio-blk is
   device `0x1042` (modern) or `0x1001` (transitional).
 - **Proves:** the kernel finds the disk by enumeration, not by probing a fixed address: "PCI: virtio

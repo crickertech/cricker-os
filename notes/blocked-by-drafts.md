@@ -67,7 +67,7 @@ another pull request rather than on CI.
 `notes/merge-queue.md`'s BUGS list used to say only the first `Blocked-by:` number was read at all.
 That was true when the parser was a single `sed` line inside `merge-drain.sh`. As of 2026-09-27 the
 parser lives in `helpers/blocked-by.sh`, reads every number on the line, and both consumers, the
-admission hold and this draft pass, honour the whole list. Only the first *line* naming
+admission hold and this draft pass, honor the whole list. Only the first *line* naming
 `Blocked-by:` still counts; a second one lower in the body is still ignored. That correction belongs
 in `notes/merge-queue.md` itself and does not fit there yet for the reason in this note's own
 opening paragraph; whoever next touches that document's bold count should fold this note back in.

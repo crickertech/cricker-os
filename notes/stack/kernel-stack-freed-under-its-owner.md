@@ -171,7 +171,7 @@ was never the variable.
   writer at all. The search for "the three places that can name a slot base" was answering a
   question that had no fault behind it.
 - A pointer treating a stack top as inclusive. Same: the offsets are the walk's, not a
-  neighbour's-top store's. The earlier reading of `x8 = 0xffff0010001b7a90` ("1392 bytes below slot
+  neighbor's-top store's. The earlier reading of `x8 = 0xffff0010001b7a90` ("1392 bytes below slot
   87's top, so the stack has not run out") was the right objection to the depth story and is exactly
   what a use-after-free predicts: the corpse was *shallow* on its own stack when the pages vanished.
 - An ordering bug in the weak memory model. Not needed. Every step here happens under `SCHED`

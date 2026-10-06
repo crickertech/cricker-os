@@ -289,7 +289,7 @@ $ wc gate.txt | wc
   1 3 7
 ```
 
-The failure it replaces is the one worth recognising, because it does not look like a failure. The
+The failure it replaces is the one worth recognizing, because it does not look like a failure. The
 head stage was spawned with an empty input slot, a `receive` there answers `NoSuchSlot` instead of
 blocking, and that reads as end of document, so this line used to print `0 0 0` and mean it. **A
 pipeline that reports zero of everything is a pipeline in which nothing was ever fed**, and it is

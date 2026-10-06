@@ -70,7 +70,7 @@ USB hard disks attached, a 2 TB Seagate Portable and a 3 TB WD My Book, one hold
 
 ```console
 $ target/stick-maker/stick_maker-macos-arm64 --list --all
-  disk4    Seagate Portable                2.0 TB  USB            FAT "EFI", unrecognised
+  disk4    Seagate Portable                2.0 TB  USB            FAT "EFI", unrecognized
            not offered: not removable media (a USB hard disk or SSD, which is where backups live)
   disk6    WD My Book 1140                 3.0 TB  USB            FAT "EFI", Journaled HFS+ "..."
            not offered: not removable media (a USB hard disk or SSD, which is where backups live)

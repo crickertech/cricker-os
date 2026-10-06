@@ -97,7 +97,7 @@ drew. For each candidate first cut:
 | `rmle` + `mdr` + `demos` | 0 | 17 | 16 | 15 | 1 of 2 | 0 | | |
 | `basalt`'s manifest, with nothing moved | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
-What the table says, read rather than summarised:
+What the table says, read rather than summarized:
 
 - **The SDK cut is the worst first cut by every column**, and it is the order milestone 691 proposes
   ("`contracts` and `runtime` move before the programs that link them"). 134 focused changes in a
@@ -143,7 +143,7 @@ What it needs, in the order the work depends on it:
    kas file for Yocto pins a layer (from memory, not re-read this session). With one component,
    that is one line: `nife` at `04a8f9e6c`.
 2. A pin per artifact, once anything is prebuilt. The tree already has this format: a reviewed
-   recipe carries the digest (§195 (a reviewed recipe vouches for a package)), the archive is §197's, and the image's catalogue is `name
+   recipe carries the digest (§195 (a reviewed recipe vouches for a package)), the archive is §197's, and the image's catalog is `name
    digest` lines. A second component's output reaches the image as a package pinned by digest, and
    `script/build-is-reproducible` is what makes a digest pin re-checkable from source.
 3. **A CI job that builds the image from the pins and runs the system gate on all three

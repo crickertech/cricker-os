@@ -28,7 +28,7 @@ fail. `script/lint` holds it, through `helpers/observed_failing.py`.
 ```
 
 "Failing" means the arm that carries the workflow's claim went off. For a gate that is a red job.
-For a workflow that is green by design, it is the thing it does instead: a labeller's label, a
+For a workflow that is green by design, it is the thing it does instead: a labeler's label, a
 sweep's reported finding, the drain's `needs-maintainer`. The record says which, in its own words.
 
 Two other shapes are accepted:

@@ -101,7 +101,7 @@ possible, so the invariant has its own test in `clock_protocol`.
 | `SYNCED` | an accepted proposal, i.e. an external source the service bounded |
 
 A frame nobody has published to is zero, and zero is `UNKNOWN`, so the honest answer is what you get
-by default rather than something initialisation has to remember. The clock service **does not
+by default rather than something initialization has to remember. The clock service **does not
 publish a reading it does not believe**: an RTC outside the sanity window leaves the clock unknown
 rather than confidently wrong.
 

@@ -13,8 +13,8 @@ expected to show.
 >
 > -- notes/verification.md
 
-It was rung four, honoured by whoever remembered, and milestone 191 measured the result: 141
-harnesses and not one recording what was done to falsify it. This note is the record's home.
+Rung four, honored by whoever remembered; milestone 191 (did the proofs catch the bugs?) measured it: 141
+harnesses, none recording what was done to falsify it. This note is the record's home.
 
 ## Inductive Validity Cores: checked first, and they are not available
 

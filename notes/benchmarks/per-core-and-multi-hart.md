@@ -21,7 +21,7 @@ Two structural reasons. First, they run only when `online_count() > 1`, which is
 `--real --smp` boot. Under the icount instrument (`-smp 1`) and the default single-hart `--real` run,
 `smp_throughput` returns immediately. So no `smp_*` line is emitted there and the committed baseline
 never sees them (verified: `--check` output has no `smp_*` rows). Second, a wall-clock throughput
-number is not defined under `-icount` (one shared clock). TCG also serialises all vCPUs onto one
+number is not defined under `-icount` (one shared clock). TCG also serializes all vCPUs onto one
 host thread, so there is no real parallelism to measure. Only HVF gives each core its own counter and
 genuine concurrent execution. These are statistical HVF magnitudes read by a human with loose
 bounds, like the other `--real` numbers, not a tick baseline.

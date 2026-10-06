@@ -22,7 +22,7 @@ any question it asks.
 
 ## The protocol
 
-1. A fresh context, not a summarised one. A handoff that says "read CLAUDE.md first" has already
+1. A fresh context, not a summarized one. A handoff that says "read CLAUDE.md first" has already
    given away the finding a newcomer would not know to make.
 2. One task, stated the way a new contributor would receive it. Not "evaluate the docs", which
    invites a review rather than an attempt.
@@ -248,7 +248,7 @@ opened, and `script/apropos` was never run. [Run 5](stranger-test/run-5.md).
 
 ### Run 6, 2026-09-19: a different model, a program in two edits, and a stranger that provisioned the machine
 
-Summarised in [the latest result](#the-latest-result-run-6-2026-09-19). [Run
+Summarized in [the latest result](#the-latest-result-run-6-2026-09-19). [Run
 6](stranger-test/run-6.md).
 
 ## BUGS

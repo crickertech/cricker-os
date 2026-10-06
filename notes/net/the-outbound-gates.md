@@ -133,7 +133,7 @@ smoltcp-to-confined-NIC path, which is what the test was ever really for.
 
 What it no longer proves, deliberately: that DNS resolution works, or that the guest can reach
 anything outside the emulator. That case did not get deleted; it became non-gating. The client
-still sends a real query (now with three attempts, which is ordinary resolver behaviour rather than a
+still sends a real query (now with three attempts, which is ordinary resolver behavior rather than a
 widened timeout) and reports a distinct `NO_ANSWER` when the host never replies. The kernel test
 prints and skips. A reply that arrives but is *not* a valid answer to our transaction still fails the
 suite, because that would be our defect rather than the network's. So a broken host resolver, or an

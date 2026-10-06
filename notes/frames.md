@@ -652,7 +652,7 @@ claim that a stack frame is a physical page.*
   one guard), so `FAR - STACK_AREA` is `0x1b3000` = 87 × `0x5000` with a remainder of zero. `x8`
   is `0x4a90` into the same slot, which is that thread's own stack, 1392 bytes below its top. So the
   guard page did its job: a 16 KiB kernel stack ran out and the write below it was caught rather than
-  quietly landing on the neighbour.
+  quietly landing on the neighbor.
 
   It faulted while the supervision and reap tests were running (the console interleaves, so which
   test owns it is not established, and this note should not pretend otherwise).

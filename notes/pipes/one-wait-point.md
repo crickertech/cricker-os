@@ -54,7 +54,7 @@ Three correct local decisions compose into a stage that runs to completion over 
 an honest count of an empty stream. `doc page.md | wc` answering `0 0 0` is not a viewer that failed
 to render, it is a viewer that rendered the empty document it was given.
 
-That is why nothing caught it, and it is the shape to recognise: an empty capability slot on a
+That is why nothing caught it, and it is the shape to recognize: an empty capability slot on a
 byte stream reads as an empty stream, everywhere, by construction. There is no reader in this
 system that can tell "nobody granted me an input" from "the input was empty", because the sink
 contract deliberately gives a reader nothing to ask with. The check that can tell them apart is the

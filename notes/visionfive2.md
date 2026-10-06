@@ -703,8 +703,8 @@ Setup, in order:
 2. DIP switches to QSPI: RGPIO_1 = 0 (L), RGPIO_0 = 0 (L) [QSG].
 3. Serial: pins 6/8/10 as wired above, 115200 8N1, terminal attached before power so the SPL
    banner is not missed. `script/board-console` (milestone 216) is that terminal, and it recognises
-   the sequence below rather than leaving it to your eyes: it logs every byte to a file, stops on a
-   deadline, and returns a different exit status for a hang than for a refusal. See
+   the sequence rather than leaving it to your eyes: it logs every byte to a file, stops on a
+   deadline, and returns different exit status for a hang than a refusal. See
    notes/board-console.md. A `screen /dev/cu.usbmodem* 115200` still works and is what to reach for
    when you need to *type* at U-Boot, which the tool deliberately cannot do.
 4. Power: USB-C. The board boots on power, there is no power button.

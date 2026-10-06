@@ -273,7 +273,7 @@ if !rights.is_subset_of(src.rights) {
 }
 ```
 
-If delegation could widen authority the model is theatre, because you would derive
+If delegation could widen authority the model is theater, because you would derive
 yourself a better capability from the one you hold. And `NONE`/`READ`/`WRITE`/`GRANT` includes a
 right Unix cannot express: `GRANT`, the right to pass a capability on. Our console capability
 has `WRITE` and not `GRANT`, so the program may print and may not lend printing to anyone. Unix's

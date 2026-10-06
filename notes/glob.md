@@ -271,7 +271,7 @@ The unit tests exist for these. Every one is a place a real glob implementation 
 | `[a-]` | matches `a` and `-` | a `-` with nothing after it inside the body is a member, not a range |
 | `[-a]` | matches `-` and `a` | same rule, other end |
 | `[z-a]` | matches nothing | a reversed range is empty. POSIX says undefined; glibc says empty, which is the answer that cannot surprise anyone into a larger grant |
-| `[\]]` | matches `]` | strict POSIX bracket expressions have no escapes; glibc's fnmatch and bash both honour one, and matching them is worth more than matching the standard nobody implements |
+| `[\]]` | matches `]` | strict POSIX bracket expressions have no escapes; glibc's fnmatch and bash both honor one, and matching them is worth more than matching the standard nobody implements |
 | `a\` | matches `a\` | a trailing backslash has nothing to escape and is itself |
 | `` (empty) | matches only the empty name | |
 | `[[:alpha:]]` | matches `a]`, `:]`, ... | no POSIX classes; see above |

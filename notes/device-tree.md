@@ -38,7 +38,7 @@ does `u32::from_be(magic)`.
 ```
 
 The reservation block is deliberately dead simple, and it comes first, precisely so a
-kernel can honour it without parsing anything. It's the firmware saying "I have things in
+kernel can honor it without parsing anything. It's the firmware saying "I have things in
 here." QEMU's `virt` leaves it empty; real boards often don't, and a kernel that skips it
 will happily allocate over the firmware's own tables.
 

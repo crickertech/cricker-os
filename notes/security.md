@@ -60,7 +60,7 @@ before attempting the map, so a bad `va` (misaligned, or high-half) spent a page
 those cheap cases are rejected before any page is retyped. (An already-mapped `va` still costs one
 page, which is process-local and bounded by the untyped, so it is left as-is.)
 
-4. Stale documentation described defences the code no longer has. Comments still pointed at
+4. Stale documentation described defenses the code no longer has. Comments still pointed at
 `user_slice` and the confused-deputy `AT S1E0R` reader, which milestone 8 deleted when the console
 left the kernel; a future reader could have believed a pointer path was guarded when there is no
 pointer path at all. Corrected, and the historical `abi::console` methods are marked as such.
@@ -127,7 +127,7 @@ above as current would be wrong about all four:
 - **"without an IOMMU".** Milestone 16b built one, on both architectures, at the QEMU tier: an
   identity-mapped domain per device with the existing DMA-escape tests run behind it, plus two Kani
   harnesses over the aarch64 entry arithmetic. The shadow ring (notes/dma.md) deliberately stays as
-  defence in depth. notes/iommu.md carries the honest limits, which are real.
+  defense in depth. notes/iommu.md carries the honest limits, which are real.
 - **"without resource quotas".** The mechanism exists (`Thread`'s quota slot, returned by ownership
   rather than by bookkeeping; notes/quotas.md), and `sched::spawn_with_quota` has no caller
   today, so the exhaustion attack this audit named is still reachable. That row moved from

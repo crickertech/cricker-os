@@ -25,7 +25,7 @@ assumption that held on two architectures and not on three.
 `x86_trap_handler` became `x86_trap_dispatch` (outer) plus `x86_trap_body` (inner), with
 `dispatch_on_interrupt_stack` in trap.s between them. The outer half stays on the interrupted
 thread's stack and is where the deferred `schedule()` runs; the inner half may run on this CPU's
-interrupt stack. That is not an optimisation: `schedule()` parks the running `rsp` in the outgoing
+interrupt stack. That is not an optimization: `schedule()` parks the running `rsp` in the outgoing
 thread's `Context`. So calling it from a per-CPU stack would park a per-CPU address in a thread and
 the thread would later resume on bytes the next interrupt had spent. See kernel/src/interrupt_stack.rs.
 

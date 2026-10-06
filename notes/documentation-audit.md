@@ -196,7 +196,7 @@ $ script/audits --baseline     # the counts to paste into both index tables
 
 - "Document" reads as `.md`, and the sharpest claims are in `.rs`. Five of the 2026-08-17 sweep's
   six fixes were in Rust source, two of them in test doc comments whose assertions no longer
-  honoured what the comment claimed. A test that enumerates a set is a claim about that set and rots
+  honored what the comment claimed. A test that enumerates a set is a claim about that set and rots
   the way prose does. The corpus is prose, wherever it lives; nothing in this procedure says so
   clearly enough, and a reader who scoped a sweep to `notes/` would be following it correctly.
 

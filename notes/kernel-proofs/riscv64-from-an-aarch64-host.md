@@ -77,7 +77,7 @@ Both patches are in `kernel/falsifications/` and replay on an aarch64 host. Each
 One is the SMMU's `STRTAB_LOG2` shape again. A bound written for the 32-byte format admits ids 64 to
 127, past the frame, and every test stays green.
 
-The other gives `iosatp` the `(pa >> 12) << 10` encoding that three neighbours in the same file use.
+The other gives `iosatp` the `(pa >> 12) << 10` encoding that three neighbors in the same file use.
 It turns MODE red for a high enough root. The boot confinement test would probably catch it too; that
 was reasoned, not run.
 

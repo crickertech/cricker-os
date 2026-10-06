@@ -277,7 +277,7 @@ function, took `r > 0` on trust, and used it to discharge the caller. The claim 
 pointer in `x0`), and the run is green and silent about it. There is no warning, no count of trusted
 items, nothing in the exit status.
 
-That is the mirror image of Kani's behaviour. Kani refuses loudly and proves nothing; Verus proves
+That is the mirror image of Kani's behavior. Kani refuses loudly and proves nothing; Verus proves
 whatever you assert and says nothing. Neither reaches the hardware. One tells you so.
 
 The project is honest about the mechanism. Its `tcb.md` enumerates how assumptions enter: an `assume`
@@ -597,7 +597,7 @@ verification results:: 1 verified, 0 errors
   in the note, and SOSP '25 explicitly leaves concurrent drivers as future work. The
   sequential-consistency finding above is quoted from the OOPSLA paper and from a reading of
   `vstd::atomic`; nobody here ran a concurrent Verus proof to see what it does with a `Relaxed`
-  atomic, and "not supported" could mean refused or could mean silently modelled as `SeqCst`. Those
+  atomic, and "not supported" could mean refused or could mean silently modeled as `SeqCst`. Those
   are very different, and this note does not know which.
 - Three things the Verus documentation does not state, found only in its source. That `asm!` is
   rejected (`rust_to_vir_expr.rs`, `ExprKind::InlineAsm => unsupported_err!`); that `vstd` is

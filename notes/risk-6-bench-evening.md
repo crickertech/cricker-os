@@ -186,7 +186,7 @@ sudo fio --name=w --filename=/dev/nvme0n1 --direct=1 --rw=write --bs=4k --iodept
 ```
 
 Queue depth 1, 4 KiB, O_DIRECT, one pass: the shape nife's driver has. Without it, the verdict
-answers "confined, at a measured rate" and leaves "at *real* speed" to a judgement. With it, the
+answers "confined, at a measured rate" and leaves "at *real* speed" to a judgment. With it, the
 ratio is the number. **Never quote nife's figure against a queue-depth-32 Linux figure.**
 
 ### 6. Record it
@@ -202,7 +202,7 @@ attached.
 | What the photograph shows | What it means | Where it routes |
 |---|---|---|
 | `verdict CONFINED-AT-RATE` | a confined EL0 driver moved verified blocks on real silicon at the stated rate | risk 6's decisive experiment ran. Record it. Whether the rate is "real speed" is the Linux ratio's question (step 5), not this line's |
-| preflight 1 `FAIL ... drhd X owns it, but it did not come up` | the unit that owns the NVMe was refused | the numbers below it are labelled `UNCONFINED` and are not risk 6's answer. The `vt-d ... NOT up` line gives the reason. The fix is a kernel change and a lane, not a bench step |
+| preflight 1 `FAIL ... drhd X owns it, but it did not come up` | the unit that owns the NVMe was refused | the numbers below it are labeled `UNCONFINED` and are not risk 6's answer. The `vt-d ... NOT up` line gives the reason. The fix is a kernel change and a lane, not a bench step |
 | preflight 1 `FAIL ... no drhd owns it` | no unit's scope names the NVMe and there is no catch-all | same routing. It would also mean firmware leaves the NVMe untranslated under any OS, which is itself worth writing down |
 | preflight 1 `FAIL ... the dmar did not fit` | the DMAR held more DRHDs or scopes than `DmarUnits` records | raise `MAX_DRHDS`/`MAX_SCOPES` in `crates/machine_discovery`; the photograph of the tour's `vt-d` lines says by how much |
 | preflight 2 `FAIL  N-byte lbas` and `verdict SKIPPED` | the Micron is formatted with an LBA size this driver cannot serve | a skip, not a pass. Reformatting the namespace (`nvme format` from a Linux live stick, LBA format 0) is calef's call; so is teaching the driver PRP lists for larger LBAs |

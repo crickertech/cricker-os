@@ -14,7 +14,7 @@ it for every salt it uses.
 The contract is `crates/credential_protocol`, the logic is `crates/credentialer`, the service is
 `components/src/credentialer.rs`, and its clients are `fixtures/src/credentialer_test_client.rs`.
 
-Milestone 65 generalised this into a secrets service, in place. The same process now holds two
+Milestone 65 (a secrets service) generalized this in place. The same process now holds two
 kinds of secret and serves an operation for each: a password verifier, described here, and an NTLM
 key, described in [NTLM](ntlm.md). It happened in place rather than in a new program because the
 milestone's own rule is that the credentialer becomes *an operation in* the secrets service, and a

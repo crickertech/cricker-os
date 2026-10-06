@@ -167,7 +167,7 @@ which milestone 525 (a bad upgrade cannot brick the machine) copied. dm-verity's
 signature covers the whole root. Downloadable content (DLC) is a verified image the OS build carves
 out, version-locked to the OS. There is no SDK for the OS itself.
 
-Take: full images as the floor and deltas as an optimisation that falls back. Take: DLC's rule that
+Take: full images as the floor and deltas as an optimization that falls back. Take: DLC's rule that
 an optional piece of the base is version-locked to the image. Refuse: block-level deltas, which
 need a byte-identical source partition; content addressing gets blob-level deltas without that.
 
