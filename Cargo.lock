@@ -359,6 +359,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "designware_mobile_storage"
+version = "0.1.0"
+dependencies = [
+ "device_tree_blob",
+]
+
+[[package]]
 name = "device_tree_blob"
 version = "0.1.0"
 

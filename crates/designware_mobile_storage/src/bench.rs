@@ -1,0 +1,183 @@
+//! **The bench step's two halves, as logic**: the read-only probe and the scratch write test.
+//!
+//! These are the sequences `kernel/src/storage_bench.rs` runs on radon. They live here so the
+//! order of operations, which is the safety argument, is tested on a host rather than first tried
+//! on the card radon boots from:
+//!
+//! - [`read_only`] identifies the card, reads sector 0, parses the MBR, reads the first
+//!   partition's boot sector, and times a sequential read from the start of that partition. It
+//!   sends no command that writes.
+//! - [`scratch_write`] writes only inside [`Mbr::scratch`]'s range, the gap before the first
+//!   partition, and only after reading what is there; it writes a pattern, reads it back, writes
+//!   the original back and reads that back too. A card it cannot find a gap on is refused, not
+//!   written.
+
+use crate::host::{Host, Registers};
+use crate::partition::Mbr;
+use crate::sd::{self, BLOCK, Card, InitError, IoError};
+
+/// How many sectors the write test uses at most: 4 KiB, one multi-block command each way.
+pub const SCRATCH_SECTORS: u32 = 8;
+
+/// What the read-only probe found.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReadReport {
+    /// The card, identified.
+    pub card: Card,
+    /// Sector 0, parsed, if it holds an MBR.
+    pub mbr: Option<Mbr>,
+    /// The first partition's first sector ends in `55 aa` (a FAT boot sector does).
+    pub partition_boot_signature: bool,
+    /// The first partition's first sector's bytes 82..90 (FAT32's `"FAT32   "` file system
+    /// type), for the transcript.
+    pub fs_type: [u8; 8],
+    /// Blocks read in the timed sequential read.
+    pub timed_blocks: u64,
+    /// Microseconds the timed read took.
+    pub timed_us: u64,
+}
+
+/// Where the read-only probe stopped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReadFailure {
+    /// Identification failed.
+    Init(InitError),
+    /// A read failed: the block and the error.
+    Read(u64, IoError),
+}
+
+/// **The read-only probe.** `buf` is the transfer buffer (a whole number of blocks; the timed read
+/// moves `buf.len()` bytes per command), `timed_blocks` how many blocks to time.
+///
+/// # Errors
+///
+/// The first step that failed.
+pub fn read_only<R: Registers>(
+    host: &mut Host<R>,
+    bus_width: u8,
+    buf: &mut [u8],
+    timed_blocks: u64,
+) -> Result<ReadReport, ReadFailure> {
+    let card = sd::identify(host, bus_width).map_err(ReadFailure::Init)?;
+    let mut sector = [0u8; BLOCK];
+    sd::read_blocks(host, &card, 0, &mut sector).map_err(|e| ReadFailure::Read(0, e))?;
+    let mbr = Mbr::parse(&sector);
+    let first = mbr.and_then(|m| m.first_start()).map_or(0, u64::from);
+    let mut partition_boot_signature = false;
+    let mut fs_type = [0u8; 8];
+    if first != 0 {
+        sd::read_blocks(host, &card, first, &mut sector)
+            .map_err(|e| ReadFailure::Read(first, e))?;
+        partition_boot_signature = sector[510..512] == [0x55, 0xaa];
+        fs_type.copy_from_slice(&sector[82..90]);
+    }
+    let per = (buf.len() / BLOCK) as u64;
+    let mut timed = 0u64;
+    let start = host.registers().now_us();
+    if per > 0 {
+        while timed < timed_blocks && first + timed + per <= card.blocks {
+            sd::read_blocks(host, &card, first + timed, buf)
+                .map_err(|e| ReadFailure::Read(first + timed, e))?;
+            timed += per;
+        }
+    }
+    let timed_us = host.registers().now_us().wrapping_sub(start);
+    Ok(ReadReport {
+        card,
+        mbr,
+        partition_boot_signature,
+        fs_type,
+        timed_blocks: timed,
+        timed_us,
+    })
+}
+
+/// The byte the write test puts at offset `i` of the sector at `lba`: never constant across a
+/// sector, different for each sector, so a write that lands one sector off or repeats a block is
+/// seen on readback.
+#[must_use]
+pub const fn pattern(lba: u64, i: usize) -> u8 {
+    (i as u8).wrapping_mul(31) ^ (lba as u8).wrapping_mul(7) ^ 0x5a ^ (i >> 8) as u8
+}
+
+/// How the scratch write test ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WriteVerdict {
+    /// No MBR, a GPT disk, or no gap before the first partition: nothing was written.
+    Refused,
+    /// The pattern was written, read back intact, and the original contents written back and read
+    /// back intact: `(first sector, count, the original was all zero)`.
+    Verified(u32, u32, bool),
+    /// The pattern did not read back: the first wrong sector. The original was written back.
+    PatternMismatch(u64),
+    /// The original did not read back after it was restored: the first wrong sector. This is the
+    /// one verdict that leaves the scratch range changed, and it is inside the gap no partition
+    /// owns.
+    RestoreMismatch(u64),
+    /// A command failed: which phase (0 read original, 1 write pattern, 2 read pattern, 3 write
+    /// original, 4 read original back) and the error.
+    Failed(u8, IoError),
+}
+
+/// **The scratch write test.** `mbr` is what [`read_only`] parsed from this card; `original` and
+/// `scratch` are two buffers of at least [`SCRATCH_SECTORS`] blocks.
+pub fn scratch_write<R: Registers>(
+    host: &mut Host<R>,
+    card: &Card,
+    mbr: Option<&Mbr>,
+    original: &mut [u8],
+    scratch: &mut [u8],
+) -> WriteVerdict {
+    let Some((first, count)) = mbr.and_then(|m| m.scratch(SCRATCH_SECTORS)) else {
+        return WriteVerdict::Refused;
+    };
+    let bytes = count as usize * BLOCK;
+    if original.len() < bytes || scratch.len() < bytes {
+        return WriteVerdict::Failed(0, IoError::Length);
+    }
+    let lba = u64::from(first);
+    let (original, scratch) = (&mut original[..bytes], &mut scratch[..bytes]);
+    if let Err(e) = sd::read_blocks(host, card, lba, original) {
+        return WriteVerdict::Failed(0, e);
+    }
+    let blank = original.iter().all(|&b| b == 0);
+    for (s, block) in scratch.as_chunks_mut::<BLOCK>().0.iter_mut().enumerate() {
+        for (i, b) in block.iter_mut().enumerate() {
+            *b = pattern(lba + s as u64, i);
+        }
+    }
+    let mut verdict = None;
+    if let Err(e) = sd::write_blocks(host, card, lba, scratch) {
+        verdict = Some(WriteVerdict::Failed(1, e));
+    } else {
+        let mut back = [0u8; BLOCK];
+        for s in 0..u64::from(count) {
+            if let Err(e) = sd::read_blocks(host, card, lba + s, &mut back) {
+                verdict = Some(WriteVerdict::Failed(2, e));
+                break;
+            }
+            let at = s as usize * BLOCK;
+            if back[..] != scratch[at..at + BLOCK] {
+                verdict = Some(WriteVerdict::PatternMismatch(lba + s));
+                break;
+            }
+        }
+    }
+    // Whatever happened, put back what was there.
+    if let Err(e) = sd::write_blocks(host, card, lba, original) {
+        return WriteVerdict::Failed(3, e);
+    }
+    if let Err(e) = sd::read_blocks(host, card, lba, scratch) {
+        return WriteVerdict::Failed(4, e);
+    }
+    if let Some(s) = scratch
+        .as_chunks::<BLOCK>()
+        .0
+        .iter()
+        .zip(original.as_chunks::<BLOCK>().0)
+        .position(|(a, b)| a != b)
+    {
+        return WriteVerdict::RestoreMismatch(lba + s as u64);
+    }
+    verdict.unwrap_or(WriteVerdict::Verified(first, count, blank))
+}
