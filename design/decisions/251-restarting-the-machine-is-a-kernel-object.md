@@ -76,6 +76,38 @@ capability and possible on all three architectures. Fuchsia's `zx_system_powerct
 resource handle, is the same shape; Linux's `reboot(2)` behind `CAP_SYS_BOOT` is D with an identity
 check. Both are recalled, not re-read.
 
+## Amended 2026-10-06 (UTC): what the build found, under exit criterion 7
+
+Milestone 805's lane built the object and found three places where this section's wording and the
+built thing differ. Milestone 805's block left the first one to the building lane ("How `reboot`
+reaches `SYNC` is the building lane's call"); the other two are corrections to wording. calef has
+not ruled on this amendment; the pull request asks.
+
+1. **The progenitor flushes, on the program's behalf** (clause 3). Sending `fs::SYNC` needs a
+   filesystem capability carrying `dir::WRITE`, which is also the right to open and truncate files
+   by name, and nothing narrower exists. Handing `reboot` that for one request that touches no file
+   would be an over-grant `caps reboot` would have to print. The progenitor already holds the file
+   service and already flushes it after an install. So its spawn service sends `SYNC` and waits for
+   the reply at the last moment before it starts a child declaring `reboot`. It hands the child the
+   reply in its third start register (`grant_plan::REBOOT_SYNC_REGISTER`). The program prints
+   it and invokes `REBOOT`. A failed flush (any errno but `EOPNOTSUPP`) makes the program refuse to
+   invoke. The cost, recorded in the program's `BUGS`: writes a background job makes between the
+   flush and the reset are not covered. A `dir::SYNC` right on the file contract would let the
+   program flush for itself; that is a protocol change and is not made here.
+2. **No `abi::objtype` number** (clause 1). `objtype` lists what `MemoryRegion::RETYPE_OBJ` can make
+   out of memory. Nothing makes a reboot object, and a number there would read as a way to. It has a
+   method module, `abi::reboot`, like `Irq`, the other kernel-minted object.
+3. **The refusal's code reaches the console, not the caller** ("The method"). `arch::reboot` prints
+   the firmware's answer and returns nothing, so the method answers `DeviceRefused` and the code is
+   on the kernel's line just above. The program prints the refusal on its second stream, and it does
+   not exit non-zero, because no program in this system reports an exit status.
+
+Two smaller facts the section did not state. The kernel grants the progenitor the object with
+`WRITE | GRANT`, at slot 31 (it never invokes it, but delegation only narrows), and the progenitor places it with `WRITE` alone at slot 13; the method
+checks no right, as "The method" says. And a manifest note cannot spell `reboot`
+(`manifest_note::encode` refuses it at compile time), because `grant_plan::image_can_carry` keeps the
+object off every image, so the note's wire format is unchanged.
+
 ## Open
 
 - Who at the prompt may reboot is not decided. Any session the progenitor endows can. Restricting
