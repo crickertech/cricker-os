@@ -3,6 +3,7 @@
 
     helpers/watcher_watch.py check [--quiet]   # one row per watcher; exit 1 if any is stopped
     helpers/watcher_watch.py sync              # check, then open or close one issue per watcher
+    helpers/watcher_watch.py unstick           # cancel a run GitHub left waiting on no rule
     helpers/watcher_watch.py --selftest
 
 Milestone 723 (a stopped merge watcher is reported within three of its own intervals), provisional
@@ -64,8 +65,28 @@ The issue is opened as `nife-smelter[bot]` when its App token may create issues,
 - `sync` writes an issue only on a transition (stopped with none open, running with one open). A
   watcher that stays stopped is one issue, not one per run, on purpose, and the same property means
   nobody is re-told.
-- It reads each watcher's last run, not its last success. A watcher that runs and fails every time
-  reads as running; `trunk-health` already fails its own run when main is red.
+- It reads each watcher's last run that reached a verdict (success or failure), not its last
+  success. A watcher that runs and fails every time reads as running; `trunk-health` already fails
+  its own run when main is red. Until 2026-10-06 it read the last run of any kind, and that is how
+  the drain went eleven hours without a pass while reading as live: see THE STUCK RUN.
+
+# THE STUCK RUN, AND `unstick`
+
+From 10:47 UTC on 2026-10-06 to 21:40 UTC no merge-drain run did any work. Run 37452061017 sat
+`waiting` on its `automation` deployment, whose only protection rule is a branch policy that `main`
+passes. No reviewer, no wait timer: nothing was left to approve. Its deployment's status history
+stops at `waiting`, while a sibling run created the same second (37452060994) went
+`waiting`, `queued`, `in_progress`, `success` within 18 seconds. A GitHub-side transition was lost.
+A waiting run holds its concurrency group, so each later run sat `pending` until a newer one
+replaced it: sixty `cancelled` runs, no jobs, no logs, and every one of them counted as "a run" by
+the rule above. `ci-failing` hit the same at 18:32 (run 37512060467). Three merge-queue ejections
+went unlabeled; calef found them.
+
+A run waiting on a rule GitHub has already satisfied never moves on its own, so `unstick` cancels it:
+a run `waiting` for more than `STUCK_MIN` minutes whose every pending deployment has no reviewers and
+a wait timer that has run out. A run waiting on a person is never touched. The drain's own workflow
+calls this from a job that names no environment and holds no concurrency group, so it runs even
+while the drain job is the one stuck.
 """
 
 import datetime
@@ -86,6 +107,11 @@ SILENT_INTERVALS = 3
 MEASURED_FLOOR_MIN = {"merge-drain": 180, "trunk-health": 720}
 
 TITLE_PREFIX = "merge watcher stopped: "
+
+# How long a run may wait on a deployment with nothing left to approve. A healthy one passes the
+# branch policy in about a second (2026-10-06: 18 seconds from `waiting` to `success`), so ten
+# minutes is several hundred times the real wait and still short beside the drain's floor.
+STUCK_MIN = 10
 
 
 def cron_interval_minutes(cron):
@@ -136,11 +162,11 @@ def verdict(name, state, cron, last_run, now):
         return False, "DEAD: workflow state is %s, so it will not run until someone enables it" % state
     limit = silence_minutes(name, cron)
     if last_run is None:
-        return False, "DEAD: no run on record (silence limit %d min)" % limit
+        return False, "DEAD: no finished run on record (silence limit %d min)" % limit
     ago = (now - parse_time(last_run)).total_seconds() / 60.0
     if limit and ago > limit:
-        return False, "DEAD: no run for %s, past its %d-minute silence limit" % (human(ago), limit)
-    return True, "live (last run %s ago)" % human(ago)
+        return False, "DEAD: no finished run for %s, past its %d-minute silence limit" % (human(ago), limit)
+    return True, "live (last finished run %s ago)" % human(ago)
 
 
 def human(minutes):
@@ -199,13 +225,19 @@ def collect(now):
     out = []
     for name in WATCHERS:
         w = gh(["api", "repos/%s/actions/workflows/%s.yml" % (REPO, name), "--jq", ".state"], read)
-        r = gh(["api", "repos/%s/actions/workflows/%s.yml/runs?per_page=1" % (REPO, name),
-                "--jq", ".workflow_runs[0].created_at // empty"], read)
-        if w.returncode or r.returncode:
-            print("watcher_watch: could not read %s: %s" % (name, (w.stderr or r.stderr).strip()),
-                  file=sys.stderr)
-            return None
-        last = r.stdout.strip() or None
+        # A run that reached a verdict, not merely a run: a cancelled one did no work, and sixty
+        # of them read as a live drain on 2026-10-06 (THE STUCK RUN in the header).
+        last = None
+        for conclusion in ("success", "failure"):
+            r = gh(["api", "repos/%s/actions/workflows/%s.yml/runs?status=%s&per_page=1"
+                    % (REPO, name, conclusion), "--jq", ".workflow_runs[0].created_at // empty"], read)
+            if w.returncode or r.returncode:
+                print("watcher_watch: could not read %s: %s" % (name, (w.stderr or r.stderr).strip()),
+                      file=sys.stderr)
+                return None
+            t = r.stdout.strip() or None
+            if t and (last is None or parse_time(t) > parse_time(last)):
+                last = t
         ok, text = verdict(name, w.stdout.strip(), read_cron(name), last, now)
         out.append((name, ok, text, last))
     return out
@@ -257,6 +289,57 @@ def sync():
     return status
 
 
+def is_stuck(created_at, pending, now):
+    """True when a `waiting` run has nothing left to wait for. Pure.
+
+    `pending` is the run's `pending_deployments` list. Every entry must have no reviewers and a wait
+    timer that has run out; one entry waiting on a person, or an empty list, means leave it alone."""
+    if not pending:
+        return False
+    if (now - parse_time(created_at)).total_seconds() < STUCK_MIN * 60:
+        return False
+    for p in pending:
+        if p.get("reviewers"):
+            return False
+        timer = p.get("wait_timer") or 0
+        if timer:
+            started = p.get("wait_timer_started_at")
+            if not started or (now - parse_time(started)).total_seconds() < (timer + STUCK_MIN) * 60:
+                return False
+    return True
+
+
+def unstick():
+    """Cancel every run GitHub left waiting on a deployment with nothing to approve."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    r = gh(["api", "repos/%s/actions/runs?status=waiting&per_page=100" % REPO,
+            "--jq", "[.workflow_runs[] | {id, name, created_at}]"])
+    if r.returncode:
+        print("watcher_watch: could not list waiting runs: %s" % r.stderr.strip(), file=sys.stderr)
+        return 2
+    status = 0
+    for run in json.loads(r.stdout or "[]"):
+        p = gh(["api", "repos/%s/actions/runs/%d/pending_deployments" % (REPO, run["id"])])
+        if p.returncode:
+            print("watcher_watch: could not read run %d: %s" % (run["id"], p.stderr.strip()), file=sys.stderr)
+            status = 2
+            continue
+        if not is_stuck(run["created_at"], json.loads(p.stdout or "[]"), now):
+            print("watcher_watch: run %d (%s) waits on a rule; left alone" % (run["id"], run["name"]))
+            continue
+        base = "repos/%s/actions/runs/%d/" % (REPO, run["id"])
+        c = gh(["api", "-X", "POST", base + "cancel"])
+        if c.returncode:
+            c = gh(["api", "-X", "POST", base + "force-cancel"])
+        if c.returncode:
+            print("::error::could not cancel stuck run %d (%s): %s" % (run["id"], run["name"], c.stderr.strip()))
+            status = 2
+            continue
+        print("::warning::cancelled run %d (%s), waiting since %s on a deployment with nothing to "
+              "approve; its concurrency group is free again" % (run["id"], run["name"], run["created_at"]))
+    return status
+
+
 def selftest():
     ok = True
 
@@ -303,6 +386,23 @@ def selftest():
            plan(rows, {t + "merge-drain", t + "trunk-health"}), [("close", "trunk-health", "live")])
     expect("an unrelated issue is ignored", plan(rows, {"something else"}), [("open", "merge-drain", "DEAD: x")])
 
+    # The stuck run of 2026-10-06, and the runs that must be left alone.
+    now = parse_time("2026-10-06T21:40:00Z")
+    nobody = [{"reviewers": [], "wait_timer": 0, "wait_timer_started_at": None}]
+    expect("eleven hours waiting on no rule is stuck", is_stuck("2026-10-06T10:47:06Z", nobody, now), True)
+    expect("a fresh wait is not stuck", is_stuck("2026-10-06T21:35:00Z", nobody, now), False)
+    expect("a wait on a reviewer is never stuck",
+           is_stuck("2026-10-06T10:47:06Z", [{"reviewers": [{"type": "User"}], "wait_timer": 0}], now), False)
+    expect("one entry on a reviewer protects the run",
+           is_stuck("2026-10-06T10:47:06Z", nobody + [{"reviewers": [{"type": "Team"}]}], now), False)
+    expect("a running wait timer is not stuck",
+           is_stuck("2026-10-06T10:47:06Z",
+                    [{"reviewers": [], "wait_timer": 60, "wait_timer_started_at": "2026-10-06T21:00:00Z"}], now), False)
+    expect("a wait timer long run out is stuck",
+           is_stuck("2026-10-06T10:47:06Z",
+                    [{"reviewers": [], "wait_timer": 60, "wait_timer_started_at": "2026-10-06T11:00:00Z"}], now), True)
+    expect("no pending deployment is not ours", is_stuck("2026-10-06T10:47:06Z", [], now), False)
+
     print("watcher_watch selftest: %s" % ("ok" if ok else "FAILED"))
     return 0 if ok else 1
 
@@ -314,6 +414,8 @@ def main(argv):
         return check("--quiet" in argv[2:])
     if argv[1:] == ["sync"]:
         return sync()
+    if argv[1:] == ["unstick"]:
+        return unstick()
     print(__doc__, file=sys.stderr)
     return 2
 
