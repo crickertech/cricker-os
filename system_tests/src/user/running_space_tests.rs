@@ -233,30 +233,58 @@ fn unmap_on_another_core_faults_a_reader_spinning_on_the_page() {
     // SAFETY: the reader's own current-CPU frame, through the direct map; it lives as long as the
     // space, which outlives this test's reads (the space dies with the reader, after them).
     let reader_cpu = || unsafe { current_cpu_protocol::CurrentCpuPage::new(cpu_page) }.cpu();
-    let here = reader_cpu().expect("premise: the reader has run, so its page names a core");
-    let target = crate::smp::online_cpus()
-        .find(|&c| c != here)
-        .expect("two cores online and none but the reader's");
-
-    for a in [&UNMAP_RESULT, &UNMAPPER_CPU, &READER_CPU_AT_UNMAP] {
-        a.store(u64::MAX, Ordering::Relaxed);
-    }
+    // **Placement is retried, not pinned, and a retry is weaker than pinning.** The kernel has no
+    // affinity primitive (the syscall surface is an architect's call, and `cpu.rs` records why
+    // tests are not pinned), so `spawn_on` is a hint: §28's idle stealing can pull the unmapper
+    // onto the reader's core, or the reader onto the unmapper's, before either runs. The unmapper
+    // therefore checks where the reader is and stands down, unmapping nothing, when it shares its
+    // core; the test then picks a fresh target and tries again, up to `ATTEMPTS` times. What
+    // remains is the window between that check and the `UNMAP` itself, which the assertion below
+    // still catches (and which would only fail a run, never pass one wrongly).
+    const ATTEMPTS: usize = 16;
+    const STOOD_DOWN: u64 = 2;
     let faults = crate::arch::exceptions::USER_FAULTS.load(Ordering::Acquire);
-    sched::spawn_on(target, move || {
-        let slot = sched::grant(crate::cap::address_space_cap(name, Rights::WRITE))
-            .expect("grant the unmapper its capability");
-        // SAFETY: as above.
-        let theirs = unsafe { current_cpu_protocol::CurrentCpuPage::new(cpu_page) }.cpu();
-        READER_CPU_AT_UNMAP.store(theirs.map_or(u64::MAX - 1, |c| c as u64), Ordering::Relaxed);
-        UNMAPPER_CPU.store(crate::cpu::id() as u64, Ordering::Relaxed);
-        let r = call(slot, abi::address_space::UNMAP, VA, 0, 0);
-        let _ = sched::delete_current_cap(slot);
-        UNMAP_RESULT.store(if r == Ok(0) { 0 } else { 1 }, Ordering::Release);
-    })
-    .expect("spawn the unmapper");
+    let mut target = 0;
+    let mut placed = false;
+    for _ in 0..ATTEMPTS {
+        let here = reader_cpu().expect("premise: the reader has run, so its page names a core");
+        target = crate::smp::online_cpus()
+            .find(|&c| c != here)
+            .expect("two cores online and none but the reader's");
+        for a in [&UNMAP_RESULT, &UNMAPPER_CPU, &READER_CPU_AT_UNMAP] {
+            a.store(u64::MAX, Ordering::Relaxed);
+        }
+        sched::spawn_on(target, move || {
+            // SAFETY: as above.
+            let theirs = unsafe { current_cpu_protocol::CurrentCpuPage::new(cpu_page) }.cpu();
+            let me = crate::cpu::id();
+            if theirs == Some(me) {
+                UNMAP_RESULT.store(STOOD_DOWN, Ordering::Release);
+                return;
+            }
+            let slot = sched::grant(crate::cap::address_space_cap(name, Rights::WRITE))
+                .expect("grant the unmapper its capability");
+            READER_CPU_AT_UNMAP
+                .store(theirs.map_or(u64::MAX - 1, |c| c as u64), Ordering::Relaxed);
+            UNMAPPER_CPU.store(me as u64, Ordering::Relaxed);
+            let r = call(slot, abi::address_space::UNMAP, VA, 0, 0);
+            let _ = sched::delete_current_cap(slot);
+            UNMAP_RESULT.store(if r == Ok(0) { 0 } else { 1 }, Ordering::Release);
+        })
+        .expect("spawn the unmapper");
+        assert!(
+            wait_for(2, || UNMAP_RESULT.load(Ordering::Acquire) != u64::MAX),
+            "the unmapper never ran on cpu {target}",
+        );
+        if UNMAP_RESULT.load(Ordering::Acquire) != STOOD_DOWN {
+            placed = true;
+            break;
+        }
+    }
     assert!(
-        wait_for(2, || UNMAP_RESULT.load(Ordering::Acquire) != u64::MAX),
-        "the unmapper never ran on cpu {target}",
+        placed,
+        "the scheduler put the unmapper on the reader's core {ATTEMPTS} times running (last target \
+         cpu {target}); with no affinity primitive this test cannot place them apart",
     );
     assert_eq!(
         UNMAP_RESULT.load(Ordering::Acquire),
