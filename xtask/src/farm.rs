@@ -22,7 +22,7 @@ const STD_TARGETS: [&str; 3] = [
 const NIFE_TOOLCHAIN: &str = "nife-dev";
 
 /// Bump to force every farm to rebuild after a change to the patch logic itself (not the inputs).
-const STD_SRC_PATCH_VERSION: u32 = 9;
+const STD_SRC_PATCH_VERSION: u32 = 10;
 
 fn farm_dir() -> PathBuf {
     workspace_root().join("target/nife-farm")
@@ -238,10 +238,11 @@ fn relink_farm_if_stolen() -> bool {
 ///
 /// build-std reads std's source from the sysroot of the rustc it invokes, so a patched std means
 /// a toolchain whose sysroot IS patched. We hardlink-clone the real nightly (`cp -al`, near-zero
-/// disk since blocks are shared) so rustc resolves *this* directory as its sysroot, then replace
-/// the `src` subtree with a real (independent-inode) copy and patch that copy: the overlay PAL
-/// files, the ABI/heap crates generated verbatim, and a `target_os = "nife"` arm inserted into
-/// std's `cfg_select!` dispatchers. The real toolchain is never touched.
+/// disk since blocks are shared) so rustc resolves *this* directory as its sysroot, copy
+/// `bin/rustc` and the driver dylib for real (see [`unlink_sysroot_anchors`]), then replace the
+/// `src` subtree with a real (independent-inode) copy and patch that copy: the overlay PAL files,
+/// the ABI/heap crates generated verbatim, and a `target_os = "nife"` arm inserted into std's
+/// `cfg_select!` dispatchers. The real toolchain is never touched.
 ///
 /// Idempotent: a stamp of all inputs guards the rebuild, so a warm farm (and its build-std cache)
 /// survives across runs and only a PAL change forces std to recompile.
@@ -301,6 +302,9 @@ pub(crate) fn std_src() -> bool {
             eprintln!("std-src: copying the toolchain failed");
             return false;
         }
+    } else if let Err(e) = unlink_sysroot_anchors(&farm) {
+        eprintln!("std-src: cannot replace the hard-linked rustc with a real copy: {e}");
+        return false;
     }
     let src = farm.join("lib/rustlib/src");
     let _ = std::fs::remove_dir_all(&src);
@@ -332,6 +336,53 @@ pub(crate) fn std_src() -> bool {
         return false;
     }
     true
+}
+
+/// Is this farm file one that rustc reads its own sysroot from?
+///
+/// rustc finds its sysroot from where `librustc_driver` was loaded (`dladdr` on the driver), and
+/// the proxy finds rustc by `bin/rustc`. Those two are the whole set; the hash in the driver's name
+/// changes with every nightly, so it is matched by prefix. Everything else (`libLLVM`, `cargo`,
+/// the sanitizer runtimes, rustlib) is read by path and is safe to share an inode.
+fn is_sysroot_anchor(rel: &Path) -> bool {
+    let Some(name) = rel.file_name().and_then(|n| n.to_str()) else {
+        return false;
+    };
+    match rel.parent().and_then(|p| p.to_str()) {
+        Some("bin") => name == "rustc",
+        Some("lib") => name.starts_with("librustc_driver-"),
+        _ => false,
+    }
+}
+
+/// Replace the hard links to `bin/rustc` and `lib/librustc_driver-*` in a freshly `cp -al`ed farm
+/// with real, independent-inode copies.
+///
+/// **Why these two are copies and the rest stay hard links.** A hard link is one inode with two
+/// names, and when rustc asks the OS where its driver was loaded from, macOS can answer with the
+/// *other* name: the pinned nightly's. rustc then reports the nightly as its sysroot and the build
+/// uses unpatched std, which fails in std's `cfg_select!` dispatchers. Measured on 2026-10-03 and
+/// 2026-10-06: `rustc --print sysroot` through the rustup proxy named the nightly in 1 run of 8,
+/// and every time under `cargo xtask std-exerciser`; with real copies of these two files it named
+/// the farm in 30 runs of 30. See notes/std/caveats.md, "`cargo xtask` through the rustup proxy
+/// built against unpatched std". The copies cost about 90 MB per farm (nightly-2026-10-06); the
+/// rest of `lib`, libLLVM at 140 MB among it, is located by path and keeps sharing blocks.
+fn unlink_sysroot_anchors(farm: &Path) -> std::io::Result<()> {
+    for dir in ["bin", "lib"] {
+        for e in std::fs::read_dir(farm.join(dir))? {
+            let path = e?.path();
+            let rel = Path::new(dir).join(path.file_name().unwrap_or_default());
+            if !is_sysroot_anchor(&rel) || !path.is_file() {
+                continue;
+            }
+            // Copy beside it, then rename over the link: the farm never holds a missing rustc,
+            // and `fs::copy` carries the permission bits, so `bin/rustc` stays executable.
+            let tmp = path.with_extension("nife-copy");
+            std::fs::copy(&path, &tmp)?;
+            std::fs::rename(&tmp, &path)?;
+        }
+    }
+    Ok(())
 }
 
 /// Path-to-string helper for the `cp`/`rustup` argument lists.
@@ -1213,6 +1264,45 @@ fn std_relative(p: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// After the hard-link clone, rustc and its driver must be independent inodes and nothing else
+    /// may be, since copying `libLLVM` would add 140 MB per worktree for no benefit. The
+    /// driver's name carries a per-nightly hash, which is the case an exact-name match would miss.
+    #[cfg(unix)]
+    #[test]
+    fn the_farm_copies_rustc_and_its_driver_and_links_the_rest() {
+        use std::os::unix::fs::MetadataExt;
+        let base =
+            std::env::temp_dir().join(format!("nife-farm-anchor-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let (real, farm) = (base.join("real"), base.join("farm"));
+        let files = [
+            ("bin/rustc", true),
+            ("bin/cargo", false),
+            ("lib/librustc_driver-3d7ac1467fbd50fa.dylib", true),
+            ("lib/libLLVM.dylib", false),
+            ("lib/librustc-nightly_rt.asan.dylib", false),
+        ];
+        for d in ["bin", "lib"] {
+            std::fs::create_dir_all(real.join(d)).unwrap();
+            std::fs::create_dir_all(farm.join(d)).unwrap();
+        }
+        for (f, _) in files {
+            std::fs::write(real.join(f), f).unwrap();
+            std::fs::hard_link(real.join(f), farm.join(f)).unwrap();
+        }
+        unlink_sysroot_anchors(&farm).unwrap();
+        for (f, copied) in files {
+            let ino = |root: &Path| std::fs::metadata(root.join(f)).unwrap().ino();
+            assert_eq!(ino(&real) != ino(&farm), copied, "{f}");
+            assert_eq!(
+                std::fs::read_to_string(farm.join(f)).unwrap(),
+                f,
+                "{f} keeps its bytes"
+            );
+        }
+        let _ = std::fs::remove_dir_all(&base);
+    }
 
     /// The exerciser build's target dir is pinned, and an export that would move it is named
     /// rather than obeyed or ignored. An export that already equals the pin is the no-op case:
