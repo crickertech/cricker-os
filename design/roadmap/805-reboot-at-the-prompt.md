@@ -212,8 +212,7 @@ Built 2026-10-06 (UTC) by lane/805-reboot. Every name below is provisional.
   declares `grant_plan::Manifest::flush`; the spawn service binds a window's badge for that job,
   places the endpoint `WRITE`-only at `grant_plan::FLUSH_SLOT` (14) and keeps no copy. The window
   returns at the reap. `redoxfs_server`'s
-  `a_flush_only_badge_answers_sync_and_refuses_everything_else` drives every opcode through the
-  dispatch, and was falsified by hand (the refusal removed, the test red).
+  `a_flush_only_badge_answers_sync_and_refuses_everything_else` tests it, falsified by hand.
 - **The program.** `components/src/reboot.rs`, in the `init` package. It sends `SYNC`, prints the
   answer, then invokes the object. A failed flush (any errno but `EOPNOTSUPP`) refuses to restart.
 - **`caps reboot`** prints slot 13 (the reboot object) and slot 14 (the flush), and the preview
@@ -269,6 +268,9 @@ on milestone 592.
 
 ## BUGS
 
+- A background job's write between `reboot`'s `SYNC` reply and the reset can be lost. calef ruled
+  option A knowing it (2026-10-06 UTC); orderly shutdown closes it:
+  `design/roadmap/proposals/orderly-shutdown-closes-the-flush-window.md`.
 - radon's reset is unproven on silicon. 592 has a fix waiting on one bench run, and if that fails,
   592's options B and C (a nife PMIC write, or new firmware) come before this.
 - Who at the prompt may reboot is not decided here. Any session the progenitor endows can.
@@ -282,8 +284,10 @@ on milestone 592.
 - **Outstanding.** Exit criterion 6, `reboot` at radon's prompt with nobody at plug 2. It waits on
   milestone 592's bench reset; checked 2026-10-06 (UTC) that 592 is still PARTIAL with its
   `**Outstanding.**` bench run unchanged. calef at the bench; see the scope note.
-- **Recorded.** The flush is not fenced against a background job, and the program does not exit
-  non-zero on a refusal: `components/src/reboot.rs`'s `BUGS`.
+- **Proposed.** Orderly shutdown closes the flush window:
+  `design/roadmap/proposals/orderly-shutdown-closes-the-flush-window.md`.
+- **Recorded.** The program does not exit non-zero on a refusal: `components/src/reboot.rs`'s
+  `BUGS`.
 - **Recorded.** A refused reset leaves the kernel printing direct: `kernel/src/console.rs`'s
   `enter_reset`.
 

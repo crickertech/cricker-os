@@ -80,8 +80,8 @@ check. Both are recalled, not re-read.
 
 Milestone 805's lane built the object and found three places where this section's wording and the
 built thing differ. Milestone 805's block left the first one to the building lane ("How `reboot`
-reaches `SYNC` is the building lane's call"); the other two are corrections to wording. calef has
-not ruled on this amendment; the pull request asks.
+reaches `SYNC` is the building lane's call"); the other two are corrections to wording. calef ruled
+item 1 on 2026-10-06 (UTC), below; items 2 and 3 are still with him on the pull request.
 
 1. **`reboot` flushes for itself, through a flush-only capability** (clause 3). For an ordinary
    client, `fs::SYNC` needs a handle carrying `dir::WRITE`, which is also the right to open and
@@ -109,6 +109,34 @@ not ruled on this amendment; the pull request asks.
    This replaces this item's first version, in which the progenitor sent `SYNC` at the spawn and
    passed the answer in a start register. calef sent that back on #1783 (2026-10-06 UTC): "My
    concern is progenitor is turning into a god process."
+
+   Ruled A by calef on #1783, 2026-10-06 (UTC), answering "Yes" to: "Approve A
+   (fs::BIND_FLUSH flush-only binding), with B through F recorded and D filed as a follow-on?"
+
+   Alternatives considered:
+
+   - A, built: the flush-only binding above. Its gap is a write between the `SYNC` reply and
+     the reset.
+   - B, the progenitor sends `SYNC`: rejected by calef, the god-process concern.
+   - C, give `reboot` an ordinary `dir::WRITE` handle: far too much authority for a flush.
+   - D, orderly shutdown: the reboot path tells every stateful server to stop taking writes,
+     flush and acknowledge before the reset. It is the only option that closes the window. It
+     needs a service manager to own shutdown order, so it is neither `reboot`'s job nor the
+     progenitor's. Filed as `design/roadmap/proposals/orderly-shutdown-closes-the-flush-window.md`.
+   - E, the kernel calls registered pre-reset endpoints: puts shutdown policy in the kernel,
+     against the narrow syscall surface.
+   - F, a crash-consistent filesystem, so no flush is needed: still loses recent writes, and
+     RedoxFS makes no such promise today.
+
+   Prior art, recalled, not re-read:
+
+   - Linux `reboot(2)` does not sync. `reboot(8)` and systemd call `sync(2)` first, and `sync(2)`
+     needs no privilege, which treats a flush as harmless authority and supports A.
+   - Capsicum has a separate `CAP_FSYNC` descriptor right: A at the descriptor level.
+   - E and KeyKOS facets, and seL4 and CAmkES badge attenuation, are the A pattern.
+   - Fuchsia's `component_manager` stops components in dependency order, and `fshost` flushes on
+     `fuchsia.process.lifecycle` `Stop` before power control resets: D.
+   - systemd stops units in reverse dependency order, remounts read-only, syncs, then resets: D.
 2. **No `abi::objtype` number** (clause 1). `objtype` lists what `MemoryRegion::RETYPE_OBJ` can make
    out of memory. Nothing makes a reboot object, and a number there would read as a way to. It has a
    method module, `abi::reboot`, like `Irq`, the other kernel-minted object.

@@ -41,7 +41,8 @@
 //! - **The flush is not fenced against background jobs.** A write another job makes after this
 //!   program's `SYNC` is answered and before the reset lands is not covered: the window is the
 //!   report's two sends and the invoke. The shell runs `reboot` in the foreground, so this is a job
-//!   somebody started earlier and left writing.
+//!   somebody started earlier and left writing. Orderly shutdown closes it:
+//!   `design/roadmap/proposals/orderly-shutdown-closes-the-flush-window.md`.
 //! - **Devices are not quiesced.** A DMA transfer in flight is cut off; after `SYNC` the block
 //!   servers are idle and nothing else writes to persistent storage.
 //!
