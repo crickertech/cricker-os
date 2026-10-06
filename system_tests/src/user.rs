@@ -1050,3 +1050,15 @@ mod spawn_mapping_revocation_tests;
 /// Cross-ISA: the map paths, the log and the cut are portable kernel code (DECISIONS §19).
 #[cfg(test)]
 mod page_table_region_tests;
+
+/// **A client holding one right on a rendezvous cannot reach the operations another right gates**
+/// (milestone 633 (an outside agent attacks the confinement claim), fatal risk 7's confinement
+/// claim, third outsider pass). The kernel half of claim 26 ("a client cannot become its server")
+/// and claim 2 ("userspace cannot forge a right out of a syscall register"), driven through the real
+/// dispatcher. Its own header has the reasoning and why it sits beside `live_swap_tests` rather than
+/// extending it. A module of its own for `tests`' merge-hotspot reason, named to sort near the other
+/// adversarial modules.
+///
+/// Cross-ISA: `invoke`, the rights check and the rendezvous are portable kernel code (DECISIONS §19).
+#[cfg(test)]
+mod confinement_attack_tests;

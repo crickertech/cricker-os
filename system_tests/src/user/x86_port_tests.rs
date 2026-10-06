@@ -290,6 +290,10 @@ fn port_holder_transmits_then_a_non_holder_faults() {
 /// cached grant the switch installs), then wakes it. The `out` it executes on waking faults, which
 /// is the whole claim: a capability that was real became unusable the instant it was revoked.
 ///
+/// BUGS: the test reads `EVENT_FAULT` and not the faulting pc, so a fault anywhere in the child after
+/// the wake would pass it, not only one at the `out`. Found by milestone 633 (an outside agent attacks the confinement claim)'s third outsider pass
+/// (2026-10-06 UTC), by read; the property itself held under that pass's source review.
+///
 /// Falsification: replayable `system_tests/falsifications/user.x86_port_tests.a_revoked_holder_faults_on_its_next_port_write.patch`
 #[test_case]
 fn a_revoked_holder_faults_on_its_next_port_write() {

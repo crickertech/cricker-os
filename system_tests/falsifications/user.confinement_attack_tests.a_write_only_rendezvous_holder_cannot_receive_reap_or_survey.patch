@@ -1,0 +1,27 @@
+Falsifies `system_tests::user::confinement_attack_tests::a_write_only_rendezvous_holder_cannot_receive_reap_or_survey`.
+
+Architecture: aarch64
+
+The patch deletes the `READ` check on `Rendezvous::RECEIVE` in `syscall::invoke`, so a holder of
+`WRITE` alone receives from the endpoint it was only meant to send to: a client becomes its server,
+the break claim 26 names. A sender is already parked, so the broken gate returns its message rather
+than blocking.
+
+Expected to fail: `assert_eq!` "a WRITE-only holder was let RECEIVE: a client became its server", with
+`left: Ok(..)`. Replayed on 2026-10-06 (UTC) by the milestone 633 (an outside agent attacks the
+confinement claim) lane: red at exactly that assertion on aarch64.
+
+diff --git a/kernel/src/syscall.rs b/kernel/src/syscall.rs
+index d111979bf..8ba209534 100644
+--- a/kernel/src/syscall.rs
++++ b/kernel/src/syscall.rs
+@@ -172,9 +172,6 @@ pub fn invoke(
+                 Ok(0)
+             }
+             abi::rendezvous::RECEIVE => {
+-                if !cap.rights.allows(Rights::READ) {
+-                    return Err(Error::NotPermitted);
+-                }
+                 let msg = sched::ipc_receive(ep);
+                 if sched::take_ipc_aborted() {
+                     return Err(Error::Gone); // endpoint revoked; the message is a placeholder

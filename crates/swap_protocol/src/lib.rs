@@ -228,6 +228,12 @@ pub const RPT_SURVEY: u64 = 12;
 /// that the two agree.
 pub const RPT_DEPENDENTS: u64 = 15;
 
+/// **What the confused-deputy attacker's out-of-log `OPERATION_PUT` returned** (milestone 633,
+/// third pass). `w1` = the reply's first word (the server's digest of the attacker's offset when the
+/// server served the out-of-range write, or an error when it did not), `w2` = the reply's tag. The
+/// test reads it to see whether the server reached outside its log. Name provisional.
+pub const RPT_DEPUTY: u64 = 16;
+
 /// **Every member of the domain refused to be collected.** `w1` = how many the operator asked about,
 /// `w2` = how many answered [`abi::Error::StillAlive`].
 ///
@@ -384,6 +390,15 @@ pub const DEV_VA: u64 = address_space_map::pair_page(0x0310_0000);
 /// rather than the whole initrd.
 pub const IMAGE_VA: u64 = address_space_map::runtime_window(0x3000_0000);
 
+/// **The confused-deputy attacker's chosen offset** (milestone 633, third pass). `log_put` writes
+/// at `LOG_VA + log_base + arg`; with `log_base = 0` this lands at `DEV_VA`, the first register of
+/// the device the server holds and the client does not. The server writes the version byte there and
+/// does not fault, because it is a valid register on every UART (an undecoded offset faults QEMU's
+/// ns16550, which backs only the low register block, so the portable target is a decoded one). The
+/// write reaches a page the client was never granted, so a server that serves this has reached
+/// outside its grant on the client's behalf. Name provisional.
+pub const DEPUTY_PROBE: u64 = DEV_VA - LOG_VA;
+
 /// How many requests the client makes. Small enough to fit one log page, large enough that the swap
 /// lands well inside the conversation.
 pub const REQUESTS: u64 = 64;
@@ -408,6 +423,12 @@ pub const ROLE_CLIENT: u64 = 0;
 pub const ROLE_USURPER: u64 = 1;
 /// The producer on the queued channel: the same conversation, one rung up the latency ladder.
 pub const ROLE_PRODUCER: u64 = 2;
+/// **The confused-deputy attacker** (milestone 633 (an outside agent attacks the confinement
+/// claim), third pass). Same capabilities as [`ROLE_CLIENT`] (a `WRITE` view of the stable
+/// endpoint and no device), but instead of trying to receive it calls [`OPERATION_PUT`] with an
+/// offset far past the log page, driving the server to write into the device registers the client
+/// was never granted. Name provisional.
+pub const ROLE_CONFUSED: u64 = 3;
 
 /// `swapper`'s roles. Three systems, one operator, because they share every helper: the loader, the
 /// endowments, the log page and the reporting.
@@ -440,6 +461,11 @@ pub const ROLE_UNWARNED: u64 = 4;
 ///
 /// Name: provisional (milestone 23's lane, 2026-09-27).
 pub const ROLE_LATE_WARNING: u64 = 5;
+/// **The confused-deputy system** (milestone 633, third pass). One incumbent holding the device and
+/// the log, and a client ([`ROLE_CONFUSED`]) that drives it to write past the log into the device
+/// page. The operator starts both, collects the attacker's report, retires the incumbent and reads
+/// the log, so the run reclaims itself like every other channel. Name provisional.
+pub const ROLE_DEPUTY: u64 = 6;
 
 /// **How the operator starts a stateful instance** (the first `_start` argument, where the other
 /// systems pass a device flag of `0` or `1`). A fresh instance begins at a tally of zero, which is
@@ -799,10 +825,29 @@ pub fn probe_device() -> u64 {
 /// The log page, as a slice. Volatile accessors rather than a plain slice because two address
 /// spaces write it and one reads it, and the reads are ordered against the writes by IPC (the
 /// operator only ever reads after a message from the writer has come through the kernel).
-pub fn log_put(seq: u64, version: u64) {
-    // SAFETY: the log page is mapped read/write at LOG_VA in every process that calls this.
+///
+/// `seq` comes from a client's request word, so it is bounded here and not trusted: the log
+/// capability grants one page, and an unbounded offset let a client holding only `WRITE` on the
+/// endpoint make the server write into the device page mapped after it, a confused deputy found by
+/// milestone 633's third outsider pass and pinned by
+/// `live_swap_tests::a_confined_client_drives_the_server_to_write_past_its_log`. Returns whether
+/// the byte was written.
+pub fn log_put(seq: u64, version: u64) -> bool {
+    if seq >= LOG_BYTES {
+        return false;
+    }
+    // SAFETY: the log page is mapped read/write at LOG_VA in every process that calls this, and
+    // `seq < LOG_BYTES` keeps the write inside that one page.
     unsafe { core::ptr::write_volatile((LOG_VA as *mut u8).add(seq as usize), version as u8) };
+    true
 }
+
+/// The log page's size: the whole of what the log capability grants.
+pub const LOG_BYTES: u64 = PAGE;
+
+/// What a server answers in both words to an `OPERATION_PUT` whose offset falls outside the log
+/// page. Name provisional (milestone 633).
+pub const PUT_REFUSED: u64 = u64::MAX;
 
 /// Read back the version byte [`log_put`] wrote at `seq`.
 pub fn log_get(seq: u64) -> u64 {
@@ -923,7 +968,10 @@ pub fn serve_with_state(
             };
             match operation {
                 OPERATION_PUT => {
-                    log_put(log_base + arg, version);
+                    if !log_put(log_base.saturating_add(arg), version) {
+                        user_mode_runtime::reply(slot, PUT_REFUSED, PUT_REFUSED);
+                        continue;
+                    }
                     user_mode_runtime::reply(slot, xform(arg), tag(version, tally));
                     tally += 1;
                     since += 1;
@@ -1035,7 +1083,10 @@ pub fn serve(version: u64, xform: fn(u64) -> u64, log_base: u64, device: bool, w
                 user_mode_runtime::exit()
             }
             OPERATION_PUT => {
-                log_put(log_base + arg, version);
+                if !log_put(log_base.saturating_add(arg), version) {
+                    user_mode_runtime::reply(slot, PUT_REFUSED, PUT_REFUSED);
+                    continue;
+                }
                 served += 1;
                 user_mode_runtime::reply(slot, xform(arg), tag(version, arg));
                 if served == SWAP_TRIGGER && version == V1 {
@@ -1044,6 +1095,12 @@ pub fn serve(version: u64, xform: fn(u64) -> u64, log_base: u64, device: bool, w
                     user_mode_runtime::send(NOTE, NOTE_SWAP_NOW, version, served);
                 }
             }
+            // BUGS: the quiesce arrives on `SVC`, the endpoint every client holds `WRITE` on, and
+            // nothing tells the operator's CALL from a client's. Any client can evict the server
+            // from its endpoint: a denial of service, not a reach, found by milestone 633's third
+            // outsider pass and read rather than booted. Closing it means the operator quiescing on
+            // a channel only it holds, or a badge the server checks; the second is the shape of
+            // §230 (badged endpoint capabilities), and either changes this protocol.
             OPERATION_QUIESCE => {
                 user_mode_runtime::send(RPT, RPT_QUIESCED, version, served);
                 user_mode_runtime::reply(slot, QUIESCED, served);

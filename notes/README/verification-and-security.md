@@ -22,6 +22,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Where an unsafe obligation is written, and where it is only implied](../unsafe-obligations.md).
 - [What nife claims a confined component cannot do](../confinement-claims.md).
 - [A second outsider pass over the confinement claims](../confinement-outsider-pass-2.md): each claim attacked, and where each attack landed.
+- [A third outsider pass over the confinement claims](../confinement-outsider-pass-3.md): every claim attacked again, counted only when booted on three ISAs, and the one escape it found.
 - [Verdict briefs for fatal risks 6 and 7](../fatal-risks-6-and-7-verdict-briefs.md): evidence and a recommended colour each, for the architect to rule on.
 - [A security audit](../security.md): the first adversarial review of the whole kernel.
 - [Auditing the shared pages](../shared-page-audit.md): the second security audit, reading for double fetches.

@@ -18,6 +18,8 @@ const RPT_SURVEY: u64 = 12;
 const RPT_UNCOLLECTABLE: u64 = 13;
 const RPT_WEDGED: u64 = 14;
 const RPT_DEPENDENTS: u64 = 15;
+/// The confused-deputy attacker's out-of-log `OPERATION_PUT` result (milestone 633, third pass).
+const RPT_DEPUTY: u64 = 16;
 const RPT_FAILED: u64 = 99;
 
 /// `component_plan::Refusal::Unprovided`'s wire code: the supervisor routes nothing to a role the
@@ -57,6 +59,8 @@ const ROLE_HUNG: u64 = 2;
 const ROLE_HANDOFF: u64 = 3;
 const ROLE_UNWARNED: u64 = 4;
 const ROLE_LATE_WARNING: u64 = 5;
+/// The confused-deputy channel (milestone 633, third pass).
+const ROLE_DEPUTY: u64 = 6;
 /// The one blob layout any build in this tree writes (`swap_protocol::LAYOUT_1`). The refusing
 /// replacement names it as the layout it could not read, so both sides name one constant.
 const LAYOUT_1: u64 = 1;
@@ -119,7 +123,7 @@ const MAX_REPORTS: usize = 42;
 /// untyped in slot 0, a report rendezvous in slot 1), **plus** the one thing this milestone is
 /// about: a device capability in slot 2, `WRITE|GRANT`, exactly as the progenitor gets one at boot. So
 /// what is under test is the operator's choices, not a privileged shortcut.
-fn spawn_swapper(role: u64) -> (sched::RendezvousId, u64, u64) {
+fn spawn_swapper(role: u64) -> (sched::RendezvousId, u64, u64, u64) {
     let (initrd_start, initrd_len) = memory::initrd_region().expect("no initrd region");
     let initrd_pages = initrd_len.div_ceil(FRAME_SIZE);
     let bytes = program("swapper").expect("no swapper program in the initrd archive");
@@ -158,7 +162,13 @@ fn spawn_swapper(role: u64) -> (sched::RendezvousId, u64, u64) {
     }
     let aspace = readopt_user_address_space(space).expect("register the swapper aspace");
 
-    let report = sched::create_rendezvous();
+    // Carved from a region this run owns and reclaims, not from the kernel's own pool:
+    // `sched::create_rendezvous` grows that pool in 32-page chunks it never frees, so every run
+    // costs the suite a page for good and the ledger moves in +32 steps (the `BUGS` on
+    // `testing::SUITE_PAGE_FRAME_BUDGET`). Milestone 633 (an outside agent attacks the confinement
+    // claim) added a ninth run and crossed a chunk boundary, which is how this was found.
+    let report_region = crate::memory_region::create(2).expect("no region for the report endpoint");
+    let report = sched::create_rendezvous_from(report_region).expect("no report rendezvous");
     let budget = crate::memory_region::create(SWAPPER_BUDGET_PAGES).expect("no budget for swapper");
     let thread_control_block_region = crate::memory_region::create(2).expect("no tcb region");
     let tid = sched::create_thread_control_block(thread_control_block_region).expect("no tcb");
@@ -192,7 +202,7 @@ fn spawn_swapper(role: u64) -> (sched::RendezvousId, u64, u64) {
     sched::configure_thread_control_block(tid, elf.entry(), USER_STACK_TOP, aspace)
         .expect("configure");
     sched::start_thread_control_block(tid, [role, initrd_len, 0]).expect("start");
-    (report, budget, thread_control_block_region)
+    (report, budget, thread_control_block_region, report_region)
 }
 
 /// **Run one swap system to its own verdict**, returning every report it made.
@@ -202,7 +212,7 @@ fn spawn_swapper(role: u64) -> (sched::RendezvousId, u64, u64) {
 /// background, and a test that leaves work running is a test that fails somebody else. The
 /// operator's `RPT_LOG` is always its last word, so that is the stop condition.
 fn run_swap(role: u64) -> ([[u64; 5]; MAX_REPORTS], usize) {
-    let (report, budget, thread_control_block_region) = spawn_swapper(role);
+    let (report, budget, thread_control_block_region, report_region) = spawn_swapper(role);
     let mut msgs = [[0u64; 5]; MAX_REPORTS];
     let mut n = 0;
     while n < MAX_REPORTS {
@@ -302,6 +312,9 @@ fn run_swap(role: u64) -> ([[u64; 5]; MAX_REPORTS], usize) {
     // only thing that could trip it was an *earlier* test's teardown landing mid-run, which is
     // nothing this test is responsible for. See the BUGS section of notes/live-replacement.md.
     let _ = sched::reclaim_region(thread_control_block_region);
+    // Last, after every thread that held the report endpoint is gone or going. Hygiene like the
+    // line above, for the same reason it is not asserted on.
+    let _ = sched::reclaim_region(report_region);
     (msgs, n)
 }
 
@@ -550,6 +563,62 @@ fn a_client_of_the_stable_rendezvous_cannot_become_its_server() {
          error {}, wanted NotPermitted. If this succeeded, any holder of a request capability \
          could impersonate the component.",
         attack[1] as i64,
+    );
+}
+
+/// **A confined client cannot drive the server to write past its log, into a device page it was
+/// never granted** (milestone 633 (an outside agent attacks the confinement claim), third pass).
+///
+/// The kernel refuses the attacker's `RECEIVE_CAP` (it holds `WRITE`, not `READ`), so it cannot
+/// become the server, which the test above asserts. That is not the whole of claim 26: the server's
+/// `OPERATION_PUT` writes a byte at `LOG_VA + log_base + arg`, with `arg` the client's own word. Until
+/// the third outsider pass found it, nothing bounded `arg`, so a `WRITE`-only client asked for an
+/// offset landing in the device register page the server holds and the client does not, and the
+/// server wrote there and echoed the offset. That was a confused-deputy escape of the demonstrator's
+/// boundary, not a kernel gate failure, booted red on aarch64 and riscv64. `swap_protocol::log_put`
+/// now refuses an offset outside the one log page and the server answers `PUT_REFUSED`.
+///
+/// Falsification: replayable `system_tests/falsifications/user.live_swap_tests.a_confined_client_drives_the_server_to_write_past_its_log.patch`
+#[test_case]
+fn a_confined_client_drives_the_server_to_write_past_its_log() {
+    if machine_has_no_device_page_for_the_console() {
+        crate::testing::skip!(NO_UART_PAGE);
+    }
+    // `log_put` writes at `LOG_VA + log_base + arg`; with `log_base = 0` this offset lands at
+    // `DEV_VA`, the first register of the device page. Mirrored arithmetic rather than a
+    // `swap_protocol` dependency, the convention every constant in this file follows.
+    const DEPUTY_PROBE: u64 = DEV_VA - address_space_map::pair_page(0x0300_0000);
+
+    let (msgs, n) = run_swap(ROLE_DEPUTY);
+    let attack = of_kind(&msgs[..n], RPT_ATTACK)
+        .next()
+        .expect("the attacker never reported its RECEIVE_CAP refusal");
+    assert_eq!(
+        attack[1],
+        (-(abi::Error::NotPermitted as i64)) as u64,
+        "the attacker's RECEIVE_CAP was not refused, so this run proves nothing about the deputy",
+    );
+    let deputy = of_kind(&msgs[..n], RPT_DEPUTY)
+        .next()
+        .expect("the attacker never reported its deputy call");
+    // `tag` is `(version << 32) | seq`, so the low word is the offset the server echoed. If the
+    // server served the out-of-log PUT, it echoes `DEPUTY_PROBE`.
+    let served_offset = deputy[2] & 0xFFFF_FFFF;
+    assert_ne!(
+        served_offset,
+        DEPUTY_PROBE & 0xFFFF_FFFF,
+        "CONFINEMENT ESCAPE: a WRITE-only client made the swap server serve OPERATION_PUT at \
+         offset {:#x}, far past its one log page, writing into the device register page the client \
+         holds no capability for. The server echoed the offset (tag {:#x}) rather than refusing it.",
+        DEPUTY_PROBE,
+        deputy[2],
+    );
+    // And the server said so, rather than answering something else that happens not to echo the
+    // offset. `swap_protocol::PUT_REFUSED`, mirrored.
+    assert_eq!(
+        (deputy[1], deputy[2]),
+        (u64::MAX, u64::MAX),
+        "the server neither served nor refused the out-of-log PUT as the protocol says",
     );
 }
 

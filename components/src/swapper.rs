@@ -126,8 +126,66 @@ pub extern "C" fn _start(role: u64, initrd_len: u64, _a2: u64) -> ! {
         swap_protocol::ROLE_LATE_WARNING => queued(&fs, &w, Warn::Late),
         swap_protocol::ROLE_HUNG => hung(&fs, &w),
         swap_protocol::ROLE_HANDOFF => handoff(&fs, &w),
+        swap_protocol::ROLE_DEPUTY => deputy(&fs, &w),
         _ => direct(&fs, &w),
     }
+}
+
+// ===============================================================================================
+// The confused-deputy channel (milestone 633 (an outside agent attacks the confinement claim), third pass): one incumbent holding the device and the
+// log, and a client that drives it to write past the log into the device page. No swap; the point is
+// what a client can make a server do on its behalf, not continuity across a replacement.
+// ===============================================================================================
+
+fn deputy(fs: &nifefs::Fs, w: &Wiring) -> ! {
+    let v1 = image(fs, "rust_swappable", 2);
+    let client_img = image(fs, "chatty", 4);
+
+    // The server's routing includes the device (`uart`) and the witness page; the client's does not,
+    // exactly as on the direct channel. This is what makes "the client was never granted the device"
+    // a fact about the wiring rather than a comment.
+    let to_component = Provisions {
+        held: &[
+            ("service", w.svc),
+            ("report", REPORT),
+            ("operator", w.note),
+            ("control", w.poke),
+            ("witness", w.log_page_frame),
+            ("uart", DEVICE),
+        ],
+    };
+    let to_client = Provisions {
+        held: &[("service", w.svc), ("report", REPORT), ("operator", w.note)],
+    };
+    let Ok(component) = component_plan::plan(&swap_protocol::CONSOLE, &to_component) else {
+        bail(61)
+    };
+    let Ok(client) = component_plan::plan(&swap_protocol::CLIENT, &to_client) else {
+        bail(62)
+    };
+
+    // The incumbent: holds the device and the log, receiving on the stable endpoint. `log_base = 0`,
+    // so the attacker's offset would reach `DEV_VA` through `log_put(log_base + arg, ..)` if
+    // `log_put` did not bound it.
+    start_child(&v1, &component, w.faultep, [1, 0, 0], 11);
+
+    // The attacker: the honest client's capabilities and no device. It drives the server to write
+    // past the log, then reports what the server answered.
+    start_child(
+        &client_img,
+        &client,
+        w.faultep,
+        [swap_protocol::ROLE_CONFUSED, 0, 0],
+        30,
+    );
+    expect_note(w.note, swap_protocol::NOTE_ATTACK_DONE, 33);
+
+    let mut corpses = 0u64;
+    reap_to(w.faultep, &mut corpses, 1); // the attacker
+    retire(w, &mut corpses, 2, 34); // quiesce the incumbent and collect it
+
+    send(REPORT, swap_protocol::RPT_LOG, verdict_from_log(0, true), 0);
+    user_mode_runtime::exit()
 }
 
 // ===============================================================================================

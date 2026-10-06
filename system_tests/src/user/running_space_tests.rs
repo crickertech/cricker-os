@@ -25,6 +25,12 @@
 //! # BUGS
 //!
 //! - **The multicore test needs two online cores** and skips on one. CI's QEMU legs boot four.
+//! - **The multicore test's placement guard can fire on a correct kernel.** Nothing pins the reader
+//!   away from the unmapper's core, so when the scheduler puts both on one core the guard's
+//!   "proves nothing about another core's TLB" assertion fails the run instead of retrying. Seen
+//!   once, on the cpu-matrix `rv64` leg of CI run 37405717281 (2026-10-06 UTC), on a branch that
+//!   touched neither this file nor the scheduler. Pinning the reader, or retrying the placement a
+//!   bounded number of times before failing, would make it a skip-or-retry rather than a red run.
 //! - **The negative control proves the loader, not the boot.** It drives the same
 //!   `supervision_protocol` code the progenitor builds boot servers with, in a fixture granted its
 //!   own space the way the kernel grants the progenitor's. A boot that writes into a boot server

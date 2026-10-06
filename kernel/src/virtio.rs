@@ -1285,6 +1285,13 @@ mod tests {
     /// a driver do after the check. The device reads the SHADOW, so the shadow must still hold the
     /// validated, in-region address: the mutation touched only the driver's own copy, which nothing
     /// reads. This is the whole reason the shadow ring exists.
+    ///
+    /// BUGS: the driver's frame and the shadow are separate allocations, so reading the shadow back
+    /// after writing the driver's copy cannot fail whatever the code does. The line the claim rests
+    /// on, that the device's queue registers are programmed with the shadow's address and never the
+    /// driver's, is asserted nowhere. Found by milestone 633 (an outside agent attacks the confinement claim)'s third outsider pass (2026-10-06 UTC),
+    /// by read; it is the structural disposition `notes/confinement-claims.md` gives row 17, with
+    /// the register programming named as the missing check.
     #[test_case]
     fn the_shadow_ring_is_immune_to_a_descriptor_mutated_after_validation() {
         let (driver, shadow, size) = two_regions();

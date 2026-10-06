@@ -1,0 +1,28 @@
+Falsifies `system_tests::user::live_swap_tests::a_confined_client_drives_the_server_to_write_past_its_log`.
+
+Architecture: aarch64
+
+The defect is the tree as it stood until the third outsider pass of milestone 633 (an outside agent attacks the confinement claim). The patch deletes the bound in `swap_protocol::log_put`, so the
+server writes a byte at `LOG_VA + log_base + arg` for any `arg` a client sends. A `WRITE`-only
+client's `OPERATION_PUT` at `DEPUTY_PROBE` (`DEV_VA - LOG_VA`) then lands in the device register
+page the server holds and the client does not, and the server answers as for an ordinary PUT.
+
+Expected to fail: the `assert_ne!` whose message opens "CONFINEMENT ESCAPE: a WRITE-only client
+made the swap server serve OPERATION_PUT at offset 0x100000". Replayed on 2026-10-06 (UTC) by the
+milestone 633 lane: red at exactly that assertion on aarch64 (tag 0x100100000); green with the
+bound on aarch64 and riscv64. x86_64 skips the test, having no device page.
+
+diff --git a/crates/swap_protocol/src/lib.rs b/crates/swap_protocol/src/lib.rs
+index 07e0aa2c8..296b92d92 100644
+--- a/crates/swap_protocol/src/lib.rs
++++ b/crates/swap_protocol/src/lib.rs
+@@ -833,9 +833,6 @@ pub fn probe_device() -> u64 {
+ /// `live_swap_tests::a_confined_client_drives_the_server_to_write_past_its_log`. Returns whether
+ /// the byte was written.
+ pub fn log_put(seq: u64, version: u64) -> bool {
+-    if seq >= LOG_BYTES {
+-        return false;
+-    }
+     // SAFETY: the log page is mapped read/write at LOG_VA in every process that calls this, and
+     // `seq < LOG_BYTES` keeps the write inside that one page.
+     unsafe { core::ptr::write_volatile((LOG_VA as *mut u8).add(seq as usize), version as u8) };
