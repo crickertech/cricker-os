@@ -408,6 +408,10 @@
 //! the initialisation, as distinct from the thing that runs it, and it descends nothing, so
 //! `progenitor` would fit it worse than it fits the program.
 
+use core::sync::atomic::AtomicU16;
+use core::sync::atomic::Ordering::Relaxed;
+
+use grant_plan::job_windows::{ReapsDue, Windows};
 use grant_plan::{Prog, spawnproto};
 use line_editor::proto;
 // The loader, and the tree's only one since milestone 96. Named here rather than qualified at every
@@ -416,7 +420,9 @@ use supervision_protocol::{
     ChildEndowment, Retention, build_child, retype_obj_from as retype_obj,
     retype_page_frame_from as retype_page_frame, start_child,
 };
-use user_mode_runtime::{call, cap_delete, invoke, is_granted, receive, receive_cap, send};
+use user_mode_runtime::{
+    call, cap_delete, invoke, is_granted, receive, receive_badged, receive_cap_badged, send,
+};
 
 /// **The capabilities the kernel granted the progenitor, by slot.** Data the boot entry states
 /// rather than code this crate repeats, so a board that grants a different layout says so in one
@@ -2708,23 +2714,33 @@ pub fn boot(
     // prints or write into it.
     supervision_protocol::give_up_own_page(INIT_OUT_VA);
 
-    // 6. The undertaker, out of what is left of our own budget. Two capabilities and nothing else:
-    // `READ` on the supervision endpoint, so it can free a job's memory and can never spend it, and
-    // `WRITE` on the result endpoint, so it can say the one word a job the kernel killed cannot say
-    // for itself (milestone 235, `grant_plan::spawnproto::JOB_FAULTED`). `WRITE` without `GRANT`:
-    // the right to speak on that channel, not to hand it to anything.
+    // 6. The undertaker, out of what is left of our own budget. Three capabilities and nothing
+    // else: `READ` on the supervision endpoint, so it can free a job's memory and can never spend
+    // it; `WRITE` on the result endpoint, so it can say the one word a job the kernel killed cannot
+    // say for itself (milestone 235 (a command that faults hangs the prompt),
+    // `grant_plan::spawnproto::JOB_FAULTED`); and `WRITE` on a copy
+    // of the spawn endpoint badged `spawnproto::UNDERTAKER_BADGE`, so it can say which job it
+    // reaped (milestone 685 (a job is finished when its memory is back), `spawnproto::reaped`).
+    // `WRITE` without `GRANT` on both: the right to speak on those channels, not to hand them on.
     //
-    // Slot order is the contract with the program, which names them `DEATHS` (0) and `REPORT` (1).
+    // Slot order is the contract with the program, which names them `DEATHS` (0), `REPORT` (1) and
+    // `SPAWN` (2). The badged copy is a fresh slot of ours, deleted once the build has copied it.
+    let reaper_spawn = must(badged(spawn_ep, spawnproto::UNDERTAKER_BADGE));
     let reaper = must(build_child(
         own_ut,
         own_ut,
         &reaper_elf,
         &ChildEndowment {
-            caps: &[(deaths, abi::rights::READ), (result_ep, abi::rights::WRITE)],
+            caps: &[
+                (deaths, abi::rights::READ),
+                (result_ep, abi::rights::WRITE),
+                (reaper_spawn, abi::rights::WRITE),
+            ],
             stack_pages: CHILD_STACK_PAGES,
             ..ChildEndowment::new(Retention::Nothing)
         },
     ));
+    cap_delete(reaper_spawn);
     must_ok(start_child(reaper, 0, 0, 0));
 
     // Role 0 (the prompt), and `arg1` is the rights its directory capability carries. A shell told 0
@@ -2970,18 +2986,18 @@ fn spawn_service(
     } = c;
     // Whether the file page is mapped here yet, for the activation set (first image request).
     let mut fs_mapped = false;
-    // The next directory-granted job's window (milestone 599).
-    let mut windows = Windows::new();
+    // The spawn endpoint, its reaped messages, and the windows they free (milestone 685).
+    let mut spawn = SpawnEndpoint::new(spawn_ep);
     loop {
-        let (w0, w1, w2) = receive(spawn_ep);
+        let (w0, w1, w2) = spawn.request();
         // **An edit to the activation set, not a spawn** (milestone 198 rung 3a's installer). Asked
         // first, because under this bit no other bit of word 2 means anything.
         if let Some(verb) = spawnproto::activation(w1, w2) {
             let (status, live) = activate(
                 verb,
                 w0,
+                &mut spawn,
                 &Activating {
-                    spawn_ep,
                     own_ut,
                     images_ut,
                     fs,
@@ -3010,26 +3026,107 @@ fn spawn_service(
         // They are read here rather than inside the branch that uses them because the shell has
         // already sent them: a request that announced them and a progenitor that did not drain them would
         // leave the endpoint holding words the *next* command would read as its own.
-        let grant = wiring.dir.then(|| (receive(spawn_ep), receive(spawn_ep)));
+        let grant = wiring.dir.then(|| (spawn.receive(), spawn.receive()));
 
-        // **The image's frames, after the data and before every other capability** (§219 D). The
-        // child's region is split *first*, then the staging region, so the staging region is the
-        // top of the job pool when it is destroyed below and its pages go back (a region returns
-        // its pages to its parent only when it is the most recent carve, `memory_regions`'
-        // `return_to_parent`). A plain line is the only shape the shell sends; anything else is
-        // drained and refused.
+        // **The image's frames, after the data and before every other capability** (§219 D),
+        // taken and mapped here and copied once the request has been read to its end
+        // ([`take_frames`] says why: a carve may wait for a reap, which is sound only then). A
+        // plain line is the only shape the shell sends; anything else is drained and refused.
+        let frames = wiring
+            .image
+            .then(|| take_frames(&mut spawn, spawnproto::image_len(w0), own_ut));
+
+        // **The argv's one frame, after the image's and before every other capability**
+        // (milestone 205 (how a foreign program is told what to do), DECISIONS §170; `spawnproto::ARGS_BIT`). Taken on every request that
+        // announced it, whatever program it turns out to be for, so both sides stay in lockstep.
+        let args_seen = if wiring.args {
+            receive_args(&mut spawn, own_ut)
+        } else {
+            None
+        };
+        // **And the name set's frame, right after** (milestone 205, `spawnproto::NAMESET_BIT`),
+        // read the same way: mapped here, copied into the job's region below, never read again.
+        let set_seen = if wiring.nameset {
+            receive_args(&mut spawn, own_ut)
+        } else {
+            None
+        };
+
+        // Receive the delegated caps in protocol order: the interrupt pair first (job untyped, job
+        // frame), then the sink, then the source, then the diagnostics, then the screen-narrowed
+        // tail's completion endpoint (DECISIONS §106), then any --mem untyped. No promise, no
+        // receive, so both sides stay in lockstep.
+        let (job_ut, job_fr) = if interruptible {
+            (
+                opt_cap(spawn.receive_cap().1),
+                opt_cap(spawn.receive_cap().1),
+            )
+        } else {
+            (None, None)
+        };
+        let sink = if wiring.sink {
+            opt_cap(spawn.receive_cap().1)
+        } else {
+            None
+        };
+        let source = if wiring.source {
+            opt_cap(spawn.receive_cap().1)
+        } else {
+            None
+        };
+        let diagnostics = if wiring.diagnostics {
+            opt_cap(spawn.receive_cap().1)
+        } else {
+            None
+        };
+        // **The narrowed tail's completion endpoint** (DECISIONS §106), in the same delegation
+        // order as everything else: a fresh capability the shell minted and kept a copy of, so
+        // the progenitor installs it as this child's fault target and the shell can `RECEIVE` its exit instead
+        // of draining bytes it will no longer see.
+        let screen = if wiring.screen {
+            opt_cap(spawn.receive_cap().1)
+        } else {
+            None
+        };
+        let budget = if mem_pages > 0 {
+            opt_cap(spawn.receive_cap().1)
+        } else {
+            None
+        };
+        // **The machine statistics page, when the session sent it** (milestone 126,
+        // `spawnproto::MACHINE_BIT`): the last delegated capability, and deleted with the others
+        // below once the child holds its own mapping and slot.
+        let machine_page = if wiring.machine {
+            opt_cap(spawn.receive_cap().1)
+        } else {
+            None
+        };
+        // **The run-unvouched capability, presented** (DECISIONS §219 gate D2): the last message
+        // of any request that claimed it, taken whether or not this one turns out to need it, so
+        // the caller's `SEND` is never left waiting. It arrived on the endpoint only a holder can
+        // send on, which is all it proves and all it has to. See `spawnproto::RUN_UNVOUCHED_BIT`.
+        let presented = wiring.run_unvouched && {
+            receive(run_unvouched);
+            true
+        };
+
+        // **The image's two carves, now that the request is read to its end** (milestone 685).
+        // The child's region is split *first*, then the staging region, so the staging region is
+        // the top of the image pool when it is destroyed below and its pages go back (a region
+        // returns its pages to its parent only when it is the most recent carve,
+        // `memory_regions`' `return_to_parent`).
         //
         // **An image that hears words is a `std` program, and gets a `std` region** (milestone 205
         // (how a foreign program is told what to do)). The note that says which is inside the
-        // frames, which have not arrived, so the argv bit sizes the region and `endowed_image`
-        // checks the note agrees (`grant_plan::image_can_carry` ties the two).
-        // A directory grant rides an image only for bytes that hear words (milestone 205): their
+        // frames, which have not been copied, so the argv bit sizes the region and
+        // `endowed_image` checks the note agrees (`grant_plan::image_can_carry` ties the two). A
+        // directory grant rides an image only for bytes that hear words (milestone 205): their
         // `std` region is sized to hold the caretaker as well (`grant_plan::STD_REGION_PAGES`).
         //
         // **From the image pool, and as large as the image** (milestone 595): see
         // [`IMAGE_POOL_PAGES`] and `grant_plan::image_region_pages`.
         let image_region = if wiring.image && !interruptible && (!wiring.dir || wiring.args) {
-            split_job(
+            spawn.split(
                 images_ut,
                 grant_plan::image_region_pages(
                     spawnproto::image_pages(spawnproto::image_len(w0)),
@@ -3044,91 +3141,16 @@ fn spawn_service(
         } else {
             None
         };
-        let staging = if wiring.image {
-            receive_image(
-                spawn_ep,
+        let staging = frames.as_ref().and_then(|f| {
+            stage_frames(
+                &mut spawn,
+                f,
                 spawnproto::image_len(w0),
                 own_ut,
                 images_ut,
                 image_region.is_some(),
             )
-        } else {
-            None
-        };
-
-        // **The argv's one frame, after the image's and before every other capability**
-        // (milestone 205 (how a foreign program is told what to do), DECISIONS §170; `spawnproto::ARGS_BIT`). Taken on every request that
-        // announced it, whatever program it turns out to be for, so both sides stay in lockstep.
-        let args_seen = if wiring.args {
-            receive_args(spawn_ep, own_ut)
-        } else {
-            None
-        };
-        // **And the name set's frame, right after** (milestone 205, `spawnproto::NAMESET_BIT`),
-        // read the same way: mapped here, copied into the job's region below, never read again.
-        let set_seen = if wiring.nameset {
-            receive_args(spawn_ep, own_ut)
-        } else {
-            None
-        };
-
-        // Receive the delegated caps in protocol order: the interrupt pair first (job untyped, job
-        // frame), then the sink, then the source, then the diagnostics, then the screen-narrowed
-        // tail's completion endpoint (DECISIONS §106), then any --mem untyped. No promise, no
-        // receive, so both sides stay in lockstep.
-        let (job_ut, job_fr) = if interruptible {
-            (
-                opt_cap(receive_cap(spawn_ep).1),
-                opt_cap(receive_cap(spawn_ep).1),
-            )
-        } else {
-            (None, None)
-        };
-        let sink = if wiring.sink {
-            opt_cap(receive_cap(spawn_ep).1)
-        } else {
-            None
-        };
-        let source = if wiring.source {
-            opt_cap(receive_cap(spawn_ep).1)
-        } else {
-            None
-        };
-        let diagnostics = if wiring.diagnostics {
-            opt_cap(receive_cap(spawn_ep).1)
-        } else {
-            None
-        };
-        // **The narrowed tail's completion endpoint** (DECISIONS §106), in the same delegation
-        // order as everything else: a fresh capability the shell minted and kept a copy of, so
-        // the progenitor installs it as this child's fault target and the shell can `RECEIVE` its exit instead
-        // of draining bytes it will no longer see.
-        let screen = if wiring.screen {
-            opt_cap(receive_cap(spawn_ep).1)
-        } else {
-            None
-        };
-        let budget = if mem_pages > 0 {
-            opt_cap(receive_cap(spawn_ep).1)
-        } else {
-            None
-        };
-        // **The machine statistics page, when the session sent it** (milestone 126,
-        // `spawnproto::MACHINE_BIT`): the last delegated capability, and deleted with the others
-        // below once the child holds its own mapping and slot.
-        let machine_page = if wiring.machine {
-            opt_cap(receive_cap(spawn_ep).1)
-        } else {
-            None
-        };
-        // **The run-unvouched capability, presented** (DECISIONS §219 gate D2): the last message
-        // of any request that claimed it, taken whether or not this one turns out to need it, so
-        // the caller's `SEND` is never left waiting. It arrived on the endpoint only a holder can
-        // send on, which is all it proves and all it has to. See `spawnproto::RUN_UNVOUCHED_BIT`.
-        let presented = wiring.run_unvouched && {
-            receive(run_unvouched);
-            true
-        };
+        });
 
         // **A `graphical_terminal` spawn** (milestone 632 (provisional)): graphics is launched from the prompt,
         // and this is the launch. The request must be the program and the bit together (`Prog::
@@ -3169,7 +3191,7 @@ fn spawn_service(
                 } else {
                     let built = match (
                         progs[Prog::GraphicalTerminal.id() as usize].as_ref(),
-                        split_job(jobs_ut, GRAPHICAL_TERMINAL_SESSION_PAGES),
+                        spawn.split(jobs_ut, GRAPHICAL_TERMINAL_SESSION_PAGES),
                     ) {
                         (Some(elf), Some(region)) => build_graphical_terminal_session(
                             &GraphicalTerminalLaunch {
@@ -3330,7 +3352,7 @@ fn spawn_service(
                 // Split before the frames were taken; see `image_region` above.
                 image_region
             } else {
-                split_job(
+                spawn.split(
                     jobs_ut,
                     if std_layout {
                         grant_plan::STD_REGION_PAGES
@@ -3354,18 +3376,33 @@ fn spawn_service(
             // **A bound badge when the server enforces grants itself, a caretaker otherwise**
             // (milestone 606, rulings D and T1). The badge is bound to the grant's directory before
             // the job holds anything, and any failure on the way falls back to the caretaker.
-            let bound = match (wiring.dir && fs_scoped, fs, grant) {
-                (true, Some(f), Some((care_words, _))) => {
-                    bound_channel(f, &mut windows, own_ut, &mut fs_mapped, care_words)
-                }
-                _ => None,
-            };
-            let channel = if bound.is_some() {
-                bound
-            } else if wiring.dir {
-                fs.and_then(|f| job_channel(f, &mut windows, own_ut, &mut fs_mapped))
+            //
+            // **The window is held by this job until `job_undertaker` says it is reaped**
+            // (milestone 685): `label` is the name the job's supervision capability carries, and
+            // the reaped message carries it back. A pool whose every window is held waits for the
+            // reaps that are due, then refuses.
+            let label = spawn.label();
+            let window = if wiring.dir && fs.is_some() {
+                spawn.until_reaped(|s| s.windows.take(label))
             } else {
                 None
+            };
+            let bound = match (wiring.dir && fs_scoped, fs, grant, window) {
+                (true, Some(f), Some((care_words, _)), Some(w)) => bound_channel(
+                    f,
+                    (&mut spawn.windows, w),
+                    own_ut,
+                    &mut fs_mapped,
+                    care_words,
+                ),
+                _ => None,
+            };
+            let channel = match (bound, fs, window) {
+                (Some(b), ..) => Some(b),
+                (None, Some(f), Some(w)) if wiring.dir => {
+                    job_channel(f, (&mut spawn.windows, w), own_ut, &mut fs_mapped)
+                }
+                _ => None,
             };
             let narrowed = if let Some(b) = bound {
                 // The job holds the file server's own endpoint, badged and bound: no caretaker.
@@ -3605,7 +3642,22 @@ fn spawn_service(
                 )),
                 _ => None,
             };
-            let built = match (elf.filter(|_| !dir_failed && !args_failed), region) {
+            // **The job's supervision capability, labeled** (milestone 685): `deaths` badged with
+            // `label`, which the kernel hands back beside the death (DECISIONS §148 (resolves by
+            // asking the kernel)) and `job_undertaker` forwards in its reaped message. A fresh slot,
+            // deleted once the build has copied it. A screen-narrowed child is supervised by the
+            // shell's endpoint instead and needs none. No label, no build: a job the progenitor
+            // could not recognize at its reap would hold its window for the life of the boot.
+            let labeled = if screen.is_none() {
+                badged(deaths, label).ok()
+            } else {
+                None
+            };
+            let fault = screen.or(labeled);
+            let built = match (
+                elf.filter(|_| !dir_failed && !args_failed && fault.is_some()),
+                region,
+            ) {
                 (Some(e), Some(r)) if std_layout => std_parts.as_ref().and_then(|l| {
                     build_child(
                         own_ut,
@@ -3617,7 +3669,7 @@ fn spawn_service(
                             maps: l.maps(),
                             // Born supervised exactly as a native job is, so `job_undertaker`
                             // collects it and the region comes back.
-                            fault: Some(screen.unwrap_or(deaths)),
+                            fault,
                             stack_pages: std_runtime_protocol::STACK_PAGES,
                             ..ChildEndowment::new(Retention::Nothing)
                         },
@@ -3647,7 +3699,7 @@ fn spawn_service(
                             // that this child is outside `deaths`'s domain for its short life, so
                             // it will not appear in a concurrent `ps`/`pgrep`; see this function's
                             // BUGS.
-                            fault: Some(screen.unwrap_or(deaths)),
+                            fault,
                             stack_pages: CHILD_STACK_PAGES,
                             ..ChildEndowment::new(Retention::Nothing)
                         },
@@ -3683,6 +3735,20 @@ fn spawn_service(
                 }
                 None => false,
             };
+            if let Some(l) = labeled {
+                cap_delete(l);
+            }
+            // **The window and the wait, by whether a job came to hold them** (milestone 685). A
+            // window whose job never started is free now, not at a reap that will never come. A
+            // job whose whole answer goes to the shell's result endpoint, under `job_undertaker`,
+            // is one a later short pool may wait for: the shell reads that answer to its end
+            // before it sends another request ([`ReapsDue`]).
+            if let (false, Some(w)) = (ok, window) {
+                spawn.windows.release(w);
+            }
+            if ok && labeled.is_some() && sink.is_none() {
+                spawn.due.expect(label);
+            }
             // The narrowed endpoint was only ever the means of wiring: the child holds its own copy
             // and the caretaker holds the other end. Dropped whether or not the build worked, so a
             // failed spawn does not cost this capability table a slot for the rest of the boot.
@@ -4695,12 +4761,12 @@ const _: () = assert!(
 /// **Take the argv's frame off the spawn endpoint and map it where this process can read it**
 /// (milestone 205, DECISIONS §170; `spawnproto::ARGS_BIT`). Returns the address, or `None` if the
 /// caller sent no frame or it would not map. The capability goes at once, as an image frame's does
-/// ([`receive_image`]): the mapping outlives it, and the slot is what is scarce.
+/// ([`take_frames`], [`stage_frames`]): the mapping outlives it, and the slot is what is scarce.
 ///
 /// The shell keeps its own mapping of this frame, so it is read once, by [`copy_args`], before the
 /// child exists; nothing reads it after.
-fn receive_args(spawn_ep: u64, own_ut: u64) -> Option<u64> {
-    let frame = opt_cap(receive_cap(spawn_ep).1)?;
+fn receive_args(spawn: &mut SpawnEndpoint, own_ut: u64) -> Option<u64> {
+    let frame = opt_cap(spawn.receive_cap().1)?;
     // The loader's scratch window, revoked when the shell reclaims its frame and reused on a later
     // lap (milestone 604 (the builder's scratch cursor is bounded)).
     let theirs = supervision_protocol::map_scratch(frame, false, own_ut).ok();
@@ -4733,105 +4799,276 @@ fn copy_args(own_ut: u64, region: u64, theirs: u64) -> Option<u64> {
     Some(page)
 }
 
-/// **Carve `pages` from the job pool, waiting a bounded while for the reaper if it is short.**
-/// The image pool (milestone 595) is carved the same way, because an image's region is also a
-/// job's and comes back the same way.
+/// **The spawn endpoint, as the spawn loop reads it** (milestone 685 (a job is finished when its
+/// memory is back), calef's ruling of 2026-10-06 UTC, option A).
 ///
-/// A finished job's region comes back when `job_undertaker` reaps it, and that is after the shell
-/// has read the job's output and shown the next prompt. So a job typed straight after another can
-/// find the pool still holding the last one, and a `std` job, which needs the pool's one `std`-sized
-/// share (`JOBS_BUDGET_PAGES`), found it that way in CI on 2026-09-27: `/installed/std-grep needle`
-/// right after `/installed/std-grep needle docs` answered "could not spawn". Yielding lets the
-/// undertaker, which is runnable once the job has died, finish the reap.
+/// Two senders share the endpoint: the boot shell, whose requests are unbadged, and
+/// `job_undertaker`, which sends `spawnproto::reaped` through a copy badged
+/// [`spawnproto::UNDERTAKER_BADGE`] after every collect. A reaped message can arrive in the middle
+/// of a request, between any two of the shell's messages, because the shell's next `SEND` is
+/// issued only once its last one is taken. So every receive here takes reaped messages out of the
+/// way before it returns the shell's next message: [`receive`](SpawnEndpoint::receive) and
+/// [`receive_cap`](SpawnEndpoint::receive_cap) are the only way the loop reads this endpoint.
 ///
-/// **Kept on effort, and a foot gun.** Bounded by a count, not by the reap it waits for: whether
-/// [`JOB_WAIT_ATTEMPTS`] yields cover one reap depends on what else is runnable. We would not choose
-/// it if the proper fix cost the same. That fix has the undertaker tell the progenitor which job it
-/// reaped, a change the two agree on, proposed in
-/// `design/roadmap/685-a-job-is-finished-when-its-memory-is-back.md`. A pool that is
-/// genuinely full still answers "out of memory", only later.
-fn split_job(pool: u64, pages: u64) -> Option<u64> {
-    for _ in 0..JOB_WAIT_ATTEMPTS {
-        if let Ok(r) = memory_region_split(pool, pages) {
-            return Some(r);
-        }
-        user_mode_runtime::yield_now();
-    }
-    memory_region_split(pool, pages).ok()
+/// A reap frees the job's file-service window ([`Windows`]) and settles any wait for it
+/// ([`ReapsDue`]). **A pool that is short waits for the reaps it is owed** rather than counting
+/// yields ([`split`](SpawnEndpoint::split)): it waits only once the request in hand has been read
+/// to its end, when the shell is parked on the result endpoint and only the undertaker can send,
+/// and only while a finished job's reap is due.
+///
+/// # BUGS
+///
+/// - **A job that sends its answer and then does not exit holds the wait.** A due reap is one the
+///   shell has had the job's whole answer for, which an exiting program follows at once; one that
+///   blocks instead is never reaped, and a request that finds a pool short while it is due waits
+///   with it, where until milestone 685 it was refused after 1,024 yields. `^C` does not reach it:
+///   the shell is parked on the result endpoint.
+/// - **Only the boot shell may hold the other copy.** A request from a second holder that arrives
+///   during a wait is kept ([`stashed`](SpawnEndpoint::stashed)) and served next, and the wait gives
+///   up; the request in hand is refused. One slot is enough for the first message of one request,
+///   which is all a second holder can have sent while this process was not reading its follow-ups.
+struct SpawnEndpoint {
+    ep: u64,
+    /// The file service's client windows, each held until its job is reaped.
+    windows: Windows,
+    /// The finished jobs whose reap a short pool may wait for.
+    due: ReapsDue,
+    /// A request's first message that arrived while [`await_reap`](SpawnEndpoint::await_reap) was
+    /// waiting for a reap; the next request.
+    stashed: Option<(u64, u64, u64)>,
+    /// The label the next job's supervision capability carries (DECISIONS §148 (resolves by asking
+    /// the kernel)). Never `0`, which is "unlabeled".
+    next_label: u64,
 }
 
-/// How many times [`split_job`] yields before it gives up. Generous next to [`RECLAIM_ATTEMPTS`],
-/// because what it waits on is another process's whole reap rather than one preemption. Name:
-/// provisional.
-const JOB_WAIT_ATTEMPTS: usize = 1024;
+impl SpawnEndpoint {
+    fn new(ep: u64) -> Self {
+        Self {
+            ep,
+            windows: job_windows(),
+            due: ReapsDue::new(),
+            stashed: None,
+            next_label: 1,
+        }
+    }
 
-/// **Take an image request's frames off the spawn endpoint and copy them into pages of our own.**
-/// Returns the staging region holding the copy, or `None` if it could not be staged.
+    /// A fresh label for the next job.
+    fn label(&mut self) -> u64 {
+        let l = self.next_label;
+        self.next_label = l.checked_add(1).unwrap_or(1);
+        l
+    }
+
+    /// Job `label` is reaped: its memory is back in its pool, and its window is free.
+    fn reaped(&mut self, label: u64) {
+        self.windows.reaped(label);
+        self.due.reaped(label);
+    }
+
+    /// The first message of the next request.
+    fn request(&mut self) -> (u64, u64, u64) {
+        match self.stashed.take() {
+            Some(m) => m,
+            None => self.receive(),
+        }
+    }
+
+    /// The shell's next plain message, with every reaped message before it taken out of the way.
+    fn receive(&mut self) -> (u64, u64, u64) {
+        loop {
+            let (w0, w1, w2, badge) = receive_badged(self.ep);
+            if badge == spawnproto::UNDERTAKER_BADGE {
+                self.reaped(w0);
+                continue;
+            }
+            return (w0, w1, w2);
+        }
+    }
+
+    /// The shell's next delegation, `(w0, slot, w1)` as `RECEIVE_CAP` returns them, with every
+    /// reaped message before it taken out of the way. A reaped message read here carries its label
+    /// in `x0` and no capability (`spawnproto::UNDERTAKER_BADGE` has the layout).
+    fn receive_cap(&mut self) -> (u64, u64, u64) {
+        loop {
+            let (w0, slot, w1, badge) = receive_cap_badged(self.ep);
+            if badge == spawnproto::UNDERTAKER_BADGE {
+                if slot != abi::rendezvous::NO_CAP {
+                    cap_delete(slot);
+                }
+                self.reaped(w0);
+                continue;
+            }
+            return (w0, slot, w1);
+        }
+    }
+
+    /// **Wait for one reap.** Only between the end of one request and the next, when the shell is
+    /// parked on the result endpoint. `false` if what arrived was a request instead, which is kept
+    /// for [`request`](SpawnEndpoint::request).
+    fn await_reap(&mut self) -> bool {
+        if self.stashed.is_some() {
+            return false;
+        }
+        let (w0, w1, w2, badge) = receive_badged(self.ep);
+        if badge == spawnproto::UNDERTAKER_BADGE {
+            self.reaped(w0);
+            true
+        } else {
+            self.stashed = Some((w0, w1, w2));
+            false
+        }
+    }
+
+    /// **`attempt`, again after each reap, while a finished job's reap is due.** `None` once
+    /// nothing is due and the attempt still fails: the pool is genuinely short.
+    fn until_reaped<T>(&mut self, mut attempt: impl FnMut(&mut Self) -> Option<T>) -> Option<T> {
+        loop {
+            if let Some(t) = attempt(self) {
+                return Some(t);
+            }
+            if !self.due.any() || !self.await_reap() {
+                return None;
+            }
+        }
+    }
+
+    /// **Carve `pages` from `pool`, waiting for the reaps that are due if it is short.** Called
+    /// only after the request in hand has been read to its end ([`await_reap`]'s condition).
+    ///
+    /// This replaces a retry that yielded up to 1,024 times (#1402's stopgap), a timing guess:
+    /// whether that many yields covered one reap depended on what else was runnable, and CI found
+    /// it short on 2026-09-27 (`/installed/std-grep needle` typed right after
+    /// `/installed/std-grep needle docs`, aarch64, "could not spawn").
+    ///
+    /// [`await_reap`]: SpawnEndpoint::await_reap
+    fn split(&mut self, pool: u64, pages: u64) -> Option<u64> {
+        self.until_reaped(|_| memory_region_split(pool, pages).ok())
+    }
+}
+
+/// **The caller's image frames, each mapped read-only in the loader's scratch window and not yet
+/// copied** (milestone 685): phase one of an image's staging. `views` of them are mapped, at the
+/// addresses in [`FRAME_VIEWS`]; `ok` is false if any did not arrive or did not map.
+struct Frames {
+    pages: u64,
+    views: u64,
+    ok: bool,
+}
+
+/// Where [`take_frames`] mapped each frame, for [`stage_frames`] to copy from: the page's index in
+/// `supervision_protocol::SCRATCH_WINDOW`, which is where every view lands. One entry per page of
+/// the largest image; the progenitor has one thread, so `Relaxed` is all the ordering there is.
 ///
-/// Every one of `pages` frames is received whatever happens, because the caller has already
-/// committed to sending them and the grants it sends next must land in the `RECEIVE_CAP`s that expect
-/// them. A frame that arrives after staging failed is deleted unread.
+/// An index and not an address because this is `.bss` in every progenitor ever built: two bytes an
+/// entry is 2 KiB, where eight was two whole pages more per instance, and the kernel suite's frame
+/// ledger counts every progenitor a test leaves standing.
+static FRAME_VIEWS: [AtomicU16; spawnproto::IMAGE_MAX_PAGES as usize] =
+    [const { AtomicU16::new(0) }; spawnproto::IMAGE_MAX_PAGES as usize];
+
+// Every page of the scratch window has an index that fits.
+const _: () = assert!(supervision_protocol::SCRATCH_WINDOW_PAGES <= u16::MAX as u64 + 1);
+
+/// The scratch page with index `i`.
+fn scratch_page(i: u16) -> u64 {
+    supervision_protocol::SCRATCH_WINDOW.start + u64::from(i) * supervision_protocol::PAGE
+}
+
+/// **Take an image request's frames off the spawn endpoint**, mapping each read-only in the
+/// loader's scratch window and deleting its capability before the next is taken.
+///
+/// Every one of the frames is received whatever happens, because the caller has already committed
+/// to sending them and the grants it sends next must land in the `RECEIVE_CAP`s that expect them.
+///
+/// **Mapped now, copied later** ([`stage_frames`]), and that split is milestone 685's. The copy
+/// needs a staging region and the child's own region carved from the image pool, and a carve that
+/// finds the pool short waits for a reap ([`SpawnEndpoint::split`]). That wait is sound only once
+/// the request has been read to its end: until then the shell's next message, not the undertaker's,
+/// is first in line. So nothing is carved here. The views stay valid until the caller reclaims its
+/// frames, which it does only once its answer is in, after [`stage_frames`] has given every view up.
+fn take_frames(spawn: &mut SpawnEndpoint, len: u64, own_ut: u64) -> Frames {
+    let pages = spawnproto::image_pages(len);
+    let mut f = Frames {
+        pages,
+        views: 0,
+        ok: pages > 0 && pages <= spawnproto::IMAGE_MAX_PAGES,
+    };
+    for _ in 0..pages {
+        let Some(frame) = opt_cap(spawn.receive_cap().1) else {
+            f.ok = false;
+            continue;
+        };
+        if f.ok {
+            // A page of the loader's scratch window, the same rule as every page this process maps
+            // (milestone 604 (the builder's scratch cursor is bounded)).
+            match supervision_protocol::map_scratch(frame, false, own_ut) {
+                Ok(va) => {
+                    let i = (va - supervision_protocol::SCRATCH_WINDOW.start)
+                        / supervision_protocol::PAGE;
+                    FRAME_VIEWS[f.views as usize].store(i as u16, Relaxed);
+                    f.views += 1;
+                }
+                Err(()) => f.ok = false,
+            }
+        }
+        // The mapping outlives the capability, and the slot is what is scarce.
+        cap_delete(frame);
+    }
+    f
+}
+
+/// **Copy the frames [`take_frames`] mapped into pages of our own**, and return the staging region
+/// holding the copy, or `None` if it could not be staged. Every view is given up either way.
 ///
 /// # Why a copy, and why one slot
 ///
 /// The caller keeps its own mapping of these frames, so hashing them in place would let it change
 /// the bytes between the hash and the build (§219: "the progenitor hashes its own copy"). So each
-/// frame is mapped read-only through the loader's scratch window, its capability is
-/// deleted **before** the next thing is taken, and a page retyped from the staging region receives
-/// the copy. At most one capability of the caller's is in this table at any moment, and the
-/// staging page's own capability is deleted as soon as it is mapped: an image of any size costs one
-/// transient slot plus the staging region's.
+/// frame is copied into a page retyped from the staging region, and the hash and the build read
+/// that. The staging page's own capability is deleted as soon as it is mapped, and every frame's
+/// was deleted in [`take_frames`]: an image of any size costs the staging region's slot.
 ///
 /// `stage` is false when the request cannot be built anyway (no region for the child, or an
-/// interruptible image), and then this only drains.
-fn receive_image(spawn_ep: u64, len: u64, own_ut: u64, images_ut: u64, stage: bool) -> Option<u64> {
-    let pages = spawnproto::image_pages(len);
-    let staging = if stage && pages > 0 && pages <= spawnproto::IMAGE_MAX_PAGES {
-        split_job(images_ut, pages)
+/// interruptible image), and then this only gives the views up.
+fn stage_frames(
+    spawn: &mut SpawnEndpoint,
+    f: &Frames,
+    len: u64,
+    own_ut: u64,
+    images_ut: u64,
+    stage: bool,
+) -> Option<u64> {
+    let staging = if stage && f.ok {
+        spawn.split(images_ut, f.pages)
     } else {
         None
     };
     let mut ok = staging.is_some();
-    for i in 0..pages {
-        let Some(frame) = opt_cap(receive_cap(spawn_ep).1) else {
-            ok = false;
-            continue;
-        };
-        let (Some(st), true) = (staging, ok) else {
-            cap_delete(frame);
-            continue;
-        };
-        // A page of the loader's scratch window, the same rule as every page this process maps
-        // and cannot unmap. The mapping is revoked when the *caller* reclaims its frames (the shell
-        // destroys its staging region once the answer is in), and the window's next lap reuses
-        // the page (milestone 604 (provisional)).
-        let theirs = supervision_protocol::map_scratch(frame, false, own_ut);
-        // The mapping outlives the capability, and the slot is what is scarce.
-        cap_delete(frame);
-        let Ok(theirs) = theirs else {
-            ok = false;
-            continue;
-        };
-        let ours = IMAGE_STAGING_VA + i * spawnproto::IMAGE_PAGE;
-        ok = match retype_page_frame(st) {
-            Ok(page) => {
-                // SAFETY: as above; the page is ours, fresh, and mapped read/write.
-                let mapped = unsafe { invoke(page, abi::page_frame::MAP, ours, 1, own_ut) } == 0;
-                cap_delete(page);
-                mapped
-            }
-            Err(()) => false,
-        };
-        if ok {
-            let n = (len - i * spawnproto::IMAGE_PAGE).min(spawnproto::IMAGE_PAGE) as usize;
-            // SAFETY: both pages were mapped just above, `theirs` read-only and `ours` read/write,
-            // one page each, and `n` is at most a page. They cannot overlap: different windows.
-            unsafe {
-                core::ptr::copy_nonoverlapping(theirs as *const u8, ours as *mut u8, n);
+    for i in 0..f.views {
+        let theirs = scratch_page(FRAME_VIEWS[i as usize].load(Relaxed));
+        if let (Some(st), true) = (staging, ok) {
+            let ours = IMAGE_STAGING_VA + i * spawnproto::IMAGE_PAGE;
+            ok = match retype_page_frame(st) {
+                Ok(page) => {
+                    // SAFETY: the page is ours, fresh, and mapped read/write at `ours`.
+                    let mapped =
+                        unsafe { invoke(page, abi::page_frame::MAP, ours, 1, own_ut) } == 0;
+                    cap_delete(page);
+                    mapped
+                }
+                Err(()) => false,
+            };
+            if ok {
+                let n = (len - i * spawnproto::IMAGE_PAGE).min(spawnproto::IMAGE_PAGE) as usize;
+                // SAFETY: `theirs` was mapped read-only by `take_frames` and is still mapped (the
+                // caller reclaims its frames only after its answer), `ours` read/write just above,
+                // one page each, and `n` is at most a page. Different windows, so no overlap.
+                unsafe {
+                    core::ptr::copy_nonoverlapping(theirs as *const u8, ours as *mut u8, n);
+                }
             }
         }
-        // Copied (or abandoned): our view of the caller's frame is no longer needed, so give it up
-        // now rather than when the caller reclaims it (milestone 95, §249).
+        // Copied (or abandoned): our view of the caller's frame is no longer needed (milestone 95
+        // (an unmap primitive), §249 (a running address space stays nameable)).
         supervision_protocol::give_up_own_page(theirs);
     }
     match (staging, ok) {
@@ -4845,9 +5082,9 @@ fn receive_image(spawn_ep: u64, len: u64, own_ut: u64, images_ut: u64, stage: bo
     }
 }
 
-/// The staged copy [`receive_image`] made, as bytes.
+/// The staged copy [`stage_frames`] made, as bytes.
 fn staged_image(len: u64) -> &'static [u8] {
-    // SAFETY: `receive_image` mapped and filled `image_pages(len)` pages from `IMAGE_STAGING_VA`,
+    // SAFETY: `stage_frames` mapped and filled `image_pages(len)` pages from `IMAGE_STAGING_VA`,
     // and the caller destroys the staging region (revoking the mapping) only after its last use of
     // this slice, within the same iteration of the spawn loop.
     unsafe { core::slice::from_raw_parts(IMAGE_STAGING_VA as *const u8, len as usize) }
@@ -4933,6 +5170,15 @@ fn window_page(pool: u64, w: u64) -> Option<u64> {
     (slot >= 0).then_some(slot as u64)
 }
 
+/// **A copy of endpoint `ep` badged `badge`**, in a fresh slot the caller deletes (§230 (badged
+/// endpoint capabilities)). `Err` if the kernel refused: `ep` lacks `GRANT`, is already badged, or
+/// the table is full.
+fn badged(ep: u64, badge: u64) -> Result<u64, ()> {
+    // SAFETY: the syscall; the kernel validates the capability, the right and the badge.
+    let slot = unsafe { invoke(ep, abi::rendezvous::BADGE, badge, 0, 0) };
+    if slot >= 0 { Ok(slot as u64) } else { Err(()) }
+}
+
 /// **The file service's endpoint badged with `w`**, which is how the server knows which window
 /// a request's bytes are in (§230 (badged endpoint capabilities)). `None` if the kernel refused.
 fn window_endpoint(ep: u64, w: u64) -> Option<u64> {
@@ -4952,53 +5198,33 @@ fn window_zero(fs: Fs) -> Option<Fs> {
     })
 }
 
-/// **Which window the next directory-granted job gets.** Windows `1..login_protocol::DURABLE_WINDOW`,
-/// handed out round robin; window 0 is the boot's long-lived clients' (see [`window_zero`]), and the
-/// last is `login`'s durable sessions' (milestone 152).
+/// **The pool of windows directory-granted jobs get** (milestone 599, the rule since milestone 685
+/// (a job is finished when its memory is back)): windows `1..login_protocol::DURABLE_WINDOW`, each
+/// held by the job it was handed to until `job_undertaker` says that job is reaped. Window 0 is the
+/// boot's long-lived clients' (see [`window_zero`]), and the last is `login`'s durable sessions'
+/// (milestone 152).
+///
+/// The bookkeeping and its host test live in `grant_plan::job_windows`; this process owns the
+/// capabilities and the binding.
 ///
 /// # BUGS
 ///
-/// - **A window is reused after `DURABLE_WINDOW - 1` more granted jobs, whether or not its last
-///   holder has exited.** The progenitor is not told when a job dies (`job_undertaker` reaps, and
-///   nothing reports back here), so it cannot know which windows are free. With six windows, a
-///   seventh directory-granted job running at once shares a window with the oldest, and those two
-///   are back in the shared-channel race this pool exists to close. A release at reap needs the
-///   undertaker to report the death to this process, which is a channel that does not exist.
-/// - **A bound window is taken back when it is reused, not when its job is reaped** (milestone 606,
-///   ruling D's default "UNBIND at reap"), for the same missing signal: `UNBIND` runs here, just
-///   before the window is handed out again. ~~A job still running when its window comes round
-///   again loses its grant (every request answers `EBADF`) rather than sharing it, which is the
-///   safe direction.~~ **Only until the window is bound again, a few instructions later, and
-///   milestone 633 (an outside agent attacks the confinement claim)'s second pass corrected this
-///   (2026-10-05 UTC, read, not run).** `subtree_scope::Bindings::bind` admits a `Revoked` badge,
-///   which is what lets this pool recycle one; once [`bound_channel`] binds window `w` to the new
-///   job's root, the old job's badged endpoint, which nothing here severs, resolves `ROOT` to the
-///   new job's directory, and its still-mapped window shows the new job's request names and file
-///   bytes. That is the sharing the sentence above said does not happen, in the unsafe direction.
-///   Lane 205's "job reaped" signal will move both to reap; until then a window must not be reused
-///   while its last holder lives, which needs the same signal.
-struct Windows {
-    next: u64,
-    /// Bit `w` set means window `w`'s badge is bound to a grant and must be unbound before reuse.
-    bound: u64,
-}
-
-impl Windows {
-    const fn new() -> Self {
-        Self { next: 1, bound: 0 }
-    }
-
-    fn take(&mut self) -> u64 {
-        let w = self.next;
-        // Never the last window: that one is `login`'s, for its durable sessions (milestone 152,
-        // `login_protocol::DURABLE_WINDOW`).
-        self.next = if w + 1 < login_protocol::DURABLE_WINDOW {
-            w + 1
-        } else {
-            1
-        };
-        w
-    }
+/// - **A bound window is taken back when it is reused, not when its job is reaped** (milestone 606
+///   (a directory walk costs what it does on Linux), ruling D's default "UNBIND at reap"): `UNBIND`
+///   runs in [`FsCalls::unbind`], just before the window is handed out again. Since milestone 685
+///   that is always after the reap, so no live job holds the old badge when the window is bound to
+///   a new root. Until then a window came round again after `DURABLE_WINDOW - 1` more granted jobs
+///   whether or not its holder lived, and milestone 633 (an outside agent attacks the confinement
+///   claim)'s second pass read the consequence on 2026-10-05 (UTC): the old job's badge resolved
+///   `ROOT` to the new job's directory, and its still-mapped window showed the new job's requests
+///   and file bytes. Confinement claim 24's row in `notes/confinement-claims.md` records the fix.
+///   What remains is that a reaped job's binding outlives it until the window's next take, which
+///   costs the file server a binding and grants nothing to anybody.
+/// - **A window whose job is never reaped by `job_undertaker` is never free again**: see
+///   `grant_plan::job_windows`'s `BUGS` (a screen-narrowed job behind a directory grant, which no
+///   manifest asks for today).
+const fn job_windows() -> Windows {
+    Windows::new(1, login_protocol::DURABLE_WINDOW)
 }
 
 /// **Whether a file server's image says it enforces subtree grants itself** (milestone 606, ruling
@@ -5024,7 +5250,7 @@ fn subtree_grants(server: Option<&elf::Elf<'_>>) -> bool {
 /// a caretaker.
 fn bound_channel(
     fs: Fs,
-    windows: &mut Windows,
+    (windows, w): (&mut Windows, u64),
     own_ut: u64,
     mapped: &mut bool,
     (lo, hi, spec): (u64, u64, u64),
@@ -5038,7 +5264,6 @@ fn bound_channel(
         &mut buf,
     );
     let name = core::str::from_utf8(&buf[..n]).ok()?;
-    let w = windows.take();
     files.unbind(windows, w);
     let handle = files.named(
         fs_operation::OPENDIR,
@@ -5059,7 +5284,7 @@ fn bound_channel(
         files.close(handle);
         return None;
     }
-    windows.bound |= 1 << w;
+    windows.set_bound(w, true);
     // SAFETY: as [`job_channel`]'s zeroing: window `w`'s first page, inside the mapped pool.
     unsafe {
         core::ptr::write_bytes(
@@ -5076,14 +5301,18 @@ fn bound_channel(
     Some(Fs { ep, page })
 }
 
-/// **A channel of its own for one job behind a directory grant**: the next window's page and the
+/// **A channel of its own for one job behind a directory grant**: window `w`'s page and the
 /// endpoint badged with it, both fresh slots the caller deletes once the job and its caretaker are
 /// built. The window's first page is zeroed first, through this process's own mapping of the pool
 /// (made once, [`FsCalls::map`]), so nothing the window's last job left there is visible to the
 /// next: the same "no stale RAM across a share" rule the kernel's own pool follows.
-fn job_channel(fs: Fs, windows: &mut Windows, own_ut: u64, mapped: &mut bool) -> Option<Fs> {
+fn job_channel(
+    fs: Fs,
+    (windows, w): (&mut Windows, u64),
+    own_ut: u64,
+    mapped: &mut bool,
+) -> Option<Fs> {
     let files = FsCalls::map(Some(fs), own_ut, mapped)?;
-    let w = windows.take();
     // A window last used by a bound grant goes back to being open before a caretaker uses it.
     files.unbind(windows, w);
     // SAFETY: the pool is mapped read/write at ACTIVATION_FS_VA (`FsCalls::map`, whole run), and
@@ -5144,9 +5373,9 @@ impl FsCalls {
     /// every handle the badge minted and leaves it revoked until it is bound again. A no-op for a
     /// window that was never bound.
     fn unbind(&self, windows: &mut Windows, w: u64) {
-        if windows.bound & (1 << w) != 0 {
+        if windows.is_bound(w) {
             call(self.ep, fs_operation::req(fs_operation::UNBIND, 0, 0), w);
-            windows.bound &= !(1 << w);
+            windows.set_bound(w, false);
         }
     }
 
@@ -5348,7 +5577,6 @@ impl FsCalls {
 
 /// What [`activate`] needs from the spawn service, named so the call site says it.
 struct Activating {
-    spawn_ep: u64,
     own_ut: u64,
     /// [`IMAGE_POOL_PAGES`]: a package is staged where an image is.
     images_ut: u64,
@@ -5363,7 +5591,7 @@ struct Activating {
 /// DECISIONS §208 (installing a package is granting it, and the activation set is versioned)).
 /// Returns the reply's status and the generation live afterwards.
 ///
-/// - **Install**: the package's frames are staged exactly as an image's are ([`receive_image`]), so
+/// - **Install**: the package's frames are staged exactly as an image's are ([`take_frames`], [`stage_frames`]), so
 ///   what is checked is this process's copy. `package_archive::installable` decides on the bytes:
 ///   the image's catalogue must vouch for the whole file, and the member named after the package
 ///   is the program. Its bytes go to `packages/<stem>/<program>`, a place per package version that
@@ -5388,29 +5616,31 @@ struct Activating {
 fn activate(
     verb: Option<spawnproto::Activation>,
     w0: u64,
+    spawn: &mut SpawnEndpoint,
     a: &Activating,
     fs_mapped: &mut bool,
 ) -> (spawnproto::ActivationStatus, u32) {
     use spawnproto::{Activation, ActivationStatus as S};
     // The request's own trailing messages come off the endpoint first, whatever happens next, so a
-    // refusal never leaves words behind that the next request would read as its own.
-    let staging = match verb {
-        Some(Activation::Install | Activation::Vouch) => {
-            receive_image(a.spawn_ep, w0, a.own_ut, a.images_ut, true).map(|st| (st, w0))
-        }
+    // refusal never leaves words behind that the next request would read as its own. The frames
+    // are copied only once the name after them is read too ([`take_frames`]).
+    let frames = match verb {
+        Some(Activation::Install | Activation::Vouch) => Some(take_frames(spawn, w0, a.own_ut)),
         _ => None,
     };
     let mut named = [0u8; filesystem_protocol::grant::MAX_NAME];
-    // A vouch's name follows its frames, which `receive_image` has just taken.
+    // A vouch's name follows its frames, which `take_frames` has just taken.
     let named_len = if matches!(
         verb,
         Some(Activation::Remove | Activation::Fetch | Activation::Vouch)
     ) {
-        let (lo, hi, len) = receive(a.spawn_ep);
+        let (lo, hi, len) = spawn.receive();
         filesystem_protocol::grant::unpack_name(lo, hi, len as usize, &mut named)
     } else {
         0
     };
+    let staging = frames
+        .and_then(|f| stage_frames(spawn, &f, w0, a.own_ut, a.images_ut, true).map(|st| (st, w0)));
     let named = &named[..named_len];
     // What a fetch holds until the end of this request: the page it traded bytes with the stack
     // through, and the staged package. Destroyed in the reverse of the order they were split, below.
@@ -5695,7 +5925,7 @@ const ARCHITECTURE: &str = if cfg!(target_arch = "aarch64") {
 /// **Fetch the package `name` over the network**, for [`spawnproto::Activation::Fetch`]
 /// (milestone 198 (a package manager) rung 3a's fetch). Returns the stem the image's catalogue
 /// names it by, with the package staged at [`IMAGE_STAGING_VA`] and its region and length in
-/// `staging`, exactly where [`receive_image`] leaves a file's bytes; [`edit`] then installs it.
+/// `staging`, exactly where [`stage_frames`] leaves a file's bytes; [`edit`] then installs it.
 ///
 /// In order, and the order is the argument:
 ///
@@ -5852,7 +6082,7 @@ fn receive_body(
 }
 
 /// Split a staging region for `len` bytes and map every page of it at [`IMAGE_STAGING_VA`], as
-/// [`receive_image`] does for a caller's frames. The region, or `FetchFailed` with nothing held.
+/// [`stage_frames`] does for a caller's frames. The region, or `FetchFailed` with nothing held.
 fn stage_pages(a: &Activating, len: u64) -> Result<u64, spawnproto::ActivationStatus> {
     let pages = spawnproto::image_pages(len);
     let st = memory_region_split(a.images_ut, pages)
@@ -5860,7 +6090,7 @@ fn stage_pages(a: &Activating, len: u64) -> Result<u64, spawnproto::ActivationSt
     for i in 0..pages {
         let mapped = match retype_page_frame(st) {
             Ok(page) => {
-                // SAFETY: as in `receive_image`: the page is ours, fresh, and mapped read/write.
+                // SAFETY: as in `stage_frames`: the page is ours, fresh, and mapped read/write.
                 let ok = unsafe {
                     invoke(
                         page,

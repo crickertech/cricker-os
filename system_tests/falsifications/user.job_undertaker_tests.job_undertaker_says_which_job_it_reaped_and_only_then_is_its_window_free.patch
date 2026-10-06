@@ -1,0 +1,27 @@
+Falsifies `system_tests::user::job_undertaker_tests::job_undertaker_says_which_job_it_reaped_and_only_then_is_its_window_free`.
+
+The defect: `job_undertaker` forgets the label the kernel handed it beside the death and
+announces every reap as label 0, "unlabeled". It still collects first and still sends on its
+badged copy of the spawn endpoint, so the message arrives, with the right badge and the right
+tid. A progenitor reading it would free nobody's window: every directory-granted job's window
+would stay held, and the pool would refuse its seventh spawn for the life of the boot.
+
+Expected to fail: the `(label, tid)` assertion, "the reaped message named the wrong job".
+
+The hunk's context cites milestone 235 (a command that faults hangs the prompt) and §26 (the fault
+endpoint: thread death becomes a message a supervisor holds).
+
+diff --git a/components/src/job_undertaker.rs b/components/src/job_undertaker.rs
+index 9b5853f9d..81b09b4d7 100644
+--- a/components/src/job_undertaker.rs
++++ b/components/src/job_undertaker.rs
+@@ -138,7 +138,8 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
+         collect(tid);
+         // Before the fault report: the progenitor may be waiting on this to finish a spawn, and the
+         // report may park (this module's `BUGS`).
+-        announce(label, tid);
++        let _ = label;
++        announce(0, tid);
+         // **Only a fault is news** (milestone 235). §26.3 flows clean exits down this endpoint too,
+         // and every command a person runs ends in one; a word for those would arrive on the result
+         // endpoint behind the child's own answer and the next command's read would take it. So the

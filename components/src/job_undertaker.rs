@@ -7,9 +7,10 @@
 //! there is no non-blocking receive and the progenitor is parked in `RECEIVE` on the shell's spawn channel for its
 //! whole life. So the collecting is a second process, and this is it.
 //!
-//! **Its authority is two endpoint capabilities and nothing else.** `READ` on the progenitor's supervision
-//! endpoint, and `WRITE` on the progenitor's result endpoint so it can say one word to whoever is waiting
-//! there. No untyped, no frame, no TCB, no address space. It cannot build a process, allocate a
+//! **Its authority is three endpoint capabilities and nothing else.** `READ` on the progenitor's supervision
+//! endpoint, `WRITE` on the progenitor's result endpoint so it can say one word to whoever is waiting
+//! there, and `WRITE` on a badged copy of the spawn endpoint so it can tell the progenitor which job
+//! it reaped (milestone 685 (a job is finished when its memory is back)). No untyped, no frame, no TCB, no address space. It cannot build a process, allocate a
 //! page, or reach any child's memory; `Rendezvous::REAP` (DECISIONS §32) is authorized by the
 //! supervision relationship the kernel already records, not by holding the region. The pages
 //! therefore go back to **The progenitor's** job budget, because the progenitor split the region and §13 says a region
@@ -21,6 +22,15 @@
 //! never came back. This process is the one that learns the job died, so it is the one that says
 //! so: [`grant_plan::spawnproto::JOB_FAULTED`], once, after the corpse is collected. `WRITE` and no
 //! `GRANT`: the right to say that word to the shell, and nothing it could hand on.
+//!
+//! **The third capability is milestone 685's** (calef's ruling of 2026-10-06 UTC, option A). The
+//! shell shows its next prompt when it has read a job's output, and the job's memory comes back
+//! when this program collects it; nothing ordered the two, so a job typed at once could find the
+//! pool still holding the last one, and the progenitor could not know when a file-service window's
+//! last holder was gone. After every collect this program sends
+//! [`grant_plan::spawnproto::reaped`] on its copy of the spawn endpoint, badged
+//! [`grant_plan::spawnproto::UNDERTAKER_BADGE`], carrying the label the progenitor put on the job's
+//! supervision capability and the tid. The progenitor tells it from a request by the badge.
 //!
 //! It is deliberately not a supervisor in the `sub_server_supervisor` sense: it holds no restart
 //! policy, because a command a person typed has no business being restarted when it ends. Collecting
@@ -34,6 +44,12 @@
 //! job budget stops coming back and the prompt eventually answers "could not spawn". Milestone 235
 //! gave this program a channel for the one thing a person at a prompt has to be told; it did not
 //! make it a reporter.
+//!
+//! **A reaped message can park too**, behind a request the shell is still sending: the spawn
+//! endpoint is a rendezvous, and the progenitor takes this message in whatever receive it is in
+//! when it arrives. It parks for at most one request, because every receive the progenitor makes on
+//! that endpoint takes a reaped message as readily as a request's next word. The collect it
+//! announces has already happened, so the pool never waits on it.
 //!
 //! **A fault report can park, and then it wedges this loop** (milestone 235, recorded rather than
 //! solved). [`report`]'s `SEND` is a rendezvous and the ABI has no non-blocking send, so it
@@ -76,6 +92,7 @@
 #![allow(missing_docs)]
 #![no_main]
 
+use grant_plan::spawnproto;
 use user_mode_runtime::{reap, receive_fault, send, yield_now};
 
 /// The supervision endpoint the progenitor endows every job with, held `READ`: the right to receive deaths
@@ -86,6 +103,11 @@ const DEATHS: u64 = 0;
 /// off, and therefore the one a job's *absence* of an answer has to arrive on. Nothing else in this
 /// process may be said here, and nothing else is: [`report`] sends one constant.
 const REPORT: u64 = 1;
+
+/// **The progenitor's spawn endpoint, held `WRITE` through a copy badged
+/// [`spawnproto::UNDERTAKER_BADGE`]** (milestone 685): where [`announce`] says a job is reaped. No
+/// `GRANT`, so the badge cannot be passed on, and the progenitor is the only receiver.
+const SPAWN: u64 = 2;
 
 /// **How many times one corpse may be refused before this program treats it as a broken kernel**
 /// (milestone 31 phase 3).
@@ -112,8 +134,11 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
     loop {
         // The kernel is the only sender on this endpoint (§26 clears the child's fault slot at
         // `START`), so the tid is trustworthy without a badge.
-        let (event, tid, ..) = receive_fault(DEATHS);
+        let (event, tid, _pc, _addr, _reserved, label) = receive_fault(DEATHS);
         collect(tid);
+        // Before the fault report: the progenitor may be waiting on this to finish a spawn, and the
+        // report may park (this module's `BUGS`).
+        announce(label, tid);
         // **Only a fault is news** (milestone 235). §26.3 flows clean exits down this endpoint too,
         // and every command a person runs ends in one; a word for those would arrive on the result
         // endpoint behind the child's own answer and the next command's read would take it. So the
@@ -122,6 +147,17 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
             report();
         }
     }
+}
+
+/// **Tell the progenitor job `label` (thread `tid`) is reaped** (milestone 685): its region is back
+/// in the pool, and its file-service window, if it held one, is free.
+///
+/// **After [`collect`], always**: the message means the memory is back, and a progenitor that read
+/// it before the reap would hand out a window or wait for a pool that has not changed. The return
+/// value is dropped for [`report`]'s reason.
+fn announce(label: u64, tid: u64) {
+    let (w0, w1, w2) = spawnproto::reaped(label, tid);
+    let _ = send(SPAWN, w0, w1, w2);
 }
 
 /// Tell whoever is waiting on the progenitor's result endpoint that the job they are waiting for is dead.
@@ -135,7 +171,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
 /// only failure the kernel could return here is one this program has no second channel to report on
 /// and no authority to do anything about.
 fn report() {
-    let _ = send(REPORT, grant_plan::spawnproto::JOB_FAULTED, 0, 0);
+    let _ = send(REPORT, spawnproto::JOB_FAULTED, 0, 0);
 }
 
 /// Collect one corpse, retrying while the region still holds something that can run.

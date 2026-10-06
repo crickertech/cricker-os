@@ -43,7 +43,7 @@ themselves. The last column is this milestone's result.
 | 21 | A user program cannot read a kernel address, on every ISA | §19 (architectural parity is a tenet) | `kernel::user::tests::a_user_program_cannot_read_a_kernel_address`, `the_hardware_says_el0_cannot_read_the_kernels_memory`, `riscv_virtio_tests::the_page_tables_say_u_mode_cannot_read_the_kernels_memory` | **yes: one record on aarch64 and x86_64, and riscv64's is the software walk** |
 | 22 | An ELF cannot ask to be loaded over the kernel, or for a writable executable page | §15 | `kernel::user::tests::an_elf_that_asks_to_be_loaded_over_the_kernel_is_refused`, `..._for_a_writable_executable_page_is_refused` | **yes, two** |
 | 23 | The progenitor cannot rebuild after dropping its construction authority | §26 | `kernel::user::authority_tests::init_drops_its_construction_authority_and_cannot_build_again` | **yes, and see below** |
-| 24 | Two shells with different roots cannot name each other's files | §50 | `kernel::user::shell_navigation_tests::two_shells_with_different_roots_cannot_name_each_others_files` | **yes, and see below** |
+| 24 | Two shells with different roots cannot name each other's files | §50 (namespace composition, not stored paths) | `kernel::user::shell_navigation_tests::two_shells_with_different_roots_cannot_name_each_others_files`, `grant_plan::job_windows::tests::take_never_hands_out_a_window_whose_last_holder_is_unreaped`, `job_undertaker_tests::job_undertaker_says_which_job_it_reaped_and_only_then_is_its_window_free` | **yes, and see below**; window reuse [closed](../design/roadmap/685-a-job-is-finished-when-its-memory-is-back.md) 2026-10-06 |
 | 25 | A client cannot reach its neighbour's pixels or read the screen | §33 (the compositor's authority is memory, not messages) | `kernel::user::compositor_tests::a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen` and five more in [compositor-claim-25.md](compositor-claim-25.md) | **yes, six patches, aarch64** |
 | 26 | A client of a rendezvous cannot become its server | §41 | `kernel::user::live_swap_tests::a_client_of_the_stable_rendezvous_cannot_become_its_server` | **no, and see below** |
 | 27 | A thread holding no port capability cannot touch a port, and a holder's ports do not leak across a context switch (`x86_64`) | §121, milestone 299 | `kernel::user::x86_port_tests::port_holder_transmits_then_a_non_holder_faults` | **yes, milestone 313, and see below** |
@@ -271,7 +271,7 @@ below both per-shell checks, and it cannot run: any defect that causes a crossin
 forbidden bit in one of the reports, and `assert_report`'s first direction catches that one call
 earlier. No patch tried in milestone 305 made the crossing fire, and none can.
 
-The quotable sentence is documentation; the bitmap equalities are the mechanism. Here that costs
+Here that costs
 nothing, because `assert_report`'s messages name the offending or missing bit, so a reader learns
 as much as the crossing would have told them. §31's instance cost a 234-second watchdog timeout
 reading "livelock". Two instances found the same way promotes it from an anecdote about §31 to a

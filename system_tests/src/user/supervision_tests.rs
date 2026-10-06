@@ -110,7 +110,7 @@ pub(super) fn build_child_in(
 /// [`build_child_in`] with the capabilities spelled out: `caps` land in slots 0, 1, ... in order,
 /// and `fault`, if given, in the reserved fault slot, so `START` records it as the child's
 /// supervision endpoint and keeps its badge as the child's label (milestone 105 (the two forks)).
-fn build_child_with(
+pub(super) fn build_child_with(
     region: u64,
     stub: &[u32],
     caps: &[crate::cap::Cap],

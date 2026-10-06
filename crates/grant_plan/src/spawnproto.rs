@@ -49,6 +49,11 @@
 //!    [`JOB_FAULTED`] there instead. It is a third value on the same one-word read rather than a
 //!    second channel, because the shell has one thread and can be blocked in exactly one `RECEIVE`;
 //!    see [`JOB_FAULTED`] for the two couplings this refused.
+//! 6. **Reaped** (milestone 685 (a job is finished when its memory is back)). After every collect,
+//!    `job_undertaker` `SEND`s [`reaped`] on the **spawn** endpoint, through a copy badged
+//!    [`UNDERTAKER_BADGE`]. The progenitor tells it from a request by the badge alone, wherever in
+//!    a request it arrives, and learns that the job's memory is back and its file-service window
+//!    is free. See [`UNDERTAKER_BADGE`] for the layout.
 //!
 //! # BUGS
 //!
@@ -796,6 +801,44 @@ pub const SPAWN_FAILED: u64 = u64::MAX;
 /// Name: provisional, like everything a lane mints: a word in a protocol is exactly the kind of
 /// name an architect decides.
 pub const JOB_FAULTED: u64 = u64::MAX - 1;
+
+/// **The badge on `job_undertaker`'s copy of the spawn endpoint** (milestone 685 (a job is finished
+/// when its memory is back), option A, ruled by calef 2026-10-06 UTC: "A looks right."). A message
+/// on the spawn endpoint carrying this badge is a [`reaped`] message, never a request.
+///
+/// The shell's copy is unbadged and carries `WRITE` alone, and `BADGE` needs `GRANT`
+/// (`abi::rendezvous::BADGE`), so nothing but the copy the progenitor minted for the undertaker can
+/// send with this badge. The kernel delivers the badge on a plain `SEND` too (milestone 613
+/// (a system log service: the in-memory half)'s amendment to §230 (badged endpoint capabilities)), in `x3` for `RECEIVE` and `RECEIVE_CAP`
+/// alike, which is why the progenitor can check it on every receive of a request, not only the
+/// first.
+///
+/// **The wire layout**, three words of a plain `SEND`:
+///
+/// ```text
+///   w0  label   the badge the progenitor put on the job's supervision capability (DECISIONS §148
+///               (resolves by asking the kernel)), which the kernel returned beside the death;
+///               0 for a job built without one
+///   w1  tid     the dead thread's id, as the kernel stamped it on the death message
+///   w2  0       reserved
+/// ```
+///
+/// The label is what the progenitor keys on, because it is a name the progenitor chose before the
+/// job ran: the progenitor holds a job's thread capability, not its thread id, so a tid alone would
+/// name nothing it knows. The tid rides along because the ruling asked for it and a reader of the
+/// trace wants it. `w0` and `w1` are the two words a `RECEIVE_CAP` returns as data (`x0`, `x2`),
+/// so a reaped message arriving where the progenitor expected a delegated capability is read
+/// whole.
+///
+/// **Sent after the collect, never before**: the message means the region is already back in the
+/// pool, which is the whole of its use. Name: provisional.
+pub const UNDERTAKER_BADGE: u64 = 1;
+
+/// **The "reaped" message for job `label`, thread `tid`** ([`UNDERTAKER_BADGE`] has the layout).
+#[must_use]
+pub const fn reaped(label: u64, tid: u64) -> (u64, u64, u64) {
+    (label, tid, 0)
+}
 
 /// **The word for bytes nobody vouched for** (DECISIONS §219, milestone 198 rung 3a). Sent on the
 /// result endpoint by the progenitor when an `IMAGE_BIT` request's digest is not in the
