@@ -9,6 +9,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [A USB keyboard](../usb.md): the xHCI driver at EL0, the register pages it is denied, and the gate that types `echo hello` on it.
 - [Fatal risk 6's bench evening on xenon](../risk-6-bench-evening.md): the confined NVMe driver's preflight, throughput boot and outcomes.
 - [The `e1000e` NIC](../e1000e.md): the network card a PC actually has, driven from `net_stack` behind the IOMMU, and its bench step on xenon.
+- [radon's Ethernet](../designware-ethernet.md): the JH7110's DesignWare controller, the DMA-coherence probe that runs before it is trusted, and its bench step on radon.
 - [Confining DMA without an IOMMU](../dma.md): kernel validation of every descriptor a driver submits.
 - [Confining DMA with an IOMMU](../iommu.md): hardware DMA confinement with SMMUv3 and the RISC-V IOMMU.
 - [AMD-Vi](../amd-vi.md): confining DMA on an AMD machine, where the IOMMU is in the IVRS rather than the DMAR, and where QEMU's model differs from the specification.
