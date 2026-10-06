@@ -22,9 +22,12 @@
 //! - **A full transmit ring drops the frame** after a bounded wait, and the stack above retransmits.
 //!   The virtio transport makes the same trade.
 //!
-//! Name: provisional (milestone 494's lane, 2026-10-04). `<device>_transport` after
-//! `net_transport`, its sibling in the same binary; `e1000e` is the family name, as in
-//! `crates/e1000e`, whose own header carries the argument and leaves the choice to an architect.
+//! Name: ratified 2026-10-06 (calef, "Yes", in conversation). A network card transport is
+//! `<device family>_transport`, as `net_transport` beside it in the same binary; the family is
+//! qualified only when its name covers more than one kind of device, as DesignWare does. Refused
+//! `intel_e1000e_transport` and `e1000e_ethernet_transport` (nothing else is called e1000e; Linux
+//! names the driver `e1000e` and puts the vendor in the directory; vendors rebrand while family
+//! names stay). The vendor, Intel, is recorded here and in `crates/e1000e`'s header instead.
 
 use alloc::vec::Vec;
 

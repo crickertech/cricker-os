@@ -74,8 +74,10 @@
 //!   The service cannot see the console's queue, so the honest fix moves the deadline into the
 //!   console.
 //!
-//! Name: provisional (milestone 613's lane, 2026-10-02 UTC). §242 calls it "the log service"; the
-//! crate and program share `system_log` so a reader finds both with one grep.
+//! Name: ratified 2026-10-06 (calef, "`system_log` ratified.", in conversation). §242 calls it "the
+//! log service"; the crate and program share `system_log` so a reader finds both with one grep.
+//! `starlog` was considered and deferred, not refused: an identity name fits the command people
+//! type to read the log, which does not exist yet, rather than the service.
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68 (code-quality gates: one

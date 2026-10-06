@@ -90,7 +90,10 @@
 //!   (the kernel and the `console` server drive one UART from two address spaces) is the first
 //!   to wire the service in and inherits the rule (the 2026-10-03 security audit's follow-up).
 //!
-//! Name: provisional (milestone 613's lane, 2026-10-02 UTC), the noun §242 uses for the service.
+//! Name: ratified 2026-10-06 (calef, "`system_log` ratified.", in conversation), the noun §242 uses
+//! for the service, shared with the program in `components/src/system_log.rs`. `starlog` was
+//! considered and deferred, not refused: it fits the command people type to read the log, which
+//! does not exist yet.
 
 #![no_std]
 
