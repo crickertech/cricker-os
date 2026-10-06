@@ -1,18 +1,30 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-06
+promoted_from: reboot-at-the-prompt
 milestone_dependencies: 592
-decision_dependencies: unwritten
+decision_dependencies: 251
 machine_requirements: none
 specific_machine: radon (calef's preferred lab machine, and the one whose reset is unproven)
 needs_person: yes
 ---
-# `reboot` at the prompt: a person restarts the machine without touching its power
+# 805. `reboot` at the prompt: a person restarts the machine without touching its power
+
+*(Promoted from the proposal pile on 2026-10-06 (UTC); number provisional until the merge queue lands it.)*
+
+*(Ruled 2026-10-06 (UTC), calef on PR #1766: "Approved, go with the new reboot object." §251
+(restarting the machine is a kernel object the progenitor hands out) records the object, its one
+method and the refused options. The fork below is kept as the argument; the recommendations in it
+are now the ruling.)*
+
+*(The dependency on milestone 592 (radon's cold reboot dies in OpenSBI's PMIC write) gates exit
+criterion 6, the radon silicon run, and nothing else. The QEMU gate on aarch64, riscv64 and x86_64
+does not wait for 592, and a lane can build and land everything else first.)*
 
 calef asked for this on 2026-10-06 (UTC), in a maintainer session. A writing-only lane wrote it the
-same day and built nothing. The design fork below is his to rule on. Every name here is provisional:
+same day and built nothing. The design fork below is ruled (§251). Every name here is provisional:
 the program `reboot`, the kernel object, its method and the manifest field. They are an architect's
-call. Under design/naming.md, `reboot` is a verb that would pass only as a term of art, like `bind`.
+call, and §251's ruling does not name them. Under design/naming.md, `reboot` is a verb that would pass only as a term of art, like `bind`.
 
 ## Why
 
@@ -51,7 +63,7 @@ OpenSBI resets the board with an I2C write to the AXP15060 PMIC, and U-Boot had 
 in reset. The transcript is `target/board/radon-2026-09-04-srst-reset-pmic.log`. Milestone 592
 (radon's cold reboot dies in OpenSBI's PMIC write) built a kernel fix on 2026-09-25 that releases
 the bus first, and it is waiting on one bench reset. Until that bench run passes, `reboot` cannot
-work on radon whatever this milestone builds. That is why 592 is this block's dependency.
+work on radon whatever this milestone builds. That is why 592 is this block's dependency, for the radon exit criterion only.
 
 The writable filesystem is RedoxFS behind `redoxfs_server`, not nifefs. nifefs is the read-only
 boot archive. notes/fs-server.md measures RedoxFS as prefix-consistent at every power-cut point.
@@ -62,7 +74,7 @@ server for a real device flush. Both the virtio and NVMe block servers implement
 rule. The program is a capability invoke after a `SYNC`, so Linux's `reboot(8)` and busybox's
 have nothing to lend: what they wrap is `reboot(2)`, option D below.
 
-## The fork
+## The fork, ruled by §251
 
 Three questions, one recommendation each. Only the first is expensive to change, because it adds
 to the syscall surface (§10 (process model: capability-based, microkernel) and §16 (object
@@ -171,15 +183,17 @@ timer loop. The proof is one gate on all three under QEMU, plus radon.
 6. On radon, after milestone 592 is BUILT: `reboot` typed at the prompt returns the board to a
    prompt with nobody touching plug 2. The serial capture is committed under `target/board/`.
    calef is at the bench, hence `needs_person`.
-7. A `design/decisions/` section records the object's semantics, minted by the integrator.
+7. §251 records the object's semantics. If the build finds the method must differ from it, the
+   section is amended in the same pull request.
 
 xenon and argon are not exit criteria, because neither is a lab machine for this. xenon's first
 reset belongs to milestone 249's bench steps. If it fails there, that is a `BUGS` line here.
 
-## What is blocked until the ruling
+## What was blocked until the ruling
 
-The kernel object, the endowment, the program and the gate all wait on the first question. Nothing
-else does. If calef picks E, this block depends on 391 instead.
+The kernel object, the endowment, the program and the gate waited on the first question. calef
+picked A on 2026-10-06, so nothing in this block waits on a ruling now. Only exit criterion 6 waits,
+on milestone 592.
 
 ## BUGS
 
@@ -190,3 +204,7 @@ else does. If calef picks E, this block depends on 391 instead.
   grants.
 - A reset does not quiesce devices. A DMA transfer in flight is cut off. After `SYNC` the block
   servers are idle, and nothing else on the machine writes to persistent storage.
+
+## Index row
+
+Typing `reboot` at the `swish` prompt restarts the machine, after flushing the writable filesystem. The authority is a new kernel object with one method (§251), granted to the progenitor and endowed to one program, so no other program can reset the machine. The per-architecture reset routes are already written and QEMU-proven; this gives them a caller outside the soak. It is a bench convenience on radon and the missing second half of the installer's last line.
