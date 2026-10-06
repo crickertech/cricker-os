@@ -13,5 +13,8 @@ crates = ["virtio", "non_volatile_memory_express", "jh7110_entropy"]
 # network card a PC actually has)). Both link it, so it is an interface rather than an internal crate.
 # `designware_ethernet` is the same contract for the JH7110's Ethernet controller (milestone 53
 # (the board's own peripherals: network and storage on real silicon)), for the same reason.
-interfaces = ["e1000e", "designware_ethernet"]
+# `designware_mobile_storage` is the JH7110's SD/MMC driver (milestone 53 (the board's own
+# peripherals: network and storage on real silicon)): the kernel links it for the bench boot today,
+# and the block server that will serve radon's card from EL0 will link the same crate.
+interfaces = ["e1000e", "designware_ethernet", "designware_mobile_storage"]
 programs = ["block_driver", "serial_driver", "non_volatile_memory_express", "jh7110_entropy"]
