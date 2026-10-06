@@ -120,6 +120,8 @@ fn describe_dirscape(v: u64) -> &'static str {
 /// It also proves both halves of "a child can never exceed its parent": a child asked for no
 /// rights can do nothing at all, and a child asked for a right this grant does not carry is
 /// refused rather than quietly given something smaller.
+///
+/// Falsification: replayable `system_tests/falsifications/user.dir_capability_tests.a_read_only_directory_capability_reaches_its_subtree_and_nothing_above_it.patch`
 #[test_case]
 fn a_read_only_directory_capability_reaches_its_subtree_and_nothing_above_it() {
     if fs_service::fs_server_image().is_none() {

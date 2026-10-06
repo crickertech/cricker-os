@@ -1,0 +1,40 @@
+Falsifies `system_tests::user::dir_capability_tests::a_read_only_directory_capability_reaches_its_subtree_and_nothing_above_it`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect is the caretaker serving the filesystem server's own root instead of the narrowed handle
+it was just given. `fs_subtree_caretaker` opens the subtree it was named, gets back a handle `r0`
+that reaches that subtree and nothing above it, and serves `r0` as its client's slot-0 root. Serving
+`fs::ROOT` instead hands the attacker the whole image, which is the authority §50 (namespace composition, not stored paths)
+says a subtree grant must not carry.
+
+This is the same hunk as row 24's record (`shell_navigation_tests::two_shells_...`), and it lands
+differently here, which is why it is worth a second file. Row 24's shell went red only through the
+vacuity guard: its own script stopped resolving, and nothing crossed. `dir_attacker` names `motd` in
+its root, and `motd` sits in the granted directory's parent, so here the defect is an escape the
+fixture actually performs.
+
+Expected to fail at the FIRST of `assert_verdict`'s two directions, the leak, at
+`system_tests/src/user/dir_capability_tests.rs:60`: "the read-only directory capability leaked: it
+opened a file that is in the granted directory's PARENT". Replayed 2026-10-06 (UTC) by
+lane/claims-falsified with `cargo xtask test --arch <a> --test
+a_read_only_directory_capability_reaches_its_subtree_and_nothing_above_it` on aarch64, riscv64 and
+x86_64: red at exactly that assertion on all three. The hunk is portable userspace code, so one patch
+serves every leg.
+
+What it does not reach: `redoxfs_server::check_component`, the refusal of `..` and of names carrying
+`/`. A defect there would set `WALKED_UP`, and this record does not show that bit can be set.
+
+diff --git a/components/src/fs_subtree_caretaker.rs b/components/src/fs_subtree_caretaker.rs
+index 43dde5f15..209062b16 100644
+--- a/components/src/fs_subtree_caretaker.rs
++++ b/components/src/fs_subtree_caretaker.rs
+@@ -303,7 +303,7 @@ pub extern "C" fn _start(name_lo: u64, name_hi: u64, spec: u64) -> ! {
+     }
+ 
+     send(REPORT, filesystem_protocol::fixture::READY, 0, 0);
+-    serve(r0);
++    serve(fs::ROOT);
+ }
+ 
+ user_mode_runtime::panic_handler!();
