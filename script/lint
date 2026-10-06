@@ -3150,6 +3150,11 @@ python3 helpers/architect-label-rules.py --selftest >/dev/null
 echo "==> the live architect-ruled read"
 helpers/architect-ruled-selftest.sh >/dev/null
 
+# A released hold reruns the old red hold runs on the head (#1766, 2026-10-06); stub-gh fixtures plus
+# a structural check that architect-ruled-clears-hold.yml listens for the release events.
+echo "==> the hold-release rerun"
+helpers/hold-rerun-selftest.sh >/dev/null
+
 # The base-resolution half of the same check, shared with the gates' prose-only classification and watchdog's scope step:
 # helpers/scope-merge-base.sh takes the merge base of HEAD against the base branch's CURRENT tip
 # rather than trusting the event payload's own base.sha, which goes stale the moment an unrelated
