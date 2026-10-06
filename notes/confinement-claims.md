@@ -36,16 +36,16 @@ themselves. The last column is this milestone's result.
 | 14 | A driver cannot send its device to descriptors nothing validated | §20 | `direct_memory_access_validator::an_accepted_descriptor_is_confined` (the indirect refusal) | **yes** |
 | 15 | A driver cannot make the validator walk outside the rings, or forever | §20 | `direct_memory_access_validator::the_outer_walk_stays_inside_the_rings_and_terminates`, `an_oversized_batch_is_refused` | **yes, two** |
 | 16 | One queue's validation cannot touch another queue's rings | §20 | `direct_memory_access_validator::distinct_queues_occupy_disjoint_blocks` | **yes** |
-| 17 | A descriptor changed after validation cannot reach the device | §20 | `direct_memory_access_validator::a_descriptor_mutated_after_validation_cannot_reach_the_device` | **no, and see below** |
+| 17 | A descriptor changed after validation cannot reach the device | §20 | `direct_memory_access_validator::a_descriptor_mutated_after_validation_cannot_reach_the_device` | [yes, 2026-10-06](../crates/direct_memory_access_validator/falsifications/verification.a_descriptor_mutated_after_validation_cannot_reach_the_device.patch), and see below |
 | 18 | A wiring plan never grants a right the declaration did not ask for | §41 | `component_plan::a_plan_never_grants_a_right_the_declaration_did_not_ask_for` | **yes** |
-| 19 | A directory capability reaches its subtree and nothing above it | §50 | `filesystem_protocol::attenuate_never_widens`, `a_grandchild_is_bounded_by_the_root`; `kernel::user::dir_capability_tests` | milestone 194 (the proofs) |
+| 19 | A directory capability reaches its subtree and nothing above it | §50 (namespace composition, not stored paths) | `filesystem_protocol::attenuate_never_widens`, `a_grandchild_is_bounded_by_the_root`; `kernel::user::dir_capability_tests` | milestone 194 (the proofs); [one kernel test, 2026-10-06](../system_tests/falsifications/user.dir_capability_tests.a_read_only_directory_capability_reaches_its_subtree_and_nothing_above_it.patch) |
 | 20 | A memory-unsafe C component faults on an out-of-bounds write and changes nothing outside its grant | §31 | `kernel::user::c_seam_tests::a_c_out_of_bounds_write_faults_and_changes_nothing_outside_its_grant` | **yes, by hand** |
 | 21 | A user program cannot read a kernel address, on every ISA | §19 (architectural parity is a tenet) | `kernel::user::tests::a_user_program_cannot_read_a_kernel_address`, `the_hardware_says_el0_cannot_read_the_kernels_memory`, `riscv_virtio_tests::the_page_tables_say_u_mode_cannot_read_the_kernels_memory` | **yes: one record on aarch64 and x86_64, and riscv64's is the software walk** |
 | 22 | An ELF cannot ask to be loaded over the kernel, or for a writable executable page | §15 | `kernel::user::tests::an_elf_that_asks_to_be_loaded_over_the_kernel_is_refused`, `..._for_a_writable_executable_page_is_refused` | **yes, two** |
 | 23 | The progenitor cannot rebuild after dropping its construction authority | §26 | `kernel::user::authority_tests::init_drops_its_construction_authority_and_cannot_build_again` | **yes, and see below** |
 | 24 | Two shells with different roots cannot name each other's files | §50 | `kernel::user::shell_navigation_tests::two_shells_with_different_roots_cannot_name_each_others_files` | **yes, and see below** |
 | 25 | A client cannot reach its neighbour's pixels or read the screen | §33 (the compositor's authority is memory, not messages) | `kernel::user::compositor_tests::a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen` and five more in [compositor-claim-25.md](compositor-claim-25.md) | **yes, six patches, aarch64** |
-| 26 | A client of a rendezvous cannot become its server | §41 | `kernel::user::live_swap_tests::a_client_of_the_stable_rendezvous_cannot_become_its_server` | **no, and see below** |
+| 26 | A client of a rendezvous cannot become its server | §41 (the endpoint is the broker) | `kernel::user::live_swap_tests::a_client_of_the_stable_rendezvous_cannot_become_its_server`; `confinement_attack_tests::a_write_only_rendezvous_holder_cannot_receive_reap_or_survey` | [yes, the second](../system_tests/falsifications/user.confinement_attack_tests.a_write_only_rendezvous_holder_cannot_receive_reap_or_survey.patch); the first hangs, see below |
 | 27 | A thread holding no port capability cannot touch a port, and a holder's ports do not leak across a context switch (`x86_64`) | §121, milestone 299 | `kernel::user::x86_port_tests::port_holder_transmits_then_a_non_holder_faults` | **yes, milestone 313, and see below** |
 | 28 | A revoked port holder faults on its next `in`/`out` (`x86_64`) | §121, milestone 299 | `kernel::user::x86_port_tests::a_revoked_holder_faults_on_its_next_port_write` | **yes, milestone 313** |
 | 29 | A thread that deletes its own port capability faults on its next `in`/`out` (`x86_64`) | §12, milestone 313 | `kernel::user::x86_port_tests::a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write` | **yes, milestone 313, and it was false in the tree** |
@@ -53,6 +53,8 @@ themselves. The last column is this milestone's result.
 | 31 | An unvouched child holds no capability its caller did not delegate, beyond two read-only pages | §219 (how the shell names an installed program to the spawner) | `script/swish-check`: `installed/unvouched` | yes, 2026-10-03, swept weekly ([patch](../xtask/falsifications/swish_check.swish_check_boot.patch)) |
 | 32 | The boot shell holds no display device | Milestone 715 (provisional) | `script/swish-check`: the `caps` census on the gpu boots | yes, 2026-10-03, swept weekly ([patch](../xtask/falsifications/swish_check.swish_check_leg.patch)) |
 | 33 | No `WRITE`, no x86_64 port I/O | Milestone 768 (provisional) | `kernel::user::x86_port_tests::a_read_only_port_capability_must_not_grant_port_output` | [yes](../system_tests/falsifications/user.x86_port_tests.a_read_only_port_capability_must_not_grant_port_output.patch) |
+
+Every row carries a replayable record as of 2026-10-06 (UTC), fatal risk 7's second criterion.
 
 ## Five claims that are stated nowhere, which is what step 1 was for
 
@@ -214,15 +216,14 @@ describing code that had changed, and nothing gated the drift. The two implied l
 307 and the live assertion carries the sentence; the argument for keeping a redundant-looking
 assertion survives, with the caveat that which one is redundant moves when the other is repaired.
 
-### One claim has no falsification and the reason is structural
+### Row 17's harness could not see the real defect
 
-Row 17, the time-of-check/time-of-use property, stayed `unfalsified` on purpose. It holds because
-the driver's descriptor table and the shadow are two disjoint arrays in the harness's memory model,
-and no line of `direct_memory_access_validator` can make them one. Aiming the copy back at the
-driver's table does turn the harness red, but through `ChainMem::write64`'s address arithmetic
-rather than through the post-mutation assertion, which is a red for the wrong reason and so is not
-recorded as evidence. The harness proves a property of the *design* rather than of code that could
-regress, and its honest denominator is that state and not a patch.
+Row 17 was recorded `unfalsifiable` because no line of the crate can alias the driver's table and
+the shadow. True, and the wrong defect. **Corrected 2026-10-06 (UTC):** the
+bug a shadow copy prevents is a double fetch, validating one load and copying a second. The harness
+read a fixed table, so the second load always equaled the first and the double fetch stayed green.
+It now reads through `ChainMem::racing`, a fresh symbolic value per load, and the double fetch is
+red. Its sibling harness still reads a fixed table and stays green under it.
 
 ## What breaking the kernel tests found (milestone 305)
 
@@ -319,10 +320,12 @@ filled with the easier defect that *does* fire the assertion: changing which err
 returns makes `attack[1]` wrong while leaving the claim entirely intact, which would put a false
 claim in the record whose whole job is saying what is known.
 
-**What would close it** is the same move milestone 202 made for §31: give the attacker a bounded
-wait so that "the server never answered me" is reported rather than waited out. That needs a
-non-blocking or timed receive, which is the syscall surface, so it is a proposal rather than a fix.
-See milestone 305's block.
+**Row 26's replayable evidence now sits beside this test** (2026-10-06 (UTC)), and it needed no
+new syscall. Milestone 633 (an outside agent attacks the confinement claim)'s
+`a_write_only_rendezvous_holder_cannot_receive_reap_or_survey` parks a sender first, so a let-open
+receive returns instead of blocking; deleting `RECEIVE_CAP`'s check turned it red on aarch64. This
+test still hangs; reshaping `chatty` is attack-shaped, routed to milestone 800 (a non-Anthropic model attacks the
+confinement claim).
 
 ### One row's falsification proves less than the row looks like it proves
 
@@ -634,11 +637,8 @@ capability would let it) answers. |
   saying it did not exist for a fortnight. `script/falsifications` now reads a `Falsification:` block
   above a `#[test_case]` and replays it by booting one architecture; `kernel/falsifications/` is the
   path §134 already spells, and row 20's patch is swept rather than remembered.
-- Rows 22, 23, 24 and 30 now carry a record on all three ISAs; row 19's kernel tests carry none.
-  Milestone 323 replayed the four aarch64 records on riscv64 and `x86_64` on 2026-10-03 (UTC), each
-  red. Row 19's two Kani harnesses are ISA-neutral and both have a
-  record. `dir_capability_tests` has none: the `attenuate` defect turns its read-only test red
-  only through the vacuity guard at line 974 of `kernel/src/user/fs_service.rs`, like row 24's.
+- Rows 19, 22, 23, 24 and 30 carry a record on all three ISAs, row 19 on one of four kernel tests.
+  Milestone 323 replayed the four older ones on riscv64 and `x86_64` on 2026-10-03 (UTC).
 - A kernel row's evidence is re-checked far less often than a harness row's, and on one
   architecture. A Kani record costs a second, so `script/falsifications --affected-since` re-checks
   it on every pull request that can reach it. A kernel record costs a boot per leg, so it is re-checked only
