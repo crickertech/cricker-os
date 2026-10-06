@@ -14,9 +14,14 @@ The number is provisional: the integrator mints it at merge. Minted
 metrics will help us make and maintain a better product if we know what people are using."*
 
 There is nothing to count until something installs, so this
-waits on milestone 198 (a package manager, and the trivial install that makes a second customer
-possible); and what leaves a stranger's machine is the irreversible category this tree is most
+waits on rung 3c (over the internet: a public repository) of milestone 198 (a package manager, and the trivial install that makes a second customer
+possible). What leaves a stranger's machine is the irreversible category this tree is most
 careful about, so the shape of the report is an architect's.
+
+calef ruled on 2026-10-06 (UTC) that this depends on rung 3c of milestone 198 alone, not on all of it. The
+`milestone_dependencies` field names whole milestones and cannot name a rung, so it still reads `198`. That is
+stricter than the ruling, and `script/roadmap --ready` will hold this block until 198 is built. The prose is
+the record of the real dependency.
 
 ## What this is
 
