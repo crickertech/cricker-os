@@ -1,5 +1,5 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-09-26
 decided: 2026-09-26
 ratified_by: calef
@@ -13,7 +13,14 @@ answered by calef the same day. Written by the lane `milestone/198-owner-console
 maintainer's instruction, because §219 (how the shell names an installed program to the spawner) is
 at its prose cap. *(Section number provisional until the merge queue lands it.)*
 
+**Amended 2026-10-06 (UTC) by calef: there is no standing unauthenticated owner console.** Every
+console shows a greeter, and an unauthenticated owner shell exists only in a recovery boot chosen at
+boot. See "The amendment" below. The original text is kept unedited, with each passage the
+amendment overturns marked where it stands.
+
 ## The ruling
+
+*Clause 1 is amended: the console is no longer the owner's without a login. See "The amendment".*
 
 calef, 2026-09-26 (UTC), *"Yes"* to both of the maintainer's questions:
 
@@ -27,6 +34,9 @@ calef, 2026-09-26 (UTC), *"Yes"* to both of the maintainer's questions:
    mechanism: a machine can have users who may not run new native code.
 
 ## What it answers
+
+*Amended: the hole stays closed, but by authentication rather than by definition, and the recorded
+cost below no longer holds outside a recovery boot. See "The amendment".*
 
 The note's first question: is the boot prompt allowed to vouch its own bytes? Yes, so the note's
 option A holds. The note recorded a hole: the prompt can write `activation/` directly, because it
@@ -71,6 +81,9 @@ Lane `milestone/198-owner-console`, 2026-09-26. Names provisional.
 
 ## What stays open
 
+*Amended: "the boot prompt alone" below now means an authenticated owner's shell or the recovery
+shell. See "The amendment".*
+
 - Every activation verb is the spawn endpoint's. `install`, `remove`, `rollback` and `vouch` go
   to whoever holds it, which is the boot prompt alone, so today that is the owner. A session given a
   spawn endpoint would be the owner too. Before one is, the verbs need a presentation of their own,
@@ -79,3 +92,56 @@ Lane `milestone/198-owner-console`, 2026-09-26. Names provisional.
   (`grant_plan::INSTALLED_MANIFEST_OF`): the output and nothing else. So vouching a build today
   narrows it (an unvouched one also gets the clock and configuration pages). The grant is the
   manifest's; the manifest is a stand-in.
+
+## The amendment, 2026-10-06: the owner logs in too
+
+Raised by the maintainer while calef ruled on the concurrent login sessions proposal (#1769). Its
+Fork 3 chose virtual terminals, and with them this section as written makes console 1 an always-open
+root shell beside the login prompts. The maintainer offered four options:
+
+- A. Keep this section: console 1 never asks.
+- B. Every console shows a greeter. An unauthenticated owner shell exists only in a deliberate
+  recovery boot, as with Linux's single-user mode.
+- C. Console 1 is the unauthenticated owner console only until an owner credential exists, then a
+  greeter like the rest, with B's recovery boot.
+- D. Only the serial line is the owner's unauthenticated console.
+
+calef, 2026-10-06 (UTC), in order:
+
+> "C with B. Can we make the owner set a password at first log in?"
+>
+> "Yes, installer asks, first-boot prompt as fallback. Is it the first-boot prompt or any boot where
+> there is no password set?"
+>
+> "Yes, record it"
+
+The last accepted the maintainer's answer, which is clause 3 below.
+
+1. There is no standing unauthenticated owner console. Every console, console 1 included, shows a
+   greeter. The owner is an identity holding owner authority, granted from the owner-written lists
+   at the file-service root that #1769's Fork 2 chose. The only unauthenticated owner shell is a
+   recovery boot chosen deliberately at boot. Physical access is the control there, as in every
+   operating system's recovery mode.
+2. The owner sets a password before any shell exists. `system_installer` (`installer` until #1773
+   lands its rename) asks for it when it installs to disk.
+3. Otherwise the prompt appears on any boot where no owner credential exists, not only the first.
+   The condition is state, not an event, so it cannot drift (the ladder's first rung: the wrong
+   state is unrepresentable). That covers a stick-only boot whose writes do not persist, which asks
+   on every boot; a lost credential store; and a revoked or deleted owner credential (§108 (disabling a user's login credentials kills their durable session)).
+4. If the credential store cannot be read, which is an error and not the same as holding no owner
+   credential, the prompt refuses and points to the recovery boot. It never lets someone set a
+   password over an owner who may exist.
+
+What becomes of the activation-set hole. This section closed it by definition: the session that
+holds the file service's root endpoint and the spawn endpoint is the owner, so its writes are the
+owner's. That still holds, but the session now becomes the owner by authenticating as an identity
+on the owner's list (or by a recovery boot), not by sitting at console 1, so the server still need
+not tell clients apart. Clause 1 of the original ruling and its recorded cost apply only to the
+recovery boot. Clause 2 (D2 only for a listed identity) stands, and §219's gate D2 is untouched.
+
+Known costs, recorded and not ruled:
+
+- Test images (swish-check, boot-check, the QEMU suites) need an owner credential preset at build
+  time, close to milestone 49 (users, login, and attribution)'s generated first-boot password.
+- Bench scripts (board-console, the soak tests) must supply that credential on radon and xenon.
+- None of this is built yet. #1769's lane builds the greeter, the prompt and the recovery boot on it.
