@@ -10,7 +10,12 @@ needs_person: yes
 # 225. Run the soak on radon, argon and xenon, which is the only place its answer means anything
 
 Partial as of (2026-09-25). radon has run it, clean, for 8 h 09 m; argon and xenon have
-not. `PARTIAL` rather than `BUILT` because the block names three machines and one is done. Minted
+not.
+
+Correction, 2026-10-06: argon is not in hand. The board delivered as argon is a Jetson TK1
+(32-bit Armv7), shipped against a TX1 order; it is going back and calef is getting the TX1 from the
+seller (`notes/bench-runbook.md`, "argon is not in hand"). The argon leg below is awaiting the
+board, with no date. Its plan, the tegra210 facts and `script/board-console --exposure` all stand. `PARTIAL` rather than `BUILT` because the block names three machines and one is done. Minted
 2026-09-02 by the maintainer, carrying forward the follow-on that
 milestones 219 (the boot tour ends and the kernel halts, so there is nothing to soak) and 221 (the
 soak never crosses cores, so build the hook that makes it) both proposed. *(Number provisional until
@@ -90,6 +95,9 @@ it. What remains on radon is more boots, not longer ones.
 
 ## argon, 2026-10-05: not yet a one-command run, and exactly why
 
+*(Awaiting the board, 2026-10-06: what is on the desk is a TK1 going back, not argon. The tegra210
+facts below are the TX1's and stand. The "20 minutes at argon" steps wait for the TX1.)*
+
 calef ruled argon first on 2026-10-05. This lane set out to make its soak one command and found
 the premise false one step earlier than this block's `BUGS` says: argon has never booted nife,
 **and as built it cannot**. The aarch64 kernel is linked, mapped and consoled for QEMU `virt`
@@ -163,7 +171,8 @@ Eight hours, for radon's reason. Red is `soak-test: FAILED`, a `[PANIC]`, three 
 - **Outstanding.** argon's soak, behind milestone 127 (the seL4 machine), since argon has never
   booted nife. Checked 2026-09-25: 127 is NOT-STARTED. Checked again 2026-10-05: still
   NOT-STARTED, and behind it the proposal `argon-boots-the-aarch64-kernel.md`, which a lane can
-  build without the board.
+  build without the board. Checked 2026-10-06: also behind argon's delivery; the seller shipped a
+  TK1, which is going back, and the TX1 has no date.
 - **Outstanding.** More radon boots, because one boot is one draw and a slow draw has never been
   soaked for long with this build. Checked 2026-09-25: E4 is the only radon row with a log.
 - **Done.** The false `NOT SEALED` on a soak build that cost this run half an hour. Milestone 563

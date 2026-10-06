@@ -347,7 +347,7 @@ measure this register carries and nobody ever needs is a cheap thing to have bee
   Milestone 74's scope note held generic events back until a second consumer; M6 to M8 are that
   consumer. Its first step is finding which events radon's OpenSBI and argon's A57 count.
 - **Done.** The silicon this register waits on arrived: `notes/target-hardware.md` lists argon as
-  in hand and radon as booting nife and wired as a bench target, which is the small-cache board
+  awaited (2026-10-06) and radon as booting nife and wired as a bench target, which is the small-cache board
   this block names as milestone 127's alternative.
 - **Recorded.** A correction, 2026-09-19. This item said the small-cache re-run of E1, E3's latency half and E4
   was runnable and not taken, and it was stale from the day it was written: the session ran on

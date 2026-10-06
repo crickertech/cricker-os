@@ -21,7 +21,9 @@ implementation grain is the earlier warning, and the only one that can be bought
 
 GREEN.
 Milestone 87 (the x86_64 bare-metal machine) reached `nife self-test: 5 of 5 passed` on xenon's own
-firmware, so nife runs on all three declared architectures on real hardware. Everything it needed
+firmware, so nife runs on all three declared architectures on real hardware. *(Corrected
+2026-10-06: on bare metal, two of three. aarch64 has run only under HVF on patagonia, which is
+virtualization; `notes/bench-runbook.md`.)* Everything it needed
 lives under `kernel/src/arch/x86_64/`, and its one defect was fixed inside `arch/x86_64/mmu.rs`. The
 cost was measured rather than merely passed: 42 compiler errors, every one "this `arch::` name does
 not exist yet", with `crates/paging` unchanged.
@@ -31,7 +33,10 @@ new directory."*
 **The experiment for the widened grain, which has not been run:** a second machine of an architecture
 nife already boots, riding on milestone 225 (run the soak on radon, argon and xenon). Ruled
 2026-10-05 (calef): *"Both, argon first."* Argon closes the larger gap; milestone 89 (Scaleway
-EM-RV1) then adds a second riscv64 beside radon. No difference is a result too.
+EM-RV1) then adds a second riscv64 beside radon. No difference is a result too. *(2026-10-06:
+argon is not in hand. The board delivered was a TK1, shipped against the TX1 order and going back,
+and the TX1 has no date; `notes/bench-runbook.md`. Whether "argon first" stands is calef's, asked on pull
+request #1739.)*
 
 Three caveats. The verdict is one machine per architecture, and for aarch64 not even that, since
 argon has never booted nife. So those 42 errors price a third *architecture* and say nothing about a

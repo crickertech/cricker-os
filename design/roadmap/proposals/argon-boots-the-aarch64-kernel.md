@@ -13,6 +13,11 @@ Raised 2026-10-05 (UTC) by `lane/225-argon-soak`, the lane for milestone 225 (ru
 argon and xenon), while making argon's soak a one-command run. Title, slug and every name here are
 provisional.
 
+*(Awaiting the board, 2026-10-06: the board delivered as argon is a Jetson TK1 shipped against a
+TX1 order, going back while calef gets the TX1 from the seller; `notes/bench-runbook.md`, "argon is
+not in hand". This proposal's tegra210 facts and its fork stand, and its bench confirmation waits
+for the TX1. The finding that the aarch64 kernel only fits QEMU `virt` holds for any board.)*
+
 ## The premise this corrects
 
 Milestone 127 (the seL4 machine) names two pre-board prerequisites, the EL2 to EL1 drop and

@@ -14,9 +14,44 @@ spend an evening on, in what order, and what a result would mean.
 |---|---|---|
 | **radon** | StarFive VisionFive 2, JH7110, riscv64 | **yes**, including userspace, `init`, a child process and a confined driver |
 | **xenon** | Dell OptiPlex 7050 Micro, x86_64 | **yes**, first light 2026-09-05: the milestone 243 framebuffer console carried the whole boot tour on video, with no serial cable. `notes/x86-uefi-boot.md` |
-| **argon** | NVIDIA Jetson TX1, aarch64 | **no.** Milestone 127 is first light |
+| **argon** | NVIDIA Jetson TX1, aarch64. Not in hand: the board delivered was a TK1 and is going back (2026-10-06, below) | **no.** Milestone 127 is first light |
 
 `notes/target-hardware.md` records the names and why they exist.
+
+## argon is not in hand: the seller shipped a Jetson TK1 (corrected 2026-10-06)
+
+The board this tree recorded as argon from 2026-09-01 is not a TX1. calef photographed it on
+2026-10-06 (UTC), still in its sealed anti-static bag. The silkscreen reads `PM375 DEV KIT` and
+`PCB:180-7R375-1002-D00`, and the SoC's label reads `NVIDIA TEGRA K1`. That is a Jetson TK1
+developer kit. Two sources, both read on 2026-10-06:
+
+- NVIDIA, *Jetson TK1 Documentation: PM375 Module Specification*, Rev 1.01
+  (<https://developer.download.nvidia.com/embedded/jetson/TK1/2014-03-24/JetsonTK1_ModuleSpecification_PM375_V1.01.pdf>):
+  "PM375 is a board for Tegra K1 development".
+- Mainline Linux, `arch/arm/boot/dts/nvidia/tegra124-jetson-tk1.dts`: `model = "NVIDIA Tegra124
+  Jetson TK1"`, in `arch/arm`, the 32-bit tree; `tegra124.dtsi` lists four `arm,cortex-a15` cores,
+  an Armv7-A part with no AArch64 state. The TX1 is a different board,
+  `arch/arm64/boot/dts/nvidia/tegra210-p2371-2180.dts`.
+
+Milestone 127 (the seL4 machine) records the order as "a factory-sealed TX1 developer kit" at
+$89.99, so the seller shipped a TK1 against a TX1 order. calef, 2026-10-06: *"I will work with the
+seller to get a TX1. The TK1 is going back regardless. We still need the TX1 to benchmark against
+seL4."*
+
+What follows, as facts:
+
+- The plan stands. argon is still the name of the aarch64 seL4 machine, a Jetson TX1, identical
+  silicon to seL4's published figures. Only the board in hand was wrong.
+- argon is not in hand and has no delivery date. Records that said it was in hand, on the desk, or
+  waiting only on bench time carry a dated correction pointing here (pull request #1739).
+- The TX1 facts recorded about argon (tegra210, Cortex-A57, RAM at `0x8000_0000`, a 16550 at
+  `0x7000_6000`, the P2597 carrier's J21 header) are awaiting the board, not false. None was ever
+  read off a TX1.
+- The TK1 cannot run nife: nife has no 32-bit Arm port. So nife's aarch64 kernel has still never
+  run on bare-metal aarch64 silicon. Its only real-silicon runs are the HVF leg on patagonia
+  ([hvf-leg.md](hvf-leg.md)), which is virtualization.
+- How the error survived five weeks: the bag was never opened, and nothing compared the board
+  with its order. The first `BUGS` entry below records the mechanism that was missing.
 
 ## Spend the first evening on radon, and the reason is arithmetic
 
@@ -94,6 +129,9 @@ not, the loader now prints which range it wanted and which descriptors are in th
 
 ## argon, and why it is last
 
+Awaiting the board since 2026-10-06: the seller shipped a TK1, which is going back, and a TX1 is
+being sought (above). Everything below is the plan for the TX1 when it arrives.
+
 Milestone 127 (the seL4 machine) is first light, and it is the longest of the three because nothing
 of nife has run on it. A third prerequisite, the board memory map, is unbuilt
 (`design/roadmap/proposals/argon-boots-the-aarch64-kernel.md`, 2026-10-05). The two 127 names are built: the EL2 to EL1 entry drop
@@ -112,6 +150,21 @@ made that instrument a feature rather than something production carries.
 
 ## BUGS
 
+- A board's identity was recorded from its order and never checked against the silicon. argon was
+  written down as an aarch64 Jetson TX1 in hand from 2026-09-01, and milestones 127, 225 and 353, a
+  fatal-risk ruling and this page planned on it. The board in the bag was a 32-bit Jetson TK1,
+  found on 2026-10-06 when calef photographed it. Nothing in the tree could have caught it, because
+  no record of a machine says how anyone knows what it is.
+
+  Proposed mechanism, not built: every bench machine's row in `notes/target-hardware.md` cites
+  provenance under `bench/<name>/identity/`, either a photo of the board's markings (the SoC label
+  and the PCB number) or a captured boot log that prints the CPU's own identity (a U-Boot banner, a
+  `MIDR_EL1` or `mvendorid`/`marchid` line, or firmware's CPUID). A `script/lint` check fails a row
+  whose provenance path is missing, which is rung 2: a name with no evidence fails loudly instead of
+  waiting for someone to open a bag. A row may say `identity: unverified` as a marked exception, so
+  a machine that has not arrived is still recordable. The check cannot judge whether the photo shows
+  what the row says; it makes the claim and its evidence sit together. Proposed 2026-10-06 by
+  `lane/argon-is-a-tk1`; it wants a milestone number from the integrator.
 - This page is an index and will rot if a procedure moves. It cites by milestone and by note
   path rather than copying steps, which is the cheapest defence available and not a guarantee.
 - It assumes one person at one bench. Nothing here says what to do if a machine needs two
