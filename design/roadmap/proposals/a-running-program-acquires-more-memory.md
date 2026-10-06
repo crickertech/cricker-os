@@ -10,7 +10,7 @@ needs_person: no
 # A running program acquires more memory as it needs it
 
 calef asked for this on 2026-10-06 (UTC): a running program should be able to get more memory when
-it needs it. A writing-only lane wrote it and built nothing. calef ruled forks 1 to 5 and 7 on #1777 the same day. Fork 6 is open.
+it needs it. A writing-only lane wrote it and built nothing. calef ruled every fork on #1777 the same day.
 
 It is the program half of #1769 (concurrent login sessions), whose fork 4 calef ruled "D" the same
 day: a `memory_broker` holding the pool left after the boot's carve, handing out geometric
@@ -23,9 +23,8 @@ and the fixture.
 ## Why, and its honest rank
 
 Against principle 1, the customer path is vacant (milestone 530 (name a customer)) and blocked on
-milestones 801 (packages over the internet) and 802 (the trivial install). Nothing measured says
-the package client needs more than one region. So this ranks below 801 and 802 unless the package
-client is shown to hit the ceiling. Nobody has measured that.
+milestones 801 (packages over the internet) and 802 (the trivial install). Nothing shows their
+package client needs more than one region, so this ranks below them.
 
 Against the fatal risks, it guards a GREEN verdict. Risk 1 (only software written for nife runs on
 nife) went GREEN on milestone 121 (`ripgrep` on nife). Yet `notes/ripgrep-on-nife.md` says
@@ -35,9 +34,7 @@ the ceiling, so this keeps risk 1 GREEN once anyone searches.
 ### What the ceiling is, measured on 2026-10-06 (UTC)
 
 A `std` program is built in one region of `STD_REGION_PAGES` (384 pages, 1.5 MiB), plus its image
-for a file run by path (`image_region_pages`). Its address space, image, stack and page tables come
-out of that region first. Its heap is what is left, about 256 pages (1 MiB), the number
-`grant_plan`'s own comment gives.
+for a file run by path. Its heap is what the build leaves, about 256 pages (1 MiB).
 
 What real programs want, on calef's Mac (macOS `peak memory footprint` from `/usr/bin/time -l`,
 which counts dirty memory and not the clean image):
@@ -53,9 +50,6 @@ Not apples to apples (macOS counts its `malloc` slack, `dyld` and the stack), bu
 database and `rg` on a large tree need tens of MiB.
 
 What fails today, read from the code: `MAP` refuses, the allocator returns null, and `std` aborts.
-
-A web server is unmeasurable today: no `std` program holds the network from the prompt yet
-(milestone 595 (the shell runs a `std` program)'s BUGS).
 
 ## What the tree has, read on 2026-10-06 (UTC)
 
@@ -144,22 +138,17 @@ program on its own; that is fork 4's revoke, and revoke kills.
 
 ### 7. Limits nobody notices
 
-Ruled A, calef, 2026-10-06 (UTC): "Approve Fork 7." The standard is his fork 3 ruling, Linux's
-`vm.max_map_count` (65,530 per process by default, from memory): a limit no ordinary program meets.
+Ruled A, calef, 2026-10-06 (UTC): "Approve Fork 7." The standard is Linux's `vm.max_map_count`
+(65,530, from memory): a limit no ordinary program meets.
 The [appendix](a-running-program-acquires-more-memory/returning-memory.md) has the measurements.
 
-- The region table grows to 16,384 slots, 1.8 MiB at 116 bytes a slot, measured. Child links and
-  a free-slot list make every walk visit only what it concerns: `USAGE` the named subtree, a return
-  the parent's children, an insert one entry. Today a walk over a chain of splits is quadratic, 39
-  ms at 4,096 on calef's Mac.
+- The region table grows to 16,384 slots (1.8 MiB, measured). Child links and a free-slot list
+  make every walk visit only what it concerns, where a walk over a chain is quadratic today.
 - No per-program cap. Every region is at least 1 MiB, so a program's regions are bounded by its
   account's ceiling. The broker's slot budget is the table less a system reserve of 1,024, so no
   program exhausts slots before memory.
-- A program holds a region's capability only while it maps the pages, so the 64-slot capability
-  table does not bind. Milestone 778 (capability tables sized per process) stays the general
-  answer.
-- Refused for now: a table-free design, seL4-style, which redesigns §16's revocation. Sizing the
-  table from RAM at boot comes first. No syscall changes.
+- A program holds a region's capability only while mapping it, so 64 capability slots suffice.
+- Refused for now: a table-free design, seL4-style. Sizing the table from RAM comes first.
 
 ### 4. What failure means
 
@@ -224,14 +213,16 @@ A program's default ceiling is its session's (fork 1); a spawner may set a lower
 
 ### 6. Whether native programs get it
 
+Ruled A, calef, 2026-10-06 (UTC): "Approve Fork 6 A with both follow-ons". The follow-ons are
+below.
+
 | option | verdict |
 |---|---|
-| A. Yes, opt-in: `MemoryRegionHeap::init` takes an optional broker account; boot servers keep fixed budgets | recommended |
+| A. Yes, opt-in: `MemoryRegionHeap::init` takes an optional broker account; boot servers keep fixed budgets | ruled |
 | B. `std` programs only | refused |
 | C. Every program, boot servers included | refused |
 
-A comes nearly free once the policy is in `user_mode_heap`. C is wrong for servers like
-`credentialer` and `net_stack`, whose fixed budget is part of their confinement claim.
+C is wrong for servers like `net_stack`, whose fixed budget is part of their confinement claim.
 
 ## How others do it
 
@@ -247,6 +238,17 @@ All from memory and unchecked; the building lane owes a read of each.
   The heap top is trimmed, and `malloc_trim` `madvise`s free pages inside. Fork 3, plus `madvise`.
 - jemalloc and mimalloc: free pages inside the heap go back by `madvise` after a decay delay. nife
   cannot do that below a region, which is why fork 3 separates large allocations at all.
+
+From memory, unchecked; the building lane owes a read:
+
+- KeyKOS, EROS and Coyotos: space banks, hierarchical capabilities to allocate storage with limits.
+  Destroying a bank reclaims all allocated from it. The closest ancestor of forks 1 and 5.
+- Fuchsia Zircon: VMARs reserve and VMOs back, like reserve and commit. Jobs form a tree with
+  memory limits, yet it added pressure signals and a component-level killer.
+- seL4 with CAmkES: each component's memory is fixed at build time, like fork 6's boot servers.
+- Linux cgroups: `memory.high` applies pressure and reclaim below `memory.max`.
+- Pressure notices: Android `onTrimMemory`, iOS `didReceiveMemoryWarning`, Windows memory resource
+  notifications, Linux PSI.
 
 ## The first slice
 
@@ -304,14 +306,20 @@ One `cargo xtask` gate that `script/test` runs, exiting 0 under QEMU on aarch64 
 
 ## What is blocked until the ruling
 
-Fork 6 is open. The broker's request and reply, shared with #1769, are a wire format for
+Every fork is ruled. The broker's request and reply, shared with #1769, are a wire format for
 the `design/decisions/` section at merge.
 
 ## Follow-ons, proposed, unnumbered
 
+Fork 6's two, each a proposal on #1786:
+
+- `a-client-pays-for-its-session-in-a-server`: client-paid server memory, after Genode.
+- `a-program-is-asked-to-give-memory-back`: the advisory "please shrink" signal fork 4 named.
+
+Others:
+
 - Milestone 676 (the NTP and login tests give their regions back), shrinking the suite's residue.
 - Growing a large allocation in place by mapping the pages after it, as `mremap` does.
-- A "please shrink" notice before a revoke, when a program wants one.
 - Milestone 121's walk benchmark under a grown heap, which this unblocks.
 
 ## BUGS
