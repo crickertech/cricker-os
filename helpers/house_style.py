@@ -1,15 +1,17 @@
-"""The house-style ratchet: British spellings, counted, and never allowed to grow.
+"""The house-style ratchet: British spellings and imperial units, counted, and never allowed to grow.
 
-calef, 2026-10-06 (UTC):
+calef, 2026-10-06 (UTC), two rulings on the same morning:
 
     "Lets standardize on American because I'm American."
+    "Lets also standardize on metric measures, because imperial is stupid."
 
-The tree's prose and names use American spelling. It was not ruled before, and the tree had
-drifted British: on the ruling's day this counted 3,946 British forms (2,134 in Markdown, 1,812
-in code and configuration). A sweep in batches drives the count to zero (the batch plan is in
-the pull request that landed this, #1735); this gate makes sure nothing new arrives while it does.
-It is rung 2 of the AGENTS.md ladder. The rule's record is a dated amendment to §213 (writing
-standards) and design/naming.md's spelling section.
+The tree's prose and names use American spelling, and its measurements are metric. Neither was
+ruled before, and the tree had drifted British: on the ruling's day this counted 3,946 British
+forms (2,134 in Markdown, 1,812 in code and configuration) and 5 imperial quantities. A sweep in
+batches drives the counts to zero (the batch plan is in the pull request that landed this, #1735);
+this gate makes sure nothing new arrives while it does. It is rung 2 of the AGENTS.md ladder. The
+rule's record is a dated amendment to §213 (writing standards) and design/naming.md's spelling
+section.
 
     python3 helpers/house_style.py --check      # what script/lint runs
     python3 helpers/house_style.py --list [PATH..]  # every counted hit, path:line: word
@@ -34,6 +36,13 @@ written here. `typos` splits identifiers, so `FATAL_RISK_COLOURS` counts as a na
 covers names. `EXTRA_BRITISH` adds the forms VarCon leaves alone but American usage does not use.
 `NOT_BRITISH` removes the two VarCon flags that American dictionaries accept as they stand.
 
+**Imperial units are counted by regular expression**, and only as quantities: a unit word must
+follow a number (digits, a number word, `a`, `an`, `half`), so "under the caller's feet", "foot
+gun" and "the last mile" are idiom, not measurement. An abbreviation (`ft`, `lb`, `oz`, `yd`,
+`mi`, `gal`) must follow digits. Of the inch marks only the double prime counts: a `"` after
+digits closes a quoted string here (`"core 3"`) far more often than it measures anything. `in` is
+never read as inches; "1 in 10" is far more common here than a length.
+
 **Permanent exclusions, each correct for a stated reason, not a backlog:**
 
 - A Markdown blockquote line (`>`). It is a quotation, and a quotation keeps its source's words,
@@ -42,6 +51,8 @@ covers names. `EXTRA_BRITISH` adds the forms VarCon leaves alone but American us
 - An external name or title, in `EXTERNAL_NAMES`: a vulnerability's name, a paper's title. Each
   entry carries where it comes from. Add one only for a name somebody else coined.
 - A URL, which is somebody else's address.
+- An industry designation that is a product name rather than a measurement, in `DESIGNATIONS`:
+  a 3.5-inch drive bay, a 19-inch rack, a screen's diagonal class. A metric gloss is welcome.
 - Data files (`.csv`, `.tsv`, `.svg`): each is generated from the tree, so it follows its source,
   or records a past fact (a CI job's name on a date), which a sweep must not rewrite.
 - Trees that are somebody else's text, as `_typos.toml` already excludes them: `vendor/`,
@@ -49,15 +60,19 @@ covers names. `EXTRA_BRITISH` adds the forms VarCon leaves alone but American us
 - This file, which has to spell the words it counts.
 
 **At zero, this file retires.** `locale = "en-us"` in `_typos.toml` then makes the spelling gate
-reject British forms outright and the extras move into its `extend-words`. That is a rung up
-from a counted ratchet to an outright refusal.
+reject British forms outright, the extras move into its `extend-words`, and the units half stays
+here or moves to its own gate. That is a rung up from a counted ratchet to an outright refusal.
 
 BUGS:
 - VarCon is a dictionary, not a judgment about this tree. It flags a few words an American writer
   would accept (`NOT_BRITISH` holds the ones found so far) and misses some British ones
   (`EXTRA_BRITISH`). Both lists grow as the sweep meets cases.
+- The imperial half reads quantities by pattern, so "a pound of" in a recipe-style idiom would
+  count and "six-foot" written without its number would not, and `12"` for twelve inches is not
+  read at all. None of the three occurred on the ruling's day.
 """
 
+import bisect
 import json
 import os
 import re
@@ -71,10 +86,11 @@ sys.dont_write_bytecode = True
 SELF = 'helpers/house_style.py'
 
 # The counts on 2026-10-06, and since lowered by each sweep batch's `--bank`. Never raise one by
-# hand: a new British form is fixed, not admitted.
+# hand: a new British form or imperial unit is fixed, not admitted.
 CEILINGS = {
     'british-markdown': 2_134,
     'british-other': 1_812,
+    'imperial': 5,
 }
 
 # --- what is out of scope -----------------------------------------------------------------------
@@ -151,12 +167,50 @@ EXTERNAL_NAMES = [
 
 URL = re.compile(r'https?://\S+')
 
+# --- imperial units -----------------------------------------------------------------------------
+
+_NUMBER = (r'(?:\d+(?:[.,]\d+)?|a|an|half|one|two|three|four|five|six|seven|eight|nine|ten|'
+           r'eleven|twelve|fifteen|eighteen|twenty|thirty|forty|fifty|hundred)')
+_UNIT = r'(?:inch|inches|foot|feet|mile|miles|yard|yards|pound|pounds|ounce|ounces|gallon|gallons)'
+IMPERIAL = [
+    # A unit word after a quantity. Not "foot gun", not "a pound sign": those are not lengths.
+    re.compile(rf'(?i)\b{_NUMBER}[\s-]+{_UNIT}\b(?![\s-]*(?:guns?|sign|key|symbol)\b)'),
+    re.compile(r'(?i)\bfahrenheit\b|°F\b'),
+    # An abbreviation after digits that open a word, so `\x1b[?25lb` (an escape sequence) is not
+    # twenty-five pounds.
+    re.compile(r'(?<![^\s(])\d+(?:\.\d+)?\s?(?:ft|lbs?|oz|yd|mi|gal)\b'),
+    # The double prime, the typographic inch mark. A `"` after digits is not read: in this tree
+    # it closes a quoted string ("may run on core 3") far more often than it measures anything.
+    re.compile(r'\d″'),
+]
+
+# Industry designations that are product names, not measurements. A metric gloss is welcome.
+DESIGNATIONS = re.compile(
+    r'(?i)\b\d+(?:\.\d+)?(?:[\s-]?inch(?:es)?|"|″)[\s-]+'
+    r'(?:drive|disk|floppy|bay|bays|rack|racks|display|screen|monitor|laptop|tablet|panel|'
+    r'form factor)\b')
+
+
 def _spans(pattern, line):
     return [m.span() for m in pattern.finditer(line)]
 
 
 def _inside(pos, spans):
     return any(a <= pos < b for a, b in spans)
+
+
+# A cheap first pass: most files carry no unit word at all, and the patterns above are not cheap.
+MAYBE_IMPERIAL = re.compile(
+    rf'\b{_UNIT}\b|fahrenheit|°f|\d\s?(?:ft|lbs?|oz|yd|mi|gal)\b|\d″')
+
+
+def imperial_hits(text):
+    """[(offset, words)] for each imperial quantity in `text`."""
+    if not MAYBE_IMPERIAL.search(text.lower()):
+        return []
+    exempt = _spans(DESIGNATIONS, text) + _spans(URL, text)
+    return [(m.start(), m.group(0)) for pattern in IMPERIAL for m in pattern.finditer(text)
+            if not _inside(m.start(), exempt)]
 
 
 # --- counting -----------------------------------------------------------------------------------
@@ -224,18 +278,29 @@ def file_hits(path, text, typos_hits):
             if exempt_line(line) or exempt_at(line, offset):
                 continue
         found.append((category(path), lineno, word))
+    # The two regular-expression passes read the whole text, so a phrase broken across a line
+    # ("Two foot" then "guns") is read as written, and a file with none of the words costs one scan.
+    starts = []
+
+    def line_of(pos):
+        if not starts:
+            starts.append(0)
+            for line in lines:
+                starts.append(starts[-1] + len(line) + 1)
+        return bisect.bisect_right(starts, pos)
+
+    urls = _spans(URL, text)
     # Searched in a lowered copy: Python's case-blind alternation took three seconds over the tree,
     # and lowering keeps every offset as long as it keeps the length, which is checked.
-    urls = _spans(URL, text)
     low = text.lower()
-    line = 1
-    last = 0
     for m in EXTRA.finditer(low if len(low) == len(text) else ''):
         m = _Match(text, m.span())
-        line += text.count('\n', last, m.start())
-        last = m.start()
-        if extra_at(text, m) and not exempt_line(lines[line - 1]) and not _inside(m.start(), urls):
-            found.append((category(path), line, m.group(0)))
+        n = line_of(m.start())
+        if extra_at(text, m) and not exempt_line(lines[n - 1]) and not _inside(m.start(), urls):
+            found.append((category(path), n, m.group(0)))
+    for pos, word in imperial_hits(text):
+        if not exempt_line(lines[line_of(pos) - 1]):
+            found.append(('imperial', line_of(pos), word))
     name = os.path.basename(path)
     for m in EXTRA.finditer(name.lower()):
         m = _Match(name, m.span())
@@ -350,6 +415,7 @@ def growth(base):
 LABELS = {
     'british-markdown': 'British spellings in Markdown',
     'british-other': 'British spellings in code, scripts and configuration',
+    'imperial': 'imperial units',
 }
 
 
@@ -399,6 +465,16 @@ def selftest():
         ('a.md', 'A greyhound and a programmer.', {}),
         ('a.md', 'A grey whilst it is spelt.', {'british-markdown': 3}),
         ('a_colour.md', 'Nothing here.', {'british-markdown': 1}),
+        ('a.md', 'It sat three feet from the switch, and 1.5 ft of cable.', {'imperial': 2}),
+        # calef, 2026-10-06 (UTC): "foot gun isn't imperial". `a` reads as a quantity, so this is
+        # the case the `guns?` lookahead exists for, hyphenated or not.
+        ('a.md', 'It is a foot gun, a foot-gun, under the caller\'s feet, on small feet.', {}),
+        ('a.md', 'A 3.5-inch drive bay in a 19-inch rack and a 3.5" drive.', {}),
+        ('a.md', 'A 12″ ruler, and a "core 3" quote.', {'imperial': 1}),
+        ('a.md', 'Two foot\nguns, and an escape \\x1b[?25lb.', {}),
+        ('a.md', 'Delegating "may run on core 3" is a copy.', {}),
+        ('a.md', '1 in 10 runs, at 70 °F.', {'imperial': 1}),
+        ('a.md', 'The milestone is a mile away.', {'imperial': 1}),
     ]
     scratch = tempfile.mkdtemp(prefix='house-style-selftest-')
     failed = 0
@@ -437,8 +513,8 @@ def main(argv):
     if not argv or argv[0] == '--check':
         now, bad = check()
         if bad:
-            print('house style: the tree gained British spelling '
-                  '(calef, 2026-10-06: American spelling):', file=sys.stderr)
+            print('house style: the tree gained British spelling or imperial units '
+                  '(calef, 2026-10-06: American spelling, metric units):', file=sys.stderr)
             for b in bad:
                 print(f'  {b}', file=sys.stderr)
             print(f'\nFix the words (`python3 {SELF} --list PATH` shows each). A quotation goes '

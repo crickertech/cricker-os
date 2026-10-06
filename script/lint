@@ -3086,14 +3086,16 @@ echo "==> the prose ratchet (§212 words, §213 sentences and bold)"
 # make this ratchet cost more than it saves.
 python3 helpers/prose_ratchet.py --selftest
 python3 helpers/prose_ratchet.py --check
-echo "==> American spelling (calef, 2026-10-06)"
-# calef ruled on 2026-10-06 (UTC) that the tree's prose and names use American spelling. On that
-# day the tree held about 3,900 British forms, so this is a ratchet and not a cliff:
-# helpers/house_style.py counts British spellings (typos' en-us locale, plus a short list it
-# misses), fails a count above its ceiling, and fails a branch that adds any net against its merge
-# base. A sweep in batches drives the count to zero, each batch lowering the ceilings with
-# `--bank`; at zero, `locale = "en-us"` in _typos.toml replaces it outright. Quotations on a `>`
-# line, external names, URLs and data files are permanent exclusions, listed in the helper's header. Fixtures first, so a green check is not a counter matching nothing.
+echo "==> American spelling and metric units (calef, 2026-10-06)"
+# calef ruled on 2026-10-06 (UTC) that the tree's prose and names use American spelling and its
+# measurements are metric. On that day the tree held about 3,900 British forms, so this is a
+# ratchet and not a cliff: helpers/house_style.py counts British spellings (typos' en-us locale,
+# plus a short list it misses) and imperial quantities, fails a count above its ceiling, and fails a
+# branch that adds any net of either against its merge base. A sweep in batches drives both counts
+# to zero, each batch lowering the ceilings with `--bank`; at zero, `locale = "en-us"` in
+# _typos.toml replaces the spelling half outright. Quotations on a `>` line, external names,
+# URLs, data files and product designations such as a 19-inch rack are permanent exclusions,
+# listed in the helper's header. Fixtures first, so a green check is not a counter matching nothing.
 python3 helpers/house_style.py --selftest
 python3 helpers/house_style.py --check
 # Milestone 415 (sub-tripwire drift accumulates across baseline saves), item 3's arithmetic

@@ -21,8 +21,9 @@ His words, which are the whole brief:
 > "We should also be clear, there is just a lot of long writing. We could be more dense with our
 > writing. Amazon also had pretty strict writing standards to help."
 
-Amended 2026-10-06 (UTC): calef ruled that prose and names use American spelling. The gate is
-`helpers/house_style.py` in `script/lint`, a ratchet on the count of British forms.
+Amended 2026-10-06 (UTC): calef ruled that prose and names use American spelling and that
+measurements are metric. A product designation such as a 19-inch rack stays as named. The gate is
+`helpers/house_style.py` in `script/lint`, a ratchet on both counts.
 
 ## What is being decided
 
