@@ -369,6 +369,16 @@ path = "src/jh7110_entropy.rs"
 test = false
 bench = false
 
+# radon's SD/MMC block server (milestone 53 (the board's own peripherals: network and storage on
+# real silicon)): `filesystem_protocol::blk` over the JH7110's DesignWare Mobile Storage Host
+# Controller, one register page and a transfer region, no DMA. It shares its crate's name, as
+# `non_volatile_memory_express` does. Name provisional.
+[[bin]]
+name = "designware_mobile_storage"
+path = "src/designware_mobile_storage.rs"
+test = false
+bench = false
+
 # The EL0 NVMe block server (milestone 261, DECISIONS §86's option 2a): the queue mechanics that
 # used to be `kernel/src/non_volatile_memory_express.rs`'s, now a process holding one page of BAR0,
 # a run of DMA pages, and two endpoints. It shares its crate's name, which calef ruled on
@@ -605,6 +615,9 @@ workspace = true
 [dependencies]
 # The user address-space map (milestone 206 (a program image has under 896 KiB)): every fixed window here is checked against its band.
 address_space_map = { version = "0.1.0", path = "../crates/address_space_map" }
+# radon's SD/MMC driver (milestone 53): designware_mobile_storage.rs is its register window and
+# serve loop over it.
+designware_mobile_storage = { version = "0.1.0", path = "../crates/designware_mobile_storage" }
 # The boot ladder's console markers (milestone 268). `swish` prints the last rung; the kernel
 # prints the ones below it and `crates/board_console` matches all of them, so AGENTS.md rule 7
 # makes the strings a crate rather than copies. `no_std`, no dependencies of its own.

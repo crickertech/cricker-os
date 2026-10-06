@@ -1,9 +1,12 @@
 # radon's SD card and eMMC: the DesignWare Mobile Storage Host Controller
 
 Milestone 53 (the board's own peripherals: network and storage on real silicon), the storage half.
-The driver is `crates/designware_mobile_storage`; the kernel's part is
-`kernel/src/designware_mobile_storage.rs` (a register window and a clock) and
-`kernel/src/storage_bench.rs` (the bench boot). Names provisional.
+The driver is `crates/designware_mobile_storage`. The kernel's part is
+`kernel/src/designware_mobile_storage.rs` (a register window and a clock),
+`kernel/src/user/designware_mobile_storage_service.rs` (the EL0 server's wiring) and
+`kernel/src/storage_bench.rs` (the bench boot). The EL0 block server, which answers
+`filesystem_protocol::blk` like the virtio and NVMe servers, is
+`components/src/designware_mobile_storage.rs`. Names provisional.
 
 ## What the part is, and how we know
 
@@ -43,9 +46,10 @@ pulls in `sdmmc-host`, `sdmmc-protocol`, `dma-api`, `mmio-api`, `volatile`, `bit
 2. Its volatile accesses live inside the driver core. This tree's split puts every register access
    behind one trait the kernel implements, which is what lets the whole driver run against a
    simulation on a host and under Kani.
-3. Five crates from one young tree, sixteen `dwmmc-host` releases since August 2026: a dependency
-   that size is an architect's ruling (§46), and taking it would not have removed the need for a
-   simulation to test against.
+3. Five crates from one young tree, with sixteen `dwmmc-host` releases since August 2026. A
+   dependency that size is an architect's ruling (§46 (thin primitives or whole subsystems; we
+   write everything in between)). Taking it would not have removed the need for a simulation to
+   test against.
 4. Effort was not the reason. Had both been the same work, the split and the PIO-first bring-up
    would still have decided it.
 
@@ -75,7 +79,7 @@ from (notes/visionfive2.md). Three rules keep this driver from costing that card
   compiles no write test at all, and `bench::read_only` sends no write command (a host test checks
   the command log).
 - **A write test lands only before the first partition.** `partition::Mbr::scratch` names at most
-  eight sectors ending just before the first partition and starting no lower than sector 1, and
+  eight sectors, ending just before the first partition and starting no lower than sector 1. It
   refuses a GPT disk, an empty table, or a partition at sector 1. A Kani harness proves that range
   touches no partition for every possible table.
 - **It puts back what it found.** The test reads the range first, writes a pattern, reads it back,
@@ -91,7 +95,7 @@ About fifteen minutes, three boots, and the card is never removed. radon's card 
 with `--tftp` (milestone 257 (boot radon over the network)), so each boot is a build and a power
 cycle. Do these on patagonia, in this branch's worktree.
 
-**Before you start.** radon's DIP switches on QSPI (both low), the UART on patagonia, the Ethernet
+Before you start. radon's DIP switches on QSPI (both low), the UART on patagonia, the Ethernet
 cable in the port U-Boot netboots over. In a second terminal, leave the TFTP server running:
 
 ```sh
@@ -122,8 +126,9 @@ What to look for, all lines prefixed `storage-bench:`:
 | `partition 1: type 0x0b, sectors N..` and `boot sector: signature 55aa, type field "FAT32   "` | reads return the card's real bytes |
 | `scratch range a write test would use: Some((N-8, 8))` | where step 2 would write, before it does |
 | `timed read: 16384 blocks in ... us, ... KiB/s` | the polled read rate |
+| `EL0 block server: Served` | the same card through the EL0 server, as the FS server would call it: block 0 of partition 1 is the boot sector, a write is refused `EROFS`, a block past the window `EINVAL` |
 | `slot 0 (eMMC socket): ...` | whether an eMMC module is fitted (`NO-CARD` if not) |
-| `verdict READ-OK ... KiB/s` | the step passed |
+| `verdict READ-OK ... KiB/s, EL0 block server served` | the step passed |
 
 `NO-CARD` on slot 1 or any `FAILED` verdict: stop, keep the log, and send it. Nothing was written.
 
@@ -143,7 +148,7 @@ pre-partition gap only.` Look for:
 
 | verdict | meaning |
 |---|---|
-| `READ-OK ..., WRITE-VERIFIED sectors A..B (were zero), restored` | writes work, and the range is back as it was |
+| `READ-OK ..., WRITE-VERIFIED sectors A..B (were zero), restored, EL0 block server served` | writes work from the kernel and through the EL0 server (one block, the same range), and the range is back as it was |
 | `READ-OK ..., WRITE-REFUSED: no gap before the first partition` | nothing was written; the card's layout leaves no room |
 | `FAILED: write test PatternMismatch(..)` or `Failed(..)` | the original was still written back; send the log |
 | `FAILED: write test RestoreMismatch(n)` | sector `n`, inside the gap, did not take its original back. Partition 1 was never touched |
@@ -166,18 +171,20 @@ have one) would need the kernel half's twenty lines and a device-tree match.
 
 ## BUGS
 
-- **Nothing here has touched the device.** Every test is against `sim`, which models the contract
+- Nothing here has touched the device. Every test is against `sim`, which models the contract
   as the databook and OpenBSD describe it. The bench step is the measurement.
-- **The booted system has no disk on radon yet.** The bench boot drives the controller from the
-  kernel's boot thread. Serving `filesystem_protocol::blk` from an EL0 process over this driver,
-  as the virtio and NVMe block servers do, waits on the bench step and on which part of the card
-  nife's filesystem lives on (the 53 block).
-- **Polled, default speed, no DMA.** 25 MHz, 4-bit on SD and 1-bit on eMMC, the CPU moving every
+- **The booted system has no disk on radon yet.** The EL0 block server exists and the bench boot
+  calls it. `PROVEN_ON_SILICON` keeps the booted system from starting it, and which part of the
+  card nife's filesystem would live on is an architect's call (the 53 block).
+- The EL0 server holds the controller's DMA registers, which share its one page. The JH7110 has
+  no IOMMU, so the server is as confined as its own code. That is milestone 261 (the NVMe driver
+  leaves the kernel)'s position for a machine with no IOMMU. The server does no DMA.
+- Polled, default speed, no DMA. 25 MHz, 4-bit on SD and 1-bit on eMMC, the CPU moving every
   word. No high-speed switch, no UHS-I, no HS200 tuning, no 8-bit eMMC bus.
-- **A 64-bit FIFO is refused** rather than handled; `HCON` says which radon has.
-- **A read's tail may raise no FIFO request.** Linux's `fifo-watermark-aligned` property, which
+- A 64-bit FIFO is refused rather than handled; `HCON` says which radon has.
+- A read's tail may raise no FIFO request. Linux's `fifo-watermark-aligned` property, which
   both mainline JH7110 nodes carry, exists because a transfer whose tail is shorter than the
   receive watermark can end with words in the FIFO and no `RXDR`. This driver drains the FIFO on
   data-transfer-over as well, and a host test reads a block whose tail is below the watermark.
   Whether radon's controller behaves that way is not known; the test covers both.
-- **No card detect, no write protect.** `CDETECT` is printed and not acted on.
+- No card detect, no write protect. `CDETECT` is printed and not acted on.

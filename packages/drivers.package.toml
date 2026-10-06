@@ -17,4 +17,4 @@ crates = ["virtio", "non_volatile_memory_express", "jh7110_entropy"]
 # peripherals: network and storage on real silicon)): the kernel links it for the bench boot today,
 # and the block server that will serve radon's card from EL0 will link the same crate.
 interfaces = ["e1000e", "designware_ethernet", "designware_mobile_storage"]
-programs = ["block_driver", "serial_driver", "non_volatile_memory_express", "jh7110_entropy"]
+programs = ["block_driver", "serial_driver", "non_volatile_memory_express", "jh7110_entropy", "designware_mobile_storage"]

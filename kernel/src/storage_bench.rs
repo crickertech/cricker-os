@@ -18,15 +18,20 @@
 //!    sequential read from the start of that partition, timed;
 //! 5. **only on the microSD slot and only in a build made with `NIFE_STORAGE_BENCH_WRITE=scratch`**,
 //!    the scratch write test (`bench::scratch_write`): up to eight sectors before the first
-//!    partition, read, overwritten with a pattern, read back, restored, read back.
+//!    partition, read, overwritten with a pattern, read back, restored, read back;
+//! 6. on the microSD slot, the same card through the EL0 block server
+//!    (`components/src/designware_mobile_storage.rs`), called the way the FS server calls a block
+//!    server: over the first partition, read-only, in a read-only build (block 0 must be the boot
+//!    sector, `WRITE` must be `EROFS`, a block past the window `EINVAL`); over the scratch range,
+//!    writable, in a write build (one block read, overwritten, read back, restored).
 //!
 //! Then one verdict line about the microSD slot, and a halt.
 //!
 //! # BUGS
 //!
-//! - **The client is the kernel.** The driver runs on the boot thread, polled, with the direct
-//!   map. The booted system has no block device on radon yet; serving `filesystem_protocol::blk`
-//!   from an EL0 process over this driver is the next step, in the 53 block.
+//! - **The booted system has no block device on radon yet.** This boot proves the EL0 server on
+//!   a window it picks for the test; which window the booted system serves is an architect's
+//!   call, in the 53 block.
 //! - **It re-initializes the card U-Boot booted from.** `CMD0` puts the card back to idle, which
 //!   is harmless (the next power-on does the same) and means this boot cannot hand the card back
 //!   to anything that expected it selected. It halts instead.
@@ -116,13 +121,18 @@ enum Outcome {
     ReadOk(u64),
     /// Read, then the scratch write test: the rate and the test's verdict.
     Written(u64, WriteVerdict),
+    /// The kernel's own probe passed and the EL0 block server's did not.
+    El0(El0),
 }
 
 fn print_verdict(o: &Outcome) {
     match o {
-        Outcome::ReadOk(kib) => println!("storage-bench: verdict READ-OK {kib} KiB/s"),
+        Outcome::ReadOk(kib) => {
+            println!("storage-bench: verdict READ-OK {kib} KiB/s, EL0 block server served");
+        }
+        Outcome::El0(e) => println!("storage-bench: verdict FAILED: EL0 block server {e:?}"),
         Outcome::Written(kib, WriteVerdict::Verified(first, count, blank)) => println!(
-            "storage-bench: verdict READ-OK {kib} KiB/s, WRITE-VERIFIED sectors {first}..{} (were {}), restored",
+            "storage-bench: verdict READ-OK {kib} KiB/s, WRITE-VERIFIED sectors {first}..{} (were {}), restored, EL0 block server served",
             first + count,
             if *blank { "zero" } else { "not zero" },
         ),
@@ -232,15 +242,160 @@ fn probe(slot: &Slot, write: bool) -> Outcome {
         Ok(r) => r,
     };
     print_read(slot, &r);
-    if !write {
-        return Outcome::ReadOk(kib_per_s(&r));
-    }
-    let (Some(a), Some(b)) = (pages(1), pages(1)) else {
-        return Outcome::NoMemory;
+    let outcome = if write {
+        let (Some(a), Some(b)) = (pages(1), pages(1)) else {
+            return Outcome::NoMemory;
+        };
+        let v = bench::scratch_write(&mut host, &r.card, r.mbr.as_ref(), a, b);
+        say!(slot, "scratch write test: {v:?}");
+        Outcome::Written(kib_per_s(&r), v)
+    } else {
+        Outcome::ReadOk(kib_per_s(&r))
     };
-    let v = bench::scratch_write(&mut host, &r.card, r.mbr.as_ref(), a, b);
-    say!(slot, "scratch write test: {v:?}");
-    Outcome::Written(kib_per_s(&r), v)
+    // The kernel is done with this controller: nothing below touches `host`, and from here the EL0
+    // server drives it.
+    if slot.index == 1 {
+        let el0 = through_el0(slot, &r, write);
+        say!(slot, "EL0 block server: {el0:?}");
+        if el0 != El0::Served && !matches!(outcome, Outcome::Written(_, WriteVerdict::Refused)) {
+            return Outcome::El0(el0);
+        }
+    }
+    outcome
+}
+
+/// How the EL0 phase ended.
+#[derive(Debug, PartialEq, Eq)]
+enum El0 {
+    /// Every check passed: the server came up, served reads of the right bytes, refused what it
+    /// must refuse, and (in a write build) wrote, read back and restored its one block.
+    Served,
+    /// The archive has no `designware_mobile_storage` program.
+    NoProgram,
+    /// The partition table gives no window to serve.
+    NoWindow,
+    /// The service refused to start.
+    NotStarted,
+    /// The server's readiness message said a step failed: its words.
+    NotReady(u64, u64, u64),
+    /// A request came back wrong: which check, and the server's answer.
+    Wrong(&'static str, i64),
+}
+
+/// **The same card, through the EL0 block server, the way the FS server would use it.**
+///
+/// The window is the first partition, read-only, in a read-only build: block 0 must come back as
+/// the boot sector the kernel read, a `WRITE` must be refused with `EROFS`, and a block past the
+/// window must be refused with `EINVAL`. In a write build the window is instead the eight-sector
+/// scratch range, writable, and its one block is read, overwritten, read back and restored through
+/// the server.
+fn through_el0(slot: &Slot, r: &ReadReport, write: bool) -> El0 {
+    use designware_mobile_storage::serve::Window;
+    use filesystem_protocol::blk;
+
+    use crate::user::designware_mobile_storage_service as service;
+
+    say!(
+        slot,
+        "EL0 block server: starting it (PROVEN_ON_SILICON is {}; this boot is the proof the booted system waits for)",
+        service::PROVEN_ON_SILICON
+    );
+    let Some(image) = crate::trust::require_program("designware_mobile_storage") else {
+        return El0::NoProgram;
+    };
+    let Some(mbr) = r.mbr else {
+        return El0::NoWindow;
+    };
+    let window = if write {
+        match mbr.scratch(bench::SCRATCH_SECTORS) {
+            Some((first, 8)) => Window {
+                first: u64::from(first),
+                sectors: 8,
+                writable: true,
+            },
+            _ => return El0::NoWindow,
+        }
+    } else {
+        let Some(p) = mbr.entries.iter().find(|e| e.is_used() && e.sectors >= 8) else {
+            return El0::NoWindow;
+        };
+        Window {
+            first: u64::from(p.start),
+            sectors: u64::from(p.sectors) & !7,
+            writable: false,
+        }
+    };
+    let Ok(w) = service::start(image, slot, window) else {
+        return El0::NotStarted;
+    };
+    let ready = crate::sched::ipc_receive(w.ready);
+    if ready[0] != filesystem_protocol::fixture::READY {
+        return El0::NotReady(ready[0], ready[1], ready[2]);
+    }
+    let call = |op, block| crate::sched::ipc_call(w.request, [blk::req(op, 1), block])[0] as i64;
+    // SAFETY: the service allocated these pages for the server and its one client, which this boot
+    // thread now is; the direct map covers them, and the server touches them only inside a call.
+    let shared = unsafe {
+        core::slice::from_raw_parts_mut(
+            crate::arch::mmu::phys_to_virt(w.transfer_phys) as *mut u8,
+            blk::BLOCK_SIZE,
+        )
+    };
+    if call(blk::SIZE, 0) != (window.sectors * BLOCK as u64) as i64 {
+        return El0::Wrong("SIZE", call(blk::SIZE, 0));
+    }
+    let past = window.sectors / 8;
+    let got = call(blk::READ, past);
+    if got != filesystem_protocol::reply_err(22) {
+        return El0::Wrong("READ past the window is EINVAL", got);
+    }
+    let got = call(blk::READ, 0);
+    if got != 1 {
+        return El0::Wrong("READ block 0", got);
+    }
+    if !write {
+        if shared[510..512] != [0x55, 0xaa] || shared[82..90] != r.fs_type {
+            return El0::Wrong("block 0 is the boot sector the kernel read", 0);
+        }
+        let got = call(blk::WRITE, 0);
+        if got != filesystem_protocol::reply_err(30) {
+            return El0::Wrong("WRITE to a read-only window is EROFS", got);
+        }
+        return El0::Served;
+    }
+    let mut original = [0u8; blk::BLOCK_SIZE];
+    original.copy_from_slice(shared);
+    for (i, b) in shared.iter_mut().enumerate() {
+        *b = bench::pattern(window.first + (i / BLOCK) as u64, i % BLOCK) ^ 0xff;
+    }
+    let got = call(blk::WRITE, 0);
+    if got != 1 {
+        return El0::Wrong("WRITE block 0", got);
+    }
+    shared.fill(0);
+    let got = call(blk::READ, 0);
+    let intact = shared
+        .iter()
+        .enumerate()
+        .all(|(i, &b)| b == bench::pattern(window.first + (i / BLOCK) as u64, i % BLOCK) ^ 0xff);
+    shared.copy_from_slice(&original);
+    let restored = call(blk::WRITE, 0);
+    if got != 1 || !intact {
+        return El0::Wrong("the written block read back", got);
+    }
+    if restored != 1 {
+        return El0::Wrong("WRITE the original back", restored);
+    }
+    shared.fill(0);
+    let got = call(blk::READ, 0);
+    if got != 1 || shared[..] != original[..] {
+        return El0::Wrong("the original read back", got);
+    }
+    let flushed = call(blk::FLUSH, 0);
+    if flushed != 1 {
+        return El0::Wrong("FLUSH counts", flushed);
+    }
+    El0::Served
 }
 
 fn print_identity(slot: &Slot, id: &Identity, depth: u32) {
