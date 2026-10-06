@@ -162,7 +162,7 @@ pub mod x86_64;
 
 pub use aarch64::Aarch64;
 pub use domain::{DmaRegion, build_identity_domain};
-pub use sv39::Sv39;
+pub use sv39::{Sv39, Sv39Mae};
 pub use x86_64::{AmdVi, Ia32e, Vtd};
 
 /// 4 KiB, the smallest leaf every format here maps, and the unit every table is.
