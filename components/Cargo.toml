@@ -580,9 +580,9 @@ test = false
 bench = false
 
 # `reboot` (milestone 805 (`reboot` at the prompt), DECISIONS §251 (restarting the machine is a
-# kernel object the progenitor hands out)): restart the machine. Its whole authority is the reboot
-# object, `grant_plan::Manifest::reboot`, which the progenitor endows only to this program, after
-# flushing the writable filesystem for it. **Provisional name.**
+# kernel object the progenitor hands out)): restart the machine. Its authority is the reboot object
+# and a flush-only capability to the file server, both endowed only to this program. **Provisional
+# name.**
 [[bin]]
 name = "reboot"
 path = "src/reboot.rs"

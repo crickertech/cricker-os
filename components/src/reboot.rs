@@ -1,8 +1,9 @@
 //! **`reboot`**: restart the machine (milestone 805 (`reboot` at the prompt), DECISIONS §251
 //! (restarting the machine is a kernel object the progenitor hands out)).
 //!
-//! The whole program is: say what the filesystem flush answered, then invoke the reboot object.
-//! On success the second step never returns, and the next thing on the console is the firmware.
+//! The whole program is: flush the writable filesystem, say what the flush answered, then invoke
+//! the reboot object. On success the last step never returns, and the next thing on the console is
+//! the firmware.
 //!
 //! # The capability table
 //!
@@ -11,18 +12,16 @@
 //! | 0 | the output sink, `WRITE` | where the flush report goes |
 //! | 8 | the diagnostics sink, `WRITE` | where a refusal goes, so `>` cannot swallow it |
 //! | 13 | the reboot object, `WRITE` | the right to invoke it, and no `GRANT` to hand it on |
+//! | 14 | the file server, flush-only, `WRITE` | `SYNC` and nothing else; empty with no filesystem |
 //!
-//! And one word that is data, not authority: what `filesystem_protocol::fs::SYNC` answered when the
-//! progenitor flushed before starting this program, in the third start register
-//! ([`grant_plan::REBOOT_SYNC_REGISTER`]).
+//! # Why a flush-only capability
 //!
-//! # Why the progenitor flushes, not this program
-//!
-//! §251's clause 3 says the flush comes before the reset, and the kernel does none of it. A program
-//! that sent `SYNC` itself would need a filesystem capability carrying `dir::WRITE`, which is the
-//! right to open and truncate files by name, all to make one request that touches no file. The
-//! progenitor already holds the file service and already flushes it after an install, so it flushes
-//! once more, at this program's spawn, and hands the answer over. Nothing here can reach a file.
+//! §251's clause 3 says the flush comes before the reset, and the kernel does none of it. `SYNC`
+//! needs `dir::WRITE` on a handle for an ordinary client, which is also the right to open and
+//! truncate files by name. So the file server binds this program's badge flush-only
+//! (`filesystem_protocol::fs::BIND_FLUSH`): it answers `SYNC` and refuses every other verb, and
+//! nothing here can reach a file. calef ruled against the progenitor flushing on this program's
+//! behalf (2026-10-06 UTC, #1783), so the flush is this program's own act.
 //!
 //! # Why the report is sent twice
 //!
@@ -39,9 +38,10 @@
 //!   program prints its report and the board stops.
 //! - **A refusal does not exit non-zero**, because no program in this system reports an exit
 //!   status (`crates/swish`'s `Status` says so). The refusal is a sentence on the second stream.
-//! - **The flush is not fenced against background jobs.** Writes a concurrently running job makes
-//!   between the progenitor's `SYNC` and the reset are not covered. The shell runs `reboot` in the
-//!   foreground, so this is a job somebody started earlier and left writing.
+//! - **The flush is not fenced against background jobs.** A write another job makes after this
+//!   program's `SYNC` is answered and before the reset lands is not covered: the window is the
+//!   report's two sends and the invoke. The shell runs `reboot` in the foreground, so this is a job
+//!   somebody started earlier and left writing.
 //! - **Devices are not quiesced.** A DMA transfer in flight is cut off; after `SYNC` the block
 //!   servers are idle and nothing else writes to persistent storage.
 //!
@@ -51,19 +51,18 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use user_mode_runtime::{exit, is_granted, send};
+use user_mode_runtime::{call, exit, is_granted, send};
 
 const REPORT: u64 = 0;
 const DIAG_SLOT: u64 = grant_plan::DIAGNOSTICS_SLOT;
 const REBOOT_SLOT: u64 = grant_plan::REBOOT_SLOT;
+const FLUSH_SLOT: u64 = grant_plan::FLUSH_SLOT;
 
 /// `EOPNOTSUPP`: the device offers no flush, which `fs::SYNC` passes through on purpose.
 const EOPNOTSUPP: i64 = 95;
 
 #[unsafe(no_mangle)]
-pub extern "C" fn _start(_a0: u64, _a1: u64, a2: u64) -> ! {
-    // `grant_plan::REBOOT_SYNC_REGISTER` is 2: the progenitor's `SYNC` answer, as a signed word.
-    let synced = a2 as i64;
+pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
     let has_diag = is_granted(DIAG_SLOT);
     let complain = |text: &[u8]| write_on(if has_diag { DIAG_SLOT } else { REPORT }, text);
 
@@ -72,6 +71,15 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, a2: u64) -> ! {
         finish(has_diag);
     }
 
+    // **The flush, and its answer.** An empty slot means this boot attached no writable
+    // filesystem (the progenitor refuses the spawn when there is one it could not bind), so there
+    // is nothing to flush. Otherwise the reply is the device's flush count, or a negative errno.
+    let synced = if is_granted(FLUSH_SLOT) {
+        use filesystem_protocol::fs;
+        call(FLUSH_SLOT, fs::req(fs::SYNC, fs::ROOT, 0), 0).0 as i64
+    } else {
+        0
+    };
     let mut line = Line::new();
     if synced > 0 {
         line.push(b"reboot: filesystem flushed (device flushes completed since boot: ");

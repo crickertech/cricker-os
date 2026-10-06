@@ -2637,7 +2637,7 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     // that may restart the machine, minted here and nowhere else. `WRITE | GRANT`: the progenitor
     // never invokes it, but it places `WRITE` in the one child whose manifest declares `reboot`,
     // and delegation only narrows, so the right it hands on has to be one it holds (a `GRANT`-only
-    // grant here made every `reboot` spawn fail, found by `cargo xtask reboot-check`'s first run).
+    // grant here made every `reboot` spawn fail, found by the first run that typed `reboot`).
     // The method itself checks no right, as §251 says. Granted on every boot so its slot
     // never moves, past `net_stack_report`'s conditional slot 30 for the reason every group above
     // gives. Field name `reboot`, provisional.

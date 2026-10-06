@@ -1911,13 +1911,14 @@ fn write_preview_rows(
     }
     // **The reboot object** (milestone 805 (`reboot` at the prompt), DECISIONS §251 (restarting the
     // machine is a kernel object the progenitor hands out)): the row exit criterion 3 asks `caps
-    // reboot` to print. It names the authority and the flush the progenitor does first, because the
+    // reboot` to print. It names the authority and the flush it does first, because the
     // second is what makes the first safe and neither shows anywhere else before the machine stops.
     if m.reboot {
         out(b"    cap 13 reboot    WRITE. restart the machine (the kernel asks the firmware).\n");
-        out(
-            b"                              the progenitor flushes the writable filesystem first\n",
-        );
+    }
+    if m.flush {
+        out(b"    cap 14 endpoint  flush  WRITE. the file server answers SYNC on it and refuses\n");
+        out(b"                              everything else: it flushes the device, and reaches no file\n");
     }
     // **Where its output goes**, which is the demonstration milestone 50 owed: the destination is a
     // capability rather than an integer with a convention attached, so `caps` can name it. On Unix
@@ -3096,10 +3097,14 @@ mod tests {
             s.contains("cap 13 reboot    WRITE. restart the machine"),
             "{s}"
         );
-        assert!(s.contains("flushes the writable filesystem first"), "{s}");
+        assert!(s.contains("cap 14 endpoint  flush  WRITE"), "{s}");
         for p in Prog::ALL.iter().filter(|p| **p != Prog::Reboot) {
             let s = shown(|o| write_preview(&endowment(*p), &Holdings::default(), None, o));
-            assert!(!s.contains("cap 13"), "{}: {s}", p.name());
+            assert!(
+                !s.contains("cap 13") && !s.contains("cap 14"),
+                "{}: {s}",
+                p.name()
+            );
         }
     }
 

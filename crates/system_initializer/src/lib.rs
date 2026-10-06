@@ -647,8 +647,8 @@ pub struct BootEndowment {
     /// the machine is a kernel object the progenitor hands out)), `WRITE | GRANT`: the one capability
     /// on the machine that may restart it, granted on every boot. [`boot`] never invokes it. The
     /// spawn service keeps it and places `WRITE` in a child whose manifest declares
-    /// [`grant_plan::Manifest::reboot`], after flushing the writable filesystem for it. The shell
-    /// holds none.
+    /// [`grant_plan::Manifest::reboot`], which flushes for itself through its flush-only
+    /// capability. The shell holds none.
     ///
     /// Name: provisional, milestone 805's lane, 2026-10-06 (UTC).
     pub reboot: u64,
@@ -2960,23 +2960,6 @@ struct Fs {
     page: u64,
 }
 
-/// **Flush the writable filesystem for a `reboot` about to start** (milestone 805, DECISIONS
-/// §251's clause 3), and answer what `fs::SYNC` said as the signed word the child reads
-/// (`grant_plan::REBOOT_SYNC_REGISTER`): the device-flush count, a negative errno, or zero when this
-/// boot attached no filesystem. Waits for the reply, which is the point: the answer comes after the
-/// device said it was done.
-fn flush_for_reboot(fs: Option<Fs>) -> u64 {
-    let Some(f) = fs else {
-        return 0;
-    };
-    call(
-        f.ep,
-        fs_operation::req(fs_operation::SYNC, fs_operation::ROOT, 0),
-        0,
-    )
-    .0
-}
-
 /// The spawn service loop: serve the shell's `run` requests forever. The progenitor is the ELF loader the
 /// shell directs; it inserts only what the shell endows, so a spawned program can reach nothing the
 /// command line did not name.
@@ -3339,6 +3322,9 @@ fn spawn_service(
         // either. `grant_plan::image_can_carry` keeps it off every image, so only the built-in
         // `reboot` gets here with it.
         let wants_reboot = manifest.is_some_and(|m| m.reboot);
+        // And a flush-only capability to the file server (milestone 805), which `reboot` declares
+        // beside the object so it can flush for itself. Made below, per job, from a window.
+        let wants_flush = manifest.is_some_and(|m| m.flush);
 
         if interruptible {
             // Build the whole child from the shell's job untyped, mapping the shared job frame; no
@@ -3423,7 +3409,9 @@ fn spawn_service(
             // the reaped message carries it back. A pool whose every window is held waits for the
             // reaps that are due, then refuses.
             let label = spawn.label();
-            let window = if wiring.dir && fs.is_some() {
+            // A flush-only grant takes a window too (milestone 805): its badge is bound flush-only
+            // rather than to a directory, and it is held until the reap like any other.
+            let window = if (wiring.dir || wants_flush) && fs.is_some() {
                 spawn.until_reaped(|s| s.windows.take(label))
             } else {
                 None
@@ -3462,6 +3450,20 @@ fn spawn_service(
             // to act on something and holds nothing, which is the one outcome this model must never
             // trade away.
             let dir_failed = wiring.dir && narrowed.is_none();
+            // **The flush-only capability** (milestone 805, `fs::BIND_FLUSH`): the window's badge
+            // bound so the file server answers `SYNC` on it and refuses everything else, and the
+            // endpoint badged with it. No page: a flush carries no bytes. Only a server that
+            // enforces bindings itself can make one, and a job that declared it on a boot with a
+            // writable filesystem and got none is refused, `dir_failed`'s rule: `reboot` must not
+            // start unable to flush. With no filesystem there is nothing to flush, and the slot is
+            // left empty.
+            let flush_ep = match (wants_flush && fs_scoped, fs, window) {
+                (true, Some(f), Some(w)) => {
+                    bind_flush_only(f, &mut spawn.windows, w, own_ut, &mut fs_mapped)
+                }
+                _ => None,
+            };
+            let flush_failed = wants_flush && fs.is_some() && flush_ep.is_none();
 
             // **Slot 0 is the output**, and milestone 50 is the whole of what changed here: it is
             // the shared result endpoint unless the shell delegated a sink, in which case the sink
@@ -3564,7 +3566,7 @@ fn spawn_service(
             // collect a corpse, and only the viewer's own source code said it did not. A domain names
             // its members and does not act on them (calef, 2026-08-17); `capability::Rights::ENUMERATE`
             // is what makes that a property of the grant. notes/process-view.md carries the argument.
-            let mut placed_buf = [(0u64, 0u64, 0u64); 7];
+            let mut placed_buf = [(0u64, 0u64, 0u64); 8];
             let mut placed_n = 0usize;
             if let (Some(ep), Some(slot)) = (diagnostics.or(default_diag), diag_slot) {
                 placed_buf[placed_n] = (slot, ep, abi::rights::WRITE);
@@ -3617,6 +3619,12 @@ fn spawn_service(
             // `WRITE` alone, so the child can invoke it and cannot hand it on. `GRANT` stays here.
             if let (true, Some(r)) = (wants_reboot, reboot) {
                 placed_buf[placed_n] = (grant_plan::REBOOT_SLOT, r, abi::rights::WRITE);
+                placed_n += 1;
+            }
+            // **The eighth** (milestone 805): the flush-only endpoint, `WRITE` alone, the right to
+            // `CALL` the file server. Ours is deleted once the child holds its copy.
+            if let Some(f) = flush_ep {
+                placed_buf[placed_n] = (grant_plan::FLUSH_SLOT, f, abi::rights::WRITE);
                 placed_n += 1;
             }
             let placed: &[(u64, u64, u64)] = &placed_buf[..placed_n];
@@ -3702,7 +3710,7 @@ fn spawn_service(
             };
             let fault = screen.or(labeled);
             let built = match (
-                elf.filter(|_| !dir_failed && !args_failed && fault.is_some()),
+                elf.filter(|_| !dir_failed && !flush_failed && !args_failed && fault.is_some()),
                 region,
             ) {
                 (Some(e), Some(r)) if std_layout => std_parts.as_ref().and_then(|l| {
@@ -3776,14 +3784,6 @@ fn spawn_service(
                     let (a0, a1, a2) = match grant {
                         _ if std_layout => (0, 0, 0),
                         Some((_, child)) => child,
-                        // **`reboot` hears the flush's answer** (milestone 805,
-                        // `grant_plan::REBOOT_SYNC_REGISTER`): the writable filesystem is flushed
-                        // here, at the last moment before the child runs, and the reply is the
-                        // third word. §251 puts the flush before the reset and outside the kernel;
-                        // the progenitor already holds the file service and flushes it after an
-                        // install, so it flushes once more rather than hand a program `dir::WRITE`
-                        // for one request that touches no file. Zero means no filesystem.
-                        None if wants_reboot => (0, arg, flush_for_reboot(fs)),
                         None => (0, arg, 0),
                     };
                     start_child(child, a0, a1, a2)
@@ -3809,6 +3809,9 @@ fn spawn_service(
             // failed spawn does not cost this capability table a slot for the rest of the boot.
             if let Some(dir_ep) = narrowed {
                 cap_delete(dir_ep);
+            }
+            if let Some(f) = flush_ep {
+                cap_delete(f);
             }
             // The window's page and badged endpoint were only the means too: the caretaker and the
             // job each hold their own mapping and copy (milestone 599).
@@ -5354,6 +5357,26 @@ fn bound_channel(
         return None;
     };
     Some(Fs { ep, page })
+}
+
+/// **A flush-only endpoint for one job** (milestone 805 (`reboot` at the prompt),
+/// `fs::BIND_FLUSH`): window `w`'s badge, unbound from whatever it last held, bound flush-only, and
+/// the endpoint badged with it in a fresh slot the caller deletes once the job holds its copy. The
+/// window is marked bound, so the next job to take it unbinds it first, as for a directory grant.
+fn bind_flush_only(
+    fs: Fs,
+    windows: &mut Windows,
+    w: u64,
+    own_ut: u64,
+    mapped: &mut bool,
+) -> Option<u64> {
+    let files = FsCalls::map(Some(fs), own_ut, mapped)?;
+    files.unbind(windows, w);
+    if call(fs.ep, fs_operation::req(fs_operation::BIND_FLUSH, 0, 0), w).0 != 0 {
+        return None;
+    }
+    windows.set_bound(w, true);
+    window_endpoint(fs.ep, w)
 }
 
 /// **A channel of its own for one job behind a directory grant**: window `w`'s page and the
