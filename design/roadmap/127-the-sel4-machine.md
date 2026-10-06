@@ -9,15 +9,29 @@ needs_person: yes
 ---
 # 127. The seL4 machine: a Jetson TX1, so identical silicon referees the comparison
 
+## Correction, 2026-10-06: the seller shipped a TK1, and the TX1 is awaited
+
+The board in hand since 2026-09-01 is not a TX1. calef photographed it on 2026-10-06 (UTC), still
+sealed: `PM375 DEV KIT`, `PCB:180-7R375-1002-D00`, `NVIDIA TEGRA K1`. That is a Jetson TK1 (Tegra
+K1, four Cortex-A15s, 32-bit Armv7), shipped against the TX1 order recorded below. Sources are in
+`notes/bench-runbook.md`, "argon is not in hand". calef, 2026-10-06: the TK1 is going back
+regardless, and he is working with the seller to get a TX1.
+
+The plan stands: argon is the TX1, for identical silicon with seL4's published figures. Only the
+board in hand was wrong. So the gate is a delivery again, with no date, and status stays
+`NOT-STARTED`. Everything below about the TX1 (tegra210, the A57, DRAM at `0x8000_0000`, the
+16550, the J21 header) is awaiting the board, not false. What is false is the 2026-09-01 record
+that argon was in hand, marked where it appears.
+
 Raised 2026-08-15 from the aarch64 board survey
 (notes/aarch64-board-survey.md, which holds the candidate table, the sel4bench support tiers with
 sources, and the port-cost analysis this block summarizes). Purchased 2026-08-15 (calef): a
 factory-sealed TX1 developer kit, $89.99, delivery estimated 2026-08-19 to -26; in hand as of
-2026-09-01, and named argon (notes/target-hardware.md). The milestone
+2026-09-01 *(corrected 2026-10-06: a TK1 arrived, see above)*, and named argon (notes/target-hardware.md). The milestone
 completes when the board has printed a byte over serial; the sel4bench comparison itself remains
 milestone 25's, sequenced behind the customer path by the ranking function.
 
-The board is here. calef confirmed on 2026-09-01 that **argon** is in hand, so
+The board is here *(corrected 2026-10-06: it was not; the TX1 is awaited)*. calef confirmed on 2026-09-01 that **argon** is in hand, so
 this gate no longer means "waiting for a delivery" and now means the sense milestone 53 uses: the
 board is on the desk and this needs hands on it. What remains is bring-up, not procurement.
 The two pre-board lanes the block names are deliberately NOT gated and can run now.

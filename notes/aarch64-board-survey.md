@@ -119,6 +119,9 @@ strongest purchasable seL4 story with the most expensive port.
 
 ## The recommendation: a used Jetson TX1 developer kit
 
+Corrected 2026-10-06: the purchase arrived as a Jetson TK1, shipped against the TX1 order. It is
+going back and calef is getting the TX1 from the seller (`notes/bench-runbook.md`). The recommendation stands.
+
 The argument, in one paragraph. The TX1 is the silicon under the only published aarch64 seL4
 numbers, the very 413-plus-426-cycle pair notes/benchmarks.md already compares against, and that
 page was regenerated from CI the day before this survey, so the platform is actively benchmarked,

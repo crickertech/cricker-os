@@ -109,7 +109,8 @@ What was refused here, because the refusals are half of what makes the rest read
 - `sel4bench`. It builds and boots and has never produced a number, because it times one operation
   through `PMCCNTR_EL0` and neither TCG nor HVF provides one. This is the comparison the risk most
   wants and does not have: the cross-OS table's peer is Linux, not the state of the art in minimal
-  kernels. argon has been in hand since 2026-09-01, milestone 74 (cycle counters) is what this side
+  kernels. argon was recorded in hand from 2026-09-01 (wrongly: a TK1 came and is going
+  back, so the TX1 is awaited, 2026-10-06), milestone 74 (cycle counters) is what this side
   of the table needs to answer it, and nobody has run either half.
 - The job mix's TCG rehearsals, which milestone 168 already refuses to record as results, since TCG
   models no cache.

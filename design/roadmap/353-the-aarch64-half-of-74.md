@@ -33,18 +33,19 @@ both are facts that leave the machine.
 
 ## Decision A: what `PMCCFILTR_EL0` counts
 
-Ruled 2026-09-19 (21:34 UTC), calef: wait for argon's firmware value. The choice is deferred
+Ruled 2026-09-19 (21:34 UTC), calef: wait for argon's firmware value. The TX1 is awaited,
+undated (2026-10-06). The choice is deferred
 until argon's first boot prints `firmware left PMCCFILTR_EL0 0x...`, and then the filter is set to
 match what that firmware left, which is what seL4's published 413 and 426 were counted under
-(Question 3 below reads their source and build for exactly this). Until then the provisional `0`
+(Question 3 below reads their source for this). Until then the provisional `0`
 stands, the boot line keeps saying `PROVISIONAL`, and no aarch64 cycle figure is published,
 milestone 25's included.
 
 Why this is not a deferral in the bad sense. Every option below is an argument about what
 seL4's number means; one line of argon's own console output replaces the argument with evidence,
 and that boot is scheduled work (milestone 127 (sel4)'s bring-up). The cost of waiting is that
-milestone 25's aarch64 row stays empty until the first argon evening, which it would anyway: there
-is no aarch64 board number to publish yet.
+milestone 25's aarch64 row stays empty until argon's first evening, which it would anyway: there
+is no aarch64 board number yet.
 
 What the bench evening owes this block, beyond reading that line: if firmware left `P` set
 (kernel cycles excluded), say so loudly, because then seL4's figures exclude the kernel and every

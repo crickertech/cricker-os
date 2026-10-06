@@ -30,7 +30,7 @@ One premise has changed since this was written, and it is half the trigger below
 says argon and xenon have never booted. xenon has: first light 2026-09-05, and
 `nife self-test: 5 of 5 passed` at 09:55 UTC on 2026-09-17, which turned milestone 87 `BUILT`
 (`bench/xenon-2026-09-17/first-light-095500.log`). **argon still has not**; `notes/target-hardware.md`
-records it as *"in hand"* and nothing in `bench/` carries its name. So the trigger's precondition is
+records it as *"in hand"* (wrongly: awaited, 2026-10-06) and nothing in `bench/` carries its name. So the trigger's precondition is
 half met and the block's own argument for the discipline stands unchanged: the machine that has
 never printed a byte is still the one a fourth board would be bought ahead of.
 

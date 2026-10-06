@@ -25,8 +25,9 @@
 //!   implementation does not exploit that either; see [`crate::fp`] for why the policy is uniform.
 //! - **SVE and SME are not saved, and [`init`] now closes them rather than trusting reset**
 //!   (2026-09-24 security audit). `CPACR_EL1.ZEN` and `CPACR_EL1.SMEN` were left at their reset
-//!   values, which on every machine this kernel has run on (QEMU's `cortex-a72`, HVF's Apple core,
-//!   argon's A78AE) means trapped, and none of those parts has SVE at all. The architecture says the
+//!   values, which on every machine this kernel has run on (QEMU's `cortex-a72` and HVF's Apple
+//!   core; until 2026-10-06 this also listed "argon's A78AE", but argon is a TX1, an A57, and has
+//!   not run this kernel) means trapped, and none of those parts has SVE at all. The architecture says the
 //!   reset value is UNKNOWN, so a part that reset them open would let a thread keep `Z`/`P`/`ZA`
 //!   state that [`crate::fp::hand_over`] neither saves nor scrubs. `init` writes both fields to
 //!   trap alongside `FPEN`; on a part without SVE the bits are RES0 and the write is a no-op. A

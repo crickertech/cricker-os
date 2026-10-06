@@ -14,7 +14,7 @@ unambiguous phrase in a conversation. One noble gas per architecture:
 
 | name | architecture | machine | state, 2026-09-01 |
 |---|---|---|---|
-| **argon** | aarch64 | NVIDIA Jetson (milestone 127) | in hand |
+| **argon** | aarch64 | Jetson TX1, milestone 127 (the seL4 machine) | awaited (2026-10-06) |
 | **radon** | riscv64 | StarFive VisionFive 2, JH7110 | boots nife, wired as a bench target |
 | **xenon** | x86_64 | Dell OptiPlex, serial port and null modem (milestone 87) | **boots nife**, first light 2026-09-05 (the cell said "no first light yet" until 2026-09-05) |
 
@@ -22,7 +22,7 @@ Why they earn names rather than descriptions. This project's own tenet is that a
 claim and a reader meets it before anything else. "The board" was serviceable while there was
 one; with three it silently means whichever the speaker had in mind, and the cost lands on
 whoever reads the sentence later. The names are also stable in a way the descriptions are not:
-the aarch64 board may not always be a Jetson, but argon stays argon.
+the aarch64 board may not stay a Jetson, but argon stays argon.
 
 They are deliberately not architecture names. `riscv64` already names the ISA, and a machine
 name has to survive the day a second machine of the same architecture arrives.
@@ -258,7 +258,7 @@ plan was, but read it against the record rather than as a queue.
    silicon a VisionFive 2 instead, on the argument this note's own thesis supplies: the ISA is
    almost never the constraint, so the board whose firmware contract the kernel already speaks
    wins. radon booted nife and delivered the "I ran my OS on a computer I can hold" moment this
-   item was really about. The aarch64 board is argon, a Jetson, and no Pi was bought.
+   item was really about. argon is the aarch64 board, and no Pi was bought.
 2. Then a UEFI/ACPI target, precisely because it is alien. This one happened, and it did
    exactly what it was predicted to do. xenon (milestone 87) boots from real firmware, and the
    places it broke were the boundary: a loader that had to place an image at physical addresses,

@@ -9,10 +9,9 @@ Raised 2026-08-03. xenon printed `nife self-test: 5 of 5 passed` at
 09:55 UTC on 2026-09-17, which is the criterion calef set that morning. Transcript:
 `bench/xenon-2026-09-17/first-light-095500.log`.
 
-nife now runs on all three declared architectures on real hardware.
+nife now runs on real hardware on all three architectures, aarch64 only under HVF (corrected 2026-10-06).
 
-How the gate stood, kept as this block's history. It read `HARDWARE` to the end, and the
-hardware side finished 2026-08-23. What follows is that paragraph as written.
+How the gate stood, kept as this block's history. It read `HARDWARE` to the end. What follows is that paragraph as written.
 
 > **Gate: HARDWARE.** It is now the only gate. The hardware side finished 2026-08-23 (the
 > OptiPlex arrived 2026-08-15; the Dell C4PDJ serial module and the dev-side RS-232 chain arrived and

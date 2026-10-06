@@ -73,7 +73,8 @@ bugs someone wrote down in those words, not bugs fixed silently.
 
 ## Costs and risks
 
-- Churn in 11 working files whose behaviour is proven on argon (the aarch64 Jetson board). A wrong
+- Churn in 11 working files whose behavior is proven on argon (the aarch64 Jetson board). *(Corrected 2026-10-06: nothing
+  has run on argon; QEMU and HVF are the proof.)* A wrong
   `SCTLR` or `TCR` bit is a boot that never prints, so the failure is loud but slow to diagnose.
 - It reverses DECISIONS §3, so it needs a written decision before it is built; that is the
   `unwritten` dependency above.

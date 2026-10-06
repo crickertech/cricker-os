@@ -27,7 +27,7 @@ is emulated.
 | 7 | 157 | | **real display output**: U-Boot's `simple-framebuffer` handoff, so there are pixels on a monitor without a mode-setting driver. Gate: HARDWARE, verifiable only on a real board |
 | 8 | 192 | | **a keyboard**: nothing in this system can read a keystroke on real hardware, because milestone 29's driver is virtio-input, a QEMU device. Discovered by tracing this journey. **Decided 2026-08-30**: option A first (keystrokes over the board's own UART, display on its framebuffer, no new driver) so the rest of this journey can be exercised on real hardware; but **192 is not done until a keyboard is plugged into the machine**, which is option B, so this step gates the journey's own completion |
 | 9 | 159 | | RISC-V hardware entropy for the login step. Milestone 162 (RDSEED and RNDRRS) already covers x86_64 and aarch64; §120's virtio-rng stopgap is QEMU-only and does not exist on a board |
-| 10 | 127 | | aarch64 silicon: the Jetson TX1, bought 2026-08-15. Bought for the seL4 comparison, and it is also the only aarch64 board this project has |
+| 10 | 127 | | aarch64 silicon: the Jetson TX1, bought 2026-08-15. Bought for the seL4 comparison, and it is also the only aarch64 board this project has. Corrected 2026-10-06: not in hand; the seller shipped a TK1, which is going back (`notes/bench-runbook.md`) |
 | 11 | 169 | | `kilo` and the raw-keystroke input primitive |
 | 12 | 142 | | a full-size terminal: the 924x344 scanout and the 132x43 grid |
 
