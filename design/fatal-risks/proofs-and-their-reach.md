@@ -191,3 +191,36 @@ the same milestone links `kani_lib.c` precompiled and last, and `script/verify-r
 unless every field Kani wrote survives into every linked binary. `os` is not one of them, since
 Kani's model does not carry it, so the linked binary still names the host's OS. The colour is
 untouched.
+
+### Added 2026-10-06 (§216): the falsification backlog is done
+
+§134 (a harness carries a machine-replayable falsification record, or it is not evidence) asks
+every Kani harness to say what evidence it carries that it can fail. In 2026W40, 56 of 225 said
+`unfalsified`. Three lanes worked the list down: #1697 (batch 1, merged 2026-10-05), #1701 (batch 2,
+2026-10-06) and #1713 (batch 3, the cover-only and x86_64 harnesses, 2026-10-06). Measured from the
+merged tree by `script/falsifications` on 2026-10-06: 229 harnesses in 33 packages, 220
+`replayable`, 7 `attested`, 2 `unfalsifiable` and 0 `unfalsified`. So 227 of 229 (99%) carry a
+falsification record, and 220 (96%) carry one a machine replays.
+
+The two that are left are deliberate, and §134 gained a fourth state for them the same day,
+`unfalsifiable`, which a lint holds to a written reason of at least 200 characters:
+
+- `inter_process_communication::signal_preserves_the_invariant` proves "at most one queue is
+  non-empty" over `signal`, which takes no node: its branches pop a receiver or increment a
+  counter, so no mistake in it can enqueue anything. It guards against `signal` growing an enqueue
+  path later. It is not evidence about the code today.
+- `direct_memory_access_validator::a_descriptor_mutated_after_validation_cannot_reach_the_device`
+  holds because the driver's table and the validator's shadow are two disjoint arrays in
+  `ChainMem`, and no line of the crate can make them one. Aiming the shadow copy back at the
+  driver's table does turn it red, but through `ChainMem::write64`'s address arithmetic rather than
+  the assertion, a red for the wrong reason. It proves a property of the design.
+
+What this does and does not move. It closes the question milestone 191 opened about chaff, whether
+harnesses prove properties nothing could have made false: every harness but two now has a recorded
+defect it catches, and the two say why they have none. It says nothing about either amber reason.
+A falsification record is made on purpose, by the person writing it, which is the survivorship rule
+1 names: it shows a harness *can* go red, never that one *has* caught a regression nobody planted.
+The nearer evidence is milestone 741 (does a standing proof notice a regression?), a mutation
+measurement on 2026-10-04, and its defects were planted too.
+And the record covers only what is harnessed, so the roughly 18% of `kernel/src` in files calling
+`asm!` is as far out of reach as it was. The colour is calef's (§216) and is untouched.
