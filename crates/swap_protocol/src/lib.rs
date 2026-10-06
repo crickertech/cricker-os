@@ -228,6 +228,12 @@ pub const RPT_SURVEY: u64 = 12;
 /// that the two agree.
 pub const RPT_DEPENDENTS: u64 = 15;
 
+/// **What the confused-deputy attacker's out-of-log `OPERATION_PUT` returned** (milestone 633,
+/// third pass). `w1` = the reply's first word (the server's digest of the attacker's offset when the
+/// server served the out-of-range write, or an error when it did not), `w2` = the reply's tag. The
+/// test reads it to see whether the server reached outside its log. Name provisional.
+pub const RPT_DEPUTY: u64 = 16;
+
 /// **Every member of the domain refused to be collected.** `w1` = how many the operator asked about,
 /// `w2` = how many answered [`abi::Error::StillAlive`].
 ///
@@ -384,6 +390,15 @@ pub const DEV_VA: u64 = address_space_map::pair_page(0x0310_0000);
 /// rather than the whole initrd.
 pub const IMAGE_VA: u64 = address_space_map::runtime_window(0x3000_0000);
 
+/// **The confused-deputy attacker's chosen offset** (milestone 633, third pass). `log_put` writes
+/// at `LOG_VA + log_base + arg`; with `log_base = 0` this lands at `DEV_VA`, the first register of
+/// the device the server holds and the client does not. The server writes the version byte there and
+/// does not fault, because it is a valid register on every UART (an undecoded offset faults QEMU's
+/// ns16550, which backs only the low register block, so the portable target is a decoded one). The
+/// write reaches a page the client was never granted, so a server that serves this has reached
+/// outside its grant on the client's behalf. Name provisional.
+pub const DEPUTY_PROBE: u64 = DEV_VA - LOG_VA;
+
 /// How many requests the client makes. Small enough to fit one log page, large enough that the swap
 /// lands well inside the conversation.
 pub const REQUESTS: u64 = 64;
@@ -408,6 +423,12 @@ pub const ROLE_CLIENT: u64 = 0;
 pub const ROLE_USURPER: u64 = 1;
 /// The producer on the queued channel: the same conversation, one rung up the latency ladder.
 pub const ROLE_PRODUCER: u64 = 2;
+/// **The confused-deputy attacker** (milestone 633 (an outside agent attacks the confinement
+/// claim), third pass). Same capabilities as [`ROLE_CLIENT`] (a `WRITE` view of the stable
+/// endpoint and no device), but instead of trying to receive it calls [`OPERATION_PUT`] with an
+/// offset far past the log page, driving the server to write into the device registers the client
+/// was never granted. Name provisional.
+pub const ROLE_CONFUSED: u64 = 3;
 
 /// `swapper`'s roles. Three systems, one operator, because they share every helper: the loader, the
 /// endowments, the log page and the reporting.
@@ -440,6 +461,11 @@ pub const ROLE_UNWARNED: u64 = 4;
 ///
 /// Name: provisional (milestone 23's lane, 2026-09-27).
 pub const ROLE_LATE_WARNING: u64 = 5;
+/// **The confused-deputy system** (milestone 633, third pass). One incumbent holding the device and
+/// the log, and a client ([`ROLE_CONFUSED`]) that drives it to write past the log into the device
+/// page. The operator starts both, collects the attacker's report, retires the incumbent and reads
+/// the log, so the run reclaims itself like every other channel. Name provisional.
+pub const ROLE_DEPUTY: u64 = 6;
 
 /// **How the operator starts a stateful instance** (the first `_start` argument, where the other
 /// systems pass a device flag of `0` or `1`). A fresh instance begins at a tally of zero, which is

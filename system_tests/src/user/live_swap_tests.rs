@@ -18,6 +18,8 @@ const RPT_SURVEY: u64 = 12;
 const RPT_UNCOLLECTABLE: u64 = 13;
 const RPT_WEDGED: u64 = 14;
 const RPT_DEPENDENTS: u64 = 15;
+/// The confused-deputy attacker's out-of-log `OPERATION_PUT` result (milestone 633, third pass).
+const RPT_DEPUTY: u64 = 16;
 const RPT_FAILED: u64 = 99;
 
 /// `component_plan::Refusal::Unprovided`'s wire code: the supervisor routes nothing to a role the
@@ -57,6 +59,8 @@ const ROLE_HUNG: u64 = 2;
 const ROLE_HANDOFF: u64 = 3;
 const ROLE_UNWARNED: u64 = 4;
 const ROLE_LATE_WARNING: u64 = 5;
+/// The confused-deputy channel (milestone 633, third pass).
+const ROLE_DEPUTY: u64 = 6;
 /// The one blob layout any build in this tree writes (`swap_protocol::LAYOUT_1`). The refusing
 /// replacement names it as the layout it could not read, so both sides name one constant.
 const LAYOUT_1: u64 = 1;
@@ -550,6 +554,65 @@ fn a_client_of_the_stable_rendezvous_cannot_become_its_server() {
          error {}, wanted NotPermitted. If this succeeded, any holder of a request capability \
          could impersonate the component.",
         attack[1] as i64,
+    );
+}
+
+/// **A confined client drives the server to write past its log, into a device page it was never
+/// granted** (milestone 633 (an outside agent attacks the confinement claim), third pass). Opt-in
+/// and red by design.
+///
+/// The kernel refuses the attacker's `RECEIVE_CAP` (it holds `WRITE`, not `READ`), so it cannot
+/// become the server, which the test above asserts. But the server's `OPERATION_PUT` runs
+/// `log_put(log_base + arg, version)` with `arg` the client's own word and no bound, so the attacker
+/// asks the server to write at an offset that lands in the device register page the attacker holds
+/// no capability for. The server serves it and echoes the offset, so a `WRITE`-only client reached
+/// outside the server's one shared log page on its own behalf. This is a confused-deputy escape of
+/// the demonstrator's boundary, not a kernel gate failure: the kernel gave the client exactly
+/// `WRITE` on an endpoint, and the unbounded write is the server's. The fix is owed on
+/// `swap_protocol::serve` (a bound on the offset) and this pass does not write it.
+///
+/// **Opt-in and red.** It asserts the property that should hold (the server does not serve an
+/// out-of-log offset), which fails, so the default suite skips it to keep CI green and it runs only
+/// when named: `script/test --test a_confined_client_drives`.
+#[test_case]
+fn a_confined_client_drives_the_server_to_write_past_its_log() {
+    if !crate::testing::run_was_filtered() {
+        crate::testing::skip!(
+            "opt-in: a red test documenting a confused-deputy escape in the swap demonstrator; \
+             run it with `script/test --test a_confined_client_drives`"
+        );
+    }
+    if machine_has_no_device_page_for_the_console() {
+        crate::testing::skip!(NO_UART_PAGE);
+    }
+    // `log_put` writes at `LOG_VA + log_base + arg`; with `log_base = 0` this offset lands at
+    // `DEV_VA`, the first register of the device page. Mirrored arithmetic rather than a
+    // `swap_protocol` dependency, the convention every constant in this file follows.
+    const DEPUTY_PROBE: u64 = DEV_VA - address_space_map::pair_page(0x0300_0000);
+
+    let (msgs, n) = run_swap(ROLE_DEPUTY);
+    let attack = of_kind(&msgs[..n], RPT_ATTACK)
+        .next()
+        .expect("the attacker never reported its RECEIVE_CAP refusal");
+    assert_eq!(
+        attack[1],
+        (-(abi::Error::NotPermitted as i64)) as u64,
+        "the attacker's RECEIVE_CAP was not refused, so this run proves nothing about the deputy",
+    );
+    let deputy = of_kind(&msgs[..n], RPT_DEPUTY)
+        .next()
+        .expect("the attacker never reported its deputy call");
+    // `tag` is `(version << 32) | seq`, so the low word is the offset the server echoed. If the
+    // server served the out-of-log PUT, it echoes `DEPUTY_PROBE`.
+    let served_offset = deputy[2] & 0xFFFF_FFFF;
+    assert_ne!(
+        served_offset,
+        DEPUTY_PROBE & 0xFFFF_FFFF,
+        "CONFINEMENT ESCAPE: a WRITE-only client made the swap server serve OPERATION_PUT at \
+         offset {:#x}, far past its one log page, writing into the device register page the client \
+         holds no capability for. The server echoed the offset (tag {:#x}) rather than refusing it.",
+        DEPUTY_PROBE,
+        deputy[2],
     );
 }
 

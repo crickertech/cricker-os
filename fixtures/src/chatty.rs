@@ -86,6 +86,7 @@ const NOTE: u64 = component_plan::slot_of(&swap_protocol::CLIENT, "operator");
 pub extern "C" fn _start(role: u64, _a1: u64, _a2: u64) -> ! {
     match role {
         swap_protocol::ROLE_USURPER => usurp(),
+        swap_protocol::ROLE_CONFUSED => confused_deputy(),
         swap_protocol::ROLE_PRODUCER => produce(),
         _ => converse(),
     }
@@ -217,6 +218,33 @@ fn usurp() -> ! {
     );
     // Also say so on the operator's channel, so the operator knows the attack has been made and the
     // run is not simply missing a report.
+    send(NOTE, swap_protocol::NOTE_ATTACK_DONE, 0, 0);
+    user_mode_runtime::exit()
+}
+
+/// **The confused deputy** (milestone 633 (an outside agent attacks the confinement claim), third pass). The same capabilities as the honest client:
+/// a `WRITE` view of the stable endpoint and no device. It cannot touch the device itself, so it
+/// asks the server to. `OPERATION_PUT`'s offset is the client's own word, and the server writes a
+/// byte at `LOG_VA + offset` with no bound, so an offset of `DEPUTY_PROBE` lands in the device's
+/// register page, which this program holds no capability for. It reports the reply, and the operator
+/// and the test judge it: a normal answer means the server reached outside its log on our behalf.
+fn confused_deputy() -> ! {
+    // First the honest refusal, so the report stream shows this program holds only `WRITE` and could
+    // not simply receive, exactly as `usurp` does.
+    let r = swap_protocol::try_receive_cap(SVC);
+    send(
+        RPT,
+        swap_protocol::RPT_ATTACK,
+        (-r) as u64,
+        abi::rendezvous::RECEIVE_CAP,
+    );
+    // The deputy call: drive the server to write far past its log page.
+    let (d0, d1) = call(
+        SVC,
+        swap_protocol::OPERATION_PUT,
+        swap_protocol::DEPUTY_PROBE,
+    );
+    send(RPT, swap_protocol::RPT_DEPUTY, d0, d1);
     send(NOTE, swap_protocol::NOTE_ATTACK_DONE, 0, 0);
     user_mode_runtime::exit()
 }
