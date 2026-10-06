@@ -47,12 +47,29 @@ What replaces it:
    minutes today), the job emits a warning and stays green.
 2. That run's step summary shows the job's time against its budget and its slowest suites and tests,
    from Fork 1's records.
-3. The signal is raised where sessions already look, which is a label. A label needs an object to
-   sit on, and a commit on main has none. So a routine opens one tracking issue per job when the job
+3. The signal is a label, and a label needs an object to sit on; a commit on main has none. So a routine opens one tracking issue per job when the job
    first crosses the line, updates that issue on later runs, and closes it when the job drops back
    under. The issue carries the label (name provisional). Milestone 723 (a stopped merge watcher
    is reported within three of its own intervals) is the precedent for a routine that opens an issue.
 4. The per-test records are for diagnosis. Nothing gates on them.
+
+### How the issue reaches a session
+
+calef, 2026-10-06 (UTC), on PR #1778: *"Yes, amend 808 and §254 that way."* The first wording said
+the label put the issue where sessions already look. It did not. A session's queue is
+`needs-maintainer`, which `helpers/needs-maintainer.jq` computes for pull requests only, and nobody
+opens the step summary of a green run on main. A label nothing queries is rung zero of the ladder,
+"somebody will notice". So:
+
+1. An open budget issue joins the `needs-maintainer` listing as an eighth cause, `budget` (name
+   provisional), in `helpers/needs-maintainer.jq`, its selftest and fixtures, and the drain's query.
+   The session reads pull requests and issues in one call to the REST issues endpoint, because a
+   second command beside `gh pr list` is one more thing to remember.
+2. While a budget issue is open, the weekly job-time chart in `notes/project-metrics.md` carries a
+   bullet under it naming the job, its percentage of budget and the issue number. It goes through
+   `week-notes.csv` and ages out by milestone 623 (bullet under the chart explains a cliff)'s rule.
+
+Milestone 808 builds both; its exit criteria name them.
 
 ## Fork 3: no pull request comment
 

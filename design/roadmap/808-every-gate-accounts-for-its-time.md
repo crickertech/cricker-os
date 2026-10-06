@@ -122,11 +122,34 @@ What this milestone builds instead is a warning that fails nothing:
   tests from the per-item records. The reader starts from the answer rather than from the log.
 - A routine running as `nife-smelter[bot]` opens one tracking issue per job when the job first
   crosses the line, updates it on later runs, and closes it when the job drops back under. The
-  issue carries a label (name provisional) so that sessions find it where they already look. A
-  label needs an object, and a commit on main has none, which is why the signal is an issue.
+  issue carries a label (name provisional). A label needs an object, and a commit on main has
+  none, which is why the signal is an issue.
   Milestone 723 (a stopped merge watcher is reported within three of its own intervals) opens an
   issue the same way: `helpers/watcher_watch.py sync` opens or closes one issue per watcher, and
   is the one to reuse.
+
+A label alone is read by nothing: today a session's queue is `needs-maintainer`, which lists pull
+requests only, and nobody opens the step summary of a green run on main. calef ruled on 2026-10-06
+(UTC) that the issue must reach a session by two routes (§254):
+
+- **The `needs-maintainer` listing.** `helpers/needs-maintainer.jq` gains an eighth cause,
+  `budget` (name provisional): an open issue carrying the budget label. Its key is the issue's
+  number and the time it was opened, so the drain comments once per episode, and it clears the
+  label when the issue closes. The drain's `NM_QUERY` in `helpers/merge-drain.sh` adds open issues
+  with that label, through the `search` it already runs with an `... on Issue` arm. The selftest
+  and `helpers/needs-maintainer-fixtures/every-cause.json` gain a labeled issue, open and closed.
+- **One query for the session, not two.** `briefs/session-start.md` and
+  `briefs/survey-the-queue.md` change from `gh pr list --label needs-maintainer --state all` to
+  `gh api --paginate 'repos/nifeos/nife/issues?labels=needs-maintainer&state=all'`, which returns
+  pull requests and issues together (a row with `pull_request` set is a pull request). A separate
+  `gh issue list` beside the existing command was refused: a second command is one more thing a
+  session must remember, which is rung zero. `gh search` was refused for the search index's lag,
+  which is recalled, not measured.
+- **A bullet under the chart.** While a budget issue is open, the weekly job-time chart in
+  `notes/project-metrics.md` carries a bullet under it naming the job, its percentage of budget and
+  the issue number. The routine appends the row to `notes/project-metrics/week-notes.csv`, so it
+  renders and ages out under milestone 623 (bullet under the chart explains a cliff)'s rule, with
+  no new mechanism.
 
 At the measured growth of about 0.1 minutes per model per day, the longer `cpu-matrix` shard would
 have opened its issue about three weeks before it reached the hard limit. Each issue is a small
@@ -177,9 +200,16 @@ above. A suite that runs on fewer than three architectures says why in its exemp
 5. The routine opens a labeled tracking issue for a job that crosses the line, updates the same
    issue on a later crossing rather than opening a second, and closes it when the job is back
    under. A host test drives all three transitions against a recorded API fixture.
-6. `verify.yml` joins milestone 721's budget, using the medians the record now has, which closes
+6. An open budget issue appears in the session's `needs-maintainer` listing with cause `budget`,
+   and leaves it when the issue closes. `helpers/needs-maintainer-selftest.sh` proves both from
+   fixtures, and `briefs/session-start.md` and `briefs/survey-the-queue.md` give the one combined
+   query.
+7. While a budget issue is open, the weekly job-time chart carries a bullet naming the job, its
+   percentage of budget and the issue number, written through `week-notes.csv`, and the bullet
+   ages out with its week.
+8. `verify.yml` joins milestone 721's budget, using the medians the record now has, which closes
    that milestone's first BUGS entry.
-7. Milestone 663 (bound the host pass) takes its deadline from the host pass's measured time in
+9. Milestone 663 (bound the host pass) takes its deadline from the host pass's measured time in
    the record, as its block asks.
 
 ## Cost
