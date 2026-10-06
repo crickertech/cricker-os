@@ -143,6 +143,8 @@ jobs:
           labels="$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER" --jq '.labels[].name')"
           echo "PR #$PR_NUMBER labels:"
           printf '%s\n' "$labels" | sed 's/^/  /'
+          # helpers/hold-rerun.sh copies this test to decide when a release reruns the old red runs;
+          # change both together.
           # `held-by-lane` is a send-back: calef ruled, and the ruling asked the lane for a change it
           # has not pushed yet. It is checked first because it normally sits beside
           # `architect-ruled`, which would otherwise release it. A label rather than a return to draft,
