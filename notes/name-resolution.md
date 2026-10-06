@@ -199,9 +199,10 @@ customer possible). The crate, its proofs and the gating test do not wait on any
 
 ## BUGS
 
-- x86_64 has no NIC under QEMU, so the end-to-end test runs on aarch64 and riscv64 only. The crate
-  is portable and host-tested; milestone 494 (a driver for the network card a PC actually has) is
-  the x86_64 leg's prerequisite.
+- The end-to-end test runs on aarch64 and riscv64 only. x86_64 has an `e1000e` under QEMU since
+  milestone 494 (a driver for the network card a PC actually has), and its booted system a stack on
+  it since 2026-10-05, but its runners give that network no name-server peer. The crate is portable
+  and host-tested.
 - The gating exchange is TCP. UDP to a name server the test owns is not gated (see above), and the
   real-DNS half that covers UDP skips when the host's resolver does not answer.
 - The test's transaction id is fixed, because the socket client holds no entropy endpoint. A real

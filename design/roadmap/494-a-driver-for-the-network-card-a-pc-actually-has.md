@@ -232,10 +232,10 @@ is a measurement to take rather than an argument to have. Take no dependency; ve
 - **Outstanding.** The bench step on xenon (exit criterion 2), which is calef's: one boot of
   `cargo xtask network-bench --stage-only --peer <patagonia>:9494`, photographed, read by
   notes/e1000e.md's table. Checked 2026-10-04: no xenon boot of this driver exists.
-- **Recorded.** The booted system does not use this NIC: the progenitor builds `net_stack` from
-  virtio-mmio only, so x86_64's shell has no network and swish-check's x86_64 leg still omits the
-  fetch lines. Proposed to the maintainer as a milestone (the progenitor endows a stack over the
-  `e1000e`), which is what rung 3 needs on xenon. `notes/e1000e.md`'s BUGS.
+- **Done.** The booted system uses this NIC since 2026-10-05 (milestone 198 (a package manager)):
+  the kernel builds `net_stack` on it when there is no virtio-net NIC and grants the progenitor its
+  endpoint, and swish-check's x86_64 leg types the fetch lines. A PCH part is left alone at boot, so
+  xenon gets a network only after exit criterion 2. `notes/e1000e.md`'s BUGS.
 - **Recorded.** Polled with a 1 ms sleep, and one server at a time. `kernel/src/user/e1000e_service.rs`'s
   and `components/src/e1000e_transport.rs`'s BUGS.
 - **Recorded.** `find_e1000e_device` is a second copy of `find_nvme_device` with a different

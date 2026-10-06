@@ -103,13 +103,16 @@ move is milestone 198's, and needs no new mechanism from this one.
   proposal rather than a fix.
 - The progenitor keeps a writable view of the NIC's DMA page, the rng's cost exactly: there is
   no unmap.
-- x86_64 has no network. The kernel grants a NIC only from a virtio-mmio slot. **Correction
+- x86_64's network is the kernel's to build, not the progenitor's. Since 2026-10-05 the kernel
+  builds `net_stack` on the `e1000e` when there is no virtio-mmio NIC and grants the progenitor
+  its endpoint (milestone 198 (a package manager)); it leaves a PCH part such as xenon's I219
+  alone. **Correction
   (2026-10-04 UTC, from milestone 494's lane):** this block used to say the x86_64 runner attaches
   no `-netdev`. That was true of the command line and misleading about the machine: the OVMF runner
   named no network, so QEMU's default filled the gap, an `e1000e` on user networking, and every boot
   carried that NIC. Milestone 494 (a driver for the network card a PC actually has) names it
-  explicitly. The kernel still grants a NIC only from virtio-mmio. `swish-check`'s x86_64 leg omits the two echo runs, with that
-  reason in `swish_check_omits(arch, line)`; the preview and the witness still run there.
+  explicitly. `swish-check`'s x86_64 leg used to omit the two echo runs for want of a stack; it
+  types them since 2026-10-05.
 - A socket client pays for its own page with `--mem 4`. The network grant carries no memory,
   deliberately; a person has to type the budget.
 
