@@ -20,8 +20,8 @@ accepts it only by the image's digest, on aarch64 and riscv64. The table §208 (
 granting) versions is in `crates/activation_set`. Run by digest and the installer followed on
 2026-09-26, once §219 (how the shell names an installed program to the spawner) was ruled:
 `package install`, `remove` and `rollback` at the prompt, across a reboot, on all three
-architectures. `package install <name>` fetches over the booted system's network (aarch64,
-riscv64), and `greeting`, which no image carries, runs on all three. So does §219's gate D2: a
+architectures. `package install <name>` fetches over the booted system's network on all three
+(x86_64 since 2026-10-05, over the `e1000e`), and `greeting`, which no image carries, runs on all three. So does §219's gate D2: a
 session holding the run-unvouched capability runs bytes nobody vouched for. §221 (the boot prompt is
 the owner's console) followed: `vouch`, promoted from the proposal vouch-for-a-local-build, and
 the owner's list of who may run new code. notes/packages.md has the account.
@@ -140,7 +140,7 @@ claim about PCs, and each rung's last exit criterion is that second machine.
 | **1d. A PC that is not xenon** | Nothing new if 1a to 1c hold | The same stick on one fleet machine reaches `$` at its own keyboard and monitor | 243's fleet; [a-stick-that-boots-with-secure-boot-on.md](500-a-stick-that-boots-with-secure-boot-on.md) (new) for machines whose owner will not turn Secure Boot off |
 | **2a. Installed onto a disk, under QEMU** | An installer; the boot mounting the nife partition off NVMe | OVMF boots the stick image with an empty NVMe attached; the installer names the disk, asks, partitions, formats and copies; the machine reboots **with the stick detached**, reaches `$`, and reads back a file written before the reboot. One `cargo xtask` gate | **BUILT 2026-09-21** (#1056, `notes/installing.md`; re-run green 2026-10-03); [milestone 515](515-the-installer-a-stick-runs-to-put-itself-on-the-disk.md) is PARTIAL on the bench half |
 | **2b. Installed onto xenon's disk** | The bench half | The 2a sequence on xenon's Micron 2450, photographed, stick removed before the second boot | **BUILT 2026-10-04** (`bench/xenon-2026-10-04/`; needs #1636; [milestone 515](515-the-installer-a-stick-runs-to-put-itself-on-the-disk.md) criterion 2 has the caveats) |
-| **3a. A package over the LAN, under QEMU** | The package client this milestone is; a host-side recipe that produces a package; a small HTTP client | A package absent from the image is fetched from a host on the same network over plain HTTP, verified by digest, installed onto the running system, run, still present after a reboot, and removed | this block; all three rulings it needed are in (§195, §197, §208). The scoping lane's recipe idea (item 1 of the superseded slice) survives here as the producer half. **Producer half BUILT 2026-09-23** (`crates/package_archive`, `cargo xtask package`, `packages/uptime.recipe.toml`, notes/packages.md). Fetch and verify built 2026-09-24 (`helpers/package-http-peer`, `crates/http_response`, a QEMU test on aarch64 and riscv64); **run by digest and the installer built 2026-09-26** on all three architectures. No TLS, since §195's digest decides whether bytes may run |
+| **3a. A package over the LAN, under QEMU** | The package client this milestone is; a host-side recipe that produces a package; a small HTTP client | A package absent from the image is fetched from a host on the same network over plain HTTP, verified by digest, installed onto the running system, run, still present after a reboot, and removed | this block; all three rulings it needed are in (§195, §197, §208). The scoping lane's recipe idea (item 1 of the superseded slice) survives here as the producer half. **Producer half BUILT 2026-09-23** (`crates/package_archive`, `cargo xtask package`, `packages/uptime.recipe.toml`, notes/packages.md). Fetch and verify built 2026-09-24 (`helpers/package-http-peer`, `crates/http_response`, a QEMU test on aarch64 and riscv64); **run by digest and the installer built 2026-09-26** on all three architectures; x86_64 fetches since 2026-10-05. No TLS, since §195's digest decides whether bytes may run |
 | **3b. The network card xenon has** | An Intel I219 (`e1000e` family) driver in 261's shape | Under QEMU `-device e1000e` behind `intel-iommu`, milestone 30 (the network stack as a confined component)'s DHCP and TCP gates pass through the new driver; on xenon, a lease from the house router and a measured transfer | [a-driver-for-the-network-card-a-pc-actually-has.md](494-a-driver-for-the-network-card-a-pc-actually-has.md) (new) |
 | **3c. Over the internet** | Name resolution; the transport the ruling picks; a public repository | From xenon's installed system, a package fetched from the public repository by host name, verified and installed | [milestone 384](384-a-name-resolver-and-who-holds-it.md) (existing, which now has a consumer); [DECISIONS §196](../decisions/196-nife-carries-tls-and-builds-the-provider.md) (new); `a-tls-stack-and-which-one.md` (existing) if the ruling is HTTPS |
 | **4. The web page** | A published release and a page | A stranger with a PC, a USB stick and no prior knowledge follows the page to rung 3c's result; the stranger harness (`notes/stranger-test.md`) runs against the **download**, not the build | calef's act; the preconditions below |
@@ -235,6 +235,16 @@ calef's acts are named there rather than here.
 - **Done.** §221 closed the `activation/` write hole (notes/packages/vouching.md).
 - **Done.** §219 was ruled 2026-09-26 and its request, gate D2 and the unvouched-child
   confinement claim built (notes/packages/running-unvouched.md).
+- **Done.** x86_64 fetches (2026-10-05): the kernel builds `net_stack` on the `e1000e` when there is
+  no virtio-net NIC and grants the progenitor its endpoint (notes/packages/fetching.md). It leaves
+  a PCH part alone, so xenon's I219 has no network at boot until milestone 494 (a driver for the
+  network card a PC actually has)'s bench boot; lifting that is one predicate in
+  `e1000e_service::start_for_boot`.
+- **Outstanding.** Rung 3a is complete (2026-10-05). The rest of this block is other
+  milestones' work or calef's: 3b's bench boot (494), 3c's resolver forks (milestone 384 (in a
+  capability system the resolver is a grant)), a TLS client (milestone 387 (a TLS stack)), signed
+  installs (milestone 666 (a signed build installs up to its key's ceiling)), the hosting answer
+  above, and rungs 1c, 1d and 4.
 - **Milestone 647.** Milestone 647 (a virtio slot should come back when its driver dies). The virtio device table never reuses a slot
   (`design/roadmap/647-a-virtio-slot-comes-back-when-its-driver-dies.md`).
 - **Done.** Every archive build runs `cargo xtask package` end to end since 2026-09-24.
