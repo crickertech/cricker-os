@@ -8,8 +8,6 @@ promoted_from: the-progenitor-stack-has-no-measured-headroom
 
 Promoted from `design/roadmap/proposals/the-progenitor-stack-has-no-measured-headroom.md` on 2026-10-03 (UTC). The number 677 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. Status BUILT 2026-09-27: built on PR #1409. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by lane `milestone/600-userspace-graphical-stack` (milestone
 600 (provisional), the graphical terminal stack is built in userspace), when its first gate on top
 of #1340 overflowed the progenitor's stack.

@@ -47,5 +47,3 @@ counted them.
 BUILT on `lane/error-paths`. Half the host crates' error paths never run under a test, mostly `?`
 that never took its error side, and every cleanup-after-failure path sits in kernel or service code
 no coverage run reaches.
-</content>
-</invoke>

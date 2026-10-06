@@ -10,8 +10,6 @@ needs_person: yes
 ---
 # 788. Wi-Fi on a PC that has no Ethernet
 
-<!-- prose-budget: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the word cap only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Written by `lane/wifi-proposal`, a research lane, on calef's request of 2026-10-04 (UTC). The title,
 the slug and every program or crate name below are provisional. No code was written.
 
@@ -19,9 +17,9 @@ the slug and every program or crate name below are provisional. No code was writ
 Milestone 494 (a driver for the network card a PC actually has) records in its `BUGS` that a
 laptop with no Ethernet port cannot reach rung 3 of milestone 198 (a package manager, and the
 trivial install). This proposal prices Wi-Fi for that case, names permissive code for every layer,
-and weighs it against two cheaper ways onto a network. The recommendation is that USB tethering
-to a phone comes first and Wi-Fi second. Tethering lets the Wi-Fi firmware ship as a package
-rather than in the base image, which turns the hardest decision here into a reversible one.
+and weighs it against two cheaper ways onto a network. The recommendation is USB tethering
+to a phone first and Wi-Fi second. Tethering lets the Wi-Fi firmware ship as a package
+rather than in the base image, which makes the hardest decision here reversible.
 
 ## What xenon's card is, read from the machine
 
@@ -29,7 +27,7 @@ xenon's PCI survey, captured on 2026-10-04 (`bench/xenon-2026-10-04/install-and-
 branch `lane/xenon-install-record`, lines 107 and 322), prints `02:00.0 8086:24fd class 028000`.
 Device `24fd` is the Intel Wireless 8265 (OpenBSD `pcidevs`: `WL_8265_1 0x24fd`). The same id is
 also used by the 8275, and the survey does not print the subsystem id that tells them apart. Both
-take the same driver and firmware, so nothing below depends on it. The card sits behind root port
+take the same driver and firmware. The card sits behind root port
 `00:1c.0`, so it falls to the catch-all VT-d unit at `0xfed91000`, which the same boot reports as
 translating.
 
@@ -47,28 +45,27 @@ So the blob may be shipped and may not be inspected.
 ## Loading it fits the confined-driver model, and makes risk 7 sharper
 
 The driver host loads firmware by DMA. The process stages the image's sections in a DMA buffer and
-points the card's service channel at them. Nothing needs a privileged path. The shape is that
+points the card's service channel at them. The shape is that
 of milestone 261 (the NVMe driver leaves the kernel), which is DECISIONS §86 (whether an NVMe
 driver can leave the kernel) option 2a. Milestone 494 applied it to the I219. The kernel
 enables the function, confines its DMA with `iommu::confine`, and grants the process a window of
 BAR0 and a DMA region. Rings, the command queue and firmware staging all live in that region. On
 494's I219 the ring base and tail registers share a page, so the IOMMU is the whole of the DMA
-confinement. The 8265 is the same case, from OpenBSD's `if_iwm.c`, where reset and queue
-registers sit in one BAR.
+confinement. The 8265 is the same case (OpenBSD's `if_iwm.c`: reset and queue registers in one BAR).
 
 That matters more here than for a NIC. Once alive, the firmware is 2.4 MB of code nobody here may
 read, running on the card's own processor as a bus master, parsing frames that anyone in radio
 range can send. The IOMMU is the only thing between it and memory. A Wi-Fi card is therefore the
-strongest live demonstration of fatal risk 7 (the confinement claim is false) the bench could
-offer, and its failure would be equally loud. Milestone 556 (a second RISC-V implementation, for €16 a
+strongest live test of fatal risk 7 (the confinement claim is false) the bench could offer, and
+its failure would be equally loud. Milestone 556 (a second RISC-V implementation, for €16 a
 month) says a target needing "a firmware blob this tree cannot inspect" stops being a nife target.
 That sentence is about boot firmware. A peripheral's firmware held behind an IOMMU is the case the
-confinement claim exists for, and the distinction should be said where the blob ships.
+confinement claim exists for.
 
 ## The pieces, and permissive code for each
 
-Every row was read from its source on 2026-10-04 (UTC). Line counts are `wc -l` of current trees.
-Fuchsia counts are non-test source files, but its Rust files carry inline tests, so they overstate.
+Every row was read from its source on 2026-10-04 (UTC). Line counts are `wc -l` of current trees;
+Fuchsia's include inline tests, so they overstate.
 
 | piece | candidate | license | size | covers 8265 | portability to a nife program |
 |---|---|---|---|---|---|
@@ -93,26 +90,10 @@ Two prior-art facts change the question.
   Linux driver sits on. The driver is takeable; Linux's stack around it is not.
 - Fuchsia is the only fully permissive stack found that names this chip, and most of it is Rust.
 
-### Rust operating systems
-
-Redox has no wireless driver (`redox-os/drivers/net` holds `alxd`, `e1000d`, `ixgbed`, `rtl8139d`
-and `virtio-netd`). No Wi-Fi was found for Theseus, Tock or Hubris; that is not found rather than
-proven absent. Embassy's `cyw43` runs the WPA handshake inside the chip's firmware, which the 8265
-does not offer. `supplicant-rs` (Apache-2.0) does the 4-way handshake and SAE, but over Linux
-nl80211 and tokio.
-
-### Driver-compatibility layers, and why each lands in a package
-
-| layer | what it runs | license of the result | verdict |
-|---|---|---|---|
-| Genode `dde_linux`, `pc_wifi` | Linux 6.18.19's iwlwifi, mac80211 and (implied by its config format) `wpa_supplicant` | GPLv2 through mac80211; Genode itself is AGPLv3 | package only under §135, so useless at install time |
-| TU Dresden DDE/DDEKit | Linux 2.6 drivers | GPLv2 for the Linux part (from a search snippet, not read) | stale, and GPL |
-| NetBSD rump kernels | `libnet80211` and only `iwn` among wireless drivers; no rump `iwm` | BSD (not read) | NetBSD's `iwm` does 802.11a/b/g only |
-| FreeBSD LinuxKPI `iwlwifi` | Linux iwlwifi under a shim over net80211 | the BSD half of iwlwifi | lists the 8265, but 802.11n/ac only on 22000 and later |
-
-A compatibility layer is the fastest way to a working Wi-Fi package and the one route that cannot
-serve the base. Genode tracks recent Linux and would bring every Intel generation at once, which
-is a real argument for a later GPL package. It is not an argument for install time.
+Other systems and driver-compatibility layers (Redox, Genode, DDE, rump kernels, LinuxKPI) are in
+[other-systems-and-compatibility-layers.md](788-wifi-on-a-pc-that-has-no-ethernet/other-systems-and-compatibility-layers.md).
+Redox has no wireless driver. A compatibility layer is the fastest way to a working Wi-Fi package and
+the one route that cannot serve the base.
 
 ## Where it lives, and what that excludes
 
@@ -121,13 +102,12 @@ carries no copyleft (§135 (running GPL software is aggregation), unchanged by i
 layer, DDE and any GPL-only driver. It does not exclude iwlwifi's BSD half or anything in the
 table above.
 
-It also raises a question §135 does not answer. The firmware is neither copyleft nor permissive.
-It is proprietary and redistributable. No decision in this tree says whether the base image may
-carry such a file, and that is a fact that leaves the machine. Debian (since 12) and OpenBSD
+It also raises a question §135 does not answer. The firmware is neither copyleft nor permissive;
+it is proprietary and redistributable. No decision in this tree says whether the base image may
+carry such a file. Debian (since 12) and OpenBSD
 answer it in opposite ways: Debian puts non-free firmware on its install media, and OpenBSD's
 `fw_update` fetches it after install (both from memory, not read today). The OpenBSD answer
-needs a network before Wi-Fi works, which is exactly what tethering supplies. That is the case for
-ordering below.
+needs a network before Wi-Fi works, which is what tethering supplies.
 
 ## Three ways onto a network for a laptop with no Ethernet
 
@@ -151,16 +131,15 @@ and interrupt transfers but not bulk ("No streams, no isochronous, no bulk"). It
 builder already exists. A USB network device does no DMA of its own: the xHCI does it, inside the
 domain 242 already confines, so no new bus master is added.
 
-The surprise worth stating: xenon is itself the stranger's case. Milestone 494's bench notes (`notes/e1000e.md` on its branch) say
-xenon's room has no Ethernet port (calef, 2026-10-04). Wi-Fi is the one network xenon can reach
+Xenon is itself the stranger's case. Milestone 494's bench notes (`notes/e1000e.md` on its branch)
+say xenon's room has no Ethernet port (calef, 2026-10-04). Wi-Fi is the one network xenon can reach
 where it sits, and tethering is the other.
 
 ## The sequence
 
 Each step ships alone and has one checkable exit. Estimates are by analogy. Milestone 494 wrote
 1,934 lines (its crate, kernel control plane, spawn and transport) for one NIC. A translated C
-driver is guessed to land near half its source length in Rust when one chip generation is kept,
-and that guess is recorded as one.
+driver is guessed to land near half its source length in Rust when one chip generation is kept.
 
 ### Tethering first
 
@@ -184,16 +163,15 @@ and that guess is recorded as one.
 | W5 | rung 3c over Wi-Fi, with SSID and passphrase asked for at the installer prompt | a package fetched by host name over Wi-Fi from xenon's installed system | 500 to 1,000 | xenon |
 | later | WPA3-SAE and 802.11w (Fuchsia `fcg-crypto` over `p256`); `iwx` for AX200 and later | a stranger's newer laptop | not priced | |
 
-W1 to W4 each need a xenon boot, so each costs calef's attention as well as a lane. That is the
-cost tethering avoids for T1 and T2.
+W1 to W4 each need a xenon boot, so each costs calef's attention as well as a lane. Tethering
+avoids that cost for T1 and T2.
 
 What QEMU cannot test: no QEMU device speaks 802.11 (its device list has none). The Android
 Automotive reference runs Linux's `mac80211_hwsim` behind `virtio-net` for this, and hwsim is
-GPLv2 and Linux-only. The honest split is that the protocol layers (frames, MLME state machine,
-`rsn`) are host-tested and the device half is xenon-only, as 494's I219 bring-up is. A host-side
-model of the 8265's command interface, like 494's simulated device, would prove the driver against
-a model, not against the card. Passing a USB Wi-Fi adapter through QEMU on patagonia (macOS) was
-not tried and is not recommended as a gate.
+GPLv2 and Linux-only. So the protocol layers (frames, MLME state machine, `rsn`) are host-tested and the device half is
+xenon-only, as 494's I219 bring-up is. A host-side model of the 8265's command interface would
+prove the driver against a model, not the card. Passing a USB Wi-Fi adapter through QEMU on
+patagonia (macOS) was not tried and is not recommended as a gate.
 
 ## Forks for an architect
 
@@ -204,15 +182,14 @@ not tried and is not recommended as a gate.
 - F2, where the Wi-Fi stack runs (a frame protocol two programs agree on). Inside `net_stack`, as
   494's driver does, or its own process handing Ethernet frames to `net_stack`. At equal cost the
   separate process wins, since it keeps the radio-facing parser and the firmware's bus away from
-  the TCP stack. Recommendation: its own process, and that is not an effort argument. 494 chose
-  the other way for effort, and said so.
+  the TCP stack. Recommendation: its own process; 494 chose the other way for effort.
 - F3, dependencies: `sha1`, `pbkdf2` and `aes-kw` for WPA2 (RustCrypto, same family as the
   provider), and `ieee80211`. Each is a §46 (thin primitives or whole subsystems) ruling.
 
 ## The seven questions
 
 1. Alternatives. Wi-Fi first loses on testability and on the blob ruling it forces before install.
-   A dongle loses on what the stranger must buy. Compatibility layers lose on license for base.
+   A dongle loses on what the stranger must buy. Compatibility layers lose on license.
 2. The tree's analogue. Milestone 494: take FreeBSD's field knowledge, write the confinement split.
    Milestone 242 for USB. §135 for what base may carry.
 3. Prior art. The tables above, read today; the Debian and OpenBSD firmware policies are recalled.
@@ -223,15 +200,14 @@ not tried and is not recommended as a gate.
    to W5 about 9,500 to 14,000 lines, every step on xenon. These are estimates by analogy, not
    measurements.
 6. Reversibility. The code is reversible. F1 and F2 are not, and nobody has acted on either yet.
-7. Equal cost. If both cost the same, tethering would still come first for install, because it is
-   testable in QEMU and needs no blob. Wi-Fi would still be needed for retention, which is risk 8's
-   actual claim. So the order is not about effort.
+7. Equal cost. Tethering would still come first for install, because it is testable in QEMU and
+   needs no blob. Wi-Fi would still be needed for retention, which is risk 8's actual claim.
 
 ## Recommendation
 
 Raise T1 to T5 as a milestone after 242 lands, and Wi-Fi W0 to W5 as a second milestone with W0
 ruled first. Take the driver from OpenBSD's `if_iwm.c` and the supplicant from Fuchsia's `rsn`.
-Write the confinement split and the station state machine here, using OpenBSD's net80211 and
+Write the confinement split and the station state machine here, with OpenBSD's net80211 and
 Fuchsia's `mlme` as references. Before W1, decide whether the first Wi-Fi target is xenon's 8265
 (the bench machine) or `iwx`'s AX200 family (what a 2026 stranger's laptop more likely has,
 recalled). The question is the one 494 asked about NICs, and xenon is why the 8265 is recommended.
@@ -252,8 +228,7 @@ Written, with reasons:
   OpenBSD's net80211 is about three times what a station needs.
 - CDC-NCM, because the one driver found is BSD-4-Clause.
 
-Refused: `wpa_supplicant` (about 630,000
-lines over nl80211), Fuchsia's `iwlwifi` (118,567 lines against iwm's 12,243 for the same chip),
+Refused: `wpa_supplicant` (about 630,000 lines over nl80211), Fuchsia's `iwlwifi` (118,567 lines against iwm's 12,243 for the same chip),
 and every GPL layer for base.
 
 ## BUGS

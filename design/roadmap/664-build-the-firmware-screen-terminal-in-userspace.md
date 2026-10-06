@@ -12,10 +12,8 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/build-the-firmware-screen-terminal-in-userspace.md` on 2026-10-03 (UTC). The number 664 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by lane `milestone/600-userspace-graphical-stack` (milestone 600
-(provisional), the graphical terminal stack is built in userspace), which moved the virtio-gpu stack's
+(provisional), the graphical terminal stack is built in userspace). It moved the virtio-gpu stack's
 construction into the progenitor and found the firmware-screen terminal still built by the kernel.
 
 Ordinary work, unless the handover below turns out to need a new kernel method, in
@@ -26,10 +24,11 @@ which case that part is calef's.
 `kernel::user::boot_screen_terminal` (milestone 198 (a package manager)'s rung 1b, the shell on the firmware screen)
 spawns `framebuffer_driver` and `display_terminal` kernel-side and grants the progenitor the
 terminal's endpoint and page at slots 10 and 11. On x86_64 that is the only `display_terminal` a boot
-has, so milestone 23 (a capability-routed component OS with live replacement) cannot swap it there, and milestone 600 could not move it with the gpu stack
-because the reason it is kernel-built is different: the kernel must stop painting the screen itself,
-under its console lock, before any driver paints it (`console::yield_screen`). The kernel also runs
-both programs unmeasured (`kernel::user::program` checks nothing).
+has, so milestone 23 (a capability-routed component OS with live replacement) cannot swap it there.
+Milestone 600 could not move it with the gpu stack, because the reason it is kernel-built is
+different. The kernel must stop painting the screen itself, under its console lock, before any
+driver paints it (`console::yield_screen`). The kernel also runs both programs unmeasured
+(`kernel::user::program` checks nothing).
 
 ## What to find out, then build
 

@@ -33,8 +33,6 @@ Every cleanup path the count found is among them.
 
 The first is cheaper to try. The second is the better instrument. Choosing is an architect's call
 because the second adds a dependency.
-</content>
-</invoke>
 
 ## Index row
 

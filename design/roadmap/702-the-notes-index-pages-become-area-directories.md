@@ -12,8 +12,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/the-notes-index-pages-become-area-directories.md` on 2026-10-03 (UTC). The number 702 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 ## What is being decided
 
 The shape of `notes/` going forward. Today it is flat, 233 top-level files, indexed by

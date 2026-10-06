@@ -12,10 +12,9 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/a-claim-with-work-on-another-branch-is-reported.md` on 2026-10-03 (UTC). The number 703 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
-Raised 2026-10-02 by the lane that built the empty-diff check (milestone 627 (a pull request that changes nothing does not merge), provisional number).
-#1460 claimed under `lane/fatal-risk-colors` while the work was pushed to
+Raised 2026-10-02 by the lane that built the empty-diff check (milestone 627 (a pull request that
+changes nothing does not merge), provisional number).
+Pull request #1460 claimed under `lane/fatal-risk-colors` while the work was pushed to
 `milestone/fatal-risk-colors`, a branch that descends from the claim commit. The draft never moved.
 
 `helpers/lane-claim-check.sh` reports pushed branches with no pull request. It misses this shape,

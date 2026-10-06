@@ -10,8 +10,6 @@ needs_person: yes
 ---
 # 797. Release userspace in board images
 
-<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised 2026-10-05 (UTC) by `lane/radon-2026-10-05-record`. Title and slug are drafts.
 `needs_person` is yes only because a new baseline is boots on radon.
 
@@ -31,8 +29,8 @@ lands than the shipped code would be.
 ## Why it is not a one-line fix
 
 Every job-mix and soak number recorded from radon was taken with debug userspace. Changing
-the profile changes all of them at once, so the change has to come with a new baseline, taken
-interleaved against the old payload on the same evening, and every note that quotes a radon number
+the profile changes all of them at once. The change has to come with a new baseline, taken
+interleaved against the old payload on the same evening. Every note that quotes a radon number
 has to say which side of the change it is on. `swish-check --release` already met the same mismatch
 and fixed it for its own path (the comment at `initrd_riscv`).
 

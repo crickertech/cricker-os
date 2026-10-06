@@ -13,21 +13,19 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/the-sibling-recv-cap-paths-get-a-receiver-first-test.md` on 2026-10-03 (UTC). The number 714 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by the lane for milestone 634 (a plain SEND received by RECEIVE_CAP never hands the receiver a
-sender-chosen slot), which fixed the plain-SEND leak but left two sibling paths reasoned from the
+sender-chosen slot). It fixed the plain-SEND leak but left two sibling paths reasoned from the
 code rather than measured.
 
 ## The finding
 
 Milestone 634 made `RECV_CAP` return `NO_CAP` in `x1` unless a capability was installed for the
 delivery, through a `Thread::cap_delivered` default in `kernel/src/sched.rs`. Two other receive
-paths flow through the same default and so are now also correct on the receiver-first order: an
-interrupt signal's `x1` (which was `0` on that order before, `NO_CAP` on the other) and a death
-message's `x1` (which carried the dead thread's id on that order). Neither has a test that drives it
-through the receiver-first rendezvous order, so the guarantee rests on reading the code, the grade
-`notes/confinement-claims.md` asks a reader to apply to an unmeasured verdict.
+paths flow through the same default and so are now also correct on the receiver-first order. One is
+an interrupt signal's `x1` (which was `0` on that order before, `NO_CAP` on the other). The other
+is a death message's `x1` (which carried the dead thread's id on that order). Neither has a test
+that drives it through the receiver-first rendezvous order. The guarantee rests on reading the
+code, the grade `notes/confinement-claims.md` asks a reader to apply to an unmeasured verdict.
 
 ## What a test would do
 
@@ -35,7 +33,7 @@ The shape is milestone 634's `a_plain_send_to_recv_cap_delivers_no_cap_whichever
 one per sibling: a receiver parks in `RECV_CAP`, the signal or the death is delivered second, and
 the test asserts `x1 == NO_CAP`. It should fail on the receiver-first order against a tree with the
 `cap_delivered` default reverted (the milestone 634 falsification is the starting point) and pass
-with it, on all three ISAs (DECISIONS §19 (architectural parity is a tenet)).
+with it. That holds on all three ISAs (DECISIONS §19 (architectural parity is a tenet)).
 
 ## What is built
 
@@ -66,8 +64,8 @@ Each patch under `system_tests/falsifications/` reverts milestone 634's `cap_del
 
 Unpatched, the filter `recv_cap_attack` ran 7 tests, 7 passed, exit 0. The controls (signal-first,
 corpse-first) are green under the patch, so the red is about the order and not the fixture. The first
-cut of the death test asserted `x2` before `x1`, and its replay went red at `x2`, not the predicted
-line; the checks were reordered so the headline is `x1` and the replay was repeated.
+cut of the death test asserted `x2` before `x1`. Its replay went red at `x2`, not the predicted
+line, so the checks were reordered to make `x1` the headline and the replay was repeated.
 
 ### Recorded
 
@@ -76,8 +74,8 @@ CI boots them. The falsification records are replayed on aarch64 only, like ever
 this family.
 
 `cargo xtask ...` run through the rustup proxy builds the std exerciser against the unpatched std in
-this checkout (the proxy prepends the real toolchain's `bin` to `PATH`, so xtask's child `cargo`
-ignores `RUSTUP_TOOLCHAIN=<farm>`), and the build fails in `std`'s `cfg_select!`. Running
+this checkout. The proxy prepends the real toolchain's `bin` to `PATH`, so xtask's child `cargo`
+ignores `RUSTUP_TOOLCHAIN=<farm>`. The build then fails in `std`'s `cfg_select!`. Running
 `target/debug/xtask` directly with `CARGO_MANIFEST_DIR=$PWD/xtask` exported worked. Not diagnosed
 further; recorded in `notes/std/caveats.md`.
 

@@ -8,8 +8,6 @@ promoted_from: swap-line-editor-live-under-system-initializer
 
 Promoted from `design/roadmap/proposals/swap-line-editor-live-under-system-initializer.md` on 2026-10-03 (UTC). The number 669 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. Status BUILT 2026-09-27: built on PR #1382. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by the lane for milestone 23 (a capability-routed component
 OS with live replacement), which built state handoff and then checked why the interactive stack is
 still not swapped. The full account is notes/interactive-stack-swap.md.
@@ -28,7 +26,7 @@ again" (`FLAG_RETRY`, provisional); a reader handles it by re-issuing the same r
 Two things follow that the ruling did not say. The handoff grows a page count rather than dropping
 history: the coordinator's reversible default, not calef's ruling, and it needs
 `659-a-region-retypes-a-frame-run.md` first. And calef's option D on #1361 (the shell edits its own line) moves `swish` to raw mode,
-parked in `OP_READRAW`, so `FLAG_RETRY` must answer a parked `OP_READRAW` too, and the swap test's
+parked in `OP_READRAW`. So `FLAG_RETRY` must answer a parked `OP_READRAW` too, and the swap test's
 witness is a line-mode client of `line_editor` as well as `swish`.
 
 ## Built

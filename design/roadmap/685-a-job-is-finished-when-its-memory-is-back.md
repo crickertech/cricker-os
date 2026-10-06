@@ -13,8 +13,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/a-job-is-finished-when-its-memory-is-back.md` on 2026-10-03 (UTC). The number 685 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by milestone 205 (how a foreign program is told what to do)'s lane,
 `milestone/205-designation` (#1402). The slug and every name below are a lane's coinage and
 provisional. Every real fix is a change two programs agree on, so it is calef's.
@@ -33,7 +31,7 @@ This closes confinement claim 24 for fatal risk 7 (the confinement claim is fals
 directory-granted job's file-service window is never handed to another job while its last holder
 is unreaped.
 
-- **The message.** `grant_plan::spawnproto::reaped` and `UNDERTAKER_BADGE` (both provisional).
+- The message: `grant_plan::spawnproto::reaped` and `UNDERTAKER_BADGE` (both provisional).
   `job_undertaker` holds a `WRITE` copy of the spawn endpoint at slot 2, badged
   `UNDERTAKER_BADGE` (1), and sends this after every collect, never before:
 
@@ -46,21 +44,21 @@ is unreaped.
 
   `w0` and `w1` are what a `RECEIVE_CAP` returns as data, so the message reads whole wherever in a
   request it lands. The shell's copy is unbadged and lacks `GRANT`, so it cannot forge the badge.
-- **The premise, corrected.** The block said the progenitor already holds each child's tid from
+- The premise, corrected. The block said the progenitor already holds each child's tid from
   `build_child`. It does not: `build_child` returns a thread capability, and no method reads a tid
   from one. So the progenitor labels each job's supervision capability with a number it mints,
   and keys on that; the tid rides along as the ruling asked.
-- **The progenitor.** Every receive on the spawn endpoint goes through `SpawnEndpoint`, which takes
+- The progenitor. Every receive on the spawn endpoint goes through `SpawnEndpoint`, which takes
   reaped messages out of the way, since one can arrive between any two of a request's messages. A
   reap frees the job's window (`grant_plan::job_windows::Windows`, moved out of
   `system_initializer` so its rule is a host test) and settles any wait for it.
-- **The pool waits for the event.** #1402's 1,024-yield retry is gone. A carve that fails, once
+- The pool waits for the event. #1402's 1,024-yield retry is gone. A carve that fails, once
   the request is read to its end, waits for reaps while a finished job's reap is due
-  (`grant_plan::job_windows::ReapsDue`): a job whose whole answer went to the shell's result
-  endpoint, which the shell reads to its end before its next request. A pipeline stage with a sink
+  (`grant_plan::job_windows::ReapsDue`). That means a job whose whole answer went to the shell's
+  result endpoint, which the shell reads to its end before its next request. A pipeline stage with a sink
   is not due, because it may be waiting on a stage not yet built. A full window pool waits the same
   way, then refuses.
-- **Images are copied after the request ends.** The two image-pool carves used to happen before
+- Images are copied after the request ends. The two image-pool carves used to happen before
   the frames arrived, where a wait would take the shell's next frame instead of a reap. The frames
   are now mapped as they arrive (`take_frames`) and copied once the last message is in
   (`stage_frames`), region first and staging second as before.
@@ -143,7 +141,7 @@ a change two programs agree on.
 | **C. The shell waits for the reap** | The undertaker sends a word on the result endpoint after every collect, and the shell reads one per job before it prompts | Does nothing for #1418, which needs A or B anyway. Every shell spawn path must read exactly one word per job; one too few leaves a stale word, one too many hangs the prompt |
 | **D. Keep the retry** (#1402 ships this) | Nothing | A pool the reaper would have refilled answers "out of memory" when the runner is busy. A timing guess |
 
-**Recommendation: A.** It is one message on an endpoint the progenitor already serves, it carries
+Recommendation: A. It is one message on an endpoint the progenitor already serves. It carries
 the thread id #1418 needs, and it makes the pool wait for the event it is waiting for rather than
 for a number of yields. C would be the more honest prompt on its own, "the prompt came back" meaning
 "the job's resources came back", but #1418 needs A or B regardless, so C plus A is more machinery
@@ -162,16 +160,16 @@ a job's memory is back. D is chosen on effort, and 205's `BUGS` says so.
    supervises itself (`spawnproto::Wiring::screen`, §106 (the `terminal_sink_caretaker`
    narrowing)) and interruptible jobs are not reaped by the undertaker, so A's count must leave them
    out.
-3. **Prior art, from memory and not re-read.** Unix delivers `SIGCHLD` to the parent and a
+3. Prior art, from memory and not re-read. Unix delivers `SIGCHLD` to the parent and a
    `waitpid` names the child, so the parent learns which process ended. seL4 leaves it to the
    user-level manager, which is this tree's shape: the undertaker is that manager's reaping half.
 4. Is the premise true? Yes, measured once in CI on 2026-09-27 (#1402, aarch64), with an
    earlier riscv64 failure that fits it, and #1418 found the missing signal independently. A larger pool moves the line and does not
    order the reap.
-5. **Cost.** A: one badged capability in the undertaker's table, one message kind in `spawnproto`
+5. Cost. A: one badged capability in the undertaker's table, one message kind in `spawnproto`
    (constants there, which both programs already link), a per-job table or count in the progenitor,
    and a receive-until-reaped on a failed split.
-6. **Reversibility.** Inside the tree; no outside program has acted on it. It changes
+6. Reversibility. Inside the tree; no outside program has acted on it. It changes
    `spawnproto`, which the shell, the progenitor and now the undertaker read.
 7. At equal cost? A, still, because it serves both consumers with one mechanism.
 

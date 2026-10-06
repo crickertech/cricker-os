@@ -12,11 +12,9 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/a-session-length-limit-and-what-it-would-be-set-from.md` on 2026-10-03 (UTC). The number 645 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by calef on 2026-09-24, after a measurement across this
 project's session records showed that 98% of every token spent is a cache read and 0.1% is
-output: a turn costs roughly the size of its context, not the size of its thought. He asked the
+output. A turn costs roughly the size of its context, not the size of its thought. He asked the
 question this file exists to answer: *"How do we set a checkpoint to re-evaluate that will not be
 forgotten?"* The lane that built the measurement wrote this block.
 

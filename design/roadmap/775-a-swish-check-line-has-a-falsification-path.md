@@ -10,19 +10,17 @@ needs_person: yes
 ---
 # 775. A swish-check line has a falsification path
 
-<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised 2026-10-04 (UTC) by milestone 742 (every test is falsified as routine). Title and
 slug are drafts. **This is an architect's call**: it is the spelling of §134's patch path.
 
-**The fork.** §134 (a harness carries a machine-replayable falsification record) names a patch `<package>/falsifications/<module.path>.<fn>.patch`, keyed on a
+The fork. §134 (a harness carries a machine-replayable falsification record) names a patch `<package>/falsifications/<module.path>.<fn>.patch`, keyed on a
 function. Milestone 742 made a swish-check record replayable, and the record sits above
 `swish_check_boot`, the function that types every line. So exactly one swish-check record can exist:
 `xtask/falsifications/swish_check.swish_check_boot.patch`, which today falsifies the
 `installed/unvouched` line (row 31 of notes/confinement-claims.md). A second line's record has no
 path to take.
 
-**Options.**
+Options.
 
 1. A line slug after the function: `swish_check.swish_check_boot.installed-unvouched.patch`, with
    the block above the line's entry in `SWISH_CHECK_SCRIPT` rather than above the function.
@@ -35,9 +33,9 @@ path to take.
    rule every other record obeys (path derived from the code's own name), so `--check` would need a
    branch.
 
-**What is blocked.** Only a second swish-check record. The first is swept today.
+What is blocked. Only a second swish-check record. The first is swept today.
 
-**Cost.** Each swish-check record costs one leg's build and boots in the weekly sweep, about 2 to 6
+Cost. Each swish-check record costs one leg's build and boots in the weekly sweep, about 2 to 6
 minutes on a hosted runner (aarch64 is the cheap leg). Nothing per pull request.
 
 ## Index row

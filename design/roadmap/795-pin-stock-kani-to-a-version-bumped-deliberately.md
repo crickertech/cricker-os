@@ -10,8 +10,6 @@ needs_person: yes
 ---
 # 795. Pin stock Kani to a version, bumped deliberately like the nightly
 
-<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by the lane `lane/verify-args` on 2026-10-05 (UTC), from a run of a patched Kani against nife
 that day. Title, slug and every name here are provisional.
 
@@ -29,7 +27,7 @@ the one input to the proofs that moves by itself.
 ## Proposal
 
 Pin stock Kani to an exact version (`cargo install --locked kani-verifier --version X`) in the
-workflow and in `script/verify`'s first-run install, and move it with a deliberate bump: a commit
+workflow and in `script/verify`'s first-run install, and move it with a deliberate bump. That is a commit
 that changes the pin, runs the full suite, and records any harness whose result or time changed.
 Whether the stock pin and the riscv64 pin should be one version is part of the bump decision; today
 the patch forces 0.67.0 on one row.

@@ -12,8 +12,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/which-benchmarks-must-be-the-kernel.md` on 2026-10-03 (UTC). The number 639 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by calef, asking which other special kernel builds should be
 userspace programs. `bench` is the one that cannot be answered without measuring, which is why it is
 a proposal rather than a lane.
@@ -24,11 +22,11 @@ The measurement it asks for needs no board and no decision.
 
 `kernel/Cargo.toml`'s `bench` feature is *"the benchmark boot (milestone 21 (performance measurement: benchmarks with teeth)): run the
 microbenchmarks and halt"*, and `icount` builds on it. `notes/job-mix.md` records why the
-multi-tasking workload did **not** go there: *"`kernel/src/bench.rs` would have been the obvious home
+multi-tasking workload did not go there: *"`kernel/src/bench.rs` would have been the obvious home
 and is the wrong one"*, because the number had to be taken on radon and *"the bench boot has never
 run on a board."*
 
-**That reason is about board plumbing, not about privilege**, and milestone 523 (moving the job-mix
+That reason is about board plumbing, not about privilege, and milestone 523 (moving the job-mix
 supervisor into userspace) is removing the board-plumbing reason for one workload. So the
 question returns: does `bench` need to be a kernel build at all?
 
@@ -39,10 +37,10 @@ userspace supervisor includes the syscalls that got in and out, which is precise
 measurement is trying to exclude. Moving those would not relocate a measurement, it would replace it
 with a different one that has the same name, which is the most damaging thing a benchmark can do.
 
-**And some of it plainly is not.** A spawn, a map, an IPC round trip and a filesystem read are all
+And some of it plainly is not. A spawn, a map, an IPC round trip and a filesystem read are all
 things a program does, and the honest number for them is the number a program sees.
 
-**So the deliverable is a classification, not a move:** for every benchmark `script/bench` runs, say
+So the deliverable is a classification, not a move: for every benchmark `script/bench` runs, say
 whether its number would change if it were taken from EL0, and by roughly how much. Where it would
 not change, the benchmark is a program. Where it would, the benchmark stays and the block should say
 why in one sentence, so nobody asks again.

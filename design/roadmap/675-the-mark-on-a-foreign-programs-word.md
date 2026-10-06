@@ -8,8 +8,6 @@ refused_by: 170
 
 Promoted from `design/roadmap/proposals/the-mark-on-a-foreign-programs-word.md` on 2026-10-03 (UTC). The number 675 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. Status REFUSED: calef ruled on 2026-09-27 that there is no mark; recorded as an amendment to DECISIONS §170. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by milestone 205 (how a foreign program is told what to do)'s lane,
 `milestone/205-foreign-program-arguments`. §170 (how a foreign program is told what to do) clause 4
 gives an unvouched program every named file read-only. A person widens one word with a mark: "this
@@ -63,8 +61,8 @@ else is a plain byte in a word.
 ## Recommendation: M3, spelled `--rw` and `--new` if calef wants them short
 
 Would we still choose it if every option cost the same? Yes. M3 is the only option that adds no new
-lexical rule: `--mem` already establishes that a `--` word the shell recognises is the shell's,
-taken off the line before the program sees it, and quoted to pass it through
+lexical rule. `--mem` already establishes that a `--` word the shell recognizes is the shell's.
+It is taken off the line before the program sees it, and quoted to pass it through
 (`design/roadmap/205-foreign-program-arguments.md`'s `BUGS` records that `--mem` behaves exactly
 this way on a foreign line today). M1 and M4 lose because real arguments start with `+` or contain
 `:`. M2 loses because it needs M1's sigil anyway.

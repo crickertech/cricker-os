@@ -218,5 +218,3 @@ python3 helpers/error_paths.py /tmp/coverage-report/html
 - A `.ok_or(e)` with no `?` is unmeasurable on a reached line, because `e` is built either way.
 - The ranking of the twenty is by hand. The classifier's `releases` flag finds cleanup bodies; it
   does not rank.
-</content>
-</invoke>

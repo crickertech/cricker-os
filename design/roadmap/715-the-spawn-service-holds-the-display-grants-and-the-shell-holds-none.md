@@ -13,8 +13,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md` on 2026-10-03 (UTC). The number 715 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by the 2026-10-03 security audit's follow-up (item (a) of
 `design/audit-reports/2026-10-03-eight-constants-and-thirteen-components.md`'s reconciliation).
 
@@ -23,26 +21,25 @@ Raised by the 2026-10-03 security audit's follow-up (item (a) of
 Since milestone 632 (graphics on demand: `graphical_terminal`, launched from the swish prompt) the
 progenitor places the GPU's four capabilities and the keyboard's three in the boot shell at
 `spawnproto::SHELL_GPU_SLOT` onward (`crates/system_initializer/src/lib.rs`, the `slots` table
-in the login block): the two transports with `WRITE | GRANT`, the two interrupts with
-`READ | GRANT`, and the DMA run, the surface and the keyboard DMA page with
-`READ | WRITE | GRANT`. The shell delegates narrowed copies when it launches a session and keeps
+in the login block). The two transports carry `WRITE | GRANT`. The two interrupts carry
+`READ | GRANT`. The DMA run, the surface and the keyboard DMA page carry `READ | WRITE | GRANT`. The shell delegates narrowed copies when it launches a session and keeps
 its own, "so the session can be run again once it ends" (`components/src/swish.rs`,
 `delegate_display`).
 
-What those copies let the shell do, read from the kernel's rights checks: map the DMA run, the
-surface and the keyboard DMA page read-write into its own address space (`map_page_frame` with
-the `tables` it already holds; `MAP_RW` needs `WRITE`, which it has), so it could read every
-keystroke the keyboard driver's DMA lands and write the surface behind the session; and `RECEIVE`
-on either interrupt rendezvous (`READ`), where `irq_notify` wakes one waiter, so a shell parked
-there would take a wake the driver was waiting for. It does neither. Its only use of the seven is
-`delegate`.
+What those copies let the shell do, read from the kernel's rights checks, is two things. First, it
+could map the DMA run, the surface and the keyboard DMA page read-write into its own address space
+(`map_page_frame` with the `tables` it already holds; `MAP_RW` needs `WRITE`, which it has). It
+could then read every keystroke the keyboard driver's DMA lands and write the surface behind the
+session. Second, it could `RECEIVE` on either interrupt rendezvous (`READ`), where `irq_notify`
+wakes one waiter, so a shell parked there would take a wake the driver was waiting for. It does
+neither. Its only use of the seven is `delegate`.
 
 ## Why this is wider than it needs to be, and what the tree already does one slot over
 
 The spawn service keeps `term_ep`, the boot discipline's endpoint, with `WRITE | GRANT` for
 exactly the same purpose, the next session, and the comment at `cap_delete(term_out)` says why
 the shell's copy of *that* carries no `GRANT`: "nothing at the prompt can hand the terminal to
-any program it likes". The display grants take the opposite posture in the same launch: the shell
+any program it likes". The display grants take the opposite posture in the same launch. The shell
 holds `GRANT` on all seven, so the prompt can hand the GPU to any program that asks for the right
 spawn wiring. The spawn service refuses any combination but `graphical_terminal` with all seven
 today, which is what keeps this a width rather than a hole.
@@ -88,7 +85,7 @@ wrote a row for slots 22 to 28. That is why the census exists.
 ## What is built
 
 - The spawn service keeps the gpu's four and the keyboard's three in the boot endowment's own slots
-  for the life of the boot (`GraphicalTerminalCaps::gpu`, `::kbd`), and lends each session's
+  for the life of the boot (`GraphicalTerminalCaps::gpu`, `::kbd`). It lends each session's
   drivers narrowed copies. The builder no longer deletes them. Nothing is placed at
   `spawnproto::SHELL_GPU_SLOT` onward.
 - The shell's request carries `GRAPHICS_BIT` alone; no capability follows it. `HOLDS_DISPLAY`,
@@ -125,7 +122,7 @@ riscv64 and x86_64 were gated in CI, not booted here.
 ## What it cost
 
 The seven grants now sit on the progenitor's login block, which is its capability table's peak.
-`kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED` goes from 30 to 31: the keyboard boot reads 31 of
+`kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED` goes from 30 to 31. The keyboard boot reads 31 of
 32 before its first prompt (it read 30, at the launch, before), the serial arm 28 (was 27), and a
 boot with no gpu stays at 24. The configuration that reaches 31 is QEMU's: no board here has a
 virtio keyboard. The block's "the kernel is untouched" is true of behaviour; that recorded

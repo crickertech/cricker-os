@@ -12,39 +12,37 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/the-kernel-trusts-two-digests-from-the-loader.md` on 2026-10-03 (UTC). The number 695 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Filed by the maintainer, recording calef's ruling on pull request #1389, 2026-09-27 (UTC): "T4 with
 T2". That pull request is design work for a still-open fork on how packages build the OS and the
-tree divides by what releases together; the section it will land in is not yet merged, so this
+tree divides by what releases together. The section it will land in is not yet merged, so this
 proposal cites the pull request rather than a section number. Every name here is provisional.
 
 ## What changes
 
 Today `kernel/build.rs` compiles `TRUST_ROOT` into the kernel: the progenitor's digest and the
-table of base program digests, `PROGRAM_MEASUREMENTS`. Any base service change relinks the kernel,
-which is why milestone 104 (the measurement continues past init) makes the kernel release as one
+table of base program digests, `PROGRAM_MEASUREMENTS`. Any base service change relinks the kernel.
+That is why milestone 104 (the measurement continues past init) makes the kernel release as one
 unit with the base image.
 
 Under T4 with T2, the boot loader hands the kernel two digests at handoff, on all three
-architectures: the progenitor's own digest, and a digest over the base manifest, the package set an
-image is built from. The kernel checks only the progenitor's digest before running it, and stops
-parsing a program table at all. The progenitor, once running, checks the base set against the
-manifest digest the loader gave it, the same way it already refuses an unlisted program (milestone
-104).
+architectures. One is the progenitor's own digest. The other is a digest over the base manifest, the
+package set an image is built from. The kernel checks only the progenitor's digest before running
+it, and stops parsing a program table at all. The progenitor, once running, checks the base set
+against the manifest digest the loader gave it. That is the same way it already refuses an unlisted
+program (milestone 104).
 
 ## What this buys, and what it costs
 
 The kernel binary stops depending on the base set. It still depends on the progenitor, so the two
 release together, but a base service can change without relinking the kernel. §151 (the goal of the
-repository split is independent release) is not fully reachable this way; T2's own costs stay:
-trust moves to the loader, which only milestone 500 (a stick that boots with Secure Boot on) or the
-slot checksum protects, and there are three handoff paths to change (device tree `/chosen` on
+repository split is independent release) is not fully reachable this way. T2's own costs stay.
+Trust moves to the loader, which only milestone 500 (a stick that boots with Secure Boot on) or the
+slot checksum protects. There are also three handoff paths to change (device tree `/chosen` on
 aarch64 and riscv64, PVH on x86_64). Milestone 525 (a bad upgrade cannot brick the machine) records
 that the device-tree path has one initrd slot.
 
 Signatures stay exactly where §220 (signed builds) put them, at install and update time, out of the
-boot path. This does not move a signature check to boot; it only changes what the kernel is handed
+boot path. This does not move a signature check to boot. It only changes what the kernel is handed
 and what it checks before running the progenitor.
 
 Comparable system: Fuchsia checks the `system_image` Merkle root, carried in signed boot arguments,
@@ -54,10 +52,9 @@ in userspace rather than in the kernel.
 
 This depends on the base manifest: an image assembled from base packages by digest, which pull
 request #1389 proposes and which is not yet built. The loader-to-kernel handoff is a layout two
-programs agree on, so its exact bytes come to calef, the same way the loader-to-kernel handoff
-always has.
+programs agree on, so its exact bytes come to calef, as they always have.
 
-One consequence worth a decision of its own, not folded into this one: once the kernel can update
+One consequence needs a decision of its own, not folded into this one. Once the kernel can update
 separately from userspace, the syscall surface becomes a versioned ABI that already-installed
 programs rely on. Pull request #1389 does not settle that, and this proposal does not either.
 

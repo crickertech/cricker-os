@@ -10,15 +10,13 @@ needs_person: yes
 ---
 # 773. A live stick: boot a PC into nife without touching its disk
 
-<!-- prose-budget: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the word cap only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Asked for by calef on 2026-10-04 (UTC). Written by the lane `lane/live-stick-proposal` at base
 `2d154f848`. Title, slug and every new name here are provisional.
 
 ## What "live stick" means
 
 A stick that boots a PC such as xenon into a usable nife, runs from memory, and leaves the PC's own
-disk exactly as it found it. Removing the stick and rebooting gives back whatever the PC ran before.
+disk exactly as it found it.
 
 Exit criteria, each something a person at xenon can see happen:
 
@@ -35,8 +33,6 @@ Exit criteria, each something a person at xenon can see happen:
 Under QEMU, a gate checks criterion 5 by hashing the NVMe image around a stick boot.
 
 ## What is already built
-
-The tree already has a live stick, less the gaps below.
 
 - The one-file boot. `\EFI\BOOT\BOOTX64.EFI` carries the kernel and the archive, sealed together
   (milestone 87 (the x86_64 bare-metal machine), BUILT). `stick_maker` writes it from macOS, Linux
@@ -95,8 +91,8 @@ One fact closes both: which disk this file came from. The loader already holds i
   kernel are sealed into one file (`refuse_an_unsealed_pair`), so nobody outside this tree reads
   the field, and it can change freely.
 
-Lost: the firmware's `RemovableMedia` flag, since a USB SSD often reports a fixed disk (recalled,
-not measured); and a build-time "live" flag, which the installed copy of the file would inherit.
+Lost: the firmware's `RemovableMedia` flag (a USB SSD often reports a fixed disk, recalled, not
+measured); and a build-time "live" flag, which the installed copy would inherit.
 
 ### G3: a filesystem in memory, recommended
 
@@ -137,7 +133,7 @@ because the stick may boot offline on any machine and has no distribution layer 
 `design/fat-binaries.md`'s conclusion applied: fat binaries are right "exactly when you cannot
 interpose an intelligent distribution layer".
 
-The evidence, n=3, so a sample and not a law. The maintainer measured three programs built together
+The evidence is n=3, a sample and not a law. The maintainer measured three programs built together
 on 2026-09-29, in `target/<arch>-unknown-nife/release`, on 2026-10-05 (bytes):
 
 | program | x86_64 | aarch64 | riscv64 |
@@ -156,14 +152,14 @@ A refinement, recorded at calef's request on 2026-10-05 (UTC), also not a decisi
 suggested four versions per package: universal, aarch64, riscv64 and x86_64. The maintainer's
 refinement is that universal is an index, not a fourth built artifact: a few hundred bytes naming
 the three builds by digest, like a Docker manifest list. A built universal artifact would store
-every program twice on the server. It would also be a fourth digest to sign and trust under
-milestone 198's run-by-digest rule, and could drift from the three it claims to hold. A normal
+every program twice on the server, add a fourth digest to sign and trust under milestone 198's
+run-by-digest rule, and could drift from the three it claims to hold. A normal
 install reads the index and fetches its own build. An install onto a persistent stick fetches all
 three, checks each against its own digest, and stores them side by side under one package name.
 
 These are fat packages, not fat binaries. A fat binary is one executable with slices, like Mach-O
 universal. ELF has none; FatELF was proposed and rejected in 2009 (from memory). A fat binary
-needs a new loader format, which becomes a format once shipped. A fat package is three ordinary
+needs a new loader format. A fat package is three ordinary
 ELFs plus the index, chosen by the package manager at install or activation, with no loader change.
 
 #### What else it needs
@@ -188,7 +184,7 @@ P1's xHCI split is Redox's shape (`xhcid` serves `usbscsid`), and it needs a des
 `stick_maker`, which today erases nothing. Fedora Media Writer writes no persistence ("not yet",
 per Fedora Magazine), and Redox's live ISO runs from RAM. Tails never mounts the internal disk
 unless the person does it by hand (`tails.net`), which is criterion 7's rule. At equal cost P1
-would win, so the P0 recommendation was about effort, and said so.
+would win, so the P0 recommendation was about effort.
 
 ## One image or two: ruled
 
@@ -206,8 +202,7 @@ The options as put to him:
 | O3 | Two images, live and installer | A live stick no keystroke can make wipe a disk | Two artifacts; installing from the installer image installs the installer |
 
 The recommendation was O1, with O2 as later polish: G4 is needed by both, and once the question is
-asked in userspace they differ only in when. Against O3 it holds at equal cost; against O2 it is
-partly effort, and said so.
+asked in userspace they differ only in when.
 
 ## The seven questions
 
@@ -246,8 +241,8 @@ G4. §157 called it "right destination, wrong first rung" for want of input driv
 242 is now in the queue.
 
 On principle 1 it sits on the customer path, ahead of rung 2b. A stranger with Windows on a PC
-will try a stick that leaves the disk alone long before one that offers to wipe it, and the
-installer is whole-disk only (515 BUGS). G1 and G2 rank first: they are small defects in what
+will try a stick that leaves the disk alone long before one that offers to wipe it (the installer is
+whole-disk only, 515 BUGS). G1 and G2 rank first: they are small defects in what
 already ships. Persistence ranks after rung 3c.
 
 Proposed order: G1 and G2 (PR #1652), G3, G4 after 242 lands, then the xenon bench run of the

@@ -12,8 +12,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/the-nvme-test-on-a-machine-whose-iommu-does-not-own-it.md` on 2026-10-03 (UTC). The number 651 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by milestone 261 (the NVMe driver leaves the kernel)'s bench rehearsal
 (`notes/risk-6-bench-evening.md`). Name provisional.
 
@@ -30,8 +28,9 @@ runs has one unit that owns the whole bus.
 default_bus_bypass_iommu=on` under OVMF makes QEMU's DMAR name no unit for the root bus, and the
 bench boot then prints `preflight 1/2 dmar scope : FAIL`. The work is to boot the ordinary test
 kernel on that machine, run only the NVMe case (`NIFE_TEST_FILTER`), and require it to fail on the
-`confined_by_iommu` assertion, recorded as the claim's replayable falsification in milestone 202 (every confinement test is a ritual until somebody breaks the confinement)'s
-convention (`notes/confinement-claims.md`).
+`confined_by_iommu` assertion. Record that as the claim's replayable falsification, in the convention
+of milestone 202 (every confinement test is a ritual until somebody breaks the confinement), at
+`notes/confinement-claims.md`.
 
 ## Why it is worth a milestone
 

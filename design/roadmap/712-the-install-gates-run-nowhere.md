@@ -12,11 +12,10 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/the-install-gates-run-nowhere.md` on 2026-10-03 (UTC). The number 712 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised 2026-10-03 by the lane briefed to build milestone 198 (a package manager, and the trivial
-install) rung 2a, which found it already built and re-ran its gates instead (the status section of milestone 515 (the installer: a stick
-that puts itself on the machine's disk and is then not needed)).
+install) rung 2a. It found the rung already built and re-ran its gates instead (see the status
+section of milestone 515 (the installer: a stick that puts itself on the machine's disk and is then
+not needed)).
 
 ## The finding
 
@@ -36,7 +35,8 @@ comment is corrected in the same change as this proposal.
 Run the three gates on a schedule, not on every pull request: a nightly or weekly workflow in the
 shape of `stranger-cadence.yml`, posting under `nife-smelter[bot]` when one fails. Per pull request
 would add an x86_64 OVMF job to a CI that has already split one job for being slow (`ci.yml`,
-beside milestone 628 (the x86_64 swish-check leg costs what the others do)), and these gates guard a path few pull requests touch.
+beside milestone 628 (the x86_64 swish-check leg costs what the others do)). These gates also
+guard a path few pull requests touch.
 
 What it needs first is one CI measurement: the 42.5 seconds above is an Apple M-series host
 emulating x86_64, and the arm64 runner pool may be slower. The workflow's first run is that number.

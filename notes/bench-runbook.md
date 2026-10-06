@@ -134,7 +134,7 @@ being sought (above). Everything below is the plan for the TX1 when it arrives.
 
 Milestone 127 (the seL4 machine) is first light, and it is the longest of the three because nothing
 of nife has run on it. A third prerequisite, the board memory map, is unbuilt
-(`design/roadmap/proposals/argon-boots-the-aarch64-kernel.md`, 2026-10-05). The two 127 names are built: the EL2 to EL1 entry drop
+(`design/roadmap/803-argon-boots-the-aarch64-kernel.md`, 2026-10-05). The two 127 names are built: the EL2 to EL1 entry drop
 (2026-09-02, rehearsed under QEMU with `virtualization=on`), and the cycle-counter authority
 question that milestone 74's aarch64 half was waiting on (DECISIONS 139, answered 2026-09-02).
 

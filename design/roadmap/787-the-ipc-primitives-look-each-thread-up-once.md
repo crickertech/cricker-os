@@ -10,11 +10,9 @@ needs_person: no
 ---
 # 787. The IPC primitives look each thread up once
 
-<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by the lane for milestone 758 (the IPC fast paths shrink back inside their band) on
 2026-10-04 (UTC), from the same per-line attribution that chose its levers. It is the next lever
-by size, and that lane left it alone on purpose: #1611 (plain `RECEIVE`), #1617 (64 capability
+by size. That lane left it alone on purpose. #1611 (plain `RECEIVE`), #1617 (64 capability
 slots) and #1614 (null_syscall under load) were all rewriting the bodies it would touch.
 
 ## What is owed
@@ -22,17 +20,17 @@ slots) and #1614 (null_syscall under load) were all rewriting the bodies it woul
 The bodies of `ipc_send_badged`, `ipc_receive`, `ipc_receive_cap`, `ipc_call_badged` and
 `ipc_reply` in `kernel/src/sched.rs` resolve the same thread name several times in one critical
 section. `ipc_receive`'s collect arm calls `sched.threads.get(sender).unwrap()` three times and
-`get_mut(sender).unwrap()` twice; the running thread is resolved by `thread_control_block_ptr` and
+`get_mut(sender).unwrap()` twice. The running thread is resolved by `thread_control_block_ptr` and
 then again by `get_mut(current).unwrap()`. Each resolution is a generation compare, a slot load and
-an `unwrap` landing pad, and each `IPC_TABLES.lock()` site adds an `expect("no scheduler")` pad.
+an `unwrap` landing pad. Each `IPC_TABLES.lock()` site adds an `expect("no scheduler")` pad.
 
 Measured on the lane's tip, summed over every function in both closures, `core::option` lines
-were 1,560 bytes on x86_64, 1,286 on riscv64 and 1,264 on aarch64, and `generational_table`'s
-lookup 648, 536 and 696. Not all of it can go; resolving each name once per critical section,
+were 1,560 bytes on x86_64, 1,286 on riscv64 and 1,264 on aarch64. `generational_table`'s
+lookup was 648, 536 and 696. Not all of it can go. Resolving each name once per critical section,
 and sharing one cold exit for "no scheduler", should take a few hundred bytes per ISA.
 
 The constraint that makes it a design question and not a sed: the wait-queue pointers already name
-live TCBs, and the code revalidates them by id on purpose ("the id revalidates it"). Keep that
+live TCBs. The code revalidates them by id on purpose ("the id revalidates it"). Keep that
 check, once, rather than trading it for the raw pointer.
 
 ## Done when

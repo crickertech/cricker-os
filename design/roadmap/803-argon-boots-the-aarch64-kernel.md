@@ -1,13 +1,16 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-05
+promoted_from: argon-boots-the-aarch64-kernel
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none to build; aarch64 silicon to confirm
 specific_machine: argon (the Jetson TX1, milestone 127's board)
 needs_person: no
 ---
-# argon boots the aarch64 kernel: the board memory map nobody has built
+# 803. argon boots the aarch64 kernel: the board memory map nobody has built
+
+*(Promoted from the proposal pile on 2026-10-06 (UTC); number provisional until the merge queue lands it.)*
 
 Raised 2026-10-05 (UTC) by `lane/225-argon-soak`, the lane for milestone 225 (run the soak on radon,
 argon and xenon), while making argon's soak a one-command run. Title, slug and every name here are
@@ -81,7 +84,7 @@ How one tree produces a kernel for two RAM bases.
   translation with a runtime term. That is a moving part on a hot path, which should be measured
   before anyone calls it free.
 
-**Recommendation: A**, as the first step. If both cost the same, would I still choose A? Yes,
+Recommendation: A, as the first step. If both cost the same, would I still choose A? Yes,
 narrowly: A has fewer moving parts at runtime, the riscv64 precedent is the same shape, and C's
 benefit (one binary) is real but argues against a defect class nobody has yet seen here. That
 answer leans on C's runtime cost, not on effort, so it should be checked against a measurement if
@@ -94,7 +97,7 @@ Prior art, recalled and not read: Linux arm64 does C, and has since KASLR. U-Boo
 ## Then milestone 225's argon run
 
 With this built and 127's bench procedure passed (a byte, then four cores), the soak is radon's
-procedure with argon's names: `script/board-image --soak` for argon, a `script/board-console`
+procedure with argon's names. That means `script/board-image --soak` for argon, a `script/board-console`
 profile for argon's prologue (deliberately absent until a capture exists), and
 `script/board-console --exposure` to write the curve's row. 225's block has the steps.
 
@@ -104,3 +107,7 @@ profile for argon's prologue (deliberately absent until a capture exists), and
   read off the board. 127's step 2 (`bdinfo`) is what confirms the DRAM base.
 - Whether anything else on the boot path assumes QEMU was not swept exhaustively. The four rows
   are what a read of `boot.s`, `link-aarch64.ld`, `mmu.rs` and `console.rs` found.
+
+## Index row
+
+Milestone 127 (the seL4 machine)'s first light on argon is not bench work yet. The aarch64 kernel is linked, mapped and consoled for QEMU `virt` only. A TX1 `booti` today would land 1 GiB from where it was linked and print nothing, which the bench would misread as cabling. Building the board memory map (load address, boot block map, the 16550 console, a device-tree-gated virtio probe) and teaching `script/board-image` argon turns that silence into a banner, with one architect's fork: a build-time board feature or position-independent early boot.

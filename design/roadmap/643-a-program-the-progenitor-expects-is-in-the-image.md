@@ -12,8 +12,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/a-program-the-progenitor-expects-is-in-the-image.md` on 2026-10-03 (UTC). The number 643 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 This was raised by the `maintainer/audit-sink-rename` lane (#1228),
 which renamed `audit_sink` to `login_audit_receiver`. The file's name is provisional;
 `design/naming.md` is the rule.

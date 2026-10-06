@@ -12,8 +12,6 @@ needs_person: yes
 
 Promoted from `design/roadmap/proposals/reset-unowned-pci-functions-before-iommu-enable.md` on 2026-10-03 (UTC). The number 693 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised 2026-09-27 (UTC), a follow-on from milestone 612 (the IOMMU escape-fault test could lose its
 fault to an unconfined neighbour disk). That milestone found and fixed a symptom: an unconfined,
 never-registered second virtio-blk-pci disk could occupy the VT-d unit's one fault-recording
@@ -23,7 +21,7 @@ production gap, and to check cheaply before writing anything.
 ## The check
 
 A read-only PCI config-space read (no `bring_up`, no write of any kind) of every virtio-blk
-function's `COMMAND` register, taken as the very first thing this kernel's test suite does on
+function's `COMMAND` register. It is the very first thing this kernel's test suite does on
 `x86_64`, before this boot calls `bring_up` (which sets Bus Master Enable) on anything:
 
 ```
@@ -36,8 +34,8 @@ Milestone 612's "QEMU device-model quirk, not chased into QEMU's own source" fra
 premature. The premise it should have checked and did not: whether the neighbour disk's DMA came
 from something QEMU's virtio-blk-pci model does spontaneously, or from a function that was already
 allowed to master the bus before the guest ran. It is the second one. This does not need to be a
-QEMU peculiarity at all: any firmware that probes boot disks (SeaBIOS, OVMF, or on real hardware a
-disk controller's own option ROM) sets Bus Master Enable as part of that probe, and nothing turns
+QEMU peculiarity at all. Any firmware that probes boot disks (SeaBIOS, OVMF, or on real hardware a
+disk controller's own option ROM) sets Bus Master Enable as part of that probe. Nothing turns
 it back off before a kernel that never asked for that device takes over the machine. `xenon` boots
 through real firmware; `nife` there never registers most of what it finds, and by this same
 mechanism, some of what firmware touched can still be bus-mastering when the IOMMU turns on.
@@ -66,8 +64,8 @@ This driver's "A device no unit owns" BUGS entry (`kernel/src/arch/x86_64/iommu.
 a related question and answers it the way Linux does: a device no DRHD scope names is left alone,
 DMA untranslated, matching `intel_iommu_probe_device`'s `-ENODEV`. Linux does not blanket-clear BME
 for devices outside IOMMU scope either. That is a *narrower* question than this one (no scope at
-all, vs. an owned function nobody has driven yet), but it is the closest precedent in this tree and
-in the driver Linux ships, and it points the same way: clearing BME universally would be new
+all, vs. an owned function nobody has driven yet). It is still the closest precedent in this tree
+and in the driver Linux ships, and it points the same way. Clearing BME universally would be new
 ground, not a pattern this tree or its nearest prior art already follows.
 
 ## Options
@@ -75,10 +73,10 @@ ground, not a pattern this tree or its nearest prior art already follows.
 - **A. Clear BME for every PCI function this kernel does not immediately bring up**, in
   `arch::iommu::init` or the PCI bus-walk beside it (`pci::bar_census`/`pci::survey` already read
   every function on the bus this way, read-only; this would add one write per function). Cheap and
-  reversible as code. The risk is not reversibility, it is correctness on real hardware: a function
+  reversible as code. The risk is not reversibility, it is correctness on real hardware. A function
   mid-transaction when firmware hands off (a legacy USB controller under SMM "USB legacy support",
   an NVMe or AHCI controller firmware left initializing) may not tolerate having its bus mastering
-  pulled out from under it, and that failure mode is a hang or a chipset-level SMI, not a clean
+  pulled out from under it. That failure mode is a hang or a chipset-level SMI, not a clean
   fault. This wants a real-hardware test (xenon) before it ships, not just a QEMU boot.
 - **B. Function-Level Reset (FLR)** on every unowned function that advertises the capability,
   going further than BME alone. Same shape as A, strictly more invasive, same real-hardware risk,
@@ -88,10 +86,10 @@ ground, not a pattern this tree or its nearest prior art already follows.
   boot where firmware left an unrelated device bus-mastering; it only says so, here, until an
   architect decides the tradeoff in A or B is worth it.
 
-No recommendation is made among these: A and B are irreversible in the sense that matters here, not
-because the code is hard to revert, but because a real machine's firmware handoff is not something
-a lane can safely test against without the actual hardware, and a wrong default could turn a
-diagnostic gap into a boot hang. This is an architect's call.
+No recommendation is made among these. A and B are irreversible in the sense that matters here, not
+because the code is hard to revert. A real machine's firmware handoff is not something a lane can
+safely test without the actual hardware, and a wrong default could turn a diagnostic gap into a
+boot hang. This is an architect's call.
 
 ## What is blocked until this is answered
 

@@ -12,8 +12,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/a-region-reap-scans-every-mapping-on-the-machine-per-page.md` on 2026-10-03 (UTC). The number 658 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by the lane for milestone 604 (the builder's scratch cursor is bounded), whose guest test
 runs in 3 seconds alone and took 104 inside CI's whole aarch64 suite.
 
@@ -23,9 +21,9 @@ of §13 (frame revocation) and should come back with numbers.
 ## The finding
 
 `kernel::revoke::revoke_region` is what `MemoryRegion::DESTROY` runs before a region's pages go
-back. Its unmap pass loops: take the registry lock, scan every live address space's mapping log
-from the start until it finds a record of a page in the range, release the lock, unmap that page
-everywhere (`unmap_everywhere` scans every live space again), repeat. So one reap costs roughly the
+back. Its unmap pass loops. It takes the registry lock, scans every live address space's mapping log
+from the start until it finds a record of a page in the range, and releases the lock. Then it unmaps
+that page everywhere (`unmap_everywhere` scans every live space again) and repeats. So one reap costs roughly the
 region's mapped pages times every record on the machine, twice over.
 
 Read from the code, not profiled. The evidence that it matters is the timing above: the same forty

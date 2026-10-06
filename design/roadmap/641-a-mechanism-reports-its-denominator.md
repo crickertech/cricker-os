@@ -13,8 +13,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/a-mechanism-reports-its-denominator.md` on 2026-10-03 (UTC). The number 641 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 `a-mechanism-reports-its-denominator`: ratified 2026-09-23 (calef, reviewing
 `notes/corrections/2026-09-23-the-sweep-that-swept-nothing.md` on pull request #1166). Raised by
 `notes/corrections/2026-09-23-the-sweep-that-swept-nothing.md`, whose fifth why reaches a habit
@@ -46,17 +44,17 @@ Six instances turned up in one day, 2026-09-23:
 
 - The labeler for corrections of error, `coe-architect-label.yml`, merged the same day. It
   detected a new COE record correctly and then failed to apply the label, because `gh pr edit` was
-  called without `--repo` in a job with no checkout; its deliberate never-fail arm reported the
+  called without `--repo` in a job with no checkout. Its deliberate never-fail arm reported the
   failure to the log and the job to GitHub as a pass. Fixed on the branch that found it, which was
   the branch writing the correction of error about the other four.
 
 - And the falsification ratio, which is not a gate at all but the same defect in a measurement.
   It counts harnesses, so code with no harness is absent from its denominator and a crate can read
   100% falsified while most of it is unproved. Milestone 524 (the three x86_64 boot gates) added 338
-  lines to `crates/machine_discovery/src/x86_64.rs` on 2026-09-21 with no harness of their own and
-  the number did not move; found and reported by the milestone 319 (the crate that parses firmware
-  had no proofs, and three of its first ones were false) lane on pull request #1155, which
-  closed that instance and not the class.
+  lines to `crates/machine_discovery/src/x86_64.rs` on 2026-09-21 with no harness of their own, and
+  the number did not move. The milestone 319 (the crate that parses firmware
+  had no proofs, and three of its first ones were false) lane found and reported it on pull request
+  #1155, which closed that instance and not the class.
 
 Milestone 401 fixed the `script/` half. The workflow half is untouched, and it is the half where
 the swallowing is explicit and deliberate rather than accidental.
@@ -87,8 +85,8 @@ Is this suppressing a verdict or an outcome? They wear the same clothes and only
   `continue-on-error` site suppresses both, because a step's exit status is one channel carrying two
   claims.
 
-The separation does not need new machinery. A report that states its denominator is enough: a
-sweep that says it replayed N records cannot claim N when it replayed none, and a job that asserts
+The separation does not need new machinery. A report that states its denominator is enough. A
+sweep that says it replayed N records cannot claim N when it replayed none. A job that asserts
 its own N is non-zero fails loudly on the one case `continue-on-error` must not hide, while staying
 silent on the verdict it was written to let through.
 
@@ -109,7 +107,7 @@ silent on the verdict it was written to let through.
 ## And the same defect in the tree's own metrics
 
 **A reported percentage must say what it is a percentage of.** The four workflow constructs above
-hide a zero in an exit status; a ratio hides one in a denominator, and the second is worse because
+hide a zero in an exit status. A ratio hides one in a denominator, and the second is worse because
 the number is published, quoted and used to answer `design/fatal-risks/README.md`'s risk 2 (the proofs
 prove trivia and the real bugs live where Kani cannot reach). `script/falsifications` reports 63 of
 180 harnesses, `script/metrics` carries several ratios of the same family, and none of them states
@@ -187,6 +185,6 @@ Not applicable. This is CI and record tooling; no kernel capability changed.
 ## Index row
 
 From outside, a check that examined nothing looks like a check that found nothing. Every
-`continue-on-error` in a workflow now says where its failure goes, checked by `script/lint`, and a
-pipeline into `tee` has pipefail; the falsification sweep and the audit cadence fail on an empty
-selection; every published ratio states what it is of (`notes/denominators.md`).
+`continue-on-error` in a workflow now says where its failure goes, checked by `script/lint`. A
+pipeline into `tee` has pipefail. The falsification sweep and the audit cadence fail on an empty
+selection, and every published ratio states what it is of (`notes/denominators.md`).
