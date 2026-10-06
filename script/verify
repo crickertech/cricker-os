@@ -62,6 +62,8 @@ changed = subprocess.run(
 ).stdout.splitlines()
 
 DOC = re.compile(r"^(notes/|design/|[A-Z_]+\.md$)")
+AGENT_CONFIG = (".claude/", ".agents/")
+REPO_CONFIG = (".gitignore", "packages/homes.toml")
 
 needed, inert, todo = [], [], []
 for f in changed:
@@ -92,6 +94,17 @@ for f in changed:
             needed.append((f, "the proofs' own wiring"))
         else:
             inert.append((f, "a script/ or helpers/ entry point; not an input to cargo kani"))
+    elif f.startswith(AGENT_CONFIG) or f in REPO_CONFIG:
+        # Agent configuration and two repository files no build reads, so not inputs to `cargo
+        # kani` by the same argument as script/ above. `.claude/` and `.agents/` hold hook settings
+        # and symlinks to notes/skills/ (instructions for agents, read by agents and never by cargo).
+        # `.gitignore` decides what git tracks, not what cargo compiles from a checkout, and
+        # `packages/homes.toml` is read only by helpers/packages.py, a lint. Found 2026-10-06 (UTC)
+        # when #1726, a prose-and-lint change, fell through to the not-attributable default on
+        # these paths and its re-falsify leg ran every harness until its 45-minute timeout.
+        # Named one by one rather than as a directory where a sibling could be a build input:
+        # the rest of packages/ stays needed.
+        inert.append((f, "agent or repository configuration; not an input to cargo kani"))
     elif f.startswith(".github/"):
         if f == ".github/workflows/verify.yml":
             needed.append((f, "the proofs' own wiring"))
