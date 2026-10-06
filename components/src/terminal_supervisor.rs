@@ -36,7 +36,8 @@
 //! until then the terminal is gone. Restarting it fresh is kill-and-replace, which this program
 //! could do, and is not built because nothing has asked for it.
 //!
-//! Name: provisional, minted 2026-09-27 by the lane for milestone 23. calef's to name.
+//! Name: ratified 2026-10-06 (calef, "Ratify" it, in conversation). Minted
+//! provisionally 2026-09-27 by the lane for milestone 23.
 
 #![no_std]
 #![allow(missing_docs)]
