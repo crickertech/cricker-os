@@ -32,11 +32,11 @@ new directory."*
 
 **The experiment for the widened grain, which has not been run:** a second machine of an architecture
 nife already boots, riding on milestone 225 (run the soak on radon, argon and xenon). Ruled
-2026-10-05 (calef): *"Both, argon first."* Argon closes the larger gap; milestone 89 (Scaleway
-EM-RV1) then adds a second riscv64 beside radon. No difference is a result too. *(2026-10-06:
-argon is not in hand. The board delivered was a TK1, shipped against the TX1 order and going back,
-and the TX1 has no date; `notes/bench-runbook.md`. Whether "argon first" stands is calef's, asked on pull
-request #1739.)*
+2026-10-06 (calef): *"We can do the Scaleway first."* Milestone 89 (Scaleway EM-RV1) runs first,
+a second riscv64 beside radon, and argon (the TX1) follows when it arrives. No difference is a
+result too. History: on 2026-10-05 calef ruled *"Both, argon first"*, because argon closes the
+larger gap. On 2026-10-06 argon turned out not to be in hand: the seller shipped a TK1 against the
+TX1 order, it is going back, and the TX1 has no date (`notes/bench-runbook.md`).
 
 Three caveats. The verdict is one machine per architecture, and for aarch64 not even that, since
 argon has never booted nife. So those 42 errors price a third *architecture* and say nothing about a
