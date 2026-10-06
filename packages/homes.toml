@@ -43,7 +43,7 @@ paths = ["notes/", "vendor/README.md", "vendor/upstream-status.md"]
 [[home]]
 status = "undecided"
 reason = "the build and gates follow the integrating repository, not yet named"
-paths = ["script/", "helpers/", ".github/", ".githooks/", ".claude/"]
+paths = ["script/", "helpers/", ".github/", ".githooks/", ".claude/", ".agents/"]
 
 [[home]]
 status = "undecided"

@@ -360,6 +360,18 @@ SURFACE_FILES = {os.path.relpath(path, root) for kind, _n, path, _p in items()
                  if kind in ("crate", "program")}
 RECORD_STEM = re.compile(r"^\d")
 
+# An exception to §75's README-per-directory rule, and a narrow one (2026-10-06, UTC). Each entry
+# under notes/skills/ is an Agent Skills directory: its SKILL.md is the instructions, and the
+# specification fixes that file's name, so the entry has no README of its own to carry a `Name:`
+# block. calef ratified all six entry names in one ruling, and notes/skills/README.md records that
+# ruling beside the directory's own. A README per entry would only restate it to satisfy this gate,
+# which calef judged the gate's fault, not the tree's ("SKILL.md holds the information").
+# So a directory DIRECTLY under notes/skills/ that holds a SKILL.md is covered by the parent's block.
+# Nothing else is: another notes/ directory, a deeper one, or one under notes/skills/ without a
+# SKILL.md still needs its README. helpers/agents-index-check.py, run by script/lint, separately
+# fails an entry that has no row in notes/skills/README.md, so a new entry cannot arrive unrecorded.
+SKILLS_DIR = "notes/skills"
+
 
 def rust_records():
     out = []
@@ -411,6 +423,8 @@ def document_records():
         base = os.path.basename(d)
         if RECORD_STEM.match(base):
             continue
+        if os.path.dirname(d) == SKILLS_DIR and os.path.isfile(os.path.join(root, d, "SKILL.md")):
+            continue    # covered by notes/skills/README.md's block; see SKILLS_DIR
         readme = os.path.join(d, "README.md")
         path = os.path.join(root, readme)
         if not os.path.exists(path):

@@ -65,6 +65,7 @@ them (question 2, where the recommendation below argues for every document, and 
 exceptions to date, `AGENTS.md` at 5,873 words of imperatives and `design/fatal-risks/README.md` at 4,235
 (it was 4,176 when this section was first written, and grew during the density pass),
 are the evidence either way). *(Section number 212 was minted at merge on 2026-09-24.)*
+calef retired `AGENTS.md`'s exception on 2026-10-06 (UTC): "Retire the word-cap exception".
 
 calef's framing:
 

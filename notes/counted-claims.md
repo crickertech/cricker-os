@@ -65,7 +65,6 @@ answers, in the prose's own words, and a derivation.
 | `rights-bits` | how many named single-bit rights a capability can carry | `pub const NAME: Rights = Rights(1 << N)` in `crates/capability` |
 | `loom-harnesses` | how many loom harnesses the tree carries, which is what `script/interleaving-check` runs | `loom::model(` calls in `crates//*.rs` |
 | `loom-crates` | how many crates carry at least one loom harness | distinct crate directories among those files |
-| `agents-md-lines` | how many lines `AGENTS.md` carries, which is milestone 118's own size budget | `wc -l`-equivalent line count of `AGENTS.md` |
 
 The last four arrived with the 2026-08-17 documentation sweep, whose lens was the ABI. `syscalls`
 exists because the ABI crate's own front page, the kernel's syscall module, an `Error` variant's
@@ -269,6 +268,8 @@ Splitting `AGENTS.md` (#1189) took it from 935 lines to 584, and an ordinary cei
 itself, so the old number would have stopped nothing. A name in `script/lint`'s `RATCHET_CEILINGS`
 also fails when the tree falls below the claim, and the only fix is to lower the claim. It stays in
 the marker rather than a separate baseline file, because the marker already is the baseline.
+Retired 2026-10-06 (UTC) by calef's "drop 118's limit and rely on §212's cap", per §212 (a prose budget);
+`RATCHET_CEILINGS` is now empty.
 
 **Deliberately not built: an auto-fix.** A `--fix` that rewrote marked numbers was considered and
 refused. This gate's failure message offers two responses, and they are not equally likely to be

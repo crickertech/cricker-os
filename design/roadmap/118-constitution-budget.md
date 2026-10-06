@@ -13,15 +13,14 @@ Minted 2026-08-05 by calef, who
 noticed the file had gotten huge and asked what that costs. Re-checked against the tree on
 2026-10-03 (UTC): the audit (#309), the cut and the split are done. `AGENTS.md` fell from 942 to
 573 lines (calef's seven cuts of 2026-09-25, #1189's split into imperatives plus appendices): the
-reasons moved to `design/tenets/`, the procedures to `briefs/`, and `script/lint`'s
-`agents-md-lines` ceiling counts that core. What is left is two budget rules that are still
+reasons moved to `design/tenets/`, the procedures to `briefs/`, and §212 (a prose budget) caps that
+core. What is left is two budget rules that are still
 prose only, listed under `## Follow-on`. Nothing blocks them: no hardware, no person, no decision.
 
 The size measurement is no longer hand-entered. Until 2026-08-22 it was `wc -lwc AGENTS.md`,
 run by nobody, which was the milestone's own budget argument for itself: this block carried three
-different sizes in thirteen days, each hand-entered by whoever last looked. `script/lint` now
-derives it (`agents-md-lines` in the counted-claims registry) and this file's own claim below is
-checked against the tree on every build; see "The size gate and the ledger, 2026-08-22".
+different sizes in thirteen days, each hand-entered by whoever last looked. `script/lint` derived
+it from then until 2026-10-06; see "The size gate and the ledger, 2026-08-22".
 
 ## What it costs, measured 2026-08-05
 
@@ -416,11 +415,10 @@ audit named are unrelated to what a size gate or a ledger need.
 `script/lint`'s existing `count-at-most` relation (built for milestone 134's unsafe-density ceiling)
 is exactly the mechanism this section already asked for without naming it: a claimed number that
 fires when the tree exceeds it and stays silent when the tree falls below. `script/lint` gained an
-`agents-md-lines` registry entry (the file's own `wc -l`-equivalent line count) and the claim lives
-here, since a developer lane may not edit `AGENTS.md` to carry its own marker:
-
-**`AGENTS.md` carries at most 573 lines** <!--count-at-most:agents-md-lines-->, written at the
-tree's exact value with zero headroom, deliberately (it read 1009 until 2026-09-19, when §155
+`agents-md-lines` registry entry (the file's own `wc -l`-equivalent line count), and the claim
+lived here. On 2026-10-06 (UTC) calef dropped it: "drop 118's limit and rely on §212's cap". One
+budget in one unit, because words track context cost and lines track wrapping. Its history, at the
+tree's exact value with zero headroom (it read 1009 until 2026-09-19, when §155
 moved the naming conventions to `design/naming.md` and the file fell to 922; milestone 262 had asked
 for 988 against its own smaller diff, which §155 (naming conventions) superseded):
 Lowered to 573 on 2026-09-25 by calef's seven cuts. Lowered from 935 to 584 on 2026-09-24, and

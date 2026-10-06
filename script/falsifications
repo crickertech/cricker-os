@@ -1891,7 +1891,10 @@ def affected_packages(base, hs):
     changed_ids = set()
     unattributable = False
     for f in changed:
-        if re.match(r"^(notes/|design/|[A-Z_]+\.md$|script/|helpers/|\.github/)", f):
+        # The last four alternatives match script/verify's AGENT_CONFIG and REPO_CONFIG, whose
+        # comment says why they are no input to `cargo kani` (#1726, 2026-10-06 UTC).
+        if re.match(r"^(notes/|design/|[A-Z_]+\.md$|script/|helpers/|\.github/"
+                    r"|\.claude/|\.agents/|\.gitignore$|packages/homes\.toml$)", f):
             continue
         pid = owner(f)
         if pid is None:
