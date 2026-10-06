@@ -54,7 +54,7 @@ server takes and the kernel respects except in a panic, or something else.
 ## Why it is not a bug to fix
 
 It corrupts every bench session on argon, radon and xenon, where a serial log is the only thing
-those machines can say, and milestone 216 built a tool whose contract is recognising a boot sequence
+those machines can say, and milestone 216 (nothing in this tree can read a board) built a tool whose contract is recognizing a boot sequence
 in that stream. Interleaved bytes break that contract in the least visible way available: the log is
 present, it looks like output, and the line being matched has a kernel message spliced through the
 middle of it.

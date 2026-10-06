@@ -11,7 +11,7 @@ ratified_by: calef
 confined DMA in software: the kernel validates every descriptor and the device reads a copy the
 driver cannot touch. An IOMMU does it in hardware, generically, with no transport knowledge: it
 sits between a device and memory and translates every address the device emits through page tables
-the kernel programs. §16b makes that real on both boards, with the shadow ring demoted to defence in
+the kernel programs. §16b (object revocation) makes that real on both boards, with the shadow ring demoted to defense in
 depth.
 
 **The seam is the payoff.** Each architecture's IOMMU translates with its own CPU's page-table

@@ -49,7 +49,7 @@ pool rather than defining it. This is what most operating systems actually do.
 
 The failure action is the harder half of B and C, and it is a capability question: refusing to
 serve is a denial of service that could brick a boot, while serving flagged bytes moves the decision
-to a caller who may not check. §31's headline and the confinement work are the neighbourhood this
+to a caller who may not check. §31 (the foreign-language seam)'s headline and the confinement work are the neighborhood this
 sits in.
 
 ## Recommendation

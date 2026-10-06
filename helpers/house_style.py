@@ -88,7 +88,7 @@ SELF = 'helpers/house_style.py'
 # The counts on 2026-10-06, and since lowered by each sweep batch's `--bank`. Never raise one by
 # hand: a new British form or imperial unit is fixed, not admitted.
 CEILINGS = {
-    'british-markdown': 993,
+    'british-markdown': 199,
     'british-other': 1_812,
     'imperial': 4,
 }

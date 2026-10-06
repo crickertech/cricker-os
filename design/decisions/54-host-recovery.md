@@ -20,7 +20,7 @@ deliverable the attributes are not decoration, they are part of the file.
 a symlink), and the evidence is macOS's own `/usr/bin/xattr -l` reading the recovered file,
 rather than the tool checking its own work.
 
-## Three behaviours, all §42
+## Three behaviors, all §42 (a filesystem declares what it offers and must be truthful)
 
 - The type code cannot survive, because no host filesystem has a field for it. Each non-`RAW`
   one is named on stderr and counted, and the raw store is extracted beside the tree so the

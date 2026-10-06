@@ -128,7 +128,7 @@ creating a file and
 truncating one (so `std::fs::write` and `File::create` are Unsupported by construction, and writing
 means opening a file the image already carries), directory iteration, `mkdir`/`unlink`/`rename`,
 symlinks and hard links, `canonicalize`, permissions, file times, locks, and `duplicate`. Proven on
-both ISAs (§19) by the same `std_exerciser` binary, now with three behaviours chosen by its grants alone:
+both ISAs (§19 (architectural parity is a tenet)) by the same `std_exerciser` binary, now with three behaviors chosen by its grants alone:
 its stdout is compared byte for byte with the file's own bytes spliced in from the shared fixture, so
 one assertion covers disk, block server, FS server, contract, PAL, and endpoint.
 

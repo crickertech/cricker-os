@@ -60,7 +60,7 @@ which is worth saying so a reader does not stop at one of them:
 - §56 decides that the filesystem contract describes its own verbs, so a caretaker's dispatch is
   a table lookup and a caretaker is written once. That is definition A's world and assumes it rather
   than choosing it.
-- §106 takes the `terminal_sink_caretaker` narrowing as a behaviour, not as a name.
+- §106 (take the terminal_sink_caretaker narrowing) takes the `terminal_sink_caretaker` narrowing as a behavior, not as a name.
 - `design/naming.md` carries `terminal_sink_caretaker` in its refusals table, recording that
   *"`sink` names what it hands out, `caretaker` names what it is"*, which is an answer to question 3
   for that one name rather than a rule.

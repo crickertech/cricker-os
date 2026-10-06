@@ -179,7 +179,7 @@ of the §14 soft spot. Recorded here with the rest of milestone 22 for the same 
    authority only long enough to build two servers, then deletes it (the wiring capabilities, the
    spawner's budget copy, and the root untyped). After that it cannot make a page, an address space, a
    thread, or an endpoint. The alternative (keep the budget, be careful with it) was rejected on the
-   §14 thesis: a confinement you can only honour by being correct is not confinement.
+   §14 (the project's direction) thesis: a confinement you can only honor by being correct is not confinement.
 
 2. **Process construction moves to a sub-server that holds one program image, not the archive.** The
    spawner gets `flaky`'s bytes copied into read-only pages of its own address space, never the 14 MB
