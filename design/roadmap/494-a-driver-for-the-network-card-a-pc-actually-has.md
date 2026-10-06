@@ -4,9 +4,9 @@ raised: 2026-09-19
 promoted_from: a-driver-for-the-network-card-a-pc-actually-has
 milestone_dependencies: none
 decision_dependencies: none
-machine_requirements: none
-specific_machine: none
-needs_person: no
+machine_requirements: x86_64 PC with an Intel I219 and a wired network
+specific_machine: xenon (exit criterion 2 is a bench boot on it)
+needs_person: yes
 ---
 # 494. A driver for the network card a PC actually has
 
