@@ -78,10 +78,6 @@
 //! - **No TLS 1.2**, by the choice above. A peer that offers nothing newer will fail to negotiate.
 //! - **No client certificates.** `key_provider` refuses every private key, which is correct for a
 //!   package client and wrong for anything that must authenticate itself.
-//! - **Nothing here has completed a handshake.** The vectors in `cryptography_exerciser` prove the
-//!   primitives compute what their specifications say and that this provider assembles and offers
-//!   what it claims. No peer has ever answered it, because there is no HTTP client in the tree;
-//!   that is milestone 442's clause 3, repriced into a proposal.
 //! - **No FIPS claim anywhere.** Every `fips()` is left at its `false` default, which is the
 //!   truthful answer and is stated so nobody reads the silence as a claim.
 

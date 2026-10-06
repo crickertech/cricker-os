@@ -113,7 +113,7 @@ which names nothing a reader can act on, and which `cargo` reports only as `coul
 sha2 (lib)`. §196 called this class "SIMD paths fail on soft-float x86_64" and guessed it might
 differ on our target. It does not differ; it is the same failure, and it has an answer.
 
-Each crate has an escape hatch, and **they are not spelled alike**, which is the part worth
+Each crate has an escape hatch, and they are not spelled alike, which is the part worth
 writing down because nothing discovers it for you:
 
 | crate | how to force the portable implementation |
@@ -310,7 +310,7 @@ that ships inside each crate, so any reader can check it without leaving their d
 | `p256` | 0.13.2 | Apache-2.0 OR MIT | 0.14.0, 2026-07-03 | *"The elliptic curve arithmetic contained in this crate has never been independently audited!"* | no |
 | `x25519-dalek`, `curve25519-dalek` | 2.0.1, 4.1.3 | BSD-3-Clause | current line | no audit statement | yes; needs `curve25519_dalek_backend="serial"` |
 | `ed25519-dalek` | 2.2.0 | BSD-3-Clause | current line | no audit statement | no |
-| `rsa` | 0.9.10 | MIT OR Apache-2.0 | current line | one audit by Include Security, one minor finding addressed, **and see below** | no |
+| `rsa` | 0.9.10 | MIT OR Apache-2.0 | current line | one audit by Include Security, one minor finding addressed, and see below | no |
 | `rustls-webpki` | 0.103.15 | ISC | current line | part of the rustls project | no |
 
 **Every license is permissive** (MIT, Apache-2.0, BSD-3-Clause, ISC), so nothing here touches
@@ -416,18 +416,15 @@ chains verify on all three architectures, and the milestone's own list is finish
   failure named itself in one run. `design/roadmap/496-a-dying-programs-last-words-reach-nobody.md`
   has the shapes a real fix could take, and `std_tests::drain_sink` now carries the warning where a
   reader meets it.
-- No signature verification is exercised at all. There is no ECDSA or RSA vector in the
-  program and `rustls-webpki` is never called, so certificate verification, which is the largest
-  remaining piece of a handshake, is proven only to *compile*. `rsa` and `p256` both build on all
-  three; that is all this note claims about them.
 - **A vector proves the answer, not the manner.** Nothing measures timing, so a portable fallback
   that is correct and not constant-time passes every line. On x86_64 the fallbacks are exactly what
   runs, and constant-time behavior is the property §46 says is bought by exposure and not by a
   specification. This is the gap most worth closing and this note does not close it.
-- No cost is measured. Milestone 442's block already says a handshake on a board with no
-  hardware crypto may be slow enough to matter and that no number exists. The soft-implementation
-  cfgs make that worse on the two architectures that did not need them, and there is still no
-  number.
+- A cost is measured only under emulation. Milestone 501 (a TLS client that speaks to one
+  pinned peer)'s block has handshake and transfer
+  times for all three architectures under QEMU's TCG, with these soft-implementation cfgs on:
+  a median handshake of 139 to 162 ms and 175 to 441 ms per 256 KiB. Nothing on radon or xenon
+  yet, and nothing separates what the cfgs cost aarch64 and riscv64.
 - `script/crate-probes` may be measuring the wrong toolchain. It builds its probes under
   `target/`, inside this repository, with `RUSTUP_TOOLCHAIN` alone. Milestone 442's lane measured
   that configuration compiling `std` from the unpatched sysroot, which fails in `sys/alloc`'s

@@ -1,6 +1,7 @@
 ---
-status: NOT-STARTED
+status: BUILT
 raised: 2026-09-19
+built: 2026-10-06
 promoted_from: a-tls-client-that-speaks-to-one-pinned-peer
 milestone_dependencies: none
 decision_dependencies: 198, 250
@@ -10,67 +11,103 @@ needs_person: no
 ---
 # 501. A TLS client that speaks to one pinned peer
 
-*(Number provisional until the merge queue lands it.)* Promoted from the
-proposal `a-tls-client-that-speaks-to-one-pinned-peer`, filed 2026-09-19, on calef's instruction of
-2026-09-20 to give every proposal on `main` a number. The text below is the proposal's own, unedited
-except for this paragraph: the argument is its author's and promotion is not the moment to improve
-it. Written by the lane for milestone 442 (a crypto provider `rustls` can use on all three bare-
-metal targets), which carried that block's clauses 1 and 2 and repriced this one out of it rather
-than leaving it unnamed.
+*(Number provisional until the merge queue lands it.)* Promoted from the proposal
+`a-tls-client-that-speaks-to-one-pinned-peer`, filed 2026-09-19 by the lane for milestone 442 (a
+crypto provider `rustls` can use on all three bare-metal targets), which built the provider and
+repriced the client out of its own clause 3. Built 2026-10-06 (UTC) by `lane/501-tls`.
 
-Corrected 2026-10-06: this said the provider was an architect's open call. It is decided.
-§198 (the glue is ours, the primitives are not) refused `rustls-rustcrypto`. calef ruled "Take rsa"
-on 2026-09-20, recorded in milestone 442 (a crypto provider `rustls` can use on all three
-bare-metal targets)'s block. The `unwritten` decision dependency this block carried is gone with it.
+## In brief
 
-## What 442 left standing, and what it did not
+The provider 442 assembled has now completed TLS 1.3 handshakes, on all three architectures, with
+a peer that is not ours (OpenSSL, through Python's `ssl`), trusting one pinned root and refusing
+everything else. Off the guest, the same client verified two real Let's Encrypt hosts against ISRG
+Root X1, the root §250 (an image names its distribution's package index) pins for
+`basalt.nifeos.org`.
 
-442 produced a provider that builds and runs on all three architectures and computes what the
-specifications say. It produced no handshake. `cryptography_exerciser` constructs the provider,
-asks what it can negotiate, and stops there, deliberately: there is no peer, no certificate and no
-socket in that program at all.
+| piece | where |
+|---|---|
+| The client: a `Session` made from a `PinnedPeer` (one DNS name, one root) and nothing else | `pinned_tls_client/` |
+| The production pin, ISRG Root X1, checked byte for byte against two sources | `pinned_tls_client/roots/` |
+| The peer: TLS 1.3 over stdin and stdout, certificate chosen by SNI | `helpers/tls-peer`, a `guestfwd` at 10.0.2.9:8443 in all four runners |
+| Test authorities, committed with the script that made them | `pinned_tls_client/fixtures/` |
+| The in-guest program and its test | `pinned_tls_exerciser/`, `system_tests/src/user/pinned_tls_tests.rs` |
+| A std program granted the network, a clock and entropy at once, which no test could start before | `std_service::start_networked` |
 
-Two things are missing before a client exists, and neither is small.
+No dependency is new, which corrects this lane's own brief. It asked for a survey of `rustls`,
+`embedded-tls` and the rest and an architect's ruling before taking any. That was ruled
+twice already: §196 (nife carries TLS: `rustls` for the protocol) took `rustls` over `embedded-tls`
+on 2026-09-19, and §198 (the glue is ours, the primitives are not) plus calef's "Take rsa" settled
+the provider. This milestone links those and `http_response` (milestone 198 (a package manager)'s
+rung 3a) and writes the pin, the session and the tests.
 
-**An HTTP client, which the tree does not have.** DECISIONS §196 (nife carries TLS: `rustls` for
-the protocol, and a crypto provider we make work) says so in its own `BUGS`: a `git grep` for an
-HTTP request line in `components/` and `crates/` finds none. `std::net`'s `TcpStream` is bound
-(milestones 27 and 64), so it can be an ordinary `std` program, which is the cheap half.
+## What the pin is, and how the client holds it
 
-Certificate verification, which nothing has exercised. `rustls-webpki` builds on all three
-(442's table) and 442 never called it. There is no ECDSA or RSA signature vector in that
-milestone's program, which its `BUGS` says plainly, so the largest remaining piece of a handshake
-is proven only to compile.
+§196's clause 4: one root for the one source, not a system store. The API makes that the only
+shape there is: there is no root store to add a second root to, no verifier to swap and no
+"accept anyway". The tests show it both ways on one port. A well-formed chain from another
+authority is refused as `UnknownIssuer`. A control test pins that authority instead and is
+admitted, so the refusal is about which root. A valid chain from the pinned authority, for another
+name, is refused as `NotValidForName`.
 
-## The shape §196 already chose
+The production pin is compiled into the program (`PinnedPeer::basalt_index`). That is §250's
+shape rather than a choice made here. An image names its index, so the root that index must chain
+to is part of the image and covered by its measurement. Granting the root at run time instead
+would let whoever holds the grant choose what the client trusts, and nothing in §196 or §250 asks
+for that.
 
-One root, or one pinned key, held as a capability, for the one repository this client talks to,
-rather than a system trust store. §196's clause 4 gives the reason and it is a circularity rather
-than a preference: a system-wide store has to be updated independently of the system, and the thing
-that updates it is the package manager.
+## What it costs
 
-Which root, answered 2026-10-06 by §250 (an image names its distribution's package index, and the
-bytes may live anywhere): ISRG Root X1 (Let's Encrypt), for the one peer that is basalt's package
-index at `basalt.nifeos.org`. Package bytes come from any host and are checked by digest, so this
-client pins nothing for them.
+Measured on patagonia, under QEMU's TCG, three runs per architecture (two legs each on x86_64),
+through `net_stack` over the `e1000e` to `helpers/tls-peer`. Each figure includes slirp and a
+Python peer started per connection, so it bounds the client from above rather than isolating it.
 
-## What it would prove, and what it would not
+| | TCP connect | handshake (median, range) | 256 KiB over TLS (median) |
+|---|---|---|---|
+| aarch64 | 44 to 70 ms | 162 ms (89 to 682) | 208 ms |
+| riscv64 | 64 to 94 ms | 139 ms (121 to 158) | 441 ms |
+| x86_64 | 63 to 98 ms | 141 ms (99 to 887) | 175 ms |
 
-It closes rung 3c of DECISIONS §157 (a trivial install is a web page, a USB drive, and packages
-over the internet): a package fetched by host name from a source somebody else operates. It does **not** buy integrity, which §195 (a recipe vouches,
-and the owner may overrule) already gives by digest over any transport; TLS here buys
-confidentiality and knowing which host answered.
+The outliers are each architecture's first run, cold. On the host, the same client took 128 ms
+and 156 ms to handshake with `letsencrypt.org` and `pages.github.com`, which is mostly the round
+trips. The suite's own test takes under five seconds per architecture. None of this says what
+radon or xenon will measure, where nothing is emulated and every cipher runs its portable path.
+
+## Follow-on
+
+- **Proposed.** `design/roadmap/proposals/the-tls-graph-enters-the-gated-build.md`. Today
+  `pinned_tls_exerciser` rides in the archive only when somebody ran
+  `helpers/build-pinned-tls-exerciser.sh`, and the test skips in CI, which is 442's posture.
+  Milestone 801 (packages over the internet) cannot ship a client no gate builds. Whether a gate
+  fetches these crates is an architect's call, put on this milestone's pull request with its costs.
+- **Milestone 595.** Milestone 801 also needs a `std` program to hold the network from the prompt.
+  Milestone 595 (the shell runs a `std` program)'s `BUGS` already carries why it cannot: the
+  progenitor does not mint the socket frames' budget. The rung 3a fetch lives in the progenitor,
+  which has no allocator, so it cannot link `rustls` where it is.
+- **Recorded.** Two facts §250's `BUGS` should carry, which a lane may not write there: ISRG Root
+  X1's expiry is now checked (2035-06-04, from the certificate), and the cross-signatures in this
+  block's `BUGS`. Both are in `design/roadmap/501-a-tls-client-that-speaks-to-one-pinned-peer.md`
+  until the maintainer carries them.
 
 ## BUGS
 
-- No rotation story. 442's block carries this and it does not get smaller here: when the one
-  pinned key rotates, every installed client is talking to a peer it no longer recognises.
-- No wall clock a stranger's machine can trust, so certificate expiry is unenforceable in the
-  ordinary way. 442's block names this too.
-- No cost is known. A handshake on a board with no hardware crypto may be slow enough to
-  matter, and 442 made it slower by forcing portable implementations on all three architectures.
+- The pin reaches today's chains only through cross-signatures that end on 2032-09-02.
+  Measured 2026-10-06: Let's Encrypt now issues from `Root YE` and `Root YR`. `letsencrypt.org`
+  served leaf, `YE2`, `Root YE`, then `ISRG Root X2` signed by X1. GitHub Pages served leaf, `YR1`,
+  then `Root YR` signed by X1. Both work with X1 pinned. Both cross-signatures expire 2032-09-02,
+  three years before X1 does, and a host that stops sending them breaks every image with no change
+  on our side. The rotation story this block always lacked now has a date.
+- No wall clock a stranger's machine can trust. Expiry is checked against the clock service's
+  time, so a clock far behind accepts an expired certificate; one far ahead fails closed.
+- Absent from CI, per the first follow-on. The host tests in `pinned_tls_client/` are not run by
+  any gate either, and the one that reaches the internet is `#[ignore]`d.
+- The test authorities' private keys are committed. They protect nothing, and
+  `fixtures/regenerate.sh` says why they must be readable.
+- TLS 1.3 only, no client certificate, one request per connection: the provider's and
+  `http_response`'s limits, taken whole.
 
 ## Index row
 
-442 produced a provider that builds and runs on all three architectures and computes what the
-specifications say.
+A TLS 1.3 client that trusts exactly one root for one host name, built over the provider of
+milestone 442. Proved on all three architectures against OpenSSL: the pinned peer answers, and
+another root or another name is refused. ISRG Root X1 verifies real Let's Encrypt hosts today,
+through cross-signatures that end on 2032-09-02.
