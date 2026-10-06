@@ -105,11 +105,13 @@ episode, deduplicated by a marker:
 | unarmed | ready, not armed, not queued, 30 minutes since it was last unarmed | since when, and any resolved `Blocked-by:` | armed, queued, or a draft again |
 | off-main | ready, not armed, on a base other than `main`, 30 minutes since it was last unarmed | the base, its pull request, the ways out | armed, merged, an open `Blocked-by:`, or a draft |
 | red | wearing `ci-failing` for 30 minutes | when that label went on, the head, whether armed | `ci-failing` comes off |
-| stale-draft | a draft whose head commit is 6 hours old by committer date | the date, the branch, the four ways out | a commit, an open `Blocked-by:`, or closed |
+| stale-draft | a draft whose head commit is 6 hours old by committer date | the date, the branch, the four ways out | a commit, an open `Blocked-by:`, `parked`, or closed |
 
 Every cause but `stale` needs a pull request from this repository, without `needs-architect` or
 `held-for-red-trunk`. All but `stale-draft` need it ready, and `ejected`, `conflict` and `unarmed`
-need it to be into `main`. A `merge_conflict` ejection names no group commit, so it
+need it to be into `main`. A draft labeled `parked` (provisional name, 2026-10-06) is
+exempt from `stale-draft` only: it is held on purpose for work outside the lane system, such as
+calef's GLM runs, and must carry a comment giving the reason. A `merge_conflict` ejection names no group commit, so it
 cannot say which head was ejected and is cleared by the conflict going instead. `manual` is not an
 ejection, because a person or `dequeue_held` meant it; if nobody follows up, it is `unarmed` 30
 minutes later. `unarmed` and `off-main` are not raised beside `ejected`, `conflict` or `red`, which

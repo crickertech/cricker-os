@@ -17,7 +17,9 @@
 #       `failed_checks` ejection, #1494's `merge_conflict`, #1530's manual dequeue, #1555's stale
 #       entry) with the numbers changed so each case stands alone. Cases 20 to 29 are the two
 #       causes added on 2026-10-04 (#1640 stacked and unlabelled; #1617 and #1653 red and unowned),
-#       built in the same shape. Cases 30 to 37 are `stale-draft` (#1644, 2026-10-05).
+#       built in the same shape. Cases 30 to 37 are `stale-draft` (#1644, 2026-10-05),
+#       and 38 and 39 its `parked` exemption (#1745, 2026-10-06), which leave out the
+#       label-event alias only `red` reads.
 #
 # The order of the checks is the order of the ruling: the causes, then clearing, then the
 # drain's own shape.
@@ -55,7 +57,7 @@ expect "the recorded 2026-10-03T23:54:15Z response decided wrong" \
 
 # 2. Every cause, and every clearing, at 22:00 UTC with a 30-minute grace. #11, #22 and #33 name
 #    an open blocker and #12 only resolved ones.
-want='["1:label:ejected","2:clear","3:clear","4:label:conflict,ejected","5:clear","6:label:unarmed","7:label:unarmed","9:label:unarmed","12:label:unarmed","14:label:conflict","16:clear","20:label:off-main","24:label:red","27:label:red","29:label:red","30:label:stale-draft","32:label:stale-draft","36:keep:stale-draft","1555:keep:stale","1556:clear"]'
+want='["1:label:ejected","2:clear","3:clear","4:label:conflict,ejected","5:clear","6:label:unarmed","7:label:unarmed","9:label:unarmed","12:label:unarmed","14:label:conflict","16:clear","20:label:off-main","24:label:red","27:label:red","29:label:red","30:label:stale-draft","32:label:stale-draft","36:keep:stale-draft","39:clear","1555:keep:stale","1556:clear"]'
 got="$(decide "$fx/every-cause.json" 2026-10-03T22:00:00Z '{"11": ["OPEN", "MERGED"], "12": ["MERGED"], "22": ["OPEN"], "33": ["OPEN"]}')"
 if [ "$got" != "$want" ]; then
 	echo "$me: the needs-maintainer decision is wrong." >&2
@@ -82,6 +84,7 @@ if [ "$got" != "$want" ]; then
   claim commit: stale-draft, not exempt. 33 an old draft Blocked-by an open pull request:
   nothing. 34 an old draft held needs-architect: nothing. 35 a fork's old draft: nothing. 36 an
   old draft already labelled: keep. 37 a ready, armed pull request with an old commit: nothing.
+  38 an old draft labeled parked: nothing. 39 the same, already labeled: clear.
 EOF
 	exit 1
 fi

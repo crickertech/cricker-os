@@ -45,7 +45,7 @@
 #             bot comment and every retarget bumps. #1644 had no commit after 2026-10-04 22:11 UTC
 #             once its lane's session ended, and every other cause skips a draft. A draft holding
 #             only its claim commit is not exempt: that is the clearest case of a lane that died.
-#             An open `Blocked-by:` holds it, as it holds `unarmed`.
+#             An open `Blocked-by:` holds it, as it holds `unarmed`, and so does `nm_parked_label`.
 #
 # `ejected`, `conflict` and `unarmed` apply only to what `eligible` admits (helpers/queue-eligible.jq,
 # spliced in front of this file); `off-main` and `red` to a ready pull request from this repository
@@ -94,6 +94,11 @@ def nm_red_label: "ci-failing";
 
 # How long a draft's head may sit without a commit before its lane is presumed gone.
 def nm_stale_draft_hours: 6;
+
+# A draft held on purpose for work outside the lane system, such as calef's GLM runs (#1745,
+# 2026-10-06). It exempts `stale-draft` only, and the pull request must carry a comment giving
+# the reason it is parked. The name is provisional.
+def nm_parked_label: "parked";
 
 def nm_ejected($queued):
   . as $pr
@@ -149,6 +154,7 @@ def nm_stale_draft($now; $blockers):
   | (.commits.nodes[-1].commit.committedDate // null) as $at
   | select(.isDraft == true and .isCrossRepository == false and $at != null)
   | nm_unheld
+  | select([.labels.nodes[].name] | index(nm_parked_label) == null)
   | select(($bs | index("OPEN")) == null)
   | select(($at | nm_ts) <= $now - nm_stale_draft_hours * 3600)
   | { cause: "stale-draft", key: $at, since: $at, head: $pr.headRefOid, branch: $pr.headRefName, blockers: $bs };

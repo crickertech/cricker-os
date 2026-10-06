@@ -474,9 +474,10 @@ A lane that ended its turn \`WAITING\` is not running and will not see this. The
 - resume or adopt the lane that pushed \`$branch\`
 - mark it ready if the work is done: \`gh pr ready $1\`
 - if it is waiting on purpose, say so with a \`Blocked-by:\` line naming what it waits on
+- if it is held for work outside the lane system (calef's GLM runs, for one), label it \`parked\` and comment why
 - close it, after recording anything it knows in \`notes/\` (CLAUDE.md: an unmerged branch is not the record)
 
-A new commit, a \`Blocked-by:\` on an open pull request, or closing it takes the label off."
+A new commit, a \`Blocked-by:\` on an open pull request, \`parked\`, or closing it takes the label off."
 		;;
 	stale)
 		state=$(printf '%s' "$c" | jq -r '.state')
