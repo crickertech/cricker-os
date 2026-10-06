@@ -85,10 +85,8 @@ pub fn exit(code: u32) -> ! {
 // ---- Board exit: UART marker + SBI SRST shutdown ----
 
 /// The SBI SRST extension id, "SRST" in ASCII.
-#[cfg(any(feature = "board", feature = "reboot_soak_test"))]
 const SBI_SRST_EID: usize = 0x5352_5354;
 /// The SBI SRST `system_reset` function id.
-#[cfg(any(feature = "board", feature = "reboot_soak_test"))]
 const SBI_SYSTEM_RESET_FID: usize = 0;
 /// SRST reset type: shutdown (power off the board).
 #[cfg(feature = "board")]
@@ -104,10 +102,8 @@ const SRST_RESET_TYPE_SHUTDOWN: usize = 0;
 /// the firmware's own error code so the answer is read off a console rather than assumed. See
 /// notes/soak.md, "Verifying the reset before anything is left unattended". (Asked 2026-09-04: it
 /// accepts, and radon's U-Boot SPL then cannot reach the PMIC; milestone 249 (the boot lottery is sampled by a person walking to the board)'s block has it.)
-#[cfg(feature = "reboot_soak_test")]
 const SRST_RESET_TYPE_COLD_REBOOT: usize = 1;
 /// SRST reset reason: none (no additional reason specified).
-#[cfg(any(feature = "board", feature = "reboot_soak_test"))]
 const SRST_RESET_REASON_NONE: usize = 0;
 
 /// Call SBI SRST `system_reset` with `reset_type`. An `ecall` from S-mode traps to OpenSBI in
@@ -120,7 +116,6 @@ const SRST_RESET_REASON_NONE: usize = 0;
 ///
 /// `a1` is written by the call as `sbiret.value` and discarded; [`super::sbi::call`] declares it as
 /// an output for every call, so no call site can get that operand wrong any more.
-#[cfg(any(feature = "board", feature = "reboot_soak_test"))]
 fn sbi_system_reset(reset_type: usize) -> isize {
     let args = [reset_type, SRST_RESET_REASON_NONE, 0, 0, 0, 0];
     // SAFETY: SRST system_reset with (reset type, reason none). It resets or shuts the machine down,
@@ -131,9 +126,10 @@ fn sbi_system_reset(reset_type: usize) -> isize {
 /// **Ask the firmware for a cold reboot** (milestone 249), and return only if it refuses.
 ///
 /// This is one constant away from the shutdown the board exit already performs, and the whole of
-/// what makes a soak able to draw the boot lottery more than once an evening. The caller is
-/// `soak::watch`, behind `--features reboot_soak_test`, and it is reached only after the escape in
-/// `console::is_byte_waiting` has been checked twice.
+/// what makes a soak able to draw the boot lottery more than once an evening. Two callers: the
+/// rebooting soak (`soak::watch`, behind `--features reboot_soak_test`, reached only after the
+/// escape in `console::is_byte_waiting` has been checked twice), and since milestone 805 (`reboot`
+/// at the prompt) the reboot object's method, `kernel::reboot::restart`, in every build.
 ///
 /// **The arch contract is `arch::reboot(marker)` on all three architectures** (milestone 249's
 /// parity half, 2026-09-24): print one line per attempt, prefixed with `marker`, *before* making it,
@@ -148,7 +144,6 @@ fn sbi_system_reset(reset_type: usize) -> isize {
 ///
 /// Name: provisional (milestone 249 (the boot lottery is sampled by a person walking to the
 /// board)): calef names public items.
-#[cfg(feature = "reboot_soak_test")]
 pub fn reboot(marker: &str) {
     crate::println!(
         "{marker} attempt 1 of 1: SBI SRST system_reset, reset type 1 (cold reboot). The next thing \

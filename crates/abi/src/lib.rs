@@ -618,6 +618,28 @@ pub mod objtype {
     pub const TIMER: u64 = 5;
 }
 
+/// Methods on the **reboot object** (milestone 805 (`reboot` at the prompt), DECISIONS §251
+/// (restarting the machine is a kernel object the progenitor hands out)).
+///
+/// The kernel mints exactly one at boot and grants it to the progenitor, which endows it only to a
+/// program whose manifest declares `reboot`. Nothing retypes one, so it has no [`objtype`] number.
+/// Holding it is the whole authority: no rights bit is asked for.
+///
+/// *(Provisional, with its method number: the object, the module and `REBOOT` are calef's to name.)*
+pub mod reboot {
+    /// `invoke(cap, REBOOT, _, _, _)`. **On success it does not return**: the kernel asks the
+    /// firmware for a cold reset (PSCI `SYSTEM_RESET` on aarch64, SBI SRST type 1 on riscv64, and on
+    /// `x86_64` the FADT reset register, then port `0xCF9`, then the 8042). When every route was
+    /// refused it returns [`crate::Error::DeviceRefused`], and the firmware's own answer is on the
+    /// kernel console just before.
+    ///
+    /// **It syncs nothing.** A caller with a writable filesystem sends
+    /// `filesystem_protocol::fs::SYNC` and waits for the reply first, or loses what the device had
+    /// not flushed. A firmware that accepts the call and hangs looks the same as a slow reset from
+    /// inside the machine.
+    pub const REBOOT: u64 = 0;
+}
+
 /// Methods on a `Notification` capability (milestone 151, DECISIONS §101): **a doorbell, not a
 /// meeting.** Created by [`memory_region::RETYPE_OBJ`] with [`objtype::NOTIFICATION`].
 ///

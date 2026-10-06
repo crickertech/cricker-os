@@ -424,6 +424,12 @@ pub fn invoke(
         // neither method is a step of the IPC round trip the fastpath footprint bounds.
         Object::Timer(id) => timer_invoke(cap.rights, id, method, a0, a1, a2),
 
+        // The reboot object (milestone 805 (`reboot` at the prompt), DECISIONS §251 (restarting the
+        // machine is a kernel object the progenitor hands out)). Out of line for the timer arm's
+        // reason, and colder than any of them: a successful call never returns. Holding the
+        // capability is the whole authority, so no rights bit is asked for (§251, "The method").
+        Object::Reboot => reboot_invoke(method),
+
         Object::MemoryRegion(region) => match method {
             // Body extracted (milestone 156): all five `MemoryRegion` methods are memory-management
             // administration a spawner runs while building a process, never a step of the IPC
@@ -634,6 +640,16 @@ fn notification_invoke(
             sched::notification_bind(id, tid)?;
             Ok(0)
         }
+        _ => Err(Error::BadMethod),
+    }
+}
+
+/// `Reboot::REBOOT` (milestone 805, DECISIONS §251): restart the machine, or answer
+/// `DeviceRefused` when every route this architecture has was refused. See kernel/src/reboot.rs.
+#[inline(never)]
+fn reboot_invoke(method: u64) -> Result<i64, Error> {
+    match method {
+        abi::reboot::REBOOT => Err(crate::reboot::restart()),
         _ => Err(Error::BadMethod),
     }
 }

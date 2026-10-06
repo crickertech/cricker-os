@@ -738,6 +738,28 @@ pub fn enter_panic() {
     });
 }
 
+/// **A reset's escape from the ring** (milestone 805 (`reboot` at the prompt)): [`enter_panic`]'s
+/// move for the same reason. A reset stops the machine as surely as a panic does, so a line left in
+/// the ring for the drainer is a line nobody reads, and the reset's own lines are the only record
+/// of which route was tried. Everything the drainer had not printed goes out first, then every
+/// later line is direct. Unlike a panic it takes the lock the ordinary way: the caller is a
+/// syscall, which holds nothing.
+///
+/// # BUGS
+///
+/// - **One way.** A firmware that refuses leaves the kernel printing direct for the rest of the
+///   boot, beside the console server's own output, as the detached control does. Handing the ring
+///   back would need the drainer's cursor moved past what was caught up here, and a machine whose
+///   firmware refused a reset has a bigger problem than a spliced line.
+pub fn enter_reset() {
+    let mut guard = CONSOLE.lock();
+    let con = &mut *guard;
+    let (line, mut wire) = con.split();
+    crate::kernel_log::enter_panic(line, |s| {
+        let _ = CountedWrites(&mut wire).write_str(s);
+    });
+}
+
 /// **Bytes handed to the console transmitter since boot** (first-silicon diagnostics, 2026-08-15).
 ///
 /// Counted after each `write_str` completes, so a count here means the driver's bounded world has

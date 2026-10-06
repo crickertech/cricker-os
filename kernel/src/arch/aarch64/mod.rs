@@ -193,22 +193,21 @@ pub fn cpu_start(target_mpidr: u64, entry: u64, context: u64) -> i64 {
 
 /// PSCI `PSCI_VERSION`, the SMC32 id every PSCI 0.2 and later implementation answers. Asked before
 /// the reset so the console says which PSCI refused, if one does.
-#[cfg(feature = "reboot_soak_test")]
 const PSCI_VERSION: u64 = 0x8400_0000;
 /// PSCI `SYSTEM_RESET` (PSCI 0.2, section 5.11 of ARM DEN 0022): a **cold** reset of the whole
 /// system, which "does not return" on success. SMC32, so the same id on every implementation; PSCI
 /// 0.1 had no system functions at all, so a 0.1 firmware answers `NOT_SUPPORTED` (-1).
-#[cfg(feature = "reboot_soak_test")]
 const PSCI_SYSTEM_RESET: u64 = 0x8400_0009;
 
 /// **Ask the firmware for a cold reboot through PSCI `SYSTEM_RESET`**, and return only if it
 /// refuses (milestone 249 (the boot lottery is sampled by a person walking to the board)'s aarch64 half).
 ///
-/// The arch contract `soak::draw_again` calls on all three architectures: print one line per
-/// attempt, prefixed with `marker`, *before* making it (a reset stops the UART draining), and return
-/// only when every route was refused. aarch64 has one route, because PSCI is the firmware interface
-/// that owns the machine's power here: the same `/psci` node [`cpu_start`] reads names the conduit,
-/// so this cannot be on the wrong one of `hvc` and `smc` unless `CPU_ON` is too.
+/// The arch contract `soak::draw_again` and, since milestone 805 (`reboot` at the prompt),
+/// `kernel::reboot::restart` call on all three architectures: print one line per attempt, prefixed
+/// with `marker`, *before* making it (a reset stops the UART draining), and return only when every
+/// route was refused. aarch64 has one route, because PSCI is the firmware interface that owns the
+/// machine's power here: the same `/psci` node [`cpu_start`] reads names the conduit, so this
+/// cannot be on the wrong one of `hvc` and `smc` unless `CPU_ON` is too.
 ///
 /// **Only the conduit is required, not a `CPU_ON` id.** A uniprocessor board may publish `/psci`
 /// with a method and no `cpu_on`; it can still reset. A board with no `/psci` at all is refused
@@ -224,7 +223,6 @@ const PSCI_SYSTEM_RESET: u64 = 0x8400_0009;
 ///   from a device tree only, so there is nothing to read that from yet.
 ///
 /// Name: provisional (milestone 249): calef names public items.
-#[cfg(feature = "reboot_soak_test")]
 pub fn reboot(marker: &str) {
     use ::machine_discovery::aarch64::Conduit;
 

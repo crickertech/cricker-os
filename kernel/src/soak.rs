@@ -616,7 +616,7 @@ fn draw_again(elapsed: u64) {
     // Every attempt prints its own line before it is made, because a reset stops the UART
     // draining and anything after the call may never reach the wire. `arch::reboot` returns only
     // when every route this architecture has was refused, each refusal already on the console.
-    prepare_the_reset_route();
+    crate::reboot::prepare_the_reset_route(REBOOT_MARKER);
     println!("{REBOOT_MARKER} rebooting now ({REBOOT_ROUTE}).");
     arch::reboot(REBOOT_MARKER);
     println!(
@@ -624,104 +624,6 @@ fn draw_again(elapsed: u64) {
          unattended series is not available on this machine by this route. The soak keeps running; \
          nothing has been damaged and no further reset is attempted."
     );
-}
-
-/// **Put back what the firmware's reset needs and U-Boot took away** (milestone 592 (radon's cold reboot dies in OpenSBI's PMIC write),
-/// provisional).
-///
-/// On a JH7110 board, OpenSBI performs SBI SRST as an I2C write to the AXP15060 PMIC on I2C5, and
-/// radon's U-Boot removes its I2C driver at `Starting kernel`, which gates the bus's clock and
-/// asserts its reset. Radon's OpenSBI re-enables a clock, but it computes which one from the bus
-/// node's name and U-Boot's tree names it `i2c@12050000`, so it ungates UART4's core clock
-/// instead; and it never releases a reset. So the kernel ungates and releases I2C5 itself, from
-/// the plan `memory::init` read out of the device tree, and prints every word it saw.
-///
-/// A no-op with no output on every machine that is not a JH7110 (`memory::jh7110_pmic_bus` is
-/// `None` there), which is every machine CI boots. It is the rebooting soak's only caller because
-/// the rebooting soak is the only SBI reset nife makes on purpose; the board test exit's shutdown
-/// takes the same road and is recorded as a `BUGS` entry in the milestone rather than changed here.
-#[cfg(feature = "reboot_soak_test")]
-fn prepare_the_reset_route() {
-    #[cfg(target_arch = "riscv64")]
-    if let Some((sys, bus)) = crate::memory::jh7110_pmic_bus() {
-        use jh7110_clock_and_reset::Step;
-        println!(
-            "{REBOOT_MARKER} JH7110: bringing the PMIC's I2C bus back up first, because OpenSBI \
-             resets this board with an I2C write to the AXP15060 (milestone 592). SYS CRG at \
-             {:#x} ({}); plan {} ({} specifier(s) skipped{}).",
-            sys.base,
-            if sys.from_tree {
-                "named by this machine's device tree"
-            } else {
-                "NOT named by this machine's tree: the constant mainline and the vendor agree on"
-            },
-            if bus.from_tree {
-                "from the tree's own clocks and resets of the PMIC's bus"
-            } else {
-                "is the constant I2C5 plan (clock 143, reset 81), NOT read from this tree"
-            },
-            bus.skipped,
-            if bus.truncated { ", TRUNCATED" } else { "" },
-        );
-        // SAFETY: `memory::init` recorded this window only for a machine whose tree names a
-        // JH7110, and `mmu::map_everything` mapped exactly it, device-typed, in the direct map.
-        // The plan's identifiers were bounded by `SYS` when it was built, and `bring_up` bounds
-        // them again.
-        let report = unsafe {
-            crate::drivers::jh7110_clock_and_reset::bring_up(
-                crate::arch::mmu::phys_to_virt(sys.base) as usize,
-                &jh7110_clock_and_reset::SYS,
-                bus.plan(),
-            )
-        };
-        let clocks = bus.plan().iter().filter_map(|s| match s {
-            Step::EnableClock(i) => Some(*i),
-            Step::DeassertReset(_) | Step::SelectParent { .. } => None,
-        });
-        for (n, index) in clocks.enumerate().take(report.clocks) {
-            println!(
-                "{REBOOT_MARKER} JH7110: clock {index} {:#010x} -> {:#010x} ({})",
-                report.clock_before[n],
-                report.clock_after[n],
-                if jh7110_clock_and_reset::is_clock_enabled(report.clock_after[n]) {
-                    "running"
-                } else {
-                    "NOT running: the enable bit did not read back"
-                },
-            );
-        }
-        let reset = bus.plan().iter().rev().find_map(|s| match s {
-            Step::DeassertReset(id) => Some(*id),
-            Step::EnableClock(_) | Step::SelectParent { .. } => None,
-        });
-        if let Some(id) = reset {
-            println!(
-                "{REBOOT_MARKER} JH7110: reset {id} assert {:#010x} -> {:#010x}, status {:#010x} \
-                 ({}, {} polls){}",
-                report.reset_assert_before,
-                report.reset_assert_after,
-                report.reset_status_after,
-                if report.released {
-                    "released"
-                } else {
-                    "STILL HELD"
-                },
-                report.polls,
-                if report.was_already_up() {
-                    "; the bus was already up, so U-Boot's handover is NOT why the reset hangs"
-                } else {
-                    ""
-                },
-            );
-        }
-        if report.rejected > 0 {
-            println!(
-                "{REBOOT_MARKER} JH7110: {} step(s) REJECTED by the SYS domain's bounds: the plan \
-                 and the domain disagree, which is a bug in this kernel, not the board",
-                report.rejected
-            );
-        }
-    }
 }
 
 /// **The prefix every line about the watchdog carries** (milestone 593, provisional number). One
