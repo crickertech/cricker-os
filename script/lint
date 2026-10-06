@@ -2272,8 +2272,18 @@ if _text_count['falsified'] != int(_falsifications[1]):
           f'notes/project-metrics.md is not the one script/falsifications reports. See milestone 236.',
           file=sys.stderr)
     sys.exit(1)
+# The fourth state (§134, amended 2026-10-06) is held to the same agreement, because it is a series
+# on the same chart: a disagreement here would draw `unfalsifiable` from one definition and the
+# ratio `script/falsifications` prints from another.
+if _text_count['unfalsifiable'] != int(_falsifications[2]):
+    print(f'lint: script/falsifications counts {_falsifications[2]} unfalsifiable harnesses and '
+          f'helpers/rust_source.py counts {_text_count["unfalsifiable"]}, so the harnesses chart on '
+          f'notes/project-metrics.md is not the one script/falsifications reports. See milestone '
+          f'236 (three derivations are copied between scripts, and nothing notices when they drift).',
+          file=sys.stderr)
+    sys.exit(1)
 print(f'harness count: {_pkg_count} by three derivations that agree, '
-      f'{_text_count["falsified"]} of them falsified')
+      f'{_text_count["falsified"]} of them falsified, {_text_count["unfalsifiable"]} unfalsifiable')
 PYEOF
 
 # The naming conventions, for the ones a machine can check (milestone 46, DECISIONS §39). The rest of

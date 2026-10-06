@@ -58,7 +58,7 @@ fn from_bits_cannot_forge_a_right() {
 }
 ```
 
-Three states, and the unknown one is first-class, for exactly the reason `script/names` insists
+Four states, and the unknown one is first-class, for exactly the reason `script/names` insists
 `unrecorded` stays one: inventing evidence to fill a row puts a false claim in the record whose only
 job is saying what is known.
 
@@ -66,6 +66,7 @@ job is saying what is known.
 |---|---|---|
 | `replayable <path>` | a patch exists that turns this harness red (backtick the path in a `///` comment; `clippy::doc_markdown` rejects a bare one) | applies it, runs that one harness, **requires red**, reverts |
 | `attested <date>` | a person broke the code and watched it fail; nothing can re-check it | counts it, and it is a worklist entry |
+| `unfalsifiable <why>` | examined; no defect in the code turns it red | counts it apart; reason required |
 | `unfalsified` | nobody has | counts it, and this is the claim's honest denominator |
 
 A patch lives at `<package>/falsifications/<module.path>.<harness_fn_name>.patch`
@@ -628,10 +629,9 @@ building agrees with, which is why a proof and not a test is what catches it.
   the three recorded above as "not findings" are exactly that claim made honestly rather than a
   clean bill of health.
 
-- Nothing forces the ratio upward. 35 of 145 today. Every remaining harness may sit at
-  `unfalsified` for ever while `script/lint` stays green. That is the honest cost of making the
-  convention shippable against an existing tree at all, and it is why the number that matters is the
-  ratio the reporter prints rather than the gate's exit code.
+- Nothing forces the ratio upward. A harness may sit at `unfalsified` for ever with `script/lint`
+  green; the backlog reached zero on 2026-10-06 by work, not by gate. The ratio the reporter prints
+  is the number that matters.
 - **A recorded falsification proves the harness catches *that* defect, not the class.** It is a
   floor, and a low one. `derive_never_widens_rights` above is the worked example of exactly this: it
   now carries a green record and a documented blind spot at the same time, both true.

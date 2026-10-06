@@ -637,7 +637,8 @@ mod verification {
     /// addresses, exactly the time-of-check/time-of-use move real async-DMA hardware would allow. The
     /// device reads the shadow, which is unchanged and still confined: the mutation touched only the
     /// driver's copy, which nothing reads.
-    /// Falsification: unfalsified. Milestone 202 looked for a defect in this crate that would
+    /// Falsification: unfalsifiable. Milestone 202 (every confinement test is a ritual until
+    /// somebody breaks the confinement) looked for a defect in this crate that would
     /// turn this harness red on the property it names, and did not find one: the time-of-check /
     /// time-of-use claim holds because the driver's table and the shadow are two disjoint arrays in
     /// `ChainMem`, and no line of `direct_memory_access_validator` can make them the same array.

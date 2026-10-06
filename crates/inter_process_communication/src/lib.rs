@@ -538,7 +538,7 @@ mod verification {
         assert!(e.one_queue_invariant());
     }
 
-    /// Falsification: unfalsified. No minimal defect in `signal` can turn this harness red, and
+    /// Falsification: unfalsifiable. No minimal defect in `signal` can turn this harness red, and
     /// that is a fact about the operation rather than a gap in the effort. The invariant is "at
     /// most one queue is non-empty", and `signal` takes no node: its two branches pop a receiver
     /// (which can only empty a queue) and increment a counter. Nothing it can be mistakenly
