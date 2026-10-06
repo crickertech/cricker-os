@@ -1,7 +1,7 @@
 ---
 status: PARTIAL
 raised: 2026-09-27
-milestone_dependencies: 198, 47
+milestone_dependencies: 47
 decision_dependencies: 208, 219, 229, 241
 machine_requirements: none
 specific_machine: none
@@ -156,8 +156,12 @@ the reasoning is kept to one line each so a reader can check the rule against it
 
 ## Dependencies
 
-- Milestone 198 (a package manager, and the trivial install), PARTIAL: install, remove, rollback
-  and the activation set this changes.
+- Milestone 198 (a package manager, and the trivial install): rung 3a only, install, remove,
+  rollback and the activation set this changes. Rung 3a is built (2026-10-05; the evidence is
+  notes/packages.md and the install, remove and rollback gates on all three architectures). 198 is
+  PARTIAL as the umbrella over 801 and 802, which this does not need. The frontmatter dropped it
+  on 2026-10-06 (UTC) under calef's rule in notes/roadmap.md: depend on part of a milestone, and
+  you split it.
 - Milestone 47 (navigation and naming), pull request #1374: the bare-name resolution and install
   refusals this must keep.
 - The proposal
