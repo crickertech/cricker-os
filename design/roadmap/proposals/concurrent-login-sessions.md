@@ -12,15 +12,15 @@ needs_person: no
 calef asked for this on 2026-10-06 (UTC), in a maintainer session, and later the same day added why:
 *"it seems like we have programs that not every user on a multiuser system should be able to run.
 which means we're possibly looking at some sort of sudo escalation mechanism."* A writing-only lane
-wrote it and built nothing. calef ruled forks 1 to 3 the same day, on #1769, and sent fork 4 back;
-the rework is below. Forks 5 and 6 are open.
+wrote it and built nothing. calef ruled forks 1 to 3 on #1769 the same day, sent fork 4 back
+(reworked below) and amended §221. Forks 5 and 6 are open.
 
-Every name here is provisional: `greeter`, `console_multiplexer`, `grant_broker`, the policy files
-and the gate. They are an architect's call.
+Every name here is provisional: `greeter`, `console_multiplexer`, `grant_broker`, `memory_broker`,
+the policy files and the gate.
 
 This is the revisit of milestone 481 (real terminal multiplexing), which milestone 49 (users, login, and attribution) refused with
-one condition: "somebody needing two sessions at once." calef's request meets it. If promoted, 481
-should point here rather than be reopened as a second record.
+one condition: "somebody needing two sessions at once." calef's request meets it, so 481
+should point here when this is promoted.
 
 ## Why, and its honest rank
 
@@ -33,9 +33,6 @@ Against the fatal risks: no verdict moves. User against user is a confinement bo
 `notes/confinement-claims.md`, so this enlarges risk 7 (the confinement claim is false) rather than
 greening it.
 
-Its claim on a lane is calef's ask, and the escalation question, which bears on every privileged
-program the tree adds (`reboot`, `vouch`).
-
 ## What the tree has, read on 2026-10-06 (UTC)
 
 No person can log in on a real boot today. `crates/system_initializer` builds `login`, then deletes
@@ -47,9 +44,8 @@ BUGS says why: every activation verb (`install`,
 `remove`, `rollback`, `vouch`) is open to whoever holds the spawn endpoint. "A session given a spawn
 endpoint would be the owner too."
 
-`login` blames its stuck-terminal bug on having "no wait-any primitive." Notification objects
-(§101 (notification objects: async multiplexing without wait-any)) have since landed as
-`abi::objtype::NOTIFICATION`, so that reason is stale.
+`login` blames its stuck-terminal bug on "no wait-any primitive", but notification objects (§101
+(notification objects: async multiplexing without wait-any)) have since landed.
 
 **Reuse:** `login`, the credential service, `fs_subtree_caretaker`, the system log and the spawn
 presentation are the tree's. The greeter and multiplexer are new glue over them;
@@ -107,8 +103,7 @@ D keeps that. The broker re-authenticates through `login`'s credential path, che
 policy, and spawns one command with the extra endowment, which dies with the job. Revocation is
 tearing down the job, and §108 (disabling a user's login credentials kills their durable session)
 extends to it. Every grant is one audit record. This is polkit's shape without its root daemon.
-From memory: Fuchsia and Genode route capabilities statically by manifest with no runtime escalation,
-and seL4 leaves policy to the system above it. §123 (boot-time re-derivation privilege) is the
+From memory: Fuchsia and Genode have no runtime escalation, and seL4 leaves policy above it. §123 (boot-time re-derivation privilege) is the
 tree's precedent for an authority that dies after one use.
 
 ### 3. Where sessions come from first
@@ -123,31 +118,23 @@ have switched away from keeps running, and its output is held for when you come 
 this needs milestone 242 (USB host and HID) for a keyboard that is not a UART; QEMU proves it first,
 over the serial line, by the escape sequence a terminal sends for Alt+F*n*.
 
-| option | what it is | works under QEMU on all three today? | verdict |
-|---|---|---|---|
-| A | Several virtual terminals on the boot console: a `console_multiplexer` switches the one line between terminals on Alt+F*n* | yes | ruled |
-| B | A second serial line | no: `virt` gives aarch64 and riscv64 one UART each | refused |
-| C | The compositor's windows | no: no x86_64 graphical leg (milestone 270 (the x86_64 test runner's gpu)), and calef ruled graphics stay unused at boot (milestone 632 (graphics on demand)) | refused for now |
-| D | A network login | not safely: no TLS server, and milestone 649 (every client of a network stack shares its socket numbers) so sessions could reach each other's sockets | follow-on (fork 6) |
-
-A puts two sessions on one machine, not two people: whoever holds the serial line holds every
-terminal on it. Two people arrive with fork 6. A wins because the session object is the same
-whatever the source, and A is the only source a gate can drive on three architectures. That is a
-parity argument, not an effort one.
+Refused: a second serial line, since `virt` gives aarch64 and riscv64 one UART each. Refused for
+now: the compositor's windows. x86_64 has no graphical leg (milestone 270 (the x86_64 test runner's
+gpu)), and calef keeps graphics off at boot (milestone 632 (graphics on demand)). A network login is fork 6, after
+milestone 649 (every client of a network stack shares its socket numbers).
 
 The risk in A is x86_64, whose console is kernel-resident (§121 (x86 port I/O)). The multiplexer
 has to sit above whatever endpoint the shell reads there. Nobody has checked that it can, so it is
 the first slice's first step, before anything is built on it.
 
-### 4. Memory, CPU, and the owner's console
+### 4. Memory, CPU, and the owner
 
-Sent back on 2026-10-06 (UTC). The first draft gave each session a fixed budget, and calef refused
-it: "that likely means we're just limiting a single session to how much memory can be used since
+calef refused the first draft's fixed per-session budget: "that likely means we're just limiting a single session to how much memory can be used since
 most of the time there will be a single session." He approved a new direction: memory on demand from
 a shared pool through a broker; a small reserve so the owner can always get a prompt and revoke a
 runaway; an optional per-identity cap the owner sets, default none.
 
-What the kernel allows today, read in `crates/abi` and `kernel/src/memory_region.rs`:
+What the kernel allows, read in `crates/abi` and `kernel/src/memory_region.rs`:
 
 - A region cannot grow. `memory_region` has `MAP`, `RETYPE`, `RETYPE_OBJ`, `SPLIT`, `DESTROY` and
   `USAGE`, and nothing that enlarges a region or shrinks one after `SPLIT`.
@@ -177,23 +164,34 @@ to few of the 256 region slots. Interleaved growth fragments the pool, so pages 
 the gate measures how late. The broker's request and reply are a wire format, the expensive part
 of D.
 
-The per-identity cap is an owner-written file at the file-service root, one line per identity, absent
-meaning no cap. It is fork 2's list pattern again, read by the broker.
+The per-identity cap is an owner-written file at the root, fork 2's list pattern; no file, no cap.
 
-The reserve, measured from the constants. The owner's prompt is already outside any pool a session
+The reserve, measured from the constants. The owner's memory is already outside any pool a session
 could draw from. The progenitor carves the boot shell's budget (`SHELL_BUDGET_PAGES`, 1,152 pages)
 and the job pool (`JOBS_BUDGET_PAGES`, 672) at boot: 1,824 pages, 7.1 MiB, never `login`'s.
-`JOB_REGION_PAGES` (48) was bisected on x86_64 in `script/swish-check`, so one job at the owner's
-prompt is known to fit. A revoke allocates nothing: `DESTROY` returns pages, and §16's kill-then-retry
+`JOB_REGION_PAGES` (48) was bisected on x86_64 in `script/swish-check`, so one owner job is known to fit. A revoke allocates nothing: `DESTROY` returns pages, and §16's kill-then-retry
 handles a session still running. So the reserve needs no new pages. It needs the broker to be handed
-only what is left after the boot's carve, and the owner's prompt to hold a revoke capability on the
-broker. The gate proves it: a session draws until refused, and the owner's prompt still runs `revoke`.
+only what is left after the boot's carve, and the owner's session to hold a revoke capability on the
+broker. Under the §221 amendment below, that reserve attaches to the owner's greeter and to the
+recovery shell, the two places an owner's shell can now come from.
 
 CPU stays unisolated, with the delay measured (exit criterion 9).
 
-The owner's console: unchanged pending calef's separate answer on §221 (the boot prompt is the
-owner's console). This draft keeps console 1 as the owner's, with no login, and no remote session
-ever reaches it.
+The owner, after calef amended §221 (the boot prompt is the owner's console) on 2026-10-06 (UTC).
+lane/221-amendment records the amendment; this proposal follows it:
+
+- No console is an unauthenticated owner shell. Console 1 shows a greeter like every other. The
+  owner is an identity holding owner authority through fork 2's lists: the file-service root, and a
+  spawn endpoint whose activation verbs are open.
+- The one unauthenticated owner shell is a recovery boot, chosen on purpose. Today's boot shell is
+  that shell already, so recovery costs a boot switch, not a program.
+- The owner sets a password before any shell exists. `system_installer` asks at install. Otherwise
+  any boot whose credential store holds no owner asks. That is state, not a first-boot flag.
+- An unreadable credential store refuses to log anyone in and names the recovery boot.
+
+The cost lands on every automated boot. `script/swish-check`, the boot checks, the QEMU suites and
+the radon and xenon bench scripts type at a prompt that becomes a greeter. Test images need an owner
+credential preset at build time, which must never reach a release image.
 
 ### 5. Attribution and audit with two people at once
 
@@ -216,8 +214,7 @@ dies at reboot: a `BUGS` line, not a blocker.
 |---|---|---|
 | A | An SSH server, reused: `sunset`, a `no_std` Rust SSH library by dropbear's author (from memory, not built here) | recommended, follow-on |
 | B | An SSH server written here | refused: rule 6 says reuse first, and this is security protocol code |
-| C | A nife protocol over TLS (`rustls` server, §196 (nife carries TLS); milestone 501 (a TLS client) is a client only) | refused |
-| D | Plaintext over TCP | gate fixture only, loopback through QEMU's port forward |
+| C | A nife protocol over TLS (§196 (nife carries TLS); milestone 501 (a TLS client) is a client only) | refused |
 
 A's case is the stranger, whose every machine has an SSH client; C needs a nife client first. A is
 a dependency ruling (§46 (thin primitives or whole subsystems)). The lane checks that `sunset` builds
@@ -231,13 +228,16 @@ One milestone, shippable alone: two identities' sessions, concurrent and isolate
 
 0. Check that a multiplexer can sit above x86_64's kernel-resident console. If not, stop and report.
 1. `greeter`, one per terminal, as fork 1 A.
-2. `console_multiplexer` on the boot console, Alt+F*n* switching. Console 1 is the owner's prompt.
+2. `console_multiplexer` on the boot console, Alt+F*n* switching, a greeter on every console.
 3. `login` loses the terminal and `terminal_held`, and `LOGOUT` moves to the session's private
    channel.
 4. A session gets a spawn endpoint that serves plain programs and refuses every activation verb and
    every owner-only endowment, unless the session presents the matching capability (fork 2 B).
 5. `login`'s audit records reach the system log.
 6. `memory_broker`, with the owner's revoke and the per-identity cap file.
+7. The §221 amendment: owner authority by identity, the owner-password prompt, the store refusal,
+   a recovery boot, and a build-time owner credential for test images. Every gate and bench script
+   that types at today's prompt logs in first.
 
 ### Exit criteria a stranger could check
 
@@ -252,23 +252,26 @@ Under QEMU on aarch64 (`virt`), riscv64 (`virt`) and x86_64 (`q35`), one `cargo 
 3. Terminals are isolated. No byte `corinne`'s session writes appears anywhere in console 2's
    transcript.
 4. Memory. `chris`, alone, starts jobs until the broker refuses, holding more than half the pool.
-   `corinne`'s program is then refused by name. After the owner's `revoke chris` at console 1, the
+   `corinne`'s program is then refused by name. After the owner, logged in on console 1, runs `revoke chris`, the
    broker's free count rises and `corinne`'s program runs.
-5. The owner's authority stays the owner's. `vouch` from either session is refused with a named code.
-   The same verb at console 1 succeeds.
+5. Owner authority is an identity's. `vouch` from `chris` or `corinne` is refused with a named code,
+   and succeeds from the owner's session.
 6. A listed identity gets the authority. After the owner adds `chris` to `may-run-unvouched`,
    `chris`'s next login holds it and `corinne`'s does not.
 7. Liveness. Killing `chris`'s shell returns console 2 to the greeter's prompt with no restart of
    `login`.
-8. Audit. The system log's reader, at console 1, shows both logins and the logout, each stamped
+8. Audit. The system log's reader, in the owner's session, shows both logins and the logout, each stamped
    with its identity.
-9. Measured, not gated: how long `chris`'s session takes to answer while `corinne` spins, and how
-   many pages interleaved growth leaves stranded.
+9. Measured, not gated: `chris`'s answer time while `corinne` spins, and pages stranded by
+   interleaved growth.
 10. `login_hands_out_the_terminal_once_and_denies_a_concurrent_second_login_until_logout` is
     retired, and its replacement proves two concurrent logins get distinct terminals.
 11. New rows in `notes/confinement-claims.md` for user against user, each with a replayable
     falsification.
-12. A `design/decisions/` section records the session object and the spawn endpoint's restriction,
+12. Owner bootstrap. A boot with no owner credential asks for one before any shell. A boot whose
+    store is unreadable refuses every login and names the recovery boot. The recovery boot reaches
+    a shell with no password. A release image carries no preset credential, checked by the gate.
+13. A `design/decisions/` section records the session object and the spawn endpoint's restriction,
     minted by the integrator.
 
 ## Follow-ons, proposed, unnumbered
@@ -279,8 +282,8 @@ Under QEMU on aarch64 (`virt`), riscv64 (`virt`) and x86_64 (`q35`), one `cargo 
 
 ## What is blocked until the ruling
 
-Fork 4's rework blocks the first slice, and so does calef's answer on §221. The slice builds on fork
-5's recommendation unless he says otherwise. Fork 6 blocks only its follow-on.
+Fork 4's rework blocks the first slice. The slice builds on fork 5's recommendation unless calef
+says otherwise. Fork 6 blocks only its follow-on.
 
 ## BUGS
 
