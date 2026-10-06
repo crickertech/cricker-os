@@ -188,7 +188,7 @@ mod radon {
     use ::designware_ethernet::coherence::Verdict;
     use ::designware_ethernet::jh7110;
 
-    use crate::designware_ethernet::{Absent, Report};
+    use crate::designware_ethernet::{Absent, Report, last_report};
     use crate::println;
     use crate::user::designware_ethernet_service::{self as service, NotStarted};
 
@@ -203,19 +203,23 @@ mod radon {
             Err(NotStarted::Absent(Absent::NoController)) => {
                 return "FAILED: the tree names no JH7110 Ethernet port";
             }
-            Err(NotStarted::Absent(Absent::Refused { why, report })) => {
-                print(&report);
+            Err(NotStarted::Absent(Absent::Refused(why))) => {
+                print(last_report().as_ref());
                 println!("network-bench: nic       : refused at bring-up: {why:?}");
                 return "FAILED: the port is described and bring-up refused it";
             }
-            Err(NotStarted::NoLink(report)) => {
-                print(&report);
+            Err(NotStarted::NoLink) => {
+                print(last_report().as_ref());
                 return "FAILED: no link (the port came up; check the cable and the port it is in)";
             }
             Err(NotStarted::Busy) => return "FAILED: a server already holds the port",
         };
-        print(&w.bring_up);
-        let coherent = matches!(w.bring_up.coherence, Some((Verdict::Coherent, _)));
+        let report = last_report();
+        print(report.as_ref());
+        let coherent = matches!(
+            report.and_then(|r| r.coherence),
+            Some((Verdict::Coherent, _))
+        );
         let Some(cli) = client else {
             println!(
                 "network-bench: dhcp      : waiting for a lease (no bound: a last line here is the answer)"
@@ -252,7 +256,11 @@ mod radon {
     }
 
     /// Every line of the bring-up's own account, in the order it happened.
-    fn print(r: &Report) {
+    fn print(r: Option<&Report>) {
+        let Some(r) = r else {
+            println!("network-bench: nic       : no bring-up report was kept");
+            return;
+        };
         println!(
             "network-bench: nic       : JH7110 port at {:#x} ({}), clock and syscon windows {}",
             r.base,

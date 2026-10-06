@@ -37,27 +37,23 @@ use ::designware_ethernet::process::{DATA_PLANE_VA, DMA_PAGE_VA};
 
 use super::*;
 use crate::cap::{Rights, memory_region_cap, notification_cap, rendezvous_cap, timer_cap};
-use crate::designware_ethernet::{Absent, Found, Report};
+use crate::designware_ethernet::{Absent, Found};
 use crate::sched::RendezvousId;
 use crate::user::holding::Holding;
 use crate::user::virtio_service::{NET_SERVER_BUDGET_PAGES, NET_SERVER_STACK_PAGES};
 
 /// Why no server was started.
-#[derive(Debug, Clone, Copy)]
-#[cfg_attr(not(feature = "network_bench"), allow(dead_code))]
-// read by the bench boot's lines; the booted system prints only `Debug`
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NotStarted {
     /// What the bring-up said.
     Absent(Absent),
     /// The previous server is still alive, and a bring-up would reset the controller under it.
     Busy,
     /// The port came up and no link resolved, so the controller was not started.
-    NoLink(Report),
+    NoLink,
 }
 
 /// What a wiring started, from the outside.
-#[cfg_attr(not(feature = "network_bench"), allow(dead_code))]
-// read by the bench boot's lines; the booted system prints only `Debug`
 pub struct Wiring {
     /// Where the server reports its DHCP lease, once.
     pub report: RendezvousId,
@@ -65,8 +61,6 @@ pub struct Wiring {
     pub stack: RendezvousId,
     /// Everything to give back when the caller is done.
     pub held: Holding,
-    /// What the bring-up saw.
-    pub bring_up: Report,
     /// The DHCP lease, once something has drained [`Wiring::report`].
     pub lease: u32,
 }
@@ -89,7 +83,7 @@ pub fn start_net_server(image: &'static [u8], listen_grant: u64) -> Result<Wirin
     }
     let found = crate::designware_ethernet::bring_up().map_err(NotStarted::Absent)?;
     if found.link.is_none() {
-        return Err(NotStarted::NoLink(found.report));
+        return Err(NotStarted::NoLink);
     }
     Ok(spawn_server(image, listen_grant, found))
 }
@@ -191,7 +185,6 @@ fn spawn_server(image: &'static [u8], listen_grant: u64, found: Found) -> Wiring
         report,
         stack,
         held,
-        bring_up: found.report,
         lease: 0,
     }
 }

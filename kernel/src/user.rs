@@ -3447,7 +3447,7 @@ fn boot_designware_network() -> Option<(crate::sched::RendezvousId, crate::sched
             );
             Some((w.stack, w.report))
         }
-        Err(NotStarted::NoLink(_)) => {
+        Err(NotStarted::NoLink) => {
             crate::println!(
                 "  network     : NONE. The JH7110's Ethernet port has no link, and a stack \
                  waiting for DHCP would hold the prompt back for ever"

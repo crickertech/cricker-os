@@ -17,12 +17,12 @@
 //!
 //! # Scope note (rule 5, architectural parity)
 //!
-//! **This is a board driver for one SoC, and it is riscv64-only on purpose.** The JH7110 is a
+//! **This is a board driver for one chip, and it is riscv64-only on purpose.** The JH7110 is a
 //! riscv64 part; no aarch64 or x86_64 machine nife runs on has this controller. What the rule asks
 //! to be shared is shared: the network stack above it (`net_stack`, smoltcp, the socket contract)
 //! is the same code on all three architectures, and this driver reaches it through the same
 //! `Handoff` shape `e1000e` uses. The gap is recorded here and in milestone 53's block, with the
-//! plan: a second board with a DesignWare QoS controller (the RK3568 and RK3588 OpenBSD's `dwqe`
+//! plan: a second board with Synopsys's Ethernet `QoS` controller (the RK3568 and RK3588 OpenBSD's `dwqe`
 //! also drives are aarch64) would reuse the crate whole and need only its own glue beside
 //! `designware_ethernet::jh7110`.
 //!
@@ -154,20 +154,14 @@ impl Report {
     }
 }
 
-/// Why there is no port to hand out.
-#[derive(Debug, Clone, Copy)]
-#[cfg_attr(not(feature = "network_bench"), allow(dead_code))]
-// read by the bench boot's lines; the booted system prints only `Debug`
+/// Why there is no port to hand out. Small on purpose: how far a refused bring-up got is in
+/// [`last_report`], not carried through every `Result` on the way out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Absent {
     /// The tree names no JH7110 Ethernet port: every machine but a JH7110.
     NoController,
     /// It does, and bring-up refused it. A failure, never a skip.
-    Refused {
-        /// What went wrong.
-        why: Error,
-        /// How far it got.
-        report: Report,
-    },
+    Refused(Error),
 }
 
 /// A port brought up, programmed, and ready for a data plane.
@@ -179,27 +173,34 @@ pub struct Found {
     pub dma_page: u64,
     /// The link, if one resolved. The controller is started only when one did.
     pub link: Option<Link>,
-    /// What the bring-up saw.
-    pub report: Report,
 }
 
 /// The region's physical base, once allocated: zero until the first bring-up.
 static REGION: AtomicU64 = AtomicU64::new(0);
+
+/// The last bring-up's account, refused or not: one boot artifact, read by the bench boot's lines.
+static LAST_REPORT: crate::sync::IrqSafeMutex<Option<Report>> =
+    crate::sync::IrqSafeMutex::new(crate::sync::rank::RAM, None);
+
+/// **What the last bring-up saw**, as far as it got. `None` before any.
+#[cfg_attr(not(feature = "network_bench"), allow(dead_code))] // the bench boot is its reader
+pub fn last_report() -> Option<Report> {
+    *LAST_REPORT.lock()
+}
 
 /// **Bring the first port up.** A second call resets the controller under whatever process held
 /// the first, so the service refuses while that process lives (`designware_ethernet_service`).
 pub fn bring_up() -> Result<Found, Absent> {
     let e = crate::memory::jh7110_ethernet().ok_or(Absent::NoController)?;
     let mut report = Report::new(&e);
-    match run(&e, &mut report) {
-        Ok((handoff, link)) => Ok(Found {
-            handoff,
-            dma_page: e.port.base + u64::from(regs::DMA_PAGE),
-            link,
-            report,
-        }),
-        Err(why) => Err(Absent::Refused { why, report }),
-    }
+    let outcome = run(&e, &mut report);
+    *LAST_REPORT.lock() = Some(report);
+    let (handoff, link) = outcome.map_err(Absent::Refused)?;
+    Ok(Found {
+        handoff,
+        dma_page: e.port.base + u64::from(regs::DMA_PAGE),
+        link,
+    })
 }
 
 /// The bring-up, in order; see this module's header.
