@@ -54,6 +54,8 @@ fn call(slot: u64, method: u64, a0: u64, a1: u64, a2: u64) -> Result<i64, Error>
 /// The positive control is the last step: the same endpoint, received on with a `READ` capability
 /// through the same dispatcher, does deliver the queued message. Without it a `RECEIVE` that was
 /// refused for some unrelated reason would read as the property holding.
+///
+/// Falsification: replayable `system_tests/falsifications/user.confinement_attack_tests.a_write_only_rendezvous_holder_cannot_receive_reap_or_survey.patch`
 #[test_case]
 fn a_write_only_rendezvous_holder_cannot_receive_reap_or_survey() {
     let region = crate::memory_region::create(4).expect("no region for the endpoint");
@@ -150,6 +152,8 @@ fn a_write_only_rendezvous_holder_cannot_receive_reap_or_survey() {
 /// Then a slot this thread was never granted is invoked, and the answer is `NoSuchSlot`: not
 /// "permission denied" but "there is nothing there", which is what no-ambient-authority means from
 /// the inside. A program cannot reach an object by naming a slot number it was not handed.
+///
+/// Falsification: replayable `system_tests/falsifications/user.confinement_attack_tests.a_read_only_holder_cannot_send_and_an_ungranted_slot_names_nothing.patch`
 #[test_case]
 fn a_read_only_holder_cannot_send_and_an_ungranted_slot_names_nothing() {
     let region = crate::memory_region::create(4).expect("no region for the endpoint");
@@ -220,6 +224,11 @@ fn a_read_only_holder_cannot_send_and_an_ungranted_slot_names_nothing() {
 /// (`kernel/src/cap.rs` records it). This asserts the gap at boot so it cannot close unnoticed:
 /// should the retype side ever withhold GRANT, the GRANT assertion below flips and this test is the
 /// thing that says so.
+///
+/// Falsification: unfalsified. It characterizes behavior the tree has today rather than guarding a
+/// property: a patch that withheld `GRANT` from a retype would turn it red, and that is the change it
+/// exists to announce, not a break. Whether retypes should withhold `GRANT` is an architect's
+/// question carried in milestone 633's block.
 #[test_case]
 fn a_grant_less_budget_mints_a_grant_bearing_frame() {
     let region = crate::memory_region::create(8).expect("no region");

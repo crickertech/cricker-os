@@ -1,0 +1,28 @@
+Falsifies `system_tests::user::confinement_attack_tests::a_read_only_holder_cannot_send_and_an_ungranted_slot_names_nothing`.
+
+Architecture: aarch64
+
+The patch deletes the `WRITE` check on `Rendezvous::SEND` in `syscall::invoke`, so a holder of
+`READ` alone sends: the right the capability lacks is taken from the method number instead, which
+is claim 2's "userspace cannot forge a right" at the dispatcher, on the IPC fastpath of §10 (the
+capability-based microkernel process model). A receiver is already parked, so
+the broken gate delivers rather than blocking.
+
+Expected to fail: `assert_eq!` "a READ-only holder SENT: WRITE was forged from the method or an
+argument register". Replayed on 2026-10-06 (UTC) by the milestone 633 (an outside agent attacks the
+confinement claim) lane: red at exactly that assertion on aarch64.
+
+diff --git a/kernel/src/syscall.rs b/kernel/src/syscall.rs
+index d111979bf..3f907dc5e 100644
+--- a/kernel/src/syscall.rs
++++ b/kernel/src/syscall.rs
+@@ -141,9 +141,6 @@ pub fn invoke(
+             // SEND takes WRITE, RECEIVE takes READ. The *same* endpoint, handed out with different
+             // rights, is a one-way pipe in whichever direction each holder was trusted with.
+             abi::rendezvous::SEND => {
+-                if !cap.rights.allows(Rights::WRITE) {
+-                    return Err(Error::NotPermitted);
+-                }
+                 // The three words are already in registers. **Nothing is read from user memory**,
+                 // so there is no pointer to validate and no confused-deputy question to ask. That
+                 // is the fastpath, and it is why IPC carries control and not bulk data (§10).
