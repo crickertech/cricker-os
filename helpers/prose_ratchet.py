@@ -82,8 +82,10 @@ be at or under 4 bold per 1,000 words afterwards, and its baseline bold columns 
 This was built first as two counts, because density is bold over words and a lane that condenses a
 document raises it. The answer now is that whoever condenses a document removes its bold too.
 
-Untouched documents still pass on their baseline bold counts, so the tree did not go red on the
-day of the ruling. "Touched" is the diff against the merge base this module already takes for its
+Untouched documents passed on their baseline bold counts, so the tree did not go red on the day
+of the ruling. That allowance is spent: the backlog reached zero on 2026-10-06 (UTC), the baseline's
+bold columns are empty, and `check` refuses any bold ceiling there, so every document meets the
+limit whether or not a change touches it. "Touched" is the diff against the merge base this module already takes for its
 tight half, read with renames: a pure rename (100% similar) is not a touch, and an edit is.
 
 **A mechanical rename is not a touch either** (calef, 2026-09-27T05:23Z, ruling on the
@@ -849,8 +851,8 @@ def bold_allowed(words):
 
 
 def bold_excess(m):
-    """Bold spans over the density limit, 0 for a document under the 200-word floor. `script/metrics`
-    sums this for the bold backlog chart, so the chart and the gate count the same thing."""
+    """Bold spans over the density limit, 0 for a document under the 200-word floor: what a document
+    the gate refuses has to remove."""
     if m['words'] < SMALL_DOCUMENT:
         return 0
     return max(0, m['bold_lead'] + m['bold_inline'] - bold_allowed(m['words']))
@@ -1040,6 +1042,17 @@ def check():
                         bad.append(f'{BASELINE}: {path} raised {NAMES[c]} from {fmt(was)} to '
                                    f'{fmt(now)}. The baseline only goes down; an exception belongs '
                                    f'in the document, marked, with its reason')
+    # The bold backlog reached zero on 2026-10-06 (UTC), and calef asked that it stop being
+    # tracked (lane/bold-backlog-final). Its weekly chart went from script/metrics; this is what
+    # replaced it. No baseline row may hold a bold ceiling, so a document over 4 bold per 1,000
+    # words fails outright unless it carries a marked writing-standards exception. A raise is
+    # already refused above; this also refuses one written by `--remeasure`.
+    for path, row in baseline.items():
+        for c in ('bold_lead', 'bold_inline'):
+            if row.get(c) is not None:
+                bad.append(f'{BASELINE}: {path} holds a ceiling for {NAMES[c]} ({fmt(row[c])}). '
+                           f'The bold backlog is zero and that column stays empty: the document '
+                           f'meets 4 bold per 1,000 words, or carries a marked exception')
     for path in baseline:
         if path not in paths:
             bad.append(f'{BASELINE}: {path} is not in the tree. Remove its row (or move it, if the '

@@ -139,7 +139,6 @@ number is quoted. The block asked for the survey, not a better denominator, and 
 | merge queue ejections | the merge queue chart | queue entries, each re-entry counted | pull requests merged without the queue; days before 2026-09-14 |
 | cache-read share, context per turn | the cost charts | tokens in session records on one laptop | the z.ai work of 2026-09-29 to 10-01; any session not recorded there |
 | tokens per milestone | the effort chart | milestones built that week | work that builds no milestone: decisions, corrections, reviews |
-| bold per 1,000 words | the bold backlog | words in `.md` files directly under the prose directories, appendices included | `design/roadmap/proposals/`, `design/audit-reports/`, `design/journeys/` |
 | benchmark drift | the drift chart | rows in `bench/baseline-*.txt` since each anchor | benchmarks with no baseline row |
 | interface co-change | the interface line | commits touching a contract crate | crates whose rustdoc did not build, which the line names |
 
