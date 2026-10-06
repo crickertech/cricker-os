@@ -13,12 +13,22 @@
 //!
 //! Name: provisional (milestone 685's lane).
 //!
+//! The rule, since milestone 685: [`Windows::take`] hands a window only to a job when the job that
+//! last held it has been reaped, which the progenitor learns from `job_undertaker`'s "reaped"
+//! message (`crate::spawnproto::UNDERTAKER_BADGE`). Calef's ruling of 2026-10-06 (UTC), option A of
+//! `design/roadmap/685-a-job-is-finished-when-its-memory-is-back.md`.
+//!
+//! [`ReapsDue`] is the other half of that message's use: which finished jobs the progenitor may
+//! wait for, when a pool is short, because their reap is on its way.
+//!
 //! # BUGS
 //!
-//! - **Today's pool rotates without looking.** [`Windows::take`] hands out the next window round
-//!   robin, whether or not the job that last held it has been reaped, because the progenitor is
-//!   never told when a job dies. This module records the holder and ignores it; milestone 685's
-//!   "reaped" message is what lets it stop ignoring it.
+//! - **A window is only as free as the reaps that reach the progenitor.** A job that is never
+//!   reaped by `job_undertaker` keeps its window for the life of the boot. A screen-narrowed job
+//!   (DECISIONS §106 (the `terminal_sink_caretaker` narrowing)) is reaped by the shell, not the
+//!   undertaker, so one behind a directory grant would; no manifest in the tree is both today
+//!   (`mdr`, the one program that writes while it reads, forbids a directory). Leaking is the safe
+//!   direction: the pool refuses spawns, it never shares a window.
 
 /// The most windows a pool can track. The file service's pool has seven
 /// (`login_protocol::DURABLE_WINDOW` is the last), so this is room, not a target.
@@ -26,7 +36,7 @@ pub const MAX_WINDOWS: usize = 16;
 
 /// **A job's label**: the badge the progenitor puts on the job's supervision capability, which the
 /// kernel hands back beside the job's death message (DECISIONS §148 (resolves by asking the kernel), milestone 105 (the two forks)) and
-/// `job_undertaker` forwards in its "reaped" message. Never `0`, which is "unlabelled".
+/// `job_undertaker` forwards in its "reaped" message. Never `0`, which is "unlabeled".
 pub type Label = u64;
 
 /// **Which window the next directory-granted job gets, and who holds each one.**
@@ -64,9 +74,14 @@ impl Windows {
         }
     }
 
-    /// **The window job `label` gets**, recorded as its holder.
+    /// **The window job `label` gets**, recorded as its holder, or `None` when every window's
+    /// last holder is unreaped. Round robin from where the last take stopped, skipping held
+    /// windows, so reuse is spread over the pool rather than concentrated on the lowest free one.
     pub fn take(&mut self, label: Label) -> Option<u64> {
-        let w = self.next;
+        let n = self.end - self.first;
+        let w = (0..n)
+            .map(|i| self.first + (self.next - self.first + i) % n)
+            .find(|&w| self.holder[w as usize] == 0)?;
         self.next = if w + 1 < self.end { w + 1 } else { self.first };
         self.holder[w as usize] = label;
         Some(w)
@@ -106,6 +121,74 @@ impl Windows {
     }
 }
 
+/// How many finished jobs [`ReapsDue`] tracks. A full table only stops the progenitor waiting for
+/// the reaps it could not record, so this bounds a liveness improvement, not a safety rule.
+pub const MAX_DUE: usize = 8;
+
+/// **The finished jobs whose reap is on its way** (milestone 685): jobs whose whole answer went to
+/// the shell's result endpoint, supervised by `job_undertaker`, not yet reaped.
+///
+/// The shell reads such a job's answer to the end before it sends another request, so by the time
+/// any later request finds a pool short, that job has finished or is finishing, and waiting for its
+/// reap is waiting for an event that will come. A job whose output went elsewhere (a pipeline stage
+/// with a sink) may still be running and waiting on a stage the request in hand has not built yet,
+/// so it is not recorded here: waiting for it could wait forever.
+///
+/// Name: provisional.
+pub struct ReapsDue {
+    labels: [Label; MAX_DUE],
+}
+
+impl ReapsDue {
+    /// Nothing due.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            labels: [0; MAX_DUE],
+        }
+    }
+
+    /// Record that job `label`'s reap is due. `false` when the table is full (or `label` is `0`),
+    /// and then nothing will wait for it.
+    pub fn expect(&mut self, label: Label) -> bool {
+        if label == 0 {
+            return false;
+        }
+        match self.labels.iter_mut().find(|l| **l == 0) {
+            Some(slot) => {
+                *slot = label;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Job `label` was reaped.
+    pub fn reaped(&mut self, label: Label) {
+        if label == 0 {
+            return;
+        }
+        for l in &mut self.labels {
+            if *l == label {
+                *l = 0;
+            }
+        }
+    }
+
+    /// Whether any reap is still due: the condition under which a short pool waits rather than
+    /// refuses.
+    #[must_use]
+    pub fn any(&self) -> bool {
+        self.labels.iter().any(|&l| l != 0)
+    }
+}
+
+impl Default for ReapsDue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     extern crate std;
@@ -122,6 +205,8 @@ mod tests {
     /// **`take` never hands out a window whose last holder is unreaped** (confinement claim 24's
     /// fix, milestone 685). Six jobs hold all six windows and none has been reaped, so a seventh
     /// gets nothing; once one is reaped, its window and only its window comes back.
+    ///
+    /// Falsification: replayable `crates/grant_plan/falsifications/job_windows.tests.take_never_hands_out_a_window_whose_last_holder_is_unreaped.patch`
     #[test]
     fn take_never_hands_out_a_window_whose_last_holder_is_unreaped() {
         let mut p = pool();
@@ -173,5 +258,25 @@ mod tests {
         assert_eq!(p.take(2), None, "the one window is still held by job 1");
         p.release(w);
         assert_eq!(p.take(2), Some(w));
+    }
+
+    /// **A due reap is forgotten when it arrives, and only then.**
+    #[test]
+    fn a_due_reap_is_cleared_by_its_own_reap() {
+        let mut d = ReapsDue::new();
+        assert!(!d.any());
+        assert!(d.expect(4));
+        assert!(
+            !d.expect(0),
+            "label 0 is unlabeled and nothing waits for it"
+        );
+        d.reaped(5);
+        assert!(d.any(), "another job's reap cleared job 4's");
+        d.reaped(4);
+        assert!(!d.any());
+        for job in 1..=MAX_DUE as u64 {
+            assert!(d.expect(job));
+        }
+        assert!(!d.expect(99), "a full table said it recorded a ninth");
     }
 }
