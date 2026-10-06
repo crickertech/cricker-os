@@ -677,19 +677,35 @@ const PAGE_FRAME_REPORT_MIN: usize = 16;
 /// `54cd07b9f`); riscv64 never reached the ledger in that run. 26713 + 32 = 26745. A local run of
 /// the same tree read 26728, the local-against-CI divergence the headroom exists for.
 ///
+/// **`23_764` (2026-10-06, UTC): lowered, because the tests stopped keeping their endpoints and
+/// their kernel display's scanout.** Every system-test call to `sched::create_rendezvous` (71
+/// sites in 31 files) now carves from a region the test reclaims, or hands to a
+/// `user::holding::Holding`, and `compositor_tests::kernel_display` retypes its screen out of the
+/// same region as its endpoint, so one reclaim revokes the screen's mappings and frees it: eight
+/// calls of about 300 frames each, which the milestone 142 entry above priced as permanent.
+/// `create_rendezvous` is `pub(crate)` now, so a test cannot call the never-freed pool again. CI
+/// read **23732** on aarch64 on the branch (run 37424444509) against **26718** on `main` at
+/// `f79f53e53` (run 37419925282), -2986; riscv64 read 23674 against 26655 and is the lower of the
+/// pair. A local aarch64 run of the same branch read 23724. The rendezvous peak fell from 464 to
+/// 387 and the kernel-chunk count from 407 to 309. 23732 + 32 = 23764.
+///
 /// Raising or lowering it is a decision, not a formality: read the `[that test kept N frames]`
 /// lines the run prints, find who grew or shrank, and be able to say why.
 ///
 /// # BUGS
 ///
-/// A test that calls `sched::create_rendezvous` costs the suite a page for good. That function
-/// carves from the kernel's own rendezvous pool, which grows in 32-page chunks and never frees one,
-/// so the ledger moves in steps of +32, charged to whichever later test crosses the boundary and
-/// usually one that looks unrelated. It has tripped this budget at least twice: #1647 (the NVMe
-/// escape test's report endpoint) and #1659 (the label tests of milestone 105 (the two forks)). The
-/// workaround is to carve a test's endpoints with `sched::create_rendezvous_from` from a region the
-/// test owns and reclaim it after the threads that held them, as `system_log_tests` does.
-const SUITE_PAGE_FRAME_BUDGET: usize = 26_745;
+/// - **Two test sites still keep their endpoints for the boot, deliberately.** `pipeline_service`
+///   (its `init_service` is a kernel thread that loops forever) and `user::tests`'
+///   `a_user_client_moves_data_through_shared_memory` (a client that spins forever): reclaiming
+///   either would leave a thread spinning on a stale endpoint. Each takes its pages from a region of
+///   its own, so the cost is charged to that test and not to a later one.
+/// - **The kernel's own `user::*_service` wiring still uses the never-freed pool**, and much of it
+///   is called once per test rather than once per boot (`fs_service`, `ntp_service`,
+///   `display_service`, among others), so those tests still move this ledger in +32 steps.
+///   `create_rendezvous` being `pub(crate)` does not reach them, because they are in this crate.
+///   Milestone 670 (test helpers give their clients a region to retype from) and milestone 671
+///   (tests retype their rendezvous from their own region) are that work.
+const SUITE_PAGE_FRAME_BUDGET: usize = 23_764;
 
 /// **The longest run of free frames the boot must still have at the end**, in frames.
 ///
