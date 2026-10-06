@@ -42,7 +42,7 @@ retired, and seven things bound it:
 - About 5 ticks (about 4%) of the growth from one task to four is not yet decomposed. It is smaller
   than the 8-tick code-placement swing, so it cannot be told from noise on one build.
 - Every radon number used debug userspace. That moves the level, not the growth
-  ([`release-userspace-in-board-images`](../roadmap/proposals/release-userspace-in-board-images.md)).
+  ([`release-userspace-in-board-images`](../roadmap/797-release-userspace-in-board-images.md)).
 
 One finding was open and is now explained. The null syscall's near-doubling from one busy core
 to four was half a defect and half contention. The defect:

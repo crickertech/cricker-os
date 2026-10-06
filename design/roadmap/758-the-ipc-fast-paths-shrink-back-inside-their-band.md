@@ -89,9 +89,9 @@ x86_64 and riscv64 have no cycle measurement here; radon and xenon were not used
 
 ## Follow-on
 
-- **Proposed.** The next lever by size, resolving each thread name once per critical section,
+- **Milestone 787.** Milestone 787 (the IPC primitives look each thread up once). The next lever by size, resolving each thread name once per critical section,
   waits for #1611, #1617 and #1614 to stop rewriting the same bodies:
-  `design/roadmap/proposals/the-ipc-primitives-look-each-thread-up-once.md`.
+  `design/roadmap/787-the-ipc-primitives-look-each-thread-up-once.md`.
 
 ## BUGS
 

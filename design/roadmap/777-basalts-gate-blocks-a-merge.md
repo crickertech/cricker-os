@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: basalts-gate-blocks-a-merge
 raised: 2026-10-04
 milestone_dependencies: 755
 decision_dependencies: 247
@@ -7,7 +8,9 @@ machine_requirements: none
 specific_machine: none
 needs_person: yes
 ---
-# basalt's gate blocks a merge, and a green pin bump merges itself
+# 777. basalt's gate blocks a merge, and a green pin bump merges itself
+
+<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the lane for milestone 755 (basalt v0 pins nife and runs its gate), from what v0 could not
 do from a lane. All names here are provisional.
@@ -38,3 +41,7 @@ every pull request (it does today, with no path filter).
 
 A pin to a commit that fails nife's system test cannot be merged into basalt's `main`, and a green
 pin bump merges itself without a person.
+
+## Index row
+
+basalt's gate reports and nothing obeys it: the repository has no ruleset, no required check and no auto-merge. A ruleset requiring the gate's check, plus an armed auto-merge on the daily pin bump, makes green mean merged and red mean blocked.

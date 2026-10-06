@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: a-page-table-allocator-that-fails-on-its-nth-call
 raised: 2026-10-04
 milestone_dependencies: none
 decision_dependencies: none
@@ -7,7 +8,9 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A page-table allocator that fails on its Nth call
+# 774. A page-table allocator that fails on its Nth call
+
+<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised 2026-10-04 (UTC) by the lane for milestone 745 (count the error paths no test reaches),
 provisional, as its recommended first fault-injection pilot. *(Title and slug are drafts.)*
@@ -15,7 +18,7 @@ provisional, as its recommended first fault-injection pilot. *(Title and slug ar
 ## Why here first
 
 Of the twenty unreached error paths milestone 745 ranked as releasing memory or authority, twelve
-are in `crates/paging` ([`notes/untested-error-paths.md`](../../../notes/untested-error-paths.md)).
+are in `crates/paging` ([`notes/untested-error-paths.md`](../../notes/untested-error-paths.md)).
 Five fire midway through a mapping, after something was taken: `map_span` and `map_range` after
 earlier blocks are mapped, `map_block` after upper tables were allocated, and
 `build_identity_domain` after earlier pages or regions are in a device's domain. No test has
@@ -47,3 +50,7 @@ It does not reach the kernel's own rollbacks, which run under QEMU. It measures 
 call, so a leak found here is a leak there too, and a clean result says nothing about the caller.
 </content>
 </invoke>
+
+## Index row
+
+Twelve of the unreached error paths that release memory or authority sit in `crates/paging`, five of them midway through a mapping. A test allocator that fails on its Nth call, swept over `map_span`, `map_range` and `build_identity_domain`, reaches them with no production code added.

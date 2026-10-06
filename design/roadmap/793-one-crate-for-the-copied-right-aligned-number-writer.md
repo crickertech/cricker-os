@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: one-crate-for-the-copied-right-aligned-number-writer
 raised: 2026-10-05
 milestone_dependencies: none
 decision_dependencies: none
@@ -7,7 +8,7 @@ machine_requirements: none
 specific_machine: none
 needs_person: yes
 ---
-# One crate for the right-aligned number writer three programs each copy
+# 793. One crate for the right-aligned number writer three programs each copy
 
 Found on 2026-10-05 (UTC) by the lane `lane/326-survivors` at base `269c1d48c`, while triaging
 mutation survivors. Title and slug are provisional.
@@ -44,3 +45,7 @@ three copies and two of the three tests.
 Reuse: write. No crate in the tree or on crates.io is adopted here; the function is twelve lines and
 a dependency for it would be a decision under §46 (thin primitives or whole subsystems) that this
 does not justify. The existing copies are the prior art.
+
+## Index row
+
+`write_right` is copied byte for byte into `free`, `vmstat` and `slabtop`, and the same mutation survivor lived in all three. One shared crate removes the copies, and the next table-printing program stops adding a fourth.

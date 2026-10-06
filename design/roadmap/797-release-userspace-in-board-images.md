@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: release-userspace-in-board-images
 raised: 2026-10-05
 milestone_dependencies: none
 decision_dependencies: none
@@ -7,7 +8,9 @@ machine_requirements: riscv64 silicon
 specific_machine: radon (every job-mix and soak number on record was taken there)
 needs_person: yes
 ---
-# Release userspace in board images
+# 797. Release userspace in board images
+
+<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised 2026-10-05 (UTC) by `lane/radon-2026-10-05-record`. Title and slug are drafts.
 `needs_person` is yes only because a new baseline is boots on radon.
@@ -21,7 +24,7 @@ release kernel under debug programs. The job mix measures user code as well as t
 syscall's userspace stub, `compute`'s grind, the spawn job's loader.
 
 On 2026-10-05 the stub alone was worth 3 to 8 ticks of a 110-tick `null_syscall` job, depending on
-the build ([`notes/job-mix/radon-2026-10-05.md`](../../../notes/job-mix/radon-2026-10-05.md)). A
+the build ([`notes/job-mix/radon-2026-10-05.md`](../../notes/job-mix/radon-2026-10-05.md)). A
 debug stub is larger and spills more, which makes it both dearer and more sensitive to where it
 lands than the shipped code would be.
 
@@ -43,3 +46,7 @@ already set; nothing new is built.
 - A radon evening of interleaved boots, old payload against new, that records the job mix's shift
   for every kind, and a line in `notes/job-mix.md` dating the change.
 - The `BUGS` entry in `script/board-image` that points here, removed.
+
+## Index row
+
+`script/board-image` builds a release kernel but packs debug userspace, so every radon payload measures a debug syscall stub worth 3 to 8 ticks of a 110-tick job. Building release userspace makes the board numbers match what a customer would run, and starts a new radon baseline.

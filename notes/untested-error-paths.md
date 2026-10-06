@@ -186,7 +186,7 @@ coverage run, no QEMU.
 ## Where a fault-injection pilot pays first
 
 Recommended, proposed as [a page-table allocator that fails on its Nth
-call](../design/roadmap/proposals/a-page-table-allocator-that-fails-on-its-nth-call.md). Twelve of
+call](../design/roadmap/774-a-page-table-allocator-that-fails-on-its-nth-call.md). Twelve of
 the twenty above are in `paging`. `Mapper` already takes its frame allocator as a closure, so no new
 seam is needed. Sweep N over `map_span`, `map_range` and `build_identity_domain`, and after each
 failure check that every frame handed out is reachable from the root, and what is left mapped. It is

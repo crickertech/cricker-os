@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: pin-stock-kani-to-a-version-bumped-deliberately
 raised: 2026-10-05
 milestone_dependencies: 589
 decision_dependencies: none
@@ -7,7 +8,9 @@ machine_requirements: none
 specific_machine: none
 needs_person: yes
 ---
-# Pin stock Kani to a version, bumped deliberately like the nightly
+# 795. Pin stock Kani to a version, bumped deliberately like the nightly
+
+<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the lane `lane/verify-args` on 2026-10-05 (UTC), from a run of a patched Kani against nife
 that day. Title, slug and every name here are provisional.
@@ -50,3 +53,7 @@ The pin policy is an architect's call; this lane changed nothing.
 
 Exit criteria: one pinned stock version proves all three `kernel` rows in CI; the patch, the
 `KANI_TARGET` plumbing and (if the rows agree) the arm64 job are gone.
+
+## Index row
+
+The verify workflow installs stock Kani unpinned, so a proof can change outcome because a Kani release moved while nife did not, and the riscv64 job already builds a different version. Pinning it, and bumping it on purpose like the nightly, makes the prover stop moving by itself.

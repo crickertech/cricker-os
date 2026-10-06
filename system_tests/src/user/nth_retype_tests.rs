@@ -31,7 +31,7 @@
 //!   login that opens a schedule (`Durable::open`) are not swept; each needs a fresh `login` per N,
 //!   which is the teardown `holding.rs` cannot do. `system_initializer`, `swish` and the rest of
 //!   the 75 cleanup paths are not swept either. All of it is
-//!   `design/roadmap/proposals/sweep-the-other-long-lived-services-under-the-retype-fault.md`.
+//!   `design/roadmap/786-sweep-the-other-long-lived-services-under-the-retype-fault.md`.
 //! - **x86_64 skips the `login` sweep**, as it skips every `login_tests` test: its test boot
 //!   attaches no RedoxFS disk. The hook is portable kernel code, and
 //!   [`the_nth_retype_fails_as_an_empty_region_would_and_no_other`] runs on x86_64 too.

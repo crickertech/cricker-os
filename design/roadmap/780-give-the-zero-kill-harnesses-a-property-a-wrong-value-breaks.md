@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: give-the-zero-kill-harnesses-a-property-a-wrong-value-breaks
 raised: 2026-10-04
 milestone_dependencies: 741
 decision_dependencies: none
@@ -7,7 +8,7 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Give the zero-kill harnesses a property a wrong value breaks
+# 780. Give the zero-kill harnesses a property a wrong value breaks
 
 Raised by the risk-2 reach study (`lane/kani-reach`, milestone 741 (does a standing proof notice a
 regression)) on 2026-10-04 (UTC). Title and slug are drafts.
@@ -31,3 +32,7 @@ Each of the six has one of these:
 
 Start with the machine_discovery harness. Its name claims a value property (a letter is never
 misread), so 0 of 13 direct mutants is the most surprising result of the six.
+
+## Index row
+
+Six standing Kani harnesses reach mutants and kill none, four because they prove only panic-freedom, which a wrong return value cannot break. Each needs a stronger assertion, a merge into a sibling, or a recorded reason that panic-freedom alone is the claim.

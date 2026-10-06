@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: a-running-process-can-name-its-own-address-space
 raised: 2026-10-05
 milestone_dependencies: 95
 decision_dependencies: 162
@@ -7,7 +8,7 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A running process can name its own address space
+# 789. A running process can name its own address space
 
 Raised by milestone 95 (an unmap primitive, and the mappings init never lets go)'s lane on
 2026-10-05 (UTC), while building `AddressSpace::UNMAP` on §162 (whether a holder can give up a
@@ -69,3 +70,7 @@ time, which changes that proposal's options. Decide the two together.
   the progenitor writes to a boot server's page and faults.
 - The multicore test `notes/unmap.md`'s BUGS says cannot exist yet: a thread reading a page in a
   loop on one core, `UNMAP` of that page from another, and the reader faulting.
+
+## Index row
+
+A process cannot name its own running address space, so the progenitor cannot give up the pages it mapped for boot servers and `AddressSpace::UNMAP` cannot reach the window it was decided to close. The options are a fork on the syscall surface and wait for an architect.

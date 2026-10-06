@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: pin-the-hot-trap-paths-placement
 raised: 2026-10-05
 milestone_dependencies: none
 decision_dependencies: none
@@ -7,7 +8,9 @@ machine_requirements: riscv64 silicon
 specific_machine: radon (the effect was measured there, and the acceptance sweep is radon's)
 needs_person: yes
 ---
-# Pin the hot trap path's placement, so a radon per-crossing number stops moving with unrelated code
+# 796. Pin the hot trap path's placement, so a radon per-crossing number stops moving with unrelated code
+
+<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised 2026-10-05 (UTC) by `lane/radon-2026-10-05-record`, recording that evening's radon session.
 Title and slug are drafts. `needs_person` is yes only because the acceptance sweep is boots on
@@ -15,7 +18,7 @@ radon.
 
 ## What was seen
 
-[`notes/job-mix/radon-2026-10-05.md`](../../../notes/job-mix/radon-2026-10-05.md#why-one-task-rose-from-99-to-110):
+[`notes/job-mix/radon-2026-10-05.md`](../../notes/job-mix/radon-2026-10-05.md#why-one-task-rose-from-99-to-110):
 `main` built four times with milestone 370 (a layout control)'s knob (`fastpath_pad`, `NIFE_FASTPATH_PAD=0`,
 `NIFE_FASTPATH_SHIFT` 0, 16, 32, 48), which moves the whole kernel text by N bytes and changes no
 code. The job mix's `null_syscall` at one task read 111, 118, 116 and 110 ticks of radon's 4 MHz
@@ -74,3 +77,7 @@ This lane recommends 1, then 2 only if the sweep says so. It has not measured wh
   flat within 2 ticks**, where it read 110 to 118.
 - `script/fastpath-footprint` and `script/bench` within their floors on all three ISAs; the same
   pin applied, or a scope note recording why not, on aarch64 and x86_64.
+
+## Index row
+
+A merge that added no instruction to the trap path moved radon's one-task `null_syscall` by 16 ticks, and four builds that only shifted kernel text spread by 7%. Pinning the hot trap path's placement stops a per-crossing number from moving with unrelated code.

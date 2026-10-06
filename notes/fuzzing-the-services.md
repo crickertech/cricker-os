@@ -68,7 +68,7 @@ Four real defects, all in `redoxfs_server`, each with a host test that fails wit
    bounds a file at `MAX_FILE_END` with `EFBIG`; the vendored fix is #1606 (`lane/redoxfs-level4`).
 4. Shrinking a huge sparse file stalls the server, walking every record pointer in between. Not
    fixed: recorded in `Server::truncate`'s `BUGS` section and proposed as
-   `design/roadmap/proposals/a-client-cannot-stall-the-file-server-with-a-sparse-file.md`. The
+   `design/roadmap/772-a-client-cannot-stall-the-file-server-with-a-sparse-file.md`. The
    target folds sizes between 64 MiB and `MAX_FILE_END` below 64 MiB so it does not re-find it on
    every run.
 

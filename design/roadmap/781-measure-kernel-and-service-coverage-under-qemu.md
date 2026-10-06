@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: measure-kernel-and-service-coverage-under-qemu
 raised: 2026-10-04
 milestone_dependencies: none
 decision_dependencies: none
@@ -7,7 +8,7 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Measure kernel and service coverage under QEMU
+# 781. Measure kernel and service coverage under QEMU
 
 Raised 2026-10-04 (UTC) by the lane for milestone 745 (count the error paths no test reaches),
 provisional. *(Title and slug are drafts.)*
@@ -16,7 +17,7 @@ provisional. *(Title and slug are drafts.)*
 
 `script/coverage` measures host crates only. The kernel, the services and the syscall-wrapping
 crates hold 1,159 Result-family error paths and 602 Option-family ones that no coverage run sees,
-about half of the tree's total ([`notes/untested-error-paths.md`](../../../notes/untested-error-paths.md)).
+about half of the tree's total ([`notes/untested-error-paths.md`](../../notes/untested-error-paths.md)).
 Every cleanup path the count found is among them.
 
 ## Two ways, neither built
@@ -34,3 +35,7 @@ The first is cheaper to try. The second is the better instrument. Choosing is an
 because the second adds a dependency.
 </content>
 </invoke>
+
+## Index row
+
+`script/coverage` sees only host crates, so about half the tree's 1,761 error paths, including every cleanup path the count found, are invisible to it. The block prices two ways to measure kernel and service coverage under QEMU and chooses neither.

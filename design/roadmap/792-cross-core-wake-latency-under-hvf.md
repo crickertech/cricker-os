@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: cross-core-wake-latency-under-hvf
 raised: 2026-10-05
 milestone_dependencies: none
 decision_dependencies: none
@@ -7,14 +8,14 @@ machine_requirements: aarch64 silicon with Hypervisor.framework; riscv64 silicon
 specific_machine: none
 needs_person: no
 ---
-# Cross-core wake latency under HVF
+# 792. Cross-core wake latency under HVF
 
 Raised 2026-10-05 (UTC) by `lane/null-syscall-hvf`. A measurement, not a fix. Title and slug are
 drafts.
 
 ## What was seen
 
-In [the HVF appendix](../../../notes/job-mix/null-syscall-hvf-full-mix.md) the job mix's spawn job
+In [the HVF appendix](../../notes/job-mix/null-syscall-hvf-full-mix.md) the job mix's spawn job
 (two children, built, run and reclaimed one at a time) cost, per job, in 24 MHz ticks:
 
 | Other cores | spawn per job |
@@ -24,7 +25,7 @@ In [the HVF appendix](../../../notes/job-mix/null-syscall-hvf-full-mix.md) the j
 | busy in the full mix (four tasks) | 2,700 (0.11 ms) |
 
 Radon's one-task figure is 1,172 ticks of a 10 MHz clock, 117 us
-([radon's evening](../../../notes/job-mix/radon-2026-10-04.md)). So under HVF a child placed on
+([radon's evening](../../notes/job-mix/radon-2026-10-04.md)). So under HVF a child placed on
 another core waits about a millisecond when that core is idle, and several when it is running user
 code without trapping.
 
@@ -53,3 +54,7 @@ the instruments; nothing new is built unless they cannot answer question 1.
 
 The three answers with numbers in a note. A kernel defect found on the way becomes its own proposal.
 If the cost is QEMU's, a `BUGS` entry beside `script/job-mix --hvf` says which HVF figures carry it.
+
+## Index row
+
+Under HVF a child placed on another core waits about a millisecond when that core is idle and several when it runs user code without trapping, which is the largest term in the spawn job. This is a measurement, not a fix: the block narrows the cause to SGI delivery and asks for the experiment that confirms it.

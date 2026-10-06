@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: capability-tables-sized-per-process
 raised: 2026-10-04
 milestone_dependencies: 754
 decision_dependencies: none
@@ -7,7 +8,7 @@ machine_requirements: none
 specific_machine: none
 needs_person: yes
 ---
-# Capability tables sized per process
+# 778. Capability tables sized per process
 
 Raised 2026-10-04 (UTC) by milestone 753 (trace the progenitor's login block peak), alongside
 calef's choice of a 64-slot table. A proposal, not a ruling. Title and slug are drafts, and so is
@@ -76,3 +77,7 @@ table, on all three ISAs. Then put the options, with those numbers, to an archit
 ## What it is not
 
 Not a change to how many slots any table has today. That is milestone 754 (the capability table grows to 64 slots).
+
+## Index row
+
+Every thread's capability table is one fixed size, paid in each TCB, and the size has been raised by one constant five times. The block asks whether a table should be sized per process and grow on demand, compares the tree's flat array with seL4's design, and leaves the answer open because it touches the syscall surface.

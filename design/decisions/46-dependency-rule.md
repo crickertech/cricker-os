@@ -185,7 +185,7 @@ nothing back. A patch we need is carried here (§34, `script/vendor-verify`), ne
 - USB xHCI: milestone 242 (USB host and HID), pull request #1629. It was built before this
   amendment. rust-osdev's `xhci` crate (0.9.2, MIT or Apache-2.0, register and ring definitions) and
   Redox's `xhcid` could have covered part of it. That is recorded as a follow-up survey
-  (`design/roadmap/proposals/survey-what-milestone-242-could-have-taken.md`), not a rewrite: the
+  (`design/roadmap/785-survey-what-milestone-242-could-have-taken.md`), not a rewrite: the
   survey says what taking would have bought, and a rewrite waits on its numbers.
 - Userland: milestone 756 (procps, coreutils and util-linux leave first). Ports are this
   amendment applied to programs. A port is the default, and a rewrite needs a reason.

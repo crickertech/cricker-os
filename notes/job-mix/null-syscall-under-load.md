@@ -260,7 +260,7 @@ itself ... half explained and half open") with:
   ([2026-10-05](radon-2026-10-05.md#milestone-766-the-alignment-is-material-on-radon)).
 - Radon's single-crossing cost moves with code placement, about 8 ticks across four text
   shifts of `main`. A level difference under that between two builds means nothing without a
-  layout control. Proposed: `design/roadmap/proposals/pin-the-hot-trap-paths-placement.md`.
+  layout control. Proposed: `design/roadmap/796-pin-the-hot-trap-paths-placement.md`.
 - ~~**aarch64's job mix wedges under TCG on `main`.**~~ Closed 2026-10-05: a miscompiled yield,
   not a multicore hang ([`spawn-destroy-gone.md`](spawn-destroy-gone.md)).
 - **`script/fastpath-footprint` leaves `exception_body` out of aarch64's `syscall_entry`**, though
@@ -271,8 +271,8 @@ itself ... half explained and half open") with:
 
 - Capability lookup off `IPC_TABLES`: milestone 761, measured on radon 2026-10-05.
 - Pin the hot trap path's placement, so a radon per-crossing number stops moving with unrelated
-  code ([proposal](../../design/roadmap/proposals/pin-the-hot-trap-paths-placement.md)).
+  code ([proposal](../../design/roadmap/796-pin-the-hot-trap-paths-placement.md)).
 - Release userspace in board images
-  ([proposal](../../design/roadmap/proposals/release-userspace-in-board-images.md)).
+  ([proposal](../../design/roadmap/797-release-userspace-in-board-images.md)).
 - Only if the 5 ticks a job left on radon matter, batch a kernel stack's six unmaps into one remote
   fence (`KernelStack::drop` makes one SBI `RFENCE` per page). Untested on silicon.

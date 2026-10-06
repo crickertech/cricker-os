@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: net-stack-seeds-its-generator-from-entropy
 raised: 2026-10-04
 milestone_dependencies: none
 decision_dependencies: none
@@ -7,7 +8,9 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The network stack seeds its random generator from the clock, and TCP sequence numbers come from it
+# 783. The network stack seeds its random generator from the clock, and TCP sequence numbers come from it
+
+<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the lane for milestone 384 (in a capability system the resolver is a grant) (`lane/384-name-resolver`) on 2026-10-04 (UTC), while reading
 `smoltcp` 0.14.0's DNS socket to price putting a resolver inside `net_stack`. Title and slug are
@@ -37,3 +40,7 @@ progenitor.
 
 - Not measured how much of the seed an attacker actually has to guess; the counter's rate is known
   and the boot time is the unknown.
+
+## Index row
+
+`net_stack` seeds smoltcp's generator from the boot-relative counter, and every TCP initial sequence number comes from it, so an off-path attacker who can estimate uptime can predict them. The fix is an entropy capability granted to `net_stack` at spawn and a refusal to start without it.

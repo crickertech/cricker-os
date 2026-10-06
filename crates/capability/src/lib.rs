@@ -248,7 +248,7 @@ pub enum Error {
 /// [`CapabilityTable::new`] asserts it at compile time for every `N` anybody instantiates.
 /// `kernel/src/cap.rs` asserts it again beside `CAPABILITY_TABLE_SLOTS`, where the next raise will
 /// be typed. Growing past 64 is a wider word or a second one, and at that point
-/// `design/roadmap/proposals/capability-tables-sized-per-process.md` is the question to answer
+/// `design/roadmap/778-capability-tables-sized-per-process.md` is the question to answer
 /// first. The `u32` it replaced fitted in a table with no padding at 32 slots (1,032 bytes); the
 /// `u64` rounds a 64-slot table to 2,064 bytes, eight more than the slots, word and counts need.
 pub const MAX_SLOTS: usize = u64::BITS as usize;

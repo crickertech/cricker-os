@@ -51,8 +51,8 @@ risk 2's amber.
 
 ## Follow-on
 
-- **Proposed.** `design/roadmap/proposals/measure-the-reach-of-the-glob-and-calendar-proofs.md`.
-- **Proposed.** `design/roadmap/proposals/give-the-zero-kill-harnesses-a-property-a-wrong-value-breaks.md`.
-- **Proposed.** `design/roadmap/proposals/a-weekly-check-that-every-proof-can-still-fail.md`.
+- **Milestone 782.** Milestone 782 (measure the reach of the glob and calendar proofs). `design/roadmap/782-measure-the-reach-of-the-glob-and-calendar-proofs.md`.
+- **Milestone 780.** Milestone 780 (give the zero-kill harnesses a property a wrong value breaks). `design/roadmap/780-give-the-zero-kill-harnesses-a-property-a-wrong-value-breaks.md`.
+- **Milestone 776.** Milestone 776 (a weekly check that every proof can still fail). `design/roadmap/776-a-weekly-check-that-every-proof-can-still-fail.md`.
 - **Recorded.** The `unsafe fn` blind spot, the reach approximation and the unpinned Kani, in
   `helpers/kani_reach.py`'s BUGS.

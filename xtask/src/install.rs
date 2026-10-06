@@ -172,7 +172,7 @@ pub(crate) fn install_boot() -> bool {
 
 /// **Boot 3: the stick again, on the machine it just installed, and nobody types anything.**
 ///
-/// The live stick proposal (`design/roadmap/proposals/a-live-stick.md`, G1 and G2) read two defects
+/// The live stick proposal (`design/roadmap/773-a-live-stick.md`, G1 and G2) read two defects
 /// out of the code: the stick's loader chain-loads the installed disk's boot slot instead of
 /// running its own image, and a stick boot mounts the internal disk, which writes it. This boot is
 /// the measurement. It asserts which system ran, and it compares the disk byte for byte before and

@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: a-client-cannot-stall-the-file-server-with-a-sparse-file
 raised: 2026-10-04
 milestone_dependencies: none
 decision_dependencies: none
@@ -7,7 +8,7 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A client cannot stall the file server with a sparse file
+# 772. A client cannot stall the file server with a sparse file
 
 Raised by the fuzz lane (`lane/fuzz-service-handlers`, proposal #1592 part a) on 2026-10-04 (UTC),
 when the `redoxfs_server_session` fuzz target timed out after about 380,000 sessions. Title and

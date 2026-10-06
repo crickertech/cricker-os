@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: sweep-the-other-long-lived-services-under-the-retype-fault
 raised: 2026-10-04
 milestone_dependencies: 757
 decision_dependencies: none
@@ -7,7 +8,7 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Sweep the other long-lived services under the retype fault
+# 786. Sweep the other long-lived services under the retype fault
 
 Raised 2026-10-04 (UTC) by the lane for milestone 757 (a test kernel fails a process on its Nth
 retype), provisional. *(Title and slug are drafts.)*
@@ -32,3 +33,7 @@ to reach it. Of milestone 745 (count the error paths no test reaches)'s 75 clean
 
 Same census as 757: the target's capability table and the usage of every region it holds, before
 and after each N.
+
+## Index row
+
+The retype-fault sweep found a five-week-old slot leak in its first run but covered only one `login` exchange of 75 cleanup paths. The rest are in `login`'s start-up, `system_initializer` and `swish`, and need a harness that can tear a `login` down.

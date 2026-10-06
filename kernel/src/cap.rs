@@ -280,7 +280,7 @@ const _: () = assert!(core::mem::size_of::<Cap>() == 32);
 /// 2,112 bytes idle (`crate::thread`'s page-fit assertion is the check), and no static memory. The
 /// free-slot word widened from `u32` to `u64` with it, and the fault slot, derived, moves from 31
 /// to 63. Whether a table should be sized for its process instead is
-/// `design/roadmap/proposals/capability-tables-sized-per-process.md`.
+/// `design/roadmap/778-capability-tables-sized-per-process.md`.
 pub const CAPABILITY_TABLE_SLOTS: usize = 64;
 
 // **The free-slot word is a `u64`, so sixty-four is also the ceiling the type allows** (milestone

@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: fuzz-the-surface-a-confined-process-can-reach
 raised: 2026-10-04
 milestone_dependencies: none
 decision_dependencies: none
@@ -7,7 +8,9 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Fuzz the surface a confined process can reach: the services' decoders, and the syscalls
+# 779. Fuzz the surface a confined process can reach: the services' decoders, and the syscalls
+
+<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 calef asked for this on 2026-10-04 (UTC), and asked that it be a proposal, not a build. Written by
 the proposal lane `lane/fuzz-surface-proposal`. It proposes two milestones, (a) and (b), with

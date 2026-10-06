@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: report-qemu-plic-enable-recheck-upstream
 raised: 2026-10-05
 milestone_dependencies: none
 decision_dependencies: none
@@ -7,7 +8,7 @@ machine_requirements: none
 specific_machine: none
 needs_person: yes
 ---
-# Report QEMU's PLIC enable-write defect upstream
+# 798. Report QEMU's PLIC enable-write defect upstream
 
 Raised by the lane for the provisional milestone "a USB keystroke never strands `line_editor`"
 (`lane/usb-keyboard-lost-wakeup`, #1657) on 2026-10-05 (UTC), after finding that the riscv64
@@ -156,3 +157,7 @@ about the order either.
   calef files the issue, they have to be rebuilt from this file's reproducer steps.
 - Nobody has measured what an extra `sifive_plic_update` per enable write costs. It is believed
   negligible, since the same call already runs on every change of a source line.
+
+## Index row
+
+QEMU 11.1.1's PLIC does not re-evaluate pending external interrupts after an enable write, which stalled a riscv64 keystroke and was exposed by nife's PLIC driver. The block reports it upstream and reuses an existing unmerged qemu-devel fix rather than writing one.

@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: the-shadow-descriptor-is-published-in-two-stores
 raised: 2026-10-05
 milestone_dependencies: none
 decision_dependencies: 14, 18
@@ -7,7 +8,9 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The shadow descriptor is published in two stores
+# 799. The shadow descriptor is published in two stores
+
+<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by lane/633-outsider-2, milestone 633 (an outside agent attacks the confinement claim)'s
 second pass, on 2026-10-05 (UTC). Title and slug provisional.
@@ -60,3 +63,7 @@ Recommended: 1 now, 2 when a driver republishes live heads, which none in the tr
 - The Kani model extended with a "device reads here" point between the two stores, so the proof
   says what it covers.
 - Row 17's `Falsification:` moves from `unfalsified` to `replayable` against the fixed walk.
+
+## Index row
+
+`shadow_one_head` publishes a validated descriptor as two unordered stores with no check that the slot is idle, so a device could read the descriptor between them. The fix is a single publish point, the shape the avail-ring publish already uses.
