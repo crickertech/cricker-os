@@ -702,6 +702,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "network: refused (no capability at slot 10)",
             "entropy: refused (no capability at slot 9)",
             "domain: refused (no capability at slot 7)",
+            "reboot: refused (no capability at slot 13)",
             "slots held: 0 1 2\n",
         ],
     ),
@@ -1249,7 +1250,19 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
             "network: refused (no capability at slot 10)",
             "entropy: refused (no capability at slot 9)",
             "domain: refused (no capability at slot 7)",
+            "reboot: refused (no capability at slot 13)",
             "slots held: 0\n",
+        ],
+    ),
+    // **`caps reboot` names the authority** (milestone 805 (`reboot` at the prompt), exit criterion
+    // 3), at the real prompt and without running it: typing `reboot` here would end this boot.
+    // `cargo xtask reboot-check` is the gate that types it.
+    line(
+        0,
+        "caps reboot",
+        &[
+            "cap 13 reboot    WRITE. restart the machine",
+            "the progenitor flushes the writable filesystem first",
         ],
     ),
     // **A supervised job, interrupted**, under DECISIONS §24 (interrupting the foreground
@@ -2409,7 +2422,7 @@ fn usb_keyboard_boot(arch: &str) -> bool {
 /// is TSO under either, so KVM gives up no ordering the leg was ever shown. Milestone 628
 /// (provisional) measured what it buys; notes/benchmarks/swish-check-x86-leg.md. The name is
 /// provisional.
-fn kvm_is_usable() -> bool {
+pub(crate) fn kvm_is_usable() -> bool {
     cfg!(all(target_os = "linux", target_arch = "x86_64"))
         && std::fs::OpenOptions::new()
             .read(true)

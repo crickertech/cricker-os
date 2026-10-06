@@ -8,6 +8,7 @@
 //!     cargo xtask run      boot the kernel (the milestone tour), print to this terminal
 //!     cargo xtask shell    boot straight to the interactive shell (add --hvf for the real core)
 //!     cargo xtask swish-check  boot that same shell, type at it, and check what it answered
+//!     cargo xtask reboot-check type `reboot` at that shell and check the machine comes back
 //!     cargo xtask test     host tests (milliseconds), then the kernel under QEMU
 //!                          (--hvf runs the aarch64 kernel leg on the physical core)
 //!     cargo xtask gdb      boot paused, waiting for a debugger on :1234
@@ -45,6 +46,7 @@ mod manual;
 mod measure;
 mod network_bench;
 mod package;
+mod reboot_check;
 mod restamp;
 mod rollback;
 mod scanout;
@@ -265,6 +267,8 @@ fn main() -> ExitCode {
         // The sustained multicore run under QEMU (milestone 219), judged by the same recogniser
         // `board-console` points at a board. Returns its own exit code for the same reason.
         "soak-test" => return soak_test(),
+        // Milestone 805 (`reboot` at the prompt): type `reboot` and come back. Name provisional.
+        "reboot-check" => return crate::reboot_check::reboot_check(),
         // The multi-tasking workload sweep under QEMU (milestone 168). Returns its own exit code
         // for `soak-test`'s reason: a rehearsal that cannot say *how* it failed is not a rehearsal.
         "job-mix" => return job_mix_sweep(),
@@ -289,7 +293,7 @@ fn main() -> ExitCode {
                 eprintln!("unknown command: {other}\n");
             }
             eprintln!(
-                "usage: cargo xtask <build|run|shell|swish-check|boot-check|initrd-aarch64|initrd-riscv|initrd-x86|uefi-image|uefi-boot|uefi-test|package|install-boot|rollback-boot|confirm-boot|stick|stick-boot|screen-boot|manual|apropos|std-src|std-stamp|std-exerciser|std-aborts|test|undefined-behavior-check|bench|icount|gdb|objdump|image|board-console|soak-test|board-script|card-check> [--hvf]"
+                "usage: cargo xtask <build|run|shell|swish-check|boot-check|initrd-aarch64|initrd-riscv|initrd-x86|uefi-image|uefi-boot|uefi-test|package|install-boot|rollback-boot|confirm-boot|stick|stick-boot|screen-boot|manual|apropos|std-src|std-stamp|std-exerciser|std-aborts|test|undefined-behavior-check|bench|icount|gdb|objdump|image|board-console|soak-test|reboot-check|board-script|card-check> [--hvf]"
             );
             eprintln!("       cargo xtask swish-check [--arch aarch64|riscv64]");
             eprintln!(
