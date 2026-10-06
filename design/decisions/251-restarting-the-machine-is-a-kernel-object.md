@@ -81,7 +81,7 @@ check. Both are recalled, not re-read.
 Milestone 805's lane built the object and found three places where this section's wording and the
 built thing differ. Milestone 805's block left the first one to the building lane ("How `reboot`
 reaches `SYNC` is the building lane's call"); the other two are corrections to wording. calef ruled
-items 1 and 3 on 2026-10-06 (UTC), below; item 2 is still with him on the pull request.
+all three items on 2026-10-06 (UTC), below. The provisional names are still with him.
 
 1. **`reboot` flushes for itself, through a flush-only capability** (clause 3). For an ordinary
    client, `fs::SYNC` needs a handle carrying `dir::WRITE`, which is also the right to open and
@@ -139,10 +139,27 @@ items 1 and 3 on 2026-10-06 (UTC), below; item 2 is still with him on the pull r
    - systemd stops units in reverse dependency order, remounts read-only, syncs, then resets: D.
 2. **No `abi::objtype` number** (clause 1). `objtype` lists what `MemoryRegion::RETYPE_OBJ` can make
    out of memory. Nothing makes a reboot object, and a number there would read as a way to. It has a
-   method module, `abi::reboot`, like `Irq`, the other kernel-minted object.
+   method module, `abi::reboot`, like `Irq`, the other kernel-minted object. Ruled A by calef on
+   #1783, 2026-10-06 (UTC): "Yes", answering "Approve item 2 as written (A)?"
+
+   Alternatives considered:
+
+   - A, built: no `objtype` number and its own `abi::reboot` method module, like `Irq` and
+     `MemoryRegion`, which have none either.
+   - B, a number `RETYPE_OBJ` refuses: `objtype` would then mean both "can be made" and "exists".
+   - C, a retypable number: anyone holding memory could mint reboot authority.
+   - D, split `objtype` into a retype list and a full object-kind list: worth it only once a
+     capability type query exists, and nife has none today.
+
+   Prior art, recalled, not re-read:
+
+   - seL4's `seL4_ObjectType` lists only retypable objects; `IRQControl`, `ASIDControl` and the
+     domain capability are internal capability tags only. That is A.
+   - Zircon's `zx_obj_type_t` lists every kind, kernel-minted resources included, because
+     `zx_object_get_info` reports a handle's type, and creation is a syscall per kind. That is D.
 3. **A refusal returns its reason to the caller** ("The method"). Ruled by calef on #1783,
    2026-10-06 (UTC): "Rule item 3 that way", answering "Rule item 3 that way (return the reason to
-   the caller), and approve item 2 as written?" Item 2 is still open.
+   the caller), and approve item 2 as written?"
    - `arch::reboot` returns a portable reason, `abi::reboot::Refusal`, on all three architectures.
      The four are no mechanism (an aarch64 tree with no usable `/psci`), not supported (PSCI or SBI
      `NOT_SUPPORTED`), denied (PSCI or SBI `DENIED`), or still running (every `x86_64` route
