@@ -1,19 +1,28 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-06
-milestone_dependencies: none
-decision_dependencies: unwritten
+promoted_from: every-gate-accounts-for-its-time
+milestone_dependencies: 807
+decision_dependencies: 254
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Every gate accounts for its time
+# 808. Every gate accounts for its time
+
+*(Promoted from the proposal pile on 2026-10-06 (UTC); number provisional until the merge queue lands it.)*
+
+*(Ruled 2026-10-06 (UTC), calef on PR #1778, four forks. §254 (a gate prints what each item cost,
+and a job near its budget warns rather than fails) records them. Fork 2 went against this block's
+recommendation: per-suite budgets are refused, and a soft warning with a tracking issue replaces
+them. The text below is rewritten to the rulings.)*
 
 Raised 2026-10-06 (UTC) by lane `gate-time-proposal`, a writing-only lane. calef asked for a
 proposal measuring where the riscv64 suite's time goes, then: "Is there a more general milestone
 here? Don't we want all of the gates to account for how they spend their time?" The maintainer
 agreed. This is the general milestone. Its first slice, and the riscv64 answer, is
-`the-kernel-suite-reports-what-each-test-cost.md`. Title and slug are drafts.
+milestone 807 (the kernel suite reports what each test cost), which this block depends on. Title
+and slug are drafts.
 
 ## Why
 
@@ -28,7 +37,7 @@ had to be read from log timestamps. Its finding was that no step regressed and t
 across many milestones, at about 0.1 minutes per model per day. The gate fired about two weeks into a drift
 that every run in the window showed.
 
-So the rule this milestone proposes: a gate that spends time says where, in a form a script can
+So the rule this milestone builds: a gate that spends time says where, in a form a script can
 read, without anyone scraping a log.
 
 ## What the tree already accounts for
@@ -62,7 +71,7 @@ Three levels. Each gate provides the ones that apply to it.
    (name provisional), uploaded as an artifact.
 3. Per item, for a gate made of many items: tests per architecture, Kani harnesses, fuzz targets,
    `cpu-matrix` models, `swish-check` lines. The item's own framework reports the time, never a log
-   scrape. For the kernel suite that is the first slice. For `swish-check` and re-falsify it
+   scrape. For the kernel suite that is milestone 807, in §254's `time <ms> <test path>` format. For `swish-check` and re-falsify it
    already exists and only moves into the shared file.
 
 ## What the first read of per-step data already found
@@ -98,19 +107,30 @@ instance of the mechanism finding something.
 ## What catches the next drift before the wall-time gate fires
 
 The drift PR #1775 found was spread across about a hundred tests. A per-test ceiling would not have
-seen it: only two new tests take about 10 seconds, and the rest of the growth is many small ones. A
-budget on the sum would have. So the mechanism is a ratchet one level below the job, of the same
-shape as `.github/ci-job-budgets`:
+seen it. A per-suite budget would have, and this block recommended one; calef refused it (§254,
+Fork 2). A second hard limit fails whichever pull request tips an aggregate over, as `cpu-matrix`'s
+20-minute budget did to #1755 and #1766. Milestone 721's job budget stays the only hard limit.
 
-- Each multi-item suite has a committed budget per architecture, in seconds, set from its measured
-  median with headroom. The kernel `system_tests` on riscv64 is the first.
-- Over budget fails the job, and the failure prints the five slowest items and the five that grew
-  most against the last record. The reader starts from the answer rather than from the log.
-- A budget grows only by a line in the same diff that says why, as 721's ratchet does.
+What this milestone builds instead is a warning that fails nothing:
 
-At the measured growth of roughly 5 s a day in riscv64 system tests, 20% headroom fires about every
-five days. Each firing is a small recorded decision: raise the line with a reason, or fix
-something. The job-level gate stays as the backstop. This one fires early and names the suite.
+- When a job's run on main passes about 85% of its budget in `.github/ci-job-budgets` (17 of 20
+  minutes today), the job emits a warning and stays green. `helpers/job-budget.py check` already
+  measures every job against that file, and already prints a warning at 75% (15 minutes) on every
+  run, pull requests included, where nobody reads it. The lane moves that line to 85% so the tree
+  has one warning line, not two, and says so in the helper's header.
+- That run's step summary shows the job's time against its budget, and its slowest suites and
+  tests from the per-item records. The reader starts from the answer rather than from the log.
+- A routine running as `nife-smelter[bot]` opens one tracking issue per job when the job first
+  crosses the line, updates it on later runs, and closes it when the job drops back under. The
+  issue carries a label (name provisional) so that sessions find it where they already look. A
+  label needs an object, and a commit on main has none, which is why the signal is an issue.
+  Milestone 723 (a stopped merge watcher is reported within three of its own intervals) opens an
+  issue the same way: `helpers/watcher_watch.py sync` opens or closes one issue per watcher, and
+  is the one to reuse.
+
+At the measured growth of about 0.1 minutes per model per day, the longer `cpu-matrix` shard would
+have opened its issue about three weeks before it reached the hard limit. Each issue is a small
+recorded decision: fix something, split the job, or raise the budget with 721's reason line.
 
 A `script/lint` check holds the rule itself: a `ci.yml` job that checks out the tree either uploads
 the breakdown file or has a line in an exemption list with its reason. That is the same move
@@ -120,38 +140,46 @@ accounting.
 ## Where it lands
 
 - A CI artifact per job, every run: the per-phase and per-item file.
-- The job's step summary, every run: the five slowest items and the phase table. It costs nothing
-  unless someone opens it.
-- A weekly chart in `notes/project-metrics.md`: the median wall time of each merge-group job, from
-  the daily record. It is the chart milestone 721 said was missing.
-- The suite budgets above, as a gate.
+- The job's step summary, every run: the slowest items and the phase table (§254, Fork 3). It costs
+  nothing unless someone opens it. No pull request comment.
+- A daily CSV under `notes/project-metrics/` (name provisional), appended by a scheduled workflow
+  on milestone 724's `helpers/merge_queue_share.py` pattern: per-job, per-step and per-test times on
+  main (§254, Fork 4).
+- A weekly chart from `script/metrics`: each merge-group job's time against its milestone 721
+  budget. It is the chart milestone 721 said was missing.
+- The 85% warning and the tracking issue above. Neither fails a job.
 
 The runner-minutes measurement pass calef approved on 2026-10-05 is a one-off report on
 concurrency, and it stays owed. The daily record makes it repeatable by script.
 
 ## Parity
 
-The per-step record and the ratchet are host-side, so they are architecture-neutral. The per-test
-record is the kernel's shared test framework and lands on aarch64, riscv64 and x86_64 at once. Each
-suite budget is per architecture, because the three emulators cost differently: riscv64 system
-tests took 129 s against aarch64's 98 s in the run above. A suite that runs on fewer than three
-architectures says why in its exemption line, which is §19 (architectural parity is a tenet)
-applied to cost. Milestone 722 already compares cost across architectures for `swish-check`.
+The per-step record and the warning are host-side, so they are architecture-neutral. The per-test
+record is the kernel's shared test framework and lands on aarch64, riscv64 and x86_64 at once
+(milestone 807). The step summary and the chart show suites per architecture, because the three
+emulators cost differently: riscv64 system tests took 129 s against aarch64's 98 s in the run
+above. A suite that runs on fewer than three architectures says why in its exemption line, which is
+§19 (architectural parity is a tenet) applied to cost. Milestone 722 already compares cost across architectures for `swish-check`.
 
 ## Exit criteria a stranger can check
 
-1. `notes/project-metrics/` holds a daily per-job, per-step record for green merge-group runs of
-   `ci.yml` and `verify.yml`, written by a scheduled workflow. `script/metrics` charts the weekly
-   median per job.
+1. `notes/project-metrics/` holds a daily CSV of per-job, per-step and per-test times for green
+   runs on main of `ci.yml` and `verify.yml`, appended by a scheduled workflow on the pattern of
+   `helpers/merge_queue_share.py`. `script/metrics` charts each job's weekly time against its
+   milestone 721 budget.
 2. Every `ci.yml` job that checks out the tree uploads the breakdown file or carries an exemption
    line with a reason, and `script/lint` fails a job that does neither.
 3. The kernel suite on all three architectures, `cpu-matrix`, `swish-check`, re-falsify and `fuzz`
    write per-item times into that file from their own frameworks.
-4. The riscv64 `system_tests` budget exists. A host test proves the gate fails over budget and
-   prints the five slowest and the five that grew most.
-5. `verify.yml` joins milestone 721's budget, using the medians the record now has, which closes
+4. A job's run on main past about 85% of its budget emits a warning, stays green, and lists its
+   slowest suites and tests in the step summary. A host test proves the warning fires above the
+   line, stays silent below it, and never changes the exit status.
+5. The routine opens a labeled tracking issue for a job that crosses the line, updates the same
+   issue on a later crossing rather than opening a second, and closes it when the job is back
+   under. A host test drives all three transitions against a recorded API fixture.
+6. `verify.yml` joins milestone 721's budget, using the medians the record now has, which closes
    that milestone's first BUGS entry.
-6. Milestone 663 (bound the host pass) takes its deadline from the host pass's measured time in
+7. Milestone 663 (bound the host pass) takes its deadline from the host pass's measured time in
    the record, as its block asks.
 
 ## Cost
@@ -160,9 +188,8 @@ applied to cost. Milestone 722 already compares cost across architectures for `s
   constrained one. Writing and uploading the file costs seconds per job. The step summary costs
   nothing. The bootstrap fix found on the first read returns about 8.5 arm64 runner-minutes per
   merge-group run.
-- Claude tokens: zero per pull request, by design. Nothing is posted as a comment. The cost lands
-  only when a budget fires, as about five lines in the failure an ejection triage already reads.
-  Fork 3 prices the alternative.
+- Claude tokens: zero per pull request, by design. Nothing is posted as a comment (§254, Fork 3).
+  The cost lands only when a tracking issue opens, which a session reads once and acts on.
 
 ## Ranking
 
@@ -173,28 +200,26 @@ lanes and tokens are lost. So it ranks below work that moves a fatal-risk verdic
 that does neither. The bootstrap fix and the calendar fix are each under an hour of lane work and
 should go now on cost alone. The first slice should go when a lane frees. The rest can wait for it.
 
-## Forks, in the order to rule them
+## The forks, ruled by §254
 
-1. The kernel record's format. It is in the first slice, because that slice blocks on it.
-2. What gates drift. Options: (a) a per-suite, per-architecture budget ratchet; (b) a tighter
-   per-test ceiling; (c) report only, no gate. Recommendation: (a). The drift on record was
-   distributed, and (b) would have seen about a third of it. (c) is the floor of the mechanisms
-   ladder, and it is close to what the tree had while this drift ran for two weeks. The per-test ceiling stays the hang detector it
-   is.
-3. Where the per-run breakdown is shown. Options: (a) step summary and artifact only; (b) also a
-   comment on every pull request; (c) artifact only. Recommendation: (a). With roughly 75 to 100
-   queue entries a day, a ten-row comment of about 400 tokens, read twice by agents, is in the
-   order of 60,000 tokens a day of context. That is an estimate, not a measurement, and most pull
-   requests would show nothing new.
-4. The daily record and chart. Recommendation: build it on milestone 724's pattern. It is
-   reversible, and is listed only because it adds a scheduled workflow.
+All four were ruled on 2026-10-06 (UTC), in the order this block asked. §254 has calef's words and
+the refused options.
+
+1. The kernel record's format: the printed `time <ms> <test path>` block, grammar in a shared crate.
+   Milestone 807 builds it.
+2. What gates drift: a soft warning at about 85% of the milestone 721 budget, raised as a labeled
+   tracking issue per job. The per-suite budget this block recommended was refused.
+3. Where the per-run breakdown shows: step summary plus artifact, no pull request comment.
+4. The daily record and chart: a CSV under `notes/project-metrics/` on milestone 724's pattern,
+   charted weekly by `script/metrics`.
 
 ## Reuse
 
 Taken: GitHub's jobs API for per-step times, `actions/upload-artifact` for the file, the step
 summary for display, and the patterns of `helpers/merge_queue_share.py` (a daily record) and
-`helpers/job-budget.py` (a ratchet with a lint). Written: the collector and the suite-budget check,
-which are a few hundred lines of Python against this tree's own record formats. JUnit XML was
+`helpers/job-budget.py` (a ratchet with a lint), and `helpers/watcher_watch.py` (milestone 723) for the
+tracking issue. Written: the collector, the warning and the issue routine, a few hundred lines of Python
+against this tree's own record formats. JUnit XML was
 considered as the file's format and not taken, because no consumer here reads it.
 
 ## What was considered and lost
@@ -203,6 +228,8 @@ considered as the file's format and not taken, because no consumer here reads it
   scarce resource, arm64 runner concurrency. PR #1775's own table prices five shards at 87% more
   runner-minutes.
 - Raising budgets. It moves the day the gate fails.
+- A per-suite, per-architecture budget ratchet, which this block recommended. calef refused it
+  (§254, Fork 2): a second hard limit ejects whichever pull request tips the sum.
 - cargo-nextest for host tests, which reports per-test time and JUnit XML. It is a dependency, which
   §46 (thin primitives or whole subsystems) makes a decision, and the host pass is 89 of 900
   seconds. libtest's own JSON output with per-test times, behind `-Z unstable-options` on nightly,
@@ -210,6 +237,13 @@ considered as the file's format and not taken, because no consumer here reads it
 
 ## BUGS
 
+- The warning reads one run. A job sitting near 85% may open and close its issue on alternate runs.
+  §254 leaves the damping to this milestone's lane.
+
 - A merge-group run's runner varies, and every number here is wall time on a shared hosted machine.
   The record takes medians over runs for that reason. One run, as in the table above, is a premise
   check and not a baseline.
+
+## Index row
+
+Milestone 721 gave every CI job a wall-time budget that says a job is slow but not why. This makes every gate report where its time goes, per step, per phase and per item, in a step summary and an artifact, with a daily record and a weekly chart against the budgets. A job on main past about 85% of its budget warns and opens a labeled tracking issue rather than failing (§254), so the next drift is named weeks before it ejects a pull request.

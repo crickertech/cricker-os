@@ -1,26 +1,33 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-06
+promoted_from: the-kernel-suite-reports-what-each-test-cost
 milestone_dependencies: none
-decision_dependencies: unwritten
+decision_dependencies: 254
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The kernel suite reports what each test cost, and the riscv64 suite's time is explained
+# 807. The kernel suite reports what each test cost, and the riscv64 suite's time is explained
+
+*(Promoted from the proposal pile on 2026-10-06 (UTC); number provisional until the merge queue lands it.)*
+
+*(Ruled 2026-10-06 (UTC), calef on PR #1778: "Yes on Fork 1, the printed block", and "Step summary
+plus artifact, with no PR comment". §254 (a gate prints what each item cost, and a job near its
+budget warns rather than fails) records all four rulings and the refused options. Milestone 808
+(every gate accounts for its time) builds on this block.)*
 
 Raised 2026-10-06 (UTC) by lane `gate-time-proposal`, a writing-only lane, from calef's ask the same
 day: "Write up a proposal milestone that measures where the riscv64 suite's time goes." This is the
-first slice of the sibling proposal, `every-gate-accounts-for-its-time.md`. Title and slug are
-drafts.
+first slice of milestone 808 (every gate accounts for its time). Title and slug are drafts.
 
-## Why this is its own proposal
+## Why this is its own milestone
 
 The general milestone is open-ended. This slice is a few days of work, and two things already wait
 on it alone: whether `cpu-matrix` needs a third shard in about three weeks, and the deadline
 milestone 663 (bound the host pass) must take from a measurement. When a piece of work depends on
 part of a milestone, the tree splits the milestone rather than naming a rung inside it. So this
-slice gets a number of its own at promotion, and the general one builds on it.
+slice has a number of its own, and milestone 808 depends on it.
 
 ## What happened
 
@@ -91,12 +98,14 @@ the framework report its own numbers.
 
 - The guest records every test's elapsed time in milliseconds, using the start stamp it already
   takes, on all three architectures. The same code serves all three, since `testing.rs` is shared.
-- At the end of the suite the guest prints the record in a fixed grammar, after the existing
-  reports and before `test result:`. Fork 1 below is the format.
+- At the end of the suite the guest prints the record as a block, after the existing reports and
+  before `test result:`: one `time <milliseconds> <full test path>` line per test (§254, Fork 1).
+  The grammar lives in a crate the kernel and `xtask` both depend on, name provisional.
 - `xtask` times the host side of every leg: the build, the boot to the `running` line, each image's
   suite, and the exit. It parses the guest's record, and writes both to one machine-readable file
   per job (name provisional). The `test` and `cpu-matrix` jobs upload it as an artifact, the way
-  `cpu-matrix` already uploads its per-model logs.
+  `cpu-matrix` already uploads its per-model logs, and write the slowest tests and modules to the
+  step summary (§254, Fork 3). No pull request comment.
 - A cross-check that proves the guest clock is honest. For each image, the sum of the guest's
   per-test times must fall within a stated tolerance of the host's measured span for that suite.
   This matters most on x86_64, where the guest's clock is a TSC calibrated at boot. Milestone 571
@@ -106,8 +115,8 @@ the framework report its own numbers.
   and per module on each architecture, the riscv64-to-aarch64 ratio, and what the growth since
   2026-09-20 consists of.
 - The cheap fixes the answer names, each landed or refused with a reason. The two known today:
-  - The calendar test's two five-second waits. Publishing at 01:59:59 instead of 01:59:55 should
-    save about 8 s on every boot that runs the suite. That is ten boots per merge-group run: one on
+  - The calendar test's two five-second waits, now in flight as PR #1779. Publishing at 01:59:59
+    instead of 01:59:55 should save about 8 s on every boot that runs the suite. That is ten boots per merge-group run: one on
     aarch64, one in `test` and five in `cpu-matrix` on riscv64, and three on x86_64 (q35, AMD-Vi,
     OVMF). The lane checks first whether the margin is load-bearing, since the test says no
     assertion may depend on when the timetable reads the page.
@@ -116,9 +125,10 @@ the framework report its own numbers.
 ## Exit criteria a stranger can check
 
 1. `cargo xtask test` on a clean checkout prints a per-test timing record for every image on
-   aarch64, riscv64 and x86_64, in the ratified format, and writes the per-job file.
+   aarch64, riscv64 and x86_64, in §254's format, and writes the per-job file. A host test in the
+   shared crate proves the parser round-trips a line and rejects a malformed one.
 2. The latest green merge-group run of `test` and of `cpu-matrix` has the file as an artifact, and
-   it names every test the transcript names, with no gaps.
+   it names every test the transcript names, with no gaps. Its step summary lists the slowest tests.
 3. On each architecture the cross-check holds for every image, and a host test proves that it
    fails when the two clocks disagree.
 4. The notes page exists, cites the runs it read by id, and gives the riscv64 answer per module.
@@ -151,13 +161,13 @@ console line depend on a format rustc may change.
   x86_64, which §19 (architectural parity is a tenet) refuses.
 - Keeping the log scrape. It is what PR #1775 did, and it disagreed with this one by 17%.
 
-## Forks
+## The fork, ruled by §254
 
-Fork 1, the record's format, is an architect's call: it is something two programs agree on, the
-kernel and `xtask`. The grammar goes in a crate both depend on, per the rule that a shared format is
-a crate and never a `#[path]` module. The crate's name is provisional. Recommendation: a block after
-the suite, one line per test, shaped `time <milliseconds> <full test path>`. It leaves every
-existing line unchanged, it is greppable, and it costs one parser.
+Fork 1, the record's format, was an architect's call because two programs agree on it, the kernel
+and `xtask`. calef took the recommendation: a block after the suite, one line per test, shaped
+`time <milliseconds> <full test path>`, its grammar in a shared crate and never a `#[path]` module.
+It leaves every existing line unchanged, it is greppable, and it costs one parser. The crate's name
+is provisional.
 
 ## BUGS
 
@@ -168,4 +178,4 @@ existing line unchanged, it is greppable, and it costs one parser.
 
 ## Index row
 
-The kernel suite already times each test for its ceiling and discards the number below 5 s. Proposed: print every test's time in a shared format on all three architectures, upload it from `test` and `cpu-matrix`, and answer where riscv64's 129 s of system tests go.
+The kernel suite already times each test for its ceiling and discards the number below 5 s. This milestone prints every test's time in a shared format on all three architectures, upload it from `test` and `cpu-matrix`, and answer where riscv64's 129 s of system tests go.
