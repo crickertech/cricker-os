@@ -6,10 +6,12 @@ use crate::sched::RendezvousId;
 ///
 /// It was role 16 of the `hello` multiplexer until milestone 291 and is
 /// `fixtures/src/frame_revoker.rs` now, which reads nothing from `x0`.
-pub fn wire() -> RendezvousId {
+///
+/// `endpoints` is a region the caller owns and reclaims once it has the verdict.
+pub fn wire(endpoints: u64) -> RendezvousId {
     let image = program("frame_revoker").expect("no frame_revoker program in the archive");
     let region = crate::memory_region::create(8).expect("no untyped for the revoke demo");
-    let report = crate::sched::create_rendezvous();
+    let report = crate::sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
     crate::sched::spawn(move || {
         run(
             image,

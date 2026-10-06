@@ -14,12 +14,17 @@ use crate::sched::RendezvousId;
 /// **Two images, one endpoint.** These were roles 14 and 15 of the `hello` multiplexer until
 /// milestone 291, so this took one image and two role numbers; they are `fixtures/src/call_server.rs`
 /// and `fixtures/src/call_client.rs` now, and neither reads `x0`.
-pub fn wire() -> (RendezvousId, RendezvousId) {
+///
+/// `endpoints` is a region of at least three pages the caller owns and reclaims once it has both
+/// verdicts; every endpoint here is carved from it.
+pub fn wire(endpoints: u64) -> (RendezvousId, RendezvousId) {
     let server = program("call_server").expect("no call_server program in the archive");
     let client = program("call_client").expect("no call_client program in the archive");
-    let ep = crate::sched::create_rendezvous(); // client CALL <-> server RECEIVE_CAP
-    let call_report = crate::sched::create_rendezvous();
-    let oneshot_report = crate::sched::create_rendezvous();
+    let ep = crate::sched::create_rendezvous_from(endpoints).expect("no ep rendezvous"); // client CALL <-> server RECEIVE_CAP
+    let call_report =
+        crate::sched::create_rendezvous_from(endpoints).expect("no call_report rendezvous");
+    let oneshot_report =
+        crate::sched::create_rendezvous_from(endpoints).expect("no oneshot_report rendezvous");
 
     crate::sched::spawn(move || {
         run(

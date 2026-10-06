@@ -145,8 +145,9 @@ fn spawn_job_undertaker_with(
 #[test_case]
 fn without_a_collector_a_bounded_job_pool_runs_out() {
     let pool = crate::memory_region::create(POOL_PAGES).expect("no job pool");
-    let deaths = sched::create_rendezvous();
-    let report = sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(2).expect("no endpoint region");
+    let deaths = sched::create_rendezvous_from(endpoints).expect("deaths");
+    let report = sched::create_rendezvous_from(endpoints).expect("report");
 
     let mut corpses = [0u64; ROOM as usize];
     for (i, slot) in corpses.iter_mut().enumerate() {
@@ -180,6 +181,7 @@ fn without_a_collector_a_bounded_job_pool_runs_out() {
     }
     let _ = sched::delete_current_cap(cap);
     sched::reclaim_region(pool).expect("the job pool did not come back");
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **The claim: a bounded job pool is enough, because `job_undertaker` gives every region back.**

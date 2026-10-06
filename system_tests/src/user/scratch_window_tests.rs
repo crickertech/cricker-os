@@ -86,7 +86,8 @@ fn a_builder_reuses_scratch_its_reaped_children_gave_back() {
     let region = crate::memory_region::create(BUDGET_PAGES).expect("no region for the exerciser");
     let tables =
         crate::memory_region::create(OWN_TABLE_PAGES).expect("no table region for the exerciser");
-    let report = sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let report = sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
     let faults = USER_FAULTS.load(Ordering::Relaxed);
 
     let tid = sched::spawn(move || {
@@ -149,4 +150,5 @@ fn a_builder_reuses_scratch_its_reaped_children_gave_back() {
     );
     sched::reclaim_region(region).expect("the exerciser's budget did not come back");
     sched::reclaim_region(tables).expect("the exerciser's table budget did not come back");
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }

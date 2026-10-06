@@ -14,8 +14,15 @@ use crate::sched::RendezvousId;
 /// never given one", and it is the refusal an ungranted display client meets too (§29). The
 /// report still goes in at slot 1, placed rather than appended, so the program that holds no
 /// sink is otherwise wired identically to the one that does.
-fn spawn_writer(image: &'static [u8], sink: Option<RendezvousId>, repeat: u64) -> RendezvousId {
-    let report = crate::sched::create_rendezvous();
+///
+/// The report endpoint is carved from `endpoints`, a region the caller owns and reclaims.
+fn spawn_writer(
+    image: &'static [u8],
+    sink: Option<RendezvousId>,
+    repeat: u64,
+    endpoints: u64,
+) -> RendezvousId {
+    let report = crate::sched::create_rendezvous_from(endpoints).expect("no writer report");
     crate::sched::spawn(move || match sink {
         Some(ep) => run(
             image,
@@ -54,9 +61,11 @@ fn spawn_writer(image: &'static [u8], sink: Option<RendezvousId>, repeat: u64) -
 /// Two capabilities and nothing else, which is what makes the test below mean something: `wc`
 /// holds no file, no directory, no page and nothing that names the FS server. Whatever is
 /// behind its input slot, it is handed the bytes.
-fn spawn_wc(source: RendezvousId) -> RendezvousId {
+///
+/// The answer endpoint is carved from `endpoints`, a region the caller owns and reclaims.
+fn spawn_wc(source: RendezvousId, endpoints: u64) -> RendezvousId {
     let image = program("wc").expect("no wc program in the initrd archive");
-    let out = crate::sched::create_rendezvous();
+    let out = crate::sched::create_rendezvous_from(endpoints).expect("no wc answer endpoint");
     crate::sched::spawn(move || {
         run(
             image,
@@ -136,8 +145,10 @@ fn one_reader_two_sources_and_the_same_answer() {
 
     // Arm one: a pipe. The kernel is the producer, which is the same position the shell is in
     // when a builtin leads a pipeline (`kernel::user::pipeline_tests`).
-    let pipe = crate::sched::create_rendezvous();
-    let out = spawn_wc(pipe);
+    // Four pages: the pipe, both `wc` answers and the writer's report.
+    let endpoints = crate::memory_region::create(4).expect("no endpoint region");
+    let pipe = crate::sched::create_rendezvous_from(endpoints).expect("no pipe rendezvous");
+    let out = spawn_wc(pipe, endpoints);
     let mut off = 0usize;
     while off < fixture::TRANSCRIPT.len() {
         let (w0, w1, w2, n) = byte_sink_protocol::pack(&fixture::TRANSCRIPT[off..]);
@@ -168,6 +179,7 @@ fn one_reader_two_sources_and_the_same_answer() {
         // ran, so the transcript still records that the pipe arm was exercised (and would still
         // have failed the run had it been wrong): a skip here is a statement about the two-source
         // property, not about the code that already executed.
+        crate::sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
         crate::testing::skip!(
             "no RedoxFS disk attached: the pipe arm ran, the file arm did not, so the two \
              sources were never compared"
@@ -179,7 +191,7 @@ fn one_reader_two_sources_and_the_same_answer() {
         fixture::READY,
         "the file sink could not open its file",
     );
-    let wrote = spawn_writer(writer_image, Some(file_sink.sink), 1);
+    let wrote = spawn_writer(writer_image, Some(file_sink.sink), 1, endpoints);
     let [code, total, ..] = crate::sched::ipc_receive(wrote);
     assert_eq!(
         code,
@@ -199,7 +211,7 @@ fn one_reader_two_sources_and_the_same_answer() {
     else {
         panic!("the FS service vanished between the file sink and its source");
     };
-    let out = spawn_wc(source);
+    let out = spawn_wc(source, endpoints);
     let filed = wc_counts(out, "wc reading a file");
     let [vdone, size, ..] = crate::sched::ipc_receive(verify_report);
     assert_eq!(
@@ -217,6 +229,7 @@ fn one_reader_two_sources_and_the_same_answer() {
         "the same wc answered differently for a pipe and for a file, so its input slot is not \
          opaque after all",
     );
+    crate::sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **The same program, two destinations, the same bytes.**
@@ -258,10 +271,14 @@ fn a_program_cannot_tell_what_its_output_slot_holds() {
 
     // Arm one: the kernel receives. Everything here is what the existing std test does, which
     // is the point: nothing was special-cased for the sink.
-    let direct = crate::sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let direct = crate::sched::create_rendezvous_from(endpoints).expect("no direct endpoint");
     std_service::start_on(std_exerciser, clock, entropy, direct);
     let mut first = [0u8; 512];
     let n1 = super::std_tests::drain_sink(direct, &mut first, "std_exerciser, direct endpoint");
+    // Drained to its end of stream, so the program has nothing left to send on it.
+    crate::sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
+
     assert_eq!(
         &first[..n1],
         super::std_tests::EXPECTED,
@@ -355,9 +372,12 @@ fn a_destroyed_sink_ends_the_writer_and_an_absent_one_does_not() {
     let image =
         program("sink_transcript_writer").expect("no sink_transcript_writer in the initrd archive");
 
+    // Four pages: the live sink and the three writers' reports.
+    let endpoints = crate::memory_region::create(4).expect("no endpoint region");
+
     // 1. A sink that stays.
-    let live = crate::sched::create_rendezvous();
-    let report = spawn_writer(image, Some(live), 1);
+    let live = crate::sched::create_rendezvous_from(endpoints).expect("no live sink");
+    let report = spawn_writer(image, Some(live), 1, endpoints);
     let mut got = [0u8; 256];
     let n = super::std_tests::drain_sink(live, &mut got, "the writer with a live sink");
     assert_eq!(
@@ -380,7 +400,7 @@ fn a_destroyed_sink_ends_the_writer_and_an_absent_one_does_not() {
     // the kernel's own endpoints are not in one.
     let region = crate::memory_region::create(4).expect("no untyped for the doomed sink");
     let doomed = crate::sched::create_rendezvous_from(region).expect("no endpoint in the region");
-    let report = spawn_writer(image, Some(doomed), 0);
+    let report = spawn_writer(image, Some(doomed), 0, endpoints);
     // Take a few messages first, so the writer is demonstrably running and parked in the next
     // send rather than having failed before it ever reached one.
     for _ in 0..3 {
@@ -402,7 +422,7 @@ fn a_destroyed_sink_ends_the_writer_and_an_absent_one_does_not() {
     );
 
     // 3. No sink at all: the slot is empty, and the program keeps running.
-    let report = spawn_writer(image, None, 1);
+    let report = spawn_writer(image, None, 1, endpoints);
     let [class, total, ..] = crate::sched::ipc_receive(report);
     assert_eq!(
         (class, total),
@@ -410,6 +430,7 @@ fn a_destroyed_sink_ends_the_writer_and_an_absent_one_does_not() {
         "a program with an empty output slot must keep running and print into the void, which \
          is what every OS does to a process whose stdout is closed",
     );
+    crate::sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **The same indifferent writer, a third destination: the terminal** (milestone 50's last
@@ -440,10 +461,13 @@ fn the_terminal_is_a_sink_like_any_other_and_the_writer_cannot_tell() {
     let writer =
         program("sink_transcript_writer").expect("no sink_transcript_writer in the initrd archive");
 
-    let sink_ep = crate::sched::create_rendezvous();
-    let term_ep = crate::sched::create_rendezvous();
+    // The adapter serves `sink_ep` in a loop that never ends and ignores a failed receive, so its
+    // endpoints go back only once it has been killed: a `Holding` does both, in that order.
+    let endpoints = crate::memory_region::create(3).expect("no endpoint region");
+    let sink_ep = crate::sched::create_rendezvous_from(endpoints).expect("no sink endpoint");
+    let term_ep = crate::sched::create_rendezvous_from(endpoints).expect("no terminal endpoint");
 
-    crate::sched::spawn(move || {
+    let adapter_tid = crate::sched::spawn(move || {
         run(
             adapter,
             Spawn {
@@ -459,8 +483,11 @@ fn the_terminal_is_a_sink_like_any_other_and_the_writer_cannot_tell() {
         )
     })
     .expect("could not spawn the terminal sink adapter");
+    let mut held = crate::user::holding::Holding::new();
+    held.add_thread(adapter_tid);
+    held.add_region(endpoints);
 
-    let report = spawn_writer(writer, Some(sink_ep), 1);
+    let report = spawn_writer(writer, Some(sink_ep), 1, endpoints);
 
     // The terminal, played by this test. `OPERATION_PRINT` carries up to eight bytes in its second word,
     // which is the terminal contract's request shape (a served request arrives with the reply
@@ -510,4 +537,5 @@ fn the_terminal_is_a_sink_like_any_other_and_the_writer_cannot_tell() {
         ),
         "the writer should have classified a terminal exactly as it classifies a pipe and a file",
     );
+    held.release_or_fail("terminal_sink_caretaker");
 }

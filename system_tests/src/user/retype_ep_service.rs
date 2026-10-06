@@ -4,12 +4,15 @@ use crate::sched::RendezvousId;
 
 /// Spawn the pair; returns the report endpoint carrying the word that crossed the minted
 /// endpoint.
-pub fn wire() -> RendezvousId {
+///
+/// `endpoints` is a region of at least two pages the caller owns and reclaims once it has the
+/// report; both kernel-made endpoints are carved from it.
+pub fn wire(endpoints: u64) -> RendezvousId {
     // Roles 17 and 18 of the `hello` multiplexer until milestone 291; two binaries now.
     let minter = program("rendezvous_minter").expect("no rendezvous_minter in the archive");
     let peer = program("rendezvous_peer").expect("no rendezvous_peer in the archive");
-    let channel = crate::sched::create_rendezvous();
-    let report = crate::sched::create_rendezvous();
+    let channel = crate::sched::create_rendezvous_from(endpoints).expect("no channel rendezvous");
+    let report = crate::sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
     let region = crate::memory_region::create(4).expect("no region for the maker's budget");
 
     crate::sched::spawn(move || {

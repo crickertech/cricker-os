@@ -26,7 +26,7 @@ const ROOT_BUDGET_PAGES: u64 = 1024;
 ///
 /// Deliberately the same endowment `spawn_init` gives (`INITRD_VA`, an untyped in slot 0, a report
 /// endpoint in slot 1) so what is being tested is `root_supervisor`'s *choices*, not a privileged shortcut.
-fn spawn_tree() -> sched::RendezvousId {
+fn spawn_tree() -> (sched::RendezvousId, u64) {
     let (initrd_start, initrd_len) = memory::initrd_region().expect("no initrd region");
     let initrd_pages = initrd_len.div_ceil(FRAME_SIZE);
     let bytes =
@@ -66,7 +66,9 @@ fn spawn_tree() -> sched::RendezvousId {
     }
     let aspace = readopt_user_address_space(space).expect("register the root_supervisor aspace");
 
-    let report = sched::create_rendezvous();
+    // From a region the run owns and reclaims, as `live_swap_tests::spawn_swapper` does.
+    let report_region = crate::memory_region::create(1).expect("no region for the report endpoint");
+    let report = sched::create_rendezvous_from(report_region).expect("no report rendezvous");
     let budget =
         crate::memory_region::create(ROOT_BUDGET_PAGES).expect("no budget for root_supervisor");
     let thread_control_block_region = crate::memory_region::create(2).expect("no tcb region");
@@ -94,7 +96,7 @@ fn spawn_tree() -> sched::RendezvousId {
     sched::configure_thread_control_block(tid, elf.entry(), USER_STACK_TOP, aspace)
         .expect("configure");
     sched::start_thread_control_block(tid, [0, initrd_len, 0]).expect("start");
-    report
+    (report, report_region)
 }
 
 /// How many reports a healthy run of the tree makes: the progenitor's drop; the crashing child's first
@@ -115,7 +117,7 @@ const EXPECTED_REPORTS: usize = 7;
 /// The order of the seven is not fixed (the progenitor's drop races the sub-server's first run), so callers
 /// filter by kind; within a kind the order is causal and asserted.
 fn run_tree() -> [[u64; 5]; EXPECTED_REPORTS] {
-    let report = spawn_tree();
+    let (report, report_region) = spawn_tree();
     let mut msgs = [[0u64; 5]; EXPECTED_REPORTS];
     for slot in msgs.iter_mut() {
         let msg = sched::ipc_receive(report);
@@ -145,6 +147,7 @@ fn run_tree() -> [[u64; 5]; EXPECTED_REPORTS] {
         "the tree made more than {EXPECTED_REPORTS} reports: something acted after the \
          sub-server finished",
     );
+    sched::reclaim_region(report_region).expect("the report endpoint's region did not come back");
     msgs
 }
 

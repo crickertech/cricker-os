@@ -373,7 +373,7 @@ fn a_whole_std_program_runs_on_the_native_abi() {
     let clock = program("clock").expect("no clock program in the initrd archive");
     let entropy = program("entropy").expect("no entropy program in the initrd archive");
     let faults_before = USER_FAULTS.load(Ordering::Relaxed);
-    let (report, tid) = std_service::start(image, clock, entropy);
+    let (report, tid, report_region) = std_service::start(image, clock, entropy);
     assert_std_transcript(report, EXPECTED, "std_exerciser");
 
     // **The exit is part of the transcript's claim, and it was not being checked** (milestone 64,
@@ -396,4 +396,5 @@ fn a_whole_std_program_runs_on_the_native_abi() {
         faults_before,
         "std::process::exit trapped instead of exiting: a clean exit reported as a crash",
     );
+    crate::sched::reclaim_region(report_region).expect("the stdout region did not come back");
 }

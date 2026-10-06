@@ -5,13 +5,16 @@ use crate::sched::RendezvousId;
 /// Spawn the pair, each with its own untyped budget, and return the endpoint the consumer
 /// reports its verdict on. Eight pages of untyped apiece covers one frame plus the page tables
 /// each side needs to map it.
-pub fn wire() -> RendezvousId {
+///
+/// `endpoints` is a region of at least two pages the caller owns and reclaims once it has the
+/// verdict; both endpoints are carved from it.
+pub fn wire(endpoints: u64) -> RendezvousId {
     // Roles 11 and 12 of the `hello` multiplexer until milestone 291; two binaries now, agreeing on
     // `capability_witness_protocol::PAGE_FRAME_SENTINEL` rather than on a constant in one file.
     let producer = program("page_frame_producer").expect("no page_frame_producer in the archive");
     let consumer = program("page_frame_consumer").expect("no page_frame_consumer in the archive");
-    let channel = crate::sched::create_rendezvous();
-    let report = crate::sched::create_rendezvous();
+    let channel = crate::sched::create_rendezvous_from(endpoints).expect("no channel rendezvous");
+    let report = crate::sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
     let prod_ut = crate::memory_region::create(8).expect("no untyped for the frame producer");
     let cons_ut = crate::memory_region::create(8).expect("no untyped for the frame consumer");
 

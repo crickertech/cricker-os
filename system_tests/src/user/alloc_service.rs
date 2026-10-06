@@ -12,10 +12,13 @@ pub const BUDGET_PAGES: u64 = 96;
 /// 0x4ffff8, one word below the mapped page.
 const EXTRA_STACK_PAGES: u64 = 3;
 
-pub fn start(image: &'static [u8]) -> RendezvousId {
+/// `endpoints` is a region the caller owns and reclaims once it has the verdict; the report
+/// endpoint is carved from it.
+pub fn start(image: &'static [u8], endpoints: u64) -> RendezvousId {
     let budget =
         crate::memory_region::create(BUDGET_PAGES).expect("no untyped for allocator_exerciser");
-    let report = crate::sched::create_rendezvous();
+    let report =
+        crate::sched::create_rendezvous_from(endpoints).expect("no allocator_exerciser report");
 
     let mut stack = [Mapping {
         va: 0,

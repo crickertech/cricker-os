@@ -15,9 +15,9 @@ use crate::sched::RendezvousId;
 /// second stream. So the endowed half of this milestone is proven at the real prompt, through the
 /// real `crates/system_initializer`, by `script/swish-check`; see this module's own note in
 /// `design/roadmap/111-entropy-for-a-child.md`.
-fn spawn_uuid_holding_no_entropy() -> RendezvousId {
+fn spawn_uuid_holding_no_entropy(endpoints: u64) -> RendezvousId {
     let image = program("uuid").expect("no uuid program in the initrd archive");
-    let out = crate::sched::create_rendezvous();
+    let out = crate::sched::create_rendezvous_from(endpoints).expect("no stdout rendezvous");
     crate::sched::spawn(move || {
         run(
             image,
@@ -72,7 +72,8 @@ fn chunk(out: RendezvousId, buf: &mut [u8; 16]) -> Option<usize> {
 /// the capability model's answer to an empty slot, which is not instruction-set-specific.
 #[test_case]
 fn a_process_granted_no_entropy_prints_no_identifier() {
-    let out = spawn_uuid_holding_no_entropy();
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let out = spawn_uuid_holding_no_entropy(endpoints);
 
     let mut said = [0u8; 128];
     let mut len = 0usize;
@@ -101,4 +102,5 @@ fn a_process_granted_no_entropy_prints_no_identifier() {
         !said.contains(&b'-'),
         "uuid with no entropy emitted identifier-shaped bytes"
     );
+    crate::sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }

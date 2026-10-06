@@ -33,23 +33,34 @@ static LAST_FLUSH: AtomicU64 = AtomicU64::new(u64::MAX);
 static FLUSH_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 /// **A display the kernel serves itself**: the rung-one contract (`INFO`, `FLUSH`) over frames the
-/// kernel allocated, with no device behind it. Returns `(display endpoint, screen frames)`.
+/// kernel allocated, with no device behind it. Returns `(display endpoint, screen frames, region)`.
 ///
 /// It exists to make the damage rectangle visible. A real driver honours the rectangle and says
 /// nothing about it; here the flush *is* the observation, so a compositor that quietly repainted the
 /// screen every frame would fail a test rather than merely be slow.
-fn kernel_display() -> (sched::RendezvousId, u64) {
+///
+/// **The screen and the endpoint both come out of `region`, and the test reclaims it last**
+/// ([`retire_kernel_display`]). That one call revokes every capability and mapping of the screen
+/// (§13 (capability revocation and untyped reclamation)), so the compositor the test leaves
+/// parked loses it rather than keeping a pointer into freed memory, and it ends the stand-in,
+/// whose receive comes back aborted. Before this, every call kept a scanout's worth of frames,
+/// about 300, for the rest of the boot.
+fn kernel_display() -> (sched::RendezvousId, u64, u64) {
     let frames = graphics_protocol::SURFACE_PAGE_FRAMES as u64;
-    let screen = crate::memory::alloc_contiguous_zeroed(frames as usize)
-        .expect("no contiguous screen frames for the compositor")
-        .addr();
+    let region = crate::memory_region::create(frames + 1)
+        .expect("no contiguous screen frames for the compositor");
+    let (screen, _) =
+        crate::memory_region::retype_run(region, frames).expect("no screen run in its region");
     LAST_FLUSH.store(u64::MAX, Ordering::SeqCst);
     FLUSH_COUNT.store(0, Ordering::SeqCst);
 
-    let ep = sched::create_rendezvous();
+    let ep = sched::create_rendezvous_from(region).expect("no display rendezvous");
     sched::spawn(move || {
         loop {
             let m = sched::ipc_receive_cap(ep);
+            if sched::take_ipc_aborted() {
+                return; // `retire_kernel_display` reclaimed the endpoint: this display is gone
+            }
             let (w0, slot) = (m[0], m[1]);
             let crate::cap::Object::Reply(caller) = sched::current_cap(slot)
                 .expect("the display stand-in got no reply capability")
@@ -74,7 +85,13 @@ fn kernel_display() -> (sched::RendezvousId, u64) {
         }
     })
     .expect("could not spawn the display stand-in");
-    (ep, screen)
+    (ep, screen, region)
+}
+
+/// Give back what [`kernel_display`] took: the screen, unmapped from everyone first, and the
+/// endpoint, which ends the stand-in. Last in a test, once nothing it asserts reads the screen.
+fn retire_kernel_display(region: u64) {
+    sched::reclaim_region(region).expect("the kernel display's region did not come back");
 }
 
 /// Wait for the compositor's one status message, and check it.
@@ -191,7 +208,7 @@ fn a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen() {
     const VICTIM: usize = 1;
     const PEEPER: usize = 2;
 
-    let (display, screen) = kernel_display();
+    let (display, screen, display_region) = kernel_display();
     let w = compositor_service::start(3, 0, display, screen);
     wait_for_compositor(&w);
 
@@ -303,6 +320,7 @@ fn a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen() {
         0,
         "a client read a pixel of the screen it holds no mapping of (WIN_ESCAPED)",
     );
+    retire_kernel_display(display_region);
 }
 
 // ================================================================================================
@@ -335,7 +353,7 @@ fn receive_within_bound(ep: sched::RendezvousId, what: &str) -> [u64; 5] {
 /// Falsification: replayable `system_tests/falsifications/user.compositor_tests.a_client_with_no_input_grant_finds_nothing_in_the_input_slot.patch`
 #[test_case]
 fn a_client_with_no_input_grant_finds_nothing_in_the_input_slot() {
-    let (display, screen) = kernel_display();
+    let (display, screen, display_region) = kernel_display();
     let w = compositor_service::start(1, 0, display, screen);
     wait_for_compositor(&w);
 
@@ -354,6 +372,7 @@ fn a_client_with_no_input_grant_finds_nothing_in_the_input_slot() {
         errno as i64,
     );
     expect_painted(&w, 0);
+    retire_kernel_display(display_region);
 }
 
 /// **Part 2 of claim 25: no page of a neighbour's is readable, whichever page and whichever way.**
@@ -372,7 +391,7 @@ fn a_client_cannot_read_any_page_of_its_neighbours_it_can_name() {
     const ATTACKER: usize = 0;
     const VICTIM: usize = 1;
 
-    let (display, screen) = kernel_display();
+    let (display, screen, display_region) = kernel_display();
     let w = compositor_service::start(2, 0, display, screen);
     wait_for_compositor(&w);
 
@@ -432,17 +451,19 @@ fn a_client_cannot_read_any_page_of_its_neighbours_it_can_name() {
     let [tag, after, ..] = sched::ipc_receive(w.client_report[VICTIM]);
     assert_eq!(tag, status::WIN_INTACT);
     assert_eq!(after, before);
+    retire_kernel_display(display_region);
 }
 
 /// Spawn a victim in window 1 and park it, then let a liar in window 0 commit every rectangle in the
 /// fixture's table of lies. Returns the wiring, the victim's `(caller, slot)` and its surface digest
-/// and control page as the kernel saw them **before** the liar ran. Panics, naming the compositor,
-/// if the liar's commits stop being answered.
-fn lie_to_the_compositor() -> (Wiring, (u64, u64), u64, [u32; 12]) {
+/// and control page as the kernel saw them **before** the liar ran, and the kernel display's region
+/// for the test to retire. Panics, naming the compositor, if the liar's commits stop being
+/// answered.
+fn lie_to_the_compositor() -> (Wiring, (u64, u64), u64, [u32; 12], u64) {
     const LIAR: usize = 0;
     const VICTIM: usize = 1;
 
-    let (display, screen) = kernel_display();
+    let (display, screen, display_region) = kernel_display();
     let w = compositor_service::start(2, 0, display, screen);
     wait_for_compositor(&w);
 
@@ -468,7 +489,7 @@ fn lie_to_the_compositor() -> (Wiring, (u64, u64), u64, [u32; 12]) {
          fixtures/src/window.rs)",
     );
     assert_eq!(lies, 9, "the liar did not commit its whole table");
-    (w, (victim, victim_slot), digest, ctl)
+    (w, (victim, victim_slot), digest, ctl, display_region)
 }
 
 /// **Part 3 of claim 25: nothing a client writes in its own control page changes a neighbour's.**
@@ -486,7 +507,7 @@ fn lie_to_the_compositor() -> (Wiring, (u64, u64), u64, [u32; 12]) {
 #[test_case]
 fn a_lying_damage_rectangle_changes_nothing_of_its_neighbours() {
     const VICTIM: usize = 1;
-    let (w, (victim, victim_slot), digest, ctl) = lie_to_the_compositor();
+    let (w, (victim, victim_slot), digest, ctl, display_region) = lie_to_the_compositor();
 
     assert_eq!(
         w.client_surface_digest(VICTIM),
@@ -507,6 +528,7 @@ fn a_lying_damage_rectangle_changes_nothing_of_its_neighbours() {
         after, digest,
         "the victim's own read-back of its surface changed"
     );
+    retire_kernel_display(display_region);
 }
 
 /// **Part 3, the other half: a lying rectangle neither stops the compositor nor repaints the screen
@@ -521,9 +543,10 @@ fn a_lying_damage_rectangle_changes_nothing_of_its_neighbours() {
 /// Falsification: replayable `system_tests/falsifications/user.compositor_tests.a_lying_damage_rectangle_cannot_stop_the_compositor_or_misdraw_the_screen.patch`
 #[test_case]
 fn a_lying_damage_rectangle_cannot_stop_the_compositor_or_misdraw_the_screen() {
-    let (w, (victim, victim_slot), ..) = lie_to_the_compositor();
+    let (w, (victim, victim_slot), _, _, display_region) = lie_to_the_compositor();
     assert_screen_is(&w, 2);
     release(victim, victim_slot);
+    retire_kernel_display(display_region);
 }
 
 /// **Part 4 of claim 25: a client the spawner granted no screen capability cannot map it, so cannot
@@ -538,7 +561,7 @@ fn a_lying_damage_rectangle_cannot_stop_the_compositor_or_misdraw_the_screen() {
 /// Falsification: replayable `system_tests/falsifications/user.compositor_tests.a_client_granted_no_screen_capability_cannot_map_or_read_the_screen.patch`
 #[test_case]
 fn a_client_granted_no_screen_capability_cannot_map_or_read_the_screen() {
-    let (display, screen) = kernel_display();
+    let (display, screen, display_region) = kernel_display();
     let w = compositor_service::start(1, 0, display, screen);
     wait_for_compositor(&w);
 
@@ -557,6 +580,7 @@ fn a_client_granted_no_screen_capability_cannot_map_or_read_the_screen() {
         Some(screen_va),
         "something faulted, but not at the composed screen's address",
     );
+    retire_kernel_display(display_region);
 }
 
 /// **A one-window redraw costs one rectangle, not a screen.**
@@ -579,7 +603,7 @@ fn a_client_granted_no_screen_capability_cannot_map_or_read_the_screen() {
 fn a_one_window_redraw_costs_one_rectangle_and_not_the_screen() {
     const POISON: u32 = 0xDEAD_BEEF;
 
-    let (display, screen) = kernel_display();
+    let (display, screen, display_region) = kernel_display();
     let w = compositor_service::start(2, 0, display, screen);
     wait_for_compositor(&w);
 
@@ -658,6 +682,7 @@ fn a_one_window_redraw_costs_one_rectangle_and_not_the_screen() {
             }
         }
     }
+    retire_kernel_display(display_region);
 }
 
 /// **Input reaches the focused client because that client holds a capability, and focus is the
@@ -681,7 +706,7 @@ fn a_one_window_redraw_costs_one_rectangle_and_not_the_screen() {
 /// happened" without blocking forever on a quiet endpoint.
 #[test_case]
 fn input_reaches_only_the_focused_client_and_focus_is_the_compositors_call() {
-    let (display, screen) = kernel_display();
+    let (display, screen, display_region) = kernel_display();
     let mut w = compositor_service::start(2, 2, display, screen);
     wait_for_compositor(&w);
 
@@ -726,6 +751,7 @@ fn input_reaches_only_the_focused_client_and_focus_is_the_compositors_call() {
         0,
         "the unfocused client received a keystroke that was not routed to it",
     );
+    retire_kernel_display(display_region);
 }
 
 /// **Focus routes a keystroke into one terminal's grid and not its neighbour's** (milestone 29's
@@ -761,7 +787,7 @@ fn input_reaches_only_the_focused_client_and_focus_is_the_compositors_call() {
 /// host-side check that reads it.
 #[test_case]
 fn focus_routes_a_keystroke_to_one_terminals_grid_and_not_its_neighbours() {
-    let (display, screen) = kernel_display();
+    let (display, screen, display_region) = kernel_display();
     let mut w = compositor_service::start(2, 2, display, screen);
     wait_for_compositor(&w);
 
@@ -880,6 +906,7 @@ fn focus_routes_a_keystroke_to_one_terminals_grid_and_not_its_neighbours() {
         "the two terminals show the same thing: this test cannot tell mis-routed input from \
          correct input",
     );
+    retire_kernel_display(display_region);
 }
 
 /// **Three clients' surfaces become one screen, and the host confirms it.**

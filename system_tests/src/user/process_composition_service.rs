@@ -15,6 +15,8 @@ const BUDGET_PAGES: u64 = 64;
 pub struct Witness {
     /// The report endpoint carrying the verdict bits.
     pub report: RendezvousId,
+    /// The region `report` was carved from, reclaimed by the test once it has the verdict.
+    pub report_region: u64,
     /// The witness's own thread. Its space is bound to it and goes when it is reaped.
     pub tid: ThreadId,
     /// The region the witness's thread control block was retyped from.
@@ -74,7 +76,8 @@ pub fn wire() -> Witness {
     }
     let aspace = readopt_user_address_space(space).expect("register the witness's space");
 
-    let report = crate::sched::create_rendezvous();
+    let report_region = crate::memory_region::create(1).expect("no region for the report line");
+    let report = crate::sched::create_rendezvous_from(report_region).expect("no report rendezvous");
     let budget = crate::memory_region::create(BUDGET_PAGES).expect("no budget for the witness");
     let thread_control_block_region = crate::memory_region::create(2).expect("no tcb region");
     let tid = crate::sched::create_thread_control_block(thread_control_block_region)
@@ -93,6 +96,7 @@ pub fn wire() -> Witness {
 
     Witness {
         report,
+        report_region,
         tid,
         thread_control_block_region,
         budget,

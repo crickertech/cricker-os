@@ -28,8 +28,10 @@ use super::*;
 fn a_userspace_program_reads_the_frequency_the_kernel_measured() {
     const INIT_COREMARK_ROLE: u64 = 29;
 
-    let report = crate::sched::create_rendezvous();
-    let init = spawn_hello(initrd().expect("no initrd"), INIT_COREMARK_ROLE, report);
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let report = crate::sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
+    let mut init = spawn_hello(initrd().expect("no initrd"), INIT_COREMARK_ROLE, report);
+    init.add_region(endpoints);
 
     let [_crc, _ticks, freq, _, _] = crate::sched::ipc_receive(report);
     let kernel = crate::arch::timer::frequency();

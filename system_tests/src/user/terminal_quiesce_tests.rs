@@ -82,7 +82,8 @@ fn a_parked_line_read_is_handed_back_and_resumes_where_it_was() {
         .expect("start_replaceable grants a control endpoint");
     fill(w.app_out_phys, b"$ ");
 
-    let report = sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let report = sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
     let term = w.term;
     sched::spawn(move || {
         loop {
@@ -128,6 +129,7 @@ fn a_parked_line_read_is_handed_back_and_resumes_where_it_was() {
         "the line typed across the quiesce came back wrong"
     );
     held.release_or_fail("raw_mode_service");
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **A parked raw read is handed back in the raw reply's own shape**, r0 = 0 with the flag in r1,
@@ -141,7 +143,8 @@ fn a_parked_raw_read_is_handed_back_and_the_terminal_can_be_retired() {
     let r = sched::ipc_call(w.term, [proto::req(proto::OPERATION_RAWMODE, 1), 0]);
     assert_eq!(r[0], 0);
 
-    let report = sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let report = sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
     let term = w.term;
     sched::spawn(move || {
         let r = sched::ipc_call(term, [proto::req(proto::OPERATION_READRAW, 0), 0]);
@@ -160,4 +163,5 @@ fn a_parked_raw_read_is_handed_back_and_the_terminal_can_be_retired() {
     );
     sched::ipc_send(control, [proto::CTL_QUIT, 0, 0]);
     held.release_or_fail("raw_mode_service");
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
