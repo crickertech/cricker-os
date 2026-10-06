@@ -6,6 +6,10 @@
 #
 # Unanchored, so it matches at any depth.
 target/
+# And the top-level one again without the slash, because `target/` matches only a directory and a
+# symlink is not one to git: notes/dev-machine-disk.md makes the main checkout's `target` a symlink
+# to another volume, and without this line `git status` lists it and `git add -A` commits it.
+/target
 *.ll
 
 # Claude Code agent worktrees and local session files. The directory's contents are ignored rather
