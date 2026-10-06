@@ -663,8 +663,8 @@ is what `design/fatal-risks/README.md` says about this whole class.
 To confirm a build soaks at all without waiting: `script/board-console --for 3m --until soak`
 returns as soon as the workload announces itself.
 
-The same procedure works on argon and xenon (xenon's stick: `cargo xtask uefi-image
---features soak_test`). Neither has run at a bench.
+xenon takes this procedure (its stick: `cargo xtask uefi-image --features soak_test`).
+argon cannot yet boot nife; milestone 225's block says why.
 
 ## The rebooting soak on radon, which is milestone 249's experiment
 
