@@ -16,7 +16,7 @@ Full rows, with every flag and the history behind each: [build-test-and-gate.md]
 
 | script | what it does |
 |---|---|
-| `script/bootstrap` | Install the pinned toolchain and QEMU. Idempotent. |
+| `script/bootstrap` | Install the pinned toolchain and QEMU. Idempotent. `NIFE_SKIP_LINT_TOOLS=1` skips the lint-only tools (cargo-machete, typos). |
 | `script/setup` | First run after a clone: `bootstrap`, then build. |
 | `script/update` | After a pull: `bootstrap`, then rebuild. |
 | `script/claim <branch-name>` | Cut a lane's branch and worktree, and make the draft pull request claim. |

@@ -156,37 +156,46 @@ else
     esac
 fi
 
-# cargo-machete, for script/lint's unused-dependency gate (§46: a dependency is a decision). Comes
-# from cargo rather than a package manager because it is a cargo subcommand and there is no OS
-# packaging worth the branch; `--locked` so a fresh install cannot pick up a dependency resolution
-# nobody tested.
-if command -v cargo-machete >/dev/null 2>&1; then
-    echo "==> cargo-machete present"
+# **NIFE_SKIP_LINT_TOOLS=1 skips cargo-machete and typos**, the two tools only `script/lint` runs. On
+# Linux both are source builds, about 85 s per job on the arm64 runners (measured on #1778), and six
+# CI jobs (test, cpu-matrix, bench, boot-check, swish-check, swish-check-x86_64) never lint. Unset,
+# the default, installs everything, so a developer and `script/ci-build` with no arguments are
+# unchanged; a job that lints must not set it. See notes/scripts/helpers-and-bootstrap.md.
+if [ -n "$NIFE_SKIP_LINT_TOOLS" ]; then
+    echo "==> Skipping cargo-machete and typos (NIFE_SKIP_LINT_TOOLS is set)"
 else
-    echo "==> Installing cargo-machete"
-    cargo install cargo-machete --locked
-fi
+    # cargo-machete, for script/lint's unused-dependency gate (§46: a dependency is a decision). Comes
+    # from cargo rather than a package manager because it is a cargo subcommand and there is no OS
+    # packaging worth the branch; `--locked` so a fresh install cannot pick up a dependency resolution
+    # nobody tested.
+    if command -v cargo-machete >/dev/null 2>&1; then
+        echo "==> cargo-machete present"
+    else
+        echo "==> Installing cargo-machete"
+        cargo install cargo-machete --locked
+    fi
 
-# typos, for script/lint's spelling gate over the prose (the documentation is a deliverable here).
-# Homebrew calls it `typos-cli` and the binary `typos`, which is the sort of mismatch that wastes an
-# afternoon, so both names appear here on purpose.
-if command -v typos >/dev/null 2>&1; then
-    echo "==> typos present: $(typos --version)"
-else
-    echo "==> Installing typos"
-    case "$os" in
-    Darwin)
-        brew install typos-cli
-        ;;
-    Linux)
-        # Not in Ubuntu's archive; cargo is the portable route and CI takes it too.
-        cargo install typos-cli --locked
-        ;;
-    *)
-        echo "bootstrap: unknown OS '$os'; install typos by hand." >&2
-        exit 1
-        ;;
-    esac
+    # typos, for script/lint's spelling gate over the prose (the documentation is a deliverable here).
+    # Homebrew calls it `typos-cli` and the binary `typos`, which is the sort of mismatch that wastes an
+    # afternoon, so both names appear here on purpose.
+    if command -v typos >/dev/null 2>&1; then
+        echo "==> typos present: $(typos --version)"
+    else
+        echo "==> Installing typos"
+        case "$os" in
+        Darwin)
+            brew install typos-cli
+            ;;
+        Linux)
+            # Not in Ubuntu's archive; cargo is the portable route and CI takes it too.
+            cargo install typos-cli --locked
+            ;;
+        *)
+            echo "bootstrap: unknown OS '$os'; install typos by hand." >&2
+            exit 1
+            ;;
+        esac
+    fi
 fi
 
 # Whichever way QEMU got here, it has to be one this project can actually use. The check is separate

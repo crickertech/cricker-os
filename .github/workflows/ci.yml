@@ -390,7 +390,12 @@ jobs:
       # which is the command a developer runs before pushing; a job that names checks has already
       # installed exactly what it needs in its own steps, and a bare `script/ci-build fmt` must not
       # drag an apt install of QEMU onto the rustfmt runner.
+      # No lint in this job, so no cargo-machete or typos: NIFE_SKIP_LINT_TOOLS=1 skips the two
+      # source builds (about 85 s on the arm64 runners, #1778). Only the `clippy` job lints, and it
+      # installs them itself.
       - run: script/bootstrap
+        env:
+          NIFE_SKIP_LINT_TOOLS: "1"
 
       # The host-logic crates and the kernel under QEMU (TCG), exiting through semihosting, named
       # out of `script/ci-build`'s table, which is the one place the gating set lives;
@@ -468,7 +473,12 @@ jobs:
       # which is the command a developer runs before pushing; a job that names checks has already
       # installed exactly what it needs in its own steps, and a bare `script/ci-build fmt` must not
       # drag an apt install of QEMU onto the rustfmt runner.
+      # No lint in this job, so no cargo-machete or typos: NIFE_SKIP_LINT_TOOLS=1 skips the two
+      # source builds (about 85 s on the arm64 runners, #1778). Only the `clippy` job lints, and it
+      # installs them itself.
       - run: script/bootstrap
+        env:
+          NIFE_SKIP_LINT_TOOLS: "1"
 
       # The interactive shell, one row of `script/ci-build`'s table and its own job since the
       # 2026-09-30 split (#1468). Until then it rode the suite job, for arithmetic that was true
@@ -561,7 +571,12 @@ jobs:
       # which is the command a developer runs before pushing; a job that names checks has already
       # installed exactly what it needs in its own steps, and a bare `script/ci-build fmt` must not
       # drag an apt install of QEMU onto the rustfmt runner.
+      # No lint in this job, so no cargo-machete or typos: NIFE_SKIP_LINT_TOOLS=1 skips the two
+      # source builds (about 85 s on the arm64 runners, #1778). Only the `clippy` job lints, and it
+      # installs them itself.
       - run: script/bootstrap
+        env:
+          NIFE_SKIP_LINT_TOOLS: "1"
 
       # GitHub's documented recipe for KVM on its hosted Linux runners: the device exists and is
       # root's, and this hands it to every user. The leg prints "on KVM" in its header when it took
@@ -625,7 +640,12 @@ jobs:
       # which is the command a developer runs before pushing; a job that names checks has already
       # installed exactly what it needs in its own steps, and a bare `script/ci-build fmt` must not
       # drag an apt install of QEMU onto the rustfmt runner.
+      # No lint in this job, so no cargo-machete or typos: NIFE_SKIP_LINT_TOOLS=1 skips the two
+      # source builds (about 85 s on the arm64 runners, #1778). Only the `clippy` job lints, and it
+      # installs them itself.
       - run: script/bootstrap
+        env:
+          NIFE_SKIP_LINT_TOOLS: "1"
 
       # `boot-check` (milestone 268 (every architecture boots the same way)), its own job since
       # the 2026-09-30 split (#1468) and before that a rider on the suite job. It is the only
@@ -683,7 +703,12 @@ jobs:
       # report the failure a day after the merge that caused it.
       #
       # See notes/cpu-models.md, including its BUGS section: a narrower QEMU model is still QEMU.
+      # No lint in this job, so no cargo-machete or typos: NIFE_SKIP_LINT_TOOLS=1 skips the two
+      # source builds (about 85 s on the arm64 runners, #1778). Only the `clippy` job lints, and it
+      # installs them itself.
       - run: script/bootstrap
+        env:
+          NIFE_SKIP_LINT_TOOLS: "1"
       - run: script/ci-build cpu-matrix
       # The per-model logs, kept only when something failed. `script/cpu-matrix` now prints an
       # excerpt inline, which answers most questions without leaving the browser; this is for the
@@ -1109,7 +1134,12 @@ jobs:
       - name: Put it on PATH
         run: echo "$HOME/.cache/nife-qemu/bin" >> "$GITHUB_PATH"
 
+      # No lint in this job, so no cargo-machete or typos: NIFE_SKIP_LINT_TOOLS=1 skips the two
+      # source builds (about 85 s on the arm64 runners, #1778). Only the `clippy` job lints, and it
+      # installs them itself.
       - run: script/bootstrap
+        env:
+          NIFE_SKIP_LINT_TOOLS: "1"
       - run: script/ci-build bench
       # Three legs, three architectures, since 2026-09-15: `script/ci-build`'s `bench` row is
       # `script/bench --check && script/bench --riscv --check && script/bench --x86 --check`, so
