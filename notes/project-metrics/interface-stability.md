@@ -8,12 +8,12 @@ Sorted by breaking changes in the last four weeks (2026W38 to 2026W41), then by 
 
 | crate | breaking, 4 weeks | additions, 4 weeks | breaking | additions | commits | crossing another division |
 |---|---:|---:|---:|---:|---:|---:|
-| `grant_plan` | 42 | 190 | 86 | 821 | 129 | 109 (84%) |
+| `grant_plan` | 42 | 208 | 86 | 839 | 131 | 110 (84%) |
 | `globally_unique_identifier_partition_table` | 27 | 27 | 28 | 217 | 32 | 25 (78%) |
 | `socket_protocol` | 13 | 17 | 15 | 55 | 25 | 23 (92%) |
 | `line_editor` | 11 | 73 | 12 | 118 | 28 | 24 (86%) |
+| `swap_protocol` | 11 | 32 | 12 | 122 | 38 | 37 (97%) |
 | `filesystem_protocol` | 10 | 50 | 42 | 450 | 97 | 88 (91%) |
-| `swap_protocol` | 10 | 26 | 11 | 116 | 36 | 35 (97%) |
 | `abi` | 6 | 31 | 36 | 128 | 87 | 84 (97%) |
 | `byte_sink_protocol` | 5 | 10 | 6 | 48 | 26 | 26 (100%) |
 | `clock_protocol` | 5 | 4 | 5 | 54 | 27 | 25 (93%) |
@@ -41,8 +41,9 @@ Sorted by breaking changes in the last four weeks (2026W38 to 2026W41), then by 
 
 ## What broke in 2026W41
 
-Read at `2ff9a7036c04` against the week before. Each line is one removed or changed public item; a crate rename is one line for the whole crate.
+Read at `cb0dad16aa5a` against the week before. Each line is one removed or changed public item; a crate rename is one line for the whole crate.
 
 - `abi`: syscall changed, method or encoding `CAPABILITY_TABLE_SLOTS`
 - `abi`: syscall changed, method or encoding `fault::FAULT_EP_SLOT`
 - `grant_plan`: changed `spawnproto::RUN_UNVOUCHED_SLOT`
+- `swap_protocol`: changed `log_put`
