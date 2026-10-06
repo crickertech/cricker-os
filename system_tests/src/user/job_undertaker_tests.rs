@@ -1,12 +1,13 @@
 use abi::Error;
 use abi::fault::EVENT_EXIT;
 
-use super::supervision_tests::{REPORT_STUB, REPORT_WORD, build_child_in};
+use super::supervision_tests::{REPORT_STUB, REPORT_WORD, build_child_in, build_child_with};
 use super::*;
 use crate::arch::exceptions::TrapFrame;
 use crate::cap::Rights;
 use crate::sched;
 use crate::syscall::invoke;
+use crate::user::holding::Holding;
 
 /// Pages per job region: what `build_child_in` lays down (an address space and its tables, a code
 /// page, a stack page, a TCB). Sixteen is the number every region-reclaim test here uses.
@@ -68,7 +69,27 @@ fn pool_came_back(pool: u64) -> bool {
 ///
 /// Deliberately the real program out of the initrd rather than a stub, because what is under test is
 /// a *program's* behaviour, and a stub would be this test's opinion of it.
-fn spawn_job_undertaker(deaths: sched::RendezvousId) -> u64 {
+///
+/// Its thread and its thread's region go into `held`, so the test hands them back when it ends.
+/// The endpoints it waits on must be in a region `held` names first, or the kill cannot wake it
+/// (`user::holding`'s `BUGS`).
+fn spawn_job_undertaker(deaths: sched::RendezvousId, held: &mut Holding) {
+    spawn_job_undertaker_with(deaths, None, held);
+}
+
+/// Pages for the endpoints a test that starts the undertaker creates: one region, reclaimed first,
+/// so the undertaker parked on `deaths` is woken to spend its kill.
+const ENDPOINT_PAGES: u64 = 4;
+
+/// [`spawn_job_undertaker`], with the two endpoints the progenitor adds when there is one to tell
+/// (milestone 685): `REPORT` at slot 1 and, at slot 2, the spawn endpoint badged
+/// `spawnproto::UNDERTAKER_BADGE`, both `WRITE`. Without them the program's two sends are refused
+/// for an empty slot and dropped, which is what the tests above run.
+fn spawn_job_undertaker_with(
+    deaths: sched::RendezvousId,
+    tell: Option<(sched::RendezvousId, sched::RendezvousId)>,
+    held: &mut Holding,
+) {
     let bytes = program("job_undertaker").expect("no job_undertaker program in the initrd archive");
     let (space, entry) = load(bytes, 0).expect("job_undertaker is not loadable");
     let aspace = readopt_user_address_space(space).expect("register the job_undertaker aspace");
@@ -87,10 +108,28 @@ fn spawn_job_undertaker(deaths: sched::RendezvousId) -> u64 {
         slot, 0,
         "job_undertaker reads its supervision endpoint from slot 0",
     );
+    if let Some((report, spawn)) = tell {
+        for (want, cap) in [
+            (1, crate::cap::rendezvous_cap(report, Rights::WRITE)),
+            (
+                2,
+                crate::cap::rendezvous_cap_badged(
+                    spawn,
+                    Rights::WRITE,
+                    grant_plan::spawnproto::UNDERTAKER_BADGE,
+                ),
+            ),
+        ] {
+            let slot = sched::thread_control_block_insert_cap(tid, cap, None)
+                .expect("insert job_undertaker's endpoints");
+            assert_eq!(slot, want, "job_undertaker names its endpoints by slot");
+        }
+    }
     sched::configure_thread_control_block(tid, entry, USER_STACK_TOP, aspace)
         .expect("configure job_undertaker");
     sched::start_thread_control_block(tid, [0; 3]).expect("start job_undertaker");
-    tid
+    held.add_thread(tid);
+    held.add_region(thread_control_block_region);
 }
 
 /// **The control: without a collector, a bounded job pool runs out and stays out.**
@@ -158,9 +197,12 @@ fn without_a_collector_a_bounded_job_pool_runs_out() {
 #[test_case]
 fn job_undertaker_returns_every_finished_job_to_the_pool() {
     let pool = crate::memory_region::create(POOL_PAGES).expect("no job pool");
-    let deaths = sched::create_rendezvous();
-    let report = sched::create_rendezvous();
-    spawn_job_undertaker(deaths);
+    let endpoints = crate::memory_region::create(ENDPOINT_PAGES).expect("no endpoint region");
+    let deaths = sched::create_rendezvous_from(endpoints).expect("deaths");
+    let report = sched::create_rendezvous_from(endpoints).expect("report");
+    let mut held = Holding::new();
+    held.add_region(endpoints);
+    spawn_job_undertaker(deaths, &mut held);
 
     for i in 0..JOBS {
         assert!(
@@ -196,4 +238,98 @@ fn job_undertaker_returns_every_finished_job_to_the_pool() {
         .expect("the pool would not spend the pages the collector returned");
     sched::reclaim_region(again).expect("reclaim the re-split region");
     sched::reclaim_region(pool).expect("the job pool did not come back");
+    held.release_or_fail("job_undertaker");
+}
+
+/// **The reap protocol** (milestone 685 (a job is finished when its memory is back), calef's
+/// ruling of 2026-10-06 UTC, option A): after a job exits, the real `job_undertaker` collects it
+/// and then tells the progenitor, on its copy of the spawn endpoint badged
+/// `spawnproto::UNDERTAKER_BADGE`, `spawnproto::reaped(label, tid)`, where the label is the badge
+/// the builder put on the job's supervision capability. And the job's file-service window comes
+/// free on that message and not before, through the same `grant_plan::job_windows::Windows` the
+/// progenitor keeps.
+///
+/// Half of confinement claim 24's proof (fatal risk 7's criterion (a)): this is the booted half,
+/// on every ISA; `grant_plan::job_windows`'s host test is the rule itself.
+///
+/// The region's return is asserted at the message, and it is the message's meaning, but no
+/// falsification here reaches it: an undertaker that announced before collecting would still
+/// collect before this thread ran again on one core. The replayable one breaks the label.
+///
+/// Falsification: replayable `system_tests/falsifications/user.job_undertaker_tests.job_undertaker_says_which_job_it_reaped_and_only_then_is_its_window_free.patch`
+#[test_case]
+fn job_undertaker_says_which_job_it_reaped_and_only_then_is_its_window_free() {
+    use grant_plan::job_windows::Windows;
+    use grant_plan::spawnproto;
+
+    /// The job's label, as the progenitor would have minted it. Any nonzero value.
+    const LABEL: u64 = 0x685;
+
+    let pool = crate::memory_region::create(JOB_REGION_PAGES).expect("no job pool");
+    let endpoints = crate::memory_region::create(ENDPOINT_PAGES).expect("no endpoint region");
+    let deaths = sched::create_rendezvous_from(endpoints).expect("deaths");
+    let report = sched::create_rendezvous_from(endpoints).expect("report");
+    let spawn = sched::create_rendezvous_from(endpoints).expect("spawn");
+    let mut held = Holding::new();
+    held.add_region(endpoints);
+    spawn_job_undertaker_with(deaths, Some((report, spawn)), &mut held);
+
+    // One window, so a second job's take can only be the first job's window or nothing.
+    let mut windows = Windows::new(1, 2);
+    let w = windows.take(LABEL).expect("an empty pool has a window");
+
+    let region = crate::memory_region::split(pool, JOB_REGION_PAGES).expect("no job region");
+    let tid = build_child_with(
+        region,
+        REPORT_STUB,
+        &[crate::cap::rendezvous_cap(
+            report,
+            Rights::WRITE.union(Rights::GRANT),
+        )],
+        Some(crate::cap::rendezvous_cap_badged(
+            deaths,
+            Rights::READ,
+            LABEL,
+        )),
+    );
+    assert_eq!(
+        sched::ipc_receive(report)[0],
+        REPORT_WORD,
+        "the job never ran"
+    );
+    assert_eq!(
+        windows.take(LABEL + 1),
+        None,
+        "a second job got the window while its holder was unreaped"
+    );
+
+    let msg = sched::ipc_receive(spawn);
+    assert_eq!(
+        msg[3],
+        spawnproto::UNDERTAKER_BADGE,
+        "the reaped message did not carry the undertaker's badge, so the progenitor would read it \
+         as a request"
+    );
+    assert_eq!(
+        (msg[0], msg[1], msg[2]),
+        spawnproto::reaped(LABEL, tid),
+        "the reaped message named the wrong job (label, tid)"
+    );
+    assert_eq!(
+        spent(pool),
+        0,
+        "the reaped message arrived before the job's region was back in the pool"
+    );
+    assert_eq!(
+        windows.reaped(msg[0]),
+        Some(w),
+        "the reaped message did not free the window its job held"
+    );
+    assert_eq!(
+        windows.take(LABEL + 1),
+        Some(w),
+        "the reaped job's window did not come back"
+    );
+    sched::reclaim_region(pool).expect("the job pool did not come back");
+    held.release_or_fail("job_undertaker");
 }
