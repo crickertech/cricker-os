@@ -92,7 +92,7 @@ machine_statistics_protocol = { version = "0.1.0", path = "../crates/machine_sta
 paging = { version = "0.1.0", path = "../crates/paging" }
 socket_protocol = { version = "0.1.0", path = "../crates/socket_protocol" }
 # The name resolver's grant messages and endowment, and the boot test's cases the test client
-# agrees on (milestone 384, provisional name). `domain_name_system` for DNS's port.
+# agrees on (milestone 384 (in a capability system the resolver is a grant), provisional name). `domain_name_system` for DNS's port.
 name_resolution_protocol = { version = "0.1.0", path = "../crates/name_resolution_protocol" }
 domain_name_system = { version = "0.1.0", path = "../crates/domain_name_system" }
 spin = { version = "0.12", default-features = false, features = ["spin_mutex"] }

@@ -4,7 +4,8 @@ Architecture: aarch64
 
 The defect: the resolver forgets to judge the name against the zone its caller's badge was
 granted, and asks the name server about whatever the client wrote. That is the ambient Unix
-resolver milestone 384 exists to remove: a client granted `nife.test` can look up any host.
+resolver milestone 384 (in a capability system the resolver is a grant) exists to remove: a client
+granted `nife.test` can look up any host.
 
 Expected to fail: the case `example.com`, which comes back `SERVER_ERROR` with response code 5 (the
 peer's REFUSED, so the query was sent) where the gate wants `DENIED` (never asked). Measured

@@ -280,7 +280,7 @@ bench = false
 # The name resolver's test client (milestone 384 (in a capability system the resolver is a grant)):
 # asks the resolver about each name in `name_resolution_protocol::fixture::CASES` through the one
 # badged capability it holds, reports every reply, then connects to the first address. The shape
-# milestone 801's package client will have. Provisional name.
+# milestone 801 (packages over the internet)'s package client will have. Provisional name.
 [[bin]]
 name = "name_resolver_test_client"
 path = "src/name_resolver_test_client.rs"

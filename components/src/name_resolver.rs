@@ -49,7 +49,8 @@
 //! another question, not a response, not DNS), is dropped and the resolver keeps listening, so a
 //! forger's packet arriving first does not end a real exchange. **With no entropy it asks
 //! nothing** and answers [`status::NO_ENTROPY`], for the reason the network time client refuses: a
-//! guessable id is what an off-path forger needs, and degrading silently is §42's failure.
+//! guessable id is what an off-path forger needs, and a resolver that quietly fell back to one would be
+//! worse than one that says it cannot.
 //!
 //! # EXAMPLES
 //!
@@ -83,13 +84,13 @@
 //!   gating boot test asks over TCP, because slirp forwards UDP to no process a test owns.
 //!
 //! Name: provisional 2026-10-06 (UTC), milestone 384's lane. §248 calls it "the resolver", and
-//! "name resolver" is what the act is called wherever DNS is described (RFC 1034 §5). Refused
+//! "name resolver" is what the act is called wherever DNS is described (RFC 1034, section 5). Refused
 //! `dns_resolver` under §154 (the acronym test) and `resolver` alone, which says nothing about what
 //! is resolved in a tree where capabilities are resolved too.
 
 #![no_std]
-// Program entry points, not the crates/ library surface milestone 68's ratchet tracks
-// (DECISIONS §107).
+// Program entry points, not the crates/ library surface milestone 68 (code-quality gates: one lint
+// policy)'s ratchet tracks (§107 (`missing_docs` moves to `workspace.lints.rust`)).
 #![allow(missing_docs)]
 #![no_main]
 
