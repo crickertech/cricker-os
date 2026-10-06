@@ -423,6 +423,8 @@ def document_records():
         base = os.path.basename(d)
         if RECORD_STEM.match(base):
             continue
+        if os.path.dirname(d) == "design/roadmap/proposals":
+            continue    # a proposal's appendix: its slug is a draft title, skipped like a block's
         if os.path.dirname(d) == SKILLS_DIR and os.path.isfile(os.path.join(root, d, "SKILL.md")):
             continue    # covered by notes/skills/README.md's block; see SKILLS_DIR
         readme = os.path.join(d, "README.md")
