@@ -15,8 +15,9 @@ runs real workloads) claims.
 **The experiment:** milestone 121 (`ripgrep`: enumeration as a capability), for its real dependency
 tree, its filesystem walk and its threads.
 
-GREEN on all three architectures since 2026-09-16, and the
-blocker is not what anyone predicted. Unmodified `ripgrep` 14.1.1, forty transitive crates, zero
+AMBER since 2026-10-06 (GREEN on all three architectures from 2026-09-16): a stranger's program
+builds and runs here unmodified, and has never yet done its job. The blocker was not what anyone
+predicted. Unmodified `ripgrep` 14.1.1, forty transitive crates, zero
 patches, and three byte-identical transcripts from three separately built binaries
 ([`notes/ripgrep-on-nife.md`](../../notes/ripgrep-on-nife.md)). What stopped it was the missing
 argument vector, milestone 205 (how a foreign program is told what to do). Correction, 2026-09-27:

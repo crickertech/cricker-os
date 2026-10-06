@@ -1,7 +1,7 @@
 ---
 risk: 1
-color: green
-updated: 2026-08-31
+color: amber
+updated: 2026-10-06
 ---
 # Appendix to risk 1: Only software written for nife runs on nife
 
@@ -38,8 +38,8 @@ dependency tree, walks a filesystem, and uses threads.
 
 ### The verdict of record
 
-RUN, 2026-08-31. GREEN on all three architectures since 2026-09-16, and the blocker is not what
-anyone predicted. notes/ripgrep-on-nife.md has it; PR #600 for the first two, milestone 303 for
+RUN, 2026-08-31. AMBER since 2026-10-06, because `ripgrep` has not yet searched (the correction
+below); GREEN on all three architectures from 2026-09-16. The blocker was not what anyone predicted. notes/ripgrep-on-nife.md has it; PR #600 for the first two, milestone 303 for
 x86_64.
 
 - Unmodified `ripgrep` 14.1.1 from crates.io, forty transitive crates, builds for
