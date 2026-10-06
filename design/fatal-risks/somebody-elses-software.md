@@ -1,7 +1,7 @@
 ---
 risk: 1
-color: green
-updated: 2026-08-31
+color: amber
+updated: 2026-10-06
 ---
 # Appendix to risk 1: Only software written for nife runs on nife
 
@@ -38,8 +38,8 @@ dependency tree, walks a filesystem, and uses threads.
 
 ### The verdict of record
 
-RUN, 2026-08-31. GREEN on all three architectures since 2026-09-16, and the blocker is not what
-anyone predicted. notes/ripgrep-on-nife.md has it; PR #600 for the first two, milestone 303 for
+RUN, 2026-08-31. AMBER since 2026-10-06, because `ripgrep` has not yet searched (the correction
+below); GREEN on all three architectures from 2026-09-16. The blocker was not what anyone predicted. notes/ripgrep-on-nife.md has it; PR #600 for the first two, milestone 303 for
 x86_64.
 
 - Unmodified `ripgrep` 14.1.1 from crates.io, forty transitive crates, builds for
@@ -67,6 +67,17 @@ x86_64.
   answering honestly rather than refusing is what made it work.
 - The capability model is visible from inside a stranger's program. Without slot 4 the same binary
   prints `failed to get current working directory: operation not supported on this platform`.
+
+- Correction, 2026-10-06 (UTC). The run proves that a stranger's program builds, loads,
+  allocates, finds its directory and exits cleanly, and nothing after argument parsing.
+  `ripgrep_tests` still passes no arguments though milestone 205 (how a foreign program is told
+  what to do) is BUILT, so the filesystem walk and the threads, two of the three reasons milestone
+  121 chose `ripgrep`, have not been exercised by `ripgrep`. The walk was priced by
+  `crates/walk_pricing`, an in-tree `std` walker. Milestone 64's survey of crates.io established
+  that crates compile, not that they run. Nothing else foreign has run: milestone 66 (Vaultwarden)
+  and milestone 99 (git) are NOT-STARTED. And a search may not fit: PR #1777 measured `rg
+  --threads 1 --no-mmap` over this tree at 3.0 MiB peak on macOS, about three times a `std`
+  program's heap.
 
 ### What it changes
 
