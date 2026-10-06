@@ -9,7 +9,7 @@
 //! notes/riscv-port.md.
 
 use core::ffi::c_void;
-use core::sync::atomic::{AtomicU64, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use paging::{Flags, Half, MapError, Mapper, PAGE_SIZE, PageSize, PageTable, Sv39};
 
@@ -165,6 +165,24 @@ pub const VIRTIO_IRQ_BASE: u32 = 1;
 /// probe (`virtio::find_block_device`) walks them.
 pub const VIRTIO_SLOT_STRIDE: u64 = 0x1000;
 pub const VIRTIO_SLOTS: u64 = 8;
+
+/// Whether `map_everything` mapped the virtio-mmio window, which it does only when the device tree
+/// names a `virtio,mmio` node (milestone 89). Written once on the primary hart before any probe.
+static VIRTIO_MMIO_MAPPED: AtomicBool = AtomicBool::new(false);
+
+/// How many virtio-mmio slots the probe may read: [`VIRTIO_SLOTS`] on QEMU `virt`, and zero on a
+/// machine whose tree names no such bus. radon's JH7110 has UART0's register block at this address
+/// and the TH1520 has DRAM, so reading "slots" there was at best noise and at worst a RAM word that
+/// happened to spell the magic, handed to userspace as a device.
+///
+/// Name: provisional, milestone 89 (Scaleway EM-RV1)'s lane, 2026-10-06 (UTC). The same name on all three architectures.
+pub fn virtio_slots() -> u64 {
+    if VIRTIO_MMIO_MAPPED.load(Ordering::Relaxed) {
+        VIRTIO_SLOTS
+    } else {
+        0
+    }
+}
 
 /// How much of the PCIe ECAM window the kernel maps: **bus 0 only** (4 KB per function, 1 MB per
 /// bus). The window's *base and size* come from the device tree (`memory::pci_regions`, the
@@ -471,12 +489,25 @@ where
     // these slots for a block device (virtio::find_block_device) and owns the transport; the DMA
     // rings live in the driver's own region (notes/dma.md). Absent hardware here just reads as "no
     // device", so mapping it is harmless when no disk is attached.
-    direct_map(
-        m,
-        VIRTIO_MMIO_BASE,
-        VIRTIO_MMIO_BASE + VIRTIO_MMIO_SIZE,
-        Flags::device(),
-    )?;
+    //
+    //    **Only when the device tree names the bus** (milestone 89 (Scaleway EM-RV1)). This window
+    //    was mapped unconditionally from QEMU's constants, the same class as the PCI windows below:
+    //    on the T-Head TH1520 `0x1000_1000` is DRAM, already in the direct map from step 1, and the
+    //    mapper's overwrite refusal would end the boot here exactly as the PCI window ended radon's
+    //    first. [`virtio_slots`] reads the answer so the probe never reads an unmapped window.
+    let named = crate::device_tree().is_ok_and(|dt| {
+        let mut slot = [device_tree_blob::Region { start: 0, size: 0 }; 1];
+        matches!(dt.node_reg_compatible(b"virtio,mmio", &mut slot), Ok(n) if n >= 1)
+    });
+    if named {
+        direct_map(
+            m,
+            VIRTIO_MMIO_BASE,
+            VIRTIO_MMIO_BASE + VIRTIO_MMIO_SIZE,
+            Flags::device(),
+        )?;
+        VIRTIO_MMIO_MAPPED.store(true, Ordering::Relaxed);
+    }
 
     // 9. The PCIe windows (the PCIe transport): bus 0's ECAM config space, and the slice of the
     // 32-bit PCI memory window the kernel assigns BARs from, both straight from the device tree
