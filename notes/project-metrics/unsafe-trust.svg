@@ -78,13 +78,13 @@
 <path class="seg s4" d="M542.8,94.4 V92.7 Q542.8,91.0 544.4,91.0 H579.8 Q581.4,91.0 581.4,92.7 V94.4 Z"><title>2026W40, unclassified: 19</title></path>
 <text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W40</text>
 <text class="fg val" x="562.1" y="86.0" font-size="10" text-anchor="middle">1314</text>
-<rect class="seg s0" x="601.4" y="185.0" width="38.7" height="139.0"><title>2026W41, kernel (trusted base): 784</title></rect>
-<rect class="seg s1" x="601.4" y="102.0" width="38.7" height="83.0"><title>2026W41, userspace (confined): 468</title></rect>
-<rect class="seg s2" x="601.4" y="98.1" width="38.7" height="3.9"><title>2026W41, shared (both, unresolved): 22</title></rect>
-<rect class="seg s3" x="601.4" y="84.8" width="38.7" height="13.3"><title>2026W41, boot chain (uefi_loader): 75</title></rect>
-<path class="seg s4" d="M601.4,84.8 V83.1 Q601.4,81.4 603.0,81.4 H638.4 Q640.0,81.4 640.0,83.1 V84.8 Z"><title>2026W41, unclassified: 19</title></path>
+<rect class="seg s0" x="601.4" y="184.6" width="38.7" height="139.4"><title>2026W41, kernel (trusted base): 786</title></rect>
+<rect class="seg s1" x="601.4" y="101.4" width="38.7" height="83.2"><title>2026W41, userspace (confined): 469</title></rect>
+<rect class="seg s2" x="601.4" y="97.5" width="38.7" height="3.9"><title>2026W41, shared (both, unresolved): 22</title></rect>
+<rect class="seg s3" x="601.4" y="84.2" width="38.7" height="13.3"><title>2026W41, boot chain (uefi_loader): 75</title></rect>
+<path class="seg s4" d="M601.4,84.2 V82.6 Q601.4,80.9 603.0,80.9 H638.4 Q640.0,80.9 640.0,82.6 V84.2 Z"><title>2026W41, unclassified: 19</title></path>
 <text class="mut" x="620.7" y="342" font-size="10" text-anchor="middle">2026W41</text>
-<text class="fg val" x="620.7" y="76.4" font-size="10" text-anchor="middle">1368</text>
+<text class="fg val" x="620.7" y="75.9" font-size="10" text-anchor="middle">1371</text>
 <rect class="s0" x="672" y="64" width="11" height="11" rx="2"/>
 <text class="fg" y="74" font-size="11"><tspan x="689" dy="0">kernel (trusted base)</tspan></text>
 <rect class="s1" x="672" y="83" width="11" height="11" rx="2"/>

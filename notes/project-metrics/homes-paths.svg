@@ -44,10 +44,10 @@
 <path class="seg s1" d="M542.8,192.4 V124.8 Q542.8,120.8 546.8,120.8 H577.4 Q581.4,120.8 581.4,124.8 V192.4 Z"><title>2026W40, home provisional: 1.1</title></path>
 <text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W40</text>
 <text class="fg val" x="562.1" y="115.8" font-size="10" text-anchor="middle">3.1</text>
-<rect class="seg s0" x="601.4" y="184.3" width="38.7" height="139.7"><title>2026W41, home undecided: 2.1</title></rect>
-<path class="seg s1" d="M601.4,184.3 V109.7 Q601.4,105.7 605.4,105.7 H636.0 Q640.0,105.7 640.0,109.7 V184.3 Z"><title>2026W41, home provisional: 1.2</title></path>
+<rect class="seg s0" x="601.4" y="181.9" width="38.7" height="142.1"><title>2026W41, home undecided: 2.1</title></rect>
+<path class="seg s1" d="M601.4,181.9 V106.1 Q601.4,102.1 605.4,102.1 H636.0 Q640.0,102.1 640.0,106.1 V181.9 Z"><title>2026W41, home provisional: 1.2</title></path>
 <text class="mut" x="620.7" y="342" font-size="10" text-anchor="middle">2026W41</text>
-<text class="fg val" x="620.7" y="100.7" font-size="10" text-anchor="middle">3.3</text>
+<text class="fg val" x="620.7" y="97.1" font-size="10" text-anchor="middle">3.3</text>
 <rect class="s0" x="672" y="64" width="11" height="11" rx="2"/>
 <text class="fg" y="74" font-size="11"><tspan x="689" dy="0">home undecided</tspan></text>
 <rect class="s1" x="672" y="83" width="11" height="11" rx="2"/>

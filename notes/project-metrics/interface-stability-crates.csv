@@ -198,7 +198,8 @@ week,crate,breaking,additions,commits,commits_crossing
 2026W41,current_cpu_protocol,0,0,1,1
 2026W41,elf,0,0,1,1
 2026W41,globally_unique_identifier_partition_table,0,0,1,1
-2026W41,grant_plan,1,0,0,0
+2026W41,grant_plan,1,18,2,1
 2026W41,line_editor,0,0,1,0
 2026W41,manifest_note,0,0,1,0
 2026W41,supervision_protocol,0,3,4,3
+2026W41,swap_protocol,1,6,2,2
