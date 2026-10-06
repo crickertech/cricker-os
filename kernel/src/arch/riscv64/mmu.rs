@@ -109,6 +109,53 @@ pub const KERNEL_VA_BASE: u64 = 0xffff_ffc0_0000_0000;
 /// mapped over `.text`. Rule 1 says an architecture's addresses live under `arch/`; this is that.
 pub const THREAD_STACK_AREA: u64 = KERNEL_VA_BASE | 0x0000_0010_0000_0000;
 
+/// **The device window** (milestone 89 (Scaleway EM-RV1)): the top gigabyte of a 40-bit physical
+/// space, named at the top gigabyte of the Sv39 high half.
+///
+/// `pa + KERNEL_VA_BASE` is the whole direct map on every other machine this tree boots, and under
+/// Sv39 it can only name the first 256 GiB of physical space: the high half *is* 256 GiB. The T-Head
+/// TH1520 puts every peripheral at `0xff_d800_0000` and up (PLIC, CLINT, UARTs), 1 TiB up, so for it
+/// `phys_to_virt` overflows. Rather than grow a virtual-address allocator for devices (Linux's
+/// `ioremap`), this kernel names one fixed gigabyte: physical `0xff_c000_0000..0x100_0000_0000`
+/// appears at virtual `0xffff_ffff_c000_0000`, root index 511. Everything else stays the direct map,
+/// now capped at 255 GiB so the two cannot meet ([`DIRECT_MAP_LIMIT`]).
+///
+/// What it costs: one compare in [`phys_to_virt`] and [`virt_to_phys`], and one boot-table entry. On
+/// QEMU `virt` and on radon nothing lives in that gigabyte, so the entry is never walked. Devices in
+/// the window are mapped page by page by `direct_map` exactly as low ones are; the window decides
+/// only *where* they are named. If a machine ever puts devices in two distant gigabytes, this
+/// verdict changes (milestone 89's seventh question says so too).
+pub const DEVICE_WINDOW_PA: u64 = 0xff_c000_0000;
+/// One gigabyte: one root entry.
+pub const DEVICE_WINDOW_SIZE: u64 = 1 << 30;
+/// Root index 511, the last gigabyte of the high half.
+pub const DEVICE_WINDOW_VA: u64 = 0xffff_ffff_c000_0000;
+/// The first physical address the direct map does not reach: 255 GiB, so that `pa +
+/// KERNEL_VA_BASE` stops one gigabyte short of [`DEVICE_WINDOW_VA`].
+pub const DIRECT_MAP_LIMIT: u64 = DEVICE_WINDOW_VA - KERNEL_VA_BASE;
+
+// The arithmetic the two translations rest on, checked by the compiler rather than by a reader.
+const _: () = {
+    assert!(DEVICE_WINDOW_VA == KERNEL_VA_BASE + 255 * (1 << 30));
+    assert!(DIRECT_MAP_LIMIT == 255 << 30);
+    assert!(DEVICE_WINDOW_PA + DEVICE_WINDOW_SIZE == 1 << 40);
+    assert!(DEVICE_WINDOW_PA >= DIRECT_MAP_LIMIT);
+    // The window round-trips at both edges, and the direct map at its last page.
+    assert!(virt_to_phys(phys_to_virt(DEVICE_WINDOW_PA)) == DEVICE_WINDOW_PA);
+    assert!(phys_to_virt(DEVICE_WINDOW_PA) == DEVICE_WINDOW_VA);
+    assert!(
+        virt_to_phys(phys_to_virt(DEVICE_WINDOW_PA + DEVICE_WINDOW_SIZE - 1))
+            == DEVICE_WINDOW_PA + DEVICE_WINDOW_SIZE - 1
+    );
+    assert!(virt_to_phys(phys_to_virt(DIRECT_MAP_LIMIT - 1)) == DIRECT_MAP_LIMIT - 1);
+    assert!(phys_to_virt(DIRECT_MAP_LIMIT - 1) < DEVICE_WINDOW_VA);
+    // Every console address a machine can choose is nameable.
+    assert!(
+        UART_BASE < DIRECT_MAP_LIMIT
+            || (UART_BASE >= DEVICE_WINDOW_PA && UART_BASE < DEVICE_WINDOW_PA + DEVICE_WINDOW_SIZE)
+    );
+};
+
 /// The boot page table: a single Sv39 root that maps the low physical range (to survive turning
 /// paging on) and its high-half alias (where the kernel is linked). Six gigapage (1 GiB) leaves are
 /// enough to run, print, and read the device tree: indices 0..=2 identity-map the UART region
@@ -144,6 +191,10 @@ const fn boot_table() -> BootTable {
     t[256] = t[0]; // high alias of index 0 (KERNEL_VA_BASE adds 256 to the top-level index)
     t[257] = t[1]; // high alias of index 1
     t[258] = t[2]; // high alias of index 2
+    // The device window (milestone 89), so a machine whose console is up there can print before
+    // `mmu::init`. High alias only: nothing touches a device while the PC is still low. Inert on
+    // QEMU `virt` and radon, which have nothing in that gigabyte.
+    t[511] = giga(DEVICE_WINDOW_PA);
     BootTable(t)
 }
 
@@ -210,14 +261,63 @@ pub const PCI_BAR_MAPPED: u64 = 0x20_0000;
 /// dtb fixture test walks the machine's own `interrupt-map` and asserts the formula matches.
 pub const PCI_IRQ_BASE: u32 = 32;
 
-/// Physical to kernel-virtual. Identity in bare mode; `pa + KERNEL_VA_BASE` once the high-half exists.
+/// Physical to kernel-virtual: `pa + KERNEL_VA_BASE`, except in the [device window](DEVICE_WINDOW_PA).
+///
+/// **One formula for both, with no branch**, because this is inlined all over the IPC fastpath and
+/// `script/fastpath-footprint` measured a compare-and-branch here at +122 bytes on `ipc_call_reply`
+/// (milestone 89 (Scaleway EM-RV1)). The window was placed so that this works: its physical base,
+/// `0xff_c000_0000`, is 255 GiB modulo 256 GiB, which is exactly where its virtual base sits above
+/// `KERNEL_VA_BASE`. So keeping the low 38 bits and OR-ing in the high half maps RAM below 255 GiB
+/// to `pa + KERNEL_VA_BASE` (the OR is the add, since the low bits never carry into the base) and
+/// the window to [`DEVICE_WINDOW_VA`].
+///
+/// **The assumption, and it is load-bearing:** every physical address handed here is below 255 GiB
+/// or inside the window. Any other one, anything at or above 2^38 outside the window, silently
+/// aliases onto a different frame. It holds because Sv39 gives the kernel only 256 GiB to name
+/// things in, and every machine this tree boots keeps its RAM in the first 16 GiB. It is enforced
+/// where it can be checked without a cost per call: [`refuse_unnameable_ram`] at the top of
+/// [`init`] for RAM, and `direct_map` for every device mapping.
 pub const fn phys_to_virt(pa: u64) -> u64 {
-    pa + KERNEL_VA_BASE
+    (pa & ((1 << 38) - 1)) | KERNEL_VA_BASE
+}
+
+/// Whether [`phys_to_virt`] names `[pa_start, pa_end)` truthfully: the range lies wholly in the
+/// direct map (below [`DIRECT_MAP_LIMIT`]) or wholly in the device window. Anywhere else the mask
+/// aliases it onto some other physical address. Checked when mappings are built, never per call.
+const fn is_nameable(pa_start: u64, pa_end: u64) -> bool {
+    pa_end <= DIRECT_MAP_LIMIT
+        || (pa_start >= DEVICE_WINDOW_PA && pa_end <= DEVICE_WINDOW_PA + DEVICE_WINDOW_SIZE)
+}
+
+/// **Refuse a machine whose RAM [`phys_to_virt`] would alias**, before the first frame is named
+/// through the direct map (milestone 89 (Scaleway EM-RV1)).
+///
+/// The mask in [`phys_to_virt`] keeps only the low 38 bits, so a RAM region reaching 255 GiB or
+/// beyond would land on the device window or wrap onto low RAM, and the kernel would write one
+/// frame while believing it wrote another. That cannot happen on any machine this tree boots: Sv39
+/// itself caps the kernel's half at 256 GiB, QEMU `virt` here has at most a few GiB from
+/// `0x8000_0000`, radon has 8 GiB from `0x4000_0000`, and the TH1520 16 GiB from 0. A machine with
+/// more needs a second window or Sv48, and this makes it say so at boot instead of corrupting
+/// memory. Called first thing in [`init`]: before it, the boot table maps only the low gigabytes,
+/// so a high frame would fault rather than alias.
+fn refuse_unnameable_ram() {
+    for (start, size) in memory::ram_regions() {
+        let end = start.saturating_add(size);
+        assert!(
+            end <= DIRECT_MAP_LIMIT,
+            "RAM {start:#x}..{end:#x} reaches past the 255 GiB the Sv39 direct map can name; \
+             phys_to_virt would alias it (arch/riscv64/mmu.rs, DIRECT_MAP_LIMIT)"
+        );
+    }
 }
 
 /// Kernel-virtual to physical. The inverse of [`phys_to_virt`].
 pub const fn virt_to_phys(va: u64) -> u64 {
-    va - KERNEL_VA_BASE
+    if va >= DEVICE_WINDOW_VA {
+        va - DEVICE_WINDOW_VA + DEVICE_WINDOW_PA
+    } else {
+        va - KERNEL_VA_BASE
+    }
 }
 
 /// A physical page-table address as a kernel pointer. Identity in bare mode; the direct map makes it
@@ -235,6 +335,7 @@ pub fn phys_to_ptr(pa: u64) -> *mut PageTable {
 /// identically). This is the RISC-V counterpart of the aarch64 `mmu::init`, one register instead of
 /// the TTBR0/TTBR1 pair.
 pub fn init() {
+    refuse_unnameable_ram();
     let root = memory::alloc()
         .expect("no frame for the root page table")
         .addr();
@@ -569,6 +670,12 @@ where
     if pa_end <= pa_start {
         return Ok(());
     }
+    // A device the tree places outside both nameable ranges would be mapped at an aliased VA.
+    // Boot-time only: this runs while the tables are built, never on the IPC path.
+    assert!(
+        is_nameable(pa_start, pa_end),
+        "{pa_start:#x}..{pa_end:#x} is outside the direct map and the device window; phys_to_virt would alias it"
+    );
     let len = (pa_end - pa_start).next_multiple_of(PAGE_SIZE);
     let largest = if flags.is_device() {
         PageSize::Size4KiB
