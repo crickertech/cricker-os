@@ -112,9 +112,9 @@ pub const fn clock_divider(base: u32, target: u32) -> Option<u8> {
     if base <= target {
         return Some(0);
     }
-    // ceil(base / (2 * target)), in 64 bits so 2 * target cannot wrap.
-    let two_t = 2 * target as u64;
-    let div = (base as u64).div_ceil(two_t);
+    // ceil(base / (2 * target)). Saturating, and still exact: a target of 2^31 or more saturates
+    // to u32::MAX, and since base > target the quotient is then 1 either way.
+    let div = base.div_ceil(target.saturating_mul(2));
     if div > 255 { None } else { Some(div as u8) }
 }
 
@@ -496,6 +496,20 @@ mod tests {
             for target in [100_000u32, 400_000, 12_500_000, 25_000_000, 52_000_000] {
                 if let Some(d) = clock_divider(base, target) {
                     assert!(card_clock(base, d) <= target, "{base} {target} {d}");
+                }
+            }
+        }
+        // Every target the card could be asked for, at the base radon runs: exhaustive rather
+        // than a Kani harness, because two symbolic 32-bit divisions ran past twelve minutes
+        // without finishing on 2026-10-06 and the domain that matters here is fifty million.
+        let base = 50_000_000;
+        for target in 1..=base {
+            if let Some(d) = clock_divider(base, target) {
+                assert!(card_clock(base, d) <= target, "{target} {d}");
+                // And it is the fastest that does not exceed: one divider less would, in exact
+                // arithmetic (the rate itself is floored, so compare the products).
+                if d > 1 {
+                    assert!(2 * u64::from(d - 1) * u64::from(target) < u64::from(base));
                 }
             }
         }

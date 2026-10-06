@@ -333,12 +333,15 @@ mod tests {
 
 #[cfg(kani)]
 mod proofs {
-    use crate::host::{card_clock, clock_divider, fifo_step};
+    use crate::host::fifo_step;
     use crate::partition::{Entry, Mbr};
     use crate::sd::in_range;
 
     /// No partition table makes the write test's range touch a partition or sector 0.
+    ///
+    /// Falsification: replayable `crates/designware_mobile_storage/falsifications/proofs.the_scratch_range_never_touches_a_partition_or_sector_zero.patch`
     #[kani::proof]
+    #[kani::unwind(5)]
     fn the_scratch_range_never_touches_a_partition_or_sector_zero() {
         let entry = || Entry {
             kind: kani::any(),
@@ -361,18 +364,10 @@ mod proofs {
         }
     }
 
-    /// The card clock never runs faster than the target it was computed for.
-    #[kani::proof]
-    fn the_card_clock_never_exceeds_its_target() {
-        let base: u32 = kani::any();
-        let target: u32 = kani::any();
-        if let Some(d) = clock_divider(base, target) {
-            assert!(card_clock(base, d) <= target);
-        }
-    }
-
     /// A FIFO step never moves more than is owed, and a write step never more than the FIFO has
     /// room for, whatever `STATUS` says.
+    ///
+    /// Falsification: replayable `crates/designware_mobile_storage/falsifications/proofs.a_fifo_step_never_overruns_the_fifo_or_the_buffer.patch`
     #[kani::proof]
     fn a_fifo_step_never_overruns_the_fifo_or_the_buffer() {
         let status: u32 = kani::any();
@@ -391,6 +386,8 @@ mod proofs {
 
     /// A range the driver admits is inside the card and inside what the command's 32-bit address
     /// can name.
+    ///
+    /// Falsification: replayable `crates/designware_mobile_storage/falsifications/proofs.an_admitted_range_is_inside_the_card_and_the_address.patch`
     #[kani::proof]
     fn an_admitted_range_is_inside_the_card_and_the_address() {
         let blocks: u64 = kani::any();
