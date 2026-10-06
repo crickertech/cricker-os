@@ -46,7 +46,39 @@ So this proposal has two halves, and the first may be its own milestone:
    invoked. The flush-only capability stays as the last step, or goes, depending on whether the
    file server's own stop includes the flush.
 
-## Prior art (recalled, not re-read)
+## Does publish-subscribe fit?
+
+calef asked on 2026-10-06 (UTC) whether publish-subscribe, common in distributed systems, applies
+here. It does, in one shape: publish-subscribe with acknowledgment, a deadline and ordered phases.
+Plain fire-and-forget fails three ways:
+
+- The publisher must know every subscriber finished before the reset, and a broadcast says
+  nothing back.
+- The file system must flush after the writers stop. A flat broadcast cannot order that.
+- A hung subscriber must not block the reboot forever.
+
+The capability mapping:
+
+- Subscribing is holding a badge on a shutdown notification, which the service manager hands out.
+- Publishing needs the reboot capability. `reboot` publishes, waits for every acknowledgment or the
+  deadline, then resets. Neither `reboot` nor the progenitor knows who holds state.
+- Phases stand in for a dependency graph: for example 1, writers stop; 2, servers flush; 3, the
+  reset. A subscriber declares its phase.
+
+Prior art for this shape, recalled, not re-read:
+
+- Kubernetes sends `SIGTERM`, waits `terminationGracePeriodSeconds`, then `SIGKILL`, with `preStop`
+  hooks: a broadcast plus a deadline.
+- Windows sends `WM_QUERYENDSESSION`, then `WM_ENDSESSION`, with timeouts. That is two phases, and
+  the veto in the query phase is mostly grief.
+- Android broadcasts `ACTION_SHUTDOWN` and waits a few seconds. It is pure fire-and-forget, and apps
+  lose data.
+- Linux's kernel reboot notifier chain is priority-ordered and synchronous: priorities as ordering.
+- macOS `launchd` sends `SIGTERM` to everything, waits about 20 s, then `SIGKILL`.
+- systemd and Fuchsia's `component_manager` stop in dependency order: ordering without
+  publish-subscribe, which needs a service manager that knows the graph.
+
+## Prior art for the ordering (recalled, not re-read)
 
 - Fuchsia's `component_manager` stops components in dependency order, and `fshost` flushes on
   `fuchsia.process.lifecycle` `Stop` before power control resets.
@@ -59,3 +91,7 @@ So this proposal has two halves, and the first may be its own milestone:
   separate capability?
 - What a server that does not acknowledge in time gets: a timeout and a forced reset, or a refusal.
 - Whether power-off (excluded from milestone 805) rides the same request.
+- #1786's memory-pressure signal is the same shape: a broker signals levels to subscribed
+  programs, which act and answer ([a program is asked to give memory
+  back](a-program-is-asked-to-give-memory-back.md)). At promotion, check whether shutdown is one
+  more level on that mechanism rather than a new protocol.
