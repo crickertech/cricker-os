@@ -10,7 +10,7 @@
 //! The rule is total and conservative. A card with no MBR signature, a protective MBR (GPT, whose
 //! header and table live in exactly that gap), no partitions, or a first partition starting at
 //! sector 1 gets no scratch range at all. The bench probe then refuses to write, and says why.
-//! [`crate::proofs`] proves the range never touches a partition or sector 0, for every table.
+//! A Kani harness (`proofs` in the crate root) proves the range never touches a partition or sector 0, for every table.
 
 /// The MBR's last two bytes on a valid table.
 pub const SIGNATURE: [u8; 2] = [0x55, 0xaa];

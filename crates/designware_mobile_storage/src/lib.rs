@@ -9,7 +9,7 @@
 //! [`host::Registers`]: a window to read and write, and a clock. The kernel's
 //! `kernel/src/designware_mobile_storage.rs` implements that trait over a mapped device window, and
 //! that is all it does. Nothing here dereferences a pointer, which is what lets every sequence be
-//! tested on a host against [`sim`] when the device exists on one desk and in no emulator.
+//! tested on a host against `sim` when the device exists on one desk and in no emulator.
 //!
 //! | module | what it holds |
 //! |---|---|
@@ -19,7 +19,7 @@
 //! | [`card`] | the OCR, CID, CSD, R1 and `EXT_CSD`, decoded |
 //! | [`sd`] | identification, and block reads and writes |
 //! | [`partition`] | the MBR, and the only sectors a write test may touch |
-//! | [`bench`] | the bench step's read-only probe and scratch write test |
+//! | [`bench`](mod@bench) | the bench step's read-only probe and scratch write test |
 //! | [`serve`] | what the kernel and the EL0 block server agree on: windows, the card window, the spawn words |
 //! | [`jh7110`] | the device-tree query and the board's constants |
 //!
@@ -83,7 +83,7 @@
 //!
 //! # BUGS
 //!
-//! - **Nothing here has touched the device.** Every test runs against [`sim`], which models the
+//! - **Nothing here has touched the device.** Every test runs against `sim`, which models the
 //!   contract as the databook and OpenBSD describe it. The bench step in
 //!   notes/designware-mobile-storage.md is what makes it a measurement.
 //! - **The CPU moves every byte.** The IDMAC (the controller's own DMA) is not used; see
@@ -388,7 +388,7 @@ mod proofs {
         let want: u32 = kani::any();
         if let Some((first, count)) = mbr.scratch(want) {
             assert!(first >= 1);
-            assert!(count >= 1 && count <= want);
+            assert!((1..=want).contains(&count));
             let k: u32 = kani::any();
             kani::assume(k < count);
             let sector = u64::from(first) + u64::from(k);
@@ -426,7 +426,7 @@ mod proofs {
     fn a_fifo_step_never_overruns_the_fifo_or_the_buffer() {
         let status: u32 = kani::any();
         let depth: u32 = kani::any();
-        kani::assume(depth >= 1 && depth <= 4096);
+        kani::assume((1..=4096).contains(&depth));
         let write: bool = kani::any();
         let remaining: u32 = kani::any();
         let n = fifo_step(status, depth, write, remaining);

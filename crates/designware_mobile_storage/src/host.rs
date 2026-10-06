@@ -24,7 +24,7 @@ use crate::regs;
 /// **The register window, and a clock**: everything the driver needs from the machine.
 ///
 /// The kernel implements it over a mapped device window and the architecture's counter; the tests
-/// implement it over [`crate::sim`]. Rule 2 in one trait: the driver is handed a window and knows
+/// implement it over `sim`. Rule 2 in one trait: the driver is handed a window and knows
 /// nothing about where it is.
 pub trait Registers {
     /// Read the 32-bit register at `offset` bytes from the base.
