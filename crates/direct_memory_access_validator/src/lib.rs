@@ -490,6 +490,11 @@ mod verification {
         d_desc: RefCell<[Desc; Q]>, // driver descriptors (symbolic; RefCell so a proof can mutate them post-hoc)
         s_desc: RefCell<[Desc; Q]>, // shadow descriptors (written by the walk = device's view)
         s_written: RefCell<[bool; Q]>,
+        /// A driver racing the walk: every read of its table returns a fresh symbolic value, as a
+        /// driver on another core rewriting its descriptors between any two loads would. A fixed
+        /// table is one behavior of such a driver, so this is strictly more general, and it is the
+        /// only model under which a second fetch of the same descriptor can differ from the first.
+        racing: bool,
     }
 
     impl ChainMem {
@@ -509,9 +514,19 @@ mod verification {
                 d_desc: RefCell::new(d_desc),
                 s_desc: RefCell::new([Desc { addr: 0, word: 0 }; Q]),
                 s_written: RefCell::new([false; Q]),
+                racing: false,
+            }
+        }
+        fn racing() -> ChainMem {
+            ChainMem {
+                racing: true,
+                ..ChainMem::symbolic()
             }
         }
         fn read64(&self, p: u64) -> u64 {
+            if self.racing {
+                return kani::any();
+            }
             // The two words of driver descriptor `d`: desc + d*16 (+8 for the word half).
             let off = p - DRIVER_DESC;
             let d = (off / 16) as usize;
@@ -632,26 +647,31 @@ mod verification {
     }
 
     /// **A descriptor mutated after validation cannot reach the device.** The shadow ring's whole
-    /// point. Walk a symbolic head; if it succeeds, snapshot what the device will read from the
-    /// shadow, then let the driver aim its *own* descriptor copies at arbitrary (possibly escaping)
-    /// addresses, exactly the time-of-check/time-of-use move real async-DMA hardware would allow. The
-    /// device reads the shadow, which is unchanged and still confined: the mutation touched only the
-    /// driver's copy, which nothing reads.
-    /// Falsification: unfalsifiable. Milestone 202 (every confinement test is a ritual until
-    /// somebody breaks the confinement) looked for a defect in this crate that would
-    /// turn this harness red on the property it names, and did not find one: the time-of-check /
-    /// time-of-use claim holds because the driver's table and the shadow are two disjoint arrays in
-    /// `ChainMem`, and no line of `direct_memory_access_validator` can make them the same array.
-    /// Aiming `shadow_one_head`'s copy back at `driver_desc` does turn it red, but through
-    /// `ChainMem::write64`'s address arithmetic rather than through the post-mutation assertion,
-    /// which is a red for the wrong reason and so is not recorded as evidence. What that means is
-    /// worth saying plainly: this harness proves a property of the *design* (a copy the driver
-    /// cannot write) rather than of code that could regress, so its honest denominator is this
-    /// state and not a patch.
+    /// point, and it has two halves.
+    ///
+    /// - **During the walk.** The driver's table is read through [`ChainMem::racing`], so every load
+    ///   returns a fresh symbolic value, as a driver rewriting its descriptors from another core
+    ///   would. The defect this catches is the classic double fetch: validating one read of a
+    ///   descriptor and copying a second read into the shadow. The second read is unconstrained, so
+    ///   the confinement invariant in [`ChainMem::write64`] fires the moment it lands. Code that reads
+    ///   each descriptor once into a local, validates the local and copies the local holds.
+    /// - **After it.** If the walk succeeds, snapshot what the device will read from the shadow, then
+    ///   aim the driver's *own* copy at an arbitrary address. The device reads the shadow, which is
+    ///   unchanged: the mutation touched only the driver's copy, which nothing reads.
+    ///
+    /// Until 2026-10-06 (UTC) this harness walked a fixed table, so a load returned the same value
+    /// however often it was made, and the double fetch passed. It was recorded `unfalsifiable`, on
+    /// the reasoning that no line of the crate can make the two arrays one array; that was true and
+    /// was the wrong defect class. The racing model is what made it falsifiable.
+    ///
+    /// What it still cannot see is the crate's `BUGS`: a device reading the shadow between the two
+    /// `write64`s of one descriptor. The model checks a descriptor after both halves land and has no
+    /// concurrent reader.
+    /// Falsification: replayable `crates/direct_memory_access_validator/falsifications/verification.a_descriptor_mutated_after_validation_cannot_reach_the_device.patch`
     #[kani::proof]
     #[kani::unwind(10)]
     fn a_descriptor_mutated_after_validation_cannot_reach_the_device() {
-        let mem = ChainMem::symbolic();
+        let mem = ChainMem::racing();
         let head: u16 = kani::any();
         kani::assume(head < QS);
 
