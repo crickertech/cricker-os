@@ -235,7 +235,7 @@ fn unmap_on_another_core_faults_a_reader_spinning_on_the_page() {
     let reader_cpu = || unsafe { current_cpu_protocol::CurrentCpuPage::new(cpu_page) }.cpu();
     // **Placement is retried, not pinned, and a retry is weaker than pinning.** The kernel has no
     // affinity primitive (the syscall surface is an architect's call, and `cpu.rs` records why
-    // tests are not pinned), so `spawn_on` is a hint: §28's idle stealing can pull the unmapper
+    // tests are not pinned), so `spawn_on` is a hint: DECISIONS §28 (SMP placement: two random choices at spawn), idle stealing can pull the unmapper
     // onto the reader's core, or the reader onto the unmapper's, before either runs. The unmapper
     // therefore checks where the reader is and stands down, unmapping nothing, when it shares its
     // core; the test then picks a fresh target and tries again, up to `ATTEMPTS` times. What
@@ -264,8 +264,7 @@ fn unmap_on_another_core_faults_a_reader_spinning_on_the_page() {
             }
             let slot = sched::grant(crate::cap::address_space_cap(name, Rights::WRITE))
                 .expect("grant the unmapper its capability");
-            READER_CPU_AT_UNMAP
-                .store(theirs.map_or(u64::MAX - 1, |c| c as u64), Ordering::Relaxed);
+            READER_CPU_AT_UNMAP.store(theirs.map_or(u64::MAX - 1, |c| c as u64), Ordering::Relaxed);
             UNMAPPER_CPU.store(me as u64, Ordering::Relaxed);
             let r = call(slot, abi::address_space::UNMAP, VA, 0, 0);
             let _ = sched::delete_current_cap(slot);
