@@ -84,6 +84,8 @@ VAS = "VAS"
 BA = "BA"
 # IST, a timezone abbreviation in the calendar crate's tables.
 ist = "ist"
+# `ure`, the BSD driver name for Realtek RTL8152/8153 USB Ethernet (`if_ure.c`).
+ure = "ure"
 # The `mis-` prefix, hyphenated: "mis-reported", "mis-citation". The checker sees the fragment.
 mis = "mis"
 
