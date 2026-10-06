@@ -1,8 +1,9 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-09-05
+built: 2026-10-06
 milestone_dependencies: none
-decision_dependencies: none
+decision_dependencies: 248, 252
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -21,6 +22,34 @@ proposal as the reason the link-local responder was not the answer here.
 *(Number provisional until the merge queue lands it.)*
 
 `smoltcp` already ships the socket; enabling it is a feature flag and a program.
+
+## Built 2026-10-06: the resolver, the grant and the gate on three architectures
+
+A second lane (`lane/384-resolver`, PR #1760) built what the first one stopped at, after calef ruled
+Fork 1 (§248 (the name resolver is its own confined program)). Forks 2 and 3 were built on the first
+lane's leaning answers. calef ratified both on 2026-10-06 (UTC). §252 (a resolver grant is one zone
+per client badge) records them.
+
+- `components/src/name_resolver.rs` (name provisional): §248's confined program. It holds a `Stack`
+  endpoint, an entropy endpoint and the name server its spawner names, and serves clients over its
+  own endpoint. Each transaction id comes from the entropy service, and it asks nothing without one.
+- `crates/name_resolution_protocol` (name provisional): Fork 3 as P1, the socket contract's shape.
+  The client attaches a page, writes a name, `CALL`s resolve, and reads the addresses from the page.
+  It also carries Fork 2 as G3 by badge: the spawner grants each client's badge a zone, and the
+  resolver judges the name asked against it **before anything is sent**. 11 host tests.
+- `a_granted_client_resolves_inside_its_zone_and_nothing_outside_it`, on aarch64, riscv64 and
+  x86_64 over the `e1000e` every runner attaches. A client granted `nife.test` resolves two names,
+  gets each lie refused for its own reason, is denied `example.com` and `evilnife.test`, and
+  connects to what it resolved; a client with no grant is denied every name. Deleting the zone
+  check turns it red (`system_tests/falsifications/`). The x86_64 and UEFI runners gained the
+  name-server peer.
+
+**Reuse:** the parser is `domain_name_system`, kept after the 2026-10-04 survey of six crates in
+`notes/name-resolution.md` (§46 (thin primitives or whole subsystems; we write everything in
+between)). The resolver program and its protocol are this tree's shapes
+(`network_time_client`'s endowment, the socket contract's page, the system log's badge
+registration), so nothing outside the tree fit; `hickory-resolver` and `domain`'s stub need `tokio`,
+whose poller the PAL lacks.
 
 ## Partial as of 2026-10-04: the wire format and an end-to-end test, the forks not taken
 
@@ -111,25 +140,27 @@ Kani-proven not to loop or overrun, is in `crates/multicast_dns_protocol` at com
 - `socket-dns`'s cost was read rather than built (2026-10-04): 1,503 lines of `smoltcp` source, and
   the three findings above. An enabled feature nothing calls links to nothing, so a size delta
   without a caller would measure nothing.
-- The capability shape is the whole design and is still open. The zone test it would need,
-  `Name::is_within`, exists and is tested label by label; `notes/name-resolution.md`'s Fork 2 has
-  the options and the two enforcement mechanisms the tree already uses.
-- The consumer is milestone 801 (packages over the internet), rung 3c of milestone 198 (a package
-  manager) until it was split on 2026-10-06: the package client fetching by host name, which waits on the forks below.
+- The resolver is started only by the test harness. The booted system starting it from the lease is
+  milestone 801 (packages over the internet)'s, whose package client is its first real client.
+- The resolver's UDP path, with its source check and its keep-listening on a forged reply, has run
+  on no boot: slirp forwards UDP to no process a test owns, so the gate asks over TCP.
 
 ## Follow-on
 
 - **Decision.** `design/decisions/248-the-resolver-is-its-own-confined-program.md` holds Fork 1.
   calef ruled it on 2026-10-04. The resolver is its own confined program.
-- **Outstanding.** The resolver program itself. §248 (the name resolver is its own confined
-  program) says where it lives. Its entry point waits on Fork 3. Its endowment waits on Fork 2.
-- **Outstanding.** The grant's shape and what enforces it (Fork 2): any name, exact names or a zone,
-  by an instance per grant or a badge per client. Waits on an architect.
-- **Outstanding.** The client protocol (Fork 3), a crate by rule 7. Waits on an architect.
+- **Done.** The resolver program, `components/src/name_resolver.rs`, by #1760.
+- **Done.** The grant's shape (Fork 2) is a zone per client badge, built by #1760. The client
+  protocol (Fork 3) is P1, in `crates/name_resolution_protocol`. calef ratified both on 2026-10-06
+  (UTC). `design/decisions/252-a-resolver-grant-is-a-zone-per-badge-over-the-socket-contracts-shape.md`
+  holds them.
+- **Milestone 801.** Starting the resolver on the booted system, with the lease's name server, and
+  granting the package client its source's host: milestone 801 (packages over the internet), whose
+  package client is the resolver's first real client.
 - **Done.** The DHCP nameserver rides the lease report's second word, which §248 unblocked. The
   layout is `socket_protocol::lease`, provisional. Both ISAs' lease tests assert slirp's 10.0.2.3.
-- **Outstanding.** The x86_64 leg of the end-to-end test, once a NIC runs under QEMU there (milestone
-  494's e1000e driver).
+- **Done.** The x86_64 leg, by #1760: the resolver's gate runs over the `e1000e` on all three
+  architectures, and the x86_64 and UEFI runners carry the name-server peer.
 - **Milestone 783.** Milestone 783 (the network stack seeds its random generator from the clock, and TCP sequence numbers come from it). `design/roadmap/783-net-stack-seeds-its-generator-from-entropy.md`: seed
   `smoltcp`'s generator in `net_stack` from the entropy service rather than `now()`, since it
   chooses TCP initial sequence numbers today, whatever happens to DNS.
@@ -152,4 +183,6 @@ instance of §145's argument. What it takes: enable `socket-dns`, decide whether
 inside `net_stack` or as its own confined program holding a socket grant (the second is more in
 keeping with the tree and more expensive, so it is argued rather than assumed), decide the
 capability's shape, which is the real design work, and read the nameserver DHCP already receives. It
-has no consumer today, which by AGENTS.md's ranking function ranks it below anything that has one.
+has a consumer now, milestone 801 (packages over the internet), whose package client fetches the
+distribution's index by host name. Built 2026-10-06: the resolver is its own confined program, and
+each client's badge is granted a zone it is judged against before anything is sent.

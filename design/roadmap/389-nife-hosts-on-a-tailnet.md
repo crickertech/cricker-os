@@ -15,9 +15,10 @@ Premise re-read against the tree on 2026-09-19 and still true: nothing in this r
 implements or depends on `tailscale`, `wireguard`, `headscale`, `curve25519` or `chacha20`, and the
 five places Tailscale is named are all the same finding recorded below (the CGNAT default-route
 hazard, in `xtask/src/main.rs`, milestone 257's block, `notes/visionfive2.md` and
-`notes/x86-uefi-boot.md`). The two things this sits behind are both still absent: there is no
-resolver (milestone 384) and no TLS (milestone 387). *(Number provisional until the merge queue
-lands it.)*
+`notes/x86-uefi-boot.md`). Of the two things this sat behind, the resolver is built (milestone 384
+(in a capability system the resolver is a grant), with its grant and protocol in §252 (a resolver
+grant is one zone per client badge)) and TLS is still absent (milestone 387 (a TLS stack)).
+*(Number provisional until the merge queue lands it.)*
 
 The reason is the finding rather than a formality: the near-term answer needs no
 nife work at all, so nothing here waits on anybody.

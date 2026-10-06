@@ -222,6 +222,7 @@ dependencies = [
  "machine_statistics_protocol",
  "manifest_note",
  "measured_boot",
+ "name_resolution_protocol",
  "network_time_protocol",
  "nifefs",
  "non_volatile_memory_express",
@@ -465,6 +466,7 @@ dependencies = [
  "loaded_image_check",
  "login_protocol",
  "manifest_note",
+ "name_resolution_protocol",
  "network_time_protocol",
  "nifefs",
  "schedule_store",
@@ -780,6 +782,13 @@ version = "0.1.0"
 dependencies = [
  "generational_table",
  "loom",
+]
+
+[[package]]
+name = "name_resolution_protocol"
+version = "0.1.0"
+dependencies = [
+ "domain_name_system",
 ]
 
 [[package]]
@@ -1171,6 +1180,7 @@ dependencies = [
  "counter_frequency_protocol",
  "credential_protocol",
  "current_cpu_protocol",
+ "domain_name_system",
  "elf",
  "entropy_protocol",
  "environment_protocol",
@@ -1183,6 +1193,7 @@ dependencies = [
  "machine_discovery",
  "machine_statistics_protocol",
  "measured_boot",
+ "name_resolution_protocol",
  "network_time_protocol",
  "nifefs",
  "package_archive",

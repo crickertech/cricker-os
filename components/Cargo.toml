@@ -452,6 +452,16 @@ path = "src/network_time_client.rs"
 test = false
 bench = false
 
+# The name resolver (milestone 384 (in a capability system the resolver is a grant), §248 (the name
+# resolver is its own confined program)): a client of `net_stack` that turns a host name into
+# addresses for a client whose badge was granted the name's zone, and for nobody else. The contract
+# is `crates/name_resolution_protocol`, the wire format `crates/domain_name_system`. Provisional name.
+[[bin]]
+name = "name_resolver"
+path = "src/name_resolver.rs"
+test = false
+bench = false
+
 # The consumer (milestone 50): counts what arrives on its input and writes the numbers to its
 # output, both over the sink contract. The first program in the tree that reads a stream, and the
 # right-hand side of `date | wc`. Portable, so both ISAs' archives carry it.
@@ -616,6 +626,8 @@ http_response = { version = "0.1.0", path = "../crates/http_response" }
 # Milestone 384 (in a capability system the resolver is a grant): the DNS exchange in
 # `net_stack`'s socket-contract client, against the runners' name server peer.
 domain_name_system = { version = "0.1.0", path = "../crates/domain_name_system" }
+# The name resolver's contract with its clients and its spawner (milestone 384, provisional name).
+name_resolution_protocol = { version = "0.1.0", path = "../crates/name_resolution_protocol" }
 bitmap_font = { version = "0.1.0", path = "../crates/bitmap_font" }
 block_roster = { version = "0.1.0", path = "../crates/block_roster" }
 globally_unique_identifier_partition_table = { version = "0.1.0", path = "../crates/globally_unique_identifier_partition_table" }

@@ -1,0 +1,19 @@
+[package]
+name = "name_resolution_protocol"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+# What a name resolver and the programs around it agree on (milestone 384 (in a capability system
+# the resolver is a grant), §248 (the name resolver is its own confined program)): the words a
+# client resolves a host name with, the page the name and its addresses cross in, the words a
+# spawner grants a client a zone with, and the resolver's endowment. Plus the grant table the
+# resolver keeps, because what a grant means is half of the contract and it is pure logic a host
+# test can reach. Rule 7: the resolver, its spawner and every client link one definition. no_std,
+# and its one dependency is `domain_name_system`, whose `Name` a zone is. Name provisional.
+
+[lints]
+workspace = true
+
+[dependencies]
+domain_name_system = { version = "0.1.0", path = "../domain_name_system" }

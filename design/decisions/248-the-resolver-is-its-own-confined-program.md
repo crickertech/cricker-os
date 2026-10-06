@@ -59,17 +59,17 @@ The nameserver DHCP hands out has a consumer: the resolver's spawner reads it fr
 lease report and hands it to the resolver as its endowment. The same pull request as this section
 puts it in the report's second word, provisionally (`socket_protocol::lease`).
 
-## What is still blocked
+## What was still blocked, and where it was answered
 
-- Fork 2 of `notes/name-resolution.md`: the shape of a resolver grant, which is any name, exact
-  names or a zone. It also asks what enforces it: one resolver per grant, or a badge per client
-  under §230 (badged endpoint capabilities). The resolver's endowment depends on it.
-- Fork 3: the protocol between a client and the resolver, a crate under rule 7. The resolver's entry
-  point depends on it, so the program itself is not built yet.
-- Testing the program end to end also wants either a stack shared by two clients in the kernel
+- Fork 2 of `notes/name-resolution.md` (the shape of a resolver grant and what enforces it) and
+  Fork 3 (the protocol between a client and the resolver) were open here. calef ruled both on
+  2026-10-06 (UTC). §252 (a resolver grant is one zone per client badge, and a client speaks the
+  socket contract's shape) records them: a zone per §230 (badged endpoint capabilities) badge,
+  checked on the name asked, over P1.
+- Testing the program end to end also wanted either a stack shared by two clients in the kernel
   harness or a virtio slot past `MAX_DEVICES`, which `kernel/src/virtio.rs` calls a foot gun.
+  Milestone 384's gate runs it over the `e1000e` instead.
 
 ## Reversibility
 
-Reversible until a client is written against the resolver's protocol. Before Fork 3 is answered
-nobody can have acted on it.
+Reversible until a client is written against the resolver's protocol, which §252 now fixes.

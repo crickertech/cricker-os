@@ -1,9 +1,11 @@
-# Name resolution: the wire format, and the three forks it leaves
+# Name resolution: the wire format, the resolver, and the grant
 
-Milestone 384 (in a capability system the resolver is a grant), lane of 2026-10-04 (UTC). Nothing in
-this tree turned a host name into an address. This note records what the lane built, how to run
-it, and the three questions it stopped at because each is an architect's call. The proposal below
-is written for the maintainer to mint as a `design/decisions/` section marked PROPOSED.
+Milestone 384 (in a capability system the resolver is a grant), lanes of 2026-10-04 and 2026-10-06
+(UTC). Nothing in this tree turned a host name into an address. The first lane built the wire format
+and stopped at three forks; calef ruled the first (§248 (the name resolver is its own confined
+program)). The second built the resolver on the other two's leaning answers. calef ratified both
+on its pull request (#1760) on 2026-10-06 (UTC), and §252 (a resolver grant is one zone per client
+badge) records them. Fork 2 and Fork 3 below keep the options and the reasoning.
 
 ## What is built
 
@@ -13,6 +15,9 @@ is written for the maintainer to mint as a `design/decisions/` section marked PR
 | The name decoder, header codec and TCP reassembly, proved | `crates/domain_name_system/src/proofs.rs` | 3 Kani harnesses, about 34 s; each falsified by a replayable patch |
 | `accept` fuzzed with a property, not only for panics | `fuzz/fuzz_targets/domain_name_system_reply.rs` | 5.2 million runs in 120 s clean; deleting the owner check was caught |
 | A name resolved end to end through `net_stack`, with lies refused, then connected to | `components/src/socket_test_client.rs`, `helpers/name-server-peer` | green on aarch64 and riscv64; the same deleted check fails it with `0xe14f` |
+| The resolver, §248's confined program: a `Stack` endpoint, an entropy endpoint, and a zone grant per client badge, judged before anything is sent | `components/src/name_resolver.rs` | the gate below |
+| What the resolver, its clients and its spawner agree on, and the grant table | `crates/name_resolution_protocol` | 11 host tests |
+| A granted client resolves inside its zone and is denied outside it; an ungranted one is denied everything | `system_tests/src/user/name_resolver_tests.rs`, `fixtures/src/name_resolver_test_client.rs` | green on aarch64, riscv64 and x86_64 over the `e1000e`; deleting the zone check fails it on `example.com` |
 
 `Query::accept` believes an address only after the reply is a response with our transaction id, is
 not truncated, echoes exactly our question and has response code zero. The address must also be
@@ -46,17 +51,19 @@ $ script/fuzz --time 120 domain_name_system_reply
 ==> fuzz: no crashes in 1 targets at 120s each
 $ script/test --arch aarch64 --test a_name_resolves_through_the_stack
 test system_tests::user::tests::a_name_resolves_through_the_stack_and_a_real_one_when_the_host_answers ... ok
+$ script/test --arch x86_64 --test a_granted_client_resolves
+test system_tests::user::name_resolver_tests::a_granted_client_resolves_inside_its_zone_and_nothing_outside_it ... ok
 ```
 
 A client code from the gating half reads `0xE1`, then the case's index in `NAME_SERVER_CASES`, then
 the stage: `1` to `7` are transport steps and `F` is a wrong verdict, a lie believed or the truth
 refused.
 
-## The proposal: three forks, stopped at
+## The proposal: three forks
 
-Each is a wire format two programs agree on or a choice 384 leaves open, so the lane built none of
-them. What each blocks is at the end. Whether to write the parser at all, or take a crate, comes
-first, because §46 (thin primitives or whole subsystems; we write everything in between) makes
+Each is a wire format two programs agree on or a choice 384 leaves open. The first lane built none
+of them. The second built Forks 2 and 3 after Fork 1 was ruled, and calef ratified both (§252).
+Whether to write the parser at all, or take a crate, comes first, because §46 (thin primitives or whole subsystems; we write everything in between) makes
 it a decision.
 
 ### Write or take: the §46 question
@@ -148,8 +155,8 @@ parser's location and the grant Fork 2 needs a holder for, none of which is effo
 
 ### Fork 2. The grant's shape, and what enforces it
 
-Options are given rather than a recommendation, because a grant shape is what every client will be
-written against.
+**Built on 2026-10-06 (UTC) as G3 by badge, the check on the name asked, and ratified the same day:**
+calef, *"Yes on Fork 2"*, recorded in §252.
 
 | Option | A client may resolve | Note |
 |---|---|---|
@@ -168,14 +175,21 @@ The enforcement is a second question with two answers the tree already uses:
 - One resolver, a scope per badge. §230 (badged endpoint capabilities) delivers the badge with each
   request, and the system log stamps writers from it.
 
-The lane's lean, not a recommendation: G3 by badge. One process serves every client, which matters
-because every process here costs frames, and a zone covers the one real consumer, the package
-client, whose grant is its package source's host.
+What was built, and why. The spawner holds the resolver's one unbadged capability and grants each
+client's badge a zone with `OPERATION_GRANT` messages, the shape the system log registers writers
+in. The resolver judges the name the client asked against that zone before it sends anything. G1
+and G2 are the same mechanism with the root zone and a one-host zone. So the one consumer in view,
+801's package client, gets a zone of one host, and a client that truly needs every name says so in
+its grant. Per-instance enforcement lost because it costs a process (an image, a stack, page
+tables, unmeasured) per client, where a badge costs one table entry. Would this still win at equal
+cost? Yes: the case is the tree's own precedent for a server with many clients (§230 and the system
+log), not effort. If calef says no to G3 by badge, `Grants` and the resolver's `serve` change; the
+client's code does not, because it never sees the grant.
 
 ### Fork 3. The client protocol
 
-Options only, since this is a wire format two programs agree on, and by rule 7 it goes in a crate
-(`name_resolution_protocol`, provisional).
+**Built as P1, in `crates/name_resolution_protocol`, and ratified on 2026-10-06 (UTC):** calef,
+*"Yes on Fork 3"*, recorded in §252.
 
 - P1. The socket contract's shape: the client attaches a page, writes the name, calls a resolve verb,
   and reads up to eight addresses, a TTL and a status word from the page. One round trip.
@@ -185,28 +199,34 @@ Options only, since this is a wire format two programs agree on, and by rule 7 i
 - P3. Names in message words. A name is up to 255 bytes, so it does not fit, which is why P1 and P2
   both use a page.
 
+P1 won because it is the socket contract's shape, which every network client here already speaks,
+and it is one round trip. P2 would put a file server's open, write, read and close around one
+exchange. If calef says no, the crate's resolve words and page layout change, and so do the
+resolver and its one client, the test client.
 ### A smaller piece: the nameserver from DHCP
 
 Built after the Fork 1 ruling. `net_stack`'s lease report carries the first DNS server the lease
 named in its second word, which was zero, laid out in `socket_protocol::lease` (provisional). The
 spawner that starts a resolver hands that address on as its endowment.
 
-### What is blocked until these are answered
+### What is left, and whose it is
 
-The resolver program, on Forks 2 and 3. So is the progenitor fetching a package by
-host name, rung 3c of milestone 198 (a package manager, and the trivial install that makes a second
-customer possible). The crate, its proofs and the gating test do not wait on any of it.
+Nothing in milestone 384 waits now: the forks are built and ratified (§252). Starting the
+resolver at boot is milestone 801 (packages over the internet)'s, because the package client is its
+first client. The progenitor reads the name server from `net_stack`'s lease, as the gate does, and
+hands it to `name_resolver`. It then grants the package client's badge its package source's host.
 
 ## BUGS
 
-- The end-to-end test runs on aarch64 and riscv64 only. x86_64 has an `e1000e` under QEMU since
-  milestone 494 (a driver for the network card a PC actually has), and its booted system a stack on
-  it since 2026-10-05, but its runners give that network no name-server peer. The crate is portable
-  and host-tested.
-- The gating exchange is TCP. UDP to a name server the test owns is not gated (see above), and the
-  real-DNS half that covers UDP skips when the host's resolver does not answer.
-- The test's transaction id is fixed, because the socket client holds no entropy endpoint. A real
-  resolver must not do this, and R2 is written assuming it draws the id from the entropy service.
+- `socket_test_client`'s test runs on aarch64 and riscv64 only. The resolver's gate runs on all
+  three over the `e1000e`, and the x86_64 and UEFI runners now carry the name-server peer.
+- Both gating exchanges are TCP. UDP to a name server the test owns is not gated (see above), and
+  the real-DNS half that covers UDP skips when the host's resolver does not answer. The resolver's
+  UDP path, with its source check and its keep-listening on a forged reply, has run on no boot.
+- `socket_test_client`'s transaction id is fixed, because it holds no entropy endpoint. The
+  resolver draws every id from the entropy service and asks nothing without one.
+- The resolver's own `BUGS` (one request at a time, no cache, eight grants for its life) are in
+  `components/src/name_resolver.rs` and the crate's.
 - `smoltcp`'s generator is seeded from `now()` for everything it randomizes in `net_stack`, which
   includes TCP's initial sequence numbers (`socket/tcp.rs`, read); `net_stack` picks ephemeral
   ports with its own rotating allocator, not the generator. That is a finding about
@@ -216,4 +236,4 @@ customer possible). The crate, its proofs and the gating test do not wait on any
   service targets. Adding a row obliges that note to shed 47 bold spans under the prose ratchet,
   which is its own piece of work.
 
-Name: provisional 2026-10-04 (milestone 384's lane).
+Name: provisional 2026-10-04 (milestone 384's lane). Retitled 2026-10-06 when the resolver was built.

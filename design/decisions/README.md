@@ -361,6 +361,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 249 | DECIDED | [A running address space stays nameable, and a capability never decides when it dies](249-a-running-address-space-stays-nameable.md) |
 | 250 | DECIDED | [An image names its distribution's package index, at `basalt.nifeos.org`, and a package's bytes may live anywhere](250-images-name-one-package-index-and-the-bytes-may-live-anywhere.md) |
 | 251 | DECIDED | [Restarting the machine is a kernel object the progenitor hands out](251-restarting-the-machine-is-a-kernel-object.md) |
+| 252 | DECIDED | [A resolver grant is one zone per client badge, and a client speaks the socket contract's shape](252-a-resolver-grant-is-a-zone-per-badge-over-the-socket-contracts-shape.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design

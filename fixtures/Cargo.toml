@@ -277,6 +277,16 @@ path = "src/network_time_test_server.rs"
 test = false
 bench = false
 
+# The name resolver's test client (milestone 384 (in a capability system the resolver is a grant)):
+# asks the resolver about each name in `name_resolution_protocol::fixture::CASES` through the one
+# badged capability it holds, reports every reply, then connects to the first address. The shape
+# milestone 801 (packages over the internet)'s package client will have. Provisional name.
+[[bin]]
+name = "name_resolver_test_client"
+path = "src/name_resolver_test_client.rs"
+test = false
+bench = false
+
 # The unwritable clock witness (milestone 51, lifted out of the `ntp` binary by milestone 290): it
 # is handed the network time client's five slots plus the address a clock *setter* maps the clock
 # page at, reports, writes there, and faults. The claim Unix cannot make, and the one function that
@@ -507,6 +517,9 @@ current_cpu_protocol = { version = "0.1.0", path = "../crates/current_cpu_protoc
 # three are already in the shipping graph through `components`; nothing external was taken.
 network_time_protocol = { version = "0.1.0", path = "../crates/network_time_protocol" }
 socket_protocol = { version = "0.1.0", path = "../crates/socket_protocol" }
+# The name resolver's contract and the boot test's cases, which `name_resolver_test_client` and the
+# kernel's test must agree on (milestone 384, provisional name).
+name_resolution_protocol = { version = "0.1.0", path = "../crates/name_resolution_protocol" }
 clock_protocol = { version = "0.1.0", path = "../crates/clock_protocol" }
 # `unreachable_network_witness`'s entropy probe (milestone 202's unvouched-child claim, DECISIONS
 # §219 (how the shell names an installed program to the spawner) gate D2): a real `GET`, so a child wrongly handed the service gets an answer rather than a
