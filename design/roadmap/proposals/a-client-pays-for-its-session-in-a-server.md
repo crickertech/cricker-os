@@ -13,7 +13,8 @@ calef asked for this on 2026-10-06 (UTC), ruling fork 6 of #1777 (a running prog
 memory): "Approve Fork 6 A with both follow-ons". Fork 6 kept boot servers on fixed budgets,
 because a server that grew from a shared pool would let one person's traffic spend another's
 memory. This is the first follow-on: a server whose load grows with its clients is paid by those
-clients. A writing-only lane wrote it and built nothing.
+clients. A writing-only lane wrote it and built nothing. calef ruled all four forks on #1786 the
+same day.
 
 It depends on #1777's `memory_broker` and its account tree (forks 1 and 5 there, both ruled). Every
 name here is provisional: the donation, its verbs, and the fixture.
@@ -52,13 +53,15 @@ and no code.
 
 ## The forks
 
-Four, in the order calef rules on them.
+Four, all ruled.
 
 ### 1. What the client hands the server
 
+Ruled A, calef, 2026-10-06 (UTC): "Yes".
+
 | option | what it is | verdict |
 |---|---|---|
-| A | A donation: a child of the client's account whose capability goes to the server. The server draws on it; the charge stays on the client's side of the tree | recommended |
+| A | A donation: a child of the client's account whose capability goes to the server. The server draws on it; the charge stays on the client's side of the tree | ruled |
 | B | A region capability the client splits and sends | refused |
 | C | The server bills the client after the fact | refused |
 
@@ -79,14 +82,17 @@ protocol change later:
   from it. The broker attributes the charge by the tree, not by who holds the capability.
 - A donated child is closed by its holder. Its parent's close does not destroy it (fork 2).
 
-So the answer to "can part of an account be delegated?" is yes, as a child account, provided #1777
-lets any holder open one. That is one sentence to add to its protocol.
+So the answer to "can part of an account be delegated?" is yes, as a child account. #1777 was
+already armed, so calef ruled that these three points land in its milestone and decision text at
+promotion, recorded in a comment on #1777.
 
 ### 2. When the client dies first
 
+Ruled A, calef, 2026-10-06 (UTC): "Yes".
+
 | option | what it is | verdict |
 |---|---|---|
-| A | The donation outlives the client until the server closes the session. Its charge moves up to the client's session account | recommended |
+| A | The donation outlives the client until the server closes the session. Its charge moves up to the client's session account | ruled |
 | B | The broker destroys the donation when the client's account closes | refused |
 
 B is fork 1 B's crash by another route. Under A the server learns of the death as it does today,
@@ -95,28 +101,38 @@ leaks only its clients' charge, which the owner's revoke on the server reclaims.
 
 ### 3. How small a session can be
 
+Ruled A, calef, 2026-10-06 (UTC): "Yes", on two conditions. The lag is bounded and gated: opening
+and closing 10,000 sessions must return the server's charge to baseline within one region, 1 MiB.
+His motive is Linux memcg's "zombie cgroup" problem, where shared slab pages kept dead groups
+charged until per-object charging, around 5.9 (from memory; the building lane owes a read). And
+C is the recorded fallback if that test cannot pass.
+
 #1777's fork 7 bounds regions by memory because every region is at least 1 MiB. A TCP session
 needs a few KiB. One region per session would cost 1 MiB per connection.
 
 | option | what it is | verdict |
 |---|---|---|
-| A | The server commits from its own regions in 1 MiB steps and packs many sessions into each. The broker moves only the charge: each session's bytes are charged to its donation | recommended |
+| A | The server commits from its own regions in 1 MiB steps and packs many sessions into each. The broker moves only the charge: each session's bytes are charged to its donation | ruled |
 | B | One region per session, at least 1 MiB | refused |
+| C | Page-sized regions, each charging its table slot to the account, Genode's cap quota | fallback, if A's lag test fails |
 
 Under A, the broker keeps a charge ledger per donation, not a region per donation. A server
 records "this session now holds N pages", the broker checks N against the donation's ceiling and
 moves N pages of charge from the server's account to the donation. Physical pages return to the
 pool when a server region empties, which can lag the charge. That lag is held on the server's own
 account, bounded by one region of slack per server. B is simple and costs 1,000 MiB for 1,000
-connections.
+connections. C breaks #1777 fork 7's 1 MiB floor on regions, so it must charge each region's table
+slot to the account to keep a flood from spending the region table.
 
 A is about elegance, not effort: B is less work.
 
 ### 4. Which servers first
 
+Ruled, calef, 2026-10-06 (UTC): "Approve".
+
 | option | verdict |
 |---|---|
-| `net_stack`, since its six-socket ceiling is the one a customer would meet | recommended, first slice |
+| `net_stack`, since its six-socket ceiling is the one a customer would meet | ruled, first slice |
 | the file server, the system log, the compositor | follow-ons, each its own measurement |
 
 `net_stack`'s own budget stays fixed for its own state. Only per-socket memory moves to donations.
@@ -128,10 +144,13 @@ From memory, unchecked; the building lane owes a read of each.
 
 - Genode: a client donates RAM quota with a session request, the server spends it on that session,
   and closing the session returns it. A server that runs out asks the client to upgrade.
-- KeyKOS, EROS and Coyotos: a server can allocate from a space bank the client supplies, and
-  destroying the bank reclaims what was allocated from it.
-- Linux: socket buffers are charged to the receiving process's memory cgroup, and `somaxconn` and
-  per-socket limits bound a flood.
+- Genode cap quota: capabilities are a second quota, donated like RAM. Servers keep a heap per
+  session, so closing one frees exactly its memory. Fork 3 C.
+- KeyKOS, EROS and Coyotos: a client passes a space bank to a server, which allocates the
+  session's storage from it. Destroying the bank reclaims all of it.
+- Linux memcg: kernel memory and socket buffers are charged to the cgroup of the process that
+  caused them. Charging whole slab pages left dead cgroups charged ("zombies") until per-object
+  charging, around 5.9. `somaxconn` and per-socket limits bound a flood.
 
 ## The first slice
 
@@ -146,13 +165,15 @@ One `cargo xtask` gate that `script/test` runs, exiting 0 under QEMU on aarch64,
 x86_64:
 
 1. More than six. A client opens 64 TCP sockets to a loopback listener and moves bytes on each.
-2. A flood drains the flooder. A client opens sockets until its donation ceiling refuses. A second
+2. The lag is bounded. A client opens and closes 10,000 sessions. The server's charge returns to
+   its baseline within one region, 1 MiB. If this cannot pass, fork 3 C replaces A.
+3. A flood drains the flooder. A client opens sockets until its donation ceiling refuses. A second
    client then opens and uses a socket, and `net_stack`'s own budget figure is unchanged.
-3. Death returns the charge. Killing the flooding client returns its charge to its session account
+4. Death returns the charge. Killing the flooding client returns its charge to its session account
    once `net_stack` closes its sessions, with `net_stack` still serving the second client.
-4. No revocation reaches the server. The client deletes its copy of everything it sent, and
+5. No revocation reaches the server. The client deletes its copy of everything it sent, and
    `net_stack` keeps running.
-5. A `design/decisions/` section records the donation verbs, minted by the integrator.
+6. A `design/decisions/` section records the donation verbs, minted by the integrator.
 
 ## BUGS
 
