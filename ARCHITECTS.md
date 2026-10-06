@@ -16,9 +16,9 @@ A contributor is listed by GitHub username only; legal names belong in legal and
 
 ## What the role holds
 
-[AGENTS.md](AGENTS.md) defines it, from
-[the three roles](AGENTS.md#the-three-roles-and-the-one-rule-that-keeps-work-moving) onward and
-wherever it says "an architect". This file does not restate it, so there is one place to change.
+[AGENTS.md](AGENTS.md) defines it, with
+[the three roles](notes/skills/maintainer/SKILL.md) and the other notes/skills/ files AGENTS.md links, wherever
+they say "an architect". This file does not restate it, so there is one place to change.
 
 ## Adding an architect
 

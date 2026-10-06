@@ -419,7 +419,7 @@ fires when the tree exceeds it and stays silent when the tree falls below. `scri
 `agents-md-lines` registry entry (the file's own `wc -l`-equivalent line count) and the claim lives
 here, since a developer lane may not edit `AGENTS.md` to carry its own marker:
 
-**`AGENTS.md` carries at most 573 lines** <!--count-at-most:agents-md-lines-->, written at the
+**`AGENTS.md` carries at most 275 lines** <!--count-at-most:agents-md-lines-->, written at the
 tree's exact value with zero headroom, deliberately (it read 1009 until 2026-09-19, when §155
 moved the naming conventions to `design/naming.md` and the file fell to 922; milestone 262 had asked
 for 988 against its own smaller diff, which §155 (naming conventions) superseded):

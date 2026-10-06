@@ -29,7 +29,7 @@ decision:
 
 > Open decisions live in a file, not in a conversation.
 >
-> -- AGENTS.md
+> -- notes/skills/decisions/SKILL.md
 
 A roadmap block is not chat scrollback, so this is rung three rather than rung four. It is still not
 the file AGENTS.md names, and the measurement says the exception is the rule.
