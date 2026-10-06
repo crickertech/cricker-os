@@ -10,8 +10,7 @@ needs_person: no
 # A running program acquires more memory as it needs it
 
 calef asked for this on 2026-10-06 (UTC): a running program should be able to get more memory when
-it needs it. A writing-only lane wrote it and built nothing. calef ruled forks 1, 2 and 3 on #1777 the
-same day, and fork 7 is reshaped to the standard his fork 3 ruling set. Forks 4 to 7 are open.
+it needs it. A writing-only lane wrote it and built nothing. calef ruled forks 1 to 5 and 7 on #1777 the same day. Fork 6 is open.
 
 It is the program half of #1769 (concurrent login sessions), whose fork 4 calef ruled "D" the same
 day: a `memory_broker` holding the pool left after the boot's carve, handing out geometric
@@ -90,8 +89,7 @@ Reuse: the broker is #1769's, the policy `user_mode_runtime::heap`'s.
 
 ## The forks
 
-Seven, in the order calef rules on them. Fork 7 is new and belongs with fork 3. Forks 1 to 4 and 7
-shape the first slice.
+Seven, in ruling order; fork 7 came out of fork 3.
 
 ### 1. Who a program asks
 
@@ -119,23 +117,10 @@ The [appendix](a-running-program-acquires-more-memory/returning-memory.md) has t
 A region is the smallest unit the kernel takes back. nife cannot `madvise` a page in the middle of
 a region, so whatever is returned must be a whole region.
 
-Part 1, large allocations get their own region. An allocation at or above a threshold is not put in
-the band. The allocator asks its account for a region of exactly its size, maps it outside the band
-and returns it to the broker the moment it is freed.
-
-| threshold | verdict |
-|---|---|
-| 128 KiB, glibc's default `M_MMAP_THRESHOLD` (from memory) | refused |
-| 1 MiB (256 pages) | recommended |
-| 4 MiB | refused |
-
-glibc's number is priced for `mmap`, which costs nothing machine-wide. Here a large allocation
-takes a slot in a 256-region table the machine shares, and one of the process's 64 capability
-slots. At 1 MiB its fixed cost is small beside the 256 `MAP` calls its pages need anyway. 4 MiB
-would leave 2 MiB spikes in band increments that small objects can pin.
-
-Large regions live above 2 GiB, which `address_space_map` leaves unassigned, so they are not
-held to the band's 256 MiB. The allocator keeps their list in the band itself, with no fixed count.
+Part 1, an allocation of 1 MiB (256 pages) or more gets its own region, above 2 GiB where the map
+leaves room, returned at `free`. glibc's 128 KiB (from memory) was refused because a region costs
+a machine-wide slot; 4 MiB, because it leaves 2 MiB spikes pinned in the band. The appendix prices
+both.
 
 Part 2, the band is trimmed from the top. When the newest band increment is wholly free and the
 one below it is too, the newest goes back to the account and the cursor drops. Keeping one free
@@ -159,53 +144,35 @@ program on its own; that is fork 4's revoke, and revoke kills.
 
 ### 7. Limits nobody notices
 
-calef's standard is Linux's `vm.max_map_count`, 65,530 per process by default (from memory): a
-limit so large an ordinary program never meets it. Fork 3's draft cap of 32 regions per account,
-against a table of 1,024, failed it. Three limits stand in the way, and the
-[appendix](a-running-program-acquires-more-memory/returning-memory.md) prices each with host
-measurements.
+Ruled A, calef, 2026-10-06 (UTC): "Approve Fork 7." The standard is his fork 3 ruling, Linux's
+`vm.max_map_count` (65,530 per process by default, from memory): a limit no ordinary program meets.
+The [appendix](a-running-program-acquires-more-memory/returning-memory.md) has the measurements.
 
-The region table. `MAX_REGIONS` is 256 machine-wide, and the suite peaks at 242. A slot is 116
-bytes, measured, so 16,384 slots cost 1.8 MiB. The walks matter more: linear over a flat table,
-quadratic over a deep chain of splits (39 ms at 4,096 on calef's Mac).
-
-The capability table. Each process has 64 slots. Milestone 778 (capability tables sized per
-process) is the general answer and is not needed here: a program holds a region's capability only
-while it maps the pages, and releases by the grant's number. The broker keeps the copy that
-`DESTROY`s.
-
-The heap band's 256 MiB would be noticed too; large regions above 2 GiB escape it.
-
-| option | what it is | verdict |
-|---|---|---|
-| A | A table of 16,384 now, with child links and a free-slot list so every walk visits only what it concerns; per-program limit is memory | recommended, first slice |
-| B | No global table, seL4-style: a region's record lives in memory its holder owns, with a derivation tree for revocation | later, only if A's table binds |
-| C | A table of 4,096 with today's linear walks | fallback |
-
-Under A, every walk visits only what it concerns: `USAGE` the named subtree, a return the parent's
-children, an insert one free-list entry. The table's size then costs only memory. No Kani proof
-is redone; the appendix lists what reruns.
-
-Per-program limit under A: none of its own. Its regions are bounded by its account's ceiling over
-1 MiB, and the broker's slot budget is the table less a system reserve of 1,024. A program cannot
-exhaust slots without first exhausting memory, which its ceiling and the owner's reserve already
-govern. 16,384 regions of 1 MiB is 16 GiB, more than any machine this tree boots.
-
-B replaces generational names with a derivation tree, redesigning §16's revocation over about
-4,900 lines with new proofs: months, roughly. Sizing A's table from RAM at boot comes first. C keeps
-the quadratic walk. A changes no syscall.
+- The region table grows to 16,384 slots, 1.8 MiB at 116 bytes a slot, measured. Child links and
+  a free-slot list make every walk visit only what it concerns: `USAGE` the named subtree, a return
+  the parent's children, an insert one entry. Today a walk over a chain of splits is quadratic, 39
+  ms at 4,096 on calef's Mac.
+- No per-program cap. Every region is at least 1 MiB, so a program's regions are bounded by its
+  account's ceiling. The broker's slot budget is the table less a system reserve of 1,024, so no
+  program exhausts slots before memory.
+- A program holds a region's capability only while it maps the pages, so the 64-slot capability
+  table does not bind. Milestone 778 (capability tables sized per process) stays the general
+  answer.
+- Refused for now: a table-free design, seL4-style, which redesigns §16's revocation. Sizing the
+  table from RAM at boot comes first. No syscall changes.
 
 ### 4. What failure means
 
+Ruled A, calef, 2026-10-06 (UTC): "Approve Fork 4 A with reserve/commit."
+
 | option | what it is | verdict |
 |---|---|---|
-| A | A broker refusal is an allocation failure: null, so `try_reserve` sees `Err` and plain `alloc` aborts | recommended |
+| A | A broker refusal is an allocation failure: null, so `try_reserve` sees `Err` and plain `alloc` aborts | ruled, with reserve and commit |
 | B | The request blocks until memory frees, which can deadlock unseen | refused |
 | C | The broker picks a victim and kills it (an OOM killer) | refused |
 
 Under A, a program that handles failure can, and one that does not dies as it does today. A
-refusal names one of four causes (the account's ceiling, its region cap, the per-identity cap, an
-empty pool) and is one attributed record in the system log (milestone 613 (a system log service)).
+refusal names one of three causes (the account's ceiling, the per-identity cap, an empty pool) and is one attributed record in the system log (milestone 613 (a system log service)).
 
 C puts kill authority and victim policy in a server that only counts pages. Linux needs an OOM
 killer because overcommit promises memory that is not there; nothing here overcommits.
@@ -214,9 +181,37 @@ Stated plainly, the owner's revoke is a kill. The broker `DESTROY`s the account'
 program's next touch faults, and its supervisor gets the death. A "please shrink" notice is a
 follow-on that wants a customer.
 
+#### Reserve and commit
+
+calef chose Windows' model (`VirtualAlloc`'s `MEM_RESERVE` and `MEM_COMMIT`) so a runtime like the
+JVM or Go can reserve far more than it uses, with no overcommit. Only commit can be refused.
+
+| verb | what it does | charged |
+|---|---|---|
+| reserve | claims a range of the program's own address space | nothing |
+| commit | backs part of a reserved range with a broker region, mapped there | the region, and its page tables |
+| decommit | unmaps that region and returns it to the account | returned |
+| release | gives the range back | nothing |
+
+They live in the runtime, `user_mode_runtime` and `std`'s PAL, because commit and decommit make
+calls. The bookkeeping, which ranges are reserved and which committed, is pure and goes in
+`user_mode_heap` with the grow policy. Commit works in whole regions of at least 1 MiB, aligned,
+which keeps fork 7's bound.
+
+The two existing users become instances. The heap band is a 256 MiB reservation, committed upward
+and decommitted from the top. A large allocation is its own reservation above 2 GiB, committed
+whole and released at `free`.
+
+Reserving costs nothing and the kernel never learns of it, so it needs no bound beyond the
+address space (256 GiB on riscv64's Sv39, the smallest). Page tables are paid at commit, from one
+long-lived table region per program, because `DESTROY` cuts the tables a region paid for and
+everything beneath them (`abi::page_frame::MAP`). That binds today's band trimming too. The
+appendix has the cost and the bound.
+
 ### 5. How this meets #1769's caps and reserve
 
-Recommended, and nothing here is new beyond #1769's fork 4:
+Ruled as written, calef, 2026-10-06 (UTC): "Approve Fork 5". Under fork 4's reserve and commit,
+every account counts committed memory only.
 
 - Accounts form a tree: the pool, then one account per session (capped by the owner's per-identity
   file, if any), then its programs. A grant is charged to every account above it.
@@ -225,8 +220,7 @@ Recommended, and nothing here is new beyond #1769's fork 4:
 - The boot shell's jobs get accounts too, and are the broker's only clients until #1769's
   sessions exist.
 
-calef's fork 1 ruling set a program's default ceiling to its session's. A spawner may set a lower
-one, as `--mem` would.
+A program's default ceiling is its session's (fork 1); a spawner may set a lower one.
 
 ### 6. Whether native programs get it
 
@@ -247,6 +241,8 @@ All from memory and unchecked; the building lane owes a read of each.
 - Genode: a child out of RAM quota asks its parent, which may upgrade it. Fork 1 B.
 - Linux: `brk` and `mmap` backed on fault, overcommit, an OOM killer, cgroup `memory.max`. Forks 2
   C and 4 C.
+- Windows: `VirtualAlloc` reserves, then commits against a system commit limit. No overcommit and no
+  OOM killer: a commit past the limit fails. Fork 4's reserve and commit.
 - glibc: chunks of `M_MMAP_THRESHOLD` (128 KiB, rising dynamically) or more get their own `mmap`.
   The heap top is trimmed, and `malloc_trim` `madvise`s free pages inside. Fork 3, plus `madvise`.
 - jemalloc and mimalloc: free pages inside the heap go back by `madvise` after a decay delay. nife
@@ -270,6 +266,8 @@ other adds to it.
 5. The progenitor opens an account per `std` job and closes it at reap, on `job_undertaker`'s path.
 6. The region table as fork 7 rules: 16,384 slots, child links, a free-slot list. Programs hold a
    region's capability only while mapping it.
+7. Reserve, commit, decommit and release in the runtime, with page tables from one table region
+   per program.
 
 ### Exit criteria a stranger could check
 
@@ -298,14 +296,16 @@ One `cargo xtask` gate that `script/test` runs, exiting 0 under QEMU on aarch64 
    withdrawing a range and the hysteresis.
 9. Host tests count the records each walk visits: a `USAGE` walk visits its subtree plus one, and
    a return visits the parent's children. A chain of 4,096 under a full table stays under 1 ms.
-10. Measured, not gated: `MAP` calls per MiB, and the stranded pages after two growers interleave.
-11. A `design/decisions/` section records the broker protocol, minted by the integrator.
+10. Reserve and commit. On all three, a fixture reserves 32 GiB, commits 1 MiB at 16 places across
+    it, then decommits half. After each step the account's held total equals the committed
+    regions plus their table pages, and never moves on reserve or release.
+11. Measured, not gated: `MAP` calls per MiB, and the stranded pages after two growers interleave.
+12. A `design/decisions/` section records the broker protocol, minted by the integrator.
 
 ## What is blocked until the ruling
 
-Forks 1 to 4 block the first slice. The broker's request and reply are a wire format two programs
-agree on, and they are shared with #1769. That makes the protocol the expensive part, and calef's
-call. Forks 5 and 6 can ride on the recommendations unless he says otherwise.
+Fork 6 is open. The broker's request and reply, shared with #1769, are a wire format for
+the `design/decisions/` section at merge.
 
 ## Follow-ons, proposed, unnumbered
 
@@ -318,5 +318,6 @@ call. Forks 5 and 6 can ride on the recommendations unless he says otherwise.
 
 - `realloc` always copies (`std`'s nife allocator). A `Vec` growing to N briefly holds about 1.5 N.
   Growth makes that affordable without fixing it.
+- Page tables built for a commit stay until the program exits, charged to its account.
 - The host measurements above are macOS figures. Nothing here measured a program on nife past its
   ceiling, because nothing can grow yet.

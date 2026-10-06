@@ -137,3 +137,32 @@ The check is cheap when the free list knows its tail, which it can keep beside i
 that it is a walk of the free list on every `dealloc` that touches the top.
 
 The job's own build region is never trimmed. It is the baseline the account returns to.
+
+## Reserve and commit: what a reservation costs
+
+A reservation is the runtime's own bookkeeping. The kernel keeps no record of it, so it costs no
+kernel memory and needs no kernel bound. The address space is the bound. Above the map's 2 GiB,
+the low half is 256 TiB on aarch64 (`T0SZ` 16), 128 TiB on x86_64 (split at bit 47) and 256 GiB
+on riscv64 (Sv39), less the timebase page near the top of each. So 32 GiB fits on all three.
+
+Page tables are the cost, and they are paid at commit, not at reserve. `MemoryRegion::MAP` takes a
+page's tables from the same region as the page. `PageFrame::MAP` takes them from a region the
+caller names (`crates/abi`). That difference matters, because a region's `DESTROY` cuts every
+table it paid for out of the address space, with everything mapped beneath it
+(`kernel/src/revoke.rs`, the page-tables-outlive-destroy pass). If a committed region paid for a
+table that also reaches a neighbor's pages, decommitting it would unmap the neighbor. So commit
+retypes its pages as `PageFrame` runs and maps them with tables from one table region per program,
+which lives until the program exits. Today's band, which maps with `MemoryRegion::MAP`, has the
+same hazard once it trims, so it moves to this rule too.
+
+What the tables cost, with 4 KiB pages on all three: one last-level table page per 2 MiB span ever
+committed, and one more per 1 GiB span touched, plus a top-level page on the four-level layouts.
+That is about 0.2% of what was committed. The 32 GiB exit criterion's 16 scattered commits cost at
+most 33 table pages, 132 KiB.
+
+The bound. Tables stay with the table region until exit, so a program that sweeps commits across
+a huge reservation keeps paying, up to 0.2% of the span it touched: 64 MiB for all 32 GiB. That is
+charged to its account, so its ceiling stops it, and no other program pays. The table region grows
+from the account in 1 MiB steps, like any other region, so fork 7's bound on regions still holds.
+Giving tables back early would need one table region per reservation, a region per reservation
+whatever its size. Not proposed; recorded in BUGS.
