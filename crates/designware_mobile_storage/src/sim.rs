@@ -88,6 +88,10 @@ pub struct Sim {
     verid: u32,
     /// Set when the driver wrote the FIFO with no write transfer in progress.
     pub stray_fifo_write: bool,
+    /// Raise `RXDR` only above the receive watermark the driver programmed in `FIFOTH`, as the
+    /// databook says, rather than whenever the FIFO holds anything. A read whose tail is shorter
+    /// than the watermark then ends with words in the FIFO and only `DTO` to say so.
+    pub strict_watermark: bool,
 }
 
 /// The `VERID` the simulation reports: release 2.90a, which puts the FIFO at `0x200`.
@@ -120,6 +124,7 @@ impl Sim {
             clockless_command: false,
             verid: VERID,
             stray_fifo_write: false,
+            strict_watermark: false,
         };
         s.regs[(regs::VERID / 4) as usize] = VERID;
         s.regs[(regs::HCON / 4) as usize] = HCON;
@@ -353,7 +358,12 @@ impl Sim {
                     .push_back(u32::from_le_bytes([b[0], b[1], b[2], b[3]]));
                 t.moved += 4;
             }
-            if !self.fifo.is_empty() {
+            let watermark = if self.strict_watermark {
+                regs::fifoth_rx_watermark(*self.reg(regs::FIFOTH)) as usize
+            } else {
+                0
+            };
+            if self.fifo.len() > watermark {
                 *self.reg(regs::RINTSTS) |= regs::INT_RXDR;
             }
             if t.moved >= t.bytes {

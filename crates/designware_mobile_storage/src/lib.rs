@@ -251,6 +251,20 @@ mod tests {
     }
 
     #[test]
+    fn a_read_whose_tail_is_below_the_watermark_is_drained_on_transfer_over() {
+        // 24 words deep: a 128-word block arrives as five fills of 24 and a tail of 8, below the
+        // receive watermark of 11, so the tail raises DTO and never RXDR.
+        let mut sim = Sim::new(CardKind::SdHighCapacity, 8192, 24);
+        sim.strict_watermark = true;
+        sim.storage[5] = core::array::from_fn(|i| (i % 249) as u8);
+        let (mut h, _) = Host::new(sim, 50_000_000, Some(24)).unwrap();
+        let card = sd::identify(&mut h, 4).unwrap();
+        let mut one = [0u8; BLOCK];
+        sd::read_blocks(&mut h, &card, 5, &mut one).unwrap();
+        assert_eq!(one, h.registers().storage[5]);
+    }
+
+    #[test]
     fn a_data_crc_error_is_reported_with_its_command() {
         let mut h = host(CardKind::SdHighCapacity, 8192);
         let card = sd::identify(&mut h, 4).unwrap();
