@@ -60,7 +60,7 @@ Integrity of content is the trust fork's job, whatever the transport
 | **T3** (the owner) | A digest the owner records | **Not for integrity**, provided the owner got the digest somewhere trustworthy. On §157's path they did: **the web page**, read in their own browser over their browser's TLS |
 
 So **under T2 or T3, TLS is not required for integrity.** What it would still buy is confidentiality
-and a defence against a network that blocks or tampers with plain HTTP, and what plain HTTP needs
+and a defense against a network that blocks or tampers with plain HTTP, and what plain HTTP needs
 instead of TLS for freshness is an expiry in signed metadata (the Update Framework's timestamp role;
 Debian's `Valid-Until`, recalled), which the format fork's metadata rows do not yet carry.
 

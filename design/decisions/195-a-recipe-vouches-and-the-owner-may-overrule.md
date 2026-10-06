@@ -30,7 +30,7 @@ What that means, and each clause is load-bearing:
 4. No long-lived signing key is held by anyone, for now. Homebrew held none for years (a
    SHA-256 in a reviewed formula), and now binds artifacts to the builder with GitHub Actions
    attestations instead. A third party verifies against its own builder identity, not ours. A
-   signature over a source's catalogue is not refused; it is simply not the thing being built
+   signature over a source's catalog is not refused; it is simply not the thing being built
    first, and it can be added per source without changing clauses 1 to 3.
 
 **What this does not decide**, and each is its own ruling: the package format (whether a package is
@@ -49,7 +49,7 @@ rather than refused.
 | System | What is signed | How a package is accepted | The owner's escape hatch |
 |---|---|---|---|
 | Debian `apt` | the repository's `Release` file, not the `.deb` | signed `Release` to index checksums to package checksum | a prompt: "packages cannot be authenticated" |
-| FreeBSD `pkg` | the repository catalogue | `SIGNATURE_TYPE` `PUBKEY` or `FINGERPRINTS`, with trusted and revoked fingerprint directories | `SIGNATURE_TYPE=NONE` |
+| FreeBSD `pkg` | the repository catalog | `SIGNATURE_TYPE` `PUBKEY` or `FINGERPRINTS`, with trusted and revoked fingerprint directories | `SIGNATURE_TYPE=NONE` |
 | Arch `pacman` | both packages and databases | packager keys in a keyring, master-key web of trust, default `Required TrustedOnly` | `SigLevel = Optional` or `Never` |
 | Nix | store paths, by a cache's key | `trusted-public-keys`, **or** the path is content-addressed, which needs no signature | `require-sigs = false`, `trusted-users` |
 | Fuchsia | base packages by hashes in the image; later packages by signature at load | content-addressed blobs plus signature verification at load | none, by design |
@@ -109,7 +109,7 @@ custody, is untouched by moving the code.
 ## The question under T3 that makes it a real option rather than a loophole
 
 Milestone 104 rejected "recording a mismatch and loading anyway" because "a measurement that changes
-nothing about what runs is theatre". T3 is not that: it changes what runs, by the owner's act. The
+nothing about what runs is theater". T3 is not that: it changes what runs, by the owner's act. The
 argument for it is §135's and Genode's: in a capability system an unvouched program holds only
 what it is granted, so the question a signature answers ("did this publisher build it") is not the
 one confinement depends on. The argument against is that milestone 104's chain exists to stop a

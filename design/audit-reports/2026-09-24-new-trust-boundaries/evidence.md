@@ -12,7 +12,7 @@ commit; the fixes in the audit's own branch move some of them by a few lines.
 | Reviews required on `main` | `required_approving_review_count: 0` | `gh api repos/nifeos/nife/rules/branches/main` |
 | Forking, auto-merge | `allow_forking: true`, `allow_auto_merge: true`, public | `gh api repos/nifeos/nife` |
 | Fork workflow approval | `first_time_contributors` | `gh api repos/nifeos/nife/actions/permissions/fork-pr-contributor-approval` |
-| Secrets in reach of a merge-group run | `TOOLCHAIN_BUMP_PAT` (repo), `AUTOMATION_APP_ID`, `AUTOMATION_APP_KEY` (organisation) | `gh api .../actions/secrets`, `.../actions/organization-secrets` |
+| Secrets in reach of a merge-group run | `TOOLCHAIN_BUMP_PAT` (repo), `AUTOMATION_APP_ID`, `AUTOMATION_APP_KEY` (organization) | `gh api .../actions/secrets`, `.../actions/organization-secrets` |
 | Fork PRs ever | none; 991 by calef, 9 by dependabot | `gh pr list --state all --limit 1000 --json isCrossRepository,author` |
 | `pull_request_target` anywhere | no | `grep -n pull_request_target .github/workflows/*.yml` |
 | Untrusted text into `run:` | none; only `github.event.*.number`, `.sha`, `.before`, `.after`, `merge_group.head_ref` | grep of every `${{ }}` in `.github/workflows/` |

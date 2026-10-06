@@ -29,7 +29,7 @@ capabilities, the DMA validator, the IOMMU.
 
 1. **The C makes no syscalls and holds no capabilities.** A Rust `user_rt` shell
    (`fixtures/src/c_shim.rs`) holds every capability and performs every IPC; the C is called over the C
-   ABI and gets a pointer and a length. This is not a request the C is trusted to honour, it is a
+   ABI and gets a pointer and a length. This is not a request the C is trusted to honor, it is a
    property of what it can name: a syscall needs a capability slot, and the C never sees one. So a
    foreign component **cannot widen the kernel's syscall surface** (§4 rule 3), and the confinement
    claim is exactly as narrow as it should be: the C can corrupt memory inside a grant the shell

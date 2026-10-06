@@ -27,7 +27,7 @@ nobody wrote down is a decision nobody can revisit.
 
 - It is already somebody's root filesystem. Redox OS runs on it. That is the exact use being asked
   of it, exercised by a real system rather than inferred from a design document, and it is the single
-  strongest argument in its favour.
+  strongest argument in its favor.
 - Copy-on-write with transactions, so crash consistency is designed in rather than bolted on. That
   is the one property a primary filesystem must have and the most expensive thing to write oneself.
 - Rust, and no_std on both bare targets, proven by us. It does not drag a libc into the FS server.
@@ -78,7 +78,7 @@ filesystem are different jobs, and the initrd wants exactly what nifefs is. It s
   consistency at all, no permissions, no symlinks. It is the right answer for a future *boot* partition
   where interop is the point, and wrong for anything that must survive a power cut.
 - littlefs. Genuinely power-fail-resilient, and wrong on two axes: it targets raw NAND/NOR with
-  wear levelling rather than a block device, at microcontroller scale, and it is C, so it would put a
+  wear leveling rather than a block device, at microcontroller scale, and it is C, so it would put a
   foreign component in the storage path for no thesis gain.
 - btrfs / ZFS / F2FS. No no_std Rust implementation, and a size that would dominate the project.
   The `no_std` half of this expired on 2026-09-14; see the 2026-09-20 amendment below, which also
@@ -176,7 +176,7 @@ reason worth distinguishing from "too big": at roughly 400k lines of C it would 
 more decisively **it is not a component you confine, it is a subsystem you host.** OpenZFS needs a
 Solaris Porting Layer (kmem, mutexes, condvars, taskqs, VFS integration, page cache); §31's seam
 confines a narrow interface, and ZFS's interface to its host kernel is enormous. Its ARC also expects
-gigabytes where the VisionFive 2 has 4 to 8, and CDDL is worth checking against our licence posture
+gigabytes where the VisionFive 2 has 4 to 8, and CDDL is worth checking against our license posture
 before publication.
 
 XFS: excellent, aimed at another problem, and weakest exactly where this application cares. XFS v5

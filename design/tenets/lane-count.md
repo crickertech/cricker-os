@@ -23,7 +23,7 @@ through 8 group builds, with four to five lanes running against a queue that sat
 for most of it. The old table would have prescribed one lane for nearly all of that night. Of
 the four things that actually stalled the queue, three do not scale with lane count at all: a lint
 that rejected GitHub's own synthetic branch names and so failed every group build (one bug, fixed),
-evictions that GitHub does not auto-retry (queue behaviour, and the operator must re-enqueue), and
+evictions that GitHub does not auto-retry (queue behavior, and the operator must re-enqueue), and
 seven per-pull-request `rustfmt` failures (now caught by the pre-push hook). Only the fourth scales,
 and it scales through files rather than numbers: four merge conflicts, every one of them in the
 same small hotspot where every lane wires its test (`kernel/src/user/tests.rs`, the QEMU runners,

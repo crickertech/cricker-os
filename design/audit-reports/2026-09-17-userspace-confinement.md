@@ -61,7 +61,7 @@ An outside reviewer should start here.
   window and were audited under the 2026-08-15 lens. `socket_protocol` moved directories on
   2026-09-14 (milestone 175) and changed nothing.
 - **The C seam, the vendored RedoxFS engine, and the compositor.** Each has its own negative-control
-  catalogue and was left to it.
+  catalog and was left to it.
 - **The hand-written assembly**, including the `x86_64` `syscall`/`sysret` pair and the `swapgs`
   convention. That is the 2026-07-29 lens, and `trap.s` was not read.
 - **Timing.** DECISIONS §139 records the position (a cycle-counter grant buys accountable authority,
@@ -104,7 +104,7 @@ sentence because the object is new.
 ## The two machine classes
 
 **radon (JH7110, no IOMMU).** RAM extent comes from the device tree, and `kernel/src/memory.rs`
-honours both the legacy reservation block and every `/reserved-memory` child, so OpenSBI's
+honors both the legacy reservation block and every `/reserved-memory` child, so OpenSBI's
 PMP-protected region cannot be handed out as untyped. The only userspace device on the board is the
 TRNG page above. No component drives a DMA-capable device there, so the software validator that
 `SECURITY.md` calls the single point of failure on that board is not on any path a confined
@@ -115,7 +115,7 @@ component can reach today; that sentence stays true and stays latent.
 type the loader has never heard of are reserved, in the direction "claiming less RAM costs
 megabytes, claiming more corrupts something" (`uefi_loader/src/handoff.rs`, with a test for the
 unknown-type case). Firmware-owned memory does not become untyped. The console is the port range
-above, and its cross-core behaviour is finding 4. Interrupt remapping is the standing latent claim in
+above, and its cross-core behavior is finding 4. Interrupt remapping is the standing latent claim in
 `notes/confinement-claims.md`'s fifth entry: the firmware note found there is no menu control for
 it, the DMAR has never been read, and `design/roadmap/378-read-the-dmar-on-xenon.md` already
 proposes reading it. It stays latent because no component holds a DMA-capable device on xenon.
@@ -325,7 +325,7 @@ with finding 4's one-tick window recorded as the exception.
    need, every lent copy's rights; dated each by `git log --diff-filter=A` and discarded what the
    directory split moved.
 3. For each device object, asked what the holder can do with the object beyond its stated purpose:
-   revoke the lender (no, lent copies lack `GRANT`), reach a neighbouring device through the same
+   revoke the lender (no, lent copies lack `GRANT`), reach a neighboring device through the same
    page (no, the TRNG page and the UART page hold one block each), keep it after dropping it
    (**yes**, finding 1), keep it after losing it on another core (**yes for one tick**, finding 4).
 4. For each ISA-specific protection the confinement table relies on, asked whether the control bit

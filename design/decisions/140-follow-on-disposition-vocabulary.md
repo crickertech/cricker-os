@@ -93,5 +93,5 @@ written against them, and the reversibility above decays with each one.
 All 42 pieces of unclaimed work are now proposal files under `design/roadmap/proposals/`, so none of
 them needs a decision to exist. Five are called out in notes/follow-on-work.md as worth promoting
 first, on a stated bar: a claim this project makes rests on it, or a record in the tree is now known
-to be wrong. Promotion is prioritising, which is an architect's, and it wants numbers minted at merge rather
+to be wrong. Promotion is prioritizing, which is an architect's, and it wants numbers minted at merge rather
 than an answer here.

@@ -156,7 +156,7 @@ the machine. The maintainer allowed it: it mirrors the crate's existing `choose`
 documented at both the function and the test. A stricter reading of the brief would have recorded a
 gap instead, and the brief should say which reading it wants rather than leaving a lane to guess.
 
-What this does not yet establish. One trial, on a crate chosen to be favourable: host-side, small,
+What this does not yet establish. One trial, on a crate chosen to be favorable: host-side, small,
 uncontended, with every outcome machine-checkable. Two or three more before the routing is settled,
 and **external research stays on the frontier model**, because it is the one category this tree has
 no gate behind: a fabricated summary passes every check green.
@@ -169,7 +169,7 @@ missed, 361 caught, 15 unviable, which reproduces the lane's report exactly. 286
 calls, no maintainer repair.
 
 The claim worth checking was "all sixteen are equivalent", because a lane that wants to be
-finished can rationalise there and no gate would catch it. Three were read closely and they hold.
+finished can rationalize there and no gate would catch it. Three were read closely and they hold.
 The four `CellRect::union` selectors are equivalent for a reason that is a proof rather than an
 observation: a selector of the form `if a < b { a } else { b }` returns the same value on both
 branches whenever `a == b`, and `<` against `<=` disagrees only about which branch fires at exactly
@@ -177,7 +177,7 @@ that point, so no input can separate them rather than merely no input a test tri
 
 And it discriminated where it would have been easier not to. The size clamp had four survivors;
 it called the two `>`-against-`>=` mutants equivalent by that same argument and the two `==` mutants
-a real behaviour change, because `==` clamps only the boundary value and lets everything past it
+a real behavior change, because `==` clamps only the boundary value and lets everything past it
 through. It then wrote a test for those two. A lane looking to declare victory would have called all
 four equivalent.
 
@@ -208,7 +208,7 @@ noticing-timeout by file, line and operator, and the 21 new mutants from those l
 all caught. It concluded that nothing was owed and wrote a 30-line dated addendum rather than a
 milestone's worth of redundant tests.
 
-**Refusing to manufacture work is the behaviour this routing most needed to demonstrate**, and no
+**Refusing to manufacture work is the behavior this routing most needed to demonstrate**, and no
 gate would have caught the opposite. A lane that had written 19 tests against already-argued
 equivalents would have produced a green pull request full of waste.
 

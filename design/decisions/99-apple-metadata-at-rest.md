@@ -262,7 +262,7 @@ stores, lists, renames and deletes as ordinary files.
 
 | | |
 |---|---|
-| New code | **Zero.** This is the tree's current behaviour. |
+| New code | **Zero.** This is the tree's current behavior. |
 | `Share` methods added | 0 |
 | Wire surface added | 0 |
 | Bytes at rest | one extra directory entry, one extra node, and at least one 4096-byte RedoxFS block per file that carries metadata. XNU's `ATTR_BUF_SIZE` is 4096, described in its own comment as "default size of the attr file and how much we'll grow by", so the sidecar is unlikely to be smaller than the block it occupies. |
@@ -393,7 +393,7 @@ on the hook for a format Apple can change.
 - Whether `READ_DIR_ATTR` is a net win. It moves work from round trips to the server and this
   tree has no measurement of either side.
 - The line estimates for options 2 through 4 are estimates. The only measured comparable is
-  ksmbd's C, and the ratio applied to it is a judgement.
+  ksmbd's C, and the ratio applied to it is a judgment.
 
 ## See also
 

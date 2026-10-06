@@ -54,7 +54,7 @@ second principle records the measurement: on 2026-08-05, 24 days from the first 
 built, 43 crates, 54 user programs, roughly 124,000 lines of Rust, 112 proof harnesses, two
 architectures, with a booting kernel, a shell, a filesystem, a network stack and a compositor.
 
-That is the argument for the timing, and it is worth more scepticism than the rest of this section.
+That is the argument for the timing, and it is worth more skepticism than the rest of this section.
 See the qualifications.
 
 ## The end state: replacement, not confinement
@@ -104,7 +104,7 @@ Cheap porting makes bad porting cheap, and this is the real risk to the thesis. 
 for a Unix assumes it may walk a tree, open a path, and find its configuration at a known location. If
 porting becomes nearly free, the default outcome is an ecosystem of ports that quietly reconstruct
 ambient authority inside a capability system, at which point the box holds nothing and the whole
-exercise is theatre. The discipline that prevents it is the first thing volume erodes.
+exercise is theater. The discipline that prevents it is the first thing volume erodes.
 
 This tree already has the counter-example done correctly. Milestone 40 gave `doc` no directory
 capability at all and built its search index on the host, precisely so that a viewer could not

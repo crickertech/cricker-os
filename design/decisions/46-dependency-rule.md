@@ -58,7 +58,7 @@ The Gregorian calendar is fully specified: every rule is written down, and a pro
 does.
 
 Cryptography is the opposite: take it, do not write it. Correctness there includes resistance to attacks not yet published and side-channel
-behaviour no specification states, and that is bought by years of exposure and review. A proof that
+behavior no specification states, and that is bought by years of exposure and review. A proof that
 our AES matches the spec would not make it safe to use.
 
 So the distinguishing question is not size. It is whether the spec is the whole of correctness.
@@ -148,7 +148,7 @@ candidate, or says `none exists` and what was searched. Reasons that hold:
 
 - It is on the verification path, in the sense above.
 - No candidate builds `no_std`, and making one do so is a fork we would carry forever.
-- The licence is incompatible. GPL code in the shipping graph is the question of §135
+- The license is incompatible. GPL code in the shipping graph is the question of §135
   (running GPL software is aggregation), and §135 answers it with aggregation across a capability
   boundary, not linking.
 - Adapting would cost more than writing, with numbers: lines to change against lines to write,
@@ -167,7 +167,7 @@ apply unchanged to anything taken. `deny.toml` and `script/supply-chain` gate it
 dependency.
 
 Redox is a source we consume and never contribute to. Its drivers are MIT-licensed, and its
-CONTRIBUTING refuses LLM-generated contributions. So we take its code under the licence and send
+CONTRIBUTING refuses LLM-generated contributions. So we take its code under the license and send
 nothing back. A patch we need is carried here (§34, `script/vendor-verify`), never offered upstream.
 
 ### The cases that prompted it

@@ -66,7 +66,7 @@ is the vocabulary the two ends share, which is rule 7's category rather than §6
 ## Why the existing protocol crates are the wrong home, which is a lookup rather than a preference
 
 These numbers are **not part of any shipped wire contract**. Putting `login_test_client`'s six
-behaviour numbers into `login_protocol` would widen the protocol a real login client is written
+behavior numbers into `login_protocol` would widen the protocol a real login client is written
 against with something no real client needs. `crates/swap_protocol` is not a counter-example: the
 swap roles genuinely belong to the swap protocol.
 

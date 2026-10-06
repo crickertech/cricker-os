@@ -181,7 +181,7 @@ once IPC and servers already run, and a punishing one to attempt before. It is m
 | **No `fork`.** Spawn takes an explicit list of capabilities. | "Inherit everything" is the confused deputy with a default. And it is *less* code: no copy-on-write. |
 | **No global namespace in the kernel.** No paths, no uids. | A name you can *say* is authority you did not have to be *given*. Paths can come back as a **userspace** convenience over a directory capability, which is what `fdio` is. |
 | **IPC carries control; bulk data moves by mapping a frame capability.** | Copy twice and we are Mach. |
-| **A capability's rights may only be narrowed on delegation, never widened.** | Otherwise delegation launders authority and the whole model is theatre. |
+| **A capability's rights may only be narrowed on delegation, never widened.** | Otherwise delegation launders authority and the whole model is theater. |
 
 Rule 4 of §4 ("a driver never reaches into a kernel global") was an option bought on day one,
 before there was code, for exactly this moment. `drivers/pl011.rs` takes a base address and knows

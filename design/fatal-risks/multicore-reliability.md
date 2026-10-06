@@ -101,7 +101,7 @@ defects here are loom and a two-core QEMU, and both are cheap.
 ### What the emulator cannot show, stated precisely rather than as a worry
 
 - TCG's memory model is far stronger than real silicon's. Guest accesses execute in the host's
-  program order and MTTCG serialises cross-vCPU visibility through host atomics
+  program order and MTTCG serializes cross-vCPU visibility through host atomics
   (`notes/visionfive2.md` says so before the runs rather than after). So an acquire that should have
   been an acquire-release passes `script/test`, `script/cpu-matrix` and every CI leg.
 - Loom models C11, not ARM and not RISC-V, which `script/interleaving-check`'s own header states. It
@@ -127,13 +127,13 @@ is not nothing, and it is not the class the claim names.
 
 `live_swap_tests` (pull request #1101) and `current_cpu_tests` (#1120) were both chased to test
 defects rather than kernel defects: each asserted on `memory::free_page_frames()`, a count of every
-free frame in the machine, which any neighbouring test's teardown can move.
+free frame in the machine, which any neighboring test's teardown can move.
 `notes/load-sensitive-assertions.md` has both, and its own diagnostic sorted them correctly before
 either was opened, on direction alone: a slow machine produces a deficit, never a surplus. So
 "returned 277 of 224 pages" was never a timeout.
 
-It cuts in the suite's favour in one specific way and against it in another, and both are worth
-saying. In its favour: each was closed by *narrowing* the assertion rather than by widening a bound,
+It cuts in the suite's favor in one specific way and against it in another, and both are worth
+saying. In its favor: each was closed by *narrowing* the assertion rather than by widening a bound,
 which is the move milestone 62 (tests that assert on time) forbids by name. And a narrower assertion
 is the stronger one, since a global delta of the right size can be reached by the wrong frames
 coming back and a scoped one cannot. Against it: a suite whose every load-sensitive red so far has

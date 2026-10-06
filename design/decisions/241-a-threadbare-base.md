@@ -40,9 +40,9 @@ Five facts from the tree, each of which changes an answer below.
    program), in pull request #1374). So membership in the base is exactly the set of programs whose
    only update path is a slot.
 2. Today no package updates without a slot either. `package install` checks a package's digest
-   against the image's catalogue, an archive entry the kernel's trust root vouches for
+   against the image's catalog, an archive entry the kernel's trust root vouches for
    (`notes/packages.md`). §220 (signed builds) ruled that a trusted key vouches instead, and says
-   of itself "Nothing here is built". Until it is, a new version of any package is a new catalogue,
+   of itself "Nothing here is built". Until it is, a new version of any package is a new catalog,
    which is a new slot.
 3. The archive packs by `[[bin]]`, not by package kind. `xtask/src/archive.rs` packs every binary in
    `components/` and `fixtures/` except `greeting`. So §239 (four package kinds)'s `test` and
@@ -155,7 +155,7 @@ diskless case. The floor exists so that this prompt can put the store back. Two 
 - No on-device tool makes a new store. `mkfs` is packed but is not a `grant_plan::Prog`, and
   nothing at the prompt can reach it. Fixing that is P9 below.
 - A new store has no packages. The default set has to be reinstalled from a source. The slot's
-  catalogue names the default set's digests, so the progenitor can refuse anything else, and
+  catalog names the default set's digests, so the progenitor can refuse anything else, and
   `net_stack` fetches it.
 
 A bad boot service installed from the store is the second recovery case. The progenitor's missing-
@@ -168,7 +168,7 @@ rollback.
 A floor program is checked as today: the progenitor against the slot's manifest digest (T4 with
 T2). A program moved out is checked at spawn, by digest, against the live activation generation
 (`vouched` in `crates/system_initializer`, §219 (how the shell names an installed program to the spawner)). That digest was pinned at install, against the
-catalogue today and a trusted key once §220 is built. So everything that runs is still measured; only where the list lives changes.
+catalog today and a trusted key once §220 is built. So everything that runs is still measured; only where the list lives changes.
 
 It matters once Secure Boot (milestone 500 (a stick that boots with Secure Boot on)) protects the
 slot. The activation set is on a disk the owner's console may write (§221), and so may anyone with

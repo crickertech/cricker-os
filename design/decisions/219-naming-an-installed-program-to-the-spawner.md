@@ -42,7 +42,7 @@ what it cannot vouch for", and running what it cannot vouch for takes D2's capab
 
 These are the maintainer's, raised with the ruling. They are not part of it.
 
-1. D2 constrains new native code, not new behaviour. A vouched interpreter runs a script as input,
+1. D2 constrains new native code, not new behavior. A vouched interpreter runs a script as input,
    so a session that holds an interpreter can do anything the interpreter can, with no D2
    capability. A user who must run no new code must also not be given an interpreter.
 2. The capability is transferable unless it is granted without the right to pass it on. In this
@@ -114,7 +114,7 @@ from its own budget and delegate the frames. D is the second.
 
 **A becomes a lookup in front of D.** Under D the shell resolves a name to a package, reads the
 member into frames, and sends the frames. No name crosses the wire and no id does either. The
-progenitor recognises an installed program by its digest in the activation set, so C's rollback race
+progenitor recognizes an installed program by its digest in the activation set, so C's rollback race
 cannot happen: a digest cannot mean a different program.
 
 ## How D serves the developer, and the script

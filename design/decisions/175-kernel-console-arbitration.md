@@ -77,7 +77,7 @@ measured it, and the answer is in `xtask/src/swish_check.rs`:
 > -- `KERNEL_FAULT_TOKENS`'s doc comment
 
 Six tokens (`user thread `, ` killed: `, `the kernel is fine`, `stval 0x`, `esr 0x`, ` sp 0x`), and
-the neighbouring `SWISH_CHECK_MARKER_SLACK` prices the intrusion in the same file: *"one kernel
+the neighboring `SWISH_CHECK_MARKER_SLACK` prices the intrusion in the same file: *"one kernel
 fault report, three lines and about 150 characters"*, with 400 bytes of slack allowed *"with room to
 spare"*.
 

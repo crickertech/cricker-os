@@ -51,7 +51,7 @@ than a recommendation. He ruled it the same day it was written.)*
 ## What is being decided
 
 Milestone 106 asks for a wait that ends on either a message or a deadline. calef decided on
-2026-09-05 to serve it from a userspace timer service signalling a notification, rather than from
+2026-09-05 to serve it from a userspace timer service signaling a notification, rather than from
 a new kernel blocking primitive, and minted milestone 263 to price the prerequisite: whether such a
 service can hold a timer at all.
 
@@ -182,7 +182,7 @@ never fires; a deadline already reached signals at once and leaves nothing armed
 accepted and delivers nothing when the deadline passes, the same reading `SIGNAL(0)` already has
 (it wakes nobody, because it has nothing to deliver): a timer armed with `bits = 0` still consumes
 and replaces the pending deadline, it just signals nothing when it fires. Needs `WRITE` on the timer
-and on the notification (the same right `SIGNAL` itself needs, because arming is signalling later);
+and on the notification (the same right `SIGNAL` itself needs, because arming is signaling later);
 `WrongObject` if the slot named is not a notification. A notification destroyed while the timer is
 armed makes the expiry a no-op, not an error: there is nobody left to tell.
 
@@ -193,7 +193,7 @@ scheduler tick, 100 Hz / 10 ms: a deadline fires at the first tick at or after i
 `Timer::CANCEL = 1`. `invoke(cap, CANCEL, _, _, _)` disarms the timer: `1` if a deadline was
 pending and now never fires, `0` if nothing was armed (never armed, already fired, or already
 cancelled). The return distinguishes the two so a caller can tell whether its own signal already
-went out. A cancel does not reach into the notification's word: bits a timer already signalled stay
+went out. A cancel does not reach into the notification's word: bits a timer already signaled stay
 there, because a notification never loses a bit.
 
 No slack argument. calef, 2026-09-27T02:00:47Z (UTC), on PR #1378, after reading the prior art

@@ -66,7 +66,7 @@ meaning something refused. A shared "allowed / not allowed" column would have fl
 - `fs_file_caretaker` answers `EBADF` to every directory verb except `CREATE`. Writing the rows
   down is what exposed it: all seven fell through one `_ =>` arm shared with "you named a handle I
   never minted", so two different statements came out as one word. `ENOTDIR` is very likely right for
-  all of them by exactly the argument `CREATE` makes. Behaviour was deliberately preserved,
+  all of them by exactly the argument `CREATE` makes. Behavior was deliberately preserved,
   because changing it changes the wire, and it is recorded here and in `notes/grant-expression.md`
   rather than fixed quietly.
 - A wrong row is wrong in three programs at once. The mitigation is that the table is pure data

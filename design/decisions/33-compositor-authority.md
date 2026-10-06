@@ -8,7 +8,7 @@ ratified_by: calef
 # 33. The compositor's authority is memory, not messages (milestone 33 (a compositor), the display ladder's rung two)
 
 Built 2026-07-29, both ISAs, in QEMU. One screen multiplexed among mutually distrusting clients,
-each holding a capability to its own surface: software composition honouring a damage rectangle, input
+each holding a capability to its own surface: software composition honoring a damage rectangle, input
 routed by capability, and no ambient display. Concept note: notes/compositor.md. (Section number chosen
 against main at `ab2c2bb`, where §30 is the DMA proof, §31 the C seam, and §32 the reap right. If a
 concurrent lane has claimed 33 by merge time, renumber; the content does not depend on it.)
@@ -51,10 +51,10 @@ its own piece of work because endpoint teardown does not exist (§13 pins a regi
 
 The isolation is proved, not asserted, and the attacker is given every advantage short of a
 capability. It is the same binary as an honest client with the same grants, it paints its own window
-correctly first, and the kernel hands it the exact virtual address of its neighbour's pixels. That
+correctly first, and the kernel hands it the exact virtual address of its neighbor's pixels. That
 address is real twice over: every client maps its surface at the same virtual address (so it is the
-number the neighbour itself uses), and the kernel allocates all the clients' frames as one contiguous
-run so the page past a client's grant genuinely is its neighbour's memory, which the test asserts
+number the neighbor itself uses), and the kernel allocates all the clients' frames as one contiguous
+run so the page past a client's grant genuinely is its neighbor's memory, which the test asserts
 before believing anything else. Then: the write faults (both ISAs, exact address checked on aarch64,
 which is the ISA that records one); the attacker's report endpoint stays silent, so the "I read it back"
 message it would otherwise send did not happen; the victim's witness pattern digests identically before
@@ -80,7 +80,7 @@ it was not handed. A compromised compositor can lie about the screen and read th
 composites, and cannot reach the disk, the network, another process, or the GPU's command stream (that
 last one being rung one's confinement, and the reason the driver is a separate process).
 
-Damage is honoured, and that is observed rather than claimed. The kernel plays the display server in
+Damage is honored, and that is observed rather than claimed. The kernel plays the display server in
 three tests precisely so the flush rectangle is a value it can compare: one commit produces one flush,
 the flush is exactly the client's rectangle placed on the screen, and the poison the kernel wrote over
 the rest of the scanout between two frames is still there afterwards. The same property is checked on
@@ -119,7 +119,7 @@ no move, resize, raise or close. That is what makes the composed screen a value 
 it is also the thing rung three would have to change. No alpha, no scaling. One damage rectangle per
 frame as a bounding box rather than a region list. Software composition only, which at 128x64 is nothing
 and at 4K would be the whole cost (rung four, milestone 34, and deliberately not started). A screenshot
-can tear. And no defence against denial of service: a client can spam the doorbell or refuse to
+can tear. And no defense against denial of service: a client can spam the doorbell or refuse to
 answer an input `CALL` and slow or stall the compositor's single thread. Confidentiality and integrity
 are what this rung proves; availability wants the missing primitive and a policy, and Wayland does not
 solve it either.

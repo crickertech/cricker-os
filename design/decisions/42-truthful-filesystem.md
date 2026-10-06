@@ -16,7 +16,7 @@ owns `mv`; this is the contract rule underneath it.
 
 ## The constraint that started it
 
-Behaviour must not be filesystem-specific. We expect to change backends over time and to run several
+Behavior must not be filesystem-specific. We expect to change backends over time and to run several
 at once, so an operation that means one thing on RedoxFS and another on the next backend is a
 compatibility mess that arrives slowly and is discovered in production. §27 already implies this: the
 FS service is "a capability-shaped contract over a component we did not write", and *capability*-shaped
@@ -28,12 +28,12 @@ established decision, not merely be untidy.
 Two different things get conflated when someone says a filesystem "can't do that".
 
 - Rights say what is offered. A read-only mount offers no `remove` and no `create`. That is not
-  variation in behaviour, it is an honest absence, and milestone 47's directory rights ladder
+  variation in behavior, it is an honest absence, and milestone 47's directory rights ladder
   (`enumerate` / `open` / `create` / `remove`) already expresses it.
 - Guarantees say how an offered operation behaves. If a backend offers a verb, that verb means
   exactly one thing, with one atomicity story, on every mount.
 
-**Behaviour never varies. Availability may.** Uniformity was never "every mount offers everything";
+**Behavior never varies. Availability may.** Uniformity was never "every mount offers everything";
 it is "any operation you can perform behaves the same everywhere", which is why nobody finds a
 read-only mount troubling.
 
@@ -93,7 +93,7 @@ introspectable, which is what `caps` prints. No feature-query verb, no capabilit
 
 - Require concurrency-atomic rename, same and cross directory, for any backend offering the verb.
   POSIX mandates it and every local filesystem delivers it, so requiring it costs nothing real. An
-  earlier draft of mine proposed levelling cross-directory down to non-atomic everywhere; that
+  earlier draft of mine proposed leveling cross-directory down to non-atomic everywhere; that
   discards something near-universal in exchange for portability that would never be cashed in.
 - Require crash atomicity for the verb, and expect this to be the demanding clause. It is what
   FAT cannot do and what ext4 only approximates.
@@ -112,7 +112,7 @@ Cross-filesystem move is a different verb, and this constraint is what forces it
 contract discipline can make an operation spanning two filesystems behave like one inside a single
 filesystem: it is copy-then-unlink, a different object with a different identity, non-atomic by
 nature. If `mv` silently became that operation depending on where its arguments happened to live,
-behaviour *would* be filesystem-specific, which is the thing this entry exists to forbid. Unix hides
+behavior *would* be filesystem-specific, which is the thing this entry exists to forbid. Unix hides
 that seam behind one command, which is why a `mv` across a mount point can leave a partial file.
 
 ## Caveat worth carrying

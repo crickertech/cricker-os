@@ -36,7 +36,7 @@ everything in between) points hardest. §46 says to vendor what is won by *expos
 reading a specification, and an alpha abandoned for seventeen months has had the least exposure of
 anything in the graph it assembles. The glue was the weakest link in a chain of otherwise well-worn primitives.
 
-**What it is not refused for.** Its licence is Apache-2.0 OR MIT, the pair this tree publishes under,
+**What it is not refused for.** Its license is Apache-2.0 OR MIT, the pair this tree publishes under,
 and it built and ran correctly on all three architectures, which the lane measured rather than
 assumed. The refusal is about who maintains the glue, not about whether it works today.
 

@@ -29,7 +29,7 @@ authority. `components/src/sub_server_supervisor.rs`:
 > page. Its entire power is to ask the spawner for a rebuild of the one program the spawner can
 > build. A compromised supervisor is a restart loop, not a foothold.
 
-And the pattern generalises, which was checked rather than assumed, because it was the one
+And the pattern generalizes, which was checked rather than assumed, because it was the one
 objection that would have sunk it. `components/src/spawner.rs` holds one untyped budget (`WRITE` only, so
 it may spend but never lend), a request channel, and one program image copied in by
 `root_supervisor`: *"the only program it can name is the one it was handed."* The image is handed
@@ -62,7 +62,7 @@ than a rights bit and was not what the fork asked.
 ### What was refused, and the reason each lost
 
 - A `REAP` rights bit. [`ENUMERATE`](../../crates/capability/src/lib.rs)'s own precedent is real
-  (milestone 126 split it out of `READ`, and its doc comment records that `READ` wrongly authorised
+  (milestone 126 split it out of `READ`, and its doc comment records that `READ` wrongly authorized
   `REAP` on a rendezvous), and there are 28 unused bits, so the structural cost is nil. It lost on a
   check: `REAP` alone buys cleanup, not restart. Rebuilding needs `RETYPE`, which needs `WRITE`,
   so a reap-only root turns *"report and stop"* into *"reap and stop"* and does not gain the
@@ -101,7 +101,7 @@ The ruling above is kept as it was made.*
 The multi-child supervisor already exists. `components/src/root_supervisor.rs` builds two children
 with `fault: Some(rootfault)` on the same endpoint and then sits in `recv(rootfault)` receiving
 `(event, tid, _pc)`. Milestone 105 says the problem *"does not generalize"* to a supervisor with
-several children; it does not generalise to the supervisor the tree already ships.
+several children; it does not generalize to the supervisor the tree already ships.
 
 And deferral would have been a decision for the workaround, made by inaction. The workaround
 already exists: milestone 105 records `sub_server_supervisor` naming instances *"by a handle the

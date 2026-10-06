@@ -16,7 +16,7 @@ queue lands it.)*
 Two questions, both narrow and both permanent, because `crates/block_roster` is a page the kernel
 writes and a `no_std` program reads:
 
-1. What the new transport kind is called, and whether adding it forces its two neighbours to be
+1. What the new transport kind is called, and whether adding it forces its two neighbors to be
    renamed under the acronym test.
 2. **Whether an NVMe entry carries anything a virtio entry does not**, which is a question about
    `ENTRY_BYTES` rather than about a name.

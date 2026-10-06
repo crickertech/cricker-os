@@ -150,7 +150,7 @@ you which parts of the contract are QEMU artifacts, and that reason does not sur
 - Three IOMMUs under QEMU is three emulations. The x86_64 result is genuinely stronger evidence
   for *discovery*, and the block above gives the right reason (ACPI names an ECAM window on real
   hardware exactly as it does on `q35`). It is not stronger for *confinement*: QEMU's `intel-iommu`
-  is a model, and its invalidation, IOTLB and fault behaviour are the model's.
+  is a model, and its invalidation, IOTLB and fault behavior are the model's.
 - **And the board the hold names has no IOMMU at all.** Milestone 143 (silicon IOMMU) exists to
   carry the RISC-V IOMMU driver to hardware, and milestone 16's block says why it is separate: it
   "waits on a board that ships the ratified RISC-V IOMMU spec and no such board exists today"
@@ -303,7 +303,7 @@ So roughly 157 lines leave the kernel and about 100 stay. The EL0 program's temp
 `components/src/block_driver.rs`, which is **65 lines**: it is a thin shell around a driver's logic
 serving `filesystem_proto::blk`, which is the shape an `nvme_server` takes.
 
-Option 4's validator is smaller than the thing it is modelled on. `crates/dma_validator` is 1082
+Option 4's validator is smaller than the thing it is modeled on. `crates/dma_validator` is 1082
 lines including its harnesses, and most of that is walking descriptor **chains** with indirect
 descriptors and a per-queue high-water mark. NVMe has no chain: per newly-published entry it is two
 `u64` range checks (PRP1, PRP2), an opcode check, and a 64-byte copy into the shadow slot. It grows
@@ -522,7 +522,7 @@ implementation must preserve, and it is this decision's one design constraint.
 | reachable by Kani | no, it is a hardware claim | yes, `crates/dma_validator` has harnesses |
 | prior art | mainstream: seL4, Genode, VFIO, SPDK | novel |
 
-Option 2a optimises risk 6 by removing the kernel from the data path. Option 4 optimises
+Option 2a optimizes risk 6 by removing the kernel from the data path. Option 4 optimizes
 risk 7 (the confinement claim is false) and risk 2 (the proofs prove trivia), and pays for it
 on the hot path.
 
@@ -535,7 +535,7 @@ on the hot path.
    and `script/bench` carries icount baselines on all three ISAs. NVMe's validator is strictly
    cheaper (two range checks and a copy against chain-walking), so virtio's number is an upper
    bound.
-2. The depth at which it stops mattering. One trap amortised over a 32-command batch is noise;
+2. The depth at which it stops mattering. One trap amortized over a 32-command batch is noise;
    one trap per command at depth 1 is the whole cost. Milestone 101 (the L4 calibration, read from
    the IPC number that pays for the trap) is the calibration to read it against.
 3. Whether xenon exposes a DMAR, which decides whether option 2 is viable on owned hardware at

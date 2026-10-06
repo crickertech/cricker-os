@@ -81,7 +81,7 @@ household name in a public crate's documentation), and that is a preference rath
   which is the same 82%-false-positive problem AGENTS.md prices for `git grep -w TODO`. This is rung
   three: the record sits where the reader meets it, and the next person to touch one of those
   comments is already reading it.
-- The boundary between "a fact about hardware" and "a fact about one machine" is a judgement, and
+- The boundary between "a fact about hardware" and "a fact about one machine" is a judgment, and
   the honest cases are at the edges. *"Unknown on radon"* is a fact about our firmware revision as
   much as about the SoC; naming both is usually the answer, and naming only the machine is the error.
 - `notes/target-hardware.md` is indexed as "Where nife could actually run", which does not

@@ -131,7 +131,7 @@ stranger can reach, on any hardware, today.
 
 ## Which hardware a stranger most plausibly has, and what it does today
 
-A judgement, not a measurement: an x86-64 PC with UEFI firmware, or a Mac. A Raspberry Pi is
+A judgment, not a measurement: an x86-64 PC with UEFI firmware, or a Mac. A Raspberry Pi is
 the most common hobby board and nife does not boot on one (`notes/target-hardware.md`'s recast,
 2026-07-27, moved first silicon to RISC-V).
 
@@ -197,8 +197,8 @@ runtime. Every piece is host-side and reversible.
 1. A package, as a host-side recipe. A directory per package (provisional:
    `packages/<name>/`) declaring how to build it for each triple (an in-tree `[[bin]]` after
    milestone 150 (adding a program should not need eight hand-maintained lists), or a fetch-and-build script, which `helpers/build-ripgrep.sh` already is), its
-   licence, and its documentation bundle. One producer and one consumer, both in this tree, so the
-   recipe shape is reversible. It generalises the two things already doing this by hand:
+   license, and its documentation bundle. One producer and one consumer, both in this tree, so the
+   recipe shape is reversible. It generalizes the two things already doing this by hand:
    `build-ripgrep.sh` and milestone 40's `DOC_BUNDLES` table.
 2. Image composition from a declared package set (provisional command: `cargo xtask compose`),
    producing the existing sealed kernel-and-archive pair per architecture. This is option C1 of the

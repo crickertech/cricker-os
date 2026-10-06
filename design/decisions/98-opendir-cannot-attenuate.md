@@ -60,7 +60,7 @@ un-shipping is not.
 
 **If the answer is no**, the probe stands. It costs six messages per `Dir::open` under a narrowed
 grant, which nothing measurable cares about today, and the standing cost is a workaround where a
-reader meets the type rather than a wrong behaviour.
+reader meets the type rather than a wrong behavior.
 
 ## BUGS
 

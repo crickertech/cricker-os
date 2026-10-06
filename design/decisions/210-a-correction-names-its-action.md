@@ -94,7 +94,7 @@ A load-sensitive flake was written into `notes/load-sensitive-assertions.md` twi
 both times. The swapper-budget surplus was recorded once, and on 2026-09-21 commit `0c872ac47`
 added a second observation (296 pages of 224, where the first was 277) whose own message reads: *"It
 recurs, the surplus differs each time, and it is still not established whether the frames come from a
-neighbour's teardown or from a leak. Not this lane's to chase; it is a data point on a finding
+neighbor's teardown or from a leak. Not this lane's to chase; it is a data point on a finding
 somebody else already wrote down."* That sentence is honest and correct under the rules as they
 stand. No lane that hits the flake is the lane that caused it, so nobody owns it, and the note grows
 sightings instead of a fix.
@@ -151,7 +151,7 @@ used to be typed out and drifted the same way, still naming `user/` nineteen day
 and it was fixed by deriving the list from `git ls-tree` instead. A second copy of a
 vocabulary that eight openers wide and growing (`Done.`, `Proposed.` and `Outstanding.` were all
 added after the first draft) would drift on its next addition, and the drift is invisible: a COE
-bullet the second implementation does not recognise is not read as an action item at all, so it
+bullet the second implementation does not recognize is not read as an action item at all, so it
 passes in silence, which is the failure this whole section is about.
 
 ## What triggers a COE
@@ -165,7 +165,7 @@ rarely enough to be read. Two, and they are both events rather than conditions.
 Trigger 1: a correction that had to propagate to more than one record. One record is a fix. Two
 or more means the fact had already spread before it was corrected, which is the failure with the
 worst half-life in this tree, and the radon sweep is what it costs: thirty-nine days and thirteen
-files. It is countable without judgement, because the act of sweeping is the act of counting, and the
+files. It is countable without judgment, because the act of sweeping is the act of counting, and the
 number is in the sweep's own commit. The COE is written by whoever ran the sweep, while they still
 have the list.
 

@@ -9,13 +9,13 @@ experiment_run: 2026-10-04
 The claim, and calef named this one first: a capability microkernel pays on every boundary crossing,
 and on workloads that cross constantly the cost is architectural rather than a matter of tuning.
 
-GREEN (calef, 2026-10-05); amber 2026-10-04, #1613. The throughput defence
+GREEN (calef, 2026-10-05); amber 2026-10-04, #1613. The throughput defense
 held on step 7's first outcome. The one number not fully explained was a per-crossing cost under load, the
 null syscall going from 108 to 202 ticks between one task and four, and that is exactly this risk's
 claim. What turned it green was explaining that
 slowdown and showing it is a fixable defect, lock contention on `IPC_TABLES` and false sharing between
-cores' per-core blocks, rather than an architectural cost. Both are fixed and the growth is 10 ticks. Everything measured before it is a single crossing, and the claim is about a cost that cannot be amortised.
-Amortisation is a property of a workload. The single-crossing numbers are four wins and a tie against
+cores' per-core blocks, rather than an architectural cost. Both are fixed and the growth is 10 ticks. Everything measured before it is a single crossing, and the claim is about a cost that cannot be amortized.
+Amortization is a property of a workload. The single-crossing numbers are four wins and a tie against
 Linux on the same core, every caveat beside its number
 ([`notes/benchmarks.md`](../../notes/benchmarks.md)), over committed floors
 ([`bench/baseline-aarch64.txt`](../../bench/baseline-aarch64.txt)).
@@ -29,7 +29,7 @@ means before the numbers existed.
 across boots. Throughput rose to 2.62x at four tasks, the core count, and to 2.78x at 32, with no
 decline on any boot. That matches step 7's first outcome, which reads: "no architectural
 per-crossing cost visible at this scale on this silicon; the risk's decisive experiment ran and the
-defence held". So the defence held on this experiment. That is not the same as the risk being
+defense held". So the defence held on this experiment. That is not the same as the risk being
 retired, and seven things bound it:
 
 - One machine, radon, with four harts.

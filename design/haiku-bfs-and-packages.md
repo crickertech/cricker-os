@@ -80,7 +80,7 @@ structurally similar from an entirely different motive: atomic, rollback-able in
 authority, which is the useful kind of convergence: it suggests the shape is right for reasons
 beyond our thesis.
 
-Two things we would do differently, both in our favour. `packagefs` is a kernel filesystem; ours
+Two things we would do differently, both in our favor. `packagefs` is a kernel filesystem; ours
 would be a userspace composer, which is what a microkernel should do and needs no new kernel surface.
 And Haiku is single-user by design, so its packaging has no per-user authority story at all; here
 a program namespace is per-session and handed out at login (milestone 49), so "activate this package

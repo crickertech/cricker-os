@@ -53,7 +53,7 @@ the installer and 344k for rung 2b. So the tail is roughly 18% of a day's tokens
    downgrading tightens exactly the thing that hurts.
 2. The mechanical tail moves off Claude anyway, because it is nearly free: ~180 lanes a month at
    $0.048 is about $9, a 4.5% spend increase that returns roughly 18% of Claude capacity,
-   or three to four more judgement lanes a day.
+   or three to four more judgment lanes a day.
 3. Maintainer work is the next candidate and is unmeasured. Queue nannying, CI-log triage and
    rebase conflict resolution are mechanical, are done in the most expensive context available, and
    plausibly exceed the 18% above. The first delegated rebase ran on 2026-09-22.

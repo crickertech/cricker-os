@@ -27,11 +27,11 @@ just a comment that every reader is guaranteed to read.
 
 ## The second half: jargon is the same failure
 
-`termd` was to become `linedisc`, the correct Unix term of art. calef did not recognise the phrase and
+`termd` was to become `linedisc`, the correct Unix term of art. calef did not recognize the phrase and
 asked what a line discipline is, and he built this system. That is decisive evidence about the
 name, not about him: `linedisc` imports vocabulary from exactly the system whose model we rejected,
 which is the `-d` failure wearing a different hat. It became `line_editor`, which someone who has never
-read a tty manual understands immediately and which is accurate about the visible behaviour.
+read a tty manual understands immediately and which is accurate about the visible behavior.
 
 The crate `crates/linedisc` renames too, rather than being kept as the implementer's term of art. If
 the phrase is jargon to the system's author, it is jargon in the crate as well.
@@ -54,11 +54,11 @@ rule and the three inconsistencies found alongside it (crate-name word separatio
 "the wire contract", and a `feature/`-versus-`feat/` branch-prefix duplicate) are each the kind that
 decays without enforcement, and the checker is what makes a convention survive the first inconvenient
 moment. The part that cannot be checked, "name it for what it is", stays prose because it needs
-judgement.
+judgment.
 
 Built 2026-07-30. The rename landed as one commit; the conventions are
 [design/naming.md](../naming.md), and `script/lint`'s `naming conventions` block checks four of
 them. The unfalsifiable-looking half turns out to have a demonstration after all: run the `-d` check
 against `main` before the rename and it names exactly `compd`, `gpud`, `netd`, `termd`. What no check
 reaches is the jargon argument above, because `linedisc` passes every one of them. A person not
-recognising a word is still the only test for that, which is the honest limit of this section.
+recognizing a word is still the only test for that, which is the honest limit of this section.

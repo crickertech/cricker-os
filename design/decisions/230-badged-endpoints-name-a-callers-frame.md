@@ -82,7 +82,7 @@ From the note, computed from constants in the tree and not measured on a boot:
   token. Its only case is effort (no kernel change), and this tree does not choose on effort.
 - The note's listed refusals, for the reasons it gives: a channel index in the request word, a
   file server per client, copying the name out first, notification objects on their own, and
-  keeping clients serialised by construction.
+  keeping clients serialized by construction.
 
 ## What happens next
 

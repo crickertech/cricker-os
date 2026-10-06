@@ -105,7 +105,7 @@ Three things, stated plainly so nobody reads A3 as free:
   builds processes can reach. The tree has solved this exact shape once: `login` needs an image
   the progenitor cannot fetch, so the progenitor hands over a copy of the one program it needs as a
   blob (milestone 233 (login dies on every boot)). That precedent is a hand-wired special case for one program, and A3
-  needs it generalised.
+  needs it generalized.
 - **Versioning the activation set is the piece A3 does not get for free.** A1 and A2 were each
   weighed with an undo story attached; A3's is an addition, and it is what "with rollback" buys. It
   is also the smallest of the three, which is a fact about this option rather than an argument for

@@ -287,7 +287,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 175 | DECIDED | [Where the kernel's own output goes once userspace owns the console](175-kernel-console-arbitration.md) |
 | 176 | PROPOSED | [Offering the two RedoxFS patches upstream, and under whose name](176-offering-the-redoxfs-patches-upstream.md) |
 | 177 | DECIDED | [Whether AGENTS.md quotes measured numbers at all](177-measured-numbers-in-the-front-door-file.md) |
-| 178 | PROPOSED | [Where the timer re-arm seam goes, and which miss behaviour the kernel tick is meant to have](178-timer-rearm-seam.md) |
+| 178 | PROPOSED | [Where the timer re-arm seam goes, and which miss behavior the kernel tick is meant to have](178-timer-rearm-seam.md) |
 | 179 | PROPOSED | [Whether the tour boot keeps starting a console server that has no client](179-console-server-with-no-client.md) |
 | 180 | PROPOSED | [Whether `components/` splits again, for the tools a person invokes](180-a-third-program-directory.md) |
 | 181 | PROPOSED | [May `script/bootstrap` say "installed everything I could, and this machine is still not good enough" without failing?](181-bootstrap-provisions-and-judges.md) |

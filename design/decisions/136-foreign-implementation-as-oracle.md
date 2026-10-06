@@ -14,7 +14,7 @@ number provisional until the merge queue lands it.)*
 
 ## What is being decided
 
-When a mature implementation of a format or protocol exists in a language or under a licence this
+When a mature implementation of a format or protocol exists in a language or under a license this
 project would not ship, what role it may take.
 
 The rule: it runs on the host, outside the shipping graph, as the reference our implementation is
@@ -44,7 +44,7 @@ written down nowhere.
 - `tools/redoxfs_host`: its own workspace, `std`, deliberately not `fuse`, never in the shipping
   graph, running the round-trip test that keeps the vendored pin honest.
 - `script/vendor-verify`: asks "is this tree what we say it is" rather than "does it build",
-  which is the same instinct applied to source rather than behaviour.
+  which is the same instinct applied to source rather than behavior.
 - Milestone 190's phase 4: proposes writing a jbd2-format journal and having Linux replay it,
   then `e2fsck -fn`. The oracle is the operating system we are trying to interoperate with.
 - Borg repositories verify themselves cryptographically, so `borg check` after a round trip is an

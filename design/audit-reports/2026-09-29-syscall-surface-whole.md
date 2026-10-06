@@ -45,7 +45,7 @@ The dispatcher's every arm (`kernel/src/syscall.rs:132-537`) with its right: `WR
 and bind; `READ` to wait and poll; `GRANT` to badge and revoke; `ENUMERATE` to survey. `BIND`
 additionally demands `WRITE` on the thread it names (`syscall.rs:610-622`), and `Timer::ARM`
 demands `WRITE` on the notification capability in the caller's own table (`syscall.rs:644-652`), so
-arming is signalling later under the same authority.
+arming is signaling later under the same authority.
 
 The badge cannot be forged. It rides the capability object, is minted only by `BADGE` (which
 refuses a zero badge and an already-badged source, `syscall.rs:719-732`), and `SEND_CAP` carries it

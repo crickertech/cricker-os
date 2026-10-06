@@ -55,7 +55,7 @@ It is. Every call site of `crate::iommu::take_fault` outside the driver definiti
 moved out of `kernel/src/user/` when the system tests left the kernel crate). The aarch64 and
 riscv64 drivers say so in their own comments. *"take_fault (the confinement test); no production
 fault handler yet."* There are three drivers, not two: x86_64 now has VT-d
-(`kernel/src/arch/x86_64/iommu.rs`), and VT-d and riscv-iommu-pci signal faults by message-signalled
+(`kernel/src/arch/x86_64/iommu.rs`), and VT-d and riscv-iommu-pci signal faults by message-signaled
 interrupt (MSI), as the xHCI driver already does. Today no driver registers a fault interrupt,
 so a confined device that faults during an ordinary boot reports to nobody, and the kernel discards
 its own evidence that hardware confinement fired.

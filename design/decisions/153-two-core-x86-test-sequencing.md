@@ -106,7 +106,7 @@ which this tree does not have today and would have to be willing to keep honest.
 outright. Milestone 307 found six more whose quotable assertion cannot run. Milestone 313 found
 milestone 299's two port tests hanging rather than going red.
 
-Option 2 adds a test to that family's neighbourhood: one whose failures are ambiguous between "the
+Option 2 adds a test to that family's neighborhood: one whose failures are ambiguous between "the
 claim broke" and "the substrate is flaky". Option 1 avoids that and pays by leaving the claim
 untested for longer, which is the same trade that let the `U`-bit test sit vacuous for eight months.
 

@@ -71,9 +71,9 @@ so it was already closed, but nothing in the suite would have caught it.
 ## BUGS
 
 - A narrower QEMU model is still QEMU. `sifive-u54` will not reproduce the JH7110's cache
-  behaviour, its real memory map, or its errata. This catches the ISA-and-CSR class and is not a
+  behavior, its real memory map, or its errata. This catches the ISA-and-CSR class and is not a
   substitute for the board.
-- **The ASID width is not modelled per CPU.** Every model reports 16 bits, including `sifive-u54`,
+- **The ASID width is not modeled per CPU.** Every model reports 16 bits, including `sifive-u54`,
   so `the_hardware_has_at_least_the_asid_bits_the_allocator_assumes`, the one test written *for* the
   board, has no machine that can fail it. The board will be the first. The unconditional
   `sfence.vma` in `write_satp` stays until it can be retired against real silicon.

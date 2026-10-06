@@ -38,9 +38,9 @@ already there, and that goes stale as soon as callers grow around it.
 An outside reviewer should start here.
 
 - **The pre-existing rights model.** `derive`, `SEND_CAP` and `CAP_INSERT` were read only for whether
-  the *new* bit changed their behaviour. The 2026-07-15 whole-kernel pass owns them otherwise.
+  the *new* bit changed their behavior. The 2026-07-15 whole-kernel pass owns them otherwise.
 - **The directory-capability model that `fs_proto`'s `ENUMERATE` belongs to.** It has its own
-  negative-control catalogue (`kernel/src/user/dir_capability_tests.rs`, with an escape bitmask per
+  negative-control catalog (`kernel/src/user/dir_capability_tests.rs`, with an escape bitmask per
   attack) and was not re-audited. Only the new `STATFS` row was read.
 - **`manual::index`'s shard parser as an untrusted-input surface.** `apropos` reads index bytes out
   of the filesystem, and a shell whose grant carries `WRITE` on the store could feed it crafted
@@ -57,7 +57,7 @@ An outside reviewer should start here.
   covert channels named below have no measured bandwidth.
 - **`Rights::ENUMERATE` on objects that do not consult it.** `Aspace` and `Untyped` receive the bit
   from `RETYPE_OBJ` and no arm reads it, which confers nothing today and was checked (finding 4) but
-  not modelled for what `pmap` and `free` will want.
+  not modeled for what `pmap` and `free` will want.
 
 ## The five questions this lane was briefed with
 
@@ -76,7 +76,7 @@ accepts**. Before, a caller passing bit 3 got `Rights::NONE` back from `from_bit
 `NONE.is_subset_of(anything)` is vacuously true, so the delegation *succeeded* and conferred nothing.
 Now bit 3 survives the mask and the subset check refuses it unless the source really holds
 `ENUMERATE`. A caller that used to get a silent zero-rights capability now gets a loud
-`NotPermitted`. That is a behaviour change worth knowing about and it is in the safe direction.
+`NotPermitted`. That is a behavior change worth knowing about and it is in the safe direction.
 
 No other path turns userspace bits into rights. `abi::rights` values reach the kernel only through
 those two registers; every other rights value in the kernel is a compile-time constant.
@@ -109,7 +109,7 @@ Two things were checked specifically because they would not be visible from the 
   authorization is `allows` or `is_subset_of`.
 - **Nothing shipped holds both `READ` and `ENUMERATE` on a supervision endpoint.**
   `system_initializer` gives `job_undertaker` `READ` alone (it reaps and cannot look) and a `ps`
-  `ENUMERATE` alone (it looks and cannot reap). The separation the split bought is realised rather
+  `ENUMERATE` alone (it looks and cannot reap). The separation the split bought is realized rather
   than merely available, which was worth verifying because the milestone's own argument only required
   that it be *expressible*. Recorded in notes/process-view.md, which did not say it.
 
@@ -282,7 +282,7 @@ things are now unrepresentable:
 - `Rights::ALL` is **exactly** the union of the ABI's four, in both directions. A bit in `abi::rights`
   missing from `ALL` is a right userspace can name that `from_bits` masks to zero, so a delegation
   asking for it succeeds and confers nothing. A bit in `ALL` with no ABI name is a right the kernel
-  honours that no manifest can ask for;
+  honors that no manifest can ask for;
 - the union fits in `u32`. `abi::rights` is `u64` and `Rights` is `u32`, and the syscall path narrows
   with `a1 as u32`, so a right defined at bit 32 or above would be truncated to nothing on the way in
   and the delegation would appear to succeed. Nothing about the ABI's type stopped somebody writing
@@ -353,7 +353,7 @@ extends. Two subtrees on one image are not isolated from each other's write volu
 that needs that isolation needs two images. Not fixable at this verb: a confined writer must be able
 to ask whether its next write fits, and every true answer moves when the volume moves. Per-subtree
 quotas would replace the channel with a private number rather than narrow it, which is a second
-reason the neighbouring entry wants them.
+reason the neighboring entry wants them.
 
 ### 6. ACCEPTED: `DOC_BUNDLES` is the only thing standing between the image and every markdown file
 

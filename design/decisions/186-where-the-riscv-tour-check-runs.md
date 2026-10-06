@@ -41,8 +41,8 @@ cites.
 
 ## What this tree already does in the analogous case
 
-The recogniser already exists and is tested, so this is a caller rather than an instrument.
-`crates/board_console`'s `Progress` ratchets the stages, recognises failure markers, and
+The recognizer already exists and is tested, so this is a caller rather than an instrument.
+`crates/board_console`'s `Progress` ratchets the stages, recognizes failure markers, and
 `script/soak-test` already judges a QEMU run with it. The missing piece is a caller that boots the
 default kernel with `-initrd` under `helpers/qemu-bounded.sh` and asks whether it reached
 `Stage::Tour` with `userspace_ran`.
@@ -78,10 +78,10 @@ build, the table already pays for it, and a separate job buys latency isolation 
 need. A cadence is the wrong shelf for something whose marginal cost is seconds.
 
 On what it asserts: the floor and no more, at first. `Stage::Tour` with `userspace_ran()` is one
-assertion over an existing recogniser. The device-IRQ and preemption lines are the two a reader
+assertion over an existing recognizer. The device-IRQ and preemption lines are the two a reader
 would expect a tour check to make next, and each costs a new `Progress` field, which is a change to
 a crate two callers read (`script/soak-test` and `cargo xtask board-console`). Widening the
-recogniser is a separate, later question.
+recognizer is a separate, later question.
 
 On the name: no recommendation. It is a new entry point and names are calef's.
 

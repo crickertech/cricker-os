@@ -146,10 +146,10 @@ key ships in an image somebody else runs". A key in the owner's table is removed
 | S1. Verify at spawn, key trust as a D2 variant | a trusted key's signature, up to its ceiling | progenitor, Ed25519 on every unlisted digest | none | remove the key: all it signed stops | Ed25519 in the progenitor |
 | S2. Verify at install, then pin the digest | a trusted key's signature, once; the digest is then recorded as today | installer; the progenitor keeps SHA-256 and a lookup | one install command per rebuild, no human judgment | removing the key stops new installs; a deny line stops a pinned digest | Ed25519 in the installer |
 | S3. S2 plus a transparency log | as S2, plus an inclusion proof from a public log | installer, plus the log's key | as S2, plus a round trip to the log | detection, not prevention: a stolen key's use is public | a log client, and somebody runs a log |
-| S4. A source signs its catalogue (TUF shape) | §195's reviewed recipe, signed per source | installer | none for a vendor's users; a developer's loose build is untouched | expiry and version metadata give freshness | a TUF metadata parser |
+| S4. A source signs its catalog (TUF shape) | §195's reviewed recipe, signed per source | installer | none for a vendor's users; a developer's loose build is untouched | expiry and version metadata give freshness | a TUF metadata parser |
 
 S4 is §195's deferred T2, which signs the index, not each package. A per-build signature serves
-bytes with no catalogue, which under §219 D is how a developer's build reaches another machine.
+bytes with no catalog, which under §219 D is how a developer's build reaches another machine.
 
 ## Recommendations on the reversible parts
 
@@ -170,7 +170,7 @@ bytes with no catalogue, which under §219 D is how a developer's build reaches 
 
 ## Self-signing, and what it proves
 
-A self-signed build proves authorship, not behaviour. It confers what the owner mapped the key to,
+A self-signed build proves authorship, not behavior. It confers what the owner mapped the key to,
 and nothing by default.
 
 On a host such as patagonia, the private key sits where the developer's SSH key sits (§78 (signed

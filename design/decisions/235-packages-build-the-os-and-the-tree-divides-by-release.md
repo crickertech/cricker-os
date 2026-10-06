@@ -152,7 +152,7 @@ end state has to rebuild them wherever the base's gate goes.
 ### Amendment, 2026-09-27T15:06Z: how big a home is (question 7c)
 
 calef ruled, once R4 has packages leaving: **a home is sized by what changes together**, option C.
-A (one repository per package) is refused: it maximises two-PR commits wherever packages
+A (one repository per package) is refused: it maximizes two-PR commits wherever packages
 co-change. B (one repository per division) is refused too: a division comes from the dependency
 graph, not co-change ("The premise, checked" above measures 76% of contract commits crossing one).
 

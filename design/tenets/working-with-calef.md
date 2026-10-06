@@ -73,7 +73,7 @@ that cannot answer one should say so rather than leave it implied.
    supervised by the client it serves), moved onto this list because a test applied only when
    somebody remembers it is not a test. If the answer is no, the recommendation is about effort
    and must say so in those words, so a reader can weigh it as effort rather than mistake it for
-   judgement. It is not an argument against cheap options: it asks whether cost is doing the
+   judgment. It is not an argument against cheap options: it asks whether cost is doing the
    deciding, and cost deciding is legitimate when it is *stated*.
 
 **The tell that a proposal is not ready is that it argues rather than shows.** Questions 2 through 5

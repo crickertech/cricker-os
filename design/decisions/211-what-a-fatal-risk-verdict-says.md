@@ -90,7 +90,7 @@ Laid side by side, the five (six) words answer four different questions:
 | can the experiment be run at all? | `UNTESTED` |
 
 And the thing a reader most wants, what it found, is in none of them. It is in a separate
-capitalised word that follows on the same line for three risks (`GREEN` on risks 1 and 9, `AMBER`
+capitalized word that follows on the same line for three risks (`GREEN` on risks 1 and 9, `AMBER`
 on 2 and 3) and in an English sentence for the rest: risk 6's *"all three of its parts are measured
 on silicon"*, risk 7's *"it found the thing this risk exists to find"* and *"a qualified yes with
 one exception"*.
@@ -185,7 +185,7 @@ green to red; it is a statement that the scale does not apply, because the obser
 behind a precondition calef set and milestone 530 (name a customer, or admit the ranking function
 has nothing to rank) ruled on, and milestone 198 (a package manager, and the trivial install that
 makes a second customer possible) is what would lift it. Put it on the same axis as `RUN-GREEN` and
-it renders as one more coloured band, which is the chart telling a reader that a risk nobody can
+it renders as one more colored band, which is the chart telling a reader that a risk nobody can
 look at is a kind of result. Risk 4 has the same shape one step less severe: it is the
 best-measured entry on the list and has no finding, and a one-word scale must either call that
 amber (false, it is not a finding) or call it unrun (false, milestone 168 (a multi-tasking workload

@@ -51,7 +51,7 @@ run in anger. If capabilities can be retrofitted, no new system is needed.
 The catch is documented by Capsicum's own authors in their experience reports: converting
 applications is laborious, because the surrounding API assumes ambient authority everywhere.
 `getaddrinfo` is the canonical example and far from the only one. Every converted program needs a
-helper service, an audit, and a reorganisation into "acquire authority, then drop it." The cost is
+helper service, an audit, and a reorganization into "acquire authority, then drop it." The cost is
 per application, and it recurs for every application, forever, because the environment those programs
 were written against has not changed.
 
@@ -173,7 +173,7 @@ milestones marked built, and a single audit of that record found nine of them mi
 **What is not here.** No third-party application runs on this system yet. There is no released
 distribution, no installer, no hardware bring-up beyond emulation for the primary targets, and no
 users other than its author. The `std` support that a real Rust program needs is partial and its gaps
-are catalogued rather than closed. A recent survey of fifty crates.io crates found thirty-five build
+are cataloged rather than closed. A recent survey of fifty crates.io crates found thirty-five build
 unchanged, which is encouraging, and the fifteen that failed cluster in exactly the places that are
 hardest to fix.
 

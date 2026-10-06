@@ -95,14 +95,14 @@ somewhere, and does.
 **2 if the runner minutes are affordable, 3 if they are not, and not 1.** Option 1 and option 2 cost
 the same slot, and 2 buys a symmetric claim for it, so 1 is dominated: choosing 1 would be choosing
 the less honest shape at the same price. Between 2 and 3 the trade is real concurrency against a
-day's latency, and that is the judgement this section cannot make, because it is a standing cost on
+day's latency, and that is the judgment this section cannot make, because it is a standing cost on
 a machine budget AGENTS.md already names as a ceiling.
 
 ## Would we still choose this if both options cost the same
 
 No, and it must be said in those words: if runner concurrency were free, 2, without hesitation.
 The entire case for 3 is cost. That is legitimate, and stating it lets calef weigh it as cost rather
-than mistake it for judgement.
+than mistake it for judgment.
 
 ## How reversible, and who has acted on it
 

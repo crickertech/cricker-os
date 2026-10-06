@@ -40,7 +40,7 @@ Three parts:
 Every HPC profiler surveyed reads counters through host-OS ambient authority. `perf_event_open`
 targets any pid the caller's privilege reaches, gated by `perf_event_paranoid` (a **global sysctl,
 not a per-target grant**) or `CAP_PERFMON`, which is a capability in name and "root, or nothing" in
-practice. A profiling tool with that access on a shared node can in principle sample a neighbouring
+practice. A profiling tool with that access on a shared node can in principle sample a neighboring
 tenant's job, which is why `perf_event_paranoid` exists and why HPC centres frequently run it at
 `-1` for exactly these tools.
 
@@ -60,7 +60,7 @@ children and nothing else. A profiler is the same shape with a different verb, w
 strongest argument available here: the kernel already maintains the relation the grant would name.
 
 And discovery-rather-than-assumption already has a pattern. Milestone 74's `Isa` is built at
-boot by probing what is present rather than assuming a fixed catalogue. A counter-set capability
+boot by probing what is present rather than assuming a fixed catalog. A counter-set capability
 should name only the events the running silicon reports, and a probe for an unsupported event should
 refuse cleanly rather than read zero.
 
@@ -98,6 +98,6 @@ format, whether sampling or counting is the first mode (sampling needs an overfl
 nothing here opens), and multi-node aggregation, which this system has in no form.
 
 And the side-channel argument is from the literature, not from this board. Whether a confined
-nife process can distinguish a neighbour's cache behaviour through any channel this kernel leaves
+nife process can distinguish a neighbor's cache behavior through any channel this kernel leaves
 open is a claim milestone 43's audit lens should aim at, and neither 147 nor this decision attempts
 it.

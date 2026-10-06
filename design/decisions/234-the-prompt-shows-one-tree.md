@@ -30,13 +30,13 @@ maintainer at 18:22Z the same day.
 ## What it amends
 
 §126 (a process holding two directory capabilities gets a real, single, moving `cwd`) resolved an
-absolute path by its leading label, so a two-grant shell had no unlabelled root. That part is
+absolute path by its leading label, so a two-grant shell had no unlabeled root. That part is
 replaced for the prompt. §126's cwd stands: one position at a time, and a real `cd` between trees.
 What `..` does at a mount name was not part of the question, and this section does not decide it.
 
 ## Refused
 
-Labelled roots at the prompt, which is what §126 and the note's resolver built. Every absolute path
+Labeled roots at the prompt, which is what §126 and the note's resolver built. Every absolute path
 would carry a label (`/docs` becomes `/<label>/docs`), which is drive letters by another name.
 
 ## Deferred

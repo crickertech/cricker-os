@@ -77,12 +77,12 @@ extracted-with-errors fraction stops falling, or a query we want is unavailable 
 config is wrong in both directions at once. It narrows the graph to targets we actually build (the
 default drags `windows-sys`, `wasi` and RedoxFS's redox-native half into the verdict for code nothing
 here compiles, and noise is how an alert list becomes wallpaper), and it tightens what remains:
-`unmaintained = "all"`, `yanked = "deny"`, an allow-list of licences rather than a deny-list, and
+`unmaintained = "all"`, `yanked = "deny"`, an allow-list of licenses rather than a deny-list, and
 `unknown-git`/`unknown-registry` denied so a dependency repointed at somebody's fork is loud.
 
 First run: no advisories, no yanked crates, no unknown sources, everything permissive. Three real
 findings: one duplicate (`getrandom` 0.2 and 0.4, both under redoxfs, host-side only, skipped with a
-reason), three licences beyond MIT/Apache-2.0 that are genuinely needed (BSD-3-Clause, 0BSD,
+reason), three licenses beyond MIT/Apache-2.0 that are genuinely needed (BSD-3-Clause, 0BSD,
 Apache-2.0 WITH LLVM-exception), and two crates that could not be distinguished from a `version = "*"`
 dependency until they declared `publish = false`.
 

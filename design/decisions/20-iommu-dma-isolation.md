@@ -62,7 +62,7 @@ rather than passing on a fiction. It runs on both ISAs.
 QEMU vs ours. The RISC-V IOMMU emulation is newer than the SMMUv3's, so the record says which is
 which: both behaved exactly as their specs describe, and no bug (QEMU's or ours) surfaced during the
 build. The existing disk and both attacker suites pass behind the IOMMU on both ISAs (aarch64 118
-kernel tests, riscv 60), and the shadow ring stays as defence in depth.
+kernel tests, riscv 60), and the shadow ring stays as defense in depth.
 
 Honest limits. QEMU tier only; silicon carries the riscv driver over when a board ships the
 ratified spec (the emulate-then-carry pattern the kernel was built on). The domain is an identity map

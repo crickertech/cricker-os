@@ -46,7 +46,7 @@ The amendment §16 forces on the SPLIT property. `Untyped::SPLIT` grants the chi
 budget is delegable, so "SPLIT never changes rights" is false and "SPLIT never widens rights" needs
 saying precisely. The property proved is: the child's rights are exactly the parent's, `SPLIT`
 being an *inheriting* mint (`Cap::mint_child`) with no rights argument at all. That is strictly
-stronger than "no wider" and it is the shape that makes the delegable-budget behaviour correct rather
+stronger than "no wider" and it is the shape that makes the delegable-budget behavior correct rather
 than an exception: a root untyped is minted once with `READ|WRITE|GRANT` (`untyped_root_cap`), `SPLIT`
 inherits whatever the parent holds, and `CAP_INSERT` narrows on the way into a child. So rights along a
 budget tree are monotonically non-increasing from the root, `GRANT` reaches a child only because the

@@ -23,9 +23,9 @@ the closest pair of glyphs in the font): a checker that could not tell those apa
 "readable text reached the scanout" for a terminal that drew the wrong text. It must also reject the
 typed input missing and every rendition ignored, both of which are screens made of correct glyphs.
 
-The font is public domain, and the licence is the reason. `font8x8` (Daniel Hepper, from Marcel
+The font is public domain, and the license is the reason. `font8x8` (Daniel Hepper, from Marcel
 Sondaar's, from IBM's public-domain VGA fonts). A bitmap font is **compiled into the image**, so its
-licence travels with the artefact rather than with a build-time tool; Terminus (OFL-1.1) and Spleen
+license travels with the artifact rather than with a build-time tool; Terminus (OFL-1.1) and Spleen
 (BSD-2-Clause) are fine fonts that would each have attached an attribution obligation to every binary
 that draws text. Bitmap rather than scalable because a rasteriser wants an allocator, floating point,
 and a font file, and because a pure function is what makes the paragraph above possible at all.

@@ -13,7 +13,7 @@ Owner: calef
 Two problems that turn out to be the same problem:
 
 1. **Confining a driver's DMA.** A device is a second bus master. It does DMA against physical
-   addresses and honours no page-table permissions, so a hostile driver that can aim the device
+   addresses and honors no page-table permissions, so a hostile driver that can aim the device
    can make it read or write any physical memory. The MMU, which confines everything else, does
    nothing here.
 2. **Isolating a driver's *faults* at full strength.** Milestone 8/9 already made a driver a

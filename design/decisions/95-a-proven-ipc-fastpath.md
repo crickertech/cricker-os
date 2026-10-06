@@ -91,8 +91,8 @@ compares outcomes against a build that does not is a real gate and is rung two.
 
 ### Amended 2026-08-18: the boundary is further away than the paragraph above implies
 
-calef read the original as trading provability for specialisation and asked whether there is not
-already an unproven subset, and therefore a judgement rather than a line. He is right, and the
+calef read the original as trading provability for specialization and asked whether there is not
+already an unproven subset, and therefore a judgment rather than a line. He is right, and the
 correction is larger than the question assumed.
 
 `script/verify` states it: the proofs are a function of the harness crates and their dependency
@@ -117,7 +117,7 @@ already priced once. Milestone 20 accepted a new architecture knowing it "enlarg
 with sequencing rather than with a refusal. §14 concedes the frame outright: not a seL4-scale proof of
 the whole kernel, because that is person-decades.
 
-### The judgement, as seL4 wrote it, and the part that changes the recommendation below
+### The judgment, as seL4 wrote it, and the part that changes the recommendation below
 
 §4.7 of the retrospective sets the price explicitly: **"For seL4 we were willing to tolerate no more
 than a 10% degradation in IPC performance"** as the cost of verifiability. They then beat it, at 188
@@ -130,7 +130,7 @@ motive.
 How they got there is the fact that matters here, and the original text of this decision missed
 it. The fastpath was hand-crafted in C by "manually re-ordering statements, making use of (verified)
 invariants that the compiler is unable to determine by static analysis". The proof was not a tax on
-the optimisation. It was an input to it: a verified invariant licenses a reordering the compiler
+the optimization. It was an input to it: a verified invariant licenses a reordering the compiler
 cannot justify by itself.
 
 That is a stronger argument for option 2 than the one this file originally gave, which was only that
@@ -140,7 +140,7 @@ and should not be taken as one:
 - Assembly is refused on two grounds that are independent of proof: maintenance cost, and the
   evidence that it no longer buys anything.
 - A Rust fastpath is an unverified-TCB increase, the same class of decision milestone 20 made.
-- The predicate strictly increases proof coverage, and is what makes aggressive optimisation of
+- The predicate strictly increases proof coverage, and is what makes aggressive optimization of
   the mechanism defensible rather than merely tested.
 
 ## The risk is not where it looks, and this is the part worth arguing about

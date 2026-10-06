@@ -44,7 +44,7 @@ absent. Then:
   which the current arrangement does not produce.
 
 **What it does not fix, stated plainly.** It enforces the label; it cannot apply the label. A pull
-request that *should* be held and never gets labelled is exactly as unheld as it is today. The
+request that *should* be held and never gets labeled is exactly as unheld as it is today. The
 mechanisms that could close that are separate and harder: a `CODEOWNERS` entry on
 `kernel/src/syscall.rs` and on `design/decisions/`, or a check that reads the diff and demands the
 label when the syscall surface or the dependency graph moved. The second is the real answer and
