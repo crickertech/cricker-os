@@ -307,16 +307,17 @@ path = "src/disk_partitioner.rs"
 test = false
 bench = false
 
-# `installer` (milestone 198 (a package manager, and the trivial install that makes a second
+# `system_installer` (milestone 198 (a package manager, and the trivial install that makes a second
 # customer possible), rung 2a): the program a booted stick runs to put this system on the machine's
 # own disk. The most destructive program in this tree, and it holds exactly what
 # `disk_partitioner` holds plus a read-only copy of the file this machine booted from: one disk, one
 # entropy endpoint, no path to type. The question that precedes it is asked by
-# `kernel/src/user/install_service.rs`, before the disk capability exists. **Provisional name**,
-# set aside for it by `crates/stick_maker`'s own header.
+# `kernel/src/user/install_service.rs`, before the disk capability exists. Name: ratified
+# 2026-10-06 (calef, in conversation), replacing the provisional `installer`; the source file's
+# header has the reasons.
 [[bin]]
-name = "installer"
-path = "src/installer.rs"
+name = "system_installer"
+path = "src/system_installer.rs"
 test = false
 bench = false
 

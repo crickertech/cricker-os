@@ -421,7 +421,7 @@ fn wire_servers(
 /// **The FS server is given the whole disk, not the nife data partition**, and that is a recorded
 /// limitation rather than an oversight. It works because `redoxfs`'s own `FileSystem::open` scans
 /// blocks `0..65536` for its header and adopts the block it finds it at as the filesystem's
-/// origin, which is why `components/src/installer.rs` puts the data partition **first** on the
+/// origin, which is why `components/src/system_installer.rs` puts the data partition **first** on the
 /// disk. The cost is that this server can address the EFI system partition and the partition table;
 /// a partition-bounded mount needs either a base-block field on the `blk` wire or a program in the
 /// middle, and the installer's `BUGS` carries the argument.

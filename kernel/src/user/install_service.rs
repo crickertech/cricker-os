@@ -15,7 +15,7 @@
 //! | | holds | can destroy |
 //! |---|---|---|
 //! | this module | the boot path, the console | nothing; it has no block endpoint of its own to spend |
-//! | `components/src/installer.rs` | one disk, one entropy endpoint, a read-only copy of the boot file | that disk |
+//! | `components/src/system_installer.rs` | one disk, one entropy endpoint, a read-only copy of the boot file | that disk |
 //! | `redoxfs_server`'s `mkfs` | the same disk, the same entropy endpoint | that disk |
 //!
 //! **The question is asked here rather than in the installer**, and that is not an accident of
@@ -32,7 +32,7 @@
 //! 2. **There is an NVMe controller**, which is the disk an install would go to.
 //! 3. **That disk does not already carry nife.** An installed machine boots from a file too, so
 //!    without this check every boot of every installed machine would pause to offer to wipe itself.
-//!    The check is a survey process, not a parse in the kernel: `installer`'s `ROLE_SURVEY`, spawned
+//!    The check is a survey process, not a parse in the kernel: `system_installer`'s `ROLE_SURVEY`, spawned
 //!    with the disk and **no entropy endpoint**. That is `disk_partitioner`'s verify role, one
 //!    milestone along. **What the missing endpoint narrows is what the survey would write, not what
 //!    it can** (2026-09-24 security audit): a `blk` endpoint is the whole disk with no read-only
@@ -113,11 +113,11 @@ pub const CONFIRMATION: &str = "INSTALL";
 const PATIENCE: core::time::Duration = core::time::Duration::from_secs(30);
 
 /// Where the kernel maps the boot file, read-only, into the installer. **Must match
-/// `components/src/installer.rs`'s `BOOT_FILE_VA`**; the bytes are a run of physical frames the
+/// `components/src/system_installer.rs`'s `BOOT_FILE_VA`**; the bytes are a run of physical frames the
 /// kernel owns, so the program cannot map them itself.
 const BOOT_FILE_VA: u64 = address_space_map::runtime_window(0x1000_0000);
 
-/// The installer's capability table. Must match `components/src/installer.rs`.
+/// The installer's capability table. Must match `components/src/system_installer.rs`.
 const SLOT_REPORT: u64 = 0;
 const SLOT_BLK: u64 = 1;
 const SLOT_ENTROPY: u64 = 2;
@@ -126,16 +126,16 @@ const SLOT_BLK_PAGE: u64 = 4;
 
 /// The untyped the installer spends on the page tables for the one page it maps itself. The same
 /// figure `disk_service` gives the partitioner, and for the same reason: it maps one page.
-const INSTALLER_BUDGET_PAGES: u64 = 64;
+const SYSTEM_INSTALLER_BUDGET_PAGES: u64 = 64;
 
 /// Extra stack pages for the installer, below the single page `run` maps.
 ///
 /// It keeps a 16 KiB entry array in `.bss` rather than on the stack and recurses nowhere, so this
 /// is the partitioner's number rather than a measurement of its own; the deepest thing it does is
 /// `GloballyUniqueIdentifierPartitionTable::create`.
-const INSTALLER_STACK_PAGES: usize = 8;
+const SYSTEM_INSTALLER_STACK_PAGES: usize = 8;
 
-/// The report's first word, from `components/src/installer.rs`. Duplicated here rather than shared
+/// The report's first word, from `components/src/system_installer.rs`. Duplicated here rather than shared
 /// through a crate because it is the kernel's own convention with one program it spawns, the same
 /// terms `disk_service` and `disk_tests` already state for `R_PARTITIONED` and `R_MADE`.
 const R_INSTALLED: u64 = 0x_49_4E_53_54_44;
@@ -146,7 +146,7 @@ const ROLE_MAKE: u64 = 0;
 /// `mkfs`'s "a filesystem was created and a file written into it" verdict, ASCII `MKFSD`.
 const R_MADE: u64 = 0x_4D_4B_46_53_44;
 
-// The installer's roles, in `a0`. Must match `components/src/installer.rs`.
+// The installer's roles, in `a0`. Must match `components/src/system_installer.rs`.
 const ROLE_INSTALL: u64 = 0;
 const ROLE_SURVEY: u64 = 1;
 const ROLE_CONFIRM: u64 = 2;
@@ -166,9 +166,9 @@ pub fn offer() {
     let Some((_, boot_file_len)) = crate::memory::boot_file_region() else {
         return; // Not booted from a file: nothing to install.
     };
-    let Some(installer) = program("installer") else {
+    let Some(system_installer) = program("system_installer") else {
         crate::println!(
-            "  install     : this boot came from a file, but the archive has no installer."
+            "  install     : this boot came from a file, but the archive has no system_installer."
         );
         return;
     };
@@ -183,7 +183,7 @@ pub fn offer() {
     // **Before the question, and by a process that cannot write.** An installed machine boots from
     // a file too, so an offer that did not look at the disk first would ask every installed machine
     // to wipe itself, once per boot.
-    let report = spawn_installer(installer, &disk, None, ROLE_SURVEY, 0, 0);
+    let report = spawn_system_installer(system_installer, &disk, None, ROLE_SURVEY, 0, 0);
     if crate::sched::ipc_receive(report)[0] == R_ALREADY {
         return; // nife is already on this disk. See BUGS: there is no reinstall.
     }
@@ -212,8 +212,8 @@ pub fn offer() {
     };
 
     crate::println!("  install     : partitioning and copying the boot file...");
-    let report = spawn_installer(
-        installer,
+    let report = spawn_system_installer(
+        system_installer,
         &disk,
         Some(entropy),
         ROLE_INSTALL,
@@ -304,7 +304,7 @@ pub fn offer() {
 ///
 /// # What holds the authority to write the partition table, and how narrow it is
 ///
-/// `components/src/installer.rs`'s [`ROLE_CONFIRM`], spawned here with four capabilities and
+/// `components/src/system_installer.rs`'s [`ROLE_CONFIRM`], spawned here with four capabilities and
 /// nothing else: the report endpoint, the disk's `blk` endpoint, the page it shares with that
 /// disk's server, and a budget for the one page it maps itself. **No entropy endpoint**, so it
 /// cannot draw the unique ids a new partition table carries and the only table it can write is the
@@ -314,7 +314,7 @@ pub fn offer() {
 /// It is not as narrow as it should be, and the gap is named rather than papered over: a `blk`
 /// endpoint is the whole disk, because nothing in `filesystem_protocol::blk` bounds a client to a
 /// block range. So this process *could* write anywhere on that disk. That is the same limitation
-/// `installer`'s own `BUGS` records for the filesystem server, it is one wire field away from
+/// `system_installer`'s own `BUGS` records for the filesystem server, it is one wire field away from
 /// fixed, and it is the reason this is a boot-path call rather than something a program could ask
 /// for later.
 ///
@@ -340,9 +340,9 @@ pub fn confirm() {
     let Some(slot) = crate::memory::boot_slot() else {
         return; // No chooser started this boot: there is nothing to confirm.
     };
-    let Some(installer) = program("installer") else {
+    let Some(system_installer) = program("system_installer") else {
         crate::println!(
-            "  boot slot   : slot {slot} cannot be confirmed: the archive has no installer."
+            "  boot slot   : slot {slot} cannot be confirmed: the archive has no system_installer."
         );
         return;
     };
@@ -358,7 +358,8 @@ pub fn confirm() {
     };
     disk.wait_for_ready();
 
-    let report = spawn_installer(installer, &disk, None, ROLE_CONFIRM, slot as u64, 0);
+    let report =
+        spawn_system_installer(system_installer, &disk, None, ROLE_CONFIRM, slot as u64, 0);
     let answer = crate::sched::ipc_receive(report);
     match answer[0] {
         R_CONFIRMED if answer[2] == 0 => {
@@ -417,7 +418,7 @@ fn asked(size_bytes: u64) -> bool {
 /// Spawn the installer with the four things it needs and nothing else: the disk, the randomness,
 /// the page it shares with the disk's server, and a read-only copy of the file this machine booted
 /// from.
-fn spawn_installer(
+fn spawn_system_installer(
     image: &'static [u8],
     disk: &non_volatile_memory_express_service::Wiring,
     entropy: Option<RendezvousId>,
@@ -431,8 +432,8 @@ fn spawn_installer(
     boot_file_len: u64,
 ) -> RendezvousId {
     let report = crate::sched::create_rendezvous();
-    let budget =
-        crate::memory_region::create(INSTALLER_BUDGET_PAGES).expect("no budget for the installer");
+    let budget = crate::memory_region::create(SYSTEM_INSTALLER_BUDGET_PAGES)
+        .expect("no budget for system_installer");
     let blk_ep = disk.request;
     let blk_shared = disk.transfer_phys;
     // Read only when `entropy` is `Some`; copied out here so the closure captures a plain `u64`,
@@ -440,26 +441,26 @@ fn spawn_installer(
     let ep = entropy.unwrap_or_default();
 
     crate::sched::spawn(move || {
-        let maps = installer_maps(boot_file_len);
+        let maps = system_installer_maps(boot_file_len);
         crate::sched::grant_at(SLOT_REPORT, rendezvous_cap(report, Rights::WRITE))
-            .expect("installer slot 0 was occupied");
+            .expect("system_installer slot 0 was occupied");
         crate::sched::grant_at(SLOT_BLK, rendezvous_cap(blk_ep, Rights::WRITE))
-            .expect("installer slot 1 was occupied");
+            .expect("system_installer slot 1 was occupied");
         // **Slot 2 is the difference between the two roles and nothing else is.** A survey holds
         // the same disk, writable; without entropy it cannot draw the unique ids a *new* table
         // carries, which narrows what the program would write and not what it can (module docs,
         // "When the offer is made", item 3).
         if entropy.is_some() {
             crate::sched::grant_at(SLOT_ENTROPY, rendezvous_cap(ep, Rights::WRITE))
-                .expect("installer slot 2 was occupied");
+                .expect("system_installer slot 2 was occupied");
         }
         crate::sched::grant_at(SLOT_BUDGET, memory_region_cap(budget))
-            .expect("installer slot 3 was occupied");
+            .expect("system_installer slot 3 was occupied");
         crate::sched::grant_at(
             SLOT_BLK_PAGE,
             page_frame_cap(blk_shared, Rights::READ.union(Rights::WRITE)),
         )
-        .expect("installer slot 4 was occupied");
+        .expect("system_installer slot 4 was occupied");
         run(
             image,
             Spawn {
@@ -471,7 +472,7 @@ fn spawn_installer(
             },
         )
     })
-    .expect("could not spawn the installer");
+    .expect("could not spawn system_installer");
 
     report
 }
@@ -484,10 +485,10 @@ fn spawn_installer(
 /// frames allocated for the purpose and are never freed, which costs about sixty kilobytes for the
 /// rest of this boot and is the cheapest honest answer: the alternative is a `pages` field on
 /// [`Mapping`], and that struct has ninety-six literals in this tree.
-fn installer_maps(boot_file_len: u64) -> &'static [Mapping] {
+fn system_installer_maps(boot_file_len: u64) -> &'static [Mapping] {
     let boot_file_phys = crate::memory::boot_file_region().map_or(0, |(at, _)| at);
     let pages = boot_file_len.div_ceil(FRAME_SIZE) as usize;
-    let total = INSTALLER_STACK_PAGES + pages;
+    let total = SYSTEM_INSTALLER_STACK_PAGES + pages;
 
     let bytes = total * core::mem::size_of::<Mapping>();
     let scratch = crate::memory::alloc_contiguous_zeroed(bytes.div_ceil(FRAME_SIZE as usize))
@@ -500,14 +501,14 @@ fn installer_maps(boot_file_len: u64) -> &'static [Mapping] {
         core::slice::from_raw_parts_mut(mmu::phys_to_virt(scratch) as *mut Mapping, total)
     };
 
-    for (k, m) in maps[..INSTALLER_STACK_PAGES].iter_mut().enumerate() {
+    for (k, m) in maps[..SYSTEM_INSTALLER_STACK_PAGES].iter_mut().enumerate() {
         m.va = USER_STACK_VA - (k as u64 + 1) * FRAME_SIZE;
         m.phys = crate::memory::alloc()
             .expect("no frame for the installer's stack")
             .addr();
         m.flags = Flags::user_data();
     }
-    for (i, m) in maps[INSTALLER_STACK_PAGES..].iter_mut().enumerate() {
+    for (i, m) in maps[SYSTEM_INSTALLER_STACK_PAGES..].iter_mut().enumerate() {
         m.va = BOOT_FILE_VA + i as u64 * FRAME_SIZE;
         m.phys = boot_file_phys + i as u64 * FRAME_SIZE;
         // Read-only, and it is the whole of what keeps a program holding a disk from also being

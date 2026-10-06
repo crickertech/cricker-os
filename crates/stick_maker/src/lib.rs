@@ -6,7 +6,8 @@
 //! `installer` (DECISIONS §157's rung 2 installs nife onto a PC's own disk, and that is a different
 //! program), `stick_writer` (a writer suggests a raw image written over the disk, which is the path
 //! this program avoids in the common case), and `boot_stick` (names the product rather than the
-//! program). calef names programs; expect this to change.
+//! program). calef names programs; expect this to change. (That program was ratified as
+//! `system_installer` on 2026-10-06; the refusal above keeps the word it refused.)
 //!
 //! One file per host operating system, downloaded and run, with every architecture's boot file
 //! inside it. Run, it finds the USB sticks and SD cards on the machine, asks which, and writes the

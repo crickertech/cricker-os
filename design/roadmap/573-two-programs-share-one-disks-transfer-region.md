@@ -47,7 +47,7 @@ line, days after the change that made it possible.
 | | |
 |---|---|
 | **a transfer region per client** | the server maps a region per endpoint holder instead of one per device. Costs a page per client and a way for the server to tell its clients apart, which `filesystem_protocol::blk` does not currently give it |
-| **a `blk` endpoint bounded to a block range** | a client is handed an endpoint that can only touch blocks `[first, last)`, which is the capability answer and also fixes a second thing: `installer`'s `BUGS` records that the filesystem server on an installed machine holds the *whole disk*, bounded only by an extent in the filesystem's own header |
+| **a `blk` endpoint bounded to a block range** | a client is handed an endpoint that can only touch blocks `[first, last)`, which is the capability answer and also fixes a second thing: `system_installer`'s `BUGS` records that the filesystem server on an installed machine holds the *whole disk*, bounded only by an extent in the filesystem's own header |
 
 The second is the one this project's shape argues for, and it is not obviously the smaller change.
 Neither has been measured, and pricing them is most of the work, which is why this is a proposal

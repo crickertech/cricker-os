@@ -22,7 +22,7 @@ landed wording.
 - `line_editor`: Reuse: write. `noline` is MPL-2.0 with 37k downloads; `rustyline` needs `libc`
   termios, which the PAL does not bind. Revisit if termios is bound.
 - `documentation`: Reuse: write, for the index only. The renderer's parser is candidate 9a.
-- `file_allocation_table`: Reuse: write, for now. Writes only our own ESP; `installer` is `no_std`,
+- `file_allocation_table`: Reuse: write, for now. Writes only our own ESP; `system_installer` is `no_std`,
   and `fatfs` has no `no_std`
   release without `core_io`. Revisit if `fatfs` 0.4 releases or the installer moves to std.
 - `swish`, `grant_plan`, `system_initializer`, the `*_protocol` crates, `system_log`, the `procps`

@@ -43,7 +43,7 @@ is nothing in the handoff that distinguishes them. So an offer that asked on eve
 ask on would ask an installed machine, once per boot, whether to wipe itself, and would pause thirty
 seconds waiting for an answer on a machine nobody is watching.
 
-The install offer therefore surveys first: `installer`'s `ROLE_SURVEY`, a process holding the disk
+The install offer therefore surveys first: `system_installer`'s `ROLE_SURVEY`, a process holding the disk
 and no entropy endpoint, reads the partition table and answers whether a nife data partition is
 already there. If it is, the offer is not made at all.
 
@@ -53,10 +53,10 @@ already there. If it is, the offer is not made at all.
 
 The obvious cost is that a person who wants to reinstall cannot. They boot the stick, watch it
 decline to offer, and have no way forward from inside the system: nothing in this tree wipes a
-partition table, and `installer` is the only program that writes one.
+partition table, and `system_installer` is the only program that writes one.
 
 **The sharp case is a failed install, and it is not hypothetical.** `install_service` runs two
-programs in sequence: `installer` writes the table and the EFI system partition, then `mkfs` creates
+programs in sequence: `system_installer` writes the table and the EFI system partition, then `mkfs` creates
 the filesystem. Both are recorded as not crash-atomic. A power cut between them leaves a disk that
 has a nife data partition and no filesystem in it, which is exactly the state the survey reads
 as "already installed". That machine will never be offered an install again, by the stick that
@@ -99,4 +99,4 @@ precisely because the confined-program-per-question shape is already built.
 
 ## Index row
 
-An installed machine boots from a file too, and nothing in the handoff distinguishes that file from one on a stick, so the install offer surveys first and declines to ask when a nife data partition is already there. That rule is right and this does not ask to remove it. It asks for the other half: a person who wants to reinstall boots the stick, watches it decline, and has no way forward from inside the system, because nothing in this tree wipes a partition table and `installer` is the only program that writes one.
+An installed machine boots from a file too, and nothing in the handoff distinguishes that file from one on a stick, so the install offer surveys first and declines to ask when a nife data partition is already there. That rule is right and this does not ask to remove it. It asks for the other half: a person who wants to reinstall boots the stick, watches it decline, and has no way forward from inside the system, because nothing in this tree wipes a partition table and `system_installer` is the only program that writes one.

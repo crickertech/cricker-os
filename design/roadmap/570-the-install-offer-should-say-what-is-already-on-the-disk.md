@@ -68,7 +68,7 @@ and, for the case the current survey covers, the line it already implies:
 ```
 
 Cost: one spawn beside the one already there, a report wide enough for a handful of partitions, and
-a printing loop. The survey role in `installer` could equally grow the answer rather than a second
+a printing loop. The survey role in `system_installer` could equally grow the answer rather than a second
 program being spawned, and the second program is the better shape: `disk_surveyor` is the thing
 in this tree whose whole job is saying what is on a disk, it is already tested against a table
 `sgdisk` wrote, and duplicating its GPT reading inside the installer would be two readers that can

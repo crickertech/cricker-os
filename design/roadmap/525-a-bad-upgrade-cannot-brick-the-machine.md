@@ -31,7 +31,7 @@ previous one by itself, with nobody at the console.
 |---|---|
 | `crates/boot_slot` | the state and the policy: priority, tries, confirmed, and which slot to start. Pure computation, host-tested |
 | `globally_unique_identifier_partition_table`'s `NIFE_BOOT` | the partition type that makes the attribute bits ours |
-| `components/src/installer.rs` | lays out two slot partitions, fills the first, and writes its state |
+| `components/src/system_installer.rs` | lays out two slot partitions, fills the first, and writes its state |
 | `uefi_loader/src/chooser.rs` | the selector: reads the state, spends a try, writes it, chain-loads the slot |
 | `cargo xtask rollback-boot` | three boots that watch a doomed upgrade be abandoned |
 

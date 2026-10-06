@@ -96,9 +96,9 @@ timetable", and a planted untracked-then-added file failed as a path with no hom
 | `util-linux` | base | programs: `disk_partitioner`, `disk_surveyor`, `uuid` | interfaces only | `util-linux` (provisional) |
 | `demos` | optional | programs: `least_authority_demo` | interfaces only | `demos` (provisional) |
 | `display` | optional | crates: `compositor*`, `extensible_host_controller_interface`, `usb`, `video_terminal`; programs: `compositor`, `display_terminal`, `framebuffer_driver`, `gpu_driver`, `graphical_terminal`, `keyboard_driver`, `usb_keyboard_driver` | interfaces only | `display` (provisional) |
-| `installer` | optional | programs: `installer` | interfaces only | `installer` (provisional) |
 | `redoxfs` | optional | crates: `redoxfs`, `redoxfs_host`, `redoxfs_server`; programs: `mkfs`, `redoxfs`, `redoxfs-ar`, `redoxfs-clone`, `redoxfs-mkfs`, `redoxfs-resize`, `redoxfs_host`, `redoxfs_server`, `second_mount`; paths: `vendor/redoxfs.divergence.patch`, `vendor/redoxfs.pin` | interfaces only | undecided: the server and host tool are ours and the library is Redox's; whether the port goes upstream is open |
 | `rmle` | optional | programs: `rmle` | interfaces only | `rmle` (provisional) |
+| `system_installer` | optional | programs: `system_installer` | interfaces only | `system_installer` (provisional) |
 | `contracts` | sdk | crates: `abi*`, `activation_set*`, `address_space_map*`, `argument_protocol*`, `block_roster*`, `boot_ladder*`, `boot_slot*`, `byte_sink_protocol*`, `capability_witness_protocol*`, `clock_protocol*`, `component_plan*`, `counter_frequency_protocol*`, `credential_protocol*`, `current_cpu_protocol*`, `device_tree_blob*`, `documentation*`, `elf*`, `entropy_protocol*`, `environment_protocol*`, `file_allocation_table*`, `filesystem_protocol*`, `glob*`, `globally_unique_identifier_partition_table*`, `grant_plan*`, `graphics_protocol*`, `login_protocol*`, `machine_discovery*`, `machine_statistics_protocol*`, `manifest_note*`, `measured_boot*`, `nifefs*`, `package_archive*`, `socket_protocol*`, `std_runtime_protocol*`, `supervision_protocol*`, `swap_protocol*`, `system_log_protocol*` | interfaces only | `contracts` (provisional) |
 | `cryptography` | sdk | crates: `cryptography_provider*` | interfaces only | `cryptography` (provisional) |
 | `host-tools` | sdk | crates: `portable_executable`, `stick_maker`, `walk_pricing`, `xtask`; programs: `stick_maker`, `xtask` | `boot`, `display` | `host-tools` (provisional) |
@@ -125,7 +125,7 @@ the `cron` slot, and `mdr` the `man-db` one.
 
 Where Linux has only a role, nife groups by role and the table's header comment names the Debian
 package it stands in for. These are `kernel`, `boot`, `init`, `drivers`, `terminal`, `display`,
-`filesystem`, `network`, `time`, `entropy`, `login` and `installer`.
+`filesystem`, `network`, `time`, `entropy`, `login` and `system_installer`.
 
 The contracts are one `-dev` split, Debian's `linux-libc-dev` shape: the ABI, every `*_protocol`
 and the formats two programs agree on. A split per service, the `libfoo-dev` shape, is the

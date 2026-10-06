@@ -1,4 +1,4 @@
-//! **`installer`**: the program a booted stick runs to put this system on the machine's own disk
+//! **`system_installer`**: the program a booted stick runs to put this system on the machine's own disk
 //! (milestone 198 (a package manager, and the trivial install that makes a second customer
 //! possible), rung 2a).
 //!
@@ -6,10 +6,12 @@
 //! [milestone 515 (a stick that puts itself on the machine's disk)](../../design/roadmap/515-the-installer-a-stick-runs-to-put-itself-on-the-disk.md),
 //! under DECISIONS §157 (a trivial install is a web page, a USB drive, and packages).
 //!
-//! Name: provisional, minted 2026-09-21 by the rung 2a lane. `crates/stick_maker`'s own header
-//! set the word aside for exactly this program when it refused it for itself: *"DECISIONS §157's
-//! rung 2 installs nife onto a PC's own disk, and that is a different program."* calef names
-//! programs; expect this to change.
+//! Name: ratified 2026-10-06 (calef, "`system_installer` ratified.", in conversation), replacing
+//! the provisional `installer` (minted 2026-09-21 by the rung 2a lane, after `crates/stick_maker`'s
+//! header set the word aside for this program). It names what gets installed, the whole system,
+//! and separates this program from `jig`, which installs packages. Refused `basalt_installer`: this
+//! program copies whatever image the stick booted, so a distribution prefix would go false the day
+//! another distribution shipped it.
 //!
 //! # This is the most destructive program in this tree, and its shape is the answer to that
 //!
