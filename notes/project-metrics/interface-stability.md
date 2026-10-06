@@ -9,20 +9,20 @@ Sorted by breaking changes in the last four weeks (2026W38 to 2026W41), then by 
 | crate | breaking, 4 weeks | additions, 4 weeks | breaking | additions | commits | crossing another division |
 |---|---:|---:|---:|---:|---:|---:|
 | `grant_plan` | 42 | 190 | 86 | 821 | 129 | 109 (84%) |
-| `globally_unique_identifier_partition_table` | 27 | 27 | 28 | 217 | 31 | 24 (77%) |
+| `globally_unique_identifier_partition_table` | 27 | 27 | 28 | 217 | 32 | 25 (78%) |
 | `socket_protocol` | 13 | 17 | 15 | 55 | 25 | 23 (92%) |
-| `line_editor` | 11 | 73 | 12 | 118 | 27 | 24 (89%) |
+| `line_editor` | 11 | 73 | 12 | 118 | 28 | 24 (86%) |
 | `filesystem_protocol` | 10 | 50 | 42 | 450 | 97 | 88 (91%) |
 | `swap_protocol` | 10 | 26 | 11 | 116 | 36 | 35 (97%) |
-| `abi` | 6 | 30 | 36 | 127 | 84 | 82 (98%) |
+| `abi` | 6 | 31 | 36 | 128 | 87 | 84 (97%) |
 | `byte_sink_protocol` | 5 | 10 | 6 | 48 | 26 | 26 (100%) |
 | `clock_protocol` | 5 | 4 | 5 | 54 | 27 | 25 (93%) |
 | `credential_protocol` | 4 | 12 | 30 | 67 | 30 | 27 (90%) |
 | `graphics_protocol` | 3 | 2 | 11 | 33 | 27 | 27 (100%) |
 | `activation_set` | 3 | 52 | 3 | 52 | 15 | 15 (100%) |
-| `component_plan` | 3 | 14 | 3 | 126 | 20 | 16 (80%) |
+| `component_plan` | 3 | 14 | 3 | 126 | 21 | 17 (81%) |
 | `entropy_protocol` | 3 | 2 | 3 | 17 | 18 | 16 (89%) |
-| `supervision_protocol` | 2 | 5 | 22 | 65 | 45 | 41 (91%) |
+| `supervision_protocol` | 2 | 7 | 22 | 67 | 47 | 42 (89%) |
 | `nifefs` | 2 | 0 | 7 | 41 | 37 | 26 (70%) |
 | `counter_frequency_protocol` | 1 | 3 | 1 | 15 | 12 | 10 (83%) |
 | `environment_protocol` | 1 | 0 | 1 | 44 | 8 | 8 (100%) |
@@ -33,15 +33,15 @@ Sorted by breaking changes in the last four weeks (2026W38 to 2026W41), then by 
 | `elf` | 0 | 4 | 3 | 53 | 39 | 32 (82%) |
 | `argument_protocol` | 0 | 29 | 0 | 29 | 0 | 0 |
 | `boot_slot` | 0 | 52 | 0 | 52 | 9 | 5 (56%) |
-| `capability_witness_protocol` | 0 | 3 | 0 | 3 | 9 | 7 (78%) |
-| `current_cpu_protocol` | 0 | 13 | 0 | 13 | 4 | 2 (50%) |
-| `manifest_note` | 0 | 40 | 0 | 40 | 8 | 5 (62%) |
+| `capability_witness_protocol` | 0 | 10 | 0 | 10 | 11 | 9 (82%) |
+| `current_cpu_protocol` | 0 | 13 | 0 | 13 | 5 | 3 (60%) |
+| `manifest_note` | 0 | 40 | 0 | 40 | 9 | 5 (56%) |
 | `measured_boot` | 0 | 0 | 0 | 41 | 19 | 15 (79%) |
 | `std_runtime_protocol` | 0 | 17 | 0 | 17 | 5 | 4 (80%) |
 
 ## What broke in 2026W41
 
-Read at `e1f3ddf8cf95` against the week before. Each line is one removed or changed public item; a crate rename is one line for the whole crate.
+Read at `2ff9a7036c04` against the week before. Each line is one removed or changed public item; a crate rename is one line for the whole crate.
 
 - `abi`: syscall changed, method or encoding `CAPABILITY_TABLE_SLOTS`
 - `abi`: syscall changed, method or encoding `fault::FAULT_EP_SLOT`

@@ -56,10 +56,10 @@
 <path class="seg s1" d="M542.8,144.2 V88.6 Q542.8,84.6 546.8,84.6 H577.4 Q581.4,84.6 581.4,88.6 V144.2 Z"><title>2026W40, unfalsified: 56</title></path>
 <text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W40</text>
 <text class="fg val" x="562.1" y="79.6" font-size="10" text-anchor="middle">225</text>
-<rect class="seg s0" x="601.4" y="141.0" width="38.7" height="183.0"><title>2026W41, falsification on record: 172</title></rect>
-<path class="seg s1" d="M601.4,141.0 V85.4 Q601.4,81.4 605.4,81.4 H636.0 Q640.0,81.4 640.0,85.4 V141.0 Z"><title>2026W41, unfalsified: 56</title></path>
+<rect class="seg s0" x="601.4" y="83.5" width="38.7" height="240.5"><title>2026W41, falsification on record: 226</title></rect>
+<path class="seg s1" d="M601.4,83.5 V81.9 Q601.4,80.3 603.0,80.3 H638.4 Q640.0,80.3 640.0,81.9 V83.5 Z"><title>2026W41, unfalsified: 3</title></path>
 <text class="mut" x="620.7" y="342" font-size="10" text-anchor="middle">2026W41</text>
-<text class="fg val" x="620.7" y="76.4" font-size="10" text-anchor="middle">228</text>
+<text class="fg val" x="620.7" y="75.3" font-size="10" text-anchor="middle">229</text>
 <rect class="s0" x="672" y="64" width="11" height="11" rx="2"/>
 <text class="fg" y="74" font-size="11"><tspan x="689" dy="0">falsification on</tspan><tspan x="689" dy="13">record</tspan></text>
 <rect class="s1" x="672" y="96" width="11" height="11" rx="2"/>

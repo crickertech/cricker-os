@@ -49,9 +49,9 @@
 <path class="seg s0" d="M542.8,324.0 V127.7 Q542.8,123.7 546.8,123.7 H577.4 Q581.4,123.7 581.4,127.7 V324.0 Z"><title>2026W40, documents over the budget: 753</title></path>
 <text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W40</text>
 <text class="fg val" x="562.1" y="118.7" font-size="10" text-anchor="middle">753</text>
-<path class="seg s0" d="M601.4,324.0 V130.9 Q601.4,126.9 605.4,126.9 H636.0 Q640.0,126.9 640.0,130.9 V324.0 Z"><title>2026W41, documents over the budget: 741</title></path>
+<path class="seg s0" d="M601.4,324.0 V323.7 Q601.4,323.5 601.6,323.5 H639.8 Q640.0,323.5 640.0,323.7 V324.0 Z"><title>2026W41, documents over the budget: 2</title></path>
 <text class="mut" x="620.7" y="342" font-size="10" text-anchor="middle">2026W41</text>
-<text class="fg val" x="620.7" y="121.9" font-size="10" text-anchor="middle">741</text>
+<text class="fg val" x="620.7" y="318.5" font-size="10" text-anchor="middle">2</text>
 <rect class="s0" x="672" y="64" width="11" height="11" rx="2"/>
 <text class="fg" y="74" font-size="11"><tspan x="689" dy="0">documents over the</tspan><tspan x="689" dy="13">budget</tspan></text>
 </svg>
