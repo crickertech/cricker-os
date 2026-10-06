@@ -1,0 +1,26 @@
+Falsifies `system_tests::user::name_resolver_tests::a_granted_client_resolves_inside_its_zone_and_nothing_outside_it`.
+
+Architecture: aarch64
+
+The defect: the resolver forgets to judge the name against the zone its caller's badge was
+granted, and asks the name server about whatever the client wrote. That is the ambient Unix
+resolver milestone 384 exists to remove: a client granted `nife.test` can look up any host.
+
+Expected to fail: the case `example.com`, which comes back `SERVER_ERROR` with response code 5 (the
+peer's REFUSED, so the query was sent) where the gate wants `DENIED` (never asked). Measured
+2026-10-06 (UTC) on aarch64: red with exactly that assertion.
+
+diff --git a/components/src/name_resolver.rs b/components/src/name_resolver.rs
+index c26426a75..e3316a84d 100644
+--- a/components/src/name_resolver.rs
++++ b/components/src/name_resolver.rs
+@@ -288,9 +288,6 @@ fn resolve(state: &mut State, server: &Server, badge: u32, len: u64) -> (Outcome
+ 
+     // **The grant, before the network.** Nothing below this line runs for a name the badge may not
+     // ask about.
+-    if state.grants.check(badge, &name).is_err() {
+-        return (Outcome::of(status::DENIED), 0);
+-    }
+ 
+     let answer = match ask(state, server, name) {
+         Ok(answer) => answer,

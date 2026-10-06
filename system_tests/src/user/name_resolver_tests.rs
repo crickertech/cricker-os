@@ -229,7 +229,7 @@ fn next_report(report: RendezvousId, expecting: usize) -> [u64; 3] {
 /// The second half is the confinement claim on its own: the same program, with a badge nobody
 /// granted, gets `DENIED` for every name, including the ones the first client resolved.
 ///
-/// Falsification: unfalsified.
+/// Falsification: replayable `system_tests/falsifications/user.name_resolver_tests.a_granted_client_resolves_inside_its_zone_and_nothing_outside_it.patch`
 #[test_case]
 fn a_granted_client_resolves_inside_its_zone_and_nothing_outside_it() {
     let Some(entropy) = entropy() else {
