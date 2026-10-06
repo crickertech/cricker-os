@@ -426,3 +426,203 @@ def harness_count(files):
         unfalsifiable += sum(1 for kind in kinds if kind == 'unfalsifiable')
     return {'total': total, 'falsified': falsified, 'unfalsifiable': unfalsifiable,
             'unfalsified': max(total - falsified - unfalsifiable, 0)}
+
+
+# --- does a diff change compiled code, or only its comments ----------------------------------------
+#
+# The question `script/verify --affected-since` and `script/falsifications --affected-since` ask of
+# each changed `.rs` file in a harness crate's closure, so that a comment edit (a spelling sweep, a
+# path rewritten inside a comment) does not replay every proof. Found 2026-10-06 (UTC) on #1734,
+# which rewrote `proposals/<slug>.md` paths inside comments across many crates: its re-falsify leg
+# reached every record and was cancelled at the 45-minute limit.
+#
+# **A lexer and not `strip_non_code` above**, because the two answer opposite questions. That one
+# blanks string literals along with comments, which is right for counting code lines and wrong
+# here: an edit to a string literal changes the compiled program and must count. Nor a regex over
+# lines, which reads the `//` in `"http://..."` as a comment. `rustc -Z unpretty` was the other
+# candidate and lost because it parses rather than lexes: it wants the crate's modules on disk at
+# one revision, and here the base revision is a blob that is not checked out.
+#
+# The rule. Two texts are the same program when their token sequences are equal with comments
+# removed. Whitespace and comments are both separators to rustc, so a comment is replaced by "a
+# separation happened" and nothing else. Spacing is kept only where rustc keeps it, between two
+# adjacent punctuation characters (`>>` against `> >`, rustc's `Spacing::Joint`); between two words
+# a separation already makes two tokens, and next to a word it carries no meaning.
+#
+# **Doc comments (`///`, `//!`, `/** */`, `/*! */`) are removed too, by default, and that is a
+# claim with two parts.** First, a doc comment can hold a doctest, and a doctest is not a Kani
+# harness and not a falsification record: `cargo kani` never runs one, so editing it cannot change
+# a proof's verdict. Second, a doc comment is a `#[doc = "..."]` attribute, which is metadata unless
+# a macro reads it and makes it code (`clap`'s derive turns it into help text, `displaydoc` into a
+# `Display` impl). The caller passes `docs_are_code=True` when the dependency graph holds a
+# procedural macro outside `DOC_BLIND_PROC_MACROS`, so a new one arriving makes doc comments count
+# until somebody reads it and adds it to the list. A `macro_rules!` that captures `$(#[$m:meta])*`
+# and stringifies it can do the same, and nothing checks for that (BUGS in script/falsifications).
+
+# The procedural macros in this tree's dependency graph that never read a `#[doc]` attribute into
+# code, read from each crate's derive or attribute (2026-10-06, UTC): `serde_derive` reads
+# `#[serde]`, `thiserror-impl` reads `#[error]`, `defmt-macros` reads its format strings, and
+# `rustversion` reads the compiler version.
+DOC_BLIND_PROC_MACROS = frozenset({'defmt-macros', 'rustversion', 'serde_derive', 'thiserror-impl'})
+
+
+class LexError(ValueError):
+    """The text is not lexable Rust (an unterminated literal or comment). Callers fail toward
+    treating the file as changed code."""
+
+
+def _word(c):
+    return c == '_' or c.isalnum()
+
+
+def code_tokens(text, docs_are_code=False):
+    """The token sequence of Rust source with comments removed, literals kept byte for byte.
+
+    Each punctuation token carries a trailing `+` when the next token is punctuation with nothing
+    between them (joint), so the sequence distinguishes `>>` from `> >` the way rustc does.
+    With `docs_are_code`, a doc comment stays in the sequence as a token of its own.
+    """
+    toks, i, n = [], 0, len(text)
+    joint = False  # was the previous token punctuation with no separation since?
+
+    def emit(tok, punct=False):
+        nonlocal joint
+        if punct and joint and toks:
+            toks[-1] += '+'
+        toks.append(tok)
+        joint = punct
+
+    def string_end(j):
+        # j is just past the opening quote of an escaped (non-raw) string.
+        while j < n:
+            if text[j] == '\\':
+                j += 2
+            elif text[j] == '"':
+                return j + 1
+            else:
+                j += 1
+        raise LexError('unterminated string')
+
+    while i < n:
+        c = text[i]
+        if c.isspace():
+            joint = False
+            i += 1
+            continue
+        if text.startswith('//', i):
+            end = text.find('\n', i)
+            end = n if end < 0 else end
+            body = text[i:end]
+            is_doc = (body.startswith('///') and not body.startswith('////')) or body.startswith('//!')
+            if docs_are_code and is_doc:
+                emit(body.rstrip())
+            joint = False
+            i = end
+            continue
+        if text.startswith('/*', i):
+            depth, j = 1, i + 2
+            while depth:
+                if j >= n:
+                    raise LexError('unterminated block comment')
+                if text.startswith('/*', j):
+                    depth, j = depth + 1, j + 2
+                elif text.startswith('*/', j):
+                    depth, j = depth - 1, j + 2
+                else:
+                    j += 1
+            body = text[i:j]
+            is_doc = ((body.startswith('/**') and not body.startswith('/***') and body != '/**/')
+                      or body.startswith('/*!'))
+            if docs_are_code and is_doc:
+                emit(body)
+            joint = False
+            i = j
+            continue
+        if _word(c):
+            j = i
+            while j < n and _word(text[j]):
+                j += 1
+            word = text[i:j]
+            # A literal prefix: b"..", c"..", b'x', and the raw forms r".." br#".."# cr"..".
+            if word in ('r', 'br', 'cr') and j < n and text[j] in '"#':
+                k = j
+                while k < n and text[k] == '#':
+                    k += 1
+                if k < n and text[k] == '"':
+                    close = '"' + '#' * (k - j)
+                    end = text.find(close, k + 1)
+                    if end < 0:
+                        raise LexError('unterminated raw string')
+                    emit(text[i:end + len(close)])
+                    i = end + len(close)
+                    continue
+                # `r#ident`, a raw identifier: fall through and emit it as one word.
+                if word == 'r' and k == j + 1 and k < n and _word(text[k]):
+                    m = k
+                    while m < n and _word(text[m]):
+                        m += 1
+                    emit(text[i:m])
+                    i = m
+                    continue
+            if word in ('b', 'c') and j < n and text[j] == '"':
+                end = string_end(j + 1)
+                emit(text[i:end])
+                i = end
+                continue
+            if word == 'b' and j < n and text[j] == "'":
+                i = j  # the byte char is lexed as a char literal below, prefix included
+                end = _char_end(text, i)
+                if end is None:
+                    raise LexError('a b prefix before something that is not a byte literal')
+                emit('b' + text[i:end])
+                i = end
+                continue
+            emit(word)
+            i = j
+            continue
+        if c == '"':
+            end = string_end(i + 1)
+            emit(text[i:end])
+            i = end
+            continue
+        if c == "'":
+            end = _char_end(text, i)
+            if end is not None:
+                emit(text[i:end])
+                i = end
+                continue
+            # A lifetime or a label: the quote and the name are one token.
+            j = i + 1
+            while j < n and _word(text[j]):
+                j += 1
+            emit(text[i:j])
+            i = j
+            continue
+        emit(c, punct=True)
+        i += 1
+    return toks
+
+
+def _char_end(text, i):
+    """End of the char literal opening at `text[i] == "'"`, or None if it is a lifetime."""
+    n = len(text)
+    if i + 1 < n and text[i + 1] == '\\':
+        end = text.find("'", i + 3)  # past the backslash and the escaped character
+        if end < 0:
+            raise LexError('unterminated char literal')
+        return end + 1
+    if i + 2 < n and text[i + 2] == "'":
+        return i + 3
+    return None
+
+
+def comment_only_change(old, new, docs_are_code=False):
+    """True when `old` and `new` are the same program and differ at most in comments and spacing.
+
+    False when the token sequences differ, and False when either side does not lex, because a
+    caller that cannot tell must run the proofs.
+    """
+    try:
+        return code_tokens(old, docs_are_code) == code_tokens(new, docs_are_code)
+    except LexError:
+        return False

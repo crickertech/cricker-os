@@ -232,6 +232,15 @@
 #   a harness crate's dependency closure re-falsifies every replayable harness in that crate, because
 #   nothing in this tree knows which lines a given harness actually covers (that is what an IVC would
 #   have bought). It fails toward doing too much.
+# - **A `.rs` file whose diff touches only comments reaches nothing** (2026-10-06, UTC, after #1734's
+#   comment-only path rewrites ran every record into the job's timeout). helpers/rust_source.py
+#   decides it by lexing both revisions and comparing tokens, so a `//` inside a string is code and
+#   any string-literal edit counts. Three holes, each judged smaller than replaying every record on
+#   a spelling sweep: an added comment line moves what `line!()` and a panic's location report,
+#   which no harness here asserts on; a `macro_rules!` that stringifies a captured doc attribute
+#   turns a doc comment into code, and nothing checks for one (a procedural macro outside
+#   `DOC_BLIND_PROC_MACROS` does make doc comments count); and a comment edit inside a patch's
+#   context can make that patch stale, which `--check` in `script/lint` still catches.
 # - **The sweep replays a harness only on a host whose architecture compiles it** (milestone 304),
 #   and nothing here says which host a record needs. `kernel/src/arch/mod.rs` selects its subtree
 #   with `#[cfg(target_arch = ...)]` and Kani compiles for the host, so
@@ -1178,6 +1187,39 @@ def selftest():
         if cover_only(body) != want:
             print("falsifications --selftest: %s: wanted %s" % (what, want))
             bad += 1
+    # The comment-only classifier `--affected-since` uses (helpers/rust_source.py). Each pair is
+    # (before, after); `True` means the edit reaches no harness.
+    sys.path.insert(0, os.path.join(root, "helpers"))
+    from rust_source import comment_only_change
+    src = 'fn f() -> &str {\n    // why\n    "http://a" // the url\n}\n'
+    edits = [
+        ("a comment-only diff reaches nothing",
+         src, src.replace("// why", "// why, spelled differently"), False, True),
+        ("a // inside a string literal is code, not a comment",
+         src, src.replace("http://a", "http://b"), False, False),
+        ("a comment after a string holding // is still a comment",
+         src, src.replace("// the url", "// the address"), False, True),
+        ("a doc-comment edit reaches nothing",
+         "/// Wide.\nfn f() {}\n", "/// Broad.\nfn f() {}\n", False, True),
+        ("a doc-comment edit is code when a macro may read docs",
+         "/// Wide.\nfn f() {}\n", "/// Broad.\nfn f() {}\n", True, False),
+        ("a code edit reaches",
+         "fn f() -> u8 { 1 }\n", "fn f() -> u8 { 2 }\n", False, False),
+        ("a nested block comment is one comment",
+         "/* a /* b */ c */ fn f() {}\n", "/* a /* bb */ cc */ fn f() {}\n", False, True),
+        ("a raw string holding /* is code",
+         'const S: &str = r#"/* x */"#;\n', 'const S: &str = r#"/* y */"#;\n', False, False),
+        ("a char literal of a quote does not open a string",
+         "const Q: char = '\"'; // a\n", "const Q: char = '\"'; // b\n", False, True),
+        ("splitting >> into > > is code",
+         "fn f(x: u8) -> u8 { x >> 1 }\n", "fn f(x: u8) -> u8 { x > > 1 }\n", False, False),
+        ("text that does not lex is treated as code",
+         "fn f() {}\n", 'fn f() { "unterminated }\n', False, False),
+    ]
+    for what, before, after, docs, want in edits:
+        if comment_only_change(before, after, docs) != want:
+            print("falsifications --selftest: %s: wanted %s" % (what, want))
+            bad += 1
     for what, base, head, want in cases:
         got = len(unrecorded_new_tests(base, head))
         if got != want:
@@ -1888,19 +1930,44 @@ def affected_packages(base, hs):
                 best = pid
         return best
 
+    # A `.rs` file whose diff touches only comments compiles to the same program, so it reaches no
+    # harness. The lexer, the doc-comment argument and its one guard live in helpers/rust_source.py,
+    # shared with `script/verify --affected-since`, the other copy of this rule.
+    sys.path.insert(0, os.path.join(root, "helpers"))
+    from rust_source import DOC_BLIND_PROC_MACROS, comment_only_change
+    docs_are_code = any(p["name"] not in DOC_BLIND_PROC_MACROS
+                        and any("proc-macro" in t["kind"] for t in p["targets"])
+                        for p in meta["packages"])
+
+    def show(rev, path):
+        r = subprocess.run(["git", "-C", root, "show", "%s:%s" % (rev, path)],
+                           capture_output=True, text=True)
+        return r.stdout if r.returncode == 0 else None
+
     changed_ids = set()
     unattributable = False
+    comment_only = []
     for f in changed:
         # The last four alternatives match script/verify's AGENT_CONFIG and REPO_CONFIG, whose
         # comment says why they are no input to `cargo kani` (#1726, 2026-10-06 UTC).
         if re.match(r"^(notes/|design/|[A-Z_]+\.md$|script/|helpers/|\.github/"
                     r"|\.claude/|\.agents/|\.gitignore$|packages/homes\.toml$)", f):
             continue
+        if f.endswith(".rs"):
+            before, after = show(base, f), show("HEAD", f)
+            if before is not None and after is not None and comment_only_change(
+                    before, after, docs_are_code):
+                comment_only.append(f)
+                continue
         pid = owner(f)
         if pid is None:
             unattributable = True
         else:
             changed_ids.add(pid)
+    if comment_only:
+        print("%d Rust file(s) change only comments or spacing and reach no harness%s" % (
+            len(comment_only), "" if not docs_are_code else
+            " (doc comments counted as code: a procedural macro outside DOC_BLIND_PROC_MACROS is in the graph)"))
     edges = {n["id"]: [d["pkg"] for d in n.get("deps", [])] for n in meta["resolve"]["nodes"]}
     carriers = {h.package for h in hs}
     out = set()

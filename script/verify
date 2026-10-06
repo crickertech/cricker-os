@@ -155,8 +155,28 @@ if todo:
             closure.add(pid)
             stack.extend(edges.get(pid, []))
 
+        # A `.rs` file whose diff touches only comments compiles to the same program, so it can
+        # change no proof. The lexer, why doc comments count as comments, and the guard on that
+        # live in helpers/rust_source.py, shared with `script/falsifications --affected-since`.
+        # Found 2026-10-06 (UTC) on #1734, whose comment-only path rewrites ran every harness.
+        sys.path.insert(0, "helpers")
+        from rust_source import DOC_BLIND_PROC_MACROS, comment_only_change
+        docs_are_code = any(p["name"] not in DOC_BLIND_PROC_MACROS
+                            and any("proc-macro" in t["kind"] for t in p["targets"])
+                            for p in meta["packages"])
+
+        def show(rev, path):
+            r = subprocess.run(["git", "show", f"{rev}:{path}"], capture_output=True, text=True)
+            return r.stdout if r.returncode == 0 else None
+
         for f in todo:
             pid = owner(f)
+            if f.endswith(".rs"):
+                before, after = show(base, f), show("HEAD", f)
+                if before is not None and after is not None and comment_only_change(
+                        before, after, docs_are_code):
+                    inert.append((f, "changes only comments or spacing; the compiled program is the same"))
+                    continue
             if pid is None:
                 needed.append((f, "not attributable to a crate; runs by default"))
             elif pid in closure:
