@@ -33,7 +33,7 @@ evidence and the confinement finding: [notes/e1000e.md](../../notes/e1000e.md).
   than assumed: with the kernel's `iommu::confine` skipped, QEMU's VT-d refused the NIC's first
   ring fetch and no lease came.
 - Milestone 261 (the NVMe driver leaves the kernel)'s shape, which DECISIONS §86 (whether an NVMe
-  driver can leave the kernel) authorised for NVMe, and no new syscall surface. The kernel
+  driver can leave the kernel) authorized for NVMe, and no new syscall surface. The kernel
   (`kernel/src/e1000e.rs`) resets the NIC, reads its MAC address and programs the ring bases; the
   process is handed BAR0's two queue pages and an 18-page confined DMA region, and is denied page 0
   and page 5 (reset, the receive filter, the MAC address, the PHY). It polls; no interrupt is
@@ -70,6 +70,11 @@ The I219's PHY half. QEMU's 82574L never takes the PCH path, so xenon is still t
 - QEMU proves the MDIO read: the DHCP gate asserts the 82574L's PHY identifier, `0x01410cb0`.
 - The boot refusal's lift is one constant, `e1000e_service::PCH_PROVEN_ON_SILICON`, still `false`.
 
+## What was checked, 2026-10-06
+
+No new code. The runbook now expects what xenon already printed (below, and `BUGS`), and
+`cargo xtask network-bench` rehearsed green on `ab9ae95aa`.
+
 ## Bench runbook: one boot on xenon (calef)
 
 Whole, with every failure ending and the Results table: notes/e1000e.md, "calef's bench step on
@@ -83,32 +88,25 @@ Success ends `network-bench: verdict LEASED-AND-MEASURED`.
 
 ## Which card xenon has, and the tree disagreed with itself
 
-xenon's network card is an Intel I219-LM. Dell's own specification sheet for the OptiPlex 7050
-says, for the Micro: *"Integrated Intel® i219-LM Ethernet LAN 10/100/1000"* (read on 2026-09-19 from
-`i.dell.com/.../OptiPlex-7050-Towers-Technical-Specifications.pdf`, which covers the Tower, Small
-Form Factor and Micro). The machine's own System Information page records only `LOM MAC Address
-D8-9E-F3-74-B2-A2` and `Wi-Fi Device: Intel Wireless` (`notes/xenon-firmware.md`), so the firmware
-names no model.
+xenon's network card is an Intel I219-LM. Dell's specification sheet for the OptiPlex 7050 says
+*"Integrated Intel® i219-LM Ethernet LAN 10/100/1000"* (read on 2026-09-19 from
+`i.dell.com/.../OptiPlex-7050-Towers-Technical-Specifications.pdf`). The firmware's System
+Information page names no model (`notes/xenon-firmware.md`).
 
-Two records in the tree say otherwise, and neither cites anything. Milestone 260 (boot xenon over the network)'s `BUGS` and
-`script/netboot-rehearsal`'s header both say xenon has *"a Broadcom LOM rather than QEMU's e1000"*.
-Both arrived in one lane's commits on 2026-09-05 (`55702345`, `962d0ba9`) with no photograph, log or
-specification behind them, and milestone 87, which chose the machine partly for its NIC, says I219.
-The Broadcom sentence is false by Dell's specification, and this lane cannot edit either file;
-it is listed for the maintainer.
+Two records in the tree said otherwise, citing nothing: milestone 260 (boot xenon over the
+network)'s `BUGS` and `script/netboot-rehearsal`'s header called it *"a Broadcom LOM"*. Both were
+corrected on 2026-10-04 (UTC) by #1641.
 
-What one boot would capture, and it costs nothing new. The PCI survey has printed every
-function's `vendor:device` and class since commit `672d3b97` (2026-09-18 06:48 UTC,
-`kernel/src/pci.rs`, `survey`). xenon's last recorded boot predates it and printed only `15
-function(s) on the bus` (`bench/xenon-2026-09-17/first-light-095500.log`). The next xenon boot of
-any current build prints the network card's device id on a line with class `020000`, and the
-Intel 8265 wireless card on class `028000`. Photograph the survey; that settles the id. The I219's
-PCI device ids vary with the chipset generation and are not recorded here, because they would be
-recalled rather than read.
+**Settled by xenon itself, 2026-10-04 (UTC).** The PCI survey of that evening's boots, transcribed
+in `bench/xenon-2026-10-04/install-and-disk-boot.log`, prints `00:1f.6 8086:15e3 class 020000`.
+`0x15e3` is the I219-LM5, a Sunrise Point class part in FreeBSD's `e1000_pch_spt`, and it is in
+`e1000e::DEVICE_IDS`. The same survey shows the Intel 8265 wireless card (`02:00.0 8086:24fd class
+028000`) and the Management Engine (`00:16.0 8086:a2ba`, with AMT's serial function at `00:16.3`),
+so the bench boot should take the ME branch of leaving ultra-low-power mode.
 
 ## What a stranger's PC most plausibly has
 
-A judgement, with the parts recalled rather than read marked. Desktop boards mostly carry an Intel
+A judgment, with the parts recalled rather than read marked. Desktop boards mostly carry an Intel
 or a Realtek gigabit or 2.5-gigabit controller (Intel I219, I225 or I226; Realtek RTL8111 or
 RTL8125, recalled). Many laptops have no Ethernet port at all, and Wi-Fi is a different order of
 work (firmware blobs, 802.11 management, WPA), so it is out of scope and recorded in `BUGS`. A USB
@@ -184,7 +182,7 @@ same day: outside the kernel and the Kani-proved crates, take or adapt first, an
 to write. Every row was read from its source, not recalled. Code lines exclude comments, blank
 lines and tests.
 
-| candidate | licence | parts it claims | how it touches hardware | code lines | what carries into 261's shape |
+| candidate | license | parts it claims | how it touches hardware | code lines | what carries into 261's shape |
 |---|---|---|---|---|---|
 | Redox `e1000d` (`redox-os/drivers`, `net/e1000d`) | MIT | 8254x (`100e`, `100f`, `1004`), 82573L (`109a`), 82579V (`1503`). No 82574L, so not QEMU's `e1000e`; no I219 | a userspace daemon: `pcid` maps BAR0, `common::dma::Dma` allocates its own rings, an IRQ file, a `NetworkScheme` | 364 | register constants and the init order, which `crates/e1000e` already has. Nothing that allocates, maps or waits |
 | `eth-intel` 0.2.4 (crates.io; rcore-os `tgoskits`) | MIT | `100e`, `100f` only | `mmio-api`, `dma-api`, `rdif-eth` traits from the ArceOS stack; owns DMA and IRQ | 412 | the same constants; its four dependencies would be §46 additions for none of the I219 |
@@ -217,7 +215,7 @@ block's own BUGS list:
 | leave ULP without an ME, the `SMBus` switch and `LANPHYPC`; the semaphore and MDIO; the PHY reset and its NVM-driven configuration; the SPT NVM read; hardware bits, copper link, transmit errata | `e1000_init_phy_workarounds_pchlan` and what it calls, `e1000_acquire_swflag_ich8lan`, `__e1000_read_phy_reg_hv`, `e1000_reset_hw_ich8lan`, `e1000_post_phy_reset_ich8lan`, `e1000_read_nvm_spt`, `e1000_init_hw_ich8lan`, `e1000_setup_copper_link_pch_lpt` | ported 2026-10-05, `pch/phy.rs`, `pch/nvm.rs`, `pch/sequence.rs`; each function's comment names its source, and the divergences are in `pch`'s `BUGS` |
 | reconfiguration each time link comes up | `e1000_check_for_copper_link_ich8lan` | not ported: it runs from a link-change interrupt this driver does not take (Follow-on) |
 
-Intel's licence heads every adapted file. FreeBSD read at `main`, last `e1000_ich8lan.c` change
+Intel's license heads every adapted file. FreeBSD read at `main`, last `e1000_ich8lan.c` change
 46cf612d (2026-08-30). Linux's GPL `e1000e` was not consulted for any I219 sequence; its headers
 gave register offsets and ids as facts on 2026-10-04, and the ids were checked against FreeBSD's.
 
@@ -233,13 +231,16 @@ meet a known gap). Take no dependency; vendor nothing.
 - Wi-Fi is out of scope, and on a laptop it is the only network there is. A stranger with a
   laptop and no USB Ethernet adapter cannot reach rung 3.
 - One family. `igc` and Realtek are follow-ons with no emulator for either.
-- xenon's DMAR scope for the NIC is unread, the same unknown milestone 261 carries for the NVMe.
-  The bench boot's preflight line now answers it in print.
+- xenon's DMAR scope for the NIC is inferred, not printed. xenon's DMAR has two units: one for
+  named devices only and a catch-all, and both translated on 2026-10-04 (UTC)
+  (`bench/xenon-2026-10-04/`). The NVMe ran confined at rate under the catch-all that evening.
+  The NIC at `00:1f.6` is presumably under the same catch-all, but no line names its unit. The
+  bench boot's preflight line answers it in print.
 - Nothing has touched an I219: the PCH path is tested only against a simulation, and the bench
   runbook is its first run.
 - xenon's room has no Ethernet port (calef, 2026-10-04); the runbook in notes/e1000e.md gives
   the three ways round it and what each proves.
-- Intel's BSD licence asks a binary redistribution to reproduce its notice in the
+- Intel's BSD license asks a binary redistribution to reproduce its notice in the
   documentation. The source carries it (`crates/e1000e/src/pch/`); no image or package this tree
   ships carries a third-party notices file, and none exists.
 
@@ -259,7 +260,7 @@ meet a known gap). Take no dependency; vendor nothing.
   a shared helper is lifted. `kernel/src/pci.rs`, at the function.
 - **Milestone 804.** Milestone 804 (the I219 reconfigures its PHY when link comes up). The I219's link-up reconfiguration, about 250 lines of FreeBSD, once the bench
   boot leases. `design/roadmap/804-the-i219-reconfigures-its-phy-when-link-comes-up.md`.
-- **Recorded.** No third-party notices file ships with an image, which Intel's BSD licence asks
+- **Recorded.** No third-party notices file ships with an image, which Intel's BSD license asks
   of binary redistribution. `crates/e1000e/src/pch/mod.rs`'s BUGS.
 - **Recorded.** `disk_throughput`, the other bench feature, is linted by nothing. `script/lint`,
   beside the `network_bench` line.
