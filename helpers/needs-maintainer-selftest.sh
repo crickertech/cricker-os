@@ -19,7 +19,8 @@
 #       causes added on 2026-10-04 (#1640 stacked and unlabelled; #1617 and #1653 red and unowned),
 #       built in the same shape. Cases 30 to 37 are `stale-draft` (#1644, 2026-10-05),
 #       and 38 and 39 its `parked` exemption (#1745, 2026-10-06), which leave out the
-#       label-event alias only `red` reads.
+#       label-event alias only `red` reads. Case 40 is case 10 sent back to its lane
+#       (`held-by-lane` beside `architect-ruled`, 2026-10-06).
 #
 # The order of the checks is the order of the ruling: the causes, then clearing, then the
 # drain's own shape.
@@ -84,7 +85,8 @@ if [ "$got" != "$want" ]; then
   claim commit: stale-draft, not exempt. 33 an old draft Blocked-by an open pull request:
   nothing. 34 an old draft held needs-architect: nothing. 35 a fork's old draft: nothing. 36 an
   old draft already labelled: keep. 37 a ready, armed pull request with an old commit: nothing.
-  38 an old draft labeled parked: nothing. 39 the same, already labeled: clear.
+  38 an old draft labeled parked: nothing. 39 the same, already labeled: clear. 40 ready an hour,
+  unarmed, sent back with held-by-lane and architect-ruled: nothing.
 EOF
 	exit 1
 fi

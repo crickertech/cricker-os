@@ -51,7 +51,7 @@ def snap():
         out[str(p["number"])] = dict(
             title=p["title"][:60], draft=p["isDraft"], ms=p["mergeStateStatus"],
             armed=p["autoMergeRequest"] is not None, queued=queued.get(p["number"]), fails=fails,
-            hold="needs-architect" in [l["name"] for l in p["labels"]],
+            hold=bool({"needs-architect", "held-by-lane"} & {l["name"] for l in p["labels"]}),
             # The merge drain's hand-off (milestone 727 (a queue eviction goes to a maintainer session), provisional): a pull request a maintainer
             # session must pick up. Waking on it is the in-session half of briefs/session-start.md.
             nm="needs-maintainer" in [l["name"] for l in p["labels"]])

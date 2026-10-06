@@ -87,7 +87,14 @@ the moment the decision to hold is made and not later:
 - The `needs-architect` label, so the queue is `gh pr list --label needs-architect` rather than a
   paragraph somebody has to have read. It names the role, not the person. A thing lands there when
   it is outside standing merge authority: the syscall surface, a new dependency, or a
-  `design/decisions/` section owed.
+  `design/decisions/` section owed. It means waiting on calef and nothing else, so the list is his
+  worklist.
+- A send-back swaps it for `held-by-lane` (2026-10-06). When a ruling asks the lane for a change,
+  take `needs-architect` off, put `held-by-lane` on, and add `architect-ruled` if the ruling covers
+  the diff. The `architect hold` check fails on `held-by-lane` even beside `architect-ruled`, the
+  labelers do not re-add `needs-architect` while it is on, and the merge drain dequeues it. The lane
+  removes it in the push that carries the change. It is a label rather than a return to draft
+  because drafts skip CI, and the rework needs its gates.
 - A `## What I need from you` comment naming the specific ask. It must be answerable without reading
   the diff, it must say what happens if the architect says no, and it must separate what is blocking
   from what is eventually the architect's.
