@@ -359,6 +359,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 247 | DECIDED | [The split begins with basalt holding nife, and `procps` moves first](247-the-split-begins-with-basalt-and-procps-moves-first.md) |
 | 248 | DECIDED | [The name resolver is its own confined program, not a verb inside the network stack](248-the-resolver-is-its-own-confined-program.md) |
 | 249 | DECIDED | [A running address space stays nameable, and a capability never decides when it dies](249-a-running-address-space-stays-nameable.md) |
+| 250 | DECIDED | [An image names its distribution's package index, at `basalt.nifeos.org`, and a package's bytes may live anywhere](250-images-name-one-package-index-and-the-bytes-may-live-anywhere.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design
