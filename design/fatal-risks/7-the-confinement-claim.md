@@ -17,8 +17,8 @@ AMBER (calef, 2026-10-03, #1495). In-house passes found and
 fixed real defects (tests that could not fail, three times; claims false in audit 313 and on
 2026-09-21) and found no escape on a component's own authority, and the outsider half is unrun. What
 moves it is the adversarial review of milestone 633 (an outside agent attacks the confinement claim). 26 claims
-enumerated at that date (the table now has 32 rows, counted 2026-10-03 in `notes/confinement-claims.md`),
-three of them stated nowhere, and 25 harnesses carried a replayable falsification, up
+enumerated at that date (the table now has 33 rows, and all 33 carry a replayable falsification, counted 2026-10-06 (UTC) after #1747; it was 31 before),
+three of them stated nowhere, and 25 harnesses carried a replayable falsification at that date, up
 from 6 ([`notes/confinement-claims.md`](../../notes/confinement-claims.md); PR #614). The finding is
 worse than a missing test. A page-table assertion was patched to remove the check it exists for and
 still passed, because it answered "U-mode cannot read the kernel" by refusing to look. It had done so
@@ -99,12 +99,14 @@ Dated 2026-10-06 (UTC): calef re-affirmed the verdict ("Agreed Amber.") and agre
 back), proven by a host test of the window-reuse rule (`Windows::take` never hands out a window
 whose last holder is unreaped) that goes red without the fix, plus a booted test of the reap protocol
 on all three ISAs; (b) a replayable
-falsification on all 32 rows of `notes/confinement-claims.md`; (c) two consecutive independent
+falsification on all 33 rows of `notes/confinement-claims.md`; (c) two consecutive independent
 attacks with no escape on a shipped path, at least one by a non-Anthropic model or a human, where a
 pass that leaves a refusal on a shipped path unexamined does not count (calef, "Add the refusal
 log."); and
 (d) the milestone that fuzzes the surface a confined process can reach (numbered 779 in #1734,
 not yet merged) run to a set budget with no escape.
+
+Dated 2026-10-06 (UTC), facts only: criterion (a) is met, as amended, by milestone 685 (a job is finished when its memory is back) in #1744, which closed claim 24 with a host test of the window-reuse rule that goes red without the fix and a booted test of the reap protocol. Criterion (b) is met by #1747. Criteria (c) and (d) are not met. The verdict is unchanged.
 
 The caveat that keeps the gate closed: it was us attacking our own system. A hole we closed ourselves
 is the same category of evidence as the audit that found it. The outsider trying to escape is gated

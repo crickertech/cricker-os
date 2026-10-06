@@ -199,7 +199,7 @@ every Kani harness to say what evidence it carries that it can fail. In 2026W40,
 `unfalsified`. Three lanes worked the list down: #1697 (batch 1, merged 2026-10-05), #1701 (batch 2,
 2026-10-06) and #1713 (batch 3, the cover-only and x86_64 harnesses, 2026-10-06). Measured from the
 merged tree by `script/falsifications` on 2026-10-06: 229 harnesses in 33 packages, 220
-`replayable`, 7 `attested`, 2 `unfalsifiable` and 0 `unfalsified`. So 227 of 229 (99%) carry a
+`replayable`, 7 `attested`, 2 `unfalsifiable` (1 after #1747, below) and 0 `unfalsified`. So 227 of 229 (99%) carry a
 falsification record, and 220 (96%) carry one a machine replays.
 
 The two that are left are deliberate, and §134 gained a fourth state for them the same day,
@@ -210,10 +210,9 @@ The two that are left are deliberate, and §134 gained a fourth state for them t
   counter, so no mistake in it can enqueue anything. It guards against `signal` growing an enqueue
   path later. It is not evidence about the code today.
 - `direct_memory_access_validator::a_descriptor_mutated_after_validation_cannot_reach_the_device`
-  holds because the driver's table and the validator's shadow are two disjoint arrays in
-  `ChainMem`, and no line of the crate can make them one. Aiming the shadow copy back at the
-  driver's table does turn it red, but through `ChainMem::write64`'s address arithmetic rather than
-  the assertion, a red for the wrong reason. It proves a property of the design.
+  was listed here as holding by design. Corrected 2026-10-06 (UTC) by #1747: it was falsifiable
+  all along. Its memory model was a fixed table, so a double fetch could not show. `ChainMem::racing`
+  models a racing driver, and a double-fetch patch turns the harness red. `unfalsifiable` stands at 1.
 
 What this does and does not move. It closes the question milestone 191 opened about chaff, whether
 harnesses prove properties nothing could have made false: every harness but two now has a recorded
