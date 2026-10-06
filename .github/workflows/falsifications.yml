@@ -133,6 +133,78 @@ jobs:
             echo 'DECISIONS §134; the worklist is `script/falsifications --unfalsified`.'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # The transcript carries every record's replay time, which is what verify.yml's re-falsify
+      # shards are packed by. `record-times` below writes it back into the tree.
+      - name: Keep the transcript for the times file
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: falsification-sweep
+          path: ${{ runner.temp }}/sweep.txt
+          if-no-files-found: warn
+
+  # **The measured times verify.yml packs its re-falsify shards by** (calef, 2026-10-06 UTC, a
+  # 20-minute target per shard). `script/falsifications --record-times` merges this sweep's
+  # per-record times into notes/project-metrics/falsification-times.tsv and a pull request carries
+  # them, in the shape mutation.yml's `record` job uses. It runs whatever the sweep found, since a
+  # survivor's time is as good a weight as a red one's; a stale number only unbalances the shards
+  # and never drops a record from them. `main` only, through the `automation` environment.
+  record-times:
+    name: record the replay times
+    needs: sweep
+    if: always() && needs.sweep.result != 'cancelled' && github.ref == 'refs/heads/main'
+    environment: automation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_KEY }}
+
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: falsification-sweep
+          path: sweep
+
+      - name: Open or update the pull request
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -e
+          script/falsifications --record-times sweep/sweep.txt
+          if git diff --quiet -- notes/project-metrics/falsification-times.tsv; then
+            echo "Nothing to record."
+            exit 0
+          fi
+          branch="falsification/times"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add notes/project-metrics/falsification-times.tsv
+          git commit -m "falsification times: record run $GITHUB_RUN_ID
+
+          Per-record replay times from the weekly sweep, which verify.yml's re-falsify shards are
+          packed by."
+          git push --force origin "$branch"
+          body="**Lane:** $branch, opened by a scheduled workflow; calef's account is the author GitHub shows.
+
+          Per-record replay times from [run $GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID), the weights \`script/falsifications --plan-since\` packs verify.yml's re-falsify shards by."
+          existing="$(gh pr list --head "$branch" --state open --json number --jq '.[].number')"
+          if [ -z "$existing" ]; then
+            gh pr create --head "$branch" --base main --title "falsification times: record run $GITHUB_RUN_ID" --body "$body"
+          else
+            gh pr edit "$existing" --title "falsification times: record run $GITHUB_RUN_ID" --body "$body"
+          fi
+
   # **The Kani records no arm64 host can replay** (milestone 323 (the falsification record is incomplete in five ways), batch 3). A `#[kani::proof]`
   # compiles for the HOST, and `kernel/src/arch/mod.rs` selects `arch/x86_64/` by `#[cfg(target_arch)]`,
   # so `sweep` above (arm64) and verify.yml's `falsify` job (arm64) cannot make an x86_64 harness

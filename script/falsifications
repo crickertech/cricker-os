@@ -129,6 +129,10 @@
 #   script/falsifications --sweep-attested [package]   replay the `attested` records that carry a
 #                                           patch, on a host whose architecture compiles them
 #   script/falsifications --affected-since <base>   sweep only what a diff can reach (the per-PR half)
+#   script/falsifications --plan-since <base>       how many shards that needs, as a JSON list last
+#   script/falsifications --affected-since <base> --shard k/n   replay one of those shards
+#   script/falsifications --record-times <transcript>...      merge a sweep's per-record times into
+#                                           notes/project-metrics/falsification-times.tsv
 #
 # Both sweeps give each record **at most 15 minutes (a kernel test 30)** and report one that runs
 # out as `ERROR ... no verdict`, then go on to the next record and exit non-zero at the end.
@@ -232,6 +236,15 @@
 #   a harness crate's dependency closure re-falsifies every replayable harness in that crate, because
 #   nothing in this tree knows which lines a given harness actually covers (that is what an IVC would
 #   have bought). It fails toward doing too much.
+# - **A `.rs` file whose diff touches only comments reaches nothing** (2026-10-06, UTC, after #1734's
+#   comment-only path rewrites ran every record into the job's timeout). helpers/rust_source.py
+#   decides it by lexing both revisions and comparing tokens, so a `//` inside a string is code and
+#   any string-literal edit counts. Three holes, each judged smaller than replaying every record on
+#   a spelling sweep: an added comment line moves what `line!()` and a panic's location report,
+#   which no harness here asserts on; a `macro_rules!` that stringifies a captured doc attribute
+#   turns a doc comment into code, and nothing checks for one (a procedural macro outside
+#   `DOC_BLIND_PROC_MACROS` does make doc comments count); and a comment edit inside a patch's
+#   context can make that patch stale, which `--check` in `script/lint` still catches.
 # - **The sweep replays a harness only on a host whose architecture compiles it** (milestone 304),
 #   and nothing here says which host a record needs. `kernel/src/arch/mod.rs` selects its subtree
 #   with `#[cfg(target_arch = ...)]` and Kani compiles for the host, so
@@ -1178,6 +1191,64 @@ def selftest():
         if cover_only(body) != want:
             print("falsifications --selftest: %s: wanted %s" % (what, want))
             bad += 1
+    # The comment-only classifier `--affected-since` uses (helpers/rust_source.py). Each pair is
+    # (before, after); `True` means the edit reaches no harness.
+    sys.path.insert(0, os.path.join(root, "helpers"))
+    from rust_source import comment_only_change
+    src = 'fn f() -> &str {\n    // why\n    "http://a" // the url\n}\n'
+    edits = [
+        ("a comment-only diff reaches nothing",
+         src, src.replace("// why", "// why, spelled differently"), False, True),
+        ("a // inside a string literal is code, not a comment",
+         src, src.replace("http://a", "http://b"), False, False),
+        ("a comment after a string holding // is still a comment",
+         src, src.replace("// the url", "// the address"), False, True),
+        ("a doc-comment edit reaches nothing",
+         "/// Wide.\nfn f() {}\n", "/// Broad.\nfn f() {}\n", False, True),
+        ("a doc-comment edit is code when a macro may read docs",
+         "/// Wide.\nfn f() {}\n", "/// Broad.\nfn f() {}\n", True, False),
+        ("a code edit reaches",
+         "fn f() -> u8 { 1 }\n", "fn f() -> u8 { 2 }\n", False, False),
+        ("a nested block comment is one comment",
+         "/* a /* b */ c */ fn f() {}\n", "/* a /* bb */ cc */ fn f() {}\n", False, True),
+        ("a raw string holding /* is code",
+         'const S: &str = r#"/* x */"#;\n', 'const S: &str = r#"/* y */"#;\n', False, False),
+        ("a char literal of a quote does not open a string",
+         "const Q: char = '\"'; // a\n", "const Q: char = '\"'; // b\n", False, True),
+        ("splitting >> into > > is code",
+         "fn f(x: u8) -> u8 { x >> 1 }\n", "fn f(x: u8) -> u8 { x > > 1 }\n", False, False),
+        ("text that does not lex is treated as code",
+         "fn f() {}\n", 'fn f() { "unterminated }\n', False, False),
+    ]
+    for what, before, after, docs, want in edits:
+        if comment_only_change(before, after, docs) != want:
+            print("falsifications --selftest: %s: wanted %s" % (what, want))
+            bad += 1
+    # The shard packer verify.yml's re-falsify matrix uses: every record in exactly one shard, a
+    # package kept whole when it fits, split when it alone is over the target.
+    class R:
+        def __init__(self, package, name):
+            self.package, self.name = package, name
+    recs = [R("big", "r%d" % i) for i in range(6)] + [R("mid", "m%d" % i) for i in range(4)] \
+        + [R("small", "s0"), R("new", "n0")]
+    times = {"big::r%d" % i: 400.0 for i in range(6)}
+    times.update({"mid::m%d" % i: 200.0 for i in range(3)})  # mid::m3 unmeasured: its package mean
+    times["small::s0"] = 10.0  # new::n0 unmeasured: the median, 400; 3,610 s in all is 4 shards
+    shards, loads = pack(recs, times, target=1200)
+    flat = [record_key(h) for sh in shards for h in sh]
+    packing = [
+        ("every record lands in exactly one shard", sorted(flat) == sorted(record_key(h) for h in recs)),
+        ("the fewest shards that fit the target", len(shards) == 4 and max(loads) <= 1200),
+        ("a package under the target stays on one shard",
+         sum(1 for sh in shards if any(h.package == "mid" for h in sh)) == 1),
+        ("a package over the target is split", sum(1 for sh in shards if any(h.package == "big" for h in sh)) == 2),
+        ("a fixed shard count is honored", len(pack(recs, times, n=5, target=1200)[0]) == 5),
+        ("nothing reachable packs into no shard", pack([], times) == ([], [])),
+    ]
+    for what, ok in packing:
+        if not ok:
+            print("falsifications --selftest: packing: %s (loads %s)" % (what, loads))
+            bad += 1
     for what, base, head, want in cases:
         got = len(unrecorded_new_tests(base, head))
         if got != want:
@@ -1807,6 +1878,7 @@ def sweep(hs, only=None, empty_is_clean=False, attested=False):
         print("broken selection and not a clean sweep (see the docstring of sweep()).")
         return 4
     survivors, broken, hung = [], [], []
+    sweep_began = time.monotonic()
     for h in todo:
         patch = os.path.join(root, h.state_patch)
         print("==> %s::%s" % (h.package, h.name))
@@ -1850,8 +1922,10 @@ def sweep(hs, only=None, empty_is_clean=False, attested=False):
             print("    " + rev.stderr.strip())
             return 3
     print("")
-    print("%d swept, %d survivors, %d stale or broken, %d without a verdict"
-          % (len(todo), len(survivors), len(broken), len(hung)))
+    # The total, beside the per-record times `--record-times` reads, so a shard's estimate can be
+    # checked against what it took.
+    print("%d swept, %d survivors, %d stale or broken, %d without a verdict (%.0f s)"
+          % (len(todo), len(survivors), len(broken), len(hung), time.monotonic() - sweep_began))
     for h in survivors:
         print("  survivor  %s::%s" % (h.package, h.name))
     for h in broken:
@@ -1888,19 +1962,44 @@ def affected_packages(base, hs):
                 best = pid
         return best
 
+    # A `.rs` file whose diff touches only comments compiles to the same program, so it reaches no
+    # harness. The lexer, the doc-comment argument and its one guard live in helpers/rust_source.py,
+    # shared with `script/verify --affected-since`, the other copy of this rule.
+    sys.path.insert(0, os.path.join(root, "helpers"))
+    from rust_source import DOC_BLIND_PROC_MACROS, comment_only_change
+    docs_are_code = any(p["name"] not in DOC_BLIND_PROC_MACROS
+                        and any("proc-macro" in t["kind"] for t in p["targets"])
+                        for p in meta["packages"])
+
+    def show(rev, path):
+        r = subprocess.run(["git", "-C", root, "show", "%s:%s" % (rev, path)],
+                           capture_output=True, text=True)
+        return r.stdout if r.returncode == 0 else None
+
     changed_ids = set()
     unattributable = False
+    comment_only = []
     for f in changed:
         # The last four alternatives match script/verify's AGENT_CONFIG and REPO_CONFIG, whose
         # comment says why they are no input to `cargo kani` (#1726, 2026-10-06 UTC).
         if re.match(r"^(notes/|design/|[A-Z_]+\.md$|script/|helpers/|\.github/"
                     r"|\.claude/|\.agents/|\.gitignore$|packages/homes\.toml$)", f):
             continue
+        if f.endswith(".rs"):
+            before, after = show(base, f), show("HEAD", f)
+            if before is not None and after is not None and comment_only_change(
+                    before, after, docs_are_code):
+                comment_only.append(f)
+                continue
         pid = owner(f)
         if pid is None:
             unattributable = True
         else:
             changed_ids.add(pid)
+    if comment_only:
+        print("%d Rust file(s) change only comments or spacing and reach no harness%s" % (
+            len(comment_only), "" if not docs_are_code else
+            " (doc comments counted as code: a procedural macro outside DOC_BLIND_PROC_MACROS is in the graph)"))
     edges = {n["id"]: [d["pkg"] for d in n.get("deps", [])] for n in meta["resolve"]["nodes"]}
     carriers = {h.package for h in hs}
     out = set()
@@ -1921,6 +2020,150 @@ def affected_packages(base, hs):
             out.add(name)
     return out
 
+
+# **Sharding the per-pull-request replay** (calef, 2026-10-06 UTC: "the full sweep should be
+# sharded now with a target for 20 minutes for our long pole"). `--plan-since` decides how many
+# shards a diff needs and `--affected-since <base> --shard k/n` replays one of them; verify.yml runs
+# the first in its scope job, which already exists, so a diff that reaches nothing costs no runner
+# beyond that one. The shard count follows the diff: a change to one crate gets one shard, and a
+# full sweep gets as many as keep each under SHARD_TARGET.
+#
+# The packing weighs each record by its measured replay time, read from TIMES, which the weekly
+# sweep writes back (`--record-times`, falsifications.yml). Measured rather than guessed, and a
+# stale or missing number only unbalances the shards: every reachable record lands in exactly one
+# shard whatever the weights say. A record with no measurement weighs its package's mean, or the
+# tree's median when its package has none.
+#
+# A package is the packing unit, so a crate is built on one runner, unless the package alone is
+# over the target; then its records are dealt into chunks that each fit. `glob` (6 records, about
+# 1,050 s) and `machine_discovery` (16, about 1,060 s) were the cases that set this, each near 17.5
+# minutes against the 20.
+TIMES = "notes/project-metrics/falsification-times.tsv"
+SHARD_TARGET = 20 * 60
+SHARD_MAX = 8
+
+
+def record_key(h):
+    return "%s::%s" % (h.package, h.name)
+
+
+def read_times():
+    out = {}
+    try:
+        with open(os.path.join(root, TIMES)) as f:
+            for line in f:
+                if line.startswith("#") or not line.strip():
+                    continue
+                key, secs = line.rstrip("\n").split("\t")[:2]
+                out[key] = float(secs)
+    except FileNotFoundError:
+        pass
+    return out
+
+
+def weights(records, times):
+    known = sorted(times.values())
+    median = known[len(known) // 2] if known else 60.0
+    by_pkg = {}
+    for k, v in times.items():
+        by_pkg.setdefault(k.split("::")[0], []).append(v)
+    out = {}
+    for h in records:
+        key = record_key(h)
+        if key in times:
+            out[key] = times[key]
+        elif h.package in by_pkg:
+            out[key] = sum(by_pkg[h.package]) / len(by_pkg[h.package])
+        else:
+            out[key] = median
+    return out
+
+
+def pack(records, times, n=None, target=SHARD_TARGET):
+    """Deal `records` into shards by weight. With `n`, exactly n shards; without, the fewest whose
+    heaviest is at most `target` (capped at SHARD_MAX). Returns (shards, loads), each shard a list
+    of records. Deterministic, because every shard job recomputes it and they must agree."""
+    w = weights(records, times)
+    groups = {}
+    for h in sorted(records, key=record_key):
+        groups.setdefault(h.package, []).append(h)
+    items = []  # (weight, name, records)
+    for pkg, hs in sorted(groups.items()):
+        total = sum(w[record_key(h)] for h in hs)
+        if total <= target:
+            items.append((total, pkg, hs))
+            continue
+        chunks = []  # longest first into the lightest chunk that fits, else a new chunk
+        for h in sorted(hs, key=lambda h: (-w[record_key(h)], record_key(h))):
+            fit = [c for c in chunks if c[0] + w[record_key(h)] <= target]
+            if fit:
+                c = min(fit, key=lambda c: c[0])
+            else:
+                c = [0.0, []]
+                chunks.append(c)
+            c[0] += w[record_key(h)]
+            c[1].append(h)
+        for i, (load, chunk) in enumerate(chunks):
+            items.append((load, "%s#%d" % (pkg, i), chunk))
+    items.sort(key=lambda it: (-it[0], it[1]))
+
+    def deal(k):
+        bins = [[0.0, []] for _ in range(k)]
+        for load, _, hs in items:
+            b = min(range(k), key=lambda i: (bins[i][0], i))
+            bins[b][0] += load
+            bins[b][1].extend(hs)
+        return bins
+
+    if not items:
+        return [], []
+    if n is None:
+        n = max(1, -(-int(sum(it[0] for it in items)) // target))
+        while n < min(SHARD_MAX, len(items)) and max(b[0] for b in deal(n)) > target:
+            n += 1
+    bins = deal(n)
+    return [b[1] for b in bins], [b[0] for b in bins]
+
+
+def reachable_records(base, cheap):
+    names = affected_packages(base, cheap)
+    return names, [h for h in cheap if h.state == "replayable" and h.package in names]
+
+
+def record_times(logs):
+    """Merge the per-record times in sweep transcripts into TIMES. A record absent from the logs
+    keeps its old number; nothing here drops one, since a stale weight only unbalances."""
+    times = read_times()
+    found = 0
+    for log in logs:
+        cur = None
+        for line in open(log, errors="replace"):
+            m = re.search(r"==> (\S+::\S+)\s*$", line)
+            if m:
+                cur = m.group(1)
+                continue
+            m = re.search(r"\s{4}(?:red|SURVIVOR|ERROR|STALE)\b.*\(([0-9.]+) s\)\s*$", line)
+            if m and cur:
+                times[cur] = float(m.group(1))
+                found += 1
+                cur = None
+    path = os.path.join(root, TIMES)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write("# Seconds each falsification record took to replay, build included, from the weekly\n"
+                "# sweep's transcript (`script/falsifications --record-times`). Read by `--plan-since`\n"
+                "# and `--shard` to balance verify.yml's re-falsify shards; a stale number only\n"
+                "# unbalances them. Generated: do not edit by hand.\n")
+        for k in sorted(times):
+            f.write("%s\t%.1f\n" % (k, times[k]))
+    print("%d record time(s) read; %s holds %d" % (found, TIMES, len(times)))
+    return 0 if found else 1
+
+
+if mode == "--record-times":
+    if len(args) < 2:
+        sys.exit("usage: script/falsifications --record-times <sweep transcript>...")
+    sys.exit(record_times(args[1:]))
 
 if mode == "--selftest":
     # Fixtures only, before any `cargo metadata`, so `script/lint` can run it first for nothing.
@@ -1995,12 +2238,30 @@ elif mode == "--affected-since":
     # Host-test records ride the per-PR half too (milestone 742): a replay is one `cargo test`,
     # seconds, so the cost argument that keeps kernel and swish-check records weekly does not apply.
     cheap = hs + [t for t in kts if t.kind == "host test"]
-    names = affected_packages(args[1], cheap)
+    names, todo = reachable_records(args[1], cheap)
     if not names:
         print("no harness package is reachable from this change; nothing to re-falsify")
         sys.exit(0)
     print("reachable harness packages: %s" % ", ".join(sorted(names)))
-    sys.exit(sweep(cheap, names, empty_is_clean=True))
+    if len(args) >= 4 and args[2] == "--shard":
+        k, n = (int(x) for x in args[3].split("/"))
+        shards, loads = pack(todo, read_times(), n=n)
+        if not 1 <= k <= len(shards):
+            sys.exit("--shard %d/%d: this diff packs into %d shard(s)" % (k, n, len(shards)))
+        todo = shards[k - 1]
+        print("shard %d/%d: %d record(s), estimated %.0f s" % (k, n, len(todo), loads[k - 1]))
+    sys.exit(sweep(todo, None, empty_is_clean=True))
+elif mode == "--plan-since":
+    # verify.yml's scope job reads the last line, a JSON list of shard indices for the matrix.
+    if len(args) < 2:
+        sys.exit("usage: script/falsifications --plan-since <base-ref>")
+    cheap = hs + [t for t in kts if t.kind == "host test"]
+    names, todo = reachable_records(args[1], cheap)
+    shards, loads = pack(todo, read_times())
+    for i, (sh, load) in enumerate(zip(shards, loads), 1):
+        print("shard %d: %d record(s), estimated %.0f s (%s)" % (
+            i, len(sh), load, ", ".join(sorted({h.package for h in sh}))))
+    print(json.dumps(list(range(1, len(shards) + 1))))
 elif mode in ("", "--all"):
     table(hs, pkgs, kts)
 else:
