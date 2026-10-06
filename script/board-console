@@ -6,6 +6,8 @@
 #   script/board-console --for 30m --until none   # sustained watching, for a stress run
 #   script/board-console --replay target/board-console-1756...log   # re-read a capture
 #   script/board-console --tally target/radon-soak-1757...log        # what the lottery drew (249)
+#   script/board-console --exposure target/argon-soak-1759...log --machine argon --build <sha> --start '<utc>'
+#                                             # the curve's exposure row for each soaked boot (225)
 #   script/board-console --stop               # end a rebooting soak at its next draw (249, 324)
 #   script/board-console --stop-after 50      # end one with exactly fifty samples in it
 #   script/board-console --board xenon        # a board whose firmware prologue is not radon's
