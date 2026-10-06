@@ -123,7 +123,7 @@ const MAX_REPORTS: usize = 42;
 /// untyped in slot 0, a report rendezvous in slot 1), **plus** the one thing this milestone is
 /// about: a device capability in slot 2, `WRITE|GRANT`, exactly as the progenitor gets one at boot. So
 /// what is under test is the operator's choices, not a privileged shortcut.
-fn spawn_swapper(role: u64) -> (sched::RendezvousId, u64, u64) {
+fn spawn_swapper(role: u64) -> (sched::RendezvousId, u64, u64, u64) {
     let (initrd_start, initrd_len) = memory::initrd_region().expect("no initrd region");
     let initrd_pages = initrd_len.div_ceil(FRAME_SIZE);
     let bytes = program("swapper").expect("no swapper program in the initrd archive");
@@ -162,7 +162,13 @@ fn spawn_swapper(role: u64) -> (sched::RendezvousId, u64, u64) {
     }
     let aspace = readopt_user_address_space(space).expect("register the swapper aspace");
 
-    let report = sched::create_rendezvous();
+    // Carved from a region this run owns and reclaims, not from the kernel's own pool:
+    // `sched::create_rendezvous` grows that pool in 32-page chunks it never frees, so every run
+    // costs the suite a page for good and the ledger moves in +32 steps (the `BUGS` on
+    // `testing::SUITE_PAGE_FRAME_BUDGET`). Milestone 633 (an outside agent attacks the confinement
+    // claim) added a ninth run and crossed a chunk boundary, which is how this was found.
+    let report_region = crate::memory_region::create(2).expect("no region for the report endpoint");
+    let report = sched::create_rendezvous_from(report_region).expect("no report rendezvous");
     let budget = crate::memory_region::create(SWAPPER_BUDGET_PAGES).expect("no budget for swapper");
     let thread_control_block_region = crate::memory_region::create(2).expect("no tcb region");
     let tid = sched::create_thread_control_block(thread_control_block_region).expect("no tcb");
@@ -196,7 +202,7 @@ fn spawn_swapper(role: u64) -> (sched::RendezvousId, u64, u64) {
     sched::configure_thread_control_block(tid, elf.entry(), USER_STACK_TOP, aspace)
         .expect("configure");
     sched::start_thread_control_block(tid, [role, initrd_len, 0]).expect("start");
-    (report, budget, thread_control_block_region)
+    (report, budget, thread_control_block_region, report_region)
 }
 
 /// **Run one swap system to its own verdict**, returning every report it made.
@@ -206,7 +212,7 @@ fn spawn_swapper(role: u64) -> (sched::RendezvousId, u64, u64) {
 /// background, and a test that leaves work running is a test that fails somebody else. The
 /// operator's `RPT_LOG` is always its last word, so that is the stop condition.
 fn run_swap(role: u64) -> ([[u64; 5]; MAX_REPORTS], usize) {
-    let (report, budget, thread_control_block_region) = spawn_swapper(role);
+    let (report, budget, thread_control_block_region, report_region) = spawn_swapper(role);
     let mut msgs = [[0u64; 5]; MAX_REPORTS];
     let mut n = 0;
     while n < MAX_REPORTS {
@@ -306,6 +312,9 @@ fn run_swap(role: u64) -> ([[u64; 5]; MAX_REPORTS], usize) {
     // only thing that could trip it was an *earlier* test's teardown landing mid-run, which is
     // nothing this test is responsible for. See the BUGS section of notes/live-replacement.md.
     let _ = sched::reclaim_region(thread_control_block_region);
+    // Last, after every thread that held the report endpoint is gone or going. Hygiene like the
+    // line above, for the same reason it is not asserted on.
+    let _ = sched::reclaim_region(report_region);
     (msgs, n)
 }
 
