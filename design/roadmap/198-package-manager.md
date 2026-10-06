@@ -221,10 +221,7 @@ built, and the gate line above is left as minted because changing it is the firs
 | Trust (found, not briefed) | [DECISIONS §195](../decisions/195-a-recipe-vouches-and-the-owner-may-overrule.md) | **Decided 2026-09-19 by calef**, after reading how apt, pkg, pacman, Nix, Fuchsia and Homebrew do it: Homebrew's shape (digests in reviewed recipes, per source) with the owner-vouches escape hatch every one of them keeps. The image's measured table becomes the first source |
 | Trivial install | [DECISIONS §157](../decisions/157-a-trivial-install-is-a-web-page-a-usb-drive-and-packages.md) | **Decided 2026-09-19 by calef, not as recommended:** a web page, a download written to a USB drive and installed, then packages over the internet. The lane had recommended a QEMU run bundle first; that slice is superseded |
 
-**Superseded 2026-09-19 by §157 and by "Rescoped 2026-09-19" above**, kept as the record of what
-was proposed. ~~The proposed first slice needs none of the three irreversible rulings: packages
-as host-side recipes, image composition from a declared set, and a run bundle tested by the stranger
-harness and not published until calef says so.~~
+**Superseded 2026-09-19 by §157 and by "Rescoped 2026-09-19" above.**
 
 ## Follow-on
 
@@ -275,21 +272,10 @@ calef's acts are named there rather than here.
   members and `MAX_MEMBERS` is never approached. Both discharge in 4 seconds together, and
   `script/verify`'s table carries the row.
 - It does not decide the format, the activation shape, or the repository split. The scoping
-  lane found the split's timing is not needed at all (see the gate proposal). ~~The format,
-  activation and trust forks are proposals awaiting calef, not decisions.~~ calef decided all three
+  lane found the split's timing is not needed at all (see the gate proposal). calef decided the format,
+  activation and trust forks
   (§197, §208, §195); the repository split is still open under §151 (the goal of the
   repository split is independent release).
-- ~~"Trivial install" is undefined on purpose and that is a real gap, not a subtlety. Nobody has
-  written what a stranger's first ten minutes look like.~~ Written 2026-09-19 in the
-  trivial-install proposal, from the tree and from commands run that day. ~~What remains undefined
-  is calef's ruling on it.~~ Ruled 2026-09-19 (§157), and mapped onto rungs above.
-- ~~**No real board gives a stranger a prompt today.** x86-64 has no interactive boot (milestone 182)
-  and no USB keyboard (milestone 242); radon's prompt input is unconfirmed on silicon. So the only
-  interactive install this milestone can offer soon is QEMU, and that limit is outside this
-  milestone's reach.~~ Reframed 2026-09-19 by §157: the install is a PC, and the limit is now
-  rung 1's. x86_64 has a prompt over serial since milestone 299, proven under QEMU and not yet on
-  xenon; the shell's output does not reach the screen (a new proposal), and the keyboard is still
-  milestone 242.
 - Rung 1 cannot be finished in "a milestone or two", and the reason is milestone 242 (USB host
   and HID). The rungs are split so rungs 2 and 3 do not wait on it; rung 4 does.
 - The rungs are sequenced on one Dell. Each has a second-machine exit criterion, and until one
@@ -299,10 +285,11 @@ calef's acts are named there rather than here.
 - A third party cannot author a package without cloning this repository, because the `nife-dev`
   toolchain, the target specifications and the linker script exist only as build steps inside it
   (`helpers/build-ripgrep.sh` is the one out-of-tree build and it needs them). §151 (the goal of the repository split is independent release)'s
-  "third-party programs" needs a downloadable toolchain, which nothing tracks yet.
+  "third-party programs" needs a downloadable toolchain: §235 (the OS is built and updated from
+  packages) ruled an SDK archive for it, proposal P4 of milestone 607 (nife is built and updated
+  from packages).
 - The cold build time a stranger pays was not measured, because two other lanes were gating on
-  the machine when this block was scoped. ~~The first slice's stranger-harness run should measure it
-  alongside the bundle.~~ Under §157 a stranger does not build at all; it stays worth measuring for
+  the machine when this block was scoped. Under §157 a stranger does not build at all; it stays worth measuring for
   contributors, and rung 4's stranger-harness run measures the time from the page to a prompt
   instead.
 - Packages do not by themselves run `git` or `nano`. Milestone 205 (no argument vector) and the
