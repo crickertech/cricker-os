@@ -17,10 +17,13 @@
 //!
 //! # BUGS
 //!
-//! - **The reset sequence is the 82574L's, plus FreeBSD's MAC-register steps for the I219**
-//!   (`crates/e1000e/src/pch.rs`: ULP exit through the Management Engine, the SPT ring flush, bus
-//!   master disable, the STRAP and KABGTXD writes). QEMU proves the first half only; the I219
-//!   steps first run on xenon. The PHY-register half of FreeBSD's bring-up is not ported.
+//! - **Two bring-ups share this file, and QEMU proves one of them.** The 82574L's reset is this
+//!   file's own; an I219 instead runs FreeBSD's three passes from `crates/e1000e/src/pch/`
+//!   (`sequence`: the PHY workarounds, the global reset with the PHY, the hardware and copper-link
+//!   setup), with the SPT ring flush here between the first two. The QEMU gates run the 82574L and
+//!   the MDIO primitive both paths share (the PHY identifier read); the I219 passes first run on
+//!   xenon (notes/e1000e.md's bench step). FreeBSD's link-up reconfiguration is not ported
+//!   (`pch`'s `BUGS`).
 //! - **Waiting for link is a bounded spin at bring-up**, up to [`LINK_WAIT_MS`]. QEMU's link is
 //!   up at once; a real copper link negotiates in seconds, and a bring-up that times out still
 //!   hands the process a working device whose first DHCP DISCOVER may simply be lost (smoltcp
@@ -46,6 +49,10 @@ pub enum Error {
     ResetTimeout,
     /// Receive-address entry 0 was not marked valid after reset: the NVM load did not happen.
     NoMacAddress,
+    /// An I219 bring-up pass stopped (`crates/e1000e/src/pch/sequence.rs`).
+    Pch(::e1000e::pch::sequence::Error),
+    /// The PHY identifier could not be read over MDIO.
+    PhyId(::e1000e::pch::phy::Error),
 }
 
 /// Why there is no NIC to hand out.
@@ -75,6 +82,9 @@ pub struct Found {
     pub handoff: ::e1000e::Handoff,
     /// Whether `STATUS.LU` was set before [`LINK_WAIT_MS`] ran out.
     pub link_up: bool,
+    /// The PHY's identifier, revision masked off, read over MDIO. On the 82574L this is the read
+    /// that proves [`::e1000e::pch::phy::read_mdic`] under QEMU.
+    pub phy_id: u32,
 }
 
 /// The region's physical base, once allocated: zero until the first bring-up.
@@ -88,47 +98,24 @@ pub fn bring_up() -> Result<Found, Absent> {
     let region = region_for(dev.rid);
     let c = Controller(mmu::phys_to_virt(dev.bar0));
     let refused = |why| Absent::Refused { rid: dev.rid, why };
-    // An I219 behind a PCH wants FreeBSD's MAC-register steps around the reset
-    // (`crates/e1000e/src/pch.rs`, which has the sources and the licence). QEMU's 82574L does not,
-    // and none of this runs under the gates.
     let pch = ::e1000e::pch::is_pch(dev.device);
+    let mut hw = Bar { c: &c, dev: &dev };
+    let mut phy_id = None;
     if pch {
-        leave_ultra_low_power(&c);
+        // An I219 behind a PCH: FreeBSD's passes, in FreeBSD's order (`crates/e1000e/src/pch/`,
+        // which has the sources and Intel's licence). QEMU's 82574L does not take this branch.
+        use ::e1000e::pch::sequence;
+        let id = sequence::init_phy_workarounds(&mut hw).map_err(|e| refused(Error::Pch(e)))?;
+        phy_id = Some(id);
         flush_descriptor_rings(&c, &dev, region);
-        disable_bus_mastering(&c);
+        sequence::global_reset(&mut hw, RESET_WAIT_MS).map_err(|e| refused(Error::Pch(e)))?;
+    } else {
+        reset_82574(&c).map_err(refused)?;
     }
 
-    // Quiesce: no interrupts, receiver and transmitter off, then a posted-write flush.
-    c.w(regs::IMC, u32::MAX);
-    c.w(regs::RCTL, 0);
-    c.w(regs::TCTL, 0);
-    let _ = c.r(regs::STATUS);
-    spin_ms(10);
-
-    // Global reset. Self-clearing; the registers read garbage while it runs, so wait first. On a
-    // PCH part FreeBSD writes the vendor-id dword into the read-only STRAP register on each side
-    // of it, because the configuration-space read that produces the value is the delay the
-    // hardware needs ("Read from EXTCNF_CTRL ... may occur during global reset and cause system
-    // hang. Configuration space access creates the needed delay.").
-    let strap = || {
-        if pch {
-            c.w(::e1000e::pch::regs::STRAP, dev.config_read32(0) & 0xffff);
-        }
-    };
-    strap();
-    c.w(regs::CTRL, c.r(regs::CTRL) | ::e1000e::CTRL_RST);
-    spin_ms(20);
-    strap();
-    if !wait_ms(RESET_WAIT_MS, || c.r(regs::CTRL) & ::e1000e::CTRL_RST == 0) {
-        return Err(refused(Error::ResetTimeout));
-    }
     // Reset re-enabled nothing we want; mask again and clear anything pending.
     c.w(regs::IMC, u32::MAX);
     let _ = c.r(regs::ICR);
-    if pch {
-        let k = ::e1000e::pch::regs::KABGTXD;
-        c.w(k, c.r(k) | ::e1000e::pch::reset::KABGTXD_BGSQLBIAS);
-    }
     zero(region);
 
     // Tell management firmware a driver has the device, and bring the link up.
@@ -136,10 +123,15 @@ pub fn bring_up() -> Result<Found, Absent> {
         regs::CTRL_EXT,
         c.r(regs::CTRL_EXT) | ::e1000e::CTRL_EXT_DRV_LOAD,
     );
-    c.w(
-        regs::CTRL,
-        c.r(regs::CTRL) | ::e1000e::CTRL_SLU | ::e1000e::CTRL_ASDE,
-    );
+    if pch {
+        // FreeBSD's `e1000_init_hw_ich8lan`, whose copper-link setup sets `CTRL.SLU` itself.
+        ::e1000e::pch::sequence::init_hw(&mut hw).map_err(|e| refused(Error::Pch(e)))?;
+    } else {
+        c.w(
+            regs::CTRL,
+            c.r(regs::CTRL) | ::e1000e::CTRL_SLU | ::e1000e::CTRL_ASDE,
+        );
+    }
 
     let mac = ::e1000e::mac_from_receive_address(c.r(regs::RAL0), c.r(regs::RAH0))
         .ok_or(refused(Error::NoMacAddress))?;
@@ -168,7 +160,17 @@ pub fn bring_up() -> Result<Found, Absent> {
 
     c.w(regs::TIPG, ::e1000e::tipg());
     c.w(regs::TCTL, ::e1000e::tctl());
+    if pch {
+        ::e1000e::pch::sequence::transmit_errata(&mut hw);
+    }
     c.w(regs::RCTL, ::e1000e::rctl());
+
+    // The 82574L's PHY answers at address 1 with no pages and no semaphore. QEMU emulates it, so
+    // this is the one MDIO read the gates see.
+    let phy_id = match phy_id {
+        Some(id) => id,
+        None => ::e1000e::pch::phy::id_at(&mut hw, 1).map_err(|e| refused(Error::PhyId(e)))?,
+    };
 
     let link_up = wait_ms(LINK_WAIT_MS, || {
         c.r(regs::STATUS) & ::e1000e::STATUS_LU != 0
@@ -183,7 +185,25 @@ pub fn bring_up() -> Result<Found, Absent> {
             data_plane_phys: region,
         },
         link_up,
+        phy_id,
     })
+}
+
+/// **The 82574L's quiesce and global reset**, unchanged from before the I219 passes existed.
+fn reset_82574(c: &Controller) -> Result<(), Error> {
+    // Quiesce: no interrupts, receiver and transmitter off, then a posted-write flush.
+    c.w(regs::IMC, u32::MAX);
+    c.w(regs::RCTL, 0);
+    c.w(regs::TCTL, 0);
+    let _ = c.r(regs::STATUS);
+    spin_ms(10);
+    // Global reset. Self-clearing; the registers read garbage while it runs, so wait first.
+    c.w(regs::CTRL, c.r(regs::CTRL) | ::e1000e::CTRL_RST);
+    spin_ms(20);
+    if !wait_ms(RESET_WAIT_MS, || c.r(regs::CTRL) & ::e1000e::CTRL_RST == 0) {
+        return Err(Error::ResetTimeout);
+    }
+    Ok(())
 }
 
 /// The DMA region: allocated and confined on the first call, the same region on every later one.
@@ -222,26 +242,6 @@ fn zero(region: u64) {
             layout::BYTES as usize,
         );
     }
-}
-
-/// **Leave ultra-low-power mode through the Management Engine**, FreeBSD's
-/// `e1000_disable_ulp_lpt_lp` with `force`, its ME branch. Without an ME the exit is a PHY-register
-/// sequence that is not ported (`crates/e1000e/src/pch.rs`), and the boot says so rather than
-/// guessing.
-fn leave_ultra_low_power(c: &Controller) {
-    use ::e1000e::pch::{regs as pch, ulp};
-    if !ulp::has_me(c.r(pch::FWSM)) {
-        crate::println!(
-            "  e1000e: no Management Engine; leaving ULP by PHY registers is not ported, so a PHY \
-             firmware left in ULP stays there"
-        );
-        return;
-    }
-    c.w(pch::H2ME, ulp::request(c.r(pch::H2ME)));
-    if !wait_ms(ulp::WAIT_MS, || ulp::done(c.r(pch::FWSM))) {
-        crate::println!("  e1000e: the Management Engine did not finish leaving ULP in time");
-    }
-    c.w(pch::H2ME, ulp::release(c.r(pch::H2ME)));
 }
 
 /// **Empty the descriptor rings before the reset, if the hardware says it must**, FreeBSD's
@@ -294,31 +294,65 @@ fn flush_descriptor_rings(c: &Controller, dev: &crate::pci::PciE1000eDevice, reg
     c.w(regs::RCTL, rctl & !0x2);
 }
 
-/// **Stop new bus-master requests and wait for pending ones**, FreeBSD's
-/// `e1000_disable_pcie_master_generic`, so the PCIe link does not stick across the reset.
-fn disable_bus_mastering(c: &Controller) {
-    use ::e1000e::pch::reset;
-    c.w(regs::CTRL, c.r(regs::CTRL) | reset::CTRL_GIO_MASTER_DISABLE);
-    let deadline = reset::MASTER_WAIT_US.div_ceil(1000);
-    if !wait_ms(deadline, || {
-        c.r(regs::STATUS) & reset::STATUS_GIO_MASTER_ENABLE == 0
-    }) {
-        crate::println!("  e1000e: master requests still pending after 80 ms; resetting anyway");
-    }
-}
-
 /// BAR0, through the direct map.
 struct Controller(u64);
 
+/// The largest offset any `crates/e1000e` constant reaches, plus the access: the flash data
+/// register at `0xe010` on SPT is the highest. Both parts' BAR0 is 128 KiB.
+const BAR0_BYTES: u64 = 128 * 1024;
+
 impl Controller {
     fn r(&self, off: u64) -> u32 {
+        assert!(off + 4 <= BAR0_BYTES);
         // SAFETY: BAR0 is device-mapped inside the PCI BAR window `mmu::map_everything` maps, and
-        // every `off` is a `crates/e1000e::regs` constant, inside the 82574L's 128 KiB BAR.
+        // the assertion keeps `off` inside the 128 KiB BAR both claimed families have.
         unsafe { core::ptr::read_volatile((self.0 + off) as *const u32) }
     }
     fn w(&self, off: u64, v: u32) {
+        assert!(off + 4 <= BAR0_BYTES);
         // SAFETY: as `r`.
         unsafe { core::ptr::write_volatile((self.0 + off) as *mut u32, v) }
+    }
+    fn r16(&self, off: u64) -> u16 {
+        assert!(off + 2 <= BAR0_BYTES);
+        // SAFETY: as `r`. Only the SPT flash status word is read this way.
+        unsafe { core::ptr::read_volatile((self.0 + off) as *const u16) }
+    }
+}
+
+/// **What `crates/e1000e`'s I219 sequences and its MDIO layer run against**: BAR0, the function's
+/// configuration space for the vendor-id read the reset needs as a delay, the timer, and the
+/// console for what the bench boot should see.
+struct Bar<'a> {
+    c: &'a Controller,
+    dev: &'a crate::pci::PciE1000eDevice,
+}
+
+impl ::e1000e::pch::Hw for Bar<'_> {
+    fn read(&mut self, off: u64) -> u32 {
+        self.c.r(off)
+    }
+    fn write(&mut self, off: u64, v: u32) {
+        self.c.w(off, v);
+    }
+    fn read16(&mut self, off: u64) -> u16 {
+        self.c.r16(off)
+    }
+    fn delay_us(&mut self, us: u64) {
+        spin_us(us);
+    }
+    fn pci_vendor_id(&mut self) -> u16 {
+        self.dev.config_read32(0) as u16
+    }
+    fn note(&mut self, n: ::e1000e::pch::sequence::Note) {
+        use ::e1000e::pch::sequence::Note;
+        match n {
+            // The identifier in hex, as the bench card compares it.
+            Note::PhyReached { at, id } => {
+                crate::println!("  e1000e: PhyReached {{ at: {at:?}, id: {id:#010x} }}");
+            }
+            n => crate::println!("  e1000e: {n:?}"),
+        }
     }
 }
 
