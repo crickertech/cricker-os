@@ -115,6 +115,8 @@
 #   script/falsifications --sweep [package] apply every recorded patch, require red, revert
 #                                           (the weekly job, falsifications.yml, goes red on a finding,
 #                                           and on a selection that replays nothing)
+#   script/falsifications --sweep-attested [package]   replay the `attested` records that carry a
+#                                           patch, on a host whose architecture compiles them
 #   script/falsifications --affected-since <base>   sweep only what a diff can reach (the per-PR half)
 #
 # Both sweeps give each record **at most 15 minutes (a kernel test 30)** and report one that runs
@@ -524,6 +526,38 @@ def test_case_files():
     return files
 
 
+ASSERTS = re.compile(r"\b(?:debug_)?assert(?:_eq|_ne)?!|\bkani::assert\s*\(")
+COVERS = re.compile(r"\bcover!")
+
+
+def cover_only(body):
+    """True when a harness body has `cover!` and nothing that can state a claim (milestone 323).
+
+    **A `cover!` cannot turn a Kani harness red.** Kani 0.67.0 reports `VERIFICATION:- SUCCESSFUL`
+    with an unsatisfied cover (batch 2 found it on printenv's full-buffer harness), so a harness
+    whose only statement is a cover is unfalsifiable by construction and the falsification count
+    overstates proof strength. Such a harness is totality-by-panic at best, and a reader cannot tell
+    that from a claim. `//` comments are stripped first so prose mentioning "assert" does not count.
+    """
+    code = "\n".join(l.split("//", 1)[0] for l in body.split("\n"))
+    return bool(COVERS.search(code)) and not ASSERTS.search(code)
+
+
+def fn_body(lines, j):
+    """The text from the `{` that opens the function whose signature starts at `lines[j]` to its
+    matching `}`. Brace counting, like the module tracker; a brace inside a string literal could
+    miscount it, and no harness body has one."""
+    depth, started, out = 0, False, []
+    for k in range(j, len(lines)):
+        code = lines[k].split("//", 1)[0]
+        out.append(code)
+        depth += code.count("{") - code.count("}")
+        started = started or "{" in code
+        if started and depth <= 0:
+            break
+    return "\n".join(out)
+
+
 def harnesses(pkgs=None):
     """Every Kani harness in a workspace package, with the falsification record it carries.
 
@@ -578,7 +612,9 @@ def harnesses(pkgs=None):
                 if hit:
                     record, record_line = hit.group(1).strip(), k + 1
                 k -= 1
-            out.append(Harness(pkg, target, name, rel, i + 1, record, record_line, mods[i]))
+            h = Harness(pkg, target, name, rel, i + 1, record, record_line, mods[i])
+            h.body = fn_body(lines, j)
+            out.append(h)
     out.sort(key=lambda h: (h.package, h.name))
     return out
 
@@ -646,6 +682,7 @@ class Harness:
         self.line = line
         self.record = record
         self.record_line = record_line
+        self.body = ""
 
     @property
     def state(self):
@@ -684,6 +721,24 @@ class Harness:
         keyed on it: the path and the sweep's own filter are one fact with the separators changed.
         """
         return "::".join(self.mods + [self.name])
+
+    @property
+    def attested_patch(self):
+        """The patch an `attested` record carries beside its prose, or None (milestone 323 (the falsification record is incomplete in five ways), batch 3).
+
+        A record is `attested` when no host this tree sweeps on can replay it: a `#[kani::proof]`
+        compiles for the HOST, so an `arch/x86_64/` harness is red only on an x86_64 box, and the
+        weekly sweep and the per-PR re-falsify job both run on arm64. Such a record still writes its
+        patch down, at the conventional path and in backticks in its own text, so that the patch is
+        claimed (not rot), applies (`--check`), and is replayed by `--sweep-attested` on a host that
+        can (the `sweep-x86_64` job in falsifications.yml). A refusal to skip silently, kept: the
+        record says `attested` and names the job that re-checks it.
+        """
+        if self.state != "attested" or not self.record:
+            return None
+        if "`%s`" % self.conventional_patch not in self.record:
+            return None
+        return self.conventional_patch if os.path.exists(os.path.join(root, self.conventional_patch)) else None
 
     @property
     def conventional_patch(self):
@@ -1025,6 +1080,18 @@ def selftest():
                                             "#[test_case]\nfn x() {}\n"}, 0),
     ]
     bad = 0
+    covers = [
+        ("a cover with no assertion is cover-only", "{ let x = kani::any::<u8>(); kani::cover!(x > 3); }", True),
+        ("a cover beside an assert_eq is not", "{ kani::cover!(true); assert_eq!(1, 1); }", False),
+        ("a cover beside an assert is not", "{ assert!(a); kani::cover!(a); }", False),
+        ("a cover beside kani::assert is not", "{ kani::assert(a, \"m\"); kani::cover!(a); }", False),
+        ("a body with no cover is not cover-only", "{ let _ = f(kani::any()); }", False),
+        ("the word assert in a comment does not count", "{ // assert!(x)\n kani::cover!(x); }", True),
+    ]
+    for what, body, want in covers:
+        if cover_only(body) != want:
+            print("falsifications --selftest: %s: wanted %s" % (what, want))
+            bad += 1
     for what, base, head, want in cases:
         got = len(unrecorded_new_tests(base, head))
         if got != want:
@@ -1147,6 +1214,12 @@ def check(hs, pkgs, kts=()):
             problems.append("%s: a `#[kani::proof]` whose function this script could not find"
                             % where)
             continue
+        if h.kind == "kani" and cover_only(h.body):
+            problems.append("%s: harness `%s` has a `cover!` and no assertion. An unsatisfied cover "
+                            "leaves a Kani harness green (Kani 0.67.0), so this harness can never "
+                            "fail on the property its cover names. State the property as an "
+                            "`assert!`, and keep the cover as the non-vacuity check."
+                            % (where, h.name))
         if h.record is None:
             problems.append("%s: harness `%s` carries no `Falsification:` block. One of: "
                             "`replayable <path>`, `attested <YYYY-MM-DD>`, `unfalsified`."
@@ -1209,6 +1282,15 @@ def check(hs, pkgs, kts=()):
             if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
                 problems.append("%s: harness `%s` is `attested` with no `YYYY-MM-DD` date"
                                 % (where, h.name))
+            if h.attested_patch:
+                claimed[h.attested_patch] = h.name
+                applies = subprocess.run(
+                    ["git", "-C", root, "apply", "--check", os.path.join(root, h.attested_patch)],
+                    capture_output=True, text=True)
+                if applies.returncode != 0:
+                    problems.append("%s: `%s` no longer applies to this tree, so the covered code "
+                                    "moved. Re-cut it and replay it on the host it needs (`%s`)."
+                                    % (where, h.attested_patch, "script/falsifications --sweep-attested"))
     gaps = []
     for p in patch_files(pkgs):
         if p in claimed:
@@ -1590,7 +1672,7 @@ def replay_swish_check_on(t, arch):
     return "red", "the line caught it on %s\n      %s" % (arch, named[0][:300])
 
 
-def sweep(hs, only=None, empty_is_clean=False):
+def sweep(hs, only=None, empty_is_clean=False, attested=False):
     """Apply each recorded patch, run that ONE harness, require red, revert.
 
     A survivor here is a harness whose own recorded falsification failed to make it fail, which is
@@ -1612,7 +1694,15 @@ def sweep(hs, only=None, empty_is_clean=False):
         print("")
         print(d)
         return 2
-    todo = [h for h in hs if h.state == "replayable" and (only is None or h.package in only)]
+    if attested:
+        # `--sweep-attested`: the records no arm64 host can replay, run on a host that can.
+        todo = [h for h in hs if h.attested_patch and (only is None or h.package in only)]
+        for h in todo:
+            h.state_patch = h.attested_patch
+    else:
+        todo = [h for h in hs if h.state == "replayable" and (only is None or h.package in only)]
+        for h in todo:
+            h.state_patch = h.patch
     if not todo:
         print("nothing to sweep" + (" in %s" % ", ".join(sorted(only)) if only else ""))
         if empty_is_clean:
@@ -1622,7 +1712,7 @@ def sweep(hs, only=None, empty_is_clean=False):
         return 4
     survivors, broken, hung = [], [], []
     for h in todo:
-        patch = os.path.join(root, h.patch)
+        patch = os.path.join(root, h.state_patch)
         print("==> %s::%s" % (h.package, h.name))
         applied = subprocess.run(["git", "-C", root, "apply", patch],
                                  capture_output=True, text=True)
@@ -1660,7 +1750,7 @@ def sweep(hs, only=None, empty_is_clean=False):
         if rev.returncode != 0:
             # Stop here rather than continue. Every later harness would be proved against a tree
             # holding a deliberate defect, and a green result from that means nothing.
-            print("    COULD NOT REVERT %s; your tree is modified" % h.patch)
+            print("    COULD NOT REVERT %s; your tree is modified" % h.state_patch)
             print("    " + rev.stderr.strip())
             return 3
     print("")
@@ -1793,6 +1883,8 @@ elif mode == "--sweep":
     # would make the honest ratio the one nobody runs. The cost is stated in BUGS: about a minute
     # each, against a harness's second.
     sys.exit(sweep(hs + kts, set(args[1:]) or None))
+elif mode == "--sweep-attested":
+    sys.exit(sweep(hs, set(args[1:]) or None, attested=True))
 elif mode == "--affected-since":
     if len(args) < 2:
         sys.exit("usage: script/falsifications --affected-since <base-ref>")

@@ -1,0 +1,29 @@
+Falsifies `kernel::arch::x86_64::fp::proofs::every_fp_edit_changes_exactly_the_bits_it_names`.
+
+The defect: `disable` stores `CR0_TS` alone instead of or-ing it into the register it read. Every
+other `CR0` bit is cleared by the write, and that includes `PG` and `WP`: on a real core the next
+instruction fetch after this faults with paging off, and on QEMU most such mistakes land on a bit
+that happens to be clear already, which is why this proof exists. This is the second of the three
+mutations the harness's own prose names (`init` omitting `CR0_TS`, `disable` storing rather than
+or-ing, `init` setting `CR4_OSFXSR` alone).
+
+Expected to fail: the assertion "a CR0 bit moved that is not FP's", for the `disable` arm, when the
+symbolic starting `CR0` has any bit set outside `CR0_TS`.
+
+Needs an x86_64 host: a `#[kani::proof]` compiles for the host and `kernel/src/arch/mod.rs` selects
+`arch/x86_64/` by `#[cfg(target_arch)]`. Replayed by `script/falsifications --sweep-attested kernel`
+(the `sweep-x86_64` job in `.github/workflows/falsifications.yml`).
+
+diff --git a/kernel/src/arch/x86_64/fp.rs b/kernel/src/arch/x86_64/fp.rs
+index 552036ee6..335d71b67 100644
+--- a/kernel/src/arch/x86_64/fp.rs
++++ b/kernel/src/arch/x86_64/fp.rs
+@@ -167,7 +167,7 @@ pub fn is_enabled() -> bool {
+ /// module header on CVE-2018-3665.
+ pub fn disable() {
+     // SAFETY: sets `TS` alone; every other bit goes back as read.
+-    unsafe { instructions::write_cr0(read_cr0() | CR0_TS) };
++    unsafe { instructions::write_cr0(CR0_TS) };
+ }
+ 
+ /// Copy the live register file into `state`.

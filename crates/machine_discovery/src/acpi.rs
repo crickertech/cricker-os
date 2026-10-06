@@ -1517,8 +1517,25 @@ mod verification {
     fn no_override_writes_outside_the_sixteen_legacy_irqs() {
         let body: [u8; N] = kani::any();
         let table = isa_irq_table(&body);
-        // An IRQ nothing overrode keeps the ISA bus's own convention, so the table is never left
-        // holding an uninitialised-looking entry.
+        // The claim as an assertion, because an unsatisfied `cover!` leaves a Kani harness green
+        // (Kani 0.67.0, found by the printenv harness): an IRQ no ISA override names keeps the ISA
+        // bus's own convention, so no override wrote anywhere it did not name. The out-of-bounds
+        // store the doc names is the other half, and CBMC's bounds check on `table[source]` catches
+        // it on its own.
+        let mut named: u32 = 0;
+        for entry in madt_entries(&body) {
+            if let MadtEntry::InterruptSourceOverride { bus, source, .. } = entry
+                && bus == ISA_BUS
+                && (source as usize) < ISA_IRQ_COUNT
+            {
+                named |= 1 << source;
+            }
+        }
+        for (irq, routing) in table.iter().enumerate() {
+            if named & (1 << irq) == 0 {
+                assert_eq!(*routing, IsaIrqRouting::isa_default(irq as u8));
+            }
+        }
         kani::cover!(
             table[0] != IsaIrqRouting::isa_default(0),
             "some body overrides IRQ 0, which is the case every PC exercises"
