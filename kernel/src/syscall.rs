@@ -644,8 +644,8 @@ fn notification_invoke(
     }
 }
 
-/// `Reboot::REBOOT` (milestone 805, DECISIONS §251): restart the machine, or answer
-/// `DeviceRefused` when every route this architecture has was refused. See kernel/src/reboot.rs.
+/// `Reboot::REBOOT` (milestone 805, DECISIONS §251): restart the machine, or answer why not, one of
+/// `abi::reboot::Refusal`'s four reasons as its error. See kernel/src/reboot.rs.
 #[inline(never)]
 fn reboot_invoke(method: u64) -> Result<i64, Error> {
     match method {

@@ -618,11 +618,11 @@ fn draw_again(elapsed: u64) {
     // when every route this architecture has was refused, each refusal already on the console.
     crate::reboot::prepare_the_reset_route(REBOOT_MARKER);
     println!("{REBOOT_MARKER} rebooting now ({REBOOT_ROUTE}).");
-    arch::reboot(REBOOT_MARKER);
+    let refusal = arch::reboot(REBOOT_MARKER);
     println!(
-        "{REBOOT_MARKER} FAILED: every reset route was refused (the lines above say how), so an \
-         unattended series is not available on this machine by this route. The soak keeps running; \
-         nothing has been damaged and no further reset is attempted."
+        "{REBOOT_MARKER} FAILED ({refusal:?}): every reset route was refused (the lines above say \
+         how), so an unattended series is not available on this machine by this route. The soak \
+         keeps running; nothing has been damaged and no further reset is attempted."
     );
 }
 

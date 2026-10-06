@@ -37,7 +37,8 @@
 //!   in OpenSBI's PMIC write) holds the fix, which has not run on the board. On radon today this
 //!   program prints its report and the board stops.
 //! - **A refusal does not exit non-zero**, because no program in this system reports an exit
-//!   status (`crates/swish`'s `Status` says so). The refusal is a sentence on the second stream.
+//!   status (`crates/swish`'s `Status` says so). The refusal is a sentence on the second stream,
+//!   naming which of the kernel's four reasons it was.
 //! - **The flush is not fenced against background jobs.** A write another job makes after this
 //!   program's `SYNC` is answered and before the reset lands is not covered: the window is the
 //!   report's two sends and the invoke. The shell runs `reboot` in the foreground, so this is a job
@@ -102,12 +103,25 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
     // The barrier: the shell takes end-of-stream only after it has passed the line on.
     send(REPORT, byte_sink_protocol::eof(), 0, 0);
 
+    // **Why not, in words** (calef's ruling on §251's amendment, item 3): the kernel answers one
+    // of four portable reasons, and the firmware's raw code is on the kernel console above.
     let answer = user_mode_runtime::reboot(REBOOT_SLOT);
-    let mut n = Line::new();
-    n.push(b"reboot: the firmware refused every reset route (abi error ");
-    n.number(answer.unsigned_abs());
-    n.push(b"); the kernel console above says which; the machine keeps running\n");
-    write_on(if has_diag { DIAG_SLOT } else { REPORT }, n.bytes());
+    let reason: &[u8] = match abi::Error::from_ret(answer) {
+        Some(abi::Error::NoResetMechanism) => {
+            b"reboot: not restarted: this machine has no reset route the kernel can ask\n"
+        }
+        Some(abi::Error::ResetNotSupported) => {
+            b"reboot: not restarted: the firmware does not offer a reset\n"
+        }
+        Some(abi::Error::ResetDenied) => b"reboot: not restarted: the firmware refused the reset\n",
+        Some(abi::Error::ResetDidNotHappen) => {
+            b"reboot: not restarted: the reset was asked for and the machine is still running\n"
+        }
+        _ => {
+            b"reboot: not restarted: the kernel answered with an error this program does not know\n"
+        }
+    };
+    write_on(if has_diag { DIAG_SLOT } else { REPORT }, reason);
     if has_diag {
         send(DIAG_SLOT, byte_sink_protocol::eof(), 0, 0);
     }

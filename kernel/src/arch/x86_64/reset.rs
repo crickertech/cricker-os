@@ -108,7 +108,7 @@ fn wait_ms(millis: u64) {
 /// prefixed with `marker`, printed before the attempt. See the module header for the order and why.
 ///
 /// Name: provisional (milestone 249): calef names public items.
-pub fn reboot(marker: &str) {
+pub fn reboot(marker: &str) -> abi::reboot::Refusal {
     let address = FADT_RESET_ADDRESS.load(Ordering::Relaxed);
     let value = FADT_RESET_VALUE.load(Ordering::Relaxed);
     match (address, FADT_RESET_SPACE.load(Ordering::Relaxed)) {
@@ -182,4 +182,6 @@ pub fn reboot(marker: &str) {
     wait_ms(100);
 
     println!("{marker} all three reset routes returned: this machine did not reset");
+    // Every route was tried (the fallbacks are never skipped), so this is never "no mechanism".
+    abi::reboot::Refusal::StillRunning
 }

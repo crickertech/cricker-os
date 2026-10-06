@@ -81,7 +81,7 @@ check. Both are recalled, not re-read.
 Milestone 805's lane built the object and found three places where this section's wording and the
 built thing differ. Milestone 805's block left the first one to the building lane ("How `reboot`
 reaches `SYNC` is the building lane's call"); the other two are corrections to wording. calef ruled
-item 1 on 2026-10-06 (UTC), below; items 2 and 3 are still with him on the pull request.
+items 1 and 3 on 2026-10-06 (UTC), below; item 2 is still with him on the pull request.
 
 1. **`reboot` flushes for itself, through a flush-only capability** (clause 3). For an ordinary
    client, `fs::SYNC` needs a handle carrying `dir::WRITE`, which is also the right to open and
@@ -140,10 +140,21 @@ item 1 on 2026-10-06 (UTC), below; items 2 and 3 are still with him on the pull 
 2. **No `abi::objtype` number** (clause 1). `objtype` lists what `MemoryRegion::RETYPE_OBJ` can make
    out of memory. Nothing makes a reboot object, and a number there would read as a way to. It has a
    method module, `abi::reboot`, like `Irq`, the other kernel-minted object.
-3. **The refusal's code reaches the console, not the caller** ("The method"). `arch::reboot` prints
-   the firmware's answer and returns nothing, so the method answers `DeviceRefused` and the code is
-   on the kernel's line just above. The program prints the refusal on its second stream, and it does
-   not exit non-zero, because no program in this system reports an exit status.
+3. **A refusal returns its reason to the caller** ("The method"). Ruled by calef on #1783,
+   2026-10-06 (UTC): "Rule item 3 that way", answering "Rule item 3 that way (return the reason to
+   the caller), and approve item 2 as written?" Item 2 is still open.
+   - `arch::reboot` returns a portable reason, `abi::reboot::Refusal`, on all three architectures.
+     The four are no mechanism (an aarch64 tree with no usable `/psci`), not supported (PSCI or SBI
+     `NOT_SUPPORTED`), denied (PSCI or SBI `DENIED`), or still running (every `x86_64` route
+     tried, or any other PSCI or SBI code). The firmware's raw code is still printed on the console.
+   - `REBOOT` answers that reason as its own `abi::Error` (`NoResetMechanism`, `ResetNotSupported`,
+     `ResetDenied`, `ResetDidNotHappen`, -12 to -15; names provisional). `reboot` prints which on
+     its second stream, and it does not exit non-zero, because no program here reports an exit
+     status.
+   - No QEMU machine this tree boots can be made to refuse, so `abi`'s
+     `a_reset_refusal_maps_to_its_reason_and_survives_the_wire` pins the mapping on the host.
+   - Prior art, recalled, not re-read: Linux `reboot(2)` logs a firmware failure and halts, so the
+     caller never learns it; Fuchsia's `zx_system_powerctl` returns a status to its caller.
 
 Two smaller facts the section did not state. The kernel grants the progenitor the object with
 `WRITE | GRANT`, at slot 31 (it never invokes it, but delegation only narrows), and the progenitor places it with `WRITE` alone at slot 13; the method

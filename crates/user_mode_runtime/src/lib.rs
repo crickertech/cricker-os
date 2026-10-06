@@ -990,8 +990,8 @@ pub fn irq_ack(irq_slot: u64) -> i64 {
 /// **Invoke the reboot object in `slot`** (milestone 805 (`reboot` at the prompt), DECISIONS §251
 /// (restarting the machine is a kernel object the progenitor hands out)): `abi::reboot::REBOOT`.
 /// Does not return when the reset works. When it does return, the answer is negative: an
-/// `abi::Error` (`DeviceRefused` when the firmware refused, `NoSuchSlot` when nothing is held
-/// there).
+/// `abi::Error`: one of the four `Reset…` reasons (`abi::reboot::Refusal`) when the firmware
+/// refused, `NoSuchSlot` when nothing is held there.
 ///
 /// Name: provisional, milestone 805's lane, 2026-10-06 (UTC).
 pub fn reboot(slot: u64) -> i64 {

@@ -144,7 +144,7 @@ fn sbi_system_reset(reset_type: usize) -> isize {
 ///
 /// Name: provisional (milestone 249 (the boot lottery is sampled by a person walking to the
 /// board)): calef names public items.
-pub fn reboot(marker: &str) {
+pub fn reboot(marker: &str) -> abi::reboot::Refusal {
     crate::println!(
         "{marker} attempt 1 of 1: SBI SRST system_reset, reset type 1 (cold reboot). The next thing \
          this console should show is the firmware's banner."
@@ -154,6 +154,7 @@ pub fn reboot(marker: &str) {
         "{marker} SBI SRST refused: sbiret.error={error} (-2 is SBI_ERR_NOT_SUPPORTED, an OpenSBI \
          that implements shutdown and not reset type 1)"
     );
+    abi::reboot::Refusal::from_sbi(error as i64)
 }
 
 /// Terminate the board run with `code` (0 = success). Prints a fixed UART marker line so a harness

@@ -223,7 +223,7 @@ const PSCI_SYSTEM_RESET: u64 = 0x8400_0009;
 ///   from a device tree only, so there is nothing to read that from yet.
 ///
 /// Name: provisional (milestone 249): calef names public items.
-pub fn reboot(marker: &str) {
+pub fn reboot(marker: &str) -> abi::reboot::Refusal {
     use ::machine_discovery::aarch64::Conduit;
 
     let Some(conduit) = isa::psci_record().and_then(|p| p.conduit) else {
@@ -232,7 +232,7 @@ pub fn reboot(marker: &str) {
              usable method, so hvc-versus-smc cannot be chosen and a guess is an undefined \
              instruction"
         );
-        return;
+        return abi::reboot::Refusal::NoMechanism;
     };
     let call = |func: u64| -> i64 {
         match conduit {
@@ -253,6 +253,7 @@ pub fn reboot(marker: &str) {
         "{marker} PSCI SYSTEM_RESET refused: returned {error} (-1 is NOT_SUPPORTED, a PSCI 0.1 \
          firmware or one that does not offer system reset)"
     );
+    abi::reboot::Refusal::from_psci(error)
 }
 
 /// Can this machine start a secondary core at all? Asked once by `smp::bring_up_secondaries`.

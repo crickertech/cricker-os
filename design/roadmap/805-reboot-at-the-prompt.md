@@ -198,8 +198,8 @@ Built 2026-10-06 (UTC) by lane/805-reboot. Every name below is provisional.
   moves the console out of the kernel ring first (`console::enter_reset`, the panic's escape),
   because a line left for the drainer is never printed once the reset starts. It then runs the
   JH7110 reset preparation milestone 592 built
-  and `arch::reboot`, which is no longer behind `reboot_soak_test`. A refusal answers
-  `DeviceRefused`.
+  and `arch::reboot`, which is no longer behind `reboot_soak_test`. A refusal answers its portable
+  reason (`abi::reboot::Refusal`) as an error.
 - **The grant.** The kernel mints the one object at boot into the progenitor's slot 31, `WRITE |
   GRANT`. The spawn service keeps it and places `WRITE` alone at `grant_plan::REBOOT_SLOT` (13) in
   a child whose manifest declares `grant_plan::Manifest::reboot`. Exactly one program does
@@ -233,7 +233,7 @@ Built 2026-10-06 (UTC) by lane/805-reboot. Every name below is provisional.
 | 1 | the gate on all three architectures | met, by `swish-check`'s reboot phase, **not under `script/test`**: `script/test` runs the kernel-test legs, and `swish-check` (which boots the interactive system) is not one of them |
 | 2 | a completed flush before the reset line | met: the line is the block server's flush count as `SYNC` answered it on `reboot`'s flush-only capability, printed before the kernel's first line, and the gate checks the order |
 | 3 | an undeclaring program holds no reset capability; `caps reboot` names it | met: the witness fixture and the `caps reboot` line in `swish-check`, plus the host test |
-| 4 | a refusal is loud | met in substance: the kernel and the program both print the refusal. **It does not exit non-zero**: no program here reports an exit status |
+| 4 | a refusal is loud | met: the kernel prints the firmware's code and `reboot` prints the reason. **No non-zero exit**: no program here has one |
 | 5 | `script/soak-test --reboot` still passes | met: passed on aarch64, riscv64 and x86_64 on 2026-10-06 (UTC), each resetting and soaking again 127 s in |
 | 6 | radon, after milestone 592 | **not met**: see the scope note |
 | 7 | §251 records the semantics | met, with a 2026-10-06 amendment for what the build found |

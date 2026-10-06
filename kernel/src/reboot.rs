@@ -13,8 +13,9 @@
 //!
 //! - It calls [`prepare_the_reset_route`] (a no-op everywhere but a JH7110) and then
 //!   `arch::reboot`. On success neither returns.
-//! - If every route this architecture has was refused, `arch::reboot` returns with the firmware's
-//!   answer already on the console, and the method returns [`abi::Error::DeviceRefused`].
+//! - If every route this architecture has was refused, `arch::reboot` prints the firmware's raw
+//!   answer and returns its portable reason (`abi::reboot::Refusal`), and the method answers that
+//!   reason's error: calef's ruling on §251's amendment, item 3 (2026-10-06 UTC).
 //! - **It syncs nothing.** The kernel knows no filesystem, and a microkernel that did would be the
 //!   bug. The `reboot` program sends `filesystem_protocol::fs::SYNC` first. A holder that skips it
 //!   loses whatever the device had not flushed: a foot gun, recorded in §251 and in the program's
@@ -26,10 +27,8 @@
 //! - **A firmware that accepts the call and hangs is indistinguishable from a slow reset**, from
 //!   inside the machine. radon did exactly this on 2026-09-04; milestone 592 (radon's cold reboot
 //!   dies in OpenSBI's PMIC write) holds the fix, which has not run on the board.
-//! - **The refusal's code reaches the console, not the caller.** `DeviceRefused` says the firmware
-//!   said no; which no (PSCI `NOT_SUPPORTED`, `SBI_ERR_NOT_SUPPORTED`) is on the kernel's line just
-//!   above, because `arch::reboot` prints it and returns nothing. A caller that needs the number
-//!   reads the console.
+//! - **The caller gets the reason, not the number.** Four portable reasons cover every firmware;
+//!   the raw code (PSCI's or SBI's own) is on the kernel's line just above.
 //!
 //! Name: provisional (milestone 805). The module, the object, its method and [`MARKER`] are
 //! calef's to name; §251 calls them "the reboot object" and `REBOOT` for want of anything better.
@@ -54,12 +53,12 @@ pub fn restart() -> abi::Error {
     crate::console::enter_reset();
     println!("{MARKER} the kernel was asked to restart the machine");
     prepare_the_reset_route(MARKER);
-    arch::reboot(MARKER);
+    let refusal = arch::reboot(MARKER);
     println!(
-        "{MARKER} every reset route was refused (the lines above say how); the machine keeps \
-         running"
+        "{MARKER} every reset route was refused ({refusal:?}; the lines above say how); the \
+         machine keeps running"
     );
-    abi::Error::DeviceRefused
+    refusal.error()
 }
 
 /// **Put back what the firmware's reset needs and U-Boot took away** (milestone 592 (radon's cold reboot dies in OpenSBI's PMIC write),
