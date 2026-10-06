@@ -1,10 +1,10 @@
 # Working on nife
 
-<!-- prose-budget: exception. 6,102 words (wc -w, this marker included) against a 3,000-word cap.
+<!-- prose-budget: exception. 6,110 words (wc -w, this marker included) against a 3,000-word cap.
      Ratified by calef on 2026-09-24 (UTC) at 5,873 words; later rulings moved it here, and git log
      has each step; calef ratified the commit-trailer rule on 2026-10-03 (UTC). Reason: this file is
      nothing but rules, every reason having moved to design/tenets/, and the imperatives alone do
-     not fit the cap; rules were not cut to make them fit. Marker syntax is PROVISIONAL until the prose-budget gate exists. -->
+     not fit the cap; rules were not cut to make them fit. helpers/prose_ratchet.py (the prose ratchet in script/lint) reads this marker. -->
 
 *Two renames and one pivot sit behind the old names a reader will meet in older records:
 [design/tenets/project-history.md](design/tenets/project-history.md). Every reason, measurement and
@@ -256,7 +256,7 @@ will this lane touch, and who else is in them". The measurement that overturned 
 the three ceilings below, are in [design/tenets/lane-count.md](design/tenets/lane-count.md).
 
 - Disjoint subsystems: launch freely. Four is a reasonable working number, not a ceiling.
-- Two lanes in the test-wiring hotspot (`kernel/src/user/tests.rs`, the QEMU runners,
+- Two lanes in the test-wiring hotspot (`system_tests/src/user/tests.rs`, the QEMU runners,
   `xtask/src/main.rs`): expect to resolve a conflict by hand, and brief the second one to fold into
   the first's shape rather than inventing a third. It is often cheaper to sequence those two.
 - The real ceilings are elsewhere, and they are worth naming so they are decided rather than
@@ -474,7 +474,7 @@ brand-new syscall number, is a design fork, raise it before building it.
 beneath it.
 
 Tests should prove something specific that nothing else would have done for us. The boot self-tests
-in `main.rs` are the model: `.bss` was zeroed (nobody else would have), `sp` is 16-byte aligned (a
+in `kernel/src/lib.rs` are the model: `.bss` was zeroed (nobody else would have), `sp` is 16-byte aligned (a
 bug here is a mystery crash), we're at EL1 (we are where we think we are). Don't add filler tests.
 
 Pure logic (allocator algorithms, page-table math, scheduling policy, filesystem parsing) belongs in
@@ -546,14 +546,14 @@ exits, so QEMU never exits either unless something kills it or the kernel asks t
 via semihosting (which only the test build does). Two consequences:
 
 1. Every interactive or demo QEMU run must be bounded, with `helpers/qemu-bounded.sh <seconds>
-   <cmd...>`. `timeout(1)` does not exist on macOS, and `perl -e 'alarm N; exec @ARGV'` DOES NOT
-   WORK ON QEMU: QEMU installs its own `SIGALRM` handler and swallows the alarm, so the process runs
+   <cmd...>`. `timeout(1)` does not exist on macOS, and `perl -e 'alarm N; exec @ARGV'` does not
+   work on QEMU: QEMU installs its own `SIGALRM` handler and swallows the alarm, so the process runs
    forever.
 2. `halt()` must use `wfi`, not `wfe`. QEMU implements `wfi` as a real vCPU halt and the host thread
    sleeps; it merely spins on `wfe`, burning 99.7% of a host core. With `wfi` it is 0.0%.
 
 After any session that ran QEMU, check `pgrep -l qemu` and clean up (`-l` rather than `-x
-qemu-system-aarch64`, because it matches both architectures). Three rules for that cleanup, and
+qemu-system-aarch64`, because it matches every architecture's binary). Three rules for that cleanup, and
 [`notes/qemu.md`](notes/qemu.md) has the four attempts it took to learn them:
 
 - Killing a harness does not kill its children, so a `pgrep` that reports nothing can still be
@@ -568,6 +568,6 @@ qemu-system-aarch64`, because it matches both architectures). Three rules for th
 
 - macOS on Apple Silicon (itself aarch64, which is a nice coincidence: kernel assembly is the same
   ISA the laptop runs)
-- QEMU via Homebrew, `qemu-system-aarch64`
+- QEMU via Homebrew: `qemu-system-aarch64`, `qemu-system-riscv64`, `qemu-system-x86_64`
 - Rust nightly, pinned in `rust-toolchain.toml` (needed for `custom_test_frameworks`)
-- Target: `aarch64-unknown-none-softfloat`
+- Targets: `aarch64-unknown-none-softfloat`, `riscv64imac-unknown-none-elf`, `x86_64-unknown-none`
