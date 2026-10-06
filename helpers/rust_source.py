@@ -341,8 +341,26 @@ def trust_boundary_census(files):
 # harness carries that it can fail. `replayable` has a patch a script applies to turn the harness
 # red; `attested` is a person who broke it and watched; `unfalsified` is the claim's honest
 # denominator. A harness with no record at all counts as unfalsified, which is what it is.
+#
+# `unfalsifiable` is the fourth state (§134 (a harness carries a machine-replayable falsification
+# record, or it is not evidence), amended 2026-10-06): somebody looked for a defect in
+# the code under proof that could turn the harness red on its own property, found none, and wrote
+# down why beside the record. It is counted apart from both sides, because it is neither evidence
+# that the harness can fail nor "nobody tried yet", and `script/falsifications --check` refuses one
+# without a written reason of real length, so it cannot be used to empty the unfalsified count.
+#
+# Name: ratified 2026-10-06 (calef, in session, relayed by the maintainer to the lane that built it,
+# #1730: "unfalsifiable ratified."). Refused `exempt` (reads as a waiver from the rule rather than a
+# finding about the harness), `examined` (says an effort happened and not what it found; `attested`
+# already owns "a person did something"), `by design` (true of only one of the first two such
+# harnesses, the other guards a future regression, and two tokens grep and align worse, `by hand`'s
+# reason in §134), `unbreakable` (claims no change can break the property, when one of the two
+# exists precisely because a future change could), and `vacuous` (a harness that cannot fail on
+# today's code is not vacuous, and vacuity is already the `cover!` check's word). These were the
+# proposing lane's alternatives; calef ratified over them without comment on any.
 PROOF = re.compile(r'#\[kani::proof\b')
-FALSIFICATION = re.compile(r'\bFalsification:\s+(replayable|attested|unfalsified)\b')
+FALSIFICATION = re.compile(
+    r'\bFalsification:\s+(replayable|attested|unfalsifiable|unfalsified)\b')
 
 # Directories holding `#[kani::proof]` that belong to no workspace package, expressed as path
 # prefixes because that is all a text-only derivation has. `helpers/` is the `kani-lint-shim` source
@@ -388,7 +406,7 @@ def harness_count(files):
     that are not checked out and could not run cargo against them if it wanted to. `script/lint`
     runs both and fails on a disagreement, which is what keeps the two honest.
     """
-    total = falsified = 0
+    total = falsified = unfalsifiable = 0
     for path, text in files:
         if path.startswith(NOT_A_PACKAGE):
             continue
@@ -403,6 +421,8 @@ def harness_count(files):
         # `script/lint`'s drift check against `script/falsifications --count` reports the
         # disagreement rather than either being wrong. Nine such records arrived at once and it
         # fired, which is the check working.
-        falsified += sum(1 for kind in falsification_records(text)
-                         if kind in ('replayable', 'attested'))
-    return {'total': total, 'falsified': falsified, 'unfalsified': max(total - falsified, 0)}
+        kinds = falsification_records(text)
+        falsified += sum(1 for kind in kinds if kind in ('replayable', 'attested'))
+        unfalsifiable += sum(1 for kind in kinds if kind == 'unfalsifiable')
+    return {'total': total, 'falsified': falsified, 'unfalsifiable': unfalsifiable,
+            'unfalsified': max(total - falsified - unfalsifiable, 0)}

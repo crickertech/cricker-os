@@ -2,10 +2,10 @@
 #
 # script/falsifications: what evidence each Kani harness carries that it can fail (milestone 194).
 #
-# PROVISIONAL beyond four names. DECISIONS §134 ratified `Falsification:`, the three states
-# `replayable`/`attested`/`unfalsified`, this script's name, and the patch path
-# `<package>/falsifications/<module.path>.<harness_fn_name>.patch`. Every other spelling here (the
-# flags, the column headings) is this lane's and an architect names things.
+# PROVISIONAL beyond these names. DECISIONS §134 ratified `Falsification:`, the states
+# `replayable`/`attested`/`unfalsified` (and `unfalsifiable`, 2026-10-06), this script's name,
+# and the patch path `<package>/falsifications/<module.path>.<harness_fn_name>.patch`. Every other
+# spelling here (the flags, the column headings) is this lane's and an architect names things.
 #
 # Why this exists. notes/verification.md has said "falsify a property before believing it" since
 # milestone 35, and milestone 191 measured what that produced: 141 harnesses and **not one of them
@@ -32,7 +32,7 @@
 # some vacuity and no tautology at all; `cbmc --slice-formula` drops assignments unrelated to the
 # property as a solver optimisation and reports nothing. See notes/verification.md.
 #
-# The three states, and the unknown one is first-class. This is `script/names`' lesson taken whole,
+# The states, and the unknown one is first-class. This is `script/names`' lesson taken whole,
 # and for the same reason: inventing evidence to fill a row puts a false claim in the one record
 # whose entire job is saying what is actually known.
 #
@@ -40,6 +40,13 @@
 #                       --sweep applies it, runs that one harness, REQUIRES red, reverts.
 #   attested <date>     a person broke the code and watched it fail; nothing can re-check it.
 #                       Counted, and a worklist entry. An assertion is not evidence.
+#   unfalsifiable <why> somebody looked for a defect in the code under proof that turns this red on
+#                       its own property, found none, and wrote why beside the record (§134,
+#                       amended 2026-10-06). Counted apart from both other sides: it is not evidence
+#                       the harness can fail, and it is not "nobody tried". `--check` fails one whose
+#                       reason is shorter than UNFALSIFIABLE_REASON_MIN characters, so it cannot be
+#                       a cheap way to empty the next line's count. The name's provenance is beside
+#                       the vocabulary in helpers/rust_source.py.
 #   unfalsified         nobody has. This is the claim's honest denominator.
 #
 # **A kernel `#[test_case]` carries the same block and is swept the same way** (milestone 305).
@@ -62,7 +69,7 @@
 #
 # **Kernel tests are opt-in where Kani harnesses are mandatory**, which is the one deliberate
 # asymmetry. `--check` fails a `#[kani::proof]` that carries no block, because there are 145 of them
-# and the whole point of the record is that every proof says which of the three it is. There are 312
+# and the whole point of the record is that every proof says which of the four it is. There are 312
 # `#[test_case]`s and almost none of them is a confinement claim, so requiring a block on all of them
 # would buy a wall of `unfalsified` and teach nobody anything. A kernel test is counted here when it
 # carries a block, and the both-directions patch check is what keeps that honest: a patch under a
@@ -100,6 +107,8 @@
 #   /// Falsification: replayable `crates/capability/falsifications/verification.subset_is_transitive.patch`
 #   /// Falsification: attested 2026-08-30. Flipped the mask; the subset assertion failed.
 #   /// Falsification: unfalsified. Nobody has proposed a defect this would catch.
+#   /// Falsification: unfalsifiable. <at least 200 characters: what the operation can and cannot
+#   /// be mistakenly made to do, and why no such mistake reaches the property>
 #
 # It is the comment run immediately above `#[kani::proof]`, past any other attributes, in the shape
 # milestone 115 established for `Name:`: at the thing, never in a registry, so two lanes touching
@@ -110,8 +119,10 @@
 #   script/falsifications --check           form, plus "does each patch still apply"; non-zero on a
 #                                           problem (script/lint runs this)
 #   script/falsifications --selftest        the new-test ratchet against fixtures; no tree
-#   script/falsifications --count           two integers, harnesses and how many are falsified,
-#                                           for the drift check in script/lint (milestone 236)
+#   script/falsifications --count           three integers: harnesses, how many are falsified, and
+#                                           how many are unfalsifiable, for the drift check in
+#                                           script/lint (milestone 236 (three derivations are
+#                                           copied between scripts, and nothing notices when they drift))
 #   script/falsifications --sweep [package] apply every recorded patch, require red, revert
 #                                           (the weekly job, falsifications.yml, goes red on a finding,
 #                                           and on a selection that replays nothing)
@@ -146,7 +157,7 @@
 # falsification yet, and it must stay that way, for exactly the reason `script/names --check` gates on
 # presence rather than on `ratified`: a lint demanding the queue be drained would block every
 # unrelated merge behind work nobody can hurry. The worklist is how the queue gets worked; the gate
-# only insists a harness say which of the three it is.
+# only insists a harness say which of the four it is.
 #
 # **The sweep's posture is `script/mutation`'s, deliberately copied**: a report against a baseline,
 # not a per-commit gate, because a full run costs about one `script/verify` and a regression is a
@@ -304,7 +315,16 @@ root = sys.argv[1]
 args = sys.argv[2:]
 mode = args[0] if args else ""
 
-STATES = ("replayable", "attested", "unfalsified")
+STATES = ("replayable", "attested", "unfalsifiable", "unfalsified")
+
+# The shortest written reason an `unfalsifiable` record may carry, in characters of prose after the
+# state word, across the comment run down to the attribute. Measured rather than chosen: the first
+# two such records (2026-10-06) carry 839 and 870, and a sentence that only restates the property
+# ("no defect can break this") is under 100. Two hundred admits a reason that names the operation
+# and says why no mistake in it reaches the property, and refuses a one-liner. Length is the only
+# thing a machine can check about a reason, so this is a floor on effort and not a test of truth;
+# the state exists to be read by a person, which is why the reason has to be there to read.
+UNFALSIFIABLE_REASON_MIN = 200
 
 # A `#[kani::proof]` attribute, with or without the `_for_contract` suffix and with or without
 # arguments. Matched on the stripped line so indentation inside `mod verification` does not matter.
@@ -701,6 +721,23 @@ class Harness:
         return words[0].rstrip(".,;:") if words else None
 
     @property
+    def reason(self):
+        """The prose a record carries after its state word, to the end of its comment run.
+
+        The record line is only where the block starts. A reason runs on over the following comment
+        lines down to the attribute, which is how both `unfalsifiable` records were written, so
+        this reads the file again from the record line rather than trusting the one line the walk
+        kept. Comment markers are stripped and whitespace collapsed, so the length counts prose.
+        """
+        if self.record is None or self.record_line is None:
+            return ""
+        try:
+            lines = open(os.path.join(root, self.rel), errors="replace").read().split("\n")
+        except OSError:
+            return ""
+        return record_reason(lines, self.record_line - 1)
+
+    @property
     def patch(self):
         """The repo-relative patch path a `replayable` record names, or None."""
         if self.state != "replayable":
@@ -776,7 +813,7 @@ class Harness:
 class KernelTest(Harness):
     """A kernel `#[test_case]` carrying a `Falsification:` block (milestone 305).
 
-    Everything about the record is a `Harness`'s: the three states, the `<module.path>.<fn>.patch`
+    Everything about the record is a `Harness`'s: the four states, the `<module.path>.<fn>.patch`
     spelling, the prose requirement. What differs is how it is replayed, which is milestone 210's
     filter rather than `cargo kani`, and that it boots a machine to do it.
     """
@@ -839,7 +876,7 @@ class KernelTest(Harness):
 class SwishCheckRecord(KernelTest):
     """A record above a function in `xtask/src/swish_check.rs` (milestone 742, provisional).
 
-    The three states, the patch path and `Architecture:` are a kernel test's. What differs is the
+    The four states, the patch path and `Architecture:` are a kernel test's. What differs is the
     replay verb, `script/swish-check --arch <a>`, and that the red must be about the line the
     patch's `Line:` names, read from swish-check's own FAILED report.
     """
@@ -1007,6 +1044,37 @@ def test_case_names(text):
     return out
 
 
+def record_reason(lines, start):
+    """The prose after the state word of the `Falsification:` line at `start`, through its comment run.
+
+    A pure function over a list of lines so `--selftest` can feed it fixtures. Stops at the first
+    line that is not a comment (the attribute the block annotates), or at a second `Falsification:`
+    line, which would be a different record.
+    """
+    hit = RECORD.match(lines[start].strip())
+    if hit is None:
+        return ""
+    words = hit.group(1).strip().split(None, 1)
+    parts = [words[1]] if len(words) > 1 else []
+    for line in lines[start + 1:]:
+        t = line.strip()
+        if not COMMENT.match(t) or RECORD.match(t):
+            break
+        parts.append(re.sub(r"^//[/!]?", "", t).strip())
+    return " ".join(" ".join(parts).split())
+
+
+def unfalsifiable_problem(where, name, reason):
+    """The gate on the fourth state, or None. Pure, for the same reason `unrecorded_new_tests` is."""
+    if len(reason) >= UNFALSIFIABLE_REASON_MIN:
+        return None
+    return ("%s: `%s` is `unfalsifiable` with %d characters of reason; the floor is %d. The state "
+            "says somebody looked for a defect in the code under proof that could turn this red and "
+            "found none, and it is only worth anything with the why written beside it. Write what "
+            "the operation can and cannot be mistakenly made to do, or record it `unfalsified`."
+            % (where, name, len(reason), UNFALSIFIABLE_REASON_MIN))
+
+
 def unrecorded_new_tests(base_files, head_files):
     """The ratchet, as a pure function so `--selftest` can feed it fixtures.
 
@@ -1080,6 +1148,24 @@ def selftest():
                                             "#[test_case]\nfn x() {}\n"}, 0),
     ]
     bad = 0
+    long_reason = " ".join(["The operation takes no node, so no mistake in it can enqueue."] * 4)
+    reasons = [
+        ("a bare unfalsifiable fails",
+         ["/// Falsification: unfalsifiable.", "#[kani::proof]"], 1),
+        ("a one-line reason fails",
+         ["/// Falsification: unfalsifiable. No defect can break this.", "#[kani::proof]"], 1),
+        ("a reason over the following lines passes",
+         ["/// Falsification: unfalsifiable. " + long_reason[:90]] +
+         ["/// " + long_reason[90:]] + ["#[kani::proof]"], 0),
+        ("a following record is not read as reason",
+         ["/// Falsification: unfalsifiable. Short.",
+          "/// Falsification: unfalsified. " + long_reason, "#[kani::proof]"], 1),
+    ]
+    for what, lines, want in reasons:
+        got = 0 if unfalsifiable_problem("f", "h", record_reason(lines, 0)) is None else 1
+        if got != want:
+            print("falsifications --selftest: %s: wanted %d problem(s), got %d" % (what, want, got))
+            bad += 1
     covers = [
         ("a cover with no assertion is cover-only", "{ let x = kani::any::<u8>(); kani::cover!(x > 3); }", True),
         ("a cover beside an assert_eq is not", "{ kani::cover!(true); assert_eq!(1, 1); }", False),
@@ -1222,14 +1308,18 @@ def check(hs, pkgs, kts=()):
                             % (where, h.name))
         if h.record is None:
             problems.append("%s: harness `%s` carries no `Falsification:` block. One of: "
-                            "`replayable <path>`, `attested <YYYY-MM-DD>`, `unfalsified`."
-                            % (where, h.name))
+                            "`replayable <path>`, `attested <YYYY-MM-DD>`, `unfalsifiable <why>`, "
+                            "`unfalsified`." % (where, h.name))
             continue
         state = h.state
         if state not in STATES:
-            problems.append("%s: harness `%s` has state `%s`; the three are %s"
+            problems.append("%s: harness `%s` has state `%s`; the four are %s"
                             % (where, h.name, state, ", ".join("`%s`" % s for s in STATES)))
             continue
+        if state == "unfalsifiable":
+            bad = unfalsifiable_problem(where, h.name, h.reason)
+            if bad:
+                problems.append(bad)
         if state == "replayable":
             if seen[h.conventional_patch] > 1:
                 problems.append(
@@ -1324,7 +1414,7 @@ def table(hs, pkgs, kts=()):
     print("%d harnesses in %d packages" % (total, len(by_pkg)))
     for s in STATES:
         n = counts.get(s, 0)
-        print("  %-12s %3d  %4.0f%%" % (s, n, 100.0 * n / total if total else 0))
+        print("  %-13s %3d  %4.0f%%" % (s, n, 100.0 * n / total if total else 0))
     print("")
     # The one number §134 asked this script to print, in the sentence it is honest in. Everything
     # else here is a means to it.
@@ -1396,6 +1486,12 @@ def unfalsified(hs):
             print("  %s  %s:%d" % (h.name, h.rel, h.line))
     print("")
     print("%d of %d harnesses have no falsification." % (len(rows), len(hs)))
+    nope = [h for h in hs if h.state == "unfalsifiable"]
+    if nope:
+        print("%d more are `unfalsifiable`, each with its reason beside it, and are not on this list:"
+              % len(nope))
+        for h in nope:
+            print("  %s::%s  %s:%d" % (h.package, h.name, h.rel, h.line))
 
 
 def dirty():
@@ -1875,7 +1971,12 @@ elif mode == "--count":
     #
     # Machine-readable rather than the prose `--check` already prints, because a gate that greps a
     # sentence breaks the day somebody improves the sentence.
-    print("%d %d" % (len(hs), sum(1 for h in hs if h.state in ("replayable", "attested"))))
+    #
+    # The third integer, `unfalsifiable` (2026-10-06), is appended rather than inserted so a reader
+    # of the first two is unchanged, and so `script/lint` can hold the new series to the same
+    # agreement the other two are held to.
+    print("%d %d %d" % (len(hs), sum(1 for h in hs if h.state in ("replayable", "attested")),
+                        sum(1 for h in hs if h.state == "unfalsifiable")))
 elif mode == "--unfalsified":
     unfalsified(hs)
 elif mode == "--sweep":

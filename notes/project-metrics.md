@@ -54,8 +54,10 @@ Each week is read from its own commit, so 2026W39 is the first correction, alrea
 
 ![Kani proof harnesses](project-metrics/harnesses.svg)
 
-The harness count, split into those carrying a machine-replayable falsification record and those
-without. A harness with no record at all is counted as unfalsified. The denominator is harnesses, not
+- 2026W41: unfalsified fell 56 to 0 across #1697, #1701 and #1713; the middle band is new (§134 (a harness carries a machine-replayable falsification record, or it is not evidence), amended 2026-10-06 UTC). Its two harnesses were examined and no defect in today's code can turn them red; each carries its reason.
+
+The harness count, split three ways: a falsification record, `unfalsifiable` with its reason
+written, and unfalsified. A harness with no record at all is counted as unfalsified. The denominator is harnesses, not
 code: unharnessed code is outside it ([what each ratio is of](denominators.md#the-published-ratios-and-what-each-is-of)).
 
 ## unsafe blocks outside kernel/src/arch/
