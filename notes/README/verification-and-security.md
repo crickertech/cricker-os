@@ -9,6 +9,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Upstreaming the riscv64 target to Kani](../kani-upstream.md): the branch, and the pull request text. Name provisional.
 - [Did the proofs catch the bugs?](../proof-retrospective.md). Name provisional.
 - [Does a standing proof notice a regression?](../kani-reach-2026-10-04.md): every mutant in a harness's reach, proved; which proofs can fail. Name provisional.
+- [Have the Kani proofs ever failed in CI?](../kani-catches-2026-10-06.md): 9,794 verify runs, no harness failure on a pull request. Name provisional.
 - [Falsification records](../falsification.md): recording that each proof harness can fail.
 - [Falsification coverage](../falsification-coverage.md): which kinds of test carry a replayed falsification, and what gates on it.
 - [Fuzzing the parse surface](../fuzzing.md): coverage-guided fuzzing of the parsers that read outside bytes.
