@@ -358,11 +358,12 @@ written, `script/roadmap --check` prints the count and the oldest date on every 
 `--proposed` lists them oldest first. An unread number is still rung two, where a paragraph in a
 finished block was rung four.
 
-One honest limit, and it is the same shape as the citation checks' blind spot. The dependency
-fields say what stops the milestone's headline deliverable, and several milestones have a
-startable piece behind a blocked headline: milestone 88 (nife on rented silicon: Oracle's free tier
-first, Graviton metal for the PMU)'s stage 1 boots UEFI locally with no cloud account. Where that is
-true the prose says so, and no gate can check that the prose is right.
+The dependency fields say what stops a milestone's headline deliverable, and several milestones
+have a startable piece behind a blocked headline: milestone 88 (nife on rented silicon)'s stage 1 boots UEFI locally with no cloud account. The prose says so where that is true,
+and no gate checks it.
+
+The converse is a rule. A dependency on part of a milestone means that milestone is too coarse:
+split it, so the field names the part (calef, 2026-10-06).
 
 ## Effort
 

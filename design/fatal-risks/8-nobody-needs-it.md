@@ -24,6 +24,12 @@ admit the ranking function has nothing to rank) ruled on 2026-09-21 that the pat
 who is not calef installs nife on purpose and is still running it two months later. The install is
 the weak half, and retention is the claim.
 
+Dated 2026-10-06 (§216 (fatal-risk facts are correctable)): milestone 198 (a package manager) was
+split, and is now the package manager alone, BUILT on 2026-10-05. A stranger's install waits on milestone 802 (the trivial install), and
+milestone 576 (how many systems are out there) waits on milestone 801 (packages over the internet).
+Nothing in the verdict moves: nobody but calef can install nife yet, so there is still nobody to
+ask. Which of 801 and 802 holds 198's top slot is calef's to say.
+
 Two caveats. What the green results buy is narrower than it
 reads: risks 1 and 9 answer *could somebody run this*, and this entry asks *does somebody want to*.
 Treating capability as demand is the error this entry exists to prevent. And the rest is a hope,
