@@ -21,6 +21,9 @@ His words, which are the whole brief:
 > "We should also be clear, there is just a lot of long writing. We could be more dense with our
 > writing. Amazon also had pretty strict writing standards to help."
 
+Amended 2026-10-06 (UTC): calef ruled that prose and names use American spelling. The gate is
+`helpers/house_style.py` in `script/lint`, a ratchet on the count of British forms.
+
 ## What is being decided
 
 How densely this tree's prose must be written, in numbers a script can count.
@@ -267,9 +270,6 @@ then a document whose budget is spent on markup records that in its own `BUGS` s
   bold spans per 1,000 words is better for a reader than 8. Its second half is better grounded: 816
   whole-line bolds are heading syntax written as emphasis, and that is a defect whatever the budget
   is.
-- This document once carried a `**Status:` line, a line-opening bold that rule 3 deprecates, as a
-  marked exception because `script/decisions` parsed it. Milestone 582 (a decision's status becomes
-  a field) moved the status into frontmatter, so the exception is gone.
 - The label gate's 80-sample classification is one agent's hand judgment on 2026-09-26, and the
   line between a short claim and a label is exactly where two readers would disagree.
 - This section meets its own three numbers, which tests that they are livable in a document carrying

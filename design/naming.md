@@ -102,6 +102,9 @@ The splits run across domains on a stable property, and there is no second tier 
 names for programs a person types were refused as a rule, because `wc` went from plumbing to a typed
 pipeline stage in a day. A short name is its author's choice.
 
+Every name and every word is spelled American: `color`, `catalog` (calef, 2026-10-06 UTC).
+`helpers/house_style.py`, in `script/lint`, refuses new British forms.
+
 `nifefs` caps a program's archive name at `NAME_LEN = 32` bytes. Crates are unbounded. Do not let
 the limit pick a name.
 
