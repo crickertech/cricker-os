@@ -2940,9 +2940,19 @@ pub fn create_rendezvous_from(region: u64) -> Option<RendezvousId> {
 ///
 /// Panics only on a genuinely unrecoverable condition: the registry at [`MAX_RENDEZVOUS`], the chunk
 /// bound reached (which cannot happen before the registry fills, by construction), or no memory left
-/// to carve from. Every caller is the kernel or a test wiring a service, so there is no user to
-/// return an error to.
-pub fn create_rendezvous() -> RendezvousId {
+/// to carve from. Every caller is the kernel, so there is no user to return an error to.
+///
+/// **`pub(crate)`, so the system tests cannot call it, and that is a gate rather than tidiness.**
+/// The chunks this carves are never freed, so every endpoint a test made here cost the boot a page
+/// for good, and the frame ledger moved in +32 steps charged to whichever later test crossed a chunk
+/// boundary (`testing::SUITE_PAGE_FRAME_BUDGET`'s history is mostly that). The kernel's own
+/// services create their endpoints once and keep them, which is what this is for. A test carves
+/// its endpoints with [`create_rendezvous_from`] from a region it owns and reclaims with
+/// [`reclaim_region`], or hands that region to a `user::holding::Holding`; a test whose endpoint
+/// must outlive it still uses a region of its own and says so where it does, so the page is charged
+/// to that test. The `system_tests` crate depends on this one, so a call from there does not
+/// compile.
+pub(crate) fn create_rendezvous() -> RendezvousId {
     loop {
         // Take, or lazily carve, the current chunk.
         let region = {
