@@ -72,13 +72,16 @@ const EXTRA_STACK_PAGES: u64 = std_runtime_protocol::STACK_PAGES;
 /// The tid is what lets a caller wait for the program to be *gone* rather than merely quiet
 /// (milestone 64). The transcript ends at `cleanup`, which runs before the process leaves, so a
 /// test that stops at the last byte is still racing the exit it wants to make a claim about.
+///
+/// The third value is the region the endpoint was carved from, for the caller to reclaim once the
+/// program has gone ([`StdRun::report_region`]).
 pub fn start(
     image: &'static [u8],
     clock_image: &'static [u8],
     entropy_image: &'static [u8],
-) -> (RendezvousId, crate::thread::ThreadId) {
+) -> (RendezvousId, crate::thread::ThreadId, u64) {
     let spawned = start_reclaimable(image, clock_image, entropy_image);
-    (spawned.report, spawned.thread)
+    (spawned.report, spawned.thread, spawned.report_region)
 }
 
 /// What [`start_reclaimable`] hands back. [`StdSpawn`] is `fs_service`'s name for the same idea and
@@ -86,6 +89,9 @@ pub fn start(
 /// heap was drawn from**, so a caller that knows the program has exited can give the pages back.
 pub struct StdRun {
     pub report: RendezvousId,
+    /// The region `report` was carved from. Reclaim it once the program has gone; until then the
+    /// program still holds a capability to the endpoint in it.
+    pub report_region: u64,
     pub thread: crate::thread::ThreadId,
     pub heap: u64,
 }
@@ -104,10 +110,12 @@ pub fn start_reclaimable(
     clock_image: &'static [u8],
     entropy_image: &'static [u8],
 ) -> StdRun {
-    let report = crate::sched::create_rendezvous();
+    let report_region = crate::memory_region::create(1).expect("no region for the std stdout");
+    let report = crate::sched::create_rendezvous_from(report_region).expect("no std stdout");
     let (heap, thread) = start_on_full(image, clock_image, entropy_image, report);
     StdRun {
         report,
+        report_region,
         thread,
         heap,
     }

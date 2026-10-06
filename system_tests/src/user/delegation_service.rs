@@ -15,13 +15,16 @@ use crate::sched::RendezvousId;
 /// `resource` capability (held `WRITE | GRANT`) to the receiver, narrowed to `WRITE`. The
 /// receiver `SEND`s [`USED_WORD`] on the received capability (a `RECEIVE` on `resource` collects
 /// it) and reports a two-bit verdict on `report`.
-pub fn wire() -> (RendezvousId, RendezvousId) {
+///
+/// `endpoints` is a region of at least four pages the caller owns and reclaims once it has the
+/// verdict; every endpoint here is carved from it.
+pub fn wire(endpoints: u64) -> (RendezvousId, RendezvousId) {
     let granter = program("delegation_granter").expect("no delegation_granter in the archive");
     let receiver = program("delegation_receiver").expect("no delegation_receiver in the archive");
-    let channel = crate::sched::create_rendezvous(); // granter SEND_CAP -> receiver RECEIVE_CAP
-    let resource = crate::sched::create_rendezvous(); // the capability being delegated
-    let loopback = crate::sched::create_rendezvous(); // the receiver's refused re-delegation target
-    let report = crate::sched::create_rendezvous(); // the receiver's verdict
+    let channel = crate::sched::create_rendezvous_from(endpoints).expect("no channel rendezvous"); // granter SEND_CAP -> receiver RECEIVE_CAP
+    let resource = crate::sched::create_rendezvous_from(endpoints).expect("no resource rendezvous"); // the capability being delegated
+    let loopback = crate::sched::create_rendezvous_from(endpoints).expect("no loopback rendezvous"); // the receiver's refused re-delegation target
+    let report = crate::sched::create_rendezvous_from(endpoints).expect("no report rendezvous"); // the receiver's verdict
 
     crate::sched::spawn(move || {
         run(

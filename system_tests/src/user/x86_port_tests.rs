@@ -205,8 +205,9 @@ const NON_HOLDER_ATTEMPTS: u32 = 64;
 fn port_holder_transmits_then_a_non_holder_faults() {
     // The holder: it executes `out` to a port its capability names, so the CPU permits it, and the
     // word arrives with the core it was written on.
-    let report = sched::create_rendezvous();
-    let sup = sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(4).expect("no endpoint region");
+    let report = sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
+    let sup = sched::create_rendezvous_from(endpoints).expect("no sup rendezvous");
     let (_holder, holder_region) = build_child(
         &super::x86_programs::port_out_reporting_cpu(SCRATCH_PORT, SCRATCH_VAL, REPORTED as u32),
         report,
@@ -243,8 +244,8 @@ fn port_holder_transmits_then_a_non_holder_faults() {
     // (milestone 313 (the security audit that was due since August)): if the hand-off ever leaked
     // the grant, a reporting child would park on a `SEND` nobody receives and hang the run, and
     // this test could not go red for the one defect it exists for.
-    let report2 = sched::create_rendezvous();
-    let sup2 = sched::create_rendezvous();
+    let report2 = sched::create_rendezvous_from(endpoints).expect("no report2 rendezvous");
+    let sup2 = sched::create_rendezvous_from(endpoints).expect("no sup2 rendezvous");
     for attempt in 1..=NON_HOLDER_ATTEMPTS {
         let (non_holder, nh_region) = build_child(
             &super::x86_programs::port_out_on_cpu_then_exit(
@@ -277,6 +278,7 @@ fn port_holder_transmits_then_a_non_holder_faults() {
             CODE_VA + super::x86_programs::PORT_OUT_ON_CPU_PC_OFFSET,
             "the faulting pc was not the `out` instruction",
         );
+        sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
         return;
     }
     panic!(
@@ -297,9 +299,10 @@ fn port_holder_transmits_then_a_non_holder_faults() {
 /// Falsification: replayable `system_tests/falsifications/user.x86_port_tests.a_revoked_holder_faults_on_its_next_port_write.patch`
 #[test_case]
 fn a_revoked_holder_faults_on_its_next_port_write() {
-    let report = sched::create_rendezvous();
-    let wake = sched::create_rendezvous();
-    let sup = sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(3).expect("no endpoint region");
+    let report = sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
+    let wake = sched::create_rendezvous_from(endpoints).expect("no wake rendezvous");
+    let sup = sched::create_rendezvous_from(endpoints).expect("no sup rendezvous");
     let (holder, region) = build_child(
         &super::x86_programs::receive_then_port_out(SCRATCH_PORT, SCRATCH_VAL),
         report,
@@ -323,6 +326,7 @@ fn a_revoked_holder_faults_on_its_next_port_write() {
     );
     assert_eq!(msg[1], holder, "the fault named the wrong thread");
     reap(region);
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **A holder that deletes its own port capability faults on its next `out`** (milestone 313's
@@ -349,8 +353,9 @@ fn a_revoked_holder_faults_on_its_next_port_write() {
 fn a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write() {
     // The report endpoint is granted so slot 0 is what it is for every other child; this child
     // never sends on it (see the program's own doc for why it exits instead).
-    let report = sched::create_rendezvous();
-    let sup = sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(2).expect("no endpoint region");
+    let report = sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
+    let sup = sched::create_rendezvous_from(endpoints).expect("no sup rendezvous");
     let (holder, region) = build_child(
         &super::x86_programs::cap_delete_then_port_out(
             PORT_SLOT_WITHOUT_WAKE as u32,
@@ -376,6 +381,7 @@ fn a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write() {
         "the faulting pc was not the `out` instruction: a red for the wrong reason",
     );
     reap(region);
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **A take-back leaves the invoker's own bitmap installed.** `PortRange::REVOKE` deletes the range
@@ -428,10 +434,11 @@ fn a_take_back_leaves_the_invokers_own_bitmap_installed() {
 /// Falsification: replayable `system_tests/falsifications/user.x86_port_tests.a_read_only_port_capability_must_not_grant_port_output.patch`
 #[test_case]
 fn a_read_only_port_capability_must_not_grant_port_output() {
-    let sup = sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(2).expect("no endpoint region");
+    let sup = sched::create_rendezvous_from(endpoints).expect("no sup rendezvous");
     // No wake and no report: the child only executes `out` and then exits or faults, so there is
     // nothing to receive on and no way for either outcome to park it on a rendezvous.
-    let report = sched::create_rendezvous();
+    let report = sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
     let (child, region) = build_child(
         &super::x86_programs::port_out_then_exit(SCRATCH_PORT, SCRATCH_VAL),
         report,
@@ -453,4 +460,5 @@ fn a_read_only_port_capability_must_not_grant_port_output() {
         "the faulting pc was not the `out` instruction: a red for the wrong reason",
     );
     reap(region);
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }

@@ -145,4 +145,5 @@ fn a_tls_crypto_provider_computes_what_the_specifications_say() {
     // **Give the heap back** (`user::holding`'s reasoning, and `ripgrep_tests`' closing line). The
     // thread is already gone by the assertion above, so one call is enough.
     let _ = crate::sched::reclaim_region(run.heap);
+    crate::sched::reclaim_region(run.report_region).expect("the stdout region did not come back");
 }

@@ -29,7 +29,8 @@ fn current_cpu_reader_image() -> &'static [u8] {
 /// been written, and a `None` here means the page never got mapped or never got written.
 #[test_case]
 fn a_userspace_thread_reads_a_cpu_that_is_really_online() {
-    let result = crate::sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let result = crate::sched::create_rendezvous_from(endpoints).expect("no result rendezvous");
     crate::sched::spawn(move || {
         run(
             current_cpu_reader_image(),
@@ -48,6 +49,7 @@ fn a_userspace_thread_reads_a_cpu_that_is_really_online() {
     .expect("spawn failed");
 
     let [first, second, bound, _, _] = crate::sched::ipc_receive(result);
+    crate::sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
     let online = crate::smp::online_harts_mask();
 
     for (which, cpu) in [("first", first), ("second", second)] {

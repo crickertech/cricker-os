@@ -117,9 +117,18 @@ fn start_with(
         crate::println!("start_with: no swish in the archive");
         return None;
     };
-    let term = crate::sched::create_rendezvous();
-    let spawn_ep = crate::sched::create_rendezvous();
-    let result = crate::sched::create_rendezvous();
+    // **Kept for the boot, deliberately.** `init_service` below is a kernel thread that loops on
+    // `spawn_ep` forever, and nothing ends it, so reclaiming these would turn it into a busy loop
+    // on a stale endpoint. They come from a region of their own so the three pages are charged to
+    // the test that called this, rather than from the kernel's pool, whose 32-page chunk is charged
+    // to whichever later test crosses its boundary.
+    let Some(endpoints) = crate::memory_region::create(3) else {
+        crate::println!("start_with: memory_region::create(3) for the endpoints refused");
+        return None;
+    };
+    let term = crate::sched::create_rendezvous_from(endpoints).expect("no terminal rendezvous");
+    let spawn_ep = crate::sched::create_rendezvous_from(endpoints).expect("no spawn rendezvous");
+    let result = crate::sched::create_rendezvous_from(endpoints).expect("no result rendezvous");
     let Some(budget) = crate::memory_region::create(SH_BUDGET_PAGES) else {
         crate::println!("start_with: memory_region::create({SH_BUDGET_PAGES}) refused");
         return None;

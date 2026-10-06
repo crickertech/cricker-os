@@ -181,7 +181,7 @@ fn the_terminal_is_replaced_under_a_person_typing_and_nothing_they_typed_is_lost
     held.add_region(frames);
 
     // A line typed and read before any swap, so there is history to carry.
-    let report = sched::create_rendezvous();
+    let report = sched::create_rendezvous_from(ep_region).expect("report");
     spawn_reader(term, report, 1);
     settle();
     bytes_call(term, b"first\r");

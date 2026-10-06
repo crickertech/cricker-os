@@ -207,7 +207,8 @@ fn a_raw_read_parked_before_data_arrives_still_gets_it() {
     let (w, held) = svc::start();
     rawmode(w.term, true);
 
-    let report = sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let report = sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
     let term = w.term;
     sched::spawn(move || {
         let (n, bytes) = read_raw(term);
@@ -233,6 +234,7 @@ fn a_raw_read_parked_before_data_arrives_still_gets_it() {
         "the parked reader got the wrong byte"
     );
     held.release_or_fail("raw_mode_service");
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **Switching mode abandons the line in progress, in both directions**, so a session can never
@@ -246,7 +248,8 @@ fn switching_mode_abandons_a_parked_read_of_the_other_kind() {
     let (w, held) = svc::start();
 
     // A parked OPERATION_READLINE, abandoned by entering raw mode.
-    let report = sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(2).expect("no endpoint region");
+    let report = sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
     let term = w.term;
     sched::spawn(move || {
         let w0 = line_editor::proto::req(line_editor::proto::OPERATION_READLINE, 0);
@@ -267,7 +270,7 @@ fn switching_mode_abandons_a_parked_read_of_the_other_kind() {
     );
 
     // A parked OPERATION_READRAW, abandoned by leaving raw mode.
-    let report2 = sched::create_rendezvous();
+    let report2 = sched::create_rendezvous_from(endpoints).expect("no report2 rendezvous");
     let term2 = w.term;
     sched::spawn(move || {
         let (n, bytes) = read_raw(term2);
@@ -286,6 +289,7 @@ fn switching_mode_abandons_a_parked_read_of_the_other_kind() {
         "leaving raw mode must fail a parked OPERATION_READRAW rather than hang it",
     );
     held.release_or_fail("raw_mode_service");
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **`OPERATION_WRITE` is not raw-mode-gated, and `OPERATION_READLINE` works normally once raw mode is off

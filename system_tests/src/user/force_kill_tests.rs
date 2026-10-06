@@ -375,14 +375,15 @@ fn destroy_reclaims_a_region_whose_resident_is_blocked_in_receive() {
 fn destroy_reclaims_a_region_whose_resident_blocks_on_a_rendezvous_it_does_not_own() {
     // Somebody else's rendezvous is the whole point: it is not created from `region`, so the sweep
     // that opens `reap_region_objects` never touches it and nothing ever wakes the child. It comes
-    // out of the kernel's own pinned rendezvous region, which this reclaim deliberately cannot
-    // reach.
+    // out of a region of the test's own, which the child's reclaim cannot reach, and which the
+    // test reclaims last.
     //
     // Creating it before a machine-wide free-frame baseline used to be load-bearing, and sampling
     // in the other order cost this test two runs at a deterministic 32 frames. The accounting
     // below names the child's own region instead, so the rendezvous's pages are outside the
     // measurement by construction rather than by ordering.
-    let ep = sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let ep = sched::create_rendezvous_from(endpoints).expect("no rendezvous");
 
     let (region, tid) = child_blocked_on(ep, crate::cap::Rights::READ, RECEIVE_STUB);
     let run = crate::testing::RegionRun::of(region);
@@ -413,6 +414,7 @@ fn destroy_reclaims_a_region_whose_resident_blocks_on_a_rendezvous_it_does_not_o
     run.assert_returned(
         "reclaiming the region of a resident blocked elsewhere did not return its frames",
     );
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **A `Reply` capability naming a torn-down caller does not survive the teardown**, which is the
@@ -443,9 +445,10 @@ fn destroy_reclaims_a_region_whose_resident_blocks_on_a_rendezvous_it_does_not_o
 /// the reclaim itself still succeeds.
 #[test_case]
 fn tearing_down_a_reply_parked_caller_sweeps_the_reply_capability() {
-    // Out of the kernel's pinned rendezvous region and never reclaimed here, so it is outside what
-    // this test accounts for. See the test above.
-    let ep = sched::create_rendezvous();
+    // Out of a region of the test's own, reclaimed last, so it is outside what this test accounts
+    // for. See the test above.
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let ep = sched::create_rendezvous_from(endpoints).expect("no rendezvous");
 
     // WRITE, because the child calls on it. This test is the server.
     let (region, tid) = child_blocked_on(ep, crate::cap::Rights::WRITE, CALL_STUB);
@@ -491,6 +494,7 @@ fn tearing_down_a_reply_parked_caller_sweeps_the_reply_capability() {
         "the region reclaimed but its reply-parked resident was never reaped",
     );
     run.assert_returned("reclaiming a reply-parked resident's region did not return its frames");
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **A region lent to an address space is freed by its owner, and by nobody else.**

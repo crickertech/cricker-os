@@ -357,7 +357,8 @@ fn an_ntp_client_holds_no_writable_clock_page() {
     // An endpoint nobody serves: the witness never sends a request, and giving it a real server
     // would only add a process to the boot. It is granted anyway, because the point is that this
     // process holds everything a client holds.
-    let stack = crate::sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let stack = crate::sched::create_rendezvous_from(endpoints).expect("no stack rendezvous");
 
     let faults = USER_FAULTS.load(Ordering::Relaxed);
     let report = ntp_service::start_witness(
@@ -397,6 +398,7 @@ fn an_ntp_client_holds_no_writable_clock_page() {
         before,
         "the clock page changed while an NTP client was writing at it",
     );
+    crate::sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **The nonce is unpredictable, because it comes from the entropy service.**

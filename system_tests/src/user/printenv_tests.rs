@@ -13,9 +13,9 @@ const CONFIG_VA: u64 = address_space_map::pair_page(0x00e0_0000);
 /// `crates/system_initializer`'s real wiring grants a child that declares
 /// [`grant_plan::Manifest::config`]. `None` grants no capability at all, which is the other
 /// "nothing to print" cause and a different message.
-fn spawn_printenv(page: Option<u64>) -> RendezvousId {
+fn spawn_printenv(endpoints: u64, page: Option<u64>) -> RendezvousId {
     let image = program("printenv").expect("no printenv program in the initrd archive");
-    let out = crate::sched::create_rendezvous();
+    let out = crate::sched::create_rendezvous_from(endpoints).expect("no stdout rendezvous");
     crate::sched::spawn(move || match page {
         Some(phys) => run(
             image,
@@ -76,6 +76,13 @@ fn line(out: RendezvousId, buf: &mut [u8; 128]) -> usize {
     }
 }
 
+/// Read `printenv`'s stream to its end, so it has nothing left to send when its stdout goes, then
+/// reclaim the region the endpoint came from.
+fn finish(out: RendezvousId, endpoints: u64) {
+    while crate::sched::ipc_receive(out)[0] != byte_sink_protocol::eof() {}
+    crate::sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
+}
+
 /// A page nobody assembled: allocated and left zeroed, exactly `date_tests`'s unpublished-clock
 /// shape and `environment_protocol`'s own `a_zeroed_page_reads_as_no_configuration`.
 fn blank_page() -> u64 {
@@ -122,7 +129,8 @@ fn printenv_prints_the_page_it_was_granted() {
             .term("xterm-256color")
             .expect("a real KNOWN_TERM member")
     });
-    let out = spawn_printenv(Some(phys));
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let out = spawn_printenv(endpoints, Some(phys));
     let mut buf = [0u8; 128];
 
     let n = line(out, &mut buf);
@@ -137,6 +145,7 @@ fn printenv_prints_the_page_it_was_granted() {
         core::str::from_utf8(&buf[..n]).unwrap(),
         "TERM=xterm-256color"
     );
+    finish(out, endpoints);
 }
 
 /// **A key the page never declared reads as `(unset)`, not as an empty value.**
@@ -147,7 +156,8 @@ fn printenv_prints_the_page_it_was_granted() {
 #[test_case]
 fn a_key_never_declared_reads_as_unset_not_empty() {
     let phys = assembled_page(|b| b.tz("UTC").expect("UTC is a real KNOWN_TZ member"));
-    let out = spawn_printenv(Some(phys));
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let out = spawn_printenv(endpoints, Some(phys));
     let mut buf = [0u8; 128];
 
     let n = line(out, &mut buf);
@@ -156,6 +166,7 @@ fn a_key_never_declared_reads_as_unset_not_empty() {
     assert_eq!(core::str::from_utf8(&buf[..n]).unwrap(), "LANG (unset)");
     let n = line(out, &mut buf);
     assert_eq!(core::str::from_utf8(&buf[..n]).unwrap(), "TERM (unset)");
+    finish(out, endpoints);
 }
 
 /// **A page nobody assembled reads as no configuration, not as three empty strings.**
@@ -166,7 +177,8 @@ fn a_key_never_declared_reads_as_unset_not_empty() {
 /// so a boot that granted the slot but never had anything write to it still tells the truth.
 #[test_case]
 fn an_unpublished_config_page_reads_as_no_configuration() {
-    let out = spawn_printenv(Some(blank_page()));
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let out = spawn_printenv(endpoints, Some(blank_page()));
     let mut buf = [0u8; 128];
 
     let n = line(out, &mut buf);
@@ -175,6 +187,7 @@ fn an_unpublished_config_page_reads_as_no_configuration() {
     assert_eq!(core::str::from_utf8(&buf[..n]).unwrap(), "LANG (unset)");
     let n = line(out, &mut buf);
     assert_eq!(core::str::from_utf8(&buf[..n]).unwrap(), "TERM (unset)");
+    finish(out, endpoints);
 }
 
 /// **No capability at all is a different, plainer sentence**, and `printenv` has to say it without
@@ -183,11 +196,13 @@ fn an_unpublished_config_page_reads_as_no_configuration() {
 /// probe-before-touch property for the clock slot; this is that property's `config` twin.
 #[test_case]
 fn no_capability_at_all_is_said_plainly() {
-    let out = spawn_printenv(None);
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let out = spawn_printenv(endpoints, None);
     let mut buf = [0u8; 128];
     let n = line(out, &mut buf);
     assert_eq!(
         core::str::from_utf8(&buf[..n]).unwrap(),
         "printenv: no configuration was granted",
     );
+    finish(out, endpoints);
 }

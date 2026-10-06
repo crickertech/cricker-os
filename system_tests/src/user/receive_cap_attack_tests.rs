@@ -564,7 +564,8 @@ fn a_death_message_received_by_receive_cap_delivers_no_cap_whichever_side_parks_
     static SUPERVISOR_MSG: [AtomicU64; 3] = [const { AtomicU64::new(u64::MAX - 1) }; 3];
 
     // Receiver-first: the supervisor parks in RECEIVE_CAP, then the child dies.
-    let fault_ep = sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(2).expect("no endpoint region");
+    let fault_ep = sched::create_rendezvous_from(endpoints).expect("no fault rendezvous");
     let region = crate::memory_region::create(16).expect("no region for the child");
     sched::spawn(move || {
         SUPERVISOR_PARKING.store(true, Ordering::SeqCst);
@@ -608,7 +609,7 @@ fn a_death_message_received_by_receive_cap_delivers_no_cap_whichever_side_parks_
     );
 
     // Corpse-first: the child dies and parks on the supervision rendezvous, then this thread receives.
-    let fault_ep = sched::create_rendezvous();
+    let fault_ep = sched::create_rendezvous_from(endpoints).expect("no fault rendezvous");
     let region = crate::memory_region::create(16).expect("no region for the second child");
     let child = build_child_in(region, FAULT_STUB, None, Some(fault_ep));
     assert!(
@@ -627,6 +628,7 @@ fn a_death_message_received_by_receive_cap_delivers_no_cap_whichever_side_parks_
         wait_for(|| sched::reclaim_region(region).is_ok()),
         "reaping the second corpse's region failed",
     );
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// The five words a plain `RECEIVE` returned, and how many slots its thread held before and after.

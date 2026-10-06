@@ -121,7 +121,7 @@ fn spawn_timetable(fires: u64) -> Spawned {
 }
 
 /// **One spawned timetable**: the endpoints it is wired to, the registration page when it has one,
-/// and the two regions the spawn site made for it, which [`Spawned::reclaim`] hands back.
+/// and the three regions the spawn site made for it, which [`Spawned::reclaim`] hands back.
 struct Spawned {
     out: RendezvousId,
     reports: RendezvousId,
@@ -131,12 +131,14 @@ struct Spawned {
     exit_word: Option<&'static core::sync::atomic::AtomicU64>,
     budget: u64,
     tcb_region: u64,
+    /// The region every endpoint above was carved from, reclaimed last.
+    endpoints: u64,
     /// The clock page's frame, when the spawn granted one: the kernel's handle for publishing to it.
     clock: Option<u64>,
 }
 
 impl Spawned {
-    /// **Give back the two regions the spawn site made**, once the timetable has finished.
+    /// **Give back the three regions the spawn site made**, once the timetable has finished.
     ///
     /// Every test here used to leave its budget and its TCB region behind, and the kernel's region
     /// table is finite: milestone 152's lane found a later test's fire failing with "the budget
@@ -158,6 +160,8 @@ impl Spawned {
             super::wait_for(|| crate::sched::reclaim_region(budget).is_ok()),
             "the timetable's budget would not reclaim: an instance region is still carved out"
         );
+        crate::sched::reclaim_region(self.endpoints)
+            .expect("the timetable's endpoint region would not reclaim");
     }
 }
 
@@ -277,9 +281,12 @@ fn spawn_timetable_with(
     });
     let aspace = readopt_user_address_space(space).expect("register the timetable aspace");
 
-    let out = crate::sched::create_rendezvous();
-    let child_report = crate::sched::create_rendezvous();
-    let deaths = crate::sched::create_rendezvous();
+    // Four pages: the three endpoints below and the run-unvouched stand-in, when there is one.
+    let endpoints = crate::memory_region::create(4).expect("no endpoint region");
+    let out = crate::sched::create_rendezvous_from(endpoints).expect("no out rendezvous");
+    let child_report =
+        crate::sched::create_rendezvous_from(endpoints).expect("no child report rendezvous");
+    let deaths = crate::sched::create_rendezvous_from(endpoints).expect("no deaths rendezvous");
     let budget = crate::memory_region::create(TIMETABLE_BUDGET_PAGES).expect("no budget");
     let thread_control_block_region = crate::memory_region::create(2).expect("no tcb region");
     let tid =
@@ -329,7 +336,7 @@ fn spawn_timetable_with(
     if run_unvouched {
         // Any endpoint will do: what the timetable checks is whether the slot is occupied, exactly
         // as `swish` probes it, because the capability's meaning is the slot it is placed in.
-        let stand_in = crate::sched::create_rendezvous();
+        let stand_in = crate::sched::create_rendezvous_from(endpoints).expect("no stand-in");
         crate::sched::thread_control_block_insert_cap(
             tid,
             rendezvous_cap(stand_in, Rights::WRITE),
@@ -358,6 +365,7 @@ fn spawn_timetable_with(
         exit_word,
         budget,
         tcb_region: thread_control_block_region,
+        endpoints,
         clock: clock_phys,
     }
 }

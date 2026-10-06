@@ -171,7 +171,8 @@ pub(super) fn build_child_with(
 /// fault-time state (dead until reaped), reap it with revocation, and respawn a child that runs.
 #[test_case]
 fn a_faulting_child_reports_to_its_supervisor_and_is_reaped_then_respawned() {
-    let fault_ep = sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(2).expect("no endpoint region");
+    let fault_ep = sched::create_rendezvous_from(endpoints).expect("no fault rendezvous");
     let (child, region) = build_child(FAULT_STUB, None, Some(fault_ep));
 
     // The child faults on its first load. Its death arrives here, kernel-stamped.
@@ -219,7 +220,7 @@ fn a_faulting_child_reports_to_its_supervisor_and_is_reaped_then_respawned() {
     );
 
     // Respawn: a fresh child, in a fresh region, runs to completion where the crashed one died.
-    let report = sched::create_rendezvous();
+    let report = sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
     let (_c2, region2) = build_child(REPORT_STUB, Some(report), None);
     assert_eq!(
         sched::ipc_receive(report)[0],
@@ -233,6 +234,7 @@ fn a_faulting_child_reports_to_its_supervisor_and_is_reaped_then_respawned() {
         super::wait_for(|| sched::reclaim_region(region2).is_ok()),
         "the respawned child was never reaped, so its region could not be reclaimed",
     );
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **A clean exit flows too, distinguished by the event code.** The other half of §26's "both
@@ -241,8 +243,9 @@ fn a_faulting_child_reports_to_its_supervisor_and_is_reaped_then_respawned() {
 /// "crashed."
 #[test_case]
 fn a_clean_exit_reports_the_exit_event_not_a_fault() {
-    let report = sched::create_rendezvous();
-    let fault_ep = sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(2).expect("no endpoint region");
+    let report = sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
+    let fault_ep = sched::create_rendezvous_from(endpoints).expect("no fault rendezvous");
     let (child, region) = build_child(REPORT_STUB, Some(report), Some(fault_ep));
 
     // It runs (the SEND proves it reached EL0), then exits cleanly.
@@ -268,6 +271,7 @@ fn a_clean_exit_reports_the_exit_event_not_a_fault() {
         super::wait_for(|| sched::reclaim_region(region).is_ok()),
         "reaping the exited corpse's region failed",
     );
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 // ===========================================================================================

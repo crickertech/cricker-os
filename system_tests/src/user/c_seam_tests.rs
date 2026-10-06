@@ -39,7 +39,7 @@ const EXPECTED_REPORTS: usize = 4 * ATTEMPTS;
 /// process in the run holds a WRITE view of. Deliberately the same endowment `spawn_init` gives
 /// (the archive read-only at `INITRD_VA`, an untyped in slot 0, a report endpoint in slot 1), so
 /// what is under test is the seam rather than a privileged shortcut.
-fn spawn_confiner() -> sched::RendezvousId {
+fn spawn_confiner() -> (sched::RendezvousId, u64) {
     let (initrd_start, initrd_len) = memory::initrd_region().expect("no initrd region");
     let initrd_pages = initrd_len.div_ceil(FRAME_SIZE);
     let bytes = program("c_confiner").expect("no c_confiner program in the initrd archive");
@@ -78,7 +78,9 @@ fn spawn_confiner() -> sched::RendezvousId {
     }
     let aspace = readopt_user_address_space(space).expect("register the c_confiner aspace");
 
-    let report = sched::create_rendezvous();
+    // From a region the run owns and reclaims, as `live_swap_tests::spawn_swapper` does.
+    let report_region = crate::memory_region::create(1).expect("no region for the report endpoint");
+    let report = sched::create_rendezvous_from(report_region).expect("no report rendezvous");
     let budget =
         crate::memory_region::create(CONFINER_BUDGET_PAGES).expect("no budget for c_confiner");
     let thread_control_block_region = crate::memory_region::create(2).expect("no tcb region");
@@ -103,7 +105,7 @@ fn spawn_confiner() -> sched::RendezvousId {
     sched::configure_thread_control_block(tid, elf.entry(), USER_STACK_TOP, aspace)
         .expect("configure");
     sched::start_thread_control_block(tid, [0, initrd_len, 0]).expect("start");
-    report
+    (report, report_region)
 }
 
 /// **Wait, with a deadline, for the next report to be parked on the endpoint.**
@@ -138,7 +140,7 @@ fn wait_for_report(report: sched::RendezvousId) -> bool {
 /// `authority_tests::run_tree` records: a half-run harness keeps building processes in the
 /// background, and a test that leaves work running is a test that fails somebody else.
 fn run_seam() -> [[u64; 5]; EXPECTED_REPORTS] {
-    let report = spawn_confiner();
+    let (report, report_region) = spawn_confiner();
     let mut msgs = [[0u64; 5]; EXPECTED_REPORTS];
     for (i, slot) in msgs.iter_mut().enumerate() {
         assert!(
@@ -173,6 +175,7 @@ fn run_seam() -> [[u64; 5]; EXPECTED_REPORTS] {
         "the run made more than {EXPECTED_REPORTS} reports: the supervisor acted after the \
          honest attempt finished",
     );
+    sched::reclaim_region(report_region).expect("the report endpoint's region did not come back");
     msgs
 }
 

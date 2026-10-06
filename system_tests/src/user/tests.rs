@@ -989,8 +989,13 @@ fn a_user_client_moves_data_through_shared_memory() {
     static mut BUF: [u8; 128] = [0; 128];
 
     let image = program("console_test_client").expect("no console_test_client in the archive");
-    let request = sched::create_rendezvous();
-    let reply = sched::create_rendezvous();
+    // Deliberately kept for the boot, like the shared page below and for the same reason: the
+    // client spins forever and the server below loops forever, so reclaiming these would turn both
+    // into busy loops on a stale endpoint. Two pages from a region of their own, charged to this
+    // test, rather than from the kernel's pool, whose chunk boundary charges a later test.
+    let endpoints = crate::memory_region::create(2).expect("no endpoint region");
+    let request = sched::create_rendezvous_from(endpoints).expect("no request rendezvous");
+    let reply = sched::create_rendezvous_from(endpoints).expect("no reply rendezvous");
 
     // The shared page, owned by the test (not by either address space), so `map_physical`
     // will not free it. Deliberately leaked: the client spins forever, so there is no safe
@@ -2831,7 +2836,8 @@ fn a_granted_thread_reads_the_cycle_counter_and_an_ungranted_one_faults() {
 
     // The positive half. A report arriving at all is most of the assertion: on the two
     // architectures above, the same program without the grant is the fault just counted.
-    let result = sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let result = sched::create_rendezvous_from(endpoints).expect("no result rendezvous");
     let faults = USER_FAULTS.load(Ordering::Relaxed);
     sched::spawn(move || {
         sched::grant_cycle_counter_to_current();
@@ -2862,6 +2868,7 @@ fn a_granted_thread_reads_the_cycle_counter_and_an_ungranted_one_faults() {
         faults,
         "the granted thread faulted instead of reading cleanly",
     );
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 
     let (first, second) = (message[1], message[2]);
     if el0_cycle_counter_is_known_to_run() {
@@ -2980,7 +2987,8 @@ fn a_process_can_build_start_and_run_a_child_thread() {
     .expect("map stack");
 
     // The child's one authority: WRITE on a report rendezvous, so it can SEND but not receive.
-    let report = crate::sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let report = crate::sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
     let report_cap = crate::cap::rendezvous_cap(
         report,
         crate::cap::Rights::WRITE.union(crate::cap::Rights::GRANT),
@@ -3023,6 +3031,7 @@ fn a_process_can_build_start_and_run_a_child_thread() {
         got, expect_word,
         "the child never reported: a built-from-parts thread did not reach EL0 and run",
     );
+    crate::sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **Object revocation, piece 3: a started thread and its bound address space are reclaimed
@@ -3061,12 +3070,11 @@ fn reclaim_frees_a_started_then_exited_childs_regions() {
     let code = super::supervision_tests::REPORT_STUB;
     let expect_word = super::supervision_tests::REPORT_WORD;
 
-    // The report rendezvous lives in the kernel's own pinned rendezvous region (never reclaimed
-    // here; rendezvous revocation is a later piece), so it is not part of what this test accounts
-    // for. It used to be created before a machine-wide free-frame baseline for that reason; the
-    // accounting below is per-region now, so the ordering no longer matters and the frames it
-    // spends cannot be confused with the child's.
-    let report = crate::sched::create_rendezvous();
+    // The report rendezvous lives in a region of its own, reclaimed last, so it is not part of what
+    // this test accounts for: the accounting below is per-region, and the frames it spends cannot
+    // be confused with the child's.
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let report = crate::sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
 
     // The child's whole address space in one region: root, tables, code, and stack.
     let as_region = crate::memory_region::create(8).expect("no address space region");
@@ -3161,6 +3169,7 @@ fn reclaim_frees_a_started_then_exited_childs_regions() {
 
     tcb_run.assert_returned("the child's TCB region did not give its frames back");
     as_run.assert_returned("the child's address-space region did not give its frames back");
+    crate::sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **Spawn-to-reap repeats without leaking: the whole milestone's payoff.** Build, start, run,
@@ -3177,7 +3186,8 @@ fn spawn_to_reap_repeats_without_leaking() {
     let code = super::supervision_tests::REPORT_STUB;
     let expect_word = super::supervision_tests::REPORT_WORD;
 
-    let report = crate::sched::create_rendezvous();
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let report = crate::sched::create_rendezvous_from(endpoints).expect("no report rendezvous");
 
     for round in 0..6 {
         let as_region = crate::memory_region::create(8).expect("address space region");
@@ -3255,6 +3265,7 @@ fn spawn_to_reap_repeats_without_leaking() {
         tcb_run.assert_returned("spawn-to-reap leaked the cycle's TCB region");
         as_run.assert_returned("spawn-to-reap leaked the cycle's address-space region");
     }
+    crate::sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **A process composed from two capabilities runs in the space it was built in** (milestone 19b
@@ -3315,6 +3326,7 @@ fn a_process_composed_from_two_capabilities_runs_in_the_space_it_built() {
     );
     sched::reclaim_region(witness.thread_control_block_region)
         .expect("reclaim the witness's thread control block region");
+    sched::reclaim_region(witness.report_region).expect("reclaim the witness's report line");
 
     assert_eq!(
         verdict,
@@ -3334,12 +3346,14 @@ fn a_process_composed_from_two_capabilities_runs_in_the_space_it_built() {
 /// working at EL0.
 #[test_case]
 fn a_process_can_mint_an_rendezvous_and_ipc_flows_over_it() {
-    let report = retype_ep_service::wire();
+    let endpoints = crate::memory_region::create(2).expect("no endpoint region");
+    let report = retype_ep_service::wire(endpoints);
     let word = sched::ipc_receive(report)[0];
     assert_eq!(
         word, 0x77,
         "the word never crossed the process-minted rendezvous",
     );
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **Capability delegation, end to end.** A granter process passes a resource capability to a
@@ -3351,7 +3365,8 @@ fn a_process_can_mint_an_rendezvous_and_ipc_flows_over_it() {
 /// kernel at spawn. See fixtures/src/hello.rs and `user::delegation_service`.
 #[test_case]
 fn a_capability_can_be_delegated_over_ipc_and_grant_gates_re_delegation() {
-    let (resource, report) = delegation_service::wire();
+    let endpoints = crate::memory_region::create(4).expect("no endpoint region");
+    let (resource, report) = delegation_service::wire(endpoints);
 
     // The receiver invoked the *delegated* capability to SEND this word. Collecting it here is
     // proof the capability the granter minted for the receiver actually carries authority.
@@ -3375,6 +3390,7 @@ fn a_capability_can_be_delegated_over_ipc_and_grant_gates_re_delegation() {
         0b10,
         "a capability held WITHOUT grant was allowed to be re-delegated: rights did not gate it",
     );
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **Milestone 12: a process calls a server it was never wired to, and the reply cap is
@@ -3384,7 +3400,8 @@ fn a_capability_can_be_delegated_over_ipc_and_grant_gates_re_delegation() {
 /// refused. This is what a pre-wired reply rendezvous cannot guarantee.
 #[test_case]
 fn a_process_calls_a_server_and_the_reply_is_one_shot() {
-    let (call_report, oneshot_report) = call_service::wire();
+    let endpoints = crate::memory_region::create(3).expect("no endpoint region");
+    let (call_report, oneshot_report) = call_service::wire(endpoints);
 
     let reply = sched::ipc_receive(call_report)[0];
     assert_eq!(
@@ -3397,6 +3414,7 @@ fn a_process_calls_a_server_and_the_reply_is_one_shot() {
         one_shot, 1,
         "the server's second reply was NOT refused: the reply capability is not one-shot",
     );
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **Milestone 13: a process revokes a frame across the boundary.** It retypes a page, maps it,
@@ -3406,12 +3424,14 @@ fn a_process_calls_a_server_and_the_reply_is_one_shot() {
 /// the safe reclamation are proven directly in kernel/src/revoke.rs.
 #[test_case]
 fn a_process_revokes_a_frame_and_loses_the_capability() {
-    let report = revoke_service::wire();
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let report = revoke_service::wire(endpoints);
     let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
         verdict, 1,
         "REVOKE did not both succeed and leave the frame slot empty",
     );
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
 /// **`PageFrame` capabilities, end to end.** A producer retypes a page into a `PageFrame`, maps it, writes
@@ -3423,7 +3443,8 @@ fn a_process_revokes_a_frame_and_loses_the_capability() {
 /// fixtures/src/hello.rs and `user::page_frame_service`.
 #[test_case]
 fn a_frame_capability_shares_a_page_and_a_read_only_view_cannot_write_it() {
-    let report = page_frame_service::wire();
+    let endpoints = crate::memory_region::create(2).expect("no endpoint region");
+    let report = page_frame_service::wire(endpoints);
 
     let verdict = sched::ipc_receive(report)[0];
     assert_eq!(
@@ -3436,4 +3457,5 @@ fn a_frame_capability_shares_a_page_and_a_read_only_view_cannot_write_it() {
         0b10,
         "a frame delegated READ-only was mappable writable: rights did not confine the mapping",
     );
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }

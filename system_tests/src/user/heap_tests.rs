@@ -9,7 +9,8 @@ use super::*;
 fn a_process_runs_alloc_collections_on_its_own_memory_region() {
     let image = program("allocator_exerciser")
         .expect("no allocator_exerciser program in the initrd archive");
-    let report = alloc_service::start(image);
+    let endpoints = crate::memory_region::create(1).expect("no endpoint region");
+    let report = alloc_service::start(image, endpoints);
     let words = crate::sched::ipc_receive(report);
     assert_eq!(
         words[0], 0xA110_C0DE,
@@ -25,4 +26,5 @@ fn a_process_runs_alloc_collections_on_its_own_memory_region() {
         committed.is_multiple_of(4096),
         "committed bytes must be whole pages",
     );
+    crate::sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
