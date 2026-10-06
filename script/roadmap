@@ -1107,6 +1107,15 @@ for fname in sorted(os.listdir(pdir)) if os.path.isdir(pdir) else []:
     named = roadmap_proposals.filename_problem(fname)
     if named == roadmap_proposals.EXEMPT_FILE:
         continue
+    # A proposal over §212's budget takes an appendix like any block (proposals/README.md says so),
+    # and §212's default siting is a parent-named directory: `<slug>/` beside `<slug>.md`. The
+    # prose ratchet's orphan rule checks that every file in it is linked from the proposal. Before
+    # 2026-10-06 (UTC) this check refused the directory the README told a lane to write (#1777).
+    # Promotion must `git mv` the directory with the file.
+    if (named == roadmap_proposals.NOT_MARKDOWN
+            and os.path.isdir(os.path.join(pdir, fname))
+            and os.path.isfile(os.path.join(pdir, fname + ".md"))):
+        continue
     if named == roadmap_proposals.NOT_MARKDOWN:
         problems.append(f"{rel}: only proposal files live here (<slug>.md)")
         continue
