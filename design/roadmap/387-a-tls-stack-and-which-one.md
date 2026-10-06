@@ -120,7 +120,9 @@ Recorded rather than minted, because it has no consumer until this proposal does
 
 ## Why this is a proposal and not a milestone
 
-No consumer is blocked today. 198 has not chosen a format or a transport, 99 is `NOT-STARTED`
+No consumer is blocked today. ~~198 has not chosen a format or a transport,~~ (Corrected
+2026-10-06: 198 has both, §197 (a package is one archive file) for the format and §196 (nife
+carries TLS) for HTTPS with `rustls`, so this section's premise for 198 is overtaken.) 99 is `NOT-STARTED`
 and its local half needs no network at all, 174 says it can start without TLS, and 66 is the largest
 single item on the roadmap and gated elsewhere. A milestone minted now would sit `NOT-STARTED`
 behind four other things and teach nobody anything.
