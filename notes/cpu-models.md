@@ -297,6 +297,9 @@ The matrix is the same riscv64 suite five times over, so folding it into the mai
 every run four times longer for a check whose whole point is that it rarely changes anything. On its
 own runner it costs nothing a developer waits for.
 
+Since 2026-10-06 it is two `cpu-matrix-shard` jobs under an aggregate holding the required name;
+a failure's logs are on the shard.
+
 It runs on every push and pull request rather than nightly. The change that breaks this is a change
 to `kernel/src/arch/riscv64/`, which arrives in a pull request, and a nightly would report the
 failure a day after the merge that caused it.

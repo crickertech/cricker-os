@@ -148,16 +148,16 @@ concurrency:
 # checked by loom, which models C11 on any host and runs as the `interleavings` job below. A host
 # test that races no threads cannot observe a reordering on any host.
 #
-# **Where the claim does hold is the guest, and that is why the four build jobs and `cpu-matrix`
-# stay on arm64** (the watchdog job runs there too, a placement it inherited rather than one this
-# argument carries). They boot kernels under multi-threaded TCG, where each guest core is a host
-# thread. An aarch64 or riscv64 guest on an aarch64 host can therefore be shown reorderings the
-# host permits, where an x86_64 host sees only what TSO allows. That is the one place CI puts kernel
-# code in front of a weakly ordered machine, which is the discipline DECISIONS §4 (kernel shape:
-# monolithic, deferred, with two cheap rules) rule 4 commits us to. The QEMU half of that argument
-# is recalled from QEMU's documentation rather than measured here; milestone 587's BUGS says so. The
-# split took the build jobs' draw on that pool from one runner to four, which is the price of
-# removing the 33-minute serial pole and is paid knowingly.
+# **Where the claim does hold is the guest, and that is why the four build jobs and the
+# `cpu-matrix-shard` jobs stay on arm64** (the watchdog job runs there too, a placement it inherited
+# rather than one this argument carries). They boot kernels under multi-threaded TCG, where each
+# guest core is a host thread. An aarch64 or riscv64 guest on an aarch64 host can therefore be shown
+# reorderings the host permits, where an x86_64 host sees only what TSO allows. That is the one
+# place CI puts kernel code in front of a weakly ordered machine, which is the discipline DECISIONS
+# §4 (kernel shape: monolithic, deferred, with two cheap rules) rule 4 commits us to. The QEMU half
+# of that argument is recalled from QEMU's documentation rather than measured here; milestone 587's
+# BUGS says so. The split took the build jobs' draw on that pool from one runner to four, which is
+# the price of removing the 33-minute serial pole and is paid knowingly.
 #
 # Everything else moved because the arm64 hosted pool, not the 60-job cap, was the constraint: on
 # 2026-09-24 about 20 jobs ran while 128 to 173 waited, arm64 jobs waited a median 15 to 24 minutes
@@ -640,13 +640,42 @@ jobs:
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
-  cpu-matrix:
-    name: cpu matrix (riscv64 across QEMU CPU models)
+  # **Two shards and an aggregate, because one runner ran out of budget** (lane/cpu-matrix-budget,
+  # 2026-10-06 UTC). Measured on 31 green merge-group runs from 2026-09-20 to 2026-10-06: the job's
+  # fixed cost (checkout, caches, bootstrap, the kernel build) held at about 4.3 minutes, and each
+  # model's boot of the riscv64 suite grew from 1.6 to 3.1 minutes, evenly on all five models,
+  # because the suite itself grew (358 tests to 457, most of the new time in login, compositor,
+  # display and timetable system tests). Five boots in a row reached 19.8 minutes on a fast runner
+  # and 20.1 to 21.0 on slow or cold ones, which failed the budget with every model green. No step
+  # regressed, so there was nothing cheap to fix, and raising the budget would only move the date.
+  #
+  # Two shards rather than five because the fixed cost is paid per shard: two cost about 24
+  # runner-minutes against 19.8 (one more arm64 runner per run), five would cost about 37. The
+  # three-model shard is the long pole at about 13.6 minutes. Models go to shards in
+  # `script/cpu-matrix`'s own order through `CRICKER_CPU_MODELS`, so the control, `rv64`, is in the
+  # first shard. If the suite keeps growing at 0.1 minutes per model per day the long shard meets
+  # the budget again in about three weeks; a third shard is then one more `include` entry.
+  #
+  # The required check keeps its name on the aggregate below, the same arrangement verify.yml's
+  # header records for `verify (Kani proofs)`: a matrix renames its jobs, and a required name that
+  # matches nothing blocks every pull request.
+  cpu-matrix-shard:
+    name: cpu matrix shard (${{ matrix.models }})
     runs-on: ubuntu-24.04-arm
     needs: gate
     if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
-    # Five QEMU boots plus a std-farm build. Generous because a hung guest must fail loudly rather
-    # than sit on the runner's 6-hour default, the same reason the test job has one.
+    strategy:
+      # Every shard finishes, for the reason script/cpu-matrix does not stop at the first model:
+      # which models failed is the diagnosis.
+      fail-fast: false
+      matrix:
+        include:
+          - shard: 1
+            models: rv64 sifive-u54 rva22s64
+          - shard: 2
+            models: rva23s64 thead-c906
+    # Up to three QEMU boots plus a std-farm build. Generous because a hung guest must fail loudly
+    # rather than sit on the runner's 6-hour default, the same reason the test job has one.
     # 25 minutes is the 20-minute budget plus margin (calef, 2026-10-03
     # UTC). Any derivation above that argues for a longer bound predates it and describes a job
     # that no longer fits; `helpers/job-budget.py` is the rule and `script/lint` holds it.
@@ -685,6 +714,8 @@ jobs:
       # See notes/cpu-models.md, including its BUGS section: a narrower QEMU model is still QEMU.
       - run: script/bootstrap
       - run: script/ci-build cpu-matrix
+        env:
+          CRICKER_CPU_MODELS: ${{ matrix.models }}
       # The per-model logs, kept only when something failed. `script/cpu-matrix` now prints an
       # excerpt inline, which answers most questions without leaving the browser; this is for the
       # ones it does not, because the full boot log is thousands of lines and belongs in a download
@@ -695,11 +726,36 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: cpu-matrix-logs
+          name: cpu-matrix-logs-${{ matrix.shard }}
           path: target/cpu-matrix/
       - name: Check the job's wall time against its budget
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
+
+  # The name the ruleset requires, kept stable over the shards. It reads one result and boots
+  # nothing, so it runs on the x86_64 pool and has no checkout (helpers/job-budget.py exempts a job
+  # without one from the clock steps; the timeout still binds).
+  cpu-matrix:
+    name: cpu matrix (riscv64 across QEMU CPU models)
+    runs-on: ubuntu-24.04
+    needs: [gate, cpu-matrix-shard]
+    # The shards' own condition, so a draft or a prose-only change skips this by condition (which
+    # reports Success) rather than leaving the required check unreported. `!cancelled()` reaches the
+    # condition when a shard failed, which is the case this job exists to report.
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
+    timeout-minutes: 5
+    steps:
+      - name: Report the shards' combined result
+        run: |
+          result="${{ needs['cpu-matrix-shard'].result }}"
+          if [ "$result" = success ]; then
+            echo "==> cpu-matrix shards: every model passed"
+          else
+            # script/ci-log-baseline attributes this job by its last `==>` line; the models that
+            # failed are named in the shard's own log, on its `cpu-matrix: failed on:` line.
+            echo "==> cpu-matrix shards: $result (the failing shard's job names the models)"
+            exit 1
+          fi
 
   watchdog:
     name: watchdog (x86_64 TCO reset under q35)

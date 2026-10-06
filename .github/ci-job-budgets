@@ -6,4 +6,7 @@
 # `check` reads the minutes as that job's budget, warns at 75% of it and fails above it.
 # `timeout-minutes` in ci.yml may then be at most the new budget plus five. A line with no reason is
 # refused, and so is one that does not raise the budget above 20. No job has one today: on 2026-10-03
-# the slowest, `cpu-matrix`, ran a 15.0 minute median and a 16.6 minute maximum.
+# the slowest, `cpu-matrix`, ran a 15.0 minute median and a 16.6 minute maximum. It reached 19.8 on
+# 2026-10-06 and failed at 20.1 to 21.0 on slow runners, because each model's boot of the growing
+# riscv64 suite went from 1.6 to 3.1 minutes; it was split into two `cpu-matrix-shard` jobs rather
+# than given a line here (ci.yml, above that job, has the measurement).
