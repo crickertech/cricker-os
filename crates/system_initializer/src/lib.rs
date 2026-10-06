@@ -96,6 +96,10 @@
 //!         usb_keyboard_attach: 27,
 //!         // This process's own address space (§249): granted on every boot, `WRITE` alone.
 //!         own_space: 28,
+//!         // A network stack the kernel built on an `e1000e` (milestone 198 (a package
+//!         // manager)): empty on a boot with a virtio-net NIC, or with no NIC it may drive.
+//!         net_stack_ep: 29,
+//!         net_stack_report: 30,
 //!         // Empty here. On aarch64 this holds the kernel's report endpoint and a test SGI, because
 //!         // that boot path is shared with milestone 19d's test roles; the progenitor deletes them with the
 //!         // device authority once the drivers exist, rather than keeping delegable authority for
@@ -612,6 +616,25 @@ pub struct BootEndowment {
     ///
     /// Name: provisional, milestone 95's §249 lane, 2026-10-05 (UTC).
     pub own_space: u64,
+    /// **A network stack the kernel already built on an `e1000e` NIC** (milestone 198 (a package
+    /// manager), rung 3a on `x86_64`): its `Stack` endpoint with every right, which is what
+    /// [`boot`]'s own retype of that endpoint carries on the virtio path, so from here on the two
+    /// are the same endpoint to everything downstream. The kernel builds this server rather than
+    /// granting its raw materials for `kernel::user::boot_usb_keyboard`'s reason: twenty pages of
+    /// spawn-time mappings, which no capability names. **Never both** this and
+    /// [`virtio_net`](BootEndowment::virtio_net): the kernel grants this only on a boot with no
+    /// virtio-net. **Absent** on every `virt` boot, on a NIC with no link, and on a part no gate
+    /// has driven: xenon's I219, until the bench boot of milestone 494 (a driver for the network
+    /// card a PC actually has). [`boot`] probes.
+    ///
+    /// Name: provisional, milestone 198's lane, 2026-10-05 (UTC).
+    pub net_stack_ep: u64,
+    /// The endpoint `net_stack`'s one report arrives on, `READ`: the DHCP lease, which [`boot`]
+    /// receives and then deletes this, exactly as it does for a stack it built. Granted with
+    /// [`net_stack_ep`](BootEndowment::net_stack_ep) and never without it.
+    ///
+    /// Name: provisional, milestone 198's lane, 2026-10-05 (UTC).
+    pub net_stack_report: u64,
     /// **Capabilities the kernel granted that the interactive system never uses**, deleted with the
     /// device authority once the drivers exist.
     ///
@@ -1504,6 +1527,13 @@ pub fn boot(
         cap_delete(g.virtio_net_irq);
         cap_delete(g.virtio_net);
         cap_delete(g.virtio_net_dma);
+    } else if is_granted(g.net_stack_ep) {
+        // **Or the stack the kernel built on an `e1000e`** (milestone 198 (a package manager)),
+        // [`BootEndowment::net_stack_ep`]. Nothing to build, so nothing spent; the lease is taken
+        // here for the same reason [`build_net_stack`] takes it, and blocks the boot the same way.
+        let (lease, _, _) = receive(g.net_stack_report);
+        cap_delete(g.net_stack_report);
+        network = Some((g.net_stack_ep, lease));
     }
 
     // **The two components that have to exist before the progenitor can say anything.** The console writes

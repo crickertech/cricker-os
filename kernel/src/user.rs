@@ -2814,6 +2814,31 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
         #[cfg(target_arch = "aarch64")]
         crate::arch::irq::enable(g.intid);
     }
+    // **Or a stack the kernel already built on an `e1000e`** (slots 29 and 30, milestone 198 (a
+    // package manager): rung 3a on x86_64), when there is no virtio-net NIC: the `Stack` endpoint,
+    // `READ | WRITE | GRANT` as the progenitor's own retype of it is on the virtio path, and the
+    // endpoint the lease arrives on, `READ`. The progenitor receives the lease itself, exactly as
+    // it does from a stack it built, so both paths reach the prompt through one line of code. Never
+    // both: a boot with the virtio trio leaves these empty. See [`boot_e1000e_network`] for why the
+    // kernel builds this one.
+    if virtio_net.is_none()
+        && let Some(w) = boot_e1000e_network()
+    {
+        let s29 = crate::sched::thread_control_block_insert_cap(
+            tid,
+            crate::cap::rendezvous_cap(w.stack, Rights::ALL),
+            Some(29),
+        )
+        .expect("insert the e1000e stack's endpoint");
+        assert_eq!(s29, 29);
+        let s30 = crate::sched::thread_control_block_insert_cap(
+            tid,
+            crate::cap::rendezvous_cap(w.report, Rights::READ),
+            Some(30),
+        )
+        .expect("insert the e1000e stack's lease endpoint");
+        assert_eq!(s30, 30);
+    }
     // **Say that this boot worked**, if a chooser started it (rung 2b of milestone 198's other
     // half). Here and not a line earlier or later, and the position is the mechanism: the
     // filesystem server above has mounted the installed disk and reported ready, which is as late
@@ -3310,6 +3335,71 @@ fn boot_virtio_net_device() -> Option<VirtioBootGrant> {
     boot_virtio_mmio_device(crate::virtio::find_net_device()?)
 }
 
+/// **A network stack over an `e1000e`, when this boot has one and no virtio-net** (milestone 198
+/// (a package manager), whose rung 3a fetch had run on aarch64 and riscv64 only; milestone 494 (a
+/// driver for the network card a PC actually has) built the driver and named this as its first
+/// follow-on). `None`, having said why, for a part no gate has driven, a link that was down, or a
+/// bring-up the driver refused; `None` silently with no such NIC, which is every `virt` boot.
+///
+/// **The kernel builds this one, not the progenitor**, for [`boot_usb_keyboard`]'s reason: the
+/// server is handed BAR0's two queue pages and an eighteen-page DMA region as spawn-time mappings,
+/// which it holds no name for and so can neither delegate nor revoke
+/// (`e1000e_service`'s header). Built by the progenitor, each page would be a capability in its
+/// table. It is also the wiring every `e1000e` gate already runs, so the booted system's stack is
+/// the tested one rather than a second copy of it.
+#[cfg_attr(
+    any(
+        test,
+        feature = "bench",
+        feature = "soak_test",
+        feature = "job_mix",
+        feature = "disk_throughput"
+    ),
+    allow(dead_code)
+)]
+fn boot_e1000e_network() -> Option<e1000e_service::Wiring> {
+    use e1000e_service::{Absent, NotAtBoot};
+    let image = program("net_stack")?;
+    let name = |device| ::e1000e::model(device).unwrap_or("an unnamed part");
+    match e1000e_service::start_for_boot(image) {
+        Ok(w) => {
+            crate::println!(
+                "  network     : an e1000e ({}), link up; the kernel started net_stack on it, \
+                 confined {}",
+                name(w.device),
+                if w.confined_by_iommu {
+                    "by the IOMMU"
+                } else {
+                    "by its own arithmetic alone (no IOMMU owns it)"
+                },
+            );
+            Some(w)
+        }
+        Err(NotAtBoot::Absent(Absent::NoController)) => None,
+        Err(NotAtBoot::Unproven { device }) => {
+            crate::println!(
+                "  network     : NONE. An e1000e ({}, 8086:{device:04x}) is on the bus and left \
+                 alone: no gate has driven that part yet (milestone 494's bench boot is how one \
+                 does)",
+                name(device),
+            );
+            None
+        }
+        Err(NotAtBoot::NoLink { device }) => {
+            crate::println!(
+                "  network     : NONE. The e1000e ({}) has no link, and a stack waiting for DHCP \
+                 would hold the prompt back for ever",
+                name(device),
+            );
+            None
+        }
+        Err(NotAtBoot::Absent(why)) => {
+            crate::println!("  network     : REFUSED. The e1000e could not be brought up: {why:?}");
+            None
+        }
+    }
+}
+
 /// The shared body of [`boot_virtio_rng_device`] and [`boot_virtio_net_device`]: a zeroed DMA frame
 /// with its own physical base written at [`VIRTIO_DMA_PHYS_OFFSET`], the interrupt routed but not
 /// enabled, and the transport registered with the kernel, confined to that one frame.
@@ -3501,7 +3591,8 @@ pub mod non_volatile_memory_express_service;
 /// actually has)): the kernel resets the controller and programs its rings, and the process is
 /// handed the two queue pages of BAR0 and the confined DMA region, in milestone 261 (the NVMe driver leaves the kernel)'s shape. What
 /// it holds and what it is refused is in that module's header.
-#[cfg_attr(not(feature = "system_tests"), allow(dead_code))] // the tests are its callers
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
+// the tests, the bench boot and boot_progenitor are its callers
 pub mod e1000e_service;
 
 /// **The offer a booted stick makes** (milestone 198 (a package manager, and the trivial install
