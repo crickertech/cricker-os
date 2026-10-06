@@ -1,0 +1,21 @@
+Falsifies `designware_mobile_storage::proofs::a_served_block_never_leaves_its_window`.
+
+The defect: the window's bound is off by one block, so a request for the block just past the
+window is translated. On radon that block is the first sectors after nife's window: another
+partition's, or the boot partition's.
+
+Expected to fail: `assert!(lba + span <= w.first + w.sectors)`, on any request ending one block past
+the window.
+
+diff --git a/crates/designware_mobile_storage/src/serve.rs b/crates/designware_mobile_storage/src/serve.rs
+--- a/crates/designware_mobile_storage/src/serve.rs
++++ b/crates/designware_mobile_storage/src/serve.rs
+@@ -56,7 +56,7 @@
+         let Some(end) = block.checked_add(count) else {
+             return None;
+         };
+-        if count == 0 || end > self.blocks() {
++        if count == 0 || end > self.blocks() + 1 {
+             return None;
+         }
+         // `block * SECTORS_PER_BLOCK` is at most `sectors` here; the sum is checked so a window

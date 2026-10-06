@@ -20,6 +20,7 @@
 //! | [`sd`] | identification, and block reads and writes |
 //! | [`partition`] | the MBR, and the only sectors a write test may touch |
 //! | [`bench`] | the bench step's read-only probe and scratch write test |
+//! | [`serve`] | what the kernel and the EL0 block server agree on: windows, the card window, the spawn words |
 //! | [`jh7110`] | the device-tree query and the board's constants |
 //!
 //! # Examples
@@ -95,6 +96,9 @@
 //!   either controller; mainline names 74 and 75.
 //! - **A 64-bit FIFO is refused.** OpenBSD handles one; whether radon's is 32-bit is the first
 //!   thing the bench step reads (`HCON`).
+//! - **Which part of radon's card the EL0 server serves is undecided.** [`serve::Window`] carries it
+//!   and the server cannot reach past it; who chooses it for the booted system is an architect's
+//!   call, in the 53 block.
 //! - **No card detect or write-protect handling.** The probe prints `CDETECT` and proceeds; radon's
 //!   slot has a card in it or there is nothing to boot from.
 //!
@@ -113,6 +117,7 @@ pub mod jh7110;
 pub mod partition;
 pub mod regs;
 pub mod sd;
+pub mod serve;
 
 #[cfg(test)]
 mod sim;
@@ -390,6 +395,26 @@ mod proofs {
             for e in &mbr.entries {
                 assert!(!e.contains(sector));
             }
+        }
+    }
+
+    /// No block request the server translates reaches a sector outside its window.
+    ///
+    /// Falsification: replayable `crates/designware_mobile_storage/falsifications/proofs.a_served_block_never_leaves_its_window.patch`
+    #[kani::proof]
+    fn a_served_block_never_leaves_its_window() {
+        let w = crate::serve::Window {
+            first: kani::any(),
+            sectors: kani::any(),
+            writable: kani::any(),
+        };
+        kani::assume(w.first.checked_add(w.sectors).is_some());
+        let block: u64 = kani::any();
+        let count: u64 = kani::any();
+        if let Some(lba) = w.translate(block, count) {
+            assert!(lba >= w.first);
+            let span = count * crate::serve::SECTORS_PER_BLOCK;
+            assert!(lba + span <= w.first + w.sectors);
         }
     }
 
