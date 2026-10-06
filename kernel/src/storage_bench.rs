@@ -178,7 +178,7 @@ fn probe(slot: &Slot, write: bool) -> Outcome {
         slot.interrupt,
     );
 
-    let Some((sys, _)) = crate::memory::jh7110_pmic_bus() else {
+    let Some(sys) = crate::memory::jh7110_sys_window() else {
         say!(
             slot,
             "no SYS clock window recorded; not touching the controller"
@@ -186,7 +186,7 @@ fn probe(slot: &Slot, write: bool) -> Outcome {
         return Outcome::NoClockWindow;
     };
     let plan = jh7110_clock_and_reset::SDIO_BRING_UP[usize::from(slot.index)];
-    // SAFETY: `memory::jh7110_pmic_bus` is set only on a JH7110, and `mmu::init` step 6c mapped
+    // SAFETY: `memory::jh7110_sys_window` answers only on a JH7110, and `mmu::init` step 6c mapped
     // exactly this window device-typed. The plan and the domain are the same crate's, so every
     // identifier is in range; every step is idempotent on a controller already up.
     let report = unsafe {

@@ -12,8 +12,9 @@ needs_person: yes
 The storage half is built for QEMU as of 2026-08-15 (pull request #193): the
 `non_volatile_memory_express` crate (queue mechanics, host-tested, 5 Kani harnesses), a rule-2 kernel driver confined
 through the IOMMU before enable, class-code enumeration over §18, and an end-to-end boot test on
-both ISAs. The network half is built to the bench as of 2026-10-06 (below, "The network half").
-What remains of the milestone: that half's first run on radon, the board-side
+both ISAs. The network half is built to the bench as of 2026-10-06 (below, "The network half"),
+and so is the radon SD card and eMMC half (below, "The storage half on radon").
+What remains of the milestone: both halves' first runs on radon, the board-side
 PLDA XpressRICH root complex that carries the NVMe driver to the real M.2 slot (now tracked as its
 own milestone, 163, NOT-STARTED), and the EL0
 question, which is §86 (PROPOSED). Scope and honest limits: notes/non-volatile-memory-express.md, BUGS included.
@@ -47,40 +48,6 @@ What it needs.
 **The parity note this milestone must carry.** These drivers are board-specific and aarch64 has no
 equivalent board yet, so rule 5's "a scope note records the gap and the plan" applies rather than its
 "ships on every architecture". Say so explicitly; do not let it look like an oversight.
-
-## The storage half on radon, 2026-10-06
-
-calef, 2026-10-06 (UTC): radon is the most convenient lab machine, so move its hardware support
-forward, and do not split this milestone. Built by lane/53-sdmmc, every name provisional.
-notes/designware-mobile-storage.md has the evidence, the safety argument and the runbook.
-
-- The part is a Synopsys DesignWare Mobile Storage Host Controller (`snps,dw-mshc` in the vendor
-  tree radon hands over, `starfive,jh7110-mmc` in mainline): the microSD slot at `0x1602_0000`
-  and the eMMC socket at `0x1601_0000`.
-- `crates/designware_mobile_storage`: the whole driver behind one `Registers` trait, tested
-  against a simulated controller and card (SDHC, SD 1.x, eMMC, an empty slot, CRC faults, an old
-  release's FIFO, a short tail), four Kani harnesses with replayable falsifications.
-  `crates/jh7110_clock_and_reset` gains both controllers' SYS clocks and resets.
-- `kernel/src/storage_bench.rs`, behind `storage_bench`: identifies the card, reads its partition
-  table, times an 8 MiB read, then reads it again through the EL0 block server. Read-only unless
-  built with `NIFE_STORAGE_BENCH_WRITE=scratch`, and even then it writes only the sectors before
-  the first partition, and restores them.
-- `components/src/designware_mobile_storage.rs`: `filesystem_protocol::blk` at EL0 over one
-  register page and a window of the card, the virtio and NVMe servers' shape. The booted system
-  does not start it (`PROVEN_ON_SILICON`).
-- The CPU moves every byte through the FIFO, so the first silicon read tests the controller and
-  the card protocol without depending on radon's DMA coherence, which nobody has measured yet.
-- Parity scope note (rule 5): the controller is the JH7110's, so the kernel half and the bench
-  boot are riscv64-only, and `storage_bench` is a compile error elsewhere. The crate is
-  architecture-neutral.
-- Not run on silicon.
-
-**Reuse:** OpenBSD's `dwmmc` (`sys/dev/fdt/dwmmc.c` 1.33, ISC), adapted with the notice carried in
-the crate root; it matches both compatibles above. `starfive-jh7110-dwmmc` 0.1.8 on crates.io
-(Apache-2.0) was read and refused as a dependency: 333 lines over `dwmmc-host` 0.4.2 (5,253 lines)
-and three more crates from one young tree, with an IDMAC-only data path and volatile accesses inside
-the driver core. Its JH7110 constants were a third cross-check. Linux's `dw_mmc`, U-Boot's driver
-and both trees are GPL and were read for hardware facts only.
 
 **Effort: not estimated.** Two device drivers against real hardware with no emulator to iterate
 against is a different activity from everything done so far, and estimates calibrated on QEMU work do
@@ -120,6 +87,40 @@ reasons 494 refused Redox's `e1000d`. It slices a receive buffer by the descript
 2 KiB buffer. It hard-codes the clock controllers' addresses (rule 2). It is one object, with no
 place for the kernel/process split, and it would bring `bitflags` and `log`. It was read as a
 third cross-check.
+
+## The storage half on radon, 2026-10-06
+
+calef, 2026-10-06 (UTC): radon is the most convenient lab machine, so move its hardware support
+forward, and do not split this milestone. Built by lane/53-sdmmc, every name provisional.
+notes/designware-mobile-storage.md has the evidence, the safety argument and the runbook.
+
+- The part is a Synopsys DesignWare Mobile Storage Host Controller (`snps,dw-mshc` in the vendor
+  tree radon hands over, `starfive,jh7110-mmc` in mainline): the microSD slot at `0x1602_0000`
+  and the eMMC socket at `0x1601_0000`.
+- `crates/designware_mobile_storage`: the whole driver behind one `Registers` trait, tested
+  against a simulated controller and card (SDHC, SD 1.x, eMMC, an empty slot, CRC faults, an old
+  release's FIFO, a short tail), four Kani harnesses with replayable falsifications.
+  `crates/jh7110_clock_and_reset` gains both controllers' SYS clocks and resets.
+- `kernel/src/storage_bench.rs`, behind `storage_bench`: identifies the card, reads its partition
+  table, times an 8 MiB read, then reads it again through the EL0 block server. Read-only unless
+  built with `NIFE_STORAGE_BENCH_WRITE=scratch`, and even then it writes only the sectors before
+  the first partition, and restores them.
+- `components/src/designware_mobile_storage.rs`: `filesystem_protocol::blk` at EL0 over one
+  register page and a window of the card, the virtio and NVMe servers' shape. The booted system
+  does not start it (`PROVEN_ON_SILICON`).
+- The CPU moves every byte through the FIFO, so the first silicon read tests the controller and
+  the card protocol without depending on radon's DMA coherence, which nobody has measured yet.
+- Parity scope note (rule 5): the controller is the JH7110's, so the kernel half and the bench
+  boot are riscv64-only, and `storage_bench` is a compile error elsewhere. The crate is
+  architecture-neutral.
+- Not run on silicon.
+
+**Reuse:** OpenBSD's `dwmmc` (`sys/dev/fdt/dwmmc.c` 1.33, ISC), adapted with the notice carried in
+the crate root; it matches both compatibles above. `starfive-jh7110-dwmmc` 0.1.8 on crates.io
+(Apache-2.0) was read and refused as a dependency: 333 lines over `dwmmc-host` 0.4.2 (5,253 lines)
+and three more crates from one young tree, with an IDMAC-only data path and volatile accesses inside
+the driver core. Its JH7110 constants were a third cross-check. Linux's `dw_mmc`, U-Boot's driver
+and both trees are GPL and were read for hardware facts only.
 
 ## Follow-on
 

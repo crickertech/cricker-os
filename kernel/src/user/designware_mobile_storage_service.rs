@@ -65,8 +65,8 @@ pub fn start(image: &'static [u8], slot: &Slot, window: Window) -> Result<Wiring
     if Handoff::unpack(words) != Some(handoff) {
         return Err(NotStarted::BadHandoff);
     }
-    let (sys, _) = crate::memory::jh7110_pmic_bus().ok_or(NotStarted::NoClockWindow)?;
-    // SAFETY: `memory::jh7110_pmic_bus` is set only on a JH7110, and `mmu::init` step 6c mapped
+    let sys = crate::memory::jh7110_sys_window().ok_or(NotStarted::NoClockWindow)?;
+    // SAFETY: `memory::jh7110_sys_window` answers only on a JH7110, and `mmu::init` step 6c mapped
     // exactly this window device-typed. The plan and the domain are the same crate's, so every
     // identifier is in range; every step is idempotent on a controller already up.
     let report = unsafe {
