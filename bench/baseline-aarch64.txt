@@ -1,8 +1,9 @@
-# toolchain: nightly-2026-10-05
+# toolchain: nightly-2026-10-06
 # qemu: 11.1.1
 # date: 2026-10-04
 # why: 2026-10-04, fatal risk 4 (lane/null-syscall-contention): arch::exceptions::SVC_COUNT's fetch_add left every non-test build, so null_syscall drops 52,497 ticks (-12.8%; on aarch64 without LSE the increment was an exclusive-load loop). riscv64 and x86_64 moved within their 10% band and are not re-saved. See notes/job-mix/null-syscall-under-load.md.
 # why: 2026-10-05: restamped from nightly-2026-10-04 to nightly-2026-10-05 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: sink_throughput -0.007%, ipc_rtt_el0 -0.006% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: sink_throughput -0.007%, ipc_rtt_el0 -0.006%
+# why: 2026-10-06: restamped from nightly-2026-10-05 to nightly-2026-10-06 by `cargo xtask bench --restamp` run on patagonia (aarch64 macOS), rows unchanged. The toolchain-bump workflow's restamp (run 37480680030, ubuntu-24.04) refused it: ipc_rtt_el0 +0.603% there against a 0.5% bound, and the pull request's bench job (run 37482012620) reads the same on that host. On patagonia every row moved under 0.01% (largest map_new -0.006%), the EL0 os_primitives_benchmarker is instruction-identical across the two nightlies, and the kernel functions that changed are debug-build core helpers off the timed path, so the +0.603% is a term only the x86_64-Linux-hosted build shows; its cause is unexplained. Not re-saved: a --save would also absorb main's drift since the 2026-10-04 floor. The ledger carries the CI runner's terms, the larger reading; cumulative since the last --save: ipc_rtt_el0 +0.597%, map_el0 +0.089%, ctx_switch +0.060%, sink_throughput +0.009%
 # bench/baseline-aarch64.txt: deterministic icount tick counts (cargo xtask bench --save).
 # Recorded against the QEMU pinned in .qemu-version. icount counts guest instructions, so the
 # emulator version is part of what these numbers mean: script/qemu-check warns when the QEMU on

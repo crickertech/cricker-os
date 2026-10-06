@@ -1,4 +1,4 @@
-# toolchain: nightly-2026-10-05
+# toolchain: nightly-2026-10-06
 # qemu: 11.1.1
 # date: 2026-10-03
 # why: milestone 629 (the context-switch statistic stops costing the switch path): the switch count moved from a fetch_add on the machine statistics page to PerCpu::switches, published on the tick; per switch 134 -> 31 instructions at -O0 (riscv64), ruled option B on #1489
@@ -7,6 +7,7 @@
 # why: 2026-10-04: restamped from nightly-2026-10-03 to nightly-2026-10-04 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: ctx_switch +0.020%, ipc_rtt_el0 -0.005%, null_syscall -0.001% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: ipc_rtt_el0 -0.023%, ctx_switch -0.020%, null_syscall -0.002%, map_el0 +0.002%
 # why: 2026-10-05: restamped from nightly-2026-10-04 to nightly-2026-10-05 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: ctx_switch +0.020%, relay_rtt +0.020%, ipc_rtt_el0 -0.006% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: ipc_rtt_el0 -0.029%, relay_rtt +0.020%, broker_rtt -0.005%, spawn_reap -0.003%, null_syscall -0.002%, map_el0 +0.002%, call_reply +0.001%
 # why: 2026-10-05: the bump workflow's CI runner (x86_64) measured ipc_rtt 178171 -> 181459 (+1.845%) and ipc_rtt_el0 +0.776% between these nightlies and so declined to restamp; the same A/B on Apple aarch64 (patagonia) read ipc_rtt 178171 -> 178171 (+0.000%) and ipc_rtt_el0 -0.006%, so the CI delta did not reproduce on a second host and is unattributed (no objdump diff, nothing to diff); floor numbers unchanged
+# why: 2026-10-06: restamped from nightly-2026-10-05 to nightly-2026-10-06 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: map_el0 -0.074%, ctx_switch -0.020%, sink_throughput +0.015% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: map_el0 -0.072%, ipc_rtt_el0 -0.022%, ctx_switch -0.020%, sink_throughput +0.015%, relay_rtt +0.010%, call_reply +0.010%, broker_rtt +0.004%, spawn_reap -0.003%, null_syscall -0.002%, ipc_rtt +0.001%
 # bench/baseline-riscv64.txt: deterministic icount tick counts (cargo xtask bench --save).
 # Recorded against the QEMU pinned in .qemu-version. icount counts guest instructions, so the
 # emulator version is part of what these numbers mean: script/qemu-check warns when the QEMU on
