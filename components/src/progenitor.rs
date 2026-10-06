@@ -123,6 +123,10 @@ const GRANTS: BootEndowment = BootEndowment {
     // `system_initializer::boot` probes.
     net_stack_ep: 29,
     net_stack_report: 30,
+    // The reboot object (milestone 805 (`reboot` at the prompt), DECISIONS §251 (restarting the
+    // machine is a kernel object the progenitor hands out)), granted on every boot past the e1000e
+    // stack's pair. Kept by the spawn service for the one program that declares it.
+    reboot: 31,
     // Nothing. Since milestone 166 the boot loader is not shared with milestone 19d's test roles on
     // any architecture, so the kernel grants exactly what the interactive system uses. aarch64 once
     // carried a report endpoint (slot 1) and the 19d.2b test interrupt (slot 3) here.

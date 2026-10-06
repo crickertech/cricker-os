@@ -987,6 +987,18 @@ pub fn irq_ack(irq_slot: u64) -> i64 {
     unsafe { invoke(irq_slot, abi::irq::ACK, 0, 0, 0) }
 }
 
+/// **Invoke the reboot object in `slot`** (milestone 805 (`reboot` at the prompt), DECISIONS §251
+/// (restarting the machine is a kernel object the progenitor hands out)): `abi::reboot::REBOOT`.
+/// Does not return when the reset works. When it does return, the answer is negative: an
+/// `abi::Error` (`DeviceRefused` when the firmware refused, `NoSuchSlot` when nothing is held
+/// there).
+///
+/// Name: provisional, milestone 805's lane, 2026-10-06 (UTC).
+pub fn reboot(slot: u64) -> i64 {
+    // SAFETY: `svc`/`ecall`. The kernel validates the capability before it touches the firmware.
+    unsafe { invoke(slot, abi::reboot::REBOOT, 0, 0, 0) }
+}
+
 /// `SEND_CAP` on the endpoint capability in `slot`: delegate a (possibly narrowed) copy of the
 /// capability in `cap_slot`, narrowed to `rights`, alongside the data word `w1`, and block until a
 /// receiver takes them. `0` or a positive ack on success; a negative `abi::Error`.

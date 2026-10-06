@@ -44,6 +44,8 @@ struct Manifest {
     domain:        bool,        // may it name the processes in its supervision domain?
     config:        bool,        // may it read TZ/LANG/TERM off the inert config page?
     entropy:       bool,        // may it ask the entropy service for random bytes?
+    // ... network, machine, share, runtime: see grant_plan::Manifest
+    reboot:        bool,        // may it restart the machine (milestone 805, DECISIONS §251)?
 }
 ```
 

@@ -545,6 +545,18 @@ programs! {
         /// (`gpu_driver`, `display_terminal` and the keyboard), so it survives any later change of
         /// VT engine behind `display_terminal`.
         GraphicalTerminal { id: 20, name: "graphical_terminal" },
+        /// **Restart the machine** (milestone 805 (`reboot` at the prompt), DECISIONS §251
+        /// (restarting the machine is a kernel object the progenitor hands out)),
+        /// `components/src/reboot.rs`.
+        ///
+        /// The one program that declares [`Manifest::reboot`]. The progenitor flushes the writable
+        /// filesystem before starting it and hands it the answer; it prints that, then invokes the
+        /// reboot object, which does not return when the reset works. When the firmware refuses, it
+        /// says so on its second stream and exits non-zero.
+        ///
+        /// Name: provisional. A verb, which design/naming.md passes only as a term of art, like
+        /// `bind`; every Unix since V7 has spelled this one `reboot`.
+        Reboot { id: 21, name: "reboot" },
     }
 }
 
@@ -575,6 +587,7 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             Prog::MemoryGrantDepleter => Manifest {
@@ -598,6 +611,7 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             // The two interrupt demonstrators. Both run until interrupted, take no argument and no
@@ -624,6 +638,7 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             Prog::InterruptIgnorer => Manifest {
@@ -643,6 +658,7 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             // `date` declares an empty grant expression, and that is the interesting part: its
@@ -691,6 +707,7 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             // **The first program endowed a directory**, and the first with options. It takes no
@@ -724,6 +741,7 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             // **The consumer**, and the only program that declares an input. Everything else about
@@ -752,6 +770,7 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             // **The viewer**, whose manifest is "a stream in, a stream out" like `wc`'s, and handed
@@ -781,6 +800,7 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             // **`ps`: a stream out, a domain in, and nothing else** (milestone 126).
@@ -813,6 +833,7 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             // **`pgrep`: `ps`'s manifest, field for field, and the sameness is the claim.**
@@ -848,6 +869,7 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             // **`top`: `ps`'s manifest and the machine statistics page.** Ranking still costs no
@@ -877,6 +899,7 @@ impl Prog {
                 network: false,
                 machine: true,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             // **The one program in this table that declares the inert-configuration page.** Same
@@ -899,6 +922,7 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             // **`least_authority_demo`'s manifest, not `date`'s.** `uptime` reads `user_mode_runtime::monotonic_nanos`,
@@ -924,6 +948,7 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             // **The one program in this table that declares the network** (milestone 590
@@ -949,6 +974,7 @@ impl Prog {
                 network: true,
                 machine: false,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             // **Declares nothing, deliberately**: `uptime`'s manifest, field for field. The program
@@ -970,6 +996,7 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             // **The one program in this table that declares the entropy service** (milestone 111).
@@ -1003,6 +1030,7 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             // **`free`: the machine page and the budget view, and nothing that can act.** The
@@ -1027,6 +1055,7 @@ impl Prog {
                 network: false,
                 machine: true,
                 share: true,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             // **`vmstat`: the machine page alone.** Its rates are per second since boot, and the
@@ -1050,6 +1079,7 @@ impl Prog {
                 network: false,
                 machine: true,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             // **`slabtop`: the budget view alone**, which is the difference from `free`.
@@ -1072,6 +1102,7 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: true,
+                reboot: false,
                 runtime: Runtime::Native,
             },
             Prog::GraphicalTerminal => Manifest {
@@ -1097,6 +1128,36 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: false,
+                reboot: false,
+                runtime: Runtime::Native,
+            },
+            // **`reboot`: the reboot object, and nothing a line can designate.** No argument, no
+            // file, no memory. Its output is a report of what the flush answered, and its second
+            // stream is for the one failure it can see, a firmware that refused: the reason of §67
+            // (a program's second stream is a declaration, not a number), so `reboot > out.txt`
+            // still puts the refusal in front of a person. Not interruptible, because the
+            // supervised shape builds a child with no capabilities, and there is nothing to
+            // interrupt: it either resets the machine or says why not, at once.
+            Prog::Reboot => Manifest {
+                arg: ArgSpec::Forbidden,
+                mem: MemSpec::Forbidden,
+                file: FileSpec::Forbidden,
+                dir: DirSpec::Forbidden,
+                flags: NO_FLAGS,
+                output: OutputSpec::BytesAndDiagnostics {
+                    slot: DIAGNOSTICS_SLOT,
+                },
+                input: InputSpec::Forbidden,
+                reports: true,
+                interruptible: false,
+                clock: false,
+                domain: false,
+                config: false,
+                entropy: false,
+                network: false,
+                machine: false,
+                share: false,
+                reboot: true,
                 runtime: Runtime::Native,
             },
             Prog::StdExerciser => Manifest {
@@ -1126,6 +1187,7 @@ impl Prog {
                 network: false,
                 machine: false,
                 share: false,
+                reboot: false,
                 runtime: Runtime::Std,
             },
         }
@@ -1448,6 +1510,9 @@ pub fn image_can_carry(m: &Manifest) -> bool {
         && m.input == InputSpec::Forbidden
         && m.flags.letters().is_empty()
         && !m.interruptible
+        // Milestone 805: the reboot object is endowed to the one program in this table that
+        // declares it, never to installed bytes, whatever their note asks.
+        && !m.reboot
         && std == (m.arg.hears_words())
         && (!std
             || (m.output == OutputSpec::Bytes
@@ -1531,14 +1596,32 @@ pub const MACHINE_SLOT: u64 = 11;
 /// Name: ratified 2026-09-27 (calef, #1360's table).
 pub const SHARE_SLOT: u64 = 12;
 
+/// **Where a program that declares [`Manifest::reboot`] finds the reboot object** (milestone 805,
+/// DECISIONS §251). Thirteen, one past [`SHARE_SLOT`], for [`ENTROPY_SLOT`]'s reasons: a named slot
+/// rather than the next free one, and far below `abi::fault::FAULT_EP_SLOT`. `WRITE` alone, so the
+/// holder can invoke it and cannot hand it on.
+///
+/// Name: provisional (milestone 805).
+pub const REBOOT_SLOT: u64 = 13;
+
+/// **How a child that declares [`Manifest::reboot`] hears what the flush answered** (milestone
+/// 805): the progenitor starts it with the `filesystem_protocol::fs::SYNC` reply as a signed word
+/// in its **third** start register (`_start`'s `a2`). Positive is the device-flush count, so at
+/// least 1; negative is the errno (`EOPNOTSUPP` for a device that cannot flush); zero means this
+/// boot attached no writable filesystem, so there was nothing to flush. The first two registers
+/// stay what every native child gets, so the program's argument (it takes none) keeps its place.
+///
+/// Name: provisional (milestone 805).
+pub const REBOOT_SYNC_REGISTER: usize = 2;
+
 /// **What the progenitor endows a child whose bytes nobody vouched for**, when the caller presented
 /// the run-unvouched capability (DECISIONS §219 gate D2, ruled by calef 2026-09-26: *"Yes, allow
 /// the clock and config pages."*).
 ///
-/// The ruling in one value. Of the five authorities the progenitor endows from a manifest rather
-/// than from the line (`clock`, `domain`, `config`, `entropy`, `network`), an unvouched child gets
-/// the two read-only pages and none of the rest: never the process domain, the network, entropy or
-/// the file service. Everything else it holds is what the caller delegated, which is the output
+/// The ruling in one value. Of the authorities the progenitor endows from a manifest rather than
+/// from the line (`clock`, `domain`, `config`, `entropy`, `network`, and since milestone 805
+/// `reboot`), an unvouched child gets the two read-only pages and none of the rest: never the
+/// process domain, the network, entropy, the reboot object or the file service. Everything else it holds is what the caller delegated, which is the output
 /// alone: [`image_manifest`] refuses unvouched bytes whose note asks the line to designate more.
 ///
 /// Where the two pages land, for a native child: slot 0 the output, slot 1 the clock page (mapped
@@ -1564,6 +1647,7 @@ pub const UNVOUCHED_MANIFEST: Manifest = Manifest {
     network: false,
     machine: false,
     share: false,
+    reboot: false,
     runtime: Runtime::Native,
 };
 
@@ -1876,6 +1960,26 @@ pub struct Manifest {
     ///
     /// **Provisional field name.**
     pub share: bool,
+    /// **Endowed the reboot object** (milestone 805 (`reboot` at the prompt), DECISIONS §251
+    /// (restarting the machine is a kernel object the progenitor hands out)), at [`REBOOT_SLOT`].
+    ///
+    /// The authority to restart the machine. The kernel grants the progenitor the one there is, and
+    /// the progenitor endows it to a declaring child and to nothing else, so what this field does is
+    /// tell **The progenitor** which children to endow and tell a person reading `caps reboot` that
+    /// the program can restart the machine. A program spawned without the declaration holds an
+    /// empty slot there, and the kernel refuses its invoke with `abi::Error::NoSuchSlot`.
+    ///
+    /// **Declaring it also flushes the writable filesystem.** The progenitor sends
+    /// `filesystem_protocol::fs::SYNC` and waits for the answer before it starts the child, and
+    /// hands the child that answer ([`REBOOT_SYNC_REGISTER`]): the kernel syncs nothing (§251), and a
+    /// child holding a filesystem grant just to flush it would hold far more than a flush.
+    ///
+    /// **Exactly one program declares it, and no image can** ([`image_can_carry`]), so "only one
+    /// program can restart the machine" is a fact about this table rather than about what somebody
+    /// installed. An unvouched child never gets it ([`UNVOUCHED_MANIFEST`]).
+    ///
+    /// **Provisional field name.**
+    pub reboot: bool,
     /// **Which runtime contract the program was built against**, and so where it expects each
     /// capability to be (milestone 595 (provisional)). See [`Runtime`].
     ///
@@ -3960,6 +4064,7 @@ mod tests {
         assert!(!m.domain, "never the process domain");
         assert!(!m.entropy, "never entropy");
         assert!(!m.network, "never the network");
+        assert!(!m.reboot, "never the reboot object");
         let bound = NO_NOTE_MANIFEST;
         assert_eq!(
             (m.arg, m.mem, m.file, m.dir, m.input, m.output, m.runtime),
@@ -3973,6 +4078,26 @@ mod tests {
                 bound.runtime
             ),
             "an unvouched child is endowed exactly what the shell bound the line against",
+        );
+    }
+
+    /// **Exactly one program can restart the machine, and no installed bytes can** (milestone 805,
+    /// DECISIONS §251's mitigation for the foot gun in its method: a holder that skips the flush
+    /// loses writes, and the answer is that only one program is endowed). A second declarer, or an
+    /// image a note could endow, is that claim going false without anybody deciding it.
+    #[test]
+    fn only_reboot_declares_reboot_and_no_image_can() {
+        let mut declarers = Prog::ALL.iter().filter(|p| p.manifest().reboot);
+        assert_eq!(declarers.next(), Some(&Prog::Reboot));
+        assert_eq!(declarers.next(), None, "a second program declares reboot");
+        let asks = Manifest {
+            reboot: true,
+            ..NO_NOTE_MANIFEST
+        };
+        assert!(!image_can_carry(&asks));
+        assert_eq!(
+            image_manifest(Some(asks), true),
+            Err(ImageRefusal::NotCarried)
         );
     }
 
@@ -4703,6 +4828,7 @@ mod tests {
         network: false,
         machine: false,
         share: false,
+        reboot: false,
         runtime: Runtime::Native,
     };
 
@@ -4733,6 +4859,7 @@ mod tests {
         network: false,
         machine: false,
         share: false,
+        reboot: false,
         runtime: Runtime::Native,
     };
 
@@ -5701,6 +5828,7 @@ mod tests {
         network: false,
         machine: false,
         share: false,
+        reboot: false,
         runtime: Runtime::Native,
     };
 

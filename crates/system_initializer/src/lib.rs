@@ -100,6 +100,8 @@
 //!         // manager)): empty on a boot with a virtio-net NIC, or with no NIC it may drive.
 //!         net_stack_ep: 29,
 //!         net_stack_report: 30,
+//!         // The reboot object (milestone 805, DECISIONS §251): granted on every boot.
+//!         reboot: 31,
 //!         // Empty here. On aarch64 this holds the kernel's report endpoint and a test SGI, because
 //!         // that boot path is shared with milestone 19d's test roles; the progenitor deletes them with the
 //!         // device authority once the drivers exist, rather than keeping delegable authority for
@@ -641,6 +643,15 @@ pub struct BootEndowment {
     ///
     /// Name: provisional, milestone 198's lane, 2026-10-05 (UTC).
     pub net_stack_report: u64,
+    /// **The reboot object** (milestone 805 (`reboot` at the prompt), DECISIONS §251 (restarting
+    /// the machine is a kernel object the progenitor hands out)), `WRITE | GRANT`: the one capability
+    /// on the machine that may restart it, granted on every boot. [`boot`] never invokes it. The
+    /// spawn service keeps it and places `WRITE` in a child whose manifest declares
+    /// [`grant_plan::Manifest::reboot`], after flushing the writable filesystem for it. The shell
+    /// holds none.
+    ///
+    /// Name: provisional, milestone 805's lane, 2026-10-06 (UTC).
+    pub reboot: u64,
     /// **Capabilities the kernel granted that the interactive system never uses**, deleted with the
     /// device authority once the drivers exist.
     ///
@@ -2774,6 +2785,8 @@ pub fn boot(
             // **The stack's client endpoint, if this boot built one** (milestone 590
             // (provisional)), `entropy`'s shape one service over.
             network: network.map(|(stack, _)| stack),
+            // **The reboot object** (milestone 805), kept for the one program that declares it.
+            reboot: is_granted(g.reboot).then_some(g.reboot),
             catalogue,
             run_unvouched,
             // **The boot line discipline's endpoint, for a `graphical_terminal` session's UART arm** (milestone
@@ -2901,6 +2914,12 @@ struct Channels {
     /// so. The shell holds none, for `entropy`'s reason: nothing it does as a builtin reaches the
     /// network.
     network: Option<u64>,
+    /// **The reboot object** (milestone 805, DECISIONS §251), endowed `WRITE` to a child whose
+    /// manifest declares [`grant_plan::Manifest::reboot`], and to nothing else. `None` only on a
+    /// kernel that did not grant it, and then a declaring child holds an empty
+    /// [`grant_plan::REBOOT_SLOT`] and says so. The shell holds none: restarting the machine is not
+    /// something a builtin does.
+    reboot: Option<u64>,
     /// **The image's package catalogue**, measured (milestone 198 rung 3a's installer): one
     /// `<stem> <digest>` line per package the image vouches for (`package_archive::CATALOGUE`).
     /// Empty when the archive carried none or the table refused it, and then every
@@ -2941,6 +2960,23 @@ struct Fs {
     page: u64,
 }
 
+/// **Flush the writable filesystem for a `reboot` about to start** (milestone 805, DECISIONS
+/// §251's clause 3), and answer what `fs::SYNC` said as the signed word the child reads
+/// (`grant_plan::REBOOT_SYNC_REGISTER`): the device-flush count, a negative errno, or zero when this
+/// boot attached no filesystem. Waits for the reply, which is the point: the answer comes after the
+/// device said it was done.
+fn flush_for_reboot(fs: Option<Fs>) -> u64 {
+    let Some(f) = fs else {
+        return 0;
+    };
+    call(
+        f.ep,
+        fs_operation::req(fs_operation::SYNC, fs_operation::ROOT, 0),
+        0,
+    )
+    .0
+}
+
 /// The spawn service loop: serve the shell's `run` requests forever. The progenitor is the ELF loader the
 /// shell directs; it inserts only what the shell endows, so a spawned program can reach nothing the
 /// command line did not name.
@@ -2979,6 +3015,7 @@ fn spawn_service(
         fs,
         entropy,
         network,
+        reboot,
         catalogue,
         run_unvouched,
         boot_terminal,
@@ -3298,6 +3335,10 @@ fn spawn_service(
         // what this prompt's job budget was spent on. Neither is something a line designates.
         let wants_machine = manifest.is_some_and(|m| m.machine);
         let wants_share = manifest.is_some_and(|m| m.share);
+        // And the reboot object (milestone 805, DECISIONS §251), which nothing on a line can name
+        // either. `grant_plan::image_can_carry` keeps it off every image, so only the built-in
+        // `reboot` gets here with it.
+        let wants_reboot = manifest.is_some_and(|m| m.reboot);
 
         if interruptible {
             // Build the whole child from the shell's job untyped, mapping the shared job frame; no
@@ -3523,7 +3564,7 @@ fn spawn_service(
             // collect a corpse, and only the viewer's own source code said it did not. A domain names
             // its members and does not act on them (calef, 2026-08-17); `capability::Rights::ENUMERATE`
             // is what makes that a property of the grant. notes/process-view.md carries the argument.
-            let mut placed_buf = [(0u64, 0u64, 0u64); 6];
+            let mut placed_buf = [(0u64, 0u64, 0u64); 7];
             let mut placed_n = 0usize;
             if let (Some(ep), Some(slot)) = (diagnostics.or(default_diag), diag_slot) {
                 placed_buf[placed_n] = (slot, ep, abi::rights::WRITE);
@@ -3570,6 +3611,12 @@ fn spawn_service(
             }
             if wants_share {
                 placed_buf[placed_n] = (grant_plan::SHARE_SLOT, jobs_ut, abi::rights::ENUMERATE);
+                placed_n += 1;
+            }
+            // **The seventh named slot** (milestone 805, DECISIONS §251): the reboot object,
+            // `WRITE` alone, so the child can invoke it and cannot hand it on. `GRANT` stays here.
+            if let (true, Some(r)) = (wants_reboot, reboot) {
+                placed_buf[placed_n] = (grant_plan::REBOOT_SLOT, r, abi::rights::WRITE);
                 placed_n += 1;
             }
             let placed: &[(u64, u64, u64)] = &placed_buf[..placed_n];
@@ -3729,6 +3776,14 @@ fn spawn_service(
                     let (a0, a1, a2) = match grant {
                         _ if std_layout => (0, 0, 0),
                         Some((_, child)) => child,
+                        // **`reboot` hears the flush's answer** (milestone 805,
+                        // `grant_plan::REBOOT_SYNC_REGISTER`): the writable filesystem is flushed
+                        // here, at the last moment before the child runs, and the reply is the
+                        // third word. §251 puts the flush before the reset and outside the kernel;
+                        // the progenitor already holds the file service and flushes it after an
+                        // install, so it flushes once more rather than hand a program `dir::WRITE`
+                        // for one request that touches no file. Zero means no filesystem.
+                        None if wants_reboot => (0, arg, flush_for_reboot(fs)),
                         None => (0, arg, 0),
                     };
                     start_child(child, a0, a1, a2)

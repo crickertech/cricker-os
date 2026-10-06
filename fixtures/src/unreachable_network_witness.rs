@@ -14,6 +14,7 @@
 //! network: refused (no capability at slot 10)
 //! entropy: refused (no capability at slot 9)
 //! domain: refused (no capability at slot 7)
+//! reboot: refused (no capability at slot 13)
 //! slots held: 0
 //! ```
 //!
@@ -38,6 +39,13 @@
 //! its line into `REACHED`, and the census gains that slot; `script/swish-check` fails on either.
 //! That is the whole reason this is a program rather than a sentence in a doc: the claim is about
 //! what the spawn service does, and only a child it spawned can report what it was given.
+//!
+//! **And the reboot object** (milestone 805 (`reboot` at the prompt), DECISIONS §251 (restarting
+//! the machine is a kernel object the progenitor hands out), exit criterion 3), probed by invoking
+//! it. That is deliberate rather than reckless: a spawn service that endowed it here would reset
+//! the machine in the middle of `script/swish-check`, and the gate fails on the lines that never
+//! come back, which is louder than any sentence this program could print. Its note does not ask for
+//! it, because a note cannot spell it (`manifest_note::encode`).
 //!
 //! **The census asks the kernel, not the program's own expectations.** Each slot below the reserved
 //! fault slot is invoked with a method no object defines (`user_mode_runtime::is_granted`): an empty
@@ -86,6 +94,7 @@ manifest_note::carry!(NOTE_ASKS);
 const _: () = assert!(grant_plan::NETWORK_SLOT == 10);
 const _: () = assert!(grant_plan::ENTROPY_SLOT == 9);
 const _: () = assert!(grant_plan::DOMAIN_SLOT == 7);
+const _: () = assert!(grant_plan::REBOOT_SLOT == 13);
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
@@ -123,6 +132,13 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
             b"domain: refused, but not for want of a capability (slot 7 holds something)\n"
         }
         _ => b"domain: REACHED. a program that declared no process domain was handed one\n",
+    });
+    // The reboot object answers only when it refuses, so a held one never gets here (see the
+    // module documentation); `DeviceRefused` is a held one whose firmware said no.
+    let r0 = user_mode_runtime::reboot(grant_plan::REBOOT_SLOT);
+    say(match r0 {
+        r if r == no_slot => b"reboot: refused (no capability at slot 13)\n",
+        _ => b"reboot: REACHED. a program that declared no reboot was handed the reboot object\n",
     });
 
     // The census, every slot below the reserved fault slot (which `START` read and cleared).
