@@ -659,12 +659,12 @@ pub mod reboot {
 
     impl Refusal {
         /// The error `REBOOT` answers with.
-        pub const fn error(self) -> crate::Error {
+        pub const fn error(self) -> super::Error {
             match self {
-                Refusal::NoMechanism => crate::Error::NoResetMechanism,
-                Refusal::NotSupported => crate::Error::ResetNotSupported,
-                Refusal::Denied => crate::Error::ResetDenied,
-                Refusal::StillRunning => crate::Error::ResetDidNotHappen,
+                Refusal::NoMechanism => super::Error::NoResetMechanism,
+                Refusal::NotSupported => super::Error::ResetNotSupported,
+                Refusal::Denied => super::Error::ResetDenied,
+                Refusal::StillRunning => super::Error::ResetDidNotHappen,
             }
         }
 
