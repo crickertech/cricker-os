@@ -2,11 +2,12 @@ use super::*;
 use crate::cap::{Rights, rendezvous_cap};
 use crate::sched::RendezvousId;
 
-/// The PL011's physical address on QEMU `virt`. The kernel maps it for its own debug output;
+/// The console UART's physical address (`user::UART_PHYS`, one constant since provisional milestone
+/// 800 rather than a second copy here). The kernel maps it for its own debug output;
 /// here we hand a *second* mapping of the same registers to the userspace server. On real
 /// hardware you would give the server exclusive ownership; in QEMU both mappings are fine,
 /// and the kernel's is now used only for panics and boot, not for anyone's `print`.
-const PL011_PHYS: u64 = 0x0900_0000;
+const PL011_PHYS: u64 = crate::user::UART_PHYS;
 
 /// What a client needs to talk to the console server: two endpoints and the shared page.
 ///

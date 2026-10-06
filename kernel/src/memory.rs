@@ -114,6 +114,20 @@ pub fn init() {
     // caller (the rebooting soak, just before its SBI reset) runs long after boot.
     record_jh7110(&dtb);
 
+    // **Whether this machine has a virtio-mmio bus at all** (provisional milestone 800). The window's
+    // address is a constant (`arch::mmu::VIRTIO_MMIO_BASE`, QEMU `virt`'s), so the tree is asked only
+    // whether the bus exists. Both `virt` machines name every slot `virtio,mmio`; tegra210 and the
+    // JH7110 name none, and on tegra210 the constant falls inside the PCIe aperture, which is not a
+    // place to go reading magic numbers. Gates the mapping and the probe alike.
+    {
+        let mut slot = [Region { start: 0, size: 0 }; 1];
+        if let Ok(n) = dtb.node_reg_compatible(b"virtio,mmio", &mut slot)
+            && n >= 1
+        {
+            VIRTIO_MMIO.store(true, core::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
     // The SMMUv3 (milestone 16b), present only when the machine was started with
     // `iommu=smmuv3`. Absent, the kernel runs exactly as before; present, iommu::init drives it.
     {
@@ -697,6 +711,17 @@ pub fn record_pci_regions(ecam: (u64, u64), mem32: (u64, u64)) {
 #[cfg_attr(target_arch = "x86_64", allow(dead_code))] // VT-d init takes the DMAR's units, not one base (milestone 594)
 pub fn smmu_region() -> Option<(u64, u64)> {
     *SMMU_REGION.lock()
+}
+
+/// Set by [`init`] when the device tree names a `virtio,mmio` node; see [`has_virtio_mmio`].
+static VIRTIO_MMIO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// **Does this machine have the virtio-mmio bus the kernel probes?** True only when the device
+/// tree named a `virtio,mmio` node, so false on x86_64 (no tree, and no bus on `q35`), on radon and
+/// on argon. `arch::mmu` maps the window and `virtio` probes it only when this is true (provisional
+/// milestone 800). Name provisional.
+pub fn has_virtio_mmio() -> bool {
+    VIRTIO_MMIO.load(core::sync::atomic::Ordering::Relaxed)
 }
 
 /// **Every VT-d unit's register block** (start, size), both **physical**, one per DRHD the DMAR

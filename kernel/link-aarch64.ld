@@ -17,8 +17,9 @@ ENTRY(_start)
  * Every symbol below is a VIRTUAL address in the top half. But `AT()` tells the loader to
  * put the bytes at the PHYSICAL address, which is where QEMU actually loads a flat Image.
  *
- * So the ELF carries both: p_vaddr = 0xffff_0000_4008_0000, p_paddr = 0x4008_0000. objcopy
- * lays the flat binary out by LMA, which is what QEMU reads.
+ * So the ELF carries both: p_vaddr = 0xffff_0000_4008_0000, p_paddr = 0x4008_0000 on QEMU
+ * `virt` (0x8008_0000 for argon). objcopy lays the flat binary out by LMA, which is what QEMU
+ * reads.
  *
  * Which means the code in boot.s runs at a physical address while every absolute address
  * baked into it is virtual. See boot.s and notes/higher-half.md for how it survives that.
@@ -29,9 +30,13 @@ ENTRY(_start)
  * single table serving as both the identity map and the high-half map. */
 KERNEL_VA_BASE = 0xffff000000000000;
 
-/* 512 KiB into RAM. NOT free to change: it must match `text_offset` in the arm64 Image
- * header (image_header.s), which is what tells QEMU where to load us. */
-PHYS_START = 0x40080000;
+/* PHYS_START, the physical load address, is NOT set here: kernel/build.rs passes it as
+ * `--defsym`, because it is the one fact in this file that differs between the machines this
+ * kernel is built for, and a linker script cannot see a Cargo feature. It is RAM's base plus
+ * 512 KiB: 0x4008_0000 on QEMU `virt`, 0x8008_0000 on tegra210 (argon) under the `board`
+ * feature. The 512 KiB is NOT free to change: it must match `text_offset` in the arm64 Image
+ * header (image_header.s), which is what tells QEMU and U-Boot's `booti` where to load us, as an
+ * offset from whichever RAM base the machine has. */
 
 SECTIONS
 {

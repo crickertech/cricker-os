@@ -11,9 +11,14 @@ use core::fmt::Write;
 // abstraction ahead of a third requirement (AGENTS.md, rules 2/3). aarch64's `virt` has a PL011;
 // RISC-V's has an NS16550. Both expose `new`/`init`/`impl Write`, so the console code below names
 // neither. See notes/riscv-port.md.
-#[cfg(target_arch = "riscv64")]
+#[cfg(any(
+    target_arch = "riscv64",
+    all(target_arch = "aarch64", feature = "board")
+))]
 use crate::drivers::ns16550::Ns16550 as ConsoleUart;
-#[cfg(target_arch = "aarch64")]
+// argon (tegra210, the aarch64 `board` build, provisional milestone 800) has a 16550 rather than a
+// PL011, so it takes the line above.
+#[cfg(all(target_arch = "aarch64", not(feature = "board")))]
 use crate::drivers::pl011::Pl011 as ConsoleUart;
 // x86_64's `q35` (and milestone 87's OptiPlex, through its Dell C4PDJ module) has the SAME NS16550
 // the RISC-V board does, at an I/O PORT rather than a memory address. That is a difference in how
@@ -26,9 +31,11 @@ use screen_console::{Cells, PixelSink, ScreenConsole};
 
 use crate::sync::{IrqSafeMutex, rank};
 
-/// The console UART's **physical** address on QEMU's `virt` machine.
+/// The console UART's **physical** address on QEMU's `virt` machine, or on aarch64 the board's.
+/// aarch64's is `arch::mmu::UART_BASE`, which the boot map and the fine map also read, so the three
+/// cannot disagree about where the console is (provisional milestone 800).
 #[cfg(target_arch = "aarch64")]
-const UART_PHYS: u64 = 0x0900_0000; // PL011
+const UART_PHYS: u64 = crate::arch::mmu::UART_BASE; // PL011 on `virt`, 16550 on argon
 #[cfg(target_arch = "riscv64")]
 const UART_PHYS: u64 = 0x1000_0000; // NS16550
 /// **A port number, not a physical address**, which is why it does not go through `phys_to_virt`
@@ -44,8 +51,12 @@ const UART_PORT: usize = crate::arch::mmu::COM1_PORT;
 /// `virt`'s PL011 node, witnessed by `crates/device_tree_blob/tests/qemu_aarch64_virt.rs`. Two
 /// readers: this file's `configure_from_dtb` (riscv, the register shape) and `memory::init` (both,
 /// the interrupt line), which is why it is `pub(crate)` rather than local to either.
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(target_arch = "aarch64", not(feature = "board")))]
 pub(crate) const UART_NODE: &[u8] = b"pl011@9000000";
+/// argon's: UARTA as Linux's `tegra210.dtsi` names it. Unwitnessed by a fixture until a tree read
+/// off argon itself exists (milestone 800's `BUGS`); a mismatch costs only the interrupt line.
+#[cfg(all(target_arch = "aarch64", feature = "board"))]
+pub(crate) const UART_NODE: &[u8] = b"serial@70006000";
 #[cfg(target_arch = "riscv64")]
 pub(crate) const UART_NODE: &[u8] = b"serial@10000000";
 /// x86 has no device tree, so there is no node to name. The empty slice keeps the constant's shape
@@ -190,7 +201,12 @@ static CONSOLE: IrqSafeMutex<KernelConsole> = IrqSafeMutex::new(
         // built for (see its own doc comment), and nothing else in the kernel touches it. This is
         // the static's initializer; it moved inside a struct in milestone 243 and the reason it is
         // `unsafe` did not change.
+        #[cfg(not(all(target_arch = "aarch64", feature = "board")))]
         uart: unsafe { ConsoleUart::new(UART_BASE) },
+        // argon's 16550 needs its shape before its first byte; see `Ns16550::with_shape`.
+        // SAFETY: as the line above; `UART_SHAPE` is the same board's register shape.
+        #[cfg(all(target_arch = "aarch64", feature = "board"))]
+        uart: unsafe { ConsoleUart::with_shape(UART_BASE, crate::arch::mmu::UART_SHAPE) },
         screen: None,
         cells: Cells::new(),
         line: crate::kernel_log::Line::new(),
@@ -256,8 +272,14 @@ pub fn print_summary() {
     any(test, feature = "system_tests", feature = "bench"),
     allow(dead_code)
 )]
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(target_arch = "aarch64", not(feature = "board")))]
 const CONSOLE_KIND: &str = "PL011";
+#[cfg_attr(
+    any(test, feature = "system_tests", feature = "bench"),
+    allow(dead_code)
+)]
+#[cfg(all(target_arch = "aarch64", feature = "board"))]
+const CONSOLE_KIND: &str = "NS16550";
 #[cfg_attr(
     any(test, feature = "system_tests", feature = "bench"),
     allow(dead_code)

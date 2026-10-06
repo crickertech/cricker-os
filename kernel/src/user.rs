@@ -1308,9 +1308,13 @@ pub fn uart_irq_and_source() -> (u32, &'static str) {
 /// The console UART's registers, physically. aarch64 `virt` puts a PL011 at `0x0900_0000`; RISC-V
 /// `virt` puts an NS16550 at `0x1000_0000`. The progenitor holds a device capability for it and delegates it
 /// to the console and input drivers it builds. Matches `console::UART_PHYS`.
+///
+/// On aarch64 it is `arch::mmu::UART_BASE`, which is argon's 16550 under `board` (provisional
+/// milestone 800). The roles that drive it are PL011 drivers, so on argon the capability names the
+/// right registers and the driver behind it is still the wrong one; milestone 800's `BUGS` has it.
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 #[cfg(target_arch = "aarch64")]
-pub const UART_PHYS: u64 = 0x0900_0000;
+pub const UART_PHYS: u64 = crate::arch::mmu::UART_BASE;
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 #[cfg(target_arch = "riscv64")]
 pub const UART_PHYS: u64 = 0x1000_0000;

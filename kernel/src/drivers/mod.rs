@@ -21,9 +21,17 @@ pub mod gicv3;
 // The PL011 UART, aarch64's `virt` console. Used only by the console (via a compile-time alias), so
 // it gates cleanly. RISC-V's `virt` has an NS16550 instead, and so does x86 (at an I/O port rather
 // than a memory address, which is a `RegisterSpace` in that driver rather than a second driver).
-#[cfg(any(target_arch = "riscv64", target_arch = "x86_64"))]
+//
+// **aarch64 under `board` is the exception, and it swaps one for the other** (provisional milestone
+// 800, argon boots the aarch64 kernel): tegra210's console is an 8250-compatible 16550 at
+// 0x7000_6000, so the argon kernel takes this driver and has no PL011 at all.
+#[cfg(any(
+    target_arch = "riscv64",
+    target_arch = "x86_64",
+    all(target_arch = "aarch64", feature = "board")
+))]
 pub mod ns16550;
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(target_arch = "aarch64", not(feature = "board")))]
 pub mod pl011;
 
 // The PLIC, RISC-V's interrupt controller (milestone 20). Gated to riscv: it is the PLIC analog of

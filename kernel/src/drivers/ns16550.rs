@@ -71,7 +71,7 @@ const LSR_DR: u8 = 0b0000_0001;
 // Interrupt Enable bit: Enable Received Data Available Interrupt (fires while the RX FIFO is nonempty).
 // x86_64 never arms it: the callers below are the riscv console paths (`console::rx_enable`), and
 // the x86 console adopts the default shape and stays polled.
-#[cfg_attr(target_arch = "x86_64", allow(dead_code))]
+#[cfg_attr(not(target_arch = "riscv64"), allow(dead_code))]
 const IER_ERBFI: u8 = 0b0000_0001;
 // Interrupt Enable bit: Enable Transmitter Holding Register Empty Interrupt. Asserts as soon as it is
 // set if LSR.THRE is already set, which on a polling console it always is. See `enable_tx_interrupt`.
@@ -114,6 +114,8 @@ impl Shape {
     /// QEMU `virt`'s wiring, and this driver's entire behavior before the VisionFive 2 prep:
     /// consecutive byte registers, and divisor 1 (115200 from the standard 1.8432 MHz UART clock),
     /// which QEMU ignores. The default until `console::configure_from_dtb` reads the real answer.
+    // Unused on argon, the one aarch64 build with this driver: it starts from its own shape.
+    #[cfg_attr(target_arch = "aarch64", allow(dead_code))]
     pub const QEMU_VIRT: Shape = Shape {
         reg_shift: 0,
         reg_io_width: 1,
@@ -213,10 +215,25 @@ impl<S: RegisterSpace> Ns16550<S> {
     /// mapped physical address for [`Mmio`], an I/O port number for the x86 port space. The shape
     /// starts as [`Shape::QEMU_VIRT`]; [`configure`](Self::configure) replaces it once the device
     /// tree has been read.
+    #[cfg_attr(target_arch = "aarch64", allow(dead_code))] // argon calls `with_shape` instead
     pub const unsafe fn new(base: usize) -> Self {
+        // SAFETY: forwarded; this function's contract is `with_shape`'s.
+        unsafe { Self::with_shape(base, Shape::QEMU_VIRT) }
+    }
+
+    /// As [`new`](Self::new), but starting from a shape the caller already knows, for a board whose
+    /// console must be right from its first byte rather than from `configure`. argon is the one
+    /// caller (provisional milestone 800): its 16550's registers are four bytes apart, so
+    /// [`Shape::QEMU_VIRT`]'s byte-strided `init` would write the IER and FCR values into the
+    /// transmit register's word, and there is no device-tree pass on aarch64 to correct it.
+    /// Name provisional.
+    ///
+    /// # Safety
+    /// As [`new`](Self::new).
+    pub const unsafe fn with_shape(base: usize, shape: Shape) -> Self {
         Self {
             base,
-            shape: Shape::QEMU_VIRT,
+            shape,
             space: core::marker::PhantomData,
         }
     }
@@ -224,7 +241,7 @@ impl<S: RegisterSpace> Ns16550<S> {
     /// Adopt the shape the device tree stated and re-run [`init`](Self::init) with it. Called by
     /// `console::configure_from_dtb` under the console lock, before the first `println!`, so no
     /// output is ever produced with a stale stride.
-    #[cfg_attr(target_arch = "x86_64", allow(dead_code))] // the device-tree bring-up that calls it is riscv's
+    #[cfg_attr(not(target_arch = "riscv64"), allow(dead_code))] // the device-tree bring-up that calls it is riscv's
     pub fn configure(&mut self, shape: Shape) {
         self.shape = shape;
         self.init();
@@ -382,7 +399,7 @@ impl<S: RegisterSpace> Ns16550<S> {
     /// Name: provisional, flagged 2026-09-25 by the lane that re-derived the x86 port
     /// falsifications (design/naming/boolean-predicates-worklist.md, "`rx` and `tx`"). calef asked
     /// what `rx` stands for in his #1255 review; recommended `enable_receive_interrupt`.
-    #[cfg_attr(target_arch = "x86_64", allow(dead_code))] // riscv's `console::rx_enable` is the caller; the x86 console stays polled
+    #[cfg_attr(not(target_arch = "riscv64"), allow(dead_code))] // riscv's `console::rx_enable` is the caller; the x86 and argon consoles stay polled
     pub fn enable_rx_interrupt(&self) {
         self.write(IER, IER_ERBFI);
     }

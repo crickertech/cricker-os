@@ -76,9 +76,41 @@ fn main() {
     println!("cargo::rerun-if-changed={link_script}");
     println!("cargo::rerun-if-changed={boot_asm}");
     println!("cargo::rustc-link-arg=-T{manifest_dir}/{link_script}");
+    if arch == "aarch64" {
+        println!(
+            "cargo::rustc-link-arg=--defsym=PHYS_START={:#x}",
+            aarch64_load_address()
+        );
+    }
 
     declare_initrd_cfg(&arch);
     generate_trust_root(&manifest_dir, &arch);
+}
+
+/// **Where an aarch64 kernel is loaded, which is which machine it is for** (the argon-boots lane,
+/// 2026-10-06, provisional milestone 800, calef's ruling of that day: a build-time board option that
+/// relinks the kernel for tegra210).
+///
+/// RAM's base plus `text_offset` (`0x8_0000`, `src/arch/aarch64/image_header.s`), because that is
+/// where QEMU and U-Boot's `booti` both put an arm64 Image: QEMU `virt`'s RAM starts at
+/// `0x4000_0000`, tegra210's at `0x8000_0000` (`memory@80000000` in Linux's
+/// `arch/arm64/boot/dts/nvidia/tegra210-p2180.dtsi`, and U-Boot's `CONFIG_SYS_LOAD_ADDR=0x80080000`
+/// in `configs/p2371-2180_defconfig`). Nothing else in the boot path names a RAM base: `boot.s` reads
+/// its gigabyte off the PC, and the frame allocator reads RAM from the device tree.
+///
+/// **Two binaries, and that is the ruling, not an oversight.** One position-independent image and
+/// riscv64's one-address-inside-both-RAMs trick were both refused (design/roadmap/800-argon-boots-the-aarch64-kernel.md has why).
+/// A second aarch64 board would need a selector here rather than the bare `board` feature; today
+/// `board` on aarch64 means argon the way it means radon on riscv64.
+fn aarch64_load_address() -> u64 {
+    const TEXT_OFFSET: u64 = 0x8_0000;
+    const QEMU_VIRT_RAM: u64 = 0x4000_0000;
+    const TEGRA210_RAM: u64 = 0x8000_0000;
+    if std::env::var_os("CARGO_FEATURE_BOARD").is_some() {
+        TEGRA210_RAM + TEXT_OFFSET
+    } else {
+        QEMU_VIRT_RAM + TEXT_OFFSET
+    }
 }
 
 /// **`cfg(initrd)`: does this target have user programs to pack into one?** (milestone 161, roadmap

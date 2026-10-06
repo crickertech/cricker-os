@@ -471,12 +471,18 @@ where
     // these slots for a block device (virtio::find_block_device) and owns the transport; the DMA
     // rings live in the driver's own region (notes/dma.md). Absent hardware here just reads as "no
     // device", so mapping it is harmless when no disk is attached.
-    direct_map(
-        m,
-        VIRTIO_MMIO_BASE,
-        VIRTIO_MMIO_BASE + VIRTIO_MMIO_SIZE,
-        Flags::device(),
-    )?;
+    //
+    // Only when the device tree names the bus, since provisional milestone 800 made aarch64 ask
+    // first: the JH7110 names none, and its UART0 block starts 0x1000 below this window, so radon
+    // no longer maps or probes an address range its own tree never described. Parity (§19).
+    if memory::has_virtio_mmio() {
+        direct_map(
+            m,
+            VIRTIO_MMIO_BASE,
+            VIRTIO_MMIO_BASE + VIRTIO_MMIO_SIZE,
+            Flags::device(),
+        )?;
+    }
 
     // 9. The PCIe windows (the PCIe transport): bus 0's ECAM config space, and the slice of the
     // 32-bit PCI memory window the kernel assigns BARs from, both straight from the device tree

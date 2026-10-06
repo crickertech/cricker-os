@@ -84,13 +84,36 @@ pub const fn virt_to_phys(va: u64) -> u64 {
     va & !KERNEL_VA_BASE
 }
 
-/// The PL011. Mapped as **device** memory, and that word is load-bearing.
+/// The console UART. Mapped as **device** memory, and that word is load-bearing.
 ///
 /// Map MMIO as *normal* memory and the CPU may cache it, reorder writes to it, merge two
 /// writes into one, and speculatively read it. Speculatively reading a UART FIFO register
 /// **consumes the byte**. See notes/page-tables.md.
-const UART_BASE: u64 = 0x0900_0000;
+///
+/// QEMU `virt`'s PL011, or under `board` tegra210's UARTA, the 16550 Linux's
+/// `tegra210-p2180.dtsi` calls the TX1's "debug port" (`serial@70006000`, `serial0`,
+/// `stdout-path = "serial0:115200n8"`), which the Jetson TX1 developer kit brings out on J21
+/// (provisional milestone 800). `console.rs` and `user.rs` read this one constant.
+#[cfg(not(feature = "board"))]
+pub const UART_BASE: u64 = 0x0900_0000;
+#[cfg(feature = "board")]
+pub const UART_BASE: u64 = 0x7000_6000;
 const UART_SIZE: u64 = 0x1000;
+
+/// **The argon console's register shape**, fixed at build time because aarch64 has no
+/// device-tree pass for the console (riscv64's `console::configure_from_dtb`) and the shape has to
+/// be right from the first byte. Every field is read off Linux's `tegra210.dtsi` `uarta` node and
+/// what it leaves out: `reg-shift = <2>`; no `reg-io-width`, so byte access; no
+/// `clock-frequency` (the clock is a phandle to the clock-and-reset controller), so divisor 0,
+/// which leaves U-Boot's 115200 8N1 exactly as U-Boot set it; and `nvidia,tegra20-uart` rather
+/// than `snps,dw-apb-uart`, so no busy quirk.
+#[cfg(feature = "board")]
+pub const UART_SHAPE: crate::drivers::ns16550::Shape = crate::drivers::ns16550::Shape {
+    reg_shift: 2,
+    reg_io_width: 1,
+    divisor: 0,
+    dw_busy_quirk: false,
+};
 
 /// How the kernel turns a physical address into something it can dereference.
 ///
@@ -282,12 +305,19 @@ where
     // does not operate any device. That enumeration is a legitimate kernel/bootstrap role, the
     // way firmware walks a PCI bus. The driver gets its own mapping of just its slot. See
     // kernel/src/virtio.rs.
-    direct_map(
-        m,
-        VIRTIO_MMIO_BASE,
-        VIRTIO_MMIO_BASE + VIRTIO_MMIO_SIZE,
-        Flags::device(),
-    )?;
+    //
+    // **Only when the device tree names a `virtio,mmio` node** (provisional milestone 800). The
+    // window's address is QEMU `virt`'s, and on another machine it is whatever that machine put
+    // there: on tegra210, 0x0a00_0000 falls inside the PCIe controller's aperture, and probing it
+    // with the controller unclocked is a read nobody can predict. Same gate as steps 8 and 9.
+    if memory::has_virtio_mmio() {
+        direct_map(
+            m,
+            VIRTIO_MMIO_BASE,
+            VIRTIO_MMIO_BASE + VIRTIO_MMIO_SIZE,
+            Flags::device(),
+        )?;
+    }
 
     // 8. The PCIe windows (the PCIe transport, DECISIONS §18): bus 0's ECAM config space and the
     // slice of the 32-bit PCI memory window the kernel assigns BARs from, both straight from the
@@ -1310,7 +1340,7 @@ mod tests {
         // names. Its raw physical address no longer exists as far as the CPU is concerned:
         // TTBR0 is off.
         let (_, flags) =
-            mmu::translate(mmu::phys_to_virt(0x0900_0000)).expect("the UART is not mapped");
+            mmu::translate(mmu::phys_to_virt(mmu::UART_BASE)).expect("the UART is not mapped");
 
         // The UART must be device-typed (the aarch64 MAIR-slot encoding is checked in
         // paging::aarch64; here we assert the portable property the kernel cares about).

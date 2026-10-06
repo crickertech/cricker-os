@@ -20,6 +20,18 @@ use crate::arch::mmu::{self, VIRTIO_IRQ_BASE, VIRTIO_MMIO_BASE, VIRTIO_SLOT_STRI
 const SLOT_STRIDE: u64 = VIRTIO_SLOT_STRIDE;
 const SLOTS: u64 = VIRTIO_SLOTS;
 
+/// How many slots this machine actually has: [`SLOTS`] when the device tree named the bus, and
+/// none otherwise, so a board whose map puts something else at QEMU's address is never read there
+/// (provisional milestone 800; `memory::has_virtio_mmio`). Every probe loop walks this, not
+/// [`SLOTS`].
+fn slots_present() -> u64 {
+    if crate::memory::has_virtio_mmio() {
+        SLOTS
+    } else {
+        0
+    }
+}
+
 /// "virt", little-endian, at offset 0x000 of every slot.
 const MAGIC: u32 = 0x7472_6976;
 /// `DeviceID` at offset 0x008. 0 means "empty slot"; the virtio device-type numbers we route: 1 is a
@@ -55,7 +67,7 @@ fn read_reg(slot: u64, offset: u64) -> u32 {
 /// device at this layer is its type number and its slot; which driver claims the type is a userspace
 /// decision (see `virtio_service`).
 fn find_by_device_id(device_id: u32) -> Option<VirtioMmioDevice> {
-    for slot in 0..SLOTS {
+    for slot in 0..slots_present() {
         if read_reg(slot, REG_MAGIC) != MAGIC {
             continue; // not a virtio-mmio slot at all
         }
@@ -93,7 +105,7 @@ pub fn find_block_device() -> Option<VirtioMmioDevice> {
 /// PCI half begins.
 pub fn count_block_devices() -> usize {
     let mut n = 0;
-    for slot in 0..SLOTS {
+    for slot in 0..slots_present() {
         if read_reg(slot, REG_MAGIC) == MAGIC && read_reg(slot, REG_DEVICE_ID) == DEVICE_ID_BLOCK {
             n += 1;
         }
@@ -179,7 +191,7 @@ pub fn find_block_device_n(n: usize) -> Option<BlockDevice> {
 /// The mmio half of [`find_block_device_n`]: the `n`-th virtio-mmio block slot, in slot order.
 fn mmio_block_device_n(n: usize) -> Option<VirtioMmioDevice> {
     let mut seen = 0;
-    for slot in 0..SLOTS {
+    for slot in 0..slots_present() {
         if read_reg(slot, REG_MAGIC) != MAGIC || read_reg(slot, REG_DEVICE_ID) != DEVICE_ID_BLOCK {
             continue;
         }

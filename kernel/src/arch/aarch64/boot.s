@@ -53,7 +53,7 @@
 //   1. park cores 1..n
 //   2. set up a PHYSICAL stack (adrp)
 //   3. zero .bss (adrp)
-//   4. build a crude 1 GiB-block map: device @ 0, RAM @ 0x4000_0000
+//   4. build a crude 1 GiB-block map: device below the gigabyte we were loaded into, RAM in it
 //   5. TTBR0 = TTBR1 = that map
 //   6. MMU on. We are still executing at the physical address, via TTBR0's identity map.
 //   7. sp = the HIGH virtual address of the stack
@@ -72,16 +72,29 @@
 .section ".text.boot", "ax"
 .global _boot
 
-// The boot map is deliberately COARSE and PERMISSIVE: two 1 GiB blocks, and the RAM one is
+// The boot map is deliberately COARSE and PERMISSIVE: 1 GiB blocks, and the RAM one is
 // executable everywhere. It exists to survive the next twenty instructions, nothing more.
 // mmu.rs immediately replaces it with a fine-grained map that enforces W^X and punches out
 // the guard page. Linux does exactly this, for exactly this reason.
 //
-//   block @ 0x0000_0000, DEVICE:  AF | PXN | UXN | block
-//   block @ 0x4000_0000, NORMAL:  AF | SH_inner | AttrIdx=1 | UXN | block   (PXN clear: we
-//                                 must be able to execute our own .text)
+//   every gigabyte BELOW the one we run in, DEVICE:  AF | PXN | UXN | block
+//   the gigabyte we run in, NORMAL:  AF | SH_inner | AttrIdx=1 | UXN | block   (PXN clear: we
+//                                    must be able to execute our own .text)
+//
+// **Which gigabyte is read off the PC, not written down** (the argon-boots lane, 2026-10-06,
+// provisional milestone 800). The two machines this boots on put RAM at different bases, QEMU
+// `virt` at 0x4000_0000 and tegra210 (argon) at 0x8000_0000, and on both every gigabyte below
+// RAM is the SoC's MMIO: the PL011 at 0x0900_0000 on `virt`; the 16550 at 0x7000_6000 and the GIC
+// at 0x5004_1000 on tegra210. So the map is "device below, normal here", and only the link
+// address (link-aarch64.ld, set by kernel/build.rs) says which machine this binary is for. On
+// `virt` the loop writes exactly the two entries this file wrote before, L1[0] device and L1[1]
+// normal.
+//
+// A machine with RAM at 0 (the Raspberry Pi) gets no device block at all from this rule, and its
+// UART would go dark at MMU-on. That port has to revisit this, and it is the one case the rule
+// does not cover.
 .equ BOOT_DEVICE_BLOCK, 0x0060000000000401
-.equ BOOT_NORMAL_BLOCK, 0x0040000040000705
+.equ BOOT_NORMAL_BLOCK, 0x0040000000000705
 
 // MAIR: slot 0 = Device-nGnRnE (0x00), slot 1 = Normal write-back (0xff).
 .equ BOOT_MAIR,         0xff00
@@ -166,17 +179,29 @@ _boot_el1:
     orr     x2, x1, #3
     str     x2, [x0]
 
-    // L1[0]: 1 GiB block at 0x0000_0000, device memory. Covers the PL011 at 0x0900_0000.
-    // Without this the machine goes silent the instant the MMU comes on.
-    ldr     x2, =BOOT_DEVICE_BLOCK
-    str     x2, [x1]
+    // Which gigabyte are we in? `adrp` of our own first byte is its physical address (fact 1
+    // above), and bits 38:30 of it are its L1 index: 1 on QEMU `virt`, 2 on tegra210.
+    adrp    x3, _start
+    lsr     x3, x3, #30                 // x3 = our L1 index
+    and     x3, x3, #0x1ff
 
-    // L1[1]: 1 GiB block at 0x4000_0000, normal memory, executable. This is where we are.
-    //
-    // NOTE: hardcoded for QEMU `virt`, whose RAM starts at 0x4000_0000. The Raspberry Pi
-    // puts RAM at 0, and this is one of the handful of places that port will have to touch.
+    // L1[0 .. x3): device memory, one 1 GiB block each. Covers the console UART and the GIC on
+    // both machines. Without this the machine goes silent the instant the MMU comes on.
+    ldr     x2, =BOOT_DEVICE_BLOCK
+    mov     x4, #0                      // x4 = the L1 index being written
+3:  cmp     x4, x3
+    b.hs    4f
+    orr     x5, x2, x4, lsl #30         // the block's output address is index << 30
+    str     x5, [x1, x4, lsl #3]
+    add     x4, x4, #1
+    b       3b
+4:
+    // L1[x3]: the gigabyte we are executing from, normal memory, executable. The boot script
+    // must put the device tree inside this gigabyte too, because memory::init reads it before
+    // mmu.rs maps the rest of RAM (xtask/src/board.rs says where argon's goes).
     ldr     x2, =BOOT_NORMAL_BLOCK
-    str     x2, [x1, #8]
+    orr     x2, x2, x3, lsl #30
+    str     x2, [x1, x3, lsl #3]
 
     // --- turn the MMU on ---
 
