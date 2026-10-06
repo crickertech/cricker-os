@@ -78,6 +78,22 @@ each path's replayable falsification went red on riscv64, one also on aarch64. T
 is one level up: a destroyed region's intermediate page tables stay linked into a live space
 (reasoned, not driven; `revoke::revoke_region`'s BUGS). A lane now holds it.
 
+Dated 2026-10-06 (§216 (fatal-risk facts are correctable, and verdicts are the architect's), milestone 633 (an outside agent attacks the confinement claim), BUILT): two
+more outsider passes ran, each briefed with only the claims table and the source. The second
+(#1687, [`notes/confinement-outsider-pass-2.md`](../../notes/confinement-outsider-pass-2.md)) found
+that a `PortRange` capability narrowed to `READ` still drove x86 port I/O, booted red on x86_64 and
+fixed by milestone 768 (a read-only port range grants nothing) as claim 33, and read AMD-Vi, which
+had no claim, into milestone 767 (AMD-Vi hardening before the first AMD boot). The third
+([`notes/confinement-outsider-pass-3.md`](../../notes/confinement-outsider-pass-3.md)) counted an
+attack only when it booted, ran the suite on all three ISAs, and found the kernel's confinement held.
+It booted one escape at the application boundary: a client holding only `WRITE` on the swap
+demonstrator's endpoint made the server write into a device page the client was never granted,
+because the server trusted an offset in the request word. Fixed in `swap_protocol::log_put` with a
+replayable falsification, red on aarch64. The open gap most likely to be a real escape in a shipped
+boot is claim 24's file-server window reuse, read by two passes and not booted; its fix is milestone
+685 (a job is finished when its memory is back). All three passes were one vendor's models, so this
+is the evidence the 633 premise check scopes and not the human half.
+
 The caveat that keeps the gate closed: it was us attacking our own system. A hole we closed ourselves
 is the same category of evidence as the audit that found it. The outsider trying to escape is gated
 behind milestone 198 (a package manager, and the trivial install that makes a second customer
