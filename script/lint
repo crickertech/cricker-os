@@ -1891,18 +1891,6 @@ def _tracked_rust():
 _rust_files = []
 
 
-def _agents_md_lines():
-    """Line count of AGENTS.md, milestone 118's own budget number.
-
-    `len(text.splitlines())` rather than `text.split('\n')`, which is what makes this agree with
-    `wc -l`: a file ending in a newline splits into one trailing empty string that `split` counts
-    and `splitlines` does not. AGENTS.md always ends in a newline (every text file in this tree
-    does), so the two would silently disagree by exactly one otherwise, and a budget gate that is
-    off by one on every measurement is the kind of bug nobody notices because it never changes.
-
-    `CLAUDE.md` is a symlink to this file (2026-08-14), so it is not read separately.
-    """
-    return len(pathlib.Path('AGENTS.md').read_text(errors='replace').splitlines())
 
 
 def _markdown_files():
@@ -1982,10 +1970,6 @@ REGISTRY = {
         'assertion that the compiler is wrong about a type',
         lambda: _unsafe_census()['thread_safety'],
     ),
-    'agents-md-lines': (
-        "how many lines AGENTS.md carries, which is milestone 118's own size budget",
-        _agents_md_lines,
-    ),
 }
 
 # --- finding the markers ------------------------------------------------------------------------
@@ -2052,7 +2036,11 @@ MARKER = re.compile(r'<!--count(-at-least|-at-most)?:([a-z0-9-]+)-->')
 # against origin/main, because every raise on record (925 to 929, and before) was a considered act
 # with its reason written beside it, and a gate that forbade them would be deleted the first time
 # one was right. The raise shows in the diff; the reader of that diff is the check.
-RATCHET_CEILINGS = {'agents-md-lines'}
+#
+# Empty since 2026-10-06 (UTC): calef dropped the line limit of milestone 118 (CLAUDE.md has a
+# budget), "drop 118's limit and rely on §212's cap", so AGENTS.md is budgeted in words by the prose
+# ratchet and `agents-md-lines` is gone. The mechanism stays for the next ceiling that must sit at the tree's exact value.
+RATCHET_CEILINGS = set()
 
 # Prose explaining this convention has to be able to spell it, which is the same exemption the
 # "daemon" check below carries for the documents that argue about the word. A marker inside a

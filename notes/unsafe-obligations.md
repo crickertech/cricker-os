@@ -518,7 +518,7 @@ and is now a panic naming the access. Full account in `design/roadmap/139-drive-
 The new ceiling keeps 7 points of headroom above the density this reduction actually reached
 (90.8, truncated to 90), the same absolute headroom the original 100-vs-93 ceiling carried,
 rather than being written at the exact new value the way `unsafe-thread-safety-claims` and
-`agents-md-lines` are. Those two are populations small enough, or additions rare enough, that every
+`agents-md-lines` were. Those two were populations small enough, or additions rare enough, that every
 single one deserves a stop; this measurement moved on 38 non-merge commits in 14 days before it was
 first gated, which is ordinary lane traffic rather than a population worth stopping on every
 member. A zero-headroom density ceiling would fail the next lane that adds one legitimate unsafe
