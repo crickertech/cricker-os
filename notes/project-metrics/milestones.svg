@@ -97,15 +97,15 @@
 <path class="seg s7" d="M542.8,97.2 V93.9 Q542.8,90.6 546.1,90.6 H578.1 Q581.4,90.6 581.4,93.9 V97.2 Z"><title>2026W40, Proposal, no number yet: 20</title></path>
 <text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W40</text>
 <text class="fg val" x="562.1" y="85.6" font-size="10" text-anchor="middle">702</text>
-<rect class="seg s0" x="601.4" y="208.6" width="38.7" height="115.4"><title>2026W41, Built: 347</title></rect>
-<rect class="seg s1" x="601.4" y="192.7" width="38.7" height="16.0"><title>2026W41, Partial: 48</title></rect>
-<rect class="seg s3" x="601.4" y="99.6" width="38.7" height="93.1"><title>2026W41, Not started: 280</title></rect>
-<rect class="seg s4" x="601.4" y="98.9" width="38.7" height="0.7"><title>2026W41, Optional: 2</title></rect>
-<rect class="seg s5" x="601.4" y="96.6" width="38.7" height="2.3"><title>2026W41, Recorded: 7</title></rect>
-<rect class="seg s6" x="601.4" y="95.6" width="38.7" height="1.0"><title>2026W41, Removed: 3</title></rect>
-<path class="seg s7" d="M601.4,95.6 V91.3 Q601.4,87.3 605.4,87.3 H636.0 Q640.0,87.3 640.0,91.3 V95.6 Z"><title>2026W41, Proposal, no number yet: 25</title></path>
+<rect class="seg s0" x="601.4" y="207.0" width="38.7" height="117.0"><title>2026W41, Built: 352</title></rect>
+<rect class="seg s1" x="601.4" y="191.0" width="38.7" height="16.0"><title>2026W41, Partial: 48</title></rect>
+<rect class="seg s3" x="601.4" y="98.6" width="38.7" height="92.4"><title>2026W41, Not started: 278</title></rect>
+<rect class="seg s4" x="601.4" y="97.9" width="38.7" height="0.7"><title>2026W41, Optional: 2</title></rect>
+<rect class="seg s5" x="601.4" y="95.6" width="38.7" height="2.3"><title>2026W41, Recorded: 7</title></rect>
+<rect class="seg s6" x="601.4" y="94.6" width="38.7" height="1.0"><title>2026W41, Removed: 3</title></rect>
+<path class="seg s7" d="M601.4,94.6 V88.3 Q601.4,84.3 605.4,84.3 H636.0 Q640.0,84.3 640.0,88.3 V94.6 Z"><title>2026W41, Proposal, no number yet: 31</title></path>
 <text class="mut" x="620.7" y="342" font-size="10" text-anchor="middle">2026W41</text>
-<text class="fg val" x="620.7" y="82.3" font-size="10" text-anchor="middle">712</text>
+<text class="fg val" x="620.7" y="79.3" font-size="10" text-anchor="middle">721</text>
 <rect class="s0" x="672" y="64" width="11" height="11" rx="2"/>
 <text class="fg" y="74" font-size="11"><tspan x="689" dy="0">Built</tspan></text>
 <rect class="s1" x="672" y="83" width="11" height="11" rx="2"/>
