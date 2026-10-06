@@ -294,8 +294,8 @@ One line each. The full entry, with its reasoning and history, is in
   remaining reach is a person typing `+nife-dev`.
 - `std-aborts` covers `sys/` only, and proves a body reachable, never a call. A stale or foreign
   build under `std_exerciser/target` (left from before a nightly bump) surfaces as a defect or
-  an abort, or compiles the nightly's unpatched std even with `RUSTUP_TOOLCHAIN` set (likely the
-  farm's hard-linked `rustc`, [caveats](std/caveats.md)); the fix is `rm -rf std_exerciser/target` ([appendix](std/std-aborts.md#bugs)). An
+  an abort, or compiles the nightly's unpatched std even with `RUSTUP_TOOLCHAIN` set (the farm's
+  hard-linked `rustc`, since fixed, [caveats](std/caveats.md)); the fix is `rm -rf std_exerciser/target` ([appendix](std/std-aborts.md#bugs)). An
   exported `CARGO_TARGET_DIR` used to blind the check; `std-exerciser` now pins and prints it.
 
 ## Appendices
