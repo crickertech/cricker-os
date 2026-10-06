@@ -2,7 +2,7 @@
 status: PROPOSED
 raised: 2026-10-06
 milestone_dependencies: none
-decision_dependencies: unwritten
+decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -142,11 +142,16 @@ riscv64 and x86_64. Device rows carry `present_when`, so a leg without a NIC or 
 absence, not their presence. A row that holds on one architecture and is silently absent on
 another fails on the leg that disagrees.
 
-## Forks for calef
+## Forks for calef, both ruled
 
-One at a time, each with a recommendation.
+calef ruled on both on 2026-10-06 (UTC), in comments on #1785. No fork is open, so
+`decision_dependencies` is `none`. The section Fork 1 calls for is minted at promotion, and the
+milestone writes it.
 
 ### Fork 1: does the rule need a `design/decisions/` section?
+
+Ruled: "Approve A" (calef, 2026-10-06 UTC). The rule gets a short section, numbered at promotion.
+It cites calef's concern that the progenitor is "turning into a god process".
 
 Recommendation: yes, a short one, minted by the integrator when this lands. The rule binds what
 every future milestone may ask of the progenitor. That is a constraint on the process model
@@ -159,6 +164,10 @@ If no: the rule lives only in the inventory note's header and the gate. That wor
 It leaves the principle unstated where a designer looks for principles. Reversible either way.
 
 ### Fork 2: is the gate a hard fail?
+
+Ruled: "Approve A" (calef, 2026-10-06 UTC). The check fails hard in `script/lint` when the
+generated inventory is stale, and in `script/swish-check` when the progenitor holds a slot the
+table does not name.
 
 Recommendation: hard fail, in `script/lint` for the generated note and in `script/swish-check` for
 the live table. A warning nobody must act on is rung 4, and #1783 shows the growth arrives one
