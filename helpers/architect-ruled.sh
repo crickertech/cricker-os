@@ -21,6 +21,8 @@
 # Why three readers: the labelers skip adding (live read, two asks in architect-label.yml because the
 # diff takes time); architect-hold.yml passes on the label even with needs-architect also on, since a
 # read-then-write race cannot be fully closed and a person can add needs-architect by hand.
+# `needs-architect` means "waiting on calef" and nothing else: applying `architect-ruled` removes it
+# (architect-ruled-clears-hold.yml, 2026-10-06), so the label pair never shows on the queue.
 # Not in notes/merge-queue.md: that note is over its §212 (a prose budget) cap and may not grow.
 # Callers: architect-label.yml and coe-architect-label.yml (do not add), architect-hold.yml (pass).
 # Selftest: helpers/architect-ruled-selftest.sh. Name: provisional, 2026-10-05.

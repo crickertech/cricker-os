@@ -1,0 +1,69 @@
+name: architect ruled clears needs-architect
+
+# Observed failing: 2026-10-06, run 37406519156: on this lane's own PR #1740, carrying both labels,
+#   applying `architect-ruled` at 02:55:40Z left only `architect-ruled`. Green by design; the label
+#   removal is the arm that carries the claim. See notes/observed-failing.md.
+
+# `needs-architect` means "waiting on calef" and nothing else. A pull request an architect has
+# already ruled on carried both labels, passed `architect-hold.yml` (which releases on
+# `architect-ruled`) and was skipped by both labelers, yet still listed under
+# `gh pr list --label needs-architect`, which is the architect's queue. On 2026-10-06 five of seven
+# entries there were already ruled, and the maintainer cleared them by hand (a note-level fix, the
+# floor of the ladder in AGENTS.md). This workflow is the gate that does it: applying
+# `architect-ruled` removes `needs-architect`.
+#
+# Scope: only the `labeled` event for `architect-ruled`. It does not fight a person who adds
+# `needs-architect` to an already-ruled pull request by hand (architect-ruled.sh records that as
+# allowed; the hold check passes on the ruled label regardless). Nothing re-adds the label
+# afterwards: architect-label.yml reads the live labels twice via helpers/architect-ruled.sh, and
+# coe-architect-label.yml inlines the same live read before its write.
+#
+# Reads the LIVE labels, not the payload (#1712, 2026-10-05: the payload is a snapshot). Removing
+# an absent label is a no-op, so the loop risk of #1378 and #1400 does not apply: this job removes
+# `needs-architect` and nothing in the tree reacts to that removal by re-adding it.
+#
+# Deliberately `pull_request`, never `pull_request_target`, for the fork-safety reason
+# architect-label.yml's header gives; a fork's read-only token just logs and exits. No checkout:
+# the job needs no repository content. Name: provisional, 2026-10-06.
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  pull-requests: write
+
+concurrency:
+  group: architect-ruled-clears-hold-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  clear:
+    name: remove needs-architect once architect-ruled is on
+    if: github.event.label.name == 'architect-ruled'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+      - name: Remove needs-architect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          labels="$(gh api "repos/$REPO/issues/$PR_NUMBER" --jq '.labels[].name')" || {
+            echo "ruled-clears: could not read labels of PR #$PR_NUMBER; not fatal." >&2
+            exit 0
+          }
+          if ! printf '%s\n' "$labels" | grep -qx 'architect-ruled'; then
+            echo "ruled-clears: architect-ruled is no longer on PR #$PR_NUMBER; leaving needs-architect." >&2
+            exit 0
+          fi
+          if ! printf '%s\n' "$labels" | grep -qx 'needs-architect'; then
+            echo "ruled-clears: PR #$PR_NUMBER has no needs-architect; nothing to do."
+            exit 0
+          fi
+          if gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label needs-architect 2>&1; then
+            echo "ruled-clears: removed needs-architect from PR #$PR_NUMBER (architect-ruled is on it)"
+          else
+            echo "ruled-clears: could not remove needs-architect from PR #$PR_NUMBER; not fatal." >&2
+          fi
