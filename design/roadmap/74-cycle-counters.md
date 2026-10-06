@@ -189,7 +189,7 @@ worth carrying out of the riscv64 half. Under `-icount` the `cycle` CSR and the 
 off the same virtual clock, so the probe reads `cycles_per_tick 100.00`, exactly the ratio
 between the two declared rates, with a rounding wobble and nothing else. That is not a number that
 looks wrong. It looks like a clean measurement of a 1 GHz core, and a reader who did not know what
-TCG does to these two registers would have every reason to write it down. The defence is that the
+TCG does to these two registers would have every reason to write it down. The defense is that the
 probe line prints its inputs (`10000029 cycles over 100000 ticks at cntfrq 10000000`) rather than
 only the ratio, so the arithmetic is visible, and that notes/riscv-cycle-counters.md's outcome table
 names an exact round ratio as the tell rather than as the answer.

@@ -101,7 +101,7 @@ itself checked: changing `E0451` to `E0308` fails with *"Some expected error cod
 
 An ungated lift decays into a paraphrase, and the decay is invisible. Every other outcome of
 milestone 135 is protected by something: the arithmetic by Kani, the interleavings by loom, the
-lock rank by `script/lint`. The claim that the kernel still *calls* the modelled code was protected
+lock rank by `script/lint`. The claim that the kernel still *calls* the modeled code was protected
 by nobody having got around to changing it. That is rung zero of the ladder, and the tenet is
 explicit that "somebody will notice" belongs on no list.
 
@@ -116,7 +116,7 @@ and the one that got through the first draft is the argument for paying it.
 
 ## Prior art
 
-The shape is this repository's own, and the two closest neighbours are worth naming because the gate
+The shape is this repository's own, and the two closest neighbors are worth naming because the gate
 is deliberately built from their parts rather than from a new idea. `script/lint`'s *"the SMB server
 cannot compute a proof"* check pins a dependency's section in a manifest, in both directions, with a
 message that says what to do instead; this pins an API surface the same way. Milestone 113's Kani

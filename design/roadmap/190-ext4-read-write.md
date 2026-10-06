@@ -52,7 +52,7 @@ nothing is waiting on the answer.
 
 Every candidate for read/write ext4, in any language, as of 2026-08-30:
 
-| candidate | language | writes | writes the journal | `metadata_csum` on write | needs shared-memory threads | licence |
+| candidate | language | writes | writes the journal | `metadata_csum` on write | needs shared-memory threads | license |
 |---|---|---|---|---|---|---|
 | `ext4-view` | Rust, `no_std` | no, explicit non-goal | n/a | n/a | no | MIT OR Apache-2.0 |
 | `ext4plus` | Rust, `no_std` | yes | no, and it tells you to disable journaling | **read-only** | no | MIT OR Apache-2.0 |
@@ -66,7 +66,7 @@ Every candidate for read/write ext4, in any language, as of 2026-08-30:
 **1. `metadata_csum` is not optional.** It has been mke2fs's default for years, so a drive cordoba
 formatted has it. `ext4plus` reads it and cannot update it on write, which means writing to calef's
 actual repositories with it would produce metadata Linux flags as corrupt. That is a concrete
-disqualification for this requirement rather than a judgement about maturity.
+disqualification for this requirement rather than a judgment about maturity.
 
 2. No userspace ext4 implementation writes the journal. libext2fs replays a journal it finds and
 never writes one, and fuse2fs, its own reference read/write client, says so in its manual:
@@ -86,7 +86,7 @@ away.
 The refusals are the valuable half of this block, and each is recorded so a later reader can
 disagree with an argument rather than rediscover it.
 
-`lwext4`, refused on licence and on the seam. It is the obvious embedded C candidate (its own
+`lwext4`, refused on license and on the seam. It is the obvious embedded C candidate (its own
 blockdev abstraction, `malloc` plus string functions, tier two of milestone 36's (the foreign
 component) libc tiers). But `ext4_extents.c` and `ext4_xattr.c` are GPLv2, which makes the library
 GPLv2 as distributed, and extents are what make ext4 ext4, so the GPL file cannot be dropped.
@@ -180,7 +180,7 @@ The barrier exists, which is what makes this different from RedoxFS. `filesystem
 `blk::FLUSH` is a real `VIRTIO_BLK_T_FLUSH` the block server does not reply to until the device
 completes it, with `EOPNOTSUPP` passed through honestly when the device cannot flush. notes/fs-server.md
 names the absence of exactly this as RedoxFS's honest limit: its `Disk` trait has no flush and no
-barrier, so ordering is the device's job. A journal without a barrier is theatre; milestone 55's
+barrier, so ordering is the device's job. A journal without a barrier is theater; milestone 55's
 durability half bought the barrier.
 
 **Use jbd2's on-disk format, not our own**, so that a drive we crash on is replayed by **Linux**, on
@@ -208,7 +208,7 @@ repository is itself a transaction log:
   answerable with certainty, which is more than any filesystem journal offers.
 
 So a crash on a non-journaling ext4 costs the tail of a segment, which borg discards anyway, plus
-possible filesystem metadata damage, which the append-only shape minimises. **That is a mitigation
+possible filesystem metadata damage, which the append-only shape minimizes. **That is a mitigation
 and not an equivalence**, and phases 1 through 3 must say so where a reader meets the feature rather
 than in this block.
 

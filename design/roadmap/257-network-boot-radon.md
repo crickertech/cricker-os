@@ -257,7 +257,7 @@ Transcripts: `bench/radon-2026-09-05/`.
   untested claims: that hush takes `if cmd; then` on one line, `test x${v} = xy`, `!=`, and `if`
   nested one deep inside another; that `dhcp` and `tftpboot` return a failing status rather than
   halting the script; and that `netretry no` makes a dead network fail in seconds. Each is
-  documented U-Boot behaviour and none of it has been watched here.
+  documented U-Boot behavior and none of it has been watched here.
 - A misjudged `netretry` is the one that would hurt. If a network that is not there hangs `dhcp`
   instead of failing it, a card left in the board waits at an empty bench rather than falling back,
   which is the exact failure this milestone was written to make impossible. It is the first thing to
@@ -265,7 +265,7 @@ Transcripts: `bench/radon-2026-09-05/`.
 - 428 KiB/s is slow, and the 9 MB archive is 20 seconds of it. That is fine against a two-minute
   walk and it is worse than a card read, so a session that boots many times pays it many times.
   Nobody has looked at whether U-Boot's `blksize` or the TFTP window is the limit. `script/board-netboot`
-  accepts a block size up to 9000 and will honour whatever U-Boot asks for.
+  accepts a block size up to 9000 and will honor whatever U-Boot asks for.
 - The card still has to be written once, and a change to the boot script means writing it again.
   The loop is shorter, not gone.
 - `ethernet@16030000` is one of radon's two ports, and it is the one that was plugged in. Nothing

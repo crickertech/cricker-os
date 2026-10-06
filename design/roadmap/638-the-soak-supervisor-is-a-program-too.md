@@ -44,7 +44,7 @@ What it would buy is what 523 buys, applied to the risk that most needs it:
 
 ## What has to be established, and 523 establishes most of it
 
-- The cycle grant reaching a program declaratively, which milestone 229 (build the cycle-counter grant) built and DECISIONS §139 (cycle counter authority) authorised.
+- The cycle grant reaching a program declaratively, which milestone 229 (build the cycle-counter grant) built and DECISIONS §139 (cycle counter authority) authorized.
 - What moves into the measurement. A userspace supervisor's own scheduling becomes part of what
   is observed. For the job mix that is arguably a feature; for a soak, whose job is to run forever
   and notice a wrong answer, it matters less. Say which it is rather than assuming it carries over.

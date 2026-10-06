@@ -95,7 +95,7 @@ Deliverable, three parts.
    19d.2/22 make it concrete; recorded here so the design (halt is the floor, supervision is the
    answer, the kernel never runs restart policy) is on the record rather than in a conversation.
 
-The reach tail. Beyond verifying init's *bytes*, verifying init's *behaviour* is the natural
+The reach tail. Beyond verifying init's *bytes*, verifying init's *behavior* is the natural
 next layer inward for the §14 thesis: init is small and privileged enough to be worth proving, once
 the kernel's proofs are done. Recorded as the direction, not committed. (Distinct from supervision
 above: proof buys *safety*, supervision buys *availability*; init's failure mode is availability, so
@@ -126,7 +126,7 @@ that restart policy wants to be a rich userspace thing, not a kernel reflex).
   concrete: the kernel delivers a message and never runs restart policy, and policy lives in the
   userspace supervision tree.
 - **Recorded.** `design/roadmap/22-trusted-init.md`, under "The reach tail": proving init's
-  *behaviour* as distinct from verifying its bytes is the direction and is explicitly not committed.
+  *behavior* as distinct from verifying its bytes is the direction and is explicitly not committed.
   Proof buys safety, supervision buys availability, and init's failure mode is availability.
 
 ## Index row

@@ -59,7 +59,7 @@ Decide, per duplicated line, which instrument it belongs to, and say so where it
 
 Measured, not guessed: a boot transcript per architecture before and after, in the block.
 
-## Not a levelling-down
+## Not a leveling-down
 
 Nothing here removes a capability. The question is only whether one fact is printed once or twice,
 and the default answer where it is unclear should be twice: a duplicated line costs a reader a

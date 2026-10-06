@@ -94,7 +94,7 @@ answer leans on C's runtime cost, not on effort, so it should be checked against
 C is ever built. Reversible: nothing outside the build has acted on either, and A can be replaced
 by C later without touching a wire format.
 
-Prior art, recalled and not read: Linux arm64 does C, and has since KASLR. U-Boot `booti` honours
+Prior art, recalled and not read: Linux arm64 does C, and has since KASLR. U-Boot `booti` honors
 `text_offset` from the base of the first DRAM bank.
 
 ## Then milestone 225's argon run

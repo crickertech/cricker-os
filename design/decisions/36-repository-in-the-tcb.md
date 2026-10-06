@@ -14,7 +14,7 @@ the same treatment as a kernel boundary: state what is claimed, make the claim c
 down what is not claimed.
 
 This section covers milestone 44 (policy, private reporting, code scanning, pull requests) and
-milestone 42's non-fuzzing half (advisories, licences, vendored integrity), because they are one
+milestone 42 (supply chain and fuzzing in CI)'s non-fuzzing half (advisories, licenses, vendored integrity), because they are one
 question wearing two milestone numbers.
 
 ## The scope line in SECURITY.md, which is the only interesting part of it
@@ -60,7 +60,7 @@ checked rather than assumed: the extractor reports `176 out of 176 Rust files`.
 What the same log shows is the caveat that matters more. 60 of those 176 files were extracted with
 errors and 116 without; the extractor ran with `cargo_target: None` (the host) and `cargo_features:
 []`. The kernel is `no_std` on two bare-metal targets and does not build for the host at all, so
-CodeQL is analysing it in a configuration that does not exist, with macro expansion failing across
+CodeQL is analyzing it in a configuration that does not exist, with macro expansion failing across
 `assert_eq!`, `vec!` and friends. "Zero alerts" therefore means less than it looks, which is the
 same honesty §35 applied to the gap between Kani and CodeQL, aimed at CodeQL itself.
 

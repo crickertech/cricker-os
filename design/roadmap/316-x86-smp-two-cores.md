@@ -94,7 +94,7 @@ Measured with `NIFE_SMP=2 script/repeat-under-load -n 12 -s 0 -- --arch x86_64` 
 (Mac15,3, 8 cores), no induced load, logs under `target/acceptance/`. Each run is a full
 `script/test --arch x86_64`, which is three boots: SeaBIOS plus two OVMF.
 
-5 of 12 runs green, load average 2.0 to 8.9, one QEMU at every sample (no neighbouring lane).
+5 of 12 runs green, load average 2.0 to 8.9, one QEMU at every sample (no neighboring lane).
 The interesting number is not that one. It is that all seven failures are the same assertion at
 the same line, `user/x86_port_tests.rs:255`, and none of them is #3 or #1:
 
@@ -145,7 +145,7 @@ milestone:
   is `every_secondary_runs_scheduled_work`, and it is now reliable.
 - §153's option 2 worried about *"a test that may be red for reasons unrelated to what it tests"*.
   The red observed here is **for exactly the reason it tests**: a capability that was revoked was
-  still usable. That is the ambiguity the decision was built around, and it did not materialise.
+  still usable. That is the ambiguity the decision was built around, and it did not materialize.
 - §153 calls milestone 315's test *"the first port test to run on two cores and the first able to
   observe the window at all"*. **It already exists.** `a_revoked_holder_faults_on_its_next_port_write`
   became that observer the moment the substrate under it worked, without being written for it.
@@ -184,7 +184,7 @@ architect's, and the above is evidence for it rather than an answer to it.
 - **Recorded.** A bench boot on xenon would settle `BUGS` #1, and it is cheap now that the stick and the
   procedure exist (notes/x86-uefi-boot.md). #1 was *"measured extensively on QEMU TCG"* and has
   never been tried on silicon, where the INIT-SIPI-SIPI timing, the `STARTUP` delays and the
-  self-modifying-code behaviour that two of its refuted hypotheses turned on are all real rather
+  self-modifying-code behavior that two of its refuted hypotheses turned on are all real rather
   than emulated. xenon has four cores and printed `nife machine: x86_64, 4 processor(s)` on
   2026-09-17. **The exact line to look for is `smp: N core(s) online`** in the boot transcript at
   `-smp 4`: `smp: 4 core(s) online` says #1 is a TCG artifact, and anything less, with a

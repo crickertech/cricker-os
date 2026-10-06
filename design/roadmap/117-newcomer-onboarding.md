@@ -181,9 +181,9 @@ Spawn an agent that has **never seen this tree**, hand it the repository and not
 it a task. No brief explaining the conventions, no pointer to the right note, no answer to any
 question it asks. Its confusion is the measurement.
 
-Three things make this a real test rather than theatre:
+Three things make this a real test rather than theater:
 
-- It must be a fresh context, not a summarised one. A handoff that says "read CLAUDE.md first"
+- It must be a fresh context, not a summarized one. A handoff that says "read CLAUDE.md first"
   has already given away the finding that a newcomer would not know to.
 - Every question it asks is a defect, recorded verbatim. The questions are the deliverable, more
   than the score is.
@@ -400,7 +400,7 @@ five runs have not opened. Recorded in `script/apropos`'s `BUGS`.
 **`AGENTS.md` was never opened**, by a stranger that read `CONTRIBUTING.md` third and shipped a
 working program on both ISAs. Run 4 read `AGENTS.md` seventh and complained that `CONTRIBUTING.md`
 was sixteenth; fixing the second appears to have cost the first, because a reader who meets a
-shorter document summarising a longer one stops. Its own reason: *"66 KB is a large upfront cost
+shorter document summarizing a longer one stops. Its own reason: *"66 KB is a large upfront cost
 when a task is in front of you, and everything I actually needed turned out to be reachable from
 code."* This is the same criticism run 4 made of the tree's prose habit, arriving independently and
 with a falsifiable instance attached.

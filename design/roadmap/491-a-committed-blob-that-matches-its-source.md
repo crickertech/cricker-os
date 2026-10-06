@@ -59,7 +59,7 @@ If they want the stronger answer, this proposal is where the weaker one's cost i
 - `dtc` output is not byte-stable across versions, so a naive comparison could fail on a
   contributor with a different `dtc` than CI. Comparing the decompiled *structure* rather than the
   bytes is the fix, and it is why this is a proposal rather than a one-line patch.
-- **It does not generalise to other committed binaries** on its own. `bench/` images, the font
+- **It does not generalize to other committed binaries** on its own. `bench/` images, the font
   atlases and the RedoxFS test image have the same property and no source beside them to compare
   against, so this check covers the one case where the comparison is possible rather than the class.
 

@@ -39,7 +39,7 @@ a supervisor that watches them forever. `notes/soak.md` is the account; the piec
 --soak`, and `Stage::Soak` in `crates/board_console`.
 
 It runs on all three architectures under QEMU and is the same workload that would run on radon,
-argon and xenon. `script/soak --arch <a>` boots it and judges it with the same recogniser and the
+argon and xenon. `script/soak --arch <a>` boots it and judges it with the same recognizer and the
 same policy `script/board-console` points at a board, so the rehearsal and the experiment are one
 thing with different deadlines.
 
@@ -57,7 +57,7 @@ thing with different deadlines.
   progress for a whole beat.
 
   **Which existing instrument it extends, and why the other two could not be it.** It extends
-  `crates/board_console`, so the QEMU rehearsal and the bench run are judged by one recogniser.
+  `crates/board_console`, so the QEMU rehearsal and the bench run are judged by one recognizer.
   `script/repeat-under-load` repeats a terminating suite under induced host load and reports a
   distribution over runs; a soak has no runs to repeat, and the load it wants is the guest's own.
   `script/interleaving-check` is loom over the extracted protocols on the host, which searches a
@@ -65,7 +65,7 @@ thing with different deadlines.
   same evidence. Both are named in `notes/soak.md` as what they are: neither was the right place to
   put a boot that never ends.
 - A user program, with the detection in the kernel. The defect is causable from userspace
-  through the real syscall path, so a kernel-mode stress loop would be testing an artefact of the
+  through the real syscall path, so a kernel-mode stress loop would be testing an artifact of the
   test; and a user program cannot assert about kernel internals, so the assertions stay where the
   trace counters are. The two meet over one shared page with one writer per word
   (`crates/soak_page`).
@@ -216,7 +216,7 @@ because each is a scheduler-policy or syscall-surface question and those are an 
 supervisor that beats every five seconds, on all three architectures. The workload is a user
 program and the detection is in the kernel, because the one defect risk 5 produced is causable
 from userspace and assertable only from inside. `script/soak` judges the QEMU run with the same
-recogniser `script/board-console` points at a board, and `Stage::Soak` re-arms the quiet check a
+recognizer `script/board-console` points at a board, and `Stage::Soak` re-arms the quiet check a
 completed tour suppresses, so a hang and a slow run are told apart by one rule both halves
 implement. First numbers: aarch64 ~58,000 round trips/s on four cores, riscv64 ~24,000, x86_64
 ~3,900 on one. **And a finding the block did not think to ask for: a saturated workload does not

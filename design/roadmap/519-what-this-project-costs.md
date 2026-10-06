@@ -6,7 +6,7 @@ built: 2026-09-21
 # 519. What this project costs, tracked where it cannot rot
 
 Built 2026-09-21. Minted 2026-09-21 by calef, from a conversation about what nife would
-have to be to change anyone else's behaviour. Every honest answer began with a cost number this tree
+have to be to change anyone else's behavior. Every honest answer began with a cost number this tree
 cannot state. *(Number provisional until the merge queue lands it.)*
 
 Built the same day it was minted, and the sequencing was the deadline's: the capture ran and was
@@ -40,7 +40,7 @@ than tidy. See the deadline below.
 | Still unpriced | no purchase record in this tree | radon, the UART adapters and the smart plugs. `notes/riscv-port.md`'s "~$70" is a sentence about the market, not a receipt, and the ledger leaves the row out rather than guess |
 | Machine effort | **22.3 billion tokens over six weeks**, captured 2026-09-21 | the harness's session records on patagonia, which this tree now keeps a committed aggregate of in `notes/project-metrics/effort.csv` |
 
-The shape those numbers make is the finding, and it should be stated before anyone optimises the
+The shape those numbers make is the finding, and it should be stated before anyone optimizes the
 wrong term. Cash to date is under a thousand dollars all in, against about ten person-weeks of one
 experienced engineer's full attention. At any plausible rate for that person's time, the human cost
 is on the order of 99% of the economic cost and the machines are a rounding error. The claim this
@@ -153,7 +153,7 @@ dishonest version.
 - The subscription's first $200 is outside the series. calef dates it 2026-07-12, a Sunday, which
   is 2026W28; the first commit is 2026-07-13 UTC and the series starts at 2026W29. A week has a row
   only when a commit fell in it. `script/metrics` prints the discrepancy on every run rather than
-  folding the money into a neighbouring week.
+  folding the money into a neighboring week.
 - **`lane_tokens` counts the whole project session, not its lanes.** A maintainer answering a
   question, a review, and this block being written are all in it. It is the cost of the project
   rather than the cost of the code, and the column name is narrower than the thing.

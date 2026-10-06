@@ -97,7 +97,7 @@ A board with GICv3, SMMUv3 and asymmetric cores serves all three at once, which 
 this worth a block rather than a shrug. Rockchip's RK3588 (four A76 plus four A55) and NVIDIA's
 Jetson Orin family both fit. Orin has one extra property: it is argon's successor, which
 separates *what does one generation cost* from *what does a different vendor cost*. Neither has been
-surveyed with the rigour `notes/aarch64-board-survey.md` applied to the TX1, and that survey is where
+surveyed with the rigor `notes/aarch64-board-survey.md` applied to the TX1, and that survey is where
 the work would start.
 
 ## The trigger, which is the point of writing this down

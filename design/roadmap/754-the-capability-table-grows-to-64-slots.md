@@ -17,7 +17,7 @@ lands it. *(Title and slug are drafts.)*
 ## Why
 
 A gpu-and-keyboard boot under QEMU reaches 31 of the progenitor's 32 capability slots, and the next
-capability added at boot halts that boot with no message. Milestone 753's trace itemised the 31 and
+capability added at boot halts that boot with no message. Milestone 753's trace itemized the 31 and
 replayed the alternatives. calef chose to grow the table rather than move holdings into a new
 process: the fixed table is the real constraint, and a builder process that exists to move slot
 accounting is not worth a new program and protocol. Milestone 753 records that reasoning in full.

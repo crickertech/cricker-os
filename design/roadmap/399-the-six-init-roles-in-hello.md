@@ -49,7 +49,7 @@ in `kernel/src/user/tests.rs`.
 
 None of them is the first process. The role that meant "boot the system" was `INIT_BOOT_ROLE`
 (27), and that is exactly the one milestone 266 moved out to `components/src/progenitor.rs`. What is
-left is the 19d/19e catalogue, in which `hello` plays the **parent**: it parses, builds, endows,
+left is the 19d/19e catalog, in which `hello` plays the **parent**: it parses, builds, endows,
 delegates and collects a report, which is the demonstration that userspace and not the kernel
 composes the system.
 
@@ -101,7 +101,7 @@ measurement table are untouched.
   `kernel/src/user/tests.rs`, and nothing gates the two against each other. A rename does not fix
   that and would be a good moment to notice it.
 - **This proposal does not argue that six demo roles should exist at all.** Whether the 19d/19e
-  catalogue still earns its keep now that the boot role has left it is a separate question, and a
+  catalog still earns its keep now that the boot role has left it is a separate question, and a
   bigger one.
 
 ## Index row
@@ -110,7 +110,7 @@ Milestone 266 is titled *"One progenitor, on all three architectures, and `init`
 role"*, and it is still a role six times in `fixtures/src/hello.rs` and six more as duplicate
 constants in `kernel/src/user/tests.rs`. Traced rather than assumed, none of the six is the first
 process: the role that meant "boot the system" was `INIT_BOOT_ROLE`, which is exactly the one 266
-moved out to `components/src/progenitor.rs`, and what is left is the 19d/19e catalogue in which
+moved out to `components/src/progenitor.rs`, and what is left is the 19d/19e catalog in which
 `hello` plays the parent that parses, builds, endows, delegates and collects a report. The
 recommendation was `PARENT_*`, a noun, what the role is, and what the tests already assert about.
 The refusals are the durable half: `PROGENITOR_*` would be false, since the progenitor is one

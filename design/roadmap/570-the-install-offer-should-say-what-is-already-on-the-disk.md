@@ -76,7 +76,7 @@ disagree.
 
 ## What it would settle
 
-Whether the most destructive act this system offers is described to the person who authorises it.
+Whether the most destructive act this system offers is described to the person who authorizes it.
 Today the description is accurate and incomplete, and the incompleteness is on the side that loses
 data.
 

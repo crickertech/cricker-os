@@ -75,7 +75,7 @@ cycle counter are different hardware. Verified in this tree rather than assumed:
 that the TSC "is not a cycle counter in the sense riscv64's is" and that the difference "has to be
 in the printed line". Both true. What it missed is that on this architecture the TSC is not merely a
 *different* quantity from cycles, it is the *same* quantity as the denominator, so there is no ratio
-left to print. Labelling cannot rescue a number that is 1.00 by construction.
+left to print. Labeling cannot rescue a number that is 1.00 by construction.
 
 ## What was built instead
 
@@ -187,7 +187,7 @@ match the other two architectures'; counting in ring 3 is not reading from ring 
   approximate band would refuse a legitimate counter on a legitimate machine. Two independent
   counters read by two different instructions a few tens of cycles apart do not produce equal deltas
   over a ten-millisecond window; one counter read twice does. A hypervisor that aliased the two
-  *with an offset* would pass this check and print `1.00`. The printed meaning line is the defence
+  *with an offset* would pass this check and print `1.00`. The printed meaning line is the defense
   that does not depend on a heuristic.
 - The boot CPU only. These MSRs are per-logical-processor, `init` runs once, and a secondary
   that never ran it has fixed counter 1 disabled and would read zero. The one consumer today is a
@@ -252,7 +252,7 @@ last one is the one to look at hardest, because it is the only one that leaves t
   branch and returns before any of them.
 - **Recorded.** That the in-step-with-the-TSC check is bit-exact equality, and therefore misses an
   aliased counter carrying an offset, is beside the check in `kernel/src/arch/x86_64/pmu.rs`'s
-  `BUGS`. The defence that does not depend on the heuristic is the printed meaning line, which is
+  `BUGS`. The defense that does not depend on the heuristic is the printed meaning line, which is
   also recorded there.
 - **Done.** An edit outside this lane's own block, named here because AGENTS.md says a lane edits
   its own roadmap block and only that. `design/roadmap/74-cycle-counters.md`'s §19 scope

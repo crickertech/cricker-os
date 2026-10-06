@@ -54,7 +54,7 @@ to ask. The tripwire fired four times and auditing still depended on somebody re
 
 Milestone 238's check asks when a workflow last succeeded, and reports one whose last success is
 more than fifteen days old. That is the right question for a job whose healthy state is green, and it
-is why the mutation and undefined-behaviour workflows were caught.
+is why the mutation and undefined-behavior workflows were caught.
 
 For `audit-cadence` it is the wrong question in both directions. A job that is *supposed* to be red
 has no green to be stale against, so a firing tripwire is indistinguishable from a dead one; and a
@@ -65,7 +65,7 @@ for a reason unrelated to the defect.
 
 ## What it would report
 
-The proposal is to report **a repeat, not a colour**: a scheduled workflow whose last N runs all
+The proposal is to report **a repeat, not a color**: a scheduled workflow whose last N runs all
 failed *with the same final line*. Sketch, for whoever builds it:
 
 - Group the last six scheduled runs per workflow by the final line of their failing step.
@@ -107,7 +107,7 @@ same true report. An audit was overdue every week for a month, the mechanism sai
 every time, and no audit ran, which is milestone 92's tripwire firing four times into a process that
 still depended on somebody remembering. `script/cadence-check` cannot cover it, because a job whose
 healthy state is red has no green to be stale against and a job that never succeeded is reported for
-ever. The proposal is to report a repeat rather than a colour, from `helpers/trunk-health.sh` rather
+ever. The proposal is to report a repeat rather than a color, from `helpers/trunk-health.sh` rather
 than a scheduled workflow that would die the way its subjects die. What makes it a block rather than
 a brief is the open question of who the report is for, since running an audit is a lane and a day
 and there is no pull request to hang the finding on.

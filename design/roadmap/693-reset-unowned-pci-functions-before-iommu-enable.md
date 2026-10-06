@@ -13,7 +13,7 @@ needs_person: yes
 Promoted from `design/roadmap/proposals/reset-unowned-pci-functions-before-iommu-enable.md` on 2026-10-03 (UTC). The number 693 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
 Raised 2026-09-27 (UTC), a follow-on from milestone 612 (the IOMMU escape-fault test could lose its
-fault to an unconfined neighbour disk). That milestone found and fixed a symptom: an unconfined,
+fault to an unconfined neighbor disk). That milestone found and fixed a symptom: an unconfined,
 never-registered second virtio-blk-pci disk could occupy the VT-d unit's one fault-recording
 register and starve a test's own fault. calef asked whether the cause is QEMU-specific or a real
 production gap, and to check cheaply before writing anything.
@@ -31,7 +31,7 @@ DIAG: virtio-blk at 00:04.0 COMMAND=0x0107 (bus-master true, memory-space true) 
 
 **Bus Master Enable is already set on both functions before this kernel ever touches them.**
 Milestone 612's "QEMU device-model quirk, not chased into QEMU's own source" framing was
-premature. The premise it should have checked and did not: whether the neighbour disk's DMA came
+premature. The premise it should have checked and did not: whether the neighbor disk's DMA came
 from something QEMU's virtio-blk-pci model does spontaneously, or from a function that was already
 allowed to master the bus before the guest ran. It is the second one. This does not need to be a
 QEMU peculiarity at all. Any firmware that probes boot disks (SeaBIOS, OVMF, or on real hardware a

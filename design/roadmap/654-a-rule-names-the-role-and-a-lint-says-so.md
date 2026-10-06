@@ -58,7 +58,7 @@ uses a new word fails somebody's build.
 3. Separate the two facts first. Ownership that is not the role (who owns the machines, who
    administers the organization) gets its own list beside `ARCHITECTS.md`, and the lint reads both.
    A match naming someone on the ownership list inside an ownership sentence still needs option 2's
-   judgement, so this does not remove the marker; it only names the second role.
+   judgment, so this does not remove the marker; it only names the second role.
 
 Recommendation: option 2, because it is the only one that fails on exactly the defect and
 nothing else. Option 1 is less work and would still be chosen by nobody if the two cost the same.

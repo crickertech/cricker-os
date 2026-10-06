@@ -279,7 +279,7 @@ Ordered as it was built, because each step is what made the next one debuggable.
     The trap path grew the split both other ports already had. `x86_trap_handler` became
     `x86_trap_dispatch` (outer, on the interrupted thread's stack, where the deferred `schedule()`
     runs) plus `x86_trap_body` (inner, which may run on this CPU's interrupt stack), with
-    `dispatch_on_interrupt_stack` in trap.s between them. Not an optimisation: `schedule()` parks the
+    `dispatch_on_interrupt_stack` in trap.s between them. Not an optimization: `schedule()` parks the
     running `rsp` in the outgoing thread's `Context`, so calling it from a per-CPU stack would park a
     per-CPU address in a thread.
 
@@ -524,9 +524,9 @@ In the order it should be done, because each is a prerequisite for the next.
    - **`fs_server` does not compile for `x86_64-unknown-none`, and it is not our bug.** It links
      the vendored RedoxFS engine, which depends on `aes` unconditionally (the crypto is not behind
      a feature), and `aes` for this target ends in
-     `rustc-LLVM ERROR: Do not know how to split the result of this operator!` at every optimisation
+     `rustc-LLVM ERROR: Do not know how to split the result of this operator!` at every optimization
      level including zero. The target spec is the cause: `-mmx,-sse,+soft-float` leaves LLVM no
-     128-bit vector register to legalise an AES block into and no scalar fallback. 21 of the 67
+     128-bit vector register to legalize an AES block into and no scalar fallback. 21 of the 67
      skips are this one fact. The routes out are a patch against the vendored crate to make its
      crypto optional (`patches/` is where a carried patch belongs) or an x86 userspace target that
      keeps SSE; both want their own milestone (now minted: milestone 164), and until one lands
@@ -665,7 +665,7 @@ In the order it should be done, because each is a prerequisite for the next.
    **What is deliberately scoped out, per the driver's own `BUGS`:** exactly one DRHD is brought up,
    so a machine reporting more than one VT-d unit has devices this driver never sees; no interrupt
    remapping (`GCMD.IRE` is never set); invalidation is always global-granularity, never domain- or
-   device-selective; `RWBF` (`CAP_REG` bit 4) is honoured in code but has never actually been
+   device-selective; `RWBF` (`CAP_REG` bit 4) is honored in code but has never actually been
    exercised, since QEMU's model does not set it; and the fault path decodes only the first Fault
    Recording Register, since QEMU reports `CAP.NFR = 0`. No PCI device is confined through it
    yet, because no virtio-pci or NVMe driver exists on `x86_64` (item 4's own hand-off), so
@@ -774,7 +774,7 @@ Nothing splits a block. `PageSize`, `map_block`, `map_span`, `InsideBlock` and `
   it: aarch64 5,356 / 7,028 / 1,504, riscv64 4,644 / 5,948 / 1,870, x86_64 6,256 / 8,190 / 1,701,
   the same figures `script/fastpath-footprint` reports for `main` alone. On the pre-merge tree the
   block check the walk now makes cost aarch64's `syscall_entry` four bytes (1,504 to 1,508, measured
-  by neutralising the check and remeasuring); merging `main` moved the inlining and it is gone.
+  by neutralizing the check and remeasuring); merging `main` moved the inlining and it is gone.
   The gate's riscv64 and x86_64 `syscall_entry` figures sit above `bench/fastpath-*.txt` and did so
   before this lane, so that drift is `main`'s and is left for whoever re-saves those baselines.
 

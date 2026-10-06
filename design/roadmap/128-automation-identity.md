@@ -10,7 +10,7 @@ needs_person: yes
 # 128. The automation gets its own identity, and the agents get their own voice
 
 <!-- writing-standards: exception. Marked 2026-10-03 (UTC) by the maintainer session. Reason: this change
-touches the block only to correct a stale claim (that the COE labeller had never fired). Bringing a
+touches the block only to correct a stale claim (that the COE labeler had never fired). Bringing a
 2,200-word block to 4 bold spans per 1,000 words is a rewrite for the block's owner, and six of its
 bold spans are `## Follow-on` markers `script/roadmap` reads (the measured class is recorded in
 design/roadmap/586-a-prose-ratchet-in-lint.md). Remove this marker when that rewrite lands. -->
@@ -137,10 +137,10 @@ fired outright; the third is half-fired, and the audit's own difficulty is the f
     request page therefore stays at whatever it last reported, which is green, while the label says
     the opposite. The gate itself still holds, because `architect-hold.yml` also runs on
     `merge_group` and reads labels fresh from the API, so the merge queue catches it and evicts the
-    entry. So this is a display defect rather than an escape. When this was written the labeller
+    entry. So this is a display defect rather than an escape. When this was written the labeler
     had never fired, because `notes/corrections/` was not yet on `main`. *(Corrected 2026-10-03:
     §210 (a correction of error, and its action items are decisions, proposals or milestones) is
-    DECIDED, the labeller fired on #1247 on 2026-09-24, and correction-of-error records moved to
+    DECIDED, the labeler fired on #1247 on 2026-09-24, and correction-of-error records moved to
     `notes/coes/` on 2026-09-30, which the workflow has watched since #1515.)* It is a second workflow that **would** be better on the App, not one
     that is broken without it.
 

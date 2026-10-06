@@ -61,7 +61,7 @@ The eighth edit site is closed: `the_arg_line_follows_the_manifest_for_every_pro
 every operand a manifest asks for, so an argument-plus-input program needs no edit in `crates/swish`.
 Whether such a program is *wanted* (item 3) is an architect's call and is written up as
 [a-program-that-takes-an-argument-and-an-input.md](498-a-program-that-takes-an-argument-and-an-input.md),
-recommending the status quo. The neighbouring file-plus-input refusal moved from a comment into a
+recommending the status quo. The neighboring file-plus-input refusal moved from a comment into a
 host test.
 
 **notes/adding-a-program.md shrank** to what survives (site 8), gained the removal section run 4

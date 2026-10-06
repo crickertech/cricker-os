@@ -99,7 +99,7 @@ with one `OPERATION_WRITE`. The alternatives, and why each lost:
 The console server gains no device for this, one endpoint and one page, the authority any
 program printing to that terminal holds, which is also why this is not S2 wearing another name.
 
-How the aperture reaches the driver: a spawn-time mapping, not a capability. Rule 2 is honoured
+How the aperture reaches the driver: a spawn-time mapping, not a capability. Rule 2 is honored
 (nothing reaches into a kernel global; the geometry arrives in its argument registers and the pages
 are mapped before `_start`). A capability was not available: `DeviceFrame` names one page and a
 screen is a thousand, `PageFrame` names RAM the allocator owns and would free, and a `DeviceFrame`

@@ -154,7 +154,7 @@ and would otherwise show 42 milestones appearing out of nowhere.
 ## What this deliberately does not do
 
 **`BUGS` sections and DECISIONS §71 are untouched.** A `BUGS` entry is a present defect a reader
-meets at the feature; a refusal is a past judgement about work. The FreeBSD posture §71 records is
+meets at the feature; a refusal is a past judgment about work. The FreeBSD posture §71 records is
 working, and this is a separate mechanism beside it rather than a replacement. Nothing here makes it
 more expensive to write an honest limitation, which is the failure mode that would cost more than
 the burial does.
@@ -175,7 +175,7 @@ to cheap by saying out loud that it is not settled.
 - **Decision.** Two dependency refusals belong under §46's pricing rather than in a roadmap block,
   and a lane may not mint the section: `comrak` for GFM tables and `ratatui` for the pager, both
   refused by milestone 40 (design/roadmap/40-documentation-service.md). The reasoning is a
-  dependency judgement and the record that judges dependencies is
+  dependency judgment and the record that judges dependencies is
   `design/decisions/46-dependency-rule.md`, which is where the maintainer should mint them.
 - **Recorded.** In `script/metrics`: `MILESTONE_STATUSES` did not carry `SUPERSEDED` before this
   milestone and therefore undercounted seven blocks in every weekly row, with `milestones_total`

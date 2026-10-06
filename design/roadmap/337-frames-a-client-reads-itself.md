@@ -47,7 +47,7 @@ The questions the design has to answer are the ones milestone 138 refused a data
 coherency between a client reading frames and a server writing them, what a client observes when
 the file changes underneath it, and what revocation means mid-read. The metadata cache had none of
 those because it lives inside one server's address space. This has all of them, which is why it is
-a design and not an optimisation.
+a design and not an optimization.
 
 ## Where it came from
 

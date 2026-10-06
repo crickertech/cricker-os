@@ -151,7 +151,7 @@ case is the miss rather than the hit, because the kernel asks both queues on eve
   linked into a live wait queue. This lane bought what a caller can buy alone (ask both queues, and
   a `debug_assert!` pairing `Blocked` with a recorded wait) and left the name undefended.
 - **Milestone 371.** `design/roadmap/371-a-reply-capability-that-names-a-call.md`, milestone 254's,
-  which this lane had written a near-duplicate of and dropped at the merge in favour of the better
+  which this lane had written a near-duplicate of and dropped at the merge in favor of the better
   one. The soundness of `ipc_reply`'s role-and-not-call guard is an argument by exhaustion in a note
   rather than a stated property, and both milestones' sweeps protect a rule nothing checks. A call
   identity in the payload is rung one where a sweep is rung two.

@@ -21,7 +21,7 @@ not block, `cpu matrix` among them because it is load-sensitive.
 The committable half is built 2026-07-30 (DECISIONS §36); the settings half is written down and
 waiting on an admin (notes/repo-hardening.md). `SECURITY.md` states the scope at confinement, with
 the distinction that carries the weight: a missing feature on this roadmap is a roadmap item, a
-defence that is *claimed* and does not work is a vulnerability.
+defense that is *claimed* and does not work is a vulnerability.
 
 Code scanning: checked rather than assumed, and the answer was no. The obvious argument for an
 advanced (committed-workflow) setup is that it would see more of the tree; the extraction log says

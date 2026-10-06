@@ -49,7 +49,7 @@ is the table that says what may run:
 - §229 (a bare name reaches an installed program) resolves a bare word through one entry per name,
   with no search order, by calef's ruling. Pull request #1374 (milestone 47, a bare word runs an
   installed program) adds the refusal that another package may not take a name already provided.
-- Until §220 (signed builds) is built, a new version of any package is a new image catalogue, and
+- Until §220 (signed builds) is built, a new version of any package is a new image catalog, and
   so a new boot slot: §241 (a threadbare base), "What is being decided", item 2.
 
 Libraries are not the problem here. There is no dynamic loader and no shared library
@@ -166,7 +166,7 @@ the reasoning is kept to one line each so a reader can check the rule against it
   refusals this must keep.
 - The proposal
   [666-install-time-signature-verification.md](666-install-time-signature-verification.md)
-  (§220). Not a hard dependency, since two versions can be proved with two catalogue entries, but
+  (§220). Not a hard dependency, since two versions can be proved with two catalog entries, but
   without it a developer cannot install a second version without a new boot slot.
 
 ## What this unblocks
@@ -223,13 +223,13 @@ the reasoning is kept to one line each so a reader can check the rule against it
   2026-09-30 diagnosis called it the second-fetch flake; every leg of this branch that reached
   `package install greeting` failed the same way (five of five runs, through 2026-10-01), and the
   cross-PR merge-queue runs it cited batched this pull request. The cause: adding
-  `greeting-0.2.0.recipe.toml` put two `greeting` stems in the image's catalogue, and
+  `greeting-0.2.0.recipe.toml` put two `greeting` stems in the image's catalog, and
   `package_archive::catalogued_stem` took the first line, which recipe filenames ordered as 0.2.0
   (`-` sorts before `.`). The gate's source serves only 0.1.0, so the guest's GET was a 404. Now a
-  bare fetch of a name catalogued at several versions is refused as `Ambiguous` before the network,
+  bare fetch of a name cataloged at several versions is refused as `Ambiguous` before the network,
   and `package install greeting@0.1.0` (ruling 5's spelling) picks one. The refusal names no
-  candidates, because the shell does not read the catalogue; a reader who wants them has the
-  recipes. Revisit when §220 (signed builds) makes catalogue versions something a person adds.
+  candidates, because the shell does not read the catalog; a reader who wants them has the
+  recipes. Revisit when §220 (signed builds) makes catalog versions something a person adds.
 
 ## Follow-on
 
@@ -245,7 +245,7 @@ Added by the build lane, 2026-09-29.
   by the integrator (Done means, last bullet).
 - **Done.** Carried by pull request #1443, in a comment of 2026-10-03 00:24 UTC. The
   `package install <package>@<version>` spelling: ratified 2026-10-03 (calef), the same `@` as
-  `remove`. Refusing a bare `package install <name>` that matches more than one catalogued version
+  `remove`. Refusing a bare `package install <name>` that matches more than one cataloged version
   as ambiguous: accepted 2026-10-03 (calef). `StemMiss` was not covered and stays provisional.
 
 ## Index row

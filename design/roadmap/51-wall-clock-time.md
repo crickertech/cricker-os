@@ -162,7 +162,7 @@ things the build settled or found:
   `Query::with_nonce`'s 64 bits are worth nothing if they are guessable (§42's rule, §44's source).
 - **A kiss-o'-death is not retried** while an ordinary rejection is, which is a property of the
   client rather than of the crate, and the test counts requests to prove it.
-- **It is a one-shot synchroniser, not a continuously polling service,** because the timed-wait fork
+- **It is a one-shot synchronizer, not a continuously polling service,** because the timed-wait fork
   below is unsettled. A
   poll interval is a yield-spin; adding a sleep syscall to get a real one would settle that fork by
   accident. Three attempts a couple of milliseconds apart, one proposal, exit.
@@ -177,7 +177,7 @@ real server to point a gate at.
 
 There is no timed wait anywhere in the kernel. The syscall surface is `EXIT`, `YIELD`, `INVOKE`,
 `CAP_DELETE`, and `sched.rs` twice calls out its own "no-timeout limitation". So `thread::sleep` is a
-yield-spin, which is the *correct* implementation given what exists (it does not monopolise a core),
+yield-spin, which is the *correct* implementation given what exists (it does not monopolize a core),
 but it keeps a thread runnable for the whole sleep and costs scheduler work proportional to duration.
 
 Three candidate shapes, and this is a design fork to settle before building:

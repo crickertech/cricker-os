@@ -101,7 +101,7 @@ But x86_64 is **41% of today's arch tree, not a majority of what is unread**. Th
 did read have grown by 3,633 lines since it read them, 59%, and riscv64 has more than doubled
 (2,374 to 4,932). "Read in full, both ISAs" describes a state of the tree that no longer exists.
 This milestone does not take that on, and says so under *What this does not decide*, but a reader
-who takes 6,797 as "the unaudited fraction" is reading it too favourably.
+who takes 6,797 as "the unaudited fraction" is reading it too favorably.
 
 ## Why this is the highest-value unaudited surface
 

@@ -44,7 +44,7 @@ virtual workspace manifest) runs first in lint.
 - The 24 `.rs` files under no package (`bench/host/`, `helpers/kani-lint-shim/`,
   `patches/std-nife/overlay/`) are compiled by bare `rustc` or spliced into std. Nothing checks them
   here.
-- `autobins = false` and its siblings are not honoured; an auto-discovered path counts as a root.
+- `autobins = false` and its siblings are not honored; an auto-discovered path counts as a root.
 
 ## Follow-on
 

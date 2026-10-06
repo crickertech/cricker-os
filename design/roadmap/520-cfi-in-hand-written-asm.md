@@ -99,7 +99,7 @@ and this is recorded here rather than only in a note nobody reads twice:
   register 16 (RIP) as the ordinary return-address column and register 7 (RSP) as an ordinary
   describable register. `isr_common` states `.cfi_offset 16, 16` / `.cfi_offset 7, 40` and the
   unwind genuinely continues past the trap.
-- **AArch64 has a spec-correct answer that the tool does not honour.** The interrupted PC lives in
+- **AArch64 has a spec-correct answer that the tool does not honor.** The interrupted PC lives in
   `elr_el1`, and AArch64's own DWARF register mapping anticipates exactly this case: register 33 is
   `ELR_mode`, defined for describing an asynchronously-created frame. `vectors.s` states
   `.cfi_return_column 33` / `.cfi_offset 33, -24` -- correct per the ARM DWARF spec, and inert with
@@ -121,7 +121,7 @@ a 64-byte struct a bootloader reads, with one instruction (`b _boot`) grafted on
 entry point can also be byte 0 of it. It carries no CFI, `.type`, or `.size` -- function directives
 would claim it is a function with a frame, which is false, and "wrong CFI is worse than none" is the
 standing rule this milestone was built under. A `CFI-EXEMPT:` comment says so in the file itself,
-and `script/lint`'s new check (below) honours that marker rather than special-casing the filename.
+and `script/lint`'s new check (below) honors that marker rather than special-casing the filename.
 riscv64's `_start` carries the identical Linux Image header shape and gets the identical treatment.
 
 ## The proof: before and after, under a real debugger
@@ -143,7 +143,7 @@ to stop.
 After, the same breakpoint, on a kernel thread resumed out of `sched::ipc_recv` by a timer
 preemption: the backtrace walks seven real Rust frames -- `switch_to -> schedule -> ipc_recv ->
 syscall::invoke -> syscall::dispatch -> exception_body -> exception_dispatch` -- GDB labels the trap
-frame `<signal handler called>` (recognising `.cfi_signal_frame`), and stops there with "frame did
+frame `<signal handler called>` (recognizing `.cfi_signal_frame`), and stops there with "frame did
 not save the PC". That stop is the honest limit the AArch64 section above describes, not a shortfall
 this milestone left in: the directive that would let GDB go one frame further exists in `vectors.s`
 and GDB does not read it.

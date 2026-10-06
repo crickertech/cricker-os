@@ -45,7 +45,7 @@ phase B's record, and milestone 22's own block. None of them names an owner.
 What it costs. A table of digests init carries, produced by the build the same way the kernel's
 single digest is; a hash of each program image before `build_child` enters it; and a decision about
 what init does with a mismatch. That last one is the only design content: refusing to boot a system
-whose shell is unrecognised is the fail-closed floor milestone 22 argues for everywhere else, and it
+whose shell is unrecognized is the fail-closed floor milestone 22 argues for everywhere else, and it
 is also a way to make a machine unbootable from a build defect. Say which, and say it in the block
 that decides it.
 

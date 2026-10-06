@@ -109,7 +109,7 @@ single shared tick rendezvous starves all but one waiter on a loaded host, becau
 takes a pending signal before it looks at the receiver queue (right for a driver, wrong for four
 peers); each group has its own route now. And binding the routes *after* spawning the waiters races:
 a waiter reaching `Irq::WAIT` before its route exists is refused and has nowhere to report it. Routes
-are bound before the first waiter; only the signalling is switched on last.
+are bound before the first waiter; only the signaling is switched on last.
 
 ## BUGS
 
@@ -130,7 +130,7 @@ are bound before the first waiter; only the signalling is switched on last.
   row D6).
 - **Decision.** A rebalancer, the only thing that would make the IPC workload itself migrate rather
   than its waiters, is declined in `design/decisions/138-cross-core-handoff-under-load.md`, which is
-  also where option D (the tick-signalled rendezvous this milestone built) was approved.
+  also where option D (the tick-signaled rendezvous this milestone built) was approved.
 - **Recorded.** Nothing here says what a crossing rate should be. The QEMU numbers are a shape, not
   a target, and there is no baseline to compare a board against until a board has run one.
   `notes/soak.md`.

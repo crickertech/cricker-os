@@ -38,7 +38,7 @@ neither, so the bulk of this milestone landed first.
   defect of that channel.
 - `self_test` is ratified (calef, 2026-09-09) after the prior art turned out to be in this tree
   already. See below.
-- **Parity is reached by levelling up, never by levelling down** (calef, 2026-09-09):
+- **Parity is reached by leveling up, never by leveling down** (calef, 2026-09-09):
   *"drive parity by not degrading functionality away from where we want to get but rather by driving
   everything towards where we want to go."* There is a specific trap in this milestone; see BUGS.
 
@@ -123,7 +123,7 @@ prints, and not a marker that exists on one architecture, which is the defect be
 
 ## BUGS
 
-- The levelling-down trap is specific and a lane will meet it. `arch::machine::attach_screen` is
+- The leveling-down trap is specific and a lane will meet it. `arch::machine::attach_screen` is
   an x86-only kernel path with no counterpart on the other two, and a naive parity reading says
   delete it. It is the only thing in this system that puts pixels on real hardware, and xenon's
   monitor is the one working display we have. The other two grow a display path (milestone 157); x86
@@ -254,7 +254,7 @@ rather than dead
 board-console: self-test: nife self-test: 4 of 5 passed, 1 FAILED: exceptions
 ```
 
-and exits 1. The two readers are the same recogniser, which is the point: a gate that used a second
+and exits 1. The two readers are the same recognizer, which is the point: a gate that used a second
 reader would be gating something a bench run does not measure.
 
 ### The six items
@@ -291,7 +291,7 @@ reader would be gating something a bench run does not measure.
 
 The rungs are strings two binaries agree on, so AGENTS.md rule 7 makes them a crate. That is not a
 formality here: the one marker that existed before was a literal inside the RISC-V arm of
-`main.rs` and a second copy of it inside the recogniser, which is finding 3's mechanism. Three
+`main.rs` and a second copy of it inside the recognizer, which is finding 3's mechanism. Three
 binaries now read one definition: the kernel, `swish`, and `board_console`. Name provisional.
 
 ### A fifth finding, the same shape as finding 3
@@ -424,7 +424,7 @@ boot-check (x86_64): nife self-test: 4 of 4 passed
 boot-check: every architecture reached the self-test verdict and it was green
 ```
 
-`boot_ladder::SELF_TEST_CHECKS` is now the set, one list for every architecture and the recogniser.
+`boot_ladder::SELF_TEST_CHECKS` is now the set, one list for every architecture and the recognizer.
 The kernel counts against it and names a listed check that never ran, and `board_console` fails a
 verdict whose total is not the list's length. After, the same cut:
 
@@ -546,7 +546,7 @@ written down as one.
 - **The prompt rung is the shell's banner, not the `$ `**, so what `boot-check` now asserts is that
   `swish` started and printed, not that a prompt was offered or that anything could be typed at it.
   `crates/boot_ladder`'s own BUGS has the reason (two bytes is too weak to key on in a log that has
-  just carried a kilobyte of hex) and it is the recogniser's limitation rather than the gate's.
+  just carried a kilobyte of hex) and it is the recognizer's limitation rather than the gate's.
   `script/swish-check` makes the stronger claim by typing, on all three architectures since
   2026-09-19, and this gate deliberately does not duplicate it.
 - A riscv64 boot that wedges between its tour and its prompt takes the full 180-second cap to
@@ -556,7 +556,7 @@ written down as one.
   a quiet one; the cost lands on this gate's slowest failure case.
 - **The injected leg is not in CI.** `script/boot-check --inject` rebuilds three kernels for one
   boolean, and what it proves is a property of the gate rather than of the change under test. It is
-  run by hand when the self-test or the recogniser changes; the transcript above is from the run
+  run by hand when the self-test or the recognizer changes; the transcript above is from the run
   that proved it. A gate for the gate, left at rung four deliberately and said out loud.
 - The `x86_64` tour's own `kernel task` line can print `FAILED` on two cores, seen once on
   2026-09-14 under OVMF with `NIFE_SMP=2` (`a spawned thread ran and carried its captured state (0x0)
@@ -567,8 +567,8 @@ written down as one.
   self-test's bound or drop it as a duplicate. Recorded here rather than fixed, because it is the
   tour's code and not this milestone's.
 - `Stage::Tour` is still one architecture's rung, and is now documented as one rather than
-  quietly left in the ladder. Levelling it up would mean giving aarch64 and `x86_64` a marker for a
-  demonstration tour they do not have; levelling it down would delete riscv64's, which is the trap
+  quietly left in the ladder. Leveling it up would mean giving aarch64 and `x86_64` a marker for a
+  demonstration tour they do not have; leveling it down would delete riscv64's, which is the trap
   this block warns about. The portable rungs that replace it for every tool are `Machine` and
   `SelfTest`.
 
@@ -578,4 +578,4 @@ calef, 2026-09-09. Parity is the demonstrator's claim (§19) and three boot arms
 diverged: `machine.rs` on one architecture, `self_test` on two, a `Stage::Tour` marker reachable
 on one. Every architecture now describes its machine, runs the same five self-tests behind one
 verdict line, and hands over to a `swish` prompt rather than halting; `script/boot-check` reads the
-whole ladder with the same recogniser a bench run uses, and `--inject` proves it can come back red.
+whole ladder with the same recognizer a bench run uses, and `--inject` proves it can come back red.

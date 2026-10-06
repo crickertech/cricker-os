@@ -142,7 +142,7 @@ unit. While useful for benchmarking, this option opens the possibility of timing
 default value of `OFF` (docs.sel4.systems/projects/sel4/configurations.html, read 2026-09-03). Both
 sides measure in a benchmarking build, which is like for like.
 
-The comparability question answers itself, and in our favour. A gated build is not the production
+The comparability question answers itself, and in our favor. A gated build is not the production
 binary, so its numbers carry a caveat, which milestone 221 (the soak never crosses cores) already
 records for soak builds. But seL4's published figures come from `KernelArmExportPMUUser`, a
 configuration seL4 **does not verify and does not ship on by default**. Both sides would be measuring

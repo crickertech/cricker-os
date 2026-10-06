@@ -135,7 +135,7 @@ been verified by hand and gated by nothing.
   already `notes/x86-tlb-shootdown.md`'s `BUGS` entry and is now load-bearing for a second protocol
   rather than one. It stays a recorded limitation rather than becoming a milestone here.
 - **Recorded.** `loom` does not fit this protocol, and the reason is worth keeping. It was the
-  obvious instrument to reach for (notes/interleaving.md has five protocols modelled this way) and
+  obvious instrument to reach for (notes/interleaving.md has five protocols modeled this way) and
   it cannot see either half of this defect. The bug was a message that was never sent rather than an
   interleaving of the messages that were, and the enforcement it failed at is a CPU reading a TSS
   bitmap on an `out` instruction, which is outside any Rust memory model. The shootdown protocol's

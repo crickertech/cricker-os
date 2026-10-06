@@ -94,7 +94,7 @@ provisional name is one calef can rule on in a read and an unrecorded one is not
 
 The number that is honest rather than flattering: 10. Ten of the sixty had nothing in the tree
 justifying them beyond the date they appeared, so the case beside them is this lane's own reading and
-is labelled as such. They are `budgeter`, `heeder`, `spinner`, `outlaw`, `chatty`, `flaky`, `worker`,
+is labeled as such. They are `budgeter`, `heeder`, `spinner`, `outlaw`, `chatty`, `flaky`, `worker`,
 `driver`, `gates` and the `user` package. The BUGS section below predicted this and was right about
 its existence; the size is smaller than the prediction implied.
 

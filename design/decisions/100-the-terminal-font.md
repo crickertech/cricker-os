@@ -11,7 +11,7 @@ ratified_by: calef
 what this token is for.) The font is now an original 7x8 drawing in the Kaypro II's style, not
 gohufont-14. calef ran a poll and the Kaypro's look won.
 
-What it replaces. `font8x8`, which had shipped since milestone 29 and was chosen for its licence
+What it replaces. `font8x8`, which had shipped since milestone 29 (a display terminal) and was chosen for its license
 rather than its looks.
 
 ## The amendment, 2026-08-20

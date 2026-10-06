@@ -127,7 +127,7 @@ facts this leans on and its failure-triage ladder for everything that goes wrong
    | `hw entropy  : JH7110 TRNG at 0x..., but no 'jh7110_trng' in the initrd` | The card has a stale archive. Redo step 2 with a matched pair. |
    | `hw entropy  : FAILED: ... bring-up diagnostic 0x0000000000000000 ...` | The register window read as nothing. Most likely the block's clocks are gated or its reset is not deasserted (see the driver's `BUGS`), and next most likely the base address is not the TRNG. |
    | `hw entropy  : FAILED: ... bring-up diagnostic 0x<nonzero> ...` | The device answered and the sequence is wrong. The high 32 bits are `STAT` and the low 32 `ISTAT`. `STAT`: bit 3 `R256`, bit 8 `MISSION_MODE`, bit 9 `SEEDED`, bits 16-18 `LAST_RESEED` (`0x7` means unseeded/zeroized), bit 27 `SRVC_RQST`, bits 30/31 generate/seed in flight. `ISTAT`: bit 0 `RAND_RDY`, bit 1 `SEED_DONE`, bit 2 `AGE_ALARM`, bit 3 `RQST_ALARM`, bit 4 `LFSR_LOCKUP`. Record the raw word. **Every bit above is decoded in `crates/jh7110_entropy`**; a bit outside them is undocumented in all three drivers and the TRM, and is a finding rather than a lookup. |
-   | any line whose numbers all look like a success | **Read them against `crates/jh7110_entropy` before theorising.** The 2026-09-04 session lost an hour to a diagnostic of `0x20` read as an `ISTAT` bit that does not exist, when it was the number 32 in a word whose meaning changed with the report beside it. That word is unconditionally `(STAT << 32) \| ISTAT` now, so the ambiguity is gone, but the habit is the lesson. |
+   | any line whose numbers all look like a success | **Read them against `crates/jh7110_entropy` before theorizing.** The 2026-09-04 session lost an hour to a diagnostic of `0x20` read as an `ISTAT` bit that does not exist, when it was the number 32 in a word whose meaning changed with the report beside it. That word is unconditionally `(STAT << 32) \| ISTAT` now, so the ambiguity is gone, but the habit is the lesson. |
 
    Correction, 2026-09-14: the fourth row quotes a program name the board no longer prints. The
    line it shows says `no 'jh7110_trng' in the initrd`, which is what `kernel/src/main.rs` printed
@@ -329,7 +329,7 @@ answering.
 entropy_proto::READY`), so on radon as it stands today the real init now declines to build a
 credential stack on a gated TRNG instead of building one on zeros.
 
-The judgement, stated where it can be argued with. An all-zero bufferful is legitimate output
+The judgment, stated where it can be argued with. An all-zero bufferful is legitimate output
 with probability 2^-2048 (virtio), 2^-256 (JH7110) or 2^-64 (the instruction backend), so refusing
 one is a correctness claim about a random variable, and it is recorded as a `BUGS` entry in
 `entropy_proto`, in `components/src/entropy.rs` and in `components/src/jh7110_entropy.rs` rather than left implicit.

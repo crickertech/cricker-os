@@ -68,7 +68,7 @@ runners beside it, `helpers/qemu-uefi-x86_64.sh`, a `subprocess` argument list i
 patch.** Four options were priced.
 
 Refused: `export PATH` from bootstrap and setup for their own children. It is the cheapest thing
-that makes `script/setup` finish, and it is disqualified on behaviour rather than on effort: a
+that makes `script/setup` finish, and it is disqualified on behavior rather than on effort: a
 process cannot edit its parent's environment, so the developer's *next* `script/test` in a fresh
 terminal gets 8.2.2 again. That is the same loop one turn later, and `script/test` does not call
 bootstrap (by design; notes/scripts.md says why).
@@ -127,7 +127,7 @@ exception on the day it was written. Four lines removed the exception instead of
 ## The gate is mechanical, and it over-approximates on purpose
 
 `script/apropos` and `script/crate-probes` shell into `cargo xtask` and boot nothing today. They take
-the line anyway. The alternative is a judgement call per file plus an allow-list, which is the shape
+the line anyway. The alternative is a judgment call per file plus an allow-list, which is the shape
 `script/lint` check 5 and milestone 283 both refuse to grow, and the line costs them nothing.
 
 **A backticked mention is prose, not a call**, which is milestone 283's rule reused rather than

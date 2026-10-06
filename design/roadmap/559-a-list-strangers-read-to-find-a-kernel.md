@@ -28,7 +28,7 @@ they quote.
 
 Entries sit under `## Open Source Operating Systems`, alphabetically, one line each: a bullet, the
 project's name as a markdown link to its home, then a hyphen and one clause of description. The
-neighbours are the right ones: Redox, Theseus, Hubris, Genode, Asterinas, Hermit, Maestro,
+neighbors are the right ones: Redox, Theseus, Hubris, Genode, Asterinas, Hermit, Maestro,
 Charlotte, Fomos.
 
 ## The premise to check first, because it looks like a blocker and is not
@@ -83,7 +83,7 @@ somebody's actual Tuesday.
    mode is a dependency the dev Macs happen to have.
 3. The README's numbers are current. It leads with 694 `unsafe` blocks in 39,892 lines, and those
    move every week.
-4. The front door works: `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` and the licence
+4. The front door works: `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` and the license
    are all in place as of 2026-09-21.
 
 ## What it costs if it goes wrong
@@ -94,7 +94,7 @@ cannot measure and should most fear, and it is the reason item 1 is first rather
 ## BUGS
 
 - There are no stated inclusion criteria and no `CONTRIBUTING.md` in that repository, so
-  acceptance is one maintainer's judgement and a refusal would be a public pull request that was
+  acceptance is one maintainer's judgment and a refusal would be a public pull request that was
   closed. That is a small, real cost and it should be decided with open eyes rather than discovered.
 - Nothing will measure what the listing brings. GitHub's referrer data is coarse and this project
   has no attribution mechanism, so any later claim that the listing produced readers or contributors

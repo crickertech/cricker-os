@@ -86,7 +86,7 @@ login would use `verify`; and anything later that signs.
   specifies them; implementing them says nothing about their strength, the way implementing DES to
   talk to old hardware would not. What matters is what is stored and what is claimed about it.
 - Three family members means at least three shares, so multi-share is the deliverable rather than
-  a later generalisation. A single-secret store would be discovered as wrong at the worst moment.
+  a later generalization. A single-secret store would be discovered as wrong at the worst moment.
 
 **Effort: not estimated.** The service shape is small; persistence and the at-rest question are not.
 

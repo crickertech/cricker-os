@@ -50,7 +50,7 @@ out: a package directory is a Rust name, and everything else is a path.
 | `netcli` | **`socket_test_client`** | a client of the socket contract (`socket_proto`), which is what its own first line claims. It drives three fixed exchanges against QEMU user-mode networking (slirp's built-in TFTP, a real DNS query that leaves the machine and is therefore non-gating, and a TCP echo round trip) and reports `OK` or a stage code so the kernel test fails loudly rather than hanging. |
 | `netstack` | **`net_stack`** | same: `net` is already this tree's word. |
 | `dma_validate` | **`dma_validator`** | it calls itself "the DMA-confinement **validator**" in its own first line; the name simply did not. |
-| `measure` | **`measured_boot`** | "measured boot" is the standard term for boot-time hashing, so this gains the guard-rail benefit too: a reader who knows secure-boot vocabulary recognises it. |
+| `measure` | **`measured_boot`** | "measured boot" is the standard term for boot-time hashing, so this gains the guard-rail benefit too: a reader who knows secure-boot vocabulary recognizes it. |
 | `compose` | **`compositor`** | the noun, and accurate about scope: the whole compositor problem (scene, clipping, damage arithmetic, contract), not just one of them. `compositor_proto` was rejected earlier because this is a logic crate, not a wire contract; `scene` undersells the arithmetic. **Sharing a name with the program is the point, not a collision**: the crate is that program's logic lifted out to be host-testable, and `coremark` and `lineedit` already do exactly this. |
 | `lineedit` (crate **and** program) | **`line_editor`** | the crate's own header calls it "a sans-IO **editor**", and there is no `Editor` type to stutter against (it exports `proto`, `expand_output` and the `OP_*` constants). `line_discipline` was rejected as overclaiming: that term covers the whole tty layer including echo, canonical mode, signals and flow control, and this crate is narrower. `line_edit` was rejected for being a verb phrase where its sibling `video_terminal` is a noun. |
 | `uheap` | **`user_heap`** | the `u` was *userspace*, and `user_rt` already establishes `user_` as the prefix for it. |
@@ -94,7 +94,7 @@ pun.
 thing that is obvious only once said. It carries a timestamp: the word spiked as a meme around
 2020-21, where `bash` and `fish` are era-neutral, and this project expects to be shown off years from
 now. And *sheesh* is an interjection of **exasperation**, while this shell's most characteristic
-behaviour is **refusing things** by design. The name and the experience would have pointed the same
+behavior is **refusing things** by design. The name and the experience would have pointed the same
 direction, and "the shell that says no" reading as a complaint is a risk a name should not carry for
 free. `swish` inverts both: a precision word on a precision property.
 
@@ -126,7 +126,7 @@ starts after 61 lands.
 ## BUGS
 
 - **A hyphenated package name is not wrong in the wider ecosystem**, and that is the argument against
-  doing this at all. `wasm-bindgen` and `tracing-subscriber` are ordinary, Cargo normalises a hyphen
+  doing this at all. `wasm-bindgen` and `tracing-subscriber` are ordinary, Cargo normalizes a hyphen
   to an underscore for `use`, and nothing is broken today. The case for the change is internal
   consistency (37 crates against 3) rather than correctness, and it should be weighed as such.
 - `target/` and `targets/` sit next to each other and mean unrelated things: build output, and the
@@ -189,7 +189,7 @@ was wrong and is worth reading before trusting them: the kernel-stack cost had a
 retired, because `Fs` stopped holding a fixed entry array when the FS-server stack bug was fixed, so
 the raise was much cheaper than the trade described here. The measured numbers and the reasoning are
 in [notes/nifefs.md](../../notes/nifefs.md). The paragraphs are kept as written because the
-decision to do this first, rather than under pressure from a name, is the part that generalises.
+decision to do this first, rather than under pressure from a name, is the part that generalizes.
 
 `nifefs` caps archive names at 24 bytes, and three naming decisions have crowded it while a
 fourth exceeds it: `fs_subtree_caretaker` at 20, `sub_server_supervisor` at 21, and
@@ -223,7 +223,7 @@ Effort: small, and almost entirely mechanical, but it touches paths in `script/`
   nothing enforces the distinction while one is gitignored and the other is tracked.
 - **Recorded.** `design/naming.md` keeps the argument against doing this at all, which is worth
   having after the fact: a hyphenated package name is ordinary in the wider ecosystem, Cargo
-  normalises it, and nothing was broken. The case was internal consistency, 36 crates against 3.
+  normalizes it, and nothing was broken. The case was internal consistency, 36 crates against 3.
 
 ## Index row
 

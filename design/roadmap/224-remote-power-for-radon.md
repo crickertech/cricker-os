@@ -31,7 +31,7 @@ sweep read the two paragraphs together. Nothing reached `script/roadmap --ready`
 `RECORDED` is excluded by status whatever the gate says, so the whole cost was paid by readers: the
 one paragraph a reader checks to learn what stops this said the opposite of the paragraph above it.
 
-No `design/decisions/` section is minted for it, and that is the judgement rather than an
+No `design/decisions/` section is minted for it, and that is the judgment rather than an
 omission. A deferral is an answer, and filing an answered question as `**Status: PROPOSED.**` would
 put a decision calef has already made back on the queue he keeps it in. What reopens it is the soak
 hanging on radon, which is fatal risk 5's most interesting outcome and the one case manual power

@@ -69,7 +69,7 @@ command or a short expression over the tree.
 Start with the counts that already exist and are already wrong: `kani-harnesses`,
 `harness-crates`, `sh-scripts`. `CLAUDE.md`'s block of figures (crates, user programs, lines of Rust,
 commits) is the obvious next tranche and is deliberately not first, because that paragraph is prose
-about a method rather than a reference table, and marking it up needs a judgement about how much
+about a method rather than a reference table, and marking it up needs a judgment about how much
 machinery a piece of rhetoric should carry.
 
 **It is a ratchet, not a sweep.** An unmarked number stays unchecked, so the population grows as

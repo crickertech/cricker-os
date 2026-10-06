@@ -80,7 +80,7 @@ Not a check that only fires on `main`, which is the one that already exists.
   after the merge. `IN-PROGRESS on <this branch>` is the one instance anybody has hit twice; a
   `BUILT` claim whose code did not land is the same family and is not addressed here.
 - A lane can still pick the wrong final status, and nothing here reads the diff to see whether
-  the work is really done. This closes a form that is provably wrong, not a judgement that might be.
+  the work is really done. This closes a form that is provably wrong, not a judgment that might be.
 - The cost of the failure is what made this urgent, and the gate does not reduce it. A red `main`
   deadlocking its own fix is a property of running `script/lint` on the merged tree, and that stays
   true for every other check in it.

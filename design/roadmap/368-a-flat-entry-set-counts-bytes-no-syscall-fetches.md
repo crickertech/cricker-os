@@ -19,7 +19,7 @@ first; and the three `#[inline(never)]` patches are all still in the tree, on
 measurement written beside it. Milestone 188's phase 2 changed what aarch64's entry set contains
 (one vector slot and `exception_restore` rather than all sixteen entries) and left it just as flat.
 
-Nothing is owed. It wants a lane because the fix is a judgement about what the
+Nothing is owed. It wants a lane because the fix is a judgment about what the
 number is *for*, and getting that wrong in either direction costs something real: a looser gate
 stops catching regressions, and a tighter one fails changes that are not regressions.
 

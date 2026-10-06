@@ -54,7 +54,7 @@ answer, and the Follow-on says where it went.
 ## The premise this milestone was minted on is wrong, and the correction is the finding
 
 The brief was that the workflow had been dead for five weeks on a stale path. That is what the
-Actions tab looks like: five scheduled runs, five red. Reading the logs rather than the colours says
+Actions tab looks like: five scheduled runs, five red. Reading the logs rather than the colors says
 something else.
 
 ```
@@ -75,7 +75,7 @@ remembering; the tripwire fired for a month, and auditing still depended on some
 Why a month of correct alarms was as invisible as silence. Red *is* this job's signal, by
 deliberate design (see `.github/workflows/audit-cadence.yml`'s own header: an audit coming due is
 information, not a defect, so it gets its own workflow rather than a gate). The consequence nobody
-priced is that the Actions tab shows the same colour whether the tripwire is firing or the tripwire
+priced is that the Actions tab shows the same color whether the tripwire is firing or the tripwire
 is broken. A reader who has learned that this job is "the red one" has stopped distinguishing the
 two, and the path defect then hid inside the alarm it replaced. Milestone 238's `script/cadence-check`
 found it by asking when each workflow last *succeeded*, which is the right question for a dead job
@@ -126,7 +126,7 @@ mattered. That check decides whether a backticked span in a `**Recorded.**` bull
 by testing it against a hand-typed list of "a directory this repository actually has". The list still
 said `user`, and named neither `components` nor `fixtures`; `.cargo` and `.githooks` had never been
 in it. A stale entry is harmless, since a dead `user/...` citation would be caught. **A missing entry
-is not**: a bullet citing `components/src/...` was not recognised as a path claim at all, so the
+is not**: a bullet citing `components/src/...` was not recognized as a path claim at all, so the
 broken footnote this check exists to catch walked straight past it, reported clean.
 
 It is now derived from `git ls-tree -d --name-only HEAD` instead of copied from the tree by hand,
@@ -196,16 +196,16 @@ edits are marked as such in it, and they are named in the Follow-on below.
 `.github/workflows/audit-cadence.yml` is milestone 92's tripwire and sits on `design/fatal-risks/README.md`
 risk 7's path; it had never once succeeded, and `script/cadence-check` reported it. The stale path
 was real and four days old (milestone 175 split `user/` on 2026-09-13 and the next scheduled run
-died on `user/Cargo.toml`), but reading the logs rather than the colours inverted the premise this
+died on `user/Cargo.toml`), but reading the logs rather than the colors inverted the premise this
 milestone was minted on: four of the five red runs were the tripwire working, and an audit has been
 overdue every week since 2026-08-17 with nobody acting on it. Red is this job's signal by design,
-so a firing tripwire and a broken one are the same colour in the Actions tab, and the defect hid
+so a firing tripwire and a broken one are the same color in the Actions tab, and the defect hid
 inside the alarm it replaced. The count now spans `components/` **and** `fixtures/`, because every
 baseline row was taken when `user/` held both and reading only the first would under-report the
 trigger by forty, which is the one direction an audit signal must not err. The sweep for other
 casualties of the split found one that was not crashing and mattered more: `script/roadmap`'s list of
 real root directories still said `user` and knew neither new name, so a `**Recorded.**` bullet citing
-`components/src/...` was not recognised as a path claim at all and the broken footnote the check
+`components/src/...` was not recognized as a path claim at all and the broken footnote the check
 exists to catch passed it in silence. That list is now derived from `git ls-tree` rather than typed,
 and found two dead citations to milestone 295's retired `builder` on its first run. Both audits are
 now due, hard: 112 milestones against a security threshold of 15, with the calendar backstop the only

@@ -80,6 +80,6 @@ reduced, so the true end-to-end cost has never been measured. A four-hour budget
 check can ever be used, since at that price it is a scheduled job and can be nothing else, and the
 one data point says the available reduction is large. There is a second cost that bites a lane: a red
 Miri run takes up to four hours to say anything, and milestone 232's audit already recorded what
-happens to a slow check that cries wolf. The judgement is in choosing the stride, which must not skip
+happens to a slow check that cries wolf. The judgment is in choosing the stride, which must not skip
 an edge case the exhaustive loop was covering. Excluding `compositor` was refused and the reason
 bounds this: an excluded crate is one where a future `unsafe` block is silently uncovered.

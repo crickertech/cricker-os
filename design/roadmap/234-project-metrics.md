@@ -19,7 +19,7 @@ In brief. `notes/register-of-measures.md` opens with the complaint this mileston
 So: `script/metrics` (name provisional) walks git history and writes one row per ISO week into
 `notes/project-metrics/weekly.csv`, and renders eight hand-written SVGs into
 `notes/project-metrics.md`, linked from `README.md`. A weekly workflow appends the current week and
-opens a pull request, modelled on `toolchain-bump.yml`. The whole backfill is `git ls-tree` and
+opens a pull request, modeled on `toolchain-bump.yml`. The whole backfill is `git ls-tree` and
 `git cat-file --batch` with no build and no boot: eight weeks in six seconds, and no plotting
 dependency, per DECISIONS §46 (thin primitives or whole subsystems; we write everything in between).
 

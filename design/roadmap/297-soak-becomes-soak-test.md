@@ -33,7 +33,7 @@ re-derive rather than trust them. **88 files, not 30**: the smaller number was a
 of directories. And **the marker readers are two, not four**: `kernel/src/soak.rs` *writes* the
 markers rather than reading them, and `xtask/src/main.rs` has 21 `soak: ` strings that are its own
 tool-diagnostic prefix (the shape `board-console:` and `job-mix:` already use) and parses
-nothing. All four files needed editing; only two of them are recognisers, and the difference decides
+nothing. All four files needed editing; only two of them are recognizers, and the difference decides
 what a test can prove.
 
 The `reboot_soak` row is new: the brief counted only the 36. The rename touches **52** feature-gate
@@ -81,7 +81,7 @@ The seam this leaves is real and is named in `BUGS`.
 ## The captures: the brief's premise was false, and correcting it is the useful part
 
 The brief said both QEMU captures can be re-taken, unlike milestone 295's silicon capture, and
-freed this lane from teaching the recogniser two spellings. Read rather than assumed, that is wrong,
+freed this lane from teaching the recognizer two spellings. Read rather than assumed, that is wrong,
 and `watch.rs` says so in the tree already: *"A fixture is a record of what a machine said, so it is
 the one thing here a later mechanism must not update."*
 
@@ -105,7 +105,7 @@ claim about two files rather than about anything a board will print tomorrow. So
   `script/soak-test --arch riscv64 --for 30s` in this lane's worktree, unedited, green, exit 0. It
   is what keeps the live vocabulary proved against a machine rather than against text this project
   wrote, which is the standard `tests/fixtures/README.md` holds every other marker to. Two new tests
-  assert on it, one per recogniser.
+  assert on it, one per recognizer.
 - The synthetic fixture moved, because `synthetic/` is hand-written by definition and is not a
   record of anything.
 

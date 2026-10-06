@@ -13,7 +13,7 @@ across 4 file moves and 1 directory move (`netd` 184, `linedisc` 93, `termd` 77,
 which is the ordinary way a count like this drifts. The conventions are design/naming.md, indexed in
 notes/README.md, and four of them are checked in `script/lint`: no name ending in `-d`, the word
 "daemon" nowhere outside the documents that argue about it, one spelling for contract crates, and a
-recognised branch prefix. Each was proved to fail before it was trusted, and the strongest of those
+recognized branch prefix. Each was proved to fail before it was trusted, and the strongest of those
 controls is that the `-d` check run against unmodified `main` reports exactly `compd gpud netd
 termd`.
 
@@ -23,7 +23,7 @@ the ambient authority this OS deliberately lacks. `netd` holds five explicit cap
 its own callers, is supervised, and can be reaped by something that lacks the authority to build it.
 The name is a false claim, which is the same defect as a stale comment except that every reader is
 guaranteed to read it. `linedisc` failed the second half of the same test: it is the correct Unix term
-of art, and the person who built this system did not recognise it.
+of art, and the person who built this system did not recognize it.
 
 Execution discipline, because this is the change milestone 39 warns about. One commit, nothing
 else in it. Whole-word tokens only: `display` and `compositor` already appear as ordinary English
@@ -51,7 +51,7 @@ them anybody's decision:
   `socket_proto` (a module, no underscore), and `line_editor::proto` (a submodule). One concept.
 - Branch prefixes contain a literal duplicate: eight in use, including both `feature/` and `feat/`.
 
-Write the *principle* in prose, because it needs judgement and no checker can evaluate it: name a
+Write the *principle* in prose, because it needs judgment and no checker can evaluate it: name a
 component for what it is, and prefer a word that parses without prior Unix exposure. DECISIONS §39
 already carries the reasoning; the note should point at it rather than restate it.
 
@@ -83,7 +83,7 @@ Effort: 1 lane estimated, almost entirely verification rather than editing.
   package names, and renamed what disagreed.
 - **Recorded.** `design/naming.md` states two limits of the checks this milestone added: they read
   the filesystem for names and `git grep` for the word, so an untracked file saying "daemon" is
-  invisible, and check 1 sees names rather than behaviour, so a component with a good name that acts
+  invisible, and check 1 sees names rather than behavior, so a component with a good name that acts
   like a daemon is not its problem.
 
 ## Index row

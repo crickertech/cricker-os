@@ -19,7 +19,7 @@ wrong answer costs:
    MEASURED green on a 2026-08-03 number and closes by saying *"the weekly workflow already publishes
    the report."* It has published nothing, through 2,529 commits.
 2. Miri has been red for three weeks on a missing environment variable, not on undefined
-   behaviour. `crates/manual/tests/render.rs` reads `CARGO_MANIFEST_DIR` at run time; Miri does not
+   behavior. `crates/manual/tests/render.rs` reads `CARGO_MANIFEST_DIR` at run time; Miri does not
    forward the environment. The same test passes under `cargo test`. A check that cries wolf on a
    schedule is worse than one nobody runs, because the only available response is to stop reading it.
 3. `re-falsify the harnesses this change can reach` does not block, and PR #663 merged through the
@@ -117,7 +117,7 @@ the inventory to answer it with.
 - **Milestone 238.** The two scheduled workflows that have never once produced a result: the
   mutation sweep, four red runs and zero reports while `design/fatal-risks/README.md` risk 3 stands green
   on a number it says the workflow is refreshing, and the Miri check, three weeks red on a missing
-  `CARGO_MANIFEST_DIR` rather than on undefined behaviour. 238 was minted the same day from these
+  `CARGO_MANIFEST_DIR` rather than on undefined behavior. 238 was minted the same day from these
   two findings.
 - **Recorded.** `notes/check-inventory.md` carries the required-list recommendation and the two
   already-recorded open asks. Three checks would join the ruleset (`re-falsify the harnesses this

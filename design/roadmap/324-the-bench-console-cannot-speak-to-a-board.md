@@ -75,7 +75,7 @@ those being a bench session and being a job.
    wrong one.
 2. BUILT 2026-09-19. It cannot tell a finished job-mix sweep from a wedged one.
    `crates/board_console` recognised the boot sequence and, since milestone 219, a soak's stages and
-   heartbeat; the job-mix sweep had no recogniser, so its exit status could not distinguish the two.
+   heartbeat; the job-mix sweep had no recognizer, so its exit status could not distinguish the two.
    Found by milestone 168's lane. Two rungs close it, `sweep` and `sweep-done`; see *What landed,
    parts 2 and 3* below.
 3. **BUILT 2026-09-19. It serves two boards of three, not one, and the third is not ready to be served.** The part was
@@ -168,7 +168,7 @@ recorded where a reader meets them rather than only here:
 
 **One piece of identified work with no home yet, recorded in `stop.rs`'s `BUGS` where the next
 reader meets it**: the soak's console markers are string literals in three places (the kernel, the
-recogniser, and now this module), agreeing by a reader having checked rather than by the compiler.
+recognizer, and now this module), agreeing by a reader having checked rather than by the compiler.
 `crates/boot_ladder` exists for exactly that and holds the boot tour's markers as shared constants;
 `START_MARKER`, `REBOOT_MARKER` and the arming and disarming lines were never hoisted into it. That
 is a change to the kernel and is outside parts 1 and 4.
@@ -195,14 +195,14 @@ premise is cheapest to catch; four instances across two clusters is the evidence
 
 Two changes to one tool, plus the hoist that both of them turned out to need.
 
-Part 2, the sweep recogniser. `crates/board_console::progress` gained two rungs, `Stage::Sweep`
+Part 2, the sweep recognizer. `crates/board_console::progress` gained two rungs, `Stage::Sweep`
 (`job_mix::STARTED`) and `Stage::SweepDone` (`job_mix::DONE`), one failure (`Failure::SweepFailed`,
 carrying the reason the kernel gave) and the sweep's numbers (`SweepPoint`, `SweepSubrun`). So
 `script/board-console --until sweep-done` now answers the question the part named, and it needed no
 new exit status: `0` finished, `1` refused or otherwise announced, `2` spoke and stopped, `3` ran
 out with points still to print.
 
-`cargo xtask job-mix` now judges with that recogniser instead of its own loop, which is the move
+`cargo xtask job-mix` now judges with that recognizer instead of its own loop, which is the move
 `soak_test` already made and the reason milestone 219's block gives: two readers drift the first
 time either changes. What stood there was `starts_with("job-mix")` with no timeout at all, so a
 wedged sweep hung the command forever and a bench script could not tell it from a finished one. It
@@ -222,7 +222,7 @@ variants became one, `Stage::Firmware(&'static Rung)`, ordered below `Banner` be
 before the kernel whatever the board. `Failure::BadImageMagic` and `Failure::UBootRefused` became
 one `Failure::FirmwareRefused`, because both were U-Boot's words rather than ours and a board with
 different firmware refuses in its own. `--board radon|xenon` selects; radon is the default, so no
-existing behaviour moved.
+existing behavior moved.
 
 The test that says the split is real reads one capture twice. radon's own 2026-09-01 boot, read
 through radon's profile, climbs SPL, OpenSBI, U-Boot and the handoff on its way to the tour. The
@@ -237,7 +237,7 @@ smallest visible benefit and the one an operator meets: it used to be a two-minu
 "the time ran out".
 
 **One hoist, and it was not optional.** The sweep's console markers were three private `const`s in
-`kernel/src/job_mix.rs` and four string literals in `xtask/src/main.rs`. Adding a recogniser
+`kernel/src/job_mix.rs` and four string literals in `xtask/src/main.rs`. Adding a recognizer
 would have made a third copy, which is milestone 268's finding 3 exactly. They are now
 `crates/job_mix`'s (`STARTED`, `DONE`, `FAILED`, `POINT`, `SUBRUN`, `CENSUS`, and `KIND` once
 milestone 168's per-kind line was merged in), beside the workload
@@ -245,7 +245,7 @@ definition both halves of the instrument already read, on `crates/boot_ladder`'s
 its stable-head convention. `board_console` takes `job_mix` as a dependency for the same reason it
 took `boot_ladder`: ours, in this workspace, `no_std`, no dependencies of its own, no `unsafe`.
 **This is the kernel-side half of the limitation `stop.rs`'s `BUGS` recorded for the soak**, done
-for the sweep because a recogniser could not be written without it; the soak's markers are still
+for the sweep because a recognizer could not be written without it; the soak's markers are still
 literals in three places and that entry stands.
 
 **What could not be tested, stated plainly: no sweep has been watched on a board.** This lane had no
@@ -267,7 +267,7 @@ it the same day, by taking twenty-one repeats of a seven-kind mix instead of thr
 one, which is an argument for the heartbeat rather than for a larger default. The alternative is a heartbeat in `kernel/src/job_mix.rs`, which
 is a kernel change and is recorded below rather than taken.
 
-## The recogniser was broken by another session before it was merged, 2026-09-19
+## The recognizer was broken by another session before it was merged, 2026-09-19
 
 **Worth the section because the mechanism is the finding, not the bug.** While parts 2 and 3 were
 being built, another session's lane finished milestone 168 and landed on `main`. That lane changed
@@ -275,13 +275,13 @@ what `kernel/src/job_mix.rs` prints for a sweep point: `ticks=<t> jpm=<r>`, the 
 became `repeats=21 ticks_min= ticks_median= ticks_max= jpm_median=`, the median of 21 with its two
 ends. The head, `job-mix: tasks=`, did not move.
 
-So the hoist this lane made did its job and the recogniser still broke. Every marker matched;
+So the hoist this lane made did its job and the recognizer still broke. Every marker matched;
 `SweepPoint`'s parse read **nothing**, because it looked for `ticks=` and `jpm=` and the line no
 longer carried either. `ticks_min=` does not start with `ticks=`.
 
 Both branches were green, and that is the part to keep. The parser and the committed fixture had
 been made from the same pre-168 kernel, so they agreed with each other and neither agreed with the
-kernel. No gate compares a recogniser against a kernel; nothing could have. It was found by reading
+kernel. No gate compares a recognizer against a kernel; nothing could have. It was found by reading
 the merged source, which is rung zero of AGENTS.md's ladder.
 
 What the fix changed. `SweepPoint` carries the seven fields the line now prints (`tasks`,
@@ -293,13 +293,13 @@ a current kernel and the old one deleted. `crates/job_mix`'s `KIND` joined the s
 The limitation this leaves is recorded rather than fixed, in
 `crates/board_console/src/progress.rs`'s `BUGS` where the next reader of the parser meets it: the
 markers are shared through `crates/job_mix`, **the field names inside the line are not**. A kernel
-that renames or adds a field still prints a line this recogniser matches and still parses to
+that renames or adds a field still prints a line this recognizer matches and still parses to
 nothing, silently. Sharing the field names the way the heads are shared is the fix and is not taken
 here; it wants a decision about what shape that sharing takes, which is below.
 
 ## Follow-on
 
-- **Done.** Part 2, the job-mix sweep recogniser, and part 3, the board profile, both on
+- **Done.** Part 2, the job-mix sweep recognizer, and part 3, the board profile, both on
   `milestone/324-sweep-recogniser-and-board-profile` on 2026-09-19. See *What landed, parts 2 and 3*
   above, and the section above that for the defect the merge with milestone 168 created and this
   branch fixed.
@@ -317,7 +317,7 @@ here; it wants a decision about what shape that sharing takes, which is below.
   the second item here a reader may want minted as a milestone. The shape is not obvious and that is
   why it is not built: a shared `&str` per field would make the kernel's `println!` a format string
   assembled from constants, which is less readable at the place it matters most; a shared parser in
-  `crates/job_mix` that both the kernel's printer and the recogniser are written against is the
+  `crates/job_mix` that both the kernel's printer and the recognizer are written against is the
   stronger version and is a bigger change than this lane's remit. The cheap partial measure is
   already taken (the struct's fields are spelled as the wire spells them, so a diff by eye works),
   and the fixture being a real capture means a re-capture catches it the moment somebody re-captures.
@@ -350,7 +350,7 @@ here; it wants a decision about what shape that sharing takes, which is below.
   `crates/boot_ladder` is where the boot tour's markers were hoisted for exactly this reason, and
   the soak's never were. It is a kernel change and outside parts 1 and 4. The sweep's markers were
   in the same state and are no longer: parts 2 and 3's lane hoisted them into `crates/job_mix`
-  because a recogniser could not be written without it, which leaves the soak's as the last set
+  because a recognizer could not be written without it, which leaves the soak's as the last set
   still agreeing by a reader having checked.
 - **Recorded.** *No byte of the writing mode has reached a board*, in the `BUGS` of
   `crates/board_console/src/stop.rs` and of notes/board-console.md, and in *What landed* above. The
@@ -381,7 +381,7 @@ milestone 127 rather than guessed from vendor documentation. All four parts land
 `--stop` and `--stop-after <n>` end milestone 249's rebooting soak from a script, the byte goes out
 only on the board's own arming announcement and never before it, and every byte sent is printed into
 the log in hex. `--until sweep-done` tells a finished job-mix sweep from a wedged one, with no new
-exit status and with `cargo xtask job-mix` judging through the same recogniser rather than a second
+exit status and with `cargo xtask job-mix` judging through the same recognizer rather than a second
 copy that had no timeout at all. And the firmware prologue is data: `--board radon|xenon`, with
 radon's four rungs and two refusals declared in `crates/board_console/src/board.rs` and everything
 from the kernel banner up shared, proved by reading one radon capture through both profiles and

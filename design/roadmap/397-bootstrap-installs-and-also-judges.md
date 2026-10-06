@@ -61,7 +61,7 @@ to type those by hand on a machine that is merely out of date.
 | | what | cost |
 |---|---|---|
 | **A** | leave it; the loud message is enough | zero, and the developer on a stale machine keeps typing three commands by hand |
-| **B** | `script/bootstrap --no-verify`, and `script/ci-build` passes it | one flag; the caller now decides adequacy, which is a judgement moving to the wrong place |
+| **B** | `script/bootstrap --no-verify`, and `script/ci-build` passes it | one flag; the caller now decides adequacy, which is a judgment moving to the wrong place |
 | **C** | split: `bootstrap` provisions and returns zero when it installed everything it could; a separate adequacy check is its own row in `script/ci-build`'s table | the honest shape, and it changes what a canonical entry point's exit code means, which four callers read |
 | **D** | `bootstrap` keeps both jobs but distinguishes the exit codes (say 1 for "could not install", 2 for "installed, still inadequate") | small; callers that do not look still see non-zero, and one that cares can |
 
@@ -95,7 +95,7 @@ expensive for the first time by putting `bootstrap` at the head of the command a
 before pushing, so a non-zero exit now ends the whole local tier on a machine where `fmt`, `lint`
 and `image-permissions` would all have passed. Four options, priced: leave it and let the developer
 on a stale machine keep typing three commands by hand; a `--no-verify` flag, which moves the
-judgement into a caller that has no opinion about QEMU versions and is refused unless calef wants
+judgment into a caller that has no opinion about QEMU versions and is refused unless calef wants
 it; a split, where `bootstrap` provisions and returns zero when it installed everything it could and
 the adequacy check becomes its own row in `script/ci-build`'s table; or distinct exit codes, which
 does not fix the conflation but makes it legible to one caller and should be priced honestly as the

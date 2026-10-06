@@ -56,7 +56,7 @@ to a fraction, so it comes before any code.
 - Nothing forces the ratio upward. Every harness may sit at `unfalsified` while the lint stays green,
   which is the honest cost of making the convention shippable at all.
 - A diff rots against refactors, which §134 argues is correct and which is still churn.
-- **The retroactive pass is judgement, not mechanism.** Falsifying somebody else's harness means
+- **The retroactive pass is judgment, not mechanism.** Falsifying somebody else's harness means
   understanding what it was for, and a wrong falsification is worse than none because it certifies.
 
 ## Follow-on
@@ -73,7 +73,7 @@ to a fraction, so it comes before any code.
   against refactors. §134 argues that
   is correct, since a patch that no longer applies is a signal, and it is still churn somebody pays.
 - **Recorded.** `design/roadmap/194-falsification-records.md` records that the retroactive pass is
-  judgement and not mechanism.
+  judgment and not mechanism.
   Falsifying somebody else's harness means understanding what it was for, and a wrong falsification
   is worse than none because it certifies.
 

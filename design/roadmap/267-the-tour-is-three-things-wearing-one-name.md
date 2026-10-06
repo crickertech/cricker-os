@@ -63,7 +63,7 @@ program became, not about the argument that created it.
   AGENTS.md's ladder puts at rung zero: true only while somebody happens to notice.
 - The text was frozen at milestones 1 through 11, and there are 267. No gate compared it with
   `design/roadmap/`. The program's own header defended the freeze (*"the story stops early on
-  purpose: it is the argument for the design, not a changelog"*), which is a fair defence and is
+  purpose: it is the argument for the design, not a changelog"*), which is a fair defense and is
   still a boot that prints an argument where a reader may reasonably expect a status.
 - It existed on aarch64 only. riscv64 and x86_64 each halt in their own arch tour before the
   shared path it belonged to, so two of three supported architectures never printed a word of it.
@@ -80,7 +80,7 @@ What went with it: `user/src/narrator.rs`, its `[[bin]]` stanza in `user/Cargo.t
 one caller and was that block.
 
 **What deliberately did not go with it:** `console_service::start` and `components/src/console.rs`.
-Deleting those is a larger change than was authorised, because it removes infrastructure rather than
+Deleting those is a larger change than was authorized, because it removes infrastructure rather than
 a demonstration, and the question it raises is in the Follow-on section below with what the compiler
 says about it.
 

@@ -142,7 +142,7 @@ The crate's own head comment already names what proves it instead, honestly:
 (That gate is `script/swish-check` since 2026-09-23. The quotation and this closed block keep the
 name they were written under; the comment in `.cargo/mutants.toml` reads `swish-check` today.)
 
-**That gate is real and it is not nothing**, which is the fact that makes this milestone a judgement
+**That gate is real and it is not nothing**, which is the fact that makes this milestone a judgment
 rather than an alarm. `script/shell-check` is the only thing in the tree that runs a real init, and
 milestone 96 exists because a fix landing in one init and not the other produced *a boot that reaches
 userspace and prints nothing at all*, with no fault and no message, three times. What it cannot do is

@@ -59,7 +59,7 @@ real `sched::delete_current_cap`.
 network (the progenitor grants `WRITE` at `grant_plan::NETWORK_SLOT`). Its `OP_ATTACH_PAGE_FRAME`
 does `map_page_frame(N, ...)` then `cap_delete(N)`, `N` the received slot, with no guard. Its own
 capabilities sit at low fixed slots (report, NIC IRQ, virtio, budget, the STACK endpoint). The
-attack test modelled this exactly: a server granted itself a victim capability at a fixed slot,
+attack test modeled this exactly: a server granted itself a victim capability at a fixed slot,
 received with `RECV_CAP`, and unconditionally deleted `x1`; an attacker sent a plain `SEND` whose
 second word was the victim's slot number.
 

@@ -42,7 +42,7 @@ firmware on those architectures has a
 2. Carrying the screen to the kernel, which is a wire format and therefore the real work. The
    x86 path rides PVH's `cmdline_paddr`, which the boards do not have: they are handed a **device
    tree**, and `uefi_loader` already copies and patches one (`uefi_loader::device_tree_patch`, for
-   the initrd). So the loader could **synthesise a `simple-framebuffer` node** into that copy, which
+   the initrd). So the loader could **synthesize a `simple-framebuffer` node** into that copy, which
    is *the same node* milestone 157 (real display output on the board) will read from U-Boot on
    the VisionFive 2. One parser in `machine_discovery::framebuffer` would then serve both stages,
    and neither would need a second spelling of a screen.
@@ -62,7 +62,7 @@ firmware on those architectures has a
 This is a wire format between two boot stages, which the *move fast on what can be undone* tenet
 puts in the expensive column, so it should not be invented by a lane in passing. The questions:
 
-- Synthesise the node, or add a property to `/chosen`? Linux reads `simple-framebuffer` as a
+- Synthesize the node, or add a property to `/chosen`? Linux reads `simple-framebuffer` as a
   node with `reg`, `width`, `height`, `stride` and `format`, and that is the convention every other
   bare-metal OS booted by U-Boot or GOP relies on. The refusal to weigh: a `/chosen` property would
   be less code in the loader and would match nothing anybody else writes.
@@ -87,7 +87,7 @@ puts in the expensive column, so it should not be invented by a lane in passing.
 
 `uefi_loader` gained aarch64 and riscv64 boot files in milestone 441 (the program that makes the
 stick), so the boards now have a firmware stage that has lit a display: it could paint milestone
-243's handoff banner there too, and it could hand the kernel a real aperture by synthesising the
+243's handoff banner there too, and it could hand the kernel a real aperture by synthesizing the
 `simple-framebuffer` node milestone 157 will read from U-Boot, retiring the `ramfb`'s 1.9 MB of
 `.bss`. The second half is a wire format between two boot stages and wants a decision rather than a
 lane.

@@ -10,7 +10,7 @@ Built by a lane on `milestone/310-miri-leak-free`.
 
 `.github/workflows/undefined-behavior-check.yml` had **never once succeeded**. Five scheduled runs
 since 2026-08-11, all red, with `script/cadence-check` (milestone 238) reporting it DEAD. The cause
-was not undefined behaviour:
+was not undefined behavior:
 
 ```
 error: memory leaked: alloc78416 (Rust heap, size: 4096, align: 4096), allocated here:
@@ -74,7 +74,7 @@ point of it.
 Three smaller things came with it, each closing a way the fix itself could be wrong:
 
 - The layout is named once (`frame_layout()`), because `alloc` and `dealloc` must agree exactly
-  and a `dealloc` with a mismatched layout is itself undefined behaviour. Failing a UB check with UB
+  and a `dealloc` with a mismatched layout is itself undefined behavior. Failing a UB check with UB
   introduced by the UB fix is an available outcome and it is now unreachable by construction.
 - `FramePool::new` refuses a second live pool on one thread. Nesting would make the inner drop
   free the outer's frames, leaving live entries in `PHYS` pointing at freed memory: a use-after-free
@@ -161,7 +161,7 @@ and the crate's other thirty pass unchanged.
 ## Index row
 
 `.github/workflows/undefined-behavior-check.yml` had **never once succeeded**, five scheduled runs
-red since 2026-08-11, and the cause was never undefined behaviour: `crates/paging`'s domain tests
+red since 2026-08-11, and the cause was never undefined behavior: `crates/paging`'s domain tests
 leaked five zeroed host frames, which `cargo test` ignores and Miri's default leak check does not.
 The interesting part is that the guard was not missing. `PoolGuard` had been added on 2026-08-03 for
 exactly this leak, and a test written afterwards simply did not bind one, which is AGENTS.md's rung

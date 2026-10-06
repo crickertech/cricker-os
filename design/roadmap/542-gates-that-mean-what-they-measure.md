@@ -183,7 +183,7 @@ would fail on the day it was written and be turned off on the next.
 ## What was deliberately not done
 
 - **The footprint baselines were not re-saved and nothing was shrunk** (calef's reasoning, recorded
-  in the gate's own docs). Shrinking the fastpath today would be optimising against a target whose
+  in the gate's own docs). Shrinking the fastpath today would be optimizing against a target whose
   value nobody can measure, because milestone 370 (a layout control) exists precisely to say that
   the perturbation experiments cannot tell footprint from addresses. Whether 4 KiB is still right
   belongs with milestone 132 (the fast path's footprint) and milestone 188 (the IPC fastpath), and

@@ -85,7 +85,7 @@ have no reason to open.
 A refusal is not the same as an answer that is wrong. `script/names merge-drain` printed *"neither a
 name in the tree nor a recorded refusal"* about a file whose header argues that name for four lines.
 That is the confident-wrong-answer shape the `package` kind was added to fix one level along, and it
-does not need coverage to fix: the tool now recognises a `helpers/<name>.sh` or `helpers/<name>.py`,
+does not need coverage to fix: the tool now recognizes a `helpers/<name>.sh` or `helpers/<name>.py`,
 says the name is out of the worklist's scope on purpose, cites where the reason is written, and
 points at the file that holds the record. Six lines, no new rows, and the query stops lying.
 

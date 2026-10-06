@@ -130,7 +130,7 @@ These survive only because somebody remembers, and the first two both failed on 
    merging if the label was never applied. On 2026-08-18 a second session re-applied a label the
    maintainer had removed, which is the coordination half of the same gap.
 
-Everything else unmechanised is judgement and should stay prose: the top-up rule, the handoff
+Everything else unmechanised is judgment and should stay prose: the top-up rule, the handoff
 rule, lane count against the collision surface, "correct yourself loudly", "push back when he is
 wrong", "explain on request". A gate over any of those would be a gate about taste.
 
@@ -292,7 +292,7 @@ This is the more informative number, and four of the five were on the audit's li
 | rule 1, arch code stays under `arch/` (643-646) | The gate greps `asm!\(` and `core::arch::` under `kernel/src`. Rule 1 also claims system registers, and `kernel/src/main.rs:733` and `:1123` read `aarch64_cpu::registers::CurrentEL` outside `arch/` today. Both are invisible to the gate. Cutting the prose would silently unenforce the clause that the check's own comment says the discipline already slipped on. Extend the gate to the register crates first, then cut. |
 | `snake_case` for Rust things, hyphens for scripts (776-818) | The audit's claim is false. `script/lint`'s naming-conventions block runs seven checks and none is a case convention: no `-d` suffix, no "daemon", `*_proto` spelling, branch prefixes, milestone-branch-touches-roadmap, `#[path]` consumers, provenance presence. The only case gate is check 6, and it covers one of the six rows of that table (`notes/`, `design/` markdown filenames). Crates, programs, modules, `script/` entry points, repo-root markdown and directory names are ungated. |
 | names are calef's call (700-775) | `script/names --check` verifies a name carries a provenance state, and `script/lint`'s own comment is explicit that it checks "presence of a STATE, never the state `ratified`", precisely so the gate is not a wall. 54 of 126 names are unratified. The gate does not enforce the rule; it records whether the rule was applied. |
-| benchmarks are first-class; measure, do not argue (555-558) | The icount tripwire catches a performance regression. The rule is about honesty in reporting: state what a number means, name where it is not apples-to-apples, prefer a recorded tie to an overclaimed win. No gate reads a claim's honesty. This is judgement and stays prose. |
+| benchmarks are first-class; measure, do not argue (555-558) | The icount tripwire catches a performance regression. The rule is about honesty in reporting: state what a number means, name where it is not apples-to-apples, prefer a recorded tie to an overclaimed win. No gate reads a claim's honesty. This is judgment and stays prose. |
 | `nifefs` caps names at 32 bytes (820-825) | The constant is real (`crates/nifefs/src/lib.rs:118`, `pub const NAME_LEN: usize = 32`) and the compiler enforces the cap. But the paragraph's operative content is advice the compiler cannot give: *do not let it pick a name, do not spend a format change on bytes nothing needs*. A build failure tells you the name is too long; it does not tell you to pick a different name rather than widen the format. Could shrink to two lines; not a deletion. |
 
 ### What this lane did not get to
@@ -302,7 +302,7 @@ unenforced is the failure this milestone exists to prevent.
 
 - "Every fence names its counterpart" was on the audit's list. There is a gate (`script/lint`
   line 268), but this lane did not find the corresponding *prose rule* in `AGENTS.md` to cut: rule 4
-  (664-666) is "assume weak memory ordering", which is judgement, not the fence-pairing bookkeeping
+  (664-666) is "assume weak memory ordering", which is judgment, not the fence-pairing bookkeeping
   the gate checks. Either the audit row names a rule that is not in the file, or it is in a section
   this lane did not read. Unresolved.
 - The split (the core-plus-linked-documents piece) is untouched. So is the size gate and the
@@ -330,7 +330,7 @@ this lane and #309 have now covered that ground.
 `DECISIONS.md` became `design/decisions/` (milestone 114), the roadmap became `design/roadmap/`, and
 `notes/` is indexed. `CLAUDE.md` is the last monolith and the one loaded most often.
 
-A core of the rules that change behaviour on *every* task, with linked documents for the rest.
+A core of the rules that change behavior on *every* task, with linked documents for the rest.
 The roles section and the naming section are the obvious first moves at 46% of the file between them.
 The test is not a line count but whether an agent will genuinely read the whole core, so the
 lane should say how it judged that rather than picking a round number.
@@ -373,7 +373,7 @@ no longer be violated silently. The eight are listed in the audit above; the par
 order of 90 lines, about a tenth of the file, and they are the tenth that needs the least reading.
 
 What this does not touch. The four budget rules have no mechanism, so deleting their prose deletes
-the rule. They move *up* the ladder (next subsection) rather than out of the file. And the judgement
+the rule. They move *up* the ladder (next subsection) rather than out of the file. And the judgment
 rules stay prose, because a gate over "push back when he is wrong" would be a gate about taste.
 
 ### The most-violated rules stop being prose
@@ -611,7 +611,7 @@ conflicts needed new machinery or a human pointing at it each time; the honest a
 `notify()` posts once and goes quiet, so nothing re-announces a stall to a session that opens later.
 The addition records the standing check this became (a maintainer session reads the queue for
 `DIRTY`/`FAILURE` each pass) and the alternative considered and declined (an unattended scheduled
-agent, which calef turned down in favour of work that shuts down with the session driving it), the
+agent, which calef turned down in favor of work that shuts down with the session driving it), the
 same shape of record as both entries above it.
 
 Targets the whole file, not "the core", because the core does not exist yet. Once the split
@@ -682,7 +682,7 @@ honestly, which is a culture rather than a mechanism. Say so where the reader me
 - **Outstanding.** Budget rule 3, squashing against the recorded base commit, is still prose only
   and no gate reads it; the `git stash` scar beside it in `AGENTS.md` is the same shape. Checked
   2026-10-03.
-- **Done.** Budget rule 4 is mechanised: DECISIONS §88 was ratified 2026-08-25
+- **Done.** Budget rule 4 is mechanized: DECISIONS §88 was ratified 2026-08-25
   (`design/decisions/88-needs-architect-as-a-check.md`) and
   `.github/workflows/architect-hold.yml` is a required check that fails any pull request carrying
   the `needs-architect` label.

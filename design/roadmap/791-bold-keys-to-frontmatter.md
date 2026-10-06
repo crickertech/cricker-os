@@ -50,7 +50,7 @@ says what the reader does when it is missing.
 | `helpers/roadmap_block.py:68-69`, `catch-up:335` | same, as the fallback | 0 | Same. |
 | `helpers/roadmap_block.py:169-171`, read by `script/roadmap:1334-1473` and `helpers/coe_actions.py` | `- **Recorded.**`, `**Done.**`, `**Refused.**`, `**Decision.**`, `**Proposed.**`, `**Outstanding.**`, `**None.**`, `**Milestone N.**`; Revisit: `**Condition.**`, `**Nothing.**`, `**Unstated.**` | 415 roadmap, 1 decision, 5 notes (about 1,400 spans) | `script/lint` fails loudly: a Follow-on section must open with a tag. The COE open-action count in the metrics row also reads these. |
 | `script/fatal-risks:241` | `**The experiment:**` lead-in | 8 risk files, 3 roadmap, 1 journey, 1 note | Lint fails: a risk with no experiment lead-in is refused. |
-| `script/fatal-risks:249`, `script/metrics:1534` | `**Experiment status: RUN, date.**` | 9 risk files | `script/fatal-risks` fails. `script/metrics` reads `None` for the colour and, if the appendix frontmatter disagrees, aborts the weekly run. |
+| `script/fatal-risks:249`, `script/metrics:1534` | `**Experiment status: RUN, date.**` | 9 risk files | `script/fatal-risks` fails. `script/metrics` reads `None` for the color and, if the appendix frontmatter disagrees, aborts the weekly run. |
 | `script/metrics:1544` | `**Status: WORD` (retired-risk fallback) | 0 | Old history only. |
 | `script/fatal-risks:257` | `^**WORD` in the running-order table | 1 (README) | Lint fails. Table rows are never counted by the ratchet, so it is in `NOT_MARKERS`. |
 | `script/roadmap:259` | `**Reuse:**` (optional: plain `Reuse:` also matches) | 12 | Nothing. The bold is not needed. |
@@ -100,7 +100,7 @@ nesting, and a value may not contain `: ` or ` #`. That shape decides most of th
 | Status, Built, Gate | Done | Moved by §207 (the roadmap is a graph, and the block says so in fields a script can walk) and milestones 582 and 596. One roadmap file (`20a-name-the-seams.md`) lacks frontmatter and should be checked. |
 | Follow-on and Revisit tags | Stay bold | Many per document (about 1,400 spans over 415 files), each opening a bullet whose prose is the content. Flat frontmatter cannot hold a list, and a tag a reader needs inline is structure. |
 | `The experiment:` lead-in | Stay bold | A reader needs it inline; it introduces a paragraph. |
-| `Experiment status: WORD, date` | Move | It is metadata about the document and the nine documents are the whole population. The metrics workflow already prefers frontmatter for the colour and cross-checks it against this line. |
+| `Experiment status: WORD, date` | Move | It is metadata about the document and the nine documents are the whole population. The metrics workflow already prefers frontmatter for the color and cross-checks it against this line. |
 | `Reuse:` | Drop the bold | The parser accepts it plain. No migration, 12 files. |
 | `**A run is due every N days.**` | Stay | One sentence a reader acts on. |
 | `**RETIRED` | Optional | One journey and journeys have no frontmatter. Exempt either way. |

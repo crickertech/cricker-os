@@ -134,7 +134,7 @@ unmodified (milestone 121 (`ripgrep` on nife)), which shows the `std` path works
 PAL, and what `uucore`'s weight does to the base image. Few lines retire; the value is the demo.
 
 9. Editor: `rmle` stays until one of two takes it. `kibi` (MIT/Apache, a Rust editor inspired by
-the same `kilo` `rmle` is modelled on) needs `libc` termios and raw stdin, which the PAL does not
+the same `kilo` `rmle` is modeled on) needs `libc` termios and raw stdin, which the PAL does not
 bind. GNU `nano` is the GPL-as-package path (milestone 170). `rmle` is `optional`, so either can
 replace it without touching base.
 

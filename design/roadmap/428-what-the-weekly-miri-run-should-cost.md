@@ -91,7 +91,7 @@ honest monthly one.
 ## What is blocked until it is answered
 
 Nothing. The job is green as of milestone 310 and the 240-minute budget accommodates the measured
-run, so this is optimisation rather than repair. It is written down because it is a question the
+run, so this is optimization rather than repair. It is written down because it is a question the
 workflow's own header raises, and a question that lives only in a lane's report is in the medium
 AGENTS.md abolished.
 

@@ -43,7 +43,7 @@ acceptance run happened, and **it did not pass on the first attempt**, which is 
 So the residual was no longer a missing instrument; it was a **disposition**, and it was made on
 2026-08-18. Both assertions are gone from the failing path, neither by a wider bound: one deleted,
 one converted to a reported non-measurement, with the arguments per assertion in
-notes/load-sensitive-assertions.md and summarised in "The disposition" below.
+notes/load-sensitive-assertions.md and summarized in "The disposition" below.
 
 The heartbeat that landed credits work by *any* thread rather than per test, and
 `kernel/src/testing.rs:48` records that this blinded it once for real; that limitation is stated where
@@ -79,7 +79,7 @@ went red, and the shape of those nine is the result rather than the count:
   So this run's ninth red is gone and the eight timing reds are the whole of it, which makes
   this block a pure disposition question with no correctness bug behind it. That is a better
   outcome than it looks: the run's own conclusion was that "the one red worth reading arrived
-  wearing the same colour as eight that were not", and the eight are now dispositioned and the one
+  wearing the same color as eight that were not", and the eight are now dispositioned and the one
   is fixed.
 
 Nothing was widened to make this green, and the run is the argument for not widening: the retry
@@ -104,7 +104,7 @@ is two answers, because the two assertions are not the same kind of thing. The f
 injections and the transcripts are in notes/load-sensitive-assertions.md; this is what the block is
 owed.
 
-The diagnostic this round adds, and it generalises past these two. The first round sorted this
+The diagnostic this round adds, and it generalizes past these two. The first round sorted this
 family by the **direction** of a failure. That is still the first question to ask. The second is
 what band of the measured quantity makes the assertion fire, and what else lands in that band.
 Where the defect and the host produce the same band, no threshold inside it separates them, and the
@@ -135,7 +135,7 @@ the instrument that does catch it is run, so `script/gates` now runs `script/ico
 seven seconds for both ISAs, above `script/test` on that script's own cheapest-first rule); CI
 already ran it on every non-documentation change.
 
-The first instalment of the evidence, taken the same day (`script/repeat-under-load -n 18 -s 8`,
+The first installment of the evidence, taken the same day (`script/repeat-under-load -n 18 -s 8`,
 tree `01474c8e`, full table in notes/load-sensitive-assertions.md):
 
 | | 2026-08-17, before | 2026-08-18, after |

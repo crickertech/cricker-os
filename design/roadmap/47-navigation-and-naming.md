@@ -145,7 +145,7 @@ milestone sits blocked on nothing, which is what the twelve days behind this blo
 sentence cost.
 
 In brief. A navigation model for a system with no global namespace. Keep the Unix command names
-and behaviour wherever they can work honestly; diverge only where the capability model forces it, and
+and behavior wherever they can work honestly; diverge only where the capability model forces it, and
 say why each divergence is earned. The keystone is built (the directory capability and its
 rights ladder, six rungs at the keystone and a seventh added by DECISIONS §112 for `touch -t`,
 DECISIONS §47 (the directory capability's rights), notes/dir-capability.md), and so are the five commands, on
@@ -298,7 +298,7 @@ default prints nothing ("be verbose when deleting files, showing them as they ar
 is a diagnostic plus exit status: "exits 0 if all of the named files or file hierarchies were
 removed… If an error occurs, rm exits with a value >0." So a partial `rm -r` says what it could not
 do and exits non-zero, and says nothing about what it did. An earlier draft here said it should
-"report what it removed", which is the `-v` behaviour, not the default.
+"report what it removed", which is the `-v` behavior, not the default.
 
 `-f` is also broader than that draft assumed: "attempt to remove the files without prompting for
 confirmation, regardless of the file's permissions. If the file does not exist, do not display a
@@ -315,7 +315,7 @@ Worth noticing while copying Unix here: `rm(1)` says "it is an error to attempt 
 files `/`, `.` or `..`". That is a literal special-case guard for `/`, shipped in the utility,
 precisely the "guard rail, a check that could be wrong" this milestone contrasts itself against. We
 need no such case: a shell holding a subtree cannot name the root, so there is nothing to special-case. And `rm` on a directory stays a refusal (`EISDIR`) rather than a silent
-escalation to recursive removal, which is Unix's behaviour and worth keeping for the same reason
+escalation to recursive removal, which is Unix's behavior and worth keeping for the same reason
 `rmdir` is empty-only.
 
 ## `ln`: hard links make it not a tree, and symlinks stop being an escalation
@@ -352,7 +352,7 @@ misdirect but cannot grant. Same shape as the `PATH` result above: the escalatio
 because there is nothing ambient to point into.
 
 The cost is that one symlink means different things to different holders. That sounds alarming and is
-exactly Plan 9's per-process namespace behaviour, so it is a well-explored place to stand rather than
+exactly Plan 9's per-process namespace behavior, so it is a well-explored place to stand rather than
 a novel one.
 
 Hard links: decided, declined (§110 (hard links declined)). What remains, for symlinks: what a stored path containing
@@ -447,8 +447,8 @@ already established: `rm` operates on a name in a directory, and a symlink is a 
 recording. Unix declines because following would escape: a symlink to `/` inside a directory
 would turn `rm -r` into `rm -rf /`. Here it could not escape: a symlink resolves in the holder's
 namespace, and `rm`'s namespace is the granted subtree with `..` clamped at its root (§48), so a
-symlink cannot name anything outside the grant. We keep the behaviour and lose the reason. The
-behaviour still earns its place: following would delete a different set of names than the grant
+symlink cannot name anything outside the grant. We keep the behavior and lose the reason. The
+behavior still earns its place: following would delete a different set of names than the grant
 named, and "surprising but bounded" is still surprising.
 
 `rm` on a hard-linked file removes one name and the data survives. That is not a special case, it
@@ -746,7 +746,7 @@ undone. Four facts, each a lookup rather than an opinion, and the first changes 
 - The receiving side is built and empty. `std::env` on nife is a process-local table
   (`sys/env/nife.rs`), and `notes/std.md` already named this milestone's namespace as where a real
   endowment would come from to seed it, without changing the table's shape once it did. `temp_dir`
-  already reads `TMPDIR` from it, so one variable steers a real behaviour the day anything writes
+  already reads `TMPDIR` from it, so one variable steers a real behavior the day anything writes
   one. (Prediction borne out: see the "Built 2026-08-23" subsection below, and
   notes/env-config.md.)
 
@@ -871,7 +871,7 @@ What remains, honestly: printing the three inert-config *values* in a `caps` pre
 DECISIONS §111 also asked for and which needs the shell to hold a default config set of its own
 (unbuilt); and the "inheritance with visibility" mechanism itself, which is the same unbuilt thing
 one level up. Neither has a forcing customer yet, `printenv` being read-only and diagnostic rather
-than a program whose *behaviour* would visibly change with a different default.
+than a program whose *behavior* would visibly change with a different default.
 
 ### Environment's secrets third: still not built, and the reason is sharper than "no PAL yet"
 
@@ -1241,7 +1241,7 @@ which surface wins, and it is a better answer than `file:` ever was.
 Three objections. It costs more keystrokes than the `file:` this same milestone just deleted for
 costing five. Bare `ls` becomes `ls()`, miserable interactively, so both spellings get allowed and
 commands acquire two classes, which is the *same* objection that killed `run`. And shells are
-optimised for typing where languages are optimised for reading; Oil/YSH, Elvish and Nushell all ran
+optimized for typing where languages are optimized for reading; Oil/YSH, Elvish and Nushell all ran
 at this, and Plan 9's `rc` is the one that worked, precisely by fixing quoting and word splitting
 while keeping the terse surface.
 
@@ -1278,7 +1278,7 @@ estimates for unbuilt work are guesses on a scale calibrated from history, not m
 - **Done.** Tab completion, built 2026-09-26 under §227 option D: see "Completion: built
   2026-09-26" above and notes/shell-line-editing.md.
 - **Milestone 657.** Milestone 657 (a live history search at the prompt). fish's extras, recorded rather than built: suggestions from history
-  (`design/roadmap/679-the-prompt-suggests-from-history.md`), colouring the first word by
+  (`design/roadmap/679-the-prompt-suggests-from-history.md`), coloring the first word by
   whether it can run (`design/roadmap/678-the-prompt-colours-what-it-can-name.md`), a live
   `^R` search (`design/roadmap/657-a-live-history-search-at-the-prompt.md`), and argument
   completion from the manifest (`design/roadmap/662-argument-completion-reads-the-manifest.md`).

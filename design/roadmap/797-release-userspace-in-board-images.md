@@ -40,7 +40,7 @@ already set; nothing new is built.
 ## Done means
 
 - `script/board-image` packs release userspace, by default, and says so in its header; the old
-  behaviour reachable by a flag only if a reader needs to reproduce an old payload.
+  behavior reachable by a flag only if a reader needs to reproduce an old payload.
 - A radon evening of interleaved boots, old payload against new, that records the job mix's shift
   for every kind, and a line in `notes/job-mix.md` dating the change.
 - The `BUGS` entry in `script/board-image` that points here, removed.

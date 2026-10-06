@@ -42,5 +42,5 @@ develops against there is nothing to drop from.
 
 An aarch64 kernel that boots at EL2 has to drop itself to EL1 before it can use EL1's translation
 regime at all, and this tree has never needed to because QEMU's `virt` machine hands a flat Image
-straight to EL1. The refusal is sound and it is conditional on one machine's behaviour, which is
+straight to EL1. The refusal is sound and it is conditional on one machine's behavior, which is
 exactly the kind of refusal that goes stale silently when a second machine turns up.

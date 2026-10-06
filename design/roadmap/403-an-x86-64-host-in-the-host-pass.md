@@ -75,7 +75,7 @@ somewhere, and does).
 
 Option 3 is probably minutes of work and the other two are a CI file edit each. The expensive part
 is none of those: it is whether the project wants to pay runner concurrency on every pull request
-for a class of fault it has met three times in two months. That is a judgement about a standing
+for a class of fault it has met three times in two months. That is a judgment about a standing
 cost, which is why this is a proposal with the numbers attached rather than a lane that picked one.
 
 ## Index row

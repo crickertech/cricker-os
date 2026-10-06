@@ -32,7 +32,7 @@ locally by whoever meets it next unless it is written down.
 `grant_plan::spawnproto::JOB_FAULTED`, a third value on a read that already carried two.
 `job_undertaker` gained one capability (`WRITE`, no `GRANT`, on init's result endpoint) and sends
 that word once, after collecting the corpse and only for `abi::fault::EVENT_FAULT`. `swish`
-recognises it in the four places it reads that endpoint (an answer, a byte stream being printed, a
+recognizes it in the four places it reads that endpoint (an answer, a byte stream being printed, a
 byte stream going into a file, a pipeline stage's ack), prints `swish::FAULTED_SENTENCE`, and sets
 `Status::Failed`, so `$?` reads 1 and `&&` stops.
 

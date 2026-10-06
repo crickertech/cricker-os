@@ -24,7 +24,7 @@ allowed to finish and does nothing about a run whose wrapper is killed. It has t
 1. the bound expired, unchanged in effect;
 2. the wrapper is gone, noticed by a `kill -0` poll once a second, which is what covers a
    SIGKILLed wrapper, a dead session and a closed terminal, none of which run a trap anywhere;
-3. the killer itself was signalled (TERM or HUP), whose trap kills the child on the way out, so
+3. the killer itself was signaled (TERM or HUP), whose trap kills the child on the way out, so
    the one process that knows the child's pid never takes that knowledge with it.
 
 **SIGINT is deliberately not in that trap list.** A shell puts an asynchronous subshell's SIGINT to
@@ -54,13 +54,13 @@ parent is a live harness is somebody's gate rather than a leak (AGENTS.md, 2026-
 
 In brief. `helpers/qemu-bounded.sh` exists because `timeout(1)` does not exist on macOS and
 `perl -e 'alarm N; exec @ARGV'` does not work on QEMU, which installs its own `SIGALRM` handler and
-swallows the alarm. The script uses `SIGTERM`, which QEMU honours, and detaches its killer so it
+swallows the alarm. The script uses `SIGTERM`, which QEMU honors, and detaches its killer so it
 survives a pipeline whose reader exits early.
 
 **It does not survive its target detaching.** When the EL2 lane's run was killed, the emulator
 survived with `ppid 1`. It then held the write lock on `nifefs-blank.img`, and the next boot failed
 with `Failed to get "write" lock`, which names nothing about the real cause. The lane lost time to
-it twice before recognising the shape.
+it twice before recognizing the shape.
 
 ## Why this is worth a block rather than a habit
 
@@ -100,7 +100,7 @@ something this project did not start.
   diagnostic exists for, and the self-test deliberately does not assert on it: asserting on a known
   defect only pins it in place.
 - The parent-alive poll can be fooled by pid reuse. If the wrapper dies abnormally and its pid is
-  reused inside the bound, the killer waits out the full bound, which is exactly the old behaviour
+  reused inside the bound, the killer waits out the full bound, which is exactly the old behavior
   and never worse. It cannot fail the other way: a live wrapper's pid is not reused.
 - The lock diagnostic only inspects arguments that look like disk images (`*.img`, `*.qcow2`,
   `*.raw`, and any `file=` field of a comma-separated option), and only reports holders with the
@@ -131,7 +131,7 @@ something this project did not start.
   `prctl(PR_SET_PDEATHSIG)`. That is the case the lock diagnostic exists for, and the self-test
   deliberately does not assert on it, because asserting on a known defect only pins it in place.
 - **Recorded.** In `design/roadmap/226-qemu-bounded-orphans.md`: the parent-alive poll can be fooled
-  by pid reuse, in which case the killer waits out the full bound, which is the old behaviour and
+  by pid reuse, in which case the killer waits out the full bound, which is the old behavior and
   never worse.
 - **Recorded.** In `design/roadmap/226-qemu-bounded-orphans.md`: the lock diagnostic only inspects
   arguments that look like disk images and only reports holders with the file open for writing, so a

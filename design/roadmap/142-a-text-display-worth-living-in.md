@@ -64,12 +64,12 @@ and milestone 141 was NOT-STARTED, so increments 3 and 6 stayed blocked (141 lan
 built:
 
 - Increment 5 is PARTIAL: everything but the faces. A rendition is two `video_terminal::Colour`s
-  (an index into xterm's 256-colour table, or 24-bit) and a byte of flags. SGR `38;2`, `48;2`,
+  (an index into xterm's 256-color table, or 24-bit) and a byte of flags. SGR `38;2`, `48;2`,
   `38;5`, `48;5`, the bright backgrounds, dim, underline, concealed and crossed-out all draw, each
   with its off switch. Bold is still bright, now as a flag resolved at paint time, so the atlas can
   draw a real bold face later without the parser changing. A cell went from 8 bytes to 16 (a const
   assert holds it), so a `Vt` is 724,416 bytes, up from 362,208. The greeting the three-party
-  scanout check grades now carries a 24-bit colour and an underline, so the pixel-exact proof covers
+  scanout check grades now carries a 24-bit color and an underline, so the pixel-exact proof covers
   both on every ISA that runs the display suite. The faces are ruled, four, and wait on the atlas.
 - The navigation cluster is BUILT: home, end, insert, delete, page up and page down, each with
   xterm's shift form, tested against the real line discipline.
@@ -92,7 +92,7 @@ In brief, as written at minting (2026-08-20; the status notes above say what has
 The terminal is 18 columns by 8 rows of a hand-drawn 7x8 bitmap on a 128x64 screen. The ask is a
 display somebody would choose over a window manager. That is four independent axes, of which the
 font is the one everybody names and the smallest one: the surface, the terminal, the type, and the
-colour. This block sequences them, prices the type properly, and reports one finding that makes
+color. This block sequences them, prices the type properly, and reports one finding that makes
 the expensive axis cheap.
 
 ## Where this sits, and it is not a rung
@@ -113,7 +113,7 @@ text.
 
 ## What "would use it outside a GUI" actually requires
 
-calef named colour, type and rich text. The axis he did not name is the one that decides whether
+calef named color, type and rich text. The axis he did not name is the one that decides whether
 anybody would live in it, and it is the axis that needs no rasteriser at all.
 
 Today's terminal is 18 columns by 8 rows, with no scrollback, no UTF-8, no reflow, no arrow
@@ -174,7 +174,7 @@ Two costs that are nobody's decision and that a lane will meet:
 
 Menlo is Apple's and cannot ship here. It is bundled with macOS and is not redistributable;
 this project has already excluded three fonts on exactly this ground (the Kaypro II ROM for
-stating no licence at all, Linux's `font_8x16.c` for GPL, Fixedsys Excelsior for a public-domain
+stating no license at all, Linux's `font_8x16.c` for GPL, Fixedsys Excelsior for a public-domain
 claim that could not be read at its source), and an Apple system font is a clearer exclusion than
 any of them.
 
@@ -222,9 +222,9 @@ size argument below.
 What would ship instead. Licences read at their sources rather than recalled, and file sizes
 taken by downloading the releases:
 
-| Family | Licence | Reserved name | Faces | Regular `.ttf` |
+| Family | License | Reserved name | Faces | Regular `.ttf` |
 |---|---|---|---|---|
-| DejaVu Sans Mono 2.37 | Bitstream Vera for the base, DejaVu's own changes public domain, Arev glyphs on a Vera-shaped licence | "Bitstream", "Vera", "Tavmjong Bah" and "Arev" may not appear in a modified name. "DejaVu" itself is not reserved. | 4 | 340,712 B |
+| DejaVu Sans Mono 2.37 | Bitstream Vera for the base, DejaVu's own changes public domain, Arev glyphs on a Vera-shaped license | "Bitstream", "Vera", "Tavmjong Bah" and "Arev" may not appear in a modified name. "DejaVu" itself is not reserved. | 4 | 340,712 B |
 | JetBrains Mono 2.304 | OFL 1.1 | none declared, so OFL clause 3's renaming requirement does not bite | 4 and a variable font | 273,900 B |
 | Source Code Pro 2.042R | OFL 1.1 | "Source", which is broader than it looks | many | 210,312 B `.ttf`, 131,128 B `.otf` |
 | Menlo | Apple, All Rights Reserved | not applicable | 4 | not available |
@@ -233,7 +233,7 @@ Three things in that table decide more than the letterforms will.
 
 DejaVu is the closest thing to Menlo that can be shipped, and it is not a lookalike. It is the
 generation Apple built on. Against that: the project has been dormant since 2016 and has no
-variable font, so nobody is fixing a glyph we find wrong. Its licence obliges the Bitstream and Bah
+variable font, so nobody is fixing a glyph we find wrong. Its license obliges the Bitstream and Bah
 notices to travel with every copy, and forbids selling the font by itself.
 
 JetBrains Mono has the cleanest obligations of the three. OFL 1.1 with no Reserved Font
@@ -244,7 +244,7 @@ reserves the word "Source" and inherits §100's objection whole.
 
 None of the three is on the supply-chain allow-list, and that is a fact about crates rather than
 about fonts. `deny.toml` allows `MIT`, `Apache-2.0`, `Apache-2.0 WITH LLVM-exception`,
-`BSD-3-Clause` and `0BSD`; neither `OFL-1.1` nor the Bitstream Vera licence is there. A font
+`BSD-3-Clause` and `0BSD`; neither `OFL-1.1` nor the Bitstream Vera license is there. A font
 arriving as a crate would therefore stop the build and need a scoped exception the way
 `libfuzzer-sys` got one for NCSA. A checked-in coverage table does not, and inherits §100's
 recorded gap instead: `script/supply-chain` reads the cargo graph, and a font transcribed into a
@@ -268,20 +268,20 @@ theme for iTerm2"*, which reaches most people through `mbadolato/iTerm2-Color-Sc
 files are byte-for-byte the same palette under two names.
 
 And it is a different palette, not a contrast adjustment. All sixteen ANSI values differ from
-canonical Solarized Dark, as do the background, foreground, bold and cursor colours. What it
+canonical Solarized Dark, as do the background, foreground, bold and cursor colors. What it
 discards is Solarized's structural idea, and that is the difference calef would actually feel:
 
 | ANSI slot | Canonical Solarized Dark | Higher Contrast |
 |---|---|---|
-| 10 bright green | `#586e75` base01, a grey | `#51EF84` a green |
-| 11 bright yellow | `#657b83` base00, a grey | `#B27E28` a yellow |
-| 12 bright blue | `#839496` base0, a grey | `#178EC8` a blue |
-| 14 bright cyan | `#93a1a1` base1, a grey | `#00B39E` a cyan |
+| 10 bright green | `#586e75` base01, a gray | `#51EF84` a green |
+| 11 bright yellow | `#657b83` base00, a gray | `#B27E28` a yellow |
+| 12 bright blue | `#839496` base0, a gray | `#178EC8` a blue |
+| 14 bright cyan | `#93a1a1` base1, a gray | `#00B39E` a cyan |
 
 Canonical Solarized spends half its ANSI table on a greyscale ramp on purpose, so only eight of
 sixteen slots hold a hue. That is a deliberate and unusual choice, and it means every program that
-uses a bright colour for emphasis (`ls --color`, a diff, a linter) gets a grey. The Higher
-Contrast variant is a conventional sixteen-colour terminal palette sitting on a Solarized-ish dark
+uses a bright color for emphasis (`ls --color`, a diff, a linter) gets a gray. The Higher
+Contrast variant is a conventional sixteen-color terminal palette sitting on a Solarized-ish dark
 ground, which is very likely why it exists and why someone would prefer it. Neither is wrong;
 they are different things and the record should not call the second one Solarized without saying
 so.
@@ -297,7 +297,7 @@ exactly once.
 | 3. no two entries saturate `0xff` in the same channel | passes, and no entry has any channel at `0xff` at all | passes, same | fails on all three channels |
 
 So the answer calef needs before he picks is: both pass, each after a one-unit nudge to a single
-channel of a single colour. `#93a1a1` becomes `#93a1a0`; `#6CBE6C` becomes `#6CBE6B`. Neither is
+channel of a single color. `#93a1a1` becomes `#93a1a0`; `#6CBE6C` becomes `#6CBE6B`. Neither is
 perceptible, both are inside the noise of the display, and each is a one-character edit.
 
 Two things worth saying beyond the verdict. Both candidates are strictly better test instruments
@@ -319,7 +319,7 @@ What a display somebody would live in carries, in rough order of how much people
 | 24-bit foreground and background | 48 bits a cell | SGR 38;2 and 48;2. This is what every syntax highlighter emits and the single largest gap |
 | UTF-8, and a `char` rather than a byte | 32 bits a cell | notes/glyphs.md already names the decoder's home: the VT engine, with `bitfont::glyph`'s signature becoming `char` |
 | Real bold and italic | a second and third face | see below, this reverses a recorded decision |
-| Underline, and its styles | 3 bits | SGR 4:1..4:5, and a separate underline colour if we are being honest about "rich" |
+| Underline, and its styles | 3 bits | SGR 4:1..4:5, and a separate underline color if we are being honest about "rich" |
 | Strikethrough, dim, blink, invisible, overline | 5 bits | cheap, and expected |
 | Hyperlinks (OSC 8) | a side table | the one modern terminals added that people actually use |
 | Double-width cells | 1 bit and a layout rule | falls out of UTF-8 the moment CJK arrives |
@@ -334,7 +334,7 @@ One recorded decision reverses, and it should be reversed on purpose rather than
 `crates/video_terminal` says *"bold is bright"*, because a bold weight needs a second font and at
 8x8 a bold face is a smudge. At an anti-aliased 11-point cell both halves of that reason
 expire: a bold face is legible, and the atlas has room for it. So "rich" means shipping four
-faces rather than one, which is a licence question four times over and a table four times larger.
+faces rather than one, which is a license question four times over and a table four times larger.
 That is the hidden cost in calef's word *rich*, and it is worth him seeing before he picks a
 family, because a family with no italic is disqualified by this and by nothing else.
 
@@ -361,7 +361,7 @@ property we can have for free.
 The subpixel-drift worry is real and lands in a better place. Two versions of a rasteriser can
 disagree by a coverage value or two, and if the rasteriser ran at runtime that disagreement would
 be a mysterious three-party mismatch. With a build-time atlas it is a reproducibility question
-about a checked-in artefact: pin the generator, check in the table, and gate that regenerating
+about a checked-in artifact: pin the generator, check in the table, and gate that regenerating
 produces the same bytes. That is the shape `script/vendor-verify` already has for RedoxFS
 ("upstream plus our recorded patches") and the shape `crates/bitfont/src/glyphs.rs` already has
 for its transcription, which was done by a script with no bits changed.
@@ -371,7 +371,7 @@ for its transcription, which was done by a script with no bits changed.
 The worry above is not hypothetical, and it was measured rather than argued, twice, by two
 investigations that did not see each other's work. A peer session measured cross-architecture
 output stability on 2026-08-20, at raw `f32` coverage rather than at
-the quantised byte, over 95 ASCII characters at nine sizes (fractional ones included) across four
+the quantized byte, over 95 ASCII characters at nine sizes (fractional ones included) across four
 fonts, on x86_64 and aarch64 with both `std` floats and `libm`:
 
 - `ab_glyph_rasterizer` is byte-identical across every combination.
@@ -408,7 +408,7 @@ Measured across 0.1.1, 0.1.4, 0.1.5 and 0.1.10, the raw `f32` hash changes at 0.
 bitmap hash does not, because Rust's float-to-integer `as` cast saturates and folds the
 now-uncapped values back onto 255.
 
-So the instruction the atlas takes from this is one line: quantise to `u8` at the boundary and
+So the instruction the atlas takes from this is one line: quantize to `u8` at the boundary and
 never persist raw `f32`. Doing that is what makes the version-to-version risk mostly disappear,
 and it costs nothing, because 8-bit coverage is what the table holds anyway. It is the difference
 between a table that survived a patch bump by luck and one that survives it by construction.
@@ -418,7 +418,7 @@ With that in place, the measured picture is: `ab_glyph` 0.2.15 through 0.2.32 an
 0.6.4 through 0.9.4. Neither project promises any of it, and the `BUGS` section says so.
 
 And pin 0.1.10 specifically. `ab_glyph_rasterizer` 0.1.4 through 0.1.8 panic with an index out
-of bounds on some in-bounds-adjacent geometry, which a randomised harness hit immediately. Fixed in
+of bounds on some in-bounds-adjacent geometry, which a randomized harness hit immediately. Fixed in
 0.1.9.
 
 One more trap, in the crate this block does not recommend, recorded so nobody rediscovers it.
@@ -449,7 +449,7 @@ made deliberately:
 - Grayscale anti-aliasing, not subpixel (ClearType-style) anti-aliasing. Subpixel rendering
   triples the horizontal resolution by lighting a panel's red, green and blue stripes
   independently, so it depends on that panel's subpixel order, which a framebuffer does not know
-  and QEMU's `screendump` cannot represent. It also produces coloured fringes that a pixel-exact
+  and QEMU's `screendump` cannot represent. It also produces colored fringes that a pixel-exact
   check would have to model. Grayscale keeps the picture a property of the pixels rather than of
   somebody's monitor, and it is where Apple ended up as well.
 - Blend in linear light, not in sRGB. This is the difference between "anti-aliased" and
@@ -461,7 +461,7 @@ made deliberately:
 
 And one property that anti-aliasing quietly retires, which milestone 141 could not have known
 because it was written for a bitmap terminal. 141's palette check exists so that a corrupted pixel
-is a detectably wrong colour rather than a different legal one. With anti-aliasing there is no
+is a detectably wrong color rather than a different legal one. With anti-aliasing there is no
 such thing as an off-palette pixel: every edge pixel is already a blend, so the legal set is not
 sixteen values, it is every value between each pair. The properties do not become wrong, they
 become decorative for this terminal, and the pixel-exact comparison (which was always the stronger
@@ -503,12 +503,12 @@ Two mechanical facts a lane will hit, both worth knowing before the decision rat
 - A build-time dependency is not outside the supply-chain gate. One `deny.toml` is applied to
   every workspace in the tree, and its own header gives the reason: *"a licence we would refuse in
   the kernel is not acceptable in the host tooling either."* So a generator in `xtask` or `tools/`
-  is checked by the same advisory and licence policy as anything that boots. What it does buy is that it is not in the
-  shipped artefact, which is a real reduction in exposure and not a reduction in scrutiny.
-- The licence allow-list is five entries (`MIT`, `Apache-2.0`, `Apache-2.0 WITH
+  is checked by the same advisory and license policy as anything that boots. What it does buy is that it is not in the
+  shipped artifact, which is a real reduction in exposure and not a reduction in scrutiny.
+- The license allow-list is five entries (`MIT`, `Apache-2.0`, `Apache-2.0 WITH
   LLVM-exception`, `BSD-3-Clause`, `0BSD`) plus one scoped exception for `libfuzzer-sys`, and it is
   an allow-list on purpose, *"because the failure we care about is a licence nobody looked at"*. If
-  a chosen font ever arrives as a crate rather than as a checked-in file, and its licence is the
+  a chosen font ever arrives as a crate rather than as a checked-in file, and its license is the
   OFL, it stops the build and needs an explicit scoped exception. A checked-in table sidesteps that
   and inherits §100's recorded gap instead: `script/supply-chain` reads the cargo graph, and a font
   transcribed into a Rust table is not in it.
@@ -517,7 +517,7 @@ The dependency numbers, measured on this machine by a peer session on 2026-08-20
 `cargo tree` and `cargo build` rather than read off crates.io. Transitive dependencies exclude the
 crate itself, at default features:
 
-| Crate | Deps | In `no_std` | Needs `alloc` | Licence |
+| Crate | Deps | In `no_std` | Needs `alloc` | License |
 |---|---|---|---|---|
 | `ttf-parser` 0.25.1 | **0** | 2 (`core_maths`, `libm`) | **no** | MIT OR Apache-2.0 |
 | `ab_glyph_rasterizer` 0.1.10 | **0** | 1 (`libm`) | yes | **Apache-2.0 only** |
@@ -577,11 +577,11 @@ are the larger half of "would use it outside a GUI".
 3. The atlas and the host-side generator. A tool that turns an outline font into a coverage
    table, a checked-in table, and a gate that regenerating reproduces it byte for byte. Three
    things are decided already and should not be re-litigated in the lane: `ttf-parser` plus
-   `ab_glyph_rasterizer` pinned at 0.1.10, quantise to `u8` at the boundary and never persist
-   raw `f32`, and grayscale coverage rather than subpixel. Needs the font decision and the licence
+   `ab_glyph_rasterizer` pinned at 0.1.10, quantize to `u8` at the boundary and never persist
+   raw `f32`, and grayscale coverage rather than subpixel. Needs the font decision and the license
    decision.
 4. Blending, in linear light, with the sRGB tables. Small, and it is what makes the atlas look
-   like type rather than like grey mush.
+   like type rather than like gray mush.
 5. Rich attributes. PARTIAL. Widen `Attr` and `Cell` for truecolour, real weights and underline
    styles; ship the bold, italic and bold-italic faces the widened `Attr` can now name. Retires
    *bold is bright*. The widening and truecolour are built (2026-09-26, see the status note above);
@@ -639,7 +639,7 @@ Eventually his and blocking nothing:
   it is a different design, and a system that must render arbitrary text is back to a runtime
   rasteriser or a glyph service. The block says "a terminal does not need that" and a person
   running `cat` on a file of Devanagari would disagree.
-- Every determinism number here is measured behaviour, not a documented guarantee, and the
+- Every determinism number here is measured behavior, not a documented guarantee, and the
   distinction is the whole caveat. Both investigations grepped both projects' READMEs, docs and
   changelogs for any statement of output stability and found none, so a future release may
   change the picture without calling it breaking. `ab_glyph_rasterizer` 0.1.5 already did exactly
@@ -659,7 +659,7 @@ Eventually his and blocking nothing:
 - This milestone enlarges §100's recorded supply-chain gap rather than inheriting it quietly.
   `script/supply-chain` reads the cargo graph, so a font transcribed into a Rust table is invisible
   to it. That gap is a kilobyte of public-domain bitmap today and would become hundreds of
-  kilobytes derived from a third party's obliging licence. The register in `vendor/README.md` is
+  kilobytes derived from a third party's obliging license. The register in `vendor/README.md` is
   where it belongs, and it should be written at the same time as the table rather than after.
 - "Rich text" is read here as terminal attributes, not as a document model. If calef meant
   proportional type, embedded images, or anything a terminal is not, this block answers the wrong
@@ -686,10 +686,10 @@ Eventually his and blocking nothing:
 - **Outstanding.** Increment three has not started: nothing in `Cargo.lock` mentions a TrueType
   parser or a glyph rasteriser, there is no generator under `tools/` or `xtask`, and no checked-in
   coverage table or regenerate-and-compare gate exists. Checked 2026-09-03.
-- **Outstanding.** Increment five is partial: its widening is built (truecolour, the 256-colour
+- **Outstanding.** Increment five is partial: its widening is built (truecolour, the 256-color
   table, underline, strikethrough, dim, concealed; 2026-09-26). Real weights and italic need faces
   and wait on the atlas (the faces are ruled), so "bold is bright" stands. Underline styles beyond one line (SGR `4:3` and the
-  rest of the colon forms) and the underline colour (SGR 58) are not built: the parser swallows `:`
+  rest of the colon forms) and the underline color (SGR 58) are not built: the parser swallows `:`
   whole, recorded in notes/glyphs.md.
 - **Done.** Whether the atlas ships one face or four: four, with italic as DejaVu's Oblique
   (calef, 2026-10-05 UTC, per §166). §104 chose the family and said nothing about faces.
@@ -711,7 +711,7 @@ Eventually his and blocking nothing:
 Minted by calef on 2026-08-20, on seeing the Kaypro-style font land: he wants Solarized Dark
 Higher Contrast and Menlo Regular 11, and the sentence that is the milestone is *"a text display
 so good that people would use it outside of a GUI."* Four axes, and the font is the smallest: the
-surface, the terminal, the type and the colour. The finding that makes the expensive axis cheap is
+surface, the terminal, the type and the color. The finding that makes the expensive axis cheap is
 that a monospace grid puts every glyph on an integer cell boundary, so the rasteriser belongs at
 build time and the runtime keeps a coverage table exactly as `bitfont` keeps a bit table, which is
 what preserves the three-party pixel-exact proof. Increments one and two (the scanout, first grown

@@ -34,7 +34,7 @@ and principle 3 says they must not have to ask:
 
 | Tier | Named after | Because |
 |---|---|---|
-| the kernel | **the core**, `nife` | one thing, at the centre, with nothing beneath it |
+| the kernel | **the core**, `nife` | one thing, at the center, with nothing beneath it |
 | distributions | **rocks**, `basalt` and whatever others choose | an aggregate assembled from many pieces |
 | programs and components | **minerals**, `kamacite` and `taenite` held for this | what a rock is made of |
 
@@ -186,7 +186,7 @@ separation of publisher from product is the norm rather than an invention (Canon
 Hat and Fedora, the Rust project and `rustc`), and the failure it prevents is visible in projects
 whose org and flagship share a name: the second product always reads as a subsidiary of the first.
 
-Redox is the closest neighbour in this tree's own reference set and does the opposite, publishing
+Redox is the closest neighbor in this tree's own reference set and does the opposite, publishing
 `redox-os/redox`, which is the shape this milestone declines.
 
 ## BUGS

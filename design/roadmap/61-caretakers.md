@@ -29,7 +29,7 @@ so `fs_subtree_caretaker` still performs no checks at all.
 notes/grant-expression.md:** writing the per-verb rows down exposed that `fs_file_caretaker` answers
 `EBADF` to every directory verb except `CREATE`, because they all fell through one `_ =>` arm shared
 with "you named a handle I never minted". `ENOTDIR` is very likely right for all seven by exactly the
-argument `CREATE` already makes. Behaviour was preserved, because changing it changes the wire.
+argument `CREATE` already makes. Behavior was preserved, because changing it changes the wire.
 
 Renamed and rescoped 2026-08-01 after calef asked why there are three of these and whether we
 expect more. Investigating that refuted the collapse this milestone was first drafted around, and
@@ -280,7 +280,7 @@ work.
 - **Recorded.** `notes/grant-expression.md` holds the errno finding this milestone made and did not
   act on: `fs_file_caretaker` answers `EBADF` to every directory verb except `CREATE`, because they
   all fell through one `_ =>` arm shared with "you named a handle I never minted". `ENOTDIR` is
-  very likely right for all seven by exactly the argument `CREATE` already makes, and the behaviour
+  very likely right for all seven by exactly the argument `CREATE` already makes, and the behavior
   was preserved because changing it changes the wire.
 - **Recorded.** `design/roadmap/61-caretakers.md` BUGS: the verb table is a new place to be wrong,
   and a wrong row is wrong in three programs at once. The mitigation is that it is pure data in a

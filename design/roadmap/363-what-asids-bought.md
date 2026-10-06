@@ -35,7 +35,7 @@ never had an input.
 
 The mechanism is in the kernel on every architecture and its justification is an argument. That is
 the shape this project explicitly refuses: measure, do not argue. A benchmark this system publishes
-about context switching is currently priced against a TLB behaviour nobody has characterised, and
+about context switching is currently priced against a TLB behavior nobody has characterized, and
 the honest thing to say about ASIDs today is that they are standard practice, which is a reason to
 implement them and not evidence that they helped here.
 

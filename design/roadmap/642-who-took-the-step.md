@@ -102,7 +102,7 @@ The property: can a reader of the record tell, for any action, whether a person 
 took it?
 
 The word doing the work is *any*. A mechanism that labels what the machinery did is only half an
-answer, because the other half is the negative: an action **not** labelled must be reliably a
+answer, because the other half is the negative: an action **not** labeled must be reliably a
 person's. That is the test every option below is scored against, and it is what decides between
 them.
 

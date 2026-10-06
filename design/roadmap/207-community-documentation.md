@@ -41,7 +41,7 @@ succeed without asking anyone, and these are among the first things a stranger m
 
 AGENTS.md requires that every pull request an agent writes opens by saying so, one line, first
 thing in the body. Today that is prose in a brief, remembered by whoever is writing, and lanes have
-already failed the neighbouring instruction twice this week (milestone 204 (pushed): two lanes pushed
+already failed the neighboring instruction twice this week (milestone 204 (pushed): two lanes pushed
 branches and opened no draft pull request, though both briefs named it as the first act).
 
 A template makes the line the default rather than a thing to remember, which is rung two replacing
@@ -105,7 +105,7 @@ install that makes a second customer possible) exists, because that is when a th
 ## The code of conduct is a commitment, not a file
 
 Adopting the Contributor Covenant takes a minute. **What it costs is the promise to enforce it**, and
-a project that ships one without meaning it has published a claim it will not honour, which is worse
+a project that ships one without meaning it has published a claim it will not honor, which is worse
 than silence and is exactly the failure this tree's `BUGS` convention exists to avoid elsewhere.
 
 What has to be decided: **who the enforcement contact is.** Today that is one person, and naming him

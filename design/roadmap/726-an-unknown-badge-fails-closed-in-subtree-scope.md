@@ -42,7 +42,7 @@ server's pool, or two servers with different pool sizes are handed badges from o
 1. Fail closed in the crate. `Bindings::of` returns `Binding::Revoked` for a nonzero badge at
    or past `B`; badge 0 stays `Open`. Cost: one arm in `of`, one line in the Kani harness
    `a_badge_once_bound_is_never_open_again` (assert a badge past `B` is never `Open`), one host
-   test. Behaviour change: a request carrying a badge the server has no window for is refused
+   test. Behavior change: a request carrying a badge the server has no window for is refused
    `EBADF` rather than served with full authority. That is the point. Premise to check before
    building: no server deliberately sends a badge past its own `B` and expects `Open`; the crate
    doc says caretakers hold badge 0, so none should.

@@ -15,7 +15,7 @@ proposal `a-program-that-takes-an-argument-and-an-input`, filed 2026-09-19, on c
 of 2026-09-20 to give every proposal on `main` a number. The text below is the proposal's own,
 unedited except for this paragraph: the argument is its author's and promotion is not the moment to
 improve it. Raised by milestone 150 (eight hand-maintained lists), item 3 of its design questions.
-That lane was told to keep current behaviour and write this up rather than decide it in code,
+That lane was told to keep current behavior and write this up rather than decide it in code,
 because it is a policy about what programs may be.
 
 Nothing is blocked on it. Milestone 150 closed the mechanical half, so either answer
@@ -40,7 +40,7 @@ What is left is whether the combination is wanted, and that is the call this ask
 
 Milestone 117's fifth stranger picked the combination deliberately, as the one manifest shape nothing
 had used, and hit the swish sweep. `notes/adding-a-program.md` then recorded it as open because the
-planner's comment ruled out the neighbouring case, a file together with an input, and said
+planner's comment ruled out the neighboring case, a file together with an input, and said
 nothing about this one. The 2026-08-22 correction established by test that the two are not
 analogous: `FileSpec` and `InputSpec` both take a bare name, so a manifest with both would leave the
 parser two indistinguishable positions, while an argument is numeric-shaped and claims position 0

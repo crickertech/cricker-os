@@ -66,7 +66,7 @@ Every row after the first is displaced by exactly the two capabilities aarch64 g
 interactive system never uses: a report endpoint nothing receives on, and a test interrupt no
 component waits for. They are there because **aarch64's boot path is shared with milestone 19d's
 test roles**, which enter `hello` through the same function with the same endowment, and whose slot
-numbering is written into `fixtures/src/hello.rs`'s role catalogue and into six `spawn_hello` tests.
+numbering is written into `fixtures/src/hello.rs`'s role catalog and into six `spawn_hello` tests.
 
 ## What it would take
 

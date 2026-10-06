@@ -25,7 +25,7 @@ The inventory, each with how a program uses it.
   with `rmcup`. Without it the program works and leaves its last screen in the user's scrollback and
   the prompt under it. It needs a second grid, a saved cursor and a clear on entry.
 - Cursor position report (DSR 6, `CSI 6 n`). vim sends `u7=\E[6n` in `check_terminal_behavior`
-  (`term.c:4238-4245`) to learn ambiguous-width behaviour. Whether it waits for a reply, and for how long, I did not
+  (`term.c:4238-4245`) to learn ambiguous-width behavior. Whether it waits for a reply, and for how long, I did not
   measure (the harness always answered). `rmle` sends no DSR (checked); real `kilo` sends it only when
   the window size is otherwise unavailable (from memory).
 - Device attributes (`CSI c`, `CSI > c`). vim sends `ESC[>c` (`term.c:528`, `4226-4230`) to

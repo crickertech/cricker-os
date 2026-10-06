@@ -66,5 +66,5 @@ reader meets the type rather than a wrong behavior.
 
 - The probe's cost is asserted, not measured. "Six messages, nothing measurable cares" is
   reasoning from the shape of the code. No benchmark covers `Dir::open` under a narrowed grant, and
-  milestone 121's per-component IPC measurement, which would price the neighbouring case, has not
+  milestone 121 (ripgrep on nife)'s per-component IPC measurement, which would price the neighboring case, has not
   started.

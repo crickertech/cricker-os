@@ -173,7 +173,7 @@ arbitration between them: the kernel writes directly, because a kernel that cann
 fault is a kernel nobody can debug, and the server writes on behalf of userspace, and the streams
 interleave at byte granularity. It corrupts every bench session on argon, radon and xenon, where a
 serial log is the only thing those machines can say and milestone 216 built a tool whose whole
-contract is recognising a boot sequence in that stream; interleaved bytes break that contract in the
+contract is recognizing a boot sequence in that stream; interleaved bytes break that contract in the
 least visible way available, because the log is present, it looks like output, and the line being
 matched has a kernel message spliced through the middle of it. Deciding it means saying where kernel
 output goes: a second port, a buffer the server drains, a claim the server takes and the kernel

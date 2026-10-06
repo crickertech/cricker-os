@@ -33,7 +33,7 @@ re-read). Nothing external is taken.
    zero before enabling the unit, and the boot line prints what it found.
 2. Confine and quarantine through aliases. Two devices sharing a source id never share a domain
    silently, and a quarantine resets every entry the device's DMA can arrive under.
-3. Honour an IVMD's read-only bit. A DMA mapping carries the rights its source asks for, rather
+3. Honor an IVMD's read-only bit. A DMA mapping carries the rights its source asks for, rather
    than always read-write.
 
 ## What it does
@@ -93,5 +93,5 @@ here. Its runner's bridge is empty, so the alias tests read the device table rat
 ## Index row
 
 An AMD machine's firmware can leave a hole in the IOMMU (an exclusion range), alias two devices onto
-one table entry, or ask for memory to be read-only, and the AMD-Vi driver honoured none of it. This
+one table entry, or ask for memory to be read-only, and the AMD-Vi driver honored none of it. This
 closes all three before the first AMD board boots.

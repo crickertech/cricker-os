@@ -14,7 +14,7 @@ the record must not let a reader conclude the whole DMA surface is proved when o
 another is mitigated by hardware we will not always have.
 
 **Why now, and why it is not merely tidiness.** Milestone 16a's board, the VisionFive 2, has no IOMMU.
-§20's hardware confinement demoted the software validator to defence in depth; on first silicon there
+§20 (IOMMU-backed DMA isolation)'s hardware confinement demoted the software validator to defense in depth; on first silicon there
 is no hardware underneath it, so it becomes the *sole* DMA confinement. A tested-but-unproved validator
 is exactly the wrong thing to put in that position, and the ordering follows: prove it before or with
 16a, not after.

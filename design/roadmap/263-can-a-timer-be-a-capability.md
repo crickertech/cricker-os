@@ -48,7 +48,7 @@ currently say what it costs, which is the condition that earns a lane.
 ## The decision this sits under
 
 calef, 2026-09-05, on milestone 106's fork: serve the timed wait from a userspace timer service
-signalling a notification, rather than from a new kernel blocking primitive. The reasoning is in
+signaling a notification, rather than from a new kernel blocking primitive. The reasoning is in
 [§101](../decisions/101-notification-objects.md), which anticipated it:
 
 > A notification object lets a *userspace timer process* wake a thread at a deadline, which is how
@@ -96,7 +96,7 @@ x86_64 alone is not an answer.
 2. Price the fourth shape, below, in the kernel. The pricing lane measured that any
    deadline structure costs one comparison per tick (1.000 comparisons and 0.000 writes over
    100,000 idle ticks, for a scan and for a sorted list), so what is unpriced is the object, its
-   methods and the signalling, not the bookkeeping.
+   methods and the signaling, not the bookkeeping.
 3. Say plainly whether the userspace-service answer survives parity. If it does not, an
    architect's decision changes, and it is better to know that in a day than three days into a lane.
 
@@ -149,7 +149,7 @@ its reason: shipping it would settle a syscall-surface fork by accident. Full me
 | per-tick bookkeeping | **not re-measured.** `notes/timed-wait.md` already has it: one comparison per idle tick, +30/+31 instructions, and a per-thread `deadline: u64` at zero bytes |
 
 **What it assumes about milestone 151, which is item 4 of the brief and is a finding rather than a
-footnote.** The scaffold signalled a `Rendezvous`, because that is what exists; §101's whole argument
+footnote.** The scaffold signaled a `Rendezvous`, because that is what exists; §101's whole argument
 is that a notification is *its own object*. If 151 builds that, the byte figures barely move and the
 syscall's meaning does. More importantly: **the fourth shape is not independently useful.** Milestone
 106's title ("wake on either a message or a deadline") is met only by §101's TCB binding, so without

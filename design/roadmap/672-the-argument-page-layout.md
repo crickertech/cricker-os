@@ -43,7 +43,7 @@ ruled out: a regex is arbitrary bytes.
 
 Prior art, read. The measurement in
 [notes/foreign-program-arguments.md](../../notes/foreign-program-arguments.md) read four systems
-from source. Fuchsia and seL4 use NUL-terminated strings; Xous, the nearest neighbour (a Rust
+from source. Fuchsia and seL4 use NUL-terminated strings; Xous, the nearest neighbor (a Rust
 microkernel whose `std` backend is in-tree), passes a tagged parameter block by pointer. None of the
 four puts authority in the bytes, which is what §170 ruled.
 

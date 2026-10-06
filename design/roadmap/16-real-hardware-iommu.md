@@ -71,7 +71,7 @@ each translates with its own CPU's page-table format (VMSAv8-64; Sv39), so the f
 that builds process address spaces. Shape: one portable DMA-domain seam, two arch IOMMU
 drivers under `arch/` (device table, command queue, fault queue each), the `Virtio` capability
 unchanged above, the disk and attacker suites running behind the IOMMU on both ISAs, and the
-shadow ring demoted to defence in depth everywhere. Silicon carries 16b's riscv code over when
+shadow ring demoted to defense in depth everywhere. Silicon carries 16b's riscv code over when
 a board ships the ratified spec; that is the emulate-then-carry pattern the kernel was built
 on. Parity is claimed at the QEMU tier; 16a's silicon is one board first, honestly.
 
@@ -80,13 +80,13 @@ DMA-domain seam (`crate::iommu` over `paging::domain`), the two arch drivers (SM
 v1.0.1), boot bring-up (SMMU from the device tree, RISC-V IOMMU enumerated as a PCI function), the
 `iommu_platform=on` enablement with the confinement test as the loud-on-bypass guard, and the disk
 and both attacker suites passing behind the IOMMU on both boards (aarch64 118 kernel tests, riscv
-60). Both emulations behaved to spec, no QEMU-vs-ours bug surfaced. Shadow ring kept as defence in
-defence in depth. Remaining under 16: 16a (first silicon on a RISC-V board) is still the hardware step;
+60). Both emulations behaved to spec, no QEMU-vs-ours bug surfaced. Shadow ring kept as defense in
+defense in depth. Remaining under 16: 16a (first silicon on a RISC-V board) is still the hardware step;
 16b's riscv driver carries over when a board ships the ratified spec, which is milestone 143.
 
 Why. This is where the discussion's strongest pro-microkernel argument finally becomes true
 for us. Today driver isolation is real only because of the shadow descriptor ring we wrote
-(notes/dma.md); an IOMMU makes it real in hardware, with the software ring demoted to defence in
+(notes/dma.md); an IOMMU makes it real in hardware, with the software ring demoted to defense in
 depth.
 
 Prior art. design/driver-domains.md already works the principled version (a driver per VM,

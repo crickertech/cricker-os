@@ -131,7 +131,7 @@ which image each spawn names:
   behind a role number.
 - `fs_service::start_file_sink` takes a `file_sink_image` and spawns it with `arg0: 0`.
 - `fs_service::start_sink_verify` is `start_file_source`, takes a `file_source_image`, and spawns it
-  with `arg0: 0`. Renaming that function is a judgement call this lane made and flags: leaving
+  with `arg0: 0`. Renaming that function is a judgment call this lane made and flags: leaving
   `start_sink_verify` pointing at a program called `file_source` is exactly the drift this milestone
   is about, and a `pub fn` inside one kernel module with one caller is the reversible end of the
   naming rule. It is provisional like the rest.

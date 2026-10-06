@@ -167,7 +167,7 @@ replacing it is harder than it looks.
   there is, for the first time, a firmware stage that has already lit a display and can be asked
   about it. Two things fall out and neither is built: the loader could paint this block's handoff
   banner on those architectures too (`find_screen` is under `arch/x86_64/` today), and it could
-  carry the screen to the kernel by synthesising a `simple-framebuffer` node in the device tree it
+  carry the screen to the kernel by synthesizing a `simple-framebuffer` node in the device tree it
   already copies, which is the *same* node milestone 157 will read from U-Boot. That second one is
   the interesting half: it would give the boards a real firmware framebuffer with no `ramfb` and no
   `.bss`, and 157's parser would serve both. Not done here because it is a wire format between two

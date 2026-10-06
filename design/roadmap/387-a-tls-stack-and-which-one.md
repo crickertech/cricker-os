@@ -28,7 +28,7 @@ rather than a milestone for one reason: **nothing is blocked on it today.**
 
 [§46](../decisions/46-dependency-rule.md) is explicit that crypto goes on the take side, and the
 reason is stated: *"correctness there includes resistance to attacks not yet published and
-side-channel behaviour no specification states, and that is bought by years of exposure and review.
+side-channel behavior no specification states, and that is bought by years of exposure and review.
 A proof that our AES matches the spec would not make it safe to use."*
 
 So nife takes a TLS stack. The fork is which one, and it splits on what the choice is meant to
@@ -55,7 +55,7 @@ seam, `c_shim`, `c_confiner`, `c_swappable`, and milestone 202's 26 enumerated c
 with replayable falsifications. Running OpenSSL where a compromise reaches nothing is
 [§14](../decisions/14-project-direction.md)'s thesis as a concrete object, and it is
 [§145](../decisions/145-compartmentalization-at-process-cost.md)'s argument with a name everybody
-recognises.
+recognizes.
 
 Milestone 36 already ranks foreign components and would place this: it calls **SQLite** the
 canonical *"C you cannot beat"* and puts it at tier three. OpenSSL is the same tier and a better
@@ -162,7 +162,7 @@ software links `libssl`, and giving nife TLS is a different claim from giving it
 program that expects OpenSSL. The third answer is the interesting one, since OpenSSL confined is a
 demonstration rather than a dependency: the most security-critical C library in the world, run where
 a compromise reaches nothing, is §14's thesis as a concrete object and §145's argument with a name
-everybody recognises. The useful half nobody had written down is that client-side and server-side
+everybody recognizes. The useful half nobody had written down is that client-side and server-side
 TLS are different milestones with different consumers: the client half has two (milestone 99's
 `clone`, milestone 174's build service) and is blocked on nothing, while the server half has one
 (milestone 66) and waits on 66's own one-deep accept backlog. Milestone 198 was listed as a consumer

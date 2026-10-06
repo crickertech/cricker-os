@@ -74,7 +74,7 @@ Take the window from the machine, from two sources that can disagree.
   space, reachable with the config-space reads `kernel/src/pci.rs` already performs.
 
 Fail loudly when they disagree rather than falling back to the constant. That is milestone 215's
-posture for the analogous case, and its reason carries: a silent fallback to the old behaviour is
+posture for the analogous case, and its reason carries: a silent fallback to the old behavior is
 the original bug wearing the clothes of a graceful degradation.
 
 **And handle the asymmetry that this boot exposed, which the proposal did not name.** QEMU hands the
@@ -161,7 +161,7 @@ would otherwise have been argued:
   machine, which is 2.7 GiB below the retired constant and had never had a BAR in it. The full
   suite passes there, including the two milestone 215 tests that reach a `virtio-blk-pci` function
   through its MSI-X table, so q35 routes from the top of low DRAM upward and not from `0x80000000`
-  as the retired constant's neighbourhood implied.
+  as the retired constant's neighborhood implied.
 - OVMF's framebuffer sits at its hole floor, which is why that window is `0x80400000` and not
   `0x80000000`. The aperture-at-the-floor case was written as a prediction about xenon and turned
   out to be reproducible on this machine, which is the only reason it is tested rather than
@@ -182,7 +182,7 @@ the disagreement message naming both numbers. `script/test` passes on all three 
   stopped at `mmu.rs:349` on 2026-09-04 and everything past it is unseen on real firmware. This
   block predicts the panic is gone and predicts nothing about what the boot finds after it.
 - **`TOLUD` is Intel's register, not the architecture's.** A non-Intel host bridge answers `None`
-  and the firmware map is then the only source, silently. That is correct behaviour and it is also
+  and the firmware map is then the only source, silently. That is correct behavior and it is also
   a smaller check than it looks: on such a machine the "two sources that must agree" is one source
   that cannot be contradicted. Said where the read happens, in `top_of_low_dram`'s own BUGS.
 - Only offset `0xbc` is read, the Core-era location. The older 82G33/Q35 chipsets put a 16-bit

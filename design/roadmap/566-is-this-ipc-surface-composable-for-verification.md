@@ -47,7 +47,7 @@ a reason not to.
 Pick one path a program actually takes, a `SEND_CAP` that crosses the capability layer, the scheduler
 and the IPC path, and ask what the existing harnesses on those three collectively guarantee about it.
 Not by proving it, which is the expensive thing, but by writing down the gap: what each harness
-assumes about its neighbours, and whether any neighbour establishes it.
+assumes about its neighbors, and whether any neighbor establishes it.
 
 `notes/verus.md` already did the adjacent comparison and `notes/proof-retrospective.md` already asked
 the adjacent question (did the proofs catch the bugs). This is the third of that family, and its

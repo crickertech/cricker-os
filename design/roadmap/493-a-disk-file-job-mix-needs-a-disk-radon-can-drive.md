@@ -54,7 +54,7 @@ task B overwrites it before A's `CALL` is served. The job would measure a data r
    (for example, a client grants its own frame on its first request), so N clients contend on one
    server and one disk, which is the AIM7 shape. Costs a `filesystem_protocol` change, which every
    file client in the tree speaks. This is the fork.
-3. Serialise file jobs in the mix behind a lock held across the request. Refused: it turns the
+3. Serialize file jobs in the mix behind a lock held across the request. Refused: it turns the
    one category that should show kernel blocking under load into a queue the workload itself
    builds, and the number would measure the lock.
 

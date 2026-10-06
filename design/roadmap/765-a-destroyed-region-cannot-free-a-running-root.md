@@ -59,7 +59,7 @@ The corpse gap was real, and that ownership closes it. This was driven, not reas
 `running_space_tests::a_corpse_does_not_keep_a_space_rooted_in_a_destroyed_region` builds the
 shape (space from R, TCB from A, supervised, faulted and left `Dead`) and destroys R. It asserts the
 space is gone and the revocation registry no longer names the root. Its falsification puts the old
-behaviour back and goes red there.
+behavior back and goes red there.
 
 What remains is this milestone's, and narrower than the hole below. The sweep leaves these in
 place while R's pages go back:
@@ -143,7 +143,7 @@ holding the TCB budget, a child holding its own space).
    as the borrower's thread lives. C: one region lookup per `CONFIGURE`, which is spawn-time; not
    measured.
 6. Reversibility. All three are §16 semantics, which every future program is written against.
-   Nobody has acted on the current behaviour, because nothing in the tree builds the shape.
+   Nobody has acted on the current behavior, because nothing in the tree builds the shape.
 7. Effort. Each is small, and C is the smallest. That is an effort argument, said as one; it is
    not a reason to prefer C.
 

@@ -33,13 +33,13 @@ deliverables (per-resource credential endpoints for the SMB adapter, and the boo
 admitting guests to the share) have no subject left. Re-aiming or retiring this block is an
 architect's call.
 
-## What "configured" means today, measured rather than characterised
+## What "configured" means today, measured rather than characterized
 
 Nothing is configurable. Changing anything about a share means editing Rust and rebuilding.
 
 | Fact about the share | Where it lives today |
 |---|---|
-| Which behaviour (fixture, read-only, read-write, authenticated) | a `--features` flag choosing one of four numbered constants in `user/src/smb_server.rs` |
+| Which behavior (fixture, read-only, read-write, authenticated) | a `--features` flag choosing one of four numbered constants in `user/src/smb_server.rs` |
 | What is served | the whole RedoxFS image; there is no "this directory is a share" notion at all |
 | The identity | four constants in `cred_proto::fixture`: resource `backups-chris`, user `User`, domain `Domain`, password `Password` |
 | Which resource the adapter authenticates against | the same constant, compiled in and **named in every request** |
@@ -140,7 +140,7 @@ running system a real password.
 ## Index row
 
 every fact about a share is a compile-time constant today: a `--features` flag picks one of four
-numbered behaviours, the whole image is the share, and the identity is four constants holding
+numbered behaviors, the whole image is the share, and the identity is four constants holding
 Microsoft's published test account. calef asked for a configuration document and a stored secret
 while ruling that `smb-serve` stays guest-writable for now; this tracks the lock-down he asked to
 keep. Four deliverables: the document (milestone 55's retired `mdns_responder.conf` is the shape), the

@@ -80,7 +80,7 @@ itself (the numeric stack), print a result, loop until an explicit quit. That is
 stateful call into the same C component, using only the `OPERATION_READLINE` contract that already exists
 today, with no raw-keystroke dependency at all. A minimal single-file implementation (several exist
 under BSD or public-domain-equivalent licences; busybox's `dc` applet is one candidate, GPL and
-therefore requiring a licence check against this tree's own posture before use) is a smaller, more
+therefore requiring a license check against this tree's own posture before use) is a smaller, more
 isolated test than `kilo`'s roughly-1,000-line editor with its own additional terminal dependency.
 
 Once `dc` proves the mechanism, `kilo` becomes a second, harder proof of the same primitive
@@ -102,7 +102,7 @@ mechanism.
 
 Whether the eventual `kilo.c` port replaces or coexists with the Rust `kilo` milestone 169 already
 built; that is an architect's call once both exist to compare, not a decision this milestone forces
-in either direction. Also does not decide licence questions for whichever `dc` implementation gets
+in either direction. Also does not decide license questions for whichever `dc` implementation gets
 used as source material, checked at that point, not assumed here.
 
 ## BUGS

@@ -8,7 +8,7 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# 506. Colour the kernel stacks and take E1 again, to find out what E1's knee is made of
+# 506. Color the kernel stacks and take E1 again, to find out what E1's knee is made of
 
 *(Number provisional until the merge queue lands it.)* Promoted from the
 proposal `colour-the-kernel-stacks-and-take-e1-again`, filed 2026-09-19, on calef's instruction of
@@ -31,25 +31,25 @@ A set conflict does, on arithmetic, and so does a competitor. Every kernel stack
 boundary, so every thread's hot stack lines sit at the same page offsets. radon's U74 L1 D-cache is
 32 KiB, 4-way, virtually indexed, 64-byte lines (SiFive U74-MC Core Complex Manual 21G3.02.00, read
 2026-09-19): 8 KiB ways, set index from VA bits 6 to 12. Stack slots are seven pages apart, so bit 12
-of a stack's top alternates with the slot, giving two colours of four ways: at most eight threads'
+of a stack's top alternates with the slot, giving two colors of four ways: at most eight threads'
 hot stack lines can be resident together, which puts a knee at 8. But every thread's TCB is also on
 its own page, so hot TCB fields alias the same way and predict the same knee.
 
-**The experiment separates them.** A feature build that starts each thread's stack a per-slot colour
+**The experiment separates them.** A feature build that starts each thread's stack a per-slot color
 below its top (slot index times about 640 bytes, modulo a page, so ten-line windows stop sharing
-sets), then E1 on a `board,bench,single_hart` card, interleaved against an uncoloured build like E3.
+sets), then E1 on a `board,bench,single_hart` card, interleaved against an uncolored build like E3.
 
 | E1 with coloured stacks | reading | what it does to §96 |
 |---|---|---|
-| knee moves well right of 16 | the stacks caused it | a process kernel buys the effect back with colouring, so this axis stops arguing for an event kernel |
-| knee stays at 8 to 16 | the TCBs, or another page-aligned per-thread object, caused it | an event kernel's single stack would not remove it either; colour the TCBs next |
+| knee moves well right of 16 | the stacks caused it | a process kernel buys the effect back with coloring, so this axis stops arguing for an event kernel |
+| knee stays at 8 to 16 | the TCBs, or another page-aligned per-thread object, caused it | an event kernel's single stack would not remove it either; color the TCBs next |
 | both builds move together | neither; something shared, like the rendezvous objects | the mechanism is still open, and M7's event counters are the next instrument |
 
 What it costs. One feature, one constant, one line where a thread's initial `sp` is computed,
-and a colour's worth of each stack (up to about 4 KiB of a 24 KiB stack, which `script/stack-depth-check`
+and a color's worth of each stack (up to about 4 KiB of a 24 KiB stack, which `script/stack-depth-check`
 must still pass). No syscall surface, no dependency, no default-build change.
 
-**What it does not do.** It is not a proposal to colour stacks by default. That is a decision to make
+**What it does not do.** It is not a proposal to color stacks by default. That is a decision to make
 after the reading, with the reading.
 
 ## Index row

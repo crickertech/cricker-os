@@ -42,7 +42,7 @@ Each piece is described, with its measurements and its falsification, in
 3. Recovered after. `helpers/merge-drain.sh` reads each open pull request's last queue removal
    and enqueue, and `helpers/queue-ejected.jq` decides, with fixtures under `script/lint`. One
    comment per ejection names the reason and the group's unsuccessful runs. A head whose group run
-   failed or timed out is labelled `queue-ejected` and not re-armed. A cancelled group is re-armed
+   failed or timed out is labeled `queue-ejected` and not re-armed. A cancelled group is re-armed
    at the same head, because 13 of the 18 `failed_checks` ejections so far were cancellations.
    The label comes off when the head moves, and the drain re-arms it unless it carries
    `needs-architect`.

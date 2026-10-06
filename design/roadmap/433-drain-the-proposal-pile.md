@@ -291,7 +291,7 @@ done here.
 
 ## BUGS
 
-- A promoted block can still be a graveyard, one directory up. Numbering does not prioritise;
+- A promoted block can still be a graveyard, one directory up. Numbering does not prioritize;
   calef's 2026-09-03 wording separates the two on purpose (*"anybody should be able to add to the
   roadmap. That's different than prioritizing that roadmap"*). What promotion buys is visibility to
   `--ready`, not attention.

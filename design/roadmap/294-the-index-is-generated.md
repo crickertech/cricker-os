@@ -66,7 +66,7 @@ on 2026-08-18 (PR #320)`, `**Status: BUILT**, 2026-08-27, as ...`. Canonicalisin
 would have been rewriting prose in 129 blocks to serve a parser, which is the wrong direction.
 
 So both were moved, verbatim. The migration cut each cell's text and pasted it into the block;
-the only transformations were unescaping `\|` (an artefact of living in a table cell, where a bare
+the only transformations were unescaping `\|` (an artifact of living in a table cell, where a bare
 pipe would end it) and line wrapping. Nothing was regenerated, paraphrased or shortened, and the
 reconstruction below is the proof.
 
@@ -79,7 +79,7 @@ hand-maintained table, none of them a defect in the generator:
 - 12 whitespace. Eight rows carried a doubled space in an empty `Built` cell (131, 224, 258,
   260, 261, 262, 263, 265) and four padded the date (135, 196, 202, 208). Invisible in rendering,
   invisible to the old gate, which anchored on the first four fields.
-- 5 titles, where the row had drifted from its own block's H1. Resolved in favour of the
+- 5 titles, where the row had drifted from its own block's H1. Resolved in favor of the
   block, because there is now one title per milestone rather than two:
 
   | # | The row said | The block's H1 says |
@@ -170,7 +170,7 @@ makes every lane touch its own block, every milestone also needed a row in one s
 every milestone in flight collided with every other. The row is now derived from the block. Two of
 the five columns had to move rather than be derived, and measuring that is what decided the shape:
 the summary scored a median similarity of 0.07 against the block's own opening paragraph (an
-opening paragraph opens a document rather than summarising one), and 129 of 288 blocks did not
+opening paragraph opens a document rather than summarizing one), and 129 of 288 blocks did not
 state their Built date in any parseable position, in at least eight spellings. Both moved verbatim
 into a `## Index row` section; the proof is the reconstruction, which reproduced 271 of 288 rows
 byte for byte, with all 17 differences pre-existing drift in the hand-maintained table (12

@@ -19,7 +19,7 @@ below are the old ones: `steal_request` is `crates/work_steal_slot`, `wake_hands
 `clock_proto` is `crates/clock_protocol`. `script/interleaving-check` searches all five.
 
 Milestone 136 built the mechanism for one crate and it works, so the pattern to
-copy is in the tree. The block declines to choose between copying it four times and generalising
+copy is in the tree. The block declines to choose between copying it four times and generalizing
 it, and that choice is a lane's to make and recommend, not calef's: it is reversible, it is
 internal to `script/lint`, and nothing outside this repository acts on it.
 

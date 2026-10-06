@@ -26,7 +26,7 @@ assertion keeps it that way.
 
 `kernel/src/cpu.rs` declared `PerCpu` with `repr(align(256))` on x86_64 and nothing on aarch64 or
 riscv64, where it aligned to 8. The block is 128 bytes, so `PERCPU[i]` shared lines with its
-neighbours. In the aarch64 job-mix build `PERCPU` sat at 24 mod 64; on riscv64 the parent note found
+neighbors. In the aarch64 job-mix build `PERCPU` sat at 24 mod 64; on riscv64 the parent note found
 16 mod 64. A field another core writes (the inbox depth, the steal slot) then shared a line with
 `held_rank`, which the owning core writes twice per lock it takes.
 
@@ -85,7 +85,7 @@ Per-trap excess at four tasks, 24 MHz ticks, bootstrap 95% intervals, boots inte
 | parent, blocks forced to 24 mod 128 (scratch) | 21 | -0.018 [-0.022, -0.013] | +0.040 [+0.030, +0.049] |
 
 **The proposal's E did not reproduce as a difference, because the parent commit no longer has the
-defect's layout.** Its link puts `PERCPU` at 8 mod 128, where only a neighbour's `rng` and
+defect's layout.** Its link puts `PERCPU` at 8 mod 128, where only a neighbor's `rng` and
 `need_resched` share a block's line; the job-mix build the proposal measured had it at 24 mod 64.
 Forcing that layout back brings the residual back in A's shape (+0.010, +0.023, +0.040 at two,
 three, four tasks), so the defect is real and depended on where the linker happened to put a static.
@@ -124,7 +124,7 @@ growth with cores held within a tick across those layouts, and `D` is a differen
 ## BUGS
 
 - Only `PerCpu` is covered. About thirty other statics are `[T; MAX_CPUS]` arrays, most packed, so
-  a core's slot shares a line with its neighbours'. Some are on hot paths: `sched::PREEMPTIONS_PER_CPU`
+  a core's slot shares a line with its neighbors'. Some are on hot paths: `sched::PREEMPTIONS_PER_CPU`
   and each architecture's per-core `TICKS`. `sched::CURRENT_CAPABILITIES` (written on every switch,
   read by every capability syscall) is `align(64)`, so two cores share each 128-byte Apple line,
   and this milestone's span would say 128. Unmeasured. The aligned build reads within 0.003 [-0.006, +0.011]

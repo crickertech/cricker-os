@@ -150,7 +150,7 @@ The tolerance survives but is no longer load-bearing, and the signature requirem
 dropping it is what lets run 33707574930's transcript read again.
 
 The false-red rate, which is what a CI gate has to answer for. It is not a rate, it is
-structural: under this ordering an interleaving artefact cannot produce a red. A red needs either
+structural: under this ordering an interleaving artifact cannot produce a red. A red needs either
 the negative sentence found exactly (which a shuffle cannot manufacture) or a missing line with no
 concurrent writer (which means nothing shuffled it). Against the four riscv64 CI legs observed, all
 four read correctly, two of them through the tolerance, and none reached case 3. The residual is
@@ -184,8 +184,8 @@ What depends on that stream being readable, beyond this gate:
   line (`notes/target-hardware.md`), so a serial log is the only window into a board, and it can
   shuffle.
 - **`crates/board_console`** (milestone 216, nothing in this tree can read a board, so every hardware
-  milestone waits on a person), whose whole job is to recognise how far a boot got from the text
-  alone. Its `progress` recogniser matches on complete lines, which is the assumption this breaks.
+  milestone waits on a person), whose whole job is to recognize how far a boot got from the text
+  alone. Its `progress` recognizer matches on complete lines, which is the assumption this breaks.
 - Milestone 218's boot script, which parses the same stream.
 
 The design question is where the kernel's own output should go once userspace owns the console, and

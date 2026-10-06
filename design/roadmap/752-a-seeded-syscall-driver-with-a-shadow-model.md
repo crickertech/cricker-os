@@ -34,7 +34,7 @@ every rendezvous. The rest is in the module's `BUGS`.
 **Kernel threads, not an EL0 program.** The proposal said EL0. The oracle needs to know which side of
 a rendezvous parked first, which only the kernel can say without guessing at timing, and an EL0
 helper needs a TCB and an address space each. What is not exercised is the trap entry's register
-marshalling, which every EL0 test already crosses. At equal cost the choice would be the same,
+marshaling, which every EL0 test already crosses. At equal cost the choice would be the same,
 because the ordering knowledge is what makes the oracle exact.
 
 Names are provisional: the module, the test, and `NIFE_SYSCALL_FUZZ_SEEDS`.
@@ -94,7 +94,7 @@ a red trunk. Not yet run on a runner; the first scheduled run is its measurement
 finds a plain `RECEIVE` parked installs its capability in the receiver's table and returns the slot
 in `x1`. In the other order the receiver gets no capability (633's fix), and a `CALL` caller
 collected that way waits forever for a Reply nobody holds. The suite reached it 12 times in 33 seeds
-and the model pins today's behaviour, so the test is green and any change is seen. Recorded at
+and the model pins today's behavior, so the test is green and any change is seen. Recorded at
 `abi::rendezvous::RECEIVE`'s `BUGS`.
 
 It is exploitable today. A std program, including an unvouched one, is spawned holding its own
@@ -163,7 +163,7 @@ The seven questions:
    +0.1%, `null_syscall` unchanged. The sender-first `CALL` arm (answer the stranded caller `Gone`) was
    not in the measured patch and adds a branch off the fastpath.
 6. Reversibility. A change to what `RECEIVE`, `SEND_CAP` and `CALL` return: §10 (the
-   capability-based microkernel process model)'s surface. Nobody has acted on today's behaviour (the
+   capability-based microkernel process model)'s surface. Nobody has acted on today's behavior (the
    audit above), so the change is cheap now and gets dearer with every program written against it.
 7. At equal cost. (A) either way; the measured cost is small, so this is not an effort argument.
 

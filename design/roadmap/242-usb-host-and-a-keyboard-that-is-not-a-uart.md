@@ -110,7 +110,7 @@ the source's round-robin hart, and no key after the first arrived; enabling thro
 |---|---|---|
 | aarch64 | green: INTx through the GIC, behind SMMUv3 | argon: not tried; it has an SMMU, so it should be confined, and nobody has read its scope |
 | riscv64 | green: INTx through the PLIC, behind riscv-iommu-pci | radon: refused by design. The JH7110 has no IOMMU, so the kernel will not hand a process the controller. A keyboard on radon needs an IOMMU, or a doorbell validator of the kind §86 (whether an NVMe driver can leave the kernel) calls option 4, and is not this milestone's |
-| x86_64 | green: MSI with no MSI-X, behind intel-iommu (the gate's configuration, modelled on xenon's controller); MSI-X also passes | xenon: calef's bench step, below |
+| x86_64 | green: MSI with no MSI-X, behind intel-iommu (the gate's configuration, modeled on xenon's controller); MSI-X also passes | xenon: calef's bench step, below |
 
 ## The bench step, which is calef's
 
@@ -141,7 +141,7 @@ Needs xenon, its monitor on the display port, a USB keyboard plugged into a rear
 ## BUGS
 
 - Never run on silicon. Every timeout is the specification's limit rather than a measurement,
-  and QEMU models no low-speed device. Full speed and MSI-only are modelled, because those are what
+  and QEMU models no low-speed device. Full speed and MSI-only are modeled, because those are what
   xenon's keyboard and controller are.
 - Root ports only, one controller, one keyboard. A hub, or a keyboard with one inside, is not
   found. `crates/extensible_host_controller_interface`'s and the driver's BUGS.

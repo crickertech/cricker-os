@@ -121,7 +121,7 @@ device-tree parsers, all fuzzed by `script/fuzz`). So:
 | SHA-256 of each member | The progenitor refuses anything the measurement table does not vouch for | milestone 104, `measured_boot::verdict` |
 | The program manifest (`grant_plan::Manifest`) or component requirements (`component_plan::Requirements`) | What a grant is checked against before spawn; today compiled in, keyed off the closed `Prog` enum | milestone 31, milestone 23, milestone 47's `PATH` section |
 | `Requirements::pages` | "a property of the build, not of the contract", and "the strongest single argument for the wire format" | `notes/component-manifest.md` `BUGS` |
-| Licence | "Each packaged program's licence is recorded where a reader meets the program" | DECISIONS §135, requirement 2 |
+| License | "Each packaged program's licence is recorded where a reader meets the program" | DECISIONS §135 (running GPL software is aggregation), requirement 2 |
 | Documentation bundle and index shard | "installed by the package that owns it"; the index is "a merge of shards, one per installed package" | milestone 40 |
 | Version | Only when a package built at one commit meets a system built at another; see the sibling gate proposal | `design/what-a-distribution-packages.md` |
 | Contract versions it speaks | Same trigger; the `fs_proto` first word is full, so this is a connect-time handshake and a separate protocol decision | same note |

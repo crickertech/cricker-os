@@ -96,7 +96,7 @@ list is short and it is what makes the blockers concrete:
 4. Split 32 per-task budgets off its own region (`job_mix::TASK_BUDGET_PAGES` is 25 pages each,
    and a task needs its own because the map and spawn jobs spend it).
 5. Read the wall clock and the counter frequency, and print machine-readable lines
-   `crates/board_console`'s recogniser can read.
+   `crates/board_console`'s recognizer can read.
 6. Print the placement census, because `notes/job-mix.md`'s procedure reads it at step 3 and
    `kernel/src/job_mix.rs`'s first `BUGS` entry says a number without it is not quotable.
 

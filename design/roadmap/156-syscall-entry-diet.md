@@ -79,7 +79,7 @@ rest, none of which run on an IPC round trip.
 `Endpoint::SURVEY` (milestone 126's first stratum) never tripped this by accident, not by design: it
 is two lines, one call into `sched::survey_supervised`, small enough nobody noticed the shared
 problem. `abi::aspace::LIST` was the first arm big enough (a loop, two function calls) to cross the
-5% line on its own commit. Every arm before it has been contributing bytes to a number labelled "the
+5% line on its own commit. Every arm before it has been contributing bytes to a number labeled "the
 IPC fastpath" the whole time, individually below threshold, collectively real.
 
 ## What this milestone does, part one: the extraction

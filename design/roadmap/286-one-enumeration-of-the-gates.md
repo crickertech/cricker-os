@@ -82,8 +82,8 @@ already had.
 ## What the three `ci.yml` comments became
 
 Asked directly, because it was the point of the milestone. **The membership half is now enforced by
-construction and the reason half is still prose**, and the second half cannot be mechanised: "it
-builds the kernel test binary twice, which is more than a developer will wait for" is a judgement
+construction and the reason half is still prose**, and the second half cannot be mechanized: "it
+builds the kernel test binary twice, which is more than a developer will wait for" is a judgment
 about a person, not a fact about a build.
 
 What changed is where the prose lives. All three explanations moved into `script/ci-build`, in a
@@ -110,7 +110,7 @@ now records that it asserted the opposite for a month.
 - The tier tags are adjectives where the naming tenet wants nouns. `local` and `ci` are
   provisional for that reason among others; the proposal carries the refusals.
 - The no-argument path runs `script/bootstrap` first, which `script/gates` did not. calef ruled
-  on 2026-09-13 that this is correct and it is the shipped behaviour: a machine that cannot
+  on 2026-09-13 that this is correct and it is the shipped behavior: a machine that cannot
   provision will fail the later rows anyway, and failing early is honest. The residue is real: on a
   warm machine bootstrap prints a few lines and exits, but on a machine missing QEMU it will
   `brew install` or `apt-get install`, which is a surprise the pre-push command did not previously

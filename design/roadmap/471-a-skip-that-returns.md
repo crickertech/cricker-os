@@ -41,7 +41,7 @@ change on every `#[test_case]` in the tree plus an `Ok(())` on the end of each.
 
 ## Index row
 
-A refusal of the stronger mechanism in favour of the cheaper one, made explicitly and with the trade
+A refusal of the stronger mechanism in favor of the cheaper one, made explicitly and with the trade
 priced: rung one costs an edit to every test in the tree, rung two catches the same defect at the
 moment it happens. The condition is a recurrence, which is the honest trigger for buying a mechanism
 you declined once.

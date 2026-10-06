@@ -75,7 +75,7 @@ under `design/` and so is not a lane's either.
   `INIT_STACK_PAGES` and the five `hello` roles stayed exactly as they are. Where the prose around
   one had to stop lying, it says what the thing is and leaves the identifier alone.
 - A string a gate or a log parser matches does not change on its own. New here, and it cost a
-  real decision. `crates/board_console` recognises the boot-tour label `init/build  :` by substring,
+  real decision. `crates/board_console` recognizes the boot-tour label `init/build  :` by substring,
   against captured VisionFive 2 logs that are evidence and cannot be re-written; so the label
   stays and the sentence after it was corrected. Runtime strings nothing parses (the `expect`s in
   `kernel/src/user.rs`, `could not spawn (init is out of memory)`, the handoff line) were changed,
@@ -112,10 +112,10 @@ calef, 2026-09-13, asked directly whether the crate should follow the program: *
 not initializer."*
 
 The argument is one asymmetry. `init` lost because it is a truncated verb where the rule asks for
-a noun. `initializer` is an agent noun, the thing that initialises, which is what the rule asks
+a noun. `initializer` is an agent noun, the thing that initializes, which is what the rule asks
 *for*: 266's own house-style list cites it beside `builder`, `spawner`, `supervisor` and
 `provisioner` as evidence for the convention. And the crate is not the process; it is the
-initialisation, and it descends nothing, so `progenitor` fits it worse than it fits the program.
+initialization, and it descends nothing, so `progenitor` fits it worse than it fits the program.
 
 That is now a paragraph in `crates/system_initializer/src/lib.rs`'s existing `Name:` block, where
 the next person to wonder will be reading, rather than only in a roadmap block. The full record is
@@ -164,7 +164,7 @@ them, deliberately, so that a rename moves one set of words and not two.
 
 - The `init/build  :` boot-tour label is still wrong and is left that way on purpose.
   `crates/board_console::progress` matches it by substring and its captured VisionFive 2 fixture logs
-  contain it; changing the label means changing the recogniser and stranding evidence that cannot be
+  contain it; changing the label means changing the recognizer and stranding evidence that cannot be
   re-captured without the board. The sentence after the label was corrected, so the transcript now
   reads `init/build  : the userspace builder loaded ...`, which is honest and mismatched.
 - `design/init-and-granular-spawn.md` is cited from nine places and is 40 occurrences of the old
@@ -183,7 +183,7 @@ them, deliberately, so that a rename moves one set of words and not two.
   needs a QEMU this container does not have, and CI is what runs it. The change is comments and
   strings, and the four strings that a person sees were each checked against every consumer in the
   tree first, but the honest statement is that no interactive boot ran here.
-- **The sweep is a judgement per occurrence and 976 were left.** The classification above was made by
+- **The sweep is a judgment per occurrence and 976 were left.** The classification above was made by
   reading, and a reading is wrong some of the time. The tell for a miss is a sentence in the present
   tense with `init` as its subject.
 

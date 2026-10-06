@@ -141,7 +141,7 @@ firmware variable survives a firmware reset and a disk moved to another machine.
 
 ## What a stranger's machine most plausibly has
 
-A judgement, not a measurement. An NVMe disk, on anything sold in the last several years; xenon's
+A judgment, not a measurement. An NVMe disk, on anything sold in the last several years; xenon's
 is a `Micron 2450 NVMe 256GB` on M.2 with SATA in AHCI rather than RAID (`notes/xenon-firmware.md`).
 Two cases this proposal does not cover, recorded in `BUGS` below: SATA disks, which need an AHCI
 driver nothing owns, and NVMe hidden behind Intel RST or VMD ("RAID On" in many laptops'
@@ -200,7 +200,7 @@ PC once rung 1 has one.
   : none (this boot did not come from a file)`, offered no install, and reached the `$` prompt.
   - **The keystroke was a script's.** calef said "Lets do it" and asked the maintainer session to
     watch the serial output; a watcher on patagonia's serial port sent `INSTALL` after an exact
-    size match. The person at the bench authorised the install; a script sent the keystroke.
+    size match. The person at the bench authorized the install; a script sent the keystroke.
   - **It depends on #1636.** The image was built from `lane/xenon-nvme-diag` (PR #1636, the VT-d
     `clflush` fix) at `0c16dcaac` with `cargo xtask install-boot` (QEMU gate PASS), sha256
     starting `69cc518b`. An install image from before that fix hits the NVMe CompletionTimeout

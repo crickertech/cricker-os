@@ -122,7 +122,7 @@ What each outcome means, decided before it runs:
 | `i2c read: write daddr 36 to` ten times and `cannot read pmic power register`, with the three JH7110 lines above reading `running` and `released` | The bus was up when the kernel let go and the read still failed. Either OpenSBI's own poll timing against a controller at reset defaults, or pinmux. Option B is the next step. | One plug-2 cycle. |
 | the same failure, with a JH7110 line reading `NOT running` or `STILL HELD` | The kernel's writes did not take: wrong window or wrong bit. A bug here, not in the firmware. | One plug-2 cycle; the before/after words in the transcript say which. |
 | the same failure, and `the bus was already up` on the reset line | U-Boot's handover is not the cause; this milestone's premise is wrong for radon. | One plug-2 cycle; option B. |
-| no `JH7110:` lines at all | `memory::init` did not recognise radon as a JH7110, so nothing was attempted. | One plug-2 cycle; the boot tour's `hw clock` line says why. |
+| no `JH7110:` lines at all | `memory::init` did not recognize radon as a JH7110, so nothing was attempted. | One plug-2 cycle; the boot tour's `hw clock` line says why. |
 
 ## Options, as the proposal priced them
 

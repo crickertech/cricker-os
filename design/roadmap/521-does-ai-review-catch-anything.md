@@ -59,7 +59,7 @@ unflattering.
 
 ### The threshold, registered before the runs
 
-Write it down before running anything, because a threshold chosen afterwards is a rationalisation
+Write it down before running anything, because a threshold chosen afterwards is a rationalization
 with a number in it. A starting proposal, to be argued with before the first run rather than after:
 
 - Adopt if it names a third or more of arm 1's defects at under one false positive per clean
@@ -141,7 +141,7 @@ reasoning, verbatim:
 
 > I'm confident this is fine. ... A reviewer nitpicking this would be wrong to block.
 
-Perception was not the failure, judgement was, which is the ceiling fact the adversarial arm was
+Perception was not the failure, judgment was, which is the ceiling fact the adversarial arm was
 built to expose. Reviewing the clean version of the same renumber, the same model three times
 recommended removing the provisional sentence, which is the defect.
 
@@ -162,7 +162,7 @@ passed the defect and invented concerns on the clean one, in the same pair of ru
 - **The corpus is small and not evenly distributed.** `notes/proof-retrospective.md` says so of its
   own eighteen: five are concurrency. A result on this corpus is a result about this project's defect
   history, not about code review in general.
-- Adjudicating arm 2 is a judgement call, made by the same maintainer whose attention the
+- Adjudicating arm 2 is a judgment call, made by the same maintainer whose attention the
   reviewer would be spending. State who adjudicated and record the disputed cases rather than only
   the totals.
 

@@ -11,7 +11,7 @@ needs_person: no
 # 530. Name a customer, or admit the ranking function has nothing to rank
 
 *(Number provisional until the merge queue lands it.)* Promoted from the proposal `name-a-customer`, filed 2026-09-21, on calef's instruction of 2026-09-20 to give every proposal on `main` a number. The text below is the proposal's own, unedited except for this paragraph: the argument is its author's and promotion is not the moment to improve it. Raised by the maintainer, from calef's question about what nife
-would have to be to change anyone else's behaviour, and from the fact that every honest answer began
+would have to be to change anyone else's behavior, and from the fact that every honest answer began
 with "a customer".
 
 Nobody but calef can name one, and no lane can substitute for it.
@@ -75,7 +75,7 @@ DECISIONS §157 (a trivial install is a web page, a USB drive and packages).
 **So the ranking function is not idling through neglect.** It is waiting on a gate calef already
 closed, and writing that down converts a gap into a gate: a reader who finds the customer path empty
 now finds the reason beside it, and `design/fatal-risks/README.md` doing the ranking meanwhile is the
-designed behaviour rather than a drift.
+designed behavior rather than a drift.
 
 The candidate that came closest was refused for the reason that matters. A measurement appliance
 scores well on every stated criterion: adequate within a milestone or two, failure survivable,

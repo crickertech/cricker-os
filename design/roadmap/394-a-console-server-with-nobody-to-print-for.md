@@ -78,7 +78,7 @@ true rather than letting the answer be decided by which is less work.
 
 ## Why the lane did not pick one
 
-Two reasons, and the first is the binding one. It was not authorised: calef ruled the narrator
+Two reasons, and the first is the binding one. It was not authorized: calef ruled the narrator
 deleted, and `console_service::start` plus `components/src/console.rs` are not the narrator. Deleting
 infrastructure on the momentum of a demonstration's deletion is exactly the sweep AGENTS.md's blind-
 `sed` scar is about.

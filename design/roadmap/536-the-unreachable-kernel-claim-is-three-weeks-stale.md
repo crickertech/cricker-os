@@ -11,7 +11,7 @@ recorded as §216 (fatal-risk facts are correctable, and verdicts are the archit
 2's stale sentence and size are corrected in `design/fatal-risks/README.md`, its appendix
 `design/fatal-risks/proofs-and-their-reach.md`, and `notes/proof-retrospective.md`, each correction
 dated and citing its source; PR #1276 had already corrected `script/verify`'s header. Risk 2's
-status and colour are unchanged, because §216 leaves them with calef. The line counts below are this
+status and color are unchanged, because §216 leaves them with calef. The line counts below are this
 block's 2026-09-20 measurement; the corrections carry the 2026-09-25 re-measure (86,528 lines,
 15,966 in files calling `asm!`, eight harnesses). *(Number provisional until the merge queue lands it.)* Promoted from the proposal `the-unreachable-kernel-claim-is-three-weeks-stale`, filed 2026-09-20, on calef's instruction of 2026-09-20 to give every proposal on `main` a number. The text below is the proposal's own, unedited except for this paragraph and one bold lead-in the prose ratchet refused: the argument is its author's and promotion is not the moment to improve it. Raised by the `maintainer/verus-versus-kani` lane, which was briefed
 on the claim and found it expired before it found anything else.
@@ -65,7 +65,7 @@ with two cheap rules) rule 1, architecture-specific code under `kernel/src/arch/
 unreachable residue to under a fifth of the kernel, and it is exactly the fifth you would expect.**
 Both defects risk 2 leans on, the timer re-arm drift from milestone 6 (threads, the context switch,
 and preemption) and the VisionFive 2 undelivered wake, are still on the far side of it, so **the risk's
-colour does not obviously change**; what changes is that the cause is two Rust constructs rather than
+color does not obviously change**; what changes is that the cause is two Rust constructs rather than
 a crate boundary, and that the fix is writing harnesses rather than moving a wall.
 
 `64,818` is also stale as a size. `kernel/src` is 81,413 lines today, 40,953 of them non-blank

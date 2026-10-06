@@ -29,7 +29,7 @@ extends rather than invents.
 
 The maintainer proposed a hybrid and it was refused for a good reason. The proposal was a
 glossary holding one row per borrowed term (`TOLUD`, `ECAM`, `DRHD`), with notes reserved for
-concepts this tree owns. **That requires a per-term judgement about what counts as "ours"**, which
+concepts this tree owns. **That requires a per-term judgment about what counts as "ours"**, which
 is the case-by-case reasoning calef had refused the same evening over `dynamic_ram`: an exception
 argued from relevance is exactly what a test is supposed to replace. A rule needing taste at every
 application is not a rule.
@@ -39,7 +39,7 @@ tree learned something about `TOLUD` on 2026-09-04, that QEMU models the registe
 boot path, which is why milestone 256 had to distinguish an absent answer from a disagreeing one.
 That finding is already more than a glossary row holds and would have had nowhere to live. And
 the gate gets simpler: a link target that is a file can be checked for existence, where an
-anchor inside one long glossary has to be parsed and breaks whenever somebody reorganises the page.
+anchor inside one long glossary has to be parsed and breaks whenever somebody reorganizes the page.
 
 And flat has a second reason, which is calef's and is the one that should shape the work
 (2026-09-05): *"If nife proves worthwhile I can foresee building a website and the notes are a key
@@ -102,7 +102,7 @@ The deliverable, in three parts:
    neither linked to its note nor in the exemption list, so a new acronym cannot arrive undefined.
    The file-per-term answer makes this check cheaper than the glossary would have: the target
    is a path, so the gate asks whether `notes/<term>.md` exists and whether `notes/README.md`
-   carries its line. No anchor parsing, and nothing to break when a page is reorganised.
+   carries its line. No anchor parsing, and nothing to break when a page is reorganized.
    The gate's own blind spot, recorded now: it cannot check that a link points at the *right*
    note, the same limit the citation checks already record.
 

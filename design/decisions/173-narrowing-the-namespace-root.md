@@ -75,7 +75,7 @@ irreversible: A is a thing two programs agree on, and B is a fact that lands in 
 tenet's own limit says a fork of this kind arrives as options.
 
 **What a lane could measure before the ruling, and it is not much.** A's size is already known from
-§98's neighbouring estimate (about thirty lines for a smaller change on the same surfaces). B's cost
+§98 (OPENDIR cannot be asked to attenuate)'s neighboring estimate (about thirty lines for a smaller change on the same surfaces). B's cost
 is not a measurement at all; it is a judgment about what a prompt means, which is why it is calef's.
 
 ## What is blocked until this is answered

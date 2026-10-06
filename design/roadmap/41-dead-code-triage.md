@@ -33,7 +33,7 @@ unchecked. Four things came out of it that a list of unused functions would not 
    riscv64, because the confused-deputy test is `cfg(target_arch = "aarch64")`. The check between
    U-mode and the kernel was proved on the ISA where it matters *less*: RISC-V has one root register,
    so the same tables translate user and kernel addresses and the `U` bit is the only line of
-   defence. Added the twin test; riscv64 goes 114 -> 115.
+   defense. Added the twin test; riscv64 goes 114 -> 115.
 2. A false doc comment on live-looking code. `sched::spawn_balanced` said "which is why the SMP
    balance test uses it", and the test had moved to plain `spawn` when §28 landed.
 3. A vestigial input path. `console::rx_read` and `Ns16550::read_byte` were dead in *every*

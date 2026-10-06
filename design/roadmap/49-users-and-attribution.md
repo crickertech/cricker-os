@@ -171,8 +171,8 @@ subtree in this slice at all, because the grant name travels in two argument wor
 (`fs_proto::grant::MAX_NAME`), narrower than `login_proto::MAX_IDENTITY`'s sixty-four; `login`
 refuses rather than silently truncating.
 
-See `components/src/login.rs`'s own BUGS for the itemised remainder (the terminal and boot integration,
-plus the two bounds above; measured-boot consultation and reclamation are both resolved), summarised
+See `components/src/login.rs`'s own BUGS for the itemized remainder (the terminal and boot integration,
+plus the two bounds above; measured-boot consultation and reclamation are both resolved), summarized
 in this milestone's BUGS below.
 
 ## Attribution is the actual work, and the one place Unix does something we do not

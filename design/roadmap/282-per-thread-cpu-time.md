@@ -78,7 +78,7 @@ in `crates/top`'s module docs. Folding it into `ps` as a flag is a day's work an
 ## BUGS
 
 - The reader races the writer, by design. Each core's tick touches only its own running thread's
-  slot, so the write needs no cross-core synchronisation, but a reader on one core observing a
+  slot, so the write needs no cross-core synchronization, but a reader on one core observing a
   counter another core is incrementing is a relaxed load of a value in flight. It reads a number
   that was true a moment ago, never a torn one. The same shape the per-CPU `TICKS` array already
   accepts, and rule 4 says state it rather than assume it.

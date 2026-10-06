@@ -163,7 +163,7 @@ reading for how it handles rights reduction when a handle is re-opened, which is
 §47 answers with "a child can never exceed its parent".
 
 A mistake to avoid: the general shape of a Unix `readdir`, where the ability to list follows from
-being able to name the directory at all. Redox is the neighbour that keeps Unix ergonomics, and the
+being able to name the directory at all. Redox is the neighbor that keeps Unix ergonomics, and the
 thing to take from it is the ergonomics without the ambient reach. Getting this wrong looks like
 ripgrep working beautifully and confinement being decorative.
 

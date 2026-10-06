@@ -32,7 +32,7 @@ under `## Follow-on`:
 
 Rule 7 says anything two binaries must agree on is a crate and never a `#[path]` module, and
 `script/lint`'s consumer counter enforces it by failing at two consumers. These two sit at one
-consumer each, which is the case the rule permits, and lifting them would have been a judgement call
+consumer each, which is the case the rule permits, and lifting them would have been a judgment call
 inside a commit that was deliberately mechanical. Milestone 39 (repository structure for a loosely-coupled OS) is the three-audience split the same block also put out of scope.
 
 ## Revisit

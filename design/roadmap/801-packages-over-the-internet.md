@@ -29,7 +29,7 @@ milestone is what is left: the name, the transport, and §250's index.
 
 ## The work list
 
-Today's `fetch` (`crates/system_initializer`) has the image's catalogue and one compiled-in source.
+Today's `fetch` (`crates/system_initializer`) has the image's catalog and one compiled-in source.
 
 1. Split the index from the package locations: fetch the index, then each package from where it
    says, verified by its digest.

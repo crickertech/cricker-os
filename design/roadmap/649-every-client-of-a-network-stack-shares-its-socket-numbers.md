@@ -47,7 +47,7 @@ already uses for the analogous file case (a narrowed endpoint per grant), and a 
 either way. What each costs has not been measured.
 
 Option 1 is now buildable without its own §10 fork. calef ruled the analogous filesystem
-question on 2026-09-26 (milestone 599 (a frame per filesystem client channel), a frame per filesystem client channel) in favour of badged
+question on 2026-09-26 (milestone 599 (a frame per filesystem client channel), a frame per filesystem client channel) in favor of badged
 endpoint capabilities, which is exactly the "endpoint badges" option 1 says it needs. Milestone 599
 builds the badge machinery on the shared `INVOKE` surface (a `BADGE` method to mint a badged
 endpoint, and the badge as a fourth `RECEIVE_CAP` return value). So option 1's prerequisite is being

@@ -49,7 +49,7 @@ What it must not do. `notes/` and `design/` keep their machine names: about a hu
 they are load-bearing there because a measurement series has to assert that the same physical machine
 was held constant. A sweep that treated this as a rename would destroy the thing that makes
 notes/soak.md's nine-boot spread evidence at all. §143's `BUGS` records that the boundary is a
-judgement, so this wants a reader rather than a `sed`, which is the lesson of the blind rename
+judgment, so this wants a reader rather than a `sed`, which is the lesson of the blind rename
 already on AGENTS.md's record.
 
 ## Follow-on
@@ -58,7 +58,7 @@ already on AGENTS.md's record.
   now reads "the JH7110 (radon, the `VisionFive` 2) has no IOMMU at all", hardware first. The
   `xtask/src/main.rs:2658` comment no longer exists: it went when `xtask` was split into modules
   and the cargo-feature pack (`5d210e035`), and grepping `kernel/`, `crates/`, `components/`,
-  `fixtures/`, `xtask/`, `script/` and `helpers/` for a machine name followed by a parenthesised
+  `fixtures/`, `xtask/`, `script/` and `helpers/` for a machine name followed by a parenthesized
   gloss finds no comment that leads with the name and omits the hardware.
 - **Done.** The other ten uses and the `notes/README.md` index line were brought into line
   incrementally between 2026-09-03 and 2026-09-19 by lanes editing those files for other reasons,
@@ -80,4 +80,4 @@ closed 2026-10-03. `notes/` and `design/` keep their machine
 names, about a hundred uses, because a measurement series has to assert that the same physical
 machine was held constant, and a sweep that treated this as a rename would destroy what makes
 notes/soak.md's nine-boot spread evidence at all. §143's own `BUGS` records that the boundary is a
-judgement, so this wants a reader rather than a `sed`.
+judgment, so this wants a reader rather than a `sed`.

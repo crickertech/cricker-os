@@ -71,11 +71,11 @@ differed only in which of the five return words the caller happened to read back
 hand-written copies of one assertion. `invoke5` (new, private to the crate, one per architecture)
 holds the trap once; every caller above it, including `invoke` itself, is now a safe wrapper with no
 `asm!` of its own -- the exact "collapse N hand-written assertions of one invariant into one" shape
-this block's own text names as the best available reduction. One honest behavioural note recorded in
+this block's own text names as the best available reduction. One honest behavioral note recorded in
 `notes/unsafe-obligations.md` and in the code: three of the collapsed functions (`receive`, `receive_cap`,
 `receive_fault`) used to leave one input register unset for the kernel to read as whatever value
 happened to be there (harmless, since those methods read no input words); routing them through the
-shared primitive means they now pass an explicit `0`, a strict tightening rather than a behaviour
+shared primitive means they now pass an explicit `0`, a strict tightening rather than a behavior
 change. Measured from the diff: 14 `unsafe {` blocks removed, 9 added, net -5, entirely inside
 `crates/user_rt/src/lib.rs`.
 
@@ -154,7 +154,7 @@ read must fault), and written once in `ROLE_PROBE` (refused by the kernel; the m
 The two deliberate-fault sites are the one honest exception recorded where a reader meets it:
 `MappedWindow`'s bounds check cannot catch either fault, because offset 0 is inside the declared
 window both times, so the real hardware fault happens inside `read`/`write` at exactly the access the
-hand-written version made, and the test's behaviour is unchanged by the migration. 3 `unsafe {`
+hand-written version made, and the test's behavior is unchanged by the migration. 3 `unsafe {`
 blocks removed, 2 added, net -1, in `components/src/disk_surveyor.rs` alone.
 
 `net_stack.rs`'s `a_r8`/`a_r16`/`a_w16`/`a_w8` cluster, the exact naming variant
@@ -765,7 +765,7 @@ calef would rather. Reverting any single wrapper (moving its call sites back to 
 nothing but that one function and its call sites; none of this touches the syscall surface, a wire
 format, or anything else two programs must agree on.
 
-## Round 8 (2026-09-01): the kernel, which seven rounds had never touched, categorised and two
+## Round 8 (2026-09-01): the kernel, which seven rounds had never touched, categorized and two
 clusters collapsed
 
 Rounds 1 through 7 worked `user/` and `crates/`. **None of them went near `kernel/src`**, and by
@@ -780,12 +780,12 @@ it matters" says the number is measuring.
 within reach of the prover) landed the day before: `cargo kani` can compile the kernel now, so this
 milestone's criterion 2 ("a typed abstraction whose invariant the compiler **or Kani** holds") is
 available inside the kernel for the first time. In the event neither collapse below needed the
-prover, because both turned out to be criterion 1, but the categorisation below says where the
+prover, because both turned out to be criterion 1, but the categorization below says where the
 prover is the tool for what remains.
 
 ### The per-category table for the kernel's 242, so nobody re-derives it
 
-Categorised by what the first token inside each block is (the same stripping-and-counting regex
+Categorized by what the first token inside each block is (the same stripping-and-counting regex
 `script/lint`'s census uses, so these add up to its number rather than a grep's).
 
 | shape | blocks | verdict |
@@ -972,7 +972,7 @@ sorted the non-FS hits into rough categories a follow-on lane can use rather tha
   probe) stays raw, with the reason recorded there. See round 7 above for the full per-method
   accounting.
 
-- **The kernel outside `arch/` is read and categorised** (round 8, the per-shape table above), and
+- **The kernel outside `arch/` is read and categorized** (round 8, the per-shape table above), and
   two of its clusters are collapsed: 37 page-zeroing sites onto `memory::alloc_zeroed`/
   `alloc_contiguous_zeroed`, and 5 device-tree parses onto `crate::device_tree`. What is
   deliberately left there, and why, is the "did not take" list in round 8; what is identified and

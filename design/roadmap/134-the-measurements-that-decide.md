@@ -79,7 +79,7 @@ read them, which is milestone 75, nor run the cross-OS comparison, which is mile
 | §96, process against event kernel | per-thread kernel stacks cost something | every bench in the tree is two threads |
 
 The two share one root: every instrument here is a micro-benchmark, and both claims are about cache
-behaviour under load. Warton's event-kernel result is the warning written out, at "generally within
+behavior under load. Warton's event-kernel result is the warning written out, at "generally within
 1% on micro-benchmarks" and 20% on a multi-tasking workload.
 
 ## Tier A: available today, on the dev machine under Hypervisor.framework
@@ -398,10 +398,10 @@ measure this register carries and nobody ever needs is a cheap thing to have bee
   most 8 lines sharing a page offset fit, and every stack top is page-aligned), which the TCB pages
   would produce equally. §96's performance input therefore stands as measured and its mechanism
   becomes a testable question rather than an assumption; the next item is the test.
-- **Milestone 506.** milestone 506 (colour the kernel stacks and take E1), `design/roadmap/506-colour-the-kernel-stacks-and-take-e1-again.md`: start
-  each thread's stack a per-slot colour below its top in a feature build and take E1 again on
+- **Milestone 506.** milestone 506 (color the kernel stacks and take E1), `design/roadmap/506-colour-the-kernel-stacks-and-take-e1-again.md`: start
+  each thread's stack a per-slot color below its top in a feature build and take E1 again on
   radon. A knee that moves right says the stacks caused it and a process kernel buys it back with
-  colouring; one that stays at 8 says the TCBs (page-aligned) did, which an event kernel would
+  coloring; one that stays at 8 says the TCBs (page-aligned) did, which an event kernel would
   not remove either. Either is a sharper input to §96 than it has. Can ride on the E3 evening.
 - **Recorded.** notes/qemu.md: `helpers/qemu-bounded.sh` does not bound
   `helpers/qemu-runner-x86_64.sh`, because that runner does not `exec` QEMU, so the bound kills the

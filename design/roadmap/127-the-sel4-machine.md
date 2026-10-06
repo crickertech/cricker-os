@@ -146,7 +146,7 @@ anything about NVIDIA's boot chain. These stay open and are the first items on t
   `booti` payload gets the device tree's physical address in `x0` and zero in `x1`-`x3`. That is a
   **firmware contract, not a measurement**, and this project has a scar exactly here: it once told
   calef QEMU passed a device tree in `x0`, printed it, and got zero. What is verified today is
-  QEMU's behaviour, continuously, by `device_tree_pointer_was_provided`.
+  QEMU's behavior, continuously, by `device_tree_pointer_was_provided`.
 - PSCI states `smc` and answers a non-Linux payload on the shipped TF-A revision.
 - `PMCCNTR_EL0` is readable at EL1 once `MDCR_EL2` is cleared, with the shipped secure-world
   settings. `MDCR_EL2.TPM` is the EL2 half; `MDCR_EL3`/`SDCR` is TF-A's and is not ours to write.

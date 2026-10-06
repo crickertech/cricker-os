@@ -113,7 +113,7 @@ the build rather than after it. What no host check covers is a real card's files
 - **This block does not fix any card.** Re-flashing is a bench action and the pair on the card is
   stale until somebody does it, and radon was powered down on the day this landed.
 - `--card` has only ever written to a directory on a Mac's own disk. Nothing here has touched a
-  real microSD card, and the `sync` it issues afterwards is the ordinary defence against pulling a
+  real microSD card, and the `sync` it issues afterwards is the ordinary defense against pulling a
   card too early rather than a tested one.
 - Nothing here checks a card after the fact. A tool that reads a mounted volume and reports
   whether its kernel and archive match would catch this before a power cycle rather than after, and
@@ -128,7 +128,7 @@ the build rather than after it. What no host check covers is a real card's files
   card. Re-flashing is a bench action, and radon's pair is stale until somebody does it.
 - **Recorded.** `design/roadmap/217-matched-pair-on-the-card.md` BUGS: the card option has only ever
   written to a directory on a Mac's own disk. Nothing here has touched a real microSD card, and the
-  `sync` it issues afterwards is the ordinary defence against pulling a card too early rather than a
+  `sync` it issues afterwards is the ordinary defense against pulling a card too early rather than a
   tested one.
 - **Recorded.** `design/roadmap/217-matched-pair-on-the-card.md` BUGS: the measured-boot refusal is
   treated as correct because it fired on a real mismatch, and this milestone makes no claim about

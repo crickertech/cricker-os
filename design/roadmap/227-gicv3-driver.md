@@ -93,7 +93,7 @@ option was also the cheaper one to write, and it lost on where a reader expects 
 SGIs stay enabled, and that was found rather than planned. QEMU's GICv2 model forces SGI
 set-enables to all ones and ignores SGI clear-enables (`hw/intc/arm_gic.c`), and the GIC-400 does
 the same. The Irq capability's mask-on-fire, unmask-on-ACK protocol had been relying on that for its
-SGI tests, where the mask and the unmask can run on different cores. A GICv3 redistributor honours an
+SGI tests, where the mask and the unmask can run on different cores. A GICv3 redistributor honors an
 SGI disable, per core, so a faithful port would have left an SGI masked on one core forever. The
 GICv3 driver keeps the GICv2 contract instead, and says why at `gicv3::disable`.
 

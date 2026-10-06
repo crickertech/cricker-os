@@ -41,7 +41,7 @@ a screendump and a serial log today.
 
 Three pieces, in the order they block each other:
 
-1. USB mass storage, which is milestone 242's neighbourhood rather than this proposal's.
+1. USB mass storage, which is milestone 242's neighborhood rather than this proposal's.
 2. A FAT32 writer, or a raw reserved region on the stick with a known offset, which is the much
    cheaper answer and is worth pricing first: the loader knows where its own image sits and could
    reserve a span at image time.

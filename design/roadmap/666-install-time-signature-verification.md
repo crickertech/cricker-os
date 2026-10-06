@@ -77,7 +77,7 @@ three architectures, outside the main workspace. Which major line to take (2.2.0
 
 - A signer on nife. §220 recommends none until a build made on nife must run elsewhere.
 - Expiring trust statements, deferred by calef until the verifier has a clock it can trust.
-- A transparency log (S3) or a signed catalogue (S4), which wait for a second vendor.
+- A transparency log (S3) or a signed catalog (S4), which wait for a second vendor.
 - A machine that never fetches cannot learn of a revocation. §220 says so plainly; the ceiling and
   the install-time check are the bound.
 

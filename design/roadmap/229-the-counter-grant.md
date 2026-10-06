@@ -150,7 +150,7 @@ mints the real surface.
   which is the strongest available form of the question: the caller is `Running` by definition of
   executing the line, and holds every authority a kernel thread has. `WrongObject`, the same
   refusal `CONFIGURE` makes on a started thread.
-- The write is idempotent and does not disturb its neighbours (`sched::tests`). Four calls
+- The write is idempotent and does not disturb its neighbors (`sched::tests`). Four calls
   where two change anything, then on riscv64 the assertion that carries this milestone's asymmetry
   argument: `scounteren.CY` is clear and `scounteren.TM` is still set.
 - A granted EL0 thread reads the counter, and an ungranted one is killed for trying

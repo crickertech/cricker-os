@@ -44,7 +44,7 @@ invoke(cap, SURVEY, cursor, record, 0) -> (next_cursor, tid, word)
   word.
 - `abi::survey::record::PLACEMENT` is 1, and answers a cpu id or `record::NO_CPU`.
 - An unknown record is `abi::Error::BadMethod`, refused before the walk begins. The selector is
-  part of the method's name, so an unrecognised one gets the refusal an unrecognised method word
+  part of the method's name, so an unrecognized one gets the refusal an unrecognized method word
   gets; no new error code was needed, and none was added. It is checked before the walk rather than
   at the point the record is extracted because of exactly one case: against an empty domain a
   check at extraction never runs, the walk falls off the end, and the caller is handed `DONE` and
