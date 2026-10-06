@@ -179,9 +179,20 @@ fn exited(t: &Spawned) -> Option<u64> {
 /// and, if the timetable speaks first, fails with its sentence. No deadline: a slow host makes this
 /// slower and never red (notes/load-sensitive-assertions.md).
 fn report(t: &Spawned) -> u64 {
+    report_until(t, u64::MAX).expect("no deadline, so a report or a panic")
+}
+
+/// **[`report`], or `None` once the counter passes `deadline`** (monotonic nanoseconds).
+///
+/// For a caller that has something better to do than wait when a report is late, never for a
+/// verdict: `None` must lead to a retry, not to a red, or this is a timed assertion again.
+fn report_until(t: &Spawned, deadline: u64) -> Option<u64> {
     loop {
         if crate::sched::rendezvous_waiting_senders(t.reports) > 0 {
-            return crate::sched::ipc_receive(t.reports)[0];
+            return Some(crate::sched::ipc_receive(t.reports)[0]);
+        }
+        if super::clock_service::monotonic_nanos() > deadline {
+            return None;
         }
         if let Some(code) = exited(t) {
             panic!("waiting for a scheduled child's report, the timetable exited with {code:#x}");
@@ -850,8 +861,34 @@ const TUESDAY: u64 = 20_732;
 /// offset from the counter that makes the page read `hh:mm:ss` on [`TUESDAY`]. `set` publishes as an
 /// operator's `SET`, otherwise as an accepted `SYNCED` proposal. Each call is a new generation.
 fn publish(t: &Spawned, set: bool, hh: u64, mm: u64, ss: u64) {
+    publish_at(
+        t,
+        set,
+        ((TUESDAY * 86_400) + hh * 3600 + mm * 60 + ss) * clock_protocol::NANOS_PER_SEC,
+    );
+}
+
+/// 02:00:00 on [`TUESDAY`], in wall nanoseconds: the occurrence the calendar test waits on.
+const TWO_AM: u64 = (TUESDAY * 86_400 + 2 * 3600) * clock_protocol::NANOS_PER_SEC;
+
+/// **How far before 02:00 the calendar test publishes**, and so how long it waits for real time.
+///
+/// It was five seconds (01:59:55), paid twice per boot on every architecture. The lead is not what
+/// the test proves: it only has to outlast the gap between this publication and the timetable's
+/// next pass, since a pass that first reads the page at 02:00 or later arms the next day's
+/// occurrence instead. A pass is one yield of a loop that never blocks here, so a second covers it
+/// with room, and when it does not, [`fires_at_two`] publishes again instead of going red.
+const LEAD: u64 = clock_protocol::NANOS_PER_SEC;
+
+/// **How long after 02:00 to wait for the report before publishing again.** Four seconds, so a
+/// lead plus this is the five-second window the test always had for the timetable to read a
+/// publication; see [`fires_at_two`] for why step 4 depends on that window and step 2 does not.
+const MISSED: u64 = 4 * clock_protocol::NANOS_PER_SEC;
+
+/// **Publish `wall` (nanoseconds) to the clock page, and return the offset it published**, so a
+/// caller can turn any later wall time on that page into a reading of the same counter.
+fn publish_at(t: &Spawned, set: bool, wall: u64) -> u64 {
     let phys = t.clock.expect("a clock-granted spawn");
-    let wall = ((TUESDAY * 86_400) + hh * 3600 + mm * 60 + ss) * clock_protocol::NANOS_PER_SEC;
     let state = if set {
         clock_protocol::state::SET
     } else {
@@ -859,10 +896,51 @@ fn publish(t: &Spawned, set: bool, hh: u64, mm: u64, ss: u64) {
     };
     // SAFETY: the frame `spawn_timetable_with` allocated for this test, through the direct map.
     let page = unsafe { clock_protocol::ClockPage::new(mmu::phys_to_virt(phys)) };
-    page.publish(
-        state,
-        clock_protocol::offset_for(wall, super::clock_service::monotonic_nanos()),
-    );
+    let offset = clock_protocol::offset_for(wall, super::clock_service::monotonic_nanos());
+    page.publish(state, offset);
+    offset
+}
+
+/// **Publish [`LEAD`] before 02:00, as an operator's `SET` if `set`, and return the 02:00 line's
+/// report**, which must arrive at or after 02:00 on the page's clock.
+///
+/// The bound is one-sided, so it is not a timed assertion: a slow host only makes a report later.
+/// It is what makes the wait mean something. Without it a timetable that fired a calendar line the
+/// moment it saw the clock, a minute early, met no assertion here (it ended, measured 2026-10-06,
+/// in a 60-second watchdog hang); the minute is the grammar's resolution, so that is the earliest
+/// an early fire can be.
+///
+/// **A missed publication is published again, never failed.** A timetable whose first pass after
+/// the publication came at 02:00 or later armed tomorrow's occurrence, and only a later generation
+/// re-arms it. The retry is always `SYNCED`, which is safe whatever the timetable had done:
+///
+/// - It never read the first publication, or read it late and armed tomorrow: the retry is a new
+///   generation before 02:00, so 02:00 arms and fires once.
+/// - It armed 02:00 and has not fired yet: the retry re-arms the same occurrence, once.
+/// - It fired and the report is slow: the stamp it took at 02:00 keeps the retry from firing again.
+///   A `SET` retry would clear that stamp and fire twice, which is why a retry is never one.
+///
+/// So a step-4 `SET` the timetable never read at all is not retried into existence: the `SYNCED`
+/// retry fires only if the stamp was cleared, which is the property step 4 claims. That case needs
+/// no pass for [`LEAD`] plus [`MISSED`], five seconds, the same window the test had when it waited
+/// from 01:59:55. Step 2 has no stamp to protect and is covered by the retry whatever the delay.
+fn fires_at_two(t: &Spawned, set: bool) -> u64 {
+    const ATTEMPTS: u32 = 5;
+    let due = TWO_AM - publish_at(t, set, TWO_AM - LEAD);
+    let mut retry_at = due + MISSED;
+    for _ in 0..ATTEMPTS {
+        if let Some(r) = report_until(t, retry_at) {
+            let now = super::clock_service::monotonic_nanos();
+            assert!(
+                now >= due,
+                "the 02:00 line reported {} ms before 02:00 on the page's clock",
+                (due - now) / 1_000_000
+            );
+            return r;
+        }
+        retry_at = TWO_AM - publish_at(t, false, TWO_AM - LEAD) + MISSED;
+    }
+    panic!("the 02:00 line never fired across {ATTEMPTS} publications a second before it")
 }
 
 /// **A calendar entry keeps a time of day by a clock it was granted, and a step moves it by S3**
@@ -874,18 +952,21 @@ fn publish(t: &Spawned, set: bool, hh: u64, mm: u64, ss: u64) {
 /// after a backward step, puts a report where the next assertion expects another one.
 ///
 /// 1. Registered while the clock is unknown: two calendar lines, admitted, and dormant.
-/// 2. The clock becomes known at 01:59:55 and runs on: the 02:00 line fires when it gets there.
+/// 2. The clock becomes known a second before 02:00 and runs on: the 02:00 line fires when it gets
+///    there, and not before ([`fires_at_two`]).
 /// 3. A `SYNCED` step back to 01:30 fires nothing, then forward to 03:05: only the 03:00 line fires,
 ///    once, for a step that covered it. It is `date`, which gets the clock page too and prints the
 ///    day the page says.
-/// 4. An operator `SET` back to 01:59:55 clears the stamps, so 02:00 fires again when the clock
-///    reaches it.
+/// 4. An operator `SET` back to a second before 02:00 clears the stamps, so 02:00 fires again when
+///    the clock reaches it.
 /// 5. An empty document ends the timetable.
 ///
 /// Each step publishes at most once before the test waits on a report, except step 3's pair, whose
 /// answer is the same whether or not the timetable saw the first of the two: the stamp from step 2
-/// is what keeps 02:00 from firing, and it holds across either generation. That is deliberate:
-/// nothing tells the test when the timetable has read the page, so no assertion may depend on it.
+/// is what keeps 02:00 from firing, and it holds across either generation. [`fires_at_two`]'s
+/// retries are the other exception, and its comment shows the same of each of them. That is
+/// deliberate: nothing tells the test when the timetable has read the page, so no assertion may
+/// depend on it.
 #[test_case]
 fn a_calendar_entry_keeps_time_by_its_granted_clock_and_a_step_moves_it_by_s3() {
     use timetable::registration as r;
@@ -918,9 +999,12 @@ fn a_calendar_entry_keeps_time_by_its_granted_clock_and_a_step_moves_it_by_s3() 
         "the plan names the line as the RRULE it is",
     );
 
-    // ---- 2. known at 01:59:55, and the clock runs on to 02:00 ----
-    publish(&t, false, 1, 59, 55);
-    assert_eq!(report(&t), 9, "02:00 fires when the clock reaches it");
+    // ---- 2. known just before 02:00, and the clock runs on to 02:00 ----
+    assert_eq!(
+        fires_at_two(&t, false),
+        9,
+        "02:00 fires when the clock reaches it"
+    );
 
     // ---- 3. back to 01:30, then forward to 03:05 ----
     publish(&t, false, 1, 30, 0);
@@ -935,9 +1019,8 @@ fn a_calendar_entry_keeps_time_by_its_granted_clock_and_a_step_moves_it_by_s3() 
     assert!(line(t.reports, &mut buf).is_none(), "and ended its stream");
 
     // ---- 4. an operator SET back before 02:00 ----
-    publish(&t, true, 1, 59, 55);
     assert_eq!(
-        report(&t),
+        fires_at_two(&t, true),
         9,
         "a SET cleared the stamp, so 02:00 fires again as the clock reaches it"
     );
