@@ -5,6 +5,7 @@
 //! rust-src into a linked `nife-dev` toolchain; `std-exerciser` builds the `std_exerciser` program for the
 //! custom targets with -Zbuild-std against it. See notes/std.md.
 
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -287,12 +288,29 @@ pub(crate) fn std_src() -> bool {
         return false;
     }
     let cp = |args: &[&str]| run("cp", args);
-    let hardlinked = cp(&["-al", &s(real.join("bin")), &s(farm.join("bin"))])
-        && cp(&["-al", &s(real.join("lib")), &s(farm.join("lib"))]);
     // Hard links cannot cross filesystems, and a container can mount the checkout on a different
-    // one from `~/.rustup`. A real copy costs a few hundred megabytes and works everywhere.
+    // one from `~/.rustup`, as can a Mac whose worktrees sit on their own APFS volume
+    // (notes/dev-machine-disk.md). A real copy costs about 1.2 GiB per farm and works everywhere.
+    // Ask the device numbers first rather than let `cp -al` find out: across volumes it prints one
+    // "Cross-device link" error per file, hundreds of lines that read as a broken build to anyone
+    // skimming the log, before this function falls back and succeeds.
+    let same_volume = matches!(
+        (std::fs::metadata(&real), std::fs::metadata(&farm)),
+        (Ok(a), Ok(b)) if a.dev() == b.dev()
+    );
+    let hardlinked = same_volume
+        && cp(&["-al", &s(real.join("bin")), &s(farm.join("bin"))])
+        && cp(&["-al", &s(real.join("lib")), &s(farm.join("lib"))]);
     if !hardlinked {
-        eprintln!("std-src: hardlink-clone failed (different filesystems?); copying instead");
+        if same_volume {
+            eprintln!("std-src: hardlink-clone failed; copying instead");
+        } else {
+            eprintln!(
+                "std-src: the farm and {} are on different volumes, so the toolchain is copied, \
+                 not hard-linked (notes/dev-machine-disk.md)",
+                real.display()
+            );
+        }
         let _ = std::fs::remove_dir_all(farm.join("bin"));
         let _ = std::fs::remove_dir_all(farm.join("lib"));
         if !cp(&["-R", &s(real.join("bin")), &s(farm.join("bin"))])
