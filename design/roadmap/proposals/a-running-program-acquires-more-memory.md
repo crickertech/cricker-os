@@ -10,7 +10,8 @@ needs_person: no
 # A running program acquires more memory as it needs it
 
 calef asked for this on 2026-10-06 (UTC): a running program should be able to get more memory when
-it needs it. A writing-only lane wrote it and built nothing.
+it needs it. A writing-only lane wrote it and built nothing. calef ruled forks 1 and 2 on #1777 the
+same day and sent fork 3 back, reworked below with a new fork 7. Forks 4 to 7 are open.
 
 It is the program half of #1769 (concurrent login sessions), whose fork 4 calef ruled "D" the same
 day: a `memory_broker` holding the pool left after the boot's carve, handing out geometric
@@ -27,11 +28,10 @@ milestones 801 (packages over the internet) and 802 (the trivial install). Nothi
 the package client needs more than one region. So this ranks below 801 and 802 unless the package
 client is shown to hit the ceiling. Nobody has measured that.
 
-Against the fatal risks, it guards one verdict that is already GREEN. Risk 1 (only software written
-for nife runs on nife) went GREEN on milestone 121 (`ripgrep` on nife). But `notes/ripgrep-on-nife.md`
-records the gap: "`ripgrep` never allocated much, because it stopped before searching", and the heap
-"is untested against a real workload". The next real run of 121, its walk benchmark against Linux,
-meets the ceiling. That makes this the work that keeps risk 1 GREEN once anyone searches.
+Against the fatal risks, it guards a GREEN verdict. Risk 1 (only software written for nife runs on
+nife) went GREEN on milestone 121 (`ripgrep` on nife). Yet `notes/ripgrep-on-nife.md` says
+"`ripgrep` never allocated much, because it stopped before searching". 121's walk benchmark meets
+the ceiling, so this keeps risk 1 GREEN once anyone searches.
 
 ### What the ceiling is, measured on 2026-10-06 (UTC)
 
@@ -50,9 +50,8 @@ which counts dirty memory and not the clean image):
 | `sqlite3 :memory:`, 100,000 rows and one index | 28.5 MiB | 28x |
 | `rustc -O` on hello world | 24.0 MiB | 24x |
 
-Not apples to apples: macOS footprint includes its `malloc` slack, `dyld` and the stack. The
-direction is clear. A compiler, a database, `rg` on a large tree and milestone 99 (`git` on nife)
-need tens of MiB.
+Not apples to apples (macOS counts its `malloc` slack, `dyld` and the stack), but a compiler, a
+database and `rg` on a large tree need tens of MiB.
 
 What fails today, read from the code and not run: `MAP` returns `OutOfMemory`, the allocator returns
 null, and `std` aborts through `handle_alloc_error`. Nothing grows.
@@ -62,131 +61,136 @@ A web server is unmeasurable today: no `std` program holds the network from the 
 
 ## What the tree has, read on 2026-10-06 (UTC)
 
-The allocator already grows lazily. `user_mode_runtime::heap` and `std`'s restatement
-(`patches/std-nife/overlay/std/src/sys/alloc/nife/mod.rs`) map pages one `MAP` at a time,
-geometrically, into a reserved virtual band. The band is `address_space_map::HEAP`, 256 MiB at
-`0x4000_0000`. So the virtual reservation exists. What is missing is a second source of pages once
-the first region is spent.
+The allocator already grows lazily. `user_mode_runtime::heap` and `std`'s restatement map pages one
+`MAP` at a time, geometrically, into `address_space_map::HEAP`, a 256 MiB band at `0x4000_0000`.
+What is missing is a second source of pages once the first region is spent.
 
 `memory_region` has `MAP`, `RETYPE`, `RETYPE_OBJ`, `SPLIT`, `DESTROY` and `USAGE`. Nothing grows or
 shrinks a region (`crates/abi`). A process can hold several regions, and `MAP` takes any of them.
 
-The kernel has no demand paging. A fault goes to the fault endpoint as a death (§26 (the fault
-endpoint)), which reserves a word for a fault-reply protocol and builds none.
-`design/open-design-ideas.md` lists "a userspace pager" as a trigger for `Tcb::SUSPEND`.
+The kernel has no demand paging: a fault is a death on the fault endpoint (§26 (the fault
+endpoint)).
 
 Regions are carved bump-only. Since the 2026-10-03 amendment to §16 (object revocation), a hole
 returns once nothing above it is held, and not before.
 
-`MAX_REGIONS` is 256, machine-wide. The suite's peak is 225 on aarch64, 224 on riscv64 and 125 on
-x86_64 (milestone 601 (the region table prints its peak)'s ledger), so aarch64 has 31 spare.
+`MAX_REGIONS` is 256, machine-wide. The suite now peaks at 242 on aarch64, 241 on riscv64 and 136 on
+x86_64, read from CI's `regions:` lines on 2026-10-06. Milestone 601 (the region table prints its
+peak) measured 225 on 2026-09-26. aarch64 has 14 spare ([appendix](a-running-program-acquires-more-memory/returning-memory.md)).
+
+A process's capability table has 64 slots (`CAPABILITY_TABLE_SLOTS`), and every region it holds
+takes one.
 
 A reply carries two words and no capability (`abi::reply`). `login_protocol` sends its capabilities
 over a private result endpoint for that reason, and a broker grant must do the same.
 
-There is no pool for a broker to hold yet. The kernel hands the progenitor one 12,288-page region
-(48 MiB of QEMU's 256). The progenitor carves its own budget, the shell's, the job pool and the image
-pool, then calls `cap_delete(ut)` on the rest, unmeasured (`crates/system_initializer`). The rest of
-RAM stays with the kernel's frame allocator. #1769's fork 4 assumes a pool "left after the boot's
-carve". Today that remainder is thrown away, and its size is the first slice's step 0.
+There is no pool for a broker yet. The kernel hands the progenitor 12,288 pages (48 MiB of QEMU's
+256). After its carves, the progenitor calls `cap_delete(ut)` on an unmeasured rest
+(`crates/system_initializer`). #1769's fork 4 assumes that leftover pool; measuring it is step 0.
 
-Milestone 205 (how a foreign program is told what to do) carries `--mem`, a size a person names at
-the prompt. That is complementary: it sizes the first region. It cannot help a program whose need
-is only known while it runs.
+Milestone 205 (how a foreign program is told what to do) carries `--mem`, which sizes the first
+region at the prompt. It cannot help a need known only while the program runs.
 
 Reuse: the broker is #1769's. The policy is `user_mode_runtime::heap`'s. Genode's quota upgrade
 lends a shape and no code.
 
 ## The forks
 
-Six, in the order calef rules on them. Forks 1 to 4 shape the first slice.
+Seven, in the order calef rules on them. Fork 7 is new and belongs with fork 3. Forks 1 to 4 and 7
+shape the first slice.
 
 ### 1. Who a program asks
 
-| option | what it is | verdict |
-|---|---|---|
-| A | The session's `memory_broker`, on an account its spawner opened for it | recommended |
-| B | Its spawner, which asks the broker on its behalf (Genode's quota upgrade) | refused |
-| C | A kernel method that grows a region in place | refused |
-| D | Every program holds the session's own broker capability | refused |
+Ruled A, calef, 2026-10-06 (UTC): "Yes on Fork 1, broker accounts". A program asks the shared
+`memory_broker` on an account its spawner opens with a ceiling and closes at reap. The broker sees
+one request format from a session or a program, so #1769's session account is the tree's root.
 
-Under A, the spawner opens a child account under its own when it builds the program. The account is
-a badged endpoint, with a ceiling no larger than what the spawner's account has left. The program
-asks the broker directly, and the spawner closes the account at reap. The broker sees one request
-format whether a session or a program is asking, so #1769's session account is simply the root of
-the tree.
-
-B is Genode's shape. It puts a second hop in every grow, and every spawner (the shell,
-`job_undertaker`, a future `make`) must serve memory requests beside its own job. A gives the parent
-the same control, the ceiling and the close, without being on the path.
-
-C is a syscall-surface fork, refused on the model. A region is a fixed run of pages with a bump
-watermark. Growing one in place needs the pages after it free, which its siblings' carves make
-rare, or a non-contiguous region, which changes every caller and every Kani proof in
-`crates/memory_regions`. It also hands the kernel a policy choice the untyped model keeps out.
-A process can already hold a second region, so C buys nothing A lacks.
-
-D loses accounting and reclaim: a dead program's increments stay charged to its session, and one
-runaway can spend the session's share.
-
-A is about elegance, not effort: B is about the same amount of work.
+Refused: a parent relaying each request (Genode), a second hop in every grow. A kernel method
+growing a region in place, which breaks the bump model for nothing a second region lacks. Programs
+sharing the session's broker capability, which loses per-program reclaim.
 
 ### 2. The allocator's shape
 
+Ruled A, calef, 2026-10-06 (UTC): "Yes on Fork 2, one band with user_mode_heap". One contiguous
+heap band, the existing 256 MiB reservation, backed by successive regions from the account. On
+refusal the allocator keeps mapping at its cursor from a new region. The grow policy moves into
+`user_mode_heap`, which `cargo xtask std-src` already copies into `std`, so `std` stops restating
+it.
+
+Refused: one arena per region, which fragments the free list at every edge. Refused for now:
+backing on fault, which needs a pager the kernel does not have (§26 chose dead-until-reaped).
+
+### 3. Giving memory back while running
+
+Sent back by calef, 2026-10-06 (UTC): "Most of my professional work has involved large programs
+with spikes in memory that would need to be returned. Otherwise it is like the process is leaking
+memory." Returning memory while running is now in the first slice, in the two-part shape he
+approved. The [appendix](a-running-program-acquires-more-memory/returning-memory.md) has the
+arithmetic.
+
+A region is the smallest unit the kernel takes back. nife cannot `madvise` a page in the middle of
+a region, so whatever is returned must be a whole region.
+
+Part 1, large allocations get their own region. An allocation at or above a threshold is not put in
+the band. The allocator asks its account for a region of exactly its size, maps it outside the band
+and returns it to the broker the moment it is freed.
+
+| threshold | verdict |
+|---|---|
+| 128 KiB, glibc's default `M_MMAP_THRESHOLD` (from memory) | refused |
+| 1 MiB (256 pages) | recommended |
+| 4 MiB | refused |
+
+glibc's number is priced for `mmap`, which costs nothing machine-wide. Here a large allocation
+takes a slot in a 256-region table the machine shares, and one of the process's 64 capability
+slots. At 1 MiB its fixed cost is small beside the 256 `MAP` calls its pages need anyway. 4 MiB
+would leave 2 MiB spikes in band increments that small objects can pin.
+
+Large regions are placed downward from the top of the heap band while the band grows upward, so
+they meet only when the 256 MiB is full. The allocator tracks at most 16; past that, a large
+allocation goes into the band rather than failing.
+
+Part 2, the band is trimmed from the top. When the newest band increment is wholly free and the
+one below it is too, the newest goes back to the account and the cursor drops. Keeping one free
+increment in hand is the hysteresis that stops thrashing at an edge. `user_mode_heap` is first-fit
+over an address-sorted list, so the top tends to empty first. The appendix says how the allocator
+detects a free increment.
+
+Increment sizes pull two ways: doubling keeps slots few, but the newest increment is half the band
+and one live object pins it. So the two kinds get different policies:
+
+| region kind | size | returned |
+|---|---|---|
+| band increment | doubling from 256 pages, capped at 2,048 (8 MiB) | from the top, keeping one free increment in hand |
+| large allocation | the allocation's own size, page-rounded | at `free` |
+
+The 8 MiB cap bounds what a pinned increment holds back; a 64 MiB small-object heap takes about 10.
+
+The old "8 increments per account" becomes 32 regions per account: 16 band increments and 16 large
+allocations. Past the band cap the broker refuses by name (fork 4). The broker also keeps a
+machine-wide slot budget, so no set of programs can fill the kernel's table. It never reclaims from
+a live program on its own; that is fork 4's revoke, and revoke kills.
+
+### 7. The region table's size
+
+The numbers decide that it must rise. aarch64's suite already peaks at 242 of 256, up 17 since
+2026-09-26 with none of this built. One program at the 32-region account cap would take the table
+past full. The appendix has the measurement and the estimate.
+
 | option | what it is | verdict |
 |---|---|---|
-| A | One contiguous heap band, backed by successive regions: when `MAP` refuses, ask for an increment and keep mapping at the same cursor | recommended |
-| B | Separate arenas, one per region, each with its own free list | refused |
-| C | Reserve virtual space and back it on fault | refused for now |
+| A | `MAX_REGIONS` to 1,024; the broker's slot budget 256 | recommended |
+| B | `MAX_REGIONS` to 512; the broker's slot budget 128 | fallback |
+| C | Keep 256 and shrink the suite's residue first (milestone 676 (the NTP and login tests give their regions back)) | refused as the answer, wanted anyway |
 
-A is a small change to code that exists. Both allocators already hold a cursor, `base + committed`.
-On refusal they ask the broker, receive a region in a new slot, and keep mapping from that slot at
-the same address. The free list sees one band, so adjacent free blocks coalesce across an
-increment's edge. The allocator keeps a short array of region slots in the order it got them. The
-256 MiB band bounds the whole heap, which is eight doublings of today's 1 MiB.
+What a raise costs: about 29 KiB of kernel static now and 116 KiB at 1,024, estimated from the
+fields. No Kani proof depends on the size, so nothing is re-proved. The real cost is the
+whole-table walks under the region lock, with interrupts masked: 42 to 62 µs at 256 by the
+2026-10-03 audit, perhaps 1 ms at 1,024 by extrapolation. A's exit criterion re-measures it, and B
+is the fallback.
 
-B fragments the free list at every region edge, and a large `Vec` cannot span two arenas.
-
-C needs a pager: fault, message, map, resume. The kernel has none, and §26 chose dead-until-reaped.
-Lazy backing would save only pages mapped and never touched. Geometric growth bounds those at about
-half the heap, and today's allocator already pays that. A pager has stronger triggers (swap,
-`mmap` of a file for milestone 121's `memmap2`). It should be designed for those, not for this.
-
-One policy change rides along. `std` restates the growth policy by hand because it cannot depend on
-`user_mode_runtime`. `user_mode_heap` is already generated verbatim into `std` by `cargo xtask
-std-src`. So the grow decision (how much to ask for, when to give up) moves into `user_mode_heap` as
-pure, host-tested logic, and the two copies become one.
-
-Increment size: the first request asks for as much as the heap already has, doubling, never less
-than the allocation that failed. That is the rule `grow` uses today within one region. Reaching 64
-MiB from 1 MiB takes six increments and six region slots.
-
-### 3. Giving memory back
-
-| option | what it is | verdict |
-|---|---|---|
-| A | A program keeps its increments until it exits; the spawner's close returns them all | recommended, first slice |
-| B | The allocator also returns its newest increment when the whole of it is free, with hysteresis | follow-on, after A is measured |
-| C | The broker reclaims an increment from a live program under pressure | refused |
-
-A region is the smallest unit the kernel returns, so there is no `madvise`. A program can give back
-only its newest whole increment, since its heap is one band. Rust programs rarely shrink, and exit
-is the moment that matters.
-
-B is cheap in the allocator, but a program freeing and regrowing near an edge would thrash.
-Measure first.
-
-C is fork 4's revoke, and revoke kills (below). It cannot be a quiet reclaim.
-
-The pool's own fragmentation is #1769's concern too. Two programs growing in turn interleave their
-increments in the pool. When one exits, its holes return only when nothing above them is held
-(§16). Geometric increments keep the holes few and large. The first slice measures the stranded
-pages, the same number #1769's exit criterion 9 measures.
-
-The 256 slots are the tighter limit. Each increment is a live region. Six increments per large
-program, and a handful of large programs, is tens of slots against aarch64's 31 spare in the suite.
-The broker should cap increments per account at 8, and say so in its refusal. Raising `MAX_REGIONS`
-is cheap if the ledger shows the need: it is a kernel constant with a measured peak beside it.
+C is right about the cause and wrong as the fix: a program's memory should not be capped to fit
+a test suite's leftovers. A raise changes a constant, not the syscall surface.
 
 ### 4. What failure means
 
@@ -196,41 +200,32 @@ is cheap if the ledger shows the need: it is a kernel constant with a measured p
 | B | The request blocks until memory frees | refused |
 | C | The broker picks a victim and kills it (an OOM killer) | refused |
 
-Under A, a program that handles failure can, and one that does not dies the way it does today, at
-a larger size. The broker's refusal names one of three causes: the account's ceiling, the
-per-identity cap, or an empty pool. That avoids the collapse `memory_region`'s BUGS records for
-`OutOfMemory`. Each refusal is one attributed record in the system log (milestone 613 (a system log
-service)), so the owner can see who is asking.
+Under A, a program that handles failure can, and one that does not dies as it does today. A
+refusal names one of four causes (the account's ceiling, its region cap, the per-identity cap, an
+empty pool) and is one attributed record in the system log (milestone 613 (a system log service)).
 
 B deadlocks a program holding memory another needs, invisibly.
 
-C needs authority to kill that the broker should not hold, and it puts policy (whom to kill) in a
-server that only counts pages. Linux's OOM killer exists because overcommit promises memory that is
-not there. Nothing here overcommits: a page is mapped only when it is paid for.
+C puts kill authority and victim policy in a server that only counts pages. Linux needs an OOM
+killer because overcommit promises memory that is not there; nothing here overcommits.
 
-What the owner's revoke does, stated plainly: the broker `DESTROY`s the account's increments. Their
-pages are revoked from the program's address space, its next touch faults, and the fault endpoint
-delivers its death to its supervisor. So in this system revoke is a kill, decided by a person and
-logged. A gentler "please shrink" notice would need a channel the program reads. That is a
-follow-on that wants a customer first.
+Stated plainly, the owner's revoke is a kill. The broker `DESTROY`s the account's regions, the
+program's next touch faults, and its supervisor gets the death. A "please shrink" notice is a
+follow-on that wants a customer.
 
 ### 5. How this meets #1769's caps and reserve
 
 Recommended, and nothing here is new beyond #1769's fork 4:
 
-- Accounts form a tree. The root is the broker's pool. Under it sits one account per session, each
-  capped by the owner's per-identity file when there is one. Under a session sit its programs'
-  accounts. A grant is charged to every account above it, so a program cannot exceed its session's
-  cap.
-- The owner's reserve is outside the pool by construction. The boot shell's budget, the job pool and
-  the image pool are carved before the broker is handed anything. That is rung 1 of the ladder: no
-  grant can reach them, because the broker never held them.
+- Accounts form a tree: the pool, then one account per session (capped by the owner's per-identity
+  file, if any), then its programs. A grant is charged to every account above it.
+- The owner's reserve is outside the pool by construction, rung 1 of the ladder. The boot shell's
+  budget, the job pool and the image pool are carved before the broker is handed anything.
 - The boot shell's jobs get accounts too, and are the broker's only clients until #1769's
   sessions exist.
 
-The open question is the default ceiling of a program's account. Recommended: no ceiling below its
-session's, matching calef's "default none" for the per-identity cap. A spawner may set one, as
-`--mem` would.
+calef's fork 1 ruling set a program's default ceiling to its session's. A spawner may set a lower
+one, as `--mem` would.
 
 ### 6. Whether native programs get it
 
@@ -241,8 +236,7 @@ session's, matching calef's "default none" for the per-identity cap. A spawner m
 | C. Every program, boot servers included | refused |
 
 A comes nearly free once the policy is in `user_mode_heap`. C is wrong for servers like
-`credentialer` and `net_stack`, whose fixed budget is part of their confinement claim. A server that
-grows from a session's pool would let one person's traffic spend another's memory.
+`credentialer` and `net_stack`, whose fixed budget is part of their confinement claim.
 
 ## How others do it
 
@@ -253,6 +247,10 @@ All from memory and unchecked; the building lane owes a read of each.
 - Fuchsia: VMOs mapped into VMARs under job policy; memory pressure signals, then kills. Fork 2 C.
 - Linux: `brk` and `mmap` backed on fault, overcommit, an OOM killer, cgroup `memory.max`. Forks 2
   C and 4 C.
+- glibc: chunks of `M_MMAP_THRESHOLD` (128 KiB, rising dynamically) or more get their own `mmap`.
+  The heap top is trimmed, and `malloc_trim` `madvise`s free pages inside. Fork 3, plus `madvise`.
+- jemalloc and mimalloc: free pages inside the heap go back by `madvise` after a decay delay. nife
+  cannot do that below a region, which is why fork 3 separates large allocations at all.
 
 ## The first slice
 
@@ -263,12 +261,14 @@ other adds to it.
    it is too small to show growth past 16 MiB, raise the progenitor's 12,288 pages in the same
    slice and record why.
 1. The progenitor hands that remainder to `memory_broker`. The boot shell holds the owner's revoke.
-2. `memory_broker`: accounts, geometric grants delivered over a result endpoint, three named
-   refusals, close and revoke.
-3. The grow policy moves into `user_mode_heap`. Both allocators ask the broker when `MAP` refuses.
+2. `memory_broker`: accounts, grants over a result endpoint, release, four named refusals, the
+   slot budget, close and revoke.
+3. The grow policy moves into `user_mode_heap`. Both allocators ask the broker when `MAP` refuses,
+   give large allocations their own regions, and trim the band from the top.
 4. `std_runtime_protocol` gains slot 9 for the broker account. Empty means "not given", and the
    allocator behaves as it does today.
 5. The progenitor opens an account per `std` job and closes it at reap, on `job_undertaker`'s path.
+6. `MAX_REGIONS` rises as fork 7 rules, with the whole-table walk re-measured.
 
 ### Exit criteria a stranger could check
 
@@ -287,11 +287,18 @@ One `cargo xtask` gate that `script/test` runs, exiting 0 under QEMU on aarch64 
    count returns to its starting value.
 5. Death returns everything. A grower killed mid-growth leaves the broker's free count and the
    region table's count where they began.
-6. Slots. The suite's printed region peak stays under 256 on all three.
-7. Host tests in `user_mode_heap` cover the grow policy: doubling, the floor, the band's end, the
-   increment cap.
-8. Measured, not gated: `MAP` calls per MiB, and the stranded pages after two growers interleave.
-9. A `design/decisions/` section records the broker protocol, minted by the integrator.
+6. A spike returns. `heap_grower` holds a baseline, then allocates 64 MiB in 4 MiB buffers and 32
+   MiB of 4 KiB objects, frees them all and keeps running. The account's held total, read from the
+   broker, falls to within 8 MiB of the baseline before the program exits.
+7. One program cannot fill the table. A grower keeps 1,000 buffers of 2 MiB live. Its account
+   holds no more than 32 regions, the extra buffers land in the band or are refused by name, and
+   a second program's account still grows.
+8. Host tests in `user_mode_heap` cover the grow policy, the threshold, the highest free block,
+   withdrawing a range and the hysteresis.
+9. The suite's printed region peak stays under `MAX_REGIONS` on all three, and the deepest
+   `USAGE` walk is re-measured at the new size.
+10. Measured, not gated: `MAP` calls per MiB, and the stranded pages after two growers interleave.
+11. A `design/decisions/` section records the broker protocol, minted by the integrator.
 
 ## What is blocked until the ruling
 
@@ -301,7 +308,8 @@ call. Forks 5 and 6 can ride on the recommendations unless he says otherwise.
 
 ## Follow-ons, proposed, unnumbered
 
-- Returning the newest increment while running, fork 3 B, after the first slice's measurement.
+- Milestone 676's work, shrinking the suite's region residue, which fork 7 C wants anyway.
+- Growing a large allocation in place by mapping the pages after it, as `mremap` does.
 - A "please shrink" notice before a revoke, when a program wants one.
 - Milestone 121's walk benchmark under a grown heap, which this unblocks.
 
