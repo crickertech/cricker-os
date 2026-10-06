@@ -93,7 +93,7 @@ with the gate run on it. A nife commit that fails the gate is a red pull request
 
 ## Follow-on
 
-- **Proposed.** `design/roadmap/proposals/basalts-gate-blocks-a-merge.md`: a ruleset requiring the
+- **Milestone 777.** Milestone 777 (basalt's gate blocks a merge, and a green pin bump merges itself). `design/roadmap/777-basalts-gate-blocks-a-merge.md`: a ruleset requiring the
   gate, and a green pin bump that merges itself. Today the gate reports and blocks nothing.
 
 ## Index row

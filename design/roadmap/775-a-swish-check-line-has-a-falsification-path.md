@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: a-swish-check-line-has-a-falsification-path
 raised: 2026-10-04
 milestone_dependencies: none
 decision_dependencies: 134
@@ -7,7 +8,9 @@ machine_requirements: none
 specific_machine: none
 needs_person: yes
 ---
-# A swish-check line has a falsification path
+# 775. A swish-check line has a falsification path
+
+<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised 2026-10-04 (UTC) by milestone 742 (every test is falsified as routine). Title and
 slug are drafts. **This is an architect's call**: it is the spelling of §134's patch path.
@@ -36,3 +39,7 @@ path to take.
 
 **Cost.** Each swish-check record costs one leg's build and boots in the weekly sweep, about 2 to 6
 minutes on a hosted runner (aarch64 is the cheap leg). Nothing per pull request.
+
+## Index row
+
+The falsification-record path convention is keyed on a function, but one swish-check function types every line, so only one swish-check line can have a record. The block states the fork and its options for an architect to rule on; nothing is decided here.

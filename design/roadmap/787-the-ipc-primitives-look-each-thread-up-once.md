@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: the-ipc-primitives-look-each-thread-up-once
 raised: 2026-10-04
 milestone_dependencies: 758
 decision_dependencies: none
@@ -7,7 +8,9 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The IPC primitives look each thread up once
+# 787. The IPC primitives look each thread up once
+
+<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the lane for milestone 758 (the IPC fast paths shrink back inside their band) on
 2026-10-04 (UTC), from the same per-line attribution that chose its levers. It is the next lever
@@ -36,3 +39,7 @@ check, once, rather than trading it for the raw pointer.
 
 `script/fastpath-footprint` shows the saving on all three ISAs, and the system tests that exercise
 each IPC primitive pass unchanged.
+
+## Index row
+
+The IPC primitives in `kernel/src/sched.rs` resolve the same thread name several times per critical section, and each lookup and its unwrap pad costs bytes on the fast path. Resolving each name once and sharing one cold exit should save a few hundred bytes per ISA, subject to a design constraint on the wait-queue pointers.

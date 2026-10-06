@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: a-live-stick
 raised: 2026-10-04
 milestone_dependencies: 242, 400
 decision_dependencies: none
@@ -7,7 +8,9 @@ machine_requirements: x86_64 UEFI silicon with a USB keyboard and a monitor
 specific_machine: none
 needs_person: yes
 ---
-# A live stick: boot a PC into nife without touching its disk
+# 773. A live stick: boot a PC into nife without touching its disk
+
+<!-- prose-budget: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the word cap only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Asked for by calef on 2026-10-04 (UTC). Written by the lane `lane/live-stick-proposal` at base
 `2d154f848`. Title, slug and every new name here are provisional.
@@ -272,3 +275,7 @@ exit criteria.
 
 "live stick", `memory_disk`, the `install` program in O2, and the handoff field for the boot medium.
 None is ratified.
+
+## Index row
+
+A USB stick that boots a PC such as xenon into a usable nife from memory, leaving the PC's own disk exactly as found. It matters because it is the cheapest way for a stranger to try nife on a machine they own, which fatal risk 8 (nobody needs it) cannot be tested without.

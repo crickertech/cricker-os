@@ -131,7 +131,7 @@ Kani-proven not to loop or overrun, is in `crates/multicast_dns_protocol` at com
   layout is `socket_protocol::lease`, provisional. Both ISAs' lease tests assert slirp's 10.0.2.3.
 - **Outstanding.** The x86_64 leg of the end-to-end test, once a NIC runs under QEMU there (milestone
   494's e1000e driver).
-- **Proposed.** `design/roadmap/proposals/net-stack-seeds-its-generator-from-entropy.md`: seed
+- **Milestone 783.** Milestone 783 (the network stack seeds its random generator from the clock, and TCP sequence numbers come from it). `design/roadmap/783-net-stack-seeds-its-generator-from-entropy.md`: seed
   `smoltcp`'s generator in `net_stack` from the entropy service rather than `now()`, since it
   chooses TCP initial sequence numbers today, whatever happens to DNS.
 

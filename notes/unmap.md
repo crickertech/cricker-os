@@ -145,7 +145,7 @@ page, and nothing more. The negative control §162 and the roadmap block name (t
 to a boot server's page and faults) cannot be built until a running space can be named. This is a
 design fork on the syscall surface, so it is an architect's call and this lane did not build an
 answer. The proposal is
-`design/roadmap/proposals/a-running-process-can-name-its-own-address-space.md`, with the options and
+`design/roadmap/789-a-running-process-can-name-its-own-address-space.md`, with the options and
 a recommendation.
 
 This bears on the running-root fix

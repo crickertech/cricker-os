@@ -58,7 +58,7 @@ The finding that decided what to build: the replays existed and their verdicts w
 
 ## Follow-on
 
-- **Proposed.** `design/roadmap/proposals/a-swish-check-line-has-a-falsification-path.md`.
+- **Milestone 775.** Milestone 775 (a swish-check line has a falsification path). `design/roadmap/775-a-swish-check-line-has-a-falsification-path.md`.
 - **Milestone 749.** A new confinement test carries a falsification record, approved by calef 2026-10-04.
 - **Recorded.** The weekly-only replay of kernel and swish-check records, in
   `script/falsifications`' BUGS and notes/falsification-coverage.md's.

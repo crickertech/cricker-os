@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: block-driver-ships-without-its-attacker-roles
 raised: 2026-10-05
 milestone_dependencies: 261
 decision_dependencies: none
@@ -7,7 +8,7 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The shipped block driver carries no attacker roles
+# 790. The shipped block driver carries no attacker roles
 
 Raised by the lane for milestone 261 (the NVMe driver leaves the kernel) (`lane/nvme-dma-escape`,
 #1647) on 2026-10-05 (UTC), while gating that milestone's NVMe DMA-escape attacker behind
@@ -52,3 +53,7 @@ whole: the `components/confinement_attackers` feature, `xtask`'s `CONFINEMENT_AT
 
 - `VIRTIO_BLK_WRITE_ABANDON` (31, panics mid-operation) looks test-only as well. Whether it belongs
   behind the same feature has not been checked.
+
+## Index row
+
+`block_driver` dispatches on a role word, and two roles are the DMA-confinement attackers, so every shipped binary contains both attacks. Gating them out of the shipped binary keeps the test fair and removes an attack a spawner could select.

@@ -78,7 +78,7 @@ here.
   why (a boot per record would put about eight minutes on every pull request touching `kernel/`).
 - **Only one swish-check record can exist** until §134's path spells a line, which is an
   architect's call:
-  [proposal](../design/roadmap/proposals/a-swish-check-line-has-a-falsification-path.md).
+  [proposal](../design/roadmap/775-a-swish-check-line-has-a-falsification-path.md).
 - Existing kernel tests owe no record. A new one under `system_tests/src/user/` does, since
   milestone 749 (a new confinement test carries a falsification record), ruled by calef 2026-10-04
   ([block](../design/roadmap/749-a-new-confinement-test-carries-a-falsification-record.md)).

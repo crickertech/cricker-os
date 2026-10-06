@@ -161,12 +161,12 @@ glob and calendar are not measured. With `--reached-only` their cost was estimat
 
 - **Proposed.** Measure glob and calendar at their estimated 90 CPU-hours, two or three shards a
   week at `max-parallel: 4`:
-  `design/roadmap/proposals/measure-the-reach-of-the-glob-and-calendar-proofs.md`.
+  `design/roadmap/782-measure-the-reach-of-the-glob-and-calendar-proofs.md`.
 - **Proposed.** Decide each of the six zero-kill harnesses: give it a property a wrong value can
   break, or record why panic-freedom alone is the point:
-  `design/roadmap/proposals/give-the-zero-kill-harnesses-a-property-a-wrong-value-breaks.md`.
+  `design/roadmap/780-give-the-zero-kill-harnesses-a-property-a-wrong-value-breaks.md`.
 - **Proposed.** A reach check beside the weekly mutation census that fails when a harness's
   kill count drops to zero:
-  `design/roadmap/proposals/a-weekly-check-that-every-proof-can-still-fail.md`.
+  `design/roadmap/776-a-weekly-check-that-every-proof-can-still-fail.md`.
 - **Recorded.** The `unsafe fn` blind spot and the reach approximation, in `helpers/kani_reach.py`'s
   BUGS.

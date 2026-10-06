@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: bold-keys-to-frontmatter
 raised: 2026-10-05
 milestone_dependencies: none
 decision_dependencies: none
@@ -7,7 +8,7 @@ machine_requirements: none
 specific_machine: none
 needs_person: yes
 ---
-# Bold that a script reads: where it is tracked, and which of it should become frontmatter
+# 791. Bold that a script reads: where it is tracked, and which of it should become frontmatter
 
 Asked for by calef on 2026-10-05 (UTC): "Can we keep track of where scripts track bolded keys and
 consider that for frontmatter?" Written by the lane `lane/bold-keys`, base `7a039b4b0`. Title, slug
@@ -160,3 +161,7 @@ Move the nine `Experiment status` lines into risk-file frontmatter (`experiment_
 `experiment_run`), yes or no? If no, nothing breaks: the line stays bold, exempt, and read as it is
 today. If yes, a follow-up lane does the nine files, both readers, and the `_APPENDIX` tightening in
 one pull request.
+
+## Index row
+
+A script reads bold keys in prose, and the ratchet exempts them by reading the parsers. The block records where each is read and proposes which should become frontmatter, with provisional key names; so a fact a script reads is a key a parser checks, not bold a regex finds.

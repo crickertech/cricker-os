@@ -67,7 +67,7 @@ falsifications, replayed red on aarch64.
 Dated 2026-10-04: nothing fuzzes what a confined process can reach. The six `cargo-fuzz` targets
 of §60 (fuzzing complements the proofs) read firmware, disk and network bytes, not IPC requests
 or syscalls. A proposal for both is
-[`fuzz-the-surface-a-confined-process-can-reach`](../roadmap/proposals/fuzz-the-surface-a-confined-process-can-reach.md).
+[`fuzz-the-surface-a-confined-process-can-reach`](../roadmap/779-fuzz-the-surface-a-confined-process-can-reach.md).
 
 Dated 2026-10-05 (milestone 762 (a mapping cannot outlive its frame's revoke), PROVISIONAL number,
 PR #1644): a revoked frame is unreachable through mappings as well as capabilities. `PageFrame::MAP`,

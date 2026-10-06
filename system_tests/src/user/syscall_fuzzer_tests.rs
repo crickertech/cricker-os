@@ -1,5 +1,5 @@
 //! **A seeded syscall driver with a shadow model** (milestone 752 (a seeded syscall driver with a
-//! shadow model), provisional; part (b) of `design/roadmap/proposals/fuzz-the-surface-a-confined-process-can-reach.md`,
+//! shadow model), provisional; part (b) of `design/roadmap/779-fuzz-the-surface-a-confined-process-can-reach.md`,
 //! ruled yes by calef on 2026-10-04 UTC).
 //!
 //! From a seed, seven actor threads issue random capability operations through the real syscall

@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: the-inline-scanner-reads-from-a-slice-that-ends-with-its-range
 raised: 2026-10-03
 milestone_dependencies: none
 decision_dependencies: none
@@ -7,7 +8,9 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The inline scanner reads from a slice that ends with its range
+# 771. The inline scanner reads from a slice that ends with its range
+
+<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the lane for milestone 637 (triage the crates the 2026-09-21 mutation census measured for the first time), from the `documentation` triage in `notes/mutation-testing/census-2026-10-03-triage.md`.
 
@@ -28,3 +31,7 @@ The renderer has 71 integration tests and a corpus check that renders every page
 ## Done when
 
 `inline` and `closer` index only a slice that ends with the range, the eight survivors are killed or gone, and the corpus check and 71 tests pass.
+
+## Index row
+
+`Renderer::inline` indexes a shared line buffer that outlives the range it scans, so an off-by-one read returns stale bytes instead of failing. Handing it a slice that ends with the range makes the over-read panic, which turns eight equivalent mutation survivors in `documentation` into killable ones.

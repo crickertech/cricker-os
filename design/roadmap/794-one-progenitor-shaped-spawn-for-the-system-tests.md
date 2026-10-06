@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: one-progenitor-shaped-spawn-for-the-system-tests
 raised: 2026-10-05
 milestone_dependencies: none
 decision_dependencies: none
@@ -7,7 +8,9 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# One progenitor-shaped spawn for the system tests
+# 794. One progenitor-shaped spawn for the system tests
+
+<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Raised by the build lane of §185 (what carries the claim that userspace composes a process from
 an authority you can count on one hand) on 2026-10-05 (UTC), which wrote the fifth copy of this sequence
@@ -48,3 +51,7 @@ open in the same files.
 ## What is blocked
 
 Nothing. The copies agree today; the risk is the next edit that reaches four of them.
+
+## Index row
+
+Five system-test harnesses lay out a program the way the kernel starts the progenitor, each with its own copy of the stack, timebase, archive and log-page arithmetic. One shared spawn removes the copies and the drift between them.

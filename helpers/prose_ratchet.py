@@ -505,7 +505,7 @@ def derived_markers(root=None):
 # Derivation (above) reads a literal pattern handed straight to `re.*`, or a literal `.startswith`.
 # A parser written any other way is invisible to it, and an invisible parser is a live hazard: the
 # bold it needs is counted as emphasis, and a sweep that removes the emphasis removes the key. Three
-# shapes were found by hand on 2026-10-05 UTC (design/roadmap/proposals/bold-keys-to-frontmatter.md,
+# shapes were found by hand on 2026-10-05 UTC (design/roadmap/791-bold-keys-to-frontmatter.md,
 # provisional): a pattern built by `+` or an f-string (`script/roadmap` RESTATED), a bold written
 # with a repeat count or a character class instead of two escaped stars, and a reader in a language
 # this file does not parse (shell, awk, jq, Rust, a workflow). `opaque_readers` finds the first two

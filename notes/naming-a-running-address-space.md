@@ -3,7 +3,7 @@
 Research for the fork pull request #1678 raised, written 2026-10-05 (UTC) by the
 `lane/research-space-naming` lane. Milestone 95 (an unmap primitive, and the mappings init never
 lets go) found that no capability names a running address space, and proposed three options in
-`design/roadmap/proposals/a-running-process-can-name-its-own-address-space.md` on its branch. Option
+`design/roadmap/789-a-running-process-can-name-its-own-address-space.md` on its branch. Option
 A claimed seL4's shape from memory. This note reads the sources, maps them onto nife's code, and
 says what A must specify before it can be ruled. The file name is provisional. Nothing here changes
 the kernel.

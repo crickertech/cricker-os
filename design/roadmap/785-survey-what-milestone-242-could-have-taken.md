@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: survey-what-milestone-242-could-have-taken
 raised: 2026-10-04
 milestone_dependencies: 242
 decision_dependencies: 46
@@ -7,7 +8,7 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Survey what milestone 242 could have taken
+# 785. Survey what milestone 242 could have taken
 
 Raised on 2026-10-04 (UTC) by `lane/s46-reuse-default`, the lane that wrote the 2026-10-04
 amendment to §46 (thin primitives or whole subsystems). Title and slug are drafts.
@@ -33,3 +34,7 @@ measure; nothing is taken by this proposal.
 
 Nothing by itself. If the numbers say a candidate covers most of a crate and builds `no_std`, the
 follow-up is a proposed milestone to adopt it, ruled by an architect like any dependency.
+
+## Index row
+
+Milestone 242 wrote its xHCI and USB logic before §46 made taking the default. This is a measurement, not a rewrite: how many lines `xhci` and `xhcid` would have replaced, whether they build `no_std` on three targets, and which of 242's Kani harnesses prove a claim the system rests on.

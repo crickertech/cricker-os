@@ -76,7 +76,7 @@ table links.
 ## Follow-on
 
 - **Outstanding.** 201 of the 1,004 survivors in run 37108924347 are untriaged, headed by `argument_protocol` (13), `boot_slot` (12), `machine_statistics_protocol` (11) and `elf` (10). Checked against the run's `missed.txt` on 2026-10-03 (UTC).
-- **Proposed.** `design/roadmap/proposals/the-inline-scanner-reads-from-a-slice-that-ends-with-its-range.md` makes the eight `documentation` over-read equivalents unrepresentable.
+- **Milestone 771.** Milestone 771 (the inline scanner reads from a slice that ends with its range). `design/roadmap/771-the-inline-scanner-reads-from-a-slice-that-ends-with-its-range.md` makes the eight `documentation` over-read equivalents unrepresentable.
 - **Recorded.** The `output_len` and `CMDLINE_LEN` bounds are generous by design, so 12 survivors in `uefi_loader` stay as gaps, in `notes/mutation-testing/census-2026-10-03-triage.md`.
 
 ## Index row

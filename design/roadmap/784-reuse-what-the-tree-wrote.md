@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: reuse-what-the-tree-wrote
 raised: 2026-10-04
 milestone_dependencies: none
 decision_dependencies: 46
@@ -7,7 +8,10 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Reuse what the tree wrote: which first-party code an existing library should replace
+# 784. Reuse what the tree wrote: which first-party code an existing library should replace
+
+<!-- prose-budget: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the word cap only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
+<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Written by the research lane `lane/reuse-audit` on 2026-10-04 (UTC) at base `7da1a9f29`, answering
 calef's question of the same day: under the §46 (thin primitives or whole subsystems) amendment,
@@ -26,13 +30,13 @@ architect's call, so each proposed milestone waits on its own ruling.
   `redoxfs_server`, `tools/redoxfs_host` and the host tools under `xtask`. Lines are code lines (blank and
   comment lines removed, test modules included), by script; Kani counts are `#[kani::proof]`s.
 - **Candidates.** Each `.crate` was downloaded and its `Cargo.toml` and source read; downloads,
-  licence and release dates from the crates.io API, advisories from `rustsec/advisory-db`, both on
+  license and release dates from the crates.io API, advisories from `rustsec/advisory-db`, both on
   2026-10-04. Anything else is marked *from memory*.
-- **Licence.** Base (needed to boot, install or fetch a package) is permissive only, and so is
+- **License.** Base (needed to boot, install or fetch a package) is permissive only, and so is
   anything linked into one of our programs, per §135 (running GPL software is aggregation). A whole
   GPL program running as its own process is allowed as an `optional` package. `deny.toml` today
   allows MIT, Apache-2.0, BSD-3-Clause, 0BSD and ISC, so an MPL-2.0 crate (`fdt`, `noline`,
-  `serialport`) would need a licence ruling first.
+  `serialport`) would need a license ruling first.
 
 ## The inventory, grouped by why it stays or goes
 
@@ -61,7 +65,7 @@ together, all reading nife's own statistics ABI), `login`, `credentialer` (alrea
 `video_terminal` and `line_editor` as dependencies, but reads only their wire constants
 (`video_terminal::status`, `line_editor::proto`). Their engines are userspace code.
 
-| Ours | Lines | Untrusted input | Tier | Candidate | Licence; build, and what blocks it | Downloads, last release | Advisories |
+| Ours | Lines | Untrusted input | Tier | Candidate | License; build, and what blocks it | Downloads, last release | Advisories |
 |---|---|---|---|---|---|---|---|
 | `http_response` head parser | 294 (about 70 non-test in the parser) | network | base | `httparse` 1.10.1 | MIT/Apache, `no_std`, no deps | 762M, 2025-03 | none |
 | `video_terminal` escape parser | 2,523 crate | every program's output | base | `vte` 0.15.0 | MIT/Apache, `no_std` (`arrayvec`, `memchr`) | 80M, 2025-02 | none |
@@ -206,7 +210,7 @@ on the customer path, such as milestone 494 (a driver for the network card a PC 
 1. **Considered and lost.** `uefi` lost to `r-efi` (`uefi` is 23k lines, ours needs the bindings
    only). `fatfs` waits because `installer` is `no_std` and the crate has not released since
    2023-01. `pulldown-cmark` no longer loses: needing std was the wrong test. `noline`, `fdt` and `serialport` lost on
-   licence (MPL-2.0, not in `deny.toml`). `goblin` and `xmas-elf` lost to our Kani-proved `elf`
+   license (MPL-2.0, not in `deny.toml`). `goblin` and `xmas-elf` lost to our Kani-proved `elf`
    (`xmas-elf` has RUSTSEC-2025-0018, an out-of-bounds read on a malformed ELF).
 2. **What the tree already does.** `smoltcp` is taken whole and unpatched, and argon2 and RustCrypto
    are ordinary dependencies; `httparse`, `vte` and `r-efi` fit that shape. `virtio-drivers` needs a
@@ -272,3 +276,7 @@ an ordinary dependency of `cryptography_provider`. Rule 3 (kernel) says write; r
 take. The header's reason, a small trusted computing base checked against FIPS 180-4 vectors, is a
 real one, and the kernel is exempt from the new default, so this proposal does not recommend a change.
 It does record that two rules of §46 disagree here and that only an architect can say which wins.
+
+## Index row
+
+Under the 2026-10-04 amendment to §46, taking existing code is the default outside the kernel and the crates Kani proves. This survey names which first-party code an existing library should replace, with measured candidates, licenses and advisories, and each replacement waits on its own dependency ruling.

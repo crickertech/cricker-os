@@ -50,7 +50,7 @@ The evidence today, counted rather than characterised, and it points one way.
   problem, not the evidence of absence: an untested claim cannot be quoted in either direction, and
   this entry is worth nothing if it is read as "probably fine, nobody has complained."
 - Nothing installs, so there is nothing to count. Milestone 576 (how many systems are out there, and
-  what do they run) is `NOT-STARTED`. It is gated on milestone 198 (a package manager, and the
+  what do they run) is `NOT-STARTED`. It is gated on rung 3c (over the internet: a public repository) of milestone 198 (a package manager, and the
   trivial install that makes a second customer possible). Its gate read `DECISION` until
   2026-09-24; the three forks were ruled by 2026-09-23: §195 (a reviewed recipe vouches for a
   package), §197 (a package is one archive file) and §208. It reads `DECISION` again, on §219,
@@ -140,7 +140,7 @@ it is installable. No evidence in this tree supports that, the one published arg
 it says otherwise, and every green result on this list makes nife more plausible to run without
 making anyone more likely to.
 
-The experiment that has not been run, and currently cannot be: milestone 576, which needs milestone
+The experiment that has not been run, and currently cannot be: milestone 576, which needs rung 3c of milestone
 198 first and then needs a population this project does not have. Until then the honest entry is the
 one above. This risk is the question the other eight are in service of, and it is the only one with
 no answer and no scheduled way to get one.

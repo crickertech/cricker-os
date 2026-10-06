@@ -1,5 +1,6 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
+promoted_from: wifi-on-a-pc-that-has-no-ethernet
 raised: 2026-10-04
 milestone_dependencies: 242
 decision_dependencies: 46, 135, 86
@@ -7,7 +8,9 @@ machine_requirements: x86_64 UEFI silicon with an Intel 8265 wireless card
 specific_machine: xenon (the only bench machine with a wireless card, and its room has no Ethernet port)
 needs_person: yes
 ---
-# Wi-Fi on a PC that has no Ethernet
+# 788. Wi-Fi on a PC that has no Ethernet
+
+<!-- prose-budget: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the word cap only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
 
 Written by `lane/wifi-proposal`, a research lane, on calef's request of 2026-10-04 (UTC). The title,
 the slug and every program or crate name below are provisional. No code was written.
@@ -31,12 +34,12 @@ take the same driver and firmware, so nothing below depends on it. The card sits
 translating.
 
 The firmware is in linux-firmware as `intel/iwlwifi/iwlwifi-8265-36.ucode`, 2,432,528 bytes
-(`-34` is 2,440,780). OpenBSD loads the same image as `iwm-8265-36`. Its licence,
+(`-34` is 2,440,780). OpenBSD loads the same image as `iwm-8265-36`. Its license,
 `LICENSES/LICENCE.iwlwifi_firmware`, says three things that matter here:
 
 - Redistribution in binary form is permitted "without modification", keeping Intel's notice.
 - "No reverse engineering, decompilation, or disassembly of this software is permitted."
-- The patent licence applies only when used "alone, or in combination with an operating system
+- The patent license applies only when used "alone, or in combination with an operating system
   licensed under an approved Open Source license". nife's MIT OR Apache-2.0 qualifies.
 
 So the blob may be shipped and may not be inspected.
@@ -67,7 +70,7 @@ confinement claim exists for, and the distinction should be said where the blob 
 Every row was read from its source on 2026-10-04 (UTC). Line counts are `wc -l` of current trees.
 Fuchsia counts are non-test source files, but its Rust files carry inline tests, so they overstate.
 
-| piece | candidate | licence | size | covers 8265 | portability to a nife program |
+| piece | candidate | license | size | covers 8265 | portability to a nife program |
 |---|---|---|---|---|---|
 | device driver | OpenBSD `sys/dev/pci/if_iwm.c` | ISC, plus Intel's dual BSD/GPLv2 block | 12,243 lines of C | yes | translate to Rust; no C reaches a nife program today (milestone 442 (a crypto provider `rustls` can use on all three bare-metal targets) found C providers do not build) |
 | device driver | FreeBSD `sys/dev/iwm/if_iwm.c` | ISC plus Intel dual | 6,643 lines of C | yes | same; less maintained than OpenBSD's |
@@ -100,7 +103,7 @@ nl80211 and tokio.
 
 ### Driver-compatibility layers, and why each lands in a package
 
-| layer | what it runs | licence of the result | verdict |
+| layer | what it runs | license of the result | verdict |
 |---|---|---|---|
 | Genode `dde_linux`, `pc_wifi` | Linux 6.18.19's iwlwifi, mac80211 and (implied by its config format) `wpa_supplicant` | GPLv2 through mac80211; Genode itself is AGPLv3 | package only under §135, so useless at install time |
 | TU Dresden DDE/DDEKit | Linux 2.6 drivers | GPLv2 for the Linux part (from a search snippet, not read) | stale, and GPL |
@@ -209,7 +212,7 @@ not tried and is not recommended as a gate.
 ## The seven questions
 
 1. Alternatives. Wi-Fi first loses on testability and on the blob ruling it forces before install.
-   A dongle loses on what the stranger must buy. Compatibility layers lose on licence for base.
+   A dongle loses on what the stranger must buy. Compatibility layers lose on license for base.
 2. The tree's analogue. Milestone 494: take FreeBSD's field knowledge, write the confinement split.
    Milestone 242 for USB. §135 for what base may carry.
 3. Prior art. The tables above, read today; the Debian and OpenBSD firmware policies are recalled.
@@ -262,3 +265,7 @@ and every GPL layer for base.
 - The Android version that moved tethering from RNDIS to NCM, and whether an iPhone tethers over
   NCM, were not found.
 - Fuchsia's line counts include inline tests.
+
+## Index row
+
+A laptop with no Ethernet port cannot reach rung 3 of milestone 198 (a package manager, and the trivial install), which blocks fatal risk 8's test. The block prices Wi-Fi, names permissive code for each layer, and recommends USB tethering first and Wi-Fi second.
