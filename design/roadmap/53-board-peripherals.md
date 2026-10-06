@@ -48,6 +48,40 @@ What it needs.
 equivalent board yet, so rule 5's "a scope note records the gap and the plan" applies rather than its
 "ships on every architecture". Say so explicitly; do not let it look like an oversight.
 
+## The storage half on radon, 2026-10-06
+
+calef, 2026-10-06 (UTC): radon is the most convenient lab machine, so move its hardware support
+forward, and do not split this milestone. Built by lane/53-sdmmc, every name provisional.
+notes/designware-mobile-storage.md has the evidence, the safety argument and the runbook.
+
+- The part is a Synopsys DesignWare Mobile Storage Host Controller (`snps,dw-mshc` in the vendor
+  tree radon hands over, `starfive,jh7110-mmc` in mainline): the microSD slot at `0x1602_0000`
+  and the eMMC socket at `0x1601_0000`.
+- `crates/designware_mobile_storage`: the whole driver behind one `Registers` trait, tested
+  against a simulated controller and card (SDHC, SD 1.x, eMMC, an empty slot, CRC faults, an old
+  release's FIFO, a short tail), four Kani harnesses with replayable falsifications.
+  `crates/jh7110_clock_and_reset` gains both controllers' SYS clocks and resets.
+- `kernel/src/storage_bench.rs`, behind `storage_bench`: identifies the card, reads its partition
+  table, times an 8 MiB read, then reads it again through the EL0 block server. Read-only unless
+  built with `NIFE_STORAGE_BENCH_WRITE=scratch`, and even then it writes only the sectors before
+  the first partition, and restores them.
+- `components/src/designware_mobile_storage.rs`: `filesystem_protocol::blk` at EL0 over one
+  register page and a window of the card, the virtio and NVMe servers' shape. The booted system
+  does not start it (`PROVEN_ON_SILICON`).
+- The CPU moves every byte through the FIFO, so the first silicon read tests the controller and
+  the card protocol without depending on radon's DMA coherence, which nobody has measured yet.
+- Parity scope note (rule 5): the controller is the JH7110's, so the kernel half and the bench
+  boot are riscv64-only, and `storage_bench` is a compile error elsewhere. The crate is
+  architecture-neutral.
+- Not run on silicon.
+
+**Reuse:** OpenBSD's `dwmmc` (`sys/dev/fdt/dwmmc.c` 1.33, ISC), adapted with the notice carried in
+the crate root; it matches both compatibles above. `starfive-jh7110-dwmmc` 0.1.8 on crates.io
+(Apache-2.0) was read and refused as a dependency: 333 lines over `dwmmc-host` 0.4.2 (5,253 lines)
+and three more crates from one young tree, with an IDMAC-only data path and volatile accesses inside
+the driver core. Its JH7110 constants were a third cross-check. Linux's `dw_mmc`, U-Boot's driver
+and both trees are GPL and were read for hardware facts only.
+
 **Effort: not estimated.** Two device drivers against real hardware with no emulator to iterate
 against is a different activity from everything done so far, and estimates calibrated on QEMU work do
 not transfer.
@@ -101,9 +135,18 @@ third cross-check.
 - **Outstanding.** RedoxFS crash consistency proven by actually cutting power on radon. Nothing can
   power-cycle the board: milestone 224 is NOT-STARTED on a DECISION gate, and its own measurements
   record zero replies from the plug on the subnet. Checked 2026-09-03.
-- **Outstanding.** SD and eMMC, kept in scope as the later path and undecided only in its ordering
-  against the network driver. No MSHC or SD driver exists under `kernel/src/drivers/`, and no block
-  or decision file has taken the ordering question since 2026-08-15. Checked 2026-09-03.
+- **Outstanding.** The storage half's first run on radon: calef's three-boot bench step in
+  notes/designware-mobile-storage.md, read-only first, then the scratch write, then the ordinary
+  image back. Passing it lifts the block server's `PROVEN_ON_SILICON`.
+- **Outstanding.** An architect's call, owed a PROPOSED file under `design/decisions/` that this
+  lane may not write: which part of radon's storage the booted system's block server serves, a
+  fact whatever writes the card and the kernel must agree on. The options: a second
+  partition on the microSD card, beside the FAT one U-Boot boots from; the eMMC socket, if step 1
+  finds a module fitted; or NVMe, once milestone 163 (the PLDA root complex) exists. Not blocking
+  until the bench step passes.
+- **Outstanding.** The IDMAC data path, once the network half's coherence probe has read radon's
+  DMA coherence (milestone 655 (DMA on a non-coherent RISC-V machine)); then high speed and an
+  8-bit eMMC bus, measured against the polled rate step 1 prints.
 - **Done.** The rule-5 parity note this block says it must carry is carried, in `notes/non-volatile-memory-express.md`
   under a heading naming this milestone, stating what ships on all three architectures and what is
   board-specific.
