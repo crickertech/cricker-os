@@ -482,9 +482,11 @@ fn a_corpse_does_not_keep_a_space_rooted_in_a_destroyed_region() {
         "premise: the corpse never left its core",
     );
     let root = user_address_space_root(name).expect("premise: a corpse's space is still named");
-    assert_ne!(
-        crate::revoke::list_mapping(root, 0),
-        (0, 0),
+    assert!(
+        !matches!(
+            crate::revoke::list_mapping(root, 0),
+            crate::revoke::Listing::Done
+        ),
         "premise: the corpse's space has mappings on record",
     );
 
@@ -494,9 +496,11 @@ fn a_corpse_does_not_keep_a_space_rooted_in_a_destroyed_region() {
         user_address_space_root(name).is_none(),
         "a corpse kept a space whose root came from a region that has just been destroyed",
     );
-    assert_eq!(
-        crate::revoke::list_mapping(root, 0),
-        (0, 0),
+    assert!(
+        matches!(
+            crate::revoke::list_mapping(root, 0),
+            crate::revoke::Listing::Done
+        ),
         "the revocation registry still names a root, and log pages, its region gave back",
     );
 

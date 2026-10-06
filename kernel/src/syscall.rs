@@ -1546,30 +1546,45 @@ fn address_space_list(frame: &mut TrapFrame, name: u64, cursor: u64) -> Result<i
         frame.set_arg(2, 0);
         return Ok(abi::survey::DONE as i64);
     };
+    // The cursor is the caller's word, so it is checked before it is followed, in the same
+    // SPACES hold that walks the chain (revoke::list_mapping): only a cursor this space's own
+    // log minted may name a log page. Milestone 779 (fuzz the surface a confined process can
+    // reach)'s confined fuzzer drew a random cursor here and the kernel walked it as a log page
+    // (a data abort on a kernel-mapped address; anything the page held would have come back as
+    // a mapping record), 2026-10-06 UTC.
     // Skip an entry whose `va` no longer translates (a race with revocation of a shared page this
     // space had mapped) rather than report a fabricated `kind` for it; bounded by the log's own
     // finite length, so this cannot loop forever.
     let mut cursor = cursor;
     loop {
-        let (next, va) = crate::revoke::list_mapping(root, cursor);
-        if next == abi::survey::DONE {
-            frame.set_arg(1, 0);
-            frame.set_arg(2, 0);
-            return Ok(abi::survey::DONE as i64);
+        match crate::revoke::list_mapping(root, cursor) {
+            crate::revoke::Listing::Done => {
+                frame.set_arg(1, 0);
+                frame.set_arg(2, 0);
+                return Ok(abi::survey::DONE as i64);
+            }
+            // Only the caller's own word can be foreign: every cursor after the first is
+            // minted by the arm below. BadPointer, not DONE, per DECISIONS §114 (`pmap` gets
+            // its listing: `ENUMERATE` extends to the address-space object)'s 2026-10-06
+            // addendum: a dead space's stale cursor is DONE, a live space's foreign word is
+            // garbage, and the boundary answers garbage with BadPointer everywhere else.
+            crate::revoke::Listing::ForeignCursor => return Err(Error::BadPointer),
+            crate::revoke::Listing::Entry(next, va) => {
+                if let Some((_, flags)) = crate::arch::mmu::translate_at(root, va) {
+                    let kind = if flags.is_user_executable() {
+                        abi::address_space::MAP_CODE
+                    } else if flags.is_writable() {
+                        abi::address_space::MAP_RW
+                    } else {
+                        abi::address_space::MAP_RO
+                    };
+                    frame.set_arg(1, va);
+                    frame.set_arg(2, kind);
+                    return Ok(next as i64);
+                }
+                cursor = next;
+            }
         }
-        if let Some((_, flags)) = crate::arch::mmu::translate_at(root, va) {
-            let kind = if flags.is_user_executable() {
-                abi::address_space::MAP_CODE
-            } else if flags.is_writable() {
-                abi::address_space::MAP_RW
-            } else {
-                abi::address_space::MAP_RO
-            };
-            frame.set_arg(1, va);
-            frame.set_arg(2, kind);
-            return Ok(next as i64);
-        }
-        cursor = next;
     }
 }
 #[cfg(test)]

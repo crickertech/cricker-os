@@ -260,6 +260,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "confined_fuzz_protocol"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "address_space_map",
+]
+
+[[package]]
 name = "coremark"
 version = "0.1.0"
 
@@ -463,6 +471,7 @@ dependencies = [
  "clock_protocol",
  "component_plan",
  "compositor",
+ "confined_fuzz_protocol",
  "coremark",
  "credential_protocol",
  "current_cpu_protocol",
@@ -1187,6 +1196,7 @@ dependencies = [
  "capability_witness_protocol",
  "clock_protocol",
  "compositor",
+ "confined_fuzz_protocol",
  "coremark",
  "counter_frequency_protocol",
  "credential_protocol",

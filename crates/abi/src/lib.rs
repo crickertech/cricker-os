@@ -913,7 +913,12 @@ pub mod address_space {
     /// - Start with `cursor = 0`. Feed each `next_cursor` back. `abi::survey::DONE` (zero) means
     ///   finished; the constant is reused rather than a second one minted, because "no more
     ///   entries" means the same thing on both objects.
-    /// - A negative first word is an [`crate::Error`].
+    /// - A negative first word is an [`crate::Error`]. **A cursor this space's own log never
+    ///   minted answers [`crate::Error::BadPointer`]** (milestone 779 (fuzz the surface a
+    ///   confined process can reach)'s confined fuzzer drew a random cursor and the kernel
+    ///   followed it as a log page, 2026-10-06 UTC; ruled `BadPointer` over reading it as
+    ///   `DONE` the way a dead space does, DECISIONS §114's 2026-10-06 addendum: a caller that
+    ///   corrupts its own cursor learns it is broken rather than seeing a truncated listing).
     /// - `kind` is one of [`MAP_RO`], [`MAP_RW`], [`MAP_CODE`] above: the same three words
     ///   `MAP_INTO`'s third argument takes, reused rather than a second vocabulary invented for
     ///   what is, read back, the same fact about the same page. A `DeviceFrame` mapping (always

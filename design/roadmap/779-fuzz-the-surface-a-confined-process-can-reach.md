@@ -1,7 +1,8 @@
 ---
-status: NOT-STARTED
+status: BUILT
 promoted_from: fuzz-the-surface-a-confined-process-can-reach
 raised: 2026-10-04
+built: 2026-10-06
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
@@ -9,6 +10,70 @@ specific_machine: none
 needs_person: no
 ---
 # 779. Fuzz the surface a confined process can reach: the services' decoders, and the syscalls
+
+Part (a) was built as milestone 751 (fuzz the services' request handlers) and part (b) as
+milestone 752 (a seeded syscall driver with a shadow model), the kernel-thread driver. This block
+now
+records part (b)'s completion in the form the proposal actually recommended, an **EL0** driver:
+the lane `lane/779-confined-fuzz` (adopted by the maintainer after its session died, 2026-10-06
+UTC) built `fixtures/src/confined_syscall_fuzzer.rs` plus its conductor,
+`system_tests/src/user/confined_fuzzer_tests.rs`. Two arrivals this driver cannot reach are
+recorded as misses below rather than reached; proof condition 2 allows a miss whose reason is in
+the driver's `BUGS`. The block is BUILT with that limitation recorded.
+
+## What the EL0 driver is (b, built)
+
+Three spawned programs, two endowed and a witness holding only the conductor's channel, each
+make one seeded random syscall at a time through the real trap entry. Between calls an escape
+oracle that is the conductor's alone judges them. A capability-table diff holds that every fill
+was granted by the call that made it, and a delegation ledger marks revocations in flight.
+Register truth checks `RECEIVE_CAP`'s `x1` and `x4`, and the badged server endpoint checks badges.
+The witness's every invoke must be refused. A page oracle admits no mapping onto an ungranted
+frame anywhere in the user half. Blocking calls are served, never timed out, so a seed replays
+deterministically. `NIFE_CONFINED_FUZZ_SEEDS=<first>:<count>` sweeps; a finding names its seed.
+
+- **Proof condition 1, met.** The driver runs in the suite on aarch64, riscv64 and x86_64 with
+  its committed seed list of 33 seeds (`0..32` plus corpus `[52]`). Measured 2026-10-06 (UTC): 32,
+  21 and 36 seeds/s on the three ISAs. About one second of suite time each.
+- **Proof condition 2, met with two recorded misses.** Four of the six falsifications redden the
+  committed seeds on aarch64. 634's does at seed 0 (step 7, `x1` truth); revocation-in-flight at
+  seed 7 (step 93); §246 (a plain `RECEIVE` never takes a capability)'s halves at seeds 16 and 52.
+  The two misses are milestone 633 (an outside agent attacks the confinement claim)'s staged
+  `outgoing_cap` and 706's missing reply tag. Both are structural: they need
+  fuzzer-to-fuzzer IPC in an arrival order this conductor's one-call-at-a-time protocol cannot
+  produce, because the conductor is the only counterparty for a mid-call park. The driver's
+  `BUGS` records the reason; `receive_cap_attack_tests` keeps both records.
+- **Proof condition 3, met.** Wall time above. The weekly sweep (`falsifications.yml`'s
+  `confined-fuzz` job, same cadence as the 752 driver's) asks for a million seeds from a fresh
+  weekly base and self-caps at 60 s of guest time. That is a few thousand seeds a week at the
+  measured rate.
+
+## What it found (b)
+
+**A live kernel defect, fixed here.** `AddressSpace::LIST` followed its caller-supplied cursor
+into the revocation log's page chain with no check, so a confined process naming any
+kernel-mapped page had it walked as a log page. The fuzzer's random cursor produced a kernel data
+abort (seed 0x14); a cursor aimed at real RAM would have had the page's contents returned as
+mapping records. The fix (the chain-membership walk folded into `revoke::list_mapping`'s one `SPACES` hold, where
+it runs before anything follows the caller's word, refusing with `BadPointer`) carries its own
+test and replayable falsification. An earlier shape of the fix checked membership in a separate
+function and so a separate lock hold; review caught the check-then-act gap and it is the one-hold
+walk now. The driver's own planted
+escape (a `RETYPE_OBJ` that carves from the machine's free list) is also recorded and replayed
+red at seed 0.
+
+Corrected 2026-10-06 (UTC): the scaffolding's conductor channel sat in slot 63, which `user::run`
+cannot grant to and the witness would have fuzzed; it is slot 0, and the endowment slots 1..6.
+
+## Follow-on
+
+- **Done.** Part (a) as milestone 751; the kernel-thread driver as milestone 752; the EL0 driver
+  and the `LIST` cursor fix here.
+- **Recorded.** The two unreachable arrival orders are in the driver's `BUGS`; reaching them
+  needs a conductor that lets two fuzzers interact mid-call, which is a protocol redesign rather
+  than a patch.
+
+## (a) Host fuzz targets for the services' request handlers
 
 calef asked for this on 2026-10-04 (UTC), and asked that it be a proposal, not a build. Written by
 the proposal lane `lane/fuzz-surface-proposal`. It proposes two milestones, (a) and (b), with
@@ -203,7 +268,9 @@ defects that motivated this.
 
 ## Index row
 
-Nothing fuzzes what a confined process can reach: the services' request handlers or the syscalls.
-(a) puts host fuzz targets over the handlers, file server first, each with an oracle and a planted
-defect it must find. (b) runs a seeded in-guest driver whose shadow model of its own capability
-table predicts every result, and it must turn red under six recorded kernel falsifications.
+(a) host fuzz targets over the services' request handlers, each with an oracle and a planted
+defect it must find (milestone 751). (b) seeded syscall drivers under the conductor's eye: a
+kernel-thread driver whose shadow model predicts every answer (milestone 752); and an EL0 driver
+judged by an escape oracle between calls. That driver turned red under four recorded kernel
+falsifications, found and fixed a live kernel-memory-read defect in `AddressSpace::LIST`, and
+records the two arrival orders its protocol cannot reach.

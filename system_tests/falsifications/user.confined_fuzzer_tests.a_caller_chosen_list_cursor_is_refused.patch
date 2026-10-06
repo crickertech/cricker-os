@@ -1,0 +1,44 @@
+Falsifies `system_tests::user::confined_fuzzer_tests::a_caller_chosen_list_cursor_is_refused`.
+
+Architecture: aarch64, riscv64, x86_64 (the hunk is portable kernel code, in the revocation log).
+
+The defect this milestone's confined fuzzer found live (2026-10-06 UTC, seed 0x14): `AddressSpace::
+LIST` passed its caller-supplied cursor straight into the revocation log's walk, and a cursor is
+only ever `page_phys | index` for a page in this space's own chain. A confined process naming any
+kernel-mapped page had it walked as a log page: a kernel data abort at best (what the fuzzer's
+random cursor produced, `FAR_EL1 0xffff1e1d3b968008`), and at worst the page's contents returned as
+mapping records, a kernel-memory read through a syscall register. The fix (the chain-membership
+walk inside `revoke::list_mapping`'s one `SPACES` hold, refusing with `BadPointer` before anything
+follows the word) is what this patch removes.
+
+Expected to fail: the direct assertion ("a LIST cursor this space never minted was followed rather
+than refused"); without the membership walk the kernel takes a data abort on the named page
+instead, which is the original finding's own shape. Replayed red on aarch64 on 2026-10-06 (UTC) by
+the lane for milestone 779 (fuzz the surface a confined process can reach).
+
+diff --git a/kernel/src/revoke.rs b/kernel/src/revoke.rs
+index 1324bede5..bb0930bbd 100644
+--- a/kernel/src/revoke.rs
++++ b/kernel/src/revoke.rs
+@@ -650,20 +650,7 @@ pub fn list_mapping(root: u64, cursor: u64) -> Listing {
+     let (mut page_phys, mut index) = if cursor == 0 {
+         (space.head, 0usize)
+     } else {
+-        // The caller's word: find its page on this space's chain before following it. The walk
+-        // starts at the head and stops at the wanted page, so a hit also proves every page the
+-        // listing walk below will follow is this chain's own.
+-        let want = cursor & PAGE_MASK;
+-        let mut p = space.head;
+-        while p != 0 && p != want {
+-            // SAFETY: `p` is this space's own chain, and SPACES is held.
+-            let log = unsafe { log_page(p) };
+-            p = log.next;
+-        }
+-        if p == 0 {
+-            return Listing::ForeignCursor;
+-        }
+-        (want, (cursor & !PAGE_MASK) as usize)
++        (cursor & PAGE_MASK, (cursor & !PAGE_MASK) as usize)
+     };
+ 
+     while page_phys != 0 {

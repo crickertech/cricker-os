@@ -24,16 +24,21 @@ Regenerated 2026-10-04 (UTC) by the lane for the proposal "capability lookup off
 which moved each thread's capability table behind its own lock: the delivery now goes through
 `deliver_capability`, so the old hunk no longer matched. Same removals, same defect.
 Replayed red on aarch64 the same day, at the receiver-first assertion this record predicts.
+Regenerated 2026-10-07 (UTC) by the lane for milestone 779 (fuzz the surface a confined process can
+reach), whose capability-spelling pass
+renamed the bare `cap` locals in `ipc_send_cap_from` to `capability` (the cap-abbreviation
+ratchet, calef 2026-10-06): same removals, same defect, new local names.
 
 diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
+index 0561fbb1b..b899f3ced 100644
 --- a/kernel/src/sched.rs
 +++ b/kernel/src/sched.rs
-@@ -3904,24 +3904,9 @@ pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u6
+@@ -4032,24 +4032,9 @@ fn ipc_send_cap_from(
                  // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
                  let receiver = unsafe { (*receiver.as_ptr()).id };
                  let (r, caps) = sched.threads.get_mut_with_capabilities(receiver).unwrap();
 -                if r.receiving_cap {
--                    let slot = deliver_capability(caps, cap);
+-                    let slot = deliver_capability(caps, capability);
 -                    // Word 3 carries the sender's badge (milestone 599 (a frame per filesystem client channel)): the same store that used to
 -                    // write a zero here, so RECEIVE_CAP surfaces it at no extra instruction on this path.
 -                    r.mailbox = [data, slot, 0, badge, 0];
@@ -50,7 +55,7 @@ diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
 -                    // sender keeps its own copy: `SEND_CAP` narrows a copy, never the source.
 -                    r.mailbox = [data, 0, 0, badge, 0];
 -                }
-+                let slot = deliver_capability(caps, cap);
++                let slot = deliver_capability(caps, capability);
 +                r.mailbox = [data, slot, 0, badge, 0];
 +                r.cap_delivered = true;
                  r.handshake.serve(); // delivered: this wake passes the boot-8 gate
