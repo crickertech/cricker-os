@@ -2,7 +2,7 @@
 
 *Appendix to [`AGENTS.md`](../../AGENTS.md), which carries the rule in one sentence. This file
 carries the ruling in calef's words, why it earns a heading of its own, the case that produced it,
-the counterweight, how it sits beside its neighbours, and the saying's missing author. Written
+the counterweight, how it sits beside its neighbors, and the saying's missing author. Written
 2026-09-24 (UTC) as its own tenet on calef's ruling (#1182), and folded into the rule-and-appendix
 shape after #1189 split `AGENTS.md`. Name: ratified 2026-09-24 (calef, approving #1182).*
 
@@ -31,7 +31,7 @@ deciding, the proposal-shaped procrastination `AGENTS.md` names in its section o
 question the measurement will answer, the data, and the reader; with no question it is that
 procrastination in a lab coat.
 
-Three neighbours sound adjacent, and with this one they are a single rule at three states of
+Three neighbors sound adjacent, and with this one they are a single rule at three states of
 knowledge, which has to be said or the file reads as disagreeing with itself:
 
 - *We are all owners*: the fix is known, cheap and reversible, so make it rather than record it.

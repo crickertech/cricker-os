@@ -3,7 +3,7 @@ status: PROPOSED
 raised: 2026-09-19
 ---
 
-# 178. Where the timer re-arm seam goes, and which miss behaviour the kernel tick is meant to have
+# 178. Where the timer re-arm seam goes, and which miss behavior the kernel tick is meant to have
 
 Raised 2026-09-19 by milestone 435 (forty-five milestones are gated on a decision nobody wrote down)'s slice B, which read milestone 360 (`crates/timetable`'s proved `next_after` is not what the timer calls)'s
 `DECISION` gate and found it naming no section. Milestone 197 named the fork and declined to take
@@ -59,20 +59,20 @@ one tick late; it does not make the next one late as well."*
 So the kernel holds the grid in the ordinary case and abandons it on exactly the case the grid was
 chosen for. It is bounded (one shift per missed tick, and missed ticks are counted), and it is the
 residue of the defect milestone 6 fixed rather than a new one. It is also the reason this is a fork
-rather than a refactor: lifting `next_after` in as it stands changes kernel behaviour, and
+rather than a refactor: lifting `next_after` in as it stands changes kernel behavior, and
 whether that change is wanted is the question underneath "where does the seam go".
 
 ## The options
 
 | | shape | cost |
 |---|---|---|
-| **A** | **Lift the arithmetic only.** Each `rearm` reads its registers, calls `next_after(fired, interval, now)`, and arms. Lateness is detected by the arch layer with one comparison it already makes. | The smallest change that binds the proof, and it fixes the grid on the late path for both ISAs at once. It changes behaviour, so the drift test and `miss_detail` need re-reading rather than assuming. |
+| **A** | **Lift the arithmetic only.** Each `rearm` reads its registers, calls `next_after(fired, interval, now)`, and arms. Lateness is detected by the arch layer with one comparison it already makes. | The smallest change that binds the proof, and it fixes the grid on the late path for both ISAs at once. It changes behavior, so the drift test and `miss_detail` need re-reading rather than assuming. |
 | **B** | **Lift the arithmetic and the miss accounting**, so the crate answers with both the next deadline and whether it was late, and the arch layer only reads and writes registers. | Binds more of the code to a proof. `MISSED_TICKS` and the `#[cfg(test)] miss_detail::record` are per-CPU kernel state, so the crate would return a verdict rather than own the counter, which is one more thing on a boundary that exists to be thin. |
 | **C** | **Leave it, and record the counterfactual where the reader meets it.** | Free. The standing cost is the one milestone 360 names: `script/verify` reports a green proof beside proofs that do bind, with no way for a reader to tell them apart, and the demonstrator's claim is a verified core. |
 
 No recommendation, deliberately. The seam is *"the whole of the work rather than a detail of
 it"*, and A carries a behaviour change to the kernel tick that is calef's rather than a lane's. What
-this section does instead is put the two re-arms side by side and name the behaviour change, which
+this section does instead is put the two re-arms side by side and name the behavior change, which
 is what milestone 360 said a lane could produce before a ruling.
 
 If A, the prior question has to be answered first and in one sentence: should a kernel tick that

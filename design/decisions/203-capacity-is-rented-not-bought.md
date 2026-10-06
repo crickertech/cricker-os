@@ -57,7 +57,7 @@ documentation-only branches finish in 2 to 3 because nearly every job skips.
 
 This ranking was amended on 2026-09-24 by [§214 (the Team plan buys runner
 concurrency)](214-the-team-plan-buys-runner-concurrency.md). Once lanes gated in CI, merge
-throughput bound on an ordinary day, and calef upgraded the organisation to GitHub Team for its 60
+throughput bound on an ordinary day, and calef upgraded the organization to GitHub Team for its 60
 concurrent jobs. The ruling above is unchanged; §214 has the measurements and the new order.
 
 Milestone 488 (a self-hosted CI runner) is refused twice and its security half is answered rather

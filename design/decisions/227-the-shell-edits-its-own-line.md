@@ -18,7 +18,7 @@ milestone 169 (`kilo`, the smallest real text editor)) and runs `LineDisc` in it
 way bash and readline do. No new wire message.
 
 He chose it after seeing what each option means for a person at the prompt. D is the one that
-gives a prompt like fish's: suggestions as you type, syntax colouring, a live `^R` history search,
+gives a prompt like fish's: suggestions as you type, syntax coloring, a live `^R` history search,
 and completion that knows a program's arguments from its manifest. What it costs that person is
 recorded rather than hidden:
 
@@ -39,7 +39,7 @@ the contract.
 - A (leave it). Refused because it leaves the prompt without completion or any of what D makes
   possible, and nothing about A gets cheaper by waiting.
 - B (a resume opcode). Refused because it spends an opcode two programs agree on forever to buy
-  Tab alone. Suggestions as you type and colouring would each want another round trip on the same
+  Tab alone. Suggestions as you type and coloring would each want another round trip on the same
   wire, so B is the first of several messages rather than the last.
 - C (a resume bit). Refused for B's reason, and it spends reserved bits instead of an opcode, which
   is the same cost in a place that is harder to see.

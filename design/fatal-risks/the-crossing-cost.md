@@ -28,7 +28,7 @@ the 2026-09-23 state.
 RUN, 2026-09-23. No verdict, and one bench evening stands between here and one. This is the
 best-covered risk on the list by volume of measurement and it still has no answer, because
 everything measured so far is a single crossing and the claim is about a cost that cannot be
-amortised. Amortisation is a property of a workload. The instrument that produces a workload number
+amortized. Amortization is a property of a workload. The instrument that produces a workload number
 is built, gated and rehearsed on three architectures, and no sweep from its current form has ever
 run on silicon.
 
@@ -51,7 +51,7 @@ What is measured, and it is a lot.
   the numbers times 16. The floors stand; the unit label was wrong. See
   [notes/benchmarks/icount-tick-scales.md](../../notes/benchmarks/icount-tick-scales.md).)*
 - A bounded footprint for the crossing itself, which is the mechanism by which a per-crossing cost
-  would fail to amortise in the first place. `bench/fastpath-aarch64.txt`, written by
+  would fail to amortize in the first place. `bench/fastpath-aarch64.txt`, written by
   `script/fastpath-footprint`: `ipc_call_reply` 7,028 bytes plus `syscall_entry` 1,508. The first
   three phases of milestone 188 (the IPC fastpath) took entry from 3,304 to 1,508 and
   `ipc_send_receive` from 5,888 to 5,356. That work also found that the cheap extraction method of
@@ -72,7 +72,7 @@ cannot look identical in these numbers.
 The shape has been measured once on silicon and is not quotable. Five radon boots on 2026-09-16:
 throughput rose to about four tasks and then plateaued through 32 without declining, on every boot,
 at 8x oversubscription, with `tasks=1` repeating to 0.0% across five cold power cycles. That is the
-shape a defence of this risk wants. It does not get to be one, for two reasons milestone 168 records
+shape a defense of this risk wants. It does not get to be one, for two reasons milestone 168 records
 against itself. `tasks=4` spread 29.4% between boots and 37.3% within one, so a best-of-three there
 is a coin flip rather than a number. And the mix contained no page mapping and no process creation,
 which are the two jobs that go deepest into the kernel. The instrument was rewritten on 2026-09-19
@@ -83,7 +83,7 @@ data.
 The decisive experiment has not been run, and it is now a bench evening rather than a lane:
 milestone 168, one radon evening with the 2026-09-19 instrument, at least five boots, by
 `notes/job-mix.md`'s procedure. Its step 7 wrote down what each outcome means before the numbers
-exist, which is what keeps the reading from being a defence afterwards. Flat or rising through 32
+exist, which is what keeps the reading from being a defense afterwards. Flat or rising through 32
 with every point inside 10% across boots reads as no architectural per-crossing cost visible at this
 scale on this silicon. a repeatable knee followed by a decline says a cost exists and grows with
 load, with the `job-mix-kind:` lines naming which path pays. Anything still wider than 10% is not a
@@ -130,7 +130,7 @@ and, instead, write the kernel in a memory-safe programming language"*. And RedL
 which builds a whole system on that bet. If they are right, a capability crossing is a cost this
 project chose rather than inherited, and that is precisely what this risk says would be fatal.
 
-Their own stated limits are the strongest thing in this entry's favour, and they are quoted rather
+Their own stated limits are the strongest thing in this entry's favor, and they are quoted rather
 than asserted. The 2017 paper evaluates Rust *"in a single-threaded setting"* on low-power
 uniprocessors. It leaves on-disk and in-hardware structures *"e.g. the page table"* to future work,
 and says of information-flow control that *"it is not yet clear if such implementations would be

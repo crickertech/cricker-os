@@ -67,7 +67,7 @@ wobbled is worth more than the fact.
 
 The cause is the missing `TRUNCATE` verb meeting a whole-file comparison. A write shorter than
 the file does not truncate it. One boot's FS client left a **64-byte** payload in `scratch`; the next
-boot's `std::fs` test wrote its **61-byte** pattern, asserted the whole file equalled it, got 64
+boot's `std::fs` test wrote its **61-byte** pattern, asserted the whole file equaled it, got 64
 bytes back (61 new plus the old three-byte tail), and panicked *inside its write block*. That panic,
 read as "the server refused the write," is the entire bug. No allocator loop, no heap exhaustion, no
 accumulated mount state, no device-only defect, and no error reply, which is why nobody ever found
@@ -215,7 +215,7 @@ inside its own call for the whole time the caretaker is using the page.
 
 Proven on both ISAs by an attacker, twice, and the second run is what makes the first mean
 anything. The attacker reports a bitmap of what got through rather than a pass. Read-only: every
-bit clear, against a neighbouring file that really exists and that the caretaker really could open.
+bit clear, against a neighboring file that really exists and that the caretaker really could open.
 Read/write, same shape: the two write bits set and everything else clear. A caretaker that
 refused every request passes the first test and fails the second. Each accepted write is read
 straight back, because "the server accepted my write" and "my write landed" are different claims.

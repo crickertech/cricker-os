@@ -116,7 +116,7 @@ and, which is the part that reads most like what we want, until its second half:
 > to whether such an operation succeeded or not.
 
 That last sentence is L4 conceding exactly the invariant section 5 is worried about, and conceding
-it as undefined behaviour rather than as a rule. A receiver may split a run into smaller runs, and
+it as undefined behavior rather than as a rule. A receiver may split a run into smaller runs, and
 what a partial unmap then does is unspecified and unreported. Whatever this tree decides, it should
 not decide that.
 
@@ -643,7 +643,7 @@ seL4's answer, L4's, KeyKOS's, EROS's and Coyotos's. That family's cost is docum
 speculative: Coyotos raises a `SplitFault` when a region is not naturally aligned and power-of-two
 sized, because such a region **is not expressible as one capability at all**. D is the gentler member
 of the family, because it rounds up and wastes rather than failing, but the 37 wasted pages are
-structural and not an artefact of this surface's dimensions.
+structural and not an artifact of this surface's dimensions.
 
 It does not foreclose A: a run of large frames is still a run.
 

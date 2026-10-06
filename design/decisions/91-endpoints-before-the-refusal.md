@@ -51,11 +51,11 @@ on it is the mainstream answer rather than an invention here.
 - Mach invalidates in-flight and queued sends when a port dies (`MACH_SEND_INVALID_DEST`).
 - Unix says the same thing in its own idiom: closing a pipe's write end wakes its readers with
   EOF. Its exception is uninterruptible `D`-state sleep, where a thread genuinely cannot be woken,
-  and that is treated everywhere as a wart rather than a design. The behaviour this section
+  and that is treated everywhere as a wart rather than a design. The behavior this section
   replaces was closer to the wart than to the rule.
 
 Where nife diverges, and it is worth knowing: seL4 triggers the cancellation at *last
-capability* finalisation, which it can ask because it has a capability derivation tree. This
+capability* finalization, which it can ask because it has a capability derivation tree. This
 kernel deliberately does not have one (§16 records that choice), so the trigger here is
 ownership by region: the endpoint's backing frame lies inside the region being destroyed,
 therefore it dies with it. Same wake, a different question asked, and it is the same ownership

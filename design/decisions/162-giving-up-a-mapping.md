@@ -123,7 +123,7 @@ Not blocked: the record. The residual is written where a reader meets it, in
 Ruled by calef on 2026-10-05 (UTC) on [#1678](https://github.com/nifeos/nife/pull/1678)
 (milestone 95, an unmap primitive, and the mappings init never lets go), answering the lane's
 [`## What I need from you`](https://github.com/nifeos/nife/pull/1678#issuecomment-5989908200).
-Recorded by the maintainer, because a lane does not edit this directory. Both behaviours were
+Recorded by the maintainer, because a lane does not edit this directory. Both behaviors were
 already built as the lane's provisional answers, so the rulings change no code. The full argument
 and the prior art are in `notes/unmap.md`, which lands with #1678.
 

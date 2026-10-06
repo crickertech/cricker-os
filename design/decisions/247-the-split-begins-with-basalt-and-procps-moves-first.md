@@ -43,7 +43,7 @@ Of the nine preconditions the records name, only the package format held on 2026
 breaking changes to the contract crates in four weeks, and 56 programs from 18 packages in one
 crate. basalt v0 needs none of them and builds the whole-system gate that §151's BUGS calls the real
 cost of a split, before any change has to land in two repositories. Among code cuts, `procps` and
-its neighbours had the fewest focused cross-package commits (5 of 11) and link the fewest moving
+its neighbors had the fewest focused cross-package commits (5 of 11) and link the fewest moving
 interfaces. `redoxfs` was cheaper to move but more coupled, and preferring it would have been an
 effort argument.
 

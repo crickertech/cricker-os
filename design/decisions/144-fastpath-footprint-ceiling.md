@@ -128,7 +128,7 @@ Neither is redundant, and 2026-09-04 demonstrated both failure modes within one 
 - **`syscall_entry` is not comparable across ISAs.** x86_64's `syscall` goes through `IA32_LSTAR` and
   never touches the IDT, so its entry figure legitimately excludes about 3,330 bytes the other two
   include. The ceiling is applied per architecture for that reason and must not be read as a ranking.
-- Nothing has observed the effect either half protects against. No cache is modelled by icount and
+- Nothing has observed the effect either half protects against. No cache is modeled by icount and
   the development host's L1i is several times the boards'. This is a 1995 argument plus a measured
   code size, not a measured miss rate, and the experiment that would settle it wants the performance
   counters milestone 74 landed on radon on 2026-09-04.

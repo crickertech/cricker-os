@@ -78,7 +78,7 @@ today and not a comment's optimism.
 One consequence of the check's placement, since it bears on cost. The refusal is in `sched`, not
 in the `match` arm, so a new verb that works on a running thread does not have to unpick a
 dispatcher-level guard. It adds an arm and a scheduler function whose state check is different from
-its three neighbours'. That is cheaper than it sounds and it is also the thing that makes the
+its three neighbors'. That is cheaper than it sounds and it is also the thing that makes the
 capability's meaning state-dependent, which the ladder in AGENTS.md says to design out rather than
 in.
 
@@ -302,7 +302,7 @@ endpoint once the child is a corpse. The TCB capability stays construction scrap
 `START`. Ending a child means ending its region, which is §40's ownership argument taken as far as it
 goes.
 
-Cost: zero. No code, no ABI, no slot. It is the tree's current behaviour in 25 of 30 sites; what
+Cost: zero. No code, no ABI, no slot. It is the tree's current behavior in 25 of 30 sites; what
 it costs is a paragraph, and the paragraph is the point, because right now the convention is
 inferable only by grepping for `cap_delete`.
 
@@ -350,7 +350,7 @@ breach endpoint-only naming, because a capability handed over is a name handed o
 Cost, measured. Twenty-five call sites stop calling `cap_delete` after `START`, which is where
 the slot arithmetic bites: twelve retained capabilities in init against three spare, so it forces
 `CAPABILITY_TABLE_SLOTS` up. Then a method number in `abi::thread_control_block`, a scheduler
-function whose embryo check differs from its three neighbours', and a §-section.
+function whose embryo check differs from its three neighbors', and a §-section.
 
 **What it costs that is not code.** The clean property measured above stops being true: a
 capability's authority becomes a function of the state of the object it names. That is the
@@ -568,7 +568,7 @@ already proves the kernel can authorize an action on a thread off that endpoint.
 overturning three recorded decisions, and that should be bought with a customer rather than
 speculatively, which is the whole reason it is not being bought here.
 
-**R2 and R3 are disfavoured on model grounds and not merely on cost**, per the two findings recorded
+**R2 and R3 are disfavored on model grounds and not merely on cost**, per the two findings recorded
 in R2's entry above: this tree has no state-dependent authority for R2 to remove, and seL4's lifetime
 handle earns its keep only alongside a repair-and-resume recovery model that §26 declined in as many
 words.

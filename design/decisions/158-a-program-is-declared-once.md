@@ -71,7 +71,7 @@ is not a §46 dependency decision.
 
 - `PROG_COUNT`'s name. It now means "one past the highest id", not a count of programs. Renaming
   it is a naming decision and calef's (design/naming.md).
-- Whether a program may take both an argument and an input. Kept as today's behaviour;
+- Whether a program may take both an argument and an input. Kept as today's behavior;
   `design/roadmap/498-a-program-that-takes-an-argument-and-an-input.md` carries the options
   and recommends keeping it.
 - Every name the milestone introduced (`programs!`, `Prog::ALL`, `declared_programs`,

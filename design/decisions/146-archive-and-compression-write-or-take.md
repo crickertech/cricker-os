@@ -84,7 +84,7 @@ ecosystem's own tooling leans on. Decompressors are a classic attack surface, an
 applies here, this is a dependency and the argument is over.
 
 **Against, and why I think rule 4 does not reach this case.** Crypto is on the take side because
-correctness there includes resistance to attacks not yet published and side-channel behaviour no
+correctness there includes resistance to attacks not yet published and side-channel behavior no
 specification states. DEFLATE has no secrets. It has no key, no timing channel that matters, and
 no cryptanalysis. Its threat model is two things, and both are answerable by construction rather
 than by exposure:
@@ -111,7 +111,7 @@ There is a way to split that nobody has mentioned and it may be the whole answer
 made entirely of stored (uncompressed) blocks is legal, and any conforming reader accepts it. So
 `git` could be made to work with a full inflate and a trivial deflate that only emits stored
 blocks: correct, tiny, provable, and interoperable, at the cost of larger objects. Real
-compression then becomes a measured optimisation with a working system already in place, rather than
+compression then becomes a measured optimization with a working system already in place, rather than
 a prerequisite.
 
 Recommendation: write inflate, write stored-block deflate, and revisit real deflate on

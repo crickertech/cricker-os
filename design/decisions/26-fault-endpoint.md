@@ -97,7 +97,7 @@ program that builds every other process. Anything that could substitute bytes at
 `/chosen/linux,initrd-start` got to be init. Milestone 16b (IOMMU-backed driver isolation), whose
 boundary proof is §20 (IOMMU-backed DMA isolation: one seam, two arch drivers), had already closed
 the DMA window a device could have used to rewrite the initrd *behind* the check, which is why the check is
-now airtight rather than theatre; that ordering was deliberate.
+now airtight rather than theater; that ordering was deliberate.
 
 Five decisions, each with its alternative on the record:
 

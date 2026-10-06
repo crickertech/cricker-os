@@ -287,7 +287,7 @@ on.
 
 3. **Code is documentation, and a sweep that reads only `.md` will keep missing the sharpest
    claims.** Five of this sweep's six fixes are in `.rs` files, including two test comments that made
-   a claim their assertions no longer honoured. `notes/documentation-audit.md`'s procedure says
+   a claim their assertions no longer honored. `notes/documentation-audit.md`'s procedure says
    "documents"; the corpus that matters is prose, wherever it lives.
 
 All three are added to `notes/documentation-audit.md`'s `BUGS`.

@@ -100,7 +100,7 @@ existing ratified names being used rather than coined.
 ## What this does not decide
 
 The content of any component's blob, which is that component's business and always was. And the
-hung case: a component that will not cooperate cannot be asked to serialise, so handoff recovers a
+hung case: a component that will not cooperate cannot be asked to serialize, so handoff recovers a
 planned swap and not the failure it is most wanted for. §116 (live component state handoff is declined, for want of a customer) did not claim otherwise and neither does
 this. Milestone 23 (a capability-routed component OS with live replacement)'s block carries that gap and keeps it.
 

@@ -79,7 +79,7 @@ noticeably. `tasks=4` takes about 150,000 ticks and is the one that needs them.
 
 So "raise `REPEATS`" is the wrong shape and "vary repeats by sweep point" is the right one, and that
 turns one constant into a table, which is a different thing for a reader to hold and for the
-transcript recogniser to parse.
+transcript recognizer to parse.
 
 ## What this tree already does in the analogous case, and where it does not apply
 
@@ -88,7 +88,7 @@ sample and everything above it is somebody else's load. That reasoning is sound 
 micro-benchmark on a busy host, which is what §25's icount work and `script/bench` are.
 
 It is questionable for a workload whose whole subject is contention between its own tasks.
-There, the spread is the signal rather than noise to be minimised away, and reporting only the best
+There, the spread is the signal rather than noise to be minimized away, and reporting only the best
 discards it. This tree's standing posture on benchmarks is that an honest tie or loss recorded
 plainly is worth more than an overclaimed win, and a best-of-three on a 29.4% distribution is
 neither honest nor a win.
@@ -98,7 +98,7 @@ neither honest nor a win.
 | | what | cost |
 |---|---|---|
 | **1** | raise `REPEATS` uniformly, to 5 or 7 | simplest, one constant, no format change. Costs the most board time and spends it mostly where it is not needed |
-| **2** | a per-sweep-point repeat table | cheap in board time and targets the problem. Costs a constant becoming a table, and the recogniser has to stop assuming a fixed count |
+| **2** | a per-sweep-point repeat table | cheap in board time and targets the problem. Costs a constant becoming a table, and the recognizer has to stop assuming a fixed count |
 | **3** | keep three repeats and report the spread rather than the best: min, max and median on the line | no extra board time at all, and it makes the instability visible rather than averaged away. **Costs a wire-format change to the `job-mix:` line** |
 | **4** | do nothing and record `tasks=4` as a range | free, honest, and leaves milestone 168 `PARTIAL` for a reason nobody can close without one of the above |
 

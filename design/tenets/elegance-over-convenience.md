@@ -33,7 +33,7 @@ it is now weaker than it has ever been.
 
 ## What this does not license
 
-**It is not a licence to gold-plate, and the difference is falsifiable.** Elegance here means the
+**It is not a license to gold-plate, and the difference is falsifiable.** Elegance here means the
 option with fewer moving parts, fewer things to remember, and fewer places to be wrong. It does not
 mean the option with more abstraction, more generality, or more machinery: those are usually *less*
 elegant and always more to maintain. The tree already refuses speculative trait-ification for

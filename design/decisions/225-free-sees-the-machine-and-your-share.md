@@ -45,7 +45,7 @@ calef's reason: a `free` that does not show a non-root user the box's health is 
 The counter-case was weighed. Inside a Linux container, `free` reads the host's
 `/proc/meminfo` and tells a program about memory it cannot have. LXCFS exists to fix exactly that:
 its README says it makes procfs files "container aware". Shape 3 answers both readers at once. The
-machine line is labelled as the machine, and the "yours" line is the limit that binds.
+machine line is labeled as the machine, and the "yours" line is the limit that binds.
 
 The page keeps the one property option 2 lacked. A figure delivered by a page someone was granted
 can be withheld; a figure nobody holds cannot. Granting it by default costs one manifest field, and

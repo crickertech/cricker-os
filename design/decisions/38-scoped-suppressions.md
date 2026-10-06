@@ -56,7 +56,7 @@ cleanup: the value was never in the deletions, it was in learning that the claim
   `user_can_read`/`user_can_write` had no caller anywhere on riscv64, because the confused-deputy
   test is `cfg(target_arch = "aarch64")`. The check that stands between U-mode and the kernel was
   proved on one ISA, and on the ISA where it matters *less*: RISC-V has one root register, so the
-  same tables translate user and kernel addresses and the `U` bit is the only line of defence.
+  same tables translate user and kernel addresses and the `U` bit is the only line of defense.
 - A vestigial input path: `console::rx_read` and `Ns16550::read_byte` were dead in every
   configuration including `--features shell`, because the byte is read by the userspace input driver
   through its device capability. Milestone 20's kernel-side reader had outlived its own design.

@@ -92,7 +92,7 @@ asks is unaffected, and a program that asks gets told instead of quietly stampin
 something guessable. `hashmap_random_keys` is the one place a fallback is right, because a
 `HashMap` in a program nobody granted entropy must still work, and because std's own `unsupported`
 backend degrades that same function (to allocation addresses) rather than failing. The splitmix64
-stream survives there, clearly labelled, and no key is ever minted from it.
+stream survives there, clearly labeled, and no key is ever minted from it.
 
 The mechanical cost is one more anchor in the std-src patcher: exporting `hashmap_random_keys`
 means std's blanket `#[cfg(not(any(...)))]` definition of it must exclude nife, or the two
@@ -105,7 +105,7 @@ the IOMMU and the test asserts it: the buffer this device writes is where the ma
 comes from, so an unconfined device writing it is the last thing to leave unchecked.
 
 The driver looks at the used ring before it blocks, which is a change from the disk driver's
-shape and is a fact about the board rather than an optimisation. `pci::intx_irq` swizzles INTx by
+shape and is a fact about the board rather than an optimization. `pci::intx_irq` swizzles INTx by
 device number modulo four, `sched::bind_irq` routes an intid to exactly one endpoint, and the test
 leg now attaches five PCI functions. There is no unshared line left, so a driver that blocked before
 looking would be betting on owning its line. The interrupt wait is still there and is what a
@@ -124,5 +124,5 @@ genuinely asynchronous device gets; QEMU completes inside `NOTIFY`, so the fast 
   ambient authority, and the point of the grant is that a program's dependence on randomness is
   visible in what it holds.
 - No rate limit and no quota. A client holding the endpoint can drain the service as fast as it
-  can `CALL`. Eight bytes per round trip is a cost, not a defence, and nothing here should be read
+  can `CALL`. Eight bytes per round trip is a cost, not a defense, and nothing here should be read
   as one.

@@ -22,7 +22,7 @@ Three things stay the architect's, and a correction does not touch them:
 | stays the architect's | where it lives |
 |---|---|
 | the Experiment status word | each entry's status line, from the set §211 (what a fatal-risk verdict says, and what the chart can plot as a result) closed |
-| the colour: GREEN, AMBER or red | the prose after the status word, and the running order's cells |
+| the color: GREEN, AMBER or red | the prose after the status word, and the running order's cells |
 | the running order | the table at the foot of the file |
 
 When the corrected facts argue that a verdict should move, the maintainer says so to the architect and

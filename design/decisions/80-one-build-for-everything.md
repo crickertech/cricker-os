@@ -124,7 +124,7 @@ recorded here. `kernel/` is 39,901 lines, and it decomposes:
 | test files | 10,907 (27%) |
 | remainder | 21,140, of which 7,887 (37%) are comments |
 
-So the kernel's actual logic is roughly 13,000 lines, which is in seL4's neighbourhood and a
+So the kernel's actual logic is roughly 13,000 lines, which is in seL4's neighborhood and a
 plausible plateau size. The comment density is deliberate (CLAUDE.md).
 
 The confound is parity, and it is a multiplier on the kernel specifically. Rule 1 puts all

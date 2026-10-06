@@ -29,7 +29,7 @@ something in hex would be a worse GUID for exactly the reason it would be a nice
 and read by another has only this integer to agree on. More pointedly, it is load-bearing for the
 recovery story milestone 57 exists to make credible: *the board is dead, can I get my data?* The
 answer is "plug the drive into a Mac or a Linux box and run the host tool", and the first step of
-that is `sgdisk -p` showing a partition whose type you recognise. A type GUID that drifted between
+that is `sgdisk -p` showing a partition whose type you recognize. A type GUID that drifted between
 releases would make a backup readable only by the software that wrote it, which is the definition of
 not a backup.
 

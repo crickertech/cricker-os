@@ -27,7 +27,7 @@ last point in that chain where the outlines were given away. So this is not a co
 ask; it is the ask, at the point it is licensed.
 
 And it does not reserve its own name, which is the property §100 was bitten by. The DejaVu
-licence is Bitstream Vera plus public-domain changes, reserving "Bitstream", "Vera",
+license is Bitstream Vera plus public-domain changes, reserving "Bitstream", "Vera",
 "Tavmjong Bah" and "Arev", **not "DejaVu"**. Source Code Pro reserves "Source" and would have
 inherited §100's objection whole; JetBrains Mono declares no reserved name either but is not
 Menlo's ancestor. So a glyph can be fixed later without a rename, which §100 records as a live cost
@@ -42,7 +42,7 @@ would matter for rung three.
 Canonical Solarized, and calef narrowed it himself. His opening proposal was *"Solarized Dark
 Higher Contrast"*. Milestone 142's lane found that variant **is not Schoonover's and is not an
 iTerm2 built-in**: it traces to a 2011 gist, all sixteen values differ from canonical, and it
-discards Solarized's structural choice of putting the greys in the bright half of the ANSI table.
+discards Solarized's structural choice of putting the grays in the bright half of the ANSI table.
 Shown that, he answered "Solarized", and confirmed when asked: "To clarify, Solarized Dark." So
 it is canonical Solarized Dark, chosen over the variant he opened with after learning what that
 variant actually was. That ordering is the point of recording it: the finding changed the answer,
@@ -50,7 +50,7 @@ which is what a survey is for.
 
 It needs a one-unit nudge to pass milestone 141's gate, and that is worth knowing in advance.
 141 defines three properties a palette must satisfy for a corrupted pixel to be a detectably wrong
-colour. Canonical Solarized passes properties 2 and 3 and fails property 1 on exactly one entry,
+color. Canonical Solarized passes properties 2 and 3 and fails property 1 on exactly one entry,
 `#93a1a1`, whose channels are not all distinct. A one-unit change to one channel fixes it and is
 invisible to any eye. Solarized also has no channel at `0xff` anywhere, where the palette it
 replaces has twelve, so it is a better test instrument than the thing that was chosen to be one.
@@ -58,7 +58,7 @@ replaces has twelve, so it is a better test instrument than the thing that was c
 The question that nudge raises, and it is calef's when it arrives: a palette is sixteen numbers
 and a name. Changing one number by one unit almost certainly makes it "Solarized" still in every
 sense a person cares about, and this tree has just spent a decision (§100) on the difference between
-a look and an artefact. Record the nudge where a reader meets the palette, so nobody later
+a look and an artifact. Record the nudge where a reader meets the palette, so nobody later
 believes the constant is Schoonover's untouched and reasons from that.
 
 ## Why these two are recorded together
@@ -66,7 +66,7 @@ believes the constant is Schoonover's untouched and reasons from that.
 They are one aesthetic decision with two halves, taken in one sentence, and separating them would
 imply a reader could adopt one without the other. They also share a shape worth noticing: in
 each case the thing calef named was the right thing to want and the wrong thing to ship, and the
-answer was the nearest artefact that is actually ours to use. Menlo to DejaVu is a licence chain;
+answer was the nearest artifact that is actually ours to use. Menlo to DejaVu is a license chain;
 Higher Contrast to canonical is a provenance chain.
 
 ## BUGS
@@ -80,7 +80,7 @@ Higher Contrast to canonical is a provenance chain.
 - The nudge is unimplemented and unlocated. It belongs in milestone 141's gate work or 142's
   increment six, and until one of them lands, the palette named here does not pass the check named
   here.
-- DejaVu's licence is not on `deny.toml`'s allow-list, which matters only if a font ever arrives
+- DejaVu's license is not on `deny.toml`'s allow-list, which matters only if a font ever arrives
   as a crate rather than as bytes in `vendor/`. §100 recorded the same gap; this decision makes it
-  bigger, because a transcribed atlas is hundreds of kilobytes under an obliging licence where the
+  bigger, because a transcribed atlas is hundreds of kilobytes under an obliging license where the
   current font is a kilobyte of nothing.

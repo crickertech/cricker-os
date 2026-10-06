@@ -127,10 +127,10 @@ and nothing else. The `main` ruleset (`gh api repos/nifeos/nife/rules/branches/m
 request, once its checks passed, was armed by the App and merged by the queue. Its checks pass
 automatically for anyone who is not a first-time contributor, and the drain is what makes a
 first-timer's next pull request not first-time. Its merge-group build then runs on a branch in
-this repository, with the organisation's `AUTOMATION_APP_KEY` in reach of any workflow line the
+this repository, with the organization's `AUTOMATION_APP_KEY` in reach of any workflow line the
 pull request added. That last step was read from GitHub's documentation and not exercised.
 
-Exposure: none realised. 991 pull requests by calef, 9 by dependabot, zero cross-repository, ever.
+Exposure: none realized. 991 pull requests by calef, 9 by dependabot, zero cross-repository, ever.
 
 Fix: the predicate is now one file, `helpers/queue-eligible.jq`, spliced into both consumers, and
 it adds `isCrossRepository == false`. Every lane pushes its branch here, so a foreign head is not a

@@ -52,7 +52,7 @@ the display driver's DMA region holds nine, so the ceiling was 9 frames against 
 run). The Kaypro's 7x8 cell needs none of it: it gives **18x8** on the scanout we already have,
 which is more screen than `font8x8`'s 16x8 rather than less.
 
-What is unchanged from the original decision: every refusal below and its reason, the licence
+What is unchanged from the original decision: every refusal below and its reason, the license
 analysis, and the finding that `font8x8` was the weakest thing in the survey and was what shipped.
 **What is superseded**: the choice of gohufont-14, and the sentence below saying this decision does
 not change what a user sees. It does now, and in the right direction.
@@ -78,7 +78,7 @@ And it carries no obligation at all. WTFPL v2 is one operative term, read at `wt
 
 No notice to reproduce, no reserved font name, no share-alike, no cure period. That matters here
 beyond convenience: a bitmap font is compiled into the kernel image and into every binary that
-draws text, so its licence is a licence on the artefact rather than on a build-time tool.
+draws text, so its license is a license on the artifact rather than on a build-time tool.
 
 ## What was refused, and why each lost
 
@@ -95,7 +95,7 @@ draws text, so its licence is a licence on the artefact rather than on a build-t
   than today, 25x8 against 16x8. It remains the strongest argument against this decision and the
   block below says so rather than burying it.
 - The Kaypro II character ROM was found, verified bit-identical to MAME's `kayproii` chargen
-  region, rendered, and excluded on provenance: the dump states no licence at all. It also lost
+  region, rendered, and excluded on provenance: the dump states no license at all. It also lost
   on looks. See notes/glyphs.md.
 - A hand-drawn font was drawn, 95 glyphs, and judged *"not worse than what ships, and not as
   good as Terminus or unscii-8."* Kept in the tree as a specimen, not as a candidate.
@@ -123,19 +123,19 @@ to stay small; the cost of growing it is in the pixel-for-pixel test harness rat
 ## The obligations, and where they land
 
 *Overtaken by the amendment, and in the same direction. What shipped is an original drawing, so
-there is no third party and no licence at all. The `vendor/README.md` entry is not owed, because the
+there is no third party and no license at all. The `vendor/README.md` entry is not owed, because the
 tree carries no bits it did not write for this. The paragraph below describes gohufont-14's WTFPL
 position, which stands if the font is ever revisited.*
 
 There are none to satisfy. Recorded anyway, because a reader will reasonably ask:
 
-- Nothing need travel with the image. No notice, no licence text, no attribution.
+- Nothing need travel with the image. No notice, no license text, no attribution.
 - `vendor/README.md` gets an entry regardless, because the tree registers the provenance of
   everything it did not write, and the register is worth more than the obligation would have been.
 - `deny.toml` is unaffected: `script/supply-chain` reads the cargo graph, and a font transcribed
   into a Rust table is not in it. That gap is real and belongs on the register rather than the gate.
 
-One thing worth deciding with open eyes: the licence's name is unusual, and if licence text is
+One thing worth deciding with open eyes: the license's name is unusual, and if license text is
 ever put in milestone 40's documentation store, `doc licenses/gohufont` would print it at the nife
 prompt. That is a taste question rather than a legal one, and it is calef's.
 
@@ -147,7 +147,7 @@ prompt. That is a taste question rather than a legal one, and it is calef's.
   the record on purpose; a reader should be able to see that the tree's own instrument lost.
 - The shipped font is an original drawing and inherits none of the survey's measurements. Its own
   numbers are in notes/glyphs.md, and two glyphs are recorded there as weak: `&` reads as a knot and
-  `%` looks bolder than its neighbours.
+  `%` looks bolder than its neighbors.
 - **The comparison is against fifteen candidates, not against every bitmap font.** The survey
   excluded proprietary faces without rendering them, and the best-drawn fonts of the 1980s are
   proprietary: the original Macintosh bitmaps, Monaco among them, were drawn by a designer Apple

@@ -43,7 +43,7 @@ held.
 So option 1's arithmetic is built and proved. What is not built is a verb that reaches it, and the
 server side that mints a second handle from a first.
 
-## The neighbouring decision, which should be read with this one
+## The neighboring decision, which should be read with this one
 
 [§98](98-opendir-cannot-attenuate.md) is `PROPOSED` and is a rights change to the same wire, raised
 by milestone 122's lane: `OPENDIR` cannot be asked for "the parent's rights, whatever they are", so
@@ -76,7 +76,7 @@ tenet's own limit says a fork of this kind arrives as options.
 
 **What a lane could measure before the ruling, and it is not much.** A's size is already known from
 §98's neighbouring estimate (about thirty lines for a smaller change on the same surfaces). B's cost
-is not a measurement at all; it is a judgement about what a prompt means, which is why it is calef's.
+is not a measurement at all; it is a judgment about what a prompt means, which is why it is calef's.
 
 ## What is blocked until this is answered
 

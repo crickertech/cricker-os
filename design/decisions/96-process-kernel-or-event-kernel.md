@@ -155,7 +155,7 @@ jobs (Wombat had no `GetHost`), so two of the three categories `crates/job_mix` 
 were absent from the cited run too. It was *"2 clients with the normal workload file"*, run in two
 user tasks, so there was no task-count sweep. And Warton doubted the result himself: he expected
 the single-stack kernel to perform similarly or worse, called the outcome something to treat *"with
-scepticism until it can be satisfactorily explained"*, and records that the cache simulation which
+skepticism until it can be satisfactorily explained"*, and records that the cache simulation which
 would have explained it was never run for lack of time.
 
 What this section should take from it is the mechanism, not the number. The only explanation
@@ -205,7 +205,7 @@ shape. Milestone 134's tier B is what would settle it.
 
 So: the deciding number still does not exist, and the instrument is closer to producing one than
 this section assumed. The honest movement is that the performance input went from unmeasurable to
-partially measured, in the direction that favours the event kernel, on an axis the workload does
+partially measured, in the direction that favors the event kernel, on an axis the workload does
 not currently use.
 
 4. Verification. The paper's reason does not transfer; a weaker version might.

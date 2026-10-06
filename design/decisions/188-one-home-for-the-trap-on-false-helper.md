@@ -50,7 +50,7 @@ shape at a seventh the scale.
 So this section does not re-decide the lift. It asks the one question §94 left open for each
 instance, which is what the lifted item is called.
 
-## Why 291 chose the duplicate, recorded rather than criticised
+## Why 291 chose the duplicate, recorded rather than criticized
 
 The alternative was adding a public function to `user_rt` in a lane already touching two archive
 tables and the filesystem's directory geometry, and `user_rt` is the crate every program links. The

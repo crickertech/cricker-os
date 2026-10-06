@@ -127,7 +127,7 @@ v6.10.
 
 ### seL4 does not migrate threads at all, and says why
 
-This is the finding that reframes the whole question, because nife's measured behaviour is seL4's
+This is the finding that reframes the whole question, because nife's measured behavior is seL4's
 deliberate design. From Elphinstone, Zarrabi, Danis, Shen and Heiser, *An Evaluation of
 Coarse-Grained Locking for Multicore Microkernels*, https://arxiv.org/pdf/1609.08372, section 3.3:
 
@@ -137,7 +137,7 @@ Coarse-Grained Locking for Multicore Microkernels*, https://arxiv.org/pdf/1609.0
 
 Corroborated in the kernel source: `chooseThread` in `src/kernel/thread.c` reads only
 `NODE_STATE(ksReadyQueues)`, this core's own queues, and an idle core runs its idle thread rather
-than pulling from a neighbour. There is no stealing path and no rebalancer. seL4 does have one
+than pulling from a neighbor. There is no stealing path and no rebalancer. seL4 does have one
 implicit migration, and it follows authority rather than load: the manual's section 6.1.11 says
 *"Passive threads will run on the CPU node that the scheduling context was configured with, and will
 be migrated on IPC"*, because a scheduling context is donated over `seL4_Call`, so a passive server
@@ -272,7 +272,7 @@ The tuning surface is four fields per level in `include/linux/sched/topology.h`:
 	unsigned long min_interval;	/* Minimum balance interval ms */
 	unsigned long max_interval;	/* Maximum balance interval ms */
 	unsigned int imbalance_pct;	/* No balance until over watermark */
-	unsigned int balance_interval;	/* initialise to 1. units in ms. */
+	unsigned int balance_interval;	/* initialize to 1. units in ms. */
 ```
 
 One correction to the shape of the hierarchy, which a maintainer stated from memory as "SMT,
@@ -292,7 +292,7 @@ array entirely with `set_sched_topology()`.
 
 The maintainer's three-moment summary was substantively right, and this is a re-cut rather
 than a correction: it folded the tickless case into the idle one, where the source puts it beside
-the periodic one, since a NOHZ kick makes a *busy* CPU run the balancer for idle neighbours.
+the periodic one, since a NOHZ kick makes a *busy* CPU run the balancer for idle neighbors.
 `sched_setaffinity` is not on this list because it is a request from userspace rather than a moment
 the kernel chooses.
 
@@ -348,7 +348,7 @@ capability system gets for free.
   periodic one, and it is the only one of the four that fires whether or not anything happened.
   That is exactly why the counter freezes: a saturated rendezvous workload starves the other three
   of their triggers (nothing forks, no core goes idle, no device interrupt lands), and an
-  event-driven balancer with no events does nothing. This is a point in option B's favour and it
+  event-driven balancer with no events does nothing. This is a point in option B's favor and it
   is recorded as one, below.
 - If affinity is built, the shape has a clear winner in the family this project belongs to: the
   core is a property of a capability, not an argument in a message. seL4 MCS and L4Re agree, from
@@ -369,7 +369,7 @@ What the surface grows by, exactly. In the manifest form: one field on the spawn
 its validation, plus whatever names the authority. In the invocation form it would be one method on
 the thread control block capability (`crates/abi`'s `thread_control_block` module) and one arm in
 `kernel/src/syscall.rs`. Either way the thing that is irreversible is not the code. It is that every
-future program is written against it and every future scheduler must honour it.
+future program is written against it and every future scheduler must honor it.
 
 The capability question it opens, and this is the part with no default answer. Is pinning an
 authority? Three readings, and the tree does not currently prefer one:
@@ -379,7 +379,7 @@ authority? Three readings, and the tree does not currently prefer one:
 - It is an authority over the machine, because a program that pins ten threads to core 0 has
   taken a scheduling decision away from everyone else. There is no CPU budget mechanism here to
   bound that; §28 defers budgets too, and with no priorities the scheduler is round-robin, so a
-  pinning program's effect on its neighbours is unbounded by construction.
+  pinning program's effect on its neighbors is unbounded by construction.
 - It is an authority over a thread, in which case the thread control block capability already
   names it and the answer falls out with no new object. This is seL4's non-MCS answer, and seL4
   replaced it: see the prior art above, where the same kernel gates priority with a bounding
@@ -392,7 +392,7 @@ grant that names a core is exactly seL4's `sched_control_cap`.
 
 Reversibility. Low. A manifest field is a wire format two programs agree on, which is the *move
 fast on what can be undone* tenet's first irreversible category. Nobody has acted on it yet, which is
-the one thing in its favour.
+the one thing in its favor.
 
 What it buys the experiment. A pinned caller and a pinned responder must cross on every round
 trip. But the crossing is the caller's `CALL` blocking and its reply arriving on the responder's
@@ -413,11 +413,11 @@ record and in the source, and its authors' stated reason is *"seL4's general phi
 resource management under user control (and also helps reasoning about real-time properties)"*.
 Barrelfish does not, structurally. Linux does, and offers turning it off as a first-class control
 (`cpuset.cpus.partition` set to `"isolated"`, *"Partition root without load balancing"*).
-So the behaviour milestone 219 measured and read as a gap is the design position of the kernel this
+So the behavior milestone 219 measured and read as a gap is the design position of the kernel this
 project measures itself against, and B would be the one option that moves nife away from it in
 order to run a test.
 
-The point in its favour, which reading Linux produced and which nothing in this tree had said.
+The point in its favor, which reading Linux produced and which nothing in this tree had said.
 B is not "add balancing to a kernel that has none". nife already balances at three of the four
 moments Linux does; all three are event-driven, and B is the fourth, the one that fires on a clock
 whether or not anything happened. Stated that way it is a smaller change than it looked, and it is
@@ -526,7 +526,7 @@ must be decided rather than to decide it:
   that part is not open unless someone argues to reopen it.
 - The authority question is open and has no default. The three readings are above.
 - **A is worth having on its own merits and does not need this experiment to justify it.** A
-  latency-sensitive server pinned away from a noisy neighbour, and a driver thread near its device's
+  latency-sensitive server pinned away from a noisy neighbor, and a driver thread near its device's
   interrupt, are things real systems want, and §28 deferred it with a trigger rather than refusing
   it. That case should be made on its own, with its own workload, rather than being carried in on the
   back of a test that D can run without it.
@@ -547,7 +547,7 @@ evidence for how large that surface gets and for the fact that it is only tunabl
 The refusal now rests on §28's trigger alone. A reader who thinks that trigger has been met should
 reopen B, and this paragraph is the invitation.
 
-C is declined in favour of D, having established that its userspace half already exists and its
+C is declined in favor of D, having established that its userspace half already exists and its
 kernel half does not need a syscall.
 
 ## What is blocked until this is answered

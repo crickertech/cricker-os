@@ -35,7 +35,7 @@ Three things it needs, and the second has the real cost.
   as ceremony.
 
 The recommendation. Not yet, and for a reason that got sharper today: the repository just adopted
-"require branches to be up to date before merging", which already serialised a ten-pull-request
+"require branches to be up to date before merging", which already serialized a ten-pull-request
 backlog. Adding a second requirement that can block every merge, while the first one's cost is still
 being measured, stacks two novel failure modes. Do it when the merge pipeline is quiet, verify
 Dependabot's commits are accepted **before** making the rule blocking, and start with the rule in a

@@ -28,8 +28,8 @@ that has to be true of the port rather than promised by the platform.
 ## What the Rust rewrite community does and does not give us
 
 There is a large, active effort rewriting C tools in Rust: coreutils, and the ecosystem of
-replacements like `ripgrep`, `fd`, `eza` and their neighbours. It is genuinely valuable and it is
-**not aligned with this thesis**, because those projects optimise for *compatibility*. A faithful
+replacements like `ripgrep`, `fd`, `eza` and their neighbors. It is genuinely valuable and it is
+**not aligned with this thesis**, because those projects optimize for *compatibility*. A faithful
 Rust `ls` is faithful about walking a global filesystem too.
 
 Stated plainly so nobody has to rediscover it: **that community gives us the memory-safety half for

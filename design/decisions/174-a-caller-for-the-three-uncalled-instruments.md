@@ -54,7 +54,7 @@ Read against that, the three sort themselves:
 - `crate-probes` builds fifty crates, which is the `coverage` and `cpu-matrix` argument exactly.
 - `rule-violations --check` reads text and counts strikes, and nothing about it suggests a build.
 
-## The neighbouring decision, which is open in the same sweep
+## The neighboring decision, which is open in the same sweep
 
 `script/ci-build`'s own header says, in capitals, that **the tier tags and the no-argument meaning
 are PROVISIONAL pending calef**, and points at milestone 440 (*What `script/ci-build` with no

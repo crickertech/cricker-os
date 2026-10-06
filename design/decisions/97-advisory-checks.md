@@ -61,7 +61,7 @@ sat stalled with the drain printing `STALLED. #N is failing fastpath footprint` 
 each had branched before the fix and inherited a failure that no longer existed on `main`. Every one
 of them was mergeable and none of them was moving.
 
-Neither behaviour is wrong on its own; having both is. A tree where the enforcing mechanism does
+Neither behavior is wrong on its own; having both is. A tree where the enforcing mechanism does
 not block and the non-enforcing one does is one where nobody can predict what a red check costs, and
 the answer changes depending on which robot looks first.
 

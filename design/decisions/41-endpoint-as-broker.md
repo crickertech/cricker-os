@@ -34,7 +34,7 @@ Two properties fall out that a forwarding broker would have had to reimplement:
   capability in `outgoing_cap`; the next server's `RECV_CAP` picks both up and answers a caller it
   was never wired to. Nothing is lost while the endpoint has no server, and nothing was added to the
   kernel to make that true.
-- The drain is the quiesce message travelling in band. The operator's `OP_QUIESCE` goes to the
+- The drain is the quiesce message traveling in band. The operator's `OP_QUIESCE` goes to the
   *same endpoint being drained*, and the sender queue is FIFO, so by the time it arrives the
   incumbent has answered every request queued ahead of it. There is no quiescence protocol, no
   timeout, and no window the operator has to guess at.

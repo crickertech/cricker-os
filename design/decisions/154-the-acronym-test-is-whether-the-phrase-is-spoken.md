@@ -39,7 +39,7 @@ expand. Milestone 265 on 2026-09-13 then listed `elf`, `pci`, `dtb`, `gpt` as th
 stay whole. The middle layer and the last layer cannot both be right about `dtb` and `gpt`.
 
 **The 2026-09-05 test's stated reason was an asymmetry that does not hold.** It said *a reader who
-knows the term recognises its expansion instantly, so spelling it out costs the expert nothing and
+knows the term recognizes its expansion instantly, so spelling it out costs the expert nothing and
 saves the newcomer a bounce.* That is true of "device tree blob" and false of "peripheral component
 interconnect": an expert meeting the second has to translate it back to `pci` to know what they
 are looking at, so it costs them. The new test keeps the asymmetry and fixes the thing that measures
@@ -103,6 +103,6 @@ expansion.
 
 Milestones 320 and 321 are open against `fix/host-bridge-test-on-real-chipsets`, and 320 is
 rewriting `kernel/src/pci.rs` and `crates/pci` in particular. Every rename this decision
-authorises waits until those land. The name blocks say `provisional` with the ruling recorded
+authorizes waits until those land. The name blocks say `provisional` with the ruling recorded
 beside them, the shape `board_console` uses for its ruled `serial_console`, so
 `script/names --unratified` keeps carrying the work rather than dropping it.

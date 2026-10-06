@@ -81,7 +81,7 @@ instead. calef refused that split, and the refusal is the load-bearing part of t
 > trust me, the long documents were rare and didn't get used. Its too much cognitive load for a
 > human to page through a book to get what they need.
 
-And on mechanism: *"We can make generous use of hyperlinks. They're awesome."* Read that as licence
+And on mechanism: *"We can make generous use of hyperlinks. They're awesome."* Read that as license
 to link rather than restate, here and everywhere.
 
 **A sibling section, [§213 (writing standards)](213-writing-standards.md), minted 2026-09-24.** It bounds how densely a document must be written, where this one bounds
@@ -159,7 +159,7 @@ the cognitive load he names.
 (c) A uniform cap with recursive appendices. One number, every document, no exempt class; depth
 lives in appendix files that are themselves documents under the same cap. Recommended. It is
 the shape that makes (b) unnecessary rather than overruling it: a reference document keeps all its
-depth, reorganised so that arriving costs a page instead of a book.
+depth, reorganized so that arriving costs a page instead of a book.
 
 (d) Ratchet versus tree-wide migration. A cliff turns 174 files red on the day it lands and
 buys nothing, because the gate cannot split them. Recommended: a ratchet, the shape already
@@ -234,12 +234,12 @@ ratified number means redoing it. Nothing else is blocked.
 
 - A word cap rewards moving prose rather than cutting it. Every file can pass while the tree's
   total gets worse, and a reader who needs the whole argument now opens four files instead of one.
-  The completeness rule and the review question are the only defence, and neither is a check: no
+  The completeness rule and the review question are the only defense, and neither is a check: no
   gate can tell a good split from a hidden one. The pair with §213 is what actually reduces reading
   cost; either alone is evadable, and this one is evadable in exactly the direction §213 watches.
 - The traffic argument rests on links, not readers, as said above. If the long documents are in
   fact read end to end by the people who cite them, the cap costs those readers a worse experience
   to buy a better one for everyone else, and this section has no way to find out which.
-- **3,000 is a judgement, not a measurement.** It is roughly six pages, it is above `notes/`' own
+- **3,000 is a judgment, not a measurement.** It is roughly six pages, it is above `notes/`' own
   median of 2,933, and those two facts are the whole case for that number rather than 2,500 or
   4,000.

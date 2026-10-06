@@ -10,7 +10,7 @@ Moved here 2026-09-23 (UTC) on calef's authorization, unchanged in substance.*
 These come from `design/decisions/`. They are cheap to follow and expensive to retrofit.
 
 1. All architecture-specific code lives under `kernel/src/arch/`. Assembly, `asm!`, system
-   registers, CPU-specific behaviour. If you're writing `asm!` outside `arch/`, that is the bug.
+   registers, CPU-specific behavior. If you're writing `asm!` outside `arch/`, that is the bug.
    This is what makes the Raspberry Pi port a new directory instead of a diff across every file.
 
 2. A driver never reaches into a kernel global. It gets what it needs passed in (a base address,

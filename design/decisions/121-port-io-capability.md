@@ -54,7 +54,7 @@ The bitmap's awkwardness, and the reason this is a decision rather than a task, 
 **per-task state, not per-address-space state**. A page mapping lives in the address space and
 travels with it; the I/O bitmap lives in the TSS, and the TSS is per-CPU. So a thread's port
 rights have to be re-established on every context switch that changes which thread is running, on
-whichever CPU it lands on. That is a cost and a synchronisation problem the mapping model does not
+whichever CPU it lands on. That is a cost and a synchronization problem the mapping model does not
 have.
 
 ## The options

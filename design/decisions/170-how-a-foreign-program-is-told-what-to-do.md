@@ -40,7 +40,7 @@ calef's framing of the read-only default: unvouched programs are copied binaries
 and locking them down by default means they can do little damage.
 
 The maintainer's correction to that framing, recorded as such. This is confinement, not
-antivirus. It does not recognise bad code; it bounds all unvouched code alike. An unvouched program
+antivirus. It does not recognize bad code; it bounds all unvouched code alike. An unvouched program
 can still:
 
 - read what was named on its line;
@@ -73,7 +73,7 @@ The note lists what is in it:
 
 ## Recorded as a later refinement, not ruled
 
-Honouring an unvouched binary's note up to a ceiling set per session. That ties to §220 (signed
+Honoring an unvouched binary's note up to a ceiling set per session. That ties to §220 (signed
 builds: a vendor signs, a developer self-signs), which is PROPOSED. Until something rules it, an
 unvouched note grants nothing, as clause 4 says.
 
@@ -176,6 +176,6 @@ that predates it, since no script yet depends on one.
 Considered and refused: M1, a prefix (`+file`); M2, a separate word; M3, a flag (`--rw`/`--new`);
 M4, a suffix (`file:rw`). A runtime prompt (a powerbox) was refused for the same reason the y/n
 prompt above was: it breaks scripts and pipelines, with nobody there to answer it. So was
-honouring the unvouched program's own note up to a ceiling set per session, which was already
+honoring the unvouched program's own note up to a ceiling set per session, which was already
 deferred to §220 (signed builds: a vendor signs, a developer self-signs), itself PROPOSED. Until
 §220 is ruled, an unvouched note still grants nothing.

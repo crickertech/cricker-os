@@ -43,7 +43,7 @@ So the ladder is the kernel's own and needed nothing new: no capability, `Frame`
 `Frame` with `WRITE`, `Endpoint` with `WRITE`. **No new syscall, no new method number, no new object
 type**, and the authority a process holds is already introspectable, which is what `caps` prints.
 
-**Why set is memory and not a message, which is the one judgement call here.** A process has exactly
+**Why set is memory and not a message, which is the one judgment call here.** A process has exactly
 one blocking wait point: this kernel has no wait-any primitive and no threads sharing an address
 space (the constraint `compositor.rs` records, and the same one §26.5 declines to lift). So a design
 where `set` and `propose` were both messages would have needed two server processes, and the second
@@ -82,7 +82,7 @@ caller weighing a certificate expiry wants.
 
 `clock_proto::state` has four values and the first is `UNKNOWN`. A page nobody has published to is
 zero, and zero reads as unknown, so the honest answer is the default rather than something
-initialisation has to remember. An RTC that is absent, or whose reading falls outside the sanity
+initialization has to remember. An RTC that is absent, or whose reading falls outside the sanity
 window, leaves the clock unknown; the service does not publish a value it does not believe.
 
 For `std` this is where the rule bites hardest, because `SystemTime::now()` has **no error channel**.

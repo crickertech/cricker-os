@@ -33,7 +33,7 @@ can replay, and what that form is.
 >
 > -- notes/verification.md
 
-It is rung four, honoured by whoever remembers, and milestone 191 measured what that produces:
+It is rung four, honored by whoever remembers, and milestone 191 measured what that produces:
 145 harnesses, 23 `kani::cover!` sites across 4 of 24 harness crates, and no harness anywhere
 recording what was done to falsify it. The reverse pass found the predictable result:
 `capability::subset_is_reflexive` proves `a & !a == 0`, a tautology no plausible implementation error

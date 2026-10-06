@@ -37,7 +37,7 @@ it was a fork.
 ## What was decided
 
 Scheduled (on-CPU) time, accumulated: what Linux's `utime`/`stime` and Fuchsia's
-`zx_object_get_info` runtime are, and the one a reader expecting `top` would recognise.
+`zx_object_get_info` runtime are, and the one a reader expecting `top` would recognize.
 
 Two options were refused, and the reasons are the valuable half.
 
@@ -89,6 +89,6 @@ is now continuous rather than a state word.
 ## The cross-core read
 
 Each core's tick touches only the thread running on that core, so the write needs no cross-core
-synchronisation. A reader on one core observing a counter another core is actively incrementing is
+synchronization. A reader on one core observing a counter another core is actively incrementing is
 an ordinary relaxed-load race, the same shape the per-CPU `TICKS` array already accepts. Rule 4
 applies: this is a weakly-ordered machine and the accepted race must be stated rather than assumed.

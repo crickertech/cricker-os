@@ -57,7 +57,7 @@ without a ruling.
 | | what | cost |
 |---|---|---|
 | **A** | leave it; the loud message is enough | zero, and the developer on a stale machine keeps typing three commands by hand |
-| **B** | `script/bootstrap --no-verify`, passed by `script/ci-build` | one flag, and the judgement moves into a caller that has no opinion about QEMU versions |
+| **B** | `script/bootstrap --no-verify`, passed by `script/ci-build` | one flag, and the judgment moves into a caller that has no opinion about QEMU versions |
 | **C** | split: `bootstrap` provisions and returns zero when it installed everything it could; adequacy becomes its own row in `script/ci-build`'s table | changes what a canonical entry point's exit code means, which seven call sites read |
 | **D** | keep both jobs, distinguish the exit codes (1 for "could not install", 2 for "installed, still inadequate") | small; callers that do not look still see non-zero, and one that cares can |
 

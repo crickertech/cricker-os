@@ -27,35 +27,35 @@ provisional until the merge queue lands it.)*
 
 ## What is being decided
 
-Whether nife may run GPL and LGPL programs, what that does to nife's own licence, through which
+Whether nife may run GPL and LGPL programs, what that does to nife's own license, through which
 channel such programs reach a machine, and whether the ability to do it is a claim worth making
 rather than a compliance detail.
 
 ## Why now, and it is not the SMB question
 
 The SMB question is answered on other grounds (Samba is unrunnable here for POSIX reasons, not
-licence ones; see the refusal at the bottom). What forces this section is that the roadmap already
+license ones; see the refusal at the bottom). What forces this section is that the roadmap already
 plans to run GPL programs and nobody noticed. Milestone 99 / milestone 171 is `git`, GPLv2.
 Milestone 170 is `nano`, GPLv3. Those lanes will meet this question with no decision behind them.
 
-A licence posture is in the *move fast on what can be undone* tenet's irreversible category, a fact
+A license posture is in the *move fast on what can be undone* tenet's irreversible category, a fact
 that leaves the machine: it is quoted, relied on, and cannot be unpublished. It should be decided
 before a lane needs it rather than by a lane that needed it.
 
 ## The insight, which is architectural rather than legal
 
-The same boundary that confines a compromise confines a licence.
+The same boundary that confines a compromise confines a license.
 
 In a monolith, GPL code in the kernel makes the kernel GPL. That is why Linux's ext4, ksmbd, and its
 drivers are GPL, and why a permissively licensed kernel cannot take any of them. In a capability
 microkernel every service is a separate program communicating over IPC, so a GPL filesystem server, a
-GPL network service or a GPL editor is aggregation rather than derivation, and the licence stops
+GPL network service or a GPL editor is aggregation rather than derivation, and the license stops
 at the process boundary the same way a fault does.
 
 That belongs beside the confinement claim rather than in a compliance appendix, and it is the
 demonstration calef is pointing at: not *"we can run GPL software"*, which is unremarkable, but
 *"somebody else's large, memory-unsafe, ambient-authority-assuming program runs here holding only
-what it was granted, and its licence reaches nothing."* `caps <program>` prints the first half. This
+what it was granted, and its license reaches nothing."* `caps <program>` prints the first half. This
 section is what makes the second half sayable.
 
 ## The pattern this corrects, and every instance of it was right
@@ -72,7 +72,7 @@ right, which is exactly the condition §46 was written to fix: a practice unanim
 written down nowhere.
 
 §87 (MIT OR Apache-2.0, and why the GPL's lesson does not transfer) does not cover this. It
-decides nife's own licence and why copyleft's strategy is not ours. It says nothing about running
+decides nife's own license and why copyleft's strategy is not ours. It says nothing about running
 GPL programs, and nothing in it should be read as refusing them.
 
 ## The delivery channel, which is calef's correction and the better answer
@@ -99,7 +99,7 @@ So the rule is a base and packages split:
   meaningful and keeps a downstream free to vendor the whole image.
 - GPL and LGPL programs arrive as packages, installed by the user.
 - Milestone 47 already makes that shape natural: a program namespace is an endowment, so
-  installing a program is granting it into a namespace. The licence boundary and the capability
+  installing a program is granting it into a namespace. The license boundary and the capability
   boundary turn out to be the same boundary, which is worth noticing rather than arranging.
 
 **The package manager does not exist**, which was this section's one open question and is no longer
@@ -162,7 +162,7 @@ Requires.
 
 1. No conveyed artifact carries copyleft, per amendment 1, and something should check it rather
    than a person remembering.
-2. Each packaged program's licence is recorded where a reader meets the program, not in a registry.
+2. Each packaged program's license is recorded where a reader meets the program, not in a registry.
 3. A GPLv3 program is shipped only where the replaceability answer is written down, per above.
 4. The claim is stated with its limits, the way this tree states benchmark ties: the boundary is
    the process, not the machine, and aggregation is a legal conclusion this project is not qualified
@@ -179,9 +179,9 @@ Refusing GPL software outright, which is where the tree's instinct was drifting.
 running narrow) needs, in exchange for nothing, since the process boundary already provides the
 isolation the refusal would be buying.
 
-Using this to rescue Samba. Samba's blocker is POSIX, not licence: `fork`, threads and a full
+Using this to rescue Samba. Samba's blocker is POSIX, not license: `fork`, threads and a full
 libc, which is tier three plus §105's declined shared-address-space threads. ksmbd is in-kernel and
-so is the LKL problem. Licence isolation makes GPL software permissible; it does not make Samba
+so is the LKL problem. License isolation makes GPL software permissible; it does not make Samba
 runnable, and nife's own SMB server remains the permissive one a downstream who cannot take GPL would
 use.
 
@@ -213,9 +213,9 @@ can make it a different org if need be. But we will want to expose GPL packages 
 through our basalt distribution even if they have to opt in for it."*
 
 This supersedes this section's premise that the package manager moves the GPL obligation away
-from nife. The project (or a sibling organisation it runs) will distribute GPL binaries, so it
+from nife. The project (or a sibling organization it runs) will distribute GPL binaries, so it
 takes on the distributor's obligations for them: corresponding source published beside each
-binary, and the licence text shipped in the package. A separate organisation isolates the
+binary, and the license text shipped in the package. A separate organization isolates the
 obligation; it does not remove it.
 
 Unchanged. The image and the `base` kind carry no copyleft. GPL and LGPL arrive only in
@@ -223,5 +223,5 @@ Unchanged. The image and the `base` kind carry no copyleft. GPL and LGPL arrive 
 (milestone 120 (nife and the organization)). Opt-in is the rule, not a default-on source.
 
 Open, owed to milestone 198 (a package manager). Whether the GPL repository lives under this
-organisation or a sibling one, and the mechanism that publishes corresponding source beside each
+organization or a sibling one, and the mechanism that publishes corresponding source beside each
 binary. Both are recorded as open questions in milestone 198's own block.

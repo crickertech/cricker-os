@@ -44,7 +44,7 @@ new operating system, on a production OS, today, running real software.
 It is also the best evidence for building it, and the evidence is the Capsicum authors' own. Their
 experience reports document that converting applications is laborious, because Unix APIs assume
 ambient authority *everywhere*: `getaddrinfo` is the canonical case but far from the only one. Every
-converted program needs a helper service, an audit, and a reorganisation into "acquire authority, then
+converted program needs a helper service, an audit, and a reorganization into "acquire authority, then
 drop it".
 
 So the honest framing, and the one to use when asked:

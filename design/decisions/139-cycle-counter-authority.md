@@ -443,7 +443,7 @@ page, updates the page tables, shoots the TLB entry, `iret`. One ring round trip
 with these mitigations. It does considerably more work than an `rdtsc` emulate would, so it is not a
 substitute for measuring the real thing, and the method here cannot separate the entry and exit cost
 from the page work. What it does establish is that **a fault round trip on this machine is in the
-same neighbourhood as a syscall and above it, not below it**, which is the architectural fact the
+same neighborhood as a syscall and above it, not below it**, which is the architectural fact the
 option was implicitly betting against. `SYSCALL`/`SYSRET` is the path Intel built to be fast; an
 IDT-vectored exception returning through `iret`, a serializing instruction, is the path it did not.
 
@@ -669,7 +669,7 @@ and, on the current ARM situation:
 > resource.
 
 Its shape is a new object `seL4_PMU` with badged capabilities, the badge naming which counters
-are authorised, and a blocking invocation. Its own unresolved questions include "How will the PMU
+are authorized, and a blocking invocation. Its own unresolved questions include "How will the PMU
 object affect verification? Initially it will not be available in verification builds of seL4".
 
 Linux has both answers too, and the arm64 one is the interesting half. The global answer is

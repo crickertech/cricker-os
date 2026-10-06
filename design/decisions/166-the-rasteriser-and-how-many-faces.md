@@ -66,7 +66,7 @@ between architectures breaks that agreement outright.
 | B | `fontdue` 0.9.4 | Refused, see below. |
 | C | Write the rasteriser and the parser | Refused, see below. |
 
-Quantise to `u8` at the boundary and never persist raw `f32`. `ab_glyph_rasterizer` 0.1.5 removed
+Quantize to `u8` at the boundary and never persist raw `f32`. `ab_glyph_rasterizer` 0.1.5 removed
 the `1.0` cap on coverage and the raw hash changed; the 8-bit hash did not, because Rust's
 float-to-integer cast saturates. That is the difference between a table that survived a patch bump
 by luck and one that survives it by construction, and it costs nothing because the table holds 8-bit
@@ -150,7 +150,7 @@ the shipping graph altogether, and run time needs only integer blending against 
 
 The dependency is the expensive half (§46: adding one is a morning, removing one after a subsystem
 is built on it is a project), though a host-only tool is cheaper to swap than a runtime one. The face
-count is expensive because the atlas is a checked-in generated artefact and a cell-attribute layout,
+count is expensive because the atlas is a checked-in generated artifact and a cell-attribute layout,
 so changing it regenerates the table and touches the terminal's own storage. Both were ruled before
 the atlas was generated, which is the cheap moment.
 

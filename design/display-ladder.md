@@ -40,7 +40,7 @@ answered on purpose.
    engine, the terminal and the keyboard are all unaffected and all still built.
 2. Rung two: a compositor component (milestone 33). Built, both ISAs: `compositor` multiplexing one
    screen among three mutually distrusting clients, each holding a capability to its own surface;
-   software composition honouring a damage rectangle; input routed by capability using the terminal
+   software composition honoring a damage rectangle; input routed by capability using the terminal
    contract's `OPERATION_BYTES` driver half, so a terminal drops in unchanged. No ambient display: window
    enumeration and screenshots are read-only mappings, not verbs, so a client that holds neither
    has nothing to call and nowhere to look. See notes/compositor.md and DECISIONS §33. The design's

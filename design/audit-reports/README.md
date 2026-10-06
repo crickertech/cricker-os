@@ -331,7 +331,7 @@ script/audits --baseline
   That is a month in which this directory's whole purpose was served correctly and changed nothing.
 
   **Why a month of correct alarms was as invisible as silence, which is the part to design against.**
-  Red *is* this job's signal, by deliberate choice, so the Actions tab shows the same colour whether
+  Red *is* this job's signal, by deliberate choice, so the Actions tab shows the same color whether
   the tripwire is firing or the tripwire is broken, and a reader who has learned that this job is
   "the red one" stops distinguishing them. The path defect then hid inside the alarm it replaced.
   Milestone 238's `script/cadence-check` catches the second failure by asking when a workflow last

@@ -189,7 +189,7 @@ unsigned `char` and 128-bit `long double`, so in CI `arch` was the only field Ka
 link changed; the two C-visible differences measured on patagonia do not occur there. The fix in
 the same milestone links `kani_lib.c` precompiled and last, and `script/verify-riscv64` now fails
 unless every field Kani wrote survives into every linked binary. `os` is not one of them, since
-Kani's model does not carry it, so the linked binary still names the host's OS. The colour is
+Kani's model does not carry it, so the linked binary still names the host's OS. The color is
 untouched.
 
 ### Added 2026-10-06 (§216): the falsification backlog is done
@@ -222,4 +222,4 @@ A falsification record is made on purpose, by the person writing it, which is th
 The nearer evidence is milestone 741 (does a standing proof notice a regression?), a mutation
 measurement on 2026-10-04, and its defects were planted too.
 And the record covers only what is harnessed, so the roughly 18% of `kernel/src` in files calling
-`asm!` is as far out of reach as it was. The colour is calef's (§216) and is untouched.
+`asm!` is as far out of reach as it was. The color is calef's (§216) and is untouched.

@@ -94,7 +94,7 @@ options rather than a winner.
 
 What this section does recommend is answering question 3 explicitly whichever way 1 goes,
 because it is the cheap half and it is what makes the next adapter's name mechanical rather than
-copied from whichever neighbour the lane happened to read. `terminal_sink_caretaker` says what it
+copied from whichever neighbor the lane happened to read. `terminal_sink_caretaker` says what it
 holds and then what it hands out, in that order, and reads well; `fs_file_caretaker` says only what
 it holds. Those two are consistent only by accident today.
 
@@ -103,7 +103,7 @@ it holds. Those two are consistent only by accident today.
 Low, and the surface is already five programs wide. `caretaker` is a word four programs carry,
 `file_sink` is a fifth waiting on the answer, and every future narrowing or translating program will
 reach for it. It is cheap to settle and expensive to leave: the next lane writing an adapter will
-copy whichever neighbour it happened to read, and the tree will have three definitions instead of
+copy whichever neighbor it happened to read, and the tree will have three definitions instead of
 two.
 
 ## What this does not decide
