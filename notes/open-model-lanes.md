@@ -125,7 +125,7 @@ in flight; `notes/model-comparison/2026-09-26-qwen-next-protocol.md` does exactl
 The gates are the oracle. `helpers/open-lane.sh` never judges the work: it loops the model
 against `script/lint` and `script/citations --ratchet`, feeds the failing output back as the next
 round's prompt, and hands the worktree back unmerged if it cannot reach green inside a round budget.
-That is the same argument §202 makes, mechanised: a cheaper model is safe exactly to the extent that
+That is the same argument §202 makes, mechanized: a cheaper model is safe exactly to the extent that
 a shell command says pass or fail.
 
 That argument holds only if the lane cannot change the shell command. On 2026-09-27 a rented model,
@@ -142,7 +142,7 @@ cannot see an uncommitted one.
 
 **So the routing rule is about the oracle, not about difficulty.** Work with a crisp gate goes to
 the open model: bisections (the gate's exit code *is* the answer), reference sweeps, renumbering,
-promotions, formatting, mechanical repairs. Work whose output is a judgement stays on Claude: design
+promotions, formatting, mechanical repairs. Work whose output is a judgment stays on Claude: design
 forks, anything touching the syscall surface or a wire format, prose a reader will later trust, and
 adversarial passes. Yesterday's findings that mattered most, `size_of::<PerCpu>()` breaking a shift,
 a capability surviving a revocation sweep, a calibration wrong by 11x, all came from the second kind.
@@ -154,9 +154,9 @@ a capability surviving a revocation sweep, a calibration wrong by 11x, all came 
 thirteen of the maintainer's tool calls with four. It took `main`'s baselines rather than
 hand-merging them, which is the trap that nearly shipped a wrong benchmark floor twice that evening.
 
-**It worked because the brief encoded judgement that had already been made**, not because the model
+**It worked because the brief encoded judgment that had already been made**, not because the model
 is clever: three named resolutions, and an instruction to abort on anything else. That is lookup
-rather than judgement, and lookup is what a cheap model is good at.
+rather than judgment, and lookup is what a cheap model is good at.
 
 So the briefs live in `briefs/` as checked-in assets rather than being retyped from memory, because
 a brief written fresh each time loses a clause a month and the clause it loses is the one that stops
@@ -197,7 +197,7 @@ it run the gate, did it read the exit code, and how many rounds did green take.
   unpinned, each turn landed cold. The spend log's `cost_usd` already reflects the discount. The
   route pins are in the gateway's config, outside this tree. §203's (capacity is rented rather than
   bought) uncached estimate stands as an upper bound.
-- The context window is guessed. For a model id Claude Code does not recognise it assumes 200K.
+- The context window is guessed. For a model id Claude Code does not recognize it assumes 200K.
   Set `CLAUDE_CODE_MAX_CONTEXT_TOKENS` if the real window is smaller, or a run truncates mid-task.
 - `--bare` skips `AGENTS.md`, skills, hooks and plugins. Deliberate: the constitution is 924
   lines and a cheap model would spend its window on them. The cost is that an open-model lane does

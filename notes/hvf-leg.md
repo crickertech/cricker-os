@@ -199,7 +199,7 @@ failing sibling.
   which is worth stating: the leg samples this defect, it does not detect it. Now
   `wait_for(|| endpoint_waiting_senders(fault_ep) == 1)`.
 - **`user::supervision_tests`'s reclaim after a respawn** (2000 yields, no assertion at all, so a
-  timeout silently left an unreclaimed region for a neighbour to trip over). Not a failure; fixed
+  timeout silently left an unreclaimed region for a neighbor to trip over). Not a failure; fixed
   on inspection, and it now asserts.
 
 - **`sched::a_thread_that_never_yields_is_preempted_anyway`** ("the spinner never ran at all"). Not
@@ -215,10 +215,10 @@ failing sibling.
 `user::tests::wait_for` became `pub(super)` so the two `user` modules could use the existing
 implementation instead of becoming the sixth and seventh copies of it.
 
-**None of these was a timer-behaviour failure**, which is the finding worth stating plainly,
+**None of these was a timer-behavior failure**, which is the finding worth stating plainly,
 because timers were what the milestone expected to be perturbed.
 
-## Timer behaviour: what did NOT differ, and why
+## Timer behavior: what did NOT differ, and why
 
 Under HVF guest time is host time (`CNTVCT_EL0` is passed through at the host's 24 MHz) and there
 is no icount instrument, so the milestone expected the wall-clock assertions to be the casualties.
@@ -286,7 +286,7 @@ silence for a clean bill.
   on four cores. The host stops reading and kills the child, so the cost is bounded in practice,
   but a transcript from a failed HVF run ends in interleaved garbage after the 200-line budget, and
   anyone driving the runner by hand under HVF (rather than through `xtask`) will get a QEMU
-  that never stops. Use `helpers/qemu-bounded.sh` for that. A guest-side fix (recognising the
+  that never stops. Use `helpers/qemu-bounded.sh` for that. A guest-side fix (recognizing the
   semihosting trap in the Unknown-reason handler and parking in `wfi` instead of panicking) is not
   built here; it would touch the exception path for a test-only benefit, and on its own it would
   make the leg *worse*: `hvf_kernel_leg` stops reading after 200 more lines, and a guest that went

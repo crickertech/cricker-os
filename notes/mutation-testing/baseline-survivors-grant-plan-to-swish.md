@@ -150,7 +150,7 @@ Equivalent (3):
 - `FLAG_EOF`'s `1 << 0`.
 - `csi_move`'s `1` arm, which only elides a count. Delete it and `n == 1` emits `CSI 1 D`, which
   ECMA-48 defines as the same motion as `CSI D`. That is byte economy on a serial line, not
-  behaviour. Its sibling one line up shows the argument is not an excuse: deleting the `0` arm
+  behavior. Its sibling one line up shows the argument is not an excuse: deleting the `0` arm
   makes a zero-column move travel a column, and `backspace_erases_on_screen` kills it.
 
 ### `video_terminal` (79)
@@ -158,7 +158,7 @@ Equivalent (3):
 The largest single block in the run: 64 real, 15 equivalent, none deferred. The real ones split
 three ways.
 
-Geometry and colour accessors were never called with a *number*. They were only compared against
+Geometry and color accessors were never called with a *number*. They were only compared against
 another value computed the same way. So `cols()`, `width()`, `height()`, `colours()` and
 `to_pixels` could return a constant or swap an operator unnoticed.
 
@@ -168,7 +168,7 @@ another value computed the same way. So `cols()`, `width()`, `height()`, `colour
 - A union with a rect *inside* the first is the only shape that reads the first operand's far
   edges.
 
-The parser's less-travelled arms were individually deletable because nothing fed them: a tab, a bare
+The parser's less-traveled arms were individually deletable because nothing fed them: a tab, a bare
 control code, a string terminated by `ESC \`, `CSI 1J`, SGR 27, 39, 49 and 90-97. The switches that
 turn something *off* matter most. A terminal that only ever sets attributes passes every test while
 leaving a line reversed forever.

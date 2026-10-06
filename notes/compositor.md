@@ -38,7 +38,7 @@ What each party holds:
 | slots 3.. | one input endpoint per focusable client, WRITE | | |
 | mapped RW | the scanout, the window list, the input ring, every client's control page and surface | its own control page and surface | its own control page and surface |
 | mapped RO | | | **the screen and the window list** |
-| knows | nothing about any device | nothing about the screen, its own position, or its neighbours | |
+| knows | nothing about any device | nothing about the screen, its own position, or its neighbors | |
 
 ## The idea the whole design rests on: the doorbell carries no authority
 
@@ -179,7 +179,7 @@ app or a recorder, and exactly the authority such a thing needs and no more. The
 roadmap asks for (enumeration, screenshots, screen sharing) are therefore one grant with three uses
 rather than three features, which is the point of building on mappings instead of verbs. And because the
 grant is a frame mapping, it is revocable through the machinery milestone 13 already built
-(`Frame::REVOKE`) rather than by asking a server to stop honouring a request.
+(`Frame::REVOKE`) rather than by asking a server to stop honoring a request.
 
 ## How the isolation is proved rather than asserted
 
@@ -190,12 +190,12 @@ The attacker is given every advantage short of a capability:
 
 - it is the same binary as the honest client, with the same grants, and it paints its own window
   and reports correctly first (an attack that failed for its own reasons would prove nothing);
-- the kernel hands it the exact virtual address at which its neighbour's pixels sit, the way
+- the kernel hands it the exact virtual address at which its neighbor's pixels sit, the way
   milestone 29's escape test is handed its victim frame;
 - that address is real. Every client maps its surface at the same virtual address, so this is the
-  number the neighbour itself uses; and the kernel allocates every client's frames from **one
+  number the neighbor itself uses; and the kernel allocates every client's frames from **one
   contiguous run**, deliberately, so the page just past the attacker's grant genuinely is its
-  neighbour's memory. The test asserts that adjacency before believing anything else, because an
+  neighbor's memory. The test asserts that adjacency before believing anything else, because an
   attack on an empty hole would "pass" while proving nothing.
 
 Then:
@@ -213,8 +213,8 @@ Then:
    lives in the victim's own address space rather than in the kernel's account of it.
 
 A read fault proves the page is not mapped *at all*, which is why the two probes in this test are a
-write (integrity, at a neighbour's pixels) and a read (confidentiality, at the screen): both
-directions are exercised against real hardware behaviour rather than one being argued from the other.
+write (integrity, at a neighbor's pixels) and a read (confidentiality, at the screen): both
+directions are exercised against real hardware behavior rather than one being argued from the other.
 
 ## The damage rectangle, proved end to end
 
@@ -233,7 +233,7 @@ compositor that quietly repainted the screen every frame would erase the poison 
 merely being slow in a way no test could see.
 
 That is also the reason three of the four tests use a kernel stand-in for the display rather than the
-GPU: not to save a bring-up (though it does), but because a real driver honours the rectangle and says
+GPU: not to save a bring-up (though it does), but because a real driver honors the rectangle and says
 nothing about it, so the flush has to be observed somewhere it can be read.
 
 ## Proving the picture, and why the host has to be involved
@@ -361,7 +361,7 @@ Stated plainly, because a demonstrator's honest limits are part of the deliverab
   would make "the compositor cannot deface a client's window" a fact about the mapping rather than
   about the code, exactly as `ROLE_CAPTURE`'s read-only screen already is. Recorded by the same
   audit and not taken in it, because flipping a mapping wants a test that proves the fault.
-- No defence against denial of service. A client can spam the doorbell, never answer an input
+- No defense against denial of service. A client can spam the doorbell, never answer an input
   `CALL`, or never reply, and the compositor's single thread will slow or stall. Confidentiality and
   integrity are what this rung proves; availability against a hostile client needs the same missing
   primitive plus a policy, and Wayland does not solve it either.

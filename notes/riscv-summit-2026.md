@@ -4,7 +4,7 @@
 `maintainer/riscv-summit-research`, on calef's ask for the most recent RISC-V Summit talks relevant
 to nife.*
 
-Everything below carries a URL. Where this note characterises what someone said, it quotes them.
+Everything below carries a URL. Where this note characterizes what someone said, it quotes them.
 No gate in this repository can check an external citation, so the only protection is that the
 pages were read rather than recalled, and that the three categories below are kept apart.
 
@@ -33,7 +33,7 @@ Tuesday 9 to Thursday 11; Monday 8 was tutorials and Friday 12 side events.
 
 ### What could be read, and what could not
 
-Read in full: the programme with every abstract and speaker bio, at
+Read in full: the program with every abstract and speaker bio, at
 https://riscv-europe.org/summit/2026/presentations. Each talk has a stable anchor (`#P-XXXXXX`)
 used below. Read as slides: three PDFs pulled from
 `https://riscv-europe.org/summit/2026/media/proceedings/` and extracted with `pdftotext` (Asanović,
@@ -41,8 +41,8 @@ Dellow, Krčmář). **Not read**: every video. They are public on YouTube and un
 claim below rests on one, and where the abstract is all there is, the entry says *abstract only*.
 Nothing was behind a login or a paywall.
 
-**One warning about this material, because it caught this lane.** An automated summariser asked for
-the Thursday half of the programme invented slide and video URLs of the shape
+**One warning about this material, because it caught this lane.** An automated summarizer asked for
+the Thursday half of the program invented slide and video URLs of the shape
 `...-12h30-SLIDES.pdf` and `youtu.be/VIDEO_ID`, with `Speaker: TBD`. They do not exist. Every URL in
 this note was taken from the page's own HTML, not from a summary of it.
 
@@ -236,7 +236,7 @@ is the kind of thing that would eventually want a line in `notes/iommu.md` if it
 ## What was at this summit and is not relevant, and why
 
 Naming this is the point; a note listing only hits is a filter nobody can disagree with. By volume,
-most of the programme was AI silicon and vector/matrix extensions, and none of it touches a
+most of the program was AI silicon and vector/matrix extensions, and none of it touches a
 microkernel:
 
 - Matrix extensions got two invited talks and a chunk of the State of the Union (four competing
@@ -253,7 +253,7 @@ microkernel:
   the draft RV128I. Noted so the next person who finds it does not have to decide again.
 
 And one absence worth recording: there was no seL4, no microkernel and no formal-verification-of-a-kernel
-talk in the programme. Searching the full text of the presentations page for those terms returns
+talk in the program. Searching the full text of the presentations page for those terms returns
 nothing. That is not evidence about seL4; it is evidence that this summit is a silicon and ecosystem
 event, and that milestone 127 (the seL4 machine: a Jetson TX1, so identical silicon referees the
 comparison) will find its material at a systems conference rather than here.

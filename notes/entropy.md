@@ -122,7 +122,7 @@ stamping a key with something guessable.
 `hashmap_random_keys` is the one place a fallback is right. A `HashMap` in a program nobody granted
 entropy must still work, and std's own `unsupported` backend degrades that same function (to
 allocation addresses) rather than failing, so a platform is permitted to. The splitmix64 stream
-survives there, clearly labelled, and nothing in the file lets it reach `fill_bytes`. That
+survives there, clearly labeled, and nothing in the file lets it reach `fill_bytes`. That
 separation is the milestone's point: the caller that promises cryptographic strength refuses when it
 cannot keep the promise, and the caller that promises nothing degrades and says so.
 
@@ -137,7 +137,7 @@ machine's key material comes from, so an unconfined device writing it is the las
 leave unchecked.
 
 The driver looks at the used ring before it blocks, which is a change from the disk driver's
-shape and a fact about the board rather than an optimisation. `pci::intx_irq` swizzles INTx by
+shape and a fact about the board rather than an optimization. `pci::intx_irq` swizzles INTx by
 device number modulo four; `sched::bind_irq` routes an intid to exactly one endpoint; the test leg
 now attaches five PCI functions. There is no unshared line left, so a driver that blocked before
 looking would be betting on owning its line, and losing that bet is a hang rather than a wrong
@@ -170,7 +170,7 @@ and a disk that afterwards still reads as unpartitioned. That is a stronger stat
 endpoint is the authority to obtain randomness" than a client that merely draws bytes and compares
 them, because here the refusal is visible on the platter.
 
-It is also the first client whose *correct* behaviour on `NO_ENTROPY` is to do nothing at all.
+It is also the first client whose *correct* behavior on `NO_ENTROPY` is to do nothing at all.
 `std::random` has no way to fail, which notes/std.md records as a wart; these two do, and they take
 it.
 
@@ -232,7 +232,7 @@ it.
   The kernel tests would catch it, a running system would not. NIST SP 800-90B's repetition-count and
   adaptive-proportion tests are the cheap standard answer and are not implemented.
 - **No rate limit and no quota.** A client holding the endpoint can drain the service as fast as it
-  can `CALL`. Eight bytes per round trip is a cost, not a defence.
+  can `CALL`. Eight bytes per round trip is a cost, not a defense.
 - **A program at the prompt can hold entropy, since milestone 111** (2026-09-05). This entry used to
   read "`init` does not endow the shell with entropy", and its own last sentence ("future work with
   no design problem in it") turned out to be right: no new mechanism, no new right, nothing on the

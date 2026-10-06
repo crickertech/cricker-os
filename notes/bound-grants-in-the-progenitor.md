@@ -25,7 +25,7 @@ Partly. Three things the brief assumed turned out otherwise when the tree was re
   not create) will add a second server kind, and FAT will not be eligible.
 - Nothing on the device reads a package declaration. `packages/*.package.toml` is read by
   `helpers/packages.py` on the host and by nothing else. What reaches the device is the package
-  catalogue (stem and digest lines) and each program's ELF manifest note (milestone 597 (a program carries its
+  catalog (stem and digest lines) and each program's ELF manifest note (milestone 597 (a program carries its
   manifest in an ELF note)). So a
   declaration field needs a way onto the device, and that way is a format.
 - The progenitor has no client windows. A bound badge is a window index (§230 (badged endpoint
@@ -45,7 +45,7 @@ Two questions are calef's, because each is a format two programs agree on.
 | | where the fact lives on the device | what changes |
 |---|---|---|
 | T1. A second note in the server's ELF | `.note.nife.manifest`, a new note type beside milestone 597's manifest, descriptor one flags word | `manifest_note` gains a type; the progenitor reads the file server's image from the initrd and decodes it |
-| T2. A column in the package catalogue | `package_catalogue`, a third field on the server's line | `package_archive`'s catalogue format; `xtask` writes it from the package declaration |
+| T2. A column in the package catalog | `package_catalogue`, a third field on the server's line | `package_archive`'s catalog format; `xtask` writes it from the package declaration |
 | T3. A bit from the kernel | the progenitor's START words, set by the kernel that started the server | the kernel reads the note (T1) and passes the answer on; a new meaning for an argument word |
 
 Recommendation: T1. The fact is about a binary, and it should travel with the binary, measured
@@ -98,8 +98,8 @@ These are code in the progenitor, and would be built as soon as both answers are
 5. Cost. The walk through a bound grant: 0.347 to 0.355 ms, through a caretaker 0.508 to
    0.521 ms, Linux 0.41 to 0.42 ms (release kernel, HVF, #1408). A note is a few dozen bytes in
    one binary. The pool's costs are milestone 599's note's.
-6. Reversibility. The note type and the catalogue column are formats. Once an image carries the
-   note, a progenitor that reads it is acting on it. The progenitor's behaviour is code.
+6. Reversibility. The note type and the catalog column are formats. Once an image carries the
+   note, a progenitor that reads it is acting on it. The progenitor's behavior is code.
 7. At equal cost. T1 still wins, for keeping the fact with the binary. The recommendation is not
    about effort.
 

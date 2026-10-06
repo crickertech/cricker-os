@@ -31,7 +31,7 @@ average sampled every ten seconds, and how many QEMU processes were up.
 - The machine was not this lane's alone. Two other lanes were gating on the same laptop for the
   first third of the loop, one of them running its own emulator under `-icount`. Their emulators are
   the `QEMUs seen` column: this run has at most one alive at a time, so any sample reading two or
-  more is a neighbour.
+  more is a neighbor.
 - A pilot run of the same command was cut short after one run and is not counted here. The eight
   spinners were stopped between every run, and the loop left no QEMU behind.
 
@@ -158,7 +158,7 @@ dropping. Beside it, `untyped::destroy` released `REGIONS` between deciding and 
 two callers could both pass the refusal check.
 
 The lesson is about the instrument rather than the bug. A loaded repeat count is good at surfacing a
-defect and actively misleading about characterising one. This run produced a frequency (1 in 45) for
+defect and actively misleading about characterizing one. This run produced a frequency (1 in 45) for
 something that had no frequency. A lane budgeted against that number would have gone looking for a
 narrow race instead of an ownership question. Treat a sighting from this instrument as "there is
 something here", never as "here is how often".
@@ -172,7 +172,7 @@ saying what was there.
 This is the whole point of the milestone: a red run that means something. Eight of these nine reds
 are noise the instrument cannot yet remove, and the ninth is a memory-safety bug in the kernel. A
 suite that fails for reasons unrelated to the change trains everyone to re-run rather than read.
-Here the one red worth reading arrived wearing the same colour as eight that were not.
+Here the one red worth reading arrived wearing the same color as eight that were not.
 
 ### Load average did not predict the failures; a second emulator did
 
@@ -181,7 +181,7 @@ average:
 
 | condition | runs | red |
 |---|---|---|
-| a neighbouring lane's emulator seen during the run | 17 | 6 |
+| a neighboring lane's emulator seen during the run | 17 | 6 |
 | this run's emulator alone | 28 | 3 (one of which is the double free) |
 
 The load average separates them not at all. Run 42 passed at a peak of 63.0, the highest in the
@@ -190,9 +190,9 @@ average a great deal and apparently do not, on their own, reliably deschedule th
 250 ms measurement window. Another TCG emulator competing for the same cores does.
 
 The honest caveat cuts against the table above. A run that dies in 43 seconds gives the ten-second
-sampler only four looks. So the neighbour count for exactly the runs that failed fastest is the
+sampler only four looks. So the neighbor count for exactly the runs that failed fastest is the
 least reliable figure here. Runs 2 and 29 are recorded at one and zero, and neither can be trusted
-to mean no neighbour was up. Read the split as a lead worth instrumenting properly, not as a
+to mean no neighbor was up. Read the split as a lead worth instrumenting properly, not as a
 measured ratio.
 
 ### What this run proves, and three things it does not

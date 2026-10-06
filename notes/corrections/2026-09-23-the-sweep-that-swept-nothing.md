@@ -183,7 +183,7 @@ this document was being written; that recurrence, not the `tee`, is the finding:
 - One found by this document's own pull request, which is the strongest evidence in it that the
   shape is a habit rather than four coincidences. The workflow that labels a COE for
   calef's attention reported success while applying no label. Its detection step names the
-  repository explicitly and worked; its labelling step inferred the repository from a git remote
+  repository explicitly and worked; its labeling step inferred the repository from a git remote
   that a checkout-free job does not have, and its deliberate report-and-continue arm turned the
   failure into a pass. Every individual choice there is one this tree argues for on purpose, in
   that file's own header: best-effort, never fatal, a COE must not fail to exist because a label
@@ -191,7 +191,7 @@ this document was being written; that recurrence, not the `tee`, is the finding:
 
 The ladder in `AGENTS.md` ranks how hard to make a rule hold. It has nothing to say about a
 mechanism proving it had something to hold. A gate that reported clean should have to say over how
-many units, and zero should be loud. That is a rung-two artefact this tree does not have a
+many units, and zero should be loud. That is a rung-two artifact this tree does not have a
 convention for, and building one is what the second action item below is.
 
 **And there is a sharper cause than any of the above, which is that this workflow was never once
@@ -230,11 +230,11 @@ which is the same luck that found the three redone patches above and is not a me
   report a denominator it must assert is non-zero. It is the workflow-level counterpart of what
   milestone 401 (a gate that selects the set it judges can pass by checking nothing) built inside
   `script/`.
-- **Done.** `coe-architect-label.yml`'s labelling step now passes `--repo "$GITHUB_REPOSITORY"`, so
+- **Done.** `coe-architect-label.yml`'s labeling step now passes `--repo "$GITHUB_REPOSITORY"`, so
   it no longer depends on a git remote that a job without a checkout does not have, and the reason
   is written beside the flag. Carried on this branch, `maintainer/the-sweep-that-swept-nothing`.
   The label on this pull request was applied by hand in the meantime, and it will stay hand-applied
-  here: the labeller's `synchronize` path diffs only the push that raised it, deliberately, so that
+  here: the labeler's `synchronize` path diffs only the push that raised it, deliberately, so that
   a label a human removed does not silently return. No later push to this branch adds a file under
   `notes/corrections/`, so nothing on this pull request will exercise the fixed step. The next COE
   is the first run that can.

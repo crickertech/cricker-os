@@ -10,16 +10,16 @@ how each residual was found and closed. The main page's BUGS section carries wha
 ## BUGS
 
 - The `<=` frame assertions can be masked by a coincidence. A real leak of `k` frames passes if a
-  neighbour's late teardown frees at least `k` frames inside the same window. The window is seconds
+  neighbor's late teardown frees at least `k` frames inside the same window. The window is seconds
   wide and re-rolled every run. A persistent leak (every batch leaks, which is what the milestone 6
   (threads, the context switch, and preemption) bug was) fails essentially every run regardless, so
   the trap still bites. But a one-shot coincidence pass is possible in a way `assert_eq` did not
   permit. The trade is deliberate. Equality bought that exactness by also asserting that the rest of
   the machine held still, which is false on any loaded run and was producing red CI on documentation
   PRs.
-- `the_page_is_returned_when_the_space_is_dropped` can still be failed by a neighbour, and it takes
+- `the_page_is_returned_when_the_space_is_dropped` can still be failed by a neighbor, and it takes
   an allocation rather than a free. Asking `is_page_frame_used` about one named frame is immune to
-  the freeing neighbour that produced every observed failure of the old global form. But a neighbour
+  the freeing neighbor that produced every observed failure of the old global form. But a neighbor
   that allocated this exact frame between the drop and the check would read as a leak. It is a
   microsecond window against one frame out of the machine's free set. The old form was a
   seconds-wide window against every frame in the machine. The two failure modes do not overlap: this
@@ -144,15 +144,15 @@ how each residual was found and closed. The main page's BUGS section carries wha
   one and was still wrong, because the watermark bounds concurrency and the claim was about reuse.
   One thread is the unit because one thread cannot exceed a high-water mark eight deaths just set.
   Two residuals remain, and both need a coincidence rather than mere load.
-  - A neighbour that drained `FREE_STACK_VAS` to empty between the watermark read and the probe's
+  - A neighbor that drained `FREE_STACK_VAS` to empty between the watermark read and the probe's
     spawn would fail it falsely. Nothing else spawns during this test (tests run sequentially on the
     boot thread, and the other cores are idle), and it needs the list down to its last slot.
-  - A neighbour bumping the watermark could mask a genuine reuse failure for one run. That mirrors
+  - A neighbor bumping the watermark could mask a genuine reuse failure for one run. That mirrors
     the `<=` coincidence caveat above. The defect is per spawn and permanent, so it fails every other
     run regardless.
 - The `>=` frame assertion in `kernel_stacks_do_not_touch_the_frame_allocator_in_steady_state`
   inherits the coincidence caveat above, in the other direction of the same trade. A real
-  regression of `k` frames passes if a neighbour frees at least `k` inside the same window. The
+  regression of `k` frames passes if a neighbor frees at least `k` inside the same window. The
   defect it guards (kernel stacks drawn from the frame allocator instead of the kernel budget) is
   per spawn and persistent, so six spawns fail it essentially every run regardless. A one-shot
   coincidence pass is possible in a way `assert_eq` did not permit, and the equality was demanding
@@ -178,5 +178,5 @@ how each residual was found and closed. The main page's BUGS section carries wha
   - `smp.rs`, `every_secondary_runs_scheduled_work`, indexes `RAN_ON` by the core a probe ran on:
     the indexing the placement probe had to abandon. It survives because each secondary's probe is
     spawned onto its own queue as that core's first act and exits at once. The window in which an
-    idle neighbour could steal it is a few instructions, not a whole placement loop. If it ever does
+    idle neighbor could steal it is a few instructions, not a whole placement loop. If it ever does
     fail, suspect this first; the fix is the placement probe's.

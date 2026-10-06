@@ -5,7 +5,7 @@
 landed it; see "The ruling, and what landed".*
 
 Rust integer arithmetic panics on overflow or wraps silently depending on `-C overflow-checks`,
-which Cargo turns on in `dev` and off in `release`. Neither is undefined behaviour (RFC 560), but an
+which Cargo turns on in `dev` and off in `release`. Neither is undefined behavior (RFC 560), but an
 unmeant wrap is a quiet wrong answer.
 
 ## What we built before the ruling
@@ -169,11 +169,11 @@ paths that do arithmetic on addresses and sizes (`map_*`, `spawn_*`) cost 2 to 6
 userspace integer workload, 5.5 to 7.2%. All of it is inside the bench's 10% tripwire, which is
 why the checks-off run passed. riscv64's ticks are coarse (`null_syscall` is 3), so a 0% there means
 under one tick. Two rows went down with checks on (aarch64 `ipc_rtt_el0`, x86_64 `ipc_rtt`), which
-added instructions alone cannot explain; tick quantisation and code layout can, and they set the
+added instructions alone cannot explain; tick quantization and code layout can, and they set the
 noise floor of this table at about 3%. The checks-off branch turns checks off for the kernel and
 the workspace programs together, so an `_el0` row carries both.
 
-Not apples-to-apples: these are opt-level 0 kernels, where every check survives. An optimiser
+Not apples-to-apples: these are opt-level 0 kernels, where every check survives. An optimizer
 removes checks it can prove redundant, so the release instruction cost is at most this.
 
 ### Cycles on the release build (HVF, patagonia)
@@ -209,7 +209,7 @@ Read from source on 2026-10-04 (UTC) unless marked.
 - seL4 proves "no arithmetic overflows" in its C; how the proof models word arithmetic was not
   on the page read and is from memory.
 - Measured costs elsewhere: Dan Luu measured 28% on bzip2 with C overflow checks, mostly lost
-  optimisation rather than branches. No published number for Rust-for-Linux or Hubris was found.
+  optimization rather than branches. No published number for Rust-for-Linux or Hubris was found.
 
 Hubris, Rust-for-Linux and Android's Rust ship with checks on. The kernels that ship them off do not
 say why.

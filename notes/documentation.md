@@ -15,7 +15,7 @@ feature question.
 ## Rendered
 
 `crates/documentation` is a streaming renderer: bytes in, styled terminal bytes out, no allocator, no
-document held anywhere. That shape is not an optimisation, it is what the program's capabilities
+document held anywhere. That shape is not an optimization, it is what the program's capabilities
 already are. `doc` receives its input as `byte_sink_protocol` messages of sixteen bytes each and writes its
 output the same way, so a renderer that needed the whole document would need somewhere to put it,
 and somewhere to put it is a memory grant the program can otherwise do without. The test
@@ -62,7 +62,7 @@ DECISIONS §46 rule 1 then settles it: this is on the verification path, so we w
 
 `_` is never emphasis. CommonMark reads `__rust_alloc` as an opened strong span. This repository
 writes `snake_case` identifiers in running prose constantly (`filesystem_protocol`, `line_editor`, `c_seam`),
-so honouring the spec here would misrender far more than it would style. Only `*` and `` open
+so honoring the spec here would misrender far more than it would style. Only `*` and `` open
 emphasis, and a closer must not be preceded by a space.
 
 A code span is consumed before anything else looks at the line. There are 11,281 of them in the
@@ -102,7 +102,7 @@ fix leaves this page ruined from the block above onward, and `every_character_su
 verbatim output loses no characters, and `Renderer::has_unclosed_fence` (added here, and the
 strongest thing the corpus check can assert) misses it too, because a bare closing fence three
 sections later matches the stuck one and lets the renderer out. A unit test is the guard. The lesson
-generalises past this bug: a subsequence check proves nothing was dropped and nothing about what
+generalizes past this bug: a subsequence check proves nothing was dropped and nothing about what
 was ruined, so a renderer wants both kinds of test and this one had only the first.
 
 ## Installed
@@ -129,7 +129,7 @@ message it can send to find out what it is reading.
 That matters more here than it did for `wc`, because a documentation viewer is precisely the program
 a reader would expect to go and fetch things. A `doc` that opened the page it renders would be a
 `doc` that could open any page. `doc glob.md`, `doc < glob.md` and `something | doc` are one
-behaviour with three sources, and the program cannot tell them apart.
+behavior with three sources, and the program cannot tell them apart.
 
 So there is no ambient authority to arrive by accident, because there is no authority at all. The
 concentration is in the shell, where it already was.
@@ -153,7 +153,7 @@ that is most of what anybody would search for: `apropos fs_proto` and `apropos g
 answered "nothing says that" while dozens of pages said exactly that.
 
 The test that should have caught it asserted the property in its own first comment, *"the builder's
-tokeniser and the reader's query normaliser must agree, byte for byte, on what a term is"*, and
+tokeniser and the reader's query normalizer must agree, byte for byte, on what a term is"*, and
 then checked a word with no underscore in it. Same shape as the fence: a claim in prose, a weaker
 thing checked.
 
@@ -289,7 +289,7 @@ which is this whole milestone in one constant.
 
 **246,788 bytes of markdown produce 286,720 bytes of index**, which is 1.16x, and that is the number
 worth arguing with rather than the pleasant ones. (It was 1.56x when phase 1 measured it and 1.24x
-in the middle, and the improvement is not an optimisation: the notes it indexes grew, and page
+in the middle, and the improvement is not an optimization: the notes it indexes grew, and page
 alignment's fixed floor is a smaller share of a bigger bundle. It went the other way on 2026-08-18,
 from 1.14x, and that one *is* a cost: underscore-joined terms are a third term for every
 `snake_case` identifier in the prose, which is what makes those identifiers findable.) Two things pay for it. A term record stores its
@@ -452,7 +452,7 @@ doc: reads an input stream: name a file, redirect with '<', or pipe into it
   without handing it the terminal, which is the exact thing `terminal_sink_caretaker` exists to
   prevent. So a long page scrolls off. The fix is a decision about the spawn protocol, and it is the
   most interesting thing this milestone found.
-- **`doc` emits plain text even at a terminal.** The renderer can colour, and the shell has no way
+- **`doc` emits plain text even at a terminal.** The renderer can color, and the shell has no way
   to tell a stage "you end at the terminal", for the same reason the sink contract is a good
   contract: a writer cannot tell what is underneath it. Unix answers this with `isatty`, which is a
   sniff; the honest answer here is a wiring bit the spawn protocol does not carry yet.
@@ -507,7 +507,7 @@ doc: reads an input stream: name a file, redirect with '<', or pipe into it
   loses text. This is a formatting choice, not a parsing failure, and the corpus test runs at 4000
   columns to keep the two apart. A table too large for the renderer's buffers spills into a second
   aligned chunk rather than losing rows; this repository's largest table is 117 rows.
-- **Setext headings and reference links are not recognised**, and no HTML is interpreted. There is
+- **Setext headings and reference links are not recognized**, and no HTML is interpreted. There is
   one reference link in the corpus and no setext heading; `---` on its own line is a thematic break
   here 64 times, so reading it as a heading would misrender all of them to catch none.
 
@@ -521,9 +521,9 @@ a surprise, and both are recorded in this note's `BUGS` section now rather than 
 item that used to be third here is built too (2026-08-22, same day): see this note's `BUGS` section
 for what changed and what did not. What is left, in the order it pays off:
 
-1. **Colour and the pager, which are the same decision's other two thirds.** DECISIONS §106 took
+1. **Color and the pager, which are the same decision's other two thirds.** DECISIONS §106 took
    the narrowing for a tail stage's *primary* output; it did not extend the same bit to "tell this
-   stage it ends at a real screen" (colour, the honest replacement for `isatty`) or to granting one
+   stage it ends at a real screen" (color, the honest replacement for `isatty`) or to granting one
    line of *input* without granting the keyboard (the pager). Both still want the wiring bit this
    entry originally scoped for all three; §106 built the narrowest slice that unblocks `doc <page>`.
    This is a spawn-protocol decision, the same shape as §106 itself, so it is not this lane's call

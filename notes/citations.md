@@ -64,7 +64,7 @@ reaches into a kernel global")` quotes what a decision *says* rather than what i
 no title check can accept it. Contiguous is deliberate. "Every word appears somewhere in a
 5,000-word document" is not a test, it is a coincidence generator.
 
-Three shapes are not glosses and are recognised rather than judged: a repo path (`milestone 15
+Three shapes are not glosses and are recognized rather than judged: a repo path (`milestone 15
 (design/roadmap/15-asids.md)`), a cross-reference to the other record (`milestone 12 (§12)`), and a
 bare date. A path is held to a *harder* standard than a gloss, because it is exact: it must exist,
 and a path into a numbered record must carry the number that cited it.
@@ -95,7 +95,7 @@ quotation, by a path into the record, or by a `GLOSS_ALLOW` entry. A paragraph t
 times explains it once, and a gate asking for four glosses would be answered by deleting three
 mentions.
 
-A bare date and a bare cross-reference do not count as that one gloss, though `--check` recognises
+A bare date and a bare cross-reference do not count as that one gloss, though `--check` recognizes
 both and is right to. They are well-formed citations that do not say what the target *is*, which is
 the only property this ratchet is about.
 
@@ -288,7 +288,7 @@ decide this is noise:
 The first two are sweeps that added or restatused dozens of blocks at once, which is the same
 outlier the ratchet's own measurement found in #970. The third is one flip on a heavily cited
 number. The worst single milestone in the window is 433 at 108 citing files, for the same reason:
-a milestone that reorganised the roadmap is cited by the roadmap.
+a milestone that reorganized the roadmap is cited by the roadmap.
 
 ## Attributed quotations
 
@@ -438,7 +438,7 @@ in a citation, because that is what a wrapped one looks like to a line-based `gi
 widens the file list from 649 to 853 and costs about a second. Tightening it for speed is how the
 gate goes blind again, and the selftest is what would notice.
 
-**A possessive gloss is not recognised, although the tree is full of them.** The gate accepts
+**A possessive gloss is not recognized, although the tree is full of them.** The gate accepts
 `milestone 128 (the automation gets its own identity, and the agents get their own voice)` and
 rejects `milestone 128's (the automation gets its own identity, ...)`, reporting the glossed line
 itself as "cited with no gloss anywhere in this file". The possessive form is ordinary English and
@@ -608,7 +608,7 @@ in this file is an instance of that one idea.
 
 SAFETY comments are milestone 112's territory and not this script's, deliberately. The point of
 recording it here is that the citation gate is one member of a family, and whoever adds the next
-member should recognise the shape rather than rediscover it.
+member should recognize the shape rather than rediscover it.
 
 **The ratchet reads the committed tip, not the working tree, and it now refuses to pretend
 otherwise.** `--ratchet` diffs against the branch's base and reads each file with `git show`, so a

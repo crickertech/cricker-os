@@ -48,7 +48,7 @@ the rule is positional rather than clever.
 A marker inside a fenced block or a backtick span is ignored. The block above is an example of
 the convention, not an assertion about the tree, and so is the one in the roadmap; a marker written
 as inline code is being named rather than used. Fenced blocks only, though: an indented code block
-is not recognised (see BUGS).
+is not recognized (see BUGS).
 
 ## The registry
 
@@ -181,7 +181,7 @@ a name carry a provenance *state* and never that the state be `ratified`, becaus
 ratification would block every unrelated merge behind a review queue. The same restraint here.
 **Insist a marked number be right; never insist that every number be marked.**
 
-Two neighbouring classes were measured and deliberately excluded, so nobody builds them here by
+Two neighboring classes were measured and deliberately excluded, so nobody builds them here by
 mistake:
 
 - TODOs that name a milestone. Mechanically checkable and not worth a mechanism: the whole tree
@@ -324,7 +324,7 @@ hand-editing is cheap and thinking is the point.
   code, is being shown rather than asserted, and the gate skips it: prose explaining the convention
   has to be able to spell it, the same exemption `script/lint`'s rejected-vocabulary check makes for the
   documents that argue about the word. A marker inside a four-space indented code block is *not*
-  recognised and will be checked as a live claim. Write examples in fences.
+  recognized and will be checked as a live claim. Write examples in fences.
 
 - One number per marker, one marker per number, on one line. A marker on the line after its
   number fails with "no number before it on this line", which is a confusing message for what is
@@ -361,5 +361,5 @@ hand-editing is cheap and thinking is the point.
 
 - `AGENTS.md`'s method figures are unmarked, including a Kani harness count that was wrong on the
   day it was tested. A lane may not edit that file, so the first tranche could not reach it. Marking
-  that paragraph is a judgement about how much machinery a piece of rhetoric should carry, and it is
+  that paragraph is a judgment about how much machinery a piece of rhetoric should carry, and it is
   the obvious next tranche.

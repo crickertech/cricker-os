@@ -42,7 +42,7 @@ is written down rather than remembered.
 
 Since 2026-09-13 the thesis body has been read too, and it is harder on the number than the
 abstract is: Warton expected the opposite result, called his own 20% something to treat "with
-scepticism until it can be satisfactorily explained", and never ran the cache simulation that would
+skepticism until it can be satisfactorily explained", and never ran the cache simulation that would
 have explained it. The next section has the quotations.
 
 The result is from 2005, on ARMv5, on Pistachio. Nothing about it transfers to this kernel by
@@ -99,7 +99,7 @@ paired measurement: neither column means anything alone. nife has no event kerne
 other column, so the mix produces one arm and no ratio, whatever jobs it contains.
 
 3. Warton's AIM7 run had already disabled two of the three categories `crates/job_mix`'s `BUGS`
-apologises for. Section 5.4 turned off the filesystem jobs (the ramdisk was too small) and the
+apologizes for. Section 5.4 turned off the filesystem jobs (the ramdisk was too small) and the
 network jobs (Wombat had no `GetHost`). The crate records a missing disk-file category as a fidelity
 gap against AIM7; the AIM7 run being cited did not have one either.
 
@@ -130,8 +130,8 @@ He ruled out the timer by re-running against a wall clock. Then:
 
 The validating simulation was never run, and section 7.4 asks for another macro-benchmark for
 the same reason. So the chain this project has been reasoning from is: a BE thesis reports an
-unexplained 20% its author flagged as needing scepticism, on a modified AIM7, on two tasks, on a
-hosted Linux; a retrospective eleven years later summarises it as a flat *"20% performance
+unexplained 20% its author flagged as needing skepticism, on a modified AIM7, on two tasks, on a
+hosted Linux; a retrospective eleven years later summarizes it as a flat *"20% performance
 advantage of the event kernel on a multitasking workload (AIM7)"*; and this tree built an instrument
 to chase it. Every step is a real citation. The compression happened at the second one.
 
@@ -196,7 +196,7 @@ AIM7-*shaped* instrument for a capability microkernel.
 script/job-mix                          # aarch64
 script/job-mix --arch riscv64 --smp 4   # radon's architecture and core count
 script/job-mix --arch x86_64            # xenon's
-script/job-mix --release                # the optimisation level script/board-image builds
+script/job-mix --release                # the optimization level script/board-image builds
 ```
 
 Each prints the placement census, 21 `job-mix-repeat:` lines per subrun, one result line per sweep
@@ -242,7 +242,7 @@ best. `jpm_median` is not comparable with an old `jpm` even at the same task cou
 statistic, different mix.
 
 "Finds nothing" is the safer failure and it is still a silent one, which the tree learned the
-same day (2026-09-19). Another session was building `crates/board_console`'s sweep recogniser
+same day (2026-09-19). Another session was building `crates/board_console`'s sweep recognizer
 against a capture from the old kernel. When this change landed, its parser went on matching the
 line's head, read none of the four numbers, and reported zeros; its tests stayed green, because the
 fixture it asserted against had been made from the same old kernel and the two agreed with each
@@ -354,7 +354,7 @@ grep -ah '^job-mix-kind: tasks=1 ' jobmix-boot1.log     # and what they cost alo
 
 | What the medians show | Reading for `design/fatal-risks/README.md` risk 4 |
 |---|---|
-| rises to the core count, then flat or rising through 32, every point within 10% across boots | **no architectural per-crossing cost visible at this scale on this silicon**; the risk's decisive experiment ran and the defence held, within the caveats in the Warton section above |
+| rises to the core count, then flat or rising through 32, every point within 10% across boots | **no architectural per-crossing cost visible at this scale on this silicon**; the risk's decisive experiment ran and the defense held, within the caveats in the Warton section above |
 | a knee followed by a **decline**, repeatable across boots | a cost exists and grows with load; the `job-mix-kind:` lines say which path. Milestone 188 (the IPC fastpath) is the follow-on if it is `round_trip` |
 | points still wider than 10% across boots | not a verdict; record the spread and say which point failed |
 
@@ -388,7 +388,7 @@ spread per point, and the census summary.
 | 2026-09-16 | radon (4 harts, 4 MHz `rdtime`) | 5 | five-job mix, **best of 3** | 32 tasks and 2 servers over 4 cores, 6 to 10 threads a core | 319,013 to 319,072 / 1,032,586 to 1,060,264 | shape solid (1.96x at 2 tasks, plateau past 8, no decline at 32); `tasks=4` spread 29.4% across boots, so **not a number**. Transcripts `bench/radon-2026-09-16/jobmix-boot*.log`; the per-point table is milestone 168's block |
 | 2026-10-04 | radon, `04a8f9e6c` | 5 | seven-job mix, median of 21 | 34 threads over 4 cores; boot 5 placed differently, read the same | 323,951 to 324,033 / 897,375 to 901,122 | every point a number (widest spread 1.67%, `tasks=4` 1.12%); 2.62x at 4 tasks, rising to 2.78x at 32, no decline. Step 7's first row. Transcripts `bench/radon-2026-10-04/jobmix-boot*.log` |
 
-The 2026-10-04 evening, read in step 6's order with its step 7 judgement, is
+The 2026-10-04 evening, read in step 6's order with its step 7 judgment, is
 [its own page](job-mix/radon-2026-10-04.md). It checked this page's prediction that the median would
 read about 1.73x at two tasks where the best of three had read 1.96x: it read 1.76x.
 
@@ -431,9 +431,9 @@ path rather than the whole kernel.
 ## BUGS
 
 - The sweep has no wall-clock heartbeat, so a watcher's wedge timer is a guess with headroom.
-  This entry replaces *"`crates/board_console` has no recogniser for this run"*, which was true when
+  This entry replaces *"`crates/board_console` has no recognizer for this run"*, which was true when
   this page was written and stopped being true on **2026-09-19** (milestone 324 part 2): the
-  recogniser has `Stage::Sweep` and `Stage::SweepDone`, reading `crates/job_mix`'s own marker
+  recognizer has `Stage::Sweep` and `Stage::SweepDone`, reading `crates/job_mix`'s own marker
   constants, and `script/job-mix` judges with it and returns `script/board-console`'s five exit
   statuses. What that milestone could not fix is the thing that makes a sweep harder to watch than a
   soak. `kernel/src/soak.rs` prints every five seconds whatever the workload is doing, so a missed

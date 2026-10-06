@@ -14,16 +14,16 @@ other word, so this can be charted as an enumeration rather than read out of a s
 The field says whether an experiment happened. It never says what it found. That half of the
 2026-09-23 proposal was refused on 2026-09-23 and commissioned on 2026-09-29; the appendix beside
 this one argues it. `GREEN`, `AMBER`, `MEASURED` and `AUDITED` are in the file, in prose, beside
-the argument that earns them; the colours chart counts the first two as words, and the rest stay
+the argument that earns them; the colors chart counts the first two as words, and the rest stay
 prose.
 
-`CANNOT-RUN` is the one value that carries a judgement anyway, and it is the file's own. Risk 8
+`CANNOT-RUN` is the one value that carries a judgment anyway, and it is the file's own. Risk 8
 cannot be observed until milestone 198 (a package manager, and the trivial install that makes a
 second customer possible) lands. **A fatal risk that cannot be tested is the most dangerous state a
 fatal risk can be in.**
 
 This replaced a tested/untested pair on 2026-09-23. The pair's refusal of a verdict column was right
-when it was written. It said a colour series would be "a script reading a sentence and guessing".
+when it was written. It said a color series would be "a script reading a sentence and guessing".
 That was true: of four statuses, three ended in GREEN or AMBER and risk 7's in neither. What changed
 is not the reading but the thing read. The pair also had a simpler problem. All nine entries carried
 a status line by 2026-09-23, so it sat at nine and zero and told a reader nothing.
@@ -50,7 +50,7 @@ until the merge early on 2026-08-31 UTC, which is 2026W36.
 
 ## Architecture decisions by status
 
-From `design/decisions/README.md`. The grey band in the first three weeks is the honest bucket. A
+From `design/decisions/README.md`. The gray band in the first three weeks is the honest bucket. A
 decision was then a `## N.` heading in one 5,320-line `DECISIONS.md`, and nothing said whether it
 still held. Milestone 114 (split `DECISIONS.md`, and give a decision a status) is where a status
 exists at all. Counting those early decisions as `DECIDED` would invent a claim the record never
@@ -146,7 +146,7 @@ drawn nowhere. The bar totals on that chart now include them. On 2026-09-18, mid
 431: 324 numbered milestones and 107 proposals. The finished week reads 515 and 2, after the
 promotions. The jump at 2026W36 is the pile appearing when the directory
 did, not a burst of milestones. They sit on top because they are work that has not entered the
-roadmap yet. A new slot is appended so that no existing series changes colour.
+roadmap yet. A new slot is appended so that no existing series changes color.
 
 Nothing else in the deck could count these, which is why the column exists. The milestones chart
 keys on a milestone number. It reads the blocks in `design/roadmap/` for a revision that has no

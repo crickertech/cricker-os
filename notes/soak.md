@@ -231,9 +231,9 @@ The kernel knew the answer the whole time and threw it away: `sched::spawn` call
 ### What it prints
 
 Three things, all under a `soak-test-census:` prefix of their own. That prefix is not `soak-test:`
-on purpose: `crates/board_console`'s recogniser matches two substrings on that one
+on purpose: `crates/board_console`'s recognizer matches two substrings on that one
 (`soak-test: started` and `soak-test: t=`), and a census is neither, so giving it its own word means
-a block of census lines never has to be proven harmless against a recogniser it has nothing to do
+a block of census lines never has to be proven harmless against a recognizer it has nothing to do
 with.
 
 One block at soak start, from the placement `pick_spawn_target` actually made, one line per
@@ -381,13 +381,13 @@ the waiter it accumulated for. The shared version passed several idle-machine ru
 the part worth remembering: the bug needed a busy host to appear at all.
 
 Binding the routes after spawning the waiters is a race, and the reasoning that put it there was
-right about the wrong thing. Arming last is correct for the *signalling*, because a route signalled
+right about the wrong thing. Arming last is correct for the *signaling*, because a route signaled
 before anyone waits on it hands the first waiter a backlog and makes the first beat measure setup.
 It is wrong for the *routing*: a waiter that reached `Irq::WAIT` before its route existed got
 `WrongObject`, and a waiter has no channel to report a refusal on, so it stopped counting and the
 run failed a beat later with four workers apparently wedged. aarch64 got away with it and riscv64 did
 not, which is the ordinary shape of this class. The two halves are now separate: routes are bound
-before the first waiter is spawned, and the signalling is switched on last.
+before the first waiter is spawned, and the signaling is switched on last.
 
 ### What it establishes about risk 5, and what it does not
 
@@ -559,7 +559,7 @@ concurrency instruments, and neither was the right place for this.
   and it says so honestly: loom models C11, not ARM and not RISC-V. A soak on silicon is the
   evidence loom cannot give, not a substitute for it.
 - `crates/board_console` was the right one, because the thing a soak needs that did not exist is
-  a judgement about *silence*, and that crate already owned it.
+  a judgment about *silence*, and that crate already owned it.
 
 ## How a hang is told from a slow run
 
@@ -577,7 +577,7 @@ change (`< Stage::Tour` became `!= Stage::Tour`) and it is the whole agreement. 
 seconds against a fifteen-second default quiet window: three missed beats before a run is called a
 hang, exit status 2.
 
-`script/soak-test` runs the QEMU side through the same recogniser and the same policy, so the local
+`script/soak-test` runs the QEMU side through the same recognizer and the same policy, so the local
 rehearsal and the bench run are one experiment with different deadlines.
 
 ## Running it
@@ -775,7 +775,7 @@ board with a dead receive line looks like.
 
 ### The procedure, in order
 
-Steps 1 and 2 need no board. It assumes the cabling and the U-Boot behaviour in
+Steps 1 and 2 need no board. It assumes the cabling and the U-Boot behavior in
 notes/visionfive2.md, and milestone 218's boot script, **which has itself never run on the board**:
 if the card lands at `StarFive #` instead of booting, that is 218 and not this, and the manual
 commands `script/board-image` prints still work from there.
@@ -1064,12 +1064,12 @@ those support, none of which is "how many hours":
    seconds on the better of two runs) an hour is a few hundred thousand crossings, and a second hour is
    another few hundred thousand of the same kind. Decide the duration against a target crossing count,
    arrived at deliberately, and then say what it was.
-2. Is the run still producing new behaviour, or is it flat? This is PCT's saturation question and
-   this tree cannot currently answer it, because nothing here counts distinct behaviour. `remote`,
+2. Is the run still producing new behavior, or is it flat? This is PCT's saturation question and
+   this tree cannot currently answer it, because nothing here counts distinct behavior. `remote`,
    `steals` and `deferred` are the closest available and are volumes rather than varieties. **This is
    the gap worth closing before the duration argument is worth having**, and it is a milestone rather
    than a note: something like a coarse histogram over the placement decisions, so a beat can be
-   compared with the beat before it and a flat run can be recognised as flat.
+   compared with the beat before it and a flat run can be recognized as flat.
 3. **Would the time be better spent on more starts than on longer running?** The crossing count varies
    by more than a factor of two between identical runs, which is recorded in this note's BUGS and is
    evidence that the initial conditions matter more than the tail. Under PCT's model, independent runs
@@ -1100,7 +1100,7 @@ rather than an hour count inherited from a tool's default.
   it is not an argument. Checked against the field on 2026-09-03 and the admission stands: see *How
   long to run it, and why nobody can tell you* above, which is why it is a section rather than a
   longer version of this line.
-- Nothing here counts distinct behaviour, only volumes of it, so a soak cannot say whether it is
+- Nothing here counts distinct behavior, only volumes of it, so a soak cannot say whether it is
   still finding new interleavings or has gone flat. That is the measurement the duration question
   actually wants and this tree does not have it; the section above names it as the thing to build
   before arguing about hours.
@@ -1171,7 +1171,7 @@ rather than an hour count inherited from a tool's default.
   that pass. The tally is judged against one real capture with a census in it
   (`qemu-2026-09-03-riscv64-soak-census.log`, one clean core of four at 18,963/s), and **every
   multi-boot case it asserts on is text this project wrote**, because no multi-boot capture exists
-  anywhere yet. That is the same gap `crates/board_console`'s own `BUGS` records for its recogniser,
+  anywhere yet. That is the same gap `crates/board_console`'s own `BUGS` records for its recognizer,
   one milestone later, and the first bench log closes it.
 - A rebooting series and a long run are different experiments and neither substitutes. Fifty
   two-minute draws measure the distribution over placements; the three-hour run above measures what

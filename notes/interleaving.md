@@ -38,7 +38,7 @@ have no atomic protocol at all, and finding that out is most of what the survey 
 | The IPC sender queue (`crates/inter_process_communication`) | zero atomics. `Endpoint` is plain data under the `SCHED` `IrqSafeMutex` | nothing to explore |
 | `crates/intrusive_fifo` (the run queues) | zero atomics. Single-owner with interrupts masked, plus an `UnsafeCell` | nothing to explore |
 | `crates/generational_table` (the thread table) | zero atomics. Under `SCHED` | nothing to explore **as atomics**, and that reading was too narrow: `crates/memory_regions` is a `generational_table` table under a lock, and its protocol had a real double free in it. See the note under `thread_wake_handshake` below, and the `memory_regions` section |
-| The reaper handoff (`PerCpu::switched_from`) | one `AtomicU64`, both accesses `Relaxed`, written and read **by the same core** with interrupts masked. The atomic is interior mutability, not synchronisation | nothing to explore |
+| The reaper handoff (`PerCpu::switched_from`) | one `AtomicU64`, both accesses `Relaxed`, written and read **by the same core** with interrupts masked. The atomic is interior mutability, not synchronization | nothing to explore |
 | The run-queue handoff | the migration inbox is an `IrqSafeMutex`; the *steal request slot* is the lock-free part | **yes**, and it is the pilot |
 
 So the population is smaller than it looked, and that is a fact about the design rather than a gap in
@@ -59,7 +59,7 @@ and fetch-op outside test code:
 - Everything else is a counter: `fetch_add` on a statistic that a reader compares against zero or
   against its own earlier reading. Relaxed is right and there is no protocol.
 
-## What was modelled
+## What was modeled
 
 25 harnesses <!--count:loom-harnesses--> across five crates <!--count:loom-crates-->, run by
 `script/interleaving-check`.
@@ -104,8 +104,8 @@ documentation says the memory ordering is the point rather than decoration.
 |---|---|
 | `a_reader_never_sees_half_a_publish` | the state and the offset are a matched pair; a reader that catches the writer mid-publish retries rather than blending |
 | `the_generation_a_reader_sees_matches_the_pair_it_read` | `Reading::generation` is a value callers depend on (did the clock step under me), not a diagnostic, so it must agree with the pair it arrived with |
-| `two_writers_serialise_rather_than_corrupt_the_page` | the crate says several processes may hold the page read/write and the compare-exchange serialises them; "would corrupt silently" is a claim about interleavings |
-| `a_racing_reader_sees_an_unrecognised_page_or_a_whole_one` | `init` writes the magic last with a release, so a reader racing the first publish gets `UNKNOWN` or a whole page, never a recognised page with garbage in it |
+| `two_writers_serialise_rather_than_corrupt_the_page` | the crate says several processes may hold the page read/write and the compare-exchange serializes them; "would corrupt silently" is a claim about interleavings |
+| `a_racing_reader_sees_an_unrecognised_page_or_a_whole_one` | `init` writes the magic last with a release, so a reader racing the first publish gets `UNKNOWN` or a whole page, never a recognized page with garbage in it |
 
 ### `crates/thread_wake_handshake`, the block/wake protocol (2026-08-14)
 
@@ -210,7 +210,7 @@ This is the second lock-based protocol here, after `thread_wake_handshake`, and 
 applies with the same force: what loom searches is the interleaving of *critical sections*, not
 memory orderings, because there are no hand-rolled orderings to search. The survey table above
 counts atomic protocols and by that count this had nothing in it. Two of the five protocols now
-modelled are in the population that survey called empty, which is the standing correction to it: a
+modeled are in the population that survey called empty, which is the standing correction to it: a
 protocol is a candidate when its steps span more than one critical section, whatever its fields are.
 
 | Harness | Property |
@@ -256,7 +256,7 @@ impossible.
 
 ```
 a torn reading: (1, 2000) is neither publish
-a reader saw a recognised page with garbage in it: (0, 1000)
+a reader saw a recognized page with garbage in it: (0, 1000)
 the generation disagrees with the reading it came with: Reading { state: 1, offset_nanos: 0, generation: 0 }
 ```
 
@@ -397,7 +397,7 @@ Every retrofit here has the same shape: take a protocol out of the code that run
 crate a model checker can reach, and have the original call the crate. The entire value is the
 last clause. A model that searches code the kernel no longer runs reports success forever, on a
 question nobody is asking, and there is no symptom: the harness count holds, the executions stay
-green, and this note keeps saying the protocol is modelled.
+green, and this note keeps saying the protocol is modeled.
 
 Milestone 136 gated that for `crates/memory_regions`, and found the exposure was larger than it looked.
 
@@ -418,7 +418,7 @@ pub fn destroy(region: u64) {
 That is pull request #316's double free restored: read under one hold, release, revoke, free, never
 remove the slot, so two callers both pass the read and both reach the loop. `has_children` and
 `bounds` are public because single callers legitimately want them, and together they are enough. The
-lesson generalises past this crate: a lifted protocol's `&self` observers are the material a second
+lesson generalizes past this crate: a lifted protocol's `&self` observers are the material a second
 decision path is built from, because each answers a question about state while leaving the state
 addressable.
 
@@ -505,7 +505,7 @@ evaluates `cfg(loom)` as false for every real target, so:
   path) closed the hole this bullet used to name (see *A lift is only worth what its caller does*
   above). What it buys is bounded: the free-site pin covers `kernel/src/memory_region.rs` only, so
   region pages freed from another module are not caught; the warrant is line order rather than
-  dataflow; and nothing checks that a newly pinned public method is modelled at all, so a lane can
+  dataflow; and nothing checks that a newly pinned public method is modeled at all, so a lane can
   widen the surface, pin it, and never write a harness. That last one is the same gap one level up,
   and it is rung four: the failure message asks in words.
 - `crates/user_mode_runtime`'s spin lock and the interrupt-routing lottery are unmodelled. Both are named

@@ -112,7 +112,7 @@ done
 Two lines out of each run are the check, and they are the reason this step exists:
 
 - `layout: code hash <...>` must be the same 16 hex digits for all eight. It is a hash of
-  every instruction in both IPC closures and the entry set, with address operands normalised away
+  every instruction in both IPC closures and the entry set, with address operands normalized away
   (direct call and branch targets, `auipc`/`adrp` uppers, and the low-12 immediates that pair with
   them; the script prints how many of each it touched). Equal hashes are the proof that the eight
   images execute the same code and differ only in where it sits. A different hash means something
@@ -178,7 +178,7 @@ rest on), `ipc_rtt`, `ipc_rtt_el0`.
 | the pad ladder rises monotonically and leaves the layout range, matched twins tracking their pads | displacement costs time and more displacement costs more, which is the strongest reading available here. It is a layout result stated honestly, not a footprint one | 188 phase 4: the magnitude is what a hand-written fastpath would have to beat, and notes/benchmarks.md gets a caveat on every stored baseline |
 | the layout range is itself large (several percent) | the 2026-09-04 reading was an artifact, as suspected, and every between-build comparison in `bench/` inherits the same exposure | notes/benchmarks.md, as a caveat on stored baselines; and E3 as built cannot answer §95 at all |
 | everything inside the boot-to-boot spread | this kernel's IPC path does not care where it sits, at these displacements, on this core | 188 phase 4 loses its last cheap instrument; M6 is what is left |
-| rows disagree (one moves, another does not) | shape-specific, which is a result about *which* path to optimise | 188 phase 4, narrower than sketched |
+| rows disagree (one moves, another does not) | shape-specific, which is a result about *which* path to optimize | 188 phase 4, narrower than sketched |
 
 What this cannot decide, and it should be said before the numbers exist. The padding is never
 executed, so it cannot evict anything on its own; the only way it can reach a clock is by moving
@@ -259,7 +259,7 @@ can be worth more than 5 KB of dead text costs, and here it was.
 
 This is the effect Mytkowicz, Diwan, Hauswirth and Sweeney named in *Producing Wrong Data Without
 Doing Anything Obviously Wrong* (ASPLOS 2009): changing a link order or a UNIX environment variable
-size, which alters no instruction, moves measured performance by more than the optimisation under
+size, which alters no instruction, moves measured performance by more than the optimization under
 study. E3's design has exactly the shape they warn about. It varies one Cargo feature and reads
 the difference as an effect of that feature, and a Cargo feature that inserts a symbol changes the
 layout of everything after it.
@@ -579,7 +579,7 @@ cycles are not.
 |---|---|---|
 | `call_reply` and `ipc_rtt_el0` clearly slower padded, beyond the boot-to-boot spread | Liedtke's claim is live on this machine at this footprint. §95's premise holds, measured rather than argued | milestone 188 phase 4 is justified; the magnitude is the expected payoff of a hand-written fastpath and the number to hold it to |
 | padded and un-padded within the spread, as on patagonia | a doubling of footprint costs nothing measurable on a 32 KB L1i either. This is the strong direction of the negative: E3's own design says a null here is worth far more than a null on patagonia | §95's premise is in serious doubt. 188 phase 4 buys a standing verification obligation for an effect two machines cannot find. Route to `design/decisions/95-*` as evidence for closing it |
-| `ipc_rtt` moves and `call_reply` does not (or the reverse) | the effect is real but shape-specific, which is a result about *which* path to optimise rather than whether to | 188 phase 4, with a narrower scope than currently sketched |
+| `ipc_rtt` moves and `call_reply` does not (or the reverse) | the effect is real but shape-specific, which is a result about *which* path to optimize rather than whether to | 188 phase 4, with a narrower scope than currently sketched |
 | E1 `ipc_scale_*` bends sharply in the low tens | Warton's effect reproduced on the machine the prediction was computed for. §96's performance input is live | `design/decisions/96-process-kernel-or-event-kernel.md`, read against E2's finding that the customer path runs 4 to 8 threads |
 | E1 flat to 96 threads | the process kernel costs nothing on this axis on the smallest cache we target. Stronger than patagonia's 8-11% rise, in the opposite direction | §96 answered no, on data |
 | E4 `_ipc96` clearly above `_ipc`, and both above zero | application displacement is real and load-dependent: the Liedtke measurement proper | the register, and 188 phase 4 as supporting rather than deciding evidence |
@@ -679,12 +679,12 @@ read `ipc_thread_scaling skipped` twenty minutes later.
   to be dropped when a result is quoted.
   [E5](footprint-perturbation/executed-footprint.md) plans the executed version.
 - Four layout images are a small sample of a distribution. Stabilizer (Curtsinger and Berger,
-  ASPLOS 2013) randomises layout repeatedly for exactly this reason. Four draws can bound an effect
+  ASPLOS 2013) randomizes layout repeatedly for exactly this reason. Four draws can bound an effect
   loosely and cannot prove one absent; a pad reading just outside the layout range is weak evidence
   rather than a finding.
 - The bench card's kernel is not the kernel the static table below measures. `bench` changes
   the IPC path's codegen (`ipc_call_reply` is 5,212 bytes with it against 5,936 without, on
-  riscv64, and the normalised instruction stream differs), and `single_hart` adds four
+  riscv64, and the normalized instruction stream differs), and `single_hart` adds four
   instructions; `board` alone changes nothing. Step 0 above therefore measures the card's own
   feature set rather than the bare release kernel, which the 2026-09-04 session did not: its
   "5,936 unpadded, 11,070 padded" is a true statement about a kernel nobody booted that evening.

@@ -108,7 +108,7 @@ perl -e 'alarm 10; exec @ARGV' qemu-system-aarch64 ...     # DOES NOT WORK
 **QEMU installs its own `SIGALRM` handler** (it uses timers internally), so the alarm is
 swallowed and the process runs forever. Every "bounded" run leaks a QEMU.
 
-QEMU *does* honour SIGTERM. Use `helpers/qemu-bounded.sh <seconds> <cmd...>`, which
+QEMU *does* honor SIGTERM. Use `helpers/qemu-bounded.sh <seconds> <cmd...>`, which
 starts a detached killer that survives a pipeline whose reader (`head`) exits early. That
 last part matters: `qemu ... | head -20` leaves QEMU alive, because `head` closing the pipe
 does not kill a process that has stopped writing.
@@ -171,7 +171,7 @@ times out of three with a 25-second bound on patagonia (found by the `audit_sink
 #1228, while confirming the login stack came up). This was not a regression in milestone 226
 (`qemu-bounded.sh` leaves an emulator behind). 226 gave the killer more reasons to fire, but it
 always fired at `$CHILD` alone. `helpers/qemu-bounded.sh` now collects `$CHILD`'s descendants with
-`pgrep -P` before signalling anything, because a killed parent re-parents its children and they
+`pgrep -P` before signaling anything, because a killed parent re-parents its children and they
 cannot be found afterwards, and it sends TERM, then KILL, to all of them. The same three runs after
 the fix left no survivor. `helpers/qemu-bounded-selftest.sh` case 9 fails on the old script and
 passes on the new one. The x86_64 runner was not rerun, because this Mac has no x86 emulator lane
@@ -215,7 +215,7 @@ forever, by design, exactly like real hardware. So every interactive run must be
   `script/qemu-check` warns. Milestone 117's sixth stranger run built the pinned 11.0.2 by hand and
   found that `script/ci-qemu`'s configure line does not link on this SDK: `hw/display/apple-gfx.m`
   needs `--disable-cocoa --disable-pvg`. Nothing in the tree says so, because nothing in the tree has
-  built QEMU on a Mac. And a QEMU installed into `$HOME/.cache/nife-qemu` is honoured by
+  built QEMU on a Mac. And a QEMU installed into `$HOME/.cache/nife-qemu` is honored by
   `helpers/qemu-path.sh` on macOS too, for every checkout on the account, which is how a build meant
   for one clone changes the emulator under every other lane.
 - `cargo xtask uefi-boot`'s screen read used to be a race, and is now a handshake (milestone
@@ -244,7 +244,7 @@ forever, by design, exactly like real hardware. So every interactive run must be
 - A process that leaves the tree escapes the bound. The killer finds what to signal by walking
   `pgrep -P` down from its child at the moment it fires. A descendant that double-forks or calls
   `setsid` to reparent itself to pid 1 before then is no longer under the child, and is not
-  signalled. Nothing in this tree's QEMU paths does that today. A process group would catch it,
+  signaled. Nothing in this tree's QEMU paths does that today. A process group would catch it,
   but a background job in its own group cannot read the terminal, and interactive `cargo xtask
   shell` runs need exactly that.
 - **A kernel's serial log is binary to `grep`.** The test logs carry the guest's control bytes, so

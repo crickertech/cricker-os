@@ -109,7 +109,7 @@ as three seconds instead of minus 136 years. There is a test that does exactly t
 
 `Query::accept` is the only function in the crate that can reject anything. `Packet::parse` is total
 on 48 bytes: it decodes and judges nothing. That split is deliberate, and it is what lets the
-parse/serialise round trip be proved over arbitrary bytes while every judgement stays readable in one
+parse/serialise round trip be proved over arbitrary bytes while every judgment stays readable in one
 place.
 
 In order:
@@ -138,7 +138,7 @@ In order:
 ### The nonce, and the free hardening
 
 In plain NTP the client's transmit timestamp is echoed back in the origin field, so it is the only
-thing an off-path attacker has to guess. RFC 5905 says to randomise its low-order bits, and how many
+thing an off-path attacker has to guess. RFC 5905 says to randomize its low-order bits, and how many
 bits are random is set by the clock's precision: a microsecond-resolution clock leaves about
 12, which is 4096 guesses. `Timestamp::randomise_low` does that and takes the bit count as a
 parameter, because the caller knows its precision and the crate does not.
@@ -284,7 +284,7 @@ deadline anywhere in it, which is the milestone 51 block's open fork. So a poll 
 yield-spin: a thread that stays runnable for the whole interval and costs scheduler work in
 proportion to it. At NTP's ordinary 64-second poll that is not a service anybody should ship.
 
-So this is a one-shot synchroniser: up to three requests a couple of milliseconds apart, one
+So this is a one-shot synchronizer: up to three requests a couple of milliseconds apart, one
 proposal, exit. That is not a workaround and it is not a stub; it is the honest shape available, and
 **a long-running client is the timed-wait fork's to build.** Adding a sleep syscall to get one would
 be settling that fork by accident, in the milestone least entitled to settle it.
@@ -292,7 +292,7 @@ be settling that fork by accident, in the milestone least entitled to settle it.
 **A kiss-o'-death is not retried**, and this is a property of the client rather than of the crate. A
 rejected reply *is* retried, because it may have been a spoof that beat the real server back; stratum
 0 is an instruction (`RATE` means back off, `DENY` means go away) and retrying into one is the
-abusive behaviour the packet exists to stop. The test counts requests: three for a bad origin, one
+abusive behavior the packet exists to stop. The test counts requests: three for a bad origin, one
 for a kiss.
 
 ## The test server, and what it does and does not prove
@@ -347,7 +347,7 @@ cannot reach.
 **Until milestone 290 the witness was a role of the client's binary, and the reason given was that
 the proof needed it to be the *same binary*.** That reason is false and is worth writing down,
 because it was believed for six weeks and it is the sort of argument that survives review by sounding
-like rigour. The fault is caused by the capability set. Any process holding that endowment faults
+like rigor. The fault is caused by the capability set. Any process holding that endowment faults
 at that address whatever code it runs, and no amount of shared machine code would make a stale
 capability list fault.
 
@@ -416,7 +416,7 @@ Milestone 402, `design/roadmap/402-a-service-report-nobody-is-obliged-to-drain.m
 
 - **No server selection, no clock filter, no combining.** RFC 5905's selection and clustering
   algorithms exist because a real client polls several servers and weighs their samples. One server,
-  one sample, one proposal is what a one-shot synchroniser can honestly do, and the machinery for
+  one sample, one proposal is what a one-shot synchronizer can honestly do, and the machinery for
   more wants the poll loop that wants the timed wait.
 - **No slewing.** Nothing here gradually corrects; a proposal is a step the service bounds. Slewing
   is a policy the *service* could adopt, and DECISIONS §43 records why it is a choice rather than a
@@ -424,5 +424,5 @@ Milestone 402, `design/roadmap/402-a-service-report-nobody-is-obliged-to-drain.m
   time.
 - **No NTS and no MAC**, as the crate half of this file records at length.
 - **No `init` endowment.** Nothing in the interactive boot runs the NTP client; the tests wire it.
-  Ambient time synchronisation would be ambient authority, and which process may propose a time
+  Ambient time synchronization would be ambient authority, and which process may propose a time
   should be as visible as which process may reach the network.

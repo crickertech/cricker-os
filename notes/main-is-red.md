@@ -105,7 +105,7 @@ queue is `gh pr list --label held-for-red-trunk` rather than something somebody 
 a session that dies leaves a visible set rather than an invisible one.
 
 **Rungs one and two are deliberately not attempted.** No gate can tell a pull request that should be
-held from one that should not, because that is a judgement about whether a given failure is a real
+held from one that should not, because that is a judgment about whether a given failure is a real
 trunk failure. And a watcher that held the queue on its own would be resolving rather than reporting,
 which `notes/merge-queue.md` argues against on purpose and which this note has no evidence to
 overturn.
@@ -120,7 +120,7 @@ drain would have done on its next pass anyway.
 ## How it was rehearsed, since the live queue was not available
 
 The script was written while seven pull requests were genuinely held for a red trunk, so testing the
-mutating path against `nifeos/nife` was out: `hold` would have labelled other lanes' work and
+mutating path against `nifeos/nife` was out: `hold` would have labeled other lanes' work and
 cancelled live group builds. Two things made it testable anyway.
 
 - `--dry-run` against the real repository, which is read-only and proved the selection: it named
@@ -128,9 +128,9 @@ cancelled live group builds. Two things made it testable anyway.
   `needs-architect`.
 - **`QUEUE_HOLD_REPO` against a scratch repository** (`calef/queue-hold-drill`, created, exercised and
   archived the same hour), with four pull requests standing in for a fix, an ordinary lane, a draft
-  and an architect hold. `hold` labelled exactly the ordinary lane; a second `hold` changed nothing
-  and said so; `release` re-armed and unlabelled it, and correctly refused a draft that had been
-  labelled by hand, leaving the label on it and naming it.
+  and an architect hold. `hold` labeled exactly the ordinary lane; a second `hold` changed nothing
+  and said so; `release` re-armed and unlabeled it, and correctly refused a draft that had been
+  labeled by hand, leaving the label on it and naming it.
 
 **The rehearsal is the only reason two bugs are not in the tree**, and both are the same shape, which
 is a failure that reports success:
@@ -163,4 +163,4 @@ is a failure that reports success:
   a label write was short by one. Trust the labels on the pull requests over the listing when they
   disagree.
 - **The four failure modes above are recorded from one evening.** They are what happened, not a
-  survey of what can happen; a queue behaviour GitHub changes tomorrow will not announce itself here.
+  survey of what can happen; a queue behavior GitHub changes tomorrow will not announce itself here.

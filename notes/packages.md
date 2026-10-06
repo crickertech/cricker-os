@@ -38,7 +38,7 @@ repeating here because a reader comparing this against `.hpkg` will ask about th
   the reviewed bytes*; the per-member digest answers *is this member the one that was reviewed*,
   which is what a spawner handed one program out of a package needs to ask. It is also the shape
   `crates/measured_boot`'s table already has, so a package's table of contents is that table
-  travelling with its bytes.
+  traveling with its bytes.
 - **Member bytes are 8-byte aligned.** The largest member is an ELF, and the cheapest way to be
   wrong later is to hand a parser an odd address.
 
@@ -51,12 +51,12 @@ is the day the format is fixed; nobody has.
 ## The producer
 
 `cargo xtask package <recipe>` turns a reviewed recipe into one package file, a digest, and a
-catalogue line. `packages/uptime.recipe.toml` is the worked example and a real recipe rather than a
+catalog line. `packages/uptime.recipe.toml` is the worked example and a real recipe rather than a
 fixture.
 
 Recipes are TOML since calef's ruling of 2026-09-27. `xtask` reads them with the `toml` crate, a
 dependency under §46 (thin primitives or whole subsystems): host-only, never shipped, parsing a
-format calef chose, correct by exposure. No target reads a recipe; it reads the catalogue.
+format calef chose, correct by exposure. No target reads a recipe; it reads the catalog.
 
 ```
 $ cargo build -p components --bin uptime --target aarch64-unknown-none-softfloat
@@ -84,10 +84,10 @@ it does not exist yet on the target side.
 A recipe's recorded digest is checked before anything is written. A rebuild that does not
 reproduce the reviewed line is exactly the failure §195's arrangement exists to make visible, so the
 tool prints both digests and writes nothing. That ordering costs a rebuild to discover and is worth
-it: a package nothing accepts, sitting on disk beside a catalogue entry vouching for it, would be
+it: a package nothing accepts, sitting on disk beside a catalog entry vouching for it, would be
 the tool disagreeing with itself.
 
-The catalogue line is `measured_boot`'s manifest shape, a name, a space, 64 hex characters,
+The catalog line is `measured_boot`'s manifest shape, a name, a space, 64 hex characters,
 which is what the progenitor already reads to decide whether a program may run. §195 makes the
 image's measurement table the first source of trust, so a package's entry looking like an entry in
 that table is the point.
@@ -110,9 +110,9 @@ Built 2026-09-24 by the rung 3a consumer lane. Three pieces, each doing one thin
 
 - The image carries its own package source. Every archive build (`cargo xtask initrd-aarch64`
   and `initrd-riscv`) runs every recipe under `packages/` for its architecture, writes the package
-  to `target/packages/`, and packs the catalogue lines as the archive entry
+  to `target/packages/`, and packs the catalog lines as the archive entry
   `package_archive::CATALOGUE` (provisional name), above the measurement table. So the kernel's
-  trust root vouches for the catalogue, and the catalogue vouches for the package. That is §195's
+  trust root vouches for the catalog, and the catalog vouches for the package. That is §195's
   "the image's measured table becomes the first source" taken literally, and it is why plain HTTP
   is enough on this rung: the digest the client checks against never crossed the network. It also
   means the producer runs end to end on every build, which this note's BUGS said nothing did.
@@ -187,7 +187,7 @@ live generation:
 
 ```
 $ package install downloads/tampered.nifepkg
-  refused: this image's catalogue does not vouch for those bytes; nothing is installed
+  refused: this image's catalog does not vouch for those bytes; nothing is installed
 $ package install downloads/uptime.nifepkg
   refused: the image carries a program of that name; a new base updates it, not install; nothing is installed
 $ package install downloads/noteless.nifepkg
@@ -224,14 +224,14 @@ Install refuses an image program's name, as `uptime` shows, and a name another p
 
 The progenitor is the installer, not a program, for §208's own reason: the authority that
 decides which version is active should be the one that performs a swap, and §219 already made it
-the reader of the table. It holds the file service with `WRITE`, the image's catalogue in its
+the reader of the table. It holds the file service with `WRITE`, the image's catalog in its
 archive, and the frame-staging path an image request built. A program would need all three
 delegated, and an argument vector it does not have (milestone 205 (how a foreign program is told
 what to do)). `spawnproto::ACTIVATION_BIT` (provisional) is the request.
 
 Install stages the package exactly as an image is staged, so the progenitor checks its own
 copy. `package_archive::installable` is the whole decision on bytes, host-tested: the file's digest
-must be the image catalogue's line for the stem in its header, and the member named after the
+must be the image catalog's line for the stem in its header, and the member named after the
 package is the program. Its bytes go to `packages/<name>/<version>/<program>`, one component per
 field because a prompt component is at most sixteen bytes. Remove writes a generation without
 the entry and leaves the bytes, which is what lets a rollback bring them back. Rollback points
@@ -246,11 +246,11 @@ generation is never rewritten, and `current` never names one that was not writte
 `script/swish-check` boots twice per architecture against one disk, typing the first transcript
 above and then the second (`SWISH_CHECK_AFTER_REBOOT`). The host puts a package on the disk and
 installs nothing (`seed_installed` in `xtask/src/disk.rs`). The tampered copy has one program byte
-flipped and its table of contents rewritten to agree, so the catalogue is the only thing that can
+flipped and its table of contents rewritten to agree, so the catalog is the only thing that can
 refuse it. Green on aarch64, riscv64 and x86_64 (under OVMF) on 2026-09-26. Each line was falsified
 once on aarch64:
 
-- skip the catalogue check, and the tampered package installs;
+- skip the catalog check, and the tampered package installs;
 - record the program's digest with one bit flipped, and the installed program is refused;
 - give the second boot a fresh disk, and every line after the reboot fails;
 - make `remove` rewrite the old table, and the removed program still runs;
@@ -301,8 +301,8 @@ removed) is met, and so is §219's gate D2. The boot prompt is the owner's conso
   and a compressor is a second hostile-input parser on the same path. The size cost is measured
   nowhere.
 - **A package is bounded by `u32`** in both member length and file length.
-- The catalogue is one file in `target/` and one archive entry, not a repository index. The
-  image's own source is the only source; §195's per-source trust needs a catalogue per source the
+- The catalog is one file in `target/` and one archive entry, not a repository index. The
+  image's own source is the only source; §195's per-source trust needs a catalog per source the
   owner opted into, and a way to add one.
 - x86_64 fetches under QEMU only: xenon's I219 is left alone at boot
   ([packages/fetching.md](packages/fetching.md)).
@@ -310,7 +310,7 @@ removed) is met, and so is §219's gate D2. The boot prompt is the owner's conso
 - The package peer is a `guestfwd` process, not a server on a LAN. It speaks HTTP to the guest
   over slirp's forwarding, which is enough to prove the client and not enough to prove a real
   network card or a host elsewhere on a network (rung 3b).
-- Plain HTTP carries the package, and that is safe only because of the image's catalogue. A
+- Plain HTTP carries the package, and that is safe only because of the image's catalog. A
   source whose digests arrive over the same connection would be worth nothing against a machine in
   the middle; that is what §196 (nife carries TLS)'s TLS is for on rung 3c.
 - **A recipe cannot say where its source came from.** Homebrew's formula carries an upstream URL and

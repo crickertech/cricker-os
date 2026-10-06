@@ -39,8 +39,8 @@ So the frame count sees the defect only when the batch happens to straddle a bou
 worse than 11% random. Where `NEXT_STACK_VA` stands when this test runs depends on how many threads
 the tests before it spawned, which is fixed for a given tree. So for any given tree the assertion
 either always catches the defect or always misses it, and unrelated code upstream decides which.
-That is a detector whose sensitivity is set by its neighbours. It is the family's theme from a new
-direction: not a neighbour causing a false failure, but a neighbour deciding whether a real failure
+That is a detector whose sensitivity is set by its neighbors. It is the family's theme from a new
+direction: not a neighbor causing a false failure, but a neighbor deciding whether a real failure
 is visible at all.
 
 The frame count was always a proxy for reuse. The fix is to assert the mechanism. Every thread in
@@ -50,7 +50,7 @@ out of a thread it is simultaneously waiting to see reaped, and a local's addres
 with no race in it.
 
 The failure direction is one-way, so this is not a new global exposure. `NEXT_STACK_VA` moves only
-when the free list is empty. A neighbour spawning inside the window can only raise the watermark,
+when the free list is empty. A neighbor spawning inside the window can only raise the watermark,
 and raising it makes the claim easier to satisfy. Contention cannot fail it. That is the test the
 first round applied to `used() <= before`, applied to the half that was still a proxy.
 
@@ -83,7 +83,7 @@ what eight deaths just stocked. The probe therefore lands below the watermark on
 reuses at all, and at the watermark on one that does not.
 
 Two lessons, and the second is about method rather than stacks. A one-way failure direction is
-necessary and not sufficient. This assertion had one (a neighbour can only raise the watermark) and
+necessary and not sufficient. This assertion had one (a neighbor can only raise the watermark) and
 was still wrong, because it bounded the wrong quantity. And an injection that fires proves only that
 the assertion can fail, never that it fails for the right reason. The injected run went red and the
 clean run went green, while the assertion was still measuring concurrency. Only a second clean run
@@ -138,7 +138,7 @@ bracket keeps its `==`, which until now was only an argument.
 
 And it says something about the aspace test that three rounds of prose did not. An earlier, exact,
 synchronous assertion catches a leak in the kernel path it guards before this test runs, in both
-narrowings tried. Its `used() <= before` is not the tree's first line of defence against that defect
+narrowings tried. Its `used() <= before` is not the tree's first line of defense against that defect
 and probably never was. What it uniquely covers is a leak that appears only after a user thread has
 faulted and been reaped four times over, which no `reclaim_frees_*` bracket stages. Know that before
 spending another round on it. The final row proves that assertion directly: the defect arranged

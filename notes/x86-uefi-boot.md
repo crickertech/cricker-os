@@ -27,7 +27,7 @@ edk2-x86_64-secure-code.fd
 
 OVMF, the open-source UEFI implementation, ships with the QEMU this project already pins.
 Nothing to install. And the FAT filesystem the firmware reads is QEMU's own `vvfat` block driver,
-which synthesises one out of a host *directory*, so there is no image-building step and no
+which synthesizes one out of a host *directory*, so there is no image-building step and no
 `mtools`:
 
 ```console
@@ -88,7 +88,7 @@ Everything else falls out of it:
 
 | The loader does | Because |
 |---|---|
-| synthesises an `hvm_start_info` | `machine_discovery::x86_64` already decodes it, host-tested, and `arch::x86_64::machine` already consumes it |
+| synthesizes an `hvm_start_info` | `machine_discovery::x86_64` already decodes it, host-tested, and `arch::x86_64::machine` already consumes it |
 | places the kernel at `p_paddr` | that is what a boot loader does, and this kernel's `p_vaddr` and `p_paddr` are unrelated (see below) |
 | leaves long mode as its last act | that is the *only* state difference between what UEFI hands over and what QEMU's PVH loader hands the kernel |
 | embeds the kernel and the archive | one file on the stick, and no `SimpleFileSystem` protocol to speak |
@@ -108,7 +108,7 @@ The pieces:
 
 Milestone 87's brief named the risk directly: *make both entries produce the same internal
 structure for `kernel_main`*, because a divergence would first show up on hardware nobody can
-attach a debugger to. Synthesising an `hvm_start_info` is how that is made true rather than
+attach a debugger to. Synthesizing an `hvm_start_info` is how that is made true rather than
 promised. There is one structure, one decoder, and one set of tests, and `uefi_loader::handoff`'s
 tests decode their own output with the crate the kernel decodes with, so the writer and the
 reader cannot drift apart without a host test failing in milliseconds.
@@ -501,7 +501,7 @@ $ cp target/esp/EFI/BOOT/BOOTX64.EFI /Volumes/NIFE/EFI/BOOT/BOOTX64.EFI
 $ diskutil eject /Volumes/NIFE
 ```
 
-The path and the capitalisation are the interface. `\EFI\BOOT\BOOTX64.EFI` is the removable-media
+The path and the capitalization are the interface. `\EFI\BOOT\BOOTX64.EFI` is the removable-media
 fallback the firmware looks for with no configuration; anything else needs a boot entry created on
 the machine.
 
@@ -526,7 +526,7 @@ asks for is already set on xenon, page by page, in `notes/xenon-firmware.md`.
 2. Boot List Option: UEFI, not Legacy. Legacy/CSM boot would look for an MBR boot sector, which
    this stick does not have. Right as written, with one refinement: `Boot List Option` is not a
    page of its own, it is the lower half of *General → Boot Sequence*, and on xenon the Legacy
-   radio is greyed out because `Enable Legacy Option ROMs` is off. Already UEFI.
+   radio is grayed out because `Enable Legacy Option ROMs` is off. Already UEFI.
 3. Serial port: COM1. The C4PDJ module presents COM1 at I/O port `0x3f8`, which is where the
    kernel's console driver looks (`arch::x86_64::port`). **This is the one that was worded
    differently.** The old wording said "Serial port: enabled" and guessed that the firmware might
@@ -547,7 +547,7 @@ waits for a keypress when it finds no keyboard**, which its own event log shows 
 times over the past year. That did not bite during first light because a keyboard was attached. It
 will bite the first time anybody tries to power-cycle this machine and let it boot unattended,
 which is what `notes/bench-runbook.md` and `notes/serial-less-output.md` both want next. Changing
-it is two settings and it is calef's call, because it changes the machine's behaviour for
+it is two settings and it is calef's call, because it changes the machine's behavior for
 everything else it is used for.
 
 ### Watch it
@@ -649,7 +649,7 @@ radio on Enabled.
    list.
 
 They are calef's for the reason `notes/xenon-firmware.md` gives about firmware generally: a setting
-changes this machine's behaviour for everything else it is used for. **Edit that note when you
+changes this machine's behavior for everything else it is used for. **Edit that note when you
 change them**, because the next lane reads it instead of walking to the machine.
 
 Nothing else in the transcription is in the way: Boot List Option is already UEFI, Secure Boot is
@@ -787,7 +787,7 @@ OptiPlex's firmware leaves interrupt remapping off. This said the answer is a se
 else's firmware, and the 2026-09-04 transcription found no such setting exists. The whole of
 the 7050's Virtualization Support menu is three pages (`Virtualization`, `VT for Direct I/O`,
 `Trusted Execution`), and `VT for Direct I/O` is enabled. So the answer is not in a menu; it is
-in the DMAR the firmware publishes, which any kernel can read and which QEMU synthesises too. That
+in the DMAR the firmware publishes, which any kernel can read and which QEMU synthesizes too. That
 moves the question off the bench and into code: `design/roadmap/378-read-the-dmar-on-xenon.md`.
 
 And this milestone added one of its own for the bench, which is the more interesting of the two:
@@ -799,7 +799,7 @@ is the whole difference between a bring-up and a stare.
 
 - **The bench procedure's firmware steps are now checked against the machine; the rest of it is
   still one run old.** The old entry here said every firmware-menu path, key and setting name above
-  came from the 7050's documented behaviour rather than from this machine, and that the first person
+  came from the 7050's documented behavior rather than from this machine, and that the first person
   to follow it should expect one of them to be worded differently on the screen. That prediction was
   right, once: step 3's "Serial port: enabled" is a single five-way radio with no enable, and
   picking `COM1` is the whole of it. Steps 1, 2 and 4 were correct as written. `notes/xenon-firmware.md`

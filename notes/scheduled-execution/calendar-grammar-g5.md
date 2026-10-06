@@ -201,7 +201,7 @@ breaks the proof that each fire is an occurrence.
   dormant until it.
 
 One change to S3 itself, the maintainer's default since the ruling, reversible because it is
-behaviour and not a stored format. The stamp rule had a failure the lane's note did not price. An operator `SET` typed as 2030 fires every daily line once and stamps it in 2030. A `SET`
+behavior and not a stored format. The stamp rule had a failure the lane's note did not price. An operator `SET` typed as 2030 fires every daily line once and stamps it in 2030. A `SET`
 back to 2026 then leaves those lines dormant for four years; the plausibility bound admits up to
 2100. The page can tell the cases apart, since `state::SET` and `state::SYNCED` differ. The fix:
 a publication in state `SET` is a correction and clears the stamps, because they were taken on
@@ -212,14 +212,14 @@ operator asked for.
 ## What each option costs
 
 Estimates are Rust code lines without comments or tests. The base is today's parser, about 70
-lines, and `next_after`, 11. Neighbours were counted on 2026-09-26 (UTC) without comments.
+lines, and `next_after`, 11. Neighbors were counted on 2026-09-26 (UTC) without comments.
 
 | | G3: two words | G4: cron fields, no union | G5 v1 |
 |---|---|---|---|
 | covers | nightly, weekly | anything a crontab can, except "last" and fortnightly | the table above |
 | parser, estimate | 40 to 60 | 150 to 200 | 250 to 350 |
 | next occurrence, estimate | 30 to 50 | 120 to 180, a search over field bitmasks | 200 to 280, closed form per month |
-| measured neighbours | none | cronie `entry.c`, 512 | Temporal `spec.go` and `calendar.go`, 746; systemd `calendarspec.c`, 1,059; dateutil `rrule.py`, 1,453 |
+| measured neighbors | none | cronie `entry.c`, 512 | Temporal `spec.go` and `calendar.go`, 746; systemd `calendarspec.c`, 1,059; dateutil `rrule.py`, 1,453 |
 | silent traps left | none in scope | `0 0 31 * *` fires seven times a year unless refused | none: each is a refusal above |
 
 The Kani plan is the same for G4 and G5, and only the predicate differs. `matches(rule, t)` is the
@@ -256,7 +256,7 @@ as data with the command that made it, and no crate dependency.
 | G5 v1 | the rules and table above | 450 to 600 lines; five harnesses | additive by construction |
 | G5, smaller first cut | G5's shape, v1 words `day`, `weekday`, `week on` | about G3's cost | additive; month words later |
 
-The evidence favours G5's shape. Nothing has acted on a calendar grammar yet, so choosing it now
+The evidence favors G5's shape. Nothing has acted on a calendar grammar yet, so choosing it now
 undoes nothing. How many words ship first is reversible, and the smaller cut buys G3's cost without
 G3's dead end.
 

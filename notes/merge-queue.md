@@ -16,7 +16,7 @@ The roles in CLAUDE.md are Maintainer, Developer, Steward. On 2026-08-04 three t
 one evening and all three were the same shape: a duty that belonged to whoever happened to notice.
 
 - Two green pull requests sat unmerged for hours because nobody armed auto-merge on them. Not a
-  judgement call, not a policy: they were opened and forgotten.
+  judgment call, not a policy: they were opened and forgotten.
 - `main` went red and nobody owned it. A developer cannot see `main` by design. The steward
   watched pull request checks and never the trunk. The maintainer's hygiene list is prune the
   worktree, delete the branch, relink `nife-dev`, leave no QEMU, and does not mention it.
@@ -30,7 +30,7 @@ merging happens *between* conversations rather than during them.
 The steward was supposed to cover that and did not, for a reason worth recording: it reported and
 never acted. "The queue is stalled" arriving in a message is only useful if someone reads the
 message and does something. These two scripts act. (Until 2026-10-03 the drain acted by arming;
-now it acts by labelling, which is the same lesson one level along: see the drain's section.)
+now it acts by labeling, which is the same lesson one level along: see the drain's section.)
 
 ## `helpers/merge-drain.sh`
 
@@ -114,7 +114,7 @@ The grace period was measured, not picked. The branch that built this took three
 GitHub refuses a pull request with no commits between the head and `main`, so the literal first-act
 command block cannot be run straight through and every lane has that delay. Fifteen minutes is five
 times the observed case, and comfortably under the 75 minutes `stale_drafts` waits, which is the
-neighbouring report and the one this must not shadow.
+neighboring report and the one this must not shadow.
 
 The clock runs from the branch's birth, and a later push does not reset it. That is the opposite
 of `stale_drafts` next door, and the pair is worth reading together: a stale draft is one that
@@ -280,7 +280,7 @@ watchers on 2026-08-18).
 ### What is lost, and it is smaller than the proposal priced it
 
 Cadence. GitHub's shortest `schedule` interval is five minutes, and scheduled runs are delayed
-under load and dropped at peak, which is a documented behaviour rather than a caveat. The proposal
+under load and dropped at peak, which is a documented behavior rather than a caveat. The proposal
 priced this against the script's own 150-second loop and that comparison was wrong: the `launchd`
 jobs fired `--once` every five minutes, so the real loss is only the delay and the drops,
 not two and a half minutes. calef accepted it on 2026-09-23.
@@ -291,7 +291,7 @@ twelve failed runs. The workflow's own BUGS section says so; carrying state in a
 machinery than the fact is worth.
 
 The gap that was accepted and is now closed. Patagonia asleep meant nobody was watching. That
-was named rather than hidden, and a cron on cordoba was declined in 2026-08-26 in favour of the
+was named rather than hidden, and a cron on cordoba was declined in 2026-08-26 in favor of the
 simpler thing on the machine already in use. Actions closes it for the two that moved and leaves it
 exactly where it was for the at-risk check, which is correct: a laptop that is asleep has no lane
 worktree being edited on it.
@@ -299,7 +299,7 @@ worktree being edited on it.
 A restraint that was reweighed rather than ignored. calef declined an unattended scheduled agent
 on 2026-08-26, preferring that this shut down when the session driving it does. His 2026-09-23
 approval supersedes that for these two, and the distinction he drew in September holds here as well:
-what runs on a timer is a shell script reading GitHub and labelling what a session must pick up,
+what runs on a timer is a shell script reading GitHub and labeling what a session must pick up,
 with no judgment in it. A queue reports, it does not resolve is still the boundary. Neither workflow resolves a
 conflict, retries a failed check, or marks anybody's draft ready.
 
@@ -346,7 +346,7 @@ trunk without one is the failure being surfaced.
 What to do once it speaks is [notes/main-is-red.md](main-is-red.md), added 2026-09-23 because
 calef asked whether the response existed and it did not: this watcher reported a red trunk and
 `helpers/merge-drain.sh` carried on arming pull requests into it every five minutes. The response is
-`helpers/queue-hold.sh` (hold the queue, land one fix alone, release) with the judgement in
+`helpers/queue-hold.sh` (hold the queue, land one fix alone, release) with the judgment in
 [briefs/main-is-red.md](../briefs/main-is-red.md). It stays a person's to run, for the reason this
 note gives throughout: a queue reports, it does not resolve.
 
@@ -451,7 +451,7 @@ commit. The queue builds each entry's merge commit on its own ref, and the commi
 very object. Inside a batch only the tip gets a `push` run: `ac04fb01` (#1179) and `b9b0d4bb` (#1202)
 got none, while the batch tips `0b72f673` and `47c3a3c9` did. The tip's merge-group run tested the tip
 with every earlier entry of its batch already beneath it, so an exact-SHA lookup answers "was this tree
-tested" without inferring anything about neighbours.
+tested" without inferring anything about neighbors.
 
 ```console
 $ gh api "repos/nifeos/nife/actions/workflows/ci.yml/runs?event=merge_group&head_sha=47c3a3c9d01e96c8d007a4b41ff9d2adc8858f10&status=success&per_page=1" \
@@ -575,7 +575,7 @@ higher than that and is the thing the ordering brain above was written to manage
   candidate builds failed CI for one reason: `script/lint`'s branch-prefix check rejected the
   queue's own `gh-readonly-queue/*` branches, so every candidate was ejected and rebuilt. 678
   job-minutes, and the pull requests caught in it carry a two-hour first-enqueue-to-merged that is
-  the gate's bug rather than the queue's behaviour. #217 fixed it and was merged directly, outside
+  the gate's bug rather than the queue's behavior. #217 fixed it and was merged directly, outside
   the queue, because the queue could not land anything until it was.
 - Several re-enqueues on 08-16 were operator error, not eviction. Eleven re-enqueues across
   seventeen pull requests, nine of which needed more than one. Some were the queue ejecting a
@@ -725,7 +725,7 @@ Blocked-by: #324
 
 in the pull request body. Until 2026-10-03 the drain skipped that pull request while #324 was open
 and armed it on the first pass after #324 merged. Since the drain stopped arming, the line keeps a
-ready pull request's `unarmed` cause off while #324 is open, and the pull request is labelled
+ready pull request's `unarmed` cause off while #324 is open, and the pull request is labeled
 `needs-maintainer` once #324 has merged or closed, which says "arm this now" to a session rather
 than doing it. On a draft it earns the `unblocked` label instead.
 

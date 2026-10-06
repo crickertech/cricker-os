@@ -363,7 +363,7 @@ The lesson for milestone 99 and 66 is a sequencing one. Do not read a passing bu
 crate, and do not order the work by what fails to compile: `tempfile` never appears on a build
 failure list and is on the critical path for git.
 
-## The prioritised gap list
+## The prioritized gap list
 
 This is the deliverable milestones 99 and 66 consume. It is not the order the milestone 27 table
 suggests, because that table counts functions and this counts demand.
@@ -490,7 +490,7 @@ Declined, and each for a reason rather than for time:
 ### The third pass, 2026-08-18: the gap list cannot see a `panic!`
 
 The second pass worked the ranked list from the top. The third asked a different question, because
-the second pass's own best finding had come from asking it by accident: **what do the neighbouring
+the second pass's own best finding had come from asking it by accident: **what do the neighboring
 functions do?** `env::var` answered `None` honestly while `env::vars()` in the same fallback was a
 `panic!`, and only one of the two was on this list.
 
@@ -539,7 +539,7 @@ milestone 47's unbuilt half and the `File::open` fork this milestone reserves. `
 asserts those refusals as well as the two answers, so a later lane cannot quietly turn one into a
 fabrication.
 
-Nothing about the fifty-crate split moved: all three were runtime behaviour, and every probe that
+Nothing about the fifty-crate split moved: all three were runtime behavior, and every probe that
 built before builds now.
 
 ### The fourth pass, 2026-08-18: the reading became a check, and it found a fifth
@@ -555,10 +555,10 @@ the process's supervisor. **A clean exit arrived as a crash**, which is how almo
 program ends.
 
 **Why the third pass's method could not reach it, and this is the finding rather than the function.**
-That method was "read every module the PAL falls through and ask what its neighbours do". It works
+That method was "read every module the PAL falls through and ask what its neighbors do". It works
 on `sys/<module>/mod.rs` dispatchers, which is what `env`, `paths` and `process` are. `sys/exit.rs`
 is not one: it is a single file whose `cfg_select!` lives *inside* `pub fn exit`, so there is no
-module to read and no neighbours to compare. Two passes of careful reading walked past it, and a
+module to read and no neighbors to compare. Two passes of careful reading walked past it, and a
 third would have too.
 
 It also hid behind a second thing worth recording: **the two ways a Rust program ends took different
@@ -572,7 +572,7 @@ rustc compiled for the nife targets and greps exactly those for process-ending b
 result against a list that carries a reason per entry. It is rung two of AGENTS.md's ladder where
 this note's BUGS section had rung four, and it runs inside `script/test`.
 
-Nothing about the fifty-crate split moved: this was runtime behaviour, and every probe that built
+Nothing about the fifty-crate split moved: this was runtime behavior, and every probe that built
 before builds now. What moved is the count of process-ending calls that a green build hides, which
 is now zero as far as a mechanism can see, and the mechanism's own blind spot is written down.
 
@@ -586,7 +586,7 @@ Nothing was missing from the contract and nothing was missing from the server; t
 still said the verbs did not exist.
 
 **All five are bound now**, and the `std_exerciser` demo walks them under a real directory
-capability on both ISAs. See notes/std/fs.md for the behaviours (what `read_dir(".")` means with no
+capability on both ISAs. See notes/std/fs.md for the behaviors (what `read_dir(".")` means with no
 global namespace, why the listing is drained rather than streamed, and why `remove_file` refuses a
 directory).
 
@@ -632,7 +632,7 @@ with a narrowed directory capability does not exist yet; that wants a lane).
   (`env::vars`, then `env::temp_dir`, `env::split_paths` and `process::id`), and the ranked list
   below could not have contained any of them, because a function that aborts never returns the
   refusal the census greps for. The method that found them is not a list at all: read every module
-  the PAL falls through instead of binding, and read what its *neighbours* do.
+  the PAL falls through instead of binding, and read what its *neighbors* do.
 
   This is now a gate, `cargo xtask std-aborts` (milestone 64's fourth pass), and building it
   found a fifth that the reading could not have: `std::process::exit` was `intrinsics::abort()`,

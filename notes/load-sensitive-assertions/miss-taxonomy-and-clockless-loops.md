@@ -50,7 +50,7 @@ true, and the BUGS line was the correct one. The twin is in `kernel/src/arch/ris
 `#[test_case]` in the arch timer module, five tick periods and a bare `assert_eq!` on the
 missed-tick delta. It is exactly the assertion that broke #204, #210 and #215 on the other ISA.
 
-What was checked that day was the boot tour. That is a different artefact from the test suite, and
+What was checked that day was the boot tour. That is a different artifact from the test suite, and
 it genuinely has no such line; the conclusion was then written down about the ISA. That is rung four
 of the ladder failing in its usual way: a fact living in one sentence, with nothing comparing it to
 the code.
@@ -78,7 +78,7 @@ assert_eq!(thread_count(), threads_before + 1, "the embryo should be in the tabl
 assert_eq!(thread_count(), threads_before, "the TCB's table slot must be freed by reclaim");
 ```
 
-The headcount is the size of the whole table. A neighbouring thread finishing its teardown between
+The headcount is the size of the whole table. A neighboring thread finishing its teardown between
 the baseline and the first read lands the count at `threads_before`, one below what the assertion
 demands. The run then goes red accusing an embryo that is present and correct. Negative direction, a
 global baseline, a claim about one object: it is the milestone's signature. It was unrecorded
@@ -86,7 +86,7 @@ against this site only because nothing had happened to fall on it yet.
 
 The rescope is also the stronger claim. `create_tcb` returns a generational `Tid`, so
 `is_thread_present(tid)` asks the narrow question the test is responsible for ("is this embryo in
-the table"), and it is immune to neighbours by construction. The old second assertion could pass
+the table"), and it is immune to neighbors by construction. The old second assertion could pass
 with the embryo still in the table, as long as somebody else's thread left in the same window. The
 new one cannot. `is_thread_present`'s own doc comment has argued this since it was written.
 
@@ -112,13 +112,13 @@ assert_eq!(memory::stats().unwrap().free(), free_before, "...");
 ```
 
 1. A global baseline, `thread_count()`, which is the reaper count's defect again.
-2. An unbounded yield loop with no clock at all, wrong in both directions. A neighbour reaping first
+2. An unbounded yield loop with no clock at all, wrong in both directions. A neighbor reaping first
    puts the count at or below the baseline, and the loop exits immediately, leaving this batch's
-   stacks in flight when the frame count is read. A neighbour's thread outliving the batch holds the
+   stacks in flight when the frame count is read. A neighbor's thread outliving the batch holds the
    count above the baseline, and the loop never exits. It spins until the harness's 90 s per-test
    ceiling and reports a hang in a test about kernel stacks. Nothing in it was bounded.
 3. A global frame equality. The reaper test and the address-space test both traded that for `<=`,
-   on the argument that a neighbour's late teardown can only free frames.
+   on the argument that a neighbor's late teardown can only free frames.
 
 All three take fixes already argued elsewhere in this register. Each spawn is followed to its own
 reap by `is_thread_present` on the `Tid` it returned, bounded by the module's `wait_for`. The final
