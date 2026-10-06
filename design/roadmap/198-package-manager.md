@@ -1,8 +1,7 @@
 ---
-status: BUILT
+status: PARTIAL
 raised: 2026-08-30
-built: 2026-10-05
-milestone_dependencies: none
+milestone_dependencies: 801, 802
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
@@ -10,13 +9,11 @@ needs_person: no
 ---
 # 198. A package manager
 
-Split on 2026-10-06 (UTC). Until then this block was "a package manager, and the trivial install
-that makes a second customer possible", and other milestones depended on single rungs of it. calef,
-the same day: *"Don't fix the tooling to name a rung. We should make our milestones finer grained
-if we're going to express dependencies on a fraction of them."* This block keeps the package
-manager, rung 3a, which was complete on 2026-10-05. Rung 3c is milestone 801 (packages over the
-internet), and rungs 1d and 4 are milestone 802 (the trivial install). The rung table below still
-maps every rung to its milestone.
+Ruled 2026-10-06 (UTC) by calef, option B: this milestone is PARTIAL, the umbrella over milestone
+801 (packages over the internet), rung 3c, and milestone 802 (the trivial install), rungs 1d and 4,
+and closes when both do. It keeps the top slot of principle 1's customer path. This corrects #1737,
+which split it earlier that day and flipped it to BUILT. Until the split this block was "a package manager, and the trivial install that makes a second customer possible". Rung 3a, the package manager, was complete
+on 2026-10-05. The rung table below maps every rung to its milestone.
 
 Minted 2026-08-30 by calef. *(Number provisional until the merge queue
 lands it.)* Rung 3a's producer half was built 2026-09-23 on
@@ -284,8 +281,7 @@ calef's acts are named there rather than here.
 ## Index row
 
 calef, 2026-08-30: no third party sees nife until there is a package manager and a trivial
-install, and he wants both early, to make our own lives easier. This block is the package manager.
-It is the one archive file §197 ruled a package is, `cargo xtask package` turning a reviewed recipe
+install, and he wants both early, to make our own lives easier. This block is the package manager. It is the one archive file §197 ruled a package is, `cargo xtask package` turning a reviewed recipe
 into one, and a fetch over plain HTTP verified by digest. It is also `package install`, `remove` and `rollback` at
 the prompt across a reboot (§208, §219), on all three architectures since 2026-10-05. Split on
 2026-10-06 so other milestones can depend on a single rung: packages over the internet are

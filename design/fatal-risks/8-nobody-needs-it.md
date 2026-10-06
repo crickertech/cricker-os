@@ -25,10 +25,12 @@ who is not calef installs nife on purpose and is still running it two months lat
 the weak half, and retention is the claim.
 
 Dated 2026-10-06 (§216 (fatal-risk facts are correctable)): milestone 198 (a package manager) was
-split, and is now the package manager alone, BUILT on 2026-10-05. A stranger's install waits on milestone 802 (the trivial install), and
-milestone 576 (how many systems are out there) waits on milestone 801 (packages over the internet).
-Nothing in the verdict moves: nobody but calef can install nife yet, so there is still nobody to
-ask. Which of 801 and 802 holds 198's top slot is calef's to say.
+split into 198, milestone 801 (packages over the internet) and milestone 802 (the trivial install).
+The first draft of this paragraph called 198 BUILT; calef ruled otherwise the same day (option B):
+198 stays PARTIAL as the umbrella over 801 and 802 and closes when they do, so it keeps the
+ranking function's top slot. A stranger's install waits on 802, and milestone 576 (how many systems
+are out there) waits on 801. Nothing in the verdict moves: nobody but calef can install nife yet, so
+there is still nobody to ask.
 
 Two caveats. What the green results buy is narrower than it
 reads: risks 1 and 9 answer *could somebody run this*, and this entry asks *does somebody want to*.
