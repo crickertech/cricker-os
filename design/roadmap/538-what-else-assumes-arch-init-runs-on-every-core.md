@@ -23,7 +23,7 @@ by that name runs when a core comes up. It was **green on aarch64 and x86_64 and
 RISC-V**, where the boot hart installs `stvec` through `arch::exceptions::init()` directly and never
 passes through `arch::init` at all.
 
-**Silent is the word that matters.** OpenSBI hands the kernel a hart with `sstatus.FS` already open,
+Silent is the word that matters. OpenSBI hands the kernel a hart with `sstatus.FS` already open,
 so no thread ever took the first-use trap, so nothing faulted: two threads shared a register file
 and every test passed. The lane found it by reasoning about the boot path rather than by a failure,
 which is the kind of discovery that does not repeat reliably.
@@ -32,15 +32,15 @@ which is the kind of discovery that does not repeat reliably.
 
 `arch::init()` has three call sites (`kernel/src/main.rs` twice, `kernel/src/smp.rs` once). For each
 architecture, establish which cores actually reach it, and then read what is initialised there
-against that answer. The question for every item is the one 447 had to ask: **is this per-core
-state, and does every core run this code?**
+against that answer. The question for every item is the one 447 had to ask: is this per-core
+state, and does every core run this code?
 
 Three failure shapes to look for, because they are what makes this worth a lane rather than a grep:
 
-- **Per-core state set on one core.** The 447 shape exactly.
-- **State that happens to be correct by inheritance**, like `sstatus.FS` arriving open from firmware,
+- Per-core state set on one core. The 447 shape exactly.
+- State that happens to be correct by inheritance, like `sstatus.FS` arriving open from firmware,
   where the bug is invisible until the firmware changes or a second core boots differently.
-- **Initialisation that is per-core on one architecture and global on another**, which reads as a
+- Initialisation that is per-core on one architecture and global on another, which reads as a
   portability question and is really a correctness one.
 
 ## What would make it stay fixed

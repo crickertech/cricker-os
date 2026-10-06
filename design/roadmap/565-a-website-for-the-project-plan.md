@@ -25,9 +25,9 @@ The retirement cost nothing a reader had, because the table was generated and un
 add anything either, and three of the things a stranger wants are still answered only by running a
 command in a checkout:
 
-- **An ordering.** `script/roadmap --ready` says what a lane could start today; nothing says what
+- An ordering. `script/roadmap --ready` says what a lane could start today; nothing says what
   this project intends to do next, or why that rather than the other thirty-eight ready blocks.
-- **A shape.** 522 milestones in one flat directory have no visible structure. The journeys
+- A shape. 522 milestones in one flat directory have no visible structure. The journeys
   (`design/journeys/`) are the closest thing the tree has to one and nothing points at them from
   outside.
 - **A reader who is not in a checkout at all.** Every query here is a script, and every script
@@ -37,15 +37,15 @@ command in a checkout:
 
 ## What this tree does not have today
 
-**There is no publishing story of any kind**, and that is the honest size of the work. Nothing
+There is no publishing story of any kind, and that is the honest size of the work. Nothing
 renders markdown for a browser, nothing is deployed anywhere, no domain is registered to this
 project, and no gate would notice a published page going stale. `crates/documentation` renders
-markdown to a **terminal**, for `man`, which is the opposite end of the problem.
+markdown to a terminal, for `man`, which is the opposite end of the problem.
 
 So a website is not a page: it is a renderer, a place to put the output, a trigger that runs it, and
 a rule about what may be published. The last is the one this tree already has opinions about, and it
 is why the gate above is `DECISION` rather than `NONE`: *move fast on what can be undone* names
-**facts that leave the machine** as the irreversible category. Every number on a published page is
+facts that leave the machine as the irreversible category. Every number on a published page is
 one. This repository has published a wrong claim to itself more than once and corrected it the same
 week; a stranger quoting one off a website cannot be reached.
 

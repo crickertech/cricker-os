@@ -14,17 +14,17 @@ nobody knew was there. *(Section number provisional until the merge queue lands 
 
 `script/names` enumerates four kinds of named thing: a crate, a program, a `script/` entry point and
 a Cargo package. A fifth kind carries provenance at the thing exactly as milestone 115 asks, on a
-surface nothing has ever listed. The decision is **whether that surface is in scope**, and it is a
+surface nothing has ever listed. The decision is whether that surface is in scope, and it is a
 scope question rather than a mechanism one: scope decides how long the worklist calef is handed
 becomes.
 
 Three sub-questions follow from a yes, and they are why this is not one line:
 
-1. **Is a wire string a name here, or data?**
-2. **Where does its provenance block live?** Not the file header: milestone 283 made that spelling
+1. Is a wire string a name here, or data?
+2. Where does its provenance block live? Not the file header: milestone 283 made that spelling
    mean *this file's* one block, which belongs to the crate, so a second one is unreachable by
    construction.
-3. **How is the set enumerated?** The four existing kinds are a directory listing or a manifest
+3. How is the set enumerated? The four existing kinds are a directory listing or a manifest
    walk. A wire string is a `const` in an arbitrary file, which is neither, and a scheme that cannot
    enumerate its own surface is the hole this section is about, one level in.
 
@@ -41,19 +41,19 @@ surfaces `script/names` enumerates", and why it deliberately does not wear the `
 `script/names` still enumerates exactly those four.
 
 `"program_measurements"` is an archive entry name: the kernel's trust root names it and init reads
-it out of the archive at boot. **It is a string two programs agree on**, which AGENTS.md puts in the
+it out of the archive at boot. It is a string two programs agree on, which AGENTS.md puts in the
 expensive, hard-to-reverse category beside a wire format and an opcode number. It has a provisional
 name, its author said so, and `--unratified` has never listed it.
 
 ## What this tree already does in the analogous case
 
-**The `package` kind is the precedent and it is exact.** It was added on 2026-08-18 because
+The `package` kind is the precedent and it is exact. It was added on 2026-08-18 because
 `script/names std_exerciser` had been answering *"neither a name in the tree nor a recorded
 refusal"* for weeks about eight real packages, and the argument written at the time carries whole:
-**a registry with a hole is worse than no registry, because it answers confidently about the names
-it happens to cover.**
+a registry with a hole is worse than no registry, because it answers confidently about the names
+it happens to cover.
 
-**And this gap is already a recorded limitation rather than an unknown.** `design/naming.md`'s BUGS
+And this gap is already a recorded limitation rather than an unknown. `design/naming.md`'s BUGS
 carries "Three surfaces, and the tree has more than three kinds of name", which tracks the closures
 (directories by §75 in 2026-08-16, Cargo packages in 2026-08-18) and states plainly that types and
 `helpers/` helpers are still uncovered. It also records a live casualty: `fs_maker` was resolved to
@@ -77,12 +77,12 @@ spelling) predates the `item` kind and is stale. The worklist figures below are 
 
 ## What it costs, counted rather than asserted
 
-**The counting is the cheap half and it now has a first answer.** `pub const <NAME>: &str` matches
-**77** times across `crates/`, `components/`, `fixtures/` and `kernel/` in this worktree. That is an
-**upper bound rather than the count**, because not all 77 are agreed between two binaries; many are
+The counting is the cheap half and it now has a first answer. `pub const <NAME>: &str` matches
+77 times across `crates/`, `components/`, `fixtures/` and `kernel/` in this worktree. That is an
+upper bound rather than the count, because not all 77 are agreed between two binaries; many are
 one crate's own strings.
 
-For scale, `script/names --unratified` is **71 deep of 222** today, with 1 unrecorded and 27
+For scale, `script/names --unratified` is 71 deep of 222 today, with 1 unrecorded and 27
 recorded. So the widening under discussion is at most a doubling of the tree's named surface and
 plausibly much less, which is the figure the scope question turns on.
 
@@ -93,24 +93,24 @@ milestone 276's own `BUGS` already records.
 
 ## Recommendation
 
-**Count before widening, and then choose between two answers rather than three.** The block that
+Count before widening, and then choose between two answers rather than three. The block that
 became milestone 398 said this and it is right: if the real figure is a dozen, the answer is
 probably a list in `design/naming.md` and no new machinery. If it is closer to 77, the answer is
-probably that **wire strings are declared out of scope and the record says so on purpose**, the way
+probably that wire strings are declared out of scope and the record says so on purpose, the way
 `unrecorded` is a first-class answer rather than a gap.
 
-**No recommendation between those two**, because the choice is what size of worklist calef accepts,
+No recommendation between those two, because the choice is what size of worklist calef accepts,
 which is not a lane's to price. What this section does refuse is the third option of leaving it
 unstated: a hole nobody has decided to keep is the failure the `package` kind was added to fix.
 
 ## How reversible, and who has acted on it
 
-**Mixed, and that asymmetry is the argument for deciding it.** The registry is cheap to widen or
+Mixed, and that asymmetry is the argument for deciding it. The registry is cheap to widen or
 narrow. The names it does not cover are the least reversible things in the tree, because they are
 agreed between two binaries; every day a wire string goes unlisted is a day it can be shipped
 provisionally and then inherited.
 
 ## What is blocked until this is answered
 
-**Milestone 398.** Nothing else: `PROGRAM_MEASUREMENTS`' record is preserved in prose one hop from
+Milestone 398. Nothing else: `PROGRAM_MEASUREMENTS`' record is preserved in prose one hop from
 the constant. What it does not have is a gate.

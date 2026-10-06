@@ -11,8 +11,8 @@ needs_person: no
 
 Filed 2026-09-12 as an unnumbered proposal from milestone 278's block,
 which touches all four lists and would have made it five; numbered 2026-09-19 by milestone 433's
-drain of the proposal pile. **Premise re-read against the tree on 2026-09-19 and still true, all
-four still present**: `script/lint` carries `--exclude user_mode_runtime` and its siblings by hand
+drain of the proposal pile. Premise re-read against the tree on 2026-09-19 and still true, all
+four still present: `script/lint` carries `--exclude user_mode_runtime` and its siblings by hand
 in two clippy invocations (lines 41 and 120) *and* derives the same set for its own gate (line 812,
 "the host pass excludes exactly the bare-metal crates"); `xtask/src/main.rs` carries the list twice
 (lines 5133 and 5789); `script/coverage` carries it twice (lines 70 and 100); and
@@ -23,10 +23,10 @@ block. *(Number provisional until the merge queue lands it.)*
 `script/lint` already derives the set for its own check, so the hard half exists;
 what is missing is the other three consuming that derivation instead of restating it.
 
-**In brief.** A crate that reaches `crates/user_mode_runtime` cannot compile for the host, because `svc` and
+In brief. A crate that reaches `crates/user_mode_runtime` cannot compile for the host, because `svc` and
 `ecall` from EL0 on a machine with no nife kernel under it are a fault. Four separate places record
 which crates those are: `script/lint`'s two clippy invocations, `xtask`'s `test`, `script/coverage`'s
-exclusions, and `.cargo/mutants.toml`'s. **`script/lint` asks cargo.** The other three carry a list.
+exclusions, and `.cargo/mutants.toml`'s. `script/lint` asks cargo. The other three carry a list.
 
 ## Why this matters
 
@@ -50,10 +50,10 @@ splits anything.
 `script/lint` already runs the derivation: ask cargo which workspace members reach `user_mode_runtime`, and
 check every consumer excludes every one. Two ways to close the class, and choosing is the work:
 
-- **Emit the set.** One command prints the exclusion list, and `script/coverage`, `xtask test` and
+- Emit the set. One command prints the exclusion list, and `script/coverage`, `xtask test` and
   the mutants config consume it rather than restate it. `.cargo/mutants.toml` is static TOML, which
   is the awkward one and may need generating or a `--exclude` passed at the call site instead.
-- **Keep the lists and keep the check.** Weaker, and it is roughly today's state with the gate
+- Keep the lists and keep the check. Weaker, and it is roughly today's state with the gate
   widened to four consumers, which milestone 244 already did. The remaining defect is that four
   files still have to agree; the gate only tells you after they stop.
 

@@ -40,16 +40,16 @@ rule rather than with it.
 
 **It is not the same act, and the list says so itself.** The precondition is about *customers*, people
 who would run this system and depend on it, and it exists because we cannot yet install it for them.
-This list recruits **readers**: its stated goal is code to study. Reading is the one thing nife is
+This list recruits readers: its stated goal is code to study. Reading is the one thing nife is
 ready for today, and it is what the tree has spent ten weeks becoming good at. The notes, the honest
 `BUGS` sections, the recorded refusals and the corrections are worth more to a reader than to a user.
 
-So the precondition stands and does not bind here. **If the entry implies "run this", it binds
-immediately**, which is a constraint on the wording rather than on the decision.
+So the precondition stands and does not bind here. If the entry implies "run this", it binds
+immediately, which is a constraint on the wording rather than on the decision.
 
 ## nife or basalt, which is nearly decided by the above
 
-**nife.** `basalt` is the name milestone 120 (the rename: the OS becomes `nife`, and the project
+nife. `basalt` is the name milestone 120 (the rename: the OS becomes `nife`, and the project
 gets an organization) reserved for the distribution, and it is *an empty repository*. A list
 whose purpose is code to study has nothing to point at. When basalt exists and has an install story,
 it is the entry that would satisfy the precondition above and could be added beside this one.
@@ -76,14 +76,14 @@ newcomer must be able to succeed without asking anyone, and *"where the answer i
 in the tree and not in the stranger."* A listing converts that principle from an aspiration into
 somebody's actual Tuesday.
 
-1. **The stranger test is current.** milestone 117 (the stranger test) built the measurement; run it
+1. The stranger test is current. milestone 117 (the stranger test) built the measurement; run it
    again against the tree as it stands and treat a failure as the blocker rather than as a note.
    This is the one item here that could take real work.
 2. **A clean clone builds on a machine that is not ours.** `script/setup` is the promise; the failure
    mode is a dependency the dev Macs happen to have.
-3. **The README's numbers are current.** It leads with 694 `unsafe` blocks in 39,892 lines, and those
+3. The README's numbers are current. It leads with 694 `unsafe` blocks in 39,892 lines, and those
    move every week.
-4. **The front door works**: `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` and the licence
+4. The front door works: `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` and the licence
    are all in place as of 2026-09-21.
 
 ## What it costs if it goes wrong
@@ -93,14 +93,14 @@ cannot measure and should most fear, and it is the reason item 1 is first rather
 
 ## BUGS
 
-- **There are no stated inclusion criteria and no `CONTRIBUTING.md` in that repository**, so
+- There are no stated inclusion criteria and no `CONTRIBUTING.md` in that repository, so
   acceptance is one maintainer's judgement and a refusal would be a public pull request that was
   closed. That is a small, real cost and it should be decided with open eyes rather than discovered.
-- **Nothing will measure what the listing brings.** GitHub's referrer data is coarse and this project
+- Nothing will measure what the listing brings. GitHub's referrer data is coarse and this project
   has no attribution mechanism, so any later claim that the listing produced readers or contributors
   would be unfalsifiable. If that matters, the honest move is to record the date it landed and treat
   anything after it as correlation.
-- **This proposal assumes the list stays what it is.** It is one person's README and its purpose
+- This proposal assumes the list stays what it is. It is one person's README and its purpose
   could change; the quotation above is from the copy read on 2026-09-21.
 
 ## Index row

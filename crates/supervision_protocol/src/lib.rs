@@ -198,8 +198,9 @@ pub const CHILD_STACK_PAGES: u64 = 4;
 /// 64 MiB, 16,384 pages, from the bottom of the map's runtime windows.
 ///
 /// **Why a window rather than a cursor that only climbs** (milestone 604 (provisional), the
-/// builder's scratch cursor is bounded). There is no unmap (DECISIONS §162 (whether a holder can
-/// give up a mapping) is open), so a builder cannot give a scratch page back. But the kernel takes
+/// builder's scratch cursor is bounded). Written when there was no unmap: a builder that holds no
+/// capability to its own address space still cannot give a scratch page back itself (one that does
+/// gives each page up as soon as it is filled, [`give_up_own_page`]). But the kernel takes
 /// it back for the builder: a scratch page maps a frame retyped from the child's region, and
 /// destroying that region revokes every mapping of its pages, the builder's included (DECISIONS §13
 /// (frame revocation)). So the page is free again once the child is reaped, and only the builder's
@@ -270,10 +271,13 @@ static SCRATCH_NEXT: core::sync::atomic::AtomicU64 =
 /// - **`BadPointer` means "taken" only because every address tried is valid.** A distinct
 ///   `AlreadyMapped` error would let the probe say what it means; that is an ABI change, not worth
 ///   one on its own.
-/// - **The builder still maps every live child's pages**, read/write. Wrapping bounds how much
-///   address space that costs, not what it lets the builder reach. DECISIONS §162 decided the
-///   method (`AddressSpace::UNMAP`), and it cannot be used here yet: no capability names the
-///   builder's own running space. `notes/unmap.md` has the finding.
+/// - **A builder that holds no capability to its own address space still maps every live child's
+///   pages**, read/write. Wrapping bounds how much address space that costs, not what it lets the
+///   builder reach. One that does (the progenitor, at slot 28 since §249 (a running address space
+///   stays nameable)) names it with [`give_up_scratch_through`], and then every page this crate
+///   fills for a child is given up with `AddressSpace::UNMAP` the moment it is in the child
+///   ([`give_up_own_page`]). No other builder in the tree is handed one: §249 makes the grant the
+///   builder's builder's choice, and nothing chose it for them.
 /// - **The progenitor's use of it is computed, not measured**: milestone 604's block has the
 ///   arithmetic, and `system_initializer` checks its budgets against the window at compile time.
 ///
@@ -303,6 +307,51 @@ pub fn map_scratch(frame: u64, writable: bool, own_ut: u64) -> Result<u64, ()> {
     }
     SCRATCH_NEXT.store(va, Relaxed);
     Err(())
+}
+
+/// **The builder's own address space**, or [`NO_OWN_SPACE`] when it was never named (§249 (a running
+/// address space stays nameable); milestone 95 (an unmap primitive)). Set once, by
+/// [`give_up_scratch_through`], and read by [`give_up_own_page`].
+static OWN_SPACE: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(NO_OWN_SPACE);
+
+/// [`OWN_SPACE`]'s "never named". `u64::MAX` is no capability slot.
+const NO_OWN_SPACE: u64 = u64::MAX;
+
+/// **Name the slot holding a `WRITE` capability to this builder's own address space**, so the
+/// scratch window is given back page by page rather than held for the life of the child (milestone
+/// 95 (an unmap primitive), DECISIONS §162 (whether a holder can give up a mapping), §249 (a running
+/// address space stays nameable)).
+///
+/// The progenitor is the one caller: the kernel grants it a capability to its own space at slot 28
+/// on every boot. A builder that never calls this keeps today's behaviour, which is a scratch page
+/// that stays mapped until the child's region is destroyed and revokes it (DECISIONS §13).
+///
+/// Name: provisional (milestone 95's §249 lane, 2026-10-05 UTC).
+pub fn give_up_scratch_through(own_space: u64) {
+    OWN_SPACE.store(own_space, core::sync::atomic::Ordering::Relaxed);
+}
+
+/// **Give up one page this process mapped for itself**: `AddressSpace::UNMAP` of `va` in its own
+/// space, through the capability [`give_up_scratch_through`] named. A page of the scratch window
+/// once the loader has filled it, and any other window a builder opened onto memory it hands on (the
+/// progenitor's view of the shell's output page, and of two devices' DMA pages). `true` if the page
+/// is gone, `false` if no capability was named or the kernel refused, in which case the page stays
+/// mapped exactly as it did before §162 had a method, and a scratch page is taken back when the
+/// child's region is.
+///
+/// After this the builder cannot reach the child's page at all: a write to `va` faults, which is
+/// milestone 95's negative control (`system_tests`' `running_space_tests`). And the address is free
+/// again, so [`map_scratch`]'s probe finds it on the next page rather than a lap later.
+///
+/// Name: provisional (milestone 95's §249 lane, 2026-10-05 UTC).
+pub fn give_up_own_page(va: u64) -> bool {
+    let own = OWN_SPACE.load(core::sync::atomic::Ordering::Relaxed);
+    if own == NO_OWN_SPACE {
+        return false;
+    }
+    // SAFETY: `invoke` is the syscall; the kernel validates the capability, the right and the
+    // address, and changes nothing on a refusal. The caller is done with every byte at `va`.
+    unsafe { invoke(own, abi::address_space::UNMAP, va, 0, 0) == 0 }
 }
 
 /// **Everything a child is born holding.** The same idea as the kernel's `Spawn`: read one of these
@@ -736,12 +785,13 @@ fn fill_and_map(
         dst[at..at + bytes.len()].copy_from_slice(bytes);
     }
     // SAFETY: as above: the kernel validates the capability and the method.
-    if unsafe { invoke(aspace, abi::address_space::MAP_INTO, va, frame, mode) } != 0 {
-        cap_delete(frame);
-        return Err(());
-    }
+    let mapped = unsafe { invoke(aspace, abi::address_space::MAP_INTO, va, frame, mode) } == 0;
     cap_delete(frame);
-    Ok(())
+    // The page is written and in the child (or the build failed): either way this builder is done
+    // with its own window onto it. Given up here, one page at a time, rather than after the child
+    // is built, so the window is never wider than the page being filled.
+    give_up_own_page(scratch);
+    if mapped { Ok(()) } else { Err(()) }
 }
 
 /// Retype one page of `ut` into a kernel object of `objtype` (`abi::objtype`), returning the

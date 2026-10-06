@@ -84,6 +84,8 @@ All on patagonia, QEMU 11.1.1, `q35` under TCG. `NIFE_IOMMU=amd` (provisional) i
 | the NVMe DMA-escape test (`run_dma_escape`, `confinement_attackers`), AMD-Vi | passes: fault for the controller, canary intact |
 | the same suite on the default (VT-d) machine | unchanged |
 | the boot tour with `NIFE_IOMMU=none` | boots, and says `iommu : NONE: ... no device's DMA is confined` |
+| `amd_vi::tests`, AMD-Vi, provisional milestone 767 (AMD-Vi hardening before the first AMD boot) | the exclusion registers read zero after boot and a range the test sets is cleared; two ids behind the runner's `pci-bridge` never share its alias; a quarantine blocks the alias too |
+| `virtio::tests::a_device_write_to_the_read_only_shadow_is_refused`, every IOMMU | passes: the device's write into its shadow page does not land |
 
 The falsification turns `translating_dte`'s `Mode` from 4 to 0, keeping `IR` and `IW`: the
 device reaches everything, untranslated. With it applied, on the AMD-Vi machine:
@@ -107,6 +109,9 @@ A boot on silicon is the outstanding piece. Read these lines:
   per domain id, which is correct and slow; the time is unmeasured.
 - any IVMD lines. None has been seen; the IVMD path has run zero times.
 - the NVMe line saying it is confined, and the escape test, which on silicon reports a real address.
+- the end of the `up` line: `no firmware exclusion range`, or the range firmware left and the word
+  `CLEARED`. A cleared range that a device still needed shows up as that device's faults.
+- any `BOTH REACH THE UNIT AS` line: two devices behind one PCIe-to-PCI bridge, both blocked.
 
 ## BUGS
 
@@ -115,10 +120,8 @@ A boot on silicon is the outstanding piece. Read these lines:
 - No fault interrupt; `take_fault` is drained only by tests. Milestone 102 owns it.
 - `notes/confinement-claims.md` has no AMD-Vi row, because that note is over its word budget and a
   row would grow it. This note is where the AMD-Vi claims are recorded until it is trimmed.
-- Milestone 633 (an outside agent attacks the confinement claim)'s second pass read the driver as
-  the confinement boundary that row would describe. It recorded five gaps in `amd_vi.rs`'s own
-  BUGS. The firmware exclusion range is never cleared; alias entries are shared and not
-  quarantined; every mapping is read-write; nothing revokes a domain in production; and the entry
-  builders have no permitted-bits proof. The first three are the acceptance items of
-  design/roadmap/proposals/amd-vi-hardening-before-the-first-amd-boot.md. The claims the row
-  should make are proposed in notes/confinement-outsider-pass-2.md.
+- Milestone 633 (an outside agent attacks the confinement claim)'s second pass recorded five gaps
+  in `amd_vi.rs`'s BUGS. Milestone 767 (design/roadmap/767-amd-vi-hardening-before-the-first-amd-boot.md)
+  closed four: the exclusion range, aliases, read-only mappings and the entry proof. Production
+  revocation stays open, with what QEMU could not show of the other four; the driver's BUGS has
+  both. The claims the row should make are proposed in notes/confinement-outsider-pass-2.md.

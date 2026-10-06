@@ -34,12 +34,12 @@ error code, full stop.
 
 **The three causes are not shades of the same fact.** They point a fix in different directions:
 
-1. **Your own region's budget is exhausted.** A fact about the caller: ask for a smaller grant, or
+1. Your own region's budget is exhausted. A fact about the caller: ask for a smaller grant, or
    free something first.
-2. **Your cspace (capability slot table) is full.** Also a fact about the caller: it has too many
+2. Your cspace (capability slot table) is full. Also a fact about the caller: it has too many
    capabilities already.
-3. **`MAX_REGIONS` (256, `kernel/src/untyped.rs`), the system-wide concurrently-live region table,
-   is full.** A fact about *everyone else on the machine*. Nothing the caller did is wrong, and
+3. `MAX_REGIONS` (256, `kernel/src/untyped.rs`), the system-wide concurrently-live region table,
+   is full. A fact about *everyone else on the machine*. Nothing the caller did is wrong, and
    nothing it can do locally fixes it.
 
 A process, or a person debugging one, gets `OutOfMemory` and cannot tell which of these three is
@@ -49,8 +49,8 @@ exhausted a table I have never heard of."
 ## Why this is the same shape of defect this tree has already named once
 
 `crates/timetable`'s `Unbacked`/`Refusal` split exists for exactly this reason, in a different
-subsystem: *"A `Refusal` is a fact about **the line**... An `Unbacked` is a fact about **the
-scheduler**... Collapsing the two would tell a person to edit a line that has nothing wrong with
+subsystem: *"A `Refusal` is a fact about the line... An `Unbacked` is a fact about the
+scheduler... Collapsing the two would tell a person to edit a line that has nothing wrong with
 it."* `OutOfMemory` collapses three facts (two about the caller, one about the whole system) the
 same way, and nobody has named it here yet.
 
@@ -63,7 +63,7 @@ what a caller actually sees when it happens found the three-way collapse.
 
 ## The first real customer, 2026-08-26
 
-§119 declined this **for want of a customer**, on the honest ground that it was found by pricing a
+§119 declined this for want of a customer, on the honest ground that it was found by pricing a
 future cost rather than by an actual bug. There is now an actual bug, and it is recorded here as the
 evidence that decision asked for rather than as a request to reverse it (that is an architect's
 call).
@@ -78,18 +78,18 @@ let slot = sched::grant(crate::cap::page_frame_cap(phys, Rights::ALL))
     .map_err(|_| Error::OutOfMemory)?; // capability table full
 ```
 
-The region was fine. The **capability table** was full, because `MemoryRegion::DESTROY` frees a
+The region was fine. The capability table was full, because `MemoryRegion::DESTROY` frees a
 region but never the destroyer's own table slot naming it, and the service leaked two slots per
 request. Both facts read as one `Error::OutOfMemory` at the call site, and the userspace helper
 (`supervision_protocol::retype_page_frame_from`) narrows even that to `Err(())`.
 
 What the collapse actually cost, which is the part worth quoting to whoever picks this up:
 
-- **Four memory hypotheses were measured and ruled out before the real one was reached**: the
+- Four memory hypotheses were measured and ruled out before the real one was reached: the
   service's construction budget (raised to 16384 pages, no change), its scratch budget (8192, no
   change), `kernel::sched::MAX_RENDEZVOUS`, and `kernel::memory_region::MAX_REGIONS`. Every one of
   them is a thing `OutOfMemory` can mean. None of them was it.
-- **The capability table was looked at and passed over**, because tightening and restoring one slot
+- The capability table was looked at and passed over, because tightening and restoring one slot
   of margin changed nothing, which is exactly what a two-slot-per-request leak does to that
   experiment.
 - **What finally resolved it was a temporary kernel-side `println!` in the failing arm**, which is

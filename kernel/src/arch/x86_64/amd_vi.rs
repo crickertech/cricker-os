@@ -19,7 +19,7 @@
 //! a fault is a 128-bit record in the event log rather than a fault-recording register.
 //!
 //! **No cache maintenance is needed, and that is the specification's answer, not an assumption.**
-//! The device table read is snooped while `Control.Coherent` is 1 (its reset value, section 3.4,
+//! The device table read is snooped while `Control.Coherent` is 1 (its reset value, section 3.3.1,
 //! which this driver never clears); page-table walks are snooped while a device table entry's `SD`
 //! bit is 0 (Table 7), which every entry here leaves clear; and the command ring is always read
 //! coherently (section 2.4). So the `clflush` VT-d's [`Unit::publish`](super::iommu) needs on a
@@ -92,48 +92,50 @@
 //!   domain 0 empties every unconfined device's cached faults along with it; a cache miss, not a
 //!   correctness cost.
 //!
-//! The five entries below were found by milestone 633 (an outside agent attacks the confinement
-//! claim)'s second pass (2026-10-05 UTC), reading this driver as a confinement boundary with no row
-//! in `notes/confinement-claims.md`. All are reasoned from the code and the specification; none has
-//! been booted, because QEMU models none of the firmware state they depend on. The first three are
-//! the acceptance items of design/roadmap/proposals/amd-vi-hardening-before-the-first-amd-boot.md.
+//! Milestone 633 (an outside agent attacks the confinement claim)'s second pass (2026-10-05 UTC)
+//! read this driver as a confinement boundary and recorded five gaps. Provisional milestone 767
+//! (AMD-Vi hardening before the first AMD boot) closed four the same day: the exclusion range is
+//! cleared at enable ([`clear_exclusion_range`]), alias entries are never shared and are
+//! quarantined with their device ([`attach`], [`quarantine`]), a mapping carries its region's
+//! rights (`DmaRegion::writable`), and the entries are built and proved in `paging::AmdVi`. What
+//! stays open from that pass, and what 767 left:
 //!
-//! - **The firmware's exclusion range is never cleared.** `set_up` keeps every `Control` bit it does
-//!   not explicitly clear, and nothing writes the Exclusion Base and Limit registers (`0x0020`,
-//!   `0x0028`). On silicon a firmware-set range with `ExEn`, and above all with `Allow`, lets every
-//!   device reach that range untranslated whatever its entry says. It is the one place a device can
-//!   pass through this driver's default deny, and the guest cannot see it under QEMU.
-//! - **Alias entries are shared between devices and are not quarantined.** [`attach`] writes one
-//!   translating entry under both the requester id and its alias source id. Two functions behind
-//!   one PCIe-to-PCI bridge share a source id, so the second attach moves the first device's aliased
-//!   DMA into the second's domain, and [`quarantine`] resets only the requester id, leaving the
-//!   alias translating. Every device QEMU's `q35` attaches is on bus 0 with no alias, so no boot has
-//!   reached this.
-//! - **Every DMA mapping is read-write.** `build_identity_domain` maps with `Flags::user_data()`, so
-//!   a firmware IVMD marked read-only is writable to the device (the IVRS parser's own BUGS admits
-//!   the bit is dropped), and the virtio shadow page, which is kernel-private by design, is mapped
-//!   writable to the device it shadows.
 //! - **Nothing revokes a device's domain in production.** [`quarantine`] is called only by this
 //!   module's tests; `confine` has no inverse at the seam, so a device keeps its reach for the
 //!   whole boot after its driver dies, and a re-attach leaks the previous domain's tables
-//!   (`kernel/src/iommu.rs` records the leak).
-//! - **The entry builders have no literal permitted-bits guard and no proof.** [`translating_dte`]
-//!   masks the root with `DTE_ROOT_MASK` silently rather than asserting it fits, never narrows to
-//!   the unit's real address width, and the only check is a `#[test_case]` over two concrete
-//!   values that looks at bits 6:2 and 63. VT-d's equivalent, `VTD_PERMITTED_BITS`, is proved over
-//!   every `u64` by `no_vtd_entry_ever_sets_a_reserved_bit`; the AMD-Vi leaf and directory masks
-//!   in `crates/paging` are checked over a few addresses by host tests only.
+//!   (`kernel/src/iommu.rs` records the leak). VT-d, the SMMUv3 and the RISC-V IOMMU have the same
+//!   gap, so the inverse is the seam's question rather than this driver's; milestone 102 (what a
+//!   confined device's fault reaches) is the caller §163 names.
+//! - **The exclusion clear is proved only in half under QEMU, and its effect not at all.** QEMU
+//!   11.1.1 drops writes to the Exclusion Base register and consults neither register, so
+//!   `a_firmware_exclusion_range_is_cleared` proves the limit half and that the boot left both
+//!   zero. Whether firmware on a real AMD board sets a range, and that clearing it takes nothing a
+//!   device still needs, is the first AMD boot's to show. The boot line prints what was found.
+//! - **Two devices behind one alias cannot both work.** The unit cannot tell their DMA apart, so
+//!   the second attach blocks the alias and both lose DMA, loudly. The alternative, one domain
+//!   carrying both devices' grants on purpose (Linux's IOMMU group), needs the portable seam to
+//!   know about groups. No machine this tree has met puts two drivers' devices behind one
+//!   PCIe-to-PCI bridge; QEMU's alias test runs on an empty bridge.
+//! - **An alias in another unit, or an alias that is itself a device's own id, is handled only as
+//!   far as the holder record reaches.** [`attach`] assumes a device and its alias are served by
+//!   the same unit, which every IVRS this tree has read satisfies, and the holder record tracks at
+//!   most [`MAX_ALIASES`] aliases per unit, failing closed past that.
+//! - **The root is checked against the 52-bit field, not against the unit's real address width**,
+//!   which revision 2.62 does not report in the EFR. A frame above the platform's width would be
+//!   refused by the hardware rather than by this driver.
 
 use machine_discovery::acpi::ivrs::{IvrsUnits, MAX_IVHDS};
 
 use crate::arch::mmu::phys_to_virt;
 use crate::sync::{IrqSafeMutex, rank};
 
-// --- MMIO register offsets (section 3.4). ---
+// --- MMIO register offsets (section 3.3.1). ---
 const DEVICE_TABLE_BASE: u64 = 0x0000;
 const COMMAND_BUFFER_BASE: u64 = 0x0008;
 const EVENT_LOG_BASE: u64 = 0x0010;
 const CONTROL: u64 = 0x0018;
+const EXCLUSION_BASE: u64 = 0x0020;
+const EXCLUSION_LIMIT: u64 = 0x0028;
 const EXTENDED_FEATURES: u64 = 0x0030;
 const COMMAND_HEAD: u64 = 0x2000;
 const COMMAND_TAIL: u64 = 0x2008;
@@ -146,14 +148,22 @@ const STATUS: u64 = 0x2020;
 /// (`0x80000`); nothing here reads them. QEMU's model is exactly 16 KiB (`AMDVI_MMIO_SIZE`).
 pub const REGISTER_SIZE: u64 = 0x4000;
 
-// Control register bits this driver sets or clears (section 3.4.3).
+// Control register bits this driver sets or clears (section 3.3.1, MMIO 0018h).
 const CONTROL_IOMMU_EN: u64 = 1 << 0;
 const CONTROL_EVENT_LOG_EN: u64 = 1 << 2;
 const CONTROL_EVENT_INT_EN: u64 = 1 << 3;
 const CONTROL_COM_WAIT_INT_EN: u64 = 1 << 4;
 const CONTROL_CMD_BUF_EN: u64 = 1 << 12;
 
-// Status register bits (section 3.4.x, MMIO 2020h).
+// Exclusion Base register bits (section 3.3.1, MMIO 0020h): `ExEn` turns the range on, for every
+// device whose entry sets `EX` (Table 7, bit 103) or, with `Allow`, for every device whatever its
+// entry says.
+// The base and the limit (MMIO 0028h) both carry the address in bits 51:12.
+const EXCLUSION_EN: u64 = 1 << 0;
+const EXCLUSION_ALLOW: u64 = 1 << 1;
+const EXCLUSION_ADDRESS: u64 = 0x000f_ffff_ffff_f000;
+
+// Status register bits (section 3.3.1, MMIO 2020h).
 const STATUS_EVENT_OVERFLOW: u64 = 1 << 0;
 const STATUS_EVENT_LOG_RUN: u64 = 1 << 3;
 const STATUS_CMD_BUF_RUN: u64 = 1 << 4;
@@ -170,14 +180,10 @@ const EFR_HATS_NONE: u64 = 0b11;
 const RING_BYTES: u64 = 4096;
 const RING_LEN_256: u64 = 0b1000 << 56;
 
-// --- Device table entry, 256 bits as four qwords (Table 7). ---
-const DTE_V: u64 = 1 << 0;
-const DTE_TV: u64 = 1 << 1;
-/// `Mode` (bits 11:9) = 4: a four-level host page table, the 48-bit walk `AmdVi` builds.
-const DTE_MODE_4_LEVEL: u64 = 4 << 9;
+// --- Device table entry, 256 bits as four qwords (section 2.2.2.1, Table 7). The two this driver
+// writes are built by `paging::AmdVi`, where Kani proves them; these name fields for the tests. ---
+#[cfg(test)]
 const DTE_ROOT_MASK: u64 = 0x000f_ffff_ffff_f000;
-const DTE_IR: u64 = 1 << 61;
-const DTE_IW: u64 = 1 << 62;
 /// `IV`, bit 128: the interrupt-remapping half of the entry is valid. Never set here.
 #[cfg(test)]
 const DTE_IV: u64 = 1 << 0;
@@ -195,29 +201,26 @@ const COMPLETION_WAIT_STORE: u64 = 1 << 0;
 const INVALIDATE_WHOLE_DOMAIN: u64 = 0x7fff_ffff_ffff_f000 | 0b011;
 
 /// **The device table entry of a device that is confined**: valid, translating through the
-/// four-level table at `root`, read and write allowed so the leaves decide, tagged `domain`.
-/// Everything else zero: no interrupt remapping (`IV` clear), no IOTLB, events not suppressed.
-const fn translating_dte(root: u64, domain: u16) -> [u64; 4] {
-    [
-        DTE_V | DTE_TV | DTE_MODE_4_LEVEL | (root & DTE_ROOT_MASK) | DTE_IR | DTE_IW,
-        domain as u64,
-        0,
-        0,
-    ]
+/// four-level table at `root`, read and write allowed so the leaves decide, tagged `domain`
+/// ([`paging::AmdVi::device_table_entry`], which `no_amd_vi_device_table_entry_sets_a_reserved_bit`
+/// proves over every root and domain). A root the entry cannot hold is a panic, not a mask: the
+/// mask that was here before provisional milestone 767 would have pointed the device at another
+/// table. Every root comes from the frame allocator, so the panic is unreachable on a machine whose
+/// memory ends below 2^52.
+fn translating_dte(root: u64, domain: u16) -> [u64; 4] {
+    paging::AmdVi::device_table_entry(root, domain)
+        .unwrap_or_else(|| panic!("AMD-Vi domain root {root:#x} does not fit a device table entry"))
 }
 
 /// **The device table entry that denies everything**: the default for every device and §163's
-/// quarantine. A four-level walk to `empty_root`, an all-zero table, with read and write both
-/// clear; every access target-aborts and is logged. This module's header says why it is not
-/// `Mode` 0. Domain 0, which no confined device is given, because every blocked device shares the
-/// one root and the specification asks that devices sharing a domain id share their tables.
-const fn blocked_dte(empty_root: u64) -> [u64; 4] {
-    [
-        DTE_V | DTE_TV | DTE_MODE_4_LEVEL | (empty_root & DTE_ROOT_MASK),
-        0,
-        0,
-        0,
-    ]
+/// quarantine ([`paging::AmdVi::blocked_device_table_entry`]). A four-level walk to `empty_root`,
+/// an all-zero table, with read and write both clear; every access target-aborts and is logged.
+/// This module's header says why it is not `Mode` 0. Domain 0, which no confined device is given,
+/// because every blocked device shares the one root and the specification asks that devices
+/// sharing a domain id share their tables.
+fn blocked_dte(empty_root: u64) -> [u64; 4] {
+    paging::AmdVi::blocked_device_table_entry(empty_root)
+        .unwrap_or_else(|| panic!("AMD-Vi empty root {empty_root:#x} does not fit an entry"))
 }
 
 /// One fault, in the portable shape VT-d's driver returns.
@@ -246,8 +249,24 @@ struct Unit {
     enabled: bool,
     /// How many devices an IVMD had attached before the unit was enabled.
     reserved_devices: u32,
+    /// What the firmware left in the exclusion registers, which `set_up` cleared.
+    exclusion: ExclusionFound,
+    /// **Which device holds each alias entry it wrote**, as (entry, device). An entry absent here
+    /// that is not blocked is held by the device whose id it is. Kept because the device table
+    /// cannot say who wrote an entry, and [`attach`] must refuse to hand one device's alias to
+    /// another (provisional milestone 767).
+    aliases: [Option<(u32, u32)>; MAX_ALIASES],
 }
 
+/// How many alias entries one unit records the holder of. QEMU's machine has none in use; a client
+/// AMD board has a handful of PCIe-to-PCI bridges at most. An attach that would need a slot past
+/// this fails closed, like a conflict. Name: provisional.
+const MAX_ALIASES: usize = 32;
+
+// `Up` is several hundred bytes since the alias holder record (provisional milestone 767) and the
+// others are a pointer at most. Boxing it would buy nothing: the slots live in one static array of
+// `MAX_IVHDS`, built once at boot and never moved.
+#[allow(clippy::large_enum_variant)]
 enum Slot {
     Absent,
     Up(Unit),
@@ -381,6 +400,48 @@ impl Unit {
     /// the only fault logged was its next access, at address 0. Silicon tags its caches by domain
     /// id, so the stale entry would be unreachable there, but the old domain's entries would sit
     /// in the cache until evicted; invalidating them is right on both.
+    /// **Which device's DMA entry `id` translates**, or `None` when it is blocked (or past the
+    /// table, where the hardware target-aborts).
+    fn holder(&self, id: u32) -> Option<u32> {
+        if id >= self.entries || read_dte(self.device_table, id) == blocked_dte(self.empty_root) {
+            return None;
+        }
+        Some(
+            self.aliases
+                .iter()
+                .flatten()
+                .find(|&&(entry, _)| entry == id)
+                .map_or(id, |&(_, owner)| owner),
+        )
+    }
+
+    fn alias_slot_free(&self) -> bool {
+        self.aliases.iter().any(Option::is_none)
+    }
+
+    /// Record that `owner` holds alias entry `entry`, replacing any earlier record of it.
+    fn record_alias(&mut self, entry: u32, owner: u32) {
+        self.forget_alias(entry);
+        if let Some(slot) = self.aliases.iter_mut().find(|s| s.is_none()) {
+            *slot = Some((entry, owner));
+        }
+    }
+
+    fn forget_alias(&mut self, entry: u32) {
+        for slot in self.aliases.iter_mut() {
+            if matches!(slot, Some((e, _)) if *e == entry) {
+                *slot = None;
+            }
+        }
+    }
+
+    /// Set entry `id` to the blocked entry and forget who held it. The caller syncs.
+    fn block(&mut self, id: u32) {
+        self.forget_alias(id);
+        let dte = blocked_dte(self.empty_root);
+        self.set_entry(id, dte);
+    }
+
     fn set_entry(&mut self, id: u32, dte: [u64; 4]) {
         if id >= self.entries {
             return;
@@ -398,6 +459,78 @@ fn zeroed_frames(count: usize, what: &str) -> u64 {
     crate::memory::alloc_contiguous_zeroed(count)
         .unwrap_or_else(|| panic!("no {count} frame(s) for the AMD-Vi {what}"))
         .addr()
+}
+
+/// **What a unit's exclusion registers held when this kernel cleared them**: the raw Exclusion Base
+/// and Exclusion Range Limit (MMIO 0020h and 0028h). Only [`clear_exclusion_range`] makes one, and
+/// [`Unit`] cannot be built without one, so a `set_up` that forgot to clear the range would not
+/// compile. Name: provisional (provisional milestone 767 (AMD-Vi hardening before the first AMD
+/// boot)).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ExclusionFound {
+    base: u64,
+    limit: u64,
+}
+
+impl ExclusionFound {
+    /// Was the range in force? `ExEn` is the enable; `Allow` widens it from the devices whose entry
+    /// sets `EX` (none here) to every device, and means nothing without `ExEn`.
+    fn was_enabled(&self) -> bool {
+        self.base & EXCLUSION_EN != 0
+    }
+}
+
+impl core::fmt::Display for ExclusionFound {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        if self.base == 0 && self.limit == 0 {
+            return write!(f, "no firmware exclusion range");
+        }
+        write!(
+            f,
+            "FIRMWARE EXCLUSION RANGE {:#x}..={:#x} ({}{}) CLEARED",
+            self.base & EXCLUSION_ADDRESS,
+            (self.limit & EXCLUSION_ADDRESS) | 0xfff,
+            if self.was_enabled() {
+                "enabled"
+            } else {
+                "disabled"
+            },
+            if self.base & EXCLUSION_ALLOW != 0 {
+                ", every device"
+            } else {
+                ""
+            },
+        )
+    }
+}
+
+/// **Switch off the unit's exclusion range, and say what it was** (provisional milestone 767).
+///
+/// An exclusion range is a window of device addresses the unit does not translate: with `Allow` set
+/// in the Exclusion Base register, every device's access inside `[base, limit]` goes straight to
+/// memory, untranslated and unchecked, whatever its device table entry says (section 3.3.1, MMIO
+/// 0020h and 0028h; section 2.1.4.4 for translation requests into the range). Firmware sets one to keep a region it DMAs into reachable,
+/// and nothing clears it at reset. So a range left in force would be a hole in this driver's
+/// default deny that no entry it writes can close, and it is the one way a device could pass this
+/// driver untranslated. Both registers are zeroed, `ExEn` and `Allow` with them.
+///
+/// A range the firmware still needs is not lost: an IVMD with `ExclusionRange` set is mapped into
+/// the named devices' domains as a read-write identity region instead, as Linux does (the IVRS
+/// decoder's BUGS). A range set with no IVMD naming it is firmware's alone, and the boot line says
+/// it was cleared, in capitals.
+///
+/// **What QEMU decides here: nothing is excluded.** QEMU 11.1.1 stores both registers and never
+/// reads them back into translation (`amdvi_handle_excllim_write` records the limit; no walk
+/// consults `excl_allow` or `excl_enable`), and its firmware sets no range. So under QEMU this
+/// function is proved to write the registers and nothing more; only silicon shows the effect.
+fn clear_exclusion_range(unit_base: u64) -> ExclusionFound {
+    let found = ExclusionFound {
+        base: r64(unit_base, EXCLUSION_BASE),
+        limit: r64(unit_base, EXCLUSION_LIMIT),
+    };
+    w64(unit_base, EXCLUSION_BASE, 0);
+    w64(unit_base, EXCLUSION_LIMIT, 0);
+    found
 }
 
 /// **Give one unit an all-blocked device table, a command ring and an event log**, with the unit
@@ -421,7 +554,7 @@ fn set_up(ivrs: &IvrsUnits, i: usize) -> Result<Unit, &'static str> {
 
     // Firmware may hand over with the unit on. Turn it off before pointing it anywhere new, the
     // same reasoning VT-d's `root_up` gives for clearing `TE`; the base registers may not be
-    // written while their rings run (sections 3.4.2 and 3.4.3).
+    // written while their rings run (section 3.3.1, MMIO 0008h to 0018h).
     let control = r64(base, CONTROL);
     let running = CONTROL_IOMMU_EN
         | CONTROL_EVENT_LOG_EN
@@ -434,6 +567,8 @@ fn set_up(ivrs: &IvrsUnits, i: usize) -> Result<Unit, &'static str> {
             r64(base, STATUS) & (STATUS_CMD_BUF_RUN | STATUS_EVENT_LOG_RUN) == 0
         });
     }
+    // With the unit off, before anything is pointed at it.
+    let exclusion = clear_exclusion_range(base);
 
     // The device table covers every id the IVRS gives this unit, rounded up to a whole page; the
     // hardware target-aborts any id past its end (section 2.2.2).
@@ -450,7 +585,7 @@ fn set_up(ivrs: &IvrsUnits, i: usize) -> Result<Unit, &'static str> {
     let semaphore = zeroed_frames(1, "completion word");
     crate::arch::direct_memory_access_write_barrier();
 
-    // `Size` is pages minus one (section 3.4.1). Writing a ring's base resets its head and tail
+    // `Size` is pages minus one (section 3.3.1, MMIO 0000h). Writing a ring's base resets its head and tail
     // (section 2.4; QEMU does the same in `amdvi_handle_cmdbase_write`).
     w64(base, DEVICE_TABLE_BASE, device_table | (pages - 1));
     w64(base, COMMAND_BUFFER_BASE, command_ring | RING_LEN_256);
@@ -475,6 +610,8 @@ fn set_up(ivrs: &IvrsUnits, i: usize) -> Result<Unit, &'static str> {
         next_domain: 1,
         enabled: false,
         reserved_devices: 0,
+        exclusion,
+        aliases: [None; MAX_ALIASES],
     })
 }
 
@@ -567,12 +704,13 @@ pub fn init(ivrs: &IvrsUnits) {
             Slot::Up(u) => crate::println!(
                 "  amd-vi      : unit {:#x} up ({} of {n}, ivhd type {:#x}), {} device table \
                  entries all blocked, translation enabled (status confirmed), {} ivmd device(s) \
-                 mapped",
+                 mapped, {}",
                 d.register_base,
                 i + 1,
                 d.kind,
                 u.entries,
                 u.reserved_devices,
+                u.exclusion,
             ),
             Slot::Refused(why) => crate::println!(
                 "  amd-vi      : unit {:#x} NOT up ({} of {n}): {why}; the devices it serves are \
@@ -599,28 +737,75 @@ fn owner_index(rid: u32) -> Option<usize> {
     }
 }
 
-/// **Confine device `rid` to the domain rooted at `root`** (an [`paging::x86_64::AmdVi`] table
-/// the portable seam built), in the unit the IVRS says serves it, and make that unit forget what
-/// it cached. The entry written is the device's own and, when an alias entry says its
-/// transactions carry another id, that id's too; Linux writes both (`clone_aliases`, from memory).
-/// A device no unit serves gets no entry, as on VT-d.
-pub fn attach(rid: u32, root: u64) {
-    let Some(i) = owner_index(rid) else {
-        return;
-    };
+/// **Every device table entry device `rid`'s DMA can arrive under**: its own and, when an IVRS
+/// alias entry covers it, the source id its transactions actually carry (section 5.2.2.1's alias
+/// entries, types 42h and 43h). The second is `None` when there is no alias.
+fn entries_of(rid: u32) -> (u32, Option<u32>) {
     let source = match *IVRS.lock() {
         Some(ivrs) => ivrs.source_id(rid as u16) as u32,
         None => rid,
     };
+    (rid, (source != rid).then_some(source))
+}
+
+/// **Confine device `rid` to the domain rooted at `root`** (an [`paging::x86_64::AmdVi`] table
+/// the portable seam built), in the unit the IVRS says serves it, and make that unit forget what
+/// it cached. The entries written are every one [`entries_of`] names: the device's own and its
+/// alias's, which is where a device behind a PCIe-to-PCI bridge is actually translated; Linux
+/// writes both (`clone_aliases`, from memory). A device no unit serves gets no entry, as on VT-d.
+///
+/// **An alias already held by another device is never shared** (provisional milestone 767 (AMD-Vi
+/// hardening before the first AMD boot)). Two functions behind one bridge reach the unit under one
+/// id, so the unit cannot tell their DMA apart and no pair of entries can confine them separately.
+/// Before 767 the second attach silently moved the first device's aliased DMA into the second's
+/// domain. Now the attach fails closed: every entry either device's DMA arrives under is set to the
+/// blocked entry, and the boot prints the pair in capitals. Both devices stop doing DMA, which is
+/// the honest outcome for a pair this kernel cannot confine apart; giving such a pair one shared
+/// domain on purpose is an alias group, recorded in BUGS.
+pub fn attach(rid: u32, root: u64) {
+    let Some(i) = owner_index(rid) else {
+        return;
+    };
+    let (own, alias) = entries_of(rid);
     let mut g = UNITS.lock();
     let Slot::Up(u) = &mut g[i] else {
         return;
     };
+    let ids = [Some(own), alias];
+    let conflict = ids
+        .into_iter()
+        .flatten()
+        .find_map(|x| u.holder(x).filter(|&h| h != rid).map(|h| (x, h)));
+    // A new alias needs a slot to record its holder in; without one, fail closed as for a conflict.
+    let out_of_slots = alias.is_some_and(|a| u.holder(a) != Some(rid) && !u.alias_slot_free());
+    if conflict.is_some() || out_of_slots {
+        for x in ids.into_iter().flatten() {
+            u.block(x);
+        }
+        if u.enabled {
+            u.sync();
+        }
+        drop(g);
+        match conflict {
+            Some((shared, other)) => crate::println!(
+                "  amd-vi      : DEVICES {rid:#06x} AND {other:#06x} BOTH REACH THE UNIT AS \
+                 {shared:#06x}; they cannot be confined apart, so every entry of {rid:#06x} is \
+                 BLOCKED (fail closed)"
+            ),
+            None => crate::println!(
+                "  amd-vi      : NO SLOT TO RECORD {rid:#06x}'s ALIAS ({MAX_ALIASES} in use), so \
+                 every entry of {rid:#06x} is BLOCKED (fail closed)"
+            ),
+        }
+        return;
+    }
     let domain = u.domain();
     let dte = translating_dte(root, domain);
-    u.set_entry(rid, dte);
-    if source != rid {
-        u.set_entry(source, dte);
+    for x in ids.into_iter().flatten() {
+        u.set_entry(x, dte);
+    }
+    if let Some(a) = alias {
+        u.record_alias(a, rid);
     }
     if u.enabled {
         u.sync();
@@ -628,18 +813,23 @@ pub fn attach(rid: u32, root: u64) {
 }
 
 /// **Switch device `rid` to the blocked entry** (§163's quarantine; milestone 102 is its caller).
-/// The device's next transaction is target-aborted, whatever its domain had mapped.
+/// Every entry the device's DMA can arrive under is reset, its alias's included (provisional
+/// milestone 767): a quarantine that left the alias translating left the DMA of a device behind a
+/// bridge exactly where it was. If another device shares the alias, it loses its DMA too, which is
+/// unavoidable: the unit cannot tell the two apart.
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn quarantine(rid: u32) {
     let Some(i) = owner_index(rid) else {
         return;
     };
+    let (own, alias) = entries_of(rid);
     let mut g = UNITS.lock();
     let Slot::Up(u) = &mut g[i] else {
         return;
     };
-    let dte = blocked_dte(u.empty_root);
-    u.set_entry(rid, dte);
+    for x in [Some(own), alias].into_iter().flatten() {
+        u.block(x);
+    }
     if u.enabled {
         u.sync();
     }
@@ -654,6 +844,7 @@ pub fn for_each_reserved_region(rid: u32, each: &mut dyn FnMut(paging::domain::D
         each(paging::domain::DmaRegion {
             base: r.base,
             size: r.size,
+            writable: r.device_may_write(),
         });
     });
 }
@@ -694,7 +885,7 @@ pub fn scope_of(rid: u32) -> crate::iommu::Scope {
 
 /// **Pop one event, if any unit logged one** (section 2.5). The record's device id, its event
 /// code (bits 63:60 of the first qword; 2 is `IO_PAGE_FAULT`) and its address. An overflowed log
-/// records nothing until software clears `EventOverflow` and restarts logging (section 3.4,
+/// records nothing until software clears `EventOverflow` and restarts logging (section 3.3.1,
 /// status register), so that happens here first, as VT-d's `take_fault` clears `PFO`.
 pub fn take_fault() -> Option<Fault> {
     let g = UNITS.lock();
@@ -899,6 +1090,144 @@ mod tests {
         let g = UNITS.lock();
         let Slot::Up(u) = &g[0] else { return };
         assert_eq!(read_dte(u.device_table, id), blocked_dte(u.empty_root));
+    }
+
+    /// Two device ids an IVRS alias range covers, and the source id both carry: the first two ids
+    /// of the first alias range with room for two. On the `NIFE_IOMMU=amd` machine that is the
+    /// runner's empty `pci-bridge`'s secondary bus, aliased to the bridge.
+    fn an_alias_pair() -> Option<(u32, u32, u32)> {
+        let ivrs = (*IVRS.lock())?;
+        let r = ivrs
+            .ranges()
+            .iter()
+            .find(|r| !r.all && r.alias.is_some() && r.first < r.last)?;
+        Some((r.first as u32, r.first as u32 + 1, r.alias? as u32))
+    }
+
+    /// The unit `rid` belongs to, its table and the root a blocked entry points at.
+    fn table_of(rid: u32) -> (u64, u64) {
+        let i = owner_index(rid).expect("no unit serves the alias range");
+        let g = UNITS.lock();
+        let Slot::Up(u) = &g[i] else {
+            panic!("the unit serving {rid:#x} is not up")
+        };
+        (u.device_table, u.empty_root)
+    }
+
+    /// **Two devices behind one alias never share a domain** (provisional milestone 767). The
+    /// first confined behind the bridge gets the alias entry; the second cannot be confined apart
+    /// from it, so the alias is blocked rather than handed over, and neither root is left in it.
+    /// Before 767 the second attach silently moved the first device's DMA into its own domain. Run
+    /// on ids nothing occupies (the runner's bridge is empty), so no device loses DMA.
+    ///
+    /// Falsification: replayable `kernel/falsifications/arch.x86_64.amd_vi.tests.two_devices_behind_one_alias_never_share_a_domain.patch`
+    #[test_case]
+    fn two_devices_behind_one_alias_never_share_a_domain() {
+        let Some((first, second, alias)) = an_alias_pair() else {
+            crate::testing::skip!("no IVRS alias range here (the AMD-Vi runner adds a pci-bridge)");
+        };
+        let (table, empty) = table_of(first);
+        let (a, b) = (
+            zeroed_frames(1, "test root a"),
+            zeroed_frames(1, "test root b"),
+        );
+        attach(first, a);
+        assert_eq!(
+            read_dte(table, alias)[0] & DTE_ROOT_MASK,
+            a,
+            "the alias is not the first's"
+        );
+        attach(second, b);
+        let held = read_dte(table, alias);
+        assert_ne!(
+            held[0] & DTE_ROOT_MASK,
+            b,
+            "the second device took the first's alias"
+        );
+        assert_eq!(
+            held,
+            blocked_dte(empty),
+            "a shared alias was left translating"
+        );
+        assert_eq!(read_dte(table, second), blocked_dte(empty));
+        quarantine(first);
+        quarantine(second);
+    }
+
+    /// **A quarantine resets the alias as well as the device's own entry** (provisional milestone
+    /// 767), and confining the same device again takes its alias back rather than reading as a
+    /// conflict with itself.
+    ///
+    /// Falsification: replayable `kernel/falsifications/arch.x86_64.amd_vi.tests.a_quarantine_blocks_the_alias_too.patch`
+    #[test_case]
+    fn a_quarantine_blocks_the_alias_too() {
+        let Some((first, _, alias)) = an_alias_pair() else {
+            crate::testing::skip!("no IVRS alias range here (the AMD-Vi runner adds a pci-bridge)");
+        };
+        let (table, empty) = table_of(first);
+        let (a, b) = (
+            zeroed_frames(1, "test root a"),
+            zeroed_frames(1, "test root b"),
+        );
+        attach(first, a);
+        attach(first, b);
+        assert_eq!(
+            read_dte(table, alias)[0] & DTE_ROOT_MASK,
+            b,
+            "a second confine of the same device lost its own alias"
+        );
+        quarantine(first);
+        assert_eq!(read_dte(table, first), blocked_dte(empty));
+        assert_eq!(
+            read_dte(table, alias),
+            blocked_dte(empty),
+            "the quarantined device's alias still translates"
+        );
+    }
+
+    /// **A firmware exclusion range does not survive `set_up`**: every unit's Exclusion Base and
+    /// Limit read zero after boot, and [`clear_exclusion_range`] zeroes a range the test plays
+    /// firmware and sets, reporting what it found (provisional milestone 767).
+    ///
+    /// **What QEMU decides here, and it is most of it.** QEMU 11.1.1 stores the limit register and
+    /// silently drops every write to the base register (`amdvi_mmio_write` has no case for MMIO
+    /// 0020h, so it reads zero whatever is written), and no walk consults either. So under QEMU
+    /// this proves the limit half of the programming and that the boot left both zero; the base
+    /// half, `ExEn` and `Allow` included, and the effect on a device's DMA are only provable on
+    /// silicon. The range written is the last 4 KiB of the 52-bit address space, which no machine
+    /// backs with memory, so on silicon the moment between the write and the clear excludes nothing.
+    ///
+    /// Falsification: replayable `kernel/falsifications/arch.x86_64.amd_vi.tests.a_firmware_exclusion_range_is_cleared.patch`
+    #[test_case]
+    fn a_firmware_exclusion_range_is_cleared() {
+        if !is_active() {
+            crate::testing::skip!("no AMD-Vi unit is up");
+        }
+        const TOP: u64 = 0x000f_ffff_ffff_f000;
+        let g = UNITS.lock();
+        for s in g.iter() {
+            let Slot::Up(u) = s else { continue };
+            assert_eq!(r64(u.base, EXCLUSION_BASE), 0, "unit {:#x}", u.base);
+            assert_eq!(r64(u.base, EXCLUSION_LIMIT), 0, "unit {:#x}", u.base);
+
+            w64(u.base, EXCLUSION_LIMIT, TOP);
+            w64(u.base, EXCLUSION_BASE, TOP | EXCLUSION_ALLOW | EXCLUSION_EN);
+            let found = clear_exclusion_range(u.base);
+            assert_eq!(
+                found.limit, TOP,
+                "the limit the test wrote was not what was found"
+            );
+            assert_eq!(
+                r64(u.base, EXCLUSION_LIMIT),
+                0,
+                "the limit survived the clear"
+            );
+            assert_eq!(
+                r64(u.base, EXCLUSION_BASE),
+                0,
+                "the base survived the clear"
+            );
+        }
     }
 
     /// The two entries this driver writes, spelled against Table 7's bit positions: `V` (0), `TV`

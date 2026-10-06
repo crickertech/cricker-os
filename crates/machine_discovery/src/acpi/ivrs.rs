@@ -34,13 +34,14 @@
 //! - **ACPI HID device entries (type F0h) are skipped, not recorded.** They name devices with no
 //!   PCI identity (a UART, an eMMC controller) through ACPI namespace names; this kernel drives
 //!   none, so none is confined, the same posture the DMAR decoder takes on ANDD.
-//! - **An IVMD's read and write flags are recorded and not honoured separately.** The kernel's DMA
-//!   domain builder maps every region it is given read and write, so a read-only IVMD becomes a
-//!   writable mapping. No AMD machine this tree has met publishes an IVMD at all (QEMU writes
-//!   none), so this has run zero times.
-//! - **An exclusion-range IVMD is treated as an identity map**, not programmed into the unit's
-//!   exclusion registers. Linux made the same choice in 2019 (from memory, not re-read: "treat
-//!   per-device exclusion ranges as r/w unity-mapped regions").
+//! - **A write-only IVMD (`IW` without `IR`) is mapped readable too.** No page format the kernel's
+//!   DMA domains use can say "write but not read", so [`UnityRegion::device_may_write`] grants
+//!   write and the format adds read. A read-only IVMD is mapped read-only (provisional milestone
+//!   767). No AMD machine this tree has met publishes an IVMD at all (QEMU writes none), so the
+//!   whole path has run only in this module's host tests.
+//! - **An exclusion-range IVMD is treated as a read-write identity map**, not programmed into the
+//!   unit's exclusion registers, which `amd_vi::set_up` clears. Linux made the same choice in 2019
+//!   (from memory, not re-read: "treat per-device exclusion ranges as r/w unity-mapped regions").
 //! - **Only segment 0 is described**, as the specification requires of revision 2.62 ("At this
 //!   time, only PCI Segment Group 0 is supported"). A later revision allows others; a unit on
 //!   another segment is recorded and the kernel refuses it.
@@ -124,6 +125,20 @@ pub struct UnityRegion {
     pub write: bool,
     /// The IVMD's `ExclusionRange` flag. See this module's BUGS.
     pub exclusion: bool,
+}
+
+impl UnityRegion {
+    /// **Whether the device may write this region through its domain** (provisional milestone 767
+    /// (AMD-Vi hardening before the first AMD boot); name provisional). `IW` (flags bit 2, section
+    /// 5.2.2.2, Table 103) says so, and so does `ExclusionRange` (bit 3): an exclusion range is
+    /// memory the device reaches untranslated on a unit that honours it, so this kernel, which never
+    /// programs the exclusion registers, maps it read-write as the nearest thing (this module's BUGS).
+    /// An IVMD with `IR` alone is read-only and stays so. Read is not a separate answer: a region
+    /// with `IR` = `IW` = 0 and no exclusion flag is never recorded, and the domain format grants
+    /// read with every present page.
+    pub const fn device_may_write(&self) -> bool {
+        self.write || self.exclusion
+    }
 }
 
 /// **Every AMD IOMMU, every device-id range and every IVMD in one IVRS**, decoded into fixed
@@ -621,6 +636,30 @@ mod tests {
         let mut seen = Vec::new();
         u.unity_for(0x0180, &mut |r| seen.push((r.base, r.size)));
         assert_eq!(seen, [(0x7e00_0000, 0x2000)]);
+    }
+
+    /// **An IVMD's `IW` bit decides whether the device may write it**, and `ExclusionRange` counts
+    /// as write (Table 103's bits 1, 2 and 3). The read-only case is the one milestone 633 (an
+    /// outside agent attacks the confinement claim)'s second pass found mapped writable.
+    #[test]
+    fn an_ivmd_without_iw_is_not_writable() {
+        let e = entry4(0x02, 0x0008);
+        let u = IvrsUnits::parse(&body(&[
+            ivhd(0x11, 0xfed8_0000, &e),
+            ivmd(0x21, 0b0011, 0x0008, 0, 0x7f00_0000, 0x1000),
+            ivmd(0x21, 0b0111, 0x0008, 0, 0x7e00_0000, 0x1000),
+            ivmd(0x21, 0b1001, 0x0008, 0, 0x7d00_0000, 0x1000),
+        ]));
+        let mut seen = Vec::new();
+        u.unity_for(0x0008, &mut |r| seen.push((r.base, r.device_may_write())));
+        assert_eq!(
+            seen,
+            [
+                (0x7f00_0000, false),
+                (0x7e00_0000, true),
+                (0x7d00_0000, true)
+            ]
+        );
     }
 
     /// **A table this decoder recorded only in part answers "unknown" for what it did not see**:

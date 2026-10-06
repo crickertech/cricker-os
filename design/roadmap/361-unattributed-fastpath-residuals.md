@@ -26,12 +26,12 @@ baseline can move with nobody attributing it, and 237's block is where it lives.
 The measurement runs on the dev machine under emulation, the tooling
 (`script/fastpath-footprint`) exists, and bisecting a size delta needs no hardware and no decision.
 
-**In brief.** `script/fastpath-footprint` compares the IPC fastpath's code size against a stored
-baseline per architecture. Two of the three have drifted and nobody knows why: **riscv64 sits at
-5132 against a 5106 baseline, and x86_64 at 6687 against 6639**. Milestone 237 attributed the
+In brief. `script/fastpath-footprint` compares the IPC fastpath's code size against a stored
+baseline per architecture. Two of the three have drifted and nobody knows why: riscv64 sits at
+5132 against a 5106 baseline, and x86_64 at 6687 against 6639. Milestone 237 attributed the
 aarch64 growth to the cycle-counter grant, fixed it, and re-recorded the aarch64 baseline only. The
 work is to bisect each of the two remaining gaps to the milestone that caused it, then re-record
-those baselines **in the same commit that explains them**.
+those baselines in the same commit that explains them.
 
 ## Why this matters
 
@@ -64,7 +64,7 @@ the deltas are the tree's own):
 
 Two things changed and both sharpen the case rather than weakening it.
 
-**aarch64 is drifting again.** Milestone 237 attributed its growth to the cycle-counter grant, fixed
+aarch64 is drifting again. Milestone 237 attributed its growth to the cycle-counter grant, fixed
 it, and re-recorded the baseline at 5852. That was eight days ago and it is at 5888. So the fix held
 for a week, which is what this proposal predicts: re-recording an instance does nothing to a
 mechanism that has nobody remembering it. All **three** ISAs now carry an unattributed
@@ -74,7 +74,7 @@ mechanism that has nobody remembering it. All **three** ISAs now carry an unattr
 three to its ceiling and it is moving the fastest, which makes it the one to bisect first rather
 than last. Nothing has fired, and nothing will until it has absorbed the remaining 3.1 points.
 
-**`syscall_entry` is a separate story and it is the healthy half.** All three sat exactly on their
+`syscall_entry` is a separate story and it is the healthy half. All three sat exactly on their
 baselines under that build (3304, 1870, 1637). The drift is entirely in the closure half, which is
 worth knowing before bisecting: whatever is accumulating is in the IPC and switch closure, not in
 the trap entry path.

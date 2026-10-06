@@ -82,11 +82,11 @@ The file compiled unchanged, and the one failure is the probe's. Then each other
 
 The classes, against the brief's list:
 
-- **`asm!`, as a target error rather than a Kani one.** rustc validates register names against the
+- `asm!`, as a target error rather than a Kani one. rustc validates register names against the
   compilation target before Kani sees anything, so a riscv64 `asm!` is a hard front-end error on an
   aarch64 host even where no harness could reach it. On its native target `asm!` is only Kani's
   "unsupported construct", which fails at reach. 61 sites across 10 of the 17 files.
-- **Siblings and drivers.** An asm-free file that calls `super::` or a riscv64-gated driver fails to
+- Siblings and drivers. An asm-free file that calls `super::` or a riscv64-gated driver fails to
   resolve. Local and countable per file.
 - **Not blocking:** `no_std`, the linker and features. Milestone 193 already cleared those for the
   whole crate.
@@ -97,25 +97,25 @@ them except option 3.
 
 ## Prior art, read
 
-- **Kani 0.67.0's `kani-compiler/src/codegen_cprover_gotoc/compiler_interface.rs`**, read at the
+- Kani 0.67.0's `kani-compiler/src/codegen_cprover_gotoc/compiler_interface.rs`, read at the
   tag through `gh api`. `new_machine_model` matches `Arch::X86_64` and `Arch::AArch64` and otherwise
   hits `panic!("Unsupported architecture: {architecture}")` (lines 817 and 888). So a riscv64 host
   running stock Kani does not get a proof; it gets a compiler panic. That makes the tree's reason
   ("no riscv64 runner") incomplete: a runner would not be enough.
-- **model-checking/kani#2086** (closed 2023-01-13). A user verifying a non-host target
+- model-checking/kani#2086 (closed 2023-01-13). A user verifying a non-host target
   (`armv7-unknown-linux-gnueabi`) needed three changes to Kani itself: a machine model, a `--target`
   passed to cargo, and Kani's library sysroot rebuilt for that target. They got a trivial harness
   through, then hit a CBMC invariant violation on the first reference, because the pointer width
   disagreed with the host's. riscv64 is 64-bit little-endian like both supported hosts, so that
   particular failure should not recur, but it is the only field report and it is a warning.
-- **model-checking/kani#2402**, "Command-line flag to change model target or environment", open
+- model-checking/kani#2402, "Command-line flag to change model target or environment", open
   since 2023-04-23, last touched 2024-10-02, filed for zerocopy's endianness proofs. Upstream has not
   prioritised it in three years.
 
 ## The options
 
-**Option 1: compile riscv64's self-contained, asm-free files as proof-only modules on the aarch64
-host.** The probe above, made permanent for `iommu.rs` (and `context.rs` if a property is worth
+Option 1: compile riscv64's self-contained, asm-free files as proof-only modules on the aarch64
+host. The probe above, made permanent for `iommu.rs` (and `context.rs` if a property is worth
 writing there), plus the property that milestone 255 (a quarter of `kernel/src/arch/` has no
 assembly in it, and none of it is proved) said "can be written and cannot be run": the device
 context's address fields round-trip, and no device id reaches another's entry. Measured cost:
@@ -136,8 +136,8 @@ Two details: the `cfg` should be `all(kani, target_arch = "aarch64")` rather tha
 is unmeasured). And `script/lint` check 5 counts `#[path]` targets per consumer. One consumer is
 within its rule, but that is read from the rule rather than run.
 
-**Option 2: isolate every riscv64 `asm!` behind a function with a host stub, then compile all of
-`arch/riscv64/` as a proof-only module.** Reaches the remaining 10 files, including `mmu.rs`
+Option 2: isolate every riscv64 `asm!` behind a function with a host stub, then compile all of
+`arch/riscv64/` as a proof-only module. Reaches the remaining 10 files, including `mmu.rs`
 (1,484 lines) and `timer.rs` (1,034), the two largest. Cost, estimated rather
 than measured: 61 sites in 10 files, one to two lane-days, and a standing tax (every new riscv64
 `asm!` goes through the wrapper, which wants a lint). And option 1's fiction becomes structural,
@@ -145,7 +145,7 @@ because `mmu.rs` and `timer.rs` call `crate::arch::mmu` and `crate::arch::timer`
 aarch64's. A proof of riscv64's page-table walk that silently calls aarch64's `mmu` is the "stub
 that reads as coverage" `notes/kernel-proofs.md` exists to prevent. Refused on that, not on cost.
 
-**Option 3: run Kani natively for riscv64.** A patched Kani (a riscv64 arm in `new_machine_model`,
+Option 3: run Kani natively for riscv64. A patched Kani (a riscv64 arm in `new_machine_model`,
 modelled on the aarch64 one), built with its own pinned nightly and a CBMC for a riscv64 host, run
 on `radon` or a riscv64 QEMU guest on cordoba. Reaches everything, including the 98 gated sites
 outside `arch/`, with the real `cfg`s and the real `crate::arch`. Cost, estimated: a Kani fork this
@@ -158,23 +158,23 @@ model is the version of this that does not leave a fork behind; #2402's age says
 
 ## Recommendation
 
-**Option 1, for `iommu.rs` only, in one lane**, with the stub item written before the harness.
+Option 1, for `iommu.rs` only, in one lane, with the stub item written before the harness.
 
 ## The seven questions
 
-1. **Considered and lost:** option 2 lost on correctness, because the host `crate::arch` makes its
+1. Considered and lost: option 2 lost on correctness, because the host `crate::arch` makes its
    biggest proofs fictions. Option 3 lost on dependency cost and an unowned runner, not on merit.
    Option 4 lost because the one file milestone 255 already wanted proved costs five lines.
-2. **What the tree does in the analogous case:** milestone 255 proved `arch/aarch64/iommu.rs` in
+2. What the tree does in the analogous case: milestone 255 proved `arch/aarch64/iommu.rs` in
    place rather than lifting it into a crate, and milestone 193 refused lifting as its option B.
    Option 1 is the same move one architecture over.
-3. **Prior art:** above, read at the source, not recalled.
-4. **Is the premise true?** The brief's premise is not. The tree's premise ("riscv64: nothing can")
+3. Prior art: above, read at the source, not recalled.
+4. Is the premise true? The brief's premise is not. The tree's premise ("riscv64: nothing can")
    is also not, for asm-free files.
-5. **Cost:** option 1 measured, options 2 and 3 estimated and marked so.
-6. **Reversibility:** option 1 is five lines and a harness, and nobody downstream acts on a proof
+5. Cost: option 1 measured, options 2 and 3 estimated and marked so.
+6. Reversibility: option 1 is five lines and a harness, and nobody downstream acts on a proof
    module. Option 3 is a dependency, on the irreversible list.
-7. **Same cost, same choice?** No. If option 3 cost what option 1 does, option 3 wins: real `cfg`s,
+7. Same cost, same choice? No. If option 3 cost what option 1 does, option 3 wins: real `cfg`s,
    real `crate::arch`, the whole subsystem. **So this recommendation is partly about effort**, and
    says so. The rest of it is §46: option 3 is a fork of the prover, which is a decision and not a
    build task, and nobody has made that decision.

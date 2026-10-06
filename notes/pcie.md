@@ -8,22 +8,22 @@ companion after the build.
 ## The shape of PCI, in one screen
 
 A PCI function is addressed by **BDF**: bus (8 bits), device (5), function (3). Every function
-owns 4 KB of **configuration space**, and **ECAM** (Enhanced Configuration Access Mechanism) is
+owns 4 KB of configuration space, and ECAM (Enhanced Configuration Access Mechanism) is
 the modern way to reach it: one flat memory window, the function's page at
 `base + (bus << 20 | dev << 15 | fn << 12)`. No magic I/O ports, no indirection registers; config
 space is just memory-mapped bytes, which is why an empty slot "reads all-ones" (nobody drives the
 bus, the read floats high) and why enumeration is a loop, not a protocol.
 
 The first 64 bytes of config space are standardized: vendor/device id (how you recognize what it
-is), the command/status registers, and six **BARs** (Base Address Registers). A BAR answers "where
+is), the command/status registers, and six BARs (Base Address Registers). A BAR answers "where
 do this function's actual registers live in memory?" and it is writable: firmware assigns each
 function an address by writing one. Sizing is the famous dance: write all-ones, read back which
 bits stuck (the low bits that stay zero encode the size and alignment), restore. Past the header,
-optional features hang off the **capability list**, a linked list in config space; virtio-modern
+optional features hang off the capability list, a linked list in config space; virtio-modern
 puts everything it needs there as vendor capabilities: which BAR (and offset) holds the
 common-config block, the notify doorbell, the ISR byte, the device config.
 
-Two command-register bits matter here. **Memory-Space Enable** makes the BARs decode at all.
+Two command-register bits matter here. Memory-Space Enable makes the BARs decode at all.
 **Bus-Master Enable is DMA permission at the bus level**: a device without it cannot issue a
 single memory transaction. The kernel grants it last, after the confined transport is registered,
 because it is the bus-level twin of the authority the confinement layer polices.
@@ -44,9 +44,9 @@ first VisionFive 2 boot, where 0x4000_0000 is DRAM base and mapping it collided 
 map (notes/visionfive2.md). A machine whose tree has no such node gets no window mapped and
 every PCI probe answers "nobody home", the same degradation as an absent virtio-mmio device.
 
-Division of labor, same as the mmio side: the **pci crate** is pure decode logic (ECAM math,
+Division of labor, same as the mmio side: the pci crate is pure decode logic (ECAM math,
 enumeration, BAR sizing, capability parsing, the INTx swizzle), host-tested against a fake config
-space; **kernel/src/pci.rs** supplies the volatile accessors and the policy (which device, where
+space; kernel/src/pci.rs supplies the volatile accessors and the policy (which device, where
 BARs go, which bits to set); the driver stays in userspace, unchanged.
 
 ## The transport seam
@@ -103,9 +103,9 @@ Enable, the bus-level DMA switch the kernel now controls explicitly.
 
 The line above used to read "bus 0 only is mapped and enumerated (QEMU `virt` is flat; widening is
 one constant)". It was true and it cost a day, which is worth keeping rather than quietly deleting:
-**a limitation recorded honestly still hides, when the machine that violates it is the first real one
-you meet.** On xenon, a Dell OptiPlex 7050, the M.2 NVMe sits behind a PCIe root port. The kernel
-enumerated bus 0, `find_nvme_device` returned `None`, and the confinement test **skipped** with
+a limitation recorded honestly still hides, when the machine that violates it is the first real one
+you meet. On xenon, a Dell OptiPlex 7050, the M.2 NVMe sits behind a PCIe root port. The kernel
+enumerated bus 0, `find_nvme_device` returned `None`, and the confinement test skipped with
 QEMU's explanation for an absence (`NIFE_NVME not set on this leg?`) that had a different cause
 entirely. Nothing failed. `bench/xenon-2026-09-17/nvme-attempt-2-no-controller-found.log`.
 
@@ -124,14 +124,14 @@ new code at all? Measured on `q35` under QEMU with 256 MiB of RAM, it is also no
 | 2 buses, the root-port topology | 560 KiB |
 | 128 buses (128 MiB), what xenon's MCFG describes | 812 KiB |
 
-252 KiB against a boot that spends 32,840 KiB on page tables is 0.8%, so **the cost argument against
-the flat scan is weak and should not be the one anyone repeats.** The reason to walk the bridges is
+252 KiB against a boot that spends 32,840 KiB on page tables is 0.8%, so the cost argument against
+the flat scan is weak and should not be the one anyone repeats. The reason to walk the bridges is
 the other one: a flat scan over a range ACPI happens to describe is the same species of assumption
 that produced this bug, it issues configuration reads to bus numbers no bridge on the machine
 decodes, and it stops being right on the first machine that numbers its buses differently.
 
-**How the kernel knows how much to map before it has read anything.** `pci::survey` runs from
-`kernel_main` **before** `arch::mmu::init`, which is the only window in the boot where the answer is
+How the kernel knows how much to map before it has read anything. `pci::survey` runs from
+`kernel_main` before `arch::mmu::init`, which is the only window in the boot where the answer is
 free: the x86 boot tables still cover the low 4 GiB indiscriminately, so every bus the MCFG
 describes is already readable. The survey walks, prints every function it found, and records the
 bus count; `map_everything` a hundred lines later maps exactly that. No lazy mapping, no second
@@ -139,17 +139,17 @@ pass, no arch-specific special case in the walk itself.
 
 ### BUGS
 
-- **The mapped range is contiguous, not the set of buses found.** `pci::survey` records
+- The mapped range is contiguous, not the set of buses found. `pci::survey` records
   `highest_bus + 1` and the direct map covers bus 0 through that, empty buses included. A machine
   whose firmware numbers a root port's subtree 0x60 pays sixty-one buses of page tables to reach two
   buses of devices. The cost is bounded by what mapping the whole MCFG window would have cost, which
   the table above prices, so this is a waste rather than a hazard. Nothing measured does it yet.
 
-- **A bridge's memory window is neither read nor written.** A PCI-to-PCI bridge forwards a memory
+- A bridge's memory window is neither read nor written. A PCI-to-PCI bridge forwards a memory
   transaction only inside the window its own base/limit registers describe, and this kernel does not
   touch them. Where firmware programmed them (every real machine so far) adoption keeps every BAR
-  inside a window that already works. Where it did not, a device behind the bridge **enumerates and
-  does not work**: under `NIFE_PCIE_ROOT_PORT=1` on QEMU, which boots PVH with no firmware, the
+  inside a window that already works. Where it did not, a device behind the bridge enumerates and
+  does not work: under `NIFE_PCIE_ROOT_PORT=1` on QEMU, which boots PVH with no firmware, the
   controller on bus 1 answers configuration reads and its BAR does not decode. That is why
   `kernel::pci::tests::a_controller_behind_a_bridge_is_found_on_the_bus_behind_it` asserts
   enumeration and not a working disk. See
@@ -165,4 +165,4 @@ pass, no arch-specific special case in the walk itself.
   problem to solve, and lazy per-bus mapping (`pci::adopt` already maps a page at enumeration time,
   so the machinery exists) is the likely shape.
 
-- **The topology is read once, at boot.** Hot plug would change it and nothing re-surveys.
+- The topology is read once, at boot. Hot plug would change it and nothing re-surveys.

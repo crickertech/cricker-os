@@ -48,6 +48,8 @@ Each week is read from its own commit, so 2026W39 is the first correction, alrea
 
 ![Fatal risks by colour](project-metrics/fatal-risks-colors.svg)
 
+- 2026W41: risk 4 went green on 2026-10-05 UTC (calef); milestones 761 and 766 cut the null syscall's growth to four tasks from 48 to 10 ticks.
+
 ## Kani proof harnesses, and what can falsify them
 
 ![Kani proof harnesses](project-metrics/harnesses.svg)
@@ -79,7 +81,7 @@ changed, so read the kernel and userspace bars in those weeks as undercounts of 
 A flow: milestones whose `Built:` date falls in that week, read from today's tree for every week.
 It does not reconcile with the `Built` stock below; BUGS says why.
 The line is the trailing ten-week mean, drawn rather than stored; it is dashed where fewer than ten
-weeks exist behind it, which until 2026W47 is the left of the chart.
+weeks exist behind it.
 
 ## Pull requests merged each week
 
@@ -117,8 +119,7 @@ does not recognise, drawn as one band; `notes/project-metrics/models.csv` keeps 
 
 ![Lines touched each week, by the model that signed them](project-metrics/models-lines.svg)
 
-Added plus removed, not net, and volume rather than effort. The hardest change of 2026-09-23
-was a dozen lines and the largest was a mechanical sweep. Merges carry no line count.
+Added plus removed, not net, and volume rather than effort. Merges carry no line count.
 
 ## What this project costs
 
@@ -203,10 +204,7 @@ failing build. 2026W31 to 2026W38 were backfilled on 2026-09-24 from each week's
 ![Documents over the cap](project-metrics/prose-budget-documents.svg)
 
 calef ratified a 3,000-word cap per document on 2026-09-23, enforced as a ratchet. The first chart
-is the debt, the words that would have to move into appendices for the tree to meet its own rule;
-the second is how many documents that work sits in.
-
-Weeks before the ratification are derived by `--backfill`, each from its own tree.
+is the debt in words and the second the documents holding it.
 
 ## The bold backlog
 
@@ -215,15 +213,13 @@ Weeks before the ratification are derived by `--backfill`, each from its own tre
 ![Documents over the bold budget](project-metrics/bold-backlog-documents.svg)
 
 This chart is temporary. calef ruled on 2026-09-26 that bold should be rare: 4 spans per 1,000
-words, met by any document a change touches. He chose not to sweep the rest. The chart is
+words, met by any document a change touches. He chose not to sweep the rest. calef asked for the sweep on 2026-10-05 (UTC). The chart is
 pulled once both panels reach zero. Then `script/metrics` prints "the bold backlog
 is zero; retire this chart" and writes it here:
 
 <!-- bold-backlog: script/metrics writes this -->
 2026W41: 12076 spans over, in 741 documents.
 <!-- /bold-backlog -->
-
-Counted by `helpers/prose_ratchet.py`, from 2026W39.
 
 ## Homes
 

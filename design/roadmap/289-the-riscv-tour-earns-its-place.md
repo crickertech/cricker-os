@@ -21,7 +21,7 @@ run, and the only riscv64 build that exists outside a QEMU gate.
 
 Yes, four things, none of them a note.
 
-**`script/board-image` builds the tour.** Its default is `FEATURES="board"`, and it takes no flag that
+`script/board-image` builds the tour. Its default is `FEATURES="board"`, and it takes no flag that
 would build the shell kernel: the four modes are the plain tour, `--soak`, `--jobmix` and `--bench`,
 and the last three *replace the end of* the tour rather than skipping it, which the script says in
 its own argument check ("all replace the end of the boot tour; pick one"). So every VisionFive 2
@@ -30,31 +30,31 @@ its own argument check ("all replace the end of the boot tour; pick one"). So ev
 QEMU, so nothing here produces a board payload that would run `progenitor` and no bench record in
 `notes/visionfive2.md` shows one having run.
 
-**`crates/board_console` reads the builder's output line.** `Progress::userspace_ran` is set by
+`crates/board_console` reads the builder's output line. `Progress::userspace_ran` is set by
 `line.contains("init/build")` (`crates/board_console/src/progress.rs`), which is the line
 `kernel/src/main.rs` prints when the builder's child reports 81. It is asserted by four host tests
-and appears in three captured transcripts, **one of them off the board itself**:
+and appears in three captured transcripts, one of them off the board itself:
 `tests/fixtures/captured/vf2-2026-09-01-userspace.log`, whose filename is the word `userspace`
 precisely because this program running is what distinguishes that capture from the others taken the
-same day. `script/board-console` prints it as its own summary line, and `notes/board-console.md` states flatly that it is **"the only
-difference between the two successful captures"**: with an archive on the card, and without.
+same day. `script/board-console` prints it as its own summary line, and `notes/board-console.md` states flatly that it is "the only
+difference between the two successful captures": with an archive on the card, and without.
 
-**`script/soak --arch riscv64` and `script/job-mix --arch riscv64` both boot it with the archive.**
+`script/soak --arch riscv64` and `script/job-mix --arch riscv64` both boot it with the archive.
 Each builds `initrd_riscv()` (which packs `builder`) and runs the whole tour before the workload
 starts. The soak is `design/fatal-risks/README.md`'s fifth-entry rehearsal, which is the tie-breaker
 AGENTS.md names while the customer path is vacant.
 
-**The VisionFive 2 bring-up used the tour, with an initrd, and the builder step is what boot stages
-4 and 5 bracket.** This settles the claim the maintainer told calef and then withdrew as unchecked.
+The VisionFive 2 bring-up used the tour, with an initrd, and the builder step is what boot stages
+4 and 5 bracket. This settles the claim the maintainer told calef and then withdrew as unchecked.
 It was right. `notes/visionfive2.md`'s fifth stop resolves boots 7 through 9 with five independent
 identifications, and three of them are facts about `builder` specifically: its exact syscall count
 (14 of the boot's 20 ecalls, itemised), the retype kinds it issues (`ASPACE`, `FRAME`, `TCB`, **never
-`ENDPOINT`**, which is what pinned the endpoint-naming order), and that it **issues no receive of any
-kind**, which is what made the parked receivers in the dump impossible to attribute to it. The
+`ENDPOINT`**, which is what pinned the endpoint-naming order), and that it issues no receive of any
+kind, which is what made the parked receivers in the dump impossible to attribute to it. The
 breadcrumbs were added for boot 11 to bracket a failure that was *initrd-path-coupled*, which is to
 say coupled to this step.
 
-**Booted, rather than read off the source.** On 2026-09-14, in this lane, with QEMU 11.0.2:
+Booted, rather than read off the source. On 2026-09-14, in this lane, with QEMU 11.0.2:
 `cargo xtask initrd-riscv`, the default release kernel, `helpers/qemu-bounded.sh 45`:
 
 ```
@@ -91,7 +91,7 @@ right", and the tour's own history is that the second one is the half that break
 Nothing was deleted. One defect was found on the way, and three records were made to say what is
 true of the system today.
 
-**The breadcrumb table was wrong about the two stages that matter most to a triage.** `main.rs`'s
+The breadcrumb table was wrong about the two stages that matter most to a triage. `main.rs`'s
 table read `10 = the final banner printed; halting` and stopped there. Stage 10 is set at the end of
 the hardware-entropy step, *before* the banner; stage **11** is the one that means the tour finished,
 and it is what `user.rs`'s hang watcher keys on (`boot_stage() >= 11`). A reader triaging a board log
@@ -99,11 +99,11 @@ that reported stage 10 would have concluded the boot completed when it had not, 
 class of mistake the breadcrumbs exist to prevent. Milestone 159 added the step and moved the
 meaning; the table it moved past was never updated. Corrected, with stage 11 named.
 
-**`components/src/builder.rs` now says what rests on it**, at the thing itself rather than in this
+`components/src/builder.rs` now says what rests on it, at the thing itself rather than in this
 block, because the next person to ask calef's question will be reading that file and not this one
 (AGENTS.md's ladder, rung three). It carries a `BUGS` section for the first time.
 
-**The tour's own comment now names `crates/board_console` as a consumer of its output line**, so
+The tour's own comment now names `crates/board_console` as a consumer of its output line, so
 "nothing reads this" is falsifiable from the call site.
 
 ## What is an architect's, and is not decided here
@@ -112,16 +112,16 @@ block, because the next person to ask calef's question will be reading that file
 `fixtures/` example. Milestone 175 is explicit that those lists classified `builder` and `worker`
 "by repetition rather than by ruling", and calef broke the identical tie for `worker` on 2026-09-13
 by ruling it the canonical minimal program and keeping it in `components/`. The recommendation here
-is the same answer with a stronger reason: **the kernel measures `builder` against the trust root on
-the default riscv64 boot** (`kernel/src/user.rs`'s `trust::require("builder", ...)`), which is what
+is the same answer with a stronger reason: the kernel measures `builder` against the trust root on
+the default riscv64 boot (`kernel/src/user.rs`'s `trust::require("builder", ...)`), which is what
 it does for the first process and for nothing else.
 
-**The obvious objection, stated rather than left for a reader to find.** `boot_programs()` is
+The obvious objection, stated rather than left for a reader to find. `boot_programs()` is
 `["progenitor", "builder", "hello"]` on riscv64, and `hello` lives in `fixtures/`, so "it is in the
 trust root" is not on its own a classification. `xtask`'s own doc says why `hello` is there:
-`spawn_progenitor` enters it directly **for milestone 19d's test roles**, and `trust::require`
+`spawn_progenitor` enters it directly for milestone 19d's test roles, and `trust::require`
 refuses any entry the trust root does not name, so the entry exists rather than the check being
-relaxed. That is a test path. `builder` is entered on the **default boot**, with no test build and no
+relaxed. That is a test path. `builder` is entered on the default boot, with no test build and no
 role argument, which is the distinction the recommendation actually rests on.
 
 The one record that disagrees is `notes/trusted-init.md`, which groups it with "test or demo programs
@@ -129,13 +129,13 @@ rather than the shipped system"; that sentence is about which loaders extend the
 and it is correct about that. This milestone added a caveat there about where the first of the three
 runs.
 
-**The name.** `builder` is on `script/names --unratified`. It is a generic word of exactly the class
+The name. `builder` is on `script/names --unratified`. It is a generic word of exactly the class
 AGENTS.md names to avoid, and its own provenance block admits it was "never argued for directly".
 Proposed provisionally, with the refusals: see the block in `components/src/builder.rs`.
 
 ## Follow-on
 
-- **Milestone 406.** No pull-request check boots the default riscv64 kernel **with its archive**,
+- **Milestone 406.** No pull-request check boots the default riscv64 kernel with its archive,
   so the tour's builder step, its device-IRQ step and its banner are asserted by nothing that runs
   automatically. That is what made a live step look dead. Numbered on 2026-09-19 by milestone 433's
   drain of the pile, with the headline narrowed: `script/boot-check` (milestone 268, the same day
@@ -164,14 +164,14 @@ from the tree; these two bullets are the first thing it found.)*
 
 ## BUGS
 
-- **Nothing in CI asserts that the builder step ran.** `script/test`'s riscv64 leg returns at the
+- Nothing in CI asserts that the builder step ran. `script/test`'s riscv64 leg returns at the
   `#[cfg(test)]` arm before the tour; `script/cpu-matrix` runs that same suite; `script/swish-check`
   boots the shell build; `script/bench --riscv --check` parks before the tour. The only callers are
   `script/soak-test`, `script/job-mix` and a board, and none of those runs on a pull request. This
   is why the step looked vestigial: it is not unused, it is **unasserted**, and the two are
   indistinguishable from a grep. Written up as milestone 406,
   `design/roadmap/406-nothing-in-ci-boots-the-riscv-tour.md`.
-- **`builder` loads its child unmeasured.** Already recorded in `notes/trusted-init.md`'s "Still not
+- `builder` loads its child unmeasured. Already recorded in `notes/trusted-init.md`'s "Still not
   covered", and this milestone raises what it costs rather than fixing it: that note prices the gap as
   affecting "test or demo programs rather than the shipped system", and on the board path `builder` is
   the first process. The remaining work there is the call, not the data.
@@ -183,7 +183,7 @@ from the tree; these two bullets are the first thing it found.)*
 
 Minted 2026-09-14 after calef asked what `components/src/builder.rs` is for in a world that boots
 to swish. The answer is keep, and the premise was false: booting to swish describes aarch64 and
-riscv64's `--features shell`, not the **default** riscv64 build, which is what `script/board-image` puts on a card. `progenitor` has never run on RISC-V silicon; `riscv_shell_boot` needs the PLIC, the NS16550 delegated and a UART source number that differs
+riscv64's `--features shell`, not the default riscv64 build, which is what `script/board-image` puts on a card. `progenitor` has never run on RISC-V silicon; `riscv_shell_boot` needs the PLIC, the NS16550 delegated and a UART source number that differs
 between QEMU (10) and the JH7110 (32), and `builder` needs a budget and a report endpoint and
 nothing else. `crates/board_console` parses its `init/build` line into `userspace_ran`, asserted
 by four host tests and two captured board fixtures, and `notes/board-console.md` calls it the only

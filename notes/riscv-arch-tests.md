@@ -58,8 +58,8 @@ single counter is advanced by *every* core's tick, so "holding a lock stops my t
 observable, because masking interrupts masks only the holding core.
 
 RISC-V had one global. Under `-smp 4` the other three harts kept counting into the same word.
-Measured, by reverting to the global and running `holding_a_lock_masks_the_timer`: **61 ticks landed
-during a critical section that masked this hart's interrupts.** The reasoning aarch64 had written
+Measured, by reverting to the global and running `holding_a_lock_masks_the_timer`: 61 ticks landed
+during a critical section that masked this hart's interrupts. The reasoning aarch64 had written
 down was simply never carried across.
 
 None of the three is a capability gap, which is why the parity record (notes/riscv-parity-scope.md)
@@ -86,7 +86,7 @@ Three of those differences change what a test can honestly claim, and each is wr
 own doc comment rather than left for a reader to discover:
 
 - **`kernel_text_is_executable_and_not_writable`** keeps aarch64's `!is_user_executable` assertion,
-  but it is **not carrying weight on Sv39**. One `X` bit plus the `U` bit means `Sv39::leaf_flags`
+  but it is not carrying weight on Sv39. One `X` bit plus the `U` bit means `Sv39::leaf_flags`
   reports kernel-exec or user-exec and never both, so given kernel-exec the other cannot fail. It
   stays because the property is what the kernel cares about and the format under it may change
   (Svpbmt, or a future format with separate bits).
@@ -101,14 +101,14 @@ own doc comment rather than left for a reader to discover:
 
 - **`a_low_address_does_not_translate_when_no_process_is_running`** is a *stronger* claim here, and
   the test addresses had to be chosen carefully to keep it one. `Mapper::translate` returns `None`
-  for anything outside its half **before walking a single entry**, so a test address above 2^38
+  for anything outside its half before walking a single entry, so a test address above 2^38
   would pass without reading any page table and prove nothing. All three addresses are inside Sv39's
   low half on purpose.
 
 ### The one property that could not be translated honestly, and was fixed rather than translated
 
 aarch64's `asid_tagging_keeps_address_spaces_apart_without_flushes` proves two things: distinct
-spaces get distinct ASIDs, **and** switching between them flushes nothing, so their TLB entries
+spaces get distinct ASIDs, and switching between them flushes nothing, so their TLB entries
 coexist.
 
 The second half was not true on RISC-V, because `write_satp` followed every `csrw satp` with a bare
@@ -122,7 +122,7 @@ the MODE field above or the root PPN below (they are packed with no slack, so a 
 four lands in one or the other). It is still there, and still earns its keep: it is the only test
 that would catch a wrong shift.
 
-**Milestone 58 closed it, and the shape of the fix is the point.** The follow-up this section used to
+Milestone 58 closed it, and the shape of the fix is the point. The follow-up this section used to
 describe (drop the flush and the aarch64 property becomes true here) was correct about the goal and
 understated the work: the flush was covering for the fact that `flush_asid` was local, because
 `sfence.vma` does not broadcast. So the order was the shootdown first, then the removal, gated on a
@@ -152,7 +152,7 @@ Three tests were considered and one of them genuinely does not exist here.
 
 - **`asid_tagging_keeps_address_spaces_apart_without_flushes` is half-translatable**, covered above.
 
-That is the whole residue: **one test with no analogue, one property that is half-true and says so.**
+That is the whole residue: one test with no analogue, one property that is half-true and says so.
 The gap was never a scoping decision, and it does not need one now.
 
 ## How each test was proved able to fail
@@ -162,7 +162,7 @@ run against a deliberately broken kernel and confirmed red, one at a time (a fai
 the run, so mutations cannot be batched). The mutations are kept in the lane's scratch driver rather
 than in the tree; the table is the record.
 
-**Nineteen were proved by breaking the code they check.** Three could not be, and the reason is the
+Nineteen were proved by breaking the code they check. Three could not be, and the reason is the
 same on both ISAs.
 
 | test | mutation | what it printed |
@@ -187,15 +187,15 @@ same on both ISAs.
 | `breakpoint_is_caught_and_execution_resumes` | the dispatcher handles the breakpoint but does not record it | `the handler didn't run, but we resumed anyway?` |
 | `registers_survive_a_trap` | the dispatcher zeroes `frame.x[18]`, as a wrong trap.s offset would | `the trap frame scrambled a register` |
 
-***One row is struck through: `the_handler_keeps_up_when_no_lock_is_held` was deleted on both ISAs
-by milestone 62 on 2026-08-18.*** The mutation in that row is worth reading against the reason. Two
+*One row is struck through: `the_handler_keeps_up_when_no_lock_is_held` was deleted on both ISAs
+by milestone 62 on 2026-08-18.* The mutation in that row is worth reading against the reason. Two
 intervals of handler spin is almost exactly the boundary the assertion's taxonomy got wrong: under
 one interval of resulting lateness it blamed this kernel, at one interval or more it blamed the
 emulator and passed, and a handler slow by 2.5 periods was therefore exonerated in as many words.
 The mutation still dies, on `script/icount`, where the handler is bounded in instructions the host
 cannot move. See notes/load-sensitive-assertions.md.
 
-**The three that are true by construction on a machine that booted**, and are marked as such:
+The three that are true by construction on a machine that booted, and are marked as such:
 
 | test | why the property cannot be broken | how the assertion was proved live |
 |---|---|---|
@@ -235,11 +235,11 @@ The plan below was written when `kernel::user::tests` was ~30 tests that did not
 has been executed, and it held up, so it is kept as written with the outcome noted at each step.
 The full record of what changed and what is still gated is in notes/riscv-parity-scope.md.
 
-The module comment blamed the tests: every one drove a **hand-written aarch64 program** through
+The module comment blamed the tests: every one drove a hand-written aarch64 program through
 `exec`, and several read aarch64 fault registers (`ESR`, `FAR`) directly. That was two separable
 problems, and only the first was large.
 
-1. **The programs.** The `user_program!` macro assembled aarch64 machine code inline (`hello`,
+1. The programs. The `user_program!` macro assembled aarch64 machine code inline (`hello`,
    `outlaw`, `spin`, `forged_elf`, and friends, from milestone 7a). Each would need a RISC-V
    twin: not a translation of 37 instructions, but 37 *programs*, each hand-assembled.
 
@@ -255,9 +255,9 @@ problems, and only the first was large.
    needed, plus three duplicate copies of a nine-instruction stub the supervision tests already kept
    a portable pair of. The replacements are one new binary (`fixtures/src/outlaw.rs`, two roles) and the
    `interrupt_ignorer` that §24's interrupt work had already built. The trick that made one program serve two ISAs was
-   passing the forbidden **address** in a register instead of baking it into the code.
+   passing the forbidden address in a register instead of baking it into the code.
 
-2. **The fault-register assertions.** Roughly a third of the tests assert on `ESR`/`FAR` (that a
+2. The fault-register assertions. Roughly a third of the tests assert on `ESR`/`FAR` (that a
    fault was a *permission* fault and not a translation fault, that `FAR` named the exact address).
    Those assertions are the *point* of those tests, and they are genuinely arch-specific. The
    portable shape is a small arch-level accessor pair, something like "the last user fault's kind
@@ -272,14 +272,14 @@ problems, and only the first was large.
    an inference rather than a measurement, and the code says so in a `BUGS` note. Two compositor
    assertions that had been gated off RISC-V for want of a last-fault address came along for free.
 
-**The third thing, which the plan did not anticipate.** The module was blocked on a stale comment as
+The third thing, which the plan did not anticipate. The module was blocked on a stale comment as
 much as on machine code. `hello` carries the milestone 7-19 role catalogue and xtask called it
 "aarch64-wired"; three quarters of that sentence had been false for some time, and the last quarter
 was six syscalls hand-rolled in aarch64 `asm!` that `user_mode_runtime` had had portable versions of since
 19f.6. Deleting the duplicates was the whole port for roughly twenty of the tests. Sizing a job from
 what the comments say it needs is how an afternoon's work stays undone for a year.
 
-Sizing it against this project's own units (notes/riscv-parity-scope.md's S/M/L): **M**, one to two
+Sizing it against this project's own units (notes/riscv-parity-scope.md's S/M/L): M, one to two
 sessions, split into commits that are each independently useful. That was right.
 
 Worth saying plainly, and it was true then: the *portable* coverage in that module was already green

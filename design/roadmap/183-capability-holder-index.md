@@ -22,7 +22,7 @@ investigate and decide, the same latitude this project already gives reversible 
 ## In brief
 
 Every operation that deletes capabilities by physical range (`MemoryRegion::DESTROY`'s reclamation
-sweep, §132's capability-scoped `REVOKE`) currently walks **every live thread in the system**,
+sweep, §132's capability-scoped `REVOKE`) currently walks every live thread in the system,
 checking every slot of every thread's capability table against the range in question
 (`kernel/src/sched.rs:2293`, `delete_page_frame_caps_where`). This is correct and was deliberately
 not fixed differently: capabilities in this system travel over IPC delegation, not only parent-child
@@ -43,26 +43,26 @@ run capability). A follow-up fix, `CapabilityTable::delete_matching`
 slot), roughly halved it, to about +13,895 ticks (~4.4% of baseline), and that remainder was
 re-recorded as the honest, accepted baseline (`bench/baseline-riscv64.txt`, `bench/baseline-aarch64.txt`).
 
-**That remainder is inside the tripwire's own ±10% margin, and `spawn_el0` is a synthetic stress
-benchmark**, not a real workload: it calls `DESTROY` in a tight, unbroken 100-iteration loop, which
+That remainder is inside the tripwire's own ±10% margin, and `spawn_el0` is a synthetic stress
+benchmark, not a real workload: it calls `DESTROY` in a tight, unbroken 100-iteration loop, which
 no real process does. The cost that exists today is real and measured, but not currently costing
 anything a real workload would notice. This milestone exists so the option is designed and priced
 before it is needed, not because it is needed now.
 
-**What sharpened the argument, 2026-08-28: the sweep's cost tracks `MAX_THREADS`, a constant this
-tree keeps raising.** The thread-table capacity lane (PR #566, `fix/thread-table-capacity`) raised `MAX_THREADS` from
-128 to 256 on a measured peak of 130, and `spawn_el0` moved **+340,749 ticks on aarch64 (+16.5%)**, well
+What sharpened the argument, 2026-08-28: the sweep's cost tracks `MAX_THREADS`, a constant this
+tree keeps raising. The thread-table capacity lane (PR #566, `fix/thread-table-capacity`) raised `MAX_THREADS` from
+128 to 256 on a measured peak of 130, and `spawn_el0` moved +340,749 ticks on aarch64 (+16.5%), well
 outside the tripwire, with every other row flat. Live threads did not change; only the ceiling did.
 
 Two costs live in `delete_page_frame_caps_where` and it is worth keeping them apart, because only
 the second is this milestone's:
 
-- **Visiting slots nothing occupies.** `generational_table::iter_mut` is
+- Visiting slots nothing occupies. `generational_table::iter_mut` is
   `slots.iter_mut().filter_map(...)`: it yields live entries but walks the whole backing array to
   find them, so doubling the ceiling doubled the walk for 126 slots holding nothing. That is an
   implementation defect independent of this milestone's architecture, and bounding the scan is the
   fix; it is being handled on #566 rather than here.
-- **Checking every live thread's table.** This is the cost this milestone removes, and it is
+- Checking every live thread's table. This is the cost this milestone removes, and it is
   unchanged by the above.
 
 So the regression above is **not** evidence that this milestone became urgent, and it should not be
@@ -78,13 +78,13 @@ DECISIONS §132 (what `PageFrame::REVOKE` owes an overlapping run) already built
 to half of this index: `revoke::LogEntry` (`kernel/src/revoke.rs`) now carries a `PageMapSource`
 (ratified name, `kernel/src/revoke.rs`) on every recorded page mapping, answering "which capability's
 authority backs this mapping" per address space. What it does not answer, and what this milestone is
-actually about, is the capability-table side: given a physical range, which **capability-table
-slots**, across every thread, hold an object naming it, independent of whether that object is
+actually about, is the capability-table side: given a physical range, which capability-table
+slots, across every thread, hold an object naming it, independent of whether that object is
 currently mapped anywhere.
 
 Two shapes worth pricing against each other, neither decided here:
 
-- **Extend the existing mapping-log machinery** so a `PageMapSource`-shaped record can also be
+- Extend the existing mapping-log machinery so a `PageMapSource`-shaped record can also be
   looked up by physical range across threads, not just within one address space's own log. Reuses a
   structure and a set of invariants this tree already built and tested (§132's own regression
   tests), at the cost of that structure's shape being sized for per-space mapping records, not

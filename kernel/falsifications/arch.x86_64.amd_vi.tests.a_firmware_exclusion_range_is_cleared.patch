@@ -1,0 +1,28 @@
+Falsifies `kernel::arch::x86_64::amd_vi::tests::a_firmware_exclusion_range_is_cleared`.
+
+Architecture: x86_64
+Environment: NIFE_IOMMU=amd
+
+The defect: `clear_exclusion_range` reads the two exclusion registers and reports them, and never
+writes either. This is the driver as provisional milestone 767 (AMD-Vi hardening before the first
+AMD boot) found it: `set_up` touched neither register, so a range firmware left with `ExEn` and
+`Allow` stayed in force under the default deny. The struct field that makes `set_up` call the
+function cannot catch this, because the call still happens; only the registers can.
+
+Expected to fail: `assert_eq!(r64(u.base, EXCLUSION_LIMIT), 0, "the limit survived the clear")`.
+Measured on patagonia 2026-10-05 (UTC), QEMU 11.1.1. The base-register assertion after it cannot
+fail under QEMU, which drops writes to MMIO 0020h; the test's own comment says so.
+
+diff --git a/kernel/src/arch/x86_64/amd_vi.rs b/kernel/src/arch/x86_64/amd_vi.rs
+index 3e553b60b..f56767c7c 100644
+--- a/kernel/src/arch/x86_64/amd_vi.rs
++++ b/kernel/src/arch/x86_64/amd_vi.rs
+@@ -479,8 +479,6 @@ fn clear_exclusion_range(unit_base: u64) -> ExclusionFound {
+         base: r64(unit_base, EXCLUSION_BASE),
+         limit: r64(unit_base, EXCLUSION_LIMIT),
+     };
+-    w64(unit_base, EXCLUSION_BASE, 0);
+-    w64(unit_base, EXCLUSION_LIMIT, 0);
+     found
+ }
+ 

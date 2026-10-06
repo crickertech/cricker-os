@@ -31,14 +31,14 @@ single-threaded and hands a disk's endpoint to one program at a time, waiting fo
 before wiring the next. `install_service`'s survey, its installer, `mkfs`, and now its confirming
 write all run in that shape.
 
-The confirming write is the first one that runs **while another program already holds the same
-endpoint**. `user::install_service::confirm` sits between the filesystem server's ready report and
+The confirming write is the first one that runs while another program already holds the same
+endpoint. `user::install_service::confirm` sits between the filesystem server's ready report and
 the progenitor's first instruction, and what makes it safe is that in that window the filesystem
 server is blocked in receive with no client that could wake it. That is a written record at the call
 site rather than a mechanism, which is rung three of `AGENTS.md`'s ladder where rung one is
 available, and it is recorded there as a foot gun.
 
-**The failure it would produce is the worst kind this tree has**: a corrupted partition table on
+The failure it would produce is the worst kind this tree has: a corrupted partition table on
 somebody's installed machine, arriving as a disk that no longer boots, with no crash and no log
 line, days after the change that made it possible.
 
@@ -55,15 +55,15 @@ rather than a recommendation.
 
 ## What is blocked until this is answered
 
-Nothing that is built, and that is the honest answer. What is blocked is **anything that wants to
-touch a disk from a program while a filesystem server holds it**, which is every shape an upgrader
+Nothing that is built, and that is the honest answer. What is blocked is anything that wants to
+touch a disk from a program while a filesystem server holds it, which is every shape an upgrader
 takes: writing the spare slot on a running machine is exactly this problem one step larger, because
 an upgrade is megabytes rather than four blocks and cannot hide inside a window between two boot
 steps.
 
 ## BUGS
 
-- **This proposal has measured neither option**, for the reason above. A lane taking it should price
+- This proposal has measured neither option, for the reason above. A lane taking it should price
   both before bringing the fork, and should expect the bounded endpoint to win on being the answer
   to two problems rather than one.
 

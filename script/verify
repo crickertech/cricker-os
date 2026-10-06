@@ -256,7 +256,13 @@ fi
 # Kani requires --output-format=terse with --jobs, which trades the counterexample trace for the
 # parallelism; a failure still names its harness in the summary. To see the full trace, rerun that
 # one harness serially: `cargo kani -p <crate> --harness <name>`.
-set -- -j "${VERIFY_JOBS:-4}" --output-format=terse
+#
+# **The arguments left over after --only / --shard are kept** (found 2026-10-05): this line used to
+# read `set -- -j ... --output-format=terse` and so overwrote `"$@"`, which silently dropped every
+# pass-through argument. `script/verify-riscv64 --harness <name>`, documented in its own usage text,
+# proved the whole row instead of the one harness. script/lint's "script/verify passes extra
+# arguments through" check runs this file against a stub `cargo` and fails if they stop arriving.
+set -- -j "${VERIFY_JOBS:-4}" --output-format=terse "$@"
 
 # The crates carrying proof harnesses, with what each one COSTS. Grow this list as verification
 # spreads inward from the capability core toward IPC and the MMU invariants.

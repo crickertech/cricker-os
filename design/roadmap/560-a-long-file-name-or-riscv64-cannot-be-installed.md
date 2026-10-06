@@ -33,14 +33,14 @@ name is a file the firmware will not find and nothing will say why. The refusal 
 
 ## What it forecloses today, and what it does not
 
-**It forecloses an installer on riscv64, and nothing else.** The one caller is
+It forecloses an installer on riscv64, and nothing else. The one caller is
 `components/src/installer.rs`, which writes a disk's EFI system partition on the machine being
 installed. Nothing else in this tree writes FAT at all: `crates/stick_maker` runs on a host and
 delegates formatting to that host's own tools (`diskutil`, `mkfs.vfat`), and QEMU's `vvfat`
 synthesises a volume from a directory, so both reach `BOOTRISCV64.EFI` without going near this
 crate.
 
-**So the gap is narrow and it is also on the path.** DECISIONS §157 (a trivial install is a web
+So the gap is narrow and it is also on the path. DECISIONS §157 (a trivial install is a web
 page, a USB drive, and packages) makes the install a PC, and rung 2a is an `x86_64` claim for a
 second reason as well (see the separate proposal on the device-tree architectures' module slot). But
 radon is a riscv64 board this project owns, and the first time somebody wants nife on its disk
@@ -48,13 +48,13 @@ rather than on its card, this is one of the two things in the way.
 
 ## What it costs, and the part that bites
 
-A long-name entry is not one field. The specification puts a run of `LDIR` entries **ahead of** the
-short entry, in reverse order, each carrying thirteen UTF-16 units, each stamped with a **checksum of
-the short name** that the short entry still has to carry. So the work is:
+A long-name entry is not one field. The specification puts a run of `LDIR` entries ahead of the
+short entry, in reverse order, each carrying thirteen UTF-16 units, each stamped with a checksum of
+the short name that the short entry still has to carry. So the work is:
 
 1. Generate a short alias (`BOOTRI~1.EFI`), because the short entry does not go away.
 2. Compute the `ChkSum` over those eleven bytes, which is the one-byte rotate-and-add the
-   specification defines. **This is the part that fails silently**: a driver that does not like the
+   specification defines. This is the part that fails silently: a driver that does not like the
    checksum ignores the long entries and uses the alias, so a wrong checksum produces a volume that
    mounts, lists a file with the wrong name, and boots nothing.
 3. Write `ceil(len / 13)` entries with the ordinal and `LAST_LONG_ENTRY` bit, plus the `0xFFFF`
@@ -62,8 +62,8 @@ the short name** that the short entry still has to carry. So the work is:
 4. Widen the directory cluster's capacity accounting: three directories currently fit in one cluster
    each with room to spare, and a fifteen-character name is two more entries in `EFI\BOOT`.
 
-Roughly a hundred lines and a handful of host tests. **The cheap part is that it is already
-falsifiable by somebody else's driver**: `tests/a_third_party_driver_reads_it.rs` writes an image
+Roughly a hundred lines and a handful of host tests. The cheap part is that it is already
+falsifiable by somebody else's driver: `tests/a_third_party_driver_reads_it.rs` writes an image
 the host mounts, and a wrong checksum shows up as the alias appearing in `ls` instead of the real
 name. That test is the whole reason this is a small piece of work rather than a risky one.
 
@@ -72,7 +72,7 @@ name. That test is the whole reason this is a small piece of work rather than a 
 - **It does not by itself make riscv64 installable.** The second thing in the way is that the loader
   hands its own file over as a PVH module, which the device-tree architectures have no slot for; that
   is its own proposal, and this one is useless without it.
-- **The short alias is a policy nobody has chosen.** `~1` is what every implementation writes and
+- The short alias is a policy nobody has chosen. `~1` is what every implementation writes and
   nothing here has to collide with an existing name, since the volume is created empty, so the
   numbering question that makes aliases hard elsewhere does not arise. If this crate ever grows a
   second file, it does.

@@ -35,22 +35,22 @@ Six instances turned up in one day, 2026-09-23:
 
 - **Milestone 401 (a gate that selects the set it judges can pass by checking nothing)** swept
   `script/` for the class and guarded eight selectors, enumerated in `notes/empty-selectors.md`.
-- **`script/ci-build`'s tier selector** runs zero checks and prints `ci-build: all pass` with exit 0
+- `script/ci-build`'s tier selector runs zero checks and prints `ci-build: all pass` with exit 0
   if the tier column is renamed. Reproduced independently twice, by 401's lane and by pull request
   #1134.
-- **The draft gate.** `ci.yml`'s own comment: a skipped job still posts a conclusion and still
+- The draft gate. `ci.yml`'s own comment: a skipped job still posts a conclusion and still
   satisfies a required check, so skipping is never the safe default.
-- **The weekly falsification sweep**, which replayed zero patches in all three of its scheduled runs
+- The weekly falsification sweep, which replayed zero patches in all three of its scheduled runs
   and reported success each time, because the transcript it was writing dirtied the tree its own
   guard protects and `continue-on-error` discarded the refusal.
 
-- **The labeler for corrections of error**, `coe-architect-label.yml`, merged the same day. It
+- The labeler for corrections of error, `coe-architect-label.yml`, merged the same day. It
   detected a new COE record correctly and then failed to apply the label, because `gh pr edit` was
   called without `--repo` in a job with no checkout; its deliberate never-fail arm reported the
   failure to the log and the job to GitHub as a pass. Fixed on the branch that found it, which was
   the branch writing the correction of error about the other four.
 
-- **And the falsification ratio**, which is not a gate at all but the same defect in a measurement.
+- And the falsification ratio, which is not a gate at all but the same defect in a measurement.
   It counts harnesses, so code with no harness is absent from its denominator and a crate can read
   100% falsified while most of it is unproved. Milestone 524 (the three x86_64 boot gates) added 338
   lines to `crates/machine_discovery/src/x86_64.rs` on 2026-09-21 with no harness of their own and
@@ -58,7 +58,7 @@ Six instances turned up in one day, 2026-09-23:
   had no proofs, and three of its first ones were false) lane on pull request #1155, which
   closed that instance and not the class.
 
-Milestone 401 fixed the `script/` half. **The workflow half is untouched**, and it is the half where
+Milestone 401 fixed the `script/` half. The workflow half is untouched, and it is the half where
 the swallowing is explicit and deliberate rather than accidental.
 
 ## What this would look for, measured rather than asserted
@@ -77,32 +77,32 @@ The other three constructs are the population, and none of them is wrong in itse
 
 ## The distinction to make, per site
 
-**Is this suppressing a verdict or an outcome?** They wear the same clothes and only one is safe.
+Is this suppressing a verdict or an outcome? They wear the same clothes and only one is safe.
 
-- **A verdict.** "The sweep ran, and something in the result wants a human." §134 (a harness carries
+- A verdict. "The sweep ran, and something in the result wants a human." §134 (a harness carries
   a machine-replayable falsification record, or it is not evidence) rules that a survivor is a
   worklist entry and not a defect in the preceding commit, so a survivor must not go red.
   Suppressing that is correct and stays.
-- **An outcome.** "The thing did not run." Suppressing that is never correct, and today every
+- An outcome. "The thing did not run." Suppressing that is never correct, and today every
   `continue-on-error` site suppresses both, because a step's exit status is one channel carrying two
   claims.
 
-The separation does not need new machinery. **A report that states its denominator is enough**: a
+The separation does not need new machinery. A report that states its denominator is enough: a
 sweep that says it replayed N records cannot claim N when it replayed none, and a job that asserts
 its own N is non-zero fails loudly on the one case `continue-on-error` must not hide, while staying
 silent on the verdict it was written to let through.
 
 ## What building it looks like
 
-1. **Walk the 30 sites above** and label each verdict or outcome, in a note the way
+1. Walk the 30 sites above and label each verdict or outcome, in a note the way
    `notes/empty-selectors.md` did for `script/`. The label is the deliverable; most sites will need
    no change.
-2. **Give each reporting job a denominator.** `script/falsifications --sweep`, `script/mutation`,
+2. Give each reporting job a denominator. `script/falsifications --sweep`, `script/mutation`,
    `script/audits --due` and `script/stranger-test --due` all already know how many units they
    examined. Have them print it in a shape a workflow can read back, and have the workflow assert
    it is not zero. This is rung two of `AGENTS.md`'s ladder, a gate that fails loudly, and it does
    not touch the verdict.
-3. **Consider rung one where it is cheap.** A script that exits non-zero when its own unit count is
+3. Consider rung one where it is cheap. A script that exits non-zero when its own unit count is
    zero needs no workflow cooperation at all, and makes the wrong state unrepresentable from the
    workflow's side. Where it is not cheap, say so and take rung two.
 

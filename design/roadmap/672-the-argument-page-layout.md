@@ -38,29 +38,29 @@ configuration is a validated page)'s page, and this one carries argv alone.
 
 ## Why each, answering the seven questions
 
-**What the tree already does.** Slot 7 and the configuration page are the exact precedent: a fixed
+What the tree already does. Slot 7 and the configuration page are the exact precedent: a fixed
 slot, a read-only page at a fixed address, a magic checked first, and a zeroed frame reading as
 nothing (`environment_protocol`). Every choice above copies it except the validation, which §170
 ruled out: a regex is arbitrary bytes.
 
-**Prior art, read.** The measurement in
+Prior art, read. The measurement in
 [notes/foreign-program-arguments.md](../../notes/foreign-program-arguments.md) read four systems
 from source. Fuchsia and seL4 use NUL-terminated strings; Xous, the nearest neighbour (a Rust
 microkernel whose `std` backend is in-tree), passes a tagged parameter block by pointer. None of the
 four puts authority in the bytes, which is what §170 ruled.
 
-**Length-prefixed rather than NUL-terminated**, because a NUL is a legal byte in an `OsStr` here and
+Length-prefixed rather than NUL-terminated, because a NUL is a legal byte in an `OsStr` here and
 the round-trip test puts `0x00` and `0xff` inside one argument. A C program ported later needs a
 NUL-terminated `argv`, and its runtime builds one from this page in a few lines; the reverse
 conversion would lose arguments with a NUL in them.
 
-**A slot rather than the entry registers.** The registers are cheaper (no slot, no page table
+A slot rather than the entry registers. The registers are cheaper (no slot, no page table
 entry) and are the one alternative with a real claim. They lose on two counts. The probe that tells
 `std` "no page" is the same `NO_SUCH_METHOD` probe slot 7 uses, where a register would need a
 sentinel value. And `caps` can print a slot as a row, which is how a reader learns the child holds
 the page at all; a register is invisible there.
 
-**`argv[0]` present**, because `ripgrep` skips the first element and `clap` treats it as the
+`argv[0]` present, because `ripgrep` skips the first element and `clap` treats it as the
 binary's name. Without it the pattern is lost. This is measured, not a preference.
 
 **One page.** 4,080 bytes is sixteen times what this prompt's line editor holds
@@ -78,7 +78,7 @@ one crate, generated into the PAL, and a rebuild; the shell, the progenitor and 
 The irreversible moment is the first program built against a released `std`, which has not
 happened.
 
-**Would we still choose this at equal cost?** Yes. The registers were the cheaper option and lost on
+Would we still choose this at equal cost? Yes. The registers were the cheaper option and lost on
 visibility, not on effort.
 
 ## What is blocked on the answer

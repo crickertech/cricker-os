@@ -1,6 +1,6 @@
 # Credentials
 
-**Scope note, 2026-08-30.** This service held **two** kinds of secret until that day: a password
+Scope note, 2026-08-30. This service held **two** kinds of secret until that day: a password
 verifier and an NTLM key. The NTLM half was removed with the SMB implementation that was its only
 consumer (notes/smb.md), so what ships now is the password verifier alone: `provision::PUT`,
 `provision::SEAL`, `verify::VERIFY`, and a reply that is one word carrying no data. Everything below
@@ -14,12 +14,12 @@ it for every salt it uses.
 The contract is `crates/credential_protocol`, the logic is `crates/credentialer`, the service is
 `components/src/credentialer.rs`, and its clients are `fixtures/src/credentialer_test_client.rs`.
 
-**Milestone 65 generalised this into a secrets service, in place.** The same process now holds two
+Milestone 65 generalised this into a secrets service, in place. The same process now holds two
 kinds of secret and serves an operation for each: a password verifier, described here, and an NTLM
 key, described in [NTLM](ntlm.md). It happened in place rather than in a new program because the
 milestone's own rule is that the credentialer becomes *an operation in* the secrets service, and a
-second process holding secrets is precisely what the design exists to avoid. The program's **name
-lags its job** as a result, and a rename is an architect's call. Where this file says "the
+second process holding secrets is precisely what the design exists to avoid. The program's name
+lags its job as a result, and a rename is an architect's call. Where this file says "the
 credential service", read "the secrets service"; where it describes the phases, the seal and the
 wipe, it is still exactly right.
 
@@ -67,12 +67,12 @@ Two endpoints. Two phases. The second phase never ends and the first one never c
    salt drawn from the entropy service. `SEAL` ends the phase.
 2. **Delete.** The service `cap_delete`s its receive end. The provisioner drops its send end.
    Between them, nothing in the system can name the object any more.
-3. **Serve.** The service blocks on the verify endpoint, forever. Two opcodes since milestone 65,
+3. Serve. The service blocks on the verify endpoint, forever. Two opcodes since milestone 65,
    one per kind of secret. Yes or no, and on an NTLM yes, a session key in the shared page.
 
 ### Why two phases and not two operations
 
-Because **this kernel has one wait point.** There is no wait-any primitive and no threads inside
+Because this kernel has one wait point. There is no wait-any primitive and no threads inside
 one address space, so a process can block on exactly one endpoint. `components/src/clock.rs` records the
 same constraint and answers it differently: the clock's wide authority (set) is a page write rather
 than a message, so the service only ever serves the narrow one.
@@ -99,13 +99,13 @@ answers over many years. A password KDF is squarely the second kind. So this tak
 and the amendment to §46 says depend rather than *vendor*: a vendored copy is invisible to
 `cargo-deny` and `cargo-audit`, and crypto is the code that most needs to be visible to them.
 
-**The crate is RustCrypto's `argon2` 0.5.3**, `default-features = false`, plus `subtle` for
+The crate is RustCrypto's `argon2` 0.5.3, `default-features = false`, plus `subtle` for
 constant-time comparison and `zeroize` so the library scrubs its own memory. The whole graph is
 nine crates, all RustCrypto core, and it passes `deny.toml` unchanged: advisories, licences, bans,
 sources. `argon2` was already in this tree, in the redoxfs_server workspace, underneath RedoxFS's
 encryption path, so the licence question had an answer before the question was asked.
 
-**Argon2id specifically**, not Argon2i or Argon2d: it is RFC 9106 §4's recommendation, it is what
+Argon2id specifically, not Argon2i or Argon2d: it is RFC 9106 §4's recommendation, it is what
 OWASP puts first, and it is the variant that resists both a side-channel adversary (the Argon2i
 half) and a time-memory tradeoff (the Argon2d half). The alternatives were scrypt, which is the
 older answer to the same question with no advantage here, and PBKDF2, which is not memory-hard at
@@ -116,8 +116,8 @@ all and would make a GPU attack cheap.
 A dependency whose answers you never check is a dependency you have merely hoped about. So
 `crates/credentialer`'s tests run:
 
-- **RFC 9106 §5.3**'s Argon2id vector (m=32 KiB, t=3, p=4, with a secret key and associated data);
-- the **reference implementation's** vectors (phc-winner-argon2 `src/test.c`) at its two smallest
+- RFC 9106 §5.3's Argon2id vector (m=32 KiB, t=3, p=4, with a secret key and associated data);
+- the reference implementation's vectors (phc-winner-argon2 `src/test.c`) at its two smallest
   memory settings, through `cred`'s own `kdf` function, so they pin our wiring (algorithm, version,
   tag length, and the no-allocation entry point) and not only the library's arithmetic.
 
@@ -126,12 +126,12 @@ If a version bump changes an answer, these fail before anything else does.
 ### A bug we found in the dependency
 
 The exhaustive record-corruption test (every byte position crossed with four bit patterns) panicked
-inside `argon2`. `Params::new` evaluates `m_cost < p_cost * 8` **before** it range-checks `p_cost`,
+inside `argon2`. `Params::new` evaluates `m_cost < p_cost * 8` before it range-checks `p_cost`,
 so a `p_cost` above `u32::MAX / 8` overflows the multiply.
 
-- In **release** it wraps, the later bound check still fires, and the answer is correct.
-- In **debug**, which is what `cargo xtask test` builds the userspace programs as, overflow checks
-  are on and it **panics**.
+- In release it wraps, the later bound check still fires, and the answer is correct.
+- In debug, which is what `cargo xtask test` builds the userspace programs as, overflow checks
+  are on and it panics.
 
 A credential service that a cost value can kill is a login outage anybody can cause. `Cost::new`
 therefore enforces Argon2's documented ranges itself, in an order that cannot overflow, before the
@@ -141,7 +141,7 @@ than picking a few interesting ones: nobody would have hand-written that case.
 
 ### The cost parameters, and where they fall short
 
-**Wired: m = 4 MiB, t = 3, p = 1.** That is **below** OWASP's recommendation of 19 MiB / t=2, and
+Wired: m = 4 MiB, t = 3, p = 1. That is below OWASP's recommendation of 19 MiB / t=2, and
 the entry says so where the constant is defined rather than leaving it as an absence.
 
 The reason is the machine. The whole system under test is 128 MiB of QEMU RAM, the filesystem
@@ -168,13 +168,13 @@ purpose; an unoptimised build does not make an attacker's job harder, only ours.
 
 ## Three things a naive verifier gets wrong
 
-1. **The tag comparison is constant-time** (`subtle::ConstantTimeEq`). A verifier that returned on
+1. The tag comparison is constant-time (`subtle::ConstantTimeEq`). A verifier that returned on
    the first differing byte lets an attacker recover the tag one byte at a time.
 2. **The identity lookup is constant-time too, and does not stop at the match.** `Store::select`
    scans every slot, conditionally assigns with `ConditionallySelectable`, and has no early exit. A
    scan that short-circuited would leak *which* identities exist, which is the same oracle by a
    slower route.
-3. **A miss costs one full derivation.** An identity nobody provisioned lands on a **decoy** record
+3. A miss costs one full derivation. An identity nobody provisioned lands on a decoy record
    whose salt and tag come from the entropy service at start-up, and the KDF runs against it. Without
    that, "no such user" returns in microseconds and "wrong password" returns in milliseconds, and the
    store's membership is readable with a stopwatch.
@@ -189,15 +189,15 @@ Mostly structurally, and deliberately so. `Store::select` is branch-free, and a 
 behaviour at every slot position and on a miss: the decoy's salt, the decoy's tag, the store's cost,
 `found = 0`. That is a deterministic test of the thing that matters.
 
-There is also **one** timing test, and it is written to be robust rather than precise: 25 runs of
-each kind, compare the **medians**, and fail outside a 0.4x–2.5x band. A machine under load inflates
+There is also one timing test, and it is written to be robust rather than precise: 25 runs of
+each kind, compare the medians, and fail outside a 0.4x–2.5x band. A machine under load inflates
 both medians together, so the ratio is stable even when the numbers are not. The bug it exists to
 catch is not subtle: an early exit on "no such identity" skips the whole KDF, which is a ratio near
 zero. If it ever fails at 0.6, suspect the machine before the code, and re-run it quiet.
 
 ## The reply carries no data
 
-Every reply is **one word, and the second word is always zero**. Not as a convention a future
+Every reply is one word, and the second word is always zero. Not as a convention a future
 opcode might relax: there is nothing about a credential store a caller is entitled to, so the reply
 channel has no room for it. A service that answered a verify with the stored tag would be a
 decryption oracle wearing a verifier's clothes, and the shape of the contract makes that a change
@@ -207,17 +207,17 @@ The reply codes are all small positives (1..=6), which is the trick `entropy_pro
 every failure the kernel can return from a `CALL` is one of its small negatives, which read as
 enormous `u64`s. So `credential_protocol::is_authenticated` can collapse "there is no credential
 service", "the request was malformed", "the service died" and "wrong password" into one `false`, and
-no caller has to remember which of six codes were the good ones. **A caller that mistook a missing
+no caller has to remember which of six codes were the good ones. A caller that mistook a missing
 capability for a successful authentication would be the single worst bug this contract could
-permit**, so it is the one made impossible by arithmetic rather than by care.
+permit, so it is the one made impossible by arithmetic rather than by care.
 
 ## The shared page, and what is left in it
 
 Bulk rides in a page (DECISIONS §10) because an identity and a passphrase do not fit in two
-registers. Two frames, never one: the provisioner writes **plaintext secrets** into its page, and a
+registers. Two frames, never one: the provisioner writes plaintext secrets into its page, and a
 client sharing that frame would read them.
 
-**The service zeroes the request area after reading every request, on every path**, including the
+The service zeroes the request area after reading every request, on every path, including the
 malformed ones. So after an answer, the frame the client and the service share holds neither the
 presented secret nor anything else. The wipe uses `write_volatile` and a compiler fence, because a
 compiler that can prove nobody reads those bytes again is entitled to delete a plain store, and
@@ -287,11 +287,11 @@ is the API expressing what the process boundary enforces.
 
 Host tests (`cargo test -p cred -p cred_proto`, milliseconds, no emulator):
 
-- RFC 9106's and the reference implementation's **known-answer vectors**, through the same entry
+- RFC 9106's and the reference implementation's known-answer vectors, through the same entry
   point the service uses.
 - The right secret matches; the wrong one does not; an unprovisioned identity does not; and one
   person's password does not open another person's account.
-- **Every single-byte corruption of an encoded record** is rejected or decodes to a different
+- Every single-byte corruption of an encoded record is rejected or decodes to a different
   record. Exhaustive over positions and four bit patterns.
 - A **hostile cost** is refused before it reaches the library (the overflow above).
 - The lookup lands on the decoy for a miss and on the record for a hit, at every slot position.
@@ -301,28 +301,28 @@ Proofs (`script/verify`, three Kani harnesses over `credential_protocol`, 30 che
 are about what an adversary can send or receive, and an adversary is not limited to the values a
 test author thought of:
 
-- **No request word makes the server's parse read outside the page.** For every one of the 2^64
+- No request word makes the server's parse read outside the page. For every one of the 2^64
   first words a client can send, `read` either refuses it or returns two slices inside the page with
   exactly the lengths the word claimed. This is what lets the serve loop have no arithmetic in it
   that could go wrong.
-- **Nothing but `MATCH` authenticates**, for every one of the 2^64 words a caller can receive. The
+- Nothing but `MATCH` authenticates, for every one of the 2^64 words a caller can receive. The
   host test sweeps a few dozen values around the boundary; this sweeps all of them.
 - A request word round-trips its opcode and both lengths, over every combination `place` can build.
 
-Guest tests (`kernel::user::credential_tests`, on aarch64 **and** riscv64, same assertions):
+Guest tests (`kernel::user::credential_tests`, on aarch64 and riscv64, same assertions):
 
-- **Provisioning fills the store and the seal closes it.** Three identities in, the fourth refused
+- Provisioning fills the store and the seal closes it. Three identities in, the fourth refused
   with `FULL` rather than silently replacing somebody, the seal accepted, and the service's
   readiness message arriving *after* the seal, which is the evidence that the provisioning loop was
   left rather than merely that a `SEAL` was answered.
-- **A userspace client with one endpoint and no store** gets the right answer to four questions,
+- A userspace client with one endpoint and no store gets the right answer to four questions,
   over a real Argon2id verification with a salt drawn from a real virtio-rng.
-- **The identical endowment cannot write the store.** The attacker holds exactly what the honest
+- The identical endowment cannot write the store. The attacker holds exactly what the honest
   client holds and tries `PUT`, `SEAL`, an undefined opcode, and lengths outside the contract. All
   four are `MALFORMED`, and the credential it tried to install does not work.
-- **The service survives all of it** and answers correctly afterwards, because a credential service
+- The service survives all of it and answers correctly afterwards, because a credential service
   a malformed request can kill is a login outage anybody can cause.
-- **The kernel reads the shared frame through the direct map**, which no userspace program can do,
+- The kernel reads the shared frame through the direct map, which no userspace program can do,
   and finds neither the presented secret nor any nonzero byte.
 
 ## BUGS
@@ -337,50 +337,50 @@ in the same place.
   worth having (see "why two phases and not two operations" above). Rotating one secret means
   restarting the service and reprovisioning, which restarts every other secret with it. A
   deployment needing finer granularity runs more than one service.
-- **Nothing survives a reboot.** The store is memory only, provisioned at boot. Secrets at rest is
+- Nothing survives a reboot. The store is memory only, provisioned at boot. Secrets at rest is
   the open question and it is the same chicken-and-egg as milestone 51's NTS problem: encrypted
   under what key, held where? `credentialer::Record` has a versioned encoding with a round-trip test
   precisely so that question has a starting point, but nothing in the tree writes one to a disk and
   this note does not imply a durability we do not have.
-- ~~**This cannot serve NTLMv2.**~~ **Closed by milestone 65**, and the gap turned out to be
+- ~~This cannot serve NTLMv2.~~ Closed by milestone 65, and the gap turned out to be
   shaped differently than this entry predicted. The prediction was a second operation of the form
   "here is a challenge, give me the response"; what shipped folds the comparison in, because the
   thing needing it is an SMB *server* and a server that gets the expected proof can compare it
   itself. A record now carries an `NTOWFv2` beside its Argon2id tag, `put_ntlm` derives both from
   one password, and MD4 and MD5 are in the tree on purpose. See [NTLM](ntlm.md) for what crosses
   the boundary, what never does, and the cost of storing a password-equivalent key at all.
-- **The store holds six secrets**, three logins and three shares, and that is a compiled-in
+- The store holds six secrets, three logins and three shares, and that is a compiled-in
   constant rather than a policy anything reads. It is sized to the requirement
   (design/roadmap/56-secrets-and-entropy.md's three family members, each of whom also has a Time
   Machine share), which is what makes "the seventh is refused" a thing the tests show rather than a
   branch nothing reaches. A real deployment with a fourth person edits a constant and rebuilds.
-- **One verify page means one client at a time.** The page is per service, not per channel, so two
+- One verify page means one client at a time. The page is per service, not per channel, so two
   clients sharing the endpoint would share the frame each writes its presented secret into. Nothing
   detects that. `filesystem_protocol`'s answer (one page per channel) is the shape to copy when a second client
   exists; today the intended client is the single SMB adapter.
-- **No rate limit, no lockout, no attempt counter.** A client holding the verify endpoint can guess
+- No rate limit, no lockout, no attempt counter. A client holding the verify endpoint can guess
   as fast as it can `CALL`. Each guess costs the service one Argon2id derivation, which is the only
   thing slowing an online attack down and is also a way to make the service unresponsive to
   everyone else. A store with three identities and human-chosen passwords is not safe against an
   unlimited online guesser at any KDF cost.
-- **The cost parameters are below OWASP's**, for the reason given above. On real hardware they
+- The cost parameters are below OWASP's, for the reason given above. On real hardware they
   should be raised, and nothing currently checks that they were.
-- **No rehash on verify.** When the cost parameters move, existing records keep their old ones. The
+- No rehash on verify. When the cost parameters move, existing records keep their old ones. The
   encoding carries per-record parameters so this is implementable; it is not implemented. A
   consequence: if two identities were ever provisioned at *different* costs, the verify time would
   distinguish them. Nothing today can produce that, because a store has one cost and `put` uses it.
-- **The identity is an opaque byte string and nothing more.** No uid, no group, no home directory,
+- The identity is an opaque byte string and nothing more. No uid, no group, no home directory,
   no session, no login. milestone 49 (users, login, and attribution) is a different milestone and
   this one deliberately does not start it. What is built here is the credential *primitive*; who
   gets to ask, and what an answer of "yes" then permits, is §49's question. The roadmap's answer,
   which this does not contradict: the adapter authenticates the client because the protocol demands
   it, then uses the directory capability it already holds. **Identity never becomes ambient
   authority.**
-- **The provisioner's plaintext exists somewhere.** Provisioning takes a secret in the clear, so
+- The provisioner's plaintext exists somewhere. Provisioning takes a secret in the clear, so
   whatever hands the provisioner its passwords is holding them in memory. Today that is a test
   program with the strings compiled in, which is fine for a test and is not a deployment. Where a
   real deployment's passwords come from is unanswered and is part of the secrets-at-rest question.
-- **The decoy is one record.** Every miss derives against the same salt, so an attacker who can
+- The decoy is one record. Every miss derives against the same salt, so an attacker who can
   time verifies precisely enough to distinguish *two* misses from a miss and a hit learns nothing,
   but an attacker who can observe the service's memory access pattern is outside this threat model
   entirely, and so is one who shares a core with it. There is no defence here against a local

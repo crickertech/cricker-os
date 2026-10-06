@@ -1,7 +1,7 @@
 # Reading the backup from a MacBook or a Linux host (milestone 57)
 
-The question that makes a backup credible rather than merely functional: **the board is dead, can I
-get my data?** calef asked it about the RedoxFS volume the backup server writes, and the honest
+The question that makes a backup credible rather than merely functional: the board is dead, can I
+get my data? calef asked it about the RedoxFS volume the backup server writes, and the honest
 first answer was "we would have to write something". This note is what got written, what upstream
 already had, and the operational rule that has to hold for any of it to matter in a year.
 
@@ -43,7 +43,7 @@ copies a host directory into an image using upstream's own `redoxfs::archive`.
 A **`VOLUME`** is an image file, or a device plus a partition selector (milestone 110, below).
 
 `PATH` is always relative to the filesystem root, and `..` is refused, which is the same rule the FS
-server enforces on the wire (notes/fs-server.md). `DEST` **becomes** the thing extracted: a
+server enforces on the wire (notes/fs-server.md). `DEST` becomes the thing extracted: a
 directory in the image lands as a directory at `DEST`, a file lands as the file `DEST`. That is
 `cp -R SRC DEST` with a `DEST` that does not exist yet, and it avoids the "into or as?" ambiguity
 that makes people run a recovery twice.
@@ -59,11 +59,11 @@ This is not a detail. The image you are extracting from may be the last copy of 
 be on a failing disk or read-only media. So `ls`, `cat` and `extract` open the file without write
 permission and pass `cleanup: false`, and there are two traps in doing that with this engine:
 
-- **`FileSystem::open(.., cleanup: true)`**, which is what the mount path uses, tidies allocations
+- `FileSystem::open(.., cleanup: true)`, which is what the mount path uses, tidies allocations
   and therefore writes. It is not needed to read correctly: `open` picks the newest *valid* header
   out of the ring either way, which is the crash-consistency property itself (notes/fs-server.md).
   Upstream's own `redoxfs-clone` reads its source disk exactly this way.
-- **`Transaction::read_node` updates atime**, but only when the last read was more than an hour
+- `Transaction::read_node` updates atime, but only when the last read was more than an hour
   ago. That is the worst possible shape for a bug: every test on a freshly made image passes, and
   the first read of a real backup dirties a node and the header ring. `read_node_inner` is the same
   read without the timestamp, so the recovery paths use it. The round-trip test hashes the whole
@@ -71,8 +71,8 @@ permission and pass `cleanup: false`, and there are two traps in doing that with
 
 ## The operational rule: keep the reader, or its exact pin, with the backup
 
-**We are pinned at RedoxFS 0.9.1, on-disk format version 8, and a reader must match the format
-version it reads.** `Header::valid` checks the version before it checks anything else, so an image
+We are pinned at RedoxFS 0.9.1, on-disk format version 8, and a reader must match the format
+version it reads. `Header::valid` checks the version before it checks anything else, so an image
 written by a different RedoxFS presents as *no valid header anywhere in the ring*, and the engine
 reports that as ENOENT. Being told "no such file or directory" about a disk you are holding is the
 wrong thing to be told while recovering a backup, so the tool reads the signature and version
@@ -108,7 +108,7 @@ Machine layer instead, where the Mac encrypts before anything is sent, so the se
 plaintext and recovery uses the client's key rather than the server's.
 
 For this tool the consequence is a real simplification: every `FileSystem::open` passes `None` for
-the password, and **there is no key handling anywhere in the recovery path**. Nothing to lose,
+the password, and there is no key handling anywhere in the recovery path. Nothing to lose,
 nothing to store, nothing to get wrong at 2am.
 
 The caveat belongs here too. If Time Machine encryption *is* switched on, recovery then depends on
@@ -127,12 +127,12 @@ below writes with upstream's archiver rather than with our own `put`.
 
 `tools/redoxfs_host/tests/recovery.rs`, and the shape of the test is the argument:
 
-- **Every step is a separate invocation of the built binary.** Nothing is shared between the write
+- Every step is a separate invocation of the built binary. Nothing is shared between the write
   and the read but the bytes in the image file: no cached `FileSystem`, no warm allocator, no
   in-process state that could make a reader agree with a writer for the wrong reason. A test that
   writes and reads in one process proves the two halves of one program agree; this proves the
   format is on the disk.
-- **The write side is upstream's archiver**, through `import`. If our reader only ever read images
+- The write side is upstream's archiver, through `import`. If our reader only ever read images
   our writer made, a shared misunderstanding of the format would pass.
 - **The tree is not flat and not small**: a 300 KiB file spanning several 128 KiB records, a
   three-deep directory chain, an empty file, an empty directory, a symlink, and an executable whose
@@ -145,21 +145,21 @@ below writes with upstream's archiver rather than with our own `put`.
 
 ## Extended attributes come back on the files (milestone 57)
 
-An image written by nife carries a directory in its root called **`.nife-attrs`**, holding
+An image written by nife carries a directory in its root called `.nife-attrs`, holding
 one small file per node that has extended attributes, named for that node's `TreePtr` id in hex.
 `redoxfs_host ls` shows it, `extract` copies it out, and upstream's FUSE mount would too.
 
 That the store is *visible* here is deliberate rather than a leak, and both halves are worth saying:
 
-- **It is unreachable through the contract.** No client of the FS server can open, create, list, or
+- It is unreachable through the contract. No client of the FS server can open, create, list, or
   descend into it, in any directory. The confinement is the *contract's*, and a recovery host is not
   a client of the contract; it holds the image file.
-- **And a backup that carries the store carries the metadata.** The format is written down in
+- And a backup that carries the store carries the metadata. The format is written down in
   `filesystem_protocol::xattr::store` precisely so a person holding a damaged image can read it: a record is a
   name length, a `u32` type code, a `u16` value length, then the name and the value, little-endian.
 
-But a blob called `0000002a` is not a recovery. **The tool now puts the attributes back on the
-extracted files**, which is the half that decides whether the backup did its job: Time Machine's
+But a blob called `0000002a` is not a recovery. The tool now puts the attributes back on the
+extracted files, which is the half that decides whether the backup did its job: Time Machine's
 sparsebundle carries Apple's metadata in exactly these attributes, so the part of the backup a Mac
 needs in order to make sense of the rest was the part that used to come out unreadable.
 
@@ -169,17 +169,17 @@ well as files. `ls` marks an entry that carries attributes with `@`, which is th
 
 ### Three things it is honest about, because §42 is the rule here too
 
-**The type code cannot come along.** No host filesystem has a per-attribute type word, so the `u32`
+The type code cannot come along. No host filesystem has a per-attribute type word, so the `u32`
 kind is dropped, each non-`RAW` one is named on stderr, and the count is in the summary. It is not
 lost: the raw store is still extracted beside the tree, and that is where the codes live. That is
 what makes "dropped" honest rather than lossy.
 
-**Nothing about attributes can fail an extraction.** A damaged blob, a name Linux refuses for want
+Nothing about attributes can fail an extraction. A damaged blob, a name Linux refuses for want
 of a `user.` prefix, an attribute on a symlink (which Linux refuses outright), a destination
 filesystem that holds none at all: each is reported, counted, and walked past. A recovery that
 abandoned a hundred thousand files over one bad blob would be worse than the gap it fixes.
 
-**The counts are printed even when they are zero**, and that is the important one. "0 attributes
+The counts are printed even when they are zero, and that is the important one. "0 attributes
 reattached" on a backup you know carried some is the line that tells you the destination filesystem
 cannot hold them. A summary that mentioned attributes only when the number was non-zero would read
 identically to a backup that never had any, which is the failure this whole feature exists to
@@ -223,11 +223,11 @@ is the Mac's own addition to a freshly written file, not something out of the im
 
 `tools/redoxfs_host/tests/attributes.rs`, and the shape of it is again the argument.
 
-- **The fixture is written by `redoxfs_server::Server`**, the sans-IO core that runs on the board, driven
+- The fixture is written by `redoxfs_server::Server`, the sans-IO core that runs on the board, driven
   over a `DiskFile`. Not by a second writer in this crate: a reader and a writer in one crate can
   share a misunderstanding of the format and agree perfectly. This is the same reason `recovery.rs`
   fills its image through upstream's archiver rather than through our own `put`.
-- The tree is not flat: a 1 KiB attribute, a typed one, one on a **directory**, and one on a file a
+- The tree is not flat: a 1 KiB attribute, a typed one, one on a directory, and one on a file a
   level down.
 - The round trip is closed on the host file, and then confirmed by `/usr/bin/xattr` where it exists.
 - **A host that cannot hold attributes is a case, not a skip.** If the destination refuses them the
@@ -236,23 +236,23 @@ is the Mac's own addition to a freshly written file, not something out of the im
 
 ### BUGS
 
-- **A Linux host refuses a name with no `user.` prefix.** The store holds bytes and requires no
+- A Linux host refuses a name with no `user.` prefix. The store holds bytes and requires no
   namespace (`filesystem_protocol::xattr::is_valid_name` refuses only NUL and over-length), because
   there is no privilege here for a namespace to mean. Linux does have one, and `lsetxattr` answers
   `EPERM` for a name outside it. The tool reports the errno rather than rewriting the name: silently
   turning `foo` into `user.foo` would hand back a file whose metadata does not say what the backup
   said. In practice Samba writes `user.`-prefixed names, so this bites a name nife invented, not a
   name that came from a client.
-- **Linux refuses attributes on a symlink at all**, for any `user.*` name. macOS takes them
+- Linux refuses attributes on a symlink at all, for any `user.*` name. macOS takes them
   (`XATTR_NOFOLLOW`). So the same image extracted on the two hosts can differ in exactly that one
   place, and only the Linux run says so.
 - **A value larger than the destination filesystem's ceiling is refused by the host**, counted, and
   named. `MAX_VALUE` here is 3 KiB, well under any host's limit, so this is a guard rather than a
   case anyone has hit.
-- **The tool has no attribute call for a platform that is neither macOS nor Linux.** It refuses with
+- The tool has no attribute call for a platform that is neither macOS nor Linux. It refuses with
   a message saying the attributes are still in the extracted `.nife-attrs`, rather than compiling
   to a silent success. FreeBSD spells this `extattr_set_link` and is not wired up.
-- **`extract` still copies `.nife-attrs` out**, even now that the attributes are also on the
+- `extract` still copies `.nife-attrs` out, even now that the attributes are also on the
   files. That is deliberate (it is the only home the type codes have, and the last-resort record if
   a host refused everything) and it does mean a recovered tree carries one directory a user did not
   put there. An image with no attributes left on it no longer has the directory at all, since
@@ -261,15 +261,15 @@ is the Mac's own addition to a freshly written file, not something out of the im
 ## A device and a partition, not only an image file (milestone 110)
 
 A real disk has a partition table where an image has a filesystem, so the tool now takes a device
-plus a **partition selector** and does the offset itself. `crates/globally_unique_identifier_partition_table` reads the table, the
+plus a partition selector and does the offset itself. `crates/globally_unique_identifier_partition_table` reads the table, the
 partition's first LBA becomes block zero of a `PartitionDisk`, and nothing above the disk layer
 knows a partition was involved. That is the same shape the board's own `mkfs` uses
 (`redoxfs_server/src/bin/mkfs.rs`), which is why the host reads the partition by the same rules the board
 wrote it by rather than by a second implementation that could disagree.
 
-**The gap had a witness, and closing it was the acceptance test.** Milestone 57's post-run check
+The gap had a witness, and closing it was the acceptance test. Milestone 57's post-run check
 (`blank_check_after_run` in xtask) needed to read a filesystem the guest created inside a partition,
-so it parsed the table and **sliced the partition out into its own file** before handing that file
+so it parsed the table and sliced the partition out into its own file before handing that file
 to the tool. Twenty lines, on the host, in a build script: the join, written in the wrong place.
 Those lines are gone and the check passes unchanged, which is a stronger claim than a new test would
 have been: it shows the capability *moved* rather than being written twice.
@@ -295,18 +295,18 @@ printed the three.
 ### The correction: the old tool did not fail on a partitioned disk, which is worse
 
 The milestone's premise was that the tool "reads an image file, not a raw device", and the machine
-overruled it during the work. **`FileSystem::open` scans blocks 0..65536 for a valid header**
+overruled it during the work. `FileSystem::open` scans blocks 0..65536 for a valid header
 (`vendor/redoxfs/src/filesystem.rs`), so handing it a partitioned device does not fail. It finds
 whichever filesystem lies in the first 256 MiB and opens that, and the test written to assert a
 clean refusal failed by *succeeding*.
 
 That is not the join, and it is worse than not working, for three reasons:
 
-- **It reads a partition nobody named.** On a disk with two RedoxFS volumes it takes the lower one,
+- It reads a partition nobody named. On a disk with two RedoxFS volumes it takes the lower one,
   and a recovery that read the wrong partition looks exactly like a recovery that worked.
-- **It stops at 256 MiB.** A data partition further out is invisible, and a boot partition and a
+- It stops at 256 MiB. A data partition further out is invisible, and a boot partition and a
   root partition ahead of the data is the ordinary layout rather than a contrived one.
-- **It sizes the engine from the whole device**, so the allocator believes it owns bytes that belong
+- It sizes the engine from the whole device, so the allocator believes it owns bytes that belong
   to other partitions. Harmless while every path is read-only, and a corruption waiting for the day
   one is not.
 
@@ -317,7 +317,7 @@ actually happened and names the flag that removes the guess.
 ### EXAMPLES
 
 A real transcript, against `target/nifefs-blank.img` after a test run. Nothing on that disk was
-written by the host: **the guest partitioned it and made the filesystem**, and this is a Mac reading
+written by the host: the guest partitioned it and made the filesystem, and this is a Mac reading
 it back with no `dd` in front of it.
 
 ```console
@@ -349,7 +349,7 @@ CRK57: this filesystem was created by nife on the target
 ### How it is proven
 
 `tools/redoxfs_host/tests/partition.rs`, and the fixture is the argument again. The device is a file
-with a real table at the front and a **filesystem built as an ordinary image and then placed** in
+with a real table at the front and a filesystem built as an ordinary image and then placed in
 the third partition, so the bytes in the partition were produced by a writer that knew nothing about
 partitions: an offset wrong by one block in either direction opens nothing. Three partitions, so a
 selector has to *pick* rather than find the only filesystem there is, and one of them starts on an
@@ -367,13 +367,13 @@ wrong. `blank_check_after_run` closes that, because the table it reads was writt
 
 - **It has never been run against a real raw device.** Everything here is proven against files, and
   a device brings its own rules: macOS wants `/dev/rdiskN` for unbuffered access and may want root,
-  and a raw device reports a **length of zero** through `metadata`, which is why the
+  and a raw device reports a length of zero through `metadata`, which is why the
   "partition runs past the end of the file" check applies only to regular files. The arithmetic is
   the same either way; the plumbing around it is not proven.
-- **A partition whose first byte is not on a 4096-byte boundary is refused**, not rounded in, which
+- A partition whose first byte is not on a 4096-byte boundary is refused, not rounded in, which
   is the same rule the board's `mkfs` applies when creating one. A filesystem placed there reads
   back correctly only through a disk offset by the same fraction.
-- **The logical block size is guessed**, 512 first and then 4096, because nothing in a GPT records
+- The logical block size is guessed, 512 first and then 4096, because nothing in a GPT records
   it and nothing on the blk wire reports it (`disk_surveyor`'s BUGS). A wrong guess fails on the
   signature rather than reading a plausible wrong table, but a disk with some other block size is
   not read at all.
@@ -392,9 +392,9 @@ wrong. `blank_check_after_run` closes that, because the table it reads was writt
 
 - **It does not write to an image it is recovering**, by design. `put` and `import` exist for
   building fixtures and open read-write; the recovery verbs never do.
-- **No repair.** If no header in the ring is valid, the tool says so and stops. A format-aware
+- No repair. If no header in the ring is valid, the tool says so and stops. A format-aware
   salvage tool (walk the tree from an older generation, recover what parses) is a real thing to
   want and is not this.
-- **The Linux FUSE mount stays available** as a feature flag if it is ever wanted for convenience.
+- The Linux FUSE mount stays available as a feature flag if it is ever wanted for convenience.
   It is not the recovery story, and turning it on would put `fuser` into the one tool that
   currently has no platform dependency at all.

@@ -32,8 +32,8 @@ same shape `bench()` and `bench_riscv` have always used, and the baseline did no
 
 ## Why a two-core baseline cannot simply be saved
 
-At two cores the counts stay **deterministic** (three runs of one binary, byte-identical on every
-row) and stop being a **function of the code**:
+At two cores the counts stay deterministic (three runs of one binary, byte-identical on every
+row) and stop being a function of the code:
 
 - Moving one `#[cfg]`-gated call of roughly fifteen instructions inside a lock, alone, on `main`,
   moved `tss_iomap_lazy_switch` +89% and `yield_switch` +15%.
@@ -52,21 +52,21 @@ what a spawn costs.
 
 1. **Benchmarks whose wait loops are not races.** `spawn_reap` is the worked example; every bench
    that spins on another thread's progress has the same defect at more than one core.
-2. **A separate baseline file per core count**, not a second set of rows in
+2. A separate baseline file per core count, not a second set of rows in
    `bench/baseline-x86_64.txt`, since `--check` has no way to say which configuration a row is for.
-3. **A tolerance chosen from measured spread**, not inherited from the single-core 10%.
+3. A tolerance chosen from measured spread, not inherited from the single-core 10%.
 4. Until then, the two-core numbers are available by hand (`NIFE_SMP=2 script/bench --x86`) and are
    not gated. That is a loss of nothing: x86_64 was single-core in this bench from the day the arm
    was written.
 
 ## What else was considered
 
-- **Re-save the baseline at two cores.** Refused: it would bless numbers that a semantically empty
+- Re-save the baseline at two cores. Refused: it would bless numbers that a semantically empty
   change moves by 42%, and the next lane to touch the scheduler would inherit a red tripwire with
   no defect behind it.
-- **Widen the tolerance to cover the spread.** Refused: the measured spread is ±89% on one row, and
+- Widen the tolerance to cover the spread. Refused: the measured spread is ±89% on one row, and
   a tripwire that loose detects nothing.
-- **Leave `bench_x86` inheriting the runner default and accept the flip.** Refused: it is the only
+- Leave `bench_x86` inheriting the runner default and accept the flip. Refused: it is the only
   arm of three that did so, its own output already claimed otherwise, and the inheritance is how a
   runner change with nothing to do with benchmarking became a benchmark failure.
 

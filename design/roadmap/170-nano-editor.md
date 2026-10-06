@@ -26,14 +26,14 @@ Checked against nano's own source shape (`src/files.c`, `src/text.c`, `src/promp
 - **The same raw-terminal input and ANSI-passthrough output milestone 169 builds**, at a larger
   feature surface (status line, help bar, search-and-replace prompts, multiple buffers) but no new
   class of primitive.
-- **More file-persistence surface**: swap files for crash recovery, an optional backup-on-save copy,
+- More file-persistence surface: swap files for crash recovery, an optional backup-on-save copy,
   and (in some configurations) lock files. Each is ordinary file I/O against whatever capability the
   program holds for its target directory, not a new mechanism, just more of milestone 169's file work.
-- **An optional, skippable subprocess dependency**: the external spell-checker and `execute command`
+- An optional, skippable subprocess dependency: the external spell-checker and `execute command`
   (`^T`) shell out to another program. Core editing does not need this; a first cut can refuse or omit
   the feature and note the gap, the same way milestone 164 named the `aes`/SSE gap rather than
   silently working around it.
-- **UTF-8 and multibyte handling.** Believed containable as byte/codepoint arithmetic without a full
+- UTF-8 and multibyte handling. Believed containable as byte/codepoint arithmetic without a full
   system locale subsystem, but not verified in depth; whoever builds this should check nano's actual
   locale calls before assuming.
 

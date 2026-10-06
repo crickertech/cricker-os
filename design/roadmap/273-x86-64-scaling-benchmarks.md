@@ -19,7 +19,7 @@ is either extending the `cfg` to x86_64 or recording a reason the extension does
 ## What is excluded, and why this is different from the other three items
 
 `ipc_thread_scaling` (milestone 134's E1, IPC latency versus thread count) and `app_displacement`
-(E4, working-set eviction under concurrent IPC load) do not run on x86_64 **at compile time**, not
+(E4, working-set eviction under concurrent IPC load) do not run on x86_64 at compile time, not
 as a runtime skip. Milestone 134 built both on 2026-08-22, when x86_64 was earlier in its port; no
 comment near either `#[cfg]` states a reason, which was checked directly (2026-09-10) rather than
 assumed.
@@ -31,17 +31,17 @@ core-pinning story differs that could be it) that simply was never written down.
 
 ## What this needs
 
-1. **Find out why**, before building anything: read `real_single_hart_or_skip` and whatever else
+1. Find out why, before building anything: read `real_single_hart_or_skip` and whatever else
    both functions depend on, and check whether it already supports x86_64 or would need porting.
-2. If nothing blocks it, **extend the `cfg` to include x86_64** and take the measurement, the same
+2. If nothing blocks it, extend the `cfg` to include x86_64 and take the measurement, the same
    register-of-measures shape milestone 134 already uses for the other two architectures.
-3. If something does block it, **record the reason in `kernel/src/bench.rs` next to the `cfg`**,
+3. If something does block it, record the reason in `kernel/src/bench.rs` next to the `cfg`,
    the same way every other architecture gap in this tree is supposed to read at the thing itself
    rather than only in a roadmap block.
 
 ## BUGS
 
-- **This block does not know its own size yet.** It may be a one-line `cfg` change or a real port;
+- This block does not know its own size yet. It may be a one-line `cfg` change or a real port;
   step 1 is what decides which, and it has not been done.
 
 ## Follow-on

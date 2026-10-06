@@ -19,20 +19,20 @@ what the lookup is, and when the subtree comes to exist.
 
 ## The decision
 
-**The identity string is the subtree name, used directly, with no separate lookup table.** The
-subtree is **created at provisioning time** (when an identity and secret are first `PUT` into the
+The identity string is the subtree name, used directly, with no separate lookup table. The
+subtree is created at provisioning time (when an identity and secret are first `PUT` into the
 credential store), not auto-vivified the first time someone logs in.
 
 ## Why, checked rather than assumed
 
-**Identity is already the right shape for this.** `cred_proto`/`login_proto` already represent
+Identity is already the right shape for this. `cred_proto`/`login_proto` already represent
 identity as a plain byte string, up to `MAX_IDENTITY = 64` bytes (`"chris"`, `"corinne"` in the
 existing tests), not an opaque numeric id needing a separate mapping. `fs_subtree_caretaker`
 already takes an arbitrary name at construction; today it is hardcoded to a constant, and using
 the identity instead is passing a different byte string through the same parameter, not new
 mechanism.
 
-**It is safe to use directly, checked against the fs model rather than assumed.** `fs_proto`'s
+It is safe to use directly, checked against the fs model rather than assumed. `fs_proto`'s
 `valid_name` and the directory-entry model treat a name as one opaque key (up to `MAX_NAME = 255`
 bytes) with no separator parsing at all -- a `/` or `..` inside an identity string is just a byte
 in one entry name here, not a path-traversal vector, because this filesystem does not interpret
@@ -53,8 +53,8 @@ resources actually come into being.
 
 ## What this decision surfaced, not itself
 
-**Provision-time creation requires a provisioning tool that does two things (credential `PUT` and
-subtree creation), and none exists.** Checked: nothing outside test harness code
+Provision-time creation requires a provisioning tool that does two things (credential `PUT` and
+subtree creation), and none exists. Checked: nothing outside test harness code
 (`credentialer_test_client.rs`, `kernel/src/user/credential_tests.rs`) calls the credential
 service's `PROVISION` endpoint today. This decision assumes that tool into existence rather than
 leaving the assumption implicit; milestone 155, a provisioning tool that creates an identity and

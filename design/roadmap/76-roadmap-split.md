@@ -19,10 +19,10 @@ re-runs them:
 - *"It would break thousands of validated citations."* **False.** `script/roadmap --check` reads one
   file and its prose check is scoped to that same file, so of 2,179 `milestone N` citations in the
   tree, the ~1,988 in code comments are validated by nothing today.
-- *"The gates would need network calls."* **Mostly false.** `DECISIONS.md` was never part of the
+- *"The gates would need network calls."* Mostly false. `DECISIONS.md` was never part of the
   proposal, so `script/decisions --check` is untouched. Only `script/roadmap --check` would need the
   API, and the prose checks would simply stop covering roadmap text rather than start calling out.
-- *"Consumption."* **This one holds, and it decides it.** The roadmap is read constantly, locally, by
+- *"Consumption."* This one holds, and it decides it. The roadmap is read constantly, locally, by
   grep and awk, and by every lane, offline, at the commit it is working from. Answering "what is
   needed before the board" was one `awk` across 64 detail blocks. Against an API that is a fetch of
   the whole corpus, which to work with efficiently would be written to disk and grepped: the file,
@@ -30,8 +30,8 @@ re-runs them:
 
 ## Why one file is nonetheless the wrong shape
 
-Four structural defects landed in the documentation on 2026-08-03 alone, and **every gate reported
-clean through all four**:
+Four structural defects landed in the documentation on 2026-08-03 alone, and every gate reported
+clean through all four:
 
 1. §61 was appended below `DECISIONS.md`'s `## Reading` closer.
 2. Milestone 69's table row said `NOT-STARTED` while its own detail block said `BUILT`.
@@ -48,7 +48,7 @@ A split does not detect those. It makes three of the four impossible: there are 
 block under, the filename is the identity, and `cat >>` into `design/roadmap/74-cycle-counters.md`
 can only add text to milestone 74.
 
-It also removes a conflict that already happened: **PR #19 and PR #20 collided on `design/roadmap.md`**
+It also removes a conflict that already happened: PR #19 and PR #20 collided on `design/roadmap.md`
 solely because each marked its own milestone `BUILT`.
 
 ## The shape (calef, 2026-08-03)
@@ -66,14 +66,14 @@ solely because each marked its own milestone `BUILT`.
 
 ## What the gate must grow
 
-`script/roadmap --check` reads a directory instead of a file, and gains **the check whose absence let
-defect 2 through**: a milestone's status in the index and in its own file must agree. It should also
+`script/roadmap --check` reads a directory instead of a file, and gains the check whose absence let
+defect 2 through: a milestone's status in the index and in its own file must agree. It should also
 keep the existing checks, which stay meaningful across files: the status vocabulary, every file having
 an index row, and every `milestone N` referenced in prose resolving.
 
 ## And the prose check widens to the whole tree (calef, 2026-08-03)
 
-Today `script/roadmap --check` validates `milestone N` references **only inside `design/roadmap.md`**.
+Today `script/roadmap --check` validates `milestone N` references only inside `design/roadmap.md`.
 `script/decisions --check` already does the tree-wide version for its own citations, via `git grep`.
 So two citation schemes of identical shape and identical risk get opposite treatment:
 
@@ -83,13 +83,13 @@ So two citation schemes of identical shape and identical risk get opposite treat
 | `milestone N` into the roadmap | **roadmap.md only** | ~1,988 |
 
 The objection to closing that gap is that a stale citation in a code comment becomes a build failure.
-calef's answer: **that is the feature.** The documentation is versioned with the code so it cannot
+calef's answer: that is the feature. The documentation is versioned with the code so it cannot
 describe a system that no longer exists, and a comment pointing at a milestone that was renumbered or
 never existed is exactly the drift the gate is for. It is the same argument DECISIONS §61 makes about
 lints, and the same one CLAUDE.md makes about citations being invisible when well-formed and wrong.
 
-**It costs nothing to adopt: the tree passes today.** Checking every `milestone N` occurrence outside
-`vendor/` and `patches/` against the table, for N >= 12, produced **zero unresolved citations**. So
+It costs nothing to adopt: the tree passes today. Checking every `milestone N` occurrence outside
+`vendor/` and `patches/` against the table, for N >= 12, produced zero unresolved citations. So
 this is a ratchet in §38's shape and not a cleanup, and it can ship with the gate rewrite rather than
 waiting behind it.
 
@@ -100,7 +100,7 @@ predate the table and live in git history and `DECISIONS.md`. And the regex must
 ## Backfill milestones 1 to 11, and drop the `n >= 12` floor (calef, 2026-08-03)
 
 The floor exists because the table started at 12 when it moved out of `DECISIONS.md`, not because the
-early history is lost. It is not lost. **The original plan survives verbatim in the first commit**,
+early history is lost. It is not lost. The original plan survives verbatim in the first commit,
 `b7f10e7` ("Record architecture decisions and the milestone plan", 2026-07-12), as a `## Milestones`
 table in `DECISIONS.md` carrying 1 through 10 with a title and a "what it teaches" column. Milestone
 11 was added two days later in `491f23d` as "Untyped memory: the kernel stops allocating".
@@ -116,14 +116,14 @@ milestones have a commit that titles them, and those titles say what actually ha
 - "Milestone 5: the GIC and the timer. The kernel is preemptible."
 - "Milestone 11: untyped memory, and the number that proves the kernel stops allocating"
 
-Where plan and outcome disagree, the disagreement is the history worth keeping. **Milestone 8 was
+Where plan and outcome disagree, the disagreement is the history worth keeping. Milestone 8 was
 planned as "virtio-blk driver + read-only filesystem" and landed as "the console driver leaves the
-kernel"; virtio-blk moved to 9**, which had been "Processes: spawn, exit, wait". A backfill that
+kernel"; virtio-blk moved to 9, which had been "Processes: spawn, exit, wait". A backfill that
 copied the original table would record a plan that was overtaken and silently misdate the driver work.
 
-Two need reconstruction rather than copying, because no commit titles them: **milestone 1** (the
+Two need reconstruction rather than copying, because no commit titles them: milestone 1 (the
 earliest commits predate the convention, though "Boot to Rust on QEMU virt and print to the PL011
-UART" is the commit and matches the plan exactly) and **milestone 7**, the capability decision point,
+UART" is the commit and matches the plan exactly) and milestone 7, the capability decision point,
 which is the densest citation target in the tree at 79 references and whose outcome is DECISIONS §10
 rather than a single commit.
 
@@ -131,7 +131,7 @@ Mark all eleven `BUILT`. They are, and the evidence is the kernel.
 
 ## Scope note
 
-**File moves, no content edits**, with milestone 69's proof obligation: reassembling the files must
+File moves, no content edits, with milestone 69's proof obligation: reassembling the files must
 reproduce the original byte for byte, apart from the fixed placement of blocks 68 to 75. **Twenty-nine files**
 outside the roadmap link to `design/roadmap.md`, including `README.md`, `SECURITY.md`,
 `DECISIONS.md`, several crates and several design notes; every one must land on the index. Relative links inside the blocks point
@@ -177,8 +177,8 @@ that does not exist): seven injections, seven failures reported, none missed.
 
 ## Index row
 
-**built 2026-08-03, the day the single file (by then 6,200 lines) took nine entries and two more
-same-day PR conflicts.** The split is this directory, proven by byte-for-byte reassembly; the gate
+built 2026-08-03, the day the single file (by then 6,200 lines) took nine entries and two more
+same-day PR conflicts. The split is this directory, proven by byte-for-byte reassembly; the gate
 now checks index/file status agreement, one milestone per file, and every `milestone N` citation
 tree-wide (2,255, all resolving), with 1 to 11 backfilled from the first commits and the `n >= 12`
 floor gone

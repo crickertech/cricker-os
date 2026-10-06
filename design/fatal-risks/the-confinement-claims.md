@@ -50,7 +50,7 @@ RUN, 2026-08-31, and it found the thing this risk exists to find. notes/confinem
 The adversarial pass: AUDITED, 2026-09-17, and the answer is a qualified yes with one exception
 found and fixed. This paragraph was a second `Status:` line until 2026-09-23, and
 `script/fatal-risks` read only the first one per entry, so `AUDITED` was invisible to every tool
-reading this file. The Experiment status above is the entry's one status; how well the experiment
+reading this file. Risk 7's Experiment status is the entry's one status; how well the experiment
 was done belongs here, in prose, where it always was.
 
 Milestone 313 (the security audit that was due since August: userspace confinement, read

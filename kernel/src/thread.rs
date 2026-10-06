@@ -463,9 +463,13 @@ pub struct Thread {
     /// thread that kept running while another thread swapped `TTBR0` would find its own code
     /// replaced by a stranger's, which is not a hypothetical: see notes/userspace.md.
     ///
-    /// Owned, so the reaper's `drop` unmaps and frees the entire address space when the thread
-    /// dies. Same mechanism as `stack` above, and for the same reason.
-    pub space: Option<crate::user::AddressSpace>,
+    /// **A copy, not the space** since §249 (a running address space stays nameable): the
+    /// address-space registry owns every space, so a capability can keep naming this one while the
+    /// thread runs, and the thread keeps what the context switch reads ([`crate::user::BoundSpace`]),
+    /// because the switch must not take the registry's lock. The reaper takes the space out of the
+    /// registry by the name in this copy and drops it, unless the region sweep took it first; the
+    /// removal is take-once, so whichever comes second finds nothing.
+    pub space: Option<crate::user::BoundSpace>,
 
     // **Everything this thread can name is not a field any more** (2026-10-04 UTC): it lives past the
     // end of this struct in the same page, behind its own lock. See [`capability_table_of`].

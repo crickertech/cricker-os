@@ -27,12 +27,12 @@ with one fact in hand:
   install     :   EVERYTHING ON THAT DISK WILL BE DESTROYED.
 ```
 
-It surveys the disk first, but only for one thing: **is there a nife data partition**, so that an
+It surveys the disk first, but only for one thing: is there a nife data partition, so that an
 installed machine is not offered an install every boot. A disk carrying Windows, or a Linux root, or
 somebody's photographs on a single large partition, answers that question "no" and is therefore
 described to the person about to lose it as an unqualified target.
 
-**A confirmation is only worth what the person can check it against.** The install's whole safety
+A confirmation is only worth what the person can check it against. The install's whole safety
 property is that somebody read the sentence and agreed, and the sentence currently withholds the one
 fact that would most reliably stop a wrong answer: that this disk is not empty and here is what is
 on it.
@@ -46,7 +46,7 @@ primary, and reports what is there. `guid::types::name` already turns a type GUI
 person reads: `EFI system`, `Microsoft basic data`, `Linux filesystem`, `Apple APFS`, `nife data`.
 
 Its authority is the same authority the survey role already takes, and it takes it the same way:
-**a disk endpoint and no entropy endpoint**, so nothing it holds can write a partition table
+a disk endpoint and no entropy endpoint, so nothing it holds can write a partition table
 anything would read back. So this changes nothing about what the offer may do before a person
 answers; it changes what the offer knows.
 
@@ -69,7 +69,7 @@ and, for the case the current survey covers, the line it already implies:
 
 Cost: one spawn beside the one already there, a report wide enough for a handful of partitions, and
 a printing loop. The survey role in `installer` could equally grow the answer rather than a second
-program being spawned, and **the second program is the better shape**: `disk_surveyor` is the thing
+program being spawned, and the second program is the better shape: `disk_surveyor` is the thing
 in this tree whose whole job is saying what is on a disk, it is already tested against a table
 `sgdisk` wrote, and duplicating its GPT reading inside the installer would be two readers that can
 disagree.
@@ -86,12 +86,12 @@ data.
   tells a person something; a disk that was wiped and repartitioned by somebody else last week tells
   them the same thing and means nothing. There is no filesystem probing here and there should not
   be.
-- **A disk with no partition table at all is indistinguishable from an empty one**, which is right
+- A disk with no partition table at all is indistinguishable from an empty one, which is right
   for a fresh disk and wrong for one holding a filesystem written straight to the device. Nothing in
   this tree can tell those apart and nothing proposed here changes that.
 - **It does not help on a machine with more than one disk**, where the question is which disk rather
   than what is on it. That is the proposal about naming the disk by model.
-- **A longer question is a question people stop reading.** Three extra lines is the budget; a
+- A longer question is a question people stop reading. Three extra lines is the budget; a
   partition list on a disk with a dozen entries needs a limit and a "and 7 more", which this
   proposal does not specify.
 

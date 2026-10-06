@@ -18,7 +18,7 @@ DECISIONS §113's rename (milestone 158, 2026-08-23/24) postdates it: every `Fra
 same way `design/decisions/113-*.md`'s own record does; a future implementer should read every
 identifier below through that mapping.*
 
-**What is blocked: milestone 29's terminal font.** The scanout grows to 800x608 (475 frames) and
+What is blocked: milestone 29's terminal font. The scanout grows to 800x608 (475 frames) and
 gohufont-14 ships on it. This decision is the prerequisite.
 
 ## What is being decided
@@ -72,8 +72,8 @@ one of each.
 
 `invoke(cap, MAP, va, writable, untyped_slot)` maps the run starting at `va`. The page tables come
 from the untyped, same as today. The mapping is recorded for revocation, one record per page. ~~The
-revocation table is per-page, not per-capability, and that doesn't change.~~ **Corrected
-2026-08-27: it did change.** This section did not anticipate two capabilities naming overlapping
+revocation table is per-page, not per-capability, and that doesn't change.~~ Corrected
+2026-08-27: it did change. This section did not anticipate two capabilities naming overlapping
 runs, which §132 found is exactly what the display driver's wiring does. §132 made
 `PageFrame::REVOKE` capability-scoped: each record still exists one-per-page, but now also carries
 which capability's authority produced it, so revoking one capability no longer touches a mapping a
@@ -92,9 +92,9 @@ same as today.
 
 ### What does NOT change
 
-- **`frame::MAP`'s argument shape.** `va`, `writable`, `untyped_slot` are the same. The `count` is
+- `frame::MAP`'s argument shape. `va`, `writable`, `untyped_slot` are the same. The `count` is
   on the capability, not in the syscall.
-- **The revocation table.** It is per-page (`revoke::record_mapping(phys, root, va)`), not per-capability.
+- The revocation table. It is per-page (`revoke::record_mapping(phys, root, va)`), not per-capability.
   A `REVOKE` on a run walks the same table N times, once per page in the run. No format change.
 - **`aspace::MAP_INTO`.** The spawner-side mapping path is unchanged. It takes a `Frame` capability
   and maps it; a run-capable `Frame` maps the whole run in one call.
@@ -118,16 +118,16 @@ same as today.
 
 ## What this retires
 
-- **The `CSPACE_SLOTS` pressure for DMA regions.** A driver that needs N pages of DMA holds one
+- The `CSPACE_SLOTS` pressure for DMA regions. A driver that needs N pages of DMA holds one
   capability, not N. The sixteen-slot cspace has room.
-- **The `grant_run` loop.** It becomes one call. The function may be inlined or removed.
-- **notes/frames.md's recorded fork.** The BUGS entry ("A `Frame` names one page, and a DMA region
+- The `grant_run` loop. It becomes one call. The function may be inlined or removed.
+- notes/frames.md's recorded fork. The BUGS entry ("A `Frame` names one page, and a DMA region
   is a run of them") is resolved by this decision. The BUGS section is updated to record that a
   `Frame` names a run as of §102, and the fork is closed.
 
 ## What this does NOT decide
 
-- **Per-page rights within a run.** A `Frame(phys, 475)` is all-read or all-write based on the
+- Per-page rights within a run. A `Frame(phys, 475)` is all-read or all-write based on the
   capability's rights. Narrowing to "pages 0-400 read-only, 401-474 read-write" is a separate fork
   and is not taken. If a future consumer needs it, it can hold two capabilities: `Frame(phys, 401)`
   and `Frame(phys + 401 * 4096, 74)`.
@@ -136,7 +136,7 @@ same as today.
   decision.
 - **`Object::DeviceFrame`.** Device MMIO pages stay single-page. A device register page is one
   page; there is no run to name.
-- **The `aspace::MAP_INTO` spawn path.** It still works and is still the right shape for
+- The `aspace::MAP_INTO` spawn path. It still works and is still the right shape for
   spawn-time mappings where the client should hold no frame capability. This decision makes it
   better (one `MAP_INTO` call instead of N) but doesn't change its semantics.
 
@@ -172,10 +172,10 @@ container: a fixed-size cspace wants fewer, fatter capabilities, not more of the
 
 ## Sequencing
 
-1. **This decision** (§102): `Object::Frame` gains a `count`, `frame::MAP` and `frame::REVOKE`
+1. This decision (§102): `Object::Frame` gains a `count`, `frame::MAP` and `frame::REVOKE`
    operate on the run.
-2. **Milestone 29's lane**: grows the scanout to 800x608, puts gohufont-14 on it, and ships the
+2. Milestone 29's lane: grows the scanout to 800x608, puts gohufont-14 on it, and ships the
    terminal font. The `grant_run` loop collapses to one call; the cspace fits.
-3. **Retrofit**: other DMA-region holders (disk driver, network driver) take `Frame(phys, count)`
+3. Retrofit: other DMA-region holders (disk driver, network driver) take `Frame(phys, count)`
    instead of N separate capabilities. This is mechanical and can land in the same lane or a
    follow-up.

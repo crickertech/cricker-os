@@ -37,23 +37,23 @@ this of itself, under the heading **the graveyard question**, and answered that 
 promotes is the same burial in a new location. That is what happened.
 
 **The measurement that decides it.** Of the 106, **66 carry gate `NONE`**, meaning a lane could start
-them today. `script/roadmap --ready` prints **69** milestones and reads no proposals at all. So
-**roughly half the tree's startable work is invisible to the command a lane picks work from**, which
+them today. `script/roadmap --ready` prints 69 milestones and reads no proposals at all. So
+roughly half the tree's startable work is invisible to the command a lane picks work from, which
 is a throughput problem wearing a filing problem's clothes.
 
-**Why promote and then close, rather than close some as proposals.** calef's ruling, and it is the
+Why promote and then close, rather than close some as proposals. calef's ruling, and it is the
 better shape: a numbered block marked `REMOVED`, `SUPERSEDED` or `BUILT` is a record a reader can
 find, while a deleted proposal is gone. The maintainer's own recommendation had been to close the
 dead ones in place, which would have destroyed exactly the account a later reader needs.
 
 ## The numbering, assigned once, because it cannot be assigned twice
 
-**327 to 432, oldest filed date first, then slug.** A number is never reused in this tree, so this
+327 to 432, oldest filed date first, then slug. A number is never reused in this tree, so this
 mint is irreversible and is written down rather than left to be re-derived from a pile that is about
 to stop existing.
 
-**The filename keeps the slug**: `proposals/<slug>.md` becomes `<N>-<slug>.md`. That is what lets any
-of the **114 citations of a proposal path** in numbered blocks be resolved by a reader with one
+The filename keeps the slug: `proposals/<slug>.md` becomes `<N>-<slug>.md`. That is what lets any
+of the 114 citations of a proposal path in numbered blocks be resolved by a reader with one
 `ls design/roadmap/ | grep <slug>`, with no lookup table to consult and nothing to keep in sync.
 
 ```
@@ -169,20 +169,20 @@ of the **114 citations of a proposal path** in numbered blocks be resolved by a 
 
 It is not a `git mv`, and this block exists partly to say so before four lanes discover it.
 
-- **Zero of the 106 carry a `## Index row` section**, which `script/roadmap --check` requires of every
+- Zero of the 106 carry a `## Index row` section, which `script/roadmap --check` requires of every
   non-lettered numbered block. Each needs one written: a paragraph saying what the milestone is, in
   the generated table's voice.
 - **`Status: PROPOSED` is not in the milestone vocabulary**, so every status line is rewritten. The
   filed date stays in the prose, because that is what makes the pile's age measurable after the pile
   is gone.
-- **92 `**Proposed.**` follow-on bullets across 71 blocks** name a proposal path, and the roadmap gate
+- **92 `**Proposed.` follow-on bullets across 71 blocks name a proposal path, and the roadmap gate
   requires that path to exist. Every one becomes `**Milestone N.**` as its file moves. This is the
   half that makes the pass large, and it is also the half that cannot be missed: the gate fails on
   each until it is fixed.
 - **The premise has to be re-read, not assumed.** Five proposals were read on 2026-09-18 and
   2026-09-19 and all five had decayed premises; four were fully answered by the tree before anyone
-  opened them, two by work that landed after filing and before reading. **64 of the 106 were filed in
-  a three-day window**, 2026-09-03 to 09-05, and 32 came from one sweep, so the decay is correlated
+  opened them, two by work that landed after filing and before reading. 64 of the 106 were filed in
+  a three-day window, 2026-09-03 to 09-05, and 32 came from one sweep, so the decay is correlated
   rather than spread out. A block promoted to `NOT-STARTED` without that check is a false claim in
   the roadmap, which is the thing this tree objects to hardest.
 
@@ -190,7 +190,7 @@ It is not a `git mv`, and this block exists partly to say so before four lanes d
 
 1. `git mv design/roadmap/proposals/<slug>.md design/roadmap/<N>-<slug>.md`.
 2. Retitle line 1 to `# <N>. <title>`, keeping the title.
-3. Rewrite the status line to a milestone token, **after** checking the premise against the tree:
+3. Rewrite the status line to a milestone token, after checking the premise against the tree:
    `NOT-STARTED` if the work is still real, `BUILT` if it has already been done elsewhere,
    `SUPERSEDED` if another block took it, `REMOVED` if it is no longer wanted. Keep the filed date and
    say what was checked, so a reader can tell a verified `NOT-STARTED` from an assumed one.
@@ -202,27 +202,27 @@ It is not a `git mv`, and this block exists partly to say so before four lanes d
 
 ## Slices, as they land
 
-- **327 to 353**, on `milestone/433-slice-1`, 2026-09-19. Twenty-five `NOT-STARTED`, one `PARTIAL`
+- 327 to 353, on `milestone/433-slice-1`, 2026-09-19. Twenty-five `NOT-STARTED`, one `PARTIAL`
   (343, ten of its twelve comments and its index line fixed since filing) and one `BUILT` (344,
   answered by calef on 2026-08-18, sixteen days before the proposal asking for it was filed). Eight
   of the twenty-seven had decayed in some part; two had decayed outright. Twenty-six
   `**Proposed.**` bullets became `**Milestone N.**`, and three citations outside `design/roadmap/`
   were repointed: `design/decisions/144-fastpath-footprint-ceiling.md`, `notes/follow-on-work.md`
   and `kernel/src/bench.rs`.
-- **354 to 380, `milestone/433-slice-2`, 2026-09-19.** All 27 promoted, every premise read against
+- 354 to 380, `milestone/433-slice-2`, 2026-09-19. All 27 promoted, every premise read against
   the tree before its status was written. Twenty are `NOT-STARTED` and verified, four `SUPERSEDED`
   (354 by milestone 250 on the day it was filed, 361 by milestone 188's re-measurement, 362 and 364
   by milestone 303 and the newer x86_64 fixture block), two `BUILT` (375 by the radon bench session
   the same evening it was proposed, 380 by the §144 amendment the same day), and one `PARTIAL` (378,
   whose parser and reporting arrived as milestones 161 and 317 and whose xenon reading has not been
-  taken). **Seven of 27 had decayed**, six of them answered by work that landed within a day of the
+  taken). Seven of 27 had decayed, six of them answered by work that landed within a day of the
   filing. Three more had premises that were narrowed rather than closed and say so in their status
   lines. Twenty-three follow-on bullets rewritten (22 `**Proposed.**` and one
   `**Recorded.**`), and the moved path updated in thirteen files outside `design/roadmap/`:
   `notes/`, `kernel/`, `script/` and one audit report.
-- **Slice 3, 381 to 407, done 2026-09-19** on `milestone/433-slice-3`. 27 promoted: 26
+- Slice 3, 381 to 407, done 2026-09-19 on `milestone/433-slice-3`. 27 promoted: 26
   `NOT-STARTED` and one `SUPERSEDED` (399, by 405, which turns the six role constants it renames
-  into programs). **6 of 27 had a premise decayed enough to change what the block claims**, and 11
+  into programs). 6 of 27 had a premise decayed enough to change what the block claims, and 11
   more needed a factual correction in prose. The sharpest is 406, whose title is now false as
   written: `script/boot-check` landed the same day it was filed and does boot the default riscv64
   kernel on every pull request, leaving only the tour past the self-test verdict unasserted. Two
@@ -230,10 +230,10 @@ It is not a `git mv`, and this block exists partly to say so before four lanes d
   with the prose on the wrong one, and milestone 265's `**Proposed.**` bullet for the unswept
   truncations named a proposal that holds a different subject, which the gate accepted because the
   check is path-shaped.
-- **408 to 432, `milestone/433-slice-4`, done.** 25 promoted. **Three of the 25 had a decayed
-  premise, one in eight**, which is a lower rate than the five-of-five sample this block was minted
+- 408 to 432, `milestone/433-slice-4`, done. 25 promoted. Three of the 25 had a decayed
+  premise, one in eight, which is a lower rate than the five-of-five sample this block was minted
   on and is what the newest quarter of the pile was expected to show. 430 was already `BUILT`,
-  closed by commit `c1a177c` on **the same day it was filed**; 431 is `SUPERSEDED`, filed on a
+  closed by commit `c1a177c` on the same day it was filed; 431 is `SUPERSEDED`, filed on a
   premise milestone 319 had falsified the day before and restating work milestone 423 already
   carries correctly; 415 is `PARTIAL`, because its item 1 landed as `ba99c83` hours after it was
   written, and its closing section argued from a toolchain-bump decision calef had already ruled on
@@ -258,31 +258,31 @@ measured it and the shape is different:
 | **total** | **106** | **18 (17%)** | **46 (43%)** |
 
 Slice 2 put the mechanism in one sentence and slice 3's numbers agreed with it independently:
-**six of slice 2's seven and four of slice 3's six were answered within a day of filing**, several by
+six of slice 2's seven and four of slice 3's six were answered within a day of filing, several by
 the very lane that wrote the proposal and then finished the work that same evening. So the pile's
 cost is not that proposals rot slowly while nobody promotes them. **It is that a proposal is filed
 and answered inside a day and the file is never told.**
 
-**That changes the remedy, and the change is worth stating because it makes an earlier ruling
-weaker.** Draining at every merge, which this block assumed as the steady state, would have caught
+That changes the remedy, and the change is worth stating because it makes an earlier ruling
+weaker. Draining at every merge, which this block assumed as the steady state, would have caught
 almost none of these: the answer usually arrived before the next merge. What would catch them is the
 lane that does the work closing the proposal it just answered, in the same commit. That is a habit
 at the thing rather than a sweep over the pile, and it is the same rung the `BUGS` convention
 already occupies.
 
-**And the honest note on my own sample.** This block was minted partly on five proposals read by
-hand, all five of which had decayed. The measured disposition-changing rate is **17%**, so that
-sample overestimated it by a factor of five. The wider measure is the one that holds up: **43% of
-the pile carried something false**, which is what a lane would have worked from.
+And the honest note on my own sample. This block was minted partly on five proposals read by
+hand, all five of which had decayed. The measured disposition-changing rate is 17%, so that
+sample overestimated it by a factor of five. The wider measure is the one that holds up: 43% of
+the pile carried something false, which is what a lane would have worked from.
 
-**One defect class the gate cannot see, found by two lanes independently.** The `**Proposed.**`
+One defect class the gate cannot see, found by two lanes independently. The `**Proposed.**`
 check is path-shaped: it verifies the named file exists and never that the file holds the work the
 bullet describes. Milestone 290 carried a bullet whose prose belonged to the bullet above it, and
 milestone 265 carried one naming a proposal about a different subject. Both passed every build for
 weeks. Both surfaced only because an edit broke the path check for an unrelated reason.
 
-**A second blind spot in the same family.** The gate checks `**Proposed.**` bullets and nothing
-else, so **33 prose citations of a proposal path across 38 files** were invisible to it and were
+A second blind spot in the same family. The gate checks `**Proposed.**` bullets and nothing
+else, so 33 prose citations of a proposal path across 38 files were invisible to it and were
 swept by hand at integration. They all resolved, because promotion kept the slug in the filename.
 About thirty more did not, and those are older rot this pass surfaced rather than caused: proposals
 deleted by earlier promotions, this morning's cluster drain among them, whose slugs have no numbered
@@ -291,19 +291,19 @@ done here.
 
 ## BUGS
 
-- **A promoted block can still be a graveyard, one directory up.** Numbering does not prioritise;
+- A promoted block can still be a graveyard, one directory up. Numbering does not prioritise;
   calef's 2026-09-03 wording separates the two on purpose (*"anybody should be able to add to the
   roadmap. That's different than prioritizing that roadmap"*). What promotion buys is visibility to
   `--ready`, not attention.
-- **`**Proposed.**` survives this pass and should probably not.** A follow-on bullet is a permanent
+- `Proposed.**` survives this pass and should probably not.** A follow-on bullet is a permanent
   record and the file it names is now, by this block's own rule, ephemeral: it exists only between a
   lane writing it and the next integrator numbering it. Whether the disposition word should be
   retired is a vocabulary question and therefore calef's; this block does not answer it.
-- **Nothing here stops the pile refilling**, and a gate that tried would be routed around by not
+- Nothing here stops the pile refilling, and a gate that tried would be routed around by not
   writing proposals, which the README already argues is worse than the pile. The steady state this
   block assumes is that an integrator drains it at every merge, which is a habit rather than a
   mechanism, and is rung four.
-- **The numbers are minted before the premises are checked.** A proposal that turns out to have been
+- The numbers are minted before the premises are checked. A proposal that turns out to have been
   answered still consumes a number and lands as a `BUILT` or `SUPERSEDED` block. That is the cost of
   assigning all 106 in one place, and the alternative (assign as each is verified) reintroduces the
   collision this whole directory exists to avoid.

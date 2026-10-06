@@ -409,7 +409,7 @@ def sentences(block):
 #
 # The maintainer's ruling of 2026-09-26 (UTC), on #1311, after the lane for §219 (how the shell
 # names an installed program to the spawner) found it: `**Status: …`, `**Built:**`, `**Gate: …**`,
-# the Follow-on and Revisit tags and fatal-risks' experiment fields are read by scripts, and in a short block that bold alone is over 4 per 1,000 words, so the touch
+# the Follow-on and Revisit tags and fatal-risks' experiment lead-ins are read by scripts, and in a short block that bold alone is over 4 per 1,000 words, so the touch
 # rule would have made those documents uneditable. Parsed bold is not counted at all.
 #
 # The set is DERIVED from the parsers, not listed here: every `re.compile`/`re.match`/`re.search`/
@@ -498,6 +498,151 @@ def derived_markers(root=None):
                           and a0.value.startswith('**') and len(a0.value.strip('*')) > 0):
                         out.append((rel, '^' + re.escape(a0.value), 0))
     return out
+
+
+# --- the readers derivation cannot see ----------------------------------------------------------
+#
+# Derivation (above) reads a literal pattern handed straight to `re.*`, or a literal `.startswith`.
+# A parser written any other way is invisible to it, and an invisible parser is a live hazard: the
+# bold it needs is counted as emphasis, and a sweep that removes the emphasis removes the key. Three
+# shapes were found by hand on 2026-10-05 UTC (design/roadmap/proposals/bold-keys-to-frontmatter.md,
+# provisional): a pattern built by `+` or an f-string (`script/roadmap` RESTATED), a bold written
+# with a repeat count or a character class instead of two escaped stars, and a reader in a language
+# this file does not parse (shell, awk, jq, Rust, a workflow). `opaque_readers` finds the first two
+# by AST and the third by text. `selftest` fails on any it cannot account for in OPAQUE_OK, keyed by
+# file and the name nearest above the match. The value is the record: which derived marker already
+# covers the same spans, or why the match is not a key.
+OPAQUE_OK = {
+    ('script/roadmap', 'RESTATED'):
+        'built from VOCAB by `+`; it matches the same three shapes as roadmap_block STATUS_TOKEN, '
+        'BUILT_TOKEN and GATE_TOKEN, which are derived, so the spans are already exempt',
+}
+# `\*\*`, `\*{2}` and `[*]{2}`: the three spellings of "two literal stars" in a regex.
+_BOLD_TEXT = re.compile(r'\\\*\\\*|\\\*\{2\}|\[\*\]\{2\}')
+OTHER_LANGUAGE_ROOTS = ('script', 'helpers', 'xtask', '.github')
+_RE_CALLS = ('compile', 'match', 'search', 'finditer', 'findall', 'sub', 'split')
+
+
+def _enclosing_name(tree, target):
+    """The assignment target or function a node sits in, for a stable OPAQUE_OK key."""
+    import ast
+    best = None
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Assign, ast.FunctionDef)) and any(n is target for n in ast.walk(node)):
+            if isinstance(node, ast.FunctionDef):
+                best = node.name
+            elif isinstance(node.targets[0], ast.Name) and best is None:
+                best = node.targets[0].id
+    return best
+
+
+def opaque_readers(root=None):
+    """[(file, name or line)] for every bold reader `derived_markers` cannot see. See above."""
+    import ast
+    root = root or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    parsed, out = set(), []
+    for d in PARSER_ROOTS:
+        base = os.path.join(root, d)
+        for name in sorted(os.listdir(base)) if os.path.isdir(base) else []:
+            rel, path = f'{d}/{name}', os.path.join(base, name)
+            if rel == 'helpers/prose_ratchet.py' or not os.path.isfile(path):
+                continue
+            try:
+                text = open(path, encoding='utf-8').read()
+            except (UnicodeDecodeError, OSError):
+                continue
+            for src in _python_of(rel, text):
+                try:
+                    tree = ast.parse(src)
+                except SyntaxError:
+                    continue
+                parsed.add(rel)
+                for node in ast.walk(tree):
+                    if not (isinstance(node, ast.Call) and node.args):
+                        continue
+                    f, a0 = node.func, node.args[0]
+                    if not (isinstance(f, ast.Attribute) and isinstance(f.value, ast.Name)
+                            and f.value.id == 're' and f.attr in _RE_CALLS):
+                        continue
+                    consts = [n.value for n in ast.walk(a0)
+                              if isinstance(n, ast.Constant) and isinstance(n.value, str)]
+                    if not any(_BOLD_TEXT.search(c) for c in consts):
+                        continue
+                    # A bare literal with two escaped stars is derived; anything else is not.
+                    derived = (isinstance(a0, ast.Constant) and '\\*\\*' in a0.value
+                               and f.attr in ('compile', 'match', 'search', 'finditer', 'findall'))
+                    if not derived:
+                        out.append((rel, _enclosing_name(tree, node) or f'line {node.lineno}'))
+    for d in OTHER_LANGUAGE_ROOTS:
+        for dirpath, _, names in os.walk(os.path.join(root, d)):
+            for name in sorted(names):
+                path = os.path.join(dirpath, name)
+                rel = os.path.relpath(path, root)
+                if rel in parsed or rel == 'helpers/prose_ratchet.py':
+                    continue
+                try:
+                    lines = open(path, encoding='utf-8').read().split('\n')
+                except (UnicodeDecodeError, OSError):
+                    continue
+                for n, line in enumerate(lines, 1):
+                    if _BOLD_TEXT.search(line) and not line.lstrip().startswith(('#', '//')):
+                        out.append((rel, f'line {n}'))
+    return out
+
+
+def unaccounted_readers(root=None):
+    """[(file, name or line)] for opaque readers not in OPAQUE_OK. `selftest` wants none."""
+    return [(rel, name) for rel, name in opaque_readers(root) if (rel, name) not in OPAQUE_OK]
+
+
+def key_spans(text):
+    """[(line, span, parsers)] for each bold span a script reads, with the files that read it.
+
+    The answer to "which bold here is a key and who needs it", for someone cutting bold from a
+    document. Same paragraph reading as `bold_counts`, so what is listed is exactly what is exempt.
+    """
+    by_pattern = {}
+    for rel, pat, flags in derived_markers():
+        if (rel, pat) in NOT_MARKERS:
+            continue
+        try:
+            by_pattern.setdefault((pat, flags), []).append((re.compile(pat, flags | re.M), rel))
+        except re.error:
+            continue
+    out, para, first = [], [], 0
+
+    def flush():
+        if not para:
+            return
+        body = '\n'.join(para)
+        for group in by_pattern.values():
+            for rx, rel in group:
+                for m in rx.finditer(body):
+                    j = body.find('**', m.start())
+                    if 0 <= j < m.end():
+                        span = BOLD.match(body, j)
+                        if span:
+                            line = first + body.count('\n', 0, j)
+                            out.append((line, span.group(0)[:50], rel))
+        para.clear()
+
+    fenced = False
+    for n, line in enumerate(text.split('\n'), 1):
+        if line.lstrip().startswith('```'):
+            fenced = not fenced
+        if fenced or not line.strip() or TABLE_ROW.match(line) or HEADING.match(line):
+            flush()
+            continue
+        if LIST_ITEM.match(line) or QUOTE_LINE.match(line):
+            flush()
+        if not para:
+            first = n
+        para.append(CODE_SPAN.sub('code', line))
+    flush()
+    merged = {}
+    for line, span, rel in out:
+        merged.setdefault((line, span), set()).add(rel)
+    return [(l, sp, sorted(r)) for (l, sp), r in sorted(merged.items())]
 
 
 def markers():
@@ -1133,6 +1278,21 @@ def selftest():
                               f'ratchet would stop counting it. Tighten it, or name it in NOT_MARKERS '
                               f'with the reason')
                 break
+    ks = key_spans('**Status: BUILT.** Done.\n\n- **Recorded.** x\n\n**Real emphasis.** y\n')
+    if [k[0] for k in ks] != [1, 3] or any(not k[2] for k in ks):
+        failed.append('key_spans (which bold a script reads, and who)')
+    for rel, name in unaccounted_readers():
+        failed.append(f'{rel} ({name}) reads bold in a way the marker derivation cannot see. '
+                      f'Pass a literal pattern with two escaped stars straight to re.*, or name it in '
+                      f'OPAQUE_OK with the reason its spans are already exempt')
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        os.makedirs(os.path.join(tmp, 'helpers'))
+        with open(os.path.join(tmp, 'helpers', 'x.py'), 'w') as fh:
+            fh.write("import re\nA = re.compile(r'\\*\\*Key: ' + 'v')\nB = re.compile(r'^[*]{2}Key')\n"
+                     "C = re.compile(r'\\*\\*Fine')\n")
+        if len(opaque_readers(tmp)) != 2:
+            failed.append('helpers/x.py: the opaque-reader guard missed a concatenated or `[*]{2}` pattern')
     grant = '<!-- prose-budget: exception. 1,234 words against a 3,000-word cap. 2026-09-24. Reason: x -->'
     if granted_words(grant) != 1234 or granted_words('`' + grant + '`') is not None:
         failed.append('the marker\'s granted word count')
@@ -1178,6 +1338,11 @@ def main(argv):
             m = measured(path, open(path).read())
             print(path, ' '.join(f'{k}={fmt(v)}' for k, v in m.items()),
                   'over:', ','.join(over(m)) or 'none')
+        return 0
+    if argv[0] == '--keys':
+        for path in argv[1:]:
+            for line, span, readers in key_spans(open(path).read()):
+                print(f'{path}:{line}: {span}  <- {", ".join(readers)}')
         return 0
     if argv[0] == '--remeasure':
         moved = remeasure()

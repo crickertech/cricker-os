@@ -50,19 +50,19 @@ a new word fails somebody's build.
 
 ## Options
 
-1. **A ratchet.** Count the matches and fail when the count rises, the way the prose ratchet does.
+1. A ratchet. Count the matches and fail when the count rises, the way the prose ratchet does.
    Cheap and honest about the 60, but it cannot tell an ownership sentence from a new rule, so a
    legitimate new sentence about calef's bench raises the count and fails.
-2. **A marker at the ownership sentence.** Every one of the 60 gains a short tag saying it is about
+2. A marker at the ownership sentence. Every one of the 60 gains a short tag saying it is about
    ownership rather than the role, and the lint fails on any untagged match. Precise, and rung three
    at the thing itself, at the cost of 60 edits and a new convention (whose spelling is an
    architect's call).
-3. **Separate the two facts first.** Ownership that is not the role (who owns the machines, who
+3. Separate the two facts first. Ownership that is not the role (who owns the machines, who
    administers the organization) gets its own list beside `ARCHITECTS.md`, and the lint reads both.
    A match naming someone on the ownership list inside an ownership sentence still needs option 2's
    judgement, so this does not remove the marker; it only names the second role.
 
-**Recommendation: option 2**, because it is the only one that fails on exactly the defect and
+Recommendation: option 2, because it is the only one that fails on exactly the defect and
 nothing else. Option 1 is less work and would still be chosen by nobody if the two cost the same.
 
 ## Index row

@@ -14,18 +14,18 @@ Ruled by calef on 2026-09-23, on the maintainer's recommendation, reopening
 §116 (live component state handoff is declined, for want of a customer). *(Section number provisional until the merge queue lands it. A second
 lane has already minted a different 209 on an unmerged branch, so expect renumbering.)*
 
-**Supersedes §116 (live component state handoff is declined, for want of a customer)**, whose text is left as written. §116's own status line carries a
+Supersedes §116 (live component state handoff is declined, for want of a customer), whose text is left as written. §116's own status line carries a
 dated pointer forward.
 
 ## The ruling, in three parts
 
-1. **The transport is the sketch §116 (live component state handoff is declined, for want of a customer) already left.** State moves as an **opaque blob over a
-   granted shared `Frame`**. Capabilities move by **`GRANT`**. The kernel does not know what the
+1. The transport is the sketch §116 (live component state handoff is declined, for want of a customer) already left. State moves as an opaque blob over a
+   granted shared `Frame`. Capabilities move by `GRANT`. The kernel does not know what the
    bytes mean and neither does the supervisor; the shape of the state is the component's own
    business, exactly as §116 argued when it refused to design one wire format for fifty different
    kinds of live state.
 
-2. **Handoff is optional**, declared in the component manifest beside `depends_on`. A component that
+2. Handoff is optional, declared in the component manifest beside `depends_on`. A component that
    declares nothing is kill-and-replaced, which is what the console already is under §41 (the endpoint is the broker, and a device is revoked by taking it back):
    the endpoint is the stable name, and a device is revoked by taking it back. Nothing about the
    existing swap changes for a component that has no state to move.
@@ -37,11 +37,11 @@ dated pointer forward.
 
 ## The finding that matters more than the ruling
 
-**§116 (live component state handoff is declined, for want of a customer)'s premise stopped being true one day after it was written, and nobody noticed for a
-month.**
+§116 (live component state handoff is declined, for want of a customer)'s premise stopped being true one day after it was written, and nobody noticed for a
+month.
 
-§116 declined on **2026-08-23**, on the ground that *"no component with meaningful live state is
-built or being built"*. The filesystem server's first commit is dated **2026-08-24**:
+§116 declined on 2026-08-23, on the ground that *"no component with meaningful live state is
+built or being built"*. The filesystem server's first commit is dated 2026-08-24:
 
     $ git log --diff-filter=A --format=%ad --date=short -1 -- redoxfs_server
     2026-08-24
@@ -58,15 +58,15 @@ stopped being right.
 
 ## Why optional rather than mandatory
 
-`components/src/` holds **52** components. Mandatory handoff makes all fifty-two answer a question
+`components/src/` holds 52 components. Mandatory handoff makes all fifty-two answer a question
 that roughly fifty of them do not have. An audit sink, a clock, a block roster and a compositor are
 either stateless or hold state that is cheaper to rebuild than to move, and a manifest field they
 must fill in with "nothing" is a field that teaches nobody anything.
 
-**§92 (a caretaker is supervised by the client it serves)'s test, answered out loud: optional is also the cheaper option, and that is effort.** It is
+§92 (a caretaker is supervised by the client it serves)'s test, answered out loud: optional is also the cheaper option, and that is effort. It is
 less to build, less to migrate, and less to keep working. Saying so is the rule, so it is said.
 
-**The non-effort case is the one that decides it, and it is a result rather than an argument.**
+The non-effort case is the one that decides it, and it is a result rather than an argument.
 Erlang/OTP has run this experiment for thirty years. `code_change` is an optional callback: a module
 that does not export it is replaced outright, and the overwhelming majority never export it. Thirty
 years of production hot code loading across telecom switches did not turn that default into a
@@ -78,10 +78,10 @@ running live-upgrade system in the field converged on. We would choose it at equ
 The granted shared `Frame` is not an invention for this decision. It is how this tree already moves
 data between two processes when IPC's word-limited messages will not carry it:
 
-- the **clock page**, read by every program that wants the time;
-- §111 (inert configuration is a read-only page)'s **env-config page**, a validated read-only page of declared keys;
-- **`block_roster`**, which hands a device inventory across;
-- **`system_initializer`**, which hands a boot-time table across.
+- the clock page, read by every program that wants the time;
+- §111 (inert configuration is a read-only page)'s env-config page, a validated read-only page of declared keys;
+- `block_roster`, which hands a device inventory across;
+- `system_initializer`, which hands a boot-time table across.
 
 Four existing cases, one shape. A fifth that carries a component's own state is the same mechanism
 with different bytes in it, which is the strongest thing that can be said for a transport: nobody
@@ -89,8 +89,8 @@ has to learn it.
 
 ## What remains an architect's
 
-**The manifest field's name.** Names are an architect's, and this decision does not take one. A lane
-implementing this ships **`handoff`** as a **provisional** name on `component_plan`'s requirements,
+The manifest field's name. Names are an architect's, and this decision does not take one. A lane
+implementing this ships `handoff` as a **provisional** name on `component_plan`'s requirements,
 beside `depends_on`, and says so in its report. Do not ratify it here. `script/names --unratified`
 is where it belongs until an architect rules.
 
@@ -99,15 +99,15 @@ existing ratified names being used rather than coined.
 
 ## What this does not decide
 
-The **content** of any component's blob, which is that component's business and always was. And the
+The content of any component's blob, which is that component's business and always was. And the
 hung case: a component that will not cooperate cannot be asked to serialise, so handoff recovers a
 planned swap and not the failure it is most wanted for. §116 (live component state handoff is declined, for want of a customer) did not claim otherwise and neither does
 this. Milestone 23 (a capability-routed component OS with live replacement)'s block carries that gap and keeps it.
 
 ## What it unblocks
 
-- **Milestone 198 (a package manager, and the trivial install that makes a second customer possible)'s rung 3a, the client half**: installing a package onto a running system can now
+- Milestone 198 (a package manager, and the trivial install that makes a second customer possible)'s rung 3a, the client half: installing a package onto a running system can now
   replace a stateful component rather than only a stateless one, which is what §208 (installing a package is granting it)'s second
   argument was for.
-- **Milestone 23 (a capability-routed component OS with live replacement)'s last residual**, which has been the only thing holding that block short of done since
+- Milestone 23 (a capability-routed component OS with live replacement)'s last residual, which has been the only thing holding that block short of done since
   the other three parts landed.

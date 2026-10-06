@@ -14,7 +14,7 @@ shapes: `is_mapped(addr)` and `is_enabled()` beside `enabled()`, `crash_disk_pre
 
 ## What "Rust's convention" turned out to be
 
-**The premise needed checking first, because Rust has no written rule for this.** The Rust API
+The premise needed checking first, because Rust has no written rule for this. The Rust API
 Guidelines' naming chapter ([source][guidelines], read 2026-09-24) has seven rules: casing
 (C-CASE), conversions (C-CONV), getters (C-GETTER), iterator methods and types (C-ITER,
 C-ITER-TY), feature names (C-FEATURE) and word order (C-WORD-ORDER). None is about predicates. The
@@ -24,12 +24,12 @@ for the same purpose, and [RFC 344][rfc344] is silent on booleans too.
 
 So the convention is what `std` does, plus one lint that assumes it:
 
-- **Clippy's `wrong_self_convention`** ([source][clippy], read 2026-09-24) holds `is_` to taking
+- Clippy's `wrong_self_convention` ([source][clippy], read 2026-09-24) holds `is_` to taking
   `&self`, `&mut self` or no `self`. It checks the receiver of an `is_` name. It does not require
   `is_` on a function returning `bool`, and no lint in clippy does.
-- **`std`'s own names, counted.** Against the `rust-src` of `rustc 1.100.0-nightly (923c95cdf
+- `std`'s own names, counted. Against the `rust-src` of `rustc 1.100.0-nightly (923c95cdf
   2026-09-16)`, every `pub fn ... -> bool` in `core`, `alloc` and `std`, outside tests, `sys`
-  and the intrinsics: **342 functions, 236 of them (69%) `is_`**. Next come 45 relations
+  and the intrinsics: 342 functions, 236 of them (69%) `is_`. Next come 45 relations
   (`contains`, `contains_key`, `starts_with`, `ends_with`, `eq` and `ptr_eq` and
   `eq_ignore_ascii_case`, `exists`, `needs_drop`, `will_wake`), 3 `can_`, and 2 `has_`
   (`Path::has_root`). The count reads source with a regex, so it includes some unstable items.
@@ -39,7 +39,7 @@ So the convention is what `std` does, plus one lint that assumes it:
 return does not make a function a question, and std does not prefix those. That is the exemption
 the main page gives for `push`, `claim` and `take_`.
 
-**What is left is std's honest exceptions**, all from before 1.0 or from `Formatter`:
+What is left is std's honest exceptions, all from before 1.0 or from `Formatter`:
 `ExitStatus::success`, `WaitTimeoutResult::timed_out`, `Permissions::readonly`,
 `thread::panicking`, and `Formatter::alternate`, `sign_plus` and `sign_minus`. Newer stable API
 does not repeat them: `Option::is_some_and` (1.70), and `Option::is_none_or` and
@@ -61,15 +61,15 @@ counts as std's `Iterator::all` and `any`.
 
 ## Judgements the rule needed
 
-- **Rust has no `are_`.** A plural subject still takes `is_` or `has_`, the way `slice::is_sorted`
+- Rust has no `are_`. A plural subject still takes `is_` or `has_`, the way `slice::is_sorted`
   does: `has_clocks_running`, not `are_clocks_running`.
-- **Adding `is_` sometimes leaves a name that does not parse**, such as `is_shift` for "is a shift
+- Adding `is_` sometimes leaves a name that does not parse, such as `is_shift` for "is a shift
   key held" or `is_aarch64` on a set of legs where `All` also answers yes. Those need a word
   chosen, which is a naming decision rather than the rule's application. The worklist lists each
   one with a recommendation and does not rename it.
 - **A name that shadows std or another project stays**: our `Permissions::readonly` in the `std`
   overlay is std's own method, and `page_frames`'s bitmap `get(i)` follows C-GETTER's `get`.
-- **`is_` on a by-value receiver** is fine for `Copy` types and warns under clippy otherwise, so a
+- `is_` on a by-value receiver is fine for `Copy` types and warns under clippy otherwise, so a
   rename of a `self` method should expect the lint and take `&self` if the type is not `Copy`.
 
 ## BUGS
@@ -77,7 +77,7 @@ counts as std's `Iterator::all` and `any`.
 - **Nothing gates the rule.** A check that every `-> bool` starts with an allowed prefix would fire
   on every action that reports success, and telling a question from an action needs the doc
   comment read. It is rung three: written where a person naming a function looks.
-- **The std census is a regex over source**, not a rustdoc query, so the percentages are close
+- The std census is a regex over source, not a rustdoc query, so the percentages are close
   rather than exact.
 
 [guidelines]: https://github.com/rust-lang/api-guidelines/blob/master/src/naming.md

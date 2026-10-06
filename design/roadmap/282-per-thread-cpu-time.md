@@ -9,28 +9,28 @@ Minted 2026-09-13, when calef ruled milestone 126 (who else is running, and who 
 The decision is `design/decisions/150-per-thread-cpu-accounting.md`, amended the day this was built
 by DECISIONS §204 (how userspace asks where a thread runs). *(Number provisional until the merge queue lands it.)*
 
-**Nothing was gated on calef here**, and that is worth one line because the block carried a
+Nothing was gated on calef here, and that is worth one line because the block carried a
 `Gate: NONE` from the day it was minted: §150 (how does a thread's CPU time reach userspace?) settled the semantics, the sampling point and the
 unit, and §204 settled the wire shape the day this was built, replacing the widened `SURVEY` return
 with a selector inside the window §150 left open for exactly that. What remains his is the
 program's name and whether the ranking view is a program at all; neither blocked the build, and the
 naming note below says what he is being asked.
 
-**In brief.** There was no per-thread CPU accounting anywhere in this kernel, dead or live. `Thread`
+In brief. There was no per-thread CPU accounting anywhere in this kernel, dead or live. `Thread`
 carried no time-on-CPU field, `sched::on_tick()` touched no per-thread state, and the only counter
 was a machine-wide `preemptions()`. So this is new kernel state on the scheduler's hottest path, a
 new record on an existing method, and then a program that reads it.
 
 ## What was built
 
-1. **A tick counter per thread slot**, incremented in `sched::on_tick()` for whatever is running on
+1. A tick counter per thread slot, incremented in `sched::on_tick()` for whatever is running on
    that core: one bounds-checked index and one relaxed increment, which is §150's sub-choice 1.
-2. **`abi::survey::record::CPU_TIME`**, the record a `SURVEY` selector asks for, answering
-   **milliseconds** of scheduled on-CPU time. One constant, one name in `is_known`, one arm in
+2. `abi::survey::record::CPU_TIME`, the record a `SURVEY` selector asks for, answering
+   milliseconds of scheduled on-CPU time. One constant, one name in `is_known`, one arm in
    `sched::survey_supervised`.
-3. **The consumers.** `crates/ps` gained `Survey::join_cpu_time` (a second walk, joined on the tid)
+3. The consumers. `crates/ps` gained `Survey::join_cpu_time` (a second walk, joined on the tid)
    and `Survey::rank_by_cpu_time`, and `ps` prints a `TIME(ms)` column.
-4. **`top`**: `components/src/top.rs` and `crates/top`, the same domain `ps` lists, ranked by CPU
+4. `top`: `components/src/top.rs` and `crates/top`, the same domain `ps` lists, ranked by CPU
    time, under a summary line a ranked view needs and a listing does not.
 
 ## The counter is an array, not a field, and that is the one departure from §150
@@ -41,7 +41,7 @@ thread table instead, and the reason is the sampling point the same decision cho
 The increment happens in interrupt context, where the only name a core has for its running thread is
 a tid in its own per-CPU block. Turning that tid into a `&mut Thread` means taking `IPC_TABLES`, and
 a timer interrupt that waits on a lock another core holds is a scheduler-latency hole opened at
-every tick on every core. `try_lock` is worse rather than better: a dropped sample is a **wrong**
+every tick on every core. `try_lock` is worse rather than better: a dropped sample is a wrong
 number rather than a coarse one, and it would be dropped exactly when the machine is busiest. The
 slot index is already in the tid's low word, so an array keyed by slot needs no lock, no lookup and
 no ordering beyond relaxed. Two kilobytes of `.bss`, fixed.
@@ -54,7 +54,7 @@ candidate: the counter is per thread.
 
 §204 replaced the widened return with a selector on the forecast that *"a mechanism that must be
 redesigned at the sixth field is the wrong mechanism at the fourth"*, and the lane that built the
-selector claimed a new fact would then cost about three lines of dispatch. **It did.** Adding
+selector claimed a new fact would then cost about three lines of dispatch. It did. Adding
 `CPU_TIME` to the kernel's wire surface was one constant in `abi`, one name in `is_known`, one arm
 in the walk and one four-line conversion function. Everything else in this milestone is the
 accounting itself and the programs that read it, neither of which the wire shape decides. The
@@ -68,7 +68,7 @@ which is the fault `flaky` was renamed for on the same day this was minted. Unde
 it became both available and correct. Under the two refused options it would not have: wall-clock
 age is not `%CPU`, and a sampled estimate is not a measurement.
 
-**Two things about the name are an architect's and neither blocks anything.** The name `top` itself,
+Two things about the name are an architect's and neither blocks anything. The name `top` itself,
 which ships provisional. And the prior question of whether this is a program at all: milestone 281
 (`watch` holds exactly what `ps` holds) deleted `watch` on the rule that *two programs are two
 programs when they hold different authority*, and `top` holds `ps`'s three slots exactly. What
@@ -77,12 +77,12 @@ in `crates/top`'s module docs. Folding it into `ps` as a flag is a day's work an
 
 ## BUGS
 
-- **The reader races the writer, by design.** Each core's tick touches only its own running thread's
+- The reader races the writer, by design. Each core's tick touches only its own running thread's
   slot, so the write needs no cross-core synchronisation, but a reader on one core observing a
   counter another core is incrementing is a relaxed load of a value in flight. It reads a number
   that was true a moment ago, never a torn one. The same shape the per-CPU `TICKS` array already
   accepts, and rule 4 says state it rather than assume it.
-- **Tick-sampling is coarse and systematically so.** A thread that runs entirely between two ticks
+- Tick-sampling is coarse and systematically so. A thread that runs entirely between two ticks
   is charged nothing, and one that happens to be on a CPU at every tick is charged for the whole of
   each. That is what Linux's `jiffies`-based `utime` also does, and it is the accepted cost of not
   touching `schedule()`'s hot path. Recorded here and on the record's own doc rather than discovered

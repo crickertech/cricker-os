@@ -1,8 +1,8 @@
 # Tearing down an address space
 
 There are two ways to give back the page-table frames an address space accumulated, and
-which one is right depends entirely on **whether the whole space is going away or just part
-of it.** nife needs only the first, and that is worth understanding rather than
+which one is right depends entirely on whether the whole space is going away or just part
+of it. nife needs only the first, and that is worth understanding rather than
 assuming.
 
 ## The two strategies
@@ -12,13 +12,13 @@ any table that just became empty gets freed and its parent's pointer cleared, st
 first table a sibling still needs. This is incremental and precise. It is also more work per
 call: a tree-emptiness check at each level, and a per-leaf TLB invalidation.
 
-**Record-all-frames.** The address space keeps a list of *every* frame the mapper ever handed
+Record-all-frames. The address space keeps a list of *every* frame the mapper ever handed
 out, leaves and intermediate tables alike. To tear it down, free the whole list and throw away
 the root. No walk. No `unmap`. One TLB/ASID flush covers everything at the end.
 
 ## Why nife uses record-all-frames
 
-Because **an address space dies all at once.** A process exits, and its entire `TTBR0` world
+Because an address space dies all at once. A process exits, and its entire `TTBR0` world
 is gone. When you are freeing *everything*, incremental reclamation buys you nothing: you are
 not keeping any of it, so there is no emptiness to track and no order to respect. You just free
 the set.
@@ -26,13 +26,13 @@ the set.
 `user::AddressSpace` (`kernel/src/user.rs`) is exactly this: a `root: Frame` and a
 `frames: Vec<Frame>` that records what the mapper allocated. Its `Drop` frees the lot. The test
 `a_dead_user_thread_frees_its_whole_address_space` asserts that four user address spaces come
-and go with **zero** net frames leaked.
+and go with zero net frames leaked.
 
 Record-all-frames is strictly cheaper here than walk-and-reclaim: O(frames), no tree traversal,
 no per-leaf TLB dance. So a reclaiming `unmap` was considered and deliberately not built. There
 is nothing for it to do that this doesn't already do better.
 
-**Recorded-accepted by milestone 94's sweep** (2026-08-04): this is a decision with its reason
+Recorded-accepted by milestone 94's sweep (2026-08-04): this is a decision with its reason
 attached, not an unbuilt feature, and an audit may pass over it. Read it narrowly. It says a
 reclaiming `unmap` buys teardown nothing; it does not say the ABI needs no unmap at all. Milestone
 95 (an unmap primitive, and the mappings the progenitor never lets go) is the other question, where the progenitor
@@ -42,8 +42,8 @@ notes/untracked-work-sweep.md.
 ## The opposite case, in the same kernel
 
 Kernel thread stacks do the reverse, and on purpose. A dead thread's stack VA range is
-**reused** by the next thread, so `KernelStack`'s teardown frees the leaf mappings but
-**keeps** the intermediate tables. Reclaiming them would just force the next thread to
+reused by the next thread, so `KernelStack`'s teardown frees the leaf mappings but
+keeps the intermediate tables. Reclaiming them would just force the next thread to
 reallocate them. The test `a_finished_thread_is_reaped_and_its_memory_returned` pins this: a
 second batch of eight threads must cost exactly zero frames.
 
@@ -70,7 +70,7 @@ a long time. It was true of the *primitive* in isolation and false of the *kerne
 already solved teardown a better way. A later reader (a code survey, then us) read the TODO as a
 live bug and nearly "fixed" an unused method into existence.
 
-**A TODO that outlives the decision that resolved it becomes misinformation.** The fix was to
+A TODO that outlives the decision that resolved it becomes misinformation. The fix was to
 correct the comment, not to add code. See DECISIONS §4 on not building the abstraction before
 the requirement.
 

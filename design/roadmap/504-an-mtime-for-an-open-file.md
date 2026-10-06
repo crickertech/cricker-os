@@ -20,7 +20,7 @@ Every option that closes this puts something on the file contract, which two
 programs agree on (`crates/filesystem_protocol`, the FS server, every caretaker and the `std` PAL),
 and so is an architect's. Declining is also an answer, and the PAL already implements it.
 
-**In brief.** The three mtime verbs milestone 47 (navigation and naming) added for `touch` (`GETMTIME`, `SETMTIME`,
+In brief. The three mtime verbs milestone 47 (navigation and naming) added for `touch` (`GETMTIME`, `SETMTIME`,
 `SETMTIME_AT`, DECISIONS §112 (touch's two behaviors need two rights)) all take a **name under a directory handle**. `std` asks for a
 modification time in two shapes: by path (`std::fs::metadata(p).modified()`, `std::fs::set_times(p,
 ..)`), which is bound as of 2026-09-19, and through an open file (`File::metadata().modified()`,
@@ -34,10 +34,10 @@ common one: milestone 64's probe list ranked `Metadata::modified` at 19 with 5 c
 `File::set_times` at 28 with 2, and every walker (`walkdir`, `ignore`, so `ripgrep`) reaches
 metadata through `DirEntry::metadata`, which is by path and works. What still refuses:
 
-- **`File::metadata().modified()`**, which programs reach for after `File::open` when they want the
+- `File::metadata().modified()`, which programs reach for after `File::open` when they want the
   size and the time of the thing they are about to read. A caller can call `std::fs::metadata` on
   the same path instead, and that is what the refusal's message says.
-- **`File::set_modified` / `File::set_times`**, the stable (1.75) API that `tar`-shaped extractors
+- `File::set_modified` / `File::set_times`, the stable (1.75) API that `tar`-shaped extractors
   and `filetime`'s std path use to restore a timestamp after writing a file's contents. There is no
   path-shaped workaround that is equally correct, because the path may have been renamed since.
 
@@ -50,7 +50,7 @@ means. That reasoning is recorded at `Mtime` in `patches/std-nife/overlay/std/sr
 
 ## The options
 
-**(a) Put the mtime in `FSTAT`'s second reply word.** The server's `reply` already sends two words
+(a) Put the mtime in `FSTAT`'s second reply word. The server's `reply` already sends two words
 and fills the second with 0, so this is additive on the wire: an old client ignores it. It closes the
 read half only. Cost: one line in the server, one in the PAL, and every caretaker taught to relay the
 second word: `components/src/fs_file_caretaker.rs`'s `reply` sends a hard-coded 0 there today, so
@@ -59,7 +59,7 @@ fabricated-answer shape this proposal exists to avoid. Risk: `FSTAT` is also the
 reachability probe, and a reply shape change there is the one place a mistake would make every
 `std` program think it has no filesystem.
 
-**(b) Handle-taking twins of the three verbs** (`FGETMTIME`, `FSETMTIME`, `FSETMTIME_AT`, names
+(b) Handle-taking twins of the three verbs (`FGETMTIME`, `FSETMTIME`, `FSETMTIME_AT`, names
 provisional). Closes both halves, and it is the shape POSIX kept (`stat`/`fstat`, `utimensat`/
 `futimens`). **The setter runs straight into §112**, which is the finding that makes this a real
 fork rather than a binding: a file handle is hard-attenuated to `READ | WRITE` the moment it is
@@ -69,28 +69,28 @@ change on every open, and the caretakers' `POLICY` table learns a new row per ve
 `FSETMTIME_AT` is refused on every handle and only `FSETMTIME` (the server's own "now") is offered,
 which is not what `File::set_modified(t)` asks for.
 
-**(c) Decline, and keep the refusals.** What the PAL does today. `File::metadata().modified()` and
+(c) Decline, and keep the refusals. What the PAL does today. `File::metadata().modified()` and
 `File::set_times` answer `Unsupported` with a message naming the path-shaped call. Nothing is lost
 that a caller cannot get another way except restoring a timestamp through a handle.
 
 ## The seven questions
 
-1. **Considered and lost**: re-resolving the opened name inside the PAL (lost on correctness, above);
+1. Considered and lost: re-resolving the opened name inside the PAL (lost on correctness, above);
    a stat-by-name verb carrying size and mtime together (does not help an open file, which is the
    whole gap).
-2. **What the tree does in the analogous case**: extended attributes are handle-taking (`GETXATTR`
+2. What the tree does in the analogous case: extended attributes are handle-taking (`GETXATTR`
    on an open file), so the contract already answers "a fact about the file I hold" by handle; the
    mtime verbs are the exception, deliberately, because `touch` never opens what it acts on.
-3. **Prior art**: POSIX `fstat`/`futimens`; WASI's `fd_filestat_get`/`fd_filestat_set_times`, which
+3. Prior art: POSIX `fstat`/`futimens`; WASI's `fd_filestat_get`/`fd_filestat_set_times`, which
    `cap-std` binds to, are handle-first. Recalled rather than re-read for this proposal.
-4. **Is the premise true?** Checked: `filesystem_protocol::fs::GETMTIME`'s doc says name-taking on
+4. Is the premise true? Checked: `filesystem_protocol::fs::GETMTIME`'s doc says name-taking on
    purpose, `redoxfs_server`'s dispatch reads the name from the page, and the per-file caretaker
    refuses all three with `ENOTDIR` (`filesystem_protocol::grant::POLICY`).
-5. **Cost, measured**: (a) is a line each in the server and the PAL plus a relay in every caretaker; (b) is three
+5. Cost, measured: (a) is a line each in the server and the PAL plus a relay in every caretaker; (b) is three
    opcodes, three verb-table rows, three caretaker policy rows, server methods and host tests, plus
    the `SETTIME` question, which is the expensive part and is not code.
 6. **Reversibility**: (c) is fully reversible. (a) and (b) are wire changes and are not.
-7. **Same cost?** If (b) cost the same as (c), (b)'s getter would still win and its setter would
+7. Same cost? If (b) cost the same as (c), (b)'s getter would still win and its setter would
    still stall on `SETTIME`. The recommendation below is not about effort.
 
 ## Recommendation, and what it is not
@@ -99,7 +99,7 @@ None made, because this is a wire format. If a nudge helps: (a) is the cheap, ad
 and could be taken alone, and the setter should wait for a customer that restores timestamps
 (`tar`, a backup restore), because §112's rights question deserves a real use case.
 
-**What is blocked until it is answered**: nothing on the customer path. Milestone 121 (`ripgrep`)
+What is blocked until it is answered: nothing on the customer path. Milestone 121 (`ripgrep`)
 reaches metadata by path. Milestone 64 is BUILT without it; the refusals are its `BUGS` entry.
 
 ## Index row

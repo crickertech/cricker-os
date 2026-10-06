@@ -20,20 +20,20 @@ The mechanism this needs is a write to the boot medium, and the boot medium
 on every machine in the fleet is a USB mass-storage device nife cannot yet talk to. Milestone 242 is
 USB host and HID; the host controller is the half this waits on.
 
-**In brief.** Milestone 243 answered the half of its block that a **human** needs: on a UEFI machine
+In brief. Milestone 243 answered the half of its block that a human needs: on a UEFI machine
 with no serial port the boot tour is now painted into the firmware's linear framebuffer, so a person
-standing in front of Graeme's laptop can watch nife boot. It did **not** answer the half a **gate**
+standing in front of Graeme's laptop can watch nife boot. It did **not** answer the half a gate
 needs on real hardware. The screen check it added (`board_console::screen`, driven by
 `cargo xtask uefi-boot`) works by asking QEMU's monitor for a screendump, and nobody can ask a Dell
 for one.
 
-So the state of the fleet after 243 is: six machines can be brought up **by hand**, with a person
+So the state of the fleet after 243 is: six machines can be brought up by hand, with a person
 reading a monitor and taking a photograph, which is precisely the state milestone 216 got the
 VisionFive 2 *out* of for boards that do have a serial port.
 
 ## What it would be
 
-**Postmortem to the boot medium.** The stick the machine booted from is a FAT32 EFI system
+Postmortem to the boot medium. The stick the machine booted from is a FAT32 EFI system
 partition that a person is going to carry back to patagonia anyway. A kernel that appended its
 console transcript to a file on it would turn "photograph the screen" into "plug the stick in and
 run the gate", and `board_console::progress` would judge the result unchanged, exactly as it judges
@@ -41,11 +41,11 @@ a screendump and a serial log today.
 
 Three pieces, in the order they block each other:
 
-1. **USB mass storage**, which is milestone 242's neighbourhood rather than this proposal's.
-2. **A FAT32 writer**, or a raw reserved region on the stick with a known offset, which is the much
+1. USB mass storage, which is milestone 242's neighbourhood rather than this proposal's.
+2. A FAT32 writer, or a raw reserved region on the stick with a known offset, which is the much
    cheaper answer and is worth pricing first: the loader knows where its own image sits and could
    reserve a span at image time.
-3. **A transcript buffer in the kernel**, which is new state on the diagnostic path and wants
+3. A transcript buffer in the kernel, which is new state on the diagnostic path and wants
    arguing about rather than assuming (`screen_console` deliberately holds no buffer at all).
 
 ## What it is not

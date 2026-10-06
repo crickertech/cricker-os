@@ -17,11 +17,11 @@ lane. *(Number provisional until the merge queue lands it.)*
 Nothing is owed and nothing is missing. It is a measurement and a decision about a
 gate's assertion, both of which a lane can do today.
 
-**Premise re-checked 2026-09-19 and still true, with evidence that arrived after it was filed.**
+Premise re-checked 2026-09-19 and still true, with evidence that arrived after it was filed.
 `xtask/src/main.rs` still sets `NIFE_SMP=2` for the UEFI tour and still asserts
 `smp: 2 core(s) online` unconditionally, and `ap_boot.rs`'s "third or later" bound is untouched:
 milestone 316 fixed that module's `BUGS` #3 (`boot_cpu_id` answering the wrong question) and left #1
-open. **316 also supplies a second sample this block should reconcile rather than ignore**: 26
+open. 316 also supplies a second sample this block should reconcile rather than ignore: 26
 two-core boots, eight of them under OVMF, with zero `cpu 1 did not start` lines. 316's own `BUGS`
 says that is incidental evidence about a different failure mode and not the dedicated
 `cargo xtask uefi-boot` measurement step 1 asks for, which is why this stays work rather than
@@ -39,7 +39,7 @@ first `script/test` failed:
 uefi-boot: the boot transcript is missing "smp: 2 core(s) online"
 ```
 
-The next two runs passed, on the same tree, same machine, same commit: **one failure in three.**
+The next two runs passed, on the same tree, same machine, same commit: one failure in three.
 
 ## Why this is not already the recorded bug
 
@@ -68,11 +68,11 @@ running `script/test` on an x86_64 host.
 
 ## What a lane should do
 
-1. **Measure it.** Boot `cargo xtask uefi-boot` enough times to put a rate on it at `-smp 2`, which
+1. Measure it. Boot `cargo xtask uefi-boot` enough times to put a rate on it at `-smp 2`, which
    one lane's three runs cannot. One in three is a sample, not a number.
-2. **Decide which record is wrong**, and correct that one: either `ap_boot.rs`'s "third or later"
+2. Decide which record is wrong, and correct that one: either `ap_boot.rs`'s "third or later"
    bound, or `xtask/src/main.rs`'s comment that the tour does not touch the two-core defect.
-3. **Then decide what the gate should assert**, which is the part worth arguing rather than
+3. Then decide what the gate should assert, which is the part worth arguing rather than
    assuming. Asserting two cores is what makes the assertion worth having (it proves the
    trampoline page the loader asked for was usable, which is what its own comment says). Retrying
    the boot, or asserting one core, both weaken it. A gate that fails one time in three is worse

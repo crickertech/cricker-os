@@ -24,22 +24,22 @@ commit `ab6ff0fa0` on 2026-09-19. Recorded 2026-09-26 by the decisions-hygiene l
 
 The paragraph below, and the rest of this file, are the section as it stood before the ruling.
 
-**The tree now implements one of the options, and this section is still open.** On 2026-09-19,
-hours after this was written and in a different session, milestone 168's lane built **options 1 and
-3 together**, a uniform `REPEATS` of 21 with the median reported between the minimum and the
-maximum, and **refused option 2** (a per-point table) on measured board time. That lane had the
+The tree now implements one of the options, and this section is still open. On 2026-09-19,
+hours after this was written and in a different session, milestone 168's lane built options 1 and
+3 together, a uniform `REPEATS` of 21 with the median reported between the minimum and the
+maximum, and refused option 2 (a per-point table) on measured board time. That lane had the
 change assigned in its brief and recorded it in milestone 168 rather than implying it, which is the
-right thing to have done from inside a lane. It does not make this `DECIDED`. **What is asked of
-calef has changed shape rather than gone away**: ratify what shipped, or overrule it, on a line
+right thing to have done from inside a lane. It does not make this `DECIDED`. What is asked of
+calef has changed shape rather than gone away: ratify what shipped, or overrule it, on a line
 format two programs read and on how long every bench evening takes on every board. Milestone 419 is
 `BUILT` and carries the same sentence.
 
 ## What is being decided
 
-Milestone 168's sweep reports the **best of three** repeats per sweep point. At `tasks=4` the
+Milestone 168's sweep reports the best of three repeats per sweep point. At `tasks=4` the
 underlying distribution is wide enough that the best of three is itself a coin flip. The decision is
-what the instrument reports and how many samples it takes, and it is not a patch because **the
-`job-mix:` line is output two programs read**.
+what the instrument reports and how many samples it takes, and it is not a patch because the
+`job-mix:` line is output two programs read.
 
 ## Is the premise true
 
@@ -60,8 +60,8 @@ REPEATS: usize = 21;` with a compile-time assertion that it stays odd, and `ECHO
 
 ## The measurement
 
-Across five boots of an identical image the reported figure at `tasks=4` ranged from **766,361 to
-991,671 jobs per minute, a 29.4% spread**, while boot 3's three repeats *on their own* spanned
+Across five boots of an identical image the reported figure at `tasks=4` ranged from 766,361 to
+991,671 jobs per minute, a 29.4% spread, while boot 3's three repeats *on their own* spanned
 132,148 to 181,408 ticks, which contains the whole boot-to-boot range.
 
 **The variance is within a boot, so power cycling does not reduce it.** That is the finding that
@@ -83,11 +83,11 @@ transcript recogniser to parse.
 
 ## What this tree already does in the analogous case, and where it does not apply
 
-**`REPEATS`' own doc states the rule this tree uses**: the minimum is the least host-contended
+`REPEATS`' own doc states the rule this tree uses: the minimum is the least host-contended
 sample and everything above it is somebody else's load. That reasoning is sound for a
 micro-benchmark on a busy host, which is what §25's icount work and `script/bench` are.
 
-**It is questionable for a workload whose whole subject is contention between its own tasks.**
+It is questionable for a workload whose whole subject is contention between its own tasks.
 There, the spread is the signal rather than noise to be minimised away, and reporting only the best
 discards it. This tree's standing posture on benchmarks is that an honest tie or loss recorded
 plainly is worth more than an overclaimed win, and a best-of-three on a 29.4% distribution is
@@ -104,16 +104,16 @@ neither honest nor a win.
 
 ## Recommendation
 
-**3, with 4 as the interim**, and the reason is the one this section opened with: the job mix exists
+3, with 4 as the interim, and the reason is the one this section opened with: the job mix exists
 to measure what contention costs, and a report that keeps only the least-contended sample is
 answering a different question than the one §96 asked.
 
-**Option 3 is the most expensive on AGENTS.md's own test and that is why it is here rather than in a
-commit.** It changes a line two programs read, which is the category that cannot be un-shipped, so
+Option 3 is the most expensive on AGENTS.md's own test and that is why it is here rather than in a
+commit. It changes a line two programs read, which is the category that cannot be un-shipped, so
 it is calef's rather than a lane's. Until it is decided the honest thing is option 4, which is what
 milestone 168's block now does.
 
-**Option 2 should be refused if 3 is taken**, rather than stacked on it: reporting the spread makes
+Option 2 should be refused if 3 is taken, rather than stacked on it: reporting the spread makes
 the sample count legible in the output, so varying it per sweep point stops being a hidden fact and
 becomes one more column, which is a second format change for the same problem.
 
@@ -131,5 +131,5 @@ in `bench/` that a later reader compares against.
 
 ## What is blocked until this is answered
 
-**Milestone 168 turning `BUILT`.** Its own status line says it does not until a number exists, and
+Milestone 168 turning `BUILT`. Its own status line says it does not until a number exists, and
 `tasks=4` does not yet have one.

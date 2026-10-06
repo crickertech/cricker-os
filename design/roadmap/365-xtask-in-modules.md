@@ -7,7 +7,7 @@ built: 2026-09-19
 
 Built 2026-09-19, on a board thin enough to take it: no other lane running and two pull
 requests armed. Filed as a proposal on 2026-09-03 by the milestone 247 sweep, from milestone 130's
-block; promoted by milestone 433 on 2026-09-19 and taken the same day. The file was **11,124 lines**
+block; promoted by milestone 433 on 2026-09-19 and taken the same day. The file was 11,124 lines
 when the lane cut its branch, not the 6,785 the title names and not the 10,680 the promotion
 measured that morning: it grew 4% in the hours between, which is the argument for the timing rather
 than against it.
@@ -16,7 +16,7 @@ No decision was owed, and what it needed was a scheduled slot rather than a perm
 `xtask/src/main.rs` was one of the three merge hotspots every lane wires its test into, so a
 wholesale restructure conflicts with every branch in flight and had to run when the board was thin.
 
-**In brief.** Split `xtask/src/main.rs` into modules along the seams it already has, which are the
+In brief. Split `xtask/src/main.rs` into modules along the seams it already has, which are the
 commands. The compiler verifies the split completely, so the edit is mechanical and its failure
 mode is a build error rather than a subtle one. The work is not the thinking, it is the timing.
 
@@ -63,23 +63,23 @@ one names what it does. The alternative was a `common.rs`, which is the failure 
 prevent: a grab bag of everything shared is a second hotspot wearing a new name, and every lane
 would wire into it exactly as they wire into `main.rs` today.
 
-**`host.rs` is the one module named for a category rather than a subject, and it is deliberately
-small.** `cargo`, `run`, `capture`, `llvm_tool`, `workspace_root`, `bin_elf`, `flag_value`: 130
+`host.rs` is the one module named for a category rather than a subject, and it is deliberately
+small. `cargo`, `run`, `capture`, `llvm_tool`, `workspace_root`, `bin_elf`, `flag_value`: 130
 lines with no state and no policy. It is the residue a split always leaves, and the way to keep it
 from growing into a `common.rs` is that it is named for what it holds (running a host command and
 finding a build output) rather than for the fact of being shared. If something lands there that is
 neither, that is the tell.
 
-**The soak and the job mix left the board.** Both read as board work because they share a
+The soak and the job mix left the board. Both read as board work because they share a
 recogniser with `board-console`, but they run under QEMU and never touch a board, so they are
 `soak.rs`. The board module keeps the console and the U-Boot script, which are the two things that
 require the hardware.
 
-**`initrd_aarch64` moved, and it is the only thing that did.** It sat between the UEFI image and the
+`initrd_aarch64` moved, and it is the only thing that did. It sat between the UEFI image and the
 disks, a hundred lines from the two packers it is a sibling of. Everything else is in its original
 order inside its module.
 
-**The tests went with the code they test**, rather than into a `tests.rs`, which would have been a
+The tests went with the code they test, rather than into a `tests.rs`, which would have been a
 fourth hotspot. The 21 host tests are the same 21: the 20 that lived in `main.rs` are
 now under five `mod tests` blocks beside the code they exercise, and `stick.rs` keeps the one it
 already had.
@@ -88,7 +88,7 @@ already had.
 
 Behaviour was held fixed and checked rather than asserted:
 
-- **The move is provably a move.** Every non-blank line of the original `main.rs`, ignoring `use`
+- The move is provably a move. Every non-blank line of the original `main.rs`, ignoring `use`
   lines and the `pub(crate)` prefixes the split forced, appears in the new files: zero lines
   missing, and the only additions are the module doc comments and the `mod tests` wrappers.
 - **`script/fastpath-footprint` is byte-identical on all three ISAs**, before and after, down to
@@ -111,7 +111,7 @@ The failure mode was the predicted one. All three were build errors, none was su
 - **`script/lint`'s host-pass check read `xtask/src/main.rs` by name** for the bare-metal exclusion
   list, which now lives in `suite.rs`. It reads every `xtask/src/*.rs` instead, which is what the
   check always meant.
-- **Three intra-doc links stopped resolving.** A ``[`run`]`` that resolves inside one file does not
+- Three intra-doc links stopped resolving. A ``[`run`]`` that resolves inside one file does not
   resolve across two. Qualified.
 - **A section banner lifted from `//` to `//!` became documentation**, and clippy's `doc_markdown`
   had an opinion about `NIFE_GPU_MON` that it had no standing to have while the same text was an
@@ -164,7 +164,7 @@ of six and larger than anything else here. It is one command whose script table 
 whose two legs are 500 more. It could be split again along the table / legs / claims seam, and that
 is a different milestone with a different argument; nothing about this one required it.
 
-**The merge cost this avoids in future is paid once here, in full.** Any branch in flight that
+The merge cost this avoids in future is paid once here, in full. Any branch in flight that
 touches `xtask/src/main.rs` conflicts with this wholesale, and the resolution is to move the change
 into the module the code now lives in rather than to merge line by line.
 

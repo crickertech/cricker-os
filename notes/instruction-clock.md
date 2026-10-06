@@ -7,13 +7,13 @@ and a lane ships a provisional name and says so.)*
 
 ## The one fact everything here rests on
 
-Under `-icount shift=0,sleep=off`, QEMU's virtual clock advances **by exactly one nanosecond per
-guest instruction retired, and by nothing else.** Not by host time, not by how many other lanes are
+Under `-icount shift=0,sleep=off`, QEMU's virtual clock advances by exactly one nanosecond per
+guest instruction retired, and by nothing else. Not by host time, not by how many other lanes are
 gating on the same laptop, not by whether the emulator's thread was scheduled at all.
 
 That single property is what turns a whole family of unaskable questions into assertions.
 `notes/load-sensitive-assertions.md` states the problem twice, once per ISA, in the same words:
-**from inside the guest, a 30 ms handler and a 30 ms deschedule are the same observation.** Milestone
+from inside the guest, a 30 ms handler and a 30 ms deschedule are the same observation. Milestone
 78's other four rounds re-aimed everything that could be re-aimed at a property the host cannot
 touch; two claims survived because no wall-clock margin can separate those two cases, and a margin
 wide enough to try is a margin that no longer catches the defect. That is DECISIONS §61's scar, and
@@ -83,8 +83,8 @@ claims 1 to 3 could not see the timer drift bug at all; the section below it is 
 interrupt delivery, the vector, the register save, the dispatch, the GIC acknowledge on aarch64, and
 the tick bookkeeping.
 
-**On riscv64 this is the claim milestone 78 was left holding, and it is the whole reason the
-instrument exists.** SBI's `set_timer` is write-only. `DEADLINE` is the kernel's own array, so
+On riscv64 this is the claim milestone 78 was left holding, and it is the whole reason the
+instrument exists. SBI's `set_timer` is write-only. `DEADLINE` is the kernel's own array, so
 reading it back proves only that the kernel can remember what it meant to write; the block says so
 in as many words ("on aarch64 the equivalent value is in a register the hardware itself consults, so
 the readback is evidence and on riscv64 it is bookkeeping"). The residual gap is an implementation
@@ -93,7 +93,7 @@ test in this tree.
 
 It does not pass this one, and that was proved by building it rather than by arguing it. See "The
 injections" below, which also corrects the expectation this paragraph used to state: the existing
-suite **does** notice both of the implementations tried, and it **misdiagnoses both**, which turns
+suite does notice both of the implementations tried, and it misdiagnoses both, which turns
 out to be the more interesting result and the one the milestone is actually about.
 
 aarch64 asserts the same thing, at the same site, for the reason rule 5 gives: a claim that holds on
@@ -112,10 +112,10 @@ exceeding one whole tick period, which is **10,000,000 instructions of virtual t
 ten milliseconds at 100 Hz, and one instruction is one nanosecond. The missed-tick assertions could
 therefore only ever say "the handler did not take ten milliseconds", and could not tell a handler
 that took ten milliseconds from an emulator that was not running for ten milliseconds. The bounds
-here are **about 4,000 times tighter** and have no second explanation.
+here are about 4,000 times tighter and have no second explanation.
 
 *(Corrected 2026-08-18. This paragraph said "625,000 instructions of virtual time on aarch64",
-which is the tick interval in **counter ticks** wearing instructions' units: 625,000 counter ticks
+which is the tick interval in counter ticks wearing instructions' units: 625,000 counter ticks
 at 16 instructions each is the 10,000,000 above, and the run's own `tick_interval 625000 10000000`
 line prints both numbers side by side. The same slip is in the doc comment on `HANDLER_BOUND` in
 `kernel/src/arch/aarch64/timer.rs`, fixed in the same change, and it carried the understated "more
@@ -144,8 +144,8 @@ at all, and `missed_ticks == 0` is a bare assertion.
 
 **`-icount` is not a flag that observes. It changes what QEMU is.** But the first thing to say is a
 correction, because the milestone block states the cost as *"icount is slower and changes what the
-suite measures"* and nobody had ever measured the first half of that. **On compute it is not
-slower.**
+suite measures"* and nobody had ever measured the first half of that. On compute it is not
+slower.
 
 | identical bench boot, `-smp 1`, three runs each | wall clock |
 |---|---|
@@ -190,8 +190,8 @@ is the mechanism working.)
 
 What that costs is that the icount kernel carries the benchmark code, compiled and never run.
 Nothing measures *this* binary against a baseline, so the ±5% codegen drift that makes `bench --check`
-a coarse tripwire is not a cost here. The property that mattered is kept: **`script/bench`'s own
-binary is untouched**, so no baseline had to be re-saved to admit an unrelated instrument, which is a
+a coarse tripwire is not a cost here. The property that mattered is kept: `script/bench`'s own
+binary is untouched, so no baseline had to be re-saved to admit an unrelated instrument, which is a
 tripwire losing its history for nothing.
 
 **What it costs to run:** 7.0 s wall for both ISAs including two kernel builds (2026-08-17, same
@@ -199,7 +199,7 @@ conditions).
 
 ## Resolution: what this instrument can and cannot see
 
-Virtual time is exact in nanoseconds, but the guest reads it through a **divided counter**, and that
+Virtual time is exact in nanoseconds, but the guest reads it through a divided counter, and that
 division is the instrument's resolution:
 
 | ISA | counter | frequency | one counter tick |
@@ -221,34 +221,34 @@ different instrument from the `bench --check` tripwire, which compares *whole-bi
 
 `notes/timed-wait.md` (the pricing lane for milestone 51's deadline fork) wanted "a dedicated
 `--features bench` probe under `-icount shift=0`" and could not build one, so it priced the
-deadline check by **reading disassembly** instead: +30 instructions on aarch64 and +31 on riscv64 in
+deadline check by reading disassembly instead: +30 instructions on aarch64 and +31 on riscv64 in
 `sched::on_tick`, against a whole-tick path of ~491 and ~400 static instructions. Its own words:
 "Nothing was measured under icount, because the icount tripwire's own note records ±5% codegen drift
 between binaries, which swamps a 30-instruction change: the disassembly is the finer instrument
 here, not the coarser one."
 
-That was true of the tripwire and it is not true of this. The quantity here is a **localized span
-inside one run**, not two binaries' totals, and it has no variance at all:
+That was true of the tripwire and it is not true of this. The quantity here is a localized span
+inside one run, not two binaries' totals, and it has no variance at all:
 
-- **aarch64: yes, and it is measured rather than argued.** Injecting exactly 200 instructions into
+- aarch64: yes, and it is measured rather than argued. Injecting exactly 200 instructions into
   the handler moved the reported number by 208, on every one of the 64 ticks, with the residual
   smaller than one counter tick (the table above). A +30 change is therefore two counter ticks of
   movement on a number that does not otherwise move at all. Build with the prototype, build without
   it, run `script/icount --arch aarch64` twice, and the difference is the answer.
-- **riscv64: not at this resolution.** One counter tick is 100 instructions, so a +31 change is
+- riscv64: not at this resolution. One counter tick is 100 instructions, so a +31 change is
   visible only as an occasional single-tick step, and the honest reading is "under 100 and not zero".
   The disassembly stays the finer instrument on that ISA.
 
-The caveat both legs share: the measured span is the **timer handler**, so it answers "what does a
+The caveat both legs share: the measured span is the timer handler, so it answers "what does a
 deadline check cost the tick" and not "what does it cost anything else".
 
 ### 4. The armed deadline advanced by exactly one interval per delivered tick
 
-The re-arm law, and it is here because **claims 1 to 3 are blind to a violation of it.** Milestone
+The re-arm law, and it is here because claims 1 to 3 are blind to a violation of it. Milestone
 62 injected the defect the aarch64 timer's module header has warned about since milestone 6,
 re-anchoring the grid from `now` inside `rearm` rather than advancing it from the deadline that
 fired: the bug that made 100 Hz configured into about 70 Hz delivered. `script/test` went red.
-**This instrument went green with every number byte-identical to a clean run** (arrival min/mean/max
+This instrument went green with every number byte-identical to a clean run (arrival min/mean/max
 1008, handler 1056, `missed_ticks 0`).
 
 The reason is claim 1's own subject. It compares each arrival against *the deadline that fired*, so
@@ -256,7 +256,7 @@ a kernel that re-anchors the whole grid arms the timer with the very word it rec
 the comparison on every tick forever. Claim 2's span starts at the same place, and claim 3 counts
 misses, of which re-anchoring produces none. Nothing moves.
 
-Here the law needs **no retry loop at all**, which is claim 3 paying for itself. The suite's twin
+Here the law needs no retry loop at all, which is claim 3 paying for itself. The suite's twin
 must find a window in which `MISSED_TICKS` did not move, because a miss re-anchors the grid on
 purpose, and on a loaded host it sometimes cannot find one in eight tries; that is the whole of
 milestone 62's disposition of it. Virtual time has no deschedules, `missed == 0` is asserted a few
@@ -287,7 +287,7 @@ store untouched.
 | `sbi_set_timer(now + interval())` | re-anchor on every tick, the classic drift bug, with the grid still kept correctly beside it | **red**: arrival 420,400 instructions against a bound of 1,500 | **red**, at `the_handler_keeps_up_when_no_lock_is_held` |
 | `sbi_set_timer(next + interval() / 4)` | a *fixed* quarter-period offset: no drift, no accumulation, the delivered rate still exactly 100 Hz | **red**: arrival 2,500,400 instructions, which is the injected 25,000 counter ticks plus the usual ~400, on every one of the 64 ticks | **red**, at `ticks_arrive_at_the_configured_rate` |
 
-**The expectation was that the suite would not notice, and it did.** That is worth stating plainly
+The expectation was that the suite would not notice, and it did. That is worth stating plainly
 because it was written down as a prediction first. What it did not do is say what was wrong:
 
 - the first one failed as *"the timer handler is taking longer than a whole tick period, with no lock
@@ -302,7 +302,7 @@ because it was written down as a prediction first. What it did not do is say wha
 The icount message names the defect: *"either the trap path grew, or the timer was armed with
 something other than the deadline the kernel recorded"*, on a number with no host term in it.
 
-**So the instrument's value is diagnostic certainty rather than detection**, and that is the
+So the instrument's value is diagnostic certainty rather than detection, and that is the
 milestone's own thesis rather than a consolation. The block's cost line is "every red check in this
 repository currently needs a human to decide 'known or real', and on 2026-08-03 that judgement was
 made at least six times and got the wrong answer twice." Both of these injections produce exactly
@@ -321,8 +321,8 @@ uses.
 | **delta** | **+208** | **+208** |
 
 Both numbers moved by the same amount, on every one of the 64 ticks, and the eight-instruction
-residual over the 200 injected is the operand setup around the loop: **smaller than one counter
-tick.** That is the resolution claim measured rather than reasoned, and it is what makes the
+residual over the 200 injected is the operand setup around the loop: smaller than one counter
+tick. That is the resolution claim measured rather than reasoned, and it is what makes the
 paragraph below about milestone 106 a statement of fact.
 
 ## The calibration, and why a boot refuses to measure without it
@@ -353,13 +353,13 @@ there.
 
 ## BUGS
 
-- **The riscv64 resolution is 100 instructions, and that is coarse enough to matter.** A change
+- The riscv64 resolution is 100 instructions, and that is coarse enough to matter. A change
   smaller than one `rdtime` tick is invisible on that leg except as an occasional single-tick step in
   the max. Nothing in the kernel can fix this: the counter's frequency is the machine's. A finer
   probe would have to read `rdcycle`/`rdinstret`, which QEMU does map to the instruction count under
   icount but which S-mode may only read when the firmware permits it (`mcounteren`), so it is a
-  dependency on OpenSBI's configuration rather than on the architecture. **Not tried here.**
-- **The bounds are ceilings and a regression under them is invisible.** A change that adds 300
+  dependency on OpenSBI's configuration rather than on the architecture. Not tried here.
+- The bounds are ceilings and a regression under them is invisible. A change that adds 300
   instructions to the aarch64 handler passes, because the bound is 2,000 and the number is 1,008.
   That is the deliberate trade against codegen drift: an exact baseline here would be a second
   `bench --check` with all of that instrument's re-save churn and none of its coverage. If the
@@ -369,7 +369,7 @@ there.
   about the timer, so that is what got hooks, and the file is deliberately not a framework. Any other
   path wanting an instruction-denominated claim needs its own `tick_trace`-shaped recording, which is
   three relaxed counters and a call site.
-- **The measured handler is the shipping handler, not the tested one.** The `icount` build is not a
+- The measured handler is the shipping handler, not the tested one. The `icount` build is not a
   test build, so the `#[cfg(test)]` watchdog feed and `miss_detail` recording are absent from the
   numbers above. That is the right subject for a claim about what the handler costs, and it does mean
   the figure is a few instructions below what the suite's own handler executes.
@@ -383,7 +383,7 @@ there.
   wired into CI beside the bench tripwire, which shares its QEMU cache and its path filter. A
   developer who never runs `script/icount` locally will find out in CI rather than before pushing,
   which is the cost of not putting `-icount` on the test path.
-- **The failure path had to be bounded on the host, and finding that out leaked two emulators.**
+- The failure path had to be bounded on the host, and finding that out leaked two emulators.
   The guest's panic handler halts rather than exiting, so a violated claim prints its message and
   then the pipe never closes: `xtask` blocked on the read forever and QEMU stayed alive at ~80% of a
   core, twice, on a laptop already carrying four other lanes' gates. Counting "a few more lines"
@@ -391,7 +391,7 @@ there.
   mechanism now is a watchdog thread with a 300 s deadline that a seen panic shortens to three
   seconds, and killing QEMU is what closes the pipe and ends the read. `run_bench` has the same
   shape and the same exposure, and was not changed here.
-- **Numbers are from one QEMU.** icount counts guest instructions, so the emulator's version is part
+- Numbers are from one QEMU. icount counts guest instructions, so the emulator's version is part
   of what they mean, exactly as `bench/baseline-*.txt` records for itself. `script/qemu-check` warns
   when the QEMU on PATH is not the pinned one.
 

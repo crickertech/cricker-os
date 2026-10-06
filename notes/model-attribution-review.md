@@ -81,7 +81,7 @@ model has a single commit after 2026-08-21.
 178 of the 180 carry a `Claude-Session` trailer and all 178 name the same session,
 `01XbKDohBwwjgJtdWD9qmoa4`. That is the session this lane is running inside. A session is not a
 model, since the model can be switched mid-session, but the direction of the inference still holds:
-**Sonnet's entire footprint in this tree came out of one session over six days.**
+Sonnet's entire footprint in this tree came out of one session over six days.
 
 This is the finding that reshapes the plan. The comparison anyone would naturally draw, Sonnet
 against the other models, is a comparison of one session against another, over a different week, on a
@@ -99,12 +99,12 @@ the work calef has been reading most recently is Sonnet's, because all of it is 
 Mapping every non-merge commit onto the pull request that merged it:
 
 - 95 pull requests contain at least one Sonnet-trailered commit.
-- **Zero of those 95 contain a commit trailered to any other model.** A pull request is a lane, and a
+- Zero of those 95 contain a commit trailered to any other model. A pull request is a lane, and a
   lane ran one model.
 - Those 95 pull requests hold 242 commits: 180 trailered, 62 untrailered, 0 other-model.
 
 So the 62 untrailered commits inside Sonnet pull requests are Sonnet's in everything but the trailer,
-and **Sonnet's real footprint is at least 242 commits, 34% more than the trailer count**. Attribute
+and Sonnet's real footprint is at least 242 commits, 34% more than the trailer count. Attribute
 by pull request, not by commit. Across the whole tree the same rule holds well: of 533 pull requests
 carrying any trailer at all, 338 are single-model and only 5 mix models.
 
@@ -122,7 +122,7 @@ populations:
 | Sonnet-trailered lanes | 95 | 242 (180 trailered + 62 not) |
 | Lanes with no trailer of any kind | 80 | 140 |
 
-**There is no other model in the window at all.** The only same-window comparison available is
+There is no other model in the window at all. The only same-window comparison available is
 against 80 pull requests whose author is unknown, and they could be Sonnet lanes whose trailer never
 fired.
 
@@ -169,7 +169,7 @@ in this window. So the week's largest single act was a tree-wide rename of the c
 which is the most expensive thing on the reversibility list and the one that lands in a reader's head
 rather than in a file.
 
-**The naming half of this needs no new review**, and that is worth saying because it is the part
+The naming half of this needs no new review, and that is worth saying because it is the part
 that looks most alarming. `script/names` already tracks it, calef already ratified the big ones in
 the window (`memory_regions`, `page_frames` and `login_protocol` all carry 2026-08-23), and the rest sit
 on the existing worklist as `provisional` or `unrecorded` (`uptime`, `watch`, `printenv`,
@@ -226,8 +226,8 @@ Sonnet lands mid-pack in the kernel, indistinguishable from Fable and better tha
 higher than everyone but Opus 4.8 outside the kernel. The rename campaign was checked as a confound
 and cleared: only 9 of the 251 lines blamed to Sonnet were written by a rename commit.
 
-**Three metrics, three orderings, and the whole tree has 77 fix-shaped code commits to build all of
-them on.** The counts behind each cell are in the low hundreds of lines, the follow-up window for
+Three metrics, three orderings, and the whole tree has 77 fix-shaped code commits to build all of
+them on. The counts behind each cell are in the low hundreds of lines, the follow-up window for
 Sonnet's most recent commits is a day rather than six, and no confidence interval drawn around these
 would exclude "the models are the same". There are zero commits in this tree whose subject begins
 with `Revert`, so the sharpest available signal does not exist at all.
@@ -243,7 +243,7 @@ the commit bisects it by swapping `kernel/` alone between three of its own branc
 rest of the tree held constant, attributes 29,302 of the 35,512 ticks to a specific reclamation sweep
 by stubbing that sweep out, halves it, states the remaining 6.4% as the price of a correctness fix
 rather than hiding it, re-records the baselines with the reason, and reports a further optimisation
-that was **built, measured, recovered 3,820 ticks, and was dropped** because it destabilised block
+that was built, measured, recovered 3,820 ticks, and was dropped because it destabilised block
 layout. It also names a movement on an unrelated bench row that nobody asked about.
 
 That is better work than most of this tree, by any model. Commit-message length says the same thing
@@ -263,14 +263,14 @@ actionable, because nobody can change the model but everybody can change the bri
 A defect count with no base rate is not a finding. The control must be matched on subsystem, commit
 size, and date, reviewed by the same reviewer against the same rubric.
 
-**Date is the one that cannot be matched.** Sonnet's window is disjoint from every other model's. The
+Date is the one that cannot be matched. Sonnet's window is disjoint from every other model's. The
 options, none of them clean:
 
-1. **Same-window control: the 80 untrailered pull requests (140 commits).** Perfectly matched on
+1. Same-window control: the 80 untrailered pull requests (140 commits). Perfectly matched on
    date, tree state, milestone range, and lane conditions. Unattributed, so a difference is
    interpretable as "Sonnet lanes versus lanes that did not stamp a trailer" and no further. Cheapest
    and most defensible. This is the recommended control.
-2. **Subsystem-and-size-matched control from Opus 5 and Fable, drawn from earlier weeks.** Matched on
+2. Subsystem-and-size-matched control from Opus 5 and Fable, drawn from earlier weeks. Matched on
    what the reviewer reads, unmatched on everything the tree was doing. Any difference confounds
    model with three weeks of tree evolution.
 3. **Both**, which is the only way to see whether the two controls disagree, and they will.
@@ -278,10 +278,10 @@ options, none of them clean:
 ### Blinding, and the honest statement that it leaks
 
 Blinding is implementable and is the difference between a study and a confirmation exercise. The
-mechanism already exists in this tree: `script/stranger-test` runs a **separate `claude` process
-rather than a subagent**, with its working directory set to the *parent* of the tree, since project
-instructions load from ancestors and never from descendants, and it **probes the isolation before the
-run** rather than assuming it. Milestone 117 (the stranger test) also withholds its own answer key by
+mechanism already exists in this tree: `script/stranger-test` runs a separate `claude` process
+rather than a subagent, with its working directory set to the *parent* of the tree, since project
+instructions load from ancestors and never from descendants, and it probes the isolation before the
+run rather than assuming it. Milestone 117 (the stranger test) also withholds its own answer key by
 amending the note out of the tree for the run.
 
 Applied here, the scheme is:
@@ -302,9 +302,9 @@ partial in the report rather than claimed:**
 
 - **Milestone numbers.** Sonnet's commits cite milestones 158 to 184; the earlier models' cite lower
   numbers. Stripping them mutilates the message that the rubric is partly scoring.
-- **Content that only exists after a date.** An x86_64 file, `CapabilityTable`, `login_protocol`. The
+- Content that only exists after a date. An x86_64 file, `CapabilityTable`, `login_protocol`. The
   post-rename vocabulary alone identifies the window.
-- **The window is the model.** Because the two are perfectly confounded, any leak of the date is a
+- The window is the model. Because the two are perfectly confounded, any leak of the date is a
   leak of the attribution. Blinding cannot do better than the confound allows.
 
 Option 1's same-window control is the only configuration where blinding actually holds, because there
@@ -320,9 +320,9 @@ direction the reader expects. Six axes, each scored 0 to 2 with the anchors writ
 2. **Confinement.** Does it widen authority, and does the message say so if it does.
 3. **Irreversibility handled.** If it touches the syscall surface, a wire format, a name, or a
    dependency, is the decision recorded and is it calef's where it should be.
-4. **Test earns its keep.** Does the test prove something nothing else would have proved, or is it
+4. Test earns its keep. Does the test prove something nothing else would have proved, or is it
    filler.
-5. **The message explains why.** `git blame` is what a commit is for.
+5. The message explains why. `git blame` is what a commit is for.
 6. **Honest limits.** Does a `BUGS` entry or a stated caveat exist where the change fell short.
 
 Axes 3, 5 and 6 are the ones this tree cares about most and the ones a generic code review would not
@@ -330,9 +330,9 @@ score at all.
 
 ### The null result, stated in advance
 
-**The study reports "no differential found" when the blinded per-axis mean for the Sonnet arm is
+The study reports "no differential found" when the blinded per-axis mean for the Sonnet arm is
 within one standard error of the control arm on every axis, and the count of severity-2 findings per
-1,000 diff lines differs by less than a factor of two.** With the sample sizes below, a factor of two
+1,000 diff lines differs by less than a factor of two. With the sample sizes below, a factor of two
 is roughly the smallest effect the study can see, and saying so up front is what stops a null being
 written up as a failure to look hard enough.
 
@@ -352,8 +352,8 @@ perfectly confounded, that the cheap metrics disagree with each other, that the 
 already tracked by `script/names`, and that the irreversible surface Sonnet touched is 649 diff lines
 across 25 commits rather than anything like the whole 46,223.
 
-**If calef declines everything below, the reconnaissance still says: there is no cheap evidence of a
-differential, and the expensive evidence would be hard to obtain and easy to fake.**
+If calef declines everything below, the reconnaissance still says: there is no cheap evidence of a
+differential, and the expensive evidence would be hard to obtain and easy to fake.
 
 ### Tier 1: the irreversible surface, unblinded, no control. 1 lane, 2 to 3 hours, ~400k tokens.
 
@@ -362,11 +362,11 @@ commits, 649 diff lines. Then the 7 new crates' and 7 new programs' manifests an
 declarations, and the 14 Cargo manifest changes against §46's rule that a dependency is a decision.
 
 This tier is deliberately not a study and makes no claim about any model. It asks a different and
-more useful question: **did anything expensive to undo land in that week without the record it
-should have carried.** A control group would add nothing, because the standard is absolute rather
+more useful question: did anything expensive to undo land in that week without the record it
+should have carried. A control group would add nothing, because the standard is absolute rather
 than comparative.
 
-**It should be folded into the security audit that is already due rather than run as its own thing.**
+It should be folded into the security audit that is already due rather than run as its own thing.
 `script/audits` currently reports `documentation` and `security` both overdue, each with three
 triggers fired, and the last security audit's lens was "newly minted authority, read adversarially"
 on 2026-08-17. Pointing the next one at the window is one row in
@@ -386,8 +386,8 @@ Recommended, and recommended first.
   Inter-rater agreement is reported; a rubric two readers cannot agree on is not a rubric.
 - Attribution joined last.
 
-**What it can conclude:** whether Sonnet-trailered lanes differ from same-window untrailered lanes at
-an effect size of roughly two-to-one or larger. **What it cannot:** anything about Sonnet versus Opus
+What it can conclude: whether Sonnet-trailered lanes differ from same-window untrailered lanes at
+an effect size of roughly two-to-one or larger. What it cannot: anything about Sonnet versus Opus
 or Fable, since neither is in the window.
 
 That limitation is severe and is the reason this tier is second rather than first.
@@ -421,20 +421,20 @@ it is compatible with approving tier 1 today.
 
 Stated plainly, because a plan that hides its blind spots is the thing it is trying to review.
 
-- **A design decision that was wrong but implemented cleanly.** Every tier reads diffs. A diff that
+- A design decision that was wrong but implemented cleanly. Every tier reads diffs. A diff that
   correctly implements the worse of two options looks exactly like a diff that correctly implements
   the better one. The rename campaign is precisely this shape: whether `CapabilityTable` was the
   right call is not visible in the patch that performs it.
 - **Work that was never written.** A lane that stopped early, declined a hard item, or produced a
   thinner milestone than the block asked for leaves no diff to read. The roadmap blocks would show
   it and the commits will not.
-- **Anything about the 648 untrailered commits.** They are 32% of the tree and no source in the
+- Anything about the 648 untrailered commits. They are 32% of the tree and no source in the
   repository attributes them.
-- **Whether a defect was caught or landed, before roughly 2026-08-15.** Per-branch check history is
+- Whether a defect was caught or landed, before roughly 2026-08-15. Per-branch check history is
   only reliably available for recent pull requests, so "did the gates catch it" is answerable for the
   Sonnet window and progressively less so going back, which biases any gate-based comparison toward
   finding the recent window worse.
-- **Effects smaller than about two to one.** With 77 fix-shaped commits in the whole tree and 120
+- Effects smaller than about two to one. With 77 fix-shaped commits in the whole tree and 120
   cases in tier 2, the study is underpowered for anything subtler. It will not distinguish a good
   model from a slightly better one, and should not be asked to.
 
@@ -442,32 +442,32 @@ Stated plainly, because a plan that hides its blind spots is the thing it is try
 
 *A fork reaches calef with its questions already answered.*
 
-1. **What else was considered, and why did each lose?** An unblinded read of all 180 Sonnet diffs
+1. What else was considered, and why did each lose? An unblinded read of all 180 Sonnet diffs
    (the request as first framed) loses because it cannot produce a negative result. A metrics-only
    answer with no reading loses because §6 above shows three metrics giving three orderings. A review
    scoped to "commits with the Sonnet trailer" loses to pull-request attribution, which recovers 62
    more commits for free. Tier 3 loses to tier 4 on the only axis that matters, which is whether the
    confound is removable.
-2. **What does this tree already do in the analogous case?** It runs audits as a mechanism:
+2. What does this tree already do in the analogous case? It runs audits as a mechanism:
    `script/audits`, `design/audit-reports/README.md`, seven audits on record, each a named lens with
    a cadence row and findings dispositioned as fixed, minted, or accepted. It blinds a reader by
    spawning a separate `claude` process whose working directory is the tree's parent, and it probes
    the isolation before trusting it (`script/stranger-test`). It tracks unratified names in
    `script/names` rather than in a study. Tier 1 uses all three rather than growing twins of them.
-3. **What is the prior art outside the tree?** The line-level attribution in §6 is the SZZ algorithm
+3. What is the prior art outside the tree? The line-level attribution in §6 is the SZZ algorithm
    (Śliwerski, Zimmermann and Zeller, *When Do Changes Induce Fixes?*, MSR 2005), and its known
    failure modes are the ones observed here: keyword-matched fix commits over-select, and
    refactoring commits absorb blame for lines they only moved. The rename-campaign check in §6 is the
    standard mitigation for the second. Cited as a method, not quoted; nothing here is a block quote
    from memory.
-4. **Is the premise true?** Partly. "Sonnet wrote 181 commits" is close (180 trailered, 242 by pull
+4. Is the premise true? Partly. "Sonnet wrote 181 commits" is close (180 trailered, 242 by pull
    request). "Sonnet's commits can be compared against other models' commits in this tree" is
    **false**, and that is the finding: there is no overlap in time, and the comparison everyone would
    naturally draw is between two different weeks.
-5. **What does each option cost, measured rather than asserted?** Priced above in lanes, hours and
+5. What does each option cost, measured rather than asserted? Priced above in lanes, hours and
    tokens, from measured diff sizes (46,223 total, 38,459 code, 649 on the irreversible surface)
    rather than from estimates.
-6. **How reversible is it, and who has already acted on it?** The review itself is fully reversible;
+6. How reversible is it, and who has already acted on it? The review itself is fully reversible;
    nothing it produces changes the tree. Its *conclusion* is not. A written verdict that a model is
    worse is a fact that leaves the machine, and this project's own tenet puts that in the
    irreversible category alongside a published benchmark. That is the reason for the rubric, the
@@ -480,11 +480,11 @@ Stated plainly, because a plan that hides its blind spots is the thing it is try
   fix to arrive. Sonnet's line-level rates are therefore a **floor** and will rise as the tree moves
   on. They were not adjusted for this, because any adjustment is a model of arrival rates that
   nothing here has measured.
-- **The fix-shaped-commit regex is keyword-matched and this tree writes self-critical prose.** Words
+- The fix-shaped-commit regex is keyword-matched and this tree writes self-critical prose. Words
   like "wrong", "broken" and "stale" appear in commit bodies describing the *reason* for a change
   rather than a defect being repaired. 77 commits matched; they were eyeballed and most look genuine,
   but no one has classified them one by one.
-- **Nothing here checks whether a defect was caught by CI or landed.** The distinction the brief asked
+- Nothing here checks whether a defect was caught by CI or landed. The distinction the brief asked
   for, gate-caught versus gate-escaped, was approximated by "was it fixed in a different pull
   request", which is a proxy and not the thing. Several Sonnet fix commits say "caught by CI" in their
   own subjects, which is the gates working and which this note's numbers count as defects anyway.
@@ -492,7 +492,7 @@ Stated plainly, because a plan that hides its blind spots is the thing it is try
   subagent it spawns share an id, and the model can change inside a session. The claim "Sonnet's work
   is one session" is supported; the claim "one session means one set of conditions" is an inference
   and is not measured.
-- **This note was written by an agent inside the very session whose output is under review.** That is
+- This note was written by an agent inside the very session whose output is under review. That is
   a conflict of interest and no mitigation was applied beyond running measurements rather than
   offering impressions and reporting all three of them when they disagreed. Any tier that runs should
   not be scored from this session.

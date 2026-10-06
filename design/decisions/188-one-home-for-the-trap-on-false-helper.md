@@ -12,13 +12,13 @@ provisional until the merge queue lands it.)*
 
 ## What is being decided
 
-**The name, and only the name.** Whether the function is lifted is already decided by §94; what is
+The name, and only the name. Whether the function is lifted is already decided by §94; what is
 open is what a public item on `crates/user_mode_runtime` is called, which is the most-read function
 name this tree could add, since every program in the tree links that crate.
 
 ## Is the premise true
 
-Checked 2026-09-19 in this worktree. `grep -rn 'fn check(ok: bool)'` finds **nine** files:
+Checked 2026-09-19 in this worktree. `grep -rn 'fn check(ok: bool)'` finds nine files:
 `components/src/block_driver.rs`, `fixtures/src/call_server.rs`, `console_test_client.rs`,
 `frame_revoker.rs`, `fs_test_client.rs`, `hello.rs`, `page_frame_producer.rs`,
 `rendezvous_minter.rs` and `rendezvous_peer.rs`.
@@ -26,7 +26,7 @@ Checked 2026-09-19 in this worktree. `grep -rn 'fn check(ok: bool)'` finds **nin
 Every one is the same three lines, and they all mean *this program's only way to say no is to die
 where the mistake was, because a failed check must be indistinguishable from a broken program*.
 
-**Two of the nine already disagree about what saying no means**, which is the drift rather than a
+Two of the nine already disagree about what saying no means, which is the drift rather than a
 prediction: `components/src/block_driver.rs:51` reaches the trap through `panic!()` where the rest
 call `user_mode_runtime::trap()`. Same instruction, different path.
 
@@ -36,7 +36,7 @@ and it is still a failure.
 
 ## What this tree already does in the analogous case, which decides everything but the name
 
-**§94 is the ruling and it is exact.** It asks what the language forces to be per-binary and lifts
+§94 is the ruling and it is exact. It asks what the language forces to be per-binary and lifts
 everything else: a property that attaches to the final link (`#[panic_handler]`,
 `#[global_allocator]`, `_start`) genuinely cannot be an item in a shared crate, and the mechanism it
 is built out of usually can. `user_rt::trap()` holds the instruction; `user_rt::panic_handler!()`
@@ -69,7 +69,7 @@ the point where a pattern is a convention.
 
 ## Recommendation
 
-**`require`**, on the recognition argument: the kernel already spends the word on "a mismatch that
+`require`, on the recognition argument: the kernel already spends the word on "a mismatch that
 must not be recovered from", and a reader who has met `trust::require` meets the same idea at EL0
 under the same name. The risk is the mirror of the reason, and it should be weighed: one word
 meaning two related things at two privilege levels is either a recognition or a collision, and §31's
@@ -84,12 +84,12 @@ and it is still the one this section refuses, on the generic-word rule.
 
 ## How reversible, and who has acted on it
 
-**Mechanically trivial and expensively public.** Nine call sites today, and every future program
+Mechanically trivial and expensively public. Nine call sites today, and every future program
 that links `user_mode_runtime`, which is all of them. Nobody outside this tree has acted on it, so
 the cost is entirely what a reader learns, which is the category AGENTS.md says to spend deliberation
 on rather than speed.
 
 ## What is blocked until this is answered
 
-**Milestone 408.** Nothing in the tree is incorrect meanwhile; nine copies of three lines work, and
+Milestone 408. Nothing in the tree is incorrect meanwhile; nine copies of three lines work, and
 the two spellings of "say no" both reach the same instruction.

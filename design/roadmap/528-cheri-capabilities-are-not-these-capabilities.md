@@ -15,15 +15,15 @@ Europe 2026 reading (`notes/riscv-summit-2026.md`). *(Number and slug provisiona
 queue lands it.)*
 
 The work is one note in `notes/` and a cross-reference from `notes/acronyms.md`,
-both of which a lane can start today against a published specification. **One sentence inside it is
-calef's**, and the milestone should stop at that sentence rather than write it: any claim about how
+both of which a lane can start today against a published specification. One sentence inside it is
+calef's, and the milestone should stop at that sentence rather than write it: any claim about how
 nife stands relative to a hardware capability ISA is a positioning claim, and AGENTS.md puts *facts
 that leave the machine* in the irreversible category. Write the mechanics; leave the comparison for
 ratification.
 
 ## What happened
 
-CHERI is no longer being proposed as a RISC-V extension. It is a **new base ISA family**. Krste
+CHERI is no longer being proposed as a RISC-V extension. It is a new base ISA family. Krste
 Asanović's State of the Union, slide 12, *"RISC-V New Security Extensions in Progress"*
 (https://riscv-europe.org/summit/2026/presentations#P-N9KRDZ):
 
@@ -44,22 +44,22 @@ page.
 
 ## Why it is worth writing something
 
-**Because the word is about to become ambiguous, and this project spent its thesis on it.**
+Because the word is about to become ambiguous, and this project spent its thesis on it.
 DECISIONS §14 (the project's direction: a verified-Rust capability microkernel that runs real
 workloads) uses "capability" to mean an unforgeable kernel-held reference that names an object and
 carries rights, attenuable and revocable. CHERI uses it to mean a hardware-tagged fat pointer
-carrying bounds and permissions over an address space. **These are different objects with the same
-name**, and an argument that one substitutes for the other would be wrong in both directions: CHERI
+carrying bounds and permissions over an address space. These are different objects with the same
+name, and an argument that one substitutes for the other would be wrong in both directions: CHERI
 does not name a thread or a page of untyped memory, and nife's capabilities do not bound a `memcpy`.
 
 Three of this project's own principles say to fix that here rather than in a conversation:
 
-- **A newcomer must be able to succeed without asking anyone.** The reader who arrives in 2028
+- A newcomer must be able to succeed without asking anyone. The reader who arrives in 2028
   having heard "RISC-V has capabilities now" will be holding the wrong model of this kernel, and
   nothing in the tree corrects it.
-- **A name is a claim, and the reader meets it first.** This is the naming discipline applied to a
+- A name is a claim, and the reader meets it first. This is the naming discipline applied to a
   word the project did not mint and cannot control.
-- **The refusals are the valuable half.** The honest version of this note includes what CHERI would
+- The refusals are the valuable half. The honest version of this note includes what CHERI would
   and would not do for nife if it shipped, including the uncomfortable half: a CHERI machine gives
   intra-process memory safety that a Rust microkernel's type system already gives for Rust programs
   and does not give for anything else, and this tree runs foreign binaries (fatal risk 1's
@@ -69,10 +69,10 @@ Three of this project's own principles say to fix that here rather than in a con
 
 One note, roughly four sections, and none of it is speculative design:
 
-- **What a CHERI capability is**, read from the specification rather than recalled, with the
+- What a CHERI capability is, read from the specification rather than recalled, with the
   encoding and the tag bit named.
-- **What a nife capability is**, cross-referenced to the existing notes rather than restated.
-- **The table of what each one can and cannot express**, which is where the value is.
+- What a nife capability is, cross-referenced to the existing notes rather than restated.
+- The table of what each one can and cannot express, which is where the value is.
 - **A `BUGS` section** saying plainly that RV64Y is a draft base ISA with no silicon, so nothing in
   the note is a plan.
 

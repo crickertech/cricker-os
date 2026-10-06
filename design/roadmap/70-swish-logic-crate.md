@@ -5,7 +5,7 @@ built: 2026-08-02
 ---
 # 70. `swish`'s remaining logic in a crate, host-testable like its siblings
 
-Raised 2026-08-02, and **the finding that prompted it was wrong**, which is
+Raised 2026-08-02, and the finding that prompted it was wrong, which is
 worth recording because the corrected version is a smaller and more honest milestone.
 
 `crates/swish` holds the shell's logic and `components/src/swish.rs` keeps the IO, which took 354 lines out
@@ -21,14 +21,14 @@ would have needed the shell's IO restructured, which this milestone was scoped n
 `components/src/swish.rs` is 2,625 lines with **zero `#[cfg(test)]` blocks**, and that was first reported
 as "the shell is untested". It is not. The shell is covered twice over:
 
-- **~28 QEMU integration `test_case`s** across five kernel test modules (`shell_navigation_tests`,
+- ~28 QEMU integration `test_case`s across five kernel test modules (`shell_navigation_tests`,
   `pipeline_tests`, `redirection_tests`, `glob_grant_tests`, `rm_program_tests`), which spawn the
   real binary and drive it.
-- **93 host unit tests in `crates/grant_plan`**, which already holds swish's parsing, navigation and
+- 93 host unit tests in `crates/grant_plan`, which already holds swish's parsing, navigation and
   grant-planning logic. `swish.rs` imports `grant_plan::{expand, line, nav}` and `line_editor::proto`
   rather than reimplementing any of it.
 
-So 0% was a fact about one **file**, not about a component, and a file-level metric said something
+So 0% was a fact about one file, not about a component, and a file-level metric said something
 false about the system. That is the general lesson: coverage measured per file counts where tests are
 *written*, not what they *reach*.
 

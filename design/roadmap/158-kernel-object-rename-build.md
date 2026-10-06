@@ -86,8 +86,8 @@ post-rename.
 (`kernel/src/thread.rs`), done to completion in its own lane per this block's sequencing rule. This
 block's own table estimated 9 files, 17 occurrences for the bare `Aspace` type token; a fresh count
 against the same measure (case-sensitive `Aspace` alone, before starting) found 18 occurrences across
-9 files, confirming the table's narrow count was accurate for what it measured. **The real surface,
-once every case form and every compound identifier was counted, was far larger**, the same pattern
+9 files, confirming the table's narrow count was accurate for what it measured. The real surface,
+once every case form and every compound identifier was counted, was far larger, the same pattern
 `Endpoint` set: 391 case-insensitive occurrences of "aspace" across 37 `.rs` files, not 17 across 9,
 because the type name was the smallest part of the surface. It touched: a whole `abi::aspace` ->
 `abi::address_space` ABI module (`MAP_INTO`/`MAP_RO`/`MAP_RW`/`MAP_CODE`/`LIST`, the method-number
@@ -142,8 +142,8 @@ notes the pending rename and was left as the point-in-time record it is, matchin
 rename left `26-fault-endpoint.md`/`41-endpoint-as-broker.md`/`91-endpoints-before-the-refusal.md`
 untouched.
 
-**One self-inflicted bug during the build, caught by the crate's own build and fixed before any commit
-existed to hide it**: a first attempt at the prose sweep used a single blanket word-boundary
+One self-inflicted bug during the build, caught by the crate's own build and fixed before any commit
+existed to hide it: a first attempt at the prose sweep used a single blanket word-boundary
 substitution that did not distinguish comments and string literals from live code, and briefly turned
 every local `aspace` binding (`let aspace = ...`, `aspace_slot` parameters, `aspace.rights` field
 access) into the syntactically invalid `let address space = ...`. `cargo check` on every touched crate
@@ -193,9 +193,9 @@ the concept in English (hundreds of occurrences, e.g. "spends its own untyped", 
 was left alone throughout, matching how lowercase "endpoint" and "tcb" stayed after those renames.
 Three headings that read as prose rather than identifier citation were also left in the old word's
 spirit but reworded to match their sibling variants' own `A`/`An` + noun heading pattern rather than
-literally kept (`kernel/src/cap.rs`'s `Object::MemoryRegion` doc heading became "**A memory
-region**", matching `Frame`'s "**A physical page**" and `Aspace`'s "**An address space under
-construction**" rather than reading "**MemoryRegion memory**"). One historical citation in
+literally kept (`kernel/src/cap.rs`'s `Object::MemoryRegion` doc heading became "A memory
+region", matching `Frame`'s "A physical page" and `Aspace`'s "An address space under
+construction" rather than reading "**MemoryRegion memory**"). One historical citation in
 `crates/abi/src/lib.rs`'s own crate-naming rationale (which names `Tcb`/`Aspace`/`Untyped` as the
 abbreviations a naming review "sank") kept `Untyped` for the same reason the `Tcb` lane kept it
 there: renaming it would make the sentence describe the winning name as the one that lost.
@@ -246,7 +246,7 @@ several genuinely distinct in-tree senses that all had to be told apart before t
 - **A raw network frame (Ethernet/ARP/mDNS), also not anticipated by §113.** `crates/virtio::send_frame`
   (a virtio-net transmit), `components/src/net_transport.rs`'s `VnetRxToken { frame: Vec<u8> }`, and
   `xtask/src/main.rs`'s `arp_request_frame`/`mdns_query_frame` packet builders. None renamed.
-- **Arbitrary example text, unrelated to any of the above.** `crates/manual/src/index.rs`'s search-
+- Arbitrary example text, unrelated to any of the above. `crates/manual/src/index.rs`'s search-
   index tokenizer test used the literal string `` `Frame` `` as stand-in content to exercise a
   generic tokenizer, not as a citation of the kernel object; the initial blanket capitalized-token
   pass touched it by accident (it broke a test), and it was reverted to `Frame` once the test failure
@@ -339,8 +339,8 @@ not have to re-derive them:**
 once merged, as the template for how to gate and verify a rename of this shape here). Milestone
 69's proof obligation applies to any renamed type a Kani harness references by name.
 
-**Do the biggest, most-cited name first and measure the real diff before committing to doing all
-seven in one lane.** `Endpoint`/`Rendezvous` is both the largest measured surface and the one most
+Do the biggest, most-cited name first and measure the real diff before committing to doing all
+seven in one lane. `Endpoint`/`Rendezvous` is both the largest measured surface and the one most
 likely to touch generated or macro-derived code (IPC message types, proof harnesses) in ways a
 smaller rename like `Tcb`/`ThreadControlBlock` will not. If the full set turns out too large for one
 safe, reviewable commit, split by name rather than doing all seven partially -- an inconsistent tree

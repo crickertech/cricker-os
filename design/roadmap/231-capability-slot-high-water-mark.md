@@ -20,7 +20,7 @@ after a silent failure that named something else.**
 - **16 to 17**, milestone 49 (users and attribution). The symptom was that the first login against a
   freshly built service answered `login_proto::DENIED` instead of `OK`, **on a correct password**.
   Nothing said "out of slots".
-- **17 to 24**, milestone 230, today. The symptom was that init trapped with no message and `main`
+- 17 to 24, milestone 230, today. The symptom was that init trapped with no message and `main`
   could not boot interactively for five days. `MemoryRegion::RETYPE` answers `OutOfMemory` for both
   "region out of pages" and "table full", so even the error did not distinguish them.
 
@@ -28,40 +28,40 @@ Between those, the constant spent time at `28 // TEMP: generous bisection value`
 on two true observations, and the restoration shipped a system that could not boot. That episode is
 milestone 230's account and is worth reading before this one is designed.
 
-**The measured high-water mark is 21**, in init, during `build_child` for `credentialer`. Nobody knew
+The measured high-water mark is 21, in init, during `build_child` for `credentialer`. Nobody knew
 that until somebody instrumented four boots to find it.
 
 ## What it needs
 
-**A boot that reports the peak it reached, against the ceiling it had.** That is the whole idea. A
+A boot that reports the peak it reached, against the ceiling it had. That is the whole idea. A
 line saying the boot used 21 of 24 turns a cliff into a gauge, and it is the difference between
 milestone 230's four instrumented boots and one ordinary one.
 
 Three things this block did not decide, and how they were decided.
 
-**Where the count lives: in the table, unconditionally.** `capability::CapabilityTable` carries a
+Where the count lives: in the table, unconditionally. `capability::CapabilityTable` carries a
 `used` and a `peak`, and every path that can occupy an empty slot goes through one private `grew()`,
 which is rung one of AGENTS.md's ladder rather than a hook somebody has to remember at each of the
 kernel's seven insert sites. The lookups (`get`, `get_with`) are untouched, which is what keeps the
 counting off the read path.
 
 The feature-gate question was settled by measurement rather than preference, which is what the block
-asked for. `script/fastpath-footprint`, against its 5% bound: **+1.1% aarch64, +0.5% riscv64, +0.7%
-x86_64**. Milestone 221's soak counters needed a gate at 5.7%; this does not need one, so `soak` and
+asked for. `script/fastpath-footprint`, against its 5% bound: +1.1% aarch64, +0.5% riscv64, +0.7%
+x86_64. Milestone 221's soak counters needed a gate at 5.7%; this does not need one, so `soak` and
 `fastpath_pad`'s precedent is noted and not followed.
 
-**What it does as it approaches: nothing, and that is deliberate.** The gauge is passive. What is
-checked is not the boot's distance from the ceiling but whether a **recorded measurement has gone
-stale**: `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED` is 21, the number milestone 230 found by
+What it does as it approaches: nothing, and that is deliberate. The gauge is passive. What is
+checked is not the boot's distance from the ceiling but whether a recorded measurement has gone
+stale: `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED` is 21, the number milestone 230 found by
 instrumenting four boots, and a boot that goes past it prints `ABOVE` and fails the gate. That is the
 same shape as this file's `size_of::<Cap>() == 32` assertion, which its own comment calls "the fact,
 not a target". A margin picked from one boot would have been the fourth deleted check; a fact that
 stopped being true is not a margin.
 
-**Whether `script/swish-check` asserts on it: yes, on two things.** That the line is printed at all,
+Whether `script/swish-check` asserts on it: yes, on two things. That the line is printed at all,
 because a gauge that quietly stopped printing is one nobody misses until the wall arrives again,
 which is exactly how the constant came to be raised three times reactively. And that it does not say
-`ABOVE`. It also **echoes the line on success**, so the number is in every CI log a person reads
+`ABOVE`. It also echoes the line on success, so the number is in every CI log a person reads
 rather than only in a failure.
 
 ## What it reports, and how one line instead of twenty-one
@@ -76,13 +76,13 @@ it wrong can only cost an extra line or a later one; the peak itself never decre
 
 ## What it measured
 
-**21 of 24, on both architectures**, which is exactly the figure milestone 230 arrived at by hand.
+21 of 24, on both architectures, which is exactly the figure milestone 230 arrived at by hand.
 That agreement is the point: the number had been true all along and cost four instrumented boots to
 learn, and it now costs a boot.
 
 It also priced milestone 233 (`login` dies on every boot, and the boot says it is ready) before that
 milestone spent anything. Handing `login` the two blobs it needs was expected to cost slots at the
-peak; the gauge says the peak after the change is **still 21**, because `supervision_proto`'s
+peak; the gauge says the peak after the change is still 21, because `supervision_proto`'s
 `fill_and_map` holds one frame capability at a time. That is the whole reason these two milestones
 were one lane, and it is the first time this tree has been able to answer "what will this cost in
 slots" before merging rather than after.
@@ -91,7 +91,7 @@ slots" before merging rather than after.
 
 Milestone 230 left three slots of margin deliberately, because both previous raises set the number to
 exactly what that day's boot needed and both times the next addition hit the wall in the same
-silence. **Three slots is a guess standing in for a mechanism**, and its own block says so. This
+silence. Three slots is a guess standing in for a mechanism, and its own block says so. This
 milestone is what would replace it.
 
 ## BUGS
@@ -104,18 +104,18 @@ milestone is what would replace it.
   reader who needs the owner is back to instrumenting, which is what this milestone was written
   against; closing it is a scan at print time and nothing else, and it was left out rather than
   designed away.
-- **The gauge is only read by `script/swish-check`.** `script/test` never boots the real init, so the
+- The gauge is only read by `script/swish-check`. `script/test` never boots the real init, so the
   suite's own peak is never checked against anything, and the recorded-measurement arm is compiled
   out of the test kernel on purpose (the guest suite runs a much larger workload through the same
   kernel, so a test going past 21 would be true and misleading). Every other boot mode prints the
   gauge and nothing reads it.
-- **Two lines rather than one on a normal boot.** Init blocks early enough that the mark holds still
+- Two lines rather than one on a normal boot. Init blocks early enough that the mark holds still
   at 5 for long enough to be believed. Harmless, and the cure is a longer window that would delay the
   real line.
-- **It says nothing about the other fixed-size tables.** `MAX_THREADS`, `MAX_REGIONS` and
+- It says nothing about the other fixed-size tables. `MAX_THREADS`, `MAX_REGIONS` and
   `nifefs::NAME_LEN` are the same shape, and whether one mechanism should serve all of them is a
   question this block leaves open rather than answers by scope creep.
-- **The peak is workload-dependent.** The number a boot reports is the number *that* boot reached,
+- The peak is workload-dependent. The number a boot reports is the number *that* boot reached,
   and a richer initrd reaches a different one, so a single green figure is not a guarantee about
   every configuration.
 

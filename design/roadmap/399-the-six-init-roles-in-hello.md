@@ -47,13 +47,13 @@ in `kernel/src/user/tests.rs`.
 | `INIT_LEAST_AUTHORITY_DEMO` | 28 | builds a demo, passes an argument through `START`, reads the answer (19e) |
 | `INIT_COREMARK` | 29 | builds the CoreMark workload and reads the CRC it computed (19e) |
 
-**None of them is the first process.** The role that meant "boot the system" was `INIT_BOOT_ROLE`
+None of them is the first process. The role that meant "boot the system" was `INIT_BOOT_ROLE`
 (27), and that is exactly the one milestone 266 moved out to `components/src/progenitor.rs`. What is
 left is the 19d/19e catalogue, in which `hello` plays the **parent**: it parses, builds, endows,
 delegates and collects a report, which is the demonstration that userspace and not the kernel
 composes the system.
 
-**They are live.** `kernel/src/user/tests.rs` drives all six through `spawn_hello`, each from its
+They are live. `kernel/src/user/tests.rs` drives all six through `spawn_hello`, each from its
 own duplicate constant (`INIT_ROLE = 20`, `INIT_DEV_ROLE = 23`, `INIT_CONSOLE_ROLE = 24`,
 `INIT_IRQ_ROLE = 25`, `INIT_LEAST_AUTHORITY_DEMO_ROLE = 28`, `INIT_COREMARK_ROLE = 29`), and each test
 asserts on the word the child reports. Nothing here is dead wiring, and deleting any of it would be a
@@ -70,12 +70,12 @@ tests already assert about: *"a child the parent built reported the agreed word.
 
 ## The refusals, which are the valuable half
 
-- **`PROGENITOR_*` is refused: it would be false.** The progenitor is one program under one archive
+- `PROGENITOR_*` is refused: it would be false. The progenitor is one program under one archive
   entry, and `hello` entered at role 20 is neither. Replacing one wrong name with another wrong name
   is worse than leaving it, because the second one looks decided.
-- **`LOADER_*` is refused.** It names one of three things the roles do. `INIT_IRQ` delegates an
+- `LOADER_*` is refused. It names one of three things the roles do. `INIT_IRQ` delegates an
   interrupt and `INIT_DEV` hands over a device; the loading is the least interesting part of both.
-- **`BUILDER_*` is refused.** `builder` is a program in this tree with its own argument
+- `BUILDER_*` is refused. `builder` is a program in this tree with its own argument
   (`components/src/builder.rs`), and a role constant sharing that word would put two things behind one
   name. That is the refusal that cost `system_builder` a crate name twice, on 2026-08-01 and
   2026-08-04, and it is recorded in `crates/system_initializer`'s own header.
@@ -96,7 +96,7 @@ measurement table are untouched.
 
 ## BUGS
 
-- **The role numbers stay where they are, and they are the thing that is actually fragile.** 20, 23,
+- The role numbers stay where they are, and they are the thing that is actually fragile. 20, 23,
   24, 25, 28 and 29 are written down twice, once in `fixtures/src/hello.rs` and once in
   `kernel/src/user/tests.rs`, and nothing gates the two against each other. A rename does not fix
   that and would be a good moment to notice it.

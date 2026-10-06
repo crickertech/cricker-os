@@ -52,8 +52,10 @@ without asking, dated and citing its source. Facts arguing for a new verdict go 
 
 ## What an entry's Experiment status says, and the three words it may say it in
 
-Every entry carries one Experiment status line. It answers one question: has the experiment happened.
-calef ratified the field and its three values on 2026-09-23, in
+Every risk file opens with a frontmatter block carrying one Experiment status, `experiment_status:`,
+and, when the status is `RUN`, the date it ran as `experiment_run:` (both names ratified 2026-10-05 by calef). The
+field answers one question: has the experiment happened. calef moved it out of a bold line and into
+frontmatter on 2026-10-05 (UTC), and `script/fatal-risks` fails on the old bold line. calef ratified the field and its three values on 2026-09-23, in
 §211 (what a fatal-risk verdict says, and what the chart can plot as a result).
 `script/fatal-risks` fails on a fourth value, because the set was open until then and three lanes
 minted three words in one day. The script's own header carries the ratification and the refusals.
@@ -66,7 +68,9 @@ minted three words in one day. The script's own header carries the ratification 
 
 What it does not say is what the experiment found. That is prose, and it is where `GREEN`, `AMBER`,
 `MEASURED` and `AUDITED` live. None of the four is a value of this field. A reader who wants to know
-whether nife is in trouble reads the paragraph.
+whether nife is in trouble reads the paragraph. The colour has one machine-read home, the
+appendix's `color:`, and the entry's verdict sentence is the prose it must agree with; the risk files
+carry no `color:` key.
 
 ## The nine, one file each
 
@@ -94,7 +98,7 @@ Ranked by chance-of-fatal times cheapness-of-test, not by number. Each cell's ve
 | 4 | 9, the HAL, at the implementation grain, widened 2026-09-23 | a second machine of an architecture nife already boots | milestone 225 (run the soak on radon, argon and xenon) | **RULED 2026-10-05: both, argon first** (calef); then riscv64 on milestone 89 (Scaleway EM-RV1), €1.51; neither run |
 | ~~4~~ | 1, the ecosystem | **RUN, 2026-08-31: GREEN on all three since 2026-09-16.** The blocker is a missing argv, not threads | milestone 121 | done |
 | ~~5~~ | 3, the tests | **RUN, 2026-09-19: amber.** 96.1% like-for-like against 92.4% on 2026-09-21, and 771 missed survivors (414 projected after #1277) hold the amber | milestone 326 | done; the triage remains |
-| 6 | 4, performance | **RUN, 2026-10-04: amber** (calef, 2026-10-04). Throughput held; the null syscall's rise under load is unexplained | milestone 168 | done; the diagnosis remains |
+| ~~6~~ | 4, performance | **RUN, 2026-10-04: GREEN** (calef, 2026-10-05; amber 2026-10-04). Throughput held, and the null syscall's rise under load was a fixable lock and false sharing, now 10 ticks of growth | milestone 168 (a multi-tasking workload benchmark); milestone 761 (capability lookup off the global lock) and milestone 766 (each core's PerCpu on its own cache line) done | done; about 5 ticks of growth remain undecomposed |
 | 7 | 9 and 6 together | journey 3, end to end on three boards | journey 3 | months, and it is the capstone |
 | -- | 5, multicore | **RUN on radon, 2026-09-25:** 8 hours clean, 4.1 million crossings. A linear defect-discovery curve is the red result | milestone 201 (is multicore reliability converging) | weeks, hardware |
 | -- | 7, confinement | **RUN, 2026-08-31, extended 2026-09-16, AUDITED 2026-09-17: amber** (calef, 2026-10-03). A confinement test could not fail, and DECISIONS §12 was false on x86_64. Fixed. The outsider half remains | milestone 633 (an outside agent attacks the confinement claim); 202, 305 and 313 done | one agent run, token cost uncosted |
@@ -117,14 +121,13 @@ Ranked by chance-of-fatal times cheapness-of-test, not by number. Each cell's ve
   Experiment status field at all, and each says at its head that this document is the claim of
   record. That is rung three of AGENTS.md's ladder, and honest about being rung three.
 - The bold the risk files carry is the gate's, not the prose's. `script/fatal-risks` reads the
-  Experiment status lines, the experiment lead-ins and the running order's verdict cells as markup,
-  so those spans are machinery rather than emphasis. Every other bold span is gone, and what is left
-  spends the whole writing-convention budget of four per thousand words. Editing an entry
-  means spending the gate's budget, not your own. calef ruled on 2026-09-24 (UTC) that markup a gate
-  parses is counted like any other bold, so no exclusion exists and the files have none left. He also
-  said the likely answer is to move these fields out of bold entirely, and that the decision waits on
-  the decision-frontmatter pilot, pull request #1195, reporting. Until then, do not add a bolded span
-  to an entry without removing one.
+  experiment lead-ins and the running order's verdict cells as markup, so those spans are machinery
+  rather than emphasis. The Experiment status lines left that list on 2026-10-05 (UTC), when calef
+  moved them into frontmatter. Every other bold span is gone, and what is left spends the whole
+  writing-convention budget of four per thousand words. Editing an entry means spending the gate's
+  budget, not your own. calef ruled on 2026-09-24 (UTC) that markup a gate parses is counted like any
+  other bold, so no exclusion exists. Until the lead-ins move too, do not add a bolded span to an
+  entry without removing one.
 - ~~Two entries have no owner.~~ Closed 2026-08-31: risks 5 and 7 are milestones 201 and 202, both
   scoped by calef and both reframed in the process, risk 7's by §134 (a harness carries a
   machine-replayable falsification record, or it is not evidence). Neither can return a clean green,

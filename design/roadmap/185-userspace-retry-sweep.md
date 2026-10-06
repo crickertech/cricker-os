@@ -81,7 +81,7 @@ ordinary loaded run that just needed a few more milliseconds.
 
 ## The constraint that shapes the work: no delivered-tick counter in userspace
 
-Milestone 62 re-denominated the kernel's own equivalent waits in **delivered timer ticks** rather
+Milestone 62 re-denominated the kernel's own equivalent waits in delivered timer ticks rather
 than wall clock, specifically because a tick-counted deadline cannot be fooled by a descheduled
 guest the way a wall-clock one can. That unit is not reachable from a process: nothing publishes
 the kernel's per-core tick count across the syscall boundary, so a userspace loop can only read the

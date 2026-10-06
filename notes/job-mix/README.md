@@ -14,9 +14,11 @@ the parent's Results row points to it.
 - [`null-syscall-off-radon.md`](null-syscall-off-radon.md): the rest was the global lock on every
   capability lookup, measured under TCG and on four Apple cores under HVF (2026-10-05).
 - [`null-syscall-hvf-full-mix.md`](null-syscall-hvf-full-mix.md): the same, spawning included.
+- [`radon-2026-10-05.md`](radon-2026-10-05.md): milestones 761 and 766 on radon, and a bisect
+  that found the single crossing moves about 8 ticks with code placement alone.
 - [`spawn-destroy-gone.md`](spawn-destroy-gone.md): why the full mix failed under HVF. A yield
   wrapper declared no output. The spawn job then trapped with stale arguments.
 
 *Name: provisional, minted 2026-10-04 (UTC) by the `lane/radon-jobmix-2026-10-04` lane, for the
-directory and every stem in it; `lane/null-syscall-under-load` added two stems on 2026-10-05. `lane/null-syscall-hvf` added one. Naming is an architect's; `script/names --unratified` lists each
+directory and every stem in it; `lane/null-syscall-under-load` added two stems on 2026-10-05. `lane/null-syscall-hvf` added one, and `lane/radon-2026-10-05-record` one. Naming is an architect's; `script/names --unratified` lists each
 stem.*

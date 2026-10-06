@@ -14,7 +14,7 @@ improve it. Found by milestone 438 (would a diff-scoped mutation check have caug
 measurement was a replay of the pull request `design/fatal-risks/README.md` names, and which found four
 survivors where that record accounts for 55.
 
-**What this lane found on re-checking the proposal against the merged tree.** The premise held
+What this lane found on re-checking the proposal against the merged tree. The premise held
 for the arithmetic but not for the target: between 2026-09-19 (when the proposal was filed) and
 2026-09-23 (when it was built), risk 3 was rewritten twice more (milestones 517 and 518), and the
 specific `machine_discovery` paragraph quoted below is no longer in `design/fatal-risks/README.md`; it
@@ -28,13 +28,13 @@ meet a reader, so the next person reading that column does not have to rediscove
 `design/fatal-risks/README.md`'s risk 3, the paragraph dated 2026-09-23; `script/mutation`'s `report()`
 comments; and `notes/mutation-testing.md`'s `Scope and honest caveats` section.
 
-**What the record says.** `design/fatal-risks/README.md`'s risk 3, AMBER as of 2026-09-19: *"One crate
+What the record says. `design/fatal-risks/README.md`'s risk 3, AMBER as of 2026-09-19: *"One crate
 accounts for the fall and it was not one of the eight. `machine_discovery` went from 22 survivors to
-**77**, at 86.2% ... It is the crate milestone 319 proved on 2026-09-17: the proofs landed, the
+77, at 86.2% ... It is the crate milestone 319 proved on 2026-09-17: the proofs landed, the
 parsing around them did not get tests, and two days later the census found it."*
 
-**What is measured.** A full sweep of the crate at `aa6a50b^1`, main immediately before milestone
-319's pull request merged, finds **73 survivors already there**:
+What is measured. A full sweep of the crate at `aa6a50b^1`, main immediately before milestone
+319's pull request merged, finds 73 survivors already there:
 
 ```console
 $ script/mutation -p machine_discovery
@@ -44,17 +44,17 @@ $ script/mutation -p machine_discovery
 The pull request added **seven** mutants to the crate and four survivors, and 73 plus 4 is the
 census's 77 exactly. It did not write them.
 
-**Where the 22 comes from, as a reading rather than a measurement.** The `(baseline missed)` column
+Where the 22 comes from, as a reading rather than a measurement. The `(baseline missed)` column
 `script/mutation --report` prints is `.cargo/mutants-baseline.txt`, where `machine_discovery` reads
 `147 22 3 40`. That file is the **2026-08-03** baseline, so a rise from 22 to 77 is six weeks of a
 crate growing from 212 mutants to 693, not two days of one pull request. The per-crate numbers from
 the 2026-09-14 census are not in the tree, only its aggregates, which is what made the wrong column
 the available one.
 
-**Why the correction matters more than the arithmetic.** Risk 3's verdict is *"the tree adds untested
+Why the correction matters more than the arithmetic. Risk 3's verdict is *"the tree adds untested
 code faster than triage removes it"*, and the evidence offered for the rate is this attribution. Take
 the attribution away and the same numbers support a different reading: the code accumulated over six
-weeks and **the instrument looked twice**, once on 2026-09-14 and once on 2026-09-19. That is a
+weeks and the instrument looked twice, once on 2026-09-14 and once on 2026-09-19. That is a
 cadence problem, and the record already carries the fact that supports it (*"the workflow has
 succeeded exactly once, so a cadence is claimed by one data point"*) in a different paragraph from
 the one that draws the conclusion.
@@ -63,7 +63,7 @@ Risk 3 stays amber either way. What changes is what would turn it green, and mil
 diff-scoped gate partly on this: a mechanism aimed at a rate cannot be judged against a case that was
 not a rate.
 
-**The work.** Rewrite risk 3's `machine_discovery` paragraph against the measurement, say plainly
+The work. Rewrite risk 3's `machine_discovery` paragraph against the measurement, say plainly
 which census each number comes from, and record the trap: **`--report`'s baseline column is
 2026-08-03 and is not the previous census.** The trap is the durable half. Every future reading of
 that column by anyone will make the same mistake, and the fix is either a second column or a header

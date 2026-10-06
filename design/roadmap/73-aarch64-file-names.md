@@ -6,11 +6,11 @@ built: 2026-08-03
 # 73. Name the aarch64 files aarch64, before x86_64 makes it worse
 
 Built (2026-08-03), both ISAs, for the five pairs. `crates/paging/src/aarch64.rs` is
-**deferred to calef**, because the replacement is a name and names are his call; the proposal is in
+deferred to calef, because the replacement is a name and names are his call; the proposal is in
 the section below. Raised 2026-08-03 by calef, from the observation that files named when this was an
 aarch64-only kernel never got renamed when RISC-V arrived and brought explicitly named twins.
 
-**What landed**, and everything below this paragraph is the argument that produced it, kept as
+What landed, and everything below this paragraph is the argument that produced it, kept as
 written:
 
 | was | is now |
@@ -24,18 +24,18 @@ written:
 
 Two things the entry did not predict, both recorded because the next reader will meet them:
 
-- **`qemu-virt-initrd.dtb` was a sixth file**, not in the table. It has no RISC-V twin, so the
+- `qemu-virt-initrd.dtb` was a sixth file, not in the table. It has no RISC-V twin, so the
   "suffix a file that has a named twin" rule had to be *checked* rather than applied, exactly as the
   `user/link.ld` paragraph below demands. The check says it is aarch64-only rather than shared (it is
   a `qemu-system-aarch64` dump), so it took the suffix. Leaving it would have produced
   `qemu-aarch64-virt.dtb` beside `qemu-virt-initrd.dtb`, which is the defect this milestone exists to
   remove, one directory deeper.
-- **Both baseline files' first line was the literal `# bench/baseline.txt:`**, hardcoded in
+- Both baseline files' first line was the literal `# bench/baseline.txt:`, hardcoded in
   `xtask::run_bench`, so the RISC-V baseline has always claimed to be the aarch64 one. Renaming
   forced the issue: the header is now derived from the path being written, which fixes the RISC-V
   file too. This is the only edit in the milestone that is not a path following a rename.
 
-**And an instruction that enumerated instead of stating its rule cost a round trip.** The first pass
+And an instruction that enumerated instead of stating its rule cost a round trip. The first pass
 was told "two spellings get fixed: `link-riscv.ld` and `qemu-riscv-virt.*`", followed it exactly, and
 correctly left `baseline-riscv.txt` and `qemu-runner-riscv.sh` alone, which produced
 `baseline-aarch64.txt` beside `baseline-riscv.txt`: a *new* inconsistency, created by the milestone
@@ -57,7 +57,7 @@ and `riscv64/mmu.rs` are both named. Everywhere else, only one side is.
 
 The cost today is small and real: `scripts/qemu-runner.sh` reads as the runner and it is one of two, so
 a reader looking for "the RISC-V one" finds it by suffix and then has to infer that the unsuffixed
-file is the other ISA rather than something shared. **The cost after x86_64 is different in kind.** An
+file is the other ISA rather than something shared. The cost after x86_64 is different in kind. An
 unnamed file among two named siblings is ambiguous; among three it is a claim that is actively false,
 because "the default" will mean whichever ISA the reader started from. §19 names x86_64 as a declared
 target, so this is a dated problem, not a hypothetical one.
@@ -66,7 +66,7 @@ target, so this is a dated problem, not a hypothetical one.
 
 It was raised here as an asymmetry: `aarch64.rs` beside `sv39.rs`, one an ISA and one a page-table
 format. It is real, but it is not a rename, and milestone 77 carries it now. The short reason is that
-calef expects a **second aarch64 configuration**, which turns "rename the file" into "make room for a
+calef expects a second aarch64 configuration, which turns "rename the file" into "make room for a
 sibling on both sides", and that is a restructure with 174 call sites behind it.
 
 Milestone 73 touched nothing under `crates/paging`, and one finding is worth carrying to 77: ARM has
@@ -78,7 +78,7 @@ observation 77 starts from, arrived at independently.
 
 ## One that is not a pair
 
-**Left alone by milestone 73**, deliberately: the decision below has not been made, and the name
+Left alone by milestone 73, deliberately: the decision below has not been made, and the name
 depends on it.
 
 `kernel/src/user/riscv_virtio_tests.rs` has no `virtio_tests.rs` twin; the shared virtio tests live
@@ -92,13 +92,13 @@ Every file in a pair carries its ISA as a hyphenated suffix. `kernel/link-aarch6
 `kernel/link-riscv64.ld`, and so on for all five. Two alternatives were compared and lost, and both
 reasons are worth keeping because they are about this tree rather than about taste.
 
-**Naming by target triple was disqualified by a fact.** The obvious version, "match `targets/*.json`",
-does not work: those are the **std overlay's** triples, for userspace. The kernel builds for
+Naming by target triple was disqualified by a fact. The obvious version, "match `targets/*.json`",
+does not work: those are the std overlay's triples, for userspace. The kernel builds for
 `aarch64-unknown-none-softfloat` and `riscv64imac-unknown-none-elf`, so `link-aarch64-unknown-nife.ld`
 would name a triple the kernel never compiles for, and naming it honestly gives
 `link-riscv64imac-unknown-none-elf.ld`.
 
-**A per-arch directory (`kernel/link/aarch64.ld`) was the close call.** It is the pattern rule 1 has
+A per-arch directory (`kernel/link/aarch64.ld`) was the close call. It is the pattern rule 1 has
 used since milestone 1, and `kernel/build.rs`'s own table shows why it is tempting, because the second
 column already does it:
 
@@ -116,7 +116,7 @@ program-naming scheme: a convention with a branch is a convention someone gets w
 `riscv64` is the thing the kernel compiles for, which every directory and target string in the tree
 already agrees with (`kernel/src/arch/riscv64/`, `riscv64imac-unknown-none-elf`). Stated as a rule,
 because it applies to every file this milestone touches rather than to a list someone has to keep
-complete: **wherever a pair carries `-aarch64`, its twin carries `-riscv64`.** Four files were already
+complete: wherever a pair carries `-aarch64`, its twin carries `-riscv64`. Four files were already
 suffixed and all four were respelled (`link-riscv.ld`, `baseline-riscv.txt`, `qemu-runner-riscv.sh`,
 `qemu-riscv-virt.*`).
 
@@ -143,11 +143,11 @@ one:
 
 Two reasons, and both are better than "the table in CLAUDE.md says so".
 
-**A `.rs` file's stem becomes a Cargo target name.** `cargo test --test qemu_riscv64_virt` is a name
+A `.rs` file's stem becomes a Cargo target name. `cargo test --test qemu_riscv64_virt` is a name
 you type at an identifier, so it takes Rust's convention the same way a crate or a module does.
 Nothing in the tree ever types a fixture's name; the fixture is reached through `include_bytes!`.
 
-**Device tree sources are hyphenated everywhere outside this repository.** Linux's
+Device tree sources are hyphenated everywhere outside this repository. Linux's
 `arch/arm64/boot/dts/` is entirely `bcm2711-rpi-4-b.dts` in shape, and `dtc` users read that form
 before they read ours. That is CLAUDE.md's own guard rail about form: a name whose shape a reader
 already knows from outside costs them nothing, which is the same reason we do not respell

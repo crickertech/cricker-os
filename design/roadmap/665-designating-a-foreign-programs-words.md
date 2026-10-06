@@ -39,7 +39,7 @@ chose N1.
 
 ## The mechanism, which is reversible and which the lane would build
 
-**What the tree already does:** `rm *.txt` is a set of names in one directory, served by
+What the tree already does: `rm *.txt` is a set of names in one directory, served by
 `fs_nameset_caretaker`. "A name that is not in the set does not exist here", with the filter at the
 granted directory only, so a matched directory can be walked if the grant carries `DESCEND`
 (`notes/glob-grant.md`). That is clause 2's shape for words: the directory the shell stands in, and
@@ -64,20 +64,20 @@ Genode, seL4's `sel4utils`, Xous) all keep authority out of argv and hand it ove
 namespace. None of the four derives a grant from the words themselves; that step is this tree's,
 and it is what milestone 47 (navigation and naming) already does for `rm`.
 
-**What else was considered, and why it lost:**
+What else was considered, and why it lost:
 
-- **A subtree caretaker at the current directory.** It is cheaper, because the progenitor already
+- A subtree caretaker at the current directory. It is cheaper, because the progenitor already
   builds one. But it grants every sibling of every named file, which is what `notes/glob-grant.md`
   calls the catastrophic over-grant.
-- **One caretaker per word.** `std` has one directory slot. Several need milestone 154 (a process
+- One caretaker per word. `std` has one directory slot. Several need milestone 154 (a process
   that holds two directory capabilities) in `std`'s PAL, and a program's paths would stop being
   relative to one root.
-- **A deeper word (`src/main.rs`).** It grants its first component, `src`, as a walkable directory,
+- A deeper word (`src/main.rs`). It grants its first component, `src`, as a walkable directory,
   so the nameset caretaker's filter still holds at the top. That grants more than the one file.
   Precision would need a filter at every level, which no caretaker has. The recommendation is to
   build the top-level form, record the over-grant in `BUGS`, and refuse nothing.
 
-**What it costs, measured from the tree:**
+What it costs, measured from the tree:
 
 - The caretaker exists: `components/src/fs_nameset_caretaker.rs`, 352 lines. The progenitor does
   not build it yet; only the kernel harness does (`fs_service::start_granted_set`).

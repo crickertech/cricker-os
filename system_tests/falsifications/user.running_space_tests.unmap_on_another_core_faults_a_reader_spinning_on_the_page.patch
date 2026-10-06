@@ -1,0 +1,23 @@
+Falsifies `system_tests::user::running_space_tests::unmap_on_another_core_faults_a_reader_spinning_on_the_page`.
+
+Architecture: aarch64
+
+The defect: aarch64's page flush stops broadcasting. `tlbi vaae1` reaches only the core that
+issues it, so the reader's core keeps the translation `UNMAP` took out of the tables and goes on
+counting in a page its space no longer maps.
+
+Expected to fail: the assertion that the reader is gone within two seconds of the unmap, which
+reports how far it kept counting.
+
+diff --git a/kernel/src/arch/aarch64/mmu.rs b/kernel/src/arch/aarch64/mmu.rs
+--- a/kernel/src/arch/aarch64/mmu.rs
++++ b/kernel/src/arch/aarch64/mmu.rs
+@@ -1018,7 +1018,7 @@
+     unsafe {
+         core::arch::asm!(
+             "dsb ishst",             // our page table write must land first
+-            "tlbi vaae1is, {page}",  // then forget the translation
++            "tlbi vaae1, {page}",    // then forget the translation
+             "dsb ish",               // wait for every core to have done so
+             "isb",                   // and discard anything fetched through the old mapping
+             page = in(reg) va >> 12,

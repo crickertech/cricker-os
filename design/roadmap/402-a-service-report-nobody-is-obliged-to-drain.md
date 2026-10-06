@@ -11,8 +11,8 @@ needs_person: no
 
 Filed 2026-09-14 as an unnumbered proposal by milestone 290, which hit one
 instance, fixed that instance, and proposed the general remedy rather than pretending one caller was
-the problem; numbered 2026-09-19 by milestone 433's drain of the proposal pile. **Premise re-read
-against the tree on 2026-09-19 and still true**: `kernel/src/user/entropy_service.rs`'s `ensure`
+the problem; numbered 2026-09-19 by milestone 433's drain of the proposal pile. Premise re-read
+against the tree on 2026-09-19 and still true: `kernel/src/user/entropy_service.rs`'s `ensure`
 still returns a `Wiring` whose `ready` is `Some` for the first caller on a bus and `None` for every
 later one, the announcement is still a blocking send, and dropping the `Wiring` still compiles.
 `entropy_service::ensure` has callers in six kernel test and service modules (`disk_tests`,
@@ -26,7 +26,7 @@ format and no new name.
 ## The trap
 
 `kernel/src/user/entropy_service.rs`'s `ensure` wires the service once per boot and hands the
-**first** caller a `Wiring` carrying a `ready` endpoint:
+first caller a `Wiring` carrying a `ready` endpoint:
 
 ```rust
 pub fn ensure(image: &'static [u8], bus: Bus) -> Option<Wiring> {
@@ -48,12 +48,12 @@ its request loop. Every later `ensure` gets `ready: None` and cannot rescue it.
 ## What it cost, measured
 
 `kernel/src/user/ntp_tests.rs`'s `machine_has_no_entropy()` called `ensure` and discarded the result.
-Running any NTP exchange test **on its own** then hung: the client blocked forever in
+Running any NTP exchange test on its own then hung: the client blocked forever in
 `call(ENTROPY, ...)` and the failure surfaced two frames away as *"the test server never saw a
 request: the client failed before it reached the network"*.
 
 It was invisible in every whole-suite run, because `entropy_tests` sorts before `ntp_tests` and drains
-the report first. **One test file was correct only because of another test file's name.** Reproduced
+the report first. One test file was correct only because of another test file's name. Reproduced
 at `3c156f82`; fixed in `ntp_tests.rs` by milestone 290.
 
 ## Why one fix is not the fix
@@ -72,11 +72,11 @@ of AGENTS.md's ladder: the wrong state stops being representable. The cost is th
 where today it returns, and a caller that wanted to interleave the bring-up with other work no longer
 can. Nothing in the tree wants that today; check before assuming it.
 
-**Make the obligation visible in the type.** Return the `ready` endpoint as a value that must be
+Make the obligation visible in the type. Return the `ready` endpoint as a value that must be
 consumed, so dropping it is a compile error rather than a hang. More machinery than the first option
 and it only moves the failure from runtime to a lint the author has to satisfy.
 
-**Refused: document it.** That is rung four, and the comment would sit in `entropy_service.rs` where
+Refused: document it. That is rung four, and the comment would sit in `entropy_service.rs` where
 the *caller* is not looking. It is how this one survived.
 
 ## What would close it

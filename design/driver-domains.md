@@ -4,7 +4,7 @@
 software (see notes/dma.md), and it would only be worth building alongside a real SMMU driver and a
 decision to run nife at EL2.
 
-**Owner:** calef
+Owner: calef
 
 ---
 
@@ -22,7 +22,7 @@ Two problems that turn out to be the same problem:
    MMIO, its DMA region).
 
 Both are the question "how much can an untrusted driver hurt the rest of the system," and the
-strongest answer the industry has is: **put the driver in its own virtual machine.**
+strongest answer the industry has is: put the driver in its own virtual machine.
 
 ## The three points in the design space
 
@@ -31,7 +31,7 @@ strongest answer the industry has is: **put the driver in its own virtual machin
 The kernel keeps the two DMA-critical powers (the queue's ring addresses and the notify) and
 validates every descriptor stays inside the driver's DMA region before the device sees it. See
 notes/dma.md. It closes the hole with no new hardware, at the cost of putting the virtio
-**transport** in the kernel. It is device-family-specific: the kernel understands the virtqueue
+transport in the kernel. It is device-family-specific: the kernel understands the virtqueue
 layout, and a different device class (a NIC, say) would need its own validator.
 
 Cheapest, works everywhere, least general.
@@ -40,7 +40,7 @@ Cheapest, works everywhere, least general.
 
 The hardware answer. The SMMU sits between devices and memory and translates every address a device
 emits through per-device (per-StreamID) tables the kernel programs. Point a driver's device at its
-own region and the SMMU confines it **generically**, with zero device knowledge in the kernel. This
+own region and the SMMU confines it generically, with zero device knowledge in the kernel. This
 is what a real system does, and it is what DECISIONS §10 meant by "they had to bolt the isolation
 on afterwards with an IOMMU."
 
@@ -50,7 +50,7 @@ hardware, real work.
 
 ### 3. Driver domains (this proposal)
 
-Run each driver in its **own virtual machine**, with nife as the hypervisor at EL2. The
+Run each driver in its own virtual machine, with nife as the hypervisor at EL2. The
 driver at guest EL1/EL0 talks to a device, and its DMA is confined by the SMMU's stage-2 tables
 that nife, as the hypervisor, programs for that domain. A compromised or crashed driver takes
 down its VM and nothing else; nife restarts the VM. This is the Xen "driver domain" / stub
@@ -61,18 +61,18 @@ Most isolation, most infrastructure.
 
 ## Why the driver-domain point is compelling
 
-- **It confines DMA generically, like an IOMMU, but self-programmed.** nife owns the SMMU
+- It confines DMA generically, like an IOMMU, but self-programmed. nife owns the SMMU
   stage-2 for each domain, so a driver's device is boxed into that domain's memory. No per-device
   validator in the kernel. The virtio transport could go back into the (untrusted) driver, undoing
   the one compromise notes/dma.md made.
-- **It is the strongest fault isolation there is.** A driver domain is a hard boundary: separate
+- It is the strongest fault isolation there is. A driver domain is a hard boundary: separate
   address space *and* separate exception-level context. A driver that corrupts itself corrupts a
   VM, which nife tears down and respawns. This is the "kill a driver, watch it come back"
   demo from the application-ideas discussion, at its strongest.
-- **It composes with the capability model.** A domain is handed exactly the device MMIO, interrupt,
+- It composes with the capability model. A domain is handed exactly the device MMIO, interrupt,
   and DMA window it needs, as capabilities, and nothing else. A driver domain is a process with a
   harder wall.
-- **It walks nife toward what real high-assurance systems look like.** seL4 is often deployed
+- It walks nife toward what real high-assurance systems look like. seL4 is often deployed
   as a hypervisor running Linux driver VMs; the microkernel-as-hypervisor is a well-trodden
   high-assurance pattern.
 
@@ -84,8 +84,8 @@ Most isolation, most infrastructure.
   virtualization extensions, `ICH_*` list registers), and a vCPU/scheduling model for domains. This
   is a large body of new mechanism, comparable in size to the whole EL0 story we already built.
 - **It still needs an SMMU driver.** This is the crucial non-obvious point, and it is why driver
-  domains are *not* a shortcut past option 2. CPU stage-2 (`VTTBR_EL2`) confines the **CPU**, not
-  device DMA. Device DMA is confined only by the **SMMU's** own stage-2. So a hypervisor confines a
+  domains are *not* a shortcut past option 2. CPU stage-2 (`VTTBR_EL2`) confines the CPU, not
+  device DMA. Device DMA is confined only by the SMMU's own stage-2. So a hypervisor confines a
   passed-through device by programming the SMMU, exactly as a non-hypervisor kernel would. Driver
   domains are "option 2 (an SMMU driver) plus being a hypervisor," strictly more than option 2, not
   less.
@@ -93,7 +93,7 @@ Most isolation, most infrastructure.
   HVF does not expose nested virtualization, so nife cannot become a hypervisor while itself
   running as an HVF guest. This would be a bare-metal-only (QEMU with `virtualization=on`, or a
   real board) capability. See notes/virtualization.md for why we are a guest under HVF.
-- **The device transport must be reachable behind the SMMU.** On QEMU `virt` that again points at
+- The device transport must be reachable behind the SMMU. On QEMU `virt` that again points at
   virtio-pci rather than virtio-mmio, dragging in a PCIe enumerator.
 
 ## Where this sits relative to the microkernel philosophy

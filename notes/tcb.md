@@ -30,11 +30,11 @@ trusted core. Expand the term when there is any doubt.
 
 ## Where TCBs live (the phase B.2 decision)
 
-Decided at B.2: a **static pool**, a MAX_THREADS-sized array in BSS, a ThreadId's slot bits naming
+Decided at B.2: a static pool, a MAX_THREADS-sized array in BSS, a ThreadId's slot bits naming
 its storage directly. That pool was always a scaffold: the B.2 note said "the pool upgrades to
 retype-backed storage behind the table when init lands."
 
-**Milestone 19c.2 landed that upgrade, and the static pool is gone.** Every `Thread` is now
+Milestone 19c.2 landed that upgrade, and the static pool is gone. Every `Thread` is now
 **page-resident**: it lives at the start of one page, and the generational table stores a
 pointer to it rather than indexing a BSS array. Kernel threads' TCB pages come from the kernel's
 own budget (`kmem`, notes/kernel-budget.md); a user process (19c.3) retypes its TCB page from

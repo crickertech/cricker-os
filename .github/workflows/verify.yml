@@ -17,6 +17,12 @@
 # Every job here also skips on a draft pull request, the same guard and the same reason ci.yml's
 # header records: this is the ~47-minute half of the suite, and a §90 claim commit's whole point is
 # to be an empty diff, which cannot fail these proofs differently than `main` already has.
+#
+# BUGS: stock Kani is installed below with an unpinned `cargo install --locked kani-verifier`
+# (0.68.0 on 2026-10-05), while the riscv64 job is pinned to 0.67.0 plus a carried patch. A proof
+# result can change because a Kani release moved, with no change in nife, and the rows are not proved
+# by one version. Recorded, not decided: see
+# design/roadmap/proposals/pin-stock-kani-to-a-version-bumped-deliberately.md.
 name: verify
 
 # Observed failing: 2026-10-03, run 37156069481: the `re-falsify` leg went red on a push to main,
@@ -103,6 +109,7 @@ jobs:
       pull-requests: read
     outputs:
       run: ${{ steps.state.outputs.run }}
+      prose: ${{ steps.prose.outputs.prose }}
     steps:
       - id: state
         env:
@@ -140,12 +147,31 @@ jobs:
             echo "==> live draft state is '${draft:-unreadable}'; running"
           fi
           exit 0
+      # Prose-only (lane/docs-only-ci, 2026-10-05): the same classifier and the same base as
+      # ci.yml's gate, whose comment has the reasoning. A Markdown change no code reads cannot reach
+      # a proof, and skipping `verify (Kani proofs)` at the job level reports Success, which is what
+      # the ruleset requires; `scope` already concluded "not needed" for it, one runner later.
+      - uses: actions/checkout@v7
+        if: steps.state.outputs.run != 'false'
+        with:
+          fetch-depth: 0
+      - name: Is this change prose that no build or test reads?
+        id: prose
+        if: steps.state.outputs.run != 'false'
+        run: |
+          base="$(helpers/scope-merge-base.sh \
+              '${{ github.event.pull_request.base.ref }}' \
+              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
+          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
+          [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
+          echo "==> classifying $base..HEAD"
+          python3 helpers/prose_only.py classify "$base"
 
   scope:
     name: verify scope
     runs-on: ubuntu-24.04
     needs: gate
-    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
     outputs:
       needed: ${{ steps.scope.outputs.needed }}
     steps:
@@ -381,13 +407,15 @@ jobs:
     # scope job says the proofs are not needed, and a required check that never reports blocks the
     # merge forever, which notes/repo-hardening.md names as the single most likely way to get this
     # wrong. It must always run and always report -- except on a draft, which can never reach the
-    # merge queue in the first place, so there is nothing here for it to protect yet. It is
+    # merge queue in the first place, so there is nothing here for it to protect yet, and on a
+    # prose-only change, where a skip by condition reports Success (see the gate). It is
     # `!cancelled()` rather than `always()` so a run superseded by a newer push or by
     # `ready_for_review` stops instead of reporting a spurious failure from cancelled shards and
     # holding the concurrency group; ci.yml's draft gate has the incident (2026-09-24, #1202).
     if: >-
       !cancelled() &&
-      needs.gate.outputs.run != 'false'
+      needs.gate.outputs.run != 'false' &&
+      needs.gate.outputs.prose != 'true'
     runs-on: ubuntu-24.04
     # Reads two strings. The proving is upstream; nothing here needs a toolchain, a checkout or a
     # cache.

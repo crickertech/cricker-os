@@ -52,29 +52,29 @@ ladder puts that at rung one, above a gate and far above a comment.
 | `VirtualDeviceAddress` | virtual, as a device sees it: the IOVA the IOMMU translates |
 | `PhysicalMemoryAddress` | the one physical reality both translate into |
 
-**Two virtual views, one physical fact.** The asymmetry says something rather than being untidy:
+Two virtual views, one physical fact. The asymmetry says something rather than being untidy:
 physical takes no view qualifier because there is only one physical address space, shared by the CPU
 and by devices after translation. `notes/iommu.md`'s identity-mapped domain is that statement made
 concrete, since `IOVA == PA` there.
 
 Refusals, kept because they are the half a future proposer needs:
 
-- **`VirtualAddress` / `PhysicalAddress`**, the terms of art, recommended twice by the maintainer and
+- `VirtualAddress` / `PhysicalAddress`, the terms of art, recommended twice by the maintainer and
   declined twice. They carry the recognition §39's protected class exists to preserve, and calef
-  preferred explicitness. **The recognition was spent deliberately**, which is why this bullet
+  preferred explicitness. The recognition was spent deliberately, which is why this bullet
   exists rather than the choice being left to look inevitable.
-- **`PhysicalCpuAddress`**, incoherent: it asserts a non-CPU physical address exists. It also would
+- `PhysicalCpuAddress`, incoherent: it asserts a non-CPU physical address exists. It also would
   not have compiled, since `script/lint` runs clippy at `-D warnings` and `upper_case_acronyms`
   rejects `CPU` in a type name.
-- **`VirtualMemoryAddress`**, because an IOVA is a memory address too, so "Memory" fails to
+- `VirtualMemoryAddress`, because an IOVA is a memory address too, so "Memory" fails to
   disambiguate the one kind that needed it.
-- **`DeviceMemoryAddress`**, which parses as *an address of device memory*, meaning MMIO, and hides
+- `DeviceMemoryAddress`, which parses as *an address of device memory*, meaning MMIO, and hides
   that an IOVA is virtual at all.
-- **`IoVirtualAddress`**, only because it breaks the whose-view parallel and spends an abbreviation.
+- `IoVirtualAddress`, only because it breaks the whose-view parallel and spends an abbreviation.
 
 ## Where the types stop, and this is the design work
 
-**Syscall arguments are `u64` by ABI**, so the wrappers cannot cross the syscall boundary. That edge
+Syscall arguments are `u64` by ABI, so the wrappers cannot cross the syscall boundary. That edge
 has to be designed rather than discovered: the conversion belongs at the entry point, once, where a
 reader can see the untyped word becoming a typed address and check the claim being made about it.
 Everything above that line should be typed; nothing below it can be.
@@ -87,38 +87,38 @@ of implied.
 ## Sequencing, which is the only real constraint
 
 The blast radius is `paging`, `memory_regions`, three `arch/*/mmu.rs`, `kernel/src/user.rs` and
-`syscall.rs`, and `kernel/src/user/tests.rs` is the merge hotspot AGENTS.md already names. **Do this
-when `kernel/src` is quiet**, not while lanes are open in it.
+`syscall.rs`, and `kernel/src/user/tests.rs` is the merge hotspot AGENTS.md already names. Do this
+when `kernel/src` is quiet, not while lanes are open in it.
 
-**Kani was checked first, and it is clear.** Milestone 193 (put `kernel/src` within reach of the
+Kani was checked first, and it is clear. Milestone 193 (put `kernel/src` within reach of the
 prover) landed harnesses proving run arithmetic over `syscall.rs` in `u64`, so a newtype that
 confused CBMC would cost this milestone those proofs. Measured 2026-08-31 rather than assumed: a
 probe crate stated milestone 193's own `run_end_va` property twice, once on bare `u64` and once
 through a `repr(transparent)` `VirtualCpuAddress`, both in `u128` so neither harness could repeat its
 implementation back at itself.
 
-**`VERIFICATION:- SUCCESSFUL`, 2 of 2, 0.068s for both.** The wrapper adds no measurable solver cost,
+`VERIFICATION:- SUCCESSFUL`, 2 of 2, 0.068s for both. The wrapper adds no measurable solver cost,
 which is the number that mattered against `script/verify`'s ~650 seconds.
 
 Two things the probe settles for whoever builds this:
 
-- **`kani::any()` needs no new shape.** `VirtualCpuAddress::new(kani::any())` generates the raw
+- `kani::any()` needs no new shape. `VirtualCpuAddress::new(kani::any())` generates the raw
   `u64` symbolically and wraps it, which is what a converted harness would write. No `Arbitrary`
   implementation is required, though deriving one would read better across 145 harnesses.
-- **No unwind or bound effects.** The arithmetic is identical to the solver either way, which is what
+- No unwind or bound effects. The arithmetic is identical to the solver either way, which is what
   `repr(transparent)` promises about layout and is now observed rather than trusted.
 
 ## BUGS
 
-- **A newtype protects only while the value stays wrapped.** If every consumer immediately unwraps,
+- A newtype protects only while the value stays wrapped. If every consumer immediately unwraps,
   the net protection is close to zero. The milestone is worth doing only if the mapping APIs *take*
   the types, and a version that adds wrappers without changing signatures should be rejected as
   worse than nothing, because it looks like a mechanism and is not one.
-- **It cannot stop a deliberate wrong unwrap**, only the silent interchange.
-- **Nothing here types MMIO addresses**, which `notes/unsafe-obligations.md` records `gic.rs::init`
+- It cannot stop a deliberate wrong unwrap, only the silent interchange.
+- Nothing here types MMIO addresses, which `notes/unsafe-obligations.md` records `gic.rs::init`
   taking on trust, and which are physical addresses being used as virtual ones through a mapping.
   That is arguably the next instance of the same problem and is not in scope.
-- **The refactor touches the most delicate code in the project** for a benefit that is invisible when
+- The refactor touches the most delicate code in the project for a benefit that is invisible when
   it works. That is the honest cost, and it is why the sequencing constraint above is not optional.
 
 ## Index row

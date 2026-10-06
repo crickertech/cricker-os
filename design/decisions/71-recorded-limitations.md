@@ -30,10 +30,10 @@ A limitation is promoted to a roadmap row exactly when one of these fires:
    so a limitation something waits on must become a row or the dependency is invisible to
    `script/roadmap`'s classifier. The ladder argument: the gate is the mechanism, and a `BUGS`
    entry sits one rung below it.
-2. **Fixing it requires a design fork** calef must rule on before any lane could start. This is
+2. Fixing it requires a design fork calef must rule on before any lane could start. This is
    the only case that lands as `RECORDED`; the row exists to hold the analysis while the
    decision waits (§26's signature variant is the shape).
-3. **Someone proposes to spend on it and the spend needs coordination**: it spans lanes or
+3. Someone proposes to spend on it and the spend needs coordination: it spans lanes or
    components and cannot be a drive-by. Lands as `NOT-STARTED`.
 
 Anything untriggered stays a `BUGS` entry indefinitely, and "wants a lane" is the strongest

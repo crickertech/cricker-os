@@ -17,8 +17,8 @@ Phase 1 needs nothing that does not exist, which is what the gate records. Phase
 and 4 carry forks named below, and phase 4's is a real one; a single gate on the front of an arc this
 long would block the part that is buildable today.
 
-**In brief.** calef, 2026-08-30: *"I've invested heavily in an ext4 ecosystem so nife needs to
-support it."* This is a **standing requirement with no deadline**, which is a stronger position than
+In brief. calef, 2026-08-30: *"I've invested heavily in an ext4 ecosystem so nife needs to
+support it."* This is a standing requirement with no deadline, which is a stronger position than
 it sounds: it is the condition under which the right implementation can be built instead of the fast
 one. The arc is four phases, each independently useful, ending in a Rust ext4 that reads and writes
 drives Linux formatted, verified against libext2fs and against Linux itself rather than against our
@@ -33,17 +33,17 @@ RedoxFS.
 The requirement is calef's own infrastructure, and the history matters because it is what retired
 the urgency:
 
-- The family's backup solution is **borg over SSH, on cordoba**, plus Immich for images. Both were
+- The family's backup solution is borg over SSH, on cordoba, plus Immich for images. Both were
   built in another session with the existing Linux ecosystem, because the data problem was pressing
   and nife was not going to be ready in time.
-- The drives holding those borg repositories are **ext4, formatted by Linux**. They are not going to
+- The drives holding those borg repositories are ext4, formatted by Linux. They are not going to
   be reformatted, so nife supporting them means supporting the format as it exists on those disks.
 - Time Machine and SMB are no longer the backup path. Milestone 55 (Time Machine: SMB3 with Apple's
   extensions) and the surrounding blocks are aimed at a workload the customer retired; that
   repricing is its own edit and is not this block's scope, but this block should not be read as
   reinstating it.
 
-**What that leaves is a durable requirement with no deadline**, which is exactly the condition
+What that leaves is a durable requirement with no deadline, which is exactly the condition
 AGENTS.md's *elegance and performance beat implementation convenience* tenet was written for: an
 argument from implementation cost is the weakest one available here, and it is weakest of all when
 nothing is waiting on the answer.
@@ -68,7 +68,7 @@ formatted has it. `ext4plus` reads it and cannot update it on write, which means
 actual repositories with it would produce metadata Linux flags as corrupt. That is a concrete
 disqualification for this requirement rather than a judgement about maturity.
 
-**2. No userspace ext4 implementation writes the journal.** libext2fs replays a journal it finds and
+2. No userspace ext4 implementation writes the journal. libext2fs replays a journal it finds and
 never writes one, and fuse2fs, its own reference read/write client, says so in its manual:
 
 > Warning: fuse2fs does not support using the journal. There may be file system corruption or data
@@ -76,8 +76,8 @@ never writes one, and fuse2fs, its own reference read/write client, says so in i
 >
 > -- fuse2fs(1), https://man7.org/linux/man-pages/man1/fuse2fs.1.html
 
-Reading its source confirms it: there are no transaction start or commit calls. **Only LKL writes a
-real jbd2 journal, because only LKL is Linux.** That single fact is why LKL kept resurfacing in the
+Reading its source confirms it: there are no transaction start or commit calls. Only LKL writes a
+real jbd2 journal, because only LKL is Linux. That single fact is why LKL kept resurfacing in the
 discussion, and it is why the journal question has to be answered on its own rather than assumed
 away.
 
@@ -86,7 +86,7 @@ away.
 The refusals are the valuable half of this block, and each is recorded so a later reader can
 disagree with an argument rather than rediscover it.
 
-**`lwext4`, refused on licence and on the seam.** It is the obvious embedded C candidate (its own
+`lwext4`, refused on licence and on the seam. It is the obvious embedded C candidate (its own
 blockdev abstraction, `malloc` plus string functions, tier two of milestone 36's (the foreign
 component) libc tiers). But `ext4_extents.c` and `ext4_xattr.c` are GPLv2, which makes the library
 GPLv2 as distributed, and extents are what make ext4 ext4, so the GPL file cannot be dropped.
@@ -95,15 +95,15 @@ are meant to be able to vendor. Separately, its blockdev abstraction is function
 side would implement, which is a callback into Rust that DECISIONS §31 (the foreign-language seam)
 rule 2 forbids today. Either objection alone is sufficient.
 
-**`ext4plus`, refused on `metadata_csum`.** See above. Its own README also recommends ramdisks for
+`ext4plus`, refused on `metadata_csum`. See above. Its own README also recommends ramdisks for
 writing and warns of known bugs, and it is pre-0.1.0. Worth watching; it is the closest thing to
 what phase 3 wants to be, and adopting or contributing to it is a live option that this block does
 not foreclose.
 
-**LKL, refused for now on the syscall surface.** `lkl_host_operations` requires `thread_create`,
+LKL, refused for now on the syscall surface. `lkl_host_operations` requires `thread_create`,
 `thread_join`, `thread_exit`, `thread_self`, `thread_stack`, four TLS operations, semaphores and
 recursive mutexes, because LKL is a kernel linked into your address space with kthreads, workqueues
-and softirq contexts. nife cannot do that: `Tcb::CONFIGURE` **consumes** the address-space
+and softirq contexts. nife cannot do that: `Tcb::CONFIGURE` consumes the address-space
 capability it binds, so no two TCBs share an address space, which is exactly what DECISIONS §105
 (`std::thread::spawn` stays declined) recorded and declined. Building Option A because a filesystem
 wants it is a syscall-surface change entered sideways, and AGENTS.md's *move fast on what can be
@@ -112,7 +112,7 @@ undone* tenet puts the syscall surface in the expensive category.
 Three further costs, recorded so a later reader is not surprised: the rest of the host-ops surface
 (`jmp_buf_set`/`longjmp` in assembly for three ISAs, a timer service with callbacks, `ioremap` and
 `iomem_access` for a virtio-mmio shim onto the block server); GPLv2 and therefore vendoring Linux;
-and, most likely to be fatal, **`arch/lkl`'s documented hosts are POSIX and Windows userspace**, so
+and, most likely to be fatal, `arch/lkl`'s documented hosts are POSIX and Windows userspace, so
 whether it builds for a freestanding non-x86 target at all is unverified and DECISIONS §19
 (architectural parity is a tenet) requires all three.
 
@@ -121,7 +121,7 @@ right on its own merits, LKL becomes a genuinely exciting lane that unlocks far 
 it is the only path to a real journal. The refusal is about what may force that decision, not about
 the destination.
 
-**libext2fs as a shipped dependency, refused, and the honest reason is recorded.** This was the
+libext2fs as a shipped dependency, refused, and the honest reason is recorded. This was the
 session's first recommendation and it was substantially an argument from effort. Applying the
 tenet's own test, *would I still choose it if both options cost the same?*, the answer is no. A Rust
 implementation wins on memory safety over a parser eating bytes from drives we did not write, on
@@ -131,7 +131,7 @@ thing exists in C and in Rust, take the Rust one) says so directly. The deadline
 in that recommendation, and the deadline is gone. DECISIONS §34's (RedoxFS as the primary store) own
 objection to littlefs applies too: it would put a foreign component in the storage path.
 
-**Writing our own with no reference, refused.** DECISIONS §46 (thin primitives or whole subsystems)
+Writing our own with no reference, refused. DECISIONS §46 (thin primitives or whole subsystems)
 rule 4 prefers depending where correctness is won by exposure rather than by reading a
 specification, and a filesystem's on-disk format is the exposure case. A young implementation of a
 hostile-input parser with nothing to check it against is not trustworthy, whatever language it is
@@ -171,12 +171,12 @@ Each is independently useful, and none depends on the next being funded.
 
 Recorded here so the idea is not lost, not because it is decided.
 
-**Transaction boundaries are free, because we control the caller.** One `filesystem_protocol` request is
+Transaction boundaries are free, because we control the caller. One `filesystem_protocol` request is
 one filesystem operation. The server brackets it, and every block write the engine emits in between
 arrives at our own IO layer, which is the interposition point we have to write anyway. Log those
 blocks physically to the journal, flush, then write them in place.
 
-**The barrier exists, which is what makes this different from RedoxFS.** `filesystem_protocol`'s
+The barrier exists, which is what makes this different from RedoxFS. `filesystem_protocol`'s
 `blk::FLUSH` is a real `VIRTIO_BLK_T_FLUSH` the block server does not reply to until the device
 completes it, with `EOPNOTSUPP` passed through honestly when the device cannot flush. notes/fs-server.md
 names the absence of exactly this as RedoxFS's honest limit: its `Disk` trait has no flush and no
@@ -187,10 +187,10 @@ durability half bought the barrier.
 another machine, with no nife present. A private journal would make our crash a drive only we can
 repair, which defeats the interop the whole milestone is for.
 
-**And the test cannot be faked.** Linux is the oracle: write from nife, cut power with milestone 37's
+And the test cannot be faked. Linux is the oracle: write from nife, cut power with milestone 37's
 (RedoxFS crash consistency) injector, mount on Linux, let it replay, then `e2fsck -fn`.
 
-**The hard parts, named rather than waved at.** Revoke records, because a metadata block that is
+The hard parts, named rather than waved at. Revoke records, because a metadata block that is
 freed and reused as data must not be replayed over. Journal checksum v3 exactness, since a wrong
 checksum makes recovery do the wrong thing quietly. And physical journaling writes every block
 twice, so it is slow, which is measurable and is a trade this workload can afford.
@@ -214,10 +214,10 @@ than in this block.
 
 ## Prior art, read rather than recalled
 
-**libext2fs has already been run as a filesystem server on a capability microkernel.** Paul Boddie
+libext2fs has already been run as a filesystem server on a capability microkernel. Paul Boddie
 integrated it into L4Re: a filesystem server program, per-file resource objects, IPC between clients
-and the server, and a **custom io_manager whose read and write block functions issue IPC calls to a
-block server**. That is the `ext4_server` architecture milestone 140 (mount a drive this system did
+and the server, and a custom io_manager whose read and write block functions issue IPC calls to a
+block server. That is the `ext4_server` architecture milestone 140 (mount a drive this system did
 not create) already decided on, built by someone else, on a system in the same family. His honest
 caveat is the one that matters to us: he deferred the C library work as too much of a challenge at
 that stage, and he had L4Re's uclibc available. We would not, which is another reason the C stays on
@@ -253,20 +253,20 @@ drives, so the feature set phase 1 must support is a measured list rather than a
 
 ## What this milestone does not decide
 
-- **Whether nife hosts borg repositories or originates borg archives.** Hosting (an SMB export, a
+- Whether nife hosts borg repositories or originates borg archives. Hosting (an SMB export, a
   `borg serve`, or borg 2's borgstore REST backend) needs only this milestone. Originating needs a
   borg client, and no native Rust implementation of the repository format exists: the `borgbackup`
   crate on crates.io shells out to the Python binary. That is a separate and much larger block, and
   it should be minted only if calef wants nife to make backups rather than hold them.
-- **FAT32 and ext2**, which keep milestone 140's ordering.
-- **RedoxFS**, which is untouched.
+- FAT32 and ext2, which keep milestone 140's ordering.
+- RedoxFS, which is untouched.
 
 ## BUGS
 
-- **No phase here is priced.** The effort is unknown and this block deliberately does not guess.
+- No phase here is priced. The effort is unknown and this block deliberately does not guess.
   Phase 1 is small, phase 4 is not, and the honest number for phases 2 and 3 comes after the corpus
   survey rather than before it.
-- **Phase 3 ships a filesystem that can lose data on power failure**, and no wording in a roadmap
+- Phase 3 ships a filesystem that can lose data on power failure, and no wording in a roadmap
   block changes that. The obligation is a `BUGS` section beside the feature and a `fsck` story, and
   neither exists yet.
 - **`e2fsck` has no Rust equivalent and this block does not provide one.** Under the host-oracle

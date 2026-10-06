@@ -1,3 +1,7 @@
+---
+experiment_status: RUN
+experiment_run: 2026-09-19
+---
 # 3. The tests do not test anything, and the quality is illusory
 
 *Risk 3 of [the nine](README.md). The status vocabulary, the rule an entry meets and the running order are there.*
@@ -8,7 +12,7 @@ review discipline. If the suite would not notice the code being wrong, that sent
 **The experiment:** milestone 85 (mutation testing over the host crates), read as a census and
 re-read against the baseline.
 
-**Experiment status: RUN, 2026-09-19, re-read 2026-09-24.** MEASURED
+Re-read 2026-09-24. MEASURED
 rather than merely observed, and AMBER. calef ruled amber on the 2026-09-14 numbers; the fall behind
 it did not happen. On 2026-09-21 the 38 baseline crates read 96.1% against
 92.4% in August. The corpus reads 92.4%, or 93.6% without 132 mutants no host build
