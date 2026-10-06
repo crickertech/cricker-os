@@ -63,7 +63,7 @@ What a pass does, in order:
 - labels `needs-maintainer` (name provisional) on a pull request a maintainer session must pick
   up, comments once per cause with the evidence, and takes the label off when the cause goes.
 
-The seven causes and their comments are in [queue-ejection.md](queue-ejection.md). The decision is
+The eight causes and their comments are in [queue-ejection.md](queue-ejection.md). The decision is
 `helpers/needs-maintainer.jq`, checked by `helpers/needs-maintainer-selftest.sh` against a recorded
 response, and that selftest also fails if the drain arms or enqueues again.
 

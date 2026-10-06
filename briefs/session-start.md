@@ -76,7 +76,9 @@ somebody goes looking. So the drain leaves its findings where one command finds 
 Every pull request in that list is yours before any lane is briefed. The drain labels one that was
 ejected from the merge queue, conflicts with `main`, is still queued after it merged, or has been
 ready and unarmed for 30 minutes, and comments once with the evidence (milestone 727 (a queue eviction goes to a maintainer session), provisional,
-and so is the label's name). Read the comment, then fix it or hand it to its lane: rebase, re-arm a
+and so is the label's name). It also labels orphan work, a branch holding commits that no open pull
+request carries, and opens a draft for one that never had a pull request; notes/queue-ejection.md
+lists every cause. Read the comment, then fix it or hand it to its lane: rebase, re-arm a
 flake (`gh pr merge N --auto --merge`), dequeue a stale entry with the command the comment gives,
 or make an unfinished one a draft again. The label comes off by itself on the drain's next pass
 once the cause is gone, so never remove it by hand. `--state all` because a stale queue entry

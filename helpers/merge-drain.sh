@@ -18,6 +18,8 @@
 #     `held-for-red-trunk` after it was enqueued (`dequeue_held`).
 #   - Labels a paused draft `unblocked` once its `Blocked-by:` pull requests have resolved.
 #   - Reruns, once, a CI run a concurrency group cancelled as a same-second duplicate.
+#   - Opens a draft for a branch holding work that never had a pull request, so the label has
+#     somewhere to go (the `orphan` cause's `adopt`; it never touches the branch).
 #   - Runs helpers/lane-claim-check.sh, which reports a pushed lane branch with no pull request.
 #
 # # What it stopped doing, and why (milestone 727 (a queue eviction goes to a maintainer session), provisional; calef's rulings on #1564)
@@ -359,13 +361,19 @@ group_runs() {
 }
 
 # **A pull request a maintainer session must pick up wears `needs-maintainer`** (milestone 727,
-# provisional; the label's name is provisional too, and calef's call). The seven causes, and why
+# provisional; the label's name is provisional too, and calef's call). The eight causes, and why
 # each is one, are in helpers/needs-maintainer.jq, which decides; this carries the decision out:
 #
 #   label   add the label, print `LABELLED #N`, and comment once per cause with the evidence
 #   keep    comment on any cause whose episode has not been commented on yet
 #   clear   the cause is gone (back in the queue, head moved, conflict fixed, armed, merged,
 #           a draft again): take the label off and print `CLEARED #N`. A session never has to.
+#   adopt   a branch holding work has never had a pull request (the `orphan` cause), so there is
+#           nothing to label: open a draft for it, marked with the head it adopted, label that,
+#           and print `ADOPTED <branch> as #N`. This is the drain's one write that creates a pull
+#           request. It is a draft, so it can never merge, and a draft is the claim §90 (the claim
+#           is a draft pull request) asks every lane to open first; the drain opens the one its
+#           lane did not. Closing it is the undo.
 #
 # The label is created idempotently by the workflow, with the workflow's own token, because the
 # App's token may not create labels. A laptop pass assumes it exists.
@@ -374,6 +382,20 @@ group_runs() {
 # `gh pr list --label needs-maintainer --state all` first and fixes those pull requests first,
 # and helpers/nanny.py wakes a running session when the label lands. `--state all` because a stale
 # queue entry belongs to a pull request that is no longer open.
+#
+# BUGS, the `orphan` cause's (lane/orphan-work, 2026-10-06 UTC):
+#   - Its clock is the branch tip's committer date, not the branch's birth, so a lane that keeps
+#     pushing without a pull request is never called an orphan while it pushes. The birth clock
+#     `helpers/lane-claim-check.sh` reads is the repository activity feed, one page deep; a tip
+#     clock needs no second call and fires two hours after a lane stops, which is the case that
+#     went unseen.
+#   - It reads the first 100 branches. The repository had 23 on 2026-10-06; past 100, a branch
+#     beyond the page is not seen.
+#   - It cannot see work that never left a laptop: a detached HEAD or an unpushed commit is
+#     invisible to GitHub. helpers/at-risk-check.sh lists those, and briefs/merge-and-cleanup.md
+#     runs it before a prune.
+#   - helpers/lane-claim-check.sh still prints the same branches to this log, on its own clocks.
+#     Folding it into this cause, or keeping it, is calef's call (#1787).
 NM_LABEL="needs-maintainer"
 NM_MINUTES=${NM_MINUTES:-30}
 NM_JQ="$(dirname "$0")/needs-maintainer.jq"
@@ -391,6 +413,12 @@ NM_QUERY='query($owner: String!, $name: String!, $labelled: String!) {
       unarmed: timelineItems(last: 1, itemTypes: [READY_FOR_REVIEW_EVENT, AUTO_MERGE_DISABLED_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT]) { nodes { __typename ... on ReadyForReviewEvent { createdAt } ... on AutoMergeDisabledEvent { createdAt } ... on RemovedFromMergeQueueEvent { createdAt } } }
       labelled: timelineItems(last: 20, itemTypes: [LABELED_EVENT]) { nodes { ... on LabeledEvent { createdAt label { name } } } }
       commits(last: 1) { nodes { commit { committedDate } } }
+    } }
+    refs(refPrefix: "refs/heads/", first: 100) { nodes {
+      name
+      target { oid ... on Commit { committedDate } }
+      compare(headRef: "main") { behindBy }
+      associatedPullRequests(last: 5, orderBy: {field: CREATED_AT, direction: ASC}) { nodes { number state labels(first: 30) { nodes { name } } } }
     } }
   }
   search(query: $labelled, type: ISSUE, first: 50) { nodes { ... on PullRequest { number state labels(first: 30) { nodes { name } } } } }
@@ -482,6 +510,24 @@ A lane that ended its turn \`WAITING\` is not running and will not see this. The
 
 A new commit, a \`Blocked-by:\` on an open pull request, \`parked\`, or closing it takes the label off."
 		;;
+	orphan)
+		branch=$(printf '%s' "$c" | jq -r '.branch')
+		head=$(printf '%s' "$c" | jq -r '.head')
+		since=$(printf '%s' "$c" | jq -r '.since')
+		ahead=$(printf '%s' "$c" | jq -r '.ahead // "some"')
+		case "$(printf '%s' "$c" | jq -r '.shape')" in
+		MERGED) shape="This pull request merged, and \`$branch\` has $ahead commit(s) since that \`main\` does not, the newest from $since." ;;
+		CLOSED) shape="This pull request closed without merging, and \`$branch\` still holds $ahead commit(s) \`main\` does not, the newest from $since." ;;
+		*) shape="\`$branch\` held commits that \`main\` does not and had no pull request, so the drain opened this draft for it. Its newest commit is from $since." ;;
+		esac
+		what="ORPHAN WORK at \`$head\`. $shape No open pull request carries it, so nothing shows it to anyone. The maintainer session owns the next step, one of:
+
+- land it: open a pull request from \`$branch\` (or, for this draft, push to it or mark it ready)
+- record what it found in \`notes/\` and delete the branch: \`git push origin --delete $branch\`
+- keep it on purpose: label this pull request \`parked\` and comment why
+
+Any of these takes the label off."
+		;;
 	stale)
 		state=$(printf '%s' "$c" | jq -r '.state')
 		merged=$(printf '%s' "$c" | jq -r '.merged // "an unrecorded time"')
@@ -500,7 +546,7 @@ The label comes off when the entry is gone."
 	esac
 	printf '%s' "$ME: needs-maintainer. $what
 
-The label is how a maintainer session finds this without anyone watching the queue (milestone 727, provisional; helpers/needs-maintainer.jq has the seven causes)."
+The label is how a maintainer session finds this without anyone watching the queue (milestone 727, provisional; helpers/needs-maintainer.jq has the eight causes)."
 }
 
 needs_maintainer() {
@@ -537,6 +583,27 @@ needs_maintainer() {
 			action=$(printf '%s' "$rec" | jq -r '.action')
 			causes=$(printf '%s' "$rec" | jq -r '.causes | map(.cause) | join(", ")')
 			case "$action" in
+			adopt)
+				branch=$(printf '%s' "$rec" | jq -r '.branch')
+				head=$(printf '%s' "$rec" | jq -r '.causes[0].head')
+				if [ -n "$dry" ]; then
+					echo "$ME: (dry run) would open a draft for orphan branch $branch at $head and label it $NM_LABEL"
+					continue
+				fi
+				url=$(gh pr create --repo "$REPO" --draft --base main --head "$branch" \
+					--title "orphan: $branch" --body "$ME: opened as a draft because \`$branch\` holds work that never had a pull request (the \`orphan\` cause, helpers/needs-maintainer.jq). Nothing on it was changed.
+
+<!-- needs-maintainer:orphan adopted $head -->" 2>/dev/null) || url=""
+				num=${url##*/}
+				case "$num" in
+				''|*[!0-9]*)
+					echo "$ME: $branch is orphan work and a draft could not be opened for it"
+					continue
+					;;
+				esac
+				w gh pr edit "$num" --repo "$REPO" --add-label "$NM_LABEL" || true
+				echo "$ME: ADOPTED $branch as #$num (orphan)"
+				;;
 			clear)
 				if w gh pr edit "$num" --repo "$REPO" --remove-label "$NM_LABEL"; then
 					echo "$ME: CLEARED #$num (its cause is gone)"
@@ -569,6 +636,7 @@ needs_maintainer() {
 #     merge-drain[...]: UNBLOCKED #N ...   a paused draft's blockers resolved
 #     merge-drain[...]: LABELLED #N ...    needs-maintainer added, with its causes
 #     merge-drain[...]: CLEARED #N ...     needs-maintainer removed, its cause gone
+#     merge-drain[...]: ADOPTED <branch> as #N   a draft opened for an orphan branch
 pass() {
 	# A pushed lane branch with no pull request is invisible to everything that starts from
 	# `gh pr list`. Milestone 204 (a pushed lane branch with no draft pull request is a claim nobody

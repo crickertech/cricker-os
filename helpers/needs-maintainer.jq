@@ -8,7 +8,7 @@
 # session must pick up, so the session finds it with `gh pr list --label needs-maintainer --state
 # all` and not by watching. Nothing here arms, enqueues or re-queues; it only names.
 #
-# Seven causes, each a fact the queue does not report to anyone:
+# Eight causes, each a fact nothing else reports to anyone:
 #
 #   ejected   the last removal from the queue was neither `merged` nor `manual`, nothing put it
 #             back since, and the head is still the one that was ejected. A removal whose event
@@ -30,7 +30,7 @@
 #   off-main  ready, not armed, and based on a branch other than `main`, for `$minutes` since it
 #             was opened or marked ready. The merge queue drains `main` only, so nothing will ever
 #             merge this, and `eligible` (below) never shows it to the other causes. #1640 on
-#             2026-10-04: stacked on #1630's branch, green and mergeable, and labelled by nothing
+#             2026-10-04: stacked on #1630's branch, green and mergeable, and labeled by nothing
 #             for about three hours until calef merged it into its base by hand. A `Blocked-by:`
 #             pull request still open holds it, as it holds `unarmed`.
 #   red       wearing `ci-failing` (helpers/ci-failing.sh decides that, from the required checks
@@ -46,6 +46,25 @@
 #             once its lane's session ended, and every other cause skips a draft. A draft holding
 #             only its claim commit is not exempt: that is the clearest case of a lane that died.
 #             An open `Blocked-by:` holds it, as it holds `unarmed`, and so does `nm_parked_label`.
+#   orphan   a branch holding work that no open pull request carries, for `nm_orphan_hours` (2,
+#             the 2026-10-06 brief's figure) by its tip's committer date. calef, 2026-10-06 UTC: "It
+#             seems like we have some work trees that don't have PRs. That seems like a problem that
+#             leads to lack of visibility and progress on that work." Keyed on remote branches,
+#             because they are the ledger every session can see. A branch is in scope unless it is
+#             `main` or a `gh-readonly-queue/*` candidate, and it holds work when its tip is not an
+#             ancestor of `main` (`compare.behindBy`, the commits it has that `main` lacks). Three
+#             shapes, each labeled where a session already looks:
+#               - its last pull request merged, and commits were pushed past the merged head:
+#                 the merged pull request, closed, wears the label (`--state all` finds it);
+#               - its last pull request closed without merging: the closed one wears it;
+#               - it never had a pull request: there is nothing to label, so the decision says
+#                 `adopt` and the shell opens a draft for it, marked with `nm_orphan_marker` and the
+#                 head it adopted. That draft carries the cause until its head moves, it is made
+#                 ready, or it closes (after which the closed shape applies to the branch).
+#             `parked` (`nm_parked_label`) on the last pull request exempts all three, as it
+#             exempts `stale-draft`: a branch kept on purpose, such as argon's waiting for a board
+#             (#1738, #1732). Deleting the branch, landing it, or opening a pull request for it
+#             takes the label off. The 2026-10-06 survey that prompted this is in #1787.
 #
 # `ejected`, `conflict` and `unarmed` apply only to what `eligible` admits (helpers/queue-eligible.jq,
 # spliced in front of this file); `off-main` and `red` to a ready pull request from this repository
@@ -71,6 +90,8 @@
 #
 # Output, one object per pull request that has a cause or wears the label:
 #   { number, action: "label" | "keep" | "clear", causes: [ { cause, key, ... } ] }
+# and one per orphan branch that never had a pull request, for the shell to open a draft for:
+#   { number: null, branch, action: "adopt", causes: [ { cause: "orphan", ... } ] }
 #
 # helpers/needs-maintainer-selftest.sh feeds recorded responses through this; script/lint runs it.
 
@@ -97,9 +118,49 @@ def nm_red_label: "ci-failing";
 def nm_stale_draft_hours: 6;
 
 # A draft held on purpose for work outside the lane system, such as calef's GLM runs (#1745,
-# 2026-10-06). It exempts `stale-draft` only, and the pull request must carry a comment giving
-# the reason it is parked. The name is provisional.
+# 2026-10-06), or a closed pull request whose branch is kept on purpose (#1738). It exempts
+# `stale-draft` and `orphan`, and the pull request must carry a comment giving the reason it is
+# parked. The name is provisional.
 def nm_parked_label: "parked";
+
+# How long a branch may hold work no open pull request carries, by its tip's committer date. A tip
+# clock, not a birth clock: a lane still pushing is never called an orphan, and one that stopped is
+# called one two hours later. helpers/merge-drain.sh's `needs_maintainer` header has its BUGS.
+def nm_orphan_hours: 2;
+
+# The line the shell writes into a draft it opened for an orphan branch, followed by the head it
+# adopted and ` -->`. The draft keeps the `orphan` cause only while its head is still that one.
+def nm_orphan_marker: "<!-- needs-maintainer:orphan adopted ";
+
+def nm_parked($labels): ($labels | index(nm_parked_label)) != null;
+
+# Every in-scope branch with work past `main`, no open pull request and an old enough tip, with the
+# last pull request it had (or null). A ref whose comparison GitHub could not make reads as no work.
+def nm_orphan_branches($label; $now):
+  .data.repository.refs.nodes[]?
+  | select(.name != "main" and (.name | startswith("gh-readonly-queue/") | not))
+  | ([.associatedPullRequests.nodes[]?] | sort_by(.number)) as $prs
+  | select(($prs | map(select(.state == "OPEN")) | length) == 0)
+  | select((.compare.behindBy // 0) > 0)
+  | select((.target.committedDate | nm_ts) <= $now - nm_orphan_hours * 3600)
+  | ($prs | last) as $last
+  | select($last == null or (nm_parked([$last.labels.nodes[]?.name]) | not))
+  | { number: ($last.number // null),
+      labeled: ($last != null and ([$last.labels.nodes[]?.name] | index($label)) != null),
+      causes: [ { cause: "orphan", key: .target.oid, branch: .name, head: .target.oid,
+                  since: .target.committedDate, ahead: .compare.behindBy,
+                  shape: (if $last == null then "never" else $last.state end) } ] };
+
+# A draft the shell opened for an orphan branch, still at the head it adopted.
+def nm_orphan_adopted:
+  . as $pr
+  | select(.isDraft == true and .isCrossRepository == false)
+  | nm_unheld
+  | select(nm_parked([.labels.nodes[].name]) | not)
+  | ((.body // "") | capture("<!-- needs-maintainer:orphan adopted (?<oid>[0-9a-f]{40}) -->").oid) as $oid
+  | select($oid == $pr.headRefOid)
+  | { cause: "orphan", key: $oid, branch: .headRefName, head: $oid,
+      since: (.commits.nodes[-1].commit.committedDate // null), shape: "adopted" };
 
 def nm_ejected($queued):
   . as $pr
@@ -163,25 +224,28 @@ def nm_stale_draft($now; $blockers):
 def nm_decide($label; $now; $minutes; $blockers):
   .data as $d
   | [$d.repository.mergeQueue.entries.nodes[]? | .pullRequest.number] as $queued
+  | [nm_orphan_branches($label; $now)] as $orphans
   | ( [ $d.repository.pullRequests.nodes[]
         | . as $pr
         | ([nm_ejected($queued)] + [nm_conflict] + [nm_red($now; $minutes)]) as $hard
-        | { number, labelled: ([.labels.nodes[].name] | index($label) != null),
+        | { number, labeled: ([.labels.nodes[].name] | index($label) != null),
             causes: ($hard + (if $hard == [] then [nm_unarmed($queued; $now; $minutes; $blockers)]
                                                 + [nm_off_main($now; $minutes; $blockers)] else [] end)
-                     + [nm_stale_draft($now; $blockers)]) } ]
+                     + [nm_stale_draft($now; $blockers)] + [nm_orphan_adopted]) } ]
+    + [ $orphans[] | select(.number != null) ]
     + [ $d.repository.mergeQueue.entries.nodes[]?
         | select(.pullRequest.state != "OPEN")
-        | { number: .pullRequest.number, labelled: false,
+        | { number: .pullRequest.number, labeled: false,
             causes: [ { cause: "stale", key: .enqueuedAt, enqueued: .enqueuedAt, entry: .state,
                         state: .pullRequest.state, merged: .pullRequest.mergedAt, id: .pullRequest.id } ] } ]
     + [ $d.search.nodes[]? | select(.number != null)
-        | { number, labelled: ([.labels.nodes[].name] | index($label) != null), causes: [] } ] )
-  # A closed pull request with a stale entry also appears in the search for labelled ones, and an
-  # open one can only appear once; merge by number, keeping every cause and any labelled flag.
+        | { number, labeled: ([.labels.nodes[].name] | index($label) != null), causes: [] } ] )
+  # A closed pull request with a stale entry also appears in the search for labeled ones, and an
+  # open one can only appear once; merge by number, keeping every cause and any labeled flag.
   | group_by(.number)
-  | map({ number: .[0].number, labelled: (map(.labelled) | any), causes: (map(.causes[]) | unique_by(.cause)) })
-  | map(select(.labelled or (.causes | length) > 0))
-  | map(. + { action: (if (.causes | length) == 0 then "clear" elif .labelled then "keep" else "label" end) })
-  | map(del(.labelled))
+  | map({ number: .[0].number, labeled: (map(.labeled) | any), causes: (map(.causes[]) | unique_by(.cause)) })
+  | map(select(.labeled or (.causes | length) > 0))
+  | map(. + { action: (if (.causes | length) == 0 then "clear" elif .labeled then "keep" else "label" end) })
+  | map(del(.labeled))
+  | . + [ $orphans[] | select(.number == null) | { number, branch: .causes[0].branch, action: "adopt", causes } ]
   | .[];

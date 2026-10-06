@@ -106,11 +106,12 @@ episode, deduplicated by a marker:
 | off-main | ready, not armed, on a base other than `main`, 30 minutes since it was last unarmed | the base, its pull request, the ways out | armed, merged, an open `Blocked-by:`, or a draft |
 | red | wearing `ci-failing` for 30 minutes | when that label went on, the head, whether armed | `ci-failing` comes off |
 | stale-draft | a draft whose head commit is 6 hours old by committer date | the date, the branch, the four ways out | a commit, an open `Blocked-by:`, `parked`, or closed |
+| orphan | a branch with commits `main` lacks and no open pull request, its tip 2 hours old | the head, how many commits, the three ways out | landed, deleted, a pull request opened, or `parked` |
 
-Every cause but `stale` needs a pull request from this repository, without `needs-architect` or
+Every cause but `stale` and `orphan` needs a pull request from this repository, without `needs-architect` or
 `held-for-red-trunk`. All but `stale-draft` need it ready, and `ejected`, `conflict` and `unarmed`
 need it to be into `main`. A draft labeled `parked` (provisional name, 2026-10-06) is
-exempt from `stale-draft` only: it is held on purpose for work outside the lane system, such as
+exempt from `stale-draft` and `orphan`: it is held on purpose for work outside the lane system, such as
 calef's GLM runs, and must carry a comment giving the reason. A `merge_conflict` ejection names no group commit, so it
 cannot say which head was ejected and is cleared by the conflict going instead. `manual` is not an
 ejection, because a person or `dequeue_held` meant it; if nobody follows up, it is `unarmed` 30
@@ -130,6 +131,16 @@ lane's session ended, and it had no commit after 22:11 UTC the day before. Every
 a draft, because a draft is its lane's, and that only holds while the lane is alive. The age is the
 head commit's committer date, since `updatedAt` moves with every bot comment and every retarget.
 A draft holding only its claim commit is not exempt, as it is the clearest sign of a dead lane.
+
+The eighth, `orphan`, came on 2026-10-06, when calef found worktrees with no pull request: "a
+problem that leads to lack of visibility and progress on that work." It reads remote branches, the
+one ledger every session sees, and labels the pull request the branch last had: a merged one that
+gained commits after it merged, or a closed one still holding work. A branch that never had a pull
+request has nothing to label, so the drain opens a draft for it, marked with the head it adopted.
+Every branch prefix is in scope: the survey in milestone 580 (nobody reads branches) found every
+prefix leaking, and so did this one. `parked` on the last pull request exempts it, which is how
+argon's two closed branches wait for their board (#1738, #1732). Work that never left a laptop is not on GitHub at all;
+`helpers/at-risk-check.sh` lists it at prune time.
 
 The event's `beforeCommit` is the group's merge commit, not the head, which was a surprise. Its
 second parent is the head that was enqueued, and the group's runs are the `merge_group` runs at
