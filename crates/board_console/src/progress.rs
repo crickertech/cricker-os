@@ -908,7 +908,7 @@ impl BootProgress {
 /// Shared by the soak's heartbeat and the sweep's two lines, which is not a tidiness: all three are
 /// `name=value` lines from the same console, and a second copy of this would be a second place for
 /// a trailing `/s` or a comma to be got wrong.
-fn field(text: &str, name: &str) -> Option<u64> {
+pub(crate) fn field(text: &str, name: &str) -> Option<u64> {
     let at = text.find(name)?;
     let rest = &text[at + name.len()..];
     let end = rest

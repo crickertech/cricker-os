@@ -60,6 +60,12 @@ unedited:
   day milestone 297 renamed the command, taken in the lane's own Linux worktree. It is post-221, so
   it is the only one of the three that carries `wakes=` and a census block that changes between the
   spawn lottery and the settled arrangement.
+- **`qemu-2026-10-05-aarch64-soak-test.log`** is `script/soak-test --for 25s --log <file>` on
+  patagonia, aarch64 `virt` with four cores, captured by the lane for milestone 225 (run the soak
+  on radon, argon and xenon) because argon is
+  aarch64 and no aarch64 soak capture existed. It is what `exposure`'s tests read, and the reason
+  that reader splits boots at the banner: on aarch64 the `smp: 4 core(s) online` line comes
+  twenty lines *before* `nife machine:`, so a split at the machine line loses the core count.
 
 **And one capture of the job-mix sweep** (milestone 324 part 2), also machine-printed and also not
 off a board:

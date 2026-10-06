@@ -95,7 +95,8 @@ not, the loader now prints which range it wanted and which descriptors are in th
 ## argon, and why it is last
 
 Milestone 127 (the seL4 machine) is first light, and it is the longest of the three because nothing
-of nife has run on it. Both pre-board prerequisites are now built: the EL2 to EL1 entry drop
+of nife has run on it. A third prerequisite, the board memory map, is unbuilt
+(`design/roadmap/proposals/argon-boots-the-aarch64-kernel.md`, 2026-10-05). The two 127 names are built: the EL2 to EL1 entry drop
 (2026-09-02, rehearsed under QEMU with `virtualization=on`), and the cycle-counter authority
 question that milestone 74's aarch64 half was waiting on (DECISIONS 139, answered 2026-09-02).
 

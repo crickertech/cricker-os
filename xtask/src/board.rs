@@ -50,6 +50,91 @@ fn board_console_tally(path: &std::path::Path) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// **Read a finished soak capture into the defect curve's exposure row.** Milestone 225 (run the
+/// soak on radon, argon and xenon) built it for milestone 201 (is multicore reliability
+/// converging).
+///
+/// `board_console::exposure` is the logic and has the tests, including one that reads radon's
+/// eight-hour log back into the E4 row a person wrote by hand. This parses `<log>` and the three
+/// columns no console line carries, and prints a row per boot that soaked.
+///
+/// Exit statuses keep the watcher's meanings where they overlap: `0` every soaked boot is clean,
+/// `1` one is not (the board announced a failure or a counter is nonzero), `3` no boot in the log
+/// reached a heartbeat, `4` the file or the arguments.
+fn board_console_exposure(args: &[String]) -> ExitCode {
+    use board_console::exposure::{self, Meta};
+
+    let usage = || {
+        eprintln!(
+            "usage: cargo xtask board-console --exposure <log> [--machine <name>] \
+             [--build <sha>] [--start '<YYYY-MM-DD HH:MM>']"
+        );
+        ExitCode::from(4)
+    };
+    let mut path: Option<&str> = None;
+    let mut meta = Meta::default();
+    let mut i = 0;
+    while i < args.len() {
+        let slot = match args[i].as_str() {
+            "--machine" => &mut meta.machine,
+            "--build" => &mut meta.build,
+            "--start" => &mut meta.start,
+            other if path.is_none() && !other.starts_with("--") => {
+                path = Some(other);
+                i += 1;
+                continue;
+            }
+            _ => return usage(),
+        };
+        let Some(v) = args.get(i + 1) else {
+            return usage();
+        };
+        *slot = Some(v.clone());
+        i += 2;
+    }
+    let Some(path) = path else {
+        return usage();
+    };
+    let bytes = match std::fs::read(path) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("board-console: cannot read {path}: {e}");
+            return ExitCode::from(4);
+        }
+    };
+    meta.source = Some(path.to_string());
+    // Lossy, not `read_to_string`: a serial capture carries whatever the wire did, and one bad
+    // byte in eight hours must not cost the row.
+    let boots = exposure::read(&String::from_utf8_lossy(&bytes));
+    let soaked: Vec<_> = boots.iter().filter(|b| b.soaked()).collect();
+    println!(
+        "exposure: {} boot(s) in the capture, {} reached a soak heartbeat",
+        boots.len(),
+        soaked.len()
+    );
+    for (n, boot) in soaked.iter().enumerate() {
+        println!();
+        println!("boot {}: {}", n + 1, boot.figures());
+        for check in boot.checks() {
+            println!("  {check}");
+        }
+        println!("{}", boot.row(&meta));
+    }
+    if soaked.is_empty() {
+        return ExitCode::from(3);
+    }
+    println!();
+    println!(
+        "Paste each row into notes/multicore-defect-curve.md with the next free E id; `?` is a \
+         column the log cannot supply."
+    );
+    if soaked.iter().all(|b| b.is_clean()) {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(1)
+    }
+}
+
 pub(crate) fn board_console() -> ExitCode {
     use std::io::Write;
 
@@ -101,6 +186,10 @@ pub(crate) fn board_console() -> ExitCode {
                 Ok(v) => return board_console_tally(std::path::Path::new(v)),
                 Err(code) => return code,
             },
+            // **Milestone 225's reader**: a finished soak capture into the curve's exposure row.
+            // It takes the rest of the line, for the three columns no console line carries, and
+            // like `--tally` it returns before a capture file is created.
+            "--exposure" => return board_console_exposure(&args[i + 1..]),
             "--log" => match value(i) {
                 Ok(v) => log = Some(PathBuf::from(v)),
                 Err(code) => return code,
@@ -186,7 +275,9 @@ pub(crate) fn board_console() -> ExitCode {
                      [--log <file>] [--for <duration>] [--until <stage>] [--quiet-after <duration>] \
                      [--board <name>]\n\
                      \x20      cargo xtask board-console [--stop | --stop-after <n>]\n\
-                     \x20      cargo xtask board-console --tally <log>"
+                     \x20      cargo xtask board-console --tally <log>\n\
+                     \x20      cargo xtask board-console --exposure <log> [--machine <name>] \
+                     [--build <sha>] [--start <utc>]"
                 );
                 return ExitCode::from(4);
             }

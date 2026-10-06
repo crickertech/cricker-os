@@ -1,0 +1,87 @@
+
+nife on aarch64 (EL1, MMU off: physical addresses until mmu::init)
+  screen      : none (this qemu was started without -device ramfb); this console is the UART
+  smp: 4 core(s) in the device tree
+  smp: psci over hvc, CPU_ON 0xc4000003 (the node's own id, from the device tree)
+  smp: 4 core(s) online
+  cycles      : PMCCNTR_EL0 running on 4 of 4 cores (33000 over 1000 ticks at boot), 6 event counters visible, PMCCFILTR_EL0 0x0 PROVISIONAL (EL0+EL1 counted, EL2 not)
+  cycles      : firmware left PMCCFILTR_EL0 0x0 on this core before it was overwritten
+
+nife
+  exception level : EL1  (entered here)
+  cpu             : Arm part 0xd08 r0p3
+                  : 44-bit PA, 48-bit VA available, 16-bit ASIDs, granules 4K 64K
+  stack top       : 0xffff00004034b000
+  firmware handoff: 0x0000000048e00000  (device tree)
+  processors      : 4 online of 4 described, boot cpu hwid 0x0
+  memory          : 256 MiB total, 229 MiB free (27048 KiB in use)
+  console         : PL011 at 0xffff000009000000, interrupt line 33
+                  : no screen; this console is the UART alone
+  interrupts      : GICv2, distributor 0x0000000008000000, cpu interface 0x0000000008010000
+  timer           : 100 Hz tick, counter at 62 MHz, interrupts ON
+  initrd          : 14517760 bytes at 0x0000000048000000, a nifefs archive of 105 program(s)
+  pcie            : ecam 0x0000004010000000..0x4020000000, bar window 0x10000000..0x3eff0000
+  iommu           : SMMUv3 at 0x0000000009050000, stream table default-deny, translating
+  mmu             : on, kernel in TTBR1 at 0xffff000000000000, TTBR0 free for userspace
+  stack guard     : 0xffff00004033a000 (unmapped; a stack overflow faults here)
+  scheduler       : 5 thread(s), round robin, preemptive
+nife machine: aarch64, 4 processor(s), 256 MiB, 100 Hz
+  self-test       : exceptions ok      a breakpoint was caught and stepped over (1)
+  self-test       : mapping    ok      0xffff000090000000 -> 0x40016000, read back 0xc0ffee, unmapped
+  self-test       : frames     ok      one frame out and back at 0x40016000; used 6764 -> Some(6765) -> Some(6764)
+  self-test       : timer      ok      the 62MHz counter advanced 1250000 and 2 tick(s) arrived in ~20ms
+  self-test       : scheduler  ok      thread 5 ran and carried its captured state (0x268026802680268)
+nife self-test: 5 of 5 passed
+  capability slots: 2 of 64 at peak
+  half a second later, having spawned two threads that NEVER yield:
+
+    thread 1 (hostile) :    5842596 iterations
+    thread 2 (polite)  :    5837009 iterations
+    preemptions        :        201
+
+  neither asked to be interrupted. both were.
+
+  and now the other side of the boundary:
+
+    virtio : block device at 0xa003e00, INTID 79, handing it to a driver at EL0
+
+      a driver at EL0 read the file 'motd' off a virtio disk,
+      through a nifefs superblock it parsed itself,
+      woken by the device's interrupt delivered as a message.
+      the kernel issued no virtio command and touched no DMA.
+    pcie   : virtio-blk at 00:01.0, INTID 36, same driver, same confinement
+      the same file, over the transport real hardware uses.
+
+  user thread 12884901894 killed: Data abort from a lower EL
+    pc 0x00000000600000c0   far 0xffff000040158008   user sp 0x000000007ffeffa0   esr 0x9200000f
+  the kernel is fine.
+  capability slots: 3 of 64 at peak
+    outlaw : reached 0xffff000040158008, was killed, kernel survived (1 fault)
+    initrd : 14517760 bytes at 0x48000000, from the device tree
+
+  milestone 11: a process mapped 22 pages out of an untyped it was handed,
+  and the kernel's used-frame count went 6875 -> 6875 (it did not move).
+  a process cannot make the kernel allocate, so it cannot exhaust it.
+
+soak-test: started 4 groups of one responder, 3 callers, 1 grinder and 1 tick waiter (24 user threads) on 4 online core(s), beating every 5s
+soak-test: silence longer than a few beats is a hang, not a slow run; the beat is on the wall clock and does not depend on the workload making progress
+soak-test: a clean run is a number to compare against, NOT evidence that the concurrency is correct (design/roadmap/219-a-workload-that-does-not-stop.md)
+soak-test: the threads that cross cores are the tick waiters, NOT the rendezvous pairs; a rising crossings count is the wake protocol sustained across cores under load, not the IPC workload migrating (design/roadmap/221-a-soak-that-crosses-cores.md)
+soak-test: rounds counts IPC round trips and wakes counts tick-route wakes; they are separate because they are separate quantities, and neither rate compares with a soak built differently
+soak-test-census: where the kernel placed each worker at spawn: R=responder, C=caller, G=grinder, W=tick waiter, and the number after each letter is its group
+soak-test-census: core=0 threads=5 G0 R2 C2 R3 C3
+soak-test-census: core=1 threads=5 C0 W0 C1 C1 C2
+soak-test-census: core=2 threads=6 R0 C0 G1 G2 C3 C3
+soak-test-census: core=3 threads=8 C0 R1 C1 W1 C2 W2 G3 W3
+soak-test-census: this is the boot-time lottery and NOT where the run settles: a rendezvous wake queues the peer on the waker's own core (DECISIONS 138, how a saturated workload is made to hand threads across cores), so each group converges onto one core within a few exchanges
+soak-test-census: the beat line's drifted= is how many responders, callers and grinders are no longer on the core the census above put them on; while it reads 0 that census is current, and a nonzero one is followed by the census that replaces it
+soak-test-census: tick waiters are excluded from drifted= because their movement is the point rather than a surprise, and it is already crossings= (design/roadmap/221-a-soak-that-crosses-cores.md)
+soak-test: t=5s beat=1 rounds=307925 rate=61585/s wakes=2003 wakerate=400/s workers=24 refused=0 mismatch=0 stalled=0 drifted=9 crossings=956 remote=951 steals=5 deferred=4
+soak-test-census: where the workers are NOW, the arrangement above having changed: R=responder, C=caller, G=grinder, W=tick waiter, and the number after each letter is its group
+soak-test-census: core=0 threads=5 G0 R2 C2 C2 C2
+soak-test-census: core=1 threads=7 R0 C0 C0 C0 W0 W2 W3
+soak-test-census: core=2 threads=7 G1 W1 G2 R3 C3 C3 C3
+soak-test-census: core=3 threads=5 R1 C1 C1 C1 G3
+soak-test: t=10s beat=2 rounds=617482 rate=61911/s wakes=4007 wakerate=400/s workers=24 refused=0 mismatch=0 stalled=0 drifted=0 crossings=1896 remote=1955 steals=5 deferred=9
+soak-test: t=15s beat=3 rounds=923707 rate=61245/s wakes=6009 wakerate=400/s workers=24 refused=0 mismatch=0 stalled=0 drifted=0 crossings=2770 remote=2984 steals=5 deferred=9
+soak-test: t=20s beat=4 rounds=1224507 rate=60160/s wakes=8018 wakerate=401/s workers=24 refused=0 mismatch=0 stalled=0 drifted=0 crossings=3639 remote=3999 steals=5 deferred=11

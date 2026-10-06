@@ -88,6 +88,57 @@ million crossings, against 5,507 in the only earlier multi-hour run. Past that, 
 a new draw of the placement lottery, which is worth more than a ninth hour. The maintainer approved
 it. What remains on radon is more boots, not longer ones.
 
+## argon, 2026-10-05: not yet a one-command run, and exactly why
+
+calef ruled argon first on 2026-10-05. This lane set out to make its soak one command and found
+the premise false one step earlier than this block's `BUGS` says: argon has never booted nife,
+**and as built it cannot**. The aarch64 kernel is linked, mapped and consoled for QEMU `virt`
+only (RAM at 0x4000_0000, a PL011 at 0x0900_0000), and tegra210 puts DRAM at 0x8000_0000 and a
+16550 at 0x7000_6000. A `booti` today would be silent, and that silence would be misread at the
+bench as cabling or firmware. Milestone 127's two named prerequisites are built; the third, the
+board memory map, is unbuilt and unowned.
+`design/roadmap/proposals/argon-boots-the-aarch64-kernel.md` is that work, with the fork (one
+binary or two) that is the architect's.
+
+What this lane built instead, which every board's soak uses: `script/board-console --exposure
+<log> --machine <name> --build <sha> --start '<utc>'` reads a capture into the curve's exposure row
+in `notes/multicore-defect-curve.md`, with the four figures above and milestone 221's two bench
+checks redone after the fact. Its test reads radon's eight-hour log back into E4.
+
+### What calef can do at argon today, with no nife image (about 20 minutes)
+
+These are milestone 127's steps 1 and 2 and its USB question, and they need nothing built. They
+answer the proposal's one open fact (the DRAM base) and capture the prologue `script/board-console`
+needs before it will accept `--board argon`.
+
+1. Cable: a 3.3 V USB-TTL adapter on argon's J21 header (TX, RX, GND; adapter VCC unconnected), on
+   patagonia. Check nobody holds the port: `lsof /dev/cu.usbserial-*`.
+2. `screen /dev/cu.usbserial-* 115200`, then `Ctrl-a H` to log to `screenlog.0`.
+3. Power argon with no SD card. Expected: U-Boot's banner and an autoboot countdown. Silence is the
+   cable, the baud, or an L4T too old to reach U-Boot; stop there and say which.
+4. Press a key to stop autoboot, then type: `bdinfo`, `printenv fdt_addr_r kernel_addr_r`, and,
+   with a FAT32 stick in, `usb start`, `usb storage`, `fatls usb 0:1 /`, `help bootefi`,
+   `printenv boot_targets`.
+5. `Ctrl-a k` to quit. Hand the lane `screenlog.0`; it goes to `bench/argon-<date>/uboot.log`.
+
+Red here is any of: no U-Boot banner, a DRAM bank in `bdinfo` that is not at 0x8000_0000, or a
+hang on `usb start`. Each is a fact for 127, not a failure of this milestone.
+
+### The soak itself, once argon prints the banner
+
+Unchanged from radon's procedure (`notes/soak.md`, "On radon at a bench"), with argon's names. The
+two commands marked *not yet* are the proposal's items 4 and the profile.
+
+1. *Not yet:* `script/board-image --soak` for argon, onto the SD card.
+2. *Not yet:* `script/board-console --board argon --for 8h --until none --log
+   target/argon-soak-$(date +%s).log`, started before power-on.
+3. Read the first beat: `wakerate` about 400 (four A57s at 100 Hz) and `crossings` rising.
+4. Afterwards: `script/board-console --exposure target/argon-soak-<stamp>.log --machine argon
+   --build <sha> --start '<utc>'`. Exit 0 is clean, 1 is a failure to classify.
+
+Eight hours, for radon's reason. Red is `soak-test: FAILED`, a `[PANIC]`, three missed beats, or
+`--exposure` exiting 1. Any of them is the outcome worth hoping for: the first defect on silicon.
+
 ## BUGS
 
 - **No duration is prescribed**, because nobody knows what would be persuasive, and milestone 219's
@@ -100,7 +151,9 @@ it. What remains on radon is more boots, not longer ones.
 - **The crossing count varies by more than 2x between identical runs**, recorded in milestone 221's
   BUGS, so it is not a figure to compare machines on without more care than a single run affords.
 - **argon has never booted nife at all**, so its soak sits behind milestone 127 (the seL4 machine)
-  rather than beside radon's.
+  rather than beside radon's. Since 2026-10-05 also behind the unbuilt board memory map in
+  `design/roadmap/proposals/argon-boots-the-aarch64-kernel.md`: the aarch64 kernel only fits QEMU
+  `virt`.
 
 ## Follow-on
 
@@ -108,7 +161,9 @@ it. What remains on radon is more boots, not longer ones.
   milestone 261 (the NVMe driver leaves the kernel, on the machine that can finally confine it).
   Checked 2026-09-25 against that list.
 - **Outstanding.** argon's soak, behind milestone 127 (the seL4 machine), since argon has never
-  booted nife. Checked 2026-09-25: 127 is NOT-STARTED.
+  booted nife. Checked 2026-09-25: 127 is NOT-STARTED. Checked again 2026-10-05: still
+  NOT-STARTED, and behind it the proposal `argon-boots-the-aarch64-kernel.md`, which a lane can
+  build without the board.
 - **Outstanding.** More radon boots, because one boot is one draw and a slow draw has never been
   soaked for long with this build. Checked 2026-09-25: E4 is the only radon row with a log.
 - **Done.** The false `NOT SEALED` on a soak build that cost this run half an hour. Milestone 563

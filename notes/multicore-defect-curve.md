@@ -56,6 +56,10 @@ without re-running anything:
 
 ### How a `soak-test` log becomes a row
 
+`script/board-console --exposure <log> --machine <name> --build <sha> --start '<utc>'` does
+everything below and prints the row (milestone 225, 2026-10-05). The rules are kept here because
+they are what it implements, and a reader checking a row should not have to read Rust.
+
 Every beat is one line, printed by `kernel/src/soak.rs`:
 
 ```
@@ -169,6 +173,10 @@ exactly the class risk 5 names and should not be quietly argued away.
 - E1 to E3 lack builds and final beats. Their logs were read at the bench and summarised into
   `notes/soak.md`, never committed. Milestone 225 should commit each boot's log under `bench/` so a
   row can cite a file rather than a paragraph.
+- ~~Each row is copied off the last beat by hand.~~ Since 2026-10-05 (milestone 225),
+  `script/board-console --exposure <log> --machine <name> --build <sha> --start '<utc>'` prints
+  the row, the four figures and the two bench checks, and its test reads E4's log back into E4.
+  The id stays `E?` on purpose: the next free one is read here, not guessed.
 - Nothing computes the curve. It is a table a reader sums by hand. That is adequate at three
   rows and will not be at thirty; a script reading these two tables is small work, but it earns its
   keep only once 225 has appended enough rows to plot.

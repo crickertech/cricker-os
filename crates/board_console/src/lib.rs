@@ -28,6 +28,10 @@
 //! - [`lottery`] takes a log of *many* boots and reports what the thread-placement lottery drew
 //!   each time (milestone 249), which is the question a self-rebooting soak exists to answer and
 //!   the one nothing that reads a single boot can be asked.
+//! - [`exposure`] reads a soak capture into the exposure row `notes/multicore-defect-curve.md`
+//!   keeps for milestone 201 (is multicore reliability converging), built for milestone 225 (run
+//!   the soak on radon, argon and xenon), so a bench run's numbers are copied by a
+//!   program rather than by whoever is still awake at the end of it.
 //!
 //! And one part that **writes**, which every other part of this crate does not (milestone 324):
 //!
@@ -214,6 +218,7 @@
 //! calef.
 
 pub mod board;
+pub mod exposure;
 pub mod lottery;
 pub mod port;
 pub mod progress;
