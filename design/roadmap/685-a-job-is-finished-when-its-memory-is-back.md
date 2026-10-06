@@ -1,6 +1,7 @@
 ---
-status: NOT-STARTED
+status: BUILT
 raised: 2026-09-27
+built: 2026-10-06
 promoted_from: a-job-is-finished-when-its-memory-is-back
 milestone_dependencies: none
 decision_dependencies: none
@@ -17,6 +18,86 @@ Promoted from `design/roadmap/proposals/a-job-is-finished-when-its-memory-is-bac
 Raised by milestone 205 (how a foreign program is told what to do)'s lane,
 `milestone/205-designation` (#1402). The slug and every name below are a lane's coinage and
 provisional. Every real fix is a change two programs agree on, so it is calef's.
+
+## The ruling
+
+calef, 2026-10-06 (UTC): "A looks right." Option A below, with B, C and D refused for the reasons
+in the table. The proof he set, as fatal risk 7's criterion (a) is amended: "claim 24 closed by
+milestone 685, proven by a host test of the window-reuse rule (`Windows::take` never hands out a
+window whose last holder is unreaped) that goes red without the fix, plus a booted test of the
+reap protocol on all three ISAs."
+
+## What was built
+
+This closes confinement claim 24 for fatal risk 7 (the confinement claim is false): a
+directory-granted job's file-service window is never handed to another job while its last holder
+is unreaped.
+
+- **The message.** `grant_plan::spawnproto::reaped` and `UNDERTAKER_BADGE` (both provisional).
+  `job_undertaker` holds a `WRITE` copy of the spawn endpoint at slot 2, badged
+  `UNDERTAKER_BADGE` (1), and sends this after every collect, never before:
+
+  ```text
+    w0  label   the badge the progenitor put on the job's supervision capability (DECISIONS §148
+                (resolves by asking the kernel)); 0 for a job built without one
+    w1  tid     the dead thread's id, as the kernel stamped it on the death message
+    w2  0       reserved
+  ```
+
+  `w0` and `w1` are what a `RECEIVE_CAP` returns as data, so the message reads whole wherever in a
+  request it lands. The shell's copy is unbadged and lacks `GRANT`, so it cannot forge the badge.
+- **The premise, corrected.** The block said the progenitor already holds each child's tid from
+  `build_child`. It does not: `build_child` returns a thread capability, and no method reads a tid
+  from one. So the progenitor labels each job's supervision capability with a number it mints,
+  and keys on that; the tid rides along as the ruling asked.
+- **The progenitor.** Every receive on the spawn endpoint goes through `SpawnEndpoint`, which takes
+  reaped messages out of the way, since one can arrive between any two of a request's messages. A
+  reap frees the job's window (`grant_plan::job_windows::Windows`, moved out of
+  `system_initializer` so its rule is a host test) and settles any wait for it.
+- **The pool waits for the event.** #1402's 1,024-yield retry is gone. A carve that fails, once
+  the request is read to its end, waits for reaps while a finished job's reap is due
+  (`grant_plan::job_windows::ReapsDue`): a job whose whole answer went to the shell's result
+  endpoint, which the shell reads to its end before its next request. A pipeline stage with a sink
+  is not due, because it may be waiting on a stage not yet built. A full window pool waits the same
+  way, then refuses.
+- **Images are copied after the request ends.** The two image-pool carves used to happen before
+  the frames arrived, where a wait would take the shell's next frame instead of a reap. The frames
+  are now mapped as they arrive (`take_frames`) and copied once the last message is in
+  (`stage_frames`), region first and staging second as before.
+
+Tests:
+
+- `grant_plan::job_windows::tests::take_never_hands_out_a_window_whose_last_holder_is_unreaped`,
+  host. Red on the pool as it was (commit "grant_plan: model the file-service window pool"), and
+  red again under its replayable falsification (take skips the reaped check).
+- `system_tests::user::job_undertaker_tests::job_undertaker_says_which_job_it_reaped_and_only_then_is_its_window_free`,
+  booted, on aarch64, riscv64 and x86_64 in CI. Green on aarch64 locally on 2026-10-06 (UTC), and
+  red under its replayable falsification (the undertaker forgets the label) on aarch64.
+
+## BUGS
+
+- **A job that answers and then does not exit holds a short pool's wait** (`SpawnEndpoint`'s
+  `BUGS`). Before, that request was refused after 1,024 yields; now it waits, and `^C` cannot
+  reach it.
+- **A screen-narrowed job behind a directory grant would keep its window for the life of the
+  boot**, since the shell reaps it, not the undertaker. No manifest asks for both today.
+- **A second holder of the spawn endpoint** gets one request kept while the progenitor waits, and
+  the request in hand refused. Only the boot shell holds it.
+- **No boot drives seven concurrent directory-granted jobs through the real progenitor**; the
+  booted test runs the protocol and the pool, not the progenitor's loop.
+- The booted test's "region back when the message arrives" assertion is the message's meaning,
+  but no falsification reaches it on one core: an undertaker announcing first would still collect
+  before the test thread ran.
+
+## Follow-on
+
+- **Recorded.** The wait that a job which answers and never exits can hold, and the one-request
+  stash for a second holder: `SpawnEndpoint`'s `BUGS` in `crates/system_initializer/src/lib.rs`.
+- **Recorded.** A screen-narrowed job behind a directory grant keeping its window: the `BUGS` in
+  `crates/grant_plan/src/job_windows.rs`.
+- **Recorded.** No boot drives seven concurrent directory-granted jobs through the real
+  progenitor; this block's `BUGS` above says so.
+- **Done.** #1418's window reuse, by the same message (`Windows::reaped`).
 
 ## The problem, measured
 
@@ -96,7 +177,7 @@ a job's memory is back. D is chosen on effort, and 205's `BUGS` says so.
 
 ## What is blocked on the answer
 
-Nothing is blocked; #1402's retry holds until then. #1418's window reuse waits on it.
+Answered 2026-10-06 (UTC). #1402's retry is replaced, and #1418's window reuse is fixed by the same message.
 
 ## Index row
 
