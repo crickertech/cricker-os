@@ -133,7 +133,7 @@ A 64 KiB request costs about what a 4 KiB one does, so sixteen times the payload
 price: 600 to 900 MiB/s against 40 to 80. That is the prize a multi-page transfer on
 `filesystem_protocol` would chase.
 
-One ordering artefact moves a number. The `rawdev` rows run last, after the 64 KiB variant has
+One ordering artifact moves a number. The `rawdev` rows run last, after the 64 KiB variant has
 written 16 MiB, so the host is still flushing when they start. They are an upper bound on the device
 floor rather than a clean reading. The cleanest floor available is `O_DIRECT` sequential read at
 27 us.
@@ -198,13 +198,13 @@ figure quoted without its caveats is worth less than no figure.
    durable per request, the way `O_DSYNC` makes ext4's. But no `VIRTIO_BLK_T_FLUSH` is issued unless
    a client asks (`filesystem_protocol::fs::SYNC`, milestone 55 (Time Machine)), so the bytes sit where `O_DIRECT`
    alone leaves them. Both rows are printed and neither is the comparison.
-4. The copy counts differ, in our favour. A completed read lands in the page the client already
+4. The copy counts differ, in our favor. A completed read lands in the page the client already
    shares with the server, so the bytes can be used in place; buffered Linux copies into the caller's
    buffer. `O_DIRECT` closes most of that gap by DMA-ing into the user buffer, one more reason it is
    the row to read.
 5. macOS is not at this tier at all, per its table.
 6. 1 MiB per phase is small, bounded by the fixture image. It makes the per-request costs clear
-   and says nothing about behaviour at scale.
+   and says nothing about behavior at scale.
 7. The machine was shared, per the next section.
 
 ### The noise floor, and how a round earns its place

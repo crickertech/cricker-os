@@ -93,7 +93,7 @@ part 1 added, and not by coincidence. (Corrected 2026-09-24: it is the fourth `e
 `**/src/proofs.rs` and `**/src/verification.rs` globs in `exclude_globs`.)
 
 cargo-mutants already declines to mutate anything under a plain `#[cfg(test)]`. It does not
-recognise the compound form. The five loom crates have to write `#[cfg(all(test, not(loom)))]`,
+recognize the compound form. The five loom crates have to write `#[cfg(all(test, not(loom)))]`,
 because the loom model is the other half of the same `test` cfg. So a helper function in one of
 those modules is mutated where the identical helper in an ordinary crate is not. That is how
 `memory_corruption_canary_gate`'s new deadline helper came back MISSED the moment it was written.
@@ -163,7 +163,7 @@ both reach the page through these functions, so any injective, aligned, in-page 
 correct. Pinning the arithmetic would test the code against itself.
 
 The seventh was `answer`'s `^` becoming `|`. The three existing assertions all pass under `|`:
-neighbouring sequence numbers differ, no answer is zero, and no answer echoes its input. A mask
+neighboring sequence numbers differ, no answer is zero, and no answer echoes its input. A mask
 still varies and still never produces zero. What it stops being is a bijection, and injectivity is
 the whole reason the transform exists: "a reply carrying *some* value is not mistaken for a reply
 carrying the *right* value". Closed by `the_answers_share_no_bit_in_common`, which intersects

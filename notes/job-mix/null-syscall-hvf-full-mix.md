@@ -114,7 +114,7 @@ syscall's growth under load is a cache line, about 5% of a trap at four tasks on
 ## What risk 4's line should say
 
 For the maintainer, in [risk 4's file](../../design/fatal-risks/4-the-per-crossing-cost.md). The
-colour is calef's. This lane would leave it AMBER until radon sizes 761, and proposes this sentence
+color is calef's. This lane would leave it AMBER until radon sizes 761, and proposes this sentence
 after the one ending "half explained and half open":
 
 > 2026-10-05 (UTC): on four Apple cores under HVF, with 761 in and the full mix running (spawning
@@ -153,8 +153,8 @@ in the `null-syscall-hvf-full-mix.766-*.csv` files.
 shows A's residual because of where the linker put `PERCPU`, not because anything was fixed. In
 today's job-mix build it sits at 8 mod 128. The aarch64 layout (from `offset_of!`) puts `current`
 at 0, `inbox` at 48, `inbox_len` at 96, `held_rank` at 112, `steal_request` at 116, `rng` at 120 and
-`need_resched` at 124. At 8 mod 128 only a neighbour's last eight bytes (`rng`, `need_resched`)
-share a block's line. At 24 mod 128 the neighbour's `held_rank` and `steal_request` share a line
+`need_resched` at 124. At 8 mod 128 only a neighbor's last eight bytes (`rng`, `need_resched`)
+share a block's line. At 24 mod 128 the neighbor's `held_rank` and `steal_request` share a line
 with this block's `current` and `inbox`. There the residual returns with A's shape: +0.010, +0.023
 and +0.040 over base at two, three and four tasks, against A's 0.009, 0.021 and 0.041. The milestone's
 value here is that the next unrelated static cannot put it back. Before it, a few bytes of shift

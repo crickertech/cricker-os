@@ -124,7 +124,7 @@ session, was about:
 |---|---|---|---|---|
 | the merge-rate problem: CI time, flakes, red checks of unknown cause | 1,967 | 43% | 396,685 | 41% |
 | landing pull requests opened before the outage: rebases, conflicts, red checks on their own subject | 1,029 | 23% | 188,562 | 20% |
-| new work: audits, proposals, package versions, week notes, fatal-risk colours, graphics, a Kani review | 1,408 | 31% | 343,001 | 36% |
+| new work: audits, proposals, package versions, week notes, fatal-risk colors, graphics, a Kani review | 1,408 | 31% | 343,001 | 36% |
 | running the session itself | 121 | 3% | 29,997 | 3% |
 | not nife (homelab) | 29 | 1% | 3,714 | 0% |
 
@@ -252,7 +252,7 @@ prompt it answered, and the prompts were classed by hand. Claude figures come fr
 
 ## BUGS
 
-- Cause attribution is estimated, not modelled, and assumes lanes would have produced at the prior
+- Cause attribution is estimated, not modeled, and assumes lanes would have produced at the prior
   rate.
 - How much of 09-26 and 09-27's Claude spend went to friction is not measured. Two keyword
   classifiers over the transcripts' first prompts put it at 1% and at 36%, and a 15-prompt spot check

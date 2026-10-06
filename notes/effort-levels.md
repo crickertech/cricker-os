@@ -94,14 +94,14 @@ That script runs `claude --bare --effort <level>` with `ANTHROPIC_BASE_URL` poin
 gateway translating to an open-weight model over OpenRouter (`notes/open-model-lanes.md`). This
 lane had no `OPENROUTER_API_KEY` and no running gateway to test against, so every run above went
 straight to Claude. The gateway's configuration sets `drop_params: true`, which strips request
-fields the upstream model does not recognise; whether an open-weight model's `/chat/completions`
+fields the upstream model does not recognize; whether an open-weight model's `/chat/completions`
 translation preserves anything `--effort` sends, or silently drops it, is unmeasured. The default
-chosen below is evidence-based for Claude and a guess, clearly labelled as one, for the rented
+chosen below is evidence-based for Claude and a guess, clearly labeled as one, for the rented
 backend.
 
 **One task shape, at one size.** This measured a bounded read-only grep-and-tabulate query over
 about 600 files. It says nothing about whether effort matters for a task with a larger search space,
-a multi-step edit, or a genuinely ambiguous judgement call rather than an ambiguous instruction. The
+a multi-step edit, or a genuinely ambiguous judgment call rather than an ambiguous instruction. The
 finding is scoped to what was run, not generalized past it.
 
 ## What this sets as the default, and why

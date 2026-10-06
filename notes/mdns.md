@@ -233,15 +233,15 @@ passed on the GL-BE9300's own bytes while the guest said nothing at all, on the 
 and nowhere else. So the prober takes only datagrams whose source is the guest, and the guest's
 announcement must speak from the address its own A record advertises.
 
-The finding that cost the most to learn: smoltcp fills its neighbour cache only from an ARP
+The finding that cost the most to learn: smoltcp fills its neighbor cache only from an ARP
 packet whose target is an address the interface holds (`process_arp` returns early otherwise, in
-0.13.1), and `dispatch` drops the datagram that triggers a neighbour resolution rather than
+0.13.1), and `dispatch` drops the datagram that triggers a neighbor resolution rather than
 queueing it. So a gratuitous ARP announcing the prober's address is discarded, the guest would have
 to resolve 10.0.2.99 when it answered the legacy query, and that first answer would be lost with
 nothing to retry it. Asking the guest for its own address fills the cache in the same breath, which
 is why step 2 is a request rather than an announcement.
 
-Retries are self-synchronising, which matters because the responder answers a fixed number of
+Retries are self-synchronizing, which matters because the responder answers a fixed number of
 queries. The responder re-announces whenever a receive times out, so an announcement means "the
 last thing you sent me did not arrive"; the prober re-injects the query for the stage it is in, and
 advances only when it has *verified* an answer. Nothing counts a datagram that was lost.

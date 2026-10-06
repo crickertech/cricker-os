@@ -56,7 +56,7 @@ after.
 
 - It changes no size class, because the size class is a page and the page is paid by whoever owns
   the thread.
-- It changes no cache behaviour worth naming. A `u64` appended to a struct spanning 12
+- It changes no cache behavior worth naming. A `u64` appended to a struct spanning 12
   cache lines lands in the twelfth, which the expiry walk touches and nothing else does.
 - It costs no BSS at all, which is the number the stale premise would have made 1 KiB.
 
@@ -70,7 +70,7 @@ The block offers "a timer wheel or an ordered deadline list" as if those were th
 `MAX_THREADS = 128` and `TICK_HZ = 100` there is a third that beats both, and the reason is not
 asymptotic.
 
-Three candidates, modelled on the host over 200,000 ticks (2,000 seconds of kernel time) with a
+Three candidates, modeled on the host over 200,000 ticks (2,000 seconds of kernel time) with a
 deterministic operation count as the currency and wall clock beside it:
 
 - A. No structure at all. A per-thread deadline word, plus one cached `earliest`. The tick
@@ -117,7 +117,7 @@ smaller than the wheel's bookkeeping. The five known consumers (net_stack's retr
 `thread::sleep`, `Endpoint::RECEIVE`'s no-timeout limitation, milestone 103 (`^C` stops spinning)'s `^C` watch, milestone
 106's `Irq::WAIT`) are on the order of one deadline each.
 
-The honest error bars. These are *modelled* operation counts, not machine instructions: the host
+The honest error bars. These are *modeled* operation counts, not machine instructions: the host
 model counts comparisons and pointer writes at the points a kernel implementation would perform them,
 which is load-independent and reproducible but is a model. Wall-clock ns/tick was recorded beside them
 and is not reported as a number, because the machine was not quiet: another lane's `script/test` and
@@ -334,7 +334,7 @@ Two caveats that matter for how the number is used:
   retransmit backoff. The order of magnitude is uncertain by about ten; the conclusion is not.
 - Section 2 is a host model, not a kernel measurement. It counts the comparisons and pointer
   writes a kernel implementation would perform, at the points it would perform them. It does not
-  model cache behaviour, and its wall-clock column was taken on a machine running two other lanes'
+  model cache behavior, and its wall-clock column was taken on a machine running two other lanes'
   gates (load average 9 to 25) and is therefore not reported. Two runs at different loads agreed on
   the ordering of every row.
 - The 491 and 400 instruction totals in section 3 are static whole-function counts and include

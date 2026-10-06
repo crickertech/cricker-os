@@ -65,7 +65,7 @@ happened to arrive about a second after the listener came up. That is a one-seco
 fifteen-second cliff, on a timer nothing here controls, and it is the same shape on every ISA and
 every runner. What differs between this laptop and CI is only where in the backoff the guest's
 listener happens to appear. It has not been shown to be the mechanism of either observed failure. It
-is a measured hazard the design has, it is enough on its own to make the leg's behaviour depend on
+is a measured hazard the design has, it is enough on its own to make the leg's behavior depend on
 an emulator's retransmit timer, and it is where the next lane should look first.
 
 The proposal that follows from it, not taken here because it could not be measured. Offer the
@@ -146,7 +146,7 @@ boots), with nothing in between and under 100 ms of spread inside each mode; run
 outlier. The whole boot follows it, taking ~49 s or ~62 s. Twelve seconds apart is a retransmit
 ladder, and the near-even split says the guest's listener comes up right on top of one of its
 rungs and falls to one side or the other essentially at random. That is the previous lane's
-one-second margin, measured from the other end and confirmed: the leg's behaviour is decided by
+one-second margin, measured from the other end and confirmed: the leg's behavior is decided by
 which rung of an emulator's SYN backoff the listener happens to appear next to. It also means the
 laptop's steady 29973 ms is one of two modes rather than the number, so a fix should be judged
 against both.

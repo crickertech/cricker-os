@@ -321,7 +321,7 @@ array can see a Rust enum, and nine of the eleven silent gaps live in exactly th
 So B is already taken where it applies and cannot apply where the gaps are.
 
 Where it extends, and this is the half worth building. Findings 9 and 10 are five `#[cfg]`
-pairs whose x86_64 behaviour is an empty function body. Adding
+pairs whose x86_64 behavior is an empty function body. Adding
 
 ```rust
 #[cfg(not(any(target_arch = "aarch64", target_arch = "riscv64", target_arch = "x86_64")))]
@@ -489,7 +489,7 @@ rather than trust the count.
    **Blind to**: a list that derives its members instead of spelling them, and a list that spells
    them in a language I did not think to grep (there is no Makefile or Dockerfile matrix here, but
    a future one would be missed by this method).
-2. Per-architecture file-set completeness, by normalising every tracked path's architecture
+2. Per-architecture file-set completeness, by normalizing every tracked path's architecture
    token and counting the families. Found the `bench/fastpath-` divergence and confirmed twelve
    families complete at three.
    **Blind to**: a per-architecture thing whose files do not carry the token in the name.

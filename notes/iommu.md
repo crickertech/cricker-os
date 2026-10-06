@@ -3,7 +3,7 @@
 notes/dma.md closed the DMA hole in software: the kernel validates every descriptor and the device
 reads a shadow copy the driver cannot touch. This note is the hardware version, milestone 16b: an
 IOMMU that confines the device generically, with no block-device or even transport knowledge, on
-both architectures behind one seam. The shadow ring stays, demoted to defence in depth.
+both architectures behind one seam. The shadow ring stays, demoted to defense in depth.
 
 ## What an IOMMU is, and why it is the clean answer
 
@@ -120,7 +120,7 @@ tests, and the new hardware-fault test (aarch64 118 kernel tests, riscv 60).
   a handler in a production boot is future work.
 - **Not free even when you have one.** Someone still programs the domain that confines the device,
   and that someone is the kernel. The IOMMU buys generality (no transport knowledge needed), not the
-  absence of a trusted DMA policy. The shadow ring (notes/dma.md) stays as defence in depth: the
+  absence of a trusted DMA policy. The shadow ring (notes/dma.md) stays as defense in depth: the
   transport still refuses a format it cannot police, so a regression in the IOMMU path is caught by
   the software layer and vice versa.
 

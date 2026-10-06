@@ -178,9 +178,9 @@ The map is opened only after every grade is recorded.
 
 - The grader is a model, and one of the two under test may be the model grading it. Blinding
   reduces the risk but does not remove it, since style can identify a model. The truths are fixed
-  above so most points are checkable by comparison rather than by judgement.
+  above so most points are checkable by comparison rather than by judgment.
 - Three tasks from one day are a narrow sample. All three are tasks this tree got wrong or
-  nearly wrong once, so they favour whichever model is better at catching this tree's specific
+  nearly wrong once, so they favor whichever model is better at catching this tree's specific
   failure shapes.
 - User-level configuration is shared by both arms, including global instructions. That is
   symmetric, but it is not a clean-room test of either model.

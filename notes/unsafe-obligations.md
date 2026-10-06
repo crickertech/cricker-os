@@ -387,7 +387,7 @@ private to their module.
 
 It found one violation on its first run, `redoxfs_server`'s `file_page`, whose contract was written
 but spelled `SAFETY:` in the doc comment instead of `# Safety`, so rustdoc rendered it as ordinary
-prose and no tool recognised it as the contract.
+prose and no tool recognized it as the contract.
 
 Two things it deliberately does not do. **It excludes trait-impl methods**, because `GlobalAlloc`'s
 `alloc` and RedoxFS's `Disk::read_at` are `unsafe fn` by the trait's declaration and the contract
@@ -416,7 +416,7 @@ reads rather than in a report:
 
 Eight of the nine rows are the same clamp-to-a-page obligation, which suggests the answer there is
 one shared page-slice type rather than nine conversions. That is a design question and wants its own
-lane. `crates/user_mode_heap`'s is a different flavour and should be judged separately. The `patches/`
+lane. `crates/user_mode_heap`'s is a different flavor and should be judged separately. The `patches/`
 one is in the vendored std overlay, which most gates exclude on purpose.
 
 ## The census, and which numbers have a direction (milestone 134)
@@ -587,7 +587,7 @@ second read must fault), and written once in [`ROLE_PROBE`] (refused by the kern
 read-only). The two deliberate-fault sites are the one honest exception recorded at the call site:
 `MappedWindow`'s own bounds check cannot catch either fault (offset 0 is inside the declared
 window both times), so the real hardware fault happens inside `read`/`write` exactly where the
-hand-written version made it, and the test's behaviour is unchanged. 3 `unsafe {` blocks removed,
+hand-written version made it, and the test's behavior is unchanged. 3 `unsafe {` blocks removed,
 2 added, net -1, in `components/src/disk_surveyor.rs` alone.
 
 *`net_stack.rs`'s `a_r8`/`a_r16`/`a_w16`/`a_w8` cluster.* The exact naming variant
@@ -903,7 +903,7 @@ script/lint
 git restore kernel/src/stack.rs
 ```
 
-The judgement half has no gate, so it is a grep plus reading. This is the pattern that found the
+The judgment half has no gate, so it is a grep plus reading. This is the pattern that found the
 four, with its two blind spots (a comment saying "as above", and one in the passive voice) named so
 the next person does not repeat the undercount:
 

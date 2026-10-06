@@ -18,4 +18,4 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [The compositor](../compositor.md): one screen shared among clients that distrust each other.
 - [Compositor confinement claim 25](../compositor-claim-25.md): the compositor attacked part by part, and what each patch reaches.
 - [Glyphs, the VT engine, and input](../glyphs.md): the font, VT engine and keyboard behind on-screen text.
-- [Bold under Solarized](../solarized-and-bold-is-bright.md): why bold goes grey on four colours, and the options.
+- [Bold under Solarized](../solarized-and-bold-is-bright.md): why bold goes gray on four colors, and the options.

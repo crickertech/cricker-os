@@ -146,7 +146,7 @@ axis in range and the other not, on both axes, and checks that the private `cell
   `Vt::clamp_rows` floor both at 1. So `to == from` is unreachable, and `>=` cannot change the
   branch.
 - `Vt::sgr`'s bit-independent recolouring, 3 mutants. Two are `(p as u8 - 30) | bright` (the
-  16-colour foreground codes, 30 to 37) and `(p as u8 - 90) | 8` (the bright foreground codes, 90
+  16-color foreground codes, 30 to 37) and `(p as u8 - 90) | 8` (the bright foreground codes, 90
   to 97). Both left operands occupy bits 0 to 2 only, since `p - 30` and `p - 90` each range
   `0..=7`. `bright` and the literal `8` occupy bit 3 only. So OR and XOR agree on every input, as
   with the UTF-8 accumulator. The third is `p as u8 - 40` (the background codes, 40 to 47) read as
@@ -154,7 +154,7 @@ axis in range and the other not, on both axes, and checks that the private `cell
   values differ by exactly 80, a multiple of 8, so the masked result is identical for every `p` in
   `40..=47`.
 
-### No defect in shipped behaviour was found
+### No defect in shipped behavior was found
 
 Every survivor was a missing test or one of the sixteen equivalences above. Each equivalence is
 demonstrated, not asserted. The two cases that are not selector arguments (`erase_display` and

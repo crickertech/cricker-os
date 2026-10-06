@@ -220,9 +220,9 @@ three steps above. That is the second sense of the `HARDWARE` gate, not the firs
   stop and a fresh match, which is why the stop test asserts only that the module reached a decided
   state rather than that the round trip is idempotent.
 - Why `rva23s64` in particular differs is not established, only that it does. The likely
-  suspects are its mandated `Sscofpmf` changing how OpenSBI allocates counters and TCG not modelling
+  suspects are its mandated `Sscofpmf` changing how OpenSBI allocates counters and TCG not modeling
   the programmable ones, and neither was chased down: the finding that matters is that a counter
-  firmware describes as working can read zero, and the defence does not depend on knowing why.
+  firmware describes as working can read zero, and the defense does not depend on knowing why.
 - Whether radon's OpenSBI implements SBI PMU is unknown. Step 1 exists because it is a fact
   about the vendor's firmware build and nobody here has read it. What *is* read is upstream: OpenSBI
   master's `lib/sbi/sbi_hart.c` writes `CSR_MCOUNTEREN, -1` ("Supervisor mode usage for all counters

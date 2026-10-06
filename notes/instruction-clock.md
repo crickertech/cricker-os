@@ -304,9 +304,9 @@ something other than the deadline the kernel recorded"*, on a number with no hos
 
 So the instrument's value is diagnostic certainty rather than detection, and that is the
 milestone's own thesis rather than a consolation. The block's cost line is "every red check in this
-repository currently needs a human to decide 'known or real', and on 2026-08-03 that judgement was
+repository currently needs a human to decide 'known or real', and on 2026-08-03 that judgment was
 made at least six times and got the wrong answer twice." Both of these injections produce exactly
-that judgement call on the test path and none of it here.
+that judgment call on the test path and none of it here.
 
 ### A known instruction count, to measure the resolution
 

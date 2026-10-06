@@ -86,7 +86,7 @@ count at 104, the first entry at 112 and its offset, length and digest words. Th
 - `member_name(count)` is `None`, as `member(count)` already was.
 - The longest stem fills `STEM_LEN` exactly (98 bytes).
 - `catalogued_stem` refuses an empty version, a version with a hyphen, and an empty name, each
-  written as a catalogue line that would otherwise be matched.
+  written as a catalog line that would otherwise be matched.
 
 ## pci
 
@@ -109,7 +109,7 @@ The 10 equivalents are all `|` as `^` where the two operands share no bit:
 - `read_bars`'s three: `(mask_hi << 32) | (mask_lo & 0xffff_fff0)`, the same with `orig_hi`, and
   `mask | 0xffff_ffff_0000_0000` where the mask is at most 32 bits.
 - `Bdf::ecam_offset` and `Bdf::requester_id` (two each). The fields are `u8`, so a device number
-  above 31 or a function above 7 would overlap its neighbour, but no enumeration produces one. A
+  above 31 or a function above 7 would overlap its neighbor, but no enumeration produces one. A
   test would pin what the function does with an invalid address, which nobody wants to rely on.
 
 ## manifest_note

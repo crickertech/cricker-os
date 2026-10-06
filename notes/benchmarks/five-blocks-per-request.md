@@ -134,7 +134,7 @@ imported into a fresh 16 MiB image and counted as non-zero 4 KiB blocks:
 | blocks used | 200 | 172 | 165 | 162 | 160 | 145 |
 | against level 5 | **+38%** | +19% | +14% | +12% | +10% | 1x |
 
-That is compression and metadata together, on text, the payload most favourable to lz4. Level 0 gives
+That is compression and metadata together, on text, the payload most favorable to lz4. Level 0 gives
 up both and pays 38%. Level 1 keeps compression and pays 19%, and the 19% is the pointers rather than
 the entropy. An incompressible payload would show only the pointer half. So a backup workload should
 expect something closer to the 10% at level 4 than to the 38%, and this sweep did not measure that
@@ -144,7 +144,7 @@ case.
 
 The premise milestone 138's block rests on is true and incomplete. `record_level` is a per-node field
 in the on-disk format (`vendor/redoxfs/src/node.rs`), and `Node::new` sets it once at creation. Both
-data paths honour the node's value rather than the crate constant (`transaction.rs`,
+data paths honor the node's value rather than the crate constant (`transaction.rs`,
 `read_node_inner` and `write_node_inner_records`). Directories get 0 already.
 
 What the block gets wrong is "not a fork of the vendored crate". Three things in the engine put a

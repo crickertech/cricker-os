@@ -45,7 +45,7 @@ at a cost:
    calls `RECEIVE_CAP`, it takes both, and answers a caller it was never wired to. So while the
    endpoint has no server at all, requests are not lost, not refused, and not reordered; the caller
    is simply blocked, which is what a synchronous IPC caller already is.
-2. The drain is a message travelling in band. The operator's `OPERATION_QUIESCE` goes to *the endpoint
+2. The drain is a message traveling in band. The operator's `OPERATION_QUIESCE` goes to *the endpoint
    being drained*, and the sender queue is FIFO, so by the time it arrives the incumbent has answered
    everything queued ahead of it. No quiescence handshake, no timeout, no window to guess at.
 
@@ -193,7 +193,7 @@ that deserves its own change rather than riding on an unrelated one.
 Intermittent, and the rate is worth writing down so the next sighting is not read as a
 regression: on the one branch where it has been watched closely it went success, success, failure,
 success across four completed `cpu matrix` jobs, on a diff that changes no executable line in this
-file's neighbourhood. One failure in four is what this looks like.
+file's neighborhood. One failure in four is what this looks like.
 
 It contradicts the comment directly above it, which says the property is "hygiene, deliberately
 not asserted on". Both were written in the same commit, so one has been wrong since milestone 23.

@@ -86,7 +86,7 @@ on `seL4_CNode_Revoke`).
 
 **3. Several TCBs on one VSpace.** Each TCB holds its own copy in `tcbVTable`. There is no reference
 count. Lifetime is "the last capability in the derivation tree", found by looking at the
-neighbouring entries (`isFinalCapability`), and memory reuse needs the untyped revoked, which
+neighboring entries (`isFinalCapability`), and memory reuse needs the untyped revoked, which
 deletes every copy first. A thread whose space dies under it faults, as above.
 
 **4. A creator's authority after start.** Kept by default: `ThreadControl` copied the capability, so
@@ -229,8 +229,8 @@ one place.
 
 ## BUGS
 
-- Nothing here was run. The seL4 behaviour is read from source and manual, not exercised.
-- The Zircon `zx_vmar_root_self` declaration and the dead-process VMAR behaviour are recalled.
+- Nothing here was run. The seL4 behavior is read from source and manual, not exercised.
+- The Zircon `zx_vmar_root_self` declaration and the dead-process VMAR behavior are recalled.
 - The corpse gap under 765 is reasoned from `region_reap_verdict` and `AddressSpace::drop`, not
   driven. It is handed to milestone 765's lane to confirm or refute before building.
   *Corrected 2026-10-05 (UTC), by the lane that built §249 (a running address space stays

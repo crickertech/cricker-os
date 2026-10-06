@@ -136,7 +136,7 @@ Guest tests (`kernel::user::login_tests`, both aarch64 and riscv64):
 
 ## BUGS
 
-See `components/src/login.rs`'s own BUGS for the itemised list (per-principal subtree scoping, no terminal,
+See `components/src/login.rs`'s own BUGS for the itemized list (per-principal subtree scoping, no terminal,
 not wired into the interactive boot, no measured-boot consultation before loading a caretaker, no
-reclamation, one client at a time, and the scope of what the audit trail proves). Summarised in
+reclamation, one client at a time, and the scope of what the audit trail proves). Summarized in
 [design/roadmap/49-users-and-attribution.md](../design/roadmap/49-users-and-attribution.md)'s own BUGS.

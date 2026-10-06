@@ -462,7 +462,7 @@ CALL/REPLY row repeated to the byte on every run.
    radon's U74 L1 D-cache is 32 KiB, 4-way, virtually indexed, 64-byte lines (SiFive U74-MC Core
    Complex Manual 21G3.02.00, "L1 Data Cache", read 2026-09-19), so a way is 8 KiB and the set index
    is VA bits 6 to 12. Bit 12 of a stack's top page alternates with the slot index (the stride is
-   seven pages, an odd number), so there are two colours of four ways: at most 8 threads' hot
+   seven pages, an odd number), so there are two colors of four ways: at most 8 threads' hot
    stack lines can be resident at once, whatever the total footprint. The general form, for any
    cache of at most 8 ways and 64-byte lines: a 32 KiB cache holds at most 32 KiB / 4 KiB = 8 lines
    that share a page offset. That puts a knee at 8 threads, which is where radon's curve starts
@@ -471,9 +471,9 @@ CALL/REPLY row repeated to the byte on every run.
 **Reading 3 is a hypothesis, not a finding**, and it has a competitor this note cannot rule out:
 every thread's TCB is also on its own page (`sched::spawn_on`'s "own TCB page"), so hot TCB fields
 alias in exactly the same way. The two predict the same knee. What separates them is cheap: offset
-each thread's initial stack pointer by a per-slot colour (slot index times about 640 bytes, modulo a
+each thread's initial stack pointer by a per-slot color (slot index times about 640 bytes, modulo a
 page) and re-run E1. If the knee moves right, the stacks were the cause and a process kernel can
-buy it back with colouring, without becoming an event kernel. If it stays at 8, the TCBs (or
+buy it back with coloring, without becoming an event kernel. If it stays at 8, the TCBs (or
 something else page-aligned) are, and an event kernel's shared stack would not remove it either.
 Recorded as a proposed milestone in design/roadmap/134-the-measurements-that-decide.md's Follow-on.
 
@@ -489,7 +489,7 @@ Recorded as a proposed milestone in design/roadmap/134-the-measurements-that-dec
   samples, median above the floor, a clean null line) and nothing about the values, because they
   had never existed before 2026-09-19. The release figures are the ones a decision would quote and
   they come from a bench boot no CI job runs. Promote to a ceiling (`count-at-most` shape) only if
-  something starts depending on the value, which the colouring experiment above would be.
+  something starts depending on the value, which the coloring experiment above would be.
 - Depth reached before `paint_boot_stack` runs (a handful of early-boot frames) and never reached
   again is invisible, bounded below by the printed paint floor.
 - **The static frame sizes above are per function, not per call chain.** `-Z emit-stack-sizes` says

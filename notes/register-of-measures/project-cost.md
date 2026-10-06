@@ -63,7 +63,7 @@ Four lanes working for an hour is four hours here, and a week can exceed 168. It
 not an elapsed one.
 
 It conflates queueing with work. A lane waiting on the merge queue, a gate or a rate limit looks the
-same here as one thinking. The thirty-minute cut is a judgement, not a measurement. A longer gap is a
+same here as one thinking. The thirty-minute cut is a judgment, not a measurement. A longer gap is a
 session left open overnight, and counting it would put a sleeping laptop in the total.
 `IDLE_GAP_S=600 script/effort` shows how much the choice moves.
 
@@ -89,7 +89,7 @@ $200 of real spend is outside this series, and that is not rounding. calef dates
 2026-07-12, a Sunday, which is 2026W28. The first commit is 2026-07-13 UTC and the series starts at
 2026W29. A week gets a row only when a commit fell in it, so `cash_spend` sums to $671.81 against
 $871.81 actually paid. `script/metrics` prints the discrepancy on every run rather than folding it
-into a neighbouring week.
+into a neighboring week.
 
 ### `human_person_weeks` is a statement, and will stay one
 
@@ -205,7 +205,7 @@ arrives.
   worse here because a dollar figure reads as a measurement.
 - **$200 of the subscription is outside `cash_spend` and stays outside it.** It was paid in 2026W28
   and the series has no row for that week, because no commit fell in it. `script/metrics` prints the
-  amount on every run; nothing folds it into a neighbour, because that would put money in a week it
+  amount on every run; nothing folds it into a neighbor, because that would put money in a week it
   was not spent in to make a column sum tidily.
 - **`lane_context_per_turn_peak` is pinned to the model's context window and therefore says less
   than it looks like it says.** Every captured week is within 7% of 1M. It answers whether a session

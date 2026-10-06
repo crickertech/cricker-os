@@ -78,8 +78,8 @@ own column, `opus_5_5`, rather than joining `opus_5`.
 ### Eight hues, more than eight bands
 
 The chart palette has eight fixed slots, and a ninth series folds into another rather than
-inventing a colour. Opus 5.5 made the commits chart nine. It took Opus 4.8's slot, so no other band
-changed colour, and Opus 4.8 now draws inside **other models** together with `fable_5_1` and
+inventing a color. Opus 5.5 made the commits chart nine. It took Opus 4.8's slot, so no other band
+changed color, and Opus 4.8 now draws inside **other models** together with `fable_5_1` and
 `other_models`. Both charts fold the same set, so one hue names one model on either. The CSV keeps
 every column apart; the fold is drawing only, and the arithmetic is checked against the file.
 

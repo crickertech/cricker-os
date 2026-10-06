@@ -107,7 +107,7 @@ it was written to avoid, in 8% of its samples.
   executing much. It is preempted fewer times, acquires a saved frame less often, and drives less of
   the migration the test exists to provoke. The failure direction is safe: the test passes having
   proven less, it does not fail having proven nothing. That is why this is recorded rather than
-  fixed here. It is the "an assertion whose sensitivity is set by its neighbours" shape
+  fixed here. It is the "an assertion whose sensitivity is set by its neighbors" shape
   [the fifth round](stack-reuse-and-proxy-detectors.md) found in the reaper test, arriving through
   the host instead of an upstream test. Denominating `life` in delivered ticks too is the obvious fix
   and is not obviously right. It would stretch the workers and the drain under load, and the
@@ -115,7 +115,7 @@ it was written to avoid, in 8% of its samples.
   Whoever takes it should measure against the table above rather than reason about it.
 - A `TickBudget` that re-anchors on every check never expires, by construction: a thread that
   changed core is given its budget back. Nothing in the tree can make that happen (a steal moves a
-  thread far less often than once per poll). The type is deliberately not the last line of defence:
+  thread far less often than once per poll). The type is deliberately not the last line of defense:
   the harness's per-test wall-clock ceiling fails the run whatever the ticks say. The alternative,
   subtracting across a migration, compares two unrelated per-core counters. That is the defect
   `ticks_on` was added for in the second round.

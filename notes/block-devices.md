@@ -12,7 +12,7 @@ Two things came out of it, and the second is the one worth arguing about.
 `disk_surveyor` holds a block-service endpoint, reads LBA 0 through 33 of the
 disk behind it, hands the bytes to `crates/globally_unique_identifier_partition_table`, and reports what is there. Then it reads the 33
 blocks at the far end and checks the backup table against the primary. The kernel never sees a
-partition table; every byte of judgement happens in a userspace crate whose tests run on the host.
+partition table; every byte of judgment happens in a userspace crate whose tests run on the host.
 
 The provenance is the point. The test image is built by `xtask::mkgptdisk` from
 `crates/globally_unique_identifier_partition_table/tests/fixtures/sgdisk-64m.{head,tail}`: the first 34 and last 33 blocks of a 64 MiB disk
@@ -150,7 +150,7 @@ withholds each in turn from the same binary, with the same budget, the same stac
 shared page, and then *reads the disk* to show that a refused run wrote nothing.
 
 `mkfs`'s wiring needed `grant_at` rather than `run`'s fill-in-order grants, and the reason
-generalises: when the missing capability is not the last slot, withholding it has to leave a
+generalizes: when the missing capability is not the last slot, withholding it has to leave a
 hole. A shorter grant list renumbers everything above the gap, so a program that was meant to find
 slot 1 empty would instead find its report endpoint there and write a verdict into a block server.
 

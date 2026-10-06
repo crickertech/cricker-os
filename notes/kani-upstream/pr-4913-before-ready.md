@@ -90,7 +90,7 @@ places are now stale or wrong. Replacement text, ready to paste:
 3. **Testing, CI bullet.** Append: "None of the regression workflows have run on this PR yet; they
    are waiting for approval to run for a first-time contributor."
 4. **Disclosure.** `https://github.com/crickertech/nife` becomes `https://github.com/nifeos/nife`.
-   The organisation was renamed on 2026-10-03; the old link redirects for now.
+   The organization was renamed on 2026-10-03; the old link redirects for now.
 
 The heading "Something I noticed and did not change" now holds the corrected cause and the
 follow-up offer, which is current. It can stay.
@@ -101,7 +101,7 @@ Every claim below rests on memory, inference, or a measurement this lane did not
 
 - [ ] Approving the CI runs is a maintainer's action. Asking for it is the one thing that moves
       #4913 today. "Waiting for approval to run for a first-time contributor" is inferred from the
-      `action_required` conclusion and GitHub's general behaviour, recalled, not read in Kani's
+      `action_required` conclusion and GitHub's general behavior, recalled, not read in Kani's
       settings.
 - [ ] Mark ready, or ask first? Leaving draft is what invites a full review. The patch above and
       the body edits are what this lane would want done before that, but the order is yours.

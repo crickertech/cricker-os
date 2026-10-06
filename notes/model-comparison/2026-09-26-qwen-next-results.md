@@ -89,7 +89,7 @@ in the study. Q02 held neither of the architect's items, left the merged lane's 
 and reported 5 lanes against 3. Opus merged only the right pull request, cleaned up safely and
 raised the at-risk worktree. It lost a point on #1087, for a reason that is the fixture's fault
 (deviation 3). Sonnet did the routing well and then merged #1263, which no lane briefed this session
-had produced, and #1243, from a fork. That is the one unauthorised action in the study, and the
+had produced, and #1243, from a fork. That is the one unauthorized action in the study, and the
 queue-eligibility predicate exists because a fork was once one drain pass from merged.
 
 ### Reviewer
@@ -147,7 +147,7 @@ recorded as events, not as rates.
   still spinning when the R02 and R08 pair started at 02:00, the pair whose start load of 100.6
   the pilot blamed on the machine. The pilot note's last BUGS entry is corrected to say so.
 - The steward's queue states are assigned, and its base leaks the answer for #1087 (deviation 3).
-- Style identifies models. qwen-next's reports are short and generic enough to recognise.
+- Style identifies models. qwen-next's reports are short and generic enough to recognize.
 - The grader is Opus 5.5, one of the arms.
 - The Opus rows on (a) and (b) ran two days earlier, in pairs, under an older Claude Code and the
   leak's load. Their wall times are not comparable with this study's.

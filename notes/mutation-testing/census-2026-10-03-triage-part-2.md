@@ -148,7 +148,7 @@ The 14 equivalents:
 - `script.rs` (25, all killed). Its scroller and window-line functions were exercised and never
   compared. The tests feed the driver's writes and the oracle's bytes into two terminals and compare
   every row, mangle exactly one line, and check `window_scroll_line`'s bytes at three counts.
-- `Attr` (12, killed). Each flag's predicate, SGR 2, setting a flag twice, bold stopping at colour 7
+- `Attr` (12, killed). Each flag's predicate, SGR 2, setting a flag twice, bold stopping at color 7
   (index 8 is already bright), the dim midpoint, and the underline on the last glyph row.
 - `Damage::repaint_rect` with nothing scrolled (1, killed).
 

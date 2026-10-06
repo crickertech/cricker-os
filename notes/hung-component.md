@@ -107,7 +107,7 @@ is better than a watchdog that can kill:
 - A lie is refusable. The supervisor is the one that acts, so it can apply policy the watchdog
   cannot express: restart at most N times, never restart the thing holding the only copy, escalate to
   a human. That is §40's "no reaper of last resort" holding rather than being worked around.
-- It is the same shape as `caretaker` and `dwarden`, which is what makes it recognisable rather
+- It is the same shape as `caretaker` and `dwarden`, which is what makes it recognizable rather
   than novel: a program whose whole purpose is to hold less than the thing it stands in front of.
 
 **Provisional name, and an architect's call: `liveness_watch`.** `caretaker` and `undertaker` are
@@ -443,7 +443,7 @@ wrote it, plus a pointer to what that lane found.
 
 **State handoff** is unchanged and is still the crux: a serialise-old / absorb-new protocol over a
 supervisor-brokered channel, which is a wire format and so calef's. What this lane adds is a reason it
-is *harder* than the block says. A hung component cannot be asked to serialise anything, so a state
+is *harder* than the block says. A hung component cannot be asked to serialize anything, so a state
 handoff protocol that only works when the outgoing instance cooperates recovers a planned swap and not
 a failure, which is the case it is most wanted for. Erlang/OTP's `code_change` has the same shape and
 the same hole.

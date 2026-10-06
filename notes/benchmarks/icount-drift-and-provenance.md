@@ -1,6 +1,6 @@
 # icount drift, and what a baseline was read against
 
-*An appendix to [`notes/benchmarks.md`](../benchmarks.md), which carries the current numbers and is written so a reader can act without opening this file. This one holds why the tripwire is 10%, the toolchain and emulator stamps, and the 2026-07-28 `-smp 4` artefact, with the dates, tables and corrections behind them. Name: ratified 2026-09-24 (calef); [the naming record](README.md) holds it.*
+*An appendix to [`notes/benchmarks.md`](../benchmarks.md), which carries the current numbers and is written so a reader can act without opening this file. This one holds why the tripwire is 10%, the toolchain and emulator stamps, and the 2026-07-28 `-smp 4` artifact, with the dates, tables and corrections behind them. Name: ratified 2026-09-24 (calef); [the naming record](README.md) holds it.*
 
 ## What the icount instrument cannot see
 
@@ -189,7 +189,7 @@ thread, and the same commits that swung wildly at `-smp 4` go flat:
 | null_syscall | 427,706 | 457,705 | 457,705 | 457,705 | +7.0% |
 
 `coremark` is invariant to five decimal places, the sanity check the smp=4 run failed. The `-42%` to
-`-90%` improvements and the `+41%` regression were entirely the smp=4 artefact. They attribute to no
+`-90%` improvements and the `+41%` regression were entirely the smp=4 artifact. They attribute to no
 merge's code: the old baseline froze one sample of the four-hart interleaving and that day's merges
 reshuffled it.
 

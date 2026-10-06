@@ -63,8 +63,8 @@ something other than the deadline the kernel recorded"*, on a number with no hos
 
 So what the instrument buys is diagnostic certainty rather than detection, which is the milestone's
 own thesis. The block's cost line is that every red check here needs a human to decide "known or
-real". On 2026-08-03 that judgement was made six times and was wrong twice. Both injections produce
-exactly that judgement call on the test path, and none of it on the instrument.
+real". On 2026-08-03 that judgment was made six times and was wrong twice. Both injections produce
+exactly that judgment call on the test path, and none of it on the instrument.
 
 A third injection asked what the instrument can see, rather than whether it fires: exactly 200
 instructions added to the aarch64 `tick`. Arrival went 1,008 -> 1,216 and the handler 1,056 ->

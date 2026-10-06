@@ -158,12 +158,12 @@ The spawn-slot convention. A supervised child is spawned with its supervision en
 reserved fault slot, `abi::fault::FAULT_EP_SLOT` (the last capability table slot, `CAPABILITY_TABLE_SLOTS - 1`, 63 now).
 A supervisor building a child through the TCB surface places it there with
 `ThreadControlBlock::CAP_INSERT`'s explicit target argument (`invoke(tcb, CAP_INSERT, cap_slot,
-rights, target)`, where `target` is `slot + 1` and `0` keeps the original first-free behaviour). At
+rights, target)`, where `target` is `slot + 1` and `0` keeps the original first-free behavior). At
 `START` the kernel reads the fault slot: if it holds a `Rendezvous` capability the thread is
 supervised, and the kernel records that endpoint as the thread's fault target and clears the
 slot, so the child cannot forge fault
 messages on it. An empty fault slot means the thread is unsupervised and gets the pre-milestone-22
-behaviour: it dies and is reaped immediately, reporting to no one. The reserved slot is the *last*
+behavior: it dies and is reaped immediately, reporting to no one. The reserved slot is the *last*
 one precisely so an ordinary child, whose grants fill the low slots from zero upward, never lands a
 working endpoint there by accident and gets mistaken for supervised.
 

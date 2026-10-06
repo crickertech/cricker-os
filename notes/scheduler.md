@@ -240,7 +240,7 @@ thread `wake_pending=false on_cpu=false`, all four inboxes empty. Same fingerpri
 
 ### The fix, and what it costs
 
-The probe is deleted. Nothing else changed. The refusal's own behaviour is proved by
+The probe is deleted. Nothing else changed. The refusal's own behavior is proved by
 `user::force_kill_tests::destroy_force_kills_a_runaway_and_reclaims_its_region`, which points the
 destructive call at a runaway that is *meant* to die, and that is the only subject it can honestly
 be pointed at. `reclaim_region` now carries a `BUGS` section saying so where a caller meets it.
@@ -602,7 +602,7 @@ the price of running the entire suite on one core, which is exactly where the pl
 introduced would hide. A harness that avoids the scheduler it is meant to test is not a harness. The
 general rule this is an instance of: when a test fails because the system legitimately does something
 the test did not expect, check whether the *test's* claim was ever promised before treating the
-system's behaviour as the defect.
+system's behavior as the defect.
 
 ### The bounded-yield tests fail under host CPU contention, and the control says so (2026-07-30)
 
@@ -631,4 +631,4 @@ Two things follow. A run that fails one of these is not evidence about the branc
 seen on a quiet machine or contradicted by a control run, and a control run costs ten minutes and
 settles it. And the standing fix is the one this file already argues for elsewhere: these bounds
 should be progress-based or wall-clock with slack, not a yield count, because a yield count
-measures the host's spare capacity and calls it the scheduler's behaviour.
+measures the host's spare capacity and calls it the scheduler's behavior.
