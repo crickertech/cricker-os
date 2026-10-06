@@ -142,7 +142,7 @@ claim about PCs, and each rung's last exit criterion is that second machine.
 | **2b. Installed onto xenon's disk** | The bench half | The 2a sequence on xenon's Micron 2450, photographed, stick removed before the second boot | **BUILT 2026-10-04** (`bench/xenon-2026-10-04/`; needs #1636; [milestone 515](515-the-installer-a-stick-runs-to-put-itself-on-the-disk.md) criterion 2 has the caveats) |
 | **3a. A package over the LAN, under QEMU** | The package client this milestone is; a host-side recipe that produces a package; a small HTTP client | A package absent from the image is fetched from a host on the same network over plain HTTP, verified by digest, installed onto the running system, run, still present after a reboot, and removed | this block; all three rulings it needed are in (§195, §197, §208). The scoping lane's recipe idea (item 1 of the superseded slice) survives here as the producer half. **Producer half BUILT 2026-09-23** (`crates/package_archive`, `cargo xtask package`, `packages/uptime.recipe.toml`, notes/packages.md). Fetch and verify built 2026-09-24 (`helpers/package-http-peer`, `crates/http_response`, a QEMU test on aarch64 and riscv64); **run by digest and the installer built 2026-09-26** on all three architectures; x86_64 fetches since 2026-10-05. No TLS, since §195's digest decides whether bytes may run |
 | **3b. The network card xenon has** | An Intel I219 (`e1000e` family) driver in 261's shape | Under QEMU `-device e1000e` behind `intel-iommu`, milestone 30 (the network stack as a confined component)'s DHCP and TCP gates pass through the new driver; on xenon, a lease from the house router and a measured transfer | [a-driver-for-the-network-card-a-pc-actually-has.md](494-a-driver-for-the-network-card-a-pc-actually-has.md) (new) |
-| **3c. Over the internet** | Name resolution; the transport the ruling picks; a public repository | From xenon's installed system, a package fetched from the public repository by host name, verified and installed | [milestone 384](384-a-name-resolver-and-who-holds-it.md) (existing, which now has a consumer); [DECISIONS §196](../decisions/196-nife-carries-tls-and-builds-the-provider.md) (new); `a-tls-stack-and-which-one.md` (existing) if the ruling is HTTPS |
+| **3c. Over the internet** | Name resolution; HTTPS; §250's index | From xenon's installed system, a package fetched through `basalt.nifeos.org`'s index by host name, verified and installed | [milestone 384 (in a capability system the resolver is a grant)](384-a-name-resolver-and-who-holds-it.md); [DECISIONS §250](../decisions/250-images-name-one-package-index-and-the-bytes-may-live-anywhere.md); [milestone 501 (a TLS client that speaks to one pinned peer)](501-a-tls-client-that-speaks-to-one-pinned-peer.md); the work list below |
 | **4. The web page** | A published release and a page | A stranger with a PC, a USB stick and no prior knowledge follows the page to rung 3c's result; the stranger harness (`notes/stranger-test.md`) runs against the **download**, not the build | calef's act; the preconditions below |
 
 ### Order, and which rungs are too big
@@ -161,9 +161,8 @@ running beside all of them, then 1d, then 4.
   load-bearing unknown.
 - Rung 2 is one milestone plus 261's bench step. The partitioner and `mkfs` exist; what is new
   is a layout sized to the disk, the loader handing its own file over, the ESP, and the boot mount.
-- Rung 3 is three pieces and 3a is the only one that is this milestone. 3b and 3c are the NIC
-  proposal and the resolver plus the transport ruling. 3a can start as soon as the three fork
-  rulings are in, over virtio-net under QEMU, needing no new driver and no TLS.
+- Rung 3 is three pieces and 3a is the only one that is this milestone. 3b is the NIC; 3c is the
+  resolver, TLS and §250's index. 3a needed no new driver and no TLS.
 - Trust T1 cannot serve rung 3: under T1 installing is rebuilding the image on a host, which a
   stranger cannot do. Rung 3 needs T2 or T3.
 
@@ -178,11 +177,20 @@ One line each, in the form calef would answer, with the rung that waits on it.
 | ~~**Trust**~~ | **Decided 2026-09-19 (DECISIONS §195): a reviewed recipe vouches, trust is scoped per source the owner opted into, and the owner may overrule.** No long-lived signing key is held for now; a per-source signature can be added later without changing that. | 3a | [DECISIONS §195](../decisions/195-a-recipe-vouches-and-the-owner-may-overrule.md) |
 | ~~**Install layout** (new)~~ | **Decided 2026-10-03 (DECISIONS §244 (the installed disk has four partitions, and a boot slot is 64 MiB)): four partitions**, release images only, under a 16 MiB CI budget. | 4 | [DECISIONS §244](../decisions/244-the-installed-disk-has-four-partitions.md), from [515's appendix](515-the-installer-a-stick-runs-to-put-itself-on-the-disk/the-layout-ruling.md) |
 | ~~**Transport** (new)~~ | **Decided 2026-09-19 (DECISIONS §196): HTTPS, `rustls` for the protocol, and the crypto provider is milestone 442's work.** Under §195 a recipe's digest decides what may run, so rung 3a does not wait for TLS. | 3c (not 3a) | [DECISIONS §196](../decisions/196-nife-carries-tls-and-builds-the-provider.md) |
-| ~~**Hosting** (new)~~ | **Settled with the transport (§196):** GitHub redirects plain HTTP, and carrying TLS is what makes a GitHub-hosted source reachable. Whether `crickertech` operates a source at all, and the GPL obligation that comes with it, is still open. Fact: calef holds `nifeos.org` (registered 2026-10-03 UTC, Name.com, expires 2027-10-03, no DNS yet). Open, calef's: whether images name a host under it. The maintainer recommends so, not GitHub's, so hosting can move without re-shipping; a name baked into an image is irreversible. | 3c and 4 | [DECISIONS §196](../decisions/196-nife-carries-tls-and-builds-the-provider.md) |
+| ~~**Hosting** (new)~~ | **Decided 2026-10-06 (DECISIONS §250 (an image names its distribution's package index, and the bytes may live anywhere)):** basalt's index at `basalt.nifeos.org`, bytes anywhere. | 3c and 4 | [DECISIONS §250](../decisions/250-images-name-one-package-index-and-the-bytes-may-live-anywhere.md) |
 | **Secure Boot** (new) | Does a stranger turn Secure Boot off, or do we sign, and if we sign, is it the same key as the package key? | 4 (and 1d on a machine whose owner will not turn it off) | the Secure Boot proposal |
 | **Publication** | Is it time to put the page up? | 4 | §157, step 1: calef's act |
 
-Not a ruling but calef's hands: the wipe of xenon's NVMe, done.
+Not a ruling but calef's hands: the wipe of xenon's NVMe, done; and DNS and a host for
+`basalt.nifeos.org`.
+
+### Rung 3c's work list
+
+Today's `fetch` (`crates/system_initializer`) has the image's catalogue and one compiled-in source.
+
+1. Split the index from the package locations: fetch the index, then each package from where it
+   says, verified by its digest.
+2. The index's format, a crate by rule 7, with its "moved to" field. Ruled before rung 4.
 
 ### What must be true before the page goes up
 
@@ -292,8 +300,8 @@ calef's acts are named there rather than here.
   the machine when this block was scoped. Under §157 a stranger does not build at all; it stays worth measuring for
   contributors, and rung 4's stranger-harness run measures the time from the page to a prompt
   instead.
-- Packages do not by themselves run `git` or `nano`. Milestone 205 (no argument vector) and the
-  raw-input primitive of milestones 169 and 170 still stand in front of both.
+- Packages do not by themselves run `nano`: milestone 170 (nano editor) is NOT-STARTED. Corrected
+  2026-10-06: milestone 205 (how a foreign program is told what to do), named here too, is BUILT.
 - nife cannot build software, so a package is a thing produced by a host toolchain and consumed
   by the target. Every packaging idea borrowed from a self-hosting system needs that translation
   checked rather than assumed.

@@ -3,7 +3,7 @@ status: NOT-STARTED
 raised: 2026-09-19
 promoted_from: a-tls-client-that-speaks-to-one-pinned-peer
 milestone_dependencies: none
-decision_dependencies: unwritten
+decision_dependencies: 198, 250
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -18,10 +18,10 @@ it. Written by the lane for milestone 442 (a crypto provider `rustls` can use on
 metal targets), which carried that block's clauses 1 and 2 and repriced this one out of it rather
 than leaving it unnamed.
 
-Which provider the client is built on is an architect's, stated under "The decision
-this leaves" in 442's block. The handshake code is the same either way, so a lane could start
-against either and rewire; naming the gate is honest about the fact that it would be building on a
-crate nobody has agreed to take.
+Corrected 2026-10-06: this said the provider was an architect's open call. It is decided.
+§198 (the glue is ours, the primitives are not) refused `rustls-rustcrypto`. calef ruled "Take rsa"
+on 2026-09-20, recorded in milestone 442 (a crypto provider `rustls` can use on all three
+bare-metal targets)'s block. The `unwritten` decision dependency this block carried is gone with it.
 
 ## What 442 left standing, and what it did not
 
@@ -48,6 +48,11 @@ One root, or one pinned key, held as a capability, for the one repository this c
 rather than a system trust store. §196's clause 4 gives the reason and it is a circularity rather
 than a preference: a system-wide store has to be updated independently of the system, and the thing
 that updates it is the package manager.
+
+Which root, answered 2026-10-06 by §250 (an image names its distribution's package index, and the
+bytes may live anywhere): ISRG Root X1 (Let's Encrypt), for the one peer that is basalt's package
+index at `basalt.nifeos.org`. Package bytes come from any host and are checked by digest, so this
+client pins nothing for them.
 
 ## What it would prove, and what it would not
 
