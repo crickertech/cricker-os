@@ -197,7 +197,7 @@ Built 2026-10-06 (UTC) by lane/805-reboot. Every name below is provisional.
   `abi::reboot::REBOOT` (`kernel/src/reboot.rs`, dispatched by `syscall::reboot_invoke`). It
   moves the console out of the kernel ring first (`console::enter_reset`, the panic's escape),
   because a line left for the drainer is never printed once the reset starts. It then runs the
-  JH7110 reset preparation milestone 592 built (moved out of `soak.rs` so both callers share it)
+  JH7110 reset preparation milestone 592 built
   and `arch::reboot`, which is no longer behind `reboot_soak_test`. A refusal answers
   `DeviceRefused`.
 - **The grant.** The kernel mints the one object at boot into the progenitor's slot 31, `WRITE |
@@ -206,41 +206,46 @@ Built 2026-10-06 (UTC) by lane/805-reboot. Every name below is provisional.
   (`only_reboot_declares_reboot_and_no_image_can`), and `grant_plan::image_can_carry` keeps it off
   every installed image. A manifest note cannot spell it (`manifest_note::encode` refuses), so the
   note's wire format is unchanged.
-- **The flush.** The spawn service sends `filesystem_protocol::fs::SYNC` on the file service it
-  holds, waits for the reply, and starts `reboot` with the reply in its third register
-  (`grant_plan::REBOOT_SYNC_REGISTER`). §251's 2026-10-06 amendment records why the progenitor does
-  it rather than the program.
-- **The program.** `components/src/reboot.rs`, in the `init` package. It prints the flush's
+- **The flush-only capability.** `filesystem_protocol::fs::BIND_FLUSH` binds a client badge so
+  the file server answers `SYNC` on it and refuses every other verb with `EPERM`
+  (`subtree_scope::Binding::FlushOnly`, enforced in `redoxfs_server`'s dispatch). `reboot`
+  declares `grant_plan::Manifest::flush`; the spawn service binds a window's badge for that job,
+  places the endpoint `WRITE`-only at `grant_plan::FLUSH_SLOT` (14) and keeps no copy. The window
+  returns at the reap. `redoxfs_server`'s
+  `a_flush_only_badge_answers_sync_and_refuses_everything_else` drives every opcode through the
+  dispatch, and was falsified by hand (the refusal removed, the test red).
+- **The program.** `components/src/reboot.rs`, in the `init` package. It sends `SYNC`, prints the
   answer, then invokes the object. A failed flush (any errno but `EOPNOTSUPP`) refuses to restart.
-- **`caps reboot`** prints `cap 13 reboot WRITE. restart the machine`, and the preview test checks
-  that no other program's preview has a slot 13.
+- **`caps reboot`** prints slot 13 (the reboot object) and slot 14 (the flush), and the preview
+  test checks that no other program's preview has either.
 - **The fixture.** `unreachable_network_witness` invokes `REBOOT` on slot 13 and must be refused
-  for want of a capability, by name and when run unvouched. A spawn service that endowed it would
-  reset the machine in the middle of `swish-check`.
-- **The gate.** `cargo xtask reboot-check [--arch …]` (`xtask/src/reboot_check.rs`) boots to the
-  prompt, writes `reboot.txt` and types `reboot`. It requires the flush report before the
-  kernel's first `reboot:` line, the route's attempt line and no refusal. Then the firmware's line
-  where there is firmware (OpenSBI, `uefi_loader`), a second prompt, and `wc reboot.txt` answering
-  `1 3 18`.
-  `helpers/qemu-uefi-x86_64.sh` now honors `NIFE_ALLOW_REBOOT` as the PVH runner already did.
+  for want of a capability, by name and when run unvouched.
+- **The gate.** `swish-check`'s first boot on every architecture ends with a reboot phase
+  (`swish_check::reboot_phase`), once every scripted line has passed. It writes `reboot.txt` and
+  types `reboot`. It requires the flush report before the kernel's first `reboot:` line, the
+  route's attempt line and no refusal. Then the firmware's line where there is firmware (OpenSBI,
+  `uefi_loader`), a second prompt, and `wc reboot.txt` answering `1 3 18`. Each failure is worded
+  `reboot phase: …`.
 
 ## Exit criteria, as built
 
 | | criterion | state |
 |---|---|---|
-| 1 | the gate on all three architectures | met, by `cargo xtask reboot-check`. It runs in CI's `swish-check` jobs and as its own `script/ci-build` row, **not under `script/test`**: `script/test` runs the kernel-test legs, and neither this nor `swish-check` (which boots the same interactive system) is one of them |
-| 2 | a completed flush before the reset line | met: the line is the block server's flush count as `SYNC` answered it, printed by `reboot` before the kernel's first line, and the gate checks the order |
+| 1 | the gate on all three architectures | met, by `swish-check`'s reboot phase, **not under `script/test`**: `script/test` runs the kernel-test legs, and `swish-check` (which boots the interactive system) is not one of them |
+| 2 | a completed flush before the reset line | met: the line is the block server's flush count as `SYNC` answered it on `reboot`'s flush-only capability, printed before the kernel's first line, and the gate checks the order |
 | 3 | an undeclaring program holds no reset capability; `caps reboot` names it | met: the witness fixture and the `caps reboot` line in `swish-check`, plus the host test |
-| 4 | a refusal is loud | met in substance: the kernel prints the firmware's answer and the program prints the refusal on its second stream. **It does not exit non-zero**, because no program in this system reports an exit status (`crates/swish`'s `Status`) |
+| 4 | a refusal is loud | met in substance: the kernel and the program both print the refusal. **It does not exit non-zero**: no program here reports an exit status |
 | 5 | `script/soak-test --reboot` still passes | met: passed on aarch64, riscv64 and x86_64 on 2026-10-06 (UTC), each resetting and soaking again 127 s in |
 | 6 | radon, after milestone 592 | **not met**: see the scope note |
 | 7 | §251 records the semantics | met, with a 2026-10-06 amendment for what the build found |
 
 ## What it costs
 
-- **One capability slot in the progenitor for the life of the boot.** `swish-check` measured the
-  peak one higher on every boot (26, 30 and 33), and `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED`
-  records 33 of 64.
+- **One capability slot in the progenitor for the life of the boot**, the reboot object. The
+  flush-only endpoint is per job and deleted once placed, so it adds nothing to the peak:
+  `swish-check` measured 26, 30 and 33 with it, as before it, and
+  `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED` records 33 of 64.
+- **One file-server window for the life of a `reboot` job**, from the pool directory grants use.
 - **The dispatch arm.** `script/fastpath-footprint` on aarch64 reads `syscall_entry` at 1,733 B,
   3.8% over its 1,669 B baseline and inside the 5% band, and `ipc_call_reply` 1.5% over. The
   baseline predates this branch, so how much of the 64 B is the new arm is not isolated.

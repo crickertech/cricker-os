@@ -83,17 +83,32 @@ built thing differ. Milestone 805's block left the first one to the building lan
 reaches `SYNC` is the building lane's call"); the other two are corrections to wording. calef has
 not ruled on this amendment; the pull request asks.
 
-1. **The progenitor flushes, on the program's behalf** (clause 3). Sending `fs::SYNC` needs a
-   filesystem capability carrying `dir::WRITE`, which is also the right to open and truncate files
-   by name, and nothing narrower exists. Handing `reboot` that for one request that touches no file
-   would be an over-grant `caps reboot` would have to print. The progenitor already holds the file
-   service and already flushes it after an install. So its spawn service sends `SYNC` and waits for
-   the reply at the last moment before it starts a child declaring `reboot`. It hands the child the
-   reply in its third start register (`grant_plan::REBOOT_SYNC_REGISTER`). The program prints
-   it and invokes `REBOOT`. A failed flush (any errno but `EOPNOTSUPP`) makes the program refuse to
-   invoke. The cost, recorded in the program's `BUGS`: writes a background job makes between the
-   flush and the reset are not covered. A `dir::SYNC` right on the file contract would let the
-   program flush for itself; that is a protocol change and is not made here.
+1. **`reboot` flushes for itself, through a flush-only capability** (clause 3). For an ordinary
+   client, `fs::SYNC` needs a handle carrying `dir::WRITE`, which is also the right to open and
+   truncate files by name. So the file server gains one protocol message,
+   `filesystem_protocol::fs::BIND_FLUSH` (66, provisional), beside `BIND` and `UNBIND` (milestone
+   606 (a directory walk costs what it does on Linux), ruling D). It binds a client badge
+   flush-only: the server answers `SYNC` on that badge with the block server's flush count and
+   refuses every other verb with `EPERM`, before it reads a handle. The badge names no directory
+   and reaches no file. `BIND`'s caller rule holds (only an unbound badge may bind), and `UNBIND`
+   revokes it like any grant. It is a server message on an existing endpoint, inside the badge
+   model of §230 (badged endpoint capabilities), and adds no syscall and no kernel
+   method.
+   - `reboot` declares `grant_plan::Manifest::flush` beside `reboot`. For that job the spawn
+     service takes a client window, as for a directory grant, binds its badge flush-only, places
+     the badged endpoint `WRITE`-only at slot 14 and deletes its own copy. The window goes back
+     when the job is reaped, so the progenitor holds nothing extra for the life of the boot.
+   - The program sends `SYNC`, checks the answer, prints it, and invokes `REBOOT`. A failed flush
+     (any errno but `EOPNOTSUPP`) makes it refuse. A boot with no writable filesystem leaves the
+     slot empty and there is nothing to flush. A boot whose file server cannot bind one refuses the
+     spawn, rather than start `reboot` unable to flush.
+   - No image can declare `flush`, and a manifest note cannot spell it.
+   - The cost, recorded in the program's `BUGS`: a write another job makes between the `SYNC`
+     reply and the reset is not covered.
+
+   This replaces this item's first version, in which the progenitor sent `SYNC` at the spawn and
+   passed the answer in a start register. calef sent that back on #1783 (2026-10-06 UTC): "My
+   concern is progenitor is turning into a god process."
 2. **No `abi::objtype` number** (clause 1). `objtype` lists what `MemoryRegion::RETYPE_OBJ` can make
    out of memory. Nothing makes a reboot object, and a number there would read as a way to. It has a
    method module, `abi::reboot`, like `Irq`, the other kernel-minted object.
