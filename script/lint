@@ -2996,6 +2996,11 @@ echo "==> every userspace trap declares the registers the kernel writes"
 python3 "$(dirname "$0")/../helpers/syscall_asm.py" --selftest
 python3 "$(dirname "$0")/../helpers/syscall_asm.py"
 
+echo "==> the agent instructions agree in all five places"
+# notes/skills/<name>/SKILL.md, its notes/skills/README.md row, its AGENTS.md link, and its
+# .claude/skills and .agents/skills symlinks. helpers/agents-index-check.py's header says why.
+python3 "$(dirname "$0")/../helpers/agents-index-check.py"
+
 echo "==> markdown links and the notes index"
 # Two checks, and deliberately NOT a markdown linter. A survey of all 95 markdown files found zero
 # broken relative links and exactly one unindexed note, so generic style rules (heading case, line
