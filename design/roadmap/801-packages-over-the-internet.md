@@ -52,6 +52,16 @@ Today's `fetch` (`crates/system_initializer`) has the image's catalogue and one 
 base. Nothing outside the tree was surveyed for the index format yet, and the lane that builds it
 owes that survey under §46 (thin primitives or whole subsystems).
 
+## Architectural parity
+
+The capability here is the resolver, the TLS client and fetching the distribution's index over
+HTTPS. It ships on aarch64, riscv64 and x86_64, proven under QEMU by the same suite on each, as rung
+3a's fetch already is: aarch64 and riscv64 since 2026-09-24, x86_64 since 2026-10-05 (milestone
+198's rung table and its "x86_64 fetches" entry). xenon is the silicon reference for the exit
+criterion, not the scope. radon follows on silicon once the network half of milestone 53 (the
+board's own peripherals: network and storage on real silicon), a driver for the JH7110's GMAC,
+exists. aarch64 silicon waits on an aarch64 board.
+
 ## BUGS
 
 - Proved on xenon alone until milestone 802's second-machine criterion runs.

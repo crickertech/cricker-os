@@ -77,6 +77,28 @@ The Secure Boot question is the `unwritten` decision dependency. Publication is 
 the release and the page are not surveyed yet, and the lane that builds them owes that survey under
 §46 (thin primitives or whole subsystems).
 
+## Scope note (architectural parity)
+
+The x86_64 UEFI PC in `machine_requirements` is §157's reference machine, the one a stranger most
+plausibly owns. It is not a limit on the install, and the other two architectures are a gap with a
+plan. Booting is not the gap: milestone 441 (the program that makes the stick) already writes
+`BOOTAA64.EFI` and `BOOTRISCV64.EFI` beside `BOOTX64.EFI`, and each boots under QEMU's EDK2.
+Installing is.
+
+- aarch64. A UEFI machine boots `\EFI\BOOT\BOOTAA64.EFI` from the same kind of stick, but nothing
+  offers the install there. A device-tree handoff has no slot for the boot file (milestone 568 (the
+  boot file has nowhere to go on a device-tree machine)). An aarch64 server describes itself with
+  ACPI instead (milestone 578 (an ACPI discovery path for aarch64)). The kernel is also still
+  linked at QEMU `virt`'s RAM (milestone 441's note on milestone 127 (the seL4 machine)).
+- riscv64. A board like radon (VisionFive 2) boots through U-Boot from microSD, so its procedure
+  differs. radon runs `script/board-image`'s card today, and whether its U-Boot's `bootefi` runs
+  the stick's `BOOTRISCV64.EFI` is unmeasured (notes/boot-stick.md). The installer cannot write that
+  eleven-character name either (milestone 560 (a long file name, or riscv64 cannot be installed)),
+  and milestone 568 applies here too.
+
+The plan: the x86_64 path ships first. Each other path is a follow-on, proposed with its own
+procedure on the page when a machine a stranger plausibly owns exists for it.
+
 ## BUGS
 
 - The rungs are sequenced on one Dell. Rung 1d is the second-machine criterion, and until it
