@@ -12,10 +12,10 @@ that set?
 
 ## What the tree does today
 
-- `login` is handed one *schedule archive*: `session`, `timetable`, and a nested `jobs` archive.
+- `login` is handed one *schedule archive*: `user_timetable_keeper`, `timetable`, and a nested `jobs` archive.
   `vouched_schedule` checks every entry against the boot slot's measurement table
-  (`components/src/login.rs:1610`). The session process copies `jobs` into itself and again into
-  the timetable (`components/src/session.rs:57`, BUGS). The timetable resolves every entry's program
+  (`components/src/login.rs:1610`). `user_timetable_keeper` copies `jobs` into itself and again into
+  the timetable (`components/src/user_timetable_keeper.rs:57`, BUGS). The timetable resolves every entry's program
   against that archive when a document arrives (`components/src/timetable.rs:324`) and loads it
   itself at each fire (`components/src/timetable.rs:616`). No other process sees a job's bytes.
 - The real boot passes a zero length (`crates/system_initializer/src/lib.rs:2161`), so `SCHEDULE`
@@ -45,9 +45,9 @@ activation set. The note's fork 3 text is corrected in the same commit.
 | option | what a job may run | who decides | cost | reversible | verdict |
 |---|---|---|---|---|---|
 | A. The slot's whole measured catalog as `jobs` | every program in the boot archive | the image build | 8.8 MB (`target/initrd-riscv.img`, 2026-09-21), copied twice per session, against a 640-page (2.5 MiB) durable budget (`login.rs:846`) | yes | Refused: does not fit, and after the threadbare base the slot holds only the floor |
-| B. A named list, in the image | e.g. the 12 command-line tools | the image build | 926 KB (#1421's table), larger alone than the session's region (192 pages, `login.rs:849`) or the timetable's (224 pages, `session.rs:91`) | yes | Refused: does not fit, and names bytes the threadbare base moves out of the slot |
+| B. A named list, in the image | e.g. the 12 command-line tools | the image build | 926 KB (#1421's table), larger alone than the session's region (192 pages, `login.rs:849`) or the timetable's (224 pages, `user_timetable_keeper.rs:91`) | yes | Refused: does not fit, and names bytes the threadbare base moves out of the slot |
 | C. Owner-vouched programs only | `vouch ./x` rows | the owner, per digest | a schedule line would have to name a digest or path, since the bare-name ruling says a vouch claims no name | yes | Refused: excludes every installed package, which after the threadbare base is the whole userland |
-| D. The live activation generation, resolved at registration and re-checked at each fire | what a bare word runs at the prompt, minus D2 | the owner by installing (§208 (installing a package is granting it)), the user by naming it | not built. The timetable gains read access to `activation/` and `packages/`, and the `jobs` archive and its two copies go. Each fire reads one image into its 48-page instance (`timetable.rs:220`), a limit every option already has | yes: `login_protocol::session` is provisional and only this lane speaks it | **Recommended** |
+| D. The live activation generation, resolved at registration and re-checked at each fire | what a bare word runs at the prompt, minus D2 | the owner by installing (§208 (installing a package is granting it)), the user by naming it | not built. The timetable gains read access to `activation/` and `packages/`, and the `jobs` archive and its two copies go. Each fire reads one image into its 48-page instance (`timetable.rs:220`), a limit every option already has | yes: `login_protocol::user_timetable_keeper` is provisional and only this lane speaks it | **Recommended** |
 | E. D's set, snapshotted by `login` at `SCHEDULE` and at boot | the programs the user's document names, as installed then | as D | copies stay, and a `REPLACE` naming a new program fails until the session is rebuilt, since the archive is fixed at spawn. A revoked key reaches a job at the next boot, not the next fire | yes | Refused, the runner-up: it keeps the timetable directory-free and pays for it with fork 3's property |
 | F. Status quo | nothing | nobody | zero | yes | What a no leaves |
 

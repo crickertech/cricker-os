@@ -1210,16 +1210,16 @@ fn a_login_session_with_pending_work_refuses_logout_until_the_work_is_gone() {
 /// Three logins as `chris`, each by a separate client process, so nothing but `login` and the
 /// durable session carries state from one to the next:
 ///
-/// 1. [`ls::OPEN_SCHEDULE`] asks for its schedule. `login` builds the session process from a region
-///    of the user's own budget, the session process builds a timetable, and the client replaces its
+/// 1. [`ls::OPEN_SCHEDULE`] asks for its schedule. `login` builds `user_timetable_keeper` from a region
+///    of the user's own budget, `user_timetable_keeper` builds a timetable, and the client replaces its
 ///    empty document with one entry the timetable plans to fire. It then detaches: its directory
-///    goes, and its budget refuses `DESTROY`, because the session process lives on it (§16).
+///    goes, and its budget refuses `DESTROY`, because `user_timetable_keeper` lives on it (§16).
 /// 2. [`ls::EMPTY_SCHEDULE`] logs in plainly and is handed the same session back: the page still
 ///    carries the first client's reply. It replaces the document with an empty one, and the
 ///    timetable answers `STATUS_EMPTIED` and writes its exit word.
 /// 3. [`ls::LOGOUT`] logs in plainly and gets an ordinary session, with no page announced, and
 ///    tears it down completely. That is the proof nothing outlived its reason: `login` saw the exit
-///    word, reclaimed the session process and the old budget, and minted fresh.
+///    word, reclaimed `user_timetable_keeper` and the old budget, and minted fresh.
 ///
 /// **Costs nothing permanent against [`CONSTRUCTION_PAGES`]**: every session here comes home, the
 /// durable one through `login`'s own `DURABLE_UT_PAGES` budget.
@@ -1263,7 +1263,7 @@ fn a_users_schedule_outlives_their_login_and_ends_when_they_empty_it() {
         ),
         (
             ls::F_LOGOUT_REFUSED_WHILE_PENDING,
-            "the budget came down while its session process lived on it",
+            "the budget came down while its `user_timetable_keeper` lived on it",
         ),
         (
             ls::F_TEARDOWN_OK,
@@ -1319,7 +1319,7 @@ fn a_users_schedule_outlives_their_login_and_ends_when_they_empty_it() {
 /// **Suspending a user ends their schedule now, refuses their login, and resuming lets them back**
 /// (milestone 152 (durable delegation), calef's §108 (disabling credentials kills the durable session) ruling of 2026-09-26).
 ///
-/// `chris` opens a schedule and detaches, so a session process and a timetable are running on his
+/// `chris` opens a schedule and detaches, so a `user_timetable_keeper` and a timetable are running on his
 /// budget. The owner's console then does what `user suspend chris` does: it lists `chris` in
 /// `login_protocol::SUSPENDED_LIST` and sends `SUSPEND` on the front door. `login` answers that it
 /// ended one durable session, and a correct password for `chris` is refused `SUSPENDED`, not

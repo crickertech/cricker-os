@@ -32,7 +32,7 @@
 //! the timetable's own whose page the spawn site maps at [`STORE_PAGE_VA`]. A registrar is
 //! required. They were 4 and 5 until the clock took slot 4 on `main` (milestone 129 (scheduled
 //! execution)); moved at the merge of 2026-10-03 (UTC). A durable session grants no clock yet, so
-//! its calendar lines are `Unbacked::WallClock` (`components/src/session.rs`'s BUGS).
+//! its calendar lines are `Unbacked::WallClock` (`components/src/user_timetable_keeper.rs`'s BUGS).
 //!
 //! Nothing else. In particular never the run-unvouched capability
 //! (`grant_plan::spawnproto::RUN_UNVOUCHED_SLOT`): a timetable holding it runs nothing and exits
@@ -99,7 +99,7 @@ pub const STORE_PAGE_VA: u64 = 0x0610_0000;
 /// `registration::STATUS_NO_IMAGE`, so `login`'s start-up pass ended corinne's re-derived session
 /// at once and `a_durable_session_is_re_derived_at_start_up_unless_suspended` failed there while
 /// riscv64 passed. 128 KiB is still under an instance, and costs 16 more pages of `.bss`
-/// (`session.rs`'s `TIMETABLE_REGION_PAGES`).
+/// (`user_timetable_keeper.rs`'s `TIMETABLE_REGION_PAGES`).
 pub const STAGING_BYTES: usize = 128 << 10;
 
 /// Which start argument carries the fire count.

@@ -165,7 +165,8 @@ CPU. It exits when its timetable does, which answers the last point: a timetable
 empty should exit, so the session becomes destroyable again and nothing outlives its reason to
 exist.
 
-calef ruled S1 on 2026-09-26. The program ships as `session`, a provisional name.
+calef ruled S1 on 2026-09-26. The program ships as `session`, a provisional name. (calef ratified
+`user_timetable_keeper` in its place on 2026-10-06 UTC.)
 
 ### 5. When a session becomes durable, and what logout then means
 

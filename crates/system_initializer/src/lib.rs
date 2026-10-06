@@ -1031,7 +1031,7 @@ const CRED_STACK_PAGES: u64 = 16;
 /// logins against one shared instance.
 ///
 /// **Plus one durable session's budget** (milestone 152 (durable delegation)), which `login` splits
-/// at start-up whenever it is handed `session` and `timetable`, before it serves anyone. Without it,
+/// at start-up whenever it is handed `user_timetable_keeper` and `timetable`, before it serves anyone. Without it,
 /// 768 pages less `login`'s 128 + 32 + the durable budget is less than nothing, and `login` stopped at
 /// `fail(2)`. Derived from `login_protocol::durable::BUDGET_PAGES` so the two cannot drift.
 const LOGIN_CONSTRUCTION_PAGES: u64 = 768 + login_protocol::durable::BUDGET_PAGES;
@@ -1262,14 +1262,14 @@ pub fn boot(
         &[]
     };
     // **And what `login` builds a durable session from** (milestone 152 (durable delegation)):
-    // `session` and `timetable`, as blobs for the caretaker's reason, and empty unless this process
+    // `user_timetable_keeper` and `timetable`, as blobs for the caretaker's reason, and empty unless this process
     // vouches for both, so `login` then answers `SCHEDULE` as a plain login. No program a job runs
     // travels with them: a scheduled job runs what the live activation generation names (Fork 8
     // ruled D by calef on 2026-09-27, on #1377).
-    let (session_blob, timetable_blob): (&[u8], &[u8]) = match (
-        measured(&fs, table, "session").elf.is_some(),
+    let (keeper_blob, timetable_blob): (&[u8], &[u8]) = match (
+        measured(&fs, table, "user_timetable_keeper").elf.is_some(),
         measured(&fs, table, "timetable").elf.is_some(),
-        fs.read("session"),
+        fs.read("user_timetable_keeper"),
         fs.read("timetable"),
     ) {
         (true, true, Some(session), Some(timetable)) => (session, timetable),
@@ -2466,7 +2466,7 @@ pub fn boot(
                         blobs: &[
                             (login_protocol::CARETAKER_ELF_VA, care_blob),
                             (login_protocol::PROGRAM_MEASUREMENTS_VA, table.as_bytes()),
-                            (login_protocol::SESSION_ELF_VA, session_blob),
+                            (login_protocol::USER_TIMETABLE_KEEPER_ELF_VA, keeper_blob),
                             (login_protocol::TIMETABLE_ELF_VA, timetable_blob),
                         ],
                         stack_pages: LOGIN_STACK_PAGES,
@@ -2510,7 +2510,7 @@ pub fn boot(
                     care_blob.len() as u64,
                     table.len() as u64,
                     login_protocol::schedule_lengths(
-                        session_blob.len() as u64,
+                        keeper_blob.len() as u64,
                         timetable_blob.len() as u64,
                     ),
                 ));

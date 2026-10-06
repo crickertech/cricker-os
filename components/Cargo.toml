@@ -430,12 +430,14 @@ path = "src/identity_provisioner.rs"
 test = false
 bench = false
 
-# The session process (milestone 152 (durable delegation), S1 of 2026-09-26, provisional name): built by `login` from a
-# user's session budget when they open their schedule; it builds their timetable, supervises it, and
-# is what keeps the session alive after they disconnect. `initrd_aarch64` packs it as "session".
+# `user_timetable_keeper` (milestone 152 (durable delegation), S1 of 2026-09-26): built by `login`
+# from a user's session budget when they open their schedule; it builds their timetable, holds it,
+# and is what keeps the session alive after they disconnect. `initrd_aarch64` packs it as
+# "user_timetable_keeper". Name: ratified 2026-10-06 (calef, in conversation), replacing the
+# provisional `session`; the source file's header has the reasons.
 [[bin]]
-name = "session"
-path = "src/session.rs"
+name = "user_timetable_keeper"
+path = "src/user_timetable_keeper.rs"
 test = false
 bench = false
 

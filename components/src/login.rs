@@ -238,8 +238,8 @@
 //!   table `crates/system_initializer` checks everything it loads against.
 //! - mapped, dynamically, starting at [`CONNECT_VA_BASE`]: one page per channel [`connect`] mints,
 //!   for as long as this process runs (see BUGS: never unmapped or reused in this slice).
-//! - mapped [`login_protocol::SESSION_ELF_VA`] and [`login_protocol::TIMETABLE_ELF_VA`]:
-//!   `session`'s and `timetable`'s images, read-only, with both lengths in `x2`
+//! - mapped [`login_protocol::USER_TIMETABLE_KEEPER_ELF_VA`] and [`login_protocol::TIMETABLE_ELF_VA`]:
+//!   `user_timetable_keeper`'s and `timetable`'s images, read-only, with both lengths in `x2`
 //!   ([`login_protocol::schedule_lengths`]) (milestone 152 (durable delegation)), each checked
 //!   against the table above. No job's program travels with them: a scheduled job runs what the
 //!   live activation generation names (Fork 8 ruled D by calef on 2026-09-27, on #1377). Zero
@@ -271,7 +271,7 @@
 //! # BUGS
 //!
 //! **One durable session at a time** (milestone 152), at start-up and at a login alike. Each costs
-//! four capability slots (the user's budget, the session process's region, the registration page,
+//! four capability slots (the user's budget, `user_timetable_keeper`'s region, the registration page,
 //! its readiness endpoint). [`DURABLE_SESSIONS`] is the fewest of three limits, and today all are
 //! one. The table: `login_protocol::durable::sessions_held` of `abi::CAPABILITY_TABLE_SLOTS`,
 //! 24, is one, because the durable window's page is held at rest and an ordinary login beside two
@@ -297,13 +297,13 @@
 //! for the timetable's answer, so a slow timetable delays the first login by up to that much per
 //! session kept. Nobody has measured the usual wait, in the suite or on a board.
 //!
-//! **`LOGIN_CONSTRUCTION_PAGES` must hold a durable budget.** Handed `session` and `timetable`,
+//! **`LOGIN_CONSTRUCTION_PAGES` must hold a durable budget.** Handed `user_timetable_keeper` and `timetable`,
 //! `_start` splits [`OWN_UT_PAGES`], [`DURABLE_UT_PAGES`] and [`CHANNEL_UT_PAGES`] before it serves
 //! anyone, and a budget short of them stops this process at `fail(2)`. `crates/system_initializer`
 //! derives its figure from `login_protocol::durable::BUDGET_PAGES`, and so does the kernel harness.
 //!
-//! **A session process that fails half way leaves what it split off.** `open_schedule` reclaims the
-//! session process's region on a failure, but anything the process split off its own budget before
+//! **A `user_timetable_keeper` that fails half way leaves what it split off.** `open_schedule` reclaims the
+//! `user_timetable_keeper`'s region on a failure, but anything the process split off its own budget before
 //! failing stays a child of the user's budget, which then never comes down. Only a build that runs
 //! out of room can do this, and the durable budget is sized so this suite's build does not.
 //!
@@ -858,18 +858,20 @@ const DURABLE_SESSIONS: usize = {
     let fewer = if slots < memory { slots } else { memory };
     if fewer < 1 { fewer } else { 1 }
 };
-/// A durable session's budget: the client's own spending, plus the session process and its
+/// A durable session's budget: the client's own spending, plus `user_timetable_keeper` and its
 /// timetable, both built from regions split off it (`login_protocol::durable::BUDGET_PAGES`).
 const DURABLE_BUDGET_PAGES: u64 = login_protocol::durable::BUDGET_PAGES;
-/// The session process's construction: its segments, its stack, the timetable's image copied in,
+/// `user_timetable_keeper`'s construction: its segments, its stack, the timetable's image copied in,
 /// its tables, the registration page, and the two store caretakers
-/// (`login_protocol::durable::SESSION_REGION_PAGES`).
-const SESSION_REGION_PAGES: u64 = login_protocol::durable::SESSION_REGION_PAGES;
-/// The session process's own budget: its timetable's region and the budget its jobs fire from
-/// (`components/src/session.rs`), and the two endpoints.
-const SESSION_BUDGET_PAGES: u64 = login_protocol::durable::SESSION_BUDGET_PAGES;
-/// Stack pages for the session process, beyond `build_child`'s default.
-const SESSION_STACK_PAGES: u64 = 8;
+/// (`login_protocol::durable::USER_TIMETABLE_KEEPER_REGION_PAGES`).
+const USER_TIMETABLE_KEEPER_REGION_PAGES: u64 =
+    login_protocol::durable::USER_TIMETABLE_KEEPER_REGION_PAGES;
+/// `user_timetable_keeper`'s own budget: its timetable's region and the budget its jobs fire from
+/// (`components/src/user_timetable_keeper.rs`), and the two endpoints.
+const USER_TIMETABLE_KEEPER_BUDGET_PAGES: u64 =
+    login_protocol::durable::USER_TIMETABLE_KEEPER_BUDGET_PAGES;
+/// Stack pages for `user_timetable_keeper`, beyond `build_child`'s default.
+const USER_TIMETABLE_KEEPER_STACK_PAGES: u64 = 8;
 /// Where this process maps the first durable session's registration page, to read the timetable's
 /// exit word; the k-th kept session's is [`DURABLE_PAGE_STRIDE`] times k above it. Far above
 /// `CONNECT_VA_BASE`, which grows a page per connect for ever.
@@ -947,19 +949,19 @@ pub extern "C" fn _start(caretaker_len: u64, table_len: u64, schedule_len: u64) 
         measured_boot::verify_in_manifest(table, "fs_subtree_caretaker", care_bytes).is_ok()
     });
 
-    // **What a durable session is built from** (milestone 152): `session` and `timetable`, each
+    // **What a durable session is built from** (milestone 152): `user_timetable_keeper` and `timetable`, each
     // checked against the same table the caretaker is, and the caretaker itself, since each
     // session's timetable reads the store through two of them (Fork 8 D). Anything unvouched and no
     // schedule opens on this boot, which is the caretaker's own fold: `SCHEDULE` is then answered
     // as `LOGIN` is.
-    let (session_len, timetable_len) = login_protocol::split_schedule_lengths(schedule_len);
+    let (keeper_len, timetable_len) = login_protocol::split_schedule_lengths(schedule_len);
     // SAFETY: the spawner maps each image's bytes read-only at its address for the life of this
-    // process before `_start` runs (`login_protocol::SESSION_ELF_VA`'s contract).
-    let (session_bytes, timetable_bytes) = unsafe {
+    // process before `_start` runs (`login_protocol::USER_TIMETABLE_KEEPER_ELF_VA`'s contract).
+    let (keeper_bytes, timetable_bytes) = unsafe {
         (
             core::slice::from_raw_parts(
-                login_protocol::SESSION_ELF_VA as *const u8,
-                session_len as usize,
+                login_protocol::USER_TIMETABLE_KEEPER_ELF_VA as *const u8,
+                keeper_len as usize,
             ),
             core::slice::from_raw_parts(
                 login_protocol::TIMETABLE_ELF_VA as *const u8,
@@ -969,7 +971,7 @@ pub extern "C" fn _start(caretaker_len: u64, table_len: u64, schedule_len: u64) 
     };
     let schedule = care_elf
         .as_ref()
-        .and_then(|care| vouched_schedule(session_bytes, timetable_bytes, care, table));
+        .and_then(|care| vouched_schedule(keeper_bytes, timetable_bytes, care, table));
 
     let Ok(own_ut) = memory_region_split(CONSTRUCTION_UT, OWN_UT_PAGES) else {
         fail(1)
@@ -1425,7 +1427,7 @@ impl Durables {
 /// option A, calef's ruling of 2026-09-27; DECISIONS §123 as amended that day). For each identity
 /// the manifest (§125) lists and the owner's suspended list does not, in manifest order, until
 /// [`DURABLE_SESSIONS`] are kept: read its stored schedule (§122), split a budget off
-/// `durable_ut`, build the session process ([`Durable::open`], what a login that opens a schedule
+/// `durable_ut`, build `user_timetable_keeper` ([`Durable::open`], what a login that opens a schedule
 /// calls) and put the stored document in force ([`Durable::restore`], what a login after a reboot
 /// calls). No credential is presented, and none is needed for what this does: the session is
 /// handed to nobody until its user logs in and the credential service says yes, which is the
@@ -1517,24 +1519,24 @@ fn rederive(
 struct Durable {
     identity: [u8; filesystem_protocol::grant::MAX_NAME],
     len: usize,
-    /// The user's budget. The session process and its timetable are built from regions split off
+    /// The user's budget. `user_timetable_keeper` and its timetable are built from regions split off
     /// it, so it refuses `DESTROY` for as long as either lives (DECISIONS §16 (object revocation)).
     budget: u64,
-    /// The region the session process was built from; the registration page was retyped from it.
-    session: u64,
+    /// The region `user_timetable_keeper` was built from; the registration page was retyped from it.
+    keeper: u64,
     /// The registration page, mapped at [`Durable::va`] so this process can read the timetable's
     /// exit word.
     page: u64,
     /// Where the registration page is mapped: [`DURABLE_PAGE_VA`] plus the slot's stride.
     va: u64,
-    /// The session process's readiness endpoint, which it also says `STOPPED` on once it has given
-    /// its budget back. Retyped from [`Durable::session`].
+    /// `user_timetable_keeper`'s readiness endpoint, which it also says `STOPPED` on once it has given
+    /// its budget back. Retyped from [`Durable::keeper`].
     ready: u64,
 }
 
 impl Durable {
     /// **Open a durable session for `identity` on `budget`**, to be kept in slot `k` of
-    /// [`Durables`]: build its session process ([`open_schedule`]) with the registration page
+    /// [`Durables`]: build its `user_timetable_keeper` ([`open_schedule`]) with the registration page
     /// mapped at that slot's address. The one way a durable session comes to exist, at a login
     /// and at start-up ([`rederive`]) alike. `None` leaves `budget` childless and the caller's.
     fn open(
@@ -1545,14 +1547,14 @@ impl Durable {
         k: usize,
     ) -> Option<Self> {
         let va = DURABLE_PAGE_VA + k as u64 * DURABLE_PAGE_STRIDE;
-        let (session, page, ready) = open_schedule(own_ut, budget, images, va)?;
+        let (keeper, page, ready) = open_schedule(own_ut, budget, images, va)?;
         let mut id = [0u8; filesystem_protocol::grant::MAX_NAME];
         id[..identity.len()].copy_from_slice(identity);
         Some(Durable {
             identity: id,
             len: identity.len(),
             budget,
-            session,
+            keeper,
             page,
             va,
             ready,
@@ -1641,8 +1643,8 @@ impl Durable {
 
     /// **Whether the timetable has stopped**, read from the exit word it writes into the page just
     /// before it exits (`timetable::registration::EXIT`). This is the liveness test reattachment
-    /// needs, and it is why the page lives in [`Durable::session`] rather than in the region the
-    /// session process gives back: a `DESTROY` probe cannot tell a stale budget from a busy one,
+    /// needs, and it is why the page lives in [`Durable::keeper`] rather than in the region the
+    /// `user_timetable_keeper` gives back: a `DESTROY` probe cannot tell a stale budget from a busy one,
     /// because the kernel answers both `NotPermitted` (`notes/durable-delegation.md`, question 1).
     fn exited(&self) -> bool {
         // SAFETY: `open_schedule` mapped this page at `self.va`, and it stays mapped until
@@ -1654,16 +1656,16 @@ impl Durable {
         word & registration::EXITED != 0
     }
 
-    /// **Take a stopped session down.** The session process destroyed its own timetable budget
+    /// **Take a stopped session down.** `user_timetable_keeper` destroyed its own timetable budget
     /// before exiting, so what is left is the region it was built from, then the user's budget,
     /// which is childless once that region is gone. Both come home to [`DURABLE_UT_PAGES`]'s budget.
     fn retire(self, unrecord: bool) {
-        // Wait for the session process to finish its own teardown: reclaiming it earlier would kill
+        // Wait for `user_timetable_keeper` to finish its own teardown: reclaiming it earlier would kill
         // it between its two destroys and strand a region under the user's budget for good. It is
         // already blocked sending this word by the time anything calls `retire` after a clean stop.
         receive(self.ready);
         cap_delete(self.ready);
-        discard(self.session);
+        discard(self.keeper);
         cap_delete(self.page);
         discard(self.budget);
         if unrecord {
@@ -1672,36 +1674,36 @@ impl Durable {
     }
 }
 
-/// **What a durable session is built from**: `session`'s and `timetable`'s images, both vouched
+/// **What a durable session is built from**: `user_timetable_keeper`'s and `timetable`'s images, both vouched
 /// for, and the caretaker image the store caretakers are built from (milestone 152, Fork 8 D).
 #[derive(Clone, Copy)]
 struct ScheduleImages<'e> {
-    session: &'static [u8],
+    keeper: &'static [u8],
     timetable: &'static [u8],
     care: &'e elf::Elf<'static>,
 }
 
-/// **Check `session` and `timetable` against the measurement table**, and answer them back with
+/// **Check `user_timetable_keeper` and `timetable` against the measurement table**, and answer them back with
 /// `care` only if both pass.
 fn vouched_schedule<'e>(
-    session: &'static [u8],
+    keeper: &'static [u8],
     timetable: &'static [u8],
     care: &'e elf::Elf<'static>,
     table: &str,
 ) -> Option<ScheduleImages<'e>> {
-    if session.is_empty() || timetable.is_empty() {
+    if keeper.is_empty() || timetable.is_empty() {
         return None;
     }
-    measured_boot::verify_in_manifest(table, "session", session).ok()?;
+    measured_boot::verify_in_manifest(table, "user_timetable_keeper", keeper).ok()?;
     measured_boot::verify_in_manifest(table, "timetable", timetable).ok()?;
     Some(ScheduleImages {
-        session,
+        keeper,
         timetable,
         care,
     })
 }
 
-/// **Build a user's session process** out of `budget` (milestone 152, S1 and L2 of 2026-09-26):
+/// **Build a user's `user_timetable_keeper`** out of `budget` (milestone 152, S1 and L2 of 2026-09-26):
 /// split its construction region and its own budget off the user's, retype the registration page
 /// from the first, start it, and wait for the one word it answers with. `Some((region, page))`
 /// once it says its timetable is running, with the page mapped at `va`.
@@ -1713,30 +1715,30 @@ fn open_schedule(
     images: ScheduleImages<'_>,
     va: u64,
 ) -> Option<(u64, u64, u64)> {
-    let elf = elf::Elf::parse(images.session).ok()?;
+    let elf = elf::Elf::parse(images.keeper).ok()?;
     let timetable = images.timetable;
-    let session = memory_region_split(budget, SESSION_REGION_PAGES).ok()?;
+    let keeper = memory_region_split(budget, USER_TIMETABLE_KEEPER_REGION_PAGES).ok()?;
     // **The store, read-only, for the timetable** (Fork 8 D): a caretaker each for `activation/`
-    // and `packages/`, built in the session process's own region so reclaiming it takes them too,
+    // and `packages/`, built in `user_timetable_keeper`'s own region so reclaiming it takes them too,
     // on the durable window's channel. First, before anything else is held, because building them
     // is where this function's use of the capability table peaks (`login_protocol::durable`).
-    let Some((activation, packages)) = store_caretakers(own_ut, session, images.care) else {
-        discard(session);
+    let Some((activation, packages)) = store_caretakers(own_ut, keeper, images.care) else {
+        discard(keeper);
         return None;
     };
     let fail = |held: &[u64]| {
         for &c in held {
             cap_delete(c);
         }
-        discard(session);
+        discard(keeper);
     };
-    let Ok(its_budget) = memory_region_split(budget, SESSION_BUDGET_PAGES) else {
+    let Ok(its_budget) = memory_region_split(budget, USER_TIMETABLE_KEEPER_BUDGET_PAGES) else {
         fail(&[activation, packages]);
         return None;
     };
     let (Ok(page), Ok(ready)) = (
-        retype_page_frame_from(session),
-        retype_obj(session, abi::objtype::RENDEZVOUS),
+        retype_page_frame_from(keeper),
+        retype_obj(keeper, abi::objtype::RENDEZVOUS),
     ) else {
         discard(its_budget);
         fail(&[activation, packages]);
@@ -1744,7 +1746,7 @@ fn open_schedule(
     };
     let built = build_child(
         own_ut,
-        session,
+        keeper,
         &elf,
         &ChildEndowment {
             caps: &[
@@ -1754,14 +1756,17 @@ fn open_schedule(
                 // `GRANT`.
                 (its_budget, abi::rights::WRITE | abi::rights::GRANT),
                 (page, abi::rights::WRITE),
-                // `GRANT` on the two endpoints the session process only hands on; the page it
+                // `GRANT` on the two endpoints `user_timetable_keeper` only hands on; the page it
                 // only maps into its timetable, which `WRITE` alone allows.
                 (activation, abi::rights::WRITE | abi::rights::GRANT),
                 (packages, abi::rights::WRITE | abi::rights::GRANT),
                 (DURABLE_WINDOW, abi::rights::WRITE),
             ],
-            blobs: &[(login_protocol::session::TIMETABLE_VA, timetable)],
-            stack_pages: SESSION_STACK_PAGES,
+            blobs: &[(
+                login_protocol::user_timetable_keeper::TIMETABLE_VA,
+                timetable,
+            )],
+            stack_pages: USER_TIMETABLE_KEEPER_STACK_PAGES,
             ..ChildEndowment::new(Retention::Nothing)
         },
     );
@@ -1773,16 +1778,18 @@ fn open_schedule(
     };
     let answer = if started { receive(ready).0 } else { 0 };
     cap_delete(its_budget);
-    if answer != login_protocol::session::READY || !map_page_frame(page, va, true, own_ut) {
+    if answer != login_protocol::user_timetable_keeper::READY
+        || !map_page_frame(page, va, true, own_ut)
+    {
         cap_delete(ready);
-        // The session process has stopped (it reports a failure and exits) or never ran. What it
+        // `user_timetable_keeper` has stopped (it reports a failure and exits) or never ran. What it
         // split off its budget before failing, if anything, stays until the user's budget is
-        // reclaimed: see this program's BUGS. Discarding `session` also takes the two caretakers.
+        // reclaimed: see this program's BUGS. Discarding `keeper` also takes the two caretakers.
         cap_delete(page);
-        discard(session);
+        discard(keeper);
         return None;
     }
-    Some((session, page, ready))
+    Some((keeper, page, ready))
 }
 
 /// **The two read-only store caretakers a durable session's timetable reads through** (milestone
@@ -2091,7 +2098,7 @@ fn mint(own_ut: u64, care: Option<&elf::Elf>, identity: &[u8]) -> Option<(u64, u
 /// up inside the race **4 boots in 4**, `discard` silently leaked the whole 784-page durable
 /// budget, and the next `SCHEDULE` login was answered `DENIED` for want of a split; at 1024 the
 /// same boot passed 7 in 7. A caller stuck past this many attempts still has a different problem
-/// than this loop can fix, which is the same sentence `components/src/session.rs`'s `ATTEMPTS`
+/// than this loop can fix, which is the same sentence `components/src/user_timetable_keeper.rs`'s `ATTEMPTS`
 /// (1024, from `job_undertaker`) carries for the same wait.
 fn reclaim(region: u64) {
     for _ in 0..RECLAIM_ATTEMPTS {

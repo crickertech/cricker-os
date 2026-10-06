@@ -149,7 +149,7 @@ registrar must build a job's directory inside the job's own region.
 ## What was built (2026-09-26, the session process and `SCHEDULE`)
 
 To calef's rulings S1 and L2. `login_protocol::SCHEDULE` (provisional) is `LOGIN` plus "open my
-schedule": `login` splits a durable budget, builds `components/src/session.rs` (provisional) from
+schedule": `login` splits a durable budget, builds `components/src/user_timetable_keeper.rs` (provisional) from
 a region of it, and `OK` announces the timetable's registration page. The session process builds the
 timetable to `timetable::contract` and blocks on the timetable's supervision endpoint. A later login for that identity is handed the same budget and page;
 `login` tells a live session from a stopped one by the timetable's exit word in the page, because

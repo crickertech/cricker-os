@@ -205,7 +205,7 @@ pub const PRESENT_RUN_UNVOUCHED: u64 = 6;
 pub const PENDING_WORK: u64 = 7;
 /// Log in with `login_protocol::SCHEDULE`, replace the new timetable's empty document with
 /// [`SCHEDULED`], then detach: tear the directory down and leave the budget, which must refuse its
-/// own `DESTROY` because the session process lives on it. Milestone 152. Provisional name.
+/// own `DESTROY` because `user_timetable_keeper` lives on it. Milestone 152. Provisional name.
 pub const OPEN_SCHEDULE: u64 = 8;
 /// Log in plainly, expect to be handed the same durable session back (its page still carries
 /// [`OPEN_SCHEDULE`]'s reply), replace the document with an empty one, and wait for the timetable's

@@ -218,10 +218,11 @@ pub fn start(
     let caretaker = fs.read("fs_subtree_caretaker").unwrap_or(&[]);
     let measurements = fs.read(measured_boot::PROGRAM_MEASUREMENTS).unwrap_or(&[]);
     // **What a durable session is built from** (milestone 152), when this `login` may open one:
-    // `session` and `timetable`, out of the same archive, as the progenitor hands them.
-    let (session, timetable) = if schedule {
+    // `user_timetable_keeper` and `timetable`, out of the same archive, as the progenitor hands them.
+    let (keeper, timetable) = if schedule {
         (
-            fs.read("session").expect("no session in the initrd"),
+            fs.read("user_timetable_keeper")
+                .expect("no user_timetable_keeper in the initrd"),
             fs.read("timetable").expect("no timetable in the initrd"),
         )
     } else {
@@ -238,7 +239,7 @@ pub fn start(
         + 1 // CRED_VA
         + caretaker.len().div_ceil(FRAME_SIZE as usize) as u64
         + measurements.len().div_ceil(FRAME_SIZE as usize) as u64
-        + session.len().div_ceil(FRAME_SIZE as usize) as u64
+        + keeper.len().div_ceil(FRAME_SIZE as usize) as u64
         + timetable.len().div_ceil(FRAME_SIZE as usize) as u64
         + LOGIN_STACK_PAGES
         // The tables: two more than when one schedule archive sat at one address, since the two
@@ -259,9 +260,13 @@ pub fn start(
         login_protocol::PROGRAM_MEASUREMENTS_VA,
         measurements,
     );
-    // What `login` builds a user's session process and timetable from, when they ask for their
+    // What `login` builds a user's `user_timetable_keeper` and timetable from, when they ask for their
     // schedule (milestone 152). Empty means no schedule opens.
-    map_blob(&mut space, login_protocol::SESSION_ELF_VA, session);
+    map_blob(
+        &mut space,
+        login_protocol::USER_TIMETABLE_KEEPER_ELF_VA,
+        keeper,
+    );
     map_blob(&mut space, login_protocol::TIMETABLE_ELF_VA, timetable);
     // Milestone 49's channel-per-client update removed the front door's own shared staging page:
     // `CONNECT` (the only word the front door accepts) carries no page at all, and every actual
@@ -382,7 +387,7 @@ pub fn start(
         [
             caretaker.len() as u64,
             measurements.len() as u64,
-            login_protocol::schedule_lengths(session.len() as u64, timetable.len() as u64),
+            login_protocol::schedule_lengths(keeper.len() as u64, timetable.len() as u64),
         ],
     )
     .expect("start");

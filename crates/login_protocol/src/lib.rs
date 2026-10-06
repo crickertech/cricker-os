@@ -192,7 +192,7 @@ pub const LOGOUT: u64 = 3;
 /// **Authenticate, and open this identity's schedule** (milestone 152 (durable delegation),
 /// §222 (who holds a user's schedule), calef's L2 ruling of 2026-09-26). Sent on the private
 /// channel in place of [`LOGIN`], staged with [`place`] exactly as [`LOGIN`] is. On success `login`
-/// builds the session process that holds the identity's timetable, and [`OK`] carries
+/// builds the `user_timetable_keeper` process that holds the identity's timetable, and [`OK`] carries
 /// [`SCHEDULE_FOLLOWS`]. A [`LOGIN`] for an identity whose session is already durable reattaches to
 /// it and carries [`SCHEDULE_FOLLOWS`] too.
 ///
@@ -489,7 +489,7 @@ pub const CARETAKER_ELF_VA: u64 = 0x0000_0000_0100_0000;
 /// space that grows.
 pub const PROGRAM_MEASUREMENTS_VA: u64 = 0x0000_0000_0140_0000;
 
-/// **Where `session`'s image is mapped, read-only, before `login`'s `_start` runs** (milestone 152),
+/// **Where `user_timetable_keeper`'s image is mapped, read-only, before `login`'s `_start` runs** (milestone 152),
 /// with `timetable`'s at [`TIMETABLE_ELF_VA`] and both lengths in the third argument register
 /// ([`schedule_lengths`]). They are the two programs a durable session is built from, and each is
 /// checked against the table at [`PROGRAM_MEASUREMENTS_VA`] before anything is built from it. No
@@ -499,13 +499,13 @@ pub const PROGRAM_MEASUREMENTS_VA: u64 = 0x0000_0000_0140_0000;
 ///
 /// Name: provisional, milestone 152's lane, 2026-09-27; it replaces a schedule archive that also
 /// carried the jobs.
-pub const SESSION_ELF_VA: u64 = 0x0000_0000_0180_0000;
+pub const USER_TIMETABLE_KEEPER_ELF_VA: u64 = 0x0000_0000_0180_0000;
 
-/// **Where `timetable`'s image is mapped**, beside [`SESSION_ELF_VA`], four megabytes above it.
+/// **Where `timetable`'s image is mapped**, beside [`USER_TIMETABLE_KEEPER_ELF_VA`], four megabytes above it.
 /// Provisional.
 pub const TIMETABLE_ELF_VA: u64 = 0x0000_0000_01c0_0000;
 
-/// **The third start argument: `session`'s length in the low half, `timetable`'s in the high.**
+/// **The third start argument: `user_timetable_keeper`'s length in the low half, `timetable`'s in the high.**
 /// Two lengths in one register, because the first two carry the caretaker's and the table's. An
 /// image of 4 GiB or more cannot be mapped at these addresses anyway. Provisional.
 ///
@@ -514,8 +514,8 @@ pub const TIMETABLE_ELF_VA: u64 = 0x0000_0000_01c0_0000;
 /// assert_eq!(split_schedule_lengths(schedule_lengths(40_960, 409_600)), (40_960, 409_600));
 /// assert_eq!(split_schedule_lengths(0), (0, 0));
 /// ```
-pub const fn schedule_lengths(session: u64, timetable: u64) -> u64 {
-    (session & 0xffff_ffff) | (timetable << 32)
+pub const fn schedule_lengths(keeper: u64, timetable: u64) -> u64 {
+    (keeper & 0xffff_ffff) | (timetable << 32)
 }
 
 /// [`schedule_lengths`]' inverse: `(session, timetable)`.
@@ -537,11 +537,11 @@ pub const DURABLE_WINDOW_SLOT: u64 = 8;
 /// ([`durable::sessions_held`] is bounded by it too). Provisional.
 pub const DURABLE_WINDOW: u64 = filesystem_protocol::fs::CLIENT_WINDOWS as u64 - 1;
 
-/// **How `login` starts a session process** (milestone 152, S1 of 2026-09-26), in this crate for
+/// **How `login` starts a `user_timetable_keeper`** (milestone 152, S1 of 2026-09-26), in this crate for
 /// the reason the two constants above are: `components/src/login.rs` and
-/// `components/src/session.rs` both read it. Every name here is provisional.
-pub mod session {
-    /// Slot 0: the endpoint the session process reports readiness on, once, `WRITE`.
+/// `components/src/user_timetable_keeper.rs` both read it. Every name here is provisional.
+pub mod user_timetable_keeper {
+    /// Slot 0: the endpoint `user_timetable_keeper` reports readiness on, once, `WRITE`.
     pub const READY_SLOT: u64 = 0;
     /// Slot 1: the region the timetable and every job it fires are built from, `WRITE | GRANT`.
     pub const BUDGET_SLOT: u64 = 1;
@@ -555,12 +555,12 @@ pub mod session {
     /// Slot 5: the page of the durable window the two caretakers stage through, `WRITE`, which the
     /// session maps into its timetable at `timetable::contract::STORE_PAGE_VA`.
     pub const STORE_PAGE_SLOT: u64 = 5;
-    /// Where `timetable`'s image is copied into the session process; its length is `a0`.
+    /// Where `timetable`'s image is copied into `user_timetable_keeper`; its length is `a0`.
     pub const TIMETABLE_VA: u64 = 0x0000_0000_0200_0000;
     /// The readiness word: the timetable is built, started, and watching the page.
     pub const READY: u64 = 0x5e55_0000_0000_0001;
     /// The last word, on the same endpoint: the timetable is gone and everything built from the
-    /// session process's budget is given back. `login` takes it before reclaiming the process, so
+    /// `user_timetable_keeper`'s budget is given back. `login` takes it before reclaiming the process, so
     /// the reclaim never lands mid-teardown and strands a region under the user's budget.
     pub const STOPPED: u64 = 0x5e55_0000_0000_0002;
     /// The failure word; the low byte says which step.
@@ -588,7 +588,7 @@ pub mod durable {
     /// `result` and `region`, then `region`, `narrow_ep`, `ready`, and the child's address space
     /// and one frame or its thread.
     pub const SLOTS_LOGIN_PEAK: u64 = 7;
-    /// Slots each kept durable session holds: the user's budget, the session process's region, the
+    /// Slots each kept durable session holds: the user's budget, `user_timetable_keeper`'s region, the
     /// registration page and the readiness endpoint.
     pub const SLOTS_PER_SESSION: u64 = 4;
 
@@ -596,20 +596,22 @@ pub mod durable {
     /// to it. In this crate because `login`, the kernel harness and the progenitor all size budgets
     /// from it and [`BUDGET_PAGES`]. Provisional.
     pub const CLIENT_BUDGET_PAGES: u64 = 64;
-    /// **A durable session process's region**: the process, its copy of `timetable`'s image, and
+    /// **A durable `user_timetable_keeper`'s region**: the process, its copy of `timetable`'s image, and
     /// the two store caretakers `login` builds in it (Fork 8 D), 64 pages each as `login` sizes a
     /// caretaker's region. Measured for the process on aarch64's debug build on 2026-09-26 at 192
     /// with room to spare. Provisional.
-    pub const SESSION_REGION_PAGES: u64 = 192 + 2 * 64;
-    /// **What a durable session process builds its timetable from**: the timetable's region (272,
-    /// `session.rs`'s `TIMETABLE_REGION_PAGES`) and its jobs' budget (128), with room for two
+    pub const USER_TIMETABLE_KEEPER_REGION_PAGES: u64 = 192 + 2 * 64;
+    /// **What a durable `user_timetable_keeper` builds its timetable from**: the timetable's region (272,
+    /// `user_timetable_keeper.rs`'s `TIMETABLE_REGION_PAGES`) and its jobs' budget (128), with room for two
     /// endpoints. 400 -> 416 on 2026-10-02 (UTC), for the timetable's staging buffer growing to
     /// 128 KiB. Provisional.
-    pub const SESSION_BUDGET_PAGES: u64 = 416;
-    /// **One durable session's whole budget**: the client's own, the session process's region, and
+    pub const USER_TIMETABLE_KEEPER_BUDGET_PAGES: u64 = 416;
+    /// **One durable session's whole budget**: the client's own, `user_timetable_keeper`'s region, and
     /// what it builds from. `login` splits this many pages per durable session, and its spawner
     /// sizes `login`'s construction budget with it. Provisional.
-    pub const BUDGET_PAGES: u64 = CLIENT_BUDGET_PAGES + SESSION_REGION_PAGES + SESSION_BUDGET_PAGES;
+    pub const BUDGET_PAGES: u64 = CLIENT_BUDGET_PAGES
+        + USER_TIMETABLE_KEEPER_REGION_PAGES
+        + USER_TIMETABLE_KEEPER_BUDGET_PAGES;
 
     /// **How many durable sessions fit a `table_slots`-slot capability table** with room left for
     /// one ordinary login beside them: the largest `n` with
@@ -617,7 +619,7 @@ pub mod durable {
     /// of them at a login peaks at the same count and no higher, because `login` builds that
     /// session's two store caretakers (Fork 8 D) before anything else of the session and mints the
     /// client's own caretaker after it: 16 held at the open, 23 building the second caretaker, 24
-    /// building the session process. At start-up it peaks lower. Counted from the code on
+    /// building `user_timetable_keeper`. At start-up it peaks lower. Counted from the code on
     /// 2026-09-27, not measured.
     ///
     /// # EXAMPLES
@@ -677,7 +679,7 @@ pub mod durable {
         NoStoredSchedule = 2,
         /// Splitting the session's budget off `durable_ut` failed: out of pages.
         BudgetOutOfPages = 3,
-        /// Opening the session process (its capability table, its timetable, or the wait for its
+        /// Opening `user_timetable_keeper` (its capability table, its timetable, or the wait for its
         /// readiness word) failed.
         SessionBuildFailed = 4,
     }
@@ -910,7 +912,7 @@ mod tests {
             DURABLE_WINDOW as usize + 1,
             filesystem_protocol::fs::CLIENT_WINDOWS
         );
-        assert_eq!(durable::SESSION_REGION_PAGES, 320);
+        assert_eq!(durable::USER_TIMETABLE_KEEPER_REGION_PAGES, 320);
         assert_eq!(durable::BUDGET_PAGES, 64 + 320 + 416);
         assert_eq!(durable::BUDGET_PAGES, 800);
     }

@@ -11,7 +11,7 @@ themselves, and nothing else on the roadmap ran anything on a schedule. The inte
 narrowed archive, a backable `--mem` grant and runtime replacement under §222 (who holds a user's
 schedule) are built, and so are calendar entries (G5) on a granted clock. One image per entry was
 refused on 2026-09-26. The last item, connecting a real session, was built by milestone
-152 (durable delegation): `components/src/session.rs` builds the timetable and `components/src/login.rs`
+152 (durable delegation): `components/src/user_timetable_keeper.rs` builds the timetable and `components/src/login.rs`
 sends `REPLACE` (verified 2026-10-03, UTC).
 
 The `REPLACE` handler and the spawn contract are built and tested, with the kernel test as
@@ -120,7 +120,7 @@ Milestone 106 (a wait that ends on either the interrupt or the deadline) is gate
 
 ## What was left, and is now built
 
-Connecting a real session. `components/src/session.rs` (milestone 152) spawns the timetable to
+Connecting a real session. `components/src/user_timetable_keeper.rs` (milestone 152) spawns the timetable to
 `timetable::contract`, `login` writes the store and sends `REPLACE` (`components/src/login.rs`),
 and the boot-time pass lives in `login` too (`session_reviver` is retired). The kernel test
 `a_users_schedule_outlives_their_login_and_ends_when_they_empty_it` runs it on all three ISAs.
@@ -143,10 +143,10 @@ the shipped document is a demonstration written to show every answer registratio
 ## Follow-on
 
 - **Done.** Connecting a real registrar: milestone 152's durable session
-  (`components/src/session.rs`) spawns the timetable and `components/src/login.rs` sends `REPLACE`
+  (`components/src/user_timetable_keeper.rs`) spawns the timetable and `components/src/login.rs` sends `REPLACE`
   and feeds it `crates/schedule_store`'s file, 2026-09-26 and 2026-09-27. Verified 2026-10-03.
 - **Recorded.** A durable timetable holds no clock, so a calendar line in a durable schedule is
-  `Unbacked::WallClock` and never fires; recorded in `components/src/session.rs`'s BUGS.
+  `Unbacked::WallClock` and never fires; recorded in `components/src/user_timetable_keeper.rs`'s BUGS.
 - **Refused.** One image per entry, by calef on 2026-09-26 ("Refuse it?", "Yes"): an image is code,
   not authority, so a helper per entry would buy nothing. The reason is
   `notes/scheduled-execution/one-image-per-entry.md`.
