@@ -12,25 +12,23 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/ci-queue-remeasure.md` on 2026-10-03 (UTC). The number 648 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by milestone 587 (most CI jobs do not need an arm64 host),
-which moved 15 of 18 jobs to `ubuntu-24.04` on one afternoon's evidence and named this check as
-what decides whether that evidence generalised. **Name provisional**, this file's alone.
+which moved 15 of 18 jobs to `ubuntu-24.04` on one afternoon's evidence. It named this check as
+what decides whether that evidence generalized. **Name provisional**, this file's alone.
 
 Due on or after 2026-10-01; before then there is not a week of data.
 
 ## What to do
 
-Re-run milestone 587's measurement over the week's `ci.yml` and `verify.yml` jobs: created to
-started per job, grouped by hour and by runner label, the same shape as that block's table.
+Re-run milestone 587's measurement over the week's `ci.yml` and `verify.yml` jobs. Measure created
+to started per job, grouped by hour and by runner label, the same shape as that block's table.
 
 - If the four arm64 jobs (`build + test`, `cpu matrix`, `re-falsify`, `prove the kernel on
   aarch64`) still wait a median over ten minutes in busy hours, the next lever is milestone 587's
-  option D: split the x86_64 guest legs out of `build + test` into an x86_64 job, about ten minutes
-  off the arm64 job.
+  option D. That splits the x86_64 guest legs out of `build + test` into an x86_64 job, about ten
+  minutes off the arm64 job.
 - If the x86_64 jobs have started waiting the way arm64 did, the premise that x86_64 supply is
-  looser was one afternoon, and milestone 587's split is revisited rather than extended.
+  looser rested on one afternoon. Revisit milestone 587's split rather than extending it.
 - Otherwise record the numbers in milestone 587's block and retire this proposal.
 
 ## Index row

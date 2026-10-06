@@ -214,9 +214,15 @@ def _flat(text):
 # --- scope -------------------------------------------------------------------------------------
 #
 # The document scope is `script/metrics`' (milestone 581 (one metrics file per measure)'s prose-budget graph), moved here so the
-# gate and the graph cannot drift: every `.md` directly under these five directories, plus
-# `AGENTS.md`. Directly under, so `design/roadmap/proposals/`, `design/audit-reports/` and
-# `design/journeys/` are out, as the ratified figures had them.
+# gate and the graph cannot drift: every `.md` directly under these directories, plus
+# `AGENTS.md`. Directly under, so `design/audit-reports/` and `design/journeys/` are out, as the
+# ratified figures had them.
+#
+# `design/roadmap/proposals/` is named outright (calef, 2026-10-06, UTC: "Lets ensure proposals
+# have the 3000 word limit and eliminate the exemption"). It was out, so a proposal could grow
+# past every limit and its promotion then needed a marked exception to land as a block. Those
+# exceptions are gone with it: a proposal meets the limits when it is written, and promotion is a
+# rename that the ratchet already reads as no new prose (`promotion_masked`).
 #
 # Appendices are added to it, because §212 puts them "under the same cap" and the graph's own
 # docstring already said it intended to count them. Before this module the graph's scope could not
@@ -225,7 +231,8 @@ def _flat(text):
 # `notes/coes/` is named outright (2026-10-03, UTC): a correction-of-error record is a document in
 # its own right with no `notes/coes.md` parent, so the appendix rule never reached it and a 3,291-word
 # COE passed lint.
-PROSE_DIRS = ('design/', 'design/decisions/', 'design/roadmap/', 'notes/', 'notes/coes/', 'briefs/')
+PROSE_DIRS = ('design/', 'design/decisions/', 'design/roadmap/', 'design/roadmap/proposals/', 'notes/',
+              'notes/coes/', 'briefs/')
 PROSE_ROOT_FILES = ('AGENTS.md',)
 PROSE_CAP = 3000
 

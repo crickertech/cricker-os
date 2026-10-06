@@ -12,8 +12,6 @@ needs_person: yes
 
 Promoted from `design/roadmap/proposals/firefox-port.md` on 2026-10-03 (UTC). The number 710 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by calef's ruling below. It builds nothing. It is the tracked home for the browser question
 so that §131 and §145's "out of reach" has somewhere to point. The file name is provisional.
 

@@ -12,8 +12,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/install-time-signature-verification.md` on 2026-10-03 (UTC). The number 666 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Filed by `maintainer/220-ruling` while recording calef's rulings on
 §220 (signed builds: a vendor signs, a developer self-signs, and trusting a key is scoped), in
 [`design/decisions/220-signed-builds-and-scoped-key-trust.md`](../decisions/220-signed-builds-and-scoped-key-trust.md). This is the build those rulings describe. Every
@@ -35,7 +33,7 @@ workload running.
    and a test that proves the image carries none.
 2. Install-time verification. `package install` of a build with a beside signature (`rg.sig` in the
    archive of §197 (a package is one archive file), `a.out.sig` next to a loose build) checks the
-   Ed25519 signature over §220's 54-byte statement, then pins the executable's digest as today.
+   Ed25519 signature over §220's 54-byte statement. It then pins the executable's digest as today.
    Spawn is unchanged: SHA-256 and a lookup.
 3. Refusal, not narrowing. A manifest asking for more than the key's ceiling is refused, and the
    refusal names the missing grant.

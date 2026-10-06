@@ -8,8 +8,6 @@ promoted_from: a-region-retypes-a-frame-run
 
 Promoted from `design/roadmap/proposals/a-region-retypes-a-frame-run.md` on 2026-10-03 (UTC). The number 659 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. Status BUILT 2026-09-27: built on PR #1373, recorded as DECISIONS §233. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by the lane for milestone 23 (a capability-routed component
 OS with live replacement) while starting the handoff page count the `line_editor` swap needs. Its
 state with history is a little over one page (notes/interactive-stack-swap.md).

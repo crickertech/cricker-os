@@ -12,11 +12,10 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/processes-share-a-verified-images-code-pages.md` on 2026-10-03 (UTC). The number 692 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Filed by the maintainer, from a finding raised by the lane building milestone 595 (the shell runs
-a std program): while a child is staged, one program's image is held three times at once, shell
-staging, the progenitor's own copy, and the child's mapped pages. Name provisional.
+a std program): while a child is staged, one program's image is held three times at once. The
+copies are shell staging, the progenitor's own copy, and the child's mapped pages. Name
+provisional.
 
 ## What is true today
 
@@ -30,9 +29,8 @@ program, an estimated 100 to 150 KiB per `std` program.
 ## Proposal
 
 Map a verified image's code pages read-only into every instance that runs it, instead of copying
-them per child. The image is already verified once, by digest, before anything runs it, the check
-milestone 104 (the measurement continues past init) built, so nothing new needs proving to share
-the pages: the same bytes are already trusted, whichever process maps them.
+them per child. The image is already verified once, by digest, before anything runs it. Milestone 104 (the
+measurement continues past init) built that check, so nothing new needs proving to share the pages: the same bytes are already trusted, whichever process maps them.
 
 ## Not measured yet
 

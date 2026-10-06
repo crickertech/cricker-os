@@ -10,8 +10,6 @@ needs_person: no
 ---
 # 779. Fuzz the surface a confined process can reach: the services' decoders, and the syscalls
 
-<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 calef asked for this on 2026-10-04 (UTC), and asked that it be a proposal, not a build. Written by
 the proposal lane `lane/fuzz-surface-proposal`. It proposes two milestones, (a) and (b), with
 provisional numbers the integrator mints at promotion; it may split them into two files then. Title
@@ -42,9 +40,13 @@ The census, run on `1a145fcaa`:
   none that reach the dispatcher.
 
 That last point decides part (b). The three confinement defects found on 2026-10-03 were all in
-`kernel/src/sched.rs`: a plain `SEND` delivering badge 0 (#1494), a plain `SEND` handing a
-`RECEIVE_CAP` receiver a sender-chosen slot (milestone 634 (a plain SEND received by RECEIVE_CAP never hands the receiver a sender-chosen slot)), and a staged `outgoing_cap` surviving a
-plain `RECV` (#1525). None was in the proven crates.
+`kernel/src/sched.rs`:
+
+- A plain `SEND` delivering badge 0 (#1494).
+- A plain `SEND` handing a `RECEIVE_CAP` receiver a sender-chosen slot (milestone 634 (a plain SEND received by RECEIVE_CAP never hands the receiver a sender-chosen slot)).
+- A staged `outgoing_cap` surviving a plain `RECV` (#1525).
+
+None was in the proven crates.
 
 ## (a) Host fuzz targets for the services' request handlers
 

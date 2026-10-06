@@ -12,11 +12,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/the-graphical-terminal-runs-full-screen-programs.md` on 2026-10-03 (UTC). The number 705 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-<!-- prose-budget: exception. 4069 words (wc -w, this marker included) against a 3,000-word cap. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so its length predates the cap's reach. Trimming it is a separate pass, and the exception goes when it is done. -->
-
-*(Title and slug are drafts. Number minted at promotion.)*
-
 Raised by a maintainer-assigned lane, from calef's question of whether the graphical terminal can run
 `vim`, `less` and `top`, and what the engine choice that §29 (framebuffer grant) deferred has to do
 with it. Every claim below was checked in the tree or upstream on 2026-10-02 (UTC); a claim from memory
@@ -39,9 +34,13 @@ glyph quality, scrollback, UTF-8 and grid size. None of its increments is about 
 compatibility, so this is not already owned.
 
 Goal. `vim`-class editors, `less` and a repainting `top` draw correctly on the graphical terminal.
-Today none of the three exists on nife: the only full-screen program in the tree is `rmle`
-(milestone 169 (the smallest real text editor, as the forcing function for raw terminal input)), there is no pager (milestone 334 (colour and the pager: the spawn protocol's other two thirds)
-is NOT-STARTED), and `watch` was cut (milestone 281 (`watch` holds exactly what `ps` holds, so it is nothing)). So the terminal half and the program half are
+Today none of the three exists on nife.
+
+- The only full-screen program in the tree is `rmle` (milestone 169 (the smallest real text editor, as the forcing function for raw terminal input)).
+- There is no pager (milestone 334 (colour and the pager: the spawn protocol's other two thirds) is NOT-STARTED).
+- `watch` was cut (milestone 281 (`watch` holds exactly what `ps` holds, so it is nothing)).
+
+So the terminal half and the program half are
 separate work. This proposal is the terminal half; the programs arrive through whatever ports them
 (milestone 198 (a package manager, and the trivial install that makes a second customer possible) is the road).
 
@@ -51,15 +50,14 @@ separate work. This proposal is the terminal half; the programs arrive through w
    program in a pty, feeds its output to `video_terminal`, and compares the 80x24 grid with the same
    session captured from a reference terminal. I built a throwaway version of this for the inventory
    below, using `tmux capture-pane` as the oracle. It is the measure that exists today.
-2. *`vttest` menus passed*, by menu. Menus 1 (cursor movement), 2 (screen features, which holds
-   scrolling regions, origin mode and tab stops), 6 (terminal reports) and 8 (VT102 insert and delete)
-   are the ones full-screen programs need; 3, 4, 5 and 7 (character sets, double-size, keyboard,
+2. *`vttest` menus passed*, by menu. Menus 1 (cursor movement), 2 (screen features) and 6 (terminal reports) are the ones full-screen programs need, with 8 (VT102 insert and delete).
+   Menu 2 holds scrolling regions, origin mode and tab stops; 3, 4, 5 and 7 (character sets, double-size, keyboard,
    VT52) are out of scope. The menu names are from memory; `vttest` is not installed here (Homebrew
    has 20251205).
 
 **Can `vttest` run on nife today? No.** It is a C program over `termios`, `ioctl(TIOCGWINSZ)`, `select`
-and signals. The tree has no libc and no `termios` (`grep termios` finds only a note about a serial
-tool and a rejected crate in milestone 40 (documentation as a system service)); the C seam is freestanding and makes no syscalls (§31 (the foreign-language seam: C holds no capabilities and makes no syscalls)).
+and signals. The tree has no libc and no `termios`. `grep termios` finds only a note about a serial
+tool and a rejected crate in milestone 40 (documentation as a system service). The C seam is freestanding and makes no syscalls (§31 (the foreign-language seam: C holds no capabilities and makes no syscalls)).
 `notes/c-seam.md` tier 3, "Full POSIX", is "later, if ever". `vttest` appears in the tree once,
 as a reason in `notes/glyphs.md:681`. The closest measure is therefore the host harness: `vttest` in a
 pty, its output into `Vt`, a screen dump at each "Push <RETURN>" pause, graded against goldens
@@ -69,54 +67,13 @@ I did not run `vttest`.
 
 ## Part 2: What the three programs need that is missing
 
-Escape-sequence census, taken on the host (macOS, `TERM=xterm`, 80x24, vim 9.1, less from the OS). The
-harness answered `ESC[6n` and `ESC[>c` like an xterm would.
+The census, taken on the host with vim 9.1 and the OS `less`, is in [the census appendix](705-the-graphical-terminal-runs-full-screen-programs/census.md). In short, `Vt` does not act on these:
 
-| program | session | sequences it sent that `Vt` does not act on |
-|---|---|---|
-| vim | open, `:split`, scroll, `:q!` | `?1049h/l` (x1 each), `r` DECSTBM (x9, `1;24` and `1;11`), `>c` (x1), `6n` (x2), `?1h` + `ESC =`, `t` (x4), `?2004h`, `?1004h`, `>4;2m` |
-| less | open, page, `b`, `k`, `q` | `ESC M` reverse index (x24), `?1049h/l` (x1 each), `?1h` + `ESC =` |
+- DECSTBM scrolling regions (vim), reverse index `ESC M` (`less`), and the alternate screen (`?1049`, both).
+- Cursor position and device attribute reports, which need the reply path in Part 3.
+- Insert and delete, cursor addressing, scroll by n, save and restore cursor, and small mode switches such as DECTCEM, DECAWM and DECCKM.
 
-The inventory, each with how a program uses it.
-
-- **DECSTBM scrolling region (`CSI r`).** vim sets `scroll_region = TRUE` whenever terminfo has `csr`
-  (`src/term.c:3499-3503`) and emits `CSI 1;11 r` to scroll one window of a split (captured). `xterm`
-  and `vt100` terminfo both define `csr=\E[%i%p1%d;%p2%dr`. Today a line feed always scrolls the whole
-  screen (`line_feed`, `lib.rs:1328`).
-- **Reverse index (`ESC M`, terminfo `ri`).** `less` scrolls backward with `ri` or `il1`, whichever is
-  cheaper (`screen.c:1730-1745`, `sc_addline`), and only falls back to a repaint when both are absent.
-  `ESC M` falls into the swallow-everything arm (`lib.rs:1386-1390`). Measured: after `space space b`
-  and after `G k`, 22 of 24 rows differ from the oracle, and both repeat. This is the one gap I saw
-  break a real program deterministically.
-- **Alternate screen (`?1049`, `?47`, `?1047`).** Both programs enter with `smcup=\E[?1049h` and leave
-  with `rmcup`. Without it the program works and leaves its last screen in the user's scrollback and
-  the prompt under it. It needs a second grid, a saved cursor and a clear on entry.
-- **Cursor position report (DSR 6, `CSI 6 n`).** vim sends `u7=\E[6n` in `check_terminal_behavior`
-  (`term.c:4238-4245`) to learn ambiguous-width behaviour. Whether it waits for a reply, and for how long, I did not
-  measure (the harness always answered). `rmle` sends no DSR (checked); real `kilo` sends it only when
-  the window size is otherwise unavailable (from memory).
-- **Device attributes (`CSI c`, `CSI > c`).** vim sends `ESC[>c` (`term.c:528`, `4226-4230`) to
-  identify the terminal and pick feature sets; `xterm` terminfo carries `u8`/`u9` for the same query.
-  Without a reply it assumes less.
-- **Insert and delete, and cursor addressing.** `il dl ich dch ech` (`CSI L M @ P X`), `hpa`/`vpa`
-  (`CSI G`, `CSI d`), scroll by n (`CSI S`, `CSI T`), and `sc`/`rc` (`ESC 7`, `ESC 8`) are all in the
-  `xterm` entry and all swallowed today.
-- **Small mode switches.** DECTCEM (`?25`, cursor hide), DECAWM (`?7`, procps `top` toggles it with
-  `rmam`/`smam`, `src/top/top.c:173-174`), DECCKM and `ESC =` (`smkx`, application cursor keys).
-  The last matters on the input side: with `?1h` set a real terminal sends `ESC O A` for Up, and
-  `video_terminal::keymap` always sends `CSI A`. vim accepts both; whether the others do I did not check.
-
-**`top` is the nearest to working.** procps `top` uses `clear`, `ed`, `el`, `cup`, `home`, reverse,
-cursor hide and show, and autowrap off (`top.c:160-179`, `801-817`); it enters no alternate screen. Its
-gap is DECAWM, which only matters when a line is wider than the grid.
-
-**What the replay measured.** Each session was replayed through `Vt` and its final 24 rows compared
-with `tmux capture-pane`. vim, eight scenarios (open, `G`, `ggdd`, Ctrl-E, `5dd`, and split-window
-variants): every run matched except the split-window `Ctrl-E x3, Ctrl-Y` case, which differed in 10 of 24
-rows in two of three runs. less: opening and paging forward matched; backward scroll (`b`, and `G`
-then `k`) differed in every run, 22 of 24 rows. The harness is timing-sensitive (keys land 0.8 s apart
-against the oracle's 0.6 s), and I did not find out why vim agreed as often as it did, so read it as
-"the failures are real, the agreement is not a guarantee". The throwaway harness lives in the lane's scratch directory and is not committed.
+`top` is the nearest to working; its gap is DECAWM. The replay found the `less` backward-scroll failure deterministic (22 of 24 rows differ), and one vim split-window case flaky.
 
 ## Part 3: Keeping the engine a value when it has to reply
 
@@ -177,72 +134,16 @@ risk is, not the sequence count.
 
 ### B. libghostty-vt as a second engine behind the C seam
 
-Everything below was read from `ghostty-org/ghostty` `main` on 2026-10-02, except where marked.
+Full entry in [the engine options appendix](705-the-graphical-terminal-runs-full-screen-programs/engine-options.md). Summary, read from upstream `main` on 2026-10-02:
 
-- *Maturity.* `include/ghostty/vt.h` opens "WARNING: This is an incomplete, work-in-progress API. It is
-  not yet stable and is definitely going to change." `lib_vt.zig` says the behaviour is stable
-  (extracted from a shipped terminal) and the API is not. The tree's own note already says to pin.
-- *Toolchain.* `build.zig.zon` requires Zig 0.16.0 or later. Zig is not installed here (Homebrew has
-  0.16.0), so the build-time cost is unmeasured. The source it compiles is large:
-  `src/terminal` holds 164 Zig files totalling 6.2 MiB, tests included, line count not taken.
-- *Freestanding.* Not "no allocation" (section above). It also needs a `std.Io` (`TinyIo` is the
-  small one), and an entropy callback on targets with no `getrandom`
-  (`GHOSTTY_SYS_OPT_RANDOM_SECURE`, `vt_sys.h`; whether the terminal path exercises it is not
-  checked). Whether the Zig 0.16 freestanding build links without libc symbols is the first thing
-  a lane would have to find out; I did not try.
-- *Licence.* MIT (GitHub licence field, and the repository `LICENSE`).
-- *What it buys.* Alternate screen (modes 47, 1047, 1049), device attributes, cursor report, size
-  report, mouse and key encoders, reflow and scrollback, per `vt.h`, `vt_modes.h` and
-  `vt_terminal.h`.
-- *Cells versus pixels.* Its C ABI gives cells through a render-state API (`render.h`, 1,104 lines of
-  header). `Vt::pixel(x, y)` is a pure function of our own grid. The rebuild is the expected-picture
-  definition, as `notes/glyphs.md:694` says: either it moves to the Zig side or it is rewritten over
-  the cell layout and checked against `Vt` on the same scripts. That check, two engines graded against
-  each other, is the milestone 23 (a capability-routed component OS with live replacement)
-  demonstration the existing note argues for.
-
-1. Considered instead: A, which avoids the dependency and loses on completeness and on the milestone 23
-   demonstration; and C, which is a parser only (below).
-2. See the shared answer.
-3. Prior art read: the headers above. Ghostty's conformance history against `vttest` is claimed in
-   `notes/glyphs.md:681`; I did not verify it.
-4. See the shared answer, including the stale "no allocation" line.
-5. Cost: a Zig 0.16 toolchain in the build (unmeasured), a pinned vendored tree under §18's policy, an
-   allocator for the component, a cell-based expected-picture check (not estimated), and shim code
-   (not estimated).
-6. Hard to reverse once programs rely on its behaviour; easy to reverse before. A dependency in the
-   shipping graph is the irreversible category in `CLAUDE.md`.
-7. Mostly yes. It is the option this tree already prefers for its milestone 23 claim, and the
-   answer is less about effort than about whether the claim is worth a toolchain.
+- The C API is declared incomplete and "definitely going to change"; the behaviour is stable.
+- It needs Zig 0.16.0 or later in the build, an allocator the component does not have, and a cells-based rebuild of the expected-picture check.
+- It buys the alternate screen, reports, mouse and key encoders, reflow and scrollback. MIT licence.
+- A dependency in the shipping graph is the irreversible category in `CLAUDE.md`. Cost is unmeasured beyond that.
 
 ### C. `vte` (the Rust crate)
 
-Read from the 0.15.0 source (crates.io, `Apache-2.0 OR MIT`, 57 KB).
-
-- *What it is.* A parser: "The state machine doesn't assign meaning to the parsed data and is thus not
-  itself sufficient for writing a terminal emulator" (its `README.md`). You implement `Perform` and
-  receive `print`, `execute`, `csi_dispatch`, `esc_dispatch`, `osc_dispatch` and `hook`. The parser is
-  `src/lib.rs`, 832 lines before its tests, plus `params.rs` (144).
-- *What 0.15.0 adds.* An optional `ansi` feature (2,016 lines before tests) with a `Handler` trait
-  that already names `set_scrolling_region`, `device_status`, `identify_terminal` and a
-  `PrivateMode` enum including `SwapScreenAndSetRestoreCursor` (1049). It is still stateless: the
-  grid, the regions, the second screen and the replies stay ours. It also pulls `alloc`, `log`,
-  `bitflags` and `cursor-icon`, and `display_terminal` has no allocator.
-- *What it would save.* The sequence-recognition half of `csi` (`lib.rs:1393-1442`): the parameter and
-  intermediate-byte handling that this engine already has and tests. It saves none of the state the
-  Part 2 list needs. The roadmap's phrase "much less complete" (milestone 29) understates this: it
-  is not an engine at all.
-- *Dependencies.* The parser needs `arrayvec` (not in `Cargo.lock`) and `memchr` (already there).
-
-1. Considered instead: A. It is A with a different front half.
-2. See the shared answer.
-3. Prior art read: `ansi.rs` says it "was originally part of the `alacritty_terminal` crate", so the
-   state half lives in a different crate.
-4. See the shared answer.
-5. Cost: the lines above, two dependencies, and the engine work of A on top.
-6. Reversible before use; a dependency in the shipping graph once used.
-7. No. At equal cost A wins over C, since C adds a dependency to save a parser that is already written
-   and tested here. C is listed so that a refusal, if it comes, has its reason on record.
+Full entry in the same appendix. `vte` 0.15.0 is a parser, not an engine: the grid, regions, second screen and replies stay ours, and it saves only the sequence recognition this engine already has and tests. At equal cost A wins over C. C is listed so that a refusal, if it comes, has its reason on record.
 
 ### D. A then B, or B then A
 
@@ -317,7 +218,7 @@ contract says "ANSI from the application reaches the screen intact"
 is the VT engine, so `vim`-class programs get a complete one for free. `rmle` already does this: it
 emits `ESC[?25l`, `ESC[H`, `ESC[K`, `ESC[7m` and a cursor-position `CSI H` (`components/src/rmle.rs:526-560`) and
 depends on nothing the display terminal lacks. Replies from the host terminal arrive on the UART
-as input bytes and reach the program through `OPERATION_READRAW` while raw mode is on
+as input bytes. They reach the program through `OPERATION_READRAW` while raw mode is on
 (`notes/terminal-contract.md:105-115`), so DSR and DA already work in principle on the serial path;
 I did not test it.
 

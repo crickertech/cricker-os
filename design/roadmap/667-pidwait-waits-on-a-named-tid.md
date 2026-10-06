@@ -12,8 +12,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/pidwait-waits-on-a-named-tid.md` on 2026-10-03 (UTC). The number 667 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by milestone 126 (the `procps` package)'s lane
 `milestone/126-free`, building `pidwait` under DECISIONS §226 (`pidwait` takes tids and composes with
 `pgrep`), and moved out of 126 when the build found it needs a new kernel method.
@@ -28,8 +26,8 @@ composing with `pgrep`. The shell has pipes and no `$( … )`, so the composable
 `pgrep | pidwait`, reading decimal tids on its input. That half needs nothing new.
 
 The other half does. Nothing lets a program observe a named tid's exit with less authority than
-`pgrep` holds: `rendezvous::RECEIVE` needs `READ` and would take the death message from the supervisor
-it was meant for, and polling `SURVEY` needs `ENUMERATE`, which is `pgrep`'s authority and would undo
+`pgrep` holds. `rendezvous::RECEIVE` needs `READ` and would take the death message from the supervisor
+it was meant for. Polling `SURVEY` needs `ENUMERATE`, which is `pgrep`'s authority and would undo
 the reason §226 made `pidwait` a program of its own.
 
 ## The options

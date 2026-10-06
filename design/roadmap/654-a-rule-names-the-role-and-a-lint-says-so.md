@@ -12,8 +12,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/a-rule-names-the-role-and-a-lint-says-so.md` on 2026-10-03 (UTC). The number 654 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by the `maintainer/architect-role-census` lane, which swept
 the tree for sentences assuming calef is the only architect (calef, 2026-09-25 UTC: *"I want to
 strike all assumptions from the tree that I am the only architect so that when we have another we
@@ -28,8 +26,8 @@ repository reads it.
 A sentence, outside `design/decisions/` and the dated records, that names a listed architect
 (read from `ARCHITECTS.md`, never spelled) as the one who decides, in the present tense: `<name>'s
 call`, `names are <name>'s`, `is <name>'s to ratify`, `until <name> rules`, `does not need <name>`.
-The census lane's rewrite script already encodes those shapes and the guards that keep records out:
-a match inside a quotation or backticks is skipped, as is a match with a date within about twenty
+The census lane's rewrite script already encodes those shapes and the guards that keep records out.
+A match inside a quotation or backticks is skipped. So is a match with a date within about twenty
 characters, or with a past-tense verb (`was <name>'s call`).
 
 ## Why it was not built in that lane: measured false positives
@@ -44,9 +42,9 @@ and all 60 are correct as written. They are not architect-role sentences. They a
 - his network, his router, and attributions such as "the governing constraint is calef's".
 
 A lint that fires 60 times on a clean tree is a lint people learn to suppress. The rewrite script
-excluded these with a keyword list (`machine`, `firmware`, `secret`, `owner`, `App is`, ...), which
-was fine for one reviewed pass and would be wrong as a gate: the next ownership sentence that uses
-a new word fails somebody's build.
+excluded these with a keyword list (`machine`, `firmware`, `secret`, `owner`, `App is`, ...). That was
+fine for one reviewed pass and would be wrong as a gate, because the next ownership sentence that
+uses a new word fails somebody's build.
 
 ## Options
 

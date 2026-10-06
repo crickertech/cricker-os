@@ -12,19 +12,17 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/the-week-flag-fires-every-week.md` on 2026-10-03 (UTC). The number 698 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised on 2026-09-29 (UTC) by the lane building milestone 623 (bullet under the chart explains a
 cliff), while it built the flag calef commissioned.
-The threshold came from the proposal verbatim; the build measured what it does on real data, and
+The threshold came from the proposal verbatim. The build measured what it does on real data, and
 the measurement belongs in front of whoever rules on the constant.
 
 ## What the build measured
 
 `script/metrics --flags` over the ten charted weeks 2026W31 to 2026W40, each week compared with
 the week before it in the series, seventy-three series charted. Variants were measured by editing
-one constant and one comparison in copies of the built flag, so the table is the implementation's
-own arithmetic and not a re-derivation:
+one constant and one comparison in copies of the built flag. The table is therefore the
+implementation's own arithmetic and not a re-derivation:
 
 | variant | series flagging, by week (min to max) | weeks with nothing flagged |
 | --- | --- | --- |
@@ -33,13 +31,13 @@ own arithmetic and not a re-derivation:
 | one quarter, both directions | 10 to 33 | 0 of 10 |
 | one quarter, drops only | 3 to 16 | 0 of 10 |
 
-The cause is structural, not a bad week: most charted series are counts or churn flows, and a
+The cause is structural, not a bad week. Most charted series are counts or churn flows, and a
 young project grows and churns them faster than any of these bars. Under every variant the
-2026W40 kernel cliff flags (kernel code fell 29%), and under every variant something flags every
+2026W40 kernel cliff flags (kernel code fell 29%). Under every variant something flags every
 week, so no flat bar fully separates a cliff from ordinary motion on this data.
 
-A drift that moves a series a twentieth each week never flags, which the original proposal already
-recorded as the threshold's other blind spot.
+A drift that moves a series a twentieth each week never flags. The original proposal already
+recorded that as the threshold's other blind spot.
 
 ## Options
 
@@ -51,10 +49,10 @@ recorded as the threshold's other blind spot.
 | D. Drops only, one quarter | B with a higher bar | Refused. Measured 3 to 16, the quietest, but it would miss a 20% fall in a series that had earned a reader's trust |
 | E. A per-series band | flag a move outside the series' own trailing range | Refused by cost: seventy-three bespoke bands are a second dashboard to maintain |
 
-The recommendation is B: one word of rule added to the constant already in `script/metrics`, and
-the honest caveat that even then a week with nothing worth explaining will sometimes flag,
-because this tree's counts move. An architect rules with the table above in hand; the constant
-lives beside `CHART_WEEKS` either way.
+The recommendation is B: one word of rule added to the constant already in `script/metrics`. The
+honest caveat is that even then a week with nothing worth explaining will sometimes flag, because
+this tree's counts move. An architect rules with the table above in hand. The constant lives beside
+`CHART_WEEKS` either way.
 
 Name provisional.
 

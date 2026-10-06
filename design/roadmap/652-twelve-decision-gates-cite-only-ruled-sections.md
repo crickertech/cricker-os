@@ -12,11 +12,9 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/twelve-decision-gates-cite-only-ruled-sections.md` on 2026-10-03 (UTC). The number 652 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by milestone 591 (a ruling should make the gate it answers
-fail until someone updates it), whose lane converted 27 `DECISION` gates to `DECISION §N` and could
-not convert these twelve: every section each one cites is `DECIDED` or `AMENDED`, so the new token
+fail until someone updates it). Its lane converted 27 `DECISION` gates to `DECISION §N` and could
+not convert these twelve. Every section each one cites is `DECIDED` or `AMENDED`, so the new token
 would fail the day it was written. **Name provisional**: this file's stem is a lane's coinage.
 
 Each fix is prose in one roadmap block, reversible in AGENTS.md's sense. A block that

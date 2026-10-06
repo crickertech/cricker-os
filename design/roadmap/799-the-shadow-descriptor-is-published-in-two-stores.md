@@ -10,14 +10,12 @@ needs_person: no
 ---
 # 799. The shadow descriptor is published in two stores
 
-<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by lane/633-outsider-2, milestone 633 (an outside agent attacks the confinement claim)'s
 second pass, on 2026-10-05 (UTC). Title and slug provisional.
 
 **Reuse:** the validate-then-publish shape is the one `crates/virtio`'s own avail-ring publish
-already uses (the `avail.idx` write is the single publish point), and variant 2 reuses the used
-ring the device already writes; no new mechanism is proposed, and the crate stays on the
+already uses (the `avail.idx` write is the single publish point). Variant 2 reuses the used
+ring the device already writes. No new mechanism is proposed. The crate stays on the
 verification path per §46 (thin primitives or whole subsystems; we write everything in between),
 so nothing external is taken.
 

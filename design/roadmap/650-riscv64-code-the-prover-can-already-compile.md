@@ -12,8 +12,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/riscv64-code-the-prover-can-already-compile.md` on 2026-10-03 (UTC). The number 650 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by the lane `lane/price-kani-kernel-reach` (pull request
 #1276), briefed to price closing `design/fatal-risks/README.md` risk 2 (the proofs prove trivia) on the
 premise that `cargo kani` has never compiled the kernel. The premise was false, and the measurement
@@ -116,7 +114,7 @@ them except option 3.
 
 Option 1: compile riscv64's self-contained, asm-free files as proof-only modules on the aarch64
 host. The probe above, made permanent for `iommu.rs` (and `context.rs` if a property is worth
-writing there), plus the property that milestone 255 (a quarter of `kernel/src/arch/` has no
+writing there). It adds the property that milestone 255 (a quarter of `kernel/src/arch/` has no
 assembly in it, and none of it is proved) said "can be written and cannot be run": the device
 context's address fields round-trip, and no device id reaches another's entry. Measured cost:
 five lines in `arch/mod.rs` and one harness. The probe run's wall time was not taken separately;
@@ -150,8 +148,8 @@ modelled on the aarch64 one), built with its own pinned nightly and a CBMC for a
 on `radon` or a riscv64 QEMU guest on cordoba. Reaches everything, including the 98 gated sites
 outside `arch/`, with the real `cfg`s and the real `crate::arch`. Cost, estimated: a Kani fork this
 tree maintains through every Kani toolchain bump, which DECISIONS §46 (thin primitives or whole
-subsystems) treats as a dependency decision rather than a build task, and a verify host that is
-either a lab board or an emulator. Days to weeks, and not measured here. Upstreaming the machine
+subsystems) treats as a dependency decision rather than a build task. It also needs a verify host
+that is either a lab board or an emulator. Days to weeks, and not measured here. Upstreaming the machine
 model is the version of this that does not leave a fork behind; #2402's age says not to wait on it.
 
 **Option 4: nothing.** Record the corrected wall in `notes/kernel-proofs.md` and move on.

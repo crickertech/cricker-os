@@ -12,8 +12,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/the-graph-counts-the-names-calef-calls.md` on 2026-10-03 (UTC). The number 701 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 ## What is being decided
 
 Whether the weekly metrics grow a counted series for public function and method names, the surface
@@ -25,16 +23,16 @@ nothing. calef asked for it on 2026-09-30.
 Two series, one mechanism:
 
 1. `public_names`, the stock: total public function and method names per week, split the way the
-   lines series splits (kernel crate versus the rest), so a discontinuity like milestone 609 (the system tests
-   leave the kernel crate) is annotatable by the 623 (a bullet under the chart explains a cliff)
-   machinery rather than argued about.
+   lines series splits (kernel crate versus the rest). A discontinuity like milestone 609 (the
+   system tests leave the kernel crate) is then annotatable by the 623 (a bullet under the chart
+   explains a cliff) machinery rather than argued about.
 2. `provisional_names`, the worklist: how many of those names carry a provisional provenance
    block. This is the ratification queue with a number on it, measured weekly instead of
    remembered.
 
-Both derive from one pass: the weekly workflow already produces rustdoc JSON for the doc-coverage
-gates, a helper (outside `script/metrics`, which may not run cargo, per the 623 pattern) counts
-public fns and methods from it and greps their doc comments for the provisional marker, appending
+Both derive from one pass. The weekly workflow already produces rustdoc JSON for the doc-coverage
+gates. A helper (outside `script/metrics`, which may not run cargo, per the 623 pattern) counts
+public fns and methods from it and greps their doc comments for the provisional marker. It appends
 one CSV row per week. `script/metrics` renders the chart from the CSV and nothing else.
 
 ## What it costs

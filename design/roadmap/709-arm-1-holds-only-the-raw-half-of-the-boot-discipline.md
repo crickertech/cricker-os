@@ -13,8 +13,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/arm-1-holds-only-the-raw-half-of-the-boot-discipline.md` on 2026-10-03 (UTC). The number 709 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by the 2026-10-03 security audit
 (`design/audit-reports/2026-10-03-eight-constants-and-thirteen-components.md`, finding 2), reading
 `graphical_terminal`, one of the thirteen components the window added, for what it holds against
@@ -46,8 +44,8 @@ dispatch and the grant, not demonstrated under QEMU; a demonstration is the firs
 lane, as a red test.
 
 Severity: medium. It needs a compromised session (the stack is the tree's own code, spawned by the
-shell), the no-keyboard arm (a real board with a GPU and a UART console, which is xenon's shape),
-and the shell's own authority is what is gained, not the kernel's. The kernel confined the session
+shell) and the no-keyboard arm (a real board with a GPU and a UART console, which is xenon's
+shape). What is gained is the shell's own authority, not the kernel's. The kernel confined the session
 exactly as granted; the grant is wider than the use.
 
 ## What else was considered

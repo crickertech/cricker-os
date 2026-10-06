@@ -12,10 +12,8 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/scrollback-from-the-keyboard.md` on 2026-10-03 (UTC). The number 668 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by milestone 142 (a text display good enough that people use
-it instead of a GUI)'s lane, which went to wire the scrollback it built in August to a key and found
+it instead of a GUI)'s lane. It went to wire the scrollback it built in August to a key and found
 the key never reaches the component that holds the history.
 
 The recommended route adds one opcode to the terminal contract, which two
@@ -45,7 +43,7 @@ keyboard_driver or input ──OPERATION_BYTES──► line_editor ──OPERAT
 ```
 
 `display_terminal` only ever receives output. A keystroke has already been consumed, edited and
-echoed by the time anything reaches it, and `CSI 5;2~` is swallowed by the line discipline as a
+echoed by the time anything reaches it. `CSI 5;2~` is swallowed by the line discipline as a
 sequence it does not implement (which is correct: it must not type `5;2~` into the line).
 
 ## The options
@@ -60,9 +58,9 @@ sequence it does not implement (which is correct: it must not type `5;2~` into t
 A is recommended. The line discipline is the one component that sees every keystroke in every
 wiring where a person types at a prompt, and it already holds the terminal's endpoint
 (`components/src/line_editor.rs`, `MODE_DISPLAY`, slot 1). The terminal already tells its senders
-apart by opcode on that one endpoint, a consequence of §33 (the compositor's authority is memory,
-not messages) that `display_terminal.rs`'s module note spells out, so a scroll request is one more
-arm in a match that exists.
+apart by opcode on that one endpoint. That is a consequence of §33 (the compositor's authority is
+memory, not messages), which `display_terminal.rs`'s module note spells out. A scroll request is
+one more arm in a match that exists.
 
 Why each other option loses:
 
@@ -72,9 +70,9 @@ Why each other option loses:
   terminal forwarding. It is the most faithful to how a Unix terminal emulator is built and the most
   expensive here.
 - C puts the gesture in the right place in principle (Linux does it in the keyboard layer; see
-  prior art) but not in this tree: on real boards the keystroke source is usually the UART
+  prior art) but not in this tree. On real boards the keystroke source is usually the UART
   (milestone 192 (a keyboard on real silicon)'s option A, `KeystrokeSource::Serial`), which sees
-  bytes rather than key events, so C would need a second implementation in `input` and would still
+  bytes rather than key events. So C would need a second implementation in `input` and would still
   leave a serial-driven screen without scrolling. It also spends a capability slot in the driver,
   and `boot_graphical_terminal`'s own comment records that aarch64's progenitor has three left.
 - D puts an input gesture into the output stream, where any program can print it and scroll a
@@ -95,9 +93,9 @@ Why each other option loses:
    `crates/video_terminal` (`grep -rn scroll_up components kernel` is empty), and the line
    discipline's CSI dispatch (`crates/line_editor/src/lib.rs`, `csi_final`) has no arm for `5~` or
    `6~`.
-5. Cost of A, estimated rather than measured: one opcode constant in `line_editor::proto`, two
-   arms in the discipline's CSI dispatch plus a way to report a scroll request out of `feed` (an
-   `Event` variant is the existing shape), one `CALL` in `components/src/line_editor.rs`, and one
+5. Cost of A, estimated rather than measured. It needs one opcode constant in `line_editor::proto`
+   and two arms in the discipline's CSI dispatch. It also needs a way to report a scroll request out
+   of `feed` (an `Event` variant is the existing shape), one `CALL` in `components/src/line_editor.rs`, and one
    arm in `display_terminal.rs`. Perhaps sixty lines and a host test on each side. No capability,
    no slot.
 6. Reversibility: the opcode is the only irreversible part, because two programs agree on it.

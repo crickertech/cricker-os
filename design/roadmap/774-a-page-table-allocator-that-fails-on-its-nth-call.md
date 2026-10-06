@@ -10,8 +10,6 @@ needs_person: no
 ---
 # 774. A page-table allocator that fails on its Nth call
 
-<!-- writing-standards: exception. Granted 2026-10-06 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised 2026-10-04 (UTC) by the lane for milestone 745 (count the error paths no test reaches),
 provisional, as its recommended first fault-injection pilot. *(Title and slug are drafts.)*
 
@@ -41,16 +39,13 @@ call. Sweep N from 1 until a mapping succeeds, over `map_span` (with block sizes
 3. The error is `OutOfPageFrames`, the one the kernel turns into `OutOfMemory`.
 
 Host-only, milliseconds per test. If (1) or (2) fails, the finding is a frame leak or a half-mapped
-grant per failed call, which is the evidence for or against the larger pilot in
+grant per failed call. That is the evidence for or against the larger pilot in
 milestone 757 (a test kernel fails a process on its Nth retype), now built.
 
 ## What it does not do
 
 It does not reach the kernel's own rollbacks, which run under QEMU. It measures the library they
 call, so a leak found here is a leak there too, and a clean result says nothing about the caller.
-</content>
-</invoke>
-
 ## Index row
 
 Twelve of the unreached error paths that release memory or authority sit in `crates/paging`, five of them midway through a mapping. A test allocator that fails on its Nth call, swept over `map_span`, `map_range` and `build_identity_domain`, reaches them with no production code added.

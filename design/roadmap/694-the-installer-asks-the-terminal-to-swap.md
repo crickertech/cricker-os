@@ -12,8 +12,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/the-installer-asks-the-terminal-to-swap.md` on 2026-10-03 (UTC). The number 694 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Raised by the lane for milestone 23 (a capability-routed component
 OS with live replacement) after building `terminal_supervisor`, which can replace `line_editor` live
 but which nothing on a real boot asks to. calef asked for the trigger to be written up as the next
@@ -40,7 +38,7 @@ waits. And a replacement today is the same image the supervisor was handed at bi
    that constant names the two candidates.
 2. How the new image reaches the supervisor. The supervisor cannot read the archive or the
    package store. Recommended: the activation path copies the vouched bytes into a frame run it
-   retypes with `MemoryRegion::RETYPE`'s page count and sends that capability with the request
+   retypes with `MemoryRegion::RETYPE`'s page count. It sends that capability with the request
    (`SEND_CAP`), so `SWAP` carries its image and the supervisor maps it where it maps its own.
    Refused: a second copy at build time, which would make the supervisor carry every future build.
 3. What an activation does when the swap rolls back. The new build refused the old state, so

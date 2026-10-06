@@ -12,8 +12,6 @@ needs_person: no
 
 Promoted from `design/roadmap/proposals/test-helpers-give-their-clients-a-region-to-retype-from.md` on 2026-10-03 (UTC). The number 670 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
-<!-- writing-standards: exception. Granted 2026-10-03 (UTC) by the maintainer minting this milestone, not ratified by an architect. Reason: this block was promoted unedited from design/roadmap/proposals/, which the prose scope excludes, so it meets the sentence and bold limits only after an edit that promotion does not make. Trimming it is a separate pass, and the exception goes when it is done. -->
-
 Filed by the lane of milestone 608 (kernel tests give back their rendezvous points), from the
 rendezvous ledger at `sched::PEAK_RENDEZVOUS`, built by milestone 601 (the region table prints its
 peak, and a refused split's leak is recorded). The title is provisional.
@@ -24,8 +22,8 @@ Test and service wiring; no syscall surface, no dependency.
 
 Milestone 608 moved eleven of `kernel::sched`'s own IPC tests off kernel-chunk rendezvous by
 retyping each test's endpoint from a one-off `memory_region::create` region reclaimed at the end
-of the test. That pattern does not reach most of the ledger's other large holders, because their
-`create_rendezvous()` calls sit inside a shared spawn helper, not the test body, and that helper
+of the test. That pattern does not reach most of the ledger's other large holders. Their
+`create_rendezvous()` calls sit inside a shared spawn helper, not the test body. That helper
 gives its spawned client no region of its own to retype from:
 
 | module | kernel chunks | helper |
@@ -37,9 +35,9 @@ gives its spawned client no region of its own to retype from:
 | `user::tests` | 45 | mixed; some rendezvous are deliberately leaked for a spinning child's whole lifetime and are not candidates |
 
 `x86_userspace_round` (`kernel/src/user.rs`) and #1344's `fs_subtree_caretaker`-narrowed walk tests
-are the worked examples: each gives its child a `memory_region::create` region up front, retypes
-every rendezvous the child needs from it with `create_rendezvous_from`, and reclaims the whole
-region once the child is reaped, in one call.
+are the worked examples. Each gives its child a `memory_region::create` region up front and retypes
+every rendezvous the child needs from it with `create_rendezvous_from`. Each then reclaims the whole
+region in one call once the child is reaped.
 
 ## The work
 
@@ -49,9 +47,9 @@ once the client is reaped. Confirm first, per module, that the endpoint is not d
 outliving the test (a boot-lived service, like the FS server and block server behind the file
 tests) before touching it; only per-test residue is in scope.
 
-`login_tests`' 36 kernel-chunk rendezvous need the same check before assuming they are in scope:
-milestone 601's ledger notes the other 30 there are already retyped from session regions, so the
-remaining 36 may be the login service's own boot-lived endpoints rather than test residue.
+The 36 kernel-chunk rendezvous in `login_tests` need the same check before assuming they are in
+scope. Milestone 601's ledger notes the other 30 there are already retyped from session regions, so
+the remaining 36 may be the login service's own boot-lived endpoints rather than test residue.
 
 ## Done when
 
