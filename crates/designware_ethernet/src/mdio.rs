@@ -158,6 +158,185 @@ mod tests {
         assert_eq!(w, 7 << 8 | 31 << 21 | 31 << 16 | 1 << 2 | 1);
     }
 
+    use std::vec::Vec;
+
+    /// The MAC's two MDIO registers and nothing else: every write is logged in order, a command's
+    /// busy bit stays set for `busy_reads` reads of the address register, and a read command
+    /// leaves `answer` in the data register when it completes.
+    struct Pair {
+        addr: u32,
+        data: u32,
+        answer: u16,
+        busy_reads: u32,
+        stuck: bool,
+        writes: Vec<(u32, u32)>,
+        waited_us: u64,
+    }
+
+    impl Pair {
+        fn new(answer: u16, busy_reads: u32) -> Pair {
+            Pair {
+                addr: 0,
+                data: 0,
+                answer,
+                busy_reads,
+                stuck: false,
+                writes: Vec::new(),
+                waited_us: 0,
+            }
+        }
+    }
+
+    impl Hw for Pair {
+        fn read(&mut self, off: u32) -> u32 {
+            match off {
+                regs::MAC_MDIO_ADDR => {
+                    if self.addr & GB != 0 && !self.stuck {
+                        if self.busy_reads == 0 {
+                            self.addr &= !GB;
+                            if self.addr & (0x3 << 2) == GOC_READ {
+                                self.data = u32::from(self.answer);
+                            }
+                        } else {
+                            self.busy_reads -= 1;
+                        }
+                    }
+                    self.addr
+                }
+                regs::MAC_MDIO_DATA => self.data,
+                _ => panic!("MDIO touched {off:#x}, outside its two registers"),
+            }
+        }
+        fn write(&mut self, off: u32, v: u32) {
+            self.writes.push((off, v));
+            match off {
+                regs::MAC_MDIO_ADDR => self.addr = v,
+                regs::MAC_MDIO_DATA => self.data = v,
+                _ => panic!("MDIO wrote {off:#x}, outside its two registers"),
+            }
+        }
+        fn delay_us(&mut self, us: u64) {
+            self.waited_us += us;
+        }
+    }
+
+    #[test]
+    fn a_read_issues_one_read_command_and_returns_the_data_register() {
+        let mut hw = Pair::new(0xbeef, 3);
+        assert_eq!(Bus(&mut hw).read(4, BMSR), Ok(0xbeef));
+        assert_eq!(hw.writes, [(regs::MAC_MDIO_ADDR, command(4, BMSR, false))]);
+        assert_eq!(
+            hw.waited_us,
+            3 * POLL_US,
+            "it waited out the busy bit, poll by poll"
+        );
+    }
+
+    #[test]
+    fn a_write_puts_the_data_down_before_the_command_that_sends_it() {
+        // The other order would send whatever the data register held before.
+        let mut hw = Pair::new(0, 2);
+        Bus(&mut hw).write(1, BMCR, 0x1200).unwrap();
+        assert_eq!(
+            hw.writes,
+            [
+                (regs::MAC_MDIO_DATA, 0x1200),
+                (regs::MAC_MDIO_ADDR, command(1, BMCR, true))
+            ]
+        );
+    }
+
+    #[test]
+    fn a_command_still_busy_from_someone_else_is_waited_out_not_overwritten() {
+        let mut hw = Pair::new(0x1234, 2);
+        hw.addr = command(7, 9, false); // firmware's read, in flight
+        assert_eq!(Bus(&mut hw).read(0, PHYSID1), Ok(0x1234));
+        // Nothing was written until the firmware's command had cleared its busy bit.
+        assert_eq!(hw.writes.len(), 1);
+        assert!(hw.waited_us >= 2 * POLL_US);
+    }
+
+    #[test]
+    fn a_busy_bit_that_never_clears_is_a_bounded_timeout_naming_the_access() {
+        let mut hw = Pair::new(0, 0);
+        hw.stuck = true;
+        hw.addr = GB;
+        assert_eq!(
+            Bus(&mut hw).read(3, BMSR),
+            Err(Error::Timeout { phy: 3, reg: BMSR })
+        );
+        assert_eq!(hw.waited_us, COMMAND_LIMIT_US);
+        assert!(hw.writes.is_empty(), "a bus held busy was never written");
+        let mut hw = Pair::new(0, 0);
+        hw.stuck = true;
+        assert_eq!(
+            Bus(&mut hw).write(2, BMCR, 1),
+            Err(Error::Timeout { phy: 2, reg: BMCR })
+        );
+        assert_eq!(hw.waited_us, COMMAND_LIMIT_US);
+    }
+
+    /// A clause 22 register file with a latched-low link bit, for the helpers above the bus.
+    struct Latched {
+        regs: [u16; 32],
+        link_now: bool,
+        dropped_since_read: bool,
+    }
+
+    impl Mdio for Latched {
+        fn read(&mut self, _phy: u8, reg: u8) -> Result<u16, Error> {
+            if reg == BMSR {
+                let up = self.link_now && !self.dropped_since_read;
+                self.dropped_since_read = false;
+                return Ok(if up { BMSR_LINK } else { 0 });
+            }
+            Ok(self.regs[reg as usize])
+        }
+        fn write(&mut self, _phy: u8, reg: u8, v: u16) -> Result<(), Error> {
+            self.regs[reg as usize] = v;
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_link_that_dropped_and_came_back_reads_up_on_the_second_read() {
+        let mut phy = Latched {
+            regs: [0; 32],
+            link_now: true,
+            dropped_since_read: true,
+        };
+        assert!(link_is_up(&mut phy, 0).unwrap());
+        phy.link_now = false;
+        assert!(!link_is_up(&mut phy, 0).unwrap());
+    }
+
+    #[test]
+    fn the_identifier_is_the_high_register_then_the_low() {
+        let mut phy = Latched {
+            regs: [0; 32],
+            link_now: false,
+            dropped_since_read: false,
+        };
+        phy.regs[PHYSID1 as usize] = 0x4f51;
+        phy.regs[PHYSID2 as usize] = 0xe91b;
+        assert_eq!(phy_id(&mut phy, 0), Ok(0x4f51_e91b));
+    }
+
+    #[test]
+    fn restarting_autonegotiation_keeps_the_other_control_bits() {
+        let mut phy = Latched {
+            regs: [0; 32],
+            link_now: false,
+            dropped_since_read: false,
+        };
+        phy.regs[BMCR as usize] = 0x0100; // full duplex, set by someone else
+        restart_autonegotiation(&mut phy, 0).unwrap();
+        assert_eq!(
+            phy.regs[BMCR as usize],
+            0x0100 | BMCR_ANENABLE | BMCR_ANRESTART
+        );
+    }
+
     #[test]
     fn an_address_too_wide_for_its_field_does_not_spill_into_the_next() {
         // PHY 33 is PHY 1; it must not set bit 26, which is outside the 5-bit field.
