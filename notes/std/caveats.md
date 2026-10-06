@@ -178,3 +178,17 @@ against unpatched std in one fresh worktree on 2026-10-03: `std` failed in its `
 dispatchers. Running `target/debug/xtask` directly with `CARGO_MANIFEST_DIR` exported worked.
 Cause not established (suspected: the proxy prepends the real toolchain's `bin` to `PATH`, so the
 child `cargo` ignores `RUSTUP_TOOLCHAIN=<farm>`); found by the lane for milestone 714 (the sibling RECEIVE_CAP paths get a receiver-first test).
+
+**A likely cause, measured 2026-10-06 by lane/calendar-test-time.** The farm's `bin/rustc` and
+`lib/librustc_driver-*.dylib` are hard links (`cp -al` in `xtask/src/farm.rs`) to the same inodes as
+the pinned nightly's, and rustc finds its sysroot from where its own image lives. With
+`RUSTUP_TOOLCHAIN=<farm>`, `rustc --print sysroot` named the real nightly in 1 of 8 runs
+interleaved with the nightly's own rustc, and a `cargo build -Zbuild-std` then compiled
+`~/.rustup/toolchains/nightly-2026-10-05-*/lib/rustlib/src/.../std` and failed in `cfg_select!`.
+After replacing just those two files in the farm with real copies, 30 of 30 runs named the farm.
+The mechanism is inferred, not proven: macOS appears to report one path for an inode with several
+links, so whichever link ran last can win. It also fits the 2026-09-30 sighting of
+`rustc --print sysroot` naming another worktree's farm ([std.md](../std.md)), since every farm
+links the same inodes. `std-aborts` blames this on a `nife-dev` relink race, which it is not. The
+fix to try is copying `bin/` and the `librustc_driver` dylib for real (a few hundred megabytes per
+farm) while keeping the rest hard-linked; nobody has built it.
