@@ -374,6 +374,13 @@ GUESTFWD="$GUESTFWD,guestfwd=tcp:10.0.2.9:8080-cmd:$PACKAGE_PEER"
 NAME_SERVER_PEER="$(cd "$(dirname "$0")" && pwd)/name-server-peer"
 GUESTFWD="$GUESTFWD,guestfwd=tcp:10.0.2.9:53-cmd:$NAME_SERVER_PEER"
 
+# **The TLS peer** (milestone 501 (a TLS client that speaks to one pinned peer)), on the package
+# source's terms: 10.0.2.9:8443 is a fresh `helpers/tls-peer` per connection, a TLS 1.3 server (Python's
+# `ssl`, so OpenSSL) presenting test certificates chosen by the name the client asks for, so one port
+# gives the pinned client its peer and both of the refusals it must make.
+TLS_PEER="$(cd "$(dirname "$0")" && pwd)/tls-peer"
+GUESTFWD="$GUESTFWD,guestfwd=tcp:10.0.2.9:8443-cmd:$TLS_PEER"
+
 # `tftp=` turns on slirp's OWN TFTP server, at the gateway (10.0.2.2:69), and that is what makes the
 # gating UDP test deterministic and offline. The UDP test used to query 10.0.2.3:53, which is NOT a
 # resolver: libslirp NATs anything sent there to the HOST's nameserver, so that test silently

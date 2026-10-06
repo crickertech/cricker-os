@@ -16,6 +16,7 @@ crates = [
     "loaded_image_check",
     "std_exerciser",
     "cryptography_exerciser",
+    "pinned_tls_exerciser",
     "fuzz",
 ]
 paths = [

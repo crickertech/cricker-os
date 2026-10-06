@@ -145,6 +145,72 @@ pub fn start_on_full(
     entropy_image: &'static [u8],
     report: RendezvousId,
 ) -> (u64, crate::thread::ThreadId) {
+    spawn_std(image, clock_image, entropy_image, report, None)
+}
+
+/// A network a std program is given: the `Stack` endpoint its `std::net` calls go to, and the
+/// untyped budget it mints each socket's shared frame from. `std_runtime_protocol`'s slots 2 and 3.
+#[derive(Clone, Copy)]
+pub struct Network {
+    pub stack: RendezvousId,
+    pub frames: u64,
+}
+
+/// The `std` slot for the `Stack` endpoint and the one for the socket frames' budget.
+const STACK_SLOT: u64 = std_runtime_protocol::STACK_SLOT;
+const NET_MEMORY_REGION_SLOT: u64 = std_runtime_protocol::NET_MEMORY_REGION_SLOT;
+
+/// One page per socket's shared frame, plus that frame's page table and mapping, for the six
+/// sockets `socket_protocol::MAX_SOCKETS` allows, with room to spare. The same 16 the kernel's own
+/// net clients are given (`virtio_service::NET_CLIENT_BUDGET_PAGES`).
+pub const NETWORK_FRAME_PAGES: u64 = 16;
+
+/// What [`start_networked`] hands back: [`StdRun`], plus the frame budget to reclaim beside the heap.
+pub struct NetworkedRun {
+    pub run: StdRun,
+    pub frames: u64,
+}
+
+/// **A std program with the network and everything [`start_reclaimable`] gives**: a clock, a
+/// configuration page and entropy, and also `stack` at slot 2 and a frame budget at slot 3.
+///
+/// Milestone 501 (a TLS client that speaks to one pinned peer) is the first program that needs all
+/// of them at once. `virtio_service::start_net_std` grants the network and none of the rest, because
+/// `std_exerciser`'s echo needs neither time nor randomness; a TLS client needs both, randomness for
+/// its key share and the time for a certificate's validity. Before this function no test could
+/// start such a program, and no prompt can yet either (`grant_plan` refuses a std image that declares
+/// the network, because the progenitor mints no frame budget).
+pub fn start_networked(
+    image: &'static [u8],
+    clock_image: &'static [u8],
+    entropy_image: &'static [u8],
+    stack: RendezvousId,
+) -> NetworkedRun {
+    let report_region = crate::memory_region::create(1).expect("no region for the std stdout");
+    let report = crate::sched::create_rendezvous_from(report_region).expect("no std stdout");
+    let frames = crate::memory_region::create(NETWORK_FRAME_PAGES)
+        .expect("no untyped for the std program's socket frames");
+    let net = Network { stack, frames };
+    let (heap, thread) = spawn_std(image, clock_image, entropy_image, report, Some(net));
+    NetworkedRun {
+        run: StdRun {
+            report,
+            report_region,
+            thread,
+            heap,
+        },
+        frames,
+    }
+}
+
+/// The spawn every function above shares: [`start_on_full`]'s, and the network when one is given.
+fn spawn_std(
+    image: &'static [u8],
+    clock_image: &'static [u8],
+    entropy_image: &'static [u8],
+    report: RendezvousId,
+    net: Option<Network>,
+) -> (u64, crate::thread::ThreadId) {
     let budget = crate::memory_region::create(BUDGET_PAGES).expect("no untyped for std_exerciser");
 
     // The entropy service, wired once per boot and shared with the milestone-56 tests. Its
@@ -230,7 +296,8 @@ pub fn start_on_full(
 
     let tid = crate::sched::spawn(move || {
         // The clock, config and entropy capabilities go in at their named slots BEFORE `run`
-        // grants in order, so `run`'s two grants land at 0 and 1 and slots 2 to 4 stay empty.
+        // grants in order, so `run`'s two grants land at 0 and 1 and slots 2 to 4 stay empty
+        // (2 and 3 hold the network when one was given, below).
         // The clock and config pages are `READ` only: the whole point of each is that a reader
         // cannot write it. See `grant_at`.
         crate::sched::grant_at(CLOCK_SLOT, page_frame_cap(clock.page_phys, Rights::READ))
@@ -239,6 +306,14 @@ pub fn start_on_full(
             .expect("the std config slot was already occupied");
         crate::sched::grant_at(ENTROPY_SLOT, rendezvous_cap(entropy.request, Rights::WRITE))
             .expect("the std entropy slot was already occupied");
+        // The network, at its named slots, only when the caller gave one. Without it the PAL's
+        // every `std::net` call answers `Unsupported`, which is "no ambient network" in one line.
+        if let Some(net) = net {
+            crate::sched::grant_at(STACK_SLOT, rendezvous_cap(net.stack, Rights::WRITE))
+                .expect("the std stack slot was already occupied");
+            crate::sched::grant_at(NET_MEMORY_REGION_SLOT, memory_region_cap(net.frames))
+                .expect("the std socket-frame slot was already occupied");
+        }
         run(
             image,
             Spawn {

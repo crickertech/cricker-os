@@ -279,14 +279,16 @@ fi
 # device is now the one the default already was, on the slirp network the other runners give their
 # NICs: DHCP on 10.0.2.0/24, the echo peer at 10.0.2.9:7777, the package peer at 10.0.2.9:8080 and
 # the TFTP root (helpers/qemu-runner-aarch64.sh has the reason for each), plus the bench boot's
-# rehearsal peer at 10.0.2.9:9494 (helpers/network-bench-peer). `romfile=` keeps OVMF from
-# loading the card's iPXE option ROM, which this tree never boots from.
+# rehearsal peer at 10.0.2.9:9494 (helpers/network-bench-peer), and the TLS peer at 10.0.2.9:8443
+# (helpers/tls-peer, milestone 501 (a TLS client that speaks to one pinned peer)). `romfile=` keeps
+# OVMF from loading the card's iPXE option ROM, which this tree never boots from.
 PACKAGE_PEER="$(cd "$(dirname "$0")" && pwd)/package-http-peer"
 TFTPDIR="$(dirname "$0")/../target/tftp"
 mkdir -p "$TFTPDIR"
 printf 'nife-tftp!' > "$TFTPDIR/nife"
 BENCH_PEER="$(cd "$(dirname "$0")" && pwd)/network-bench-peer"
-NET="-netdev user,id=net0,guestfwd=tcp:10.0.2.9:7777-cmd:/bin/cat,guestfwd=tcp:10.0.2.9:8080-cmd:$PACKAGE_PEER,guestfwd=tcp:10.0.2.9:9494-cmd:$BENCH_PEER,tftp=$TFTPDIR -device e1000e,netdev=net0,mac=52:54:00:e1:00:0e,romfile="
+TLS_PEER="$(cd "$(dirname "$0")" && pwd)/tls-peer"
+NET="-netdev user,id=net0,guestfwd=tcp:10.0.2.9:7777-cmd:/bin/cat,guestfwd=tcp:10.0.2.9:8080-cmd:$PACKAGE_PEER,guestfwd=tcp:10.0.2.9:9494-cmd:$BENCH_PEER,guestfwd=tcp:10.0.2.9:8443-cmd:$TLS_PEER,tftp=$TFTPDIR -device e1000e,netdev=net0,mac=52:54:00:e1:00:0e,romfile="
 
 exec helpers/qemu-bounded.sh "$TIMEOUT" qemu-system-x86_64 \
     $ACCEL \

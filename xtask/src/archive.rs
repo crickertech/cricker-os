@@ -4,7 +4,9 @@
 //! tree loads by name is declared in a manifest the packer reads.
 
 use crate::disk::{mkfs_elf, redoxfs_server_elf};
-use crate::farm::{cryptography_exerciser_elf, ripgrep_elf, std_exerciser_elf};
+use crate::farm::{
+    cryptography_exerciser_elf, pinned_tls_exerciser_elf, ripgrep_elf, std_exerciser_elf,
+};
 use crate::host::{bin_elf, workspace_root};
 use crate::inspect::read_stripped;
 use crate::measure::{boot_programs, measurement_table, write_measure_manifest};
@@ -231,12 +233,13 @@ fn bin_names(manifest: &str) -> Result<Vec<String>, String> {
 /// **Archive entries packed from outside `components/` and `fixtures/`**, each present only when its
 /// own build ran (see the `initrd_*` functions). Hoisted out of the one test that used to hold it
 /// (milestone 595 (provisional)), because [`check_declared_programs`] now needs the same list.
-const BUILT_ELSEWHERE: [&str; 5] = [
+const BUILT_ELSEWHERE: [&str; 6] = [
     "redoxfs_server",
     "mkfs",
     "std_exerciser",
     "rg",
     "cryptography_exerciser",
+    "pinned_tls_exerciser",
 ];
 
 /// **A `std` program the shell can spawn, built by its own workspace rather than a `[[bin]]`**
@@ -358,6 +361,15 @@ pub(crate) fn initrd_riscv() -> bool {
             .to_string(),
     ) {
         blobs.push(("cryptography_exerciser", bytes));
+    }
+    // **The pinned TLS client's workload** of milestone 501 (a TLS client that speaks to one pinned
+    // peer), on the same terms: present iff `helpers/build-pinned-tls-exerciser.sh` has been run.
+    if let Ok(bytes) = read_stripped(
+        &pinned_tls_exerciser_elf("riscv64-unknown-nife")
+            .display()
+            .to_string(),
+    ) {
+        blobs.push(("pinned_tls_exerciser", bytes));
     }
     // The FS server (milestone 32 phase 2), built for the riscv bare target, rides along when
     // present, exactly as std_exerciser does; `test` builds it first.
@@ -521,6 +533,15 @@ pub(crate) fn initrd_x86() -> bool {
     ) {
         blobs.push(("cryptography_exerciser", bytes));
     }
+    // **The pinned TLS client's workload** of milestone 501 (a TLS client that speaks to one pinned
+    // peer), on the same terms: present iff `helpers/build-pinned-tls-exerciser.sh` has been run.
+    if let Ok(bytes) = read_stripped(
+        &pinned_tls_exerciser_elf("x86_64-unknown-nife")
+            .display()
+            .to_string(),
+    ) {
+        blobs.push(("pinned_tls_exerciser", bytes));
+    }
     let mut files: Vec<(&str, &[u8])> = blobs.iter().map(|(n, b)| (*n, b.as_slice())).collect();
     // The image's package source, on the same terms as aarch64's (see there). Since milestone 198
     // rung 3a's installer the progenitor reads it for `package install`, so x86_64 carries one too
@@ -642,6 +663,17 @@ pub(crate) fn initrd_aarch64() -> bool {
     .ok();
     if let Some(bytes) = &cryptography {
         files.push(("cryptography_exerciser", bytes.as_slice()));
+    }
+    // **The pinned TLS client's workload** (milestone 501 (a TLS client that speaks to one pinned
+    // peer)), on exactly those terms: present iff `helpers/build-pinned-tls-exerciser.sh` has run.
+    let pinned_tls = read_stripped(
+        &pinned_tls_exerciser_elf("aarch64-unknown-nife")
+            .display()
+            .to_string(),
+    )
+    .ok();
+    if let Some(bytes) = &pinned_tls {
+        files.push(("pinned_tls_exerciser", bytes.as_slice()));
     }
     // **The image's package source** (milestone 198 (a package manager) rung 3a): every recipe under `packages/` for
     // this architecture is built, written where the package tests' HTTP peer serves it, and its
