@@ -46,7 +46,7 @@ The TH1520 is not.
 | PLIC states `thead,c900-plic`, two-cell interrupts | the region lookup and the context map both missed it | built: one shared list, `machine_discovery::plic::COMPATIBLES` |
 | DRAM from physical 0 | the Image header's `text_offset` of `0x4020_0000` lands the kernel at the wrong address under `booti` | none if the FIT's own load address is used, which the first hour confirms |
 | QEMU-only mappings (virtio window at `0x1000_1000`) are mapped unconditionally | that range is DRAM on the TH1520, and radon's first boot died of exactly this collision | `arch/riscv64/mmu.rs`, from the tree |
-| XTheadMae: PTE bits 63:59 carry the memory type, and firmware turns it on | nife writes zero there; the behaviour of zero is undefined in T-Head's spec | `crates/paging`'s Sv39 leaf encoding plus a probe in `arch/riscv64/` |
+| XTheadMae: PTE bits 63:59 carry the memory type, and firmware turns it on | nife writes zero there; the behavior of zero is undefined in T-Head's spec | `crates/paging`'s Sv39 leaf encoding plus a probe in `arch/riscv64/` |
 | XTheadVector's `sstatus.VS` sits at bits 24:23, not 10:9 | `fp.rs` clears the standard field only, which is the 2026-09-24 audit's fix missing this core | `arch/riscv64/fp.rs`, keyed on the vendor id |
 | No Sstc, timebase 3 MHz | nothing: the timer is SBI TIME and the rate comes from the tree | none |
 | DMA is not coherent (`dma-noncoherent`), no Zicbom | nothing for first light, which polls the UART. Every DMA driver later | follow-on |
@@ -54,59 +54,197 @@ The TH1520 is not.
 
 ## Steps, in order
 
-### Before renting: host and QEMU
+### Before renting: host and QEMU (built 2026-10-06 (UTC), except where marked)
 
-1. Built: the PLIC is found by `thead,c900-plic` and its two-cell specifier decodes, witnessed by
-   `crates/machine_discovery/tests/riscv64_th1520.rs` against a fixture modeled on the dtsi.
-2. A device window for high MMIO. Map the top gigabyte of a 40-bit physical space
-   (`0xff_c000_0000` to `0x100_0000_0000`) at the top gigabyte of the Sv39 high half, root index
-   511, and make `phys_to_virt` piecewise. One gigabyte holds the TH1520's PLIC, CLINT and every
-   UART. The boot table gains the same entry, inert on QEMU. The cost is one compare in
-   `phys_to_virt` and a direct map capped at 255 GiB.
-3. A per-machine early console, chosen at compile time (feature `board-th1520`, name provisional),
-   reached through step 2's window.
-4. Map QEMU's fixed devices only when the tree names them.
-5. XTheadMae. Probe `mvendorid` over SBI (`0x5b7`, with `marchid` and `mimpid` zero, as Linux
-   does), then read `th.sxstatus` (CSR `0x5c0`) for MAEE, bit 21. When set, RAM leaves carry bits
-   62, 61 and 60 and device leaves carry 63 and 60, which are Linux's values. QEMU's `thead-c906`
-   model advertises XTheadMae (`notes/cpu-models.md`), so `script/cpu-matrix` can boot the path
-   before the silicon does. Whether QEMU honours the bits or ignores them is not yet checked.
-6. Clear XTheadVector's `VS` field on a T-Head hart, beside the standard one.
-7. A FIT image for this machine: `boot.itb` with `kernel` loaded at `0x8020_0000`, `fdt`, `opensbi`
-   (`fw_dynamic`, upstream OpenSBI 1.9 `PLATFORM=generic`) and `env`. The tool is `mkimage`, which is
-   not installed on patagonia; the image can be built on the RV1 itself, as Scaleway's guide does.
+1. Built 2026-09-25: the PLIC is found by `thead,c900-plic` and its two-cell specifier decodes,
+   witnessed by `crates/machine_discovery/tests/riscv64_th1520.rs` against a fixture modeled on the
+   dtsi.
+2. Built: a device window. Physical `0xff_c000_0000..0x100_0000_0000` appears at root index 511
+   and `phys_to_virt` is piecewise (`arch/riscv64/mmu.rs`, `DEVICE_WINDOW_PA`). The direct map is
+   capped at 255 GiB, and RAM past the cap panics rather than aliasing. Const-asserted.
+3. Built: a per-machine early console under the `board_th1520` feature (implies `board`; name
+   provisional). The address was written three times and now lives once, in
+   `arch/riscv64/machine.rs`.
+4. Built: the virtio-mmio window is mapped only when the tree names a `virtio,mmio` node, and the
+   probe asks `arch::mmu::virtio_slots()`. On the TH1520 that address is DRAM; on radon it is
+   UART0, which the probe had been reading as virtio slots.
+5. Built: XTheadMae. `paging::Sv39Mae` (name provisional) is Sv39 plus Linux's memory types and is
+   `arch::mmu::Format` under `board_th1520`; the boot table carries the same bits.
+   `arch::isa::init` reads `th.sxstatus.MAEE` on a T-Head hart and panics if build and hart
+   disagree. QEMU's `thead-c906` reports MAEE clear, so `script/cpu-matrix` runs the probe and the
+   default build's half of the check; only the machine can run the `Sv39Mae` half.
+6. Built: on a T-Head hart, `fp::init` also clears XTheadVector's `VS` at `sstatus[24:23]`.
+7. Built: `script/board-image --th1520` builds the pair and writes a `.its` copied from Scaleway's
+   ([`em-rv1`](https://github.com/scaleway/em-rv1)), with the kernel at `0x8020_0000` instead of
+   `0x20_0000`, the archive as a ramdisk, and the tree and OpenSBI taken from the machine's own
+   `boot.itb`. Checked with `dtc`, not `mkimage`.
 
-Steps 2 to 6 ship on all three architectures' suites unchanged, per §19 (architectural parity is a
-tenet): none of them touches aarch64 or x86_64, and QEMU `virt` must boot exactly as before.
+Under `board_th1520` the boot table also names all 16 GiB, because nobody has seen where this
+U-Boot leaves the tree. QEMU `virt` boots as before on `rv64` and `thead-c906`, with and without a
+virtio-mmio disk.
 
-### Rented, hour one: read the machine, then a byte out of the UART
+### What the machine is, read 2026-10-06 (UTC)
 
-1. Rent hourly in `fr-par-2`, install Scaleway's Debian image, and enable the serial console.
-2. From Linux, save `/sys/firmware/fdt`, `dmesg`'s OpenSBI banner and `/proc/cpuinfo`. The firmware
-   tree replaces the modeled fixture; every assumption above is re-checked against it.
-3. Reboot on the console and record U-Boot's version and environment. Scaleway does not publish
-   either.
-4. Keep Linux's `boot.itb` as a copy, write nife's, reboot, and watch for the banner. If nothing
-   prints, the power API's rescue boot mounts the eMMC and restores Linux's image. That recovery
-   costs minutes and needs no ticket.
+| Fact | Value | Source |
+|---|---|---|
+| SoC | T-Head TH1520, four C910 at 1.85 GHz | [Scaleway Labs page](https://labs.scaleway.com/en/em-rv1/) |
+| Board | Sipeed LM4A modules on a Lichee Cluster 4A carrier | the `#include` in Scaleway's `.dts` |
+| RAM | 16 GiB at physical 0 | Labs page; RevyOS `th1520-lpi4a-cluster-16g.dts` (`memory@0`, `0x4_0000_0000`) |
+| Storage | 128 GB eMMC, the only documented boot medium | Labs page; [RV1 guidelines](https://www.scaleway.com/en/docs/elastic-metal/reference-content/elastic-metal-rv1-guidelines/) |
+| Boot | U-Boot looks for `boot.itb` on GPT partition 1 or 2, FAT32; the FIT holds `kernel`, `fdt`, `opensbi`, `env` and optionally `ramdisk` | RV1 guidelines |
+| Firmware | U-Boot unpublished; OpenSBI travels inside the FIT | RV1 guidelines |
+| Console | "a serial console accessible via SSH is activatable on your account"; how is not documented | Labs page FAQ |
+| Rescue | supported: `scw baremetal server reboot <id> boot-type=rescue`, network-booted Ubuntu in RAM, user `rescue` | RV1 guidelines; [CLI docs](https://github.com/scaleway/scaleway-cli/blob/master/docs/commands/baremetal.md) |
+| Zone | `fr-par-2` only | Labs page |
+| Stock | "temporarily out of stock" for new servers on 2026-06-03, per a third party | [tunbury.org, 2026-06-03](https://www.tunbury.org/2026/06/03/emulated-riscv-workers/) |
 
-### Rented, after first light
+Scaleway's custom-kernel guide is broken as written: its `.dts` includes a file no RevyOS branch
+still has, and the repository was last pushed 2024-03-26. nife's path writes its own `.its` and
+reuses the machine's tree, so it is unaffected. Unverified, and hour one's to settle: whether U-Boot honors the kernel's `load`, which of
+`load` or `entry` becomes OpenSBI's next address, whether it writes `linux,initrd-start` for the
+ramdisk, and how the console is switched on.
 
-5. The self-test and the tour, to the line xenon printed: `nife self-test: N of N passed`.
-6. The soak from milestone 225 (run the soak on radon, argon and xenon). This machine was rented
-   for that cross-check of risks 5 and 9.
+## Runbook
+
+Every step below is calef's, because it spends money or acts on his Scaleway account. It assumes
+`scw init` has run and an SSH key is registered. Always pass `zone=fr-par-2`: the CLI defaults to
+`fr-par-1`, which has no RV1.
+
+### Step 0: Before renting, free
+
+1. Ask Scaleway support to activate the serial console, the only way to see a kernel with no
+   network driver. Suggested text: *"Please activate the
+   SSH-accessible serial console for Elastic Metal RV1 servers on this account, as described in
+   the Labs FAQ for EM-RV1. How do I connect to it once it is active?"* Record the answer in this
+   block; it is the one fact the docs do not give.
+2. Check stock and price:
+   `scw baremetal offer list zone=fr-par-2 subscription-period=hourly name=EM-RV1-C4M16S128-A`.
+   If it is out of stock, stop here.
+3. On patagonia: `script/board-image --th1520`, which writes four files under `target/board/`.
+
+### Step 1: Rent, and read the machine (about an hour)
+
+```sh
+scw baremetal os list zone=fr-par-2 offer-id=<offer-id from step 0, item 2>   # pick the Debian or Ubuntu id
+scw baremetal server create name=nife-89 type=EM-RV1-C4M16S128-A zone=fr-par-2
+scw baremetal server install <server-id> os-id=<os-id> hostname=nife-89 ssh-key-ids.0=<key-id> zone=fr-par-2
+scw baremetal server wait <server-id> zone=fr-par-2 timeout=40m0s
+scw baremetal server get <server-id> zone=fr-par-2        # note the IP; billing should say hourly
+```
+
+Leave the billing period alone: switching to monthly is one-way. Note how long the install took.
+Then, on the RV1 over SSH:
+
+```sh
+sudo apt-get install -y u-boot-tools device-tree-compiler
+mkdir -p ~/nife && cd ~/nife
+cp /sys/firmware/fdt live.dtb                    # the tree Linux was handed, after U-Boot's fixups
+dmesg > dmesg.txt; cat /proc/cpuinfo > cpuinfo.txt; lsblk -f > lsblk.txt
+cp /boot/boot.itb boot.itb.scaleway
+dumpimage -l boot.itb.scaleway                   # lists the images and their indices
+dumpimage -T flat_dt -p <fdt index> -o rv1.dtb boot.itb.scaleway
+dumpimage -T flat_dt -p <opensbi index> -o fw_dynamic.bin boot.itb.scaleway
+```
+
+Copy `live.dtb`, `rv1.dtb`, `dmesg.txt`, `cpuinfo.txt`, `lsblk.txt` and `boot.itb.scaleway`'s
+`dumpimage -l` output back to patagonia under `bench/rv1-<date>/`. `live.dtb` replaces the modeled
+fixture, and every row of the distance table is re-checked against it. Check `/reserved-memory`
+in particular: it must cover OpenSBI at physical 0, or the allocator will hand out frame 0.
+
+### Step 2: First light
+
+From patagonia, `scp target/board/nife-th1520.img target/board/nife-initrd.img
+target/board/nife-th1520.its target/board/nife-th1520-env.txt <user>@<ip>:nife/`. Open the serial
+console in a second terminal, logging to `target/rv1-first-light.log`. Then on the RV1:
+
+```sh
+cd ~/nife && mkimage -f nife-th1520.its boot.itb
+sudo mv /boot/boot.itb /boot/boot.itb.scaleway && sudo cp boot.itb /boot/boot.itb && sync
+sudo reboot
+```
+
+What success looks like, after OpenSBI's banner (QEMU's `thead-c906` boot of the default build,
+with this machine's values where they differ):
+
+```
+nife on RISC-V (rv64, S-mode, Sv39)
+  hart 0 booted: high-half kernel, .bss, and the NS16550 console are up.
+  ...
+  vendor      : T-Head, XTheadMae on, so leaves carry T-Head memory types
+  ...
+nife machine: riscv64, 4 processor(s), <about 16000> MiB, 100 Hz
+nife self-test: 5 of 5 passed
+```
+
+`script/board-console --replay target/rv1-first-light.log --board xenon --until selftest` judges
+the capture; `xenon`'s empty prologue stands in until the RV1 has a profile. Reading a failure:
+
+| What the console shows | What it means |
+|---|---|
+| OpenSBI's banner, then nothing | the kernel never printed: U-Boot ignored `load`, OpenSBI jumped elsewhere, or the UART is not at `0xff_e701_4000` in `live.dtb` |
+| `nife cannot run on this machine` and a page-table sentence | the MAEE probe disagreed with the build; the sentence says which way |
+| the banner, then a panic or silence | a fault after first light; the log is the evidence, so keep it |
+| `MEASURED BOOT REFUSED` | the kernel and archive came from different builds; rerun `script/board-image --th1520` and copy all four |
+
+Recovery from any of them: `scw baremetal server reboot <id> boot-type=rescue zone=fr-par-2`, SSH
+in as `rescue`, mount the FAT32 boot partition `lsblk.txt` named, rename `boot.itb.scaleway` back
+to `boot.itb`, and `scw baremetal server reboot <id> zone=fr-par-2`. If rescue cannot reach the
+eMMC, `scw baremetal server install` reinstalls the OS and erases the disk.
+
+### Step 3: The soak, by milestone 225 (run the soak on radon, argon and xenon)'s procedure
+
+`script/board-image --th1520 --soak`, then step 2's install, with the console logging to
+`target/rv1-soak-<stamp>.log` for eight hours, radon's duration and reason (`notes/soak.md`).
+Afterwards `script/board-console --exposure target/rv1-soak-<stamp>.log --machine rv1 --build <sha>
+--start '<utc>'` gives the exposure row for `notes/multicore-defect-curve.md`. Red is
+`soak-test: FAILED`, a `[PANIC]`, or three missed beats. The rebooting soak (`--reboot`) is not for
+this machine yet: SBI SRST may be absent from Scaleway's OpenSBI.
+
+### Step 4: The risk 9 measurement
+
+The verdict is the per-file count below, completed with what hour one adds and copied into
+`design/fatal-risks/the-hal-and-the-next-machine.md` beside the x86_64 port's. Each file is (a)
+under `kernel/src/arch/riscv64/`, (b) portable code that reads a device tree, or (c) elsewhere,
+with `crates/paging` named separately as the appendix did.
+
+Before renting, measured on this branch against its base `e8834c988`:
+
+| File | Place | What changed |
+|---|---|---|
+| `kernel/src/arch/riscv64/mmu.rs` | a | device window, per-machine `Format`, memory types and 16 GiB in the boot table, virtio window from the tree |
+| `kernel/src/arch/riscv64/machine.rs` (new) | a | the console's address and node |
+| `kernel/src/arch/riscv64/isa.rs` | a | the T-Head and MAEE probe |
+| `kernel/src/arch/riscv64/instructions.rs` | a | the `th.sxstatus` read |
+| `kernel/src/arch/riscv64/fp.rs` | a | XTheadVector's `VS` |
+| `kernel/src/arch/riscv64/mod.rs` | a | one `mod` line |
+| `crates/paging/src/sv39.rs`, `lib.rs` | c, additive | a new `PageFormat` implementation; no trait or walk change |
+| `kernel/src/console.rs`, `kernel/src/user.rs` | c, seam repair | the riscv64 console constant now names `arch::machine`'s |
+| `kernel/src/virtio.rs`, `arch/aarch64/mmu.rs`, `arch/x86_64/mmu.rs` | c, seam repair | the probe asks the architecture how many slots exist |
+| `kernel/Cargo.toml` | build | the `board_th1520` feature |
+| `script/board-image` | packaging | `--th1520` |
+
+Reading it: no portable kernel logic was restructured. Two QEMU assumptions sat in portable code
+and moved behind the seam: the console address, written three times, and an unconditional virtio
+window. That is the "seam is not quite where the tree says" evidence this block exists to find,
+and it is small. Whether the machine adds a row in (c) is what hour one decides.
+
+### Step 5: Release, so billing stops
+
+```sh
+scw baremetal server delete <server-id> zone=fr-par-2
+scw baremetal server list zone=fr-par-2                   # must not list nife-89
+```
+
+Then check the billing page. Stopping is not enough: the CLI says a stopped server "remains
+allocated to your account", and allocated hours are billed. Every session ends with a delete.
 
 ## What it costs
 
-€0.042 an hour, excluding VAT, billed per hour. radon's bring-up took about seven bench sessions
-of a few hours each. Budget 30 rented hours through step 5: about €1.26, or €1.51 with French VAT.
-The money is not the cost. The cost is the attention to read transcripts, which is why the host
-and QEMU steps come first.
-
-One trap, not yet verified: bare-metal hourly billing usually runs for as long as the server is
-allocated, powered or not. If so, a server left rented for a month by mistake costs €30.66 hourly
-against €15.99 monthly. So each session ends by deleting the server, and a reinstall opens the next
-one. Hour one measures how long an install takes and reads the billing page to settle the rule.
+€0.042 an hour excluding VAT (€0.0504 with France's 20%), billed per allocated hour; the monthly
+rate is €15.99 with a month's fee as commitment ([pricing](https://www.scaleway.com/en/elastic-metal-rv1/),
+the Elastic Metal FAQ). Budget 30 hours through the soak: €1.26, or €1.51 with VAT. Spent so far:
+nothing. The trap is the delete: a server left allocated for a month costs €30.66. The real cost
+is attention to transcripts, which is why the host and QEMU steps came first.
 
 ## The seven questions
 
@@ -117,14 +255,16 @@ one. Hour one measures how long an install takes and reads the billing page to s
    Its lesson was that QEMU hid the DRAM base, the online-hart set, the PLIC context formula and a
    zero-latency UART. Steps 2 and 4 are that lesson applied before the machine instead of at it.
 3. Prior art, read: Linux's `th1520.dtsi`, `errata/thead/errata.c` and `irq-sifive-plic.c`;
-   OpenSBI's `platform/generic/thead`; T-Head's extension spec; Scaleway's RV1 guide.
+   OpenSBI's `platform/generic/thead`; T-Head's extension spec; Scaleway's RV1 guide and FIT
+   source; QEMU's `th_csr.c` at `d7a65d17`. Linux's memory-type values are recalled, not re-read;
+   the unit tests pin them as literals.
 4. Is the premise true: that the RV1 boots a custom kernel was an open question on 2026-08-03. It
    is now documented. Scaleway's guide boots a user-supplied FIT image from eMMC. What is not
-   documented is the U-Boot version and how the console is activated.
+   documented is the U-Boot version and how the console is activated. Newer doubt: new RV1s were
+   reported out of stock on 2026-06-03. Runbook step 0 answers that before anything is spent.
 5. Cost: measured above in euros and estimated in hours. The hours are an estimate from radon's
    record, not a measurement.
-6. Reversibility: every step is code under `arch/` or a device-tree parser, and the rental is
-   hourly. Nothing here is a wire format, a syscall or a name calef has ratified.
+6. Reversibility: code, plus an hourly rental. No wire format, syscall or ratified name.
 7. Same cost for both: the window in step 2 is chosen over Linux's per-device `ioremap` because it
    is one table entry and one compare, not a virtual allocator. With equal effort the window still
    wins for a kernel that maps a handful of devices once at boot. If a machine ever puts devices in
@@ -135,16 +275,34 @@ one. Hour one measures how long an install takes and reads the billing page to s
 - The fixture is modeled on Linux's tree, not dumped from the RV1's firmware. radon's modeled
   fixture got the PLIC's compatible string wrong, and only the real tree showed it. Hour one's
   second step exists to fix this one.
-- A 0% SLA. Any gate built on this machine must degrade to a loud skip, the way milestone 81 (an HVF
-  leg: the test suite on the physical core) already does.
+- A 0% SLA. Any gate built on this machine must degrade to a loud skip, as milestone 81 (an HVF
+  leg: the test suite on the physical core) does.
 - The PLIC here has 240 sources; `drivers/plic.rs` keys a table on `source % 128`. UART0's 36 is
   safe, and a source above 127 would alias.
+- **If firmware leaves MAEE off, the `board_th1520` kernel dies silently.** Its boot table sets
+  bits 63:59, which are reserved without MAEE, so the first walk faults before the probe that
+  would explain it can run. That OpenSBI turns MAE on comes from Linux's errata code, not from
+  this machine. A plain-Sv39 TH1520 build would be one feature line, if hour one needs it.
+- Reading `th.sxstatus` from S-mode is what T-Head's manual and QEMU's model allow. No C910 here
+  has done it. A trap there would be an illegal-instruction exception during `isa::init`.
+- Physical 0 is RAM. Nothing in this tree has run where frame 0 could be allocated, and code that
+  treats a zero address as "none" would misbehave. `/reserved-memory` covering OpenSBI at 0 keeps
+  it out of the allocator; hour one checks the live tree for that node.
+- SBI SRST is not in upstream OpenSBI for this SoC, so a `board` test exit may hang rather than
+  power off. The boot tour and the soak do not exit, so neither depends on it.
+- No QEMU machine models the TH1520, so the `board_th1520` image has been built and never run.
+  What it does differently is const-asserted, host-tested (`Sv39Mae`), or run under QEMU by the
+  default build.
 
 ## Follow-on
 
-- **Outstanding.** Steps 2 to 7 of "Before renting", then the rented steps. Checked 2026-09-25
-  with `grep -n 'const UART_BASE' kernel/src/arch/riscv64/mmu.rs`, which still reads
-  `0x1000_0000`. Nothing in `crates/paging/src/sv39.rs` writes bits 63:59.
+- **Outstanding.** The runbook, every step of it calef's: the serial-console request, the stock
+  check, then hour one, first light, the soak and the risk 9 count. Nothing before renting is left.
+  Checked 2026-10-06 (UTC) with `script/board-image --th1520`, which builds and writes the FIT
+  source, and `grep -n 'CONSOLE_UART_PHYS' kernel/src/arch/riscv64/machine.rs`.
+- **Outstanding.** A board profile for the RV1 in `script/board-console`, once a capture shows its firmware
+  prologue. Until then the runbook replays captures under `xenon`'s empty prologue, which is the
+  same refusal argon's missing profile records: a prologue read from documentation is a guess.
 - **Milestone 655.** Milestone 655 (dMA on a non-coherent RISC-V machine). `design/roadmap/655-dma-on-a-non-coherent-risc-v-machine.md`, DMA on a non-coherent RISC-V machine: T-Head's `th.dcache.cpa`, `ipa` and `cipa`,
   then `th.sync.s`, behind the same seam a Zicbom machine would use. No DMA driver runs on this
   machine until then.
