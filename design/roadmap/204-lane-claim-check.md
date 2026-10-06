@@ -71,7 +71,7 @@ built this took 3 minutes from `branch_creation` to its draft pull request, and 
 writing the file that made the branch non-empty, which is not optional: GitHub refuses a pull
 request with no commits between the head and `main`, so the literal first-act command block in every
 brief cannot be run straight through. 15 is five times the observed case and well under
-`merge-drain.sh`'s 75-minute stale-draft threshold, which is the neighbouring report and the one
+`merge-drain.sh`'s 75-minute stale-draft threshold, which is the neighboring report and the one
 this must not shadow.
 
 **The clock runs from branch creation and a later push does not reset it**, which is the opposite

@@ -6,7 +6,7 @@ built: 2026-09-13
 # 281. `watch` holds exactly what `ps` holds, so it is nothing
 
 Minted 2026-09-13 by calef, from his own question while ratifying `watch`'s name:
-should the refresh behaviour just be a command option for `ps` instead of a program? Reshaped the
+should the refresh behavior just be a command option for `ps` instead of a program? Reshaped the
 same day, by calef again, once the answer to that question made a better one available: *"We can cut
 `ps` with the `watch` and simplify."* Built on `milestone/281-watch-is-cut-not-folded`. *(Number
 provisional until the merge queue lands it. Title and filename provisional: the block was minted
@@ -135,7 +135,7 @@ from the flag.
 - Nothing in an automated run types `ps` or `pgrep` any more, and one thing used to. The scripted
   swish-check session in `xtask/src/main.rs` typed `watch 3` and `caps watch 3`, and those lines went
   with the program. `ps` and `pgrep` were already reachable only from an interactive prompt, which
-  `crates/ps`'s `BUGS` records; this does not widen that gap but it does remove the one neighbouring
+  `crates/ps`'s `BUGS` records; this does not widen that gap but it does remove the one neighboring
   line that would have caught a regression in the domain grant at a real prompt.
 - `design/decisions/139-cycle-counter-authority.md` still cites `components/src/watch.rs:171` as one of
   its spin-yield sites, and a developer lane may not edit a decision, so it is named here for the

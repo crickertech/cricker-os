@@ -24,7 +24,7 @@ from outside is the best available. The maintainer quoted that at `init` and cal
   and the name says none of that.
 - **Familiarity is not correctness.** `elf` is genuinely right because that is the format's name.
   `pci` is genuinely right because the expansion teaches nothing better. `init` is a truncated verb
-  that a reader recognises from Unix, which is a different thing from a name that is right.
+  that a reader recognizes from Unix, which is a different thing from a name that is right.
 
 And in this tree the role is larger than Unix's, which sharpens it. `crates/system_initializer`:
 *"The kernel loads this as the boot process, maps the initrd, and grants it the capabilities...
@@ -97,7 +97,7 @@ bolted inside a demo binary while the others get a purpose-built one.**
 
 ### What survives
 
-- `hello` stays, on all three, as the demo catalogue it actually is. One role moves out of it,
+- `hello` stays, on all three, as the demo catalog it actually is. One role moves out of it,
   on one architecture. Milestone 96 already lifted the shared construction into
   `crates/system_initializer`, so what moves is a boot entry rather than logic.
 - `builder` stays as itself if it still earns its keep: it is a demonstrator artifact with its
@@ -125,9 +125,9 @@ Taken 2026-09-08.
 | files and directories named for it | 6, including three notes and `design/init-and-granular-spawn.md` |
 
 The contract is small and the prose is the work. Thirty-nine sites is an afternoon. The 1,011
-is a judgement per occurrence and cannot be done by a pattern: *"userspace init brings up the
+is a judgment per occurrence and cannot be done by a pattern: *"userspace init brings up the
 console"* is the role, *"trusted init"* is milestone 22's title, `notes/trusted-init.md` is a
-filename, and a great many are the ordinary English sense of initialisation. This is precisely the
+filename, and a great many are the ordinary English sense of initialization. This is precisely the
 shape a blind `sed` has damaged this tree with before, when one swept a rename tree-wide and
 rewrote the row recording that a name had been *refused*.
 
@@ -200,7 +200,7 @@ and 3 that the interactive system never uses, and everything after them is numbe
 Three alternatives were considered and each lost to the same objection.
 
 - Make the kernels agree. The better fix in the abstract, and it moves the aarch64 test roles'
-  slot numbering, which six `spawn_progenitor` tests and `hello`'s whole 19d catalogue are written
+  slot numbering, which six `spawn_progenitor` tests and `hello`'s whole 19d catalog are written
   against. That is a real milestone, not a line in this one, and it is proposed below.
 - Probe at runtime. `system_initializer::boot` already probes for absent capabilities, so the
   machinery exists. It cannot work here: the ambiguity is not "is slot 9 empty", it is "is slot 9 the
@@ -265,7 +265,7 @@ applied, stated so it can be disagreed with:
   inits"* is the correction it records; `notes/trusted-init.md` carries captured boot transcripts
   whose bytes are evidence.
 - **A file a developer may not edit does not change**, and that is a larger share of the 748 than any
-  judgement call: 371 of the remaining occurrences are in other milestones' roadmap blocks and 100
+  judgment call: 371 of the remaining occurrences are in other milestones' roadmap blocks and 100
   are in `design/decisions/`, both of which AGENTS.md puts outside a lane's reach.
 
 ## Follow-on
@@ -303,7 +303,7 @@ applied, stated so it can be disagreed with:
   The premise this block put in that proposal was wrong, and the correction is the part worth
   keeping. It said calef's argument for `progenitor` *"applies unchanged to `initializer`"*. It
   does not. `init` is a truncated verb; `initializer` is an agent noun, the thing that
-  initialises, which is precisely what *name things with nouns* asks for. This block's own
+  initializes, which is precisely what *name things with nouns* asks for. This block's own
   house-style list names `initializer` in the same breath as `builder`, `spawner`, `supervisor` and
   `provisioner`, so the block argued against itself one section later and nobody noticed for five
   days.

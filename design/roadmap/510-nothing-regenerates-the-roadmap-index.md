@@ -53,7 +53,7 @@ than the YAML. Three things have to be answered before it exists:
 2. **What else such a commit may touch, stated as a rule and not as a habit.** The narrow answer is
    the only safe one: this one file, between the two markers, and a refusal to push anything else.
 3. What happens when it collides. A merge lands while the regeneration is in flight, the push is
-   rejected, and the honest behaviour is to give up and let the next merge do it, because the state
+   rejected, and the honest behavior is to give up and let the next merge do it, because the state
    is idempotent and one stale rendering is what today already looks like.
 
 The alternative that needs no bot, and why it is not recommended. Delete the file and print the

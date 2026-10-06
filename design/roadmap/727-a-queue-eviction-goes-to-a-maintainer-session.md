@@ -51,7 +51,7 @@ together, because removing the re-arming without a detector puts the queue-watch
 
 ## BUGS
 
-- With no session running, a labelled pull request waits for the next one.
+- With no session running, a labeled pull request waits for the next one.
 - A lane that forgets to arm is caught after 30 minutes, not 5.
 - An armed pull request whose checks never report, or that auto-merge never enqueues, is not one
   of the four causes. The drain used to report the first and enqueue the second.

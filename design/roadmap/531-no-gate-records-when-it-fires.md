@@ -230,7 +230,7 @@ early one; and a lane that re-runs the same failure five times produces five row
 What it cannot check. It counts firings, never value. On this ledger the em-dash check would sit
 near the top and the `sh -n` check, which caught a genuine bash 3.2 parser bug that ShellCheck had
 already passed, would sit near the bottom with one row. **A firing count is the cheap half of §61's
-question and not the whole of it**, and it should be labelled that way where it prints. It also sees
+question and not the whole of it**, and it should be labeled that way where it prints. It also sees
 only local runs, since CI runners are ephemeral and this proposal deliberately does not ask the
 workflows to upload their rows in a first version. **That is the exact complement of what Actions
 holds and not a duplicate of it**, so the two together cover the surface and neither alone does: the

@@ -10,7 +10,7 @@ needs_person: no
 # 439. A job-mix sweep goes quiet for a whole subrun, so a wedge timer has to guess
 
 Minted 2026-09-19 by the integrator, from milestone 324's parts 2 and 3
-lane, which built the sweep recogniser and found the limitation it could not fix from where it
+lane, which built the sweep recognizer and found the limitation it could not fix from where it
 stood. *(Number provisional until the merge queue lands it.)*
 
 It is a `println!` from a timer in the supervisor, and the marker it prints is

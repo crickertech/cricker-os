@@ -75,7 +75,7 @@ a xenon boot, and the census is what makes that boot decisive in one line instea
 either prints a `class 010802` function behind a bridge, or it prints fifteen functions and no mass
 storage anywhere, which are two different diagnoses that used to look identical.
 
-**The BAR pressure the block predicted did not materialise under QEMU**: `0 with a BAR this kernel
+**The BAR pressure the block predicted did not materialize under QEMU**: `0 with a BAR this kernel
 can neither use nor adopt`, both flat and bridged. The number to watch is still xenon's, which read
 13 of 15 outside the window before milestone 256 changed what that count means.
 
@@ -91,7 +91,7 @@ it nearly decided the fork. Measured rather than asserted, on `q35` under QEMU w
 
 | ECAM mapped | page tables |
 |---|---|
-| 1 bus (1 MiB), the old behaviour | 560 KiB |
+| 1 bus (1 MiB), the old behavior | 560 KiB |
 | 2 buses (the root-port topology) | 560 KiB, no measurable change |
 | 128 buses (128 MiB), what xenon's MCFG describes | 812 KiB |
 

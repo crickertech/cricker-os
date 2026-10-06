@@ -139,7 +139,7 @@ reported, and that the later lander takes the next free numbers instead of displ
 
 - It does not make two lanes safe in the same source file. That is milestone 365
   (`xtask/src/main.rs` with no module structure) and the hotspot rule in AGENTS.md.
-- It does not remove the merge queue's serialisation, which is not the problem: the queue lands
+- It does not remove the merge queue's serialization, which is not the problem: the queue lands
   groups of five, and today's jam was conflicts and false gate failures, not throughput.
 - **It does not touch `design/decisions/README.md`**, which is hand-maintained and is the same
   hotspot the roadmap index used to be: every lane that lands a decision edits that one sorted
@@ -177,7 +177,7 @@ reported, and that the later lander takes the next free numbers instead of displ
   177, which turned BUILT on 2026-09-19. `script/fatal-risks --check` reports it now, and the
   pre-443 check produces the same finding byte for byte on a freshly regenerated index, so it was
   latent rather than new. Its home is the gate, which is red until it is answered, and the answer is
-  an architect's: what 177's completion does to the risk is a judgement about the risk, not about
+  an architect's: what 177's completion does to the risk is a judgment about the risk, not about
   the record. The standing rule it falls under is
   `design/decisions/194-sessions-interleave-rather-than-serialize.md`, that anything global stays
   provisional until the queue lands it; this one is held under the `needs-architect` label with the

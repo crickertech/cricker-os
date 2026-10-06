@@ -159,7 +159,7 @@ out, and adding it belongs with whatever milestone next touches the IOMMU.
 ## The loader half, and exactly what aarch64 would mirror
 
 `uefi_loader/src/arch/x86_64/mod.rs` has already done this job once, and the shape is worth stating
-because it is three lines of behaviour rather than a subsystem:
+because it is three lines of behavior rather than a subsystem:
 
 - `find_rsdp(table)` walks the UEFI configuration table for `efi::ACPI_20_TABLE_GUID`, falling back
   to `ACPI_10_TABLE_GUID`, and keeps the address. The comment there records why 2.0 is preferred:

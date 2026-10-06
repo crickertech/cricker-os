@@ -30,7 +30,7 @@ numbers.
    workspace, `std_exerciser`, `redoxfs_server` and `cryptography_exerciser` (each with its `std`),
    the ripgrep helper by environment, and the two probe scripts' generated manifests.
 2. The IPC and syscall fast paths on all three ISAs written so that each operation's overflow
-   behaviour is explicit and justified at its site; `script/fastpath-footprint` passes with its
+   behavior is explicit and justified at its site; `script/fastpath-footprint` passes with its
    baselines unchanged.
 3. `SUITE_PAGE_FRAME_BUDGET` re-derived from a CI run with checks on: 26,705.
 4. `cryptography_exerciser` and `rg` exercised with checks on, on all three ISAs.

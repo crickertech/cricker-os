@@ -48,7 +48,7 @@ The VisionFive 2 bring-up used the tour, with an initrd, and the builder step is
 4 and 5 bracket. This settles the claim the maintainer told calef and then withdrew as unchecked.
 It was right. `notes/visionfive2.md`'s fifth stop resolves boots 7 through 9 with five independent
 identifications, and three of them are facts about `builder` specifically: its exact syscall count
-(14 of the boot's 20 ecalls, itemised), the retype kinds it issues (`ASPACE`, `FRAME`, `TCB`, **never
+(14 of the boot's 20 ecalls, itemized), the retype kinds it issues (`ASPACE`, `FRAME`, `TCB`, **never
 `ENDPOINT`**, which is what pinned the endpoint-naming order), and that it issues no receive of any
 kind, which is what made the parked receivers in the dump impossible to attribute to it. The
 breadcrumbs were added for boot 11 to bracket a failure that was *initrd-path-coupled*, which is to
@@ -66,7 +66,7 @@ nife: the capability core runs on RISC-V.
 
 and that transcript fed straight back through `script/board-console --replay`, which answered
 `reached boot tour complete` and `the userspace progenitor built its child`. So the whole chain is
-live end to end: the kernel loads `builder`, `builder` composes a process, and the recogniser this
+live end to end: the kernel loads `builder`, `builder` composes a process, and the recognizer this
 tree already ships reads the result.
 
 ### Is anything proven only by the trimmed path?
@@ -77,7 +77,7 @@ trimming is the reason it can.
 `progenitor` proves the claim far harder in QEMU: console server, input driver, line discipline,
 shell, terminal sink, job undertaker, one program on three architectures since milestone 266, gated
 by `script/swish-check`'s riscv64 leg in CI. If the board could boot it, this milestone would have
-retired the tour. The board cannot. `riscv_shell_boot` needs the PLIC initialised, the NS16550's
+retired the tour. The board cannot. `riscv_shell_boot` needs the PLIC initialized, the NS16550's
 registers delegated as a `DeviceFrame`, and the UART interrupt routed, and **the UART's PLIC source
 number is not the same on the board as in QEMU** (10 on QEMU `virt`, 32 on the JH7110; it was a
 hardcoded QEMU constant until `user::uart_irq_and_source()` learned to read the machine's own tree,

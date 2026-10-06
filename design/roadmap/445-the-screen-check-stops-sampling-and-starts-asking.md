@@ -160,7 +160,7 @@ next person meets it.
 - **Nothing gates the two directories apart.** The separation is a function name and two comments,
   which is rung three. A lint that knew which directory a `cp` came from would be guessing.
 - The release byte is any byte, so a person typing at a held boot releases it. That is the
-  intended behaviour for somebody at a bench and is worth knowing before it surprises anyone.
+  intended behavior for somebody at a bench and is worth knowing before it surprises anyone.
 - `hold_screen_for_host` takes the console lock once per poll, at 100 Hz while parked. It is a
   boot-time path taken once and never on a machine anybody runs, so the cost is a fact rather than a
   concern; it is recorded because the lock is an `IrqSafeMutex` and somebody will want to know.

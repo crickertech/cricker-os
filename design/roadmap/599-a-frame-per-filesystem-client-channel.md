@@ -70,7 +70,7 @@ windows, and a new `PageFrame` method that derives a capability naming part of i
 
 - `abi::page_frame::SLICE` (method 2, provisional), GRANT-gated, on all three architectures (it is
   portable kernel code). `kernel::syscall::tests::a_slice_maps_only_its_window` proves that a slice
-  maps its window and neither neighbour.
+  maps its window and neither neighbor.
 - `fs_service` allocates the windows as one contiguous run, and the progenitor's slot 6 names the
   whole run.
 - The progenitor gives each job behind a directory grant its own window, sliced for the job and its

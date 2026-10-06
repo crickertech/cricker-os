@@ -29,7 +29,7 @@ table will copy it again.
 
 One crate holds the writer and its tests, and the three programs depend on it. This is the shape
 `CLAUDE.md` rule 7 already asks for ("anything two binaries must agree on is a crate"), though here
-the agreement is behaviour rather than a wire format, so it is the weaker case for the rule.
+the agreement is behavior rather than a wire format, so it is the weaker case for the rule.
 
 **The name of the crate is calef's call** (an architect names crates), so this proposal does not
 choose one. The work is small: move the function, add the dependency to three manifests, delete

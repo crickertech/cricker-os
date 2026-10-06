@@ -125,7 +125,7 @@ The seven grants now sit on the progenitor's login block, which is its capabilit
 `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED` goes from 30 to 31. The keyboard boot reads 31 of
 32 before its first prompt (it read 30, at the launch, before), the serial arm 28 (was 27), and a
 boot with no gpu stays at 24. The configuration that reaches 31 is QEMU's: no board here has a
-virtio keyboard. The block's "the kernel is untouched" is true of behaviour; that recorded
+virtio keyboard. The block's "the kernel is untouched" is true of behavior; that recorded
 constant and the boot sentence changed.
 
 ## BUGS

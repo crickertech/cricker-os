@@ -37,7 +37,7 @@ It forecloses an installer on riscv64, and nothing else. The one caller is
 `components/src/installer.rs`, which writes a disk's EFI system partition on the machine being
 installed. Nothing else in this tree writes FAT at all: `crates/stick_maker` runs on a host and
 delegates formatting to that host's own tools (`diskutil`, `mkfs.vfat`), and QEMU's `vvfat`
-synthesises a volume from a directory, so both reach `BOOTRISCV64.EFI` without going near this
+synthesizes a volume from a directory, so both reach `BOOTRISCV64.EFI` without going near this
 crate.
 
 So the gap is narrow and it is also on the path. DECISIONS §157 (a trivial install is a web

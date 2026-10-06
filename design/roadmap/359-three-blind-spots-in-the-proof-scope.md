@@ -15,7 +15,7 @@ day and the two open cases are both still open: the attribution loop still ends
 `needed.append((f, "not attributable to a crate; runs by default"))` with no classification for a
 binary file, and the header still lists `Cargo.lock` among the paths it cannot attribute, with the
 comment beside `cargo metadata` explaining that registry packages have no file a diff can name. The
-third blind spot stays fixed: `script/` and `scripts/` are both recognised, commented in place.
+third blind spot stays fixed: `script/` and `scripts/` are both recognized, commented in place.
 
 The predicate is one Python block inside `script/verify`, it has no dependency on
 any other milestone, and a change to it is exercised by the wiring it lives in.
@@ -38,7 +38,7 @@ spots are nearly all of the remaining tail, and priced fixing them **above** add
 because `glob`'s proofs are atomic at 15.0 minutes and are half the suite's time on their own. More
 runners cannot divide one harness; a narrower scope predicate can skip it.
 
-The two open cases are not equal. `Cargo.lock` is the harder one and the current behaviour is
+The two open cases are not equal. `Cargo.lock` is the harder one and the current behavior is
 defensible: a lockfile bump can move a registry dependency inside a harness crate's closure, and
 those packages live outside the repository, so no diff names a file that attributes to them. Making
 this precise means reading which package versions the diff actually moved and asking whether any of

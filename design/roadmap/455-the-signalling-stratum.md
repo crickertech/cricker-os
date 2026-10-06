@@ -3,7 +3,7 @@ status: REFUSED
 raised: 2026-09-20
 refused_by: 126, 448
 ---
-# 455. `kill`, `pkill`, `skill` and `snice`: the signalling stratum of `procps`
+# 455. `kill`, `pkill`, `skill` and `snice`: the signaling stratum of `procps`
 
 Refused by milestone 126 (design/roadmap/126-who-else-is-running.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
@@ -27,7 +27,7 @@ Follow-on`:
 ## Why it is here rather than only there
 
 `procps` shipped the survey half: a program can ask who else is running and get back thread ids. The
-signalling half did not ship, and the reason is the capability model rather than the effort. A tid
+signaling half did not ship, and the reason is the capability model rather than the effort. A tid
 is a number. Nothing in this kernel accepts a number as authority over a thread, and the right to
 end one lives with whoever holds the child's region.
 
@@ -42,5 +42,5 @@ end one lives with whoever holds the child's region.
 ## Index row
 
 A capability system cannot implement `kill` by handing a program a number, which is why the survey
-half of `procps` shipped and the signalling half did not. The refusal names precisely the missing
+half of `procps` shipped and the signaling half did not. The refusal names precisely the missing
 primitive, so the condition is concrete even though meeting it is a syscall-surface decision.

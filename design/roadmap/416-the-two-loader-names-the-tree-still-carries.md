@@ -51,7 +51,7 @@ it was not done at the same time is discipline, not effort.
 Folding a sweep about *other* names into a ratified rename would have been the wrong sweep. This
 tree's recorded scar is a blind `sed` that swept a rename across the tree and rewrote the very row
 recording that a name had been *refused*. A rename lane that quietly widens its own scope is how that
-happens, so the lane enumerated, reported, and stopped, which is the behaviour the rules ask for.
+happens, so the lane enumerated, reported, and stopped, which is the behavior the rules ask for.
 
 ## What doing it involves
 

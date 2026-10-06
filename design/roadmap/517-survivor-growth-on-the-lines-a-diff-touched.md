@@ -216,7 +216,7 @@ Three things make it worse than that arithmetic, and one makes it better.
   rather than skipping. In a cargo-mutants build directory none of that exists, so the unmutated
   baseline fails and the run refuses to start. Making the runner self-sufficient under a mutation
   flag is real work, and it is the smallest piece of this.
-- The one thing in its favour: `--in-diff` makes the wall clock scale with the diff rather than
+- The one thing in its favor: `--in-diff` makes the wall clock scale with the diff rather than
   the corpus, so a *diff-scoped* kernel check is affordable where a kernel census is not. A pull
   request touching ten kernel lines is a handful of mutants at 55 seconds, which is minutes. The
   expensive thing is the standing corpus, not the derivative.
@@ -295,7 +295,7 @@ follow-on.
 - **Recorded.** It wants a lane, and the maintainer mints the number. The kernel test suite cannot run
   from a cargo-mutants build directory: the scaffolding `xtask/src/suite.rs` builds before the boot
   is what stops `cargo test -p kernel` standing alone, and nothing else in the kernel pricing is
-  blocked on judgement. It is worth its own lane whether or not any gate follows, because
+  blocked on judgment. It is worth its own lane whether or not any gate follows, because
   "the kernel suite runs from one command" is a newcomer-facing property.
 - **Recorded.** It wants a lane, and the maintainer mints the number. Nothing keeps the census's
   per-survivor list in the tree. The workflow's artifacts expire, and every question in this block

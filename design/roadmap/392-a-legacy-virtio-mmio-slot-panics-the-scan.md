@@ -47,7 +47,7 @@ declines to drive", and milestone 145's `None` path already means the first thin
 between skipping with a printed line that says which slot was declined and why, and keeping the
 panic with a message that names the missing runner flag. The first is probably right (a kernel
 should not die of a device it does not want) but the second is defensible and the difference is a
-judgement about who the reader is.
+judgment about who the reader is.
 
 **Blocked until it is answered:** nothing.
 

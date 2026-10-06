@@ -10,7 +10,7 @@ specific_machine: none
 needs_person: no
 ---
 
-# 612. The IOMMU escape-fault test could lose its fault to an unconfined neighbour disk
+# 612. The IOMMU escape-fault test could lose its fault to an unconfined neighbor disk
 
 Promoted 2026-09-27 (UTC) from the proposal `x86-iommu-first-dma-before-context`, approved by
 calef 2026-09-27T15:20Z. Built the same day by lane `proposal/x86-iommu-first-dma`. *(Number and
@@ -39,7 +39,7 @@ or not:
 - The unconfined second disk faults default-deny, reason `0x2`, and keeps refaulting the same
   address on every retry.
 - The device under test, now holding a present, correctly-scoped context entry, faults reason `0x1`
-  (present context, address outside its own domain) against the same neighbourhood of addresses.
+  (present context, address outside its own domain) against the same neighborhood of addresses.
   Its own instance of the same phenomenon, also correctly refused.
 
 Both are the hardware confining exactly what it should. The bug is elsewhere. `CAP.NFR` reports one
@@ -47,12 +47,12 @@ fault-recording register (already documented below). The unconfined disk's fault
 one slot indefinitely, and a fault arriving while the register already holds one is dropped
 (`FSTS.PFO`) rather than queued. The escape fault this test provokes on its own device could be the
 one silently lost. That is what made the test fail on `x86_64` and nowhere else: aarch64's SMMUv3
-and riscv64's IOMMU do not show this behaviour.
+and riscv64's IOMMU do not show this behavior.
 
-**A second correction, to this milestone's own first cut.** The neighbour disk's DMA is not a QEMU
+**A second correction, to this milestone's own first cut.** The neighbor disk's DMA is not a QEMU
 device-model quirk. A read-only `COMMAND`-register read of both virtio-blk functions, taken before
 this boot ever calls `bring_up` on either, shows Bus Master Enable and Memory Space Enable already
-set on both. Something upstream of this kernel, not this kernel, left the neighbour disk able to
+set on both. Something upstream of this kernel, not this kernel, left the neighbor disk able to
 master the bus before any driver here touched it. `arch::iommu::init` establishes default-deny for
 *translation* but never touches Bus Master Enable, so a function left bus-mastering by whatever ran
 before this kernel can still attempt DMA the moment translation turns on. On real hardware
@@ -65,7 +65,7 @@ is the write-up and the open question, raised rather than answered here.
 the bus before it registers and provokes its own. The reset is `STATUS = 0`, an ordinary virtio
 reset, the same operation `provoke_iommu_escape` already uses to stop a queue an earlier test left
 running. A plain reset stops a device's DMA outright, regardless of the mechanism behind it. So the
-fix does not depend on ever fully explaining QEMU's behaviour. `kernel/src/arch/x86_64/iommu.rs`'s
+fix does not depend on ever fully explaining QEMU's behavior. `kernel/src/arch/x86_64/iommu.rs`'s
 BUGS section carries the corrected account, cross-referenced from the fault-register entry beside
 it.
 
@@ -78,7 +78,7 @@ second fault is always lost while the first sits undrained." It does not, past w
 recorded. `CAP.NFR` reports one register on every unit this driver has met (see the BUGS entry),
 and this driver cannot grow past that. There is no "read the next fault for rid X" operation a
 single hardware record can satisfy. Filtering by rid at read time cannot recover a record the
-register already overwrote or dropped in favour of a different one. So it is recorded as a caller
+register already overwrote or dropped in favor of a different one. So it is recorded as a caller
 obligation instead: code that reads faults for one device must first make sure no other device on
 the bus is still faulting. That is exactly what this fix now does, for the one caller it has
 bitten. The BUGS section says so explicitly, so the next caller does not rediscover it.
@@ -93,7 +93,7 @@ clean after each run.
 
 ## BUGS
 
-- Bus Master Enable was already set on the neighbour disk before this kernel ever ran `bring_up`,
+- Bus Master Enable was already set on the neighbor disk before this kernel ever ran `bring_up`,
   confirmed by a read-only `COMMAND` register read taken first thing in the test. `arch::iommu::init`
   never clears it for a function this kernel does not own, so a device left bus-mastering by
   whatever ran before this kernel (QEMU's own defaults here; firmware on real hardware) can still

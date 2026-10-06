@@ -77,8 +77,8 @@ for this call: its own code runs before the scheduler exists, does three registe
 
 One of them reproduces off CI. On 2026-08-03 a local `script/test` on an aarch64 dev machine hit
 `user/tests.rs:1746` with "**-19** frames did not come back", the same value the milestone-71 lane saw.
-That matters because it removes the easy explanation: this family is not an artefact of GitHub's
-runners, and a quiet machine is not a defence against it.
+That matters because it removes the easy explanation: this family is not an artifact of GitHub's
+runners, and a quiet machine is not a defense against it.
 
 ## The split that makes this two problems, not one
 
@@ -86,7 +86,7 @@ runners, and a quiet machine is not a defence against it.
 been dispositioned; see the column above.)*
 
 Two are genuinely timing. Timer drift and the placement probe measure how fast something happened,
-and a contended runner is slower than a quiet one. Their margins are a judgement about how slow is
+and a contended runner is slower than a quiet one. Their margins are a judgment about how slow is
 acceptable, and widening them trades sensitivity for noise honestly.
 
 **Three are not, and this is the finding.** The reaper count, the frame hygiene check and the
@@ -137,7 +137,7 @@ did not understand. That was the right call and it is the standard here.
 For each of the three, decide **what property the test is actually responsible for** and assert that
 instead. The reaper test wants "the frames this batch allocated came back", not "the global thread
 count returned to a number another test also influences". A per-test accounting scoped to the objects
-that test created is immune to a neighbour's late teardown by construction, where a global count can
+that test created is immune to a neighbor's late teardown by construction, where a global count can
 never be.
 
 That is a per-assertion decision, so the deliverable is three small changes with three arguments, not
@@ -150,7 +150,7 @@ a framework.
 are a list to check against the same question and mostly to leave alone.
 
 The honest cost of leaving this open, and the reason it is worth doing: every red check in this
-repository currently needs a human to decide "known or real", and on 2026-08-03 that judgement was
+repository currently needs a human to decide "known or real", and on 2026-08-03 that judgment was
 made at least six times and got the wrong answer twice.
 
 ## Postscript, 2026-08-03: the frame-hygiene assertion is gone
@@ -164,7 +164,7 @@ frames arriving from outside the run could trip it, with a measured margin of tw
 assertion this milestone asks for, one scoped to the property the test is responsible for, was
 already standing twelve lines above it: the budget reclaim must succeed and must return exactly
 `SWAPPER_BUDGET_PAGES`. The global count added no coverage on top of that, only the exposure to
-neighbours. One of the five is done; the reaper count, the address-space frames and the two timing
+neighbors. One of the five is done; the reaper count, the address-space frames and the two timing
 assertions remain, and the status stays NOT-STARTED for them.
 
 *(That last sentence has been overtaken. The verdicts landed and are recorded per assertion in
@@ -231,7 +231,7 @@ And the prediction attached to those injections was wrong, which is the more use
 existing suite catches both. What it does not do is say what is wrong: the first fails as "the
 handler itself is slow, which is this kernel's bug" on the assertion that broke #204, #210 and #215,
 and the second as "either the host is too contended to observe the grid, or the handler is slower
-than a whole tick period". Both hand a reader the "known or real" judgement this block's own cost
+than a whole tick period". Both hand a reader the "known or real" judgment this block's own cost
 line is about. The instrument's value is diagnostic certainty rather than detection, and its message
 names the defect.
 

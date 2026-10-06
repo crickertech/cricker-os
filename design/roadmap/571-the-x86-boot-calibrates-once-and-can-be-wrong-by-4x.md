@@ -99,7 +99,7 @@ recorded as one.
 
 A tighter tolerance (one part in 2000) moved the mean by 0.07 windows and the error distribution
 not at all, which says the choice is not delicate: clean windows agree to within the PIT's own
-quantisation and dirty ones are nowhere near.
+quantization and dirty ones are nowhere near.
 
 ### The measured boot cost, stated plainly
 

@@ -43,7 +43,7 @@ table.
 Two of this block's five remaining items changed shape on inspection, which is worth more than
 the code was:
 
-- **`posix_rename` is not work.** The two behaviours Samba's `fruit:posix_rename` switches on are
+- **`posix_rename` is not work.** The two behaviors Samba's `fruit:posix_rename` switches on are
   renaming onto an existing name and renaming a file that is open. The first is already
   `fs_proto::fs::RENAME`'s documented semantics; the second cannot fail here because this server
   enforces no share modes at all, so there is no sharing violation for POSIX semantics to be an
@@ -304,7 +304,7 @@ off Samba's own manual page rather than recalled. §99 carries this and the rest
 
 ## `fruit:posix_rename` lands squarely on work already scoped
 
-**Corrected again, 2026-08-17: it is not work at all.** The two behaviours Samba's
+**Corrected again, 2026-08-17: it is not work at all.** The two behaviors Samba's
 `fruit:posix_rename` switches on are renaming onto an existing name (already
 `fs_proto::fs::RENAME`'s documented semantics) and renaming a file that is open (which cannot fail
 here, because the SMB server consults `ShareAccess` nowhere and has neither oplocks nor leases, so
@@ -333,7 +333,7 @@ calef's setup served graeme, corinne and chris when this was written; as of 2026
 corinne and chris (measured: the router's `_adisk._tcp` TXT advertises `dk0=adVN=corinne` and
 `dk1=adVN=chris`), graeme having migrated to Windows, whose backups leave Time Machine entirely.
 One partition and one share each, and privacy between family members rests on Samba correctly
-honouring a "Read-Write User = corinne" line in a config file. A Samba bug, a misedit, or a path-traversal flaw crosses that boundary.
+honoring a "Read-Write User = corinne" line in a config file. A Samba bug, a misedit, or a path-traversal flaw crosses that boundary.
 
 Ours would be one adapter instance per user, each holding one directory capability, and one adapter
 cannot name another's partition. Not an ACL check that could be wrong: no capability, no path, no
@@ -401,7 +401,7 @@ capture above* the moment it exists):
   the share is not offered in the Time Machine UI. That is a second protocol (mDNS) on top of the
   first.
 - Durability semantics macOS trusts. Time Machine writes a sparse bundle and depends on the server
-  honouring flushes. This is the same clause §42 makes central, arriving as a compatibility
+  honoring flushes. This is the same clause §42 makes central, arriving as a compatibility
   requirement: a server that lies about durability produces backups that cannot be restored.
   Built 2026-08-18, above.
 

@@ -97,7 +97,7 @@ on that disk. It is the same limitation `installer`'s own `BUGS` records for the
 it is one wire field away from fixed, and it is why this is a boot-path call rather than an
 authority any program can ask for.
 
-## What serialises the write, and the answer is an ordering
+## What serializes the write, and the answer is an ordering
 
 **Nothing enforces it, and that is stated as the exception it is.** One NVMe server has one transfer
 region, shared by every client of its endpoint, and a client stages bytes into that region before it
@@ -120,7 +120,7 @@ endpoint bounded to a block range; both are wire decisions.
 Idempotent twice over. A slot already successful is returned without the disk being written at
 all, because an installed machine boots its confirmed slot every day of its life and a write on
 every one of those boots is a write that can be interrupted on every one of them. And setting a bit
-that is set writes the same bytes, so the cheap check is an optimisation rather than the property.
+that is set writes the same bytes, so the cheap check is an optimization rather than the property.
 
 Safe to interrupt. The bits that change are nine, inside one `u64`, inside one 128-byte entry,
 inside one 512-byte logical block, so the entry on the disk is always either the old one or the new
@@ -150,7 +150,7 @@ separate QEMU processes with nothing between them but the disk.
   confirmation exists for. `boot-slot=` is a value two programs agree on and is now committed to.
 - **The criterion does not reach a shell**, which is the row the proposal recommended. See above:
   it is the disk-sharing ordering and not an effort argument.
-- Nothing serialises the confirming write against the filesystem server except where it sits.
+- Nothing serializes the confirming write against the filesystem server except where it sits.
   See above.
 - The interrupted-confirmation case is argued and untested. Nothing in this tree cuts power to a
   QEMU between two block writes, which is `rollback-boot`'s own caveat for the decrement.

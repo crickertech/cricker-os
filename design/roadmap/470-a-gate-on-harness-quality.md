@@ -56,5 +56,5 @@ person reading which side of the assertion the crate produced.
 ## Index row
 
 Two independent sweeps of the proof suite reached the same refusal about gating their own findings,
-because the defect is a judgement a lint cannot make. They are gathered here because one refusal
+because the defect is a judgment a lint cannot make. They are gathered here because one refusal
 repeated is stronger evidence than two bullets nobody connects.

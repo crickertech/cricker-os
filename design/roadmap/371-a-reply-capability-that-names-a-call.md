@@ -61,7 +61,7 @@ then needs no sweep, and can bump instead.
 
 **What it does not decide.** Whether the sweep should be kept anyway, on the argument that a
 capability naming a finished call is garbage worth collecting even when it is harmless. That is a
-judgement about capability-table pressure, and it is cheap either way.
+judgment about capability-table pressure, and it is cheap either way.
 
 ## What is blocked until it is answered
 

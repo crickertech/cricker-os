@@ -293,7 +293,7 @@ user-memory validation on this path to begin with.
 D. Split dispatch into a hot decoder that tail-calls a cold one. Subsumed by A, which is the
 same idea with the extraction done per method rather than per decoder, and which is already built.
 
-E. Fix what is measured before optimising it. This is the recommendation, and it is phases 1 and
+E. Fix what is measured before optimizing it. This is the recommendation, and it is phases 1 and
 2. It shrinks nothing and it is a precondition for every other option being judgeable.
 
 F. A hand-written fastpath, seL4's shape. Phase 4. Deferred, not refused.
@@ -482,7 +482,7 @@ whose four call sites are all on these closures.
 | x86_64, before | 6,767 | (8,657) | 1,637 | 8,404 |
 | x86_64, after | **6,236** (-7.8%) | **8,122** (-6.2%) | **1,637** | **9,759** |
 
-Parenthesised figures are what the same binary would have reported under phase 1's roots; they were
+Parenthesized figures are what the same binary would have reported under phase 1's roots; they were
 not measured before this milestone. A control was run to attribute the shrink: the new script
 logic against the pre-extraction `sched.rs` reproduces the "before" row exactly on all three ISAs,
 so the whole 6 to 10% is the extraction and none of it is the mechanism.
@@ -505,7 +505,7 @@ cheap method has been applied and after the accounting was made honest. The bloc
 condition was *"if phase 3 gets the CALL/reply closure under 4 KiB, phase 4 is not worth building"*.
 It did not, by a wide margin, on any architecture.
 
-**But three things changed in phase 4's favour, and one against it.**
+**But three things changed in phase 4's favor, and one against it.**
 
 For it. The number a fastpath would be measured against can now be trusted, which was the
 block's second reason to wait and is discharged: the gate reports the shape services run, aarch64's
@@ -571,7 +571,7 @@ under a 193 ns artifact is not what anyone should buy one with.
 rather than as a boolean, because footprint predicts a monotonic dose response and layout does not.
 Written up as `design/roadmap/370-a-layout-control-for-the-perturbation-experiments.md`.
 
-**One thing the session did settle, in phase 4's disfavour but not against it.** The board can now
+**One thing the session did settle, in phase 4's disfavor but not against it.** The board can now
 resolve these differences at all: `bench: cycles_per_tick 250.00` from milestone 74's riscv64 PMU,
 and a boot-to-boot spread of 0 to 2 units on a four-figure count. The methodological complaint
 nobody could answer on patagonia, that a small percentage might be a timer artifact, is answered.

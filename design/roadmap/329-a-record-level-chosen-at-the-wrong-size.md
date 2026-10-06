@@ -36,7 +36,7 @@ system, and it sits in a finished block where a reader will take it as current. 
 the machine are the irreversible category, and a quoted 5.13x is one.
 
 The choice is the larger problem. Record level 1 won on 4 KiB requests. Nothing establishes that it
-still wins at 64 KiB, and there is a plausible reason it might not: a larger request amortises
+still wins at 64 KiB, and there is a plausible reason it might not: a larger request amortizes
 per-record overhead differently, which is the whole mechanism the record level trades against. If a
 different level wins at the shipped size, the system is running the wrong configuration today and
 the sweep is what finds out. If level 1 still wins, the sweep costs one run and the block gets a
@@ -54,7 +54,7 @@ ships."*
 
 One sweep run, then an edit to milestone 138's block replacing the stale ratio with the measured
 one and saying which size each was taken at. If the winning level changes, the configuration change
-is a second, separate commit, because a benchmark correction and a behaviour change should not be
+is a second, separate commit, because a benchmark correction and a behavior change should not be
 one entry in `git blame`.
 
 ## Index row
@@ -64,7 +64,7 @@ default request, so the 5.13x figure step 1 published is a ratio about a contrac
 using two steps later, and the record level it selected was selected under the same stale conditions.
 The number is the smaller problem, though a headline benchmark figure describing a configuration
 nothing ships is exactly what this tree's benchmark posture exists to prevent and a quoted 5.13x is a
-fact that has left the machine. The choice is the larger one: a larger request amortises per-record
+fact that has left the machine. The choice is the larger one: a larger request amortizes per-record
 overhead differently, which is the mechanism the record level trades against, so if a different level
 wins at 64 KiB the system is running the wrong configuration today. One run of
 `sh bench/record-level-sweep.sh 3 0 1 5` at `TRANSFER_PAGES = 16` settles both.

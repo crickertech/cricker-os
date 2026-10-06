@@ -94,7 +94,7 @@ owns E3; `design/roadmap/132-the-fastpath-footprint.md` owns the gate.
   yet: `design/roadmap/370-a-layout-control-for-the-perturbation-experiments.md`.
 - **Milestone 374.** Cycles per IPC on the bench rows themselves. The session read
   `cycles_per_tick 250.00`, which converts a tick and does not subdivide one, so E3's verdict is
-  still quantised at 250 ns: `design/roadmap/374-cycles-per-ipc-on-the-bench-card.md`.
+  still quantized at 250 ns: `design/roadmap/374-cycles-per-ipc-on-the-bench-card.md`.
 - **Recorded.** This is not the full Liedtke experiment and the block says so where it reports: a
   cycle count says whether the round trip got slower and never attributes the cost to
   instruction-cache displacement, nor says anything about the application's working set. That wants

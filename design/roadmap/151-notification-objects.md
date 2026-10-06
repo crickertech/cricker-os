@@ -152,7 +152,7 @@ implies) is most of the difference.
 - There is no unbind. §101 has none. A binding lasts until either side is destroyed; a thread
   whose notification was destroyed may be bound again, because the stale name resolves to nothing.
 - `WAIT` and `POLL` return the word in `x0`, where a negative value is an error. A word with its
-  top bit set whose value lands on an error code (-1 to -11) reads as that error. It needs a signaller
+  top bit set whose value lands on an error code (-1 to -11) reads as that error. It needs a signaler
   to set almost every bit, so it is unlikely rather than impossible. The fix is a register convention
   (`x0` status, `x1` word), which is a wire change and was not taken without a consumer asking.
 - `SIGNAL` with zero bits does nothing and wakes nobody. A choice (`WAIT` never returns zero, so

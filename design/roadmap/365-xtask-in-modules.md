@@ -71,7 +71,7 @@ finding a build output) rather than for the fact of being shared. If something l
 neither, that is the tell.
 
 The soak and the job mix left the board. Both read as board work because they share a
-recogniser with `board-console`, but they run under QEMU and never touch a board, so they are
+recognizer with `board-console`, but they run under QEMU and never touch a board, so they are
 `soak.rs`. The board module keeps the console and the U-Boot script, which are the two things that
 require the hardware.
 
@@ -86,7 +86,7 @@ already had.
 
 ### The evidence that nothing changed
 
-Behaviour was held fixed and checked rather than asserted:
+Behavior was held fixed and checked rather than asserted:
 
 - The move is provably a move. Every non-blank line of the original `main.rs`, ignoring `use`
   lines and the `pub(crate)` prefixes the split forced, appears in the new files: zero lines

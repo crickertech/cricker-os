@@ -55,7 +55,7 @@ priced by what it adds:
    grounds, and it is a second channel to the one the watcher already is.
 
 Reversible: all three are tooling on one machine or one workflow, and nobody else has acted on
-the current behaviour except by not acting.
+the current behavior except by not acting.
 
 ## Scope note
 

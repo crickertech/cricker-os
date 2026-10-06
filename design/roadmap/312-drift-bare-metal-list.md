@@ -71,7 +71,7 @@ construction and an empty answer means the detection stopped working rather than
 changed.
 
 The targets come from `rust-toolchain.toml`. Its `targets` array already names all four, and
-rustup already honours it for the pinned toolchain, which is why the missing
+rustup already honors it for the pinned toolchain, which is why the missing
 `x86_64-unknown-none` went unnoticed: the pin covered for it everywhere except the one path this
 script exists for, a `--toolchain` install that rustup will not apply the array to. `script/drift`
 now installs every target the array declares, and builds the workspace for every one whose OS

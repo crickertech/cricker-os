@@ -129,7 +129,7 @@ has to silence, which is the outcome §134 argued against.
 together are the tree's mechanisms. Extending it further would be speculative.
 
 **Not a claim that any other site is currently broken.** Only the falsification sweep is known to
-have been. The other 29 are a population to label, and labelling them is most of the value, because
+have been. The other 29 are a population to label, and labeling them is most of the value, because
 the label is what the next person to add a `|| true` will read.
 
 ## What was built
@@ -139,15 +139,15 @@ the label is what the next person to add a `|| true` will read.
   `exception, <reason>`. The first two are checked against the job, and a test on
   `steps.<id>.conclusion` is refused because it can never fire. A pipeline into `tee` must have
   pipefail. A new workflow that hides a script's exit fails lint.
-- The 13 sites labelled. The five in `metrics.yml` were outcome swallows with nothing downstream, so
+- The 13 sites labeled. The five in `metrics.yml` were outcome swallows with nothing downstream, so
   a coverage step failing every Monday would have left a carried cell standing. They now share a
   last step that fails the job after the record is written.
 - Rung one where it was cheap. `script/falsifications --sweep` exits 4 on an empty selection, where
   it printed `nothing to sweep` and exited 0; `--affected-since` keeps zero as clean. `script/audits`
   fails an empty cadence table.
-- Two outcome swallows found by labelling the `|| true` population. `architect-label.yml` read a
+- Two outcome swallows found by labeling the `|| true` population. `architect-label.yml` read a
   crash of its rules helper (Python's exit 1) as "no rule fired"; the helper now crashes with 3 and
-  an unexamined diff is labelled. `ci.yml`'s nine documentation-only predicates read zero changed
+  an unexamined diff is labeled. `ci.yml`'s nine documentation-only predicates read zero changed
   files as documentation only; each now needs a non-empty set.
 - The falsification ratio, as the block directed: a survey of the eleven published ratios and what
   each denominator excludes, in `notes/denominators.md`. `script/falsifications` and the harnesses
@@ -158,7 +158,7 @@ the label is what the next person to add a `|| true` will read.
 - `helpers/workflow_swallows.py --selftest`: 17 fixtures, each failing case first-class, plus an
   empty workflow directory that must fail.
 - Replayed against `24a1e0a7b`, the sweep as it first landed, the gate fires on both of its
-  constructs: the unlabelled `continue-on-error` and `| tee sweep.txt` without pipefail.
+  constructs: the unlabeled `continue-on-error` and `| tee sweep.txt` without pipefail.
 - `script/falsifications --sweep no_such_package` exits 0 at the base commit and 4 on this branch.
 - `helpers/architect-label-rules.py --base-rev deadbeef` exits 1 at the base commit, the same as
   "nothing fired", and 3 on this branch.
@@ -166,7 +166,7 @@ the label is what the next person to add a `|| true` will read.
 ## BUGS
 
 `notes/denominators.md` has them. The two that matter: a label can be wrong, since the gate makes
-the decision written rather than correct; and `|| true` is labelled by family there, not gated.
+the decision written rather than correct; and `|| true` is labeled by family there, not gated.
 
 ## Architectural parity
 

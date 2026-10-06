@@ -159,14 +159,14 @@ The bench procedure and its failure triage are in notes/x86-uefi-boot.md's "The 
 A UEFI entry, chosen over GRUB Multiboot 2 on a fork this lane priced rather than argued. Both
 were real and both could coexist; two commands decided it. OVMF, the open-source UEFI
 implementation, ships with the QEMU this project already pins
-(`/opt/homebrew/share/qemu/edk2-x86_64-code.fd`), and QEMU's `vvfat` driver synthesises the FAT
+(`/opt/homebrew/share/qemu/edk2-x86_64-code.fd`), and QEMU's `vvfat` driver synthesizes the FAT
 filesystem out of a host directory, so the whole path is testable today with nothing installed.
 GRUB is not installable on the development machine at all (`brew info grub`: no formula), so that
 path could have been written on patagonia but not *proved* there. The OptiPlex is also UEFI-native,
 so UEFI is the shorter path at both ends. GRUB stays cheap to add for a BIOS-only machine.
 
 **The kernel is not modified**, and that is the design rather than an economy. `uefi_loader` places
-the kernel at its `p_paddr`, synthesises an `hvm_start_info` out of what the firmware knows, leaves
+the kernel at its `p_paddr`, synthesizes an `hvm_start_info` out of what the firmware knows, leaves
 long mode, and enters **the same `_start`** with the same register contract QEMU's PVH loader
 delivers. One entry point, one handoff structure, one decoder, one set of tests; two of each would
 have diverged, and the divergence would first show up on hardware nobody can attach a debugger to.
@@ -282,7 +282,7 @@ hardware side finished before the code side needed it.
   guarantee; the loader now names the descriptors in the way, which is the difference between a
   load error and a sentence.
 - **Recorded.** This port's serial chain is real RS-232 and the two boards' adapters are 3.3 V TTL.
-  They share a desk and must be labelled so they are never swapped.
+  They share a desk and must be labeled so they are never swapped.
 - **Recorded.** The Protectli VP2430 stays the named alternative if the used machine disappoints or
   when open firmware becomes the point, priced in this block at $150 over the used route.
 - **Milestone 161.** The `igc` driver deltas QEMU cannot emulate belong to the x86_64 port rather

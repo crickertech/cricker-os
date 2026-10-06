@@ -690,7 +690,7 @@ flag on a table of two columns.
 
 `w`, `pidwait` and `pmap` from the prompt, each now a proposal of its own. `sysctl` is declined
 (§115 (no `sysctl`)), so is `pwdx` (§224 (no `pwdx`)), and the signaling stratum is refused
-(milestone 455 (the signalling stratum of `procps`)). The machine-wide statistics are built beside
+(milestone 455 (the signaling stratum of `procps`)). The machine-wide statistics are built beside
 this view, under §225 (`free` sees the machine and your share): see
 [the machine and your share](process-view/the-machine-and-your-share.md). The forks are written up
 in [what is left](process-view/what-is-left.md).

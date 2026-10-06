@@ -30,7 +30,7 @@ machine, under every request the service handles. Measured on aarch64:
 ## What to build
 
 `boot` returns what the spawn service needs (its channels, the filesystem handles, the job pool, the
-catalogue), and `_start` calls `spawn_service` with it. The construction locals die with `boot`'s
+catalog), and `_start` calls `spawn_service` with it. The construction locals die with `boot`'s
 frame. Expected saving is about 12.5 KB in debug and 3 KB in release, which the gauge in
 `kernel::progenitor_stack` will measure rather than this estimate.
 

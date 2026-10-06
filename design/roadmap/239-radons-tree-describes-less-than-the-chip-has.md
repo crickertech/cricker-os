@@ -65,8 +65,8 @@ Every observation from the bench holds, and none of them meant what it was read 
 | What was seen on 2026-09-03 | What it was read as | What it was |
 |---|---|---|
 | `fdt print /soc/rng@1600c000` -> `FDT_ERR_NOTFOUND` | no such device in the tree | no such **path**: the node is `trng`, not `rng`, and its unit address carries an **upper-case C**, so `/soc/trng@1600c000` misses too |
-| `fdt list /soc` -> 56 nodes, no random number generator | the device is absent | `trng@1600C000` is one of the 56; it was not recognised |
-| `crypto@16000000` and `sec_dma@16008000` present, their neighbour absent | a specific omission, so a firmware build choice | both are spelled identically in the two trees, so both matched a reader's eye where the third did not |
+| `fdt list /soc` -> 56 nodes, no random number generator | the device is absent | `trng@1600C000` is one of the 56; it was not recognized |
+| `crypto@16000000` and `sec_dma@16008000` present, their neighbor absent | a specific omission, so a firmware build choice | both are spelled identically in the two trees, so both matched a reader's eye where the third did not |
 | `hw entropy : skipped (... describes no starfive,jh7110-trng ...)` | the tree names no TRNG | the tree names no `starfive,jh7110-trng`, which is a narrower claim than the sentence reads as, and it was the exact truth |
 
 **The three shapes of fix this block was minted with are all answers to a question that was not the
@@ -191,7 +191,7 @@ there was no bench session. Two commands and one boot settle all of it.
 
 - Nothing here has touched silicon. The node's presence in the running firmware's tree is
   inferred from that firmware's source at the right vintage, not read off the board. It is a strong
-  inference (the model string, the two neighbour nodes, and the PLIC node in
+  inference (the model string, the two neighbor nodes, and the PLIC node in
   `crates/machine_discovery/tests/fixtures/visionfive2-uboot-control.dts` all match that source) and
   it is still an inference. The `fdt print` above is what turns it into a fact.
 - **The firmware could have been built from a tree this repository has not read.** The banner names

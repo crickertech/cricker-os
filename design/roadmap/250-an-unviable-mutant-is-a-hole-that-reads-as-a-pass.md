@@ -60,7 +60,7 @@ Not a lower unviable count on its own, which could be bought by deleting code th
 
 - Making a mutant viable can be gaming. Deriving `Default` on a type where the default is
   meaningless would add a mutant that any test kills, raising the score and proving nothing. The test
-  is whether the default is a value the code could plausibly be wrong with, which is a judgement
+  is whether the default is a value the code could plausibly be wrong with, which is a judgment
   rather than a rule, and each one should say why it is not gaming.
 - This is a property of `cargo mutants`, whose pinned version is in `.cargo-mutants-version`. A
   tool upgrade can change which mutants are viable, and the count is therefore versioned rather than

@@ -9,8 +9,8 @@ Built (2026-08-01). `script/cpu-matrix` runs the riscv64 suite against `rv64`,
 `sifive-u54`, `rva22s64`, `rva23s64` and `thead-c906`; 211 tests pass on every one, so the cheap
 experiment below came out the reassuring way and "we are already portable to the board's ISA" is now
 measured rather than predicted. `script/test` grew `--arch` and `--cpu`, both defaulting to today's
-behaviour, and CI grew a `cpu-matrix` job of its own. The full result, the preflight that keeps the
-matrix from being theatre, and an honest BUGS list are in [notes/cpu-models.md](../../notes/cpu-models.md).
+behavior, and CI grew a `cpu-matrix` job of its own. The full result, the preflight that keeps the
+matrix from being theater, and an honest BUGS list are in [notes/cpu-models.md](../../notes/cpu-models.md).
 The one thing it did **not** de-risk is the ASID width: every model reports 16 implemented bits, so
 the test written for the board still has no machine that can fail it.
 
@@ -62,7 +62,7 @@ portable to the board's ISA", recorded with the evidence.
 
 ## BUGS
 
-- `sifive-u54` in QEMU is still QEMU. It will not reproduce the JH7110's cache behaviour, its real
+- `sifive-u54` in QEMU is still QEMU. It will not reproduce the JH7110's cache behavior, its real
   memory map, or its errata. This catches the ISA-and-CSR class and is not a substitute for the board.
 - **A green matrix is not a portable kernel.** It is the absence of one specific class of failure.
 
@@ -82,7 +82,7 @@ lands (~2026-08-21).
   `the_hardware_has_at_least_the_asid_bits_the_allocator_assumes` still has no machine that can fail
   it.
 - **Recorded.** `design/roadmap/59-cpu-model-matrix.md`'s own BUGS: `sifive-u54` under QEMU is still
-  QEMU and reproduces none of the JH7110's cache behaviour, memory map or errata, and a green matrix
+  QEMU and reproduces none of the JH7110's cache behavior, memory map or errata, and a green matrix
   is the absence of one class of failure rather than a portable kernel.
 
 ## Index row

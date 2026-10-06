@@ -72,7 +72,7 @@ mutants as interchangeable is what makes an aggregate fraction the wrong instrum
 
 `measured` takes a `nifefs::Fs`, a `&str` table and a `&str` name. All three of its dependencies
 already compile for the host (`nifefs`, `measured_boot`, `elf`), and every one of them is already
-mutated and covered. The function sits in an excluded crate because of its neighbours, not because of
+mutated and covered. The function sits in an excluded crate because of its neighbors, not because of
 anything it does.
 
 ## The proof that this milestone worked

@@ -45,7 +45,7 @@ const SRST_RESET_TYPE_SHUTDOWN: usize = 0;
 ```
 
 SRST defines reset type 0 as shutdown and 1 as cold reboot. So a self-rebooting soak is one
-constant and a timer, over an `ecall` this project already knows radon's OpenSBI honours, because the
+constant and a timer, over an `ecall` this project already knows radon's OpenSBI honors, because the
 shutdown path is in use. Milestone 218's `boot.scr` then drives the next boot with nothing typed at
 it, which was proven on this board for the first time the same evening.
 
@@ -260,7 +260,7 @@ notes/board-reboot.md.
 - An unattended board can fail unattended, and what was built reports it rather than preventing
   it. `script/board-console --tally` counts U-Boot SPL banners as boot attempts beside `soak: started`
   as draws, so "three boots and then a wedge at 2am" reads as attempts exceeding draws instead of
-  as a short series. The watcher's own silence judgement is still per run rather than per boot, which
+  as a short series. The watcher's own silence judgment is still per run rather than per boot, which
   is the weaker half and is unchanged.
 - Nothing here explains the lottery, only measures it. Why placement lands where it does is
   DECISIONS 138's territory and is not answered by more samples.
@@ -268,7 +268,7 @@ notes/board-reboot.md.
   real one-boot capture carrying a census (`qemu-2026-09-03-riscv64-soak-census.log`, taken for this
   milestone), but every case with more than one boot in it is text this project wrote, because no
   multi-boot capture exists anywhere yet. That is the same gap `crates/board_console`'s `BUGS`
-  records for its recogniser, and the first bench log closes it.
+  records for its recognizer, and the first bench log closes it.
 - A rebooting series and a long run are different experiments. Fifty two-minute draws measure the
   distribution over placements; the three-hour run in notes/soak.md measures what one placement does
   over time and is the only evidence that a slow draw is stable rather than a warm-up. Neither

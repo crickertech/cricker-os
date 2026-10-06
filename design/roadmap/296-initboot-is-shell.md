@@ -37,13 +37,13 @@ reading:
 | | `--features shell` | `--features initboot` |
 |---|---|---|
 | defined symbols | 3,109 | 3,109 |
-| symbol names, normalised | identical | identical |
+| symbol names, normalized | identical | identical |
 | total symbol bytes | 1,273,614 | 1,273,614 |
 | `.text` section size | 462,848 | 466,944 |
 
 The symbol tables differ in exactly one way: the crate disambiguator hash (`Cs9iDuAnI0Lr2_` against
 `CselbPZ3Od6Uz_`), which is the feature set's own fingerprint, so a difference there is the *feature
-name* and not the code. Normalise that one substring and `diff` is empty across all 3,109 names. The
+name* and not the code. Normalize that one substring and `diff` is empty across all 3,109 names. The
 4,096-byte `.text` difference is one page of link padding: the disambiguator changes an object
 filename, which changes link order, which moves symbols across a 4 KiB boundary. Total symbol bytes
 are equal to the byte.
@@ -86,7 +86,7 @@ names, correctly.
 
 Then the difference was eaten from both ends. DECISIONS §28 retired `shell_service` as a boot path
 and milestone 41 deleted it, so `--features shell` started handing off to the progenitor too:
-`initboot`'s distinguishing behaviour became `shell`'s behaviour. What was left for the pair to
+`initboot`'s distinguishing behavior became `shell`'s behavior. What was left for the pair to
 select was only the milestone tour's absence, and both selected exactly that. Milestones 267 and
 268 then moved the machine description and the tour apart and lifted the narrative out of the
 kernel, and calef ruled the narrator deleted on 2026-09-13; each of those steps took another thing
@@ -175,7 +175,7 @@ became `job_mix` (which is also what every other multiword feature in this kerne
 
 **The console markers moved to `job-mix:` and `job-mix-census:`, and that half is provisional.** They
 were checked for readers first, because a marker with readers is a contract: `crates/board_console`'s
-recogniser knows `soak:` and does **not** know this workload at all, which is what
+recognizer knows `soak:` and does **not** know this workload at all, which is what
 `design/roadmap/proposals/a-board-console-recogniser-for-the-job-mix-sweep.md` exists to fix, so the
 only reader in the tree is `xtask`'s own sweep and it moved in the same commit. The spelling is the
 command's rather than the crate's, for one deciding reason: `xtask` already printed
@@ -235,7 +235,7 @@ they were written.
   `reboot_soak` and `single_hart` are still built by nobody, and this lane demonstrated what that
   costs by finding one of them red. Not done here because the fix is a change to CI's shape.
 - **Milestone 324.**: the
-  board-side recogniser still cannot read this workload's markers, which is why renaming them was
+  board-side recognizer still cannot read this workload's markers, which is why renaming them was
   safe and is also why a board run is still read by eye.
 - **Recorded.** The console markers' spelling is a lane's choice and calef has not ruled on it. It is
   written in `crates/job_mix/src/lib.rs`'s provenance block, where the rest of this family's naming

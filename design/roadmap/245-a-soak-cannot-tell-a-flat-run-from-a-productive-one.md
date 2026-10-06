@@ -65,7 +65,7 @@ missing is the summary that turns a sequence of arrangements into *"this beat sa
 earlier beat saw"* or *"this beat saw nothing new."*
 
 The shape is deliberately not specified here, because the interesting design question is what counts
-as a distinct behaviour, and that is the milestone rather than a detail of it. Some candidates, none
+as a distinct behavior, and that is the milestone rather than a detail of it. Some candidates, none
 endorsed:
 
 - Distinct settled arrangements, which is the coarsest and probably the most honest, given that
@@ -84,7 +84,7 @@ seen once, which is the standing warning about instruments on this workload.
 
 ## The proof that this milestone worked
 
-**A run says, from its own output, whether it is still finding new behaviour**, and two runs of
+**A run says, from its own output, whether it is still finding new behavior**, and two runs of
 different lengths can be compared on that basis rather than on hours. Concretely: a beat line, or a
 line beside it, from which a reader can see the curve flatten.
 
@@ -98,7 +98,7 @@ Not a new counter that rises monotonically, which is what the existing eight alr
   fraction of the space and stays there; a soak that has gone flat on placement may still be
   accumulating hours of the *same* interleaving, which is exactly what a wearout or leak question
   would want and a concurrency question would not.
-- It measures this soak's behaviour, not the kernel's. A histogram over the workload's placements
+- It measures this soak's behavior, not the kernel's. A histogram over the workload's placements
   says nothing about paths no worker takes, and reading it as a coverage number for the scheduler
   would be the same overclaim `notes/mutation-testing.md` warns about for its own score.
 - **Nothing here helps the slow draw.** A run at 0.51 crossings per second will look flat because it
@@ -107,5 +107,5 @@ Not a new counter that rises monotonically, which is what the existing eight alr
 
 ## Index row
 
-all eight soak counters are volumes; nothing counts distinct behaviour, so a saturated run and a
+all eight soak counters are volumes; nothing counts distinct behavior, so a saturated run and a
 productive one look identical

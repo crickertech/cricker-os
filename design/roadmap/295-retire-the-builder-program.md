@@ -126,7 +126,7 @@ Two sites beyond the eight, found by re-verifying: `components/src/timetable.rs`
 sibling its `// SAFETY:` contract matches and the second as one of four sites in DECISIONS §114's
 address-space audit. Both repointed; the audit's finding is unchanged, it has one fewer site.
 
-## `userspace_ran()`: a recogniser that now reads history
+## `userspace_ran()`: a recognizer that now reads history
 
 The live replacement is `boot_ladder::PROMPT` / `Stage::Prompt`, and it says more than the marker
 it replaces: `init/build` meant userspace built one child from two capabilities, where a prompt
@@ -136,7 +136,7 @@ the shell.
 The matcher for `init/build` stays anyway, and this is not sentiment.
 `crates/board_console/tests/fixtures/captured/vf2-2026-09-01-userspace.log` contains the line and is
 asserted on. That capture is bytes off real VisionFive 2 silicon and cannot be re-taken with a
-different kernel; a recogniser that could no longer read it would be throwing evidence away to tidy
+different kernel; a recognizer that could no longer read it would be throwing evidence away to tidy
 code. So `userspace_ran()`'s doc now says which of the two questions it answers, at the accessor
 itself, and the matcher carries a comment saying the same. `notes/board-console.md` says it where a
 reader meets the tool.
@@ -156,7 +156,7 @@ says so in those terms. The default riscv64 boot's userspace is covered by the i
 same code aarch64 runs), not by an exception to it. Two loaders are left and both really are QEMU
 only.
 
-The measured-boot refusal moved rather than went, which is the one behaviour change a board
+The measured-boot refusal moved rather than went, which is the one behavior change a board
 operator will see. The archive used to be checked against the trust root at tour step 4; it is now
 checked in `riscv_shell_boot` at the handoff. A card with the wrong archive still halts with
 `MEASURED BOOT REFUSED`, later in the transcript than it used to, and `board_console` reads the same
@@ -177,7 +177,7 @@ moves is one nobody can check.
   Numbered on 2026-09-19 by milestone 433's drain of the pile.
 - **Recorded.** The synthetic fixture
   `crates/board_console/tests/fixtures/synthetic/qemu-soak-then-silence.log` still contains an
-  `init/build` line, describing a boot shape no kernel produces any more. It is a recogniser test
+  `init/build` line, describing a boot shape no kernel produces any more. It is a recognizer test
   rather than evidence, so it is left alone and named in `BUGS` below rather than rewritten.
 
 ## BUGS
@@ -191,8 +191,8 @@ moves is one nobody can check.
   read its doc will read a live board's `false` as "userspace did not run". The doc is the mechanism
   and it is rung three; the honest alternative, deleting the accessor, would take the captured
   transcript's assertion with it.
-- One synthetic fixture still carries `init/build`, above. A recogniser fed a line no kernel
-  prints is testing the recogniser rather than the system, which is what a synthetic fixture is for;
+- One synthetic fixture still carries `init/build`, above. A recognizer fed a line no kernel
+  prints is testing the recognizer rather than the system, which is what a synthetic fixture is for;
   it is recorded because the next person to read that file will wonder.
 - Three diagnostics are now dead code, kept deliberately. `sched::canary` (with
   `canary_arm_registries` and `canary_disarm`), `sched::boot_stage` and `console::tx_bytes` had

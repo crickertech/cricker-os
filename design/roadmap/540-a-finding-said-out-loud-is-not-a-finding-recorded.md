@@ -73,7 +73,7 @@ loop or nothing.
   belongs in `notes/mutation-testing.md`'s triage, which another lane held open at the time, so it
   was reported and not filed.
 
-## What cannot be mechanised, said first
+## What cannot be mechanized, said first
 
 Nothing can read the conversation. No gate can know that a maintainer said something to calef
 and did not write it down, and a lint that hunted for finding-shaped English in reports and pull

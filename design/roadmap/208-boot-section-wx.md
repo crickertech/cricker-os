@@ -110,7 +110,7 @@ that. This is not that shape, and the test is falsifiable: it asserts a property
 genuinely have today, measured, so a red run means the property is gone rather than that the rule
 was too strict. There is also no legitimate reason for a nife kernel image to want the combination:
 the kernel installs fine-grained W^X page tables over its own image on all three architectures, so a
-segment asking for both is asking for something the kernel will not honour anyway. If one is ever
+segment asking for both is asking for something the kernel will not honor anyway. If one is ever
 wanted, this script is where the argument has to be made and written down. The failure mode it can
 actually have is the opposite one, a false *negative*: see BUGS.
 
@@ -121,7 +121,7 @@ The claims in `design/fatal-risks/README.md` are about what a confined component
 they are enforced by the page tables and the capability system, neither of which this touches. The
 kernel already installed fine-grained W^X tables over its own image on all three architectures, so
 **the RWX segment was never actually mapped RWX at runtime**; the `PT_LOAD` was a claim in a file that
-the kernel then declined to honour.
+the kernel then declined to honor.
 
 What it was, and this is the part worth keeping, is the tree's own rule catching the tree. The
 verification story here is not "we proved the kernel safe" but "we wrote the rule down once, in a

@@ -89,7 +89,7 @@ Twenty-five tests moved out of the pass column on x86_64 and nothing ran that ha
 before, which is the outcome this milestone wanted: a change here that made the numbers look
 better would have been the tell that something was wrong. The two legs that did not move are the
 control: they attach every fixture, so none of the rewritten branches is taken, and their being
-identical is what says the sweep changed reporting rather than behaviour.
+identical is what says the sweep changed reporting rather than behavior.
 
 The 25 are not spread evenly. 24 of them skip with "no RedoxFS disk attached", one reason,
 waiting on one thing:

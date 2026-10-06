@@ -50,7 +50,7 @@ know both. One more hand-rolled gauge makes three.
 
 ## The fork inside it, which is small
 
-Whether to generalise or to repeat is worth deciding rather than defaulting into. A shared mechanism
+Whether to generalize or to repeat is worth deciding rather than defaulting into. A shared mechanism
 means one place to read, one output format, and one check in `script/swish-check`; it costs an
 abstraction over constants that differ in kind, since `nifefs::NAME_LEN` is a length bound on a name
 and not a count of live objects, and forcing those into one gauge may be the wrong shape. Repeating

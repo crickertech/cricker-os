@@ -119,7 +119,7 @@ Proved on patagonia under QEMU:
   `soaker`, is `measured_boot::verify_in_manifest`, whose own tests cover both refusals. It was not
   falsified in a booted kernel: that needs an archive whose table is right and whose `soaker` is
   wrong, and the tree has no packer that makes one.
-- The default `uefi-image` is unchanged in behaviour: it still seals and still boots to the
+- The default `uefi-image` is unchanged in behavior: it still seals and still boots to the
   hand-over, which is where its own check already lived.
 
 `uefi-image --features <list>` is the watchdog soak lane's patch, saved by its lane rather than

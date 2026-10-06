@@ -38,7 +38,7 @@ rather than a preference.
 
 - **Condition.** Either an allocator for the shell or a different carrier for a grant, which the
   refusal names as its own decision with its own argument. The bell is any change that stops a name
-  set travelling by value: the ceiling moves rather than disappearing, and `xargs` is still wanted
+  set traveling by value: the ceiling moves rather than disappearing, and `xargs` is still wanted
   afterwards.
 
 ## Index row

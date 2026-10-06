@@ -148,7 +148,7 @@ once, and by this file's own standard that is an attestation rather than evidenc
   `Built` date of 2026-08-04, and the finding happened to be real for a reason the check could not
   see, which is luck rather than mechanism.
 - **The selftest proves each check can fire, not that it fires on everything it should.** A fixture
-  is one worked example per check. A prose shape the script does not recognise is caught by the
+  is one worked example per check. A prose shape the script does not recognize is caught by the
   "as of" check or by nobody, and no fixture can tell you which.
 - **A false negative is cheap here and a false positive is not.** `design/fatal-risks/README.md` is meant to
   be read and trusted; a gate that cries wolf on a status word that moved for a harmless reason

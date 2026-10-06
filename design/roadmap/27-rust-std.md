@@ -13,7 +13,7 @@ Why it matters. widens "runs real workloads" by orders of magnitude: the pool of
 directly on the capability ABI (Hermit's shape); a real std program (`Vec`, `String`, `HashMap`,
 `println!`, `Instant`) is spawned and checked byte for byte on aarch64 and riscv64. Phase two bound
 `std::net` to net_stack's socket contract and `std::fs` to the §27 FS service, so the same binary
-now has three behaviours chosen by its grants alone: a filesystem if it holds a directory capability,
+now has three behaviors chosen by its grants alone: a filesystem if it holds a directory capability,
 a network if it holds a `Stack` endpoint, and honest `Unsupported` for whichever it was not given.
 `std::fs`'s interesting half is what a path *means* with no global namespace: "under the directory I
 hold", so an absolute path or a `..` is refused as un-nameable rather than served. `thread::spawn`

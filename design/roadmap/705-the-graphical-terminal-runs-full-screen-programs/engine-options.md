@@ -7,17 +7,17 @@ This appendix belongs to [milestone 705 (the graphical terminal runs full-screen
 Everything below was read from `ghostty-org/ghostty` `main` on 2026-10-02, except where marked.
 
 - *Maturity.* `include/ghostty/vt.h` opens "WARNING: This is an incomplete, work-in-progress API. It is
-  not yet stable and is definitely going to change." `lib_vt.zig` says the behaviour is stable
+  not yet stable and is definitely going to change." `lib_vt.zig` says the behavior is stable
   (extracted from a shipped terminal) and the API is not. The tree's own note already says to pin.
 - *Toolchain.* `build.zig.zon` requires Zig 0.16.0 or later. Zig is not installed here (Homebrew has
   0.16.0), so the build-time cost is unmeasured. The source it compiles is large:
-  `src/terminal` holds 164 Zig files totalling 6.2 MiB, tests included, line count not taken.
+  `src/terminal` holds 164 Zig files totaling 6.2 MiB, tests included, line count not taken.
 - *Freestanding.* Not "no allocation" (section above). It also needs a `std.Io` (`TinyIo` is the
   small one), and an entropy callback on targets with no `getrandom`
   (`GHOSTTY_SYS_OPT_RANDOM_SECURE`, `vt_sys.h`; whether the terminal path exercises it is not
   checked). Whether the Zig 0.16 freestanding build links without libc symbols is the first thing
   a lane would have to find out; I did not try.
-- *Licence.* MIT (GitHub licence field, and the repository `LICENSE`).
+- *License.* MIT (GitHub license field, and the repository `LICENSE`).
 - *What it buys.* Alternate screen (modes 47, 1047, 1049), device attributes, cursor report, size
   report, mouse and key encoders, reflow and scrollback, per `vt.h`, `vt_modes.h` and
   `vt_terminal.h`.
@@ -37,7 +37,7 @@ Everything below was read from `ghostty-org/ghostty` `main` on 2026-10-02, excep
 5. Cost: a Zig 0.16 toolchain in the build (unmeasured), a pinned vendored tree under §18's policy, an
    allocator for the component, a cell-based expected-picture check (not estimated), and shim code
    (not estimated).
-6. Hard to reverse once programs rely on its behaviour; easy to reverse before. A dependency in the
+6. Hard to reverse once programs rely on its behavior; easy to reverse before. A dependency in the
    shipping graph is the irreversible category in `CLAUDE.md`.
 7. Mostly yes. It is the option this tree already prefers for its milestone 23 claim, and the
    answer is less about effort than about whether the claim is worth a toolchain.

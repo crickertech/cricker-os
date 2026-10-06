@@ -20,10 +20,10 @@ The decision is
 up 2026-09-19 by milestone 435's slice-c lane because this gate named no section. That section also
 records why the three sections a reader might stop at do not answer this one: §92 decides a
 caretaker's *lifetime*, §56 assumes definition A rather than choosing it, and §106 takes the
-`terminal_sink_caretaker` narrowing as a behaviour rather than as a name.
+`terminal_sink_caretaker` narrowing as a behavior rather than as a name.
 `caretaker` is a word five programs already carry and every future narrowing
 program will reach for, so this is a name and names are an architect's. It is cheap to settle and
-expensive to leave, because the next lane writing an adapter will copy whichever neighbour it
+expensive to leave, because the next lane writing an adapter will copy whichever neighbor it
 happened to read.
 
 Premise re-checked 2026-09-19 and still true. The tree still carries both definitions:

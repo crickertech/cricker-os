@@ -67,7 +67,7 @@ forever with nothing able to reclaim it. On a board with one TRNG that costs not
 the same SoC's USB, PCIe and DMA blocks it is the whole of device power management. The lane
 refused to just add the inverse, for a reason in the hardware: the JH7110's TRNG reset is documented
 as shared, the same line resets the PL080 DMA engine, so "turn my device off" is "reset a block my
-neighbour is using", and the refcounting Linux gets from its clock framework does not exist here.
+neighbor is using", and the refcounting Linux gets from its clock framework does not exist here.
 Three questions make it calef's. Who may gate a clock, since a teardown a driver can ask for is a
 different question from a controller a driver can hold and the first may need no new syscall
 surface. What the unit of reclamation is, per-device with a refcount or per-job off §40's subtree

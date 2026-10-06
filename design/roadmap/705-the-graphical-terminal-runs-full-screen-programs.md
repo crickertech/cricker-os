@@ -23,7 +23,7 @@ no recommendation (A to E; E was added at calef's request on 2026-10-03 UTC).
 ## Part 1: The gap, and the goal
 
 `crates/video_terminal` (milestone 29, the display terminal) implements printable text with UTF-8, CR,
-LF, BS, TAB, CSI `A B C D H f J K m` (SGR with 256-colour and 24-bit) and RIS
+LF, BS, TAB, CSI `A B C D H f J K m` (SGR with 256-color and 24-bit) and RIS
 (`crates/video_terminal/src/lib.rs:1373-1478`). Its own header lists what it leaves out: no scrolling
 regions, no alternate screen, no origin mode, fixed tab stops, no mouse, no reporting sequences, no
 reflow (`lib.rs:117-123`, `notes/glyphs.md` "Honest limits"). Anything else is swallowed whole
@@ -37,7 +37,7 @@ Goal. `vim`-class editors, `less` and a repainting `top` draw correctly on the g
 Today none of the three exists on nife.
 
 - The only full-screen program in the tree is `rmle` (milestone 169 (the smallest real text editor, as the forcing function for raw terminal input)).
-- There is no pager (milestone 334 (colour and the pager: the spawn protocol's other two thirds) is NOT-STARTED).
+- There is no pager (milestone 334 (color and the pager: the spawn protocol's other two thirds) is NOT-STARTED).
 - `watch` was cut (milestone 281 (`watch` holds exactly what `ps` holds, so it is nothing)).
 
 So the terminal half and the program half are
@@ -122,7 +122,7 @@ risk is, not the sequence count.
 
 1. Considered instead: B and C, each under its own entry, and D for the ordering.
 2. See the shared answer.
-3. Prior art: xterm's control-sequence document and `vttest` define the behaviour (not read here; named
+3. Prior art: xterm's control-sequence document and `vttest` define the behavior (not read here; named
    from memory). Every real engine in section C or B is an existence proof.
 4. See the shared answer.
 5. Cost: lines above, no new dependency, no new toolchain, host-testable in milliseconds. Build and
@@ -136,9 +136,9 @@ risk is, not the sequence count.
 
 Full entry in [the engine options appendix](705-the-graphical-terminal-runs-full-screen-programs/engine-options.md). Summary, read from upstream `main` on 2026-10-02:
 
-- The C API is declared incomplete and "definitely going to change"; the behaviour is stable.
+- The C API is declared incomplete and "definitely going to change"; the behavior is stable.
 - It needs Zig 0.16.0 or later in the build, an allocator the component does not have, and a cells-based rebuild of the expected-picture check.
-- It buys the alternate screen, reports, mouse and key encoders, reflow and scrollback. MIT licence.
+- It buys the alternate screen, reports, mouse and key encoders, reflow and scrollback. MIT license.
 - A dependency in the shipping graph is the irreversible category in `CLAUDE.md`. Cost is unmeasured beyond that.
 
 ### C. `vte` (the Rust crate)
@@ -204,7 +204,7 @@ nothing is blocked, so the engine choice waits. The proposal stays `PROPOSED` an
 Revisit when either of these happens:
 
 - someone needs a full-screen program at a display path, or
-- libghostty-vt stabilises its C API.
+- libghostty-vt stabilizes its C API.
 
 ## Part 5: Priority, and whether the serial console has the same gap
 

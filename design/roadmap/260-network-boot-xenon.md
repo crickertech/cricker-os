@@ -156,7 +156,7 @@ Read off `notes/xenon-firmware.md`, which transcribed 70 photographs of this mac
 
 So two changes: tick `Enable UEFI Network Stack`, and move Integrated NIC from `Enabled` to
 `Enabled w/PXE`. They are calef's for the reason that note already gives about firmware
-generally, that a setting changes this machine's behaviour for everything else it is used for.
+generally, that a setting changes this machine's behavior for everything else it is used for.
 
 Nothing else in the transcription is in the way. Boot List Option is already UEFI, Secure Boot
 is Disabled, legacy option ROMs are unticked, and `UEFI Boot Path Security` has no effect

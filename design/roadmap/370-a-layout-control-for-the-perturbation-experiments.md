@@ -44,7 +44,7 @@ default boot images byte for byte on both ISAs across the change.
 
 The proof each image is what it claims, and it needs no hardware.
 `script/fastpath-footprint --layout` hashes every instruction of both IPC closures and the entry
-set with address operands normalised away (direct call and branch targets, `auipc`/`adrp` uppers,
+set with address operands normalized away (direct call and branch targets, `auipc`/`adrp` uppers,
 and the low-12 immediates that pair with one; it prints how many of each it touched). All eight
 images share one hash, on riscv64, on aarch64 and on the `board,bench,single_hart` card set. Read
 off the built binaries as well: only the 7 boot symbols ahead of the sled keep their address, all
@@ -82,7 +82,7 @@ set without the feature.
    `BUGS`, because it is the sentence most likely to be dropped when a result is quoted.
 3. **The bench card's kernel is not the kernel the static table describes.** `bench` changes the IPC
    path's codegen (riscv64 `ipc_call_reply` is 5,212 bytes with it against 5,936 without, and the
-   normalised instruction stream differs) and `single_hart` adds four instructions; `board` alone
+   normalized instruction stream differs) and `single_hart` adds four instructions; `board` alone
    changes nothing. So the static step measures the card's own feature set, which the 2026-09-04
    session did not.
 
@@ -114,7 +114,7 @@ What changed is the layout: different cache-line boundaries, different set indic
 2-way L1i, different branch-predictor aliasing. Mytkowicz, Diwan, Hauswirth and Sweeney measured
 exactly this in *Producing Wrong Data Without Doing Anything Obviously Wrong* (ASPLOS 2009), where
 changing link order or the size of a UNIX environment variable, neither of which alters an
-instruction, moved measured performance by more than the optimisation being studied.
+instruction, moved measured performance by more than the optimization being studied.
 
 **So the +1.49% is a real difference between two binaries and is not evidence about two
 footprints.** It is the sum of a footprint effect and a layout effect, and this experiment reports
@@ -186,7 +186,7 @@ itself: the result is milestone 134's radon evening.
 - **Milestone 134.** The evening this control exists for, and the one thing between 134 and BUILT.
   What it must produce is in that block's Follow-on and in notes/footprint-perturbation.md.
 - **Recorded.** Four layout images are a small sample of a distribution; Stabilizer (Curtsinger and
-  Berger, ASPLOS 2013) randomises layout repeatedly for exactly this reason. Four draws bound an
+  Berger, ASPLOS 2013) randomizes layout repeatedly for exactly this reason. Four draws bound an
   effect loosely and cannot prove one absent. In notes/footprint-perturbation.md's `BUGS`.
 - **Recorded.** A never-executed pad reaches a clock only by moving code, so no E3 reading can
   settle Liedtke's executed-footprint claim. In the same `BUGS` section and in item 2 above.
@@ -215,7 +215,7 @@ layout does not. It decides milestone 188's phase 4, which is holding a hand-wri
 evidence of a 19 ns effect with a 193 ns artifact sitting on top of it. BUILT 2026-09-19:
 `NIFE_FASTPATH_PAD` and `NIFE_FASTPATH_SHIFT` size the sled and add an unreachable shift, the
 linker scripts pin that section first in `.text` so both move the whole kernel text and a pad has a
-byte-identical un-padded twin, eight images share one normalised instruction hash that
+byte-identical un-padded twin, eight images share one normalized instruction hash that
 `script/fastpath-footprint --layout` prints, and a bench boot names its own image. Building it found that a Cargo feature per size reproduces the
 defect (a feature name repartitions codegen units, moving 11 KB of unrelated code), and that a pad
 never executed can only act through addresses, so E3 tests whether the footprint number predicts

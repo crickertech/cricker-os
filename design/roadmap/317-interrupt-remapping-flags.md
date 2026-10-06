@@ -308,7 +308,7 @@ Compare the device trees the two GIC versions produce, which is how the table ab
   gate runs it, and the runner warns on every use. If it ever stops failing, something in the GIC
   path changed and this block is stale.
 - **The correction is about QEMU under TCG on one machine, not about VT-d.** `intremap`'s `auto`
-  resolving ON is QEMU's behaviour with no in-kernel irqchip. Under KVM it resolves differently and
+  resolving ON is QEMU's behavior with no in-kernel irqchip. Under KVM it resolves differently and
   the original reading could well be right there. Nobody has checked what the CI Linux runners do,
   and milestone 87's `OptiPlex` (xenon) is real silicon whose firmware answers this question in its
   own way.

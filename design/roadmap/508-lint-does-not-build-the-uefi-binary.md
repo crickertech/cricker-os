@@ -62,7 +62,7 @@ three kernels.
 - **This proposal does not check whether anything else is unbuilt by lint.** The same question
   applies to every non-host target in the tree, and the honest version of this work starts by
   listing what `script/lint` compiles and comparing it with what `script/test` compiles.
-- A gate that only compiles proves compilation. The loader's behaviour is still proved by an
+- A gate that only compiles proves compilation. The loader's behavior is still proved by an
   OVMF boot, and nothing here changes that.
 
 ## Index row

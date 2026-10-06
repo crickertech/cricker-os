@@ -21,7 +21,7 @@ The shell edits its own line, so this is shell-side work with no wire change.
 ## What it is
 
 As a line is typed, the newest history entry that starts with it is shown after the cursor in a
-dim colour, and a right arrow at the end of the line accepts it. This is fish's autosuggestion.
+dim color, and a right arrow at the end of the line accepts it. This is fish's autosuggestion.
 `line_editor::LineDisc` already keeps eight lines of history; the engine would need a way to draw
 text after the cursor that is not part of the line.
 

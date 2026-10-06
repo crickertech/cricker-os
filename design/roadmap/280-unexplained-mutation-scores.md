@@ -63,7 +63,7 @@ finds them immediately, and finds them as a *cluster* of survivors in one functi
 - Table column alignment. `read_align` parsed `:---`, `---:` and `:---:` off the delimiter row
   into a per-column array from the first day; `flush_table` padded every cell on the right whatever
   that array held. All three rendered identically to `---`. Sixteen mutants survived there, one of
-  them replacing the entire function with `()`. It is honoured now, and resets with `delimited`
+  them replacing the entire function with `()`. It is honored now, and resets with `delimited`
   because both are properties of one delimiter row.
 - **Tab indentation.** `indent_of` returns a byte offset and a column count, counting a tab as four
   columns. Every caller took the offset and dropped the count, including the one that uses it as a
@@ -151,7 +151,7 @@ it."*
   mutation report would then honestly say so. It also reads `required-features` as an exemption, so
   a feature that gated both a `[[bin]]` and a `#[cfg]` block in the library would pass and should
   not. Nothing in the tree does that today.
-- Table alignment is honoured in the first chunk of a table only, on the same terms as the
+- Table alignment is honored in the first chunk of a table only, on the same terms as the
   header emphasis beside it, and both are recorded in `crates/documentation`'s own `BUGS`.
 - **This does not re-read `design/fatal-risks/README.md`'s third risk**, which is an architect's, and does
   not produce the clean full sweep that risk wants. It removes one of the two named holes from the

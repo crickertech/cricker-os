@@ -26,7 +26,7 @@ The tree cites a section of a document in one common shape: a path, then the sec
 phrase from it, in quotation marks. `notes/interrupts.md, "Testing it with no device on RISC-V"` is
 one. Nothing checks that the quoted phrase is still in the file the path names.
 
-`script/citations` already checks two neighbours of this shape. An attributed block quote
+`script/citations` already checks two neighbors of this shape. An attributed block quote
 (`> -- path`) must still exist in the file it names, and a gloss after `milestone N` or `§N` must
 match the target. The path-then-quote form is the third, and it is the one a document split breaks,
 because a split moves the section and leaves the path pointing at the main page.

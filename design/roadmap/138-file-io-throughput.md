@@ -75,7 +75,7 @@ options and their costs rather than a recommendation.
    What the code says, read rather than assumed. `RECORD_LEVEL` is 5 and `BLOCK_SIZE` is 4096, so
    `RECORD_SIZE` is 128 KiB. But the record level is a per-node field in the on-disk format
    (`node.rs`: `pub record_level: Le<u32>`), it is set once at file creation from that constant, and
-   every read and write path honours the node's value rather than the constant
+   every read and write path honors the node's value rather than the constant
    (`transaction.rs`: `let record_level = node.data().record_level();`). Directories already get 0.
 
    So a smaller record for a file is a creation-time choice the format already supports, not a
@@ -99,7 +99,7 @@ deleted so a reader can see what was asked.
 What it found, all measured on milestone 38's own harness across twenty interleaved passes:
 `cost = 208 us + 39.0 us x 2^level`, read residuals within 5% at every level. So a one-block record
 buys **5.6x on reads and 3.0 to 3.8x on writes, not 32x**, because the record is only one of two
-terms. Option 1 is worth more (16x) because it amortises both. Both together are 28x.
+terms. Option 1 is worth more (16x) because it amortizes both. Both together are 28x.
 
 And it corrected two things this block asserted. Milestone 38's 46.2 us per block was an average
 that charged the per-request walk to the blocks; the marginal cost is 39.0 us and the walk is a
@@ -163,11 +163,11 @@ options. Because disk performance is pretty critical to many real workloads."*
 
 Four pieces, and the ordering is set by what each one unblocks rather than by size:
 
-| | what | measured or modelled effect |
+| | what | measured or modeled effect |
 |---|---|---|
-| **1** | **option 2**, the record level | **DONE 2026-08-18, measured**: 4 KiB read 2.68 -> **13.76 MiB/s**, write 1.63 -> **4.90**. The modelled 15.8 was level 0's figure; this shipped at level 1, which keeps lz4 and halves the space cost for 8.7% of the read speed. **And there is no one-way door after all**: the created level and the largest readable level are now separate constants, so nothing stored at any level 0 to 5 becomes unreadable and the next change cannot orphan this one's data |
+| **1** | **option 2**, the record level | **DONE 2026-08-18, measured**: 4 KiB read 2.68 -> **13.76 MiB/s**, write 1.63 -> **4.90**. The modeled 15.8 was level 0's figure; this shipped at level 1, which keeps lz4 and halves the space cost for 8.7% of the read speed. **And there is no one-way door after all**: the created level and the largest readable level are now separate constants, so nothing stored at any level 0 to 5 becomes unreadable and the next change cannot orphan this one's data |
 | **2** | **the metadata cache**, the five blocks | **DONE 2026-08-19, measured**: a 64-slot write-through cache over the tree walk, **22.2x on a repeated inline read, 1.37x to 1.64x on the throughput phases**, taken after step 4. The block's 4.7x model and its two re-pricings (3.2x after step 1, 1.33x after step 3) all assumed the walk repeated *within* one file-level request; it does not (RedoxFS walks the tree once per `Server` call, not once per record), so the real payoff is across separate requests to the same handle, which every phase of the throughput bench makes and which the measured numbers price directly |
-| **3** | **option 1**, multi-page transfer on the file contract | **DONE 2026-08-19, measured**: modelled 75 MiB/s, measured **80.30 on a read and 42.77 on a write**, 5.67x and 8.02x. The wire change is one constant: the length field was always 40 bits and the shared page was what bounded a transfer. This is the customer path |
+| **3** | **option 1**, multi-page transfer on the file contract | **DONE 2026-08-19, measured**: modeled 75 MiB/s, measured **80.30 on a read and 42.77 on a write**, 5.67x and 8.02x. The wire change is one constant: the length field was always 40 bits and the shared page was what bounded a transfer. This is the customer path |
 | **4** | **the block contract**, one request per 4 KiB today | **DONE 2026-08-19, measured**: the blk channel carries 16 blocks, **1.16x to 1.55x**, far below the naive 16x because steps 1 and 3 already shrank each record to 2 blocks, so step 4 batches only a record's own body and cannot batch across the many records one 64 KiB request spans. Most of what remains per record (5 of 6 to 7 blk calls) is the tree walk, which step 2 then closes |
 
 Then re-measure and re-decide. The numbers above are a model calibrated against the sweep (it
@@ -178,7 +178,7 @@ milestones on without checking at each step.
 
 5.13x on a 4 KiB read and 3.01x on a 4 KiB write, measured on milestone 38's harness over six
 interleaved passes at levels 5, 1 and 0, on a machine quiet enough that the `fs_read` control varied
-0.6% across every level and no normalisation was needed. 1,458,124 ns to 283,974 on a sequential
+0.6% across every level and no normalization was needed. 1,458,124 ns to 283,974 on a sequential
 read; 2,399,611 to 796,930 on a sequential write. notes/benchmarks.md has the tables.
 
 Level 1 rather than level 0, verified rather than inherited. The sweep recommended it and this
@@ -209,7 +209,7 @@ addresses it. After step 1 it is the largest unaddressed term in the whole measu
 
 What step 2 is worth now, against measurement rather than the model. A read is 283,974 ns; a
 cache that removed all five repeated block reads would take it to about 89,000 ns, which is
-3.2x again and 16x against where milestone 138 started. The table below modelled 4.7x, and the
+3.2x again and 16x against where milestone 138 started. The table below modeled 4.7x, and the
 difference is that the model was built on level 0's numbers while this shipped at level 1. The
 block's other claim survives intact and is now checked: the same cache *before* step 1 would have
 been worth 15%, exactly as predicted, so the two are multiplicative and step 1 is what makes step 2
@@ -230,7 +230,7 @@ writes.
 
 8.02x on a sequential write and 5.67x on a read, measured on milestone 38's harness over six
 interleaved rounds at each transfer size (`sh bench/transfer-size-sweep.sh 6 1 16`), on a machine
-whose `fs_read` control varied 0.3% between the two points so no normalisation was needed.
+whose `fs_read` control varied 0.3% between the two points so no normalization was needed.
 `fs_seq_write` 5.33 MiB/s to 42.77; `fs_seq_read` 14.16 to 80.30; random write 4.34 to
 31.38. notes/benchmarks.md has the table. The benchmark holds bytes moved constant at 1 MiB per
 phase rather than the transfer count, so both points move the same file.
@@ -249,7 +249,7 @@ the attribute verbs, a rename's two names) stays inside the one page every clien
 A `READDIR` that filled 64 KiB would land in a single-page client's unmapped second page. `swish`,
 the three caretakers, the sinks and the `std` PAL are unmodified and cannot tell this happened.
 
-**What was refused, because milestone 138 authorises the step and not a shape.** A new opcode or a
+**What was refused, because milestone 138 authorizes the step and not a shape.** A new opcode or a
 `READV`-shaped scatter list: unnecessary, since the length field already fits, and a new concept on
 this contract. A frame capability granted per request, which is the `mmap`-shaped answer: that is the
 frontier this block names below, not a transfer size. A negotiated channel size at bind time: a new
@@ -285,7 +285,7 @@ single-transaction write. What step 3 changed is that a **client** can now cause
 engine-level case was always covered.
 
 What step 2 is worth now, re-priced for the second time. On a 64 KiB read the metadata cache is
-worth about **1.33x**, not the 3.2x step 1 measured and not the block's modelled 4.7x, because the
+worth about **1.33x**, not the 3.2x step 1 measured and not the block's modeled 4.7x, because the
 five repeated block reads are ~195 us against a 778 us request instead of a 284 us one. On a 4 KiB
 read it is still 3.2x. On writes it is still worth nothing. Steps 2 and 3 target the same term,
 which the block's "multiplicative" note did not anticipate, so step 2's value is now a function of
@@ -496,7 +496,7 @@ measurements rather than asserted, and this is the measurement that most weakens
   same, because the fixed term is per request and the block count is identical. So step 3 will
   make step 1's ratio meaningless as a ratio, and re-measuring it then is not optional.
 - **The space cost of the 8 KiB record was not re-measured for step 1.** The +19% figure is the
-  sweep's, taken on text, which is the payload most favourable to lz4; a backup workload is the
+  sweep's, taken on text, which is the payload most favorable to lz4; a backup workload is the
   incompressible case and would show only the pointer half. Nobody has measured that case.
 - **`RECORD_LEVEL_MAX` keeps old images readable and does not migrate them.** A file created by an
   older build keeps its 128 KiB record forever: it reads correctly and it reads at the old price.
@@ -558,7 +558,7 @@ measurements rather than asserted, and this is the measurement that most weakens
   to collide across the tree's shared upper levels. Nobody has measured a multi-file workload.
 - **Recorded.** `design/roadmap/138-file-io-throughput.md` BUGS: the space cost of the 8 KiB record
   was never re-measured for step 1. The +19% figure is the sweep's, taken on text, which is the
-  payload most favourable to lz4; a backup workload is the incompressible case and would show only
+  payload most favorable to lz4; a backup workload is the incompressible case and would show only
   the pointer half.
 - **Recorded.** `design/roadmap/138-file-io-throughput.md` BUGS: the measurement conditions differ
   across the four steps and the block says so rather than presenting one number. Steps 1 and 3 ran

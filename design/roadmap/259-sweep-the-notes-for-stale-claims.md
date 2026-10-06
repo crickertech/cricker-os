@@ -188,7 +188,7 @@ not.
 - **Recorded.** In `notes/security.md`: `sched::spawn_with_quota` has no caller, so the resource
   exhaustion the milestone-11 audit named is still reachable, for a different reason than the audit
   gave. That is a mechanism nobody wired rather than a mechanism nobody built.
-- **Refused.** Deleting `notes/session-handoff.md`, which its own first paragraph authorises
+- **Refused.** Deleting `notes/session-handoff.md`, which its own first paragraph authorizes
   ("delete or overwrite once its contents are stale"). It carries the only narration several
   2026-07-29 decisions have. It gets a banner and a corrected index entry instead, and whether it
   should exist at all is an architect's.

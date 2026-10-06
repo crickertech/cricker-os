@@ -22,7 +22,7 @@ to have read:
 > paragraph somebody has to have read.
 
 Nothing takes it off. Clearing it depends on a maintainer remembering, which is rung four wearing
-rung two's clothes, and on 2026-09-03 pull request #692 sat labelled after calef had answered every
+rung two's clothes, and on 2026-09-03 pull request #692 sat labeled after calef had answered every
 one of its asks. He noticed, not the tooling. A queue with a false entry is worse than no queue,
 because the whole value of the label is that its absence means something.
 
@@ -37,9 +37,9 @@ So this reports rather than decides, which is the same posture `script/cadence-c
 scheduled workflows (milestone 238) and `script/roadmap --proposed` took for the proposal pile
 (milestone 247). Two signals are available and neither claims to know the answer:
 
-- Activity: a labelled pull request whose newest comment is an architect's is *probably*
+- Activity: a labeled pull request whose newest comment is an architect's is *probably*
   answered and is worth a maintainer's eye. That is a prompt, not a verdict.
-- Age: a labelled pull request nobody has touched in N days is stalled whether or not it was
+- Age: a labeled pull request nobody has touched in N days is stalled whether or not it was
   answered, and stalled is the thing the label exists to prevent.
 
 ## Where it goes, and where it must not
@@ -55,13 +55,13 @@ rather than invent a second one.
 
 ## The proof that this milestone worked
 
-**A stale label is reported without anybody asking**, demonstrated by labelling a pull request,
+**A stale label is reported without anybody asking**, demonstrated by labeling a pull request,
 answering it, and watching the report name it. And the converse: a genuinely open one is *not*
 reported, so the signal stays worth reading.
 
 ## BUGS
 
-- It cannot close the loop, only point at it. Removing the label stays a judgement, because
+- It cannot close the loop, only point at it. Removing the label stays a judgment, because
   deciding an ask is answered is the thing no script can do here. This shortens the gap between
   answered and cleared; it does not remove it.
 - `notify()`'s once-per-stall discipline applies, and `notes/merge-queue.md`'s `BUGS` already

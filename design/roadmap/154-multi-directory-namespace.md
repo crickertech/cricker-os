@@ -173,7 +173,7 @@ Lane `milestone/154-two-directories`. The detail is [notes/two-trees.md](../../n
 - One resolver. `grant_plan::Holdings::anchor` says where a path starts (where the shell stands, a
   bound name, or the root), `Cwd::apply` applies it, and `Holdings::locate` says which tree serves
   the result. The shell's walk, its `plan_path` and the planner's `designate` all use it, which
-  also fixed `wc /recent/x` ignoring a bind that `ls /recent` honoured.
+  also fixed `wc /recent/x` ignoring a bind that `ls /recent` honored.
 - Per-command grants carry their tree: `FileGrant` and `DirGrant` gain a required `which`.
 - A walk carries its endpoint. `swish`'s `Nav` holds a second `Tree`, and every request on a walk's
   handles goes to that tree's slot, because two caretakers number handles independently.
@@ -191,7 +191,7 @@ Lane `milestone/154-two-directories`. The detail is [notes/two-trees.md](../../n
 
 - **Milestone 660.** Milestone 660 (a second filesystem mounts in the boot shell). Wiring a second filesystem into the boot shell at a mount point, with the transport
   calef chose (a named slot and a shared constant holding the mount path), the Gone-and-go-home
-  behaviour for a dead mount, and `rm` under a mount. Its trigger is the first real second
+  behavior for a dead mount, and `rm` under a mount. Its trigger is the first real second
   filesystem: `design/roadmap/660-a-second-filesystem-mounts-in-the-boot-shell.md`.
 - **Milestone 683.** Milestone 683 (what `..` does at a mount point). What `..` does at a mount point, which the written ruling leaves open: the shell
   goes to the mount point's parent, as Unix and Plan 9 do, and an architect is asked to confirm:

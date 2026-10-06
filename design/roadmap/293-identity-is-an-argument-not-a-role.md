@@ -26,19 +26,19 @@ the identity and the secret were handed in, would anything about this role's *co
 | `ROLE_WRONG_SECRET` | chris, `not-the-password` | nothing; refused at the shared `verdict != OK` exit | **credential** |
 | `ROLE_NO_SUBTREE` | graeme, correct | nothing; refused at the same exit, for a different reason | **credential** |
 | `ROLE_TERM_SECOND` | corinne, correct | nothing; refused at the same exit with `NO_TERMINAL` | **credential** |
-| `ROLE_CHRIS_MARK` | chris, correct | `write_marker(dir, b"chris")` and an `absent` check | **behaviour, and half of it was a credential** |
-| `ROLE_CORINNE_MARK` | corinne, correct | `write_marker(dir, b"corinne")` and the same `absent` check | **the same behaviour** |
-| `ROLE_CHRIS_CHECK` | chris, correct | `read_marker(dir)` into the report's third word | **behaviour** |
-| `ROLE_LOGOUT` | chris, correct | destroys budget then region, re-`READDIR`s, reports the wait | **behaviour** |
-| `ROLE_TERM_FIRST` | chris, correct | sends `TERM_MAGIC` on the terminal, then tears down without the wait report | **behaviour** |
-| `ROLE_TERM_LOGOUT` | none at all | sends `logout_word` on the front door, never calls `CONNECT` | **behaviour** |
+| `ROLE_CHRIS_MARK` | chris, correct | `write_marker(dir, b"chris")` and an `absent` check | **behavior, and half of it was a credential** |
+| `ROLE_CORINNE_MARK` | corinne, correct | `write_marker(dir, b"corinne")` and the same `absent` check | **the same behavior** |
+| `ROLE_CHRIS_CHECK` | chris, correct | `read_marker(dir)` into the report's third word | **behavior** |
+| `ROLE_LOGOUT` | chris, correct | destroys budget then region, re-`READDIR`s, reports the wait | **behavior** |
+| `ROLE_TERM_FIRST` | chris, correct | sends `TERM_MAGIC` on the terminal, then tears down without the wait report | **behavior** |
+| `ROLE_TERM_LOGOUT` | none at all | sends `logout_word` on the front door, never calls `CONNECT` | **behavior** |
 
-Five of eleven were pure credential. Two more were one behaviour written twice, because the only
+Five of eleven were pure credential. Two more were one behavior written twice, because the only
 thing separating them was the identity byte string written into a marker file, which *is* the
-identity. Eleven roles were six behaviours and four credentials.
+identity. Eleven roles were six behaviors and four credentials.
 
 **`ROLE_TERM_SECOND` is the one worth pausing on**, because its name argues hardest that it is a
-behaviour and its code is `ROLE_CORINNE` exactly. What made it feel like a role is a fact about
+behavior and its code is `ROLE_CORINNE` exactly. What made it feel like a role is a fact about
 *when the test runs it* (while `ROLE_TERM_FIRST`'s terminal loan is outstanding), and a precondition
 the caller arranges is not a property of the callee. The kernel test still arranges it; the client
 no longer has a name for it.
@@ -70,7 +70,7 @@ authenticate, and `identity` and `secret` are indices into it. `credential_proto
 dependency of both `kernel` and `fixtures`, so this is not a dependency decision.
 
 The composition is the point. The two indices are separate arguments, so the wrong-secret run is
-`(CHRIS, WRONG)`: the same behaviour as the honest `(CHRIS, CHRIS)` with one input changed.
+`(CHRIS, WRONG)`: the same behavior as the honest `(CHRIS, CHRIS)` with one input changed.
 
 That is what the file was already claiming and could not enforce. Its own argument for being one
 binary reads *"a program that shares the honest path with an attempted-wrong-secret run is a fairer
@@ -81,12 +81,12 @@ agree today. An argument delivers it by construction: there is one arm.
 `fixture::WRONG` is `PEOPLE.len()`, derived rather than written as `3`, so growing the roster cannot
 turn the wrong-secret index into a fourth person's real secret. `fixture::NONE` is neither an
 identity nor a secret, so `FREE_TERMINAL` says out loud that it authenticates nothing, and a
-behaviour handed it that tries to authenticate anyway reports `MALFORMED` rather than quietly
+behavior handed it that tries to authenticate anyway reports `MALFORMED` rather than quietly
 logging in as whoever sits at index zero.
 
-## The behaviours stayed in one binary, and the reason is not effort
+## The behaviors stayed in one binary, and the reason is not effort
 
-Six behaviours remain: `LOGIN`, `WRITE_MARKER`, `READ_MARKER`, `LOGOUT`, `HOLD_TERMINAL`,
+Six behaviors remain: `LOGIN`, `WRITE_MARKER`, `READ_MARKER`, `LOGOUT`, `HOLD_TERMINAL`,
 `FREE_TERMINAL`. calef did not pre-decide whether these should be six programs under 290/291/292's
 principle or an argument. Both were priced.
 
@@ -96,7 +96,7 @@ in order, map the delegated page from a scratch region, `place` the credential, 
 receive the verdict, then receive five more capabilities in `login_proto`'s fixed order. Avoiding
 six copies means lifting that preamble into a crate, which is a new crate and a new name.
 
-**One binary** costs one `match` after the preamble, at the point where the behaviours genuinely
+**One binary** costs one `match` after the preamble, at the point where the behaviors genuinely
 diverge.
 
 Would we still choose one binary if both cost the same? Yes, and the reason is the fixed order
@@ -105,7 +105,7 @@ delegated capabilities arriving in one order on one channel. Six copies of a wir
 places for it to drift, and a drifted copy fails as a mysterious `RECV_CAP` on the wrong object
 rather than as a diff. The sibling lane splitting `fixtures/src/hello.rs` (291, unmerged as this is
 written, which is why it is not cited by number) found the opposite, and it is worth stating as
-evidence rather than as analogy: `hello`'s roles are a catalogue (virtio, IPC call,
+evidence rather than as analogy: `hello`'s roles are a catalog (virtio, IPC call,
 revocation, page frames, address-space building, four `init` variants) that share the file and
 nothing else. These six share an authenticated session.
 
@@ -121,8 +121,8 @@ and the same shape". It does not, and this is recorded rather than quietly skipp
 Its three roles are `ROLE_PROVISIONER` (fills the store through a **provision** endpoint in slot 0),
 `ROLE_HONEST` (asks four verify questions) and `ROLE_ATTACKER` (sends five things the contract does
 not offer, then asks whether any of it installed a credential). There is no role-to-credential
-lookup here at all: the credentials in this file are fixture *data* a behaviour uses, not a
-selector that picks one. All three are behaviours, and nothing about them dissolves into an argument.
+lookup here at all: the credentials in this file are fixture *data* a behavior uses, not a
+selector that picks one. All three are behaviors, and nothing about them dissolves into an argument.
 
 What it did hold is the definition the other two files were copying. `PEOPLE` lived here, and:
 
@@ -169,11 +169,11 @@ limitations, and the fact that a spawn argument is visible wherever a spawn is r
   a program (a real one needs a capability to something that holds it, DECISIONS §41), and that a
   spawn argument is visible wherever a spawn is recorded, so nothing here is a design for carrying
   real secrets.
-- **Refused.** Splitting the six behaviours into six programs, which is what 290, 291 and 292 did
-  with their files. The reason is in "The behaviours stayed in one binary" above and it survives the
+- **Refused.** Splitting the six behaviors into six programs, which is what 290, 291 and 292 did
+  with their files. The reason is in "The behaviors stayed in one binary" above and it survives the
   equal-cost test: `hello`'s thirty-one roles share a file and nothing else, while these six share
   an authenticated-session preamble that is itself the contract under test.
-The behaviour constants (`LOGIN`, `WRITE_MARKER`, `READ_MARKER`, `LOGOUT`, `HOLD_TERMINAL`,
+The behavior constants (`LOGIN`, `WRITE_MARKER`, `READ_MARKER`, `LOGOUT`, `HOLD_TERMINAL`,
 `FREE_TERMINAL`) and the roster's new public names (`PEOPLE`, `CHRIS`, `CORINNE`, `GRAEME`,
 `NOBODYS_SECRET`, `WRONG`, `NONE`, `identity`, `secret`) are **provisional** and go to calef with
 the merge, per AGENTS.md. That is a naming backlog rather than follow-on work, and it never blocks,
@@ -181,4 +181,4 @@ which is milestone 115's own rule.
 
 ## Index row
 
-Minted 2026-09-14 by calef, deliberately apart from 290/291/292, which he ruled into separate programs the same day: the answer here is not eleven programs. `fixtures/src/login_test_client.rs` had eleven roles and its first act was a lookup from role number to a pair of byte strings. Classified by code rather than by name: five of the eleven were pure credential, byte-identical runs differing only in that pair (`ROLE_TERM_SECOND` included, whose distinguishing fact was a precondition the caller arranges), and two more were one behaviour written twice because the only thing separating them was the identity written into a marker file. `_start` now takes `(behaviour, identity, secret)`, so the wrong-secret run is `LOGIN` with a different secret rather than an arm that could drift from the honest one. Credentials travel as `credential_proto::fixture` indices because nothing here hands a `no_std` program a string it was not compiled against, recorded in the file's BUGS. Six behaviours stayed in one binary and the equal-cost test says so: the preamble they share is the contract under test. 293's premise about `credentialer_test_client` was **false** and checking it was the work; what it did hold was the `PEOPLE` definition two other files hand-copied, one saying it had *chosen* to match. All 24 `const ROLE_` files swept: the only role-to-data lookup in the tree. Behaviour names provisional.
+Minted 2026-09-14 by calef, deliberately apart from 290/291/292, which he ruled into separate programs the same day: the answer here is not eleven programs. `fixtures/src/login_test_client.rs` had eleven roles and its first act was a lookup from role number to a pair of byte strings. Classified by code rather than by name: five of the eleven were pure credential, byte-identical runs differing only in that pair (`ROLE_TERM_SECOND` included, whose distinguishing fact was a precondition the caller arranges), and two more were one behavior written twice because the only thing separating them was the identity written into a marker file. `_start` now takes `(behaviour, identity, secret)`, so the wrong-secret run is `LOGIN` with a different secret rather than an arm that could drift from the honest one. Credentials travel as `credential_proto::fixture` indices because nothing here hands a `no_std` program a string it was not compiled against, recorded in the file's BUGS. Six behaviors stayed in one binary and the equal-cost test says so: the preamble they share is the contract under test. 293's premise about `credentialer_test_client` was **false** and checking it was the work; what it did hold was the `PEOPLE` definition two other files hand-copied, one saying it had *chosen* to match. All 24 `const ROLE_` files swept: the only role-to-data lookup in the tree. Behavior names provisional.

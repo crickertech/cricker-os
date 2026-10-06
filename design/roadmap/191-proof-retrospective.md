@@ -84,7 +84,7 @@ more than an expensive one that probably will not**, and this is the cheapest on
 
 ## BUGS
 
-- A retrospective cannot prove a counterfactual. "A proof would have caught this" is a judgement,
+- A retrospective cannot prove a counterfactual. "A proof would have caught this" is a judgment,
   and the study should mark each one as such rather than presenting it as measurement.
 - Survivorship runs both ways and the second pass only partly fixes it. Bugs that proofs
   prevented never entered the record, and bugs nobody has found yet are not in the corpus either.

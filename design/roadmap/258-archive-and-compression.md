@@ -28,7 +28,7 @@ part 2's fork rather than choosing it.
 > and a place to put bytes. Every one of those is something this tree either has or is building.
 
 Every git object is zlib-compressed, and so are packfiles, so `git` cannot read its own object
-database without inflate. The emphasised clause is false for the compressor: there is no
+database without inflate. The emphasized clause is false for the compressor: there is no
 compression code anywhere in this tree, in any form, and nothing is building any. Checked
 2026-09-05 across `crates/`, `kernel/src/` and `user/src/`; the only greps that matched were a
 comment about load inflating a median and `crates/globally_unique_identifier_partition_table`'s note naming the zlib CRC-32 polynomial.
@@ -59,7 +59,7 @@ that is worth more than the parser.
 Part 2: zlib inflate, and enough deflate for `git`. Gated on §146. That section recommends
 writing inflate and emitting only stored (uncompressed) blocks for the compressing direction,
 which is legal zlib that any conforming reader accepts, and which makes real compression a measured
-optimisation later rather than a prerequisite now. It also states the case for taking `miniz_oxide`
+optimization later rather than a prerequisite now. It also states the case for taking `miniz_oxide`
 instead, and neither is chosen here.
 
 Refused, in writing, so nobody re-derives it: `bzip2` (no consumer, displaced everywhere that

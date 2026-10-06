@@ -87,7 +87,7 @@ the features themselves, and none of them belongs to this milestone's question:
   who can reach the port, and its banner says so. The reason is not a flag: there is no way to tell
   a running system a password. The only thing in the tree that provisions the credential store is a
   test program carrying [MS-NLMP] §4.2.1's published fixture, and a demo whose password Microsoft
-  printed would be worse than a labelled guest share. What closes this is a provisioning path,
+  printed would be worse than a labeled guest share. What closes this is a provisioning path,
   which is milestone 56's subject rather than this one's, and it is now the head of the customer path.
 - The adapter is configured with a resource name, which is one authority more than it needs. The
   right answer is a narrower capability, so the endpoint *is* the credential for one resource and the

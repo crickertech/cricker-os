@@ -16,7 +16,7 @@ day: options 2 and 3 adopted, option 1 not taken and still open. Option 2 is set
 approval is required for all external contributors). Option 3's tree side is pull request #1215:
 the three jobs that mint the App token (`merge-drain.yml`, `trunk-health.yml`, `toolchain-bump.yml`)
 name the `automation` environment (name provisional), whose deployment branches are `main` only.
-Option 3 is protective as of 2026-10-03 (UTC): calef deleted the organisation-level copies, and
+Option 3 is protective as of 2026-10-03 (UTC): calef deleted the organization-level copies, and
 the secrets now exist only on the environment (see `## Follow-on`). The text below is the proposal's own, unedited
 except for this paragraph, the gate's first sentence, and the `## Follow-on` and `## Index row`
 sections; the ruling paragraph under the gate was added to the proposal before promotion. As filed: Raised by the 2026-09-24 security audit
@@ -27,8 +27,8 @@ build runs a pull request's own workflow edits with this repository's secrets. T
 path in the script (`helpers/queue-eligible.jq` refuses a head in another repository); this is the
 rung above it.
 
-Option 1 is still an architect's to rule, and the secret move is an organisation
-setting only he can make. As filed: every option below is a repository or organisation setting, which is a fact
+Option 1 is still an architect's to rule, and the secret move is an organization
+setting only he can make. As filed: every option below is a repository or organization setting, which is a fact
 that leaves the tree: no lane can change it, and every lane works under it from the moment it
 changes. It is an architect's.
 
@@ -50,7 +50,7 @@ not ruled and is what this proposal still asks about; its cost stands as written
   happening silently, and it is still a script.
 - Workflows on a first-time contributor's fork wait for a click (`approval_policy:
   first_time_contributors`); a returning contributor's run automatically, with a read-only token
-  and no secrets. A merge-group run is in this repository and sees the organisation's secrets,
+  and no secrets. A merge-group run is in this repository and sees the organization's secrets,
   `AUTOMATION_APP_ID` and `AUTOMATION_APP_KEY` among them, and runs the workflow file as the pull
   request left it.
 
@@ -91,7 +91,7 @@ holding.
 
 ## Follow-on
 
-- **Done.** On 2026-10-03 (UTC) calef deleted the organisation-level `AUTOMATION_APP_ID` and
+- **Done.** On 2026-10-03 (UTC) calef deleted the organization-level `AUTOMATION_APP_ID` and
   `AUTOMATION_APP_KEY`; they now exist only as secrets of the environment `automation`. `trunk-health`
   run 37156264104 (`workflow_dispatch`, 2026-10-03 21:46 UTC) succeeded after the deletion; run
   37149031146 had succeeded before it, on the environment secrets. (On 2026-09-24 the environment's
@@ -108,4 +108,4 @@ holding.
 
 ## Index row
 
-A merge-group build runs a pull request's own workflow edits with this repository's secrets, and the `main` ruleset requires no review. calef adopted two of three fixes on 2026-09-24: workflow approval for every outside contributor, and the App's secrets behind a `main`-only environment. The secrets have not yet moved out of the organisation, and a required review stays unruled.
+A merge-group build runs a pull request's own workflow edits with this repository's secrets, and the `main` ruleset requires no review. calef adopted two of three fixes on 2026-09-24: workflow approval for every outside contributor, and the App's secrets behind a `main`-only environment. The secrets have not yet moved out of the organization, and a required review stays unruled.

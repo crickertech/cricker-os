@@ -190,7 +190,7 @@ build the merge commit and run detached, which that check skips by design; what 
 `script/lint`, on the prefix and nothing else.
 
 calef ruled `feature/` on 2026-08-17 and the maintainer renamed the branch. **GitHub's branch rename
-closed the pull request rather than retargeting it**, which is not its usual behaviour, so #278
+closed the pull request rather than retargeting it**, which is not its usual behavior, so #278
 became #284 with the same branch and the same commits. Recorded because the next person to rename a
 branch under an open pull request should expect it.
 

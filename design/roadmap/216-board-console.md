@@ -10,7 +10,7 @@ VisionFive 2 as a remote target and the gap becoming concrete the same hour.
 
 What was built. `script/board-console` (name provisional), over `cargo xtask board-console`
 and `crates/board_console` (both names provisional). It opens the port at 115200 8N1, tees every
-byte to a log file that is never optional, recognises the runbook's boot sequence, and returns a
+byte to a log file that is never optional, recognizes the runbook's boot sequence, and returns a
 different exit status for each way a session can end: reached the stage asked for, the board
 announced a failure, it spoke and then went quiet, the time ran out, the port would not open. That
 five-way answer is the deliverable rather than a nicety, because a bench script's whole reason to
@@ -18,14 +18,14 @@ exist is telling a hang from a refusal. See notes/board-console.md, which carrie
 marker table with each marker's source, and the BUGS.
 
 Built with the board powered off, then checked against the board. The tool was written and
-tested with no hardware: fixtures fed one byte at a time for the recogniser, sources that block
+tested with no hardware: fixtures fed one byte at a time for the recognizer, sources that block
 forever for the deadline, a FIFO standing in for a port to cover a failing `stty` and a source that
 speaks and then stops, and the real CH343 dongle for everything except the board, including that
 `stty` on the already-open descriptor moves it from 9600 to 115200 and reverts on exit. Then
 calef powered the board on, on 2026-09-01, and captured a full boot and a full failure. Both are
 committed under `crates/board_console/tests/fixtures/captured/` as raw bytes off the wire, and
 both are asserted on. The documentation was right about the seven markers it named, which is the
-part worth recording: the recogniser needed no correction, only additions.
+part worth recording: the recognizer needed no correction, only additions.
 
 Four outcomes, three of them captured. Success, U-Boot refusing before the kernel runs, the
 kernel booting and then halting on purpose at the measured-boot gate, and a genuine hang. The last
@@ -36,7 +36,7 @@ Two things the board knew that this tree's documentation did not.
 The first is a third outcome. From power-on, the extlinux path ends `Moving Image from ...` /
 `Device tree not found or missing FDT support` / `### ERROR ### Please RESET the board ###`,
 exactly the caveat notes/visionfive2.md records about U-Boot's fallback DTB addresses. That arrives
-after the image loads and before the kernel runs, so a recogniser that knew only the stages would
+after the image loads and before the kernel runs, so a recognizer that knew only the stages would
 have called the silence after it a hang, which is the worst available answer: it sends somebody
 hunting a multicore bug in a kernel that never started. Booted, hung, and refused-before-the-kernel
 are three outcomes, and the tool now exits 1 for the refusal and 2 for a hang.
@@ -102,7 +102,7 @@ that reads and logs is useful the moment somebody presses power by hand, and gai
 clause is the whole difficulty and is why this is a milestone rather than a one-line `screen`
 invocation:
 
-- Knowing a boot succeeded means recognising the sequence `notes/visionfive2.md`'s bench
+- Knowing a boot succeeded means recognizing the sequence `notes/visionfive2.md`'s bench
   runbook already writes down: the SPL banner, OpenSBI's, U-Boot's, then `Starting kernel ...`,
   then ours. That note is the specification; read it rather than inventing markers.
 - Knowing a boot hung is the case that matters, because a hang is what a multicore defect looks
@@ -198,7 +198,7 @@ as built serves every read-only use, and 218 is the thing to do first either way
   while it is open, a bench session facing a board that will not boot has no sanctioned way to type
   at it.
 - **Milestone 324.** Whether argon
-  (aarch64) and xenon (x86_64) get this console with a board profile or a tool each. Same behaviour,
+  (aarch64) and xenon (x86_64) get this console with a board profile or a tool each. Same behavior,
   different banners and a different boot sequence, and the choice is an architect's. Until it is
   made the other two boards have no console tool at all, so the bench workflow this milestone built
   exists for one board out of three.
@@ -206,7 +206,7 @@ as built serves every read-only use, and 218 is the thing to do first either way
 ## Index row
 
 `script/board-console` (name provisional) opens the port at 115200 8N1, logs every byte to a file
-that is never optional, recognises the boot sequence, and returns a different exit status for each
+that is never optional, recognizes the boot sequence, and returns a different exit status for each
 way a session ends. Built with no hardware, then **checked against four real captures** from
 2026-09-01, all committed as raw bytes and asserted on: two successful boots, U-Boot refusing
 before the kernel ran, and the kernel halting at the measured-boot gate. The documentation was

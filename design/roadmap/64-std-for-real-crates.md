@@ -9,7 +9,7 @@ Built on 2026-09-19 (PR #984), after five passes: the first on 2026-08-04 (PR #1
 the second on 2026-08-17, three on 2026-08-18, and the last on 2026-09-19, which bound file times
 and closed the one item the Follow-on still called outstanding (below, "The last pass: file
 times"). Every other row on the ranked list is closed, declined with a recorded reason, or owned by
-another milestone or a proposal; the Follow-on names each home. The measurement's deliverable, the prioritised gap list that milestones 99 and 66
+another milestone or a proposal; the Follow-on names each home. The measurement's deliverable, the prioritized gap list that milestones 99 and 66
 consume, is in `notes/crates-io-on-nife.md`: 50 crates.io crates, 43 built, 7 failed, where 43 is
 against this tree as it ships and 39 is against it without `entropy_backend`, which is the number
 this block carried until the third pass.
@@ -62,12 +62,12 @@ What is closed. Five ranks turned out to be bindings rather than verbs (`create_
   the row was stale, std routes it to `lstat`, which this PAL binds.
 
 The third pass asked a different question, and it is the one worth carrying. Not "what is next on
-the ranked list" but "what do the neighbouring functions in that module do", which is where the
+the ranked list" but "what do the neighboring functions in that module do", which is where the
 second pass's best finding had come from by accident. Run across every module the PAL falls through
 rather than binds, it found three more std calls that abort a nife process, all of which compiled
 perfectly: `std::env::temp_dir()`, `std::env::split_paths()` and `std::process::id()`. Two are now
 answered and one is a constant with its reasoning recorded (`sys/paths/nife.rs`, `sys/process/nife.rs`);
-`std_exerciser` asserts both the answers and the four neighbouring refusals on both ISAs.
+`std_exerciser` asserts both the answers and the four neighboring refusals on both ISAs.
 
 None of the three could have appeared on the ranked list, and that is the finding rather than the
 functions. The list is built from PAL functions that answer `Unsupported`, and a function that aborts
@@ -304,7 +304,7 @@ the granted directory itself) plus a `NotFound` for an empty set on a missing na
 - `env` is a table nobody seeds. The environment backend added in the second pass is honest and
   it is also a stub in one direction: a program can set its own variables and cannot be *given* one,
   because there is no endowment to carry it. That is milestone 47's namespace, and until it lands
-  every `env::var` a crate reads is `None`. `chrono`'s `TZ` and `clap`'s colour detection both take
+  every `env::var` a crate reads is `None`. `chrono`'s `TZ` and `clap`'s color detection both take
   that path, which is fine and is not the same as working.
 
 - A fifth check of the ranked list (2026-08-22) found no genuinely buildable row. After §105
@@ -317,7 +317,7 @@ the granted directory itself) plus a `NotFound` for an empty set on a missing na
   change was correcting the two stale mentions of rank 21 as still open and naming rank 28. Do not
   read that as the list being exhausted the way the third pass wrongly said it was: a `panic!` or a
   trap instruction hiding behind a green build would look exactly like this too, and only reading
-  the PAL's neighbouring functions (the third and fourth passes' method) or building a new gate would
+  the PAL's neighboring functions (the third and fourth passes' method) or building a new gate would
   find one.
 - File times are only as true as the server's clock, and it has none. `modified()` reports what
   `GETMTIME` says, and for a file written on this system that is the FS server's per-mount counter,
@@ -370,7 +370,7 @@ build them, and report what breaks.
   guest-proved, and nothing in the PAL resolves against two roots.
 - **Recorded.** A green build is still not evidence, and the acceptance bar stays a crate doing its
   job under a stated endowment. `script/crate-probes` reports the split and cannot report
-  behaviour.
+  behavior.
 - **Recorded.** The PAL patches std's own source under `patches/std-nife/overlay/`, so every bound
   function is more surface for toolchain drift, which is the reason to add only what a probe
   demands.

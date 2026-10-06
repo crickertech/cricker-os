@@ -38,7 +38,7 @@ package's long description omits `pidwait`, which is how the first table here mi
 | `top` | built 2026-09-21 by milestone 282 (a thread's CPU time) | `crates/top` |
 | `watch` | built 2026-08-24, cut 2026-09-13 by milestone 281 (`watch` holds exactly what `ps` holds) | notes/process-view.md |
 | `sysctl` | declined, §115 (no `sysctl`) | this block |
-| `kill`, `pkill`, `skill`, `snice` | refused, milestone 455 (the signalling stratum of `procps`) | `design/roadmap/455-the-signalling-stratum.md` |
+| `kill`, `pkill`, `skill`, `snice` | refused, milestone 455 (the signaling stratum of `procps`) | `design/roadmap/455-the-signalling-stratum.md` |
 | `pwdx` | declined 2026-09-26, §224 (no `pwdx`): only the shell has a working directory | `design/decisions/224-no-pwdx.md` |
 | `w` | moved out: waits on a tid's name and a second session | `design/roadmap/681-w-shows-who-is-logged-in.md` |
 | `free`, `vmstat` | built 2026-09-26 under §225 (`free` sees the machine and your share) | `crates/free`, `crates/vmstat`, the-machine-and-your-share.md |
@@ -74,16 +74,16 @@ something it was handed.
 On Linux the answer comes from `/proc`, which is ambient. Any process reads it with no grant from
 anyone, so `ps aux` prints every command line on the machine, including the ones with secrets in
 `argv`. Nobody defends that design; they live with it, and `hidepid` exists because enough people
-stopped wanting to. The reader already knows the Unix behaviour is wrong, so the claim needs no
+stopped wanting to. The reader already knows the Unix behavior is wrong, so the claim needs no
 setup.
 
 `procps` (upstream `procps-ng`) is Priority: important, so it is on essentially every Ubuntu
 install. It is the unit the distribution ships, so it is the
-unit that tests whether the approach generalises; a port that picked the two programs with the
+unit that tests whether the approach generalizes; a port that picked the two programs with the
 tidiest capability story would prove nothing about typical software.
 
 Once `/proc` is replaced by a held capability, the package stops being one thing. It stratifies by
-what each program actually needs: reading the process namespace, signalling a process, machine-wide
+what each program actually needs: reading the process namespace, signaling a process, machine-wide
 statistics, writing kernel tunables, and nothing at all. That was the build order, `ps` first
 because a snapshot needs no clock and no accounting.
 
@@ -119,7 +119,7 @@ because it could not look is the worst failure available to this tool.
 `ps` and `pgrep` share one manifest, field for field, and the sameness is the claim. On Unix `pgrep`
 and `pkill` are one lookup with two endings. Here a survey returns a tid, and a tid is a name and
 not a capability: there is no path from it to authority over the thread. calef ruled on 2026-08-17
-that a domain names its members and does not act on them, which abolished most of the signalling
+that a domain names its members and does not act on them, which abolished most of the signaling
 stratum before it was built. The kernel test filters a domain down to its corpse and then shows that
 the capability which named the tid is refused the reap
 (`kernel::user::survey_tests::a_filter_names_members_and_tells_its_four_answers_apart`).
@@ -173,7 +173,7 @@ The machine overruled this block in four places, found by re-reading the tree ra
 - `pwdx` was filed as "print a name for a tid", blocked on a display name. Upstream `pwdx` prints
   another process's current working directory. Here only the shell has one, as a value in its own
   `grant_plan::Holdings`. It was waiting on the wrong fork for a month.
-- The block's own display-name fork is withdrawn in favour of §148 (a supervisor restarts by
+- The block's own display-name fork is withdrawn in favor of §148 (a supervisor restarts by
   asking, and resolves by asking the kernel). `w` and `ps`'s missing `CMD` column are consumers it
   does not list.
 
@@ -205,7 +205,7 @@ this wrong looks like `ps` working beautifully while the confinement is decorati
 - `pmap` shows one row per mapped page with no range coalescing, because the revocation log records
   one entry per page and nothing about adjacency. It also cannot tell a device mapping from ordinary
   read/write memory, since `paging::Flags` carries no device bit the syscall handler can see.
-- `procps` ships without `sysctl` (§115) and without its signalling stratum (milestone 455). A
+- `procps` ships without `sysctl` (§115) and without its signaling stratum (milestone 455). A
   reader who expects `kill` or `sysctl` to be a program will not find one.
 - Aggregate statistics are a side channel, and capabilities do not close it. CPU time per thread,
   which `top` now shows, leaks information about work the viewer was never shown. A capability
@@ -268,6 +268,6 @@ The sharpest ambient-authority case in the utility set, because what these progr
 enumeration of the process namespace, and `/proc` hands it to anyone. Taken as a whole package for
 consistency with 123's corpus approach. Replacing `/proc` with a held capability stratifies it.
 `ps`, `pgrep`, `pmap`, `uptime` and `top` are built over `rendezvous::SURVEY` and `ENUMERATE`.
-`sysctl`, `pwdx` and the signalling programs are declined, and `watch` was built and cut. `free`,
+`sysctl`, `pwdx` and the signaling programs are declined, and `watch` was built and cut. `free`,
 `vmstat` and `slabtop` read a region method and a machine page (§225). `pidwait`, `w` and `pmap`
 from the prompt moved out as proposals of their own.

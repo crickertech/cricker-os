@@ -30,7 +30,7 @@ free, and the integrator's merge run does too, through the same wrapper.
 
 The work: wire `--hvf` through `script/test`/`cargo xtask test` (today it is an env var the runner
 script reads), run the full aarch64 suite under it, and fix or honestly record what differs. Timer
-behaviour will differ, because under HVF guest time is host time and no icount instrument exists;
+behavior will differ, because under HVF guest time is host time and no icount instrument exists;
 part of the milestone is learning which tests that perturbs, which feeds milestone 78's per-assertion
 work rather than competing with it. Then the gates leg, and notes/scripts.md.
 

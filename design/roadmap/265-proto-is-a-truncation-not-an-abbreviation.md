@@ -160,7 +160,7 @@ correctness problem, and it is named here so that a future 91 finds it written d
   `main`, so 91 rebases onto it and sees no conflict from the spelling itself.
 - **What 91 inherits is the 64 markdown files this deliberately did not sweep**, listed by rule
   below. Those still read `_proto`, correctly, because they are accounts. A documentation sweep that
-  normalises spelling across the tree will read them as rot and must not: the status rule is the
+  normalizes spelling across the tree will read them as rot and must not: the status rule is the
   reason, and `design/naming.md`'s rename procedure is where it is written down.
 - **And it inherits one thing this milestone could not fix**: `design/decisions/` sections are
   closed decisions and keep `_proto` throughout, so a reader following a decision to a crate lands

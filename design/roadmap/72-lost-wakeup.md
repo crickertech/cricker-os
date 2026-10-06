@@ -21,7 +21,7 @@ scheduler converts a killed thread to a corpse at its next preemption, so whenev
 child's nine instructions, the child was reaped without ever sending, the test's `ipc_recv` never
 returned, and every core fell to idle: the 60 s lost-wakeup heartbeat, exactly as reported.
 
-The fix is deleting the probe. The refusal's own behaviour is proved by
+The fix is deleting the probe. The refusal's own behavior is proved by
 `force_kill_tests::destroy_force_kills_a_runaway_and_reclaims_its_region`, which points the
 destructive call at a runaway that is meant to die, the only subject it can honestly be pointed at.
 `reclaim_region` now carries a `BUGS` section saying `Err` is destructive, where a caller meets it.

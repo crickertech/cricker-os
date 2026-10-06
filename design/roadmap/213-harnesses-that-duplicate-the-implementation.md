@@ -9,7 +9,7 @@ Minted 2026-09-01 by milestone 211's sweep, which was looking for a
 different defect and found this one beside it. Swept 2026-09-02: **148 harnesses read, one
 measured blind, rewritten, and carrying a machine-replayable record of the defect its old
 phrasing could not see.** Two more have the shape and are recorded as *not* findings, one of
-them measured blind on its own and covered by a neighbour. The result and its method are in
+them measured blind on its own and covered by a neighbor. The result and its method are in
 notes/falsification.md, under "The sweep for harnesses that duplicate the implementation".
 *(Number provisional until the merge queue lands it.)*
 
@@ -90,7 +90,7 @@ whole family. Every harness was read.
   syscall paths apply. Both were read and both still match, so it is faithful; there is nothing to
   extract and call, because what is duplicated is control flow rather than a function, and nothing
   re-reads those call sites when they change.
-- The 147 cleared harnesses carry no artefact, the same limit 211 records for its own 135. A
+- The 147 cleared harnesses carry no artifact, the same limit 211 records for its own 135. A
   refactor that inlines a function a harness calls turns that harness into this defect silently.
 
 ## Follow-on
@@ -106,7 +106,7 @@ whole family. Every harness was read.
   something also calls the crate, so the interesting cases are the mixed ones, and 211 had already
   measured its own extractor flagging three findings for the wrong reason and missing a family.
   Every one of the 148 was read instead.
-- **Recorded.** `notes/falsification.md`. The 147 cleared harnesses carry no artefact, the same
+- **Recorded.** `notes/falsification.md`. The 147 cleared harnesses carry no artifact, the same
   limit 211 records for its own 135. A refactor that inlines a function a harness calls turns that
   harness into this defect silently, and nothing re-checks the cleared set.
 - **Recorded.** `design/roadmap/213-harnesses-that-duplicate-the-implementation.md`. One finding is

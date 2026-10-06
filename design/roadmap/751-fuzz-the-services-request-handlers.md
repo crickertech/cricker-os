@@ -22,7 +22,7 @@ the host and checking a stated rule after every reply, not only "no panic". `not
 has the rules, the rates and the findings in full.
 
 - `redoxfs_server_session` drives `redoxfs_server::Server::handle`, the file server's request
-  dispatch, moved out of the EL0 binary for it with no behaviour change. Rules: admission (a revoked
+  dispatch, moved out of the EL0 binary for it with no behavior change. Rules: admission (a revoked
   or unknown badge succeeds at nothing; a bound badge only through `ROOT` or what it minted) and
   content (a bound badge never reads a file outside its grant). The image is formatted once and
   reopened per input through a copy-on-write disk: 688 sessions/s became about 2,180.

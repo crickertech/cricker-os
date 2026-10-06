@@ -23,7 +23,7 @@ which keeps "what you time is what you run" true the same way `caps` keeps it fo
 **The one design question is whose clock it is, and the leaning is the shell's.** `date` established
 the clock story: a read-only clock-page mapping, endowed, with an honest refusal when the holder has
 none. If `time` reads the shell's own clock capability, a child that holds no clock at all can still
-be timed, which is the Unix behaviour (the timed program does not know it is being timed and needs
+be timed, which is the Unix behavior (the timed program does not know it is being timed and needs
 nothing to permit it); timing is then something an observer does with its own authority, which is
 the capability-model answer too, since the child's wall-clock duration is observable to anyone who
 can watch it start and stop. The alternative, delegating a clock to the child, would make `time` a
@@ -63,4 +63,4 @@ the duration is positive and sane, not a latency benchmark, which is `bench`'s j
 
 The second prefix-word command after `caps`, so the grammar is proven, and `date` already built
 the clock story. The design question was whose clock it is: the shell's, so a child that holds no
-clock capability can still be timed, which is the Unix behaviour and what shipped
+clock capability can still be timed, which is the Unix behavior and what shipped

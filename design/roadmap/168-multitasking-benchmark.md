@@ -50,7 +50,7 @@ Recorded 2026-09-21, deliberately in advance. When this milestone produces a mul
 number it will be read against the language-isolation line of work, by anyone who knows the
 literature: *The Case for Writing a Kernel in Rust* (APSys '17, DOI 10.1145/3124680.3124717) and
 RedLeaf (OSDI '20). Writing down now what makes that comparison honest is what stops it being a
-defence afterwards.
+defense afterwards.
 
 Three things the comparison has to say, or it is not one.
 
@@ -196,7 +196,7 @@ contention point the instrument was built to create.
 A correction, recorded because it was nearly written into this block as a finding. The
 `job-mix-census:` lines were read across three boots as evidence that thread placement is
 deterministic (6/9/9/10 every time) and therefore that `notes/soak.md`'s fifteenfold placement
-hazard had not materialised. That inference was wrong: the census prints once, before the sweep,
+hazard had not materialized. That inference was wrong: the census prints once, before the sweep,
 and describes the 32-thread pool. It says nothing about where four tasks land during the `tasks=4`
 subrun, which is exactly the configuration whose variance was being explained.
 
@@ -223,7 +223,7 @@ statistic's boot-to-boot spread averaged), with `tasks=4` as the worst case:
 | median of N, `tasks=8` | 7.9% | 6.5% | 5.0% | 4.0% | 3.4% | 2.9% |
 | median of N, `tasks=32` | 5.4% | 4.8% | 3.9% | 3.1% | 2.6% | 2.0% |
 
-The simulated best-of-3 (21.9%) is in the neighbourhood of the observed 29.4%, which is what makes
+The simulated best-of-3 (21.9%) is in the neighborhood of the observed 29.4%, which is what makes
 the rest of the table worth reading. The best-of rows flatter themselves at large N: a resample
 can never go below the fifteen samples' own minimum, where real repeats would keep finding luckier
 ones. That artifact is exactly why the minimum is the wrong statistic for a wide distribution, and

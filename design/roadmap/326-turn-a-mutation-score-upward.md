@@ -71,12 +71,12 @@ firing decision; every mutant in them was caught before this lane changed anythi
 against risk 2 in the place this roadmap thought it most likely, and it is worth as much as a finding
 would have been.
 
-One behaviour question is recorded rather than answered, in a `BUGS` section on
+One behavior question is recorded rather than answered, in a `BUGS` section on
 `timetable::Unbacked` where a reader meets the variants: `Admission::Unbacked` can never carry
 `File` or `Directory`, because `admit` hands `grant_plan::plan` the same `dir` bit that `unbacked`
 then re-tests, so a designation the scheduler cannot back is refused during planning instead. Two
 mutants deleting the `!` in those tests survived on exactly that. Changing which of two true
-sentences a reader meets is a behaviour change, so it is written down and not made.
+sentences a reader meets is a behavior change, so it is written down and not made.
 
 Why it exists, and the shape is worth naming. Four milestones touch mutation testing and
 three of them are repairs to the instrument: 85 built `script/mutation` and triaged the
@@ -134,7 +134,7 @@ at rung one), and `jh7110_entropy`'s four were left because `Pool`'s doctest cal
 a hang confirmed by hand-applying the mutant. (Corrected 2026-09-26, UTC: this said a doctest has
 nowhere to put a deadline. #1323 disproved it, with hidden `# ` lines that `recv_timeout` a worker.)
 
-Nothing found here is a defect in shipped behaviour, which is the answer to the question this
+Nothing found here is a defect in shipped behavior, which is the answer to the question this
 milestone exists to ask. The closest are three places where a plausible-looking mistake was
 unguarded: `soak_page`'s offsets could collapse two workers onto one word with every test green,
 `schedule_store`'s buffer bound could index one past a caller's array, and `job_mix`'s budget could
@@ -292,7 +292,7 @@ Parts 1 and 2 only. Each of these was checked against the tree on 2026-09-19, on
   rung four of AGENTS.md's ladder in a place that has a rung-one answer.
 - **Recorded.** `crates/timetable/src/lib.rs`, in a `BUGS` section on `Unbacked`:
   `Admission::Unbacked` can never carry `File` or `Directory`. Two mutants survived on it, and
-  whether `admit` should stop pre-consuming the scheduler's `dir` holding is a behaviour change
+  whether `admit` should stop pre-consuming the scheduler's `dir` holding is a behavior change
   rather than a test.
 - **Recorded.** `notes/mutation-testing/regressions-clock-protocol-swish-filesystem-protocol.md`'s
   `## 2026-09-19` section: `verb`'s compile-time table walk in

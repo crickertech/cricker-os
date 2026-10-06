@@ -26,7 +26,7 @@ half of the finding.
 |---|---|---|
 | `start`, the readiness report | `report[1] == 8 * 1024 * 1024` | fail: the report carries 256 GB |
 | the `SIZE` verb | the answer is `8 * 1024 * 1024` | fail: the server answers 256 GB |
-| the neighbour block | block 38 reads as zeros | fail on any disk that has held anything |
+| the neighbor block | block 38 reads as zeros | fail on any disk that has held anything |
 | the out-of-range block | block `8 MiB / 4096` is past the end | fail: block 2048 is valid and is read |
 
 Milestone 261's lane flagged the symptom without connecting it. Its bench handoff says to check
@@ -48,7 +48,7 @@ smaller than two blocks would make everything below it vacuously true, so `start
 loudly. `kernel/src/non_volatile_memory_express.rs::bring_up` already refuses a zero-block namespace; this says so where
 the assertions that depend on it are.
 
-The neighbour assertion became a second pattern. The property is *the write landed where it
+The neighbor assertion became a second pattern. The property is *the write landed where it
 said and not everywhere*. The old shape established it by reading block 38 and expecting the
 image's zeros, which is a claim about the disk's prior contents and is true only of a file that was
 just created. The new shape writes a second, different function-of-offset pattern to block 38,
@@ -98,7 +98,7 @@ figure):
 The one thing this argument cannot cover is the device answering IDENTIFY with a geometry
 `kernel/src/non_volatile_memory_express.rs::bring_up` refuses: a namespace whose LBA size does not divide 4096 into
 `1..=8` logical blocks makes `blocks_per` `None` and the server never starts, and the test skips
-rather than fails. That is pre-existing behaviour, correct, and worth knowing at the bench: **a
+rather than fails. That is pre-existing behavior, correct, and worth knowing at the bench: **a
 skip is not a pass**, and the transcript distinguishes them.
 
 ## Both new assertions were broken on purpose
@@ -114,7 +114,7 @@ this milestone would otherwise be most likely to introduce. So each was falsifie
 
 The second is the one worth reading twice: it is a write landing somewhere other than where it
 said, which is exactly the property the retired zeros check was there for, and the new shape
-catches it at the *first* read-back rather than at the neighbour.
+catches it at the *first* read-back rather than at the neighbor.
 
 ## What else assumed QEMU's geometry
 
@@ -168,12 +168,12 @@ this tree does not have.
 `a_confined_el0_process_serves_the_block_interface_end_to_end` is milestone 261's proof and fatal
 risk 6's decisive experiment, it passed under QEMU, and four of its assertions were written
 against QEMU's 8 MiB zeroed image and would have gone red on xenon's 256 GB Micron for reasons
-with nothing to do with confinement: the readiness report's size, the `SIZE` answer, a neighbour
+with nothing to do with confinement: the readiness report's size, the `SIZE` answer, a neighbor
 block expected to read as zeros, and an out-of-range block computed from a hardcoded 8 MiB. The
 first two now compare against the geometry the kernel read from IDENTIFY, which is the property
 they always wanted (*the size survived the handoff into ring 3*, *the server answers what it was
 told*) rather than a fact about the runner's image; the third writes a second distinct pattern to
-the neighbour and requires each block to read back its own, which establishes *the write landed
+the neighbor and requires each block to read back its own, which establishes *the write landed
 where it said and not everywhere* without any claim about what the disk held before; the fourth
 computes `size / BLOCK_SIZE`, the first refused block for any size whether or not it divides
 evenly. Milestone 261's lane flagged the symptom without connecting it: its bench handoff says

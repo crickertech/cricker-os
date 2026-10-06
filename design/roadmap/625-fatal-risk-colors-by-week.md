@@ -80,6 +80,6 @@ status chart cannot show.
 ## Index row
 
 The nine fatal risks had a chart of whether each experiment ran and none of what it found. Each
-appendix now carries its verdict colour in frontmatter, cross-checked against the summary's status
-line, and a weekly stacked bar counts green, amber and red with grey for no verdict, backfilled
-from 2026W36. A risk turning colour is now visible the week it happens. Name provisional.
+appendix now carries its verdict color in frontmatter, cross-checked against the summary's status
+line, and a weekly stacked bar counts green, amber and red with gray for no verdict, backfilled
+from 2026W36. A risk turning color is now visible the week it happens. Name provisional.

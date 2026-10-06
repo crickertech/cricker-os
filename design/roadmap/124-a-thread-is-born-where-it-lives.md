@@ -184,7 +184,7 @@ instantiation: ten of them, 3888 to 4592 bytes, over the guard page on both ISAs
 
 A frame larger than the guard page is not merely close to overflowing. It can move `sp` from inside
 the stack to below the guard in a single step, touching nothing in between, so the guard never
-faults and the write lands in the neighbouring thread's stack instead. The overflow stops being a
+faults and the write lands in the neighboring thread's stack instead. The overflow stops being a
 legible fault and becomes corruption that surfaces somewhere else entirely, arbitrarily later.
 
 That is not hypothetical here. On 2026-08-14 a `thead-c906` run faulted 4088 bytes below the stack
@@ -201,7 +201,7 @@ bottom on a 4096-byte guard. Eight more bytes and there would have been no fault
 | `capability::CSpace<cap::Object, 16>`, one field of `Thread` | 384 bytes of type |
 
 The per-instantiation spread is only about 700 bytes and tracks `size_of::<F>()`, so the closure is
-the small part. Roughly 3900 bytes is constant, and it is the `Thread` travelling by value.
+the small part. Roughly 3900 bytes is constant, and it is the `Thread` traveling by value.
 
 ## What the work was
 

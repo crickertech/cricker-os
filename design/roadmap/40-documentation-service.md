@@ -78,7 +78,7 @@ scheduling. A process has one wait point, so a shell that feeds a chain cannot a
 and no interleaving fixes that. What fixes it is somewhere for the viewer's output to go that is
 **not the shell**, and the tree already had that thing: `terminal_sink_caretaker`, the terminal's
 own sink adapter, where a declared second stream goes by default. Putting it in a tail stage's
-*output* slot was a spawn-protocol decision, the same decision the pager and the colour bit still
+*output* slot was a spawn-protocol decision, the same decision the pager and the color bit still
 want, and notes/pipes.md had been holding it open since milestone 50: *"a shell that wanted a
 program to print straight to the screen rather than through its own result endpoint could hand it
 over, and would lose the ability to redirect that program at all."* DECISIONS §106 took that fork
@@ -294,7 +294,7 @@ later. Effort: 1 lane estimated per phase, three phases, landed separately.
   the actual work undone.
 - **Milestone 334.** The other two thirds of
   §106's spawn-protocol narrowing: a bit telling a tail stage
-  it ends at a real screen (colour, the honest `isatty` replacement), and a way to grant one line of
+  it ends at a real screen (color, the honest `isatty` replacement), and a way to grant one line of
   input without granting the keyboard (the pager). Both widen a protocol two programs agree on, so
   both are an architect's call; `notes/manual.md`'s "where this goes next" is the only record either
   has.

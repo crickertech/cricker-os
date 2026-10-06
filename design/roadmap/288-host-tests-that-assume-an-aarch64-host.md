@@ -178,7 +178,7 @@ cuts both ways here, and the honest statement is that the aarch64 and riscv64 ho
   before and the twenty tests take the identical path. `FOREIGN_MACHINES` evaluates to
   `[EM_RISCV, EM_X86_64]`, which is the literal pair the old code listed. `seed_for_this_build()`
   finds `minimal_rx_aarch64.elf`, byte-identical to the file that was there. Every aarch64
-  behaviour is bit-for-bit what it was, which is the strongest form this argument can take, and it
+  behavior is bit-for-bit what it was, which is the strongest form this argument can take, and it
   is why the change is safe to land from a machine that cannot run it.
 - **riscv64.** The same derivation yields `[EM_AARCH64, EM_X86_64]` and `minimal_rx_riscv64.elf`,
   which is the case the old code was *documented as failing* and never tested. It should pass for

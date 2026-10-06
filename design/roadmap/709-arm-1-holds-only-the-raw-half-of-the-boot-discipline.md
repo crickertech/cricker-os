@@ -67,7 +67,7 @@ exactly as granted; the grant is wider than the use.
 ## What this tree already does in the analogous case
 
 The file service tells clients apart by badge and scopes each to its binding
-(`crates/subtree_scope`, §230). The system log honours control words from badge 0 only
+(`crates/subtree_scope`, §230). The system log honors control words from badge 0 only
 (`crates/system_log/src/lib.rs`, `handle`). This is the same shape one component over.
 
 ## What it costs

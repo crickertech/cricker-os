@@ -59,7 +59,7 @@ review, or a public bounty once a stranger can install nife, which waits on mile
   confinement test is a ritual until somebody breaks the confinement and watches it fail) set.
 - The results go into risk 7's appendix (`design/fatal-risks/the-confinement-claims.md`) through
   the maintainer, who may correct facts under §216 (fatal-risk facts are correctable, and verdicts
-  are the architect's). Moving the colour stays calef's.
+  are the architect's). Moving the color stays calef's.
 
 ## Cost
 
@@ -113,7 +113,7 @@ Milestone 634 merged as #1503 earlier the same day, so there was nothing to sequ
 
 The sweep is gated in CI, not on this machine: the `test` target boots the kernel suite on aarch64,
 riscv64 and `x86_64`, and `ci.yml` and `verify.yml` were dispatched on the branch. A host proof is
-one artefact for every ISA by construction. A kernel test runs on each ISA the table names, but its
+one artifact for every ISA by construction. A kernel test runs on each ISA the table names, but its
 falsification record names one architecture, so "runs on three, recorded on one" is the honest
 reading wherever it appears. That gap is milestone 323 (the falsification record is incomplete in
 five ways, and each was found by a different lane)'s and is not re-raised here.
@@ -125,7 +125,7 @@ five ways, and each was found by a different lane)'s and is not re-raised here.
 | 3 | Looked for a mint site outside `derive` that takes a rights argument; `mint_child` takes none | host proof, every ISA | held |
 | 4 | Looked for a slot that answers after `delete` or `delete_matching` | host proof, every ISA | held |
 | 5 | Looked for a sweep that touches a bystander slot | host proof and host test, every ISA | held |
-| 6 | Looked for a reap authorised by anything but the supervision rendezvous | host proof, every ISA | held |
+| 6 | Looked for a reap authorized by anything but the supervision rendezvous | host proof, every ISA | held |
 | 7 | Looked for a liveness-dependent refusal to a stranger | host proof, every ISA | held |
 | 8 | Looked for a survey entry outside the invoked rendezvous's domain | host proof, every ISA | held |
 | 9 | Looked for a divergence between the view predicate and the reap predicate | host proof, every ISA | held |

@@ -75,7 +75,7 @@ from two cores at once.
 ## BUGS
 
 - The read is rung three, not rung one. A caller can still read a frame with
-  `sched::current_cap` and map it outside a hold; the map handlers' taking a slot is the defence,
+  `sched::current_cap` and map it outside a hold; the map handlers' taking a slot is the defense,
   the same one `sched::Delegation` relies on. Written at `MappingHold`.
 - `DeviceFrame` through `MAP_INTO` is covered by construction and not driven.
 - A destroyed region's page tables stayed linked: `MemoryRegion::DESTROY` returned tables a live

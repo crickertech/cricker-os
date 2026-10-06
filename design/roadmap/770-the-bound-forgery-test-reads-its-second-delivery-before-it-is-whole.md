@@ -14,7 +14,7 @@ Raised 2026-10-03 (UTC) by the lane for milestone 718 (provisional), diagnosing 
 
 ## The finding
 
-`system_tests/src/user/notification_tests.rs` publishes the receiver's second message into `SECOND`, five atomics initialised to `u64::MAX`, one word at a time (the loop near line 74). The test waits only for `SECOND[0]` to leave `u64::MAX` (line 116), then loads all five (line 119). On a second hart the receiver can have stored word 0 and not yet words 1 to 4. The failing log shows exactly that: left `[2, MAX, MAX, MAX, MAX]`, right `[2, 57005, 7, 0, 0]`. Word 0 arrived and the rest had not. The assertion text ("must still arrive with w4 == 0") describes the kernel property; the failure was the reader being early, not the kernel delivering a wrong word.
+`system_tests/src/user/notification_tests.rs` publishes the receiver's second message into `SECOND`, five atomics initialized to `u64::MAX`, one word at a time (the loop near line 74). The test waits only for `SECOND[0]` to leave `u64::MAX` (line 116), then loads all five (line 119). On a second hart the receiver can have stored word 0 and not yet words 1 to 4. The failing log shows exactly that: left `[2, MAX, MAX, MAX, MAX]`, right `[2, 57005, 7, 0, 0]`. Word 0 arrived and the rest had not. The assertion text ("must still arrive with w4 == 0") describes the kernel property; the failure was the reader being early, not the kernel delivering a wrong word.
 
 ## The fix, and what is unproven
 

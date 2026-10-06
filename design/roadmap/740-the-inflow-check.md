@@ -9,7 +9,7 @@ built: 2026-10-04
 risk 3: "Yes, build the inflow check." The spec is the recommendation in
 [`notes/mutation-testing/inflow-2026-10-03.md`](../../notes/mutation-testing/inflow-2026-10-03.md).
 Fatal risk 3's green condition is that the survivors each merged pull request adds on its own lines
-are triaged, and until this nothing could tell whether that held. Verdicts and colours stay calef's.
+are triaged, and until this nothing could tell whether that held. Verdicts and colors stay calef's.
 
 Built with no mutation sweep: from the artifacts of runs 37108924347 (2026-10-03) and 35589550926
 (2026-09-21) and from the triage ledgers.

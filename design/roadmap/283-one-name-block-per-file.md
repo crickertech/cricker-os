@@ -114,7 +114,7 @@ question for calef rather than a lint to loosen.
 
 - `helpers/name_provenance.py`: `_head(prefix)` (the one header spelling, used by both readers),
   `headers()`, `stray_reason()`, `strays()`, and four `STRAY_*` tokens in the same shape as the
-  existing `NO_STATUS` / `NO_DATE` / `NO_CITATION`, so the judgement is shared and the wording stays
+  existing `NO_STATUS` / `NO_DATE` / `NO_CITATION`, so the judgment is shared and the wording stays
   at the caller.
 - `script/names`: `stray_problems()`, wired into `--check` and therefore into `script/lint`, and
   reported before the "no `Name:` block" case rather than instead of it, because a file whose

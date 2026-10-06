@@ -17,7 +17,7 @@ milestone 268 on **2026-09-14**, sits in `script/ci-build`'s `local` tier (line 
 every pull request in the same job as `test` and `swish-check`, and
 `.github/workflows/ci.yml` names the gap in its own words, that boot-check *"is the only thing on a
 pull request that boots the DEFAULT riscv64 or `x86_64` kernel at all"*. So the default riscv64
-kernel **is** booted on a pull request, by the recogniser this block said to reuse, and the sentence
+kernel **is** booted on a pull request, by the recognizer this block said to reuse, and the sentence
 under "The claim in one line" is false. What is still true is the narrower half, and it is the
 work: `script/boot-check` boots with no initrd and no disk, by design, and says so, since every
 rung it reads is printed before userspace exists, so it stops at the machine description and the
@@ -78,8 +78,8 @@ CI: a crate's host tests over captured board logs, two `script/` tools nobody ru
 bench note. A step nothing asserts and a step nothing needs produce the same evidence, and this tree
 has already spent one lane telling them apart.
 
-The recogniser already exists and is tested. `crates/board_console` parses this exact transcript:
-`Progress` ratchets `spl`/`opensbi`/`uboot`/`handoff`/`banner`/`tour`, recognises five failure
+The recognizer already exists and is tested. `crates/board_console` parses this exact transcript:
+`Progress` ratchets `spl`/`opensbi`/`uboot`/`handoff`/`banner`/`tour`, recognizes five failure
 markers, and sets `userspace_ran` from the `init/build` line. `script/soak-test` already judges a QEMU run
 with it. So the missing piece is a caller that boots the default kernel with `-initrd` under
 `helpers/qemu-bounded.sh` and asks `Progress` whether it reached `Stage::Tour` with `userspace_ran`,
@@ -99,7 +99,7 @@ The open questions are an architect's and are the reason this is not just done:
   reason), or a cadence.
 - What it asserts. Reaching `Stage::Tour` with `userspace_ran()` is the floor. The device-IRQ and
   preemption lines are the other two claims a reader would expect a tour check to make, and asserting
-  them means recognising them, which is two more `Progress` fields.
+  them means recognizing them, which is two more `Progress` fields.
 - Its name, since it is a new `script/` entry point or a new xtask verb, and names are an
   architect's.
 
@@ -123,7 +123,7 @@ architectures in `script/ci-build`'s local tier, which is the caller this block 
 with no initrd, so it stops at the machine description and the self-test verdict, and what is still
 asserted by nobody is the boot as a sequence past that point: `Stage::Tour` with
 `userspace_ran()`, which is what a board actually produces and what `crates/board_console` was
-written to read. The recogniser exists and is tested, `Progress` already ratchets the stages and
+written to read. The recognizer exists and is tested, `Progress` already ratchets the stages and
 sets `userspace_ran` from the `init/build` line, and `script/soak-test` already judges a QEMU run
 with it, so the missing piece is an initrd and two assertions rather than an instrument. What is
 calef's is where it runs, what it asserts beyond the floor, and its name. The aarch64 and x86_64

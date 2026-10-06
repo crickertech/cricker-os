@@ -148,7 +148,7 @@ milestone 129 (scheduled execution: a cron whose every entry is a grant).
   early, up to one tick late. A tickless comparator would fix it at the rearm seam §178 (where the
   timer re-arm seam goes) placed, on all three architectures. Nobody has asked for finer.
 - `x86_64` compares deadlines against each core's own TSC. That is right on an invariant,
-  synchronised TSC, which QEMU provides. Nothing checks it at boot, and xenon has not been checked.
+  synchronized TSC, which QEMU provides. Nothing checks it at boot, and xenon has not been checked.
 - A deadline already passed signals from `ARM` with a thread's local placement, and one that expires
   signals load-aware from the tick. The two paths wake the same way; only placement differs, as
   `notes/notification-objects.md` describes for the two signal entries.
@@ -195,7 +195,7 @@ milestone 129 (scheduled execution: a cron whose every entry is a grant).
 - **Milestone 103.** The shell's watch the rest of the way, waking only on the job's end or `^C`.
 - **Milestone 129.** The timetable sleeps until its next deadline, and the per-user session's yield
   cost ends with it.
-- **Recorded.** Tick resolution, the unchecked TSC synchronisation, the silent sleep fallback and the
+- **Recorded.** Tick resolution, the unchecked TSC synchronization, the silent sleep fallback and the
   stale "no timed wait" claims, in this block's `BUGS` beside `kernel/src/sched.rs`'s timer code.
 
 ## Index row

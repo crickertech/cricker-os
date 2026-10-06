@@ -61,6 +61,6 @@ attached' arm."*
 x86_64 tests passed by taking an early-exit arm and the suite reported a green leg over an untested
 surface. Milestone 303 took the first piece named here on 2026-09-16 (the transport-blind disk
 lookup and the RedoxFS image) and the milestone 303 lane restated the remainder the same day with
-the device list itemised, so this block is the older half of a pair. Promoted and disposed of in one
+the device list itemized, so this block is the older half of a pair. Promoted and disposed of in one
 act by milestone 433. The measure it proposed is worth keeping: the count of tests taking a "no
 RedoxFS disk attached" arm, which was 36 when this was written and is 50 now.

@@ -39,4 +39,4 @@ counter-design. Effort: 1 lane (measured: it took one).
 
 ## Index row
 
-a terminal with real behaviour, which 27's stdio semantics need
+a terminal with real behavior, which 27's stdio semantics need

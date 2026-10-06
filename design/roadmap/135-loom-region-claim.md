@@ -61,7 +61,7 @@ process per connection destroys a region per connection, and #316's bug was foun
 test. This is not a corner of the kernel that a backup server avoids.
 
 And it extends milestone 80's method to the subsystem where it pays most. The three protocols
-already modelled are a work-steal handshake, a seqlock and a corruption canary; two of the three had
+already modeled are a work-steal handshake, a seqlock and a corruption canary; two of the three had
 real bugs in them, and the one place we already know a concurrency bug lived is not covered. That is
 the wrong distribution.
 

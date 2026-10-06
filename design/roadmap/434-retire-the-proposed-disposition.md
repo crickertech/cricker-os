@@ -130,11 +130,11 @@ cites no proposal today and can never cite one again, so 6b and its two fixtures
 shallow clone) are gone, along with the `last_touched` argument that fed only them. The
 `missing-path` fixture kept its check and lost its proposal-shaped path.
 
-**The question 6b asked is still good and is deliberately not generalised here.** "A cited artifact
+**The question 6b asked is still good and is deliberately not generalized here.** "A cited artifact
 that would answer this risk changed after the entry was written" applies to numbered blocks too,
 and check 6a only reaches the ones that turned `BUILT`. Widening it to every cited path would trade
 the one-path noise surface that script's header deliberately chose for a tree-wide one, which is a
-judgement about what a gate should accept rather than a consequence of this ruling. So it is
+judgment about what a gate should accept rather than a consequence of this ruling. So it is
 recorded where a reader meets the check, in that script's own header beside check 6, rather than
 decided here.
 
@@ -166,7 +166,7 @@ when it next runs, and nothing here touches the generated file.
   read git, went with the directory it was scoped to. Recorded in `script/fatal-risks`' own header
   beside check 6, where the next person to touch that gate is already reading, with the reason it is
   not taken here: widening the git half to every cited path trades a one-path noise surface for a
-  tree-wide one, which is a judgement about what the gate should accept.
+  tree-wide one, which is a judgment about what the gate should accept.
 - **Recorded.** *Nothing re-reads a script header.* The prose cut here had been wrong since the hour
   milestone 433's last lane merged, and no gate in this tree can tell a stale paragraph from a
   current one. Recorded in this block's `BUGS` above. It is the same blind spot `script/roadmap`

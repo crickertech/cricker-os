@@ -50,7 +50,7 @@ sequence it does not implement (which is correct: it must not type `5;2~` into t
 
 | | Route | New wire | New capability | Covers raw mode (kilo) |
 |---|---|---|---|---|
-| **A** | `line_editor` recognises the two sequences and sends a scroll request to the terminal on the endpoint it already `CALL`s | one opcode on the terminal contract | none | yes, if checked before raw passthrough |
+| **A** | `line_editor` recognizes the two sequences and sends a scroll request to the terminal on the endpoint it already `CALL`s | one opcode on the terminal contract | none | yes, if checked before raw passthrough |
 | B | keystrokes go through the terminal first, which forwards them to the discipline, as xterm forwards to a pty | none | `display_terminal` gains a `CALL` on `line_editor` | yes |
 | C | the keyboard driver acts on the key event and sends a scroll request to the terminal directly | one opcode | the driver gains `WRITE` on the terminal's endpoint | yes |
 | D | the discipline echoes a private escape sequence the terminal treats as "scroll" | a private sequence in the output stream | none | yes |
@@ -119,7 +119,7 @@ Why each other option loses:
 For the recommended route (the line discipline sends the terminal a scroll request on the endpoint
 it already `CALL`s):
 
-- `line_editor::proto` gains the opcode; the discipline's CSI dispatch recognises `CSI 5;2~` and
+- `line_editor::proto` gains the opcode; the discipline's CSI dispatch recognizes `CSI 5;2~` and
   `CSI 6;2~` (the keymap sends both since 2026-09-26) and reports a scroll request out of `feed`,
   including in raw mode, before bytes pass through to the application.
 - `components/src/line_editor.rs` makes the `CALL` in `MODE_DISPLAY`, and does nothing in

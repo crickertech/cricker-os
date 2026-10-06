@@ -58,7 +58,7 @@ clause counts were identical under both models. The only difference was one prog
 harness, not traced; the extra `os` symbol's initialiser is the likely one. So for today's harnesses the overwrite
 is cosmetic, measured rather than argued.
 
-That result does not generalise on its own. The fields that differ only matter where CBMC
+That result does not generalize on its own. The fields that differ only matter where CBMC
 interprets C. That means the CPROVER library that `--add-library` compiles with the active
 configuration, `kani_lib.c`, and any `extern "C"` model a harness reaches. Kani's Rust codegen
 writes explicit bit widths and signedness, which the equal rows above confirm. The list of CBMC

@@ -81,7 +81,7 @@ written down. Milestone 293 did the same for the credential values three files w
 ## What a lane cannot decide
 
 The crate names. The numbers a kernel test and its test client agree on are not part of any
-shipped wire contract: putting `login_test_client`'s six behaviour numbers into `login_proto` would
+shipped wire contract: putting `login_test_client`'s six behavior numbers into `login_proto` would
 widen the protocol a real login client is written against with something no real client needs. So
 each pair either gets a small crate of its own or a shared one, and both are an architect's call.
 That, and not the work, is what this waits on.
@@ -99,7 +99,7 @@ Milestone 293's lane, which was briefed to "grep the values, not just the consta
 the sibling lane on `fixtures/src/sink.rs` (292, unmerged as this is written) found one fact
 hand-copied in three files. 293 removed the credential half of
 its own instance (three copies of three identity/secret pairs, one of which said in a comment that
-it had *chosen* to match another) and left the behaviour-number half, because fixing one pair inside
+it had *chosen* to match another) and left the behavior-number half, because fixing one pair inside
 a hotspot three other lanes were in would have been a partial fix in the worst possible place.
 
 ## Index row
@@ -118,7 +118,7 @@ the counter-example is the strongest argument for a gate rather than a conventio
 works three times over, in `swap_protocol`, `job_mix` and `schedule_store`, so what is missing is
 not a design but the sweep. What a lane cannot decide is the crate names, and there is no useful
 half of this work that does not create one: these numbers are not part of any shipped wire
-contract, so putting a test client's behaviour numbers into a protocol crate would widen what a real
+contract, so putting a test client's behavior numbers into a protocol crate would widen what a real
 client is written against with something no real client needs. Two shapes are priced so the question
 arrives answered: one crate per pair, following the precedent and costing nineteen names, or one
 crate for all of them, costing one name and making it a grab bag of unrelated numbers.

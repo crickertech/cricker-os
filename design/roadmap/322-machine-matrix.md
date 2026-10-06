@@ -52,7 +52,7 @@ Each row earns its place by answering one of those differently from `virt`.
 
 **It is not a substitute for silicon, and nothing here should be read as one.** notes/cpu-models.md's
 `BUGS` is the standard: *"a narrower QEMU model is still QEMU"* and *"a green matrix is not a portable
-kernel. It is the absence of one specific class of failure."* Cache behaviour, real memory maps,
+kernel. It is the absence of one specific class of failure."* Cache behavior, real memory maps,
 errata and real firmware stay silicon's. This entry used to claim `design/fatal-risks/README.md`'s risk 5
 had already fired there (a VisionFive 2 reading of a receiver woken with nothing delivered, on
 three harts, that no emulator run had ever shown). That reading is retracted
@@ -73,7 +73,7 @@ refuses to run on. Confirming it moved three things, all recorded below.
 
 - `virt,gic-version=3`, and then `4`. The interrupt controller, which is the case above. This row is
   red until milestone 227 lands a GICv3 driver, and that is the point: it turns 227 from a
-  judgement into a failing gate. Confirmed: the pin accepts `2, 3, 4, host and max`.
+  judgment into a failing gate. Confirmed: the pin accepts `2, 3, 4, host and max`.
 - `virt,its=off`. The pin offers `auto, gicv2m, its, off`, so interrupt translation is a machine
   option too, and every result so far is from the default.
 

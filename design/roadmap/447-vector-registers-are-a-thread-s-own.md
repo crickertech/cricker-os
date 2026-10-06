@@ -195,7 +195,7 @@ Every figure is inside the 10% tripwire. Read the table as two facts rather than
   faster.
 
 `null_syscall`'s +1.2% on aarch64 is the new `ec::FP_SIMD_ACCESS` arm in the exception decoder: a
-quarter of an instruction per syscall, which is one compare amortised over the arms that precede
+quarter of an instruction per syscall, which is one compare amortized over the arms that precede
 it. It is identical between the two shapes, as it should be: nothing about where the register file
 lives is on the syscall path.
 
@@ -230,7 +230,7 @@ well, so nothing was paid for the move.
 The first shape put `FpState` inline in `Thread`, and `script/stack-frame-check` failed it. Not
 a flake and not a tuning problem: the gate exists because a frame larger than the 4096-byte guard
 page can move `sp` from inside a stack to below the guard in one step, touching nothing in between,
-so the guard never faults and the write lands in the neighbouring thread's stack.
+so the guard never faults and the write lands in the neighboring thread's stack.
 
 | | on `main` | inline `FpState` | in the TCB page |
 |---|---|---|---|
@@ -238,7 +238,7 @@ so the guard never faults and the write lands in the neighbouring thread's stack
 | `spawn_into::<fs_service::spawn_fs_server>` | 3536 | 4656 | 3536 |
 | `Thread::spawn::<sched::init>` | 3504 | 5152 | 3504 |
 
-The delta is 1120 for a 544-byte field, which is the finding. An unoptimised build materialises
+The delta is 1120 for a 544-byte field, which is the finding. An unoptimised build materializes
 the `Thread` value and then copies it, so a byte added to the struct costs two bytes of frame.
 `Thread::spawn` wraps `spawn_into` and paid 1648, half again as much, because the value passes
 through one more frame on the way. Milestone 124 (a thread is born where it
@@ -381,13 +381,13 @@ are measurements rather than arguments, and neither needs this decision made fir
 - **`live` never clears.** A thread that used FP once saves and restores the whole file on every
   switch for the rest of its life. RISC-V's `sstatus.FS` could answer the narrower question in
   hardware and this does not use it: a uniform rule across three ISAs was judged worth more than one
-  ISA's optimisation while no workload exists to measure the difference on. Recorded in
+  ISA's optimization while no workload exists to measure the difference on. Recorded in
   `kernel/src/fp.rs` and in `arch/riscv64/fp.rs`, which has the four-state table it declines to use.
 - **x86_64 uses `fxsave`, not `xsave`.** A thread using AVX would have `ymm` upper halves this
   does not move. Safe only because `CR4.OSXSAVE` is clear, so every VEX-encoded instruction raises
   `#UD` and no thread can get into that state. The day this kernel sets `XCR0`,
   `arch/x86_64/fp.rs` has to grow an `xsave` path with it, and nothing enforces that coupling; it
-  is stated in that file's `BUGS` where the next reader meets it. `xsave`'s init optimisation
+  is stated in that file's `BUGS` where the next reader meets it. `xsave`'s init optimization
   (skipping components in their initial configuration) is left on the table with it.
 - **aarch64 does not disable SVE or SME.** `CPACR_EL1.ZEN` and `SMEN` are left at their reset
   values, which on every machine this kernel has run on means trapped. A part that reset them open
@@ -428,7 +428,7 @@ are measurements rather than arguments, and neither needs this decision made fir
   through a pointer. Priced under the gate rather than in the abstract, because
   `script/stack-frame-check` is what raised the question. It would take `Thread::spawn_into`'s
   frame well below the 3552 bytes it has carried since milestone 124 (a thread is born where it
-  lives: the spawn path's copies), because an unoptimised build materialises the value and then
+  lives: the spawn path's copies), because an unoptimised build materializes the value and then
   copies it, so every byte of the struct costs two bytes of frame. What it costs is the thing the
   ladder ranks highest: a struct literal is checked for completeness by the compiler and
   twenty-five `addr_of_mut!` writes are not, and a forgotten field is uninitialised memory in a TCB

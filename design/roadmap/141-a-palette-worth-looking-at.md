@@ -10,14 +10,14 @@ needs_person: no
 ---
 # 141. A palette worth looking at, and a gate that lets it be one
 
-Minted 2026-08-19 by calef, on seeing that the terminal's colours were
+Minted 2026-08-19 by calef, on seeing that the terminal's colors were
 chosen as a test instrument: *"can we have an option at some point to make it pretty and not just
 good for tests?"*
 
 The first piece was a check nobody had written, and it needed no decision.
 
-In brief. The sixteen-colour palette in `crates/video_terminal` was picked so that a corrupted
-pixel is a detectably wrong colour rather than a different legal one. That was a good reason and it
+In brief. The sixteen-color palette in `crates/video_terminal` was picked so that a corrupted
+pixel is a detectably wrong color rather than a different legal one. That was a good reason and it
 made the screen ugly. Both halves are in the tree, in the order the finding demanded: the gate
 came first, and then the palette was free.
 
@@ -27,19 +27,19 @@ The palette does not deliver the property it is ugly for. Its own comment says t
 all three channels distinct in most entries", and measured on 2026-08-19: no entry has three
 distinct channel values, and eight pairs are related by a channel permutation. Entry 1 is
 `0xcd0000` and entry 2 is `0x00cd00`, so swapping the red and green channels turns red into green,
-which is a legal palette colour and passes every check.
+which is a legal palette color and passes every check.
 
 So the tradeoff everyone assumed, pretty against testable, was never being paid for. The screen is
 ugly and the swap it guards against is undetected.
 
 ## Why this is a property rather than a palette
 
-The test's requirement is a property of the set, not a specific list of colours, and that is the
+The test's requirement is a property of the set, not a specific list of colors, and that is the
 whole reason this milestone is possible:
 
-1. Every entry has three distinct channel values. Then a swapped channel changes the colour.
+1. Every entry has three distinct channel values. Then a swapped channel changes the color.
 2. No two entries are permutations of each other. Then a swap cannot land on another legal
-   colour.
+   color.
 3. No entry is saturated at `0xff` in a channel that another entry saturates, which is what the
    present palette actually buys and should keep: a dropped shift or a saturating write lands
    off-palette.
@@ -47,7 +47,7 @@ whole reason this milestone is possible:
 Any palette satisfying those three is as good a test instrument as this one and better than it,
 because this one fails the first two. And those constraints leave enormous room: they rule out pure
 primaries and near-duplicates, and they permit essentially every considered terminal palette a
-person would recognise.
+person would recognize.
 
 ## The order
 
@@ -89,7 +89,7 @@ person would recognise.
 
 ## Index row
 
-Minted by calef on 2026-08-19: the terminal's colours were chosen as a test instrument and it
+Minted by calef on 2026-08-19: the terminal's colors were chosen as a test instrument and it
 shows. The finding that makes it cheap is that the palette does not deliver the property it is
 ugly for: no entry has three distinct channel values and eight pairs are channel permutations of
 each other, so swapping red and green is undetected. Gate the property, then any palette that

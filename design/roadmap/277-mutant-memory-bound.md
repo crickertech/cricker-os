@@ -84,7 +84,7 @@ the tree does, so an ordinary `cargo test` is untouched. The runner sets `RLIMIT
 Why the other two lost, with reasons rather than a list.
 
 - `systemd-run --scope` lost on granularity before it lost on portability. A scope around the
-  sweep bounds the *sweep*, so the 15.8 GB mutant would be killed by taking its innocent neighbour
+  sweep bounds the *sweep*, so the 15.8 GB mutant would be killed by taking its innocent neighbor
   and the `-j 2` sibling with it, and the run would still end. Getting per-mutant granularity out of
   it means spawning a scope per test binary, which is a cargo runner with a heavier dependency
   (cgroup v2, a session bus, and a root-or-delegation question on a hosted runner) bolted inside it.

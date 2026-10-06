@@ -114,7 +114,7 @@ So the failure this milestone names has a second direction, and it is the worse 
 says `DECISION` for a reason that was answered months ago spends an architect's attention on a
 decision made, and there is nothing in the tree that would notice.
 
-And the three-way judgement was not the hard part; the stale half was. Every block in this slice
+And the three-way judgment was not the hard part; the stale half was. Every block in this slice
 was legible about what it wanted. What no reading of the block alone could tell was whether somebody
 had since answered it, which took a grep of `design/decisions/` per block and found four.
 
@@ -217,7 +217,7 @@ the promoted quarter rather than as a prediction for the other 21.
   sized 20 against slices that minted 14, 20 and 20 would leave the same hole in the merged tree.
   A lane that renumbered into another lane's range to make its own branch green would be claiming a
   global name, which is the rule this scheme exists to keep.
-- The three-way judgement is the part no gate can check. Whether a token is wrong or a decision
+- The three-way judgment is the part no gate can check. Whether a token is wrong or a decision
   is owed is a reading, and a lane that guesses wrong either mints a decision nobody needs or puts a
   block on the ready list that a lane will stall on. The second failure is worse and lanes are told
   so.

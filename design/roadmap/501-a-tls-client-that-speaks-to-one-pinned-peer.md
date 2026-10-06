@@ -64,7 +64,7 @@ confidentiality and knowing which host answered.
 ## BUGS
 
 - No rotation story. 442's block carries this and it does not get smaller here: when the one
-  pinned key rotates, every installed client is talking to a peer it no longer recognises.
+  pinned key rotates, every installed client is talking to a peer it no longer recognizes.
 - No wall clock a stranger's machine can trust, so certificate expiry is unenforceable in the
   ordinary way. 442's block names this too.
 - No cost is known. A handshake on a board with no hardware crypto may be slow enough to

@@ -52,7 +52,7 @@ panels, so a reader who knows the page knows the files:
 | `harnesses.csv` | Kani harnesses and what can falsify them |
 | `unsafe.csv` | the `unsafe` census and its density |
 | `unsafe-trust.csv` | the same census by trust boundary |
-| `fatal-risks-colors.csv` | the nine risks by verdict colour, and the total |
+| `fatal-risks-colors.csv` | the nine risks by verdict color, and the total |
 | `coverage.csv` | line coverage and the per-file minimum |
 | `prose-budget.csv` | words over the 3,000-word prose cap, and documents over it |
 | `cost.csv` | the five cost columns of milestone 519 (what this project costs, tracked where it cannot rot) |

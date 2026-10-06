@@ -96,7 +96,7 @@ the manual. The baseline is `design/prose-baseline.tsv`, one row per document ov
   room to regrow.
 - The baseline only shrinks. Rows may not be added or raised against the merge base, and a row for
   a missing file fails. A rename carries its row. `--bank` lowers rows and never adds.
-- Exceptions. `<!-- prose-budget: exception. ... -->` is honoured as `AGENTS.md` and
+- Exceptions. `<!-- prose-budget: exception. ... -->` is honored as `AGENTS.md` and
   `design/fatal-risks/README.md` already wrote it. `writing-standards` is its §213 twin and is provisional.
   Each needs a date and a `Reason:`.
 - The orphan check. A file under `X/` must be linked from `X.md` or `X/README.md`. That README is
@@ -170,7 +170,7 @@ measured class so the next reader does not rediscover it one frozen document at 
 - **Outstanding.** Measure baseline churn over the first week, from 2026-09-24: how many merged pull
   requests touched `design/prose-baseline.tsv`, and why. The block names churn as the thing that would
   make this not worth doing, so that number decides whether it stays.
-- **Outstanding.** Promote the two exception markers from provisional. The syntax is honoured as
+- **Outstanding.** Promote the two exception markers from provisional. The syntax is honored as
   found; calef names it. Where the splitter departs from §213's, and why, is in the module's header.
 - **Done.** Built 2026-09-25: the marker-count check from the design note above. `granted_words()`
   reads the first number before `words` in a `prose-budget` marker as a whole-file `wc -w` ceiling.

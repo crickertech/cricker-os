@@ -23,11 +23,11 @@ a replayable falsification for each of its four parts, instead of one.
 
 `notes/confinement-claims.md` row 25 says *"yes, one of its four"* in the falsified column. The one
 test behind it proves four things in sequence, and a patch recorded against it reaches exactly one
-(the neighbour write faults). Three parts have no test that could fail on its own, and a first read
+(the neighbor write faults). Three parts have no test that could fail on its own, and a first read
 of each says why:
 
 1. The input-slot refusal is reachable but has no recorded patch.
-2. The neighbour probe is a **write**, so a read-only exposure of the neighbour's pixels (the
+2. The neighbor probe is a **write**, so a read-only exposure of the neighbor's pixels (the
    confidentiality breach) leaves it green: a write to a read-only page faults at the same address.
 3. The victim's witness digests sit behind the fault wait, so they cannot fire unless that wait
    already has.

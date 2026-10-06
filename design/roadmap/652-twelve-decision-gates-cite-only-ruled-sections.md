@@ -29,7 +29,7 @@ turns out to hold a fork nobody has written up gets a `PROPOSED` section, and th
 | 137 | The share as a Mac file server, which is not the same workload as the backup target |
 | 172 | A capability-native subprocess primitive: what `cargo`'s "spawn a helper, wait, collect its output" needs, without fork/exec |
 | 188 | The IPC fastpath: the gate measures a shape userspace does not use, and three cheaper cuts come before a hand-written path |
-| 334 | Colour and the pager: the spawn protocol's other two thirds |
+| 334 | Color and the pager: the spawn protocol's other two thirds |
 | 340 | `script/image-permissions` reports and does not gate, because it is not in the ruleset |
 | 356 | Retention declares the thread capability and says nothing about the region |
 | 376 | Nothing turns a device back off |

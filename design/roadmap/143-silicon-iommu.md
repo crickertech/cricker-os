@@ -177,7 +177,7 @@ was written against, which is the thing only the board can answer.
 - SMMUv3 on aarch64 silicon. That is a separate hardware wait (a Pi 5 or similar ARM board
   with SMMUv3). 16b's aarch64 IOMMU driver carries over the same way, but the aarch64 board story
   is weaker (notes/target-hardware.md flags it) and not bundled here.
-- The shadow descriptor ring. It stays as defence in depth everywhere, on silicon and in
+- The shadow descriptor ring. It stays as defense in depth everywhere, on silicon and in
   emulation, regardless of whether the IOMMU is present.
 
 ## Prior art

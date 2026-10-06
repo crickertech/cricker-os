@@ -56,7 +56,7 @@ Complete - 3 successfully verified harnesses, 1 failures, 4 total.
 
 The failure is the point of the second probe. It calls `flush_asid`, which runs `sfence.vma`, and
 Kani reports the reachable `asm!` as unsupported rather than refusing to compile. That is the same
-behaviour a native aarch64 `asm!` gets today. The first probe proves that `ttbr0_value` and `asid_of`
+behavior a native aarch64 `asm!` gets today. The first probe proves that `ttbr0_value` and `asid_of`
 round-trip the ASID and the root for every page-aligned root below 2^56. It sits inside
 `arch/riscv64/mmu.rs`, the largest riscv64 file, with its real `cfg` dispatch and its real
 `crate::arch`. Nothing here is a fiction about which architecture is underneath.

@@ -149,7 +149,7 @@ tables should instead grow per process, as seL4's do, is a separate proposal:
   under the ruling above.
 - **Refused.** A new gate that fails when the peak passes 30 already exists in effect:
   `report_peak` prints "ABOVE the recorded" and `script/swish-check` fails on it. What the trace
-  adds is the itemisation. Keeping it as an opt-in kernel feature would need a name, so it is left as
+  adds is the itemization. Keeping it as an opt-in kernel feature would need a name, so it is left as
   a patch until a second use for it appears.
 
 ## Index row

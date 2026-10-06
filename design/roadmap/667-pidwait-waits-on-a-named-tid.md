@@ -39,7 +39,7 @@ Section 4 of `notes/process-view/what-is-left.md` carries them with their costs:
 2. The same method under `ENUMERATE`, refused by §226's own reason.
 3. A per-child exit capability the spawner retains and hands on; capability-exact, and it cannot
    compose with `pgrep`'s output, which is bytes.
-4. Notification objects, §101 (notification objects), signalled by the supervisor on each death.
+4. Notification objects, §101 (notification objects), signaled by the supervisor on each death.
 
 ## Two facts the build found, which any option must answer
 

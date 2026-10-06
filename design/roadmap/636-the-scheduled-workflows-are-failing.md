@@ -44,7 +44,7 @@ path that broke: `.cargo/mutants.toml`'s coverage of a new crate, Miri, and `scr
 **What mutation measured.** The dispatch is the first complete census since 2026-09-21: 85 crates,
 14,853 mutants, 13,734 viable, 1,004 missed and 255 timeouts, so 92.7% killed by the measure
 `notes/mutation-testing.md` tabulates, against 92.4% on 2026-09-21 over 66 crates. It ran at this
-branch's head rather than `main`, which differs only by this milestone's commits. Risk 3's colour
+branch's head rather than `main`, which differs only by this milestone's commits. Risk 3's color
 is not this lane's to change; the number is offered to it as a fact.
 
 **The App token after the org rename.** It works. `merge-drain` run 37109755917 (2026-10-03 08:27

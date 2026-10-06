@@ -8,7 +8,7 @@ machine_requirements: none
 specific_machine: none
 needs_person: yes
 ---
-# 686. A package's licence is derived from what it links, and a lint checks it
+# 686. A package's license is derived from what it links, and a lint checks it
 
 Promoted from `design/roadmap/proposals/a-package-licence-derived-from-what-it-links.md` on 2026-10-03 (UTC). The number 686 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
 
@@ -17,12 +17,12 @@ project will serve GPL packages). Not built by that amendment; filed here so the
 
 ## The shape
 
-- A per-program SPDX licence, computed from the crates that program statically links, read from
+- A per-program SPDX license, computed from the crates that program statically links, read from
   Cargo metadata rather than hand-entered.
-- A lint fails when a package's declared licence disagrees with what its programs actually link,
+- A lint fails when a package's declared license disagrees with what its programs actually link,
   or when a `base` package (§239 (four package kinds, and TOML for package declarations and
   recipes)) carries copyleft.
-- A package's own licence is derived as the AND of its programs' licences, never hand-edited: the
+- A package's own license is derived as the AND of its programs' licences, never hand-edited: the
   same discipline `helpers/packages.py` already applies to a package's other declared fields.
 
 ## Why this is owed rather than optional
@@ -35,4 +35,4 @@ gate that fails loudly").
 
 ## Index row
 
-DECISIONS §135's amendment says the project serves GPL packages. Proposed: derive each package's licence from the crates its programs link, and lint that a declared licence agrees and that a base package carries no copyleft.
+DECISIONS §135's amendment says the project serves GPL packages. Proposed: derive each package's license from the crates its programs link, and lint that a declared license agrees and that a base package carries no copyleft.

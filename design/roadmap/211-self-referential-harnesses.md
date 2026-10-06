@@ -38,7 +38,7 @@ kinds, and the third is the one nothing predicted:
   checks a field against the function that filled it.
 - An encoder round-tripped through its own decoder. `the_leaf_keeps_address_and_permissions_apart`,
   once per ISA. `leaf_entry` and `entry_pa` never call each other, so no call-graph test finds
-  this one, and it is the most dangerous of the three because the artefact is a hardware format:
+  this one, and it is the most dangerous of the three because the artifact is a hardware format:
   a shift wrong in both directions leaves the round trip perfect and the MMU reading the wrong
   page. The rewrite states the bit positions the architecture assigns, as literals rather than
   through the crate's own `ADDR_MASK` or `PPN_SHIFT`, since a harness citing those constants moves
@@ -57,7 +57,7 @@ by a real call-graph edge, and a correct implementation of the test would have m
 encoder/decoder family. Every harness was read.
 
 In brief. Milestone 194's lane found it in `capability`, and `notes/falsification.md` states the
-generalisation rather than the instance:
+generalization rather than the instance:
 
 > `derive_never_widens_rights` states its property *through the predicate it is testing*. It asserts
 > `derived.rights.is_subset_of(src_rights)` while `derive` guards on
@@ -91,7 +91,7 @@ decide? Where it does, the harness proves the two agree, not that either is righ
 
 Mechanical narrowing is possible and should be tried before reading 145 harnesses by hand: a harness
 whose assertion calls a function that also appears in the guarded path is the candidate set, and it
-is smaller than the whole. **The judgement is not mechanical**, though: agreeing with itself is
+is smaller than the whole. **The judgment is not mechanical**, though: agreeing with itself is
 sometimes the property you want, and a sweep that flags every such harness as defective would be
 wrong.
 
@@ -111,7 +111,7 @@ implementation back at itself.
   code it covers is refactored, and nothing will say so. §134's falsification records are the closest
   mechanism, and they only catch it if somebody re-falsifies after the refactor. The eleven findings
   are now protected by exactly that (each carries a patch the weekly sweep replays); the 135 cleared
-  harnesses carry no artefact at all, so a refactor into the cleared shape goes unnoticed.
+  harnesses carry no artifact at all, so a refactor into the cleared shape goes unnoticed.
 - **Eleven is a floor, not a count.** Each finding is a defect somebody thought of. "No blind spot
   demonstrated" means nobody has broken it the right way yet, which is why the three harnesses this
   milestone rewrote without a finding are recorded as exactly that rather than as clean.
@@ -140,7 +140,7 @@ implementation back at itself.
 - **Recorded.** `design/roadmap/211-self-referential-harnesses.md`: the sweep's own output can rot,
   since a harness found fine today can become self-referential under a refactor and nothing will say
   so. The eleven findings are protected by §134's replayed patches; the 135 cleared harnesses carry
-  no artefact at all.
+  no artifact at all.
 - **Recorded.** `design/roadmap/211-self-referential-harnesses.md`: eleven is a floor rather than a
   count. Each finding is a defect somebody thought of, and "no blind spot demonstrated" only means
   nobody has broken it the right way yet.

@@ -63,7 +63,7 @@ equivalent here is that the usurper's attempt must return, so `chatty`'s `usurp(
 
 Options, costed as far as this lane could without building them:
 
-1. A non-blocking `RECEIVE_CAP`, or a flag on it. Smallest kernel change; a new syscall behaviour
+1. A non-blocking `RECEIVE_CAP`, or a flag on it. Smallest kernel change; a new syscall behavior
    every future program is written against, which is exactly the category AGENTS.md calls expensive.
 2. A timed receive. §106 (take)'s block already priced a timed wait and found the mechanism about thirty
    lines, with the authority question the whole problem. That work is adjacent.

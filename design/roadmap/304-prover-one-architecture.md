@@ -55,7 +55,7 @@ guessed at.
 So `arch/x86_64/` was out of the prover's reach for **two** independent reasons, and the proposal
 knew about one. The fix is `isa::cpuid` and `isa::cpuid_count`, two private helpers that wrap the
 intrinsic in an `unsafe` block the old toolchain needs and an `#[allow(unused_unsafe)]` the new one
-needs. That allow is an **exception and is labelled as one** where a reader meets it, per AGENTS.md's
+needs. That allow is an **exception and is labeled as one** where a reader meets it, per AGENTS.md's
 ladder: it is load-bearing for the prover and a foot gun for anyone who reads it as "this call wants
 auditing". It comes out when Kani's pin passes the change.
 

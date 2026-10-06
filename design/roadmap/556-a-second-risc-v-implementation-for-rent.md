@@ -39,7 +39,7 @@ command-line driven, which is what turns a bench session into a job.
 
 **It is a different implementation, not a second copy.** radon is a StarFive JH7110 with SiFive U74
 cores; this is a T-Head TH1520 with C910. A port to it exercises everything this tree assumed about
-one vendor's silicon: the UART's address and behaviour, what firmware hands over, the interrupt
+one vendor's silicon: the UART's address and behavior, what firmware hands over, the interrupt
 controller's layout, the device tree's shape, and whatever the C910 does differently about memory
 ordering and cache maintenance.
 
@@ -59,7 +59,7 @@ legs in CI" and assumes three architectures.
 The work is unknown in size and that is the first thing to establish. What is known:
 
 - **The boot path is not radon's.** notes/visionfive2.md records what the JH7110 needed, including a
-  UART at an address with different silicon behaviour behind it, and none of that transfers.
+  UART at an address with different silicon behavior behind it, and none of that transfers.
 - What the firmware hands over decides the shape. Whether the TH1520 boots through OpenSBI, what
   the device tree contains, and how the console is reached are all facts to be read off the machine
   rather than predicted.

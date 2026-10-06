@@ -27,10 +27,10 @@ built the relayed version and flags the gap rather than treating either text as 
 
 ## The options
 
-| | behaviour at `/media/usb` | cost |
+| | behavior at `/media/usb` | cost |
 |---|---|---|
 | A | `cd ..` goes to `/media`, in the first tree. **Built.** | none: it is path arithmetic on what `pwd` prints |
-| B | `cd ..` refuses at the mounted tree's own root, as §126 (a real, single, moving cwd) refused `..` at either labelled root | about ten lines: refuse an `Up` step whose result leaves the mount |
+| B | `cd ..` refuses at the mounted tree's own root, as §126 (a real, single, moving cwd) refused `..` at either labeled root | about ten lines: refuse an `Up` step whose result leaves the mount |
 | C | `cd ..` goes to `/` of the second tree's own parent, whatever that is | not meaningful here: the mounted tree has no parent the shell holds |
 
 ## Recommendation: A

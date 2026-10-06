@@ -7,7 +7,7 @@ built: 2026-07-29
 
 In brief. Extract the shadow-ring validator (`validate_and_shadow`) out of `kernel/src/virtio.rs` into a host-testable logic crate and machine-check it: no validated descriptor chain, in either direction and including indirect descriptors and multi-queue, can reference memory outside the driver's granted DMA region. Add the `Untyped::SPLIT` "never widens rights" harness (the one fresh-mint site the caps proof doesn't reach) and confirm the IOMMU domain builder's *maps-exactly-the-grant* property is proved, not just tested.
 
-Why it matters. closes the one isolation boundary we test instead of prove. Every other confinement seam (caps, MMU, IPC, generational names) is Kani-proved for all inputs; DMA is attacker-tested only. It is also the boundary that makes "don't trust the driver" true, so the proof belongs here, not on the confined component. Load-bearing for 16a: the VisionFive 2 has no IOMMU, so on first silicon this validator is the *sole* DMA confinement, not defence in depth
+Why it matters. closes the one isolation boundary we test instead of prove. Every other confinement seam (caps, MMU, IPC, generational names) is Kani-proved for all inputs; DMA is attacker-tested only. It is also the boundary that makes "don't trust the driver" true, so the proof belongs here, not on the confined component. Load-bearing for 16a: the VisionFive 2 has no IOMMU, so on first silicon this validator is the *sole* DMA confinement, not defense in depth
 
 The gap, stated precisely. `validate_and_shadow` (`kernel/src/virtio.rs`) is the shadow-ring
 logic that stops a malicious userspace driver from pointing a device's DMA at memory it was not
@@ -26,7 +26,7 @@ Deliverable.
    region. Cover both directions (TX device-reads and RX device-writes-into-driver-memory,
    the milestone 30 addition), indirect descriptors (the escape the attacker suite already
    probes), and **multi-queue** (per-queue block isolation, also milestone 30). The kernel keeps
-   calling the proved logic; the extraction must not change behaviour, held against the green
+   calling the proved logic; the extraction must not change behavior, held against the green
    attacker suite.
 2. The `Untyped::SPLIT` rights harness. SPLIT mints a child budget at `untyped_cap_rights`, a
    fresh-mint site *outside* `capability::derive`, so the existing "derive never widens rights" proof
@@ -80,7 +80,7 @@ in a `RESOURCE_ATTACH_BACKING` command payload, which the validator structurally
 addresses are not in its input), and teaching the transport to parse device commands would breach §18.
 So: descriptor-borne addresses are provably confined; payload-borne addresses are confined by the
 IOMMU alone, whose allow-list item 3 now proves exact (a narrowing, not a closing: the hardware
-honouring that allow-list stays an attacker test, and the transport still cannot see the addresses); and
+honoring that allow-list stays an attacker test, and the transport still cannot see the addresses); and
 on a board with no IOMMU nothing confines them at all.
 That inverts this milestone's own load-bearing argument for the payload path: "prove the validator
 because on the VisionFive 2 it is all there is" holds only where the validator can look. On that board a
@@ -109,7 +109,7 @@ placement policy stay host-tested; a bad placement is a performance bug, not a s
   board with no IOMMU the display driver is either trusted with all of physical memory or the
   transport grows a device-aware check and pays the §18 cost knowingly.
 - **Recorded.** `notes/dma.md` leads with the what-is-proved-and-what-is-not map: the hardware
-  actually honouring the IOMMU's allow-list is still an attacker test rather than a proof, as is the
+  actually honoring the IOMMU's allow-list is still an attacker test rather than a proof, as is the
   residual link "`Mapper::map` writes exactly one leaf and touches nothing else".
   `notes/verification.md` carries the harness tables and the bounds beside them.
 - **Refused.** Proving the confined components themselves (`smoltcp`, RedoxFS, the drivers) was

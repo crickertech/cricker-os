@@ -19,9 +19,9 @@ Minted 2026-08-30 by calef. *(Number provisional until the merge queue
 lands it.)* Rung 3a's producer half was built 2026-09-23 on
 `milestone/198-the-next-rung`: the one archive file §197 ruled a package is
 (`crates/package_archive`, written and read by one definition), `cargo xtask package` turning a
-reviewed recipe into a package, its digest and a catalogue line, and the fuzz target and Kani
+reviewed recipe into a package, its digest and a catalog line, and the fuzz target and Kani
 harnesses §197 accepted as the container's price. Rung 3a's consumer half is built through "verified by digest" (2026-09-24): the image
-carries a package catalogue, a host serves the package over plain HTTP, and `net_stack`'s client
+carries a package catalog, a host serves the package over plain HTTP, and `net_stack`'s client
 accepts it only by the image's digest, on aarch64 and riscv64. The table §208 (installing is
 granting) versions is in `crates/activation_set`. Run by digest and the installer followed on
 2026-09-26, once §219 (how the shell names an installed program to the spawner) was ruled:
@@ -105,7 +105,7 @@ its absence today**, hand-wiring per program what a package would install once:
   directories. It arrived near milestone 47's conclusion from an entirely different motive, atomic
   and rollback-able installs, which is the useful kind of convergence.
 - `design/what-a-distribution-packages.md` is the speculation about the units, and is explicitly
-  labelled as speculation.
+  labeled as speculation.
 - DECISIONS §135 (running GPL software is aggregation) makes packages the channel for copyleft,
   so this milestone is also what unblocks `git` and `nano` arriving the honest way rather than being
   built into an image.
@@ -232,7 +232,7 @@ calef's acts are named there rather than here.
 - **Decision.** Whether the digest is a Merkle root is still calef's:
   `design/decisions/197-a-package-is-one-archive-file.md`, which also records the manifest ruling
   (an ELF note, 2026-09-26) and links the proposal for its build.
-- **Recorded.** No compression, a `u32` ceiling on a member and on a package, a catalogue that is
+- **Recorded.** No compression, a `u32` ceiling on a member and on a package, a catalog that is
   one file in `target/` rather than a repository index, a package source compiled into the
   progenitor, and a recipe that cannot say where its source came from (`crates/package_archive`'s and `xtask/src/package.rs`'s BUGS sections, and
   `notes/packages.md`).

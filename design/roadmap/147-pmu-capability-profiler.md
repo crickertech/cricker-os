@@ -32,7 +32,7 @@ authority: `perf_event_open` targets any pid the caller's privilege reaches, gat
 name that in practice is "root, or nothing"). A profiling tool with that access on a shared HPC node
 can, in principle, sample a neighboring tenant's job. This is not a hypothetical: cache-timing and
 counter-based side channels between co-scheduled tenants are the reason `perf_event_paranoid`
-exists at all, and its own defence is coarse: disable unprivileged profiling everywhere, which is
+exists at all, and its own defense is coarse: disable unprivileged profiling everywhere, which is
 why HPC centers frequently run it at `-1` in practice for exactly the tools this milestone answers.
 
 Independent confirmation this is a real, named gap rather than a nife-specific concern: Brown,
@@ -46,7 +46,7 @@ here: the paper's own read is that the gap is not purely a software/OS-integrati
 this milestone frames it (ambient perf interface versus capability), but partly a hardware one:
 some RISC-V silicon may simply not expose the event set (cache misses, branch mispredicts, and so
 on) a profiling session would want to name. Milestone 74's own ISA-discovery pattern (`Isa`,
-built at boot, probing what is actually present rather than assuming a fixed event catalogue) is
+built at boot, probing what is actually present rather than assuming a fixed event catalog) is
 the right shape to inherit for this: a counter-set capability should be able to name only the
 events the running silicon actually reports, discovered rather than assumed, and a probe that
 asks for an unsupported event should refuse cleanly rather than silently reading zero.

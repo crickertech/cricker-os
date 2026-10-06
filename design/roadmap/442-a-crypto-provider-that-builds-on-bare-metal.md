@@ -107,7 +107,7 @@ check. That brought three licences onto the allow-list with their own reasons (I
 `rustls-webpki` and `untrusted`, Unicode-3.0 for a proc-macro dependency that ships nothing).
 
 §46's line, drawn out loud rather than assumed. The primitives are taken: their correctness
-includes constant-time behaviour and resistance to attacks no specification states, which is what
+includes constant-time behavior and resistance to attacks no specification states, which is what
 §46 (thin primitives or whole subsystems; we write everything in between) means by won through
 exposure, and `aes-gcm` and `chacha20poly1305` carry NCC Group's 2020 audit in their own README.
 The glue is written, because a `CryptoProvider` is five fields that select, name and plumb and

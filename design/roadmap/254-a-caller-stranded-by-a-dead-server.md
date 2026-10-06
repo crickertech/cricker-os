@@ -126,7 +126,7 @@ configurations the suite runs (aarch64, riscv64, x86_64, and x86_64 under OVMF).
 - `a_reply_parked_caller_wakes_with_an_error_when_its_rendezvous_is_reclaimed`. A server collects the
   request, keeps the reply capability and never answers, staying alive on purpose so that the
   rendezvous going away is the only thing that can free anybody. The caller returns `Gone`. Its
-  neighbour two tests up, `a_blocked_waiter_wakes_with_an_error_when_its_rendezvous_is_revoked`, is
+  neighbor two tests up, `a_blocked_waiter_wakes_with_an_error_when_its_rendezvous_is_revoked`, is
   the case that always worked, and the difference between the two is exactly one collected
   message.
 - `a_server_that_exits_frees_the_caller_it_never_answered`. The server collects and returns. The
@@ -164,7 +164,7 @@ could still take.
   motivated milestone 133 and is answered by a deadline on `CALL` (milestone 106's fork, not this
   one's) or by ending the thread (133's).
 - Milestone 133's own block and note both still say `Tcb`, a name DECISIONS §113 retired on
-  2026-08-23 in favour of `ThreadControlBlock`. They predate the rename and were never swept, because
+  2026-08-23 in favor of `ThreadControlBlock`. They predate the rename and were never swept, because
   `script/roadmap`'s staleness gates reach `BUILT`, `REMOVED` and now `PARTIAL` blocks, and 133 is
   `NOT-STARTED`.
 

@@ -28,7 +28,7 @@ Follow-on`:
 
 Twenty seconds per architecture would stop the soak workload silently ceasing to compile, which is
 the failure it guards. It was judged too expensive for a gate every lane runs on every push, and
-that judgement is about where the check runs rather than about whether it is worth running.
+that judgment is about where the check runs rather than about whether it is worth running.
 
 ## Revisit
 

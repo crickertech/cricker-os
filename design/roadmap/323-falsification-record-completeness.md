@@ -81,7 +81,7 @@ question that wants one.
 
 2. The NVMe end-to-end test has none either, and milestone 318 (the NVMe boot test on real
    geometry) falsified it by hand with nowhere to put the evidence. What is owed is a cost
-   judgement, not a decision: a fifteenth kernel record lengthens the sweep for every lane, and
+   judgment, not a decision: a fifteenth kernel record lengthens the sweep for every lane, and
    this one needs an NVMe controller attached. Found by that milestone's lane.
 
    Closed 2026-10-03 (UTC). `cargo xtask test` attaches the NVMe controller on every test leg, so
@@ -235,7 +235,7 @@ tell a stale premise from a live one. It is rung three, written where the next p
   the bound is 25 now, with a cover that a keyboard is accepted. (3) `calendar`'s length guard in
   `number` is reached by no input (every caller is bounded first), so removing it leaves
   `parse_is_total_on_hostile_bytes` green; that harness is falsified by removing the offset-designator
-  check instead, and the guard is defence in depth.
+  check instead, and the guard is defense in depth.
 - **Recorded.** Batch 3 (`lane/falsify-backlog-3`, 2026-10-05, stacked on batch 2) took 3 unfalsified to
   2 (the two recorded as unfalsifiable stay). (1) Two harnesses had `cover!` and no assertion:
   `calendar`'s `parse_is_total_on_hostile_bytes` (now asserts a successful parse implies 20 bytes)

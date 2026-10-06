@@ -47,7 +47,7 @@ cannot reach a second file" is a property of its cspace rather than of a branch 
 take.
 
 Proven by an attacker, twice, and the second run is what makes the first mean anything. It
-reports a bitmap of what got through. Read-only grant: every bit clear, against a neighbouring file
+reports a bitmap of what got through. Read-only grant: every bit clear, against a neighboring file
 that exists and that the caretaker could open. Read/write grant, same shape: the two write bits set
 and everything else clear. A caretaker that refused every request passes the first and fails the
 second. Phase 2 also landed the contract's `CREATE` and `TRUNCATE` (so `File::create` and

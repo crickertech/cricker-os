@@ -22,7 +22,7 @@ The tree had been dissolving this one binary a role at a time for two months, ea
 written up in its own file as a local fix and nowhere as a rule. The least-authority demo left at
 19f.2, the console at 19f.3 (`components/src/console.rs`), the input driver at 19f.4, the shell at
 19f.5, `init_boot` at 266 (`components/src/progenitor.rs`). Five departures, five explanations, no
-principle. That is rung zero: the next person to add a behaviour to a fixture had nothing to read
+principle. That is rung zero: the next person to add a behavior to a fixture had nothing to read
 that said not to add it as a role.
 
 `fixtures/src/hello.rs`'s own provenance block had gone further and declared the problem closed:

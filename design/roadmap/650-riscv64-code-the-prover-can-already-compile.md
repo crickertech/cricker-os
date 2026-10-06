@@ -18,7 +18,7 @@ premise that `cargo kani` has never compiled the kernel. The premise was false, 
 that replaced it found a wall that is lower than the tree records. *(Slug provisional; naming is
 calef's.)*
 
-Option 1 below is reversible code and one harness. Risk 2's colour is not asked
+Option 1 below is reversible code and one harness. Risk 2's color is not asked
 about here: that is `design/fatal-risks/README.md`, calef's file, and milestone 536 (two records still say
 the prover cannot see `kernel/src`) already holds that decision.
 
@@ -108,7 +108,7 @@ them except option 3.
   particular failure should not recur, but it is the only field report and it is a warning.
 - model-checking/kani#2402, "Command-line flag to change model target or environment", open
   since 2023-04-23, last touched 2024-10-02, filed for zerocopy's endianness proofs. Upstream has not
-  prioritised it in three years.
+  prioritized it in three years.
 
 ## The options
 
@@ -144,7 +144,7 @@ aarch64's. A proof of riscv64's page-table walk that silently calls aarch64's `m
 that reads as coverage" `notes/kernel-proofs.md` exists to prevent. Refused on that, not on cost.
 
 Option 3: run Kani natively for riscv64. A patched Kani (a riscv64 arm in `new_machine_model`,
-modelled on the aarch64 one), built with its own pinned nightly and a CBMC for a riscv64 host, run
+modeled on the aarch64 one), built with its own pinned nightly and a CBMC for a riscv64 host, run
 on `radon` or a riscv64 QEMU guest on cordoba. Reaches everything, including the 98 gated sites
 outside `arch/`, with the real `cfg`s and the real `crate::arch`. Cost, estimated: a Kani fork this
 tree maintains through every Kani toolchain bump, which DECISIONS §46 (thin primitives or whole

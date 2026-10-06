@@ -57,7 +57,7 @@ every one of which runs when a thread exits and none of which runs during an IPC
 teardown family as cold took it to 5.6.
 
 A gate shipped at 11.2 would have been measuring thread death, calling it IPC, and sitting quiet
-through a doubling of the real path. The cold list is therefore the load-bearing judgement in the
+through a doubling of the real path. The cold list is therefore the load-bearing judgment in the
 script, and it carries a reason per family rather than a bare regex, because a wrong entry there is
 silent by construction.
 
@@ -93,7 +93,7 @@ either a PMU or an instrumented run rather than a disassembly walk.
   same reason, and neither script can fix it from a disassembly.
 - riscv64's tail instruction is assumed 4 bytes on an ISA that mixes 2 and 4. Conservative, and
   it inflates riscv64's number by at most two bytes per symbol.
-- The cold list is a judgement and a wrong entry would be silent. A family wrongly marked cold
+- The cold list is a judgment and a wrong entry would be silent. A family wrongly marked cold
   disappears from the number with no error. This is the one failure mode the script cannot detect
   about itself.
 - **It is not a cache measurement.** Nothing here models a cache, an associativity or a line. It is a
@@ -130,7 +130,7 @@ tens of cycles instead of a trip to DRAM, rather than not costing anything.
   against us, indirect calls are invisible the way `script/stack-depth-check` records for itself,
   and riscv64's tail instruction is assumed 4 bytes on an ISA that mixes 2 and 4.
 - **Recorded.** `design/roadmap/132-the-fastpath-footprint.md`. The cold list is the load-bearing
-  judgement in the script and a wrong entry there is silent by construction: a family wrongly marked
+  judgment in the script and a wrong entry there is silent by construction: a family wrongly marked
   cold disappears from the number with no error. It is the one failure mode the script cannot detect
   about itself, which is why each family carries a reason instead of a bare regex.
 - **Recorded.** `notes/benchmarks.md`. The under-4-KiB target is derived from cache sizes taken from

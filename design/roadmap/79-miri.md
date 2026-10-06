@@ -48,5 +48,5 @@ not per-PR. `-Zmiri-strict-provenance` is a later ratchet to consider once the d
 ## Index row
 
 The method is pure logic in host-testable crates, and Miri checks exactly those tests for the
-undefined behaviour Kani is not asked about and fuzzing cannot see. The pinned nightly already
+undefined behavior Kani is not asked about and fuzzing cannot see. The pinned nightly already
 ships it. Weekly, not per-PR, because the cost is runtime

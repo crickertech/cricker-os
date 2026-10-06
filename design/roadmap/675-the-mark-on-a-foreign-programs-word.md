@@ -94,4 +94,4 @@ A person could widen one foreign-program word to writable or creatable with a ma
 
 ## Revisit
 
-- **Condition.** A real workload has to widen one word of an unvouched program without installing it, and installing (vouching) is shown to be too heavy for it. A mark can be added later without breaking any script; M3 (`--rw` and `--new`, or the longer `--grant-` forms) is the analysed spelling below.
+- **Condition.** A real workload has to widen one word of an unvouched program without installing it, and installing (vouching) is shown to be too heavy for it. A mark can be added later without breaking any script; M3 (`--rw` and `--new`, or the longer `--grant-` forms) is the analyzed spelling below.
