@@ -406,10 +406,12 @@ pub enum Activation {
     /// reads the package from the package source over the network, not from the caller, so no
     /// frames follow, only the name. Everything after the bytes arrive is [`Activation::Install`].
     ///
-    /// The progenitor rather than a fetching program for the reason the installer is: a program
-    /// would need an argument vector to be told which package (milestone 205 (how a foreign
-    /// program is told what to do)). The cost is an HTTP reader (`http_response`) in the
-    /// progenitor; notes/packages.md weighs it.
+    /// The progenitor fetched because a program had no argument vector to be told which package;
+    /// milestone 205 (how a foreign program is told what to do) removed that reason on 2026-09-27.
+    /// The cost is an HTTP reader (`http_response`) in the progenitor. The package client is
+    /// slated to become a program that fetches the bytes itself and sends an
+    /// [`Activation::Install`], retiring this verb
+    /// (`design/roadmap/proposals/the-package-client-becomes-a-program.md`).
     Fetch = 4,
     /// **The owner vouches for these bytes** (DECISIONS §221 (the boot prompt is the owner's
     /// console), ruling 1, and §195 (a reviewed recipe vouches for a package) clause 3: the owner
