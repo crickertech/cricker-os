@@ -156,9 +156,9 @@ TIMEOUT="${NIFE_UEFI_TIMEOUT:-90}"
 
 # `-no-reboot` turns a triple fault into an exit rather than a silent loop back through OVMF, the
 # same reason helpers/qemu-runner-x86_64.sh gives. `NIFE_ALLOW_REBOOT=1` drops it for the run whose
-# proof is a reset: `cargo xtask reboot-check` (milestone 805 (`reboot` at the prompt)), which types
-# `reboot` at the prompt and waits for OVMF and a second prompt. That run is bounded and reads every
-# line, so a triple-fault loop costs it a timeout rather than a blank terminal.
+# proof is a reset: `swish-check`'s first boot (milestone 805 (`reboot` at the prompt)), which ends by
+# typing `reboot` and waits for OVMF and a second prompt. That run is bounded and reads every line,
+# so a triple-fault loop costs it a timeout rather than a blank terminal.
 NO_REBOOT="-no-reboot"
 if [ -n "$NIFE_ALLOW_REBOOT" ]; then
     NO_REBOOT=""

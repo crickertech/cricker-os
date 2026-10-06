@@ -1255,14 +1255,14 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         ],
     ),
     // **`caps reboot` names the authority** (milestone 805 (`reboot` at the prompt), exit criterion
-    // 3), at the real prompt and without running it: typing `reboot` here would end this boot.
-    // `cargo xtask reboot-check` is the gate that types it.
+    // 3), at the real prompt and without running it: typing `reboot` mid-script would end this
+    // boot. [`reboot_phase`] types it, after the last scripted line.
     line(
         0,
         "caps reboot",
         &[
             "cap 13 reboot    WRITE. restart the machine",
-            "the progenitor flushes the writable filesystem first",
+            "cap 14 endpoint  flush  WRITE. the file server answers SYNC on it and refuses",
         ],
     ),
     // **A supervised job, interrupted**, under DECISIONS §24 (interrupting the foreground
@@ -2582,6 +2582,12 @@ fn swish_check_boot(
         c
     };
     cmd.env("NIFE_DISK", disk_path());
+    // **The first boot ends with `reboot`** (milestone 805, [`reboot_phase`]), so the x86_64 runners
+    // must let a reset reset: they pass `-no-reboot` otherwise, so a triple fault exits rather than
+    // loops. The phase is bounded and reads every line, so a loop costs a timeout here.
+    if fresh {
+        cmd.env("NIFE_ALLOW_REBOOT", "1");
+    }
     // A virtio-rng device (DECISIONS §120 (a QEMU-only virtio-rng stopgap for the interactive boot)'s 2026-08-26 amendment: "grant the QEMU-only virtio-rng
     // stopgap"), unlike the GPU/keyboard/NVMe flags above `test()` sets: this is the interactive
     // boot itself, not the bench boot sharing its runner, so there is no icount-drift reason to
@@ -3291,6 +3297,21 @@ fn swish_check_boot(
         }
     }
 
+    // **The reboot phase** (milestone 805 (`reboot` at the prompt); calef asked on #1783 whether
+    // each swish-check could finish with the reboot, and it can). Last, on the first boot only, and
+    // only once every scripted line passed, so a failure here is about the reboot and says so. The
+    // checks above read a snapshot taken before it, so the second boot's lines cannot confuse them.
+    if fresh && probe() == Probe::None && failed.is_empty() {
+        match reboot_phase(arch, &mut stdin, &seen) {
+            Ok(said) => eprintln!("{said}"),
+            Err(why) => {
+                eprintln!("--- swish-check ({arch}) reboot phase transcript ---");
+                eprintln!("{}", seen.lock().expect("transcript lock"));
+                failed.push(why);
+            }
+        }
+    }
+
     // SIGTERM rather than `kill()`'s SIGKILL on x86_64: that runner is `qemu-bounded.sh`, which
     // forwards TERM to QEMU (the other two runners `exec` the emulator, so the kill is QEMU's).
     if x86 {
@@ -3475,6 +3496,151 @@ enum Keystrokes {
 /// (the second and third steps of [`Keystrokes`]'s doc). Called by [`swish_check_boot`] once its
 /// script has finished and the prompt is back, on a boot that has a virtio-gpu attached; `sock` is
 /// that gpu's monitor socket, which `screendump` reads. `Ok` carries the sentence to print.
+/// The firmware line a reset must come back through, where the architecture has firmware of its own
+/// between the reset and the kernel: OpenSBI on riscv64, OVMF and `uefi_loader` on `x86_64`. aarch64
+/// `virt` boots `-kernel` with nothing in between, so there the second banner is the proof.
+fn reboot_firmware(arch: &str) -> Option<&'static str> {
+    match arch {
+        "riscv64" => Some("OpenSBI"),
+        "x86_64" => Some("uefi_loader"),
+        _ => None,
+    }
+}
+
+/// **Type `reboot` and see the machine come back** (milestone 805 (`reboot` at the prompt), the
+/// phase that ends every architecture's first boot). It writes a file, types `reboot`, and asks
+/// for, in order:
+///
+/// - `reboot`'s own report that its flush was answered (the block server's count of completed
+///   `blk::FLUSH`es, through its flush-only capability), before the kernel's first `reboot:` line;
+/// - the kernel's attempt line, and no refusal;
+/// - the firmware's line where there is firmware ([`reboot_firmware`]);
+/// - a second prompt banner, then `wc reboot.txt` answering `1 3 18`.
+///
+/// Every error names the step, prefixed `reboot phase:`, so a red leg says it was the reboot and
+/// not a scripted line. The read-back cannot fail for want of a flush under QEMU, which outlives a
+/// guest reset with its host cache intact; the flush line is the evidence the flush happened.
+fn reboot_phase(
+    arch: &str,
+    stdin: &mut std::process::ChildStdin,
+    seen: &std::sync::Arc<std::sync::Mutex<String>>,
+) -> Result<String, String> {
+    use std::io::Write;
+    use std::time::{Duration, Instant};
+
+    const BOOT_SECS: u64 = SWISH_CHECK_BOOT_SECS;
+    const LINE_SECS: u64 = SWISH_CHECK_X86_LINE_SECS;
+    const WRITE_LINE: &str = "echo survives a reboot > reboot.txt";
+    const READ_LINE: &str = "wc reboot.txt";
+    // `survives a reboot` and its newline: 18 bytes, 3 words, 1 line.
+    const READ_ANSWER: &str = "1 3 18";
+    const KERNEL_ASKED: &str = "reboot: the kernel was asked to restart the machine";
+    const KERNEL_REFUSED: &str = "reboot: every reset route was refused";
+    const FLUSHED: &str = "reboot: filesystem flushed";
+    let x86 = arch == "x86_64";
+    let text = || degauge(&seen.lock().expect("transcript lock"));
+    let len = || text().len();
+    let wait_after = |from: usize, needle: &str, secs: u64| -> Option<usize> {
+        let deadline = Instant::now() + Duration::from_secs(secs);
+        while Instant::now() < deadline {
+            let t = text();
+            if let Some(at) = t.get(from..).and_then(|rest| rest.find(needle)) {
+                return Some(from + at);
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        None
+    };
+    let wait_prompt = |secs: u64| -> bool {
+        let deadline = Instant::now() + Duration::from_secs(secs);
+        while Instant::now() < deadline {
+            if seen.lock().expect("transcript lock").ends_with("$ ") {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        false
+    };
+    let mut type_line = |line: &str| -> Result<(), String> {
+        writeln!(stdin, "{line}")
+            .and_then(|()| stdin.flush())
+            .map_err(|e| format!("reboot phase: could not type `{line}`: {e}"))
+    };
+    let fail = |why: &str| Err(format!("reboot phase: {why}"));
+
+    if !wait_prompt(LINE_SECS) {
+        return fail("the first boot was not at a bare prompt when the phase began");
+    }
+    let at = len();
+    type_line(WRITE_LINE)?;
+    if wait_after(at, &format!("{WRITE_LINE}\n"), LINE_SECS).is_none() || !wait_prompt(LINE_SECS) {
+        return fail(&format!("`{WRITE_LINE}` never came back to a prompt"));
+    }
+    let typed = len();
+    type_line("reboot")?;
+    let Some(asked) = wait_after(typed, KERNEL_ASKED, LINE_SECS) else {
+        return fail("the kernel never said it was asked to restart the machine");
+    };
+    let before = text()[typed..asked].to_string();
+    if !before.contains(FLUSHED) {
+        return fail(&format!(
+            "`reboot` reached the kernel without reporting a completed flush (no {FLUSHED:?} \
+             before the kernel's line): {:?}",
+            before.trim()
+        ));
+    }
+    let resumed = match reboot_firmware(arch) {
+        Some(fw) => match wait_after(asked, fw, BOOT_SECS) {
+            Some(at) => at,
+            None => {
+                let refused = text()[asked..].contains(KERNEL_REFUSED);
+                return fail(&if refused {
+                    "the firmware refused every reset route".to_string()
+                } else {
+                    format!("no {fw:?} line after the reset: the machine did not come back")
+                });
+            }
+        },
+        None => asked,
+    };
+    if text()[asked..].contains(KERNEL_REFUSED) {
+        return fail("the firmware refused every reset route");
+    }
+    let Some(second) = wait_after(resumed, "nife capability shell", BOOT_SECS) else {
+        return fail(&format!(
+            "no second prompt banner within {BOOT_SECS}s of the reset"
+        ));
+    };
+    if x86 {
+        if wait_after(second, X86_HAND_OVER_REPORT, BOOT_SECS).is_none() {
+            return fail("the second x86_64 boot never finished its hand-over report");
+        }
+        type_line("")?;
+    }
+    if !wait_prompt(LINE_SECS) {
+        return fail("the second boot never reached a bare prompt");
+    }
+    let at = len();
+    type_line(READ_LINE)?;
+    if wait_after(at, READ_ANSWER, LINE_SECS).is_none() {
+        return fail(&format!(
+            "`{READ_LINE}` after the reset did not answer {READ_ANSWER:?}: the file the first boot \
+             wrote is not there"
+        ));
+    }
+    let flushed = before
+        .lines()
+        .find(|l| l.contains(FLUSHED))
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    Ok(format!(
+        "swish-check ({arch}): typed `reboot`; {flushed}; the machine reset{} and came back to a \
+         prompt, and `{READ_LINE}` read back what the first boot wrote",
+        reboot_firmware(arch).map_or(String::new(), |fw| format!(" through {fw}"))
+    ))
+}
+
 fn launch_graphical_terminal(
     arch: &str,
     keystrokes: Keystrokes,

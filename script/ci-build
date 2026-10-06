@@ -112,10 +112,6 @@ cd "$(dirname "$0")/.."
 # Together they are exactly the `local` row, which is what a developer runs. ci.yml's
 # `swish-check-x86_64` job has the measurement.
 #
-# **`reboot-check` rides the `swish-check` CI rows** (milestone 805 (`reboot` at the prompt), name
-# provisional): it boots the same interactive image those rows just built, types `reboot` and waits
-# for a second prompt, so a job of its own would build that image a second time for one more boot.
-#
 # Adding a check here is the whole of adding a check: the no-argument path picks it up if the tier
 # is `local`, `--list` prints it, and `ci.yml` names it in a job. Adding it to `ci.yml` WITHOUT a row
 # here is the defect this table exists to prevent.
@@ -128,9 +124,8 @@ icount|local|script/icount
 build-is-reproducible|local|script/build-is-reproducible
 test|local|script/test
 swish-check|local|cargo xtask std-exerciser && script/swish-check
-reboot-check|local|cargo xtask reboot-check
-swish-check-aarch64-riscv64|ci|cargo xtask std-exerciser && script/swish-check --arch aarch64 && script/swish-check --arch riscv64 && cargo xtask reboot-check --arch aarch64 && cargo xtask reboot-check --arch riscv64
-swish-check-x86_64|ci|cargo xtask std-exerciser && script/swish-check --arch x86_64 && cargo xtask reboot-check --arch x86_64
+swish-check-aarch64-riscv64|ci|cargo xtask std-exerciser && script/swish-check --arch aarch64 && script/swish-check --arch riscv64
+swish-check-x86_64|ci|cargo xtask std-exerciser && script/swish-check --arch x86_64
 boot-check|local|script/boot-check
 hvf|local|hvf_leg
 fastpath-footprint|ci|script/fastpath-footprint
