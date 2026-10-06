@@ -19,7 +19,10 @@ provisional.
 *(Awaiting the board, 2026-10-06: the board delivered as argon is a Jetson TK1 shipped against a
 TX1 order, going back while calef gets the TX1 from the seller; `notes/bench-runbook.md`, "argon is
 not in hand". This proposal's tegra210 facts and its fork stand, and its bench confirmation waits
-for the TX1. The finding that the aarch64 kernel only fits QEMU `virt` holds for any board.)*
+for the TX1. The finding that the aarch64 kernel only fits QEMU `virt` holds for any board. Draft PRs #1738
+(`lane/argon-boots`, the tegra210 board option) and #1732 (`lane/argon-ethernet-proposal`, the argon
+ethernet proposal) were closed 2026-10-06 to wait for the TX1; the branches are kept, so reopen both
+when it is on the bench.)*
 
 ## The premise this corrects
 
