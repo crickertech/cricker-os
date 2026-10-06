@@ -9,13 +9,15 @@
 //! a serial capture read the same way:
 //!
 //! 1. `nic`: the device id and model, its requester id, whether the link came up, the MAC address;
-//! 2. `preflight dmar scope : PASS|FAIL`, which IOMMU unit owns the NIC, the condition milestone
+//! 2. `phy`: the PHY's identifier, read over MDIO by the kernel at bring-up (`0x01410cb0` under
+//!    QEMU; on an I219 the line is preceded by the bring-up's own `e1000e:` lines);
+//! 3. `preflight dmar scope : PASS|FAIL`, which IOMMU unit owns the NIC, the condition milestone
 //!    261 (the NVMe driver leaves the kernel)'s bench evening named for the NVMe applied to this
 //!    device;
-//! 3. `dhcp`: the leased address, after a line saying it is waiting, so a boot that never gets one
+//! 4. `dhcp`: the leased address, after a line saying it is waiting, so a boot that never gets one
 //!    ends on that line rather than on silence;
-//! 4. `transfer`: bytes, time and rate from the peer the image was built for;
-//! 5. `verdict LEASED-AND-MEASURED | UNCONFINED | NO-PEER | FAILED`, and `done, halting.`
+//! 5. `transfer`: bytes, time and rate from the peer the image was built for;
+//! 6. `verdict LEASED-AND-MEASURED | UNCONFINED | NO-PEER | FAILED`, and `done, halting.`
 //!
 //! # What the number counts
 //!
@@ -95,6 +97,7 @@ fn measure() -> &'static str {
         m[4],
         m[5],
     );
+    println!("network-bench: phy       : id {:#010x}", w.phy_id);
     println!(
         "network-bench: preflight dmar scope : {}",
         if w.confined_by_iommu { "PASS" } else { "FAIL" }

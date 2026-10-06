@@ -57,6 +57,30 @@ evidence and the confinement finding: [notes/e1000e.md](../../notes/e1000e.md).
   NIC, the DMAR preflight, the lease, a timed transfer from a LAN peer, and one verdict, and
   rehearses it under OVMF.
 
+## What was built, 2026-10-05
+
+The I219's PHY half. QEMU's 82574L never takes the PCH path, so xenon is still the test.
+
+- FreeBSD's SPT-class attach and reset path in `crates/e1000e/src/pch/` (Reuse, below): MDIO
+  under the semaphore (`phy.rs`), the NVM read (`nvm.rs`), and FreeBSD's three passes
+  (`sequence.rs`), called by the kernel through a small `Hw` trait.
+- Fifteen host tests against a simulated I219 (`pch/sim.rs`). The semaphore is a non-`Clone` token,
+  so a PHY access without it does not compile. One falsifiable Kani harness; writing it found that
+  FreeBSD truncates a page select above `0x7ff`, which this port refuses.
+- QEMU proves the MDIO read: the DHCP gate asserts the 82574L's PHY identifier, `0x01410cb0`.
+- The boot refusal's lift is one constant, `e1000e_service::PCH_PROVEN_ON_SILICON`, still `false`.
+
+## Bench runbook: one boot on xenon (calef)
+
+Whole, with every failure ending and the Results table: notes/e1000e.md, "calef's bench step on
+xenon". The one command, on patagonia, after that section's peer loop:
+
+```sh
+git log -1 --format=%h && cargo xtask network-bench --stage-only --peer "$P:9494" && cp target/esp-network-bench/EFI/BOOT/BOOTX64.EFI /Volumes/NIFE/EFI/BOOT/BOOTX64.EFI && diskutil eject /Volumes/NIFE
+```
+
+Success ends `network-bench: verdict LEASED-AND-MEASURED`.
+
 ## Which card xenon has, and the tree disagreed with itself
 
 xenon's network card is an Intel I219-LM. Dell's own specification sheet for the OptiPlex 7050
@@ -187,51 +211,43 @@ block's own BUGS list:
 
 | I219 step | FreeBSD source | decision |
 |---|---|---|
-| leave ultra-low-power mode through the Management Engine | `e1000_disable_ulp_lpt_lp`, ME branch | ported, `crates/e1000e/src/pch.rs` `ulp` and `kernel/src/e1000e.rs` |
+| leave ultra-low-power mode through the Management Engine | `e1000_disable_ulp_lpt_lp`, ME branch | ported, `crates/e1000e/src/pch/` (`ulp`, `sequence`) |
 | empty the descriptor rings before a reset (SPT unit hang) | `em_flush_desc_rings`, `em_flush_tx_ring`, `em_flush_rx_ring` | ported, one recorded divergence (`pch::flush::tail_after`) |
 | stop bus mastering before reset; STRAP writes around it; `KABGTXD.BGSQLBIAS` after | `e1000_disable_pcie_master_generic`, `e1000_reset_hw_ich8lan` | ported |
-| leave ULP without an ME; unforce SMBus; LANPHYPC toggle and PHY-access check | `e1000_disable_ulp_lpt_lp` software branch, `e1000_init_phy_workarounds_pchlan`, `e1000_phy_is_accessible_pchlan` | proposed: needs MDIO |
-| PHY reset with the MAC, then post-reset PHY workarounds | `e1000_reset_hw_ich8lan`'s `PHY_RST`, `e1000_post_phy_reset_ich8lan`, `e1000_hv_phy_workarounds_ich8lan` | proposed: needs MDIO. `CTRL.PHY_RST` is deliberately not set until then |
-| the software/firmware semaphore and MDIO access | `e1000_acquire_swflag_ich8lan`, `e1000_read_phy_reg_mdic`, `__e1000_read_phy_reg_hv` | proposed: the layer the two rows above stand on |
+| leave ULP without an ME, the `SMBus` switch and `LANPHYPC`; the semaphore and MDIO; the PHY reset and its NVM-driven configuration; the SPT NVM read; hardware bits, copper link, transmit errata | `e1000_init_phy_workarounds_pchlan` and what it calls, `e1000_acquire_swflag_ich8lan`, `__e1000_read_phy_reg_hv`, `e1000_reset_hw_ich8lan`, `e1000_post_phy_reset_ich8lan`, `e1000_read_nvm_spt`, `e1000_init_hw_ich8lan`, `e1000_setup_copper_link_pch_lpt` | ported 2026-10-05, `pch/phy.rs`, `pch/nvm.rs`, `pch/sequence.rs`; each function's comment names its source, and the divergences are in `pch`'s `BUGS` |
+| reconfiguration each time link comes up | `e1000_check_for_copper_link_ich8lan` | not ported: it runs from a link-change interrupt this driver does not take (Follow-on) |
 
-The ported half is 54 code lines in the crate and about 110 in the kernel, under Intel's licence
-kept at the top of `pch.rs`. It touches MAC registers and configuration space only, and it is
-skipped for QEMU's 82574L, so nothing in the gates exercises it. The unported half is a PHY access
-layer of roughly 600 lines of FreeBSD for the SPT path (measured by line count of the functions
-above, not by porting them).
+Intel's licence heads every adapted file. FreeBSD read at `main`, last `e1000_ich8lan.c` change
+46cf612d (2026-08-30). Linux's GPL `e1000e` was not consulted for any I219 sequence; its headers
+gave register offsets and ids as facts on 2026-10-04, and the ids were checked against FreeBSD's.
 
 Recommendation. Keep `crates/e1000e`, recorded reason: no candidate covers QEMU's part or the I219,
 and the code nife wrote is the confinement split and the input validation, which no candidate has.
 Adapt FreeBSD for the I219, with attribution, in two steps: the MAC-register half now (done here),
-and the PHY layer as its own piece only if xenon's bench boot shows it is needed. On a machine
-whose firmware and Management Engine leave the PHY configured, the MAC half may be enough, and that
-is a measurement to take rather than an argument to have. Take no dependency; vendor nothing.
+and the PHY layer as its own piece (built 2026-10-05, so the one attended bench evening does not
+meet a known gap). Take no dependency; vendor nothing.
 
 ## BUGS
 
-- The page layout is read now, not recalled (2026-10-04, from Linux's `regs.h`):
-  base and tail share a page, so the IOMMU alone confines. Intel's I219 datasheet is still unread.
+- Intel's I219 datasheet is unread; every I219 fact here is FreeBSD's.
 - Wi-Fi is out of scope, and on a laptop it is the only network there is. A stranger with a
   laptop and no USB Ethernet adapter cannot reach rung 3.
 - One family. `igc` and Realtek are follow-ons with no emulator for either.
 - xenon's DMAR scope for the NIC is unread, the same unknown milestone 261 carries for the NVMe.
   The bench boot's preflight line now answers it in print.
-- Nothing has touched an I219. The reset is the 82574L's plus FreeBSD's MAC-register steps for the
-  I219; FreeBSD's PHY-register steps are not ported (Reuse, above). The bench step is the test.
-- The bench step as written needs Ethernet at xenon, and the room xenon is in has no Ethernet
-  port (calef, 2026-10-04). Its step 4 cannot happen there. Options, each calef's: move xenon to a
-  port for one boot; a long cable; or a direct cable to patagonia with macOS Internet Sharing
-  serving DHCP, which proves the driver but gives a lease from patagonia rather than from the
-  house router, so it meets criterion 2 only in spirit. notes/e1000e.md says the same at the step.
+- Nothing has touched an I219: the PCH path is tested only against a simulation, and the bench
+  runbook is its first run.
+- xenon's room has no Ethernet port (calef, 2026-10-04); the runbook in notes/e1000e.md gives
+  the three ways round it and what each proves.
 - Intel's BSD licence asks a binary redistribution to reproduce its notice in the
-  documentation. The source carries it (`crates/e1000e/src/pch.rs`); no image or package this tree
+  documentation. The source carries it (`crates/e1000e/src/pch/`); no image or package this tree
   ships carries a third-party notices file, and none exists.
 
 ## Follow-on
 
-- **Outstanding.** The bench step on xenon (exit criterion 2), which is calef's: one boot of
-  `cargo xtask network-bench --stage-only --peer <patagonia>:9494`, photographed, read by
-  notes/e1000e.md's table. Checked 2026-10-04: no xenon boot of this driver exists.
+- **Outstanding.** The bench runbook on xenon (exit criterion 2), which is calef's. Then a
+  lane flips `PCH_PROVEN_ON_SILICON` in `kernel/src/user/e1000e_service.rs`, citing the Results
+  row. Checked 2026-10-05: no xenon boot of this driver exists.
 - **Done.** The booted system uses this NIC since 2026-10-05 (milestone 198 (a package manager)):
   the kernel builds `net_stack` on it when there is no virtio-net NIC and grants the progenitor its
   endpoint, and swish-check's x86_64 leg types the fetch lines. A PCH part is left alone at boot, so
@@ -241,12 +257,10 @@ is a measurement to take rather than an argument to have. Take no dependency; ve
 - **Recorded.** `find_e1000e_device` is a second copy of `find_nvme_device` with a different
   predicate; a third (milestone 242 (USB host and a keyboard that is not a UART)'s xHCI) is where
   a shared helper is lifted. `kernel/src/pci.rs`, at the function.
-- **Recorded.** The I219's PHY-register bring-up (MDIO under the firmware semaphore, ULP exit
-  without an ME, the post-reset PHY workarounds), about 600 lines of FreeBSD, proposed to the
-  maintainer as a milestone to build only if the bench boot needs it. `crates/e1000e/src/pch.rs`'s
-  header.
+- **Proposed.** The I219's link-up reconfiguration, about 250 lines of FreeBSD, once the bench
+  boot leases. `design/roadmap/proposals/the-i219-reconfigures-its-phy-when-link-comes-up.md`.
 - **Recorded.** No third-party notices file ships with an image, which Intel's BSD licence asks
-  of binary redistribution. `crates/e1000e/src/pch.rs`'s BUGS.
+  of binary redistribution. `crates/e1000e/src/pch/mod.rs`'s BUGS.
 - **Recorded.** `disk_throughput`, the other bench feature, is linted by nothing. `script/lint`,
   beside the `network_bench` line.
 

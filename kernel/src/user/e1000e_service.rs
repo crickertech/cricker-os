@@ -91,6 +91,8 @@ pub struct Wiring {
     pub link_up: bool,
     /// The PCI device id.
     pub device: u16,
+    /// The PHY's identifier as the kernel read it over MDIO, revision masked off.
+    pub phy_id: u32,
     /// The DHCP lease `net_stack` reported, once something has drained [`Wiring::report`]: zero
     /// from [`start_net_server`], the address from the functions that start a client.
     pub lease: u32,
@@ -113,10 +115,10 @@ pub enum NotAtBoot {
     /// What [`start_net_server`] would have said.
     Absent(Absent),
     /// **A part no gate has driven**, an I219 or another PCH part ([`::e1000e::pch::is_pch`]). Left
-    /// untouched: bring-up on one runs FreeBSD's MAC-register steps, which no run here has executed
-    /// (notes/e1000e.md), and a hang in them would take the prompt with it on xenon, the one PC on
-    /// the bench. Milestone 494's bench boot (`cargo xtask network-bench`) is how a part earns its
-    /// way out of this arm.
+    /// untouched: bring-up on one runs FreeBSD's I219 passes (`crates/e1000e/src/pch/sequence.rs`),
+    /// which no run here has executed on silicon, and a hang in them would take the prompt with it
+    /// on xenon, the one PC on the bench. Milestone 494's bench boot (`cargo xtask network-bench`,
+    /// notes/e1000e.md) is how a part earns its way out of this arm: see [`PCH_PROVEN_ON_SILICON`].
     Unproven {
         /// The PCI device id.
         device: u16,
@@ -137,7 +139,7 @@ pub enum NotAtBoot {
 /// say why.
 pub fn start_for_boot(image: &'static [u8]) -> Result<Wiring, NotAtBoot> {
     let dev = crate::pci::find_e1000e_device().ok_or(NotAtBoot::Absent(Absent::NoController))?;
-    if ::e1000e::pch::is_pch(dev.device) {
+    if ::e1000e::pch::is_pch(dev.device) && !PCH_PROVEN_ON_SILICON {
         return Err(NotAtBoot::Unproven { device: dev.device });
     }
     refuse_if_busy().map_err(NotAtBoot::Absent)?;
@@ -149,6 +151,15 @@ pub fn start_for_boot(image: &'static [u8]) -> Result<Wiring, NotAtBoot> {
     }
     Ok(spawn_server(image, socket_protocol::NO_LISTEN_GRANT, found))
 }
+
+/// **Whether the booted system may bring up an I219 on its own.** The lift of the refusal above is
+/// this one line, and it is gated on silicon, not on review.
+///
+/// Flip it to `true` only in a commit that cites a xenon bench boot of the same I219 bring-up
+/// ending `verdict LEASED-AND-MEASURED` (notes/e1000e.md, "calef's bench step on xenon", with its
+/// Results row filled in). Nothing a lane can run proves it: QEMU's 82574L never takes the PCH
+/// path, and the host simulation is this tree's reading of FreeBSD, not the device.
+pub const PCH_PROVEN_ON_SILICON: bool = false;
 
 fn refuse_if_busy() -> Result<(), Absent> {
     let previous = SERVER.load(core::sync::atomic::Ordering::Acquire);
@@ -255,6 +266,7 @@ fn spawn_server(image: &'static [u8], listen_grant: u64, found: crate::e1000e::F
         mac: found.handoff.mac,
         link_up: found.link_up,
         device: found.device,
+        phy_id: found.phy_id,
         lease: 0,
     }
 }
