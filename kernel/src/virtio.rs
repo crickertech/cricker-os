@@ -13,12 +13,16 @@
 //! is in slot 3, its interrupt is INTID 51" without knowing the first thing about how a block
 //! device works.
 
-use crate::arch::mmu::{self, VIRTIO_IRQ_BASE, VIRTIO_MMIO_BASE, VIRTIO_SLOT_STRIDE, VIRTIO_SLOTS};
+use crate::arch::mmu::{self, VIRTIO_IRQ_BASE, VIRTIO_MMIO_BASE, VIRTIO_SLOT_STRIDE};
 
 /// The virtio-mmio slot layout, from the arch: aarch64's `virt` has 32 slots 0x200 apart, RISC-V's
-/// has 8 slots 0x1000 apart. The probe walks `SLOTS` of them at `SLOT_STRIDE`.
+/// has 8 slots 0x1000 apart. The probe walks `mmu::virtio_slots()` of them at `SLOT_STRIDE`.
+///
+/// **A function, not a constant, since milestone 89 (Scaleway EM-RV1).** On riscv64 the window is
+/// mapped only when the device tree names a `virtio,mmio` node, because on the T-Head TH1520 the
+/// QEMU window's address is DRAM, and a probe there would read RAM and could mistake it for a
+/// device. A machine without the bus reports zero slots, and the probe reads nothing.
 const SLOT_STRIDE: u64 = VIRTIO_SLOT_STRIDE;
-const SLOTS: u64 = VIRTIO_SLOTS;
 
 /// "virt", little-endian, at offset 0x000 of every slot.
 const MAGIC: u32 = 0x7472_6976;
@@ -55,7 +59,7 @@ fn read_reg(slot: u64, offset: u64) -> u32 {
 /// device at this layer is its type number and its slot; which driver claims the type is a userspace
 /// decision (see `virtio_service`).
 fn find_by_device_id(device_id: u32) -> Option<VirtioMmioDevice> {
-    for slot in 0..SLOTS {
+    for slot in 0..mmu::virtio_slots() {
         if read_reg(slot, REG_MAGIC) != MAGIC {
             continue; // not a virtio-mmio slot at all
         }
@@ -93,7 +97,7 @@ pub fn find_block_device() -> Option<VirtioMmioDevice> {
 /// PCI half begins.
 pub fn count_block_devices() -> usize {
     let mut n = 0;
-    for slot in 0..SLOTS {
+    for slot in 0..mmu::virtio_slots() {
         if read_reg(slot, REG_MAGIC) == MAGIC && read_reg(slot, REG_DEVICE_ID) == DEVICE_ID_BLOCK {
             n += 1;
         }
@@ -179,7 +183,7 @@ pub fn find_block_device_n(n: usize) -> Option<BlockDevice> {
 /// The mmio half of [`find_block_device_n`]: the `n`-th virtio-mmio block slot, in slot order.
 fn mmio_block_device_n(n: usize) -> Option<VirtioMmioDevice> {
     let mut seen = 0;
-    for slot in 0..SLOTS {
+    for slot in 0..mmu::virtio_slots() {
         if read_reg(slot, REG_MAGIC) != MAGIC || read_reg(slot, REG_DEVICE_ID) != DEVICE_ID_BLOCK {
             continue;
         }

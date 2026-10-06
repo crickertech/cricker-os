@@ -88,6 +88,78 @@ pub fn init(dtb_ptr: usize) {
     }
 
     *ISA.lock() = Some(cpu);
+
+    probe_thead();
+}
+
+/// T-Head's JEDEC vendor id, as `mvendorid` reports it (Linux's `THEAD_VENDOR_ID`).
+const THEAD_VENDOR_ID: usize = 0x5b7;
+/// `th.sxstatus.MAEE`: the hart reads memory types from PTE bits 63:59.
+const TH_SXSTATUS_MAEE: u64 = 1 << 21;
+
+/// What [`probe_thead`] found: `0` before it ran, then [`NOT_THEAD`], [`THEAD`] or
+/// [`THEAD_MAE`]. One byte rather than a lock, because `fp::init` reads it on every hart.
+static VENDOR: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(0);
+const NOT_THEAD: u8 = 1;
+const THEAD: u8 = 2;
+const THEAD_MAE: u8 = 3;
+
+/// Is this a T-Head hart (C906, C910)? `fp::init` asks, to close `XTheadVector`'s own `VS` field.
+/// False before [`init`], which is the safe default for every caller: a non-T-Head hart must not
+/// touch T-Head's bits.
+///
+/// Name: provisional, milestone 89 (Scaleway EM-RV1)'s lane, 2026-10-06 (UTC).
+pub fn is_thead() -> bool {
+    VENDOR.load(core::sync::atomic::Ordering::Relaxed) >= THEAD
+}
+
+/// **Ask whether this is a T-Head hart, and whether it reads memory types out of the page table**
+/// (milestone 89 (Scaleway EM-RV1), step 5). Then refuse a kernel built for the other answer.
+///
+/// `mvendorid` comes from SBI (base extension, function 4) because S-mode cannot read it. If it is
+/// T-Head's, `th.sxstatus` exists and its `MAEE` bit says whether firmware turned `XTheadMae` on. The
+/// page-table format is chosen at compile time (`mmu::Format`, the `board_th1520` feature), so this
+/// is a check that the build and the hart agree, and a disagreement is fatal in both directions:
+///
+/// - MAEE on, plain Sv39: every leaf names memory type zero, which T-Head does not define.
+/// - MAEE off, `Sv39Mae`: bits 63:59 are reserved, and a set one is a page fault on the first walk
+///   of the fine tables.
+///
+/// Linux keys the same errata on `mvendorid` with `marchid` and `mimpid` zero; this reads the CSR
+/// instead, because the CSR is the hart's own answer. Whether a C910 permits that read from S-mode
+/// is the T-Head manual's claim and QEMU's model, not yet something silicon here has shown.
+fn probe_thead() {
+    const GET_MVENDORID: usize = 4;
+    let vendor = sbi_call(EID_BASE, GET_MVENDORID, 0);
+    let found = if vendor != THEAD_VENDOR_ID {
+        NOT_THEAD
+    } else if super::instructions::read_th_sxstatus() & TH_SXSTATUS_MAEE != 0 {
+        THEAD_MAE
+    } else {
+        THEAD
+    };
+    VENDOR.store(found, core::sync::atomic::Ordering::Relaxed);
+
+    let built_for_mae = cfg!(feature = "board_th1520");
+    if (found == THEAD_MAE) != built_for_mae {
+        println!();
+        if built_for_mae {
+            println!(
+                "nife cannot run on this machine: this kernel was built for a T-Head hart with"
+            );
+            println!(
+                "  XTheadMae on (feature board_th1520), and this hart does not read memory types"
+            );
+            println!("  from its page tables, so the bits this kernel sets there are reserved.");
+        } else {
+            println!(
+                "nife cannot run on this machine: this T-Head hart reads memory types from PTE"
+            );
+            println!("  bits 63:59 (th.sxstatus.MAEE is set), and this kernel writes zero there.");
+            println!("  Build with --features board_th1520 (script/board-image --th1520).");
+        }
+        panic!("the page-table format this kernel was built for does not match the hart");
+    }
 }
 
 /// The record. Panics if read before [`init`].
@@ -143,6 +215,14 @@ pub fn print_summary() {
         print!("; read from the deprecated riscv,isa");
     }
     println!();
+
+    match VENDOR.load(core::sync::atomic::Ordering::Relaxed) {
+        THEAD_MAE => {
+            println!("  vendor      : T-Head, XTheadMae on, so leaves carry T-Head memory types");
+        }
+        THEAD => println!("  vendor      : T-Head, XTheadMae off, so leaves are plain Sv39"),
+        _ => {}
+    }
 
     print!("  firmware    : ");
     if !cpu.sbi.has_answered() {

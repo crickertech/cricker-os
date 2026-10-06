@@ -233,6 +233,12 @@ system_tests = [
 # sifive_test finisher, so the test exit prints a UART marker and calls SBI SRST shutdown
 # instead of storing to a nonexistent MMIO word. See notes/visionfive2.md.
 board = []
+# The T-Head TH1520 (milestone 89 (Scaleway EM-RV1)): the board build, for Scaleway's Elastic Metal
+# RV1 rather than radon. It moves the early console to UART0 at 0xff_e701_4000 (arch/riscv64/
+# machine.rs) and selects the page-table format with T-Head's memory-type bits (XTheadMae,
+# paging::Sv39Mae), which firmware turns on. A kernel built with it refuses to run on a hart
+# without MAEE, and one built without it refuses a hart with it. riscv64 only. Name provisional.
+board_th1520 = ["board"]
 # The benchmark boot (milestone 21): run the microbenchmarks and halt. See script/bench.
 bench = ["dep:coremark", "dep:byte_sink_protocol"]
 # The instruction-count instrument (milestone 78): boot under `-icount shift=0,sleep=off`, where

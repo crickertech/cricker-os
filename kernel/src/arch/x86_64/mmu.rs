@@ -1885,6 +1885,11 @@ pub const VIRTIO_SLOT_STRIDE: u64 = 0x1000;
 /// **Zero virtio-mmio slots**, which is the fact, not a placeholder. See [`VIRTIO_MMIO_BASE`].
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub const VIRTIO_SLOTS: u64 = 0;
+/// How many slots the probe walks: none, see [`VIRTIO_SLOTS`]. A function because riscv64's answer
+/// depends on the device tree.
+pub const fn virtio_slots() -> u64 {
+    VIRTIO_SLOTS
+}
 /// The interrupt the first virtio-mmio slot would raise. Unreachable with no slots.
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub const VIRTIO_IRQ_BASE: u32 = 0;

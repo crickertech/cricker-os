@@ -12,6 +12,8 @@
 #   script/board-image --card /Volumes/NIFE   # and copy the matched set onto an already-formatted card
 #   script/board-image --tftp                 # a boot script that fetches over the network first (257)
 #   script/board-image --tftp --server 10.0.0.5   # ...from an address you name rather than one read here
+#   script/board-image --th1520               # Scaleway's EM-RV1 instead of radon: a FIT source (89)
+#   script/board-image --th1520 --soak        # ...and the workload flags above combine with it
 #
 # Builds the riscv64 release kernel, strips it to the flat Image format U-Boot's `booti` loads
 # (the RISC-V Linux Image header sits at offset 0; boot.s emits it), verifies the header magic,
@@ -89,6 +91,7 @@ cd "$(dirname "$0")/.."
 # reader meets it, in `single_hart`'s own entry in kernel/Cargo.toml: `smp_throughput`, `fs_read`
 # and `fs_throughput` skip on this card. See notes/footprint-perturbation.md.
 FEATURES=board
+TH1520=no
 SOAK=no
 JOB_MIX=no
 REBOOT=no
@@ -114,10 +117,11 @@ while [ $# -gt 0 ]; do
             [ $# -ge 2 ] || { echo "board-image: --card needs a path" >&2; exit 2; }
             CARD="$2"; shift 2 ;;
         --tftp) TFTP=yes; shift ;;
+        --th1520) TH1520=yes; shift ;;
         --server)
             [ $# -ge 2 ] || { echo "board-image: --server needs an address" >&2; exit 2; }
             SERVER="$2"; shift 2 ;;
-        *) echo "board-image: unknown argument $1 (--soak, --job-mix, --reboot, --bench, --extra-features <list>, --card <dir>, --tftp, --server <ip>)" >&2; exit 2 ;;
+        *) echo "board-image: unknown argument $1 (--soak, --job-mix, --reboot, --bench, --th1520, --extra-features <list>, --card <dir>, --tftp, --server <ip>)" >&2; exit 2 ;;
     esac
 done
 
@@ -184,6 +188,19 @@ fi
 # into target/board/, so a padded and an un-padded image are indistinguishable once they are on a
 # card, and a bench session that mixes them up produces a comparison of a build against itself. The
 # feature set is echoed below and it is the one line worth copying into the log beside the numbers.
+# **The second RISC-V machine** (milestone 89 (Scaleway EM-RV1)): the same payload for the T-Head
+# TH1520 in Scaleway's Elastic Metal RV1. `board_th1520` implies `board`, so it takes `board`'s place
+# at the head of whichever list the flags above chose, and every workload flag still means what it
+# means on radon. The RV1 has no card and no network boot of ours: it boots a FIT image from its
+# own eMMC, so --card and --tftp do not apply.
+if [ "$TH1520" = yes ]; then
+    if [ -n "$CARD" ] || [ "$TFTP" = yes ]; then
+        echo "board-image: --th1520 builds a FIT source for the RV1's eMMC; --card and --tftp are radon's" >&2
+        exit 2
+    fi
+    FEATURES="board_th1520${FEATURES#board}"
+fi
+
 if [ -n "$EXTRA" ]; then FEATURES="$FEATURES,$EXTRA"; fi
 
 # **E3's layout control reads two variables, and only with `fastpath_pad`** (milestone 134,
@@ -219,6 +236,7 @@ TARGET=riscv64imac-unknown-none-elf
 ELF="target/$TARGET/release/kernel"
 OUT="target/board"
 IMG="$OUT/nife-vf2.img"
+if [ "$TH1520" = yes ]; then IMG="$OUT/nife-th1520.img"; fi
 
 # The userspace archive FIRST, then the kernel, and the order is load-bearing: packing the
 # archive regenerates target/init-measure-riscv.txt, the manifest the kernel compiles in as its
@@ -253,6 +271,106 @@ MAGIC="$(od -An -t x4 -j 56 -N 4 "$IMG" | tr -d ' \n')"
 if [ "$MAGIC" != "05435352" ]; then
     echo "board-image: $IMG has no RISC-V Image header magic at offset 0x38 (got '$MAGIC')" >&2
     exit 1
+fi
+
+# The RV1's payload stops here: a FIT source naming the kernel and the archive, which `mkimage`
+# turns into `boot.itb` on the RV1 itself (patagonia has no `mkimage`; the RV1's Debian does).
+# The device tree and OpenSBI come out of Scaleway's own `boot.itb` on that machine, so this tree
+# guesses neither. The runbook is milestone 89's block, "Rented, hour one".
+if [ "$TH1520" = yes ]; then
+    ITS="$OUT/nife-th1520.its"
+    ENV="$OUT/nife-th1520-env.txt"
+    # Scaleway's U-Boot reads these two keys out of the FIT's `env` image (their em-rv1 repo's
+    # fit/em-rv1-env.txt). nife reads no command line, so the bootargs are empty on purpose.
+    printf 'usr_bootargs=\nusr_has_ramdisk=1\n' > "$ENV"
+    cat > "$ITS" <<'ITS'
+/dts-v1/;
+/*
+ * nife on the T-Head TH1520 (Scaleway EM-RV1), milestone 89. Written by script/board-image --th1520.
+ *
+ * Modeled on Scaleway's fit/em-rv1-c4m16s128-a-boot.its (github.com/scaleway/em-rv1), with three
+ * changes. The kernel loads at 0x8020_0000, where nife is linked, rather than Linux's 0x20_0000, and
+ * entry names the same address in case this U-Boot reads it. The archive rides as a ramdisk, so
+ * U-Boot writes /chosen/linux,initrd-start for the kernel to find. And `fdt` and `opensbi` are the
+ * files extracted from the machine's own boot.itb, so the firmware tree and the firmware are
+ * Scaleway's rather than this tree's guess.
+ */
+/ {
+    description = "nife on the TH1520, milestone 89";
+    #address-cells = <2>;
+    #size-cells = <0>;
+    images {
+        kernel {
+            description = "nife";
+            data = /incbin/("nife-th1520.img");
+            type = "kernel";
+            arch = "riscv";
+            os = "linux";
+            compression = "none";
+            load = <0x0 0x80200000>;
+            entry = <0x0 0x80200000>;
+            hash {
+                algo = "sha256";
+            };
+        };
+        ramdisk {
+            description = "nife userspace archive, measured by the kernel";
+            data = /incbin/("nife-initrd.img");
+            type = "ramdisk";
+            arch = "riscv";
+            os = "linux";
+            compression = "none";
+            load = <0x0 0x90000000>;
+            hash {
+                algo = "sha256";
+            };
+        };
+        opensbi {
+            description = "OpenSBI, Scaleway's, extracted from boot.itb.scaleway";
+            data = /incbin/("fw_dynamic.bin");
+            type = "opensbi";
+            arch = "riscv";
+            compression = "none";
+            load = <0x0 0x0000000>;
+            hash {
+                algo = "sha256";
+            };
+        };
+        fdt {
+            description = "device tree, Scaleway's, extracted from boot.itb.scaleway";
+            data = /incbin/("rv1.dtb");
+            type = "flat_dt";
+            arch = "riscv";
+            compression = "none";
+            load = <0x0 0x02800000>;
+            hash {
+                algo = "sha256";
+            };
+        };
+        env {
+            description = "User environment file.";
+            data = /incbin/("nife-th1520-env.txt");
+            compression = "none";
+            hash {
+                algo = "sha256";
+            };
+        };
+    };
+    configurations {};
+};
+ITS
+    SIZE="$(wc -c < "$IMG" | tr -d ' ')"
+    echo
+    echo "built, for the TH1520 (Scaleway EM-RV1):"
+    echo "  features: $FEATURES$E3"
+    echo "  $IMG  ($SIZE bytes, Image header verified)"
+    echo "  $OUT/nife-initrd.img  (the userspace archive this kernel measures; one pair with it)"
+    echo "  $ITS"
+    echo "  $ENV"
+    echo
+    echo "Copy all four to the RV1 and build boot.itb there (milestone 89's block is the runbook):"
+    echo "  scp $IMG $OUT/nife-initrd.img $ITS $ENV <user>@<rv1-ip>:nife/"
+    exit 0
 fi
 
 # The card used to carry an `extlinux.conf`, and it could never have worked (milestone 218). With

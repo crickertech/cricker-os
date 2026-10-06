@@ -21,6 +21,7 @@ pub mod interrupts;
 pub mod iommu;
 pub mod irq;
 pub mod isa;
+pub mod machine;
 pub mod mmu;
 pub mod pmu;
 mod sbi;

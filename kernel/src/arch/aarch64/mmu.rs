@@ -326,6 +326,11 @@ pub const VIRTIO_IRQ_BASE: u32 = 48;
 /// probe (`virtio::find_block_device`) walks them.
 pub const VIRTIO_SLOT_STRIDE: u64 = 0x200;
 pub const VIRTIO_SLOTS: u64 = 32;
+/// How many slots the probe walks. All of them: aarch64 `virt` is the only machine this
+/// architecture maps the window on. A function because riscv64's answer depends on the device tree.
+pub const fn virtio_slots() -> u64 {
+    VIRTIO_SLOTS
+}
 
 /// How much of the PCIe ECAM window the kernel maps: bus 0 only (4 KB per function, 1 MB per
 /// bus). The window itself comes from the device tree (`memory::pci_regions`), which on QEMU's

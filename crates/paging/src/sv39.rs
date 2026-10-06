@@ -129,6 +129,156 @@ impl PageFormat for Sv39 {
     }
 }
 
+/// **Sv39 with T-Head's memory-type bits** (`XTheadMae`): the format a C906 or C910 walks once firmware
+/// has set `MAEE` in `th.mxstatus`, as OpenSBI does on the TH1520 in milestone 89 (Scaleway EM-RV1).
+///
+/// Before the Svpbmt extension was ratified, T-Head put a memory type in PTE bits 63:59, which
+/// standard Sv39 reserves. With `MAEE` set the core reads them on every leaf:
+///
+/// | bit | name | meaning |
+/// |---|---|---|
+/// | 63 | SO | strongly ordered |
+/// | 62 | C | cacheable |
+/// | 61 | B | bufferable |
+/// | 60 | SH | shareable |
+/// | 59 | SEC | trustable (not used here) |
+///
+/// A leaf with all five clear is something T-Head's manual does not define for normal memory, and a
+/// kernel that writes zero there, as plain [`Sv39`] does, is running on behavior nobody promised.
+/// The values are Linux's (`arch/riscv/include/asm/pgtable-64.h`, `_PAGE_PMA_THEAD` and
+/// `_PAGE_IO_THEAD`): memory is C, B and SH; a device is SO and SH. Pointer entries carry none.
+///
+/// Everything except the leaf encoding is [`Sv39`]'s, delegated rather than copied, so the two cannot
+/// drift. **A distinct type rather than a runtime switch inside `Sv39`**: the choice is made per
+/// machine at compile time (the kernel's `board_th1520` feature), the same way the early console
+/// is, and a type keeps this crate free of global state. The kernel checks at boot that the hart
+/// agrees with the type it was built for.
+///
+/// Name: provisional, milestone 89 (Scaleway EM-RV1)'s lane, 2026-10-06 (UTC).
+pub struct Sv39Mae;
+
+/// Strongly ordered: no speculation, no reordering, which a device register needs.
+const MAE_SO: u64 = 1 << 63;
+/// Cacheable.
+const MAE_C: u64 = 1 << 62;
+/// Bufferable: writes may be merged and posted.
+const MAE_B: u64 = 1 << 61;
+/// Shareable: coherent across harts.
+const MAE_SH: u64 = 1 << 60;
+/// All five memory-type bits, which a decoder must mask and a pointer must never set.
+const MAE_MASK: u64 = 0b11111 << 59;
+
+impl Sv39Mae {
+    /// The memory type for a leaf with `flags`. The RSW device bit [`Sv39`] already keeps is what
+    /// decides, so the portable [`Flags::device`] is the one input on both formats.
+    const fn memory_type(flags: Flags) -> u64 {
+        if flags.is_device() {
+            MAE_SO | MAE_SH
+        } else {
+            MAE_C | MAE_B | MAE_SH
+        }
+    }
+
+    /// The memory-type field of a leaf, for a test or a bench line that wants to show it.
+    pub const fn memory_type_of(entry: u64) -> u64 {
+        entry & MAE_MASK
+    }
+}
+
+impl PageFormat for Sv39Mae {
+    const LEVELS: usize = Sv39::LEVELS;
+    const SPLIT_SHIFT: u32 = Sv39::SPLIT_SHIFT;
+
+    fn is_present(entry: u64) -> bool {
+        Sv39::is_present(entry)
+    }
+
+    fn entry_pa(entry: u64) -> u64 {
+        // The PPN mask already stops at bit 53, so the memory type cannot leak into the address.
+        Sv39::entry_pa(entry)
+    }
+
+    fn table_entry(pa: u64, level: usize) -> u64 {
+        Sv39::table_entry(pa, level)
+    }
+
+    fn leaf_entry(pa: u64, flags: Flags) -> u64 {
+        Sv39::leaf_entry(pa, flags) | Self::memory_type(flags)
+    }
+
+    fn leaf_flags(entry: u64) -> Flags {
+        Sv39::leaf_flags(entry & !MAE_MASK)
+    }
+
+    fn block_entry(pa: u64, flags: Flags, size: PageSize) -> Option<u64> {
+        Some(Sv39::block_entry(pa, flags, size)? | Self::memory_type(flags))
+    }
+
+    fn is_block(entry: u64) -> bool {
+        Sv39::is_block(entry)
+    }
+}
+
+#[cfg(test)]
+mod mae_tests {
+    use super::*;
+
+    const ALL: [Flags; 8] = [
+        Flags::kernel_code(),
+        Flags::kernel_rodata(),
+        Flags::kernel_data(),
+        Flags::device(),
+        Flags::user_code(),
+        Flags::user_rodata(),
+        Flags::user_data(),
+        Flags::user_device(),
+    ];
+
+    /// **Linux's two values, bit for bit.** Written as literals rather than through this file's
+    /// constants, so a wrong constant cannot agree with itself: memory is `0x7 << 60`
+    /// (`_PAGE_PMA_THEAD`), a device `(1 << 63) | (1 << 60)` (`_PAGE_IO_THEAD`).
+    #[test]
+    fn memory_and_devices_carry_linuxs_memory_types() {
+        for flags in ALL {
+            let want = if flags.is_device() {
+                0x9000_0000_0000_0000
+            } else {
+                0x7000_0000_0000_0000
+            };
+            let leaf = Sv39Mae::leaf_entry(0xff_e701_4000, flags);
+            assert_eq!(leaf >> 59 << 59, want, "{flags:?}");
+            for size in [PageSize::Size2MiB, PageSize::Size1GiB] {
+                let block = Sv39Mae::block_entry(0x8000_0000, flags, size).unwrap();
+                assert_eq!(block >> 59 << 59, want, "{flags:?} block");
+            }
+        }
+    }
+
+    /// **Below bit 59 the word is plain Sv39's**, so everything already proved about that format
+    /// (W^X, the address field, the A and D bits) holds here unchanged; and the flags round-trip.
+    #[test]
+    fn below_the_memory_type_it_is_sv39() {
+        for flags in ALL {
+            for pa in [0, 0x8020_0000, 0xff_e701_4000, 0x3_ffff_f000] {
+                let leaf = Sv39Mae::leaf_entry(pa, flags);
+                assert_eq!(leaf & !MAE_MASK, Sv39::leaf_entry(pa, flags));
+                assert_eq!(Sv39Mae::entry_pa(leaf), pa);
+                assert_eq!(Sv39Mae::leaf_flags(leaf), flags);
+                assert!(Sv39Mae::is_block(leaf));
+            }
+        }
+    }
+
+    /// **A pointer entry carries no memory type.** T-Head defines the bits on leaves only, and
+    /// Linux sets them only through a leaf's protection bits.
+    #[test]
+    fn a_pointer_carries_no_memory_type() {
+        let e = Sv39Mae::table_entry(0x8100_0000, 0);
+        assert_eq!(Sv39Mae::memory_type_of(e), 0);
+        assert!(!Sv39Mae::is_block(e));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

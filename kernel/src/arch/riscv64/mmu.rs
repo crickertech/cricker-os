@@ -9,20 +9,27 @@
 //! notes/riscv-port.md.
 
 use core::ffi::c_void;
-use core::sync::atomic::{AtomicU64, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
-use paging::{Flags, Half, MapError, Mapper, PAGE_SIZE, PageSize, PageTable, Sv39};
+use paging::{Flags, Half, MapError, Mapper, PAGE_SIZE, PageSize, PageTable};
 
 use super::instructions;
 use crate::memory;
 
 /// This architecture's page-table format. Portable code names it as `arch::mmu::Format` (see the
 /// aarch64 module's alias for why), so the user-VA gate and the user `Mapper` land on Sv39 here.
-pub type Format = Sv39;
+///
+/// **Per machine** since milestone 89 (Scaleway EM-RV1): on the T-Head TH1520 the leaves also carry
+/// T-Head's memory types, because firmware has turned `XTheadMae` on and plain Sv39's zeros there are
+/// undefined. `arch::isa::init` refuses a hart that disagrees with the format chosen here.
+#[cfg(not(feature = "board_th1520"))]
+pub type Format = paging::Sv39;
+#[cfg(feature = "board_th1520")]
+pub type Format = paging::Sv39Mae;
 
 /// The UART, mapped as device memory in the direct map. Without it the machine goes silent the
-/// instant we switch off the coarse boot table.
-const UART_BASE: u64 = 0x1000_0000;
+/// instant we switch off the coarse boot table. Per machine, so it is [`super::machine`]'s.
+const UART_BASE: u64 = super::machine::CONSOLE_UART_PHYS;
 const UART_SIZE: u64 = 0x1000;
 
 /// The `satp` MODE field value for Sv39 (bits 63:60).
@@ -109,6 +116,53 @@ pub const KERNEL_VA_BASE: u64 = 0xffff_ffc0_0000_0000;
 /// mapped over `.text`. Rule 1 says an architecture's addresses live under `arch/`; this is that.
 pub const THREAD_STACK_AREA: u64 = KERNEL_VA_BASE | 0x0000_0010_0000_0000;
 
+/// **The device window** (milestone 89 (Scaleway EM-RV1)): the top gigabyte of a 40-bit physical
+/// space, named at the top gigabyte of the Sv39 high half.
+///
+/// `pa + KERNEL_VA_BASE` is the whole direct map on every other machine this tree boots, and under
+/// Sv39 it can only name the first 256 GiB of physical space: the high half *is* 256 GiB. The T-Head
+/// TH1520 puts every peripheral at `0xff_d800_0000` and up (PLIC, CLINT, UARTs), 1 TiB up, so for it
+/// `phys_to_virt` overflows. Rather than grow a virtual-address allocator for devices (Linux's
+/// `ioremap`), this kernel names one fixed gigabyte: physical `0xff_c000_0000..0x100_0000_0000`
+/// appears at virtual `0xffff_ffff_c000_0000`, root index 511. Everything else stays the direct map,
+/// now capped at 255 GiB so the two cannot meet ([`DIRECT_MAP_LIMIT`]).
+///
+/// What it costs: one compare in [`phys_to_virt`] and [`virt_to_phys`], and one boot-table entry. On
+/// QEMU `virt` and on radon nothing lives in that gigabyte, so the entry is never walked. Devices in
+/// the window are mapped page by page by `direct_map` exactly as low ones are; the window decides
+/// only *where* they are named. If a machine ever puts devices in two distant gigabytes, this
+/// verdict changes (milestone 89's seventh question says so too).
+pub const DEVICE_WINDOW_PA: u64 = 0xff_c000_0000;
+/// One gigabyte: one root entry.
+pub const DEVICE_WINDOW_SIZE: u64 = 1 << 30;
+/// Root index 511, the last gigabyte of the high half.
+pub const DEVICE_WINDOW_VA: u64 = 0xffff_ffff_c000_0000;
+/// The first physical address the direct map does not reach: 255 GiB, so that `pa +
+/// KERNEL_VA_BASE` stops one gigabyte short of [`DEVICE_WINDOW_VA`].
+pub const DIRECT_MAP_LIMIT: u64 = DEVICE_WINDOW_VA - KERNEL_VA_BASE;
+
+// The arithmetic the two translations rest on, checked by the compiler rather than by a reader.
+const _: () = {
+    assert!(DEVICE_WINDOW_VA == KERNEL_VA_BASE + 255 * (1 << 30));
+    assert!(DIRECT_MAP_LIMIT == 255 << 30);
+    assert!(DEVICE_WINDOW_PA + DEVICE_WINDOW_SIZE == 1 << 40);
+    assert!(DEVICE_WINDOW_PA >= DIRECT_MAP_LIMIT);
+    // The window round-trips at both edges, and the direct map at its last page.
+    assert!(virt_to_phys(phys_to_virt(DEVICE_WINDOW_PA)) == DEVICE_WINDOW_PA);
+    assert!(phys_to_virt(DEVICE_WINDOW_PA) == DEVICE_WINDOW_VA);
+    assert!(
+        virt_to_phys(phys_to_virt(DEVICE_WINDOW_PA + DEVICE_WINDOW_SIZE - 1))
+            == DEVICE_WINDOW_PA + DEVICE_WINDOW_SIZE - 1
+    );
+    assert!(virt_to_phys(phys_to_virt(DIRECT_MAP_LIMIT - 1)) == DIRECT_MAP_LIMIT - 1);
+    assert!(phys_to_virt(DIRECT_MAP_LIMIT - 1) < DEVICE_WINDOW_VA);
+    // Every console address a machine can choose is nameable.
+    assert!(
+        UART_BASE < DIRECT_MAP_LIMIT
+            || (UART_BASE >= DEVICE_WINDOW_PA && UART_BASE < DEVICE_WINDOW_PA + DEVICE_WINDOW_SIZE)
+    );
+};
+
 /// The boot page table: a single Sv39 root that maps the low physical range (to survive turning
 /// paging on) and its high-half alias (where the kernel is linked). Six gigapage (1 GiB) leaves are
 /// enough to run, print, and read the device tree: indices 0..=2 identity-map the UART region
@@ -133,9 +187,27 @@ struct BootTable([u64; paging::ENTRIES]);
 const fn boot_table() -> BootTable {
     // Sv39 gigapage leaf: V R W X A D set. RWX is deliberate and temporary (see above).
     const LEAF: u64 = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 6) | (1 << 7);
+    // **T-Head's memory type** (milestone 89): on a hart with `XTheadMae` on, every leaf names one,
+    // including these. Memory is cacheable, bufferable and shareable; the device window is strongly
+    // ordered and shareable. Linux's `_PAGE_PMA_THEAD` and `_PAGE_IO_THEAD`, and the same values
+    // `paging::Sv39Mae` writes into the fine tables. Zero on every other build, where bits 63:59
+    // are reserved and a set one is a page fault.
+    #[cfg(feature = "board_th1520")]
+    const MEMORY: u64 = 0b0111 << 60;
+    #[cfg(feature = "board_th1520")]
+    const DEVICE: u64 = 0b1001 << 60;
+    #[cfg(not(feature = "board_th1520"))]
+    const MEMORY: u64 = 0;
+    #[cfg(not(feature = "board_th1520"))]
+    const DEVICE: u64 = 0;
     // A 1 GiB-aligned physical base, as a gigapage PTE (PPN at bits 53:10).
     const fn giga(pa: u64) -> u64 {
-        ((pa >> 12) << 10) | LEAF
+        let memory_type = if pa >= DEVICE_WINDOW_PA {
+            DEVICE
+        } else {
+            MEMORY
+        };
+        ((pa >> 12) << 10) | LEAF | memory_type
     }
     let mut t = [0u64; paging::ENTRIES];
     t[0] = giga(0x0000_0000); // identity: 0..1 GiB, covers the UART at 0x1000_0000
@@ -144,6 +216,25 @@ const fn boot_table() -> BootTable {
     t[256] = t[0]; // high alias of index 0 (KERNEL_VA_BASE adds 256 to the top-level index)
     t[257] = t[1]; // high alias of index 1
     t[258] = t[2]; // high alias of index 2
+    // **The TH1520's whole 16 GiB** (milestone 89). Its DRAM starts at 0, and Scaleway's U-Boot
+    // places the device tree and the archive wherever `bootm` decides, which nothing here has seen.
+    // radon learned that a tree above the boot table's reach dies before the trap path can print,
+    // and fixed it with `fdt move` at the U-Boot prompt; the RV1 has no prompt anyone is promised.
+    // So this build names all of RAM from the first instruction. Not done for radon or QEMU,
+    // whose maps stay byte-identical, though it would be as inert there.
+    #[cfg(feature = "board_th1520")]
+    {
+        let mut g = 3;
+        while g < 16 {
+            t[g] = giga(g as u64 * (1 << 30));
+            t[256 + g] = t[g];
+            g += 1;
+        }
+    }
+    // The device window (milestone 89), so a machine whose console is up there can print before
+    // `mmu::init`. High alias only: nothing touches a device while the PC is still low. Inert on
+    // QEMU `virt` and radon, which have nothing in that gigabyte.
+    t[511] = giga(DEVICE_WINDOW_PA);
     BootTable(t)
 }
 
@@ -165,6 +256,24 @@ pub const VIRTIO_IRQ_BASE: u32 = 1;
 /// probe (`virtio::find_block_device`) walks them.
 pub const VIRTIO_SLOT_STRIDE: u64 = 0x1000;
 pub const VIRTIO_SLOTS: u64 = 8;
+
+/// Whether `map_everything` mapped the virtio-mmio window, which it does only when the device tree
+/// names a `virtio,mmio` node (milestone 89). Written once on the primary hart before any probe.
+static VIRTIO_MMIO_MAPPED: AtomicBool = AtomicBool::new(false);
+
+/// How many virtio-mmio slots the probe may read: [`VIRTIO_SLOTS`] on QEMU `virt`, and zero on a
+/// machine whose tree names no such bus. radon's JH7110 has UART0's register block at this address
+/// and the TH1520 has DRAM, so reading "slots" there was at best noise and at worst a RAM word that
+/// happened to spell the magic, handed to userspace as a device.
+///
+/// Name: provisional, milestone 89 (Scaleway EM-RV1)'s lane, 2026-10-06 (UTC). The same name on all three architectures.
+pub fn virtio_slots() -> u64 {
+    if VIRTIO_MMIO_MAPPED.load(Ordering::Relaxed) {
+        VIRTIO_SLOTS
+    } else {
+        0
+    }
+}
 
 /// How much of the PCIe ECAM window the kernel maps: **bus 0 only** (4 KB per function, 1 MB per
 /// bus). The window's *base and size* come from the device tree (`memory::pci_regions`, the
@@ -192,14 +301,63 @@ pub const PCI_BAR_MAPPED: u64 = 0x20_0000;
 /// dtb fixture test walks the machine's own `interrupt-map` and asserts the formula matches.
 pub const PCI_IRQ_BASE: u32 = 32;
 
-/// Physical to kernel-virtual. Identity in bare mode; `pa + KERNEL_VA_BASE` once the high-half exists.
+/// Physical to kernel-virtual: `pa + KERNEL_VA_BASE`, except in the [device window](DEVICE_WINDOW_PA).
+///
+/// **One formula for both, with no branch**, because this is inlined all over the IPC fastpath and
+/// `script/fastpath-footprint` measured a compare-and-branch here at +122 bytes on `ipc_call_reply`
+/// (milestone 89 (Scaleway EM-RV1)). The window was placed so that this works: its physical base,
+/// `0xff_c000_0000`, is 255 GiB modulo 256 GiB, which is exactly where its virtual base sits above
+/// `KERNEL_VA_BASE`. So keeping the low 38 bits and OR-ing in the high half maps RAM below 255 GiB
+/// to `pa + KERNEL_VA_BASE` (the OR is the add, since the low bits never carry into the base) and
+/// the window to [`DEVICE_WINDOW_VA`].
+///
+/// **The assumption, and it is load-bearing:** every physical address handed here is below 255 GiB
+/// or inside the window. Any other one, anything at or above 2^38 outside the window, silently
+/// aliases onto a different frame. It holds because Sv39 gives the kernel only 256 GiB to name
+/// things in, and every machine this tree boots keeps its RAM in the first 16 GiB. It is enforced
+/// where it can be checked without a cost per call: [`refuse_unnameable_ram`] at the top of
+/// [`init`] for RAM, and `direct_map` for every device mapping.
 pub const fn phys_to_virt(pa: u64) -> u64 {
-    pa + KERNEL_VA_BASE
+    (pa & ((1 << 38) - 1)) | KERNEL_VA_BASE
+}
+
+/// Whether [`phys_to_virt`] names `[pa_start, pa_end)` truthfully: the range lies wholly in the
+/// direct map (below [`DIRECT_MAP_LIMIT`]) or wholly in the device window. Anywhere else the mask
+/// aliases it onto some other physical address. Checked when mappings are built, never per call.
+const fn is_nameable(pa_start: u64, pa_end: u64) -> bool {
+    pa_end <= DIRECT_MAP_LIMIT
+        || (pa_start >= DEVICE_WINDOW_PA && pa_end <= DEVICE_WINDOW_PA + DEVICE_WINDOW_SIZE)
+}
+
+/// **Refuse a machine whose RAM [`phys_to_virt`] would alias**, before the first frame is named
+/// through the direct map (milestone 89 (Scaleway EM-RV1)).
+///
+/// The mask in [`phys_to_virt`] keeps only the low 38 bits, so a RAM region reaching 255 GiB or
+/// beyond would land on the device window or wrap onto low RAM, and the kernel would write one
+/// frame while believing it wrote another. That cannot happen on any machine this tree boots: Sv39
+/// itself caps the kernel's half at 256 GiB, QEMU `virt` here has at most a few GiB from
+/// `0x8000_0000`, radon has 8 GiB from `0x4000_0000`, and the TH1520 16 GiB from 0. A machine with
+/// more needs a second window or Sv48, and this makes it say so at boot instead of corrupting
+/// memory. Called first thing in [`init`]: before it, the boot table maps only the low gigabytes,
+/// so a high frame would fault rather than alias.
+fn refuse_unnameable_ram() {
+    for (start, size) in memory::ram_regions() {
+        let end = start.saturating_add(size);
+        assert!(
+            end <= DIRECT_MAP_LIMIT,
+            "RAM {start:#x}..{end:#x} reaches past the 255 GiB the Sv39 direct map can name; \
+             phys_to_virt would alias it (arch/riscv64/mmu.rs, DIRECT_MAP_LIMIT)"
+        );
+    }
 }
 
 /// Kernel-virtual to physical. The inverse of [`phys_to_virt`].
 pub const fn virt_to_phys(va: u64) -> u64 {
-    va - KERNEL_VA_BASE
+    if va >= DEVICE_WINDOW_VA {
+        va - DEVICE_WINDOW_VA + DEVICE_WINDOW_PA
+    } else {
+        va - KERNEL_VA_BASE
+    }
 }
 
 /// A physical page-table address as a kernel pointer. Identity in bare mode; the direct map makes it
@@ -217,6 +375,7 @@ pub fn phys_to_ptr(pa: u64) -> *mut PageTable {
 /// identically). This is the RISC-V counterpart of the aarch64 `mmu::init`, one register instead of
 /// the TTBR0/TTBR1 pair.
 pub fn init() {
+    refuse_unnameable_ram();
     let root = memory::alloc()
         .expect("no frame for the root page table")
         .addr();
@@ -228,7 +387,7 @@ pub fn init() {
     // SAFETY: `root` is zeroed and page-aligned; `phys_to_ptr` is valid because the boot table's
     // direct-map gigapages cover all of RAM (so every frame the mapper allocates is addressable).
     let mut mapper = unsafe {
-        Mapper::<_, _, Sv39>::new(
+        Mapper::<_, _, Format>::new(
             root,
             Half::High,
             || memory::alloc().map(|f| f.addr()),
@@ -388,7 +547,7 @@ pub fn init_secondary() {
 
 /// Build every mapping the kernel needs: the direct map of RAM, the W^X kernel sections, the stack,
 /// and the UART. Mirrors the aarch64 `map_everything`.
-fn map_everything<A, P>(m: &mut Mapper<A, P, Sv39>) -> Result<(), MapError>
+fn map_everything<A, P>(m: &mut Mapper<A, P, Format>) -> Result<(), MapError>
 where
     A: FnMut() -> Option<u64>,
     P: Fn(u64) -> *mut PageTable,
@@ -471,12 +630,25 @@ where
     // these slots for a block device (virtio::find_block_device) and owns the transport; the DMA
     // rings live in the driver's own region (notes/dma.md). Absent hardware here just reads as "no
     // device", so mapping it is harmless when no disk is attached.
-    direct_map(
-        m,
-        VIRTIO_MMIO_BASE,
-        VIRTIO_MMIO_BASE + VIRTIO_MMIO_SIZE,
-        Flags::device(),
-    )?;
+    //
+    //    **Only when the device tree names the bus** (milestone 89 (Scaleway EM-RV1)). This window
+    //    was mapped unconditionally from QEMU's constants, the same class as the PCI windows below:
+    //    on the T-Head TH1520 `0x1000_1000` is DRAM, already in the direct map from step 1, and the
+    //    mapper's overwrite refusal would end the boot here exactly as the PCI window ended radon's
+    //    first. [`virtio_slots`] reads the answer so the probe never reads an unmapped window.
+    let named = crate::device_tree().is_ok_and(|dt| {
+        let mut slot = [device_tree_blob::Region { start: 0, size: 0 }; 1];
+        matches!(dt.node_reg_compatible(b"virtio,mmio", &mut slot), Ok(n) if n >= 1)
+    });
+    if named {
+        direct_map(
+            m,
+            VIRTIO_MMIO_BASE,
+            VIRTIO_MMIO_BASE + VIRTIO_MMIO_SIZE,
+            Flags::device(),
+        )?;
+        VIRTIO_MMIO_MAPPED.store(true, Ordering::Relaxed);
+    }
 
     // 9. The PCIe windows (the PCIe transport): bus 0's ECAM config space, and the slice of the
     // 32-bit PCI memory window the kernel assigns BARs from, both straight from the device tree
@@ -502,7 +674,7 @@ where
 
 /// Map a range of *virtual* addresses to the physical ones they were linked against.
 fn map_range<A, P>(
-    m: &mut Mapper<A, P, Sv39>,
+    m: &mut Mapper<A, P, Format>,
     va_start: u64,
     va_end: u64,
     flags: Flags,
@@ -526,7 +698,7 @@ where
 /// stay in 4 KiB pages: they are a handful of pages each, and keeping them small is the same
 /// choice the x86 port makes for its own reasons (`arch/x86_64/mmu.rs`'s BUGS on the MTRRs).
 fn direct_map<A, P>(
-    m: &mut Mapper<A, P, Sv39>,
+    m: &mut Mapper<A, P, Format>,
     pa_start: u64,
     pa_end: u64,
     flags: Flags,
@@ -538,6 +710,12 @@ where
     if pa_end <= pa_start {
         return Ok(());
     }
+    // A device the tree places outside both nameable ranges would be mapped at an aliased VA.
+    // Boot-time only: this runs while the tables are built, never on the IPC path.
+    assert!(
+        is_nameable(pa_start, pa_end),
+        "{pa_start:#x}..{pa_end:#x} is outside the direct map and the device window; phys_to_virt would alias it"
+    );
     let len = (pa_end - pa_start).next_multiple_of(PAGE_SIZE);
     let largest = if flags.is_device() {
         PageSize::Size4KiB
@@ -549,7 +727,7 @@ where
 
 /// Walk the tables in software and check the things that would kill us, before the hardware bets the
 /// machine on them. The RISC-V counterpart of the aarch64 `verify`.
-fn verify<A, P>(m: &Mapper<A, P, Sv39>)
+fn verify<A, P>(m: &Mapper<A, P, Format>)
 where
     A: FnMut() -> Option<u64>,
     P: Fn(u64) -> *mut PageTable,
@@ -744,7 +922,7 @@ fn translate_in_either_half(va: u64) -> Option<(u64, Flags)> {
     let root = current_root_pa();
     // SAFETY: `root` is the live installed root; the direct map makes `phys_to_ptr` valid; a
     // translate allocates nothing, so the `|| None` allocator is never called.
-    let half = |h| unsafe { Mapper::<_, _, Sv39>::new(root, h, || None, phys_to_ptr) };
+    let half = |h| unsafe { Mapper::<_, _, Format>::new(root, h, || None, phys_to_ptr) };
     half(Half::Low)
         .translate(va)
         .or_else(|| half(Half::High).translate(va))
@@ -782,7 +960,7 @@ pub fn current_user_root() -> u64 {
 pub fn unmap_user_at(root: u64, va: u64) -> Option<u64> {
     // SAFETY: `root` is a live low-half-owning root; `unmap` allocates nothing; the direct map makes
     // `phys_to_ptr` valid.
-    let mut mapper = unsafe { Mapper::<_, _, Sv39>::new(root, Half::Low, || None, phys_to_ptr) };
+    let mut mapper = unsafe { Mapper::<_, _, Format>::new(root, Half::Low, || None, phys_to_ptr) };
     let (pa, flush) = mapper.unmap(va).ok()?;
     flush.flush(flush_tlb);
     Some(pa)
@@ -800,7 +978,7 @@ pub fn unmap_user_at(root: u64, va: u64) -> Option<u64> {
 pub fn cut_user_table(root: u64, va: u64, table: u64, asid: u16) -> Option<(u64, u64)> {
     // SAFETY: `root` is a live low-half table (the registry forgets a root before its space frees
     // it); the direct map makes `phys_to_ptr` valid; a cut allocates nothing.
-    let mut mapper = unsafe { Mapper::<_, _, Sv39>::new(root, Half::Low, || None, phys_to_ptr) };
+    let mut mapper = unsafe { Mapper::<_, _, Format>::new(root, Half::Low, || None, phys_to_ptr) };
     let (base, span, flush) = mapper.unlink_table(va, table)?;
     flush.flush(|_| flush_asid(asid));
     Some((base, span))
@@ -809,7 +987,7 @@ pub fn cut_user_table(root: u64, va: u64, table: u64, asid: u16) -> Option<(u64,
 /// Translate `va` in the space rooted at physical `root`.
 pub fn translate_at(root: u64, va: u64) -> Option<(u64, Flags)> {
     // SAFETY: `root` is a page table; the direct map makes `phys_to_ptr` valid; no allocation.
-    let mapper = unsafe { Mapper::<_, _, Sv39>::new(root, Half::Low, || None, phys_to_ptr) };
+    let mapper = unsafe { Mapper::<_, _, Format>::new(root, Half::Low, || None, phys_to_ptr) };
     mapper.translate(va)
 }
 
@@ -824,7 +1002,7 @@ pub fn map_current_user_page_frame(
 ) -> Result<(), MapError> {
     let root = current_root_pa();
     // SAFETY: `root` is the live installed root; the direct map makes `phys_to_ptr` valid.
-    let mut mapper = unsafe { Mapper::<_, _, Sv39>::new(root, Half::Low, alloc, phys_to_ptr) };
+    let mut mapper = unsafe { Mapper::<_, _, Format>::new(root, Half::Low, alloc, phys_to_ptr) };
     mapper.map(va, phys, flags)?;
     flush_tlb(va);
     Ok(())
@@ -875,7 +1053,7 @@ static KERNEL_MMU: crate::sync::IrqSafeMutex<()> =
 /// `KERNEL_ROOT` rather than `satp` back because both harts share one kernel root; **call only while
 /// holding [`KERNEL_MMU`].**
 #[allow(clippy::type_complexity)]
-fn kernel_mapper() -> Mapper<impl FnMut() -> Option<u64>, fn(u64) -> *mut PageTable, Sv39> {
+fn kernel_mapper() -> Mapper<impl FnMut() -> Option<u64>, fn(u64) -> *mut PageTable, Format> {
     let root = KERNEL_ROOT.load(Ordering::Relaxed);
     // SAFETY: `root` is the fine kernel table built by `init`; the direct map makes `phys_to_ptr`
     // valid for every table frame.
@@ -958,7 +1136,7 @@ pub fn is_mapped_in_current_space(va: u64) -> bool {
     let root = current_root_pa();
     // SAFETY: `root` is the live installed root; the direct map makes `phys_to_ptr` valid; a
     // translate allocates nothing, so the `|| None` allocator is never called.
-    let half = |h| unsafe { Mapper::<_, _, Sv39>::new(root, h, || None, phys_to_ptr) };
+    let half = |h| unsafe { Mapper::<_, _, Format>::new(root, h, || None, phys_to_ptr) };
     half(Half::Low).translate(va).is_some() || half(Half::High).translate(va).is_some()
 }
 
@@ -979,7 +1157,7 @@ pub fn is_mapped(va: u64) -> bool {
     let root = current_root_pa();
     // SAFETY: `root` is the live installed root; the direct map makes `phys_to_ptr` valid; a
     // translate allocates nothing, so the `|| None` allocator is never called.
-    let mapper = unsafe { Mapper::<_, _, Sv39>::new(root, Half::High, || None, phys_to_ptr) };
+    let mapper = unsafe { Mapper::<_, _, Format>::new(root, Half::High, || None, phys_to_ptr) };
     mapper.translate(va).is_some()
 }
 

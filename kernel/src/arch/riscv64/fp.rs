@@ -115,6 +115,13 @@ pub(super) const SSTATUS_FS_DIRTY: u64 = 0b11 << 13;
 /// clear is a no-op there; on a hart that arrives from firmware with it open, a thread could
 /// otherwise keep vector state that `hand_over` neither saves nor scrubs.
 const SSTATUS_VS: u64 = 0b11 << 9;
+/// **`XTheadVector`'s `VS`, bits 24:23** (milestone 89 (Scaleway EM-RV1)). The C906 and C910 implement
+/// vector 0.7.1, from before the ratified layout, and keep its enable in a different place. On a
+/// TH1520 the field above is not the vector unit's, so clearing only it leaves the gap the
+/// 2026-09-24 audit closed open on this core. Cleared only on a T-Head hart (`isa::is_thead`):
+/// elsewhere these bits are reserved, and a kernel has no business writing them. Linux's
+/// `SR_VS_THEAD` is the same mask.
+const SSTATUS_XTHEADVECTOR_VS: u64 = 0b11 << 23;
 
 /// **Put this hart into the state the rest of this module assumes**: FP off.
 ///
@@ -127,6 +134,9 @@ const SSTATUS_VS: u64 = 0b11 << 9;
 pub fn init() {
     disable();
     instructions::clear_sstatus(SSTATUS_VS);
+    if super::isa::is_thead() {
+        instructions::clear_sstatus(SSTATUS_XTHEADVECTOR_VS);
+    }
 }
 
 /// Let this hart execute FP instructions, by moving `FS` out of Off.
