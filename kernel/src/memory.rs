@@ -113,6 +113,11 @@ pub fn init() {
     // this machine is a JH7110. They are read here, while the tree is in hand, because the one
     // caller (the rebooting soak, just before its SBI reset) runs long after boot.
     record_jh7110(&dtb);
+    // The JH7110's two SD/MMC controllers (milestone 53 (the board's own peripherals: network and
+    // storage on real silicon)), under the same guard: recorded only once `record_jh7110` has
+    // established that this is a JH7110, because the vendor tree's `snps,dw-mshc` is a generic
+    // binding that says nothing about which board it is on.
+    record_jh7110_storage(&dtb);
 
     // The SMMUv3 (milestone 16b), present only when the machine was started with
     // `iommu=smmuv3`. Absent, the kernel runs exactly as before; present, iommu::init drives it.
@@ -227,6 +232,26 @@ pub fn init() {
     let forbidden = &forbidden[..n];
 
     bring_up_page_frames(ram, forbidden);
+}
+
+/// **Record the JH7110's SD/MMC controllers** (milestone 53 (the board's own peripherals: network
+/// and storage on real silicon)): slot 0, the eMMC socket, and slot 1, the microSD slot, each as
+/// the tree describes it, and nothing when the tree describes neither. Only on a machine
+/// `record_jh7110` has already found to be a JH7110. Its own frame for `record_jh7110`'s reason.
+#[inline(never)]
+fn record_jh7110_storage(dtb: &device_tree_blob::DeviceTreeBlob<'_>) {
+    if JH7110_CRG.lock().is_none() {
+        return;
+    }
+    let slot = |i| {
+        designware_mobile_storage::jh7110::discover(dtb, i)
+            .ok()
+            .flatten()
+    };
+    let slots = [slot(0), slot(1)];
+    if slots.iter().any(Option::is_some) {
+        *JH7110_STORAGE.lock() = Some(slots);
+    }
 }
 
 /// **Record the JH7110's clock-and-reset windows and the PMIC bus's plan** (milestones 220 and
@@ -666,6 +691,15 @@ pub fn plic_region() -> Option<(u64, u64)> {
     *PLIC_REGION.lock()
 }
 
+/// **The JH7110's SD/MMC controllers** (milestone 53 (the board's own peripherals: network and
+/// storage on real silicon)): slot 0 (the eMMC socket) and slot 1 (the microSD slot), each `None`
+/// when the tree does not describe it, and the whole answer `None` on every machine that is not a
+/// JH7110, which is every machine CI boots. RISC-V's `mmu::init` maps the first page of each.
+#[cfg_attr(not(target_arch = "riscv64"), allow(dead_code))] // no JH7110 anywhere but a JH7110
+pub fn jh7110_storage() -> Option<[Option<designware_mobile_storage::jh7110::Slot>; 2]> {
+    *JH7110_STORAGE.lock()
+}
+
 /// The JH7110's STG clock-and-reset window (milestone 220): where it is, and **whether the device
 /// tree said so or the corroborated constant did**. `None` on every machine that is not a
 /// `StarFive` JH7110, which is every machine this repository's CI boots. RISC-V's `mmu::init`
@@ -1050,6 +1084,11 @@ static GIC_REGIONS: IrqSafeMutex<Option<machine_discovery::gic::Gic>> =
 /// The PLIC's single register block, from the device tree (milestone 20). `None` on aarch64 (no such
 /// node) and until `init` has run.
 static PLIC_REGION: IrqSafeMutex<Option<(u64, u64)>> = IrqSafeMutex::new(rank::RAM, None);
+
+/// The JH7110's SD/MMC controllers (milestone 53). `None` until `init`, and on every machine that
+/// is not a JH7110.
+static JH7110_STORAGE: IrqSafeMutex<Option<[Option<designware_mobile_storage::jh7110::Slot>; 2]>> =
+    IrqSafeMutex::new(rank::RAM, None);
 
 /// The JH7110's STG clock-and-reset window, from the device tree or from the constant both
 /// published trees agree on (milestone 220). `None` until `init`, and on every machine that is
