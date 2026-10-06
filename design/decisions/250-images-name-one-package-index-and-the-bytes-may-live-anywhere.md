@@ -90,8 +90,13 @@ cheap option.
   belong to that ruling.
 - The index is authenticated by TLS alone. A per-source signature over the index, which §195
   leaves room for, would let the index itself be mirrored. Not ruled; nothing is blocked on it.
-- Root rotation. ISRG Root X1 expires in 2035 (*recalled*, not checked against the certificate),
-  and milestone 501's BUGS already carry the rotation story, which this does not solve.
+- Root rotation. ISRG Root X1 expires 2035-06-04 (UTC), read from the certificate itself by the
+  milestone 501 lane on 2026-10-06; this replaces the earlier *recalled* "2035". A date earlier
+  than that one governs: Let's Encrypt now issues from `Root YE` and `Root YR`, which chain to X1
+  only through cross-signatures that expire 2032-09-02, three years before X1. A client pinned to
+  X1 alone stops verifying Let's Encrypt certificates on that date unless the pin changes. The
+  evidence is in milestone 501's BUGS (branch `lane/501-tls`, PR #1759); the rotation itself is
+  not solved here.
 - Renewing `nifeos.org` (2027-10-03) gates every image that names it. Milestone 198's BUGS carry
   the same line; neither enforces it.
 - The index's path and file name on `basalt.nifeos.org` are pending calef's ruling.
