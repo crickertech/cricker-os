@@ -165,7 +165,8 @@ fn deputy(fs: &nifefs::Fs, w: &Wiring) -> ! {
     };
 
     // The incumbent: holds the device and the log, receiving on the stable endpoint. `log_base = 0`,
-    // so the attacker's offset reaches `DEV_VA + 0x800` through `log_put(log_base + arg, ..)`.
+    // so the attacker's offset would reach `DEV_VA` through `log_put(log_base + arg, ..)` if
+    // `log_put` did not bound it.
     start_child(&v1, &component, w.faultep, [1, 0, 0], 11);
 
     // The attacker: the honest client's capabilities and no device. It drives the server to write

@@ -825,10 +825,29 @@ pub fn probe_device() -> u64 {
 /// The log page, as a slice. Volatile accessors rather than a plain slice because two address
 /// spaces write it and one reads it, and the reads are ordered against the writes by IPC (the
 /// operator only ever reads after a message from the writer has come through the kernel).
-pub fn log_put(seq: u64, version: u64) {
-    // SAFETY: the log page is mapped read/write at LOG_VA in every process that calls this.
+///
+/// `seq` comes from a client's request word, so it is bounded here and not trusted: the log
+/// capability grants one page, and an unbounded offset let a client holding only `WRITE` on the
+/// endpoint make the server write into the device page mapped after it, a confused deputy found by
+/// milestone 633's third outsider pass and pinned by
+/// `live_swap_tests::a_confined_client_drives_the_server_to_write_past_its_log`. Returns whether
+/// the byte was written.
+pub fn log_put(seq: u64, version: u64) -> bool {
+    if seq >= LOG_BYTES {
+        return false;
+    }
+    // SAFETY: the log page is mapped read/write at LOG_VA in every process that calls this, and
+    // `seq < LOG_BYTES` keeps the write inside that one page.
     unsafe { core::ptr::write_volatile((LOG_VA as *mut u8).add(seq as usize), version as u8) };
+    true
 }
+
+/// The log page's size: the whole of what the log capability grants.
+pub const LOG_BYTES: u64 = PAGE;
+
+/// What a server answers in both words to an `OPERATION_PUT` whose offset falls outside the log
+/// page. Name provisional (milestone 633).
+pub const PUT_REFUSED: u64 = u64::MAX;
 
 /// Read back the version byte [`log_put`] wrote at `seq`.
 pub fn log_get(seq: u64) -> u64 {
@@ -949,7 +968,10 @@ pub fn serve_with_state(
             };
             match operation {
                 OPERATION_PUT => {
-                    log_put(log_base + arg, version);
+                    if !log_put(log_base.saturating_add(arg), version) {
+                        user_mode_runtime::reply(slot, PUT_REFUSED, PUT_REFUSED);
+                        continue;
+                    }
                     user_mode_runtime::reply(slot, xform(arg), tag(version, tally));
                     tally += 1;
                     since += 1;
@@ -1061,7 +1083,10 @@ pub fn serve(version: u64, xform: fn(u64) -> u64, log_base: u64, device: bool, w
                 user_mode_runtime::exit()
             }
             OPERATION_PUT => {
-                log_put(log_base + arg, version);
+                if !log_put(log_base.saturating_add(arg), version) {
+                    user_mode_runtime::reply(slot, PUT_REFUSED, PUT_REFUSED);
+                    continue;
+                }
                 served += 1;
                 user_mode_runtime::reply(slot, xform(arg), tag(version, arg));
                 if served == SWAP_TRIGGER && version == V1 {
@@ -1070,6 +1095,12 @@ pub fn serve(version: u64, xform: fn(u64) -> u64, log_base: u64, device: bool, w
                     user_mode_runtime::send(NOTE, NOTE_SWAP_NOW, version, served);
                 }
             }
+            // BUGS: the quiesce arrives on `SVC`, the endpoint every client holds `WRITE` on, and
+            // nothing tells the operator's CALL from a client's. Any client can evict the server
+            // from its endpoint: a denial of service, not a reach, found by milestone 633's third
+            // outsider pass and read rather than booted. Closing it means the operator quiescing on
+            // a channel only it holds, or a badge the server checks; the second is the shape of
+            // §230 (badged endpoint capabilities), and either changes this protocol.
             OPERATION_QUIESCE => {
                 user_mode_runtime::send(RPT, RPT_QUIESCED, version, served);
                 user_mode_runtime::reply(slot, QUIESCED, served);

@@ -557,31 +557,21 @@ fn a_client_of_the_stable_rendezvous_cannot_become_its_server() {
     );
 }
 
-/// **A confined client drives the server to write past its log, into a device page it was never
-/// granted** (milestone 633 (an outside agent attacks the confinement claim), third pass). Opt-in
-/// and red by design.
+/// **A confined client cannot drive the server to write past its log, into a device page it was
+/// never granted** (milestone 633 (an outside agent attacks the confinement claim), third pass).
 ///
 /// The kernel refuses the attacker's `RECEIVE_CAP` (it holds `WRITE`, not `READ`), so it cannot
-/// become the server, which the test above asserts. But the server's `OPERATION_PUT` runs
-/// `log_put(log_base + arg, version)` with `arg` the client's own word and no bound, so the attacker
-/// asks the server to write at an offset that lands in the device register page the attacker holds
-/// no capability for. The server serves it and echoes the offset, so a `WRITE`-only client reached
-/// outside the server's one shared log page on its own behalf. This is a confused-deputy escape of
-/// the demonstrator's boundary, not a kernel gate failure: the kernel gave the client exactly
-/// `WRITE` on an endpoint, and the unbounded write is the server's. The fix is owed on
-/// `swap_protocol::serve` (a bound on the offset) and this pass does not write it.
+/// become the server, which the test above asserts. That is not the whole of claim 26: the server's
+/// `OPERATION_PUT` writes a byte at `LOG_VA + log_base + arg`, with `arg` the client's own word. Until
+/// the third outsider pass found it, nothing bounded `arg`, so a `WRITE`-only client asked for an
+/// offset landing in the device register page the server holds and the client does not, and the
+/// server wrote there and echoed the offset. That was a confused-deputy escape of the demonstrator's
+/// boundary, not a kernel gate failure, booted red on aarch64 and riscv64. `swap_protocol::log_put`
+/// now refuses an offset outside the one log page and the server answers `PUT_REFUSED`.
 ///
-/// **Opt-in and red.** It asserts the property that should hold (the server does not serve an
-/// out-of-log offset), which fails, so the default suite skips it to keep CI green and it runs only
-/// when named: `script/test --test a_confined_client_drives`.
+/// Falsification: replayable `system_tests/falsifications/user.live_swap_tests.a_confined_client_drives_the_server_to_write_past_its_log.patch`
 #[test_case]
 fn a_confined_client_drives_the_server_to_write_past_its_log() {
-    if !crate::testing::run_was_filtered() {
-        crate::testing::skip!(
-            "opt-in: a red test documenting a confused-deputy escape in the swap demonstrator; \
-             run it with `script/test --test a_confined_client_drives`"
-        );
-    }
     if machine_has_no_device_page_for_the_console() {
         crate::testing::skip!(NO_UART_PAGE);
     }
@@ -613,6 +603,13 @@ fn a_confined_client_drives_the_server_to_write_past_its_log() {
          holds no capability for. The server echoed the offset (tag {:#x}) rather than refusing it.",
         DEPUTY_PROBE,
         deputy[2],
+    );
+    // And the server said so, rather than answering something else that happens not to echo the
+    // offset. `swap_protocol::PUT_REFUSED`, mirrored.
+    assert_eq!(
+        (deputy[1], deputy[2]),
+        (u64::MAX, u64::MAX),
+        "the server neither served nor refused the out-of-log PUT as the protocol says",
     );
 }
 
