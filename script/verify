@@ -342,6 +342,9 @@ set -- -j "${VERIFY_JOBS:-4}" --output-format=terse "$@"
 # `e1000e`'s 2 seconds (milestone 494 (a driver for the network card a PC actually has), 2026-10-04) are the same kind of dev-Mac number, for three
 # harnesses; replace it from a CI log the same way.
 #
+# `designware_mobile_storage`'s 4 seconds (milestone 53 (the board's own peripherals: network and storage on real silicon),
+# 2026-10-06) are the same kind of dev-Mac number, for four harnesses.
+#
 # `kernel`'s 5 seconds are the same kind of number and carry one extra caveat: what the solver spends
 # is milliseconds, and the row is almost entirely the crate's own compile. It will grow with the
 # harnesses rather than with the kernel.
@@ -391,6 +394,7 @@ credential_protocol	4	no request word reads outside the page; nothing but MATCH 
 component_plan	10	no wiring grants a right its declaration did not ask for
 timetable	5	the scheduler's fire arithmetic: strictly forward, minimal, and a stall costs one fire
 jh7110_entropy	6	the board TRNG's status decode, and that a lockup bit is never overridden
+designware_mobile_storage	5	the SD write test never lands in a partition, no served block leaves its window, the FIFO is never overrun, no admitted block wraps its address
 kernel	5	the run arithmetic in the kernel's own syscall dispatch, and the SMMU entries that say which frames a device may reach
 components	3	the EL0 components: a bounded append that a configuration page this system did not write feeds
 machine_discovery	180	the firmware tables and boot handoffs: ACPI, PVH, the screen token, the RISC-V ISA string

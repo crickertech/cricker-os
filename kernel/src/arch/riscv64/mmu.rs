@@ -686,6 +686,19 @@ where
         direct_map(m, bar, bar + PCI_BAR_MAPPED.min(bar_size), Flags::device())?;
     }
 
+    // 10. The JH7110's SD/MMC controllers (milestone 53 (the board's own peripherals: network and
+    // storage on real silicon)), device memory: the first page of each, which holds every
+    // register the driver touches and the data FIFO (`designware_mobile_storage::regs::
+    // WINDOW_USED`), not the whole 64 KiB window the tree names. Present only when
+    // `memory::init` found a JH7110 and its tree describes the controller, so never on a machine
+    // CI boots. Their clocks and resets are in the SYS window, which 6c maps under the same guard.
+    if let Some(slots) = memory::jh7110_storage() {
+        for s in slots.iter().flatten() {
+            let used = u64::from(designware_mobile_storage::regs::WINDOW_USED).min(s.size);
+            direct_map(m, s.base, s.base + used, Flags::device())?;
+        }
+    }
+
     Ok(())
 }
 

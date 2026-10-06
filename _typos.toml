@@ -118,6 +118,13 @@ decrypter = "decrypter"
 # translates its own devices)).
 ND = "ND"
 
+# The DesignWare Mobile Storage Host Controller's databook names (milestone 53 (the board's own
+# peripherals: network and storage on real silicon)): `RTO` is its response-timeout interrupt bit,
+# kept beside `DRTO` and `HTO` under the databook's spelling, and `synopsys` is the vendor as the
+# Linux binding files spell it (`synopsys-dw-mshc-common.yaml`).
+RTO = "RTO"
+synopsys = "synopsys"
+
 [default.extend-identifiers]
 # Deliberate capitalisation inside prose, where the case is the emphasis: "Address Space
 # IDentifier". Same list as clippy.toml's doc-valid-idents, for the same reason.

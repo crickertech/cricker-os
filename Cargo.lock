@@ -202,6 +202,7 @@ dependencies = [
  "credential_protocol",
  "credentialer",
  "designware_ethernet",
+ "designware_mobile_storage",
  "documentation",
  "domain_name_system",
  "e1000e",
@@ -356,6 +357,15 @@ version = "0.1.0"
 dependencies = [
  "address_space_map",
  "device_tree_blob",
+]
+
+[[package]]
+name = "designware_mobile_storage"
+version = "0.1.0"
+dependencies = [
+ "address_space_map",
+ "device_tree_blob",
+ "filesystem_protocol",
 ]
 
 [[package]]
@@ -628,6 +638,7 @@ dependencies = [
  "credential_protocol",
  "current_cpu_protocol",
  "designware_ethernet",
+ "designware_mobile_storage",
  "device_tree_blob",
  "direct_memory_access_validator",
  "e1000e",

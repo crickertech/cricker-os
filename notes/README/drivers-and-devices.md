@@ -6,6 +6,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [PCIe, and driving a disk over it](../pcie.md): the PCIe transport, with the kernel as firmware.
 - [Scoping a PCIe transport](../pcie-transport-scope.md): the pre-build scope for PCIe and virtio-pci.
 - [NVMe: the first non-virtio disk](../non-volatile-memory-express.md): an NVMe driver confined by the IOMMU alone.
+- [radon's SD card and eMMC](../designware-mobile-storage.md): the JH7110's DesignWare Mobile Storage controller, why it reads through the FIFO first, and its read-only bench step on radon.
 - [A USB keyboard](../usb.md): the xHCI driver at EL0, the register pages it is denied, and the gate that types `echo hello` on it.
 - [Fatal risk 6's bench evening on xenon](../risk-6-bench-evening.md): the confined NVMe driver's preflight, throughput boot and outcomes.
 - [The `e1000e` NIC](../e1000e.md): the network card a PC actually has, driven from `net_stack` behind the IOMMU, and its bench step on xenon.

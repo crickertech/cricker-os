@@ -1,0 +1,45 @@
+/dts-v1/;
+
+/*
+ * The JH7110's two SD/MMC controllers as radon's VENDOR tree describes them: the nodes of
+ * starfive-tech/u-boot's arch/riscv/dts/jh7110.dtsi with starfive_visionfive2.dts's overrides
+ * applied, branch JH7110_VisionFive2_devel, read 2026-10-06 (UTC). Only these two nodes and the
+ * /soc cells they are decoded under; the clock and reset phandles are dropped, since nothing in
+ * this crate reads them (the plan is jh7110_clock_and_reset's). Note what is absent: the vendor
+ * nodes carry no `interrupts`. Compile: dtc -I dts -O dtb -o jh7110-mmc-vendor.dtb jh7110-mmc-vendor.dts
+ */
+
+/ {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	compatible = "starfive,visionfive-v2", "starfive,jh7110";
+
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		sdio0@16010000 {
+			compatible = "snps,dw-mshc";
+			reg = <0x0 0x16010000 0x0 0x10000>;
+			clock-names = "biu", "ciu";
+			reset-names = "reset";
+			assigned-clock-rates = <50000000>;
+			fifo-depth = <32>;
+			bus-width = <8>;
+			status = "okay";
+		};
+
+		sdio1@16020000 {
+			compatible = "snps,dw-mshc";
+			reg = <0x0 0x16020000 0x0 0x10000>;
+			clock-names = "biu", "ciu";
+			reset-names = "reset";
+			assigned-clock-rates = <50000000>;
+			fifo-depth = <32>;
+			bus-width = <4>;
+			status = "okay";
+		};
+	};
+};

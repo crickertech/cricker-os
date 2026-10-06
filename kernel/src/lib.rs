@@ -124,6 +124,19 @@ mod lock_wait;
 mod disk_throughput;
 #[cfg(feature = "network_bench")]
 mod network_bench;
+// Milestone 53 (the board's own peripherals: network and storage on real silicon)'s storage bench
+// boot on radon: the SD/MMC controller's first contact with silicon, read-only unless built to
+// write. riscv64 only, because the controller is the JH7110's. See kernel/src/storage_bench.rs.
+#[cfg(all(feature = "storage_bench", target_arch = "riscv64"))]
+mod storage_bench;
+#[cfg(all(feature = "storage_bench", not(target_arch = "riscv64")))]
+compile_error!("storage_bench probes the JH7110's SD/MMC controller and builds only for riscv64");
+// The JH7110's SD/MMC controller's volatile half (milestone 53): a mapped window and a clock for
+// `designware_mobile_storage`'s driver. riscv64-only because the JH7110 is; the module header
+// carries the parity note. See kernel/src/designware_mobile_storage.rs.
+#[cfg(target_arch = "riscv64")]
+#[cfg_attr(not(feature = "storage_bench"), allow(dead_code))]
+mod designware_mobile_storage;
 #[cfg(feature = "soak_test")]
 mod soak;
 // The progenitor's stack high-water gauge and its headroom floor (name provisional).
@@ -1903,6 +1916,10 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         // same position for the same reason; see kernel/src/network_bench.rs.
         #[cfg(feature = "network_bench")]
         network_bench::run();
+        // **Milestone 53's storage bench boot**, in the same position for the same reason; see
+        // kernel/src/storage_bench.rs.
+        #[cfg(feature = "storage_bench")]
+        storage_bench::run();
         // **Nothing halts by default** (milestone 268, item 4). The tour used to end here in
         // `arch::halt()`, and that was the right thing to do while the arch layer beneath the
         // shared path was still being built: there was nothing honest to fall through to. There is
@@ -1927,7 +1944,8 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
             feature = "soak_test",
             feature = "job_mix",
             feature = "disk_throughput",
-            feature = "network_bench"
+            feature = "network_bench",
+            feature = "storage_bench"
         )))]
         {
             riscv_hand_over();
@@ -2531,7 +2549,8 @@ fn stack_top() -> usize {
         feature = "soak_test",
         feature = "job_mix",
         feature = "disk_throughput",
-        feature = "network_bench"
+        feature = "network_bench",
+        feature = "storage_bench"
     ),
     allow(dead_code)
 )]

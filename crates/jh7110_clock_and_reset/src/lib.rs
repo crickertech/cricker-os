@@ -454,6 +454,79 @@ pub const PMIC_BUS_BRING_UP: &[Step] = &[
     Step::DeassertReset(SYSRST_I2C5_APB),
 ];
 
+/// `JH7110_SYSCLK_SDIO0_AHB` \[mainline-ids\], the vendor header's `JH7110_SDIO0_CLK_AHB`, both
+/// **91**: the eMMC socket's controller's bus clock, `biu` in both trees (milestone 53 (the
+/// board's own peripherals: network and storage on real silicon)). Word `0x16c`.
+pub const SYSCLK_SDIO0_AHB: u32 = 91;
+/// `JH7110_SYSCLK_SDIO1_AHB`, vendor `JH7110_SDIO1_CLK_AHB`, both **92**: the microSD slot's
+/// controller's bus clock. Word `0x170`.
+pub const SYSCLK_SDIO1_AHB: u32 = 92;
+/// `JH7110_SYSCLK_SDIO0_SDCARD`, vendor `JH7110_SDIO0_CLK_SDCARD`, both **93**: the eMMC
+/// controller's card clock source, `ciu`, a gated divider both trees assign 50 MHz. Word `0x174`.
+pub const SYSCLK_SDIO0_SDCARD: u32 = 93;
+/// `JH7110_SYSCLK_SDIO1_SDCARD`, vendor `JH7110_SDIO1_CLK_SDCARD`, both **94**: the microSD
+/// controller's `ciu`. Word `0x178`.
+pub const SYSCLK_SDIO1_SDCARD: u32 = 94;
+/// `JH7110_SYSRST_SDIO0_AHB` \[mainline-ids\]: the eMMC controller's one reset. Bit 0 of the
+/// word at `0x300`.
+pub const SYSRST_SDIO0_AHB: u32 = 64;
+/// `JH7110_SYSRST_SDIO1_AHB`: the microSD controller's one reset. Bit 1 of the word at `0x300`.
+pub const SYSRST_SDIO1_AHB: u32 = 65;
+
+/// **What each SD/MMC controller needs before its registers answer** (milestone 53), slot 0 (the
+/// eMMC socket) then slot 1 (the microSD slot): both clocks mainline's node names, then its reset,
+/// in [`TRNG_BRING_UP`]'s order and for its reason. OpenBSD's `dwmmc_attach` takes the same order
+/// (`clock_enable_all`, then `reset_deassert_all`). Every step is idempotent, which matters here:
+/// radon's U-Boot has already brought the microSD controller up to load the boot script, and the
+/// bench step reads whether it left it that way before it walks the plan.
+pub const SDIO_BRING_UP: [&[Step]; 2] = [
+    &[
+        Step::EnableClock(SYSCLK_SDIO0_AHB),
+        Step::EnableClock(SYSCLK_SDIO0_SDCARD),
+        Step::DeassertReset(SYSRST_SDIO0_AHB),
+    ],
+    &[
+        Step::EnableClock(SYSCLK_SDIO1_AHB),
+        Step::EnableClock(SYSCLK_SDIO1_SDCARD),
+        Step::DeassertReset(SYSRST_SDIO1_AHB),
+    ],
+];
+
+/// The divider field of a JH7110 clock word, bits 23:0 (\[mainline-clk\]'s `JH71X0_CLK_DIV_MASK`).
+/// A transcript prints it beside the enable bit so the card clock's source rate is read off the
+/// silicon rather than assumed from `assigned-clock-rates`.
+#[must_use]
+pub const fn clock_divider(word: u32) -> u32 {
+    word & 0x00ff_ffff
+}
+
+#[cfg(test)]
+mod sdio_tests {
+    use super::*;
+
+    #[test]
+    fn each_sdio_plan_ungates_both_clocks_before_its_reset_and_stays_in_the_sys_domain() {
+        for plan in SDIO_BRING_UP {
+            assert!(matches!(plan.last(), Some(Step::DeassertReset(_))));
+            assert_eq!(plan.len(), 3);
+            for s in plan {
+                if let Step::EnableClock(i) = *s {
+                    assert!(SYS.clock_offset(i).is_some());
+                } else if let Step::DeassertReset(i) = *s {
+                    assert!(SYS.reset_bit(i).is_some());
+                }
+            }
+        }
+        assert_eq!(SYS.clock_offset(SYSCLK_SDIO1_SDCARD), Some(0x178));
+        let r = SYS.reset_bit(SYSRST_SDIO1_AHB).unwrap();
+        assert_eq!(
+            (r.assert_offset, r.status_offset, r.mask),
+            (0x300, 0x310, 1 << 1)
+        );
+        assert_eq!(clock_divider(CLOCK_ENABLE | 8), 8);
+    }
+}
+
 /// The PMIC as radon's vendor tree spells it (U-Boot SDK `VF2_v2.10.4`, `starfive_visionfive2.dts`:
 /// `pmic: axp15060_reg@36 { compatible = "stf,axp15060-regulator"; reg = <0x36>; }` under
 /// `&i2c5`). This is also the string radon's OpenSBI matches to find its reset device.

@@ -3639,6 +3639,15 @@ fn boot_screen_terminal() -> Option<display_service::TerminalWiring> {
 // the system tests, std_service, the installer and boot_progenitor are its callers
 pub mod entropy_service;
 
+/// **radon's SD/MMC block server's wiring** (milestone 53 (the board's own peripherals: network
+/// and storage on real silicon)): the kernel ungates the controller and hands a process one page of
+/// it, a transfer region and a window of the card. riscv64-only because the controller is the
+/// JH7110's; `kernel/src/designware_mobile_storage.rs` carries the parity note. The bench boot is
+/// its only caller until `PROVEN_ON_SILICON`.
+#[cfg(target_arch = "riscv64")]
+#[cfg_attr(not(feature = "storage_bench"), allow(dead_code))]
+pub mod designware_mobile_storage_service;
+
 /// **The EL0 NVMe block server's wiring** (milestone 261; DECISIONS §86's option 2a).
 ///
 /// The kernel keeps the admin plane, which is the authority to say where a queue lives, and hands
