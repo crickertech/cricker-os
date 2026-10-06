@@ -34,7 +34,7 @@ name is a file the firmware will not find and nothing will say why. The refusal 
 ## What it forecloses today, and what it does not
 
 It forecloses an installer on riscv64, and nothing else. The one caller is
-`components/src/installer.rs`, which writes a disk's EFI system partition on the machine being
+`components/src/system_installer.rs`, which writes a disk's EFI system partition on the machine being
 installed. Nothing else in this tree writes FAT at all: `crates/stick_maker` runs on a host and
 delegates formatting to that host's own tools (`diskutil`, `mkfs.vfat`), and QEMU's `vvfat`
 synthesizes a volume from a directory, so both reach `BOOTRISCV64.EFI` without going near this

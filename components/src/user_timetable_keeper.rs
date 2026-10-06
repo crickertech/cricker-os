@@ -1,4 +1,4 @@
-//! **The session process: what keeps a user's schedule running after they disconnect**
+//! **`user_timetable_keeper`: what keeps a user's schedule running after they disconnect**
 //! (milestone 152 (durable delegation), S1 and L2 of 2026-09-26, §222 (who holds a user's
 //! schedule)).
 //!
@@ -32,10 +32,10 @@
 //! **Only the timetable's death arrives.** The reap still decides rather than the event word, which
 //! is cheap and keeps this process right if something else ever holds `e`.
 //!
-//! # Capability contract (`login_protocol::session`)
+//! # Capability contract (`login_protocol::user_timetable_keeper`)
 //!
 //! - slot [`READY`]: `WRITE`. One readiness word or a failure word, and, at the end,
-//!   `login_protocol::session::STOPPED`.
+//!   `login_protocol::user_timetable_keeper::STOPPED`.
 //! - slot [`BUDGET`]: `WRITE | GRANT`. The timetable, its jobs, and both endpoints are built from
 //!   it; `GRANT` because the timetable is handed a split of it.
 //! - slot [`PAGE`]: `WRITE`. The registration page, retyped by `login` from this process's own
@@ -44,15 +44,19 @@
 //!   store's `activation/` and `packages/` read-only, handed on to the timetable.
 //! - slot [`STORE_PAGE`]: `WRITE`. The durable window's page the caretakers stage through, mapped
 //!   into the timetable and never here.
-//! - `a0`: the length of `timetable`'s image, copied in at `login_protocol::session::TIMETABLE_VA`.
+//! - `a0`: the length of `timetable`'s image, copied in at `login_protocol::user_timetable_keeper::TIMETABLE_VA`.
 //!
-//! Name: provisional. calef ruled S1 on 2026-09-26 and gave no name; the maintainer suggested
-//! `session`, and this lane shipped it on 2026-09-26. It names what the process is for a user
-//! rather than what it does, which is the question the naming conventions ask first.
+//! Name: ratified 2026-10-06 (calef, "`user_timetable_keeper` ratified.", in conversation),
+//! replacing the provisional `session` (the maintainer's suggestion, shipped 2026-09-26). It builds
+//! a user's timetable and holds it alive after logout. `session` collided with every other OS's
+//! login session and with the login sessions PR #1769 proposes. Refused `supervisor`, because it
+//! does not restart a faulted timetable (BUGS), and `caretaker`, because it serves no access. A
+//! keeper holds something alive and does not restart it; if this ever restarts the timetable, it
+//! is renamed `user_timetable_supervisor`.
 //!
 //! # BUGS
 //!
-//! - **Nothing restarts a timetable that faults.** The session exits, and the schedule stays on
+//! - **Nothing restarts a timetable that faults.** This process exits, and the schedule stays on
 //!   disk for the next `SCHEDULE` or the boot-time re-deriver.
 //! - **The timetable's image is copied twice**, once into this process and once into the
 //!   timetable, because `supervision_protocol::build_child` can hand a child data only by copying a
@@ -71,7 +75,7 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use login_protocol::session as contract;
+use login_protocol::user_timetable_keeper as contract;
 use supervision_protocol::{
     ChildEndowment, Retention, build_child, memory_region_destroy, memory_region_split,
     retype_obj_from as retype_obj, start_child,
@@ -113,7 +117,8 @@ const TIMETABLE_REGION_PAGES: u64 = 272;
 const JOB_BUDGET_PAGES: u64 = 128;
 // What this process splits must fit what `login` gives it, with the two endpoints' pages beside.
 const _: () = assert!(
-    TIMETABLE_REGION_PAGES + JOB_BUDGET_PAGES < login_protocol::durable::SESSION_BUDGET_PAGES
+    TIMETABLE_REGION_PAGES + JOB_BUDGET_PAGES
+        < login_protocol::durable::USER_TIMETABLE_KEEPER_BUDGET_PAGES
 );
 
 /// How many times to retry a reap or a destroy that finds something still standing on its region.
@@ -123,7 +128,7 @@ const ATTEMPTS: usize = 1024;
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(image_len: u64, _a1: u64, _a2: u64) -> ! {
     // SAFETY: `login` copies `image_len` bytes to `TIMETABLE_VA` before this process runs
-    // (`login_protocol::session`'s contract), and nothing writes them afterwards.
+    // (`login_protocol::user_timetable_keeper`'s contract), and nothing writes them afterwards.
     let image = unsafe {
         core::slice::from_raw_parts(contract::TIMETABLE_VA as *const u8, image_len as usize)
     };

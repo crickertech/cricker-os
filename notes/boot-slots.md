@@ -183,7 +183,7 @@ touch (the network stack, the compositor, a driver nothing opens at boot), the s
 row stronger than this reaches, and anything that fails after the first few seconds. It is a
 statement about coming up, not about running.
 
-**The write is `installer`'s `ROLE_CONFIRM`**, which is `ROLE_SURVEY` with a write: the same 34
+**The write is `system_installer`'s `ROLE_CONFIRM`**, which is `ROLE_SURVEY` with a write: the same 34
 blocks, the same parser, one attribute word put back. It holds no entropy endpoint, so it cannot
 draw the unique ids a new table carries and the only table it can write is the one it read; and no
 boot file, so it cannot rewrite the image it is vouching for.

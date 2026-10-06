@@ -94,7 +94,7 @@ screen_console = { version = "0.1.0", path = "../crates/screen_console" }
 machine_discovery = { version = "0.1.0", path = "../crates/machine_discovery" }
 
 # **The two-slot boot state, and the policy over it** (rung 2b of milestone 198 (a package manager, and the trivial install that makes a second customer possible)). `src/chooser.rs`
-# reads it out of a disk's GPT and `components/src/installer.rs` writes it, so rule 7 applies: what
+# reads it out of a disk's GPT and `components/src/system_installer.rs` writes it, so rule 7 applies: what
 # two binaries agree on is a crate. Ours, in this workspace; its own single dependency is the GPT
 # crate below. Not a §46 decision.
 boot_slot = { version = "0.1.0", path = "../crates/boot_slot" }

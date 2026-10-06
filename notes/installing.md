@@ -59,8 +59,8 @@ $ hdiutil detach /Volumes/NIFE
 | | holds | may destroy |
 |---|---|---|
 | `kernel/src/user/install_service.rs` | the boot path and the console | nothing: it has no block endpoint of its own to spend |
-| `components/src/installer.rs`, `ROLE_SURVEY` | the disk | nothing it could write would be read back: no entropy endpoint, so no unique ids |
-| `components/src/installer.rs`, `ROLE_INSTALL` | the disk, an entropy endpoint, a read-only copy of the boot file | that disk |
+| `components/src/system_installer.rs`, `ROLE_SURVEY` | the disk | nothing it could write would be read back: no entropy endpoint, so no unique ids |
+| `components/src/system_installer.rs`, `ROLE_INSTALL` | the disk, an entropy endpoint, a read-only copy of the boot file | that disk |
 | `redoxfs_server`'s `mkfs` (unmodified) | the same disk, the same entropy endpoint | that disk |
 
 **The question is asked by the service and not by the installer**, and that is the design rather
@@ -121,7 +121,7 @@ the `blk` wire (which is a wire value two programs agree on, and therefore calef
 process in the middle of every filesystem block. `kernel/src/user/fs_service.rs` grew an NVMe arm and
 nothing else.
 
-What it costs is real and is recorded in `installer`'s `BUGS`: the filesystem server on an
+What it costs is real and is recorded in `system_installer`'s `BUGS`: the filesystem server on an
 installed machine can address the EFI system partition and the partition table. What keeps it inside
 the partition today is that `mkfs` created it bounded by a `PartitionDisk`, so its allocator never
 learns about the blocks past the end, a property of the filesystem rather than a capability, which
@@ -204,7 +204,7 @@ chooser started it from a slot, and the kernel mounts the NVMe only when that to
 stick, a `-kernel` boot and the device-tree architectures leave the internal disk alone. Boot 3 now
 finds the disk byte-identical.
 
-The sixth, the partition-bounded mount, is a `BUGS` entry in `installer` rather than a proposal,
+The sixth, the partition-bounded mount, is a `BUGS` entry in `system_installer` rather than a proposal,
 because what closes it is a wire value two programs agree on and that is an architect's to name
 rather than a lane's to propose.
 

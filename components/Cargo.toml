@@ -307,16 +307,17 @@ path = "src/disk_partitioner.rs"
 test = false
 bench = false
 
-# `installer` (milestone 198 (a package manager, and the trivial install that makes a second
+# `system_installer` (milestone 198 (a package manager, and the trivial install that makes a second
 # customer possible), rung 2a): the program a booted stick runs to put this system on the machine's
 # own disk. The most destructive program in this tree, and it holds exactly what
 # `disk_partitioner` holds plus a read-only copy of the file this machine booted from: one disk, one
 # entropy endpoint, no path to type. The question that precedes it is asked by
-# `kernel/src/user/install_service.rs`, before the disk capability exists. **Provisional name**,
-# set aside for it by `crates/stick_maker`'s own header.
+# `kernel/src/user/install_service.rs`, before the disk capability exists. Name: ratified
+# 2026-10-06 (calef, in conversation), replacing the provisional `installer`; the source file's
+# header has the reasons.
 [[bin]]
-name = "installer"
-path = "src/installer.rs"
+name = "system_installer"
+path = "src/system_installer.rs"
 test = false
 bench = false
 
@@ -429,12 +430,14 @@ path = "src/identity_provisioner.rs"
 test = false
 bench = false
 
-# The session process (milestone 152 (durable delegation), S1 of 2026-09-26, provisional name): built by `login` from a
-# user's session budget when they open their schedule; it builds their timetable, supervises it, and
-# is what keeps the session alive after they disconnect. `initrd_aarch64` packs it as "session".
+# `user_timetable_keeper` (milestone 152 (durable delegation), S1 of 2026-09-26): built by `login`
+# from a user's session budget when they open their schedule; it builds their timetable, holds it,
+# and is what keeps the session alive after they disconnect. `initrd_aarch64` packs it as
+# "user_timetable_keeper". Name: ratified 2026-10-06 (calef, in conversation), replacing the
+# provisional `session`; the source file's header has the reasons.
 [[bin]]
-name = "session"
-path = "src/session.rs"
+name = "user_timetable_keeper"
+path = "src/user_timetable_keeper.rs"
 test = false
 bench = false
 

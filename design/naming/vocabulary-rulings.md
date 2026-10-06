@@ -15,7 +15,7 @@ arithmetic that cannot be true, and a reader who meets it stops trusting the sen
 (This section writes that shape as "three <halves>" wherever it must show it. `script/lint` gates on
 the literal, and a rule whose own text trips its gate is a rule nobody can land.)
 
-The rule costs nothing to follow. "Half" is for a genuine two-way split and is often exactly right.
+"Half" is for a genuine two-way split and is often exactly right.
 This tree has honest halves everywhere: a crate's pure half and its host-tools half, the aarch64
 half and riscv64 half of milestone 74 (cycle counters). For one branch of a split with three or
 more, this tree's own word is arm. `components/src/console.rs` speaks of "its x86 arm", and the boot
@@ -26,9 +26,7 @@ What is gated and what is not. `script/lint` reads only the shape that cannot be
 count word immediately in front of the word ("three h...", "four h...", and so on). It does not
 judge a "half" whose siblings are a paragraph away, because that needs a reader. A gate that guesses
 at prose is how this tree lost three checks. The sweep that came with the rule fixed four and left
-the honest halves alone. The four were the deliverable of milestone 22 (trusted init), the landings
-of milestone 54 (a network file service a Mac can mount), a `filesystem_protocol` doc comment and a
-`timetable_tests` one.
+the honest halves alone.
 
 ## An abbreviation we receive rather than author
 
@@ -66,8 +64,8 @@ with the authority reversed: not a distinction we are preserving, but a name we 
 *(Those paths are `crates/globally_unique_identifier_partition_table` and `components/src/uuid.rs`
 today; `Guid` is still `Guid`.)*
 
-So the rule this adds, stated so it can be disagreed with: the acronym test applies to names this
-tree authors. Where a name arrives across an interface somebody else defines, the tree keeps their
+So the rule this adds: the acronym test applies to names this tree
+authors. Where a name arrives across an interface somebody else defines, the tree keeps their
 spelling. It pays the cost at the reader's expense once, in an expansion written where the reader
 meets it. `crates/user_rt/src/initrd.rs` carries that expansion as of 2026-09-13.
 
@@ -112,8 +110,7 @@ The third row's program no longer exists in that form, and the ruling is unaffec
 reason retired itself. What survived the split is the answer. `file_sink`'s terminus is structural:
 its client holds a capability over which no message but *append* is expressible, and no grant
 anybody could make would change that. That is the strongest form of this test passing, and it is why
-`sink` stays the contract's word rather than becoming `receiver`. The row stands as the account of
-what was ruled on 2026-09-13.
+`sink` stays the contract's word rather than becoming `receiver`.
 
 The second half of the ruling is the part that is easy to lose. `audit_sink` failed on two counts
 and only one of them is about "sink". The `audit` half promised a record that does not exist. That
@@ -205,9 +202,8 @@ Considered and refused, as a program name:
   calls logging in.
 - `powerbox` is the right term of art for the pattern and one almost no reader would recognise.
 
-The cost that ruling removed. Milestone 265 (`_proto` is a truncation) renamed `login_proto` to
-`login_protocol` with the stem open and accepted a second rename when it was ruled. There is no
-second rename.
+Milestone 265 (`_proto` is a truncation) accepted a second rename of `login_protocol` if the stem
+moved. There is none.
 
 ## The casing of `nife`, considered and settled
 
@@ -268,8 +264,6 @@ mangle. `script/lint`'s `recv` is a Python local for a method's receiver, a diff
 Closed records (`BUILT` roadmap blocks, `design/decisions/`, dated audit reports) keep the name they
 used, so a grep for `recv` finds them.
 
-The live notes and roadmap documents that still cited the old spellings were swept on 2026-10-04 UTC (lane `records/rename-pointer-sweep`).
-
 The `operation` ruling of 2026-10-04, the same rule applied to `op`, is in
 [spelled-out-rulings.md](spelled-out-rulings.md).
 
@@ -282,3 +276,19 @@ calef, 2026-10-06 UTC, while ratifying `jig` in PR #1756:
 Its first use is `jig`'s verbs, held provisional under it in
 `design/roadmap/proposals/the-package-client-becomes-a-program.md`. It does not yet say which
 abbreviations, and each one is still a name to ratify.
+
+## A keeper holds something alive and does not restart it
+
+calef, 2026-10-06 UTC, ratifying `user_timetable_keeper` over `session`.
+
+| word | means | for this program |
+|---|---|---|
+| `keeper` | holds something alive, restarts nothing | ratified |
+| `supervisor` | restarts what faults | refused; if it ever restarts the timetable, it becomes `user_timetable_supervisor` |
+| `caretaker` | serves narrowed access | refused: it serves none |
+
+## `system_installer`, not `basalt_installer`
+
+calef, 2026-10-06 UTC: "system_installer ratified." It names what is installed, the whole system,
+apart from `jig`, which installs packages. Refused `basalt_installer`: the program copies whatever
+image the stick booted, so a distribution prefix would go false.

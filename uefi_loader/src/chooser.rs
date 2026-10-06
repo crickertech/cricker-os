@@ -98,7 +98,7 @@
 //!   and it is why `install-boot`'s third boot names the disk as a second boot option.
 //! - **The logical block size is assumed to be 512.** A disk reporting anything else is skipped
 //!   rather than misread, which is the honest half; the GPT crate reads other sizes and nothing
-//!   here passes the size through. `installer` has the same assumption and the same note.
+//!   here passes the size through. `system_installer` has the same assumption and the same note.
 //! - **A power cut during the write at step 3 is not survivable by this design.** The table is
 //!   rewritten in four block ranges and there is no journal; a machine interrupted between them can
 //!   come up with a primary and backup table that disagree, which this loader's own `parse` will
@@ -107,7 +107,7 @@
 //!   between two block writes.
 //! - **This chooser's four block writes go primary-first**, so there is a window in which neither
 //!   copy of the table parses: the primary's array is new while its header still describes the old
-//!   one, and the backup has not been touched. `installer`'s `ROLE_CONFIRM` writes the same four
+//!   one, and the backup has not been touched. `system_installer`'s `ROLE_CONFIRM` writes the same four
 //!   ranges **backup-first**, which leaves one complete self-consistent copy on the disk at every
 //!   instant and costs nothing. Making this one agree is a reordering of four lines and belongs to
 //!   whoever next touches this function; it is recorded here rather than done because the
@@ -123,7 +123,7 @@
 //!   would hand the child the slot's device path, which nothing here builds yet.
 //! - **A slot-started image says it came from the NVMe disk without looking**, in
 //!   [`booted_from_nvme`], because it has no device handle to look with. That holds while the
-//!   installer writes slots only to NVMe (`installer`'s whole-disk, NVMe-only scope). A slot on
+//!   installer writes slots only to NVMe (`system_installer`'s whole-disk, NVMe-only scope). A slot on
 //!   another kind of disk would have its kernel mount the NVMe one; passing the medium in the
 //!   child's load options is the fix, and nothing needs it yet.
 //! - **x86_64 only**, the same scope as the rest of rung 2a and 2b (DECISIONS §19 (architectural parity is a tenet; the targets are aarch64, riscv64 and x86_64)): the

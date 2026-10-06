@@ -4,7 +4,7 @@
 //! not running and marks it *on trial*. If the trial image fails to come up, **the machine goes
 //! back to the previous one by itself**, with nobody at the console. This crate is the state that
 //! makes that true and the policy that reads it; it touches no disk, so the program that writes the
-//! state (`components/src/installer.rs`) and the program that acts on it (`uefi_loader`'s chooser)
+//! state (`components/src/system_installer.rs`) and the program that acts on it (`uefi_loader`'s chooser)
 //! share one implementation rather than two readings of a paragraph.
 //!
 //! calef ruled on 2026-09-21: *"Yes, write the tries and priority attributes in 2b."*
@@ -130,7 +130,7 @@
 //!   paid in disks rather than in code. [`SlotHeader`] carries a version field for exactly that
 //!   reason, and any future change should use it rather than redefining the bits.
 //! - **What confirms a trial boot is a promise, and here is what it can be wrong about.**
-//!   `installer`'s `ROLE_CONFIRM` calls [`State::confirmed`] on a running machine once the
+//!   `system_installer`'s `ROLE_CONFIRM` calls [`State::confirmed`] on a running machine once the
 //!   filesystem server has mounted the installed disk and reported ready, which is the latest
 //!   point this system can reach without a person. So a boot that is confirmed still may not have
 //!   exercised **anything the boot path does not touch** (the network stack, the compositor, a
@@ -142,7 +142,7 @@
 //!   than a gap: this crate touches no disk. The program is `ROLE_CONFIRM` above, and a machine
 //!   that never runs it rolls back an upgrade that was working, which fails safe.
 //! - **Two slots is not a number this crate enforces.** [`select`] takes a slice of any length and
-//!   the policy is the same for three; `installer` lays out two because a third costs a partition
+//!   the policy is the same for three; `system_installer` lays out two because a third costs a partition
 //!   and buys nothing until something can use it.
 //! - **Priority is not rotated on exhaustion.** ChromeOS drops an exhausted slot's priority to zero
 //!   so that its firmware's plain highest-priority scan moves on. [`select`]'s predicate already
@@ -167,7 +167,7 @@ pub const SUCCESSFUL_BIT: u32 = 56;
 /// The largest value either four-bit field holds, and the ceiling both setters saturate at.
 pub const MAX_NIBBLE: u8 = 15;
 
-/// **The priority `installer` gives the slot it writes at install time.**
+/// **The priority `system_installer` gives the slot it writes at install time.**
 ///
 /// Not 15, deliberately. An upgrade has to be able to outrank the running image without first
 /// lowering it, and a first install that took the top of the range would force every upgrader to
@@ -193,7 +193,7 @@ pub struct State {
 }
 
 impl State {
-    /// A slot that holds nothing and will never be chosen. What `installer` writes into the spare
+    /// A slot that holds nothing and will never be chosen. What `system_installer` writes into the spare
     /// slot, so that an upgrader finds a partition already laid out and does not have to repartition
     /// a running machine to install an update.
     pub const EMPTY: State = State {
@@ -361,7 +361,7 @@ pub const SLOT_VERSION: u32 = 1;
 ///
 /// Only the first [`SLOT_HEADER_BYTES`] carry anything. The rest is padding, and it is padding
 /// rather than a smaller reservation so that **the image starts on a transfer-block boundary**.
-/// `installer` writes whole 4096-byte blocks, and milestone 198 rung 2a already lost ten megabytes
+/// `system_installer` writes whole 4096-byte blocks, and milestone 198 rung 2a already lost ten megabytes
 /// to an unaligned start once; that bug is recorded in `crates/file_allocation_table` and this
 /// number is what stops it happening a second time in a different file.
 pub const SLOT_IMAGE_OFFSET: u64 = 4096;
@@ -523,7 +523,7 @@ pub mod cmdline {
     /// The longest this token can be: the key and one decimal digit.
     ///
     /// One digit, not two, because [`super::select_excluding`] already cannot exclude past slot 63
-    /// and `installer` lays out two. A slot number that did not fit a digit would be a different
+    /// and `system_installer` lays out two. A slot number that did not fit a digit would be a different
     /// disk layout, and [`encode`] refuses rather than truncating.
     pub const MAX_LEN: usize = KEY.len() + 1;
 

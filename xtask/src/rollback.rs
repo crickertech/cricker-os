@@ -3,7 +3,7 @@
 //! milestone 198 (a package manager, and the trivial install that makes a second customer possible)).
 //!
 //! **This file is the deliverable, not the code it exercises.** A rollback mechanism nobody has
-//! seen roll back is a claim. Everything in `crates/boot_slot`, `components/src/installer.rs` and
+//! seen roll back is a claim. Everything in `crates/boot_slot`, `components/src/system_installer.rs` and
 //! `uefi_loader/src/chooser.rs` is only as good as the three boots below.
 //!
 //! # What the three boots are, and why the middle one is killed
