@@ -138,7 +138,7 @@ type GUID's whole job is to not collide with anybody else's and there is no regi
 DECISIONS §45 for why it is never to change; the short version is that the recovery story ("the
 board is dead, can I get my data") depends on a `sgdisk -p` five years from now still showing it.
 
-## How it is proved, and the division of labour
+## How it is proved, and the division of labor
 
 This crate is the clearest case yet of the rule `network_time_protocol` wrote down: where a domain is small
 enough to count, count it; a model checker is for the domains that are not.
@@ -266,7 +266,7 @@ Stated plainly, because a demonstrator's docs are part of the deliverable:
 
 `disk_partitioner` (provisional name) is the program. It holds two capabilities and they are the
 whole of it: a block-service endpoint for one disk, and an entropy endpoint. Every byte of
-judgement is still this crate's; the program is I/O, a layout, and a refusal.
+judgment is still this crate's; the program is I/O, a layout, and a refusal.
 
 ### The version-4 stamp, and the one way to get it wrong
 
@@ -302,4 +302,4 @@ checks the GUIDs are distinct again from outside the guest.
 **What is not proved**: nothing here is crash-atomic. A kill between the primary write and the backup
 write leaves a disk whose two copies disagree, which `check_backup` reports and nothing repairs.
 Real partitioners have the same property; the difference is that milestone 37 *measured* the
-filesystem's crash behaviour and nothing has measured this.
+filesystem's crash behavior and nothing has measured this.

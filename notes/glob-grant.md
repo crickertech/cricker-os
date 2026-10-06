@@ -40,7 +40,7 @@ would transfer, because the matched set *is* the namespace the caretaker will se
 Unix cannot make that claim, and the reason is worth being precise about rather than waving at.
 Unix's `rm` gets its authority from the uid it inherits; the glob only tells it which of its existing
 powers to use. So `echo *.txt` on Unix prints a list of names that happens to be what `rm *.txt`
-would delete, which is a coincidence of good behaviour by `rm`, not a fact about what it was handed.
+would delete, which is a coincidence of good behavior by `rm`, not a fact about what it was handed.
 Here it is the same object: the shell expands once, and the names it printed are the names the
 caretaker is built from.
 
@@ -201,7 +201,7 @@ sixteen bytes is 256 bytes at each end and both ends can hold that. The machine 
 shell ran off the bottom of its stack planning one grant, by 256 bytes with two extra pages and by
 768 more with four, presenting both times as a data abort on the shell's own `sp` followed by the
 60-second lost-wakeup watchdog (the test was still waiting for a report from a process that had
-died). The cause is a set travelling by value through four frames a debug build does not
+died). The cause is a set traveling by value through four frames a debug build does not
 collapse: the expander holds one, `Expansion` carries one into `plan`, `designate` returns one, and
 the `Endowment` that comes back carries one more.
 

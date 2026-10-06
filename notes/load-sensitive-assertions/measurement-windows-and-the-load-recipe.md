@@ -49,7 +49,7 @@ The post-release half ("and the moment we let go, the pending interrupt is deliv
 claim and lost its fixed two-period spin. It waits, bounded in tick periods, and reads the counter of
 the core it was on, by index. Dropping the guard is a preemption point.
 
-A new accessor per ISA generalises half of this note: `ticks_on(core)` and `missed_ticks_on(core)`
+A new accessor per ISA generalizes half of this note: `ticks_on(core)` and `missed_ticks_on(core)`
 beside `ticks()` and `missed_ticks()`. A per-core counter read either side of a wait must name its
 core, or a migration silently changes the subject. `ticks_arrive_at_the_configured_rate` had already
 found this in the first round and solved it locally, by bracketing the hart id into its snapshot. The
@@ -90,7 +90,7 @@ the thread the test just placed.
 
 The test deliberately no longer asserts that the target then ran it. That is not a property
 `spawn_on` has: it is a placement hint, not a pin, and a steal moving the thread first is correct
-behaviour. The claim is decomposed, and each half is now stable.
+behavior. The claim is decomposed, and each half is now stable.
 `every_secondary_runs_scheduled_work` proves every core runs what is on its own queue.
 `a_batch_of_cpu_bound_work_reaches_every_cpu` proves placement plus stealing fills the machine.
 Delivery here, execution there.

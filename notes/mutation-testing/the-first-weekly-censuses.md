@@ -18,7 +18,7 @@ Two of the causes change what the parent note claims.
 `--shard k/n` is zero-indexed, and the matrix ran `[1, 2, 3, 4]`. So `--shard 4/4` was an argument
 error every week, and **`--shard 0/4` never ran at all**. With the old `slice` sharding that quarter
 was an alphabetical block: `dtb`, `calendar`, `compositor`, `cred`, `elf`, `capability` and their
-neighbours. Nothing was lost from the baseline, which was a full local run. But four weeks of reports
+neighbors. Nothing was lost from the baseline, which was a full local run. But four weeks of reports
 would have silently missed a nameable quarter had any of them succeeded.
 
 The other cause is a single mutant allocating without bound, and the diagnosis took one wrong turn.
@@ -200,7 +200,7 @@ next run's artifacts will match the baseline's spelling without help.
 The baseline's `caught` was derived, and this run's is reported. The head comment on
 `.cargo/mutants-baseline.txt` records that the 2026-08-03 run was resumed twice. So its caught column
 is total-minus-the-rest, and three mutants could not be attributed at all. This run was a single
-clean pass per shard. That difference favours the baseline being slightly generous, which makes the
+clean pass per shard. That difference favors the baseline being slightly generous, which makes the
 +1.2 like-for-like gain a floor rather than a ceiling.
 
 The baseline file was deliberately not updated. Replacing it would destroy the comparison the next

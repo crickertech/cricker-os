@@ -47,9 +47,9 @@ memory directory is keyed to the repository's own path, so a clone under `/tmp` 
 
 The harness's author is not a stranger, and that residual is not small. This lane's developer has
 read `AGENTS.md` in full. It wrote the task, chose the isolation and reads the result, so its
-judgement about what counts as a defect is contaminated even though the stranger's answers are not.
+judgment about what counts as a defect is contaminated even though the stranger's answers are not.
 The mitigations: the task text is runs 1 and 2's verbatim, the rubric predates all three runs, and
-the stranger's questions are recorded as asked, not summarised into findings.
+the stranger's questions are recorded as asked, not summarized into findings.
 
 ## Run 3, 2026-08-18: a process that could not see the repository, and a harness that told it anyway
 
@@ -82,7 +82,7 @@ and 800 instructions against a 2,500 bound.
 The load was 45 to 63 on eight cores, from other lanes gating in other worktrees, and nothing told
 it. It assumed the machine was its own for five journal entries and built a theory on that premise.
 It caught itself only by running `uptime` an hour in. Its own summary: *"Check the environment
-before theorising about it... One `uptime` at the moment of the first failure would have replaced
+before theorizing about it... One `uptime` at the moment of the first failure would have replaced
 twenty minutes of inference with a fact."* The tree had already measured this exact condition, to
 the digit, in `notes/load-sensitive-assertions.md`. That was four hundred lines below the section
 the assertion's comment points at. A load-average print beside a failing timing leg landed on
@@ -159,7 +159,7 @@ Three smaller costs, all pre-registered except the second. The machine was warm,
 nothing. The machine was also *loaded* by other lanes, which contaminated every timing result and
 produced the run's best finding, so it is a cost and a dividend at once. And the harness's author
 had read `AGENTS.md`, which no arrangement of processes fixes. The task text was runs 1 and 2's
-verbatim and the rubric predates all three runs, but the judgement about what counts as a defect is
+verbatim and the rubric predates all three runs, but the judgment about what counts as a defect is
 still contaminated.
 
 ### What a stranger still cannot do, after three runs

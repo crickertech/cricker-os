@@ -327,7 +327,7 @@ it.
 Three of the four rung-two tests go further and replace `gpu_driver` with a kernel stand-in that serves
 `INFO` and `FLUSH` over frames the kernel allocated. The compositor does not notice that either, which
 is milestone 23's swappable-component claim arriving as a side effect of a contract rather than as a
-demonstration built on purpose. It also made the damage rectangle *observable*: a real driver honours a
+demonstration built on purpose. It also made the damage rectangle *observable*: a real driver honors a
 rectangle and says nothing about it, so the stand-in is how "a one-window redraw does not cost a whole
 screen" became an assertion.
 
@@ -382,7 +382,7 @@ Deliberately not in rung one, each with the seam it will use:
   driver's device, and the doorbell it rings carries nothing at all. See notes/glyphs.md.
 - **Several surfaces.** One resource id today, hardwired. The contract routes by *endpoint*, so a
   compositor holding one endpoint per client surface needs a driver change and not a contract change.
-- **Damage tracking.** `FLUSH` already takes a rectangle and the driver honours it (the transfer's
+- **Damage tracking.** `FLUSH` already takes a rectangle and the driver honors it (the transfer's
   offset is computed from it), so a compositor that redraws one window does not pay for the screen.
   The client today flushes the whole surface because it changed the whole surface.
 - **The cursor queue.** virtio-gpu has a second virtqueue for a hardware cursor. The driver never

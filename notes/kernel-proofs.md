@@ -5,7 +5,7 @@ crates; this one is about the 64,818 lines the prover could not see until 2026-0
 stubs you take on when you point it at them.
 
 *Name provisional: notes are an interface and their names are an architect's call (AGENTS.md).
-`kernel-proofs` says what the file is about and matches `verification.md`'s neighbourhood; expect it
+`kernel-proofs` says what the file is about and matches `verification.md`'s neighborhood; expect it
 to change.*
 
 ## Why this note exists at all
@@ -204,7 +204,7 @@ about the code. `core::arch::x86_64::__cpuid` is a *safe* function on the toolch
 and was an `unsafe fn` until upstream changed it; Kani bundles its own rustc, `kani-0.67.0`
 pinning `nightly-2025-11-21`. So four bare `__cpuid` calls in `arch/x86_64/` were four `E0133`s
 under the prover and nowhere else. They are wrapped in `isa::cpuid` and `isa::cpuid_count`, whose
-`#[allow(unused_unsafe)]` is a labelled exception that comes out when Kani's pin catches up.
+`#[allow(unused_unsafe)]` is a labeled exception that comes out when Kani's pin catches up.
 
 ### Why these two and not the timer
 

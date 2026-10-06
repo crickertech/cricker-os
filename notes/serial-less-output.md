@@ -27,7 +27,7 @@ The block separates them and the separation survived the work, so it is the firs
 |---|---|---|
 | needs | pixels on a monitor, live | text, after the fact, judged by a program |
 | has today | the framebuffer console below | a screendump under QEMU, and **nothing on real hardware** |
-| fails when | the screen is not yet initialised | the machine is not a virtual one |
+| fails when | the screen is not yet initialized | the machine is not a virtual one |
 
 One mechanism serves both under QEMU and only one of them on a real machine, and pretending
 otherwise would be the dishonest half of this note. Under OVMF a gate can ask the emulator for a
@@ -277,7 +277,7 @@ $ cp target/esp/EFI/BOOT/BOOTX64.EFI /Volumes/NIFE/EFI/BOOT/BOOTX64.EFI
 $ diskutil eject /Volumes/NIFE
 ```
 
-One file. The path and the capitalisation are the interface.
+One file. The path and the capitalization are the interface.
 
 ### Firmware settings
 
@@ -320,7 +320,7 @@ Each row rules out everything above it.
 | `wanted 0x...` and `in the way:` lines | the firmware will not give up the kernel's 32 MiB load range | milestone 195's `BUGS`: the image is not physically relocatable. Record the descriptors printed |
 | The screen clears and shows `nife loader: firmware released, entering the kernel.` and nothing more | the kernel never reached its first statement: the trampoline, `boot.s`, the page tables or the long-mode jump | build with no archive (`NIFE_UEFI_INITRD` unset); a triple fault here reboots instead, so a *stuck* banner is a hang rather than a fault |
 | The loader's banner clears and then **nothing** | the kernel armed its console and died after | the window below `attach_screen`; on a machine with a serial port the transcript is the diagnosis |
-| Text, but sheared or in the wrong colours | the stride or the pixel order | the `screen :` line says what the loader read; compare against the machine's real mode |
+| Text, but sheared or in the wrong colors | the stride or the pixel order | the `screen :` line says what the loader read; compare against the machine's real mode |
 | The machine reboots in a loop | a triple fault | build with no archive (`NIFE_UEFI_INITRD` unset) to halve what is copied |
 | The tour, the second clear, then **nothing** | the userspace terminal took the screen and drew nothing | milestone 400's defect; on a machine with a serial port its two `screen    :` lines say whether the driver came up |
 
@@ -402,7 +402,7 @@ is U-Boot, and that is milestone 157's `simple-framebuffer` handoff. The board w
   the two transcripts therefore differ by exactly the non-ASCII characters in them.
 - **`board_console::screen` duplicates a decoder `xtask` already has.** Milestone 177's graphical
   `swish-check` leg carries `parse_ppm`, `decode_cell` and `scanout_rows` in `xtask/src/scanout.rs`,
-  hardcoded to the compositor's geometry and the terminal's default colours. The two should be one
+  hardcoded to the compositor's geometry and the terminal's default colors. The two should be one
   crate; unifying them touches another milestone's gate and is a proposal rather than a drive-by.
 - **The other two architectures have a screen under the emulator and none on silicon.** The
   arch-neutral halves (`machine_discovery::framebuffer`, `screen_console`) were written for exactly

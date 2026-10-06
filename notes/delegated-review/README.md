@@ -150,7 +150,7 @@ discarded it**, at length, and then spent their whole budget doing so, so the an
 
 > *"I'm confident this is fine. ... A reviewer nitpicking this would be wrong to block."*
 
-**Perception was not the failure; judgement was.** A prompt that asked harder would not have fixed
+**Perception was not the failure; judgment was.** A prompt that asked harder would not have fixed
 it, because the model already looked harder and then argued itself out of the answer. That is a
 fact about the ceiling rather than about the wording, which is exactly what milestone 521's block
 said an adversarial arm was for.
@@ -233,7 +233,7 @@ the delta over the one-window design, as the sentence it was objecting to says.
 `kimi-k3` called *"up to one second of boot, a hundred times this fix's cost"* wrong. It is right if
 "this fix's cost" means the full sixteen-window calibration (160 ms, so about six times) and right as
 written if it means one window (10 ms, so exactly a hundred). The sentence is ambiguous rather than
-wrong, and it is recorded here as disputed rather than resolved in the reviewer's favour.
+wrong, and it is recorded here as disputed rather than resolved in the reviewer's favor.
 
 ## The threshold, and what it says
 
@@ -255,7 +255,7 @@ do not read the table.**
 ## What this says about routing delegated work
 
 `notes/open-model-lanes.md` states the rule that makes a cheaper model safe: the gates are the
-oracle, so work with a crisp gate goes to the open model and work whose output is a judgement stays
+oracle, so work with a crisp gate goes to the open model and work whose output is a judgment stays
 on Claude. **This run does not overturn that and it does add a third case.** The gates could not see
 any of the five defects here, the human reviewer could not see the ten in C2, and a rented reasoning
 model could see those ten and not the four-line one.

@@ -83,7 +83,7 @@ printed by every suite run), not as an answer to this.
 
 ## What the tree already does in the analogous case
 
-Every neighbour refuses without side effects:
+Every neighbor refuses without side effects:
 
 - `RegionTable::retype_object_page`: "`None` on an exhausted or dead region, and **nothing is
   pinned** in that case: a caller that got no page owes no unpin."
@@ -109,7 +109,7 @@ wrapper. No wire format, syscall number or name changes. `MemoryRegion::SPLIT` s
 
 ## Recommendation
 
-B. It is the fewer-moving-parts option and matches every neighbour. Would it still be chosen if
+B. It is the fewer-moving-parts option and matches every neighbor. Would it still be chosen if
 A and B cost the same? Yes; A is only cheaper by the nine lines B needs.
 
 ## What is blocked

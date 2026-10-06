@@ -37,7 +37,7 @@ client's endpoint is bound to. So the honest mapping is:
 > a std program holds a directory capability (slot 4), and `File::open("motd")` means *"motd,
 > under the directory I was granted"*, not *"motd somewhere in a global filesystem"*.
 
-Four behaviours follow, and each is enforced on the client side, before a byte reaches the wire. The
+Four behaviors follow, and each is enforced on the client side, before a byte reaches the wire. The
 server enforces the same rule again (it resolves one component in its bound directory and nothing
 else). Doing it here as well is not redundant, it is what turns a would-be escape into a legible
 `io::Error` instead of an `ENOENT` that reads like a missing file.
@@ -91,7 +91,7 @@ negated errno) overlaps the kernel's invoke-error space (-1..-8), so `-2` is bot
 `WrongObject`, `-5` is both `EIO` and `BadMethod`, and `-1` is both `EPERM` and `NoSuchSlot`. This
 note said the overlap was harmless because neither `EPERM` nor `ESRCH` is in the FS server's
 vocabulary; `EPERM` has been since milestone 47 and nobody noticed for four milestones. Milestone
-122 resolved `-1` in favour of the server (see [the descent appendix](fs-descent.md)): every entry
+122 resolved `-1` in favor of the server (see [the descent appendix](fs-descent.md)): every entry
 point checks reachability first, so a kernel `NoSuchSlot` cannot follow a reply. The cost of that
 choice is that a revoked FS endpoint now reads as `PermissionDenied` rather than `Unsupported`,
 which is a trade made deliberately, because `EPERM` is reachable every day and revoking the FS
@@ -149,7 +149,7 @@ same as a refusal that is correct. Milestone 64 found it by asking fifty crates.
 actually needed (notes/crates-io-on-nife.md), which put `create_dir` and `read_dir` near the top
 of real demand.
 
-Four behaviours are worth knowing before you use them:
+Four behaviors are worth knowing before you use them:
 
 - `read_dir(".")` lists the granted directory itself and costs no `OPENDIR`; the handle is
   `fs::ROOT`. `read_dir("sub")` descends first (`OPENDIR` mints a capability to `sub`, the

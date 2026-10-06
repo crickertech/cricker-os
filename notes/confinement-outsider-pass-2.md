@@ -16,7 +16,7 @@ attacks that were tried, and this is where each landed.
 
 ## Counts
 
-- Escape: 1 (row 27's neighbour, port I/O ignores the capability's rights). Booted red on x86_64.
+- Escape: 1 (row 27's neighbor, port I/O ignores the capability's rights). Booted red on x86_64.
 - Escape of an unclaimed surface: AMD-Vi, which has no claim at all.
 - Near miss: rows 3, 5, 6, 11, 17, 19, 24, 30.
 - Untestable here (needs a hostile-client boot or hardware this project lacks): the userspace halves
@@ -56,7 +56,7 @@ cannot see; the detail sections say which is which.
 | 22 | Load an ELF over the kernel, or a W+X page | Held | ELF refuses W+X and overlap; `check_image_band` plus a `Half::Low` mapper refuse the over-kernel case per page. |
 | 23 | Rebuild after dropping construction authority | Held, evidence near miss | Proven on `root_supervisor`, not the shipped `system_initializer`; the verdict channel is forgeable. |
 | 24 | Two shells name each other's files | Held (filter); same TOCTOU near miss | `check_component` plus `subtree_scope::walk`, DESCEND per hop. |
-| 25 | Reach a neighbour's pixels or the screen | Held | `commit_damage` intersects `win.bounds()`; no client-controlled source index found. |
+| 25 | Reach a neighbor's pixels or the screen | Held | `commit_damage` intersects `win.bounds()`; no client-controlled source index found. |
 | 26 | A client of a rendezvous becomes its server | Held | RECEIVE and RECEIVE_CAP both require `Rights::READ`. |
 | 27 | A thread with no port cap touches a port | Held; escape of a neighbour | A port cap narrowed to READ still drives the hardware: `thread_control_block_insert_from` installs `port_range_grant` for any `PortRange` object whatever its rights. Failing test and proposed claim below. **Fixed by milestone 768 (provisional) as claim 33** (31 and 32 were taken by then). |
 | 28 | A revoked port holder keeps the ports | Held | `delete_port_range_caps_impl` matches `(base,count)`, clears the grant and `outgoing_cap`. |
@@ -91,12 +91,12 @@ committed before any fix. It builds a child whose only `PortRange` is READ, runs
 the new `port_out_then_exit` stub, and asserts the child faults. The stub is used instead of
 `port_out` so a wrongly-permitted `out` exits rather than parking on a SEND and hanging the run, the
 row-26 hazard. Booted red on x86_64: the supervision message was `[EVENT_EXIT, ..]`, meaning the
-`out` was permitted, where the secure behaviour is `EVENT_FAULT`. It is opt-in (skips unless named
+`out` was permitted, where the secure behavior is `EVENT_FAULT`. It is opt-in (skips unless named
 with `--test`) so the default suite stays green, since whether a non-WRITE `PortRange` should deny
 I/O is the x86 port syscall surface and so an architect's call. Run it with
 `script/test --arch x86_64 --test a_read_only_port_capability`.
 
-Proposed claim 31: port I/O honours the capability's WRITE right; a thread whose only `PortRange`
+Proposed claim 31: port I/O honors the capability's WRITE right; a thread whose only `PortRange`
 capability lacks WRITE faults on its next `in`/`out`, on x86_64. It is x86-only for the reason rows
 27 to 29 are: the mechanism is the TSS I/O bitmap.
 

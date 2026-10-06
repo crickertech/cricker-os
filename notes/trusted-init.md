@@ -27,7 +27,7 @@ kernel or escape its own confinement. What was missing was earlier than that:
 
 B.1 is the first of those. Phase B.2 is the second.
 
-**Why it is not theatre.** A check on bytes in RAM is worthless if something can rewrite them between
+**Why it is not theater.** A check on bytes in RAM is worthless if something can rewrite them between
 the check and the use. The IOMMU work of milestone 16b (DECISIONS §20) closed exactly that window: a
 device can no longer DMA over the initrd behind the kernel's back. So the sequence "hash the bytes,
 then parse and enter the same bytes" is now a real ordering, not a hopeful one. Measured boot
@@ -169,7 +169,7 @@ independently of the kernel, which is not true today: they are built by the same
 tree, in one sequence.
 
 **Recorded-accepted by milestone 94's sweep** (2026-08-04), with one thing owed. The sweep's
-judgement stands: the hash is the decision, the signature is the alternative, and the condition that
+judgment stands: the hash is the decision, the signature is the alternative, and the condition that
 would make it worth its cost is stated, so an audit may pass over it. What is owed is the promotion.
 §71 (a limitation is promoted when it becomes a plan) names this entry as the shape of its second
 trigger, a design fork an architect must rule on before any lane could start, and that is the one
@@ -207,7 +207,7 @@ Each split is chosen so that the authority is the smallest thing that still does
 
 - **The spawner holds a program image, not the initrd.** root_supervisor copies `flaky`'s bytes into fresh
   read-only pages in the spawner's address space (the `blobs` field of `Endow`). So "build me program
-  X" is not a request the spawner *can* honour for any other X: the only program it can name is the
+  X" is not a request the spawner *can* honor for any other X: the only program it can name is the
   one it was handed. Compare the progenitor, which holds a 14 MB archive of every program in the system.
 - **The spawner's budget is WRITE without GRANT.** It may spend memory; it may not lend it. Nothing
   it builds can be endowed with a budget of its own.
@@ -570,7 +570,7 @@ nife: handing the system to userspace init.
   `spawnproto` reply code or rewording five call sites in `swish`.
 - A pipeline whose stage cannot be spawned hangs the prompt. `echo hi | wc` with a refused `wc`
   never returns. This is not new: a refused program takes exactly the value in the progenitor's program table
-  that a program missing from the archive always took, so the hang is the pre-existing behaviour of
+  that a program missing from the archive always took, so the hang is the pre-existing behavior of
   an unspawnable pipeline stage. It was simply unreachable before, because every packed program was
   loadable. Worth a lane of its own.
 - An absent required component still traps with no message, unchanged. That is a build that did

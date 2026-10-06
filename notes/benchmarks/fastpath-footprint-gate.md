@@ -194,7 +194,7 @@ call sites are all on these closures.
 | x86_64, before 188 | 6,767 | (8,657) | 1,637 | 8,404 |
 | x86_64, after | **6,236** | **8,122** | **1,637** | **9,759 (9.53 KiB)** |
 
-Parenthesised figures were not measured before this milestone; they are what the same binary would
+Parenthesized figures were not measured before this milestone; they are what the same binary would
 have reported. The "after" rows are the baselines `bench/fastpath-*.txt` still holds. The totals move
 in both directions because two effects run against each other. Counting the shape the system runs
 adds 1,300 to 1,900 bytes, and aarch64's vector-table fix removes 1,796.
@@ -232,7 +232,7 @@ numbers.
   fail the call pattern. Checked on x86_64: every conditional branch in the five root symbols targets
   an offset inside its own symbol, so nothing is missed today. A compiler that started emitting a
   conditional tail call would drop that callee from the closure silently.
-- The cold list is a judgement, and a wrong entry is silent. If a symbol an IPC really does reach
+- The cold list is a judgment, and a wrong entry is silent. If a symbol an IPC really does reach
   ever matches the cold pattern, it drops out of the number with no warning. The list is in the
   script with a reason per family for this reason.
 - It is not a cache measurement. See below.

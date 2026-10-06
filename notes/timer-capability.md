@@ -271,12 +271,12 @@ Sum of symbol sizes in the release kernel (`llvm-nm --print-size`), before and a
 | x86_64 | 962,936 | 964,322 | +1,386 B (+0.144%) |
 
 That is the whole feature: object variant, two methods, retype arm, expiry table, tick hook, and the
-signalling call. The riscv64 figure is again the largest, for the same reason its entry set is.
+signaling call. The riscv64 figure is again the largest, for the same reason its entry set is.
 
 ### What this does not price
 
 - The scaffold's expiry table is a 64-entry array with a linear rescan on every arm. That is the
-  crudest of the three structures `notes/timed-wait.md` modelled and was chosen because it is the
+  crudest of the three structures `notes/timed-wait.md` modeled and was chosen because it is the
   smallest thing that runs; a real implementation would put the deadline on the object's own page,
   the way every other page-resident object in this kernel works, and the arm would not rescan.
   The size figures above are therefore an over-estimate of the table and an under-estimate of the
@@ -452,7 +452,7 @@ The fourth shape signals **a notification**, and notification objects are
 [§101](../design/decisions/101-notification-objects.md), decided 2026-08-20 and **unbuilt** (milestone
 151). What the pricing above assumes about it:
 
-1. That the signal target is a `Rendezvous`, not a separate object. The scaffold signalled through
+1. That the signal target is a `Rendezvous`, not a separate object. The scaffold signaled through
    `sched::irq_notify`, which takes a `RendezvousId`, because that is what exists today. §101's whole
    argument is that a notification should be *its own object with its own queue*, separate from the
    endpoint. If 151 builds that, `Timer::ARM`'s second argument names a `Notification` and not a

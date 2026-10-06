@@ -2,7 +2,7 @@
 
 The first half of milestone 326 (nobody has been assigned to turn a mutation score upward)'s
 triage of the crates that regressed at the 2026-09-14 census. It verifies the per-crate figures
-that [notes/mutation-testing.md](../mutation-testing.md) summarises. The second half is
+that [notes/mutation-testing.md](../mutation-testing.md) summarizes. The second half is
 [regressions-clock-protocol-swish-filesystem-protocol](regressions-clock-protocol-swish-filesystem-protocol.md).
 
 ## 2026-09-19: milestone 326, triaging the census's regressions
@@ -177,7 +177,7 @@ The twelve real survivors sat in the parser, the admission check and the plan wr
   reason: no shipped program declares a `FileSpec::Required`, so `Endowment::file` is `None` for
   every plan this crate can build. The mutants are killed by calling `unbacked` directly. The
   reachability is recorded in a `BUGS` section on `Unbacked` itself, where a reader meets the
-  variants. Whether `admit` should stop pre-consuming the holding is a behaviour change, not a test,
+  variants. Whether `admit` should stop pre-consuming the holding is a behavior change, not a test,
   so it is recorded and not made.
 
 ### `dtb`: 14 survivors, 13 killed, 1 equivalent; the 29 timeouts are hangs

@@ -70,7 +70,7 @@ Take the last such line of the boot. `hours` is its `t=` divided by 3,600, `cros
 `beats` are read off it, and `result` is `clean` when its three failure counters are all zero and no
 `soak-test: FAILED` line appears anywhere in the log. Milestone 297 (`soak` becomes `soak-test`)
 landed on 2026-09-14; logs from before it spell the prefix `soak:`, which `crates/board_console`
-already normalises.
+already normalizes.
 
 A non-clean boot opens a defect row with class `unclassified`, and it stays unclassified until
 somebody has read the dump. That is the step the retracted VisionFive 2 reading skipped in the other
@@ -166,11 +166,11 @@ exactly the class risk 5 names and should not be quietly argued away.
   recorded under. A multicore defect recorded under different words, or fixed in a commit whose
   message never said so, is missing. The rows found are the ones the tree already told a reader
   about, which biases the table towards defects somebody thought were interesting.
-- D5's date is when loom modelled it, not when it was found. `notes/scheduler.md` records it as
+- D5's date is when loom modeled it, not when it was found. `notes/scheduler.md` records it as
   a race "observed on the machine" without a date or an instrument; `notes/interleaving.md` says the
   protocol's races "were found by flakes and bench boots first". Which it was is not recorded, and
   a bench boot would make it the one row that bears on risk 5's premise.
-- E1 to E3 lack builds and final beats. Their logs were read at the bench and summarised into
+- E1 to E3 lack builds and final beats. Their logs were read at the bench and summarized into
   `notes/soak.md`, never committed. Milestone 225 should commit each boot's log under `bench/` so a
   row can cite a file rather than a paragraph.
 - ~~Each row is copied off the last beat by hand.~~ Since 2026-10-05 (milestone 225),

@@ -177,7 +177,7 @@ and therefore share the enable word. The window is two MMIO accesses wide and th
 handful of times per boot, which is consistent with never having observed it.
 
 **Why aarch64 does not have this.** The GIC's `ISENABLER` / `ICENABLER` are write-1-to-set and
-write-1-to-clear, so enabling one line is a single store that cannot disturb its neighbours: the
+write-1-to-clear, so enabling one line is a single store that cannot disturb its neighbors: the
 architecture gives you atomicity for free. And `drivers/gic.rs` takes a lock on top of that anyway.
 The PLIC has plain read/write enable bits, which forces the read-modify-write, and the RISC-V driver
 never grew the lock the GIC has. Under rule 5 that asymmetry is the bug, independent of how likely it
@@ -220,10 +220,10 @@ On proving it, honestly. There is no test here that would have caught the origin
 test module says so. The window is two MMIO accesses; widening it to catch the race would mean
 shipping instrumentation inside the critical section and then testing the instrumented version, and a
 loop of two harts hammering the bits passes with the lock and passes without it. What is pinned
-instead is the half a test can reach: that the read-modify-write preserves the neighbours sharing its
+instead is the half a test can reach: that the read-modify-write preserves the neighbors sharing its
 word, which is exactly the invariant a lost update violates, and which is the regression *this
 change* risked by folding both directions into one helper. It fails on demand (drop the `read` and it
-reports "the read-modify-write dropped it"). A second test pins the irqsave/irqrestore behaviour at
+reports "the read-modify-write dropped it"). A second test pins the irqsave/irqrestore behavior at
 the two real call-site shapes, because turning the fix into a hang is the more likely way to get this
 wrong later. The serialization itself is attested by the suite it runs inside rather than by an
 assertion: every riscv virtio test calls `enable` from thread context and `disable` from the handler,

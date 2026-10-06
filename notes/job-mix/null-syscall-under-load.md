@@ -28,7 +28,7 @@ Read on all three architectures, from trap entry to return:
 |---|---|
 | `arch::exceptions::SVC_COUNT.fetch_add` | Yes, one line every syscall on every core wrote. Read by the system tests, and by a riscv64 tour line that printed 0 on every captured boot |
 | `IPC_TABLES.lock()` in `sched::current_cap` | Yes, the kernel's one global lock, taken by every IPC, every `schedule()` and every capability operation |
-| `cpu::current()`, `held_rank` | Per core. But `PERCPU` is aligned to 8, at offset 16 mod 64 on riscv64 and 24 on aarch64, so neighbouring cores' blocks share a line (not fixed; see BUGS) |
+| `cpu::current()`, `held_rank` | Per core. But `PERCPU` is aligned to 8, at offset 16 mod 64 on riscv64 and 24 on aarch64, so neighboring cores' blocks share a line (not fixed; see BUGS) |
 
 The trap entry and exit assembly touch nothing shared, and a syscall never reschedules on its way
 out (only an interrupt asks for `preempt_if_needed`). So the candidates were one shared counter and
@@ -237,7 +237,7 @@ Nineteen boots, built from `c8b5fd09e` with 761 and 766 in it, by a
 
 ## What risk 4's line should say
 
-For the maintainer, who owns `design/fatal-risks/README.md`. The colour is calef's ruling. This
+For the maintainer, who owns `design/fatal-risks/README.md`. The color is calef's ruling. This
 lane proposes replacing the open finding's last three sentences ("The rest is the one global lock
 itself ... half explained and half open") with:
 

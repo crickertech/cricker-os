@@ -256,7 +256,7 @@ order, with the reason each earns a harness:
    it is worth a model even when the answer is "sound".
 3. **The one-shot wiring flag**, the idiom repeated in four services. A single harness over one
    extracted helper would cover all four and would turn "the same four lines, four times" into a
-   checked property instead of a pattern someone recognises.
+   checked property instead of a pattern someone recognizes.
 
 Not worth one: the spin locks (the lock is both halves), the boot roster (single-shot, single
 writer), `TP_GO` (nothing published behind it), and anything under `arch/`, where rule 1 keeps the
@@ -330,7 +330,7 @@ If there is no matching fence, say what the edge is and name it:
   fence is milestone 80's, and the compositor's two acquire fences are milestone 43's. This milestone
   changed no ordering at all, which was its scope note and is the honest result: the inventory
   found one wrong comment and one decorative `Acquire`, and no new bug.
-- **`crates/user_mode_runtime`'s spin lock and the interrupt-routing lottery cannot be modelled today**, for
+- **`crates/user_mode_runtime`'s spin lock and the interrupt-routing lottery cannot be modeled today**, for
   the reasons milestone 80 recorded: `user_mode_runtime` is aarch64 inline `asm!` and does not compile for the
   host, and the lottery lives under `arch/`.
 

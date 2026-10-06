@@ -76,7 +76,7 @@ SiFive does. That is the part the matrix actually exercises.
 
 **The narrowing is enforced, not just advertised.** See the preflight below.
 
-## The preflight, and why the matrix would otherwise be theatre
+## The preflight, and why the matrix would otherwise be theater
 
 QEMU's `virt` machine writes a `riscv,isa` string into the device tree per CPU model. That string is
 a claim. If a future QEMU kept the claim but stopped trapping instructions the model does not
@@ -140,7 +140,7 @@ through SBI, so it works on both.
 
 ## BUGS
 
-- **`sifive-u54` in QEMU is still QEMU.** It will not reproduce the JH7110's cache behaviour, its
+- **`sifive-u54` in QEMU is still QEMU.** It will not reproduce the JH7110's cache behavior, its
   real memory map, or its errata. This catches the ISA-and-CSR class of bug and is not a substitute
   for the board. Nothing in this note should be read as "the VisionFive 2 will boot."
 

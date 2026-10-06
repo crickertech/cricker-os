@@ -10,7 +10,7 @@ build"*). A chart there is a heading, an image, and at most a line or two. Cavea
 on one line needed a home, and the register is it. Most of them are what keeps an honest chart from
 becoming a misleading one, so none was deleted.
 
-### The division of labour
+### The division of labor
 
 A caveat that prevents misreading a chart stays in the deck, compressed to one line under that
 chart. Definitions, the arguments behind a measure, capture deadlines, reconciliations and dated
@@ -64,7 +64,7 @@ local time and fall on the Monday in UTC. So the series starts at 2026W29, and t
 ### The charts show the ten most recent weeks; the CSV keeps every one
 
 This was calef's call on 2026-09-19. So 2026W29 leaves the charts when 2026W39 arrives, and stays
-in its measure's CSV. That CSV is also the table view the charts rely on for the three colours that
+in its measure's CSV. That CSV is also the table view the charts rely on for the three colors that
 sit under 3:1 on a white page. A week is never deleted, only no longer drawn.
 
 ### A week is spelled `2026W36`, everywhere

@@ -97,13 +97,13 @@ clippy
 verify (Kani proofs)
 bench (icount regression tripwire)
 coverage (host crates)
-supply chain (advisories, licences, vendored integrity)
+supply chain (advisories, licenses, vendored integrity)
 ```
 
 All seven come from `.github/workflows/ci.yml`, which means the names are in the repository and a
 rename is a diff someone reviews. That is the property that makes them safe to require.
 
-**CodeQL is deliberately not on the list**, and the reason is operational rather than a judgement
+**CodeQL is deliberately not on the list**, and the reason is operational rather than a judgment
 about scanning. Default setup produces four checks (`CodeQL`, plus `Analyze (rust)`, `Analyze
 (c-cpp)`, `Analyze (actions)`) whose names are chosen by GitHub, change when GitHub adds or drops a
 detected language, and are not visible in any file here. A required check that stops reporting blocks

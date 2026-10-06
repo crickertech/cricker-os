@@ -9,7 +9,7 @@ What the loader does is unchanged, and the steps below are still the steps.)*
 on each architecture and pointed at [milestone 166](../design/roadmap/166-init-boot-parity.md) as the
 open question. That is settled: the entry is `progenitor` on all three boards and it is one program,
 `components/src/progenitor.rs`. Where the text below says init it is describing milestone 19d, when the
-role and the demo catalogue were the same binary.*
+role and the demo catalog were the same binary.*
 
 ## The one thing 19d moves, and why it matters
 
@@ -139,7 +139,7 @@ read on the day.)
 So `initrd_aarch64` (`mkinitrd` before 2026-08-27) now strips each ELF (`llvm-objcopy --strip-debug`) before packing, and the archive is
 **4.3 MB**. Nothing lost anything: `crates/elf` parses program headers only and has no
 section-header code at all, so no loader on either side of the boundary could ever see a debug
-section; the kernel prints a raw `pc` on a fault, and symbolising it is done offline against the
+section; the kernel prints a raw `pc` on a fault, and symbolizing it is done offline against the
 unstripped binary still sitting in `target/`.
 
 Two deliberate choices. `--strip-debug` rather than `--strip-all`, so the symbol table survives for

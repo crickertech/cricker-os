@@ -84,7 +84,7 @@ whole function with `()`.
 
 - Table column alignment. `read_align` parsed `:---`, `---:` and `:---:` off the delimiter row into
   a per-column array from the first day. `flush_table` padded every cell on the right whatever that
-  array held, so all three rendered identically to `---`. Sixteen survivors. It is honoured now, and
+  array held, so all three rendered identically to `---`. Sixteen survivors. It is honored now, and
   resets with `delimited`, because both are properties of one delimiter row.
 - Tab indentation. `indent_of` returns a byte offset and a column count, counting a tab as four
   columns. Every caller took the offset and dropped the count, including the one that uses it as a
@@ -160,7 +160,7 @@ Thirty, recorded as gaps rather than equivalents:
   above. The two on the loop condition itself want a fence opened at a depth greater than the
   markers any line inside it carries, at the exact byte where the line ends.
 
-A mutation of any of these changes behaviour only for an input this repository's markdown does not
+A mutation of any of these changes behavior only for an input this repository's markdown does not
 contain. That is also the limit of the renderer's own argument. It was written instead of taking
 `pulldown-cmark` on the grounds that the input set *is* this repository, so a gap outside that set is
 exactly the cost that bargain has.

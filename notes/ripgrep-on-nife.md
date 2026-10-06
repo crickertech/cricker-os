@@ -10,7 +10,7 @@ transitive crates, a filesystem walk, gitignore semantics, memory maps, and thre
 
 ## The answer, in one paragraph
 
-Risk 1 is not realised, and the thing standing in the way is not what anybody expected.
+Risk 1 is not realized, and the thing standing in the way is not what anybody expected.
 Unmodified `ripgrep` compiles for `aarch64-unknown-nife` with zero source changes, links, loads,
 runs, resolves its own working directory through a granted directory capability, and exits cleanly
 through `std::process::exit`. It never reaches `std::thread::spawn`, so DECISIONS §105 is not what
@@ -100,7 +100,7 @@ It does not, and this is the most useful negative result here. The expectation i
 was that `ripgrep` *"uses threads, so it runs straight into the one thing this project has decided not
 to build"*, and that a red result would be §105 Option A arriving with evidence.
 
-That is not what happened, for a reason worth generalising:
+That is not what happened, for a reason worth generalizing:
 
 - `ripgrep` does not assume parallelism, it asks for it.
   `crates/core/flags/hiargs.rs:172` computes its default thread count as

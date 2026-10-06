@@ -66,10 +66,10 @@ this table was read from the published source or measured on that date, not reca
 it built for `aarch64-unknown-none-softfloat` on the pinned nightly; "deps" counts normal transitive
 dependencies of that configuration. Advisories are from the local RustSec database, dated 2026-09-23.
 
-| Crate | Licence | Bare metal | Size, deps | Latest release | RustSec | Stub acceptance | TCP fallback | Id and source port |
+| Crate | License | Bare metal | Size, deps | Latest release | RustSec | Stub acceptance | TCP fallback | Id and source port |
 |---|---|---|---|---|---|---|---|---|
 | `hickory-proto` 0.26.3 | MIT or Apache-2.0 | builds with `no-std-rand`, needs `alloc` | 37,482 lines, 61 deps | 2026-09-10 | none open for 0.26.3; history: 2018-0007 stack overflow on a malicious packet, 2026-0118 unbounded NSEC3 loop, 2026-0119 quadratic compression | a codec; acceptance lives in the resolver | n/a | without std, one global `StdRng` from a 64-bit `seed()`, behind `critical-section`, panics unseeded |
-| `hickory-resolver` 0.26.3 | MIT or Apache-2.0 | no: its transports run on `tokio`, which needs a poller the PAL lacks | 17,939 lines, 100 deps | 2026-09-10 | none | checks the question (optionally with 0x20 case randomisation); its CNAME fold assumes chain order, and it scans `all_sections()`, authority and additional included | yes | `rand` thread generator; a fresh OS port per request |
+| `hickory-resolver` 0.26.3 | MIT or Apache-2.0 | no: its transports run on `tokio`, which needs a poller the PAL lacks | 17,939 lines, 100 deps | 2026-09-10 | none | checks the question (optionally with 0x20 case randomization); its CNAME fold assumes chain order, and it scans `all_sections()`, authority and additional included | yes | `rand` thread generator; a fresh OS port per request |
 | `domain` 0.12.3 (NLnet Labs) | BSD-3-Clause | the parser builds with defaults off | 133,146 lines, 11 deps (5 of them proc-macro, at build time) | 2026-09-25 | none | as strict as `Query::accept`: `is_answer` checks QR, id and question; host lookup follows the chain to a canonical name, refuses a loop, takes only A records it owns | yes, in the stub (`resolv`, on `tokio`, so the same poller gap) | `rand::random()`; binds port 0 and leaves it to the OS |
 | `simple-dns` 0.12.0 | MIT | builds with `alloc` | 8,183 lines, 2 deps | 2026-07-26 | none | a codec only | n/a | none of its own |
 | `dns-parser` 0.8.0 | MIT or Apache-2.0 | needs `std`, which the PAL provides | 2,466 lines, 3 deps | 2018-08-06 | none | a parser only | n/a | none |
@@ -207,7 +207,7 @@ customer possible). The crate, its proofs and the gating test do not wait on any
   real-DNS half that covers UDP skips when the host's resolver does not answer.
 - The test's transaction id is fixed, because the socket client holds no entropy endpoint. A real
   resolver must not do this, and R2 is written assuming it draws the id from the entropy service.
-- `smoltcp`'s generator is seeded from `now()` for everything it randomises in `net_stack`, which
+- `smoltcp`'s generator is seeded from `now()` for everything it randomizes in `net_stack`, which
   includes TCP's initial sequence numbers (`socket/tcp.rs`, read); `net_stack` picks ephemeral
   ports with its own rotating allocator, not the generator. That is a finding about
   `net_stack` beyond this milestone, proposed in

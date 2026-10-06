@@ -80,7 +80,7 @@ ISO week), so `cost.csv` is unchanged.
 The other billing days are assumptions and the only ones in this file. Only the z.ai invoice date
 is known, and no invoice is recorded in this tree, so `script/metrics` places each charge in the ISO week containing the monthly
 anniversary of the start date: 2026-07-12, 2026-08-12, 2026-09-12, and so on. If the real billing
-day is different, at most one charge lands in a neighbouring week and the running total is unchanged.
+day is different, at most one charge lands in a neighboring week and the running total is unchanged.
 
 Why `cash_spend` is lumpy, and why it disagrees with a figure you may have seen. Milestone 519's
 block says "about $470 to date", which is 2.35 months of subscription accrued over the ten weeks
@@ -170,7 +170,7 @@ a rate derived from three quarters of a week's tokens is not that week's rate.
   so a rate that changed silently would restate old weeks at the new price. That is the same
   restatement hazard `notes/project-metrics.md` opens with, and it is worse here because a dollar
   figure reads as a measurement.
-- **Hardware is not amortised and not depreciated.** A board bought in 2026W33 lands entirely in
+- **Hardware is not amortized and not depreciated.** A board bought in 2026W33 lands entirely in
   2026W33. Over a project this short that is the honest shape; over a longer one it would make a
   purchase week look like a spending problem.
 - **calef's time is not in this file and never will be.** Milestone 519 refuses time tracking, and

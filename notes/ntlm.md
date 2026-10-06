@@ -142,7 +142,7 @@ DES. What matters is what is stored and what is claimed about it.
 They arrive as dependencies, which is DECISIONS §46 applied unchanged: depend rather than vendor,
 so `cargo-deny` and `cargo-audit` can see the graph, and make the specification's own answers the
 tests. `md4` 0.10, `md-5` 0.10 and `hmac` 0.12 add four crates to a graph that already had
-`digest` under Argon2, and `script/supply-chain` passes unchanged: advisories, licences, bans,
+`digest` under Argon2, and `script/supply-chain` passes unchanged: advisories, licenses, bans,
 sources.
 
 The blast radius, stated plainly: a record with an NTLM half is crackable offline at roughly the
@@ -322,5 +322,5 @@ in the same place.
 - **`crates/ntlm` is not constant-time and does not need to be**: its inputs are either public or
   keys whose bytes never branch. The one comparison that must be constant-time is the proof
   comparison, and it lives in `credentialer` next to the store, where `subtle` already is. There is no
-  defence here against an adversary who can observe the service's memory access pattern or shares a
+  defense here against an adversary who can observe the service's memory access pattern or shares a
   core with it; that is outside this threat model, as it is for the password half.

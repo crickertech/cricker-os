@@ -68,7 +68,7 @@ is the noisiest, at roughly 70%.
 
 `mechanical_gated` is the class the tree's own routing rule already sends to an open model.
 `build_milestone`, `design_proposal`, `review` and `maintainer_conv` stay on Claude even when gated,
-because the judgement is in the design, not the exit code.
+because the judgment is in the design, not the exit code.
 
 **Context, gated class, subagent lanes only** (n=29,024 requests; main-thread segments carry more
 context and would not run locally): p50 164,763 tokens, p75 257,891, p90 358,224, p99 661,175, max
@@ -83,7 +83,7 @@ the biggest line but the least like the one proven win below.
 The one measured success, a rebase against Qwen3-Coder for $0.055 (2026-09-22, first try, no redo),
 was not logged for tokens directly. At OpenRouter's listed rate for the open-weight `qwen/qwen3-coder`
 ($0.30/M input, $1.00/M output, uncached), $0.055 implies roughly 80,000-90,000 tokens, well under
-the gated class's own median. **It worked because the brief encoded judgement already made** (named
+the gated class's own median. **It worked because the brief encoded judgment already made** (named
 conflict resolutions, an abort condition), not because the model is clever. That is why briefs live
 as checked-in assets in `briefs/`, rather than retyped from memory each time.
 

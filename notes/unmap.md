@@ -57,7 +57,7 @@ a replayable falsification under `system_tests/falsifications/user.unmap_tests.*
 
 ## Semantic one: `UNMAP` of a `va` with nothing mapped answers `BadPointer`
 
-Provisional behaviour. Refused with `BadPointer`, nothing changed. The same answer covers a
+Provisional behavior. Refused with `BadPointer`, nothing changed. The same answer covers a
 misaligned or kernel-half `va`, and a page already given up.
 
 1. What else was considered. Success with nothing done, which is idempotent. It loses on what
@@ -91,7 +91,7 @@ misaligned or kernel-half `va`, and a page already given up.
 
 ## Semantic two: the frame capability survives the unmap, untouched
 
-Provisional behaviour. `UNMAP` reads, consumes and changes no capability. A frame capability
+Provisional behavior. `UNMAP` reads, consumes and changes no capability. A frame capability
 the caller still holds can map the page again; one already deleted was never needed.
 
 1. What else was considered. Consuming the frame capability the page was mapped under. It does
@@ -113,7 +113,7 @@ the caller still holds can map the page again; one already deleted was never nee
 4. Is the premise true? One part of §162's framing is worth checking: "whether the frame
    capability survives" assumes the unmap can find one. It can find a family (the record's object
    word), never a slot, which is why consuming was never really on the table.
-5. Cost. Nothing either way. The surviving behaviour is the absence of code.
+5. Cost. Nothing either way. The surviving behavior is the absence of code.
 6. Reversibility. Consuming later would break any caller that remaps after unmapping. Nothing
    does yet.
 7. Same cost? Yes.

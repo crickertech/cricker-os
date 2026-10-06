@@ -102,7 +102,7 @@ That is four to six times Liedtke's budget on the small machines and far more on
 Wrong, or at least incomplete: the penalty grew faster than the capacity. A main-memory miss in 1995
 cost single-digit cycles against a slow clock; on a modern core it is a few hundred. Capacity went up
 perhaps six times on the machines we care about, while the cost of exceeding it went up by
-considerably more. What changed in our favour is L2 more than headroom. A large on-die L2 means
+considerably more. What changed in our favor is L2 more than headroom. A large on-die L2 means
 overflowing L1 now costs tens of cycles rather than a trip to DRAM, a safety net Liedtke's low-end
 targets did not have.
 
@@ -153,7 +153,7 @@ it tracks the board list rather than a number somebody liked:
 
 - IPC fastpath instructions: under 4 KiB, about an eighth of that L1i.
 - Data touched per IPC: under 1 KiB, about 16 cache lines.
-- The whole-kernel image: no target at all. Optimising it would be optimising the wrong thing.
+- The whole-kernel image: no target at all. Optimizing it would be optimizing the wrong thing.
 
 The reasoning behind the fraction is Liedtke's rather than a round number. The constraint is not that
 the kernel fits; it is that the kernel leaves most of L1 intact for the application, because cache

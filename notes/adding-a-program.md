@@ -26,8 +26,8 @@ system has one user. What separates them is what the program *is*.
 
 ## One program does one thing
 
-A behaviour is a program, not a role. The tempting shortcut, when a fixture already exists that
-is nearly what you want, is to add an arm to its `match` on `x0` and select the new behaviour with
+A behavior is a program, not a role. The tempting shortcut, when a fixture already exists that
+is nearly what you want, is to add an arm to its `match` on `x0` and select the new behavior with
 a number. Do not. calef, 2026-09-14: *"Part of the beauty of Unix that I think we want to retain is
 small programs with specific functions"*, and, on the binary that had accumulated thirty-one arms,
 *"31 role binary is not the right shape."*
@@ -44,7 +44,7 @@ convenient arm at a time over two months. Seven of them were an exact duplicate 
 [291](../design/roadmap/291-one-program-one-job.md).
 
 The exception is allowed and has to say so (AGENTS.md's ladder, rung four's rule). If two
-behaviours genuinely are one program, write down in the module doc why, where a reader meets it.
+behaviors genuinely are one program, write down in the module doc why, where a reader meets it.
 `hello`'s remaining nine do: six of them build a child and three of them *are* that child, which is
 a relationship rather than a convenience.
 
