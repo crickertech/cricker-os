@@ -2821,22 +2821,32 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     // it does from a stack it built, so both paths reach the prompt through one line of code. Never
     // both: a boot with the virtio trio leaves these empty. See [`boot_e1000e_network`] for why the
     // kernel builds this one.
-    if virtio_net.is_none()
-        && let Some(w) = boot_e1000e_network()
-    {
+    //
+    // **Or one built on radon's Ethernet port** (milestone 53 (the board's own peripherals: network
+    // and storage on real silicon)), in the same two slots, when there is neither: today that is a
+    // line saying the port is left alone, until `designware_ethernet_service::PROVEN_ON_SILICON`.
+    let kernel_stack = if virtio_net.is_none() {
+        let e1000e = boot_e1000e_network().map(|w| (w.stack, w.report));
+        #[cfg(target_arch = "riscv64")]
+        let e1000e = e1000e.or_else(boot_designware_network);
+        e1000e
+    } else {
+        None
+    };
+    if let Some((stack, report)) = kernel_stack {
         let s29 = crate::sched::thread_control_block_insert_cap(
             tid,
-            crate::cap::rendezvous_cap(w.stack, Rights::ALL),
+            crate::cap::rendezvous_cap(stack, Rights::ALL),
             Some(29),
         )
-        .expect("insert the e1000e stack's endpoint");
+        .expect("insert the kernel-built stack's endpoint");
         assert_eq!(s29, 29);
         let s30 = crate::sched::thread_control_block_insert_cap(
             tid,
-            crate::cap::rendezvous_cap(w.report, Rights::READ),
+            crate::cap::rendezvous_cap(report, Rights::READ),
             Some(30),
         )
-        .expect("insert the e1000e stack's lease endpoint");
+        .expect("insert the kernel-built stack's lease endpoint");
         assert_eq!(s30, 30);
     }
     // **Say that this boot worked**, if a chooser started it (rung 2b of milestone 198's other
@@ -3401,6 +3411,57 @@ fn boot_e1000e_network() -> Option<e1000e_service::Wiring> {
     }
 }
 
+/// **The booted system's stack over radon's Ethernet port** (milestone 53 (the board's own
+/// peripherals: network and storage on real silicon)), [`boot_e1000e_network`]'s twin. Returns the
+/// `Stack` endpoint and the lease endpoint, or `None` having said why. Until
+/// `designware_ethernet_service::PROVEN_ON_SILICON` is true it touches nothing: radon's boot is the
+/// one every other bench session depends on, and a bring-up that hung would take the prompt with it.
+#[cfg(target_arch = "riscv64")]
+#[cfg_attr(
+    any(
+        test,
+        feature = "bench",
+        feature = "soak_test",
+        feature = "job_mix",
+        feature = "disk_throughput"
+    ),
+    allow(dead_code)
+)]
+fn boot_designware_network() -> Option<(crate::sched::RendezvousId, crate::sched::RendezvousId)> {
+    use designware_ethernet_service::NotStarted;
+    let port = crate::memory::jh7110_ethernet()?;
+    if !designware_ethernet_service::PROVEN_ON_SILICON {
+        crate::println!(
+            "  network     : NONE. The JH7110's Ethernet port at {:#x} is described and left as \
+             the firmware left it: no bench boot has proved this driver yet (milestone 53's \
+             runbook, notes/designware-ethernet.md, is how one does)",
+            port.port.base,
+        );
+        return None;
+    }
+    let image = program("net_stack")?;
+    match designware_ethernet_service::start_net_server(image, socket_protocol::NO_LISTEN_GRANT) {
+        Ok(w) => {
+            crate::println!(
+                "  network     : the JH7110's Ethernet port, link up; the kernel started net_stack \
+                 on it, confined by its own arithmetic alone (no IOMMU on this SoC)"
+            );
+            Some((w.stack, w.report))
+        }
+        Err(NotStarted::NoLink) => {
+            crate::println!(
+                "  network     : NONE. The JH7110's Ethernet port has no link, and a stack \
+                 waiting for DHCP would hold the prompt back for ever"
+            );
+            None
+        }
+        Err(why) => {
+            crate::println!("  network     : REFUSED. The JH7110's Ethernet port: {why:?}");
+            None
+        }
+    }
+}
+
 /// The shared body of [`boot_virtio_rng_device`] and [`boot_virtio_net_device`]: a zeroed DMA frame
 /// with its own physical base written at [`VIRTIO_DMA_PHYS_OFFSET`], the interrupt routed but not
 /// enabled, and the transport registered with the kernel, confined to that one frame.
@@ -3595,6 +3656,12 @@ pub mod non_volatile_memory_express_service;
 #[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
 // the tests, the bench boot and boot_progenitor are its callers
 pub mod e1000e_service;
+
+/// **`net_stack` over the JH7110's Ethernet port** (milestone 53 (the board's own peripherals:
+/// network and storage on real silicon)): `e1000e_service`'s shape for radon. riscv64-only because
+/// the JH7110 is; `kernel/src/designware_ethernet.rs` carries the parity note.
+#[cfg(target_arch = "riscv64")]
+pub mod designware_ethernet_service;
 
 /// **The offer a booted stick makes** (milestone 198 (a package manager, and the trivial install
 /// that makes a second customer possible), rung 2a): ask whether to put this system on the

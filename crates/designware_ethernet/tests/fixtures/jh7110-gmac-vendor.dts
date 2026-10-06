@@ -1,0 +1,106 @@
+/dts-v1/;
+
+/*
+ * radon's ports as the VENDOR U-Boot's control tree describes them, which is the tree radon hands
+ * the kernel. MODELED from source, not captured from the board: starfive-tech/u-boot, branch
+ * JH7110_VisionFive2_devel, `arch/riscv/dts/jh7110.dtsi` (the gmac0/gmac1 nodes, clkgen,
+ * aon_syscon) and `arch/riscv/dts/starfive_visionfive2.dts` (the two `ethernet-phy@` children and
+ * their register-value properties), read 2026-10-06 (UTC).
+ *
+ * One property is not in either file: `local-mac-address`. U-Boot's `fdt_fixup_ethernet` writes it
+ * into the tree it boots with, through the `ethernet0` alias, from the environment's `ethaddr`;
+ * radon's is 6c:cf:39:00:47:2c (bench/radon-2026-09-04/session.log, `printenv ethaddr`). Whether
+ * the copy radon hands nife carries it is unmeasured: the first bench boot of this driver prints
+ * which source the address came from.
+ *
+ * Trimmed to what crates/designware_ethernet reads. `clocks`/`resets` are dropped because they
+ * reference phandles this fixture does not define.
+ */
+
+/ {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	compatible = "starfive,jh7110";
+
+	aliases {
+		ethernet0 = "/soc/ethernet@16030000";
+		ethernet1 = "/soc/ethernet@16040000";
+	};
+
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		aon_syscon: aon_syscon@17010000 {
+			compatible = "syscon";
+			reg = <0x0 0x17010000 0x0 0x1000>;
+		};
+
+		clkgen: clock-controller {
+			compatible = "starfive,jh7110-clkgen";
+			reg = <0x0 0x13020000 0x0 0x10000>,
+			      <0x0 0x10230000 0x0 0x10000>,
+			      <0x0 0x17000000 0x0 0x10000>;
+			reg-names = "sys", "stg", "aon";
+			#clock-cells = <1>;
+		};
+
+		gmac0: ethernet@16030000 {
+			compatible = "starfive,jh7110-eqos-5.20";
+			reg = <0x0 0x16030000 0x0 0x10000>;
+			interrupts = <7>, <6>, <5>;
+			interrupt-names = "macirq", "eth_wake_irq", "eth_lpi";
+			max-frame-size = <9000>;
+			phy-mode = "rgmii-id";
+			rx-fifo-depth = <262144>;
+			tx-fifo-depth = <131072>;
+			snps,fixed-burst;
+			snps,no-pbl-x8;
+			snps,force_thresh_dma_mode;
+			snps,txpbl = <16>;
+			snps,rxpbl = <16>;
+			local-mac-address = [6c cf 39 00 47 2c];
+			status = "okay";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			phy0: ethernet-phy@0 {
+				rgmii_sw_dr_2 = <0x0>;
+				rgmii_sw_dr = <0x3>;
+				rgmii_sw_dr_rxc = <0x6>;
+				rxc_dly_en = <0>;
+				rx_delay_sel = <0xa>;
+				tx_delay_sel_fe = <5>;
+				tx_delay_sel = <0xa>;
+				tx_inverted_10 = <0x1>;
+				tx_inverted_100 = <0x1>;
+				tx_inverted_1000 = <0x1>;
+			};
+		};
+
+		gmac1: ethernet@16040000 {
+			compatible = "starfive,jh7110-eqos-5.20";
+			reg = <0x0 0x16040000 0x0 0x10000>;
+			interrupts = <78>, <77>, <76>;
+			phy-mode = "rgmii-id";
+			status = "okay";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			phy1: ethernet-phy@1 {
+				rgmii_sw_dr_2 = <0x0>;
+				rgmii_sw_dr = <0x3>;
+				rgmii_sw_dr_rxc = <0x6>;
+				tx_delay_sel_fe = <5>;
+				tx_delay_sel = <0>;
+				rxc_dly_en = <0>;
+				rx_delay_sel = <0x2>;
+				tx_inverted_10 = <0x1>;
+				tx_inverted_100 = <0x1>;
+				tx_inverted_1000 = <0x0>;
+			};
+		};
+	};
+};

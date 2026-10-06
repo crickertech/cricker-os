@@ -155,6 +155,11 @@ non_volatile_memory_express = { version = "0.1.0", path = "../crates/non_volatil
 # network card a PC actually has)): the kernel resets the device and programs the rings' bases from
 # it, and hands `net_stack` its `Handoff`. Same split as the NVMe crate above.
 e1000e = { version = "0.1.0", path = "../crates/e1000e" }
+# The JH7110's Ethernet controller (milestone 53 (the board's own peripherals: network and storage
+# on real silicon)): register map, descriptors, ring logic, the bring-up and PHY sequences and the
+# coherence probe, all host-tested. `kernel/src/designware_ethernet.rs` is its volatile half, the
+# same split as `e1000e` above.
+designware_ethernet = { version = "0.1.0", path = "../crates/designware_ethernet" }
 # The xHCI half of the USB keyboard (milestone 242 (USB host and HID)): the register window the
 # driver is mapped and the handoff it is spawned with. The kernel's extensible_host_controller_interface
 # module is its volatile half, the same split as `non_volatile_memory_express` above.

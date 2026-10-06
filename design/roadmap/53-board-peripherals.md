@@ -12,7 +12,8 @@ needs_person: yes
 The storage half is built for QEMU as of 2026-08-15 (pull request #193): the
 `non_volatile_memory_express` crate (queue mechanics, host-tested, 5 Kani harnesses), a rule-2 kernel driver confined
 through the IOMMU before enable, class-code enumeration over §18, and an end-to-end boot test on
-both ISAs. What remains of the milestone: the network half (the JH7110's GMAC), the board-side
+both ISAs. The network half is built to the bench as of 2026-10-06 (below, "The network half").
+What remains of the milestone: that half's first run on radon, the board-side
 PLDA XpressRICH root complex that carries the NVMe driver to the real M.2 slot (now tracked as its
 own milestone, 163, NOT-STARTED), and the EL0
 question, which is §86 (PROPOSED). Scope and honest limits: notes/non-volatile-memory-express.md, BUGS included.
@@ -50,13 +51,47 @@ equivalent board yet, so rule 5's "a scope note records the gap and the plan" ap
 **Effort: not estimated.** Two device drivers against real hardware with no emulator to iterate
 against is a different activity from everything done so far, and estimates calibrated on QEMU work do
 not transfer.
+## The network half, 2026-10-06
+
+calef, 2026-10-06 (UTC): radon is the most convenient lab machine, so move its hardware support
+forward, and do not split this milestone. Built by lane/53-gmac (pull request #1762), every name
+provisional. notes/designware-ethernet.md has the split, the evidence and the runbook.
+
+- `crates/designware_ethernet`: the controller (`snps,dwmac-5.20`) and its YT8531 PHY as
+  host-tested logic, 47 tests against a simulated controller, two Kani harnesses with replayable
+  falsifications. `crates/jh7110_clock_and_reset` gains the AON domain and `gmac0`'s plans.
+- `kernel/src/designware_ethernet.rs` and `designware_ethernet_service.rs`, and a third NIC in
+  `net_stack`, in milestone 494 (a driver for the network card a PC actually has)'s shape; the
+  `network_bench` boot runs on radon over it.
+- Is radon's DMA coherent? Every device tree and kernel policy read says yes (mainline's
+  RISC-V default, `dma-noncoherent` absent from both JH7110 trees where the JH7100's tree has it);
+  one Rust driver for the board flushes the L2 for its descriptors anyway, unexplained. The bring-up
+  measures it before trusting a descriptor, with a loopback probe that tells the two directions of
+  non-coherence apart. The proposal this makes to milestone 655 (DMA on a non-coherent RISC-V
+  machine) is in the note.
+- Parity scope note (rule 5). The driver is JH7110-specific and riscv64-only by design: no
+  aarch64 or x86_64 machine nife runs on has this controller. The stack above it is shared by all
+  three. A second board with a DesignWare QoS controller reuses the crate and needs only its glue.
+- Not run on silicon. The booted system leaves the port alone until a bench boot passes
+  (`PROVEN_ON_SILICON`).
+
+**Reuse:** OpenBSD's `dwqe` and `ytphy` (ISC), adapted with the notice carried in the crate root,
+because its JH7110 glue handles radon's v1.3B transmit clock (`starfive,tx-use-rgmii-clk`).
+FreeBSD's `if_eqos_starfive.c` and `mcommphy.c` (BSD-2-Clause) also support this chip and were
+read as an independent cross-check. Linux stmmac, U-Boot `dwc_eth_qos` and both JH7110 trees are
+GPL and were read for hardware facts only. crates.io has one Rust driver for this board,
+`dwmac-my` 0.2.0 (MIT, 3,650 lines). The search, on 2026-10-06, was for `dwmac`, `stmmac`,
+`eqos`, `designware ethernet`, `jh7110` and `starfive`. It is refused as a dependency, for the
+reasons 494 refused Redox's `e1000d`. It slices a receive buffer by the descriptor's length unchecked, up to 32 KiB against a
+2 KiB buffer. It hard-codes the clock controllers' addresses (rule 2). It is one object, with no
+place for the kernel/process split, and it would bring `bitflags` and `log`. It was read as a
+third cross-check.
+
 ## Follow-on
 
-- **Outstanding.** The network half: a driver for the JH7110's Synopsys DesignWare GMAC. Nothing in
-  the tree touches it. The part appears only in design prose (`design/fatal-risks/README.md`,
-  `notes/visionfive2.md`) and in an unrelated `reg-shift` comment in
-  `kernel/src/drivers/ns16550.rs`; `kernel/src/drivers/` holds no ethernet driver of any kind.
-  Checked 2026-09-03.
+- **Outstanding.** The network half's first run on radon: calef's bench step in
+  notes/designware-ethernet.md, about ten minutes, nothing on the card changes. It answers the
+  coherence question by measurement, and passing it lifts `PROVEN_ON_SILICON`.
 - **Milestone 163.** The board-side PLDA XpressRICH root complex that would carry the NVMe driver
   to the real M.2 slot. Minted 2026-08-25, still NOT-STARTED on a HARDWARE gate.
 - **Decision.** Whether the NVMe driver can leave the kernel is answered rather than pending:

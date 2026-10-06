@@ -197,6 +197,33 @@ pub enum Step {
     /// Clear this reset's bit in the domain's assert word, then wait for its status bit to read
     /// as [`is_deasserted`].
     DeassertReset(u32),
+    /// **Choose a multiplexed clock's parent**: replace the [`CLOCK_MUX_MASK`] field of this
+    /// clock's word with `parent`, as \[mainline-clk\]'s `jh71x0_clk_set_parent` writes
+    /// `index << JH71X0_CLK_MUX_SHIFT` under `JH71X0_CLK_MUX_MASK` (milestone 53 (the board's own
+    /// peripherals: network and storage on real silicon)). Taken before the same clock's
+    /// `EnableClock`, so the switch happens while the clock is gated rather than glitching a
+    /// running one.
+    SelectParent {
+        /// The clock index in the domain.
+        clock: u32,
+        /// The parent's position in that clock's parent list.
+        parent: u32,
+    },
+}
+
+/// A multiplexed clock's parent field, bits 27:24 of its word (\[mainline-clk\]'s
+/// `JH71X0_CLK_MUX_MASK`, `GENMASK(27, 24)`).
+pub const CLOCK_MUX_MASK: u32 = 0xf << CLOCK_MUX_SHIFT;
+
+/// Where [`CLOCK_MUX_MASK`]'s field starts (`JH71X0_CLK_MUX_SHIFT`).
+pub const CLOCK_MUX_SHIFT: u32 = 24;
+
+/// **A clock word with its parent replaced**, leaving the enable bit, the divider and every other
+/// field as they were. A parent too wide for the field is reduced to it rather than spilling into
+/// the enable bit.
+#[must_use]
+pub const fn with_parent(word: u32, parent: u32) -> u32 {
+    (word & !CLOCK_MUX_MASK) | ((parent << CLOCK_MUX_SHIFT) & CLOCK_MUX_MASK)
 }
 
 /// **What the JH7110's TRNG needs before its registers answer**, transcribed from
@@ -230,6 +257,88 @@ pub const STGCLK_SEC_MISC_AHB: u32 = 16;
 /// security top block, the PL080 DMA at `0x1600_8000` included. Deasserting it is safe; asserting
 /// it would reset a neighbour, which is why nothing in this crate offers an assert.
 pub const STGRST_SEC_AHB: u32 = 3;
+
+/// **The AON (always-on) domain**, where `gmac0`'s bus clocks, its transmit clock mux and both
+/// of its resets live (milestone 53, the JH7110's Ethernet).
+///
+/// Offsets from \[mainline-rst\]'s `jh7110_aon_info` (`.assert_offset = 0x38, .status_offset =
+/// 0x3C`, read 2026-10-06); the counts from \[mainline-ids\]'s `JH7110_AONRST_END` (8) and
+/// `JH7110_AONCLK_END` (14).
+pub const AON: Domain = Domain {
+    reset_assert: 0x38,
+    reset_status: 0x3c,
+    resets: 8,
+    clocks: 14,
+};
+
+/// **The AON domain's register window**, `0x1700_0000`, size `0x1_0000`: mainline's `aoncrg`
+/// node and `reg-names` entry `"aon"`/`"aoncrg"` of both vendor nodes. The fallback when a tree
+/// names none of them, for [`STG_BASE`]'s reason.
+pub const AON_BASE: u64 = 0x1700_0000;
+
+/// The AON window's size, `0x10000` in every tree that names it.
+pub const AON_SIZE: u64 = 0x1_0000;
+
+/// Mainline's dedicated AON clock-and-reset controller node, `aoncrg: clock-controller@17000000`.
+pub const COMPATIBLE_AONCRG: &[u8] = b"starfive,jh7110-aoncrg";
+
+/// The `reg-names` entry naming the AON window in each vendor node's spelling (`"aon"` in
+/// `clkgen`, `"aoncrg"` in `rstgen`; \[vendor-dts\]).
+const VENDOR_CLKGEN_AON_NAME: &[u8] = b"aon";
+const VENDOR_RSTGEN_AON_NAME: &[u8] = b"aoncrg";
+
+/// `JH7110_AONCLK_GMAC0_AHB` \[mainline-ids\]: a gate, `gmac0`'s `pclk`. Word `0x08`.
+pub const AONCLK_GMAC0_AHB: u32 = 2;
+/// `JH7110_AONCLK_GMAC0_AXI`: a gate, `gmac0`'s `stmmaceth` (its CSR and bus clock). Word `0x0c`.
+pub const AONCLK_GMAC0_AXI: u32 = 3;
+/// `JH7110_AONCLK_GMAC0_TX`: a gate with a two-way mux, `gmac0_gtxclk` (0) or
+/// `gmac0_rmii_rtx` (1). Word `0x14`, which radon's vendor U-Boot calls `GMAC5_0_CLK_TX_SHIFT`
+/// and sets bit 24 of (`jh7110_gmac_sel_tx_to_rgmii`, `board/starfive/visionfive2/`).
+pub const AONCLK_GMAC0_TX: u32 = 5;
+/// `gmac0_tx`'s parent on a VisionFive 2 v1.3B: `gmac0_rmii_rtx`, mainline's
+/// `assigned-clock-parents` for `&gmac0` in `jh7110-starfive-visionfive-2-v1.3b.dts` beside
+/// `starfive,tx-use-rgmii-clk`, and the same bit the vendor U-Boot sets. radon's EEPROM says PCB
+/// revision `0xb2`, a v1.3B (bench transcripts, `PCB revision: 0xb2`).
+pub const AONCLK_GMAC0_TX_PARENT_RMII_RTX: u32 = 1;
+/// `JH7110_AONRST_GMAC0_AXI` \[mainline-ids\], `gmac0`'s `stmmaceth` reset. Bit 0 at `0x38`.
+pub const AONRST_GMAC0_AXI: u32 = 0;
+/// `JH7110_AONRST_GMAC0_AHB`, `gmac0`'s `ahb` reset. Bit 1 at `0x38`.
+pub const AONRST_GMAC0_AHB: u32 = 1;
+
+/// `JH7110_SYSCLK_GMAC0_GTXCLK` \[mainline-ids\]: a gated divider of PLL0, the parent of
+/// `gmac0_gtxc`. Word `0x1b0` of the SYS window.
+pub const SYSCLK_GMAC0_GTXCLK: u32 = 108;
+/// `JH7110_SYSCLK_GMAC0_PTP`: a gated divider, `gmac0`'s `ptp_ref`. Word `0x1b4`.
+pub const SYSCLK_GMAC0_PTP: u32 = 109;
+/// `JH7110_SYSCLK_GMAC0_GTXC`: a gate, `gmac0`'s `gtx`. Word `0x1bc`.
+pub const SYSCLK_GMAC0_GTXC: u32 = 111;
+
+/// **`gmac0`'s SYS-domain clocks**, the half of its clocks that are not in the AON domain
+/// (milestone 53). Every clock mainline's `&gmac0` node names that lives in SYS, with the parent
+/// of `gtxc` first because enabling a gate under a gated parent turns nothing on. Run before
+/// [`GMAC0_AON_BRING_UP`], whose resets must be released with every clock already running.
+pub const GMAC0_SYS_BRING_UP: &[Step] = &[
+    Step::EnableClock(SYSCLK_GMAC0_GTXCLK),
+    Step::EnableClock(SYSCLK_GMAC0_GTXC),
+    Step::EnableClock(SYSCLK_GMAC0_PTP),
+];
+
+/// **`gmac0`'s AON-domain clocks, its transmit clock's parent, and both its resets** (milestone
+/// 53), in Linux's probe order: OpenBSD's `dwqe_fdt_attach` and mainline's `dwmac-starfive.c`
+/// both enable every clock before deasserting either reset. The transmit clock's inverted twin
+/// (`gmac0_tx_inv`, index 6) and both receive clocks (7, 8) have no gate to enable (they are
+/// \[mainline-clk\] `JH71X0__INV` and `JH71X0__MUX` clocks), so they are not steps.
+pub const GMAC0_AON_BRING_UP: &[Step] = &[
+    Step::EnableClock(AONCLK_GMAC0_AXI),
+    Step::EnableClock(AONCLK_GMAC0_AHB),
+    Step::SelectParent {
+        clock: AONCLK_GMAC0_TX,
+        parent: AONCLK_GMAC0_TX_PARENT_RMII_RTX,
+    },
+    Step::EnableClock(AONCLK_GMAC0_TX),
+    Step::DeassertReset(AONRST_GMAC0_AXI),
+    Step::DeassertReset(AONRST_GMAC0_AHB),
+];
 
 /// Where one reset lives: which word to write, which word to watch, and which bit in both.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -613,9 +722,29 @@ pub struct Report {
     /// Steps whose identifier this domain rejected, which would mean the plan and the domain
     /// disagree: a programming error, not a hardware condition. Nonzero here invalidates the rest.
     pub rejected: usize,
+    /// How many `DeassertReset` steps the plan took. The fields above describe the last of them;
+    /// this and [`Report::resets_released`] cover a plan with more than one (milestone 53's
+    /// `gmac0` has two).
+    pub resets: u32,
+    /// How many of those read as released before the poll gave up.
+    pub resets_released: u32,
+    /// The last `SelectParent` step's clock word before it was written, and
+    /// [`Report::mux_after`] the word read back. Both zero when the plan had none, which
+    /// [`Report::had_mux`] distinguishes.
+    pub mux_before: u32,
+    /// See [`Report::mux_before`].
+    pub mux_after: u32,
+    /// True when the plan contained a `SelectParent`.
+    pub had_mux: bool,
 }
 
 impl Report {
+    /// **Did every reset step read as released?** True for a plan with none.
+    #[must_use]
+    pub fn every_reset_released(&self) -> bool {
+        self.resets_released == self.resets
+    }
+
     /// **Did every clock this plan named read its enable bit back?** A clock that does not is a
     /// window with nothing behind it, or a base address that is not this controller.
     #[must_use]
@@ -715,6 +844,33 @@ pub fn discover(
         ],
         STG_BASE,
         STG_SIZE,
+    )
+}
+
+/// **Find the AON clock and reset window in `tree`** (milestone 53, the JH7110's Ethernet), the
+/// domain holding `gmac0`'s bus clocks, transmit clock and resets.
+///
+/// [`discover`]'s twin, with the same three spellings in the same order and the same refusal to
+/// fail: a tree that names no controller gets [`AON_BASE`] with `from_tree: false`, and an answer
+/// here is not evidence that the machine is a JH7110.
+///
+/// Name: provisional (milestone 53's lane, 2026-10-06 UTC), after [`discover_sys`].
+///
+/// # Errors
+///
+/// Propagates [`device_tree_blob::Error`] if the blob is malformed.
+pub fn discover_aon(
+    tree: &device_tree_blob::DeviceTreeBlob<'_>,
+) -> Result<Found, device_tree_blob::Error> {
+    discover_window(
+        tree,
+        &[
+            (COMPATIBLE_AONCRG, None),
+            (COMPATIBLE_VENDOR_CLKGEN, Some(VENDOR_CLKGEN_AON_NAME)),
+            (COMPATIBLE_VENDOR_RSTGEN, Some(VENDOR_RSTGEN_AON_NAME)),
+        ],
+        AON_BASE,
+        AON_SIZE,
     )
 }
 
@@ -1267,5 +1423,82 @@ mod tests {
         // A trailing NUL must not invent an empty fourth entry.
         assert_eq!(name_index(b"sys\0stg\0aon\0", b"aon"), Some(2));
         assert_eq!(name_index(b"", b"stg"), None);
+    }
+
+    #[test]
+    fn radons_aon_window_is_the_vendor_nodes_third_entry_found_by_name() {
+        let tree = device_tree_blob::DeviceTreeBlob::from_bytes(CLKGEN_VENDOR).unwrap();
+        let found = discover_aon(&tree).unwrap();
+        assert_eq!((found.base, found.size), (AON_BASE, AON_SIZE));
+        assert!(found.from_tree);
+        assert_eq!(found.compatible, Some(COMPATIBLE_VENDOR_CLKGEN));
+    }
+
+    #[test]
+    fn a_tree_naming_no_aon_controller_gets_the_constant_and_says_so() {
+        let tree = device_tree_blob::DeviceTreeBlob::from_bytes(STGCRG_MAINLINE).unwrap();
+        let found = discover_aon(&tree).unwrap();
+        assert_eq!(found.base, AON_BASE);
+        assert!(!found.from_tree);
+    }
+
+    #[test]
+    fn gmac0s_plans_ungate_every_clock_before_either_reset_and_pick_the_parent_while_gated() {
+        let first_reset = GMAC0_AON_BRING_UP
+            .iter()
+            .position(|s| matches!(s, Step::DeassertReset(_)))
+            .unwrap();
+        assert!(
+            GMAC0_AON_BRING_UP[first_reset..]
+                .iter()
+                .all(|s| matches!(s, Step::DeassertReset(_)))
+        );
+        assert!(
+            GMAC0_SYS_BRING_UP
+                .iter()
+                .all(|s| matches!(s, Step::EnableClock(_)))
+        );
+        let mux = GMAC0_AON_BRING_UP
+            .iter()
+            .position(|s| matches!(s, Step::SelectParent { .. }))
+            .unwrap();
+        let enable = GMAC0_AON_BRING_UP
+            .iter()
+            .position(|s| *s == Step::EnableClock(AONCLK_GMAC0_TX))
+            .unwrap();
+        assert!(mux < enable);
+        // Every identifier is inside its domain, so neither plan can be rejected.
+        for s in GMAC0_AON_BRING_UP {
+            match *s {
+                Step::EnableClock(i) | Step::SelectParent { clock: i, .. } => {
+                    assert!(AON.clock_offset(i).is_some());
+                }
+                Step::DeassertReset(i) => assert!(AON.reset_bit(i).is_some()),
+            }
+        }
+        for s in GMAC0_SYS_BRING_UP {
+            if let Step::EnableClock(i) = *s {
+                assert!(SYS.clock_offset(i).is_some());
+            }
+        }
+    }
+
+    #[test]
+    fn the_word_offsets_match_the_vendor_u_boots_own_constants() {
+        // radon's U-Boot writes `AON_CRG_BASE + 0x14` for gmac0's transmit clock and `0x1c` for
+        // its receive clock (`jh7110-regs.h`): indices 5 and 7, one word each.
+        assert_eq!(AON.clock_offset(AONCLK_GMAC0_TX), Some(0x14));
+        assert_eq!(AON.clock_offset(7), Some(0x1c));
+        assert_eq!(AON.reset_bit(AONRST_GMAC0_AHB).unwrap().mask, 1 << 1);
+        assert_eq!(SYS.clock_offset(SYSCLK_GMAC0_GTXC), Some(0x1bc));
+    }
+
+    #[test]
+    fn selecting_a_parent_keeps_the_enable_bit_and_the_divider() {
+        let running = CLOCK_ENABLE | 0x0000_0008;
+        assert_eq!(with_parent(running, 1), CLOCK_ENABLE | 1 << 24 | 8);
+        assert_eq!(with_parent(running | 1 << 24, 0), running);
+        // A parent too wide for the four-bit field cannot reach the enable bit.
+        assert_eq!(with_parent(0, 0xff) & CLOCK_ENABLE, 0);
     }
 }

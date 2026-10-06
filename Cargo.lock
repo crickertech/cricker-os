@@ -201,6 +201,7 @@ dependencies = [
  "compositor",
  "credential_protocol",
  "credentialer",
+ "designware_ethernet",
  "documentation",
  "domain_name_system",
  "e1000e",
@@ -346,6 +347,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10d60334b3b2e7c9d91ef8150abfb6fa4c1c39ebbcf4a81c2e346aad939fee3e"
 dependencies = [
  "thiserror",
+]
+
+[[package]]
+name = "designware_ethernet"
+version = "0.1.0"
+dependencies = [
+ "address_space_map",
+ "device_tree_blob",
 ]
 
 [[package]]
@@ -616,6 +625,7 @@ dependencies = [
  "cpu_set",
  "credential_protocol",
  "current_cpu_protocol",
+ "designware_ethernet",
  "device_tree_blob",
  "direct_memory_access_validator",
  "e1000e",
