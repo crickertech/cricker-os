@@ -1,0 +1,529 @@
+{
+ "data": {
+  "repository": {
+   "mergeQueue": {
+    "entries": {
+     "nodes": []
+    }
+   },
+   "pullRequests": {
+    "nodes": [
+     {
+      "number": 107,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-o7",
+      "headRefOid": "7777777777777777777777777777777777777777",
+      "createdAt": "2026-10-03T21:50:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": {
+       "enabledAt": "2026-10-03T21:50:00Z"
+      },
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": []
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 120,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-o20",
+      "headRefOid": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "createdAt": "2026-10-03T21:50:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "merge-drain[x]: opened.\n\n<!-- needs-maintainer:orphan adopted eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee -->",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": []
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 121,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-o21",
+      "headRefOid": "ffffffffffffffffffffffffffffffffffffffff",
+      "createdAt": "2026-10-03T21:50:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "merge-drain[x]: opened.\n\n<!-- needs-maintainer:orphan adopted eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee -->",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": []
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 122,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-o22",
+      "headRefOid": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "createdAt": "2026-10-03T21:50:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "merge-drain[x]: opened.\n\n<!-- needs-maintainer:orphan adopted eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee -->",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": {
+       "enabledAt": "2026-10-03T21:50:00Z"
+      },
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": []
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 123,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-o23",
+      "headRefOid": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "createdAt": "2026-10-03T21:50:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "merge-drain[x]: opened.\n\n<!-- needs-maintainer:orphan adopted eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee -->",
+      "labels": {
+       "nodes": [
+        {
+         "name": "parked"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": []
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 124,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-o24",
+      "headRefOid": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "createdAt": "2026-10-03T21:50:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "an ordinary draft",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": []
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "refs": {
+    "nodes": [
+     {
+      "name": "main",
+      "target": {
+       "oid": "0000000000000000000000000000000000000000",
+       "committedDate": "2026-10-03T21:00:00Z"
+      },
+      "compare": {
+       "behindBy": 0
+      },
+      "associatedPullRequests": {
+       "nodes": []
+      }
+     },
+     {
+      "name": "gh-readonly-queue/main/pr-1-abc",
+      "target": {
+       "oid": "9999999999999999999999999999999999999999",
+       "committedDate": "2026-10-03T10:00:00Z"
+      },
+      "compare": {
+       "behindBy": 1
+      },
+      "associatedPullRequests": {
+       "nodes": []
+      }
+     },
+     {
+      "name": "lane/case-o1",
+      "target": {
+       "oid": "1111111111111111111111111111111111111111",
+       "committedDate": "2026-10-03T10:00:00Z"
+      },
+      "compare": {
+       "behindBy": 3
+      },
+      "associatedPullRequests": {
+       "nodes": []
+      }
+     },
+     {
+      "name": "lane/case-o2",
+      "target": {
+       "oid": "2222222222222222222222222222222222222222",
+       "committedDate": "2026-10-03T21:00:00Z"
+      },
+      "compare": {
+       "behindBy": 3
+      },
+      "associatedPullRequests": {
+       "nodes": []
+      }
+     },
+     {
+      "name": "maintainer/case-o3",
+      "target": {
+       "oid": "3333333333333333333333333333333333333333",
+       "committedDate": "2026-10-03T10:00:00Z"
+      },
+      "compare": {
+       "behindBy": 1
+      },
+      "associatedPullRequests": {
+       "nodes": [
+        {
+         "number": 103,
+         "state": "MERGED",
+         "labels": {
+          "nodes": []
+         }
+        }
+       ]
+      }
+     },
+     {
+      "name": "lane/case-o4",
+      "target": {
+       "oid": "4444444444444444444444444444444444444444",
+       "committedDate": "2026-10-03T10:00:00Z"
+      },
+      "compare": {
+       "behindBy": 0
+      },
+      "associatedPullRequests": {
+       "nodes": [
+        {
+         "number": 104,
+         "state": "MERGED",
+         "labels": {
+          "nodes": []
+         }
+        }
+       ]
+      }
+     },
+     {
+      "name": "lane/case-o5",
+      "target": {
+       "oid": "5555555555555555555555555555555555555555",
+       "committedDate": "2026-10-03T10:00:00Z"
+      },
+      "compare": {
+       "behindBy": 2
+      },
+      "associatedPullRequests": {
+       "nodes": [
+        {
+         "number": 105,
+         "state": "CLOSED",
+         "labels": {
+          "nodes": []
+         }
+        }
+       ]
+      }
+     },
+     {
+      "name": "lane/case-o6",
+      "target": {
+       "oid": "6666666666666666666666666666666666666666",
+       "committedDate": "2026-10-03T10:00:00Z"
+      },
+      "compare": {
+       "behindBy": 2
+      },
+      "associatedPullRequests": {
+       "nodes": [
+        {
+         "number": 106,
+         "state": "CLOSED",
+         "labels": {
+          "nodes": [
+           {
+            "name": "parked"
+           }
+          ]
+         }
+        }
+       ]
+      }
+     },
+     {
+      "name": "lane/case-o7",
+      "target": {
+       "oid": "7777777777777777777777777777777777777777",
+       "committedDate": "2026-10-03T10:00:00Z"
+      },
+      "compare": {
+       "behindBy": 2
+      },
+      "associatedPullRequests": {
+       "nodes": [
+        {
+         "number": 97,
+         "state": "CLOSED",
+         "labels": {
+          "nodes": []
+         }
+        },
+        {
+         "number": 107,
+         "state": "OPEN",
+         "labels": {
+          "nodes": []
+         }
+        }
+       ]
+      }
+     },
+     {
+      "name": "audit/case-o10",
+      "target": {
+       "oid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "committedDate": "2026-10-03T10:00:00Z"
+      },
+      "compare": {
+       "behindBy": 2
+      },
+      "associatedPullRequests": {
+       "nodes": [
+        {
+         "number": 110,
+         "state": "CLOSED",
+         "labels": {
+          "nodes": [
+           {
+            "name": "needs-maintainer"
+           }
+          ]
+         }
+        }
+       ]
+      }
+     },
+     {
+      "name": "lane/case-o11",
+      "target": {
+       "oid": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+       "committedDate": "2026-10-03T10:00:00Z"
+      },
+      "compare": {
+       "behindBy": 0
+      },
+      "associatedPullRequests": {
+       "nodes": [
+        {
+         "number": 111,
+         "state": "MERGED",
+         "labels": {
+          "nodes": [
+           {
+            "name": "needs-maintainer"
+           }
+          ]
+         }
+        }
+       ]
+      }
+     },
+     {
+      "name": "lane/case-o12",
+      "target": {
+       "oid": "cccccccccccccccccccccccccccccccccccccccc",
+       "committedDate": "2026-10-03T10:00:00Z"
+      },
+      "compare": null,
+      "associatedPullRequests": {
+       "nodes": []
+      }
+     },
+     {
+      "name": "lane/case-o13",
+      "target": {
+       "oid": "dddddddddddddddddddddddddddddddddddddddd",
+       "committedDate": "2026-10-03T10:00:00Z"
+      },
+      "compare": {
+       "behindBy": 4
+      },
+      "associatedPullRequests": {
+       "nodes": [
+        {
+         "number": 112,
+         "state": "MERGED",
+         "labels": {
+          "nodes": []
+         }
+        },
+        {
+         "number": 113,
+         "state": "CLOSED",
+         "labels": {
+          "nodes": []
+         }
+        }
+       ]
+      }
+     },
+     {
+      "name": "lane/case-o20",
+      "target": {
+       "oid": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+       "committedDate": "2026-10-03T10:00:00Z"
+      },
+      "compare": {
+       "behindBy": 1
+      },
+      "associatedPullRequests": {
+       "nodes": [
+        {
+         "number": 120,
+         "state": "OPEN",
+         "labels": {
+          "nodes": []
+         }
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "search": {
+   "nodes": [
+    {
+     "number": 110,
+     "state": "CLOSED",
+     "labels": {
+      "nodes": [
+       {
+        "name": "needs-maintainer"
+       }
+      ]
+     }
+    },
+    {
+     "number": 111,
+     "state": "MERGED",
+     "labels": {
+      "nodes": [
+       {
+        "name": "needs-maintainer"
+       }
+      ]
+     }
+    }
+   ]
+  }
+ }
+}

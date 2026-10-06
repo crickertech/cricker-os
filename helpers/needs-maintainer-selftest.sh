@@ -21,6 +21,9 @@
 #       and 38 and 39 its `parked` exemption (#1745, 2026-10-06), which leave out the
 #       label-event alias only `red` reads. Case 40 is case 10 sent back to its lane
 #       (`held-by-lane` beside `architect-ruled`, 2026-10-06).
+#   orphan.json   the `orphan` cause (lane/orphan-work, 2026-10-06): one branch per shape in the
+#       `refs` listing, and the drafts the drain opens for a branch that never had a pull request.
+#       Built by hand in the query's shape; the shapes are the 2026-10-06 survey's (#1787).
 #
 # The order of the checks is the order of the ruling: the causes, then clearing, then the
 # drain's own shape.
@@ -91,6 +94,49 @@ EOF
 	exit 1
 fi
 
+# 2b. The orphan cause, at 22:00 UTC: a tip from 10:00 is past the two hours, one from 21:00 is not.
+#     The cases: o1 work, no pull request, tip 12 hours old: adopt. o2 the same, an hour old:
+#     nothing yet. 103 merged, then a commit pushed past it: orphan. 104 merged and nothing since:
+#     nothing (a leftover is hygiene, not lost work). 105 closed unmerged with work: orphan. 106 the
+#     same, `parked`: nothing (argon's, #1738). 107 has an open pull request: nothing. 110 closed,
+#     already labeled: keep, on an `audit/*` branch, since every prefix is in scope. 111 labeled,
+#     now merged whole: clear. o12 a comparison GitHub could not make: nothing. 113 the last of two
+#     pull requests, closed: orphan on it, not on the merged #112. `main` and a `gh-readonly-queue/*`
+#     candidate: nothing. 120 the drain's own draft, still at the head it adopted: orphan. 121 the
+#     same, head moved: nothing. 122 made ready: nothing. 123 `parked`: nothing. 124 a draft with no
+#     marker: nothing.
+orphan_want='["103:label:orphan","105:label:orphan","110:keep:orphan","111:clear","113:label:orphan","120:label:orphan","null:adopt:orphan"]'
+expect "the orphan cause decided wrong" "$(decide "$fx/orphan.json" 2026-10-03T22:00:00Z '{}')" "$orphan_want"
+got=$(jq -c --argjson now "$(jq -n '"2026-10-03T22:00:00Z" | fromdateiso8601')" \
+	"$program"'[ nm_decide("needs-maintainer"; $now; 30; {}) | select(.action == "adopt") | .branch, .causes[0].head ]' \
+	"$fx/orphan.json")
+expect "an orphan branch with no pull request was not handed to the shell to adopt, or at the wrong head" "$got" \
+	'["lane/case-o1","1111111111111111111111111111111111111111"]'
+
+# 2c. Falsification: each mutation removes one clause 2b depends on, and the decision must then come
+#     out different. A clause the mutation cannot find, or an answer that does not move, means 2b
+#     no longer tests that clause.
+falsify() {
+	mutated=$(printf '%s' "$program" | awk -v from="$1" -v to="$2" '
+		{ n = index($0, from); if (n) { $0 = substr($0, 1, n - 1) to substr($0, n + length(from)); hit = 1 } print }
+		END { exit !hit }') || {
+		echo "$me: the falsification for $3 no longer finds its clause: $1" >&2
+		exit 1
+	}
+	out=$(jq -c --arg l needs-maintainer --argjson now "$(jq -n '"2026-10-03T22:00:00Z" | fromdateiso8601')" --argjson b '{}' \
+		"$mutated"'[ nm_decide($l; $now; 30; $b)
+			| "\(.number):\(.action)" + (if .action == "clear" then "" else ":" + (.causes | map(.cause) | join(",")) end) ]' \
+		"$fx/orphan.json")
+	if [ "$out" = "$orphan_want" ]; then
+		echo "$me: removing $3 left the orphan decision unchanged, so 2b does not test it." >&2
+		exit 1
+	fi
+}
+falsify 'select((.compare.behindBy // 0) > 0)' '.' 'the work-past-main test'
+falsify 'def nm_orphan_hours: 2;' 'def nm_orphan_hours: 0;' 'the two-hour grace'
+falsify 'select($oid == $pr.headRefOid)' '.' "the adopted draft's head check"
+falsify 'select($last == null or (nm_parked([$last.labels.nodes[]?.name]) | not))' '.' 'the parked exemption'
+
 # 3. The episode keys the comment markers are built from, and the evidence the comment names.
 got=$(jq -c --argjson now "$(jq -n '"2026-10-03T22:00:00Z" | fromdateiso8601')" \
 	"$program"'[ nm_decide("needs-maintainer"; $now; 30; {}) | select(.number == 1 or .number == 1555 or .number == 9 or .number == 20 or .number == 24 or .number == 29 or .number == 30) | .causes[] | [.cause, .key] ]' \
@@ -112,7 +158,8 @@ fi
 for field in 'mergeQueue(branch: "main")' enqueuedAt mergedAt isDraft baseRefName isCrossRepository \
 	headRefName headRefOid createdAt mergeable body autoMergeRequest REMOVED_FROM_MERGE_QUEUE_EVENT \
 	ADDED_TO_MERGE_QUEUE_EVENT READY_FOR_REVIEW_EVENT AUTO_MERGE_DISABLED_EVENT LABELED_EVENT committedDate beforeCommit \
-	'parents(first: 2)' 'search(query: $labelled'; do
+	'parents(first: 2)' 'search(query: $labelled' 'refs(refPrefix: "refs/heads/"' 'compare(headRef: "main") { behindBy }' \
+	associatedPullRequests; do
 	if ! grep -qF -- "$field" "$f"; then
 		echo "$me: merge-drain.sh's needs-maintainer query does not ask for $field, which the decision reads." >&2
 		exit 1
@@ -131,4 +178,4 @@ if [ -n "$armers" ]; then
 	exit 1
 fi
 
-echo "needs maintainer: ejected, conflicting, stale, unarmed, off-main, red and stale-draft pull requests labelled, each cleared when its cause goes; the drain splices it and never arms"
+echo "needs maintainer: ejected, conflicting, stale, unarmed, off-main, red, stale-draft and orphan pull requests labelled, each cleared when its cause goes; the drain splices it and never arms"

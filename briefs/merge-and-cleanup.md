@@ -30,6 +30,16 @@ Anything printed is uncommitted work. Commit it and push the branch before conti
 commit message is `checkpoint` and the branch will never be merged. Do not prune a dirty worktree to
 save a step.
 
+Then list the work GitHub cannot see, for every worktree and branch on this machine at once:
+
+    git fetch --prune origin
+    helpers/at-risk-check.sh
+
+`DETACHED` is a worktree on no branch, and `UNPUSHED` a local branch holding commits no remote
+branch has, often ones pushed after its pull request merged. The merge drain's `orphan` cause sees
+only remote branches, so these are the ones it misses (#1787, 2026-10-06). Read each before
+removing anything it names: push it and open a pull request, or record what it found and let it go.
+
 ## The four steps
 
 ### 1. Every piece of identified work in the lane's report has a home
@@ -84,6 +94,18 @@ gated locally, `rustup toolchain list | grep nife-dev` prints nothing, and there
 
 Run it from the main checkout, never from a lane worktree, and run it after pruning rather than
 before, since pruning a worktree the link points into leaves it dangling.
+
+Then the toolchains. Every toolchain bump installs a new dated nightly and nothing removes the old
+one; on 2026-10-06 fifteen of them held 30 GB of `~/.rustup`. calef approved removing them once
+nothing pins them:
+
+    python3 helpers/prune_toolchains.py           # dry run
+    python3 helpers/prune_toolchains.py --remove
+
+It keeps every worktree's `rust-toolchain.toml` pin, Kani's pin (read from the installed Kani), and
+anything not a dated nightly, so `stable` and `nife-dev` are never touched. It runs after the prune,
+because a removed worktree releases its pin. It cannot run in the CI toolchain-bump workflow, whose
+runner has its own throwaway `~/.rustup` and never sees this Mac's.
 `notes/std.md` has the mechanism, the 2026-08-18 cross-contamination that prompted the rule, and why
 relinking loudly still does not make concurrent lanes safe.
 

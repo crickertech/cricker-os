@@ -6,6 +6,19 @@
 #
 #     helpers/at-risk-check.sh          # one pass, then exit
 #
+# Three kinds of line, each work that GitHub cannot see and a prune can destroy:
+#
+#   UNCOMMITTED   a lane worktree with modifications older than `AT_RISK_MINUTES` (below).
+#   DETACHED      a worktree on a detached HEAD. Nothing names it, so no branch listing finds it.
+#   UNPUSHED      a local branch, in a worktree or not, holding commits no `origin/*` ref has.
+#
+# The last two were added by lane/orphan-work on 2026-10-06 (UTC), after a prune found two detached
+# worktrees and five local branches with commits past their merged pull requests, none of them
+# visible to the merge drain's `orphan` cause, which reads remote branches only. They are reported
+# at once, with no clock: a prune is the moment they are lost. briefs/merge-and-cleanup.md runs this
+# before anything is removed. Both read remote-tracking refs, so run `git fetch --prune origin`
+# first; a stale `origin/*` ref for a deleted branch makes its commits look pushed.
+#
 # PROVISIONAL NAME. Minted 2026-09-23; not put to calef. See `Name:` below.
 #
 # # Why this exists
@@ -154,6 +167,37 @@ EOF
 done <<EOF
 $worktrees
 EOF
+
+# DETACHED: every linked worktree on a detached HEAD, with how much of it no remote ref holds. A
+# HEAD that `main` already contains is still listed, because the worktree is still invisible and
+# still holds a `target/` of gigabytes; the line says nothing is lost by removing it.
+git worktree list --porcelain | awk '
+	/^worktree / { if (path != "" && det) print path "\t" head; path = substr($0, 10); det = 0; head = ""; next }
+	/^HEAD / { head = substr($0, 6); next }
+	/^detached/ { det = 1; next }
+	END { if (path != "" && det) print path "\t" head }
+' | while IFS="$(printf '\t')" read -r path head; do
+	[ -n "$path" ] || continue
+	n=$(git rev-list --count "$head" --not --remotes=origin 2>/dev/null || echo '?')
+	if [ "$n" = 0 ]; then
+		echo "at-risk-check: DETACHED. $path at $(git rev-parse --short "$head"), every commit on a" \
+			"remote branch. Nothing is lost by removing it."
+	else
+		echo "at-risk-check: DETACHED. $path at $(git rev-parse --short "$head") holds $n commit(s)" \
+			"no remote branch has. Put it on a branch and push it, or say why it can go."
+	fi
+done
+
+# UNPUSHED: every local branch holding commits that no `origin/*` ref has. `--not --remotes`
+# rather than the branch's own upstream, because a branch whose remote was deleted at merge has no
+# upstream left, and those are exactly the ones whose extra commits a prune destroys.
+git for-each-ref --format='%(refname:short)' refs/heads/ | while IFS= read -r b; do
+	n=$(git rev-list --count "refs/heads/$b" --not --remotes=origin 2>/dev/null || echo 0)
+	[ "$n" = 0 ] && continue
+	where=$(git worktree list --porcelain | awk -v b="refs/heads/$b" '/^worktree /{p=substr($0,10)} $0=="branch " b {print p}')
+	echo "at-risk-check: UNPUSHED. $b holds $n commit(s) no remote branch has${where:+ (worktree $where)}." \
+		"Push it and open a pull request, or record what it found and delete it."
+done
 
 # Always exits 0: this is a report, not a gate, the same posture `helpers/lane-claim-check.sh`
 # takes ("Not a gate" in that file's own header) for the same reason.
