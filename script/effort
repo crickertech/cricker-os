@@ -325,7 +325,11 @@ COMMIT_MODEL_FIELDS = ['sha', 'model', 'source']
 def is_project_dir(directory):
     """Whether an opencode session's working directory is this project's, or one of its lanes."""
     for name in OPENCODE_PROJECT_NAMES:
-        if directory.endswith('/projects/' + name) or ('/projects/%s-worktrees/' % name) in directory:
+        # The worktrees directory is matched wherever it lives, not only under `projects/`: a tool
+        # records its physical working directory, and notes/dev-machine-disk.md moves the worktrees
+        # to their own volume behind a symlink, where a lane's directory reads
+        # `/Volumes/nife-build/nife-worktrees/<lane>`.
+        if directory.endswith('/projects/' + name) or ('/%s-worktrees/' % name) in directory:
             return True
     return False
 
@@ -894,6 +898,8 @@ def selftest():
         ('a path ending in projects/nife is the project', is_project_dir('/a/projects/nife'), True),
         ('a lane worktree is the project',
          is_project_dir('/a/projects/nife-worktrees/m'), True),
+        ('a lane worktree moved to its own volume is the project',
+         is_project_dir('/Volumes/nife-build/nife-worktrees/m'), True),
         ('a name that merely starts with nife is not', is_project_dir('/a/projects/nifeos'), False),
         ('a trailer spelling is upper for a short vendor, title for the rest',
          trailer_name('glm-5.3-flash'), 'GLM 5.3 Flash'),
