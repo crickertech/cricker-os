@@ -384,8 +384,8 @@ feature (`components/src/login.rs`'s own BUGS, more precisely worded per item).
 - **Refused.** Real terminal multiplexing. `login` hands the terminal to the first successful caller
   and refuses the rest with a dedicated code until `LOGOUT`, deliberately, because the narrow shape
   commits to nothing the wider one would later have to unwind.
-  This refusal is milestone 481 (design/roadmap/481-terminal-multiplexing.md), which carries it with
-  the condition that would change it.
+  This refusal is milestone 481 (design/roadmap/481-terminal-multiplexing.md), superseded on
+  2026-10-06 (UTC) by milestone 806 (concurrent login sessions).
 
 ## Index row
 
