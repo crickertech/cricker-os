@@ -190,8 +190,9 @@ one buys is in [design/tenets/codebase-rules.md](design/tenets/codebase-rules.md
 4. Assume weak memory ordering. We're on ARM, which is the weak one, and that's a gift: don't
    squander it.
 5. Architectural parity is a gate, not an aspiration: DECISIONS §19 (architectural parity is a
-   tenet). The targets are aarch64, riscv64, and x86_64, all three of which now boot on real
-   hardware. A kernel capability ships on every supported architecture, proven by the same suite, or
+   tenet). The targets are aarch64, riscv64, and x86_64. riscv64 (radon) and x86_64 (xenon) boot
+   on bare metal; aarch64 has run only under HVF on patagonia until argon, a TX1, arrives
+   (corrected 2026-10-06, #1739). A kernel capability ships on every supported architecture, proven by the same suite, or
    a scope note records the gap and the plan. If a feature works on one ISA and silently not
    another, that is the bug.
 6. Taking a dependency is a decision, not a convenience (§46). Write the kernel and the crates
