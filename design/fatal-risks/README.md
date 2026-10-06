@@ -93,7 +93,7 @@ Ranked by chance-of-fatal times cheapness-of-test, not by number. Each cell's ve
 | order | risk | experiment | owner | cost |
 |---|---|---|---|---|
 | ~~1~~ | 2, the proofs | **RUN, 2026-08-30: amber**, because no standing proof has caught a regression, and `asm!` bounds the reach | milestone 191 | done |
-| 2 | 9, the HAL, on the board that already boots | the on-board test-suite exit, so silicon becomes gate-able | milestone 16 (real hardware and IOMMU-backed driver isolation) | bench time, board proven since 2026-08-14 |
+| 2 | 9, the HAL, on the board that already boots | the on-board test-suite exit, so silicon becomes gate-able | milestone 16 (real hardware and IOMMU-backed driver isolation) | bench time, board proven since 2026-08-14. Correction, 2026-10-05: milestone 16 is `BUILT` (2026-10-03), and its block records this exit as done by 2026-09-03, the board feature's UART verdict marker and SBI SRST in `kernel/src/arch/riscv64/semihosting.rs` ([16's block](../roadmap/16-real-hardware-iommu.md), `## Follow-on`). Whether that closes the row is the architect's |
 | ~~3~~ | 9, the HAL, on the architecture that carries the risk | **RUN, 2026-09-17: GREEN**, five of five on xenon, everything it needed inside `arch/x86_64/` | milestone 87 (the x86_64 bare-metal machine) | done |
 | 4 | 9, the HAL, at the implementation grain, widened 2026-09-23 | a second machine of an architecture nife already boots | milestone 225 (run the soak on radon, argon and xenon) | **RULED 2026-10-05: both, argon first** (calef); then riscv64 on milestone 89 (Scaleway EM-RV1), €1.51; neither run |
 | ~~4~~ | 1, the ecosystem | **RUN, 2026-08-31: GREEN on all three since 2026-09-16.** The blocker is a missing argv, not threads | milestone 121 | done |
