@@ -2066,9 +2066,12 @@ pub enum Command<'a> {
     /// progenitor vouches bytes against, and the progenitor is the one process that both reads that
     /// table and holds what installing needs (the image's catalogue, the file service with
     /// `WRITE`), so the shell asks it over the spawn endpoint (`spawnproto::Activation`) the way
-    /// `rm`'s directory grant is asked for. An installer *program* could not even be told which
-    /// package: there is no argument vector (milestone 205 (how a foreign program is told what to
-    /// do)).
+    /// `rm`'s directory grant is asked for. That reason keeps the *installer* in the progenitor; it
+    /// never required the *client* to be a builtin. The second reason this comment gave, that a
+    /// program had no argument vector, went stale when milestone 205 (how a foreign program is told
+    /// what to do) was built on 2026-09-27. calef ruled on 2026-10-06 (UTC) that the client becomes
+    /// a program, and `design/roadmap/proposals/the-package-client-becomes-a-program.md` is the
+    /// plan, so this builtin is slated to go.
     ///
     /// The tail is classified by [`package_verb`]. Name: provisional (2026-09-26).
     Package(&'a [u8]),
