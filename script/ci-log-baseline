@@ -40,8 +40,11 @@
 # (one Kani harness per crate), and `script/cpu-matrix` mostly does NOT: its own last `==>` marker is
 # always "matrix", a section header printed whether every model passed or not, so this script instead
 # greps the "cpu-matrix: failed on: ..." line the script prints to stderr, or, for a preflight
-# failure, the marker that precedes it (nothing else follows a preflight exit). `script/icount`'s
-# bench job has no `==>` convention at all; it prints "bench: CHECK FAIL <name>: ..." per regressed
+# failure, the marker that precedes it (nothing else follows a preflight exit). Since 2026-10-06 the
+# models run in `cpu matrix shard (...)` jobs, which carry those lines, and the required name is an
+# aggregate whose only `==>` line says a shard failed, so one failure now yields two rows: the shard
+# with its models and the aggregate with that marker. `script/icount`'s bench job has no `==>`
+# convention at all; it prints "bench: CHECK FAIL <name>: ..." per regressed
 # benchmark, which this script greps for directly, the same technique the existing gate-audit
 # proposal already used by hand for that one job type.
 #
@@ -228,7 +231,7 @@ attribute_job() {
                 printf 'UNATTRIBUTABLE\tno distinguishing marker in log (%s)\n' "$e"
             fi
             ;;
-        "cpu matrix (riscv64 across QEMU CPU models)")
+        "cpu matrix (riscv64 across QEMU CPU models)"|"cpu matrix shard ("*)
             if grep -aq 'cpu-matrix: PREFLIGHT FAILED' "$logf"; then
                 r=$(grep -a 'cpu-matrix: PREFLIGHT FAILED' "$logf" | tail -1 | sed -E 's/^[0-9TZ:.-]+Z//; s/^ *//')
                 printf 'PREFLIGHT\t%s\n' "$r"
@@ -316,7 +319,8 @@ cmd_update() {
             2>/dev/null | while IFS="$(printf '\t')" read -r jid jname; do
             case "$jname" in
                 clippy|"supply chain (advisories, licences, vendored integrity)"| \
-                "cpu matrix (riscv64 across QEMU CPU models)"|"bench (icount regression tripwire)"| \
+                "cpu matrix (riscv64 across QEMU CPU models)"|"cpu matrix shard ("*| \
+                "bench (icount regression tripwire)"| \
                 "verify (Kani proofs)")
                     if grep -qxF "$jid" "$have" 2>/dev/null; then continue; fi
                     result=$(attribute_job "$jname" "$jid" "$rid")
