@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""The TLS host milestone 501 (a TLS client that speaks to one pinned peer) is tested against.
+
+QEMU's slirp runs this once per connection to 10.0.2.9:8443 (a `guestfwd` in
+helpers/qemu-runner-{aarch64,riscv64,x86_64}.sh), with the connection on stdin
+and stdout, the same way helpers/package-http-peer is the plain-HTTP host at
+10.0.2.9:8080. The host tests in pinned_tls_client/ start it the same way, as a
+child process on a pipe. So it is a real TLS 1.3 handshake with a real
+implementation that is not ours (Python's `ssl`, which is OpenSSL), and nothing
+binds a port on the developer's machine.
+
+Which certificate it presents is decided by the name the client asks for (SNI),
+because that is the one thing a client controls and the tests need three
+answers from one port:
+
+  basalt.test     the pinned test authority's chain for basalt.test: a client
+                  pinning pinned_tls_client/fixtures/pinned-root.der accepts it
+  stranger.test   a chain for stranger.test from an authority nothing pins: a
+                  well-formed certificate the client must refuse by its root
+  anything else   the basalt.test chain again, so a client asking for another
+                  name is shown a valid certificate for the wrong host and must
+                  refuse it by name
+
+After the handshake it answers one HTTP/1.0 GET:
+
+  GET /index          a short fixed body, the stand-in for basalt's index
+  GET /bytes/<n>      n bytes of a repeating pattern, for measuring throughput
+  anything else       404, with a Content-Length like every reply
+
+The fixtures are test keys and protect nothing; pinned_tls_client/fixtures/
+regenerate.sh says why they are committed. BUGS: one request per connection, no
+request body, and TLS 1.3 only, which is all the client speaks. Name:
+provisional 2026-10-06 (UTC), the sibling of helpers/package-http-peer.
+"""
+import os
+import re
+import ssl
+import sys
+
+FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pinned_tls_client", "fixtures")
+INDEX = b"basalt test index: served over TLS 1.3 by helpers/tls-peer\n"
+BYTES = re.compile(rb"^/bytes/([0-9]{1,8})$")
+
+
+def context(stem):
+    c = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    c.minimum_version = ssl.TLSVersion.TLSv1_3
+    c.load_cert_chain(os.path.join(FIXTURES, stem + "-chain.pem"), os.path.join(FIXTURES, stem + "-key.pem"))
+    return c
+
+
+def log(message):
+    # stderr reaches QEMU's own stderr, not the guest, so a refusal shows up in a gate's log
+    # without being mistaken for anything the guest read.
+    sys.stderr.write("tls-peer: %s\n" % message)
+    sys.stderr.flush()
+
+
+class Connection:
+    """TLS over stdin and stdout, through memory buffers rather than a socket."""
+
+    def __init__(self, ctx):
+        self.incoming = ssl.MemoryBIO()
+        self.outgoing = ssl.MemoryBIO()
+        self.tls = ctx.wrap_bio(self.incoming, self.outgoing, server_side=True)
+
+    def flush(self):
+        data = self.outgoing.read()
+        if data:
+            os.write(1, data)
+
+    def fill(self):
+        data = os.read(0, 65536)
+        if not data:
+            raise EOFError("the client closed the connection")
+        self.incoming.write(data)
+
+    def call(self, operation, *args):
+        while True:
+            try:
+                result = operation(*args)
+                self.flush()
+                return result
+            except ssl.SSLWantReadError:
+                self.flush()
+                self.fill()
+
+
+def reply(conn, status, body):
+    head = b"HTTP/1.0 %s\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n" % (status, len(body))
+    conn.call(conn.tls.write, head + body)
+
+
+def main():
+    pinned = context("basalt-test")
+    stranger = context("stranger-test")
+
+    def choose(tls, name, _ctx):
+        if name == "stranger.test":
+            tls.context = stranger
+
+    pinned.sni_callback = choose
+    conn = Connection(pinned)
+    try:
+        conn.call(conn.tls.do_handshake)
+    except (ssl.SSLError, EOFError) as e:
+        # The refusal tests end here: the client sends an alert, or hangs up, at the certificate.
+        log("handshake ended: %s" % e)
+        return
+    request = b""
+    try:
+        while b"\r\n\r\n" not in request and len(request) < 4096:
+            request += conn.call(conn.tls.read, 4096)
+    except (ssl.SSLError, EOFError) as e:
+        log("request ended: %s" % e)
+        return
+    parts = request.split(b"\r\n", 1)[0].split()
+    if len(parts) != 3 or parts[0] != b"GET":
+        return reply(conn, b"400 Bad Request", b"")
+    path = parts[1]
+    if path == b"/index":
+        reply(conn, b"200 OK", INDEX)
+    elif BYTES.match(path):
+        n = int(BYTES.match(path).group(1))
+        pattern = bytes(range(256))
+        reply(conn, b"200 OK", (pattern * (n // 256 + 1))[:n])
+    else:
+        reply(conn, b"404 Not Found", b"")
+    try:
+        conn.call(conn.tls.unwrap)
+    except (ssl.SSLError, EOFError, OSError):
+        pass
+
+
+if __name__ == "__main__":
+    main()

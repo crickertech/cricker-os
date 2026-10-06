@@ -1,0 +1,37 @@
+# The TLS client of milestone 501 (a TLS client that speaks to one pinned peer): `rustls` over this
+# tree's own provider, trusting exactly one root for exactly one host name, and one HTTP/1.0 GET
+# through it. src/lib.rs is the argument; this file is only what it is built from.
+#
+# **No dependency here is new.** `rustls` is DECISIONS §196 (nife carries TLS: `rustls` for the
+# protocol), `cryptography_provider` is §198 (the glue is ours, the primitives are not) with `rsa`
+# taken on calef's ruling of 2026-09-20, and `http_response` is milestone 198 (a package manager)'s own request writer
+# and response reader. What this package adds is the pin, the session and the tests.
+#
+# Deliberately NOT a member of the main workspace, for `cryptography_provider`'s reason: its graph is
+# fetched from crates.io and no gate builds it yet. Whether one should is the question this
+# milestone's pull request puts to an architect.
+#
+# Name: provisional, minted 2026-10-06 (UTC) by this milestone's lane. Names are an architect's.
+# The words are the milestone's own: a client, for TLS, that trusts one pinned peer.
+# `https_client` was set aside because the HTTP half is milestone 198's crate and this package adds
+# none of it; `tls_client` alone was set aside for claiming a general client, which the pin is the
+# point of not being.
+
+[package]
+name = "pinned_tls_client"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[workspace]
+
+[dependencies]
+rustls = { version = "0.23", default-features = false, features = ["std"] }
+cryptography_provider = { path = "../cryptography_provider" }
+http_response = { path = "../crates/http_response" }
+
+[dev-dependencies]
+# Already in the graph through `cryptography_provider`; named so a test can recompute the pin's
+# fingerprint. Not a new crate.
+sha2 = { version = "0.10", default-features = false }
