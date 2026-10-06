@@ -15,8 +15,7 @@ review: `Expected to fail:` ratified 2026-09-18 and "harness" widened to cover a
 Originally: The direction: *"It sounds like [option C] is
 where we want to land if we want to state that nife is proven."* Then the format, after the options
 were costed: *"Go with the diff, weekly plus per-PR for touched harnesses."* Then the spellings, ratified the
-same day and recorded at the bottom. Nothing here is open. *(Section number provisional
-until the merge queue lands it.)*
+same day and recorded at the bottom. Nothing here is open.
 
 ## What is being decided
 
@@ -76,9 +75,7 @@ decades behind it.
 nothing, so this convention should be spelled in the field's vocabulary rather than in ours.
 
 There is also a cheaper family, Inductive Validity Cores, which compute the minimal set of model
-elements a proof actually needed and so give coverage without re-running anything. Whether Kani or
-CBMC can produce one is unverified and is the first thing the implementing milestone should check,
-because a yes makes most of this section cheaper or unnecessary.
+elements a proof actually needed and so give coverage without re-running anything. *(Since checked: Kani exposes none, as `script/falsifications` records.)*
 
 Sources: [Coverage Metrics for Formal
 Verification](https://link.springer.com/chapter/10.1007/978-3-540-39724-3_11), [Sanity Checks in
@@ -179,6 +176,7 @@ job is saying who claimed what. Exactly the same is true here:
 |---|---|---|
 | **`replayable <path>`** | a patch exists that a script applies to turn this harness red | applies it, runs that one harness, **requires red**, reverts |
 | **`attested <date>`** | a person broke the code and watched it fail; nothing can re-check it | counts it, and it is a worklist entry |
+| **`unfalsifiable <why>`** | examined, and no defect in the code under proof turns it red; reason written | counts it apart |
 | **`unfalsified`** | nobody has | counts it, and this is the claim's honest denominator |
 
 This is what makes the convention shippable against 145 existing harnesses, which the first draft
@@ -331,9 +329,7 @@ one.
 calef, 2026-09-19, closing a gap `script/falsifications` named against itself and handed back.
 Its header says, in the paragraph on milestone 305, that the only word which strains is `harness`,
 that it strains in prose rather than in the convention, and that widening the wording is a decisions
-edit rather than that script's. (It is quoted in summary rather than as a block, for the reason the
-naming argument above is: a multi-line quote out of a shell comment carries its own `#` markers into
-`script/citations`' normalized text and will not resolve.)
+edit rather than that script's.
 
 Read every "harness" in this section as "a claim the sweep can replay". Today that is a
 `#[kani::proof]`, replayed with `cargo kani --harness <name> --exact`, or a kernel `#[test_case]`,
@@ -357,6 +353,12 @@ The title stays as written, because it is cited by path elsewhere in the tree an
 makes is still true. The vocabulary is fixed here rather than by a rename, which is the cheaper of
 two irreversible-looking edits and the one that leaves the citations working.
 
+## `unfalsifiable`, a fourth state, added 2026-10-06
+
+calef, 2026-10-06 UTC (#1730): *"unfalsifiable ratified."* and *"amend §134"*. Its meaning is in the
+table above. `script/falsifications --check` fails one with under 200 characters of reason, so one
+word cannot empty the `unfalsified` count. The name's refusals are in `helpers/rust_source.py`.
+
 ## BUGS
 
 - This adds friction to writing a harness, at the moment harness-writing is about to increase
@@ -366,7 +368,7 @@ two irreversible-looking edits and the one that leaves the citations working.
   class. It is a floor, and a low one.
 - A diff rots against refactors, and the section above argues that is correct rather than
   defending it as harmless. It is still churn, and a heavily refactored crate will re-falsify often.
-- The three states make the convention shippable and also make it easy to stall. Every harness
+- The states make the convention shippable and also make it easy to stall. Every harness
   may sit at `never` forever while the lint stays green, so the number that matters is the ratio, and
   nothing forces it upward.
 - The `kani::cover!` lint can be satisfied vacuously too, by covering something trivially
