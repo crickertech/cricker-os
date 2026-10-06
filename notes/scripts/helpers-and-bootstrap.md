@@ -72,6 +72,11 @@ cold checkout before pushing. A named check (`ci-build fmt`) does not, because t
 one check is a CI job that has already installed exactly what it needs, and a rustfmt runner has
 no business apt-installing QEMU.
 
+`NIFE_SKIP_LINT_TOOLS=1 script/bootstrap` skips `cargo-machete` and `typos`, the two tools only
+`script/lint` uses. On Linux both compile from source, about 85 s per job on the arm64 runners
+(measured on PR #1778, 2026-10-06 UTC). The CI jobs that never lint set it; the `clippy` job installs
+them itself and a developer's bare `script/bootstrap` still installs everything.
+
 On Linux the package manager cannot finish the job, so bootstrap runs `script/ci-qemu` itself
 (milestone 287). No Ubuntu release ships a QEMU with `-device riscv-iommu-pci`, and `apt-get`
 already fetches the newest package for the release, so there is nothing better for apt to get.
