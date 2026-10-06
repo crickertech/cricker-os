@@ -26,24 +26,20 @@ days with nothing in this proposal built.
 An interactive boot's own count was not measured. It is far lower than the suite's, so the suite
 is the binding case for `script/test` and the ceiling a stranger meets first.
 
-## Slots fork 3 adds
+## Why a program's regions are bounded by its memory
 
-Per growing program, at the account caps of fork 3:
+Band increments start at 256 pages and large allocations at the 1 MiB threshold, so no region a
+program gets is under 1 MiB. A program under an account ceiling of C MiB holds at most C regions.
+That is the per-program limit fork 7 recommends: memory runs out first. Under QEMU's 256 MiB that
+is at most a few hundred regions machine-wide for every program together.
 
-| what | regions |
-|---|---|
-| band increments, doubling from 256 pages to an 8 MiB cap | 10 for a 64 MiB small-object heap, 16 at the cap |
-| large allocations of 1 MiB or more, live at once | up to 16 |
-| total per account | up to 32 |
-
-One such program in the suite would take aarch64 from 242 to 274, past 256. A typical program
-uses far fewer. `rg` over this tree, at 3.0 MiB on macOS, would take two band increments and
-likely no large regions. But a cap a single program can exceed is not a cap.
-
-The per-process capability table is the second ceiling. It has 64 slots
-(`kernel/src/cap.rs`, `CAPABILITY_TABLE_SLOTS`), a `std` program uses its 9 fixed slots and some
-working ones, and every region it holds takes one more. 32 regions fit; 128 KiB large allocations
-would not.
+The capability table is the limit one level down. It has 64 slots a process
+(`kernel/src/cap.rs`, `CAPABILITY_TABLE_SLOTS`), and a `std` program's 9 fixed slots come first.
+A program that kept one capability per region would meet 64 long before memory. It need not keep
+them. It maps a grant's pages, deletes its copy of the capability, and later releases the grant by
+the number the broker gave it. The broker's copy is the one that `DESTROY`s. The cost is one slot
+for the length of a mapping loop. Milestone 778 (capability tables sized per process) stays the
+general answer for programs that hold many capabilities for other reasons.
 
 ## The threshold
 
@@ -53,42 +49,77 @@ glibc's 128 KiB default (from memory, with its dynamic rise toward 32 MiB on 64-
 - a broker round trip: a `CALL`, then the grant over the result endpoint, since a reply carries no
   capability (`abi::reply`);
 - a `SPLIT` in the broker and a `DESTROY` at free;
-- one region slot machine-wide and one capability slot in the process;
+- one region slot machine-wide, and one capability slot while it maps the pages;
 - one `MAP` per page, the same as in the band.
 
 At 1 MiB, the 256 `MAP` calls dominate, and the fixed part is a few percent at most. That is an
 estimate; the first slice's measured criterion counts it. At 128 KiB the fixed part is a third of
 the cost or more, and slot use is eight times higher for the same bytes.
 
-## What raising `MAX_REGIONS` costs
+## What the region table costs, measured
 
-The table is `RegionTable<MAX_REGIONS>`, a `generational_table::Table` of `Option<Region>` and a
-`u32` generation per slot. `Region` holds four `u64` page counts, a parent name, a pin flag, a
-`u32` child count and a `Spent` record of eight `u64`s. That is about 112 bytes, so about 116 per
-slot with the generation. This is estimated from the fields, not measured with `size_of`:
+Measured 2026-10-06 (UTC) on calef's Mac (Apple silicon, host `release` build) with a throwaway
+program over `memory_regions::RegionTable<N>`, not committed. Kernel code under QEMU runs slower,
+so treat these as lower bounds.
 
-| `MAX_REGIONS` | table size |
-|---|---|
-| 256 | about 29 KiB |
-| 512 | about 58 KiB |
-| 1,024 | about 116 KiB |
+| `MAX_REGIONS` | table size | flat `USAGE`, root | flat `USAGE`, leaf | a destroy at a full table |
+|---|---|---|---|---|
+| 256 | 29 KiB | 0.4 µs | 0.5 µs | 0.3 µs |
+| 1,024 | 116 KiB | 1.4 µs | 2.4 µs | 0.8 µs |
+| 4,096 | 464 KiB | 5.7 µs | 7.4 µs | 4.4 µs |
+| 16,384 | 1.8 MiB | 23 µs | 49 µs | 45 µs |
+| 65,536 | 7.3 MiB | 103 µs | 127 µs | 73 µs |
 
-Names do not limit it. A name is a generation in the high 32 bits and a slot in the low 32
-(`generational_table`), and `Table::new` asserts only `N <= u32::MAX`.
+The size is exactly 116 bytes a slot. "Flat" is one root with every other slot a child of it, the
+shape a broker with many accounts makes. There each walk is linear in the table.
 
-The proofs do not depend on it. `crates/generational_table`'s Kani proofs use `Table<u8, 2>`.
-`crates/memory_regions`' four (`split_stays_within_budget_and_progresses`,
-`a_retyped_run_is_the_pages_asked_for_and_zero_is_one`, `destroy_never_frees_a_child_to_the_allocator`,
-`coalescing_never_reclaims_a_held_page`) are over scalar watermarks. The loom test uses
-`RegionTable<2>`. A raise re-proves nothing.
+The worst case is a chain, each region split from the last, because `spent` runs `descends_from`
+for every live region and each walks its parent chain:
 
-The walks do. `USAGE`'s subtree records and the reclaim scans walk every live region, each one's
-parent chain, under the region lock with interrupts masked. The table's sweep stops at one past the
-highest live slot, so cost tracks what is held. The 2026-10-03 security audit measured 42 µs for a
-root over the deepest chain 256 regions allow, and 62 µs for its leaf. Both grow with chain depth
-times table occupancy. At 1,024 that could be 16 times worse, about 1 ms masked, though no real
-workload splits a chain that deep. That figure is an extrapolation, which is why fork 7 A's exit
-criterion re-measures it, and why 512 is the fallback.
+| chain length, table full | `USAGE` at the root | `USAGE` at the leaf |
+|---|---|---|
+| 256 | 62 µs | 83 µs |
+| 1,024 | 748 µs | 685 µs |
+| 4,096 | 39 ms | 30 ms |
+
+That is quadratic and worse at size, since the walk leaves the cache. The 2026-10-03 audit measured
+the 256 row at 42 and 62 µs, the same order. They are linear only over a flat table;
+over a chain they are not. Each runs under the region lock with interrupts masked.
+
+Inserting is linear too. `generational_table::insert_with` takes the first free slot by scanning
+(`slots.iter().position`).
+
+## Making the walks stop depending on the table
+
+Three changes, all inside `crates/memory_regions` and `crates/generational_table`:
+
+- First-child and next-sibling links in each region record. `spent` then walks the named region's
+  subtree and nothing else, so its cost is what the caller holds. The chain's root walk becomes
+  linear in the chain and the leaf walk constant.
+- `return_to_parent` finds the highest live child by walking the parent's children rather than the
+  table.
+- A free-slot list in `generational_table`, so an insert is one pop.
+
+What that touches in the proofs. The four Kani proofs in `crates/memory_regions` are over scalar
+watermark functions and survive unchanged. `generational_table`'s four harnesses run on
+`Table<u8, 2>` and rerun against the free list. The loom test in `script/interleaving-check` runs
+on `RegionTable<2>` and reruns the claim and return. The links are new invariants, so new Kani
+harnesses on a small table should prove them consistent after split, claim and return.
+
+## Removing the table, seL4-style, priced roughly
+
+seL4 keeps an untyped's state in its capability and revokes through a derivation tree linked
+through capability slots (from memory). The table's only limit there is memory.
+
+Here the table is also the revocation mechanism. A region's name carries a generation, and
+reclaiming bumps it, so every capability to it stops resolving with no tree to walk
+(`notes/generational-names.md`). Moving the record into memory the holder owns would lose that:
+a reused page could carry a matching generation by chance. So option B means a derivation tree
+and a redesign of §16 (object revocation). The code it touches is `kernel/src/cap.rs` (808 lines),
+`kernel/src/revoke.rs` (1,374), `kernel/src/memory_region.rs` (382), `crates/memory_regions`
+(1,761) and `crates/generational_table` (573), about 4,900 lines. The tree's invariants need new
+proofs. That is months, a rough estimate. Sizing the table from RAM at boot would postpone the need
+for it indefinitely, at the cost of a slice-backed table and Kani harnesses that take one.
 
 ## How the allocator sees a free increment
 
