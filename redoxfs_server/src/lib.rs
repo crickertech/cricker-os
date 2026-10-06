@@ -1016,6 +1016,20 @@ impl<D: Disk> Server<D> {
             .map_err(refused)
     }
 
+    /// **`BIND_FLUSH`: make `badge` flush-only** (milestone 805 (`reboot` at the prompt)), asked
+    /// for by a caller whose badge is `caller`. `subtree_scope::Bindings::bind_flush_only` has the
+    /// rules; [`Server::handle`] enforces what it means.
+    pub fn bind_flush_only(&mut self, caller: u64, badge: u64) -> Result<()> {
+        self.bindings
+            .bind_flush_only(caller, badge)
+            .map_err(refused)
+    }
+
+    /// Whether `badge` may `SYNC` and nothing else.
+    pub fn flush_only(&self, badge: u64) -> bool {
+        self.bindings.of(badge) == subtree_scope::Binding::FlushOnly
+    }
+
     /// **`UNBIND`: take `badge`'s grant back.** Closes every handle the badge minted and the grant's
     /// root, and leaves the badge revoked, so it reaches nothing from then on.
     pub fn unbind(&mut self, caller: u64, badge: u64) -> Result<()> {
@@ -2391,6 +2405,67 @@ mod tests {
         }
         assert_eq!(srv.admit(0, outside as u64).unwrap(), outside);
         assert_eq!(srv.admit(windows - 1, outside as u64).unwrap(), outside);
+    }
+
+    /// **A flush-only badge answers `SYNC` and refuses every other verb** (milestone 805 (`reboot` at
+    /// the prompt), `fs::BIND_FLUSH`). Driven through [`Server::handle`], the dispatch the EL0
+    /// binary runs, so it is the wire's answer and not a helper's: every verb from `OPEN` to
+    /// `UNBIND`, on `ROOT` and on a real handle, is `EPERM` and reaches no device, and `SYNC`
+    /// reaches the device once and answers its count. An unbound badge's `SYNC` still needs a handle
+    /// with `WRITE`, as it always did.
+    ///
+    /// Falsification: attested 2026-10-06. Removed the dispatch's `EPERM` arm for a flush-only badge,
+    /// so every other verb fell through to `admit`; the test went red on opcode 0 (`EBADF` from
+    /// `subtree_scope`'s backstop, not the dispatch's refusal) and green again when restored. Not
+    /// replayable by `script/falsifications`, which sweeps the root workspace only.
+    #[test]
+    fn a_flush_only_badge_answers_sync_and_refuses_everything_else() {
+        struct Flushes(i64);
+        impl crate::ServeEdges for Flushes {
+            fn sync(&mut self) -> i64 {
+                self.0 += 1;
+                self.0
+            }
+        }
+        let mut srv = server_with_tree();
+        let file = srv.open_file("motd").unwrap() as u64;
+        srv.bind_flush_only(0, 3).unwrap();
+        assert!(srv.flush_only(3));
+        let mut window = vec![0u8; filesystem_protocol::fs::TRANSFER_MAX];
+        window[..4].copy_from_slice(b"motd");
+        let mut edges = Flushes(0);
+        use filesystem_protocol::fs;
+        for code in 0..=fs::BIND_FLUSH {
+            if code == fs::SYNC {
+                continue;
+            }
+            for handle in [fs::ROOT, file] {
+                let (r0, _) = srv.handle(3, fs::req(code, handle, 4), 0, &mut window, &mut edges);
+                assert_eq!(r0, -(EPERM as i64), "opcode {code} on handle {handle}");
+            }
+        }
+        assert_eq!(edges.0, 0, "a refused verb reached the device");
+        let (r0, _) = srv.handle(
+            3,
+            fs::req(fs::SYNC, fs::ROOT, 0),
+            0,
+            &mut window,
+            &mut edges,
+        );
+        assert_eq!((r0, edges.0), (1, 1), "the flush reached the device once");
+        // The badge binds nothing, as any scoped badge.
+        assert!(srv.bind_flush_only(3, 4).is_err());
+        // Taken back, it reaches nothing, the flush included.
+        srv.unbind(0, 3).unwrap();
+        assert!(!srv.flush_only(3));
+        let (r0, _) = srv.handle(
+            3,
+            fs::req(fs::SYNC, fs::ROOT, 0),
+            0,
+            &mut window,
+            &mut edges,
+        );
+        assert!(r0 < 0 && edges.0 == 1, "a revoked badge flushed");
     }
 
     /// **A bound badge sees its grant as its root and reaches only what it minted** (milestone 606,
