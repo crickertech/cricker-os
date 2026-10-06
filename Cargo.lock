@@ -349,6 +349,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "designware_ethernet"
+version = "0.1.0"
+dependencies = [
+ "address_space_map",
+ "device_tree_blob",
+]
+
+[[package]]
 name = "device_tree_blob"
 version = "0.1.0"
 
