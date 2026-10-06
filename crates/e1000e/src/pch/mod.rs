@@ -5,26 +5,30 @@
 //!
 //! The I219 is not a PCIe NIC in the 82574L's sense. It is a MAC inside the platform controller hub
 //! (PCH) talking to a separate PHY, shared with the Management Engine, and it carries workarounds
-//! that only field exposure finds. This module holds the subset of FreeBSD's that touches **MAC
-//! registers and PCI configuration space only**, as constants and pure decisions; the kernel's
-//! `e1000e` module performs them. Each item names the FreeBSD function it comes from, read on
-//! 2026-10-04 from `sys/dev/e1000/` on FreeBSD's `main`:
+//! that only field exposure finds. FreeBSD's Intel shared code (BSD-3-Clause, notice below) is the
+//! only source this tree reads for them; Linux's `e1000e` is GPL and was not consulted for any of
+//! it. Each item names the FreeBSD function it comes from, read from `sys/dev/e1000/` on FreeBSD's
+//! `main`, on 2026-10-04 for the first three and 2026-10-05 for the rest:
 //!
 //! - [`ulp`]: leaving ultra-low-power mode through the Management Engine, from
-//!   `e1000_disable_ulp_lpt_lp` (`e1000_ich8lan.c`), its ME branch only.
+//!   `e1000_disable_ulp_lpt_lp` (`e1000_ich8lan.c`), its ME branch.
 //! - [`flush`]: the descriptor-ring flush SPT parts need before a reset, from `em_flush_desc_rings`,
 //!   `em_flush_tx_ring` and `em_flush_rx_ring` (`if_em.c`).
-//! - [`reset`]: the MAC-register steps around the global reset, from `e1000_reset_hw_ich8lan`
+//! - [`reset`]: the MAC-register constants around the global reset, from `e1000_reset_hw_ich8lan`
 //!   (`e1000_ich8lan.c`) and `e1000_disable_pcie_master_generic` (`e1000_mac.c`).
+//! - [`phy`]: MDIO through `MDIC`, the software/firmware semaphore, and the PCH PHY's paged
+//!   registers.
+//! - [`nvm`]: reading the `GbE` region of the flash through BAR0, as Sunrise Point does it.
+//! - [`sequence`]: the bring-up itself, in FreeBSD's order: the PHY workarounds at attach
+//!   (`e1000_init_phy_workarounds_pchlan`, which holds the ULP exit without an ME, the
+//!   `SMBus`-to-PCIe switch and the `LANPHYPC` power cycle), the global reset with the PHY
+//!   (`e1000_reset_hw_ich8lan`, `e1000_post_phy_reset_ich8lan`), and the hardware and copper-link
+//!   setup (`e1000_init_hw_ich8lan`, `e1000_setup_copper_link_pch_lpt`).
 //!
-//! **What was not ported, and why:** everything that talks to the PHY. ULP exit without an ME,
-//! the `LANPHYPC` toggle's follow-up, the `SMBus`-mode unforcing, `e1000_post_phy_reset_ich8lan` and
-//! the PHY workarounds all go through MDIO (`MDIC`) under the software/firmware semaphore
-//! (`EXTCNF_CTRL`), which is a PHY access layer this crate does not have. That is a few hundred
-//! lines of FreeBSD and is proposed as its own piece in milestone 494's `Reuse` section. Because
-//! of it, the reset here deliberately does **not** set `CTRL.PHY_RST`: FreeBSD resets the PHY with
-//! the MAC only because it then runs the post-reset PHY workarounds, and resetting it without them
-//! would be worse than leaving the PHY as firmware configured it.
+//! Every sequence is generic over [`Hw`], so it runs on the host against a simulated I219 (this
+//! module's `sim`) as well as in the kernel. QEMU's 82574L is not a PCH part and never reaches
+//! [`sequence`]; it does reach [`phy::id_at`], which shares [`phy::read_mdic`] with everything
+//! here, so the MDIO primitive is the one piece the QEMU gates prove.
 //!
 //! The constants are facts about the hardware; the sequences are FreeBSD's, adapted, and carry
 //! Intel's licence below as its first condition requires.
@@ -64,13 +68,62 @@
 //!
 //! # BUGS
 //!
-//! - **None of it has run.** QEMU's 82574L is not a PCH part, so every step here is skipped under
-//!   the gates ([`is_pch`] is false for it). xenon's bench boot is its first execution.
+//! - **None of it has run on silicon.** QEMU's 82574L is not a PCH part, so [`sequence`] is
+//!   skipped under the gates ([`is_pch`] is false for it) and is proved only against `sim`, which
+//!   is this crate's reading of FreeBSD and not the device. xenon's bench boot is its first
+//!   execution (notes/e1000e.md).
+//! - **The link-up half is not ported.** FreeBSD reconfigures the PHY each time link comes up
+//!   (`e1000_check_for_copper_link_ich8lan`: the EMI receive configuration, the PLL clock gate,
+//!   the 776.20 pointer gap at 1000 Mb/s, the beacon duration, LTR and OBFF), from a link-change
+//!   interrupt this driver does not take. A link that comes up and then loses frames, especially
+//!   at 10 or 100 Mb/s, points here first. About 250 lines of FreeBSD; proposed in milestone 494's
+//!   Follow-on.
+//! - **Flow control is not configured, so it is not advertised.** FreeBSD advertises symmetric
+//!   pause and programs the watermarks to match (`e1000_set_fc_watermarks_generic`); this driver
+//!   programs neither, and advertises neither ([`sequence::setup_copper_link`]).
 //! - **The transmit flush diverges from FreeBSD in one place**, said at [`flush::tail_after`].
+//! - **One read in FreeBSD's `SMBus` unforce is not mirrored.** In `e1000_phy_is_accessible_pchlan`,
+//!   a failed read of `CV_SMB_CTRL` leaves the previous register's value in the variable that is
+//!   then written back with one bit cleared. This port writes only when the read succeeded.
 //! - **The licence's second condition is not met by any binary this tree ships yet.** A binary
 //!   redistribution must reproduce Intel's notice "in the documentation and/or other materials".
-//!   The source carries it here; nothing that ships an image (the stick, a package) carries a
-//!   third-party notices file, and none exists in the tree. Milestone 494's block records it.
+//!   The source carries it here and in each adapted file; nothing that ships an image (the stick, a
+//!   package) carries a third-party notices file, and none exists in the tree. Milestone 494's
+//!   block records it.
+
+pub mod nvm;
+pub mod phy;
+pub mod sequence;
+#[cfg(test)]
+mod sim;
+
+/// **What the I219 sequences need from whoever holds BAR0.** The kernel implements it over the
+/// direct map (`kernel/src/e1000e.rs`); the host tests implement it over a simulated device.
+pub trait Hw {
+    /// Read the 32-bit register at `off` in BAR0.
+    fn read(&mut self, off: u64) -> u32;
+    /// Write it.
+    fn write(&mut self, off: u64, v: u32);
+    /// Read the 16-bit register at `off`. Only the flash status word ([`nvm::HSFSTS`]) is read
+    /// this way, as FreeBSD reads it.
+    fn read16(&mut self, off: u64) -> u16;
+    /// Wait at least `us` microseconds.
+    fn delay_us(&mut self, us: u64);
+    /// The function's PCI vendor id, read from configuration space. The read is the point: it is
+    /// the delay `e1000_reset_hw_ich8lan` needs around the global reset.
+    fn pci_vendor_id(&mut self) -> u16;
+    /// Something the bench boot should show. Never needed for correctness.
+    fn note(&mut self, n: sequence::Note);
+}
+
+fn delay_ms(hw: &mut impl Hw, ms: u64) {
+    hw.delay_us(ms * 1000);
+}
+
+/// A posted-write flush (`E1000_WRITE_FLUSH`): any read of BAR0 will do; FreeBSD reads `STATUS`.
+fn flush_writes(hw: &mut impl Hw) {
+    let _ = hw.read(super::regs::STATUS);
+}
 
 /// Is `device` a PCH part (an I219) rather than the 82574L? Every I219 id this crate claims is in
 /// FreeBSD's `e1000_pch_spt` class (`e1000_api.c`, `e1000_set_mac_type`), which is the class all
@@ -82,11 +135,43 @@ pub fn is_pch(device: u16) -> bool {
 /// MAC registers the I219 adds. Offsets from FreeBSD's `e1000_regs.h` and `e1000_ich8lan.h`.
 pub mod regs {
     /// Strap register, read only; FreeBSD writes it to order a config-space read before reset.
+    /// Bits 5:1 also give the NVM's size ([`super::nvm::Geometry`]).
     pub const STRAP: u64 = 0x0_000c;
+    /// MDI control: the MDIO transaction register ([`super::phy`]).
+    pub const MDIC: u64 = 0x0_0020;
+    /// Future extended NVM.
+    pub const FEXTNVM: u64 = 0x0_0028;
+    /// Future extended NVM 3.
+    pub const FEXTNVM3: u64 = 0x0_003c;
+    /// Future extended NVM 7.
+    pub const FEXTNVM7: u64 = 0x0_00e4;
+    /// LED control.
+    pub const LEDCTL: u64 = 0x0_0e00;
+    /// Extended configuration control: the semaphore, the PHY-configuration gate, and the pointer
+    /// to the NVM's extended configuration region.
+    pub const EXTCNF_CTRL: u64 = 0x0_0f00;
+    /// Extended configuration size.
+    pub const EXTCNF_SIZE: u64 = 0x0_0f08;
+    /// PHY control as the MAC sees it (`E1000_PHY_CTRL`): LPLU and gigabit disable.
+    pub const PHY_CTRL: u64 = 0x0_0f10;
+    /// I/O side-band fabric power control; SPT's transmit errata write it.
+    pub const IOSFPC: u64 = 0x0_0f28;
+    /// Packet buffer allocation.
+    pub const PBA: u64 = 0x0_1000;
+    /// Packet buffer ECC status.
+    pub const PBECCSTS: u64 = 0x0_100c;
     /// Receive descriptor control, queue 0.
     pub const RXDCTL: u64 = 0x0_2828;
     /// Analog front end band gap transmit reference data.
     pub const KABGTXD: u64 = 0x0_3004;
+    /// Transmit descriptor control, queue 0.
+    pub const TXDCTL0: u64 = 0x0_3828;
+    /// Transmit arbitration control, queue 0.
+    pub const TARC0: u64 = 0x0_3840;
+    /// Transmit descriptor control, queue 1.
+    pub const TXDCTL1: u64 = 0x0_3928;
+    /// Transmit arbitration control, queue 1.
+    pub const TARC1: u64 = 0x0_3940;
     /// Host to Management Engine.
     pub const H2ME: u64 = 0x0_5b50;
     /// Firmware semaphore (Management Engine status).
@@ -120,8 +205,8 @@ pub mod ulp {
     pub const fn done(fwsm: u32) -> bool {
         fwsm & FWSM_ULP_CFG_DONE == 0
     }
-    /// Does this machine have an ME to ask? When it does not, ULP exit is a PHY-register sequence
-    /// this crate has not ported (the module header).
+    /// Does this machine have an ME to ask? When it does not, ULP exit is the PHY-register
+    /// sequence in [`super::sequence`].
     pub const fn has_me(fwsm: u32) -> bool {
         fwsm & FWSM_FW_VALID != 0
     }
