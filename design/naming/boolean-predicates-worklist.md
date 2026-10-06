@@ -131,19 +131,19 @@ one program, and `UART_RX_INTID`'s value is what other code agrees on, not its s
 | `enable_tx_interrupt` | `kernel/src/drivers/ns16550.rs` | pub, `#[cfg(test)]` | 5 | `enable_transmit_interrupt` | the transmit twin of the row above |
 | `tx_bytes` | `kernel/src/console.rs` | pub | 1 | `bytes_written` | it counts what the kernel wrote to the console; the private static `TX_BYTES` becomes `BYTES_WRITTEN` with it |
 | `UART_RX_INTID` | `kernel/src/user.rs` (three architectures) | pub | 12 | `UART_RECEIVE_INTID` | `INTID` is the GIC's own term and stays |
-| `VnetRxToken`, `VnetTxToken` | `components/src/net_transport.rs` | pub | 13 | keep | they implement smoltcp's `phy::RxToken` and `phy::TxToken`, and the upstream word is what a reader of smoltcp looks for |
+| `VnetRxToken`, `VnetTxToken` | `components/src/virtio_net_transport.rs` | pub | 13 | keep | they implement smoltcp's `phy::RxToken` and `phy::TxToken`, and the upstream word is what a reader of smoltcp looks for |
 
 Sites are `git grep -w` hits on 2026-09-25 outside `design/roadmap/` and this directory, code and
 notes together; roadmap blocks keep the old names under the rename procedure.
 
 Private names this table leaves out, because the review question was about public ones: the
 virtio-net queue constants (`NET_RX_*`, `NET_TX_*` in `crates/virtio`, `RX_*`, `TX_*` in
-`components/src/net_transport.rs`) and the helpers beside them (`post_rx`, `wait_rx`, `rx_take`,
-`tx_send`, `rx_buf`, `tx_buf`). They follow the virtio specification's own `receiveq`/`transmitq`
-shorthand. `tools/redoxfs_host`'s `ls_tx`, `put_tx` and the rest are a different word: there `tx`
-means a RedoxFS transaction, which is the best argument that the abbreviation does not decode
-itself. If calef rules `rx` out, these are the next pass, and none of them needs a marker to be
-found again: `git grep -wiE '[a-z_]*(rx|tx)[a-z_]*'` is the census.
+`components/src/virtio_net_transport.rs`) and the helpers beside them (`post_rx`, `wait_rx`,
+`rx_take`, `tx_send`, `rx_buf`, `tx_buf`). They follow the virtio specification's own
+`receiveq`/`transmitq` shorthand. `tools/redoxfs_host`'s `ls_tx`, `put_tx` and the rest are a
+different word: there `tx` means a RedoxFS transaction, which is the best argument that the
+abbreviation does not decode itself. If calef rules `rx` out, these are the next pass, and none of
+them needs a marker to be found again: `git grep -wiE '[a-z_]*(rx|tx)[a-z_]*'` is the census.
 
 ## Fits as written
 

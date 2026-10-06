@@ -244,7 +244,7 @@ fn stamp(unix_nanos: u64) -> Option<Timestamp> {
 
 // =================================================================================================
 // The shared frame. Absolute-VA volatile access through `WINDOW` (milestone 139), the same
-// abstraction socket_test_client, network_time_client, keyboard_driver, entropy and net_transport share.
+// abstraction socket_test_client, network_time_client, keyboard_driver, entropy and virtio_net_transport share.
 // `va` is always `PAGE_FRAME_VA + <an offset constant>`, so subtracting PAGE_FRAME_VA recovers the offset
 // `WINDOW` bounds-checks against.
 // =================================================================================================

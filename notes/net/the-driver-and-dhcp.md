@@ -87,7 +87,7 @@ The net server, `net_stack` (components/src/net_stack.rs), is the networking for
 real, reused TCP/IP stack (smoltcp 0.13.1, not hand-built) running entirely at EL0 over a NIC the
 kernel confines by DMA. The kernel knows nothing about DHCP.
 
-- `components/src/net_transport.rs` presents smoltcp's `phy::Device` over the receive/transmit virtqueues. It brings
+- `components/src/virtio_net_transport.rs` presents smoltcp's `phy::Device` over the receive/transmit virtqueues. It brings
   the NIC up through the `Virtio` capability, posts receive buffers, and copies received frames out (RX
   tokens own their bytes so they never borrow the device). It transmits via the DMA ring (TX tokens
   carry a raw pointer to the device, sound because net_stack is single-threaded and the device outlives
@@ -101,7 +101,7 @@ kernel confines by DMA. The kernel knows nothing about DHCP.
   the interrupt, a DMA page, a report endpoint, and an untyped budget for the heap, plus extra
   stack pages for smoltcp's packet building.
 - Caveat (recorded): the DMA region is one 4 KiB page, so the buffers are small and the MTU is
-  small (`net_transport::MTU`, 576). DHCP, DNS, and small TCP segments fit; a full 1514-byte frame does not. A
+  small (`virtio_net_transport::MTU`, 576). DHCP, DNS, and small TCP segments fit; a full 1514-byte frame does not. A
   larger MTU needs a multi-page contiguous DMA region, which the spawn path does not build yet. This
   is a demonstrator limit, not a protocol one.
 

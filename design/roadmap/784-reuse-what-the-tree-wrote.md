@@ -66,7 +66,7 @@ Not kernel, not proved, not protocol: the candidates. Surprise: the kernel lists
 |---|---|---|---|---|---|---|---|
 | `http_response` head parser | 294 (about 70 non-test in the parser) | network | base | `httparse` 1.10.1 | MIT/Apache, `no_std`, no deps | 762M, 2025-03 | none |
 | `video_terminal` escape parser | 2,523 crate | every program's output | base | `vte` 0.15.0 | MIT/Apache, `no_std` (`arrayvec`, `memchr`) | 80M, 2025-02 | none |
-| `virtio` + `gpu_driver` + `keyboard_driver` + `net_transport` | 715 + 303 + 215 + 251 | device | base | `virtio-drivers` 0.13.0 | MIT, `no_std` | 387k, 2026-03 | none |
+| `virtio` + `gpu_driver` + `keyboard_driver` + `virtio_net_transport` | 715 + 303 + 215 + 251 | device | base | `virtio-drivers` 0.13.0 | MIT, `no_std` | 387k, 2026-03 | none |
 | `user_mode_heap` | 272 | every allocation | base | `talc` 5.1.1 | MIT, `no_std` | 2.1M, 2026-09 | none (`linked_list_allocator` has RUSTSEC-2022-0063) |
 | `uefi_loader/src/efi.rs` | 307 | firmware | base | `r-efi` 7.1.0 | MIT/Apache/LGPL, take MIT; `no_std`, no deps | 382M, 2026-08 | none |
 | `stick_maker` `plist.rs` | 335 | host OS output | conveyed host program | `plist` 1.10.1 | MIT, std | 74M, 2026-09 | none |
@@ -103,11 +103,12 @@ device-facing code, with no proofs, driven by bytes a device or a hostile hyperv
 `virtio-drivers` covers block, net, GPU and input over MMIO and PCI ECAM, is active (last push
 2026-09-25), and its leading contributor by commits is `qwandor` (488 commits) *(from memory: of
 Google's Android virtualization work)*. Read, and the reason this is third rather than first:
-its README and source do not negotiate `VIRTIO_F_ACCESS_PLATFORM`, which `net_transport.rs` and
-`keyboard_driver.rs` accept today because they sit behind the IOMMU. So the first milestone is an
-upstream patch, and the plan fails if upstream refuses it, leaving a fork. Its `Hal` trait is static
-methods, so the DMA capability has to sit in a global. The kernel's DMA validation is untouched. New
-base-graph crates: `zerocopy`, `safe-mmio`, `thiserror`, `enumn`, `log`, `bitflags`. Measure throughput with `script/bench` before and after each device.
+its README and source do not negotiate `VIRTIO_F_ACCESS_PLATFORM`, which `virtio_net_transport.rs`
+and `keyboard_driver.rs` accept today because they sit behind the IOMMU. So the first milestone is
+an upstream patch, and the plan fails if upstream refuses it, leaving a fork. Its `Hal` trait is
+static methods, so the DMA capability has to sit in a global. The kernel's DMA validation is
+untouched. New base-graph crates: `zerocopy`, `safe-mmio`, `thiserror`, `enumn`, `log`, `bitflags`.
+Measure throughput with `script/bench` before and after each device.
 
 4. Measure `user_mode_heap` against `talc`, then decide. 272 lines of first-fit free list in every
 process. `talc` is maintained (2026-09) and `no_std`. The prior art cuts both ways:

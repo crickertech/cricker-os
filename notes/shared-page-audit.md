@@ -62,7 +62,7 @@ against one.
 | the C seam | `fixtures/src/c_shim.rs` (C) | `fixtures/src/c_confiner.rs` | `crates/c_seam`, `fixtures/c/c_seam.c` |
 | the input ring | the compositor | the keyboard driver | `crates/compositor` (`proto::ring`) |
 | sockets | `components/src/net_stack.rs` | a client, `std::net`, `network_time_client` | `crates/socket_protocol` |
-| the virtio DMA regions | four userspace drivers | the **device** | `components/src/net_transport.rs`, `kbd.rs`, `entropy.rs`, `display.rs` |
+| the virtio DMA regions | four userspace drivers | the **device** | `components/src/virtio_net_transport.rs`, `kbd.rs`, `entropy.rs`, `display.rs` |
 
 The last row is not a process pair and is in the table on purpose: a DMA region is a page one party
 writes and another reads, the other party is a device rather than a program, and the question this
@@ -362,7 +362,7 @@ Not a double fetch. It is what the enumeration the lens required turned up: to a
 checked twice" you must first list every value read from a page a hostile party writes, and two of
 those values are not checked at all.
 
-(a) The window. `components/src/net_transport.rs`'s `rx_take` and `components/src/keyboard_driver.rs`'s drain loop both
+(a) The window. `components/src/virtio_net_transport.rs`'s `rx_take` and `components/src/keyboard_driver.rs`'s drain loop both
 take a used-ring element and use its 32-bit `id` as a buffer index:
 
 ```rust

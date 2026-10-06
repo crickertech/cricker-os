@@ -125,7 +125,7 @@ controller, so it is a follow-on to 242 rather than to this.
 
 Two drivers in this tree are the analogues, and they differ in the way that matters:
 
-- virtio-net (milestone 30) runs inside `net_stack`: `components/src/net_transport.rs` is a
+- virtio-net (milestone 30) runs inside `net_stack`: `components/src/virtio_net_transport.rs` is a
   `#[path]` module of that binary presenting smoltcp's `phy::Device`, and the kernel owns the
   device's registers and mediates it through a `Virtio` capability with the shadow-ring validator.
   None of that mediation exists for a non-virtio device.
@@ -144,7 +144,7 @@ milestone 261's own load-bearing unknown (whether xenon's DMAR scope covers the 
 a second device. Read the datasheet first.
 
 Where the driver runs is a second, smaller question: a second `phy::Device` inside `net_stack`
-beside `net_transport`, as virtio-net does today, or its own process with frames crossing an
+beside `virtio_net_transport`, as virtio-net does today, or its own process with frames crossing an
 endpoint. Recommendation: inside `net_stack` first, matching the tree; a separate process is a
 frame protocol two programs agree on, which is the expensive category and wants its own reason.
 The §92 test: at equal cost the separate process would be preferred for confinement (a NIC parser
@@ -156,15 +156,15 @@ recorded as such.
 - Milestone 87's estimate: *"A minimal driver is 1,500-3,000 lines against Intel's public
   datasheet; the plumbing around it (PCI decode, DMA confinement, the userspace net server) already
   exists."* An estimate written at purchase time, not a measurement.
-- The measured neighbours: `net_transport.rs` is 390 lines (virtio, with the kernel doing the
-  register work); `components/src/non_volatile_memory_express.rs` is 417 lines and
+- The measured neighbours: `virtio_net_transport.rs` is 390 lines (virtio, with the kernel doing
+  the register work); `components/src/non_volatile_memory_express.rs` is 417 lines and
   `crates/non_volatile_memory_express` 1,086, host-tested with Kani harnesses, which is the split
   this driver should copy.
 - Interrupts: x86 does not yet route a device line to a userspace waiter (milestone 299 (the x86 port-range capability)'s scope
   note), and 261's server polls. The first NIC driver polls too.
-- The MTU: `net_transport.rs` fixes `MTU = 576` because its whole DMA region is one page. A 10 MB
-  package at 576 bytes a frame is slow for no good reason; this driver gets a multi-page region the
-  way 261's server got sixteen pages of transfer buffer, and full 1,500-byte frames.
+- The MTU: `virtio_net_transport.rs` fixes `MTU = 576` because its whole DMA region is one page. A
+  10 MB package at 576 bytes a frame is slow for no good reason; this driver gets a multi-page
+  region the way 261's server got sixteen pages of transfer buffer, and full 1,500-byte frames.
 
 ## Exit criteria
 

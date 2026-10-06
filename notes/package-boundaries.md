@@ -87,7 +87,7 @@ timetable", and a planted untracked-then-added file failed as a path with no hom
 | `kernel` | base | crates: `address_space_identifier`, `capability`, `cpu_set`, `direct_memory_access_validator`, `firmware_configuration`, `generational_table`, `inter_process_communication`, `intrusive_fifo`, `jh7110_clock_and_reset`, `kernel`, `memory_corruption_canary_gate`, `memory_regions`, `page_frames`, `paging`, `pci`, `thread_wake_handshake`, `work_steal_slot`; programs: `kernel` | interfaces only; 7 dated exception(s) | `kernel` (provisional) |
 | `login` | base | crates: `credentialer`; programs: `credentialer`, `identity_provisioner`, `login`, `login_audit_receiver`, `user_timetable_keeper` | `timetable` | `login` (provisional) |
 | `mdr` | base | programs: `mdr` | interfaces only | `mdr` (provisional) |
-| `network` | base | crates: `domain_name_system`, `http_response`; programs: `net_stack`; paths: `components/src/net_transport.rs`, `components/src/socket_test_client.rs` | interfaces only | `network` (provisional) |
+| `network` | base | crates: `domain_name_system`, `http_response`; programs: `net_stack`; paths: `components/src/virtio_net_transport.rs`, `components/src/socket_test_client.rs` | interfaces only | `network` (provisional) |
 | `procps` | base | crates: `free`, `pgrep`, `pmap`, `ps`, `slabtop`, `top`, `uptime`, `vmstat`; programs: `free`, `pgrep`, `pmap`, `ps`, `slabtop`, `top`, `uptime`, `vmstat`; paths: `packages/uptime.recipe.toml`, `packages/uptime-riscv64.recipe.toml`, `packages/uptime-x86_64.recipe.toml` | interfaces only | `procps` (provisional) |
 | `swish` | base | crates: `swish`; programs: `swish` | interfaces only | `swish` (provisional) |
 | `terminal` | base | crates: `line_editor*`; programs: `console`, `input`, `line_editor`, `terminal_sink_caretaker`, `terminal_supervisor` | interfaces only | `terminal` (provisional) |
@@ -141,7 +141,7 @@ The judgment calls, each a place the table could reasonably differ:
 - `line_editor` is an interface of `terminal`, and `compositor` of `display`. Each crate is the
   contract its package serves and the engine behind it at once.
 - The `components` crate itself sits in `init`. It is a build container that the moves dissolve.
-- `socket_test_client.rs` and `net_transport.rs` are `path` members of `network`, because
+- `socket_test_client.rs` and `virtio_net_transport.rs` are `path` members of `network`, because
   `net_stack` includes both through `#[path]` and neither is a binary.
 - `redoxfs` holds the vendored library, the server and the host tool. Its home is the one undecided
   package home: whether the port goes upstream is open.

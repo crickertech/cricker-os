@@ -244,8 +244,9 @@ several genuinely distinct in-tree senses that all had to be told apart before t
   `eret`/`sret` restores from), every architecture's `exceptions.rs`, and `notes/frames.md`'s own
   stack-overflow postmortem section all use "frame" for this unrelated concept and were left alone.
 - **A raw network frame (Ethernet/ARP/mDNS), also not anticipated by §113.** `crates/virtio::send_frame`
-  (a virtio-net transmit), `components/src/net_transport.rs`'s `VnetRxToken { frame: Vec<u8> }`, and
-  `xtask/src/main.rs`'s `arp_request_frame`/`mdns_query_frame` packet builders. None renamed.
+  (a virtio-net transmit), `components/src/virtio_net_transport.rs`'s `VnetRxToken { frame: Vec<u8>
+  }`, and `xtask/src/main.rs`'s `arp_request_frame`/`mdns_query_frame` packet builders. None
+  renamed.
 - Arbitrary example text, unrelated to any of the above. `crates/manual/src/index.rs`'s search-
   index tokenizer test used the literal string `` `Frame` `` as stand-in content to exercise a
   generic tokenizer, not as a citation of the kernel object; the initial blanket capitalized-token

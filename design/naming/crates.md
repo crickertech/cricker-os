@@ -52,11 +52,11 @@ also held a handful of modules compiled into them with `#[path = "..."] mod ...`
 naming distinguished the two, so a reader who tried to run `cseam` was misled by the directory.
 
 `AGENTS.md` rule 7 retired that category the same day. What two binaries share is a crate, and what
-remains beside the programs is single-consumer submodules (`net_transport`, `socket_test_client`),
-which are ordinary Rust. `script/lint` counts consumers per `#[path]` target and fails at two. A
-shared module's name still has to answer a question a program's name never raises: *"where does
-this get compiled into?"* That makes it a naming problem of its own rather than a smaller version
-of the program one.
+remains beside the programs is single-consumer submodules (`virtio_net_transport`,
+`socket_test_client`), which are ordinary Rust. `script/lint` counts consumers per `#[path]` target
+and fails at two. A shared module's name still has to answer a question a program's name never
+raises: *"where does this get compiled into?"* That makes it a naming problem of its own rather than
+a smaller version of the program one.
 
 The count in an earlier draft of that paragraph said "three modules" and was wrong. The grep that
 produced it matched only single-line includes, and several were two lines. Take a count from the

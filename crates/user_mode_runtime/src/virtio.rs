@@ -1,6 +1,6 @@
 //! **Thin safe wrappers over the four `Virtio` capability methods** (milestone 139 round 7).
 //!
-//! Four drivers (`gpu_driver.rs`, `entropy.rs`, `keyboard_driver.rs`, `net_transport.rs`) each called
+//! Four drivers (`gpu_driver.rs`, `entropy.rs`, `keyboard_driver.rs`, `virtio_net_transport.rs`) each called
 //! `invoke(VIRTIO, abi::virtio::READ_REG/WRITE_REG/SETUP_QUEUE/NOTIFY, ...)` directly, eighteen
 //! call sites in all, every one carrying the identical `// SAFETY:` comment: "the kernel validates
 //! the capability and the method before acting." That comment is `invoke`'s own contract, not a

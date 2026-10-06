@@ -314,7 +314,7 @@ what the device writes back, and it cannot: the used ring is inside the driver's
 region, so a device writing it is a device doing its job.
 
 Milestone 43's audit (notes/shared-page-audit.md, finding 6) found two drivers reading that as a
-guarantee it never was. `components/src/net_transport.rs` and `components/src/keyboard_driver.rs` took the 32-bit buffer
+guarantee it never was. `components/src/virtio_net_transport.rs` and `components/src/keyboard_driver.rs` took the 32-bit buffer
 index out of the used ring and used it unchecked: `rx_buf(id) = 0x400 + id * 0x2C0` leaves the
 one-page DMA region at `id = 4` and lands on the driver's own heap around 1.5 million, so a device
 that lies once makes the network driver copy its heap into a frame and hand it to smoltcp. The
