@@ -63,7 +63,7 @@ std by `cargo xtask std-src`. Each file binds one std concept to the ABI:
 | `net` (`TcpStream`, outbound `UdpSocket`) | net_stack's socket contract on slots 2/3 (`sys/net/connection/nife.rs`), or `Unsupported` when not granted |
 | `fs` (`File`, `metadata`, `read`/`write`) | the FS service's file contract on slot 4 (`sys/fs/nife.rs`), or `Unsupported` when no directory was granted |
 | `std::random::SystemRng` | the entropy service's endpoint on slot 6 (`sys/random/nife.rs`), or a **panic** when not granted |
-| `HashMap` seed | the same service when granted; splitmix64 from the counter when not, and labelled |
+| `HashMap` seed | the same service when granted; splitmix64 from the counter when not, and labeled |
 | `std::env::consts::OS` | `"nife"` (patched into `env_consts.rs`) |
 | `std::env::var` / `vars` / `set_var` | a **process-local table** (`sys/env/nife.rs`), seeded only with `TZ`/`LANG`/`TERM` from a granted inert-configuration page (slot 7, milestone 47, DECISIONS §111) if one exists; otherwise empty at start |
 | `std::env::temp_dir` / `split_paths` / `join_paths` | `TMPDIR` or `/`, and a `:`-separated list (`sys/paths/nife.rs`) |
@@ -256,7 +256,7 @@ std-aborts: 26 process-ending bodies across 79 compiled std sources, all account
 ## The proof
 
 `std_exerciser` is an ordinary Rust program with no `no_std` and no `unsafe`. It is one binary with
-three behaviours, chosen by the authority it was granted. With a directory it walks the `std::fs`
+three behaviors, chosen by the authority it was granted. With a directory it walks the `std::fs`
 surface; with the network it runs a UDP DNS query and a TCP echo; with neither it runs `Vec`,
 `String`, `HashMap` and `Instant` and checks that `fs` and `net` refuse. Three kernel tests spawn it
 and compare its output byte for byte on both ISAs. What each branch asserts is in

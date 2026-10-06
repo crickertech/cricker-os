@@ -18,7 +18,7 @@ The local APIC timer counts a bus clock nothing reports at all.
 
 So the rate is measured, against the one device on a PC whose frequency is a fixed number: the
 8254 PIT at 1193182 Hz. That number has not changed since 1981 because it came from dividing the
-NTSC colour-burst crystal and every clone copied it. One ten-millisecond window, polled on channel 2
+NTSC color-burst crystal and every clone copied it. One ten-millisecond window, polled on channel 2
 (the only channel whose gate is under software control and whose output can be read), with both the
 TSC and the APIC timer sampled across it. So one wait produces both numbers and they cannot disagree
 with each other.
@@ -38,7 +38,7 @@ error on this architecture, so exactly one tick would have been the failure to e
 APIC timer is 1 GHz divided by 16, which is the divider `irq.rs` programs, so the two measurements
 agree with each other as well as with the emulator's nominal rate.
 
-Two obligations the ACPI tables state and this code honours, both of which would otherwise show up
+Two obligations the ACPI tables state and this code honors, both of which would otherwise show up
 much later as a hang:
 
 - The 8259 PICs are masked before the local APIC is enabled. Their power-on vector base overlaps

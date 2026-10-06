@@ -174,7 +174,7 @@ The same instrument ran on the tree with the disposition applied, because this m
 that a flake is not shown fixed by a green run. `script/repeat-under-load -n 18 -s 8`, tree
 `01474c8e`, 2026-08-18 18:56Z to 20:01Z, the same eight-core Mac.
 
-Eighteen is not forty-five, and this is a first instalment, not the acceptance evidence. It is
+Eighteen is not forty-five, and this is a first installment, not the acceptance evidence. It is
 recorded because its numbers are already decisive about the two assertions and surprising about a
 third.
 

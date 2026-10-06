@@ -166,7 +166,7 @@ This is the irreversible list, the part a ruling fixes:
 - Xous, in std itself (`library/std/src/sys/args/xous.rs`, `sys/pal/xous/params.rs`). A Rust
   microkernel's loader passes a pointer to a parameter block as the second entry argument. Tagged
   blocks (`AppP`, `EnvB`, an argument list) carry arguments and environment. This is the nearest
-  neighbour to what A would build here.
+  neighbor to what A would build here.
 
 None of the four delivers arguments as capabilities. All four deliver bytes and keep authority in a
 separate channel.

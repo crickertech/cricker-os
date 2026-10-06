@@ -39,7 +39,7 @@ So the shell's position is one path, `Holdings::cwd`, and a second tree is only 
 
 `plan_path`, `walk_steps` and the planner's `designate` all do exactly this. Before, there were
 three resolvers, and `designate` walked an absolute token literally, so `wc /recent/x` ignored a
-bind that `ls /recent` honoured. One resolver closes that too.
+bind that `ls /recent` honored. One resolver closes that too.
 
 A listing of the mount point's parent names the mount point, whether or not the first tree has a
 directory of that name. A mount hides a real directory at the same path, as a Unix mount does.
@@ -83,7 +83,7 @@ cd                        pwd is /
 How an interactive shell learns it holds a second tree is decided, as the transport and not yet the
 policy. Init puts the endpoint at a named slot, the shell probes it at `_start`, and a shared
 constant holds the mount path and rights. It lands with the first real second filesystem, and so do
-two behaviours calef set: a dead mount answers Gone and disappears, and a shell inside it goes home
+two behaviors calef set: a dead mount answers Gone and disappears, and a shell inside it goes home
 with a message. The automatic mount name and who receives a new device are deferred decisions.
 All of it is design/roadmap/660-a-second-filesystem-mounts-in-the-boot-shell.md.
 

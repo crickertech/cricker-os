@@ -95,7 +95,7 @@ Read it as: **bit 7 means read-only, bit 6 means userspace may touch it.**
 distinction matters enormously:
 
 **`PXN` on user pages is not paranoia.** Without it, a kernel bug that jumps into a user page
-executes user-controlled instructions at EL1. Total compromise. The defence is one bit.
+executes user-controlled instructions at EL1. Total compromise. The defense is one bit.
 
 ### AttrIndx, bits [4:2]: memory *type* is indirect
 

@@ -131,7 +131,7 @@ lock) from before staging until after the copy-out, so no two writers of the ser
 - Notification objects (§101, milestone 151 (notification objects)). They multiplex one endpoint with async signals.
   They do not let a server receive on several endpoints or learn who called, so on their own they
   answer nothing here.
-- Keep serialising by construction (one FS client active at a time, as the shell does). That is
+- Keep serializing by construction (one FS client active at a time, as the shell does). That is
   the status quo, and the set grant is exactly the case it cannot cover.
 
 ## Reversibility, and who has acted on it

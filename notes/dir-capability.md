@@ -250,7 +250,7 @@ name.
 
 - **`renameat2`'s `EXCHANGE` and `NOREPLACE`.** They work on ext4, btrfs, XFS, f2fs and tmpfs and
   nowhere else, and emulating `NOREPLACE` with link-then-unlink is racy. Offering them would make
-  behaviour backend-specific, which §42 forbids.
+  behavior backend-specific, which §42 forbids.
 - **Cross-filesystem move.** A different verb: copy-then-unlink, a different object with a different
   identity, non-atomic by nature. It cannot be reached through this verb anyway, because both
   handles are minted by one server bound to one image.

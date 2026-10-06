@@ -36,7 +36,7 @@ slot and tells the receiver where the capability went.
   anyone else.
 
 And the rights the receiver ends up with must be a subset of what the sender holds. Delegation
-narrows, never widens. If it could widen, the model is theatre: you would delegate yourself a better
+narrows, never widens. If it could widen, the model is theater: you would delegate yourself a better
 capability than the one you were given. The kernel rebuilds the requested rights from their bits,
 masks them to the defined set, and rejects anything that is not a subset. So a sender can drop
 `GRANT` on the way (hand over the use of a thing without the right to pass it on further), which is

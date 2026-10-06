@@ -210,7 +210,7 @@ syscall-stack scratch words, `smp.rs`) plus two test-local `Racy<T>` wrappers in
 `sched.rs`. None of that is the pattern `TakeCell` addresses.
 
 So: nothing to propose, and one thing worth recording. The two designs differ in what happens when
-the exclusion is violated, and the difference is not in nife's favour by accident. `TakeCell::map`
+the exclusion is violated, and the difference is not in nife's favor by accident. `TakeCell::map`
 silently does nothing on re-entry; the operation is dropped and the caller is not told. A lock
 taken twice on one core is a hang, which is loud, which is precisely what `kernel/src/sync.rs`'s
 header is about: *"This is not a race. It is a guaranteed hang the moment the timing lines up."*

@@ -19,7 +19,7 @@ if !rights.is_subset_of(src.rights) { return Err(NoRights); }
 
 `Rights` are four bits <!--count:rights-bits-->: `READ`, `WRITE`, `GRANT`, and `ENUMERATE`.
 `is_subset_of` is the whole enforcement; there is no code path that widens rights, which is the
-point (DECISIONS §10): if delegation could widen authority, the model is theatre.
+point (DECISIONS §10 (process model: capability-based, microkernel)): if delegation could widen authority, the model is theater.
 
 `ENUMERATE` is the newest and the one that shows why the count is worth gating rather than
 retyping: it arrived on 2026-08-17 with milestone 126, this line still said three bits the next

@@ -95,7 +95,7 @@ buckets differ from the stock; the population does not.
 
 Milestone 1 (boot to Rust on QEMU `virt`, and print to the PL011 UART) is dated 2026-07-12, a Sunday.
 That is 2026W28, and the series starts at 2026W29 because that is where the first commit is. It is
-dropped rather than absorbed into the neighbouring week. The $200 of subscription in the same week is
+dropped rather than absorbed into the neighboring week. The $200 of subscription in the same week is
 dropped for the same reason. A week gets a row only if a commit fell in it, and inventing one would
 leave every other column in it empty or wrong. That drop was silent until 2026-09-23. The cash column
 had carried a stderr warning for its identical case since it was written, and this one now does too.

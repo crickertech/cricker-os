@@ -1,7 +1,7 @@
 # Fuzzing the parse surface
 
-Milestone 42's second leg. The first two (advisories and licences, vendored integrity) ask whether
-the code we did not write is what we think it is; this one asks whether the code we *did* write
+Milestone 42 (supply chain and fuzzing), second leg. The first two (advisories, licenses, vendored integrity) ask whether
+code we did not write is what we think; this one asks whether code we *did* write
 survives bytes it did not write.
 
 `script/fuzz` runs four coverage-guided fuzz targets over the parsers that read data from outside

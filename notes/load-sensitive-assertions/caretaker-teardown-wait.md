@@ -154,7 +154,7 @@ rather than a lane's. It is written in that function's own BUGS section, so the 
 there and not only here.
 
 The failure message now carries the observation the wait decided on. The client reports its wait in
-the third report word (where every other behaviour puts an identity hint, and `LOGOUT` has no
+the third report word (where every other behavior puts an identity hint, and `LOGOUT` has no
 identity to report). The assertion prints it beside the ceiling. A wait near the ceiling means the
 caretaker never died, which is a kernel bug. One far under it means the client stopped waiting
 early, which is the defect this ceiling replaced. That is the fifth round's panic-message lesson,

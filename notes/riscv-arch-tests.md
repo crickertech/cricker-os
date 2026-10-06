@@ -244,7 +244,7 @@ problems, and only the first was large.
    twin: not a translation of 37 instructions, but 37 *programs*, each hand-assembled.
 
    **But it should not be done that way.** `riscv_virtio_tests` already showed the alternative: load
-   a real ELF from the initrd and drive that. The programs are tiny and their behaviours are
+   a real ELF from the initrd and drive that. The programs are tiny and their behaviors are
    ordinary (return, syscall twice, read a forbidden address, spin forever, die on purpose), so they
    are `user/` binaries or entry roles of one binary, built by the existing toolchain for both
    targets. That turns "hand-write riscv machine code" into "add roles to a test binary", and it
@@ -273,8 +273,8 @@ problems, and only the first was large.
    assertions that had been gated off RISC-V for want of a last-fault address came along for free.
 
 The third thing, which the plan did not anticipate. The module was blocked on a stale comment as
-much as on machine code. `hello` carries the milestone 7-19 role catalogue and xtask called it
-"aarch64-wired"; three quarters of that sentence had been false for some time, and the last quarter
+much as on machine code. `hello` carries milestone 7 (user mode) through 19 role catalog and xtask called it
+"aarch64-wired"; three quarters of that sentence had been false, and the last quarter
 was six syscalls hand-rolled in aarch64 `asm!` that `user_mode_runtime` had had portable versions of since
 19f.6. Deleting the duplicates was the whole port for roughly twenty of the tests. Sizing a job from
 what the comments say it needs is how an afternoon's work stays undone for a year.

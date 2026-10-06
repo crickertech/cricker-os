@@ -41,7 +41,7 @@ yet.
 It changes the reading of E1, not the curve. At 600 bytes a thread, stacks fill a 32 KB L1d near 54
 threads, not 16. So capacity does not explain radon's knee at 8 to 16. Page-aligned stack tops
 sharing set indices would, since radon's 32 KiB 4-way L1D allows at most 8 lines per page offset.
-Page-aligned TCBs would too. notes/stack-high-water.md carries the arithmetic and the colouring
+Page-aligned TCBs would too. notes/stack-high-water.md carries the arithmetic and the coloring
 experiment that separates the two.
 
 ## The board path, 2026-09-04

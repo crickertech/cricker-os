@@ -190,8 +190,8 @@ failing sibling.
   incremented a counter. Now `wait_for(|| PROGRESS > 0)`. Nothing is weakened: if a blocked thread
   were requeued and starved the worker, the counter stays at zero for the full two seconds and the
   assertion fails with the message it always had. Its teardown also changed from 20 yields to
-  waiting for both of its own threads to be gone, because this test's late-landing teardown is
-  exactly the neighbouring state that made *other* tests' accounting fail in milestone 78.
+  waiting for both of its threads to be gone, because this test's late-landing teardown is
+  the neighboring state that made *other* tests' accounting fail in milestone 78 (load-sensitive assertions).
 
 - **`user::reap_tests::reaping_an_uncollected_corpse_leaves_no_ghost_on_the_endpoint`** ("the
   corpse never parked on its supervision endpoint"). 4000 yields waiting for a dying child on

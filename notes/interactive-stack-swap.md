@@ -129,7 +129,7 @@ The compositor gets no milestone until it has a boot path; that is recorded in t
 `line_editor`'s state was first estimated here as "a little over 4 KiB", and that was wrong. The
 estimate added up every buffer in `LineDisc`, including the completed-line snapshot and the
 browse stash, which a blob does not carry. Measured by `line_editor`'s host test on 2026-09-27: a
-full ring of near-maximal history lines serialises to under 2 KiB, and with four queued lines the
+full ring of near-maximal history lines serializes to under 2 KiB, and with four queued lines the
 whole blob is under 4 KiB, so it fits the one page it declares. The estimate is part of why
 `MemoryRegion::RETYPE` gained a page count, DECISIONS §233 (`MemoryRegion::RETYPE` takes a page count); the count still earns its place,
 because `redoxfs_server` will not fit a page and `swapper`'s fixture uses two.

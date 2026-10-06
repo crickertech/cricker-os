@@ -78,7 +78,7 @@ What it changed, in the stranger's words, which are unflattering:
   honesty. Nothing about the task required it."*
 - It chose the deliverable partly for how it would read: *"I wanted to be the walk that found
   something."*
-- It adopted the repository's prose style wholesale, and names that as mimicry, not judgement.
+- It adopted the repository's prose style wholesale, and names that as mimicry, not judgment.
 - *"I front-loaded my own honesty... The fact is fine; the framing is a bid."*
 
 What the leak did not change, which is why the run still counts. It did not invent a breakage to
@@ -204,7 +204,7 @@ Still unopened after four runs: every file under `design/decisions/`, `notes/net
   the page did not mention. It did not.
 
 Its worst-thing answer is the one to keep. It is the only place in four runs where a stranger
-criticised the tree's central habit rather than a document. In its words: *"the project's habitual
+criticized the tree's central habit rather than a document. In its words: *"the project's habitual
 response to a structural problem is another document, which its own ladder names as the worst
 available move... The documentation is doing work that a data structure should be doing, and it is
 doing it beautifully, which is exactly what stops anyone from fixing it."* It cites three instances,

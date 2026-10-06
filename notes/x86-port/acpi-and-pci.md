@@ -55,7 +55,7 @@ host-tested with thirteen tests. It sits beside the arch records rather than ins
 module for the reason `cpu_list` does: ACPI is not an x86 standard, and milestone 20's own text
 expects the machine after the VisionFive 2 to be a UEFI/ACPI one.
 
-The checksum is the whole defence and it is worth being explicit about why. The RSDP is found by
+The checksum is the whole defense and it is worth being explicit about why. The RSDP is found by
 scanning memory for an eight-byte string, so without the checksum any sixteen bytes that happen to
 spell `RSD PTR ` would be believed and the kernel would follow a pointer into somebody's data. Every
 table is checksummed on the way in, and one that fails is reported as absent rather than used: a

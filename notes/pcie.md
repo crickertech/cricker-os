@@ -120,7 +120,7 @@ new code at all? Measured on `q35` under QEMU with 256 MiB of RAM, it is also no
 
 | ECAM mapped | page tables |
 |---|---|
-| 1 bus (1 MiB), the old behaviour | 560 KiB |
+| 1 bus (1 MiB), the old behavior | 560 KiB |
 | 2 buses, the root-port topology | 560 KiB |
 | 128 buses (128 MiB), what xenon's MCFG describes | 812 KiB |
 

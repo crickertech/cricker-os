@@ -8,7 +8,7 @@ reliability). Lane `lane/hvf-spawn-destroy-gone` took it on 2026-10-05 (UTC).
 
 **It was not a multicore defect in the kernel.** `user_mode_runtime::yield_now` and `cap_delete`
 told the compiler that no register changes across their trap, the kernel writes `x0` on the way
-out of every syscall, and an optimised loop in the spawn job kept `DESTROY`'s arguments in `x0..x4`
+out of every syscall, and an optimized loop in the spawn job kept `DESTROY`'s arguments in `x0..x4`
 across a yield.
 
 ## What each experiment asked

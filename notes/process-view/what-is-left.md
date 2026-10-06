@@ -67,7 +67,7 @@ per session. Measured against this tree on 2026-09-26:
 - CPU time: now exists, since milestone 282 (a thread's CPU time) built
   `abi::survey::record::CPU_TIME`.
 
-So the block's own display-name fork is withdrawn in favour of §164, which is the one written where
+So the block's own display-name fork is withdrawn in favor of §164, which is the one written where
 rulings live. What 126 adds to §164, and what §164's "what is blocked" section does not yet list:
 `w`'s `WHAT` column and `ps`'s missing `CMD` column are both consumers. The authority answer the
 block already gave still stands for whichever option wins. A viewer holding `ENUMERATE` on a domain
@@ -160,7 +160,7 @@ Checked against the tree the same day by `milestone/126-free`:
   reused slot gets a different tid and cannot alias one `pgrep` already printed. A 32-bit generation
   can wrap, which is not a practical race.
 - A new finding: `pgrep | pidwait` puts both programs in one domain, so `pgrep` prints `pidwait`'s
-  own tid. A `pidwait` that cannot recognise itself waits for itself forever. No program here can
+  own tid. A `pidwait` that cannot recognize itself waits for itself forever. No program here can
   learn its own tid, so whatever primitive is chosen has to refuse, or skip, the caller's own tid.
 - Nothing lets a program observe a named tid's exit with less authority than `pgrep` holds.
   `RECEIVE` needs `READ` and steals the supervisor's message; `SURVEY` needs `ENUMERATE`, which is
@@ -173,7 +173,7 @@ So `pidwait` needs a new kernel primitive, which is the syscall surface. Options
 | 1 | A method on the supervision endpoint that blocks until a named member has exited, gated by a new right below `ENUMERATE` | a new right bit and a method; the kernel needs a queue of exit-watchers beside the supervisor's death message. A holder can still test a guessed tid for membership, one bit per call, but cannot list. Refuses the caller's own tid |
 | 2 | The same method under `ENUMERATE` | refused by §226's own reason: it is `pgrep`'s authority |
 | 3 | A per-child exit capability the spawner retains and hands on | Fuchsia's shape, recalled rather than re-read: a process handle with a wait right. Capability-exact, but it cannot compose with `pgrep`'s output, which is bytes, not capabilities |
-| 4 | Notification objects (§101 (notification objects), decided and unbuilt), signalled by the supervisor on each death | builds §101 first, and `pidwait` would still need a way to tell which tid died without `ENUMERATE` |
+| 4 | Notification objects (§101 (notification objects), decided and unbuilt), signaled by the supervisor on each death | builds §101 first, and `pidwait` would still need a way to tell which tid died without `ENUMERATE` |
 
 Every option blocks in the kernel, so none needs milestone 106's timed wait. Nothing about
 `pidwait` is built until one is chosen. The input side (reading tids from a pipe) is small and

@@ -114,7 +114,7 @@ this list reads as though an unlocked bootloader were the wall. It is not:
 - Item 0 excludes the most, and silently, because a microcontroller never appears in a
   conversation about operating systems in the first place.
 - Item 2 is the real filter for everything else. Phones with unlockable bootloaders are a genuine
-  class rather than an exception (Pixel, Fairphone, Sony's open-device programme, and the several
+  class rather than an exception (Pixel, Fairphone, Sony's open-device program, and the several
   hundred devices postmarketOS supports), so item 1 is often satisfiable. What defeats a phone is
   that its SoC is undocumented: no public reference for the interrupt controller, clocks, power
   domains or display, a downstream device tree describing what the vendor's kernel happens to do
@@ -178,7 +178,7 @@ microcontroller-class RISC-V. A machine can satisfy all three requirements above
 this one, which is why it is stated separately rather than folded into "the peripherals are
 documented".
 
-**The honest caveat.** No cache is modelled by icount, and the development host's L1i is several
+**The honest caveat.** No cache is modeled by icount, and the development host's L1i is several
 times the boards', so nothing in this tree has yet *observed* the effect this requirement protects
 against. It is an argument from a 1995 paper plus a measured code size, not a measured miss rate.
 The experiment that would settle it wants real silicon and performance counters, which milestone 74

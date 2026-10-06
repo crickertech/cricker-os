@@ -217,7 +217,7 @@ walk's path. D for subtrees alone is the smaller step.
   badged copy. There is no kernel method to pull a capability back out of another
   process's slots, today or under D. So revocation becomes `UNBIND`: the server closes every handle
   the badge minted and answers `EBADF` to it from then on. The client keeps a capability that names
-  the server and does nothing. §41's "take it back" turns into "the server stops honouring it",
+  the server and does nothing. §41's "take it back" turns into "the server stops honoring it",
   which is weaker as a statement even when the effect is the same.
 
 ### What else was considered

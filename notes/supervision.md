@@ -19,7 +19,7 @@ Three pieces, and the surface cost is zero new syscalls and zero new methods.
    slot; an `Endpoint` capability there means "supervised," and the kernel records the endpoint as
    the thread's fault target (`Thread::fault_ep`) and clears the slot, so the child holds no
    authority to send on it. A thread spawned with an empty fault slot is unsupervised and gets the
-   pre-22 behaviour: it dies and is reaped immediately, reporting to no one. Supervision is fixed at
+   pre-22 behavior: it dies and is reaped immediately, reporting to no one. Supervision is fixed at
    spawn and cannot change afterward; runtime reattach is deferred (§26.2) until milestone 23's
    hot-swap work needs it.
 
@@ -31,7 +31,7 @@ Three pieces, and the surface cost is zero new syscalls and zero new methods.
    notification waits there rather than being lost. This is the same guarantee an ordinary blocked
    sender gets, and it is why a data-carrying death rides the sender queue rather than the data-less
    IRQ signal count (`irq_notify`): a signal count could say "something died" but not carry the tid,
-   pc, and address. The corpse is never woken: `ipc_receive` recognises a `Dead` sender, takes its
+   pc, and address. The corpse is never woken: `ipc_receive` recognizes a `Dead` sender, takes its
    message, and leaves it dead, exactly the way it already leaves a `CALL` caller blocked.
 
 3. Dead until reaped. After the message, the thread is `State::Dead`: it never runs again, but
@@ -193,7 +193,7 @@ Three couplings were available and two lose to properties recorded on this page.
   which is why the milestone's own constraint refused one.
 - The endpoint carries the death, meaning the shell's own endpoint becomes the job's fault
   target. It works, and DECISIONS §106 already does exactly this for one screen-narrowed stage. It
-  does not generalise: §26.3 flows clean **exits** down the same endpoint, so every ordinary job
+  does not generalize: §26.3 flows clean **exits** down the same endpoint, so every ordinary job
   would leave a second message on the result endpoint behind its answer and the next command's read
   would take it. It also hands collection duty to the shell for every job, and takes every job out
   of the progenitor's supervision domain, which is what `ps`/`pgrep` read.

@@ -7,7 +7,7 @@ proving the pure crates. This one is about the 68 EL0 programs the prover could 
 property that turned out to be out of reach.
 
 *Name provisional: notes are an interface and their names are an architect's call (AGENTS.md).
-`user-proofs` says what the file is about and matches `kernel-proofs.md`'s neighbourhood; expect it
+`user-proofs` says what the file is about and matches `kernel-proofs.md`'s neighborhood; expect it
 to change.*
 
 ## Why this note exists
@@ -65,7 +65,7 @@ build at the line that is wrong. The next section is why it is not *also* a harn
 
 A proof that does not terminate is not a weaker proof, it is no proof, and three properties were
 written, run, and abandoned before the one that shipped. They are recorded because the shapes
-generalise, and because a future lane that tries the obvious thing deserves the measurement rather
+generalize, and because a future lane that tries the obvious thing deserves the measurement rather
 than the surprise.
 
 | the property | the shape | what happened |

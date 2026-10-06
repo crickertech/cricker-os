@@ -68,7 +68,7 @@ one pull request is a mistake somebody just made. It is no longer what the outpu
 
 Neither budget is gated, by calef's call on 2026-09-21. The tree is 1.5x to 2x over the 4 KiB
 target, so a gate on it would fail on the day it was written. Shrinking the fastpath to pass one
-would optimise against a target whose value nobody here can currently measure. Milestone 370 (a
+would optimize against a target whose value nobody here can currently measure. Milestone 370 (a
 layout control) exists because the perturbation experiments that would price a byte of footprint
 cannot yet tell footprint from addresses. Whether 4 KiB is still the right number belongs with
 milestone 132 (the fast path's footprint) and milestone 188 (the IPC fastpath), and waits on 370.

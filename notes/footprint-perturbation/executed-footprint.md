@@ -47,7 +47,7 @@ Three pieces, all built at compile time from one commit, as E3's images are.
 Every E5 image reserves the same region, 20 KiB, in the section milestone 370 pins first in
 `.text`. The region's contents change between images and its size never does. Every symbol after
 it therefore sits at the same address in every image. `script/fastpath-footprint --layout` already
-proves this for E3, with a code hash that normalises addresses away; E5 reuses that check.
+proves this for E3, with a code hash that normalizes addresses away; E5 reuses that check.
 
 ### An executed chain, and a dense twin for each rung
 

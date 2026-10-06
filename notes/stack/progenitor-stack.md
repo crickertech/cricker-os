@@ -57,7 +57,7 @@ Two things the table says:
 - Every architecture is within 1.2 KB of the others. The stack is a property of
   `system_initializer`'s code, not of an ISA.
 - Debug is twice release, and the difference is one frame. `boot` is 12,848 bytes unoptimised and
-  3,200 optimised, and it is live under everything the spawn service does.
+  3,200 optimized, and it is live under everything the spawn service does.
 
 ## The frames
 

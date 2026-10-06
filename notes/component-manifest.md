@@ -165,7 +165,7 @@ from the same declaration `rust_swappable` is.
 
 Two things were added.
 
-A refusal that a person can recognise. Each channel plans a real manifest it cannot satisfy,
+A refusal that a person can recognize. Each channel plans a real manifest it cannot satisfy,
 and reports the refusal:
 
 - The direct channel plans `BROKER`, which declares `requests` and `backend`. That channel routes

@@ -128,7 +128,7 @@ relax isolation for the whole workspace run, which is the reproducibility every 
 getting for free.
 
 These two are also the entire content of the three weeks the weekly workflow spent red. It
-reported failure from 2026-08-10 to 2026-09-03 and never once for undefined behaviour: first an
+reported failure from 2026-08-10 to 2026-09-03 and never once for undefined behavior: first an
 environment variable Miri does not forward, then a `read_dir` behind it, then five `board_console`
 tests behind that, each hidden by the one before because `cargo miri test` stops at the first. The
 audit that found it (milestone 232) recorded the fix as one flag, in good faith; it was three

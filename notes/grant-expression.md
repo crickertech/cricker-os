@@ -293,7 +293,7 @@ The second run is what makes the first mean anything. A caretaker that refused e
 pass the read-only test, and so would a grant that reached nothing at all; it fails the writable
 one. Each accepted write is read straight back, because "the server accepted my write" and "my write
 landed" are different claims. This is milestone 36's two-witness shape, and milestone 33's rule that
-an attacker must be pointed at a real neighbour rather than a fictional one.
+an attacker must be pointed at a real neighbor rather than a fictional one.
 
 ### The manifest declares the direction; the command line designates the file
 

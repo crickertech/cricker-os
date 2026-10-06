@@ -110,7 +110,7 @@ level out, and the operator, blocked in `receive` on its coordination endpoint, 
 the detection half of the non-cooperative fallback (notes/non-cooperative-fallback.md), and nothing
 here answers it.
 
-A hung incumbent cannot serialise. §209 says so and this does not change it: the blob is written
+A hung incumbent cannot serialize. §209 says so and this does not change it: the blob is written
 inside the incumbent's `OPERATION_QUIESCE` handler, so handoff recovers a planned swap and not the failure
 it is most wanted for.
 
@@ -121,7 +121,7 @@ wants a take-back for ordinary frames, which §132 (what `PageFrame::REVOKE` owe
 revocation into.
 
 The refusal is staged. No build in the tree writes `LAYOUT_2`; the refusing replacement is
-`c_swappable` started claiming to understand only that layout. The operator's behaviour on refusal
+`c_swappable` started claiming to understand only that layout. The operator's behavior on refusal
 is real. The incompatibility is configured.
 
 Every new name here is provisional, minted 2026-09-26: `handoff` (§209's own), `Handoff`,

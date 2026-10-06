@@ -201,7 +201,7 @@ pass, a `write`+`read` with no switch. One switch is then `round_trip/2 - self_p
 `ctx_switch` bench is a yield round trip (two switches plus two `SYS_YIELD`s); subtracting the trap
 (`~2 x null_syscall`) leaves ~28 ns per switch. The subtraction is approximate and the mechanisms
 differ (our lightweight yield against a pipe pass). So read the ~15x gap to Linux as directional,
-not exact. It points the same way as the other two: three metrics, three methods, all favouring the
+not exact. It points the same way as the other two: three metrics, three methods, all favoring the
 minimal kernel.
 
 ### Debug told the opposite story at IPC

@@ -49,7 +49,7 @@ the bound is structural rather than a check.
 `rm(1)` ships a literal special case: "it is an error to attempt to remove the files `/`, `.` or
 `..`", because Unix needs one. We have no such case and need none: a shell holding a subtree
 cannot name the root, so there is nothing to special-case. If a future change makes such a guard feel
-necessary, that is a signal something else broke, not a licence to add it.
+necessary, that is a signal something else broke, not a license to add it.
 
 ## Unix semantics, checked against `rm(1)` rather than remembered
 
@@ -99,7 +99,7 @@ the names this run has already taken away.
   gated on both ISAs by `script/swish-check`. `rm gate.txt` typed at the top prompt is still a refusal
   with nothing spawned, and the reason is a fact about names rather than a missing feature: a
   caretaker's whole attenuation is one `OPENDIR` *into* the granted directory and the root has no name
-  to descend into. `rm a/b/c.txt` is refused for the neighbouring reason, that progenitor builds one
+  to descend into. `rm a/b/c.txt` is refused for the neighboring reason, that progenitor builds one
   caretaker and a deeper grant is a chain of them. See notes/dir-capability.md's BUGS for both, and
   design/roadmap/31-capability-shell.md for the fork the root case is waiting on.
 - **The end of the stream is the verdict**, and it must not look like a byte count. The report channel

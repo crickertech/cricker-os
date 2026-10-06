@@ -108,7 +108,7 @@ decision rather than as everything that happened to be found.
 | `notes/benchmarks/calibration-against-sel4.md`, the seL4 comparison deferred to real hardware | tracked since 2026-08-15 by milestone 127 (the seL4 machine), whose board is bought |
 | `notes/ipc-tables-lock-inventory.md` (`sched-lock-inventory.md` when this table was written), contention that only exists on hardware we do not have | the same shape as above and waiting on the same silicon; a hardware trigger, not a decision |
 | `notes/load-sensitive-assertions.md`, "Recommended here, not built here" (now in `notes/load-sensitive-assertions/measurement-windows-and-the-load-recipe.md`, and built since as `script/icount`) | milestone 78 (the load-sensitive assertions) owns it |
-| `notes/host-recovery.md`, a backup when the primary fails | the neighbouring finding in the same note became milestone 110; this one is a proposal nobody has taken, which is trigger 3's territory rather than a recorded limitation |
+| `notes/host-recovery.md`, a backup when the primary fails | the neighboring finding in the same note became milestone 110 (the recovery tool takes a device and a partition); this one is a proposal nobody has taken, which is trigger 3's territory rather than a recorded limitation |
 | `notes/live-replacement.md`, the real derivation tree still wanted | the same object as the `notes/generational-names.md` blessing; blessed once, at the note that explains the alternative |
 | `notes/verification.md`, whole-parse totality deferred | a verification bound with its own analysis, and milestone 18's surface |
 | `notes/supervision.md`, runtime reattach deferred to milestone 23 | already tracked, and it names the milestone |

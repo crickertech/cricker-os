@@ -231,5 +231,5 @@ the executing hart's own page-table writes.
 - `share_kernel_half` copies the kernel's top-level entries once, at space creation. A kernel
   mapping that later needs a *new* top-level entry would be invisible to every space created before
   it. Pre-existing, untouched by this milestone, and not currently reachable (the direct map covers
-  all of RAM from `mmu::init`), but it is the neighbouring hazard a reader of this file should know
+  all of RAM from `mmu::init`), but it is the neighboring hazard a reader of this file should know
   about.

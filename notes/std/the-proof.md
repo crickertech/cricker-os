@@ -1,4 +1,4 @@
-# The proof: one binary, three behaviours
+# The proof: one binary, three behaviors
 
 *An appendix to [`notes/std.md`](../std.md), which is the page to read. This file holds what
 `std_exerciser` does under each grant, and which kernel tests spawn it. It was moved here verbatim
@@ -23,7 +23,7 @@ The records this file cites by number:
 `#![feature]` gates that are both about an API's stability upstream rather than about this
 platform: `std::random` (rust-lang/rust#130703) and, since milestone 122, `std::fs::Dir`
 (rust-lang/rust#120426). A program on any target calling those opts in the same way. It is
-one binary with three behaviours, chosen by the authority it was granted: on start it probes for
+one binary with three behaviors, chosen by the authority it was granted: on start it probes for
 a directory capability (`File::open` on the fixture name) and then for the network (a single
 `UdpSocket::bind`), and the results branch it.
 

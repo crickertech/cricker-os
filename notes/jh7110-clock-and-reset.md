@@ -226,7 +226,7 @@ this milestone exists to produce is a *measurement*, and a measurement nobody ca
   shorter than a boot anyone would call hung, but it is not a time bound and a slower board would
   scale it silently.
 - Nothing here can turn a clock off or assert a reset, deliberately. Gating a clock or
-  asserting a shared reset would stop or interrupt a neighbour mid-transaction, and no caller in
+  asserting a shared reset would stop or interrupt a neighbor mid-transaction, and no caller in
   this tree has a reason to. It also means there is no teardown: a service that dies leaves its
   device clocked. That is the right trade today (nothing reclaims device power) and it is the piece
   a power-management milestone would have to add.

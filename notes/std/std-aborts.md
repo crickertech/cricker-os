@@ -23,7 +23,7 @@ then kills you. Five have been found so far, each by a different accident:
 
 | call | what it was | found by |
 |---|---|---|
-| `std::env::vars()` | `panic!("not supported on this platform")` | working the ranked gap list and noticing a *neighbour* |
+| `std::env::vars()` | `panic!("not supported on this platform")` | working the ranked gap list and noticing a *neighbor* |
 | `std::env::temp_dir()` | `panic!("no filesystem on this platform")` | reading every module the PAL falls through |
 | `std::env::split_paths()` | `panic!("unsupported")` | the same reading |
 | `std::process::id()` | `panic!("no pids on this platform")` | the same reading |

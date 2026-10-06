@@ -61,7 +61,7 @@ endpoint. `date` holds the first.
 So there is no `date -s`, and its absence is not a `TODO`. There is no flag `date` could be passed
 and no method it could call, because the authority it lacks is a page permission rather than a
 check somewhere in the file. A program that set the clock would be a different binary holding a
-different capability; it is not built, it would be about thirty lines, and it would be recognisable
+different capability; it is not built, it would be about thirty lines, and it would be recognizable
 by its wiring rather than by its argument parsing.
 
 Unix's `date` is one binary that reads for everyone and sets for root, which is the conflation the

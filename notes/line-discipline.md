@@ -17,7 +17,7 @@ sequences were emitted. Twenty tests cover typing, backspace, mid-line insert an
 keys in three encodings (CSI, SS3, vt220 `~`), kill and yank (`^K` `^U` `^W` `^Y`), history with
 non-destructive browsing and dedup, CR/LF/CRLF endings, `^C`, `^D`'s double duty, `^L` repaint,
 overflow, and output newline expansion. The redraw strategy can change without touching a test,
-which is the payoff of modelling the screen instead of the byte stream.
+which is the payoff of modeling the screen instead of the byte stream.
 
 The `line_editor` binary (in `user/`) is the other piece: words in, pages copied, words out. It owns no hardware.
 Its whole authority is the terminal endpoint (serve), the console server's request and reply

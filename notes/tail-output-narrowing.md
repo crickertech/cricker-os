@@ -88,8 +88,8 @@ The precedent buys three things for free if extended to the primary slot:
 - Zero incremental authority for a program that already declares. `date` already gets this
   adapter as its default second-stream destination; handing its *first* stream the same adapter by
   default adds no new capability the program did not already have a sibling of.
-- It is the same decision the pager and the colour bit need, not three unrelated asks. Paging
-  needs the terminal's `OPERATION_READLINE`, colour needs to know a stage ends at a real screen rather than
+- It is the same decision the pager and the color bit need, not three unrelated asks. Paging
+  needs the terminal's `OPERATION_READLINE`, color needs to know a stage ends at a real screen rather than
   a file, and both are the same "does this child's output/input touch the terminal component
   directly" question notes/documentation.md's "Where this goes next" already unifies.
 
