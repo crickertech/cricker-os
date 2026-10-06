@@ -272,3 +272,13 @@ The live notes and roadmap documents that still cited the old spellings were swe
 
 The `operation` ruling of 2026-10-04, the same rule applied to `op`, is in
 [spelled-out-rulings.md](spelled-out-rulings.md).
+
+## We abbreviate on the command line
+
+calef, 2026-10-06 UTC, while ratifying `jig` in PR #1756:
+
+> We abbreviate on the command line.
+
+Its first use is `jig`'s verbs, held provisional under it in
+`design/roadmap/proposals/the-package-client-becomes-a-program.md`. It does not yet say which
+abbreviations, and each one is still a name to ratify.
