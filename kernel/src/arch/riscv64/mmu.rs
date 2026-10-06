@@ -612,10 +612,27 @@ where
 
     // 6c. The JH7110's SYS clock and reset generator (milestone 592 (radon's cold reboot dies in OpenSBI's PMIC write), provisional),
     // device memory,
-    // under 6b's guard and for one caller: the rebooting soak ungates I2C5 and releases its reset
-    // just before SBI SRST, because radon's OpenSBI resets the board with an I2C write to the PMIC.
-    if let Some((sys, _)) = memory::jh7110_pmic_bus() {
+    // under 6b's guard and for two callers: the rebooting soak ungates I2C5 and releases its reset
+    // just before SBI SRST, because radon's OpenSBI resets the board with an I2C write to the PMIC;
+    // and the Ethernet bring-up (6d) ungates gmac0's transmit and PTP clocks there.
+    if let Some(sys) = memory::jh7110_sys_window() {
         direct_map(m, sys.base, sys.base + sys.size, Flags::device())?;
+    }
+
+    // 6d. The JH7110's first Ethernet port (milestone 53 (the board's own peripherals: network and
+    // storage on real silicon)), device memory: the controller's 64 KiB, the AON clock-and-reset
+    // window that holds its bus clocks and resets, and the AON syscon page that holds its
+    // interface select. The SYS window it also needs is 6c's, now mapped for either user. Present
+    // only when the tree names the port, so never on a machine CI boots.
+    if let Some(e) = memory::jh7110_ethernet() {
+        direct_map(m, e.port.base, e.port.base + e.port.size, Flags::device())?;
+        direct_map(m, e.aon.base, e.aon.base + e.aon.size, Flags::device())?;
+        direct_map(
+            m,
+            e.syscon.base,
+            e.syscon.base + e.syscon.size,
+            Flags::device(),
+        )?;
     }
 
     // 7. The `sifive_test` finisher (0x10_0000), device memory: the MMIO word the test harness writes

@@ -251,6 +251,35 @@ fn record_jh7110(dtb: &device_tree_blob::DeviceTreeBlob<'_>) {
             *JH7110_PMIC_BUS.lock() = Some((sys, bus));
         }
     }
+    record_jh7110_ethernet(dtb);
+}
+
+/// **Record the JH7110's first Ethernet port and the three windows its bring-up writes**
+/// (milestone 53 (the board's own peripherals: network and storage on real silicon)): the
+/// controller, the AON and SYS clock-and-reset generators, and the AON syscon.
+///
+/// The guard is the port itself. A tree naming `starfive,jh7110-dwmac` or the vendor's
+/// `starfive,jh7110-eqos-5.20` is a JH7110 by its own statement, which is a stronger warrant than
+/// the TRNG guard above has; the three discoveries after it fall back to constants (both trees
+/// agree on each) and so are only read once that is established. QEMU's `virt` names neither, so
+/// nothing is recorded or mapped there. Its own frame for `record_jh7110`'s reason.
+#[inline(never)]
+fn record_jh7110_ethernet(dtb: &device_tree_blob::DeviceTreeBlob<'_>) {
+    let Ok(Some(port)) = designware_ethernet::jh7110::discover(dtb) else {
+        return;
+    };
+    if let (Ok(aon), Ok(sys), Ok(syscon)) = (
+        jh7110_clock_and_reset::discover_aon(dtb),
+        jh7110_clock_and_reset::discover_sys(dtb),
+        designware_ethernet::jh7110::discover_aon_syscon(dtb),
+    ) {
+        *JH7110_ETHERNET.lock() = Some(Jh7110Ethernet {
+            port,
+            aon,
+            sys,
+            syscon,
+        });
+    }
 }
 
 /// **Bring the frame allocator up over a described machine**, given RAM and everything already
@@ -666,6 +695,39 @@ pub fn jh7110_pmic_bus() -> Option<(
     *JH7110_PMIC_BUS.lock()
 }
 
+/// **The JH7110's first Ethernet port and the windows its bring-up needs** (milestone 53), or
+/// `None` on every machine whose tree names no such port, which is every machine CI boots.
+/// RISC-V's `mmu::init` maps all four windows device-typed.
+#[cfg_attr(not(target_arch = "riscv64"), allow(dead_code))] // no JH7110 anywhere but a JH7110
+pub fn jh7110_ethernet() -> Option<Jh7110Ethernet> {
+    *JH7110_ETHERNET.lock()
+}
+
+/// **The SYS clock-and-reset window, if anything on this machine needs it**: the PMIC bus's
+/// (milestone 592 (radon's cold reboot dies in OpenSBI's PMIC write)) or the Ethernet port's
+/// (milestone 53). Both come from the same `discover_sys`, so they are the same window, and
+/// `mmu::init` maps it once through this rather than twice through each.
+#[cfg_attr(not(target_arch = "riscv64"), allow(dead_code))] // no JH7110 anywhere but a JH7110
+pub fn jh7110_sys_window() -> Option<jh7110_clock_and_reset::Found> {
+    jh7110_pmic_bus()
+        .map(|(sys, _)| sys)
+        .or_else(|| jh7110_ethernet().map(|e| e.sys))
+}
+
+/// What [`jh7110_ethernet`] answers: the port as the tree describes it, and the three windows
+/// outside the controller that its bring-up writes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Jh7110Ethernet {
+    /// The controller, its PHY's settings, its station address if the tree has one.
+    pub port: designware_ethernet::jh7110::Discovered,
+    /// The AON clock-and-reset window: `gmac0`'s bus clocks, transmit clock and resets.
+    pub aon: jh7110_clock_and_reset::Found,
+    /// The SYS clock-and-reset window: `gmac0`'s transmit and PTP clocks.
+    pub sys: jh7110_clock_and_reset::Found,
+    /// The AON syscon: `gmac0`'s interface select.
+    pub syscon: designware_ethernet::jh7110::Syscon,
+}
+
 /// The PCIe host bridge's windows, from the device tree: `(ecam, mem32)`, each `(start, size)`,
 /// all **physical**. ECAM is the config window the bridge's `reg` names; `mem32` is the 32-bit
 /// non-prefetchable memory window BARs are placed in. `None` before `init`, and on a machine
@@ -1003,6 +1065,10 @@ static JH7110_PMIC_BUS: IrqSafeMutex<
         jh7110_clock_and_reset::PmicBus,
     )>,
 > = IrqSafeMutex::new(rank::RAM, None);
+
+/// The JH7110's first Ethernet port and its bring-up windows (milestone 53). `None` until `init`,
+/// and on every machine whose tree names no such port.
+static JH7110_ETHERNET: IrqSafeMutex<Option<Jh7110Ethernet>> = IrqSafeMutex::new(rank::RAM, None);
 
 /// The generic-ECAM PCIe host bridge's windows: (ecam, mem32), each (base, size). Physical.
 type PciWindows = ((u64, u64), (u64, u64));

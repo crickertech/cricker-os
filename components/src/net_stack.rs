@@ -61,6 +61,8 @@ use user_mode_runtime::{
     receive_request, reply, send, sleep_until, timer_arm, timer_cancel,
 };
 
+#[path = "designware_ethernet_transport.rs"]
+mod designware_ethernet_transport;
 #[path = "e1000e_transport.rs"]
 mod e1000e_transport;
 #[path = "net_transport.rs"]
@@ -194,6 +196,20 @@ pub extern "C" fn _start(role: u64, direct_memory_access_phys: u64, a2: u64) -> 
         };
         server(
             Nic::Gigabit(e1000e_transport::GigabitNic::bring_up(handoff)),
+            a2,
+        )
+    } else if designware_ethernet::Handoff::is_role(role) {
+        // radon's Ethernet port (milestone 53 (the board's own peripherals: network and storage on
+        // real silicon)), the same two words in the `e1000e` server's shape.
+        let Some(handoff) = designware_ethernet::Handoff::unpack(role, direct_memory_access_phys)
+        else {
+            send(REPORT, BAD_HANDOFF, 0, 0);
+            user_mode_runtime::exit();
+        };
+        server(
+            Nic::DesignWare(designware_ethernet_transport::DesignWareNic::bring_up(
+                handoff,
+            )),
             a2,
         )
     } else {
@@ -481,9 +497,12 @@ fn read_dst(window: MappedWindow) -> IpEndpoint {
 /// let the caller re-`poll`, so the timer actually fires. That confines the busy interval to the
 /// short retransmit window, not the whole exchange.
 fn wait_for_nic(iface: &mut Interface, dev: &mut Nic, sockets: &mut SocketSet) {
-    if let Nic::Gigabit(nic) = dev {
-        poll_gigabit(iface, nic, sockets);
-        return;
+    match dev {
+        Nic::Gigabit(nic) => return poll_without_interrupt(iface, nic.frame_waiting(), sockets),
+        Nic::DesignWare(nic) => {
+            return poll_without_interrupt(iface, nic.frame_waiting(), sockets);
+        }
+        Nic::Virtio(_) => {}
     }
     let Some(delay) = iface.poll_delay(instant(), sockets) else {
         irq_wait(IRQ);
@@ -516,17 +535,15 @@ fn wait_for_nic(iface: &mut Interface, dev: &mut Nic, sockets: &mut SocketSet) {
     dev.ack_irq();
 }
 
-/// **The `e1000e` NIC's wait, which is a sleep** (milestone 494 (a driver for the network card a
-/// PC actually has)). It holds no interrupt (`kernel/src/user/e1000e_service.rs` says why), so the
-/// wait ends at smoltcp's own deadline or after `e1000e_transport::POLL_MS`, whichever is sooner,
-/// and the caller looks at the ring again. A frame already waiting skips the sleep. The timer and
-/// notification are the same pair the virtio server's retransmit wait uses (slots 5 and 6).
-fn poll_gigabit(
-    iface: &mut Interface,
-    nic: &mut e1000e_transport::GigabitNic,
-    sockets: &mut SocketSet,
-) {
-    if nic.frame_waiting() {
+/// **A polled NIC's wait, which is a sleep** (milestone 494 (a driver for the network card a PC
+/// actually has)): the `e1000e` server's, and since milestone 53 (the board's own peripherals:
+/// network and storage on real silicon) radon's Ethernet port's, both 1 ms. Neither holds an
+/// interrupt (`kernel/src/user/e1000e_service.rs` says why), so the wait ends at smoltcp's own
+/// deadline or after `e1000e_transport::POLL_MS`, whichever is sooner, and the caller looks at the
+/// ring again. A frame already waiting skips the sleep. The timer and notification are the same
+/// pair the virtio server's retransmit wait uses (slots 5 and 6).
+fn poll_without_interrupt(iface: &mut Interface, frame_waiting: bool, sockets: &mut SocketSet) {
+    if frame_waiting {
         return;
     }
     let poll_micros = e1000e_transport::POLL_MS * 1000;
@@ -548,6 +565,7 @@ fn poll_gigabit(
 enum Nic {
     Virtio(net_transport::VirtioNet),
     Gigabit(e1000e_transport::GigabitNic),
+    DesignWare(designware_ethernet_transport::DesignWareNic),
 }
 
 impl Nic {
@@ -555,6 +573,7 @@ impl Nic {
         match self {
             Nic::Virtio(_) => MAC,
             Nic::Gigabit(n) => n.mac(),
+            Nic::DesignWare(n) => n.mac(),
         }
     }
     fn ack_irq(&self) {
@@ -566,12 +585,14 @@ impl Nic {
         match self {
             Nic::Virtio(v) => v.rx_take(),
             Nic::Gigabit(n) => n.rx_take(),
+            Nic::DesignWare(n) => n.rx_take(),
         }
     }
     fn tx_send(&mut self, frame: &[u8]) {
         match self {
             Nic::Virtio(v) => v.tx_send(frame),
             Nic::Gigabit(n) => n.tx_send(frame),
+            Nic::DesignWare(n) => n.tx_send(frame),
         }
     }
 }
@@ -595,6 +616,7 @@ impl smoltcp::phy::Device for Nic {
         caps.max_transmission_unit = match self {
             Nic::Virtio(_) => net_transport::MTU,
             Nic::Gigabit(_) => e1000e::MAX_FRAME,
+            Nic::DesignWare(_) => designware_ethernet::MAX_FRAME,
         };
         caps
     }
