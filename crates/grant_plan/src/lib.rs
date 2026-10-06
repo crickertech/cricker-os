@@ -75,6 +75,7 @@
 
 pub mod expand;
 pub mod job_page_frame;
+pub mod job_windows;
 pub mod line;
 pub mod nav;
 pub mod spawnproto;
