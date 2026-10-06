@@ -547,6 +547,16 @@ fn a_client_keeps_talking_while_the_server_underneath_it_is_replaced() {
 /// hang`, which is milestone 202's wrong-reason red exactly. A defect that only changes which
 /// error is returned does fire this assertion and is not recorded, because it leaves the claim
 /// intact.
+///
+/// **Row 26's replayable evidence is beside this test, not in it.**
+/// `confinement_attack_tests::a_write_only_rendezvous_holder_cannot_receive_reap_or_survey` asks
+/// the same gate with a sender already parked, so a let-open receive returns instead of hanging.
+/// Its record deletes `RECEIVE`'s check. Deleting `RECEIVE_CAP`'s check instead, the gate this
+/// test exists for, was booted against that test on aarch64 on 2026-10-06 (UTC) and went red at
+/// its `RECEIVE_CAP` assertion; one test carries one patch, so that run is a measurement and not a
+/// record. Making this test go red on its own means reshaping the attacker fixture (`chatty`) so
+/// an escape reports rather than steals, which is attack-shaped work and is routed to milestone
+/// 800 (a non-Anthropic model attacks the confinement claim).
 #[test_case]
 fn a_client_of_the_stable_rendezvous_cannot_become_its_server() {
     if machine_has_no_device_page_for_the_console() {
