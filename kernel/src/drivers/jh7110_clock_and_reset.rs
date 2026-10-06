@@ -45,7 +45,7 @@
 //! there.
 
 use jh7110_clock_and_reset::{
-    CLOCK_ENABLE, Domain, MAX_RECORDED_CLOCKS, Report, Step, is_deasserted,
+    CLOCK_ENABLE, Domain, MAX_RECORDED_CLOCKS, Report, Step, is_deasserted, with_parent,
 };
 
 /// How many times [`bring_up`] reads the status word before giving up on a deassert.
@@ -104,6 +104,23 @@ pub unsafe fn bring_up(base: usize, domain: &Domain, plan: &[Step]) -> Report {
                     report.truncated = true;
                 }
             }
+            Step::SelectParent { clock, parent } => {
+                let Some(offset) = domain.clock_offset(clock) else {
+                    report.rejected += 1;
+                    continue;
+                };
+                let reg = (base + offset as usize) as *mut u32;
+                // SAFETY: as `EnableClock`: a mapped device window per this function's contract,
+                // and `clock_offset` bounded the offset inside the domain.
+                let before = unsafe { core::ptr::read_volatile(reg) };
+                // SAFETY: as above. A read-modify-write of this clock's own word, replacing only
+                // the parent field (`with_parent`), so the enable bit and divider are kept.
+                unsafe { core::ptr::write_volatile(reg, with_parent(before, parent)) };
+                // SAFETY: as above; read back, for `EnableClock`'s reason.
+                report.mux_after = unsafe { core::ptr::read_volatile(reg) };
+                report.mux_before = before;
+                report.had_mux = true;
+            }
             Step::DeassertReset(id) => {
                 let Some(bit) = domain.reset_bit(id) else {
                     report.rejected += 1;
@@ -138,6 +155,8 @@ pub unsafe fn bring_up(base: usize, domain: &Domain, plan: &[Step]) -> Report {
                 report.released = is_deasserted(seen, bit.mask);
                 report.polls = polls;
                 report.had_reset = true;
+                report.resets += 1;
+                report.resets_released += u32::from(report.released);
             }
         }
     }

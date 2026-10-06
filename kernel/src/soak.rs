@@ -676,7 +676,7 @@ fn prepare_the_reset_route() {
         };
         let clocks = bus.plan().iter().filter_map(|s| match s {
             Step::EnableClock(i) => Some(*i),
-            Step::DeassertReset(_) => None,
+            Step::DeassertReset(_) | Step::SelectParent { .. } => None,
         });
         for (n, index) in clocks.enumerate().take(report.clocks) {
             println!(
@@ -692,7 +692,7 @@ fn prepare_the_reset_route() {
         }
         let reset = bus.plan().iter().rev().find_map(|s| match s {
             Step::DeassertReset(id) => Some(*id),
-            Step::EnableClock(_) => None,
+            Step::EnableClock(_) | Step::SelectParent { .. } => None,
         });
         if let Some(id) = reset {
             println!(
