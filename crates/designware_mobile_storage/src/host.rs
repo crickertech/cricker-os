@@ -318,7 +318,9 @@ impl<R: Registers> Host<R> {
         if let Some(d) = cmd.data {
             self.regs.write(regs::BYTCNT, d.bytes());
             self.regs.write(regs::BLKSIZ, d.block_size);
-            if !d.write {
+            // Before release 2.40a there is no card threshold register, and its offset, 0x100,
+            // is the data FIFO: writing it there would put a word into the transfer.
+            if !d.write && self.fifo != 0x100 {
                 // Hold the read until a whole block fits in the FIFO (OpenBSD).
                 self.regs.write(
                     regs::CARDTHRCTL,

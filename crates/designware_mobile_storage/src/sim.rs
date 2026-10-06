@@ -84,6 +84,10 @@ pub struct Sim {
     pub busy_polls: u32,
     /// Set when a command was sent while the card clock was off.
     pub clockless_command: bool,
+    /// The release `VERID` reports, which decides where the FIFO is.
+    verid: u32,
+    /// Set when the driver wrote the FIFO with no write transfer in progress.
+    pub stray_fifo_write: bool,
 }
 
 /// The `VERID` the simulation reports: release 2.90a, which puts the FIFO at `0x200`.
@@ -114,6 +118,8 @@ impl Sim {
             fail_next_read_crc: false,
             busy_polls: 3,
             clockless_command: false,
+            verid: VERID,
+            stray_fifo_write: false,
         };
         s.regs[(regs::VERID / 4) as usize] = VERID;
         s.regs[(regs::HCON / 4) as usize] = HCON;
@@ -122,6 +128,15 @@ impl Sim {
         // A card is present (active low).
         s.regs[(regs::CDETECT / 4) as usize] = u32::from(kind == CardKind::Empty);
         s
+    }
+
+    /// The same controller, reporting release `verid` instead (an older one puts the FIFO at
+    /// `0x100`, where a later one has the card threshold register).
+    #[must_use]
+    pub fn with_verid(mut self, verid: u32) -> Sim {
+        self.verid = verid;
+        self.regs[(regs::VERID / 4) as usize] = verid;
+        self
     }
 
     fn reg(&mut self, offset: u32) -> &mut u32 {
@@ -361,7 +376,7 @@ impl Sim {
 
 impl Registers for Sim {
     fn read(&mut self, offset: u32) -> u32 {
-        let fifo = regs::fifo_offset(VERID);
+        let fifo = regs::fifo_offset(self.verid);
         if offset == fifo {
             let w = self.fifo.pop_front().unwrap_or(0xdead_dead);
             self.pump();
@@ -393,8 +408,11 @@ impl Registers for Sim {
     }
 
     fn write(&mut self, offset: u32, value: u32) {
-        let fifo = regs::fifo_offset(VERID);
+        let fifo = regs::fifo_offset(self.verid);
         if offset == fifo {
+            if !self.transfer.as_ref().is_some_and(|t| t.write) {
+                self.stray_fifo_write = true;
+            }
             assert!(
                 self.fifo.len() < self.depth,
                 "FIFO overrun: the driver wrote into a full FIFO"

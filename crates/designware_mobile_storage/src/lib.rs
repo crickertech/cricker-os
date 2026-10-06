@@ -236,6 +236,21 @@ mod tests {
     }
 
     #[test]
+    fn a_controller_before_2_40a_reads_through_its_fifo_at_0x100_and_gets_no_threshold_write() {
+        let sim = Sim::new(CardKind::SdHighCapacity, 8192, 32).with_verid(0x5342_230a);
+        let (mut h, id) = Host::new(sim, 50_000_000, Some(32)).unwrap();
+        assert_eq!(crate::regs::fifo_offset(id.verid), 0x100);
+        let card = sd::identify(&mut h, 4).unwrap();
+        let data: Vec<u8> = (0..2 * BLOCK).map(|i| (i % 253) as u8).collect();
+        sd::write_blocks(&mut h, &card, 7, &data).unwrap();
+        let mut back = vec![0u8; 2 * BLOCK];
+        // A threshold write to 0x100 here would land in the FIFO and shift every word read.
+        sd::read_blocks(&mut h, &card, 7, &mut back).unwrap();
+        assert_eq!(back, data);
+        assert!(!h.into_registers().stray_fifo_write);
+    }
+
+    #[test]
     fn a_data_crc_error_is_reported_with_its_command() {
         let mut h = host(CardKind::SdHighCapacity, 8192);
         let card = sd::identify(&mut h, 4).unwrap();
