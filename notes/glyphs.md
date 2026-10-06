@@ -26,10 +26,10 @@ Everything above the surface is text; everything below it is rung one's contract
 ## The font: ours, drawn in the Kaypro II's style
 
 `crates/bitmap_font` is a 7x8 monochrome bitmap font and a pure function from `(byte, x, y)` to a
-colour.
+color.
 
 It is an original drawing, made for this tree in `crates/bitmap_font/kaypro-style-7x8.art`. Nobody
-holds a licence over it and no obligation travels with it. It replaced `font8x8` (public domain, by
+holds a license over it and no obligation travels with it. It replaced `font8x8` (public domain, by
 Daniel Hepper, from Marcel Sondaar's `font8x8.h`, from IBM's public-domain VGA fonts) on 2026-08-20,
 after a poll calef ran was won by the Kaypro II's character generator.
 
@@ -39,7 +39,7 @@ to copyright, along with "mere variations of typographic ornamentation, letterin
 the look of a font is free to reproduce. A particular file of bitmaps is somebody's work. The ROM is
 excluded on exactly that second ground, and the case is set out under [The Kaypro II character ROM,
 found, rendered, and excluded](#the-kaypro-ii-character-rom-found-rendered-and-excluded) below: the
-dumps in circulation state no licence at all, `ivanizag/kaypro-disassembly` has no `LICENSE` file,
+dumps in circulation state no license at all, `ivanizag/kaypro-disassembly` has no `LICENSE` file,
 and this file's standing rule is that ambiguous is treated as obliged. So the ROM is not in this
 repository, was not traced, and is not needed: it was used the way a person uses a reference,
 which is by looking at the shapes and drawing your own.
@@ -48,8 +48,8 @@ A reader who wants to check that claim can: the `.art` file is the drawing, ever
 of `#` and `.`, and `crates/bitmap_font/src/glyphs.rs` is that file transcribed with a test
 (`the_art_file_and_this_table_agree`) that parses it back and fails if the two ever drift.
 
-Why the licence question is worth this much care: a bitmap font is compiled into the kernel
-image and into every binary that draws text, so its licence is a licence on the *artefact* rather
+Why the license question is worth this much care: a bitmap font is compiled into the kernel
+image and into every binary that draws text, so its license is a license on the *artifact* rather
 than on a build-time tool. That was the reason `font8x8` was chosen and it is the reason this one is
 drawn rather than downloaded.
 
@@ -115,9 +115,9 @@ anyone for the letters on the screen, so a change of font would be a decision ab
 
 And a reversal on top of that correction, which is calef's (2026-08-19). The old rule refused
 any font with an attribution obligation, on the ground that a bitmap font is compiled into the image
-and its licence therefore travels with the artefact. The first half of that reasoning stands; the
+and its license therefore travels with the artifact. The first half of that reasoning stands; the
 conclusion does not. He read OFL 1.1 and his verdict was that the obligation "doesn't look
-onerous", so obliging licences are in scope and priced rather than refused. That matters,
+onerous", so obliging licenses are in scope and priced rather than refused. That matters,
 because the public-domain corner of this field is small and the well-drawn fonts mostly live under
 the OFL.
 
@@ -145,7 +145,7 @@ is bad.
 The candidates, what they cost, and what they oblige. "Grid" is the decisive practical column:
 characters by rows on the display ladder's 128x64 scanout, which is 16x8 today.
 
-| Font | Cell | Table | Grid | Licence | Reserved name |
+| Font | Cell | Table | Grid | License | Reserved name |
 |---|---|---|---|---|---|
 | **kaypro-style (ships)** | **7x8** | **1024 B** | **18x8** | **ours** | none |
 | `font8x8` (shipped until 2026-08-20) | 8x8 | 1024 B | 16x8 | Public domain | none |
@@ -160,7 +160,7 @@ characters by rows on the display ladder's 128x64 scanout, which is 16x8 today.
 | `spleen-8x16` | 8x16 | 2048 B | 16x4 | BSD-2-Clause | none |
 | `unscii-16` | 8x16 | 2048 B | 16x4 | Public domain / CC0 | none |
 
-Where each licence was read, since a claim from memory is a claim to mark as such: `font8x8`'s
+Where each license was read, since a claim from memory is a claim to mark as such: `font8x8`'s
 `README` at `github.com/dhepper/font8x8`; unscii's `README.md`, whose line 18 says "You can consider
 it Public Domain (or CC-0) except for the files derived from ... Unifont (unifont.hex, hex2bdf.pl,
 unscii-16-full.*) which fall under GPL", an exception that does not touch `unscii-8` or `unscii-16`;
@@ -176,11 +176,11 @@ What an obligation would cost us, in the order that matters:
   Modified Version, which may not carry the reserved name without written permission. So adopting
   Terminus means either never touching it or renaming our copy. Spleen (BSD-2) and gohufont (WTFPL)
   reserve nothing, and a redrawn glyph costs nothing beyond the notice.
-- The OFL has no cure period. Its own words are that the licence "becomes null and void" if a
+- The OFL has no cure period. Its own words are that the license "becomes null and void" if a
   condition is not met, so shipping the notice has to be a mechanism rather than an intention.
 - Where the notice would live, three places, because the obligation attaches to the image and
   not to the source tree. The font's source and its `LICENSE` in `vendor/`, registered in
-  `vendor/README.md` the way the RedoxFS pin is. The identifier in `deny.toml`'s shared licence
+  `vendor/README.md` the way the RedoxFS pin is. The identifier in `deny.toml`'s shared license
   policy, with the honest caveat that `script/supply-chain` checks the cargo graph, so a font
   transcribed into `crates/bitmap_font/src/glyphs.rs` is on the register rather than on the gate. And a
   page in milestone 40's documentation store, so a machine running nife carries the text it owes.
@@ -255,7 +255,7 @@ consistent and plain rather than good.
 
 calef owned a Kaypro II and asked what its font was. It was not a typeface with a designer; it was a
 chip, and the chip has been dumped. The dump renders, it is genuinely the Kaypro II's, and it is
-excluded on licence, which is the same answer this file already gives Fixedsys Excelsior and for
+excluded on license, which is the same answer this file already gives Fixedsys Excelsior and for
 the same reason.
 
 Which machine, and how that is known. MAME's `src/mame/kaypro/kaypro.cpp` gives the `kayproii`
@@ -264,13 +264,13 @@ machine one `"chargen"` region holding `81-146.u43`, 2048 bytes, `CRC(4cc7d206)`
 `retroarchive.org/maslin/roms/kaypro/` lists `81-146A` as "Kaypro II/4/83 character generator", and
 `github.com/ivanizag/kaypro-disassembly` carries `chars/81-146a.bin`, whose own `README` says
 "81-146a: Kapyro II/83, downloaded from Retroarchive". That file is bit-identical to MAME's:
-2048 bytes, the same SHA-1 and the same CRC-32, checked 2026-08-19. So the artefact is the Kaypro
+2048 bytes, the same SHA-1 and the same CRC-32, checked 2026-08-19. So the artifact is the Kaypro
 II's own, not a later model's, and two archives and one emulator agree on it.
 
 The distinction matters because the line ran on. The only Kaypro font in circulation under a clear
-licence is VileR's `Kaypro2K` in the Ultimate Oldschool PC Font Pack (CC BY-SA 4.0), and its own
+license is VileR's `Kaypro2K` in the Ultimate Oldschool PC Font Pack (CC BY-SA 4.0), and its own
 entry says it is the Kaypro 2000, a 1985 PC-compatible laptop. Different machine, different
-decade, different font. A dump labelled "Kaypro" is not automatically the II.
+decade, different font. A dump labeled "Kaypro" is not automatically the II.
 
 The geometry, which is a fact about the video board rather than about the file. A character
 generator has no header, so it is read by knowing the wiring. MAME's `kaypro_v.cpp`
@@ -285,7 +285,7 @@ So the cell is 7 pixels wide by 10 scanlines, of which the ROM supplies 5 ink co
 rows and the hardware holds the rest blank, on an 80x24 display. The specimen tool derives all of
 that from the bytes and prints `7x8 cell, 1024 B table, 94/94 printable drawn, 18x8 on 128x64`.
 
-The licence, which is three questions and not one. They are answered separately because they
+The license, which is three questions and not one. They are answered separately because they
 have different answers, and collapsing them is how a tree ends up shipping something it cannot
 account for.
 
@@ -293,10 +293,10 @@ account for.
    longer exists. No release, dedication or grant was found. There is a real argument that the
    subject matter is not protected at all, since 37 CFR 202.1 lists as material not subject to
    copyright both "mere variations of typographic ornamentation, lettering or coloring" and, flatly,
-   "(e) Typeface as typeface". That is a defence and not a licence, and it has never been tested on
-   this artefact.
-2. The dump. Somebody's labour, and nobody's stated terms. Retroarchive publishes it with no
-   licence statement; `ivanizag/kaypro-disassembly` has no `LICENSE` file, which under GitHub's own
+   "(e) Typeface as typeface". That is a defense and not a license, and it has never been tested on
+   this artifact.
+2. The dump. Somebody's labor, and nobody's stated terms. Retroarchive publishes it with no
+   license statement; `ivanizag/kaypro-disassembly` has no `LICENSE` file, which under GitHub's own
    terms leaves it all-rights-reserved. MAME records the hash and does not distribute the bytes.
 3. A recreation. None exists for this ROM. The one clearly-licensed Kaypro font is the wrong
    machine, as above.
@@ -349,9 +349,9 @@ the taste and the engineering agree here.
 The one place the Kaypro wins is the screen, and it wins decisively: 18x8 against 16x4 on the
 128x64 scanout, more columns than the shipped `font8x8` and twice the rows of anything 14 tall. The
 paragraph above about four rows not being a terminal applies to `gohufont-14` and not to this. That
-is a genuine tension and it is not resolved by the licence answer, because the licence answer only
+is a genuine tension and it is not resolved by the license answer, because the license answer only
 removes this particular font: a 7x8 or 5x8 cell is what the scanout wants, and Spleen 5x8 is the
-candidate that offers it under a licence we can take.
+candidate that offers it under a license we can take.
 
 ### The rest of the era, and the one failure mode they share
 
@@ -363,7 +363,7 @@ empties fast.
 
 | Font | The original bits | The dump or recreation | Verdict |
 |---|---|---|---|
-| Kaypro II `81-146a` | Kaypro Corp, 1982, no grant | Retroarchive and `ivanizag`, no licence stated | **excluded** |
+| Kaypro II `81-146a` | Kaypro Corp, 1982, no grant | Retroarchive and `ivanizag`, no license stated | **excluded** |
 | DEC VT220, `htayj/DEC-Fonts` | DEC, ROM-derived via VT100.net | MIT, and the repo says it does not reach the glyphs | **excluded** |
 | DEC VT220, GlassTTY | Slavinsky's own redrawing | Unlicense, public domain | **clean, but not a bitmap** |
 | BBC Micro 8x8 | Acorn, in the MOS ROM | Linux's copy is GPL-2.0; others are ROM extractions | **excluded** |
@@ -381,16 +381,16 @@ and the author evidently knew that and wrote it anyway.
 notice reading "Copyright 2015 ntwk", while its `README.md` describes the work as "a rebranding of
 the high-resolution system font originally featured on the Atari ST home computer" and credits the
 file it is based on to a third-party retro-fonts page. A notice cannot grant rights its author never
-held, so this is Fixedsys Excelsior again: a third party's summary of someone else's licence, which
+held, so this is Fixedsys Excelsior again: a third party's summary of someone else's license, which
 this file already refuses.
 
 The BBC Micro is excluded twice over, which is worth stating because the obvious source is the
 trap. Linux carries the font at `lib/fonts/font_acorn_8x8.c` under the same `GPL-2.0` that already
 put `font_8x16.c` out, and copyleft on a table compiled into every binary is settled here. Every
-other copy found is an extraction from Acorn's MOS ROM with no licence attached, which is the Kaypro
+other copy found is an extraction from Acorn's MOS ROM with no license attached, which is the Kaypro
 answer. There is no third source.
 
-GlassTTY VT220 is the one clean licence in the table and still cannot be rendered here. Viacheslav
+GlassTTY VT220 is the one clean license in the table and still cannot be rendered here. Viacheslav
 Slavinsky's `LICENSE` opens "This is free and unencumbered software released into the public domain",
 and because it is his own redrawing rather than a ROM trace, that grant reaches the glyphs. But it
 ships as a TrueType outline, and turning an outline into an 8-pixel bitmap needs a rasteriser and a
@@ -426,7 +426,7 @@ On top of that: printable bytes with deferred wrap, `CR`, `LF` with scrolling, `
 (ignored), `CSI A/B/C/D`, `CSI H`/`f`, `CSI J` and `CSI K` in all three modes, `CSI m`, and `ESC c`.
 Anything else is swallowed whole, including italic, blink and the colon forms (`38:2::r:g:b`).
 `CSI m` covers bold, dim, underline, reverse, concealed and crossed-out, and 16, 256 or 24-bit
-colour (grown 2026-09-26, which made a cell sixteen bytes).
+color (grown 2026-09-26, which made a cell sixteen bytes).
 
 Three decisions inside it worth reading:
 
@@ -436,7 +436,7 @@ Three decisions inside it worth reading:
   cursor a row too low. That is the difference between a grid and a terminal.
 - Bold is bright. A bold weight needs a second font and in a five-column cell a bold face is a
   smudge. Every terminal since the DEC VT has answered SGR 1 by brightening. It is a flag resolved
-  when painting, so it brightens only the eight normal colours.
+  when painting, so it brightens only the eight normal colors.
 - The cursor is part of the picture, drawn by inverting its cell rather than overlaid. That keeps
   the screen a pure function of the state: a test that predicts the screen predicts the cursor too,
   and a cursor left in the wrong place is a failure rather than a cosmetic difference nobody notices.
@@ -459,7 +459,7 @@ One binary, two wirings, chosen by `arg0`:
 | slot 2 | the terminal endpoint, READ (it serves) | the terminal endpoint, READ (it serves) |
 | mapped | the scanout, an application's output page | its control page, its surface, an output page |
 | presents by | `gfx FLUSH(rect)` | `compose COMMIT` |
-| knows | no device, no physical address | no device, no neighbour, not even its own position |
+| knows | no device, no physical address | no device, no neighbor, not even its own position |
 
 That is `painter`'s authority in the first column and `window`'s in the second, and it is the
 answer to the question this increment was asked to check: *did the framebuffer contract need
@@ -555,7 +555,7 @@ the terminal's rather than the driver's or the compositor's. It must reject:
   makes the whole thing mean something: a checker that could not tell those apart would report
   "readable text reached the scanout" for a terminal that drew the wrong text;
 - the typed input missing, which is a screen that is correct as far as it goes;
-- every rendition ignored, which is every glyph in the right cell in the wrong colour, the
+- every rendition ignored, which is every glyph in the right cell in the wrong color, the
   picture a terminal that swallowed SGR as an unknown sequence would draw;
 - a blank terminal, and the other two pictures on the same scanout.
 
@@ -628,7 +628,7 @@ Stated plainly, because a demonstrator's caveats are part of the deliverable.
 - The font's own weak glyphs, named where a reader meets them. `M` and `W` are near vertical
   mirrors, because five ink columns leaves one way to draw each; `&` is the busiest glyph in the set
   and reads as a knot at a glance; `%` fills its corners heavily enough to look bolder than its
-  neighbours; and `_` does not join across cells, so a rule drawn out of underscores is dashed. The
+  neighbors; and `_` does not join across cells, so a rule drawn out of underscores is dashed. The
   first and the last are the grid rather than the drawing (see above); the middle two are the
   drawing and could be improved by someone with a better eye.
 - No box-drawing, no block glyphs, no line-drawing set. The font covers printable ASCII and
@@ -642,7 +642,7 @@ Stated plainly, because a demonstrator's caveats are part of the deliverable.
 - No mouse. `virtio-tablet-pci` presents the same PCI device id as the keyboard, which is
   recorded in `crates/pci` so that a machine carrying both would be a known problem rather than a
   surprise. We attach only a keyboard.
-- No key repeat of our own. The device's repeats are honoured; nothing here generates them.
+- No key repeat of our own. The device's repeats are honored; nothing here generates them.
 - The hand-drawn candidate is competent, not good. `bench/font-options/hand-drawn-8x8.art` is
   consistent (the tightest left sidebearing in the survey) and light, and three glyphs are weak
   enough to name where a reader meets them: `$` is mushy where the stem crosses the S, `&` reads as

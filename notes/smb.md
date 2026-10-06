@@ -4,7 +4,7 @@ The code this note describes was removed from the tree on 2026-08-30, on calef's
 present tense below is the tree as it stood at commit `685900ec`, which is the last commit that holds
 it; nothing described here can be built or run from `main` any more. The note is kept, and kept in
 full, because the thing it records is evidence rather than documentation: milestone 54 (network) is the only
-time this project's first principle was realised end to end, a real customer's real machine running
+time this project's first principle was realized end to end, a real customer's real machine running
 a real workload against this kernel, and AGENTS.md's own rule is that a finding worth keeping lands in
 `notes/` rather than in a commit nobody will check out. Read it in the past tense. It is a record of
 what this system did.
@@ -13,7 +13,7 @@ what this system did.
 
 | date | what a machine did, not what a test asserted |
 |---|---|
-| 2026-08-15 | **A real Mac mounted it.** macOS 26's own `mount_smbfs` against the QEMU guest: the share mounted, `ls` listed it, both fixture files read back byte-correct, the volume arrived read-only (macOS honoured `READ_ONLY_VOLUME` and refused a write client-side), a clean unmount worked, and a second mount proved the listener re-armed for a real client rather than only for the test prober. |
+| 2026-08-15 | **A real Mac mounted it.** macOS 26's own `mount_smbfs` against the QEMU guest: the share mounted, `ls` listed it, both fixture files read back byte-correct, the volume arrived read-only (macOS honored `READ_ONLY_VOLUME` and refused a write client-side), a clean unmount worked, and a second mount proved the listener re-armed for a real client rather than only for the test prober. |
 | 2026-08-15 | The `filesystem_protocol`-backed share: bytes a *different in-guest process* had put on RedoxFS came back over TCP, so the chain RedoxFS -> `filesystem_protocol` -> `Share` -> SMB2 -> TCP was checkable rather than asserted. |
 | 2026-08-16 | The write path, gated on both ISAs by a file the host wrote over SMB2 and a different in-guest process read back through the FS server. Never met a real Mac (see BUGS). |
 | 2026-08-16 | `filesystem_protocol` grew `STATFS` (op 18); subdirectories, with `smb_proto::path` parsing a share-relative path once at the wire's edge. |
@@ -150,7 +150,7 @@ the other side. Its only storage authority is the one directory capability it is
 
 A real Mac has mounted it (2026-08-15, macOS 26 `mount_smbfs` against the QEMU guest): the
 share mounts, `ls` lists it, both fixture files read back byte-correct, the volume arrives
-read-only (macOS honours the `READ_ONLY_VOLUME` attribute, so a write is refused client-side
+read-only (macOS honors the `READ_ONLY_VOLUME` attribute, so a write is refused client-side
 before it reaches the wire), a clean unmount works, and a second mount proves the listener
 re-arms for a real client, not only for the test prober. The one correction the real client
 forced is recorded below under "the SMB1 probe".
@@ -689,7 +689,7 @@ last attempt knew it had not solved, written while the code was in front of some
   `SHARE_FS_AUTHENTICATED`, and its banner says so. The reason is not laziness and not a flag: there
   is no way to *tell* that boot a password. The only thing in the tree that provisions the credential
   store is `credentialer_test_client`'s provisioner role, carrying [MS-NLMP] §4.2.1's published
-  fixture, and a demo whose password Microsoft printed would be worse than a labelled guest share.
+  fixture, and a demo whose password Microsoft printed would be worse than a labeled guest share.
   **What closes this is a provisioning path**, which is milestone 56's territory, and it is the
   entry on the list below.
 - **An authenticated share authenticates exactly one account**, because it is configured with one
@@ -793,7 +793,7 @@ last attempt knew it had not solved, written while the code was in front of some
    and its `mkdir`/`rmdir`/`open_dir` verbs, and the adapter's per-component walk. Gated on both
    ISAs by a directory the host makes over SMB2 and a different in-guest process descends into.
 5. ~~`fruit:posix_rename`~~ Already true, checked 2026-08-17 rather than built. The two
-   behaviours Samba's `fruit:posix_rename` switches on are renaming onto an existing name and
+   behaviors Samba's `fruit:posix_rename` switches on are renaming onto an existing name and
    renaming a file that is open. The first is `fs_proto::fs::RENAME`'s documented semantics
    already ("if the destination name exists it is replaced, provided it is the same kind"). The
    second cannot fail here because this server enforces no share modes at all: `ShareAccess` is

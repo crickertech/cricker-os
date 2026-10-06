@@ -3,7 +3,7 @@
 Milestone 216. `script/console` boots a shell in QEMU. `script/board-image` builds the VisionFive
 2 payload and prints the `dd` commands for a card. Between those two there was nothing, so every
 milestone gated on real hardware needed somebody at a terminal emulator reading with their eyes.
-`script/board-console` is the missing middle: it opens the port, logs every byte, recognises how
+`script/board-console` is the missing middle: it opens the port, logs every byte, recognizes how
 far the boot got, and stops on a deadline.
 
 The last clause is the only hard part. Opening a serial port is a `screen` invocation. Knowing
@@ -52,7 +52,7 @@ outright, because a file has no board on the other end of it.
 
 And one mode that opens no port at all (milestone 249): `--tally <log>` reads a capture of many
 boots and reports what the thread-placement lottery drew on each. It is `board_console::lottery`
-rather than the recogniser, it answers a question no single-boot reader can be asked (how often does
+rather than the recognizer, it answers a question no single-boot reader can be asked (how often does
 each arrangement come up), and its exit statuses are only `0` and `4`, because an analysis of a
 finished log has no board left to have gone quiet. See notes/soak.md.
 
@@ -155,7 +155,7 @@ The byte is rendered in hex and never written raw, so the capture stays greppabl
 reader's cursor, and cannot be mistaken for something the board said. A host test asserts that no
 line this mode writes into a log reads as a boot marker when that log is replayed.
 
-## What it recognises, and where each marker came from
+## What it recognizes, and where each marker came from
 
 Every marker was first quoted from `notes/visionfive2.md`'s bench runbook ("What appears, in order,
 on a good day" and the failure-triage ladder) or from this tree's own source. They were then
@@ -199,7 +199,7 @@ Since milestone 295 it reads captured logs and nothing else. calef retired
 `userspace_ran()` is `false` on every live board. The matcher stays because
 `tests/fixtures/captured/vf2-2026-09-01-userspace.log` carries the line, and that capture is
 evidence off real VisionFive 2 silicon that cannot be re-taken with a different kernel; deleting the
-recogniser to tidy the code would throw the evidence away. What to ask of a board booted today is
+recognizer to tidy the code would throw the evidence away. What to ask of a board booted today is
 `reached() >= Stage::Prompt`, and it is a stronger question: `init/build` meant userspace built one
 child out of two capabilities, where the prompt cannot appear unless userspace built the console
 server, the line discipline, the input driver and the shell. The two successful captures are still
@@ -228,7 +228,7 @@ the four are things a board actually did.
 | **The kernel booted and then halted on purpose** | `MEASURED BOOT REFUSED`, after the banner and most of a tour | 1 |
 | **A genuine hang** | it starts, says a few lines, and stops before the tour | 2 |
 
-Three of those four are traps for a naive recogniser, and each got a fix:
+Three of those four are traps for a naive recognizer, and each got a fix:
 
 Both successes and the measured-boot refusal contain the banner. The refusal prints
 `Starting kernel ...`, the whole nife banner, and most of a tour before halting, so a watcher that
@@ -258,7 +258,7 @@ Device tree not found or missing FDT support
 
 That is exactly the caveat `notes/visionfive2.md` records about U-Boot's fallback DTB addresses,
 and it arrives **after** the image has loaded and relocated and **before** the kernel has run a
-single instruction. A recogniser that knew only the stages would have watched the image load, seen
+single instruction. A recognizer that knew only the stages would have watched the image load, seen
 nothing more, and called the silence a hang, which is the worst available answer: it sends somebody
 hunting a multicore bug in a kernel that never started. **Booted, hung, and refused-before-the-
 kernel are three outcomes, not two.** The tool exits 1 for the refusal and 2 for a hang, and the
@@ -285,7 +285,7 @@ whether the environment is worth repairing is somebody else's milestone.
 
 Milestone 324 part 2, found by milestone 168's lane. `script/job-mix` boots a `--features job_mix`
 kernel whose boot tour ends in a sweep over task counts rather than in a halt. Until this milestone
-nothing recognised any of it: a finished sweep and one that stopped partway both ended as the clock
+nothing recognized any of it: a finished sweep and one that stopped partway both ended as the clock
 running out, so they shared an exit status, and `cargo xtask job-mix` had no timeout at all and hung
 forever on a wedge.
 
@@ -322,7 +322,7 @@ halts in `wfi` after it. `sweep` deliberately does not: silence during a sweep i
 
 ## Two things in the design that are not obvious
 
-A partial line is weaker evidence than a complete one. The recogniser is offered the
+A partial line is weaker evidence than a complete one. The recognizer is offered the
 incomplete tail of the stream as well as the finished lines, because U-Boot's `StarFive #` prompt
 has no newline after it and a tool that waited for one would sit there while the board sat waiting
 for it. But a tail is ambiguous in two ways that a byte-at-a-time test found and reasoning did
@@ -391,9 +391,9 @@ a non-standard baud, the trade changes and the dependency is worth proposing.
 The board was powered off for all of this and its power strip was unreachable, so nothing below
 involved a booting machine.
 
-- **The recogniser** runs against four fixtures under `crates/board_console/tests/fixtures/`, fed
+- **The recognizer** runs against four fixtures under `crates/board_console/tests/fixtures/`, fed
   one byte at a time, which is the worst case a real UART delivers and the case that catches a
-  recogniser depending on chunk boundaries. Two of them are in `captured/` and are raw bytes off
+  recognizer depending on chunk boundaries. Two of them are in `captured/` and are raw bytes off
   the wire on 2026-09-01, control characters and all; two are in `synthetic/` and are cases
   nobody has yet seen at a bench. The directory split is the provenance, deliberately, because a
   claim in a README is a weaker record than a path.
@@ -406,7 +406,7 @@ involved a booting machine.
   dial-in warning, and the choice between zero, one and several adapters are all pure functions
   with the IO lifted off them, so a host test asserts on the exact words a person meets at a bench.
   `open` itself is exercised against a temporary file holding the real capture, so the path from
-  `port::open` to a recognised boot runs in a host test.
+  `port::open` to a recognized boot runs in a host test.
 - The real adapter, with the board off, covers everything except the board: discovery finds
   `/dev/cu.usbmodem*`, the `stty` moves it to 115200 and it reverts on exit, and the deadline
   returns with zero bytes and exit 3.
@@ -462,7 +462,7 @@ $ echo $?
 Nothing at all, with the triage ladder's first row said out loud:
 
 ```
-board-console: time ran out after nothing recognisable (0 bytes in 90.0s)
+board-console: time ran out after nothing recognizable (0 bytes in 90.0s)
 board-console: not one byte arrived. Check TX/RX are crossed, that the board has power, that the
 DIP switches are on QSPI, and that this is the cu.* device.
 ```
@@ -473,7 +473,7 @@ Re-reading a capture, which needs no board and no adapter:
 $ script/board-console --replay target/board-console-1756744100.log
 ```
 
-Watching a job-mix sweep, which is the same recogniser under QEMU and is where it was proved
+Watching a job-mix sweep, which is the same recognizer under QEMU and is where it was proved
 (milestone 324 part 2, 2026-09-19, aarch64 `virt` with four cores). The three endings, all real
 runs:
 
@@ -589,10 +589,10 @@ out by hand. A host test asserts the same of the mode's own log annotations, whi
 text this tool adds to a capture. A future mode that typed whole lines would put this hazard back,
 which is a reason to keep the write surface at named commands rather than a keyboard.
 
-**It does not recognise an OpenSBI trap dump**, which the triage ladder lists as a real and
+**It does not recognize an OpenSBI trap dump**, which the triage ladder lists as a real and
 specific outcome (the kernel started the S7 and vendor firmware died in its own handler). The
 dump's exact first line is written down nowhere in this tree, and guessing it would put text in a
-recogniser that no machine has ever printed. Such a boot is caught as silence or as time running
+recognizer that no machine has ever printed. Such a boot is caught as silence or as time running
 out, with the dump sitting in the log, which is one step worse than being named.
 
 **A captured log is not a test result.** The roadmap block says this first and it is worth
@@ -659,7 +659,7 @@ slower than twenty-to-one is called wedged when it is merely slow, and `--quiet-
 the detection to avoid that. Giving the sweep a real wall-clock heartbeat, the way
 `kernel/src/soak.rs` has one, is a kernel change and was not made here.
 
-No sweep has been watched on a board. The recogniser was proved against QEMU on 2026-09-19: a
+No sweep has been watched on a board. The recognizer was proved against QEMU on 2026-09-19: a
 finished sweep exits 0, one wedged by a one-second quiet window exits 2, one cut off by a
 twelve-second cap exits 3, and a refusal is a host test built from `job_mix::FAILED` rather than
 from a capture, because no kernel here has refused one. radon has never run a sweep this tool

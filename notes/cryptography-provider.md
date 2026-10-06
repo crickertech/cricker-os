@@ -205,7 +205,7 @@ resolving `__getrandom_custom` says nothing about where bytes come from, so the 
 through `rand_core` 0.6 and asserts the draws differ and are not all zero. That is milestone 56's
 claim for `std::random`, made again one layer out, and it is what a silently-stubbed RNG would
 fail. A draw with no entropy capability granted panics rather than weakening, which is
-milestone 56's deliberate choice and is the behaviour this tree wants: a provider that quietly
+milestone 56's deliberate choice and is the behavior this tree wants: a provider that quietly
 falls back to a weak source is worse than one that does not build.
 
 ## How to run any of it
@@ -241,7 +241,7 @@ re-deriving it. Read from crates.io on 2026-09-20 rather than recalled:
   current releases of those three are 0.11.0 (2026-03-25), 0.11.1 (2026-08-21) and 0.14.0
   (2026-07-03). Taking it would fix this tree to the dependency choices of an unmaintained crate.
 
-**What it is not refused for.** Its licence is Apache-2.0 OR MIT, the pair this tree publishes
+**What it is not refused for.** Its license is Apache-2.0 OR MIT, the pair this tree publishes
 under, and it builds and runs correctly on all three architectures, which the table above measured
 and the vectors confirmed. The refusal is about who maintains the glue, not about whether it works
 today.
@@ -301,7 +301,7 @@ choosing which primitives are in the trust path at all, and the one worth choosi
 Latest-release dates from crates.io on 2026-09-20; audit and warning text quoted from the README
 that ships inside each crate, so any reader can check it without leaving their disk.
 
-| crate | version here | licence | latest release | audit, in its own words | runtime SIMD here |
+| crate | version here | license | latest release | audit, in its own words | runtime SIMD here |
 |---|---|---|---|---|---|
 | `sha2` | 0.10.9 | MIT OR Apache-2.0 | 0.11.0, 2026-03-25 | no audit statement | yes; needs the `force-soft` **feature** |
 | `hmac`, `hkdf` | 0.12.1, 0.12.4 | MIT OR Apache-2.0 | current line | no audit statement | no |
@@ -313,7 +313,7 @@ that ships inside each crate, so any reader can check it without leaving their d
 | `rsa` | 0.9.10 | MIT OR Apache-2.0 | current line | one audit by Include Security, one minor finding addressed, **and see below** | no |
 | `rustls-webpki` | 0.103.15 | ISC | current line | part of the rustls project | no |
 
-**Every licence is permissive** (MIT, Apache-2.0, BSD-3-Clause, ISC), so nothing here touches
+**Every license is permissive** (MIT, Apache-2.0, BSD-3-Clause, ISC), so nothing here touches
 DECISIONS §135 (running GPL software is aggregation, the capability boundary is what makes it so,
 and packages are how it arrives).
 
@@ -352,7 +352,7 @@ finding.
 And the suppression is now scanned rather than asserted. `script/supply-chain` ran over four
 manifests and neither of these packages was among them, so an `ignore` entry would have been a
 claim about a graph no gate looked at. Both are on that list now, which also brought three
-licences onto the allow-list with their own reasons (ISC for `rustls-webpki` and `untrusted`,
+licenses onto the allow-list with their own reasons (ISC for `rustls-webpki` and `untrusted`,
 Unicode-3.0 for a proc-macro dependency that ships nothing) and made `publish = false` necessary,
 because `cargo-deny` forgives a path dependency only in a package that could not be published.
 
@@ -374,7 +374,7 @@ rather than by reading a spec, and it says in so many words that cryptography is
 *"take it, do not write it."* So the line has to be drawn deliberately rather than assumed:
 
 - The primitives are taken. AES-GCM, ChaCha20-Poly1305, SHA-2, HMAC, HKDF, X25519, P-256 and
-  RSA verification are all the second kind. Their correctness includes constant-time behaviour and
+  RSA verification are all the second kind. Their correctness includes constant-time behavior and
   resistance to attacks no specification states, which is exactly what years of use and the NCC
   Group audit above buy and what a proof against a spec would not.
 - **The glue is written, and glue is not crypto.** A `CryptoProvider` is five fields: a cipher
@@ -422,7 +422,7 @@ chains verify on all three architectures, and the milestone's own list is finish
   three; that is all this note claims about them.
 - **A vector proves the answer, not the manner.** Nothing measures timing, so a portable fallback
   that is correct and not constant-time passes every line. On x86_64 the fallbacks are exactly what
-  runs, and constant-time behaviour is the property §46 says is bought by exposure and not by a
+  runs, and constant-time behavior is the property §46 says is bought by exposure and not by a
   specification. This is the gap most worth closing and this note does not close it.
 - No cost is measured. Milestone 442's block already says a handshake on a board with no
   hardware crypto may be slow enough to matter and that no number exists. The soft-implementation

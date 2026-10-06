@@ -67,7 +67,7 @@ priority. **Forget it and the timer fires exactly once and then never again**, w
 nothing like "you forgot to write a register."
 
 INTID 1023 is spurious: the GIC raised the line and then changed its mind (another core took
-it, or it got masked). Do nothing, and in particular do **not** write EOIR: signalling
+it, or it got masked). Do nothing, and in particular do **not** write EOIR: signaling
 completion for an interrupt you never took corrupts the GIC's priority stack.
 
 ## IRQs dispatch by vector slot, not by ESR
@@ -275,7 +275,7 @@ Two other options were considered and are worse, for reasons worth keeping:
   looked like parity with aarch64 and proved nothing about IRQ-to-message delivery.
 - Writing the PLIC's pending bits (base + 0x1000). Read-only by specification, and QEMU 11.0.2
   agrees: a probe that set source 20's pending bit and read the word back got `0x0` before and
-  `0x0` after. Even if it had worked it would have been a QEMU behaviour to lean a gate on, three
+  `0x0` after. Even if it had worked it would have been a QEMU behavior to lean a gate on, three
   weeks before the VisionFive 2 arrives.
 
 **So the two legs are not twins, and the note says so rather than the doc comment claiming it.**
@@ -353,8 +353,8 @@ notes/visionfive2.md). The pieces are:
   threshold and enable registers are global PLIC MMIO," is exactly what makes this necessary, and the
   assembly audit ([arch-audit.md](arch-audit.md), finding 3) is where it was caught. One enable
   register carries 32 sources of a context, so setting one source's bit is a read-modify-write over
-  a word its neighbours share, and the boot hart running `enable` can collide with another hart's
-  handler running `disable` on a neighbour. A lost update either masks a device forever (its driver
+  a word its neighbors share, and the boot hart running `enable` can collide with another hart's
+  handler running `disable` on a neighbor. A lost update either masks a device forever (its driver
   blocks on an interrupt that never arrives) or leaves a level-triggered source live after the handler
   masked it (an interrupt storm on that hart). So `enable`/`disable` go through one helper holding an
   `IrqSafeMutex` at `rank::IRQ_CONTROLLER`, the same rank the GIC's lock takes.
@@ -373,7 +373,7 @@ notes/visionfive2.md). The pieces are:
 
 The abstract phrase "read-modify-write" hides the bug, so here it is concretely. Say the disk is
 source 8 and the NIC is source 10. Both bits live in the same 32-bit enable word (sources 0..31 of
-that context), so a driver touching *its own* source still writes the neighbour's bit back, because
+that context), so a driver touching *its own* source still writes the neighbor's bit back, because
 the only way to change one bit of that word is to store all 32.
 
 Hart 0 is in thread context enabling the disk. Hart 1 is inside its handler masking the NIC. Without

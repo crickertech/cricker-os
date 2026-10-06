@@ -314,7 +314,7 @@ that roadmap."* Lanes were barred from minting because concurrent lanes cannot s
 two reaching for the same number collide. The collision is in the number, not in the authority,
 and conflating them meant a lane that found work had to route it through a report, through the
 maintainer, into a decision that might be deferred. Every hop is a chance to lose it, and on the day
-this landed the maintainer had buried three items by deferring them into chat messages. Prioritising
+this landed the maintainer had buried three items by deferring them into chat messages. Prioritizing
 the roadmap is still calef's, and so is every number and every name.
 
 Why a slug and not a GUID, which was considered and rejected. Milestones are cited in prose
@@ -375,8 +375,8 @@ Milestones that took more than one lane took them as *phases that landed separat
 three each, 22, 29, 31 and 35 two each), not as one long push.
 
 This replaces an S/M/L scale that was written before any of it was built and was systematically
-pessimistic where it can now be checked: 27, 29, 30 and 32 were each labelled "Effort L", and each
-came in at roughly a lane per phase. Anything still labelled by feel rather than by history says so.
+pessimistic where it can now be checked: 27, 29, 30 and 32 were each labeled "Effort L", and each
+came in at roughly a lane per phase. Anything still labeled by feel rather than by history says so.
 Re-derive with `git log --first-parent` over the merge commits rather than trusting these numbers as
 they age.
 
@@ -448,7 +448,7 @@ not, and both options for avoiding a migration were measured before they were re
 Deriving the summary from the block's opening paragraph. Refused on evidence. Across 288
 milestones the row's summary scored a median similarity of 0.07 against the block's first body
 paragraph; three scored above 0.4 and none above 0.6. An opening paragraph is written to open a
-document rather than to summarise one. Taking it would have rewritten what the index said about 288
+document rather than to summarize one. Taking it would have rewritten what the index said about 288
 milestones in a single commit, and those cells are the tree's own account of its history.
 
 Reading the Built date out of the status sentence. Refused on evidence. 129 of 288 blocks
@@ -485,7 +485,7 @@ Moving text is safe; regenerating it is not.
 
 The migration moved each cell's text into its block, and the proof was that the table regenerated:
 271 of 288 rows byte for byte, and all 17 differences pre-existing drift in the hand-maintained
-table. Milestone 294 (the index is generated, not hand-maintained) has the itemised diff. Verify by
+table. Milestone 294 (the index is generated, not hand-maintained) has the itemized diff. Verify by
 reconstruction, not by inspection, is the transferable part, and milestone 596 (the roadmap blocks
 get frontmatter too) proved its migration the same way.
 

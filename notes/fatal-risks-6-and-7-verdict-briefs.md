@@ -4,23 +4,23 @@
 
 Written 2026-10-02 (UTC) against `main` at `b4a081e02`. Risks 6 and 7 in
 [`design/fatal-risks/README.md`](../design/fatal-risks/README.md) read Experiment status RUN and carry
-no colour (`color: none` in both appendices). The colour is the architect's alone
+no color (`color: none` in both appendices). The color is the architect's alone
 ([§216 (fatal-risk facts are correctable, and verdicts are the architect's)](../design/decisions/216-fatal-risk-facts-are-correctable-verdicts-are-the-architects.md)).
 This page gathers the evidence so a ruling takes one reading. It sets no verdict and edits nothing
 under `design/`.
 
 One thing to know first. [§211 (what a fatal-risk verdict says)](../design/decisions/211-what-a-fatal-risk-verdict-says.md)
-defines the Experiment status words and defines no colour. GREEN, AMBER and RED have no written
+defines the Experiment status words and defines no color. GREEN, AMBER and RED have no written
 definition in the tree. What exists is precedent, and this page applies it. GREEN on risks 1 and 9
 (ran, could have come back red, did not, caveats stated). AMBER on risks 2 and 3 (ran, and found a
-standing weakness or fell short of the entry's own standard), and no colour on risk 4, whose
+standing weakness or fell short of the entry's own standard), and no color on risk 4, whose
 single-crossing numbers exist while the decisive experiment does not. A PR search (`risk 6`,
-`risk 7`, `amber confinement`) and `git log` on the README found no colour ever proposed or ruled for
+`risk 7`, `amber confinement`) and `git log` on the README found no color ever proposed or ruled for
 either risk.
 
 ## Risk 6: a capability-confined userspace driver cannot drive real hardware at real speed
 
-**Recommended: no verdict yet (leave uncoloured).** Not AMBER, because nothing adverse was found.
+**Recommended: no verdict yet (leave uncolored).** Not AMBER, because nothing adverse was found.
 Not GREEN, because the claim's own words ("behind an IOMMU", "real speed") are not what was
 measured.
 
@@ -68,18 +68,18 @@ Partly.
   carries no falsification record either, and ran only under QEMU, whose one VT-d unit owns the
   whole bus.
 
-### 4. What has not been run, and whether it caps the colour
+### 4. What has not been run, and whether it caps the color
 
 The decisive experiment: one real non-virtio device, confined, at throughput. It is built
 (milestones 261 and 594, preflights for DMAR scope and LBA size, `cargo xtask disk-throughput`) and
 unrun. radon, riscv64, is the only board with any result. aarch64 (argon) never booted nife; xenon
-(x86_64) has a tour and nothing for this risk. The absence caps the colour: the entry itself says
+(x86_64) has a tour and nothing for this risk. The absence caps the color: the entry itself says
 "this does not retire the risk", and a TRNG is the smallest real device on the board.
 
 ### 5. Recommendation
 
 No verdict yet. The same shape as risk 4: the best-measured part of the experiment is a single easy
-case, and the decisive case exists as a script and an empty table. If the architect wants a colour
+case, and the decisive case exists as a script and an empty table. If the architect wants a color
 now, the only defensible one is GREEN for the narrowed claim "a confined EL0 process can drive a
 non-DMA device on real silicon". That is a different claim from the one the entry states, and
 ruling on it would leave the NVMe evening looking optional.
@@ -157,13 +157,13 @@ Where a test has not been seen red, and it is a short list:
 The strongest case for RED, stated so it can be weighed. The 2026-09-21 find is a capability
 that survived revocation and reached a receiver, and `MemoryRegion::DESTROY` exists so none does.
 That is the confinement property failing, on a path any boot could take. I read it as AMBER and not red. It needed a sender that parked the capability, and it was fixed in a day with a test red first on three architectures. The defect class reduces to one rule ("sweep every place authority
-lives"), so the architecture can close it. That reading is a judgement.
+lives"), so the architecture can close it. That reading is a judgment.
 
-### 4. What has not been run, and whether it caps the colour
+### 4. What has not been run, and whether it caps the color
 
 The adversarial half the entry has always named: an outsider trying to escape. Every pass above was
 this project attacking itself, and the appendix says that is the same category of evidence. It is
-gated behind milestone 198 (a package manager, and the trivial install that makes a second customer possible) by calef's no-third-parties position. It caps the colour at AMBER by the
+gated behind milestone 198 (a package manager, and the trivial install that makes a second customer possible) by calef's no-third-parties position. It caps the color at AMBER by the
 entry's own rule ("neither can return a clean green"). Also not done: hostile-client fixtures for
 userspace caretakers (read, not attacked), and any x86_64 test through a real IOMMU unit that
 confines a device (QEMU's one unit owns the bus).
@@ -208,7 +208,7 @@ for. If the architect wants GREEN to be reachable, the standard for it has to be
 
 ## BUGS
 
-- Colour definitions are precedent, not text (see the top). If the architect would rather define
+- Color definitions are precedent, not text (see the top). If the architect would rather define
   GREEN, AMBER and RED once, the definitions would be a §211 amendment and this page's
   recommendations would be re-read against them.
 - The figures here were read from committed logs and from `script/falsifications` at one commit;

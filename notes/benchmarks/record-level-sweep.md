@@ -41,10 +41,10 @@ inline branch before it reads `record_level()`). It is visible in the data too: 
 203 to 208 us at every level on every quiet round. Dividing by it cancels whatever the host was doing
 to the guest that second.
 
-Two runs at an ordinary load show the normalisation invents nothing. Before the sweep, at load 6.9
+Two runs at an ordinary load show the normalization invents nothing. Before the sweep, at load 6.9
 and 7.3, single runs at level 5 and level 0 gave a sequential read of 1,466,327 ns and 257,893 ns.
 The ratio method over twenty passes at loads from 5.5 to 21 gives 1,453,963 and 258,582: 0.8% and
-0.3% apart. The raw minimums are printed beside the normalised figures. Where the two disagree, the
+0.3% apart. The raw minimums are printed beside the normalized figures. Where the two disagree, the
 disagreement is the noise.
 
 ### The sweep
@@ -61,7 +61,7 @@ ns per 4 KiB, with MiB/s in brackets. Level 5 is the tree's shipped value, so th
 | **4** | 64 KiB | 836,690 (4.7) | 839,899 (4.7) | 840,427 (4.6) | 1,520,484 (2.6) | 2,056,411 (1.9) |
 | **5** | 128 KiB | 1,453,963 (2.7) | 1,458,916 (2.7) | 1,458,735 (2.7) | 2,408,470 (1.6) | 3,331,724 (1.2) |
 
-The raw minimum of every round at each level, with no normalisation, in ns:
+The raw minimum of every round at each level, with no normalization, in ns:
 
 | record level | seq read | rand read | record read | seq write | rand write |
 |---|---|---|---|---|---|
@@ -133,7 +133,7 @@ what the store fetches. Moving 64 KiB rather than 4 KiB into the client's pages 
   [the five-blocks-per-request appendix](five-blocks-per-request.md), and the largest of them is not on milestone 138's
   list.
 - Option 1, a multi-page transfer on the file contract: 16x on its own, more than option 2 buys. It
-  amortises both terms of the model over sixteen times the payload, not only the record term. It is a
+  amortizes both terms of the model over sixteen times the payload, not only the record term. It is a
   wire change.
 - Both: 28x, the combination worth wanting. Once a request carries 64 KiB, level 4 and level 0 cost
   the same 837 us for that 64 KiB. The fixed cost is per request, and the block count is identical
@@ -169,7 +169,7 @@ lives there, one layer below the one milestone 138 is about.
   multiples of 128 KiB, a multiple of every record size at or below level 5, so it means the same
   thing at every point in this sweep. It would stop meaning it if anyone swept above level 5, and
   nothing checks that; `filesystem_protocol::fixture::throughput::RECORD` says so in its own comment.
-- The machine was not quiet, and the headline figures are normalised rather than raw. The method and
+- The machine was not quiet, and the headline figures are normalized rather than raw. The method and
   the raw minimums are above. Both agree with the two runs taken at an ordinary load, which is weaker
   evidence than a quiet machine would have been.
 - Option 1 is priced by derivation, not measurement, because no request in this system could carry

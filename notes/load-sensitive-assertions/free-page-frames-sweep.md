@@ -42,7 +42,7 @@ each was reaching for is "this region's pages came back". A root region's pages 
 with `memory::free`. So the region's own run of frames, asked about one bit at a time with
 `memory::is_page_frame_used`, is the property itself.
 
-That is the `current_cpu_tests.rs` fix generalised from one frame to a run. The generalisation is
+That is the `current_cpu_tests.rs` fix generalized from one frame to a run. The generalization is
 `testing::RegionRun` (name provisional), a test-only type in the `#[cfg(test)]` harness module rather
 than a kernel surface:
 
@@ -69,7 +69,7 @@ parent, and a lent region is not the borrower's to free.
 - Three tests lost machinery they had only because the counter was global.
   `force_kill_tests::an_address_space_never_frees_a_region_it_was_lent` opened with a loop that
   sampled the free count until two reads a yield apart agreed, to tell its own arithmetic from a
-  neighbouring reap. That loop is gone, because nothing a neighbour does can move these four bits.
+  neighboring reap. That loop is gone, because nothing a neighbor does can move these four bits.
   Two tests in `force_kill_tests.rs` and one in `user/tests.rs` created a rendezvous before the
   baseline purely so its pages fell outside the window. A comment on one records that getting the
   order wrong cost two runs at a deterministic 32 frames. The ordering is no longer load-bearing.
@@ -106,7 +106,7 @@ They are not assertions about a window, which is what makes a global count wrong
 - `cpu_time_tests::the_thread_that_ran_is_the_thread_that_is_charged` lost a courtesy along with its
   flake, and it is the one place coverage genuinely narrowed. Its old
   `wait_for(|| free == frames_before)` existed partly to keep a force-killed runaway's late pages out
-  of a neighbouring test's window. That neighbour no longer exists, since no test in the suite
+  of a neighboring test's window. That neighbor no longer exists, since no test in the suite
   brackets the global count any more. But the wait also happened to cover the child's non-region
   pages (the current-cpu page among them), and those cannot be named from the test once the space is
   gone. `current_cpu_tests.rs` asserts that frame directly, and the frame ledger would catch a drift,

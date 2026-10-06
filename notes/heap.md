@@ -32,7 +32,7 @@ be one pointer because it may assume LIFO. The heap may assume nothing.
 | | Stack | Heap |
 |---|---|---|
 | Allocate | `sub sp, sp, #32`. One instruction. | **Search** a free list. Maybe split a block. |
-| Free | `add sp, sp, #32`. One instruction. | Insert back. Merge with neighbours. |
+| Free | `add sp, sp, #32`. One instruction. | Insert back. Merge with neighbors. |
 | Fragmentation | impossible | **the permanent enemy** |
 | Forgetting to free | impossible | a leak |
 | Use-after-free | impossible | a security bug |
@@ -88,11 +88,11 @@ multiple of 16, so it is either exactly zero or big enough to hold a free-block 
 (`size_of::<Block>()` is 16). Without it you get slivers too small to track, and you leak them
 one at a time until the heap dies.
 
-The free list is sorted by address, and `free` coalesces with both neighbours.
+The free list is sorted by address, and `free` coalesces with both neighbors.
 
 Sorted by address so that "the block before" and "the block after" are the only two to check,
 rather than all of them. And merging *forward first, then backward*, so that freeing a block
-between two free neighbours collapses all three in one pass.
+between two free neighbors collapses all three in one pass.
 
 There is a test (`thrashing_does_not_fragment_the_heap_to_death`) that allocates and frees
 2000 times in a churning pattern and then asks for nearly the entire arena. It only passes if
@@ -161,7 +161,7 @@ descriptor table with gaps. Not hypothetical.
 
 You cannot coalesce in O(1) without per-block metadata.
 
-To merge with your physical neighbour you must know whether the block at `p + size` is free, and
+To merge with your physical neighbor you must know whether the block at `p + size` is free, and
 where the block before `p` begins. Neither is knowable without a header on every block,
 allocated ones included. That is why glibc carries 8-16 bytes of overhead per allocation.
 

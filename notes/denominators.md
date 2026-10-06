@@ -48,9 +48,9 @@ A pipeline into `tee` needs pipefail, from `shell: bash` or `set -o pipefail`. G
 or `printf` is exempt.
 
 Replayed against `24a1e0a7b`, the commit that introduced the sweep, the gate fires twice: once for
-the unlabelled `continue-on-error` and once for `| tee sweep.txt` without pipefail.
+the unlabeled `continue-on-error` and once for `| tee sweep.txt` without pipefail.
 
-## The workflow sites, labelled
+## The workflow sites, labeled
 
 Counted on the branch base, `4c9cae0a9`, 2026-10-04 (UTC): 20 workflows. The block counted 14 files
 on 2026-09-23.
@@ -84,7 +84,7 @@ and the overlay build in `toolchain-bump.yml`.
 
 ### `|| true` (52 on code lines), by family
 
-Not gated, because no parse can tell the safe direction from the other one. Labelled here instead.
+Not gated, because no parse can tell the safe direction from the other one. Labeled here instead.
 
 | family | sites | what an empty result does |
 |---|---|---|
@@ -102,7 +102,7 @@ Two sites in this population were outcome swallows, and both are fixed:
 - `architect-label.yml` read the rules helper through `|| true`. The helper's exit for "nothing
   fired" was 1, which is also Python's exit for an uncaught exception. A crash, or a missing merge
   base, set `add=false` on the job that routes syscall, dependency and decision changes to an
-  architect. The helper now crashes with 3, and an unexamined diff is labelled with a report
+  architect. The helper now crashes with 3, and an unexamined diff is labeled with a report
   saying so.
 - `ci.yml`'s nine documentation-only predicates read zero changed files as documentation only and
   skipped the build. Each now requires a non-empty set first. No run is known to have hit it.
@@ -152,13 +152,13 @@ after the ratio. The interface line was already doing this: it names its unread 
 
 - A label can be wrong. The gate makes the decision written and reviewable, not correct. The
   original sweep would have passed as `# outcome: exception, a survivor is a finding`, and the only
-  defence is a reviewer reading the word exception.
+  defense is a reviewer reading the word exception.
 - `|| true` is not gated. A new one that swallows an outcome passes lint. The families above are
   rung three.
 - A selector inside a `run:` block, such as `mutation.yml`'s `find shards -name missed.txt`, is not
   gated. That is milestone 401's unclosed convention, one directory over.
 - The exceptions stay quiet. The two watcher reports warn; the nightly installs say nothing. A
-  watcher that cannot report itself is reported by its sibling, which is the whole defence.
+  watcher that cannot report itself is reported by its sibling, which is the whole defense.
 - `metrics.yml` now goes red on a transient merge queue fetch failure. That is one red daily run per
   transient, read by `script/cadence-check` only after fifteen days without a success.
 - The `script/audits` guard is narrow. An audit whose kind lacks a cadence row already failed, so
@@ -173,7 +173,7 @@ Run the gate, which `script/lint` does as check 12b:
 
 ```console
 $ python3 helpers/workflow_swallows.py
-workflow swallows: 20 workflows, 13 continue-on-error step(s) each labelled with where its failure goes, 5 pipeline(s) into tee with pipefail
+workflow swallows: 20 workflows, 13 continue-on-error step(s) each labeled with where its failure goes, 5 pipeline(s) into tee with pipefail
 ```
 
 Replay it against the sweep as it first landed:

@@ -15,7 +15,7 @@ The driver writes those physical addresses into the queue's descriptors. In mile
 owned the device registers and rang it directly, so a *hostile* driver could put the physical
 address of the kernel image (or another process's frames) into a descriptor, mark it
 device-writable, and issue a read. The device would DMA disk contents straight over kernel memory.
-Nothing faulted, because the device honours no permissions. The driver was confined; the device it
+Nothing faulted, because the device honors no permissions. The driver was confined; the device it
 drove was not.
 
 Milestone 9's isolation was real for a driver *bug* (a bad address points at the driver's own
@@ -78,7 +78,7 @@ Note what the middle row does for the third, because it is the one useful thing 
 about the payload path and it is easy to miss. A payload-borne address is stopped by having no
 translation in the device's domain, so "the domain maps exactly the grant" is precisely the property
 that barrier needs, and it is now proved for every grant rather than tested on a few. The payload path
-therefore improved from "tested end to end" to "the allow-list is proved exact, the hardware honouring it
+therefore improved from "tested end to end" to "the allow-list is proved exact, the hardware honoring it
 is tested end to end". That is a real narrowing of the gap and it is *not* the same as closing it: the
 transport still cannot see these addresses, and the hardware is still doing the enforcing.
 
@@ -93,7 +93,7 @@ catches it, on both ISAs, by asserting on the hardware's own fault queue.
 
 And this is exactly where the argument for proving the validator now, rather than later, inverts.
 The reason milestone 35 was load-bearing is that milestone 16a's board, the VisionFive 2, **has no
-IOMMU**: on first silicon the validator stops being defence in depth and becomes the sole DMA
+IOMMU**: on first silicon the validator stops being defense in depth and becomes the sole DMA
 confinement, so it had better be proved rather than sampled. That reasoning holds for the descriptor
 path because the validator covers it. For the payload path there is no such comfort: with no IOMMU,
 **nothing covers it.** Not the validator (wrong input), not the hardware (absent). A display driver on
@@ -246,7 +246,7 @@ disk read (`a_userspace_driver_reads_a_file_from_a_virtio_disk`) still passes, w
 the copy is functionally transparent: the device reads its descriptors from the shadow, DMAs into
 the driver's data buffers, and the driver gets its file.
 
-The feature-stripping and the `INDIRECT`-flag refusal stay as defence in depth in front of the
+The feature-stripping and the `INDIRECT`-flag refusal stay as defense in depth in front of the
 copy. The copy step does not walk indirect tables, so it refuses the flag rather than recursively
 shadowing them, which is the simpler and stricter choice for a device that never needs indirect
 descriptors.
@@ -344,7 +344,7 @@ one, on both boards: an SMMUv3 on aarch64 and the ratified RISC-V IOMMU on riscv
 PCIe bus, each confining a device to a domain the kernel programs (notes/iommu.md, DECISIONS §20).
 So the clean answer is now the real answer for the PCIe transport.
 
-This shadow ring is not removed. It is demoted to defence in depth. Two reasons it stays. First,
+This shadow ring is not removed. It is demoted to defense in depth. Two reasons it stays. First,
 virtio-mmio has no IOMMU in front of it on either board, so the software confinement is still the
 only thing guarding the mmio disk. Second, even where the IOMMU is present, keeping both means a
 regression in either layer is caught by the other: the transport still refuses a format it cannot

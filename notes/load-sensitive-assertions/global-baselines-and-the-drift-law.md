@@ -27,7 +27,7 @@ direction of a failure is the diagnosis.
   `wait_for` argument.
 - A failure in the negative direction (fewer threads than the baseline, more free frames than at the
   start) is not a timeout at all. The assertion was written against something wider than the
-  property under test. State arriving from outside the measured window tripped it: a neighbouring
+  property under test. State arriving from outside the measured window tripped it: a neighboring
   test's teardown landing late. `notes/riscv-parity-scope.md` named this shape ("a wait written
   against something wider than the property"). The BUGS section of `notes/live-replacement.md` is
   the completed analysis of one instance.
@@ -47,7 +47,7 @@ baseline was a number the rest of the system moves on its own.
 
 Now each batch keeps the eight `Tid`s it spawned and waits for `is_thread_present` to go false on
 each. That is the property the test is responsible for ("the threads this batch created were
-reaped"). It is immune to neighbours by construction: a generational `Tid` resolving to nothing
+reaped"). It is immune to neighbors by construction: a generational `Tid` resolving to nothing
 means this thread is gone, whatever else the table is doing. This is the third appearance of this
 exact fix. `reclaim_frees_a_started_then_exited_childs_regions` got it first (see
 riscv-parity-scope.md), and `is_thread_present`'s doc comment already argued it.
@@ -56,7 +56,7 @@ The frame half of the test also changed direction. The second batch's cost is as
 `used() <= before` (waited on, clock-bounded) rather than `==`. A leak, the milestone 6 (threads,
 the context switch, and preemption) bug the test guards, leaves `used` above `before` forever, so
 the wait times out and fails as before. Equality also demanded that no other test free a frame
-during the window. That is the neighbour exposure again, in the frame allocator instead of the
+during the window. That is the neighbor exposure again, in the frame allocator instead of the
 thread table.
 
 ### Address-space frames (`user/tests.rs`, `a_dead_user_thread_frees_its_whole_address_space`): rescoped
@@ -66,7 +66,7 @@ again on PR #50's build+test job on 2026-08-03) and once on a quiet aarch64 dev 
 negative: `used()` settled 19 frames below the baseline, so the wait for equality could never
 succeed. The frames arrived from outside the measured window. The test's own settle loop (two
 agreeing samples before taking the baseline) already rules out its own in-flight frees, which is how
-we know the source is a neighbour.
+we know the source is a neighbor.
 
 It took the same two changes as the reaper test. The reap waits are per-`Tid` (`is_thread_present`
 on the outlaw just spawned, replacing `thread_count() <= baseline`). The final assertion waits for
@@ -79,7 +79,7 @@ It was removed on 2026-08-03 in PR #46, with the completed analysis in `notes/li
 BUGS section. The tree confirms it gone, replaced by a comment saying why. The removal is not a
 counterexample to "deletion is not the fix". The property the test is responsible for (the budget
 reclaim returns exactly `SWAPPER_BUDGET_PAGES`) was already asserted twelve lines above, so the
-global count added only the neighbour exposure. Milestone 78's postscript records the same.
+global count added only the neighbor exposure. Milestone 78's postscript records the same.
 
 ### Timer drift (`ticks_arrive_at_the_configured_rate`, both ISAs): re-aimed at the re-arm law
 
@@ -106,7 +106,7 @@ one interval per delivered tick.
 
 The defect fails this on the first tick, because each re-arm overshoots the grid by the handler
 latency. A descheduled emulator cannot fail it. A deschedule long enough to slip the grid increments
-`MISSED_TICKS` (the re-anchor safety valve, and correct behaviour), and the window is retried. A
+`MISSED_TICKS` (the re-anchor safety valve, and correct behavior), and the window is retried. A
 small `deadline()` accessor was added beside `missed_ticks()` on each ISA. One wall-clock bound
 survives because contention cannot falsify it. Descheduling only drops ticks, so more ticks than
 elapsed periods still fails; that is `rearm`'s spin-forever failure mode.

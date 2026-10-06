@@ -27,12 +27,12 @@ arm of `kernel/src/main.rs` and nowhere else. So on aarch64 and `x86_64` there w
 that channel at all, and a missing marker looks exactly like a slow board.
 
 Milestone 268's lane found a fifth case of the same shape one rung lower: `Stage::Banner` matches
-`nife on `, chosen generically so that "a recogniser that only knew the VisionFive 2's would report
+`nife on `, chosen generically so that "a recognizer that only knew the VisionFive 2's would report
 a healthy aarch64 or `x86_64` board as never having booted" -- and aarch64 printed no such line at
-all. The recogniser had anticipated parity that the thing it read did not have.
+all. The recognizer had anticipated parity that the thing it read did not have.
 
 The general lesson, which is worth more than the fix: a marker that only one architecture prints
-is indistinguishable from a marker that never fires, and neither one fails a build. The defence is
+is indistinguishable from a marker that never fires, and neither one fails a build. The defense is
 a shared definition (the crate) plus a gate that reads the channel (`script/boot-check`).
 
 ## The rungs, and who can reach each one
@@ -45,8 +45,8 @@ a shared definition (the crate) plus a gate that reads the channel (`script/boot
 | `Tour` | `nife: the capability core runs on ` | no | yes | no |
 | `Prompt` | `nife capability shell` | yes | yes | yes |
 
-`Tour` is deliberately one architecture's rung and is documented as one. Levelling it up would
-mean giving two architectures a marker for a demonstration tour they do not have; levelling it down
+`Tour` is deliberately one architecture's rung and is documented as one. Leveling it up would
+mean giving two architectures a marker for a demonstration tour they do not have; leveling it down
 would delete riscv64's, which is the trap milestone 268's block warns about. The rungs that replace
 it for every tool are `Machine` and `SelfTest`, which every architecture reaches.
 
@@ -130,7 +130,7 @@ board-console: machine: nife machine: riscv64, 4 processor(s), 8192 MiB, 100 Hz
 board-console: self-test: nife self-test: 5 of 5 passed
 ```
 
-Replay a capture through the same recogniser, which is how every marker in it is tested:
+Replay a capture through the same recognizer, which is how every marker in it is tested:
 
 ```
 $ cargo xtask board-console --replay target/boot-check-riscv64.log --until selftest
@@ -139,7 +139,7 @@ $ cargo xtask board-console --replay target/boot-check-riscv64.log --until selft
 ## BUGS
 
 - Closed 2026-09-14: "Nothing proves an architecture ran the *right* five checks."
-  `boot_ladder::SELF_TEST_CHECKS` is the set, one list for every architecture and the recogniser;
+  `boot_ladder::SELF_TEST_CHECKS` is the set, one list for every architecture and the recognizer;
   the kernel names a listed check that never ran and `board_console` fails a verdict whose total is
   not the list's length. What remains is that changing the set is one edit, which review judges.
 - Closed 2026-09-14: "A self-test can hang the boot." `timer` and `scheduler` read through
@@ -151,7 +151,7 @@ $ cargo xtask board-console --replay target/boot-check-riscv64.log --until selft
   or that anything could be typed at it. `script/swish-check` makes that stronger claim by typing.
 - The injected leg is not in CI. `--inject` rebuilds three kernels for one boolean, and what it
   proves is a property of the gate rather than of the change under test. Run it by hand when the
-  self-test or the recogniser changes. This is rung four of AGENTS.md's ladder and it is said out
+  self-test or the recognizer changes. This is rung four of AGENTS.md's ladder and it is said out
   loud rather than implied.
 - The riscv64 and `x86_64` arms narrate their own bring-up and the description then repeats some
   of it. Noise rather than a defect, and trimming it is not free: those arms' lines are what a

@@ -2,7 +2,7 @@
 
 The `machine_discovery` part of milestone 326 (nobody has been assigned to turn a mutation score
 upward)'s triage, on 2026-09-19, and its re-derivation on 2026-09-20. It verifies the crate's
-figures that [notes/mutation-testing.md](../mutation-testing.md) summarises. The method is set out
+figures that [notes/mutation-testing.md](../mutation-testing.md) summarizes. The method is set out
 in [regressions-capability-to-dtb](regressions-capability-to-dtb.md).
 
 ### `machine_discovery`: 77 survivors, 58 killed, 11 equivalent, 8 recorded gaps
@@ -65,7 +65,7 @@ no flags word and reads the bytes after it. Closed by
 reported by its type code instead. Type 5 was also alive under `false` and under `<`, because
 **`LocalApicAddressOverride` had no test at all**. A machine whose local APIC sits above 4 GiB says
 so in that entry and nowhere else, since the fixed part's field is 32 bits. A decoder reporting it
-as an unrecognised type would use the low address and touch memory that is not the APIC.
+as an unrecognized type would use the low address and touch memory that is not the APIC.
 
 #### The MCFG (5)
 
@@ -115,7 +115,7 @@ These are four shapes no dump can produce. Three fixtures are new (`many-harts`,
 Then a revision-2 RSDP with a null XSDT. That is the only input where the second half of
 `root_table`'s condition is asked, and following the zero sends the kernel to physical address 0.
 Then `parse_hex` given `0x` with no digits, and `parse_decimal` given the character after `'9'`
-read as a tenth digit. And blue, the only one of the three colours that travels up the word, so red
+read as a tenth digit. And blue, the only one of the three colors that travels up the word, so red
 alone could not tell a sixteen-bit shift from either direction.
 
 #### The eleven equivalents, by group
@@ -181,7 +181,7 @@ the walk accepts never advances. That is the tests noticing rather than missing,
 
 A lane assigned this crate for triage found it already at the state above. The accounting above is
 what `milestone/326-machine-discovery-truncation` produced, merged to `main` on 2026-09-19
-(`fdc51e8a` and neighbours, via the `maintainer/drain-the-proposal-pile` integration). The
+(`fdc51e8a` and neighbors, via the `maintainer/drain-the-proposal-pile` integration). The
 2026-09-19 census row this crate was assigned under (622 viable, 77 missed, 86.2% caught) is that
 lane's own `before` column. It was already closed by the time a second lane was briefed on it.
 Briefing from a week-old census without checking the tree first is the trap milestone 326's own

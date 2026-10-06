@@ -113,7 +113,7 @@ tests came along unchanged once three things moved.
 
 2. The hand-assembled programs became real ELFs. Five `global_asm!` blobs (three aarch64, two
    RISC-V) are gone, along with `exec`, the one-page raw-machine-code loader they needed. Their
-   behaviours are ordinary, so they are the `outlaw` binary (two roles: read a forbidden address,
+   behaviors are ordinary, so they are the `outlaw` binary (two roles: read a forbidden address,
    round-trip through user mode) and the `interrupt_ignorer` that §24's interrupt work already built. Every program the
    kernel runs now arrives as an ELF. The privilege-boundary test hands the forbidden *address* to
    the program in a register rather than baking a constant into machine code, which is the trick that
@@ -220,7 +220,7 @@ byte-for-byte identical (the five socket-contract tests, `std_net`, the two smol
 the FS server's stack-headroom check). Of the fifteen that differ, thirteen differ only in which
 image drives the driver: aarch64 passes `init_image()`, because there the virtio driver is a role
 of `hello`, and RISC-V passes `blk_image()`, the dedicated binary. The remaining two differ only in a
-comment and in an assertion message. There is no behavioural divergence anywhere in the 24.
+comment and in an assertion message. There is no behavioral divergence anywhere in the 24.
 
 So the merge is smaller than it looked: pick `blk` on both ISAs (a dedicated binary is the better
 choice regardless, and hello would keep its role for nothing), delete `riscv_virtio_tests`' 24 copies
@@ -248,7 +248,7 @@ Three things worth keeping from doing it, because the analysis below could not h
 - The probe was proven to bite before being believed. Leaking the spinner on purpose fails it,
   `1 thread(s) are still runnable after the suite quiesced`, with the dump. A reordered probe that
   has never failed is not evidence it polices anything.
-- **The free-frame shift this section flagged as the reason it needed a full run did not materialise.**
+- **The free-frame shift this section flagged as the reason it needed a full run did not materialize.**
   Killing `untyped_demo` frees its frames, and every later baseline in the suite was expected to move;
   both ISAs pass unchanged. Recorded because the risk was real and correctly identified, and the
   measurement is what retires it rather than the argument.

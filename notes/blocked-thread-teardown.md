@@ -248,7 +248,7 @@ interrupted syscall from the top. seL4 never hands a cancelled thread an error c
 has to define one, and userspace never has to handle one.
 
 The reply relationship is a first-class object with a back-pointer. Under MCS a `reply_t` holds
-`replyTCB`, so finalising a reply capability finds the blocked caller:
+`replyTCB`, so finalizing a reply capability finds the blocked caller:
 
 ```c
 case cap_reply_cap:
@@ -482,7 +482,7 @@ the flag were the caller's rather than the destroyer's.
 | Mach | `thread_abort` / `thread_abort_safely` | task/thread port | an interrupted-syscall return code | yes (message primitives) |
 | L4Re | `ex_regs` with `..._CANCEL` (cancel is a flag) | a thread capability | `L4_IPC_SECANCELED` / `RECANCELED` | yes; also avoided by IPC timeouts |
 | Zircon | `zx_task_kill`, refused for threads | `ZX_RIGHT_DESTROY` on a process/job handle | `ZX_ERR_PEER_CLOSED` / `ZX_ERR_CANCELED` from the channel | yes, by closing the channel, not by touching the thread |
-| QNX | server death, implicitly | none: it is automatic | `ESRCH` from `MsgSend` | yes, and this is its headline behaviour |
+| QNX | server death, implicitly | none: it is automatic | `ESRCH` from `MsgSend` | yes, and this is its headline behavior |
 | Linux | fatal signal + `TASK_KILLABLE` | ambient, by pid | nothing (the process dies) | n/a |
 | NT | user APC to an alertable wait | thread handle | `STATUS_USER_APC` | only if the wait opted in |
 
@@ -581,7 +581,7 @@ a blocked resident is not a new power; it is the completion of one that is alrea
 already destructive, and `reclaim_region`'s own `BUGS` already says a refused reclaim is destructive.
 
 The `ThreadControlBlock` capability is the answer that composes, and it is what seL4 chose. It names one thread
-rather than a region, so it can end a hung component without touching its neighbours, and it is
+rather than a region, so it can end a hung component without touching its neighbors, and it is
 already delegable and already narrowable. What it costs is the widening above: a builder that hands
 out a `ThreadControlBlock` cap today is handing out "you may assemble this thread", and afterwards would be handing
 out "you may end this thread whenever you like, forever". Those are different offers and existing
@@ -693,7 +693,7 @@ is depends on a spawn-time endowment convention that does not exist yet.
 **Provisional name: *the abortable call*. Unratified.**
 
 **Mechanism.** Leave the hung *server* alone entirely and fix the stranded *client*, which is QNX's
-behaviour and Zircon's. Two independent pieces, and they can be taken separately:
+behavior and Zircon's. Two independent pieces, and they can be taken separately:
 
 1. A reply-parked caller is woken when the thing it awaits becomes unreachable, closing the gap
    the hung-component note found: `Error::Gone` reaches endpoint wait queues and not reply parks. The
@@ -805,7 +805,7 @@ in having no way out at all, which is a claim a stranger reading the demonstrato
    milestone 55's supervisor quota bounds the leak below the reboot cadence, and that is a number
    nobody has measured. It is measurable now.
 3. **Is C separable enough to take on its own merits?** It looks less like a fork and more like a
-   defect: a caller stranded by a *dead* server is a QNX behaviour from the 1990s that this kernel
+   defect: a caller stranded by a *dead* server is a QNX behavior from the 1990s that this kernel
    lacks, and nothing in the tree records that as intended. **Answered yes**, by calef on
    2026-09-04, and built as milestone 254 without touching A, B or D.
 

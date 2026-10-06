@@ -74,7 +74,7 @@ A note on requirement 1 in this column, in the vocabulary above. The `yes` value
 *offer*: each of those providers lets you put your own kernel on the disk. Whether nife then boots is
 `unverified` and is much likelier here than on aarch64, for a reason the tree can state: `xtask`
 stages `BOOTX64.EFI` and `uefi_loader/src/arch/x86_64/mod.rs` takes the ACPI RSDP from the
-firmware's configuration table and synthesises an `hvm_start_info` for the kernel. So the x86_64 path
+firmware's configuration table and synthesizes an `hvm_start_info` for the kernel. So the x86_64 path
 already discovers an ACPI machine, which is what a rented server is. That is why this column is
 buyable today and the aarch64 one is not.
 
@@ -170,7 +170,7 @@ has to lift, not one the cloud adds.
 And this is exactly the shape fatal risk 9 (the HAL is a fiction, and an architecture costs a
 restructure rather than a port) predicts, arriving early and cheaply. The x86_64 side of the very
 same loader already does the ACPI job: `uefi_loader/src/arch/x86_64/mod.rs` takes the ACPI RSDP from
-the firmware's configuration table and synthesises an `hvm_start_info` for the kernel. So nife
+the firmware's configuration table and synthesizes an `hvm_start_info` for the kernel. So nife
 already has an ACPI discovery path, on one architecture only, and aarch64 and riscv64 are
 device-tree-only. A machine that hands the kernel ACPI instead of a device tree is not a new
 architecture; it is the same aarch64 with different firmware, and nife does not boot on it. That is
@@ -198,7 +198,7 @@ assumed.
 
 **aarch64 is not a thin column, which is the correction.** AWS, Azure and Google all sell Arm
 compute, Google and AWS both sell Arm bare metal, and all three take a custom image. The first
-draft looked at one instance type and generalised.
+draft looked at one instance type and generalized.
 
 **A `.metal` instance is not required, and this is the largest price finding in the file.** The four
 requirements are met by an ordinary virtualized Graviton instance: the EC2 serial console is
@@ -219,7 +219,7 @@ better target anyway.
 
 The first draft called this *"genuinely ambiguous"* and passing three of four, and said the ambiguity
 was the most valuable thing in the section. It was, and it is now resolved far enough to act on,
-in the unfavourable direction.
+in the unfavorable direction.
 
 The Oracle page's ambiguity was about Linux guests: Arm shapes take custom imported images in
 paravirtualized mode only, the listed guests are all Linux or Windows, and the stated requirement is

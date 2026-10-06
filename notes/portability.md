@@ -140,7 +140,7 @@ one authority who argued we should not be.
 
 "On micro-Kernel Construction" (SOSP 1995) argues that a microkernel implementation should not
 strive for portability, because a hardware abstraction adds overhead and hides hardware-specific
-optimisation opportunities. His evidence was that the "compatible" i486 and Pentium had shifted the
+optimization opportunities. His evidence was that the "compatible" i486 and Pentium had shifted the
 trade-offs enough to imply significantly different optimal implementations.
 
 The position did not survive its own author. Elphinstone and Heiser's 20-year retrospective
@@ -151,7 +151,7 @@ Non-portable implementation by significant portion of architecture-agnostic code
 to MIPS, Alpha, 64-bit PowerPC and ARM each changed less than 10 percent of the code.
 
 So the doctrine to measure against is not "rewrite per architecture". It is the weaker and more
-interesting one that replaced it: be portable in structure, and specialise exactly where the
+interesting one that replaced it: be portable in structure, and specialize exactly where the
 hardware pays you to.
 
 ### Where we sit
@@ -176,7 +176,7 @@ gives 74.6 percent. That is the number to compare against seL4 and Pistachio, wh
 shipping kernels, and it moves us from inside Pistachio's band to just below it. The 82 percent
 headline is unaffected, because it counts the whole tree the way a naive count of any kernel would.
 
-We are at Pistachio's number and are less specialised than seL4. The retrospective explains its
+We are at Pistachio's number and are less specialized than seL4. The retrospective explains its
 own lower figure, and the explanation is not that seL4 is more Liedtke-true by intent: about half of
 its code is virtual memory, which is necessarily architecture-specific, and the fraction is high
 because seL4 is *smaller overall* with the agnostic resource management pushed to userland. Our
@@ -189,7 +189,7 @@ do not abstract the two machines into a common denominator:
 
 - TLB shootdown. aarch64 issues `tlbi aside1is` and the *hardware* broadcasts it across the
   inner-shareable domain. RISC-V has no such instruction, so it makes SBI RFENCE calls into firmware
-  that send IPIs. Two unrelated mechanisms for one intent, neither levelled down to the other.
+  that send IPIs. Two unrelated mechanisms for one intent, neither leveled down to the other.
 - ASID width. aarch64 mandates 8 bits, so the context-switch TLB flush disappears entirely.
   RISC-V permits `satp.ASID` to be zero bits wide, so the kernel probes the width at boot and
   keeps flushing on every switch when the field is absent (address-space-identifiers.md). That is per-processor
@@ -201,7 +201,7 @@ do not abstract the two machines into a common denominator:
 ### Where we are not, and it is the one exception seL4 kept
 
 The retrospective, one sentence after the 50 percent figure: "There is little architecture-specific
-optimisation except for the IPC fastpath." That is the single place seL4 stayed Liedtke-true, and
+optimization except for the IPC fastpath." That is the single place seL4 stayed Liedtke-true, and
 it is precisely the thing this tree does not have. On the narrow measure Liedtke cared most about,
 hand-tuning the hot path to the processor, we score zero. design/decisions/95-a-proven-ipc-fastpath.md
 is the open decision about whether to change that, and milestone 132 is the gate that measured the gap.
@@ -211,7 +211,7 @@ The parity tenet says an architecture is a new `arch/` directory, "never a fork 
 matrix", which governs which capabilities ship rather than whether implementations are shared. A
 hand-written per-arch fastpath is permitted outright, provided both ISAs get one or the gap goes in a
 scope note, and rule 1 actively gives it a home. The tenet a reader would expect to block
-Liedtke-style specialisation is orthogonal to it.
+Liedtke-style specialization is orthogonal to it.
 
 ### One constraint Liedtke did not have, and we share it with seL4
 

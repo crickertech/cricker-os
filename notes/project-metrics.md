@@ -46,7 +46,7 @@ Each week is read from its own commit, so 2026W39 is the first correction, alrea
 
 ## The nine things that would kill nife
 
-![Fatal risks by colour](project-metrics/fatal-risks-colors.svg)
+![Fatal risks by color](project-metrics/fatal-risks-colors.svg)
 
 - 2026W41: risk 4 went green on 2026-10-05 UTC (calef); milestones 761 and 766 cut the null syscall's growth to four tasks from 48 to 10 ticks.
 
@@ -105,7 +105,7 @@ here as unattributed rather than as a model
 charts show that week's z.ai work as nothing at all.
 
 The palette has eight hues, so "other models" is Opus 4.8, Fable 5.1 and any trailer the script
-does not recognise, drawn as one band; `notes/project-metrics/models.csv` keeps each apart.
+does not recognize, drawn as one band; `notes/project-metrics/models.csv` keeps each apart.
 
 ## Lines touched, by the model that signed them
 
@@ -133,7 +133,7 @@ spent and output about 0.1%. 2026W29 through 2026W33 are absent, not zero.
 
 ![Architecture decisions by status](project-metrics/decisions.svg)
 
-From `design/decisions/README.md`. The grey band in the first three weeks is decisions that predate
+From `design/decisions/README.md`. The gray band in the first three weeks is decisions that predate
 a status existing at all, counted as having none rather than as `DECIDED`.
 
 ## Names by what the tree records about them
@@ -298,7 +298,7 @@ rest.
   disagreement, which is the weaker answer and is said to be the weaker answer.
 - A line inside a multi-line string literal counts as a comment line. Wrong in principle,
   negligible in this tree.
-- The charts follow the reader's operating system colour preference, not GitHub's theme toggle.
+- The charts follow the reader's operating system color preference, not GitHub's theme toggle.
   GitHub serves the SVG as an `<img>`, so a media query inside it cannot see the page theme.
 - `patches/` is outside the `unsafe` census, inherited from `script/lint` along with its reason.
   That code does run on the machine, so it is a real hole rather than a boundary, and
@@ -324,19 +324,19 @@ rest.
 - `merged_pull_requests` can only see GitHub's default merge subject. A merge made any other way
   is not counted and cannot be distinguished from an ordinary merge commit afterwards. The total
   matches what a maintainer counted by hand on 2026-09-21, which is evidence and not proof.
-- A band that goes to zero across the whole chart window changes the colours of the bands after
+- A band that goes to zero across the whole chart window changes the colors of the bands after
   it. `series_of` drops an all-zero series and the palette is indexed over what survives, so when
   2026W30 leaves the ten-week window the `before the convention` band disappears and every band
   below it in the by-model legend shifts one hue. The legend is redrawn with it, so nothing is
-  mislabelled, but a colour moves between screenshots.
-  It is pre-existing behaviour of every chart here and it is recorded because the by-model panel is
+  mislabelled, but a color moves between screenshots.
+  It is pre-existing behavior of every chart here and it is recorded because the by-model panel is
   the first one certain to hit it.
 - The cost and context columns carry seven limitations of their own, from a capture that can
   stop silently to a price [ledger](project-metrics/ledger.md) that re-prices history. They are listed where those columns are
   argued: [what this project costs, *Known limitations*](register-of-measures/project-cost.md#known-limitations).
 - Four series were restated on 2026-09-24, and an older screenshot will disagree with each.
   Opus 5.5 got its own column (`opus_5_5`), so this week's commits left *other models*, and Opus 4.8
-  now draws inside that band because the palette has eight hues. The fatal-risks chart (since removed in favour of the colours chart, which now stores the total itself) gained
+  now draws inside that band because the palette has eight hues. The fatal-risks chart (since removed in favor of the colors chart, which now stores the total itself) gained
   `fatal_risks_total` and an *unclassified* band, so 2026W36 to 2026W38 read nine rather than five,
   four and five. The coverage floor and the prose budget were backfilled from each week's own tree.
 - The prose budget will be restated again when milestone 586 (a prose ratchet in lint) lands,

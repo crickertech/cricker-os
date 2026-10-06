@@ -84,7 +84,7 @@ the hook and the selftest now clear git's environment first.
 
 ## After the queue: a label for a maintainer session
 
-Milestone 630 first built this as a hold: the drain commented on an ejection, labelled
+Milestone 630 first built this as a hold: the drain commented on an ejection, labeled
 `queue-ejected`, and declined to re-arm a failed head, re-arming everything else. calef's rulings on
 #1564 (2026-10-03) removed every re-arm and re-queue, because the automation fought his own
 dequeues and still left him as the only detector
@@ -116,7 +116,7 @@ minutes later. `unarmed` and `off-main` are not raised beside `ejected`, `confli
 already say what is wrong.
 
 The last two arrived on 2026-10-04, from pull requests nobody owned until calef noticed them.
-Pull request #1640 was stacked on #1630's branch and sat green, mergeable and unlabelled for about
+Pull request #1640 was stacked on #1630's branch and sat green, mergeable and unlabeled for about
 three hours. `eligible` admits only a pull request into `main`, so every cause skipped it, and calef
 merged it into its base by hand. Then #1617 and #1653 sat red under `ci-failing`, a label posted
 once that no session reads, while their lanes had ended `WAITING`. `red` routes that label into this one
@@ -141,7 +141,7 @@ and re-arming is the session's call to make, not the drain's.
 
 `helpers/needs-maintainer-selftest.sh` feeds the decision a response recorded live at
 2026-10-03T23:54:15Z, when #1569 had just been ejected on a `merge_conflict`, and one case per
-cause and per clearing. A `--dry-run` pass against the live repository the same minute labelled
+cause and per clearing. A `--dry-run` pass against the live repository the same minute labeled
 #1569 and nothing else. The scheduled workflow runs only from `main`, so the first real label comes
 after merge.
 
@@ -153,9 +153,9 @@ $ gh run view <run id> --log | grep -E 'LABELLED|CLEARED'
 
 ## BUGS
 
-- A labelled pull request waits for a maintainer session. With none running, it waits for the
+- A labeled pull request waits for a maintainer session. With none running, it waits for the
   next one, which is slower than the drain's old re-arm and is not calef's job.
-- An ejection is labelled at the drain's next pass, which follows the group's CI completion through
+- An ejection is labeled at the drain's next pass, which follows the group's CI completion through
   `workflow_run` but can trail it under load. The first pass after this lands also labels any open
   pull request whose last removal was a current ejection.
 - An armed pull request whose required checks never report, or that auto-merge never enqueues, is

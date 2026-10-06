@@ -1,7 +1,7 @@
 # Confinement claim 25, attacked part by part
 
 Milestone 719 (compositor confinement claim 25), 2026-10-03 UTC. Row 25 of
-[confinement-claims.md](confinement-claims.md) says a client cannot reach its neighbour's pixels or
+[confinement-claims.md](confinement-claims.md) says a client cannot reach its neighbor's pixels or
 read the screen. The outsider pass of milestone 633 (an outside agent attacks the confinement claim)
 left it alone, because a userspace server enforces it and the kernel does not.
 
@@ -18,7 +18,7 @@ read of each part shows it was also generous.
 | Part | What the original could see |
 |---|---|
 | 1. The input slot is empty (`NoSuchSlot`) | Reachable and first, with no patch recorded. |
-| 2. A write at the neighbour's first pixel page faults | The one patched part. A write cannot tell "unmapped" from "mapped read-only", so a read-only exposure of the neighbour's pixels left it green. |
+| 2. A write at the neighbor's first pixel page faults | The one patched part. A write cannot tell "unmapped" from "mapped read-only", so a read-only exposure of the neighbor's pixels left it green. |
 | 3. The victim's pixels are unchanged | Behind the fault wait, so it can fire only after part 2's assertion already has. |
 | 4. A client cannot read the screen | The peeper never asked for a mapping, so a screen capability leaked to every client left it green. A grant alone maps nothing. |
 
@@ -31,7 +31,7 @@ and `script/falsifications --sweep system_tests` was not run over the package.
 | Part | Attack | Outcome | What turns it red |
 |---|---|---|---|
 | 1 | Receive on the slot a non-focusable client was not granted. | Held. | A write-only capability in slot 2 gives `NotPermitted` (-3). |
-| 2 | Read the neighbour's control page, first pixel page and last pixel page, one attacker each. | Held. | The neighbour's first pixel frame mapped read-only. |
+| 2 | Read the neighbor's control page, first pixel page and last pixel page, one attacker each. | Held. | The neighbor's first pixel frame mapped read-only. |
 | 3 | Commit nine lying damage rectangles, then compare the victim's surface and control page, and the screen. | Held for reach, broke for availability, fixed. | Two patches, below. |
 | 4 | Ask for the screen mapping as a capture client would, then read. | Held. | The screen capability and its map budget leaked to a window client. |
 

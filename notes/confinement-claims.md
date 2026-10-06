@@ -44,7 +44,7 @@ themselves. The last column is this milestone's result.
 | 22 | An ELF cannot ask to be loaded over the kernel, or for a writable executable page | §15 | `kernel::user::tests::an_elf_that_asks_to_be_loaded_over_the_kernel_is_refused`, `..._for_a_writable_executable_page_is_refused` | **yes, two** |
 | 23 | The progenitor cannot rebuild after dropping its construction authority | §26 | `kernel::user::authority_tests::init_drops_its_construction_authority_and_cannot_build_again` | **yes, and see below** |
 | 24 | Two shells with different roots cannot name each other's files | §50 (namespace composition, not stored paths) | `kernel::user::shell_navigation_tests::two_shells_with_different_roots_cannot_name_each_others_files`, `grant_plan::job_windows::tests::take_never_hands_out_a_window_whose_last_holder_is_unreaped`, `job_undertaker_tests::job_undertaker_says_which_job_it_reaped_and_only_then_is_its_window_free` | **yes, and see below**; window reuse [closed](../design/roadmap/685-a-job-is-finished-when-its-memory-is-back.md) 2026-10-06 |
-| 25 | A client cannot reach its neighbour's pixels or read the screen | §33 (the compositor's authority is memory, not messages) | `kernel::user::compositor_tests::a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen` and five more in [compositor-claim-25.md](compositor-claim-25.md) | **yes, six patches, aarch64** |
+| 25 | A client cannot reach its neighbor's pixels or read the screen | §33 (the compositor's authority is memory, not messages) | `kernel::user::compositor_tests::a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen` and five more in [compositor-claim-25.md](compositor-claim-25.md) | **yes, six patches, aarch64** |
 | 26 | A client of a rendezvous cannot become its server | §41 (the endpoint is the broker) | `kernel::user::live_swap_tests::a_client_of_the_stable_rendezvous_cannot_become_its_server`; `confinement_attack_tests::a_write_only_rendezvous_holder_cannot_receive_reap_or_survey` | [yes, the second](../system_tests/falsifications/user.confinement_attack_tests.a_write_only_rendezvous_holder_cannot_receive_reap_or_survey.patch); the first hangs, see below |
 | 27 | A thread holding no port capability cannot touch a port, and a holder's ports do not leak across a context switch (`x86_64`) | §121, milestone 299 | `kernel::user::x86_port_tests::port_holder_transmits_then_a_non_holder_faults` | **yes, milestone 313, and see below** |
 | 28 | A revoked port holder faults on its next `in`/`out` (`x86_64`) | §121, milestone 299 | `kernel::user::x86_port_tests::a_revoked_holder_faults_on_its_next_port_write` | **yes, milestone 313** |
@@ -243,7 +243,7 @@ The reason was not a weak defect. `user_can_read` walked through `translate_user
 test asks about came back `None` before any leaf was read. The headline assertion, `assert!(
 !mmu::user_can_read(kernel_va), "the page tables say U-mode could read the kernel's own memory")`,
 answered "no" by refusing to look. It could not fail, and the test's own doc comment calls that walk
-"the thing under test" and calls the `U` bit RISC-V's single line of defence.
+"the thing under test" and calls the `U` bit RISC-V's single line of defense.
 
 The tree had already written the cause down and nothing connected it.
 `is_mapped_in_current_space`, forty lines away in the same file, exists for exactly this case and
@@ -485,7 +485,7 @@ sentence, one level out: a passing test is consistent with the component being s
 component never having asked. Recorded rather than fixed, because the fix is a per-probe
 "attempted" bit in a wire-format bitmap two programs agree on.
 
-### And where the three instances did not generalise, which is worth as much
+### And where the three instances did not generalize, which is worth as much
 
 The predicate class that produced 305's survivor was checked on every architecture and found sound
 elsewhere. aarch64's `user_can_read` asks the silicon (`AT S1E0R`) and has no half to get wrong;
@@ -543,7 +543,7 @@ design.
 Fixed here, in the three sweeps that lacked it (`delete_page_frame_caps_where`, which is both
 `PageFrame` policies; `delete_device_frame_caps_from_others`; and `x86_64`'s
 `delete_port_range_caps_impl`), by dropping the parked capability. Dropping rather than failing the
-send is the behaviour `ipc_send_cap` already documents for the other way a hand-off comes up empty,
+send is the behavior `ipc_send_cap` already documents for the other way a hand-off comes up empty,
 a receiver whose table is full: the data word still arrives and the receiver sees `NO_CAP`. No new
 error reaches userspace, so nothing about the syscall surface moves. The falsification is recorded
 and replayed red.
@@ -694,4 +694,4 @@ capability would let it) answers. |
   about what the replay *proves*: a Kani harness is checked by a solver over every input in its
   bound, and a kernel test is one boot of one machine with one fixture attached, on one
   architecture. A kernel row that skipped for want of a disk or a device page is not evidence at
-  all, which is why `--sweep` reports a skipped test as an error rather than as either colour.
+  all, which is why `--sweep` reports a skipped test as an error rather than as either color.

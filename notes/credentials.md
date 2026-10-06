@@ -101,9 +101,9 @@ and the amendment to §46 says depend rather than *vendor*: a vendored copy is i
 
 The crate is RustCrypto's `argon2` 0.5.3, `default-features = false`, plus `subtle` for
 constant-time comparison and `zeroize` so the library scrubs its own memory. The whole graph is
-nine crates, all RustCrypto core, and it passes `deny.toml` unchanged: advisories, licences, bans,
+nine crates, all RustCrypto core, and it passes `deny.toml` unchanged: advisories, licenses, bans,
 sources. `argon2` was already in this tree, in the redoxfs_server workspace, underneath RedoxFS's
-encryption path, so the licence question had an answer before the question was asked.
+encryption path, so the license question had an answer before the question was asked.
 
 Argon2id specifically, not Argon2i or Argon2d: it is RFC 9106 §4's recommendation, it is what
 OWASP puts first, and it is the variant that resists both a side-channel adversary (the Argon2i
@@ -158,7 +158,7 @@ Measured on the development machine (Apple Silicon, native, not under QEMU):
 
 | build | m=1 MiB t=2 | m=4 MiB t=3 | m=8 MiB t=3 |
 |---|---|---|---|
-| optimised | 2.0 ms | **5.3 ms** | 7.3 ms |
+| optimized | 2.0 ms | **5.3 ms** | 7.3 ms |
 | unoptimised | 25.8 ms | 66.7 ms | 135.0 ms |
 
 Which is why `Cargo.toml` compiles `cred`, `argon2`, `blake2` and `digest` at `opt-level = 2` even
@@ -186,7 +186,7 @@ three exist.
 ### How the constant-time claim is checked
 
 Mostly structurally, and deliberately so. `Store::select` is branch-free, and a unit test pins its
-behaviour at every slot position and on a miss: the decoy's salt, the decoy's tag, the store's cost,
+behavior at every slot position and on a miss: the decoy's salt, the decoy's tag, the store's cost,
 `found = 0`. That is a deterministic test of the thing that matters.
 
 There is also one timing test, and it is written to be robust rather than precise: 25 runs of
@@ -221,7 +221,7 @@ The service zeroes the request area after reading every request, on every path, 
 malformed ones. So after an answer, the frame the client and the service share holds neither the
 presented secret nor anything else. The wipe uses `write_volatile` and a compiler fence, because a
 compiler that can prove nobody reads those bytes again is entitled to delete a plain store, and
-"the optimiser removed the wipe" is the classic way a zeroing loop turns into a comment.
+"the optimizer removed the wipe" is the classic way a zeroing loop turns into a comment.
 
 ## EXAMPLES
 
@@ -383,7 +383,7 @@ in the same place.
 - The decoy is one record. Every miss derives against the same salt, so an attacker who can
   time verifies precisely enough to distinguish *two* misses from a miss and a hit learns nothing,
   but an attacker who can observe the service's memory access pattern is outside this threat model
-  entirely, and so is one who shares a core with it. There is no defence here against a local
+  entirely, and so is one who shares a core with it. There is no defense here against a local
   side-channel adversary.
 - **The kernel-side test driver is not a capability holder.** The strongest form of "no capability
   to the provision endpoint exists" is demonstrated by the userspace clients' endowments (they hold

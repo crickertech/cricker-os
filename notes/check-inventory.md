@@ -169,7 +169,7 @@ somewhere in the tree; collecting them is the point.
   (`^(notes/|design/|[A-Z_]+\.md$)`) while the job still runs, deliberately, because a required
   check that never reports jams the queue forever. A docs-only pull request collects eight green
   required checks, only `test`'s corpus step executing anything (the #1168 fix). Correct
-  behaviour, worth knowing.
+  behavior, worth knowing.
 - **`verify (Kani proofs)` is also green when `verify scope` says nothing can reach a proof.** The
   aggregator treats `skipped` as passing on purpose. The proofs' coverage therefore depends on
   `script/verify --affected-since` being right about what a change reaches, and that predicate is
@@ -210,7 +210,7 @@ workflow's red is an entry in the Actions tab with no badge and no notification,
 the diagnosis `toolchain-bump.yml`'s own comments already wrote down about `toolchain drift` on
 2026-07-31.
 
-### 2. The Miri check has been red for three weeks on a missing environment variable, not on undefined behaviour
+### 2. The Miri check has been red for three weeks on a missing environment variable, not on undefined behavior
 
 `crates/documentation/tests/render.rs:279` reads `CARGO_MANIFEST_DIR` at run time, deliberately, with a
 comment explaining that the compile-time form bakes a stale absolute path. Miri does not forward the
@@ -218,7 +218,7 @@ environment by default, so `every_character_survives` panics with `cargo sets th
 NotPresent` and the job exits 1. The same test passes under `cargo test`.
 
 So milestone 79's check (Miri over the host crates) has reported failure for three consecutive weeks
-for a reason that has nothing to do with undefined behaviour. That is worse than a check nobody
+for a reason that has nothing to do with undefined behavior. That is worse than a check nobody
 runs: it is a check that cries wolf on a schedule, and the only available response to it is to stop
 reading it. The candidate fix is one flag, `MIRIFLAGS=-Zmiri-env-forward=CARGO_MANIFEST_DIR`, which
 Miri's own message suggests; it is not applied here because that is a change to a check rather than

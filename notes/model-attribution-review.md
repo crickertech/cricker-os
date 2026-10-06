@@ -213,7 +213,7 @@ following an unrelated builtin, a docs pass on stale symbol names following an x
 change.
 
 **Line-level, blamed back.** The measurement worth running. For each fix-shaped commit, take the
-lines it deleted, blame them at its parent, attribute them to whoever wrote them. Normalised per
+lines it deleted, blame them at its parent, attribute them to whoever wrote them. Normalized per
 1,000 code lines added, split by subsystem, with the follow-up window capped at 6 days for every
 model so exposure is equal:
 
@@ -242,8 +242,8 @@ below exist rather than a verdict.
 the commit bisects it by swapping `kernel/` alone between three of its own branch's commits with the
 rest of the tree held constant, attributes 29,302 of the 35,512 ticks to a specific reclamation sweep
 by stubbing that sweep out, halves it, states the remaining 6.4% as the price of a correctness fix
-rather than hiding it, re-records the baselines with the reason, and reports a further optimisation
-that was built, measured, recovered 3,820 ticks, and was dropped because it destabilised block
+rather than hiding it, re-records the baselines with the reason, and reports a further optimization
+that was built, measured, recovered 3,820 ticks, and was dropped because it destabilized block
 layout. It also names a movement on an unrelated bench row that nobody asked about.
 
 That is better work than most of this tree, by any model. Commit-message length says the same thing
@@ -289,7 +289,7 @@ Applied here, the scheme is:
 1. A harness extracts each sampled commit as `cases/<random-id>.patch`: the diff from
    `git show --format=`, which emits no message and therefore no trailer, plus the commit subject and
    body with every `Co-Authored-By` and `Claude-Session` line stripped.
-2. Cases are written in randomised order under ids that encode nothing. The case directory holds the
+2. Cases are written in randomized order under ids that encode nothing. The case directory holds the
    patches and the rubric and no git repository, so `git log` is not available to the reviewer.
 3. The reviewer is a separate `claude` process started in the case directory's parent, `--safe-mode`,
    no network.
@@ -377,7 +377,7 @@ Recommended, and recommended first.
 
 ### Tier 2: blinded sample with the same-window control. 2 to 3 lanes, ~1 day, ~2 to 3M tokens.
 
-- Lane A builds the harness: case extraction, scrubbing, randomisation, the isolation probe. Roughly
+- Lane A builds the harness: case extraction, scrubbing, randomization, the isolation probe. Roughly
   the shape of `script/stranger-test`, reusing its isolation mechanism rather than reinventing it.
 - 60 Sonnet cases, stratified by subsystem (kernel, crates, user, prose) and by size, drawn from the
   242 pull-request-attributed commits rather than the 180 trailered ones.
@@ -475,7 +475,7 @@ Stated plainly, because a plan that hides its blind spots is the thing it is try
 
 ## BUGS
 
-- **The follow-up window for Sonnet's newest commits is under a day, not six.** The exposure-equalised
+- **The follow-up window for Sonnet's newest commits is under a day, not six.** The exposure-equalized
   table in §6 caps every model at 6 days, but a commit written on 2026-08-27 has had one day for a
   fix to arrive. Sonnet's line-level rates are therefore a **floor** and will rise as the tree moves
   on. They were not adjusted for this, because any adjustment is a model of arrival rates that

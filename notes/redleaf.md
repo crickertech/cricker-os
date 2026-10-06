@@ -307,7 +307,7 @@ requires saving all general registers. Passing one RRef<T> adds an overhead of 1
 between papers. The absolute 124 should never be set beside a nife figure directly: different ISA,
 different decade, different measurement instrument.
 
-Two caveats on their own table, in their favour and against. The shadow row disagrees with their
+Two caveats on their own table, in their favor and against. The shadow row disagrees with their
 own prose, which says *"in case of a shadow the invocation crosses two proxies and a user-built
 shadow domain and takes 286 cycles"* against the table's 279. Seven cycles, and it is worth noting
 only because it is the kind of thing a reader quoting one of the two will not know about. And the
@@ -405,7 +405,7 @@ Four places, and the first two are not close.
 4. Application-level numbers against commodity baselines. Maglev, a network key-value store, and
    an httpd measured against Linux sockets, DPDK and nginx: *"On Linux, Nginx can serve 70.9 K
    requests per second, whereas our implementation of httpd achieves 212 K requests per second."*
-   Whatever the caveats, that is a workload a stranger recognises, and milestone 168 (a multi-tasking
+   Whatever the caveats, that is a workload a stranger recognizes, and milestone 168 (a multi-tasking
    workload benchmark) is still PARTIAL.
 
 A fifth, which is a design observation rather than a result: RedLeaf's IDL generates the proxy, the
@@ -468,7 +468,7 @@ moved since January 2022.
   `grub-mkrescue`, and CloudLab-class Intel hardware for anything but QEMU.
 - The SOSP '25 Atmosphere evaluation beyond Tables 1-3. Its driver and application benchmarks were
   not read in full; only the verification-effort and syscall-latency tables were.
-- How Atmosphere's authors would characterise the relationship between the two systems. Not asked,
+- How Atmosphere's authors would characterize the relationship between the two systems. Not asked,
   and not inferable from the text.
 - Whether anyone has independently reproduced RedLeaf's 124-cycle figure. Not searched
   exhaustively.
@@ -478,7 +478,7 @@ moved since January 2022.
 - **This note was written from seven documents and one shallow clone. It is not a survey.** Citing
   papers is not the same as tracking a field, and the isolation-in-Rust literature since 2021
   (KSplit, Theseus, Netbricks, Splinter, VeriSMo, NrOS, Asterinas) was seen only through these
-  authors' related-work sections, which are not a neutral source about their neighbours.
+  authors' related-work sections, which are not a neutral source about their neighbors.
 - Nothing was read about what Tock became. The 2017 paper is treated here as an argument, which
   is what it is, and the nine years of Tock since it are out of scope. A claim in this note about
   the 2017 position is not a claim about Tock today, and if anyone wants the second thing it is a

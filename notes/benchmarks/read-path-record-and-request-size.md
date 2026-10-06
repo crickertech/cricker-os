@@ -12,7 +12,7 @@ one.
 ### Before and after, on a machine that was actually quiet
 
 Six interleaved passes over levels 5, 1 and 0 (`sh bench/record-level-sweep.sh 1 5 1 0`, six times),
-on the same harness and the same six phases as milestone 38 (filesystem throughput) and the sweep. The sweep's normalisation
+on the same harness and the same six phases as milestone 38 (filesystem throughput) and the sweep. The sweep's normalization
 is not needed here. The `fs_read` control measured 202,246, 203,389 and 202,352 ns at levels 5, 1 and
 0, a spread of 0.6%, so these are raw means of six rounds rather than ratios. Load ran 3.8 to 6.6,
 inside milestone 38's own 4 to 9.
@@ -74,12 +74,12 @@ the server's own work. Nothing in milestone 138's four steps removes it, and it 
 The write residual is larger and has a different owner. 690 us on a sequential write is the
 transaction: allocate, rewrite the node, commit to the header ring, on every 4 KiB request. Step 2's
 block cache does not touch it, because those are writes. Step 3's multi-page transfer does, by the
-most of anything on the list, because it amortises one transaction over sixteen pages. After step 1
+most of anything on the list, because it amortizes one transaction over sixteen pages. After step 1
 the write path's fixed cost is 87% of a write and the largest unaddressed term in the measurement.
 
 ### What step 2 looks like now, against measured numbers rather than the model
 
-Milestone 138's table modelled step 2 as "on its own worth 15%; with a small record it is 4.7x". With
+Milestone 138's table modeled step 2 as "on its own worth 15%; with a small record it is 4.7x". With
 step 1 measured, that can be restated against real numbers:
 
 - A 4 KiB read is 283,974 ns, of which 205,698 is the fixed term and ~195,000 of that is the five
@@ -98,7 +98,7 @@ in [steps 4 and 2](read-path-block-contract-and-metadata-cache.md).)*
 ### BUGS
 
 - The space cost of level 1 was not re-measured for this step. The +19% is the sweep's, from counting
-  non-zero blocks in a fresh image after importing 560 KiB of text, the payload most favourable to
+  non-zero blocks in a fresh image after importing 560 KiB of text, the payload most favorable to
   lz4. An incompressible payload would show only the pointer half. A backup workload is the
   incompressible case and nobody has measured it.
 - `fs_record_read` reads at multiples of 128 KiB and the record is now 8 KiB. That is still a record
@@ -128,7 +128,7 @@ milestone 32 (a real filesystem), and the page was always what bounded a transfe
 
 Six interleaved rounds at each point (`sh bench/transfer-size-sweep.sh 6 1 16`), on milestone 38's
 harness and the same six phases. The `fs_read` control measured 203,976 ns at one page and 203,326 at
-sixteen, a spread of 0.3%, so these are raw means of six rounds with no normalisation. Load ran 3.6 to
+sixteen, a spread of 0.3%, so these are raw means of six rounds with no normalization. Load ran 3.6 to
 5.2, inside milestone 38's own 4 to 9. The benchmark holds bytes moved constant (1 MiB per phase)
 rather than the transfer count, so both points move the same file.
 
@@ -179,7 +179,7 @@ transaction term under a larger transfer.
 
 ### What step 2 is worth now, re-priced a second time
 
-Step 1 re-priced the metadata cache from the block's modelled 4.7x to a measured 3.2x. Step 3
+Step 1 re-priced the metadata cache from the block's modeled 4.7x to a measured 3.2x. Step 3
 re-prices it downward, because the two steps target the same term:
 
 - On a 64 KiB read it is worth about 1.33x. The five repeated block reads are ~195 us per request,

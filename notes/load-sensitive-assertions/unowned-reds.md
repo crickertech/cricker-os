@@ -33,7 +33,7 @@ with less than expected. It cannot manufacture 53 extra pages out of a budget th
 A count higher than the property being measured is the negative-direction shape this register
 already names: "a wait written against something wider than the property"
 (`notes/riscv-parity-scope.md`'s phrase). Here it reads as free frames from outside `budget` landing
-inside the measured window. The likeliest source was a neighbouring test's own teardown completing
+inside the measured window. The likeliest source was a neighboring test's own teardown completing
 while this one's `before_reclaim`/`reclaim_region` pair was in flight.
 
 #### Seen a second time, 2026-09-21
@@ -43,17 +43,17 @@ customer possible) saw it as *"returned 296 of 224 pages"*: a 72-page surplus wh
 sighting was 53. The second sighting added three things, and none of them closed it.
 
 - It recurs rather than being one run's accident, and the surplus is a different number each time.
-  That is what a neighbouring teardown landing in the window would look like, and not what a fixed
+  That is what a neighboring teardown landing in the window would look like, and not what a fixed
   accounting error would look like.
 - It is intermittent. The same binary, on the same machine, the same afternoon, passed the assertion
   twice and failed it once.
 - The failing run was the loaded one: load 7.0 of 8 cores, with another lane's two runaway doctests
   pegged at 99% each. Both passing runs were quieter. That does not contradict the diagnostic,
-  because load does not manufacture pages. It fits the reading that a neighbour's teardown completes
+  because load does not manufacture pages. It fits the reading that a neighbor's teardown completes
   inside the measured window, since contention is what stretches the window.
 
 So the second sighting strengthened the negative-direction diagnosis, and still did not establish
-whether the frames came from a neighbour or from a leak. It remained un-investigated and worth a
+whether the frames came from a neighbor or from a leak. It remained un-investigated and worth a
 lane.
 
 The original 2026-08-27 wording of that open question, kept because it is the question the fix
@@ -78,7 +78,7 @@ The diagnosis was right, and the fix follows from it. The assertion read
 `memory::free_page_frames()`, a count of every free frame in the machine, so anything else
 allocating or freeing between the two reads moved it. It now reads `memory_region::usage(budget)`,
 which counts the pages retyped out of this region. That is the quantity the test was always trying
-to assert: that the operator's budget gave back exactly what it held. A neighbouring test's teardown
+to assert: that the operator's budget gave back exactly what it held. A neighboring test's teardown
 can no longer be mistaken for this one's result. The narrower assertion is also a stronger one. A
 global delta of the right size can be reached by the wrong frames coming back; a scoped one cannot.
 
@@ -93,7 +93,7 @@ refuses to reclaim a region whose children are still carved out of it. So a stal
 child was gone first.
 
 The open question above is answered by construction rather than by investigation, and it is no
-longer worth a lane. The assertion can no longer be moved by a neighbour at all. If it ever goes red,
+longer worth a lane. The assertion can no longer be moved by a neighbor at all. If it ever goes red,
 the answer is "a leak", with nothing else to rule out first.
 
 ### `system_tests/src/user/current_cpu_tests.rs:134`, `the_page_is_returned_when_the_space_is_dropped` (FIXED 2026-09-23)
@@ -152,9 +152,9 @@ the inversion honest. `Some(true)` proves the address names a frame this allocat
 direct-map inversion fails loudly instead of returning `None` and reading as "not used".
 
 The exposure that replaces the old one is far smaller, and it is recorded rather than hidden. A
-neighbour that allocated this exact frame in the microseconds between the drop and the check would
+neighbor that allocated this exact frame in the microseconds between the drop and the check would
 fail it falsely. That needs an allocation, where every observed failure of the old form was a freeing
-neighbour's late teardown. It also needs the allocator's linear scan to land on this one frame out of
+neighbor's late teardown. It also needs the allocator's linear scan to land on this one frame out of
 the machine's free set.
 
 It was proved by injection on 2026-09-23, because [the fifth round](stack-reuse-and-proxy-detectors.md)

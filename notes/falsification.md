@@ -34,7 +34,7 @@ What was actually looked at, on 2026-08-31, against Kani 0.67.0 and the CBMC 6.8
 | looked at | what it gives | why it is not an IVC |
 |---|---|---|
 | `cargo kani --coverage` | source-based **reachability** coverage: which regions symbolic execution touched | catches some vacuity (an unreachable region), no tautology at all. Kani's own RFC-0011 calls it reachability analysis and not proof-theoretic core extraction |
-| `cbmc --slice-formula` | drops assignments unrelated to the property | a solver optimisation that reports nothing to the user |
+| `cbmc --slice-formula` | drops assignments unrelated to the property | a solver optimization that reports nothing to the user |
 | `cbmc --cover`, `--symex-coverage-report` | test-suite generation against a coverage criterion | again reachability, and about generating tests rather than explaining a proof |
 | anything unsat-core shaped in either tool | nothing. `cbmc --help` has no such flag; `cargo kani --help` has no such flag | |
 
@@ -272,7 +272,7 @@ Verification failed for - verification::from_bits_cannot_forge_a_right
 ```
 
 Ten of twelve stayed green, including the central theorem. The reason is worth stating plainly
-because it generalises: `derive_never_widens_rights` states its property *through the predicate it is
+because it generalizes: `derive_never_widens_rights` states its property *through the predicate it is
 testing*. It asserts `derived.rights.is_subset_of(src_rights)` while `derive` guards on
 `rights.is_subset_of(src.rights)`, so a consistently wrong `is_subset_of` satisfies both sides and
 the harness cannot see the break. It is load-bearing against the **guard** being dropped, which is
@@ -405,9 +405,9 @@ harness's crate, and flagged a harness where one function it calls appears insid
 function it calls. 23 candidates out of 146, and all 11 findings are among them, which
 sounds like a win and is worth being suspicious of.
 
-Three of the eleven, the `paging` leaf trio, were flagged by an **artefact**. The extractor
+Three of the eleven, the `paging` leaf trio, were flagged by an **artifact**. The extractor
 takes a function body by counting braces over a bounded window, so it sometimes swallows a
-neighbouring function, and that is why `entry_pa` appeared to call `leaf_entry`. It does not.
+neighboring function, and that is why `entry_pa` appeared to call `leaf_entry`. It does not.
 An encoder and its own decoder never call each other, so a *correct* call-graph test would have
 missed all three, and the round trip between an encoder and its decoder is the same failure in
 different clothes. The narrowing is therefore weaker than its hit rate suggests.
@@ -542,7 +542,7 @@ Recording these is not modesty. 211 found its own first draft wrong about one of
 a sweep that reports only its hits is unfalsifiable prose.
 
 `credential_protocol::a_request_word_round_trips_every_field` is blind on its own, and covered by
-its neighbour. It is an encoder round-tripped through its own decoder, which is 211's third
+its neighbor. It is an encoder round-tripped through its own decoder, which is 211's third
 family. Swapping the identity and secret length fields in `req` and in `id_len`/`secret_len`
 together leaves it verifying: both sides move and the round trip is perfect, while a client using
 the real wire format has its identity length read as its secret length. It was left alone, with
@@ -622,7 +622,7 @@ building agrees with, which is why a proof and not a test is what catches it.
   distinguishes "asserts through the function under test" from "legitimately asserts agreement",
   which is why milestone 211 is a sweep with a worklist rather than a lint. Its per-finding
   evidence is a falsification patch, so the weekly sweep does re-run it, but a harness found
-  *fine* today carries no artefact at all and will go quiet if the code under it is refactored
+  *fine* today carries no artifact at all and will go quiet if the code under it is refactored
   into the shape it was cleared of.
 - **Eleven findings is a floor, not a count.** Each one is a defect somebody thought of. A
   harness with no demonstrated blind spot is a harness nobody has broken the right way yet, and
@@ -677,7 +677,7 @@ building agrees with, which is why a proof and not a test is what catches it.
   side of the assertion. The mixed cases are the ones a sweep is bad at: a harness whose subject
   comes from the crate can still rest on a recomputed assumption, and telling a safe restatement
   from an unsafe one took reading the code both times rather than applying the rule.
-- The sweep leaves no artefact on the 147 harnesses it cleared, the same limit 211 records.
+- The sweep leaves no artifact on the 147 harnesses it cleared, the same limit 211 records.
   A harness that is fine today becomes a duplicate the moment somebody inlines the function it
   calls, and nothing says so. The two recorded above are the exception only because their reasons
   are written at the harness rather than here.

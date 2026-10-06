@@ -117,7 +117,7 @@ Nothing about this was hit during first light, because a keyboard and a monitor 
 It matters for what `notes/bench-runbook.md` and `notes/serial-less-output.md` want next: a machine
 that can be power-cycled and left to boot on its own. Two settings would have to change together
 (`Continue on Warnings and Errors`, and keyboard error detection off), and both are an architect's
-call because both change the machine's behaviour for everything else it is used for.
+call because both change the machine's behavior for everything else it is used for.
 
 ## The full transcription
 
@@ -171,10 +171,10 @@ IMG_4025, IMG_4026, System Information (read-only)
 four logical CPUs the boot tour enumerates are four physical ones.
 
 IMG_4027, Boot Sequence. `Windows Boot Manager` present and unticked. Boot List Option:
-Legacy ( ), UEFI (•), and Legacy is greyed. Buttons: Add Boot Option, Delete Boot Option, View.
+Legacy ( ), UEFI (•), and Legacy is grayed. Buttons: Add Boot Option, Delete Boot Option, View.
 
 IMG_4028, Advanced Boot Options. `Enable Legacy Option ROMs` unticked;
-`Enable Attempt Legacy Boot` unticked and greyed.
+`Enable Attempt Legacy Boot` unticked and grayed.
 
 IMG_4029, UEFI Boot Path Security. Always, Except Internal HDD (•); Always ( ); Never ( ).
 Has no effect while no Admin password is set, and none is (IMG_4043).
@@ -230,10 +230,10 @@ IMG_4042, Primary Display. Auto (•); Intel HD Graphics ( ).
 
 ### Security
 
-IMG_4043, Admin Password. Old password field greyed, reading "Not Set". New and confirm
+IMG_4043, Admin Password. Old password field grayed, reading "Not Set". New and confirm
 fields empty.
 
-IMG_4044, System Password. Old password field greyed, reading "Not Set". New and confirm
+IMG_4044, System Password. Old password field grayed, reading "Not Set". New and confirm
 fields empty. So neither password is set, which is why IMG_4029 and IMG_4055 have no effect.
 
 IMG_4045, Strong Password. `Enable Strong Password` unticked.
@@ -279,7 +279,7 @@ IMG_4058, Secure Boot Enable. Disabled (•); Enabled ( ). Help text verbatim:
 
 IMG_4059, Expert Key Management. `Enable Custom Mode` unticked. Custom Mode Key
 Management: PK (•); KEK ( ); db ( ); dbx ( ). `Save to File` enabled; `Replace from File`,
-`Append from File`, `Delete`, `Reset All Keys`, `Delete All Keys` all greyed out (Custom Mode is
+`Append from File`, `Delete`, `Reset All Keys`, `Delete All Keys` all grayed out (Custom Mode is
 off).
 
 ### Intel® Software Guard Extensions™
@@ -310,7 +310,7 @@ cores are free to sleep.
 IMG_4067, AC Recovery. Power Off ( ); Power On ( ); Last Power State (•).
 
 IMG_4068, Auto On Time. Time `12:00 AM`. Disabled (•); Every Day ( ); Weekdays ( );
-Select Days ( ). All seven day checkboxes unticked and greyed.
+Select Days ( ). All seven day checkboxes unticked and grayed.
 
 IMG_4069, Deep Sleep Control. Disabled ( ); Enabled in S5 only ( );
 Enabled in S4 and S5 (•). The help text warns that with this enabled, Remote Wakeup and Remote
@@ -334,7 +334,7 @@ IMG_4075, Numlock LED. `Enable Numlock LED` ticked.
 IMG_4076, Keyboard Errors. `Enable Keyboard Error Detection` ticked.
 
 IMG_4077, Fastboot. Minimal ( ); Thorough (•); Auto ( ). Thorough performs complete
-hardware and configuration initialisation during boot, which is the slow and safe end of this
+hardware and configuration initialization during boot, which is the slow and safe end of this
 setting and the right one for a bring-up.
 
 IMG_4078, Extend BIOS POST Time. 0 seconds (•); 5 seconds ( ); 10 seconds ( ).
@@ -455,7 +455,7 @@ list rather than a disclaimer.
 - No DMAR, no ACPI table contents, no PCI enumeration. None of that is in a firmware menu. The
   boot tour prints some of it and `notes/x86-uefi-boot.md` records what was seen.
 - Help text is transcribed verbatim only where it carries a fact (the COM port addresses, the
-  SATA modes, the Secure Boot precondition, the VT-d note). Everywhere else it is summarised or
+  SATA modes, the Secure Boot precondition, the VT-d note). Everywhere else it is summarized or
   omitted, because Dell's help text is the same on every 7050 and the *setting* is what is specific
   to this machine.
 

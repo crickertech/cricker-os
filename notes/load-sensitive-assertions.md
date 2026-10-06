@@ -1,7 +1,7 @@
 # Load-sensitive assertions
 
 *(Milestone 78 (the load-sensitive assertions) and milestone 62 (tests that assert on time). This
-page is the register: how to recognise one, how to fix one, and every known site with its status.
+page is the register: how to recognize one, how to fix one, and every known site with its status.
 Each fix's history, runs and injections are in the appendices listed at the end.)*
 
 A load-sensitive assertion is a test that goes red because the host was busy, not because the
@@ -12,10 +12,10 @@ that measured the wrong thing then fails on a pull request that could not have r
 The family was named on 2026-08-03, when five assertions had failed pull requests that changed no
 executable code. Its cost is that a flaky red trains people to re-run rather than read. On
 2026-08-17 a loaded run produced nine reds: eight from two known timer assertions, and one real
-double free, wearing the same colour
+double free, wearing the same color
 ([the first loaded acceptance run](load-sensitive-assertions/first-loaded-acceptance-run.md)).
 
-## How to recognise one
+## How to recognize one
 
 Ask these in order; each was learned from a site the earlier ones missed.
 
@@ -28,7 +28,7 @@ yet, so it can only make a count lower than the test expected.
   sensitivity. The fix is to wait on the property, with a clock or tick budget as the bound.
 - A negative failure (more free frames than at the start, fewer threads than the baseline) is not
   a timeout. The assertion was written against something wider than the property, and state from
-  outside the measured window tripped it. The usual source is a neighbouring test's teardown
+  outside the measured window tripped it. The usual source is a neighboring test's teardown
   landing late. `notes/riscv-parity-scope.md` named the shape: "a wait written against something
   wider than the property".
 
@@ -78,7 +78,7 @@ milestone 6 (threads, the context switch, and preemption) entirely, and an injec
 A guest cannot know that eleven other emulators shared its eight cores. So `xtask` samples the host's load average during each emulated leg and prints it when a leg goes red,
 with the core count and the oversubscription factor
 ([the host-load line](load-sensitive-assertions/host-load-line.md)). Read that line before
-theorising. Three host-side checks (`inbound`, `multicast`, `smb`) also fail together when the host
+theorizing. Three host-side checks (`inbound`, `multicast`, `smb`) also fail together when the host
 is saturated, so all three red at once is a load gauge, not three regressions.
 
 ## The rule for fixing one
@@ -108,9 +108,9 @@ is saturated, so all three red at once is a load gauge, not three regressions.
 
 - `script/repeat-under-load [-n runs] [-s spinners]` runs the suite repeatedly with one busy loop
   per core, recording elapsed time, load average and how many QEMUs were up
-  ([notes/scripts/load-and-reliability.md](scripts/load-and-reliability.md)). It surfaces a problem well and characterises one badly: its
+  ([notes/scripts/load-and-reliability.md](scripts/load-and-reliability.md)). It surfaces a problem well and characterizes one badly: its
   "1 in 45" for the double free was a sighting, and the bug was a deterministic ownership defect.
-  A neighbouring emulator predicted reds better than the load average did.
+  A neighboring emulator predicted reds better than the load average did.
 - `script/icount` boots under `-icount shift=0,sleep=off`, where virtual time advances only when the
   guest retires instructions. It asserts arrival, whole-handler cost, zero missed ticks and the
   re-arm grid law, all in instructions. It is `-smp 1`, so it cannot host a cross-core claim. See
@@ -175,7 +175,7 @@ been read against these questions.
 ## BUGS
 
 - Three frame bounds are still global and one-way (the reaper, address-space and kernel-stack
-  tests). A one-shot leak of `k` frames passes if a neighbour frees `k` in the same window; a
+  tests). A one-shot leak of `k` frames passes if a neighbor frees `k` in the same window; a
   persistent leak still fails. [Known residuals](load-sensitive-assertions/known-residuals.md) has
   this and the stack-reuse probe's two residuals.
 - `a_process_spends_memory_region_and_the_kernel_never_allocates` (`user/tests.rs`) brackets a

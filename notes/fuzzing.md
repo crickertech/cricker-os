@@ -111,9 +111,9 @@ stranger reading this repository.
 
 The costs, stated rather than glossed: it needs nightly (already pinned), it needs `rust-src` for
 `-Zbuild-std` (already listed for the kernel), and it adds three crates (`libfuzzer-sys`,
-`arbitrary`, `cc`) to a graph nothing ships. It also brought the licence exception below.
+`arbitrary`, `cc`) to a graph nothing ships. It also brought the license exception below.
 
-The one licence decision. `libfuzzer-sys` is `(MIT OR Apache-2.0) AND NCSA`, because it vendors
+The one license decision. `libfuzzer-sys` is `(MIT OR Apache-2.0) AND NCSA`, because it vendors
 LLVM's libFuzzer C++ source. `deny.toml` carries it as a `[[licenses.exceptions]]` scoped to that one
 crate rather than as an allow-list entry, so a second NCSA crate would still stop the build. NCSA is
 OSI approved and FSF free and reads as BSD-3-Clause and MIT stapled together, and nothing that boots
@@ -226,7 +226,7 @@ minutes, which is the same order as the original discovery.
 
 So the sixty-second job is a sweep, not a guarantee, and a bug of this depth is outside it. **What
 actually keeps these two bugs from coming back is `crates/device_tree_blob/tests/hostile.rs`**,
-which runs in milliseconds on every `script/test` on both ISAs. That is the division of labour: the
+which runs in milliseconds on every `script/test` on both ISAs. That is the division of labor: the
 fuzzer finds things once, and a host test holds them forever. A CI fuzz job that had to catch every
 regression it ever found would need a budget nobody would pay.
 
@@ -403,7 +403,7 @@ which would stop the committed `.dtb` fixtures from working as seeds; that trade
 with a grammar.
 
 `node_prop` matches at any depth and `node_reg` now stops at 16. The two lookups disagree about
-how deep a device tree can be, which is a behavioural wart rather than a bug: `node_prop` keeps no
+how deep a device tree can be, which is a behavioral wart rather than a bug: `node_prop` keeps no
 per-depth state, so it has nothing to overflow. Nothing in the tree nests past 4.
 
 Sanitizers are on and buy very little here. The default is AddressSanitizer, and the four crates

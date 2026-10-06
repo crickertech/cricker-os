@@ -88,7 +88,7 @@ Then the reverse pass, which is not optional: which harnesses prove something th
 have been false, and which prove a tautology of the operators they use. Without that pass a study of
 proofs can only confirm.
 
-Every counterfactual below is marked as a judgement. "A proof would have caught this" is not a
+Every counterfactual below is marked as a judgment. "A proof would have caught this" is not a
 measurement, and the ones that are close to measurements say why.
 
 ## The defect corpus
@@ -98,7 +98,7 @@ Sources, all in-tree: `notes/exceptions.md`, `notes/arch-audit.md`, `notes/intru
 `notes/fuzzing.md`, `notes/mutation-testing.md`, `notes/load-sensitive-assertions.md`,
 `notes/citations.md`, `design/decisions/76-roadmap-status-versus-tree.md`, and `git log`.
 
-Column 4 is a judgement in every row.
+Column 4 is a judgment in every row.
 
 | # | Defect | The false property | Provable? | Harness existed? | Found by |
 |---|---|---|---|---|---|
@@ -151,7 +151,7 @@ clean run, because that instrument compares each arrival against the deadline th
 re-anchoring kernel satisfies forever. A `timetable`-shaped proof is the one form of evidence in this
 tree that would have gone red on that injection without needing an emulator.
 
-Judgement, and it is the strongest one in this study: this is a defect a proof would have caught,
+Judgment, and it is the strongest one in this study: this is a defect a proof would have caught,
 the proof is already written, and the only thing missing is that the timer does not call it. That
 is the Phase-2 extraction pattern `memory_regions`, `inter_process_communication`, `dma_validator` and `paging::domain` all
 took, applied to a subsystem that has not had it yet.
@@ -179,7 +179,7 @@ pass after it.
 
 What this says about coverage. The class Kani cannot reach is precisely the class loom can, and
 this project noticed and built the second tool. Five of the eighteen defects are concurrency and
-`crates/` now holds five loom-checked protocols. That is the verification programme working as a map
+`crates/` now holds five loom-checked protocols. That is the verification program working as a map
 even where it did not work as a net.
 
 ### 9, 11 and 12. Three defects in crates that already had harnesses
@@ -264,7 +264,7 @@ a citation no gate resolved. `script/citations` exists because of it.
 
 The shape is identical to the code cases and is worth naming as one thing: a checker compares two
 artifacts and the truth lives in a third. `parse` against `create`, a roadmap file against a README,
-a quote against nothing at all. The generalisation for the proofs is that a harness written against
+a quote against nothing at all. The generalization for the proofs is that a harness written against
 the code's own predicate is that shape exactly.
 
 ## What the proofs did catch
@@ -280,7 +280,7 @@ Two real defects, both found at harness-writing time.
   firmware, in the first parser that runs on both ISAs. Real, and found by the attempt to prove.
 - `pci::intx_irq`. The pin-0 case underflowed and panicked in debug builds. Hardened with
   saturating arithmetic while writing `intx_irq_is_total_and_bounded`. The comment records the honest
-  scope: every caller checks `pin == 0` first, so this is defence in depth rather than a live hole.
+  scope: every caller checks `pin == 0` first, so this is defense in depth rather than a live hole.
 
 One proof obligation closed, marked honestly as not a bug. `paging::domain::grant_pages` gained a
 wrap refusal because `an_enumerated_page_lies_inside_the_grant` cannot compute the grant's limit
@@ -309,7 +309,7 @@ that could plausibly have been false?
 
 ### Harnesses that could not have failed
 
-Judgement, harness by harness, on the ones that look weakest.
+Judgment, harness by harness, on the ones that look weakest.
 
 `capability::subset_is_reflexive` is the clearest case. It proves `a.is_subset_of(a)` for every
 `a`, and `is_subset_of` is `self.0 & !other.0 == 0`. Reflexivity is then `a & !a == 0`, a tautology of
@@ -353,7 +353,7 @@ knew it.
 Not the property. The **falsification**, and the tree's own rule already says so:
 *"A harness that cannot be made to fail is not evidence."*
 
-The harnesses with a recorded falsification are the ones this study can vouch for without judgement.
+The harnesses with a recorded falsification are the ones this study can vouch for without judgment.
 Milestone 35's whole set was broken on purpose before being believed, and one falsification corrected
 a claim in the code (soundness rested on `grant_pages` flooring, not on the partial-page guard the
 comment pointed at). The calendar's two central properties were broken and both harnesses caught it in
@@ -503,7 +503,7 @@ rather than 22.
 
 ## BUGS
 
-**A retrospective cannot prove a counterfactual, and every judgement here is marked as one.** "A proof
+**A retrospective cannot prove a counterfactual, and every judgment here is marked as one.** "A proof
 would have caught this" is an argument. The nearest thing to a measurement in the whole note is item 7
 of the corpus, where the property is already proved over already-written code in `crates/timetable`,
 and even that carries a qualification: the defect's original form was a register choice below the

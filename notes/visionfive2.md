@@ -226,7 +226,7 @@ it: `state`, `on_cpu`, `wake_pending` and the endpoint counts are one consistent
 writer holds SCHED and the dump holds SCHED). The pc column is the trap frame at the thread's
 stack top, which trap entry writes without the lock, so it is a racing read for a thread on a cpu
 and trustworthy for a parked one: the frame write happened-before the state write on the thread's
-own core, and the dump's lock acquire synchronises with that core's release. So init's memset pc is
+own core, and the dump's lock acquire synchronizes with that core's release. So init's memset pc is
 evidence, not a dump artifact, and the dump now says this about itself (the `pc*` marker and the
 honesty comment in `sched::dump_threads`).
 
@@ -240,7 +240,7 @@ holds: a preempted thread's context is saved before any core can pop it (single-
 interrupts masked from the requeue through `finish_switch`), a deferred wake (`wake_pending`)
 completes on the thread's own core after the context is real, and the one lock-free cross-core
 protocol, the steal slot, is loom-checked in `crates/steal_request`. The block/wake protocol itself
-had no loom coverage when this was written: it is lock-based, and modelling it means extracting
+had no loom coverage when this was written: it is lock-based, and modeling it means extracting
 SCHED plus the run queues plus the inbox into a host-checkable crate, which is a milestone of its
 own, not a bench-night patch. (Since done, 2026-08-14: `crates/wake_handshake` extracts the
 handshake with SCHED as a loom mutex, and each of this protocol's recorded races is a harness plus
@@ -279,7 +279,7 @@ where the dump line remains the field diagnostic.
 
 Why QEMU is not expected to reproduce this, said before the runs rather than after: TCG's
 emulated memory model is far stronger than the U74's (guest accesses execute in the host's
-program order, and MTTCG serialises cross-vCPU visibility through host atomics), QEMU `virt`'s
+program order, and MTTCG serializes cross-vCPU visibility through host atomics), QEMU `virt`'s
 online set is contiguous from zero, and its firmware is mainline OpenSBI, so all three candidate
 mechanisms are structurally hidden there. A green QEMU suite says the instrument is safe to fly,
 not that boot 7 cannot recur. Attempted anyway, as it should be: the full riscv64 suite (which
@@ -799,7 +799,7 @@ libfdt fdt_path_offset() returned FDT_ERR_NOTFOUND
 
 `fdt list /soc` returns 56 nodes and none of them was read as a random number generator. The
 absence looked specific rather than general: `crypto@16000000` and `sec_dma@16008000`, the TRNG's
-neighbours in the same security block, are both described. That went to milestone 239 (radon's
+neighbors in the same security block, are both described. That went to milestone 239 (radon's
 device tree does not describe the TRNG, so a working driver never runs).
 
 **Correction, 2026-09-03, and the conclusion above is the part that was wrong.** Milestone 239 went
@@ -828,7 +828,7 @@ So every observation above holds and none of them meant what they were read to m
 /soc/rng@1600c000` failed because the node is not called that**, twice over: it is `trng`, not
 `rng`, and its unit address carries an upper-case C, so even `/soc/trng@1600c000` misses. And
 the driver skipped because it matched mainline's `starfive,jh7110-trng` only, against a tree that
-says `starfive,trng`. The neighbours were visible for the same reason they are visible in that
+says `starfive,trng`. The neighbors were visible for the same reason they are visible in that
 file: `crypto@16000000` and `sec_dma@16008000` are spelled the same way in both.
 
 The `status = "disabled"` is U-Boot's, not the board's: StarFive's own Linux enables the identical
@@ -1081,7 +1081,7 @@ each fixing the failure the previous one found:
    `AlreadyMapped` before either test's logic ran. Fixed with a shared helper that computes an
    address past the top of every RAM region the device tree actually describes, so it is correct
    on any machine's memory map rather than a wider guess.
-5. **A test asserted RAM totalled exactly `256 * 1024 * 1024`**, QEMU's runner-supplied `-m 256M`.
+5. **A test asserted RAM totaled exactly `256 * 1024 * 1024`**, QEMU's runner-supplied `-m 256M`.
    The board's tree states 4 GiB (`reg = <0x0 0x40000000 0x1 0x0>`, distinct from the 8 GiB the
    U-Boot banner claims for the physical DRAM, a fact not yet chased further). Fixed to a
    plausibility floor (16 MiB) instead of an exact QEMU literal.

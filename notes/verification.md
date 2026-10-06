@@ -366,7 +366,7 @@ A bound raises a question an assertion cannot answer. If the harness's assumptio
 jointly unsatisfiable, or a bound quietly excluded the interesting shape, every assertion would pass
 and the harness would prove **nothing** while reporting `SUCCESSFUL`. This note has always named that
 as the main failure mode ("it proves what you asserted, not what you meant"), and until milestone 35
-the only defence was reading the harness carefully.
+the only defense was reading the harness carefully.
 
 `kani::cover!(condition)` inverts the question: it **fails when the condition is unreachable**. So it
 turns "this harness really does exercise the case I claim" from a reading into a result. Milestone 35
@@ -464,19 +464,19 @@ So the two paths have genuinely different evidence, and conflating them is the e
 | Path | What confines it | Strength of the evidence |
 |---|---|---|
 | Addresses in **descriptors** (disk, NIC, and the GPU's own command ring) | the shadow-ring validator, plus the IOMMU where present | **machine-checked for every input** (`crates/direct_memory_access_validator`), plus end-to-end attacker tests on both ISAs and both transports |
-| Addresses in a **command payload** (virtio-gpu backings) | the IOMMU, and *only* the IOMMU | **the barrier's allow-list is proved exact; the hardware honouring it is attacker-tested.** `an_enumerated_page_lies_inside_the_grant` and `every_whole_page_of_the_grant_is_enumerated` prove the domain maps exactly the granted pages, which is the property that makes an out-of-grant payload address untranslatable; `the_iommu_refuses_the_gpu_a_framebuffer_outside_the_drivers_grant` then points a backing at a frame left out of the domain and asserts the IOMMU's fault queue recorded a fault there, on both ISAs |
+| Addresses in a **command payload** (virtio-gpu backings) | the IOMMU, and *only* the IOMMU | **the barrier's allow-list is proved exact; the hardware honoring it is attacker-tested.** `an_enumerated_page_lies_inside_the_grant` and `every_whole_page_of_the_grant_is_enumerated` prove the domain maps exactly the granted pages, which is the property that makes an out-of-grant payload address untranslatable; `the_iommu_refuses_the_gpu_a_framebuffer_outside_the_drivers_grant` then points a backing at a frame left out of the domain and asserts the IOMMU's fault queue recorded a fault there, on both ISAs |
 
 The middle column of that second row is the one useful thing this milestone could prove about the payload
 path, and it is worth naming rather than leaving as a side effect of item 3. A payload-borne address is
 stopped by having **no translation in the device's domain**, so "the domain maps exactly the grant" is
 exactly the property that barrier rests on. Proving it moved the payload path from "tested end to end" to
-"the allow-list is proved exact, the hardware honouring it is tested end to end". A narrowing, not a
+"the allow-list is proved exact, the hardware honoring it is tested end to end". A narrowing, not a
 closing: the transport still cannot see these addresses, and the enforcement is still the hardware's.
 
 And the consequence that made milestone 35 load-bearing in the first place cuts the other way here.
 The reason to prove the validator now, rather than later, is that **milestone 16a's board has no
 IOMMU** (the VisionFive 2; notes/target-hardware.md), so on first silicon the validator stops being
-defence in depth and becomes the sole DMA confinement. That argument works for the descriptor path
+defense in depth and becomes the sole DMA confinement. That argument works for the descriptor path
 precisely because the validator covers it. For the payload path it inverts: on a board with no IOMMU,
 nothing covers it. Not the validator (the addresses are not in its input), not the hardware (there
 is none). A display driver on the VisionFive 2 is therefore either *trusted* with all of physical
@@ -537,7 +537,7 @@ to be true, and the half that did not is the useful part of this entry.
 | `every_format_is_ascii` | all five formats, for every representable date at every legal offset: within the fixed buffer, never truncated, every byte printable ASCII |
 | `the_unix_format_fits_any_i64` | the decimal writer fits any `i64`, `i64::MIN` included, in 20 bytes |
 | `parse_is_total_on_hostile_bytes` | the RFC 3339 parser never panics on **arbitrary bytes** at any length up to 26: no UTF-8 assumption, no ASCII assumption. A `date -s` argument and an NTP-adjacent exchange are both text this program did not write |
-| `rfc3339_output_parses_back_to_itself` | everything the crate prints, it reads back, for every representable `DateTime`: same instant *and* same offset (the equality is on the whole value, so an offset silently normalised away fails it) |
+| `rfc3339_output_parses_back_to_itself` | everything the crate prints, it reads back, for every representable `DateTime`: same instant *and* same offset (the equality is on the whole value, so an offset silently normalized away fails it) |
 
 ### The finding: the arithmetic is cheap and the `&str` boundary is not
 

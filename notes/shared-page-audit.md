@@ -84,7 +84,7 @@ Stated because a scope nobody wrote down is a scope nobody can check.
 - The Kani bounds. Whether a proof's chosen bound is the right bound is
   [verification.md](verification.md)'s question, not this one's.
 - Anything that requires already being the progenitor. SECURITY.md puts it out of scope and this audit
-  honours that: the progenitor is unverified and privileged by design.
+  honors that: the progenitor is unverified and privileged by design.
 
 ### And three things that moved under this audit
 
@@ -239,7 +239,7 @@ and they are recorded separately because they have different fixes and the secon
 Disposition: fixed in this lane. The caretaker now writes the checked bytes back into the page
 before forwarding, so the bytes the FS server reads are the bytes the filter approved. On the honest
 path this is a byte-identical rewrite and the existing glob-grant and directory-capability tests
-prove it did not change behaviour.
+prove it did not change behavior.
 
 And the honest limit, stated where the fix is: re-staging narrows the window from "the whole
 check-to-forward span" to "the caretaker's store until the FS server's load". It does not close it,
@@ -319,7 +319,7 @@ arithmetic can defeat is worth naming wherever it appears.
 `display_terminal.rs` validates the same geometry by division (`w / GLYPH_W <= MAX_COLS`), which
 cannot overflow. That is the shape to copy.
 
-Disposition: fixed in this lane, both, because each is one line and neither can change behaviour
+Disposition: fixed in this lane, both, because each is one line and neither can change behavior
 on any path the tests exercise.
 
 ### 5. The compositor composites surfaces whose owners are not blocked
@@ -353,7 +353,7 @@ One hardening this audit does recommend and did not take: the compositor holds
 `Flags::user_data()` on every client surface and never writes one. Read-only there would make
 "the compositor cannot deface a client's window" a mapping rather than a discipline, exactly as
 `ROLE_CAPTURE`'s read-only screen already does. It is a one-word change in
-`kernel/src/user/compositor_service.rs` with a real behavioural risk if any path does write, so it
+`kernel/src/user/compositor_service.rs` with a real behavioral risk if any path does write, so it
 belongs with a test that proves the fault, not in an audit's diff.
 
 ### 6. Two userspace virtio drivers trust the index the device writes into the used ring
@@ -440,7 +440,7 @@ fence prevents.
 what a memory-ordering bug looks like right up until it is not. QEMU's TCG does not reorder, and
 this system has not yet run on a physical board.
 
-The evidence that this is an oversight rather than a judgement is that the kernel's own stand-in
+The evidence that this is an oversight rather than a judgment is that the kernel's own stand-in
 for the input ring gets it right. `kernel/src/user/keyboard_service.rs`'s `take_typed` reads the
 tail, then `fence(SeqCst)`, then reads the bytes, with the comment "The tail is published after the
 bytes it advertises; read it before them." Two readers of one contract, one fenced.
@@ -526,7 +526,7 @@ writer can change the bytes that go out and can corrupt nothing. The PAL's half 
 One thing there is worth naming before somebody tidies it: `OFF_LEN` is a length field in the page
 that nothing reads. The server writes it on receive and no client consults it; every length that
 matters travels in a register. It is documented as "in for `SEND*`, out for `RECEIVE`", which is an
-invitation. The first change that makes the server honour the header length converts a contract with
+invitation. The first change that makes the server honor the header length converts a contract with
 no double fetch into one with a double fetch, and the diff will look like a tidy-up.
 
 ## The honest summary

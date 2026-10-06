@@ -43,9 +43,9 @@ A pure consumer, no matter which contract answers its `service` need, never need
 finds nobody receiving parks on the endpoint's own sender queue, and the *next* server to `RECEIVE_CAP`
 drains it, in order, with nothing lost. That is exactly the mechanism that made the roadmap's
 imagined forwarding broker unnecessary in the simple case (notes/live-replacement.md's "three things
-the build settled"), and it generalises for free: any component whose only relationship to a
+the build settled"), and it generalizes for free: any component whose only relationship to a
 dependency is calling through it and blocking has nothing that needs warning, because blocking is
-already the correct, lossless behaviour.
+already the correct, lossless behavior.
 
 What does need warning is a component that would otherwise stop serving its own clients while its
 dependency is down, because it cannot afford to let its one serving thread sit inside a blocked
@@ -82,7 +82,7 @@ changed from before this lane: `BOP_DOWN` is no longer unconditional. The operat
 graph's own answer and sends it only to the ids the graph named, and `BOP_UP` is sent in the reverse
 of that same order on the way back up. In this tree's one queued system that is still exactly one
 message each way, because there is exactly one component with a `depends_on` edge to `backend`. The
-behaviour is unchanged; what changed is which code decided it.
+behavior is unchanged; what changed is which code decided it.
 
 The direct channel gets the negative case for the same reason `component_plan`'s own test suite pairs
 every positive assertion with one: `dependents("console", &[(1, CONSOLE)])` must return empty, because
@@ -144,7 +144,7 @@ a property of that dependent's own decoupling mechanism, which two contract name
 supervisor with a chain deeper than one hop must currently walk it by hand, calling `dependents`
 again from each dependent found, and deciding case by case whether to stop.
 
-**No quiescence protocol is generalised.** `dependents` says *who*; it says nothing about *how* a
+**No quiescence protocol is generalized.** `dependents` says *who*; it says nothing about *how* a
 told component is supposed to degrade. `broker`'s `BOP_DOWN`/`BOP_UP` remains a protocol specific to
 one contract, and a supervisor orchestrating a system with several different forwarding shapes would
 need to know each one's own verbs. A uniform "prepare to lose your dependency" / "resume" pair of

@@ -429,12 +429,12 @@ the tree rather than by reasoning:
 
 **Resolved: there was never a filesystem bug here.** For three rounds this note carried an open item
 saying a second mount of a *used* image fails its write. The write never failed. The mechanism is the
-missing TRUNCATE verb, and it is documented behaviour rather than a defect:
+missing TRUNCATE verb, and it is documented behavior rather than a defect:
 
 **a write shorter than the file does not truncate it.** So a test that writes N bytes and then compares
 a *whole-file* read against those N bytes passes only while the file was not already longer. One boot's
 FS client left a 64-byte payload in `scratch`; the next boot's `std::fs` test wrote its 61-byte pattern,
-asserted the whole file equalled it, got 64 bytes back (61 new bytes plus the old three-byte tail), and
+asserted the whole file equaled it, got 64 bytes back (61 new bytes plus the old three-byte tail), and
 panicked inside its write block. That panic, read as "the server refused the write", is the whole bug.
 It explains every observation, including why three investigations disagreed: the symptom depended on
 what the previous boot's client happened to leave behind, and that changed as the client changed.
@@ -822,7 +822,7 @@ loop rather than a signature change. The block server's DMA region was already w
   injector needs), so this closure does not touch the property milestone 37 checks.
 - **A write whose bytes match what is already there is not a write.** `Transaction::write_node`
   compares before it does anything, so rewriting a block with identical contents costs a read and
-  no write at all. That is a sensible store optimisation and a trap for anyone measuring: a
+  no write at all. That is a sensible store optimization and a trap for anyone measuring: a
   benchmark that sends one constant page repeatedly measures the comparison. It also means a client
   cannot use a rewrite to force an allocation.
 - RedoxFS compresses records with lz4 when the record is larger than one block, which is still

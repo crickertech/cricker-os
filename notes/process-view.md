@@ -18,7 +18,7 @@ to.
 
 That is what makes this a good first demonstration of the argument milestone 121 makes for
 directories. Enumeration is a larger power than reading something you were handed, and the claim
-needs no setup: the reader already knows the Unix behaviour is wrong.
+needs no setup: the reader already knows the Unix behavior is wrong.
 
 ## The design: a view over a supervision domain
 
@@ -91,7 +91,7 @@ so it selects the record it was already reading, and not one of them changes. Th
 a wire rather than a hope, so it is pinned by a test on the constant itself.
 
 An unknown record is `BadMethod`, refused before the walk begins. The selector is part of the
-method's name, so an unrecognised one gets the refusal an unrecognised method word gets, and no new
+method's name, so an unrecognized one gets the refusal an unrecognized method word gets, and no new
 error code was needed. The check is before the walk rather than at the point the record is extracted
 because of one case: against an empty domain, a check at extraction never runs, the walk falls
 off the end, and the caller is handed `DONE` and prints "no threads" when what really happened is
@@ -232,7 +232,7 @@ and the empty case is in the same test on purpose: neither claim means anything 
 
 Two halves at the IO boundary, which is the crate-and-program pair convention.
 
-- `crates/ps` is the listing: the cursor walk, the buffer, the columns, the refusal catalogue.
+- `crates/ps` is the listing: the cursor walk, the buffer, the columns, the refusal catalog.
   Host-tested in milliseconds, nine tests, and total for *every* reader including one that never
   advances its cursor.
 - `components/src/ps.rs` is the syscall and two sinks, about sixty lines.
@@ -248,7 +248,7 @@ the table.
 
 The buffer is the caller's, and that was a gate's doing. It began as a `[Row; MAX_ROWS]` local,
 which made `collect`'s frame 4,336 bytes: larger than the 4,096-byte guard page under every kernel
-thread stack, so one call could move `sp` past the guard in a single step and land in a neighbouring
+thread stack, so one call could move `sp` past the guard in a single step and land in a neighboring
 thread's stack without ever faulting. `script/stack-frame-check` failed the build and named the
 shape, which is the second time that gate has caught a `[T; MAX]` local wearing the clothes of a
 bound. A caller-provided slice is the fix it recommends and is better anyway: a program that sizes
@@ -330,7 +330,7 @@ to be milestone 126's headline demonstration, `caps pgrep` beside `caps pkill`, 
 wide.
 
 A domain names its members and does not act on them (calef, 2026-08-17). That ruling arrived
-before the signalling stratum was built and mostly abolished it, and the reason is one the ABI had
+before the signaling stratum was built and mostly abolished it, and the reason is one the ABI had
 already made without anybody reading it back:
 
 - a survey returns a tid, which is a name and not a capability;
@@ -344,7 +344,7 @@ one place this system copied the thing it exists to refuse.
 What replaces the demonstration, said as a trade rather than a win. `caps pgrep` prints a scope
 and there is no `caps pkill` to print beside it, because that program cannot exist. That is a
 weaker side-by-side than was promised and a stronger claim than was promised, and the write-up owes
-both halves. The cost, plainly: `procps` gets ported without its signalling stratum, and a reader who
+both halves. The cost, plainly: `procps` gets ported without its signaling stratum, and a reader who
 expects `kill` to be a program will not find one. Killing stays with the shell that spawned the
 thing, which already holds the region.
 
@@ -461,8 +461,8 @@ regular expression is not a designation of anything.
   to replace with a mechanism.
 
   The lane that found it deliberately left it, on the reasoning that splitting view from control
-  changes the rights model and is the *same* decision the signalling stratum needs. That
-  reasoning turned out to be wrong in a way worth recording, because the signalling stratum
+  changes the rights model and is the *same* decision the signaling stratum needs. That
+  reasoning turned out to be wrong in a way worth recording, because the signaling stratum
   mostly evaporated when calef ruled that a domain names its members and does not act on them: there
   was no second decision to wait for, and the deferral was buying nothing.
 
@@ -689,7 +689,7 @@ flag on a table of two columns.
 ## What this does not build
 
 `w`, `pidwait` and `pmap` from the prompt, each now a proposal of its own. `sysctl` is declined
-(§115 (no `sysctl`)), so is `pwdx` (§224 (no `pwdx`)), and the signalling stratum is refused
+(§115 (no `sysctl`)), so is `pwdx` (§224 (no `pwdx`)), and the signaling stratum is refused
 (milestone 455 (the signalling stratum of `procps`)). The machine-wide statistics are built beside
 this view, under §225 (`free` sees the machine and your share): see
 [the machine and your share](process-view/the-machine-and-your-share.md). The forks are written up

@@ -6,9 +6,9 @@ word:
 
 ```
 $ package install nosuch
-  refused: this image's catalogue names no such package, so nothing was fetched; generation 1 is live
+  refused: this image's catalog names no such package, so nothing was fetched; generation 1 is live
 $ package install uptime
-  refused: this image's catalogue does not vouch for those bytes; generation 1 is live
+  refused: this image's catalog does not vouch for those bytes; generation 1 is live
 $ package install greeting
   fetched and installed; generation 2 is live
 $ packages/greeting/0.1.0/greeting
@@ -18,14 +18,14 @@ $ packages/greeting/0.1.0/greeting
 ## How the progenitor fetches
 
 The request is `spawnproto::Activation::Fetch` (provisional), and `fetch` in
-`crates/system_initializer` serves it. It asks the image's catalogue first
+`crates/system_initializer` serves it. It asks the image's catalog first
 (`package_archive::catalogued_stem`). A name the image vouches for nothing by costs no network.
 
 Then it splits one page from a region of its own and hands it to the stack it built at boot. Over
 that page it sends `GET /<stem>.nifepkg` to the package source and reads the reply with
 `http_response`. The body lands in the staging window a file install uses (`receive_image`'s).
 From there it is an ordinary install with one more check: the package must be the one asked for
-(`package_archive::installable_as`). A source can serve a *different* package the catalogue also
+(`package_archive::installable_as`). A source can serve a *different* package the catalog also
 vouches for. Destroying the socket page's region at the end revokes it out of the stack.
 
 ## Why the progenitor, and what it costs
@@ -58,7 +58,7 @@ on the host before the boot instead, and stops if the archive has it.
 The other is the tampered `uptime` the disk also gets, served under the genuine name. The gate
 points `helpers/package-http-peer` there with `NIFE_PACKAGE_SOURCE`, which QEMU passes to the peer
 it starts per connection. So a lying mirror is one line: a well-formed exchange of a well-formed
-package that only the catalogue can refuse.
+package that only the catalog can refuse.
 
 x86_64 fetches over the `e1000e` its runners attach (milestone 494 (a driver for the network card
 a PC actually has)), since 2026-10-05. `q35` has no virtio-mmio bus, so the kernel builds that
@@ -80,7 +80,7 @@ prompt back, as on the virtio path (milestone 590 (the booted system starts its 
 Green on aarch64, riscv64 and x86_64 (OVMF) on 2026-09-26. Each change below was made once on
 aarch64, and each turned its line red:
 
-- skip the catalogue lookup: `nosuch` reaches the source and gets a 404;
+- skip the catalog lookup: `nosuch` reaches the source and gets a 404;
 - skip the fetched package's digest check: the lying `uptime` installs;
 - drop the body: `greeting` is refused;
 - place the program with a byte flipped: it is refused when run;

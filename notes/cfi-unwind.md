@@ -34,7 +34,7 @@ Nobody had disabled it on purpose in the assembly. `notes/scripts.md` and `xtask
 already existed, printing `break kernel_main` / `break _boot` instructions as though a debugger
 session were a normal thing to run here. The gap was one line, in all three link scripts, discarding
 `.eh_frame*` outright with the comment "we never unwind" -- true about the kernel's own runtime
-behaviour, and irrelevant to a debugger reading the ELF from outside. That line discarded not only
+behavior, and irrelevant to a debugger reading the ELF from outside. That line discarded not only
 what this milestone was asked to add, but every CFI record the *compiler* had already been emitting
 for ordinary Rust functions the whole time. See "The link-script discovery" below.
 
@@ -157,7 +157,7 @@ part that differs by architecture:
   AArch64's own DWARF register mapping anticipates exactly this: register 33 is `ELR_mode`, defined
   for describing an asynchronously-created (signal/exception) frame (`aadwarf64.rst`, ARM's DWARF
   for the ARM 64-bit Architecture). `vectors.s` states `.cfi_return_column 33` and
-  `.cfi_offset 33, -24` -- spec-correct, and there for whichever tool honours it. GDB is not one
+  `.cfi_offset 33, -24` -- spec-correct, and there for whichever tool honors it. GDB is not one
   of them, as of this writing: it hardcodes column 30 (`x30`) as the AArch64 return-address column
   and does not consult `.cfi_return_column`
   ([sourceware.org/pipermail/gdb/2023-January/050488.html](https://sourceware.org/pipermail/gdb/2023-January/050488.html)).
@@ -289,10 +289,10 @@ Backtrace stopped: frame did not save the PC
 
 This is the transcript that "proves it bought something." Frame 0 through 7 is new: seven real Rust
 frames a debugger could not previously see past `switch_to` at all. `<signal handler called>` is
-GDB recognising `.cfi_signal_frame` on the vector-entry FDE and labelling it, rather than silently
+GDB recognizing `.cfi_signal_frame` on the vector-entry FDE and labeling it, rather than silently
 misreading it as an ordinary call. And the stop after it -- "frame did not save the PC" -- is the
 honest limit this note's "hard case" section describes: `.cfi_undefined x30` at the trap boundary,
-because GDB does not honour the spec-correct `ELR_mode` column that would let it go one frame
+because GDB does not honor the spec-correct `ELR_mode` column that would let it go one frame
 further, into whatever kernel code took the IRQ. Other hits during the same run showed the same
 shape resuming through `sched::preempt_if_needed`, `sched::yield_now`/`run_idle`, and
 `sched::depart`/`exit`, each unwinding cleanly to its own real caller and stopping at the same kind
@@ -328,7 +328,7 @@ byte-for-byte, not merely argued.
   not yet have a real board target the way aarch64's VisionFive 2 partly does. If either port grows
   a real flat-image / bootloader path, this is the thing to revisit.
 
-- **GDB does not honour AArch64's spec-correct `ELR_mode` return column** (DWARF register 33;
+- **GDB does not honor AArch64's spec-correct `ELR_mode` return column** (DWARF register 33;
   `.cfi_return_column 33` in `vectors.s`), so a backtrace on this architecture stops one frame short
   of RISC-V's and x86_64's theoretical ceiling: it cannot continue past a trap into the interrupted
   kernel code the way x86_64's transcript above does. This is a fact about the tool this project

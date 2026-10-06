@@ -182,7 +182,7 @@ mutant survived beside it.
 
 - `scrolling_a_one_row_console_leaves_it_alone_rather_than_blanking_it` builds a one-row console,
   where `band == live` by construction, and writes past its last column. Under the `&&` mutant the
-  early return is skipped. `scroll` then paints the entire live region to the background colour
+  early return is skipped. `scroll` then paints the entire live region to the background color
   before the next character is drawn, blanking everything the console just wrote. The test checks
   that the two characters written before the wrap are still there.
 - `scroll_accepts_a_buffer_that_is_exactly_as_long_as_the_live_region` sizes a buffer to exactly
@@ -195,10 +195,10 @@ a `u32` (`width`, `stride`) in the low half against a value shifted left by 32 (
 in the high half. `to_words_two_halves_share_no_bit_so_or_and_xor_agree` checks it at `u32::MAX` on
 both sides, the widest either half can be.
 
-### No defect in shipped behaviour was found in any of the three
+### No defect in shipped behavior was found in any of the three
 
 Every survivor across the three crates closed as a missing test or a demonstrated equivalence. None
-needed an exclusion or a recorded gap. None is a behaviour question left open, the way
+needed an exclusion or a recorded gap. None is a behavior question left open, the way
 `timetable::Unbacked`'s `BUGS` section is.
 
 The Follow-on section's "seventeen crates" does not reconcile with what this lane found. Walking the
