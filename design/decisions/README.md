@@ -330,7 +330,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 218 | DECIDED | [Carry a Kani patch so riscv64 is proved, and send it upstream](218-carry-a-kani-patch-so-riscv64-is-proved.md) |
 | 219 | DECIDED | [How the shell names an installed program to the spawner](219-naming-an-installed-program-to-the-spawner.md) |
 | 220 | DECIDED | [Signed builds: a vendor signs, a developer self-signs, and trusting a key is scoped](220-signed-builds-and-scoped-key-trust.md) |
-| 221 | DECIDED | [The boot prompt is the owner's console](221-the-boot-prompt-is-the-owners-console.md) |
+| 221 | AMENDED | [The boot prompt is the owner's console](221-the-boot-prompt-is-the-owners-console.md) |
 | 222 | AMENDED | [Who holds a user's schedule, and how it is changed while their session lives](222-who-holds-a-users-schedule.md) |
 | 223 | DECIDED | [The process view is the supervision domain](223-the-process-view-is-the-supervision-domain.md) |
 | 224 | DECIDED | [No `pwdx`: only the shell has a working directory, so there is nothing to report](224-no-pwdx.md) |
