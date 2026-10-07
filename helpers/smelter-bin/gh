@@ -1,0 +1,22 @@
+#!/bin/sh
+#
+# helpers/smelter-bin/gh: run the real `gh` as the nife-smelter App rather than as the gh login.
+#
+# `helpers/smelter-token env` puts this directory first on PATH once a machine holds the App key
+# (milestone 128 (the automation gets its own identity)). gh reads GH_TOKEN before its stored login,
+# and an installation token lives an hour, so the token is fetched per call from the helper's cache
+# rather than exported once at session start. If no token can be had, this refuses: falling back to
+# the stored login would put a lane back on calef's account without anyone seeing it happen.
+# notes/session-identity.md has the rest.
+#
+# Name provisional (milestone 128's lane); it has to be `gh` to sit in front of gh.
+
+here="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)"
+token="$("$here/../smelter-token" token)" || {
+	echo "gh (nife-smelter shim): no App token, so gh did not run. Refusing to fall back to the gh login." >&2
+	exit 1
+}
+# Take this directory off PATH, so the `gh` exec'd below is the real one and not this script again.
+PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -vxF "$here" | paste -sd: -)"
+export PATH
+GH_TOKEN="$token" exec gh "$@"

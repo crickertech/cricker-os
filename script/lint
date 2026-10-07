@@ -2865,6 +2865,12 @@ echo "==> the merge queue's admission predicate"
 #     machinery took a step): helpers/session_steps.py credits a `calef`-account event to the
 #     session whose `gh` call came before it, never after. Fixtures only, no `gh`.
 python3 "$(dirname "$0")/../helpers/session_steps.py" --selftest
+#     And the session identity (milestone 128 (the automation gets its own identity); helper name
+#     provisional): helpers/smelter-token signs a JWT with a throwaway key, a local stub of the
+#     GitHub API verifies it, and the cache, both permission scopes, git's credential protocol, the
+#     `gh` shim's refusal to fall back to a personal login, and the key never reaching output are
+#     each checked. No network, and it never reads a keychain.
+python3 "$(dirname "$0")/../helpers/smelter-token" --selftest >/dev/null
 #     And `Blocked-by: #N` (2026-09-27): the parser (helpers/blocked-by.sh, one number or several
 #     on the line) and the draft-unblock decision it feeds (helpers/blocked-by-resolution.jq:
 #     unblocked, still waiting, closed unmerged, already labelled) are each fixtures-only, no `gh`.
