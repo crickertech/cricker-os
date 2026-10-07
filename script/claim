@@ -3,7 +3,7 @@
 # Cut a lane's branch and worktree, refusing a bad name before either exists.
 #
 #     script/claim milestone/238-a-thing
-#     script/claim maintainer/some-fix --worktree ~/projects/nife-worktrees/somefix --no-claim
+#     script/claim maintainer/some-fix --worktree ../nife-worktrees/somefix --no-claim
 #
 # # Why this exists
 #
@@ -54,10 +54,10 @@ usage: script/claim <branch-name> [--worktree <dir>] [--title <text>] [--no-clai
 
   <branch-name>     e.g. milestone/238-a-thing or maintainer/some-fix. Checked against the same
                      shape rule script/lint's check 4 enforces, before anything is created.
-  --worktree <dir>  where to put the worktree. Default: ~/projects/nife-worktrees/<slug>, where
+  --worktree <dir>  where to put the worktree. Default: <worktree root>/<slug>, where
                      <slug> is the branch's last /-separated segment (the canonical location per
-                     notes on this project's worktree convention). $NIFE_WORKTREES replaces
-                     the ~/projects/nife-worktrees root, e.g. beside a cloud session's clone.
+                     notes on this project's worktree convention). The worktree root is
+                     `nife-worktrees` beside the main checkout; $NIFE_WORKTREES replaces it.
   --title <text>    the draft pull request's title, and the text after "claim: " in the empty
                      commit. Default: the branch name itself; `gh pr edit` renames the pull
                      request later if a better title turns up mid-work.
@@ -113,7 +113,11 @@ nife_check_branch_name_shape "$branch" claim || exit 1
 
 if [ -z "$worktree" ]; then
     slug="${branch##*/}"
-    worktree="${NIFE_WORKTREES:-$HOME/projects/nife-worktrees}/$slug"
+    # Derived, not spelled: the main checkout owns the shared .git, and the root sits beside it.
+    common="$(git -C "$repo_root" rev-parse --path-format=absolute --git-common-dir)"
+    main_checkout="$(dirname "$common")"
+    default_root="$(cd "$main_checkout/.." && pwd)/nife-worktrees"
+    worktree="${NIFE_WORKTREES:-$default_root}/$slug"
 fi
 
 if [ -e "$worktree" ]; then

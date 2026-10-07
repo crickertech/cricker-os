@@ -136,8 +136,8 @@
 # read-only** (`NIFE_OPENCODE_DB` overrides the path). One row of `message` per response, with
 # `modelID`, `providerID`, a token block and `time.created`/`time.completed` in milliseconds. A
 # session is the stream, as a transcript file is above, so parallel lanes add. Only sessions whose
-# working directory is this project's (`projects/nife`, `projects/nife-worktrees/*` and the
-# pre-rename names) are counted; the same database holds sessions for other repositories.
+# working directory is this project's (the main checkout, any directory under a `nife-worktrees`
+# directory, and the pre-rename names) are counted; the same database holds sessions for other repositories.
 #
 #   - **The model column is opencode's `modelID`**, unprefixed (`glm-5.3`). The provider is not in
 #     the key: `zai` and `zai-coding-plan` are two doors to one model, and a row per door would
@@ -322,14 +322,35 @@ COMMIT_MODELS_PATH = pathlib.Path('notes/project-metrics/commit-models.csv')
 COMMIT_MODEL_FIELDS = ['sha', 'model', 'source']
 
 
-def is_project_dir(directory):
-    """Whether an opencode session's working directory is this project's, or one of its lanes."""
+def main_checkout():
+    """The main checkout of the repository this script lives in: the parent of the shared `.git`."""
+    try:
+        here = os.path.dirname(os.path.realpath(__file__))
+        common = subprocess.run(
+            ['git', '-C', here, 'rev-parse', '--path-format=absolute', '--git-common-dir'],
+            capture_output=True, text=True, check=True).stdout.strip()
+        return os.path.dirname(common)
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
+MAIN_CHECKOUT = main_checkout()
+
+
+def is_project_dir(directory, main=None):
+    """Whether an opencode session's working directory is this project's, or one of its lanes.
+
+    By structure, not by a home path: this repository's own main checkout, a directory named for the
+    project, or anything under a `<name>-worktrees` directory."""
+    main = main or MAIN_CHECKOUT
+    if main and os.path.realpath(directory) == os.path.realpath(main):
+        return True
     for name in OPENCODE_PROJECT_NAMES:
         # The worktrees directory is matched wherever it lives, not only under `projects/`: a tool
         # records its physical working directory, and notes/dev-machine-disk.md moves the worktrees
         # to their own volume behind a symlink, where a lane's directory reads
         # `/Volumes/nife-build/nife-worktrees/<lane>`.
-        if directory.endswith('/projects/' + name) or ('/%s-worktrees/' % name) in directory:
+        if os.path.basename(directory.rstrip('/')) == name or ('/%s-worktrees/' % name) in directory:
             return True
     return False
 
@@ -835,9 +856,9 @@ def selftest():
             'create table part (id text primary key, message_id text, session_id text,'
             ' time_created int, data text);')
         db.executemany('insert into session values (?, ?)', [
-            ('s1', '/Users/x/projects/nife-worktrees/lane'),
-            ('s2', '/Users/x/projects/fmrepo'),
-            ('s3', '/Users/x/projects/nife')])
+            ('s1', '/Users/x/src/nife-worktrees/lane'),
+            ('s2', '/Users/x/src/fmrepo'),
+            ('s3', '/Users/x/src/nife')])
         msgs = [
             message('s1', 'm1', 'glm-5.3', day, full(100, 10, 5, 1000, 7)),
             message('s1', 'm2', 'glm-5.3', day + 600000, full(200, 20, 0, 3000, 0)),
@@ -895,12 +916,14 @@ def selftest():
          round(glm['machine_hours'], 4), round(600.0 / 3600.0, 4)),
         ('another repository\'s session does not count', glm['input_tokens'] < 999, True),
         ('the model is the key, per week', flash['requests'], 1),
-        ('a path ending in projects/nife is the project', is_project_dir('/a/projects/nife'), True),
+        ('a directory named for the project is the project', is_project_dir('/a/src/nife'), True),
+        ('this repository\'s own main checkout is the project, whatever it is called',
+         is_project_dir('/a/src/clone-of-it', main='/a/src/clone-of-it'), True),
         ('a lane worktree is the project',
-         is_project_dir('/a/projects/nife-worktrees/m'), True),
+         is_project_dir('/a/src/nife-worktrees/m'), True),
         ('a lane worktree moved to its own volume is the project',
          is_project_dir('/Volumes/nife-build/nife-worktrees/m'), True),
-        ('a name that merely starts with nife is not', is_project_dir('/a/projects/nifeos'), False),
+        ('a name that merely starts with nife is not', is_project_dir('/a/src/nifeos'), False),
         ('a trailer spelling is upper for a short vendor, title for the rest',
          trailer_name('glm-5.3-flash'), 'GLM 5.3 Flash'),
         ('a longer vendor name is title case', trailer_name('kimi-k2'), 'Kimi K2'),

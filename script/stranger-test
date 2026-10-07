@@ -93,7 +93,7 @@
 # The ordinary run, from the repository root:
 #
 #     $ script/stranger-test
-#     ==> Source repository /Users/calef/projects/nife at 9d183935
+#     ==> Source repository /work/nife at 9d183935
 #     ==> Harness root /private/tmp/stranger.Xf3aQ91b
 #     ==> Isolation probe: NONE
 #     ==> Stranger running (this takes tens of minutes; the log streams to logs/stream.jsonl)
@@ -551,7 +551,7 @@ git -C "$CLONE" commit --quiet --amend --no-edit --allow-empty
 
 # Only now, because the amend writes a reflog line of its own, and that line quotes the commit
 # subject and the word "amend" beside each other. The clone's reflog also opens with
-# "clone: from /Users/calef/projects/nife", which names a checkout the stranger has not been given.
+# "clone: from <source checkout>", which names a checkout the stranger has not been given.
 git -C "$CLONE" update-ref refs/remotes/origin/main "$(git -C "$CLONE" rev-parse HEAD)"
 git -C "$CLONE" symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
 rm -rf "$CLONE/.git/logs"

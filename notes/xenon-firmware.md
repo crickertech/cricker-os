@@ -7,7 +7,7 @@ Dell OptiPlex 7050 Micro, BIOS revision 1.27.0, Service Tag `25XNBM2`, manufactu
 12/22/2017. Every setting below was read off a photograph of the machine's own setup UI, taken by
 calef on 2026-09-04 during the first light of milestone 87 (the x86_64 bare-metal machine) (`notes/x86-uefi-boot.md`).
 
-The originals are 70 `.HEIC` files in `~/projects/xenon/` on patagonia, named
+The originals are 70 `.HEIC` files held by calef off-tree, named
 `..._o_IMG_40NN.HEIC`. They are **not in this repository**: 120 MB of a format no browser renders.
 This note is the record and the photographs are the negatives, so each entry carries its `IMG_` number.
 

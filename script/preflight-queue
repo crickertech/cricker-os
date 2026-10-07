@@ -32,7 +32,7 @@
 #    the script **acts on nothing and exits 3**.
 # 3. **The walk.** `repository.mergeQueue(branch: "main")` in queue order, then open pull requests
 #    with auto-merge armed that are not yet queued. In one reusable detached scratch worktree
-#    (`~/projects/nife-worktrees/preflight`, or `$PREFLIGHT_WORKTREE`), each entry is merged onto
+#    (`nife-worktrees/preflight` beside the main checkout, or `$PREFLIGHT_WORKTREE`), each entry is merged onto
 #    the green entries ahead of it. A conflict is a finding. Otherwise the ladder runs, cheapest
 #    first, and stops at the first red:
 #
@@ -160,11 +160,15 @@ for a in sys.argv[1:]:
 
 # **Resolved, not as spelled.** Two checks below match WT against paths the kernel reports: `pgrep -f`
 # against QEMU's command line, which xtask builds from cargo's workspace root, and `lsof`'s cwd list.
-# Both name the physical directory. If `~/projects/nife-worktrees` is a symlink to another volume
+# Both name the physical directory. If the worktree root is a symlink to another volume
 # (notes/dev-machine-disk.md moves it to one), the spelled path never matches either, and the
 # "somebody is using it" refusal and the QEMU sweep go silent. `/tmp` on macOS is the same case.
+# The default is derived, not spelled: `nife-worktrees` beside the main checkout, which is the
+# parent of the shared `.git`.
+_MAIN = os.path.dirname(os.path.realpath(subprocess.run(
+    ["git", "rev-parse", "--git-common-dir"], capture_output=True, text=True, cwd=ROOT).stdout.strip()))
 WT = os.path.realpath(os.path.expanduser(
-    os.environ.get("PREFLIGHT_WORKTREE", "~/projects/nife-worktrees/preflight")))
+    os.environ.get("PREFLIGHT_WORKTREE", os.path.join(_MAIN, "..", "nife-worktrees", "preflight"))))
 RUN = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
 LOGS = os.path.join(os.environ.get("TMPDIR", "/tmp"), "preflight-queue", RUN)
 os.makedirs(LOGS, exist_ok=True)

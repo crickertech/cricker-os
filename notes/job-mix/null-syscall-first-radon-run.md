@@ -23,7 +23,7 @@
 Two payloads, built from this branch's tip, so no build happens at the bench:
 
 ```sh
-cd ~/projects/nife-worktrees/null-syscall-contention
+cd <worktree root>/null-syscall-contention
 script/board-netboot --root target/board-fix          # boots 1 to 3: the kernel that ships
 script/board-netboot --root target/board-lock-wait    # boots 4 and 5: the same plus lock_wait
 ```

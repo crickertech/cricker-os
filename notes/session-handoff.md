@@ -10,7 +10,7 @@
 >   been the single merge authority since milestone 119 (2026-08-15); a session that merges by hand
 >   bypasses the group build that arbitrates between sessions. `AGENTS.md` is the authority.
 > - Where lanes live. It says `.claude/worktrees/`, which does not exist. Lane worktrees are
->   `~/projects/nife-worktrees/<milestone>`.
+>   `<worktree root>/<milestone>`, the `nife-worktrees` directory beside the main checkout.
 > - The board. It says the VisionFive 2 purchase is deferred. radon is in hand and boots nife;
 >   so does xenon, since 2026-09-05. See `notes/target-hardware.md`.
 > - `std::fs::write`. Item 3 says it "stays Unsupported" for want of a `CREATE`/`TRUNCATE`

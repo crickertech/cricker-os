@@ -246,9 +246,9 @@ substituting the path to your own main checkout:
   <key>ProgramArguments</key>
   <array>
     <string>/bin/sh</string>
-    <string>/Users/calef/projects/nife/helpers/at-risk-check.sh</string>
+    <string>/path/to/nife/helpers/at-risk-check.sh</string>
   </array>
-  <key>WorkingDirectory</key><string>/Users/calef/projects/nife</string>
+  <key>WorkingDirectory</key><string>/path/to/nife</string>
   <key>StartInterval</key><integer>300</integer>
   <key>StandardOutPath</key><string>/Users/calef/Library/Logs/nife/at-risk.log</string>
   <key>StandardErrorPath</key><string>/Users/calef/Library/Logs/nife/at-risk.log</string>
