@@ -1,0 +1,226 @@
+{
+ "data": {
+  "repository": {
+   "mergeQueue": null,
+   "pullRequests": {
+    "nodes": [
+     {
+      "number": 1814,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H1814",
+      "createdAt": "2026-10-07T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": {
+       "enabledAt": "2026-10-07T20:00:00Z"
+      },
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-07T20:00:00Z"
+        }
+       ]
+      },
+      "missingChecks": {
+       "absent": [
+        "cpu matrix (riscv64 across QEMU CPU models)"
+       ],
+       "tried": true
+      }
+     },
+     {
+      "number": 1815,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H1815",
+      "createdAt": "2026-10-07T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": {
+       "enabledAt": "2026-10-07T20:00:00Z"
+      },
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-07T20:00:00Z"
+        }
+       ]
+      },
+      "missingChecks": {
+       "absent": [
+        "cpu matrix (riscv64 across QEMU CPU models)"
+       ],
+       "tried": false
+      }
+     },
+     {
+      "number": 1816,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H1816",
+      "createdAt": "2026-10-07T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": {
+       "enabledAt": "2026-10-07T20:00:00Z"
+      },
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-07T20:00:00Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 1817,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H1817",
+      "createdAt": "2026-10-07T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": {
+       "enabledAt": "2026-10-07T20:00:00Z"
+      },
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-07T20:00:00Z"
+        }
+       ]
+      },
+      "missingChecks": {
+       "absent": [
+        "cpu matrix (riscv64 across QEMU CPU models)"
+       ],
+       "tried": true
+      }
+     },
+     {
+      "number": 1818,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H1818",
+      "createdAt": "2026-10-07T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-maintainer"
+        }
+       ]
+      },
+      "autoMergeRequest": {
+       "enabledAt": "2026-10-07T20:00:00Z"
+      },
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-07T20:00:00Z"
+        }
+       ]
+      },
+      "missingChecks": {
+       "absent": [
+        "cpu matrix (riscv64 across QEMU CPU models)"
+       ],
+       "tried": true
+      }
+     },
+     {
+      "number": 1819,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H1819",
+      "createdAt": "2026-10-07T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-maintainer"
+        }
+       ]
+      },
+      "autoMergeRequest": {
+       "enabledAt": "2026-10-07T20:00:00Z"
+      },
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": []
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-07T20:00:00Z"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "search": {
+   "nodes": []
+  }
+ }
+}

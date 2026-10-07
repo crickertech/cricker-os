@@ -1,0 +1,553 @@
+{
+ "cases": [
+  {
+   "name": "1814: CI finished failure, cpu matrix never created, first attempt",
+   "input": {
+    "required": [
+     "rustfmt",
+     "clippy",
+     "verify (Kani proofs)",
+     "bench (icount regression tripwire)",
+     "coverage (host crates)",
+     "supply chain (advisories, licenses, vendored integrity)",
+     "fastpath footprint (the IPC path must stay L1i-sized)",
+     "stack frames (no frame over a third of a thread stack)",
+     "cpu matrix (riscv64 across QEMU CPU models)",
+     "fuzz (parsers, 60s per target)",
+     "image permissions (no kernel image ships a writable-executable segment)",
+     "architect hold (needs-architect label)",
+     "test (host crates and the kernel suite under QEMU)",
+     "swish-check (the interactive shell, three architectures)",
+     "boot-check (the default kernels' interactive boot)",
+     "swish-check-x86_64 (the interactive shell, x86_64 under KVM)",
+     "ready status (no IN-PROGRESS block on a ready branch)",
+     "empty diff (a merge must change at least one file)",
+     "interleavings (loom, every thread interleaving of the atomic protocols)"
+    ],
+    "present": [
+     "rustfmt",
+     "clippy",
+     "verify (Kani proofs)",
+     "bench (icount regression tripwire)",
+     "coverage (host crates)",
+     "supply chain (advisories, licenses, vendored integrity)",
+     "fastpath footprint (the IPC path must stay L1i-sized)",
+     "stack frames (no frame over a third of a thread stack)",
+     "fuzz (parsers, 60s per target)",
+     "image permissions (no kernel image ships a writable-executable segment)",
+     "architect hold (needs-architect label)",
+     "test (host crates and the kernel suite under QEMU)",
+     "swish-check (the interactive shell, three architectures)",
+     "boot-check (the default kernels' interactive boot)",
+     "swish-check-x86_64 (the interactive shell, x86_64 under KVM)",
+     "ready status (no IN-PROGRESS block on a ready branch)",
+     "empty diff (a merge must change at least one file)",
+     "interleavings (loom, every thread interleaving of the atomic protocols)"
+    ],
+    "runs": [
+     {
+      "id": 37654234928,
+      "name": "CI",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_attempt": 1,
+      "event": "pull_request"
+     }
+    ],
+    "owners": {
+     "cpu matrix (riscv64 across QEMU CPU models)": "CI"
+    }
+   },
+   "want": {
+    "absent": [
+     "cpu matrix (riscv64 across QEMU CPU models)"
+    ],
+    "rerun": [
+     {
+      "id": 37654234928,
+      "name": "CI"
+     }
+    ],
+    "tried": false
+   }
+  },
+  {
+   "name": "the same after a rerun (attempt 2): flag, do not rerun again",
+   "input": {
+    "required": [
+     "rustfmt",
+     "clippy",
+     "verify (Kani proofs)",
+     "bench (icount regression tripwire)",
+     "coverage (host crates)",
+     "supply chain (advisories, licenses, vendored integrity)",
+     "fastpath footprint (the IPC path must stay L1i-sized)",
+     "stack frames (no frame over a third of a thread stack)",
+     "cpu matrix (riscv64 across QEMU CPU models)",
+     "fuzz (parsers, 60s per target)",
+     "image permissions (no kernel image ships a writable-executable segment)",
+     "architect hold (needs-architect label)",
+     "test (host crates and the kernel suite under QEMU)",
+     "swish-check (the interactive shell, three architectures)",
+     "boot-check (the default kernels' interactive boot)",
+     "swish-check-x86_64 (the interactive shell, x86_64 under KVM)",
+     "ready status (no IN-PROGRESS block on a ready branch)",
+     "empty diff (a merge must change at least one file)",
+     "interleavings (loom, every thread interleaving of the atomic protocols)"
+    ],
+    "present": [
+     "rustfmt",
+     "clippy",
+     "verify (Kani proofs)",
+     "bench (icount regression tripwire)",
+     "coverage (host crates)",
+     "supply chain (advisories, licenses, vendored integrity)",
+     "fastpath footprint (the IPC path must stay L1i-sized)",
+     "stack frames (no frame over a third of a thread stack)",
+     "fuzz (parsers, 60s per target)",
+     "image permissions (no kernel image ships a writable-executable segment)",
+     "architect hold (needs-architect label)",
+     "test (host crates and the kernel suite under QEMU)",
+     "swish-check (the interactive shell, three architectures)",
+     "boot-check (the default kernels' interactive boot)",
+     "swish-check-x86_64 (the interactive shell, x86_64 under KVM)",
+     "ready status (no IN-PROGRESS block on a ready branch)",
+     "empty diff (a merge must change at least one file)",
+     "interleavings (loom, every thread interleaving of the atomic protocols)"
+    ],
+    "runs": [
+     {
+      "id": 37654234928,
+      "name": "CI",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_attempt": 2,
+      "event": "pull_request"
+     }
+    ],
+    "owners": {
+     "cpu matrix (riscv64 across QEMU CPU models)": "CI"
+    }
+   },
+   "want": {
+    "absent": [
+     "cpu matrix (riscv64 across QEMU CPU models)"
+    ],
+    "rerun": [],
+    "tried": true
+   }
+  },
+  {
+   "name": "a run still in progress: not yet",
+   "input": {
+    "required": [
+     "rustfmt",
+     "clippy",
+     "verify (Kani proofs)",
+     "bench (icount regression tripwire)",
+     "coverage (host crates)",
+     "supply chain (advisories, licenses, vendored integrity)",
+     "fastpath footprint (the IPC path must stay L1i-sized)",
+     "stack frames (no frame over a third of a thread stack)",
+     "cpu matrix (riscv64 across QEMU CPU models)",
+     "fuzz (parsers, 60s per target)",
+     "image permissions (no kernel image ships a writable-executable segment)",
+     "architect hold (needs-architect label)",
+     "test (host crates and the kernel suite under QEMU)",
+     "swish-check (the interactive shell, three architectures)",
+     "boot-check (the default kernels' interactive boot)",
+     "swish-check-x86_64 (the interactive shell, x86_64 under KVM)",
+     "ready status (no IN-PROGRESS block on a ready branch)",
+     "empty diff (a merge must change at least one file)",
+     "interleavings (loom, every thread interleaving of the atomic protocols)"
+    ],
+    "present": [
+     "rustfmt",
+     "clippy",
+     "verify (Kani proofs)",
+     "bench (icount regression tripwire)",
+     "coverage (host crates)",
+     "supply chain (advisories, licenses, vendored integrity)",
+     "fastpath footprint (the IPC path must stay L1i-sized)",
+     "stack frames (no frame over a third of a thread stack)",
+     "fuzz (parsers, 60s per target)",
+     "image permissions (no kernel image ships a writable-executable segment)",
+     "architect hold (needs-architect label)",
+     "test (host crates and the kernel suite under QEMU)",
+     "swish-check (the interactive shell, three architectures)",
+     "boot-check (the default kernels' interactive boot)",
+     "swish-check-x86_64 (the interactive shell, x86_64 under KVM)",
+     "ready status (no IN-PROGRESS block on a ready branch)",
+     "empty diff (a merge must change at least one file)",
+     "interleavings (loom, every thread interleaving of the atomic protocols)"
+    ],
+    "runs": [
+     {
+      "id": 37654234928,
+      "name": "CI",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_attempt": 1,
+      "event": "pull_request"
+     },
+     {
+      "id": 5,
+      "name": "verify",
+      "status": "in_progress",
+      "conclusion": null,
+      "run_attempt": 1,
+      "event": "pull_request"
+     }
+    ],
+    "owners": {
+     "cpu matrix (riscv64 across QEMU CPU models)": "CI"
+    }
+   },
+   "want": null
+  },
+  {
+   "name": "every required check reported",
+   "input": {
+    "required": [
+     "rustfmt",
+     "clippy",
+     "verify (Kani proofs)",
+     "bench (icount regression tripwire)",
+     "coverage (host crates)",
+     "supply chain (advisories, licenses, vendored integrity)",
+     "fastpath footprint (the IPC path must stay L1i-sized)",
+     "stack frames (no frame over a third of a thread stack)",
+     "cpu matrix (riscv64 across QEMU CPU models)",
+     "fuzz (parsers, 60s per target)",
+     "image permissions (no kernel image ships a writable-executable segment)",
+     "architect hold (needs-architect label)",
+     "test (host crates and the kernel suite under QEMU)",
+     "swish-check (the interactive shell, three architectures)",
+     "boot-check (the default kernels' interactive boot)",
+     "swish-check-x86_64 (the interactive shell, x86_64 under KVM)",
+     "ready status (no IN-PROGRESS block on a ready branch)",
+     "empty diff (a merge must change at least one file)",
+     "interleavings (loom, every thread interleaving of the atomic protocols)"
+    ],
+    "present": [
+     "rustfmt",
+     "clippy",
+     "verify (Kani proofs)",
+     "bench (icount regression tripwire)",
+     "coverage (host crates)",
+     "supply chain (advisories, licenses, vendored integrity)",
+     "fastpath footprint (the IPC path must stay L1i-sized)",
+     "stack frames (no frame over a third of a thread stack)",
+     "cpu matrix (riscv64 across QEMU CPU models)",
+     "fuzz (parsers, 60s per target)",
+     "image permissions (no kernel image ships a writable-executable segment)",
+     "architect hold (needs-architect label)",
+     "test (host crates and the kernel suite under QEMU)",
+     "swish-check (the interactive shell, three architectures)",
+     "boot-check (the default kernels' interactive boot)",
+     "swish-check-x86_64 (the interactive shell, x86_64 under KVM)",
+     "ready status (no IN-PROGRESS block on a ready branch)",
+     "empty diff (a merge must change at least one file)",
+     "interleavings (loom, every thread interleaving of the atomic protocols)"
+    ],
+    "runs": [
+     {
+      "id": 37654234928,
+      "name": "CI",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_attempt": 1,
+      "event": "pull_request"
+     }
+    ],
+    "owners": {
+     "cpu matrix (riscv64 across QEMU CPU models)": "CI"
+    }
+   },
+   "want": null
+  },
+  {
+   "name": "a check no workflow names: flag, nothing to rerun",
+   "input": {
+    "required": [
+     "rustfmt",
+     "clippy",
+     "verify (Kani proofs)",
+     "bench (icount regression tripwire)",
+     "coverage (host crates)",
+     "supply chain (advisories, licenses, vendored integrity)",
+     "fastpath footprint (the IPC path must stay L1i-sized)",
+     "stack frames (no frame over a third of a thread stack)",
+     "cpu matrix (riscv64 across QEMU CPU models)",
+     "fuzz (parsers, 60s per target)",
+     "image permissions (no kernel image ships a writable-executable segment)",
+     "architect hold (needs-architect label)",
+     "test (host crates and the kernel suite under QEMU)",
+     "swish-check (the interactive shell, three architectures)",
+     "boot-check (the default kernels' interactive boot)",
+     "swish-check-x86_64 (the interactive shell, x86_64 under KVM)",
+     "ready status (no IN-PROGRESS block on a ready branch)",
+     "empty diff (a merge must change at least one file)",
+     "interleavings (loom, every thread interleaving of the atomic protocols)"
+    ],
+    "present": [
+     "rustfmt",
+     "clippy",
+     "verify (Kani proofs)",
+     "bench (icount regression tripwire)",
+     "coverage (host crates)",
+     "supply chain (advisories, licenses, vendored integrity)",
+     "fastpath footprint (the IPC path must stay L1i-sized)",
+     "stack frames (no frame over a third of a thread stack)",
+     "fuzz (parsers, 60s per target)",
+     "image permissions (no kernel image ships a writable-executable segment)",
+     "architect hold (needs-architect label)",
+     "test (host crates and the kernel suite under QEMU)",
+     "swish-check (the interactive shell, three architectures)",
+     "boot-check (the default kernels' interactive boot)",
+     "swish-check-x86_64 (the interactive shell, x86_64 under KVM)",
+     "ready status (no IN-PROGRESS block on a ready branch)",
+     "empty diff (a merge must change at least one file)",
+     "interleavings (loom, every thread interleaving of the atomic protocols)"
+    ],
+    "runs": [
+     {
+      "id": 37654234928,
+      "name": "CI",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_attempt": 1,
+      "event": "pull_request"
+     }
+    ],
+    "owners": {}
+   },
+   "want": {
+    "absent": [
+     "cpu matrix (riscv64 across QEMU CPU models)"
+    ],
+    "rerun": [],
+    "tried": true
+   }
+  },
+  {
+   "name": "the owning workflow has no run at this head: flag",
+   "input": {
+    "required": [
+     "rustfmt",
+     "clippy",
+     "verify (Kani proofs)",
+     "bench (icount regression tripwire)",
+     "coverage (host crates)",
+     "supply chain (advisories, licenses, vendored integrity)",
+     "fastpath footprint (the IPC path must stay L1i-sized)",
+     "stack frames (no frame over a third of a thread stack)",
+     "cpu matrix (riscv64 across QEMU CPU models)",
+     "fuzz (parsers, 60s per target)",
+     "image permissions (no kernel image ships a writable-executable segment)",
+     "architect hold (needs-architect label)",
+     "test (host crates and the kernel suite under QEMU)",
+     "swish-check (the interactive shell, three architectures)",
+     "boot-check (the default kernels' interactive boot)",
+     "swish-check-x86_64 (the interactive shell, x86_64 under KVM)",
+     "ready status (no IN-PROGRESS block on a ready branch)",
+     "empty diff (a merge must change at least one file)",
+     "interleavings (loom, every thread interleaving of the atomic protocols)"
+    ],
+    "present": [
+     "rustfmt",
+     "clippy",
+     "verify (Kani proofs)",
+     "bench (icount regression tripwire)",
+     "coverage (host crates)",
+     "supply chain (advisories, licenses, vendored integrity)",
+     "fastpath footprint (the IPC path must stay L1i-sized)",
+     "stack frames (no frame over a third of a thread stack)",
+     "fuzz (parsers, 60s per target)",
+     "image permissions (no kernel image ships a writable-executable segment)",
+     "architect hold (needs-architect label)",
+     "test (host crates and the kernel suite under QEMU)",
+     "swish-check (the interactive shell, three architectures)",
+     "boot-check (the default kernels' interactive boot)",
+     "swish-check-x86_64 (the interactive shell, x86_64 under KVM)",
+     "ready status (no IN-PROGRESS block on a ready branch)",
+     "empty diff (a merge must change at least one file)",
+     "interleavings (loom, every thread interleaving of the atomic protocols)"
+    ],
+    "runs": [
+     {
+      "id": 7,
+      "name": "verify",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_attempt": 1,
+      "event": "pull_request"
+     }
+    ],
+    "owners": {
+     "cpu matrix (riscv64 across QEMU CPU models)": "CI"
+    }
+   },
+   "want": {
+    "absent": [
+     "cpu matrix (riscv64 across QEMU CPU models)"
+    ],
+    "rerun": [],
+    "tried": true
+   }
+  },
+  {
+   "name": "two runs of the owner, the newest already rerun: flag",
+   "input": {
+    "required": [
+     "rustfmt",
+     "clippy",
+     "verify (Kani proofs)",
+     "bench (icount regression tripwire)",
+     "coverage (host crates)",
+     "supply chain (advisories, licenses, vendored integrity)",
+     "fastpath footprint (the IPC path must stay L1i-sized)",
+     "stack frames (no frame over a third of a thread stack)",
+     "cpu matrix (riscv64 across QEMU CPU models)",
+     "fuzz (parsers, 60s per target)",
+     "image permissions (no kernel image ships a writable-executable segment)",
+     "architect hold (needs-architect label)",
+     "test (host crates and the kernel suite under QEMU)",
+     "swish-check (the interactive shell, three architectures)",
+     "boot-check (the default kernels' interactive boot)",
+     "swish-check-x86_64 (the interactive shell, x86_64 under KVM)",
+     "ready status (no IN-PROGRESS block on a ready branch)",
+     "empty diff (a merge must change at least one file)",
+     "interleavings (loom, every thread interleaving of the atomic protocols)"
+    ],
+    "present": [
+     "rustfmt",
+     "clippy",
+     "verify (Kani proofs)",
+     "bench (icount regression tripwire)",
+     "coverage (host crates)",
+     "supply chain (advisories, licenses, vendored integrity)",
+     "fastpath footprint (the IPC path must stay L1i-sized)",
+     "stack frames (no frame over a third of a thread stack)",
+     "fuzz (parsers, 60s per target)",
+     "image permissions (no kernel image ships a writable-executable segment)",
+     "architect hold (needs-architect label)",
+     "test (host crates and the kernel suite under QEMU)",
+     "swish-check (the interactive shell, three architectures)",
+     "boot-check (the default kernels' interactive boot)",
+     "swish-check-x86_64 (the interactive shell, x86_64 under KVM)",
+     "ready status (no IN-PROGRESS block on a ready branch)",
+     "empty diff (a merge must change at least one file)",
+     "interleavings (loom, every thread interleaving of the atomic protocols)"
+    ],
+    "runs": [
+     {
+      "id": 10,
+      "name": "CI",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_attempt": 1,
+      "event": "pull_request"
+     },
+     {
+      "id": 11,
+      "name": "CI",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_attempt": 2,
+      "event": "pull_request"
+     }
+    ],
+    "owners": {
+     "cpu matrix (riscv64 across QEMU CPU models)": "CI"
+    }
+   },
+   "want": {
+    "absent": [
+     "cpu matrix (riscv64 across QEMU CPU models)"
+    ],
+    "rerun": [],
+    "tried": true
+   }
+  },
+  {
+   "name": "a dispatch run in progress does not hold the verdict",
+   "input": {
+    "required": [
+     "rustfmt",
+     "clippy",
+     "verify (Kani proofs)",
+     "bench (icount regression tripwire)",
+     "coverage (host crates)",
+     "supply chain (advisories, licenses, vendored integrity)",
+     "fastpath footprint (the IPC path must stay L1i-sized)",
+     "stack frames (no frame over a third of a thread stack)",
+     "cpu matrix (riscv64 across QEMU CPU models)",
+     "fuzz (parsers, 60s per target)",
+     "image permissions (no kernel image ships a writable-executable segment)",
+     "architect hold (needs-architect label)",
+     "test (host crates and the kernel suite under QEMU)",
+     "swish-check (the interactive shell, three architectures)",
+     "boot-check (the default kernels' interactive boot)",
+     "swish-check-x86_64 (the interactive shell, x86_64 under KVM)",
+     "ready status (no IN-PROGRESS block on a ready branch)",
+     "empty diff (a merge must change at least one file)",
+     "interleavings (loom, every thread interleaving of the atomic protocols)"
+    ],
+    "present": [
+     "rustfmt",
+     "clippy",
+     "verify (Kani proofs)",
+     "bench (icount regression tripwire)",
+     "coverage (host crates)",
+     "supply chain (advisories, licenses, vendored integrity)",
+     "fastpath footprint (the IPC path must stay L1i-sized)",
+     "stack frames (no frame over a third of a thread stack)",
+     "fuzz (parsers, 60s per target)",
+     "image permissions (no kernel image ships a writable-executable segment)",
+     "architect hold (needs-architect label)",
+     "test (host crates and the kernel suite under QEMU)",
+     "swish-check (the interactive shell, three architectures)",
+     "boot-check (the default kernels' interactive boot)",
+     "swish-check-x86_64 (the interactive shell, x86_64 under KVM)",
+     "ready status (no IN-PROGRESS block on a ready branch)",
+     "empty diff (a merge must change at least one file)",
+     "interleavings (loom, every thread interleaving of the atomic protocols)"
+    ],
+    "runs": [
+     {
+      "id": 37654234928,
+      "name": "CI",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_attempt": 1,
+      "event": "pull_request"
+     },
+     {
+      "id": 9,
+      "name": "CI",
+      "status": "in_progress",
+      "conclusion": null,
+      "run_attempt": 1,
+      "event": "workflow_dispatch"
+     }
+    ],
+    "owners": {
+     "cpu matrix (riscv64 across QEMU CPU models)": "CI"
+    }
+   },
+   "want": {
+    "absent": [
+     "cpu matrix (riscv64 across QEMU CPU models)"
+    ],
+    "rerun": [
+     {
+      "id": 37654234928,
+      "name": "CI"
+     }
+    ],
+    "tried": false
+   }
+  }
+ ]
+}

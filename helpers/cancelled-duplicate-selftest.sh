@@ -73,5 +73,10 @@ if [ "$(grep -c 'rerun_run "\$run_id"' "$f")" != "1" ]; then
 	echo "$me: rerun_run() has a caller other than the one loop the detection guards." >&2
 	exit 1
 fi
+# The one other caller, `missing_check_scan`, reruns only what helpers/missing-check.jq names.
+if [ "$(grep -c 'rerun_run "\$rid"' "$f")" != "1" ] || ! grep -q 'MISSING_JQ=' "$f"; then
+	echo "$me: rerun_run() has a caller other than the two loops the detections guard." >&2
+	exit 1
+fi
 
 echo "cancelled duplicate: newest run cancelled beside a same-second sibling, rerun once, by attempt number; the drain splices it"

@@ -20,6 +20,8 @@
 #   - Reruns, once, a CI run a concurrency group cancelled as a same-second duplicate.
 #   - Opens a draft for a branch holding work that never had a pull request, so the label has
 #     somewhere to go (the `orphan` cause's `adopt`; it never touches the branch).
+#   - Reruns, once, the workflow owning a required check that never reported on an armed head whose
+#     runs have all finished, and flags `missing-check` when that did not help (`missing_check_scan`).
 #   - Runs helpers/lane-claim-check.sh, which reports a pushed lane branch with no pull request.
 #
 # # What it stopped doing, and why (milestone 727 (a queue eviction goes to a maintainer session), provisional; calef's rulings on #1564)
@@ -352,6 +354,60 @@ rerun_cancelled_duplicates() {
 		done
 }
 
+# **A required check that never reported** (lane/drain-missing-check, 2026-10-07 UTC; names
+# provisional). For each armed, ready pull request whose pull-request workflow runs have all
+# finished, ask whether every context the `main` ruleset requires has a check run at the head
+# (helpers/missing-check.jq decides). If one is absent, rerun, once, the workflow that owns it:
+# `run_attempt` above 1 is the record, so the next pass finds the rerun already tried and the
+# `missing-check` cause (helpers/needs-maintainer.jq) names the absent checks for a maintainer.
+# Like the cancelled-duplicate rerun this makes a check report and arms nothing. The verdicts are
+# left in MC_MAP, { "<number>": { absent, tried } }, for `needs_maintainer` to splice in.
+#
+# BUGS: the owner of a context is found by a job `name:` at four-space indent in a workflow file,
+# so a job whose name is an expression (a matrix shard) has no owner and is flagged without a
+# rerun. A check that comes from a commit status rather than a check run is read from the status
+# API. The ruleset is read with the token the pass has; if that read fails the scan does nothing.
+MISSING_JQ="$(dirname "$0")/missing-check.jq"
+# "<context><TAB><workflow name>" for every job name in .github/workflows.
+workflow_owners() {
+	for wf in .github/workflows/*.yml; do
+		[ -f "$wf" ] || continue
+		awk -v tab="$(printf '\t')" '
+			/^name:/ && !top { top = $0; sub(/^name:[ ]*/, "", top); gsub(/^["\x27]|["\x27]$/, "", top) }
+			/^    name:/ { n = $0; sub(/^    name:[ ]*/, "", n); gsub(/^["\x27]|["\x27]$/, "", n); print n tab top }
+		' "$wf"
+	done
+}
+MC_MAP='{}'
+missing_check_scan() {
+	MC_MAP='{}'
+	required=$(gh api "repos/$REPO/rules/branches/main" 2>/dev/null |
+		jq -c '[ .[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context ] | unique' 2>/dev/null) || required=""
+	[ -n "$required" ] && [ "$required" != "[]" ] || return 0
+	owners=$(workflow_owners | jq -R -s -c 'split("\n") | map(select(. != "") | split("\t")) | map({(.[0]): .[1]}) | add // {}')
+	for row in $(printf '%s' "$1" | jq -r '.data.repository.pullRequests.nodes[]
+			| select(.isDraft == false and .isCrossRepository == false and .autoMergeRequest != null)
+			| "\(.number):\(.headRefOid)"'); do
+		num=${row%%:*}
+		sha=${row#*:}
+		runs=$(gh api "repos/$REPO/actions/runs?head_sha=$sha&per_page=100" --jq '[.workflow_runs[] | {id, name, status, conclusion, run_attempt, event}]' 2>/dev/null) || continue
+		present=$( { gh api --paginate "repos/$REPO/commits/$sha/check-runs?per_page=100" --jq '.check_runs[].name' &&
+			gh api "repos/$REPO/commits/$sha/status" --jq '.statuses[].context'; } 2>/dev/null | jq -R -s -c 'split("\n") | map(select(. != ""))') || continue
+		verdict=$(jq -n -c --argjson required "$required" --argjson present "$present" --argjson runs "$runs" --argjson owners "$owners" \
+			"{required: \$required, present: \$present, runs: \$runs, owners: \$owners} | $(cat "$MISSING_JQ")"'[ missing_checks ] | .[0] // empty' 2>/dev/null) || continue
+		[ -n "$verdict" ] || continue
+		for rid in $(printf '%s' "$verdict" | jq -r '.rerun[].id'); do
+			rname=$(printf '%s' "$verdict" | jq -r --argjson i "$rid" '.rerun[] | select(.id == $i) | .name')
+			if rerun_run "$rid"; then
+				echo "$ME: RERAN #$num run $rid ($rname finished with a required check never created: $(printf '%s' "$verdict" | jq -r '.absent | join("; ")'))"
+			else
+				echo "$ME: #$num run $rid ($rname) lacks a required check and the rerun was refused; the token may lack actions:write"
+			fi
+		done
+		MC_MAP=$(printf '%s' "$MC_MAP" | jq -c --arg n "$num" --argjson v "$verdict" '. + {($n): {absent: $v.absent, tried: $v.tried}}')
+	done
+}
+
 # The merge group's runs that did not succeed, as markdown list lines: "- <name>: <conclusion>, <url>".
 group_runs() {
 	[ "$1" = "null" ] && return 0
@@ -598,6 +654,15 @@ $rules
 
 So the drain added \`needs-architect\` (calef's ruling on #1792: the bot adds, and only flags removals). Post the ask under a \`## What I need from you\` heading, or, if calef already ruled on this surface, record it with \`script/record-ruling $1\`; a hold with no ask is flagged \`hold-no-ask\` after $NM_MINUTES minutes."
 		;;
+	missing-check)
+		head=$(printf '%s' "$c" | jq -r '.head')
+		absent=$(printf '%s' "$c" | jq -r '.absent | map("- `" + . + "`") | join("\n")')
+		what="REQUIRED CHECK NEVER REPORTED at head \`$head\`. Every pull-request workflow run there has finished, and the \`main\` ruleset requires these, none of which has a check run at all:
+
+$absent
+
+The drain already reran the workflow that owns them once, or none owns them, so a rerun will not fix it and nothing is red for helpers/ci-failing.sh to report: an armed pull request with a check that does not exist waits forever (#1814, #1816 and #1812 on 2026-10-07). The maintainer session owns the next step: rerun that run once more (the Actions page, or \`gh run\` with its \`rerun\` subcommand), or push an empty commit to raise a fresh run, and if it recurs the job's \`if:\` or the workflow's event filter is the suspect. A new head, or the check reporting, takes the label off."
+		;;
 	unmergeable)
 		head=$(printf '%s' "$c" | jq -r '.head')
 		position=$(printf '%s' "$c" | jq -r '.position')
@@ -684,6 +749,12 @@ needs_maintainer() {
 	resp=$(printf '%s' "$resp" | jq -c --argjson s "$surface" \
 		'.data.repository.pullRequests.nodes |= map(. + (if $s[.number | tostring] then {architectSurface: $s[.number | tostring]} else {} end))')
 
+	# Required checks that never reported on an armed head (the `missing-check` cause): rerun the
+	# owning workflow once, and splice each verdict into its node as `missingChecks`.
+	missing_check_scan "$resp"
+	resp=$(printf '%s' "$resp" | jq -c --argjson m "$MC_MAP" \
+		'.data.repository.pullRequests.nodes |= map(. + (if $m[.number | tostring] then {missingChecks: $m[.number | tostring]} else {} end))')
+
 	printf '%s' "$resp" |
 		jq -c --arg l "$NM_LABEL" --argjson now "$(date +%s)" --argjson m "$NM_MINUTES" --argjson b "$blockers" \
 			"$(cat "$ELIGIBLE_JQ" "$OQ_JQ" "$NM_JQ")"'nm_decide($l; $now; $m; $b)' |
@@ -755,6 +826,7 @@ needs_maintainer() {
 #
 #     merge-drain[...]: DEQUEUED #N ...    a held pull request was taken out of the queue
 #     merge-drain[...]: RERAN #N run <id>  a cancelled same-second duplicate was rerun, once
+#     merge-drain[...]: RERAN #N run <id>  (again) a workflow was rerun, once, for a required check never created
 #     merge-drain[...]: UNBLOCKED #N ...   a paused draft's blockers resolved
 #     merge-drain[...]: LABELLED #N ...    needs-maintainer added, with its causes
 #     merge-drain[...]: CLEARED #N ...     needs-maintainer removed, its cause gone
