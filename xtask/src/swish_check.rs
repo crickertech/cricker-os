@@ -3534,8 +3534,12 @@ fn reboot_phase(
     const READ_LINE: &str = "wc reboot.txt";
     // `survives a reboot` and its newline: 18 bytes, 3 words, 1 line.
     const READ_ANSWER: &str = "1 3 18";
-    const KERNEL_ASKED: &str = "reboot: the kernel was asked to restart the machine";
-    const KERNEL_REFUSED: &str = "reboot: every reset route was refused";
+    // Without the `reboot:` prefix on purpose. The shell draws its next prompt once `reboot`'s
+    // report has ended, while the kernel writes these lines straight to the UART, so the prompt can
+    // land inside the kernel's first line: merge group 37554001967 (2026-10-07 UTC) read
+    // "reboo$t:  the kernel was asked to restart the machine" on riscv64. The tail is the claim.
+    const KERNEL_ASKED: &str = "the kernel was asked to restart the machine";
+    const KERNEL_REFUSED: &str = "every reset route was refused";
     const SYNCED: &str = "reboot: filesystem synced";
     let x86 = arch == "x86_64";
     let text = || degauge(&seen.lock().expect("transcript lock"));

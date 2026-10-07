@@ -1974,9 +1974,13 @@ fn x86_build_child(
     if let Some(ep) = fault_ep {
         // The spawn-slot convention: a supervision endpoint goes in the reserved fault slot, and
         // the kernel consumes it at START so the child cannot forge fault messages on it.
-        let cap = crate::cap::rendezvous_cap(ep, crate::cap::Rights::READ);
-        crate::sched::thread_control_block_insert_cap(tid, cap, Some(abi::fault::FAULT_EP_SLOT))
-            .map_err(|_| "no room for the fault endpoint")?;
+        let capability = crate::cap::rendezvous_cap(ep, crate::cap::Rights::READ);
+        crate::sched::thread_control_block_insert_cap(
+            tid,
+            capability,
+            Some(abi::fault::FAULT_EP_SLOT),
+        )
+        .map_err(|_| "no room for the fault endpoint")?;
     }
     crate::sched::configure_thread_control_block(
         tid,
@@ -2657,7 +2661,7 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     // could not allocate them, which keeps the kernel's old behaviour: every line direct.
     crate::kernel_log::publish();
     if let Some((ring, cursor, notification)) = crate::kernel_log::grants() {
-        for (cap, slot, what) in [
+        for (capability, slot, what) in [
             (
                 crate::cap::page_frame_run_cap(
                     ring,
@@ -2685,7 +2689,7 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
                 "the kernel ring's notification",
             ),
         ] {
-            let s = crate::sched::thread_control_block_insert_cap(tid, cap, Some(slot))
+            let s = crate::sched::thread_control_block_insert_cap(tid, capability, Some(slot))
                 .unwrap_or_else(|_| panic!("insert {what}"));
             assert_eq!(s, slot, "{what} landed in the wrong slot");
         }

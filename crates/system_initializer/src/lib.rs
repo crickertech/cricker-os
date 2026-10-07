@@ -3807,11 +3807,8 @@ fn spawn_service(
             // The narrowed endpoint was only ever the means of wiring: the child holds its own copy
             // and the caretaker holds the other end. Dropped whether or not the build worked, so a
             // failed spawn does not cost this capability table a slot for the rest of the boot.
-            if let Some(dir_ep) = narrowed {
-                cap_delete(dir_ep);
-            }
-            if let Some(f) = sync_ep {
-                cap_delete(f);
+            for endpoint in [narrowed, sync_ep].into_iter().flatten() {
+                cap_delete(endpoint);
             }
             // The window's page and badged endpoint were only the means too: the caretaker and the
             // job each hold their own mapping and copy (milestone 599).

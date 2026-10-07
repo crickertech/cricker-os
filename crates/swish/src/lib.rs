@@ -3091,7 +3091,7 @@ mod tests {
     /// criterion 3): the reset is the one grant whose effect leaves no machine to inspect afterwards,
     /// so the preview is the only place a person meets it.
     #[test]
-    fn caps_reboot_names_the_reboot_object_and_nothing_else_has_it() {
+    fn the_reboot_preview_names_the_reboot_object_and_nothing_else_has_it() {
         let s = shown(|o| write_preview(&endowment(Prog::Reboot), &Holdings::default(), None, o));
         assert!(
             s.contains("cap 13 reboot    WRITE. restart the machine"),
