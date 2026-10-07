@@ -99,6 +99,18 @@ the moment the decision to hold is made and not later:
   the diff, it must say what happens if the architect says no, and it must separate what is blocking
   from what is eventually the architect's.
 
+Every question asked of calef is also posted on its pull request or issue as a `## What I need from
+you` comment, with `needs-architect`, including one first raised in a chat (lane/architect-queue,
+2026-10-06 UTC; calef: "I need a reliable work queue just like your agents"). A question that lives
+only in a chat is missing from his queue, `script/architect-queue`, which lists an item when it
+carries the label or has an unanswered ask. Record his answer with `script/record-ruling`, which
+posts it and swaps `needs-architect` for `architect-ruled` (plus `held-by-lane` on a send-back) in
+one step. Where the label and the open questions disagree, the drain repairs one direction and
+flags the other (calef's ruling on #1792, 2026-10-06 UTC): an open question or a moved surface with
+no label gets `needs-architect` added by the bot, since a wrong add costs calef a glance; a label
+with no open question gets `needs-maintainer` and is never removed by the bot, since a wrong removal
+could merge a pull request without his ruling (helpers/needs-maintainer.jq).
+
 The watchers run unattended as `nife-smelter[bot]` in scheduled Actions workflows (calef,
 2026-09-23; the watch that reads a machine's own lane worktrees stays per developer). A session
 confirms they are alive *and reads what they already found*, because `merge-drain.sh` posts once per

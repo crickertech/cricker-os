@@ -142,7 +142,7 @@ ELIGIBLE_JQ="$(dirname "$0")/queue-eligible.jq"
 
 # Whether pull request $1 already carries a comment with marker $2.
 marked() {
-	count=$(gh pr view "$1" --repo "$REPO" --json comments 2>/dev/null |
+	count=$(gh "${NM_KIND:-pr}" view "$1" --repo "$REPO" --json comments 2>/dev/null |
 		jq -r --arg m "$2" '[.comments[] | select(.body | contains($m))] | length' 2>/dev/null) || true
 	[ "${count:-0}" != "0" ]
 }
@@ -152,7 +152,7 @@ marked() {
 # buries the one useful comment within the hour.
 notify() {
 	marked "$1" "$2" && return 0
-	w gh pr comment "$1" --repo "$REPO" --body "$3
+	w gh "${NM_KIND:-pr}" comment "$1" --repo "$REPO" --body "$3
 
 <!-- $2 -->"
 }
@@ -399,20 +399,34 @@ group_runs() {
 NM_LABEL="needs-maintainer"
 NM_MINUTES=${NM_MINUTES:-30}
 NM_JQ="$(dirname "$0")/needs-maintainer.jq"
+# What makes a question for calef open, shared with script/architect-queue (lane/architect-queue).
+OQ_JQ="$(dirname "$0")/open-question.jq"
+# The diff rules architect-label.yml runs on each push, run here again on every head that carries no
+# hold or ruling label, because a push event is not guaranteed: GitHub runs no `pull_request`
+# workflow while a pull request conflicts with its base, which is how #1745's syscall change went
+# unread (2026-10-06).
+RULES_PY="$(dirname "$0")/architect-label-rules.py"
 # Every field helpers/needs-maintainer.jq reads, in one call. helpers/needs-maintainer-selftest.sh
 # checks this text names each of them, and its fixtures are this query's recorded responses.
 NM_QUERY='query($owner: String!, $name: String!, $labelled: String!) {
   repository(owner: $owner, name: $name) {
     mergeQueue(branch: "main") { entries(first: 100) { nodes { enqueuedAt state pullRequest { id number state mergedAt } } } }
     pullRequests(states: OPEN, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) { nodes {
-      number isDraft baseRefName isCrossRepository headRefName headRefOid createdAt mergeable body
+      number isDraft baseRefName isCrossRepository headRefName headRefOid createdAt mergeable body url
       labels(first: 30) { nodes { name } }
+      comments(last: 30) { nodes { createdAt url body } }
       autoMergeRequest { enabledAt }
       removed: timelineItems(last: 1, itemTypes: [REMOVED_FROM_MERGE_QUEUE_EVENT]) { nodes { ... on RemovedFromMergeQueueEvent { createdAt reason beforeCommit { oid parents(first: 2) { nodes { oid } } } } } }
       added: timelineItems(last: 1, itemTypes: [ADDED_TO_MERGE_QUEUE_EVENT]) { nodes { ... on AddedToMergeQueueEvent { createdAt } } }
       unarmed: timelineItems(last: 1, itemTypes: [READY_FOR_REVIEW_EVENT, AUTO_MERGE_DISABLED_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT]) { nodes { __typename ... on ReadyForReviewEvent { createdAt } ... on AutoMergeDisabledEvent { createdAt } ... on RemovedFromMergeQueueEvent { createdAt } } }
-      labelled: timelineItems(last: 20, itemTypes: [LABELED_EVENT]) { nodes { ... on LabeledEvent { createdAt label { name } } } }
+      labelEvents: timelineItems(last: 20, itemTypes: [LABELED_EVENT]) { nodes { ... on LabeledEvent { createdAt label { name } } } }
       commits(last: 1) { nodes { commit { committedDate } } }
+    } }
+    issues(states: OPEN, first: 50, orderBy: {field: CREATED_AT, direction: DESC}) { nodes {
+      number createdAt url body
+      labels(first: 30) { nodes { name } }
+      comments(last: 30) { nodes { createdAt url body } }
+      labelEvents: timelineItems(last: 20, itemTypes: [LABELED_EVENT]) { nodes { ... on LabeledEvent { createdAt label { name } } } }
     } }
     refs(refPrefix: "refs/heads/", first: 100) { nodes {
       name
@@ -528,6 +542,32 @@ A new commit, a \`Blocked-by:\` on an open pull request, \`parked\`, or closing 
 
 Any of these takes the label off."
 		;;
+	hold-no-ask)
+		since=$(printf '%s' "$c" | jq -r '.since')
+		ruled=$(printf '%s' "$c" | jq -r 'if .ruled then "A ruling was recorded at \(.ruled) and nothing has asked since." else "Nothing on it asks a question under a \"What I need from you\" heading." end')
+		what="IN CALEF'S QUEUE WITH NOTHING TO ANSWER: \`needs-architect\` has been on since $since, and there is no open question. $ruled The label is his work queue, so this costs him a look for nothing (#1783). The maintainer session owns the next step, one of:
+
+- if calef has ruled, record it: \`script/record-ruling $1 --text '<his words>'\` (add \`--held-by-lane\` if the lane owes a change); it swaps the labels
+- if there is a question, post it as a comment under a \`## What I need from you\` heading
+- if nothing was ever owed to an architect, remove \`needs-architect\`
+
+Any of these takes the label off."
+		;;
+	ask-no-hold)
+		at=$(printf '%s' "$c" | jq -r '.at')
+		url=$(printf '%s' "$c" | jq -r '.url')
+		line=$(printf '%s' "$c" | jq -r '.line')
+		what="A QUESTION FOR CALEF THAT HIS QUEUE COULD NOT SHOW: asked at $at ($url), with no ruling recorded since, and no \`needs-architect\` on this, so the drain added it (calef's ruling on #1792: the bot adds, and only flags removals). The question begins: \"$line\". If \`architect-ruled\` is on and this asks something the old ruling did not cover, remove \`architect-ruled\` so the hold blocks the merge. If calef has already answered, record it: \`script/record-ruling $1 --text '<his words>'\`."
+		;;
+	surface-no-hold)
+		head=$(printf '%s' "$c" | jq -r '.head')
+		rules=$(printf '%s' "$c" | jq -r '.rules[0:10][] | "- `" + . + "`"')
+		what="AN ARCHITECT'S SURFACE MOVED, UNLABELED: \`helpers/architect-label-rules.py\` fires on this diff at head \`$head\`, and it carries none of \`needs-architect\`, \`architect-ruled\` or \`held-by-lane\`. The labeler that should have caught it runs on push, and GitHub runs no \`pull_request\` workflow while a pull request conflicts with its base (#1745).
+
+$rules
+
+So the drain added \`needs-architect\` (calef's ruling on #1792: the bot adds, and only flags removals). Post the ask under a \`## What I need from you\` heading, or, if calef already ruled on this surface, record it with \`script/record-ruling $1\`; a hold with no ask is flagged \`hold-no-ask\` after $NM_MINUTES minutes."
+		;;
 	stale)
 		state=$(printf '%s' "$c" | jq -r '.state')
 		merged=$(printf '%s' "$c" | jq -r '.merged // "an unrecorded time"')
@@ -546,7 +586,7 @@ The label comes off when the entry is gone."
 	esac
 	printf '%s' "$ME: needs-maintainer. $what
 
-The label is how a maintainer session finds this without anyone watching the queue (milestone 727, provisional; helpers/needs-maintainer.jq has the eight causes)."
+The label is how a maintainer session finds this without anyone watching the queue (milestone 727, provisional; helpers/needs-maintainer.jq has the eleven causes)."
 }
 
 needs_maintainer() {
@@ -575,14 +615,47 @@ needs_maintainer() {
 		blockers=$(printf '%s' "$blockers" | jq -c --arg n "$num" --argjson s "$states" '. + {($n): $s}')
 	done
 
+	# The architect-label rules on each head with no hold or ruling label, spliced into its node as
+	# `architectSurface` (the `surface-no-hold` cause). A head this checkout lacks (a fork's), or a
+	# diff the rules cannot read, is skipped here: architect-label.yml labels the unexamined case on
+	# push, and this pass is its backstop, not its replacement.
+	surface='{}'
+	for row in $(printf '%s' "$resp" | jq -r '.data.repository.pullRequests.nodes[]
+			| select([.labels.nodes[].name] | (index("needs-architect") or index("architect-ruled") or index("held-by-lane")) | not)
+			| "\(.number):\(.headRefOid)"'); do
+		num=${row%%:*}
+		head=${row#*:}
+		git cat-file -e "$head^{commit}" 2>/dev/null || continue
+		base=$(git merge-base origin/main "$head" 2>/dev/null) || continue
+		rc=0
+		out=$(git diff --unified=1000000 "$base" "$head" | python3 "$RULES_PY" --base-rev "$base" 2>/dev/null) || rc=$?
+		[ "$rc" = 0 ] && [ -n "$out" ] || continue
+		surface=$(printf '%s' "$surface" | jq -c --arg n "$num" --arg o "$out" '. + {($n): ($o | split("\n") | map(select(. != "")))}')
+	done
+	resp=$(printf '%s' "$resp" | jq -c --argjson s "$surface" \
+		'.data.repository.pullRequests.nodes |= map(. + (if $s[.number | tostring] then {architectSurface: $s[.number | tostring]} else {} end))')
+
 	printf '%s' "$resp" |
 		jq -c --arg l "$NM_LABEL" --argjson now "$(date +%s)" --argjson m "$NM_MINUTES" --argjson b "$blockers" \
-			"$(cat "$ELIGIBLE_JQ" "$NM_JQ")"'nm_decide($l; $now; $m; $b)' |
+			"$(cat "$ELIGIBLE_JQ" "$OQ_JQ" "$NM_JQ")"'nm_decide($l; $now; $m; $b)' |
 		while IFS= read -r rec; do
 			num=$(printf '%s' "$rec" | jq -r '.number')
+			# `gh pr` or `gh issue`: the two architect causes also apply to issues.
+			NM_KIND=$(printf '%s' "$rec" | jq -r '.kind // "pr"')
 			action=$(printf '%s' "$rec" | jq -r '.action')
+			# calef, #1792, 2026-10-06 (UTC): the drain adds `needs-architect` itself for an open
+			# question or a moved surface, and only flags the reverse (hold-no-ask), because a wrong
+			# removal could merge a pull request without his ruling. Never remove it here.
+			if [ "$(printf '%s' "$rec" | jq -r '.hold')" = true ]; then
+				if w gh "$NM_KIND" edit "$num" --repo "$REPO" --add-label "$HELD_LABEL"; then
+					echo "$ME: HELD #$num for an architect ($causes)"
+				else
+					echo "$ME: #$num needs $HELD_LABEL ($causes) and could not be labeled"
+				fi
+			fi
 			causes=$(printf '%s' "$rec" | jq -r '.causes | map(.cause) | join(", ")')
 			case "$action" in
+			hold) ;;
 			adopt)
 				branch=$(printf '%s' "$rec" | jq -r '.branch')
 				head=$(printf '%s' "$rec" | jq -r '.causes[0].head')
@@ -605,13 +678,13 @@ needs_maintainer() {
 				echo "$ME: ADOPTED $branch as #$num (orphan)"
 				;;
 			clear)
-				if w gh pr edit "$num" --repo "$REPO" --remove-label "$NM_LABEL"; then
+				if w gh "$NM_KIND" edit "$num" --repo "$REPO" --remove-label "$NM_LABEL"; then
 					echo "$ME: CLEARED #$num (its cause is gone)"
 				fi
 				continue
 				;;
 			label)
-				if w gh pr edit "$num" --repo "$REPO" --add-label "$NM_LABEL"; then
+				if w gh "$NM_KIND" edit "$num" --repo "$REPO" --add-label "$NM_LABEL"; then
 					echo "$ME: LABELLED #$num ($causes)"
 				else
 					echo "$ME: #$num needs a maintainer ($causes) and could not be labelled $NM_LABEL; does the label exist?"

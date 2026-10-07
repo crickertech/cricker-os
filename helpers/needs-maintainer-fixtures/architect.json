@@ -1,0 +1,789 @@
+{
+ "data": {
+  "repository": {
+   "mergeQueue": {
+    "entries": {
+     "nodes": []
+    }
+   },
+   "pullRequests": {
+    "nodes": [
+     {
+      "number": 201,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-201",
+      "headRefOid": "0000000000000000000000000000000000000201",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/201",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-architect"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "url": "https://github.com/o/r/pull/201#c0",
+         "body": "**Lane:** lane/x, written by an agent.\n\n## What I need from you\n\n**Should X do Y?** Recommended: yes.\n"
+        }
+       ]
+      },
+      "labelEvents": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "label": {
+          "name": "needs-architect"
+         }
+        }
+       ]
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 202,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-202",
+      "headRefOid": "0000000000000000000000000000000000000202",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/202",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-architect"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "url": "https://github.com/o/r/pull/202#c0",
+         "body": "**Lane:** lane/x, written by an agent.\n\n## What I need from you\n\n**Should X do Y?** Recommended: yes.\n"
+        },
+        {
+         "createdAt": "2026-10-03T20:30:00Z",
+         "url": "https://github.com/o/r/pull/202#c1",
+         "body": "## Ruling (calef, 2026-10-03 UTC)\n\n\"Yes.\""
+        }
+       ]
+      },
+      "labelEvents": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "label": {
+          "name": "needs-architect"
+         }
+        }
+       ]
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 203,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-203",
+      "headRefOid": "0000000000000000000000000000000000000203",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/203",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-architect"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "url": "https://github.com/o/r/pull/203#c0",
+         "body": "**Lane:** lane/x, written by an agent.\n\n## What I need from you\n\n**Should X do Y?** Recommended: yes.\n"
+        },
+        {
+         "createdAt": "2026-10-03T20:30:00Z",
+         "url": "https://github.com/o/r/pull/203#c1",
+         "body": "Ruled at https://example.invalid\n\n<!-- architect-ruling -->"
+        }
+       ]
+      },
+      "labelEvents": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "label": {
+          "name": "needs-architect"
+         }
+        }
+       ]
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 204,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-204",
+      "headRefOid": "0000000000000000000000000000000000000204",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/204",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-architect"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": []
+      },
+      "labelEvents": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T21:50:00Z",
+         "label": {
+          "name": "needs-architect"
+         }
+        }
+       ]
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 205,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-205",
+      "headRefOid": "0000000000000000000000000000000000000205",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/205",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-architect"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": []
+      },
+      "labelEvents": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "label": {
+          "name": "needs-architect"
+         }
+        }
+       ]
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 206,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-206",
+      "headRefOid": "0000000000000000000000000000000000000206",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/206",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "url": "https://github.com/o/r/pull/206#c0",
+         "body": "**Lane:** lane/x, written by an agent.\n\n## What I need from you\n\n**Should X do Y?** Recommended: yes.\n"
+        }
+       ]
+      },
+      "labelEvents": {
+       "nodes": []
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 207,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-207",
+      "headRefOid": "0000000000000000000000000000000000000207",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/207",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T21:45:00Z",
+         "url": "https://github.com/o/r/pull/207#c0",
+         "body": "**Lane:** lane/x, written by an agent.\n\n## What I need from you\n\n**Should X do Y?** Recommended: yes.\n"
+        }
+       ]
+      },
+      "labelEvents": {
+       "nodes": []
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 208,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-208",
+      "headRefOid": "0000000000000000000000000000000000000208",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/208",
+      "labels": {
+       "nodes": [
+        {
+         "name": "architect-ruled"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "url": "https://github.com/o/r/pull/208#c0",
+         "body": "**Lane:** lane/x, written by an agent.\n\n## What I need from you\n\n**Should X do Y?** Recommended: yes.\n"
+        }
+       ]
+      },
+      "labelEvents": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T21:00:00Z",
+         "label": {
+          "name": "architect-ruled"
+         }
+        }
+       ]
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 209,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-209",
+      "headRefOid": "0000000000000000000000000000000000000209",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/209",
+      "labels": {
+       "nodes": [
+        {
+         "name": "architect-ruled"
+        },
+        {
+         "name": "held-by-lane"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T21:00:00Z",
+         "url": "https://github.com/o/r/pull/209#c0",
+         "body": "**Lane:** lane/x, written by an agent.\n\n## What I need from you\n\n**Should X do Y?** Recommended: yes.\n"
+        }
+       ]
+      },
+      "labelEvents": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "label": {
+          "name": "architect-ruled"
+         }
+        },
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "label": {
+          "name": "held-by-lane"
+         }
+        }
+       ]
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 210,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-210",
+      "headRefOid": "0000000000000000000000000000000000000210",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/210",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-architect"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "url": "https://github.com/o/r/pull/210#c0",
+         "body": "**Lane:** lane/x, written by an agent.\n\n## What I need from you\n\n**Should X do Y?** Recommended: yes.\n"
+        },
+        {
+         "createdAt": "2026-10-03T20:30:00Z",
+         "url": "https://github.com/o/r/pull/210#c1",
+         "body": "## Partial ruling (calef)\n\nFork 1: yes.\n\n<!-- architect-ruling partial -->"
+        }
+       ]
+      },
+      "labelEvents": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "label": {
+          "name": "needs-architect"
+         }
+        }
+       ]
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 211,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-211",
+      "headRefOid": "0000000000000000000000000000000000000211",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/211",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "url": "https://github.com/o/r/pull/211#c0",
+         "body": "## What I need from you\n\nNothing.\n"
+        }
+       ]
+      },
+      "labelEvents": {
+       "nodes": []
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 212,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-212",
+      "headRefOid": "0000000000000000000000000000000000000212",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/212",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": []
+      },
+      "labelEvents": {
+       "nodes": []
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      },
+      "architectSurface": [
+       "syscall-error: kernel/src/syscall.rs: return Err(Error::BadPointer);"
+      ]
+     },
+     {
+      "number": 213,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-213",
+      "headRefOid": "0000000000000000000000000000000000000213",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/213",
+      "labels": {
+       "nodes": [
+        {
+         "name": "architect-ruled"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": []
+      },
+      "labelEvents": {
+       "nodes": []
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      },
+      "architectSurface": [
+       "abi-surface: crates/abi/src/lib.rs: pub const X: u64 = 1;"
+      ]
+     },
+     {
+      "number": 214,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-214",
+      "headRefOid": "0000000000000000000000000000000000000214",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "Summary.\n\n## What I need from you\n\nOne ruling: may it?\n",
+      "url": "https://github.com/o/r/pull/214",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": []
+      },
+      "labelEvents": {
+       "nodes": []
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 215,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-215",
+      "headRefOid": "0000000000000000000000000000000000000215",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/215",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "url": "https://github.com/o/r/pull/215#c0",
+         "body": "This diff matched, so the lane needs to add a `## What I need from you` naming the ask."
+        }
+       ]
+      },
+      "labelEvents": {
+       "nodes": []
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 216,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-216",
+      "headRefOid": "0000000000000000000000000000000000000216",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/216",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-maintainer"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": []
+      },
+      "labelEvents": {
+       "nodes": []
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 217,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-217",
+      "headRefOid": "0000000000000000000000000000000000000217",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/217",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-maintainer"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "url": "https://github.com/o/r/pull/217#c0",
+         "body": "**Lane:** lane/x, written by an agent.\n\n## What I need from you\n\n**Should X do Y?** Recommended: yes.\n"
+        }
+       ]
+      },
+      "labelEvents": {
+       "nodes": []
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "issues": {
+    "nodes": [
+     {
+      "number": 301,
+      "createdAt": "2026-10-03T19:00:00Z",
+      "url": "https://github.com/o/r/issues/301",
+      "body": "",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-architect"
+        }
+       ]
+      },
+      "comments": {
+       "nodes": []
+      },
+      "labelEvents": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "label": {
+          "name": "needs-architect"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "number": 302,
+      "createdAt": "2026-10-03T19:00:00Z",
+      "url": "https://github.com/o/r/issues/302",
+      "body": "**Lane:** lane/x, written by an agent.\n\n## What I need from you\n\n**Should X do Y?** Recommended: yes.\n",
+      "labels": {
+       "nodes": []
+      },
+      "comments": {
+       "nodes": []
+      },
+      "labelEvents": {
+       "nodes": []
+      }
+     }
+    ]
+   },
+   "refs": {
+    "nodes": []
+   }
+  },
+  "search": {
+   "nodes": []
+  }
+ }
+}

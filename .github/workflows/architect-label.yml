@@ -34,7 +34,7 @@ name: architect label
 # (wired into `script/lint`, so it costs nothing there and needs no repository or subprocess to
 # run).
 #
-# **The five rules live in that script's own docstring, not duplicated here.** A comment here
+# **The six rules live in that script's own docstring, not duplicated here.** A comment here
 # describing them would drift from the code the moment either changed without the other; the
 # script is the one place they are decided, and this file's job is only to feed it a diff and act
 # on what it says.
@@ -48,8 +48,9 @@ name: architect label
 # unlabelled by hand after calef ruled on their syscall surface, both re-labelled by the next push.
 # `architect-ruled` records that the ruling happened, not just that someone once removed the
 # consequence of it: a pull request that carries it is skipped outright, logged and not
-# re-evaluated, regardless of what its diff still matches. The maintainer applies it together with
-# a comment citing the ruling (which PR, which line, what calef said), the same discipline
+# re-evaluated, regardless of what its diff still matches. The maintainer applies it with
+# `script/record-ruling`, which posts the ruling (what calef said) and swaps the labels in one step
+# (lane/architect-queue, 2026-10-06), the same discipline
 # `Blocked-by: #N` uses for a hold that releases itself (notes/merge-queue.md); this is a hold that
 # a decision releases rather than a commit. **Scope: it sticks until a person removes it.** A later
 # push with a decision the ruling did not cover is not re-flagged; the maintainer removes the label

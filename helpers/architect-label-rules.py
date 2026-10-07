@@ -10,7 +10,7 @@ by `.github/workflows/architect-label.yml`.
 
 This module is a pure predicate: it reads a unified diff (as `git diff --unified=1000000 base head`
 produces, so every file's diff is one hunk holding the WHOLE file, changed lines marked) and reports
-which of five rules fired, and where. It never runs `git` and never talks to GitHub; the workflow
+which of six rules fired, and where. It never runs `git` and never talks to GitHub; the workflow
 does both and pipes the diff text in on stdin. That split is what makes `--selftest` below run
 against literal fixture strings, no repository and no subprocess required, cheap enough for
 `script/lint` to run on every invocation.
@@ -23,7 +23,7 @@ against literal fixture strings, no repository and no subprocess required, cheap
         # "nothing fired" (milestone 641 (a mechanism that reports clean says over how many units,
         # and zero is loud), provisional): the workflow routes 2 and 3 to a person.
 
-# The five rules (the brief's wording; this file is the one place that has to agree with it)
+# The six rules (the brief's wording; this file is the one place that has to agree with it)
 
 1. **abi-surface**: an object type, method number or syscall number moved under `crates/abi/`.
    Detected as any changed `pub const NAME: <int type> = ...` line under that path. Broad on
@@ -54,6 +54,22 @@ against literal fixture strings, no repository and no subprocess required, cheap
    generated `README.md`) changed OUTSIDE its YAML frontmatter block (the first `---`-delimited
    section). A frontmatter-only edit (a status flip, a date) is provenance, not the decision's
    substance, and does not fire; see the frontmatter shape in any decision file's first lines.
+6. **syscall-error**: a changed code line in `kernel/src/syscall.rs` (or a future
+   `kernel/src/syscall/`) that names an `Error::` variant: a method returns an error it did not, or
+   stops returning one. Added by lane/architect-queue, 2026-10-06 (UTC), after #1745's forged-cursor
+   refusal went unlabeled. A line removed and re-added verbatim (a move) pairs off; comments do
+   not count. Measured over the 31 merges that touched the file from 2026-09-01 to 2026-10-06: it
+   fires on 13 (#1678 #1665 #1644 #1630 #1360 #1418 #1383 #1378 #1351 #1373 #1366 #1372 #882), and
+   5 of those were labeled at the time. calef ruled the breadth on #1792, 2026-10-06 (UTC): "Keep
+   it broad." The other 8, classified by reading each fired diff, so a later narrowing is measured:
+     changed what a caller can receive (4): #1351 (notification methods, new NotPermitted and
+       WrongObject), #1373 (`RETYPE` takes a count; OutOfMemory on zero), #1372 (a per-client
+       window refuses with NotPermitted), #882 (port-range methods, NotPermitted and BadMethod);
+     false alarms, a refactor returning the same error on the same path (4): #1644
+       (`current_cap` moved onto the revocation hold), #1630 (lookup code moved to `sched.rs`),
+       #1366 (the capability-table-full path restructured), #1665 (`retype_page` hoisted out of
+       a closure, still OutOfMemory).
+   Narrowing to added lines would keep all 4 true ones and drop only #1630 of the false ones.
 
 # Measured rate, 2026-10-04 UTC
 
@@ -79,6 +95,9 @@ an edit to a ratified record).
   a rename by definition.
 - **Rule 2's lock test is caret-only.** A requirement with a comma, operator or wildcard is never
   matched against a lockfile (it fires unless an identical manifest entry exists).
+- **syscall-error reads one file.** An error moved into a helper the dispatcher calls (`revoke.rs`,
+  `sched.rs`) is missed, and a refactor that rewrites a line holding `Error::` fires. Both measured
+  at zero and unknown respectively on the 31 merges above; revisit on the first miss.
 - **format-crate's layout-comment test is a regex.** A layout described in a comment without a
   table row, offset, width, bit number or `N..M` range (say, a prose paragraph that moves a field)
   is missed unless a constant moves with it. Residual and unmeasured: the table-row form is the one
@@ -401,7 +420,38 @@ def rule_decisions(fd, out):
             return
 
 
-RULES = (rule_abi_surface, rule_format_crate, rule_spawnproto, rule_decisions)
+# ---- rule 6: syscall-error -----------------------------------------------------------------------
+#
+# #1745 (2026-10-06): `AddressSpace::LIST` began refusing a forged cursor with `BadPointer`, a new
+# answer from an existing method, and no rule fired, because the constants were untouched and the
+# change was seven lines of `kernel/src/syscall.rs`. A method's errors are part of what a program is
+# written against (§10 (the capability-based microkernel process model), §16 (object revocation)),
+# so a changed line there naming an `Error::` variant fires. A line removed and added back verbatim
+# is a move, not a change, and pairs off.
+
+SYSCALL_ERROR_RE = re.compile(r'\bError::[A-Z]\w*')
+
+
+def rule_syscall_error(fd, out):
+    path = fd['path']
+    if not (path == 'kernel/src/syscall.rs' or path.startswith('kernel/src/syscall/')):
+        return
+    added, removed = [], []
+    for prefix, line in changed_lines(fd):
+        if is_comment_only(line) or not SYSCALL_ERROR_RE.search(line.split('//')[0]):
+            continue
+        (added if prefix == '+' else removed).append(line.strip())
+    for line in added:
+        if line in removed:
+            removed.remove(line)
+            continue
+        out.append(('syscall-error', path, line))
+        return
+    if removed:
+        out.append(('syscall-error', path, removed[0]))
+
+
+RULES = (rule_abi_surface, rule_format_crate, rule_spawnproto, rule_decisions, rule_syscall_error)
 
 
 def evaluate(diff_text, known=None):
@@ -777,6 +827,50 @@ diff --git a/design/naming.md b/design/naming.md
 @@ -1,1 +1,1 @@
 -old rule
 +new rule
+""", None),
+
+    ("syscall-error: a method's new refusal fires (#1745's shape)", """\
+diff --git a/kernel/src/syscall.rs b/kernel/src/syscall.rs
+--- a/kernel/src/syscall.rs
++++ b/kernel/src/syscall.rs
+@@ -1,3 +1,6 @@
+ fn address_space_list(frame: &mut TrapFrame, name: u64, cursor: u64) -> Result<i64, Error> {
++    if cursor != 0 && !crate::revoke::cursor_is_ours(root, cursor) {
++        return Err(Error::BadPointer);
++    }
+     Ok(0)
+""", 'syscall-error'),
+
+    ("syscall-error: an error a method stops returning fires too", """\
+diff --git a/kernel/src/syscall.rs b/kernel/src/syscall.rs
+--- a/kernel/src/syscall.rs
++++ b/kernel/src/syscall.rs
+@@ -1,3 +1,2 @@
+ fn f() -> Result<i64, Error> {
+-    if x { return Err(Error::Busy); }
+     Ok(0)
+""", 'syscall-error'),
+
+    ("syscall-error: a moved line, a comment, and a line with no error stay quiet", """\
+diff --git a/kernel/src/syscall.rs b/kernel/src/syscall.rs
+--- a/kernel/src/syscall.rs
++++ b/kernel/src/syscall.rs
+@@ -1,5 +1,6 @@
+-    let a = lookup(cap).ok_or(Error::InvalidCapability)?;
+     let b = 2;
++    let a = lookup(cap).ok_or(Error::InvalidCapability)?;
++    // a forged cursor is refused with Error::BadPointer
++    let c = 3;
+     Ok(0)
+""", None),
+
+    ("syscall-error: Error:: in a kernel file outside the dispatcher stays quiet", """\
+diff --git a/kernel/src/revoke.rs b/kernel/src/revoke.rs
+--- a/kernel/src/revoke.rs
++++ b/kernel/src/revoke.rs
+@@ -1,1 +1,2 @@
+ fn g() {}
++fn h() -> Result<(), Error> { Err(Error::Busy) }
 """, None),
 ]
 

@@ -24,6 +24,12 @@
 #   orphan.json   the `orphan` cause (lane/orphan-work, 2026-10-06): one branch per shape in the
 #       `refs` listing, and the drafts the drain opens for a branch that never had a pull request.
 #       Built by hand in the query's shape; the shapes are the 2026-10-06 survey's (#1787).
+#   architect.json   the three architect causes (lane/architect-queue, 2026-10-06): the invariant
+#       that `needs-architect` sits on exactly the items with an open question, plus a diff the
+#       architect-label rules fire on with no hold. Built by hand; the #1783 and #1745 shapes are
+#       cases 202 and 212. The drafts keep every other cause quiet. The held nodes in the two
+#       fixtures above (10, 26, 34 and the recorded #1564) gained an open ask comment that day, since
+#       the recorded query fetched no comments and a hold with no ask is now itself a cause.
 #
 # The order of the checks is the order of the ruling: the causes, then clearing, then the
 # drain's own shape.
@@ -38,7 +44,7 @@ if ! command -v jq >/dev/null 2>&1; then
 	exit 1
 fi
 
-program="$(cat "$here/queue-eligible.jq" "$here/needs-maintainer.jq")"
+program="$(cat "$here/queue-eligible.jq" "$here/open-question.jq" "$here/needs-maintainer.jq")"
 # decide <fixture> <now, ISO> <blockers JSON>: one "number:action[:cause,cause]" per record.
 decide() {
 	jq -c --arg l needs-maintainer --argjson now "$(jq -n --arg t "$2" '$t | fromdateiso8601')" --argjson b "$3" \
@@ -137,6 +143,53 @@ falsify 'def nm_orphan_hours: 2;' 'def nm_orphan_hours: 0;' 'the two-hour grace'
 falsify 'select($oid == $pr.headRefOid)' '.' "the adopted draft's head check"
 falsify 'select($last == null or (nm_parked([$last.labels.nodes[]?.name]) | not))' '.' 'the parked exemption'
 
+# 2d. The architect causes, at 22:00 UTC with a 30-minute grace. 201 held with an open ask:
+#     nothing. 202 held after a hand-written `## Ruling` (#1783): hold-no-ask. 203 the same, ruled
+#     by script/record-ruling's marker. 204 labeled 10 minutes ago with no ask yet: nothing. 205
+#     labeled two hours with no ask: hold-no-ask. 206 an ask, unlabeled: ask-no-hold. 207 the
+#     same, 15 minutes old: nothing yet. 208 an ask answered by `architect-ruled` going on after
+#     it: nothing. 209 a new ask after a send-back's labels: ask-no-hold. 210 held, and only a
+#     partial ruling since the ask: nothing. 211 a "Nothing." section: nothing. 212 the rules fire
+#     and no label (#1745): surface-no-hold. 213 the same under `architect-ruled`: nothing. 214 an
+#     ask in the body: ask-no-hold. 215 the labeler's own comment quoting the heading: nothing. 216
+#     its needs-maintainer cause gone: clear. 217 case 206 already wearing needs-maintainer:
+#     clear, and still held. Issues 301 (held, no ask) and 302 (an ask in the body, unlabeled)
+#     take the first two causes, and come back as issues.
+#     The repair is asymmetric (calef, #1792, 2026-10-06 UTC): `+hold` marks the ADD of
+#     needs-architect the drain makes itself (ask-no-hold, surface-no-hold), with no
+#     needs-maintainer; hold-no-ask only flags. Section 5b holds the other half: the drain never
+#     removes needs-architect.
+arch_want='["202:pr:label:hold-no-ask","203:pr:label:hold-no-ask","205:pr:label:hold-no-ask","206:pr:hold+hold:ask-no-hold","209:pr:hold+hold:ask-no-hold","212:pr:hold+hold:surface-no-hold","214:pr:hold+hold:ask-no-hold","216:pr:clear","217:pr:clear+hold","301:issue:label:hold-no-ask","302:issue:hold+hold:ask-no-hold"]'
+arch_decide() {
+	jq -c --arg l needs-maintainer --argjson now "$(jq -n '"2026-10-03T22:00:00Z" | fromdateiso8601')" \
+		"$1"'[ nm_decide($l; $now; 30; {})
+			| "\(.number):\(.kind):\(.action)" + (if .hold then "+hold" else "" end)
+				+ (if .action == "clear" then "" else ":" + (.causes | map(.cause) | join(",")) end) ]' \
+		"$fx/architect.json"
+}
+expect "the architect causes decided wrong" "$(arch_decide "$program")" "$arch_want"
+# Each mutation removes one clause 2d depends on; the decision must move.
+arch_falsify() {
+	mutated=$(printf '%s' "$program" | awk -v from="$1" -v to="$2" '
+		{ n = index($0, from); if (n) { $0 = substr($0, 1, n - 1) to substr($0, n + length(from)); hit = 1 } print }
+		END { exit !hit }') || {
+		echo "$me: the falsification for $3 no longer finds its clause: $1" >&2
+		exit 1
+	}
+	if [ "$(arch_decide "$mutated")" = "$arch_want" ]; then
+		echo "$me: removing $3 left the architect decision unchanged, so 2d does not test it." >&2
+		exit 1
+	fi
+}
+arch_falsify 'if $ask != null and ($ask.at | oq_ts) > $ruled then $ask else null end' '$ask' 'a ruling closing an ask'
+arch_falsify '(Ruling|Sent back)' '(NEVER-A-HEADING)' 'the hand-written ruling heading'
+arch_falsify 'select(($labeled_at | nm_ts) <= $now - $minutes * 60)' 'select(true)' "hold-no-ask's grace"
+arch_falsify '(oq_has_label("needs-architect") or oq_has_label("architect-ruled") or oq_has_label("held-by-lane")) | not' 'true' "surface-no-hold's label exemption"
+arch_falsify '(.labelEvents.nodes[]? | select(.label.name == "architect-ruled" or .label.name == "held-by-lane") | .createdAt)' 'empty' 'a ruling label closing an ask'
+arch_falsify '(Nothing|None)' '(NEVER-EMPTY)' 'the "Nothing." exemption'
+arch_falsify 'def nm_hold_causes: ["ask-no-hold", "surface-no-hold"];' 'def nm_hold_causes: [];' 'the drain adding needs-architect itself'
+arch_falsify 'def nm_hold_causes: ["ask-no-hold", "surface-no-hold"];' 'def nm_hold_causes: ["ask-no-hold", "surface-no-hold", "hold-no-ask"];' 'hold-no-ask staying flag-only'
+
 # 3. The episode keys the comment markers are built from, and the evidence the comment names.
 got=$(jq -c --argjson now "$(jq -n '"2026-10-03T22:00:00Z" | fromdateiso8601')" \
 	"$program"'[ nm_decide("needs-maintainer"; $now; 30; {}) | select(.number == 1 or .number == 1555 or .number == 9 or .number == 20 or .number == 24 or .number == 29 or .number == 30) | .causes[] | [.cause, .key] ]' \
@@ -151,15 +204,16 @@ expect "an ejection's group commit or head came back wrong" "$got" \
 
 # 4. The drain splices the decision and asks for every field it reads.
 f="$here/merge-drain.sh"
-if ! grep -qF '"$(cat "$ELIGIBLE_JQ" "$NM_JQ")"' "$f"; then
-	echo "$me: merge-drain.sh does not splice queue-eligible.jq and needs-maintainer.jq, so nothing decides." >&2
+if ! grep -qF '"$(cat "$ELIGIBLE_JQ" "$OQ_JQ" "$NM_JQ")"' "$f"; then
+	echo "$me: merge-drain.sh does not splice queue-eligible.jq, open-question.jq and needs-maintainer.jq, so nothing decides." >&2
 	exit 1
 fi
 for field in 'mergeQueue(branch: "main")' enqueuedAt mergedAt isDraft baseRefName isCrossRepository \
 	headRefName headRefOid createdAt mergeable body autoMergeRequest REMOVED_FROM_MERGE_QUEUE_EVENT \
 	ADDED_TO_MERGE_QUEUE_EVENT READY_FOR_REVIEW_EVENT AUTO_MERGE_DISABLED_EVENT LABELED_EVENT committedDate beforeCommit \
 	'parents(first: 2)' 'search(query: $labelled' 'refs(refPrefix: "refs/heads/"' 'compare(headRef: "main") { behindBy }' \
-	associatedPullRequests; do
+	associatedPullRequests 'comments(last: 30) { nodes { createdAt url body } }' 'issues(states: OPEN' \
+	'architectSurface:' 'RULES_PY="$(dirname "$0")/architect-label-rules.py"' 'OQ_JQ="$(dirname "$0")/open-question.jq"'; do
 	if ! grep -qF -- "$field" "$f"; then
 		echo "$me: merge-drain.sh's needs-maintainer query does not ask for $field, which the decision reads." >&2
 		exit 1
@@ -178,4 +232,19 @@ if [ -n "$armers" ]; then
 	exit 1
 fi
 
-echo "needs maintainer: ejected, conflicting, stale, unarmed, off-main, red, stale-draft and orphan pull requests labelled, each cleared when its cause goes; the drain splices it and never arms"
+# 5b. calef's ruling on #1792 (2026-10-06 UTC), the half no fixture can show: the drain adds
+#     needs-architect and never removes it, since a wrong removal could merge a pull request without
+#     his ruling. Comments are skipped, as in 5.
+removers=$(grep -v '^[[:space:]]*#' "$f" | grep -e '--remove-label "\$HELD_LABEL"' -e '--remove-label needs-architect' -e 'labels/needs-architect' || true)
+if [ -n "$removers" ]; then
+	echo "$me: merge-drain.sh removes needs-architect, which calef ruled out on #1792 (2026-10-06):" >&2
+	printf '  %s\n' "$removers" >&2
+	echo "  hold-no-ask flags needs-maintainer instead; a maintainer checks before the label comes off." >&2
+	exit 1
+fi
+if ! grep -qF -- '--add-label "$HELD_LABEL"' "$f"; then
+	echo "$me: merge-drain.sh no longer adds needs-architect for ask-no-hold and surface-no-hold (calef, #1792)." >&2
+	exit 1
+fi
+
+echo "needs maintainer: ejected, conflicting, stale, unarmed, off-main, red, stale-draft and orphan pull requests, and the three architect-queue causes, labeled, each cleared when its cause goes; the drain splices it and never arms"

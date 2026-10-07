@@ -3159,6 +3159,11 @@ python3 helpers/architect-label-rules.py --selftest >/dev/null
 echo "==> the live architect-ruled read"
 helpers/architect-ruled-selftest.sh >/dev/null
 
+# A ruling is posted and the labels swap in one step (lane/architect-queue, 2026-10-06): the marker
+# helpers/open-question.jq reads, comment before labels, and --partial leaving the hold; stub-gh.
+echo "==> record-ruling posts the ruling and swaps the labels"
+helpers/record-ruling-selftest.sh >/dev/null
+
 # A released hold reruns the old red hold runs on the head (#1766, 2026-10-06); stub-gh fixtures plus
 # a structural check that architect-ruled-clears-hold.yml listens for the release events.
 echo "==> the hold-release rerun"

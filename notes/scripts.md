@@ -52,6 +52,7 @@ Full rows, with every flag and the history behind each: [records-and-indexes.md]
 | `script/apropos <word>` | Search every document in the repository. |
 | `script/names` | Who named this, when, and what was refused. |
 | `script/metrics` | The weekly measures behind `notes/project-metrics.md`. |
+| `script/architect-queue`, `script/record-ruling` | calef's queue; rulings. |
 
 ### How the project measures itself
 

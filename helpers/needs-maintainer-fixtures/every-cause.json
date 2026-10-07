@@ -443,6 +443,15 @@
          "createdAt": "2026-10-03T21:00:00Z"
         }
        ]
+      },
+      "comments": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-02T00:00:00Z",
+         "url": "https://example.invalid/ask",
+         "body": "## What I need from you\n\nAn open ask, so the hold is honest (added with the architect causes, 2026-10-06)."
+        }
+       ]
       }
      },
      {
@@ -747,7 +756,7 @@
         }
        ]
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": []
       }
      },
@@ -779,7 +788,7 @@
         }
        ]
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": []
       }
      },
@@ -811,7 +820,7 @@
         }
        ]
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": []
       }
      },
@@ -845,7 +854,7 @@
         }
        ]
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": []
       }
      },
@@ -883,7 +892,7 @@
         }
        ]
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": [
         {
          "createdAt": "2026-10-03T21:00:00Z",
@@ -934,7 +943,7 @@
         }
        ]
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": [
         {
          "createdAt": "2026-10-03T21:50:00Z",
@@ -980,13 +989,22 @@
         }
        ]
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": [
         {
          "createdAt": "2026-10-03T21:00:00Z",
          "label": {
           "name": "ci-failing"
          }
+        }
+       ]
+      },
+      "comments": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-02T00:00:00Z",
+         "url": "https://example.invalid/ask",
+         "body": "## What I need from you\n\nAn open ask, so the hold is honest (added with the architect causes, 2026-10-06)."
         }
        ]
       }
@@ -1023,7 +1041,7 @@
         }
        ]
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": [
         {
          "createdAt": "2026-10-03T21:00:00Z",
@@ -1066,7 +1084,7 @@
         }
        ]
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": [
         {
          "createdAt": "2026-10-03T21:00:00Z",
@@ -1111,7 +1129,7 @@
         }
        ]
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": []
       }
      },
@@ -1138,7 +1156,7 @@
       "unarmed": {
        "nodes": []
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": []
       },
       "commits": {
@@ -1174,7 +1192,7 @@
       "unarmed": {
        "nodes": []
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": []
       },
       "commits": {
@@ -1210,7 +1228,7 @@
       "unarmed": {
        "nodes": []
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": []
       },
       "commits": {
@@ -1246,7 +1264,7 @@
       "unarmed": {
        "nodes": []
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": []
       },
       "commits": {
@@ -1286,7 +1304,7 @@
       "unarmed": {
        "nodes": []
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": []
       },
       "commits": {
@@ -1295,6 +1313,15 @@
          "commit": {
           "committedDate": "2026-10-03T12:00:00Z"
          }
+        }
+       ]
+      },
+      "comments": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-02T00:00:00Z",
+         "url": "https://example.invalid/ask",
+         "body": "## What I need from you\n\nAn open ask, so the hold is honest (added with the architect causes, 2026-10-06)."
         }
        ]
       }
@@ -1322,7 +1349,7 @@
       "unarmed": {
        "nodes": []
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": []
       },
       "commits": {
@@ -1362,7 +1389,7 @@
       "unarmed": {
        "nodes": []
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": []
       },
       "commits": {
@@ -1405,7 +1432,7 @@
         }
        ]
       },
-      "labelled": {
+      "labelEvents": {
        "nodes": []
       },
       "commits": {

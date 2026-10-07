@@ -8,7 +8,7 @@
 # session must pick up, so the session finds it with `gh pr list --label needs-maintainer --state
 # all` and not by watching. Nothing here arms, enqueues or re-queues; it only names.
 #
-# Eight causes, each a fact nothing else reports to anyone:
+# Eleven causes, each a fact nothing else reports to anyone:
 #
 #   ejected   the last removal from the queue was neither `merged` nor `manual`, nothing put it
 #             back since, and the head is still the one that was ejected. A removal whose event
@@ -65,6 +65,11 @@
 #             exempts `stale-draft`: a branch kept on purpose, such as argon's waiting for a board
 #             (#1738, #1732). Deleting the branch, landing it, or opening a pull request for it
 #             takes the label off. The 2026-10-06 survey that prompted this is in #1787.
+#   hold-no-ask, ask-no-hold, surface-no-hold   the architect queue's invariant broken
+#             (lane/architect-queue, 2026-10-06; definitions above `nm_decide`): `needs-architect`
+#             with no open question, an open question without it, and a diff the architect-label
+#             rules fire on with no hold or ruling label. They apply to drafts and held items too,
+#             and the first two to open issues as well as pull requests.
 #
 # `ejected`, `conflict` and `unarmed` apply only to what `eligible` admits (helpers/queue-eligible.jq,
 # spliced in front of this file); `off-main` and `red` to a ready pull request from this repository
@@ -89,7 +94,9 @@
 #              not call `gh`)
 #
 # Output, one object per pull request that has a cause or wears the label:
-#   { number, action: "label" | "keep" | "clear", causes: [ { cause, key, ... } ] }
+#   { number, kind: "pr" | "issue", action: "label" | "keep" | "clear" | "hold", hold: bool,
+#     causes: [ { cause, key, ... } ] }
+# `hold` true means the shell adds `needs-architect` (the architect causes, below).
 # and one per orphan branch that never had a pull request, for the shell to open a draft for:
 #   { number: null, branch, action: "adopt", causes: [ { cause: "orphan", ... } ] }
 #
@@ -205,7 +212,7 @@ def nm_red($now; $minutes):
   . as $pr
   | nm_ready_unheld_any_base
   | select([.labels.nodes[].name] | index(nm_red_label) != null)
-  | ([.labelled.nodes[]? | select(.label.name == nm_red_label) | .createdAt] | max // $pr.createdAt) as $since
+  | ([.labelEvents.nodes[]? | select(.label.name == nm_red_label) | .createdAt] | max // $pr.createdAt) as $since
   | select(($since | nm_ts) <= $now - $minutes * 60)
   | { cause: "red", key: $since, since: $since, head: $pr.headRefOid, branch: $pr.headRefName,
       armed: ($pr.autoMergeRequest != null) };
@@ -221,6 +228,53 @@ def nm_stale_draft($now; $blockers):
   | select(($at | nm_ts) <= $now - nm_stale_draft_hours * 3600)
   | { cause: "stale-draft", key: $at, since: $at, head: $pr.headRefOid, branch: $pr.headRefName, blockers: $bs };
 
+# The three architect causes. calef's queue is `needs-architect`, and it is complete and honest only
+# while that label sits on exactly the items with an open question (helpers/open-question.jq, spliced
+# in front of this file, decides "open"). Each cause is one way the invariant breaks; none is held
+# by another label, because a held pull request is exactly where a stale or missing hold hides.
+# Each waits `$minutes` after the fact that started it, so a lane that labels and then asks, or
+# asks and then labels, is not caught between the two.
+#
+# The repair is asymmetric, by calef's ruling on #1792, 2026-10-06 (UTC): "Approve: the bot adds
+# labels itself and only flags removals." `ask-no-hold` and `surface-no-hold` set `hold`, and the
+# shell ADDS `needs-architect` itself, without `needs-maintainer`: a wrong add costs calef a glance.
+# `hold-no-ask` only flags: a wrong removal could let a pull request merge without his ruling, which
+# cannot be undone, so a maintainer checks before the label comes off. Nothing here ever removes
+# `needs-architect`; helpers/needs-maintainer-selftest.sh fails if the drain learns to.
+
+# When `needs-architect` last went on: the newest LabeledEvent the query fetched, else creation.
+def nm_architect_since:
+  ([.labelEvents.nodes[]? | select(.label.name == "needs-architect") | .createdAt] | max) // .createdAt;
+
+# `needs-architect`, and no open question: the item sits in calef's queue with nothing to answer,
+# because a ruling was recorded without the label coming off (#1783) or nobody ever asked.
+def nm_hold_no_ask($now; $minutes):
+  select(oq_has_label("needs-architect") and oq_open == null)
+  | nm_architect_since as $labeled_at
+  | select(($labeled_at | nm_ts) <= $now - $minutes * 60)
+  | { cause: "hold-no-ask", key: (oq_last_ruling // $labeled_at), since: $labeled_at, ruled: oq_last_ruling };
+
+# An open question, and no `needs-architect`: calef's queue cannot show it.
+def nm_ask_no_hold($now; $minutes):
+  oq_open as $ask
+  | select($ask != null and (oq_has_label("needs-architect") | not))
+  | select(($ask.at | nm_ts) <= $now - $minutes * 60)
+  | { cause: "ask-no-hold", key: $ask.at, at: $ask.at, url: $ask.url, line: $ask.line };
+
+# A diff helpers/architect-label-rules.py fires on, and no hold or ruling label: the labeler did not
+# run or did not finish. #1745 conflicted with `main`, and GitHub runs no `pull_request` workflow on
+# a conflicting pull request, so its syscall change was never read. `architectSurface` is not a
+# GraphQL field: the shell runs the rules on each head and splices their lines into the node.
+def nm_surface_no_hold:
+  select(((.architectSurface // []) | length) > 0)
+  | select((oq_has_label("needs-architect") or oq_has_label("architect-ruled") or oq_has_label("held-by-lane")) | not)
+  | { cause: "surface-no-hold", key: .headRefOid, head: .headRefOid, rules: .architectSurface };
+
+# The causes the drain repairs by adding `needs-architect` (calef, #1792; see above).
+def nm_hold_causes: ["ask-no-hold", "surface-no-hold"];
+
+def nm_architect($now; $minutes): [nm_hold_no_ask($now; $minutes)] + [nm_ask_no_hold($now; $minutes)];
+
 def nm_decide($label; $now; $minutes; $blockers):
   .data as $d
   | [$d.repository.mergeQueue.entries.nodes[]? | .pullRequest.number] as $queued
@@ -231,7 +285,11 @@ def nm_decide($label; $now; $minutes; $blockers):
         | { number, labeled: ([.labels.nodes[].name] | index($label) != null),
             causes: ($hard + (if $hard == [] then [nm_unarmed($queued; $now; $minutes; $blockers)]
                                                 + [nm_off_main($now; $minutes; $blockers)] else [] end)
-                     + [nm_stale_draft($now; $blockers)] + [nm_orphan_adopted]) } ]
+                     + [nm_stale_draft($now; $blockers)] + [nm_orphan_adopted]
+                     + nm_architect($now; $minutes) + [nm_surface_no_hold]) } ]
+    + [ $d.repository.issues.nodes[]?
+        | { number, kind: "issue", labeled: ([.labels.nodes[].name] | index($label) != null),
+            causes: nm_architect($now; $minutes) } ]
     + [ $orphans[] | select(.number != null) ]
     + [ $d.repository.mergeQueue.entries.nodes[]?
         | select(.pullRequest.state != "OPEN")
@@ -243,9 +301,15 @@ def nm_decide($label; $now; $minutes; $blockers):
   # A closed pull request with a stale entry also appears in the search for labeled ones, and an
   # open one can only appear once; merge by number, keeping every cause and any labeled flag.
   | group_by(.number)
-  | map({ number: .[0].number, labeled: (map(.labeled) | any), causes: (map(.causes[]) | unique_by(.cause)) })
+  | map({ number: .[0].number, kind: (map(.kind // "pr") | first), labeled: (map(.labeled) | any),
+           causes: (map(.causes[]) | unique_by(.cause)) })
   | map(select(.labeled or (.causes | length) > 0))
-  | map(. + { action: (if (.causes | length) == 0 then "clear" elif .labeled then "keep" else "label" end) })
-  | map(del(.labeled))
-  | . + [ $orphans[] | select(.number == null) | { number, branch: .causes[0].branch, action: "adopt", causes } ]
+  # `hold`: the drain adds `needs-architect` itself. Those causes need no maintainer, so they do not
+  # count toward `needs-maintainer`; an item with only them and no label gets action "hold".
+  | map(. + { hold: (.causes | any(.cause as $c | nm_hold_causes | index($c) != null)),
+              flags: (.causes | map(select(.cause as $c | nm_hold_causes | index($c) | not))) })
+  | map(. + { action: (if (.flags | length) > 0 then (if .labeled then "keep" else "label" end)
+                       elif .labeled then "clear" else "hold" end) })
+  | map(del(.labeled, .flags))
+  | . + [ $orphans[] | select(.number == null) | { number, kind: "pr", branch: .causes[0].branch, action: "adopt", causes } ]
   | .[];
