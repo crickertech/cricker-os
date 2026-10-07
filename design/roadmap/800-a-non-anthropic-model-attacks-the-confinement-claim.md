@@ -197,11 +197,14 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   NOT-STARTED, no test; this pass's addition is the booted bidirectional
   capture, pinned red on all three ISAs. The ruling also resolves 649's option fork toward the
   badge (its option 1); the maintainer updates 649's block at merge.
-- **The claims row the fix will owe: ruled (i)** (calef, 2026-10-07, PR #1798's thread): *a
-  socket's window is the frame its holder attached; a second client of a shared Stack endpoint can
-  neither substitute nor capture another's socket traffic.* It states the property, not the
-  implementation, in the table's own idiom. The maintainer adds the row, with its number, at
-  merge.
+- **The claims row the fix will owe: ruled (i), twice.** The first wording (calef, 2026-10-07,
+  PR #1798's thread) was the window-model sentence: *a socket's window is the frame its holder
+  attached; a second client of a shared Stack endpoint can neither substitute nor capture
+  another's socket traffic.* It described the window model and died with it. Re-ruled for the
+  capability model (calef, 2026-10-07 UTC, PR #1798): *a program reaches only the sockets it
+  holds; a socket moves only by its capability.* The closed-socket half of #1817's second test stays with claim 30's revocation
+  row, where it belongs; the evidence column cites #1817's two rewritten tests and the decision
+  file that PR carries. The maintainer adds the row, with its number, at merge.
 - **The refusal targets' order: ruled (i)** (calef, 2026-10-07, PR #1798's thread). The redoxfs
   name-window TOCTOU boot is proposed as the next probe, and the maintainer mints its milestone;
   it is the likeliest live escape and the only item that could change a verdict this week. The
