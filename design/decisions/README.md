@@ -359,7 +359,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 247 | DECIDED | [The split begins with basalt holding nife, and `procps` moves first](247-the-split-begins-with-basalt-and-procps-moves-first.md) |
 | 248 | DECIDED | [The name resolver is its own confined program, not a verb inside the network stack](248-the-resolver-is-its-own-confined-program.md) |
 | 249 | DECIDED | [A running address space stays nameable, and a capability never decides when it dies](249-a-running-address-space-stays-nameable.md) |
-| 250 | DECIDED | [An image names its distribution's package index, at `basalt.nifeos.org`, and a package's bytes may live anywhere](250-images-name-one-package-index-and-the-bytes-may-live-anywhere.md) |
+| 250 | AMENDED | [An image names its distribution's package index, at `basalt.nifeos.org`, and a package's bytes may live anywhere](250-images-name-one-package-index-and-the-bytes-may-live-anywhere.md) |
 | 251 | DECIDED | [Restarting the machine is a kernel object the progenitor hands out](251-restarting-the-machine-is-a-kernel-object.md) |
 | 252 | DECIDED | [A resolver grant is one zone per client badge, and a client speaks the socket contract's shape](252-a-resolver-grant-is-a-zone-per-badge-over-the-socket-contracts-shape.md) |
 | 253 | DECIDED | [Concurrent login sessions: a greeter per terminal, authority granted at login, memory from a broker](253-concurrent-login-sessions.md) |

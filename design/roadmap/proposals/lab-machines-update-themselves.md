@@ -13,21 +13,36 @@ calef asked on 2026-10-07 (UTC): *"We should have a milestone that lets our lab 
 themselves for runs using our package management solution. Download their updates, apply them, and
 restart (if it is the kernel). Sound right? We want to be testing updates early."* Written by lane
 `lab-self-update-proposal`, which built nothing and touched no lab hardware. Every name here is
-provisional. Two appendices: [the lab machines](lab-machines-update-themselves/the-lab.md) and
-[prior art](lab-machines-update-themselves/prior-art.md).
+provisional. Appendices: [the lab machines](lab-machines-update-themselves/the-lab.md),
+[prior art](lab-machines-update-themselves/prior-art.md), [the forks](lab-machines-update-themselves/forks.md)
+and [the TUF clients measured](lab-machines-update-themselves/tuf.md).
 
-## Rulings so far
+## Rulings
 
-calef, 2026-10-07 (UTC), on #1805, relayed by the maintainer:
+calef ruled every fork on #1805 on 2026-10-07 (UTC), relayed by the maintainer in comments between
+05:51 and 13:32. Those comments are the record. The forks as he read them are in
+[the forks appendix](lab-machines-update-themselves/forks.md).
 
 | fork | ruling | his words |
 |---|---|---|
 | 0 | the tree correction below is right | "Yes" |
-| 1 | generations get tries, as a trial | "Let's try it." |
-| 2 | a trusted key vouches, the ABI revision must match, §229 narrows, as a trial | "Let's try it." |
-| 9 | added at his question | "Should we be considering TUF?", then "Yes" to adding it |
+| 1 | generations get tries, as slots have; a boot whose required set fails starts the previous generation. A trial | "Let's try it." |
+| 2 | a trusted key vouches (§220, milestone 666) and the package's kernel ABI revision must match the running kernel; a manifest field carries it; §229's refusal narrows to slot programs. A trial | "Let's try it." |
+| 3 | apply right away, by kind: next spawn, live swap, or a supervisor restart in dependency order, then a report of what was swapped, restarted or still runs old code | "Apply right away." |
+| 4 | a package is good when its service reports ready and answers a real probe; a kernel slot when the shell answers and the machine fetches the lab index again; the run's result is recorded and does not gate | "Yes" |
+| 5 | recast. Kernel and base stay separate packages. A signed basalt release manifest, a TUF target, pins a kernel and the base versions tested with it. Only packages whose ABI field needs the new kernel activate with it, in one generation on the boot that confirms the slot. Kernel N-1 compatibility is a candidate milestone | "How hard is it to keep the kernel backwards compatible for a generation?", "If we have to version the base and kernel together, should that be one package?", then "Yes" |
+| 6 | a principle wider than the lab: CI is never part of deployment; the owner decides, and automatic updates are an owner setting that pulls from a channel | "CI should not be part of deployment. Owners should decide when and if to update a machine and can enable automated updates if they choose." |
+| 7 | `uefi_loader` through U-Boot's `bootefi` on radon and argon, slot state in the GPT as on x86_64, a FAT tries file as the fallback | "Yes" |
+| 8 | the lab's index is served from cordoba, advanced on each passing basalt gate, delivered as a spec for calef's homelab agent | "Start on cordoba." |
+| 9 | TUF. The progenitor holds a minimal Kani-proven `no_std` verification core (canonical parsing, thresholds, version and expiry), offered to rust-tuf first, else published standalone. `jig` and basalt fetch and mirror on rust-tuf with RustCrypto in place of `ring`, offered upstream | "Should we be considering TUF?", then, asked what he would choose if options cost the same, "Yes" |
+| owner sources | owners choose their sources: basalt, their own mirror or server, or local media, air-gapped included. A mirror copies the TUF repository without re-signing. An owner may trust a further repository under their own root key. Freshness is on by default and switchable off per source; rollback protection is always on | "I want to make certain owners can update off of their own media or servers. I'm thinking of air gapped deployments for example.", then "Yes" |
 
-Forks 3 to 9 are open.
+Fork 6 and the owner-source requirement are recorded as calef's ruling in §250 (an image names its
+distribution's package index)'s amendment of 2026-10-07. The cordoba spec is
+[notes/lab-index-on-cordoba.md](../../../notes/lab-index-on-cordoba.md).
+
+This file stays a proposal. #1796's all-ruled proposal stayed one with its worklist, and milestone
+809 was promoted only on calef's word. Promotion, and every number below, is an integrator's.
 
 ## A correction, first
 
@@ -87,20 +102,37 @@ Checked rather than assumed. Each is a gap the model must close before a lab mac
 7. **The manifest note has no ABI revision field.** §235 ruled one; nothing writes it, so "needs a
    new kernel ABI" cannot yet be read off a package.
 
-## What to build, in order
+## The worklist, in order
 
-1. Narrow the slot. The progenitor starts every base service from the live generation, and the
-   archive carries only the kernel's boot set. The kernel's two spawns move to the progenitor (#1807).
-2. Accept a base package update (Fork 2). Narrow §229's refusal; check the ABI revision.
-3. Apply it (Fork 3): a supervisor restart, a live swap, or the next spawn, by how the program lives.
-4. Confirm it or roll it back (Fork 4).
-5. A slot writer for the kernel and progenitor, and a confirmation that the machine can take the
-   next update.
-6. The chooser on riscv64 (Fork 7), and a watchdog on every lab machine.
-7. The lab channel (Fork 8) and the run record.
+Each line is one lane. "Proposed" means a new milestone an integrator would number.
 
-Most of 1 to 4 is milestone 198 and 809's work, which the lab is the first customer of, as §159
-said. This milestone is the lab's half: items 5 to 7, and the gates that prove 1 to 4 on silicon.
+1. #1807 (the boot services leave the kernel, numbered 811 provisionally, not yet merged): the
+   kernel stops starting `block_driver` and `redoxfs_server`.
+2. Proposed, the slot holds only what nothing can restart: the progenitor starts every base service
+   from the live generation, the archive carries the kernel's boot set, and §229's refusal narrows.
+3. Proposed, the ABI revision field in the manifest note (§235, Fork 2), and the progenitor's check.
+4. Proposed, a proven TUF verifier in the progenitor (Fork 9): the `no_std` core with its Kani
+   harnesses, offered to rust-tuf as a separable crate. Milestone 666's signed builds take TUF's
+   shape here, a publisher's key as a delegated targets role.
+5. Milestone 809 (`jig`): fetching on rust-tuf with a RustCrypto backend, offered upstream; the
+   owner's sources, mirrors and local media; freshness per source; rollback always on; automatic
+   updates as an owner setting (Fork 6). Today the source is compiled in as QEMU's 10.0.2.9:8080
+   (`notes/packages.md`), so no lab machine can fetch anything until this lands.
+6. Proposed, generations get tries (Fork 1).
+7. Proposed, a supervisor restarts a service from new bytes (Fork 3), §159's restart tier, with the
+   report; live swap stays milestone 23's.
+8. The health checks of Fork 4, built with items 6 and 7.
+9. basalt (out of tree): pin bump per nife merge; on each passing gate, publish a TUF repository
+   whose release manifest pins a kernel and its base (Fork 5).
+10. This milestone: the slot writer, the slot confirmation of Fork 4, and the run record.
+11. Proposed, `uefi_loader`'s chooser on riscv64 and aarch64 through `bootefi` (Fork 7), after
+    calef answers bench item 10 in `notes/visionfive2.md`.
+12. Milestones 593 (radon's and argon's watchdog steps), 592 (radon's reset) and 53 (radon's SD
+    writes), each a bench step of calef's.
+13. calef's homelab agent: the cordoba index (Fork 8), from the spec.
+
+Candidate, not proposed: kernel N-1 compatibility (Fork 5), triggered when the stability chart's
+syscall rows stay at zero changed for several weeks, or when a first customer arrives.
 
 **Reuse:** `crates/boot_slot`, `uefi_loader`'s chooser, `crates/activation_set`, `crates/component_plan`'s
 dependency graph, the `reboot` program, `helpers/package-http-peer` and basalt's gate. MINIX 3's
@@ -137,141 +169,6 @@ by tries`, `rolled back by the chooser`, `package rolled back` (naming the servi
 check), `fetch refused`, or `not offered`. patagonia already captures both machines' serial
 (`script/board-console`). The new part is a parser that turns those lines into a verdict, the way
 `swish-check` reads the prompt.
-
-## Fork 1: what replaces the floor when a package breaks its own rollback (ruled 1a, a trial)
-
-- 1a. Generations get tries, like slots. The progenitor marks a new generation on trial, and if the
-  boot's required set (`console`, `input`, `line_editor`, `swish`, `job_undertaker` today) fails
-  or the boot is not confirmed, the next boot starts the previous generation. systemd's boot
-  counting and greenboot do this for boot entries; this applies it one layer up.
-- 1b. A small recovery set stays in the slot: a recovery shell and `net_stack`, used only when the
-  generation fails. §241 noted this and did not rule it. It reopens the floor the model removed.
-- 1c. A person with a stick or network boot. True today, and not unattended.
-
-Recommend 1a, with the chooser's own image as the last resort it already is. It keeps the slot to
-what nothing can restart, and it is the mechanism §208 already has, with tries added.
-
-## Fork 2: how the progenitor accepts a base package update (ruled 2a, a trial)
-
-calef's model needs the progenitor to accept a newer base program than its slot names.
-
-- 2a. A trusted key vouches (§220, built by milestone 666), and the progenitor checks the package's
-  ABI revision against the running kernel's. A package needing a newer ABI is staged, and activates
-  on the boot that confirms the new slot.
-- 2b. A signed index the progenitor verifies (809's option I3). Narrower trust, but every channel's
-  index needs a key the progenitor holds.
-- 2c. The slot's catalog stays the only vouch. Every base update is then a slot, which is the model
-  calef refused.
-- 2d. The owner's `vouch`. §229 refused letting a vouch claim a bare name, so a vouched base program
-  could run only by path.
-
-Recommend 2a. The ABI check is what makes model point 3 a rule rather than a hope. §229's refusal
-narrows to the slot's programs in the same change.
-
-## Fork 3: how new bytes take effect
-
-- 3a. Immediately, by kind. A per-use program at its next spawn. A swappable component by live
-  swap. A long-lived service by a restart in `component_plan`'s dependency order, the way NixOS
-  restarts changed units. A service with state it cannot hand over is restarted and its clients
-  reconnect.
-- 3b. At the next boot, as Fuchsia does for its base. Simple, and the reboot calef asked to remove.
-- 3c. `needrestart`'s way: install, then report what still runs old bytes, and the owner or the lab
-  run triggers restarts.
-
-Recommend 3a for the lab, because testing the restart is the point, with 3c's report printed either
-way. The supervisor that restarts is the progenitor for the services it starts, until a real boot
-runs `root_supervisor`.
-
-## Fork 4: what marks an update good
-
-- For a package: the restarted service reports ready, and a probe it answers passes, the way
-  milestone 23's swap reports `PROBE_SURVIVED`. Fail, and `jig rollback` restores the generation and
-  restarts the old bytes.
-- For a slot: the shell answers, the network is up, and the lab index is fetched and its digest
-  checked. Milestone 554 (a good upgrade sticks)'s file-server-ready is too early; the whole run passing would roll back a
-  healthy kernel for an unrelated red test.
-
-Recommend both, with the run's own result recorded and not gating. Fuchsia's committer and Android's
-`update_verifier` confirm what the next update needs, and so does this.
-
-## Fork 5: one step or two for a kernel update
-
-- 5a. Two steps. The slot is confirmed, then the generation moves.
-- 5b. One step. A generation records the slot build it needs; it activates on the boot that confirms
-  that slot, and a slot rollback restores the previous generation.
-
-Recommend 5b. Model point 3 makes them depend on each other, and 2a's ABI check is what reads it.
-
-## Fork 6: who decides when to update
-
-- 6a. The machine polls its channel at boot and when idle, like `update_engine`, Mender and Fuchsia.
-  Needs nothing inbound.
-- 6b. The CI run pushes, LAVA's model. nife has no inbound shell, no workflow reaches the lab, and
-  calef chose manual power for radon (milestone 224 (nothing can power-cycle radon)).
-- 6c. The boot server picks, for netbooted machines. A netbooted machine installs nothing and
-  spends no try, so it tests none of this.
-
-Recommend 6a. Network boot stays the recovery and bench path. Which mode a machine is in is calef's
-switch, since it changes his lab workflow.
-
-## Fork 7: how radon and argon choose a slot
-
-- 7a. `uefi_loader`'s chooser through U-Boot's `bootefi`. The loader builds for riscv64 and
-  aarch64 already (`notes/boot-stick.md`), so all three machines share one chooser and one format.
-  Whether radon's U-Boot 2021.10 has `bootefi`, and whether its block I/O writes: unverified.
-- 7b. U-Boot's `bootcount`, kept in radon's QSPI environment, written on every trial boot.
-- 7c. A tries file on the card's FAT, written by a U-Boot script with `fatwrite` (unverified).
-
-Recommend 7a, with 7c as the fallback. 7b writes the flash radon cannot boot without. Under the
-model, the slot changes only with the kernel, so this matters less than it did.
-
-## Fork 8: where the lab channel lives and when it advances
-
-basalt pins nife by commit and bumps the pin daily at 06:17 UTC. It publishes nothing a machine can
-fetch: its gate's builds are 14-day workflow artifacts. No channel exists.
-
-- 8a. A `lab` index at `basalt.nifeos.org`. Waits on the index path (§250 (an image names its
-  distribution's package index)), TLS (milestone 801 (packages over the internet)), and calef publishing.
-- 8b. A `lab` index on patagonia over the LAN, served by `helpers/package-http-peer`, the same
-  format as 8a.
-- 8c. Package bytes as GitHub Releases on basalt, the index on patagonia.
-
-Recommend 8b now and 8a later. The channel advances on each basalt gate that passes, with the pin
-bump triggered per nife merge. The runner minutes that costs are not measured.
-
-## Fork 9: the update index is a TUF repository
-
-Fork 2's trial signs packages. A signature alone does not stop an attacker, or a stale mirror,
-serving an older signed package, freezing the index at a vulnerable moment, or mixing packages from
-two releases. Nor does it say how to survive a stolen key. The Update Framework answers those with
-separate roles (root, targets, snapshot, timestamp), a threshold of root keys, root rotation,
-version numbers that only grow, and a timestamp that expires. That expiry is the freshness §196
-(nife carries TLS) named as missing: "an expiry in signed metadata (the Update Framework's timestamp
-role ...), which the format fork's metadata rows do not yet carry".
-
-- 9a. basalt publishes the index as a TUF repository. `jig` and the progenitor verify the metadata
-  before trusting a package. 809's I3 (a signed index) and 666's signed builds take TUF's shape:
-  a publisher's key is a delegated targets role, and 666's per-key ceiling rides in the
-  delegation's custom fields.
-- 9b. Fork 2's per-package signatures plus an expiring signed index of nife's own design. Fewer
-  parts, and it rebuilds TUF's roles one incident at a time.
-- 9c. Per-package signatures only. Leaves rollback and freeze attacks open.
-
-Prior art: Fuchsia's package resolver and Bottlerocket's `updog` both verify TUF, PyPI accepted it
-(PEP 458), Sigstore delivers its trust root through it, and Uptane extends it for vehicle fleets.
-
-Neither Rust client builds for nife's targets today, and both fail the same way the tree's TLS
-probes did: their C crypto. rust-tuf (Fuchsia's) is runtime-agnostic and needs no thread. Its
-crypto is `ring`, used in 11 files, and its last crates.io release (2022) no longer compiles on our
-nightly. tough (Bottlerocket's) is actively released, but needs `aws-lc-rs` and tokio's file system,
-which runs on a thread pool, and our `std` is single-threaded. The measurements are in
-[the TUF appendix](lab-machines-update-themselves/tuf.md).
-
-Recommend 9a, built on rust-tuf. Swap its `ring` calls for the RustCrypto verifiers
-`cryptography_provider` already builds, behind a feature offered upstream. Offer the Kani proofs of
-the metadata checks upstream too, per calef's standing direction on #1806. Writing our own client
-loses to both on every count except the size of the patch. A key in an image is what §195 (a reviewed recipe vouches for a package) called
-irreversible; TUF's root rotation is the mechanism that makes it less so.
 
 ## Scope note (rule 5)
 

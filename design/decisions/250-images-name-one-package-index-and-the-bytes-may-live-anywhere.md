@@ -1,5 +1,5 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-10-03
 decided: 2026-10-06
 ratified_by: calef
@@ -13,6 +13,8 @@ is served from?"* Then: *"yes, index at packages.nifeos.org."* Later the same da
 the host: *"confirm basalt.nifeos.org"*, one host per distribution. *(Section number provisional until
 the merge queue lands it.)* Recorded by the maintainer's lane from the milestone 198 (a package
 manager) decision review, question 1, researched 2026-10-05 against `main` at `8848a701f`.
+
+*Amended 2026-10-07 (UTC) by calef, on #1805: basalt's index is an image's default source, not its only one, and CI never deploys. See the amendment at the end.*
 
 ## The ruling
 
@@ -102,3 +104,38 @@ cheap option.
 - The index's path and file name on `basalt.nifeos.org` are pending calef's ruling.
 - No DNS record or host exists for `basalt.nifeos.org` yet. Creating them is calef's act; agents
   publish nothing under `nifeos.org`.
+
+## Amendment, 2026-10-07 (UTC): the owner chooses the source and the moment
+
+calef ruled two things on pull request #1805, reading the lab self-update proposal
+(`design/roadmap/proposals/lab-machines-update-themselves.md`). They are recorded here because this
+is the section that rules where an update comes from, and its first clause is the one they change.
+§208 (installing is granting) rules what an install changes, and §157 (a trivial install) rules how
+a stranger starts; neither names a source.
+
+On when a machine updates: *"CI should not be part of deployment. Owners should decide when and if
+to update a machine and can enable automated updates if they choose."*
+
+1. CI is never part of deployment. A gate may publish a release; nothing pushes it onto a machine.
+2. The owner decides whether and when a machine updates. Automatic updates are a setting the owner
+   may turn on, and a machine with it on pulls from its channel. The lab machines update
+   automatically because their owner turned that on.
+
+On where it updates from: *"I want to make certain owners can update off of their own media or
+servers. I'm thinking of air gapped deployments for example."* Then *"Yes"* to the following.
+
+3. The source is the owner's setting: basalt's index at `basalt.nifeos.org` (clause 1 above, now the
+   default), a mirror or server the owner runs, or local media, air-gapped machines included.
+4. The index is a TUF repository (the same day's Fork 9 on #1805). A mirror copies it without
+   re-signing, so every copy verifies against basalt's root. An owner may also trust a further
+   repository under a root key of their own, as §221 (the boot prompt is the owner's console) lets
+   an owner vouch today.
+5. Freshness, TUF's timestamp expiry, is enforced by default, and the owner may switch it off per
+   source, so older media still installs. Rollback protection, versions that never decrease, is
+   always on and has no switch.
+
+Prior art named with the ruling, recalled rather than read for this amendment: Debian's
+`apt-offline`, `apt-cdrom` and `Check-Valid-Until=false`; Red Hat Satellite's disconnected mirrors;
+WSUS; and Uptane, whose Director repository is a per-fleet source. This binds milestone 809 (the
+package client becomes a program), whose source is compiled in today as QEMU's `10.0.2.9:8080`.
+
