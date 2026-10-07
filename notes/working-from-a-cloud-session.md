@@ -51,7 +51,7 @@ branch unclaimed.
 ## Claim, gate and land
 
 Claim as `briefs/` and `AGENTS.md` describe: branch, empty claim commit, push, draft pull request.
-`script/claim` works, but defaults its worktree to `~/projects/nife-worktrees`. Set `NIFE_WORKTREES`
+`script/claim` works, but defaults its worktree to `nife-worktrees` beside the main checkout, which in a cloud clone is not where you want it. Set `NIFE_WORKTREES`
 beside the clone, or claim in the clone itself with `git switch -c`.
 
 Gate with `briefs/gate-in-ci.md`, all of it. Run the four cheap gates locally, then dispatch

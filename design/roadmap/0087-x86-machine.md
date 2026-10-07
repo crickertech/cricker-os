@@ -86,7 +86,7 @@ never covered on this machine.
 ## What the screen showed, and a finding that was nearly invented
 
 The framebuffer console worked: the tour was legible on the panel during boot (calef, at the bench).
-A photograph taken after the halt (`IMG_4143`, filed in `~/projects/xenon/` per
+A photograph taken after the halt (`IMG_4143`, filed with the off-tree originals per
 `notes/xenon-firmware.md`'s convention) shows a sparse dotted grid, which is the panel after the
 machine stopped rather than anything nife drew.
 

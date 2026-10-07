@@ -83,7 +83,7 @@ share survives there, which is radon's next evening.
 761's own. Same bench rules, thresholds and one-task guard as [the note's](null-syscall-under-load.md#the-radon-run-that-decides-it):
 
 ```sh
-cd ~/projects/nife-worktrees/null-syscall-under-load
+cd <worktree root>/null-syscall-under-load
 script/board-netboot --root target/board-main             # boots 1 to 3
 script/board-netboot --root target/board-main-lock-wait   # boots 4 and 5
 ```

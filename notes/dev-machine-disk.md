@@ -38,7 +38,7 @@ Every lane is idle. These must print nothing:
 No worktree holds uncommitted work you have not accounted for. The copy below carries uncommitted
 files across, but you want to know what is there before you delete the original:
 
-    git -C ~/projects/nife worktree list --porcelain | sed -n 's/^worktree //p' |
+    git -C <main checkout> worktree list --porcelain | sed -n 's/^worktree //p' |
     while IFS= read -r w; do
         [ -n "$(git -C "$w" status --porcelain 2>/dev/null | head -1)" ] && echo "DIRTY $w"
     done
@@ -48,8 +48,8 @@ files across, but you want to know what is there before you delete the original:
 Free space for the copy. Build output is deleted rather than copied (step 3 says why), so the copy
 needs only the source:
 
-    du -sh ~/projects/nife-worktrees                       # everything
-    find ~/projects/nife-worktrees -mindepth 2 -type d -name target -prune -exec du -sk {} + |
+    du -sh <worktree root>                       # everything
+    find <worktree root> -mindepth 2 -type d -name target -prune -exec du -sk {} + |
         awk '{s+=$1} END {printf "%.1f GiB of it is target/\n", s/1048576}'
 
 On patagonia on 2026-10-06 that was 45 GiB across 65 worktrees, 36 GiB of it `target/`, so the copy
@@ -112,12 +112,12 @@ The two counts must match. Then swap in the symlink:
 
     mv nife-worktrees nife-worktrees.old
     ln -s /Volumes/nife-build/nife-worktrees nife-worktrees
-    git -C ~/projects/nife worktree list | grep -c prunable      # 0
+    git -C <main checkout> worktree list | grep -c prunable      # 0
 
 Keep `nife-worktrees.old` until the checks under "After the move" pass, then delete it and reclaim
 what the snapshots still hold:
 
-    rm -rf ~/projects/nife-worktrees.old
+    rm -rf <worktree root>.old
     tmutil thinlocalsnapshots / 999999999999 4
     df -h /System/Volumes/Data
 
@@ -128,7 +128,7 @@ The main checkout holds 10 GiB in `target/` and about 5 GiB more in its sub-work
 `target/` churns at every merge, because the maintainer rebuilds the farm there to relink
 `nife-dev`. Move it with a symlink:
 
-    cd ~/projects/nife
+    cd <main checkout>
     rm -rf target
     mkdir /Volumes/nife-build/nife-main-target
     ln -s /Volumes/nife-build/nife-main-target target
@@ -224,8 +224,8 @@ This lane adds an anchored `/target` line.
 
 In one worktree (any lane's, or a fresh one from `script/claim`):
 
-    git -C ~/projects/nife worktree list
-    cd ~/projects/nife-worktrees/<one>
+    git -C <main checkout> worktree list
+    cd <worktree root>/<one>
     cargo build -p xtask && script/lint
     cargo xtask std-src            # prints the "different volumes ... copied" line once
     cargo xtask std-stamp          # must equal the main checkout's
@@ -245,7 +245,7 @@ Every lane idle, as before. Then reverse step 3 and step 4:
     rm nife-worktrees                                   # the symlink only
     find /Volumes/nife-build/nife-worktrees -mindepth 2 -type d -name target -prune -exec rm -rf {} +
     ditto /Volumes/nife-build/nife-worktrees nife-worktrees
-    cd ~/projects/nife && rm target && cargo xtask std-src
+    cd <main checkout> && rm target && cargo xtask std-src
     diskutil apfs deleteVolume /Volumes/nife-build
 
 Deleting the volume also drops its Time Machine exclusion, which is keyed by its UUID.
@@ -260,7 +260,7 @@ Deleting the volume also drops its Time Machine exclusion, which is keyed by its
 - **`cargo clean` in the main checkout deletes the symlink, not what it points at.** Measured with a
   scratch crate: `cargo clean` reported "Removed 1 file, 115B total" and left the build output on the
   other volume. `rm -rf target` does the same. The next build then makes a real `target/` on the
-  Data volume and quietly undoes step 4. After either, check `ls -ld ~/projects/nife/target`, empty
+  Data volume and quietly undoes step 4. After either, check `ls -ld <main checkout>/target`, empty
   `/Volumes/nife-build/nife-main-target` by hand, and redo the `ln -s`. Nothing gates this; it is
   machine state, not tree state.
 - **A farm on the new volume is a copy, not a hard link**, at about 1.2 GiB each. Moving

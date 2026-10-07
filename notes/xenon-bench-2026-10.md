@@ -43,12 +43,12 @@ The bench also prints the namespace's exact size, which is the cross-check step 
 ## Before the evening, on patagonia
 
 Build on current `main` and note the commit for the Results rows. Each build takes about 20 seconds
-warm. Prebuilt copies from `a08efc8dc` are at `~/projects/nife-worktrees/xenon-bench-images-2026-10-04/`
+warm. Prebuilt copies from `a08efc8dc` were at `xenon-bench-images-2026-10-04/` in the worktree root (`nife-worktrees` beside the main checkout)
 with a `SHA256SUMS` file, for an evening where building is not convenient; a fresh build is
 preferred because `main` moves.
 
 ```sh
-cd ~/projects/nife
+cd <main checkout>
 pgrep -l qemu                                  # nothing of yours should be running
 git log -1 --format=%h                         # goes in both Results rows
 cargo xtask disk-throughput --stage-only       # -> target/esp-disk-throughput/EFI/BOOT/BOOTX64.EFI
@@ -144,7 +144,7 @@ The steps below are the plan as written.
 On the Mac, before powering xenon on, with the FTDI adapter plugged in:
 
 ```sh
-cd ~/projects/nife/target
+cd <main checkout>/target
 ls /dev/cu.usbserial-*                         # A28FR8LZ on 2026-09-17
 screen -L /dev/cu.usbserial-A28FR8LZ 115200    # -L logs to ./screenlog.0; exit with ctrl-a k
 ```

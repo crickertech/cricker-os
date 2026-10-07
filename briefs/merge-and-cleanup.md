@@ -115,25 +115,25 @@ Checking what the machine is actually holding, before and instead of guessing (r
 machine, 2026-09-23):
 
     $ git worktree list
-    /Users/calef/projects/nife                       34d7d89f0 [main]
-    /Users/calef/projects/nife-worktrees/a3          e6958bc5e [maintainer/installing-is-granting]
-    /Users/calef/projects/nife-worktrees/charter     7fc963909 [maintainer/a-brief-is-not-about-the-reader]
+    /work/nife                       34d7d89f0 [main]
+    /work/nife-worktrees/a3          e6958bc5e [maintainer/installing-is-granting]
+    /work/nife-worktrees/charter     7fc963909 [maintainer/a-brief-is-not-about-the-reader]
     ...
-    /Users/calef/projects/nife-worktrees/m315        10c669ecd [milestone/315-port-revocation-two-core]
+    /work/nife-worktrees/m315        10c669ecd [milestone/315-port-revocation-two-core]
 
-    $ du -sh ~/projects/nife-worktrees/*/target
-    1.0G    /Users/calef/projects/nife-worktrees/a3/target
-    1.1G    /Users/calef/projects/nife-worktrees/charter/target
+    $ du -sh <worktree root>/*/target
+    1.0G    /work/nife-worktrees/a3/target
+    1.1G    /work/nife-worktrees/charter/target
     ...
-    4.8G    /Users/calef/projects/nife-worktrees/m315/target
+    4.8G    /work/nife-worktrees/m315/target
 
     $ df -h /
     /dev/disk3s1s1   460Gi    12Gi   115Gi    10%   /
 
 A clean removal of a merged lane:
 
-    $ git -C ~/projects/nife-worktrees/m315 status --short
-    $ git worktree remove ~/projects/nife-worktrees/m315
+    $ git -C <worktree root>/m315 status --short
+    $ git worktree remove <worktree root>/m315
     $ git branch -d milestone/315-port-revocation-two-core
     Deleted branch milestone/315-port-revocation-two-core (was 10c669ecd).
     $ git worktree prune
@@ -141,7 +141,7 @@ A clean removal of a merged lane:
 And the relink, confirmed by reading it back:
 
     $ rustup toolchain list -v | grep nife-dev
-    nife-dev /Users/calef/projects/nife/target/nife-farm
+    nife-dev /work/nife/target/nife-farm
 
 If that path names a worktree under `nife-worktrees/` rather than the main checkout, the link is
 pointing at a lane and step 4 has not been done (or has been undone by a lane that gated since).
@@ -176,6 +176,5 @@ Three things are outside this brief. Stop and hand them back rather than guessin
 - **The `nife-dev` relink is racy and this brief does not fix that.** Another lane can gate and take
   the link between step 4 and the next time anyone looks. `notes/std.md` records why relinking loudly
   does not make concurrent lanes safe; there is no version of this step that stays true.
-- The example paths are this machine's. The main checkout is `/Users/calef/projects/nife` and
-  lanes live under `~/projects/nife-worktrees/`; nothing here is portable to another machine, and
-  nothing checks that.
+- The example paths are invented. The main checkout is whatever your clone is, and lanes live in
+  `nife-worktrees` beside it (the worktree root); nothing checks that your layout matches.
