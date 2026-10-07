@@ -3130,6 +3130,12 @@ python3 helpers/prose_only.py --selftest >/dev/null
 echo "==> CI job wall-time budgets"
 python3 helpers/job-budget.py --selftest >/dev/null
 python3 helpers/job-budget.py lint
+# No rust-cache entry is saved from a merge group, where no later run can restore it
+# (lane/actions-cache-budget, provisional; notes/actions-cache-budget-2026-10-07.md). Watched
+# failing 2026-10-07 against base 1f5be6843: 18 unscoped steps in ci.yml and verify.yml.
+echo "==> merge groups save no rust-cache entry"
+python3 helpers/cache_save_scope.py --selftest >/dev/null
+python3 helpers/cache_save_scope.py
 # Milestone 640 (a gate is not evidence until somebody has watched it fail), provisional: every
 # workflow cites a run where it went red (or fired) for the reason it exists, or says `never`, and
 # only a workflow main already had when this landed (2026-10-04) may say `never`, which is read from

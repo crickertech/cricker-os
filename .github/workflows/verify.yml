@@ -237,7 +237,12 @@ jobs:
         shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
+      # `save-if`: no rust-cache entry is saved from a merge group, since no later run can restore
+      # it. The measurement is at ci.yml's first rust-cache step and in
+      # notes/actions-cache-budget-2026-10-07.md.
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name != 'merge_group' }}
       # **Not cached, on a measurement** (2026-10-07 UTC, lane/cache-kani, after calef's "We should
       # cache kani"). This step takes 8 to 20 seconds, mean 12, over 96 jobs in the 14 verify runs
       # that installed Kani between 37581663864 and 37633221412, and 8 to 21 in falsifications.yml
@@ -312,7 +317,9 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
-      - uses: Swatinem/rust-cache@v2
+      # No rust-cache in this job (calef, #1814, 2026-10-07 UTC): a hit gained under half a minute,
+      # and without it the time the step spent moves into the first cargo build rather than
+      # growing. See notes/actions-cache-budget-2026-10-07.md.
       # Not cached; the `prove` job's comment has the measurement.
       - name: Install Kani
         run: |
@@ -351,7 +358,9 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
-      - uses: Swatinem/rust-cache@v2
+      # No rust-cache in this job (calef, #1814, 2026-10-07 UTC): a hit gained under half a minute,
+      # and without it the time the step spent moves into the first cargo build rather than
+      # growing. See notes/actions-cache-budget-2026-10-07.md.
       # The patch's file name carries the Kani version, and hashFiles reads bytes, not names, so the
       # name goes into the key on its own.
       - name: Name the carried Kani patch
@@ -438,6 +447,8 @@ jobs:
         with:
           fetch-depth: 0
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name != 'merge_group' }}
       # Not cached; the `prove` job's comment has the measurement.
       - name: Install Kani
         run: |
