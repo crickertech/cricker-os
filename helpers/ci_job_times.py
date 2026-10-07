@@ -24,8 +24,8 @@ it. Nothing read CI time over weeks. This does, in two halves.
 
 # `update`: the daily record (§254, Fork 4)
 
-For each UTC day, every completed `merge_group` run of the workflows `helpers/job-budget.py` covers,
-read through the jobs API, which already holds each job's and each step's start and end, so no job
+For each UTC day, every completed `merge_group` run of `ci.yml` and `verify.yml` (`RECORDED`), read
+through the jobs API, which already holds each job's and each step's start and end, so no job
 had to change to provide them. One row per day, workflow, job and step, appended to `CSV`:
 
     date,workflow,job,variant,kind,name,runs,median_seconds,max_seconds
@@ -91,6 +91,11 @@ HISTORY = 10
 CLOSE_AFTER = 3
 DEFAULT_WINDOW_DAYS = 2
 MARKER = "<!-- ci-job-times:job=%s -->"
+# The workflows the daily record reads. Wider than `helpers/job-budget.py`'s WORKFLOWS on purpose:
+# `verify.yml` is outside milestone 721's budget until its medians exist (that milestone's first
+# BUGS entry), and this record is where they come from. `sync` reads only the budgeted ones, since a
+# job with no budget has no line to cross.
+RECORDED = [".github/workflows/ci.yml", ".github/workflows/verify.yml"]
 
 
 def _load_budget_module():
@@ -376,7 +381,7 @@ def update(argv):
     today = datetime.datetime.now(datetime.timezone.utc).date()
     since = datetime.date.fromisoformat(
         arg_value(argv, "--since", (today - datetime.timedelta(days=DEFAULT_WINDOW_DAYS)).isoformat()))
-    for workflow in jb.WORKFLOWS:
+    for workflow in RECORDED:
         patterns = display_patterns(open(workflow).read())
         name = os.path.basename(workflow)
         day = since
