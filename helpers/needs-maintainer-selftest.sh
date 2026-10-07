@@ -236,6 +236,47 @@ mc_falsify() {
 }
 mc_falsify 'and .missingChecks.tried == true' 'and true' 'the rerun-first rule'
 mc_falsify 'select(.isDraft == false and .autoMergeRequest != null' 'select(true and .autoMergeRequest != null' "the draft exemption"
+# 2f. The `stuck-head` cause (lane/drain-stuck-queue-head, 2026-10-07 UTC; names provisional), from
+#     #1824: a queue entry AWAITING_CHECKS from 16:38 to 19:42 UTC although every run of its group
+#     had finished by 17:01 (CI and verify `failure`, every listed job green). Two halves.
+#     helpers/stuck-head.jq summarizes the recorded runs response (stuck-head-runs-1824.json) and
+#     says nothing while a run is unfinished or none exists. The decision, at 19:30 UTC with a
+#     10-minute threshold, reads fixture stuck-head.json: 1824 finished 2.5 hours ago: re-queue. 1850
+#     finished 5 minutes ago: nothing yet. 1860 stuck, and the drain's own marker comment from an
+#     earlier stall is on it: label (second stall, no re-queue). 1824 is the first stall: `requeue`
+#     (calef ruled the drain recovers it, #1833), no label. 1851 runs still going (no verdict): nothing. 1852 not
+#     AWAITING_CHECKS: nothing. 1853 labeled, no longer stuck: clear.
+sh_got=$(jq -c -f "$here/stuck-head.jq" "$fx/stuck-head-runs-1824.json" | jq -c '{completedAt, names: (.runs | map(.name)), conclusions: (.runs | map(.conclusion))}')
+expect "stuck-head.jq read #1824's recorded group wrong" "$sh_got" \
+	'{"completedAt":"2026-10-07T17:01:00Z","names":["CI","verify","ready status","architect hold","empty diff"],"conclusions":["failure","failure","success","success","success"]}'
+if [ -n "$(jq '.workflow_runs[0].status = "in_progress"' "$fx/stuck-head-runs-1824.json" | jq -c -f "$here/stuck-head.jq")" ] ||
+	[ -n "$(printf '{"workflow_runs":[]}' | jq -c -f "$here/stuck-head.jq")" ]; then
+	echo "$me: stuck-head.jq called a group with a running run, or no runs, finished." >&2
+	exit 1
+fi
+stuck_want='["1824:requeue:stuck-head-requeue","1853:clear","1860:label:stuck-head"]'
+stuck_decide() {
+	jq -c --arg l needs-maintainer --argjson now "$(jq -n '"2026-10-07T19:30:00Z" | fromdateiso8601')" \
+		"$1"'[ nm_decide($l; $now; 30; {})
+			| "\(.number):\(.action)" + (if .action == "clear" then "" else ":" + (.causes | map(.cause) | join(",")) end) ]' \
+		"$fx/stuck-head.json"
+}
+expect "the stuck-head cause decided wrong" "$(stuck_decide "$program")" "$stuck_want"
+for m in 'def nm_stuck_head_minutes: 10;|def nm_stuck_head_minutes: 0;|the ten-minute threshold' \
+	'.state == "AWAITING_CHECKS" and .stuckHead|.stuckHead|the AWAITING_CHECKS test' \
+	'contains("needs-maintainer:stuck-head")|contains("NEVER-MATCHES")|the earlier-stall marker (a second stall would re-queue forever)' \
+	'elif .requeue then "requeue"|elif false then "requeue"|the requeue action'; do
+	mutated=$(printf '%s' "$program" | awk -v from="${m%%|*}" -v to="$(printf '%s' "$m" | cut -d'|' -f2)" '
+		{ n = index($0, from); if (n) { $0 = substr($0, 1, n - 1) to substr($0, n + length(from)); hit = 1 } print }
+		END { exit !hit }') || {
+		echo "$me: the falsification for ${m##*|} no longer finds its clause." >&2
+		exit 1
+	}
+	if [ "$(stuck_decide "$mutated")" = "$stuck_want" ]; then
+		echo "$me: removing ${m##*|} left the stuck-head decision unchanged, so 2f does not test it." >&2
+		exit 1
+	fi
+done
 
 # 3. The episode keys the comment markers are built from, and the evidence the comment names.
 got=$(jq -c --argjson now "$(jq -n '"2026-10-03T22:00:00Z" | fromdateiso8601')" \
@@ -281,7 +322,7 @@ for field in 'mergeQueue(branch: "main")' 'position enqueuedAt state' 'mergedAt 
 	'parents(first: 2)' 'search(query: $labelled' 'refs(refPrefix: "refs/heads/"' 'compare(headRef: "main") { behindBy }' \
 	associatedPullRequests 'comments(last: 30) { nodes { createdAt url body } }' 'issues(states: OPEN' \
 	'budget: search(query: $budget' '... on Issue { number state' __typename \
-	'architectSurface:' 'missingChecks:' 'RULES_PY="$(dirname "$0")/architect-label-rules.py"' 'OQ_JQ="$(dirname "$0")/open-question.jq"'; do
+	'headCommit { oid }' 'STUCK_JQ="$(dirname "$0")/stuck-head.jq"' 'architectSurface:' 'missingChecks:' 'RULES_PY="$(dirname "$0")/architect-label-rules.py"' 'OQ_JQ="$(dirname "$0")/open-question.jq"'; do
 	if ! grep -qF -- "$field" "$f"; then
 		echo "$me: merge-drain.sh's needs-maintainer query does not ask for $field, which the decision reads." >&2
 		exit 1
@@ -292,13 +333,40 @@ done
 #    and never enqueues. Comments are skipped, so the history can still name what it did, and so
 #    is a command quoted in a pull request comment (\`gh pr merge ...\`), which tells a person
 #    what to type rather than typing it.
-armers=$(grep -v '^[[:space:]]*#' "$f" | grep -e 'gh pr merge' -e 'enqueuePullRequest' | grep -v '\\`gh pr merge' || true)
+#
+#    **One marked exception, by name, and a foot gun** (calef, #1833, 2026-10-07 UTC): the function
+#    `requeue_stuck_head` may dequeue and enqueue, because a group whose runs all finished and
+#    which GitHub neither merged nor ejected held #1824 at the head of the queue for 3 hours. Its
+#    body is cut out before the grep, so the gate still forbids a re-arm in every other function,
+#    and it must have exactly one caller. Do not widen the grep to admit anything else, and do not
+#    copy the exception to a second cause: that is how the 2026-10-03 re-queue fights began.
+armers_in() {
+	awk '/^requeue_stuck_head\(\) \{/ { skip = 1 } !skip { print } skip && /^\}/ { skip = 0 }' "$1" |
+		grep -v '^[[:space:]]*#' | grep -e 'gh pr merge' -e 'enqueuePullRequest' | grep -v '\\`gh pr merge' || true
+}
+armers=$(armers_in "$f")
 if [ -n "$armers" ]; then
 	echo "$me: merge-drain.sh arms or enqueues again, which calef ruled out on #1564 (2026-10-03):" >&2
 	printf '  %s\n' "$armers" >&2
 	echo "  A pull request a lane did not arm is labelled needs-maintainer instead." >&2
+	echo "  The one exception is requeue_stuck_head (calef, #1833)." >&2
 	exit 1
 fi
+callers=$(grep -v '^[[:space:]]*#' "$f" | grep -c 'requeue_stuck_head' || true)
+if [ "$callers" != "2" ]; then
+	echo "$me: requeue_stuck_head must be defined once and called once (found $callers mentions); it is the one exception to #1564." >&2
+	exit 1
+fi
+# Falsification: a re-arm planted in any other function must trip the gate.
+planted=$(mktemp)
+sed 's|^dequeue_held() {|dequeue_held() {\
+	w gh pr merge 1 --auto --merge|' "$f" >"$planted"
+if [ -z "$(armers_in "$planted")" ]; then
+	rm -f "$planted"
+	echo "$me: section 5 no longer catches a re-arm planted in dequeue_held, so it guards nothing." >&2
+	exit 1
+fi
+rm -f "$planted"
 
 # 5b. calef's ruling on #1792 (2026-10-06 UTC), the half no fixture can show: the drain adds
 #     needs-architect and never removes it, since a wrong removal could merge a pull request without
@@ -315,4 +383,4 @@ if ! grep -qF -- '--add-label "$HELD_LABEL"' "$f"; then
 	exit 1
 fi
 
-echo "needs maintainer: ejected, conflicting, stale, unarmed, off-main, red, stale-draft, orphan and unmergeable pull requests, the three architect-queue causes, and a CI job near its budget, labeled, each cleared when its cause goes; the drain splices it and never arms"
+echo "needs maintainer: ejected, conflicting, stale, unarmed, off-main, red, stale-draft, orphan, stuck-head and unmergeable pull requests, the three architect-queue causes, and a CI job near its budget, labeled, each cleared when its cause goes; the drain splices it and never arms, except to re-queue a stuck head once (#1833)"

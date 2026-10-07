@@ -78,6 +78,20 @@
 #             half; the shell splices its verdict into the node as `missingChecks`). #1814 on
 #             2026-10-07 (UTC): CI finished `failure` with every job green, and the required cpu
 #             matrix job was never created. Keyed on the head, so one comment per head.
+#   stuck-head  a merge-queue entry that reads `AWAITING_CHECKS` although every workflow run of its
+#             merge group has completed, and the last of them did so `nm_stuck_head_minutes` (10)
+#             ago. #1824 sat at the head of the queue from 16:38 to 19:42 UTC on 2026-10-07: its
+#             runs were done by 17:01, CI and verify `failure` with every listed job green, so a
+#             required check never posted and GitHub neither merged nor ejected it, and everything
+#             behind it waited until the maintainer dequeued it by hand. The shell splices each
+#             `AWAITING_CHECKS` entry's verdict (helpers/stuck-head.jq) into the entry as
+#             `stuckHead`. **The one cause the drain acts on.** calef ruled on #1833 (2026-10-07 UTC)
+#             that the drain recovers a stuck head itself, a narrow exception to #1564: the FIRST
+#             stall of a pull request is `stuck-head-requeue`, which carries no label and makes the
+#             shell dequeue the entry and enqueue it again at the back. A SECOND stall (the drain's
+#             own earlier `needs-maintainer:stuck-head` comment is on the pull request) is plain
+#             `stuck-head`: label and comment, no re-queue. Keyed on the group's head commit, so
+#             every stall gets its own comment. Do not extend this to another cause.
 #   hold-no-ask, ask-no-hold, surface-no-hold   the architect queue's invariant broken
 #             (lane/architect-queue, 2026-10-06; definitions above `nm_decide`): `needs-architect`
 #             with no open question, an open question without it, and a diff the architect-label
@@ -312,6 +326,8 @@ def nm_surface_no_hold:
 
 # The causes the drain repairs by adding `needs-architect` (calef, #1792; see above).
 def nm_hold_causes: ["ask-no-hold", "surface-no-hold"];
+# Causes the shell answers by acting on the queue, not by labeling (calef, #1833). One, by design.
+def nm_requeue_causes: ["stuck-head-requeue"];
 
 def nm_architect($now; $minutes): [nm_hold_no_ask($now; $minutes)] + [nm_ask_no_hold($now; $minutes)];
 
@@ -325,6 +341,25 @@ def nm_unmergeable($entries):
                   entry: .state, position: .position, enqueued: .enqueuedAt, id: .pullRequest.id,
                   ahead: [ $entries[] | select(.position < $e.position)
                            | { number: .pullRequest.number, head: .pullRequest.headRefOid } ] } ] };
+
+# GitHub merges or ejects a finished group within 0.2 to 0.6 minutes (four merges, 2026-10-07 UTC),
+# so ten is some seventeen times the slowest measured latency and still about ten minutes against
+# 3 hours lost on #1824. The clock starts at the last run's completion, never at the group's start.
+def nm_stuck_head_minutes: 10;
+
+# `$prs` is the open pull requests, for the drain's earlier comments: a marker is the only record
+# that a re-queue was already tried, and it survives the entry, the group and the drain's own state.
+def nm_stuck_head($now; $prs):
+  . as $e
+  | select(.pullRequest.state == "OPEN" and .state == "AWAITING_CHECKS" and .stuckHead != null
+           and (.stuckHead.completedAt | nm_ts) <= $now - nm_stuck_head_minutes * 60)
+  | ([ $prs[] | select(.number == $e.pullRequest.number) | .comments.nodes[]?
+       | select(.body | contains("needs-maintainer:stuck-head")) ] | length) as $prior
+  | { number: .pullRequest.number, labeled: false,
+      causes: [ { cause: (if $prior == 0 then "stuck-head-requeue" else "stuck-head" end),
+                  key: .headCommit.oid, head: .pullRequest.headRefOid,
+                  group: .headCommit.oid, position: .position, enqueued: .enqueuedAt,
+                  completed: .stuckHead.completedAt, runs: .stuckHead.runs, id: .pullRequest.id } ] };
 
 def nm_decide($label; $now; $minutes; $blockers):
   .data as $d
@@ -347,6 +382,7 @@ def nm_decide($label; $now; $minutes; $blockers):
         | { number, kind: "issue", labeled: ([.labels.nodes[].name] | index($label) != null),
             causes: [nm_budget] } ]
     + [ $orphans[] | select(.number != null) ]
+    + [ $d.repository.mergeQueue.entries.nodes[]? | nm_stuck_head($now; $d.repository.pullRequests.nodes) ]
     + [ $d.repository.mergeQueue.entries.nodes[]?
         | select(.pullRequest.state != "OPEN")
         | { number: .pullRequest.number, labeled: false,
@@ -365,8 +401,10 @@ def nm_decide($label; $now; $minutes; $blockers):
   # `hold`: the drain adds `needs-architect` itself. Those causes need no maintainer, so they do not
   # count toward `needs-maintainer`; an item with only them and no label gets action "hold".
   | map(. + { hold: (.causes | any(.cause as $c | nm_hold_causes | index($c) != null)),
-              flags: (.causes | map(select(.cause as $c | nm_hold_causes | index($c) | not))) })
+              requeue: (.causes | any(.cause as $c | nm_requeue_causes | index($c) != null)),
+              flags: (.causes | map(select(.cause as $c | (nm_hold_causes + nm_requeue_causes) | index($c) | not))) })
   | map(. + { action: (if (.flags | length) > 0 then (if .labeled then "keep" else "label" end)
+                       elif .requeue then "requeue"
                        elif .labeled then "clear" else "hold" end) })
   | map(del(.labeled, .flags))
   | . + [ $orphans[] | select(.number == null) | { number, kind: "pr", branch: .causes[0].branch, action: "adopt", causes } ]

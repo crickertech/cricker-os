@@ -1,0 +1,335 @@
+{
+  "data": {
+    "repository": {
+      "mergeQueue": {
+        "entries": {
+          "nodes": [
+            {
+              "position": 1,
+              "enqueuedAt": "2026-10-07T16:38:06Z",
+              "state": "AWAITING_CHECKS",
+              "headCommit": {
+                "oid": "7ec26dbaad156ff903e960c79db6be5aadd906ca"
+              },
+              "pullRequest": {
+                "id": "PR_1824",
+                "number": 1824,
+                "state": "OPEN",
+                "mergedAt": null,
+                "headRefOid": "H1824"
+              },
+              "stuckHead": {
+                "completedAt": "2026-10-07T17:01:00Z",
+                "runs": [
+                  {
+                    "id": 37653600611,
+                    "name": "CI",
+                    "conclusion": "failure",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600611"
+                  },
+                  {
+                    "id": 37653600565,
+                    "name": "verify",
+                    "conclusion": "failure",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600565"
+                  },
+                  {
+                    "id": 37653600534,
+                    "name": "ready status",
+                    "conclusion": "success",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600534"
+                  },
+                  {
+                    "id": 37653600507,
+                    "name": "architect hold",
+                    "conclusion": "success",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600507"
+                  },
+                  {
+                    "id": 37653600588,
+                    "name": "empty diff",
+                    "conclusion": "success",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600588"
+                  }
+                ]
+              }
+            },
+            {
+              "position": 2,
+              "enqueuedAt": "2026-10-07T18:00:00Z",
+              "state": "AWAITING_CHECKS",
+              "headCommit": {
+                "oid": "G1850"
+              },
+              "pullRequest": {
+                "id": "PR_1850",
+                "number": 1850,
+                "state": "OPEN",
+                "mergedAt": null,
+                "headRefOid": "H1850"
+              },
+              "stuckHead": {
+                "completedAt": "2026-10-07T19:25:00Z",
+                "runs": [
+                  {
+                    "id": 37653600611,
+                    "name": "CI",
+                    "conclusion": "failure",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600611"
+                  },
+                  {
+                    "id": 37653600565,
+                    "name": "verify",
+                    "conclusion": "failure",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600565"
+                  },
+                  {
+                    "id": 37653600534,
+                    "name": "ready status",
+                    "conclusion": "success",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600534"
+                  },
+                  {
+                    "id": 37653600507,
+                    "name": "architect hold",
+                    "conclusion": "success",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600507"
+                  },
+                  {
+                    "id": 37653600588,
+                    "name": "empty diff",
+                    "conclusion": "success",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600588"
+                  }
+                ]
+              }
+            },
+            {
+              "position": 3,
+              "enqueuedAt": "2026-10-07T18:10:00Z",
+              "state": "AWAITING_CHECKS",
+              "headCommit": {
+                "oid": "G1851"
+              },
+              "pullRequest": {
+                "id": "PR_1851",
+                "number": 1851,
+                "state": "OPEN",
+                "mergedAt": null,
+                "headRefOid": "H1851"
+              }
+            },
+            {
+              "position": 4,
+              "enqueuedAt": "2026-10-07T18:20:00Z",
+              "state": "QUEUED",
+              "headCommit": {
+                "oid": "G1852"
+              },
+              "pullRequest": {
+                "id": "PR_1852",
+                "number": 1852,
+                "state": "OPEN",
+                "mergedAt": null,
+                "headRefOid": "H1852"
+              },
+              "stuckHead": {
+                "completedAt": "2026-10-07T17:01:00Z",
+                "runs": [
+                  {
+                    "id": 37653600611,
+                    "name": "CI",
+                    "conclusion": "failure",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600611"
+                  },
+                  {
+                    "id": 37653600565,
+                    "name": "verify",
+                    "conclusion": "failure",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600565"
+                  },
+                  {
+                    "id": 37653600534,
+                    "name": "ready status",
+                    "conclusion": "success",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600534"
+                  },
+                  {
+                    "id": 37653600507,
+                    "name": "architect hold",
+                    "conclusion": "success",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600507"
+                  },
+                  {
+                    "id": 37653600588,
+                    "name": "empty diff",
+                    "conclusion": "success",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600588"
+                  }
+                ]
+              }
+            },
+            {
+              "position": 5,
+              "enqueuedAt": "2026-10-07T18:30:00Z",
+              "state": "AWAITING_CHECKS",
+              "headCommit": {
+                "oid": "G1853"
+              },
+              "pullRequest": {
+                "id": "PR_1853",
+                "number": 1853,
+                "state": "OPEN",
+                "mergedAt": null,
+                "headRefOid": "H1853"
+              }
+            },
+            {
+              "position": 6,
+              "enqueuedAt": "2026-10-07T18:40:00Z",
+              "state": "AWAITING_CHECKS",
+              "headCommit": {
+                "oid": "G1860B"
+              },
+              "pullRequest": {
+                "id": "PR_1860",
+                "number": 1860,
+                "state": "OPEN",
+                "mergedAt": null,
+                "headRefOid": "H1860"
+              },
+              "stuckHead": {
+                "completedAt": "2026-10-07T17:01:00Z",
+                "runs": [
+                  {
+                    "id": 37653600611,
+                    "name": "CI",
+                    "conclusion": "failure",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600611"
+                  },
+                  {
+                    "id": 37653600565,
+                    "name": "verify",
+                    "conclusion": "failure",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600565"
+                  },
+                  {
+                    "id": 37653600534,
+                    "name": "ready status",
+                    "conclusion": "success",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600534"
+                  },
+                  {
+                    "id": 37653600507,
+                    "name": "architect hold",
+                    "conclusion": "success",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600507"
+                  },
+                  {
+                    "id": 37653600588,
+                    "name": "empty diff",
+                    "conclusion": "success",
+                    "attempt": 1,
+                    "url": "https://github.com/nifeos/nife/actions/runs/37653600588"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "pullRequests": {
+        "nodes": [
+          {
+            "number": 1860,
+            "isDraft": false,
+            "baseRefName": "main",
+            "isCrossRepository": false,
+            "headRefName": "lane/x",
+            "headRefOid": "H1860",
+            "createdAt": "2026-10-07T12:00:00Z",
+            "mergeable": "MERGEABLE",
+            "body": "",
+            "url": "u",
+            "labels": {
+              "nodes": []
+            },
+            "comments": {
+              "nodes": [
+                {
+                  "createdAt": "2026-10-07T17:30:00Z",
+                  "url": "c",
+                  "body": "stuck earlier\n\n<!-- needs-maintainer:stuck-head-requeue:G1860A -->"
+                }
+              ]
+            },
+            "autoMergeRequest": {
+              "enabledAt": "2026-10-07T12:00:00Z"
+            },
+            "removed": {
+              "nodes": []
+            },
+            "added": {
+              "nodes": []
+            },
+            "unarmed": {
+              "nodes": []
+            },
+            "labelEvents": {
+              "nodes": []
+            },
+            "commits": {
+              "nodes": [
+                {
+                  "commit": {
+                    "committedDate": "2026-10-07T12:00:00Z"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "issues": {
+        "nodes": []
+      },
+      "refs": {
+        "nodes": []
+      }
+    },
+    "search": {
+      "nodes": [
+        {
+          "number": 1853,
+          "state": "OPEN",
+          "labels": {
+            "nodes": [
+              {
+                "name": "needs-maintainer"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

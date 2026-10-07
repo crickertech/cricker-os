@@ -22,6 +22,10 @@
 #     somewhere to go (the `orphan` cause's `adopt`; it never touches the branch).
 #   - Reruns, once, the workflow owning a required check that never reported on an armed head whose
 #     runs have all finished, and flags `missing-check` when that did not help (`missing_check_scan`).
+#   - Recovers a queue entry whose merge group's runs all finished but which still reads
+#     AWAITING_CHECKS (the `stuck-head` cause): the first time, `requeue_stuck_head` dequeues it
+#     and enqueues it again at the back; the second time it only labels. The one exception to
+#     "it never acts on the queue" below (calef, #1833).
 #   - Runs helpers/lane-claim-check.sh, which reports a pushed lane branch with no pull request.
 #
 # # What it stopped doing, and why (milestone 727 (a queue eviction goes to a maintainer session), provisional; calef's rulings on #1564)
@@ -416,6 +420,25 @@ group_runs() {
 			| "- \(.name): \(.conclusion // .status), \(.html_url)"' 2>/dev/null || true
 }
 
+# **The one place the drain acts on the queue, a marked exception** (calef, #1833, 2026-10-07 UTC).
+# The #1564 rulings (2026-10-03) took every arm, re-arm and enqueue away from this script, because
+# it fought calef's own dequeues. #1824 then sat at the head from 16:38 to 19:42 UTC with every
+# merge-group run completed and a required check never posted, and the maintainer had to dequeue
+# and re-enqueue it by hand. calef ruled that the drain does that itself, for that case only, and
+# only the first time: a second stall of the same pull request gets `needs-maintainer` and no
+# re-queue (the decision in helpers/needs-maintainer.jq reads its own earlier marker comment).
+# THIS IS A FOOT GUN TO EXTEND. Do not add a second caller or a second cause that re-queues; the
+# selftest (section 5) cuts this function out before it forbids every other arm and enqueue, and
+# requires exactly one caller. The App's token can do it: `dequeue_held` already dequeues under
+# the same `pull-requests: write`, and `enqueuePullRequest` reached GitHub's eligibility logic
+# under it on 2026-09-24 (see .github/workflows/merge-drain.yml).
+# $1 = pull request number, $2 = its GraphQL node id. Returns nonzero if nothing was re-queued.
+requeue_stuck_head() {
+	w gh api graphql -f query="mutation{dequeuePullRequest(input:{id:\"$2\"}){clientMutationId}}" || return 1
+	w gh api graphql -f query="mutation{enqueuePullRequest(input:{pullRequestId:\"$2\"}){clientMutationId}}" && return 0
+	w gh pr merge "$1" --repo "$REPO" --auto --merge
+}
+
 # **A pull request a maintainer session must pick up wears `needs-maintainer`** (milestone 727,
 # provisional; the label's name is provisional too, and calef's call). The causes, and why
 # each is one, are in helpers/needs-maintainer.jq, which decides; this carries the decision out:
@@ -472,6 +495,7 @@ NM_MINUTES=${NM_MINUTES:-30}
 NM_JQ="$(dirname "$0")/needs-maintainer.jq"
 # What makes a question for calef open, shared with script/architect-queue (lane/architect-queue).
 OQ_JQ="$(dirname "$0")/open-question.jq"
+STUCK_JQ="$(dirname "$0")/stuck-head.jq"
 # The diff rules architect-label.yml runs on each push, run here again on every head that carries no
 # hold or ruling label, because a push event is not guaranteed: GitHub runs no `pull_request`
 # workflow while a pull request conflicts with its base, which is how #1745's syscall change went
@@ -481,7 +505,7 @@ RULES_PY="$(dirname "$0")/architect-label-rules.py"
 # checks this text names each of them, and its fixtures are this query's recorded responses.
 NM_QUERY='query($owner: String!, $name: String!, $labelled: String!, $budget: String!) {
   repository(owner: $owner, name: $name) {
-    mergeQueue(branch: "main") { entries(first: 100) { nodes { position enqueuedAt state pullRequest { id number state mergedAt headRefOid } } } }
+    mergeQueue(branch: "main") { entries(first: 100) { nodes { position enqueuedAt state headCommit { oid } pullRequest { id number state mergedAt headRefOid } } } }
     pullRequests(states: OPEN, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) { nodes {
       number isDraft baseRefName isCrossRepository headRefName headRefOid createdAt mergeable body url
       labels(first: 30) { nodes { name } }
@@ -668,6 +692,37 @@ $absent
 
 The drain already reran the workflow that owns them once, or none owns them, so a rerun will not fix it and nothing is red for helpers/ci-failing.sh to report: an armed pull request with a check that does not exist waits forever (#1814, #1816 and #1812 on 2026-10-07). The maintainer session owns the next step: rerun that run once more (the Actions page, or \`gh run\` with its \`rerun\` subcommand), or push an empty commit to raise a fresh run, and if it recurs the job's \`if:\` or the workflow's event filter is the suspect. A new head, or the check reporting, takes the label off."
 		;;
+	stuck-head-requeue)
+		head=$(printf '%s' "$c" | jq -r '.head')
+		group=$(printf '%s' "$c" | jq -r '.group')
+		position=$(printf '%s' "$c" | jq -r '.position')
+		enqueued=$(printf '%s' "$c" | jq -r '.enqueued')
+		completed=$(printf '%s' "$c" | jq -r '.completed')
+		runlist=$(printf '%s' "$c" | jq -r '.runs | map("- \(.name) (run \(.id)): \(.conclusion), attempt \(.attempt), \(.url)") | join("\n")')
+		what="STUCK AT POSITION $position OF THE MERGE QUEUE, AND RE-QUEUED. The entry was enqueued at $enqueued and still read \`AWAITING_CHECKS\`, yet every workflow run of its merge group (\`$group\`, head \`$head\`) had finished by $completed, more than 10 minutes before. GitHub merges or ejects a finished group within a minute, so a required check never posted and nothing would move it, with everything behind it waiting (#1824, 2026-10-07). The group's runs:
+
+$runlist
+
+${REQUEUE_RESULT:-The drain dequeued it and enqueued it again at the back, which builds a fresh group.} This is the drain's one action on the queue, a narrow exception to #1564 that calef ruled on #1833. If this pull request stalls again the drain does not re-queue it: it adds \`needs-maintainer\`."
+		;;
+	stuck-head)
+		head=$(printf '%s' "$c" | jq -r '.head')
+		group=$(printf '%s' "$c" | jq -r '.group')
+		position=$(printf '%s' "$c" | jq -r '.position')
+		enqueued=$(printf '%s' "$c" | jq -r '.enqueued')
+		completed=$(printf '%s' "$c" | jq -r '.completed')
+		id=$(printf '%s' "$c" | jq -r '.id')
+		runlist=$(printf '%s' "$c" | jq -r '.runs | map("- \(.name) (run \(.id)): \(.conclusion), attempt \(.attempt), \(.url)") | join("\n")')
+		what="STUCK AT POSITION $position OF THE MERGE QUEUE, A SECOND TIME. The entry was enqueued at $enqueued and still reads \`AWAITING_CHECKS\`, yet every workflow run of its merge group (\`$group\`, head \`$head\`) finished by $completed. The drain already re-queued this pull request once and does not do it twice, so a repeat is not a flake: suspect the pull request or a required check. The group's runs:
+
+$runlist
+
+The maintainer session owns the next step. To free the place now:
+
+    gh api graphql -f query='mutation{dequeuePullRequest(input:{id:\"$id\"}){clientMutationId}}'
+
+The label comes off when the entry leaves \`AWAITING_CHECKS\` or its group changes."
+		;;
 	unmergeable)
 		head=$(printf '%s' "$c" | jq -r '.head')
 		position=$(printf '%s' "$c" | jq -r '.position')
@@ -770,6 +825,21 @@ needs_maintainer() {
 	missing_check_scan "$resp"
 	resp=$(printf '%s' "$resp" | jq -c --argjson m "$MC_MAP" \
 		'.data.repository.pullRequests.nodes |= map(. + (if $m[.number | tostring] then {missingChecks: $m[.number | tostring]} else {} end))')
+	# Each AWAITING_CHECKS entry's merge-group runs, summarized by helpers/stuck-head.jq and spliced
+	# into the entry as `stuckHead` (the `stuck-head` cause). One API call per such entry; the age
+	# test is the decision's.
+	stuck='{}'
+	for row in $(printf '%s' "$resp" | jq -r '.data.repository.mergeQueue.entries.nodes[]?
+			| select(.state == "AWAITING_CHECKS" and .headCommit.oid != null) | "\(.position):\(.headCommit.oid)"'); do
+		pos=${row%%:*}
+		group=${row#*:}
+		sh_=$(gh api "repos/$REPO/actions/runs?head_sha=$group&event=merge_group&per_page=100" 2>/dev/null |
+			jq -c -f "$STUCK_JQ" 2>/dev/null) || sh_=""
+		[ -n "$sh_" ] || continue
+		stuck=$(printf '%s' "$stuck" | jq -c --arg p "$pos" --argjson v "$sh_" '. + {($p): $v}')
+	done
+	resp=$(printf '%s' "$resp" | jq -c --argjson s "$stuck" \
+		'.data.repository.mergeQueue.entries.nodes |= map(. + (if $s[.position | tostring] then {stuckHead: $s[.position | tostring]} else {} end))')
 
 	printf '%s' "$resp" |
 		jq -c --arg l "$NM_LABEL" --argjson now "$(date +%s)" --argjson m "$NM_MINUTES" --argjson b "$blockers" \
@@ -792,6 +862,17 @@ needs_maintainer() {
 			causes=$(printf '%s' "$rec" | jq -r '.causes | map(.cause) | join(", ")')
 			case "$action" in
 			hold) ;;
+			requeue)
+				# calef's #1833 exception: see requeue_stuck_head. The comment follows below.
+				qid=$(printf '%s' "$rec" | jq -r '.causes[] | select(.cause == "stuck-head-requeue") | .id')
+				if requeue_stuck_head "$num" "$qid"; then
+					REQUEUE_RESULT=""
+					echo "$ME: REQUEUED #$num (its merge group finished and the queue never acted)"
+				else
+					REQUEUE_RESULT="The drain tried to dequeue and enqueue it again and could not, so a maintainer must."
+					echo "$ME: #$num is stuck at the head and could not be re-queued"
+				fi
+				;;
 			adopt)
 				branch=$(printf '%s' "$rec" | jq -r '.branch')
 				head=$(printf '%s' "$rec" | jq -r '.causes[0].head')
@@ -842,6 +923,7 @@ needs_maintainer() {
 #
 #     merge-drain[...]: DEQUEUED #N ...    a held pull request was taken out of the queue
 #     merge-drain[...]: RERAN #N run <id>  a cancelled same-second duplicate was rerun, once
+#     merge-drain[...]: REQUEUED #N ...    a stuck queue head was dequeued and enqueued again, once
 #     merge-drain[...]: RERAN #N run <id>  (again) a workflow was rerun, once, for a required check never created
 #     merge-drain[...]: UNBLOCKED #N ...   a paused draft's blockers resolved
 #     merge-drain[...]: LABELLED #N ...    needs-maintainer added, with its causes
