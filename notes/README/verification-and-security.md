@@ -28,6 +28,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [A security audit](../security.md): the first adversarial review of the whole kernel.
 - [Auditing the shared pages](../shared-page-audit.md): the second security audit, reading for double fetches.
 - [Auditing untrusted counterparty input](../untrusted-input-audit.md): network and device input read as hostile.
+- [Code scanning](../code-scanning.md): which languages CodeQL scans, why Rust is off, and every alert's disposition. Name provisional.
 - [What each system makes you trust, measured](../trusted-base.md).
 - [The incremental path to a safer kernel, and why nife is not on it](../incremental-path.md). Name provisional.
 - [RedLeaf, and the opposite bet about where isolation comes from](../redleaf.md).
