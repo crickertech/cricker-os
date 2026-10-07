@@ -29,7 +29,8 @@ Risk 7 (the confinement claim is false) is AMBER, re-affirmed by calef on 2026-1
 (c) for green is two consecutive independent attacks with no escape on a shipped path. At least one
 must be by a non-Anthropic model or a human. All three of milestone 633's passes were Anthropic
 models, so shared training may mean shared blind spots. This is the first attack that can count
-toward the non-Anthropic half.
+toward the non-Anthropic half. Ruled since (calef, 2026-10-07, PR #1798's thread): it does not
+count; see the Result section.
 
 ## How calef runs it
 
@@ -171,7 +172,7 @@ correctable, and verdicts are the architect's). Moving the color stays calef's.
 
 The pass ran informed, per the brief, and its note is `notes/confinement-outsider-pass-4.md`.
 
-- **One new escape, booted red on all three ISAs**: a second client of a shared `Stack` endpoint
+- **One escape, booted red on all three ISAs**: a second client of a shared `Stack` endpoint
   pre-attaches its own frame at the victim's socket id and captures both directions of the victim's
   exchange. `ATTACH` is a `SEND_CAP` with no reply and the id namespace has no per-caller scope, so
   the victim's attach fails silently. Pinned by the opt-in
@@ -185,6 +186,14 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   milestone; this pass pins and does not write it. A second premise this pass settled by reading:
   the escape is on a shipped path. The interactive boot endows every network-declaring child with a
   copy of the one stack endpoint, unbadged, and the job pool holds six live jobs at once.
+- **How the pass counts toward risk 7's criterion (c): ruled (b), an escape on a shipped path**
+  (calef, 2026-10-07, PR #1798's thread). The two-consecutive count restarts at zero and stays
+  there until 649's defect is fixed and a fresh pass comes back clean; a known unfixed escape
+  counted as anything else would flatter the verdict. The finding itself was already recorded as
+  milestone 649 (every client of a network stack shares its socket numbers), raised 2026-09-24,
+  NOT-STARTED, no test; this pass's addition is the booted bidirectional
+  capture, pinned red on all three ISAs. The ruling also resolves 649's option fork toward the
+  badge (its option 1); the maintainer updates 649's block at merge.
 - **The routed `chatty` reshape landed.** Claim 26's own test now fails rather than hangs: the
   operator retires the last receiver, a plant parks the marker, and a let-open `RECEIVE_CAP`
   returns it. Green on aarch64 (whole module) and riscv64, red at its own assertion under the

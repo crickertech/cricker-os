@@ -1,7 +1,7 @@
 # Confinement, a fourth outsider pass (milestone 800, provisional name)
 
 Milestone 800 (a non-Anthropic model attacks the confinement claim) is the experiment this note
-records. It is also the first attack pass that can count toward risk 7's non-Anthropic half: the
+records. It is the first attack pass run by a non-Anthropic model: the
 reviewer is GLM 5.3, run by calef's opencode, per the milestone's own brief.
 
 This pass was **informed, by ruling** (calef, 2026-10-06 UTC: "GLM should run informed. That's a
@@ -11,7 +11,7 @@ records and the fixed escapes. A re-discovery of a fixed escape is reported sepa
 nothing; only a new finding counts. This is the mirror of passes two and three, which were blind by
 request, and the comparison is the point of both existing.
 
-**Result: one new escape, booted on all three ISAs, at a service boundary the kernel's gates never
+**Result: one escape, booted on all three ISAs, at a service boundary the kernel's gates never
 see.** The capability core held under every attack this pass ran at it. The escape is the net
 stack's socket-id namespace: a second client of a shared `Stack` endpoint captures the first
 client's traffic, both directions, through nothing but a capability any client already holds. The
@@ -72,12 +72,16 @@ never consulted, which makes this worse than pass three's confused deputy. There
 where the client aimed; here the server binds the wrong window, and the reach happens without any
 single wrong write.
 
+The finding was already on the books: milestone 649 (every client of a network stack shares
+its socket numbers), raised 2026-09-24, NOT-STARTED, records the mechanism by reading with no
+test. This pass adds the booted capture: observed, bidirectional, identical on all three ISAs,
+pinned red where 649 had none. Recorded-but-unfixed is neither new-as-unrecorded nor a
+re-discovery.
+
 The wiring is the interactive system's own, not only the test boot's. `system_initializer` endows
-every child whose manifest declares network with a copy of the one `net_stack_ep`, unbadged, and
-the job pool holds six live jobs at once (`system_initializer`'s own "six live jobs" bound).
-`network_echo_client` launched twice from the prompt is this escape's shape on a shipped path.
-Verified this pass by reading the endowment path (`Channels::network` to `ChildEndowment::network`,
-`grant_plan`'s one network-declaring program); no boot was needed.
+every network-declaring child with a copy of the one `net_stack_ep`, unbadged, and the job pool
+holds six live jobs at once. `network_echo_client` launched twice from the prompt is this shape on
+a shipped path, verified by reading; no boot was needed.
 
 The sibling that already does it right is one component over: `name_resolver` keys its windows by
 the badge's grant index and refuses a second attach at a granted window. Its refusals are silent
@@ -177,7 +181,8 @@ whole suite, so most rows are `read`; the falsification records each row cites w
 | 32 | The boot shell holds no display device | held | read | `swish-check` census, swept weekly |
 | 33 | No WRITE, no x86_64 port I/O | held | read | the grant install requires WRITE; the direction mirror is ruled in the code |
 
-Counts: 1 escape (new, unnumbered surface), 0 re-discoveries, 4 near miss (3, 19/24, 25), 28 held,
+Counts: 1 escape (milestone 649's finding, recorded 2026-09-24 by reading, unfixed; booted and
+pinned red this pass), 0 re-discoveries, 4 near miss (3, 19/24, 25), 28 held,
 0 untestable-elsewhere. Claim 26's row is this pass's own booted evidence.
 
 ## The escape's home
@@ -189,6 +194,15 @@ opt-in and red. The same question ("whose id is this") is ruled tree-wide with i
 2026-10-06, PR #1798). Per-caller scoping is a written rule for every multi-client window server,
 and the fix lane audits the remaining ones; `system_log`'s reader windows, unread this pass, go
 first.
+
+**How this pass counts toward risk 7's criterion (c) is ruled: option (b), an escape on a shipped
+path (calef, 2026-10-07, PR #1798's thread).** The two-consecutive count restarts at zero, and
+stays there until 649's defect is fixed and a fresh pass comes back clean. His reasoning, recorded
+with the ruling: the stack starts on every booted system, per milestone 590 (the booted system
+starts its network stack), so any granted program is a client today. Counting a known, unfixed
+escape as anything else would flatter the verdict; the "wiring no hostile program holds today"
+reading was considered and refused. The ruling also resolves 649's option fork toward the badge
+(its option 1); the maintainer updates 649's block at merge.
 
 ## Refusal log
 
