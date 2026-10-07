@@ -2210,8 +2210,8 @@ pub enum Command<'a> {
     /// never required the *client* to be a builtin. The second reason this comment gave, that a
     /// program had no argument vector, went stale when milestone 205 (how a foreign program is told
     /// what to do) was built on 2026-09-27. calef ruled on 2026-10-06 (UTC) that the client becomes
-    /// a program, and `design/roadmap/proposals/the-package-client-becomes-a-program.md` is the
-    /// plan, so this builtin is slated to go.
+    /// a program, `jig`, and milestone 809 (the package client becomes a program) is the plan, so
+    /// this builtin is slated to go.
     ///
     /// The tail is classified by [`package_verb`]. Name: provisional (2026-09-26).
     Package(&'a [u8]),
