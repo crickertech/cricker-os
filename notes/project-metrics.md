@@ -95,7 +95,7 @@ Queue began 2026-08-15; W31 and W32 predate it.
 ![How long verify takes](project-metrics/verify-shards.svg)
 
 <!-- week-notes: script/metrics writes this -->
-- 2026W41: prove shards rebalanced on 2026-10-07 UTC by a 40-run median, to 23.6 minutes each from 20.5 and 27; two shards cannot reach the target
+- 2026W41: prove shards rebalanced on 2026-10-07 UTC by a 40-run median and split three ways (calef, #1802), planned at 15.7 minutes each from 20.5 and 27
 <!-- /week-notes -->
 
 Job minutes, medians of up to twelve green runs a day (`helpers/verify_times.py`). Before

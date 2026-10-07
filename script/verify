@@ -416,8 +416,9 @@ TABLE
 # `machine_discovery` (the median largest `Verification Time` in each crate across the same 40
 # runs). The 2026-08-14 version of this paragraph said two shards was where this stopped because a
 # third bought nothing; that was true when `glob` alone was half the job, and stopped being true when
-# `machine_discovery` grew to match it. Whether to pay for a third runner is calef's call, and
-# notes/verification.md has the numbers.
+# `machine_discovery` grew to match it. calef ruled on #1802 (2026-10-07 UTC): "Add a third prove
+# shard." So CI runs three, for about 0.8 more runner-minutes a run (one more setup; the proving is
+# the same 47 minutes split three ways). notes/verification.md has the numbers.
 #
 # The packer, and the assertion that its shards partition this table, live in
 # helpers/verify_times.py so that this run, the weekly refresh and the drift warning all plan with

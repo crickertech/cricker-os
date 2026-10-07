@@ -550,6 +550,10 @@ def selftest():
     expect("a failed prove shard drops the run",
            run_row(run, good[:1] + [job("prove (shard 2/2)", 9, "failure")]), None)
     expect("no prove shard, no row", run_row(run, [job("gate", 1)]), None)
+    three = run_row(run, [job("prove (shard 1/3)", 15.0), job("prove (shard 2/3)", 16.5),
+                          job("prove (shard 3/3)", 16.0)])
+    expect("three prove shards, in shard order", (three["prove_minutes"], three["slowest_minutes"]),
+           ("15.0;16.5;16.0", "16.5"))
     expect("a five-minute run is skipped unfetched",
            long_enough({"run_started_at": "2026-10-06T00:00:00Z", "updated_at": "2026-10-06T00:05:00Z"}), False)
     expect("a forty-minute run is fetched",
@@ -564,6 +568,9 @@ def selftest():
     now = {"glob": 708, "calendar": 313, "machine_discovery": 689, "subtree_scope": 267, "usb": 170,
            "direct_memory_access_validator": 148}
     expect("stale table drifts", bool(drift(old, now, 2)), True)
+    expect("three shards on a matching table are quiet", drift(now, now, 3), [])
+    expect("the two-shard table packed three ways shortens the slowest shard",
+           any("repacking" in r for r in drift(old, now, 3)), True)
     expect("matching table is quiet", drift(now, now, 2), [])
     expect("unmeasured crate kept", drift(dict(now, new_crate=5), now, 2), [])
     expect("10% everywhere is under the line", drift(now, {c: int(s * 1.1) for c, s in now.items()}, 2), [])

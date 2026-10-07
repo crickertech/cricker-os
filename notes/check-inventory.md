@@ -61,7 +61,7 @@ the first row with four jobs pending calef's ruleset edit; later checks have no 
 | `re-falsify the harnesses this change can reach` | verify | PR, merge queue, push | no | green today, **was red through a merge** |
 | `architect hold (needs-architect label)` | architect-hold | PR, merge queue | no | green |
 | `verify scope` | verify | PR, merge queue, push | no | green |
-| `prove (shard 1/2)`, `prove (shard 2/2)` | verify | PR, merge queue, push | no | green |
+| `prove (shard N/3)` | verify | PR, merge queue, push | no | green |
 | `draft gate` (two jobs, one name) | ci, verify | PR, merge queue, push | no | green |
 
 Three of the unrequired five are correct as they stand. `verify scope` and the two `prove` shards
@@ -299,7 +299,7 @@ decide rather than assume: a label added to a pull request already sitting in th
 this red mid-group, and an ALLGREEN group of up to five is evicted together. That is a narrow window
 and the label is normally applied long before enqueue.
 
-**Do not add** `verify scope`, `prove (shard N/2)`, or `draft gate`. The first two are aggregated by
+**Do not add** `verify scope`, `prove (shard N/3)`, or `draft gate`. The first two are aggregated by
 a check that is already required and that treats a shard's `skipped` correctly; the third is not a
 verdict.
 

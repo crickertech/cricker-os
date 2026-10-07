@@ -213,7 +213,7 @@ jobs:
           echo "count=$(echo "$shards" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')" >> "$GITHUB_OUTPUT"
 
   prove:
-    name: prove (shard ${{ matrix.shard }}/2)
+    name: prove (shard ${{ matrix.shard }}/3)
     needs: [gate, scope]
     # `!cancelled()` for the same reason `verify` below gives: without it a failed or cancelled
     # dependency skips this job outright, whatever the condition says, and a skipped job still
@@ -224,8 +224,8 @@ jobs:
       needs.scope.outputs.needed == 'true' &&
       needs.gate.outputs.run != 'false'
     runs-on: ubuntu-24.04
-    # Half the serial job plus its setup. The serial job's 60 was for ~30 minutes of proving; a
-    # shard proves ~24 since 2026-10-07 (47 serial), and the box stays generous because a hung
+    # A third of the serial job plus its setup, generously. The serial job's 60 was for ~30 minutes
+    # of proving; a shard proves ~16 since 2026-10-07 (47 serial), and the box stays generous because a hung
     # solver must fail loudly rather than sit on the runner's 6-hour default.
     timeout-minutes: 45
     strategy:
@@ -234,7 +234,7 @@ jobs:
       # whole suite did is the difference between one investigation and fifteen.
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
       - uses: Swatinem/rust-cache@v2
@@ -242,15 +242,16 @@ jobs:
         run: |
           cargo install --locked kani-verifier
           cargo kani setup
-      # Two shards. On 2026-08-14 that was a measurement (`glob` alone was half the job, so a third
-      # shard bought nothing); by 2026-10-07 `machine_discovery` had grown to match `glob`, and
-      # the 40-run medians pack to 23.6 minutes at two shards and 15.7 at three. Whether to pay for
-      # the third runner is calef's call; script/verify's comment above `--shard` has the ladder.
+      # Three shards, calef's ruling on #1802 (2026-10-07 UTC): "Add a third prove shard." On
+      # 2026-08-14 two was a measurement (`glob` alone was half the job, so a third bought
+      # nothing); by 2026-10-07 `machine_discovery` had grown to match `glob`, and the 40-run
+      # medians pack to 23.6 minutes at two shards and 15.7 at three, for about 0.8 more
+      # runner-minutes a run. script/verify's comment above `--shard` has the ladder.
       # The balance is by measured seconds from the table in script/verify, which
       # verify-shard-refresh.yml keeps current, and each shard warns when it ran more than 30% off
       # its plan.
-      - name: script/verify --shard ${{ matrix.shard }}/2
-        run: script/verify --shard ${{ matrix.shard }}/2
+      - name: script/verify --shard ${{ matrix.shard }}/3
+        run: script/verify --shard ${{ matrix.shard }}/3
         # VERIFY_JOBS=2, not the script's default 4, and this is a measurement, not caution: the
         # first four runs of the parallel suite on this runner were each killed ~15 minutes in,
         # inside glob's largest harnesses, as a bare "operation was canceled" with orphaned cbmc

@@ -633,8 +633,8 @@ account for twelve of the seventeen:
 3. Binary and data files: two of seventeen (`art/`, `bench/baseline-*.txt`). Same shape as the
    documentation case the predicate already handles.
 
-**More shards is not the lever, and the block already measured why.** `glob` is atomic at 15.0 minutes
-of a 30.3-minute serial suite, so two shards reach 15.1 and four reach 15.0. The measured group-build
+**On 2026-08-14 more shards was not the lever** (CI runs three since 2026-10-07). `glob` was
+atomic at 15.0 minutes of a 30.3-minute suite, so two shards reach 15.1 and four reach 15.0. The measured group-build
 `verify` when the proofs run is 16.7 minutes, which is that floor plus Kani's install. Nothing under
 it comes from arranging CI differently; it comes from the unwind bound in one `glob` harness, or from
 not proving crates a change provably cannot reach.
