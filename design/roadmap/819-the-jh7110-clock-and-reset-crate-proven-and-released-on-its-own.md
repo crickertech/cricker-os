@@ -1,0 +1,133 @@
+---
+status: NOT-STARTED
+raised: 2026-10-07
+milestone_dependencies: none
+decision_dependencies: none
+machine_requirements: none
+specific_machine: none
+needs_person: yes
+---
+# 819. `jh7110_clock_and_reset`: JH7110 clock and reset logic, proven, then released on its own
+
+*(Minted 2026-10-07 (UTC) by lane/publish-ours-milestones from calef's rulings on pull request
+#1806. The number is provisional until the merge queue lands it; the title and slug are drafts.
+The FAT crate's block in #1811 is the shape this follows.)*
+
+calef's rulings, quoted from the maintainer comments on #1806 of 2026-10-07 (UTC):
+
+- Policy: *"Each publish-ours crate (NVMe, e1000e, the DesignWare pair, the JH7110 pair, xHCI, and
+  `portable_executable` once it carries proofs) is published when ready (proofs passing, API
+  stable), each through its own milestone at its review."* His words: *"Since the consumer would be
+  other hobby OSes, I think it makes sense to publish them. [...] a nice legacy is a bunch of hobby
+  oses that use its parts."*
+- Crates: *"one milestone per crate, minted now, each keeping its tree name (all free on crates.io
+  as of today) [...] Names are ratified now and permanent on first publication."* His words: *"Yes,
+  one per crate"*.
+- Fork 4: *"the release workflow refuses to publish unless the proof job is green."* His word:
+  *"Yes"*. The other release rules are forks 1 to 3 and 6, applied in *Release* below.
+
+## What exists, checked 2026-10-07 (UTC)
+
+- `crates/jh7110_clock_and_reset`: 863 code lines (1,577 with comments), written by milestone 220
+  (this kernel drives no clock or reset controller, and the first real device will need one), which
+  is BUILT. It holds the JH7110 clock and reset generator's register offsets and bit fields, the
+  bring-up plans the TRNG, the SD slots and the PMIC's I2C bus need, and the device-tree queries
+  that find the controllers.
+- **No Kani harnesses and no falsification patches.** #1806's note counts it with the JH7110 pair as
+  publish ours, but fork 4 refuses a release without green proofs. So this block starts by writing
+  them, like milestone 821 (an ELF-to-PE converter, proven, then released on its own). The note's
+  "publish with the DesignWare pair" also predates the one-milestone-per-crate ruling.
+- Class B in #1806's note `notes/releasable-crates-2026-10-07.md`. **The cut** is codebase rule 2
+  (a driver gets what it needs passed in). `discover`, `discover_aon`, `discover_sys` and
+  `pmic_bus` take a `DeviceTreeBlob`. The caller passes the register regions and the bus's
+  specifiers instead, and the queries move to the kernel side, which already depends on
+  `device_tree_blob`.
+- Its consumers, all in `kernel/src/`: `drivers/jh7110_clock_and_reset.rs` (the volatile shell),
+  `designware_ethernet.rs`, `user/designware_mobile_storage_service.rs`, `user/entropy_service.rs`,
+  `reboot.rs`, `memory.rs`, `lib.rs`, `storage_bench.rs` and `network_bench.rs`, plus
+  `system_tests/src/user/entropy_tests.rs`.
+- Two public functions here still carry provisional `Name:` blocks (`discover_sys`, after milestone
+  53 (the board's own peripherals: network and storage on real silicon), and `pmic_bus`). The crate
+  name is ratified; those are not, and their names become permanent with the crate.
+- crates.io answers 404 for the name (checked 2026-10-07).
+
+**Reuse:** the alternatives were surveyed in #1806's `survey.md` appendix (looked up 2026-10-07),
+and none is taken, because calef ruled this crate "publish ours". The only Rust JH7110 crates found,
+weathered-steel's `jh71xx-pac` 0.11.1 and `jh71xx-hal` 0.7.2 (Codeberg, 2025-03), are register maps
+under GPL-3.0-only, which nife cannot take under its license. No Rust crate for the clock and reset
+logic was found. Linux's `clk-starfive-jh7110-*` drivers stay the reference and are read, never
+copied. No upstream offer goes anywhere: calef ruled on #1806 that nife contributes only to
+projects nife depends on.
+
+## What is proven
+
+Kani harnesses, each with a falsification patch at
+`crates/jh7110_clock_and_reset/falsifications/<module.path>.<harness>.patch` as §134 (a harness
+carries a machine-replayable falsification record) and `script/falsifications` require:
+
+1. `with_parent` changes only the mux field. For every word and every parent, every bit outside
+   `CLOCK_MUX_MASK` is unchanged and an over-wide parent never spills into the enable bit.
+2. Every offset a domain answers is one of its own words. For every clock id and reset id,
+   `Domain::clock_offset` and `Domain::reset_bit` return none past the domain's `clocks` or
+   `resets` count. Otherwise they return a word-aligned offset inside that domain's clock or reset
+   range, so the shell can never be told to store outside the controller.
+3. Every plan ungates its clocks before it releases its reset. The fixed plans and any plan built
+   from caller-supplied specifiers hold only in-bounds ids, never more than `MAX_PMIC_BUS_STEPS`,
+   with every `EnableClock` ahead of every `DeassertReset`.
+4. The status decoders (`is_deasserted`, `is_clock_enabled`, `clock_divider`) are total and match
+   their definitions for every word.
+
+## Release, by #1806's rulings
+
+1. Write the four proofs above with their falsification patches, then make the cut. `cargo tree -p
+   jh7110_clock_and_reset` then lists no nife crate.
+2. In the tree, `script/verify` proves the harnesses and `Cargo.toml` says `publish = false`.
+3. The package is 0.1.0 with its own semver, states `rust-version` (#1806's note built it on stable
+   1.94.1), and ships its harnesses and falsification patches. `cargo package --list` shows them.
+4. Ready means proofs passing and the API stable. §235 (the OS is built and updated from
+   packages, and the tree divides by what releases together) has milestone 610 (the interface's
+   stability is measured weekly)'s per-package co-change column judges the second. When it is ready,
+   calef adds it to the lint-checked publish allowlist. A `nifeos/jh7110_clock_and_reset` repository
+   is then created on the shared CI template, through reusable workflows: Kani through
+   `kani-github-action`, lint, release. Its release workflow refuses to publish unless the proof job
+   is green. Nothing here reads `target_arch`, so stock Kani serves. The patched Kani of §218 (carry
+   a Kani patch so riscv64 is proved, and send it upstream) is carried only if a harness comes to
+   need riscv64. Milestone 589 (Kani can prove riscv64 from the hosts we already have) built it.
+5. crates.io trusted publishing from that workflow, owned by a `nifeos` team, with no stored token.
+6. calef approves this publication, as he does every one.
+7. nife consumes the crates.io release, pinned with its checksum in `Cargo.lock`. A `[patch]` to a
+   checkout is allowed only during development, and a lint fails one that reaches `main`. The copy
+   under `crates/` goes.
+
+## Parity
+
+Pure logic, tested on the host. This lane built it on 2026-10-07 with the pinned nightly for
+`aarch64-unknown-none-softfloat`, `riscv64imac-unknown-none-elf`, `x86_64-unknown-none` and the
+host, all exit 0. The release workflow builds the same four. The silicon is riscv64 only; the crate
+is not.
+
+## Exit
+
+A check proves it. `script/verify` proves the four properties and `script/falsifications` reports
+every harness `replayable`. In nife, `cargo tree --locked -i jh7110_clock_and_reset` resolves to
+`v0.1.x` from crates.io with a checksum in `Cargo.lock`, `crates/jh7110_clock_and_reset` no longer
+exists, and the tree builds for all three targets. In `nifeos/jh7110_clock_and_reset`, the run that
+published 0.1.0 shows the Kani job green ahead of the publish job.
+
+## BUGS
+
+- Steps 4 and 5 need machinery that does not exist yet: the publish allowlist lint, the shared CI
+  template, the `nifeos` crates.io team, and milestone 610's per-package co-change column. #1806
+  ruled their shape; none is a milestone yet.
+- The four properties are this lane's proposal, read from the code, not a ruling. A lane writing
+  them may find a better set and says so in its pull request.
+- The device-tree fixtures (`tests/fixtures/*.dts`) are excerpts of the mainline and vendor JH7110
+  trees. Their licenses were not checked here; record each before `cargo package` ships them.
+- `needs_person` is `yes` because the exit includes a publication only calef can approve. Everything
+  before step 6 can start now.
+
+## Index row
+
+nife's StarFive JH7110 clock and reset generator logic, which carries no proofs today, gains four
+Kani proofs with falsification patches, is cut free of nife's device tree, and is published on
+crates.io as `jh7110_clock_and_reset` 0.1 from its own `nifeos` repository.

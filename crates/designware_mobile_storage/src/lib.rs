@@ -102,12 +102,17 @@
 //! - **No card detect or write-protect handling.** The probe prints `CDETECT` and proceeds; radon's
 //!   slot has a card in it or there is nothing to boot from.
 //!
-//! Name: provisional (milestone 53's storage lane, 2026-10-06 UTC). "`DesignWare` Mobile Storage"
-//! is the Synopsys databook's name for the part (`DW_mshc`, the `snps,dw-mshc` compatible read
-//! aloud), spelled out as §154 (the acronym test is whether the phrase is spoken, applied
-//! recursively) asks and as the same milestone's `designware_ethernet` spells its own. The
-//! alternatives an architect may prefer are `designware_mmc`, after Linux's `dw_mmc`, or a name for
-//! what the crate does (`sd_card`), which would hide that the eMMC socket is driven by it too.
+//! Name: ratified 2026-10-07 (calef, pull request #1806's publish-ours review). The maintainer
+//! comment reads: "one milestone per crate, minted now, each keeping its tree name (all free on
+//! crates.io as of today) [...] Names are ratified now and permanent on first publication." His
+//! words: "Yes, one per crate". Minted provisionally 2026-10-06 (UTC) by milestone 53's storage
+//! lane: "`DesignWare` Mobile Storage" is the Synopsys databook's name for the part (`DW_mshc`, the
+//! `snps,dw-mshc` compatible read aloud), spelled out as §154 (the acronym test is whether the
+//! phrase is spoken, applied recursively) asks and as the same milestone's `designware_ethernet`
+//! spells its own. The provisional block offered `designware_mmc`, after Linux's `dw_mmc`, and a
+//! name for what the crate does (`sd_card`), which would hide that the eMMC socket is driven by it
+//! too. The ruling kept the tree name. Milestone 817 (a proven `DesignWare` SD and eMMC host,
+//! released on its own) publishes it.
 
 pub mod bench;
 pub mod card;
