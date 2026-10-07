@@ -3,7 +3,7 @@ status: NOT-STARTED
 raised: 2026-09-24
 promoted_from: every-client-of-a-network-stack-shares-its-socket-numbers
 milestone_dependencies: none
-decision_dependencies: unwritten
+decision_dependencies: 255
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -55,6 +55,27 @@ built, and its cost here is `net_stack` keying its socket table by the badge the
 delivers, with no `socket_protocol` change. Whether to take option 1 (reuse the badge) or option 2
 (an endpoint per socket) is still open and still a wire decision, but the badge no longer has to be
 argued for from scratch.
+
+## Ruled, and held on a kernel fork (2026-10-07 UTC)
+
+calef ruled the shape on 2026-10-07 (UTC), recorded on PR #1798 at 15:04Z: **each socket is its own
+capability**. The stack mints a badged endpoint per socket on open, and every later call is made on it.
+The stack names the socket by the kernel-stamped badge, so `socket_protocol` drops the `sid`. Close
+unbinds the badge, and a socket moves to another program by passing the capability. That supersedes
+his per-caller-windows ruling of about 03:50Z the same day, and it refuses this block's option 1 as
+written ((badge, sid) keying) and its option 3.
+
+lane/649-sockets-are-capabilities (PR #1817) found that the kernel cannot hand the minted
+capability over: a reply is two words, and `SEND_CAP` would park the one-threaded stack on any
+client that never receives. §255 (each socket is its own capability), PROPOSED and provisionally numbered,
+records the protocol change and three ways to deliver the capability: a reply that carries one, a
+client-supplied return endpoint, or a progenitor-minted pool. It leans toward the first, which is a
+new kernel method and so an architect's call. Nothing is built until it is answered.
+
+Exit, once built (from the review of #1798, finding 8). The pinned test in
+`system_tests/src/user/net_confinement_tests.rs` loses its opt-in skip and runs in the default suite
+on all three ISAs. Its aarch64 region budget is measured or raised. A replayable falsification
+record that restores a client-named socket turns it red.
 
 ## Index row
 
