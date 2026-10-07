@@ -9,8 +9,8 @@ needs_person: no
 ---
 # A running program acquires more memory as it needs it
 
-calef asked for this on 2026-10-06 (UTC): a running program should be able to get more memory when
-it needs it. A writing-only lane wrote it and built nothing. calef ruled every fork on #1777 the same day.
+calef asked for this on 2026-10-06 (UTC): a running program should get more memory when
+it needs it. A writing-only lane wrote it. calef ruled every fork on #1777 the same day.
 
 It is the program half of #1769 (concurrent login sessions), whose fork 4 calef ruled "D" the same
 day: a `memory_broker` holding the pool left after the boot's carve, handing out geometric
@@ -46,7 +46,7 @@ which counts dirty memory and not the clean image):
 | `sqlite3 :memory:`, 100,000 rows and one index | 28.5 MiB | 28x |
 | `rustc -O` on hello world | 24.0 MiB | 24x |
 
-Not apples to apples (macOS counts its `malloc` slack, `dyld` and the stack), but a compiler, a
+Not apples to apples (macOS counts `malloc` slack, `dyld` and the stack), but a compiler, a
 database and `rg` on a large tree need tens of MiB.
 
 What fails today, read from the code: `MAP` refuses, the allocator returns null, and `std` aborts.
@@ -55,7 +55,7 @@ What fails today, read from the code: `MAP` refuses, the allocator returns null,
 
 The allocator already grows lazily. `user_mode_runtime::heap` and `std`'s restatement map pages one
 `MAP` at a time, geometrically, into `address_space_map::HEAP`, a 256 MiB band at `0x4000_0000`.
-What is missing is a second source of pages once the first region is spent.
+Missing is a second source of pages once the first region is spent.
 
 `memory_region` has `MAP`, `RETYPE`, `RETYPE_OBJ`, `SPLIT`, `DESTROY` and `USAGE`. Nothing grows or
 shrinks a region (`crates/abi`). A process can hold several regions, and `MAP` takes any of them.
@@ -108,8 +108,7 @@ limit [large] enough that nobody notices it." He had sent the first draft back b
 spike, and memory they cannot return looks like a leak. Fork 7 takes the second half of the ruling.
 The [appendix](a-running-program-acquires-more-memory/returning-memory.md) has the arithmetic.
 
-A region is the smallest unit the kernel takes back. nife cannot `madvise` a page in the middle of
-a region, so whatever is returned must be a whole region.
+A region is the smallest unit the kernel takes back; nife cannot `madvise` a page inside one.
 
 Part 1, an allocation of 1 MiB (256 pages) or more gets its own region, above 2 GiB where the map
 leaves room, returned at `free`. glibc's 128 KiB (from memory) was refused because a region costs
@@ -160,7 +159,7 @@ Ruled A, calef, 2026-10-06 (UTC): "Approve Fork 4 A with reserve/commit."
 | B | The request blocks until memory frees, which can deadlock unseen | refused |
 | C | The broker picks a victim and kills it (an OOM killer) | refused |
 
-Under A, a program that handles failure can, and one that does not dies as it does today. A
+Under A, a program that handles failure can; one that does not dies as today. A
 refusal names one of three causes (the account's ceiling, the per-identity cap, an empty pool) and is one attributed record in the system log (milestone 613 (a system log service)).
 
 C puts kill authority and victim policy in a server that only counts pages. Linux needs an OOM
@@ -239,7 +238,7 @@ All from memory and unchecked; the building lane owes a read of each.
 - jemalloc and mimalloc: free pages inside the heap go back by `madvise` after a decay delay. nife
   cannot do that below a region, which is why fork 3 separates large allocations at all.
 
-From memory, unchecked; the building lane owes a read:
+Also from memory:
 
 - KeyKOS, EROS and Coyotos: space banks, hierarchical capabilities to allocate storage with limits.
   Destroying a bank reclaims all allocated from it. The closest ancestor of forks 1 and 5.
@@ -307,7 +306,7 @@ One `cargo xtask` gate that `script/test` runs, exiting 0 under QEMU on aarch64 
 ## What is blocked until the ruling
 
 Every fork is ruled. The broker's request and reply, shared with #1769, are a wire format for
-the `design/decisions/` section at merge.
+the `design/decisions/` section.
 
 ## Follow-ons, proposed, unnumbered
 
