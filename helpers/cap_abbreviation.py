@@ -68,6 +68,7 @@ CEILING = 2_890
 # Identifiers that keep `cap`, by file, each group with its reason. See the header before adding one.
 _CEILING = 'cap is the English word for a limit or a capacity here, not an abbreviation'
 _REGISTER = 'mirrors a register or field a hardware specification named'
+_CALLS = 'a call of an existing tree API whose name is on the sweep worklist, not a name minted here'
 KEPT = {
     'components/src/printenv.rs': ({'CAP'}, _CEILING),
     'crates/calendar/src/lib.rs': ({'FMT_CAP'}, _CEILING),
@@ -102,6 +103,12 @@ KEPT = {
                                'CAP_ID_VENDOR', 'VIRTIO_CAP_COMMON', 'VIRTIO_CAP_NOTIFY',
                                'VIRTIO_CAP_ISR', 'VIRTIO_CAP_DEVICE'}, _REGISTER),
     'kernel/src/pci.rs': ({'VIRTIO_CAP_COMMON', 'VIRTIO_CAP_NOTIFY', 'VIRTIO_CAP_ISR'}, _REGISTER),
+    # Milestone 800 (a non-Anthropic model attacks the confinement claim), 2026-10-06 (UTC): the
+    # outsider pass's fixture and test call these APIs by their existing names and mint no
+    # cap-named identifier of their own.
+    'components/src/socket_squatter.rs': ({'send_cap'}, _CALLS),
+    'system_tests/src/user/net_confinement_tests.rs':
+        ({'cap', 'memory_region_cap', 'rendezvous_cap'}, _CALLS),
 }
 
 EXCLUDED_PREFIXES = ('vendor/', 'patches/', 'target/')
