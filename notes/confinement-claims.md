@@ -110,7 +110,7 @@ set on the default machine (`ECAP = 0xf00f4a`) and clear only under an explicit 
 (`0xf42`). Interrupt remapping has been offered in every x86_64 boot this tree has ever run,
 and nothing read the bit, so nobody noticed. The guest now reports it,
 `NIFE_INTREMAP=off` is the flag that reaches the machine without it, and one test asserts
-`GSTS.IRES` stays clear whatever `ECAP.IR` says. `design/decisions/86-el0-nvme-driver.md` still
+`GSTS.IRES` stays clear whatever `ECAP.IR` says. `design/decisions/0086-el0-nvme-driver.md` still
 carries the uncorrected sentence; a lane may not edit that file, so it is flagged rather than
 fixed.
 

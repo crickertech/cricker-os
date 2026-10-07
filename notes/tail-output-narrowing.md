@@ -109,7 +109,7 @@ seL4 has no shell-adjacent analogue (seL4 systems are typically single-purpose, 
 interactive), but DECISIONS §101 already did the relevant literature comparison for the general
 multiplexing question: Mach port sets (the ancestor), Fuchsia `zx_port` (a queued variant), Redox
 event queues (assumes a scheme/fd model this system does not have), and seL4's own notification
-object (adopted, in `design/decisions/101-notification-objects.md`). None of those is about
+object (adopted, in `design/decisions/0101-notification-objects.md`). None of those is about
 *routing output away from a shell*; they are about a receiver waiting on more than one source. This
 note's question is narrower and orthogonal: it is asking whether the shell should be a party to the
 wait at all for a tail stage's primary output, not how it should wait on several things once it is.

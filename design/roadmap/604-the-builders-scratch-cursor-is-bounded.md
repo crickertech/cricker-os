@@ -115,7 +115,7 @@ and the revocation is portable kernel code (DECISIONS §19 (architectural parity
   thread's, a builder still maps every live child, and `BadPointer` doubles as "taken": the BUGS
   above, and beside the code in `crates/supervision_protocol/src/lib.rs`.
 - **Decision.** Removing a builder's mapping of a live child is still
-  `design/decisions/162-giving-up-a-mapping.md`, unchanged by this.
+  `design/decisions/0162-giving-up-a-mapping.md`, unchanged by this.
 - **Milestone 595.** Its pool growth for `rg` is now checked against the window at compile time.
 - **Milestone 658.** Milestone 658 (a region reap scans every mapping on the machine, once per page). A region reap scans every live mapping log once per page, which made this test take
   over a minute in the whole suite and makes every job reap cost more the more is running:

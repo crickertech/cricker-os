@@ -58,9 +58,9 @@ which is a different question and should be answered first.
 
 ## What this tree already does in the analogous case
 
-A secret is already an endpoint rather than a value. [§41](41-endpoint-as-broker.md) (the
+A secret is already an endpoint rather than a value. [§41](0041-endpoint-as-broker.md) (the
 endpoint is the broker) settled that the thing handed to a program is the right to ask, not the
-material. [§111](111-inert-config-is-a-validated-page.md) (inert configuration is a read-only page)
+material. [§111](0111-inert-config-is-a-validated-page.md) (inert configuration is a read-only page)
 then split what Unix puts in one environment map into three, and routed secrets to §41's broker
 explicitly rather than letting them ride on a page. So the shape of what a program holds is
 settled; this decision is only about how the material reaches the broker in the first place.

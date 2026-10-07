@@ -219,7 +219,7 @@ milestone 117's handoff."
   `notes/adding-a-program.md` under "Why it works this way", for the integrator to mint a
   `design/decisions/` section at merge. No section exists yet; this lane does not mint one.
   Minted by the maintainer on 2026-09-19 as
-  [DECISIONS §158](../decisions/158-a-program-is-declared-once.md).
+  [DECISIONS §158](../decisions/0158-a-program-is-declared-once.md).
 - **Recorded.** The stale `SWISH_CHECK_SCRIPT` line a removal leaves, the textual removal gate, the
   wire-id pin's cut-off date, and the four-key `[[bin]]` reader, in `notes/adding-a-program.md`'s
   `BUGS`.

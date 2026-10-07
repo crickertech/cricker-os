@@ -153,7 +153,7 @@ backport to. If a fix matters to you, it is a commit on `main`.
 **Audits here are routine rather than occasional**, and the index is
 [design/audit-reports/README.md](design/audit-reports/README.md): every audit's date, the lens it
 took, its findings by disposition, and a link to the report. `script/audits` says when the next one
-is due, from the triggers `design/decisions/74-audit-cadence.md` decided, and a weekly workflow asks
+is due, from the triggers `design/decisions/0074-audit-cadence.md` decided, and a weekly workflow asks
 the same question so that auditing does not depend on anyone remembering to.
 
 **Nine** <!--count:security-audits--> security audits are on the record, and reading them first will

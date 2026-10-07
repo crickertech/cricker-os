@@ -3,7 +3,7 @@
 *An appendix to [`notes/std.md`](../std.md), which is the page to read. This file holds how
 `TcpStream`, `TcpListener` and `UdpSocket` map onto net_stack's socket contract, and the port-reuse
 finding. It was moved here verbatim from the main page on 2026-09-25 (UTC), under [§212 (a prose
-budget)](../../design/decisions/212-a-prose-budget-for-every-document.md). The directory
+budget)](../../design/decisions/0212-a-prose-budget-for-every-document.md). The directory
 `notes/std/` and this file's stem are provisional names, minted that day by the lane that split the
 file. Naming is calef's.*
 

@@ -106,7 +106,7 @@ and this section is included only because AGENTS.md's six questions ask for it e
 
 Checked rather than assumed. A repo-wide grep for `impersonate` finds exactly two hits outside this
 milestone's own roadmap doc, both unrelated (a comment about badge-less capabilities in
-`design/decisions/101-notification-objects.md`, and a comment about NVMe completion-tag wraparound in
+`design/decisions/0101-notification-objects.md`, and a comment about NVMe completion-tag wraparound in
 `kernel/src/non_volatile_memory_express.rs`). A grep for `re-derivation`/`rederivation`/`boot-only` finds only this
 milestone's own roadmap doc and unrelated prose in other notes (`notes/x86-port.md`,
 `notes/arch-audit.md`, `notes/frames.md`, none describing session re-derivation). There is no
@@ -115,7 +115,7 @@ path anywhere in the tree today. This is genuinely unbuilt, exactly as milestone
 says.
 
 The sibling on-disk schedule store this operation would read from also does not exist yet: there is
-no `design/decisions/122-*` file in this tree as of this writing, and no per-user schedule persistence
+no `design/decisions/0122-*` file in this tree as of this writing, and no per-user schedule persistence
 format anywhere in `crates/` or `user/src/`. That dependency is real and is called out explicitly
 below rather than guessed at.
 
@@ -254,7 +254,7 @@ someone picks it up, recorded now so the eventual builder inherits them rather t
   piece. This decision assumes only that some read capability over that store exists to grant.
 - Credential revocation's own mechanism, or its consequence: settled by
   §108 (disabling a user's login credentials kills their durable session), in
-  [its file](108-credential-revocation-kills-durable-session.md). It tears a session down; this
+  [its file](0108-credential-revocation-kills-durable-session.md). It tears a session down; this
   stands one back up.
 
 ## Amended 2026-09-27: `login` is the re-deriver

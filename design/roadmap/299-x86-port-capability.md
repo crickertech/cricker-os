@@ -111,7 +111,7 @@ architectures, no scope note.
   fire, `irq_route`/`irq_notify`, EOI, unmask on ACK) that x86 has for the timer but not yet for a
   device. Output, and the prompt, are interrupt-independent, so this is a limitation of input
   latency and CPU spent polling, not of whether the milestone's claim holds.
-- **Decision.** `design/decisions/152-port-range-capability.md` (provisional number), the `PortRange`
+- **Decision.** `design/decisions/0152-port-range-capability.md` (provisional number), the `PortRange`
   object and its `REVOKE` method on the capability surface, an architect's to ratify.
 - **Recorded.** Two limits are in §152's BUGS beside the feature: a thread caches one port range, not
   a set (every real consumer holds one), and a `PortRange` delegated to an already-running thread by

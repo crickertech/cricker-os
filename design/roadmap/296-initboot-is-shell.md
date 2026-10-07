@@ -208,7 +208,7 @@ outright: a newcomer who hits a limitation the docs hid will not trust anything 
 ## What kept its old spelling, and why
 
 `design/naming.md`'s rule is that status decides what moves. Accounts keep `initboot` and say what
-it means now: `design/decisions/21-terminal-in-userspace.md`, `design/init-and-granular-spawn.md`'s
+it means now: `design/decisions/0021-terminal-in-userspace.md`, `design/init-and-granular-spawn.md`'s
 19d.2c record, `notes/progenitor-and-loading.md`'s milestone-41 narrative, and the pre-267 `cfg`
 quoted in `kernel/src/main.rs` and `script/lint` (a quotation never moves, so it is annotated rather
 than edited). Live documentation moved: `notes/scripts.md` lost the row,

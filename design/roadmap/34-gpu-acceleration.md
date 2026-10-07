@@ -11,7 +11,7 @@ needs_person: no
 
 The block prices it as a mountain and says it reopens the parked competitor
 question; that question is decided, not merely open. [DECISIONS
-§131](../decisions/131-hold-at-rung-two.md) (calef, 2026-08-26): hold at the display ladder's rung
+§131](../decisions/0131-hold-at-rung-two.md) (calef, 2026-08-26): hold at the display ladder's rung
 two until something useful is built and proven on text mode. This is not an unresolved fork
 blocking a lane; it is a resolved one whose answer is "not yet, and not a lane's to pick up," and it
 reopens on the terms §131 names rather than on a further decision here.

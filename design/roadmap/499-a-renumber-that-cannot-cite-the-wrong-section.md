@@ -16,7 +16,7 @@ of 2026-09-20 to give every proposal on `main` a number. The text below is the p
 unedited except for this paragraph: the argument is its author's and promotion is not the moment to
 improve it. Filed by the integrator after the third `design/decisions/` number collision between two
 sessions in ninety minutes, on the evening calef ruled that the interleaving stays
-([§194 (sessions interleave rather than serialize)](../decisions/194-sessions-interleave-rather-than-serialize.md)).
+([§194 (sessions interleave rather than serialize)](../decisions/0194-sessions-interleave-rather-than-serialize.md)).
 
 It is a mode on a script that already exists, over files already in the tree.
 

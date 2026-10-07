@@ -7,7 +7,7 @@ ratified_by: calef
 
 # 218. Carry a Kani patch so riscv64 is proved, and send it upstream
 
-calef ruled 2026-09-25 (UTC), under [§46 (thin primitives or whole subsystems)](46-dependency-rule.md),
+calef ruled 2026-09-25 (UTC), under [§46 (thin primitives or whole subsystems)](0046-dependency-rule.md),
 on the proposal milestone 589 (Kani can prove riscv64 from the hosts we already have) was promoted
 from. *(Section and milestone numbers provisional until the merge queue lands them.)*
 

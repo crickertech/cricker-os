@@ -101,7 +101,7 @@ much as for this. radon's RAM does contain the riscv64 kernel's `0x8020_0000`.
   `design/decisions/` in any case.
 - **Decision.** Which profile the download is built in (41.6 MB debug, 20.0 MB release, both proved
   on all three firmwares), signing, and the web page are rung 4 of
-  `design/decisions/157-a-trivial-install-is-a-web-page-a-usb-drive-and-packages.md`, calef's.
+  `design/decisions/0157-a-trivial-install-is-a-web-page-a-usb-drive-and-packages.md`, calef's.
 
 ## BUGS
 

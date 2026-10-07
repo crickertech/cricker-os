@@ -65,16 +65,16 @@ The overflow flag is partly done. x86_64 already clears its flag in `take_fault`
 small half.
 
 Three documents already say it is owed, which is the argument that this is a gap rather than a
-possibility: `notes/iommu.md`'s honest limits, [§20](20-iommu-dma-isolation.md) (IOMMU-backed DMA
+possibility: `notes/iommu.md`'s honest limits, [§20](0020-iommu-dma-isolation.md) (IOMMU-backed DMA
 isolation)'s own limits list, and `notes/framebuffer-contract.md` mirrored into
-[§29](29-framebuffer-grant.md) (the framebuffer is a bigger grant, not an exemption).
+[§29](0029-framebuffer-grant.md) (the framebuffer is a bigger grant, not an exemption).
 
 ## What this tree already does in the analogous case
 
-A thread's death is already a message its supervisor holds. [§26](26-fault-endpoint.md) (thread
+A thread's death is already a message its supervisor holds. [§26](0026-fault-endpoint.md) (thread
 death becomes a message a supervisor holds) built exactly this shape for CPU faults: the kernel
 does not print, it delivers, and the party that holds the relationship is the party told.
-[§32](32-reap-without-build.md) then made the supervision relationship the unit of authority rather
+[§32](0032-reap-without-build.md) then made the supervision relationship the unit of authority rather
 than a rights bit. A device escaping its grant is the same event one layer down, and the tree
 already has the vocabulary for it.
 

@@ -80,7 +80,7 @@ exceeds its quota.
 Decided, 2026-09-27: fixed bytes, not a percentage of the drive. journald's own defaults scale off
 filesystem size (`SystemMaxUse` at 10% of the filesystem, capped 4 GiB; `SystemKeepFree` at 15%,
 same cap). That solves a problem nife does not have. The target drives (a single USB drive,
-`design/decisions/34-redoxfs-primary.md`'s topology) are small and known ahead of time.
+`design/decisions/0034-redoxfs-primary.md`'s topology) are small and known ahead of time.
 
 The quota's size is provisional, for the builder to set against `notes/redoxfs-audit.md`'s numbers.
 At about 3.5 MB a day (calef's figure, the raw-text rate measured below), 64 MiB holds about 18
@@ -99,7 +99,7 @@ than by scanning timestamps continuously. That follows logrotate's shape over jo
 ## Crash consistency
 
 RedoxFS's own proven guarantee, from the amendment milestone 37 (prove RedoxFS's crash consistency)
-earned in `design/decisions/34-redoxfs-primary.md`, measured rather than assumed: prefix
+earned in `design/decisions/0034-redoxfs-primary.md`, measured rather than assumed: prefix
 consistency. A fresh mount after any crash recovers exactly the state after some non-decreasing
 prefix of committed transactions. A torn or lost write is caught by its `BlockPtr` checksum and
 refused, never returned as wrong bytes.

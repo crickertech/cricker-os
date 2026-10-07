@@ -111,7 +111,7 @@
 //! in userspace that names them. aarch64 uses `svc #0` with the syscall number in `x8` and arguments
 //! in `x0..x5`; RISC-V uses `ecall` with the number in `a7` and arguments in `a0..a5`; `x86_64` uses
 //! `syscall` with the number in `rax` and arguments in `rdi`, `rsi`, `rdx`, `r10`, `r8`, `r9`
-//! ([DECISIONS §124](../../../design/decisions/124-x86-64-syscall-abi.md), ratified 2026-08-24).
+//! ([DECISIONS §124](../../../design/decisions/0124-x86-64-syscall-abi.md), ratified 2026-08-24).
 //! All three return in the first argument register (`x0` / `a0` / `rdi`). The kernel reconciles them
 //! in `TrapFrame` (DECISIONS §17); here we simply select the right asm at compile time. Every
 //! function's signature, semantics, and the `abi` constants are identical across all three.
@@ -1278,7 +1278,7 @@ pub fn now() -> u64 {
 /// fallback does, against the 8254 PIT: the PIT is at I/O ports `0x40..0x43`, `IOPL` is 0 and the
 /// TSS's I/O permission bitmap is empty, so `in`/`out` from a process is a general protection
 /// fault. That is not an oversight to route around, it is
-/// [DECISIONS §121](../../../design/decisions/121-port-io-capability.md), which closed port I/O
+/// [DECISIONS §121](../../../design/decisions/0121-port-io-capability.md), which closed port I/O
 /// to userspace **permanently**: a program that could calibrate its own clock by touching the PIT
 /// would be a program that had escaped the confinement this kernel exists to enforce.
 ///

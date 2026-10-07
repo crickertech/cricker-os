@@ -22,7 +22,7 @@ address and a subject line, saying outright that it is one person with no rota a
 role address when there is a second maintainer; and GitHub's community profile reports
 `content_reports_enabled` true, so calef delivered the one item no pull request could. Both are
 recorded as `Done` in this block's own Follow-on section, and the gate was left pointing at
-them. That is [§76](../decisions/76-roadmap-status-versus-tree.md)'s defect class again, and it is
+them. That is [§76](../decisions/0076-roadmap-status-versus-tree.md)'s defect class again, and it is
 the second time this block has had it: its gap table and its gate disagreed for three weeks about
 TCP listen and accept. The gate is read when ranking work and the follow-on list is read when
 picking it up, so the two audiences saw different answers. What is left needs nobody: nothing

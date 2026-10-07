@@ -8,7 +8,7 @@ ratified_by: calef
 # 215. The second RISC-V machine is a rented Scaleway Elastic Metal RV1
 
 calef, 2026-09-25 (UTC). *(Section number provisional until the merge queue lands it.)* This closes
-the provider half of [§203 (capacity is rented rather than bought)](203-capacity-is-rented-not-bought.md)'s
+the provider half of [§203 (capacity is rented rather than bought)](0203-capacity-is-rented-not-bought.md)'s
 "What is not decided" for one purpose. It does not settle the spend split, and it does not choose a
 provider for aarch64 or x86_64.
 

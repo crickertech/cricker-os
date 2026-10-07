@@ -252,7 +252,7 @@ ship under a feedback loop that slow.
 - **Recorded.** `AGENTS.md` already accepts the gap `script/cadence-check` inherits. It is delivered
   through `helpers/trunk-health.sh`, which runs under `launchd` on one Mac, so a machine asleep is a
   watcher not watching.
-- **Recorded.** `design/decisions/74-audit-cadence.md` holds the cadence and what it is for. `audit
+- **Recorded.** `design/decisions/0074-audit-cadence.md` holds the cadence and what it is for. `audit
   cadence` is red because two audits are genuinely due, which is the signal working rather than a
   defect, and nothing can tell a correct red from a broken one from outside.
 - **Recorded.** `design/roadmap/238-the-scheduled-checks-that-never-run.md` records the boundary

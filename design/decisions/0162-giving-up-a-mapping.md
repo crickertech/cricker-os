@@ -56,7 +56,7 @@ progenitor maps each page it lays down for a child in order to write it and neve
 > -- notes/trusted-init.md
 
 Reaping a job hides this for jobs, because reclaiming a region revokes every mapping of its pages
-first ([§13](13-frame-revocation.md)), but the boot servers are never reclaimed. The note names the
+first ([§13](0013-frame-revocation.md)), but the boot servers are never reclaimed. The note names the
 consequence precisely: the console's, the line editor's, the input driver's, the shell's and the
 terminal sink adapter's memory is still reachable from the progenitor, and giving the
 construction budget away does not touch that.
@@ -66,13 +66,13 @@ progenitor for life, because `Frame::REVOKE` would take the page from the shell 
 
 ## What this tree already does in the analogous case
 
-Take-back already exists, and it is not this. [§41](41-endpoint-as-broker.md) (a device is
+Take-back already exists, and it is not this. [§41](0041-endpoint-as-broker.md) (a device is
 revoked by taking it back) made `Frame::REVOKE` on an `Object::DeviceFrame` delete every capability
 naming the page from every cspace *except the invoker's*. That is the right shape for handing a
 device between two servers and the wrong shape here: the progenitor wants to drop its own window
 and leave the child's alone, which is the exact inverse.
 
-And [§13](13-frame-revocation.md) already decides what happens to another holder's mapping when
+And [§13](0013-frame-revocation.md) already decides what happens to another holder's mapping when
 a region is reclaimed. Whatever unmap does must not contradict it, which is a constraint on the
 options rather than an answer.
 

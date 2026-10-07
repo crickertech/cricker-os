@@ -98,7 +98,7 @@ when `uptime` load is under 8 and no other lane is gating. Not part of this pilo
 
 ### (b) The brief, verbatim after the preamble
 
-> calef reports: "`design/decisions/01-target-architecture.md` says `raised: 2026-08-04`, but aarch64
+> calef reports: "`design/decisions/0001-target-architecture.md` says `raised: 2026-08-04`, but aarch64
 > was the first thing we decided, in July. A lot of the decision files carry 2026-08-04. The
 > frontmatter dates were backfilled from git by milestone 582, and something in that backfill is
 > wrong." Find the cause, correct the `raised` and `decided` dates in the affected files, correct

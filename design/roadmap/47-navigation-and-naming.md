@@ -1310,10 +1310,10 @@ estimates for unbuilt work are guesses on a scale calibrated from history, not m
   progenitor builds `fs_nameset_caretaker` over a copy of it. Verified 2026-10-03.
 - **Refused.** The two symlink questions this block leaves open, what a stored `..` means to a
   shallower holder and the `rm -r link/` trailing slash, are moot:
-  `design/decisions/50-namespace-composition.md` chose composition over stored paths, so there is
+  `design/decisions/0050-namespace-composition.md` chose composition over stored paths, so there is
   no stored path to clamp or to slash.
 - **Decision.** Hard links were considered and declined, written up as
-  `design/decisions/110-hard-links-declined.md`: no customer, `RENAME` already covers the
+  `design/decisions/0110-hard-links-declined.md`: no customer, `RENAME` already covers the
   atomic-replace idiom, and a DAG would cost an audit of every subtree argument in the tree.
 - **Refused.** The function-call shell syntax fork calef raised 2026-07-30: DECISIONS §141
   (application is grant), 2026-09-03, recorded the model and refused each notation with a measured

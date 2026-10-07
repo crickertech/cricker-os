@@ -84,7 +84,7 @@ instead. calef refused that split, and the refusal is the load-bearing part of t
 And on mechanism: *"We can make generous use of hyperlinks. They're awesome."* Read that as license
 to link rather than restate, here and everywhere.
 
-**A sibling section, [§213 (writing standards)](213-writing-standards.md), minted 2026-09-24.** It bounds how densely a document must be written, where this one bounds
+**A sibling section, [§213 (writing standards)](0213-writing-standards.md), minted 2026-09-24.** It bounds how densely a document must be written, where this one bounds
 how much of it there may be. They are two decisions, and the pairing is why: a cap on length with no
 density standard is satisfiable by terse vagueness, and a density standard with no cap still permits
 a book. Two sections linking to each other instead of merging into one is this section's own

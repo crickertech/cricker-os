@@ -9,7 +9,7 @@ Minted 2026-08-25, from milestone 161's own item 0, "the wide half is
 still owed and should be its own milestone." Re-scoped fresh against the current tree rather than
 carried over from 161's own text, which turned out to describe a partly stale state. Piece 1 built
 the same day (below); piece 2 was sized, found to need a decision
-([DECISIONS §130](../decisions/130-cmos-rtc-delegation.md), ratified 2026-08-26), and built against
+([DECISIONS §130](../decisions/0130-cmos-rtc-delegation.md), ratified 2026-08-26), and built against
 it (below).
 
 ## What 161's own text got right, and what it no longer does
@@ -52,11 +52,11 @@ with no seam at all.
 
 Sizing this found a real design fork, not a shape to build: the other two architectures' RTCs are
 memory-mapped, so their `RTC_REGION` seam is a physical page a driver maps and pokes directly. The
-PC-compatible CMOS RTC is two fixed I/O ports, and [DECISIONS §121](../decisions/121-port-io-capability.md)'s
+PC-compatible CMOS RTC is two fixed I/O ports, and [DECISIONS §121](../decisions/0121-port-io-capability.md)'s
 current (still-PROPOSED) recommendation keeps all x86 legacy port I/O kernel-resident, so the
 existing "map the device, let userspace drive it" pattern has no CMOS equivalent. Full writeup, four
 options considered, and the decision itself in
-[DECISIONS §130](../decisions/130-cmos-rtc-delegation.md): option 3, the kernel reads CMOS once
+[DECISIONS §130](../decisions/0130-cmos-rtc-delegation.md): option 3, the kernel reads CMOS once
 at boot and hands the seed to the clock service as a `Spawn` argument, the same way `kind` already
 crosses that boundary.
 
@@ -88,9 +88,9 @@ Piece 1 is complete and independent of this.
 
 ## Follow-on
 
-- **Decision.** `design/decisions/121-port-io-capability.md` holds the question that decided piece
+- **Decision.** `design/decisions/0121-port-io-capability.md` holds the question that decided piece
   2's shape, whether userspace may ever drive x86 legacy port I/O. Its recommendation keeps port I/O
-  kernel-resident and is still PROPOSED; `design/decisions/130-cmos-rtc-delegation.md` took the RTC
+  kernel-resident and is still PROPOSED; `design/decisions/0130-cmos-rtc-delegation.md` took the RTC
   question against it and is ratified, which is why `rtc_region()` stays `None` on x86_64 forever.
 - **Recorded.** `crates/clock_protocol/src/lib.rs` (spelled clock_proto when this was written;
   milestone 265 renamed it) carries the new `rtc` kind, shipped as a provisional
@@ -112,7 +112,7 @@ Piece 1 is complete and independent of this.
 Milestone 161's own item 0, re-scoped fresh: two of the four windows its text named (the interrupt
 controller, PCI) turned out to already be built, checked directly against the tree. Piece 1
 built (2026-08-25): COM1's already-discovered IRQ (`Acpi::isa_irqs[4]`) wired into `memory::UART_IRQ`, and `machine.rs`'s stale `BUGS` comment corrected. Piece 2, a CMOS RTC,
-built (2026-08-25) against [DECISIONS §130](../decisions/130-cmos-rtc-delegation.md): the kernel
+built (2026-08-25) against [DECISIONS §130](../decisions/0130-cmos-rtc-delegation.md): the kernel
 reads CMOS once (`arch::x86_64::rtc`) and hands the wall-clock seed to the clock service as a `Spawn` argument (`clock_proto::rtc::CMOS`), since every existing RTC consumer assumed the
 userspace clock service reads its device itself and DECISIONS §121 forever forecloses that shape
 for CMOS's kernel-resident ports. `date_tests.rs`, `time_tests.rs`, `clock_tests.rs` and `ntp_tests.rs` now run on `x86_64` instead of skipping.

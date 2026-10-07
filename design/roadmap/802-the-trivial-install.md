@@ -25,7 +25,7 @@ with hardware and no prior knowledge of this project reaches a running system. T
 on a development machine, which is not an install.
 
 calef defined it on 2026-09-19 in
-[§157 (a trivial install is a web page, a USB drive, and packages over the internet)](../decisions/157-a-trivial-install-is-a-web-page-a-usb-drive-and-packages.md).
+[§157 (a trivial install is a web page, a USB drive, and packages over the internet)](../decisions/0157-a-trivial-install-is-a-web-page-a-usb-drive-and-packages.md).
 It is a web page from which one downloads a minimal system, writes it to a USB drive and installs
 it. The
 system then grows by installing packages over the internet.

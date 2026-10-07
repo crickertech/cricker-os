@@ -10,7 +10,7 @@
 #   script/job-mix --lock-wait              # ...and count contended kernel locks per point (2026-10-04)
 #   script/job-mix --quiet-after 0          # a host so slow a subrun outlasts the wedge timer
 #
-# `design/decisions/96-process-kernel-or-event-kernel.md` asks whether this kernel should keep a
+# `design/decisions/0096-process-kernel-or-event-kernel.md` asks whether this kernel should keep a
 # kernel stack per thread. Three of its four inputs are settled; the fourth is performance, and the
 # retrospective it rests on found event kernels within 1% of process kernels on micro-benchmarks and
 # 20% ahead on a multi-tasking workload. Every instrument this project owns is a micro-benchmark.

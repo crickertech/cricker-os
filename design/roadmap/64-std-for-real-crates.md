@@ -344,11 +344,11 @@ build them, and report what breaks.
   would be a fiction laid over a capability refusal, and `notes/crates-io-on-nife.md`'s second row
   already reads declined.
 - **Refused.** Rank 3, `thread::spawn`, is declined for want of a customer, written up in
-  `design/decisions/105-thread-spawn-decline-for-now.md` and in `notes/thread-spawn-fork.md`. It
+  `design/decisions/0105-thread-spawn-decline-for-now.md` and in `notes/thread-spawn-fork.md`. It
   stays unsupported permanently rather than pending.
 - **Done.** Ranks 19 and 28 no longer want a decision: milestone 47's mtime lane landed the get,
   set and set-at verbs in `crates/filesystem_protocol`, on
-  `design/decisions/112-touch-mtime-authority.md`, decided 2026-08-23.
+  `design/decisions/0112-touch-mtime-authority.md`, decided 2026-08-23.
 - **Done.** Ranks 19 and 28 are bound by path (2026-09-19, "The last pass: file times" above):
   `metadata(p).modified()` on `GETMTIME`, `fs::set_times` on `SETMTIME_AT`, and the shim's comments
   that said no verb existed are corrected.
@@ -361,7 +361,7 @@ build them, and report what breaks.
   milestone 497 (a filesystem server that knows what time), `design/roadmap/497-a-filesystem-server-that-knows-the-time.md`.
 - **Recorded.** The exit event still carries no exit code, so a supervisor can tell exit from crash
   and cannot tell `exit(0)` from `exit(1)`. The reasoning lives in `notes/std.md`.
-- **Done.** `env` is seeded now: `design/decisions/111-inert-config-is-a-validated-page.md` and
+- **Done.** `env` is seeded now: `design/decisions/0111-inert-config-is-a-validated-page.md` and
   `crates/environment_protocol` define a validated read-only page, and the environment shim under
   `patches/std-nife/overlay/std/src/sys/env/nife.rs` fills `TZ`, `LANG` and `TERM` from it before
   `main` runs.

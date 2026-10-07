@@ -28,7 +28,7 @@
 //!
 //! # No authority question, and this must not create one
 //!
-//! [DECISIONS §139 part 3](../../../design/decisions/139-cycle-counter-authority.md) records that
+//! [DECISIONS §139 part 3](../../../design/decisions/0139-cycle-counter-authority.md) records that
 //! `x86_64`'s TSC is already ambient: `CR4.TSD` is clear at reset and this kernel never writes it, so
 //! ring 3 can `rdtsc` and the negative half of the cycle-counter grant test skips here with a
 //! reason. **This module does not change that and must not.** It enables a counter the kernel reads

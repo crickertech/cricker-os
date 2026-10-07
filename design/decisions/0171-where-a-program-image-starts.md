@@ -114,6 +114,6 @@ with each program added.
 
 Milestone 206, and behind it milestone 123 (the demonstration: somebody else's software, running narrow)'s corpus, since 896 KiB is small for anything with
 a dependency tree. This ceiling is the second thing a foreign program meets, right after
-[§170](170-how-a-foreign-program-is-told-what-to-do.md) (how a foreign program is told what to do).
+[§170](0170-how-a-foreign-program-is-told-what-to-do.md) (how a foreign program is told what to do).
 
 Not blocked: the error message, which is option A and needs nobody.

@@ -75,15 +75,15 @@ the tree spells `NIFE_KBD`) and then asking whether the class was bigger than th
 (`CRICKER_ACCEL`).
 
 **Two were not stale and were left alone**, which is the part of this finding worth remembering:
-`notes/c-seam.md` and `design/decisions/31-foreign-language-seam.md` name `$CRICKER_CC`, and
+`notes/c-seam.md` and `design/decisions/0031-foreign-language-seam.md` name `$CRICKER_CC`, and
 `script/bootstrap` really does read `$CRICKER_CC`. The documents are right and the *script* is the
 unfinished rename. A blind `sed` over `CRICKER_` would have made two correct documents wrong, which
 is the mechanism that destroyed a naming refusal in this tree once already.
 
 **Four are in `design/decisions/` and are handed off**, since a lane does not edit them:
-`18-pcie-transport.md` (`CRICKER_DISK`), `27-filesystem-service.md` (`CRICKER_KEEP_REDOXFS`),
-`45-partition-guid.md` (`CRICKER_DATA`, which is a Rust constant now spelled `NIFE_DATA`),
-`53-parity-matrix.md` (`CRICKER_CPU`).
+`0018-pcie-transport.md` (`CRICKER_DISK`), `0027-filesystem-service.md` (`CRICKER_KEEP_REDOXFS`),
+`0045-partition-guid.md` (`CRICKER_DATA`, which is a Rust constant now spelled `NIFE_DATA`),
+`0053-parity-matrix.md` (`CRICKER_CPU`).
 
 **Minted: the rename's environment-variable remainder.** Three live code sites still carry the old
 name and one of them is a user-facing interface, which is why this is a milestone rather than a fix:

@@ -11,7 +11,7 @@ blocked on a second grant") and milestone 64's `File::open` fork ("tier two, any
 traverses, needs a namespace to resolve *against*, and that is 47's unbuilt half"). Built
 2026-08-23: one process holding and resolving against two directory capabilities, on the real
 wire. §126 (a real, single, moving cwd), in
-[design/decisions](../decisions/126-two-directory-cwd.md), decided 2026-08-25 that the holder has one
+[design/decisions](../decisions/0126-two-directory-cwd.md), decided 2026-08-25 that the holder has one
 real, moving position. Built 2026-09-26: the real shell and its grant planner across two trees,
 presented as calef ruled that day, "one tree with other trees mounted at names in it" ("The shell
 across two trees" below).
@@ -98,7 +98,7 @@ Two second-level pieces, host-tested and guest-tested rather than left as design
 Kept as the 2026-08-25 record. Its labeled presentation (`/a/...`, `/b/...`, two labeled `caps`
 rows) was replaced on 2026-09-26 by calef's one-tree ruling; see "The shell across two trees".
 
-[DECISIONS §126](../decisions/126-two-directory-cwd.md) closed the ambiguity the first bullet
+[DECISIONS §126](../decisions/0126-two-directory-cwd.md) closed the ambiguity the first bullet
 below used to name. A two-grant shell gets a real, single, moving `cwd`: state `(which, pos)`
 in place of one-grant `Holdings`' bare `Cwd`, a bare relative name resolves against `pos` inside
 whichever tree `which` currently names, an absolute `/a/...`/`/b/...` path both resolves and moves

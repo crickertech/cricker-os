@@ -13,7 +13,7 @@ day milestone 313 (the security audit that was due since August) raised it as fi
 
 It was gated `DECISION` until 2026-09-18, when calef answered
 §153 (how a two-core x86_64 test earns its place),
-[the decision file](../decisions/153-two-core-x86-test-sequencing.md): close this milestone
+[the decision file](../decisions/0153-two-core-x86-test-sequencing.md): close this milestone
 first, then default
 `NIFE_SMP` to 2. Both halves are done, and the second is the verification of the first.
 

@@ -47,7 +47,7 @@ Why it matters. **the thesis is confining code we did not write, so not knowing 
 
 - **Refused.** Fuzz targets for the other crates this block lists as taking attacker-shaped input:
   the `fs_proto`/`gfx_proto`/`line_editor` decoders, `grant_plan`, `compositor` and `measured_boot`.
-  `design/decisions/60-fuzzing-the-parsers.md` settles it: the four targets that shipped are the
+  `design/decisions/0060-fuzzing-the-parsers.md` settles it: the four targets that shipped are the
   tree's actual trust boundary, because everything on that list parses bytes this system wrote
   itself. A found bug becomes a permanent regression test, not a permanent fuzzing job.
 - **Recorded.** `notes/fuzzing.md` holds what the fuzzing leg cannot do, including the one that

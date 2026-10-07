@@ -76,7 +76,7 @@ strike each and are informative rather than urgent.
 
 ## What changed, 2026-08-25: the git-clobber row marked `resolved`
 
-[DECISIONS §128](../design/decisions/128-git-clobber-enforcement.md) researched the four candidate
+[DECISIONS §128](../design/decisions/0128-git-clobber-enforcement.md) researched the four candidate
 mechanisms named above and priced them: git has no `pre-checkout`/`pre-reset`/`pre-stash` hook to
 build a genuine pre-command check on, and a shell shim can't distinguish `git checkout <path>`
 (dangerous) from `git checkout <branch>` (ordinary) by prefix alone, so neither is a clean win. But

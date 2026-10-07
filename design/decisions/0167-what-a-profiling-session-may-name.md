@@ -7,7 +7,7 @@ raised: 2026-09-19
 
 Raised 2026-09-19 by milestone 435 (forty-five milestones are gated on a decision nobody wrote down)'s lane, which found milestone 147 (a profiler that holds exactly the counters it was granted) gated on
 `MILESTONE 75, DECISION` naming no decision, when the prior question its gate defers to has been
-answered since 2026-09-02. [§139](139-cycle-counter-authority.md) (who may read the cycle counter,
+answered since 2026-09-02. [§139](0139-cycle-counter-authority.md) (who may read the cycle counter,
 and by what authority) took it; 147's gate never said so, and §139's own text says it does **not**
 cover what 147 needs. *(Section number provisional until the merge queue lands it.)*
 
@@ -20,7 +20,7 @@ declined to let it argue for the live form:
 > 147 wants *this profiler may read that subtree's counters*, which is cross-thread authority with a
 > named target, and neither shape here provides it.
 >
-> -- design/decisions/139-cycle-counter-authority.md
+> -- design/decisions/0139-cycle-counter-authority.md
 
 So the prior question is closed and the second consumer's question is untouched: §139 grants a
 thread the right to read its own counter, and a profiler wants to read somebody else's.
@@ -54,7 +54,7 @@ rather than in the implementation.
 
 Narrowing by subtree is built and is the model. `rendezvous::SURVEY` (milestone 126) walks
 exactly the supervision subtree whose fault endpoint this is, needs no second bookkeeping, and is
-authorized by the same relationship `REAP` is ([§32](32-reap-without-build.md), a supervisor may
+authorized by the same relationship `REAP` is ([§32](0032-reap-without-build.md), a supervisor may
 collect a corpse without being able to build one). A `ps` launched from a shell sees the shell's
 children and nothing else. A profiler is the same shape with a different verb, which is the
 strongest argument available here: the kernel already maintains the relation the grant would name.

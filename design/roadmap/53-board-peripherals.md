@@ -130,7 +130,7 @@ and both trees are GPL and were read for hardware facts only.
 - **Milestone 163.** The board-side PLDA XpressRICH root complex that would carry the NVMe driver
   to the real M.2 slot. Minted 2026-08-25, still NOT-STARTED on a HARDWARE gate.
 - **Decision.** Whether the NVMe driver can leave the kernel is answered rather than pending:
-  `design/decisions/86-el0-nvme-driver.md` is DECIDED as of 2026-09-03, option 2a now with option 4
+  `design/decisions/0086-el0-nvme-driver.md` is DECIDED as of 2026-09-03, option 2a now with option 4
   addable without reshaping the EL0 driver, and the choice between them settled by measurement. The
   block's own prose still reads as though the fork were open.
 - **Outstanding.** RedoxFS crash consistency proven by actually cutting power on radon. Nothing can

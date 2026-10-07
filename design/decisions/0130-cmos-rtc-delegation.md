@@ -13,7 +13,7 @@ than a shape to build, correctly declining to invent an answer.
 
 ## What §121 leaves open, and does not reopen here
 
-[DECISIONS §121 (x86 port I/O)](121-port-io-capability.md) is **PROPOSED, not decided**, with a
+[DECISIONS §121 (x86 port I/O)](0121-port-io-capability.md) is **PROPOSED, not decided**, with a
 recommendation its own text calls "deliberately weak": x86 legacy port I/O (the CMOS clock among
 them) stays kernel-resident by default, not permanently, because nothing in ring 3 needs it yet
 and the one mechanism with real per-port granularity (a port-range capability enforced by the TSS

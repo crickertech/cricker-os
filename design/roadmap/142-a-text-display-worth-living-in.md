@@ -18,7 +18,7 @@ Milestone 141 (a palette) owns the palette property check, and a palette
 cannot be chosen before the check saying which palettes are admissible exists. The
 decision is the font and the dependency that renders it. Half of that was taken on
 2026-08-20 and this gate did not say so until 2026-09-19:
-[§104](../decisions/104-the-font-and-the-palette.md) (the rich-text font is DejaVu Sans Mono, and
+[§104](../decisions/0104-the-font-and-the-palette.md) (the rich-text font is DejaVu Sans Mono, and
 the palette is Solarized) chose both the family and the palette. What is left is
 §166 (the rasteriser dependency, and
 whether the glyph atlas ships one face or four), written up by milestone 435's lane: §46 makes the
@@ -667,10 +667,10 @@ Eventually his and blocking nothing:
 ## Follow-on
 
 - **Decision.** The font family that blocked increment three was chosen on 2026-08-20:
-  `design/decisions/104-the-font-and-the-palette.md` picks DejaVu Sans Mono, Menlo's own ancestor
+  `design/decisions/0104-the-font-and-the-palette.md` picks DejaVu Sans Mono, Menlo's own ancestor
   and the last point in that chain where the outlines were given away.
 - **Decision.** The palette calef had to pick was chosen in the same call, canonical Solarized
-  Dark, in `design/decisions/104-the-font-and-the-palette.md`, after this block's finding that
+  Dark, in `design/decisions/0104-the-font-and-the-palette.md`, after this block's finding that
   "Higher Contrast" is a 2011 gist and a different palette rather than a contrast adjustment.
 - **Done.** DECISIONS §102 is built and consumed rather than "decided and nobody is building it":
   the page-frame object in `kernel/src/cap.rs` carries a count that is the run's length in pages,

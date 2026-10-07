@@ -23,7 +23,7 @@ rehearsal and `crates/board_console`'s recognizer). The lane that built it had t
 in its maintainer's brief, noted that both readers are in-tree, and recorded the choice in milestone
 168 so it is visible rather than implied. So the question is settled in the tree, and it was not
 settled by the person whose call it was.
-[§191](../decisions/191-job-mix-repeats-and-what-the-line-reports.md) stays `PROPOSED` for exactly
+[§191](../decisions/0191-job-mix-repeats-and-what-the-line-reports.md) stays `PROPOSED` for exactly
 that reason: it is now a ratification or an overrule rather than an open fork, and the difference
 between those two is not a lane's to erase.
 
@@ -90,7 +90,7 @@ not, until a number exists, and `tasks=4` does not yet have one.
 
 - **Milestone 168.** Where the work landed: *"What changed on 2026-09-19"*, with the resampling
   evidence for 21 and the old-and-new line formats in `notes/job-mix.md`.
-- **Decision.** [`design/decisions/191-job-mix-repeats-and-what-the-line-reports.md`](../decisions/191-job-mix-repeats-and-what-the-line-reports.md),
+- **Decision.** [`design/decisions/0191-job-mix-repeats-and-what-the-line-reports.md`](../decisions/0191-job-mix-repeats-and-what-the-line-reports.md),
   still `PROPOSED`, and now asking calef to ratify or overrule what shipped rather than to choose
   from four options.
 - **Refused.** *Option 2, a per-point repeat table.* Refused on measured board time rather than on

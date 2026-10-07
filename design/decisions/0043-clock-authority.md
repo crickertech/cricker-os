@@ -13,7 +13,7 @@ notes/clock.md. The contract is `crates/clock_proto`.
 Before this, `SystemTime` was the monotonic counter offset from `UNIX_EPOCH`, so the machine
 reported January 1970 plus uptime and nothing in the interface said so. The defect was never the
 missing hardware; it was that a caller could not tell a wrong answer from a right one, which is
-[§42](42-truthful-filesystem.md)'s
+[§42](0042-truthful-filesystem.md)'s
 rule on a second axis.
 
 ## Wall clock is counter plus offset, and that is what protects `Instant`

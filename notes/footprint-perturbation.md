@@ -173,7 +173,7 @@ rest on), `ipc_rtt`, `ipc_rtt_el0`.
 
 | what the capture shows | what it means | where it routes |
 |---|---|---|
-| each pad sits on its matched twin, and the pads move no further than the layout images do | the counted footprint predicts nothing: doubling and tripling it costs no more than moving the same code the same distance | §95 (a hand-written IPC fastpath, and whether it can stay proven)'s premise is in serious doubt. 188 phase 4 would buy a standing verification obligation for an effect this instrument cannot find; route to `design/decisions/95-*` |
+| each pad sits on its matched twin, and the pads move no further than the layout images do | the counted footprint predicts nothing: doubling and tripling it costs no more than moving the same code the same distance | §95 (a hand-written IPC fastpath, and whether it can stay proven)'s premise is in serious doubt. 188 phase 4 would buy a standing verification obligation for an effect this instrument cannot find; route to `design/decisions/0095-*` |
 | a pad differs from its matched twin, beyond the boot-to-boot spread | impossible on the physics as understood, since the two binaries differ only in bytes nothing fetches. Something else differs between the images or the measurement is not what it seems | nothing routes until it is explained; it is the instrument's own check failing |
 | the pad ladder rises monotonically and leaves the layout range, matched twins tracking their pads | displacement costs time and more displacement costs more, which is the strongest reading available here. It is a layout result stated honestly, not a footprint one | 188 phase 4: the magnitude is what a hand-written fastpath would have to beat, and notes/benchmarks.md gets a caveat on every stored baseline |
 | the layout range is itself large (several percent) | the 2026-09-04 reading was an artifact, as suspected, and every between-build comparison in `bench/` inherits the same exposure | notes/benchmarks.md, as a caveat on stored baselines; and E3 as built cannot answer §95 at all |
@@ -319,7 +319,7 @@ like: once the per-thread state no longer fits, every additional thread misses a
 has nowhere further to go. On patagonia the same sweep rose 8 to 11% across the whole range with no
 identifiable knee, which is the large-cache muting E1's note predicted.
 
-What it says about `design/decisions/96-process-kernel-or-event-kernel.md`. The performance
+What it says about `design/decisions/0096-process-kernel-or-event-kernel.md`. The performance
 input to §96 (process kernel or event kernel) is live: a per-thread kernel state that a process kernel carries and an event kernel
 does not is measurably expensive on the smallest cache this project targets. But read it against
 E2's finding that the customer path runs 4 to 8 threads, which is on the flat part of the curve,
@@ -578,9 +578,9 @@ cycles are not.
 | what the capture shows | what it means | where it routes |
 |---|---|---|
 | `call_reply` and `ipc_rtt_el0` clearly slower padded, beyond the boot-to-boot spread | Liedtke's claim is live on this machine at this footprint. §95's premise holds, measured rather than argued | milestone 188 phase 4 is justified; the magnitude is the expected payoff of a hand-written fastpath and the number to hold it to |
-| padded and un-padded within the spread, as on patagonia | a doubling of footprint costs nothing measurable on a 32 KB L1i either. This is the strong direction of the negative: E3's own design says a null here is worth far more than a null on patagonia | §95's premise is in serious doubt. 188 phase 4 buys a standing verification obligation for an effect two machines cannot find. Route to `design/decisions/95-*` as evidence for closing it |
+| padded and un-padded within the spread, as on patagonia | a doubling of footprint costs nothing measurable on a 32 KB L1i either. This is the strong direction of the negative: E3's own design says a null here is worth far more than a null on patagonia | §95's premise is in serious doubt. 188 phase 4 buys a standing verification obligation for an effect two machines cannot find. Route to `design/decisions/0095-*` as evidence for closing it |
 | `ipc_rtt` moves and `call_reply` does not (or the reverse) | the effect is real but shape-specific, which is a result about *which* path to optimize rather than whether to | 188 phase 4, with a narrower scope than currently sketched |
-| E1 `ipc_scale_*` bends sharply in the low tens | Warton's effect reproduced on the machine the prediction was computed for. §96's performance input is live | `design/decisions/96-process-kernel-or-event-kernel.md`, read against E2's finding that the customer path runs 4 to 8 threads |
+| E1 `ipc_scale_*` bends sharply in the low tens | Warton's effect reproduced on the machine the prediction was computed for. §96's performance input is live | `design/decisions/0096-process-kernel-or-event-kernel.md`, read against E2's finding that the customer path runs 4 to 8 threads |
 | E1 flat to 96 threads | the process kernel costs nothing on this axis on the smallest cache we target. Stronger than patagonia's 8-11% rise, in the opposite direction | §96 answered no, on data |
 | E4 `_ipc96` clearly above `_ipc`, and both above zero | application displacement is real and load-dependent: the Liedtke measurement proper | the register, and 188 phase 4 as supporting rather than deciding evidence |
 | E1 or E4 print `skipped` | the card was built wrong. `needs a single hart` means `single_hart` was missing; `QEMU virt detected` means this is not the board | rebuild, do not interpret |

@@ -33,12 +33,12 @@ session holding the run-unvouched capability runs bytes nobody vouched for. §22
 the owner's console) followed: `vouch`, and the owner's list of who may run new code.
 notes/packages.md has the account.
 
-[§219](../decisions/219-naming-an-installed-program-to-the-spawner.md) was decided 2026-09-26
+[§219](../decisions/0219-naming-an-installed-program-to-the-spawner.md) was decided 2026-09-26
 (UTC): option D with gate D2, all built. The first cut took §219's two open
 recommendations provisionally (the table's shape, and where a manifest travels, §197). Every earlier fork is ruled:
-[§195](../decisions/195-a-recipe-vouches-and-the-owner-may-overrule.md),
-[§197](../decisions/197-a-package-is-one-archive-file.md),
-[§208](../decisions/208-installing-is-granting.md) and §196 (nife carries TLS). The rulings of §157
+[§195](../decisions/0195-a-recipe-vouches-and-the-owner-may-overrule.md),
+[§197](../decisions/0197-a-package-is-one-archive-file.md),
+[§208](../decisions/0208-installing-is-granting.md) and §196 (nife carries TLS). The rulings of §157
 (a trivial install is a web page, a USB drive, and packages over the internet) gate later rungs,
 each on a milestone of its own: the install layout on milestone 515 (rung 2a), Secure Boot on
 milestone 500 (a stick that boots with Secure Boot on) for rungs 1d and 4, and publication is
@@ -52,12 +52,12 @@ until this block exists. The scoping lane checked what a first slice would need 
 repository split and found only an SDK gap (an outside author needs this repository cloned to get
 the toolchain), which is a candidate milestone of its own rather than a reason to wait on the split.
 The argument is in
-[DECISIONS §156](../decisions/156-the-package-manager-waits-on-a-decision-not-milestone-23.md). Milestone 39
+[DECISIONS §156](../decisions/0156-the-package-manager-waits-on-a-decision-not-milestone-23.md). Milestone 39
 keeps its own gate; this ruling does not touch it.
 
 A second half of that fork was already ruled and this gate did not say so, found by milestone
 435's first slice on the same day.
-[§151](../decisions/151-repository-goal-is-independent-release.md) (the goal of the repository
+[§151](../decisions/0151-repository-goal-is-independent-release.md) (the goal of the repository
 split is independent release and third-party programs) took the goal on 2026-09-15, and names this
 milestone's own sentence in doing it. What §151 deliberately leaves open is the order, when the
 split happens and against what preconditions, and it lists a package format existing so `basalt` has
@@ -167,12 +167,12 @@ One line each, in the form calef would answer, with the rung that waits on it.
 
 | Ruling | The question | Rung it blocks | Where the options are |
 |---|---|---|---|
-| ~~**Format**~~ | **Decided 2026-09-20. DECISIONS §197 (a package is one archive file) rules one archive file per package**, identified by name and version, with the reviewed recipe of §195 (a reviewed recipe vouches for a package) carrying its digest. The manifest travels in an ELF note (ruled 2026-09-26); whether the digest is a Merkle root is still calef's. | 3a | [DECISIONS §197](../decisions/197-a-package-is-one-archive-file.md) |
-| ~~**Activation**~~ | **Decided 2026-09-23 (DECISIONS §208): A3 with rollback.** Installing records that a package exists (digest and manifest spawnable, data a read-only directory a session binds by name), nothing is written into shared space, and the table of entries is versioned so a set rolls back whole. | 3a's **consumer** half | [DECISIONS §208](../decisions/208-installing-is-granting.md), from [milestone 507](507-installing-a-package-mutates-or-composes.md) |
-| ~~**Trust**~~ | **Decided 2026-09-19 (DECISIONS §195): a reviewed recipe vouches, trust is scoped per source the owner opted into, and the owner may overrule.** No long-lived signing key is held for now; a per-source signature can be added later without changing that. | 3a | [DECISIONS §195](../decisions/195-a-recipe-vouches-and-the-owner-may-overrule.md) |
-| ~~**Install layout** (new)~~ | **Decided 2026-10-03 (DECISIONS §244 (the installed disk has four partitions, and a boot slot is 64 MiB)): four partitions**, release images only, under a 16 MiB CI budget. | 4 | [DECISIONS §244](../decisions/244-the-installed-disk-has-four-partitions.md), from [515's appendix](515-the-installer-a-stick-runs-to-put-itself-on-the-disk/the-layout-ruling.md) |
-| ~~**Transport** (new)~~ | **Decided 2026-09-19 (DECISIONS §196): HTTPS, `rustls` for the protocol, and the crypto provider is milestone 442's work.** Under §195 a recipe's digest decides what may run, so rung 3a does not wait for TLS. | 3c (not 3a) | [DECISIONS §196](../decisions/196-nife-carries-tls-and-builds-the-provider.md) |
-| ~~**Hosting** (new)~~ | **Decided 2026-10-06 (DECISIONS §250 (an image names its distribution's package index, and the bytes may live anywhere)):** basalt's index at `basalt.nifeos.org`, bytes anywhere. | 3c and 4 | [DECISIONS §250](../decisions/250-images-name-one-package-index-and-the-bytes-may-live-anywhere.md) |
+| ~~**Format**~~ | **Decided 2026-09-20. DECISIONS §197 (a package is one archive file) rules one archive file per package**, identified by name and version, with the reviewed recipe of §195 (a reviewed recipe vouches for a package) carrying its digest. The manifest travels in an ELF note (ruled 2026-09-26); whether the digest is a Merkle root is still calef's. | 3a | [DECISIONS §197](../decisions/0197-a-package-is-one-archive-file.md) |
+| ~~**Activation**~~ | **Decided 2026-09-23 (DECISIONS §208): A3 with rollback.** Installing records that a package exists (digest and manifest spawnable, data a read-only directory a session binds by name), nothing is written into shared space, and the table of entries is versioned so a set rolls back whole. | 3a's **consumer** half | [DECISIONS §208](../decisions/0208-installing-is-granting.md), from [milestone 507](507-installing-a-package-mutates-or-composes.md) |
+| ~~**Trust**~~ | **Decided 2026-09-19 (DECISIONS §195): a reviewed recipe vouches, trust is scoped per source the owner opted into, and the owner may overrule.** No long-lived signing key is held for now; a per-source signature can be added later without changing that. | 3a | [DECISIONS §195](../decisions/0195-a-recipe-vouches-and-the-owner-may-overrule.md) |
+| ~~**Install layout** (new)~~ | **Decided 2026-10-03 (DECISIONS §244 (the installed disk has four partitions, and a boot slot is 64 MiB)): four partitions**, release images only, under a 16 MiB CI budget. | 4 | [DECISIONS §244](../decisions/0244-the-installed-disk-has-four-partitions.md), from [515's appendix](515-the-installer-a-stick-runs-to-put-itself-on-the-disk/the-layout-ruling.md) |
+| ~~**Transport** (new)~~ | **Decided 2026-09-19 (DECISIONS §196): HTTPS, `rustls` for the protocol, and the crypto provider is milestone 442's work.** Under §195 a recipe's digest decides what may run, so rung 3a does not wait for TLS. | 3c (not 3a) | [DECISIONS §196](../decisions/0196-nife-carries-tls-and-builds-the-provider.md) |
+| ~~**Hosting** (new)~~ | **Decided 2026-10-06 (DECISIONS §250 (an image names its distribution's package index, and the bytes may live anywhere)):** basalt's index at `basalt.nifeos.org`, bytes anywhere. | 3c and 4 | [DECISIONS §250](../decisions/0250-images-name-one-package-index-and-the-bytes-may-live-anywhere.md) |
 
 Not a ruling but calef's hands: the wipe of xenon's NVMe, done; and DNS and a host for
 `basalt.nifeos.org`.
@@ -199,11 +199,11 @@ built, and the gate line above is left as minted because changing it is the firs
 
 | Fork | Proposal | Shape |
 |---|---|---|
-| The gate | [DECISIONS §156](../decisions/156-the-package-manager-waits-on-a-decision-not-milestone-23.md) | **Decided 2026-09-19 by calef, as recommended:** `Gate: DECISION` alone. The loop is real (198 waits on 23, whose residual waits on a customer, who waits on 198), and nothing in a first slice needs the split's timing. One real dependency was found, on a downloadable toolchain rather than on the split |
-| Package format | [DECISIONS §197](../decisions/197-a-package-is-one-archive-file.md) | **Decided 2026-09-20 by calef**, after comparing apt, Homebrew, Alpine, Haiku and Nix: one archive file per package, the mainstream container, vouched for by §195's reviewed recipe |
+| The gate | [DECISIONS §156](../decisions/0156-the-package-manager-waits-on-a-decision-not-milestone-23.md) | **Decided 2026-09-19 by calef, as recommended:** `Gate: DECISION` alone. The loop is real (198 waits on 23, whose residual waits on a customer, who waits on 198), and nothing in a first slice needs the split's timing. One real dependency was found, on a downloadable toolchain rather than on the split |
+| Package format | [DECISIONS §197](../decisions/0197-a-package-is-one-archive-file.md) | **Decided 2026-09-20 by calef**, after comparing apt, Homebrew, Alpine, Haiku and Nix: one archive file per package, the mainstream container, vouched for by §195's reviewed recipe |
 | Activation | [installing-a-package-mutates-or-composes.md](507-installing-a-package-mutates-or-composes.md) | **Decided 2026-09-23 by calef (§208): A3, with rollback.** As proposed, options with no winner: mutate, compose a union view, or only widen what may be spawned. The program namespace is sealed at boot, and the spawner gives the file service away, so nothing that builds processes can read an installed program today |
-| Trust (found, not briefed) | [DECISIONS §195](../decisions/195-a-recipe-vouches-and-the-owner-may-overrule.md) | **Decided 2026-09-19 by calef**, after reading how apt, pkg, pacman, Nix, Fuchsia and Homebrew do it: Homebrew's shape (digests in reviewed recipes, per source) with the owner-vouches escape hatch every one of them keeps. The image's measured table becomes the first source |
-| Trivial install | [DECISIONS §157](../decisions/157-a-trivial-install-is-a-web-page-a-usb-drive-and-packages.md) | **Decided 2026-09-19 by calef, not as recommended:** a web page, a download written to a USB drive and installed, then packages over the internet. The lane had recommended a QEMU run bundle first; that slice is superseded |
+| Trust (found, not briefed) | [DECISIONS §195](../decisions/0195-a-recipe-vouches-and-the-owner-may-overrule.md) | **Decided 2026-09-19 by calef**, after reading how apt, pkg, pacman, Nix, Fuchsia and Homebrew do it: Homebrew's shape (digests in reviewed recipes, per source) with the owner-vouches escape hatch every one of them keeps. The image's measured table becomes the first source |
+| Trivial install | [DECISIONS §157](../decisions/0157-a-trivial-install-is-a-web-page-a-usb-drive-and-packages.md) | **Decided 2026-09-19 by calef, not as recommended:** a web page, a download written to a USB drive and installed, then packages over the internet. The lane had recommended a QEMU run bundle first; that slice is superseded |
 
 **Superseded 2026-09-19 by §157 and by "Rescoped 2026-09-19" above.**
 
@@ -230,7 +230,7 @@ calef's acts are named there rather than here.
   (`design/roadmap/647-a-virtio-slot-comes-back-when-its-driver-dies.md`).
 - **Done.** Every archive build runs `cargo xtask package` end to end since 2026-09-24.
 - **Decision.** Whether the digest is a Merkle root is still calef's:
-  `design/decisions/197-a-package-is-one-archive-file.md`, which also records the manifest ruling
+  `design/decisions/0197-a-package-is-one-archive-file.md`, which also records the manifest ruling
   (an ELF note, 2026-09-26) and links the proposal for its build.
 - **Recorded.** No compression, a `u32` ceiling on a member and on a package, a catalog that is
   one file in `target/` rather than a repository index, a package source compiled into the
@@ -238,7 +238,7 @@ calef's acts are named there rather than here.
   `notes/packages.md`).
 - **Recorded.** `packages/uptime.recipe.toml` records no digest on purpose, because the program it names
   is rebuilt by this checkout whenever anything it links changes (the recipe's own comment).
-- **Decision.** Owed to `design/decisions/135-running-gpl-software.md`'s amendment (calef,
+- **Decision.** Owed to `design/decisions/0135-running-gpl-software.md`'s amendment (calef,
   2026-09-27T15:11Z): the GPL repo's org, and how source is published per binary.
 
 ## BUGS

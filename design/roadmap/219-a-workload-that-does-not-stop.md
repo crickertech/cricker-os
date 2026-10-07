@@ -185,7 +185,7 @@ because each is a scheduler-policy or syscall-surface question and those are an 
 
 - **Milestone 221.** The first proposed milestone in this block's handoff: a workload can be made to
   cross cores, or it is admitted that none can. calef answered the fork in
-  `design/decisions/138-cross-core-handoff-under-load.md` and 221 built the `sched::on_tick` hook.
+  `design/decisions/0138-cross-core-handoff-under-load.md` and 221 built the `sched::on_tick` hook.
 - **Milestone 225.** The second: run the soak on radon, argon and xenon, which is where its answer
   means anything. The procedure is written and the tooling is built; it needs a bench and an evening.
 - **Milestone 245.** The duration this block declined to set. Every counter `script/soak-test` prints is

@@ -26,7 +26,7 @@ rather than a milestone for one reason: **nothing is blocked on it today.**
 
 ## The principle is already settled, so this is not a write-or-take question
 
-[§46](../decisions/46-dependency-rule.md) is explicit that crypto goes on the take side, and the
+[§46](../decisions/0046-dependency-rule.md) is explicit that crypto goes on the take side, and the
 reason is stated: *"correctness there includes resistance to attacks not yet published and
 side-channel behavior no specification states, and that is bought by years of exposure and review.
 A proof that our AES matches the spec would not make it safe to use."*
@@ -38,7 +38,7 @@ demonstrate rather than on engineering taste.
 
 `rustls` is the engineering answer. Rust, no C build system, and it uses the entropy this tree
 already has. Milestone 66 already assumes it by name: *"TLS: none. `rustls` needs entropy (have it)
-and a large crypto surface."* [§83](../decisions/83-rust-over-c-implementations.md) points the
+and a large crypto surface."* [§83](../decisions/0083-rust-over-c-implementations.md) points the
 same way, and its reasoning is specifically about hostile bytes: the vulnerability history of
 comparable parsers *"is dominated by heap overflows and out-of-bounds access. That is the class Rust
 removes by construction rather than by care."*
@@ -50,11 +50,11 @@ about the ecosystem.
 
 And the third is the interesting one: OpenSSL confined is a demonstration rather than a
 dependency. It is the most security-critical C library in the world and the canonical large C blob
-that everyone is obliged to trust. This tree has [§31](../decisions/31-foreign-language-seam.md)'s
+that everyone is obliged to trust. This tree has [§31](../decisions/0031-foreign-language-seam.md)'s
 seam, `c_shim`, `c_confiner`, `c_swappable`, and milestone 202's 26 enumerated confinement claims
 with replayable falsifications. Running OpenSSL where a compromise reaches nothing is
-[§14](../decisions/14-project-direction.md)'s thesis as a concrete object, and it is
-[§145](../decisions/145-compartmentalization-at-process-cost.md)'s argument with a name everybody
+[§14](../decisions/0014-project-direction.md)'s thesis as a concrete object, and it is
+[§145](../decisions/0145-compartmentalization-at-process-cost.md)'s argument with a name everybody
 recognizes.
 
 Milestone 36 already ranks foreign components and would place this: it calls **SQLite** the
@@ -113,7 +113,7 @@ above.
 still verify against all 150 authorities. In a capability system a trust store is a capability,
 and a client granted exactly the roots its one peer chains to cannot be induced to trust anything
 else. That is a small, concrete instance of
-[§145](../decisions/145-compartmentalization-at-process-cost.md)'s argument, and it is the kind of
+[§145](../decisions/0145-compartmentalization-at-process-cost.md)'s argument, and it is the kind of
 thing that is cheap to do here and impossible to retrofit into Unix.
 
 Recorded rather than minted, because it has no consumer until this proposal does.
@@ -130,7 +130,7 @@ behind four other things and teach nobody anything.
 What would turn it into one is any of: 198 choosing a transport that needs HTTPS, 99 reaching the
 `clone` half, or a decision that the confined-OpenSSL demonstration is worth doing for its own sake
 rather than for a consumer. That last one is the most likely and it is
-[§145](../decisions/145-compartmentalization-at-process-cost.md)'s to trigger.
+[§145](../decisions/0145-compartmentalization-at-process-cost.md)'s to trigger.
 
 ## What the tree has today
 

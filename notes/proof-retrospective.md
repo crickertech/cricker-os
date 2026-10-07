@@ -96,7 +96,7 @@ measurement, and the ones that are close to measurements say why.
 Sources, all in-tree: `notes/exceptions.md`, `notes/arch-audit.md`, `notes/intrusive-queues.md`,
 `notes/interleaving.md`, `notes/visionfive2.md`, `notes/instruction-clock.md`, `notes/fs-server.md`,
 `notes/fuzzing.md`, `notes/mutation-testing.md`, `notes/load-sensitive-assertions.md`,
-`notes/citations.md`, `design/decisions/76-roadmap-status-versus-tree.md`, and `git log`.
+`notes/citations.md`, `design/decisions/0076-roadmap-status-versus-tree.md`, and `git log`.
 
 Column 4 is a judgment in every row.
 
@@ -553,5 +553,5 @@ exists so the next reader re-derives them instead of quoting this table, which i
 - `notes/exceptions.md`, `notes/intrusive-queues.md`, `notes/instruction-clock.md`,
   `notes/fs-server.md`, `notes/visionfive2.md`, `notes/load-sensitive-assertions.md` for the defects
   themselves.
-- `design/decisions/14-project-direction.md` for the thesis this is measured against, and
-  `design/decisions/76-roadmap-status-versus-tree.md` for the record-level defect with the same shape.
+- `design/decisions/0014-project-direction.md` for the thesis this is measured against, and
+  `design/decisions/0076-roadmap-status-versus-tree.md` for the record-level defect with the same shape.

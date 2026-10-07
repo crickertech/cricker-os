@@ -44,12 +44,12 @@ the trust model is not a preference here; it is what makes the verb safe to add 
 The two-endpoint split is the existing shape (`notes/credentials.md`): provision and verify,
 deliberately minimal. `login_protocol::CONNECT` mints an endpoint per connection, which is the
 tree's standard answer to "a client needs its own thing"; and
-[§41](41-endpoint-as-broker.md) (the endpoint is the broker) is the reason a secret is reached
+[§41](0041-endpoint-as-broker.md) (the endpoint is the broker) is the reason a secret is reached
 through an endpoint rather than handed over as a value.
 
 Prior art: Unix `passwd(1)`, for the shape (prove who you are, then replace your own line) and
 not the mechanism. `/etc/shadow`'s file permissions have no capability analogue here, and nothing in
-this tree has a uid to key on ([§117](117-subtree-name-is-identity.md), a principal's subtree is
+this tree has a uid to key on ([§117](0117-subtree-name-is-identity.md), a principal's subtree is
 named by its identity string).
 
 ## The options
@@ -76,7 +76,7 @@ and an opcode cannot be un-shipped. The boot wiring around it is reversible and 
 
 ## What is blocked until this is answered
 
-Milestone 178, which completes [§120](120-boot-entropy-stopgap-declined.md)'s amendment: the boot
+Milestone 178, which completes [§120](0120-boot-entropy-stopgap-declined.md)'s amendment: the boot
 now generates a fresh password each time and prints it before the prompt, and nothing lets a person
 replace it with one they chose.
 

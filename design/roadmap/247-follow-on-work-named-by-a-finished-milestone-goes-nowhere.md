@@ -99,7 +99,7 @@ something a script can check: `None.`, `Milestone N.` (the block must exist), `D
 it), `Recorded.` (any path it cites must exist), `Refused.` (a reason), `Decision.` (a file under
 `design/decisions/`), `Proposed.` (a file under `design/roadmap/proposals/`). Tabulated in
 design/roadmap/README.md, argued in notes/follow-on-work.md, and put to calef for ratification in
-`design/decisions/140-follow-on-disposition-vocabulary.md`.
+`design/decisions/0140-follow-on-disposition-vocabulary.md`.
 
 And the half that makes it cheap enough to use, which is an architect's rather than this lane's
 (2026-09-03): `design/roadmap/proposals/<slug>.md`, an unnumbered proposal any lane may write. The
@@ -168,7 +168,7 @@ this milestone's own failure mode arriving through this milestone's own mechanis
   has a shape somebody could sweep.
 - **Decision.** The seven disposition words are a lane's and an architect names things. calef minted
   `REMOVED` in the status vocabulary himself, so this one is the same shape one level down; the
-  ratification ask is `design/decisions/140-follow-on-disposition-vocabulary.md`, which also points
+  ratification ask is `design/decisions/0140-follow-on-disposition-vocabulary.md`, which also points
   at the sweep's five proposed milestones.
 
 ## Index row

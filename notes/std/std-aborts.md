@@ -3,7 +3,7 @@
 *An appendix to [`notes/std.md`](../std.md), which is the page to read. This file holds the five
 calls that compiled and then killed the process, and the `cargo xtask std-aborts` check with its
 EXAMPLES and BUGS. It was moved here verbatim from the main page on 2026-09-25 (UTC), under [§212 (a
-prose budget)](../../design/decisions/212-a-prose-budget-for-every-document.md). The directory
+prose budget)](../../design/decisions/0212-a-prose-budget-for-every-document.md). The directory
 `notes/std/` and this file's stem are provisional names, minted that day by the lane that split the
 file. Naming is calef's.*
 

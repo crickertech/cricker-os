@@ -26,7 +26,7 @@ reading rather than deciding.
 `design/roadmap/proposals/` was drained by milestone 433 and no longer exists. About forty
 backticked citations of `design/roadmap/proposals/<slug>.md` survive it, spread across roughly
 twenty-seven files: milestone blocks (296 has five, 267 and 304 have three each), two audit reports
-under `design/audit-reports/`, `design/naming.md`, `design/decisions/152-port-range-capability.md`,
+under `design/audit-reports/`, `design/naming.md`, `design/decisions/0152-port-range-capability.md`,
 four notes, `kernel/src/pci.rs` and `helpers/qemu-runner-x86_64.sh`.
 
 A handful of finished blocks also describe the directory in the present tense, which is a

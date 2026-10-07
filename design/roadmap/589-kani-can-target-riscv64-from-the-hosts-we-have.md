@@ -13,7 +13,7 @@ needs_person: no
 *(Number minted at promotion, provisional until the merge queue lands it.)*
 Promoted from the proposal `kani-can-target-riscv64-from-the-hosts-we-have`, filed 2026-09-24, after
 calef ruled on it 2026-09-25 (UTC): option 1 adopted, recorded as
-[§218 (carry a Kani patch so riscv64 is proved)](../decisions/218-carry-a-kani-patch-so-riscv64-is-proved.md).
+[§218 (carry a Kani patch so riscv64 is proved)](../decisions/0218-carry-a-kani-patch-so-riscv64-is-proved.md).
 The carried half is built: [`patches/kani-0.67.0-riscv64-target.patch`](../../patches/kani-0.67.0-riscv64-target.patch)
 and the `prove the kernel on riscv64` job (name provisional) in `.github/workflows/verify.yml`, which
 builds the patched Kani on the arm64 runner and runs `script/verify --only kernel` for

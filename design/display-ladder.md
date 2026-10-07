@@ -30,7 +30,7 @@ answered on purpose.
    Rust engine rather than against an estimate.
 
    Its font increment is blocked, and the blocker is not graphical (2026-08-19).
-   `design/decisions/100-the-terminal-font.md` chose gohufont-14 at 8x14, which on this rung's
+   `design/decisions/0100-the-terminal-font.md` chose gohufont-14 at 8x14, which on this rung's
    128x64 scanout is a 16x4 grid rather than a terminal, so the surface has to grow with it. It
    cannot: a `PageFrame` capability names one page and occupies one of sixteen capability-table
    slots, the driver holds nine already, and the ceiling is nine frames of surface against the 469
@@ -79,7 +79,7 @@ Governance, stated now so it is not smuggled later: rungs one and two are demons
 Rungs three and four reopen the parked competitor question
 ([competitor-question.md](competitor-question.md)), which is an architect's call to make consciously
 when rung two is real. **Rung two is now real, and the call is made**: hold at rung two ([DECISIONS
-§131 (the competitor question)](decisions/131-hold-at-rung-two.md), calef, 2026-08-26). Rungs three
+§131 (the competitor question)](decisions/0131-hold-at-rung-two.md), calef, 2026-08-26). Rungs three
 and four stay unstarted; milestone 33 (a compositor) deliberately stopped at its edge (no iced, no
 cosmic-text, no application work), and that edge holds until something useful is built and proven on
 text mode. Text-mode work that is not GUI-toolkit work (a kick-ass shell and editor experience, the

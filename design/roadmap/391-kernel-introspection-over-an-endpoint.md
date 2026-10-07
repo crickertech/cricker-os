@@ -12,14 +12,14 @@ needs_person: no
 Filed 2026-09-09 as an unnumbered proposal, raised by calef in conversation
 while deciding how `swish` reaches a console on x86_64; numbered 2026-09-19 by milestone 433's drain
 of the proposal pile. **Premise re-read against the tree on 2026-09-19 and still true**: nothing has
-answered the fork. `design/decisions/149-kernel-served-console-endpoint.md` still refuses to settle
+answered the fork. `design/decisions/0149-kernel-served-console-endpoint.md` still refuses to settle
 it on the console's momentum, and milestone 269, which that refusal named as the consumer to decide
 it against, is still `NOT-STARTED`. So this block keeps the sequencing it was written with: it
 becomes a `design/decisions/` section when 269 is taken, not before.
 *(Number provisional until the merge queue lands it.)*
 
 This is a design fork about the kernel's shape, not work to schedule.
-The decision it waits on is [§149](../decisions/149-kernel-served-console-endpoint.md), cited
+The decision it waits on is [§149](../decisions/0149-kernel-served-console-endpoint.md), cited
 here on 2026-09-19 by milestone 435's slice-c lane, which found this gate naming no section. §149 is
 `DECIDED` and what it decided about *this* question is to refuse it: it separated the console case
 from kernel introspection in a six-row table, on the ground that the console is **forced** by
@@ -40,7 +40,7 @@ obvious route is a syscall per fact, which grows a surface DECISIONS §10 and §
 narrow.
 
 The alternative is a kernel thread parked on a rendezvous, answering questions. That mechanism
-was verified while deciding the console case (`design/decisions/149-kernel-served-console-endpoint.md`):
+was verified while deciding the console case (`design/decisions/0149-kernel-served-console-endpoint.md`):
 `inter_process_communication::Rendezvous` is generic over `T: Node` and has no privilege level in it, and kernel threads
 already exist. It needs no new object type and no new syscall number.
 
@@ -69,7 +69,7 @@ new method to design, document and never remove. Over an endpoint, it is a messa
 
 ## Why it is not decided yet, deliberately
 
-`design/decisions/149-kernel-served-console-endpoint.md` refused to settle this while deciding the
+`design/decisions/0149-kernel-served-console-endpoint.md` refused to settle this while deciding the
 console, on the grounds that the console is *forced* by hardware and this is *chosen*, and that
 deciding a chosen thing on the momentum of a forced one is how a narrow surface stops being narrow.
 It said the question should be answered when a real consumer exists rather than in the abstract.

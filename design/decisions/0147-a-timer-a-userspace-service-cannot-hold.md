@@ -15,7 +15,7 @@ calef, 2026-09-05: option 1, the new object. Option 2 was ruled out first
 is not the thing a scope note is for). Between 1 and 3 his reason was one sentence: *"A new object
 seems like the winner. A deadline argument seems like a work around to reduce effort."*
 
-That is [§92 (a caretaker is supervised by the client it serves)](92-caretaker-lifetime.md)'s test
+That is [§92 (a caretaker is supervised by the client it serves)](0092-caretaker-lifetime.md)'s test
 applied, and it is worth recording as such because §92 exists for exactly this shape: *"the failure
 mode is not laziness, it is a recommendation that sounds like design."* Milestone 51 (wall-clock
 time, the `date` command, and an NTP service) called the deadline argument strongest on "three
@@ -87,7 +87,7 @@ per-architecture table is in `design/roadmap/263-can-a-timer-be-a-capability.md`
   different drivers and a hole. It is the right answer for one workload on one board and the wrong
   one for `thread::sleep`.
 
-[§19 (architectural parity is a tenet)](19-architectural-parity.md) is what makes this a decision rather than a port task. A
+[§19 (architectural parity is a tenet)](0019-architectural-parity.md) is what makes this a decision rather than a port task. A
 capability that ships on two of three architectures is a scope note at best, and this gap is
 permanent: no amount of work closes it, because the RISC-V privileged architecture has nothing to
 open.
@@ -98,7 +98,7 @@ open.
 
 The kernel owns the comparator on every architecture, which is where two of three put it anyway, and
 signals a notification at the deadline on the holder's behalf. A thread blocks in `RECV` with the
-notification bound to its TCB ([§101](101-notification-objects.md)) and wakes on either.
+notification bound to its TCB ([§101](0101-notification-objects.md)) and wakes on either.
 
 Measured (milestone 263's scaffold, built, gated green with `script/test`, and deleted):
 
@@ -157,7 +157,7 @@ the record, and a reader who finds a file that names a winner should be able to 
 was not this file's to name.
 
 It also does not amend
-[§139 (who may read the cycle counter, and by what authority)](139-cycle-counter-authority.md),
+[§139 (who may read the cycle counter, and by what authority)](0139-cycle-counter-authority.md),
 which says *"There is no precedent
 in this tree for a per-thread system-register bit maintained across a context switch."* Milestones 229
 and 237 built one, so that sentence is stale inside its own decision. The correction is recorded in

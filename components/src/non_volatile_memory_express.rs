@@ -1,5 +1,5 @@
 //! **The NVMe block server, at EL0** (milestone 261;
-//! [DECISIONS §86](../../design/decisions/86-el0-nvme-driver.md), DECIDED 2026-09-03 as option 2a;
+//! [DECISIONS §86](../../design/decisions/0086-el0-nvme-driver.md), DECIDED 2026-09-03 as option 2a;
 //! notes/non-volatile-memory-express.md).
 //!
 //! An unprivileged process that drives a real, non-virtio DMA device: it builds 64-byte commands,

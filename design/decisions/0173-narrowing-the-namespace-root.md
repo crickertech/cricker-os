@@ -45,7 +45,7 @@ server side that mints a second handle from a first.
 
 ## The neighboring decision, which should be read with this one
 
-[§98](98-opendir-cannot-attenuate.md) is `PROPOSED` and is a rights change to the same wire, raised
+[§98](0098-opendir-cannot-attenuate.md) is `PROPOSED` and is a rights change to the same wire, raised
 by milestone 122's lane: `OPENDIR` cannot be asked for "the parent's rights, whatever they are", so
 a `Dir` asks for `dir::ALL` and then discovers what it holds by probing one right at a time. Its
 proposal is a sentinel in `OPENDIR`'s rights word, about thirty lines across the protocol, the

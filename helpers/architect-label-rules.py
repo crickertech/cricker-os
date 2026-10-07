@@ -788,9 +788,9 @@ diff --git a/CLAUDE.md b/CLAUDE.md
 """, 'decisions'),
 
     ("decisions: a substantive body edit to a decision file fires", """\
-diff --git a/design/decisions/88-needs-architect-as-a-check.md b/design/decisions/88-needs-architect-as-a-check.md
---- a/design/decisions/88-needs-architect-as-a-check.md
-+++ b/design/decisions/88-needs-architect-as-a-check.md
+diff --git a/design/decisions/0088-needs-architect-as-a-check.md b/design/decisions/0088-needs-architect-as-a-check.md
+--- a/design/decisions/0088-needs-architect-as-a-check.md
++++ b/design/decisions/0088-needs-architect-as-a-check.md
 @@ -1,6 +1,6 @@
  ---
  status: DECIDED
@@ -800,9 +800,9 @@ diff --git a/design/decisions/88-needs-architect-as-a-check.md b/design/decision
 """, 'decisions'),
 
     ("decisions: a frontmatter-only status flip stays quiet", """\
-diff --git a/design/decisions/88-needs-architect-as-a-check.md b/design/decisions/88-needs-architect-as-a-check.md
---- a/design/decisions/88-needs-architect-as-a-check.md
-+++ b/design/decisions/88-needs-architect-as-a-check.md
+diff --git a/design/decisions/0088-needs-architect-as-a-check.md b/design/decisions/0088-needs-architect-as-a-check.md
+--- a/design/decisions/0088-needs-architect-as-a-check.md
++++ b/design/decisions/0088-needs-architect-as-a-check.md
 @@ -1,4 +1,4 @@
  ---
 -status: PROPOSED

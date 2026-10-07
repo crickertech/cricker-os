@@ -228,7 +228,7 @@ the half calef took.
   `helpers/baseline_drift.py` and the drift panel on `notes/project-metrics.md`.
 - **Decision.** Whether the anchor becomes a gate, which calef left open "if the `--why` reasons
   prove good enough to gate on". It is his call and lives in
-  `design/decisions/190-what-a-baseline-save-must-record.md`.
+  `design/decisions/0190-what-a-baseline-save-must-record.md`.
 - **Done.** The metrics workflow dropped the page's generated lines every morning, because the
   pathspec `notes/project-metrics` does not match `notes/project-metrics.md`. Fixed in PR #1375.
 - **Refused.** Item 4, tightening the 10% threshold. Milestone 25 demoted `--check` from a 2% gate

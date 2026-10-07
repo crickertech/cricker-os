@@ -172,7 +172,7 @@ Four of them did. The other 73 were there before it.
 ## The constraint, stated so it is not rediscovered
 
 **It ships as a blocking gate or not at all.** calef, 2026-09-19: *"Advisory gates don't seem to work
-for us."* [§97](../decisions/97-advisory-checks.md) decided this on 2026-08-25 and its own `BUGS`
+for us."* [§97](../decisions/0097-advisory-checks.md) decided this on 2026-08-25 and its own `BUGS`
 predicted the failure in as many words, *"a check added to CI is advisory by default, so the list
 grows silently"*; `image-permissions` is the seventh check sitting in that state and milestone 340 is
 the block about it. So an advisory period is not the safe default here, it is the known failure mode,

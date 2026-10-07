@@ -3,7 +3,7 @@
 *The name of nife's first-party distribution, the `nifeos/basalt` repository that milestone 120 (nife and the organization)
 reserved. The ruling and its refusals are recorded in [this directory's index](README.md), where
 `script/names` reads them. What basalt assembles is decided in
-[§151 (repository goal is independent release)](../../design/decisions/151-repository-goal-is-independent-release.md) and built by milestone 198 (a package manager).*
+[§151 (repository goal is independent release)](../../design/decisions/0151-repository-goal-is-independent-release.md) and built by milestone 198 (a package manager).*
 
 ## Why the name stands
 

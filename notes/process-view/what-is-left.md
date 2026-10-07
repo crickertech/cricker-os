@@ -61,7 +61,7 @@ per session. Measured against this tree on 2026-09-26:
 - Who is logged in: `components/src/login.rs` runs one session at a time on one terminal ("The
   terminal: single-session, deny cleanly"). A `w` would always print one row.
 - What they are running: a tid has no name. That is exactly DECISIONS §164 (whether the kernel resolves
-  a tid it already sent), `PROPOSED` in `design/decisions/164-resolving-a-tid-a-supervisor-holds.md`. §164's option A is the block's old
+  a tid it already sent), `PROPOSED` in `design/decisions/0164-resolving-a-tid-a-supervisor-holds.md`. §164's option A is the block's old
   "kernel-resident name", and its option C is the block's "userspace-resident name". The two forks
   were the same fork, written twice.
 - CPU time: now exists, since milestone 282 (a thread's CPU time) built

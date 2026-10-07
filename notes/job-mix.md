@@ -10,7 +10,7 @@ marked as one.
 
 ## What this instrument is for, in one paragraph
 
-`design/decisions/96-process-kernel-or-event-kernel.md` asks whether this kernel should keep a kernel
+`design/decisions/0096-process-kernel-or-event-kernel.md` asks whether this kernel should keep a kernel
 stack per thread (a process kernel, what it is) or move to one stack per core with explicit
 continuations (an event kernel, what seL4, OKL4 and NOVA all became). Three of its four inputs
 are settled by measurement. The fourth is performance, and the retrospective it rests on says
@@ -151,7 +151,7 @@ and TLB footprint, which is exactly the quantity `kernel/src/bench.rs`'s `app_di
 milestone 134's E1 measure. Whether per-thread kernel stacks displace enough cache to cost
 throughput on this kernel is a real, open, local question, and a knee in jobs-per-minute against
 task count answers it. That is a genuine input to
-`design/decisions/96-process-kernel-or-event-kernel.md`. A reproduction of 20% was never available
+`design/decisions/0096-process-kernel-or-event-kernel.md`. A reproduction of 20% was never available
 and is not what this instrument was ever going to deliver.
 
 ### One gloss in §96 that the paper contradicts in the same sentence

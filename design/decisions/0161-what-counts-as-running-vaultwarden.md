@@ -47,14 +47,14 @@ The block's gap table is the measurement and one row of it has already moved onc
 
 - TCP listen and accept: built. `OP_LISTEN` and `OP_ACCEPT` have been on the wire since
   milestone 107 and are bound into the `std` PAL by milestone 64, under
-  [§25](25-socket-identity.md) (a socket id in phase one). The remaining limit is **concurrency,
+  [§25](0025-socket-identity.md) (a socket id in phase one). The remaining limit is **concurrency,
   not the contract**: the backlog is one connection deep.
 - `std::thread`: 4 of 6 PAL functions answer `Unsupported`.
 - `std::fs`: 32 of 54 answer `Unsupported`.
 - async runtime: none. Rocket wants tokio: timers, wakers, a reactor.
 - TLS: none. The `rustls`-versus-confined-OpenSSL fork is milestone 387's, and server-side TLS
   is this block's.
-- SQLite: a C library, so the [§31](31-foreign-language-seam.md) seam plus real filesystem
+- SQLite: a C library, so the [§31](0031-foreign-language-seam.md) seam plus real filesystem
   locking.
 
 So the honest statement of the distance is that every row is milestone-sized on its own.

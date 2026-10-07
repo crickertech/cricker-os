@@ -23,7 +23,7 @@ writes and a `no_std` program reads:
 
 ## Why now
 
-[§86](86-el0-nvme-driver.md) listed this under *what is blocked until it is answered*, with the
+[§86](0086-el0-nvme-driver.md) listed this under *what is blocked until it is answered*, with the
 reason stated precisely: *"small, but its wire shape depends on who owns the controller."* That
 dependency was real, because a roster entry for a kernel-resident driver and one for a confined EL0
 server differ in what a holder may then ask for. Milestone 261 answered it by putting the data

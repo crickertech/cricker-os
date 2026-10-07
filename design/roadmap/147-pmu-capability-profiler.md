@@ -17,7 +17,7 @@ tell, given that all three are built on their host OS's ambient perf-counter int
 Milestone 75 (cycle counter authority) asks the prior question (whether the cycle counter
 is ambient or a capability) for one consumer (`sel4bench`), and that question was answered on
 2026-09-02 while this gate went on deferring to it:
-[§139](../decisions/139-cycle-counter-authority.md) (who may read the cycle counter, and by what
+[§139](../decisions/0139-cycle-counter-authority.md) (who may read the cycle counter, and by what
 authority) chose a per-thread grant enforced at the context switch, granted in the spawn manifest.
 §139 also says in its own text that neither shape it offers provides what this milestone needs,
 which is cross-thread authority with a named target. So this milestone's own decision survives its

@@ -668,7 +668,7 @@ last attempt knew it had not solved, written while the code was in front of some
   overwrite, which is the wrong direction to fail in.
 
   **Corrected 2026-08-22: not a fix this layer can answer, and not "add `NOREPLACE` to
-  `fs_proto`" either.** §42 (design/decisions/42-truthful-filesystem.md) already decided not to
+  `fs_proto`" either.** §42 (design/decisions/0042-truthful-filesystem.md) already decided not to
   offer `renameat2`'s `NOREPLACE`, and its stated reason is that emulating it with link-then-unlink
   is racy and backend-specific. That reason does not describe this backend. `redoxfs_server::rename`
   (redoxfs_server/src/lib.rs) already looks up the destination inside the same `fs.tx` that performs

@@ -31,7 +31,7 @@ And in this tree the role is larger than Unix's, which sharpens it. `crates/syst
 From those, and nothing else, it builds the whole interactive system out of its own budget."* So
 the first process here is not merely first in time; it holds the machine's entire authority at boot
 and hands slices away. Milestone 22 is called trusted init for that reason, and
-[§32](../decisions/32-reap-without-build.md)'s fork about whether a supervisor can restart without
+[§32](../decisions/0032-reap-without-build.md)'s fork about whether a supervisor can restart without
 regaining construction authority is the same subject. *(That citation named decision 148 when this
 block was minted, a number no decision has, and `script/decisions --check` failed on it from the
 moment the block landed. Corrected by this milestone's lane. Written without the section sigil on
@@ -87,7 +87,7 @@ its own comment:
 > aarch64 packs `hello` as `init`, because there hello *is* [init]... This was a hardcoded `"init"`,
 > which is right on aarch64 and silently wrong on RISC-V
 
-That is [§19](../decisions/19-architectural-parity.md)'s own failure mode, *a feature that works on
+That is [§19](../decisions/0019-architectural-parity.md)'s own failure mode, *a feature that works on
 one ISA and silently not another*, and the bill was paid once already:
 `crates/system_initializer` records a fix landing in one and not the other presenting as "a boot
 that reached userspace and printed nothing at all, with no fault and no message."

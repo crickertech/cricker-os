@@ -16,7 +16,7 @@ bullet point.
 Since 2026-09-02, and the block said `DECISION` for seventeen days after that.
 The question was *whether to open `PMCCNTR_EL0` (and `scounteren`'s cycle bit) to EL0 at ~160x the
 resolution of the counter DECISIONS §10 already excepted, or to make the read a capability*, and
-[§139](../decisions/139-cycle-counter-authority.md) answered it, under a title identical to this
+[§139](../decisions/0139-cycle-counter-authority.md) answered it, under a title identical to this
 block's own: a per-thread grant enforced at the context switch, carried as a field in the spawn
 manifest rather than a method on a live thread, with `x86_64` keeping its ambient counter.
 

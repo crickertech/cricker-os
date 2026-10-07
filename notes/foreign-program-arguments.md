@@ -1,6 +1,6 @@
 # What one shim costs: the measurement §170 asked for
 
-*(For [§170 (how a foreign program is told what to do)](../design/decisions/170-how-a-foreign-program-is-told-what-to-do.md),
+*(For [§170 (how a foreign program is told what to do)](../design/decisions/0170-how-a-foreign-program-is-told-what-to-do.md),
 which gates milestone 205 (how a foreign program is told what to do). Measured 2026-09-25 by lane
 `lane/argv-shim-measure`. This page's stem is provisional, per the naming tenet; calef names things.
 It measures and does not rule.)*

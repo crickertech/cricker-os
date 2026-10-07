@@ -6,9 +6,9 @@ superseded_by: 148
 
 # 164. Whether the kernel resolves a tid it already sent to the supervisor that received it
 
-**Superseded by §148 (a supervisor restarts by asking, and resolves by asking the kernel), in [`148-reap-and-thread-identity.md`](148-reap-and-thread-identity.md), which had already ruled this on 2026-09-05.**
+**Superseded by §148 (a supervisor restarts by asking, and resolves by asking the kernel), in [`0148-reap-and-thread-identity.md`](0148-reap-and-thread-identity.md), which had already ruled this on 2026-09-05.**
 This section asks again a question calef answered fourteen days before it was raised: §148's fork
-two ([lines 90-92](148-reap-and-thread-identity.md)) decides that the kernel owes a supervisor a way
+two ([lines 90-92](0148-reap-and-thread-identity.md)) decides that the kernel owes a supervisor a way
 to resolve the tid it already sends, named `ThreadControlBlock::RESOLVE`. The one part §148 left
 open, in "What a lane must not decide by accident" (lines 133-155), was whether `RESOLVE` returns a
 capability or an identifier. calef ruled it on 2026-10-04 as an amendment to §148: the death
@@ -25,7 +25,7 @@ it.)*
 
 Milestone 105's fork one is answered and built. The block (2026-08-04) asks whether reclamation
 and construction are separable rights, and proposes *"a new rights bit below `WRITE`, or a distinct
-`Untyped::REAP` method."* [§32](32-reap-without-build.md) (a supervisor may collect a corpse
+`Untyped::REAP` method."* [§32](0032-reap-without-build.md) (a supervisor may collect a corpse
 without being able to build one) decided it on 2026-07-29, six days earlier, and decided it
 better than either option: authorization is the supervision relationship, not a rights bit and
 not a registry.
@@ -45,7 +45,7 @@ been answered spends calef's attention on a decision he already made.
 ## What is being decided, which is fork two
 
 Whether the kernel owes a supervisor the ability to resolve the identity it already sends. The
-fault message names a dead thread by tid ([§26](26-fault-endpoint.md), thread death becomes a
+fault message names a dead thread by tid ([§26](0026-fault-endpoint.md), thread death becomes a
 message a supervisor holds). No method turns a tid into something the builder holds, so a
 supervisor with several children receives a tid and cannot say which child it belongs to.
 

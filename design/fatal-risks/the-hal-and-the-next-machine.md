@@ -93,7 +93,7 @@ reads that as meaning the graphical stack is the only route to a shell. That doe
 `swish` never talks to a UART on any architecture. It talks to a console server over an endpoint.
 And what actually blocks x86_64 is that §121 (what a device capability is when the device has no
 page) leaves no userspace holder for that endpoint. Whether a kernel thread may answer there instead
-is `design/decisions/149-kernel-served-console-endpoint.md`, `PROPOSED` since 2026-09-09. If 
+is `design/decisions/0149-kernel-served-console-endpoint.md`, `PROPOSED` since 2026-09-09. If 
 §149 (may the kernel answer on an endpoint) is decided yes, 177 stops being a prerequisite and milestone
 182 reaches a shell over serial, which is also what a bench session needs. If it is decided no, the
 sentence above stands as written. Either way this risk's decisive experiment below is unaffected,

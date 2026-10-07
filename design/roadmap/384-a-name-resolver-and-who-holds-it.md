@@ -107,7 +107,7 @@ milestone 387, `design/roadmap/387-a-tls-stack-and-which-one.md`, and the two be
 family:
 the ambient parts of a Unix network client are exactly the parts a capability system should make
 explicit. It is also a small, concrete instance of
-[§145](../decisions/145-compartmentalization-at-process-cost.md)'s argument, which is otherwise
+[§145](../decisions/0145-compartmentalization-at-process-cost.md)'s argument, which is otherwise
 stated at the scale of a whole operating system.
 
 ## What it would take
@@ -147,12 +147,12 @@ Kani-proven not to loop or overrun, is in `crates/multicast_dns_protocol` at com
 
 ## Follow-on
 
-- **Decision.** `design/decisions/248-the-resolver-is-its-own-confined-program.md` holds Fork 1.
+- **Decision.** `design/decisions/0248-the-resolver-is-its-own-confined-program.md` holds Fork 1.
   calef ruled it on 2026-10-04. The resolver is its own confined program.
 - **Done.** The resolver program, `components/src/name_resolver.rs`, by #1760.
 - **Done.** The grant's shape (Fork 2) is a zone per client badge, built by #1760. The client
   protocol (Fork 3) is P1, in `crates/name_resolution_protocol`. calef ratified both on 2026-10-06
-  (UTC). `design/decisions/252-a-resolver-grant-is-a-zone-per-badge-over-the-socket-contracts-shape.md`
+  (UTC). `design/decisions/0252-a-resolver-grant-is-a-zone-per-badge-over-the-socket-contracts-shape.md`
   holds them.
 - **Milestone 801.** Starting the resolver on the booted system, with the lease's name server, and
   granting the package client its source's host: milestone 801 (packages over the internet), whose

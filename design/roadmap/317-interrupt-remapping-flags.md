@@ -6,7 +6,7 @@ built: 2026-09-17
 # 317. The interrupt-remapping flags, and where MSI confinement actually lives
 
 Minted by the maintainer on 2026-09-17 out of
-[DECISIONS §86](../decisions/86-el0-nvme-driver.md)'s research pass, which found the gap while
+[DECISIONS §86](../decisions/0086-el0-nvme-driver.md)'s research pass, which found the gap while
 pricing an EL0 NVMe driver. *(Number provisional until the merge queue lands it.)*
 
 ## What this is, and what it deliberately is not
@@ -327,7 +327,7 @@ Compare the device trees the two GIC versions produce, which is how the table ab
 - **Recorded.** That nothing here remaps an interrupt and that the reported bit only says the
   hardware offers it, in `kernel/src/arch/x86_64/iommu.rs`'s `BUGS` section beside the driver, and
   in this block's own `BUGS`.
-- **Decision.** `design/decisions/86-el0-nvme-driver.md` states that interrupt remapping is off in
+- **Decision.** `design/decisions/0086-el0-nvme-driver.md` states that interrupt remapping is off in
   every x86_64 boot this tree runs, and the machine says otherwise. A lane does not edit
   `design/decisions/`, so the correction is recorded here, in the driver's `BUGS`, and in
   `notes/confinement-claims.md`, and the integrator owes §86 the amendment.
@@ -338,7 +338,7 @@ Compare the device trees the two GIC versions produce, which is how the table ab
   section is the bill, and `NIFE_GIC=3` is the reproduction; item 1 there (read `compatible`, and
   report what was found rather than a hardcoded `GICv2`) is worth doing on its own and is not done
   here because it is 227's file.
-- **Decision.** `design/decisions/86-el0-nvme-driver.md`: who owns the page holding the MSI-X table.
+- **Decision.** `design/decisions/0086-el0-nvme-driver.md`: who owns the page holding the MSI-X table.
   calef held it on 2026-09-17 for want of an experiment behind it, and this milestone is that
   experiment. It is now answerable on x86_64 without any further machinery, and the honest cost of
   answering it on aarch64 is milestone 227.

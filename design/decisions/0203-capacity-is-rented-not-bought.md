@@ -56,7 +56,7 @@ documentation-only branches finish in 2 to 3 because nearly every job skips.
    forces `VERIFY_JOBS=2` bind on heavy branches rather than on a typical day.
 
 This ranking was amended on 2026-09-24 by [§214 (the Team plan buys runner
-concurrency)](214-the-team-plan-buys-runner-concurrency.md). Once lanes gated in CI, merge
+concurrency)](0214-the-team-plan-buys-runner-concurrency.md). Once lanes gated in CI, merge
 throughput bound on an ordinary day, and calef upgraded the organization to GitHub Team for its 60
 concurrent jobs. The ruling above is unchanged; §214 has the measurements and the new order.
 
@@ -118,5 +118,5 @@ Which provider, and the spend split between inference, runners and bare metal. c
 the three architectures is acceptable, which settles the constraint this section needed.
 
 The riscv64 provider was decided on 2026-09-25: [§215 (the second RISC-V machine is a rented
-Scaleway Elastic Metal RV1)](215-the-second-risc-v-machine-is-a-scaleway-rv1.md). aarch64, x86_64
+Scaleway Elastic Metal RV1)](0215-the-second-risc-v-machine-is-a-scaleway-rv1.md). aarch64, x86_64
 and the spend split remain open.

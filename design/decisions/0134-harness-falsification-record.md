@@ -316,7 +316,7 @@ corrected in the same change). So the decision was not what to name a field; it 
 the name 65 records already used, or rewrite 65 files to no reader's benefit.
 
 **What it buys, and what it does not.** It closes the wrong-reason red: milestone 202's break of
-[§31](31-foreign-language-seam.md) surfaced as a 234-second watchdog timeout reading *"a livelock, not a lost
+[§31](0031-foreign-language-seam.md) surfaced as a 234-second watchdog timeout reading *"a livelock, not a lost
 wakeup"*, which is the right answer with a diagnostic containing no word about confinement, and
 milestone 305 hit the same edge and swapped the patch rather than record a red for the wrong reason.
 It buys nothing against an unreachable assertion, which is milestone 307's subject and a

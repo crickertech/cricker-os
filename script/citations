@@ -111,7 +111,7 @@ import roadmap_block                                                        # no
 # ---- the two records ---------------------------------------------------------
 # Title from the H1 and body from the whole file. Milestone 114 and 76 split both records into one
 # file per entry, which is what makes this affordable: `§43 (the clock ladder)` is checked against
-# 43-clock-authority.md's own first line, with no need to parse a 5,000-line document to find where
+# 0043-clock-authority.md's own first line, with no need to parse a 5,000-line document to find where
 # §43 begins and §44 starts.
 # A LETTERED record gets a second entry under its own label, and the reason is that the two tables
 # answer different questions. `design/roadmap/20a-name-the-seams.md` is a block of its own with an
@@ -319,7 +319,7 @@ ANY_CITE = re.compile(r"(§|(?<![a-zA-Z])[Mm]ilestone )(\d+)([a-z]?)")
 # number hides every citation the line break split: the second alternative below accepts a line that
 # ENDS in a citation, which is what a wrapped one looks like. And the letter was missing, so a line
 # reading `Milestone 16b (...)` matched nothing and its file was never opened at all.
-# design/decisions/26-fault-endpoint.md was in that hole: its gloss of milestone 16 went unchecked
+# design/decisions/0026-fault-endpoint.md was in that hole: its gloss of milestone 16 went unchecked
 # for as long as the file existed, and no report in the tree could say so.
 #
 # This widens the file list from 649 to 853 and the scan still costs about three seconds, which is

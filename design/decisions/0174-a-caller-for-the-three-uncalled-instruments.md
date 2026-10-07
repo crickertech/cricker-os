@@ -95,5 +95,5 @@ of the three are expensive enough that "run it in CI" changes what a pull reques
 ## What this does not decide
 
 Nothing about whether these checks should be required in the merge queue's ruleset, which is
-[§97](97-advisory-checks.md)'s question and a different one: §97 asks whether a red check may stop a
+[§97](0097-advisory-checks.md)'s question and a different one: §97 asks whether a red check may stop a
 merge, and this asks whether anything runs the check at all.

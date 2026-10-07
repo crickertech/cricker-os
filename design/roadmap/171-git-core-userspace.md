@@ -15,7 +15,7 @@ daily." Broken into pieces by tractability rather than proposed as one undertaki
 piece that needs the least.
 
 Software-only. Informed by [milestone 169](169-kilo-editor.md) (`kilo`, the first
-real C program against [DECISIONS §31](../decisions/31-foreign-language-seam.md)'s seam) but not
+real C program against [DECISIONS §31](../decisions/0031-foreign-language-seam.md)'s seam) but not
 hard-gated on it: git core needs the identical seam pattern kilo proves, not the terminal
 raw-input primitive kilo exists to build, so the two can proceed in parallel.
 
@@ -37,7 +37,7 @@ by design (hooks, external merge drivers), and anything that needs the network (
 
 ## What it needs
 
-- The same [DECISIONS §31](../decisions/31-foreign-language-seam.md) treatment as `kilo`: git's C
+- The same [DECISIONS §31](../decisions/0031-foreign-language-seam.md) treatment as `kilo`: git's C
   source rewritten against nife's Rust-mediated shim rather than making syscalls directly, scoped to
   the no-subprocess plumbing above.
 - Capability-scoped file I/O in place of git's usual global-path assumptions, the same translation
@@ -45,7 +45,7 @@ by design (hooks, external merge drivers), and anything that needs the network (
   describes `kilo`'s file handling).
 - Nothing from milestone 169's raw-terminal-input primitive: git's core commands are not a screen
   editor, they read arguments and print output through the existing `OPERATION_WRITE` ANSI-passthrough path
-  ([DECISIONS §21](../decisions/21-terminal-in-userspace.md)).
+  ([DECISIONS §21](../decisions/0021-terminal-in-userspace.md)).
 
 ## Why it matters
 
@@ -62,7 +62,7 @@ cosmetic editor bug), which is evidence worth having before larger C/C++ ports
 ## What this does not decide
 
 Whether `clone`/`fetch`/`push` (needing a network client, and eventually
-[DECISIONS §31](../decisions/31-foreign-language-seam.md)-shaped work over whatever wire protocol)
+[DECISIONS §31](../decisions/0031-foreign-language-seam.md)-shaped work over whatever wire protocol)
 are folded into this milestone or left for whoever builds milestone 174's remote-development
 protocol, since the two may end up sharing a network-client crate. Left for whoever picks this up.
 

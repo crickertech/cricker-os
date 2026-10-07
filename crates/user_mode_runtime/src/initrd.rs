@@ -35,7 +35,7 @@
 //! type (any `u64` compiles), so the obligation stays a sentence rather than becoming a checked
 //! `assert!`. But it is still a real reduction by this milestone's own criterion 1: collapsing
 //! seven hand-written copies of one invariant into one declaration, the §94 shape
-//! (`design/decisions/94-what-may-live-in-a-library.md`: "a per-binary item whose body is copied
+//! (`design/decisions/0094-what-may-live-in-a-library.md`: "a per-binary item whose body is copied
 //! verbatim into every binary is not per-binary; only its declaration is"), the same "flat block
 //! count, still a real reduction" case `smb_server.rs`, `swish.rs`'s terminal pair and
 //! `display_terminal.rs`'s `paint` already were in this milestone's earlier rounds.

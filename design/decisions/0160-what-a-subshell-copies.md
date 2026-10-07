@@ -38,7 +38,7 @@ milestone 47 separated unlink from revoke in `rm`, and milestone 42's own fork s
 filesystem offers from what a caller may assume. Both were the same act: a Unix verb doing two jobs
 because one implementation served both.
 
-And the tree already refuses "copy the capability". [§41](41-endpoint-as-broker.md) (a device is revoked by taking it back) gave
+And the tree already refuses "copy the capability". [§41](0041-endpoint-as-broker.md) (a device is revoked by taking it back) gave
 `Frame::REVOKE` take-back semantics on a `DeviceFrame` precisely because a device must never have
 two owners, and milestone 23's witness is that the generation never goes backwards. A one-shot
 reply capability is consumed by construction. So **"copy the endowment" is not a total function**,
@@ -48,7 +48,7 @@ and this is measured rather than feared.
 
 | | shape | what it costs |
 |---|---|---|
-| **A** | **Simulate in-process.** The shell saves its own working-directory capability, variables and options, runs the group, restores. | No new mechanism, and correct exactly when the effects are shell-local, which is what `(cd x && y)` is. It cannot undo what a command did to a capability, so it is a lie for the isolation case, and a silent one, which [§42](42-truthful-filesystem.md) (no silent degradation) forbids. |
+| **A** | **Simulate in-process.** The shell saves its own working-directory capability, variables and options, runs the group, restores. | No new mechanism, and correct exactly when the effects are shell-local, which is what `(cd x && y)` is. It cannot undo what a command did to a capability, so it is a lie for the isolation case, and a silent one, which [§42](0042-truthful-filesystem.md) (no silent degradation) forbids. |
 | **B** | **A real child shell** with a derived endowment. | Honest isolation. Costs a full spawn for `(cd /tmp && ls)`, and forces question 3 to be answered before anything works. |
 | **C** | **Scoped bindings**, `with cwd = /tmp { ... }`, and no subshell at all. | Says what it means rather than reaching for duplication. Covers the scoping use completely and the isolation use not at all. Diverges from Unix spelling, which milestone 47's rule allows only when the divergence earns it. |
 | **D** | **Hybrid**: scoping by binding, isolation by an explicit verb. | Two mechanisms, each doing one thing, which is the shape §42 and milestone 47 both converged on. Two syntaxes to learn instead of one. |
@@ -60,8 +60,8 @@ a scoping construct never touches a capability, so the non-duplicable case simpl
 there, and an explicit isolation verb is the one place that has to answer it.
 
 And derivation beats duplication on machinery that already exists. If a child's capabilities
-are derived from the parent's, [§16](16-object-revocation.md) (reclaim the objects a process built)'s revocation and the derivation tree
-already give "destroying the child revokes exactly its copies", and [§40](40-no-reaper-of-last-resort.md) (a supervisor's death is its subtree's death) makes the cleanup automatic. Duplication would need bookkeeping
+are derived from the parent's, [§16](0016-object-revocation.md) (reclaim the objects a process built)'s revocation and the derivation tree
+already give "destroying the child revokes exactly its copies", and [§40](0040-no-reaper-of-last-resort.md) (a supervisor's death is its subtree's death) makes the cleanup automatic. Duplication would need bookkeeping
 for the same result. This is the same shape as §92's caretaker-lifetime answer, where supervision
 was both the better option and the smaller one once it was checked.
 

@@ -6,7 +6,7 @@ provisional: `timer-capability.md` is a sibling of `timed-wait.md`
 rather than a second copy of it, and the two answer different halves of it.)*
 
 The answer, first. The userspace-timer-service answer to milestone 106 does not survive
-[§19 (architectural)](../design/decisions/19-architectural-parity.md) parity, and the reason is not the one the
+[§19 (architectural)](../design/decisions/0019-architectural-parity.md) parity, and the reason is not the one the
 milestone block predicted.
 
 Two clauses, and both are needed:
@@ -58,7 +58,7 @@ because the bit that would open them has never been written. The registers exist
 this tree has never granted them.
 
 And the grant can be per thread, because the tree now has the machinery.
-`design/decisions/139-cycle-counter-authority.md` says, in its "what this tree already does" section,
+`design/decisions/0139-cycle-counter-authority.md` says, in its "what this tree already does" section,
 that `CNTKCTL_EL1.EL0VCTEN` and `scounteren.TM` are *"per-machine bits, set once at init. There is no
 precedent in this tree for a per-thread system-register bit maintained across a context switch. That
 is the one piece of machinery option 4 below needs and the tree does not have."*
@@ -141,7 +141,7 @@ says the boot tour printed *"the full table list"*, but the transcript is a phot
 in this tree names an HPET on xenon, and nothing has read its `NUM_TIM_CAP`. So the x86_64 row is
 "the architecture has a spare, and this project has not looked at its own machine's".
 
-`design/decisions/139-cycle-counter-authority.md` already read the HPET specification for a different
+`design/decisions/0139-cycle-counter-authority.md` already read the HPET specification for a different
 purpose and its findings apply: the architectural floor is 100 ns per tick, the common part runs at
 14.31818 MHz, and a *read* costs several microseconds, which is why Linux deleted the vDSO mapping.
 None of that prices arming one, which is a write and a one-shot interrupt rather than a polled
@@ -449,7 +449,7 @@ backend.
 ### The dependency on milestone 151, stated
 
 The fourth shape signals **a notification**, and notification objects are
-[§101](../design/decisions/101-notification-objects.md), decided 2026-08-20 and **unbuilt** (milestone
+[§101](../design/decisions/0101-notification-objects.md), decided 2026-08-20 and **unbuilt** (milestone
 151). What the pricing above assumes about it:
 
 1. That the signal target is a `Rendezvous`, not a separate object. The scaffold signaled through

@@ -53,7 +53,7 @@ the wire does not. It already does, in this crate, and milestone 65 demonstrated
 The question is whether the identity is one of those words, or whether it is data the holder is
 entitled to choose.
 
-[§27](27-filesystem-service.md) is the argument milestone 327 cites and it is the same
+[§27](0027-filesystem-service.md) is the argument milestone 327 cites and it is the same
 shape one subsystem over. `crates/block_roster`'s header states the general form most sharply:
 *"Deliberately not a handle. Holding this tells you a device exists; it does not let you touch it."*
 

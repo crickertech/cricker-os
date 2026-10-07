@@ -1,10 +1,10 @@
 //! **`package_archive`**: the one file a nife package is, read and written by one definition.
 //!
 //! DECISIONS §197 (a package is one archive file), in
-//! [its own file](../../../design/decisions/197-a-package-is-one-archive-file.md), ruled the container: **one archive file per package**, identified by name and
+//! [its own file](../../../design/decisions/0197-a-package-is-one-archive-file.md), ruled the container: **one archive file per package**, identified by name and
 //! version, in the shape `.deb`, `.apk` and `.hpkg` all use, with
 //! DECISIONS §195 (a reviewed recipe vouches for a package), in
-//! [its own file](../../../design/decisions/195-a-recipe-vouches-and-the-owner-may-overrule.md),'s reviewed recipe carrying the digest that decides
+//! [its own file](../../../design/decisions/0195-a-recipe-vouches-and-the-owner-may-overrule.md),'s reviewed recipe carrying the digest that decides
 //! whether the bytes may run. This crate is that container's bytes: a host tool writes one with
 //! [`write_package`] and a target reads it with [`Package::parse`], so **one definition of the
 //! format serves both**, which is the same arrangement `crates/nifefs` has and for the same reason.

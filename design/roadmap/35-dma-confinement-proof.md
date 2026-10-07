@@ -103,7 +103,7 @@ placement policy stay host-tested; a bad placement is a performance bug, not a s
 
 ## Follow-on
 
-- **Decision.** `design/decisions/30-dma-boundary-proof.md` holds the payload-borne address
+- **Decision.** `design/decisions/0030-dma-boundary-proof.md` holds the payload-borne address
   question, and says outright that whoever sequences 16a chooses. A virtio-gpu's backing addresses
   ride in a `RESOURCE_ATTACH_BACKING` command payload the validator structurally cannot see, so on a
   board with no IOMMU the display driver is either trusted with all of physical memory or the

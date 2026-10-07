@@ -40,7 +40,7 @@ finished block's gate can only be stale.
 
 calef ruled on 2026-09-19 that `design/roadmap/proposals/` should not exist, milestone 433 drained
 all 106 files out of it, and two records were rewritten to say so:
-`design/decisions/140-follow-on-disposition-vocabulary.md` retired `Proposed.` and left six words,
+`design/decisions/0140-follow-on-disposition-vocabulary.md` retired `Proposed.` and left six words,
 and the roadmap's own prose, now `notes/roadmap.md`, says a lane writes the numbered block itself.
 
 The scripts said otherwise. `script/roadmap` still accepted `Proposed.` in a follow-on bullet,

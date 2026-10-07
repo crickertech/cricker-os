@@ -14,7 +14,7 @@ The instrument is built, gated and rehearsed on all three architectures, and sin
 point of its sweep is a number on silicon. Five radon boots with the 2026-09-19 instrument (median
 of 21 repeats, seven jobs) agreed within 1.67% at every point: 2.62x at four tasks, 2.78x at 32, no
 decline. That is the first row of `notes/job-mix.md`'s step 7, read in "What five boots measured,
-radon, 2026-10-04" below. Risk 4's entry was written from them in the same change. Minted 2026-08-25, from [DECISIONS §96](../decisions/96-process-kernel-or-event-kernel.md)'s own recommendation: *"Build the instrument that could decide it. The blocker is that a multi-tasking workload is the only place the difference appears, and we have none."*
+radon, 2026-10-04" below. Risk 4's entry was written from them in the same change. Minted 2026-08-25, from [DECISIONS §96](../decisions/0096-process-kernel-or-event-kernel.md)'s own recommendation: *"Build the instrument that could decide it. The blocker is that a multi-tasking workload is the only place the difference appears, and we have none."*
 
 Real silicon, and that is all. Corrected 2026-09-04 by calef; it read
 `HARDWARE, MILESTONE 127` from 2026-08-25 until then, and the paragraph below explains why that was
@@ -315,7 +315,7 @@ nothing. So each is `BUILT` below rather than absent, with what it bought and wh
   marked itself `Gate: DECISION` because the line format changes; the maintainer's brief for this
   lane assigned the change, both readers are in-tree, and it is recorded here so the decision is
   visible rather than implied. That gate had a written-up section by the end of the same day,
-  [§191](../decisions/191-job-mix-repeats-and-what-the-line-reports.md), from milestone 435's sweep
+  [§191](../decisions/0191-job-mix-repeats-and-what-the-line-reports.md), from milestone 435's sweep
   of forty-five blocks whose `DECISION` gate named no decision. calef ratified what shipped on
   2026-09-26 (*"Yes, ratify §191 as shipped."*), so §191 (whether the job mix reports the spread
   rather than the best) is `DECIDED`.

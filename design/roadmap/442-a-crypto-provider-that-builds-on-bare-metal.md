@@ -8,7 +8,7 @@ built: 2026-09-20
 Built (2026-09-20), except clause 3, which is repriced into a proposal rather than
 carried; see `## Follow-on`.
 Minted 2026-09-19 by the maintainer, from calef's ruling in DECISIONS §196 (nife carries TLS: `rustls` for the protocol, and a crypto provider we make work),
-which is [design/decisions/196-nife-carries-tls-and-builds-the-provider.md](../decisions/196-nife-carries-tls-and-builds-the-provider.md).
+which is [design/decisions/0196-nife-carries-tls-and-builds-the-provider.md](../decisions/0196-nife-carries-tls-and-builds-the-provider.md).
 *(Number provisional until the merge queue lands it.)*
 
 One decision is owed and it is named below: the provider that works is a dependency, and
@@ -157,7 +157,7 @@ makes a recipe's digest decide what may run and a digest is checkable over any t
 ## Follow-on
 
 - **Decision.** calef's refusal of `rustls-rustcrypto`, written up as
-  `design/decisions/198-the-glue-is-ours-the-primitives-are-not.md`.
+  `design/decisions/0198-the-glue-is-ours-the-primitives-are-not.md`.
 - **Done.** Whether to take `rsa`: calef ruled "Take rsa" on 2026-09-20 and this milestone carried
   it out, in `cryptography_provider/src/verify.rs`, `deny.toml`'s first `ignore` entry, and
   `script/supply-chain`'s manifest list. The proposal that framed the question is gone rather than

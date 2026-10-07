@@ -8,7 +8,7 @@ ratified_by: calef
 # 42. A filesystem declares what it offers and must be truthful; it is not required to be capable
 
 (the `NOREPLACE`-emulation-is-racy reason, corrected for `redoxfs_server`
-specifically by [DECISIONS §129](129-rename-noreplace-flag.md), 2026-08-25, recorded in place.)
+specifically by [DECISIONS §129](0129-rename-noreplace-flag.md), 2026-08-25, recorded in place.)
 
 **Decided 2026-07-30, not yet built.** The rule that governs every filesystem backend behind the
 §27 contract, arrived at by calef over two corrections of mine. Milestone 47 (navigation and naming)
@@ -101,7 +101,7 @@ introspectable, which is what `caps` prints. No feature-query verb, no capabilit
   `RENAME_NOREPLACE`) work on ext4, btrfs, XFS, f2fs and tmpfs and nowhere else, and emulating
   `NOREPLACE` against a generic backend, a POSIX host filesystem reached through separate `link`
   and `unlink` syscalls with another writer free to run between them, is racy. Corrected,
-  [DECISIONS §129](129-rename-noreplace-flag.md), 2026-08-25: that reason does not describe
+  [DECISIONS §129](0129-rename-noreplace-flag.md), 2026-08-25: that reason does not describe
   `redoxfs_server` specifically, whose serve loop runs one request to completion before the next,
   so there is no concurrent observer inside that backend for the emulation to race against. The
   requirement stays not-required (no backend is obligated to offer it), and `NOREPLACE` joins

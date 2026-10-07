@@ -157,7 +157,7 @@ cannot carry a script's needs, because it would have to be the union of every sc
 ambient authority. So the manifest belongs to the script, and the grants attach to the
 interpreter-plus-script pair: the interpreter's own needs plus what the script declares. That closes
 §219 (how the shell names an installed program to the spawner)'s first recorded limitation, that a
-vouched interpreter runs any script with all of its own authority (`design/decisions/219-naming-an-installed-program-to-the-spawner.md:45`).
+vouched interpreter runs any script with all of its own authority (`design/decisions/0219-naming-an-installed-program-to-the-spawner.md:45`).
 §219 already names the shape: `interp build.nsh`, with the script as a read-only file grant (`:129`).
 
 Bytecode VMs. The same as interpreters, one level down. The JVM and .NET assume threads, which

@@ -3,11 +3,11 @@
 //! Rung 3a of milestone 198 (a package manager, and the trivial install that makes a second
 //! customer possible) has two halves, and this is the producer.
 //! DECISIONS §195 (a reviewed recipe vouches for a package), in
-//! [its own file](../../design/decisions/195-a-recipe-vouches-and-the-owner-may-overrule.md),
+//! [its own file](../../design/decisions/0195-a-recipe-vouches-and-the-owner-may-overrule.md),
 //! puts a package's digest in a version-controlled recipe changed by human review, which is
 //! Homebrew's arrangement; this is the tool that turns such a recipe into the one archive file
 //! DECISIONS §197 (a package is one archive file), in
-//! [its own file](../../design/decisions/197-a-package-is-one-archive-file.md), rules a package
+//! [its own file](../../design/decisions/0197-a-package-is-one-archive-file.md), rules a package
 //! is.
 //!
 //! **nife cannot build software**, so a package is produced here, on a host with a cross-toolchain,

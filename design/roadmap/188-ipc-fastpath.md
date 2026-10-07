@@ -20,7 +20,7 @@ program in this tree performs, and the largest single item it reports on aarch64
 which 94% is never fetched.
 
 Phase 4 only; phases 1 to 3 were a lane's own call, needed nobody, and are done.
-The decision is [§95 (hand-written IPC)](../decisions/95-a-proven-ipc-fastpath.md) (a hand-written IPC fastpath, and
+The decision is [§95 (hand-written IPC)](../decisions/0095-a-proven-ipc-fastpath.md) (a hand-written IPC fastpath, and
 whether it can stay proven), and this gate did not cite it until 2026-09-19. It is `DECIDED`, and
 what calef decided is *"don't decide yet"*, in two tiers: the eligibility predicate and its proof in
 `crates/ipc` are ratified as buildable now, and the fastpath itself stays gated on the one

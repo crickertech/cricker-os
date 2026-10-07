@@ -8,7 +8,7 @@ ratified_by: calef
 # 214. The Team plan buys runner concurrency, and merge throughput is no longer third
 
 calef upgraded the `crickertech` organization from GitHub Free to GitHub Team on 2026-09-24 (UTC). This section amends the ranking in
-[§203 (capacity is rented rather than bought)](203-capacity-is-rented-not-bought.md). It does not
+[§203 (capacity is rented rather than bought)](0203-capacity-is-rented-not-bought.md). It does not
 touch that section's ruling.
 
 ## What changed

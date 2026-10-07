@@ -206,7 +206,7 @@ three new names ratified and carrying eight refusals between them.
 
 ## BUGS
 
-- Two entries in `design/decisions/139-cycle-counter-authority.md` cite `components/src/ntp.rs`, a
+- Two entries in `design/decisions/0139-cycle-counter-authority.md` cite `components/src/ntp.rs`, a
   path that no longer exists, one of them with a line number. A lane may not edit
   `design/decisions/`, so they are named here and in this lane's report for the integrator. The
   content is still true of `network_time_client.rs`; only the path is stale.

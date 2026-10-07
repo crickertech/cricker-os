@@ -20,7 +20,7 @@ principal reads and writes, which is the shape this tree has a standing rule aga
 ## The tension, stated precisely
 
 Every existing multi-client object here is minted, held and delegated explicitly. A directory
-capability goes to the principal it names ([§47](47-directory-rights.md), a directory capability
+capability goes to the principal it names ([§47](0047-directory-rights.md), a directory capability
 carries six rights, and a child can never exceed its parent); a channel endpoint is minted per
 connection (`login_protocol::CONNECT`); the compositor's shared windows are each their own object
 rather than one global surface every client can address.

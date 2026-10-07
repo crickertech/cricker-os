@@ -12,7 +12,7 @@ Raised by calef, 2026-09-05, on being told no milestone covered archive
 utilities: *"Mint it. However we should debate write it and vendor it for each piece."*
 *(Section number provisional until the merge queue lands it.)*
 
-This is [§46](46-dependency-rule.md) applied piece by piece, not a new rule.
+This is [§46](0046-dependency-rule.md) applied piece by piece, not a new rule.
 §46's test is already written and this section's job is to run it honestly on seven candidates and
 show the working, including where the answer is genuinely arguable rather than obvious.
 

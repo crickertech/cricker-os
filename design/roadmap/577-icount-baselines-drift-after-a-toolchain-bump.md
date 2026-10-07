@@ -73,7 +73,7 @@ than a defect.
 Checked 2026-09-23. 415's item 2 is exactly "make a save record its own attribution, beside the
 number", and it is `PARTIAL` with that item listed as outstanding under `## Follow-on`. Its
 decision is §190 (must an icount baseline save record why it moved), in
-[design/decisions/190-what-a-baseline-save-must-record.md](../decisions/190-what-a-baseline-save-must-record.md).
+[design/decisions/0190-what-a-baseline-save-must-record.md](../decisions/0190-what-a-baseline-save-must-record.md).
 302 asks for the same line in the same header, having been ruled on by calef in the same breath. Two blocks is already one too many; this block writes no third
 version of it and proposes no mechanism of its own.
 

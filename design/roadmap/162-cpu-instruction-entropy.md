@@ -154,7 +154,7 @@ riscv64: correctly excluded. Neither `RDSEED` nor `RNDR`/`RNDRRS` exists on this
 
 ## Follow-on
 
-- **Decision.** `design/decisions/120-boot-entropy-stopgap-declined.md` holds the question of
+- **Decision.** `design/decisions/0120-boot-entropy-stopgap-declined.md` holds the question of
   whether the interactive-boot entropy stopgap should be revisited now that the customer condition
   it was declined for is met. This milestone says explicitly that landing it does not reopen the
   question and that reopening it is an architect's.

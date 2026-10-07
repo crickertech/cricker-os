@@ -59,7 +59,7 @@ partly unread, and documented by a decision file that assumes a premise nobody h
 Milestone 130's Follow-on: *"Decide whether to retire the branch-prefix taxonomy down to
 `milestone/N-`, the one prefix §90's roadmap-block check actually reads. A grep found nothing else
 consumes it, so the rest is a gate enforcing a convention with no consumer.
-`design/decisions/77-branch-prefixes.md` answers which prefixes belong on the list and assumes it
+`design/decisions/0077-branch-prefixes.md` answers which prefixes belong on the list and assumes it
 stays, so retiring it is an architect's call."*
 
 ## What answering it needs
@@ -75,7 +75,7 @@ short piece of writing rather than an investigation.
   `milestone/[0-9]*-*` and anything that claims no milestone; the taxonomy moved to
   `design/naming.md`'s "Branches" section as a convention, with the four false rejections and the
   reason a branch name rather than a label carries the one surviving mechanism.
-- **Recorded.** `design/decisions/77-branch-prefixes.md` still describes `script/lint` check 4 as an
+- **Recorded.** `design/decisions/0077-branch-prefixes.md` still describes `script/lint` check 4 as an
   allowlist of seven prefixes that rejects everything else, and its "Practical impact until
   answered" paragraph describes a gate that no longer exists. A reader meeting §77 first is told the
   wrong thing about what the tree does. Amending a decision is the integrator's, so this block
@@ -92,5 +92,5 @@ one prefix a mechanism reads. calef asked the same question on 2026-08-17 and an
 2026-08-18, before the proposal was written: the taxonomy is a convention in `design/naming.md` and
 `script/lint` refuses only a milestone-lookalike, which is the one real hole the allowlist was
 plugging, since `milestone-126-pgrep` with a hyphen would sail past check 4b. The residue is that
-`design/decisions/77-branch-prefixes.md` still describes the allowlist as current, which is the
+`design/decisions/0077-branch-prefixes.md` still describes the allowlist as current, which is the
 premise the proposal said nobody had rechecked.

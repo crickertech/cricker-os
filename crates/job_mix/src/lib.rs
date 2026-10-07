@@ -1,6 +1,6 @@
 //! **The job mix a multi-tasking benchmark runs, defined once** (milestone 168).
 //!
-//! `design/decisions/96-process-kernel-or-event-kernel.md` asks whether this kernel should keep a
+//! `design/decisions/0096-process-kernel-or-event-kernel.md` asks whether this kernel should keep a
 //! kernel stack per thread. Three of its four inputs are settled; the live one is performance, and
 //! the retrospective it rests on is explicit that the difference **does not appear where this
 //! project measures**: Warton's event kernel was "generally within 1% on micro-benchmarks but a 20%

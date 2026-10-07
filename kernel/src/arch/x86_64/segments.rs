@@ -508,7 +508,7 @@ pub fn installed_port_grant() -> Option<(u16, u16)> {
 /// `in`/`out` from ring 3 ever runs in this benchmark boot (there is no ring-3 program on this
 /// port yet; see `user::x86_programs`). So the number this produces is the cost of an 8 KiB
 /// per-CPU memory write on the switch path, not a proof that the bitmap enforces anything; that
-/// second half is option 1's real implementation, out of scope here (`design/decisions/121-port-io-capability.md`).
+/// second half is option 1's real implementation, out of scope here (`design/decisions/0121-port-io-capability.md`).
 ///
 /// (Milestone 299 built that real implementation; this bench's naive always-write stays as the
 /// upper-bound baseline the lazy `tss_iomap_lazy_switch`/`tss_iomap_lazy_nop` read against. It reuses

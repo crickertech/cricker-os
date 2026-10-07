@@ -312,7 +312,7 @@ thousands of round trips a second in the same window.
 
 ## The tick route: how the soak was made to cross cores (milestone 221)
 
-`design/decisions/138-cross-core-handoff-under-load.md` (*how a saturated workload is made to hand
+`design/decisions/0138-cross-core-handoff-under-load.md` (*how a saturated workload is made to hand
 threads across cores*) put four options in front of calef and he approved option D on 2026-09-02.
 
 The mechanism, and it is short. Under `--features soak_test` and nowhere else, `sched::on_tick`

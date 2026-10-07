@@ -6,7 +6,7 @@ built: 2026-09-21
 # 282. A thread's CPU time, and the `top` it makes possible
 
 Minted 2026-09-13, when calef ruled milestone 126 (who else is running, and who is allowed to ask)'s eighteen-day-old fork.
-The decision is `design/decisions/150-per-thread-cpu-accounting.md`, amended the day this was built
+The decision is `design/decisions/0150-per-thread-cpu-accounting.md`, amended the day this was built
 by DECISIONS §204 (how userspace asks where a thread runs). *(Number provisional until the merge queue lands it.)*
 
 Nothing was gated on calef here, and that is worth one line because the block carried a

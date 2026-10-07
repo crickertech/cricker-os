@@ -201,7 +201,7 @@ separate work.
 
 ## Follow-on
 
-- **Decision.** `design/decisions/94-what-may-live-in-a-library.md` is the section this block's
+- **Decision.** `design/decisions/0094-what-may-live-in-a-library.md` is the section this block's
   scope note left for the integrator to mint if the `user_rt` change turned out to want one. It
   does: the decision keeps the sound half (a `#[panic_handler]` is per-final-binary, so a library
   defining one collides with any binary wanting its own) and retires the stale half (that each
@@ -229,7 +229,7 @@ separate work.
 - **Milestone 344.** Whether to retire the branch-prefix taxonomy down to `milestone/N-`, the one
   prefix §90's roadmap-block check actually reads. Already answered when this bullet was written:
   calef retired it on 2026-08-18 on exactly that argument, so 344 is `BUILT` and what survives is
-  that `design/decisions/77-branch-prefixes.md` still describes the enforced allowlist as current.
+  that `design/decisions/0077-branch-prefixes.md` still describes the enforced allowlist as current.
 
 ## Index row
 

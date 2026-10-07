@@ -224,7 +224,7 @@ type Rendezvous = inter_process_communication::Rendezvous<Thread>;
 ///
 /// # BUGS
 ///
-/// - **`design/decisions/96-process-kernel-or-event-kernel.md` prices the confinement claim off
+/// - **`design/decisions/0096-process-kernel-or-event-kernel.md` prices the confinement claim off
 ///   the old number** ("`MAX_THREADS` is 128, so kernel stacks total 3.00 MiB, static"). The shape
 ///   of that argument survives (the bound is still static and still the product of two constants)
 ///   but the figure does not, and a decision record is not a lane's to edit. Whoever ratifies this
@@ -4629,7 +4629,7 @@ fn strand_callers_awaiting(sched: &mut IpcTables, ep: RendezvousId) {
 /// **This is the right sweep for `PageFrame::REVOKE` and the wrong one for reclamation**, and the
 /// difference is which question is being asked. `REVOKE` names one capability's run and takes that
 /// authority back; whether it should also take an *overlapping* holder's separate capability is an
-/// open question (design/decisions/132-*.md). Reclamation asks the stronger question, "may any
+/// open question (design/decisions/0132-*.md). Reclamation asks the stronger question, "may any
 /// capability still name a page this allocator is about to hand out", and only
 /// [`delete_page_frame_caps_overlapping`] answers it.
 pub fn delete_page_frame_caps(phys: u64, count: u64) {

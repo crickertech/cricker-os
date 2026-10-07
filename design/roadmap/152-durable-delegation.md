@@ -93,7 +93,7 @@ calef, 2026-08-22: yes. Revoking credentials cascades to killing the durable ses
 cascades to everything derived from it (§40's subtree-death rule), including every scheduled job the
 session was supervising. One action, one consequence, using mechanism that already exists rather
 than inventing a second revocation path that has to be kept in sync with the first. Recorded as
-[DECISIONS §108](../decisions/108-credential-revocation-kills-durable-session.md).
+[DECISIONS §108](../decisions/0108-credential-revocation-kills-durable-session.md).
 
 ### Boot-time bring-up is re-derivation, not restoration
 
@@ -130,9 +130,9 @@ points here for the mechanism.
 
 `smb_server`'s `DurableSession` first proved §16 (object revocation) holds a budget up while it has a
 live child; it went with the SMB code on 2026-08-30. `crates/schedule_store` (provisional) holds the
-file names and the manifest format of [§122](../decisions/122-durable-schedule-store-format.md) and
-[§125](../decisions/125-durable-schedule-manifest.md). `session_reviver`, the boot-only re-deriver
-of [§123](../decisions/123-boot-time-rederivation-privilege.md), ran only under the kernel harness
+file names and the manifest format of [§122](../decisions/0122-durable-schedule-store-format.md) and
+[§125](../decisions/0125-durable-schedule-manifest.md). `session_reviver`, the boot-only re-deriver
+of [§123](../decisions/0123-boot-time-rederivation-privilege.md), ran only under the kernel harness
 and was retired on 2026-09-27 (below). Git history has all three.
 
 ## What was built (2026-09-26, the live-children proof re-homed on a login session)
@@ -276,7 +276,7 @@ Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-d
   `durable_ut` is fixed. `components/src/login.rs`'s BUGS.
 - **Done.** `session_reviver` is retired and the real boot's `login` carries the start-up pass.
   2026-09-27.
-- **Done.** The manifest question is settled: `design/decisions/125-durable-schedule-manifest.md`
+- **Done.** The manifest question is settled: `design/decisions/0125-durable-schedule-manifest.md`
   is DECIDED, ratified by calef on 2026-08-25, and its own text notes the recommended shape was
   already built rather than merely proposed.
 - **Done.** The §16 live-children proof is re-homed on a real login session's budget

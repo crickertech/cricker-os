@@ -207,7 +207,7 @@ It is not a `git mv`, and this block exists partly to say so before four lanes d
   answered by calef on 2026-08-18, sixteen days before the proposal asking for it was filed). Eight
   of the twenty-seven had decayed in some part; two had decayed outright. Twenty-six
   `**Proposed.**` bullets became `**Milestone N.**`, and three citations outside `design/roadmap/`
-  were repointed: `design/decisions/144-fastpath-footprint-ceiling.md`, `notes/follow-on-work.md`
+  were repointed: `design/decisions/0144-fastpath-footprint-ceiling.md`, `notes/follow-on-work.md`
   and `kernel/src/bench.rs`.
 - 354 to 380, `milestone/433-slice-2`, 2026-09-19. All 27 promoted, every premise read against
   the tree before its status was written. Twenty are `NOT-STARTED` and verified, four `SUPERSEDED`
@@ -325,7 +325,7 @@ done here.
   bullet is a permanent record and the file it names is, by this block's rule, ephemeral: it exists
   only between a lane writing it and the next integrator numbering it. That is a vocabulary
   question, so it is an architect's, and it is written up in
-  `design/decisions/140-follow-on-disposition-vocabulary.md`'s own terms rather than minted here.
+  `design/decisions/0140-follow-on-disposition-vocabulary.md`'s own terms rather than minted here.
 - **Recorded.** *Nothing stops the pile refilling*, and this block's `BUGS` says the assumed steady
   state (an integrator drains it at every merge) is rung four. The measurement above weakens that
   further: the answer usually arrives before the next merge, so the habit that would work is the

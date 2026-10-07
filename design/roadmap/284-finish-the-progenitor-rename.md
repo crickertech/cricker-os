@@ -196,10 +196,10 @@ them, deliberately, so that a rename moves one set of words and not two.
   own `BUGS` entry beside the count, in `design/roadmap/284-finish-the-progenitor-rename.md`, because
   a lane may not edit either directory. They are a maintainer's sweep and were re-counted rather than inherited: 360 across 75 roadmap files, 92
   across 31 decisions, on 2026-09-13. The three that mislead most, because they read as live claims
-  rather than as history: `design/decisions/14-project-direction.md` (*"init is the privileged
-  unverified component"*, in the thesis `SECURITY.md` points at), `design/decisions/26-fault-endpoint.md`
+  rather than as history: `design/decisions/0014-project-direction.md` (*"init is the privileged
+  unverified component"*, in the thesis `SECURITY.md` points at), `design/decisions/0026-fault-endpoint.md`
   (26 occurrences, the measured-boot record, *"this kernel image runs exactly this init"*), and
-  `design/decisions/55-shell-holds-the-redirect.md` (*"the `fs_subtree_caretaker` init would build per
+  `design/decisions/0055-shell-holds-the-redirect.md` (*"the `fs_subtree_caretaker` init would build per
   invocation"*). `design/init-and-granular-spawn.md` is a fourth of a different kind: 40 occurrences
   and the old name in its own filename, cited from nine places.
 - **Milestone 399.** The six role constants above, their functions, and the

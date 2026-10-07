@@ -478,7 +478,7 @@ impl<'a> TwoRoots<'a> {
     }
 
     /// **A two-grant shell's real, single, moving position** (DECISIONS §126,
-    /// design/decisions/126-two-directory-cwd.md), built on [`TwoRoots::resolve`] and
+    /// design/decisions/0126-two-directory-cwd.md), built on [`TwoRoots::resolve`] and
     /// [`Cwd::resolve`] rather than reimplementing either.
     ///
     /// A bare relative `token` resolves against `pos` inside whichever tree `which` currently

@@ -153,7 +153,7 @@ The mechanism that would fix it already existed twice. Milestone 302 (a baseline
 was saved against, and a stale one fails loudly) asked `--save` to write a `# why:` line, a format
 calef ratified on 2026-09-16. Item 2 of milestone 415 (sub-tripwire drift accumulates across
 baseline saves) states the same obligation, with
-[§190](../../design/decisions/190-what-a-baseline-save-must-record.md) (must an icount baseline save
+[§190](../../design/decisions/0190-what-a-baseline-save-must-record.md) (must an icount baseline save
 record why it moved) as its decision. Milestone 577 (the icount baselines predate the pinned
 nightly) was promoted and superseded in one act on 2026-09-23 rather than become a third statement
 of it; this section holds its evidence. *(Correction, 2026-09-24: 302 has since merged, per the

@@ -16,7 +16,7 @@ merge queue lands it.)*
 For half of it. `tar` is nobody's call but a lane's and can start today. The
 compressor's write-or-take question is §146 (archive and compression: which pieces we write, which we take, and which we refuse),
 which is `PROPOSED` and calef's, because taking a dependency is a decision under
-[§46](../decisions/46-dependency-rule.md). A lane may build the whole of part 1 and must stop at
+[§46](../decisions/0046-dependency-rule.md). A lane may build the whole of part 1 and must stop at
 part 2's fork rather than choosing it.
 
 ## Why this exists, and it is not "a tree should have archive utilities"
@@ -78,7 +78,7 @@ and milestone 193 fixed the reachability that caused it. A real attacker-facing 
 machinery is for, and the properties are stateable: *the output never exceeds the declared bound*,
 *the window is never read outside itself*, *a truncated stream terminates rather than looping*.
 
-It is also the shape [§145](../decisions/145-compartmentalization-at-process-cost.md) proposes as
+It is also the shape [§145](../decisions/0145-compartmentalization-at-process-cost.md) proposes as
 a possible bounded customer: hand a confined domain untrusted bytes, let it reach nothing, take the
 output. Risk 7's adversarial half is unbuilt, and a decompression bomb is an adversary that needs no
 outside researcher to supply it.

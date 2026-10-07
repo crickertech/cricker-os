@@ -10,13 +10,13 @@ rolls back packages itself, fetched by name. What is missing is in "Where this s
 ## The two decisions this is downstream of
 
 DECISIONS §197 (a package is one archive file), in
-[its own file](../design/decisions/197-a-package-is-one-archive-file.md), ruled the container: one archive file per package, identified by name and version, the shape
+[its own file](../design/decisions/0197-a-package-is-one-archive-file.md), ruled the container: one archive file per package, identified by name and version, the shape
 `.deb`, `.apk` and `.hpkg` all use. It accepted a cost out loud while doing it, because a container
 is bytes a target must parse: *"the reader owes a fuzz target and the Kani treatment `crates/nifefs`
 and `crates/elf` already carry."*
 
 DECISIONS §195 (a reviewed recipe vouches for a package), in
-[its own file](../design/decisions/195-a-recipe-vouches-and-the-owner-may-overrule.md), ruled trust: a package's digest lives in a version-controlled recipe
+[its own file](../design/decisions/0195-a-recipe-vouches-and-the-owner-may-overrule.md), ruled trust: a package's digest lives in a version-controlled recipe
 changed by human review, trust is scoped per source the owner opted into, and the owner may
 overrule. That is Homebrew's arrangement, and Homebrew is also §197's worked example of the pairing.
 

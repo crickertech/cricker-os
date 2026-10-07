@@ -66,11 +66,11 @@ Why it matters. a public repository with a security thesis should be able to rec
 
 ## Follow-on
 
-- **Decision.** `design/decisions/78-signed-commits.md` holds the fifth item, deferred here on
+- **Decision.** `design/decisions/0078-signed-commits.md` holds the fifth item, deferred here on
   sequencing grounds. It was raised the day §73 closed so the deferral would not die with the
   section carrying it, and calef decided on 2026-08-25 not to require signing, with the conditions
   that would reopen it written down.
-- **Decision.** `design/decisions/73-repository-admin-steps.md` holds the settings half, the ten
+- **Decision.** `design/decisions/0073-repository-admin-steps.md` holds the settings half, the ten
   admin minutes only calef could spend. He applied them the evening of 2026-08-04 and the section
   records what was applied and what turned out not to apply, rather than only saying "done".
 - **Recorded.** `design/roadmap/44-github-hardening.md` keeps the code-scanning caveat, which is

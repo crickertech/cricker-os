@@ -158,7 +158,7 @@ first, then the comment, then the block.
 - **Recorded.** In `notes/doc-coverage.md`: 235 undocumented public items across seven crates, each
   carrying an explicit `#![allow(missing_docs)]` citing its own count. It is an ordinary ratchet
   that may only shrink, and BUILT does not wait on it reaching zero.
-- **Decision.** `design/decisions/107-missing-docs-workspace-wide.md` answers whether the lint goes
+- **Decision.** `design/decisions/0107-missing-docs-workspace-wide.md` answers whether the lint goes
   in `[workspace.lints.rust]` as opt-out, which inverts §61's own rule that adding a lint means
   fixing every existing violation first. Recorded there as a considered exception rather than a
   quiet reversal.

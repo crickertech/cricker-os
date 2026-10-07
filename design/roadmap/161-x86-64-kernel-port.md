@@ -345,7 +345,7 @@ Ordered as it was built, because each step is what made the next one debuggable.
     and `syscall` pushes nothing.
 
     **`now()` and `cntfrq()` are the two that are not transliteration, and the answer, ratified as
-    [DECISIONS §127](../decisions/127-x86-64-timer-rdtsc.md), is PIT-calibrated `rdtsc` with the
+    [DECISIONS §127](../decisions/0127-x86-64-timer-rdtsc.md), is PIT-calibrated `rdtsc` with the
     measured frequency delivered through a mapped page.** `now()` is `rdtsc`, readable from ring 3
     because `CR4.TSD` is clear at reset and this kernel does not change it; it answers in
     `edx:eax`, so a single `out(reg)` reads a counter that wraps every four seconds. `cntfrq()` is
@@ -420,7 +420,7 @@ In the order it should be done, because each is a prerequisite for the next.
    not yet built**. Sizing it found a real design fork (the PC-compatible CMOS RTC is two fixed I/O
    ports, not a page, so the "map the device, let userspace drive it" pattern the other two
    architectures' RTCs use has no CMOS equivalent), resolved as
-   [DECISIONS §130](../decisions/130-cmos-rtc-delegation.md) (**DECIDED** 2026-08-26, "Ratify option
+   [DECISIONS §130](../decisions/0130-cmos-rtc-delegation.md) (**DECIDED** 2026-08-26, "Ratify option
    3"): the kernel reads CMOS once at boot and hands the seed to the clock service as a `Spawn`
    argument, the same way `kind` already crosses that boundary. `kernel/src/arch/x86_64/machine.rs`'s
    own `BUGS` section now names only the CMOS RTC as the device window with no seam at all;
@@ -462,7 +462,7 @@ In the order it should be done, because each is a prerequisite for the next.
    The syscall ABI (`rax` + `rdi`/`rsi`/`rdx`/`r10`/`r8`/`r9`) is now spoken and ratified: it was
    a boundary rather than a habit (DECISIONS §10, §16), and one probe program agreeing with the
    kernel was not the same as a decision having been made, so it went up as
-   [DECISIONS §124](../decisions/124-x86-64-syscall-abi.md), which calef ratified 2026-08-24.
+   [DECISIONS §124](../decisions/0124-x86-64-syscall-abi.md), which calef ratified 2026-08-24.
 
    The two `CR4` bits stay off, and that is now a recorded choice rather than a deferral.
    `CR4.PCIDE` off means `crates/address_space_identifier`'s tags have nowhere to live: PCID is `CR3[11:0]`, and with
@@ -512,7 +512,7 @@ In the order it should be done, because each is a prerequisite for the next.
 
    Of the five concrete pieces it listed, four are done and the fifth was already true:
    `crates/user_rt` has its x86 arms (five transliterations, plus `now()`/`cntfrq()`, which went to
-   `rdtsc` and a PIT-measured rate for the reasons in step 13, [DECISIONS §127](../decisions/127-x86-64-timer-rdtsc.md));
+   `rdtsc` and a PIT-measured rate for the reasons in step 13, [DECISIONS §127](../decisions/0127-x86-64-timer-rdtsc.md));
    `user/build.rs` compiles the C seam;
    `xtask` packs an x86 archive, with the `read_stripped` cache-tag collision fixed before it could
    fire and a real `target/init-measure-x86_64.txt`; `helpers/qemu-runner-x86_64.sh` passes
@@ -543,7 +543,7 @@ In the order it should be done, because each is a prerequisite for the next.
 
    The rest of the 67 were the items above and below this one, doing what they were always going to
    do, though what closes some of them has since changed: 13 skips wanted the RTC, which is now
-   milestone 176 piece 2's job (decided, [§130](../decisions/130-cmos-rtc-delegation.md); not §121,
+   milestone 176 piece 2's job (decided, [§130](../decisions/0130-cmos-rtc-delegation.md); not §121,
    which forecloses a CMOS port capability rather than building one); 15 wanted a PCI bus enumerated,
    which the discovery seam itself no longer blocks (item 0's PCI window is wired, milestone 165) but
    `helpers/qemu-runner-x86_64.sh` still does, since it attaches no PCI device (`-device
@@ -679,7 +679,7 @@ One thing that is not a step, and is now resolved rather than owed:
   are in an I/O space with no page tables; the only mechanism with the right granularity is the TSS
   I/O permission bitmap, which is per-task rather than per-page. `user::UART_PHYS` is zero on this
   architecture and that zero is the marker.
-  [DECISIONS §121](../decisions/121-port-io-capability.md) (**DECIDED** 2026-08-25, "Ratify option 2,
+  [DECISIONS §121](../decisions/0121-port-io-capability.md) (**DECIDED** 2026-08-25, "Ratify option 2,
   permanently") answered it: x86's legacy port-I/O devices, the console included, stay
   kernel-resident forever. No new capability object gets added; only memory-mapped devices get a
   userspace driver on this architecture, which is a permanent, recorded parity gap rather than an

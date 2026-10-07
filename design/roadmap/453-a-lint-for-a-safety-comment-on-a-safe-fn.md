@@ -21,7 +21,7 @@ From '112. The SAFETY comments that bind nobody', under `## Follow-on`:
 > A lint for "a SAFETY comment on a safe fn". Neither unsafe lint can read a comment, and a check
 > for this shape would fire on the legitimate uses the block separates out, where "caller" means
 > the calling thread or process rather than a soundness obligation. If the distinction ever turns
-> out to be mechanical, `design/decisions/61-lints-on-evidence.md` is the ledger that adopts a
+> out to be mechanical, `design/decisions/0061-lints-on-evidence.md` is the ledger that adopts a
 > lint on evidence from this tree.
 >
 > -- design/roadmap/112-safety-comments-that-bind.md
@@ -36,7 +36,7 @@ the calling thread or process.
 ## Revisit
 
 - **Condition.** The distinction turning out to be mechanical, which is the refusal's own wording.
-  `design/decisions/61-lints-on-evidence.md` is named there as the ledger that adopts a lint on
+  `design/decisions/0061-lints-on-evidence.md` is named there as the ledger that adopts a lint on
   evidence from this tree, so the route is already written and what is missing is the evidence.
 
 ## Index row

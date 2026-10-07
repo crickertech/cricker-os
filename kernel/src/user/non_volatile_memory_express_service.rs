@@ -1,7 +1,7 @@
 //! **Wiring for the EL0 NVMe block server** (milestone 261; [DECISIONS §86]'s option 2a,
 //! DECIDED 2026-09-03; notes/non-volatile-memory-express.md).
 //!
-//! [DECISIONS §86]: ../../../design/decisions/86-el0-nvme-driver.md
+//! [DECISIONS §86]: ../../../design/decisions/0086-el0-nvme-driver.md
 //!
 //! The kernel half of a split the hardware already draws. `kernel/src/non_volatile_memory_express.rs` resets the
 //! controller, builds the admin queues by register, IDENTIFYs the namespace and creates the one

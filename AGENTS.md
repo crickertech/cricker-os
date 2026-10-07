@@ -256,7 +256,7 @@ These rules bind every note, which is prose an architect rereads for months:
 - No "delve", "comprehensive", "landscape", "moreover", "furthermore", "notably", "it's worth
   noting", "straightforward".
 - No sycophantic openers, no filler conclusions that restate what was just said.
-- Plain, direct language. Vary sentence length. Write like a person. The numbers are [§213 (writing standards)](design/decisions/213-writing-standards.md), and length is [§212 (a prose budget)](design/decisions/212-a-prose-budget-for-every-document.md). Spelling is American and measurements metric (calef, 2026-10-06).
+- Plain, direct language. Vary sentence length. Write like a person. The numbers are [§213 (writing standards)](design/decisions/0213-writing-standards.md), and length is [§212 (a prose budget)](design/decisions/0212-a-prose-budget-for-every-document.md). Spelling is American and measurements metric (calef, 2026-10-06).
 
 ## Environment
 

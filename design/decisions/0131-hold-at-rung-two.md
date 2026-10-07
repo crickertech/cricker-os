@@ -33,7 +33,7 @@ is not something more code produces, and nothing in the tree was positioned to a
 Hold at rung two. Rungs three and four (milestone 34 among them) stay `NOT-STARTED`,
 deliberately, until something genuinely useful has been built and proven on text mode. This is not
 a technical finding; it is a ranking call, and it agrees with one this tree has already made rather
-than introducing a new principle. [DECISIONS §14](14-project-direction.md) and `AGENTS.md`'s own
+than introducing a new principle. [DECISIONS §14](0014-project-direction.md) and `AGENTS.md`'s own
 ranking function already say the customer path (milestone 55, Time Machine) is what orders work here,
 and that customer is entirely headless: a backup server has no display, no GPU, no application UI.
 Every hour spent on rung three or four is an hour not spent on the thing a customer would actually

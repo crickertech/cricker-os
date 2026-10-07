@@ -29,7 +29,7 @@ measurements are metric. A product designation such as a 19-inch rack stays as n
 
 How densely this tree's prose must be written, in numbers a script can count.
 
-The sibling decision, [§212 (a prose budget)](212-a-prose-budget-for-every-document.md), bounds how much a
+The sibling decision, [§212 (a prose budget)](0212-a-prose-budget-for-every-document.md), bounds how much a
 document may be: 3,000 words of main body, with depth in capped appendices. This one bounds how
 densely those words must be written. The two are separate on purpose, and this section links rather
 than absorbs, which is 212's convention demonstrating itself.

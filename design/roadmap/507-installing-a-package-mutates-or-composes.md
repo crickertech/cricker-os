@@ -19,7 +19,7 @@ it. Written by milestone 198 (a package manager, and the trivial install)'s scop
 
 The fork was answered on 2026-09-23: calef chose A3, with rollback, recorded as
 §208 (installing a package is granting it, and the activation set is versioned), at
-[design/decisions/208-installing-is-granting.md](../decisions/208-installing-is-granting.md). Installing records
+[design/decisions/0208-installing-is-granting.md](../decisions/0208-installing-is-granting.md). Installing records
 that a package exists, its digest and manifest become spawnable, its data is a read-only directory a
 session binds by name, and the table of entries is versioned so an activation set rolls back as a
 whole. Nothing below is rewritten: the options, the costs and the two namespaces are the proposal's

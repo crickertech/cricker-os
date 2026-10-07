@@ -53,7 +53,7 @@ claim it does.
 **The number is provisional.** This lane could not see the other lanes running beside it, so 139 is
 a claim on the next free slot rather than a mint; the integrator assigns the real one at merge, and
 two lanes collided on a number the day before this was written. Cite it as
-`design/decisions/139-cycle-counter-authority.md` until it lands.
+`design/decisions/0139-cycle-counter-authority.md` until it lands.
 
 Written 2026-09-02 by a research lane briefed to answer milestone 75
 (who may read the cycle counter), which is `Gate: DECISION` and has been NOT-STARTED since

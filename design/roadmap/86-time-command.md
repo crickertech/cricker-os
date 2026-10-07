@@ -45,7 +45,7 @@ the duration is positive and sane, not a latency benchmark, which is `bench`'s j
 
 ## Follow-on
 
-- **Decision.** `design/decisions/72-time-command-clock.md` takes the question this block left open,
+- **Decision.** `design/decisions/0072-time-command-clock.md` takes the question this block left open,
   whether a duration needs a clock capability at all: counter-only `time`, on the boundary that
   wall-clock identity is authority and a capability gates it while a duration is ambient, because
   the ABI already opened the counter to EL0. Both clock refusals became unreachable rather than

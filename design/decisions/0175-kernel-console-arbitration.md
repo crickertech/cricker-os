@@ -60,7 +60,7 @@ present, it looks like output, and the line being matched has a kernel message s
 middle of it.
 
 Nothing in `design/decisions/` answers it, checked 2026-09-19.
-[§149](149-kernel-served-console-endpoint.md) is the nearest and is a different question: it asked
+[§149](0149-kernel-served-console-endpoint.md) is the nearest and is a different question: it asked
 whether the kernel may *answer on an endpoint* where §121 left x86 without a userspace holder, and
 it was resolved on 2026-09-15 by dissolving that premise, so x86's console is a userspace driver like
 the other two. That makes the interleaving question more live rather than less, because all three

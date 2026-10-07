@@ -803,7 +803,7 @@ pub fn revoke_page_frame(phys: u64) {
 /// narrow it. So a capability-perfect revocation of a surface leaves the device able to write those
 /// pages until the driver's virtio registration is itself torn down. Coupling `PageFrame` and
 /// `Virtio`, which are independent today, is a separate decision and remains an architect's call:
-/// see design/decisions/132-overlapping-page-frame-runs.md.
+/// see design/decisions/0132-overlapping-page-frame-runs.md.
 pub fn revoke_page_frame_run(phys: u64, count: u64) {
     crate::sched::delete_page_frame_caps(phys, count);
     for k in 0..count {
@@ -1118,7 +1118,7 @@ mod tests {
 
         // `Rights::ALL` carries `GRANT`, which is what `PageFrame::REVOKE` requires and what no run
         // capability in the shipping tree has yet: minting it here is how this path is reachable at
-        // all. See design/decisions/132-*.md on why that made the question worth answering early
+        // all. See design/decisions/0132-*.md on why that made the question worth answering early
         // rather than at the first real `GRANT`.
         let window = crate::sched::grant(page_frame_run_cap(
             run[0],

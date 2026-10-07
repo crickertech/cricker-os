@@ -19,8 +19,8 @@ and the code, rather than authorizing new work.
 
 Raised 2026-08-24 by milestone 152's lane (pieces 2 and 3: the boot-time
 re-deriver and its connection to the schedule store), from a gap the lane's own brief named
-explicitly: neither [§122](122-durable-schedule-store-format.md) nor
-[§123](123-boot-time-rederivation-privilege.md) fully specifies what tells boot-time re-derivation
+explicitly: neither [§122](0122-durable-schedule-store-format.md) nor
+[§123](0123-boot-time-rederivation-privilege.md) fully specifies what tells boot-time re-derivation
 which identities have a durable session with pending work at all. §122 is about one identity's own
 schedule file; §123 assumes "the store names" a set of sessions to re-derive without saying how that
 set is discovered without falling into milestone 126's refusal (enumeration is itself authority).

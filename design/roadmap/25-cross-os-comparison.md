@@ -43,7 +43,7 @@ recorded here so the gap has one home rather than two.
   NOT-STARTED, and it is what a real `sel4bench` comparison needs on our side of the table.
   Checked 2026-09-03 against its block.
 - **Done.** The authority question underneath 74's aarch64 half is answered and built.
-  `design/decisions/139-cycle-counter-authority.md` is DECIDED (calef, 2026-09-02) and milestone
+  `design/decisions/0139-cycle-counter-authority.md` is DECIDED (calef, 2026-09-02) and milestone
   229 shipped the per-thread grant the same day: `kernel/src/arch/aarch64/timer.rs` opens and
   closes `PMUSERENR_EL0.CR` on the context switch.
 - **Milestone 168.** The multi-tasking workload this block's own suite cannot supply, minted from

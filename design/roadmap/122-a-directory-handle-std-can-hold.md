@@ -175,7 +175,7 @@ is §82's stated failure mode.
   see it, and `File::open` on a path that must be created pays for the walk twice. 121's benchmark
   is what prices it, and the answer is the input to whether the contract should grow a
   multi-component resolve.
-- **Decision.** `design/decisions/98-opendir-cannot-attenuate.md` holds it: `OPENDIR` has no way to
+- **Decision.** `design/decisions/0098-opendir-cannot-attenuate.md` holds it: `OPENDIR` has no way to
   say "attenuate to whatever you have", so a held directory asks for `dir::ALL` and, when a narrowed
   grant refuses, probes one right at a time. The workaround ships and is recorded where a reader
   meets it; the replacement is a sentinel in the rights word, which is a wire change.
@@ -190,7 +190,7 @@ is §82's stated failure mode.
   out not to need a budget, since a walk holds two handles rather than one per level and a held
   `Dir` is bounded by the same `EMFILE` as an open `File`. What is untried is a program holding many
   `Dir`s at once.
-- **Recorded.** In `design/decisions/84-how-we-port.md`: this does not make `cap-std` run, it builds
+- **Recorded.** In `design/decisions/0084-how-we-port.md`: this does not make `cap-std` run, it builds
   the object `cap-std` would bind to. The backend work is separate and is unmeasured, including
   whether `cap-primitives` has a seam a third backend can use at all.
 - **Milestone 351.** Spawn a `std` program on an

@@ -15,7 +15,7 @@ in a sixteen-slot cspace. Decided 2026-08-20 by calef: option 1, a `Frame` names
 DECISIONS §113's rename (milestone 158, 2026-08-23/24) postdates it: every `Frame` below is now
 `PageFrame` in the tree's current code, and `cspace`/`CSPACE_SLOTS` are now `capability table`/
 `CAPABILITY_TABLE_SLOTS`. Left as originally written, period-accurate to when it was decided, the
-same way `design/decisions/113-*.md`'s own record does; a future implementer should read every
+same way `design/decisions/0113-*.md`'s own record does; a future implementer should read every
 identifier below through that mapping.*
 
 What is blocked: milestone 29's terminal font. The scanout grows to 800x608 (475 frames) and

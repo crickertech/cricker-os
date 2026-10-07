@@ -12,7 +12,7 @@ current index at merge; two other numbers in this neighborhood were already take
 requests when this was written, one of them proposing a milestone for the JH7110's PLDA PCIe root
 complex driver, unmerged as of this writing so not cited here by number). Scoped the same day as
 that other proposal, as a parallel check of whether x86_64 can reach a real-hardware data point for
-[DECISIONS §86](../decisions/86-el0-nvme-driver.md) faster and cheaper than a from-scratch JH7110
+[DECISIONS §86](../decisions/0086-el0-nvme-driver.md) faster and cheaper than a from-scratch JH7110
 driver would, given that x86's PCIe discovery is ACPI-described and architecturally identical
 between QEMU's `q35` and real x86 hardware (unlike RISC-V's QEMU-only fake ECAM device).
 

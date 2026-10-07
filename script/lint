@@ -1021,7 +1021,7 @@ if [ -f "$dependabot" ] && grep -qE '^[[:space:]]*ignore:' "$dependabot" &&
     echo "If a dependency genuinely must be held, say so where you hold it:" >&2
     echo "  # EXCEPTION (§81): <why this one cannot be upgraded, and what would change it>" >&2
     echo >&2
-    echo "See design/decisions/81-dependency-upgrades.md." >&2
+    echo "See design/decisions/0081-dependency-upgrades.md." >&2
     exit 1
 fi
 

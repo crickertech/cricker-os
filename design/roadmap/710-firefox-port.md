@@ -26,12 +26,12 @@ that waits for the same word.
 
 ## What it reopens
 
-- [§131 (hold at rung two)](../decisions/131-hold-at-rung-two.md): rungs three and four of
+- [§131 (hold at rung two)](../decisions/0131-hold-at-rung-two.md): rungs three and four of
   [the display ladder](../display-ladder.md) reopen the parked competitor question, and calef
   held at rung two on 2026-08-26. A browser needs rung three (real applications, software
   rendering; WebRender has a software fallback, from general knowledge). Rung four, GPU through
   virtio-gpu Venus, is optional and would only make it faster.
-- [§145 (compartmentalization at process cost)](../decisions/145-compartmentalization-at-process-cost.md),
+- [§145 (compartmentalization at process cost)](../decisions/0145-compartmentalization-at-process-cost.md),
   which names Firefox as the software people actually run Qubes for and puts it out of reach. That
   sentence is what this proposal revisits.
 

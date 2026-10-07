@@ -212,7 +212,7 @@ PC once rung 1 has one.
   - **Photographs: owed.** calef's, not committed.
   Milestone stays PARTIAL on criterion 3.
 - **Outstanding.** Exit criterion 3, a fleet machine that is not xenon, from milestone 243 (a machine with no serial port has no way to say anything)'s fleet.
-- **Decision.** Ruled 2026-10-03 in `design/decisions/244-the-installed-disk-has-four-partitions.md`: the layout above stands, and slots stay at 64 MiB. Two conditions remain with another lane: the installer installs a release image, and CI gates the release image at 16 MiB.
+- **Decision.** Ruled 2026-10-03 in `design/decisions/0244-the-installed-disk-has-four-partitions.md`: the layout above stands, and slots stay at 64 MiB. Two conditions remain with another lane: the installer installs a release image, and CI gates the release image at 16 MiB.
 - **Milestone 560.** `BOOTRISCV64.EFI` is not an 8.3 name, so riscv64 cannot be installed.
 - **Milestone 568.** `/chosen` has one initrd slot, so aarch64 and riscv64
   have no installer.

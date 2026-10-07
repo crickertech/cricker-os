@@ -79,7 +79,7 @@ person would recognize.
 
 - **Decision.** The nudge makes entry 14 `0x93a1a0` rather than Schoonover's `0x93a1a1`, and
   whether a nudged palette is still the name "Solarized" is calef's question, held open where he
-  raised it: `design/decisions/104-the-font-and-the-palette.md`.
+  raised it: `design/decisions/0104-the-font-and-the-palette.md`.
 - **Recorded.** Bold is bright, and Solarized's bright slots are greys, so bold green, yellow, blue
   and cyan lose their hue. The limitation is in the PALETTE BUGS in `crates/video_terminal/src/lib.rs`,
   and the options with a recommendation are in `notes/solarized-and-bold-is-bright.md`.

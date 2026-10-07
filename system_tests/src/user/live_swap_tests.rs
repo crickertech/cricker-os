@@ -84,7 +84,7 @@ const DEV_VA: u64 = address_space_map::pair_page(0x0310_0000);
 /// existed one module up and which therefore did not compile the day a third architecture arrived.
 /// The module-level one has three arms, and the third is **zero**: x86's COM1 is in the I/O port
 /// space, so there is no page for a device capability to be a mapping of
-/// ([DECISIONS §121](../../../design/decisions/121-port-io-capability.md), PROPOSED). That zero is
+/// ([DECISIONS §121](../../../design/decisions/0121-port-io-capability.md), PROPOSED). That zero is
 /// what [`NO_DEVICE_PAGE`] tests for.
 use crate::user::UART_PHYS;
 /// **This whole file needs a device that is a page**, and on one architecture there is not one.

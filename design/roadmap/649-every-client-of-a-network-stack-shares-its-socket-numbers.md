@@ -114,7 +114,7 @@ suite gains no held region. A replayable record that brings the shared namespace
 - **Recorded.** One client can take all sixteen sockets; a per-client quota wants a badged front door per client.
   Recorded in `net_stack`'s BUGS.
 - **Decision.** Whether a `CALL` caller may refuse a carried capability is open in
-  `design/decisions/255-each-socket-is-its-own-capability.md`, and nothing blocks on it.
+  `design/decisions/0255-each-socket-is-its-own-capability.md`, and nothing blocks on it.
 - **Recorded.** Risk 7's criterion (c) restarted with milestone 800's fourth pass; it needs a fresh clean
   non-Anthropic pass, which this does not supply.
 

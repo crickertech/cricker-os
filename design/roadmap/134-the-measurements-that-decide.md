@@ -325,7 +325,7 @@ measure this register carries and nobody ever needs is a cheap thing to have bee
 ## Follow-on
 
 - **Milestone 229.** Tier B's authority blocker is gone.
-  `design/decisions/139-cycle-counter-authority.md` is DECIDED (calef, 2026-09-02, a per-thread
+  `design/decisions/0139-cycle-counter-authority.md` is DECIDED (calef, 2026-09-02, a per-thread
   grant in the spawn manifest) and `design/roadmap/229-the-counter-grant.md` is BUILT the same day;
   `kernel/src/arch/aarch64/timer.rs` opens and closes the counter per thread at the switch.
 - **Done.** Narrowed to what is still missing. This item said milestone 74's counter driver was

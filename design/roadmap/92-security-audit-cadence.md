@@ -53,7 +53,7 @@ table and a report is a document. Audits arrive slowly (quarterly plus triggers,
 year), so the count is not what would have outgrown a single file; the reports are, because each
 carries its lens, its findings, their dispositions, and what it deliberately did not examine.
 
-`audit-trail` was considered and refused: `design/decisions/35-scanner-findings.md` already uses that
+`audit-trail` was considered and refused: `design/decisions/0035-scanner-findings.md` already uses that
 phrase in its established sense, a chronological record of who did what, which is also what an
 operating system means by it (Linux's `auditd`, BSD's audit subsystem). A kernel whose thesis is
 confinement is a plausible future home for that feature, and this is not it. `audit-reports` over
@@ -76,7 +76,7 @@ proof of coverage, which is the same honest limit the cpu matrix records about f
 - **Milestone 93.** The same machine for documentation audits, which reuses the index, the tripwire
   and the disposition rule by adding one row per kind. That is why the thresholds live in the index
   as data rather than in the script as code.
-- **Decision.** `design/decisions/74-audit-cadence.md`, which settled the cadence this block could
+- **Decision.** `design/decisions/0074-audit-cadence.md`, which settled the cadence this block could
   only propose. The block shipped the tripwire computing overdue from those rules, and left the
   numbers to calef.
 - **Recorded.** `design/roadmap/92-security-audit-cadence.md`'s scope note states the limit plainly:

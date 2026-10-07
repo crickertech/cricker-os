@@ -150,7 +150,7 @@
 #   this. **Milestone 97 (citations that name what they cite) is the milestone that closes it** (a citation names what it cites, and the
 #   name is compared against the target). Milestone 114 exists partly to make 97 cheap: now that a
 #   decision is a file with a title on its own line, `§43 (reading the clock is a page)` can be
-#   checked against `43-clock-authority.md`'s own H1 without parsing a 5,000-line document.
+#   checked against `0043-clock-authority.md`'s own H1 without parsing a 5,000-line document.
 #
 #   Row title == file title is not checked and does not need to be: the row IS the file title now.
 #

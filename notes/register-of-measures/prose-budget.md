@@ -4,7 +4,7 @@
 
 calef ratified a prose budget on 2026-09-23 (UTC): 3,000 words of main body per document, enforced
 as a ratchet. A document already over may not grow, and one under may not cross. The decision is
-[§212 (a prose budget)](../../design/decisions/212-a-prose-budget-for-every-document.md), minted on
+[§212 (a prose budget)](../../design/decisions/0212-a-prose-budget-for-every-document.md), minted on
 2026-09-24; when this panel was written it was still a proposal in pull request #1187. A ratchet is
 invisible without a graph, so calef asked for this panel the same day he ratified the cap.
 

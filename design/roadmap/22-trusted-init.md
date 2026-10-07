@@ -121,7 +121,7 @@ that restart policy wants to be a rich userspace thing, not a kernel reflex).
 - **Recorded.** `notes/supervision.md`: milestone 36's `c_confiner` still holds a full construction
   budget after the reap moved to `Endpoint::REAP`, because it is also the builder. The bundling was
   two things and only one of them was the reap.
-- **Decision.** `design/decisions/26-fault-endpoint.md`. The fault endpoint, the one kernel
+- **Decision.** `design/decisions/0026-fault-endpoint.md`. The fault endpoint, the one kernel
   primitive phase 3 adds, got the numbered decision this block asked for when 19d.2 and 22 made it
   concrete: the kernel delivers a message and never runs restart policy, and policy lives in the
   userspace supervision tree.

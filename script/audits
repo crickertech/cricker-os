@@ -126,7 +126,7 @@
 # an observable family rather than under a codified rule, and whether that family earns a section is
 # an architect's call, not this block's to assert.
 #
-# See notes/scripts.md, design/audit-reports/README.md, and design/decisions/74-audit-cadence.md.
+# See notes/scripts.md, design/audit-reports/README.md, and design/decisions/0074-audit-cadence.md.
 
 set -e
 

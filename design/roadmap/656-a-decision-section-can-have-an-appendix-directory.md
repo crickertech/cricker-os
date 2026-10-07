@@ -29,10 +29,10 @@ where sections are longest.
 It lists `design/decisions/` and matches every entry against `FNAME =
 re.compile(r"(\d+)-[a-z0-9][a-z0-9-]*\.md")`. An entry that does not match is a problem. Reproduced
 on 2026-09-26 in the lane's worktree by creating an empty
-`design/decisions/220-signed-builds-and-scoped-key-trust/`:
+`design/decisions/0220-signed-builds-and-scoped-key-trust/`:
 
 ```
-PROBLEM: 220-signed-builds-and-scoped-key-trust: not the index and not a decision file (expected <number>-<slug>.md); nothing else lives here
+PROBLEM: 0220-signed-builds-and-scoped-key-trust: not the index and not a decision file (expected <number>-<slug>.md); nothing else lives here
 ```
 
 `script/decisions --check`, which `script/lint` runs, exits 1. So a decision section over the

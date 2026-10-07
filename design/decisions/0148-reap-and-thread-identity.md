@@ -120,7 +120,7 @@ handle reveals no fact the supervisor did not receive."*
 ### The name, and what it is not
 
 `ThreadControlBlock::RESOLVE`, in `abi::thread_control_block`. `Tcb` became
-`ThreadControlBlock` under [§113](113-kernel-object-plain-names.md) with the reason *"acronym spelled out"*, which
+`ThreadControlBlock` under [§113](0113-kernel-object-plain-names.md) with the reason *"acronym spelled out"*, which
 is the rule calef set on the same day this was decided, applied before it was written down.
 
 `resolve` is the tree's own verb for this relation rather than a coinage: `abi` says *"a stale
@@ -130,7 +130,7 @@ does not resolve at all, or resolves and is unsupervised."*
 - `NAME` refused, which was milestone 105's provisional. It is ambiguous between *give this
   thread a name* and *tell me this thread's name*, and calef caught it.
 - `BADGE` refused for a collision: seL4 uses it for capability badges and
-  [§101](101-notification-objects.md) already names badged capabilities as a later fork here.
+  [§101](0101-notification-objects.md) already names badged capabilities as a later fork here.
 - `LABEL` refused for now, because it presumes the design below.
 - `IDENTIFY` refused as a synonym that spends vocabulary the tree already has.
 

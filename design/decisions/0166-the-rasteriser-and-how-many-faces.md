@@ -9,7 +9,7 @@ ratified_by: calef
 
 Raised 2026-09-19 by milestone 435 (forty-five milestones are gated on a decision nobody wrote down)'s lane, which found milestone 142 (a text display good enough that people use it instead of a GUI) gated on
 `DECISION` naming no decision, when half of what its gate describes was decided a month ago.
-[§104](104-the-font-and-the-palette.md) (the rich-text font is DejaVu Sans Mono, and the palette is
+[§104](0104-the-font-and-the-palette.md) (the rich-text font is DejaVu Sans Mono, and the palette is
 Solarized) took the font and the palette on 2026-08-20; the gate never said so. This is the half
 §104 did not take. *(Section number provisional until the merge queue lands it.)*
 

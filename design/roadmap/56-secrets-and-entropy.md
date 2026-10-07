@@ -173,7 +173,7 @@ milestone 55's critical path, because provisioning at boot is enough to authenti
 - **Milestone 159.** Verifying the StarFive JH7110's TRNG before anything relies on it. Under QEMU
   the device is the host's `/dev/urandom`, which is a fact about the emulator rather than about
   hardware entropy, and this block says the real part needs checking first.
-- **Decision.** `design/decisions/137-trng-health-tests.md`: whether nife runs its own health tests
+- **Decision.** `design/decisions/0137-trng-health-tests.md`: whether nife runs its own health tests
   on hardware entropy, and what it does when one fails. This block records that there is no health
   test, so a device that started returning a constant would be passed straight through.
 - **Recorded.** `notes/credentials.md`: the Argon2id cost parameters are below OWASP's, 4 MiB rather

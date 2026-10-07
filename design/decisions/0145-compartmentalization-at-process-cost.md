@@ -58,7 +58,7 @@ concession.
 **A capability system does not need the concession.** Isolation at process granularity is what
 capabilities are. So the claim available to this project is not "we could build Qubes"; it is that
 Qubes buys with virtual machines what a capability kernel gives at process cost, which is a
-[§14](14-project-direction.md) demonstrator claim rather than a product claim.
+[§14](0014-project-direction.md) demonstrator claim rather than a product claim.
 
 ## Two places it is measurable rather than arguable
 
@@ -78,7 +78,7 @@ apples-to-apples.
 Cost per domain, which is what actually bounds how Qubes gets used. People run five to ten
 qubes rather than five hundred because each is hundreds of megabytes and seconds to start. radon
 measured `spawn_el0` at 66 microseconds on 2026-09-04, on a 1.5 GHz in-order U74. The caveat is
-the same one [§14](14-project-direction.md)'s spawn comparison already carries, in stronger form: a
+the same one [§14](0014-project-direction.md)'s spawn comparison already carries, in stronger form: a
 qube is an entire Linux virtual machine and an EL0 process is not.
 
 **The point survives the caveat, and that is why it is interesting.** If a confined domain costs
@@ -98,7 +98,7 @@ plausibly be adequate at within a milestone or two."* A Qubes competitor needs a
 passthrough, suspend and resume, a display stack good enough to live in, and a hardware
 compatibility story. That is larger than the workload this project has already failed to reach once.
 
-It also collides with [§131](131-hold-at-rung-two.md), decided 2026-08-26: hold at rung two and
+It also collides with [§131](0131-hold-at-rung-two.md), decided 2026-08-26: hold at rung two and
 prove text-mode usefulness first. Qubes is a graphical product, and its per-domain window borders
 are not decoration, they are the interface. Any reading of this section that ends in a desktop is
 reopening §131 without saying so.
@@ -111,7 +111,7 @@ reopening §131 without saying so.
 > the most dangerous, most bug-prone code (drivers) runs in disposable, DMA-confined boxes.
 
 That option is parked as "most isolation, most infrastructure". Two things have changed since. Drivers moved into EL0 processes rather than virtual machines,
-which is the cheaper half of the same idea and is built; [§86](86-el0-nvme-driver.md) is the worked
+which is the cheaper half of the same idea and is built; [§86](0086-el0-nvme-driver.md) is the worked
 case, decided 2026-09-03. And milestone 159 ran a confined EL0 driver against real silicon on
 2026-09-04, which is `sys-net`'s shape with no hypervisor under it.
 

@@ -23,7 +23,7 @@ A client holds one endpoint, and that endpoint names no device: it cannot progra
 cannot map the page, and cannot ask the device for anything the service did not ask on its behalf.
 
 This is the same attenuation-by-operation the roadmap names as a principle: the NTP client that may
-propose a time but not set it, the clock's read/set/propose ladder ([§43](43-clock-authority.md)), and now
+propose a time but not set it, the clock's read/set/propose ladder ([§43](0043-clock-authority.md)), and now
 obtain-but-not-reach. It also needed nothing new: no capability type, no syscall, no method
 number. An `Endpoint` with WRITE is the whole grant, and `caps` already prints it.
 
@@ -51,12 +51,12 @@ through to the client and the test caught a five-byte reply to an eight-byte req
 in. So the service gathers across the boundary, and a count below what was asked means one thing
 only, that the device went dry part-way through. It never pads, never repeats a byte it has served,
 and never substitutes a pseudo-random stand-in. A device that produces nothing across four attempts
-gets `NO_ENTROPY` and the caller finds out, which is [§42](42-truthful-filesystem.md)'s no-silent-degradation rule applied to
+gets `NO_ENTROPY` and the caller finds out, which is [§42](0042-truthful-filesystem.md)'s no-silent-degradation rule applied to
 the one payload where degrading quietly is worst.
 
 ## The bytes ride in the reply, not in a shared page
 
-[§10](10-capability-microkernel.md) says bulk rides in a page and control rides in
+[§10](0010-capability-microkernel.md) says bulk rides in a page and control rides in
 the message, and this contract deliberately does not. A page shared with a client is a place the
 bytes persist and a second party can read, and random bytes are the payload whose entire value
 is that nobody else has seen them; registers and the client's own stack are a smaller footprint than
