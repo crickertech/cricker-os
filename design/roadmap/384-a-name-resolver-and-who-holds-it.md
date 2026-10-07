@@ -44,7 +44,7 @@ per client badge) records them.
   check turns it red (`system_tests/falsifications/`). The x86_64 and UEFI runners gained the
   name-server peer.
 
-**Reuse:** the parser is `domain_name_system`, kept after the 2026-10-04 survey of six crates in
+Reuse: the parser is `domain_name_system`, kept after the 2026-10-04 survey of six crates in
 `notes/name-resolution.md` (§46 (thin primitives or whole subsystems; we write everything in
 between)). The resolver program and its protocol are this tree's shapes
 (`network_time_client`'s endowment, the socket contract's page, the system log's badge

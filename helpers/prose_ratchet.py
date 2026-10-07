@@ -438,6 +438,10 @@ NOT_MARKERS = {
     # Reads a running-order TABLE cell's leading verdict; table rows are never counted here anyway,
     # and on prose it would match any bold that opens with a capital word ("**A run ...").
     ('script/fatal-risks', r'^\*\*([A-Z][A-Z-]*)\b'),
+    # Milestone 791 (bold that a script reads), 2026-10-07 UTC. Reads the `Reuse:` line, and reads it
+    # plain as well, so the bold is emphasis a writer chose and is counted like any other. §46 spells
+    # the line plain and notes/roadmap.md's template now writes it so.
+    ('script/roadmap', r'(?:\*\*Reuse:\*\*|Reuse:)\s*(.*)$'),
 }
 ORDINARY_BOLD = ('**Hello world.** Then prose.', '**A claim that opens.** More.', '**I think so.**',
                  '- **Operations.** The rest.', 'Inline **names provisional** here.',

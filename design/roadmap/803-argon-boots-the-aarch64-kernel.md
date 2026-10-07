@@ -60,7 +60,7 @@ as QEMU can rehearse it:
 5. A QEMU rehearsal of the same binary. QEMU has no tegra210 machine, so this proves the image
    builds, seals and boots where QEMU can put it. The board alone proves the map.
 
-**Reuse:** the tree's own parts throughout: `drivers/ns16550.rs` (already shaped for `reg-shift`),
+Reuse: the tree's own parts throughout: `drivers/ns16550.rs` (already shaped for `reg-shift`),
 riscv64's `board` feature as the pattern, and `cargo xtask board-script` for the U-Boot script. The
 kernel half is ours by §46 (thin primitives or whole subsystems; we write everything in between). Outside code considered: Linux arm64's `head.S`, for option C below.
 

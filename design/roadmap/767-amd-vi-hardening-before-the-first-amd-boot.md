@@ -22,7 +22,7 @@ read it as a confinement boundary and recorded five gaps in `kernel/src/arch/x86
 the firmware state behind them. This milestone is those three, so the first AMD boot is not also
 the first time they are discovered.
 
-**Reuse:** the VT-d driver's `VTD_PERMITTED_BITS` literal and its Kani harness are the model for
+Reuse: the VT-d driver's `VTD_PERMITTED_BITS` literal and its Kani harness are the model for
 the entry proof. QEMU's `pci-bridge` device makes the alias item testable before a board. Linux's
 AMD-Vi driver clears the exclusion registers at init, the prior art for item 1 (from memory, not
 re-read). Nothing external is taken.

@@ -243,8 +243,11 @@ def unheld_promotions(added, held):
 # ---- `Reuse:`: a new milestone names what it considered taking (§46, 2026-10-04) ------------------
 # calef ruled on 2026-10-04 (UTC) that outside the kernel and the crates Kani proves, the default is
 # to take or adapt existing code, and that writing our own needs a recorded reason. The record is a
-# `**Reuse:**` (or bare `Reuse:`) line in the block's prose, or a `## Reuse` section. It names at
-# least one candidate considered, or says `none exists` and what was searched.
+# `Reuse:` line in the block's prose, or a `## Reuse` section. It names at least one candidate
+# considered, or says `none exists` and what was searched. The line is written plain, as §46 spells
+# it. A bold `**Reuse:**` still reads, because blocks carried it until milestone 791 (bold that a
+# script reads) dropped it, and a lane's open pull request may still add one; but the bold is not
+# needed, so the prose ratchet counts it as emphasis (its NOT_MARKERS names this pattern).
 #
 # **Only blocks raised on or after REUSE_FROM owe one.** A check must not fail the tree it lands
 # in, and every older block was written before the question was asked. That is an exception and a
@@ -282,8 +285,8 @@ def reuse_problems(fname, status, raised, lines):
         m = REUSE_LINE.match(l)
         if m:
             texts.append([m.group(1).strip()])
-    fix = (f"  Fix: add a line '**Reuse:** <what was considered and why it was or was not taken>', "
-           f"or '**Reuse:** none exists; searched <where>' (§46's 2026-10-04 amendment; "
+    fix = (f"  Fix: add a line 'Reuse: <what was considered and why it was or was not taken>', "
+           f"or 'Reuse: none exists; searched <where>' (§46's 2026-10-04 amendment; "
            f"notes/roadmap.md, step 3 of adding a milestone)")
     if not texts:
         return [f"{fname}: raised {raised}, on or after {REUSE_FROM}, and there is no 'Reuse:' line "

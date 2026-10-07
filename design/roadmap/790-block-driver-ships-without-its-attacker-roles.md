@@ -45,7 +45,7 @@ Do what #1647 did for NVMe:
 
 Both tests' replayable falsifications have to keep applying and going red.
 
-**Reuse:** the mechanism milestone 261 (the NVMe driver leaves the kernel) built in #1647, taken
+Reuse: the mechanism milestone 261 (the NVMe driver leaves the kernel) built in #1647, taken
 whole: the `components/confinement_attackers` feature, `xtask`'s `CONFINEMENT_ATTACKERS` switch and
 `build_programs`, and `script/lint`'s feature clippy. Nothing outside the tree is involved.
 

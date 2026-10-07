@@ -18,7 +18,7 @@ here, as host crates `usb` and `extensible_host_controller_interface` (names pro
 Kani harnesses. It was built before §46 made taking the default outside the kernel and the crates
 Kani proves. This survey answers what taking would have bought. It is a measurement, not a rewrite.
 
-**Reuse:** rust-osdev's `xhci` (0.9.2 on crates.io, MIT or Apache-2.0: register, context and ring
+Reuse: rust-osdev's `xhci` (0.9.2 on crates.io, MIT or Apache-2.0: register, context and ring
 definitions) and Redox's `xhcid` (MIT, a whole userspace xHCI driver). These are the candidates to
 measure; nothing is taken by this proposal.
 

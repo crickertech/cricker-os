@@ -47,7 +47,7 @@ userspace, and a vCPU in `wfi` or in a guest loop has to be kicked out of `hv_vc
 3. Does any number this tree quotes from HVF (the job mix's one-task points, the soak under `--hvf`)
    carry this delay without saying so?
 
-**Reuse:** the kernel's trace ring (`PlaceRemote` and `switch` events) and `script/job-mix` are
+Reuse: the kernel's trace ring (`PlaceRemote` and `switch` events) and `script/job-mix` are
 the instruments; nothing new is built unless they cannot answer question 1.
 
 ## Done means
