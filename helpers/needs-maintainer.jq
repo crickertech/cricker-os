@@ -8,7 +8,7 @@
 # session must pick up, so the session finds it with `gh pr list --label needs-maintainer --state
 # all` and not by watching. Nothing here arms, enqueues or re-queues; it only names.
 #
-# Eleven causes, each a fact nothing else reports to anyone:
+# Twelve causes, each a fact nothing else reports to anyone:
 #
 #   ejected   the last removal from the queue was neither `merged` nor `manual`, nothing put it
 #             back since, and the head is still the one that was ejected. A removal whose event
@@ -46,6 +46,13 @@
 #             once its lane's session ended, and every other cause skips a draft. A draft holding
 #             only its claim commit is not exempt: that is the clearest case of a lane that died.
 #             An open `Blocked-by:` holds it, as it holds `unarmed`, and so does `nm_parked_label`.
+#   unmergeable  an open pull request whose merge-queue entry reads `UNMERGEABLE`: GitHub cannot
+#             build it on top of the entries ahead of it, usually because it conflicts with one of
+#             them rather than with `main`, so `conflict` never fires. The queue does not eject such
+#             an entry; it leaves it waiting. #1795 sat like that behind #1745 on 2026-10-07 (UTC),
+#             conflicting in notes/package-boundaries.md, until calef found it on the queue page.
+#             Keyed on the pull request's head, so one comment per head and a new one after a push
+#             that does not fix it.
 #   orphan   a branch holding work that no open pull request carries, for `nm_orphan_hours` (2,
 #             the 2026-10-06 brief's figure) by its tip's committer date. calef, 2026-10-06 UTC: "It
 #             seems like we have some work trees that don't have PRs. That seems like a problem that
@@ -73,15 +80,16 @@
 #
 # `ejected`, `conflict` and `unarmed` apply only to what `eligible` admits (helpers/queue-eligible.jq,
 # spliced in front of this file); `off-main` and `red` to a ready pull request from this repository
-# on any base; `stale-draft` to a draft from this repository on any base. None applies to one held
-# with `needs-architect` or `held-for-red-trunk`, and only `stale` and `stale-draft` apply to a
-# draft: a draft is its lane's while the lane is alive (converting an ejected pull request to a draft
-# is how a lane says it has it), a fork's pull request is a person's decision, and a held one is
-# waiting on purpose.
+# on any base; `stale-draft` to a draft from this repository on any base. None of those applies to
+# one held with `needs-architect` or `held-for-red-trunk`, and only `stale` and `stale-draft` apply
+# to a draft: a draft is its lane's while the lane is alive (converting an ejected pull request to a
+# draft is how a lane says it has it), a fork's pull request is a person's decision, and a held one
+# is waiting on purpose. `stale` and `unmergeable` read the queue, not the pull request, and apply to
+# whatever entry is there.
 #
 # A cause carries `key`, which names the episode: the ejection's time, the conflicting head, the
-# entry's enqueue time, the moment it was last unarmed or made ready, the moment `ci-failing` went
-# on, the draft's last commit. The shell posts one comment per cause per
+# entry's enqueue time, the unmergeable head, the moment it was last unarmed or made ready, the
+# moment `ci-failing` went on, the draft's last commit. The shell posts one comment per cause per
 # key, deduplicated by a marker in the comment, so a persisting cause never comments twice and a
 # new episode does.
 #
@@ -275,6 +283,17 @@ def nm_hold_causes: ["ask-no-hold", "surface-no-hold"];
 
 def nm_architect($now; $minutes): [nm_hold_no_ask($now; $minutes)] + [nm_ask_no_hold($now; $minutes)];
 
+# An entry's pull requests ahead of it, by `position` (1 is the front), with their heads so the
+# shell can say which one a head conflicts with.
+def nm_unmergeable($entries):
+  . as $e
+  | select(.pullRequest.state == "OPEN" and .state == "UNMERGEABLE")
+  | { number: .pullRequest.number, labeled: false,
+      causes: [ { cause: "unmergeable", key: .pullRequest.headRefOid, head: .pullRequest.headRefOid,
+                  entry: .state, position: .position, enqueued: .enqueuedAt, id: .pullRequest.id,
+                  ahead: [ $entries[] | select(.position < $e.position)
+                           | { number: .pullRequest.number, head: .pullRequest.headRefOid } ] } ] };
+
 def nm_decide($label; $now; $minutes; $blockers):
   .data as $d
   | [$d.repository.mergeQueue.entries.nodes[]? | .pullRequest.number] as $queued
@@ -296,6 +315,7 @@ def nm_decide($label; $now; $minutes; $blockers):
         | { number: .pullRequest.number, labeled: false,
             causes: [ { cause: "stale", key: .enqueuedAt, enqueued: .enqueuedAt, entry: .state,
                         state: .pullRequest.state, merged: .pullRequest.mergedAt, id: .pullRequest.id } ] } ]
+    + [ ($d.repository.mergeQueue.entries.nodes // []) as $es | $es[] | nm_unmergeable($es) ]
     + [ $d.search.nodes[]? | select(.number != null)
         | { number, labeled: ([.labels.nodes[].name] | index($label) != null), causes: [] } ] )
   # A closed pull request with a stale entry also appears in the search for labeled ones, and an

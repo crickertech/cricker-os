@@ -107,8 +107,9 @@ episode, deduplicated by a marker:
 | red | wearing `ci-failing` for 30 minutes | when that label went on, the head, whether armed | `ci-failing` comes off |
 | stale-draft | a draft whose head commit is 6 hours old by committer date | the date, the branch, the four ways out | a commit, an open `Blocked-by:`, `parked`, or closed |
 | orphan | a branch with commits `main` lacks and no open pull request, its tip 2 hours old | the head, how many commits, the three ways out | landed, deleted, a pull request opened, or `parked` |
+| unmergeable | an open pull request's queue entry reads `UNMERGEABLE` | its position, the entries ahead, which of them its head conflicts with, the dequeue command | the entry no longer reads `UNMERGEABLE` |
 
-Every cause but `stale` and `orphan` needs a pull request from this repository, without `needs-architect` or
+Every cause but `stale`, `orphan` and `unmergeable` needs a pull request from this repository, without `needs-architect` or
 `held-for-red-trunk`. All but `stale-draft` need it ready, and `ejected`, `conflict` and `unarmed`
 need it to be into `main`. A draft labeled `parked` (provisional name, 2026-10-06) is
 exempt from `stale-draft` and `orphan`: it is held on purpose for work outside the lane system, such as
@@ -141,6 +142,14 @@ Every branch prefix is in scope: the survey in milestone 580 (nobody reads branc
 prefix leaking, and so did this one. `parked` on the last pull request exempts it, which is how
 argon's two closed branches wait for their board (#1738, #1732). Work that never left a laptop is not on GitHub at all;
 `helpers/at-risk-check.sh` lists it at prune time.
+
+The ninth, `unmergeable`, came on 2026-10-07. #1795 sat in the queue behind #1745 with its entry
+reading `UNMERGEABLE`. The two conflicted in `notes/package-boundaries.md` while each merged cleanly
+with `main`, so `conflict` never fired. The queue does not eject such an entry, so `ejected` never
+did either. calef found it on the queue page. The cause reads the entry's state from the
+query the drain already ran, and the comment compares the head with each entry ahead using `git
+merge-tree`, pair by pair. Its limits (no grace period, pairs rather than the whole group) are in
+the BUGS in `helpers/merge-drain.sh`.
 
 The event's `beforeCommit` is the group's merge commit, not the head, which was a surprise. Its
 second parent is the head that was enqueued, and the group's runs are the `merge_group` runs at
