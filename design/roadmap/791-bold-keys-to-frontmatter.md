@@ -1,18 +1,20 @@
 ---
-status: NOT-STARTED
+status: BUILT
 promoted_from: bold-keys-to-frontmatter
 raised: 2026-10-05
-milestone_dependencies: none
-decision_dependencies: none
-machine_requirements: none
-specific_machine: none
-needs_person: yes
+built: 2026-10-07
 ---
 # 791. Bold that a script reads: where it is tracked, and which of it should become frontmatter
 
 Asked for by calef on 2026-10-05 (UTC): "Can we keep track of where scripts track bolded keys and
-consider that for frontmatter?" Written by the lane `lane/bold-keys`, base `7a039b4b0`. Title, slug
-and the new frontmatter key names below are provisional.
+consider that for frontmatter?" Written by the lane `lane/bold-keys`, base `7a039b4b0`. Title and
+slug are provisional; the two frontmatter keys were ratified by calef on 2026-10-05.
+
+Built in three pull requests. The first, #1702 (`lane/bold-keys`), built the tracking mechanism
+and this proposal. calef ruled on it the same day, and #1714 (`lane/experiment-frontmatter`) did the
+nine files, both readers and the `_APPENDIX` tightening. The last, #1821
+(`lane/791-bold-keys-to-frontmatter`, 2026-10-07), did the rest of the verdict table below and found
+that one claim in this block was wrong; see *What the last lane found*. The inventory and the reasoning below are as written on 2026-10-05.
 
 Reuse: `helpers/prose_ratchet.py` already derives the exempt set from the parsers, and
 `helpers/roadmap_block.py` already reads the roadmap's frontmatter. This proposal extends both and
@@ -35,9 +37,8 @@ or recorded below.
 - A bold written `\*{2}` or `[*]{2}` is not found by derivation, and neither is a reader in shell,
   awk, jq, Rust or a workflow. None exists today.
 - Derivation also picks up the bans. `script/decisions` refuses a `**Status:` line and `RESTATED`
-  refuses a restated status, and both are exempted as if they were keys. The bold they refuse is
-  already a lint failure elsewhere, so the over-exemption costs nothing, but it is not what the
-  header comment says.
+  refuses a restated status, and both are exempted as if they were keys. This said the
+  over-exemption costs nothing. It does not; see *What the last lane found*.
 
 ## Inventory: every reader of a bold key
 
@@ -97,11 +98,11 @@ nesting, and a value may not contain `: ` or ` #`. That shape decides most of th
 
 | Key | Verdict | Why |
 |---|---|---|
-| Status, Built, Gate | Done | Moved by §207 (the roadmap is a graph, and the block says so in fields a script can walk) and milestones 582 and 596. One roadmap file (`20a-name-the-seams.md`) lacks frontmatter and should be checked. |
+| Status, Built, Gate | Done | Moved by §207 (the roadmap is a graph, and the block says so in fields a script can walk) and milestones 582 and 596. One roadmap file (`20a-name-the-seams.md`) lacks frontmatter; checked 2026-10-07, and that is by design: a lettered addendum carries no fields (`script/roadmap`'s header). |
 | Follow-on and Revisit tags | Stay bold | Many per document (about 1,400 spans over 415 files), each opening a bullet whose prose is the content. Flat frontmatter cannot hold a list, and a tag a reader needs inline is structure. |
 | `The experiment:` lead-in | Stay bold | A reader needs it inline; it introduces a paragraph. |
 | `Experiment status: WORD, date` | Move | It is metadata about the document and the nine documents are the whole population. The metrics workflow already prefers frontmatter for the color and cross-checks it against this line. |
-| `Reuse:` | Drop the bold | The parser accepts it plain. No migration, 12 files. |
+| `Reuse:` | Drop the bold | The parser accepts it plain. Done 2026-10-07, by which time the template had spread it to 35 files. |
 | `**A run is due every N days.**` | Stay | One sentence a reader acts on. |
 | `**RETIRED` | Optional | One journey and journeys have no frontmatter. Exempt either way. |
 | `**Lane:**` | Stay | PR bodies, not documents. |
@@ -150,18 +151,49 @@ tightened to exclude `^\d+-` first. The second is a one-line change and is part 
 What cannot be answered here: whether any prose in `notes/` carries a key shape a future parser will
 want. That is exactly what `OPAQUE_OK` and `--keys` are for, and the answer arrives with the parser.
 
-## What is blocked on the one decision
+## The ruling, and what each part became
 
-Nothing. The tracking mechanism is built. The sweep can proceed now, using `--keys` to leave exempt
-spans alone. Only the nine-file migration waits.
+calef ruled on 2026-10-05 (UTC): "the nine Experiment status: lines should move into frontmatter".
+#1714 did it. `experiment_status` and `experiment_run` are ratified names, and
+`design/fatal-risks/README.md` holds their vocabulary.
 
-## The decision for calef
+The rest of the verdict table needed no ruling and landed in #1821:
 
-Move the nine `Experiment status` lines into risk-file frontmatter (`experiment_status`,
-`experiment_run`), yes or no? If no, nothing breaks: the line stays bold, exempt, and read as it is
-today. If yes, a follow-up lane does the nine files, both readers, and the `_APPENDIX` tightening in
-one pull request.
+- `Reuse:` is written plain. notes/roadmap.md's template and `script/roadmap`'s fix message both
+  wrote `**Reuse:**`, which is why the count grew from 12 to 35 in two days. Both now write it plain,
+  32 files lost the bold, and `NOT_MARKERS` names the Reuse pattern, so a bold one is counted as
+  emphasis rather than exempted. The reader still accepts both forms, so no open pull request breaks.
+- `selftest` now fails on a `NOT_MARKERS` or `OPAQUE_OK` entry that names a pattern no parser
+  carries, so the two registries cannot go stale quietly.
+
+## What the last lane found
+
+The ban over-exemption is load-bearing. Naming `script/decisions`' `^\*\*Status:` in `NOT_MARKERS`
+put four documents over §213's bold density. It is the only exemption for 25 free-form
+`**Status:` lines (`**Status:** open idea.`) in notes and design documents that no script reads.
+So it stays exempt, marked as an exception beside `NOT_MARKERS`.
+
+## Follow-on
+
+- **Done.** The tracking mechanism, by #1702; the nine experiment-status lines, by #1714; the plain
+  `Reuse:` line and the registry staleness check, by #1821.
+- **Recorded.** The 25 `**Status:` lines the ban exempts, and the two blocks still carrying a bold
+  `Reuse:`, are in this block's `BUGS` (`design/roadmap/791-bold-keys-to-frontmatter.md`).
+- **Refused.** Moving the Follow-on and Revisit tags to frontmatter: a flat format holds no list.
+
+## BUGS
+
+- 25 line-opening `**Status:` spans, in 18 documents under `notes/` and `design/`, are emphasis that
+  the ratchet exempts by accident through a ban. `git grep -n '^\s*\*\*Status:' -- '*.md'` lists them.
+  Dropping the bold would let the ban join `NOT_MARKERS`. Not done here, because seven are in
+  roadmap blocks, where `script/roadmap`'s `RESTATED` ban reads a status line and a plain form may
+  trip it. Each needs a reading, not a sed.
+- Milestones 796 (pin the hot trap path's placement) and 800 (a non-Anthropic model attacks the
+  confinement claim) still carry `**Reuse:**`. Their lanes had the blocks open on 2026-10-07. It
+  is counted as one bold span and both are under the limit.
+- A reader in a language `opaque_readers` does not scan, or outside its four roots, is still
+  invisible. None exists today.
 
 ## Index row
 
-A script reads bold keys in prose, and the ratchet exempts them by reading the parsers. The block records where each is read and proposes which should become frontmatter, with provisional key names; so a fact a script reads is a key a parser checks, not bold a regex finds.
+A script reads bold keys in prose, and the ratchet exempts them by reading the parsers. The block records where each is read, the nine experiment-status lines became frontmatter, and the ratchet now counts bold no parser needs; so a fact a script reads is a key a parser checks, not bold a regex finds.
