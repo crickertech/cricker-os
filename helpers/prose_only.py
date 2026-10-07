@@ -4,6 +4,10 @@
     helpers/prose_only.py classify <base>   # the CI gate: <base>..HEAD, one line per changed file
     helpers/prose_only.py --selftest        # script/lint: fixtures, no git
 
+Host-only tools (lane/ci-scope-host-scripts, 2026-10-07 UTC): the output is still called `prose`
+and the skip still means "no build or test reads this", because renaming the output touches every
+heavy job's `if:`. A second class rides it, see HOST_ONLY_TOOLS below.
+
 Name: provisional, minted by lane/docs-only-ci on 2026-10-05 UTC. A helper under `helpers/`,
 outside `script/names`' scope, so its provenance is this paragraph. Refused `docs_only`, because
 "docs" also covers a crate's README and rustdoc, which are code here, and this decides prose only.
@@ -57,8 +61,28 @@ honest fallback: it errs toward running and it sees a new reference in the same 
 The decision for every changed file is printed with the rule that made it, so a wrong skip can be
 diagnosed from the gate's log.
 
+# HOST-ONLY TOOLS
+
+#1831 changed `notes/project-metrics.md` and `script/metrics` (a Python report generator) and ran
+the whole kernel suite, because `script/metrics` is not Markdown. Nothing a gated job runs reads
+it: the only caller is `.github/workflows/metrics.yml` (weekly, not a pull request job), and
+`script/lint` runs the selftests of the helpers beside it. So a file named in HOST_ONLY_TOOLS counts as skippable
+when no tree file outside `script/`, `helpers/` and `.github/workflows/metrics.yml` names it on a
+non-comment line (by its path, or for a Python helper by its module name). Unlike the prose
+rule this is a short list somebody had to verify, because `script/` and `helpers/` files name each
+other in docstrings everywhere and a derived closure over them was measured on 2026-10-07 to
+call all but a few of 159 files reachable; the check above is the fail-safe half, and the list is
+the exception, written down as one. Unlisted paths (every other `script/` and `helpers/` file, the
+workflow itself) run everything. The tools and metrics.yml also stop counting as readers of
+prose, which is what lets #1831's note edit skip (the page names itself in both). `script/metrics --selftest` has no gate of its own, so the
+`clippy` job, which never skips, runs it.
+
 # BUGS
 
+- **HOST_ONLY_TOOLS is a hand-kept list, and a script that begins to call a listed tool is not
+  seen.** The root check covers callers outside `script/` and `helpers/` only. A new `script/x`
+  that runs `script/metrics` and is run by a gated job would let a metrics-only change skip a job
+  that now depends on it. None does on 2026-10-07; nothing checks that none does later.
 - **A directory read outside Rust is logged, not acted on.** A script that walks `design/` (lint's
   roadmap, citations and decisions checks, `helpers/prose_ratchet.py`) is printed as a reader and
   does not stop the skip, because lint runs on every pull request and skipping nothing would be the
@@ -105,6 +129,39 @@ def path_tokens(line):
             yield m.group(0)
 
 
+# Host-side report generators that no pull-request job runs. Each was checked on 2026-10-07 (UTC)
+# against every file outside script/ and helpers/: script/metrics and week_digest.py are named only
+# by metrics.yml; baseline_drift.py and interface_stability.py are imported by script/metrics and
+# selftested by script/lint (which `clippy` runs on every pull request). helpers/verify_times.py
+# looks like the same class and is not: script/verify shards by it.
+HOST_ONLY_TOOLS = (
+    "script/metrics",
+    "helpers/baseline_drift.py",
+    "helpers/interface_stability.py",
+    "helpers/week_digest.py",
+)
+# The one workflow that runs them, and so not a reader that makes them inputs.
+HOST_TOOL_RUNNER = ".github/workflows/metrics.yml"
+
+
+def host_tool_readers(tool, tree):
+    """Files outside script/, helpers/, hooks and the runner that name `tool` on a code line."""
+    stem = os.path.basename(tool)
+    pats = [re.compile(re.escape(tool) + r"(?![A-Za-z0-9_-])")]
+    if tool.endswith(".py"):
+        pats.append(re.compile(r"(?<![A-Za-z0-9_/.-])" + re.escape(stem[:-3]) + r"(?![A-Za-z0-9_-])"))
+    out = []
+    for path, text in tree.items():
+        if text is None or path.startswith(("script/", "helpers/", ".githooks/")) \
+                or path == HOST_TOOL_RUNNER or not scanned(path):
+            continue
+        for n, line in code_lines(path, text):
+            if any(p.search(line) for p in pats):
+                out.append(f"{path}:{n}")
+                break
+    return out
+
+
 def is_prose_path(path):
     return path.endswith(".md") and (path.startswith(PROSE_DIRS) or "/" not in path)
 
@@ -114,9 +171,14 @@ DATA = (".log", ".csv", ".tsv")
 
 
 def scanned(path):
-    """Is this file one whose text could read a prose file? Not prose, not data, not upstream."""
+    """Is this file one whose text could read a prose file? Not prose, not data, not upstream.
+
+    Nor a host-only tool or the workflow that runs it: `script/metrics` reads and rewrites
+    notes/project-metrics.md and metrics.yml commits it, and neither runs in a pull request job, so
+    naming that page does not make it an input to any gated job."""
     return not path.startswith(PROSE_DIRS) and not path.endswith(".md") \
-        and not path.endswith(DATA) and not path.startswith("vendor/") and path != SELF
+        and not path.endswith(DATA) and not path.startswith("vendor/") and path != SELF \
+        and path not in HOST_ONLY_TOOLS and path != HOST_TOOL_RUNNER
 
 
 def code_lines(path, text):
@@ -206,6 +268,14 @@ def classify(changed, tree):
     prose_only = True
     tests, unacted = set(), set()
     for f in changed:
+        if f in HOST_ONLY_TOOLS:
+            readers = host_tool_readers(f, tree)
+            if readers:
+                report.append(f"RUN   {f}: a host-only tool, but named by {', '.join(readers[:3])}")
+                prose_only = False
+            else:
+                report.append(f"SKIP  {f}: host-only tool; only metrics.yml runs it and clippy selftests it")
+            continue
         if not is_prose_path(f):
             report.append(f"RUN   {f}: not Markdown under notes/, design/, briefs/ or the root")
             prose_only = False
@@ -339,6 +409,28 @@ def selftest():
     p, t, r = run(["notes/plain.md"], {"evil/Cargo.toml": '[package]\nname = "x; curl y"\n',
                                         "evil/src/lib.rs": 'let d = "notes";\n'})
     cases.append(("hostile package name", p is False and t == []))
+
+    # Host-only tools: script/metrics skips; a gated caller outside script/ and helpers/ stops it;
+    # a neighbor that is not listed (script/test, helpers/verify_times.py) runs everything.
+    p, t, r = run(["script/metrics", "notes/plain.md"])
+    cases.append(("metrics is host-only", p is True and r[0].startswith("SKIP")))
+    p, t, r = run(["script/metrics"], {".github/workflows/ci.yml": "      - run: script/metrics --check\n"})
+    cases.append(("gated caller of a host tool", p is False and "named by" in r[0]))
+    p, t, r = run(["script/metrics"], {".github/workflows/ci.yml": "      # script/metrics runs weekly\n"})
+    cases.append(("comment is not a caller", p is True))
+    p, t, r = run(["script/metrics"], {".github/workflows/metrics.yml": "run: script/metrics --update\n"})
+    cases.append(("metrics.yml runs it", p is True))
+    p, t, r = run(["helpers/baseline_drift.py"], {"xtask/src/x.rs": "let m = \"baseline_drift\";\n"})
+    cases.append(("module name counts", p is False))
+    cases.append(("script/test runs", run(["script/test"])[0] is False))
+    cases.append(("verify_times runs", run(["helpers/verify_times.py"])[0] is False))
+    cases.append(("metrics.yml runs", run([".github/workflows/metrics.yml"])[0] is False))
+    p, t, r = run(["notes/project-metrics.md", "script/metrics"],
+                  {"script/metrics": "x = 'notes/project-metrics.md'\n",
+                   ".github/workflows/metrics.yml": "git add notes/project-metrics.md\n",
+                   "notes/project-metrics.md": None})
+    cases.append(("the #1831 shape skips", p is True))
+    cases.append(("tool plus code runs", run(["script/metrics", "kernel/src/main.rs"])[0] is False))
 
     bad = [name for name, ok in cases if not ok]
     for name, ok in cases:
