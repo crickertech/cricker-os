@@ -740,7 +740,7 @@ mod timetable_tests;
 mod dir_capability_tests;
 
 /// **One process, two directory capabilities** (milestone 154,
-/// design/roadmap/154-multi-directory-namespace.md).
+/// design/roadmap/0154-multi-directory-namespace.md).
 ///
 /// One module for both ISAs, for [`dir_capability_tests`]'s reason: nothing here is
 /// architecture-specific, so the parity gate (DECISIONS §19) is met by literally the same test

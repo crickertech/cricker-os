@@ -131,10 +131,10 @@ measured; with the NIC on, it also reads 30.
 ## Follow-on
 
 - **Milestone 700.** Milestone 700 (a graphical terminal session can be interrupted and torn down like any job).
-  `design/roadmap/700-a-screen-session-can-be-interrupted-and-torn-down-like-any-job.md`.
+  `design/roadmap/0700-a-screen-session-can-be-interrupted-and-torn-down-like-any-job.md`.
   The §24 job-frame shape for `graphical_terminal`, so a second `^C` escalates and a hung session can be torn
   down. The manifest already records the cost: `interruptible: false` is a first cut, not a design.
-- **Milestone 699.** Milestone 699 (a local editor for the graphical terminal session's UART arm). `design/roadmap/699-a-local-editor-for-the-screen-sessions-uart-arm.md`. The §227
+- **Milestone 699.** Milestone 699 (a local editor for the graphical terminal session's UART arm). `design/roadmap/0699-a-local-editor-for-the-screen-sessions-uart-arm.md`. The §227
   engine behind the raw arm's reads, so backspace works before `quit` is typed.
 - **Recorded.** The rest of `SWISH_CHECK_SCRIPT` against a graphical prompt is still scoped-out
   follow-on work, carried unchanged from milestone 177's own scoping.

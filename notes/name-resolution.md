@@ -231,7 +231,7 @@ hands it to `name_resolver`. It then grants the package client's badge its packa
   includes TCP's initial sequence numbers (`socket/tcp.rs`, read); `net_stack` picks ephemeral
   ports with its own rotating allocator, not the generator. That is a finding about
   `net_stack` beyond this milestone, proposed in
-  `design/roadmap/783-net-stack-seeds-its-generator-from-entropy.md`.
+  `design/roadmap/0783-net-stack-seeds-its-generator-from-entropy.md`.
 - `notes/fuzzing.md`'s table does not list `domain_name_system_reply`, as it does not list the
   service targets. Adding a row obliges that note to shed 47 bold spans under the prose ratchet,
   which is its own piece of work.

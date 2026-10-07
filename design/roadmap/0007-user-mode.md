@@ -31,7 +31,7 @@ reserved it for; the capability table and address-space work it plausibly named 
 
 ## Follow-on
 
-- **Recorded.** In `design/roadmap/07-user-mode.md` itself, where the reader meets the lettering:
+- **Recorded.** In `design/roadmap/0007-user-mode.md` itself, where the reader meets the lettering:
   there is no commit titled 7b and no surviving record of what the letter reserved. The capability
   table and address-space work it plausibly named arrived inside 7c and 7d. The gap is a hole in the
   history rather than in the code.

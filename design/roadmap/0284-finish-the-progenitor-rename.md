@@ -11,7 +11,7 @@ against `main`: milestone 266 wrote down the policy for this and carried out thr
 
 ## Why this exists: a clause of milestone 266's own policy, not carried out
 
-[Milestone 266](266-init-is-an-action-and-the-thing-is-a-process.md) renamed the first process from
+[Milestone 266](0266-init-is-an-action-and-the-thing-is-a-process.md) renamed the first process from
 `init` to `progenitor` (ratified by calef on 2026-09-08) and published the rule it applied, four
 bullets, of which the second is:
 
@@ -193,7 +193,7 @@ them, deliberately, so that a rename moves one set of words and not two.
   limitations beside the features they belong to: `crates/board_console/src/progress.rs` for the
   label, and this block's `BUGS` for the rest.
 - **Recorded.** The 471 occurrences in `design/roadmap/` and `design/decisions/` are this block's
-  own `BUGS` entry beside the count, in `design/roadmap/284-finish-the-progenitor-rename.md`, because
+  own `BUGS` entry beside the count, in `design/roadmap/0284-finish-the-progenitor-rename.md`, because
   a lane may not edit either directory. They are a maintainer's sweep and were re-counted rather than inherited: 360 across 75 roadmap files, 92
   across 31 decisions, on 2026-09-13. The three that mislead most, because they read as live claims
   rather than as history: `design/decisions/0014-project-direction.md` (*"init is the privileged

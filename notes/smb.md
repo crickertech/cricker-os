@@ -181,7 +181,7 @@ into the transient per-connection protocol handler (`serve_connection`, unchange
 parent-with-live-children rule rather than any new mechanism. No real scheduled job is registered
 against one yet (that is milestone 129/#387, and reconnect-time reattachment, both still open); see
 `smb_server`'s own module header ("The durable session") for the full account and
-design/roadmap/152-durable-delegation.md for the design this closes the first BUGS item of.
+design/roadmap/0152-durable-delegation.md for the design this closes the first BUGS item of.
 
 ## The pieces
 
@@ -363,7 +363,7 @@ macOS mounts a plain SMB2 share and never offers one as a Time Machine destinati
 looks for is a create context: it hangs an `AAPL`-tagged blob off the first CREATE of a tree
 connect and reads the server's answering context off the response. That is the whole of
 `fruit:aapl = yes` on the reference implementation, and it is the first line of the working
-configuration design/roadmap/55-time-machine.md records.
+configuration design/roadmap/0055-time-machine.md records.
 
 Two modules, because they are two things:
 
@@ -682,7 +682,7 @@ last attempt knew it had not solved, written while the code was in front of some
   `link`/`unlink`; it is not a description of a from-scratch, single-request-at-a-time server
   transacting against its own B-tree. This is a wire-format change on a verb two programs already
   agree on (`fs_proto::fs::RENAME`), so it needs a decision that amends or narrows §42, which is
-  an architect's call and not a lane's; see design/roadmap/55-time-machine.md for the writeup.
+  an architect's call and not a lane's; see design/roadmap/0055-time-machine.md for the writeup.
 
 - **The demo boot still admits guests, so the thing a person runs is still open to
   everyone who can reach the port.** `--features smb_serve` wires `SHARE_FS_READ_WRITE`, not
@@ -816,7 +816,7 @@ last attempt knew it had not solved, written while the code was in front of some
 1. **A provisioning path**, and it is the one that matters, because until it exists the boot a person
    runs (`smb-serve`) admits guests to a writable share. Nothing in the tree can tell a
    running system a password: the only provisioner is a test program with a published fixture in it.
-   That is milestone 56's shape (design/roadmap/56-secrets-and-entropy.md), and identity landing has
+   That is milestone 56's shape (design/roadmap/0056-secrets-and-entropy.md), and identity landing has
    made it the head of this path rather than a supporting item.
 2. **The resource should be implied by the capability, not named in the request.** The adapter is
    configured with a resource name, which is one authority more than it needs; the endpoint should

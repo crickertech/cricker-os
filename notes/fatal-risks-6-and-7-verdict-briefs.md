@@ -37,12 +37,12 @@ All of it on radon (riscv64 VisionFive 2, JH7110). The device is the true random
 
 | What | Result | Source |
 |---|---|---|
-| Confined | grant is two endpoints and one `0x1000` page; no IRQ, no DMA page, no `Virtio` capability | `design/roadmap/159-jh7110-trng-driver.md`; read adversarially, "Nothing to find", `design/audit-reports/2026-09-17-userspace-confinement.md:84` |
+| Confined | grant is two endpoints and one `0x1000` page; no IRQ, no DMA page, no `Virtio` capability | `design/roadmap/0159-jh7110-trng-driver.md`; read adversarially, "Nothing to find", `design/audit-reports/2026-09-17-userspace-confinement.md:84` |
 | Drives the device | draws differ between draws and boots, 2026-09-03/04 | transcripts named in the appendix live under `target/board/`, which is not in git |
 | Rate, 2026-09-16 | 988,416, 992,248 and 992,248 bytes/s; bring-up 522, 516 and 522 us | `bench/radon-2026-09-16/jobmix-boot3.log:721`, `jobmix-boot5.log:736`, `jobmix-boot4.log:814` |
 | Rate, 2026-09-25 | 973,384 bytes/s over 8 round trips, bring-up 580 us | `bench/radon-2026-09-25/soak-8h.log:208` (the 8 h 09 m soak boot) |
-| The README's figure | 955,223 bytes/s, 64 bytes in 67 us | commit `4af8ff980`, `design/roadmap/306-time-the-hw-entropy-step.md:17` |
-| QEMU floor | about 250 us per exchange; radon is 8.4 us, so the floor is not a denominator | appendix, `design/roadmap/306-time-the-hw-entropy-step.md` |
+| The README's figure | 955,223 bytes/s, 64 bytes in 67 us | commit `4af8ff980`, `design/roadmap/0306-time-the-hw-entropy-step.md:17` |
+| QEMU floor | about 250 us per exchange; radon is 8.4 us, so the floor is not a denominator | appendix, `design/roadmap/0306-time-the-hw-entropy-step.md` |
 
 No xenon NVMe result exists. `bench/xenon-2026-09-17/` holds a first-light tour and two failed NVMe
 attempts (a crash and a skip). The Results table in `notes/risk-6-bench-evening.md` is empty.

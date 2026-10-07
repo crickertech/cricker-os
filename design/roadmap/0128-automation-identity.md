@@ -13,7 +13,7 @@ needs_person: yes
 touches the block only to correct a stale claim (that the COE labeler had never fired). Bringing a
 2,200-word block to 4 bold spans per 1,000 words is a rewrite for the block's owner, and six of its
 bold spans are `## Follow-on` markers `script/roadmap` reads (the measured class is recorded in
-design/roadmap/586-a-prose-ratchet-in-lint.md). Remove this marker when that rewrite lands. -->
+design/roadmap/0586-a-prose-ratchet-in-lint.md). Remove this marker when that rewrite lands. -->
 
 Partial as of 2026-10-03 (UTC): steps 1 through 6 are built; step 4 (deleting the PAT
 secret and revoking the PAT) was done by calef the same day. The App exists and is installed: scheduled

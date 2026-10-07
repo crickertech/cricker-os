@@ -4,7 +4,7 @@
 //! `sys/args`) cannot drift. The same split `environment_protocol` makes for the configuration page.
 //!
 //! Name: provisional, like the layout below. Both are a wire format two programs agree on, so a
-//! ruling fixes them; `design/roadmap/672-the-argument-page-layout.md` is the proposal.
+//! ruling fixes them; `design/roadmap/0672-the-argument-page-layout.md` is the proposal.
 //!
 //! # What §170 ruled, and what this page therefore is not
 //!

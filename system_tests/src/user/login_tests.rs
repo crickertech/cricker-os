@@ -184,7 +184,7 @@ fn set_run_unvouched_list(list: Option<&[u8]>) {
 
 /// **Wire the whole system once**: entropy, the credential service (`credential_tests::provisioned`'s
 /// own fixture, which already provisions `chris`, `corinne` and `graeme` among the three family
-/// logins design/roadmap/56-secrets-and-entropy.md names), the file service, and the login service
+/// logins design/roadmap/0056-secrets-and-entropy.md names), the file service, and the login service
 /// itself. Reusing that fixture rather than provisioning a second store is deliberate: a login-only
 /// store would duplicate `credentialer_test_client.rs`'s `PEOPLE` fixture for no reason a reader
 /// could point at.
@@ -936,7 +936,7 @@ fn caretaker_teardown_reclaims_a_full_session_worth_of_memory() {
 }
 
 /// **Milestone 49's terminal update, end to end: single-session, deny cleanly.** The roadmap's own
-/// recommendation (`design/roadmap/49-users-and-attribution.md`'s BUGS) built and proven here in one
+/// recommendation (`design/roadmap/0049-users-and-attribution.md`'s BUGS) built and proven here in one
 /// sequence against the one memoized service instance every other test in this file shares:
 ///
 /// 1. `chris` logs in ([`ls::HOLD_TERMINAL`]) and receives a fifth delegated capability, the

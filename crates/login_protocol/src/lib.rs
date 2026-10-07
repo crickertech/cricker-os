@@ -78,7 +78,7 @@
 //!    calls `DESTROY` costs `login` exactly what it always cost (see that program's BUGS on
 //!    `CONSTRUCTION_UT` exhaustion), this ticket just makes not costing it possible.
 //! 5. **the terminal** (milestone 49's terminal update, DECISIONS-recommended "deny cleanly" shape,
-//!    `design/roadmap/49-users-and-attribution.md`'s own BUGS): a `Rendezvous`, `WRITE` only, the
+//!    `design/roadmap/0049-users-and-attribution.md`'s own BUGS): a `Rendezvous`, `WRITE` only, the
 //!    same right the interactive boot's shell already holds on it. **Only ever present because it
 //!    could be**: `login`'s own `serve_login` refuses with [`NO_TERMINAL`] before authentication is
 //!    even attempted while another session already holds it, so every `OK` this contract answers
@@ -136,7 +136,7 @@
 //! interruption a hostile co-tenant could perform, not merely a discourtesy; it is accepted here
 //! because today's actual deployment is one interactive boot with one physical terminal and no
 //! untrusted co-tenant reaching this endpoint at all, which is exactly the scope
-//! `design/roadmap/49-users-and-attribution.md`'s own terminal BUGS entry names as this slice's
+//! `design/roadmap/0049-users-and-attribution.md`'s own terminal BUGS entry names as this slice's
 //! bound. A deployment that must defend against a hostile holder of `REQUEST` needs `LOGOUT` to
 //! carry proof (the identity that is logging out, or better, a capability only that session holds),
 //! which is real work this slice does not build.
@@ -466,7 +466,7 @@ pub fn identity_hint(identity: &[u8]) -> u64 {
 /// spawner holds a `PageFrame` capability for, and the archive is reserved RAM the frame allocator
 /// does not own and no capability names. So the real interactive boot started `login` with no
 /// archive at all and it died at `_start` on every boot for an unknown length of time
-/// (design/roadmap/233-login-never-runs.md).
+/// (design/roadmap/0233-login-never-runs.md).
 ///
 /// The fix could have gone the other way, and giving `login` the archive is the option that was
 /// refused: it needs one program's bytes and a manifest to check them against, and a service that

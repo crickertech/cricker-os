@@ -119,7 +119,7 @@ and the revocation is portable kernel code (DECISIONS §19 (architectural parity
 - **Milestone 595.** Its pool growth for `rg` is now checked against the window at compile time.
 - **Milestone 658.** Milestone 658 (a region reap scans every mapping on the machine, once per page). A region reap scans every live mapping log once per page, which made this test take
   over a minute in the whole suite and makes every job reap cost more the more is running:
-  `design/roadmap/658-a-region-reap-scans-every-mapping-on-the-machine-per-page.md`.
+  `design/roadmap/0658-a-region-reap-scans-every-mapping-on-the-machine-per-page.md`.
 - **Recorded.** The test keeps 32 frames (33 on riscv64 and `x86_64`) that nothing here explains,
   and CI does not run it: `system_tests/src/user/scratch_window_tests.rs`.
 

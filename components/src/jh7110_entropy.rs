@@ -1,4 +1,4 @@
-//! **The JH7110 TRNG driver** (milestone 159; roadmap `design/roadmap/159-jh7110-trng-driver.md`,
+//! **The JH7110 TRNG driver** (milestone 159; roadmap `design/roadmap/0159-jh7110-trng-driver.md`,
 //! notes/entropy.md), an alternate backend for the entropy contract (`entropy_protocol`,
 //! DECISIONS §44), alongside `entropy.rs`'s virtio-rng one. Same contract, same shape ("a driver,
 //! not a new protocol"), different device: no virtqueue, no DMA page, just a register window.

@@ -77,7 +77,7 @@ cheap, which is worth knowing before anybody promises a fast inner loop.
   the whole-suite instruments, because the frame ledger's kept-frames ceiling, the thread peak and
   the stack high-water are totals over 312 tests. Tests are also not independent, so one that only
   passes after an earlier test wired a service fails alone.
-- **Recorded.** In `design/roadmap/210-run-one-kernel-test.md`, which carries the measurement: what
+- **Recorded.** In `design/roadmap/0210-run-one-kernel-test.md`, which carries the measurement: what
   bounds a filtered run is fixture building rather than the boot, which is the archive, the standard
   library exerciser and five disk images. Nothing filters those and nothing records which test needs
   which, so a one-test run is 8.6 seconds rather than the sub-second the filter suggests.

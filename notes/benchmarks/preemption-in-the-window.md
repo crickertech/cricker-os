@@ -102,7 +102,7 @@ whose entry is directly below. They are kept as written because the second one w
 - This entry attributes the number and does not fix the benchmark. `map_new`'s window is short
   enough to be dominated by whether a preemption lands in it, which is a defect in the benchmark
   rather than in either spelling of `schedule()`. See
-  [design/roadmap/541](../../design/roadmap/541-a-timed-window-that-excludes-preemption.md) (a timed
+  [design/roadmap/541](../../design/roadmap/0541-a-timed-window-that-excludes-preemption.md) (a timed
   window that excludes preemption), which is this proposal promoted and built.
 - The five-context-switches reading is arithmetic that fits, not an instrumented count. The lump is
   measured; its composition is inferred from `47,752 / 9,594`. A lane that fixes the benchmark

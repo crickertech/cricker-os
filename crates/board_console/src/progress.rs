@@ -539,7 +539,7 @@ impl BootProgress {
     /// **This is the number milestone 219 is for.** A soak that ends with nothing printed proves
     /// very little; one that ends with a round-trip total is something a later run can be compared
     /// against. It is a progress figure and nothing else: see
-    /// `design/roadmap/219-a-workload-that-does-not-stop.md` for why a clean run is weak evidence.
+    /// `design/roadmap/0219-a-workload-that-does-not-stop.md` for why a clean run is weak evidence.
     #[must_use]
     pub fn soak(&self) -> Option<&SoakBeat> {
         self.soak.as_ref()

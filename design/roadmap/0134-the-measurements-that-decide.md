@@ -36,7 +36,7 @@ peaking at a 32 KiB working set which is radon's L1d exactly. E3 found that it c
 footprint from code layout: the padded build is 1.49% slower on `call_reply` and 3.01% *faster* on
 `ipc_rtt_el0`, and dead code that is never executed has no mechanism for the second. That is a flaw
 in E3's design rather than in the session, it was equally present on 2026-08-22, and the fix is
-`design/roadmap/370-a-layout-control-for-the-perturbation-experiments.md`.
+`design/roadmap/0370-a-layout-control-for-the-perturbation-experiments.md`.
 
 2026-09-19: E1's one estimated input is now measured, and it moves the reading of the knee. The
 per-IPC kernel stack depth (`kernel/src/ipc_stack_depth.rs`, notes/stack-high-water.md) is about
@@ -326,7 +326,7 @@ measure this register carries and nobody ever needs is a cheap thing to have bee
 
 - **Milestone 229.** Tier B's authority blocker is gone.
   `design/decisions/0139-cycle-counter-authority.md` is DECIDED (calef, 2026-09-02, a per-thread
-  grant in the spawn manifest) and `design/roadmap/229-the-counter-grant.md` is BUILT the same day;
+  grant in the spawn manifest) and `design/roadmap/0229-the-counter-grant.md` is BUILT the same day;
   `kernel/src/arch/aarch64/timer.rs` opens and closes the counter per thread at the switch.
 - **Done.** Narrowed to what is still missing. This item said milestone 74's counter driver was
   NOT-STARTED so M5 through M9 had no instrument (checked 2026-09-03). Both halves of 74 have since
@@ -342,7 +342,7 @@ measure this register carries and nobody ever needs is a cheap thing to have bee
   before he rules. That touches M5 and M9 on aarch64 and M12 entirely (seL4's 413 and 426 are TX1
   cycles). It does not touch M6 to M8 as such, since event counters carry their own filter in
   `PMEVTYPER<n>_EL0`, but that filter will raise the same question when a driver first writes it.
-- **Milestone 503.** milestone 503 (an event-counter driver), `design/roadmap/503-an-event-counter-driver-for-m6-to-m8.md`: one
+- **Milestone 503.** milestone 503 (an event-counter driver), `design/roadmap/0503-an-event-counter-driver-for-m6-to-m8.md`: one
   cache-refill and one TLB-refill event per ISA, kernel-internal, read like 74's cycle counter.
   Milestone 74's scope note held generic events back until a second consumer; M6 to M8 are that
   consumer. Its first step is finding which events radon's OpenSBI and argon's A57 count.
@@ -398,7 +398,7 @@ measure this register carries and nobody ever needs is a cheap thing to have bee
   most 8 lines sharing a page offset fit, and every stack top is page-aligned), which the TCB pages
   would produce equally. §96's performance input therefore stands as measured and its mechanism
   becomes a testable question rather than an assumption; the next item is the test.
-- **Milestone 506.** milestone 506 (color the kernel stacks and take E1), `design/roadmap/506-colour-the-kernel-stacks-and-take-e1-again.md`: start
+- **Milestone 506.** milestone 506 (color the kernel stacks and take E1), `design/roadmap/0506-colour-the-kernel-stacks-and-take-e1-again.md`: start
   each thread's stack a per-slot color below its top in a feature build and take E1 again on
   radon. A knee that moves right says the stacks caused it and a process kernel buys it back with
   coloring; one that stays at 8 says the TCBs (page-aligned) did, which an event kernel would

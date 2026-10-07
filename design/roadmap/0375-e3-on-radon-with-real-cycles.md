@@ -30,7 +30,7 @@ run on a riscv64 board build: `script/board-image --bench` writes a `board,bench
 `--extra-features fastpath_pad` writes its padded twin, and the procedure with its outcome table is
 notes/footprint-perturbation.md. **No number has come off radon**; the board was powered off and there was no
 bench session, so what remains of this proposal is the session itself plus the cycle counter, which
-is `design/roadmap/374-cycles-per-ipc-on-the-bench-card.md`.
+is `design/roadmap/0374-cycles-per-ipc-on-the-bench-card.md`.
 
 That lane also found something this proposal assumed away. The padding was reachable only from
 `ipc_send`, so measured on riscv64 it moved `ipc_send_recv` to 2.10x and `ipc_call_reply` to
@@ -84,17 +84,17 @@ proposal is the cheap half that can run today, and it should say so wherever it 
 
 ## Where it came from
 
-`design/roadmap/188-ipc-fastpath.md`'s Follow-on. `design/roadmap/134-the-measurements-that-decide.md`
-owns E3; `design/roadmap/132-the-fastpath-footprint.md` owns the gate.
+`design/roadmap/0188-ipc-fastpath.md`'s Follow-on. `design/roadmap/0134-the-measurements-that-decide.md`
+owns E3; `design/roadmap/0132-the-fastpath-footprint.md` owns the gate.
 
 ## Follow-on
 
 - **Milestone 370.** A layout control, because E3's separation cannot be attributed. The 3.01%
   wrong-sign row is what this session found and it is why no reading of E3 is a footprint result
-  yet: `design/roadmap/370-a-layout-control-for-the-perturbation-experiments.md`.
+  yet: `design/roadmap/0370-a-layout-control-for-the-perturbation-experiments.md`.
 - **Milestone 374.** Cycles per IPC on the bench rows themselves. The session read
   `cycles_per_tick 250.00`, which converts a tick and does not subdivide one, so E3's verdict is
-  still quantized at 250 ns: `design/roadmap/374-cycles-per-ipc-on-the-bench-card.md`.
+  still quantized at 250 ns: `design/roadmap/0374-cycles-per-ipc-on-the-bench-card.md`.
 - **Recorded.** This is not the full Liedtke experiment and the block says so where it reports: a
   cycle count says whether the round trip got slower and never attributes the cost to
   instruction-cache displacement, nor says anything about the application's working set. That wants

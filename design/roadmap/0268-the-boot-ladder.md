@@ -157,7 +157,7 @@ prints, and not a marker that exists on one architecture, which is the defect be
   2026-09-14 and is kept as that record.
 - **Done.** 2026-09-19. `script/boot-check` asserting the prompt, on all three architectures at
   once. See "Third pass" below; `BUGS (as built)`'s entry is marked closed rather than deleted.
-- **Done.** By milestone 295 (design/roadmap/295-retire-the-builder-program.md), which is the
+- **Done.** By milestone 295 (design/roadmap/0295-retire-the-builder-program.md), which is the
   proposal file below promoted in place: calef answered the one-sentence question it was written to
   ask with *"Retire builder"*, option (b), and the removal landed on 2026-09-14. The paragraph that
   follows is this block's own account of the handoff and is kept as written, except that the file it
@@ -348,7 +348,7 @@ close the door on the version calef actually described. And it is not free: the 
 and `board_console`'s `userspace_ran` with its captured board transcript all name it.
 
 So it was proposed rather than performed, and the proposal is
-`design/roadmap/295-retire-the-builder-program.md` now, listed under Follow-on above. The
+`design/roadmap/0295-retire-the-builder-program.md` now, listed under Follow-on above. The
 one-sentence decision calef
 could make: whether the retirement waits for an `x86_64` leg that can run a compiled ELF, or goes
 ahead now on the strength of the progenitor carrying the claim wherever a progenitor runs. He made
@@ -521,7 +521,7 @@ written down as one.
   rather than a defect, and trimming the arms' copies is not free: the riscv64 arm's `isa` and
   `firmware` lines exist so that `test` and `bench` boots, which compile the description out, still
   report what machine they ran on. It is milestone 409
-  (`design/roadmap/409-one-machine-description-not-two.md`), which is listed under Follow-on
+  (`design/roadmap/0409-one-machine-description-not-two.md`), which is listed under Follow-on
   above.
 - Closed 2026-09-14: "Nothing proves an architecture ran the right five checks." See "Second
   pass". What remains is narrower and is recorded in `boot_ladder::SELF_TEST_CHECKS`'s own doc: the

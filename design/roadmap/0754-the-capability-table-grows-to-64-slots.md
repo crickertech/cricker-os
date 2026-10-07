@@ -102,7 +102,7 @@ is 63) is on `abi::CAPABILITY_TABLE_SLOTS` and in notes/abi.md.
 ## What it is not
 
 Not growable tables. Whether a process's table should be sized for that process, as seL4's are, is
-`design/roadmap/778-capability-tables-sized-per-process.md`. Sixty-four slots buy the time to
+`design/roadmap/0778-capability-tables-sized-per-process.md`. Sixty-four slots buy the time to
 answer that question with a measurement rather than at the next wall.
 
 ## Follow-on
@@ -114,9 +114,9 @@ answer that question with a measurement rather than at the next wall.
   Two `crates/capability` falsification patches were re-cut for the `u64` word and replayed.
 - **Recorded.** riscv64 `ipc_send_receive` is at +4.4% of its 5% band and x86_64's is at the same
   figure, so the next change to the fastpath meets the budget: the table in
-  `design/roadmap/754-the-capability-table-grows-to-64-slots.md`.
+  `design/roadmap/0754-the-capability-table-grows-to-64-slots.md`.
 - **Refused.** Answering whether tables should be sized per process: it stays with
-  `design/roadmap/778-capability-tables-sized-per-process.md`, which this block deliberately
+  `design/roadmap/0778-capability-tables-sized-per-process.md`, which this block deliberately
   did not decide.
 
 ## Index row

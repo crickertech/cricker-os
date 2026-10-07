@@ -14,7 +14,7 @@
 //! `msr`/`mrs` are architecture code, so the CPU interface lives under `arch/`, while everything
 //! reachable through a pointer stays a driver that is handed its addresses and knows nothing else.
 //! `arch::irq` (the aarch64 adapter) is the one place that holds both and decides which version
-//! this machine has. See design/roadmap/227-gicv3-driver.md for the placement and what lost.
+//! this machine has. See design/roadmap/0227-gicv3-driver.md for the placement and what lost.
 //!
 //! # What a redistributor is, and why each core must find its own
 //!

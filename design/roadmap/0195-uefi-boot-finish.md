@@ -93,10 +93,10 @@ the bus and places every BAR before nife exists:
 - **Recorded.** `notes/x86-port/acpi-and-pci.md` carries the one thing only xenon can confirm out of milestone
   215's three: whether the OptiPlex's firmware leaves VT-d interrupt remapping off. The other two
   were answered on patagonia by this milestone.
-- **Recorded.** `design/roadmap/195-uefi-boot-finish.md`'s own `BUGS`: none of this is proved on a
+- **Recorded.** `design/roadmap/0195-uefi-boot-finish.md`'s own `BUGS`: none of this is proved on a
   Dell. OVMF is not a vendor firmware, and whether the OptiPlex leaves 32 MiB free is a question
   for the bench.
-- **Recorded.** `design/roadmap/195-uefi-boot-finish.md`'s own `BUGS`: the x86_64 leg boots
+- **Recorded.** `design/roadmap/0195-uefi-boot-finish.md`'s own `BUGS`: the x86_64 leg boots
   firmware twice, once for the tour and once for the suite, because they carry two different
   kernels and the tour is the one that goes on the stick. Gating the suite alone would leave the
   shipping image gated by nothing.

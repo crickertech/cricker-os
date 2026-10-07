@@ -62,7 +62,7 @@ file, is recorded and proposed rather than fixed.
 - **Done.** The level-4 `NodeLevel::new` constant, as a RedoxFS pin divergence, is #1606
   (`lane/redoxfs-level4`).
 - **Milestone 772.** Milestone 772 (a client cannot stall the file server with a sparse file). The sparse-file stall in `Server::truncate`'s `BUGS` section, as
-  `design/roadmap/772-a-client-cannot-stall-the-file-server-with-a-sparse-file.md`.
+  `design/roadmap/0772-a-client-cannot-stall-the-file-server-with-a-sparse-file.md`.
 - **Recorded.** A host
   part for `net_stack` and the caretakers is in their `BUGS` sections
   (`components/src/net_stack.rs`).

@@ -5,9 +5,9 @@ refused_by: 214, 448
 ---
 # 471. A `#[test_case]` that returns `Result<(), Skipped>`
 
-Refused by milestone 214 (design/roadmap/214-print-and-return-skips.md), and
+Refused by milestone 214 (design/roadmap/0214-print-and-return-skips.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -24,7 +24,7 @@ From '214. A test that prints "skipping" and returns is counted as passed', unde
 > tree plus an `Ok(())` on the end of each, for a defect the console check catches at the moment
 > it happens. If the helper shape recurs, that is the argument for paying for it.
 >
-> -- design/roadmap/214-print-and-return-skips.md
+> -- design/roadmap/0214-print-and-return-skips.md
 
 ## Why it is here rather than only there
 

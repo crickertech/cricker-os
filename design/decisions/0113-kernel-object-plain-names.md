@@ -277,7 +277,7 @@ expansion test reaches them. The list conflated two kinds of name and only one k
 
 611 file-references across the six, and `ipc` is load-bearing. `design/naming.md` already says the
 acronym sweep is its own milestone for that reason, and
-`design/roadmap/388-an-acronym-sweep-the-tree-can-do-at-once.md` exists because answering one
+`design/roadmap/0388-an-acronym-sweep-the-tree-can-do-at-once.md` exists because answering one
 name at a time is the failure mode. This amendment answers the *question* for all six at once, which
 is what that proposal asked for; the sweep performs them. Doing it here would also collide with
 milestone 265, which is already renaming 349 files.

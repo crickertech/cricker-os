@@ -303,7 +303,7 @@ is attention to transcripts, which is why the host and QEMU steps came first.
 - **Outstanding.** A board profile for the RV1 in `script/board-console`, once a capture shows its firmware
   prologue. Until then the runbook replays captures under `xenon`'s empty prologue, which is the
   same refusal argon's missing profile records: a prologue read from documentation is a guess.
-- **Milestone 655.** Milestone 655 (dMA on a non-coherent RISC-V machine). `design/roadmap/655-dma-on-a-non-coherent-risc-v-machine.md`, DMA on a non-coherent RISC-V machine: T-Head's `th.dcache.cpa`, `ipa` and `cipa`,
+- **Milestone 655.** Milestone 655 (dMA on a non-coherent RISC-V machine). `design/roadmap/0655-dma-on-a-non-coherent-risc-v-machine.md`, DMA on a non-coherent RISC-V machine: T-Head's `th.dcache.cpa`, `ipa` and `cipa`,
   then `th.sync.s`, behind the same seam a Zicbom machine would use. No DMA driver runs on this
   machine until then.
 

@@ -1,6 +1,6 @@
 //! **`terminal_supervisor`: holds the line editor, and replaces it live** (milestone 23 (a
 //! capability-routed component OS with live replacement); calef's ruling of 2026-09-27, option A of
-//! `design/roadmap/661-a-terminal-supervisor-holds-the-line-editor.md`).
+//! `design/roadmap/0661-a-terminal-supervisor-holds-the-line-editor.md`).
 //!
 //! `system_initializer` used to build `line_editor` itself and then give away every terminal
 //! capability it held, so nothing on a running system could replace the terminal. Now it builds

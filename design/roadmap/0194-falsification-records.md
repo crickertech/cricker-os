@@ -66,13 +66,13 @@ to a fraction, so it comes before any code.
   them biggest package first. Where to start is recorded too, at the chaff milestone 191 found, with
   `capability::subset_is_reflexive` proving a tautology and twelve of `paging`'s 26 harnesses
   restating six properties once per ISA.
-- **Recorded.** `design/roadmap/194-falsification-records.md`'s BUGS: nothing forces the ratio
+- **Recorded.** `design/roadmap/0194-falsification-records.md`'s BUGS: nothing forces the ratio
   upward. Every harness may sit at `unfalsified` for ever while the lint stays green, which is the
   cost of making the convention shippable at all.
-- **Recorded.** `design/roadmap/194-falsification-records.md` records that a recorded diff rots
+- **Recorded.** `design/roadmap/0194-falsification-records.md` records that a recorded diff rots
   against refactors. §134 argues that
   is correct, since a patch that no longer applies is a signal, and it is still churn somebody pays.
-- **Recorded.** `design/roadmap/194-falsification-records.md` records that the retroactive pass is
+- **Recorded.** `design/roadmap/0194-falsification-records.md` records that the retroactive pass is
   judgment and not mechanism.
   Falsifying somebody else's harness means understanding what it was for, and a wrong falsification
   is worse than none because it certifies.

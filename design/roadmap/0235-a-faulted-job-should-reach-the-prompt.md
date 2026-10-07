@@ -82,7 +82,7 @@ legs.
 
 ## Follow-on
 
-- **Recorded.** `design/roadmap/235-a-faulted-job-should-reach-the-prompt.md` BUGS: a job that hangs
+- **Recorded.** `design/roadmap/0235-a-faulted-job-should-reach-the-prompt.md` BUGS: a job that hangs
   without faulting has the same symptom and no answer. A live thread blocked in a receive nobody
   will answer is not dead, so there is no death message to route and none of the three couplings had
   anything to say about it.

@@ -6,7 +6,7 @@ promoted_from: retire-the-builder-program
 ---
 # 295. Retire `components/src/builder.rs`
 
-Built 2026-09-14. Promoted from `design/roadmap/295-retire-the-builder-program.md`,
+Built 2026-09-14. Promoted from `design/roadmap/0295-retire-the-builder-program.md`,
 which was written on 2026-09-14 to ask calef one sentence and which carries this block's whole
 argument in its git history. *(Number provisional until the merge queue lands it.)*
 
@@ -59,7 +59,7 @@ answer is half-proved, and the missing half is real:
   break-before-make inside it. `kernel::user::tests::a_process_can_build_an_address_space_from_el0`
   asserts the verdict `0b111` on **both** architectures whose test kernel can load a user ELF, under
   `script/test`. That is more coverage than `builder` ever had: nothing that runs on a pull request
-  ever executed `builder` (milestone 406, `design/roadmap/406-nothing-in-ci-boots-the-riscv-tour.md`).
+  ever executed `builder` (milestone 406, `design/roadmap/0406-nothing-in-ci-boots-the-riscv-tour.md`).
 - Proved, but from the wrong side.
   `kernel::user::tests::a_process_can_build_start_and_run_a_child_thread` drives the whole sequence
   (retype an address space and a TCB, map code and stack, insert the report rendezvous, configure,
@@ -82,7 +82,7 @@ The proposal's own guess was checked and was wrong, which is worth recording. It
 where to look. Both are about a child's authority: `least_authority_demo` holds one capability
 and `grant_plan` decides what a shell grants. `builder`'s claim was about the composer's
 authority, which is a different property, and neither carries it. Written up as milestone 404,
-`design/roadmap/404-composing-a-process-from-two-capabilities.md`.
+`design/roadmap/0404-composing-a-process-from-two-capabilities.md`.
 
 ## The eight sites
 

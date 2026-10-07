@@ -15,7 +15,7 @@ Promoted from `design/roadmap/proposals/x86-64s-double-fault-runs-on-a-stack-of-
 Raised 2026-10-03 (UTC) by the maintainer at calef's request, from the first of two findings in
 `notes/ci.md` (PR #1472, branch `maintainer/ci-warnings`, not merged when this was written). The
 second finding is the sibling proposal
-[x86_64 names a kernel stack overflow the way aarch64 and riscv64 do](716-x86-64-names-a-kernel-stack-overflow-the-way-aarch64-and-riscv64-do.md).
+[x86_64 names a kernel stack overflow the way aarch64 and riscv64 do](0716-x86-64-names-a-kernel-stack-overflow-the-way-aarch64-and-riscv64-do.md).
 Title and slug are drafts.
 
 ## The finding

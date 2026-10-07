@@ -178,7 +178,7 @@ pub fn send_sgi(intid: u32, target_cpu: usize) {
 /// **It is not "MSI is unsupported on aarch64"**, which would be false: a `GICv3` ITS is exactly
 /// this mechanism under another name, and a board with one would implement it here. It is that
 /// nothing on this board needs it, and a routing path with no consumer is machinery to maintain
-/// with no way to know it works. See design/roadmap/215-x86-64-pci-interrupt-routing.md for why
+/// with no way to know it works. See design/roadmap/0215-x86-64-pci-interrupt-routing.md for why
 /// `x86_64` answers differently.
 pub fn alloc_msi_vector() -> Option<(u32, pci::MsiTarget)> {
     None

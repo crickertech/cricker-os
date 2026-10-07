@@ -30,7 +30,7 @@ the names review that performed six renames.
 | The crate directory, package name, dependency entries | **Yes** | They *are* the name |
 | A **note named for the crate** (`notes/asids.md`, `notes/gpt.md`) | **Yes** | A note is an interface: a reader meets it by name, and `script/apropos` and every citation address it that way |
 | A **note named for the concept or for another thing** (`notes/ipc-naming.md`, about inter-process communication; `notes/ipc-tables-lock-inventory.md`, about the `IPC_TABLES` lock §118 (the `Scheduler`/`SCHED` rename) named) | **No** | The ownership test below: it keeps its name when our crate is deleted. The earlier wording of the row above said only "a note filename", and read that way it would have renamed both of these |
-| A **roadmap slug** (`design/roadmap/15-asids.md`) | **No** | Exempt, standing rule: roadmap titles and slugs are drafts, and the number is what people cite |
+| A **roadmap slug** (`design/roadmap/0015-asids.md`) | **No** | Exempt, standing rule: roadmap titles and slugs are drafts, and the number is what people cite |
 | A **hardware field or wire name** (`satp.ASID`, `NVMe 1.4` section 3.1) | **Never** | A citation of somebody else's specification |
 | A **public type named for the acronym** (`Gpt`, `Dtb`) | **Yes** | calef, 2026-09-19: a reader meets the type far more often than the crate, so leaving it short leaves most of the acronym in place. `Nvme` had already moved with its family. **`Guid` stays** under its own 2026-09-13 ruling, which is about byte order rather than length |
 | A **fuzz target named for the crate** (`gpt_table`, `dtb_walk`) | **Yes** | calef, 2026-09-19: named for what it fuzzes |

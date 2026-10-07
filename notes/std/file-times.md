@@ -41,7 +41,7 @@ After a rename it would report another file's time, after an unlink a `NotFound`
 caller is holding open, and `set_times` the same way would stamp the wrong file and return `Ok`.
 POSIX's `fstat` and `futimens` act on the inode, and a binding that silently acted on a name instead
 is the answer-instead-of-refusing failure this note keeps recording. A handle-taking form is a wire
-change and is proposed in design/roadmap/504-an-mtime-for-an-open-file.md.
+change and is proposed in design/roadmap/0504-an-mtime-for-an-open-file.md.
 
 Why `set_times` never falls back to `SETMTIME`. A `SystemTime` from the caller is an assertion
 about history even when it came from `SystemTime::now()`, and §112 put that authority behind
@@ -75,7 +75,7 @@ BUGS:
   this system wrote is `UNIX_EPOCH` plus a few seconds. It orders correctly against other writes in
   the same boot, wrongly against files the host tool made (those carry real seconds), and wrongly
   across a reboot. The PAL cannot detect it, because `SETMTIME_AT` may legitimately assert a small
-  number. Proposed as its own work: design/roadmap/497-a-filesystem-server-that-knows-the-time.md.
+  number. Proposed as its own work: design/roadmap/0497-a-filesystem-server-that-knows-the-time.md.
 - A write on nife never moves a real timestamp. The engine (`vendor/redoxfs`'s `write_node` and
   `truncate_node`) only ever moves an mtime *forward*, and the server's counter is always behind a
   real second. So a file the host tool made keeps its host time through every write this system

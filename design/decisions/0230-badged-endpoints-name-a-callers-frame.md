@@ -54,7 +54,7 @@ here or in the section the implementing lane owes, per §10's rule, before the m
   a signal's identity is kernel-stamped, is not decided here; it is the natural next use, and it
   stays §101's open item until someone raises it.
 - The network stack's shared socket numbers. This also answers option 1 of
-  [every-client-of-a-network-stack-shares-its-socket-numbers](../roadmap/649-every-client-of-a-network-stack-shares-its-socket-numbers.md):
+  [every-client-of-a-network-stack-shares-its-socket-numbers](../roadmap/0649-every-client-of-a-network-stack-shares-its-socket-numbers.md):
   the mechanism that proposal needed now exists. Choosing option 1 over that proposal's other
   options is still a separate ruling on `socket_protocol`, and this section does not make it.
 

@@ -11,7 +11,7 @@ needs_person: no
 
 Minted 2026-08-25, the second of four self-hosting milestones from calef's
 question about developing nife on a nife host. This is the real architectural piece: research into
-what `rustc`/`cargo` (see [milestone 173](173-rustc-cargo-self-host.md)) actually need found that
+what `rustc`/`cargo` (see [milestone 173](0173-rustc-cargo-self-host.md)) actually need found that
 their build model runs one process per compilation unit and links via a spawned linker, structurally,
 with no supported single-process bypass in either case, even in "self-contained" builds. nife has no
 primitive for one program to start another, wait for it, and read back what it produced.
@@ -77,11 +77,11 @@ status and output stay this milestone's fork, and the gate above still names the
 
 ## Why it matters
 
-Directly: unblocks [milestone 173](173-rustc-cargo-self-host.md) (`cargo` cannot spawn `rustc`, and
+Directly: unblocks [milestone 173](0173-rustc-cargo-self-host.md) (`cargo` cannot spawn `rustc`, and
 `rustc` cannot spawn a linker, without this). Indirectly: the same primitive is what nano's optional,
-skippable spell-check/`execute command` feature ([milestone 170](170-nano-editor.md)) would need if
+skippable spell-check/`execute command` feature ([milestone 170](0170-nano-editor.md)) would need if
 that gap is ever closed, and what `git`'s optional hook/external-tool features
-([milestone 171](171-git-core-userspace.md)) would need if those are ever brought in scope.
+([milestone 171](0171-git-core-userspace.md)) would need if those are ever brought in scope.
 
 ## What this does not decide
 

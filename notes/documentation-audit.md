@@ -11,7 +11,7 @@ A documentation sweep is milestone 92's audit mechanism pointed at a second targ
 security story from rotting; this keeps every other documented claim from rotting. It shares 92's
 index, 92's tripwire, and 92's disposition rule, and adds one row to a table rather than a second
 copy of the machine. See [design/audit-reports/README.md](../design/audit-reports/README.md), which
-is the index, and [milestone 93](../design/roadmap/93-doc-audit-cadence.md), which is the block.
+is the index, and [milestone 93](../design/roadmap/0093-doc-audit-cadence.md), which is the block.
 
 ## What it is looking for, and what it is not
 

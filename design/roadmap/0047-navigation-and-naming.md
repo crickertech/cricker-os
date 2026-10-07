@@ -1278,10 +1278,10 @@ estimates for unbuilt work are guesses on a scale calibrated from history, not m
 - **Done.** Tab completion, built 2026-09-26 under §227 option D: see "Completion: built
   2026-09-26" above and notes/shell-line-editing.md.
 - **Milestone 657.** Milestone 657 (a live history search at the prompt). fish's extras, recorded rather than built: suggestions from history
-  (`design/roadmap/679-the-prompt-suggests-from-history.md`), coloring the first word by
-  whether it can run (`design/roadmap/678-the-prompt-colours-what-it-can-name.md`), a live
-  `^R` search (`design/roadmap/657-a-live-history-search-at-the-prompt.md`), and argument
-  completion from the manifest (`design/roadmap/662-argument-completion-reads-the-manifest.md`).
+  (`design/roadmap/0679-the-prompt-suggests-from-history.md`), coloring the first word by
+  whether it can run (`design/roadmap/0678-the-prompt-colours-what-it-can-name.md`), a live
+  `^R` search (`design/roadmap/0657-a-live-history-search-at-the-prompt.md`), and argument
+  completion from the manifest (`design/roadmap/0662-argument-completion-reads-the-manifest.md`).
 - **Done.** `PATH`, built 2026-09-26 as §229 B2: a bare word resolves through the live
   activation set (`activation_set::lookup_name`, which skips owner vouches), a name both the image
   and a package have is refused naming both, and install refuses a name another package provides

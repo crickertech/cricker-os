@@ -131,7 +131,7 @@ shrinking the most powerful process's authority. The fixed table is the real con
 
 The build is milestone 754 (the capability table grows to 64 slots), number provisional. Whether
 tables should instead grow per process, as seL4's do, is a separate proposal:
-`design/roadmap/778-capability-tables-sized-per-process.md`.
+`design/roadmap/0778-capability-tables-sized-per-process.md`.
 
 ## BUGS
 
@@ -143,7 +143,7 @@ tables should instead grow per process, as seL4's do, is a separate proposal:
 
 - **Milestone 754.** Milestone 754 (the capability table grows to 64 slots), number provisional:
   option A, as ruled.
-- **Milestone 778.** Milestone 778 (capability tables sized per process). `design/roadmap/778-capability-tables-sized-per-process.md`, the longer-term
+- **Milestone 778.** Milestone 778 (capability tables sized per process). `design/roadmap/0778-capability-tables-sized-per-process.md`, the longer-term
   question the raise buys time for.
 - **Refused.** Options B and C, ruled 2026-10-04 (UTC) and reversed the same day, for the reason
   under the ruling above.

@@ -221,7 +221,7 @@ it.
   blk verbs, but
   `block_roster` has no NVMe transport kind, so `disk_surveyor` cannot list the disk and the FS
   server's default remains virtio-blk, untouched. The wire shape is decidable now that a process
-  owns the controller; see `design/roadmap/421-a-block-roster-that-can-name-an-nvme-disk.md`.
+  owns the controller; see `design/roadmap/0421-a-block-roster-that-can-name-an-nvme-disk.md`.
 - A transfer is one command per filesystem block, so a sixteen-block blk request is sixteen
   round trips where the virtio block server issues one. `prp_pair` refuses anything needing a PRP
   list, and a multi-page transfer needs one.

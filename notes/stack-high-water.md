@@ -475,7 +475,7 @@ each thread's initial stack pointer by a per-slot color (slot index times about 
 page) and re-run E1. If the knee moves right, the stacks were the cause and a process kernel can
 buy it back with coloring, without becoming an event kernel. If it stays at 8, the TCBs (or
 something else page-aligned) are, and an event kernel's shared stack would not remove it either.
-Recorded as a proposed milestone in design/roadmap/134-the-measurements-that-decide.md's Follow-on.
+Recorded as a proposed milestone in design/roadmap/0134-the-measurements-that-decide.md's Follow-on.
 
 ## BUGS
 

@@ -164,7 +164,7 @@ milestone 129 (scheduled execution: a cron whose every entry is a grant).
   notification landed in slot 4 and the PAL took it for a directory. The fix that ends the fallback
   is the loader granting the pair, as `net_stack`'s spawner does, which is a change to the std
   runtime contract and is recorded in
-  `design/roadmap/674-the-last-yield-spinners-sleep-on-a-timer.md`.
+  `design/roadmap/0674-the-last-yield-spinners-sleep-on-a-timer.md`.
 - `std::thread::sleep` costs a process two pages of its heap untyped on first use.
 - `counter_ticks_for` is tested, not proved. CBMC did not finish it with a symbolic rate in ten
   minutes, nor with five concrete rates in five.
@@ -182,7 +182,7 @@ milestone 129 (scheduled execution: a cron whose every entry is a grant).
 - Milestone 103 (`^C` stops spinning: the shell's interrupt watch, blocking) has its primitive.
 - Milestone 129 (scheduled execution)'s timetable, and the per-user session's cost the schedule
   decision names, can end their yield loops. What each needs is in
-  `design/roadmap/674-the-last-yield-spinners-sleep-on-a-timer.md`.
+  `design/roadmap/0674-the-last-yield-spinners-sleep-on-a-timer.md`.
 - Milestone 23 (a capability-routed component OS with live replacement)'s liveness watch: a `RECV`
   on the reports endpoint with a deadline, through a binding its spawner makes.
 
@@ -191,7 +191,7 @@ milestone 129 (scheduled execution: a cron whose every entry is a grant).
 - **Recorded.** Binding a notification to yourself is a wire decision for an architect, written up with
   its options in `notes/timer.md` ("Binding a notification to yourself: PROPOSED").
 - **Milestone 674.** Milestone 674 (the last yield-spinners sleep on a timer). The soak supervisor, a long-running NTP client and the timetable's adoption:
-  `design/roadmap/674-the-last-yield-spinners-sleep-on-a-timer.md`.
+  `design/roadmap/0674-the-last-yield-spinners-sleep-on-a-timer.md`.
 - **Milestone 103.** The shell's watch the rest of the way, waking only on the job's end or `^C`.
 - **Milestone 129.** The timetable sleeps until its next deadline, and the per-user session's yield
   cost ends with it.

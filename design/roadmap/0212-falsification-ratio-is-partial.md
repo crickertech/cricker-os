@@ -91,7 +91,7 @@ quietly excludes them.
   `Falsifies` target and has no harness is reported as rot, which is right for a patch that rotted
   and wrong for a future non-Kani record whose author does not know the convention. The message
   names the convention; nothing teaches it before the failure.
-- **Recorded.** `design/roadmap/212-falsification-ratio-is-partial.md` names the residual in the
+- **Recorded.** `design/roadmap/0212-falsification-ratio-is-partial.md` names the residual in the
   module-path derivation: a harness inside a `#[path]` module of a binary would get a wrong patch
   path, because the path comes from the Cargo target and a `#[path]` module contributes whatever the
   including file calls it. `components/src` holds two such files and neither carries a harness

@@ -133,7 +133,7 @@ Nothing about the slot format, the bit layout or the policy is x86-specific, and
 compiles and is tested on the host. What does not exist on aarch64 and riscv64 is the chooser, and
 what blocks it is the same milestone that blocks the install, 568 (the boot file has nowhere to go
 on a device-tree machine):
-`design/roadmap/568-the-boot-file-has-nowhere-to-go-on-a-device-tree-machine.md`.
+`design/roadmap/0568-the-boot-file-has-nowhere-to-go-on-a-device-tree-machine.md`.
 
 ## BUGS
 

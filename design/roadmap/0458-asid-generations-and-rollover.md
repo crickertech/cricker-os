@@ -5,9 +5,9 @@ refused_by: 15, 448
 ---
 # 458. ASID generations and rollover
 
-Refused by milestone 15 (design/roadmap/15-asids.md), and recorded there on
+Refused by milestone 15 (design/roadmap/0015-asids.md), and recorded there on
 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -24,7 +24,7 @@ From '15. Tagged address spaces (ASIDs)', under `## Follow-on`:
 > never run is machinery that rots. If `MAX_SPACES` ever passes 255 the first answer is 16-bit
 > ASIDs, not a new algorithm.
 >
-> -- design/roadmap/15-asids.md
+> -- design/roadmap/0015-asids.md
 
 ## Why it is here rather than only there
 

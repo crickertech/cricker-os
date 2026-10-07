@@ -212,7 +212,7 @@ recovered by #886, merged 2026-09-16.)*
   one-directional story, and a mechanism that assumed it was would be wrong about these.
 
 The mechanism this argues for is written up separately, since it is an architect's call:
-`design/roadmap/415-sub-tripwire-drift-accumulates-across-baseline-saves.md`.
+`design/roadmap/0415-sub-tripwire-drift-accumulates-across-baseline-saves.md`.
 
 *(Since then, 2026-09-24: part of that mechanism has landed. Milestone 302 (a baseline records what
 it was saved against) merged on 2026-09-23 in #1126, and `script/bench --save` now requires `--why`,

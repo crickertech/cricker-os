@@ -5,9 +5,9 @@ refused_by: 222, 448
 ---
 # 475. Extending the accelerator probe to KVM and WHPX
 
-Refused by milestone 222 (design/roadmap/222-hvf-leg-fails-silently.md), and
+Refused by milestone 222 (design/roadmap/0222-hvf-leg-fails-silently.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -23,7 +23,7 @@ under `## Follow-on`:
 > in `script/gates` today, so neither can fail this way yet, and a probe guarding a leg that does
 > not exist is the false-skip shape `script/lint` has deleted three checks for.
 >
-> -- design/roadmap/222-hvf-leg-fails-silently.md
+> -- design/roadmap/0222-hvf-leg-fails-silently.md
 
 ## Why it is here rather than only there
 

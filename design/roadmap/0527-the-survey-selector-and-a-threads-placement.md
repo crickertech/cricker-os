@@ -166,7 +166,7 @@ plus the x86_64 UEFI-firmware leg.
 
 - **Milestone 564.** The missing half is milestone 564 (a userspace program cannot learn which
   cpus are online),
-  `design/roadmap/564-a-userspace-program-cannot-learn-which-cpus-are-online.md`. A placement census
+  `design/roadmap/0564-a-userspace-program-cannot-learn-which-cpus-are-online.md`. A placement census
   cannot show an idle core, and the only way a program can currently guess at the online set is the
   range that is wrong on real silicon. The shape is a machine-description question rather than a
   survey one, so it is not a record and does not belong behind this selector.

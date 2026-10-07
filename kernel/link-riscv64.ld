@@ -45,7 +45,7 @@ SECTIONS
          * anywhere else moves none of it, and while the block is under 16 KiB no two of its lines
          * share a set. On 2026-10-05 a text shift that changed no instruction moved radon's
          * one-task `null_syscall` between 110 and 118 ticks; whether this flattens that is the
-         * radon sweep in design/roadmap/796-pin-the-hot-trap-paths-placement.md.
+         * radon sweep in design/roadmap/0796-pin-the-hot-trap-paths-placement.md.
          * `script/fastpath-footprint` fails the build when a hot symbol is outside these bounds.
          * See notes/benchmarks/kernel-footprint-and-caches.md, "The hot section". */
         . = ALIGN(16384);

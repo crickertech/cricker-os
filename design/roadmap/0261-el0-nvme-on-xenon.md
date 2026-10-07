@@ -237,7 +237,7 @@ weaker, the fourth is partly answered, and two are new.*
   [notes/risk-6-bench-evening.md](../../notes/risk-6-bench-evening.md)).
 - **Milestone 594.** Milestone 594 (every VT-d unit translates its own devices): every unit up,
   each device routed to its owner, RMRRs identity-mapped (number provisional, promoted 2026-09-25).
-- **Milestone 651.** Milestone 651 (the NVMe boot test on a machine whose IOMMU does not own the controller). `design/roadmap/651-the-nvme-test-on-a-machine-whose-iommu-does-not-own-it.md`:
+- **Milestone 651.** Milestone 651 (the NVMe boot test on a machine whose IOMMU does not own the controller). `design/roadmap/0651-the-nvme-test-on-a-machine-whose-iommu-does-not-own-it.md`:
   the NVMe boot test on a machine whose IOMMU does not own the controller, as the replayable
   falsification of `confined_by_iommu`.
 - **Done.** (2026-10-04) A replayable falsification for the confinement claim. A test-only role of

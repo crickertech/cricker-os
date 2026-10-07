@@ -123,7 +123,7 @@ warning is a `CALL`. notes/non-cooperative-fallback.md.
 
 - **Done.** A handoff is a run of pages, 2026-09-26: `Handoff::pages`, minted with
   `MemoryRegion::RETYPE`'s page count, which calef ruled the same day
-  (`design/roadmap/659-a-region-retypes-a-frame-run.md`, option A).
+  (`design/roadmap/0659-a-region-retypes-a-frame-run.md`, option A).
 - **Recorded.** A manifest is compiled in rather than shipped beside a binary. The ELF-note manifest
   work, milestone 597 (a program carries its manifest in an ELF note), carries a program's grant
   manifest rather than a component's declaration; notes/component-manifest.md's `BUGS` carries the history.
@@ -147,10 +147,10 @@ warning is a `CALL`. notes/non-cooperative-fallback.md.
 - **Done.** `line_editor` is swapped live, 2026-09-27, by `terminal_supervisor` (name provisional,
   calef's to name), which `system_initializer` now builds in its place. Rulings: DECISIONS §232 (the
   `line_editor` swap contract: a quiesce opcode on the served endpoint, and a retry flag), whose
-  `FLAG_RETRY` `swish` and `rmle` handle, and option A of `design/roadmap/661-a-terminal-supervisor-holds-the-line-editor.md`
+  `FLAG_RETRY` `swish` and `rmle` handle, and option A of `design/roadmap/0661-a-terminal-supervisor-holds-the-line-editor.md`
   on 2026-09-27. `kernel::user::terminal_swap_tests` swaps it twice under a typist on all three
   architectures, carrying the half-typed line and the history. notes/interactive-stack-swap.md.
-- **Milestone 694.** Milestone 694 (the installer asks the terminal to swap). `design/roadmap/694-the-installer-asks-the-terminal-to-swap.md`, PROPOSED
+- **Milestone 694.** Milestone 694 (the installer asks the terminal to swap). `design/roadmap/0694-the-installer-asks-the-terminal-to-swap.md`, PROPOSED
   2026-09-27: the trigger. Nothing on a real boot asks the supervisor to swap yet.
 - **Outstanding.** `display_terminal` and `compositor` are not swapped. Milestone 600 (the
   graphical terminal stack is built in userspace) moved `display_terminal`'s construction into

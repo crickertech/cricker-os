@@ -5,10 +5,10 @@ refused_by: 211, 213, 448
 ---
 # 470. A gate on harness quality: self-reference and re-implementation
 
-Refused by milestone 211 (design/roadmap/211-self-referential-harnesses.md),
-milestone 213 (design/roadmap/213-harnesses-that-duplicate-the-implementation.md), and recorded
+Refused by milestone 211 (design/roadmap/0211-self-referential-harnesses.md),
+milestone 213 (design/roadmap/0213-harnesses-that-duplicate-the-implementation.md), and recorded
 there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The dates are when the refusals were written down, not necessarily when they were made.** Most of
@@ -25,7 +25,7 @@ function break', under `## Follow-on`:
 > so a gate that flagged every such harness would be wrong more often than right. The output is
 > eleven falsification patches and a worklist instead.
 >
-> -- design/roadmap/211-self-referential-harnesses.md
+> -- design/roadmap/0211-self-referential-harnesses.md
 
 From '213. A harness that re-implements the code instead of calling it proves nothing about the
 code', under `## Follow-on`:
@@ -35,7 +35,7 @@ code', under `## Follow-on`:
 > a person answers, "which side of the assertion did the crate produce?", and both sides look like
 > arithmetic beside a call to any pattern a lint could match.
 >
-> -- design/roadmap/213-harnesses-that-duplicate-the-implementation.md
+> -- design/roadmap/0213-harnesses-that-duplicate-the-implementation.md
 
 ## Why it is here rather than only there
 

@@ -25,14 +25,14 @@ again" (`FLAG_RETRY`, provisional); a reader handles it by re-issuing the same r
 
 Two things follow that the ruling did not say. The handoff grows a page count rather than dropping
 history: the coordinator's reversible default, not calef's ruling, and it needs
-`659-a-region-retypes-a-frame-run.md` first. And calef's option D on #1361 (the shell edits its own line) moves `swish` to raw mode,
+`0659-a-region-retypes-a-frame-run.md` first. And calef's option D on #1361 (the shell edits its own line) moves `swish` to raw mode,
 parked in `OP_READRAW`. So `FLAG_RETRY` must answer a parked `OP_READRAW` too, and the swap test's
 witness is a line-mode client of `line_editor` as well as `swish`.
 
 ## Built
 
 2026-09-27, on PR #1382, under a terminal supervisor rather than `system_initializer` (calef's
-option A of `661-a-terminal-supervisor-holds-the-line-editor.md`). What this proposal still carries is
+option A of `0661-a-terminal-supervisor-holds-the-line-editor.md`). What this proposal still carries is
 the record of the two forks; an integrator promoting it can mark it built.
 
 ## What to build
@@ -54,7 +54,7 @@ supervisor can reach today.
 
 ## Follow-on
 
-- **Milestone 694.** Milestone 694 (the installer asks the terminal to swap). The trigger that asks the terminal supervisor to swap, which nothing on a real boot does yet: `design/roadmap/694-the-installer-asks-the-terminal-to-swap.md`.
+- **Milestone 694.** Milestone 694 (the installer asks the terminal to swap). The trigger that asks the terminal supervisor to swap, which nothing on a real boot does yet: `design/roadmap/0694-the-installer-asks-the-terminal-to-swap.md`.
 
 ## Index row
 

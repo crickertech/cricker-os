@@ -257,7 +257,7 @@ while both roadmap records read `NOT-STARTED`. `script/roadmap --check` was gree
 it compares two records and the tree is a third record nothing compares against. A developer spent
 its entire budget re-running mutation tests for milestone 85, which had merged hours earlier.
 
-A block quote in `design/roadmap/74-cycle-counters.md`, attributed to `notes/benchmarks.md`, quoted
+A block quote in `design/roadmap/0074-cycle-counters.md`, attributed to `notes/benchmarks.md`, quoted
 arithmetic that milestone 101 had re-measured and retracted. The roadmap was citing a retraction as
 the current record and nothing could see it, because a prose block quote attributed to another file is
 a citation no gate resolved. `script/citations` exists because of it.

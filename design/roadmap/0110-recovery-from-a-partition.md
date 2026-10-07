@@ -54,7 +54,7 @@ partition index is the acceptance evidence.
   salvage tool is a real thing to want and is a different program with a different risk profile:
   this one is read-only by design, and a salvager that guesses at a broken superblock is the
   opposite of that.
-  This refusal is milestone 452 (design/roadmap/452-a-salvage-tool-for-a-broken-superblock.md),
+  This refusal is milestone 452 (design/roadmap/0452-a-salvage-tool-for-a-broken-superblock.md),
   which carries it with the condition that would change it.
 - **Refused.** Opening a device read-write. The recovery path stays read-only, and `put`/`import`
   keep their read-write open for building fixtures against an image. Taking a device does not change

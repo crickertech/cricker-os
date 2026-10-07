@@ -88,7 +88,7 @@ whether the names and numbers above stop being provisional.
 
 §170's clause 4 needs a mark on a word ("this word is writable", "this word may be created"). That
 is a naming decision with its own proposal,
-[`675-the-mark-on-a-foreign-programs-word.md`](675-the-mark-on-a-foreign-programs-word.md).
+[`0675-the-mark-on-a-foreign-programs-word.md`](0675-the-mark-on-a-foreign-programs-word.md).
 
 ## Index row
 

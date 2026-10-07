@@ -97,7 +97,7 @@ rule with a boundary, and nothing mechanical can tell a format from a protocol. 
 tests it comes to calef.
 
 The `ntp` program was to stay `ntp`, and the exception expired before this milestone ran.
-Milestone 388, `design/roadmap/388-an-acronym-sweep-the-tree-can-do-at-once.md`, named this exact pair as a
+Milestone 388, `design/roadmap/0388-an-acronym-sweep-the-tree-can-do-at-once.md`, named this exact pair as a
 reason not to work one name at a time: *"Spelling out the program alone leaves the pair disagreeing;
 spelling out the crate alone overturns a ratification as a side effect of tidying a program."* This
 block accepted the disagreement, on the ground that `AGENTS.md` leaves the length of a typed command
@@ -291,7 +291,7 @@ moved: `PROPOSED`, `NOT-STARTED` and `PARTIAL` blocks, every file under
   and this milestone measured only what it tripped over. Numbered on 2026-09-19 by milestone 433's
   drain of the pile.
 - **Recorded.** The other truncations nobody has swept for, in this block's `BUGS` where a reader
-  meets the rename: `design/roadmap/265-proto-is-a-truncation-not-an-abbreviation.md` says `_rt`,
+  meets the rename: `design/roadmap/0265-proto-is-a-truncation-not-an-abbreviation.md` says `_rt`,
   `_cli` and any other suffix are untouched and that nobody has checked. It is the same shape as the
   acronym question, and milestone 388 is the list that already exists for acronyms, with its `BUGS`
   carrying the names still waiting on an architect. **The disposition was `**Proposed.` until

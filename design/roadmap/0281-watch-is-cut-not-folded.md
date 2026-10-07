@@ -139,9 +139,9 @@ from the flag.
   line that would have caught a regression in the domain grant at a real prompt.
 - `design/decisions/0139-cycle-counter-authority.md` still cites `components/src/watch.rs:171` as one of
   its spin-yield sites, and a developer lane may not edit a decision, so it is named here for the
-  integrator. This bullet used to name `design/roadmap/126-who-else-is-running.md` too, for
+  integrator. This bullet used to name `design/roadmap/0126-who-else-is-running.md` too, for
   describing `watch` in the present tense; pull request #1349 (milestone 126 (the `procps` package: who else is running)'s re-sweep) fixed that
-  on 2026-09-26. `design/roadmap/158-kernel-object-rename-build.md` is `BUILT` and correctly keeps
+  on 2026-09-26. `design/roadmap/0158-kernel-object-rename-build.md` is `BUILT` and correctly keeps
   the old names: it is an account.
 
 ## Follow-on
@@ -152,7 +152,7 @@ from the flag.
   Nothing needs handing over with it: `CSI 2J`/`CSI H` is four bytes and `video_terminal::Vt` already
   parses both for the line discipline's `^L`.
 - **Done.** Pull request #1349 (milestone 126: procps, what is left) rewrote
-  `design/roadmap/126-who-else-is-running.md`, which had still described `watch` in the present
+  `design/roadmap/0126-who-else-is-running.md`, which had still described `watch` in the present
   tense. It now lists `watch` as built 2026-08-24 and cut 2026-09-13 by this milestone. Resolved
   2026-09-26 by the integrator on `maintainer/126-followups`.
 - **Recorded.** `design/decisions/0139-cycle-counter-authority.md` names one of this program's lines

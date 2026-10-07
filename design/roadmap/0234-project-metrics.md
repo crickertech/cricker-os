@@ -82,10 +82,10 @@ file it agreed exactly: **701 outside `arch/`, 253 inside, zero files disagreein
   `script/lint`'s and `script/falsifications`' shell heredocs, where nothing can import them, so a
   gate that changes its definition leaves this page holding the old one silently and no check fires.
   This block proposed it as its own milestone and 236 is that milestone.
-- **Recorded.** `design/roadmap/234-project-metrics.md` BUGS: coverage has no history, because it is
+- **Recorded.** `design/roadmap/0234-project-metrics.md` BUGS: coverage has no history, because it is
   computed per pull request in CI and stored nowhere, and backfilling means an instrumented build at
   every checkout. The column is visibly empty with the reason beside it rather than omitted.
-- **Recorded.** `design/roadmap/234-project-metrics.md` BUGS: milestone statuses before 202631 are
+- **Recorded.** `design/roadmap/0234-project-metrics.md` BUGS: milestone statuses before 202631 are
   unrecoverable, because the single roadmap file this directory replaced had ten rows and no status column, with state as prose
   inside a cell. That is the sharpest restatement artifact on the page.
 - **Recorded.** `notes/project-metrics.md` says on its face that a reconstruction applies today's

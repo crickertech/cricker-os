@@ -145,7 +145,7 @@ is recorded in that crate's `BUGS` rather than held in this block, since a reade
 
 It cannot be run yet, and the reason is milestone 157 (U-Boot's `simple-framebuffer` handoff) rather than this milestone. Option A is
 framebuffer output plus serial input, and the framebuffer half is
-[157](157-uboot-framebuffer-handoff.md) (U-Boot's `simple-framebuffer` handoff), which is
+[157](0157-uboot-framebuffer-handoff.md) (U-Boot's `simple-framebuffer` handoff), which is
 NOT-STARTED. Until a board can put a pixel on a monitor there is nothing for a serial keystroke to
 echo onto. Written now so that 157's lane inherits it rather than rederiving it.
 
@@ -270,18 +270,18 @@ fatal-risk list that months of driver work is a reasonable thing to spend.
 ## Follow-on
 
 - **Milestone 242.** Option B, the xHCI driver, USB core and HID keyboard, plus the scoping pass
-  this block asks for, is `design/roadmap/242-usb-host-and-a-keyboard-that-is-not-a-uart.md`,
+  this block asks for, is `design/roadmap/0242-usb-host-and-a-keyboard-that-is-not-a-uart.md`,
   minted 2026-09-03 by calef precisely so option B stops being priced as a line item here.
 - **Milestone 230.** That is milestone 230 (`script/shell-check` is red on `main`), which keeps the
   name the script had then. `script/swish-check` red on `main` with a virtio-rng attached was not unowned:
-  `design/roadmap/230-shell-check-is-red.md` is BUILT 2026-09-02, root-caused to slot exhaustion
+  `design/roadmap/0230-shell-check-is-red.md` is BUILT 2026-09-02, root-caused to slot exhaustion
   four blocks later than this block guessed, and both plain legs are green.
 - **Outstanding.** Option A has still never been run on a board and cannot be until milestone 157
   puts a pixel on a board's framebuffer. The six-step bench procedure is written and unexecuted.
   Checked 2026-09-03.
 - **Outstanding.** No keystroke has reached a screen on real silicon; that waits on milestone 157.
   *Corrected 2026-10-03: the QEMU half of this bullet (red legs, nothing in CI) was overtaken.*
-- **Milestone 179.** A mouse is `design/roadmap/179-mouse-pointer-input.md`, minted 2026-08-26,
+- **Milestone 179.** A mouse is `design/roadmap/0179-mouse-pointer-input.md`, minted 2026-08-26,
   rather than an unnamed gap this block has to carry.
 - **Outstanding.** Neither option is priced. Nobody has looked at what the JH7110, the Jetson TX1
   and the OptiPlex each expose for USB, and milestone 242 declines to price xHCI in hours as well,

@@ -1,6 +1,6 @@
 # Options B and C, in full
 
-This appendix belongs to [milestone 705 (the graphical terminal runs full-screen programs)](../705-the-graphical-terminal-runs-full-screen-programs.md); it holds the full seven-question entries for options B (libghostty-vt as a second engine) and C (the `vte` crate).
+This appendix belongs to [milestone 705 (the graphical terminal runs full-screen programs)](../0705-the-graphical-terminal-runs-full-screen-programs.md); it holds the full seven-question entries for options B (libghostty-vt as a second engine) and C (the `vte` crate).
 
 ## B. libghostty-vt as a second engine behind the C seam
 

@@ -1102,7 +1102,7 @@ pub fn print_summary() {
 /// checked on `arch/x86_64/`: until 304 the prover compiled `arch/aarch64/` and nothing else, so
 /// this whole subtree was out of reach for a `cfg` rather than for a construct. See
 /// notes/kernel-proofs.md, whose stub list applies here unchanged, and
-/// design/roadmap/304-prover-one-architecture.md for why a second host is what made them runnable.
+/// design/roadmap/0304-prover-one-architecture.md for why a second host is what made them runnable.
 ///
 /// Both harnesses are about **numbers firmware chose**. The MADT supplies the IO APIC's GSI base,
 /// the version register supplies its entry count, and an interrupt source override supplies the GSI

@@ -259,7 +259,7 @@ meet a known gap). Take no dependency; vendor nothing.
   predicate; a third (milestone 242 (USB host and a keyboard that is not a UART)'s xHCI) is where
   a shared helper is lifted. `kernel/src/pci.rs`, at the function.
 - **Milestone 804.** Milestone 804 (the I219 reconfigures its PHY when link comes up). The I219's link-up reconfiguration, about 250 lines of FreeBSD, once the bench
-  boot leases. `design/roadmap/804-the-i219-reconfigures-its-phy-when-link-comes-up.md`.
+  boot leases. `design/roadmap/0804-the-i219-reconfigures-its-phy-when-link-comes-up.md`.
 - **Recorded.** No third-party notices file ships with an image, which Intel's BSD license asks
   of binary redistribution. `crates/e1000e/src/pch/mod.rs`'s BUGS.
 - **Recorded.** `disk_throughput`, the other bench feature, is linted by nothing. `script/lint`,

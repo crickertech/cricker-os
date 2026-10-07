@@ -170,10 +170,10 @@ into the module the code now lives in rather than to merge line by line.
 
 ## Follow-on
 
-- **Recorded.** `design/roadmap/365-xtask-in-modules.md`'s BUGS section keeps that the nineteen
+- **Recorded.** `design/roadmap/0365-xtask-in-modules.md`'s BUGS section keeps that the nineteen
   module names are provisional and want calef's ratification. It is not a milestone of its own:
   `script/names --unratified` is a worklist, and an unratified name blocks nobody's build.
-- **Recorded.** `design/roadmap/365-xtask-in-modules.md`'s BUGS section keeps that
+- **Recorded.** `design/roadmap/0365-xtask-in-modules.md`'s BUGS section keeps that
   `shell_check.rs` is still 1,866 lines, which is the one module a second split could reach. It is
   one command, its script table and its two legs; nothing here required cutting it further and the
   argument for doing so is not this milestone's.

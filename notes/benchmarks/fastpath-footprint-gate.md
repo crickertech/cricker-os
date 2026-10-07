@@ -7,7 +7,7 @@ The target this gate measures against, 4 KiB of IPC fastpath in a 32 KB L1i, is 
 
 ### Tracking it: `script/fastpath-footprint`, built 2026-08-18
 
-*Milestone 132 owns this gate; design/roadmap/132-the-fastpath-footprint.md carries the reasoning,
+*Milestone 132 owns this gate; design/roadmap/0132-the-fastpath-footprint.md carries the reasoning,
 the BUGS and the trigger that would turn the gap below into scheduled work.*
 
 An earlier paragraph proposed a gate and named what blocked it: which symbols the hot path is, given
@@ -146,7 +146,7 @@ milestone 156 (`syscall_entry`'s measured size is every method combined) took 86
 
 ### The gate measured the wrong shape, and the aarch64 entry figure counted a table it never fetched
 
-*Milestone 188 phases 1 to 3, 2026-09-04. `design/roadmap/188-ipc-fastpath.md` carries the full
+*Milestone 188 phases 1 to 3, 2026-09-04. `design/roadmap/0188-ipc-fastpath.md` carries the full
 argument and the phase-4 recommendation.*
 
 #### Phase 1: the roots were the wrong shape

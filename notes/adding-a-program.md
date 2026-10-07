@@ -41,7 +41,7 @@ them at once, which it stops doing at about the third.
 Milestone 291 (fixtures) is the worked example. `fixtures/src/hello.rs` reached thirty-one roles one
 convenient arm at a time over two months. Seven of them were an exact duplicate of
 `components/src/block_driver.rs`, kept alive only because one archive table did not pack it; fourteen more became programs. See
-[291](../design/roadmap/291-one-program-one-job.md).
+[291](../design/roadmap/0291-one-program-one-job.md).
 
 The exception is allowed and has to say so (AGENTS.md's ladder, rung four's rule). If two
 behaviors genuinely are one program, write down in the module doc why, where a reader meets it.
@@ -214,7 +214,7 @@ $ triple 21
 ## Why it works this way
 
 Milestone 150, 2026-09-19. The block is
-[design/roadmap/150-program-declaration-data.md](../design/roadmap/150-program-declaration-data.md);
+[design/roadmap/0150-program-declaration-data.md](../design/roadmap/0150-program-declaration-data.md);
 this section is the reasoning, and
 [DECISIONS §158](../design/decisions/0158-a-program-is-declared-once.md) is the record minted from it.
 
@@ -295,7 +295,7 @@ rung one, deliberately, and it is the one place this milestone went down the lad
   rule prices it at.
 - Whether a program may take an argument and an input together is open, and it is an architect's
   call:
-  [a-program-that-takes-an-argument-and-an-input.md](../design/roadmap/498-a-program-that-takes-an-argument-and-an-input.md).
+  [a-program-that-takes-an-argument-and-an-input.md](../design/roadmap/0498-a-program-that-takes-an-argument-and-an-input.md).
   The tree allows it and nothing uses it. The `crates/swish` sweep that used to go red on it (the
   "eighth edit site" milestone 117's fifth stranger found) now types every operand a manifest asks
   for, so the combination needs no edit outside its own declaration.

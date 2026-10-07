@@ -151,10 +151,10 @@ prediction down is what made it checkable.
 - **Milestone 198.** The adversarial pass by someone who did not build this system, which is the
   better thing this milestone is explicitly not. It waits on a package manager and a trivial
   install, because no third party sees nife before those exist.
-- **Recorded.** `design/roadmap/202-confinement-claims-falsified.md`: breaking confinement
+- **Recorded.** `design/roadmap/0202-confinement-claims-falsified.md`: breaking confinement
   deliberately means the falsification diffs are, by construction, patches that disable security
   checks, living in the tree beside the checks they disable.
-- **Recorded.** `design/roadmap/202-confinement-claims-falsified.md`: a test can go red for the
+- **Recorded.** `design/roadmap/0202-confinement-claims-falsified.md`: a test can go red for the
   wrong reason, which fired twice on the day this was written, so each falsification has to name the
   assertion it expects to fail.
 - **Recorded.** `design/fatal-risks/README.md` keeps risk 7 open. The enumeration inherits the blind spots
@@ -168,7 +168,7 @@ prediction down is what made it checkable.
   each of the three turned the line red, once each, by hand on aarch64
   (notes/packages/running-unvouched.md). The census counts capabilities, not mappings.
 - **Milestone 673.** Done 2026-10-03. Milestone 673 (the confinement table lists the unvouched child). The claim above as row 31 of notes/confinement-claims.md's table
-  (`design/roadmap/673-the-confinement-table-lists-the-unvouched-child.md`).
+  (`design/roadmap/0673-the-confinement-table-lists-the-unvouched-child.md`).
 
 ## Index row
 

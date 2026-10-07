@@ -274,7 +274,7 @@ later. Effort: 1 lane estimated per phase, three phases, landed separately.
   trailing `CALL` to `line_editor` has no ordering primitive against the shell's next prompt. The
   block names 151 (notification objects) as what lets the shell `WAIT` on the caretaker's queue
   draining instead of racing it.
-- **Recorded.** `design/roadmap/40-documentation-service.md`'s own BUGS: a screen-narrowed child
+- **Recorded.** `design/roadmap/0040-documentation-service.md`'s own BUGS: a screen-narrowed child
   does not appear in a concurrent `ps` or `pgrep`, because its fault target is a fresh endpoint the
   shell mints rather than init's `deaths` domain channel, and domain membership is exactly having
   `deaths` as that target. Its memory still returns to init's job pool when the shell reaps it.

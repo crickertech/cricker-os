@@ -8,7 +8,7 @@ built: 2026-09-23
 Raised by calef on 2026-09-23: *"I wonder if the key values should be front
 matter instead."* He ratified the schema the same day. *(Number provisional until the merge queue
 lands it. The brief said 580, which was taken on `main` at this lane's base commit `bfc91c8d2` by
-`580-nobody-reads-branches.md`. This lane then took 581 and collided with another lane that could
+`0580-nobody-reads-branches.md`. This lane then took 581 and collided with another lane that could
 not see it, which is the collision `AGENTS.md` gives the integrator to resolve at merge; pull
 request #1193 keeps 581 and this block moved to 582.)*
 

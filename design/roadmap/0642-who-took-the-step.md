@@ -196,7 +196,7 @@ covers it in the meantime, at rung four and honest about it.
 
 ## The five options
 
-The option-by-option argument, (a) a machine account, (c) leave it as is, and (d) the App key on patagonia, is in [the options appendix](642-who-took-the-step/options.md). In short: (a) and (d) are both narrower than the credential already on patagonia; (d) wins on visibility and revocation and loses on the key never expiring; (c) fails the property outright.
+The option-by-option argument, (a) a machine account, (c) leave it as is, and (d) the App key on patagonia, is in [the options appendix](0642-who-took-the-step/options.md). In short: (a) and (d) are both narrower than the credential already on patagonia; (d) wins on visibility and revocation and loses on the key never expiring; (c) fails the property outright.
 
 ## Recommendation: (e) first, which defers (a) against (d) rather than deciding it
 

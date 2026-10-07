@@ -14,7 +14,7 @@
 # verified that a block HAS a table row and never WHERE the block sits or whether the row and the
 # block agree. Eight milestone blocks were filed under an essay about seL4; milestone 69's row said
 # NOT-STARTED while its block said BUILT. The split makes the filing defects impossible (the filename
-# is the identity, and `cat >>` into 74-cycle-counters.md can only add text to milestone 74 (cycle counters: SBI PMU on RISC-V, `PMCCNTR_EL0` on aarch64)). The
+# is the identity, and `cat >>` into 0074-cycle-counters.md can only add text to milestone 74 (cycle counters: SBI PMU on RISC-V, `PMCCNTR_EL0` on aarch64)). The
 # check the split alone could not prevent, that the status in the index and in the milestone's own
 # file agree, is gone with the index: there is one record now, so there is nothing to disagree.
 #
@@ -627,7 +627,7 @@ def is_appendix_dir(fname, is_dir, entries):
     """True for a §212 appendix directory: a directory named after a block file beside it.
 
     §212 (a prose budget) sites a long document's appendices in a sibling directory named after
-    it, so `47-navigation-and-naming/` sits beside `47-navigation-and-naming.md`. Its files are
+    it, so `0047-navigation-and-naming/` sits beside `0047-navigation-and-naming.md`. Its files are
     appendices, not blocks, and are not scanned as blocks; the prose ratchet's orphan check is what
     watches them. A directory named after no block is still an error, since nothing else lives here.
     """
@@ -636,9 +636,9 @@ def is_appendix_dir(fname, is_dir, entries):
 
 # The rule's selftest, run every time because it is four lines and a wrong answer either fails
 # every split or lets any directory in.
-assert is_appendix_dir("47-navigation-and-naming", True, {"47-navigation-and-naming.md"})
-assert not is_appendix_dir("47-navigation-and-naming", False, {"47-navigation-and-naming.md"})
-assert not is_appendix_dir("48-no-such-block", True, {"47-navigation-and-naming.md"})
+assert is_appendix_dir("0047-navigation-and-naming", True, {"0047-navigation-and-naming.md"})
+assert not is_appendix_dir("0047-navigation-and-naming", False, {"0047-navigation-and-naming.md"})
+assert not is_appendix_dir("0048-no-such-block", True, {"0047-navigation-and-naming.md"})
 assert not is_appendix_dir("notes", True, {"notes.md"})
 
 # ---- the frontmatter form (milestone 596) -------------------------------------

@@ -6,7 +6,7 @@ built: 2026-09-01
 # 214. A test that prints "skipping" and returns is counted as passed
 
 Minted 2026-09-01 by milestone 164's lane
-(`design/roadmap/164-x86-64-fs-server-aes.md`, on x86_64 userspace and the `aes` crate), which
+(`design/roadmap/0164-x86-64-fs-server-aes.md`, on x86_64 userspace and the `aes` crate), which
 moved eleven tests from the skip column to the pass column without running anything.
 
 It was minted with no gate, on the grounds that this is a sweep of test code in this repository
@@ -93,7 +93,7 @@ identical is what says the sweep changed reporting rather than behavior.
 
 The 25 are not spread evenly. 24 of them skip with "no RedoxFS disk attached", one reason,
 waiting on one thing:
-milestone 215 (design/roadmap/215-x86-64-pci-interrupt-routing.md), on a PCI
+milestone 215 (design/roadmap/0215-x86-64-pci-interrupt-routing.md), on a PCI
 function's interrupt reaching nothing on x86_64.
 Its block already sized the disk arm at 36 tests; this makes that number visible in the final
 line instead of only in a lane's report.
@@ -169,27 +169,27 @@ by hand and why nothing here claims to have found the last one.
   caught the helper cases structurally, and it is a return-type change on every `#[test_case]` in
   the tree plus an `Ok(())` on the end of each, for a defect the console check catches at the moment
   it happens. If the helper shape recurs, that is the argument for paying for it.
-  This refusal is milestone 471 (design/roadmap/471-a-skip-that-returns.md), which carries it with
+  This refusal is milestone 471 (design/roadmap/0471-a-skip-that-returns.md), which carries it with
   the condition that would change it.
-- **Recorded.** `design/roadmap/214-print-and-return-skips.md` records the blind spot in the other
+- **Recorded.** `design/roadmap/0214-print-and-return-skips.md` records the blind spot in the other
   direction: a test that returns early having proved nothing and printed nothing is invisible to a
   check that reads what the machine printed. Pass 2 went looking for those by hand and nothing here
   claims to have found the last one.
-- **Recorded.** `design/roadmap/214-print-and-return-skips.md`'s BUGS: the check matches the
+- **Recorded.** `design/roadmap/0214-print-and-return-skips.md`'s BUGS: the check matches the
   substring `skip` anywhere in a console
   fragment, so a test that prints an unrelated sentence containing the word and then passes fails
   the run with a confusing message. That is the deliberate trade against a source-level rule with an
   allow-list.
-- **Recorded.** `design/roadmap/214-print-and-return-skips.md`'s BUGS: a skip reason split across
+- **Recorded.** `design/roadmap/0214-print-and-return-skips.md`'s BUGS: a skip reason split across
   two `write_str` fragments by a
   format argument does not set the flag, so the failure direction is a missed catch rather than a
   false alarm.
-- **Recorded.** `design/roadmap/214-print-and-return-skips.md`'s BUGS: milestone 164's block still
+- **Recorded.** `design/roadmap/0214-print-and-return-skips.md`'s BUGS: milestone 164's block still
   records "211 passed, 44 skipped"
   for x86_64 and is two counts stale, as is `notes/load-sensitive-assertions.md`'s snapshot. Neither
   was edited here because both belong to other work, and nothing in the tree tracks a test total as
   a counted claim that would have caught the drift.
-- **Recorded.** `design/roadmap/214-print-and-return-skips.md` records
+- **Recorded.** `design/roadmap/0214-print-and-return-skips.md` records
   `fs_service::crash_disk_present` as a **provisional** name.
   Public function names are an architect's under milestone 160 (review the public function names),
   and the block says so where the helper is introduced.

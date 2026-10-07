@@ -58,18 +58,18 @@ their own commit, leaves first. The plan is a proposal, linked below.
 
 ## Follow-on
 
-- **Milestone 691.** Milestone 691 (packages move out of this repository, one per pull request). `design/roadmap/691-packages-move-out-one-per-pull-request.md`: the moves,
+- **Milestone 691.** Milestone 691 (packages move out of this repository, one per pull request). `design/roadmap/0691-packages-move-out-one-per-pull-request.md`: the moves,
   one package per pull request, once a home is ratified.
-- **Milestone 689.** Milestone 689 (contracts leave the implementation crates they live in). `design/roadmap/689-contracts-leave-implementation-crates.md`: four kernel
+- **Milestone 689.** Milestone 689 (contracts leave the implementation crates they live in). `design/roadmap/0689-contracts-leave-implementation-crates.md`: four kernel
   exceptions where a contract lives in a tool's or a driver's crate.
-- **Milestone 684.** Milestone 684 (a documentation site, and documentation that ships in packages). `design/roadmap/684-a-documentation-site.md`: calef's documentation site, and
+- **Milestone 684.** Milestone 684 (a documentation site, and documentation that ships in packages). `design/roadmap/0684-a-documentation-site.md`: calef's documentation site, and
   why every note's home is undecided until it is settled.
 - **Recorded.** The kernel links three fixtures, `board_console` links one, and
   `system_initializer` builds the whole image from inside `init`. Each is an exception in its
   package file and a line in notes/package-boundaries.md's BUGS.
 - **Done.** Pull request #1392 (the system tests leave the kernel) made four kernel links
   dev-dependencies; the gate failed their exceptions as stale and they were deleted.
-- **Milestone 686.** Milestone 686 (a package's license is derived from what it links, and a lint checks it). `design/roadmap/686-a-package-licence-derived-from-what-it-links.md`: a
+- **Milestone 686.** Milestone 686 (a package's license is derived from what it links, and a lint checks it). `design/roadmap/0686-a-package-licence-derived-from-what-it-links.md`: a
   per-program SPDX license from linked crates, a lint against it, owed by §135 (running GPL
   software is aggregation)'s amendment (calef, 2026-09-27T15:11Z). Not built here.
 

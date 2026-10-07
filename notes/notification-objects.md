@@ -16,7 +16,7 @@ calef ruled option B on 2026-09-26, the day this was raised: the kernel writes
 `RECEIVE_CAP`, `Irq::WAIT`), keeping §101's `w0 = 2` and the word in `w1`. A maintainer records it as
 an amendment to §101. What follows is the proposal as it reached him, kept because how the decision
 was reached is part of the record. Its measured cost on the call/reply path is in
-`design/roadmap/151-notification-objects.md`: about 34 bytes of `ipc_receive_cap` on riscv64 and 54 on
+`design/roadmap/0151-notification-objects.md`: about 34 bytes of `ipc_receive_cap` on riscv64 and 54 on
 `x86_64`.
 
 ### The premise §101 rests on is false

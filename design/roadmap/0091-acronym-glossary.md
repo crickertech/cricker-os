@@ -50,7 +50,7 @@ table gives the reason ordinary markdown is hyphenated: *"filenames become URL s
 site generator, and hyphens are word separators in a URL where underscores are joiners."* So the
 website is why notes are named the way they already are, and flat-and-hyphenated is that rule
 applied one level down. The on-system half is
-[milestone 40](40-documentation-service.md), documentation as a system service,
+[milestone 40](0040-documentation-service.md), documentation as a system service,
 searchable and rendered and installed by packages.
 
 What that changes for a lane, and it is worth stating because it is not obvious from "write a

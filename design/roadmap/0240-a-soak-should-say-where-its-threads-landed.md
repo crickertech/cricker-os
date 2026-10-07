@@ -98,11 +98,11 @@ in notes/soak.md.
   whether the eightfold spread follows the arrangement. Four runs on an emulator settle nothing, and
   whether thread affinity is worth its syscall surface is the question that series would answer or
   refuse.
-- **Recorded.** In `design/roadmap/240-a-soak-should-say-where-its-threads-landed.md`: the census is
+- **Recorded.** In `design/roadmap/0240-a-soak-should-say-where-its-threads-landed.md`: the census is
   `last_cpu`, so it reports where a thread last ran rather than where it is queued to run next, and
   a thread waiting in another core's inbox still reads its old core. That is the honest answer to
   the question the field can answer, and it is not the whole placement story.
-- **Recorded.** In `design/roadmap/240-a-soak-should-say-where-its-threads-landed.md`: it adds
+- **Recorded.** In `design/roadmap/0240-a-soak-should-say-where-its-threads-landed.md`: it adds
   output to a run whose output is already dense. Four or five lines at start and a fresh block only
   when the arrangement changes, which after the first beat is almost never, though a machine that
   genuinely thrashes would print one per beat and roughly double the log.

@@ -274,7 +274,7 @@ that holds on radon is one of the things the next evening reads.
 (every file-service path starts at a virtio block device), so it could only ever produce QEMU
 numbers; and the file service maps one channel into every client, which 32 concurrent tasks would
 race on. Both, with options and no recommendation (the second is a wire format), are in
-`design/roadmap/493-a-disk-file-job-mix-needs-a-disk-radon-can-drive.md`.
+`design/roadmap/0493-a-disk-file-job-mix-needs-a-disk-radon-can-drive.md`.
 
 ### Smaller things found on the way
 
@@ -303,12 +303,12 @@ and the two sessions could not see each other. calef's ruling there decides it: 
 promoted and then closed, since a numbered block marked BUILT is a record and a deleted file is
 nothing. So each is `BUILT` below rather than absent, with what it bought and what it did not.
 
-- [Milestone 382 (three AIM7's)](382-three-aim7-job-categories-the-job-mix-does-not-have.md) (filed 2026-09-04):
+- [Milestone 382 (three AIM7's)](0382-three-aim7-job-categories-the-job-mix-does-not-have.md) (filed 2026-09-04):
   three AIM7 categories missing, why each was refused, and the order to add them (map, spawn, then
   disk as a second mix). Its content is "The second hole" above, and the refusals it recorded are answered there:
   the map job did not need a new capability, the spawn job's allocator share is now printed, and the
   disk mix has its own proposal.
-- [Milestone 419 (`tasks=4` needs)](419-more-repeats-where-the-job-mix-contends.md) (filed 2026-09-16): `tasks=4`
+- [Milestone 419 (`tasks=4` needs)](0419-more-repeats-where-the-job-mix-contends.md) (filed 2026-09-16): `tasks=4`
   needs more repeats, not more power cycles, with four options and a recommendation of reporting
   the spread. What was built is its options 1 and 3 together (a uniform 21, and the median with the
   ends beside it); its option 2, a per-point table, was refused above on measured board time. It
@@ -346,7 +346,7 @@ nothing. So each is `BUILT` below rather than absent, with what it bought and wh
   the first bench evening and a guess before it.
 - **Milestone 493.** The disk-file mix, blocked on a disk radon can drive and on a file-service
   channel per client (a wire format, so calef's).
-  milestone 493 (a disk-file job mix needs a disk), `design/roadmap/493-a-disk-file-job-mix-needs-a-disk-radon-can-drive.md`.
+  milestone 493 (a disk-file job mix needs a disk), `design/roadmap/0493-a-disk-file-job-mix-needs-a-disk-radon-can-drive.md`.
 - **Milestone 227.** The HVF cross-check on patagonia runs once the kernel has a GICv3 driver:
   `script/job-mix --hvf --release --smp 4`, alone on the host.
 - **Recorded.** The mix proportions are chosen rather than derived from an AIM7 workfile, so a
@@ -360,7 +360,7 @@ nothing. So each is `BUILT` below rather than absent, with what it bought and wh
   deterministic on any accelerator this tree has. A gate here would be asserting a tolerance nobody
   has measured, which is how `script/lint` has already lost three checks.
   This refusal is
-  milestone 464 (design/roadmap/464-a-committed-baseline-for-the-multitasking-sweep.md), which
+  milestone 464 (design/roadmap/0464-a-committed-baseline-for-the-multitasking-sweep.md), which
   carries it with the condition that would change it.
 
 ## Index row

@@ -47,7 +47,7 @@ hardware; criterion 2 was met on 2026-10-04 (see Follow-on), and criterion 3 is 
 Milestone 198's rulings table lists install layout as open, and milestone 525's `BUGS` calls the
 on-disk format provisional. One layout is now built (data first, two 64 MiB raw boot slots, a
 512 MiB FAT32 ESP holding the chooser), so the ruling is "ratify this, and pick a slot size". The
-seven questions are answered in [the layout ruling](515-the-installer-a-stick-runs-to-put-itself-on-the-disk/the-layout-ruling.md).
+seven questions are answered in [the layout ruling](0515-the-installer-a-stick-runs-to-put-itself-on-the-disk/the-layout-ruling.md).
 The slot size has the least room: the boot file grew from about 10 MiB to 15.6 MB in twelve days,
 and an installed disk cannot grow its slots.
 
@@ -221,7 +221,7 @@ PC once rung 1 has one.
 - **Milestone 572.** Open as milestone 572 (there is no way back from the stick: an installed disk is
   never offered an install again).
 - **Milestone 712.** Milestone 712 (the install gates run nowhere, so rung 2a can rot without anybody hearing). Nothing runs these three gates on any schedule:
-  `design/roadmap/712-the-install-gates-run-nowhere.md`.
+  `design/roadmap/0712-the-install-gates-run-nowhere.md`.
 
 ## Index row
 

@@ -165,26 +165,26 @@ kernel and the crate are byte-identical apart from the doc comment carrying the 
 
 ## Follow-on
 
-- **Recorded.** `design/roadmap/136-one-decision-path.md`'s own `BUGS`: the free-site pin is
+- **Recorded.** `design/roadmap/0136-one-decision-path.md`'s own `BUGS`: the free-site pin is
   scoped to one kernel module, `kernel/src/memory_region.rs` (the block's BUGS still calls it
   `untyped.rs`, its name before milestone 135), so a lane that frees region pages from another kernel module
   is not caught. A tree-wide pin over `memory::free`'s eleven other call sites would be noise.
-- **Recorded.** `design/roadmap/136-one-decision-path.md`'s own `BUGS`: the warrant check is line
+- **Recorded.** `design/roadmap/0136-one-decision-path.md`'s own `BUGS`: the warrant check is line
   order inside a function, not dataflow. A body that called `claim_for_destroy`, discarded the
   result, and then freed pages it had read some other way would pass. Closing it means an AST,
   which `script/lint` deliberately does not have.
-- **Recorded.** `design/roadmap/136-one-decision-path.md`'s own `BUGS`: `create`'s warrant is much
+- **Recorded.** `design/roadmap/0136-one-decision-path.md`'s own `BUGS`: `create`'s warrant is much
   weaker than `destroy`'s. The gate checks that `insert_root` was called, not that the free sits on
   its failure branch.
 - **Recorded.** `crates/memory_regions/src/table.rs` is what the surface pin covers, rather than
   the whole crate, so a new public item in `lib.rs` that exposed table state would go unseen. (The
   crate was `regions` when this block was written; DECISIONS §113's rename moved it.)
-- **Recorded.** `design/roadmap/136-one-decision-path.md`'s own `BUGS`: nothing checks that a newly
+- **Recorded.** `design/roadmap/0136-one-decision-path.md`'s own `BUGS`: nothing checks that a newly
   pinned item is actually searched by loom. The failure message asks for it in words, which is rung
   four of the ladder and says so.
-- **Recorded.** `design/roadmap/136-one-decision-path.md`'s own `BUGS`: a count of pinned items
+- **Recorded.** `design/roadmap/0136-one-decision-path.md`'s own `BUGS`: a count of pinned items
   says the surface has not moved, not that the surface is right.
-- **Milestone 355.** `design/roadmap/355-the-other-four-loom-surfaces.md`, gate the other four
+- **Milestone 355.** `design/roadmap/0355-the-other-four-loom-surfaces.md`, gate the other four
   loom-searched crates (`steal_request`, `clock_proto`, `wake_handshake`, `canary_gate`): each was
   lifted so loom could search it, and nothing checks that its callers still call the lifted code.
   Repeat this block's three-piece gate four more times, or build one mechanism pinning a

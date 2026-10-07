@@ -64,7 +64,7 @@ board without one they are unconfined. See DECISIONS §30 and notes/verification
   deliberately as the tractable path against seL4's Isabelle/HOL refinement, and the block keeps
   Verus as something to revisit only if a specific property needs a loop invariant rather than as
   work anybody owes.
-  This refusal is milestone 466 (design/roadmap/466-verus-and-unbounded-proof.md), which carries it
+  This refusal is milestone 466 (design/roadmap/0466-verus-and-unbounded-proof.md), which carries it
   with the condition that would change it.
 
 ## Index row

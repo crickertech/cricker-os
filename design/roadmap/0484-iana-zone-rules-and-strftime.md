@@ -5,9 +5,9 @@ refused_by: 51, 448
 ---
 # 484. IANA zone rules, and `strftime`
 
-Refused by milestone 51 (design/roadmap/51-wall-clock-time.md), and recorded
+Refused by milestone 51 (design/roadmap/0051-wall-clock-time.md), and recorded
 there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -22,7 +22,7 @@ From '51. Wall-clock time, the `date` command, and an NTP service', under `## Fo
 > are a data-distribution problem rather than a calendar one. There is no `strftime` either, five
 > named formats instead.
 >
-> -- design/roadmap/51-wall-clock-time.md
+> -- design/roadmap/0051-wall-clock-time.md
 
 ## Why it is here rather than only there
 

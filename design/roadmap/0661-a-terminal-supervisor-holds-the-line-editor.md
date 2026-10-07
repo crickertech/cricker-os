@@ -19,7 +19,7 @@ recommended answer adds a program, whose name is an architect's.
 
 calef, 2026-09-27T06:31Z: option A. Built the same day on PR #1382: `terminal_supervisor` (name
 provisional, calef's to name), with its guest test on all three architectures. The trigger is
-`694-the-installer-asks-the-terminal-to-swap.md`.
+`0694-the-installer-asks-the-terminal-to-swap.md`.
 
 ## Why it cannot be `system_initializer`
 
@@ -64,7 +64,7 @@ name) is the other thing an architect sees before it is built.
 
 ## Follow-on
 
-- **Milestone 694.** Milestone 694 (the installer asks the terminal to swap). The installer asking the terminal to swap, which nothing on a real boot does yet: `design/roadmap/694-the-installer-asks-the-terminal-to-swap.md`.
+- **Milestone 694.** Milestone 694 (the installer asks the terminal to swap). The installer asking the terminal to swap, which nothing on a real boot does yet: `design/roadmap/0694-the-installer-asks-the-terminal-to-swap.md`.
 
 ## Index row
 

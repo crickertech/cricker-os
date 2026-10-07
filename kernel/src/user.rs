@@ -1379,7 +1379,7 @@ pub const PROGENITOR_ENTRY: &str = "progenitor";
 ///
 /// **It was the whole milestone 7-19 role catalogue until milestone 291**, thirty-one roles in one
 /// binary. Twenty-two of them are their own programs or `block_driver`'s roles now; nine are left,
-/// and milestone 405, `design/roadmap/405-nine-init-roles-and-the-entry-the-kernel-picks.md`, is what would
+/// and milestone 405, `design/roadmap/0405-nine-init-roles-and-the-entry-the-kernel-picks.md`, is what would
 /// take them, since splitting them is a change to [`spawn_hello`]'s choice of entry rather
 /// than to `fixtures/`.
 ///
@@ -1449,7 +1449,7 @@ pub const PROGENITOR_ROLE: u64 = 27;
 ///
 /// **`hello` still has nine roles**, and splitting them is a follow-on to milestone 291
 /// (`fixtures/src/hello.rs` was thirty-one programs wearing one name), tracked as milestone 405
-/// (`design/roadmap/405-nine-init-roles-and-the-entry-the-kernel-picks.md`): six are separate
+/// (`design/roadmap/0405-nine-init-roles-and-the-entry-the-kernel-picks.md`): six are separate
 /// programs waiting to happen, and each would need its own archive entry named here.
 ///
 /// Name: ratified 2026-09-15 (calef, this header). Refused keeping `spawn_progenitor`, the name
@@ -3542,7 +3542,7 @@ fn boot_virtio_mmio_device(d: crate::virtio::VirtioMmioDevice) -> Option<VirtioB
 /// (`system_tests/src/user/std_service.rs`): "nothing configured this program's locale or terminal, so
 /// tell it the least assuming thing" is the honest baseline, the same posture `boot_clock_page`
 /// takes for a machine with no RTC. There is no shell-held default config set yet to pass instead
-/// (the "inheritance with visibility" shape design/roadmap/47-navigation-and-naming.md names);
+/// (the "inheritance with visibility" shape design/roadmap/0047-navigation-and-naming.md names);
 /// this is the fixed default until one exists.
 fn boot_config_page() -> u64 {
     let bytes = environment_protocol::PageBuilder::new()

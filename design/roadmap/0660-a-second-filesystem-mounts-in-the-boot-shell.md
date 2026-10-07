@@ -26,7 +26,7 @@ Until one exists there is nothing honest to mount. That is why the boot shell pa
 The presentation is "one tree with other trees mounted at names in it" (calef, 2026-09-26). The
 shell shows one root. A second tree appears at a mount point, a `/media/<label>` convention or
 wherever the owner binds it, and `pwd` prints the mount path. `cd ..` from a mount point goes to its
-parent, pending calef (683-what-dot-dot-does-at-a-mount-point.md). Milestone 154 built all of that
+parent, pending calef (0683-what-dot-dot-does-at-a-mount-point.md). Milestone 154 built all of that
 and proved it on the real wire (notes/two-trees.md).
 
 The transport is option 1 of that note's proposal. Init puts the second tree's endpoint at a named

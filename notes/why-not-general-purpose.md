@@ -56,9 +56,9 @@ This is the list to trust, and it is much shorter than the one above it.
 - No DNS. `smoltcp` is built with `socket-udp`, `socket-tcp`, `socket-dhcpv4` and no
   `socket-dns`, and nothing else in the tree resolves names. **A program cannot turn a hostname into
   an address**, so nothing here can fetch a URL however much HTTP it has. See
-  `design/roadmap/384-a-name-resolver-and-who-holds-it.md`.
+  `design/roadmap/0384-a-name-resolver-and-who-holds-it.md`.
 - No HTTP, and no TLS. No client, no server, and a crypto surface of `argon2`, `subtle` and
-  `aes`. The TLS fork is milestone 387, `design/roadmap/387-a-tls-stack-and-which-one.md`.
+  `aes`. The TLS fork is milestone 387, `design/roadmap/0387-a-tls-stack-and-which-one.md`.
 - No dynamic linking. Static only, every program a standalone ELF in the archive. This is the
   one row of the old table that survived intact, and it is a real barrier for software that expects
   to `dlopen` a plugin.

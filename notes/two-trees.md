@@ -24,7 +24,7 @@ the ruling left open (below).
 That ruling replaced an earlier cut of this work that gave each tree a label and printed `/b/logs`,
 following §126 (a real, single, moving cwd). §126's single moving position survives; its labels do
 not. The ruling's decision record is pull request #1380, and it leaves what `..` does at a mount
-point open: the shell goes to the parent, and design/roadmap/683-what-dot-dot-does-at-a-mount-point.md
+point open: the shell goes to the parent, and design/roadmap/0683-what-dot-dot-does-at-a-mount-point.md
 asks calef to confirm.
 
 So the shell's position is one path, `Holdings::cwd`, and a second tree is only a mount point,
@@ -85,7 +85,7 @@ policy. Init puts the endpoint at a named slot, the shell probes it at `_start`,
 constant holds the mount path and rights. It lands with the first real second filesystem, and so do
 two behaviors calef set: a dead mount answers Gone and disappears, and a shell inside it goes home
 with a message. The automatic mount name and who receives a new device are deferred decisions.
-All of it is design/roadmap/660-a-second-filesystem-mounts-in-the-boot-shell.md.
+All of it is design/roadmap/0660-a-second-filesystem-mounts-in-the-boot-shell.md.
 
 ## BUGS
 

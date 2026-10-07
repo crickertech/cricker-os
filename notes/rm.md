@@ -101,7 +101,7 @@ the names this run has already taken away.
   caretaker's whole attenuation is one `OPENDIR` *into* the granted directory and the root has no name
   to descend into. `rm a/b/c.txt` is refused for the neighboring reason, that progenitor builds one
   caretaker and a deeper grant is a chain of them. See notes/dir-capability.md's BUGS for both, and
-  design/roadmap/31-capability-shell.md for the fork the root case is waiting on.
+  design/roadmap/0031-capability-shell.md for the fork the root case is waiting on.
 - **The end of the stream is the verdict**, and it must not look like a byte count. The report channel
   carries text frames (first word = a byte count, at most 16) and then `byte_sink_protocol::eof()`, whose
   first word is `OPERATION_EOF << 56`; the status and the removal count ride in the two words that message
@@ -123,6 +123,6 @@ the names this run has already taken away.
 
 - DECISIONS §47 (a directory capability carries six rights), §48 (navigation is the shell
   rebinding what it holds), §42 (a filesystem declares what it offers and must be truthful).
-- Milestone 47's "`rmdir` and `rm -r`: Unix already made the safe choice" in `design/roadmap/47-navigation-and-naming.md`.
+- Milestone 47's "`rmdir` and `rm -r`: Unix already made the safe choice" in `design/roadmap/0047-navigation-and-naming.md`.
 - `notes/dir-capability.md` for the rights ladder and `fs_subtree_caretaker`, and
   `notes/glob-grant.md` for the nameset caretaker a pattern operand is served by.

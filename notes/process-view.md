@@ -644,7 +644,7 @@ through the shell -- but unlike `ps`, that is the only place `pmap` runs today.
 This is not this lane's decision to make, and it was not decided here. A fix would need a
 builder to hand a narrowed, still-registered view of a space it is constructing to a third party
 *before* `CONFIGURE` consumes its own copy, which changes how spawning works rather than how
-`pmap` works, and is named as an open finding in `design/roadmap/126-who-else-is-running.md`'s
+`pmap` works, and is named as an open finding in `design/roadmap/0126-who-else-is-running.md`'s
 `BUGS` and `crates/pmap`'s own for whoever picks it up.
 
 ## `watch` was built, and then cut (milestone 281)
@@ -695,6 +695,6 @@ this view, under §225 (`free` sees the machine and your share): see
 [the machine and your share](process-view/the-machine-and-your-share.md). The forks are written up
 in [what is left](process-view/what-is-left.md).
 
-See `design/roadmap/126-who-else-is-running.md`, notes/glob.md (the matcher `pgrep` reuses),
+See `design/roadmap/0126-who-else-is-running.md`, notes/glob.md (the matcher `pgrep` reuses),
 notes/supervision.md (the mechanism this reads),
 notes/pipes.md (the second stream), and notes/program-manifest.md (how the grant is declared).

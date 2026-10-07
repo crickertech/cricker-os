@@ -13,19 +13,19 @@ with a tree's label: the person sees one root, and other trees appear at mount n
 single moving cwd below stands.*
 
 calef, 2026-08-25, in conversation, closing one of [milestone
-154](../roadmap/154-multi-directory-namespace.md)'s own three "still open" items. Raised as a
+154](../roadmap/0154-multi-directory-namespace.md)'s own three "still open" items. Raised as a
 direct question: "Let's do a real cwd. Isn't that a better user experience?" Answered yes, with
 the boundary behavior settled below.
 
 ## The question
 
-[Milestone 154](../roadmap/154-multi-directory-namespace.md) built `grant_plan::nav::TwoRoots`: a
+[Milestone 154](../roadmap/0154-multi-directory-namespace.md) built `grant_plan::nav::TwoRoots`: a
 process holding two labeled directory capabilities can resolve `/a/...` against the first and
 `/b/...` against the second, and `/a/../b` is refused because there is nothing above `a`'s own
 root to pop. That mechanism is deliberately stateless: every lookup is absolute and labeled, and a
 bare relative name (no leading `/`) is refused outright, because "a two-grant holder has two roots
 and no reason to prefer either" (`TwoRoots::resolve`'s own doc comment) is exactly the shadowing
-question [milestone 47](../roadmap/47-navigation-and-naming.md)'s four open questions leave
+question [milestone 47](../roadmap/0047-navigation-and-naming.md)'s four open questions leave
 undecided.
 
 The milestone's own text left "wiring a second grant into the real interactive boot" as calef's
@@ -74,12 +74,12 @@ capability-boundary reasoning that motivated the one-grant refusal in the first 
 identically to two.
 
 Starting position: the first-listed grant's own root (`which = A`), matching the existing
-"slot 0 is always the first grant" precedent [milestone 154](../roadmap/154-multi-directory-namespace.md)
+"slot 0 is always the first grant" precedent [milestone 154](../roadmap/0154-multi-directory-namespace.md)
 already established for cspace ordering. No new precedent needed.
 
 ## What this does not decide
 
-[Milestone 47](../roadmap/47-navigation-and-naming.md)'s four open questions (unions and shadowing
+[Milestone 47](../roadmap/0047-navigation-and-naming.md)'s four open questions (unions and shadowing
 across more than two labeled sources, enumeration, the compile-time-set-to-runtime-lookup gap,
 whether `$PATH` survives as a string) remain exactly as open as they were. This decision is
 narrower than any of them: two disjoint, individually-labeled trees, one position at a time, no
@@ -89,6 +89,6 @@ name ever meaning two different things. `grant_plan::Holdings`'s extension to ca
 ## What it unblocks
 
 The `(which, pos)` design gives whoever builds the rest of [milestone
-154](../roadmap/154-multi-directory-namespace.md)'s "still open" list (extending `caps`'s display,
+154](../roadmap/0154-multi-directory-namespace.md)'s "still open" list (extending `caps`'s display,
 the shell-to-init spawn-protocol encoding) a real state shape to extend `Holdings` with, rather
 than an open question to re-raise.

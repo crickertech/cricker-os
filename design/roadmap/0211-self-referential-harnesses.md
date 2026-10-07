@@ -132,16 +132,16 @@ implementation back at itself.
   test" from "legitimately asserts agreement", and agreeing with itself is sometimes the property
   you want, so a gate that flagged every such harness would be wrong more often than right. The
   output is eleven falsification patches and a worklist instead.
-  This refusal is milestone 470 (design/roadmap/470-a-gate-on-harness-quality.md), which carries it
+  This refusal is milestone 470 (design/roadmap/0470-a-gate-on-harness-quality.md), which carries it
   with the condition that would change it.
-- **Recorded.** `design/roadmap/211-self-referential-harnesses.md`: the rewrite is harder than the
+- **Recorded.** `design/roadmap/0211-self-referential-harnesses.md`: the rewrite is harder than the
   finding. Stating a property without the vocabulary the code uses is where specification work is
   expensive, and for some properties there may be no independent statement worth having.
-- **Recorded.** `design/roadmap/211-self-referential-harnesses.md`: the sweep's own output can rot,
+- **Recorded.** `design/roadmap/0211-self-referential-harnesses.md`: the sweep's own output can rot,
   since a harness found fine today can become self-referential under a refactor and nothing will say
   so. The eleven findings are protected by §134's replayed patches; the 135 cleared harnesses carry
   no artifact at all.
-- **Recorded.** `design/roadmap/211-self-referential-harnesses.md`: eleven is a floor rather than a
+- **Recorded.** `design/roadmap/0211-self-referential-harnesses.md`: eleven is a floor rather than a
   count. Each finding is a defect somebody thought of, and "no blind spot demonstrated" only means
   nobody has broken it the right way yet.
 

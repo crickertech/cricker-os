@@ -147,7 +147,7 @@ a replay cannot model that.
 
 C also moves the shell's build after the block and drops `term_out` earlier, in the fuller form.
 Neither changes a gpu boot's peak either, for the plateau reason above. The block that owns the
-decision is [milestone 753](../design/roadmap/753-trace-the-progenitors-login-block-peak.md), and
+decision is [milestone 753](../design/roadmap/0753-trace-the-progenitors-login-block-peak.md), and
 the costs and the seven questions for each option are there.
 
 ## What the raise cost, measured

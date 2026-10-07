@@ -326,7 +326,7 @@ Parts 1 and 2 only. Each of these was checked against the tree on 2026-09-19, on
   the 77 are bounds or offset shapes, so the reading of the list was close, but only twelve are
   guards a prefix of a valid input can reach, and a prefix loop that asserts only "it returns an
   error" kills half of even those. The note has the argument.
-- **Milestone 793.** Milestone 793 (one crate for the right-aligned number writer three programs each copy). `design/roadmap/793-one-crate-for-the-copied-right-aligned-number-writer.md`: `write_right` is copied into three programs.
+- **Milestone 793.** Milestone 793 (one crate for the right-aligned number writer three programs each copy). `design/roadmap/0793-one-crate-for-the-copied-right-aligned-number-writer.md`: `write_right` is copied into three programs.
 
 ## Index row
 

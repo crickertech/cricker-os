@@ -70,7 +70,7 @@ outside, which is the strongest argument any name gets here.
   the number means giving the shell an allocator or the grant a different carrier, which is its own
   decision with its own argument, and `xargs` is still wanted afterwards because the ceiling moves
   rather than disappearing.
-  This refusal is milestone 451 (design/roadmap/451-more-than-eight-names-in-a-grant.md), which
+  This refusal is milestone 451 (design/roadmap/0451-more-than-eight-names-in-a-grant.md), which
   carries it with the condition that would change it.
 - **Recorded.** `notes/glob-grant.md` states the bound first: a directory with nine matching files
   cannot be handed to one invocation at all, and the answer is a refusal with nothing spawned. The
@@ -79,7 +79,7 @@ outside, which is the strongest argument any name gets here.
 - **Recorded.** `notes/glob-grant.md` also records that only the first pattern on a line is
   expanded, which interacts with this command: an `xargs` whose input is a second operand meets a
   shell that has no second name slot.
-- **Recorded.** `design/roadmap/109-xargs-at-the-grant-bound.md` says the name is provisional and
+- **Recorded.** `design/roadmap/0109-xargs-at-the-grant-bound.md` says the name is provisional and
   an architect's call, like every name a lane ships. It is what milestone 47 and both glob notes
   call it, and it is a standard term a reader already knows from outside, which is the strongest
   argument any name gets here.

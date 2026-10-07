@@ -81,7 +81,7 @@ lands (~2026-08-21).
   reports 16 implemented `satp.ASID` bits, QEMU does not model a narrower width per CPU, and so
   `the_hardware_has_at_least_the_asid_bits_the_allocator_assumes` still has no machine that can fail
   it.
-- **Recorded.** `design/roadmap/59-cpu-model-matrix.md`'s own BUGS: `sifive-u54` under QEMU is still
+- **Recorded.** `design/roadmap/0059-cpu-model-matrix.md`'s own BUGS: `sifive-u54` under QEMU is still
   QEMU and reproduces none of the JH7110's cache behavior, memory map or errata, and a green matrix
   is the absence of one class of failure rather than a portable kernel.
 

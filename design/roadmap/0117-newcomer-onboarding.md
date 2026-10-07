@@ -538,7 +538,7 @@ fully handed off: five of seven items were still open four days later, which is 
    that.
 6. Handoff 4/6, nominated by three successive strangers, now has a tracked home: minted as
    milestone 150, "Adding a program should not need eight hand-maintained lists"
-   (`design/roadmap/150-program-declaration-data.md`, provisional number; 147, 148 and 149 were
+   (`design/roadmap/0150-program-declaration-data.md`, provisional number; 147, 148 and 149 were
    already claimed by other lanes' pull requests, one of them merged into this lane's own base
    commit). `notes/adding-a-program.md`'s `BUGS` section now points at 150 instead of at this
    milestone's own handoff list, which was a circular reference: the mechanism it asked for is not
@@ -598,7 +598,7 @@ conducted under the cadence rather than because somebody thought of it. Run 6 ha
 after `--due` began exiting 1, and its record is in notes/stranger-test.md. **It did not happen
 because the cadence fired**: the weekly workflow could not go red before 2026-09-21, and a
 maintainer's brief is what started it. That is recorded rather than glossed, and its home is a
-proposal (`design/roadmap/495-a-due-cadence-reaches-nobody.md`) rather than this block,
+proposal (`design/roadmap/0495-a-due-cadence-reaches-nobody.md`) rather than this block,
 because the gap is shared with the audit cadence, which has been red five Mondays running with
 nobody acting: it is a fault in how any scheduled "due" reaches a person, not in the stranger test.
 What this milestone owns (the instrument, the rubric, the harness, the cadence sentence, the
@@ -615,7 +615,7 @@ Run 6's headline results, in full in the note:
   a documented QEMU version gap led the stranger to build and install the pinned QEMU into an
   account-wide prefix, which would have changed the emulator under two other lanes. The operator's
   re-run passed on the same QEMU. Homed in notes/x86-uefi-boot.md's and notes/qemu.md's `BUGS`
-  and in `design/roadmap/516-uefi-test-exits-one-after-a-passing-suite.md`.
+  and in `design/roadmap/0516-uefi-test-exits-one-after-a-passing-suite.md`.
 - The instrument changed under it. The CLI's default model refused the task three times out
   of three, so run 6 ran on `claude-sonnet-5`; the stranger ended its session waiting on
   background work and wrote no write-up; and `script/lint` in the clone announced the withheld
@@ -668,9 +668,9 @@ the milestone should say so wherever it reports a number.
 - **Done.** `script/names` prints one worklist count everywhere (69 of 222 today), provisional
   included, and design/naming.md's `BUGS` entry is removed.
 - **Milestone 495.** A due cadence reaches nobody, and the watcher cannot tell due from dead:
-  milestone 495 (a cadence that says "due" reaches nobody), `design/roadmap/495-a-due-cadence-reaches-nobody.md`.
+  milestone 495 (a cadence that says "due" reaches nobody), `design/roadmap/0495-a-due-cadence-reaches-nobody.md`.
 - **Milestone 516.** `uefi-test` can exit 1 after its own suite passed:
-  milestone 516 (uefi-test can exit 1 after its own), `design/roadmap/516-uefi-test-exits-one-after-a-passing-suite.md`.
+  milestone 516 (uefi-test can exit 1 after its own), `design/roadmap/0516-uefi-test-exits-one-after-a-passing-suite.md`.
 - **Recorded.** The CLI's default model refuses the task text, a stranger that waits on background
   work ends its own run, a stranger can write to the machine, and `script/lint` announces the
   withholding: all in `script/stranger-test`'s `BUGS`, each naming what would change it and whose

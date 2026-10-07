@@ -101,7 +101,7 @@ Nothing above depended on it: `ripgrep` stops at the missing argument vector of 
 foreign program is told what to do), not at `std::fs`. What it adds is one more std surface that
 answers rather than refuses, with a caveat a stranger's program can trip over. A file written on
 nife reports an mtime in early 1970, because the FS server stamps a per-mount counter (notes/std.md;
-proposed as design/roadmap/497-a-filesystem-server-that-knows-the-time.md). Written by the milestone
+proposed as design/roadmap/0497-a-filesystem-server-that-knows-the-time.md). Written by the milestone
 64 lane, which does not normally edit this file; the status check requires the entry to know.
 
 The same published argument that sharpens risk 8 sharpens this one, and it is the same paper: Li et

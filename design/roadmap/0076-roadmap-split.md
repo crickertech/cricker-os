@@ -45,7 +45,7 @@ The fourth is eight instances of one mistake, made by the integrator, invisible 
 block sits. That is the same well-formed-but-wrong blind spot CLAUDE.md already records for citations.
 
 A split does not detect those. It makes three of the four impossible: there are no sections to file a
-block under, the filename is the identity, and `cat >>` into `design/roadmap/74-cycle-counters.md`
+block under, the filename is the identity, and `cat >>` into `design/roadmap/0074-cycle-counters.md`
 can only add text to milestone 74.
 
 It also removes a conflict that already happened: PR #19 and PR #20 collided on `design/roadmap.md`
@@ -57,8 +57,8 @@ solely because each marked its own milestone `BUILT`.
   README automatically, so browsing to `design/roadmap/` shows the index, and this is the pattern
   `notes/README.md` already sets, which `script/lint` already enforces ("every notes/*.md must appear
   in notes/README.md").
-- `design/roadmap/74-cycle-counters.md` per milestone. Hyphenated, per CLAUDE.md's rule for ordinary
-  markdown. Numbers run 12 to 76 today and one block is sub-lettered (`20a`), so `20a-name-the-seams.md`
+- `design/roadmap/0074-cycle-counters.md` per milestone. Hyphenated, per CLAUDE.md's rule for ordinary
+  markdown. Numbers run 12 to 76 today and one block is sub-lettered (`20a`), so `0020a-name-the-seams.md`
   is the shape for those.
 - The three `##` essays currently interleaved among the blocks are design prose, not milestones, and
   become their own files under `design/`: "One decision this roadmap still forces", "The display

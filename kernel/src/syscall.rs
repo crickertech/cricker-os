@@ -46,7 +46,7 @@ use crate::sched;
 ///
 /// **`#[inline(never)]` keeps this a symbol `script/fastpath-footprint` can name**, which is the
 /// third instance of a pattern the tree has now recorded twice
-/// (`design/roadmap/368-a-flat-entry-set-counts-bytes-no-syscall-fetches.md`): that gate's
+/// (`design/roadmap/0368-a-flat-entry-set-counts-bytes-no-syscall-fetches.md`): that gate's
 /// `syscall_entry` half sums a flat list of symbols, so an LLVM inlining flip moves bytes into or
 /// out of the measurement without anything on the syscall path changing. Milestone 220's lane hit
 /// the *outward* direction, which is the one that reads as good news and is not: adding an
@@ -1814,7 +1814,7 @@ mod tests {
 
     /// **`RETYPE` mints a run, `0` still means one page, and a run that does not fit moves
     /// nothing** (calef's ruling of 2026-09-26, option A of
-    /// design/roadmap/659-a-region-retypes-a-frame-run.md). Through the real handler, so the
+    /// design/roadmap/0659-a-region-retypes-a-frame-run.md). Through the real handler, so the
     /// argument reaches the proved arithmetic and the capability names the whole run.
     #[test_case]
     fn retype_mints_a_run_and_a_refused_run_moves_nothing() {

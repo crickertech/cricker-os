@@ -170,7 +170,7 @@ from the tree; these two bullets are the first thing it found.)*
   `script/soak-test`, `script/job-mix` and a board, and none of those runs on a pull request. This
   is why the step looked vestigial: it is not unused, it is **unasserted**, and the two are
   indistinguishable from a grep. Written up as milestone 406,
-  `design/roadmap/406-nothing-in-ci-boots-the-riscv-tour.md`.
+  `design/roadmap/0406-nothing-in-ci-boots-the-riscv-tour.md`.
 - `builder` loads its child unmeasured. Already recorded in `notes/trusted-init.md`'s "Still not
   covered", and this milestone raises what it costs rather than fixing it: that note prices the gap as
   affecting "test or demo programs rather than the shipped system", and on the board path `builder` is

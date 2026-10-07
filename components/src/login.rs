@@ -1,5 +1,5 @@
 //! **The login service: authentication produces capabilities** (milestone 49,
-//! design/roadmap/49-users-and-attribution.md, DECISIONS §109).
+//! design/roadmap/0049-users-and-attribution.md, DECISIONS §109).
 //!
 //! Unix login authenticates and then mutates a global identity field, which is uid's whole trick
 //! and the thing this system refuses to have. This process authenticates a presented identity
@@ -148,7 +148,7 @@
 //! # The terminal: single-session, deny cleanly
 //!
 //! Resolved 2026-08-27, executing the recommendation
-//! `design/roadmap/49-users-and-attribution.md`'s own BUGS already recorded rather than deciding it
+//! `design/roadmap/0049-users-and-attribution.md`'s own BUGS already recorded rather than deciding it
 //! fresh here. Milestone 49's own text names three things a login hands back (a directory, a
 //! budget, a terminal); this program used to hand back two. The reason "hand one back" was ever a
 //! real design question rather than an unbuilt feature: a terminal in this system is a singleton
@@ -463,7 +463,7 @@
 //! with exactly one spender, so a channel region is always its only live child and always comes home
 //! whole. See that constant's own doc.
 //!
-//! **Resolved, 2026-08-27 (executing `design/roadmap/49-users-and-attribution.md`'s own recorded
+//! **Resolved, 2026-08-27 (executing `design/roadmap/0049-users-and-attribution.md`'s own recorded
 //! recommendation).** The roadmap's own text names three things a login hands back: a root
 //! directory, a budget, a terminal. This program now hands back all three, in the single-session,
 //! deny-cleanly shape that recommendation named: see "The terminal: single-session, deny cleanly"
@@ -552,7 +552,7 @@
 //! 2. **A real subtree and a real credential for whoever is meant to log in**, which
 //!    `identity_provisioner` (milestone 155) already builds the tool for, but that tool has the
 //!    identical "spawned only by the kernel's guest test harness" bound this program's own BUGS
-//!    used to name (`design/roadmap/155-*`'s own BUGS, unchanged). Wiring it in is the same shape
+//!    used to name (`design/roadmap/0155-*`'s own BUGS, unchanged). Wiring it in is the same shape
 //!    of `build_child` call as (1); it is listed separately because it raises the next point.
 //! 3. **Where the demo credential's password comes from**, which is a real, undecided fork and not
 //!    a wiring detail: nothing today provisions a subtree or a credential for a real boot, and a
@@ -571,7 +571,7 @@
 //!    the sense that would block a lane from attempting it.
 //!
 //! **Why (1)-(3) are not this file's own BUGS to carry alone.** They live one level up, in
-//! `design/roadmap/49-users-and-attribution.md`'s own BUGS, because they are facts about the boot's
+//! `design/roadmap/0049-users-and-attribution.md`'s own BUGS, because they are facts about the boot's
 //! wiring and milestone 155's own tool, not about what this program does or does not do; this
 //! program's own contract (VERIFY, `FS_EP`, `FS_PAGE`, a construction budget, AUDIT, and now what a
 //! wired `boot` would need to add: a terminal, see below) is unchanged by any of them.

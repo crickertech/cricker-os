@@ -124,13 +124,13 @@ the build rather than after it. What no host check covers is a real card's files
 
 ## Follow-on
 
-- **Recorded.** `design/roadmap/217-matched-pair-on-the-card.md` BUGS: this block does not fix any
+- **Recorded.** `design/roadmap/0217-matched-pair-on-the-card.md` BUGS: this block does not fix any
   card. Re-flashing is a bench action, and radon's pair is stale until somebody does it.
-- **Recorded.** `design/roadmap/217-matched-pair-on-the-card.md` BUGS: the card option has only ever
+- **Recorded.** `design/roadmap/0217-matched-pair-on-the-card.md` BUGS: the card option has only ever
   written to a directory on a Mac's own disk. Nothing here has touched a real microSD card, and the
   `sync` it issues afterwards is the ordinary defense against pulling a card too early rather than a
   tested one.
-- **Recorded.** `design/roadmap/217-matched-pair-on-the-card.md` BUGS: the measured-boot refusal is
+- **Recorded.** `design/roadmap/0217-matched-pair-on-the-card.md` BUGS: the measured-boot refusal is
   treated as correct because it fired on a real mismatch, and this milestone makes no claim about
   what that gate would miss.
 - **Refused.** Having the card option prove that the path it was given is really a memory card. The

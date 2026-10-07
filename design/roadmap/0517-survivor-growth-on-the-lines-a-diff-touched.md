@@ -288,7 +288,7 @@ follow-on.
 
 ## Follow-on
 
-- **Milestone 479.** milestone 479 (a blocking `--in-diff` mutation gate), `design/roadmap/479-a-blocking-mutation-gate-on-the-diff.md`,
+- **Milestone 479.** milestone 479 (a blocking `--in-diff` mutation gate), `design/roadmap/0479-a-blocking-mutation-gate-on-the-diff.md`,
   whose `## Revisit` asks for "a second measurement, on the experiment measurement 1 could not run".
   This is that measurement. The refusal is still calef's to lift or keep, and this lane does not edit
   that block.

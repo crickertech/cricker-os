@@ -217,11 +217,11 @@ separate work.
   are correct propagation where the callee has reported, and the one that looked silent
   (`screendump`) is a documented retry signal. An error type plus a conversion at every boundary and
   roughly ninety edits would reproduce diagnostics the tree already emits.
-- **Recorded.** `design/roadmap/130-the-copy-that-outlived-its-reason.md`'s BUGS section keeps what
+- **Recorded.** `design/roadmap/0130-the-copy-that-outlived-its-reason.md`'s BUGS section keeps what
   the branch rename cost: GitHub closed the pull request rather than retargeting it, so #278 became
   #284 with the same branch and the same commits. The next person to rename a branch under an open
   pull request should expect it.
-- **Milestone 365.** `design/roadmap/365-xtask-in-modules.md`, split `xtask/src/main.rs`, 6,785
+- **Milestone 365.** `design/roadmap/0365-xtask-in-modules.md`, split `xtask/src/main.rs`, 6,785
   lines with no module structure when this was written and 10,680 on 2026-09-19, into modules. The compiler verifies the split completely so the
   edit is mechanical; what it needs is a scheduled slot, because that file is one of the three merge
   hotspots every lane wires its test into and a wholesale restructure conflicts with every branch in

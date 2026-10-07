@@ -30,7 +30,7 @@ a flat arm64 Image and getting the device tree.
 - **Refused.** The EL2 to EL1 drop the original row promised alongside the vectors. QEMU's `virt`
   machine enters a flat Image at EL1, so there was nothing to drop from, and building the mechanism
   with no caller would have been guessing at what a later board needs.
-  This refusal is milestone 449 (design/roadmap/449-the-el2-to-el1-drop.md), which carries it with
+  This refusal is milestone 449 (design/roadmap/0449-the-el2-to-el1-drop.md), which carries it with
   the condition that would change it.
 
 ## Index row

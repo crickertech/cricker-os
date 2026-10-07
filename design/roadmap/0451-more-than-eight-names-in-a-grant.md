@@ -5,9 +5,9 @@ refused_by: 109, 448
 ---
 # 451. More than eight names in a single grant
 
-Refused by milestone 109 (design/roadmap/109-xargs-at-the-grant-bound.md), and
+Refused by milestone 109 (design/roadmap/0109-xargs-at-the-grant-bound.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -25,7 +25,7 @@ From '109. `xargs`: batching a grant too large to hand over', under `## Follow-o
 > decision with its own argument, and `xargs` is still wanted afterwards because the ceiling moves
 > rather than disappearing.
 >
-> -- design/roadmap/109-xargs-at-the-grant-bound.md
+> -- design/roadmap/0109-xargs-at-the-grant-bound.md
 
 ## Why it is here rather than only there
 

@@ -136,7 +136,7 @@ pub static SKIP_REASON_LEN: AtomicUsize = AtomicUsize::new(0);
 static PRINTED_A_SKIP_WORD: AtomicBool = AtomicBool::new(false);
 
 /// **The mechanism that keeps [`skip!`] from being optional**, from milestone 214
-/// (design/roadmap/214-print-and-return-skips.md), on a test that prints "skipping" and returns
+/// (design/roadmap/0214-print-and-return-skips.md), on a test that prints "skipping" and returns
 /// being counted as passed.
 ///
 /// `skip!()` existed and was one macro away, and eighty-odd `#[test_case]`s reached for
@@ -1292,7 +1292,7 @@ impl<T: Fn()> Testable for T {
                 "this test printed \"skip\" and then returned, so the run counts it as a PASS. \
                  A test whose fixture is absent calls testing::skip!(reason), which returns and \
                  puts it in the skipped column; a println! and a `return` are indistinguishable \
-                 from proving the claim. See design/roadmap/214-print-and-return-skips.md.",
+                 from proving the claim. See design/roadmap/0214-print-and-return-skips.md.",
             );
         }
 

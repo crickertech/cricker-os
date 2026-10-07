@@ -174,7 +174,7 @@ it does, beside the serial console rather than instead of it:
 The gate is `cargo xtask uefi-boot`'s second and third stages: the prompt on the screen, and the
 answer to `echo typed on the wire` typed on the serial line. The block has the decisions, what lost,
 and xenon's bench step:
-[400-the-shell-on-the-firmware-screen.md](../design/roadmap/400-the-shell-on-the-firmware-screen.md).
+[0400-the-shell-on-the-firmware-screen.md](../design/roadmap/0400-the-shell-on-the-firmware-screen.md).
 
 ## The boards' screen: `ramfb`, and why it is the other way round
 

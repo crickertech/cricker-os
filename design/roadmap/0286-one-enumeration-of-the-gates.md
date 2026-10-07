@@ -12,7 +12,7 @@ places the gating set was written down. *(Number provisional until the merge que
 pass, with a tier saying whether a developer waits for it; with no arguments it runs that tier,
 cheapest first, and with names it runs exactly those, which is how `.github/workflows/ci.yml` fans
 them into parallel jobs. The tier names and what "no arguments" means are provisional pending
-calef: milestone 440, `design/roadmap/440-what-no-arguments-means.md`, states the options, their
+calef: milestone 440, `design/roadmap/0440-what-no-arguments-means.md`, states the options, their
 costs and the recommendation.
 
 ## The defect, and how it was already failing
@@ -155,9 +155,9 @@ now records that it asserted the opposite for a month.
 - **Recorded.** A CI job can still bypass the table, and the gate that would catch it is refused for
   now; in this block's `BUGS`, with the reason.
 - **Recorded.** Live references to the retired name in blocks a lane may not edit, handed to
-  the integrator with file, line and replacement: `design/roadmap/274-apple-silicon-isa-support.md`
+  the integrator with file, line and replacement: `design/roadmap/0274-apple-silicon-isa-support.md`
   (a `NOT-STARTED` block, so live intent) and
-  `design/roadmap/341-instruments-nothing-runs.md`, whose `Gate:` line asked which instrument joins
+  `design/roadmap/0341-instruments-nothing-runs.md`, whose `Gate:` line asked which instrument joins
   the retired script and was corrected when milestone 433 (drain the proposal pile to zero, and keep it there) numbered it on 2026-09-19. The other fifteen blocks are accounts
   and keep the old name, as did the four index rows, until the index was retired on 2026-09-21.
 - **Milestone 397.** `script/bootstrap` conflates installing what is missing with verifying the

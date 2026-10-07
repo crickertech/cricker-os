@@ -42,8 +42,8 @@ which test. The display half in particular is not merely a `-device` line: miles
 records that `console`, `input` and `keyboard_driver` want work beyond attaching hardware.
 
 Recorded in the meantime where a reader meets the gap:
-`design/roadmap/303-x86-64-fs-disk.md`'s `BUGS`, and
-`design/roadmap/215-x86-64-pci-interrupt-routing.md`, which listed the set first.
+`design/roadmap/0303-x86-64-fs-disk.md`'s `BUGS`, and
+`design/roadmap/0215-x86-64-pci-interrupt-routing.md`, which listed the set first.
 
 ## Index row
 

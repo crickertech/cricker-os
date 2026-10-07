@@ -50,7 +50,7 @@ The handoff page count (`component_plan::Handoff` grows `pages`), then the `line
 
 ## Follow-on
 
-- **Milestone 669.** Milestone 669 (swap `line_editor` live under `system_initializer`). The handoff page count and the `line_editor` swap this unblocked: the swap itself is `design/roadmap/669-swap-line-editor-live-under-system-initializer.md`.
+- **Milestone 669.** Milestone 669 (swap `line_editor` live under `system_initializer`). The handoff page count and the `line_editor` swap this unblocked: the swap itself is `design/roadmap/0669-swap-line-editor-live-under-system-initializer.md`.
 
 ## Index row
 

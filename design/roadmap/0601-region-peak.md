@@ -62,10 +62,10 @@ was measured at 256 of 256. It is cheap to reverse either way, and nothing is bl
 
 ## Follow-on
 
-- **Milestone 676.** Milestone 676 (the NTP and login tests give their regions back, or say why they keep them). `design/roadmap/676-the-ntp-and-login-tests-give-their-regions-back.md`:
+- **Milestone 676.** Milestone 676 (the NTP and login tests give their regions back, or say why they keep them). `design/roadmap/0676-the-ntp-and-login-tests-give-their-regions-back.md`:
   those two modules hold a third of the region residue, and only the login service is on the held
   list.
-- **Milestone 671.** Milestone 671 (tests retype their rendezvous from their own region, so the registry stops filling). `design/roadmap/671-tests-retype-their-rendezvous-from-their-own-region.md`:
+- **Milestone 671.** Milestone 671 (tests retype their rendezvous from their own region, so the registry stops filling). `design/roadmap/0671-tests-retype-their-rendezvous-from-their-own-region.md`:
   466 of aarch64's 505 live rendezvous sit on kernel chunks that are never freed.
 - **Recorded.** A split refused for a full table leaks its parent: the `# BUGS` entry on
   `RegionTable::split` in `crates/memory_regions/src/table.rs`. Whether the bump-only rule changes

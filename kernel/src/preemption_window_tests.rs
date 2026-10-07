@@ -7,7 +7,7 @@
 //! the phase the boot left the timer in. On 2026-09-21 a semantically identical rewrite of one
 //! expression in `schedule()` moved that phase, one preemption landed in the window, and the row
 //! read +26.4% and failed the tripwire while the map path's object code was byte-identical. See
-//! notes/benchmarks.md and design/roadmap/541-a-timed-window-that-excludes-preemption.md.
+//! notes/benchmarks.md and design/roadmap/0541-a-timed-window-that-excludes-preemption.md.
 //!
 //! **The benchmark build is not the tested build**, which is the gap this file closes. `--features
 //! bench` compiles the tour out and runs no tests, so nothing in the test suite ever executes

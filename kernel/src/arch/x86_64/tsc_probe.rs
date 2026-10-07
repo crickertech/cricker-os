@@ -144,9 +144,10 @@ pub fn probe() {
     // the calibration right" into "is the *estimator* right": the truth is at or below the
     // smallest of these, so a run where the smallest is close to the RTC-measured rate and the
     // largest is far above it is the min-of-N argument being demonstrated rather than asserted.
-    // See `timer::calibration_windows`, and design/roadmap/525-min-of-n-tsc-calibration.md (the
-    // x86 TSC calibration takes the smallest of several windows) for the sweep that chose the
-    // count.
+    // See `timer::calibration_windows`, and milestone 571 (the x86 boot calibrates the TSC once, and
+    // can be wrong by 4x), in
+    // design/roadmap/0571-the-x86-boot-calibrates-once-and-can-be-wrong-by-4x.md, for the sweep
+    // that chose the count.
     print!("tscprobe: calibration windows");
     for window in timer::calibration().windows() {
         print!(" {window}");

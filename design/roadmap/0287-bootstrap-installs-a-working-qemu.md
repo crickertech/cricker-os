@@ -224,7 +224,7 @@ half is fixed and proven, and a different wall is standing behind it.
   milestone touches no Rust. The crate exports `NATIVE_MACHINE` for exactly this and its own test
   `Builder` hardcodes `EM_AARCH64` instead, while a second test's doc comment states the false
   premise out loud (*"these host tests build with `EXPECTED_MACHINE == EM_AARCH64`"*). Written up as a proposal, which
-  milestone 288 has since absorbed and closed (`design/roadmap/288-host-tests-that-assume-an-aarch64-host.md`);
+  milestone 288 has since absorbed and closed (`design/roadmap/0288-host-tests-that-assume-an-aarch64-host.md`);
   the proposal file was deleted at that merge, 2026-09-14, as one of two written eight days apart
   for the same defect. It matters to this
   milestone's own principle: 287 removes the first wall a Linux newcomer hits and this is the

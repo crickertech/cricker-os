@@ -18,9 +18,9 @@ is the argument 806 answers. 806 took its own number rather than reviving this o
 wider than multiplexing a terminal: a greeter per console, authority granted at login, memory from
 a broker and the owner's login all ride with it.
 
-Refused by milestone 49 (design/roadmap/49-users-and-attribution.md), and
+Refused by milestone 49 (design/roadmap/0049-users-and-attribution.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -36,7 +36,7 @@ From '49. Users, login, and attribution: what identity is for once it stops bein
 > refuses the rest with a dedicated code until `LOGOUT`, deliberately, because the narrow shape
 > commits to nothing the wider one would later have to unwind.
 >
-> -- design/roadmap/49-users-and-attribution.md
+> -- design/roadmap/0049-users-and-attribution.md
 
 ## Why it is here rather than only there
 

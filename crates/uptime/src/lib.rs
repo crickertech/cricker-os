@@ -1,5 +1,5 @@
 //! **`uptime`: how long the machine has been counting** (milestone 126,
-//! design/roadmap/126-who-else-is-running.md).
+//! design/roadmap/0126-who-else-is-running.md).
 //!
 //! This is the program's whole logic, lifted out so it runs on the host in milliseconds;
 //! `components/src/uptime.rs` is the syscall and nothing else. The crate and the program share a name,

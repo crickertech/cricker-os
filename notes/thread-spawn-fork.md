@@ -1,7 +1,7 @@
 # The `thread::spawn` fork: what a std thread would be, under nife's capability model
 
 *(Written 2026-08-22, investigating milestone 64's rank-3 gap ahead of a decision. See
-`design/roadmap/64-std-for-real-crates.md`'s BUGS section and `notes/crates-io-on-nife.md`,
+`design/roadmap/0064-std-for-real-crates.md`'s BUGS section and `notes/crates-io-on-nife.md`,
 rank 3, for where this was first named. This note is the six-questions write-up; the decision
 itself is an architect's, requested on pull request #394.)*
 

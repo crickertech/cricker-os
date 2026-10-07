@@ -5,9 +5,9 @@ refused_by: 81, 119, 448
 ---
 # 488. A self-hosted CI runner
 
-Refused by milestone 119 (design/roadmap/119-merge-throughput.md),
-milestone 81 (design/roadmap/81-hvf-leg.md), and recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work
+Refused by milestone 119 (design/roadmap/0119-merge-throughput.md),
+milestone 81 (design/roadmap/0081-hvf-leg.md), and recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work
 a number, a status and a condition that would change it. *(Number provisional until the merge queue
 lands it.)*
 
@@ -25,7 +25,7 @@ Follow-on`:
 > a public repository that accepts outside pull requests is a security posture rather than a
 > configuration.
 >
-> -- design/roadmap/119-merge-throughput.md
+> -- design/roadmap/0119-merge-throughput.md
 
 From '81. An HVF leg: the test suite on the physical core', under `## Follow-on`:
 
@@ -34,7 +34,7 @@ From '81. An HVF leg: the test suite on the physical core', under `## Follow-on`
 > couples CI to a laptop that sleeps, and the loud skip was taken instead so a transcript can
 > never be misread as having had silicon coverage.
 >
-> -- design/roadmap/81-hvf-leg.md
+> -- design/roadmap/0081-hvf-leg.md
 
 ## Why it is here rather than only there
 

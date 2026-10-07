@@ -180,7 +180,7 @@ passed the defect and invented concerns on the clean one, in the same pair of ru
   and the note says why a reader is looking at an archive.
 - **Milestone 575.** The corrections themselves are milestone 575 (a delegated reviewer found ten
   defects in a diff a human had passed as clean),
-  `design/roadmap/575-a-delegated-reviewer-found-ten-defects-nobody-was-going-to-find.md`. It
+  `design/roadmap/0575-a-delegated-reviewer-found-ten-defects-nobody-was-going-to-find.md`. It
   carries the ten true findings the reviewer made in a commit a human had passed as clean, and the
   routing question they raise. They are not this lane's to fix: the commit is another lane's and is
   not on `main`.

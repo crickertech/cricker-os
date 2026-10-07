@@ -121,24 +121,24 @@ milestone is what would replace it.
 
 ## Follow-on
 
-- **Recorded.** `design/roadmap/231-capability-slot-high-water-mark.md`. The gauge does not make the
+- **Recorded.** `design/roadmap/0231-capability-slot-high-water-mark.md`. The gauge does not make the
   wall impossible, only visible: a boot that needs a twenty-fifth slot still fails, it just fails
   saying so.
-- **Recorded.** `design/roadmap/231-capability-slot-high-water-mark.md`. The line does not say which
+- **Recorded.** `design/roadmap/0231-capability-slot-high-water-mark.md`. The line does not say which
   thread. `capability::highest_seen` is one atomic for every table in the binary, because a `static`
   cannot be keyed by a const generic, and naming the owner means walking every thread under the
   scheduler lock, which is the scan the atomic exists to avoid. Closing it is a scan at print time
   and nothing else; it was left out rather than designed away.
-- **Recorded.** `design/roadmap/231-capability-slot-high-water-mark.md`. Only `script/swish-check`
+- **Recorded.** `design/roadmap/0231-capability-slot-high-water-mark.md`. Only `script/swish-check`
   reads the gauge. `script/test` never boots the real init, so the suite's own peak is checked
   against nothing, and the recorded-measurement arm is compiled out of the test kernel on purpose:
   the guest suite runs a much larger workload through the same kernel, so a test going past 21 would
   be true and misleading.
-- **Recorded.** `design/roadmap/231-capability-slot-high-water-mark.md`. A normal boot prints two
+- **Recorded.** `design/roadmap/0231-capability-slot-high-water-mark.md`. A normal boot prints two
   lines rather than one, because init blocks early enough that the mark holds still at 5 long enough
   to be believed. Harmless, and the cure is a longer coalescing window that would delay the real
   line.
-- **Recorded.** `design/roadmap/231-capability-slot-high-water-mark.md`. The peak is
+- **Recorded.** `design/roadmap/0231-capability-slot-high-water-mark.md`. The peak is
   workload-dependent: the number a boot reports is the number *that* boot reached, and a richer
   initrd reaches a different one, so a single green figure is not a guarantee about every
   configuration.

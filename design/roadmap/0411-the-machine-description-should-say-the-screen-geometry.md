@@ -62,7 +62,7 @@ nor the `ScreenConsole`'s cell grid. Either keep the geometry beside the pointer
 `ScreenConsole` for its own grid, and print both in the description's console answer. Then the
 `x86_64` arm's `screen` line can say only what it says *early* (that a screen was found before
 anything else was up), which is the split
-milestone 409 (design/roadmap/409-one-machine-description-not-two.md) is about.
+milestone 409 (design/roadmap/0409-one-machine-description-not-two.md) is about.
 
 ## Index row
 

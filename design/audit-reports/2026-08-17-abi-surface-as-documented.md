@@ -116,7 +116,7 @@ surface is today, so the number stays true as history and a reader cannot leave 
 present-tense belief.
 
 **Left as history, deliberately:** `crates/abi/src/lib.rs:56` ("milestone 7d's first three
-syscalls", correct), `design/roadmap/07-user-mode.md:20` and `notes/README.md:180` (both "**7d**:
+syscalls", correct), `design/roadmap/0007-user-mode.md:20` and `notes/README.md:180` (both "**7d**:
 three syscalls", correct as changelog entries).
 
 ### 2. FIXED: `abi::rights` had no documentation, and `objtype`'s claimed to be the rights bits
@@ -217,7 +217,7 @@ correct, and the sweep had already added a forward pointer in `notes/capabilitie
 a reader looking for the surface actually lands. Fixing every historical mention of a superseded
 count is how a sweep turns into a rename.
 
-### 8. ACCEPTED: `design/roadmap/61-caretakers.md`'s verb count is right today by luck
+### 8. ACCEPTED: `design/roadmap/0061-caretakers.md`'s verb count is right today by luck
 
 "`subtree` and `nameset` are identical at 18 verbs." The fs contract carries 18 verbs today
 (`OPEN`..`STATFS`), so the sentence reads true, and it was written when the contract had 17. It is

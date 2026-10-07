@@ -125,11 +125,11 @@ tens of cycles instead of a trip to DRAM, rather than not costing anything.
   seL4's fastpath exists to skip, and this block's whole argument was that the instrument should
   exist before the change it justifies. 188 also holds the open question of whether "under 1 KiB
   touched per IPC" can be estimated from the structures the path touches without waiting for a PMU.
-- **Recorded.** `design/roadmap/132-the-fastpath-footprint.md`. The gate reports an upper bound
+- **Recorded.** `design/roadmap/0132-the-fastpath-footprint.md`. The gate reports an upper bound
   rather than a footprint: whole symbol sizes, so a cold tail parked in a hot function counts
   against us, indirect calls are invisible the way `script/stack-depth-check` records for itself,
   and riscv64's tail instruction is assumed 4 bytes on an ISA that mixes 2 and 4.
-- **Recorded.** `design/roadmap/132-the-fastpath-footprint.md`. The cold list is the load-bearing
+- **Recorded.** `design/roadmap/0132-the-fastpath-footprint.md`. The cold list is the load-bearing
   judgment in the script and a wrong entry there is silent by construction: a family wrongly marked
   cold disappears from the number with no error. It is the one failure mode the script cannot detect
   about itself, which is why each family carries a reason instead of a bare regex.

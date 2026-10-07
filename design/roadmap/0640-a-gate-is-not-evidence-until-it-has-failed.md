@@ -15,7 +15,7 @@ Promoted from `design/roadmap/proposals/a-gate-is-not-evidence-until-it-has-fail
 
 `a-gate-is-not-evidence-until-it-has-failed`: ratified 2026-09-23 (calef, reviewing
 `notes/corrections/2026-09-23-the-sweep-that-swept-nothing.md` on pull request #1166). It stays
-beside `design/roadmap/641-a-mechanism-reports-its-denominator.md` rather than folding into it,
+beside `design/roadmap/0641-a-mechanism-reports-its-denominator.md` rather than folding into it,
 though both come out of the same correction and the same fifth why (calef, 2026-10-04 UTC, on the
 maintainer's recommendation: both shipped as separate checks). Raised by
 `notes/corrections/2026-09-23-the-sweep-that-swept-nothing.md`, which asked whether the failing

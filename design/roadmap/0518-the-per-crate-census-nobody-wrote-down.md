@@ -135,7 +135,7 @@ record here makes that rewrite safer by giving it something to be checked agains
 ## Follow-on
 
 - **Milestone 532.** milestone 532 (the mutation census should write its own row),
-  `design/roadmap/532-the-census-writes-its-own-row.md`: have `mutation.yml`
+  `design/roadmap/0532-the-census-writes-its-own-row.md`: have `mutation.yml`
   write the record rather than a person remembering to. It needs write permission on a workflow that
   has `contents: read` today, which is a decision rather than a patch.
 - **Recorded.** The capture is rung three of AGENTS.md's ladder and nothing gates it, beside the

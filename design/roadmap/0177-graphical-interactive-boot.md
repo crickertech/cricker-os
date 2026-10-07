@@ -18,7 +18,7 @@ handling, as recorded at the time, but the boot never receiving two drivers' one
 reports, so each sat in a blocking `SEND` (see "The second flush, root-caused" below).
 `script/swish-check --graphical` and `--graphical-serial` are green on aarch64 and riscv64 and run
 in CI. **Piece 5 (x86_64's entry point) split off as its own milestone**,
-[182](182-x86-64-interactive-boot.md), once the lane found it needs a from-scratch ELF-loading boot
+[182](0182-x86-64-interactive-boot.md), once the lane found it needs a from-scratch ELF-loading boot
 path, not wiring.
 
 The input-routing fork was `Gate: DECISION` (2026-08-27, an investigation lane found piece 1's own plan
@@ -50,7 +50,7 @@ straight to a shell prompt on x86_64 today; `kernel/src/user.rs` has no third fu
 currently plans it.
 
 This milestone was originally scoped as three joined pieces; **the third split off as its own
-milestone, [182](182-x86-64-interactive-boot.md), 2026-08-27**, once the build lane found it needs
+milestone, [182](0182-x86-64-interactive-boot.md), 2026-08-27**, once the build lane found it needs
 a from-scratch ELF-loading boot path rather than wiring. What remains here, built (see "What was
 built" below):
 
@@ -192,11 +192,11 @@ against the real boot path here).
 The graphical half of the login-to-`kilo` user story ([DECISIONS
 §131](../decisions/0131-hold-at-rung-two.md)'s "kick-ass terminal, something I'll love working
 with"), now that the display-driver hang above is resolved (2026-09-19). Independent of [milestone
-169](169-kilo-editor.md) (`kilo`'s raw-keystroke primitive sits at the `DECISIONS §21`
+169](0169-kilo-editor.md) (`kilo`'s raw-keystroke primitive sits at the `DECISIONS §21`
 line-discipline contract level, which both `console` and `display_terminal` already speak
 identically) and of milestone 49's login-boot-wiring piece (unblocked 2026-08-26, DECISIONS §120
 amended to grant the stopgap; the piece itself is a separate, ongoing build). x86_64's own route to
-an interactive shell, split off as [milestone 182](182-x86-64-interactive-boot.md), still depends
+an interactive shell, split off as [milestone 182](0182-x86-64-interactive-boot.md), still depends
 on the input-routing fork this milestone already answered (option A), the same dependency the
 investigation found before the split: x86_64 has no fallback UART path at all (DECISIONS §121,
 permanently kernel-resident), so its only possible route is through the graphical stack this
@@ -242,7 +242,7 @@ key, not `SWISH_CHECK_SCRIPT`; that limit is recorded in the leg's own doc.
 
 calef, 2026-09-30: *"I don't want graphics at boot and won't for a long time."* Every
 `--features shell` boot is the minimal UART system again. The shell holds the device grants until a
-person launches `graphical_terminal` from the prompt, and [milestone 632 (graphics on demand)](632-graphics-on-demand-screen-launched-from-the-prompt.md) builds the stack at that launch. The input-routing
+person launches `graphical_terminal` from the prompt, and [milestone 632 (graphics on demand)](0632-graphics-on-demand-screen-launched-from-the-prompt.md) builds the stack at that launch. The input-routing
 decision (option A) survives unchanged inside the session, and so does the second-flush lesson:
 `build_graphical_terminal_session` takes the drivers' one-time reports in the order they send them. The legs
 keep their names, retargeted from "the boot brings up the stack" to "the launch does".
@@ -264,7 +264,7 @@ keep their names, retargeted from "the boot brings up the stack" to "the launch 
   moot. 55 is REMOVED as of 2026-08-30 and 49 is BUILT and already wired into the real interactive
   boot on both ISAs.
 - **Milestone 182.** Piece 5, x86_64's own entry point, is
-  `design/roadmap/182-x86-64-interactive-boot.md`, which this block already names; the earlier
+  `design/roadmap/0182-x86-64-interactive-boot.md`, which this block already names; the earlier
   sentence saying neither architecture plans it is superseded by the split recorded lower down.
 
 ## Index row

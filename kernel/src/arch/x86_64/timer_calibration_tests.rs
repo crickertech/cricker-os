@@ -22,7 +22,7 @@
 //! `crates/counter_frequency_protocol`, which already holds `is_plausible` and is the same kind of
 //! thing.
 //!
-//! See design/roadmap/571-the-x86-boot-calibrates-once-and-can-be-wrong-by-4x.md (the x86 boot
+//! See design/roadmap/0571-the-x86-boot-calibrates-once-and-can-be-wrong-by-4x.md (the x86 boot
 //! calibrates the TSC once, and can be wrong by 4x) for the measured distributions that chose the
 //! cap and the tolerance.
 //!

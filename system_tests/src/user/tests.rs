@@ -1956,7 +1956,7 @@ fn a_host_process_connects_to_the_guest_and_is_answered() {
     ) else {
         crate::testing::skip!("no virtio-net device attached");
     };
-    // E2 (milestone 134, design/roadmap/134-the-measurements-that-decide.md): the thread census on
+    // E2 (milestone 134, design/roadmap/0134-the-measurements-that-decide.md): the thread census on
     // the customer path. Every process this topology needs is already spawned by this point
     // (`net_stack` and the echo client), and neither spawns another kernel
     // thread per connection or per request (each is a single-threaded event loop over its own

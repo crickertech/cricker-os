@@ -531,7 +531,7 @@ measurements rather than asserted, and this is the measurement that most weakens
 
 ## Follow-on
 
-- **Recorded.** `design/roadmap/138-file-io-throughput.md` BUGS: closing the 32x does not close the
+- **Recorded.** `design/roadmap/0138-file-io-throughput.md` BUGS: closing the 32x does not close the
   gap to buffered Linux. Buffered Linux is 547 ns against this milestone's starting 1,509,270, so
   removing the 32x leaves roughly two orders of magnitude, and the rest is page cache.
 - **Recorded.** `notes/benchmarks.md` carries the payload entropy caveat that travels with every
@@ -539,10 +539,10 @@ measurements rather than asserted, and this is the measurement that most weakens
   faster than an incompressible one, and a re-measurement that quietly changes payload is not
   comparable. Milestone 38's incompressible payload is the conservative choice and the one a backup
   workload resembles.
-- **Recorded.** `design/roadmap/138-file-io-throughput.md` BUGS: `Transaction::write_node` compares
+- **Recorded.** `design/roadmap/0138-file-io-throughput.md` BUGS: `Transaction::write_node` compares
   before writing, so rewriting a block with identical contents costs a read and no write. A
   benchmark that sends one constant page repeatedly measures the comparison rather than the store.
-- **Recorded.** `design/roadmap/138-file-io-throughput.md` BUGS: `RECORD_LEVEL_MAX` keeps old images
+- **Recorded.** `design/roadmap/0138-file-io-throughput.md` BUGS: `RECORD_LEVEL_MAX` keeps old images
   readable and does not migrate them. A file created by an older build keeps its 128 KiB record
   forever, reads correctly, and reads at the old price. There is no rewrite path and no `fsck` that
   would make one, which is right today because no such image exists outside a test and wrong the
@@ -556,11 +556,11 @@ measurements rather than asserted, and this is the measurement that most weakens
   deployment's node count. A 65,536-node filesystem's full tree spine is 259 blocks, so 64 slots
   holds one open file's spine comfortably and thrashes once enough distinct files are open at once
   to collide across the tree's shared upper levels. Nobody has measured a multi-file workload.
-- **Recorded.** `design/roadmap/138-file-io-throughput.md` BUGS: the space cost of the 8 KiB record
+- **Recorded.** `design/roadmap/0138-file-io-throughput.md` BUGS: the space cost of the 8 KiB record
   was never re-measured for step 1. The +19% figure is the sweep's, taken on text, which is the
   payload most favorable to lz4; a backup workload is the incompressible case and would show only
   the pointer half.
-- **Recorded.** `design/roadmap/138-file-io-throughput.md` BUGS: the measurement conditions differ
+- **Recorded.** `design/roadmap/0138-file-io-throughput.md` BUGS: the measurement conditions differ
   across the four steps and the block says so rather than presenting one number. Steps 1 and 3 ran
   on a quiet machine; steps 2 and 4 ran at `uptime` load 15 to 21 with other lanes building, and
   the `fs_read` control plus the two-term model's internal agreement are the evidence they are real

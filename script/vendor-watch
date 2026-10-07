@@ -8,7 +8,7 @@
 # (divergence 2 in vendor/README.md), so it is outside the Cargo graph dependabot walks. So until
 # this script existed, **nothing in the tree would ever report that RedoxFS had moved**, and
 # design/decisions/0081-dependency-upgrades.md's rule that a dependency stays upgradable had
-# `vendor/` as its blind spot. See design/roadmap/203-vendored-engine-upgrades.md.
+# `vendor/` as its blind spot. See design/roadmap/0203-vendored-engine-upgrades.md.
 #
 # **Both pins are checked, and that is the point rather than thoroughness for its own sake.** A pin
 # names a crates.io version AND the upstream git sha that produced it. Releases here are months

@@ -106,7 +106,7 @@ blind; the sets were listed, read, and then edited, which is what caught the rec
   instruction, not forty-eight". The quotation keeps its bytes and gains a note beside it saying the
   crate is spelled differently now, so the number stays traceable to the run that produced it.
 - A quotation from milestone 68's block, inside what is now
-  `design/roadmap/345-pure-halves-of-the-user-rt-crates.md`, for the same reason. That block's own
+  `design/roadmap/0345-pure-halves-of-the-user-rt-crates.md`, for the same reason. That block's own
   prose moved, because it is live intent a reader picks up and goes looking with.
 - `design/decisions/` and every other milestone's roadmap block, which are outside a lane's
   reach. The count and the rows that now mislead are in the Follow-on section.
@@ -114,7 +114,7 @@ blind; the sets were listed, read, and then edited, which is what caught the rec
 ## BUGS
 
 - The slug is still `pure-halves-of-the-user-rt-crates`, now as
-  `design/roadmap/345-pure-halves-of-the-user-rt-crates.md`. The obstacle this entry named is gone:
+  `design/roadmap/0345-pure-halves-of-the-user-rt-crates.md`. The obstacle this entry named is gone:
   milestone 433 numbered it on 2026-09-19 and milestone 68's bullet became `**Milestone 345.**` with
   no path in it, so a rename no longer reaches into another block. The body is current; only the
   slug is stale, and a slug is a name, so it is an architect's.
@@ -131,7 +131,7 @@ blind; the sets were listed, read, and then edited, which is what caught the rec
 ## Follow-on
 
 - **Recorded.** In this block's BUGS section above, in
-  `design/roadmap/285-the-user-mode-prefix.md`: thirty-seven roadmap blocks and ten sections under
+  `design/roadmap/0285-the-user-mode-prefix.md`: thirty-seven roadmap blocks and ten sections under
   `design/decisions/` spell `user_rt` or `user_heap`, 112 occurrences and 25. Twelve of the blocks
   are unbuilt (four `NOT-STARTED`, eight `PARTIAL`) and are therefore live intent pointing at a
   directory that no longer exists; the rest are dated narrative and correctly keep the old spelling.

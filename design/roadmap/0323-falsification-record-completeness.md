@@ -213,7 +213,7 @@ tell a stale premise from a live one. It is rung three, written where the next p
   Checked 2026-09-23.
 - **Done.** Part 5. The named patch's stale "no script will apply it" paragraph is corrected in
   place, and a grep for its phrasing found two more unstruck instances: one in
-  `design/roadmap/197-user-and-xtask-proofs.md`, one in `notes/user-proofs.md`. A third, in the same
+  `design/roadmap/0197-user-and-xtask-proofs.md`, one in `notes/user-proofs.md`. A third, in the same
   roadmap block (a patch location stale since milestone 175), is also corrected. Checked 2026-09-23.
 - **Recorded.** Row 19's four `kernel::user::dir_capability_tests` tests carry no falsification
   record. The `attenuate` defect turns the read-only one red on aarch64 only through a vacuity

@@ -15,7 +15,7 @@ nothing in the tree implemented it: `PMU` appeared only in device-tree test fixt
 file. Both ISA halves are now built (riscv64 2026-09-03, aarch64 2026-09-19), and it stays
 `PARTIAL` for two reasons that are not code: argon has not run the aarch64 half, and what aarch64's
 counter counts (`PMCCFILTR_EL0`) and what the user-mode read is called are an architect's
-(`design/roadmap/353-the-aarch64-half-of-74.md`).
+(`design/roadmap/0353-the-aarch64-half-of-74.md`).
 
 Both halves of this line are under correction, and neither says
 what it used to.
@@ -42,7 +42,7 @@ row of `SBI_TABLE`, `kernel/src/arch/riscv64/pmu.rs` asks firmware to find and s
 `SBI_PMU_HW_CPU_CYCLES`, checks it is actually counting, remembers which CSR reads it and records
 why when there is none, the boot prints all of it, and `cargo xtask bench --riscv` prints one
 `cycles_per_tick` probe. The aarch64 half is built too (2026-09-19), in the same shape; what it
-leaves open is two decisions, `design/roadmap/353-the-aarch64-half-of-74.md`.
+leaves open is two decisions, `design/roadmap/0353-the-aarch64-half-of-74.md`.
 
 ## What we read today, and why it is not cycles
 
@@ -143,11 +143,11 @@ divides one counter by itself and prints an exact `1.00` on every part. Mileston
 `IA32_PERF_FIXED_CTR1` (unhalted core cycles) instead, and its block has the argument.
 
 Scope note, per §19. The measurement half is built for riscv64 and aarch64 (this milestone)
-and x86_64 (milestone 309, `design/roadmap/309-x86-64-core-cycles.md`), so `bench::cycles_per_tick`
+and x86_64 (milestone 309, `design/roadmap/0309-x86-64-core-cycles.md`), so `bench::cycles_per_tick`
 now has no `cfg` at all. **The three are not yet the same quantity**, and the gap is a decision
 rather than code: riscv64 counts every mode including M-mode firmware, x86_64 counts ring 0 and 3,
 and aarch64 counts EL0 and EL1 under a **provisional** `PMCCFILTR_EL0` until calef rules
-(`design/roadmap/353-the-aarch64-half-of-74.md`, decision A). The aarch64 meaning line says
+(`design/roadmap/0353-the-aarch64-half-of-74.md`, decision A). The aarch64 meaning line says
 `PROVISIONAL` so a number cannot travel without it. This scope note read "not built for aarch64"
 until 2026-09-19.
 
@@ -351,7 +351,7 @@ After 127's steps 1 to 5, read these lines, in this order:
    evidence of what seL4's 413 and 426 counted. `0x0` means kernel included; bit 31 set means EL1
    excluded. This line is now the ruling itself: calef decided on 2026-09-19 that the filter
    is set to match what argon's firmware left, rather than chosen in advance
-   (design/roadmap/353-the-aarch64-half-of-74.md, decision A). So this reading closes milestone
+   (design/roadmap/0353-the-aarch64-half-of-74.md, decision A). So this reading closes milestone
    353's decision A, and until it is taken no aarch64 cycle figure is published.
 3. `6 event counters visible`. The A57 implements six; a different number means `HPMN` or firmware.
 4. If the line says `refused` or `disagrees`, the secure world is prohibiting counting on at least
@@ -387,4 +387,4 @@ prints one `cycles_per_tick` probe; radon measured `250.00` on 2026-09-16. aarch
 every core starts and checks `PMCCNTR_EL0`, the boot prints the answer and what firmware left in
 `PMCCFILTR_EL0`, and `bench` prints the probe under a **provisional** filter; argon has not run it.
 What aarch64's counter counts and what the user-mode read is called are an architect's
-(design/roadmap/353-the-aarch64-half-of-74.md)
+(design/roadmap/0353-the-aarch64-half-of-74.md)

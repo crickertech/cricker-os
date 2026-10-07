@@ -108,7 +108,7 @@ Every split program ignores `x0`. A one-job program has no role selector, so the
 simply stop existing for these fourteen rather than being renumbered. `hello`'s remaining nine keep
 theirs unchanged, gaps and all: a role number is a word the kernel puts in `x0`, so it is a value
 the kernel's wiring and that file agree on, and
-[the progenitor's grant order](301-one-grant-order-for-the-progenitor.md) recorded six
+[the progenitor's grant order](0301-one-grant-order-for-the-progenitor.md) recorded six
 `spawn_progenitor` tests that name them. Renumbering would be an edit to a wire value bought with
 tidiness.
 

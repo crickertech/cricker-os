@@ -77,5 +77,5 @@ months, so hourly is the plan.
   rented hour reads them off the console.
 - How the serial console is activated. It may be a support request, which is calef's to file.
 - Whether this machine later carries a standing gate. A 0% SLA means any gate on it must degrade to
-  a loud skip, as [`design/roadmap/556-a-second-risc-v-implementation-for-rent.md`](../roadmap/556-a-second-risc-v-implementation-for-rent.md)
+  a loud skip, as [`design/roadmap/0556-a-second-risc-v-implementation-for-rent.md`](../roadmap/0556-a-second-risc-v-implementation-for-rent.md)
   said when it was filed.

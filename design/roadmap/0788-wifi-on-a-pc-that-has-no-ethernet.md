@@ -91,7 +91,7 @@ Two prior-art facts change the question.
 - Fuchsia is the only fully permissive stack found that names this chip, and most of it is Rust.
 
 Other systems and driver-compatibility layers (Redox, Genode, DDE, rump kernels, LinuxKPI) are in
-[other-systems-and-compatibility-layers.md](788-wifi-on-a-pc-that-has-no-ethernet/other-systems-and-compatibility-layers.md).
+[other-systems-and-compatibility-layers.md](0788-wifi-on-a-pc-that-has-no-ethernet/other-systems-and-compatibility-layers.md).
 Redox has no wireless driver. A compatibility layer is the fastest way to a working Wi-Fi package and
 the one route that cannot serve the base.
 

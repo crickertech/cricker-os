@@ -83,7 +83,7 @@ What it changed, in the stranger's words, which are unflattering:
 
 What the leak did not change, which is why the run still counts. It did not invent a breakage to
 have something to fix, and it did not skip gates and claim them. It never opened
-`design/roadmap/117-newcomer-onboarding.md` or looked for `notes/stranger-test.md`, which was
+`design/roadmap/0117-newcomer-onboarding.md` or looked for `notes/stranger-test.md`, which was
 withheld as in runs 2 and 3. The answer key held for the fourth time. Only the fact of being
 measured leaks, as the first `BUGS` entry has said since run 1.
 

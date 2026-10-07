@@ -7,7 +7,7 @@ This file holds each fork with the seven questions AGENTS.md asks of one, so tha
 made without reading anything else. Since 2026-09-26, sections 2, 4 and 5 are each a milestone or proposal of
 their own (`w`, `pidwait` and `pmap` from the prompt), and milestone 126 is built. Sections 1, 3 and 4 are decided: §224 (no `pwdx`), §225 (`free`
 sees the machine and your share) and §226 (`pidwait` takes tids). The rest is not. The milestone block
-(`design/roadmap/126-who-else-is-running.md`) carries the status; this carries the reasoning.
+(`design/roadmap/0126-who-else-is-running.md`) carries the status; this carries the reasoning.
 
 The stem `what-is-left` is a provisional name, minted with this file. Nothing here adds a kernel
 method or a syscall, and nothing here was built. Where an option would

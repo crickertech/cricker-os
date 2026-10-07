@@ -1,4 +1,4 @@
-# Name: recorded (design/roadmap/39-repository-structure.md's "Not everything in `user/` is a
+# Name: recorded (design/roadmap/0039-repository-structure.md's "Not everything in `user/` is a
 # service", performed by milestone 175). The programs that exist to exercise or measure the system
 # rather than to be shipped: test clients, attackers that share the honest path, stand-in servers,
 # workloads and benchmarks. 39 named eight of them by hand on a tree less than half this size and

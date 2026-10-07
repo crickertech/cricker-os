@@ -15,7 +15,7 @@ word is writable", or "this word may be created". §170 left the spelling to cal
 name a person types and every script will carry. The slug is a lane's coinage.
 
 Nothing is built yet, because the mark qualifies a grant and the grant is the designation half
-([`665-designating-a-foreign-programs-words.md`](665-designating-a-foreign-programs-words.md)). This page
+([`0665-designating-a-foreign-programs-words.md`](0665-designating-a-foreign-programs-words.md)). This page
 exists so the spelling is decided before that half lands, not while it waits.
 
 ## Refused: there is no mark
@@ -63,7 +63,7 @@ else is a plain byte in a word.
 Would we still choose it if every option cost the same? Yes. M3 is the only option that adds no new
 lexical rule. `--mem` already establishes that a `--` word the shell recognizes is the shell's.
 It is taken off the line before the program sees it, and quoted to pass it through
-(`design/roadmap/205-foreign-program-arguments.md`'s `BUGS` records that `--mem` behaves exactly
+(`design/roadmap/0205-foreign-program-arguments.md`'s `BUGS` records that `--mem` behaves exactly
 this way on a foreign line today). M1 and M4 lose because real arguments start with `+` or contain
 `:`. M2 loses because it needs M1's sigil anyway.
 

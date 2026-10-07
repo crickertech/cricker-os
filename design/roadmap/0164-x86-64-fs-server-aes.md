@@ -143,16 +143,16 @@ architecture costs a restructure rather than a port") named this as a piece of.
   `kernel/src/arch/x86_64/` saves and restores no FPU/SSE state anywhere, so it would mean an
   `FXSAVE` area per thread and save/restore in the context-switch path, and none of that is needed
   to compile `aes`.
-  This refusal is milestone 461 (design/roadmap/461-an-sse-enabled-x86-64-userspace-target.md),
+  This refusal is milestone 461 (design/roadmap/0461-an-sse-enabled-x86-64-userspace-target.md),
   which carries it with the condition that would change it.
 - **Refused.** The soft-AES cost stays unmeasured on purpose. Upstream puts AES-NI roughly an order
   of magnitude ahead of the bitsliced backend, but nothing on x86_64 mounts an encrypted RedoxFS
   volume yet, so there is no workload and a synthetic number would be a fact leaving the machine
   with nothing behind it. The number is owed when an x86_64 workload touches the crypto path, and
   Route 2 is what it would be weighed against.
-  This refusal is milestone 462 (design/roadmap/462-the-soft-aes-cost.md), which carries it with the
+  This refusal is milestone 462 (design/roadmap/0462-the-soft-aes-cost.md), which carries it with the
   condition that would change it.
-- **Recorded.** In `design/roadmap/164-x86-64-fs-server-aes.md`: the `aes_force_soft` cfg sits on
+- **Recorded.** In `design/roadmap/0164-x86-64-fs-server-aes.md`: the `aes_force_soft` cfg sits on
   the target rather than on the one package that needs it, because Cargo can only replace a
   `rustflags` list and never add to it. Every crate on `x86_64-unknown-none` gets the cfg and it is
   inert in all of them but `aes`.

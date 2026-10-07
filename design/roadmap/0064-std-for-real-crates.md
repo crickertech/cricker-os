@@ -263,7 +263,7 @@ Why the `File` forms refuse rather than remember the name they were opened by: t
 describe whatever holds that name now, so after a rename it would report, or stamp, another file,
 and succeed. That is a wire question (a handle-taking form, which runs into §112 because a file
 handle can never carry `dir::SETTIME`), proposed in
-`design/roadmap/504-an-mtime-for-an-open-file.md` rather than decided here.
+`design/roadmap/0504-an-mtime-for-an-open-file.md` rather than decided here.
 
 **Why `set_times` never falls back to `SETMTIME`**: the caller's `SystemTime` is an assertion, which
 §112 put behind `dir::SETTIME`; writing the server's own "now" in its place and reporting success
@@ -323,7 +323,7 @@ the granted directory itself) plus a `NotFound` for an empty set on a missing na
   `GETMTIME` says, and for a file written on this system that is the FS server's per-mount counter,
   so it reads as early 1970, orders wrongly against files the host tool stamped, and restarts each
   boot. And because the engine only moves an mtime forward, a nife write to a host-made file does
-  not change its time at all. Proposed as `design/roadmap/497-a-filesystem-server-that-knows-the-time.md`; the
+  not change its time at all. Proposed as `design/roadmap/0497-a-filesystem-server-that-knows-the-time.md`; the
   details are in notes/std/file-times.md's `BUGS`.
 - The open-`File` time forms refuse (`File::metadata().modified()`, `File::set_times`), because
   the verbs take a name. `set_times` truncates to whole seconds and refuses an access time whole.
@@ -354,11 +354,11 @@ build them, and report what breaks.
   that said no verb existed are corrected.
 - **Milestone 504.** The open-`File` forms (`File::metadata().modified()`, `File::set_times`) still refuse,
   because the verbs take a name; a handle-taking form is a wire change and is
-  milestone 504 (an mtime for an open file), `design/roadmap/504-an-mtime-for-an-open-file.md`.
+  milestone 504 (an mtime for an open file), `design/roadmap/0504-an-mtime-for-an-open-file.md`.
 - **Milestone 497.** A file written on nife reads as early 1970, because the FS server stamps its own
   per-mount counter rather than a wall-clock second (notes/touch.md's `BUGS`, and notes/std/file-times.md's
   `BUGS` where a std reader meets it). Giving the server the clock page is
-  milestone 497 (a filesystem server that knows what time), `design/roadmap/497-a-filesystem-server-that-knows-the-time.md`.
+  milestone 497 (a filesystem server that knows what time), `design/roadmap/0497-a-filesystem-server-that-knows-the-time.md`.
 - **Recorded.** The exit event still carries no exit code, so a supervisor can tell exit from crash
   and cannot tell `exit(0)` from `exit(1)`. The reasoning lives in `notes/std.md`.
 - **Done.** `env` is seeded now: `design/decisions/0111-inert-config-is-a-validated-page.md` and

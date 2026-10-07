@@ -14,7 +14,7 @@ Promoted from `design/roadmap/proposals/xenon-may-carry-amt.md` on 2026-10-03 (U
 
 Raised by the lane that brought milestone 249 (the boot lottery is sampled by a person walking to the board)'s reboot to `x86_64`,
 while pricing hang recovery that needs no person. Milestone 87 (the x86_64 bare-metal machine) chose a smart plug over management
-firmware (`design/roadmap/87-x86-machine.md`, "Remote power cycling by smart plug, not by management
+firmware (`design/roadmap/0087-x86-machine.md`, "Remote power cycling by smart plug, not by management
 firmware"), and no plug was ever bought. This asks whether the hardware already on the desk makes
 the plug unnecessary.
 

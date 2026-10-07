@@ -91,7 +91,7 @@ there, and it is honest about being one.
 isolation model, and the isolation is what makes concurrent lanes safe at all.
 
 Not an argument against long gates. The three-hour Miri run is the cost of the answer; see
-milestone 428 (design/roadmap/428-what-the-weekly-miri-run-should-cost.md).
+milestone 428 (design/roadmap/0428-what-the-weekly-miri-run-should-cost.md).
 
 Not specific to Miri. Any gate long enough for the tree to move under a lane produces this, and
 `script/verify` is the queue's long pole for the same reason.

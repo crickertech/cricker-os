@@ -67,7 +67,7 @@ this got built. `script/verify` reaches `kernel/src` since milestone 193 (put `k
 reach of the prover), but only the host's `arch/` subtree, and no host here is riscv64, so these harnesses could not run where the gate said. The `lane/price-kani-kernel-reach`
 lane (pull request #1276) measured that `iommu.rs` compiles unchanged on an aarch64 host anyway, and
 its proposal's option 1 is what this milestone built:
-`design/roadmap/650-riscv64-code-the-prover-can-already-compile.md`.
+`design/roadmap/0650-riscv64-code-the-prover-can-already-compile.md`.
 
 - A proof-only module in `kernel/src/arch/mod.rs`, `cfg(all(kani, target_arch = "aarch64"))`,
   holding `mod riscv64 { mod iommu; }`. No `#[path]`, and the harness paths are the native ones.
@@ -88,7 +88,7 @@ its proposal's option 1 is what this milestone built:
 
 ## Follow-on
 
-- **Milestone 650.** Milestone 650 (some of `arch/riscv64/` compiles under Kani on an aarch64 host today, and the tree says none can). `design/roadmap/650-riscv64-code-the-prover-can-already-compile.md`.
+- **Milestone 650.** Milestone 650 (some of `arch/riscv64/` compiles under Kani on an aarch64 host today, and the tree says none can). `design/roadmap/0650-riscv64-code-the-prover-can-already-compile.md`.
   Extending the proof-only module past `iommu.rs` (`context.rs` compiles today, `irq.rs` has eight
   resolve errors) and the two larger options, `asm!` wrappers and a native riscv64 Kani, stay
   there with their costs. About 91% of `arch/riscv64/` is still reached by nothing (564 of 6,083

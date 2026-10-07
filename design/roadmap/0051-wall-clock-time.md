@@ -223,7 +223,7 @@ NTP), noting estimates for unbuilt work are guesses on a history-calibrated scal
 - **Refused.** The IANA tzdata is out and a fixed UTC offset is in, recorded in `notes/calendar.md`:
   zone rules are a data-distribution problem rather than a calendar one. There is no `strftime`
   either, five named formats instead.
-  This refusal is milestone 484 (design/roadmap/484-iana-zone-rules-and-strftime.md), which carries
+  This refusal is milestone 484 (design/roadmap/0484-iana-zone-rules-and-strftime.md), which carries
   it with the condition that would change it.
 
 ## Index row

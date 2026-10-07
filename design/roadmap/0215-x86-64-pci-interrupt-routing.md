@@ -166,17 +166,17 @@ arriving on a machine whose firmware turns it on.
   interpreter this tree does not have and would then have to maintain and verify, for four numbers.
   Hardcoding `q35`'s swizzle passes every gate on patagonia and might fail on the OptiPlex, which
   would be discovered at a null modem, this project's most expensive place to discover anything.
-  This refusal is milestone 459 (design/roadmap/459-legacy-intx-interrupt-routing.md), which carries
+  This refusal is milestone 459 (design/roadmap/0459-legacy-intx-interrupt-routing.md), which carries
   it with the condition that would change it.
 - **Refused.** A `PCI_IRQ_BASE` fallback for a machine that wants MSI where the function has no
   MSI-X. Bring-up fails loudly instead, because falling back to `intx_irq(0, ..)` there is the
   original bug wearing the clothes of a graceful degradation.
-- **Recorded.** `design/roadmap/215-x86-64-pci-interrupt-routing.md`'s own `BUGS`: an MSI vector is
+- **Recorded.** `design/roadmap/0215-x86-64-pci-interrupt-routing.md`'s own `BUGS`: an MSI vector is
   never handed back. `alloc_msi_vector` is a bump counter over a 63-vector band, so a device
   brought up twice spends two. The number to watch is `find_*_device` calls per boot.
-- **Recorded.** `design/roadmap/215-x86-64-pci-interrupt-routing.md`'s own `BUGS`: every message is
+- **Recorded.** `design/roadmap/0215-x86-64-pci-interrupt-routing.md`'s own `BUGS`: every message is
   addressed to the boot core. Nothing distributes device interrupts on this architecture.
-- **Recorded.** `design/roadmap/215-x86-64-pci-interrupt-routing.md`'s own `BUGS`: one MSI-X vector
+- **Recorded.** `design/roadmap/0215-x86-64-pci-interrupt-routing.md`'s own `BUGS`: one MSI-X vector
   per function, entry 0. A multi-queue driver would want more, and a per-queue table index rather
   than the single one `PciVirtioDevice::msix_vector` carries.
 - **Recorded.** `notes/x86-port/acpi-and-pci.md` holds what only xenon can confirm: that the OptiPlex's firmware
@@ -189,7 +189,7 @@ arriving on a machine whose firmware turns it on.
 - **Recorded.** `kernel/src/arch/x86_64/exceptions.rs`'s `BUGS`: the vector-to-intid inversion is
   still owed. MSI never needs it, because an MSI intid is its vector; it is now owed only for the
   console UART, which is the last candidate.
-- **Milestone 364.** `design/roadmap/364-x86-64-test-fixtures.md`, attach the rest of the x86_64
+- **Milestone 364.** `design/roadmap/0364-x86-64-test-fixtures.md`, attach the rest of the x86_64
   test fixtures now that a function's interrupt works: the RedoxFS image, the GPT and blank disks,
   the NIC, the GPU, the keyboard and the RNG, each a line in `helpers/qemu-runner-x86_64.sh` plus
   its wiring, starting with making the FS server's disk lookup transport-blind. The measure is the

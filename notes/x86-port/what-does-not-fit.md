@@ -109,7 +109,7 @@ only that core's `secondary_main` can print, one line above `smp: cpu N did not 
 26 of 40 four-core boots showed it before the fix; 80 of 80 boots at three, four and eight cores
 brought every core online after it. It also reached two cores (the first secondary is as able to be
 quick as any other), which is the UEFI leg's one-in-three failure recorded in
-`design/roadmap/412-the-uefi-boot-gate-asserts-two-cores-that-do-not-always-start.md`.
+`design/roadmap/0412-the-uefi-boot-gate-asserts-two-cores-that-do-not-always-start.md`.
 `ap_boot.rs`'s BUGS has the evidence, including the instrumented build that settled it.
 
 ## Where TSO pays out

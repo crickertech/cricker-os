@@ -725,7 +725,7 @@ pub mod notification {
     ///
     /// The word travels in `x0`, where a negative value is an error, so a word whose top bit is set
     /// and whose value lands on an error code reads as that error. See the BUGS section of
-    /// `design/roadmap/151-notification-objects.md`.
+    /// `design/roadmap/0151-notification-objects.md`.
     pub const WAIT: u64 = 1;
 
     /// `invoke(cap, POLL, _, _, _)` -> word. `WAIT` without blocking: the word, cleared, and `0` if
@@ -767,7 +767,7 @@ pub mod notification {
 /// **Deadlines are absolute, in counter ticks**: the same counter a program reads without a syscall
 /// (`CNTVCT_EL0`, `rdtime`, `rdtsc`), so `now() + n` is a deadline `n` ticks away and nothing
 /// converts between clocks. **Resolution is the scheduler tick** (100 Hz, 10 ms): a deadline fires at
-/// the first tick at or after it, never before it. See `design/roadmap/106-deadline-wait.md`'s
+/// the first tick at or after it, never before it. See `design/roadmap/0106-deadline-wait.md`'s
 /// BUGS for why, and what a tickless comparator would change.
 ///
 /// Rights: `WRITE` on the timer to [`ARM`](timer::ARM) or [`CANCEL`](timer::CANCEL), and `WRITE`
@@ -917,7 +917,7 @@ pub mod timer {
 /// irreversible change than the method this defers.
 ///
 /// **Whoever needs it mints it, with a requirement in hand.** See
-/// `design/roadmap/229-the-counter-grant.md` and `notes/abi.md`.
+/// `design/roadmap/0229-the-counter-grant.md` and `notes/abi.md`.
 pub mod thread_control_block {
     /// `invoke(cap, CONFIGURE, entry, user_sp, address_space_slot)` -> 0. Bind the address space
     /// named by the capability in `address_space_slot`, and set where EL0 execution begins and on

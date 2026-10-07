@@ -11,13 +11,13 @@ ratified_by: calef
 touches the section only to correct a false claim about what is built (the delta against main is
 decided, not built). Bringing a 1,200-word section to 4 bold spans per 1,000 words is a rewrite for
 the section's owner, not something to hide inside a correction (the measured class is recorded in
-design/roadmap/586-a-prose-ratchet-in-lint.md). Remove this marker when that rewrite lands. -->
+design/roadmap/0586-a-prose-ratchet-in-lint.md). Remove this marker when that rewrite lands. -->
 
 *Amended 2026-09-26: rule text says "an architect" where it said calef, per §217 (every architect
 holds the whole role). Records and quotations keep his name.*
 
 *Amended 2026-10-03 (correction): the delta against main below is decided and not built. Until
-milestone 336 (design/roadmap/336-fastpath-footprint-against-main.md, NOT-STARTED) the gate still
+milestone 336 (design/roadmap/0336-fastpath-footprint-against-main.md, NOT-STARTED) the gate still
 compares against `bench/fastpath-*.txt`, which is why those files and their re-saves exist.
 Correction recorded by the maintainer session 2026-10-03, found by the #1505 lane. No ruling text
 changed.*
@@ -29,7 +29,7 @@ days. *(Number provisional until the merge queue lands it.)*
 
 `script/fastpath-footprint` compares the IPC fastpath's code size against a stored baseline file
 per architecture and fails at a 5% tolerance. The proposal
-`design/roadmap/336-fastpath-footprint-against-main.md` asked whether it should instead compare
+`design/roadmap/0336-fastpath-footprint-against-main.md` asked whether it should instead compare
 against `main` at pull-request time. The answer is both, and the reason each is needed is that they
 catch different failures.
 

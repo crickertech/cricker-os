@@ -21,7 +21,7 @@ title and slug are drafts. `raised` is the day §157 put the rung on the path.
 From xenon's installed system, a package is fetched through `basalt.nifeos.org`'s index by host
 name, verified by its digest and installed. That is rung 3c of §157 (a trivial install is a web
 page, a USB drive, and packages over the internet), which [milestone 198's rung
-table](198-package-manager.md#the-rungs) still maps.
+table](0198-package-manager.md#the-rungs) still maps.
 
 Rung 3a, the package client over plain HTTP on a LAN, is built and is milestone 198. Rung 3b, the
 network card xenon has, is milestone 494 (a driver for the network card a PC actually has). This

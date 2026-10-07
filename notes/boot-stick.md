@@ -4,7 +4,7 @@ DECISIONS §157, as amended on 2026-09-19: a trivial install starts from one dow
 host operating system, with the boot payload inside it, which writes a bootable stick when run;
 it is not signed; and from any machine it builds a boot for any other machine. This note is
 how that was built, what it was proved on, and what it was not. The roadmap block is
-`design/roadmap/441-the-program-that-makes-the-stick.md` (number provisional).
+`design/roadmap/0441-the-program-that-makes-the-stick.md` (number provisional).
 
 ## In one paragraph
 

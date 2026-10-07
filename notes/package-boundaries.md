@@ -156,7 +156,7 @@ The judgment calls, each a place the table could reasonably differ:
   package home: whether the port goes upstream is open.
 - Documentation is in no package yet. calef (2026-09-27): "I'm thinking of building a website for
   much of our documentation. It may also ship in packages." Until that is settled every note has an
-  undecided home, and [the proposal](../design/roadmap/684-a-documentation-site.md) holds the
+  undecided home, and [the proposal](../design/roadmap/0684-a-documentation-site.md) holds the
   question. A README inside a crate goes with its crate.
 
 ## What the gate found
@@ -182,7 +182,7 @@ dev-dependencies, and the gate failed their exceptions as stale, so nine remain:
 
 The driver row wants a lane of its own, and so do `ps::Row` and `pmap::Row`, which the kernel
 now reaches only from its tests: each layout moves into `contracts`. That is
-[contracts leave implementation crates](../design/roadmap/689-contracts-leave-implementation-crates.md).
+[contracts leave implementation crates](../design/roadmap/0689-contracts-leave-implementation-crates.md).
 The fixture rows and the integration row are limitations, recorded below.
 
 ## How the moves will be done
@@ -191,7 +191,7 @@ Not in this milestone. One package per pull request, at a quiet moment in the qu
 file moves (`git mv` and nothing else in the commit), so `git log --follow` and review both see a
 rename. The package's `crates`, `programs` and `paths` are the list of what moves. The workspace
 root and the gates follow in a second commit. The order is leaves first, contracts before the
-programs that link them. [The proposal](../design/roadmap/691-packages-move-out-one-per-pull-request.md)
+programs that link them. [The proposal](../design/roadmap/0691-packages-move-out-one-per-pull-request.md)
 holds the plan.
 
 ## Questions for calef

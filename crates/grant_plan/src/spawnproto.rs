@@ -154,7 +154,7 @@ const SCREEN_BIT: u64 = 1 << 37;
 const DIR_BIT: u64 = 1 << 36;
 
 /// **A second directory grant follows, for the same confined program** (milestone 154,
-/// design/roadmap/154-multi-directory-namespace.md). Set only alongside [`DIR_BIT`]: a second
+/// design/roadmap/0154-multi-directory-namespace.md). Set only alongside [`DIR_BIT`]: a second
 /// grant is meaningless without a first, the same way the kernel's `fs_service::TwoDirGrant`
 /// (slot 0 grant A, slot 1 grant B) only exists in pairs.
 ///
@@ -763,7 +763,7 @@ pub const CAP_TAG: u64 = 0x6361_705f; // "cap_" little-endian-ish marker
 pub const SPAWN_FAILED: u64 = u64::MAX;
 
 /// **The word for a job the kernel killed** (milestone 235,
-/// design/roadmap/235-a-faulted-job-should-reach-the-prompt.md). Sent on the result endpoint by
+/// design/roadmap/0235-a-faulted-job-should-reach-the-prompt.md). Sent on the result endpoint by
 /// `job_undertaker`, which is the process already holding the progenitor's supervision endpoint, once it has
 /// collected the corpse.
 ///

@@ -173,7 +173,7 @@ write per boot.
 ## Where it came from
 
 The 2026-09-04 radon session. notes/footprint-perturbation.md's own BUGS carries the defect;
-`design/roadmap/188-ipc-fastpath.md` is what it blocks.
+`design/roadmap/0188-ipc-fastpath.md` is what it blocks.
 
 ## Scope note
 

@@ -303,7 +303,7 @@ scale, and so did the block-device lane.
   file directly and bypass it; here nothing can, since all access goes through `fs_proto`. The
   format extension would also be a materially larger divergence from the 0.9.1 pin that every future
   bump pays for.
-  This refusal is milestone 485 (design/roadmap/485-xattrs-in-the-redoxfs-on-disk-format.md), which
+  This refusal is milestone 485 (design/roadmap/0485-xattrs-in-the-redoxfs-on-disk-format.md), which
   carries it with the condition that would change it.
 - **Refused.** Filesystem-level encryption on the backup volume. calef, 2026-07-30: "If I'm
   struggling to get the data off, I'm not all that worried about somebody else getting it."
@@ -318,7 +318,7 @@ scale, and so did the block-device lane.
   today, and every attribute already carries a `u32` type code the layer stores, returns and never
   interprets, so an indexed store later is a change of implementation rather than a format migration
   plus a wire break.
-  This refusal is milestone 486 (design/roadmap/486-an-indexed-typed-attribute-store.md), which
+  This refusal is milestone 486 (design/roadmap/0486-an-indexed-typed-attribute-store.md), which
   carries it with the condition that would change it.
 - **Recorded.** `notes/host-recovery.md` says an attribute's type code cannot survive extraction,
   because no host filesystem has a per-attribute type word. Each dropped code is named and counted

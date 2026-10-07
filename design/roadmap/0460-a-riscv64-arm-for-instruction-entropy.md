@@ -5,9 +5,9 @@ refused_by: 162, 448
 ---
 # 460. A riscv64 arm for the CPU-instruction entropy source
 
-Refused by milestone 162 (design/roadmap/162-cpu-instruction-entropy.md), and
+Refused by milestone 162 (design/roadmap/0162-cpu-instruction-entropy.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -22,7 +22,7 @@ From '162. Real hardware entropy on x86_64 and aarch64: RDSEED and RNDRRS', unde
 > instruction to wrap; milestone 159's JH7110 TRNG is the real hardware source there, through its
 > own driver, and pretending otherwise would be a parity claim with nothing behind it.
 >
-> -- design/roadmap/162-cpu-instruction-entropy.md
+> -- design/roadmap/0162-cpu-instruction-entropy.md
 
 ## Why it is here rather than only there
 

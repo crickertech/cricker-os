@@ -102,7 +102,7 @@ Each replayed on aarch64; both go red.
 
 ## Follow-on
 
-- **Milestone 786.** Milestone 786 (sweep the other long-lived services under the retype fault). `design/roadmap/786-sweep-the-other-long-lived-services-under-the-retype-fault.md`:
+- **Milestone 786.** Milestone 786 (sweep the other long-lived services under the retype fault). `design/roadmap/0786-sweep-the-other-long-lived-services-under-the-retype-fault.md`:
   `login`'s start-up and schedule path, `system_initializer`'s session build, `swish`.
 - **Recorded.** x86_64 does not run the `login` sweep because its test boot attaches no RedoxFS
   disk, the gap every `login_tests` test has; the hook is portable and the mechanism test runs there.

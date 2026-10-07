@@ -65,7 +65,7 @@ is how it already built `entropy` and `net_stack`.
 ## The builder moved again: from the boot to the launch (2026-09-30)
 
 calef's 2026-09-30 ruling (milestone
-[632](632-graphics-on-demand-screen-launched-from-the-prompt.md)) moved where this stack is built.
+[632](0632-graphics-on-demand-screen-launched-from-the-prompt.md)) moved where this stack is built.
 No boot builds it any more. `build_graphical_stack`, rewritten as `build_graphical_terminal_session`, runs in
 the spawn service when a `graphical_terminal` session is launched from the swish prompt. Everything this
 milestone decided survives. The kernel grants the devices rather than building them, and the slots
@@ -122,9 +122,9 @@ itself is milestone 23's, and one cost of it is below.
 
 ## Follow-on
 
-- **Milestone 664.** Milestone 664 (build the firmware-screen terminal in userspace). `design/roadmap/664-build-the-firmware-screen-terminal-in-userspace.md`: the
+- **Milestone 664.** Milestone 664 (build the firmware-screen terminal in userspace). `design/roadmap/0664-build-the-firmware-screen-terminal-in-userspace.md`: the
   same move for `boot_screen_terminal`, which is the only way to swap `display_terminal` on x86_64.
-  And `design/roadmap/677-the-progenitor-stack-has-no-measured-headroom.md`: this lane's
+  And `design/roadmap/0677-the-progenitor-stack-has-no-measured-headroom.md`: this lane's
   first gate overflowed the progenitor's stack, which nothing measures.
 - **Recorded.** The silent trap, the four-device count and the swap's slot cost are in `BUGS` above.
   The swap's slot cost is also in this lane's report to milestone 23.

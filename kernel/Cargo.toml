@@ -412,7 +412,7 @@ watchdog_probe = []
 # and ctx_switch +36.0 ticks per switch on aarch64. They are now `#[cfg]`-gated at the switch site
 # (see `sched::install_cycle_counter_grant`) rather than threaded through the switch tuple and trusted
 # to fold, the same fix milestone 299 gave the port grant, so a feature-off boot pays nothing on any
-# build. See design/roadmap/237-the-cycle-grant-is-a-measurement-build.md.
+# build. See design/roadmap/0237-the-cycle-grant-is-a-measurement-build.md.
 #
 # **The gate on every piece is `any(test, feature = "cycle_counter_grant")`, not the feature
 # alone**, and that is deliberate. Milestone 229's proofs (the embryo refusal in `sched`, the EL0
@@ -430,7 +430,7 @@ watchdog_probe = []
 # (`Thread::cycle_counter_grant`) rather than a new word for it. Names are an architect's.
 cycle_counter_grant = []
 # E3's footprint-perturbation experiment (milestone 134,
-# design/roadmap/134-the-measurements-that-decide.md): adds a large, reachable-but-never-taken
+# design/roadmap/0134-the-measurements-that-decide.md): adds a large, reachable-but-never-taken
 # function to the IPC fastpath's call graph, roughly doubling `ipc_fastpath`'s measured footprint,
 # so `script/fastpath-footprint --features fastpath_pad` and `cargo xtask bench --real
 # --extra-features fastpath_pad` can compare the padded build against the un-padded baseline while

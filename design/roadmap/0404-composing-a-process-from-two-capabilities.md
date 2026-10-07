@@ -69,7 +69,7 @@ was renamed for the claim it now makes.
   supervising the child would cost the floor.
 - **Recorded.** The child is loaded unmeasured, as `builder` loaded it, in the same `BUGS`.
 - **Milestone 794.** Milestone 794 (one progenitor-shaped spawn for the system tests). The harness's progenitor-shaped spawn is the fifth copy of one sequence in
-  `system_tests`: `design/roadmap/794-one-progenitor-shaped-spawn-for-the-system-tests.md`.
+  `system_tests`: `design/roadmap/0794-one-progenitor-shaped-spawn-for-the-system-tests.md`.
 - **Refused.** Option (c), a host-side proof that a capability set suffices for a verb sequence:
   §185 did not choose it. It produces a proof but does not witness the kernel, and stays a
   possible addition beside this one.

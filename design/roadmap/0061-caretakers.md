@@ -282,11 +282,11 @@ work.
   all fell through one `_ =>` arm shared with "you named a handle I never minted". `ENOTDIR` is
   very likely right for all seven by exactly the argument `CREATE` already makes, and the behavior
   was preserved because changing it changes the wire.
-- **Recorded.** `design/roadmap/61-caretakers.md` BUGS: the verb table is a new place to be wrong,
+- **Recorded.** `design/roadmap/0061-caretakers.md` BUGS: the verb table is a new place to be wrong,
   and a wrong row is wrong in three programs at once. The mitigation is that it is pure data in a
   host-testable crate, so Kani and host tests reach it where a hand-written match in a `no_std`
   binary cannot.
-- **Recorded.** `design/roadmap/61-caretakers.md` BUGS: the table does not make the caretakers
+- **Recorded.** `design/roadmap/0061-caretakers.md` BUGS: the table does not make the caretakers
   interchangeable and must not try to. Only the verb dispatch is shared; what each attenuates to
   stays hand-written, which is what the collapse refutation above established.
 - **Refused.** Collapsing the three caretakers into one program parameterized by how the namespace

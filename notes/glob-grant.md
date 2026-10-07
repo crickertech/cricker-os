@@ -529,4 +529,4 @@ cargo test -p fs_proto       # the set encoding, and both fixtures pinned agains
 - [grant-expression.md](grant-expression.md): the command line as a grant expression, and
   `fs_file_caretaker`.
 - Milestone 47's "Globbing, which decides how every multi-file operation grants" in
-  `design/roadmap/47-navigation-and-naming.md`.
+  `design/roadmap/0047-navigation-and-naming.md`.

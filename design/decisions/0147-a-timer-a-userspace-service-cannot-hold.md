@@ -60,7 +60,7 @@ It cannot, on riscv64, on any machine. So the decision needs re-making, and this
 ## Why the premise failed
 
 The full working, with the specification citations, is `notes/timer-capability.md`, and the corrected
-per-architecture table is in `design/roadmap/263-can-a-timer-be-a-capability.md`. The short form:
+per-architecture table is in `design/roadmap/0263-can-a-timer-be-a-capability.md`. The short form:
 
 - riscv64: closed three independent ways. Sstc's every enable (`mcounteren.TM`, `menvcfg.STCE`,
   `henvcfg.STCE`) gates S-mode and VS-mode, and the privileged architecture contains no U-mode

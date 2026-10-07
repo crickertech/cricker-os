@@ -5,9 +5,9 @@ refused_by: 83, 448
 ---
 # 489. The rule-1 lint, past the kernel
 
-Refused by milestone 83 (design/roadmap/83-rule-1-lint.md), and recorded there
+Refused by milestone 83 (design/roadmap/0083-rule-1-lint.md), and recorded there
 on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -24,7 +24,7 @@ From '83. A mechanical rule-1 lint', under `## Follow-on`:
 > already had checks deleted for exactly that. Whether it is worth writing is a question for after
 > this one has run for a while.
 >
-> -- design/roadmap/83-rule-1-lint.md
+> -- design/roadmap/0083-rule-1-lint.md
 
 ## Why it is here rather than only there
 

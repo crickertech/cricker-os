@@ -39,7 +39,7 @@ boot-stack guards are prior art in this tree; cite where the pattern lives when 
   puts the secondaries at 12% of their stacks (8.5 KiB of 64), so the missing guard was the finding
   and the sizing was not. Taking both at once would have made a stack-depth regression and a guard
   regression indistinguishable in one commit.
-  This refusal is milestone 454 (design/roadmap/454-the-stack-sizes-nobody-has-sized.md), which
+  This refusal is milestone 454 (design/roadmap/0454-the-stack-sizes-nobody-has-sized.md), which
   carries it with the condition that would change it.
 
 ## Index row

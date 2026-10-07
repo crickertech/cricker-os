@@ -127,10 +127,10 @@ is not this case.
 - **Milestone 232.** Nothing else init starts has been checked program by program. The
   no-thread-killed assertion catches a program that dies; a service that comes up and answers
   nothing useful still passes every check in the tree, which is 232's territory.
-- **Recorded.** `design/roadmap/233-login-never-runs.md`'s own `BUGS`: how long `login` had been
+- **Recorded.** `design/roadmap/0233-login-never-runs.md`'s own `BUGS`: how long `login` had been
   dying is unknown. Nobody bisected it, and there is no green-to-red transition to search for,
   because the check that would have noticed was itself not running.
-- **Recorded.** `design/roadmap/233-login-never-runs.md`'s own `BUGS`: the measurement check
+- **Recorded.** `design/roadmap/0233-login-never-runs.md`'s own `BUGS`: the measurement check
   `login` performs is weaker than it was. It used to read the same physical archive the kernel maps
   for init; both blobs now come from init, which has already run the identical check, so what
   remains is a consistency check on the hand-over.

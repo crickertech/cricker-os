@@ -5,10 +5,10 @@ refused_by: 13, 14, 26, 448
 ---
 # 456. The capability derivation tree, and subtree-granular revocation
 
-Refused by milestone 13 (design/roadmap/13-capability-revocation.md), milestone
-14 (design/roadmap/14-kernel-objects-from-untyped.md),
-milestone 26 (design/roadmap/26-object-revocation.md), and recorded there on 2026-09-03. Backfilled here on
-2026-09-20 by milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal
+Refused by milestone 13 (design/roadmap/0013-capability-revocation.md), milestone
+14 (design/roadmap/0014-kernel-objects-from-untyped.md),
+milestone 26 (design/roadmap/0026-object-revocation.md), and recorded there on 2026-09-03. Backfilled here on
+2026-09-20 by milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal
 that names work a number, a status and a condition that would change it. *(Number provisional until
 the merge queue lands it.)*
 
@@ -27,7 +27,7 @@ From '13. Capability revocation + untyped reclamation', under `## Follow-on`:
 > one ever does, the unmap side and the revoke-before-reclaim discipline are reused unchanged with
 > only the holders index rebuilt as a tree.
 >
-> -- design/roadmap/13-capability-revocation.md
+> -- design/roadmap/0013-capability-revocation.md
 
 From '14. Kernel objects from untyped: remove the kernel heap', under `## Follow-on`:
 
@@ -36,7 +36,7 @@ From '14. Kernel objects from untyped: remove the kernel heap', under `## Follow
 > driver on the roadmap, and the argument that this is a terminal design rather than a way-station
 > is in design/decisions/0013-frame-revocation.md.
 >
-> -- design/roadmap/14-kernel-objects-from-untyped.md
+> -- design/roadmap/0014-kernel-objects-from-untyped.md
 
 From '26. Object revocation: tear a process back down', under `## Follow-on`:
 
@@ -45,7 +45,7 @@ From '26. Object revocation: tear a process back down', under `## Follow-on`:
 > non-LIFO return-of-pages-to-parent. `notes/object-revocation.md` records the refusal in the
 > words "we still have no reason to build one", and the LIFO case is built.
 >
-> -- design/roadmap/26-object-revocation.md
+> -- design/roadmap/0026-object-revocation.md
 
 ## Why it is here rather than only there
 

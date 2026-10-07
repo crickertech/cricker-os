@@ -138,16 +138,16 @@ diff.
   gate a filename convention, neither reports a number the other must match, and nothing downstream
   restates either, so it is a convention spelled twice rather than a derivation that can drift apart
   while both look authoritative.
-- **Recorded.** `design/roadmap/236-lift-the-copied-derivations.md`: the harness comparison is rung
+- **Recorded.** `design/roadmap/0236-lift-the-copied-derivations.md`: the harness comparison is rung
   two, not rung one. Two implementations are kept honest rather than removed, so somebody can still
   change one definition; they just cannot do it quietly.
-- **Recorded.** `design/roadmap/236-lift-the-copied-derivations.md`: the comparison checks one
+- **Recorded.** `design/roadmap/0236-lift-the-copied-derivations.md`: the comparison checks one
   number rather than a breakdown, because a per-package comparison would fail on a scope difference
   the three derivations deliberately have.
 - **Recorded.** `helpers/rust_source.py` is Python in a tree that is otherwise Rust and shell. It
   adds no dependency and no build step, and the third tooling language was accepted rather than
   argued for, because the alternative was a `cargo build` in front of three `script/` commands.
-- **Recorded.** `design/roadmap/236-lift-the-copied-derivations.md` carries the provisional name.
+- **Recorded.** `design/roadmap/0236-lift-the-copied-derivations.md` carries the provisional name.
   `helpers/rust_source.py` was minted by the lane, names are an architect's, and what was refused
   and why is written down beside it.
 

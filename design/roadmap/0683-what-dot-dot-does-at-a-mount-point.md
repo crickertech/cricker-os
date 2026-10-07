@@ -47,7 +47,7 @@ Would we choose A if both cost the same? Yes; the cost difference is ten lines a
 ## How reversible
 
 Fully. One interactive shell's `..` arithmetic; no wire format, no program written against it, and
-no boot shell holds a second tree yet (design/roadmap/660-a-second-filesystem-mounts-in-the-boot-shell.md).
+no boot shell holds a second tree yet (design/roadmap/0660-a-second-filesystem-mounts-in-the-boot-shell.md).
 
 ## Index row
 

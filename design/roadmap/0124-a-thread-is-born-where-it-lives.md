@@ -317,25 +317,25 @@ proofs and tests run in a configuration nobody checks is not demonstrating.
 
 ## Follow-on
 
-- **Recorded.** In `design/roadmap/124-a-thread-is-born-where-it-lives.md`'s own BUGS: the refusal
+- **Recorded.** In `design/roadmap/0124-a-thread-is-born-where-it-lives.md`'s own BUGS: the refusal
   is a race a caller can still see, one context switch wide. Any caller reclaiming a region that
   holds a just-dead thread gets a `NotPermitted` and must retry, and `wait_for` is the in-tree idiom
   both supervision tests now use.
-- **Recorded.** In `design/roadmap/124-a-thread-is-born-where-it-lives.md`: the `on_cpu` guard is a
+- **Recorded.** In `design/roadmap/0124-a-thread-is-born-where-it-lives.md`: the `on_cpu` guard is a
   condition in one function, which is rung two of AGENTS.md's ladder. Rung one would be a type that
   cannot name a thread still standing on its stack, and this tree has no such type, so the next
   out-of-band remover can forget the check exactly as this one did.
-- **Recorded.** In `design/roadmap/124-a-thread-is-born-where-it-lives.md`: `Thread::spawn` still
+- **Recorded.** In `design/roadmap/0124-a-thread-is-born-where-it-lives.md`: `Thread::spawn` still
   carries the copies for `sched::init`'s idle thread and `spawn_blocked`, which hold no TCB page
   when they build. Nothing on those paths is near a guard page today, and this is where to look
   first if one ever is.
-- **Recorded.** In `design/roadmap/124-a-thread-is-born-where-it-lives.md`: the ratchet is deleted
+- **Recorded.** In `design/roadmap/0124-a-thread-is-born-where-it-lives.md`: the ratchet is deleted
   rather than lowered, so nothing holds these frames except the gate's own 4096-byte ceiling. That
   is the state a ratchet exists to reach and then be deleted from.
 - **Recorded.** In `notes/stack-high-water.md`: `-Z emit-stack-sizes` bounds one frame and not the
   depth of the path it sits in, so "every instantiation under 4096" and the watermark are each half
   an answer and neither is sufficient alone.
-- **Recorded.** In `design/roadmap/124-a-thread-is-born-where-it-lives.md`: the prediction that
+- **Recorded.** In `design/roadmap/0124-a-thread-is-born-where-it-lives.md`: the prediction that
   the slot table, `crates/generational_table` (this block's prose still calls it
   crates/slots, its name before the rename), was the main cost was wrong, and it is kept because it is the plausible reading of
   `Table::insert_with` and the next person will make it too. The table stores a pointer; the thread
@@ -345,7 +345,7 @@ proofs and tests run in a configuration nobody checks is not demonstrating.
   the overflow stays illegible. Growing the stack moves the fault further away without restoring the
   mechanism that makes it a fault at all; shrinking the frames below 4096 restores it. Growing the
   stack remains an independent question on its own merits.
-  This refusal is milestone 454 (design/roadmap/454-the-stack-sizes-nobody-has-sized.md), which
+  This refusal is milestone 454 (design/roadmap/0454-the-stack-sizes-nobody-has-sized.md), which
   carries it with the condition that would change it.
 - **Milestone 331.** Delete the
   window in which a thread is published `Dead` while it still executes on its own kernel stack,

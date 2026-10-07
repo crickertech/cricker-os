@@ -79,7 +79,7 @@ produced a larger one.
 Two elisions above, both marked: the block's list of what the note already contained (answered in
 the table below instead) and its aside on where the 705 and 951 figures came from. Everything else
 is its own wording, kept because paraphrasing a retracted claim is how this same file's sibling went
-wrong twice (design/roadmap/74-cycle-counters.md).
+wrong twice (design/roadmap/0074-cycle-counters.md).
 
 **Why it was wrong, since that is the part worth carrying forward.** The arithmetic is fine: 2272 ns
 at 3.2 GHz really is ~7,300 cycles, and ~7,300 against 300-600 really is 12 to 24. Every step is

@@ -10,7 +10,7 @@ primitive (`OP_RAWMODE`/`OP_READRAW`, `crates/line_editor`) is built and proven;
 is a Rust reimplementation of `kilo`'s spirit and scope (`components/src/rmle.rs`), not a port, because
 DECISIONS §31's foreign-language seam as actually built is a one-shot call and cannot support
 `kilo`'s own blocking event loop without new seam infrastructure (that infrastructure is
-[milestone 181](181-persistent-foreign-component.md), raised separately). **Named `rmle`, not
+[milestone 181](0181-persistent-foreign-component.md), raised separately). **Named `rmle`, not
 `kilo`**, calef, 2026-08-27, specifically to avoid two things being called `kilo` once a real
 `kilo.c` port through milestone 181's extended seam exists; see `rmle.rs`'s own module doc for the
 full naming note. This milestone's own primary deliverable, the raw-keystroke primitive, is
@@ -70,7 +70,7 @@ Directly, [DECISIONS §31](../decisions/0031-foreign-language-seam.md)'s foreign
 first real, load-bearing C program beyond the confined `c_seam.c` spike, and the raw-keystroke
 primitive this milestone has to build is reusable infrastructure, not a `kilo`-specific hack.
 
-[Milestone 170](170-nano-editor.md) is the direct follow-on, sequenced to start only
+[Milestone 170](0170-nano-editor.md) is the direct follow-on, sequenced to start only
 once this milestone's raw-input primitive exists: nano needs the exact same terminal capability at
 roughly 25x the code size, plus an optional (skippable) subprocess dependency for spell-check and
 external filtering that `kilo` never has to answer. Building `kilo` first is what turns "design a

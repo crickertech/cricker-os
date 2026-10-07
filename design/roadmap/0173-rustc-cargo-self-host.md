@@ -13,7 +13,7 @@ Minted 2026-08-25, the third of four self-hosting milestones, and the big
 one. Sized by research before being minted rather than guessed at: the blocker is not what it first
 looks like.
 
-[Milestone 172](172-capability-native-subprocess.md)'s capability-native
+[Milestone 172](0172-capability-native-subprocess.md)'s capability-native
 subprocess primitive is a hard prerequisite, not a convenience: `cargo` spawns `rustc` once per
 compilation unit as its whole build model (verified via `rustc_driver`'s own use inside `clippy` and
 `miri`, which still spawn a driver process per crate through
@@ -30,7 +30,7 @@ wall. LLVM's default codegen backend emits object files ahead-of-time; a normal 
 never generates or executes machine code at runtime. This is not nife's static-`ET_EXEC`-only
 loader's problem at all. The actual blocker is that fork/exec sits at the architectural center of
 both `rustc`'s linking step and `cargo`'s entire build model, which is exactly what
-[milestone 172](172-capability-native-subprocess.md) exists to close.
+[milestone 172](0172-capability-native-subprocess.md) exists to close.
 
 ## What else this needs, once 172 exists
 
@@ -63,12 +63,12 @@ self-hosting" actually is, so it is scoped rather than promised.
 ## Why it matters
 
 This is the milestone that would let calef build nife entirely on a running nife system, the literal
-target of his own question. [Milestone 174](174-nife-thin-dev-client.md) is the nearer-term
+target of his own question. [Milestone 174](0174-nife-thin-dev-client.md) is the nearer-term
 alternative that reaches "daily driver" sooner without this milestone's full scope.
 
 ## What this does not decide
 
-Whether [milestone 172](172-capability-native-subprocess.md)'s primitive, once built, is sufficient
+Whether [milestone 172](0172-capability-native-subprocess.md)'s primitive, once built, is sufficient
 as-is or needs extension once real `cargo`/`rustc` invocation patterns are tried against it; whether
 LLVM is ported whole or some minimal subset targeted first; and the actual multi-year-or-shorter
 timeline, which this block deliberately does not estimate given how little of milestone 172 exists

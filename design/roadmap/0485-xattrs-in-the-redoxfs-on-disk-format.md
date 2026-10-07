@@ -5,9 +5,9 @@ refused_by: 57, 448
 ---
 # 485. Extended attributes in the RedoxFS on-disk format
 
-Refused by milestone 57 (design/roadmap/57-partitioning-and-xattrs.md), and
+Refused by milestone 57 (design/roadmap/0057-partitioning-and-xattrs.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -24,7 +24,7 @@ From '57. Partitioning and formatting a real drive, and extended attributes', un
 > extension would also be a materially larger divergence from the 0.9.1 pin that every future bump
 > pays for.
 >
-> -- design/roadmap/57-partitioning-and-xattrs.md
+> -- design/roadmap/0057-partitioning-and-xattrs.md
 
 ## Why it is here rather than only there
 

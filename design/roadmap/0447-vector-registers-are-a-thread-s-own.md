@@ -7,7 +7,7 @@ built: 2026-09-20
 
 Built 2026-09-20. Minted 2026-09-20 by the maintainer, on calef opening **Route 2** of
 milestone 164 (x86_64 userspace can't build `aes`: no SSE, no scalar fallback), whose
-[block](164-x86-64-fs-server-aes.md) refused that route and priced it, after a conversation about
+[block](0164-x86-64-fs-server-aes.md) refused that route and priced it, after a conversation about
 why SSE is switched off. *(Number provisional until the merge queue lands it.)*
 
 ## What was true before this, and it was true on purpose
@@ -18,7 +18,7 @@ a gap: a decision, recorded three times and enforced by construction.
 - Every target in `targets/` is soft-float. `x86_64-unknown-nife.json` carries
   `"features": "-mmx,-sse,-sse2,...,-avx,-avx2,+soft-float"` and `"rustc-abi": "softfloat"`; the
   other two are the `-softfloat`/`-neon` equivalents.
-- Milestone 184 (extend the `std` port to x86_64), in [its own block](184-std-x86-64.md), calls
+- Milestone 184 (extend the `std` port to x86_64), in [its own block](0184-std-x86-64.md), calls
   that feature string **"a correctness requirement"** in its target table, with the reason beside
   it: "`kernel/src/arch/x86_64/` saves no FPU or SSE state on a context switch."
 - §31 (the foreign-language seam: C holds no capabilities and makes no syscalls), in
@@ -409,14 +409,14 @@ are measurements rather than arguments, and neither needs this decision made fir
 ## Follow-on
 
 - **Milestone 534.** milestone 534 (the soft-float targets could now be flipped),
-  `design/roadmap/534-the-soft-float-targets-could-now-be-flipped.md`: the target flip, what it
+  `design/roadmap/0534-the-soft-float-targets-could-now-be-flipped.md`: the target flip, what it
   would take, buy and cost, and the two measurements that should come before it. Written up rather
   than recommended, because it is an ABI two programs agree on and §22 chose the current one
   deliberately; the *fork reaches calef with its questions already answered* tenet asks for options
   and costs on an irreversible fork and explicitly not for a winner. A `design/decisions/` section
   is owed when calef rules on it; this lane does not write one, per its brief.
 - **Milestone 534.** First on that same file's list, in
-  `design/roadmap/534-the-soft-float-targets-could-now-be-flipped.md`: re-measure milestone
+  `design/roadmap/0534-the-soft-float-targets-could-now-be-flipped.md`: re-measure milestone
   442's soft-float x86_64 failures against nife's own target specifications on the pinned nightly,
   which 442's block already says it owes in its own first item. It is a prerequisite for pricing
   the flip rather than a consequence of it, and it is cheap.

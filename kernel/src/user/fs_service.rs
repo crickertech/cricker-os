@@ -705,7 +705,7 @@ const CRASH_DISK_INDEX: usize = 2;
 
 /// **Is the crash test's own disk attached to this boot?**
 ///
-/// Milestone 214 (design/roadmap/214-print-and-return-skips.md), on a test that prints
+/// Milestone 214 (design/roadmap/0214-print-and-return-skips.md), on a test that prints
 /// "skipping" and returns being counted as passed: the fixture check used to live inside
 /// `std_tests::assert_a_kill_mid_transaction_recovers`, which printed "skipping" and returned.
 /// A helper cannot skip on a test's behalf, because `skip!()` returns from the function it is
@@ -1110,7 +1110,7 @@ pub struct DirGrant {
 /// the archive was packed. A test that needs a filesystem still skips with [`NO_FS_SERVER`]
 /// rather than panicking on a lookup, and on `x86_64` it now more often skips one step later,
 /// inside [`start`], for want of a disk this machine's runner does not attach yet
-/// (design/roadmap/164-x86-64-fs-server-aes.md).
+/// (design/roadmap/0164-x86-64-fs-server-aes.md).
 ///
 /// **The archive entry is `redoxfs_server`, not `fs_server`, on every architecture that has one**
 /// (milestone 140 increment zero renamed the crate and its packed name together). A lookup for the
@@ -2073,7 +2073,7 @@ fn spawn_std(
 }
 
 /// **Two directory grants to one process** (milestone 154,
-/// design/roadmap/154-multi-directory-namespace.md). The endowment question milestone 47's
+/// design/roadmap/0154-multi-directory-namespace.md). The endowment question milestone 47's
 /// `bind` and milestone 64's `File::open` fork both independently found unbuilt: nothing before
 /// this granted a *second* directory capability to one process. `start_granted_dir` starts one
 /// caretaker and hands one endpoint; this starts two, for one confined program:

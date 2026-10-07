@@ -124,7 +124,7 @@ only visible by running the thing.
 - **Recorded.** `script/ci-build` says on the closing line of every run that the leg was skipped and
   the run was TCG only. Until that driver exists this machine has no accelerated coverage at all,
   and the loud skip is a record of the gap rather than a substitute for it.
-- **Recorded.** `design/roadmap/222-hvf-leg-fails-silently.md` states the split the probe holds: it
+- **Recorded.** `design/roadmap/0222-hvf-leg-fails-silently.md` states the split the probe holds: it
   answers about the machine, not about the suite, so a QEMU that starts
   `virt,accel=hvf,gic-version=2,iommu=smmuv3` is believed and a genuine red can never become a skip.
   It should not be extended until it can hold that line.
@@ -134,7 +134,7 @@ only visible by running the thing.
 - **Refused.** Extending the probe to the other accelerated paths, KVM on cordoba and WHPX. Neither
   has a leg in `script/gates` today, so neither can fail this way yet, and a probe guarding a leg
   that does not exist is the false-skip shape `script/lint` has deleted three checks for.
-  This refusal is milestone 475 (design/roadmap/475-the-accelerator-probe-on-kvm-and-whpx.md), which
+  This refusal is milestone 475 (design/roadmap/0475-the-accelerator-probe-on-kvm-and-whpx.md), which
   carries it with the condition that would change it.
 
 ## Index row

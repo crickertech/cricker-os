@@ -11,7 +11,7 @@ needs_person: yes
 
 Minted 2026-08-25, provisional number pending the integrator (mint against
 the current index at merge). Named as needing "its own milestone" in three places without ever
-getting one: `design/roadmap/53-board-peripherals.md` ("driving it is its own milestone, not a
+getting one: `design/roadmap/0053-board-peripherals.md` ("driving it is its own milestone, not a
 bench fix"), `notes/visionfive2.md`'s own "PCIe" section (identical words), and
 `design/decisions/0086-el0-nvme-driver.md`, which holds itself `PROPOSED` pending exactly this work.
 This block gives that debt a home.
@@ -26,7 +26,7 @@ about the NVMe/network work this is one piece of).
 Drive the JH7110's PCIe root complex, a PLDA XpressRICH controller
 (`starfive,jh7110-pcie` in mainline device trees). This is not the same device as QEMU's
 `pci-host-ecam-generic`, which is explicitly a QEMU-only fake exposed by the `virt` boards
-(`design/roadmap/16-real-hardware-iommu.md`'s own framing of the two IOMMUs as "structural
+(`design/roadmap/0016-real-hardware-iommu.md`'s own framing of the two IOMMUs as "structural
 siblings" only holds for the emulated case; the PLDA controller has no such sibling in this tree
 today). `notes/visionfive2.md` records the honest current state: the kernel already reads PCIe
 windows from a generic-ECAM device-tree node when one exists (`memory::init`, `mmu::map_everything`,

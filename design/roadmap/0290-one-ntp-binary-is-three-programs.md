@@ -121,7 +121,7 @@ needs no qualification, and `components/src/network_time_client.rs` says so wher
 
 ## What milestone 265 needs to know, and this block does not edit it
 
-`design/roadmap/265-proto-is-a-truncation-not-an-abbreviation.md` owns `ntp_proto` →
+`design/roadmap/0265-proto-is-a-truncation-not-an-abbreviation.md` owns `ntp_proto` →
 `network_time_protocol` and the `_proto` → `_protocol` sweep across 14 crates and 349 files. None of
 it is performed here: these three programs depend on `ntp_proto` spelled the way it is spelled
 today, and 265 will sweep their `use` lines with everything else.
@@ -210,7 +210,7 @@ three new names ratified and carrying eight refusals between them.
   path that no longer exists, one of them with a line number. A lane may not edit
   `design/decisions/`, so they are named here and in this lane's report for the integrator. The
   content is still true of `network_time_client.rs`; only the path is stale.
-- `design/roadmap/106-deadline-wait.md` cites `components/src/ntp.rs:44`, `:188` in its table of
+- `design/roadmap/0106-deadline-wait.md` cites `components/src/ntp.rs:44`, `:188` in its table of
   what a timed wait would fix. Same shape, same reason it is not edited here (another milestone's
   block), same remedy.
 - The report vocabulary is one numbering space across three programs that no longer share a

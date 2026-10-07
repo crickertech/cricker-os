@@ -36,7 +36,7 @@
 //! what "set the offset outright" already means (DECISIONS §43).
 //!
 //! Name: ratified 2026-09-14 (calef, working the unratified worklist), confirming milestone 63's
-//! name table (design/roadmap/63-name-spellings.md). Introduced 2026-07-30. Milestone 63 argues
+//! name table (design/roadmap/0063-name-spellings.md). Introduced 2026-07-30. Milestone 63 argues
 //! this name from the other side, while settling `credentialer`: it treats `clock` and `entropy`
 //! as the established resource-name pattern and departs from that pattern only where the departure
 //! is earned, because the credential service will never hand you a credential and naming it for

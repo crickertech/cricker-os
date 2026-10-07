@@ -125,14 +125,14 @@ the inventory to answer it with.
   own `BUGS` paragraph in `ci.yml` says the same thing; and `architect hold`, which the note argues
   against this block's own sentence). It is a repository setting and calef's, and the note prices
   each one rather than assuming.
-- **Recorded.** `design/roadmap/232-what-the-checks-actually-check.md`'s BUGS: an audit is a
+- **Recorded.** `design/roadmap/0232-what-the-checks-actually-check.md`'s BUGS: an audit is a
   snapshot, all four findings arrived within one day of each other, and nothing built here keeps the
   answer current.
-- **Recorded.** `design/roadmap/232-what-the-checks-actually-check.md`'s BUGS: the fourth shape, a
+- **Recorded.** `design/roadmap/0232-what-the-checks-actually-check.md`'s BUGS: the fourth shape, a
   check whose passing means less than its
   name, cannot be found by inspection. An inventory lists checks; only someone asking what a check
   proves finds the next `login`.
-- **Recorded.** `design/roadmap/232-what-the-checks-actually-check.md`'s BUGS, on the three
+- **Recorded.** `design/roadmap/0232-what-the-checks-actually-check.md`'s BUGS, on the three
   instruments nothing runs: two of them are
   expensive (`crate-probes` builds fifty crates, `repeat-under-load` boots QEMU repeatedly), so "run
   it in CI" is not automatically the answer and the audit prices rather than assumes.

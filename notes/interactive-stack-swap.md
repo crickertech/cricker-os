@@ -67,7 +67,7 @@ history ring and a full queue is under 4 KiB. That corrects this note's own earl
 
 calef ruled 1a and 2b on 2026-09-26 (an additive `OPERATION_QUIESCE`; a `FLAG_RETRY` reply that a reader
 answers by asking again) and, on 2026-09-27, option A of
-`design/roadmap/661-a-terminal-supervisor-holds-the-line-editor.md`. So:
+`design/roadmap/0661-a-terminal-supervisor-holds-the-line-editor.md`. So:
 
 - `line_editor::component` declares what a supervisor routes to it, with one declaration per
   output-sink shape. `line_editor::handoff` is its blob: the edit line and cursor, the kill buffer,
@@ -81,7 +81,7 @@ answers by asking again) and, on 2026-09-27, option A of
   three architectures: a line half typed before the swap finishes after it, and history typed
   before it is recalled after it. `script/swish-check`, plain and graphical, boots through it.
 
-What is left is the trigger, which `design/roadmap/694-the-installer-asks-the-terminal-to-swap.md`
+What is left is the trigger, which `design/roadmap/0694-the-installer-asks-the-terminal-to-swap.md`
 sets out.
 
 ## display_terminal: blocked on where it is built
@@ -116,7 +116,7 @@ the harness, which is what the block's original sentence warned against.
 
 Provisional titles; the integrator mints the numbers. Each was a file under `design/roadmap/proposals/`.
 
-1. Swap `line_editor` live (`669-swap-line-editor-live-under-system-initializer.md`): built on
+1. Swap `line_editor` live (`0669-swap-line-editor-live-under-system-initializer.md`): built on
    2026-09-27 under a terminal supervisor rather than `system_initializer`, as ruled.
 2. Build the graphical terminal stack in userspace now that a frame names a run: promoted to
    milestone 600 (the graphical terminal stack is built in userspace) and built, so
@@ -138,4 +138,4 @@ because `redoxfs_server` will not fit a page and `swapper`'s fixture uses two.
 ## See also
 
 - notes/state-handoff.md, notes/live-replacement.md, notes/terminal-contract.md
-- design/roadmap/177-graphical-interactive-boot.md for why the graphical stack is built kernel-side
+- design/roadmap/0177-graphical-interactive-boot.md for why the graphical stack is built kernel-side

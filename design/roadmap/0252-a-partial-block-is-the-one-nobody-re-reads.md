@@ -101,7 +101,7 @@ carelessness:
 
 **And the wrong sentence is rarely only in the roadmap.** Fixing a block repeatedly left a rustdoc,
 a module header or a note still saying the old thing, where no gate reads it. Ten of those are in
-`design/roadmap/333-claims-the-sweep-found-false-outside-the-roadmap.md`.
+`design/roadmap/0333-claims-the-sweep-found-false-outside-the-roadmap.md`.
 
 **One block should probably not be `PARTIAL` at all.** Milestone 207's four Community Standards
 items are all delivered and GitHub scores the repository at 100%; what keeps it `PARTIAL` is that
@@ -126,12 +126,12 @@ That call is an architect's, so the block says so rather than moving.
   this, as the `BUGS` above says, and the sweep found a worked example of a false one: milestone 75
   reads NOT-STARTED on a `DECISION` gate for a decision made 2026-09-02 and built twice that week,
   and three blocks cite it as a live blocker.
-  `design/roadmap/357-the-statuses-the-follow-on-gate-does-not-cover.md`.
+  `design/roadmap/0357-the-statuses-the-follow-on-gate-does-not-cover.md`.
 - **Milestone 333.** The ten stale claims the sweep found in code comments, rustdocs and notes,
   where no gate reads them. Re-checked on 2026-09-19 at promotion: eight still stand, one is closed
   and one wants a re-read.
 - **Milestone 358.** Milestone 139's log-page walk, which round 8 asked to have minted and nobody
-  did, is `design/roadmap/358-the-unsafe-log-page-walk-in-revoke.md`.
+  did, is `design/roadmap/0358-the-unsafe-log-page-walk-in-revoke.md`.
 - **Done.** Two of milestone 117's own handoffs had rotted a second time and were fixed here by
   deleting the duplicated fact rather than re-copying it: `CONTRIBUTING.md` no longer lists
   `script/gates`' stages and `script/setup` no longer repeats the toolchain date.

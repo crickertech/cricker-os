@@ -251,7 +251,7 @@ Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-d
 - **Done.** The real boot hands `login` what Fork 8 D needs, 2026-09-27.
 - **Milestone 769.** Milestone 769 (a gate that types SCHEDULE on the real boot). A gate that types `SCHEDULE` on the real boot: `script/swish-check` has no login
   client, so only the kernel suite's `login_tests` run it. Rechecked 2026-10-03. See
-  `design/roadmap/769-a-real-boot-gate-that-types-schedule.md`.
+  `design/roadmap/0769-a-real-boot-gate-that-types-schedule.md`.
 - **Refused.** Per-login narrowing of the directory capability was deliberately not taken, because
   the adapter it applied to was deleted: the SMB implementation went on 2026-08-30, calef's call,
   after journey 2 was retired.

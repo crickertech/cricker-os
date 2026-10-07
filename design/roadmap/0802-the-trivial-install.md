@@ -32,7 +32,7 @@ system then grows by installing packages over the internet.
 
 ## The rungs that are this milestone
 
-[Milestone 198's rung table](198-package-manager.md#the-rungs) maps every rung to its milestone.
+[Milestone 198's rung table](0198-package-manager.md#the-rungs) maps every rung to its milestone.
 Two are here:
 
 | Rung | Ships | Exit criterion a stranger could check |

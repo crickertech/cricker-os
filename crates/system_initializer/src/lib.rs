@@ -664,7 +664,7 @@ pub struct BootEndowment {
 }
 
 /// **A second, disjoint directory capability for the shell** (milestone 154's "wiring a second
-/// grant into the real boot", design/roadmap/154-multi-directory-namespace.md), passed to [`boot`]
+/// grant into the real boot", design/roadmap/0154-multi-directory-namespace.md), passed to [`boot`]
 /// alongside [`BootEndowment`] rather than folded into it: this is not a kernel grant like every
 /// field above, it is something [`boot`] itself constructs (a second `fs_subtree_caretaker`,
 /// narrowing the same file service [`BootEndowment::fs_ep`] already names) out of capabilities the
@@ -1064,7 +1064,7 @@ const IDP_RPT_OK: u64 = 1;
 /// **The demo identity this boot provisions**, once per boot, with a freshly generated password
 /// (see `have_login_stack`'s own block for the reasoning): a role name rather than a specific
 /// family member's, deliberately, because the whole point of a boot-generated credential is that
-/// nothing here has to decide *whose* account this is (`design/roadmap/49-users-and-attribution.md`'s
+/// nothing here has to decide *whose* account this is (`design/roadmap/0049-users-and-attribution.md`'s
 /// own BUGS names this as the reason the generated shape was recommended over a baked-in one).
 const DEMO_IDENTITY: &[u8] = b"operator";
 /// How many raw bytes of entropy the generated password draws. 12 bytes (96 bits) hex-encoded to

@@ -280,7 +280,7 @@ accounting move together and want a lane of their own.
   writing during the boot" is six exact searches for short kernel strings, and a boot that destroyed
   all six would give the false red this design otherwise rules out structurally. Six independent
   chances is a better bet than one, not a proof.
-- **Recorded.** `design/roadmap/230-shell-check-is-red.md`'s BUGS is honest about the bisect. It
+- **Recorded.** `design/roadmap/0230-shell-check-is-red.md`'s BUGS is honest about the bisect. It
   runs over first-parent merges, so it names PR #556 rather than a commit inside it, and `d1c81062`
   was identified by reading that branch rather than by a boot at that commit.
 - **Milestone 342.** Decide where the kernel's

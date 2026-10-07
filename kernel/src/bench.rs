@@ -7,7 +7,7 @@
 //! owns the QEMU process, watches for `bench: done`, and terminates it. One exit mechanism,
 //! accelerator-independent.
 //!
-//! # The two instruments (design/roadmap/21-benchmarks.md)
+//! # The two instruments (design/roadmap/0021-benchmarks.md)
 //!
 //! - **icount (default):** QEMU virtual time is a deterministic function of instructions
 //!   executed, so these counter deltas are *exact and reproducible per binary*: the same kernel
@@ -625,7 +625,7 @@ fn map_new() {
 /// - **`aarch64`.** `PMCCNTR_EL0` over ticks of `CNTVCT_EL0`, the generic timer at `CNTFRQ_EL0`
 ///   (62.5 MHz on QEMU `virt`, 19.2 MHz on argon's TX1). **Which exception levels the numerator
 ///   counts is `PMCCFILTR_EL0`'s, and that value is provisional** until an architect rules on
-///   design/roadmap/353-the-aarch64-half-of-74.md, so the meaning line says so and no aarch64
+///   design/roadmap/0353-the-aarch64-half-of-74.md, so the meaning line says so and no aarch64
 ///   figure is a result yet.
 /// - **`x86_64`.** Unhalted core cycles (`IA32_PERF_FIXED_CTR1`) over TSC ticks. **The TSC is
 ///   constant-rate and core cycles are not**, so this ratio moves with frequency scaling and turbo
@@ -641,7 +641,7 @@ fn map_new() {
 /// a fact about the emulator and not about any silicon, and the line says so itself rather than
 /// leaving a reader to infer it from the milestone. The number is real only on a real core, which
 /// for this harness today means the JH7110 (radon) and nothing else it runs on;
-/// notes/riscv-cycle-counters.md is the riscv64 procedure and design/roadmap/309-x86-64-core-cycles.md
+/// notes/riscv-cycle-counters.md is the riscv64 procedure and design/roadmap/0309-x86-64-core-cycles.md
 /// is the `x86_64` one.
 ///
 /// # Why the window is a timed spin
@@ -922,7 +922,7 @@ fn ipc_rtt_el0() {
 
 // --- Milestone 134, tier A: E1 (thread scaling), E4 (application displacement) ---
 //
-// design/roadmap/134-the-measurements-that-decide.md. Both decide DECISIONS §96 (process kernel
+// design/roadmap/0134-the-measurements-that-decide.md. Both decide DECISIONS §96 (process kernel
 // or event kernel) from a different angle: E1 asks whether the KERNEL's own IPC path gets cache-
 // cold as more threads cycle through it; E4 asks what an IPC-heavy kernel costs an unrelated
 // APPLICATION's working set, which is Liedtke's actual claim and the one no kernel-side number can
@@ -937,7 +937,7 @@ fn ipc_rtt_el0() {
 // to RUN them there, which is a board card (`script/board-image --bench`) plus a single-hart boot
 // (the `single_hart` feature). Under QEMU nothing changes: the riscv64 runs are TCG, so both still
 // self-skip, by the same one-value counter-frequency test the aarch64 half already used. See
-// notes/footprint-perturbation.md for the procedure and design/roadmap/134-the-measurements-that-decide.md.
+// notes/footprint-perturbation.md for the procedure and design/roadmap/0134-the-measurements-that-decide.md.
 
 /// QEMU's `virt` machine fixes `CNTFRQ_EL0` at 62.5 MHz under TCG, with or without `-icount`
 /// (measured on this tree's pinned QEMU: `cargo xtask bench` and `cargo xtask bench --check` both
@@ -989,7 +989,7 @@ fn real_single_hart_or_skip(name: &str) -> bool {
     if freq == TCG_VIRT_CNTFRQ_HZ {
         println!(
             "bench: {name} skipped (QEMU virt detected via counter frequency {freq} Hz; TCG \
-             models no cache, see design/roadmap/134-the-measurements-that-decide.md)"
+             models no cache, see design/roadmap/0134-the-measurements-that-decide.md)"
         );
         return false;
     }

@@ -6,9 +6,9 @@ refused_by: 90, 124, 448
 # 454. The two stack sizes this tree has parked rather than measured
 
 Refused by
-milestone 124 (design/roadmap/124-a-thread-is-born-where-it-lives.md),
-milestone 90 (design/roadmap/90-secondary-stack-guard.md), and recorded there on 2026-09-03. Backfilled here on
-2026-09-20 by milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal
+milestone 124 (design/roadmap/0124-a-thread-is-born-where-it-lives.md),
+milestone 90 (design/roadmap/0090-secondary-stack-guard.md), and recorded there on 2026-09-03. Backfilled here on
+2026-09-20 by milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal
 that names work a number, a status and a condition that would change it. *(Number provisional until
 the merge queue lands it.)*
 
@@ -26,7 +26,7 @@ From "124. A thread is born where it lives: the spawn path's copies", under `## 
 > mechanism that makes it a fault at all; shrinking the frames below 4096 restores it. Growing the
 > stack remains an independent question on its own merits.
 >
-> -- design/roadmap/124-a-thread-is-born-where-it-lives.md
+> -- design/roadmap/0124-a-thread-is-born-where-it-lives.md
 
 From '90. A guard page under the per-CPU secondary stacks', under `## Follow-on`:
 
@@ -36,7 +36,7 @@ From '90. A guard page under the per-CPU secondary stacks', under `## Follow-on`
 > the sizing was not. Taking both at once would have made a stack-depth regression and a guard
 > regression indistinguishable in one commit.
 >
-> -- design/roadmap/90-secondary-stack-guard.md
+> -- design/roadmap/0090-secondary-stack-guard.md
 
 ## Why it is here rather than only there
 

@@ -5,9 +5,9 @@ refused_by: 49, 448
 ---
 # 480. A server that logs which channel a request arrived on
 
-Refused by milestone 49 (design/roadmap/49-users-and-attribution.md), and
+Refused by milestone 49 (design/roadmap/0049-users-and-attribution.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -24,7 +24,7 @@ From '49. Users, login, and attribution: what identity is for once it stops bein
 > construction (`fs_subtree_caretaker`) or is anonymous by design (the credential service).
 > Building it now would be a mechanism with no consumer to shape it.
 >
-> -- design/roadmap/49-users-and-attribution.md
+> -- design/roadmap/0049-users-and-attribution.md
 
 ## Why it is here rather than only there
 

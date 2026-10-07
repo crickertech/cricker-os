@@ -241,7 +241,7 @@ ship under a feedback loop that slow.
   25 missed in the sample, 0 of 191 in the slice run). Milestone 244 was minted from this
   milestone's first published report, measured the crate, and closed RECORDED because the pure
   fraction a mutation can reach is small.
-- **Recorded.** `design/roadmap/238-the-scheduled-checks-that-never-run.md` says in `BUGS` that a
+- **Recorded.** `design/roadmap/0238-the-scheduled-checks-that-never-run.md` says in `BUGS` that a
   green mutation run is not the same as a good one: the number has to be compared against
   `.cargo/mutants-baseline.txt`, and a run that succeeds while the score falls is a different
   finding that this milestone does not cover.
@@ -255,7 +255,7 @@ ship under a feedback loop that slow.
 - **Recorded.** `design/decisions/0074-audit-cadence.md` holds the cadence and what it is for. `audit
   cadence` is red because two audits are genuinely due, which is the signal working rather than a
   defect, and nothing can tell a correct red from a broken one from outside.
-- **Recorded.** `design/roadmap/238-the-scheduled-checks-that-never-run.md` records the boundary
+- **Recorded.** `design/roadmap/0238-the-scheduled-checks-that-never-run.md` records the boundary
   around the other seven scheduled workflows milestone 232 inventoried and did not run. Neither
   repair here touches them; what changed is that `script/cadence-check` now names any of them whose
   last successful scheduled run is more than 15 days old.

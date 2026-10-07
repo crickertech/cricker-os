@@ -81,7 +81,7 @@ puts in the expensive column, so it should not be invented by a lane in passing.
 - `uefi_loader/src/device_tree_patch.rs`: the copy the node would be written into.
 - `crates/machine_discovery/src/framebuffer.rs`: the type both stages already share.
 - `kernel/src/screen.rs`: where a second branch would go, above the `ramfb` one.
-- `design/roadmap/157-uboot-framebuffer-handoff.md`: the milestone this most likely belongs to.
+- `design/roadmap/0157-uboot-framebuffer-handoff.md`: the milestone this most likely belongs to.
 
 ## Index row
 

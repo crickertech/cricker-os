@@ -126,7 +126,7 @@ to name one symbol, and all three would have read it off the failure message.
 
 ## Where it came from
 
-Milestone 133's Follow-on. `design/roadmap/132-the-fastpath-footprint.md` owns the gate.
+Milestone 133's Follow-on. `design/roadmap/0132-the-fastpath-footprint.md` owns the gate.
 
 ## Index row
 

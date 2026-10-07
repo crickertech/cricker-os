@@ -39,7 +39,7 @@ Machine backups and their passwords is a home server, not an exhibit.
 | `std::thread` | 4 of 6 PAL functions answer `Unsupported` |
 | `std::fs` | 32 of 54 answer `Unsupported` (milestone 64) |
 | async runtime | none. Vaultwarden uses Rocket, which uses tokio: timers, wakers, and a reactor |
-| TLS | none, and there is still no crypto stack beyond `argon2`, `subtle` and `aes`. `rustls` needs entropy (have it) and a large crypto surface. The fork between `rustls` and a confined OpenSSL is milestone 387, `design/roadmap/387-a-tls-stack-and-which-one.md`; **server-side TLS is this block's, and client-side has two other consumers that do not need it to be a server** (387 removed the third, milestone 198, on the ground that a package manager wants signature verification rather than a transport) |
+| TLS | none, and there is still no crypto stack beyond `argon2`, `subtle` and `aes`. `rustls` needs entropy (have it) and a large crypto surface. The fork between `rustls` and a confined OpenSSL is milestone 387, `design/roadmap/0387-a-tls-stack-and-which-one.md`; **server-side TLS is this block's, and client-side has two other consumers that do not need it to be a server** (387 removed the third, milestone 198, on the ground that a package manager wants signature verification rather than a transport) |
 | SQLite | a **C library**, so the §31 seam plus real filesystem locking |
 
 The listen/accept question was the interesting one and it has been answered, which is why the

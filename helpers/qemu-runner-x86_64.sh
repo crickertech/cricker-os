@@ -16,8 +16,8 @@
 # userspace driver here; and a second one, the RedoxFS fixture, since milestone 303, because the
 # block lookup spans both buses now. The rest are wired one at a time as the port reaches them, and
 # adding a device to this file before the kernel can drive it only produces a boot that looks richer
-# than it is. See design/roadmap/161-x86-64-kernel-port.md and
-# design/roadmap/420-the-rest-of-the-x86-64-fixture-set.md.
+# than it is. See design/roadmap/0161-x86-64-kernel-port.md and
+# design/roadmap/0420-the-rest-of-the-x86-64-fixture-set.md.
 #
 # The kernel halts with `hlt` (arch::halt), so QEMU does not exit on its own. Bound any interactive
 # run with helpers/qemu-bounded.sh (see CLAUDE.md, "Never leave QEMU running").
@@ -56,8 +56,8 @@ shift
 # and DECISIONS §153's rule is why the flip is here rather than in a later lane: the two-core suite
 # going green IS the verification that the broadcast worked, so leaving it to be remembered is how
 # it would not happen. `arch::x86_64::ap_boot`'s own BUGS section is the authoritative account of
-# what is still open at three cores and above; see also design/roadmap/316-x86-smp-two-cores.md and
-# design/roadmap/161-x86-64-kernel-port.md item 5.
+# what is still open at three cores and above; see also design/roadmap/0316-x86-smp-two-cores.md and
+# design/roadmap/0161-x86-64-kernel-port.md item 5.
 SMP="${NIFE_SMP:-2}"
 
 # **`NIFE_TCG_THREAD=multi` gives this port parallel cores instead of interleaved ones** (milestone
@@ -159,7 +159,7 @@ DEBUG_EXIT="-device isa-debug-exit,iobase=0xf4,iosize=0x04"
 # machine WITHOUT the capability, which is the comparison this knob exists to make possible.
 #
 # The default does not move: unset is QEMU's default is what the tree already ran, so this adds a
-# knob and changes no existing boot. See design/roadmap/317-interrupt-remapping-flags.md.
+# knob and changes no existing boot. See design/roadmap/0317-interrupt-remapping-flags.md.
 #
 # **`kernel-irqchip=split` is NOT required here, and that is measured rather than inherited.** The
 # advice that pairs the two is real, and it is a KVM constraint: QEMU refuses `intremap=on` with an

@@ -3,7 +3,7 @@
 Status: ruled 2026-10-03 (UTC), DECISIONS §244 (the installed disk has four partitions, and a boot slot is 64 MiB). The shape is ratified and slots stay at 64 MiB; the 120-day projection in question 5 was extrapolated from a debug build and is withdrawn there. What follows is the question as asked.
 
 An appendix of [milestone 515 (the installer: a stick that puts itself on the machine's disk and is
-then not needed)](../515-the-installer-a-stick-runs-to-put-itself-on-the-disk.md). Written
+then not needed)](../0515-the-installer-a-stick-runs-to-put-itself-on-the-disk.md). Written
 2026-10-03 (UTC) by the lane briefed to build rung 2a of milestone 198 (a package manager, and the
 trivial install that makes a second customer possible). A lane does not write `design/decisions/`,
 so this waits here for the maintainer to mint a section from it.

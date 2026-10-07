@@ -118,7 +118,7 @@ offer. Section 6 of the note calls that "neither built nor refused". Milestone 2
 
 ## The wording, fixed with the ruling
 
-`design/roadmap/126-who-else-is-running.md`, `notes/process-view.md`, `crates/abi`'s `SURVEY`
+`design/roadmap/0126-who-else-is-running.md`, `notes/process-view.md`, `crates/abi`'s `SURVEY`
 rustdoc and `kernel/src/sched.rs`'s `survey_supervised` said "subtree". The ruling settled the word,
 so each now says "domain" (`maintainer/126-followups`, 2026-09-26). This was a documentation edit,
 not a rename: no identifier changed.

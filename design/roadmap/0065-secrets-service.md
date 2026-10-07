@@ -102,7 +102,7 @@ login would use `verify`; and anything later that signs.
   versioned encoding is a starting point rather than a durability claim. `notes/credentials.md`.
 - **Recorded.** It does not protect against an attacker who holds the endpoint right now. They can
   authenticate sessions for as long as they hold it; the claim is that compromise is bounded and
-  revocable, not that a live intruder is stopped. `design/roadmap/65-secrets-service.md`.
+  revocable, not that a live intruder is stopped. `design/roadmap/0065-secrets-service.md`.
 - **Recorded.** MD4 and MD5 ship on purpose, as protocol compliance rather than a security choice,
   and a stored `NTOWFv2` is password-equivalent. `notes/ntlm.md` says what crosses the boundary,
   what never does, and what storing that key costs.

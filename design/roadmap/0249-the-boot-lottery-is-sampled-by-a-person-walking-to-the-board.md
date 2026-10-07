@@ -222,8 +222,8 @@ notes/board-reboot.md.
 - **Milestone 592.** Milestone 592 (radon's cold reboot dies in OpenSBI's PMIC write), awaiting
   one bench reset.
 - **Milestone 593.** A watchdog for a wedged kernel, milestone 593 (a wedged kernel resets itself):
-  `design/roadmap/593-a-wedged-kernel-resets-itself.md`.
-- **Milestone 653.** Milestone 653 (xenon may carry Intel AMT, which would power-cycle it and give it a console with nobody at the desk). xenon's possible AMT: `design/roadmap/653-xenon-may-carry-amt.md`.
+  `design/roadmap/0593-a-wedged-kernel-resets-itself.md`.
+- **Milestone 653.** Milestone 653 (xenon may carry Intel AMT, which would power-cycle it and give it a console with nobody at the desk). xenon's possible AMT: `design/roadmap/0653-xenon-may-carry-amt.md`.
 
 - **Milestone 324.** *The watcher reads a board and never speaks to it, so stopping a reboot loop needs a
   person at the keyboard.* `script/board-console` holds the port and cannot send the byte that is
@@ -242,7 +242,7 @@ notes/board-reboot.md.
   better experiment (a power cycle is what the nine control boots were) and it is a lane spent on a
   guess until the firmware has actually refused reset type 1. notes/soak.md's outcome table is where
   that finding would arrive; raise it then.
-  This refusal is milestone 477 (design/roadmap/477-a-power-cycled-boot-series.md), which carries it
+  This refusal is milestone 477 (design/roadmap/0477-a-power-cycled-boot-series.md), which carries it
   with the condition that would change it.
 - **Outstanding.** The tally's clean-core definition is `board_console::lottery`'s, host-tested
   against the one settled arrangement radon has printed. If a series shows the rate does not follow

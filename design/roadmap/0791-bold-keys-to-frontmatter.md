@@ -98,7 +98,7 @@ nesting, and a value may not contain `: ` or ` #`. That shape decides most of th
 
 | Key | Verdict | Why |
 |---|---|---|
-| Status, Built, Gate | Done | Moved by §207 (the roadmap is a graph, and the block says so in fields a script can walk) and milestones 582 and 596. One roadmap file (`20a-name-the-seams.md`) lacks frontmatter; checked 2026-10-07, and that is by design: a lettered addendum carries no fields (`script/roadmap`'s header). |
+| Status, Built, Gate | Done | Moved by §207 (the roadmap is a graph, and the block says so in fields a script can walk) and milestones 582 and 596. One roadmap file (`0020a-name-the-seams.md`) lacks frontmatter; checked 2026-10-07, and that is by design: a lettered addendum carries no fields (`script/roadmap`'s header). |
 | Follow-on and Revisit tags | Stay bold | Many per document (about 1,400 spans over 415 files), each opening a bullet whose prose is the content. Flat frontmatter cannot hold a list, and a tag a reader needs inline is structure. |
 | `The experiment:` lead-in | Stay bold | A reader needs it inline; it introduces a paragraph. |
 | `Experiment status: WORD, date` | Move | It is metadata about the document and the nine documents are the whole population. The metrics workflow already prefers frontmatter for the color and cross-checks it against this line. |

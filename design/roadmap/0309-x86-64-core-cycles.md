@@ -157,7 +157,7 @@ three architectures (below). What §19 wants said out loud is the gap:
 
 **aarch64 is ordered behind milestone 74's own aarch64 half and is not in this milestone.**
 `PMCCNTR_EL0` reads zero until `PMCR_EL0.E` and `PMCNTENSET_EL0.C` are written, which this kernel
-never does; `design/roadmap/353-the-aarch64-half-of-74.md` covers exactly that and this
+never does; `design/roadmap/0353-the-aarch64-half-of-74.md` covers exactly that and this
 milestone would duplicate its first half to reach its own second. So `cycles_per_tick` is two
 architectures of three after this, up from one, and the third has a named owner rather than a
 silence.
@@ -240,7 +240,7 @@ last one is the one to look at hardest, because it is the only one that leaves t
 ## Follow-on
 
 - **Done.** `bench::cycles_per_tick` is two architectures of three, up from one. Milestone 74's
-  measurement half, which `design/roadmap/74-cycle-counters.md` records as a DECISIONS §19 scope
+  measurement half, which `design/roadmap/0074-cycle-counters.md` records as a DECISIONS §19 scope
   gap, is that much smaller; the gap itself is not closed and the bullet below says who owns it.
 - **Milestone 353.** The aarch64 half, where it already was: `PMCCNTR_EL0` reads zero until
   `PMCR_EL0.E`
@@ -255,7 +255,7 @@ last one is the one to look at hardest, because it is the only one that leaves t
   `BUGS`. The defense that does not depend on the heuristic is the printed meaning line, which is
   also recorded there.
 - **Done.** An edit outside this lane's own block, named here because AGENTS.md says a lane edits
-  its own roadmap block and only that. `design/roadmap/74-cycle-counters.md`'s §19 scope
+  its own roadmap block and only that. `design/roadmap/0074-cycle-counters.md`'s §19 scope
   note cited `design/roadmap/proposals/cycles-per-tick-on-the-other-two-architectures.md`, which
   this merge deletes, and asserted that the measurement half "is currently one" architecture and
   that x86_64 could be built on the `rdtsc` read already in `arch/x86_64/timer.rs`. All three

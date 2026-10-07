@@ -5,9 +5,9 @@ refused_by: 438, 448
 ---
 # 479. A blocking `--in-diff` mutation gate
 
-Refused by milestone 438 (design/roadmap/438-a-mutation-gate-on-the-diff.md),
+Refused by milestone 438 (design/roadmap/0438-a-mutation-gate-on-the-diff.md),
 and recorded there on 2026-09-19. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -23,7 +23,7 @@ Follow-on`:
 > measurement 1. Nothing is switched on and no workflow, `script/ci-build` row or ruleset entry
 > was touched.
 >
-> -- design/roadmap/438-a-mutation-gate-on-the-diff.md
+> -- design/roadmap/0438-a-mutation-gate-on-the-diff.md
 
 ## Why it is here rather than only there
 

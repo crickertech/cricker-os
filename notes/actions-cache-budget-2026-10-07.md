@@ -186,7 +186,7 @@ their time. Revisit if job timings show dependency compiles taking real time.
 ### (c) Something that shows this before a lane trips over it
 
 **Ruled: yes.** The proposal is now milestone 822 (the Actions cache horizon is charted),
-[design/roadmap/822-the-actions-cache-horizon-is-charted.md](../design/roadmap/822-the-actions-cache-horizon-is-charted.md).
+[design/roadmap/0822-the-actions-cache-horizon-is-charted.md](../design/roadmap/0822-the-actions-cache-horizon-is-charted.md).
 Its number is provisional until the queue lands it. It samples bytes against 10 GB and the eviction horizon daily and charts them in
 notes/project-metrics.md. The horizon is the number that matters; a full cache with a week's
 horizon is healthy.

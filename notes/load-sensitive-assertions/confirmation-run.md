@@ -38,7 +38,7 @@ flagged the rate itself as the thing that wanted a bigger count before anyone ac
 runs, 90 legs of the same assertion, found zero. Both are true statements about different sample
 sizes. The second is the one the block's acceptance standard asks for.
 
-What this closes: the one remaining item of design/roadmap/62-time-sensitive-tests.md. The repeat
+What this closes: the one remaining item of design/roadmap/0062-time-sensitive-tests.md. The repeat
 count under load, at the block's own standard, on the current tree, is 45 of 45. The block moves to
 BUILT.
 

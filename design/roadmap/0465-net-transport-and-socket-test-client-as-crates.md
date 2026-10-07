@@ -6,8 +6,8 @@ refused_by: 175, 448
 # 465. `net_transport` and `socket_test_client` as crates rather than `#[path]` modules
 
 Refused by
-milestone 175 (design/roadmap/175-user-components-fixtures-split.md), and recorded there on 2026-09-13. Backfilled
-here on 2026-09-20 by milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a
+milestone 175 (design/roadmap/0175-user-components-fixtures-split.md), and recorded there on 2026-09-13. Backfilled
+here on 2026-09-20 by milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a
 refusal that names work a number, a status and a condition that would change it. *(Number
 provisional until the merge queue lands it.)*
 
@@ -26,7 +26,7 @@ under `## Follow-on`:
 > mechanical commit milestone 39 asked for. `script/lint`'s consumer counter still guards the case
 > that matters, and it now reads both directories.
 >
-> -- design/roadmap/175-user-components-fixtures-split.md
+> -- design/roadmap/0175-user-components-fixtures-split.md
 
 ## Why it is here rather than only there
 

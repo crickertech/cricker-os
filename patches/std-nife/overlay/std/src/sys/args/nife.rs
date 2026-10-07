@@ -28,7 +28,7 @@
 //! # BUGS
 //!
 //! - **Where the page sits and its layout are provisional** until calef rules on them
-//!   (`design/roadmap/672-the-argument-page-layout.md`). Both are generated from one crate,
+//!   (`design/roadmap/0672-the-argument-page-layout.md`). Both are generated from one crate,
 //!   so a change there moves the loader and this reader together.
 
 use crate::sys::pal::nife::argproto::ArgPage;

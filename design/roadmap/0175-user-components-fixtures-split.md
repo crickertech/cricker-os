@@ -6,7 +6,7 @@ built: 2026-09-13
 # 175. Split `user/`: `components/` for services, `fixtures/` for test and benchmark programs
 
 Minted 2026-08-25, from calef asking when nife development should split
-into different repositories. [Milestone 39 (repository)](39-repository-structure.md)'s own analysis already
+into different repositories. [Milestone 39 (repository)](0039-repository-structure.md)'s own analysis already
 answered the bigger question (monorepo now, distribution as a separate manifest repo later, gated
 on milestone 23 forcing it, and 23's residual piece was declined for want of a customer rather than
 forcing anything, the same shape as [DECISIONS §105](../decisions/0105-thread-spawn-decline-for-now.md)):
@@ -220,7 +220,7 @@ The boot leg is CI's.
 - **Recorded.** This lane made two edits under `design/` outside its own block, both of them
   citations that would otherwise resolve to nothing: the old program paths in every block that
   cites one (which `script/roadmap --check` enforces, and which is what made it notice), and
-  one table cell in `design/roadmap/266-init-is-an-action-and-the-thing-is-a-process.md` naming
+  one table cell in `design/roadmap/0266-init-is-an-action-and-the-thing-is-a-process.md` naming
   `hello`'s `init_worker` role, whose constant this milestone renamed. Repointing a citation is
   neither minting nor deciding, but it is worth saying out loud that it happened rather than leaving
   a reader to find it in a diff.
@@ -230,7 +230,7 @@ The boot leg is CI's.
   mechanical commit milestone 39 asked for. `script/lint`'s consumer counter still guards the case
   that matters, and it now reads both directories.
   This refusal is
-  milestone 465 (design/roadmap/465-net-transport-and-socket-test-client-as-crates.md), which
+  milestone 465 (design/roadmap/0465-net-transport-and-socket-test-client-as-crates.md), which
   carries it with the condition that would change it.
 - **Refused.** Re-checking `crates/` against 39's three-audience split, which this block already
   put out of scope and which nothing found here changes.

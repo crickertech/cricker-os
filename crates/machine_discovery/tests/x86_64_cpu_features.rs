@@ -9,7 +9,7 @@
 //!
 //! (The refusal *has* since been watched happening on a real boot too, by hiding NX from the guest
 //! with `NIFE_CPU=max,nx=off`. That is the stronger test and it is recorded in
-//! `design/roadmap/524-the-three-x86-64-boot-gates.md`. It is not a substitute for this file: QEMU
+//! `design/roadmap/0524-the-three-x86-64-boot-gates.md`. It is not a substitute for this file: QEMU
 //! can hide a feature, but only from a whole boot, so each case costs a minute of emulator and
 //! cannot assert on the decision in isolation.)
 //!

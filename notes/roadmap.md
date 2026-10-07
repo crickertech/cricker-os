@@ -71,7 +71,7 @@ roadmap: 280 of them classified by gate, 154 ready to start (script/roadmap --re
 $ script/roadmap --index | head -3     # the five columns, for the two scripts that read them
 | #  | Status | Milestone | Why it matters (§14) | Built |
 |----|--------|-----------|----------------------|------------|
-| 1 | BUILT | [First boot][01-first-boot.md] | ... | 2026-07-12 |
+| 1 | BUILT | [First boot][0001-first-boot.md] | ... | 2026-07-12 |
 ```
 
 ## The vocabularies
@@ -514,4 +514,4 @@ get frontmatter too) proved its migration the same way.
   as the reason a directory beats a single file.
 - Nothing publishes any of this. calef's sentence retiring the table named a website as where
   the project plan eventually goes; there is no publishing story today, and the gap is written up
-  in `design/roadmap/565-a-website-for-the-project-plan.md`.
+  in `design/roadmap/0565-a-website-for-the-project-plan.md`.

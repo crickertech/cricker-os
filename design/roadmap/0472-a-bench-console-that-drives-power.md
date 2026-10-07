@@ -5,9 +5,9 @@ refused_by: 216, 448
 ---
 # 472. A bench console that can power-cycle a board
 
-Refused by milestone 216 (design/roadmap/216-board-console.md), and recorded
+Refused by milestone 216 (design/roadmap/0216-board-console.md), and recorded
 there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -24,7 +24,7 @@ under `## Follow-on`:
 > that must never be switched off. The built tool reads and never writes, to the port or to the
 > outlet, so the question stayed undecided rather than being settled by an implementation.
 >
-> -- design/roadmap/216-board-console.md
+> -- design/roadmap/0216-board-console.md
 
 ## Why it is here rather than only there
 

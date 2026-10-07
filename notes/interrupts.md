@@ -480,7 +480,7 @@ right, and only then initializes a driver. Every other caller in the kernel (the
 timer, the scheduler's reschedule SGI, the tests) names `arch::irq` and never a driver, so the
 choice is made once. The split between `drivers/` and `arch/` is DECISIONS §4 rule 1: the ICC
 registers are `msr`/`mrs`, so they are architecture code, while everything behind a pointer stays a
-driver that is handed its addresses. `design/roadmap/227-gicv3-driver.md` has the placement and what
+driver that is handed its addresses. `design/roadmap/0227-gicv3-driver.md` has the placement and what
 lost.
 
 ### How to run each

@@ -14,7 +14,7 @@ root on 2026-10-05.)
 adds a dated amendment that carries no bold of its own, and touches two existing lines only to point
 at it. Bringing a 1,800-word section to 4 bold spans per 1,000 words is a rewrite for the section's
 owner, not something to hide inside an at-merge record (the measured class is recorded in
-design/roadmap/586-a-prose-ratchet-in-lint.md). Remove this marker when that rewrite lands. -->
+design/roadmap/0586-a-prose-ratchet-in-lint.md). Remove this marker when that rewrite lands. -->
 
 §13 revoked **frames**. This extends the same idea to **kernel objects** (TCBs, address spaces,
 endpoints), so a process can be torn back down and its memory returned, the reclamation a
@@ -173,7 +173,7 @@ table stops the reclaim for that parent for good. Both limits are recorded in th
 
 Ruled by calef on 2026-10-05 (UTC), quoted: "A, queue it after #1665"
 ([comment on #1665](https://github.com/nifeos/nife/pull/1665#issuecomment-5988177177)), on the
-options in `design/roadmap/765-a-destroyed-region-cannot-free-a-running-root.md`. Recorded by the
+options in `design/roadmap/0765-a-destroyed-region-cannot-free-a-running-root.md`. Recorded by the
 maintainer.
 
 `CONFIGURE` binds a space to a TCB without requiring both to come from one region. So a space can be

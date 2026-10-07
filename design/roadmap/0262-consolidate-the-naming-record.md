@@ -50,7 +50,7 @@ number should be reported rather than estimated when the work is done.
 
 Measured: 60 lines, from 137 to 77, which is 44% of the section and 5.7% of the whole file.
 `AGENTS.md` goes from 1,048 lines to 988, and the `agents-md-lines` ceiling in
-[118's block](118-constitution-budget.md) drops to 988 with it, in the same commit that applies the
+[118's block](0118-constitution-budget.md) drops to 988 with it, in the same commit that applies the
 diff. The section boundary measured is lines 770 to 906, the heading through the `NAME_LEN`
 paragraph; the block's "132" counted the prose and not the blank lines between paragraphs.
 

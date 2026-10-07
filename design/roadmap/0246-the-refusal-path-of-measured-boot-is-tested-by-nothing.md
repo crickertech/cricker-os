@@ -91,7 +91,7 @@ Not a test that only takes the accept path, which `script/swish-check` already d
   struct is `Default::default()`, `Verdict` had no `Default`, so the mutant did not compile and
   scored unviable rather than missed. `measured_boot` had nine such. calef minted milestone 250 from
   this handoff the same day. The proposal file this bullet used to name was promoted by milestone
-  433 as `design/roadmap/354-the-mutants-nobody-counts.md` and superseded by 250 in the same act,
+  433 as `design/roadmap/0354-the-mutants-nobody-counts.md` and superseded by 250 in the same act,
   because the two are one piece of work.
 - **Recorded.** `components/src/login.rs` spells the same load-or-refuse decision itself and folds all three
   outcomes into `None`, so it cannot distinguish an absent program from a refused one. `verdict`'s

@@ -145,12 +145,12 @@ case is the miss rather than the hit, because the kernel asks both queues on eve
   names a thread that has left its park) has one implementation. 254's removal-phase
   `strand_callers_of` also runs on the residents this milestone finishes, so a hung *server* ended
   here frees its own clients for free.
-- **Milestone 366.** `design/roadmap/366-a-block-site-that-writes-blocked-by-hand.md`. Nothing
+- **Milestone 366.** `design/roadmap/0366-a-block-site-that-writes-blocked-by-hand.md`. Nothing
   forces a block site to call `Handshake::park`, so `wait_on` can in principle go stale, and
   `finish_blocked_resident` now *acts* on it: a stale rendezvous name means a freed page still
   linked into a live wait queue. This lane bought what a caller can buy alone (ask both queues, and
   a `debug_assert!` pairing `Blocked` with a recorded wait) and left the name undefended.
-- **Milestone 371.** `design/roadmap/371-a-reply-capability-that-names-a-call.md`, milestone 254's,
+- **Milestone 371.** `design/roadmap/0371-a-reply-capability-that-names-a-call.md`, milestone 254's,
   which this lane had written a near-duplicate of and dropped at the merge in favor of the better
   one. The soundness of `ipc_reply`'s role-and-not-call guard is an argument by exhaustion in a note
   rather than a stated property, and both milestones' sweeps protect a rule nothing checks. A call
@@ -163,7 +163,7 @@ case is the miss rather than the hit, because the kernel asks both queues on eve
   test was sampling its baseline after the driver had already been spawned, and `ROUTED_IRQS` meant
   something different on `x86_64` than on the other two architectures; both are fixed, and
   notes/load-sensitive-assertions.md carries the account.
-- **Milestone 368.** `design/roadmap/368-a-flat-entry-set-counts-bytes-no-syscall-fetches.md`.
+- **Milestone 368.** `design/roadmap/0368-a-flat-entry-set-counts-bytes-no-syscall-fetches.md`.
   `script/fastpath-footprint`'s `syscall_entry` set is flat and so cannot exclude anything, and this
   lane's change to region teardown made LLVM fold `timer::tick` into `riscv_trap_body`, putting 226
   bytes (12.1%, against a 5% bound) onto a number that measures the syscall path. Closed here with

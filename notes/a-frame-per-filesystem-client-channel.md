@@ -2,7 +2,7 @@
 
 Written 2026-09-26 (UTC) by lane `milestone/fs-client-page`, for milestone 599 (a frame per
 filesystem client channel), whose number is provisional. The block is
-[design/roadmap/599-a-frame-per-filesystem-client-channel.md](../design/roadmap/599-a-frame-per-filesystem-client-channel.md).
+[design/roadmap/0599-a-frame-per-filesystem-client-channel.md](../design/roadmap/0599-a-frame-per-filesystem-client-channel.md).
 The file name is a lane's coinage and provisional.
 
 What is being decided: how the file server learns which client's frame a request's bytes are
@@ -54,7 +54,7 @@ the witness test's job, and it is the next piece of this milestone either way.
   messages are content-free: it reads every client's page each frame. That does not transfer, since
   the file server must know which page a request is in.
 - The network stack has the same shape of bug and an open proposal for it,
-  [every-client-of-a-network-stack-shares-its-socket-numbers](../design/roadmap/649-every-client-of-a-network-stack-shares-its-socket-numbers.md).
+  [every-client-of-a-network-stack-shares-its-socket-numbers](../design/roadmap/0649-every-client-of-a-network-stack-shares-its-socket-numbers.md).
   Its option 1 is badged endpoints. A ruling on option A below would decide that option there too.
 - DECISIONS §27 records badged endpoints as the alternative to the caretaker and did not take
   it. §101 (notification objects) names badged capabilities as a later fork, and §148 (a supervisor restarts by asking) refused the

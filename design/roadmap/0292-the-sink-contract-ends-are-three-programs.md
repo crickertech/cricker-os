@@ -149,7 +149,7 @@ The initrd tables in `xtask/src/main.rs` pack `sink_transcript_writer`, `file_si
 
 ## Records this milestone deliberately did not edit
 
-`design/roadmap/50-pipes-and-redirection.md` and `design/decisions/0051-sink-protocol.md` both cite
+`design/roadmap/0050-pipes-and-redirection.md` and `design/decisions/0051-sink-protocol.md` both cite
 `fixtures/src/sink.rs`, and both keep the old path. Milestone 50 is BUILT, which design/naming.md
 makes an account of what happened under the names it happened under, and a decision records what was
 decided in the words used then. A reader arriving from either lands here, because this block names

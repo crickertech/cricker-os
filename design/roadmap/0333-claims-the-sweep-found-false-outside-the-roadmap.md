@@ -59,7 +59,7 @@ This is the list, so that fixing the roadmap does not leave the tree quietly dis
   from EL0, which a test in `kernel/src/user/tests.rs` does.
 - `components/src/session_reviver.rs`'s module doc and six inline comments cite a durable-session type
   that was deleted with the SMB implementation on 2026-08-30.
-- **`design/roadmap/142-a-text-display-worth-living-in.md`** carries sixty lines of verbatim
+- **`design/roadmap/0142-a-text-display-worth-living-in.md`** carries sixty lines of verbatim
   duplicated text, three paragraphs pasted twice during its 2026-08-27 edit.
 
 ## Why this matters

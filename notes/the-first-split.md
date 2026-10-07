@@ -1,7 +1,7 @@
 # The first split: what is ready, what goes first, and what basalt must be
 
 Measurements for the proposal
-[milestone 756 (`process-tools`, `core-tools` and `disk-tools` are the first code to leave this repository)](../design/roadmap/756-process-tools-core-tools-and-disk-tools-leave-first.md), promoted from the proposal `which-repository-split-goes-first`,
+[milestone 756 (`process-tools`, `core-tools` and `disk-tools` are the first code to leave this repository)](../design/roadmap/0756-process-tools-core-tools-and-disk-tools-leave-first.md), promoted from the proposal `which-repository-split-goes-first`,
 on calef's prompt of 2026-10-04 (UTC): *"I do think we should soon be breaking things out of the mono
 repo and into their own repos. I also think the basalt repo is sitting there waiting to package up
 those repos for its distribution."* The direction is ruled (§151 (the goal of the repository split is

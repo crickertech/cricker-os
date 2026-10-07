@@ -76,7 +76,7 @@ for 190 of it.
 ## Follow-on
 
 - **Milestone 680.** Milestone 680 (the timebase page moves beside the stack). The timebase page moves into `PROCESS_PAGES`, beside the stack, where it would pay no
-  page table instead of three: `design/roadmap/680-the-timebase-page-moves-beside-the-stack.md`.
+  page table instead of three: `design/roadmap/0680-the-timebase-page-moves-beside-the-stack.md`.
 - **Milestone 604.** The builder's scratch cursor ran out after about seventy-five `ripgrep`-sized spawns
   (its page tables first, before the initrd window): milestone 604 (the builder's scratch cursor is
   bounded) made it wrap inside a fixed window.

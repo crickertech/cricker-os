@@ -5,9 +5,9 @@ refused_by: 165, 448
 ---
 # 463. An MCFG whose first bus is not zero
 
-Refused by milestone 165 (design/roadmap/165-x86-64-pci-acpi-mcfg.md), and
+Refused by milestone 165 (design/roadmap/0165-x86-64-pci-acpi-mcfg.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -24,7 +24,7 @@ From "165. x86_64 PCI enumeration: wire `kernel/src/pci.rs` to ACPI's MCFG", und
 > Every machine seen reports 0 and none is required to, so it is checked and refused rather than
 > fixed up.
 >
-> -- design/roadmap/165-x86-64-pci-acpi-mcfg.md
+> -- design/roadmap/0165-x86-64-pci-acpi-mcfg.md
 
 ## Why it is here rather than only there
 

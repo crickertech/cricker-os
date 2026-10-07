@@ -397,7 +397,7 @@ there.
 
 ## See also
 
-- design/roadmap/78-load-sensitive-assertions.md: the milestone, and the day's evidence
+- design/roadmap/0078-load-sensitive-assertions.md: the milestone, and the day's evidence
 - notes/load-sensitive-assertions.md: the five rounds, and both places the two claims were deferred
   to this instrument
 - notes/benchmarks.md: the other icount consumer, why it is `-smp 1`, and the ±5% codegen drift

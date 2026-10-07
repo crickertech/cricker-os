@@ -33,11 +33,11 @@ counted them.
 
 ## Follow-on
 
-- **Milestone 774.** Milestone 774 (a page-table allocator that fails on its Nth call). `design/roadmap/774-a-page-table-allocator-that-fails-on-its-nth-call.md`,
+- **Milestone 774.** Milestone 774 (a page-table allocator that fails on its Nth call). `design/roadmap/0774-a-page-table-allocator-that-fails-on-its-nth-call.md`,
   the recommended first pilot.
 - **Milestone 757.** Built as milestone 757 (a test kernel fails a process on its Nth retype), for the 75 cleanup paths
   (approved by calef 2026-10-04 UTC, #1591).
-- **Milestone 781.** Milestone 781 (measure kernel and service coverage under QEMU). `design/roadmap/781-measure-kernel-and-service-coverage-under-qemu.md`, to
+- **Milestone 781.** Milestone 781 (measure kernel and service coverage under QEMU). `design/roadmap/0781-measure-kernel-and-service-coverage-under-qemu.md`, to
   turn the blind spot's count into a measurement.
 - **Recorded.** Not reached is not reachable, the Option family overstates, and a bare `.ok_or` is
   unmeasurable: the BUGS section of `notes/untested-error-paths.md`.

@@ -46,7 +46,7 @@ instead.
   architected virtual counter and derives cycles by arithmetic. Milestone 74 is the SBI PMU half on
   riscv64 and the `PMCCNTR_EL0` half on aarch64, raised from an audit of what milestone 16a needs,
   and it is what swaps the clock this harness reads.
-- **Recorded.** In `design/roadmap/21-benchmarks.md`, where a reader meets the instrument:
+- **Recorded.** In `design/roadmap/0021-benchmarks.md`, where a reader meets the instrument:
   device-touching paths carry virtualization overhead under HVF, because MMIO traps to the VMM. So
   `--real` magnitudes for anything that touches a device are not the host's own numbers.
 - **Recorded.** In `notes/benchmarks.md`, beside the numbers it qualifies: the semihosting question

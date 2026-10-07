@@ -203,7 +203,7 @@ could still take.
   the `BUGS` above and into `strand_reply_caller`'s doc comment, where the next reader of that code
   meets it.
 - **Milestone 371.** A call identity in the reply capability's payload, which would make the hazard
-  unrepresentable rather than swept: `design/roadmap/371-a-reply-capability-that-names-a-call.md`.
+  unrepresentable rather than swept: `design/roadmap/0371-a-reply-capability-that-names-a-call.md`.
 - **Milestone 133.** Reclaiming the hung component's own region, which this does not touch and must
   not be quoted as doing.
 

@@ -5,9 +5,9 @@ refused_by: 14, 448
 ---
 # 457. Sub-page packing for kernel objects
 
-Refused by milestone 14 (design/roadmap/14-kernel-objects-from-untyped.md), and
+Refused by milestone 14 (design/roadmap/0014-kernel-objects-from-untyped.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -22,7 +22,7 @@ From '14. Kernel objects from untyped: remove the kernel heap', under `## Follow
 > sizes were not measured when the milestone ran, and a packing commitment made ahead of the
 > measurement is a guess that later code would be built on.
 >
-> -- design/roadmap/14-kernel-objects-from-untyped.md
+> -- design/roadmap/0014-kernel-objects-from-untyped.md
 
 ## Why it is here rather than only there
 

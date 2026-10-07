@@ -5,9 +5,9 @@ refused_by: 110, 448
 ---
 # 452. A salvage tool for a volume whose headers are all bad
 
-Refused by milestone 110 (design/roadmap/110-recovery-from-a-partition.md), and
+Refused by milestone 110 (design/roadmap/0110-recovery-from-a-partition.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -23,7 +23,7 @@ From '110. The recovery tool takes a device and a partition', under `## Follow-o
 > is read-only by design, and a salvager that guesses at a broken superblock is the opposite of
 > that.
 >
-> -- design/roadmap/110-recovery-from-a-partition.md
+> -- design/roadmap/0110-recovery-from-a-partition.md
 
 ## Why it is here rather than only there
 

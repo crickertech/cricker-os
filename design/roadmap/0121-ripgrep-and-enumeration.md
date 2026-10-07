@@ -230,10 +230,10 @@ ripgrep working beautifully and confinement being decorative.
 ## Follow-on
 
 - **Milestone 205.** The ABI has no argument vector, which is what stops `rg` after it loads and
-  resolves its own directory. `design/roadmap/205-foreign-program-arguments.md` was minted from
+  resolves its own directory. `design/roadmap/0205-foreign-program-arguments.md` was minted from
   this lane on 2026-08-31 and carries the wire-format fork.
 - **Milestone 206.** The 896 KiB image ceiling this lane found became
-  `design/roadmap/206-user-image-ceiling.md`, which also owns the mapping error that names an
+  `design/roadmap/0206-user-image-ceiling.md`, which also owns the mapping error that names an
   overlap rather than a size.
 - **Outstanding.** Gated on the packaging milestone #1797 mints, milestone 809 (`jig`) and milestone
   595. Exit clause 4: `rg pattern dir` at the swish prompt, holding `ENUMERATE | READ | DESCEND`

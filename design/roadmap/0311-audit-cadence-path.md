@@ -186,7 +186,7 @@ edits are marked as such in it, and they are named in the Follow-on below.
 - **Recorded.** That counting `fixtures/` as a component overcounts §74's event trigger stays a
   limitation, written in the third BUGS entry above and in `design/audit-reports/README.md` beside
   the baseline table, which is where a reader meets the number.
-- **Done.** Two bullets in `design/roadmap/289-the-riscv-tour-earns-its-place.md`'s Follow-on were
+- **Done.** Two bullets in `design/roadmap/0289-the-riscv-tour-earns-its-place.md`'s Follow-on were
   edited by this lane, which is not that block's own, because `script/roadmap --check` began failing
   them the moment its directory list stopped being wrong. Both cited a file milestone 295 deleted.
   The edit is marked as this lane's inside that block.

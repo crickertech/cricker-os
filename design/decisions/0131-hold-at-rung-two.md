@@ -10,7 +10,7 @@ ratified_by: calef
 calef, 2026-08-26: *"I think we want to stick with a text mode OS until we've
 built something useful on text mode. Computers operated for decades without graphics."* And,
 sharpening it in the same conversation: *"I want a kick ass text mode. Something I'll love working
-with."* [Milestone 34](../roadmap/34-gpu-acceleration.md)'s own gate named this the live question
+with."* [Milestone 34](../roadmap/0034-gpu-acceleration.md)'s own gate named this the live question
 once [the display ladder](../display-ladder.md)'s rung two (the compositor, milestone 33) landed;
 this is that call, made. It is not only a hold: it names an affirmative direction in the same
 breath.
@@ -52,7 +52,7 @@ test restated. A kick-ass text mode is not a separate ambition competing with th
 shell, an editor and a toolchain calef genuinely reaches for daily is itself a real workload,
 proven the way this tree already insists on proving things, by someone running it.
 
-`design/roadmap/142-a-text-display-worth-living-in.md` ("a sibling of rung three that rung three
+`design/roadmap/0142-a-text-display-worth-living-in.md` ("a sibling of rung three that rung three
 then consumes") is the adjacent case worth naming for the same reason it is named in "what this does
 not decide" below: good typography on this system's own terms, gated on milestone 141 and a smaller
 decision of its own, not on this one.

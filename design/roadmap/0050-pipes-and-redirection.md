@@ -185,13 +185,13 @@ likely to surprise.
   register-only sink message is, and a buffer costs roughly double for decoupling rather than
   bandwidth. `notes/pipes.md` carries the numbers and the honest caveat that the benchmark did not
   measure the case a buffer is actually for.
-  This refusal is milestone 482 (design/roadmap/482-a-buffering-stage-between-pipe-ends.md), which
+  This refusal is milestone 482 (design/roadmap/0482-a-buffering-stage-between-pipe-ends.md), which
   carries it with the condition that would change it.
 - **Refused.** Converting the console server to the sink protocol. `line_editor` is its only client
   and now speaks for two writers, so once the terminal adapter existed the page-plus-ack channel
   looked like the right answer rather than a gap; a second client of the console would hit the same
   one-page wall one layer down with nothing gained. `notes/sink-protocol.md` has the reasoning.
-  This refusal is milestone 483 (design/roadmap/483-the-console-server-on-the-sink-protocol.md),
+  This refusal is milestone 483 (design/roadmap/0483-the-console-server-on-the-sink-protocol.md),
   which carries it with the condition that would change it.
 - **Decision.** `design/decisions/0067-second-stream.md` settles `2>`, which this block named as a
   design fork rather than a task. calef chose the manifest declaration: a program that has

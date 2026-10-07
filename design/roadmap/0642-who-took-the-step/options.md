@@ -1,6 +1,6 @@
 # The five options, as argued in 2026-09
 
-This appendix belongs to [milestone 642 (the record should say whether a person or the machinery took a step)](../642-who-took-the-step.md); it holds the option-by-option argument behind that block's recommendation.
+This appendix belongs to [milestone 642 (the record should say whether a person or the machinery took a step)](../0642-who-took-the-step.md); it holds the option-by-option argument behind that block's recommendation.
 
 ### (a) A dedicated machine account, `smelter-bot`, with a PAT on patagonia
 

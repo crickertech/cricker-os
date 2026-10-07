@@ -14,7 +14,7 @@ use crate::sched::RendezvousId;
 /// manifest names, which is the same gap `xtask`'s `swish-check` list already records for `date`'s
 /// second stream. So the endowed half of this milestone is proven at the real prompt, through the
 /// real `crates/system_initializer`, by `script/swish-check`; see this module's own note in
-/// `design/roadmap/111-entropy-for-a-child.md`.
+/// `design/roadmap/0111-entropy-for-a-child.md`.
 fn spawn_uuid_holding_no_entropy(endpoints: u64) -> RendezvousId {
     let image = program("uuid").expect("no uuid program in the initrd archive");
     let out = crate::sched::create_rendezvous_from(endpoints).expect("no stdout rendezvous");

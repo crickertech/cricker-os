@@ -230,7 +230,7 @@ fi
 # `.github/workflows/verify.yml`'s `prove-kernel-aarch64` job (the `prove-kernel-x86_64` job until
 # milestone 587 (most CI jobs do not need an arm64 host) moved the shards to x86_64 and the second
 # host became aarch64) and
-# design/roadmap/304-prover-one-architecture.md.
+# design/roadmap/0304-prover-one-architecture.md.
 #
 # It refuses a crate that is not in the table, rather than passing the name to `cargo kani` and
 # proving nothing while reporting success: a typo here would be the same invisible green the

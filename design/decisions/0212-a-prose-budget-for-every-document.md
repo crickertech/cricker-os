@@ -40,8 +40,8 @@ ladder permits when the higher one costs more than the failure does. calef grant
 `design/fatal-risks/README.md` a marked exception on 2026-09-24 (UTC) at 4,235 words against the cap, the
 first exception granted under this section, and the marker lives in that file with its reason.
 On 2026-09-25 (UTC) calef granted two more, and ruled that neither block is split:
-[`design/roadmap/47-navigation-and-naming.md`](../roadmap/47-navigation-and-naming.md) at 17,386
-words and [`design/roadmap/139-drive-down-unsafe.md`](../roadmap/139-drive-down-unsafe.md) at
+[`design/roadmap/0047-navigation-and-naming.md`](../roadmap/0047-navigation-and-naming.md) at 17,386
+words and [`design/roadmap/0139-drive-down-unsafe.md`](../roadmap/0139-drive-down-unsafe.md) at
 13,846. His reason was that both are large and rarely referenced. The maintainer counted 7 files
 linking the first and 2 the second. Roadmap blocks as a class stay under the cap, so question 2's
 refusal of a class exemption stands. Each marker lives in its block. No
@@ -123,10 +123,10 @@ at it:
 | [`design/naming.md`](../naming.md) | 19,947 | 127 |
 | [`notes/stranger-test.md`](../../notes/stranger-test.md) | 18,775 | 36 |
 | [`design/fatal-risks/README.md`](../fatal-risks/README.md) | 17,742 | 120 |
-| [`design/roadmap/47-navigation-and-naming.md`](../roadmap/47-navigation-and-naming.md) | 17,315 | 6 |
+| [`design/roadmap/0047-navigation-and-naming.md`](../roadmap/0047-navigation-and-naming.md) | 17,315 | 6 |
 | [`notes/x86-port.md`](../../notes/x86-port.md) | 14,938 | 67 |
 | [`notes/pipes.md`](../../notes/pipes.md) | 14,372 | 119 |
-| [`design/roadmap/139-drive-down-unsafe.md`](../roadmap/139-drive-down-unsafe.md) | 13,775 | 1 |
+| [`design/roadmap/0139-drive-down-unsafe.md`](../roadmap/0139-drive-down-unsafe.md) | 13,775 | 1 |
 
 Documents over 6,000 words are cited from a median of 40 other files; documents at or under 1,500
 words, from a median of 2. (n=54 and n=601.)
@@ -193,7 +193,7 @@ reproducing what another document already says. This only works because links he
 
 ## The gate, built
 
-It is [milestone 586 (a prose ratchet in lint)](../roadmap/586-a-prose-ratchet-in-lint.md), minted 2026-09-24 and shared with §213's gate.
+It is [milestone 586 (a prose ratchet in lint)](../roadmap/0586-a-prose-ratchet-in-lint.md), minted 2026-09-24 and shared with §213's gate.
 #1230 built it on 2026-09-24: `helpers/prose_ratchet.py`, run by `script/lint`, with its baseline in
 `design/prose-baseline.tsv`. The milestone is PARTIAL. One week of baseline-churn measurement
 remains, and that number decides whether the ratchet stays.
@@ -218,8 +218,8 @@ First cut, in order: [`notes/benchmarks.md`](../../notes/benchmarks.md),
 [`design/naming.md`](../naming.md).
 
 **And the counter-case, which is half the point.**
-[`design/roadmap/47-navigation-and-naming.md`](../roadmap/47-navigation-and-naming.md) at 17,315
-words is mentioned by 6 files; [`design/roadmap/139-drive-down-unsafe.md`](../roadmap/139-drive-down-unsafe.md)
+[`design/roadmap/0047-navigation-and-naming.md`](../roadmap/0047-navigation-and-naming.md) at 17,315
+words is mentioned by 6 files; [`design/roadmap/0139-drive-down-unsafe.md`](../roadmap/0139-drive-down-unsafe.md)
 at 13,775 is mentioned by 1. Those are books nobody reads. They want archiving, or leaving alone,
 not splitting. Splitting all 190 six-pagers of excess is months of lane work and most of it would
 be spent where nobody arrives.

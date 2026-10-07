@@ -23,7 +23,7 @@ This is rung two of `AGENTS.md`'s ladder failing quietly. Both defects were foun
 
 The pre-filter is looser than `CITE` in two ways, and both were the defect. `git grep` is line-based and `CITE` is not, so the pattern now also accepts a line that *ends* in a citation, which is what a wrapped one looks like. And the letter is in the pattern. The candidate list grows from 649 files to 853 and the scan still takes about three seconds, which is the argument for keeping a pre-filter loose: it selects files to read, and `CITE` decides.
 
-A lettered record keeps its own title. `design/roadmap/20a-name-the-seams.md` is a block of its own, so a gloss of milestone 20a (name the seams) is read against that H1 rather than against milestone 20's, which is different work. Letters with no file of their own, such as milestone 19 (run a real workload)'s addenda 19a through 19f, resolve against the parent block, which is where those sub-parts are described.
+A lettered record keeps its own title. `design/roadmap/0020a-name-the-seams.md` is a block of its own, so a gloss of milestone 20a (name the seams) is read against that H1 rather than against milestone 20's, which is different work. Letters with no file of their own, such as milestone 19 (run a real workload)'s addenda 19a through 19f, resolve against the parent block, which is where those sub-parts are described.
 
 A closing emphasis marker is part of the gap. This tree does not bold a citation by wrapping the gloss with it. It writes the number bold and the gloss plain:
 
@@ -53,7 +53,7 @@ Twenty-one is small enough to fix rather than ratchet, so `--check` stays a hard
 Eighteen sites needed a correction, three were correct path citations the backtick fix now recognizes, and one of the eighteen is the known `0026-fault-endpoint.md` case. Two are worth naming because they are the defect this gate exists for rather than a stale phrase:
 
 - `notes/security.md` said SMP landed at **milestone 41 (dead code: triage the suppressions)**, which is not what that block is. Its own parenthetical named DECISIONS §11 (SMP: per-CPU run queues, message-based migration), which is what actually rules on it, so the sentence now cites the decision and drops the milestone number rather than guessing at a replacement.
-- `design/roadmap/443-*.md` glossed milestone 365 (`xtask/src/main.rs` with no module structure) as "`xtask/src/main.rs` is 10,700 lines" against a title reading 6,785. The file grew and the gloss was never a title; it now names the structure rather than a number that keeps moving.
+- `design/roadmap/0443-*.md` glossed milestone 365 (`xtask/src/main.rs` with no module structure) as "`xtask/src/main.rs` is 10,700 lines" against a title reading 6,785. The file grew and the gloss was never a title; it now names the structure rather than a number that keeps moving.
 
 ## BUGS
 

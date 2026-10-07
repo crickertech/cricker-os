@@ -54,7 +54,7 @@ the duration is positive and sane, not a latency benchmark, which is `bench`'s j
   number this command reports is deliberately wall clock between spawn and the exit arriving on the
   supervision endpoint. If CPU time ever arrives it is an extension of the same command rather than
   a rival to it.
-  This refusal is milestone 490 (design/roadmap/490-cpu-time-in-time.md), which carries it with the
+  This refusal is milestone 490 (design/roadmap/0490-cpu-time-in-time.md), which carries it with the
   condition that would change it.
 - **Milestone 93.** The status row still said the work had not started after it merged, which is the
   roadmap drift 93 turned into a cadence rather than a one-off correction.

@@ -252,13 +252,13 @@ proven here is the handoff below: the suite does not run under real firmware, on
   function with an absolute bus number, and subtracting `lo << 20` names a base below the window
   `mmu::map_everything` maps, turning config reads into reads of whatever sits underneath it. Every
   machine seen reports 0 and none is required to, so it is checked and refused rather than fixed up.
-  This refusal is milestone 463 (design/roadmap/463-an-mcfg-whose-first-bus-is-not-zero.md), which
+  This refusal is milestone 463 (design/roadmap/0463-an-mcfg-whose-first-bus-is-not-zero.md), which
   carries it with the condition that would change it.
-- **Recorded.** In `design/roadmap/165-x86-64-pci-acpi-mcfg.md`: the `PCIEXBAR` writing arm is
+- **Recorded.** In `design/roadmap/0165-x86-64-pci-acpi-mcfg.md`: the `PCIEXBAR` writing arm is
   unexercised on both paths this kernel boots, since QEMU's PVH path already reports the window
   enabled and OVMF enables it too. It stays for the machine that genuinely arrives with the decode
   off, and nothing has run it.
-- **Recorded.** In `design/roadmap/165-x86-64-pci-acpi-mcfg.md`: three things only xenon can
+- **Recorded.** In `design/roadmap/0165-x86-64-pci-acpi-mcfg.md`: three things only xenon can
   confirm, which are that `PCI_BAR_PHYS` is free on that machine, that its firmware presents an MCFG
   with first bus 0 and a bus count `PCIEXBAR` can encode, and that its ACPI tables sit below 4 GiB.
   `pci::bar_census` prints the first of them on the boot line, so it is the number to read first.

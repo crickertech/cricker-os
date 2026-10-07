@@ -14,7 +14,7 @@ question: "how could I shift nife development onto a nife host, so that would ha
 daily." Broken into pieces by tractability rather than proposed as one undertaking; this is the
 piece that needs the least.
 
-Software-only. Informed by [milestone 169](169-kilo-editor.md) (`kilo`, the first
+Software-only. Informed by [milestone 169](0169-kilo-editor.md) (`kilo`, the first
 real C program against [DECISIONS §31](../decisions/0031-foreign-language-seam.md)'s seam) but not
 hard-gated on it: git core needs the identical seam pattern kilo proves, not the terminal
 raw-input primitive kilo exists to build, so the two can proceed in parallel.
@@ -33,7 +33,7 @@ This milestone is exactly that surface: the plumbing and the porcelain built dir
 scoped to local, single-repository, no-subprocess operation. Not in scope: anything that shells out
 by design (hooks, external merge drivers), and anything that needs the network (`clone`/`fetch`/
 `push` over a wire protocol, which is a separate milestone's problem, likely shared with
-[milestone 174](174-nife-thin-dev-client.md)'s remote-build work once that exists).
+[milestone 174](0174-nife-thin-dev-client.md)'s remote-build work once that exists).
 
 ## What it needs
 
@@ -50,14 +50,14 @@ by design (hooks, external merge drivers), and anything that needs the network (
 ## Why it matters
 
 Directly: it is the second piece, after an editor, of "edit and version-control natively on a nife
-host," which is the load-bearing precondition for [milestone 174](174-nife-thin-dev-client.md)'s
+host," which is the load-bearing precondition for [milestone 174](0174-nife-thin-dev-client.md)'s
 thin-development-client path, the nearer-term alternative to full local self-hosting
-([milestone 173](173-rustc-cargo-self-host.md)).
+([milestone 173](0173-rustc-cargo-self-host.md)).
 
 Indirectly: git is the second real, non-editor C program to prove the §31 seam holds for something
 with real users depending on correctness (a corrupted object database is a worse failure than a
 cosmetic editor bug), which is evidence worth having before larger C/C++ ports
-([milestone 172](172-capability-native-subprocess.md), 173) are attempted.
+([milestone 172](0172-capability-native-subprocess.md), 173) are attempted.
 
 ## What this does not decide
 

@@ -9,7 +9,7 @@ needs_person: no
 ---
 # 170. `nano`: a real, full-featured screen editor on the primitive milestone 169 builds
 
-Minted 2026-08-25, alongside [milestone 169](169-kilo-editor.md), from the
+Minted 2026-08-25, alongside [milestone 169](0169-kilo-editor.md), from the
 same dependency review. Sequenced explicitly as `kilo`'s follow-on rather than started in parallel:
 calef's own framing was "mint kilo instead, nano as a follow-on."
 

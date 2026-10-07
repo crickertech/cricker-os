@@ -270,7 +270,7 @@ applied, stated so it can be disagreed with:
 
 ## Follow-on
 
-- **Milestone 301.** `design/roadmap/301-one-grant-order-for-the-progenitor.md`, promoted to
+- **Milestone 301.** `design/roadmap/0301-one-grant-order-for-the-progenitor.md`, promoted to
   milestone 301 and SUPERSEDED there by milestone 166. This entry once read: the `cfg` above is
   honest and it is still two orders for one endowment, and unifying them means renumbering aarch64's
   19d test roles, which is its own milestone with its own gate. 166 did exactly that, splitting the

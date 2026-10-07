@@ -1,5 +1,5 @@
 //! **`uptime`**: print how long the machine has been counting (milestone 126,
-//! design/roadmap/126-who-else-is-running.md, notes/process-view.md).
+//! design/roadmap/0126-who-else-is-running.md, notes/process-view.md).
 //!
 //! The whole program is: read the ambient monotonic counter, hand the nanoseconds to
 //! [`uptime::format`], send the bytes. It holds one capability (the output sink) and cannot

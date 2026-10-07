@@ -186,7 +186,7 @@ coverage run, no QEMU.
 ## Where a fault-injection pilot pays first
 
 Recommended, proposed as [a page-table allocator that fails on its Nth
-call](../design/roadmap/774-a-page-table-allocator-that-fails-on-its-nth-call.md). Twelve of
+call](../design/roadmap/0774-a-page-table-allocator-that-fails-on-its-nth-call.md). Twelve of
 the twenty above are in `paging`. `Mapper` already takes its frame allocator as a closure, so no new
 seam is needed. Sweep N over `map_span`, `map_range` and `build_identity_domain`, and after each
 failure check that every frame handed out is reachable from the root, and what is left mapped. It is
@@ -197,7 +197,7 @@ process's Nth `RETYPE` or `SPLIT` would sweep `login`'s `connect` and `system_in
 build against the region and capability counters the kernel already keeps. It touched the test
 kernel, so it was an architect's call and came second. calef approved it on 2026-10-04 (UTC), and
 it is built as milestone 757 (a test kernel fails a process on its Nth retype), provisional
-([its block](../design/roadmap/757-a-test-kernel-fails-a-process-on-its-nth-retype.md)). Its first
+([its block](../design/roadmap/0757-a-test-kernel-fails-a-process-on-its-nth-retype.md)). Its first
 sweep of `login` found one leak.
 
 ## EXAMPLES

@@ -152,16 +152,16 @@ replacing it is harder than it looks.
 
 - **Milestone 369.** A gate that can read a serial-less machine on real hardware, which is the half
   of this block that QEMU answered and silicon did not.
-  `design/roadmap/369-a-gate-that-can-read-a-machine-with-no-serial-port.md`.
+  `design/roadmap/0369-a-gate-that-can-read-a-machine-with-no-serial-port.md`.
 - **Milestone 377.** One screendump decoder rather than two: milestone 177's graphical
   `swish-check` leg carries `parse_ppm`/`decode_cell`/`scanout_rows` inside `xtask` and this
   milestone wrote a second, more general one in `board_console::screen`.
-  `design/roadmap/377-one-screendump-decoder-not-two.md`.
+  `design/roadmap/0377-one-screendump-decoder-not-two.md`.
 - **Done.** Problem 3, early boot, closed 2026-09-19. The premise was checked and half of it is true:
   `kernel/src/arch/x86_64/boot.s` writes to no device and cannot, because it is a 32-bit
   instruction stream with no idea where the screen is and no IDT, so a fault in it is a triple
   fault and a reset. What *can* be done is done by the stage before it. See the section below.
-- **Milestone 511.** milestone 511 (the boards' screen comes from the firmware), `design/roadmap/511-the-boards-screen-under-uefi.md`. The boards' screen under
+- **Milestone 511.** milestone 511 (the boards' screen comes from the firmware), `design/roadmap/0511-the-boards-screen-under-uefi.md`. The boards' screen under
   UEFI, which milestone 441 (the program that makes the stick) made reachable while this lane was
   running. `uefi_loader` now has aarch64 and riscv64 boot files, so on those architectures
   there is, for the first time, a firmware stage that has already lit a display and can be asked

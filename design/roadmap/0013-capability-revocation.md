@@ -40,7 +40,7 @@ until revocation lands. This milestone is that work, and the precondition is why
   memory-safety-critical half and is exactly what reclamation wants, nothing on the roadmap needs
   subtree revoke, and if one ever does, the unmap side and the revoke-before-reclaim discipline are
   reused unchanged with only the holders index rebuilt as a tree.
-  This refusal is milestone 456 (design/roadmap/456-the-capability-derivation-tree.md), which
+  This refusal is milestone 456 (design/roadmap/0456-the-capability-derivation-tree.md), which
   carries it with the condition that would change it.
 
 ## Index row

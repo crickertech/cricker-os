@@ -32,7 +32,7 @@ Four instances, one review, no gate involved in catching any of them:
   diagnosed in `mutation.yml`'s own header on 2026-09-03; `design/fatal-risks/README.md` was not updated for
   eight more days.
 - Risk 6 said "unmeasured, nothing timestamps the step" for hours after the instrument that
-  measures it (`design/roadmap/306-time-the-hw-entropy-step.md`) merged and gave a real number.
+  measures it (`design/roadmap/0306-time-the-hw-entropy-step.md`) merged and gave a real number.
 - Risk 9 cited milestone 164 as blocking (no `fs_server`) ten days after 164 was `BUILT`, and
   cited milestone 177's premise a day after that premise stopped holding (`DECISIONS §149`).
 
@@ -127,7 +127,7 @@ file, by reverting each correction in turn and watching `--check` go red:
 |---|---|
 | milestone 191 back to `NOT-STARTED` | two findings, `experiment-ran` at risk 2 and `running-order` at the table: *"A struck row and a NOT-STARTED owner cannot both be true"* |
 | risk 9's milestone-164 correction | `as-of`: *"risk 9 was last dated 2026-08-30 and cites milestone 164, which the roadmap records as BUILT on 2026-09-01"* |
-| risk 6's instrument correction | `proposal-moved`: *"risk 6 was last dated 2026-09-05 and cites `design/roadmap/306-time-the-hw-entropy-step.md` as work that would answer it; that proposal was last changed 2026-09-10"* |
+| risk 6's instrument correction | `proposal-moved`: *"risk 6 was last dated 2026-09-05 and cites `design/roadmap/0306-time-the-hw-entropy-step.md` as work that would answer it; that proposal was last changed 2026-09-10"* |
 
 The selftest is what makes that repeatable. The three reverts above are a person's experiment, run
 once, and by this file's own standard that is an attestation rather than evidence.

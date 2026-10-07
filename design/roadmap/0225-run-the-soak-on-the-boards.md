@@ -105,7 +105,7 @@ only (RAM at 0x4000_0000, a PL011 at 0x0900_0000), and tegra210 puts DRAM at 0x8
 16550 at 0x7000_6000. A `booti` today would be silent, and that silence would be misread at the
 bench as cabling or firmware. Milestone 127's two named prerequisites are built; the third, the
 board memory map, is unbuilt and unowned.
-`design/roadmap/803-argon-boots-the-aarch64-kernel.md` is that work, with the fork (one
+`design/roadmap/0803-argon-boots-the-aarch64-kernel.md` is that work, with the fork (one
 binary or two) that is the architect's.
 
 What this lane built instead, which every board's soak uses: `script/board-console --exposure
@@ -160,7 +160,7 @@ Eight hours, for radon's reason. Red is `soak-test: FAILED`, a `[PANIC]`, three 
   BUGS, so it is not a figure to compare machines on without more care than a single run affords.
 - **argon has never booted nife at all**, so its soak sits behind milestone 127 (the seL4 machine)
   rather than beside radon's. Since 2026-10-05 also behind the unbuilt board memory map in
-  `design/roadmap/803-argon-boots-the-aarch64-kernel.md`: the aarch64 kernel only fits QEMU
+  `design/roadmap/0803-argon-boots-the-aarch64-kernel.md`: the aarch64 kernel only fits QEMU
   `virt`.
 
 ## Follow-on

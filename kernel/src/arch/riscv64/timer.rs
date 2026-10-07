@@ -305,7 +305,7 @@ pub fn set_cycle_counter_grant(granted: bool) {
 /// measuring what it says it measures; a `jal` once per 10 ms tick costs nothing worth having.
 ///
 /// The gate's own limitation is the real finding and is recorded separately:
-/// `design/roadmap/368-a-flat-entry-set-counts-bytes-no-syscall-fetches.md`.
+/// `design/roadmap/0368-a-flat-entry-set-counts-bytes-no-syscall-fetches.md`.
 #[inline(never)]
 pub fn tick() {
     TICKS[cpu::id()].fetch_add(1, Ordering::Relaxed);
@@ -769,7 +769,7 @@ mod tests {
             );
             // The diagnostic above is the detail; this is the verdict, and it has to reach the
             // final line. A test that measures nothing is not a pass (milestone 214,
-            // design/roadmap/214-print-and-return-skips.md).
+            // design/roadmap/0214-print-and-return-skips.md).
             crate::testing::skip!(
                 "no miss-free window in which to measure the re-arm law this run"
             );

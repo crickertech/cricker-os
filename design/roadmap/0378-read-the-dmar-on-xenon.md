@@ -94,7 +94,7 @@ crate, exercised under QEMU, and the bench trip is reduced to reading one line o
 - DECISIONS §86's option set gets the number it was priced without: whether a userspace NVMe
   driver on xenon could be given interrupts at all, or would have to poll the way the current one
   does.
-- `design/roadmap/195-uefi-boot-finish.md`'s remaining open question closes, or is shown to
+- `design/roadmap/0195-uefi-boot-finish.md`'s remaining open question closes, or is shown to
   need something else.
 
 ## What it does not do

@@ -100,7 +100,7 @@
 # only when swish-check's own FAILED report names that line. **Only one such record can exist
 # today**: the path is keyed on a function and every line is typed by `swish_check_boot`, so a
 # second line's record has no name to take. That is a §134 (a harness carries a machine-replayable falsification record) spelling question and an architect's;
-# design/roadmap/775-a-swish-check-line-has-a-falsification-path.md carries it.
+# design/roadmap/0775-a-swish-check-line-has-a-falsification-path.md carries it.
 #
 # The block, which is all the lint checks:
 #

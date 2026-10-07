@@ -80,7 +80,7 @@ of two, and sequencing it after 96 is worth more than the wait costs.
   signature-verification code inside the trusted computing base, which is exactly what the digest
   approach avoids. This milestone extends the measurement's reach, not its mechanism, and DECISIONS
   §26's natural sequence still holds: signatures in addition to measurement, never instead of it.
-  This refusal is milestone 450 (design/roadmap/450-a-signature-over-the-init-image.md), which
+  This refusal is milestone 450 (design/roadmap/0450-a-signature-over-the-init-image.md), which
   carries it with the condition that would change it.
 
 ## Index row

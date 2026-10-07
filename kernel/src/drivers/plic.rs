@@ -218,7 +218,7 @@ pub fn enable(source: u32, context: usize) {
 ///
 /// This is the **second** instance of the same flat-entry-set effect on the same symbol in as many
 /// days, which is the finding rather than this attribute. It is recorded at
-/// `design/roadmap/368-a-flat-entry-set-counts-bytes-no-syscall-fetches.md`, whose "the next
+/// `design/roadmap/0368-a-flat-entry-set-counts-bytes-no-syscall-fetches.md`, whose "the next
 /// one will look different" is now observed rather than predicted.
 #[inline(never)]
 pub fn disable(source: u32, context: usize) {

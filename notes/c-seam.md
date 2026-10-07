@@ -89,11 +89,11 @@ is not.
 
 ## The libc question, answered by tier
 
-The roadmap's milestone-36 file records three tiers of C dependency (design/roadmap/36-foreign-component.md, "The line
+The roadmap's milestone-36 file records three tiers of C dependency (design/roadmap/0036-foreign-component.md, "The line
 this does not cross"):
 
 1. Freestanding. No libc. littlefs allocates nothing; libghostty-vt needs a
-   supplied allocator (corrected 2026-10-03 UTC, [proposal](../design/roadmap/705-the-graphical-terminal-runs-full-screen-programs.md)).
+   supplied allocator (corrected 2026-10-03 UTC, [proposal](../design/roadmap/0705-the-graphical-terminal-runs-full-screen-programs.md)).
 2. A handful of symbols. Shim what the component actually references. This is what this spike
    proves.
 3. **Full POSIX.** `open`, `fork`, `socket`, threads. Needs a real libc port, which is DECISIONS §15's
@@ -388,7 +388,7 @@ much about the expensive thing.
 ## See also
 
 - [Rust `std` on the native ABI](std.md): the heap under this `malloc`.
-- [Milestone 36 (a foreign-language component)](../design/roadmap/36-foreign-component.md): the
+- [Milestone 36 (a foreign-language component)](../design/roadmap/0036-foreign-component.md): the
   libc tiers.
 - [Supervision](supervision.md): the fault endpoint this leans on, and the five-word message.
 - [Trusted init](trusted-init.md): milestone 22 phase B.2's proxy shape, the alternative to the

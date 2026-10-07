@@ -9,7 +9,7 @@ ratified_by: calef
 
 Ratifying an implementation already built, tested, and merged (PR #476,
 2026-08-25) rather than proposing something new. Surfaced while surveying PARTIAL milestones for
-genuine open decisions: [milestone 161](../roadmap/161-x86-64-kernel-port.md) named this as "a
+genuine open decisions: [milestone 161](../roadmap/0161-x86-64-kernel-port.md) named this as "a
 design fork" awaiting calef's call, but the fork was answered in code before it was answered in
 this file. Recorded here so the decision has a home a reader can find, per this tree's own
 ladder: a fact that exists only at a call site is rung zero.
@@ -57,7 +57,7 @@ riscv64's own comment already named where this was going.
 
 ## What this does not decide
 
-[Milestone 167](../roadmap/167-timebase-page-delegation.md), handing a computed page to a
+[Milestone 167](../roadmap/0167-timebase-page-delegation.md), handing a computed page to a
 userspace-built child rather than the core calibration mechanism this entry ratifies, remains its
 own, separately-scoped, unbuilt piece. This entry closes the *architectural* fork (what
 `now()`/`cntfrq()` compute and how); it does not close 167's own delegation gap.

@@ -5,9 +5,9 @@ refused_by: 164, 448
 ---
 # 462. The cost of bitsliced AES against AES-NI, unmeasured on purpose
 
-Refused by milestone 164 (design/roadmap/164-x86-64-fs-server-aes.md), and
+Refused by milestone 164 (design/roadmap/0164-x86-64-fs-server-aes.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -25,7 +25,7 @@ fallback", under `## Follow-on`:
 > with nothing behind it. The number is owed when an x86_64 workload touches the crypto path, and
 > Route 2 is what it would be weighed against.
 >
-> -- design/roadmap/164-x86-64-fs-server-aes.md
+> -- design/roadmap/0164-x86-64-fs-server-aes.md
 
 ## Why it is here rather than only there
 
@@ -39,7 +39,7 @@ nobody can defend.
 - **Condition.** Stated in the refusal and unchanged: "The number is owed when an x86_64 workload
   touches the crypto path." The refusal also names what the number would be weighed against, which is
   the SSE-enabled userspace target recorded as
-  milestone 461 (design/roadmap/461-an-sse-enabled-x86-64-userspace-target.md), so the two move together.
+  milestone 461 (design/roadmap/0461-an-sse-enabled-x86-64-userspace-target.md), so the two move together.
 
 ## Index row
 

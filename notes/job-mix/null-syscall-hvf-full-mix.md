@@ -178,14 +178,14 @@ only differences within this batch are read.
   makes one-task throughput here meaningless. This lane first guessed that a child placed on a busy
   core waits for its 10 ms tick. The code says otherwise: the reschedule SGI drains the inbox and
   preempts. So the wait is most likely SGI delivery under HVF
-  ([the proposal](../../design/roadmap/792-cross-core-wake-latency-under-hvf.md)).
+  ([the proposal](../../design/roadmap/0792-cross-core-wake-latency-under-hvf.md)).
 - The excess is near the instrument's floor. One boot's excess at four tasks scatters by about
   0.1 ticks. The medians of twenty to thirty boots carry the result, and the intervals say how far.
 
 ## Proposed work
 
-- [Each core's `PerCpu` on its own cache line](../../design/roadmap/766-each-cores-percpu-on-its-own-cache-line.md)
+- [Each core's `PerCpu` on its own cache line](../../design/roadmap/0766-each-cores-percpu-on-its-own-cache-line.md)
   (milestone 766, provisional): built, PARTIAL. `align(128)` on aarch64 and riscv64, which
   supersedes the parent note's `align(64)`. Its acceptance measurement is radon's run.
-- [Cross-core wake latency under HVF](../../design/roadmap/792-cross-core-wake-latency-under-hvf.md)
+- [Cross-core wake latency under HVF](../../design/roadmap/0792-cross-core-wake-latency-under-hvf.md)
   (provisional): where the spawn job's milliseconds go when another core is idle or busy.

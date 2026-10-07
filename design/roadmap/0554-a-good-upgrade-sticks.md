@@ -169,7 +169,7 @@ separate QEMU processes with nothing between them but the disk.
 
 - **Milestone 573.** The sharing is milestone 573 (two programs share one disk's transfer region,
   and only an ordering keeps them apart),
-  `design/roadmap/573-two-programs-share-one-disks-transfer-region.md`: a `blk`
+  `design/roadmap/0573-two-programs-share-one-disks-transfer-region.md`: a `blk`
   endpoint bounded to a block range, or a transfer region per client. Either turns the ordering
   above from a written record into a mechanism, and the bounded endpoint is the same wire question
   `installer`'s `BUGS` already names for the filesystem server. Neither is a lane's to decide.

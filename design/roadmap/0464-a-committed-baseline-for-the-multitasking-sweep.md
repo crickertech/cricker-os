@@ -5,9 +5,9 @@ refused_by: 168, 448
 ---
 # 464. A committed baseline and a `--check` for the multitasking sweep
 
-Refused by milestone 168 (design/roadmap/168-multitasking-benchmark.md), and
+Refused by milestone 168 (design/roadmap/0168-multitasking-benchmark.md), and
 recorded there on 2026-09-04. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -25,7 +25,7 @@ question', under `## Follow-on`:
 > deterministic on any accelerator this tree has. A gate here would be asserting a tolerance
 > nobody has measured, which is how `script/lint` has already lost three checks.
 >
-> -- design/roadmap/168-multitasking-benchmark.md
+> -- design/roadmap/0168-multitasking-benchmark.md
 
 ## Why it is here rather than only there
 

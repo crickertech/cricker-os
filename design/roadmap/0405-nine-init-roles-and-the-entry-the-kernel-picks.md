@@ -63,7 +63,7 @@ for two reasons:
 - Six parent programs, each naming its child's entry.
 - `spawn_hello` taking the entry name, or a role-to-entry table beside `PROGENITOR_ROLE`.
 - Six `spawn_hello` test call sites updated. The role numbers themselves stay:
-  [the progenitor's grant order](301-one-grant-order-for-the-progenitor.md) recorded that those six
+  [the progenitor's grant order](0301-one-grant-order-for-the-progenitor.md) recorded that those six
   tests name them, and the grant *order* the roles share is the thing that proposal is about.
 
 ## What it would settle

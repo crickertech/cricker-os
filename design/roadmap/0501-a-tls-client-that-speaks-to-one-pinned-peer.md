@@ -85,7 +85,7 @@ radon or xenon will measure, where nothing is emulated and every cipher runs its
   which has no allocator, so it cannot link `rustls` where it is.
 - **Recorded.** Two facts §250's `BUGS` should carry, which a lane may not write there: ISRG Root
   X1's expiry is now checked (2035-06-04, from the certificate), and the cross-signatures in this
-  block's `BUGS`. Both are in `design/roadmap/501-a-tls-client-that-speaks-to-one-pinned-peer.md`
+  block's `BUGS`. Both are in `design/roadmap/0501-a-tls-client-that-speaks-to-one-pinned-peer.md`
   until the maintainer carries them.
 
 ## BUGS

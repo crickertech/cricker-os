@@ -75,7 +75,7 @@
 //! three `Cargo.toml` dependency entries, the `use` sites in `fixtures/` and `kernel/`, and the
 //! live pointers in `design/naming.md` and one `PROPOSED` proposal. Two occurrences of the old name
 //! were deliberately left standing in
-//! `design/roadmap/430-refusals-written-where-the-tool-cannot-read-them.md`, where they are a
+//! `design/roadmap/0430-refusals-written-where-the-tool-cannot-read-them.md`, where they are a
 //! dated account of a measurement taken on this crate under the name it had that day.
 //!
 //! The suffix became `_protocol` at milestone 265, three weeks after this block was written and

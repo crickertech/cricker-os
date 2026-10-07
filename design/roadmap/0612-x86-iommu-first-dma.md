@@ -56,7 +56,7 @@ set on both. Something upstream of this kernel, not this kernel, left the neighb
 master the bus before any driver here touched it. `arch::iommu::init` establishes default-deny for
 *translation* but never touches Bus Master Enable, so a function left bus-mastering by whatever ran
 before this kernel can still attempt DMA the moment translation turns on. On real hardware
-(`xenon`) the same mechanism is firmware, not QEMU: `design/roadmap/693-reset-unowned-pci-functions-before-iommu-enable.md`
+(`xenon`) the same mechanism is firmware, not QEMU: `design/roadmap/0693-reset-unowned-pci-functions-before-iommu-enable.md`
 is the write-up and the open question, raised rather than answered here.
 
 ## The fix
@@ -98,7 +98,7 @@ clean after each run.
   never clears it for a function this kernel does not own, so a device left bus-mastering by
   whatever ran before this kernel (QEMU's own defaults here; firmware on real hardware) can still
   attempt DMA the moment translation turns on. Not fixed here:
-  `design/roadmap/693-reset-unowned-pci-functions-before-iommu-enable.md` is the write-up.
+  `design/roadmap/0693-reset-unowned-pci-functions-before-iommu-enable.md` is the write-up.
 - The quiescing loop is bounded at 8 block devices, a sanity cap rather than a measured maximum. No
   runner this tree has attaches more than two.
 
@@ -106,7 +106,7 @@ clean after each run.
 
 - **Milestone 693.** Milestone 693 (should the kernel clear Bus Master Enable on every PCI function it does not own, before the IOMMU turns on?). Should the kernel clear Bus Master Enable, or reset outright, every PCI function it
   does not immediately own, before the IOMMU turns on?
-  `design/roadmap/693-reset-unowned-pci-functions-before-iommu-enable.md`.
+  `design/roadmap/0693-reset-unowned-pci-functions-before-iommu-enable.md`.
 
 ## Index row
 

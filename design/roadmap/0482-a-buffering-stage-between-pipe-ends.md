@@ -5,9 +5,9 @@ refused_by: 50, 448
 ---
 # 482. A buffering stage between pipe ends
 
-Refused by milestone 50 (design/roadmap/50-pipes-and-redirection.md), and
+Refused by milestone 50 (design/roadmap/0050-pipes-and-redirection.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -25,7 +25,7 @@ Follow-on`:
 > `notes/pipes.md` carries the numbers and the honest caveat that the benchmark did not measure
 > the case a buffer is actually for.
 >
-> -- design/roadmap/50-pipes-and-redirection.md
+> -- design/roadmap/0050-pipes-and-redirection.md
 
 ## Why it is here rather than only there
 

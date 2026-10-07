@@ -34,7 +34,7 @@
 //! concurrent reader. On virtio-mmio there is no IOMMU, so this walk is the only boundary. Found by
 //! milestone 633 (an outside agent attacks the confinement claim)'s second pass as
 //! `notes/confinement-claims.md` row 17's live hazard, reasoned from the code; the fix and its cost
-//! are design/roadmap/799-the-shadow-descriptor-is-published-in-two-stores.md.
+//! are design/roadmap/0799-the-shadow-descriptor-is-published-in-two-stores.md.
 //!
 //! # Examples
 //!

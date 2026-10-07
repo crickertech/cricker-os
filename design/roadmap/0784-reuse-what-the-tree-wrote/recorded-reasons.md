@@ -1,6 +1,6 @@
 # Recorded reasons for what stays
 
-Appendix to [784. Reuse what the tree wrote](../784-reuse-what-the-tree-wrote.md).
+Appendix to [784. Reuse what the tree wrote](../0784-reuse-what-the-tree-wrote.md).
 
 Each line is ready to paste as the component's `Reuse:` line, to be conformed to the amendment's
 landed wording.

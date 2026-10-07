@@ -5,9 +5,9 @@ refused_by: 36, 448
 ---
 # 478. Tier three: full POSIX behind the foreign-language seam
 
-Refused by milestone 36 (design/roadmap/36-foreign-component.md), and recorded
+Refused by milestone 36 (design/roadmap/0036-foreign-component.md), and recorded
 there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -22,7 +22,7 @@ From '36. A foreign-language component, seam first (spike; feeds 29 and 23)', un
 > port, which DECISIONS §15 prices at "later, if ever", and a component that wants it is a
 > different and much larger project than this one.
 >
-> -- design/roadmap/36-foreign-component.md
+> -- design/roadmap/0036-foreign-component.md
 
 ## Why it is here rather than only there
 

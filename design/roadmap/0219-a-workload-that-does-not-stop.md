@@ -194,7 +194,7 @@ because each is a scheduler-policy or syscall-surface question and those are an 
 - **Refused.** A soak leg inside `script/test`. Twenty seconds per architecture would stop the
   feature silently ceasing to compile, and it was judged too expensive for a gate every lane runs on
   every push.
-  This refusal is milestone 473 (design/roadmap/473-a-soak-leg-in-script-test.md), which carries it
+  This refusal is milestone 473 (design/roadmap/0473-a-soak-leg-in-script-test.md), which carries it
   with the condition that would change it.
 - **Recorded.** `notes/soak.md`: a soak that finds nothing is weak evidence, and what a clean run
   licenses is one sentence about round trips completed without a refused wake, a wrong reply or a
@@ -202,11 +202,11 @@ because each is a scheduler-policy or syscall-surface question and those are an 
 - **Recorded.** `notes/soak.md`: a soak build is not the binary that ships. Its IPC fast path is
   1.05 to 1.06x the production one, so no number here is a statement about how fast this kernel does
   IPC, and `script/bench` is the instrument for that.
-- **Recorded.** `design/roadmap/219-a-workload-that-does-not-stop.md`: the heartbeat is guest time
+- **Recorded.** `design/roadmap/0219-a-workload-that-does-not-stop.md`: the heartbeat is guest time
   and the watcher's deadline is host time, so a QEMU guest on a loaded host can produce a false
   quiet verdict. The knob is `--quiet-after`, and not soaking beside other heavy work is the better
   answer.
-- **Recorded.** `design/roadmap/219-a-workload-that-does-not-stop.md`: an x86_64 soak runs one core
+- **Recorded.** `design/roadmap/0219-a-workload-that-does-not-stop.md`: an x86_64 soak runs one core
   unless told otherwise, because that runner defaults to one and its SMP bring-up has two open bugs.
   A crossing count of zero says so out loud, and a single-core soak is not a multicore soak.
 

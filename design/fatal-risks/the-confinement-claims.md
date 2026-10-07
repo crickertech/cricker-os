@@ -105,7 +105,7 @@ keeps the gate closed: it was us attacking our own system, which is the thing mi
 to stop being the only kind of attack this project has seen. And one window was accepted rather than
 closed at the time: `PortRange::REVOKE` reached one core, so a revoked holder on another core kept
 its bitmap for at most one tick. That window is recorded in §152 (the port-range capability)'s
-`BUGS`, corrected the same day, and in [milestone 315](../roadmap/315-port-revoke-every-core.md),
+`BUGS`, corrected the same day, and in [milestone 315](../roadmap/0315-port-revoke-every-core.md),
 which the audit raised as finding 4 and calef promoted out of this entry's proposal on 2026-09-17.
 
 ### Corrected 2026-09-23: that window is closed
@@ -148,7 +148,7 @@ in a received slot. It was an ESCAPE: a `net_stack`-shaped server deleted its ow
 attacker-chosen slot (`x1` delivered = 7, chosen = 7, the victim did not survive), a near miss on
 the sender-first order (`x1 = NO_CAP`). The kernel now writes `NO_CAP` unless a capability was
 installed, with a falsification red first on all three ISAs.
-[milestone 634](../roadmap/634-a-plain-send-received-by-receive-cap-never-hands-the-receiver-a-sender-chosen-slot.md)
+[milestone 634](../roadmap/0634-a-plain-send-received-by-receive-cap-never-hands-the-receiver-a-sender-chosen-slot.md)
 has the evidence and the two options weighed.
 
 And the audit produced a third instance of this file's recurring shape. Milestone 299 (the serial

@@ -26,7 +26,7 @@ pub use riscv64::*;
 
 // **riscv64's IOMMU driver, compiled for the prover on an aarch64 host.** This is milestone 432
 // (the RISC-V IOMMU driver has no counterpart to the SMMU's proofs), built as option 1 of
-// design/roadmap/650-riscv64-code-the-prover-can-already-compile.md. Kani compiles for
+// design/roadmap/0650-riscv64-code-the-prover-can-already-compile.md. Kani compiles for
 // the host, so the `cfg` above hides every riscv64 file from it; this reaches one of them by path.
 // The inline module is named `riscv64` and holds `iommu`, so the harnesses keep the module path
 // they would have natively (`arch::riscv64::iommu::proofs::...`) and `script/falsifications` finds

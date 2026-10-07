@@ -5,9 +5,9 @@ refused_by: 161, 215, 448
 ---
 # 459. Legacy INTx interrupt routing on x86_64
 
-Refused by milestone 161 (design/roadmap/161-x86-64-kernel-port.md), milestone
-215 (design/roadmap/215-x86-64-pci-interrupt-routing.md), and recorded there on 2026-09-03.
-Backfilled here on 2026-09-20 by milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md),
+Refused by milestone 161 (design/roadmap/0161-x86-64-kernel-port.md), milestone
+215 (design/roadmap/0215-x86-64-pci-interrupt-routing.md), and recorded there on 2026-09-03.
+Backfilled here on 2026-09-20 by milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md),
 which gave a refusal that names work a number, a status and a condition that would change it.
 *(Number provisional until the merge queue lands it.)*
 
@@ -23,7 +23,7 @@ From "161. The x86_64 kernel port: bring up the HAL's third architecture", under
 > 215: ACPI's `_PRT` is AML and this tree will not grow an interpreter, and hardcoding q35's
 > swizzle would pass every gate here and might still fail on xenon.
 >
-> -- design/roadmap/161-x86-64-kernel-port.md
+> -- design/roadmap/0161-x86-64-kernel-port.md
 
 From "215. A PCI function's interrupt reaches nothing on x86_64, so no userspace driver can run
 there", under `## Follow-on`:
@@ -33,7 +33,7 @@ there", under `## Follow-on`:
 > `q35`'s swizzle passes every gate on patagonia and might fail on the OptiPlex, which would be
 > discovered at a null modem, this project's most expensive place to discover anything.
 >
-> -- design/roadmap/215-x86-64-pci-interrupt-routing.md
+> -- design/roadmap/0215-x86-64-pci-interrupt-routing.md
 
 ## Why it is here rather than only there
 

@@ -137,16 +137,16 @@ answers, in the same words the prose uses.
   milestone measured and deliberately excluded because no machine can check it. `notes/stack.md`
   carried "We don't have that" about guard pages for months after milestone 4 built them, and it
   takes a reader who knows the system to notice. The stranger test is exactly that reader.
-- **Recorded.** `design/roadmap/125-a-number-in-the-prose-is-a-claim.md`: only marked counts are
+- **Recorded.** `design/roadmap/0125-a-number-in-the-prose-is-a-claim.md`: only marked counts are
   checked, so an unmarked wrong number is invisible and the gate reports nothing about it. That is
   the ratchet working as designed, and a green gate never means every number in the tree is right.
-- **Recorded.** `design/roadmap/125-a-number-in-the-prose-is-a-claim.md`: a marker can lie about
+- **Recorded.** `design/roadmap/0125-a-number-in-the-prose-is-a-claim.md`: a marker can lie about
   what it counts, since nothing checks that it sits beside a sentence about the thing it derives.
   Presence is checkable, meaning is prose.
-- **Recorded.** `design/roadmap/125-a-number-in-the-prose-is-a-claim.md`: counts that need a build
+- **Recorded.** `design/roadmap/0125-a-number-in-the-prose-is-a-claim.md`: counts that need a build
   are too expensive for `script/lint`, which runs constantly, so the registry refuses an entry it
   cannot compute cheaply and those numbers stay unchecked.
-- **Recorded.** `design/roadmap/125-a-number-in-the-prose-is-a-claim.md`: two lanes can each mark a
+- **Recorded.** `design/roadmap/0125-a-number-in-the-prose-is-a-claim.md`: two lanes can each mark a
   number correctly for their own branch and disagree after the merge. The gate turns that from a
   silent wrong number into a failing check, which is the improvement rather than a cure.
 - **Recorded.** `notes/counted-claims.md`: `AGENTS.md`'s block of method figures is still unmarked,

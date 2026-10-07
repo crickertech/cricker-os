@@ -35,7 +35,7 @@
 # comment can no longer claim a membership the code contradicts. Each `ci` row below says why.
 #
 # **The tier tags and the no-argument meaning are PROVISIONAL** pending calef:
-# milestone 400, `design/roadmap/400-what-no-arguments-means.md`, states the options and their costs.
+# milestone 440, `design/roadmap/0440-what-no-arguments-means.md`, states the options and their costs.
 #
 # **Order is cheapest first, and it is the table's order.** That is the whole value of the
 # no-argument path to a developer: a formatting slip costs twenty seconds rather than ten minutes.
@@ -216,7 +216,7 @@ hvf_leg() {
         # than to anybody's change; it is named here until the milestone its BUGS entry proposes
         # lands, and this sentence should go with it.
         if ! script/test --hvf; then
-            echo "ci-build: the HVF leg failed. One HVF-only failure is known: kernel::user::tests::a_std_program_serves_a_granted_listening_port hung in two of three full --hvf runs (it passes alone, and under TCG), and the inbound check then reports 2 of 4. If that is the only red above, it is not your change; see the BUGS section of design/roadmap/227-gicv3-driver.md."
+            echo "ci-build: the HVF leg failed. One HVF-only failure is known: kernel::user::tests::a_std_program_serves_a_granted_listening_port hung in two of three full --hvf runs (it passes alone, and under TCG), and the inbound check then reports 2 of 4. If that is the only red above, it is not your change; see the BUGS section of design/roadmap/0227-gicv3-driver.md."
             return 1
         fi
     fi

@@ -79,7 +79,7 @@ proof of coverage, which is the same honest limit the cpu matrix records about f
 - **Decision.** `design/decisions/0074-audit-cadence.md`, which settled the cadence this block could
   only propose. The block shipped the tripwire computing overdue from those rules, and left the
   numbers to calef.
-- **Recorded.** `design/roadmap/92-security-audit-cadence.md`'s scope note states the limit plainly:
+- **Recorded.** `design/roadmap/0092-security-audit-cadence.md`'s scope note states the limit plainly:
   a mechanism guarantees audits happen and findings get dispositioned, and it does not make any
   audit good. The lens list is a prompt, not a proof of coverage.
 

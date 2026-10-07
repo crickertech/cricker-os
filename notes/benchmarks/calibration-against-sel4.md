@@ -178,7 +178,7 @@ away. A same-machine seL4 number would need either a rewrite of sel4bench to our
 batched loops, real surgery on its measurement core) or a real PMU.
 
 So the seL4 comparison is deferred to real hardware. When written, that meant the planned
-second-board port ([design/roadmap/24-second-aarch64-board.md](../../design/roadmap/24-second-aarch64-board.md)):
+second-board port ([design/roadmap/0024-second-aarch64-board.md](../../design/roadmap/0024-second-aarch64-board.md)):
 a Raspberry Pi has a real PMU and runs sel4bench natively. *Superseded 2026-08-15: the seL4 machine
 is now argon, the Jetson TX1 of seL4's own published figures. Milestone 127 (the seL4 machine)
 tracks it; see [notes/bench-runbook.md](../bench-runbook.md).* The build recipe, via the official

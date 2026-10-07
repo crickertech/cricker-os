@@ -6,7 +6,7 @@ built: 2026-09-04
 # 256. x86_64 places PCI BARs in a hardcoded window, and on xenon that window is RAM
 
 Built on 2026-09-04. Minted the same day by calef, from
-`design/roadmap/256-a-bar-window-the-machine-agreed-to.md` (written 2026-09-03 by the
+`design/roadmap/0256-a-bar-window-the-machine-agreed-to.md` (written 2026-09-03 by the
 milestone 247 sweep, out of milestone 165's Follow-on), on the evening xenon proved it from the
 bench. *(Number provisional until the merge queue lands it.)*
 

@@ -45,7 +45,7 @@ remain open, both recorded in `arch::x86_64::ap_boot`'s own `BUGS`:
 - #3: a boot-core-identity bug that makes `smp::tests::every_secondary_runs_scheduled_work`
   fail about half the time at two.
 
-Separately, `design/roadmap/412-the-uefi-boot-gate-asserts-two-cores-that-do-not-always-start.md`
+Separately, `design/roadmap/0412-the-uefi-boot-gate-asserts-two-cores-that-do-not-always-start.md`
 records `script/test`'s UEFI leg failing its two-core assertion one run in three.
 
 So the substrate a two-core port test would run on is one where an existing SMP test is already

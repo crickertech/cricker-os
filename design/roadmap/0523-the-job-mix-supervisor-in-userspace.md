@@ -54,7 +54,7 @@ from one build and the kernel will halt at nothing, because it verifies nothing.
 tour at the same three sites and will read `NOT SEALED` for the same reason. That finding is
 separable from this milestone and is raised on its own as milestone 563 (a seal check that reads
 bytes cannot see a check that was dropped),
-`design/roadmap/563-a-seal-check-that-reads-bytes-cannot-see-a-check-that-was-dropped.md`; it
+`design/roadmap/0563-a-seal-check-that-reads-bytes-cannot-see-a-check-that-was-dropped.md`; it
 is also recorded where a bench operator meets it, in `notes/job-mix.md`'s `BUGS` and in
 `crates/sealed_pair`'s.
 
@@ -214,7 +214,7 @@ without the arrangement is not a number.
 
 `user_mode_runtime::cntfrq()` on riscv64 returns a hardcoded `10_000_000`, and its own doc says
 why: RISC-V has no register that reports the timebase, it lives in the device tree, and *"userspace
-cannot read it"*. Radon's is 4 MHz (`design/roadmap/375-e3-on-radon-with-real-cycles.md:7`,
+cannot read it"*. Radon's is 4 MHz (`design/roadmap/0375-e3-on-radon-with-real-cycles.md:7`,
 `bench: cntfrq 4000000`). The kernel supervisor reads the real value through
 `arch::timer::frequency()`.
 
@@ -280,7 +280,7 @@ an hour on a tool that cries wolf.
 - **Milestone 563.** The seal check reads bytes and cannot see a check the linker dropped, so a
   `--soak`, `--job-mix` or `--bench` card is misreported as `NOT SEALED` and, worse, genuinely
   verifies nothing:
-  `design/roadmap/563-a-seal-check-that-reads-bytes-cannot-see-a-check-that-was-dropped.md`.
+  `design/roadmap/0563-a-seal-check-that-reads-bytes-cannot-see-a-check-that-was-dropped.md`.
   This is the urgent half of what provoked this milestone and it is an hour's work on a tool.
 - **Recorded.** Whether a diverted boot tour should keep measured boot at all is a question about
   three kernel features rather than about a tool, and it is option B of that proposal. A card left

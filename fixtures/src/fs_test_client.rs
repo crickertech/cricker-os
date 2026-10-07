@@ -834,7 +834,7 @@ fn dir_attacker(run: u64) -> ! {
 }
 
 /// **The two-directory witness** (milestone 154,
-/// design/roadmap/154-multi-directory-namespace.md).
+/// design/roadmap/0154-multi-directory-namespace.md).
 ///
 /// It holds two `fs_subtree_caretaker`s at once, one at capability table slot 0 and one at slot 1
 /// (`kernel/src/user/fs_service.rs`'s `start_granted_two_dirs` convention, which the kernel test wiring this role

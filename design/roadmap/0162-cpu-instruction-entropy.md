@@ -162,14 +162,14 @@ riscv64: correctly excluded. Neither `RDSEED` nor `RNDR`/`RNDRRS` exists on this
   `--cpu neoverse-n2`. The suite's default `cortex-a72` predates `FEAT_RNG`, so the test skips
   cleanly there rather than proving anything, and a green default run is not evidence that `RNDRRS`
   works.
-- **Recorded.** `design/roadmap/162-cpu-instruction-entropy.md` is the only place it is written down
+- **Recorded.** `design/roadmap/0162-cpu-instruction-entropy.md` is the only place it is written down
   that this kernel will not boot under QEMU's `-cpu max` on aarch64 at all, refusing on
   `ID_AA64MMFR0_EL1.TGran4` (no 4 KiB stage-1 granule). It is a CPU-model quirk rather than an
   entropy question, and it is why `neoverse-n2` is the model named above.
 - **Refused.** A riscv64 arm. Neither `RDSEED` nor `RNDR`/`RNDRRS` exists on that ISA, so there is
   no instruction to wrap; milestone 159's JH7110 TRNG is the real hardware source there, through its
   own driver, and pretending otherwise would be a parity claim with nothing behind it.
-  This refusal is milestone 460 (design/roadmap/460-a-riscv64-arm-for-instruction-entropy.md), which
+  This refusal is milestone 460 (design/roadmap/0460-a-riscv64-arm-for-instruction-entropy.md), which
   carries it with the condition that would change it.
 
 ## Index row

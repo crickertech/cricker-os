@@ -102,7 +102,7 @@ fn a_client_obtains_unpredictable_bytes_from_a_virtio_rng_over_pcie() {
 /// suite on.
 ///
 /// On a `StarFive` VisionFive 2 (radon) this test skips and the boot tour's `hw entropy` line is
-/// what speaks instead; see `design/roadmap/159-jh7110-trng-driver.md` for the bench procedure.
+/// what speaks instead; see `design/roadmap/0159-jh7110-trng-driver.md` for the bench procedure.
 #[test_case]
 fn the_jh7110_backend_refuses_to_wire_where_there_is_no_jh7110() {
     if entropy_service::jh7110_trng_device().is_some() {
@@ -284,14 +284,14 @@ fn a_fill_gathers_across_round_trips() {
 /// job; what this comment owes a reader in the meantime is not to imply that a flag will fix their
 /// skip. On `x86_64`, `RDSEED` has no such gap
 /// because ring 3 does not exist yet on that port at all (see
-/// `design/roadmap/162-cpu-instruction-entropy.md`), so there is no service to test end to end
+/// `design/roadmap/0162-cpu-instruction-entropy.md`), so there is no service to test end to end
 /// there yet, only the kernel-side probe the boot tour already proves. This test also compiles and
 /// runs (and skips) on riscv64, which has neither instruction: `is_instruction_backend_available`
 /// there is unconditionally `false`, the JH7110's real hardware source (milestone 159) being a
 /// separate driver entirely, so the skip is correct there too, just for a different reason. **That
 /// exclusion is checked, not pending**: milestone 162 refused a riscv64 arm outright, having read
 /// the ISA rather than assumed it, and recorded the refusal under "Follow-on" in
-/// `design/roadmap/162-cpu-instruction-entropy.md`.
+/// `design/roadmap/0162-cpu-instruction-entropy.md`.
 ///
 /// **`x86_64`'s `is_instruction_backend_available` arm now checks
 /// `arch::isa::get().has_random_seed_instruction()`** (ring 3 landed, milestone 161 (the `x86_64`
@@ -309,7 +309,7 @@ fn a_client_obtains_unpredictable_bytes_from_rndrrs_with_no_device_at_all() {
         crate::testing::skip!(
             "no instruction-mode entropy source on this build (aarch64: ID_AA64ISAR0_EL1.RNDR is \
              clear, so no FEAT_RNG. riscv64: the ISA has neither instruction, refused on purpose \
-             in design/roadmap/162-cpu-instruction-entropy.md). --cpu neoverse-n2 reaches the \
+             in design/roadmap/0162-cpu-instruction-entropy.md). --cpu neoverse-n2 reaches the \
              passing path under TCG only, no CI leg takes it, and the HVF leg cannot boot this \
              kernel at all today (milestone 227). Read this test's doc comment first"
         );

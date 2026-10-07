@@ -100,10 +100,10 @@ in 2019 and an older string simply does not list them. `m`, `a` and `c` are what
 - **Milestone 58.** Removing the unconditional `sfence.vma`, which this block named as its own
   milestone when it found that TLB flush strategy varies nowhere. 58 built the per-ASID flush, the
   SBI shootdown with its acknowledgement, and gated the removal on the probe.
-- **Recorded.** `design/roadmap/60-isa-discovery.md`'s own `BUGS`: discovery makes the kernel
+- **Recorded.** `design/roadmap/0060-isa-discovery.md`'s own `BUGS`: discovery makes the kernel
   honest, not portable. Knowing an extension is missing and doing something useful about it are
   different pieces of work, and nothing here promises the second.
-- **Recorded.** `design/roadmap/60-isa-discovery.md`'s own `BUGS`: the device tree can lie, or
+- **Recorded.** `design/roadmap/0060-isa-discovery.md`'s own `BUGS`: the device tree can lie, or
   firmware can describe a machine it is not. Tier 2, the targeted probe, exists for exactly that,
   and the rule is that the machine wins when the two disagree.
 

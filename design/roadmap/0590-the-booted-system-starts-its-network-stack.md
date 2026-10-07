@@ -121,9 +121,9 @@ move is milestone 198's, and needs no new mechanism from this one.
 ## Follow-on
 
 - **Milestone 646.** Milestone 646 (a typed prompt outruns the undertaker, and the job pool fills with holes). Two findings: per-client socket isolation
-  (`design/roadmap/649-every-client-of-a-network-stack-shares-its-socket-numbers.md`), and
+  (`design/roadmap/0649-every-client-of-a-network-stack-shares-its-socket-numbers.md`), and
   the riscv64 `swish-check` failure measured on the base commit while this was gated
-  (`design/roadmap/646-a-typed-prompt-outruns-the-undertaker.md`).
+  (`design/roadmap/0646-a-typed-prompt-outruns-the-undertaker.md`).
 - **Recorded.** The package client's move to the prompt is milestone 198's, in this block's section
   on it. The DHCP wait and the DMA view are in `crates/system_initializer`'s BUGS. The MMIO NIC with
   no IOMMU is at `kernel::user::boot_virtio_net_device`, and the last capability slot at

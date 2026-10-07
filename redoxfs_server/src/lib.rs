@@ -454,7 +454,7 @@ impl<D: Disk> Server<D> {
     /// timeout (2026-10-04 UTC); not fixed here, because the two fixes are a pin divergence (skip a
     /// null subtree in `truncate_node_inner`) or a semantics choice (refuse a sparse size past the
     /// image), and both are an architect's. Proposed as
-    /// `design/roadmap/772-a-client-cannot-stall-the-file-server-with-a-sparse-file.md`.
+    /// `design/roadmap/0772-a-client-cannot-stall-the-file-server-with-a-sparse-file.md`.
     pub fn truncate(&mut self, handle: u32, size: u64) -> Result<()> {
         // A truncate carries no bytes, so a guard that only covered `write` would leave a way to
         // destroy a file just as thoroughly. It takes the same right and answers the same word.

@@ -62,7 +62,7 @@ no recommendation.
 
 The full design, with its four pieces costed, is milestone 47's section "Completion: a concrete
 primitive, priced and not built" in
-[design/roadmap/47-navigation-and-naming.md](../roadmap/47-navigation-and-naming.md). It is not
+[design/roadmap/0047-navigation-and-naming.md](../roadmap/0047-navigation-and-naming.md). It is not
 repeated here.
 
 ## The premise, checked 2026-09-26

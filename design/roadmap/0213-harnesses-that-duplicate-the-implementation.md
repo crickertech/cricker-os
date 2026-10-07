@@ -99,7 +99,7 @@ whole family. Every harness was read.
   milestone 211's reason and it held through the sweep. The discriminator the sweep worked out is a
   question a person answers, "which side of the assertion did the crate produce?", and both sides
   look like arithmetic beside a call to any pattern a lint could match.
-  This refusal is milestone 470 (design/roadmap/470-a-gate-on-harness-quality.md), which carries it
+  This refusal is milestone 470 (design/roadmap/0470-a-gate-on-harness-quality.md), which carries it
   with the condition that would change it.
 - **Refused.** The mechanical narrowing this block predicted, greping for harnesses that never call
   the crate. It is easy to run and it is the wrong question: almost every harness that recomputes
@@ -109,17 +109,17 @@ whole family. Every harness was read.
 - **Recorded.** `notes/falsification.md`. The 147 cleared harnesses carry no artifact, the same
   limit 211 records for its own 135. A refactor that inlines a function a harness calls turns that
   harness into this defect silently, and nothing re-checks the cleared set.
-- **Recorded.** `design/roadmap/213-harnesses-that-duplicate-the-implementation.md`. One finding is
+- **Recorded.** `design/roadmap/0213-harnesses-that-duplicate-the-implementation.md`. One finding is
   a floor and a lower one than 211's eleven. A harness with the crate on neither side of its
   assertion is the pure form and there was one; a harness whose subject comes from the crate can
   still rest on a recomputed *assumption*, and telling a safe restatement from an unsafe one took
   reading the code.
-- **Recorded.** `design/roadmap/213-harnesses-that-duplicate-the-implementation.md`. A model of a
+- **Recorded.** `design/roadmap/0213-harnesses-that-duplicate-the-implementation.md`. A model of a
   caller cannot be repaired this way.
   `kernel::every_page_between_the_checked_ends_is_itself_a_user_page` restates a guard two syscall
   paths apply; both were read and both still match, so it is faithful, but what is duplicated is
   control flow rather than a function and nothing re-reads those call sites when they change.
-- **Recorded.** `design/roadmap/213-harnesses-that-duplicate-the-implementation.md`. Some
+- **Recorded.** `design/roadmap/0213-harnesses-that-duplicate-the-implementation.md`. Some
   duplication is correct and must not be swept up: `intrusive_fifo` keeps a model queue on purpose
   and compares the real one against it. The difference is whether the crate's own function is on the
   other side of the comparison, and that one sentence is the whole discriminator.

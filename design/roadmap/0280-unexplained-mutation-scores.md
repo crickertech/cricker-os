@@ -92,7 +92,7 @@ largest crate in the tree is proved by nothing) one level down, at a target rath
 So what is left of this milestone is `documentation` at 52%, and one residue that is already
 tracked elsewhere: excluding `src/main.rs` made the number honest, not the file proved, and whether
 its 790 firmware lines get lifted the way `handoff` and `image` were is milestone 381,
-`design/roadmap/381-the-uefi-loaders-firmware-half-is-proved-by-one-boot.md`.
+`design/roadmap/0381-the-uefi-loaders-firmware-half-is-proved-by-one-boot.md`.
 
 Where it sits on that path. Milestone 277 built the memory bound so a sweep can survive a runaway
 mutant; the first green scheduled run is what proves it. This milestone is what stops the number that

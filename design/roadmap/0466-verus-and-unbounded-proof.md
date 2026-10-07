@@ -5,9 +5,9 @@ refused_by: 18, 448
 ---
 # 466. Verus, and unbounded proof
 
-Refused by milestone 18 (design/roadmap/18-verify-capability-core.md), and
+Refused by milestone 18 (design/roadmap/0018-verify-capability-core.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -23,7 +23,7 @@ From '18. Verify the capability core, then spread inward', under `## Follow-on`:
 > something to revisit only if a specific property needs a loop invariant rather than as work
 > anybody owes.
 >
-> -- design/roadmap/18-verify-capability-core.md
+> -- design/roadmap/0018-verify-capability-core.md
 
 ## Why it is here rather than only there
 

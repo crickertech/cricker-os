@@ -139,7 +139,7 @@ split than NVMe was:
   a reset and cannot do either in reverse, so a driver that dies leaves its device clocked forever.
   The mechanism is small and the authority question is not, which is why it carries a `DECISION`
   gate rather than a `BUGS` line alone.
-  `design/roadmap/376-nothing-turns-a-device-back-off.md`.
+  `design/roadmap/0376-nothing-turns-a-device-back-off.md`.
 - **Recorded.** Parent clocks are not programmed. The STG domain's own bus clock comes from the
   SYSCRG at `0x1302_0000` and nothing here touches it; Linux's clock framework walks parents
   automatically and this does not, relying on firmware having left the bus clocks running. It is
@@ -158,14 +158,14 @@ split than NVMe was:
   crate made LLVM fold `syscall::dispatch` into the aarch64 exception handler, so the gate reported
   `syscall_entry` 35% smaller while the code a syscall fetches was identical. Closed the way the
   tree already closes this, with `#[inline(never)]` and the reasoning beside it, and written up in
-  `design/roadmap/368-a-flat-entry-set-counts-bytes-no-syscall-fetches.md`, which owns the
+  `design/roadmap/0368-a-flat-entry-set-counts-bytes-no-syscall-fetches.md`, which owns the
   mechanism question.
 - **Refused.** A general JH7110 clock driver covering all five domains and every clock. The
   milestone's own `BUGS` named unbounded scope as its main risk and the two ends differ by an
   order of magnitude; the arithmetic here is general enough that a second domain is a table entry
   rather than a rewrite, so building the other four before anything needs them would be work with
   no reader.
-  This refusal is milestone 474 (design/roadmap/474-a-general-jh7110-clock-driver.md), which carries
+  This refusal is milestone 474 (design/roadmap/0474-a-general-jh7110-clock-driver.md), which carries
   it with the condition that would change it.
 - **Recorded.** The crate name `jh7110_crg` is provisional and unratified, as milestone 159's
   `jh7110_trng` and `Bus::Jh7110` already are. It carries its two refusals in its own header,

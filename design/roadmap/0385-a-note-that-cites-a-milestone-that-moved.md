@@ -158,7 +158,7 @@ Milestone 525 (a bad upgrade cannot brick the machine: two boot slots, tries and
 $ script/citations --moved 5f850c367~1..5f850c367
 citations: milestone 525 moved NEW -> BUILT: A bad upgrade cannot brick the machine: two boot slots, tries an
 citations:   design/decisions/0207-the-roadmap-is-a-graph-and-says-so.md:50
-citations:   design/roadmap/554-a-good-upgrade-sticks.md:10
+citations:   design/roadmap/0554-a-good-upgrade-sticks.md:10
 ```
 
 The second hit is the defect: milestone 554 (a good upgrade sticks: what marks a trial boot
@@ -219,7 +219,7 @@ milestone 433 (drain the proposal pile to zero, and keep it there) at 108 citing
   cited. `script/roadmap` refuses a `**Proposed.**` entry under `## Follow-on` whose file does not
   exist. Milestone 259 cites this file in its status line instead, so that check never ran, and a
   backticked path that does not resolve passes every other gate: milestone 383,
-  `design/roadmap/383-a-backticked-path-that-does-not-resolve.md`, is the general fix, and it is
+  `design/roadmap/0383-a-backticked-path-that-does-not-resolve.md`, is the general fix, and it is
   unbuilt too.
 
 ## Index row

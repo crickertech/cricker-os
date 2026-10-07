@@ -151,7 +151,7 @@ None needed outside this tree: `LIST`'s own fix (milestone 126, `kernel/src/sysc
 - **Refused.** A shrink-side tolerance narrower than growth's 5%. The symmetric check reuses the
   same band, because nothing has measured the un-padded build's run-to-run variance and a number
   tighter than the data supports produces a gate that nags rather than one that measures.
-- **Recorded.** `design/roadmap/156-syscall-entry-diet.md` records the correction found during
+- **Recorded.** `design/roadmap/0156-syscall-entry-diet.md` records the correction found during
   landing: a lane's own merge silently dropped `abi::aspace::LIST`'s match arm during conflict
   resolution, so its `--save` measurement was taken on a build missing a shipped feature and looked
   better than reality. The corrected numbers are in `bench/fastpath-aarch64.txt` and its riscv64

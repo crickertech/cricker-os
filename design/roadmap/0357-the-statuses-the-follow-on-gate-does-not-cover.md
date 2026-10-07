@@ -11,7 +11,7 @@ needs_person: no
 
 Filed as a proposal on 2026-09-03 by the milestone 252 sweep; promoted by
 milestone 433 on 2026-09-19. Both halves checked against the tree that day and both still hold.
-`design/roadmap/75-cycle-counter-authority.md` still reads `NOT-STARTED` with `Gate: DECISION`,
+`design/roadmap/0075-cycle-counter-authority.md` still reads `NOT-STARTED` with `Gate: DECISION`,
 though DECISIONS §139 answered that decision on 2026-09-02 and milestone 74's own gate line now
 opens *"Both halves of this line are under correction"* and says in full why 75's status is false.
 `script/roadmap`'s `ANSWERS` tuple is still `BUILT`, `REMOVED` and `PARTIAL`. One count in the body
@@ -24,7 +24,7 @@ behind it is answerable by reading `script/roadmap` and the four uncovered statu
 
 In brief. Milestone 247 gated `BUILT` and `REMOVED`; milestone 252 gated `PARTIAL`. Three
 statuses are left uncovered (`NOT-STARTED`, `IN-PROGRESS`, `OPTIONAL`, `RECORDED`), and at least one
-of them rots the same way. **`design/roadmap/75-cycle-counter-authority.md` reads `NOT-STARTED` with
+of them rots the same way. **`design/roadmap/0075-cycle-counter-authority.md` reads `NOT-STARTED` with
 `Gate: DECISION` for a decision calef made on 2026-09-02 (§139) and two milestones built the same
 week** (229 on 2026-09-02, 237 on 2026-09-03). Three separate blocks cite 75 as a live blocker, and
 one of them, milestone 74, carries `MILESTONE 75` in its own gate line, so the staleness propagates
@@ -56,7 +56,7 @@ into the readiness report a maintainer uses to brief lanes.
 ## Index row
 
 Milestone 247 gated `BUILT` and `REMOVED`, milestone 252 gated `PARTIAL`, and the rest of the status
-vocabulary rots with nothing watching it. `design/roadmap/75-cycle-counter-authority.md` is the
+vocabulary rots with nothing watching it. `design/roadmap/0075-cycle-counter-authority.md` is the
 proof: it reads `NOT-STARTED` with `Gate: DECISION` for a decision calef made on 2026-09-02 and a
 mechanism two milestones built the same week, three blocks cite it as a live blocker, and milestone
 74 carries `MILESTONE 75` in its own gate line, so the staleness propagates into the readiness report

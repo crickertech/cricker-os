@@ -37,7 +37,7 @@ request"*, is wrong. The survivors accumulated while the crate grew from the bas
 (2026-08-03) to 693, and the instrument only looked twice in that window. This is a cadence
 finding wearing a rate finding's clothes, and it is recorded here rather than quietly fixed because
 `design/fatal-risks/README.md`'s risk 3 rests on the attribution. The correction to that record is
-proposed in `design/roadmap/512-the-census-blamed-a-pull-request-that-added-four.md`; this
+proposed in `design/roadmap/0512-the-census-blamed-a-pull-request-that-added-four.md`; this
 lane does not edit `design/fatal-risks/README.md`.
 
 Where the 22 probably came from, offered as the likely reading rather than as a measurement: the
@@ -66,7 +66,7 @@ glob and wearing different clothes again. The line is `const N: usize = V1_LEN +
 `.cargo/mutants.toml`'s `exclude_re = ["verification::"]` matches the mutant name, and a `const`
 gets no module path in its name, so the regex cannot see it. Three such mutants exist tree-wide
 today; the third is `network_time_protocol/src/lib.rs:1323`. This has no home yet and is proposed
-in `design/roadmap/492-a-const-in-a-proof-module-escapes-its-exclusion.md`.
+in `design/roadmap/0492-a-const-in-a-proof-module-escapes-its-exclusion.md`.
 
 ## Measurement 2: what it costs, which is not the objection
 
@@ -184,15 +184,15 @@ which is the irreversible half.
 
 ## Follow-on
 
-- **Milestone 512.** milestone 512 (the census blamed one pull request for), `design/roadmap/512-the-census-blamed-a-pull-request-that-added-four.md`, the
+- **Milestone 512.** milestone 512 (the census blamed one pull request for), `design/roadmap/0512-the-census-blamed-a-pull-request-that-added-four.md`, the
   correction to `design/fatal-risks/README.md`'s risk 3, which this lane measured and does not own.
-- **Milestone 492.** milestone 492 (a const inside a proof module is), `design/roadmap/492-a-const-in-a-proof-module-escapes-its-exclusion.md`, the
+- **Milestone 492.** milestone 492 (a const inside a proof module is), `design/roadmap/0492-a-const-in-a-proof-module-escapes-its-exclusion.md`, the
   three mutants that sit inside `#[cfg(kani)]` modules and are not excluded, two of which are half of
   this milestone's own result.
 - **Refused.** A blocking `--in-diff` gate, per this block's recommendation and the ruling that ends
   it at measurement 1. Nothing is switched on and no workflow, `script/ci-build` row or ruleset entry
   was touched.
-  This refusal is milestone 479 (design/roadmap/479-a-blocking-mutation-gate-on-the-diff.md), which
+  This refusal is milestone 479 (design/roadmap/0479-a-blocking-mutation-gate-on-the-diff.md), which
   carries it with the condition that would change it.
 
 ## BUGS

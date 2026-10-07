@@ -111,14 +111,14 @@ find it with a throwaway component rather than half way into a port.
   the roadmap commits to it.
 - **Milestone 23.** The vendor-component claim, which is the other thing the seam de-risks: a
   component this project did not write, running confined, replaceable while the system is up.
-- **Recorded.** In `design/roadmap/36-foreign-component.md`: what the spike does not prove, kept so
+- **Recorded.** In `design/roadmap/0036-foreign-component.md`: what the spike does not prove, kept so
   29 and 23 do not inherit false confidence. One `clang -c` is not a build system, one translation
   unit is not a link order, this component's two symbols are not another's, and confined is not
   correct.
 - **Refused.** Tier three, full POSIX (`open`, `fork`, `socket`, threads), stays out. It needs a
   real libc port, which DECISIONS §15 prices at "later, if ever", and a component that wants it is a
   different and much larger project than this one.
-  This refusal is milestone 478 (design/roadmap/478-tier-three-full-posix.md), which carries it with
+  This refusal is milestone 478 (design/roadmap/0478-tier-three-full-posix.md), which carries it with
   the condition that would change it.
 - **Refused.** FAT32, the question that prompted the spike, is a weak first candidate and was not
   taken: RedoxFS is already a better filesystem, `no_std` Rust FAT crates exist so the FFI cost buys

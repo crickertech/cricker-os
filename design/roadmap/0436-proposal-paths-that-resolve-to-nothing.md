@@ -50,7 +50,7 @@ paths true.
 ## The two halves, and only one is mechanical
 
 The resolvable ones. Where the slug survives on a numbered block, the rewrite is mechanical:
-`design/roadmap/303-x86-64-fs-disk.md` cites
+`design/roadmap/0303-x86-64-fs-disk.md` cites
 `design/roadmap/proposals/an-unclaimed-function-behind-the-iommu.md` in its body, and its own
 `## Follow-on` section already names milestone 325 for the same item, so the body is simply behind
 its own block.

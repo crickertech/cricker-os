@@ -888,7 +888,7 @@ Facts documentation could not settle, each an explicit measurement, none guessed
    and reset are left running by U-Boot. The first is milestone 239's (radon's device tree does not
    describe the TRNG, so a working driver never runs) and its block carries the two commands; the
    second is milestone 159's, and both are read off the `hw entropy` line the riscv64 boot
-   tour now prints last; `design/roadmap/159-jh7110-trng-driver.md` carries the ordered bench
+   tour now prints last; `design/roadmap/0159-jh7110-trng-driver.md` carries the ordered bench
    procedure and a table of what each of the five possible lines means. This is the first real,
    non-virtio device a confined userspace process on this project has been asked to drive, which
    makes it `design/fatal-risks/README.md`'s risk 6 rather than a driver.
@@ -1030,7 +1030,7 @@ been closed; its entry carries the record):
 - **The boot script has never run on the board.** Written 2026-09-02 from the two captured
   transcripts, with radon powered down and unreachable, so every claim about it is reasoning plus
   a byte-level check of the image format on the host. Three things only a bench boot can settle,
-  and `design/roadmap/218-hands-free-board-boot.md` carries the ordered procedure: that this
+  and `design/roadmap/0218-hands-free-board-boot.md` carries the ordered procedure: that this
   vendor U-Boot's distro boot scans for scripts at all, that `scriptaddr` is set in the default
   environment it falls back to (the same environment whose missing `fdt_addr_r` is why the
   extlinux path failed), and that its parser accepts the seven lines as written. Every one of
@@ -1103,7 +1103,7 @@ does "this test needs hardware the current boot doesn't have" mean, and how does
 it), not a bench fix. Recorded here rather than chased further tonight; a milestone or decision for
 whoever picks this up next should scope that mechanism rather than patch the seventh `expect()`.
 
-See design/roadmap/144-sandbox-screendump-gap.md for the separate, still-open finding that the
+See design/roadmap/0144-sandbox-screendump-gap.md for the separate, still-open finding that the
 *development sandbox*'s QEMU legs cannot reach the scanout/network referees at all (unrelated to
 this board's fixture gap; that one is about the host-side monitor connection, not about the guest
 having no device).

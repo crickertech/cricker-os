@@ -199,7 +199,7 @@ that a footprint change is intended and understood; do it in the commit that cau
 - **Recorded.** Folding `test` into the gate makes `script/test` a keep-alive on all three
   architectures, at the cost that the configuration a production kernel actually ships
   (`not(test)`, feature off) is now the one nothing runs, and it is the one whose correctness is
-  that the code is absent. `design/roadmap/237-the-cycle-grant-is-a-measurement-build.md`.
+  that the code is absent. `design/roadmap/0237-the-cycle-grant-is-a-measurement-build.md`.
 - **Recorded.** A benchmark build carries 136 more bytes in `sched::schedule` than production, so a
   cycle figure taken with the instrument on is slightly pessimistic about nife. That caveat sits
   beside the seL4 calibration in `notes/benchmarks.md`, which is where milestone 25 keeps its
@@ -207,14 +207,14 @@ that a footprint change is intended and understood; do it in the commit that cau
 - **Recorded.** The feature name `cycle_counter_grant` is provisional, like everything a lane mints;
   names are an architect's. It is the field it builds rather than a new word for the same thing.
   `kernel/Cargo.toml`.
-- **Milestone 361.** `design/roadmap/361-unattributed-fastpath-residuals.md`, attribute the riscv64
+- **Milestone 361.** `design/roadmap/0361-unattributed-fastpath-residuals.md`, attribute the riscv64
   and x86_64 fastpath residuals, then re-record those baselines in the commit that does it. riscv64
   sat at 5132 against a 5106 baseline and x86_64 at 6687 against 6639, neither gap bisected to a
   milestone, so re-saving them then would have been the absorb-the-growth move this block exists to
   refuse. Only aarch64 was re-recorded here. That block is SUPERSEDED: milestone 188's phases 1 to 3
   changed what the gate measures and re-recorded all three baselines on 2026-09-04, so the numbers
   above no longer exist to bisect against.
-- **Milestone 336.** `design/roadmap/336-fastpath-footprint-against-main.md`, whether the fastpath
+- **Milestone 336.** `design/roadmap/0336-fastpath-footprint-against-main.md`, whether the fastpath
   footprint gate should compare against `main` rather than a stored baseline file. DECISIONS §144
   answered it on 2026-09-04 (both, with a 16 KiB ceiling) and the building is what remains. Two
   lanes each measured "within bound" against the same stale

@@ -141,8 +141,8 @@ Those magnitudes are a Linux container under TCG and are not comparable with any
   features, and one lists them as a build command that will now fail:
   `board-only-features-nothing-compiles.md` (`board,soak,reboot_soak`),
   `select-the-padding-at-boot-not-at-compile-time.md`, `nothing-in-ci-boots-the-riscv-tour.md`
-  (the first two are `design/roadmap/373-board-only-features-nothing-compiles.md` and
-  `design/roadmap/379-select-the-padding-at-boot-not-at-compile-time.md` since milestone 433
+  (the first two are `design/roadmap/0373-board-only-features-nothing-compiles.md` and
+  `design/roadmap/0379-select-the-padding-at-boot-not-at-compile-time.md` since milestone 433
   numbered them, and both still carry the old spellings in their bodies)
   (`script/soak --arch riscv64`, `--features soak`) and
   `board-console-cannot-speak-to-the-board.md` (`soak-reboot: DISARMED`). All four are `PROPOSED`,
@@ -157,7 +157,7 @@ Those magnitudes are a Linux container under TCG and are not comparable with any
   which is riscv64-only and has 16 `cfg` sites. This lane built it by hand
   (`cargo check -p kernel --features reboot_soak_test --target riscv64imac-unknown-none-elf`,
   clean) and that is rung zero. The finding has a home already:
-  `design/roadmap/373-board-only-features-nothing-compiles.md` proposes exactly this gate, and
+  `design/roadmap/0373-board-only-features-nothing-compiles.md` proposes exactly this gate, and
   its example command is one of the four this rename made stale, so whoever picks it up must read
   the new spellings out of `kernel/Cargo.toml` rather than out of that file.
 - The rename was run on QEMU and on no board. No VisionFive 2 was at this lane's bench, so
@@ -175,11 +175,11 @@ Those magnitudes are a Linux container under TCG and are not comparable with any
   2026-09-19, so filing one now would reopen the pile for an item that is a naming decision rather
   than a milestone's worth of work. It is recorded here instead and put to calef directly, which is
   where a naming decision belongs; the six paths above are the whole of it.
-- **Recorded.** `design/roadmap/297-soak-becomes-soak-test.md`: four `PROPOSED` proposals still name
+- **Recorded.** `design/roadmap/0297-soak-becomes-soak-test.md`: four `PROPOSED` proposals still name
   `soak` and `reboot_soak` as live cargo features, and one carries a build command
   (`board,soak,reboot_soak`) that will now fail. By `design/naming.md`'s status table they should
   have moved; a developer lane may not edit them.
-- **Milestone 373.** `design/roadmap/373-board-only-features-nothing-compiles.md`, which already
+- **Milestone 373.** `design/roadmap/0373-board-only-features-nothing-compiles.md`, which already
   owns this: nothing in CI compiles a `soak_test` or `reboot_soak_test` card, so the latter's 16
   riscv64-only `cfg` sites are held up by a hand-run `cargo check` and by nothing repeatable. That
   proposal's own example command is one of the four this rename made stale.

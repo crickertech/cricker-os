@@ -86,7 +86,7 @@ Four pieces, one milestone.
 
 - **Milestone 698.** Milestone 698 (the week flag fires every week). The one-tenth threshold fires every week on this tree's counts; the measurement
   and the candidates are in
-  `design/roadmap/698-the-week-flag-fires-every-week.md`.
+  `design/roadmap/0698-the-week-flag-fires-every-week.md`.
 
 ## Index row
 

@@ -12,7 +12,7 @@ their builds in their manifest and local developers would just self sign. Does t
 
 A proposal lane (`proposal/signed-builds`) wrote this section on the maintainer's instruction. Every
 name in it is provisional. Nothing here is built; the build is the proposal
-[`design/roadmap/666-install-time-signature-verification.md`](../roadmap/666-install-time-signature-verification.md).
+[`design/roadmap/0666-install-time-signature-verification.md`](../roadmap/0666-install-time-signature-verification.md).
 
 ## Ruled 2026-09-26 (UTC)
 

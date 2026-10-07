@@ -159,7 +159,7 @@ pub const fn want(w0: u64) -> u64 {
 /// nothing, or holds a bufferful of zeros, has not met this word's condition and must not send it.
 /// That was a defect rather than a subtlety: on 2026-09-04 the JH7110 backend sent this word on
 /// radon holding zeros off a block whose clock is gated, and only the boot tour's own second look
-/// at the draws caught it (`design/roadmap/159-jh7110-trng-driver.md`).
+/// at the draws caught it (`design/roadmap/0159-jh7110-trng-driver.md`).
 pub const READY: u64 = 0x_52_4E_47_55_50;
 
 /// **The word a bring-up failure reports instead of [`READY`]**, with the step that failed in its

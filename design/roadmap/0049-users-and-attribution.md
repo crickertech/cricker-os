@@ -253,7 +253,7 @@ feature (`components/src/login.rs`'s own BUGS, more precisely worded per item).
      the undertaker's own supervision endpoint are retyped, this table rests at eight instead,
      found by bisecting the same way the entropy-ordering fault above was.
   2. A real subtree and a real credential for whoever logs in, through `identity_provisioner`
-     (milestone 155), run once per boot against the generated password below. `design/roadmap/155-*`
+     (milestone 155), run once per boot against the generated password below. `design/roadmap/0155-*`
      is updated to match.
   3. The demo credential's password, generated rather than baked in, executing this entry's own
      recommendation: `boot` draws twelve bytes from the entropy service it just built, hex-encodes
@@ -354,7 +354,7 @@ feature (`components/src/login.rs`'s own BUGS, more precisely worded per item).
 - **Recorded.** `MemoryRegion::DESTROY` frees the region and the objects retyped from it but never
   the destroyer's own capability-table slot naming it, so a server that destroys a region per request
   runs out of table while its budget still looks healthy.
-  `design/roadmap/153-out-of-memory-causes.md` carries the account.
+  `design/roadmap/0153-out-of-memory-causes.md` carries the account.
 - **Recorded.** A region destroyed out of LIFO order strands its pages until its parent dies, which
   cost 368 pages of holes in one suite run here. The general form, that a short-lived region wants a
   parent nothing long-lived is carved from, sits with the mechanism in
@@ -373,18 +373,18 @@ feature (`components/src/login.rs`'s own BUGS, more precisely worded per item).
 - **Recorded.** The construction budget (2048 to 12288 pages) and `CAPABILITY_TABLE_SLOTS` (16 to 17)
   were raised with real margin found empirically, not tuned to a minimum, so a later lane that wants
   either tighter has bisection work rather than a guess to correct.
-  `design/roadmap/49-users-and-attribution.md` records what was paid and why.
+  `design/roadmap/0049-users-and-attribution.md` records what was paid and why.
 - **Refused.** The second half of DECISIONS §109, a server logging which channel a request arrived
   on. No server in this tree needs it: every multi-client server either serves exactly one principal
   by construction (`fs_subtree_caretaker`) or is anonymous by design (the credential service).
   Building it now would be a mechanism with no consumer to shape it.
   This refusal is
-  milestone 480 (design/roadmap/480-a-server-that-logs-which-channel-a-request-arrived-on.md), which
+  milestone 480 (design/roadmap/0480-a-server-that-logs-which-channel-a-request-arrived-on.md), which
   carries it with the condition that would change it.
 - **Refused.** Real terminal multiplexing. `login` hands the terminal to the first successful caller
   and refuses the rest with a dedicated code until `LOGOUT`, deliberately, because the narrow shape
   commits to nothing the wider one would later have to unwind.
-  This refusal is milestone 481 (design/roadmap/481-terminal-multiplexing.md), superseded on
+  This refusal is milestone 481 (design/roadmap/0481-terminal-multiplexing.md), superseded on
   2026-10-06 (UTC) by milestone 806 (concurrent login sessions).
 
 ## Index row

@@ -81,7 +81,7 @@ jobs:
       # shape script/drift's header argues against: a command no developer runs has no witness. It
       # stays here because moving it into script/drift would make a developer's `script/drift` delete
       # their std farm and take the account-wide `nife-dev` toolchain link, which is a cost worth
-      # deciding rather than absorbing. See design/roadmap/312-drift-bare-metal-list.md's BUGS.
+      # deciding rather than absorbing. See design/roadmap/0312-drift-bare-metal-list.md's BUGS.
       - name: Build the std overlay (the fragile part)
         run: |
           rm -rf target/nife-farm

@@ -5,11 +5,11 @@ built: 2026-09-19
 ---
 # 182. x86_64's own interactive-boot entry point
 
-Built 2026-09-19. Split off from [milestone 177](177-graphical-interactive-boot.md),
+Built 2026-09-19. Split off from [milestone 177](0177-graphical-interactive-boot.md),
 2026-08-27, once that milestone's build lane found piece 3 (originally scoped as "build x86_64's
 own interactive-boot entry point first") needs a from-scratch ELF-loading boot path, not wiring: a
 substantially larger, separate undertaking than pieces 1-2's device attachment and program swap.
-Built in part on 2026-09-14, inside [milestone 268](268-the-boot-ladder.md)'s lane, because 268's
+Built in part on 2026-09-14, inside [milestone 268](0268-the-boot-ladder.md)'s lane, because 268's
 top rung on x86_64 is not reachable any other way; the prompt came with
 milestone 299 (the x86 port-range capability) on 2026-09-15; the third `script/swish-check` leg,
 the last outstanding item, on 2026-09-19 (below, "The third leg").
@@ -318,7 +318,7 @@ this milestone does not build.
 
 ## Follow-on
 
-- **Milestone 505.** milestone 505 (an x86_64 input driver that never lets), `design/roadmap/505-an-x86-64-input-driver-that-never-lets-the-core-idle.md`:
+- **Milestone 505.** milestone 505 (an x86_64 input driver that never lets), `design/roadmap/0505-an-x86-64-input-driver-that-never-lets-the-core-idle.md`:
   interrupt-driven x86_64 input. Milestone 299 recorded the poll as a latency and CPU limitation; this
   milestone measured that it also starves the idle loop, which takes the slot gauge and the core's
   halt with it.

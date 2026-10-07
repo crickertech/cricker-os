@@ -78,10 +78,10 @@ here.
   why (a boot per record would put about eight minutes on every pull request touching `kernel/`).
 - **Only one swish-check record can exist** until §134's path spells a line, which is an
   architect's call:
-  [proposal](../design/roadmap/775-a-swish-check-line-has-a-falsification-path.md).
+  [proposal](../design/roadmap/0775-a-swish-check-line-has-a-falsification-path.md).
 - Existing kernel tests owe no record. A new one under `system_tests/src/user/` does, since
   milestone 749 (a new confinement test carries a falsification record), ruled by calef 2026-10-04
-  ([block](../design/roadmap/749-a-new-confinement-test-carries-a-falsification-record.md)).
+  ([block](../design/roadmap/0749-a-new-confinement-test-carries-a-falsification-record.md)).
 - A record that cannot reach a verdict now blocks a merge. That is intended, and the 15-minute
   per-record limit keeps one hung record from costing the whole 45-minute job; a slow record is a
   finding about that record. No flake was seen in the 60 pull requests measured.

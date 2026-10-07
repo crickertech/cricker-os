@@ -143,10 +143,10 @@ A note is not a home. Each finding is recorded where a reader meets the code, or
   site in `sched::thread_control_block_insert_from`.
 - AMD-Vi: five entries in `amd_vi.rs`'s module `BUGS` (the devfn fault was already there), a
   pointer in `notes/amd-vi.md`, and
-  `design/roadmap/767-amd-vi-hardening-before-the-first-amd-boot.md` with the exclusion
+  `design/roadmap/0767-amd-vi-hardening-before-the-first-amd-boot.md` with the exclusion
   range, alias quarantine and read-only IVMD as its acceptance items.
 - Row 17: `BUGS` in `direct_memory_access_validator`'s module doc and on `shadow_one_head`, and
-  `design/roadmap/799-the-shadow-descriptor-is-published-in-two-stores.md`.
+  `design/roadmap/0799-the-shadow-descriptor-is-published-in-two-stores.md`.
 - Row 3: `BUGS` on `cap::memory_region_cap`. Row 5: `BUGS` on `sched::delete_current_cap`. Row 11:
   `BUGS` on `paging::Flags`. Row 30: `BUGS` on `Thread::outgoing_cap`.
 - Rows 19 and 24: a `BUGS` section in `redoxfs_server/src/dispatch.rs` for the window TOCTOU.

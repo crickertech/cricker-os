@@ -133,9 +133,9 @@ half of the same observation and is untouched.
   opinion on those crates, so aiming one prover at both halves narrows the independence that
   justifies them. What would reverse it is `xtask` growing logic the target then trusts, and the
   shape to watch is the measured-boot digest.
-  This refusal is milestone 468 (design/roadmap/468-proving-xtask.md), which carries it with the
+  This refusal is milestone 468 (design/roadmap/0468-proving-xtask.md), which carries it with the
   condition that would change it.
-- **Recorded.** `design/roadmap/197-user-and-xtask-proofs.md` BUGS: two harnesses is not coverage of
+- **Recorded.** `design/roadmap/0197-user-and-xtask-proofs.md` BUGS: two harnesses is not coverage of
   68 programs. The editor's editing operations are the richest untrusted-input surface left in
   `user/` and are out of reach as the document is laid out today; moving a row's length out of the
   row would fix that, and it is a data-layout question rather than a lane's.
@@ -144,7 +144,7 @@ half of the same observation and is untouched.
   minutes, a symbolic index into the editor's document struct that exhausted CBMC's memory in 3m23s,
   and anything downstream of twenty chained divisions. It is where the warning lives that a fast
   harness can be evidence the assertion asked nothing.
-- **Milestone 360.** `design/roadmap/360-timer-rearm-seam.md`, lift the timer re-arm arithmetic out
+- **Milestone 360.** `design/roadmap/0360-timer-rearm-seam.md`, lift the timer re-arm arithmetic out
   of the register access so `crates/timetable`'s already proved `next_after` is what the timer
   actually calls. Where the seam goes is an architect's: too high and the arch layer keeps the
   milestone 6 (threads, the context switch, and preemption) drift bug, too low and every ISA

@@ -182,11 +182,11 @@ is §82's stated failure mode.
 - **Milestone 108.** Lifetime and revocation of a retained directory handle: when it is closed, and
   what a program observes if the directory it holds is revoked underneath it. 108 asks the same
   question one level up.
-- **Recorded.** In `design/roadmap/122-a-directory-handle-std-can-hold.md`: a revoked FS endpoint
+- **Recorded.** In `design/roadmap/0122-a-directory-handle-std-can-hold.md`: a revoked FS endpoint
   now reads as `PermissionDenied` rather than `Unsupported`, because `-1` is both the kernel's
   `NoSuchSlot` and the server's `EPERM` and this milestone moved which one wins. The clean fix is a
   tag or an offset in the reply word, which belongs to the contract.
-- **Recorded.** In `design/roadmap/122-a-directory-handle-std-can-hold.md`: handle exhaustion turned
+- **Recorded.** In `design/roadmap/0122-a-directory-handle-std-can-hold.md`: handle exhaustion turned
   out not to need a budget, since a walk holds two handles rather than one per level and a held
   `Dir` is bounded by the same `EMFILE` as an open `File`. What is untried is a program holding many
   `Dir`s at once.

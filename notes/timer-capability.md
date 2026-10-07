@@ -256,7 +256,7 @@ syscall in the system whether or not it is a timer.
 
 The riscv64 figure is the one to argue about. 158 bytes is 8.6% of that ISA's entry set, and
 `script/fastpath-footprint`'s own `BUGS` names this exact mechanism as an open problem
-(`design/roadmap/368-a-flat-entry-set-counts-bytes-no-syscall-fetches.md`). Three instances were
+(`design/roadmap/0368-a-flat-entry-set-counts-bytes-no-syscall-fetches.md`). Three instances were
 closed with `#[inline(never)]` in two days on 2026-09-04; both scaffold bodies here already carry it,
 so this is the cost *after* that mitigation rather than before it.
 

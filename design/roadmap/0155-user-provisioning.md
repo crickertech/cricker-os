@@ -74,7 +74,7 @@ update. `crates/system_initializer::boot` now spawns this tool once per real boo
 staging a boot-generated password into its request page and holding both of its capabilities
 (`credentialer`'s own provision endpoint, before its seal, and the file service's root) itself,
 provisioning a demo identity (`operator`) before `login` can serve anyone. See
-`design/roadmap/49-users-and-attribution.md`'s own account of that wiring for the full design. An
+`design/roadmap/0049-users-and-attribution.md`'s own account of that wiring for the full design. An
 operator's real path to holding this tool's two capabilities *for an identity other than the one
 boot-generated demo account* remains real work this slice does not attempt.
 
@@ -122,10 +122,10 @@ coverage behind it, not an untested change riding along.
   operator's decision made once after every identity for a boot is in, not a side effect of
   provisioning one identity. The caller seals, exactly as the provisioner role in
   `credentialer_test_client.rs` already does in its own tests.
-- **Recorded.** `design/roadmap/155-user-provisioning.md` BUGS: an operator's real path to holding
+- **Recorded.** `design/roadmap/0155-user-provisioning.md` BUGS: an operator's real path to holding
   this tool's two capabilities, for an identity other than the one boot-generated demo account, is
   untouched.
-- **Recorded.** `design/roadmap/155-user-provisioning.md` BUGS: the directory capability this slice
+- **Recorded.** `design/roadmap/0155-user-provisioning.md` BUGS: the directory capability this slice
   wires the tool against is the file service's whole root, unnarrowed. A real deployment scopes it
   to a dedicated principal-tree parent directory, and that directory does not exist yet.
 - **Recorded.** `components/src/login.rs` already names session reclamation as an open bound, and

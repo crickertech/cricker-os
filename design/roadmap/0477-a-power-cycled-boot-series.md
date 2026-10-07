@@ -6,9 +6,9 @@ refused_by: 249, 448
 # 477. A power-cycled boot series over radon's smart plug
 
 Refused by
-milestone 249 (design/roadmap/249-the-boot-lottery-is-sampled-by-a-person-walking-to-the-board.md), and recorded
+milestone 249 (design/roadmap/0249-the-boot-lottery-is-sampled-by-a-person-walking-to-the-board.md), and recorded
 there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -25,7 +25,7 @@ evening', under `## Follow-on`:
 > until the firmware has actually refused reset type 1. notes/soak.md's outcome table is where
 > that finding would arrive; raise it then.
 >
-> -- design/roadmap/249-the-boot-lottery-is-sampled-by-a-person-walking-to-the-board.md
+> -- design/roadmap/0249-the-boot-lottery-is-sampled-by-a-person-walking-to-the-board.md
 
 ## Why it is here rather than only there
 

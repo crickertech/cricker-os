@@ -125,7 +125,7 @@ that restart policy wants to be a rich userspace thing, not a kernel reflex).
   primitive phase 3 adds, got the numbered decision this block asked for when 19d.2 and 22 made it
   concrete: the kernel delivers a message and never runs restart policy, and policy lives in the
   userspace supervision tree.
-- **Recorded.** `design/roadmap/22-trusted-init.md`, under "The reach tail": proving init's
+- **Recorded.** `design/roadmap/0022-trusted-init.md`, under "The reach tail": proving init's
   *behavior* as distinct from verifying its bytes is the direction and is explicitly not committed.
   Proof buys safety, supervision buys availability, and init's failure mode is availability.
 

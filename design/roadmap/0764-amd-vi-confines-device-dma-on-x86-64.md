@@ -80,7 +80,7 @@ write-it case.
   tests tie a fault to their device by requester id; `kernel/src/arch/x86_64/amd_vi.rs`'s BUGS. It
   ends when `.qemu-version` reaches a release carrying QEMU commit 4adfb431c0.
 - **Recorded.** Interrupt remapping is never enabled, VT-d's posture too;
-  design/roadmap/317-interrupt-remapping-flags.md owns the question.
+  design/roadmap/0317-interrupt-remapping-flags.md owns the question.
 - **Recorded.** `notes/confinement-claims.md` has no AMD-Vi row because that note is over its
   word budget; notes/amd-vi.md carries the claims until it is trimmed.
 - **Milestone 102.** Milestone 102 (what a confined device's fault reaches) owns the fault

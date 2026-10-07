@@ -169,7 +169,7 @@ as built serves every read-only use, and 218 is the thing to do first either way
   defined`), which the board boots through and which this milestone deliberately did not repair.
 - **Milestone 217.** The card carrying a kernel and an archive from different builds, minted the
   same day out of the same bench session and taking the other half of the withdrawn proposal.
-- **Recorded.** `design/roadmap/216-board-console.md` BUGS: a captured log is not a test result.
+- **Recorded.** `design/roadmap/0216-board-console.md` BUGS: a captured log is not a test result.
   Deciding pass or fail from console text is how a harness ends up asserting on a vendor's boot
   message. The tool names its outcome `Reached`, for what it observed, rather than `Passed`, and
   that is a wording rather than a mechanism, so the line is still uncrossed rather than defended.
@@ -177,7 +177,7 @@ as built serves every read-only use, and 218 is the thing to do first either way
   day, in two states. Better than documentation alone and not the same as proven. Uncovered are
   other firmware builds and the two synthetic fixtures nobody has yet seen at a bench, which is why
   the fixtures split into `captured/` and `synthetic/` so provenance is a path rather than a claim.
-- **Recorded.** `design/roadmap/216-board-console.md` records that remote power is unproven: the
+- **Recorded.** `design/roadmap/0216-board-console.md` records that remote power is unproven: the
   Kasa plug was not reachable from either machine when this was written, discovery found nothing on
   two subnets by broadcast and by unicast, so nothing should be built assuming it. The tool stands
   without it and gains reset later.
@@ -186,7 +186,7 @@ as built serves every read-only use, and 218 is the thing to do first either way
   external drive that must never be switched off. The built tool reads and never writes, to the port
   or to the outlet, so the question stayed undecided rather than being settled by an
   implementation.
-  This refusal is milestone 472 (design/roadmap/472-a-bench-console-that-drives-power.md), which
+  This refusal is milestone 472 (design/roadmap/0472-a-bench-console-that-drives-power.md), which
   carries it with the condition that would change it.
 - **Recorded.** `design/naming.md` holds the naming backlog this milestone added to:
   `script/board-console`, `cargo xtask board-console` and `crates/board_console` all shipped

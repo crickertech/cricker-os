@@ -103,7 +103,7 @@ the same shape as every other authority in this system:
   today and should keep working.
 
 This is the same observation as the trust-store one in
-milestone 387, `design/roadmap/387-a-tls-stack-and-which-one.md`, and the two belong to the same
+milestone 387, `design/roadmap/0387-a-tls-stack-and-which-one.md`, and the two belong to the same
 family:
 the ambient parts of a Unix network client are exactly the parts a capability system should make
 explicit. It is also a small, concrete instance of
@@ -161,7 +161,7 @@ Kani-proven not to loop or overrun, is in `crates/multicast_dns_protocol` at com
   layout is `socket_protocol::lease`, provisional. Both ISAs' lease tests assert slirp's 10.0.2.3.
 - **Done.** The x86_64 leg, by #1760: the resolver's gate runs over the `e1000e` on all three
   architectures, and the x86_64 and UEFI runners carry the name-server peer.
-- **Milestone 783.** Milestone 783 (the network stack seeds its random generator from the clock, and TCP sequence numbers come from it). `design/roadmap/783-net-stack-seeds-its-generator-from-entropy.md`: seed
+- **Milestone 783.** Milestone 783 (the network stack seeds its random generator from the clock, and TCP sequence numbers come from it). `design/roadmap/0783-net-stack-seeds-its-generator-from-entropy.md`: seed
   `smoltcp`'s generator in `net_stack` from the entropy service rather than `now()`, since it
   chooses TCP initial sequence numbers today, whatever happens to DNS.
 

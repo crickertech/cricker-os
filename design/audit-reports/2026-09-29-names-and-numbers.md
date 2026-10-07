@@ -97,7 +97,7 @@ uses, beside a marked exception.
 
 ### 5. FIXED: a citation quoted a section that had become an appendix
 
-`design/roadmap/124-a-thread-is-born-where-it-lives.md:117` quoted "a kernel stack freed under its
+`design/roadmap/0124-a-thread-is-born-where-it-lives.md:117` quoted "a kernel stack freed under its
 owner" as a section of `notes/stack.md`. The 2026-09-24 split moved it to
 `notes/stack/kernel-stack-freed-under-its-owner.md`, and the quote stopped resolving. The pointer
 names the appendix, beside a marked exception.
@@ -128,7 +128,7 @@ for the class: 864 documents stand over the density, 634 of them in this sweep's
 including `notes/documentation-audit.md` itself, which cannot record a lesson without the same
 marker. The bite on a document being condensed is the ruling's intent. The identical price on a
 correction of a false claim is a consequence nobody had measured, and it is now recorded at the
-feature, `design/roadmap/586-a-prose-ratchet-in-lint.md`, as a design note. Whether corrections get
+feature, `design/roadmap/0586-a-prose-ratchet-in-lint.md`, as a design note. Whether corrections get
 a carve-out, or the bold backlog gets a lane that retires these markers, is calef's call, and the
 note says so.
 

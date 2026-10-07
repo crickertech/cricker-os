@@ -237,7 +237,7 @@ on the customer path.
 ## Recorded reasons for what stays
 
 Each component that stays has a `Reuse:` line ready to paste, to be conformed to the amendment's
-landed wording: [recorded-reasons.md](784-reuse-what-the-tree-wrote/recorded-reasons.md).
+landed wording: [recorded-reasons.md](0784-reuse-what-the-tree-wrote/recorded-reasons.md).
 
 ## One question for an architect, outside the default
 

@@ -139,7 +139,7 @@ numbers in CLAUDE.md are his to place.
   in the tree are a re-derivation, not the sweep's own list, because PR #91 recorded the count and
   never the items. The ten already-tracked findings are a count and not a list for the same reason.
   Where the two sets differ, nobody can now tell.
-- **Recorded.** `design/roadmap/94-untracked-work.md` BUGS: nothing gates a blessing, so a
+- **Recorded.** `design/roadmap/0094-untracked-work.md` BUGS: nothing gates a blessing, so a
   limitation can lose the paragraph blessing it to an ordinary edit and no check would notice. That
   is a marked exception rather than an oversight, with the trigger stated: if the set grows past
   what a person can hold, it wants a gate.

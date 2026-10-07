@@ -71,7 +71,7 @@ precedent.
   tree today and ACPI/PCI later), taken up as the x86_64 discovery seam's wide half.
 - **Milestone 16.** Real-hardware aarch64, which this block names as the cheapest portability proof
   of all and deliberately puts somewhere else because it is the same ISA on real silicon.
-- **Recorded.** In `design/roadmap/20a-name-the-seams.md`: the seam-naming subset that needs no
+- **Recorded.** In `design/roadmap/0020a-name-the-seams.md`: the seam-naming subset that needs no
   second architecture lives on as its own addendum block rather than being folded back in here. It
   names and isolates the boundaries; it does not abstract across them.
 - **Refused.** Hardware breadth stays parked. Every driver on every board buys no proof coverage,

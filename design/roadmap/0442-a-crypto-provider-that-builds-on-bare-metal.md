@@ -165,10 +165,10 @@ makes a recipe's digest decide what may run and a digest is checkable over any t
   `notes/cryptography-provider.md` and the `reason` field beside the suppression itself.
 - **Milestone 501.** A client that speaks TLS 1.3 to one peer, holding that peer's root or pinned key as
   a capability, which was this block's clause 3 and is repriced out of it above:
-  milestone 501 (a TLS client that speaks to one), `design/roadmap/501-a-tls-client-that-speaks-to-one-pinned-peer.md`.
+  milestone 501 (a TLS client that speaks to one), `design/roadmap/0501-a-tls-client-that-speaks-to-one-pinned-peer.md`.
 - **Milestone 496.** That a program which aborts is never heard, so its panic message and every line
   before it are discarded:
-  milestone 496 (a dying program's last words reach nobody), `design/roadmap/496-a-dying-programs-last-words-reach-nobody.md`. This lane's own wrong
+  milestone 496 (a dying program's last words reach nobody), `design/roadmap/0496-a-dying-programs-last-words-reach-nobody.md`. This lane's own wrong
   finding is the worked example inside it.
 - **Recorded.** That `script/crate-probes` may be measuring the unpatched `std`, beside the
   measurement it feeds, in `notes/cryptography-provider.md`'s `BUGS`. The fifty crates of

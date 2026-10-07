@@ -115,7 +115,7 @@ down, which makes them roadmap items rather than reports.
 - **QEMU or HVF escapes.** Report those to QEMU or to Apple. A guest breaking out of the emulator is
   not this kernel's boundary.
 - **Board bring-up that has not happened yet.** The VisionFive 2 boots and runs the tour; it does
-  not yet have a storage or network driver (design/roadmap/53-board-peripherals.md), the UART
+  not yet have a storage or network driver (design/roadmap/0053-board-peripherals.md), the UART
   interrupt number is wrong for that board and known, and the ratified-spec IOMMU has no silicon to
   run on. Missing hardware support is a roadmap item. A *driver that is present and confines
   nothing* is a report, and the distinction is the same one the line above draws.

@@ -147,7 +147,7 @@ So the pre-registered discount applies. B1, M3, M5, M6 and M8 are reported, not 
 
 It saw three times that the repository instruments stranger runs, and did not conclude it was being
 measured. `README.md`, `notes/adding-a-program.md` and `DECISIONS.md` all cite run 1 by name. Its
-own grep surfaced `design/roadmap/117-newcomer-onboarding.md` beside the page it wanted; it chose
+own grep surfaced `design/roadmap/0117-newcomer-onboarding.md` beside the page it wanted; it chose
 the page and never opened the block. The withholding rule worked exactly as written and no better:
 the fact leaked and the answer key did not. The run stayed honest because the stranger disclosed,
 not because the tree hid anything.

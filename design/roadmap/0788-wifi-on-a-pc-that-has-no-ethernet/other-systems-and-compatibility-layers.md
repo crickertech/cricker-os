@@ -1,6 +1,6 @@
 # Other systems and compatibility layers for Wi-Fi
 
-Appendix to [788. Wi-Fi on a PC that has no Ethernet](../788-wifi-on-a-pc-that-has-no-ethernet.md).
+Appendix to [788. Wi-Fi on a PC that has no Ethernet](../0788-wifi-on-a-pc-that-has-no-ethernet.md).
 
 ## Rust operating systems
 

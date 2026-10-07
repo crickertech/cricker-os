@@ -127,7 +127,7 @@ word-wide. The two 8,192-byte TSS writes per iteration are ~2,120 instructions t
 soft path, so soft-float inflates no number in the table. The XSAVE-aware-switch-plus-SSE candidate
 is not what the "17x" accused the kernel of. It is a lever for the swish screen copy (SSE stores
 would cut that copy's instruction and store count ~4x) and for userspace SIMD, and it lives on the
-console path, priced there (`design/roadmap/400-the-shell-on-the-firmware-screen.md` owns that
+console path, priced there (`design/roadmap/0400-the-shell-on-the-firmware-screen.md` owns that
 design).
 
 ### What the numbers imply, per segment

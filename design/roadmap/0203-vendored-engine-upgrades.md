@@ -131,14 +131,14 @@ mechanism works before it ever has to be right about something.
 - **Recorded.** It reports and cannot decide. A newer version is not automatically a better one,
   this tree pinned deliberately, and the output is a prompt a maintainer session acts on. It must
   not quietly become an agent that acts on its own, the shape calef declined for the merge watchers.
-  `design/roadmap/203-vendored-engine-upgrades.md`.
+  `design/roadmap/0203-vendored-engine-upgrades.md`.
 - **Recorded.** One consumer. RedoxFS is the only vendored engine, so this generalizes to `vendor/`
   on paper and is really about one directory; writing it as a general mechanism would be abstraction
-  ahead of requirement. `design/roadmap/203-vendored-engine-upgrades.md`.
+  ahead of requirement. `design/roadmap/0203-vendored-engine-upgrades.md`.
 - **Recorded.** Watching upstream git is noisier than watching releases, which is the cost of
   putting it in scope: most upstream commits will not matter, and the "report what changed" half is
   what keeps that side from becoming the log line nobody reads.
-  `design/roadmap/203-vendored-engine-upgrades.md`.
+  `design/roadmap/0203-vendored-engine-upgrades.md`.
 - **Recorded.** A bump is where the five divergences get re-litigated, and divergence 3 is kept
   rather than reverted only because reverting it is an architect's call. Three of the five are
   re-applied forever and can conflict, and if upstream restructures the code they touch they may not
@@ -149,7 +149,7 @@ mechanism works before it ever has to be right about something.
   report which of the five carried over. Automating a rebase before anyone has performed one by hand
   is guessing at the shape of a job nobody has done; the cheap version raises the pin and lets
   `script/vendor-verify` go red, which makes the upgrade a visible object.
-  This refusal is milestone 469 (design/roadmap/469-automating-the-vendored-engine-rebase.md), which
+  This refusal is milestone 469 (design/roadmap/0469-automating-the-vendored-engine-rebase.md), which
   carries it with the condition that would change it.
 - **Milestone 346.** Perform the first real RedoxFS
   pin bump. The watch's first run found upstream 37 non-merge commits ahead of the pinned sha,

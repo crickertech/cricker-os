@@ -211,10 +211,10 @@ Redox is the closest neighbor in this tree's own reference set and does the oppo
 - **Recorded.** `design/what-a-distribution-packages.md` holds the question this milestone does not
   answer. `basalt` is a reserved name and an empty repository, not a distribution, and what a
   distribution actually packages is written up there rather than here.
-- **Recorded.** `design/roadmap/120-nife-and-the-organization.md` carries it in `BUGS`: GitHub
+- **Recorded.** `design/roadmap/0120-nife-and-the-organization.md` carries it in `BUGS`: GitHub
   redirects the old clone URL and nothing else, so a hardcoded `calef/cricker-os` in a workflow, a
   badge or a bookmark can still be stale.
-- **Recorded.** `design/roadmap/120-nife-and-the-organization.md` also states that a rename cannot
+- **Recorded.** `design/roadmap/0120-nife-and-the-organization.md` also states that a rename cannot
   be un-published. The mitigation was timing rather than technique, the project had one customer and
   no audience on the day, and the cost only rises from here.
 

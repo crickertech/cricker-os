@@ -73,7 +73,7 @@ Why it matters. a public repository with a security thesis should be able to rec
 - **Decision.** `design/decisions/0073-repository-admin-steps.md` holds the settings half, the ten
   admin minutes only calef could spend. He applied them the evening of 2026-08-04 and the section
   records what was applied and what turned out not to apply, rather than only saying "done".
-- **Recorded.** `design/roadmap/44-github-hardening.md` keeps the code-scanning caveat, which is
+- **Recorded.** `design/roadmap/0044-github-hardening.md` keeps the code-scanning caveat, which is
   the number worth carrying rather than the clean one: 60 of 176 Rust files were extracted with
   errors, against the host target with default features, for a kernel that does not build for the
   host at all. "Zero alerts" means less than it looks.

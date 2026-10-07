@@ -1,6 +1,6 @@
 # Part 2: What the three programs need that is missing
 
-This appendix belongs to [milestone 705 (the graphical terminal runs full-screen programs)](../705-the-graphical-terminal-runs-full-screen-programs.md); it holds the escape-sequence census and the replay measurement.
+This appendix belongs to [milestone 705 (the graphical terminal runs full-screen programs)](../0705-the-graphical-terminal-runs-full-screen-programs.md); it holds the escape-sequence census and the replay measurement.
 
 Escape-sequence census, taken on the host (macOS, `TERM=xterm`, 80x24, vim 9.1, less from the OS). The
 harness answered `ESC[6n` and `ESC[>c` like an xterm would.

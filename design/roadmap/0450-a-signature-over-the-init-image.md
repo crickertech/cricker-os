@@ -5,9 +5,9 @@ refused_by: 104, 448
 ---
 # 450. A signature over the init image, in place of a compiled-in digest
 
-Refused by milestone 104 (design/roadmap/104-init-measures-what-init-loads.md),
+Refused by milestone 104 (design/roadmap/0104-init-measures-what-init-loads.md),
 and recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -24,7 +24,7 @@ From '104. The measurement continues past init', under `## Follow-on`:
 > milestone extends the measurement's reach, not its mechanism, and DECISIONS §26's natural
 > sequence still holds: signatures in addition to measurement, never instead of it.
 >
-> -- design/roadmap/104-init-measures-what-init-loads.md
+> -- design/roadmap/0104-init-measures-what-init-loads.md
 
 ## Why it is here rather than only there
 

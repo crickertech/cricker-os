@@ -165,7 +165,7 @@ the reasoning is kept to one line each so a reader can check the rule against it
 - Milestone 47 (navigation and naming), pull request #1374: the bare-name resolution and install
   refusals this must keep.
 - The proposal
-  [666-install-time-signature-verification.md](666-install-time-signature-verification.md)
+  [0666-install-time-signature-verification.md](0666-install-time-signature-verification.md)
   (§220). Not a hard dependency, since two versions can be proved with two catalog entries, but
   without it a developer cannot install a second version without a new boot slot.
 

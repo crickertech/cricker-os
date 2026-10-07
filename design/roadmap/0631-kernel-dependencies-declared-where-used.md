@@ -67,7 +67,7 @@ Reversible by moving one line back; nothing else depends on which table it is in
   the dependency in `kernel/Cargo.toml`, marked as a deliberate exception.
 - **Refused.** A default `corruption_canary` feature, for the reason above.
 - **Milestone 713.** Milestone 713 (the rest of the tree declares its dependencies where they are used). The same lint on `user_mode_runtime` and `redoxfs_server`, outside this
-  milestone's scope, in `design/roadmap/713-the-rest-of-the-tree-declares-dependencies-where-used.md`.
+  milestone's scope, in `design/roadmap/0713-the-rest-of-the-tree-declares-dependencies-where-used.md`.
 
 ## Index row
 

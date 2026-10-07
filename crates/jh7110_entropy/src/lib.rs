@@ -1,6 +1,6 @@
 #![cfg_attr(not(test), no_std)]
 //! **The `StarFive` JH7110 TRNG, as pure logic** (milestone 159; roadmap
-//! `design/roadmap/159-jh7110-trng-driver.md`, notes/entropy.md).
+//! `design/roadmap/0159-jh7110-trng-driver.md`, notes/entropy.md).
 //!
 //! The register layout, the DTB query that finds the device, and the decision of whether a
 //! generation attempt succeeded, failed, or is still running, with nothing an actual driver
@@ -881,7 +881,7 @@ mod tests {
     /// The fixture is transcribed from the firmware's own source, not dumped from the board (see
     /// its header), so what this test proves is that the decoder handles that shape. **Whether the
     /// running firmware's tree really carries the node is a bench fact and is still open**;
-    /// `design/roadmap/239-radons-tree-describes-less-than-the-chip-has.md` carries the two
+    /// `design/roadmap/0239-radons-tree-describes-less-than-the-chip-has.md` carries the two
     /// commands that settle it.
     #[test]
     fn discover_finds_the_device_under_the_vendor_uboots_own_spelling() {

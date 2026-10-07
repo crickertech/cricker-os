@@ -9,7 +9,7 @@ use crate::suite::ArchLegs;
 use crate::{RISCV_TARGET, RUNNER, TARGET};
 
 /// **The instruction-count instrument** (milestone 78;
-/// design/roadmap/78-load-sensitive-assertions.md), on both ISAs because parity is a gate (§19).
+/// design/roadmap/0078-load-sensitive-assertions.md), on both ISAs because parity is a gate (§19).
 ///
 /// Boots a `--features icount` kernel under `-icount shift=0,sleep=off`, where QEMU's virtual clock
 /// advances by exactly one nanosecond per guest instruction retired and by nothing else. The guest

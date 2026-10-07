@@ -360,7 +360,7 @@ Ordered as it was built, because each step is what made the next one debuggable.
     reads: only a process built by `supervision_protocol::build_child_space` (the userspace ELF
     loader, not the kernel) falls back to it, because that loader maps a freshly retyped, zeroed
     placeholder page rather than a capability naming the kernel's real one. Closing that gap is
-    [milestone 167](167-timebase-page-delegation.md)'s own, separately-scoped remaining piece, not
+    [milestone 167](0167-timebase-page-delegation.md)'s own, separately-scoped remaining piece, not
     a live design fork on this one.
 
     Three programs refuse rather than pretend. `console::uart_put`, `input`'s `uart` module and
@@ -407,7 +407,7 @@ In the order it should be done, because each is a prerequisite for the next.
    a machine with no device tree and the port stopped there; `memory::init` is now explicitly a
    device-tree front end and `arch::x86_64::machine::bring_up_memory` is the x86 one.
 
-   The wide half was split into its own milestone, [176](176-x86-64-discovery-seam-wide-half.md)
+   The wide half was split into its own milestone, [176](0176-x86-64-discovery-seam-wide-half.md)
    (PARTIAL, minted 2026-08-25), once checking this item's own claim directly against the tree found
    it had gone stale in two of its four places rather than being uniformly still open. The
    interrupt controller is built, by item 2 below: the boot tour hands the MADT's answers to
@@ -706,7 +706,7 @@ Resolved: the two arch-contract names that did not stretch to a third architectu
 - **Refused.** Item 2's other half, PCI interrupt routing over INTx, was deliberately not taken by
   milestone 215: ACPI's `_PRT` is AML and this tree will not grow an interpreter, and hardcoding
   q35's swizzle would pass every gate here and might still fail on xenon.
-  This refusal is milestone 459 (design/roadmap/459-legacy-intx-interrupt-routing.md), which carries
+  This refusal is milestone 459 (design/roadmap/0459-legacy-intx-interrupt-routing.md), which carries
   it with the condition that would change it.
 - **Recorded.** Measured 2026-09-19; both bits stay off: the pinned QEMU flushes its whole TLB on
   every `CR3` write, so neither this tree's icount instrument nor plain TCG can see what PGE saves.
@@ -725,7 +725,7 @@ Resolved: the two arch-contract names that did not stretch to a third architectu
   escape test running on x86_64 for the first time and passing.
 - **Milestone 364.** The fixtures still missing from that runner (RedoxFS, GPT and blank disks,
   NIC, GPU, keyboard, RNG, and a transport-blind FS-server disk lookup) are
-  `design/roadmap/364-x86-64-test-fixtures.md`, which milestone 303 and a newer block have since
+  `design/roadmap/0364-x86-64-test-fixtures.md`, which milestone 303 and a newer block have since
   taken over; that one is SUPERSEDED and says where each half went.
 - **Milestone 184.** The skip that wanted an `x86_64-unknown-nife` target and a `std` farm is no
   longer milestone 27's tail; it has its own block.
@@ -796,7 +796,7 @@ re-read the online count after the STARTUP IPIs and waited for it to move again,
 checked in during the 200 µs settle delay was counted absent. Fixed by reading the count once,
 before the INIT. After: 40 of 40 at `-smp 4`, 20 of 20 at `-smp 8`, 20 of 20 at `-smp 3`,
 all cores online. It could reach two cores as well, which is plausibly the UEFI leg's one-in-three
-(milestone [412](412-the-uefi-boot-gate-asserts-two-cores-that-do-not-always-start.md), whose
+(milestone [412](0412-the-uefi-boot-gate-asserts-two-cores-that-do-not-always-start.md), whose
 question 2 this answers: `ap_boot`'s "third or later" bound was wrong. Not measured here.)
 
 4. SMP failure (3). Already fixed by milestone 316 (`BOOT_CPU_ID`); verified in the tree.

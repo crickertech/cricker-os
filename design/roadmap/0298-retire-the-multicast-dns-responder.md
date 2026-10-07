@@ -30,7 +30,7 @@ does not, and the naming question dissolved into a retirement.
   test run counted a multicast check among the conditions for passing. It was not in the real boot.
 - No live work wants it. Of the six live blocks mentioning multicast DNS, milestones 129, 131 and
   260 cite its configuration document as the shape to copy, 144 and 146 mention it in passing, and
-  milestone 384, `design/roadmap/384-a-name-resolver-and-who-holds-it.md`, says outright it does
+  milestone 384, `design/roadmap/0384-a-name-resolver-and-who-holds-it.md`, says outright it does
   not need it.
 
 ## What to remove
@@ -65,7 +65,7 @@ does not, and the naming question dissolved into a retirement.
 
 `multicast_dns_protocol` carried general DNS message and name parsing, Kani-checked at the parser,
 beside the Time Machine records. A future unicast resolver, milestone 384 in
-`design/roadmap/384-a-name-resolver-and-who-holds-it.md`, would want that half. calef ruled to
+`design/roadmap/0384-a-name-resolver-and-who-holds-it.md`, would want that half. calef ruled to
 retire all three knowing this; git keeps the code, and the resolver proposal should say where to find
 it.
 
@@ -104,7 +104,7 @@ it.
   call frame rather than for the socket client that is left; lowering it wants a stack-depth reading,
   written beside the constant in `kernel/src/user/virtio_service.rs`.
 - **Recorded.** The general DNS parsing the retirement loses is pointed at by commit in
-  `design/roadmap/384-a-name-resolver-and-who-holds-it.md`, milestone 384 since 2026-09-19.
+  `design/roadmap/0384-a-name-resolver-and-who-holds-it.md`, milestone 384 since 2026-09-19.
 
 ## Index row
 

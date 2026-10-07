@@ -5,9 +5,9 @@ refused_by: 226, 448
 ---
 # 476. The `qemu-bounded.sh` self-test, in a gate
 
-Refused by milestone 226 (design/roadmap/226-qemu-bounded-orphans.md), and
+Refused by milestone 226 (design/roadmap/0226-qemu-bounded-orphans.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -24,7 +24,7 @@ under `## Follow-on`:
 > two declined deliberately, and the block says plainly that it is a foot gun: a later
 > simplification of `qemu-bounded.sh` will not be caught by CI.
 >
-> -- design/roadmap/226-qemu-bounded-orphans.md
+> -- design/roadmap/0226-qemu-bounded-orphans.md
 
 ## Why it is here rather than only there
 
@@ -36,7 +36,7 @@ be caught by CI.
 ## Revisit
 
 - **Condition.** A cadence that can absorb about a minute of real emulators, which is the same
-  condition milestone 473 (design/roadmap/473-a-soak-leg-in-script-test.md) states for the same
+  condition milestone 473 (design/roadmap/0473-a-soak-leg-in-script-test.md) states for the same
   reason. A scheduled workflow is the obvious home for both, and neither block reached for it.
 
 ## Index row

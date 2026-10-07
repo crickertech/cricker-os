@@ -200,7 +200,7 @@ pub mod proto {
     /// (milestone 169). `len` is 1 to enter raw mode, 0 to leave it. Replied immediately, r0 = 0.
     ///
     /// **Raw mode is the primitive a screen editor needs that the line discipline does not give
-    /// it** (design/roadmap/169-kilo-editor.md): DECISIONS §21 says a program "never sees a
+    /// it** (design/roadmap/0169-kilo-editor.md): DECISIONS §21 says a program "never sees a
     /// keystroke, an escape sequence, or an echo", which is exactly wrong for `kilo`, which needs
     /// all three. While raw mode is on, [`OPERATION_BYTES`] bypasses [`super::LineDisc`] entirely: no echo, no
     /// editing, no line assembly. A keystroke reaches the application exactly as it arrived, one

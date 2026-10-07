@@ -131,7 +131,7 @@ citations, and milestone 97 is the neighbouring case.
 - **Refused.** A rename pass. Nothing in the tree changes name because of this milestone; the
   backfill records what is already true, and a name whose history says nothing is entered as
   unrecorded rather than given an invented ratification.
-- **Recorded.** `design/roadmap/115-ratified-names.md` states the lint's blind spot up front in its
+- **Recorded.** `design/roadmap/0115-ratified-names.md` states the lint's blind spot up front in its
   scope note: it can check that a name carries a provenance line, never that the line's reason is
   still true.
 - **Decision.** `design/decisions/0089-provisional-versus-unrecorded.md` settled whether a name a lane

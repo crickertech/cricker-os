@@ -100,7 +100,7 @@ looks like when the guard does not happen to catch it first.
   bug: that child takes the TCB path, which runs with interrupts masked and cannot take the clobber,
   and the hang reproduced with this fix in the tree. 72 chased it and found one line of test code, a
   `reclaim_region` probe whose refusal is destructive rather than passive.
-- **Recorded.** `design/roadmap/71-thread-start-fault.md` keeps the scope note and the correction to
+- **Recorded.** `design/roadmap/0071-thread-start-fault.md` keeps the scope note and the correction to
   it: this fault has a silent face, so a lost-wakeup hang with no guard message really can be it.
   The `sepc == 0` guard fires only when `t5` happened to be zero, and otherwise the thread `sret`s
   to a garbage PC and dies quietly, which is why the note also says not to answer such a hang by

@@ -101,7 +101,7 @@ integrator's at merge, written in `AGENTS.md` and in `script/roadmap`'s header, 
 and on 2026-09-19 `main` carried three stale rows because rung four is what it is. A post-merge
 workflow is a bot writing to `main`, which this tree has never done, and it needs milestone 128 (automation)'s
 identity plus a rule about what else such a commit may touch. That is an architect's call and is
-written up rather than built: `design/roadmap/510-nothing-regenerates-the-roadmap-index.md`.
+written up rather than built: `design/roadmap/0510-nothing-regenerates-the-roadmap-index.md`.
 
 The point stands without it. After this milestone a stale index costs a reader an out-of-date
 page and costs a gate nothing, which is what "purely a rendering" was supposed to mean.
@@ -163,11 +163,11 @@ reported, and that the later lander takes the next free numbers instead of displ
 ## Follow-on
 
 - **Milestone 510.** Post-merge regeneration of `design/roadmap/README.md`, with the bot-identity
-  question it depends on, in milestone 510 (regenerating the index is nobody's job), `design/roadmap/510-nothing-regenerates-the-roadmap-index.md`.
+  question it depends on, in milestone 510 (regenerating the index is nobody's job), `design/roadmap/0510-nothing-regenerates-the-roadmap-index.md`.
   It is an architect's call, not a lane's, which is why this milestone stopped at removing the
   gates' dependence on the file rather than at keeping the file current.
 - **Milestone 513.** `design/decisions/README.md` is hand-maintained and is now the tree's remaining
-  index hotspot, in milestone 513 (the decision index is still hand-maintained), `design/roadmap/513-the-decision-index-is-still-hand-maintained.md`.
+  index hotspot, in milestone 513 (the decision index is still hand-maintained), `design/roadmap/0513-the-decision-index-is-still-hand-maintained.md`.
 - **Recorded.** `script/metrics` and `script/catch-up` still read the committed index, at historical
   revisions where nothing else can answer, and so they read `main`'s lag at HEAD too. The allow-list
   and the reason are in `script/lint` where the next person meets the check.

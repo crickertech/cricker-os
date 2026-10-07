@@ -6,7 +6,7 @@ built: 2026-09-05
 # 259. Sweep `notes/` for claims that stopped being true, because the gate cannot see them
 
 Built (2026-09-05). Minted 2026-09-05 by calef, as the other half of milestone 385,
-`design/roadmap/385-a-note-that-cites-a-milestone-that-moved.md`, which catches the notes that
+`design/roadmap/0385-a-note-that-cites-a-milestone-that-moved.md`, which catches the notes that
 cite a milestone and says plainly that the notes which cite nothing are the worse half.
 *(Number provisional until the merge queue lands it.)*
 
@@ -153,7 +153,7 @@ first paragraph, its last paragraph, and its `notes/README.md` entry. Three plac
 
 More than half of everything found was one mechanical shape, a backticked in-tree path that no
 longer resolves, and it is the half a machine should own. It is milestone 383,
-`design/roadmap/383-a-backticked-path-that-does-not-resolve.md`.
+`design/roadmap/0383-a-backticked-path-that-does-not-resolve.md`.
 
 Its trap is worth carrying here too, because this lane fell into it: a crate is named three ways
 (`crates/fs_proto`, `fs_proto::PAGE`, and a bare `` `fs_proto` ``), the first pass matched one of

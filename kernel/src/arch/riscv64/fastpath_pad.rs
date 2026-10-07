@@ -12,7 +12,7 @@
 //! as meaningful to measure as the aarch64 one. E3's *second* half, the latency comparison, is
 //! `--real`-only (there is no cache to perturb under TCG), and this tree has no riscv64
 //! accelerator equivalent to HVF: `cargo xtask bench --riscv` always runs under TCG. So E3's
-//! latency reading is aarch64-only today; see design/roadmap/134-the-measurements-that-decide.md's
+//! latency reading is aarch64-only today; see design/roadmap/0134-the-measurements-that-decide.md's
 //! BUGS for the honest statement of that gap and notes/riscv-port.md for the general shape of it.
 use core::arch::global_asm;
 

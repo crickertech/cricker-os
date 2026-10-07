@@ -85,7 +85,7 @@
 //!   2026-09-21 on riscv64 and 2026-09-25 on `x86_64`). Those builds now measure what they enter
 //!   through `kernel::trust::require_program`, and the digests are there because the check is. The
 //!   scan still cannot tell the difference; option C in
-//!   `design/roadmap/563-a-seal-check-that-reads-bytes-cannot-see-a-check-that-was-dropped.md`
+//!   `design/roadmap/0563-a-seal-check-that-reads-bytes-cannot-see-a-check-that-was-dropped.md`
 //!   prices a build that says so about itself.
 //!
 //! Name: provisional. Minted 2026-09-19 by the lane that built it. A kernel and the archive it

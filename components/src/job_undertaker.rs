@@ -17,7 +17,7 @@
 //! belongs to whoever owns it. This process can free a job's memory and can never spend it.
 //!
 //! **The second capability is milestone 235's whole fix**
-//! (design/roadmap/235-a-faulted-job-should-reach-the-prompt.md). A job the kernel killed sends
+//! (design/roadmap/0235-a-faulted-job-should-reach-the-prompt.md). A job the kernel killed sends
 //! nothing, so the shell's read of the result endpoint had nothing to complete it and the prompt
 //! never came back. This process is the one that learns the job died, so it is the one that says
 //! so: [`grant_plan::spawnproto::JOB_FAULTED`], once, after the corpse is collected. `WRITE` and no

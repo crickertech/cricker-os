@@ -67,7 +67,7 @@ the residual the whole problem.
 
 That residual is already counted. Of the read's 206 us, about 195 us is five single-block reads of
 the same five blocks on every request, which is step 2's target (see [the fixed term](five-blocks-per-request.md)
-and `design/roadmap/138-file-io-throughput.md`). The remaining ~13 us is the file-IPC round trip and
+and `design/roadmap/0138-file-io-throughput.md`). The remaining ~13 us is the file-IPC round trip and
 the server's own work. Nothing in milestone 138's four steps removes it, and it puts a fully cached
 4 KiB read at about 300 MiB/s.
 

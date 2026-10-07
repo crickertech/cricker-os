@@ -66,7 +66,7 @@
 //! - **x86_64 only**, because `memory::boot_file_region` is: a device-tree handoff has one initrd
 //!   slot in `/chosen` and no second one for the loader's own file. `uefi_loader`'s
 //!   `place_boot_file` carries the argument and the gap, and
-//!   `design/roadmap/568-the-boot-file-has-nowhere-to-go-on-a-device-tree-machine.md` prices
+//!   `design/roadmap/0568-the-boot-file-has-nowhere-to-go-on-a-device-tree-machine.md` prices
 //!   closing it and names the three other things that still stand between it and an install on
 //!   those architectures.
 //! - **It asks on the console, which means the kernel reads the UART** (`console::read_line`).
@@ -79,7 +79,7 @@
 //!   spent. On a machine with two disks this sentence would not say which, and that is why the
 //!   offer says "the NVMe disk attached to this machine" rather than naming an ordinal it cannot
 //!   back up. **It is the single most load-bearing sentence a stranger reads**, and it has a
-//!   milestone of its own, `design/roadmap/569-the-disk-an-installer-names-has-no-model.md`,
+//!   milestone of its own, `design/roadmap/0569-the-disk-an-installer-names-has-no-model.md`,
 //!   which finds that the kernel-side half needs no ruling and the program-side half is the wire
 //!   question milestone 421 (the block roster cannot name an NVMe disk) is already held on.
 //! - **Nothing here is crash-atomic**, and a power cut between the partitioner and `mkfs` leaves a
@@ -88,13 +88,13 @@
 //!   exactly like an empty one from here: the survey asks "is there a nife data partition" and any
 //!   other answer is "installable". A person who says yes to the question loses that disk. Naming
 //!   what is already on it is `disk_surveyor`'s job, and
-//!   `design/roadmap/570-the-install-offer-should-say-what-is-already-on-the-disk.md` is the
+//!   `design/roadmap/0570-the-install-offer-should-say-what-is-already-on-the-disk.md` is the
 //!   milestone for it.
 //! - **A machine that already carries nife is never offered an install again**, which is what stops
 //!   an installed system offering to wipe itself on every boot and also means there is no way to
 //!   reinstall from the stick. The sharp case is a power cut between the installer and `mkfs`,
 //!   which leaves a nife data partition with no filesystem in it and a machine that will never be
-//!   offered an install again. `design/roadmap/572-there-is-no-way-back-from-the-stick.md`
+//!   offered an install again. `design/roadmap/0572-there-is-no-way-back-from-the-stick.md`
 //!   is the milestone, and the fix is a second question rather than a second mechanism.
 
 use super::*;

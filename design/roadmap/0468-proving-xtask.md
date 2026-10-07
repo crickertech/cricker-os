@@ -5,9 +5,9 @@ refused_by: 197, 448
 ---
 # 468. Proving `xtask`
 
-Refused by milestone 197 (design/roadmap/197-user-and-xtask-proofs.md), and
+Refused by milestone 197 (design/roadmap/0197-user-and-xtask-proofs.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -27,7 +27,7 @@ was', under `## Follow-on`:
 > would reverse it is `xtask` growing logic the target then trusts, and the shape to watch is the
 > measured-boot digest.
 >
-> -- design/roadmap/197-user-and-xtask-proofs.md
+> -- design/roadmap/0197-user-and-xtask-proofs.md
 
 ## Why it is here rather than only there
 

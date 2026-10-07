@@ -156,19 +156,19 @@ pointing existing checks at new inputs, which is what the gate now does permanen
 
 ## Follow-on
 
-- **Recorded.** In `design/roadmap/208-boot-section-wx.md`: the gate reads flags, not semantics, so
+- **Recorded.** In `design/roadmap/0208-boot-section-wx.md`: the gate reads flags, not semantics, so
   it cannot tell a segment that is `RX` and maps writable at runtime from one that does not. It is a
   check on the image and not on the kernel. The runtime half is `paging::Flags`, which has no
   writable-and-executable constructor, and the two together are the mechanism.
 - **Recorded.** In `uefi_loader/src/image.rs`'s own `BUGS`: `Elf::parse`'s overlap check is over
   `p_vaddr`, not `p_paddr`, so nothing rejects a linker script whose segments collide physically. No
   script in this tree can produce that, which is why it is recorded rather than checked.
-- **Recorded.** In `design/roadmap/208-boot-section-wx.md`: `.boot_data` is `RW` when its contents
+- **Recorded.** In `design/roadmap/0208-boot-section-wx.md`: `.boot_data` is `RW` when its contents
   (the boot GDT and its `lgdt` pointer) are read-only, because LLVM gives any `.data*` section
   `SHF_ALLOC | SHF_WRITE` whatever `boot.s` says. Making it genuinely read-only is a `boot.s`
   rename, a hardening improvement rather than a correctness one, and it was left out of a milestone
   whose subject is the linker script.
-- **Recorded.** In `design/roadmap/208-boot-section-wx.md`: the trampoline's `p_vaddr` `0x8000`
+- **Recorded.** In `design/roadmap/0208-boot-section-wx.md`: the trampoline's `p_vaddr` `0x8000`
   against `p_paddr` `0x166000` is the strangest of the image's three vaddr/paddr relationships and
   is worth reading before editing, since its bytes ship high and it executes low.
 - **Milestone 340.** Make

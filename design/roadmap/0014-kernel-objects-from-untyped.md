@@ -28,13 +28,13 @@ kernel-heap-exhaustion class disappears entirely.
 - **Refused.** Sub-page object packing, meaning a decision about whether several TCBs share a page.
   Object sizes were not measured when the milestone ran, and a packing commitment made ahead of the
   measurement is a guess that later code would be built on.
-  This refusal is milestone 457 (design/roadmap/457-sub-page-object-packing.md), which carries it
+  This refusal is milestone 457 (design/roadmap/0457-sub-page-object-packing.md), which carries it
   with the condition that would change it.
 - **Refused.** The capability derivation tree. Revocation stays frame-scoped, which is the
   memory-safety-critical half and is what reclamation actually wants; subtree granularity has no
   driver on the roadmap, and the argument that this is a terminal design rather than a way-station
   is in design/decisions/0013-frame-revocation.md.
-  This refusal is milestone 456 (design/roadmap/456-the-capability-derivation-tree.md), which
+  This refusal is milestone 456 (design/roadmap/0456-the-capability-derivation-tree.md), which
   carries it with the condition that would change it.
 - **Refused.** Any change to the user-facing map and retype semantics for frames. Milestone 11's
   paths keep working, and reworking them would have cost every existing user program for nothing

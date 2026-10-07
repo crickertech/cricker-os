@@ -374,7 +374,7 @@ programs! {
         /// exception to DECISIONS §10's no-ambient-authority rule), so this program needed no clock
         /// capability, no domain, no memory, no file, nothing beyond the report channel every spawn
         /// carries. The one member of milestone 126's "machine-wide statistics" row that turned out to
-        /// be pure wiring rather than a design fork; see design/roadmap/126-who-else-is-running.md.
+        /// be pure wiring rather than a design fork; see design/roadmap/0126-who-else-is-running.md.
         Uptime { id: 10, name: "uptime" },
         /// **Print the inert-configuration page** (milestone 47's environment-variable fork, DECISIONS
         /// §111; `components/src/printenv.rs`).

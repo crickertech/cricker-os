@@ -117,7 +117,7 @@ fn spawn_confiner() -> (sched::RendezvousId, u64) {
 /// timeout at 234 seconds** whose diagnostic reads `a livelock, not a lost wakeup`, because the
 /// confiner reports a death only when one is delivered and the blocking receive here had
 /// nothing to take. The test failed for the right reason and said the wrong thing, which is
-/// the failure mode `design/roadmap/202-confinement-claims-falsified.md` calls out by name.
+/// the failure mode `design/roadmap/0202-confinement-claims-falsified.md` calls out by name.
 ///
 /// Thirty seconds against a 90-second per-test budget: long enough that a loaded host cannot
 /// make an honest run look stalled (a healthy run's largest gap is a shim build and start, well

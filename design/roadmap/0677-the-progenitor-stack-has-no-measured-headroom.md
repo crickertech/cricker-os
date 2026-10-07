@@ -63,7 +63,7 @@ between a prompt and the next echo.
 Fixed with the numbers. `INIT_STACK_PAGES` went from 8 to 12: the debug peak is now 66%, and the
 gate fires 8.5 KB above it. The more elegant fix is to stop the spawn service standing on `boot`'s
 frame, and that is proposed separately
-([696-the-spawn-service-runs-outside-boots-frame.md](696-the-spawn-service-runs-outside-boots-frame.md))
+([0696-the-spawn-service-runs-outside-boots-frame.md](0696-the-spawn-service-runs-outside-boots-frame.md))
 because four open lanes were editing those functions. By the elegance test the raise wins on effort
 and collision, not on elegance, and the note says so.
 
@@ -74,7 +74,7 @@ notes/stack/progenitor-stack.md has the frames, the decision and the `BUGS`.
 
 ## Follow-on
 
-- **Milestone 696.** Milestone 696 (the spawn service runs outside `boot`'s frame). The more elegant fix the raise to twelve pages did not take, running the spawn service outside `boot`'s frame: `design/roadmap/696-the-spawn-service-runs-outside-boots-frame.md`.
+- **Milestone 696.** Milestone 696 (the spawn service runs outside `boot`'s frame). The more elegant fix the raise to twelve pages did not take, running the spawn service outside `boot`'s frame: `design/roadmap/0696-the-spawn-service-runs-outside-boots-frame.md`.
 
 ## Index row
 

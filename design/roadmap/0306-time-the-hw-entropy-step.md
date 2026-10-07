@@ -6,7 +6,7 @@ promoted_from: time-the-hw-entropy-step
 ---
 # 306. Time the hw-entropy step, so fatal risk 6's last half stops being measured by eye
 
-Promoted from `design/roadmap/306-time-the-hw-entropy-step.md`
+Promoted from `design/roadmap/0306-time-the-hw-entropy-step.md`
 by the maintainer on 2026-09-16, the day its remaining half was satisfied: a proposal whose work is
 finished is not a proposal, and `script/roadmap` refuses a proposal file that does not say
 `PROPOSED`, which is what surfaced this. Written by milestone 159's third lane, from that
@@ -149,7 +149,7 @@ is why nothing met it. Fixed in both runners by hoisting the global. The latent 
 `virtio-net-device` under `NIFE_NET` went with it.
 
 The scan's own behaviour is a separate question and is milestone 392,
-`design/roadmap/392-a-legacy-virtio-mmio-slot-panics-the-scan.md`.
+`design/roadmap/0392-a-legacy-virtio-mmio-slot-panics-the-scan.md`.
 
 ## Follow-on
 

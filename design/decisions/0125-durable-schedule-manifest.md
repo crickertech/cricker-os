@@ -78,7 +78,7 @@ than schedule-holder count.
 ## What this tree already does in the analogous case
 
 **Milestone 152's own reattachment design already answers the adjacent question this way**, and this
-decision is that same answer applied one step earlier. The roadmap doc (`design/roadmap/152-*.md`,
+decision is that same answer applied one step earlier. The roadmap doc (`design/roadmap/0152-*.md`,
 "Reattachment on reconnect, via a scoped lookup, not enumeration") states the identical constraint
 ("this cannot be built as 'list all sessions and find the match'... it has to be a targeted lookup:
 given a proven identity, return the one record for it, never a list") and answers it with a small

@@ -150,7 +150,7 @@ facts this leans on and its failure-triage ladder for everything that goes wrong
    not enough for a bytes-per-second number worth publishing. The tour now times itself. The line
    carries `since the pcie line N us` (the whole gap, which is what a stopwatch was measuring), the
    bring-up alone, and the two draws with a rate over their eight round trips. Record all three
-   verbatim. `design/roadmap/306-time-the-hw-entropy-step.md` has what each one counts, the
+   verbatim. `design/roadmap/0306-time-the-hw-entropy-step.md` has what each one counts, the
    QEMU reference figures to read them against, and the reason the bring-up excludes the `hw clock`
    line's own console time.
 
@@ -249,7 +249,7 @@ has three parts:
   entropy` gap, the bring-up, and the draws with a rate; the instrument was exercised under QEMU
   against virtio-rng, which is the same client path with a free device at the end and so gives the
   denominator radon's figure will be read against. Nothing has run it on the board.
-  `design/roadmap/306-time-the-hw-entropy-step.md` has the numbers and the caveats.
+  `design/roadmap/0306-time-the-hw-entropy-step.md` has the numbers and the caveats.
 
 Nothing here says the driver is fast, and the block should not be quoted as if it did.
 

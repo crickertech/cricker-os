@@ -65,7 +65,7 @@ no title check can accept it. Contiguous is deliberate. "Every word appears some
 5,000-word document" is not a test, it is a coincidence generator.
 
 Three shapes are not glosses and are recognized rather than judged: a repo path (`milestone 15
-(design/roadmap/15-asids.md)`), a cross-reference to the other record (`milestone 12 (§12)`), and a
+(design/roadmap/0015-asids.md)`), a cross-reference to the other record (`milestone 12 (§12)`), and a
 bare date. A path is held to a *harder* standard than a gloss, because it is exact: it must exist,
 and a path into a numbered record must carry the number that cited it.
 
@@ -233,7 +233,7 @@ green through every gate.
 $ script/citations --moved 5f850c367~1..5f850c367
 citations: milestone 525 moved NEW -> BUILT: A bad upgrade cannot brick the machine: two boot slots, tries an
 citations:   design/decisions/0207-the-roadmap-is-a-graph-and-says-so.md:50
-citations:   design/roadmap/554-a-good-upgrade-sticks.md:10
+citations:   design/roadmap/0554-a-good-upgrade-sticks.md:10
 ```
 
 Two files, and the second is the real one: milestone 554 (a good upgrade sticks: what marks a trial
@@ -312,7 +312,7 @@ The obvious objection is reflow: rewrap the source and every quote of it breaks.
 answered by the normalization, and what remains is the case where the source's **words** changed,
 which is precisely what the check is for.
 
-The defect it answers is real and recent. `design/roadmap/74-cycle-counters.md` carried a block
+The defect it answers is real and recent. `design/roadmap/0074-cycle-counters.md` carried a block
 quote attributed to `notes/benchmarks.md` (*"At ~3.2 GHz, 705 ns is ~2,200 cycles round trip... we
 are 4 to 7 times heavier"*). Milestone 101 re-measured and retracted that arithmetic; the paragraph
 no longer exists in the note. The roadmap was quoting a retraction as the current record, and
@@ -426,7 +426,7 @@ seen and the near-misses that must stay quiet, and it runs in `script/lint` ahea
 green check looks identical whether the scanner works or has quietly stopped seeing a shape.
 
 **A lettered citation is glossed against its parent unless the letter has a file. milestone 20a (name the seams)
-is read against `design/roadmap/20a-name-the-seams.md`, which is a block of its own. The letters
+is read against `design/roadmap/0020a-name-the-seams.md`, which is a block of its own. The letters
 with no file (7a, 9a, 16a, 16b, and milestone 19 (run a real workload)'s 19a through 19f) are
 read against their parent block, which is
 where those sub-parts are actually described. The ratchet's per-file key drops the letter either

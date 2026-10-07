@@ -30,7 +30,7 @@ NTP client has a nonce source on that architecture. Without one, four of the six
 own bullet says so: milestone 215 proposes attaching the rest of the x86_64 test fixtures (the
 RedoxFS image, the GPT and blank disks, the NIC, the GPU, the keyboard and the RNG) as one lane, and
 the RNG is one line of it. That larger lane now has a proposal of its own,
-`design/roadmap/364-x86-64-test-fixtures.md`, written by the same sweep. This file exists so
+`design/roadmap/0364-x86-64-test-fixtures.md`, written by the same sweep. This file exists so
 the item is not lost while that larger proposal is written; whoever promotes either should merge the
 two rather than run two lanes at the same fixture file.
 

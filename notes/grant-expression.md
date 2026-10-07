@@ -349,7 +349,7 @@ caretaker's and then the program's, forwarded by the progenitor without being de
 descends exactly one name, so `rm rmtree/rm-solo` works and `rm gate.txt` at the top prompt does not:
 the root has no name to descend into and the contract has no verb for narrowing a directory you
 already hold. Chaining answers depth two and beyond; the root needs a decision, and
-`design/roadmap/31-capability-shell.md` states the two options rather than guessing.
+`design/roadmap/0031-capability-shell.md` states the two options rather than guessing.
 
 **The lifetime.** Predicted as "a supervision question rather than a filesystem one", which is what
 DECISIONS §92 (caretaker supervised) then decided: the caretaker is built out of the client's own region, so §40 (supervisor's death)'s

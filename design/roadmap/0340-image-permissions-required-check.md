@@ -58,7 +58,7 @@ enforced on the images whose authors happened to look.
 
 Add `image-permissions` to the required checks in the merge queue ruleset for this repository, in
 the same list the rest of the gates are in. If the answer is no, the honest follow-up is to say so
-in `design/roadmap/208-boot-section-wx.md` and stop describing it as a gate.
+in `design/roadmap/0208-boot-section-wx.md` and stop describing it as a gate.
 
 ## Where it came from
 

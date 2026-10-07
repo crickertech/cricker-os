@@ -34,7 +34,7 @@ undercounting, and cached per-package diagnostics) put it at 404 items across 31
 
 **This is written down explicitly rather than left as a silent exception**, per this project's own
 rule that an exception must say so where a reader meets it: this decision, cited from
-`design/roadmap/68-code-quality-gates.md`.
+`design/roadmap/0068-code-quality-gates.md`.
 
 ## The decision
 

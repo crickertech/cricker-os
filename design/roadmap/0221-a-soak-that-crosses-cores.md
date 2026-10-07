@@ -139,7 +139,7 @@ are bound before the first waiter; only the signaling is switched on last.
   number compares only with another soak number. `notes/soak.md`.
 - **Recorded.** The hook fires on a timer, which is the one thing a saturated workload cannot
   starve. That is why it works and also why it is not evidence about what happens without it.
-  `design/roadmap/221-a-soak-that-crosses-cores.md`.
+  `design/roadmap/0221-a-soak-that-crosses-cores.md`.
 
 ## Index row
 

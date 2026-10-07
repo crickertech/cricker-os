@@ -23,7 +23,7 @@ against a trigger of 10 and 33 days on the calendar. The security half is no lon
 audited on 2026-09-17 by milestone 313, so `documentation` is the only standing example rather than
 one of a pair. The worklist head has also moved since this was filed, which is the ranking working
 as designed rather than a correction: `notes/architecture-list-sweep.md` now leads at 20 of 20 cited
-paths moved over 117 commits, and `284-finish-the-progenitor-rename.md` has fallen to 11 of 16.
+paths moved over 117 commits, and `0284-finish-the-progenitor-rename.md` has fallen to 11 of 16.
 Re-run `script/audits --worklist` rather than working from the table below.
 
 ## In brief
@@ -47,8 +47,8 @@ the document was last edited. Its head on 2026-09-17:
 
 ```
  moved/cited  commits  last edit   document
-   16/16           72  2026-09-14  design/roadmap/284-finish-the-progenitor-rename.md
-   14/19           53  2026-09-14  design/roadmap/158-kernel-object-rename-build.md
+   16/16           72  2026-09-14  design/roadmap/0284-finish-the-progenitor-rename.md
+   14/19           53  2026-09-14  design/roadmap/0158-kernel-object-rename-build.md
 ```
 
 Read `notes/documentation-audit.md` first. It is the procedure, it says what counts as a finding,
@@ -65,7 +65,7 @@ AGENTS.md's rename rule, which says a record of the past keeps the old name; two
 are fixed in 311. Separating those two categories needs a reader, which is the whole argument for
 routing this to a sweep rather than to a gate, and `script/lint`'s own comment on the matter says so.
 
-`design/roadmap/383-a-backticked-path-that-does-not-resolve.md` is the standing proposal for
+`design/roadmap/0383-a-backticked-path-that-does-not-resolve.md` is the standing proposal for
 gating this class tree-wide. It is worth reading alongside, and it is worth noting that its own
 enumeration of root directories still lists `user/`, three days after that directory stopped
 existing, which is a small exhibit for why the sweep is due.

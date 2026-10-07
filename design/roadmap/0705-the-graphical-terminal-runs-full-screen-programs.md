@@ -67,7 +67,7 @@ I did not run `vttest`.
 
 ## Part 2: What the three programs need that is missing
 
-The census, taken on the host with vim 9.1 and the OS `less`, is in [the census appendix](705-the-graphical-terminal-runs-full-screen-programs/census.md). In short, `Vt` does not act on these:
+The census, taken on the host with vim 9.1 and the OS `less`, is in [the census appendix](0705-the-graphical-terminal-runs-full-screen-programs/census.md). In short, `Vt` does not act on these:
 
 - DECSTBM scrolling regions (vim), reverse index `ESC M` (`less`), and the alternate screen (`?1049`, both).
 - Cursor position and device attribute reports, which need the reply path in Part 3.
@@ -134,7 +134,7 @@ risk is, not the sequence count.
 
 ### B. libghostty-vt as a second engine behind the C seam
 
-Full entry in [the engine options appendix](705-the-graphical-terminal-runs-full-screen-programs/engine-options.md). Summary, read from upstream `main` on 2026-10-02:
+Full entry in [the engine options appendix](0705-the-graphical-terminal-runs-full-screen-programs/engine-options.md). Summary, read from upstream `main` on 2026-10-02:
 
 - The C API is declared incomplete and "definitely going to change"; the behavior is stable.
 - It needs Zig 0.16.0 or later in the build, an allocator the component does not have, and a cells-based rebuild of the expected-picture check.

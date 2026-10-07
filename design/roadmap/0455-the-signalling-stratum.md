@@ -5,9 +5,9 @@ refused_by: 126, 448
 ---
 # 455. `kill`, `pkill`, `skill` and `snice`: the signaling stratum of `procps`
 
-Refused by milestone 126 (design/roadmap/126-who-else-is-running.md), and
+Refused by milestone 126 (design/roadmap/0126-who-else-is-running.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -22,7 +22,7 @@ Follow-on`:
 > The signalling stratum (`kill`, `pkill`, `skill`, `snice`) stays unbuilt: a survey returns a
 > tid, a tid is not a capability, and killing stays with whoever holds the child's region.
 >
-> -- design/roadmap/126-who-else-is-running.md
+> -- design/roadmap/0126-who-else-is-running.md
 
 ## Why it is here rather than only there
 

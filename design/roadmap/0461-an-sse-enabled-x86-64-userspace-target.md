@@ -5,9 +5,9 @@ refused_by: 164, 448
 ---
 # 461. An SSE-enabled x86_64 userspace target
 
-Refused by milestone 164 (design/roadmap/164-x86-64-fs-server-aes.md), and
+Refused by milestone 164 (design/roadmap/0164-x86-64-fs-server-aes.md), and
 recorded there on 2026-09-03. Backfilled here on 2026-09-20 by
-milestone 448 (design/roadmap/448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
+milestone 448 (design/roadmap/0448-a-refusal-gets-a-number.md), which gave a refusal that names work a number, a
 status and a condition that would change it. *(Number provisional until the merge queue lands it.)*
 
 **The date is when the refusal was written down, not necessarily when it was made.** Most of this
@@ -24,7 +24,7 @@ fallback", under `## Follow-on`:
 > `FXSAVE` area per thread and save/restore in the context-switch path, and none of that is needed
 > to compile `aes`.
 >
-> -- design/roadmap/164-x86-64-fs-server-aes.md
+> -- design/roadmap/0164-x86-64-fs-server-aes.md
 
 ## Why it is here rather than only there
 
