@@ -30,9 +30,10 @@ $ script/roadmap                  # every milestone that is not BUILT, grouped b
 
 ## The task: add a milestone to the roadmap
 
-You are a lane, you have been given milestone `N`, and you want it on the roadmap.
+You are a lane given milestone `N`, and you want it on the roadmap.
 
-1. Write `design/roadmap/N-<slug>.md`. It opens with frontmatter, then `# N. <title>`:
+1. Write `design/roadmap/NNNN-<slug>.md`, the number padded to four digits. It opens with
+   frontmatter, then `# N. <title>`:
 
    ```markdown
    ---
@@ -57,7 +58,7 @@ You are a lane, you have been given milestone `N`, and you want it on the roadma
 3. Name what you considered taking, in a `Reuse:` line or a `## Reuse` section, or write
    `none exists` and where you searched. §46 (thin primitives or whole subsystems) makes taking the
    default outside the kernel and the crates Kani proves; `--check` requires this from 2026-10-05.
-4. That is the whole procedure. There is no table to update and no regeneration to wait for.
+4. That is the whole procedure: no table to update, no regeneration to wait for.
 
 ### EXAMPLES
 

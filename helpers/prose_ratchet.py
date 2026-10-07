@@ -187,12 +187,15 @@ _RENAME_RES = tuple(
 # the proposal, the path (a number is added and the directory dropped) and the `**Proposed.**`
 # disposition (to `**Milestone N.**`, with the one-time gloss `script/citations` asks for). No
 # sentence is new, and without this mask a promotion of the pile read as a touch of 40 baselined
-# documents and put each under the bold rule. The path form is narrow on purpose: three digits and a
-# hyphen under `roadmap/`. The label form folds every `**Milestone N.**` bullet label, glossed or
-# not, to `**Proposed.**` on both sides of a comparison, so it hides a label edit and nothing else.
+# documents and put each under the bold rule. The path form is narrow on purpose: a number and a
+# hyphen under `roadmap/`, two to four digits, since block numbers were padded to four on 2026-10-07
+# (UTC) and a base older than that holds two- and three-digit names, which the same mask lets the
+# padding rename compare equal. The label form folds every `**Milestone N.**` bullet label, glossed
+# or not, to `**Proposed.**` on both sides of a comparison, so it hides a label edit and nothing
+# else.
 _PROMOTION_RES = (
     (re.compile(r'\*\*Milestone \d+\.\*\*(?: Milestone \d+ \([^)\n]*\)\.)?'), '**Proposed.**'),
-    (re.compile(r'(roadmap/)\d{3}-'), r'\1proposals/'),
+    (re.compile(r'(roadmap/)\d{2,4}-'), r'\1proposals/'),
 )
 
 

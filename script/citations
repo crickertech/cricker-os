@@ -777,7 +777,9 @@ if mode == "--ratchet":
     # has no `/` for the path-pair rule above to see, while most absolute ones occur once and miss
     # its recurrence threshold. Both sides are compared with the leading zeros of a `<n>-<slug>.md`
     # token dropped, which changes no citation.
-    unpad = re.compile(r"(?<![0-9A-Za-z_])0+(\d+-[a-z0-9][a-z0-9-]*\.md)")
+    # The token is a stem (an optional letter addendum, a slug ending `.md` or `/`) or a glob
+    # (`0155-*`, `0526-…`), the forms the roadmap rename padded beside plain file names.
+    unpad = re.compile(r"(?<![0-9A-Za-z_])0+(\d+[a-z]?-(?:[a-z0-9][a-z0-9-]*(?:\.md|/)|\*|…))")
 
     def plain(line):
         return unpad.sub(r"\1", line.replace("**", ""))

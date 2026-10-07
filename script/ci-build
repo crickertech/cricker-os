@@ -35,7 +35,8 @@
 # comment can no longer claim a membership the code contradicts. Each `ci` row below says why.
 #
 # **The tier tags and the no-argument meaning are PROVISIONAL** pending calef:
-# milestone 440, `design/roadmap/0440-what-no-arguments-means.md`, states the options and their costs.
+# milestone 440 (what `script/ci-build` with no arguments should mean),
+# `design/roadmap/0440-what-no-arguments-means.md`, states the options and their costs.
 #
 # **Order is cheapest first, and it is the table's order.** That is the whole value of the
 # no-argument path to a developer: a formatting slip costs twenty seconds rather than ten minutes.
