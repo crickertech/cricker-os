@@ -2311,12 +2311,6 @@ CHARTS = [
      [('green', 'fatal_risks_green'), ('amber', 'fatal_risks_amber'),
       ('red', 'fatal_risks_red'), ('no verdict', 'fatal_risks_colors_unclassified')],
      1.0, None, None, RISK_COLOUR_HUES),
-    # Open first, so the band the page asks a reader to drive down sits on the axis.
-    ('coe-actions.svg', 'Action items the corrections of error still owe',
-     'notes/coes/, resolved by helpers/coe_actions.py: open while the milestone, proposal or '
-     'decision an item names is not done; the direction is down',
-     [('open', 'coe_actions_open'), ('closed', 'coe_actions_closed')], 1.0, None,
-     'coe_actions_open'),
     ('velocity.svg', 'Milestones built each week',
      'a flow, not a stock: what the index says turned BUILT in those seven days',
      [('built that week', 'milestones_built_this_week')], 1.0, None, None),
@@ -2405,6 +2399,12 @@ CHARTS = [
      'public items removed or changed in the contract and std ABI crates, a crate rename counted '
      'once; rustdoc JSON, week against week',
      [('breaking changes', 'interface_breaking')], 1.0, None, 'interface_breaking'),
+    # All actions delivered is a steady state.
+    ('coe-actions.svg', 'Action items the corrections of error still owe',
+     'notes/coes/, resolved by helpers/coe_actions.py: open while the milestone, proposal or '
+     'decision an item names is not done; the direction is down',
+     [('open', 'coe_actions_open'), ('closed', 'coe_actions_closed')], 1.0, None,
+     'coe_actions_open'),
 ]
 
 
