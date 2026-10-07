@@ -52,10 +52,9 @@ not the commits inside it. A commit's author is whoever holds the git identity a
 wrote a commit, and that split is honest rather than awkward: the human owns the change, the agent
 is named as its co-author, and the conversation around the change is visibly the agent's.
 
-Anything else that authenticates as calef. The App covers the workflows that are given its
-token. A lane's `gh` calls from a developer machine still run as calef's `gh` login and still
-produce pull requests with his byline; that is what the `**Lane:**` line in every body exists to
-say in the meantime.
+Anything else that authenticates as calef. The App covers the workflows given its token, and agent
+sessions on a machine holding its key ([session-identity.md](session-identity.md)). Without that
+key a lane's `gh` still runs as calef's login, which the `**Lane:**` line says.
 
 ## Why `smelter` has no repository of its own
 
@@ -265,6 +264,8 @@ inheriting a reason to keep a PAT beside it:
         with:
           app-id: ${{ secrets.AUTOMATION_APP_ID }}
           private-key: ${{ secrets.AUTOMATION_APP_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
 
 ## BUGS
 
