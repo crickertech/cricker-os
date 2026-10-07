@@ -424,7 +424,7 @@ jobs:
           Per-crate rows for mutation-census.csv and the survivor list the next census is diffed
           against, from the scheduled workflow's own artifacts, which expire in about 90 days."
           git push --force origin "$branch"
-          body="**Lane:** $branch, opened by a scheduled workflow; calef's account is the author GitHub shows.
+          body="**Lane:** $branch, opened by a scheduled workflow; nife-smelter[bot] is the author GitHub shows.
 
           Records the $CENSUS mutation census ([run $GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)): one row per crate in \`mutation-census.csv\` and the survivor list \`mutation-survivors/$CENSUS.csv.gz\`. Append-only; nothing from a past census changes."
           existing="$(gh pr list --head "$branch" --state open --json number --jq '.[].number')"

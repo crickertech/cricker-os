@@ -168,7 +168,7 @@ jobs:
 
           Opened as a pull request because the alternative was a red run in the Actions tab, which
           has no badge and notifies nobody."
-            body="**Lane:** $branch, opened by a scheduled workflow; calef's account is the author GitHub shows.
+            body="**Lane:** $branch, opened by a scheduled workflow; nife-smelter[bot] is the author GitHub shows.
 
           **The watch itself is broken.** \`script/vendor-watch\` exited 3, which it reserves for a
           404 or a 410: the crates.io crate or the \`vcs_url\` GitLab project has moved, been renamed,
@@ -194,7 +194,7 @@ jobs:
           Automating the patch re-application was refused rather than skipped. Nobody has performed
           that job by hand yet, so a script for it would be guessing at the shape of work nobody has
           done; the first real bump is what tells us whether it is mechanical."
-            body="**Lane:** $branch, opened by a scheduled workflow; calef's account is the author GitHub shows.
+            body="**Lane:** $branch, opened by a scheduled workflow; nife-smelter[bot] is the author GitHub shows.
 
           **Upstream has published a newer RedoxFS.** \`vendor/upstream-status.md\` in this diff says
           which versions, when, and what has landed in upstream git alongside them.
@@ -217,7 +217,7 @@ jobs:
           same reason the divergences are written in vendor/README.md rather than tracked elsewhere.
 
           Merging this asserts only that we have looked."
-            body="**Lane:** $branch, opened by a scheduled workflow; calef's account is the author GitHub shows.
+            body="**Lane:** $branch, opened by a scheduled workflow; nife-smelter[bot] is the author GitHub shows.
 
           **RedoxFS upstream git has moved since our pin**, though nothing new has been published to
           crates.io. The diff is \`vendor/upstream-status.md\`: the commit subjects, merge commits

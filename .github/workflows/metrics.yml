@@ -250,7 +250,7 @@ jobs:
             digest="$(python3 helpers/week_digest.py "$old" "$new" "$series" || true)"
           fi
           title="metrics: record $week"
-          body="**Lane:** $branch, opened by a scheduled workflow; calef's account is the author GitHub shows.
+          body="**Lane:** $branch, opened by a scheduled workflow; nife-smelter[bot] is the author GitHub shows.
 
           Adds or refreshes the \`$week\` row in each measure's CSV under
           \`notes/project-metrics/\` and redraws the SVGs beside them. The page is

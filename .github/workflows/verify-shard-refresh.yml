@@ -93,7 +93,7 @@ jobs:
 
           $(cat "$RUNNER_TEMP/refresh.txt")"
           git push --force origin "$branch"
-          body="**Lane:** $branch, opened by a scheduled workflow; calef's account is the author GitHub shows.
+          body="**Lane:** $branch, opened by a scheduled workflow; nife-smelter[bot] is the author GitHub shows.
 
           Rewrites the seconds of the crate table in \`script/verify\` and of the re-falsify
           records in \`notes/project-metrics/falsification-times.tsv\`, with their

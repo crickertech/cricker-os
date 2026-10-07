@@ -107,7 +107,7 @@ gh pr list --repo "$REPO" --state open --limit 200 --json number,isDraft,headRef
 			marker="<!-- ci-failing:$sha -->"
 			seen=$(gh api "repos/$REPO/issues/$num/comments" --paginate --jq '.[].body' | grep -cF "$marker" || true)
 			if [ "${seen:-0}" = "0" ]; then
-				body="**Lane:** nife-smelter, written by an agent; calef's account is the author GitHub shows.
+				body="**Lane:** nife-smelter, posted by a scheduled workflow; nife-smelter[bot] is the author GitHub shows.
 
 \`$ME\`: required checks failing on \`$(echo "$sha" | cut -c1-9)\`, most recent run of each:
 
