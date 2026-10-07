@@ -555,10 +555,29 @@ impl MappingHold {
     }
 }
 
+/// What one [`list_mapping`] call found: one entry to show, the end of the listing, or a cursor
+/// this space's own log never minted, which the syscall layer refuses rather than walks.
+///
+/// Name: provisional (the lane for milestone 779 (fuzz the surface a confined process can
+/// reach), 2026-10-06 UTC); calef names public types.
+pub enum Listing {
+    /// One mapping: the cursor to resume with, and its `va`.
+    Entry(u64, u64),
+    /// The listing is exhausted, or the space is gone (a race with teardown, or a stale cursor
+    /// from a caller that kept one past the space's life): nothing to report. Not a refusal;
+    /// the syscall layer already checked the capability before calling here.
+    Done,
+    /// The cursor names a log page this space's chain never held. The syscall layer refuses it
+    /// rather than walking it.
+    ForeignCursor,
+}
+
 /// **One entry of what `root` has mapped, resuming from `cursor`** (`abi::address_space::LIST`,
-/// milestone 126's `pmap`, DECISIONS §114). `(0, 0)` means done, the same `abi::survey::DONE`
-/// convention `SURVEY` uses on the endpoint side: start with `cursor = 0`, feed each returned
-/// cursor back, stop when it comes back 0.
+/// milestone 126 (the `procps` package: who else is running)'s `pmap`, DECISIONS §114 (`pmap`
+/// gets its listing: `ENUMERATE` extends to the address-space object)). [`Listing::Done`] means
+/// done, the same
+/// `abi::survey::DONE` convention `SURVEY` uses on the endpoint side: start with `cursor = 0`,
+/// feed each returned cursor back, stop when it comes back done.
 ///
 /// **Reads the space's own revocation log rather than walking page tables**, which is the same
 /// move `ps` makes over `/proc`: the kernel already keeps this record for reclamation, so
@@ -583,20 +602,42 @@ impl MappingHold {
 /// never reached by it (`SURVEY`'s "can miss a member born into an already-passed slot," one
 /// object type over), and a page already visited is never revisited because pages are singly
 /// linked toward *older* entries and a cursor only ever advances that way.
-pub fn list_mapping(root: u64, cursor: u64) -> (u64, u64) {
+///
+/// **A resumed cursor is checked for chain membership in this same hold**, before anything
+/// follows it, because it is the caller's word: `LIST` hands it straight back, and a cursor is
+/// only ever `page_phys | index` for a page in this space's chain, so membership is the whole
+/// check. One `SPACES` hold covers finding the space, the membership walk from its head, and the
+/// listing walk, so a space cannot die and have its root page come back as another space's log
+/// between the check and the follow (the check-then-act shape this walk had as a separate
+/// function for one day, 2026-10-06 UTC, found by review). Without the check a caller-chosen
+/// cursor named any kernel-mapped page and the walk treated it as a log page: at best a kernel
+/// data abort, at worst the page's contents returned as mapping records. Found by milestone
+/// 779 (fuzz the surface a confined process can reach)'s confined fuzzer (seed 0x14, 2026-10-06
+/// UTC), whose `LIST` draws made the cursor a random word.
+pub fn list_mapping(root: u64, cursor: u64) -> Listing {
     let spaces = SPACES.lock();
     let Some(space) = spaces.live().find(|s| s.root == root) else {
-        // The space is gone (a race with teardown, or a stale cursor from a caller that kept one
-        // past the space's life): nothing to report. Not a refusal; the syscall layer already
-        // checked the capability before calling here.
-        return (0, 0);
+        return Listing::Done;
     };
 
     const PAGE_MASK: u64 = !(page_frames::FRAME_SIZE - 1);
     let (mut page_phys, mut index) = if cursor == 0 {
         (space.head, 0usize)
     } else {
-        (cursor & PAGE_MASK, (cursor & !PAGE_MASK) as usize)
+        // The caller's word: find its page on this space's chain before following it. The walk
+        // starts at the head and stops at the wanted page, so a hit also proves every page the
+        // listing walk below will follow is this chain's own.
+        let want = cursor & PAGE_MASK;
+        let mut p = space.head;
+        while p != 0 && p != want {
+            // SAFETY: `p` is this space's own chain, and SPACES is held.
+            let log = unsafe { log_page(p) };
+            p = log.next;
+        }
+        if p == 0 {
+            return Listing::ForeignCursor;
+        }
+        (want, (cursor & !PAGE_MASK) as usize)
     };
 
     while page_phys != 0 {
@@ -609,22 +650,21 @@ pub fn list_mapping(root: u64, cursor: u64) -> (u64, u64) {
             // A table record is not something the space maps, so `LIST` never shows one.
             if entry.is_mapping() {
                 // `page_phys` is always nonzero (RAM starts at 0x4000_0000), so `page_phys |
-                // index` can never collide with the `(0, 0)` DONE sentinel below, even for the
-                // very last real entry in a space, where `index` has just walked off the end of
-                // this page. The bug this replaced returned a bare `0` for exactly that case
-                // (nothing left to point at), which a caller cannot tell apart from "this call
-                // found nothing": the last real mapping in every space was silently dropped.
-                // Pointing at the (now out-of-range) position instead costs one extra call --
-                // the next one finds `index == page.used`, falls through to `page.next`, and
-                // returns genuine `(0, 0)` if there is none -- and it is what keeps a hit's
-                // `next` and the DONE sentinel from ever being the same value.
-                return (page_phys | index as u64, entry.va);
+                // index` is a valid resume position even for the very last real entry in a
+                // space, where `index` has just walked off the end of this page. The bug this
+                // replaced returned a bare `0` for exactly that case (nothing left to point
+                // at), which the old `(0, 0)`-means-done convention made indistinguishable
+                // from "this call found nothing": the last real mapping in every space was
+                // silently dropped. Pointing at the (now out-of-range) position instead costs
+                // one extra call -- the next one finds `index == page.used`, falls through to
+                // `page.next`, and returns `Listing::Done` if there is none.
+                return Listing::Entry(page_phys | index as u64, entry.va);
             }
         }
         page_phys = page.next;
         index = 0;
     }
-    (0, 0)
+    Listing::Done
 }
 
 /// Unmap `phys` from every address space whose log records it, tombstoning the records.

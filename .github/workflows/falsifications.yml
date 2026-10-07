@@ -302,3 +302,54 @@ jobs:
             grep -E 'syscall fuzzer|panicked|test result' "$RUNNER_TEMP/fuzz.txt" || echo '(no verdict line)'
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Milestone 779 (fuzz the surface a confined process can reach), part (b): the confined EL0
+  # fuzzer's weekly long sweep, the same cadence and cap as the seeded syscall driver above. The
+  # committed suite seeds (33, `0..32` plus the corpus) run on every merge on all three ISAs; this
+  # is the breadth pass, fresh seeds each week (ISO week times a million, so a finding's seed is
+  # reconstructible from the date), aarch64 only for the syscall-fuzz job's reason: the suite
+  # already runs the committed seeds on all three ISAs on every merge, and the weekly breadth is
+  # about the seed space, not the ISA. The driver stops between seeds after 60 s of guest time and
+  # prints how far it got; a confinement escape names its seed and the one-line replay
+  # (`NIFE_CONFINED_FUZZ_SEEDS=<seed>:1 cargo xtask test --arch aarch64 --test a_confined_fuzzer`).
+  confined-fuzz:
+    name: confined fuzzer, long sweep
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Cache QEMU
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/nife-qemu
+          key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
+      - name: Build QEMU if the cache missed
+        run: script/ci-qemu
+      - name: Put it on PATH
+        run: echo "$HOME/.cache/nife-qemu/bin" >> "$GITHUB_PATH"
+      - run: script/bootstrap
+
+      - name: Sweep
+        shell: bash
+        run: |
+          set -o pipefail
+          first=$(( $(date -u +%G%V) * 1000000 + 52 ))
+          echo "seeds from ${first}"
+          NIFE_CONFINED_FUZZ_SEEDS="${first}:1000000" cargo xtask test --arch aarch64 --test a_confined_fuzzer 2>&1 | tee "$RUNNER_TEMP/confined.txt"
+
+      - name: Publish the report
+        if: always()
+        run: |
+          {
+            echo '### Confined fuzzer, long sweep'
+            echo
+            echo '```'
+            grep -E 'confined fuzzer|panicked|test result' "$RUNNER_TEMP/confined.txt" || echo '(no verdict line)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

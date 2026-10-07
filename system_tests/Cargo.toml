@@ -66,6 +66,7 @@ compositor = { version = "0.1.0", path = "../crates/compositor" }
 counter_frequency_protocol = { version = "0.1.0", path = "../crates/counter_frequency_protocol" }
 credential_protocol = { version = "0.1.0", path = "../crates/credential_protocol" }
 current_cpu_protocol = { version = "0.1.0", path = "../crates/current_cpu_protocol" }
+confined_fuzz_protocol = { version = "0.1.0", path = "../crates/confined_fuzz_protocol" }
 elf = { version = "0.1.0", path = "../crates/elf" }
 entropy_protocol = { version = "0.1.0", path = "../crates/entropy_protocol" }
 environment_protocol = { version = "0.1.0", path = "../crates/environment_protocol" }

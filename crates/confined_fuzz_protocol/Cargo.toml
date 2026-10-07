@@ -1,0 +1,17 @@
+[package]
+name = "confined_fuzz_protocol"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+# What the confined syscall fuzzer and the kernel test that conducts it agree on (milestone 779
+# (fuzz the surface a confined process can reach), provisional): the slot each grant lands in, the
+# two words the conductor sends, and the layout of the page the fuzzer reports its last call on.
+# Two binaries agree on these, so they are a crate (AGENTS.md rule 7). Name: provisional.
+
+[lints]
+workspace = true
+
+[dependencies]
+abi = { version = "0.1.0", path = "../abi" }
+address_space_map = { version = "0.1.0", path = "../address_space_map" }

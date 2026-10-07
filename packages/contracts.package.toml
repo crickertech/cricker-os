@@ -12,6 +12,7 @@ interfaces = [
     "byte_sink_protocol",
     "capability_witness_protocol",
     "clock_protocol",
+    "confined_fuzz_protocol",
     "counter_frequency_protocol",
     "credential_protocol",
     "current_cpu_protocol",

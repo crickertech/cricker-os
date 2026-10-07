@@ -1016,6 +1016,19 @@ mod map_revocation_window_tests;
 #[cfg(test)]
 mod syscall_fuzzer_tests;
 
+/// **A confined EL0 process fuzzes the syscall surface under a conductor** (milestone 779 (fuzz
+/// the surface a confined process can reach), part (b), provisional). The sibling of
+/// [`syscall_fuzzer_tests`] one level down: real EL0 programs through the real trap entry, one
+/// random call at a time, judged between calls by an escape oracle rather than a shadow model. Its
+/// own header has the conductor, the oracles and the `BUGS`; a module of its own for [`tests`']
+/// merge-hotspot reason, named to sort before [`thread_leak_police`]. It spawns the
+/// `confined_syscall_fuzzer` fixture, so it carries the initrd gate.
+///
+/// Cross-ISA: the trap entries differ by ISA, which is the point, and the conductor is portable
+/// kernel code, run on every architecture (DECISIONS §19).
+#[cfg(all(test, initrd))]
+mod confined_fuzzer_tests;
+
 /// **`login` gives back everything when any retype of a login fails** (milestone 757 (a test kernel
 /// fails a process on its Nth retype), provisional). The kernel refuses `login`'s Nth retype, for
 /// every N a login reaches, and `login`'s capability table and region usage must come back each

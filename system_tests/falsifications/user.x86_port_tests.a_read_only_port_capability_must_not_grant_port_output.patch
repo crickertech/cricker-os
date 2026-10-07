@@ -9,18 +9,23 @@ TSS I/O bitmap again and the child's `out` is permitted.
 
 Expected to fail: `assert_eq!(msg[0], EVENT_FAULT, "a thread whose only PortRange capability lacks
 WRITE executed `out` without faulting ...")`, with supervision message `[EVENT_EXIT, ..]`.
+
+Regenerated 2026-10-07 (UTC) by the lane for milestone 779 (fuzz the surface a confined process can
+reach), whose capability-spelling pass
+renamed `thread_control_block_insert_from`'s bare `cap` local to `capability` (the
+cap-abbreviation ratchet, calef 2026-10-06): same condition deleted, same defect.
 diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
-index e02db828a..08b62e500 100644
+index 0561fbb1b..a60cf0b38 100644
 --- a/kernel/src/sched.rs
 +++ b/kernel/src/sched.rs
-@@ -5777,9 +5777,7 @@ fn thread_control_block_insert_from(
+@@ -5808,9 +5808,7 @@ fn thread_control_block_insert_from(
      // without it opens none. The capability still lands in the table (REVOKE and delegation are
      // unchanged); only the cached grant is withheld.
      #[cfg(target_arch = "x86_64")]
--    if let crate::cap::Object::PortRange(base, count) = cap.object
--        && cap.rights.allows(crate::cap::Rights::WRITE)
+-    if let crate::cap::Object::PortRange(base, count) = capability.object
+-        && capability.rights.allows(crate::cap::Rights::WRITE)
 -    {
-+    if let crate::cap::Object::PortRange(base, count) = cap.object {
++    if let crate::cap::Object::PortRange(base, count) = capability.object {
          t.port_range_grant = Some((base, count));
      }
      Ok(landed)

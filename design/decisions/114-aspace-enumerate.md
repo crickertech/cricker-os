@@ -65,3 +65,24 @@ requirement) is left to whoever builds `pmap`, who records the new method's sema
 Milestone 126's `pmap`, the second of its four still-blocked view programs (`pmap`, `top`, `pwdx`,
 `w`). `top` (per-thread CPU accounting), `pwdx` and `w` (a process display name) remain blocked on
 work this decision does not touch.
+
+## Addendum, 2026-10-06: a foreign cursor answers `BadPointer`
+
+Milestone 779 (fuzz the surface a confined process can reach) found `LIST` following a
+caller-supplied cursor into the revocation log's page chain with no check: a kernel data abort on
+the fuzzer's random cursor, and at worst the page's contents returned as mapping records. The fix
+made `revoke::list_mapping` walk the cursor's page against the space's own chain, inside the one
+`SPACES` hold, and raised one question this section's "left to whoever builds" line had not
+answered: what the method answers when the cursor is foreign on a *live* space.
+
+calef, 2026-10-06, on the recommendation in pull request #1745: *"A"* (option A, `BadPointer`
+over `DONE`; [the ruling comment](https://github.com/nifeos/nife/pull/1745#issuecomment-6027772247)).
+
+`Error::BadPointer`, not `DONE`. `DONE` means the listing is exhausted. A legitimately stale
+cursor, one whose space died mid-walk, already gets `DONE` from the space-lookup miss. A foreign
+cursor on a live space is different: the caller's word is garbage, and folding garbage into
+`DONE` would hand it a silently truncated listing rather than an error. `pmap` would print a
+wrong map instead of learning it is broken. Every other method that takes a caller-supplied word
+answers `BadPointer` for garbage, so this is the boundary's existing convention, one object type
+over. The cost is symmetric: `pmap` only feeds back cursors the kernel minted, so a well-formed
+caller never sees either answer.

@@ -83,10 +83,10 @@ fn spent(region: u64) -> u64 {
 fn listed(root: u64, va: u64) -> bool {
     let mut cursor = 0;
     loop {
-        let (next, at) = crate::revoke::list_mapping(root, cursor);
-        if next == 0 {
+        let crate::revoke::Listing::Entry(next, at) = crate::revoke::list_mapping(root, cursor)
+        else {
             return false;
-        }
+        };
         if at == va {
             return true;
         }

@@ -452,6 +452,15 @@ path = "src/current_cpu_reader.rs"
 test = false
 bench = false
 
+# The confined syscall fuzzer (milestone 779 (fuzz the surface a confined process can reach),
+# provisional): an EL0 program that makes one random syscall per word on its conductor's channel.
+# `system_tests`' `confined_fuzzer_tests` spawns and conducts it. Name provisional.
+[[bin]]
+name = "confined_syscall_fuzzer"
+path = "src/confined_syscall_fuzzer.rs"
+test = false
+bench = false
+
 # **Programs this package builds that no boot image packs** (milestone 198 (a package manager)
 # rung 3a). `xtask`'s `declared_programs` reads this and leaves them out of all three archives; a
 # program here reaches a machine only as a package a recipe under `packages/` builds. It must also
@@ -467,6 +476,9 @@ abi = { version = "0.1.0", path = "../crates/abi" }
 # The words the milestone 7-19 capability demonstrations agree on, now that each is its own
 # binary (milestone 291). AGENTS.md rule 7: what two binaries must agree on is a crate.
 capability_witness_protocol = { version = "0.1.0", path = "../crates/capability_witness_protocol" }
+# The slots, the conductor's words and the report page `confined_syscall_fuzzer` shares with its
+# conductor in `system_tests` (milestone 779, provisional).
+confined_fuzz_protocol = { version = "0.1.0", path = "../crates/confined_fuzz_protocol" }
 # A program's check that its own ELF image was loaded correctly (milestone 291). Two fixtures
 # need it, so it is a crate rather than a second copy.
 loaded_image_check = { version = "0.1.0", path = "../crates/loaded_image_check" }

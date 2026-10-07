@@ -3981,8 +3981,8 @@ fn reply_tag(slot: u64) -> u64 {
 /// Since `SEND_CAP` moved to that path (2026-10-04 UTC) the only callers are system tests that
 /// hand over a capability they built, hence the `allow`.
 #[cfg_attr(not(feature = "system_tests"), allow(dead_code))]
-pub fn ipc_send_cap(ep: RendezvousId, data: u64, cap: crate::cap::Cap, badge: u64) {
-    let sent = ipc_send_cap_from(ep, data, badge, |_, _| Ok(cap));
+pub fn ipc_send_cap(ep: RendezvousId, data: u64, capability: crate::cap::Cap, badge: u64) {
+    let sent = ipc_send_cap_from(ep, data, badge, |_, _| Ok(capability));
     debug_assert!(sent.is_ok(), "a minted capability has no source to lose");
 }
 
@@ -4019,7 +4019,7 @@ fn ipc_send_cap_from(
         let mut guard = IPC_TABLES.lock();
         let sched = guard.as_mut().expect("no scheduler");
         let current = current_thread_id();
-        let cap = source(sched, current)?;
+        let capability = source(sched, current)?;
 
         let me = thread_control_block_ptr(sched, current);
         let Some(rendezvous) = rendezvous_of(sched, ep) else {
@@ -4033,7 +4033,7 @@ fn ipc_send_cap_from(
                 let receiver = unsafe { (*receiver.as_ptr()).id };
                 let (r, caps) = sched.threads.get_mut_with_capabilities(receiver).unwrap();
                 if r.receiving_cap {
-                    let slot = deliver_capability(caps, cap);
+                    let slot = deliver_capability(caps, capability);
                     // Word 3 carries the sender's badge (milestone 599 (a frame per filesystem client channel)): the same store that used to
                     // write a zero here, so RECEIVE_CAP surfaces it at no extra instruction on this path.
                     r.mailbox = [data, slot, 0, badge, 0];
@@ -4060,7 +4060,7 @@ fn ipc_send_cap_from(
                 // Word 3 is the badge, read back by the eventual RECEIVE_CAP (milestone 599).
                 let me = sched.threads.get_mut(current).unwrap();
                 me.mailbox = [data, 0, 0, badge, 0];
-                me.outgoing_cap = Some(cap);
+                me.outgoing_cap = Some(capability);
                 me.handshake.park(Wait::Rendezvous(ep, WaitRole::Sender)); // only a collecting receiver may wake us
                 trace::record(trace::Event::BlockSelf, current, ep as u8);
                 true
@@ -4088,8 +4088,8 @@ fn ipc_send_cap_from(
 /// second lock, and inlined at each site that lock's mask, rank check and release grew both
 /// `script/fastpath-footprint` closures past their band on aarch64 and riscv64. Name provisional.
 #[inline(never)]
-fn deliver_capability(caps: &CapabilityTableLock, cap: crate::cap::Cap) -> u64 {
-    caps.lock().insert(cap).unwrap_or(NO_CAP)
+fn deliver_capability(caps: &CapabilityTableLock, capability: crate::cap::Cap) -> u64 {
+    caps.lock().insert(capability).unwrap_or(NO_CAP)
 }
 
 /// **Receive a data word and, if one was sent, a capability.** The mirror of [`ipc_send_cap`], and
@@ -4128,14 +4128,13 @@ pub fn ipc_receive_cap(ep: RendezvousId) -> [u64; 5] {
                     // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
                     let sender = unsafe { (*sender.as_ptr()).id };
                     let msg = sched.threads.get(sender).unwrap().mailbox;
-                    let cap = sched.threads.get_mut(sender).unwrap().outgoing_cap.take();
+                    let capability = sched.threads.get_mut(sender).unwrap().outgoing_cap.take();
                     // A caller's outgoing cap is the one-shot Reply the kernel minted for its CALL (§12); a
                     // SEND_CAP sender's is the capability it chose to delegate. The difference is liveness:
                     // a caller stays blocked awaiting its reply, so it must NOT be woken here; a SEND_CAP
                     // sender's rendezvous is complete the moment we take the cap.
-                    let is_reply =
-                        matches!(cap, Some(c) if matches!(c.object, crate::cap::Object::Reply(_)));
-                    let slot = match cap {
+                    let is_reply = matches!(capability, Some(c) if matches!(c.object, crate::cap::Object::Reply(_)));
+                    let slot = match capability {
                         Some(c) => {
                             deliver_capability(sched.threads.capabilities(current).unwrap(), c)
                         }
@@ -4754,9 +4753,9 @@ pub fn delete_current_cap(slot: u64) -> Result<(), crate::cap::Error> {
     // Read before the delete, under the same hold: a deleted slot names nothing.
     let deleted = {
         let mut t = current_capabilities().ok_or(crate::cap::Error::NoSuchSlot)?;
-        let cap = t.get(slot)?;
+        let capability = t.get(slot)?;
         t.delete(slot)?;
-        cap
+        capability
     };
     #[cfg(target_arch = "x86_64")]
     if let crate::cap::Object::PortRange(base, count) = deleted.object {
@@ -4819,8 +4818,10 @@ pub fn current_cap(slot: u64) -> Result<crate::cap::Cap, crate::cap::Error> {
 /// Hand the current thread a capability. **The only way authority ever enters a process.**
 ///
 /// The running thread's own table, under its own lock and not `IPC_TABLES`, as [`current_cap`].
-pub fn grant(cap: crate::cap::Cap) -> Result<u64, crate::cap::Error> {
-    current_capabilities().map_or(Err(crate::cap::Error::NoFreeSlot), |mut t| t.insert(cap))
+pub fn grant(capability: crate::cap::Cap) -> Result<u64, crate::cap::Error> {
+    current_capabilities().map_or(Err(crate::cap::Error::NoFreeSlot), |mut t| {
+        t.insert(capability)
+    })
 }
 
 /// Hand the current thread a capability **at an explicit slot**, leaving lower slots empty.
@@ -4832,9 +4833,9 @@ pub fn grant(cap: crate::cap::Cap) -> Result<u64, crate::cap::Error> {
 /// with 2 and 3 empty, and the emptiness is load-bearing (it is how `std::net` knows it has no
 /// network). This is the same explicit-target move `ThreadControlBlock::CAP_INSERT` already offers a userspace
 /// loader, available to the kernel's own service wiring.
-pub fn grant_at(slot: u64, cap: crate::cap::Cap) -> Result<u64, crate::cap::Error> {
+pub fn grant_at(slot: u64, capability: crate::cap::Cap) -> Result<u64, crate::cap::Error> {
     current_capabilities().map_or(Err(crate::cap::Error::NoFreeSlot), |mut t| {
-        t.insert_at(slot, cap)
+        t.insert_at(slot, capability)
     })
 }
 
@@ -5741,10 +5742,10 @@ pub fn mark_current_fp_live() -> bool {
 /// [`thread_control_block_delegate_cap`] ([`Delegation`] has why).
 pub fn thread_control_block_insert_cap(
     tid: ThreadId,
-    cap: crate::cap::Cap,
+    capability: crate::cap::Cap,
     target: Option<u64>,
 ) -> Result<u64, abi::Error> {
-    thread_control_block_insert_from(tid, target, |_, _| Ok(cap))
+    thread_control_block_insert_from(tid, target, |_, _| Ok(capability))
 }
 
 /// **`ThreadControlBlock::CAP_INSERT`'s body: endow an embryo with a narrowed copy of a capability
@@ -5774,7 +5775,7 @@ fn thread_control_block_insert_from(
 ) -> Result<u64, abi::Error> {
     let mut guard = IPC_TABLES.lock();
     let sched = guard.as_mut().ok_or(abi::Error::NoSuchSlot)?;
-    let cap = source(sched, current_thread_id())?;
+    let capability = source(sched, current_thread_id())?;
     let (t, caps) = sched
         .threads
         .get_mut_with_capabilities(tid)
@@ -5783,8 +5784,8 @@ fn thread_control_block_insert_from(
         return Err(abi::Error::WrongObject);
     }
     let landed = match target {
-        None => caps.lock().insert(cap),
-        Some(slot) => caps.lock().insert_at(slot, cap),
+        None => caps.lock().insert(capability),
+        Some(slot) => caps.lock().insert_at(slot, capability),
     }
     .map_err(|_| abi::Error::OutOfMemory)?;
     // **The one choke point where a port capability enters a thread** (milestone 299): the boot's
@@ -5807,8 +5808,8 @@ fn thread_control_block_insert_from(
     // without it opens none. The capability still lands in the table (REVOKE and delegation are
     // unchanged); only the cached grant is withheld.
     #[cfg(target_arch = "x86_64")]
-    if let crate::cap::Object::PortRange(base, count) = cap.object
-        && cap.rights.allows(crate::cap::Rights::WRITE)
+    if let crate::cap::Object::PortRange(base, count) = capability.object
+        && capability.rights.allows(crate::cap::Rights::WRITE)
     {
         t.port_range_grant = Some((base, count));
     }
@@ -6045,6 +6046,139 @@ pub fn with_capability_table<R>(
     let guard = IPC_TABLES.lock();
     let t = guard.as_ref()?.threads.capabilities(tid)?.lock();
     Some(read(&t))
+}
+
+/// **The root of `tid`'s address space**, `None` for a kernel thread or a name that does not
+/// resolve (test support, milestone 779 (fuzz the surface a confined process can reach),
+/// provisional name). The confined fuzzer's page oracle walks a fuzzer's mappings from here with
+/// `revoke::list_mapping` and `arch::mmu::translate_at`; no syscall hands a process's own root to
+/// anybody, which is why the test reads it here.
+#[cfg(feature = "system_tests")]
+pub fn thread_space_root(tid: ThreadId) -> Option<u64> {
+    let guard = IPC_TABLES.lock();
+    guard
+        .as_ref()?
+        .threads
+        .get(tid)?
+        .space
+        .as_ref()
+        .map(|s| s.root())
+}
+
+/// **The physical page a page-resident kernel object lives in** (test support, milestone 779,
+/// provisional name): a rendezvous, a notification or a TCB. `None` for any other object, and for a
+/// name that no longer resolves. The confined fuzzer's capability oracle admits an object it was not
+/// granted only when this page lies inside a memory region the fuzzers were given, which is how it
+/// tells an object a fuzzer made from one it reached. The same test `reap_region_objects` applies.
+#[cfg(feature = "system_tests")]
+pub fn object_page(object: &crate::cap::Object) -> Option<u64> {
+    use crate::cap::Object;
+    // An address-space object's page is its root, out of the user-space registry and *before*
+    // `IPC_TABLES`, so the two locks never nest (the confined fuzzer retypes these from its own
+    // region, milestone 779).
+    if let Object::AddressSpace(name) = *object {
+        return crate::user::user_address_space_root(name);
+    }
+    let guard = IPC_TABLES.lock();
+    let sched = guard.as_ref()?;
+    match *object {
+        Object::Rendezvous(id, _) => sched.rendezvous_table.get(id).copied(),
+        Object::Notification(id) => sched.notification_table.get(id).copied(),
+        Object::ThreadControlBlock(tid) => sched
+            .threads
+            .get(tid)
+            .map(|t| crate::arch::mmu::virt_to_phys(t as *const Thread as u64)),
+        _ => None,
+    }
+}
+
+/// **One service move on a rendezvous that can never park the caller** (test support, milestone
+/// 779 (fuzz the surface a confined process can reach), provisional name). The confined fuzzer's
+/// conductor must never block: it is the one thread judging every fuzzer, and three separate
+/// hangs taught that a check-then-act around `ipc_send`/`ipc_receive_cap` is a race on a
+/// multicore machine, because the party the check saw can be gone by the act, and the blocking
+/// primitive then parks the conductor with no one left to wake it. This is the act and the check
+/// as one: under a single hold of `IPC_TABLES`, deliver `word` to a parked receiver; otherwise
+/// collect one queued sender exactly as `ipc_receive_cap` would (any capability it carried is
+/// filed in the caller's table, `x1` names the slot); otherwise nothing, with nothing queued and
+/// nothing parked. The speculative queue positions the crate's own `send`/`receive` take are
+/// taken straight back, under the same hold, with `remove_sender`/`remove_receiver`.
+#[cfg(feature = "system_tests")]
+pub enum ConductorMove {
+    /// Nothing parked either way: nothing happened, nothing was left behind.
+    None,
+    /// A parked receiver took `[word, 0, 0]`.
+    Sent,
+    /// A queued sender was collected: its five words, shaped as `RECEIVE_CAP` returns them.
+    Took([u64; 5]),
+}
+
+/// [`ConductorMove`]'s one operation. See the enum for the contract and the reason.
+#[cfg(feature = "system_tests")]
+pub fn conductor_move(ep: RendezvousId, word: u64) -> ConductorMove {
+    let mut guard = IPC_TABLES.lock();
+    let sched = guard.as_mut().expect("no scheduler");
+    let current = current_thread_id();
+    let me = thread_control_block_ptr(sched, current);
+    let Some(rendezvous) = rendezvous_of(sched, ep) else {
+        return ConductorMove::None; // a stale name: nobody is parked anywhere
+    };
+    // SAFETY: `me` is the running thread (live, on no queue), and if queued it stays live: a
+    // thread queued on a rendezvous is Blocked, which the reaper never touches.
+    match unsafe { rendezvous.send(me) } {
+        inter_process_communication::Send::Rendezvous(receiver) => {
+            // SAFETY: a wait-queue entry is a live Blocked thread; the id revalidates it.
+            let receiver = unsafe { (*receiver.as_ptr()).id };
+            let r = sched.threads.get_mut(receiver).unwrap();
+            r.mailbox = [word, 0, 0, 0, 0];
+            r.handshake.serve(); // delivered: this wake passes the boot-8 gate
+            trace::record(trace::Event::Served, receiver, 1);
+            wake(sched, receiver);
+            ConductorMove::Sent
+        }
+        // An endpoint bound to an interrupt takes no message from anybody (§101 ruling B).
+        inter_process_communication::Send::Refused => ConductorMove::None,
+        inter_process_communication::Send::Blocked => {
+            // `send` queued `current` as a sender; take that straight back, under the same hold,
+            // so no receiver can match the speculative position. SAFETY: `me` is this running
+            // thread, and the queue position was taken two lines up under this same lock.
+            unsafe { rendezvous.remove_sender(me) };
+            // SAFETY: as for the send above: the running thread, live and otherwise unqueued.
+            match unsafe { rendezvous.receive(me) } {
+                inter_process_communication::Receive::FromSender(sender) => {
+                    // SAFETY: as in `ipc_receive_cap`: a queued sender is live and linked.
+                    let sender = unsafe { (*sender.as_ptr()).id };
+                    let msg = sched.threads.get(sender).unwrap().mailbox;
+                    let capability = sched.threads.get_mut(sender).unwrap().outgoing_cap.take();
+                    let is_reply = matches!(capability, Some(c) if matches!(c.object, crate::cap::Object::Reply(_)));
+                    let slot = match capability {
+                        Some(c) => {
+                            deliver_capability(sched.threads.capabilities(current).unwrap(), c)
+                        }
+                        None => NO_CAP,
+                    };
+                    if !is_reply {
+                        // Collected: the sender's rendezvous is complete (the boot-8 gate).
+                        let s = sched.threads.get_mut(sender).unwrap();
+                        s.handshake.serve();
+                        trace::record(trace::Event::Served, sender, 4);
+                        wake(sched, sender);
+                    }
+                    let tag = if is_reply { reply_tag(slot) } else { 0 };
+                    ConductorMove::Took([msg[0], slot, msg[1], msg[3], tag])
+                }
+                // A pending interrupt signal, as `ipc_receive_cap` would report it.
+                inter_process_communication::Receive::Signal => {
+                    ConductorMove::Took([1, NO_CAP, 0, 0, 0])
+                }
+                inter_process_communication::Receive::Blocked => {
+                    // SAFETY: as above: this hold queued `current`; this hold takes it back.
+                    unsafe { rendezvous.remove_receiver(me) };
+                    ConductorMove::None
+                }
+            }
+        }
+    }
 }
 
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
