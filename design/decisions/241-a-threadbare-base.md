@@ -1,5 +1,5 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-09-27
 decided: 2026-09-27
 ratified_by: calef
@@ -7,13 +7,14 @@ ratified_by: calef
 
 # 241. A threadbare base: the boot slot holds the kernel and what boots and repairs, and every other program is a package
 
-*Section number provisional: §240 (`toml` in `xtask`) was the highest on `main` when this branch was cut from
-`15669ffac`. The file name is a lane's coinage and provisional too.*
+*Section number provisional, and the file name a lane's coinage.*
 
-Raised 2026-09-27 (UTC) by calef, in the maintainer session: *"we need to come back to minimizing
+Raised 2026-09-27 (UTC) by calef: *"we need to come back to minimizing
 the set of programs in the base so that we can update more without updating the base... However it
 seems like maybe the base need not contain the kernel... Really, don't we just want a thread bare
 base?"* Written by the lane `proposal/threadbare-base`, which builds nothing.
+
+*Amended 2026-10-07 (UTC): a slot holds only the kernel, progenitor and root supervisor; the rest of the floor is packages. See §159 (only a new kernel needs a reboot).*
 
 ## The ruling
 

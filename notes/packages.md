@@ -269,6 +269,7 @@ removed) is met, and so is §219's gate D2. The boot prompt is the owner's conso
 
 ## BUGS
 
+- The second refusal above is wrong since calef's 2026-10-07 (UTC) ruling on #1805: only slot programs need a reboot. See §159 (only a new kernel needs a reboot).
 - The boot prompt can write `activation/` directly, through the root endpoint the progenitor
   writes through. §221 (the boot prompt is the owner's console) ruled that is the owner's right.
 - Whoever holds the spawn endpoint (only the boot prompt) may install, remove, roll back and vouch.

@@ -1,5 +1,5 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-09-19
 decided: 2026-09-19
 ratified_by: calef
@@ -21,6 +21,8 @@ And at 17:41 UTC, on whether a new kernel may need a reboot:
 > time. Rebooting for a new kernel is fine for now.
 
 *(Section number provisional until the merge queue lands it.)*
+
+*Amended 2026-10-07 (UTC) by calef: the slot holds only the kernel and what nothing can restart, and every other program is a package. See the amendment at the end.*
 
 ## What was decided
 
@@ -72,3 +74,33 @@ and it is a claim about architecture that a measurement, not an adjective, shoul
 - Whether the kernel stays one file with the loader and the base archive. With T2 or T3 the image
   can shrink to the kernel and a minimal base, with everything else a package; that is milestone
   198's to design.
+
+## Amendment, 2026-10-07 (UTC): the slot holds only what nothing can restart
+
+calef, on pull request #1805, reading a lab self-update proposal that had updated the whole base
+through a boot slot: *"The whole system needs to be updatable through packages. The kernel will need
+a reboot for now and that is fine. However should base updates require reboot? Why?"* Then, to the
+model below: *"Yes. We have discussed this before so it definitely needs updating in the tree."*
+
+The discussion before was this section (2026-09-19) and §208 (installing is granting), ruled 2026-09-23:
+*"we should assume live loading other components since so much runs in userspace buys us a long
+runway on live loading the kernel."* The tree drifted from both. §235 (the OS is built and updated
+from packages) put a full copy of every base package in each slot. §229 (how a bare name reaches an
+installed program) refused a package update to any image program, on the ground that a slot does it.
+§241 (a threadbare base) kept a twelve-program floor whose only update was a reboot. None of the
+three cited this section. Milestone 198 (a package manager)'s exit criterion from item 3 above was never added.
+
+The model, ruled:
+
+1. A boot slot holds the kernel and the root programs that nothing can restart: the progenitor, and
+   the root supervisor once a real boot starts it. They update with a reboot and roll back by the
+   slot's tries (milestones 525 and 554).
+2. Every other program, base included, is a package that `jig` (milestone 809 (the package client becomes a program)) installs and updates.
+   It takes effect by a supervisor restarting it from the new bytes, or by a live swap (milestone 23
+   (a capability-routed component OS with live replacement)).
+3. A base package that needs a new kernel ABI rides the kernel's reboot.
+4. A service whose state cannot be handed over is restarted, not rebooted.
+5. A bad package rolls back by `jig rollback` (§208's generations). A bad slot rolls back as before.
+
+The pointers to this amendment are in §229, §235 and §241, in `notes/packages.md`, and in the blocks
+for milestones 198 and 809.
