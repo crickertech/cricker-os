@@ -134,9 +134,10 @@ gate that was never there is how `main` stayed red for two days. Fix it, then re
 
 ## 3. Code scanning: leave it on default setup
 
-Already enabled and running. Rust was dropped from it on 2026-10-07 (UTC), leaving actions, c-cpp
-and python; `notes/code-scanning.md` has why, the open decision about bringing Rust back, and every
-alert's disposition. §36 (the repository is part of the TCB) records the reasoning for staying on
+Already enabled and running, for actions, c-cpp, python and rust. Rust was off for about four
+hours on 2026-10-07 (UTC) after a burst of upload failures whose cause is unconfirmed, and was back
+by run 37684382643; `notes/code-scanning.md` has that, every alert's disposition, and the open
+decision about advanced setup. §36 (the repository is part of the TCB) records the reasoning for staying on
 default setup instead of committing a workflow. It also records the number that should be read next
 to every "0 alerts": on 2026-07-30 the Rust extractor reported 176 of 176 files scanned, 60 of them
 extracted with errors, running against the *host* target with default features, for a kernel that

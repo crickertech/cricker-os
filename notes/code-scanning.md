@@ -9,26 +9,29 @@ comments are invisible from the source and do not survive a change of tool.
 
 ## Which languages are scanned
 
-As of 2026-10-07 (UTC), default setup analyzes **actions, c-cpp and python**. Check it with:
+Default setup analyzes **actions, c-cpp, python and rust**. Check it with:
 
 ```
 gh api repos/nifeos/nife/code-scanning/default-setup --jq '{state, languages}'
 ```
 
-**Rust is not scanned.** calef removed it from default setup on 2026-10-07 because the
-`Analyze (rust)` job failed intermittently while the other three passed: seven failed `CodeQL` runs
-between 16:46 and 17:05 UTC that day, for example run
-[37655236254](https://github.com/nifeos/nife/actions/runs/37655236254) on `main`. calef saw the
-SARIF upload fail. The job log shows extraction and query evaluation completing, and the upload
-error's exact text was not captured in this record. The last Rust analysis on record is from commit `f8feff7f3`.
+Rust was off for about four hours on 2026-10-07 (UTC). Six `Analyze (rust)` jobs started between
+16:47 and 16:54 UTC failed about 17 seconds into the SARIF upload, with no error text in the log
+(for example run [37655236254](https://github.com/nifeos/nife/actions/runs/37655236254) on
+`main`), so calef removed Rust from default setup. All twelve Rust jobs outside that window
+succeeded, seven of them running concurrently, and extraction was identical in passing and failing
+jobs. That points at a transient upload incident on GitHub's side, but the cause is unconfirmed.
+At about 20:40 UTC default setup was toggled off and on with no language list (the API rejects
+`rust` by name; auto-detection includes it), and run
+[37684382643](https://github.com/nifeos/nife/actions/runs/37684382643) on `main` analyzed Rust
+successfully.
 
-Removing a language does not close its alerts. GitHub closes an alert only when a later analysis
-of the same language stops reporting it, so the 43 Rust alerts open on 2026-10-07 could never
-auto-close. They were each read and dismissed by hand, below.
+The 43 Rust alerts open that day came from analyses before the gap. They were each read and
+dismissed by hand, below; a dismissed alert stays dismissed when later analyses report it again.
 
-Even when Rust was scanned, §36's caveat applied: the extractor runs against the host target with
+§36's caveat still applies to every Rust result: the extractor runs against the host target with
 default features, for a kernel that does not build for the host, and reports macro expansion
-failures across the tree. A clean Rust result meant less than it looked.
+failures across the tree. A clean Rust result means less than it looks.
 
 ## The 2026-10-07 triage
 
@@ -67,28 +70,27 @@ checks.
 
 ## BUGS
 
-- **Rust, nearly all of this tree, is unscanned until a custom workflow exists.** A new Rust alert
-  cannot appear, and the 43 dismissed above will not reopen if their code regresses. This is an
-  open decision for calef, below.
+- The cause of the 2026-10-07 upload failures is unconfirmed. If they recur, default setup has
+  no retry, and the Rust result for that commit is simply missing.
 - §36's stated trigger for leaving default setup has fired: an alert landed in `vendor/**` (five
   of them, all in `vendor/redoxfs`). Default setup cannot exclude a path.
 - §35 asks for a dismissal's reason at the code. For the 17 false positives the existing `SAFETY`
   and provenance comments at each site carry the argument, and this note carries the rest; no
   per-line suppression comment was added, because CodeQL reads none.
 
-## Open decision: how Rust gets scanned again
+## Open decision: whether to move to advanced setup
 
-Options, for calef:
+Rust is scanned again, so this is no longer about restoring it. Two things default setup cannot do
+now have reasons behind them: exclude `vendor/**`, where §36's trigger fired, and retry a failed
+upload. Options, for calef:
 
 1. Advanced setup. A committed `.github/workflows/codeql.yml` covering all four languages
    (GitHub rejects advanced-setup uploads while default setup is on), with `vendor/**` excluded,
    Rust in `build-mode: none`, and an upload retry. Cost: one maintained workflow file, which §36
    avoided while the Rust extractor was moving fast. Recommended, because it answers both the
    vendor trigger and the upload failure and is reversible by deleting the file.
-2. Re-add Rust to default setup and accept the intermittent red job. CodeQL is not a required
-   check (`notes/repo-hardening.md`, its second section), so a failure does not block a merge, but it is noise on
-   every run that fails.
-3. Leave Rust unscanned. Kani, the fuzzers and the unsafe census still run. This gives up the
-   only tool here that looks for taint flows across the whole tree.
+2. Stay on default setup. Alerts in `vendor/**` keep arriving and are dismissed by hand as
+   upstream's, and an upload failure, if it recurs, costs that commit's result. CodeQL is not a
+   required check (`notes/repo-hardening.md`, its second section), so neither blocks a merge.
 
-Nothing is blocked on the answer; the cost of waiting is that Rust regressions go unscanned.
+Nothing is blocked on the answer.
