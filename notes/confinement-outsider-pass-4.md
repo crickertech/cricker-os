@@ -78,14 +78,14 @@ anywhere.
 The finding was already on the books: milestone 649 (every client of a network stack shares
 its socket numbers), raised 2026-09-24, NOT-STARTED, records the mechanism by reading with no
 test. This pass adds the booted bidirectional capture, pinned red on all three ISAs where 649 had
-none. For the counts below it is a re-discovery; for risk 7 it counts as an escape, by the ruling
-in the maintainer section.
+none. For the counts below it is a re-discovery; for risk 7 it counts as an escape, by the
+ruling under *The escape's home*.
 The sibling that already does it right is one component over: `name_resolver` keys its windows
 by the badge's grant index and refuses a second attach at a granted window. Its refusals are
 silent, safe there because the scoping makes every attach failure the caller's own. The first
 fix-shape ruling (03:50Z) was that shape, superseded the same day (calef, 2026-10-07 UTC,
-15:04Z, PR #1798): each socket is its own capability, the `sid` leaves the wire, built as
-milestone 649 in PR #1817. The BUGS entry carries both rulings.
+15:04Z, PR #1798): each socket is its own capability, the `sid` leaves the wire, being built
+as milestone 649 in #1817. The BUGS entry carries both rulings.
 
 ## Re-discoveries
 

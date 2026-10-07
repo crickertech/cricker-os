@@ -181,7 +181,7 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   by badge, the resolver's exact shape, refusals silent (calef, 2026-10-07 UTC, about 03:50Z,
   PR #1798). Superseded the same day (15:04Z): each socket is its own capability; the stack
   mints a badged endpoint per socket on open, every later call is made on it, and the `sid`
-  leaves the wire. Built as milestone 649 in PR #1817, which rewrites the server, the contract
+  leaves the wire. Being built as milestone 649 in #1817, which rewrites the server, the contract
   and this pass's pinned test. Whether refusals also become answerable is a smaller second call,
   still open. Ruled with the first ruling, tree-wide and still standing: per-caller scoping is a
   written rule for every multi-client window server, and the audit of the remaining ones
@@ -195,16 +195,17 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   counted as anything else would flatter the verdict. The finding itself was already recorded as
   milestone 649 (every client of a network stack shares its socket numbers), raised 2026-09-24,
   NOT-STARTED, no test; this pass's addition is the booted bidirectional
-  capture, pinned red on all three ISAs. The ruling also resolves 649's option fork toward the
-  badge (its option 1); the maintainer updates 649's block at merge.
+  capture, pinned red on all three ISAs. The capability ruling (calef, 2026-10-07 UTC, 15:04Z)
+  resolves 649's option fork toward option 2, an endpoint per socket; #1817 updates 649's block.
 - **The claims row the fix will owe: ruled (i), twice.** The first wording (calef, 2026-10-07,
   PR #1798's thread) was the window-model sentence: *a socket's window is the frame its holder
   attached; a second client of a shared Stack endpoint can neither substitute nor capture
   another's socket traffic.* It described the window model and died with it. Re-ruled for the
   capability model (calef, 2026-10-07 UTC, PR #1798): *a program reaches only the sockets it
-  holds; a socket moves only by its capability.* The closed-socket half of #1817's second test stays with claim 30's revocation
-  row, where it belongs; the evidence column cites #1817's two rewritten tests and the decision
-  file that PR carries. The maintainer adds the row, with its number, at merge.
+  holds; a socket moves only by its capability.* The closed-socket half of #1817's second test
+  stays with claim 30's revocation row, where it belongs; the evidence column cites #1817's two
+  rewritten tests and the decision file that PR carries. The maintainer adds the row, with its
+  number, at merge.
 - **The refusal targets' order: ruled (i)** (calef, 2026-10-07, PR #1798's thread). The redoxfs
   name-window TOCTOU boot is proposed as the next probe, and the maintainer mints its milestone;
   it is the likeliest live escape and the only item that could change a verdict this week. The
@@ -228,13 +229,10 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   sharpest); every claim has an attack or a written reason; the refusal log has four entries, each
   with a home or a target. Coverage was targeted boots, not the suite: two rows booted this pass
   (26 and the escape), 31 read.
-- Outstanding for the maintainer: the rulings above are all recorded, and the merge list is the
-  decisions section, the 649 and 633 block updates, the claims row, the follow-up mints, and the
-  §216 citation. Risk 7's appendix gains the booted severity sentence and cites pass four as an
-  informed non-Anthropic pass with a booted re-discovery. Still open and non-blocking: whether the
-  socket refusals become answerable.
-- **With calef, open:** does the fix-shape ruling cover the whole socket namespace or only the
-  frame windows? Keying `frame_window` alone closes the frame capture; 649's finding also includes
-  sending, reading and closing another client's socket by `sid`, which keying `frame_window` alone
-  leaves open. The reviewer's recommendation (Claude's, adopted by this lane): key every
-  `sid`-indexed table by `(badge, sid)`, the same work for the whole of 649.
+- Outstanding for the maintainer: the rulings above are all recorded. What falls to this PR's
+  merge: the decisions record for the tree-wide per-caller scoping rule, 633's retype ruling
+  record, the claims row, the mints (the redoxfs probe, the retype intersection), and the §216
+  citation. Risk 7's appendix gains the booted severity sentence and cites pass
+  four as an informed non-Anthropic pass with a booted re-discovery. The fix shape's decisions
+  file and 649's block update travel with #1817. Still open and non-blocking: whether the socket
+  refusals become answerable.
