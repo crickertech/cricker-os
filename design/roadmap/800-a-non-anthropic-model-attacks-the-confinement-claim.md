@@ -1,6 +1,7 @@
 ---
-status: NOT-STARTED
+status: BUILT
 raised: 2026-10-06
+built: 2026-10-06
 milestone_dependencies: 633
 decision_dependencies: none
 machine_requirements: none
@@ -165,3 +166,26 @@ correctable, and verdicts are the architect's). Moving the color stays calef's.
 - **Milestone 198.** A human review, or a public bounty once a stranger can install nife, is the stronger form. Both
   wait on milestone 198 (a package manager, and the trivial install that makes a second customer
   possible).
+
+## Result (BUILT 2026-10-06, UTC, by this lane)
+
+The pass ran informed, per the brief, and its note is `notes/confinement-outsider-pass-4.md`.
+
+- **One new escape, booted red on all three ISAs**: a second client of a shared `Stack` endpoint
+  pre-attaches its own frame at the victim's socket id and captures both directions of the victim's
+  exchange. `ATTACH` is a `SEND_CAP` with no reply and the id namespace has no per-caller scope, so
+  the victim's attach fails silently. Pinned by the opt-in
+  `net_confinement_tests::a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic`
+  and recorded in `net_stack.rs`'s BUGS. The fix shape (the `name_resolver` one: per-caller windows,
+  or an answerable refusing ATTACH) is an architect's call.
+- **The routed `chatty` reshape landed.** Claim 26's own test now fails rather than hangs: the
+  operator retires the last receiver, a plant parks the marker, and a let-open `RECEIVE_CAP`
+  returns it. Green on aarch64 (whole module) and riscv64, red at its own assertion under the
+  recorded patch.
+- Every fixed escape was checked for siblings (the abort-path `outgoing_cap` follow-up closes the
+  sharpest); every claim has an attack or a written reason; the refusal log has four entries, each
+  with a home or a target.
+- Outstanding for the maintainer: the net-stack fix needs an architect's ruling. The four refusal
+  targets (the redoxfs name-window TOCTOU boot, the compositor respawn scrub, MSI confinement,
+  Kani re-runs in an attack pass) are recorded in the note. Risk 7's appendix should cite this
+  pass under §216 (fatal-risk facts are correctable, and verdicts are the architect's).
