@@ -265,8 +265,8 @@ B. How a program names what runs it. Options:
    repository split is independent release and third-party programs)) from a recipe naming the
    crate, the version and a checksum, with its note written at build time. And: *"With a
    functional jig, ripgrep should be installed via jig and not part of the base image. It isn't
-   base."* It reaches a machine only by `jig install`, so it depends on milestone 809, and until then
-   an image carrying `rg` is a test image. Milestone 810 (ripgrep is packaged in basalt) holds the
+   base."* It is a customer-facing optional package that any customer installs with `jig install`;
+   only baking it into the base image is excluded. It depends on milestone 809 for that. Milestone 810 (ripgrep is packaged in basalt) holds the
    work; milestone 121 (`ripgrep` on nife) depends on it only for `rg` at the prompt. The earlier
    draft's `[[foreign]]` key is withdrawn.
 5. Versioning. Held for milestone 809 (the package client becomes a program): a later version goes

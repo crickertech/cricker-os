@@ -14,6 +14,11 @@ needs_person: no
 pull request #1797. The number is provisional until the merge queue lands it; the title and slug are
 drafts.)*
 
+The purpose: a customer runs `rg` at the swish prompt after `jig install ripgrep`. `ripgrep` is a
+customer-facing `optional` package that any customer installs from basalt's index. What is excluded
+is baking it into the base image. calef, 2026-10-07 (UTC): *"I don't know why ripgrep would be
+restricted to test images. We want ripgrep usable by a customer."*
+
 calef ruled on 2026-10-07 (UTC) that packaging `ripgrep` and making it work are two milestones:
 *"Should we have a milestone for packaging ripgrep and a milestone for a functional ripgrep, which
 seems like what the ripgrep milestone should be."* then *"Yes"*. Then where: *"To be clear, we
@@ -31,7 +36,7 @@ In nife:
   and checks no hash. It builds for three targets with `-Zbuild-std` against the `nife-dev` farm
   that `cargo xtask std-src` builds, into `target/ripgrep/<triple>/rg`.
 - `xtask` packs that file into each architecture's initrd whenever it exists
-  (`xtask/src/archive.rs:354`, `:525`, `:653`). Nothing there restricts it to a test image.
+  (`xtask/src/archive.rs:354`, `:525`, `:653`), so a base image can carry it by accident.
 - Only `system_tests/src/user/ripgrep_tests.rs` runs it, by hand-placed capabilities.
 - It carries no manifest note, so it is in no package and no recipe.
 
@@ -65,9 +70,10 @@ commit carries."* There is no recipe, no package build, no checksum check and no
 6. Installation by `jig install ripgrep` (milestone 809 (the package client becomes a program)), to
    where swish finds an installed program (§219 (how the shell names an installed program to the
    spawner)). It is vouched through the activation set, so it gets its note's grants.
-7. `ripgrep` is never in the base image. Until milestone 809 works, any image that carries `rg` is a
-   test image, packed for `system_tests` only, and says so where it is packed. Step one here is to
-   make `xtask` pack it only into a test archive, with a comment that cites this milestone.
+7. Stop packing `rg` into the base image by accident: `xtask` packs it only where a test asks, with
+   a comment citing this milestone. That is not a restriction to tests. In the interim before
+   milestone 809 works, an image carrying `rg` is a test image and says so; after it, customers get
+   `rg` from `jig install`.
 
 ## Exit
 
@@ -94,4 +100,4 @@ would replace only the download (unverified for `cargo-binstall`'s custom-target
 The first third-party program nife ships the way every later one will. A recipe in the
 distribution names its source by checksum, basalt builds it against a pinned nife, a manifest note
 says what it may hold, and `jig` installs it from an index. `ripgrep` already builds and runs on all three
-architectures, so what this proves is the path, not the port. It is never base.
+architectures, so what this proves is the path a customer takes, not the port. It is optional, not base.
