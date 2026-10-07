@@ -23,8 +23,8 @@ claims note routed here.
 
 `system_tests/src/user/net_confinement_tests.rs` holds the escape's test, and
 `components/src/socket_squatter.rs` (a role of the `net_stack` binary) the hostile client. The
-escape's test is opt-in and red on the tree, which is the finding; run it with
-`script/test --arch <isa> --test a_squatter_at_a_shared_stack_endpoint`.
+test was opt-in and red, which was the finding. #1817 (merged 2026-10-07 UTC) rewrote both for the
+capability model; the test is now green in the default suite, with a replayable falsification.
 
 `fixtures/src/chatty.rs` grew `ROLE_PLANT`, and `swapper`'s direct channel retires the last
 receiver before the attack and un-parks the plant boundedly. Claim 26's cited test is green on
@@ -84,8 +84,8 @@ The sibling that already does it right is one component over: `name_resolver` ke
 by the badge's grant index and refuses a second attach at a granted window. Its refusals are
 silent, safe there because the scoping makes every attach failure the caller's own. The first
 fix-shape ruling (03:50Z) was that shape, superseded the same day (calef, 2026-10-07 UTC,
-15:04Z, PR #1798): each socket is its own capability, the `sid` leaves the wire, being built
-as milestone 649 in #1817. The BUGS entry carries both rulings.
+15:04Z, PR #1798): each socket is its own capability, built as milestone 649 in #1817 (merged
+2026-10-07 UTC). §255 (each socket is its own capability) carries both rulings.
 
 ## Re-discoveries
 
@@ -103,8 +103,9 @@ Nothing else new reached one bug from an escape. The carried findings, matching 
 near-miss rows:
 
 - **Row 3, a `GRANT`-less budget still mints a `GRANT`-bearing frame**, 633's carry: read, not
-  booted this pass. Ruled (a) since (calef, 2026-10-07, PR #1798), the intersection; the fix is a
-  follow-up milestone and the characterization flips to a held assertion.
+  booted this pass. Ruled (a) since (calef, 2026-10-07, PR #1798), the intersection; the fix is
+  milestone 824 (a retype mints no right its budget lacks), and the characterization flips to a
+  held assertion.
 - **Rows 19 and 24, the name TOCTOU, is still open and still recorded** where a reader meets it
   (`redoxfs_server/src/dispatch.rs`'s head: "A name is checked in the client's own window and then
   used from it"). Settled by read; booting it wants a disk fixture and a racing client.
@@ -155,7 +156,7 @@ whole suite, so most rows are `read`; the falsification records each row cites w
 |---|---|---|---|---|
 | 1 | A derive holds no more than its source | held | read | `derive_never_widens_rights` cited; masking and subset checks read unchanged |
 | 2 | No right forged from a syscall register | held | read | `from_bits` masks `& ALL`; the cast drops high bits |
-| 3 | A non-delegating budget cannot mint a delegating child | near miss | read | `a_grant_less_budget_mints_a_grant_bearing_frame` still characterizes the retype gap; ruled (a) 2026-10-07, the fix is a follow-up milestone |
+| 3 | A non-delegating budget cannot mint a delegating child | near miss | read | `a_grant_less_budget_mints_a_grant_bearing_frame` still characterizes the retype gap; ruled (a) 2026-10-07, the fix is milestone 824 |
 | 4 | A consumed capability cannot be reused | held | read | `delete` empties the slot; unchanged |
 | 5 | Dropping one capability spares the others | held, x86 exception | read | the port grant's two-copies limb stays recorded, fails safe |
 | 6 | No reaping a corpse you do not supervise | held | read | `reap_supervised` gates before `reclaim_region`; unchanged |
@@ -193,8 +194,8 @@ rows sum to 33. Claim 26's row is this pass's own booted evidence.
 
 ## The escape's home
 
-`components/src/net_stack.rs`'s BUGS section carries the finding and the rulings at the attach
-site; the red test pins it, and until the fix milestone lands it stays opt-in and red.
+A BUGS entry in `net_stack.rs` and the red test held it until #1817 (merged 2026-10-07 UTC)
+fixed it. §255 records the fix, and claim 34 of `notes/confinement-claims.md` is its row.
 
 **How this pass counts toward risk 7's criterion (c) is ruled: option (b), an escape on a shipped
 path (calef, 2026-10-07, PR #1798's thread).** The two-consecutive count restarts at zero until
@@ -208,8 +209,9 @@ roadmap block, beside the maintainer's merge list.
 ## Refusal log
 
 Every step this pass declined or was stopped from taking, one entry each, per the rule.
-Their order is ruled (i) (calef, 2026-10-07, PR #1798): the redoxfs boot is the next probe; the
-rest stay in their homes:
+Their order is ruled (i) (calef, 2026-10-07, PR #1798): the redoxfs boot is the next probe,
+milestone 825 (a hostile client races the file server's name window); the rest stay in their
+homes:
 
 1. Claim 19/24's name-window TOCTOU: I was trying to boot a hostile client racing its own window
    against `redoxfs_server`. I declined to build it: a disk fixture plus a racing writer is a
@@ -226,10 +228,8 @@ rest stay in their homes:
 
 ## BUGS
 
-- The escape's test is opt-in and red on the tree, so `--sweep` will not replay it; that is
-  deliberate, the port escape's precedent. Each skip reason's exit is written at the test's doc
-  for 649's lane to copy: the fix flips the assertion, the aarch64 budget is measured or raised.
-  Until both, a post-fix regression would pass unnoticed.
+- Closed by #1817 (2026-10-07 UTC): the opt-in test could not be swept; it is now in the default
+  suite with a recorded falsification.
 - The pass was informed, so it cannot say whether a fresh mind would have found the net-stack
   escape blind. The finding has been on the books since 2026-09-24 and no blind pass booted it;
   that is a fact about coverage, not a claim about difficulty.

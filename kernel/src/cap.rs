@@ -639,9 +639,9 @@ pub fn irq_cap_rights(intid: u32, rights: Rights) -> Cap {
 /// retype half. Found by milestone 633 (an outside agent attacks the confinement claim)'s second
 /// pass. **Ruled (a), 2026-10-07 (calef, PR #1798's thread): the mint is the intersection, not
 /// `Rights::ALL`.** A frame retyped from a `WRITE`-only budget carries `WRITE` only; `GRANT`
-/// cannot be minted, only delegated. The fix, a follow-up milestone the maintainer mints, is the
-/// kernel intersecting rights at retype and the characterization test flipping to a held
-/// assertion, which its own messages say it exists to announce.
+/// cannot be minted, only delegated. The fix is milestone 824 (a retype mints no right its budget
+/// lacks, provisional): the kernel intersecting rights at retype and the characterization test
+/// flipping to a held assertion, which its own messages say it exists to announce.
 pub fn memory_region_cap(region: u64) -> Cap {
     Cap {
         object: Object::MemoryRegion(region),

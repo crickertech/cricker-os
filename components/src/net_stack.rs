@@ -38,25 +38,6 @@
 //!
 //! # BUGS
 //!
-//! **A socket id's window is whichever frame arrived at that id first, and `ATTACH` cannot say
-//! no** (milestone 800 (a non-Anthropic model attacks the confinement claim), fourth outsider pass,
-//! 2026-10-06 UTC). `ATTACH` is a `SEND_CAP`, so it carries no Reply, and the id namespace is a raw
-//! client word with no per-caller scope. Two programs holding `WRITE` on one `Stack` endpoint is
-//! shipped wiring (`name_resolver_tests` grants one endpoint to a resolver and its client), so a
-//! second client can pre-attach its own frame at the first's socket id: the victim's attach fails
-//! silently, its socket binds the squatter's window, its `SENDTO` transmits the squatter's bytes
-//! and the reply lands in the squatter's frame. Both directions, booted red on all three
-//! architectures by the opt-in `net_confinement_tests::
-//! a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic` while red. The
-//! sibling that does it right is `name_resolver`: windows keyed by the badge's grant index, a
-//! second attach refused. Its refusals are silent too, and that is safe there because the
-//! scoping makes every attach failure the caller's own. Whether this server's refusals should
-//! also become answerable is a separate, smaller call, still open. The fix shape itself is ruled:
-//! per-caller windows keyed by the badge, this precedent's exact shape, refusals silent (calef,
-//! 2026-10-06, PR #1798). Ruled with it, tree-wide: per-caller scoping is a written rule for every
-//! multi-client window server, and the fix lane audits the remaining ones, `system_log`'s reader
-//! windows first (not read this pass).
-//!
 //! **No host fuzz target reaches this dispatch** (proposal #1592 part a, rank 2). The request match
 //! and every helper under it live in this EL0 binary and take `virtio_net_transport::VirtioNet`,
 //! the clock and two blocking waits directly, so nothing builds for the host. What a host part

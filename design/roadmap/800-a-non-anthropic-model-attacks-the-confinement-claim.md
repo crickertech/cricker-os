@@ -175,17 +175,21 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
 - **One booted re-discovery, red on all three ISAs**: a second client of a shared `Stack` endpoint
   pre-attaches its own frame at the victim's socket id and captures both directions of the victim's
   exchange. `ATTACH` is a `SEND_CAP` with no reply and the id namespace has no per-caller scope, so
-  the victim's attach fails silently. Pinned by the opt-in
+  the victim's attach fails silently. Pinned while the pass ran by the opt-in red
   `net_confinement_tests::a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic`
-  and recorded in `net_stack.rs`'s BUGS. The fix shape was first ruled per-caller windows keyed
+  and a BUGS entry in `net_stack.rs`. The fix shape was first ruled per-caller windows keyed
   by badge, the resolver's exact shape, refusals silent (calef, 2026-10-07 UTC, about 03:50Z,
   PR #1798). Superseded the same day (15:04Z): each socket is its own capability; the stack
   mints a badged endpoint per socket on open, every later call is made on it, and the `sid`
-  leaves the wire. Being built as milestone 649 in #1817, which rewrites the server, the contract
-  and this pass's pinned test. Whether refusals also become answerable is a smaller second call,
-  still open. Ruled with the first ruling, tree-wide and still standing: per-caller scoping is a
-  written rule for every multi-client window server, and the audit of the remaining ones
-  (`system_log`'s reader windows unread this pass) still needs its home. A
+  leaves the wire. Built as milestone 649 in #1817 (merged 2026-10-07 UTC), which rewrote the
+  server, the contract and this pass's pinned test. The test now runs green in the default suite
+  on all three ISAs with a replayable falsification, and the BUGS entry went with the defect.
+  Whether refusals also become answerable is a smaller second call, still open. Ruled the same
+  day, tree-wide and still standing: per-caller scoping is a written rule for every multi-client
+  window server, recorded as §256 (a server that keeps windows for many clients scopes each by the
+  caller's badge). 649's lane read `system_log`, the file service and `name_resolver` (§255); the
+  rest of the audit is milestone 823 (every multi-client window server is audited for caller
+  scoping). A
   second premise this pass settled by reading:
   the escape is on a shipped path. The interactive boot endows every network-declaring child with a
   copy of the one stack endpoint, unbadged, and the job pool holds six live jobs at once.
@@ -196,7 +200,8 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   milestone 649 (every client of a network stack shares its socket numbers), raised 2026-09-24,
   NOT-STARTED, no test; this pass's addition is the booted bidirectional
   capture, pinned red on all three ISAs. The capability ruling (calef, 2026-10-07 UTC, 15:04Z)
-  resolves 649's option fork toward option 2, an endpoint per socket; #1817 updates 649's block.
+  resolves 649's option fork toward option 2, an endpoint per socket; #1817 updated 649's block,
+  and 649 is BUILT. The count still waits on a fresh clean pass.
 - **The claims row the fix will owe: ruled (i), twice.** The first wording (calef, 2026-10-07,
   PR #1798's thread) was the window-model sentence: *a socket's window is the frame its holder
   attached; a second client of a shared Stack endpoint can neither substitute nor capture
@@ -204,11 +209,12 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   capability model (calef, 2026-10-07 UTC, PR #1798): *a program reaches only the sockets it
   holds; a socket moves only by its capability.* The closed-socket half of #1817's second test
   stays with claim 30's revocation row, where it belongs; the evidence column cites #1817's two
-  rewritten tests and the decision file that PR carries. The maintainer adds the row, with its
-  number, at merge.
+  rewritten tests and the decision file that PR carries. Added at merge as claim 34 of
+  `notes/confinement-claims.md`.
 - **The refusal targets' order: ruled (i)** (calef, 2026-10-07, PR #1798's thread). The redoxfs
-  name-window TOCTOU boot is proposed as the next probe, and the maintainer mints its milestone;
-  it is the likeliest live escape and the only item that could change a verdict this week. The
+  name-window TOCTOU boot is the next probe, minted at merge as milestone 825 (a hostile client
+  races the file server's name window).
+  It is the likeliest live escape and the only item that could change a verdict this week. The
   compositor respawn scrub waits for a reachable respawn path, since no red boot test can exist
   before one does. MSI confinement stays with the milestones that already own it. Kani re-runs in
   attack passes need no home: the pass brief already forbids them, which is a process rule, not a
@@ -216,11 +222,11 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
 - **The retype-GRANT question, 633's carry, is ruled (a)** (calef, 2026-10-07, PR #1798's thread):
   the mint is the intersection of the budget's rights and `Rights::ALL`, so a `WRITE`-only budget
   mints `WRITE`-only frames and `GRANT` cannot be minted, only delegated. Not this pass's finding;
-  presented here because the question was open. The fix is a follow-up milestone the maintainer
-  mints: the kernel intersects at retype, and
+  presented here because the question was open. The fix is milestone 824 (a retype mints no right
+  its budget lacks): the kernel intersects at retype, and
   `confinement_attack_tests::a_grant_less_budget_mints_a_grant_bearing_frame` flips from
   characterization to held assertion. Recorded at the test's doc and `cap.rs`'s BUGS in this
-  branch; the maintainer records the ruling in 633's block at merge.
+  branch, and in 633's block at merge.
 - **The routed `chatty` reshape landed.** Claim 26's own test now fails rather than hangs: the
   operator retires the last receiver, a plant parks the marker, and a let-open `RECEIVE_CAP`
   returns it. Green on aarch64 (whole module) and riscv64, red at its own assertion under the
@@ -229,10 +235,8 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   sharpest); every claim has an attack or a written reason; the refusal log has four entries, each
   with a home or a target. Coverage was targeted boots, not the suite: two rows booted this pass
   (26 and the escape), 31 read.
-- Outstanding for the maintainer: the rulings above are all recorded. What falls to this PR's
-  merge: the decisions record for the tree-wide per-caller scoping rule, 633's retype ruling
-  record, the claims row, the mints (the redoxfs probe, the retype intersection), and the §216
-  citation. Risk 7's appendix gains the booted severity sentence and cites pass
-  four as an informed non-Anthropic pass with a booted re-discovery. The fix shape's decisions
-  file and 649's block update travel with #1817. Still open and non-blocking: whether the socket
-  refusals become answerable.
+- Done at merge, 2026-10-07 (UTC), by the maintainer session. §256 records the tree-wide scoping
+  rule, and 633's block records the retype ruling. Claim 34 is the claims row. Milestones 823, 824
+  and 825 are minted. Risk 7's page cites this pass under §216 with the count restarted, and its
+  appendix has a section for it. Still open and non-blocking: whether the socket refusals become
+  answerable.
