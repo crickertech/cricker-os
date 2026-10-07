@@ -170,8 +170,12 @@ LOGS = os.path.join(os.environ.get("TMPDIR", "/tmp"), "preflight-queue", RUN)
 os.makedirs(LOGS, exist_ok=True)
 # Whose account GitHub shows is whoever `gh` is logged in as, read rather than spelled, because more
 # than one architect can run this (ARCHITECTS.md).
-ACCOUNT = subprocess.run(["gh", "api", "user", "--jq", ".login"], capture_output=True,
-                         text=True).stdout.strip() or "the `gh` user"
+# A session on the App (milestone 128 (the automation gets its own identity),
+# helpers/smelter-token) gets 403 from `/user`, so the helper names the byline there.
+ACCOUNT = subprocess.run(
+    [os.path.join(ROOT, "helpers", "smelter-token"), "identity"]
+    if os.environ.get("NIFE_SMELTER_ACTIVE") == "1" else ["gh", "api", "user", "--jq", ".login"],
+    capture_output=True, text=True).stdout.strip() or "the `gh` user"
 LANE = f"**Lane:** script/preflight-queue; {ACCOUNT}'s account is the author GitHub shows."
 
 # Bounds, in seconds, per rung. Generous against the measured costs so that only a hang trips them.
