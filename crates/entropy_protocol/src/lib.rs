@@ -278,6 +278,9 @@ pub fn take(n: usize, word: u64, out: &mut [u8]) -> usize {
 ///
 /// The std PAL (`patches/std-nife/overlay/std/src/sys/random/nife.rs`) does not use this: it
 /// accepts a partial count and asks again, and panics where this refuses. Both are deliberate.
+///
+/// Name: ratified 2026-10-07 (calef, #1795). His word: "Yes". std's `_with` suffix, for a function
+/// that takes a closure.
 pub fn fill_with(out: &mut [u8], mut call: impl FnMut(u64) -> (u64, u64)) -> Option<()> {
     let mut filled = 0;
     while filled < out.len() {

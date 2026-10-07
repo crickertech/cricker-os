@@ -42,6 +42,9 @@ const SWAP: [usize; 16] = [3, 2, 1, 0, 5, 4, 7, 6, 8, 9, 10, 11, 12, 13, 14, 15]
 
 /// The UUID that sixteen bytes read from a GPT (an entry's type or unique GUID, or the header's
 /// disk GUID) stand for. Every bit pattern is one, so this cannot fail.
+///
+/// Name: ratified 2026-10-07 (calef, #1795). His word: "Yes". Named for where the bytes come from,
+/// since the disk order is the only thing that distinguishes them from a `Uuid`'s own.
 pub const fn from_disk(bytes: [u8; 16]) -> Uuid {
     let mut canonical = [0u8; 16];
     let mut i = 0;
@@ -53,6 +56,9 @@ pub const fn from_disk(bytes: [u8; 16]) -> Uuid {
 }
 
 /// The sixteen bytes a GPT stores for `id`. Inverse of [`from_disk`], proved.
+///
+/// Name: ratified 2026-10-07 (calef, #1795). His word: "Yes". The inverse of `from_disk`, named to
+/// match it.
 pub const fn to_disk(id: Uuid) -> [u8; 16] {
     let canonical = id.to_bytes();
     let mut bytes = [0u8; 16];

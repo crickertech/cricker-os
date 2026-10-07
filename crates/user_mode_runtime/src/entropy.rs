@@ -37,6 +37,9 @@
 /// entropy endpoint in `slot`, or the service answered with fewer bytes than asked. On `None` the
 /// contents of `out` are unspecified and must not be used. See `entropy_protocol::fill_with` for
 /// the loop and its tests.
+///
+/// Name: ratified 2026-10-07 (calef, #1795). His word: "Yes". getrandom's verb; the module already
+/// says entropy.
 #[must_use]
 pub fn fill(slot: u64, out: &mut [u8]) -> Option<()> {
     entropy_protocol::fill_with(out, |w0| super::call(slot, w0, 0))
