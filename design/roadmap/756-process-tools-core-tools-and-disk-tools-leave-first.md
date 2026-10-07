@@ -7,7 +7,7 @@ machine_requirements: none
 specific_machine: none
 needs_person: yes
 ---
-# 756. `procps`, `coreutils` and `util-linux` are the first code to leave this repository
+# 756. `process-tools`, `core-tools` and `disk-tools` are the first code to leave this repository
 
 *(Number provisional until the merge queue lands it. Title and slug are drafts.)* It began as
 the proposal `which-repository-split-goes-first`, written and promoted inside pull request #1609
@@ -30,6 +30,15 @@ calef ruled both questions on 2026-10-04 (UTC), relayed by the maintainer on pul
 - Still open, and not blocking until this block starts: the repository name and home, the citation
   identity across repositories (§201 (one roadmap until a citation has to cross)), and the SDK's
   place in milestone 691's order.
+
+Renamed 2026-10-06 (UTC). calef ruled that `util-linux` becomes `disk-tools` ("util-linux is a
+horrible package name for a nife package"), `coreutils` becomes `core-tools` and `procps` becomes
+`process-tools`, and moved `uuid` from the disk tools to `core-tools`. The cut holds the same 15
+programs, so the six conditions and the measurements stand. The title and slug changed with it.
+The title was `procps`, `coreutils` and `util-linux` are the first code to leave this repository,
+and older records cite it by that or as procps, coreutils and util-linux leave first. The ruling
+above and the analysis below keep the names they were written with. The planned homes
+are now `process-tools`, `core-tools` and `disk-tools`, still provisional.
 
 What is below is the proposal's analysis, unedited apart from this heading block: the argument is
 its author's and promotion is not the moment to improve it.
@@ -119,6 +128,6 @@ a two-repo change.
 
 ## Index row
 
-The first code to leave the monorepo: the `procps`, `coreutils` and `util-linux` packages move to
-a repository of their own and reach the image through basalt, once six measured preconditions hold
-(ruled by calef 2026-10-04).
+The first code to leave the monorepo: the `process-tools`, `core-tools` and `disk-tools` packages
+move to a repository of their own and reach the image through basalt, once six measured
+preconditions hold (ruled by calef 2026-10-04).

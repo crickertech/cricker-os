@@ -195,3 +195,11 @@ nothing back. A patch we need is carried here (§34, `script/vendor-verify`), ne
 A check must not fail the tree it lands in, so blocks raised before 2026-10-05 (UTC) are exempt.
 That exempts 242, 384 and 494. It is an exception, and it is marked in the check's comment: an
 older block that is reopened does not owe a `Reuse:` line, and the check cannot tell.
+
+## Amended 2026-10-06: milestone 756's packages are renamed
+
+The userland bullet above cites milestone 756 by its title of 2026-10-04. calef renamed its three
+packages on 2026-10-06 (UTC), and it is now milestone 756 (`process-tools`, `core-tools` and
+`disk-tools` are the first code to leave this repository). The rule this section applies to them is
+unchanged. The reasons for the names are in
+[notes/package-boundaries.md](../../notes/package-boundaries.md).

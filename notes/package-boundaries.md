@@ -69,7 +69,7 @@ For `components`, whose manifest links the union of fifty programs, rule 3 is ch
 It reads which crates each program's source names, comments stripped, among the crates the manifest
 declares. The check was proved on the tree as well as in the selftest: a planted `use timetable`
 in `components/src/rm.rs` failed with "coreutils: rm links timetable, an internal crate of
-timetable", and a planted untracked-then-added file failed as a path with no home.
+timetable" (the package was named `coreutils` then), and a planted untracked-then-added file failed as a path with no home.
 
 ## The table
 
@@ -79,7 +79,8 @@ timetable", and a planted untracked-then-added file failed as a path with no hom
 | package | kind | members | allowed dependencies | home |
 |---|---|---|---|---|
 | `boot` | base | crates: `bitmap_font*`, `board_console`, `screen_console*`, `sealed_pair*`, `uefi_loader`; programs: `uefi_loader` | interfaces only; 1 dated exception(s) | `boot` (provisional) |
-| `coreutils` | base | programs: `date`, `printenv`, `rm`, `wc` | interfaces only | `coreutils` (provisional) |
+| `core-tools` | base | programs: `date`, `printenv`, `rm`, `uuid`, `wc` | interfaces only | `core-tools` (provisional) |
+| `disk-tools` | base | programs: `disk_partitioner`, `disk_surveyor` | interfaces only | `disk-tools` (provisional) |
 | `drivers` | base | crates: `designware_ethernet*`, `designware_mobile_storage*`, `e1000e*`, `jh7110_entropy`, `non_volatile_memory_express`, `virtio`; programs: `block_driver`, `designware_mobile_storage`, `jh7110_entropy`, `non_volatile_memory_express`, `serial_driver` | interfaces only | `drivers` (provisional) |
 | `entropy` | base | programs: `entropy` | interfaces only | `entropy` (provisional) |
 | `filesystem` | base | crates: `subtree_scope*`; programs: `fs_file_caretaker`, `fs_nameset_caretaker`, `fs_subtree_caretaker` | interfaces only | `filesystem` (provisional) |
@@ -88,12 +89,11 @@ timetable", and a planted untracked-then-added file failed as a path with no hom
 | `login` | base | crates: `credentialer`; programs: `credentialer`, `identity_provisioner`, `login`, `login_audit_receiver`, `user_timetable_keeper` | `timetable` | `login` (provisional) |
 | `mdr` | base | programs: `mdr` | interfaces only | `mdr` (provisional) |
 | `network` | base | crates: `domain_name_system`, `http_response`, `name_resolution_protocol`; programs: `name_resolver`, `net_stack`; paths: `components/src/virtio_net_transport.rs`, `components/src/socket_test_client.rs` | interfaces only | `network` (provisional) |
-| `procps` | base | crates: `free`, `pgrep`, `pmap`, `ps`, `slabtop`, `top`, `uptime`, `vmstat`; programs: `free`, `pgrep`, `pmap`, `ps`, `slabtop`, `top`, `uptime`, `vmstat`; paths: `packages/uptime.recipe.toml`, `packages/uptime-riscv64.recipe.toml`, `packages/uptime-x86_64.recipe.toml` | interfaces only | `procps` (provisional) |
+| `process-tools` | base | crates: `free`, `pgrep`, `pmap`, `ps`, `slabtop`, `top`, `uptime`, `vmstat`; programs: `free`, `pgrep`, `pmap`, `ps`, `slabtop`, `top`, `uptime`, `vmstat`; paths: `packages/uptime.recipe.toml`, `packages/uptime-riscv64.recipe.toml`, `packages/uptime-x86_64.recipe.toml` | interfaces only | `process-tools` (provisional) |
 | `swish` | base | crates: `swish`; programs: `swish` | interfaces only | `swish` (provisional) |
 | `terminal` | base | crates: `line_editor*`; programs: `console`, `input`, `line_editor`, `terminal_sink_caretaker`, `terminal_supervisor` | interfaces only | `terminal` (provisional) |
 | `time` | base | crates: `network_time_protocol`; programs: `clock`, `network_time_client` | interfaces only | `time` (provisional) |
 | `timetable` | base | crates: `schedule_store`, `timetable`; programs: `timetable`; paths: `components/timetable.conf` | interfaces only | `timetable` (provisional) |
-| `util-linux` | base | programs: `disk_partitioner`, `disk_surveyor`, `uuid` | interfaces only | `util-linux` (provisional) |
 | `demos` | optional | programs: `least_authority_demo` | interfaces only | `demos` (provisional) |
 | `display` | optional | crates: `compositor*`, `extensible_host_controller_interface`, `usb`, `video_terminal`; programs: `compositor`, `display_terminal`, `framebuffer_driver`, `gpu_driver`, `graphical_terminal`, `keyboard_driver`, `usb_keyboard_driver` | interfaces only | `display` (provisional) |
 | `redoxfs` | optional | crates: `redoxfs`, `redoxfs_host`, `redoxfs_server`; programs: `mkfs`, `redoxfs`, `redoxfs-ar`, `redoxfs-clone`, `redoxfs-mkfs`, `redoxfs-resize`, `redoxfs_host`, `redoxfs_server`, `second_mount`; paths: `vendor/redoxfs.divergence.patch`, `vendor/redoxfs.pin` | interfaces only | undecided: the server and host tool are ours and the library is Redox's; whether the port goes upstream is open |
@@ -117,11 +117,20 @@ home and 960 a provisional one; the weekly metrics page has the current count.
 The start was #1389's seven divisions, `cargo metadata` over the eight workspaces, and one read of
 which crates each component program names.
 
-Where Linux has the tool, the distros' grouping was taken. `procps` holds `ps`, `pgrep`, `pmap`,
-`top` and `uptime`, after milestone 126 (the `procps` package). `coreutils` holds `date`, `printenv`, `rm` and `wc`.
-`util-linux` holds `uuid` (uuidgen), `disk_surveyor` (lsblk) and `disk_partitioner` (fdisk). Each
-shell and each editor is its own package in Debian, so `swish` and `rmle` are too. `timetable` is
-the `cron` slot, and `mdr` the `man-db` one.
+Where Linux has the tool, the distros' grouping was taken. `process-tools` holds `ps`, `pgrep`,
+`pmap`, `top` and `uptime`, Debian's `procps` set, after milestone 126 (the `procps` package).
+`core-tools` holds `date`, `printenv`, `rm`, `wc` and `uuid` (uuidgen). `disk-tools` holds
+`disk_surveyor` (lsblk) and `disk_partitioner` (fdisk). Each shell and each editor is its own
+package in Debian, so `swish` and `rmle` are too. `timetable` is the `cron` slot, and `mdr` the
+`man-db` one.
+
+Grouping is borrowed and names are not. On 2026-10-06 (UTC) calef ruled three package names, each
+recorded in its manifest. The lane's `util-linux` became `disk-tools` ("util-linux is a horrible
+package name for a nife package"). `coreutils` became `core-tools` and `procps` became
+`process-tools`, so package names follow one rule, spelled out, and give up the GNU and Linux terms
+of art on purpose. He also moved `uuid` out of the disk tools, against Debian's grouping
+(util-linux, or uuid-runtime): "uuid can be used for lots of applications. Putting it in disk-utils
+doesn't seem right."
 
 Where Linux has only a role, nife groups by role and the table's header comment names the Debian
 package it stands in for. These are `kernel`, `boot`, `init`, `drivers`, `terminal`, `display`,

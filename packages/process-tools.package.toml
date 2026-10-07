@@ -1,0 +1,22 @@
+# process-tools: who else is running. The programs of Debian's procps, after milestone 126 (the
+# `procps` package).
+#
+# Milestone 611 (every program and crate belongs to a package). The package's kind, home and
+# membership are provisional, the lane's proposal for calef to ratify; the format is
+# helpers/packages.py's header, and notes/package-boundaries.md has the table and the reasons.
+#
+# Name: ratified 2026-10-06 (calef, relayed to lane/disk-tools-rename). He answered
+# "process-tools". Refused `procps` (the GNU/Linux term of art, given up on purpose so package
+# names follow one rule, spelled out, with `core-tools` and `disk-tools`). The programs and crates
+# inside keep their names: `ps`, `pgrep`, `top`, `free` and the rest.
+
+name = "process-tools"
+kind = "base"
+home = { repo = "process-tools", status = "provisional" }
+crates = ["ps", "pgrep", "pmap", "top", "uptime", "free", "vmstat", "slabtop"]
+programs = ["ps", "pgrep", "pmap", "top", "uptime", "free", "vmstat", "slabtop"]
+paths = [
+    "packages/uptime.recipe.toml",
+    "packages/uptime-riscv64.recipe.toml",
+    "packages/uptime-x86_64.recipe.toml",
+]

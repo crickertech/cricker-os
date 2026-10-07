@@ -27,7 +27,9 @@ and the reasons.
 - Map. 26 packages over every crate, program and the std overlay in the eight workspaces: 16
   base, 5 optional, 4 sdk, 1 test. A kind says where a package ends up (calef ratified the rule
   and the four kinds at 2026-09-27T07:23Z). Where Linux has the tool the distros' grouping is taken
-  (`procps`, `coreutils`, `util-linux`); where it has only a role, nife groups by role.
+  (`procps`, `coreutils`, `util-linux`); where it has only a role, nife groups by role. calef
+  renamed the three `process-tools`, `core-tools` and `disk-tools` on 2026-10-06 (UTC), moving
+  `uuid` into `core-tools`: the grouping is borrowed, the names are not.
 - Declare. `packages/<name>.package.toml` per package, with `name`, `kind`, `home` and at least
   one member required. `packages/homes.toml` gives a home to every tracked path in no package. Both
   are TOML, as the recipes are since calef's ruling of 2026-09-27. `home` is required, and

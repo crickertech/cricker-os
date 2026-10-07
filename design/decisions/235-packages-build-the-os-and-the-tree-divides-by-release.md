@@ -242,6 +242,7 @@ Open, and none of them a fork of this section:
 - The format of a package's in-tree definition, and of the non-package home record, proposed by
   `milestone/611-package-boundaries`.
 
+
 ## BUGS
 
 - The division assignment is a judgment per crate. The note says which crates are ambiguous.

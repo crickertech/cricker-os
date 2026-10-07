@@ -53,6 +53,17 @@ effort argument.
 - The citation identity across repositories, which §201 deferred to the first code cut.
 - Whether milestone 691's order puts the SDK last among the leaves, as milestone 756 recommends.
 
+
+## Amended 2026-10-06: the cut's packages are renamed
+
+calef renamed the three packages of ruling 2 on 2026-10-06 (UTC): `procps` is `process-tools`,
+`coreutils` is `core-tools` and `util-linux` is `disk-tools`, and `uuid` moved from the last to
+the second. The cut holds the same fifteen programs, so the six conditions stand unchanged. The
+names above are the ones ruled on 2026-10-04 and stay as written. Milestone 756 (`process-tools`,
+`core-tools` and `disk-tools` are the first code to leave this repository) carries the new ones.
+The reasons are in each package's manifest and in
+[notes/package-boundaries.md](../../notes/package-boundaries.md).
+
 ## BUGS
 
 - The coupling figures behind the ruling are a one-off reading at one commit over thirty days.
