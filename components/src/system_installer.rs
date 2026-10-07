@@ -166,6 +166,13 @@
 //!   `\EFI\BOOT\BOOTX64.EFI` on the new disk, which OVMF starts and which most firmware starts.
 //!   Milestone 515 records this as B1 and calls it unmeasured on anything but OVMF; a firmware that
 //!   refuses it needs `SetVariable`, which is a runtime service this kernel does not map.
+//! - **A cloned disk keeps its source's ids.** [`ROLE_INSTALL`] draws a fresh disk GUID and a fresh
+//!   unique GUID per partition. [`ROLE_CONFIRM`] (and `uefi_loader`'s chooser) rewrite the table
+//!   with the ids they read, as they must for the same disk. So a disk copied block for block from
+//!   an installed one carries the same disk and partition GUIDs, and nothing here notices or
+//!   re-draws them. Nothing in nife looks a disk up by those ids today; a firmware boot entry or a
+//!   `PARTUUID` lookup on another system would find two. Recorded by lane/fresh-stick-guids,
+//!   2026-10-06 (UTC).
 
 #![no_std]
 // Program entry points, not the crates/ library surface tracked by milestone 68 (code-quality
