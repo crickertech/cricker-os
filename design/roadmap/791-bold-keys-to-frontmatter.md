@@ -169,8 +169,8 @@ The rest of the verdict table needed no ruling and landed in #1821:
 ## What the last lane found
 
 The ban over-exemption is load-bearing. Naming `script/decisions`' `^\*\*Status:` in `NOT_MARKERS`
-put four documents over §213's bold density. It is the only exemption for 25 free-form
-`**Status:` lines (`**Status:** open idea.`) in notes and design documents that no script reads.
+put four documents over the bold density of §213 (writing standards). It is the only exemption for
+25 free-form `**Status:` lines (`**Status:** open idea.`) in notes and design documents that no script reads.
 So it stays exempt, marked as an exception beside `NOT_MARKERS`.
 
 ## Follow-on

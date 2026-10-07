@@ -439,8 +439,9 @@ NOT_MARKERS = {
     # and on prose it would match any bold that opens with a capital word ("**A run ...").
     ('script/fatal-risks', r'^\*\*([A-Z][A-Z-]*)\b'),
     # Milestone 791 (bold that a script reads), 2026-10-07 UTC. Reads the `Reuse:` line, and reads it
-    # plain as well, so the bold is emphasis a writer chose and is counted like any other. §46 spells
-    # the line plain and notes/roadmap.md's template now writes it so.
+    # plain as well, so the bold is emphasis a writer chose and is counted like any other. §46 (thin
+    # primitives or whole subsystems) spells the line plain, and notes/roadmap.md's template now
+    # writes it so.
     ('script/roadmap', r'(?:\*\*Reuse:\*\*|Reuse:)\s*(.*)$'),
 }
 # An exception, and a foot gun: `script/decisions`' `^\*\*Status:` is a ban, not a key (it refuses
