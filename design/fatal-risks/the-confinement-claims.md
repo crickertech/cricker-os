@@ -213,6 +213,35 @@ falsification. The same class as #1494 and milestone 634, reached by a third mec
 successful-collect path, not an abort and not the mailbox slot). Every other claim it reached held, by reading and by host or kernel proof where cheap. Two were not attacked in that pass: row 25 (enforced by the compositor, not the kernel; milestone 719 (Compositor confinement claim 25 is attacked part by part) in PR #1536 attacked it part by part on aarch64 afterwards, 2026-10-03) and row 26 (an escape would hang the test rather than fail it, so it waits on milestone 417 (a usurper that reports instead of hanging)). Row 11 was proved on `x86_64` only in that pass; milestone 718 (No page is both writable and executable, proved on every ISA) in PR #1534 has since proved it on aarch64, riscv64 and x86_64, 2026-10-03. This does not support green;
 the human-outsider half remains behind milestone 198.
 
+### The fourth outsider pass (2026-10-07, milestone 800)
+
+Added under §216 (fatal-risk facts are correctable, and verdicts are the architect's), from PR
+#1798. Milestone 800 (a non-Anthropic model attacks the confinement claim) was the first pass by a
+model from another vendor, GLM 5.3, run by calef's opencode. It was informed by calef's ruling: the
+reviewer read the whole tree and its history, so a re-discovery scores nothing as a new finding.
+The record is [`notes/confinement-outsider-pass-4.md`](../../notes/confinement-outsider-pass-4.md).
+
+It found no new escape. It booted one re-discovery on all three ISAs: milestone 649 (every client of
+a network stack shares its socket numbers), recorded by reading on 2026-09-24 with no test. A
+second client of a shared `net_stack` endpoint attached its own page at the victim's socket number
+first. The victim's attach then failed silently, its request went out as the squatter's bytes, and
+its reply landed in the squatter's page. The kernel's gates were never consulted; the confusion was
+the server's.
+
+The severity, which this appendix had not stated: the stack starts on every booted system
+(milestone 590), and the progenitor gives every program that declares the network an unbadged copy
+of the one stack endpoint. On the shipped boot only vouched `NetworkEchoClient` instances declare
+it, so no hostile holder existed, but the job pool runs six jobs at once and two holders were one
+prompt away. calef ruled it an escape on a shipped path (2026-10-07 UTC), and criterion (c)'s count
+restarted at zero.
+
+Fixed the same day by milestone 649 in #1817: each socket is its own capability (§255 (each socket
+is its own capability)), and the pass's test, rewritten, runs in the default suite on all three ISAs
+with a replayable falsification. Claim 34 of `notes/confinement-claims.md` states the property. The
+pass also made claim 26's test fail rather than hang, red under its recorded patch. Its refusal log
+has four entries; the redoxfs name-window race is the next probe, milestone 825 (a hostile client
+races the file server's name window). The fix does not count toward (c): that needs a fresh pass.
+
 ### Added 2026-10-03: row 27's hand-off was tested on one of the two `x86_64` boots
 
 From 2026-09-23 to 2026-10-03 (UTC), `port_holder_transmits_then_a_non_holder_faults` (row 27 of
