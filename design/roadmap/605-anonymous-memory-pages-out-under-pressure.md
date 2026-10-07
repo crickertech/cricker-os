@@ -14,8 +14,7 @@ drop their swap rows rather than printing zeros. Promoted from the proposal
 `anonymous-memory-pages-out-under-pressure`, filed 2026-09-26 by the lane `proposal/swap`. calef had
 asked for it ("Add a proposal for swap") while ruling how milestone 126 (the `procps` package: who
 else is running, and who is allowed to ask) reports memory. The argument below is the proposal's
-own. It is kept because the four syscall-surface questions in it are what building this would ask,
-and a reopening should start from them rather than from nothing.
+own, kept because its four syscall-surface questions are where a reopening should start.
 
 ## The ruling
 
@@ -32,8 +31,7 @@ In this tree "swap" already means live replacement of a running component: `crat
 the `swapper` fixture and `kernel/src/user/live_swap_tests.rs`, all from milestone 23 (a
 capability-routed component OS with live replacement). `swap_protocol` is a ratified name. So this
 file said "paging out" and "a pager" and left the name to calef, who ratified "paging out" on
-2026-09-26. Calling it swap would have put two meanings of one short word on the same subsystem
-boundary.
+2026-09-26, rather than put two meanings of one word on one subsystem boundary.
 
 ## Is it already on the record
 
@@ -113,8 +111,7 @@ does not discuss it, and only Hurd IRC logs mention a "concern about deadlocks".
 
 **Faults.** Every user fault is death, on all three architectures. `user_fault` in
 `kernel/src/arch/{aarch64,riscv64,x86_64}/exceptions.rs` returns `!` in each port and ends in
-`sched::fault`, which calls `depart` and never resumes the thread. There is no path by which a
-thread that faulted runs its faulting instruction again. That is three handlers and the scheduler's
+`sched::fault`, which calls `depart` and never resumes the thread. No faulted thread ever reruns its faulting instruction. That is three handlers and the scheduler's
 departure path.
 
 **Giving up a mapping.** There is no unmap. `crates/abi`'s `address_space` has `MAP_INTO` and
