@@ -1,7 +1,7 @@
 ---
 status: NOT-STARTED
 raised: 2026-08-30
-milestone_dependencies: 242, 400, 515, 801
+milestone_dependencies: 242, 400, 515, 801, 809
 decision_dependencies: unwritten
 machine_requirements: two x86_64 UEFI PCs, each with a USB keyboard and a monitor
 specific_machine: none
@@ -76,6 +76,10 @@ The Secure Boot question is the `unwritten` decision dependency. Publication is 
 **Reuse:** `stick_maker`, the installer and the package client are the tree's own and are built;
 the release and the page are not surveyed yet, and the lane that builds them owes that survey under
 §46 (thin primitives or whole subsystems).
+
+The package client the stranger meets at rung 4 is `jig`, milestone 809 (the package client
+becomes a program), not today's shell builtin, so this milestone depends on 809 (added 2026-10-07
+(UTC), when 809 was promoted).
 
 ## Scope note (architectural parity)
 

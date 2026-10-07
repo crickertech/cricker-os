@@ -226,7 +226,7 @@ The progenitor is the installer, not a program, for §208's own reason: the auth
 decides which version is active should be the one that performs a swap, and §219 already made it
 the reader of the table. It holds the file service with `WRITE`, the image's catalog in its
 archive, and the frame-staging path an image request built. The *client* is slated to become a
-program ([the proposal](../design/roadmap/proposals/the-package-client-becomes-a-program.md)).
+program, `jig` ([milestone 809 (the package client becomes a program)](../design/roadmap/809-the-package-client-becomes-a-program.md)).
 `spawnproto::ACTIVATION_BIT` (provisional) is the request.
 
 Install stages the package exactly as an image is staged, so the progenitor checks its own

@@ -1,34 +1,36 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-06
+promoted_from: the-package-client-becomes-a-program
 milestone_dependencies: 198, 205
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The package client becomes a program, with the verbs an index needs
+# 809. The package client becomes a program, `jig`, with the verbs an index needs
+
+*(Promoted from the proposal pile on 2026-10-07 (UTC), calef: "Promote jig to a milestone." The
+number is provisional until the merge queue lands it. `jig` is ratified; the title, slug and verb
+spellings are drafts. Rulings since, on #1796 and #1797, are in the work list and the forks table.)*
 
 calef ruled on 2026-10-06 (UTC) that the package client must be a program, not a shell builtin, and
-named six things it must do. Written by lane `package-program` the same day, which built nothing
-but this proposal and a corrected doc comment. calef ruled on three of its forks at about 11:30
-UTC the same day, recorded where each fork is.
+named six things it must do. Lane `package-program` wrote this the same day and built nothing.
 
 The program is `jig`, the basalt package manager, ratified 2026-10-06 by calef. The theme is
 flat-pack assembly: a jig is the guide you build so assembly comes out the same every time.
 Refused: `package` (too generic, reads as "packages software"), `pkg` (reads as a port of
 FreeBSD's), `bpm` (repeats `rpm`), `knap` (one letter from `snap`) and `flatpak` (taken). `dowel`,
 `allen`, `kit` and `cam` were the shortlist, and `kit` and `cam` collide with shipped commands. One
-known collision is Arch's `extra/jig`, a Puppet module tool, which is irrelevant on nife. When the
-program is built, this record becomes the `Name:` block in its module doc, where `script/names`
-reads it.
+known collision is Arch's `extra/jig`, a Puppet module tool. When built, this record becomes the
+`Name:` block in its module doc, where `script/names` reads it.
 
 calef also ruled, the same day: *"We abbreviate on the command line."* The verb spellings below
 stay provisional and are to be revisited under it.
 
 ## What calef asked for
 
-His wording is the intent. Every spelling in the second column is provisional.
+His wording is the intent.
 
 | Intent | Spelling | Today |
 |---|---|---|
@@ -46,14 +48,11 @@ read). No upgrade verb is proposed.
 
 ## The premise, checked
 
-The builtin's doc comment (`grant_plan::Command::Package`) gave two reasons. The first was that the
-progenitor alone reads the activation set and holds what installing needs. That still holds, and
-it is a reason for the *installer* to stay in the progenitor. It never was a reason for the client
-to live in the shell. The second was that a program could not be told which package, because
-milestone 205 (how a foreign program is told what to do) had not built an argument vector. That
-milestone has been BUILT since 2026-09-27: `ArgSpec::Words` hands a `std` program its line as argv
-and grants what its words designate. The same stale reason sat on `spawnproto::Activation::Fetch`
-and in `notes/packages.md`; this lane corrected all three.
+The builtin's doc comment gave two reasons. The progenitor alone reads the activation set and holds
+what installing needs: still true, but a reason for the *installer* to stay there, never for the
+client to live in the shell. And a program could not be told which package: stale since milestone
+205 (how a foreign program is told what to do) built `ArgSpec::Words` on 2026-09-27. The lane
+corrected that reason in all three places it sat.
 
 ## What moves, and what stays the progenitor's
 
@@ -61,7 +60,7 @@ Out of the shell: `Command::Package`, `PackageVerb` and `package_verb` in `crate
 `package` in `components/src/swish.rs`, and `PACKAGE_USAGE` in `crates/swish`. The builtin and the
 program go in one change, so the owner never has two clients for one store. Builtins match before
 program names, so if the program were named `package`, a builtin left behind would shadow it on
-every line ([the naming appendix](../../naming/programs-scripts-and-directories.md#shell-builtins)
+every line ([the naming appendix](../naming/programs-scripts-and-directories.md#shell-builtins)
 refused `doc search` for that reason).
 
 Out of the progenitor: the fetch. Today `Activation::Fetch` has the progenitor open a socket, send
@@ -96,7 +95,7 @@ Stays the progenitor's, unchanged:
 The last row is the one new grant. Today the activation request rides the spawn endpoint, which
 only the boot prompt holds, and §221 (the boot prompt is the owner's console) made holding that
 prompt the definition of the owner. Handing a program the whole spawn endpoint would let it spawn
-anything. The proposal is an endpoint the progenitor badges, which speaks install, remove and
+anything. The plan is an endpoint the progenitor badges, which speaks install, remove and
 rollback and nothing else. It is granted through a new `Manifest` field, provisionally
 `activation`, in a named slot like `NETWORK_SLOT`. It does not speak `Vouch`, which would let the
 program vouch for any bytes. Only the owner's console may grant it. A `login` session holds
@@ -109,9 +108,8 @@ The program is `Runtime::Std`, because `ArgSpec::Words` requires it.
 
 ## One program with verbs: ruled
 
-calef, 2026-10-06 (UTC): *"One program."* V3 below is refused by that ruling. Whether the one
-program holds the union of its grants (V1) or is granted by verb (V2) is detail within it, and this
-proposal keeps V2 as its shape. The reasoning that led there is kept below.
+calef, 2026-10-06 (UTC): *"One program."* That refuses V3. V1 against V2 is detail within it, and
+this block keeps V2.
 
 calef's principle, from §226 (`pidwait` takes tids): a program does one thing. Milestone 281
 (`watch` holds exactly what `ps` holds) turned that into a test a capability system can measure. Two programs are two
@@ -130,15 +128,10 @@ idea keyed by a word instead of a flag. The planner already classifies the built
 (`package_verb`), so what moves is the table's home, from the shell's parser into the manifest.
 The cost is one new `Manifest` field and a planner that consults it.
 
-V3 has prior art in Debian's `apt-cache`, `apt-get` and `dpkg`, which apt 1.0 later fronted with
-one `apt` (recalled, not read). V2 gets V3's least authority under one name.
-
-One program fits calef's rule because every verb reads or edits the same two records: this
-machine's indexes and its activation set. V1 is the cheaper option, so V2 is not about effort.
-
-V2 is reversible: a lane can build V1 first with a `BUGS` line and move to V2 later.
-
-Nothing here depends on the name, which stays calef's.
+V2 gets V3's least authority under one name (Debian fronted `apt-get` and `dpkg` with one `apt`,
+recalled). One program fits because every verb touches the same two records, the indexes and the
+activation set. V1 is cheaper, so V2 is not about effort, and it is reversible: a lane can build V1
+first with a `BUGS` line.
 
 ## Who writes the index copy: ruled, `jig`
 
@@ -169,11 +162,11 @@ progenitor keeps checking against it as it does on rung 3a.
 ## Many indexes per machine: ruled
 
 calef, 2026-10-06 (UTC): *"A machine may write many indexes."* So a machine holds several, as apt's
-`sources.list` names several repositories. Whether is settled; the details below are not.
+`sources.list` does. The details are open.
 
 §250 (an image names its distribution's package index) rules that an *image*
-carries one fixed name, basalt's. An index the owner adds on a running machine is the machine's,
-not the image's, so it does not contradict §250's text. §195 clause 2 anticipates it: trust is
+carries one fixed name, basalt's. An index the owner adds is the machine's, so §250 is not
+contradicted. §195 clause 2 anticipates it: trust is
 scoped per source the owner opted into, and anyone may stand up a source. §196 clause 4 holds roots
 per source.
 
@@ -190,11 +183,11 @@ The details still to settle, before `add-index` is built:
    or a rollback cannot say what it is undoing.
 4. Whether a second index may carry §250's "moved to" field, and whether the client follows it.
 
-They block only `add-index`, and the other seven verbs build without them.
+They block only `add-index`.
 
 ## Other package managers, against the same contracts
 
-calef asked whether other package managers could emerge. This proposal makes it a design
+calef asked whether other package managers could emerge. This milestone makes it a design
 property: `jig` uses only public contracts, and it has no private channel to the progenitor.
 
 - The package format is `crates/package_archive`, per §197 (a package is one archive file).
@@ -202,13 +195,12 @@ property: `jig` uses only public contracts, and it has no private channel to the
 - The request to install, remove or roll back is `spawnproto`'s activation request, per §208.
 - The installed table is `crates/activation_set`.
 
-A second manager written against those crates can do what `jig` can, and its packages still pass
-the progenitor's digest check.
+A second manager on those crates can do what `jig` can.
 
 Who may install means which programs the owner's console has handed the installer capability. A
 gate can hold the property: no `jig` dependency outside those crates and `user_mode_runtime`.
 
-calef ruled how managers coexist on 2026-10-06 (UTC): *"Yes."*, accepting this recommendation.
+calef accepted how managers coexist, 2026-10-06 (UTC): *"Yes."*
 
 - By default only `jig` holds the installer endpoint, and the owner's console is what grants it.
 - Other tools stay user-local. They run by path or are vouched, like `pipx` or `~/.cargo/bin`, and
@@ -217,21 +209,19 @@ calef ruled how managers coexist on 2026-10-06 (UTC): *"Yes."*, accepting this r
   field. If the owner ever grants a second manager the endpoint, `jig` refuses to remove or roll
   back a row it did not install.
 
-On Linux, PEP 668 made pip refuse the system Python on Debian and Ubuntu, because coexistence by
-convention failed (recalled, not read).
+PEP 668 made pip refuse Debian's system Python, because coexistence by convention failed
+(recalled, not read).
 
 ## How this splits against milestones 801 and 802
 
-Milestone 801's work list has four items. Items 3 and 4 are name resolution (milestone 384 (in a capability system the resolver is a grant)) and
-HTTPS (milestone 501 (a TLS client that speaks to one pinned peer)). Items 1 and 2 are the index split and the index format crate, and they need
-neither. They are also exactly what `list`, `outdated` and `update` consume. Per calef's 2026-10-06
-ruling to split milestones rather than name rungs, the recommendation is that items 1 and 2 move
-into this milestone and 801 keeps the host name, HTTPS and basalt's host. The index format is still
-a wire format and still calef's to rule before rung 4, as 801 says. Moving it changes which block
-carries that ruling, not who makes it. That move is the integrator's call at promotion.
+Milestone 801's items 1 and 2 are the index split and the index format crate. They need neither
+name resolution (milestone 384 (in a capability system the resolver is a grant)) nor HTTPS
+(milestone 501 (a TLS client that speaks to one pinned peer)). They are what `list`, `outdated` and
+`update` consume, so the proposal recommended moving them here; the format stays calef's to rule. Promotion did not move them, so item 6
+waits on 801. Moving them later is reversible.
 
-Milestone 802 (the trivial install)'s stranger meets the package client at rung 4. Once this is
-numbered, 802 should depend on it, so the stranger meets a program and not a builtin about to go.
+Milestone 802 (the trivial install)'s stranger meets the package client at rung 4, so 802 depends
+on this milestone and the stranger meets a program, not a builtin about to go.
 
 ## The work, in the order it can land
 
@@ -243,13 +233,24 @@ numbered, 802 should depend on it, so the stranger meets a program and not a bui
    change from builtin to program.
 3. The fetch moves into the program, and `Activation::Fetch` and `http_response` leave the
    progenitor. The gate that fetches `greeting` today passes unchanged in what a person types.
+   Per calef's ruling on #1796 fork 4 (2026-10-07), the same change deletes `system_initializer`'s
+   `http_response` exception in `packages/init.package.toml`.
 4. Grants by verb (V2), or V1 with a `BUGS` line if V2 is refused.
 5. `list`, reading the image's catalog until an index exists, and saying so.
 6. Milestone 801's items 1 and 2 if moved here, then `update` and `outdated` over the LAN fixture
    source, plain HTTP, as rung 3a, with `jig` writing the index copy.
 7. `add-index`, once the details of many indexes are settled.
+8. Before installing, `jig` checks three things. The archive's digest matches the index (§250 (an
+   image names its distribution's package index)). The index's needs match the archive's metadata
+   (§197 (a package is one archive file)). The metadata matches the manifests in its ELF notes,
+   recomputed after download. A mismatch refuses (calef, 2026-10-07, "Yes"). The needs
+   come from [#1797's fork 1 ruling](https://github.com/nifeos/nife/pull/1797#issuecomment-6029565630):
+   written only in program manifests, computed by the build into metadata and index. These checks
+   keep resolution correct and records honest; they are not the security boundary. Enforcement
+   stays at spawn, where a program gets only what its manifest names and the grant plan approves
+   (§208).
 
-Items 1, 2, 3 and 5 wait on nothing, since a provisional name blocks no work.
+Items 1, 2, 3 and 5 wait on nothing.
 Every item is proved on aarch64, riscv64 and x86_64 by the same gate, per rule 5.
 
 **Reuse:** all inside the tree. `package_archive` (`catalogd_stem`, `installable`, `installable_as`),
@@ -257,10 +258,10 @@ Every item is proved on aarch64, riscv64 and x86_64 by the same gate, per rule 5
 request, swish's frame sender and milestone 205's argv and designation. Writing the program rather
 than adapting one is forced: no existing client speaks this capability ABI.
 Outside it, `rustls` arrives through milestone 501 under §196. The verb spellings lean on apt,
-pkg and Homebrew from memory. The lane that builds this owes a read of their manuals under §46
-(thin primitives or whole subsystems), especially for the index format if item 6 moves here.
+pkg and Homebrew from memory. The building lane owes a read of their manuals under §46
+(thin primitives or whole subsystems).
 
-## Forks, all ruled
+## Forks
 
 | Fork | State | Blocks |
 |---|---|---|
@@ -269,6 +270,9 @@ pkg and Homebrew from memory. The lane that builds this owes a read of their man
 | Who writes the index copy | ruled 2026-10-06: `jig` (I2); I3 the follow-on | nothing |
 | Many indexes | ruled 2026-10-06: a machine may write many; details open | item 7 |
 | A row records its manager | ruled 2026-10-06: yes; `jig` alone holds the endpoint by default | item 1 |
+| Who fetches | ruled 2026-10-07, #1796 fork 4: `jig` | nothing |
+| Install-time checks | ruled 2026-10-07: item 8's three | nothing |
+| Needs against what is installed | open, #1797 fork 3 | nothing yet |
 
 ## BUGS
 
@@ -277,3 +281,10 @@ pkg and Homebrew from memory. The lane that builds this owes a read of their man
 - Retiring `Activation::Fetch` changes a wire format that only this tree speaks.
 - Until I3, `jig` is inside the trusted base for installs, and the activation set's provenance for
   an index install is `jig`'s claim.
+
+## Index row
+
+The package client is a shell builtin, and the progenitor fetches packages, so the most trusted
+process parses HTTP. calef ruled the client becomes one program, `jig`, with seven verbs and an
+installer endpoint only the owner's console grants. The fetch moves into `jig`, retiring
+`Activation::Fetch` and `init`'s `http_response` exception.
