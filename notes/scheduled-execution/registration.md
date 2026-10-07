@@ -1,6 +1,6 @@
 # Runtime registration: a proposal
 
-**Status: PROPOSED 2026-09-26.** Written by the lane for milestone 129 (scheduled execution) for calef's decision. It asks for a
+Status: PROPOSED 2026-09-26. Written by the lane for milestone 129 (scheduled execution) for calef's decision. It asks for a
 wire format, which two programs agree on, and for where a user's schedule lives. Both are an
 architect's call under AGENTS.md, so nothing here is built.
 

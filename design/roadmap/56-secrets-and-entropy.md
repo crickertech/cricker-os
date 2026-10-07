@@ -11,7 +11,7 @@ a gap. Prerequisite for 55; feeds milestone 49 (users, login, and attribution). 
 serves three family members with separate passwords, so the credential service holds multiple
 identities from the start rather than growing into that later.
 
-**Status: both halves built** (entropy 2026-07-30, credentials 2026-07-31). All three gaps are
+Status: both halves built (entropy 2026-07-30, credentials 2026-07-31). All three gaps are
 closed: unguessable bits come from a virtio-rng behind a capability, and an identity plus a secret
 you can check and cannot read is a service with five kernel tests on both ISAs. What remains is
 the SMB-specific derivation (the NT hash and HMAC-MD5, so the service can answer a challenge

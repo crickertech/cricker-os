@@ -55,7 +55,7 @@ keeping two implementations honest rather than removing one.
 
 ## What was built, 2026-09-03
 
-**Status: BUILT.** Both answers, split by which question each derivation is being asked. The block
+Status: BUILT. Both answers, split by which question each derivation is being asked. The block
 declined to choose and was right to: measurement showed the choice is not one decision but three.
 
 The premise was false, and checking it is what shrank this from a refactor to an afternoon. The

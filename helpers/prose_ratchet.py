@@ -443,14 +443,12 @@ NOT_MARKERS = {
     # primitives or whole subsystems) spells the line plain, and notes/roadmap.md's template now
     # writes it so.
     ('script/roadmap', r'(?:\*\*Reuse:\*\*|Reuse:)\s*(.*)$'),
+    # Milestone 791, 2026-10-07 UTC. `script/decisions`' `^\*\*Status:` is a ban (it refuses a status
+    # line in a decision), not a key, so a bold `**Status:` line elsewhere is emphasis and is counted.
+    # It was exempt, marked as an exception here, until the 25 free-form lines in notes and design
+    # documents lost their bold.
+    ('script/decisions', r'^\*\*Status:'),
 }
-# An exception, and a foot gun: `script/decisions`' `^\*\*Status:` is a ban, not a key (it refuses
-# a status line in a decision), and derivation exempts it as if it were a key. Milestone 791 (bold
-# that a script reads) recorded that as costing nothing. It does not: on 2026-10-07 (UTC) it was the
-# only exemption for 25 free-form `**Status:` lines in notes and design documents that no script
-# reads ("**Status:** open idea."), and naming it here put four of those documents over §213's bold
-# density. So it stays exempt until those lines lose their bold; then add
-# ('script/decisions', r'^\*\*Status:') here. 791's BUGS section carries the count and the list.
 ORDINARY_BOLD = ('**Hello world.** Then prose.', '**A claim that opens.** More.', '**I think so.**',
                  '- **Operations.** The rest.', 'Inline **names provisional** here.',
                  '**It is fixed, 2026-09-23.** Then.', '**NOT** this.')

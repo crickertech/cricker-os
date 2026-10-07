@@ -5,7 +5,7 @@ radon evening" section is the evening's plan. Written 2026-10-03 (UTC) by the
 `maintainer/radon-footprint-experiment` lane. Name provisional, the directory and the stem both;
 naming is an architect's. E5 is a provisional label too, the next free one after E4.*
 
-**Status: a plan, not runnable.** Nothing here has run, and the instrument it needs is not built.
+Status: a plan, not runnable. Nothing here has run, and the instrument it needs is not built.
 The build is proposed in
 [`design/roadmap/708-an-executed-footprint-ladder-for-radon.md`](../../design/roadmap/708-an-executed-footprint-ladder-for-radon.md).
 This page says what to build, how to run it, and what each outcome means, before any number exists.

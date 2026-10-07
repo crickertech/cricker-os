@@ -1,6 +1,6 @@
 # A set grant at the prompt: how a matched pattern reaches the progenitor
 
-**Status: DECIDED.** calef ruled on 2026-09-27 at 15:14Z (UTC), on #1402: option A as built by
+Status: DECIDED. calef ruled on 2026-09-27 at 15:14Z (UTC), on #1402: option A as built by
 milestone 205 (how a foreign program is told what to do), which is this note's option 3 with the
 copy. The set travels as one read-only frame the shell owns (`spawnproto::NAMESET_BIT`, `1 << 43`,
 name still provisional), and the progenitor copies it into a page from the job's region before
