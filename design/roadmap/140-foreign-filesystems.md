@@ -1,7 +1,7 @@
 ---
 status: NOT-STARTED
 raised: 2026-08-18
-milestone_dependencies: none
+milestone_dependencies: 813
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
@@ -37,6 +37,10 @@ need all of these some day and we deliver them all eventually.
 RedoxFS was chosen because it could be vendored, which let the project skip building a
 filesystem and get a working one immediately. That decision stands and this block does not reopen
 it. What it says is that a vendored store solved one requirement and the others were never asked.
+
+The FAT32 stratum depends on milestone 813 (`file_allocation_table`: a proven FAT crate, released
+on its own), calef's ruling of 2026-10-07 (UTC) on #1806: that crate is the format, and this
+stratum adds the filesystem-contract server around it.
 
 The ext4 row was promoted on 2026-08-30 and is now milestone 190 (ext4, read and write),
 after calef said his own drives hold the family's borg repositories and nife has to read and write
