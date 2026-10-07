@@ -13,7 +13,8 @@ name: merge drain
 # **Since 2026-10-03 it arms nothing** (milestone 727 (a queue eviction goes to a maintainer session), provisional; calef's rulings on #1564). It
 # labels `needs-maintainer` (name provisional) on a pull request a maintainer session must pick up,
 # dequeues one that became held, labels a resolved draft `unblocked`, and reruns a cancelled
-# duplicate CI run. `helpers/merge-drain.sh`'s header has what was removed and why.
+# duplicate CI run, and once per pull request dequeues and re-enqueues a queue head stuck after its
+# merge group finished (calef, #1833; the one action on the queue it kept). `helpers/merge-drain.sh`'s header has what was removed and why.
 #
 # **The premise was tested before any of this was written**, because the plan of 2026-09-24 (an App
 # that arms and enqueues) rested on it.

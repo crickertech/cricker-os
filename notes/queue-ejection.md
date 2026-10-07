@@ -89,7 +89,7 @@ Milestone 630 first built this as a hold: the drain commented on an ejection, la
 #1564 (2026-10-03) removed every re-arm and re-queue, because the automation fought his own
 dequeues and still left him as the only detector
 ([the correction](coes/2026-10-03-the-queue-judged-one-pull-request-at-a-time.md)). What replaced it
-labels and never acts on the queue.
+labels and never acts on the queue, with one marked exception (`stuck-head`, below).
 
 `helpers/merge-drain.sh` asks GraphQL once per pass for every open pull request (its last
 `RemovedFromMergeQueueEvent` and `AddedToMergeQueueEvent`, `mergeable`, auto-merge, and when it was
@@ -106,6 +106,7 @@ episode, deduplicated by a marker:
 | off-main | ready, not armed, on a base other than `main`, 30 minutes since it was last unarmed | the base, its pull request, the ways out | armed, merged, an open `Blocked-by:`, or a draft |
 | red | wearing `ci-failing` for 30 minutes | when that label went on, the head, whether armed | `ci-failing` comes off |
 | stale-draft | a draft whose head commit is 6 hours old by committer date | the date, the branch, the four ways out | a commit, an open `Blocked-by:`, `parked`, or closed |
+| stuck-head | a queue entry still `AWAITING_CHECKS` 10 minutes after its merge group's last run completed | the group's runs with conclusions, the dequeue command | the entry leaves `AWAITING_CHECKS` or its group changes |
 | orphan | a branch with commits `main` lacks and no open pull request, its tip 2 hours old | the head, how many commits, the three ways out | landed, deleted, a pull request opened, or `parked` |
 | unmergeable | an open pull request's queue entry reads `UNMERGEABLE` | its position, the entries ahead, which of them its head conflicts with, the dequeue command | the entry no longer reads `UNMERGEABLE` |
 | budget | an open issue wearing `near-budget` | the issue's title and when it opened, the two ways out | the issue closes |
@@ -181,6 +182,43 @@ The log's event lines:
 $ gh run view <run id> --log | grep -E 'LABELLED|CLEARED'
 ```
 
+## A finished group the queue never acted on
+
+`stuck-head` (lane/drain-stuck-queue-head, 2026-10-07 UTC; name provisional) is the case where
+nothing failed visibly and nothing moved. #1824 was enqueued at 16:38 and sat at position 1 in
+`AWAITING_CHECKS` until the maintainer dequeued it at 19:42, blocking every entry behind it. Its
+group's runs (CI 37653600611, verify 37653600565) were `completed` with conclusion `failure` by
+17:01, yet every job listed in them was green. A required check never posted, so GitHub neither
+merged nor ejected it. `gh run rerun --failed` refused. #1829 (`missing-check`) covers the
+armed, not-yet-queued half of the same family; this covers the queue entry.
+
+The rule: an open pull request's entry reads `AWAITING_CHECKS`, its group has at least one
+`merge_group` workflow run, every one is `completed`, and the latest completed 10 minutes ago or
+more. `helpers/stuck-head.jq` summarizes the runs; `nm_stuck_head` in
+`helpers/needs-maintainer.jq` applies the age.
+
+**The threshold runs from the last completion, not from the group's start.** Group durations are
+the wrong clock: 13 finished groups on 2026-10-07 took 4.6 to 29.3 minutes. The latency that
+matters is from the last run completing to GitHub acting. For four merges (#1812, #1816, #1818,
+#1821) it was 0.2, 0.2, 0.4 and 0.6 minutes (the group's latest `updated_at` against the
+`RemovedFromMergeQueueEvent`). #1824 was 161 minutes. Ten minutes is about 17 times the slowest
+healthy latency and loses ten minutes, not three hours. Pick it again if a slower healthy
+latency turns up.
+
+**This is the one exception, and a foot gun to extend** (calef, #1833, 2026-10-07 UTC). The first
+stall of a pull request makes the drain dequeue the entry and enqueue it again at the back
+(`requeue_stuck_head` in `helpers/merge-drain.sh`), then comment with the group's run ids. A second
+stall, found from the drain's own earlier `needs-maintainer:stuck-head` comment, gets
+`needs-maintainer` and no re-queue. The #1564 rulings still hold for everything else: selftest
+section 5 cuts that one function out before it greps for arming and enqueueing, requires exactly
+one caller, and plants a re-arm in `dequeue_held` to prove the gate still bites. A second cause
+that re-queues would be a new ruling, not an extension of this one.
+
+The drain's token can do it. `dequeue_held` already dequeues under the App's `pull-requests:
+write`, and `enqueuePullRequest` reached GitHub's eligibility logic under that token on
+2026-09-24, as the workflow's header records. No live re-queue has run yet; the workflow only
+runs from `main`.
+
 ## BUGS
 
 - A labeled pull request waits for a maintainer session. With none running, it waits for the
@@ -194,3 +232,6 @@ $ gh run view <run id> --log | grep -E 'LABELLED|CLEARED'
   fails in the group.
 - `notes/check-inventory.md` does not list `--ready-branch` or the hook's wider lint. That table is
   a 2026-09-03 snapshot already over its word budget, and a row costs words it does not have.
+- `stuck-head` does not see a group whose runs never finished (a run stuck `in_progress` or
+  `queued`), nor one with no runs at all. Those wait on GitHub's own timeout. Recorded response:
+  `helpers/needs-maintainer-fixtures/stuck-head-runs-1824.json`.
