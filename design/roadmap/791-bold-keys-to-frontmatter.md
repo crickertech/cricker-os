@@ -177,11 +177,11 @@ It stayed exempt, marked as an exception, until those lines lost their bold (see
 
 - **Done.** The tracking mechanism, by #1702; the nine experiment-status lines, by #1714; the plain
   `Reuse:` line and the registry staleness check, by #1821.
-- **Done.** 2026-10-07 (UTC), by lane/bold-status-sweep: 16 of the 25 line-opening `**Status:` spans
-  lost their bold, the other nine (eight in `notes/roadmap.md`, one in milestone 253 (a status that can only become wrong after the merge)) sit inside code
-  fences as quotations of the old spellings and stay as written, and `('script/decisions',
-  r'^\*\*Status:')` joined `NOT_MARKERS`, so the ban is not a key. `script/roadmap`'s `RESTATED` did
-  not fire on the plain form.
+- **Done.** 2026-10-07 (UTC), by lane/bold-status-sweep. Sixteen of the 25 line-opening `**Status:`
+  spans lost their bold. The other nine sit inside code fences as quotations of the old spellings
+  (eight in `notes/roadmap.md`, one in milestone 253, a status that can only become wrong after the
+  merge) and stay as written. `('script/decisions', r'^\*\*Status:')` joined `NOT_MARKERS`, so the ban
+  is not a key. `script/roadmap`'s `RESTATED` did not fire on the plain form.
 - **Recorded.** The two blocks still carrying a bold `Reuse:` are in this block's `BUGS`.
 - **Refused.** Moving the Follow-on and Revisit tags to frontmatter: a flat format holds no list.
 
