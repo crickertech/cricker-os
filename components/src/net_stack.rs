@@ -7,8 +7,9 @@
 //!
 //! `net_stack` brings the NIC up, runs DHCP to completion (reporting the lease), then serves a
 //! capability-shaped socket contract on a `Stack` endpoint (DECISIONS §25, notes/net.md,
-//! `crates/socket_protocol/src/lib.rs)`: a socket is a socket id, per-connection bytes cross in a shared frame the
-//! client delegates, and every operation is one message. Phase one is single-threaded and
+//! `crates/socket_protocol/src/lib.rs`): a socket is a capability this server mints and names by its
+//! badge (§255 (each socket is its own capability)), per-connection bytes cross in a shared frame
+//! the client delegates, and every operation is one message. Phase one is single-threaded and
 //! synchronous, one exchange per request; the server blocks on the `Stack` endpoint between
 //! requests and drives the network inside handling one.
 //!
@@ -18,6 +19,10 @@
 //! - slot 2: the confined `Virtio` transport
 //! - slot 3: an untyped budget, for the heap and for mapping clients' shared frames
 //! - slot 4: the `Stack` endpoint (READ), where clients' requests arrive
+//! - slot 5: the retransmit notification, bound to this thread (absent from the progenitor's spawn)
+//! - slot 6: the retransmit timer (likewise)
+//! - slot 7: the `Stack` endpoint again (WRITE | GRANT), which each socket is minted from
+//! - slot 8: this process's own address space (WRITE), to unmap a closed socket's page
 //! - arg1: the DMA page's physical address
 //! - arg2: the **grant word**: the TCP listen range (milestone 107) in its low half and the
 //!   fixed-UDP bind range (milestone 55's stack half) in its high half, both packed by
@@ -39,6 +44,18 @@
 //! would cost, measured by reading on 2026-10-04 (UTC): about 630 lines moved into a sans-IO crate
 //! over smoltcp's `phy::Device`, with the clock and the waits behind an edge trait. See
 //! `notes/fuzzing-the-services.md`.
+//!
+//! **One client can take every socket.** The table is [`SOCKETS`] entries shared by every client
+//! of the stack, and nothing bounds how many one client holds, so a client that opens sixteen and
+//! keeps them starves the rest of the network. Before §255 (each socket is its own capability) the
+//! same was true of the six shared socket numbers. A per-client quota wants the client named, which
+//! a badged front door per client would do; nothing builds that yet. Recorded by milestone 649
+//! (every client of a network stack shares its socket numbers).
+//!
+//! **A spawn without slot 8 cannot reuse a socket's page.** With no address space to `UNMAP` from,
+//! a closed socket's page stays mapped, and its table entry refuses every later frame rather than
+//! show the next socket the last one's page, so after sixteen sockets with pages the stack carries
+//! no more bytes. Every spawner in the tree grants slot 8.
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68's ratchet tracks
@@ -57,8 +74,8 @@ use smoltcp::time::Instant;
 use smoltcp::wire::{EthernetAddress, HardwareAddress, IpAddress, IpCidr, IpEndpoint, Ipv4Address};
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
 use user_mode_runtime::{
-    Delivered, cap_delete, cntfrq, irq_wait, map_page_frame, notification_poll, now,
-    receive_request, reply, send, sleep_until, timer_arm, timer_cancel,
+    Delivered, Reply, cap_delete, cntfrq, irq_wait, map_page_frame, notification_poll, now,
+    receive_request, reply, reply_capability, send, sleep_until, timer_arm, timer_cancel,
 };
 
 #[path = "designware_ethernet_transport.rs"]
@@ -71,6 +88,10 @@ mod virtio_net_transport;
 // initrd directory holds at most 15 files; see components/src/socket_test_client.rs.
 #[path = "socket_test_client.rs"]
 mod socket_test_client;
+// The hostile second client milestone 649's confinement test runs (role 8), here for the same
+// 15-file reason; its header records why that is an exception.
+#[path = "socket_squatter.rs"]
+mod socket_squatter;
 use socket_protocol::*;
 
 const REPORT: u64 = 0;
@@ -85,6 +106,16 @@ const BAD_HANDOFF: u64 = 0xDEAD_0001;
 const WAKE: u64 = 5;
 /// The retransmit timer: armed for smoltcp's next deadline while this server waits for a frame.
 const RETRANSMIT: u64 = 6;
+/// Our own endpoint again, `WRITE | GRANT`, and our own address space (§255 (each socket is its own
+/// capability)); `socket_protocol::stack_slots` says what each is for.
+const MINT: u64 = socket_protocol::stack_slots::MINT;
+const OWN_SPACE: u64 = socket_protocol::stack_slots::OWN_SPACE;
+
+/// **How many sockets are open at once, across every client** (§255). A constant of this server's,
+/// no longer of the wire: a client never names an entry. Sixteen, from the six the wire allowed,
+/// because the table is now shared by every client of the stack rather than divided among them by
+/// convention. A socket's real cost, its buffers and its mapped page, is paid only while it is open.
+const SOCKETS: usize = 16;
 
 /// The heap smoltcp allocates against, capped under the granted budget.
 ///
@@ -103,10 +134,10 @@ static HEAP: user_mode_runtime::heap::MemoryRegionHeap =
 /// Our MAC. Locally administered; slirp routes DHCP regardless.
 const MAC: [u8; 6] = [0x52, 0x54, 0x00, 0x12, 0x34, 0x56];
 
-/// Where a client's shared frame for socket `sid` is mapped in `net_stack`'s address space. Above the DMA
-/// page (`0x90_0000`) and well below the heap (1 GiB).
-fn socket_va(sid: usize) -> u64 {
-    0x0000_0000_00A0_0000 + sid as u64 * 0x1000
+/// Where the shared frame of the socket in table entry `entry` is mapped in `net_stack`'s address
+/// space. Above the DMA page (`0x90_0000`) and well below the heap (1 GiB).
+fn socket_va(entry: usize) -> u64 {
+    0x0000_0000_00A0_0000 + entry as u64 * 0x1000
 }
 
 /// smoltcp's clock, from the monotonic counter, in milliseconds.
@@ -115,20 +146,27 @@ fn instant() -> Instant {
     Instant::from_millis(ms)
 }
 
-/// One open socket: its smoltcp handle, whether it is TCP, the window onto its shared frame (if it
-/// has one), and the ephemeral local port it was assigned.
+/// One open socket: its smoltcp handle, what kind it is, the window onto its shared frame (if it
+/// has one), the local port it holds, and the badge its capability carries.
 ///
-/// `listen_port` is nonzero on a **listener** and zero on everything else, which is the whole of the
-/// distinction inside the server: a listener holds a smoltcp socket parked in `Listen` state, has no
-/// shared frame (`window == None`, and it never needs one, because no bytes cross on a listener),
-/// and its port is the one it was granted rather than one the allocator handed out.
+/// A **listener** holds a smoltcp socket parked in `Listen` state, has no shared frame (`window ==
+/// None`, and it never needs one, because no bytes cross on a listener), and its port is the one it
+/// was granted rather than one the allocator handed out.
 #[derive(Clone, Copy)]
 struct Sock {
     handle: SocketHandle,
-    is_tcp: bool,
+    kind: Kind,
     window: Option<MappedWindow>,
     local_port: u16,
-    listen_port: u16,
+    badge: u64,
+}
+
+/// What a socket is, which decides what its capability may ask.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Kind {
+    Udp,
+    Tcp,
+    Listener,
 }
 
 /// The private ephemeral-port range `net_stack` allocates local ports from, and a **rotating** allocator
@@ -151,8 +189,8 @@ impl PortAllocator {
     }
 
     /// The next free ephemeral port not currently held by a live socket. Bounded by the range size,
-    /// so it always terminates; with only `MAX_SOCKETS` sockets ever live, it never exhausts.
-    fn alloc(&mut self, socks: &[Option<Sock>; MAX_SOCKETS]) -> u16 {
+    /// so it always terminates; with only `SOCKETS` sockets ever live, it never exhausts.
+    fn alloc(&mut self, table: &Table) -> u16 {
         for _ in 0..=(EPHEMERAL_HI - EPHEMERAL_LO) {
             let port = self.next;
             self.next = if self.next == EPHEMERAL_HI {
@@ -160,7 +198,7 @@ impl PortAllocator {
             } else {
                 self.next + 1
             };
-            if !socks.iter().flatten().any(|s| s.local_port == port) {
+            if !table.port_held(port) {
                 return port;
             }
         }
@@ -212,6 +250,8 @@ pub extern "C" fn _start(role: u64, direct_memory_access_phys: u64, a2: u64) -> 
             )),
             a2,
         )
+    } else if role == socket_squatter::ROLE {
+        socket_squatter::run()
     } else {
         // The client's second word is its own (only the package exchange reads it); the DMA page is
         // the server's.
@@ -270,202 +310,300 @@ fn server(mut dev: Nic, grant_word: u64) -> ! {
     // smoltcp's `multicast` feature back in components/Cargo.toml.
 
     // --- Serve the socket contract. One synchronous exchange per request. ---
-    let mut socks: [Option<Sock>; MAX_SOCKETS] = [None; MAX_SOCKETS];
-    // Windows onto each socket id's shared frame, once `OPERATION_ATTACH_PAGE_FRAME` maps it. `None` until
-    // then, and forever on a listener, which never gets one (see [`Sock`]).
-    let mut frame_window: [Option<MappedWindow>; MAX_SOCKETS] = [None; MAX_SOCKETS];
+    let mut table = Table::new();
     let mut ports = PortAllocator::new();
     loop {
         let req = receive_request(STACK);
-        let (w0, w1) = (req.w0, req.w1);
-        let operation = req_operation(w0);
-        let sid = req_sid(w0) as usize;
+        let (operation, arg, badge) = (req.w0, req.w1, req.badge);
 
-        // **The one operation that takes a delegation, and every other operation takes a Reply** (milestone 706
-        // (a CALL server can tell a Reply from a delegation), DECISIONS §245 (a `CALL` server tells
-        // a Reply from a delegation)). `ATTACH` is a SEND_CAP whose capability is the socket's
-        // frame; anything else is a CALL, and a delegation sent with it is deleted here rather than
-        // answered into. Before 706 this loop guarded `NO_CAP` and nothing else, so a client that
-        // SEND_CAPped a rendezvous with any other operation parked this server in SEND for the life of the
-        // machine.
-        let cap_slot = match req.delivered {
+        // **The one operation that takes a delegation, and every other operation takes a Reply**
+        // (milestone 706 (a CALL server can tell a Reply from a delegation), DECISIONS §245 (a
+        // `CALL` server tells a Reply from a delegation)). `ATTACH` is a SEND_CAP whose capability
+        // is the socket's frame, on that socket's own capability; anything else is a CALL, and a
+        // delegation sent with it is deleted here rather than answered into.
+        let to = match req.delivered {
             Delivered::Delegation(frame) if operation == OPERATION_ATTACH_PAGE_FRAME => {
-                if sid < MAX_SOCKETS {
-                    attach_page_frame(&mut frame_window, sid, frame);
-                } else {
-                    cap_delete(frame);
-                }
+                table.attach(badge, frame);
                 continue;
             }
             other => other.into_reply(),
         };
         // Nobody to answer: a plain SEND, an ATTACH that carried no frame, or a delegation (now
         // deleted) on an operation that wants a CALL.
-        let Some(cap_slot) = cap_slot else {
+        let Some(to) = to else {
             continue;
         };
-        if sid >= MAX_SOCKETS {
-            reply(cap_slot, REP_ERR, 0);
+
+        // **The front door makes sockets and does nothing else** (§255 (each socket is its own
+        // capability)). A badge outside the socket range is a front door, whoever badged it.
+        if !names_a_socket(badge) {
+            let opened = match operation {
+                OPERATION_OPEN_UDP => open_udp(&mut sockets, &mut table, &mut ports),
+                OPERATION_OPEN_TCP => open_tcp(&mut sockets, &mut table, &mut ports),
+                OPERATION_LISTEN => tcp_listen(&mut sockets, &mut table, arg, grant_word),
+                OPERATION_BIND_UDP => udp_bind(&mut sockets, &mut table, arg, grant_word),
+                _ => Err(REP_ERR),
+            };
+            match opened {
+                Ok((entry, word)) => table.hand_over(&mut sockets, to, entry, word),
+                Err(word) => {
+                    reply(to, word, 0);
+                }
+            }
             continue;
         }
 
-        match operation {
-            OPERATION_ATTACH_PAGE_FRAME => {
-                // A CALL naming ATTACH: there is no frame to map, so it is refused.
-                reply(cap_slot, REP_ERR, 0);
-            }
-
-            OPERATION_OPEN_UDP => {
-                let s = udp::Socket::new(
-                    udp::PacketBuffer::new(
-                        vec![udp::PacketMetadata::EMPTY; 8],
-                        vec![0u8; SOCK_BUF],
-                    ),
-                    udp::PacketBuffer::new(
-                        vec![udp::PacketMetadata::EMPTY; 8],
-                        vec![0u8; SOCK_BUF],
-                    ),
-                );
-                let handle = sockets.add(s);
-                let local_port = ports.alloc(&socks);
-                let _ = sockets.get_mut::<udp::Socket>(handle).bind(local_port);
-                socks[sid] = Some(Sock {
-                    handle,
-                    is_tcp: false,
-                    window: frame_window[sid],
-                    local_port,
-                    listen_port: 0,
-                });
-                reply(cap_slot, REP_OK, 0);
-            }
-
-            OPERATION_OPEN_TCP => {
-                let s = tcp::Socket::new(
-                    tcp::SocketBuffer::new(vec![0u8; SOCK_BUF]),
-                    tcp::SocketBuffer::new(vec![0u8; SOCK_BUF]),
-                );
-                let handle = sockets.add(s);
-                let local_port = ports.alloc(&socks);
-                socks[sid] = Some(Sock {
-                    handle,
-                    is_tcp: true,
-                    window: frame_window[sid],
-                    local_port,
-                    listen_port: 0,
-                });
-                reply(cap_slot, REP_OK, 0);
-            }
-
-            OPERATION_SENDTO => {
-                let rep = udp_sendto(&mut iface, &mut dev, &mut sockets, &socks, sid, w1 as usize);
-                reply(cap_slot, rep, 0);
-            }
-
-            OPERATION_RECEIVE => {
-                let rep = sock_receive(&mut iface, &mut dev, &mut sockets, &socks, sid);
-                reply(cap_slot, rep, 0);
-            }
-
-            OPERATION_CONNECT => {
-                let rep = tcp_connect(&mut iface, &mut dev, &mut sockets, &socks, sid);
-                reply(cap_slot, rep, 0);
-            }
-
-            OPERATION_SEND => {
-                let rep = tcp_send(&mut iface, &mut dev, &mut sockets, &socks, sid, w1 as usize);
-                reply(cap_slot, rep, 0);
-            }
-
+        // A socket's capability. A badge the table does not hold is a closed socket's, or one
+        // nobody minted: it reaches nothing.
+        let Some(entry) = table.find(badge) else {
+            reply(to, REP_ERR, 0);
+            continue;
+        };
+        let rep = match operation {
+            OPERATION_SENDTO => udp_sendto(
+                &mut iface,
+                &mut dev,
+                &mut sockets,
+                &table,
+                entry,
+                arg as usize,
+            ),
+            OPERATION_RECEIVE => sock_receive(&mut iface, &mut dev, &mut sockets, &table, entry),
+            OPERATION_CONNECT => tcp_connect(&mut iface, &mut dev, &mut sockets, &table, entry),
+            OPERATION_SEND => tcp_send(
+                &mut iface,
+                &mut dev,
+                &mut sockets,
+                &table,
+                entry,
+                arg as usize,
+            ),
             OPERATION_CLOSE => {
-                if let Some(sk) = socks[sid].take() {
-                    if sk.is_tcp {
-                        let handle = sk.handle;
-                        sockets.get_mut::<tcp::Socket>(handle).close();
-                        // Drain the close handshake so the peer (and slirp's flow for it) sees a
-                        // clean teardown before we drop the socket. Dropping a socket mid-close
-                        // leaves the peer's connection half-open, which on the guestfwd echo peer
-                        // blocks the next connection to it. Both FINs exchanged (Closed or TimeWait)
-                        // is enough; waiting for full Closed would linger in TimeWait's timer.
-                        // Bounded, so a peer that never finishes still returns.
-                        service_until(&mut iface, &mut dev, &mut sockets, |s| {
-                            matches!(
-                                s.get_mut::<tcp::Socket>(handle).state(),
-                                tcp::State::Closed | tcp::State::TimeWait
-                            )
-                        });
-                    } else {
-                        sockets.get_mut::<udp::Socket>(sk.handle).close();
-                        iface.poll(instant(), &mut dev, &mut sockets);
-                    }
-                    sockets.remove(sk.handle);
-                }
-                reply(cap_slot, REP_OK, 0);
+                table.close(&mut iface, &mut dev, &mut sockets, entry);
+                REP_OK
             }
-
-            OPERATION_LISTEN => {
-                let rep = tcp_listen(&mut sockets, &mut socks, sid, w1, grant_word);
-                reply(cap_slot, rep, 0);
-            }
-
-            OPERATION_BIND_UDP => {
-                let rep = udp_bind(
-                    &mut sockets,
-                    &mut socks,
-                    frame_window[sid],
-                    sid,
-                    w1,
-                    grant_word,
-                );
-                reply(cap_slot, rep, 0);
-            }
-
             OPERATION_ACCEPT => {
-                // The target id's frame must already be attached: an accepted connection carries
-                // bytes, so it needs the resource a listener never did.
-                let target_window = if w1 < MAX_SOCKETS as u64 {
-                    frame_window[w1 as usize]
-                } else {
-                    None
-                };
-                let rep = tcp_accept(
-                    &mut iface,
-                    &mut dev,
-                    &mut sockets,
-                    &mut socks,
-                    sid,
-                    w1,
-                    target_window,
-                );
-                reply(cap_slot, rep, 0);
+                match tcp_accept(&mut iface, &mut dev, &mut sockets, &mut table, entry) {
+                    Ok(connection) => {
+                        table.hand_over(&mut sockets, to, connection, REP_OK);
+                        continue;
+                    }
+                    Err(word) => word,
+                }
             }
-
-            _ => {
-                reply(cap_slot, REP_ERR, 0);
-            }
-        }
+            // A CALL naming ATTACH carries no frame; anything else is not an operation.
+            _ => REP_ERR,
+        };
+        reply(to, rep, 0);
     }
 }
 
-/// `OPERATION_ATTACH_PAGE_FRAME`: `frame` holds the delegated frame. Map it writable at socket `sid`'s VA,
-/// paid for from `net_stack`'s untyped; the mapping outlives the capability, so the capability is
-/// dropped after. `ATTACH` is a `SEND_CAP`, so there is no Reply to answer on.
-fn attach_page_frame(
-    frame_window: &mut [Option<MappedWindow>; MAX_SOCKETS],
-    sid: usize,
-    frame: u64,
-) {
-    let va = socket_va(sid);
-    let ok = map_page_frame(frame, va, true, MEMORY_REGION);
-    cap_delete(frame);
-    if ok {
-        // SAFETY: the MAP above just mapped one page read/write at `va`, and it stays mapped for
-        // the rest of this socket id's life (no unmap syscall exists), so this asserts that once
-        // here instead of at every access the way the four `a_r8`/`a_r16`/`a_w16`/`a_w8` functions
-        // used to duplicate at each call site (milestone 139 (drive the unsafe count down), round
-        // 3; the exact naming variant `user_mode_runtime::mapped_window`'s own doc comment already
-        // named).
-        frame_window[sid] = Some(unsafe { MappedWindow::new(va, PAGE) });
+/// **The open sockets of every client, keyed by the badge on each one's capability** (§255 (each
+/// socket is its own capability)). An entry is a place in this table and a window VA, never a
+/// name any client sees.
+struct Table {
+    socks: [Option<Sock>; SOCKETS],
+    /// Whether entry `i`'s window VA has a page mapped. A closed socket's page is unmapped, and an
+    /// entry whose page could not be unmapped never takes another frame, so no socket ever reads
+    /// through a page a previous holder of its entry attached.
+    mapped: [bool; SOCKETS],
+    /// The next badge to mint. Starts in the socket range and only counts up, so no badge is ever
+    /// minted twice and a stale copy can never come to name a later socket.
+    next_badge: u64,
+}
+
+impl Table {
+    fn new() -> Self {
+        Self {
+            socks: [None; SOCKETS],
+            mapped: [false; SOCKETS],
+            next_badge: SOCKET_BADGE | 1,
+        }
     }
+
+    /// The entry holding the socket `badge` names, if one is open.
+    fn find(&self, badge: u64) -> Option<usize> {
+        self.socks
+            .iter()
+            .position(|s| s.is_some_and(|s| s.badge == badge))
+    }
+
+    /// A free entry, if the table has one.
+    fn free(&self) -> Option<usize> {
+        self.socks.iter().position(Option::is_none)
+    }
+
+    /// Fill `entry` with a socket over `handle` and give it a fresh badge.
+    fn install(&mut self, entry: usize, handle: SocketHandle, kind: Kind, local_port: u16) {
+        let badge = self.next_badge;
+        self.next_badge += 1;
+        self.socks[entry] = Some(Sock {
+            handle,
+            kind,
+            window: None,
+            local_port,
+            badge,
+        });
+    }
+
+    /// **Answer `to` with `word` and the socket at `entry`'s capability**, minted here from the
+    /// `WRITE | GRANT` copy of our own endpoint with the socket's badge. If either step fails the
+    /// socket is taken down again and the caller hears `REP_ERR`: a socket nobody holds a
+    /// capability for is one nobody could ever close.
+    fn hand_over(&mut self, sockets: &mut SocketSet, to: Reply, entry: usize, word: u64) {
+        let badge = self.socks[entry].map_or(0, |s| s.badge);
+        let minted = user_mode_runtime::badge(MINT, badge);
+        if minted < 0 {
+            self.drop_entry(sockets, entry);
+            reply(to, REP_ERR, 0);
+            return;
+        }
+        let minted = minted as u64;
+        match reply_capability(to, word, 0, minted) {
+            Ok(true) => {}
+            // Answered, but the copy did not land: the client's table was full. Nobody holds the
+            // socket, so it goes now rather than fill an entry for good.
+            Ok(false) => self.drop_entry(sockets, entry),
+            Err((to, _)) => {
+                self.drop_entry(sockets, entry);
+                reply(to, REP_ERR, 0);
+            }
+        }
+        // Ours goes either way: the client holds its copy now, or there is none to hold.
+        cap_delete(minted);
+    }
+
+    /// `OPERATION_ATTACH_PAGE_FRAME`: map `frame` writable at the window of the socket `badge`
+    /// names, paid for from `net_stack`'s untyped, and drop the capability (the mapping outlives
+    /// it). A badge that names no open socket, or names a listener, which carries no bytes, gets
+    /// nothing, and the frame is dropped. A second attach replaces the first page.
+    fn attach(&mut self, badge: u64, frame: u64) {
+        let entry = self
+            .find(badge)
+            .filter(|&e| self.socks[e].is_some_and(|s| s.kind != Kind::Listener));
+        if let Some(entry) = entry
+            && self.unmap(entry)
+        {
+            let va = socket_va(entry);
+            if map_page_frame(frame, va, true, MEMORY_REGION) {
+                self.mapped[entry] = true;
+                if let Some(sk) = self.socks[entry].as_mut() {
+                    // SAFETY: the MAP above just mapped one page read/write at `va`, and it stays
+                    // mapped until `unmap` takes it back, which clears this window first.
+                    sk.window = Some(unsafe { MappedWindow::new(va, PAGE) });
+                }
+            }
+        }
+        cap_delete(frame);
+    }
+
+    /// Take entry `entry`'s page out of our address space, if it has one. `false` if a page is
+    /// there and could not be unmapped (a stack spawned without its own address space), and the
+    /// entry then keeps the page and takes no other.
+    fn unmap(&mut self, entry: usize) -> bool {
+        if let Some(sk) = self.socks[entry].as_mut() {
+            sk.window = None;
+        }
+        if !self.mapped[entry] {
+            return true;
+        }
+        // SAFETY: the syscall; the kernel checks the capability, the right and the address.
+        let gone = unsafe {
+            user_mode_runtime::invoke(OWN_SPACE, abi::address_space::UNMAP, socket_va(entry), 0, 0)
+        } == 0;
+        if gone {
+            self.mapped[entry] = false;
+        }
+        gone
+    }
+
+    /// **`CLOSE`: end the socket and unbind its badge.** Every copy of its capability, wherever it
+    /// went, reaches nothing after this, and its page leaves our address space.
+    fn close(
+        &mut self,
+        iface: &mut Interface,
+        dev: &mut Nic,
+        sockets: &mut SocketSet,
+        entry: usize,
+    ) {
+        let Some(sk) = self.socks[entry] else { return };
+        match sk.kind {
+            Kind::Tcp | Kind::Listener => {
+                let handle = sk.handle;
+                sockets.get_mut::<tcp::Socket>(handle).close();
+                if sk.kind == Kind::Tcp {
+                    // Drain the close handshake so the peer (and slirp's flow for it) sees a
+                    // clean teardown before we drop the socket. Dropping a socket mid-close
+                    // leaves the peer's connection half-open, which on the guestfwd echo peer
+                    // blocks the next connection to it. Both FINs exchanged (Closed or TimeWait)
+                    // is enough; waiting for full Closed would linger in TimeWait's timer.
+                    // Bounded, so a peer that never finishes still returns.
+                    service_until(iface, dev, sockets, |s| {
+                        matches!(
+                            s.get_mut::<tcp::Socket>(handle).state(),
+                            tcp::State::Closed | tcp::State::TimeWait
+                        )
+                    });
+                }
+            }
+            Kind::Udp => {
+                sockets.get_mut::<udp::Socket>(sk.handle).close();
+                iface.poll(instant(), dev, sockets);
+            }
+        }
+        self.drop_entry(sockets, entry);
+    }
+
+    /// Forget entry `entry`: its badge, its smoltcp socket, and its page.
+    fn drop_entry(&mut self, sockets: &mut SocketSet, entry: usize) {
+        if let Some(sk) = self.socks[entry] {
+            sockets.remove(sk.handle);
+        }
+        let _ = self.unmap(entry);
+        self.socks[entry] = None;
+    }
+
+    /// Whether any open socket holds local `port`.
+    fn port_held(&self, port: u16) -> bool {
+        self.socks.iter().flatten().any(|s| s.local_port == port)
+    }
+}
+
+/// `OPERATION_OPEN_UDP`: a UDP socket on an ephemeral port, in a free entry.
+fn open_udp(
+    sockets: &mut SocketSet,
+    table: &mut Table,
+    ports: &mut PortAllocator,
+) -> Result<(usize, u64), u64> {
+    let entry = table.free().ok_or(REP_ERR)?;
+    let handle = sockets.add(udp_socket());
+    let local_port = ports.alloc(table);
+    let _ = sockets.get_mut::<udp::Socket>(handle).bind(local_port);
+    table.install(entry, handle, Kind::Udp, local_port);
+    Ok((entry, REP_OK))
+}
+
+/// `OPERATION_OPEN_TCP`: an unconnected TCP socket with an ephemeral port, in a free entry.
+fn open_tcp(
+    sockets: &mut SocketSet,
+    table: &mut Table,
+    ports: &mut PortAllocator,
+) -> Result<(usize, u64), u64> {
+    let entry = table.free().ok_or(REP_ERR)?;
+    let handle = sockets.add(tcp::Socket::new(
+        tcp::SocketBuffer::new(vec![0u8; SOCK_BUF]),
+        tcp::SocketBuffer::new(vec![0u8; SOCK_BUF]),
+    ));
+    let local_port = ports.alloc(table);
+    table.install(entry, handle, Kind::Tcp, local_port);
+    Ok((entry, REP_OK))
+}
+
+fn udp_socket() -> udp::Socket<'static> {
+    udp::Socket::new(
+        udp::PacketBuffer::new(vec![udp::PacketMetadata::EMPTY; 8], vec![0u8; SOCK_BUF]),
+        udp::PacketBuffer::new(vec![udp::PacketMetadata::EMPTY; 8], vec![0u8; SOCK_BUF]),
+    )
 }
 
 /// Read the destination (octets + little-endian port) from a shared frame's header.
@@ -685,12 +823,14 @@ fn udp_sendto(
     iface: &mut Interface,
     dev: &mut Nic,
     sockets: &mut SocketSet,
-    socks: &[Option<Sock>; MAX_SOCKETS],
-    sid: usize,
+    table: &Table,
+    entry: usize,
     len: usize,
 ) -> u64 {
-    let Some(sk) = socks[sid] else { return REP_ERR };
-    if sk.is_tcp || len > DATA_MAX {
+    let Some(sk) = table.socks[entry] else {
+        return REP_ERR;
+    };
+    if sk.kind != Kind::Udp || len > DATA_MAX {
         return REP_ERR;
     }
     let Some(window) = sk.window else {
@@ -716,15 +856,18 @@ fn sock_receive(
     iface: &mut Interface,
     dev: &mut Nic,
     sockets: &mut SocketSet,
-    socks: &[Option<Sock>; MAX_SOCKETS],
-    sid: usize,
+    table: &Table,
+    entry: usize,
 ) -> u64 {
-    let Some(sk) = socks[sid] else { return REP_ERR };
+    let Some(sk) = table.socks[entry] else {
+        return REP_ERR;
+    };
     let Some(window) = sk.window else {
         return REP_ERR;
     };
     let handle = sk.handle;
-    let ready = if sk.is_tcp {
+    let is_tcp = sk.kind == Kind::Tcp;
+    let ready = if is_tcp {
         service_until(iface, dev, sockets, |s| {
             s.get_mut::<tcp::Socket>(handle).can_recv()
         })
@@ -738,7 +881,7 @@ fn sock_receive(
     }
 
     let mut buf = [0u8; DATA_MAX];
-    let n = if sk.is_tcp {
+    let n = if is_tcp {
         sockets
             .get_mut::<tcp::Socket>(handle)
             .recv_slice(&mut buf)
@@ -771,11 +914,13 @@ fn tcp_connect(
     iface: &mut Interface,
     dev: &mut Nic,
     sockets: &mut SocketSet,
-    socks: &[Option<Sock>; MAX_SOCKETS],
-    sid: usize,
+    table: &Table,
+    entry: usize,
 ) -> u64 {
-    let Some(sk) = socks[sid] else { return REP_ERR };
-    if !sk.is_tcp {
+    let Some(sk) = table.socks[entry] else {
+        return REP_ERR;
+    };
+    if sk.kind != Kind::Tcp {
         return REP_ERR;
     }
     let Some(window) = sk.window else {
@@ -826,58 +971,53 @@ fn arm_listener(sockets: &mut SocketSet, port: u16) -> Option<SocketHandle> {
 ///
 /// Three refusals, and they are deliberately distinguishable (`socket_protocol`): outside the grant is
 /// a refusal of *authority* and no retry will fix it; already-listening is a collision on an
-/// exclusive name and another port would work; `REP_ERR` is the client asking on a socket id it is
-/// already using, which is its own bookkeeping bug.
+/// exclusive name and another port would work; `REP_ERR` is a full table. A granted listen is
+/// answered with the listener's own capability (§255 (each socket is its own capability)).
 ///
 /// A listener gets no shared frame. That is the contract's claim that a listener and a connection
 /// are different objects, made concrete: there is nothing to map, because nothing is carried.
 fn tcp_listen(
     sockets: &mut SocketSet,
-    socks: &mut [Option<Sock>; MAX_SOCKETS],
-    sid: usize,
+    table: &mut Table,
     port_word: u64,
     grant: u64,
-) -> u64 {
-    if socks[sid].is_some() {
-        return REP_ERR;
-    }
+) -> Result<(usize, u64), u64> {
     // Not truncated to 16 bits: a request for 65536 is a request for a port no grant can name, and
     // silently turning it into port 0 would answer a question nobody asked.
     if port_word > u16::MAX as u64 {
-        return LISTEN_DENIED;
+        return Err(LISTEN_DENIED);
     }
     let port = port_word as u16;
     if !grant_allows(grant, port) {
-        return LISTEN_DENIED;
+        return Err(LISTEN_DENIED);
     }
-    if socks.iter().flatten().any(|s| s.listen_port == port) {
-        return LISTEN_IN_USE;
+    if table
+        .socks
+        .iter()
+        .flatten()
+        .any(|s| s.kind == Kind::Listener && s.local_port == port)
+    {
+        return Err(LISTEN_IN_USE);
     }
-    let Some(handle) = arm_listener(sockets, port) else {
-        return REP_ERR;
-    };
-    socks[sid] = Some(Sock {
-        handle,
-        is_tcp: true,
-        window: None,
-        local_port: port,
-        listen_port: port,
-    });
-    LISTEN_GRANTED
+    let entry = table.free().ok_or(REP_ERR)?;
+    let handle = arm_listener(sockets, port).ok_or(REP_ERR)?;
+    table.install(entry, handle, Kind::Listener, port);
+    Ok((entry, LISTEN_GRANTED))
 }
 
-/// **`ACCEPT`: block until a peer connects, then hand the connection to its own socket id.**
+/// **`ACCEPT`: block until a peer connects, then hand the connection over as its own socket.**
 ///
-/// The listener keeps its id and its port; what moves is the smoltcp socket that just completed a
-/// handshake, which becomes the *connection* at `target_word`, and the listener is immediately
-/// re-armed with a fresh socket parked on the same port. That re-arm is the difference between a
-/// server that accepts a connection and a server that accepts **one** connection, and it happens
-/// before this function returns, so the client can be busy serving the first exchange while the
-/// second handshake completes underneath it in the poll loop.
+/// The listener keeps its badge and its port; what moves is the smoltcp socket that just completed
+/// a handshake, which becomes a *connection* in a free entry with a badge of its own, and the
+/// listener is immediately re-armed with a fresh socket parked on the same port. That re-arm is the
+/// difference between a server that accepts a connection and a server that accepts **one**
+/// connection, and it happens before this function returns, so the client can be busy serving the
+/// first exchange while the second handshake completes underneath it in the poll loop.
 ///
-/// Refusing `target_word == lsid` is the contract enforcing itself: POSIX would let a listening
-/// descriptor become the connection in place, and that conflation is exactly what makes "give this
-/// program port 80" and "give this program this connection" the same kind of grant there.
+/// The connection is a new capability rather than the listener's own, which is the contract
+/// enforcing itself: POSIX would let a listening descriptor become the connection in place, and
+/// that conflation is exactly what makes "give this program port 80" and "give this program this
+/// connection" the same kind of grant there.
 ///
 /// **BUGS.** The backlog is one connection deep, because smoltcp has no accept queue: a second peer
 /// arriving in the window between a handshake completing and this call re-arming gets a RST rather
@@ -887,26 +1027,20 @@ fn tcp_accept(
     iface: &mut Interface,
     dev: &mut Nic,
     sockets: &mut SocketSet,
-    socks: &mut [Option<Sock>; MAX_SOCKETS],
-    lsid: usize,
-    target_word: u64,
-    target_window: Option<MappedWindow>,
-) -> u64 {
-    if target_word >= MAX_SOCKETS as u64 {
-        return REP_ERR;
-    }
-    let target = target_word as usize;
-    if target == lsid || socks[target].is_some() || target_window.is_none() {
-        return REP_ERR;
-    }
-    let Some(listener) = socks[lsid] else {
-        return REP_ERR;
+    table: &mut Table,
+    listening: usize,
+) -> Result<usize, u64> {
+    let Some(listener) = table.socks[listening] else {
+        return Err(REP_ERR);
     };
-    if listener.listen_port == 0 {
-        return REP_ERR;
+    if listener.kind != Kind::Listener {
+        return Err(REP_ERR);
     }
+    // Room for the connection first: a handshake taken off the listener with nowhere to put it
+    // would be a peer accepted and then dropped.
+    let target = table.free().ok_or(REP_ERR)?;
     let handle = listener.handle;
-    let port = listener.listen_port;
+    let port = listener.local_port;
 
     // `Listen` means no SYN yet and `SynReceived` means the handshake is in flight; any other state
     // means it either landed or was aborted, and both of those end the wait.
@@ -925,92 +1059,75 @@ fn tcp_accept(
     // because one peer sent a RST, and a client that gets `REP_ERR` should be able to accept again.
     match arm_listener(sockets, port) {
         Some(fresh) => {
-            socks[lsid] = Some(Sock {
+            table.socks[listening] = Some(Sock {
                 handle: fresh,
                 ..listener
             });
         }
         None => {
-            socks[lsid] = None;
-            return REP_ERR;
+            // The listener is gone; its badge goes with it, so its capability reaches nothing.
+            table.socks[listening] = None;
+            sockets.remove(handle);
+            return Err(REP_ERR);
         }
     }
     if !landed {
         sockets.remove(handle);
-        return REP_ERR;
+        return Err(REP_ERR);
     }
-    socks[target] = Some(Sock {
-        handle,
-        is_tcp: true,
-        window: target_window,
-        local_port: port,
-        listen_port: 0,
-    });
-    REP_OK
+    table.install(target, handle, Kind::Tcp, port);
+    Ok(target)
 }
 
 /// **`BIND_UDP`: claim a fixed UDP port, if this stack was granted it** (milestone 55's mDNS stack
-/// half). `tcp_listen`'s three refusals, verbatim, because they are properties of claiming an
-/// exclusive port and not of TCP: outside the grant is a refusal of *authority* (`LISTEN_DENIED`),
-/// a port some live socket already holds is a collision (`LISTEN_IN_USE`, and the check spans
-/// *all* sockets, so a fixed bind cannot silently shadow an ephemeral port a live socket was
-/// allocated), and asking on an occupied socket id is the client's own bookkeeping bug
-/// (`REP_ERR`). Unlike a listener the socket carries bytes, so it takes the frame attached at
-/// `sid` exactly as `OPERATION_OPEN_UDP` would.
+/// half). `tcp_listen`'s refusals, verbatim, because they are properties of claiming an exclusive
+/// port and not of TCP: outside the grant is a refusal of *authority* (`LISTEN_DENIED`), and a port
+/// some live socket already holds is a collision (`LISTEN_IN_USE`, and the check spans *all*
+/// sockets, so a fixed bind cannot silently shadow an ephemeral port a live socket was allocated).
+/// Unlike a listener the socket carries bytes, so its holder attaches a frame to it exactly as to
+/// one `OPERATION_OPEN_UDP` made.
 fn udp_bind(
     sockets: &mut SocketSet,
-    socks: &mut [Option<Sock>; MAX_SOCKETS],
-    window: Option<MappedWindow>,
-    sid: usize,
+    table: &mut Table,
     port_word: u64,
     grant: u64,
-) -> u64 {
-    if socks[sid].is_some() {
-        return REP_ERR;
-    }
+) -> Result<(usize, u64), u64> {
     // Not truncated to 16 bits, tcp_listen's reasoning: a request for 65536 is a request for a
     // port no grant can name, and silently taking it as port 0 answers a question nobody asked.
     if port_word > u16::MAX as u64 {
-        return LISTEN_DENIED;
+        return Err(LISTEN_DENIED);
     }
     let port = port_word as u16;
     if !udp_grant_allows(grant, port) {
-        return LISTEN_DENIED;
+        return Err(LISTEN_DENIED);
     }
-    if socks.iter().flatten().any(|s| s.local_port == port) {
-        return LISTEN_IN_USE;
+    if table.port_held(port) {
+        return Err(LISTEN_IN_USE);
     }
-    let s = udp::Socket::new(
-        udp::PacketBuffer::new(vec![udp::PacketMetadata::EMPTY; 8], vec![0u8; SOCK_BUF]),
-        udp::PacketBuffer::new(vec![udp::PacketMetadata::EMPTY; 8], vec![0u8; SOCK_BUF]),
-    );
-    let handle = sockets.add(s);
+    let entry = table.free().ok_or(REP_ERR)?;
+    let handle = sockets.add(udp_socket());
     if sockets.get_mut::<udp::Socket>(handle).bind(port).is_err() {
         // Only port 0 is refused, and the grant already excludes it; kept so a surprise is a
         // clean error rather than a socket nothing owns parked in the set.
         sockets.remove(handle);
-        return REP_ERR;
+        return Err(REP_ERR);
     }
-    socks[sid] = Some(Sock {
-        handle,
-        is_tcp: false,
-        window,
-        local_port: port,
-        listen_port: 0,
-    });
-    LISTEN_GRANTED
+    table.install(entry, handle, Kind::Udp, port);
+    Ok((entry, LISTEN_GRANTED))
 }
 
 fn tcp_send(
     iface: &mut Interface,
     dev: &mut Nic,
     sockets: &mut SocketSet,
-    socks: &[Option<Sock>; MAX_SOCKETS],
-    sid: usize,
+    table: &Table,
+    entry: usize,
     len: usize,
 ) -> u64 {
-    let Some(sk) = socks[sid] else { return REP_ERR };
-    if !sk.is_tcp || len > DATA_MAX {
+    let Some(sk) = table.socks[entry] else {
+        return REP_ERR;
+    };
+    if sk.kind != Kind::Tcp || len > DATA_MAX {
         return REP_ERR;
     }
     let Some(window) = sk.window else {

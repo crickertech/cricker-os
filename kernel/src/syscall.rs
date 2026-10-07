@@ -121,6 +121,36 @@ pub fn dispatch(frame: &mut TrapFrame) {
     crate::ipc_stack_depth::after_syscall(nr, method);
 }
 
+/// **A Reply method other than `REPLY`.** One exists: **`REPLY_CAPABILITY`, `REPLY` plus one
+/// capability**, `carried` its slot in our table (§255 (each socket is its own capability)). `GRANT` on the carried capability is checked under the hold that
+/// files it, and a refused source consumes nothing, so the caller still waits and this Reply can
+/// still answer it. `Ok(1)` when the answer went but the copy did not reach the caller (a full
+/// table, or a caller no longer waiting), so the server can undo what it minted it for.
+///
+/// Out of line on purpose, and handed the syscall's own registers so the call site is a jump. It
+/// looks the Reply up again rather than taking it from [`invoke`], which costs a cold method one
+/// table read. [`invoke`] inlines into `syscall::dispatch`, which `script/fastpath-footprint`
+/// counts flat as `syscall_entry`; with this arm folded in, x86_64's entry grew 144 bytes (8.6%)
+/// on every syscall for a method only the network stack uses. Plain `REPLY` stays inline.
+#[inline(never)]
+fn reply_other(slot: u64, method: u64, a0: u64, a1: u64, carried: u64) -> Result<i64, Error> {
+    if method != abi::reply::REPLY_CAPABILITY {
+        return Err(Error::BadMethod);
+    }
+    let reply = sched::current_cap(slot).map_err(|_| Error::NoSuchSlot)?;
+    let Object::Reply(tid) = reply.object else {
+        return Err(Error::BadMethod);
+    };
+    // As for `REPLY`: minted WRITE-only and without GRANT.
+    if !reply.rights.allows(Rights::WRITE) {
+        return Err(Error::NotPermitted);
+    }
+    let filed = sched::ipc_reply_capability(tid, [a0, a1], carried)?;
+    // One-shot, as for `REPLY`.
+    let _ = sched::delete_current_cap(slot);
+    Ok(if filed { 0 } else { 1 })
+}
+
 /// Act on a capability.
 ///
 /// **The lookup is the security mechanism, and it is a bounds check.** `slot` is an index into
@@ -259,6 +289,10 @@ pub fn invoke(
                     return Err(aborted_send_error()); // revoked or refused; no call, no reply
                 }
                 frame.set_arg(1, reply[1]); // r1; r0 returns in x0 below
+                // x2: the slot a `REPLY_CAPABILITY` filed in our table, or `NO_CAP` (§255 (each socket is
+                // its own capability)). Written on every CALL so a caller reads the kernel's word,
+                // never what it left in x2 itself.
+                frame.set_arg(2, reply[2]);
                 Ok(reply[0] as i64)
             }
 
@@ -356,7 +390,8 @@ pub fn invoke(
                 let _ = sched::delete_current_cap(slot);
                 Ok(0)
             }
-            _ => Err(Error::BadMethod),
+            // Every other method, `REPLY_CAPABILITY` and `BadMethod` alike, is decided out of line.
+            _ => reply_other(slot, method, a0, a1, a2),
         },
 
         // Another process's memory, under construction (19b). WRITE on the address space cap is the

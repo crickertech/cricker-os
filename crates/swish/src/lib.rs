@@ -1852,16 +1852,16 @@ fn write_preview_rows(
     // system starts its network stack)).
     // The entropy row's shape and its reason: whether a program can reach the network is a fact
     // about what it holds, so a person reads it here before anything runs rather than learning it
-    // from a firewall afterward. The third line is the honest one. The socket contract names a
-    // socket by a number every client of the stack shares, so this capability does not keep one
-    // declaring program out of another's sockets; saying less would describe a narrower grant than
-    // the one being made.
+    // from a firewall afterward. The fourth line says what it does not reach: since milestone 649
+    // (every client of a network stack shares its socket numbers) each socket is its own capability
+    // (§255 (each socket is its own capability)), so one declaring program cannot reach another's
+    // sockets. Until then this line said the opposite, because it was true.
     if m.network {
         out(b"    cap 10 endpoint  network  WRITE. it may open outbound sockets through the network\n");
         out(b"                              stack, and nothing else: it cannot reach the card, cannot\n");
         out(b"                              listen, and cannot hand the network to anything it spawns.\n");
-        out(b"                              it shares the stack's socket numbers with every other\n");
-        out(b"                              program holding this row\n");
+        out(b"                              each socket it opens is a capability of its own; it cannot\n");
+        out(b"                              reach another program's sockets\n");
         out(
             b"                              a program without this row reaches no network at all\n",
         );

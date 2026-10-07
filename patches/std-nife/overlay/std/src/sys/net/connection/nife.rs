@@ -3,15 +3,21 @@
 //!
 //! This is the client half of the contract std sees. A std program given the network holds a
 //! `Stack` endpoint at slot 2 and an untyped budget at slot 3 (the slot convention in
-//! `pal/nife/rt.rs`). Opening a socket mints a shared `PageFrame` from the untyped, maps it, and
-//! delegates it to net_stack (`SEND_CAP`, `OPERATION_ATTACH_PAGE_FRAME`); every later operation is one `CALL`
-//! carrying a **socket id** and control words, with the payload already sitting in the shared
-//! frame. net_stack drives smoltcp over the confined NIC and replies. Bytes never cross a message.
+//! `pal/nife/rt.rs`). Opening a socket is a `CALL` on that endpoint, which net_stack answers with
+//! **the socket's own capability** (§255 (each socket is its own capability), milestone 649); this
+//! PAL then hands that socket a shared `PageFrame` it minted from the untyped (`SEND_CAP`,
+//! `OPERATION_ATTACH_PAGE_FRAME`), and every later operation is one `CALL` on the socket's
+//! capability, with the payload already sitting in the shared frame. net_stack drives smoltcp over
+//! the confined NIC and replies. Bytes never cross a message.
+//!
+//! The PAL's own **socket ids** are local: an index into its registry, which holds each open
+//! socket's capability, its page and its residual bytes. net_stack never sees them. Each open
+//! socket costs this program one capability slot, out of the 64 a process has.
 //!
 //! **Blocking, one exchange at a time.** The contract is synchronous: a `CALL` blocks in net_stack
 //! while it services the network, so a std `read` blocks until data arrives, exactly the
 //! semantics `std::net`'s default blocking API wants. The target is single-threaded, so a program
-//! can hold several sockets (up to `MAX_SOCKETS`) but can only ever have one operation in flight.
+//! can hold several sockets (up to `SOCKETS`) but can only ever have one operation in flight.
 //!
 //! ## The inbound half: `TcpListener` is a held authority, not a call that happens to work
 //!
@@ -34,11 +40,11 @@
 //! | `LISTEN_IN_USE` | `AddrInUse` | pick another port |
 //!
 //! **A listener and a connection are two objects, and this PAL keeps them apart** because the
-//! contract does (notes/net/the-inbound-half.md, "A listener is not a connection"). A listener holds a socket id and
-//! **no shared frame at all**, since no bytes ever cross on it; `accept` allocates a *second* id,
-//! attaches that one's frame, and asks `OPERATION_ACCEPT` to install the connection there. `net_stack`
-//! refuses an accept into the listener's own id, so the POSIX move of letting a listening descriptor
-//! become the connection in place is not expressible from here.
+//! contract does (notes/net/the-inbound-half.md, "A listener is not a connection"). A listener holds
+//! its own capability and **no shared frame at all**, since no bytes ever cross on it; `accept` gets
+//! the connection back as a *second* capability, files it under a second id, and attaches that one's
+//! frame. So the POSIX move of letting a listening descriptor become the connection in place is not
+//! expressible from here.
 //!
 //! The listener **re-arms inside `ACCEPT`**, so `for stream in listener.incoming()` works and serves
 //! connections one after another indefinitely. What it does not do is serve two at once: the target
@@ -97,14 +103,25 @@ fn page_frame_va(id: u64) -> u64 {
 //
 // A small fixed table, one entry per possible socket id, guarded by a spinlock (uncontended on
 // this single-threaded target, correct if threads ever arrive, the same discipline as the heap in
-// `sys/alloc/nife`). It tracks which ids are in use, which have had their shared frame attached
-// to net_stack (a once-per-id, sticky fact so open/close cycles reuse the frame without re-mapping an
+// `sys/alloc/nife`). It tracks which ids are in use, each open socket's capability, each id's page
+// (minted once per id and kept, so open/close cycles reuse the page without re-mapping an
 // already-mapped VA), a per-TCP-socket residual buffer (bytes net_stack delivered into the frame that a
 // short `read` could not take), and each UDP socket's peer/last destination.
 
+/// How many sockets this program holds at once. The PAL's own bound, not the wire's: ids are local.
+/// Six, the number the wire allowed before §255, because each id keeps a page minted from the
+/// program's frame budget, and the spawners size that budget for six (`system_tests`'
+/// `std_service::NETWORK_FRAME_PAGES`).
+const SOCKETS: usize = 6;
+
 struct Slot {
     in_use: bool,
-    attached: bool,
+    /// This id's page, minted and mapped once and kept across open/close cycles, so a reused id
+    /// hands its next socket a copy of the same page rather than mapping an already-mapped VA.
+    /// `NO_FRAME` until the first socket at this id needs one.
+    frame: u64,
+    /// The open socket's capability, while `in_use`.
+    socket: u64,
     // TCP: bytes received but not yet handed to the caller (a `read` whose buffer was smaller than
     // the segment net_stack delivered). Served before the next `RECEIVE`, so a stream never drops bytes.
     res_off: usize,
@@ -120,7 +137,8 @@ impl Slot {
     const fn new() -> Slot {
         Slot {
             in_use: false,
-            attached: false,
+            frame: NO_FRAME,
+            socket: NO_FRAME,
             res_off: 0,
             res_len: 0,
             res: [0; DATA_MAX],
@@ -132,11 +150,9 @@ impl Slot {
 
 struct Registry {
     locked: AtomicBool,
-    slots: UnsafeCell<[Slot; MAX_SOCKETS]>,
-    // A round-robin cursor for id allocation. net_stack derives each socket's local port from its id
-    // (`LOCAL_PORT_BASE + sid`), so handing out ids in rotation rather than always the lowest free
-    // one keeps a fresh open from immediately reusing the port a just-closed socket held, which
-    // slirp can still be holding. See the reuse note in notes/std/net.md.
+    slots: UnsafeCell<[Slot; SOCKETS]>,
+    // A round-robin cursor for id allocation. Kept from when net_stack derived a socket's local port
+    // from the id: rotation still spreads the pages a busy program reuses. See notes/std/net.md.
     next: UnsafeCell<usize>,
 }
 
@@ -145,7 +161,7 @@ unsafe impl Sync for Registry {}
 
 static REG: Registry = Registry {
     locked: AtomicBool::new(false),
-    slots: UnsafeCell::new([const { Slot::new() }; MAX_SOCKETS]),
+    slots: UnsafeCell::new([const { Slot::new() }; SOCKETS]),
     next: UnsafeCell::new(0),
 };
 
@@ -170,20 +186,20 @@ fn lock() -> Guard {
 
 impl Guard {
     #[allow(clippy::mut_from_ref)]
-    fn slots(&mut self) -> &mut [Slot; MAX_SOCKETS] {
+    fn slots(&mut self) -> &mut [Slot; SOCKETS] {
         // SAFETY: holding the guard means holding the spinlock; access is exclusive.
         unsafe { &mut *REG.slots.get() }
     }
 }
 
-/// Claim a free socket id in round-robin order, or `None` if all `MAX_SOCKETS` are in use.
+/// Claim a free socket id in round-robin order, or `None` if all `SOCKETS` are in use.
 fn alloc_id() -> Option<u64> {
     let mut g = lock();
     // SAFETY: the cursor is only touched under the spinlock, like the slots.
     let start = unsafe { *REG.next.get() };
     let slots = g.slots();
-    for step in 0..MAX_SOCKETS {
-        let i = (start + step) % MAX_SOCKETS;
+    for step in 0..SOCKETS {
+        let i = (start + step) % SOCKETS;
         if !slots[i].in_use {
             slots[i].in_use = true;
             slots[i].res_off = 0;
@@ -191,17 +207,27 @@ fn alloc_id() -> Option<u64> {
             slots[i].peer = None;
             slots[i].last_dst = None;
             // SAFETY: as above; advance so the next open prefers a different id (and port).
-            unsafe { *REG.next.get() = (i + 1) % MAX_SOCKETS };
+            unsafe { *REG.next.get() = (i + 1) % SOCKETS };
             return Some(i as u64);
         }
     }
     None
 }
 
-/// Release a socket id. `attached` stays set so the id's shared frame is reused, not re-minted.
+/// A `Slot::frame` with no page yet. No capability slot has this number.
+const NO_FRAME: u64 = u64::MAX;
+
+/// Release a socket id. Its page stays, to be handed to the next socket at this id.
 fn free_id(id: u64) {
     let mut g = lock();
-    g.slots()[id as usize].in_use = false;
+    let s = &mut g.slots()[id as usize];
+    s.in_use = false;
+    s.socket = NO_FRAME;
+}
+
+/// The capability of the socket open at `id`.
+fn socket_of(id: u64) -> u64 {
+    lock().slots()[id as usize].socket
 }
 
 // --- Shared-frame access ---------------------------------------------------------------------
@@ -258,13 +284,14 @@ fn is_syscall_err(r0: u64) -> bool {
 
 // --- Attaching a shared frame ----------------------------------------------------------------
 
-/// Ensure socket `id` has a shared frame delegated to net_stack. Once per id and sticky: the frame and
-/// its mapping outlive an open/close cycle, so a reused id does not re-map an already-mapped VA.
-fn ensure_attached(id: u64) -> io::Result<()> {
+/// Make sure id `id` has its page: minted from the net untyped and mapped at the id's VA, once, and
+/// kept. Returns the page's frame capability.
+fn ensure_page(id: u64) -> io::Result<u64> {
     {
         let mut g = lock();
-        if g.slots()[id as usize].attached {
-            return Ok(());
+        let frame = g.slots()[id as usize].frame;
+        if frame != NO_FRAME {
+            return Ok(frame);
         }
     }
 
@@ -283,25 +310,35 @@ fn ensure_attached(id: u64) -> io::Result<()> {
     if unsafe { rt::invoke(frame, abi::page_frame::MAP, va, 1, NET_MEMORY_REGION) } < 0 {
         return Err(io::const_error!(io::ErrorKind::Other, "mapping the socket frame failed"));
     }
+    lock().slots()[id as usize].frame = frame;
+    Ok(frame)
+}
 
-    // Delegate it (narrowed to read/write) to net_stack with the ATTACH request. A negative result
-    // means no `Stack` endpoint in slot 2: Unsupported.
-    // SAFETY: plain syscall; the frame carries GRANT (minted by RETYPE), narrowed here.
-    if unsafe {
-        rt::invoke(
-            STACK,
-            abi::rendezvous::SEND_CAP,
-            frame,
-            abi::rights::READ | abi::rights::WRITE,
-            req(OPERATION_ATTACH_PAGE_FRAME, id),
-        )
-    } < 0
-    {
-        return Err(io::Error::UNSUPPORTED_PLATFORM);
+/// File `socket` as id `id`'s open socket and, if it carries bytes, hand it a copy of the id's page
+/// (`SEND_CAP`, `OPERATION_ATTACH_PAGE_FRAME`), narrowed to read/write. On failure the socket is
+/// closed and the id released.
+fn take_socket(id: u64, socket: u64, carries_bytes: bool) -> io::Result<()> {
+    lock().slots()[id as usize].socket = socket;
+    if !carries_bytes {
+        return Ok(());
     }
-
-    lock().slots()[id as usize].attached = true;
-    Ok(())
+    let page = ensure_page(id).and_then(|frame| {
+        // SAFETY: plain syscall; the frame carries GRANT (minted by RETYPE), narrowed here.
+        let sent = unsafe {
+            rt::invoke(
+                socket,
+                abi::rendezvous::SEND_CAP,
+                frame,
+                abi::rights::READ | abi::rights::WRITE,
+                OPERATION_ATTACH_PAGE_FRAME,
+            )
+        };
+        if sent < 0 { Err(io::Error::UNSUPPORTED_PLATFORM) } else { Ok(()) }
+    });
+    if page.is_err() {
+        abandon(id);
+    }
+    page
 }
 
 /// Open a socket of the given kind, returning its id. Fails `Unsupported` if the network was not
@@ -310,26 +347,26 @@ fn open(is_tcp: bool) -> io::Result<u64> {
     let id = alloc_id().ok_or_else(|| {
         io::const_error!(io::ErrorKind::Other, "too many open sockets (contract limit)")
     })?;
-    if let Err(e) = ensure_attached(id) {
-        free_id(id);
-        return Err(e);
-    }
     let operation = if is_tcp { OPERATION_OPEN_TCP } else { OPERATION_OPEN_UDP };
-    let (r0, _) = rt::call(STACK, req(operation, id), 0);
+    let (r0, _, socket) = rt::call_receiving(STACK, operation, 0);
     if is_syscall_err(r0) {
         free_id(id);
         return Err(io::Error::UNSUPPORTED_PLATFORM);
     }
-    if r0 != REP_OK {
+    let Some(socket) = socket.filter(|_| r0 == REP_OK) else {
         free_id(id);
         return Err(io::const_error!(io::ErrorKind::Other, "the net server refused the open"));
-    }
+    };
+    take_socket(id, socket, true)?;
     Ok(id)
 }
 
-/// Close socket `id`: tell net_stack to drop it, then release the id (keeping its attached frame).
+/// Close socket `id`: tell net_stack to drop it, drop our capability to it, and release the id
+/// (keeping its page). Every copy of the capability reaches nothing after the `CLOSE`.
 fn abandon(id: u64) {
-    let _ = rt::call(STACK, req(OPERATION_CLOSE, id), 0);
+    let socket = socket_of(id);
+    let _ = rt::call(socket, OPERATION_CLOSE, 0);
+    rt::cap_delete(socket);
     free_id(id);
 }
 
@@ -365,7 +402,7 @@ impl TcpStream {
         let (ip, port) = v4(addr)?;
         let id = open(true)?;
         set_dst(id, ip, port);
-        let (r0, _) = rt::call(STACK, req(OPERATION_CONNECT, id), 0);
+        let (r0, _) = rt::call(socket_of(id), OPERATION_CONNECT, 0);
         if is_syscall_err(r0) {
             abandon(id);
             return Err(io::Error::UNSUPPORTED_PLATFORM);
@@ -431,7 +468,7 @@ impl TcpStream {
             }
         }
 
-        let (r0, _) = rt::call(STACK, req(OPERATION_RECEIVE, self.id), 0);
+        let (r0, _) = rt::call(socket_of(self.id), OPERATION_RECEIVE, 0);
         if is_syscall_err(r0) {
             return Err(io::Error::UNSUPPORTED_PLATFORM);
         }
@@ -489,7 +526,7 @@ impl TcpStream {
         }
         let chunk = buf.len().min(DATA_MAX);
         write_payload(self.id, &buf[..chunk]);
-        let (r0, _) = rt::call(STACK, req(OPERATION_SEND, self.id), chunk as u64);
+        let (r0, _) = rt::call(socket_of(self.id), OPERATION_SEND, chunk as u64);
         if is_syscall_err(r0) {
             return Err(io::Error::UNSUPPORTED_PLATFORM);
         }
@@ -590,7 +627,8 @@ impl fmt::Debug for TcpStream {
 /// happened to succeed. See this module's header for the three answers `bind` can get and what a
 /// caller should do about each.
 ///
-/// It holds a socket id and nothing else: no shared frame is ever attached to a listener, because
+/// It holds a socket id, which names its capability in this PAL's registry, and nothing else: no
+/// shared frame is ever attached to a listener, because
 /// no bytes cross on it (DECISIONS §25's decision that the frame is the granted resource; a
 /// listener has nothing to grant). `port` is kept so `socket_addr` can answer without a contract
 /// round trip, which the contract has no verb for anyway.
@@ -621,22 +659,25 @@ impl TcpListener {
     /// bind here means. The port, by contrast, is the whole authority, so it is sent as asked and
     /// refused as asked.
     ///
-    /// **No frame is attached, deliberately.** `ensure_attached` is what `open` does for a socket
-    /// that carries bytes; a listener carries none, and `net_stack` records `va: 0` for it. The
-    /// frame arrives at `accept` time, on the *connection's* id.
+    /// **No frame is attached, deliberately.** A socket that carries bytes is handed its page when
+    /// it opens; a listener carries none. The page arrives at `accept` time, on the *connection's*
+    /// id.
     fn bind_one(addr: &SocketAddr) -> io::Result<TcpListener> {
         let (_ip, port) = v4(addr)?;
         let id = alloc_id().ok_or_else(|| {
             io::const_error!(io::ErrorKind::Other, "too many open sockets (contract limit)")
         })?;
-        let (r0, _) = rt::call(STACK, req(OPERATION_LISTEN, id), port as u64);
+        let (r0, _, socket) = rt::call_receiving(STACK, OPERATION_LISTEN, port as u64);
         if is_syscall_err(r0) {
             free_id(id);
             return Err(io::Error::UNSUPPORTED_PLATFORM);
         }
-        match r0 {
-            LISTEN_GRANTED => Ok(TcpListener { id, port }),
-            LISTEN_DENIED => {
+        match (r0, socket) {
+            (LISTEN_GRANTED, Some(socket)) => {
+                take_socket(id, socket, false)?;
+                Ok(TcpListener { id, port })
+            }
+            (LISTEN_DENIED, _) => {
                 free_id(id);
                 // The capability answer. Not `AddrInUse` and not a retry: this stack was never
                 // granted this port, and no other port will help unless it was granted too.
@@ -645,7 +686,7 @@ impl TcpListener {
                     "this program's net server was not granted that listening port"
                 ))
             }
-            LISTEN_IN_USE => {
+            (LISTEN_IN_USE, _) => {
                 free_id(id);
                 Err(io::const_error!(
                     io::ErrorKind::AddrInUse,
@@ -679,9 +720,8 @@ impl TcpListener {
     /// **`OPERATION_ACCEPT`: block until a peer connects, and take the connection at a second socket id.**
     ///
     /// The second id is the point rather than an implementation detail. A listener and a connection
-    /// are two objects here, so `accept` claims a *new* id, attaches that id's shared frame (which
-    /// the listener never had), and asks `net_stack` to install the connection there. `net_stack`
-    /// refuses `target == listener`, so this PAL could not conflate them even if it tried.
+    /// are two objects here: net_stack answers `ACCEPT` with the connection's own capability, and
+    /// `accept` files it under a *new* id and hands it that id's page, which the listener never had.
     ///
     /// The listener re-arms inside the same call, before it returns, so accepting in a loop works
     /// and a server does not go deaf after one connection.
@@ -692,19 +732,12 @@ impl TcpListener {
         let conn = alloc_id().ok_or_else(|| {
             io::const_error!(io::ErrorKind::Other, "too many open sockets (contract limit)")
         })?;
-        // The connection carries bytes, so it needs the frame the listener never had. Attaching it
-        // BEFORE the accept is the contract's requirement, not an ordering preference: `OPERATION_ACCEPT`
-        // refuses a target with no frame, because it would have nowhere to deliver the first read.
-        if let Err(e) = ensure_attached(conn) {
-            free_id(conn);
-            return Err(e);
-        }
-        let (r0, _) = rt::call(STACK, req(OPERATION_ACCEPT, self.id), conn);
+        let (r0, _, socket) = rt::call_receiving(socket_of(self.id), OPERATION_ACCEPT, 0);
         if is_syscall_err(r0) {
             free_id(conn);
             return Err(io::Error::UNSUPPORTED_PLATFORM);
         }
-        if r0 != REP_OK {
+        let Some(socket) = socket.filter(|_| r0 == REP_OK) else {
             free_id(conn);
             // Nobody connected inside the server's bounded wait, or the handshake was aborted. The
             // listener is still armed either way, so this is a retryable "try again", not a fault.
@@ -712,7 +745,9 @@ impl TcpListener {
                 io::ErrorKind::WouldBlock,
                 "no connection arrived before the net server's bounded wait expired"
             ));
-        }
+        };
+        // The connection carries bytes, so it is handed the page the listener never had.
+        take_socket(conn, socket, true)?;
         let peer = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0));
         Ok((TcpStream { id: conn, peer }, peer))
     }
@@ -840,7 +875,7 @@ impl UdpSocket {
             let mut g = lock();
             g.slots()[self.id as usize].last_dst = Some((ip, port));
         }
-        let (r0, _) = rt::call(STACK, req(OPERATION_SENDTO, self.id), buf.len() as u64);
+        let (r0, _) = rt::call(socket_of(self.id), OPERATION_SENDTO, buf.len() as u64);
         if is_syscall_err(r0) {
             return Err(io::Error::UNSUPPORTED_PLATFORM);
         }
@@ -864,7 +899,7 @@ impl UdpSocket {
     }
 
     pub fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
-        let (r0, _) = rt::call(STACK, req(OPERATION_RECEIVE, self.id), 0);
+        let (r0, _) = rt::call(socket_of(self.id), OPERATION_RECEIVE, 0);
         if is_syscall_err(r0) {
             return Err(io::Error::UNSUPPORTED_PLATFORM);
         }

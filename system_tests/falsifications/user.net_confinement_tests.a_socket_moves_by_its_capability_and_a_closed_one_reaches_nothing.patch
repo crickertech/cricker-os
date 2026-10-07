@@ -1,0 +1,31 @@
+Falsifies `system_tests::user::net_confinement_tests::a_socket_moves_by_its_capability_and_a_closed_one_reaches_nothing`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect is a `CLOSE` that does not unbind: `net_stack` answers it `REP_OK` and keeps the socket,
+its badge and its page in its table. §255 (each socket is its own capability) says close unbinds the
+badge so a stale capability reaches nothing; with this patch every copy of a closed socket's
+capability goes on reaching the socket.
+
+Expected to fail: `assert_eq!(stale[0], NET_CLIENT_OK, "a copy of a closed socket's capability
+still reached a socket: ...")`. Confirmed red on 2026-10-07 (UTC) at
+`system_tests/src/user/net_confinement_tests.rs:275` on aarch64, with `script/test --arch aarch64
+--test a_socket_moves_by`: the giver's copy answered its probe (`0xe0b2`). The hunk is portable
+code, so one patch serves every leg; riscv64 and x86_64 were not replayed by hand.
+
+diff --git a/components/src/net_stack.rs b/components/src/net_stack.rs
+index 95c4491c6..47403ae83 100644
+--- a/components/src/net_stack.rs
++++ b/components/src/net_stack.rs
+@@ -378,10 +378,7 @@ fn server(mut dev: Nic, grant_word: u64) -> ! {
+                 entry,
+                 arg as usize,
+             ),
+-            OPERATION_CLOSE => {
+-                table.close(&mut iface, &mut dev, &mut sockets, entry);
+-                REP_OK
+-            }
++            OPERATION_CLOSE => REP_OK,
+             OPERATION_ACCEPT => {
+                 match tcp_accept(&mut iface, &mut dev, &mut sockets, &mut table, entry) {
+                     Ok(connection) => {

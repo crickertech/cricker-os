@@ -2,13 +2,27 @@
 //! The socket contract wire format, shared by the net server (`net_stack`) and its clients (milestone
 //! 30, piece 3 phase B; DECISIONS §25).
 //!
-//! A process holds a `Stack` endpoint capability and a per-connection **shared frame**. A socket is
-//! a small integer **socket id** carried in the request word; the frame is the real granted
-//! resource, delegated once. Every operation is one message on the endpoint:
+//! **Each socket is its own capability** (§255 (each socket is its own capability), milestone 649
+//! (every client of a network stack shares its socket numbers)). A process holds a **front door**,
+//! a `Stack` endpoint capability that can make sockets and do nothing else, and one capability per
+//! socket it has open. Every operation is one message:
 //!
-//! - `ATTACH_FRAME` is a `SEND_CAP` (it carries the frame capability, no reply).
-//! - every other operation is a `CALL` (two words out, a reply word back), the socket id packed into the
-//!   request word beside the opcode.
+//! - `OPEN_UDP`, `OPEN_TCP`, `BIND_UDP` and `LISTEN` are `CALL`s on the front door. A success is
+//!   answered by `REPLY_CAPABILITY` with the new socket's capability, which the client's `CALL` finds
+//!   in `x2` (`user_mode_runtime::call_receiving`).
+//! - `ATTACH_PAGE_FRAME` is a `SEND_CAP` on a socket's capability: it carries the socket's shared
+//!   frame and gets no reply.
+//! - every other operation is a `CALL` on a socket's capability, the opcode alone in the request
+//!   word, one argument in the second word, and a reply word back. `ACCEPT`, on a listener's
+//!   capability, is answered with the connection's capability as an open is.
+//!
+//! **The stack names a socket by the kernel-stamped badge on the capability a request arrived
+//! on**, never by a number the client wrote. It mints each socket's capability from its own
+//! endpoint with a badge in the [`SOCKET_BADGE`] range, from a counter it never rewinds, and drops
+//! the badge at `CLOSE`, so any copy of a closed socket's capability reaches nothing. Passing a
+//! socket to another program is passing its capability. Before milestone 649 a socket was a small
+//! integer every client of one stack shared, so one client could send on, read, close or redirect
+//! another's sockets; that finding, and the attack that booted it, are in milestone 649's block.
 //!
 //! **`PageFrame` layout, pinned.** One data region, reused per operation, NOT a split TX/RX ring. The
 //! phase-one contract is one *synchronous* exchange per `CALL` (the client blocks in the CALL while
@@ -48,9 +62,8 @@
 //! - A **connection** is the authority to *speak with one peer*. It is 4-tuple-scoped, and it is
 //!   exactly the object `CONNECT` already produced, reached the other way round.
 //!
-//! So `ACCEPT` takes the socket id to install the connection at, and refuses the listener's own id.
-//! The client picks that id and must have attached a frame there first, which is the same thing an
-//! outbound `OPEN_TCP` requires. This is the tree's existing habit of splitting authority by what a
+//! So `ACCEPT` is made on the listener's capability and answered with the connection's, which the
+//! client then attaches a frame to, exactly as it does to a socket `OPEN_TCP` made. This is the tree's existing habit of splitting authority by what a
 //! holder can *do* rather than by what it names: `PageFrame` versus `DeviceFrame`, `WRITE` versus
 //! `GRANT` on the same object.
 //!
@@ -79,11 +92,9 @@
 //! authority of either kind.
 //!
 //! **BUGS / limits, named here because this is where a reader meets the feature.** The grant's
-//! granularity is the *`Stack` endpoint*, not the client, because an endpoint carries no sender
-//! identity: two clients sharing one endpoint share its grant, and the server cannot tell them
-//! apart. In this tree each stack endpoint has exactly one client today, so the distinction has no
-//! bite yet, but a real multi-client net server needs the per-client minted endpoint that §25
-//! already defers, and the grant then rides on that with no change to this wire format. The
+//! granularity is the *stack*, not the client: every holder of a front door to one stack shares its
+//! grant, because the grant is a spawn argument of the stack. A per-client grant would ride on a
+//! badged front door, which the [`SOCKET_BADGE`] split leaves room for and nothing builds yet. The
 //! backlog is **one connection deep** per listener (see `net_stack`'s `OPERATION_ACCEPT`, which re-arms
 //! immediately), so a second connection arriving while a first is un-accepted is refused by TCP
 //! rather than queued.
@@ -129,14 +140,15 @@
 //! assert_eq!(listen_grant(8080, 80), NO_LISTEN_GRANT); // an inverted range grants nothing
 //! ```
 //!
-//! And the request word packs an opcode with the socket id it applies to:
+//! And the badge split is the whole of how a request is read: a badge in the socket range names a
+//! socket, and any other badge is a front door, which names none.
 //!
 //! ```
-//! use socket_protocol::{OPERATION_RECEIVE, req, req_operation, req_sid};
+//! use socket_protocol::{SOCKET_BADGE, names_a_socket};
 //!
-//! let w = req(OPERATION_RECEIVE, 3);
-//! assert_eq!(req_operation(w), OPERATION_RECEIVE);
-//! assert_eq!(req_sid(w), 3);
+//! assert!(names_a_socket(SOCKET_BADGE | 1));
+//! assert!(!names_a_socket(0)); // the unbadged front door a spawner hands out
+//! assert!(!names_a_socket(7)); // a front door a spawner badged for its own reasons
 //! ```
 //!
 //! Name: ratified 2026-08-01 (calef, the naming tenet), which names `socket_proto` among the
@@ -146,13 +158,15 @@
 //! is equally short for `prototype`, so the crate is `socket_protocol` now; `socket`, the half the 2026-08-01
 //! ruling was about, is untouched.
 
-/// Operations. The opcode is the low byte of the request word; the socket id is the next byte.
+/// Operations. The opcode is the whole request word (milestone 649: it carried a socket id beside
+/// it until a socket became a capability).
 ///
-/// `SEND_CAP`: delegate the shared frame for this socket id.
+/// `SEND_CAP` on a socket's capability: delegate that socket's shared frame.
 pub const OPERATION_ATTACH_PAGE_FRAME: u64 = 1;
-/// `CALL`: create a UDP socket, bind an ephemeral local port.
+/// `CALL` on the front door: create a UDP socket and bind an ephemeral local port. Answered
+/// [`REP_OK`] with the socket's capability.
 pub const OPERATION_OPEN_UDP: u64 = 2;
-/// `CALL`: create a TCP socket.
+/// `CALL` on the front door: create a TCP socket. Answered [`REP_OK`] with the socket's capability.
 pub const OPERATION_OPEN_TCP: u64 = 3;
 /// `CALL`: UDP send; dst in the frame header, payload in the frame.
 pub const OPERATION_SENDTO: u64 = 4;
@@ -164,31 +178,32 @@ pub const OPERATION_CONNECT: u64 = 6;
 pub const OPERATION_SEND: u64 = 7;
 /// `CALL`: close the socket and drop its frame mapping.
 pub const OPERATION_CLOSE: u64 = 8;
-/// `CALL(req(OPERATION_LISTEN, sid), port)`: bind `port` on socket id `sid` and start listening there.
-/// Replies one of the [`LISTEN_GRANTED`] outcomes. Names provisional (milestone 107).
+/// `CALL(front door, OPERATION_LISTEN, port)`: start listening on `port`. Replies one of the
+/// [`LISTEN_GRANTED`] outcomes, and a granted one carries the listener's capability. Names
+/// provisional (milestone 107 (the socket contract learns to accept)).
 pub const OPERATION_LISTEN: u64 = 9;
-/// `CALL(req(OPERATION_ACCEPT, lsid), target_sid)`: block until a connection arrives on the listener
-/// `lsid`, then install it at socket id `target_sid`, which must already have a frame attached and
-/// must not be `lsid`. Replies [`REP_OK`] or [`REP_ERR`]. The listener keeps listening.
+/// `CALL(listener, OPERATION_ACCEPT, 0)`: block until a connection arrives on this listener, then
+/// answer [`REP_OK`] carrying the connection's capability, or [`REP_ERR`]. The listener keeps
+/// listening, and the connection wants a frame attached before it carries bytes.
 pub const OPERATION_ACCEPT: u64 = 10;
-/// `CALL(req(OPERATION_BIND_UDP, sid), port)`: create a UDP socket bound to the **fixed** `port`, subject
-/// to the stack's [`udp_bind_grant`]. Replies the [`LISTEN_GRANTED`] vocabulary, which is the
-/// port-claim vocabulary rather than a TCP one. Unlike a listener, the socket this creates carries
-/// bytes, so it uses the frame attached at `sid` exactly as `OPERATION_OPEN_UDP`'s would. Name
-/// provisional (milestone 55's mDNS stack half).
+/// `CALL(front door, OPERATION_BIND_UDP, port)`: create a UDP socket bound to the **fixed**
+/// `port`, subject to the stack's [`udp_bind_grant`]. Replies the [`LISTEN_GRANTED`] vocabulary,
+/// which is the port-claim vocabulary rather than a TCP one, and a granted one carries the socket's
+/// capability. Name provisional (milestone 55 (Time Machine: SMB3 with Apple's extensions, and
+/// mDNS)'s mDNS stack half).
 pub const OPERATION_BIND_UDP: u64 = 11;
 
-/// Pack an opcode and socket id into the request word.
-pub const fn req(operation: u64, sid: u64) -> u64 {
-    operation | (sid << 8)
-}
-/// The opcode packed by [`req`].
-pub const fn req_operation(word: u64) -> u64 {
-    word & 0xff
-}
-/// The socket id packed by [`req`].
-pub const fn req_sid(word: u64) -> u64 {
-    (word >> 8) & 0xff
+/// **The badge bit that marks a socket's capability** (§255 (each socket is its own capability);
+/// name provisional). The stack mints every socket's badge with this bit set, so a request whose
+/// badge has it names a socket and any other badge is a front door. That split is what stops a
+/// closed socket's capability from acting as a front door: its badge is in the socket range and no
+/// longer in the stack's table, so it reaches nothing at all.
+pub const SOCKET_BADGE: u64 = 1 << 63;
+
+/// Does a request that arrived with `badge` name a socket? `false` means it came through a front
+/// door. Name provisional.
+pub const fn names_a_socket(badge: u64) -> bool {
+    badge & SOCKET_BADGE != 0
 }
 
 /// Reply words. Non-negative is success (RECEIVE returns the length here); the connect outcomes are
@@ -198,7 +213,8 @@ pub const REP_OK: u64 = 0;
 pub const CONNECT_ESTABLISHED: u64 = 0;
 /// The peer sent RST, or the connect otherwise failed or closed.
 pub const CONNECT_REFUSED: u64 = 1;
-/// A failure sentinel (an unknown socket id, a bad operation, or a server-side timeout). High bit set so
+/// A failure sentinel (a capability that names no live socket, a bad operation, or a server-side
+/// timeout). High bit set so
 /// it is never mistaken for a length or a connect outcome.
 pub const REP_ERR: u64 = 1 << 32;
 
@@ -256,6 +272,20 @@ pub const fn udp_grant_allows(grant: u64, port: u16) -> bool {
     lo != 0 && port >= lo && port <= hi
 }
 
+/// **Where a network stack finds the two capabilities §255 (each socket is its own capability)
+/// added to its spawn**, which its spawners (the progenitor, and the kernel's test harness) and the
+/// stack itself must agree on, so they are here under rule 7 rather than spelled per program. Names
+/// provisional.
+pub mod stack_slots {
+    /// The stack's own endpoint again, `WRITE | GRANT`: what each socket's capability is minted
+    /// from with `BADGE`, which keeps the source's rights. Not the `READ` copy the stack serves on,
+    /// because a socket minted from that could take other clients' requests.
+    pub const MINT: u64 = 7;
+    /// The stack's own address space, `WRITE`: so `CLOSE` can `UNMAP` a socket's page before its
+    /// table entry takes another client's.
+    pub const OWN_SPACE: u64 = 8;
+}
+
 /// `PageFrame` header offsets.
 pub const OFF_DST_IP: u64 = 0x000;
 /// The destination port, right after the destination IP.
@@ -264,19 +294,6 @@ pub const OFF_DST_PORT: u64 = 0x004;
 pub const OFF_LEN: u64 = 0x006;
 /// Where the payload bytes start.
 pub const OFF_PAYLOAD: u64 = 0x008;
-
-/// The most sockets **one `Stack` endpoint** may hold at once, which is not the same as one client:
-/// the socket table is per-endpoint (see the grant's BUGS above), so the clients sharing an endpoint
-/// share this number between them and agree by convention on who owns which id.
-///
-/// **Six, raised from four** by milestone 55's responder lane, and the number is a count of the
-/// programs one net server serves rather than a capacity anyone measured. The combined gate had
-/// exactly four: `socket_test_client` holds 0 and 1, `smb_server` 2 and 3, and the mDNS responder
-/// arriving as a third client had nowhere to go. It is cheap to raise (`net_stack`'s table is
-/// `[Option<Sock>; MAX_SOCKETS]`, and a socket's real cost, its buffers and its mapped frame, is
-/// paid only when one is opened) and it must stay under 256, because the id rides in a byte of the
-/// request word.
-pub const MAX_SOCKETS: usize = 6;
 
 /// The largest payload the frame carries (a 4 KiB frame minus the header).
 pub const DATA_MAX: usize = 4096 - OFF_PAYLOAD as usize;
@@ -411,30 +428,13 @@ mod tests {
         OPERATION_BIND_UDP,
     ];
 
-    /// **The request word round-trips.** `req` packs an opcode and a socket id into one word and
-    /// the server unpacks both; if these three ever disagree, a client's `CLOSE` on socket 3
-    /// becomes some other operation on some other socket, silently, with no error anywhere.
+    /// Opcodes are distinct from each other and from zero, and stay small. The request word is the
+    /// opcode alone now, so a wide opcode costs nothing on the wire, but zero is what an empty
+    /// word reads as and must never mean an operation.
     #[test]
-    fn a_request_word_round_trips_for_every_opcode_and_socket() {
+    fn every_opcode_is_nonzero_and_small() {
         for &operation in OPERATIONS {
-            for sid in 0..MAX_SOCKETS as u64 {
-                let w = req(operation, sid);
-                assert_eq!(req_operation(w), operation, "opcode lost for sid {sid}");
-                assert_eq!(req_sid(w), sid, "socket id lost for operation {operation}");
-            }
-        }
-    }
-
-    /// Opcodes fit the byte the packing gives them. An operation numbered 256 would alias
-    /// `OPERATION_ATTACH_PAGE_FRAME` and shift the socket id, and the round-trip above would still pass for
-    /// every opcode that exists.
-    #[test]
-    fn every_opcode_fits_in_its_byte() {
-        for &operation in OPERATIONS {
-            assert!(
-                operation <= 0xff,
-                "opcode {operation} does not fit the low byte"
-            );
+            assert!(operation != 0 && operation <= 0xff, "opcode {operation}");
         }
     }
 
@@ -448,13 +448,21 @@ mod tests {
         }
     }
 
-    /// **A socket id must fit the byte it rides in**, or `MAX_SOCKETS` promises more sockets than
-    /// the wire format can name and the highest ones alias the lowest.
+    /// **The socket range and the front door never overlap.** A badge either names a socket or is
+    /// a front door; if one value could be both, a closed socket's capability would open new
+    /// sockets, or a front door would reach someone's socket.
     #[test]
-    fn every_socket_id_fits_the_field() {
-        assert!(MAX_SOCKETS as u64 <= 256, "socket ids do not fit one byte");
-        let top = MAX_SOCKETS as u64 - 1;
-        assert_eq!(req_sid(req(OPERATION_SEND, top)), top);
+    fn a_badge_is_a_socket_or_a_front_door_and_never_both() {
+        assert!(!names_a_socket(0), "the unbadged front door names a socket");
+        for b in [1u64, 7, 1 << 62, (1 << 63) - 1] {
+            assert!(!names_a_socket(b), "front door badge {b:#x} names a socket");
+        }
+        for b in [SOCKET_BADGE, SOCKET_BADGE | 1, u64::MAX] {
+            assert!(
+                names_a_socket(b),
+                "socket badge {b:#x} reads as a front door"
+            );
+        }
     }
 
     /// The shared frame's header fields do not overlap, and the payload starts after all of them.

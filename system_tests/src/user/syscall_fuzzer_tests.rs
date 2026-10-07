@@ -547,10 +547,13 @@ impl Model {
                     if self.park[caller] == Park::AwaitReply {
                         self.census.replied += 1;
                         self.park[caller] = Park::Idle;
+                        // x2 is `NO_CAP`: a plain REPLY carries no capability, and since
+                        // `REPLY_CAPABILITY` (§255 (each socket is its own capability)) every CALL
+                        // returns x2, so the model holds the kernel to it.
                         woken[caller] = Some(Answer {
                             r: Ok(a0 as i64),
-                            regs: [a1, 0, 0, 0],
-                            n: 1,
+                            regs: [a1, abi::rendezvous::NO_CAP, 0, 0],
+                            n: 2,
                         });
                     }
                     self.tables[a][slot as usize] = None; // one-shot

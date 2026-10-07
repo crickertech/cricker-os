@@ -24,17 +24,15 @@
 //! - slot 0: its output, the sink contract (`crates/byte_sink_protocol`).
 //! - slot 1: the `--mem` budget, which it mints the one page it trades bytes with the stack
 //!   through out of. The network grant carries no memory, so a socket client pays for its own page.
-//! - slot 10 ([`grant_plan::NETWORK_SLOT`]): `WRITE` on the stack's endpoint, the right to `CALL`
-//!   the socket contract. Placed there by the progenitor because the manifest declares
-//!   `network`, and empty on a boot whose progenitor built no stack (`x86_64`, or any run with
-//!   `NIFE_NET` unset), in which case this prints why and sends nothing.
-//!
-//! # BUGS
-//!
-//! **It uses socket number 0, and so does any other client of the same stack.** The socket
-//! contract names a socket by a small integer every client shares (`socket_protocol::MAX_SOCKETS`),
-//! so two network programs alive at once would operate each other's sockets. Nothing at this prompt
-//! runs two today; milestone 590's block records the limitation and what fixing it would change.
+//! - slot 10 ([`grant_plan::NETWORK_SLOT`]): `WRITE` on the stack's endpoint, the front door that
+//!   makes sockets. Placed there by the progenitor because the manifest declares `network`, and
+//!   empty on a boot whose progenitor built no stack (`x86_64`, or any run with `NIFE_NET` unset),
+//!   in which case this prints why and sends nothing.
+//! - while it runs, one more: the capability of the socket it opened, which the stack handed back
+//!   on `OPEN_TCP` and which reaches that socket and no other (§255 (each socket is its own
+//!   capability)). Until milestone 649 (every client of a network stack shares its socket numbers)
+//!   this program used socket number 0, the number every other client of the stack could also
+//!   name.
 //!
 //! Name: provisional. Introduced 2026-09-24 for milestone 590; says what it talks to, and expects
 //! to be retired rather than renamed once a real network tool can stand in for it.
@@ -48,7 +46,8 @@ use socket_protocol::fixture::{ECHO_PEER_IP, ECHO_PEER_PORT};
 use socket_protocol::*;
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
 use user_mode_runtime::{
-    call, exit, is_granted, map_page_frame, retype_page_frame, send, send_cap,
+    call, call_receiving, cap_delete, exit, is_granted, map_page_frame, retype_page_frame, send,
+    send_cap,
 };
 
 /// The output slot: the sink contract.
@@ -57,9 +56,6 @@ const OUT: u64 = 0;
 const MEMORY_REGION: u64 = 1;
 /// The stack's endpoint, where the manifest's declaration puts it.
 const STACK: u64 = grant_plan::NETWORK_SLOT;
-
-/// The socket this program opens. See this file's BUGS.
-const SID: u64 = 0;
 
 /// Where this program maps the page it shares with the stack. Any address its own image does not
 /// use; `socket_test_client`'s choice, because that one is known to be clear of a small program.
@@ -96,7 +92,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
     }
 }
 
-/// Attach a page, open, connect, send, receive, close. `Ok` carries the received length; `Err`
+/// Mint a page, open a socket, attach the page, connect, send, receive, close. `Ok` carries the received length; `Err`
 /// names the step that failed, which is all a person at the prompt can act on.
 fn exchange() -> Result<usize, &'static [u8]> {
     let frame = retype_page_frame(MEMORY_REGION);
@@ -107,36 +103,42 @@ fn exchange() -> Result<usize, &'static [u8]> {
     if !map_page_frame(frame, PAGE_FRAME_VA, true, MEMORY_REGION) {
         return Err(b"mapping the shared page");
     }
+    let (REP_OK, _, Some(socket)) = call_receiving(STACK, OPERATION_OPEN_TCP, 0) else {
+        return Err(b"opening a socket");
+    };
+    let result = converse(socket, frame);
+    // Closed before the answer is judged, so a failed exchange still gives the socket back.
+    let _ = call(socket, OPERATION_CLOSE, 0);
+    cap_delete(socket);
+    result
+}
+
+/// Attach the page to `socket`, connect, send, receive: the length received, or the step that
+/// failed.
+fn converse(socket: u64, frame: u64) -> Result<usize, &'static [u8]> {
     if send_cap(
-        STACK,
+        socket,
         frame,
         rights::READ | rights::WRITE,
-        req(OPERATION_ATTACH_PAGE_FRAME, SID),
+        OPERATION_ATTACH_PAGE_FRAME,
     ) < 0
     {
         return Err(b"handing the stack the shared page");
-    }
-    if call(STACK, req(OPERATION_OPEN_TCP, SID), 0).0 != REP_OK {
-        return Err(b"opening a socket");
     }
     for (i, &b) in ECHO_PEER_IP.iter().enumerate() {
         WINDOW.w8(OFF_DST_IP + i as u64, b);
     }
     WINDOW.w16(OFF_DST_PORT, ECHO_PEER_PORT);
-    if call(STACK, req(OPERATION_CONNECT, SID), 0).0 != CONNECT_ESTABLISHED {
-        let _ = call(STACK, req(OPERATION_CLOSE, SID), 0);
+    if call(socket, OPERATION_CONNECT, 0).0 != CONNECT_ESTABLISHED {
         return Err(b"connecting");
     }
     for (i, &b) in MSG.iter().enumerate() {
         WINDOW.w8(OFF_PAYLOAD + i as u64, b);
     }
-    if call(STACK, req(OPERATION_SEND, SID), MSG.len() as u64).0 != MSG.len() as u64 {
-        let _ = call(STACK, req(OPERATION_CLOSE, SID), 0);
+    if call(socket, OPERATION_SEND, MSG.len() as u64).0 != MSG.len() as u64 {
         return Err(b"sending");
     }
-    let (n, _) = call(STACK, req(OPERATION_RECEIVE, SID), 0);
-    // Closed before the answer is judged, so a failed exchange still gives the socket back.
-    let _ = call(STACK, req(OPERATION_CLOSE, SID), 0);
+    let (n, _) = call(socket, OPERATION_RECEIVE, 0);
     if n == REP_ERR || n == 0 {
         return Err(b"receiving");
     }

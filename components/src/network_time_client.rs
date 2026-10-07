@@ -130,8 +130,8 @@ use network_time_protocol::{Query, Reject, Timestamp};
 use socket_protocol::*;
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
 use user_mode_runtime::{
-    call, cntfrq, exit, map_page_frame, now, retype_page_frame, retype_sleeper, send, send_cap,
-    sleep_until, yield_now,
+    call, call_receiving, cntfrq, exit, map_page_frame, now, retype_page_frame, retype_sleeper,
+    send, send_cap, sleep_until, yield_now,
 };
 
 // =================================================================================================
@@ -193,9 +193,6 @@ const PAGE_FRAME_VA: u64 = address_space_map::pair_page(0x0000_0000_00A0_0000);
 // (milestone 139).
 const WINDOW: MappedWindow = unsafe { MappedWindow::new(PAGE_FRAME_VA, PAGE) };
 
-/// The one socket id this client uses.
-const SID: u64 = 0;
-
 /// `a0` is the server's IPv4 packed big-endian, `a1` its UDP port.
 #[unsafe(no_mangle)]
 pub extern "C" fn _start(server_ip: u64, server_port: u64) -> ! {
@@ -228,10 +225,12 @@ fn client(server_ip: u64, server_port: u64) -> ! {
         Err(word) => done(RPT_NO_ENTROPY, word, 0),
     };
 
-    attach_page_frame();
-    if call(STACK, req(OPERATION_OPEN_UDP, SID), 0).0 != REP_OK {
+    // Our one socket, a capability the stack hands back (§255 (each socket is its own
+    // capability)), and then our page attached to it.
+    let (REP_OK, _, Some(socket)) = call_receiving(STACK, OPERATION_OPEN_UDP, 0) else {
         done(RPT_NET_ERROR, 2, 0);
-    }
+    };
+    attach_page_frame(socket);
 
     let mut sent = 0u32;
     let mut last_reject = 0u64;
@@ -257,8 +256,8 @@ fn client(server_ip: u64, server_port: u64) -> ! {
         write_payload(&query.request());
         sent += 1;
         if call(
-            STACK,
-            req(OPERATION_SENDTO, SID),
+            socket,
+            OPERATION_SENDTO,
             network_time_protocol::PACKET_LEN as u64,
         )
         .0 != REP_OK
@@ -266,7 +265,7 @@ fn client(server_ip: u64, server_port: u64) -> ! {
             done(RPT_NET_ERROR, 3, sent as u64);
         }
 
-        let (n, _) = call(STACK, req(OPERATION_RECEIVE, SID), 0);
+        let (n, _) = call(socket, OPERATION_RECEIVE, 0);
         if n == REP_ERR || n == 0 {
             poll_gap();
             continue;
@@ -288,7 +287,7 @@ fn client(server_ip: u64, server_port: u64) -> ! {
                 let corrected = local.now() as i128 + sample.offset.nanos();
                 let proposed = corrected.clamp(0, u64::MAX as i128) as u64;
                 let (status, _wall_after) = call(PROPOSE, propose::req(propose::PROPOSE), proposed);
-                let _ = call(STACK, req(OPERATION_CLOSE, SID), 0);
+                let _ = call(socket, OPERATION_CLOSE, 0);
                 done(RPT_SYNCED, status, proposed);
             }
             Err(reject) => {
@@ -302,7 +301,7 @@ fn client(server_ip: u64, server_port: u64) -> ! {
         }
     }
 
-    let _ = call(STACK, req(OPERATION_CLOSE, SID), 0);
+    let _ = call(socket, OPERATION_CLOSE, 0);
     if last_reject != 0 {
         done(RPT_REJECTED, last_reject, sent as u64);
     }
@@ -426,9 +425,9 @@ fn reject_code(r: Reject) -> u64 {
     }
 }
 
-/// Mint one frame from our own budget, map it, and delegate it to the socket contract's server.
-/// Exactly what `socket_test_client` does, because it is exactly the same contract.
-fn attach_page_frame() {
+/// Mint one frame from our own budget, map it, and delegate it to `socket`. Exactly what
+/// `socket_test_client` does, because it is exactly the same contract.
+fn attach_page_frame(socket: u64) {
     // RETYPE answers with the new frame capability's slot, or a negative error.
     let frame = retype_page_frame(MEMORY_REGION);
     if frame < 0 {
@@ -441,10 +440,10 @@ fn attach_page_frame() {
     }
     // Delegate it, narrowed to read/write, with the ATTACH request.
     if send_cap(
-        STACK,
+        socket,
         frame,
         rights::READ | rights::WRITE,
-        req(OPERATION_ATTACH_PAGE_FRAME, SID),
+        OPERATION_ATTACH_PAGE_FRAME,
     ) < 0
     {
         done(RPT_NET_ERROR, 1, 0);

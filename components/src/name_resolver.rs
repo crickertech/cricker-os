@@ -22,8 +22,10 @@
 //! | 2 | an untyped budget: the socket page, and the page tables for its clients' pages | |
 //! | 3 | the entropy service's endpoint, for transaction ids | `WRITE` |
 //!
-//! And three start words ([`name_resolution_protocol::endowment`]): the name server's address, its
-//! port and the transport, and the socket id to use on the stack. Which server to ask is the
+//! And two start words ([`name_resolution_protocol::endowment`]): the name server's address, and its
+//! port and the transport. The third is unused: it named the socket number to use on the stack
+//! until milestone 649 (every client of a network stack shares its socket numbers) made each socket
+//! a capability the stack hands back (§255 (each socket is its own capability)). Which server to ask is the
 //! spawner's decision, read from the DHCP lease (`socket_protocol::lease`), the way the network time
 //! client is told its server rather than choosing one.
 //!
@@ -75,9 +77,10 @@
 //! - **IPv4 only, no DNSSEC, no EDNS(0)**: `domain_name_system`'s BUGS, inherited.
 //! - **One name server.** A second, tried when the first does not answer, wants a second endowment
 //!   word and a reason to need it.
-//! - **One socket id**, given at spawn, because `net_stack`'s socket numbers are shared by all its
-//!   clients (milestone 649 (every client of a network stack shares its socket numbers)). The
-//!   spawner picks one no other client of that stack uses.
+//! - **One socket at a time.** Each resolve opens a socket, which the stack hands back as a
+//!   capability no other client of the stack can reach (§255 (each socket is its own capability)),
+//!   and closes it before answering. Until milestone 649 (every client of a network stack shares
+//!   its socket numbers) the spawner had to pick a socket number no other client of the stack used.
 //! - **A page attached before its badge was granted is deleted**, so a client must be spawned after
 //!   the spawner's grant, which is the order a spawner works in anyway.
 //! - The UDP path is proved on the host only up to the bytes (`domain_name_system`'s tests); the
@@ -103,8 +106,8 @@ use name_resolution_protocol::{
 use socket_protocol as socket;
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
 use user_mode_runtime::{
-    Delivered, call, cap_delete, map_page_frame, receive_request, reply, retype_page_frame,
-    send_cap,
+    Delivered, call, call_receiving, cap_delete, map_page_frame, receive_request, reply,
+    retype_page_frame, send_cap,
 };
 
 /// Slot 0: where grants and requests arrive.
@@ -123,7 +126,7 @@ const CLIENT_VA: u64 = address_space_map::pair_page(0x0000_0000_00B0_0000);
 /// The last window, checked against the map at compile time like the first.
 const _: u64 = address_space_map::pair_page(CLIENT_VA + (protocol::GRANTS_MAX as u64 - 1) * PAGE);
 
-// SAFETY: `attach_socket` maps one page read/write at SOCKET_VA before any accessor runs, and every
+// SAFETY: `socket_page` maps one page read/write at SOCKET_VA before any accessor runs, and every
 // accessor is reached only after it succeeded (`socket_ready`).
 const SOCKET: MappedWindow = unsafe { MappedWindow::new(SOCKET_VA, PAGE) };
 
@@ -170,7 +173,9 @@ struct Server {
     ip: [u8; 4],
     port: u16,
     tcp_only: bool,
-    sid: u64,
+    /// Our socket page's frame, which every socket this resolver opens is handed a copy of, or
+    /// `None` if minting it failed.
+    frame: Option<u64>,
 }
 
 /// Why an exchange produced no answer: a reply was refused, or something else is wrong.
@@ -180,7 +185,7 @@ enum Fail {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn _start(server: u64, port_and_transport: u64, sid: u64) -> ! {
+pub extern "C" fn _start(server: u64, port_and_transport: u64, _unused: u64) -> ! {
     // SAFETY: one thread, and `_start` is the only code that names `STATE`, once, here.
     let state = unsafe { &mut *core::ptr::addr_of_mut!(STATE) };
     let (port, transport) = endowment::port_and_transport_fields(port_and_transport);
@@ -188,11 +193,11 @@ pub extern "C" fn _start(server: u64, port_and_transport: u64, sid: u64) -> ! {
         ip: endowment::server_octets(server),
         port,
         tcp_only: transport == endowment::TRANSPORT_TCP,
-        sid,
+        frame: socket_page(),
     };
     // A failure here is answered on every request rather than by exiting: a resolver that vanished
     // would leave its clients blocked in `CALL` with nothing to say why.
-    let socket_ready = attach_socket(sid);
+    let socket_ready = server.frame.is_some();
     loop {
         serve(state, &server, socket_ready);
     }
@@ -370,16 +375,46 @@ fn transaction_id() -> Result<u16, Fail> {
 }
 
 fn over_udp(state: &mut State, server: &Server, query: &Query) -> Result<Answer, Fail> {
-    let sid = server.sid;
-    if call(STACK, socket::req(socket::OPERATION_OPEN_UDP, sid), 0).0 != socket::REP_OK {
-        return Err(Fail::Status(network(step::OPEN)));
-    }
-    let result = exchange_udp(state, server, query);
-    let _ = call(STACK, socket::req(socket::OPERATION_CLOSE, sid), 0);
+    let socket = open(server, socket::OPERATION_OPEN_UDP)?;
+    let result = exchange_udp(state, server, socket, query);
+    close(socket);
     result
 }
 
-fn exchange_udp(state: &mut State, server: &Server, query: &Query) -> Result<Answer, Fail> {
+/// A socket of our own, through the stack's front door, with our page attached (§255 (each socket
+/// is its own capability)). Its capability, or the step that failed.
+fn open(server: &Server, operation: u64) -> Result<u64, Fail> {
+    let frame = server
+        .frame
+        .ok_or(Fail::Status(network(step::NO_SOCKET_PAGE)))?;
+    let (socket::REP_OK, _, Some(socket)) = call_receiving(STACK, operation, 0) else {
+        return Err(Fail::Status(network(step::OPEN)));
+    };
+    if send_cap(
+        socket,
+        frame,
+        rights::READ | rights::WRITE,
+        socket::OPERATION_ATTACH_PAGE_FRAME,
+    ) < 0
+    {
+        close(socket);
+        return Err(Fail::Status(network(step::NO_SOCKET_PAGE)));
+    }
+    Ok(socket)
+}
+
+/// End `socket` and drop our capability to it.
+fn close(socket: u64) {
+    let _ = call(socket, socket::OPERATION_CLOSE, 0);
+    cap_delete(socket);
+}
+
+fn exchange_udp(
+    state: &mut State,
+    server: &Server,
+    socket: u64,
+    query: &Query,
+) -> Result<Answer, Fail> {
     let n = query
         .request(&mut state.request)
         .map_err(|e| Fail::Rejected(Reject::Malformed(e)))?;
@@ -388,17 +423,11 @@ fn exchange_udp(state: &mut State, server: &Server, query: &Query) -> Result<Ans
     for _ in 0..ATTEMPTS {
         set_destination(server);
         write_payload(&state.request[..n]);
-        if call(
-            STACK,
-            socket::req(socket::OPERATION_SENDTO, server.sid),
-            n as u64,
-        )
-        .0 != socket::REP_OK
-        {
+        if call(socket, socket::OPERATION_SENDTO, n as u64).0 != socket::REP_OK {
             return Err(Fail::Status(network(step::SEND)));
         }
         for _ in 0..DATAGRAMS_PER_ATTEMPT {
-            let (got, _) = call(STACK, socket::req(socket::OPERATION_RECEIVE, server.sid), 0);
+            let (got, _) = call(socket, socket::OPERATION_RECEIVE, 0);
             if got == socket::REP_ERR || got == 0 || got > socket::DATA_MAX as u64 {
                 break; // nothing came: the next attempt
             }
@@ -430,38 +459,32 @@ fn exchange_udp(state: &mut State, server: &Server, query: &Query) -> Result<Ans
 }
 
 fn over_tcp(state: &mut State, server: &Server, query: &Query) -> Result<Answer, Fail> {
-    let sid = server.sid;
-    if call(STACK, socket::req(socket::OPERATION_OPEN_TCP, sid), 0).0 != socket::REP_OK {
-        return Err(Fail::Status(network(step::OPEN)));
-    }
-    let result = exchange_tcp(state, server, query);
-    let _ = call(STACK, socket::req(socket::OPERATION_CLOSE, sid), 0);
+    let socket = open(server, socket::OPERATION_OPEN_TCP)?;
+    let result = exchange_tcp(state, server, socket, query);
+    close(socket);
     result
 }
 
-fn exchange_tcp(state: &mut State, server: &Server, query: &Query) -> Result<Answer, Fail> {
+fn exchange_tcp(
+    state: &mut State,
+    server: &Server,
+    socket: u64,
+    query: &Query,
+) -> Result<Answer, Fail> {
     set_destination(server);
-    if call(STACK, socket::req(socket::OPERATION_CONNECT, server.sid), 0).0
-        != socket::CONNECT_ESTABLISHED
-    {
+    if call(socket, socket::OPERATION_CONNECT, 0).0 != socket::CONNECT_ESTABLISHED {
         return Err(Fail::Status(network(step::CONNECT)));
     }
     let n = query
         .request_tcp(&mut state.request)
         .map_err(|e| Fail::Rejected(Reject::Malformed(e)))?;
     write_payload(&state.request[..n]);
-    if call(
-        STACK,
-        socket::req(socket::OPERATION_SEND, server.sid),
-        n as u64,
-    )
-    .0 != n as u64
-    {
+    if call(socket, socket::OPERATION_SEND, n as u64).0 != n as u64 {
         return Err(Fail::Status(network(step::SEND)));
     }
     let mut framed = TcpReply::new(&mut state.reply);
     loop {
-        let (got, _) = call(STACK, socket::req(socket::OPERATION_RECEIVE, server.sid), 0);
+        let (got, _) = call(socket, socket::OPERATION_RECEIVE, 0);
         if got == 0 || got > socket::DATA_MAX as u64 {
             // The server closed, or the stack gave up, before the reply was whole.
             return Err(Fail::Status(Outcome::of(status::NO_ANSWER)));
@@ -480,23 +503,12 @@ fn exchange_tcp(state: &mut State, server: &Server, query: &Query) -> Result<Ans
     query.accept(message).map_err(Fail::Rejected)
 }
 
-/// Mint the socket page from the budget, map it, and delegate it to the stack at `sid`. `false`
-/// at any step, and the resolver then answers every request with the step that failed.
-fn attach_socket(sid: u64) -> bool {
-    let frame = retype_page_frame(MEMORY_REGION);
-    if frame < 0 {
-        return false;
-    }
-    let frame = frame as u64;
-    if !map_page_frame(frame, SOCKET_VA, true, MEMORY_REGION) {
-        return false;
-    }
-    send_cap(
-        STACK,
-        frame,
-        rights::READ | rights::WRITE,
-        socket::req(socket::OPERATION_ATTACH_PAGE_FRAME, sid),
-    ) >= 0
+/// Mint the socket page from the budget and map it: its frame's slot, kept so each socket can be
+/// handed a copy, or `None` at any step, and the resolver then answers every request with the step
+/// that failed.
+fn socket_page() -> Option<u64> {
+    let frame = u64::try_from(retype_page_frame(MEMORY_REGION)).ok()?;
+    map_page_frame(frame, SOCKET_VA, true, MEMORY_REGION).then_some(frame)
 }
 
 fn set_destination(server: &Server) {

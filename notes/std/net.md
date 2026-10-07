@@ -20,9 +20,11 @@ The records this file cites by number:
 `sys/net/connection/nife.rs` binds std's `TcpStream` and outbound `UdpSocket` to net_stack's socket
 contract (DECISIONS §25, notes/net.md, `crates/socket_protocol/src/lib.rs`). The PAL is a client of
 the frozen contract, nothing more. It holds the `Stack` endpoint (slot 2) and a frame untyped (slot
-3). For each socket it mints a shared `Frame`, maps it, delegates it to net_stack (`SEND_CAP`,
-`OPERATION_ATTACH_PAGE_FRAME`), and then drives the socket with `CALL`s carrying a socket id. Control words ride
-the message; bytes sit in the shared frame. This is the exact path the hand-written
+3). An open is a `CALL` on the `Stack` endpoint, answered with the socket's own capability (§255
+(each socket is its own capability), since 2026-10-07 UTC). The PAL hands that socket a shared
+`Frame` it minted and mapped (`SEND_CAP`, `OPERATION_ATTACH_PAGE_FRAME`), and then drives the socket
+with `CALL`s on its capability. Control words ride the message; bytes sit in the shared frame. The
+PAL's socket ids are its own registry's indices and never reach net_stack. This is the exact path the hand-written
 `socket_test_client` client walks, reached through std's blocking API instead.
 
 The wire constants are not restated: `netproto.rs` is generated verbatim from
@@ -55,25 +57,32 @@ What binds, and how it maps to the contract:
   armed, call again). The `std_net` test boot runs this as its negative control: the same binary
   prints `listen refused` on a stack granted no ports, on aarch64 and riscv64.
 
-  A listener and a connection are two socket ids, and the listener never gets a frame. That is
-  DECISIONS §25 showing through the PAL rather than a choice made here: the shared frame is the
-  granted resource and a listener carries no bytes, so it has nothing to grant. `accept` allocates a
-  *second* id, attaches that one's frame, and asks `OPERATION_ACCEPT` to install the connection there.
-  `net_stack` refuses an accept into the listener's own id, so the POSIX move of turning a listening
-  descriptor into the connection in place is not expressible from this PAL.
+  A listener and a connection are two capabilities under two PAL ids, and the listener never gets a
+  frame. That is DECISIONS §25 showing through the PAL rather than a choice made here: the shared
+  frame is the granted resource and a listener carries no bytes, so it has nothing to grant.
+  `OPERATION_ACCEPT` answers with the connection's own capability, which `accept` files under a
+  *second* id and hands that id's frame, so the POSIX move of turning a listening descriptor into
+  the connection in place is not expressible from this PAL.
 
   The peer address is `0.0.0.0:0`, and it is a placeholder named as one. `accept` must return a
   `SocketAddr` and the contract's reply carries no peer; reporting the real one is a wire change and
   therefore a fork rather than a PAL decision (notes/net/std-tcp-listener.md carries the two options).
 
 The concurrency model is the contract's: single-threaded, one synchronous exchange at a time. A
-program can hold up to `MAX_SOCKETS` (6, raised from 4 by milestone 55) sockets at once and
-interleave them, but there is only ever
+program can hold up to six sockets at once (the PAL's `SOCKETS`) and interleave them, but there is only ever
 one operation in flight, which is all a single-threaded process can do anyway. For a listener that
 means the backlog is one connection deep: the listener re-arms inside `ACCEPT`, so serving
 connections one after another works indefinitely, and serving two at once does not.
 
-A finding, recorded honestly. net_stack derives a socket's local port from its socket id
+Capability slots, counted from what the PAL holds (milestone 649 (every client of a network stack
+shares its socket numbers)). Each open socket costs one slot for its capability. Each PAL id that
+has ever carried bytes keeps one more, for its page's frame, which the next socket at that id is
+handed a copy of. So a program holding all six sockets spends twelve of its 64 slots
+on the network, and one that has closed them all still spends six.
+
+A finding, recorded honestly, and superseded: net_stack assigns ephemeral ports independently of
+the socket since the rotating allocator, and a socket has had no number at all since §255. The
+original text: net_stack derives a socket's local port from its socket id
 (`LOCAL_PORT_BASE + sid`), so an id is not an ephemeral port that rotates; reopening a just-closed
 id reuses its exact local port. Against QEMU's slirp, a TCP connect that reuses a port whose
 previous flow has not cleared stalls (the SYN's answer never comes, and net_stack blocks in its

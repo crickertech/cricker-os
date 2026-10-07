@@ -161,7 +161,7 @@ const STACK_SLOT: u64 = std_runtime_protocol::STACK_SLOT;
 const NET_MEMORY_REGION_SLOT: u64 = std_runtime_protocol::NET_MEMORY_REGION_SLOT;
 
 /// One page per socket's shared frame, plus that frame's page table and mapping, for the six
-/// sockets `socket_protocol::MAX_SOCKETS` allows, with room to spare. The same 16 the kernel's own
+/// sockets the std PAL holds at once (its `SOCKETS`), with room to spare. The same 16 the kernel's own
 /// net clients are given (`virtio_service::NET_CLIENT_BUDGET_PAGES`).
 pub const NETWORK_FRAME_PAGES: u64 = 16;
 

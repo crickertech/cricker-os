@@ -394,6 +394,21 @@ path = "src/call_client.rs"
 test = false
 bench = false
 
+# A server that answers a CALL with a capability, and its client (§255 (each socket is its own
+# capability), milestone 649 (every client of a network stack shares its socket numbers)): the
+# kernel's REPLY_CAPABILITY proved without a network. Names provisional.
+[[bin]]
+name = "carried_capability_server"
+path = "src/carried_capability_server.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "carried_capability_client"
+path = "src/carried_capability_client.rs"
+test = false
+bench = false
+
 # The revoker (milestone 13): revokes a frame it mapped and finds its own capability
 # gone. `hello`'s REVOKE_DEMO role until milestone 291.
 [[bin]]

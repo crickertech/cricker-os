@@ -34,8 +34,8 @@ $ caps network_echo_client --mem 4
     cap 10 endpoint  network  WRITE. it may open outbound sockets through the network
                               stack, and nothing else: it cannot reach the card, cannot
                               listen, and cannot hand the network to anything it spawns.
-                              it shares the stack's socket numbers with every other
-                              program holding this row
+                              each socket it opens is a capability of its own; it cannot
+                              reach another program's sockets
                               a program without this row reaches no network at all
 $ network_echo_client --mem 4
   echo peer 10.0.2.9:7777 answered: nife-net!
@@ -98,9 +98,11 @@ move is milestone 198's, and needs no new mechanism from this one.
   blocking send, so the progenitor takes it before building anything else. Immediate under QEMU's
   user-mode network; a boot with a NIC and no DHCP server would hang with no console. No real board
   is granted a NIC today. `crates/system_initializer`'s BUGS.
-- Every declaring program shares the stack's socket numbers. Two network programs alive at once
-  can operate each other's connections, and `caps` says so. A `socket_protocol` change, so a
-  proposal rather than a fix.
+- ~~Every declaring program shares the stack's socket numbers.~~ Fixed 2026-10-07 (UTC) by
+  milestone 649 (every client of a network stack shares its socket numbers). Each socket is its own
+  capability (§255 (each socket is its own capability)), so two network programs cannot reach each
+  other's sockets, and `caps` now says that. Milestone 800 (a non-Anthropic model
+  attacks the confinement claim)'s fourth pass had booted the escape on all three ISAs first.
 - The progenitor keeps a writable view of the NIC's DMA page, the rng's cost exactly: there is
   no unmap.
 - x86_64's network is the kernel's to build, not the progenitor's. Since 2026-10-05 the kernel

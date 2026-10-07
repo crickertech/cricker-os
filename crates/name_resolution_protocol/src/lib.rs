@@ -318,11 +318,6 @@ pub mod fixture {
     /// The test client's `arg0` when it was given a stack and ends by connecting to what it
     /// resolved.
     pub const WITH_NETWORK: u64 = 1;
-    /// The socket id the test client uses on the stack it shares with the resolver, which the
-    /// kernel's test starts at socket 0: the two must differ, because a stack's socket numbers are
-    /// shared by all its clients (milestone 649 (every client of a network stack shares its socket
-    /// numbers)).
-    pub const CLIENT_SID: u64 = 1;
     /// The test client's last report carries one of these: the echo through the resolved address
     /// came back,
     pub const ECHO_OK: u64 = 1;

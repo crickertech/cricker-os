@@ -17,19 +17,25 @@ on a `Stack` endpoint; a client holds `WRITE` on it plus its own untyped budget.
 `components/src/socket_test_client.rs` (a module of the net_stack binary, dispatched by the entry role, see the archive
 note below).
 
-### A socket is a socket id
+### A socket is a capability
 
-Open returns a small integer, carried in the request word of every
-later call; the per-connection shared frame is the real granted resource, delegated once at
-open via `SEND_CAP` and mapped by net_stack at a per-socket VA. No ambient network: the client acts only
-through the `Stack` capability it was granted, and bytes cross in the shared frame, never in a
-message.
+Since 2026-10-07 (UTC), milestone 649 (every client of a network stack shares its socket numbers)
+and §255 (each socket is its own capability). The client's `Stack` capability is a **front door**:
+it opens sockets and does nothing else. Each open is answered by `REPLY_CAPABILITY` with the new
+socket's own capability, a copy of the stack's endpoint that net_stack badged for that socket, and
+every later call is made on it. net_stack names the socket by the badge the kernel stamps on each
+request, so a client can reach exactly the sockets it holds capabilities for, and can hand one to
+another program by sending the capability. `CLOSE` drops the badge from net_stack's table, so every
+copy reaches nothing afterwards. The per-connection shared frame is still the granted resource for
+bytes, delegated to the socket's capability by `SEND_CAP` and mapped by net_stack at its table
+entry's VA. Before milestone 649 a socket was a small integer carried in the request word, shared
+by every client of the stack; §25 (socket identity) had named minted endpoints as the later step.
 
 ### Operations
 
-`ATTACH_FRAME` is a `SEND_CAP` (it carries the frame). The rest are `CALL`s (which
-mint the reply cap net_stack answers on), the socket id packed into the request word: `OPEN_UDP` /
-`OPEN_TCP`; `SENDTO(len)` and `RECEIVE() -> len` for UDP (destination and payload in the shared
+`ATTACH_FRAME` is a `SEND_CAP` on a socket's capability (it carries the frame). The rest are
+`CALL`s (which mint the reply cap net_stack answers on), the opcode alone in the request word:
+`OPEN_UDP` / `OPEN_TCP` on the front door; `SENDTO(len)` and `RECEIVE() -> len` for UDP (destination and payload in the shared
 frame); `CONNECT` / `SEND(len)` / `RECEIVE()` for TCP; `CLOSE`. A blocking `RECEIVE` is net_stack driving the
 smoltcp poll loop (WAIT on the NIC interrupt) until the socket has data, then replying, the disk
 driver's discipline one layer up.
@@ -94,29 +100,27 @@ let report = virtio_service::start_net_stack(image, NET_TEST_TCP_ECHO, false,
 
 #### Client side
 
-Bind the port, then accept into a *different* socket id that already has a frame.
-The listener never gets a frame, and `ACCEPT` refuses to install a connection at the listener's own
-id:
+Bind the port, keeping the listener's capability, then accept on it. Each accepted connection
+comes back as a capability of its own, and that is what gets the frame. The listener never does:
 
 ```rust
-// 1. Bind. No frame is attached anywhere yet, because a listener carries no bytes.
-match call(STACK, req(OPERATION_LISTEN, LISTEN_SID), 7778).0 {
-    LISTEN_GRANTED => {}
-    LISTEN_DENIED  => /* this stack was never granted 7778: ask the spawner, not again */,
-    LISTEN_IN_USE  => /* somebody already holds it: pick another port */,
+// 1. Bind. No frame is attached anywhere, because a listener carries no bytes.
+let listener = match call_receiving(STACK, OPERATION_LISTEN, 7778) {
+    (LISTEN_GRANTED, _, Some(listener)) => listener,
+    (LISTEN_DENIED, ..) => /* this stack was never granted 7778: ask the spawner, not again */,
+    (LISTEN_IN_USE, ..) => /* somebody already holds it: pick another port */,
     _ => unreachable!(),
-}
+};
 
-// 2. The connection id is what carries data, so it is what gets the frame.
-attach_frame(CONN_SID);
-
-// 3. Accept, use, close, repeat. The listener re-arms inside ACCEPT, so this loop keeps working.
+// 2. Accept, use, close, repeat. The listener re-arms inside ACCEPT, so this loop keeps working.
 loop {
-    if call(STACK, req(OPERATION_ACCEPT, LISTEN_SID), CONN_SID).0 != REP_OK { break; }
-    let (len, _) = call(STACK, req(OPERATION_RECEIVE, CONN_SID), 0);
+    let (REP_OK, _, Some(conn)) = call_receiving(listener, OPERATION_ACCEPT, 0) else { break };
+    send_cap(conn, frame, rights::READ | rights::WRITE, OPERATION_ATTACH_PAGE_FRAME);
+    let (len, _) = call(conn, OPERATION_RECEIVE, 0);
     // ... read the request out of the frame at FRAME_VA + OFF_PAYLOAD, write the answer back ...
-    let _ = call(STACK, req(OPERATION_SEND, CONN_SID), reply_len);
-    let _ = call(STACK, req(OPERATION_CLOSE, CONN_SID), 0);   // the listener is untouched by this
+    let _ = call(conn, OPERATION_SEND, reply_len);
+    let _ = call(conn, OPERATION_CLOSE, 0);   // the listener is untouched by this
+    cap_delete(conn);
 }
 ```
 

@@ -13,6 +13,9 @@
 //! - slots 1 and 2 **empty**: no interrupt and no `Virtio` transport;
 //! - slot 3, the heap's **budget**; slot 4, the **`Stack`** endpoint (READ); slots 5 and 6, the
 //!   **notification and timer** the poll loop sleeps on;
+//! - slot 7, the **`Stack`** endpoint again (WRITE | GRANT), which each socket's capability is
+//!   minted from; slot 8, the server's **own address space** (WRITE), to unmap a closed socket's
+//!   page (§255 (each socket is its own capability));
 //! - mapped: **the DMA region**, [`::designware_ethernet::layout::PAGES`] pages of normal memory;
 //! - mapped: **the controller's DMA page** (`0x1000` to `0x1fff` of its window), device-typed,
 //!   which holds the two tail pointers it must write;
@@ -161,7 +164,13 @@ fn spawn_server(image: &'static [u8], listen_grant: u64, found: Found) -> Wiring
         at(4, rendezvous_cap(stack, Rights::READ));
         at(5, notification_cap(wake, Rights::ALL));
         at(6, timer_cap(poll, Rights::WRITE));
-        run(
+        // What each socket is minted from (§255 (each socket is its own capability)); slot 8, the
+        // server's own address space, `run_with_own_space` adds once the space exists.
+        at(
+            socket_protocol::stack_slots::MINT,
+            rendezvous_cap(stack, Rights::WRITE.union(Rights::GRANT)),
+        );
+        run_with_own_space(
             image,
             Spawn {
                 arg0, // `designware_ethernet::Handoff`: the role tag and the MAC address
@@ -170,6 +179,7 @@ fn spawn_server(image: &'static [u8], listen_grant: u64, found: Found) -> Wiring
                 grants: &[rendezvous_cap(report, Rights::WRITE)], // slot 0
                 maps: &maps,
             },
+            socket_protocol::stack_slots::OWN_SPACE,
         )
     })
     .expect("could not spawn net_stack over the JH7110 Ethernet port");

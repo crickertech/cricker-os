@@ -102,7 +102,7 @@ fn stack_pages() -> [Mapping; STACK_PAGES as usize] {
 /// clock capability of its own, which keeps every test's expectation an exact number rather
 /// than a window.
 ///
-/// **Three slots, and it is a different endowment from the client's on purpose.** It holds no
+/// **Four slots, and it is a different endowment from the client's on purpose.** It holds no
 /// propose endpoint and no entropy endpoint, so a reader can see from the wiring alone that the peer
 /// answering the client cannot itself reach the clock.
 pub fn start_server(image: &'static [u8], variant: u64, claimed_nanos: u64) -> Server {
@@ -122,6 +122,9 @@ pub fn start_server(image: &'static [u8], variant: u64, claimed_nanos: u64) -> S
                     rendezvous_cap(report, Rights::WRITE), // slot 0: the one report
                     rendezvous_cap(stack, Rights::READ),   // slot 1: serve the socket contract
                     memory_region_cap(budget),             // slot 2: map the client's frame
+                    // slot 3: what an opened socket is minted from (§255 (each socket is its own
+                    // capability))
+                    rendezvous_cap(stack, Rights::WRITE.union(Rights::GRANT)),
                 ],
                 maps: &maps,
             },

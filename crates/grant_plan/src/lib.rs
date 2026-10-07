@@ -1951,11 +1951,12 @@ pub struct Manifest {
     ///
     /// `WRITE` is the right to `CALL` the socket contract. It is not `READ` (which would let a
     /// client take another client's request off the endpoint) and not `GRANT` (which would let it
-    /// hand the network to anything it spawns). **What it does not narrow is the stack's own socket
-    /// namespace**: `socket_protocol` names a socket by a small integer every client shares, so two
-    /// declaring programs alive at once can each operate the other's sockets. That is the socket
-    /// contract's limitation rather than this grant's, and it is recorded in milestone 590's block
-    /// rather than papered over here. No inbound authority rides with it: the stack the progenitor
+    /// hand the network to anything it spawns). **It reaches no other program's sockets**: each
+    /// socket is a capability the stack hands back when it is opened (§255 (each socket is its own
+    /// capability)), so this front door makes sockets and names none. Until milestone 649 (every
+    /// client of a network stack shares its socket numbers) a socket was a small integer every
+    /// client shared, and this comment said two declaring programs could each operate the other's
+    /// sockets. No inbound authority rides with it: the stack the progenitor
     /// builds holds `socket_protocol::NO_LISTEN_GRANT`, so a declaring program can connect out and
     /// cannot listen.
     ///

@@ -1209,10 +1209,29 @@ fn inbound_demo(listener: &TcpListener) {
 /// assumed one read per request would be asserting something about slirp. Dropping the stream is
 /// the close, and `net_stack` drains the handshake inside it, so the answer is on the wire before
 /// this returns.
+/// How many of `net_stack`'s bounded accept waits (15 s each) a round sits through before it calls
+/// the round lost: two minutes, which covers the host prober's longest hold on a connection made
+/// before this listener existed (about 23 s) with room for a slow CPU model.
+const ACCEPT_TRIES: usize = 8;
+
 fn serve_one_inbound(listener: &TcpListener, round: usize) {
-    let (mut conn, _peer) = listener
-        .accept()
-        .unwrap_or_else(|e| panic!("round {round}: nobody connected: {e:?}"));
+    // `WouldBlock` is the PAL's documented "the server's bounded wait expired, the listener is still
+    // armed, try again", so a server that means to serve keeps accepting. Treating the first one as
+    // fatal made this program race the host prober: on sifive-u54 and rva22s64 the one
+    // 15 s window opened while the prober was still holding an earlier connection, and round 0
+    // panicked with nobody having tried (milestone 649 (every client of a network stack shares its
+    // socket numbers)'s cpu-matrix failure, 2026-10-07 UTC).
+    let mut tries = 0;
+    let (mut conn, _peer) = loop {
+        match listener.accept() {
+            Ok(accepted) => break accepted,
+            Err(e) if e.kind() == ErrorKind::WouldBlock && tries + 1 < ACCEPT_TRIES => tries += 1,
+            Err(e) => panic!(
+                "round {round}: nobody connected after {} tries: {e:?}",
+                tries + 1
+            ),
+        }
+    };
 
     let mut got = vec![0u8; fixture::IN_MSG.len()];
     conn.read_exact(&mut got)

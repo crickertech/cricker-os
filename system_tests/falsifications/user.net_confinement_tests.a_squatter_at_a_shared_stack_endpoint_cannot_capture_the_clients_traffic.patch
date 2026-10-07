@@ -1,0 +1,46 @@
+Falsifies `system_tests::user::net_confinement_tests::a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect is the shared namespace coming back. `net_stack` answers socket operations that arrive
+through a front door, which names no socket, on the first socket in its table, whoever opened it.
+That is the pre-649 contract in the new code's terms: any client of the stack can name another
+client's socket without holding its capability.
+
+Expected to fail: `assert_eq!(armed[1], SQUATTER_ALL_REFUSED, "CONFINEMENT ESCAPE: of the
+squatter's ten attempts ...")`. Confirmed red on 2026-10-07 (UTC) at
+`system_tests/src/user/net_confinement_tests.rs:196` on aarch64, with `script/test --arch aarch64
+--test a_squatter_at_a_shared`: the squatter's front-door `CLOSE` closed the honest client's
+socket (`left: 1007`, bit 4 clear). The hunk is portable code, so one patch serves every leg;
+riscv64 and x86_64 were not replayed by hand.
+
+diff --git a/components/src/net_stack.rs b/components/src/net_stack.rs
+index 95c4491c6..69869e558 100644
+--- a/components/src/net_stack.rs
++++ b/components/src/net_stack.rs
+@@ -336,7 +336,12 @@ fn server(mut dev: Nic, grant_word: u64) -> ! {
+ 
+         // **The front door makes sockets and does nothing else** (§255 (each socket is its own
+         // capability)). A badge outside the socket range is a front door, whoever badged it.
+-        if !names_a_socket(badge) {
++        if !names_a_socket(badge)
++            && matches!(
++                operation,
++                OPERATION_OPEN_UDP | OPERATION_OPEN_TCP | OPERATION_LISTEN | OPERATION_BIND_UDP
++            )
++        {
+             let opened = match operation {
+                 OPERATION_OPEN_UDP => open_udp(&mut sockets, &mut table, &mut ports),
+                 OPERATION_OPEN_TCP => open_tcp(&mut sockets, &mut table, &mut ports),
+@@ -355,7 +360,10 @@ fn server(mut dev: Nic, grant_word: u64) -> ! {
+ 
+         // A socket's capability. A badge the table does not hold is a closed socket's, or one
+         // nobody minted: it reaches nothing.
+-        let Some(entry) = table.find(badge) else {
++        let Some(entry) = table
++            .find(badge)
++            .or_else(|| table.socks.iter().position(Option::is_some))
++        else {
+             reply(to, REP_ERR, 0);
+             continue;
+         };

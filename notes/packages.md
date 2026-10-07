@@ -290,9 +290,8 @@ removed) is met, and so is §219's gate D2. The boot prompt is the owner's conso
 - The package source is compiled in: the runners' peer at 10.0.2.9:8080
   (`socket_protocol::fixture`). A booted system outside QEMU has no source to fetch from, and §195's
   per-source trust needs a way to name one.
-- The progenitor fetches on socket 5 by convention: every client of the stack shares its socket
-  numbers (milestone 590 (the booted system starts its network stack)'s BUGS). Another network
-  program can fail a fetch, not pass one; the digest decides.
+- ~~The progenitor fetches on socket 5 by convention.~~ Since milestone 649 (every client of a
+  network stack shares its socket numbers), its socket is a capability no other program holds.
 - The progenitor serves nothing else while it fetches, and a slow source makes the prompt wait.
 - An HTTP reader runs in the progenitor before the digest check (above). It is fuzzed, not
   proved; `crates/http_response`'s BUGS says why.

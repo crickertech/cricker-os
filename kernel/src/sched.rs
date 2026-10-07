@@ -104,9 +104,9 @@ static CURRENT_CAPABILITIES: [CurrentCapabilities; cpu::MAX_CPUS] =
 unsafe fn set_current(tid: ThreadId, tcb: *mut Thread) {
     cpu::current().current.store(tid, Ordering::Relaxed);
     // SAFETY: the caller's contract; an address computation, nothing is read.
-    let caps = unsafe { crate::thread::capability_table_of(tcb) };
+    let table = unsafe { crate::thread::capability_table_of(tcb) };
     if let Some(entry) = CURRENT_CAPABILITIES.get(cpu::id()) {
-        entry.0.store(caps.cast_mut(), Ordering::Relaxed);
+        entry.0.store(table.cast_mut(), Ordering::Relaxed);
     }
 }
 
@@ -117,7 +117,7 @@ unsafe fn set_current(tid: ThreadId, tcb: *mut Thread) {
 fn current_capabilities() -> Option<crate::sync::IrqSafeGuard<'static, crate::cap::CapabilityTable>>
 {
     crate::sync::lock_found(|| {
-        let caps = CURRENT_CAPABILITIES
+        let table = CURRENT_CAPABILITIES
             .get(cpu::id())?
             .0
             .load(Ordering::Relaxed);
@@ -125,7 +125,7 @@ fn current_capabilities() -> Option<crate::sync::IrqSafeGuard<'static, crate::ca
         // caller, and a running thread's page is not recycled (see `CURRENT_CAPABILITIES`). The
         // `'static` is a lie told only as long as the guard, which the caller drops before it can
         // stop being the running thread (no caller blocks or switches holding it).
-        unsafe { caps.as_ref() }
+        unsafe { table.as_ref() }
     })
 }
 
@@ -4022,11 +4022,11 @@ pub fn ipc_delegate_cap(
     badge: u64,
 ) -> Result<(), abi::Error> {
     ipc_send_cap_from(ep, data, badge, |sched, current| {
-        let caps = sched
+        let table = sched
             .threads
             .capabilities(current)
             .ok_or(abi::Error::NoSuchSlot)?;
-        delegation.derive(&caps.lock())
+        delegation.derive(&table.lock())
     })
 }
 
@@ -4117,8 +4117,8 @@ fn ipc_send_cap_from(
     target_os = "none",
     unsafe(link_section = ".text.hot.sched.deliver_capability")
 )]
-fn deliver_capability(caps: &CapabilityTableLock, capability: crate::cap::Cap) -> u64 {
-    caps.lock().insert(capability).unwrap_or(NO_CAP)
+fn deliver_capability(table: &CapabilityTableLock, capability: crate::cap::Cap) -> u64 {
+    table.lock().insert(capability).unwrap_or(NO_CAP)
 }
 
 /// **Receive a data word and, if one was sent, a capability.** The mirror of [`ipc_send_cap`], and
@@ -4392,11 +4392,75 @@ pub fn ipc_reply(caller: ThreadId, msg: [u64; 2]) {
         ) {
             return;
         }
-        t.mailbox = [msg[0], msg[1], 0, 0, 0];
+        // Word 2 is `NO_CAP`: a plain `REPLY` carries no capability, and `CALL` returns word 2 in
+        // `x2` so a caller of a `REPLY_CAPABILITY` server can tell "none" from slot 0 (§255
+        // (each socket is its own capability)). The store was a zero; it costs the round trip nothing.
+        t.mailbox = [msg[0], msg[1], NO_CAP, 0, 0];
         t.handshake.serve(); // delivered: this wake passes the boot-8 gate
         trace::record(trace::Event::Served, caller, 6);
         wake(sched, caller);
     }
+}
+
+/// **Reply, carrying one capability** (`abi::reply::REPLY_CAPABILITY`, §255 (each socket is its own
+/// capability); name provisional). [`ipc_reply`] plus a copy of the capability in the running
+/// thread's `slot`, filed in the caller's table, the slot it landed in delivered as word 2.
+///
+/// The source is read, checked (`GRANT`, as `SEND_CAP` requires) and filed under one hold of
+/// `IPC_TABLES`, the [`Delegation`] rule, so no revocation sweep falls between the read and the
+/// filing. The copy keeps the source's rights: a server narrows before it answers (the network stack
+/// mints from a `WRITE | GRANT` copy of its own endpoint), because the method has no word left to
+/// carry a rights mask.
+///
+/// `Err` is the source's answer (`NoSuchSlot`, `NotPermitted`), with nothing delivered and the caller
+/// still waiting, so the server can still answer it with a plain `REPLY`. `Ok(true)` means the copy
+/// is in the caller's table. `Ok(false)` means it is not: a caller no longer waiting gets nothing,
+/// exactly as in [`ipc_reply`], and a caller whose table is full gets the two words and `NO_CAP`,
+/// the copy dropped. The server learns which, so it can undo what the capability was for.
+///
+/// **Out of line and off the round trip**: plain `REPLY` does not reach this, so `ipc_call_reply`'s
+/// footprint and `ipc_rtt` are unchanged by its existence.
+#[inline(never)]
+pub fn ipc_reply_capability(
+    caller: ThreadId,
+    msg: [u64; 2],
+    slot: u64,
+) -> Result<bool, abi::Error> {
+    let mut guard = IPC_TABLES.lock();
+    let sched = guard.as_mut().expect("no scheduler");
+    let current = current_thread_id();
+    let capability = {
+        let ours = sched
+            .threads
+            .capabilities(current)
+            .ok_or(abi::Error::NoSuchSlot)?;
+        let table = ours.lock();
+        let src = table.get(slot).map_err(|_| abi::Error::NoSuchSlot)?;
+        Delegation {
+            slot,
+            rights: src.rights,
+        }
+        .derive(&table)?
+    };
+    let delivered;
+    {
+        let Some((t, theirs)) = sched.threads.get_mut_with_capabilities(caller) else {
+            return Ok(false);
+        };
+        // `ipc_reply`'s guard, for its reason: only a thread parked awaiting a reply is touched.
+        if !matches!(
+            t.handshake.wait_on,
+            Some(Wait::Rendezvous(_, WaitRole::Reply))
+        ) {
+            return Ok(false);
+        }
+        delivered = deliver_capability(theirs, capability);
+        t.mailbox = [msg[0], msg[1], delivered, 0, 0];
+        t.handshake.serve();
+    }
+    trace::record(trace::Event::Served, caller, 6);
+    wake(sched, caller);
+    Ok(delivered != NO_CAP)
 }
 
 /// **Delete every unconsumed `Reply` capability naming `caller`, wherever in the machine it sits.**
@@ -4416,8 +4480,9 @@ pub fn ipc_reply(caller: ThreadId, msg: [u64; 2]) {
 /// Cost is O(threads x slots), on a teardown path in both callers.
 fn delete_reply_caps_naming(sched: &mut IpcTables, caller: ThreadId) {
     let target = crate::cap::Object::Reply(caller);
-    for (t, caps) in sched.threads.iter_mut_with_capabilities() {
-        caps.lock()
+    for (t, table) in sched.threads.iter_mut_with_capabilities() {
+        table
+            .lock()
             .delete_matching(|object: &crate::cap::Object| *object == target);
         if matches!(t.outgoing_cap, Some(c) if c.object == target) {
             t.outgoing_cap = None;
@@ -4657,11 +4722,11 @@ pub fn delete_device_frame_caps_from_others(phys: u64) {
     };
     let keeper = current_thread_id();
     let target = crate::cap::Object::DeviceFrame(phys);
-    for (t, caps) in sched.threads.iter_mut_with_capabilities() {
+    for (t, owned) in sched.threads.iter_mut_with_capabilities() {
         if t.id == keeper {
             continue;
         }
-        let mut table = caps.lock();
+        let mut table = owned.lock();
         for slot in 0..table.len() as u64 {
             if table.get(slot).is_ok_and(|c| c.object == target) {
                 let _ = table.delete(slot);
@@ -5945,7 +6010,10 @@ pub fn start_thread_control_block(tid: ThreadId, args: [u64; 3]) -> Result<(), a
 /// every space), and the thread keeps the copy the context switch reads. From here the reaper takes
 /// it out of the registry and drops it when the thread dies, and every context switch back to this
 /// thread re-installs it.
-pub fn adopt_address_space(space: crate::user::AddressSpace) {
+///
+/// Returns the space's name in the registry, which an address-space capability carries, for a
+/// spawn that hands a process its own space (`user::run_with_own_space`).
+pub fn adopt_address_space(space: crate::user::AddressSpace) -> u64 {
     let current = current_thread_id();
     // Before `IPC_TABLES`: the registry's lock ranks above it. The thread is live and running, so
     // the region sweep cannot take the entry in the moment before the thread holds its copy.
@@ -5975,6 +6043,7 @@ pub fn adopt_address_space(space: crate::user::AddressSpace) {
     // The current thread is the one executing this line, so it is on a CPU and cannot be reaped,
     // and the space is dropped only once its thread can never be switched in again.
     unsafe { crate::arch::mmu::switch_user_root(bound.ttbr0()) };
+    bound.name()
 }
 
 /// **Can the thread a bound address space names still run?** (§249; name provisional.) What the
