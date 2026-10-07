@@ -616,11 +616,11 @@ fn draw_again(elapsed: u64) {
     // Every attempt prints its own line before it is made, because a reset stops the UART
     // draining and anything after the call may never reach the wire. `arch::reboot` returns only
     // when every route this architecture has was refused, each refusal already on the console.
-    crate::reboot::prepare_the_reset_route(REBOOT_MARKER);
+    crate::reboot::prepare_reset_route(REBOOT_MARKER);
     println!("{REBOOT_MARKER} rebooting now ({REBOOT_ROUTE}).");
-    let refusal = arch::reboot(REBOOT_MARKER);
+    let refused = arch::reboot(REBOOT_MARKER);
     println!(
-        "{REBOOT_MARKER} FAILED ({refusal:?}): every reset route was refused (the lines above say \
+        "{REBOOT_MARKER} FAILED ({refused:?}): every reset route was refused (the lines above say \
          how), so an unattended series is not available on this machine by this route. The soak \
          keeps running; nothing has been damaged and no further reset is attempted."
     );

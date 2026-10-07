@@ -735,8 +735,9 @@ pub fn notification_cap(id: crate::sched::NotificationId, rights: Rights) -> Cap
 
 /// **The one reboot capability** (milestone 805), for the boot that grants it to the progenitor.
 ///
-/// Name: provisional, milestone 805's lane, 2026-10-06 (UTC).
-pub fn reboot_cap(rights: Rights) -> Cap {
+/// Name: ratified 2026-10-06 (calef, #1783: "I don't think we should abbreviate capability as
+/// cap."), from `reboot_cap`.
+pub fn reboot_capability(rights: Rights) -> Cap {
     Cap {
         object: Object::Reboot,
         rights,

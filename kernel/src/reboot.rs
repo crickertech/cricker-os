@@ -11,11 +11,11 @@
 //!
 //! # What the method does, and what it deliberately does not
 //!
-//! - It calls [`prepare_the_reset_route`] (a no-op everywhere but a JH7110) and then
+//! - It calls [`prepare_reset_route`] (a no-op everywhere but a JH7110) and then
 //!   `arch::reboot`. On success neither returns.
 //! - If every route this architecture has was refused, `arch::reboot` prints the firmware's raw
-//!   answer and returns its portable reason (`abi::reboot::Refusal`), and the method answers that
-//!   reason's error: calef's ruling on §251's amendment, item 3 (2026-10-06 UTC).
+//!   answer and returns the portable reason as one of four `abi::Error`s (`NoResetMechanism`,
+//!   `ResetNotSupported`, `ResetDenied`, `ResetDidNotHappen`), and the method answers it: calef's ruling on §251's amendment, item 3 (2026-10-06 UTC).
 //! - **It syncs nothing.** The kernel knows no filesystem, and a microkernel that did would be the
 //!   bug. The `reboot` program sends `filesystem_protocol::fs::SYNC` first. A holder that skips it
 //!   loses whatever the device had not flushed: a foot gun, recorded in §251 and in the program's
@@ -52,13 +52,13 @@ pub fn restart() -> abi::Error {
     // Out of the ring first: once the reset starts, the drainer never runs again.
     crate::console::enter_reset();
     println!("{MARKER} the kernel was asked to restart the machine");
-    prepare_the_reset_route(MARKER);
-    let refusal = arch::reboot(MARKER);
+    prepare_reset_route(MARKER);
+    let refused = arch::reboot(MARKER);
     println!(
-        "{MARKER} every reset route was refused ({refusal:?}; the lines above say how); the \
+        "{MARKER} every reset route was refused ({refused:?}; the lines above say how); the \
          machine keeps running"
     );
-    refusal.error()
+    refused
 }
 
 /// **Put back what the firmware's reset needs and U-Boot took away** (milestone 592 (radon's cold reboot dies in OpenSBI's PMIC write),
@@ -76,7 +76,10 @@ pub fn restart() -> abi::Error {
 /// soak and [`restart`], the two SBI resets nife makes on purpose. Moved here from `soak.rs` so the
 /// second one could reach it without the soak's feature. The board test exit's shutdown takes the
 /// same road and is recorded as a `BUGS` entry in milestone 592 rather than changed here.
-pub fn prepare_the_reset_route(marker: &str) {
+///
+/// Name: ratified 2026-10-06 (calef, #1783: "`prepare_reset_route`"), from
+/// `prepare_the_reset_route`.
+pub fn prepare_reset_route(marker: &str) {
     // Only a JH7110 has anything to prepare, and only riscv64 compiles the branch that reads it.
     #[cfg(not(target_arch = "riscv64"))]
     let _ = marker;

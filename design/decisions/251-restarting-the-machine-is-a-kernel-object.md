@@ -84,7 +84,8 @@ reaches `SYNC` is the building lane's call"); the other two are corrections to w
 all three items on 2026-10-06 (UTC), below. He also ruled the sync names on #1783: "Approve sync
 for the file-server request and its capability, and flush for the device cache only." So the
 request and its capability are `fs::BIND_SYNC`, `SyncOnly` and `Manifest::sync`, and "flush"
-means the block device's own cache command. The other names are still with him.
+means the block device's own cache command. His other rulings the same day: never abbreviate capability as `cap`, so the
+constructor is `reboot_capability`; and `prepare_reset_route`.
 
 1. **`reboot` syncs for itself, through a sync-only capability** (clause 3). For an ordinary
    client, `fs::SYNC` needs a handle carrying `dir::WRITE`, which is also the right to open and
@@ -163,12 +164,13 @@ means the block device's own cache command. The other names are still with him.
 3. **A refusal returns its reason to the caller** ("The method"). Ruled by calef on #1783,
    2026-10-06 (UTC): "Rule item 3 that way", answering "Rule item 3 that way (return the reason to
    the caller), and approve item 2 as written?"
-   - `arch::reboot` returns a portable reason, `abi::reboot::Refusal`, on all three architectures.
+   - `arch::reboot` returns a portable reason, as an `abi::Error`, on all three architectures.
      The four are no mechanism (an aarch64 tree with no usable `/psci`), not supported (PSCI or SBI
      `NOT_SUPPORTED`), denied (PSCI or SBI `DENIED`), or still running (every `x86_64` route
      tried, or any other PSCI or SBI code). The firmware's raw code is still printed on the console.
    - `REBOOT` answers that reason as its own `abi::Error` (`NoResetMechanism`, `ResetNotSupported`,
-     `ResetDenied`, `ResetDidNotHappen`, -12 to -15; names provisional). `reboot` prints which on
+     `ResetDenied`, `ResetDidNotHappen`, -12 to -15). calef ratified those four and dropped a
+     separate reason type under §113 (kernel object plain names), one name per concept: "Yes". `reboot` prints which on
      its second stream, and it does not exit non-zero, because no program here reports an exit
      status.
    - No QEMU machine this tree boots can be made to refuse, so `abi`'s

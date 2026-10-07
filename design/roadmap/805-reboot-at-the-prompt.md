@@ -199,7 +199,7 @@ Built 2026-10-06 (UTC) by lane/805-reboot. Every name below is provisional.
   because a line left for the drainer is never printed once the reset starts. It then runs the
   JH7110 reset preparation milestone 592 built
   and `arch::reboot`, which is no longer behind `reboot_soak_test`. A refusal answers its portable
-  reason (`abi::reboot::Refusal`) as an error.
+  reason as one of four `abi::Error`s.
 - **The grant.** The kernel mints the one object at boot into the progenitor's slot 31, `WRITE |
   GRANT`. The spawn service keeps it and places `WRITE` alone at `grant_plan::REBOOT_SLOT` (13) in
   a child whose manifest declares `grant_plan::Manifest::reboot`. Exactly one program does

@@ -630,7 +630,7 @@ pub mod reboot {
     /// `invoke(cap, REBOOT, _, _, _)`. **On success it does not return**: the kernel asks the
     /// firmware for a cold reset (PSCI `SYSTEM_RESET` on aarch64, SBI SRST type 1 on riscv64, and on
     /// `x86_64` the FADT reset register, then port `0xCF9`, then the 8042). When every route was
-    /// refused it returns the reason, one of [`Refusal`]'s four as an [`crate::Error`], and the
+    /// refused it returns the reason, one of the four `Reset…` values of [`crate::Error`], and the
     /// firmware's raw code is on the kernel console just before (calef's ruling of 2026-10-06 UTC
     /// on §251's amendment, item 3).
     ///
@@ -640,51 +640,26 @@ pub mod reboot {
     /// inside the machine.
     pub const REBOOT: u64 = 0;
 
-    /// **Why the machine did not restart**, the portable reason every architecture's reset route
-    /// reduces its firmware's answer to (milestone 805 (`reboot` at the prompt)). The raw code
-    /// differs per firmware and is printed on the kernel console; this is what a caller can act
-    /// on. *(Provisional, with its four names.)*
-    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-    pub enum Refusal {
-        /// No route exists to ask: an aarch64 device tree with no usable `/psci` node.
-        NoMechanism,
-        /// The firmware does not offer a reset: PSCI or SBI `NOT_SUPPORTED`.
-        NotSupported,
-        /// The firmware offers one and refused this caller: PSCI or SBI `DENIED`.
-        Denied,
-        /// The reset was asked for and the machine is still running: every `x86_64` route was
-        /// tried, or PSCI or SBI returned some other code.
-        StillRunning,
+    /// **Why the machine did not restart, from PSCI** (milestone 805 (`reboot` at the prompt)):
+    /// `SYSTEM_RESET`'s return (ARM DEN 0022) as the error `REBOOT` answers. `NOT_SUPPORTED` (-1) is
+    /// [`super::Error::ResetNotSupported`], `DENIED` (-3) is [`super::Error::ResetDenied`], and any
+    /// other code means the reset was asked for and the machine is still running. The raw code is
+    /// on the kernel console. *(Name provisional.)*
+    pub const fn from_psci(code: i64) -> super::Error {
+        match code {
+            -1 => super::Error::ResetNotSupported,
+            -3 => super::Error::ResetDenied,
+            _ => super::Error::ResetDidNotHappen,
+        }
     }
 
-    impl Refusal {
-        /// The error `REBOOT` answers with.
-        pub const fn error(self) -> super::Error {
-            match self {
-                Refusal::NoMechanism => super::Error::NoResetMechanism,
-                Refusal::NotSupported => super::Error::ResetNotSupported,
-                Refusal::Denied => super::Error::ResetDenied,
-                Refusal::StillRunning => super::Error::ResetDidNotHappen,
-            }
-        }
-
-        /// PSCI `SYSTEM_RESET`'s return (ARM DEN 0022): `NOT_SUPPORTED` is -1, `DENIED` -3.
-        pub const fn from_psci(code: i64) -> Refusal {
-            match code {
-                -1 => Refusal::NotSupported,
-                -3 => Refusal::Denied,
-                _ => Refusal::StillRunning,
-            }
-        }
-
-        /// SBI SRST `system_reset`'s `sbiret.error`: `SBI_ERR_NOT_SUPPORTED` is -2,
-        /// `SBI_ERR_DENIED` -4.
-        pub const fn from_sbi(code: i64) -> Refusal {
-            match code {
-                -2 => Refusal::NotSupported,
-                -4 => Refusal::Denied,
-                _ => Refusal::StillRunning,
-            }
+    /// **The same, from SBI SRST** `system_reset`'s `sbiret.error`: `SBI_ERR_NOT_SUPPORTED` (-2) and
+    /// `SBI_ERR_DENIED` (-4). *(Name provisional.)*
+    pub const fn from_sbi(code: i64) -> super::Error {
+        match code {
+            -2 => super::Error::ResetNotSupported,
+            -4 => super::Error::ResetDenied,
+            _ => super::Error::ResetDidNotHappen,
         }
     }
 }
@@ -1429,15 +1404,16 @@ pub enum Error {
     Gone = -11,
 
     /// **`Reboot::REBOOT`: no route exists to ask for a reset** (milestone 805,
-    /// [`reboot::Refusal::NoMechanism`]). The four `Reset…` values are the reboot object's only
-    /// answers, because a reset that works never returns. *(Names provisional.)*
+    /// no route exists, an aarch64 device tree with no usable `/psci`). The four `Reset…` values are the reboot object's only
+    /// answers, because a reset that works never returns. The four names: ratified 2026-10-06
+    /// (calef, #1783, "Yes" to one name per concept under §113 (kernel object plain names)).
     NoResetMechanism = -12,
-    /// **`Reboot::REBOOT`: the firmware does not offer a reset** ([`reboot::Refusal::NotSupported`]).
+    /// **`Reboot::REBOOT`: the firmware does not offer a reset** (PSCI or SBI `NOT_SUPPORTED`).
     ResetNotSupported = -13,
-    /// **`Reboot::REBOOT`: the firmware refused this caller** ([`reboot::Refusal::Denied`]).
+    /// **`Reboot::REBOOT`: the firmware refused this caller** (PSCI or SBI `DENIED`).
     ResetDenied = -14,
     /// **`Reboot::REBOOT`: the reset was asked for and the machine is still running**
-    /// ([`reboot::Refusal::StillRunning`]).
+    /// (every `x86_64` route tried, or any other PSCI or SBI code).
     ResetDidNotHappen = -15,
 }
 
@@ -1473,30 +1449,27 @@ mod tests {
     /// **A firmware's refusal reaches the caller as the reason it is** (milestone 805, calef's
     /// ruling on §251's amendment item 3). No QEMU machine this tree boots can be made to refuse a
     /// reset (`virt` always has PSCI and SRST, and `q35` resets or exits), so the mapping is pinned
-    /// here: each firmware code to its reason, each reason to its own error, and each error back
-    /// through the decode a caller uses.
+    /// here: each firmware code to its error, and each error back through the decode a caller
+    /// uses.
     #[test]
     fn a_reset_refusal_maps_to_its_reason_and_survives_the_wire() {
-        use crate::reboot::Refusal;
-        assert_eq!(Refusal::from_psci(-1), Refusal::NotSupported);
-        assert_eq!(Refusal::from_psci(-3), Refusal::Denied);
-        assert_eq!(Refusal::from_psci(-2), Refusal::StillRunning);
-        assert_eq!(Refusal::from_psci(0), Refusal::StillRunning);
-        assert_eq!(Refusal::from_sbi(-2), Refusal::NotSupported);
-        assert_eq!(Refusal::from_sbi(-4), Refusal::Denied);
-        assert_eq!(Refusal::from_sbi(-1), Refusal::StillRunning);
+        use crate::reboot::{from_psci, from_sbi};
+        assert_eq!(from_psci(-1), Error::ResetNotSupported);
+        assert_eq!(from_psci(-3), Error::ResetDenied);
+        assert_eq!(from_psci(-2), Error::ResetDidNotHappen);
+        assert_eq!(from_psci(0), Error::ResetDidNotHappen);
+        assert_eq!(from_sbi(-2), Error::ResetNotSupported);
+        assert_eq!(from_sbi(-4), Error::ResetDenied);
+        assert_eq!(from_sbi(-1), Error::ResetDidNotHappen);
         let all = [
-            Refusal::NoMechanism,
-            Refusal::NotSupported,
-            Refusal::Denied,
-            Refusal::StillRunning,
+            Error::NoResetMechanism,
+            Error::ResetNotSupported,
+            Error::ResetDenied,
+            Error::ResetDidNotHappen,
         ];
-        for (i, r) in all.iter().enumerate() {
-            let e = r.error();
-            assert_eq!(Error::from_ret(e as i64), Some(e), "{r:?}");
-            for other in &all[i + 1..] {
-                assert_ne!(e, other.error(), "{r:?} and {other:?} share an error");
-            }
+        for (i, e) in all.iter().enumerate() {
+            assert_eq!(Error::from_ret(*e as i64), Some(*e), "{e:?}");
+            assert!(!all[i + 1..].contains(e), "{e:?} is listed twice");
         }
     }
 

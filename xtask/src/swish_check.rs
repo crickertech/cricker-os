@@ -3499,7 +3499,7 @@ enum Keystrokes {
 /// The firmware line a reset must come back through, where the architecture has firmware of its own
 /// between the reset and the kernel: OpenSBI on riscv64, OVMF and `uefi_loader` on `x86_64`. aarch64
 /// `virt` boots `-kernel` with nothing in between, so there the second banner is the proof.
-fn reboot_firmware(arch: &str) -> Option<&'static str> {
+fn firmware_marker(arch: &str) -> Option<&'static str> {
     match arch {
         "riscv64" => Some("OpenSBI"),
         "x86_64" => Some("uefi_loader"),
@@ -3514,7 +3514,7 @@ fn reboot_firmware(arch: &str) -> Option<&'static str> {
 /// - `reboot`'s own report that its sync was answered (the block server's count of completed
 ///   `blk::FLUSH`es, through its sync-only capability), before the kernel's first `reboot:` line;
 /// - the kernel's attempt line, and no refusal;
-/// - the firmware's line where there is firmware ([`reboot_firmware`]);
+/// - the firmware's line where there is firmware ([`firmware_marker`]);
 /// - a second prompt banner, then `wc reboot.txt` answering `1 3 18`.
 ///
 /// Every error names the step, prefixed `reboot phase:`, so a red leg says it was the reboot and
@@ -3589,7 +3589,7 @@ fn reboot_phase(
             before.trim()
         ));
     }
-    let resumed = match reboot_firmware(arch) {
+    let resumed = match firmware_marker(arch) {
         Some(fw) => match wait_after(asked, fw, BOOT_SECS) {
             Some(at) => at,
             None => {
@@ -3637,7 +3637,7 @@ fn reboot_phase(
     Ok(format!(
         "swish-check ({arch}): typed `reboot`; {synced}; the machine reset{} and came back to a \
          prompt, and `{READ_LINE}` read back what the first boot wrote",
-        reboot_firmware(arch).map_or(String::new(), |fw| format!(" through {fw}"))
+        firmware_marker(arch).map_or(String::new(), |fw| format!(" through {fw}"))
     ))
 }
 

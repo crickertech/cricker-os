@@ -2643,7 +2643,7 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     // gives. Field name `reboot`, provisional.
     let s31 = crate::sched::thread_control_block_insert_cap(
         tid,
-        crate::cap::reboot_cap(Rights::WRITE.union(Rights::GRANT)),
+        crate::cap::reboot_capability(Rights::WRITE.union(Rights::GRANT)),
         Some(31),
     )
     .expect("insert the reboot object");
