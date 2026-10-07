@@ -438,7 +438,19 @@ NOT_MARKERS = {
     # Reads a running-order TABLE cell's leading verdict; table rows are never counted here anyway,
     # and on prose it would match any bold that opens with a capital word ("**A run ...").
     ('script/fatal-risks', r'^\*\*([A-Z][A-Z-]*)\b'),
+    # Milestone 791 (bold that a script reads), 2026-10-07 UTC. Reads the `Reuse:` line, and reads it
+    # plain as well, so the bold is emphasis a writer chose and is counted like any other. §46 (thin
+    # primitives or whole subsystems) spells the line plain, and notes/roadmap.md's template now
+    # writes it so.
+    ('script/roadmap', r'(?:\*\*Reuse:\*\*|Reuse:)\s*(.*)$'),
 }
+# An exception, and a foot gun: `script/decisions`' `^\*\*Status:` is a ban, not a key (it refuses
+# a status line in a decision), and derivation exempts it as if it were a key. Milestone 791 (bold
+# that a script reads) recorded that as costing nothing. It does not: on 2026-10-07 (UTC) it was the
+# only exemption for 25 free-form `**Status:` lines in notes and design documents that no script
+# reads ("**Status:** open idea."), and naming it here put four of those documents over §213's bold
+# density. So it stays exempt until those lines lose their bold; then add
+# ('script/decisions', r'^\*\*Status:') here. 791's BUGS section carries the count and the list.
 ORDINARY_BOLD = ('**Hello world.** Then prose.', '**A claim that opens.** More.', '**I think so.**',
                  '- **Operations.** The rest.', 'Inline **names provisional** here.',
                  '**It is fixed, 2026-09-23.** Then.', '**NOT** this.')
@@ -1298,6 +1310,18 @@ def selftest():
                               f'ratchet would stop counting it. Tighten it, or name it in NOT_MARKERS '
                               f'with the reason')
                 break
+    # Both registries name entries by what derivation finds, so an entry whose pattern was edited or
+    # removed would sit there quietly naming nothing. Fail instead, so the record stays true.
+    found_keys = {(rel, pat) for rel, pat, _ in found}
+    for key in NOT_MARKERS:
+        if key not in found_keys:
+            failed.append(f'helpers/prose_ratchet.py: NOT_MARKERS names {key!r}, which no parser '
+                          f'carries any more; remove the entry or update its pattern')
+    live_opaque = set(opaque_readers())
+    for key in OPAQUE_OK:
+        if key not in live_opaque:
+            failed.append(f'helpers/prose_ratchet.py: OPAQUE_OK names {key!r}, which is no longer an '
+                          f'opaque reader; remove the entry')
     ks = key_spans('**Status: BUILT.** Done.\n\n- **Recorded.** x\n\n**Real emphasis.** y\n')
     if [k[0] for k in ks] != [1, 3] or any(not k[2] for k in ks):
         failed.append('key_spans (which bold a script reads, and who)')

@@ -20,7 +20,10 @@
 #       built in the same shape. Cases 30 to 37 are `stale-draft` (#1644, 2026-10-05),
 #       and 38 and 39 its `parked` exemption (#1745, 2026-10-06), which leave out the
 #       label-event alias only `red` reads. Case 40 is case 10 sent back to its lane
-#       (`held-by-lane` beside `architect-ruled`, 2026-10-06).
+#       (`held-by-lane` beside `architect-ruled`, 2026-10-06). Cases 41 and 42 are `unmergeable`
+#       (#1795 waiting behind #1745, 2026-10-07): an entry at position 4 reading UNMERGEABLE, and
+#       a labeled one whose entry reads AWAITING_CHECKS again. Every entry carries the `position`
+#       and head that cause reads.
 #   orphan.json   the `orphan` cause (lane/orphan-work, 2026-10-06): one branch per shape in the
 #       `refs` listing, and the drafts the drain opens for a branch that never had a pull request.
 #       Built by hand in the query's shape; the shapes are the 2026-10-06 survey's (#1787).
@@ -67,7 +70,7 @@ expect "the recorded 2026-10-03T23:54:15Z response decided wrong" \
 
 # 2. Every cause, and every clearing, at 22:00 UTC with a 30-minute grace. #11, #22 and #33 name
 #    an open blocker and #12 only resolved ones.
-want='["1:label:ejected","2:clear","3:clear","4:label:conflict,ejected","5:clear","6:label:unarmed","7:label:unarmed","9:label:unarmed","12:label:unarmed","14:label:conflict","16:clear","20:label:off-main","24:label:red","27:label:red","29:label:red","30:label:stale-draft","32:label:stale-draft","36:keep:stale-draft","39:clear","1555:keep:stale","1556:clear"]'
+want='["1:label:ejected","2:clear","3:clear","4:label:conflict,ejected","5:clear","6:label:unarmed","7:label:unarmed","9:label:unarmed","12:label:unarmed","14:label:conflict","16:clear","20:label:off-main","24:label:red","27:label:red","29:label:red","30:label:stale-draft","32:label:stale-draft","36:keep:stale-draft","39:clear","41:label:unmergeable","42:clear","1555:keep:stale","1556:clear"]'
 got="$(decide "$fx/every-cause.json" 2026-10-03T22:00:00Z '{"11": ["OPEN", "MERGED"], "12": ["MERGED"], "22": ["OPEN"], "33": ["OPEN"]}')"
 if [ "$got" != "$want" ]; then
 	echo "$me: the needs-maintainer decision is wrong." >&2
@@ -95,7 +98,8 @@ if [ "$got" != "$want" ]; then
   nothing. 34 an old draft held needs-architect: nothing. 35 a fork's old draft: nothing. 36 an
   old draft already labelled: keep. 37 a ready, armed pull request with an old commit: nothing.
   38 an old draft labeled parked: nothing. 39 the same, already labeled: clear. 40 ready an hour,
-  unarmed, sent back with held-by-lane and architect-ruled: nothing.
+  unarmed, sent back with held-by-lane and architect-ruled: nothing. 41 armed, queued at position
+  4, its entry UNMERGEABLE: unmergeable (#1795). 42 labeled, its entry AWAITING_CHECKS: clear.
 EOF
 	exit 1
 fi
@@ -202,13 +206,21 @@ got=$(jq -c --argjson now "$(jq -n '"2026-10-03T22:00:00Z" | fromdateiso8601')" 
 expect "an ejection's group commit or head came back wrong" "$got" \
 	'["47d8f11eee8260aa479d3905a50900008694fef2","4124d6390de36d200e2797616761b584e9dcd850"]'
 
+# 3b. An UNMERGEABLE entry is keyed on its head, and names its position and every entry ahead of
+#     it with that entry's head, which the comment's pairwise conflict check reads.
+got=$(jq -c --argjson now "$(jq -n '"2026-10-03T22:00:00Z" | fromdateiso8601')" \
+	"$program"'[ nm_decide("needs-maintainer"; $now; 30; {}) | select(.number == 41) | .causes[0] | .key, .position, .ahead ]' \
+	"$fx/every-cause.json")
+expect "an UNMERGEABLE entry's key, position or the entries ahead of it came back wrong" "$got" \
+	'["H41",4,[{"number":3,"head":"4124d6390de36d200e2797616761b584e9dcd850"},{"number":16,"head":"H16"},{"number":1555,"head":"H1555"}]]'
+
 # 4. The drain splices the decision and asks for every field it reads.
 f="$here/merge-drain.sh"
 if ! grep -qF '"$(cat "$ELIGIBLE_JQ" "$OQ_JQ" "$NM_JQ")"' "$f"; then
 	echo "$me: merge-drain.sh does not splice queue-eligible.jq, open-question.jq and needs-maintainer.jq, so nothing decides." >&2
 	exit 1
 fi
-for field in 'mergeQueue(branch: "main")' enqueuedAt mergedAt isDraft baseRefName isCrossRepository \
+for field in 'mergeQueue(branch: "main")' 'position enqueuedAt state' 'mergedAt headRefOid' enqueuedAt mergedAt isDraft baseRefName isCrossRepository \
 	headRefName headRefOid createdAt mergeable body autoMergeRequest REMOVED_FROM_MERGE_QUEUE_EVENT \
 	ADDED_TO_MERGE_QUEUE_EVENT READY_FOR_REVIEW_EVENT AUTO_MERGE_DISABLED_EVENT LABELED_EVENT committedDate beforeCommit \
 	'parents(first: 2)' 'search(query: $labelled' 'refs(refPrefix: "refs/heads/"' 'compare(headRef: "main") { behindBy }' \
@@ -247,4 +259,4 @@ if ! grep -qF -- '--add-label "$HELD_LABEL"' "$f"; then
 	exit 1
 fi
 
-echo "needs maintainer: ejected, conflicting, stale, unarmed, off-main, red, stale-draft and orphan pull requests, and the three architect-queue causes, labeled, each cleared when its cause goes; the drain splices it and never arms"
+echo "needs maintainer: ejected, conflicting, stale, unarmed, off-main, red, stale-draft, orphan and unmergeable pull requests, and the three architect-queue causes, labeled, each cleared when its cause goes; the drain splices it and never arms"

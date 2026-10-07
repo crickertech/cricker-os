@@ -210,7 +210,7 @@ A test proves both, on aarch64, riscv64 and `x86_64` under QEMU, on the default 
    the death and the restart, and a `cat` at the prompt afterwards succeeds through the shell's
    original capability.
 
-**Reuse:** the supervision tree is `root_supervisor`, `spawner` and `sub_server_supervisor`
+Reuse: the supervision tree is `root_supervisor`, `spawner` and `sub_server_supervisor`
 unchanged in shape. The restart test reuses `fs_service`'s crash arming and its recovery proof.
 Nothing is written that the tree already has.
 

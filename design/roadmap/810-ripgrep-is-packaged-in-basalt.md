@@ -82,7 +82,7 @@ basalt's index, the archive's digest matches the recipe, and `rg --version` at t
 prints ripgrep's version. A recipe whose checksum disagrees with the download fails basalt's build.
 Searching with `rg pattern dir` is milestone 121's exit, not this one's.
 
-**Reuse:** the build reuses `helpers/build-ripgrep.sh`'s flags and `cargo xtask std-src` unchanged,
+Reuse: the build reuses `helpers/build-ripgrep.sh`'s flags and `cargo xtask std-src` unchanged,
 and the package format is §197's. `cargo install` and `cargo-binstall` were considered for the fetch.
 Neither builds against a custom target's patched `std`, and neither emits a §197 archive, so they
 would replace only the download (unverified for `cargo-binstall`'s custom-target support).

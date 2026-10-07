@@ -15,7 +15,7 @@ Raised by the lane for the provisional milestone "a USB keystroke never strands 
 swish-check keystroke stall was an emulator defect that nife's PLIC driver happened to expose. Title
 and slug are drafts.
 
-**Reuse:** the upstream fix already exists and is reused rather than rewritten: LIU Xu's
+Reuse: the upstream fix already exists and is reused rather than rewritten: LIU Xu's
 unmerged qemu-devel patch of 2026-03-25 (below). nife writes no patch of its own. Searched QEMU
 master and the qemu-devel archive for an existing fix or report, and nife's own tree for an earlier
 workaround record (none before #1657).

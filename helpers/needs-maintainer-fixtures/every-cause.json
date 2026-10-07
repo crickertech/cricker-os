@@ -5,33 +5,63 @@
     "entries": {
      "nodes": [
       {
+       "position": 1,
        "enqueuedAt": "2026-10-03T02:12:50Z",
        "state": "AWAITING_CHECKS",
        "pullRequest": {
         "id": "PR_3",
         "number": 3,
         "state": "OPEN",
-        "mergedAt": null
+        "mergedAt": null,
+        "headRefOid": "4124d6390de36d200e2797616761b584e9dcd850"
        }
       },
       {
+       "position": 2,
        "enqueuedAt": "2026-10-03T21:10:00Z",
        "state": "AWAITING_CHECKS",
        "pullRequest": {
         "id": "PR_16",
         "number": 16,
         "state": "OPEN",
-        "mergedAt": null
+        "mergedAt": null,
+        "headRefOid": "H16"
        }
       },
       {
+       "position": 3,
        "enqueuedAt": "2026-10-03T22:23:57Z",
        "state": "QUEUED",
        "pullRequest": {
         "id": "PR_kwDOTWyGnM8AAAABGcCjLw",
         "number": 1555,
         "state": "MERGED",
-        "mergedAt": "2026-10-03T22:23:57Z"
+        "mergedAt": "2026-10-03T22:23:57Z",
+        "headRefOid": "H1555"
+       }
+      },
+      {
+       "position": 4,
+       "enqueuedAt": "2026-10-03T21:20:00Z",
+       "state": "UNMERGEABLE",
+       "pullRequest": {
+        "id": "PR_41",
+        "number": 41,
+        "state": "OPEN",
+        "mergedAt": null,
+        "headRefOid": "H41"
+       }
+      },
+      {
+       "position": 5,
+       "enqueuedAt": "2026-10-03T21:25:00Z",
+       "state": "AWAITING_CHECKS",
+       "pullRequest": {
+        "id": "PR_42",
+        "number": 42,
+        "state": "OPEN",
+        "mergedAt": null,
+        "headRefOid": "H42"
        }
       }
      ]
@@ -1547,6 +1577,78 @@
       },
       "added": {
        "nodes": []
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-03T21:00:00Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 41,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H41",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": []
+      },
+      "autoMergeRequest": {
+       "enabledAt": "2026-10-03T21:00:00Z"
+      },
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T21:20:00Z"
+        }
+       ]
+      },
+      "unarmed": {
+       "nodes": [
+        {
+         "__typename": "ReadyForReviewEvent",
+         "createdAt": "2026-10-03T21:00:00Z"
+        }
+       ]
+      }
+     },
+     {
+      "number": 42,
+      "isDraft": false,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefOid": "H42",
+      "createdAt": "2026-10-03T00:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-maintainer"
+        }
+       ]
+      },
+      "autoMergeRequest": {
+       "enabledAt": "2026-10-03T21:00:00Z"
+      },
+      "removed": {
+       "nodes": []
+      },
+      "added": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T21:25:00Z"
+        }
+       ]
       },
       "unarmed": {
        "nodes": [

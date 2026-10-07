@@ -75,11 +75,13 @@
 //! - **One receive and one transmit queue, polled.** No interrupt, no checksum offload, no
 //!   segmentation offload, no jumbo frames. Each is a later decision rather than an omission.
 //!
-//! Name: provisional (milestone 494's lane, 2026-10-04). `e1000e` is the family name QEMU's
-//! `-device e1000e` and Linux's driver directory both use, so it arrives across somebody else's
-//! interface and keeps their spelling (design/naming.md, the acronym test). Not proposed as a
-//! ratification: a name for what the crate is, rather than for whose driver it resembles, is an
-//! architect's to choose.
+//! Name: ratified 2026-10-07 (calef, pull request #1806's publish-ours review). The maintainer
+//! comment reads: "one milestone per crate, minted now, each keeping its tree name (all free on
+//! crates.io as of today) [...] Names are ratified now and permanent on first publication." His
+//! words: "Yes, one per crate". Minted provisionally 2026-10-04 by milestone 494's lane: `e1000e`
+//! is the family name QEMU's `-device e1000e` and Linux's driver directory both use, so it arrives
+//! across somebody else's interface and keeps their spelling (design/naming.md, the acronym test).
+//! Milestone 815 (proven Intel e1000e ring logic, released on its own) publishes it.
 
 #[cfg(test)]
 extern crate std;

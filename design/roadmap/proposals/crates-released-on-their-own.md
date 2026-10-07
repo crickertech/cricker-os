@@ -21,7 +21,7 @@ The inventory and the survey are in
 holds the forks and does not restate the numbers beyond what a fork needs. Names in it are
 provisional, this one included.
 
-**Reuse:** the release mechanics borrow from Bytecode Alliance's `wasmtime` (many crates published
+Reuse: the release mechanics borrow from Bytecode Alliance's `wasmtime` (many crates published
 from one repository), RustCrypto (one repository per family), rust-embedded and rust-osdev (one
 repository per crate), and crates.io trusted publishing (RFC 3691). Nothing is written here; this
 decides how existing crates leave.

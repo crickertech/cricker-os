@@ -60,8 +60,10 @@ fn parked(tid: crate::thread::ThreadId, want: impl Fn(Option<Wait>) -> bool) -> 
 fn a_bound_receiver_is_woken_out_of_receive_and_the_endpoint_still_works() {
     static FIRST: [AtomicU64; 5] = [const { AtomicU64::new(u64::MAX) }; 5];
     static SECOND: [AtomicU64; 5] = [const { AtomicU64::new(u64::MAX) }; 5];
-    // Published with Release after all five SECOND stores. Waiting on SECOND[0] alone raced: the
-    // main thread read slots 3 and 4 before the receiver wrote them (seen on rva23s64, #1635).
+    // Each DONE flag is published with Release after all five stores of its message. Waiting on
+    // slot 0 alone raced: the main thread read the later slots before the receiver wrote them
+    // (SECOND on rva23s64, #1635; FIRST on rv64, read as [2, MAX, MAX, MAX, MAX] in #1801).
+    static FIRST_DONE: AtomicU64 = AtomicU64::new(0);
     static SECOND_DONE: AtomicU64 = AtomicU64::new(0);
 
     let r = region();
@@ -71,8 +73,9 @@ fn a_bound_receiver_is_woken_out_of_receive_and_the_endpoint_still_works() {
     let receiver = sched::spawn(move || {
         let m = sched::ipc_receive(ep);
         for (slot, w) in FIRST.iter().zip(m) {
-            slot.store(w, Ordering::SeqCst);
+            slot.store(w, Ordering::Relaxed);
         }
+        FIRST_DONE.store(1, Ordering::Release);
         let m = sched::ipc_receive(ep);
         for (slot, w) in SECOND.iter().zip(m) {
             slot.store(w, Ordering::Relaxed);
@@ -94,10 +97,10 @@ fn a_bound_receiver_is_woken_out_of_receive_and_the_endpoint_still_works() {
 
     assert_eq!(sched::notification_signal(n, 0b1010), Ok(()));
     assert!(
-        wait_for(|| FIRST[0].load(Ordering::SeqCst) != u64::MAX),
+        wait_for(|| FIRST_DONE.load(Ordering::Acquire) == 1),
         "a signal on the bound notification did not end the RECEIVE"
     );
-    let first: [u64; 5] = core::array::from_fn(|i| FIRST[i].load(Ordering::SeqCst));
+    let first: [u64; 5] = core::array::from_fn(|i| FIRST[i].load(Ordering::Relaxed));
     assert_eq!(
         first,
         [
@@ -138,6 +141,9 @@ fn a_signal_counted_while_elsewhere_ends_the_next_receive_at_once() {
     static GO: AtomicU64 = AtomicU64::new(0);
     static PLAIN: [AtomicU64; 5] = [const { AtomicU64::new(u64::MAX) }; 5];
     static WITH_CAP: [AtomicU64; 5] = [const { AtomicU64::new(u64::MAX) }; 5];
+    // Release after all five stores of each message, for the reason FIRST_DONE gives above.
+    static PLAIN_DONE: AtomicU64 = AtomicU64::new(0);
+    static WITH_CAPABILITY_DONE: AtomicU64 = AtomicU64::new(0);
 
     let r = region();
     let n = sched::create_notification_from(r).expect("notification");
@@ -150,15 +156,17 @@ fn a_signal_counted_while_elsewhere_ends_the_next_receive_at_once() {
         }
         let m = sched::ipc_receive(ep);
         for (slot, w) in PLAIN.iter().zip(m) {
-            slot.store(w, Ordering::SeqCst);
+            slot.store(w, Ordering::Relaxed);
         }
+        PLAIN_DONE.store(1, Ordering::Release);
         while GO.load(Ordering::SeqCst) == 1 {
             sched::yield_now();
         }
         let m = sched::ipc_receive_cap(ep);
         for (slot, w) in WITH_CAP.iter().zip(m) {
-            slot.store(w, Ordering::SeqCst);
+            slot.store(w, Ordering::Relaxed);
         }
+        WITH_CAPABILITY_DONE.store(1, Ordering::Release);
     })
     .expect("spawn");
 
@@ -166,8 +174,8 @@ fn a_signal_counted_while_elsewhere_ends_the_next_receive_at_once() {
     assert_eq!(sched::notification_signal(n, 0b1), Ok(()));
     assert_eq!(sched::notification_signal(n, 0b100), Ok(()));
     GO.store(1, Ordering::SeqCst);
-    assert!(wait_for(|| PLAIN[0].load(Ordering::SeqCst) != u64::MAX));
-    let plain: [u64; 5] = core::array::from_fn(|i| PLAIN[i].load(Ordering::SeqCst));
+    assert!(wait_for(|| PLAIN_DONE.load(Ordering::Acquire) == 1));
+    let plain: [u64; 5] = core::array::from_fn(|i| PLAIN[i].load(Ordering::Relaxed));
     assert_eq!(
         plain,
         [
@@ -187,8 +195,10 @@ fn a_signal_counted_while_elsewhere_ends_the_next_receive_at_once() {
 
     assert_eq!(sched::notification_signal(n, 0b1000), Ok(()));
     GO.store(2, Ordering::SeqCst);
-    assert!(wait_for(|| WITH_CAP[0].load(Ordering::SeqCst) != u64::MAX));
-    let with_cap: [u64; 5] = core::array::from_fn(|i| WITH_CAP[i].load(Ordering::SeqCst));
+    assert!(wait_for(
+        || WITH_CAPABILITY_DONE.load(Ordering::Acquire) == 1
+    ));
+    let with_cap: [u64; 5] = core::array::from_fn(|i| WITH_CAP[i].load(Ordering::Relaxed));
     assert_eq!(
         with_cap,
         [

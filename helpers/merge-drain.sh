@@ -361,7 +361,7 @@ group_runs() {
 }
 
 # **A pull request a maintainer session must pick up wears `needs-maintainer`** (milestone 727,
-# provisional; the label's name is provisional too, and calef's call). The eight causes, and why
+# provisional; the label's name is provisional too, and calef's call). The causes, and why
 # each is one, are in helpers/needs-maintainer.jq, which decides; this carries the decision out:
 #
 #   label   add the label, print `LABELLED #N`, and comment once per cause with the evidence
@@ -396,6 +396,20 @@ group_runs() {
 #     runs it before a prune.
 #   - helpers/lane-claim-check.sh still prints the same branches to this log, on its own clocks.
 #     Folding it into this cause, or keeping it, is calef's call (#1787).
+#
+# BUGS, the `unmergeable` cause's (lane/queue-unmergeable-report, 2026-10-07 UTC):
+#   - No grace period. Whether GitHub ever shows `UNMERGEABLE` for a moment and then clears it on
+#     its own is unmeasured; if it does, this labels and comments on noise, and the label comes off
+#     a pass later. If the log shows the label going on and coming off one pass apart, key a grace
+#     on `enqueuedAt` the way `unarmed` uses `$minutes`.
+#   - The comment compares the head with each entry ahead one pair at a time. An entry can be
+#     unmergeable only against two of them together, or for a reason that is not a textual
+#     conflict; then every line reads "merges cleanly", and the verdict rests on GitHub's word.
+#   - The dedupe key is the head. A head dequeued and enqueued again that goes `UNMERGEABLE` a
+#     second time is labeled again but not commented again; the first comment still applies.
+#   - It reads the first 100 entries, and it sees the queue only when a pass runs: every five
+#     minutes when GitHub's scheduler keeps up, and whenever a CI run completes, which includes the
+#     merge-group runs of the entries ahead (merge-drain.yml's BUGS has why the schedule is a floor).
 NM_LABEL="needs-maintainer"
 NM_MINUTES=${NM_MINUTES:-30}
 NM_JQ="$(dirname "$0")/needs-maintainer.jq"
@@ -410,7 +424,7 @@ RULES_PY="$(dirname "$0")/architect-label-rules.py"
 # checks this text names each of them, and its fixtures are this query's recorded responses.
 NM_QUERY='query($owner: String!, $name: String!, $labelled: String!) {
   repository(owner: $owner, name: $name) {
-    mergeQueue(branch: "main") { entries(first: 100) { nodes { enqueuedAt state pullRequest { id number state mergedAt } } } }
+    mergeQueue(branch: "main") { entries(first: 100) { nodes { position enqueuedAt state pullRequest { id number state mergedAt headRefOid } } } }
     pullRequests(states: OPEN, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) { nodes {
       number isDraft baseRefName isCrossRepository headRefName headRefOid createdAt mergeable body url
       labels(first: 30) { nodes { name } }
@@ -453,6 +467,22 @@ conflict_files() {
 	else
 		printf '%s\n' "$out" | tail -n +2 | head -20 | sed 's/^/- `/; s/$/`/'
 	fi
+}
+
+# What head $1 does against each entry ahead of it ($2, the cause's `ahead`), as markdown list
+# lines. Pairwise rather than against the group GitHub builds, because the group's commit is not
+# fetched and a pair is what a lane can act on: "wait for #1745, then rebase". Each pair merges at
+# its own merge base, so a conflict here is a conflict between the two changes, whatever `main` did.
+ahead_conflicts() {
+	printf '%s' "$2" | jq -r '.[] | "\(.number) \(.head)"' | while read -r n h; do
+		if ! git cat-file -e "$1^{commit}" 2>/dev/null || ! git cat-file -e "$h^{commit}" 2>/dev/null; then
+			echo "- #$n: (a head is not in this checkout, so it was not compared)"
+		elif out=$(git merge-tree --write-tree --name-only --no-messages "$h" "$1" 2>/dev/null); then
+			echo "- #$n: merges cleanly with this head"
+		else
+			echo "- #$n: conflicts in $(printf '%s\n' "$out" | tail -n +2 | head -10 | sed 's/^/`/; s/$/`/' | paste -sd ' ' - | sed 's/` `/`, `/g')"
+		fi
+	done
 }
 
 # The comment for one cause ($2, a JSON object) on pull request $1.
@@ -568,6 +598,25 @@ $rules
 
 So the drain added \`needs-architect\` (calef's ruling on #1792: the bot adds, and only flags removals). Post the ask under a \`## What I need from you\` heading, or, if calef already ruled on this surface, record it with \`script/record-ruling $1\`; a hold with no ask is flagged \`hold-no-ask\` after $NM_MINUTES minutes."
 		;;
+	unmergeable)
+		head=$(printf '%s' "$c" | jq -r '.head')
+		position=$(printf '%s' "$c" | jq -r '.position')
+		enqueued=$(printf '%s' "$c" | jq -r '.enqueued')
+		id=$(printf '%s' "$c" | jq -r '.id')
+		aheadjson=$(printf '%s' "$c" | jq -c '.ahead')
+		aheadlist=$(printf '%s' "$c" | jq -r 'if (.ahead | length) == 0 then "nothing" else (.ahead | map("#\(.number)") | join(", ")) end')
+		pairs=$(ahead_conflicts "$head" "$aheadjson") || pairs=""
+		[ -n "$pairs" ] || pairs="- (no entry ahead of it, so GitHub's verdict is against \`main\` alone; see the \`conflict\` cause)"
+		what="UNMERGEABLE IN THE MERGE QUEUE at position $position, enqueued at $enqueued, at head \`$head\`. Ahead of it: $aheadlist. GitHub cannot build it on top of those entries, usually because it conflicts with one of them rather than with \`main\`, and it does not eject it: the entry waits, and nothing else reports it (#1795 behind #1745, 2026-10-07).
+
+$pairs
+
+The maintainer session owns the next step: hand it to its lane to merge \`main\` once the conflicting pull request ahead has landed (briefs/rebase-onto-main.md), push, and arm it again. To free its place now, take it out of the queue:
+
+    gh api graphql -f query='mutation{dequeuePullRequest(input:{id:\"$id\"}){clientMutationId}}'
+
+The label comes off when the entry no longer reads \`UNMERGEABLE\`."
+		;;
 	stale)
 		state=$(printf '%s' "$c" | jq -r '.state')
 		merged=$(printf '%s' "$c" | jq -r '.merged // "an unrecorded time"')
@@ -586,7 +635,7 @@ The label comes off when the entry is gone."
 	esac
 	printf '%s' "$ME: needs-maintainer. $what
 
-The label is how a maintainer session finds this without anyone watching the queue (milestone 727, provisional; helpers/needs-maintainer.jq has the eleven causes)."
+The label is how a maintainer session finds this without anyone watching the queue (milestone 727, provisional; helpers/needs-maintainer.jq has the causes)."
 }
 
 needs_maintainer() {

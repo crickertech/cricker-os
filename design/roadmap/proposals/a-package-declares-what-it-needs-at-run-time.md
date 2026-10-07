@@ -13,7 +13,7 @@ calef asked on 2026-10-06 (UTC) how a nife package says what it needs at run tim
 what it links. Written by lane `package-runtime-requirements`, which built nothing but this file.
 Every name below is provisional. The forks at the end are what calef is asked to rule.
 
-**Reuse:** the per-program half reuses `grant_plan::Manifest` and `crates/manifest_note` as they
+Reuse: the per-program half reuses `grant_plan::Manifest` and `crates/manifest_note` as they
 stand, and the gate extends `helpers/packages.py`. No outside tool fits: Debian, Nix and Fuchsia
 each solve this inside their own package formats, so the ideas are taken and the code is not.
 

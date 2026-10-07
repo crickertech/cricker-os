@@ -13,7 +13,7 @@ needs_person: no
 Raised by lane/633-outsider-2, milestone 633 (an outside agent attacks the confinement claim)'s
 second pass, on 2026-10-05 (UTC). Title and slug provisional.
 
-**Reuse:** the validate-then-publish shape is the one `crates/virtio`'s own avail-ring publish
+Reuse: the validate-then-publish shape is the one `crates/virtio`'s own avail-ring publish
 already uses (the `avail.idx` write is the single publish point). Variant 2 reuses the used
 ring the device already writes. No new mechanism is proposed. The crate stays on the
 verification path per §46 (thin primitives or whole subsystems; we write everything in between),

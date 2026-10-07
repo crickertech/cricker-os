@@ -114,6 +114,9 @@ fn a_wait_ends_at_the_deadline_with_no_signal() {
     static WOKE_AT: AtomicU64 = AtomicU64::new(0);
     static RECEIVED: [AtomicU64; 5] = [const { AtomicU64::new(u64::MAX) }; 5];
     static RECEIVED_AT: AtomicU64 = AtomicU64::new(0);
+    // Published with Release after all five RECEIVED stores. Waiting on RECEIVED[0] alone could read
+    // the later slots before the receiver wrote them, the race notification_tests hit twice.
+    static RECEIVED_DONE: AtomicU64 = AtomicU64::new(0);
 
     let r = region();
     let n = sched::create_notification_from(r).expect("notification");
@@ -152,8 +155,9 @@ fn a_wait_ends_at_the_deadline_with_no_signal() {
         let m = sched::ipc_receive(ep);
         RECEIVED_AT.store(now(), Ordering::SeqCst);
         for (slot, w) in RECEIVED.iter().zip(m) {
-            slot.store(w, Ordering::SeqCst);
+            slot.store(w, Ordering::Relaxed);
         }
+        RECEIVED_DONE.store(1, Ordering::Release);
     })
     .expect("spawn the receiver");
     assert!(
@@ -167,10 +171,10 @@ fn a_wait_ends_at_the_deadline_with_no_signal() {
     let deadline = now() + ms(50);
     assert_eq!(sched::timer_arm(t, deadline, n, 0b1000), Ok(()));
     assert!(
-        wait_for(|| RECEIVED[0].load(Ordering::SeqCst) != u64::MAX),
+        wait_for(|| RECEIVED_DONE.load(Ordering::Acquire) == 1),
         "the deadline did not end a bound RECEIVE"
     );
-    let got: [u64; 5] = core::array::from_fn(|i| RECEIVED[i].load(Ordering::SeqCst));
+    let got: [u64; 5] = core::array::from_fn(|i| RECEIVED[i].load(Ordering::Relaxed));
     assert_eq!(
         got,
         [

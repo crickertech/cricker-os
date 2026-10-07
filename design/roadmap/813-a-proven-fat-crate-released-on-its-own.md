@@ -51,7 +51,7 @@ calef's rulings, quoted from the maintainer comments of 2026-10-07 (UTC):
   an MBR, with every file's hash in `expected.sha256`. `make-images.sh` rebuilds them on macOS.
 - `crates.io` answers 404 for `file_allocation_table` (checked 2026-10-07).
 
-**Reuse:** written here, not taken, by calef's ruling on #1803 fork 2. Three reasons, all from that
+Reuse: written here, not taken, by calef's ruling on #1803 fork 2. Three reasons, all from that
 ruling. It parses hostile input (a stranger's USB stick), and §46 (thin primitives or whole
 subsystems) has nife write the crates Kani proves, because a model checker needs code we can
 restructure. Proofs are the point. And the main-line candidate, rust-fatfs, has not released since

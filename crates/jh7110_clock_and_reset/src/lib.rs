@@ -145,7 +145,12 @@
 //! things it controls). **The argument that lost** was stronger here than for its sibling: `crg` is
 //! not a spelling this project coined, since both device trees describing this chip use `syscrg`,
 //! `stgcrg` and `aoncrg`. The 2026-09-13 amendment to decision 113 ends the external-standard
-//! exemption for acronym crates even so. `jh7110` stays: a part number is a proper noun.
+//! exemption for acronym crates even so. `jh7110` stays: a part number is a proper noun. Kept as
+//! the crates.io name by calef on 2026-10-07 (UTC), pull request #1806's publish-ours review, whose
+//! maintainer comment reads: "one milestone per crate, minted now, each keeping its tree name (all
+//! free on crates.io as of today) [...] Names are ratified now and permanent on first
+//! publication." His words: "Yes, one per crate". Milestone 819 (JH7110 clock and reset logic,
+//! proven, then released on its own) publishes it.
 //!
 //! # Examples
 //!

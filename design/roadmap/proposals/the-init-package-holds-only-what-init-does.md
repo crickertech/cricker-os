@@ -246,7 +246,7 @@ possible first step for 691, not a fork of this proposal.
 his, by ruling (Fork 3). `memory` and `live-swap` stay provisional and unused. The slug of this file
 is a draft, like every roadmap title.
 
-**Reuse:** the existing `fixtures` package for Fork 2 and the existing `graphics_protocol` contract for
+Reuse: the existing `fixtures` package for Fork 2 and the existing `graphics_protocol` contract for
 Fork 4; no new crate is proposed. The package format, gate and table are milestone 611's, unchanged.
 
 ## The worklist

@@ -48,7 +48,7 @@ Today's `fetch` (`crates/system_initializer`) has the image's catalog and one co
   `unwritten` decision dependency.
 - Not a ruling but calef's hands: DNS and a host for `basalt.nifeos.org`. That is `needs_person`.
 
-**Reuse:** the package client, digest check and installer of milestone 198 are this milestone's
+Reuse: the package client, digest check and installer of milestone 198 are this milestone's
 base. Nothing outside the tree was surveyed for the index format yet, and the lane that builds it
 owes that survey under §46 (thin primitives or whole subsystems).
 

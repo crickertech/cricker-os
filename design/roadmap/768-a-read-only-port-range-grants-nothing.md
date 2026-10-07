@@ -15,7 +15,7 @@ confinement claim)'s second pass, and promoted from `design/roadmap/proposals/` 
 `lane/port-rights-fix` the same day. The number 768 is provisional until the queue lands it.
 *(Title, slug and every name below are drafts.)*
 
-**Reuse:** the rights check is the one every other object's syscall arm already performs
+Reuse: the rights check is the one every other object's syscall arm already performs
 (`cap.rights.allows(Rights::WRITE)` in `kernel/src/syscall.rs`), applied at the grant's single
 insert site; the test reuses `x86_port_tests::build_child` and `x86_programs::port_out_then_exit`.
 `cycle_counter_grant` was considered as a model and rejected, because it gates a read-only counter.

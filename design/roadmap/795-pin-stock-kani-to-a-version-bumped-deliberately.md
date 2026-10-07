@@ -13,7 +13,7 @@ needs_person: yes
 Raised by the lane `lane/verify-args` on 2026-10-05 (UTC), from a run of a patched Kani against nife
 that day. Title, slug and every name here are provisional.
 
-**Reuse:** `script/toolchain-bump` and the `rust-toolchain.toml` pin are the existing deliberate-bump mechanism, and this extends it to the prover; `cargo install --version` is the stock way to pin, so nothing new is built.
+Reuse: `script/toolchain-bump` and the `rust-toolchain.toml` pin are the existing deliberate-bump mechanism, and this extends it to the prover; `cargo install --version` is the stock way to pin, so nothing new is built.
 
 ## The problem
 

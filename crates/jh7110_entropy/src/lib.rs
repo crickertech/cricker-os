@@ -170,8 +170,12 @@
 //!
 //! Name: ratified 2026-09-13 (calef, working the unratified worklist), replacing
 //! `jh7110_entropy_source`, which he ratified earlier the same day and superseded on a second
-//! pass through the same worklist. The stem was settled then and is not reopened here: TRNG
-//! expands to true random number generator, the expansion teaches, and that is the 2026-09-05
+//! pass through the same worklist. Kept as the crates.io name by calef on 2026-10-07 (UTC), pull
+//! request #1806's publish-ours review, whose maintainer comment reads: "one milestone per crate,
+//! minted now, each keeping its tree name (all free on crates.io as of today) [...] Names are
+//! ratified now and permanent on first publication." His words: "Yes, one per crate". Milestone
+//! 818 (proven JH7110 TRNG logic, released on its own) publishes it. The stem was settled on
+//! 2026-09-13 and is not reopened here: TRNG expands to true random number generator, the expansion teaches, and that is the 2026-09-05
 //! acronym rule which retired `jh7110_trng`. What moved is the tail. `_source` appears **nowhere
 //! else in this tree**, so the crate and its program were the suffix's only two instances, and the
 //! chip prefix was already doing the work it was doing: saying which of the two backends for one

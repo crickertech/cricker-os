@@ -31,7 +31,7 @@ priority."* This block is §105's option A, as `notes/thread-spawn-fork.md` cost
 - `rayon`, `crossbeam-channel`, `tokio` and `ignore` already compile and link against the PAL. They
   fail at the first spawn, at run time.
 
-**Reuse:** the kernel half is ours to write, since §46 (thin primitives or whole subsystems; we write everything in between) has the kernel written here. Its design
+Reuse: the kernel half is ours to write, since §46 (thin primitives or whole subsystems; we write everything in between) has the kernel written here. Its design
 is seL4's, where `TCB_SetSpace` binds a VSpace without consuming it. The `std` half reuses std's
 own threaded `sys` code for every platform shape it can, and writes only the nife arm of the PAL.
 

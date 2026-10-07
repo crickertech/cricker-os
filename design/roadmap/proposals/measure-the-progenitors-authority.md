@@ -20,7 +20,7 @@ progenitor already holds it, so the progenitor does it for them. Each step is sm
 sensible. Nothing in the tree shows the sum. Written by lane `progenitor-authority`, which built
 nothing but this file.
 
-**Reuse:** the live-table print reuses `kernel::cap::report_peak`'s shape and its `swish-check`
+Reuse: the live-table print reuses `kernel::cap::report_peak`'s shape and its `swish-check`
 hook. seL4's CapDL describes a system's initial capability distribution as a spec a loader
 realizes (recalled, not read). It is prior art for the table's shape, not code to take. The table
 is a Rust struct in a crate the progenitor already builds from.
