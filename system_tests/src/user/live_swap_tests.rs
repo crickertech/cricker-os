@@ -166,9 +166,14 @@ fn spawn_swapper(role: u64) -> (sched::RendezvousId, u64, u64, u64) {
     // `sched::create_rendezvous` grows that pool in 32-page chunks it never frees, so every run
     // costs the suite a page for good and the ledger moves in +32 steps (the `BUGS` on
     // `testing::SUITE_PAGE_FRAME_BUDGET`). Milestone 633 (an outside agent attacks the confinement
-    // claim) added a ninth run and crossed a chunk boundary, which is how this was found.
-    let report_region = crate::memory_region::create(2).expect("no region for the report endpoint");
+    // claim) added a ninth run and crossed a chunk boundary, which is how this was found. Four
+    // pages: the report rendezvous, and (milestone 800 (a non-Anthropic model attacks the
+    // confinement claim), fourth pass) the notification and timer that make the operator's un-park
+    // of the plant bounded.
+    let report_region = crate::memory_region::create(4).expect("no region for the report endpoint");
     let report = sched::create_rendezvous_from(report_region).expect("no report rendezvous");
+    let wake = sched::create_notification_from(report_region).expect("no notification for swapper");
+    let retransmit = sched::create_timer_from(report_region).expect("no timer for swapper");
     let budget = crate::memory_region::create(SWAPPER_BUDGET_PAGES).expect("no budget for swapper");
     let thread_control_block_region = crate::memory_region::create(2).expect("no tcb region");
     let tid = sched::create_thread_control_block(thread_control_block_region).expect("no tcb");
@@ -199,8 +204,25 @@ fn spawn_swapper(role: u64) -> (sched::RendezvousId, u64, u64, u64) {
     )
     .expect("insert device");
     assert_eq!(s2, 2, "swapper's device capability must land in slot 2");
+    let s3 = sched::thread_control_block_insert_cap(
+        tid,
+        crate::cap::notification_cap(wake, crate::cap::Rights::ALL),
+        None,
+    )
+    .expect("insert the bound notification");
+    assert_eq!(s3, 3, "swapper's notification must land in slot 3");
+    let s4 = sched::thread_control_block_insert_cap(
+        tid,
+        crate::cap::timer_cap(retransmit, crate::cap::Rights::ALL),
+        None,
+    )
+    .expect("insert the un-park timer");
+    assert_eq!(s4, 4, "swapper's timer must land in slot 4");
     sched::configure_thread_control_block(tid, elf.entry(), USER_STACK_TOP, aspace)
         .expect("configure");
+    // The bind is the spawner's to make (a running thread holds no capability to its own TCB), the
+    // same hand `net_stack`'s wiring performs for its retransmit wait.
+    sched::notification_bind(wake, tid).expect("bind the swapper's notification");
     sched::start_thread_control_block(tid, [role, initrd_len, 0]).expect("start");
     (report, budget, thread_control_block_region, report_region)
 }
@@ -221,7 +243,9 @@ fn run_swap(role: u64) -> ([[u64; 5]; MAX_REPORTS], usize) {
             msg[0], RPT_FAILED,
             "the swap system could not be built: stage {}. Stages 1-4 are the archive and the \
              four program images, 5-10 the endpoints and the witness page, 11-16 the incumbent \
-             and the client, 20-27 the swap itself, 30-33 the attacker, 40-51 the queued rung, \
+             and the client, 20-27 the swap itself, 28-36 the attacker and its plant (30-31 the \
+             plant, 32-33 the attack, 34 the retire it waits on, 35-36 the plant's drain), \
+             40-51 the queued rung, \
              60-63 the component manifests (60 means an unsatisfiable declaration was WIRED), \
              64 the dependency graph query (more live instances than MAX_LIVE), 70-87 the \
              hung-component rung (81 means the incumbent did not announce its hang with a CALL, \
@@ -539,24 +563,23 @@ fn a_client_keeps_talking_while_the_server_underneath_it_is_replaced() {
 /// *exactly* what the honest client holds, so the refusal is about rights and not about
 /// wiring.
 ///
-/// Falsification: unfalsified. A real escape here hangs the run instead of failing this
-/// assertion; see notes/confinement-claims.md and milestone 305 (the six kernel confinement rows get a falsification a machine can replay). `RECEIVE_CAP` is a blocking
-/// receive, so an attacker the kernel fails to refuse does not report an escape, it takes the
-/// message the honest server was waiting for and every thread blocks. Measured 2026-09-16 with
-/// the rights check deleted from the syscall: a 60-second watchdog reading `a lost-wakeup
-/// hang`, which is milestone 202's wrong-reason red exactly. A defect that only changes which
-/// error is returned does fire this assertion and is not recorded, because it leaves the claim
-/// intact.
+/// **A plant makes this test able to fail rather than hang** (milestone 800 (a non-Anthropic model
+/// attacks the confinement claim), fourth pass). Until it, a `RECEIVE_CAP` the kernel failed to
+/// refuse simply blocked on an empty queue, so the break surfaced as a 60-second watchdog hang
+/// (measured 2026-09-16, milestone 305 (the six kernel confinement rows get a falsification a
+/// machine can replay)): milestone 202 (every confinement test is a ritual until somebody breaks
+/// the confinement)'s wrong-reason red on a third claim. The operator now
+/// retires the replacement first, so nothing ever receives on the endpoint again, then starts the
+/// plant (a `chatty` role that parks a message on it), then the attacker. A let-open
+/// `RECEIVE_CAP` *returns the plant's delegation*, and the assertion below fires: the attacker's
+/// report carries the marker word rather than the refusal. The operator then drains the plant
+/// itself on the honest kernel, so both programs exit and the run reclaims as before. The
+/// kernel-side twin of this gate is
+/// `confinement_attack_tests::a_write_only_rendezvous_holder_cannot_receive_reap_or_survey`,
+/// which parks its sender by construction and needs no operator; this test carries its own record
+/// so claim 26's cited evidence is not a measurement beside it.
 ///
-/// **Row 26's replayable evidence is beside this test, not in it.**
-/// `confinement_attack_tests::a_write_only_rendezvous_holder_cannot_receive_reap_or_survey` asks
-/// the same gate with a sender already parked, so a let-open receive returns instead of hanging.
-/// Its record deletes `RECEIVE`'s check. Deleting `RECEIVE_CAP`'s check instead, the gate this
-/// test exists for, was booted against that test on aarch64 on 2026-10-06 (UTC) and went red at
-/// its `RECEIVE_CAP` assertion; one test carries one patch, so that run is a measurement and not a
-/// record. Making this test go red on its own means reshaping the attacker fixture (`chatty`) so
-/// an escape reports rather than steals, which is attack-shaped work and is routed to milestone
-/// 800 (a non-Anthropic model attacks the confinement claim).
+/// Falsification: replayable `system_tests/falsifications/user.live_swap_tests.a_client_of_the_stable_rendezvous_cannot_become_its_server.patch`
 #[test_case]
 fn a_client_of_the_stable_rendezvous_cannot_become_its_server() {
     if machine_has_no_device_page_for_the_console() {

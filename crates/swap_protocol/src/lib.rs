@@ -429,6 +429,14 @@ pub const ROLE_PRODUCER: u64 = 2;
 /// offset far past the log page, driving the server to write into the device registers the client
 /// was never granted. Name provisional.
 pub const ROLE_CONFUSED: u64 = 3;
+/// **The plant** (milestone 800 (a non-Anthropic model attacks the confinement claim), fourth
+/// pass). Not an attacker: an instrument. It parks a message on the stable endpoint so a
+/// would-be server's `RECEIVE_CAP`, if the kernel ever lets one through, *returns that message*
+/// and is observed, rather than blocking forever on an empty queue and surfacing as a watchdog
+/// hang. Until this role existed, claim 26's own test could not fail, only hang. The operator
+/// starts it once the last receiver on the endpoint is retired, so the parked message is the
+/// only thing there. Name provisional.
+pub const ROLE_PLANT: u64 = 4;
 
 /// `swapper`'s roles. Three systems, one operator, because they share every helper: the loader, the
 /// endowments, the log page and the reporting.
@@ -1177,6 +1185,10 @@ pub const NOTE_ABSORBED: u64 = 7;
 ///
 /// Name: provisional (milestone 23's lane, 2026-09-26).
 pub const NOTE_REFUSED: u64 = 8;
+/// What the plant parks on the stable endpoint: a word no honest exchange produces, so a would-be
+/// server whose `RECEIVE_CAP` was let through reports a value nothing else could have put there
+/// (milestone 800 (a non-Anthropic model attacks the confinement claim), fourth pass).
+pub const PLANT_MARKER: u64 = 0x5317_0a11;
 
 /// Trap. A half-built system is not worth limping along, and a fault is legible: the kernel prints
 /// the pc and the process dies where the mistake was.

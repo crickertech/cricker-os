@@ -109,6 +109,10 @@ KEPT = {
     'components/src/socket_squatter.rs': ({'send_cap'}, _CALLS),
     'system_tests/src/user/net_confinement_tests.rs':
         ({'cap', 'memory_region_cap', 'rendezvous_cap'}, _CALLS),
+    # The same pass's chatty reshape: `spawn_swapper`'s two new slots call the same family.
+    'system_tests/src/user/live_swap_tests.rs':
+        ({'cap', 'device_frame_cap', 'memory_region_root_cap', 'notification_cap', 'rendezvous_cap',
+          'thread_control_block_insert_cap', 'timer_cap'}, _CALLS),
 }
 
 EXCLUDED_PREFIXES = ('vendor/', 'patches/', 'target/')

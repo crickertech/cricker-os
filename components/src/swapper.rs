@@ -68,13 +68,20 @@ use component_plan::Provisions;
 use supervision_protocol::{ChildEndowment, Retention};
 use swap_protocol::log_checks as lc;
 use user_mode_runtime::{
-    cap_delete, map_into, map_page_frame, receive, receive_fault, revoke_frame, send,
+    Received, cap_delete, cntfrq, map_into, map_page_frame, now, receive, receive_bound,
+    receive_fault, revoke_frame, send, timer_arm,
 };
 
 /// What the kernel grants us, and nothing else.
 const ROOT_UT: u64 = 0; // the construction budget: what every process here is built out of
 const REPORT: u64 = 1; // WRITE|GRANT, so each child gets its own narrowed view
 const DEVICE: u64 = 2; // the UART's registers, WRITE|GRANT: ours to lend, and ours to take back
+/// The notification bound to this thread by the spawner, and the timer that arms it (milestone 800
+/// (a non-Anthropic model attacks the confinement claim), fourth pass): the pair that makes the
+/// plant's un-park bounded, exactly `net_stack`'s retransmit-wait pattern. The bound is the
+/// spawner's to make, because a running thread holds no capability to its own TCB.
+const WAKE: u64 = 3;
+const TIMER: u64 = 4;
 
 // Pages per process we build is NOT here any more. It is `swap_protocol::INSTANCE_PAGES`, declared by
 // each contract, and it reaches this program through `component_plan::Plan::pages`. It is a **peak**,
@@ -404,25 +411,64 @@ fn direct(fs: &nifefs::Fs, w: &Wiring) -> ! {
     // ------------------------------------------------------------------------------------------
     // The attacker, once the honest system has finished being interesting. It gets exactly the
     // client's capabilities and tries to become the server on the endpoint it is a client of.
+    //
+    // **The replacement is retired first, and that order is the point** (milestone 800 (a
+    // non-Anthropic model attacks the confinement claim), fourth pass). A `RECEIVE_CAP` the kernel
+    // fails to refuse takes from the queue or blocks; with a live server receiving on the endpoint
+    // the queue is always empty, so the break surfaced as a watchdog hang rather than a report
+    // (measured 2026-09-16, milestone 305 (the six kernel confinement rows get a falsification a
+    // machine can replay)). Once the replacement has answered QUIESCE it provably never receives on
+    // the endpoint again, so the plant's parked message is the only thing in the queue, and a
+    // let-open `RECEIVE_CAP` returns it: the attacker reports a word nothing honest produces, and
+    // the test goes red at its own assertion.
     // ------------------------------------------------------------------------------------------
 
-    // The attacker is wired from the client's own declaration and the client's own routing table, so
-    // "exactly the honest client's capabilities" is now a property of the code rather than of two
+    // Retire the replacement and collect it too, so the run ends with every region back in this
+    // budget. Not tidiness: this is the same lifecycle machinery the swap itself is made of, run to
+    // the end, and the test asserts on the memory coming home.
+    retire(w, &mut corpses, 3, 34);
+
+    // The plant, wired from the client's own declaration (an instrument, but one whose whole
+    // point is to hold nothing the honest client does not). It parks one message on the endpoint
+    // and exits when anyone takes it. No handshake is needed and none would help: if the
+    // attacker's try has already parked as a receiver, the plant's send delivers to it directly,
+    // so every interleaving ends with the message taken by whoever the kernel's gate allowed.
+    start_child(
+        &client_img,
+        &client,
+        w.faultep,
+        [swap_protocol::ROLE_PLANT, 0, 0],
+        30,
+    );
+
+    // The attacker, wired from the client's own declaration and the client's own routing table, so
+    // "exactly the honest client's capabilities" is a property of the code rather than of two
     // arrays a reader has to compare.
     start_child(
         &client_img,
         &client,
         w.faultep,
         [swap_protocol::ROLE_USURPER, 0, 0],
-        30,
+        31,
     );
     expect_note(w.note, swap_protocol::NOTE_ATTACK_DONE, 33);
-    reap_to(w.faultep, &mut corpses, 3); // and the attacker
 
-    // Retire the replacement and collect it too, so the run ends with every region back in this
-    // budget. Not tidiness: this is the same lifecycle machinery the swap itself is made of, run to
-    // the end, and the test asserts on the memory coming home.
-    retire(w, &mut corpses, 4, 34);
+    // **Un-park the plant, bounded, and the bound is what makes this honest in both worlds.** On a
+    // kernel that refused the attacker, the plant is still parked and this receive returns its
+    // marker at once. On a kernel that let the attacker through, the attacker already took it and
+    // the queue is empty, so the plain receive would block forever; the bound notification (armed
+    // below by the timer our spawner granted, the `net_stack` retransmit pattern) ends the wait
+    // instead, and the run goes on to fail at the test's assertion rather than at a watchdog.
+    if timer_arm(TIMER, now() + cntfrq() / 2, WAKE, 1) < 0 {
+        bail(35);
+    }
+    match receive_bound(w.svc) {
+        user_mode_runtime::Received::Message(word, _, _) if word == swap_protocol::PLANT_MARKER => {
+        }
+        user_mode_runtime::Received::Notification(_) => {}
+        _ => bail(36),
+    }
+    reap_to(w.faultep, &mut corpses, 5); // the attacker and the plant
 
     // Our own witness: the log page, read in our address space, after every writer is gone.
     // Independent of the client's verdict, which was computed from replies in a different address
