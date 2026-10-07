@@ -20,7 +20,7 @@ seams are.
 
 ## What the design lane found
 
-The forks are in [§235 (the OS is built and updated from packages)](../decisions/235-packages-build-the-os-and-the-tree-divides-by-release.md)
+The forks are in [§235 (the OS is built and updated from packages)](../decisions/0235-packages-build-the-os-and-the-tree-divides-by-release.md)
 (provisional number), DECIDED 2026-09-27. The measurements and the prior art are in
 [notes/packages-and-divisions.md](../../notes/packages-and-divisions.md). Three findings shape it:
 

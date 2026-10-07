@@ -86,7 +86,7 @@ code was touched and a comment in a shared crate is code that was touched.
   ring 0 to survive its own page fault, which this kernel cannot do. The boot line is rung three.
 - **The cross-core port window is accepted, not closed.** One tick at most, cache cleared so it
   cannot reopen, no consumer runs a port holder on two cores; the IPI shootdown is proposed.
-- **`design/decisions/152-port-range-capability.md`'s third BUGS entry is now wrong** ("x86 runs a
+- **`design/decisions/0152-port-range-capability.md`'s third BUGS entry is now wrong** ("x86 runs a
   single core today") and this lane may not edit it. The two kernel comments that repeated it are
   corrected; the decision is the maintainer's.
 - **`design/fatal-risks/README.md` risk 7 does not yet carry this audit's answer** (one claim false as

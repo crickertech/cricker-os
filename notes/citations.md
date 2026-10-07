@@ -77,7 +77,7 @@ was built for:
 
 ```
 citations: notes/credentials.md:346: §49's gloss (users, login, and attribution) is not
-    grounded in 49-removal-and-recursion.md
+    grounded in 0049-removal-and-recursion.md
       §49 is: Removal is a directory operation, and `-r` widens the grant rather than...
       but it matches milestone 49: Users, login, and attribution: what identity is for...
       Two schemes, one number. This is the milestone-24 defect.
@@ -232,7 +232,7 @@ green through every gate.
 ```
 $ script/citations --moved 5f850c367~1..5f850c367
 citations: milestone 525 moved NEW -> BUILT: A bad upgrade cannot brick the machine: two boot slots, tries an
-citations:   design/decisions/207-the-roadmap-is-a-graph-and-says-so.md:50
+citations:   design/decisions/0207-the-roadmap-is-a-graph-and-says-so.md:50
 citations:   design/roadmap/554-a-good-upgrade-sticks.md:10
 ```
 
@@ -297,7 +297,7 @@ The second half. A block quote may name the file it came from, and the passage m
 ```
 > Kernel memory is never demand-paged. Kernel pages are mapped eagerly.
 >
-> -- design/decisions/09-irq-safe-locking.md
+> -- design/decisions/0009-irq-safe-locking.md
 ```
 
 Matching is on normalized whitespace, which is the only reason this is affordable. A note wraps
@@ -399,10 +399,10 @@ tree glossed it as "architectural parity is a gate", which is neither, and both 
 
 > **Parity is a gate, not an aspiration.** A kernel capability ships on every supported
 >
-> -- design/decisions/19-architectural-parity.md
+> -- design/decisions/0019-architectural-parity.md
 
 That block is not an illustration. It is the tree's one live attributed quotation, and `script/lint`
-re-resolves it against `19-architectural-parity.md` on every run; edit that sentence in the decision
+re-resolves it against `0019-architectural-parity.md` on every run; edit that sentence in the decision
 and this page fails the build until it is brought back into agreement.
 
 ## BUGS
@@ -562,7 +562,7 @@ one, so a lettered citation never puts a file on the list:
 Milestone 16b (DECISIONS §20, notes/iommu.md)
 ```
 
-Three files are invisible to the gate for this reason today (`design/decisions/26-fault-endpoint.md`
+Three files are invisible to the gate for this reason today (`design/decisions/0026-fault-endpoint.md`
 and both `iommu.rs` files), and every citation in them, lettered or not, goes unchecked.
 `notes/trusted-init.md` was the fourth until milestone 94's blessing lane added an ordinary citation
 to it, which pulled the file onto the list and surfaced a lettered gloss that had never been read:

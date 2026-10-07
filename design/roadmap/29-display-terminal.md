@@ -8,7 +8,7 @@ built: 2026-07-30
 Its font increment is BLOCKED: see below.
 
 **The font increment is blocked on the capability model, not on the font** (2026-08-19).
-`design/decisions/100-the-terminal-font.md` chose gohufont-14, which is 8x14, and calef chose to
+`design/decisions/0100-the-terminal-font.md` chose gohufont-14, which is 8x14, and calef chose to
 grow the scanout in the same change rather than ship a 16x4 regression in between. The scanout
 cannot grow. A `PageFrame` capability names one page and takes one of sixteen capability-table
 slots, the virtio-gpu driver already holds nine of them for its DMA region, and the hard ceiling is
@@ -81,7 +81,7 @@ a reach in the 24 spirit. Effort: 2 lanes (measured: first pixels, then glyphs/V
 
 ## Follow-on
 
-- **Decision.** `design/decisions/102-frame-names-a-run.md` settled the fork that blocked the font
+- **Decision.** `design/decisions/0102-frame-names-a-run.md` settled the fork that blocked the font
   increment: a `PageFrame` names a run of pages rather than exactly one, so a scanout no longer
   costs one capability-table slot per page. calef chose it 2026-08-20.
 - **Milestone 142.** The scanout growth and the font itself. 142's increment one grew the surface
@@ -91,7 +91,7 @@ a reach in the 24 spirit. Effort: 2 lanes (measured: first pixels, then glyphs/V
   editing at the display terminal. 142's increment two built them.
 - **Recorded.** `notes/glyphs.md` records that there is no reflow on resize, because nothing
   resizes: a fixed scene has nothing to reflow to.
-- **Decision.** `design/decisions/37-text-as-a-value.md` holds the VT engine's language question,
+- **Decision.** `design/decisions/0037-text-as-a-value.md` holds the VT engine's language question,
   left open on purpose with the cost measured. The recommendation is to adopt libghostty-vt as a
   second engine behind the same seam rather than as a replacement, because the expensive part is
   rebuilding the three-witness proof structure, not the rendering.

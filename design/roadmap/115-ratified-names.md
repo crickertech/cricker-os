@@ -134,7 +134,7 @@ citations, and milestone 97 is the neighbouring case.
 - **Recorded.** `design/roadmap/115-ratified-names.md` states the lint's blind spot up front in its
   scope note: it can check that a name carries a provenance line, never that the line's reason is
   still true.
-- **Decision.** `design/decisions/89-provisional-versus-unrecorded.md` settled whether a name a lane
+- **Decision.** `design/decisions/0089-provisional-versus-unrecorded.md` settled whether a name a lane
   minted and nobody has ruled on is the same thing as a name whose history says nothing. It is not,
   and `provisional` became a fourth state on 2026-08-16, implemented at `script/names:252`.
 - **Milestone 97.** The neighbouring case this block's scope note names: the same blind spot in the

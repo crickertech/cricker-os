@@ -7,7 +7,7 @@
 # since. Dependabot cannot cover the gap either: `vendor/redoxfs` is deliberately its own workspace
 # (divergence 2 in vendor/README.md), so it is outside the Cargo graph dependabot walks. So until
 # this script existed, **nothing in the tree would ever report that RedoxFS had moved**, and
-# design/decisions/81-dependency-upgrades.md's rule that a dependency stays upgradable had
+# design/decisions/0081-dependency-upgrades.md's rule that a dependency stays upgradable had
 # `vendor/` as its blind spot. See design/roadmap/203-vendored-engine-upgrades.md.
 #
 # **Both pins are checked, and that is the point rather than thoroughness for its own sake.** A pin

@@ -148,7 +148,7 @@ manager's rule working rather than a defect.
 
 `RECV`'s `x3` changed meaning for every program on 2026-10-02. calef ruled it on #1494; milestone
 634's block and the risk 7 record cite that ruling; `crates/abi` documents it as "milestone 613's
-amendment to §230". `grep -n '613\|plain SEND' design/decisions/230-*.md design/decisions/242-*.md`
+amendment to §230". `grep -n '613\|plain SEND' design/decisions/0230-*.md design/decisions/0242-*.md`
 finds nothing. CLAUDE.md's rule for the surface is that a method's semantics are recorded in
 `design/decisions/`, and §230's table still says the badge rides `CALL` and `SEND_CAP` only. A
 lane may not edit `design/decisions/`, so the amendment is proposed for the integrator to mint at

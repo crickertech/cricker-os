@@ -18,7 +18,7 @@ Why it matters. the canonical multiplexer of one device among distrusting client
 - **Decision.** The fork itself, with both candidate shapes and what each would buy the compositor
   (per-client endpoints for unforgeable identity, a served screenshot instead of a tearing read-only
   mapping, input delivery that is not a blocking `CALL`), is written up in
-  `design/decisions/33-compositor-authority.md`.
+  `design/decisions/0033-compositor-authority.md`.
 
 ## Index row
 

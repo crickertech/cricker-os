@@ -739,7 +739,7 @@ nife: the capability core runs on RISC-V.
 job-mix: started 32 tasks and 2 servers on 4 online core(s), cntfrq=4000000 Hz
   capability slots: 3 of 24 at peak
 job-mix: one job is one of 5 kinds (16 per round, 8 rounds per task per subrun); see crates/job_mix for the mix and what it deliberately leaves out
-job-mix: this measures THIS kernel under multi-tasking load; it compares nothing against an event kernel and does not decide design/decisions/96-process-kernel-or-event-kernel.md
+job-mix: this measures THIS kernel under multi-tasking load; it compares nothing against an event kernel and does not decide design/decisions/0096-process-kernel-or-event-kernel.md
 job-mix-census: where the kernel placed each thread at spawn: S=echo server, T=task
 job-mix-census: core=1 threads=6 T1 T2 T15 T19 T24 T29
 job-mix-census: core=2 threads=9 S0 T3 T4 T10 T14 T16 T23 T28 T31

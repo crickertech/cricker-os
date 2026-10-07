@@ -194,7 +194,7 @@ implies) is most of the difference.
 - **Recorded.** A sender can make a receiver read an error by sending a negative `w0`: beside
   `abi::rendezvous::RECV` in `crates/abi/src/lib.rs`.
 - **Decision.** The receive tag (option B), ruled by calef on 2026-09-26, is being recorded as an
-  amendment to `design/decisions/101-notification-objects.md` by the maintainer; the method and
+  amendment to `design/decisions/0101-notification-objects.md` by the maintainer; the method and
   object-type numbers are §101's own.
 
 ## Index row

@@ -14,7 +14,7 @@ Promoted from `design/roadmap/proposals/install-time-signature-verification.md` 
 
 Filed by `maintainer/220-ruling` while recording calef's rulings on
 §220 (signed builds: a vendor signs, a developer self-signs, and trusting a key is scoped), in
-[`design/decisions/220-signed-builds-and-scoped-key-trust.md`](../decisions/220-signed-builds-and-scoped-key-trust.md). This is the build those rulings describe. Every
+[`design/decisions/0220-signed-builds-and-scoped-key-trust.md`](../decisions/0220-signed-builds-and-scoped-key-trust.md). This is the build those rulings describe. Every
 name below is provisional.
 
 §220 is decided. The dependency addition still reaches an architect at merge, as

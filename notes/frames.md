@@ -419,7 +419,7 @@ went), and the difference is accounted rather than shrugged at:
   terminal's run unmapped those pages out of the driver's space too, under a capability nobody had
   revoked.
 
-  **Fixed 2026-08-27** (design/decisions/132-overlapping-page-frame-runs.md, option C, decided
+  **Fixed 2026-08-27** (design/decisions/0132-overlapping-page-frame-runs.md, option C, decided
   rather than deferred to the first `GRANT`). Each mapping record now carries the base address of
   the object it was made under, which names the capability *and every capability derived from it*
   because `derive` never changes the object, and `PageFrame::REVOKE`'s unmap half matches on it

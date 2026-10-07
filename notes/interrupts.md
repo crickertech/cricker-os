@@ -4,7 +4,7 @@ Milestone 5 (the GIC and the timer: the kernel is preemptible). A timer interrup
 instructions.
 
 Which means every piece of the locking discipline we wrote in
-[DECISIONS](../design/decisions/09-irq-safe-locking.md) §9 stops being a hypothesis.
+[DECISIONS](../design/decisions/0009-irq-safe-locking.md) §9 stops being a hypothesis.
 
 ## The GIC: the multiplexer in front of the CPU
 
@@ -621,7 +621,7 @@ None of that is why this tree polls.
 
 An MSI or MSI-X message is a memory write to an architecturally special address. **Plain DMA
 remapping does not confine it**: a component that can write a device's MSI-X table can aim an
-interrupt at a vector it was never given. [DECISIONS §86](../design/decisions/86-el0-nvme-driver.md)
+interrupt at a vector it was never given. [DECISIONS §86](../design/decisions/0086-el0-nvme-driver.md)
 found this and named the axis; `notes/confinement-claims.md` carries it as a claim stated nowhere.
 
 Linux draws the same line and says so in its API: **VFIO refuses to hand a device to an untrusted
@@ -648,7 +648,7 @@ loud because the next person meeting a polled driver will reasonably read it as 
 An interrupt is already a capability here. `Object::Irq(u32)` has existed since milestone 9 (an interrupt becomes a message): the
 kernel masks the line, `READ` lets the holder `WAIT` and `ACK`, and everything that knows what the
 *device* is lives in the userspace driver. That is seL4's `IRQHandler` shape, and
-[DECISIONS §101](../design/decisions/101-notification-objects.md) already specifies `bind_irq(intid,
+[DECISIONS §101](../design/decisions/0101-notification-objects.md) already specifies `bind_irq(intid,
 ep)` on the delivery side, with a prior-art survey covering seL4's bound notifications, Fuchsia's
 `zx_port`, Mach port sets and why Linux's `epoll` model was refused.
 

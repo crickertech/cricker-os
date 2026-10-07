@@ -21,7 +21,7 @@ Both halves of this line are under correction, and neither says
 what it used to.
 
 Milestone 75's index row reads `NOT-STARTED` and that is false: its mechanism is built.
-`design/decisions/139-cycle-counter-authority.md` was DECIDED by calef on 2026-09-02,
+`design/decisions/0139-cycle-counter-authority.md` was DECIDED by calef on 2026-09-02,
 `kernel/src/sched.rs`'s `install_cycle_counter_grant` (near line 1734) applies the per-thread grant
 at every context switch behind the `cycle_counter_grant` feature, and
 `kernel::user::tests::a_granted_thread_reads_the_cycle_counter_and_an_ungranted_one_faults` passes
@@ -119,7 +119,7 @@ The two halves of this milestone have different parity answers, and conflating t
 the gap.
 
 **The capability half is legitimately two ISAs, by a recorded exception rather than an omission.**
-[DECISIONS §139 part 3](../decisions/139-cycle-counter-authority.md) rules that x86_64 keeps its
+[DECISIONS §139 part 3](../decisions/0139-cycle-counter-authority.md) rules that x86_64 keeps its
 ambient counter: `CR4.TSD` is clear at reset, this kernel never writes it, so ring 3 may execute
 `rdtsc` and **an ungranted read is not an error**. There is therefore no x86_64 counterpart to
 "grant the counter, fault without it", and

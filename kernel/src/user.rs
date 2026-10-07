@@ -1340,7 +1340,7 @@ pub const X86_COM1_PORT_COUNT: u16 = 8;
 /// **Is there a UART a device capability can be a mapping of on this machine?** (milestone 161.)
 ///
 /// [`UART_PHYS`] is zero on `x86_64` and that zero is the marker for
-/// [DECISIONS §121](../../design/decisions/121-port-io-capability.md) (PROPOSED). Several fixtures
+/// [DECISIONS §121](../../design/decisions/0121-port-io-capability.md) (PROPOSED). Several fixtures
 /// need to ask, so they ask here rather than each testing a constant against zero and each writing
 /// its own sentence about why.
 ///

@@ -16,7 +16,7 @@ its own in `.github/workflows/ci.yml`, and `notes/check-inventory.md`'s row for 
 no under required. So it still reports and does not gate, and the one checkbox is still
 unflipped.
 
-The decision is [§97](../decisions/97-advisory-checks.md), which this block
+The decision is [§97](../decisions/0097-advisory-checks.md), which this block
 did not cite until 2026-09-19. It is one checkbox in the repository's merge queue ruleset, and only
 calef can flip it: it is a GitHub setting rather than a file in this tree, so no lane and no pull
 request can carry the change. There is nothing to build and nothing to review; the whole item is an

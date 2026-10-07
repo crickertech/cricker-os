@@ -145,7 +145,7 @@ out to be `script/swish-check` and already built.
 - **Milestone 47.** A grant of more than one name. This block could only build one subtree caretaker
   per grant, so `caps rm globmany/m-*.txt` previewed an authority nothing could deliver. Milestone
   47's globbing lane built `components/src/fs_nameset_caretaker.rs`, which takes its set in a frame rather
-  than in argument words; the reasoning is design/decisions/52-nameset-glob-grant.md.
+  than in argument words; the reasoning is design/decisions/0052-nameset-glob-grant.md.
 - **Recorded.** `notes/dir-capability.md` carries it beside the feature: a grant more than one level
   down is still not delivered, because init builds one caretaker per grant and that shape is a chain
   of them, so removing a file two levels down is a refusal at the prompt.
@@ -154,7 +154,7 @@ out to be `script/swish-check` and already built.
   instead, because it makes the claim checkable from outside: the confined program holds an endpoint
   to the caretaker and nothing that names the FS server, so "it cannot reach a second file" is a
   property of its cspace rather than of a branch it is trusted to take.
-- **Recorded.** `design/decisions/76-roadmap-status-versus-tree.md` is the standing record of the
+- **Recorded.** `design/decisions/0076-roadmap-status-versus-tree.md` is the standing record of the
   defect class this block met: its own status sat wrong for twelve days because phase 3's larger
   half landed under milestone 50 and nothing read the result. A milestone's status is maintained by
   its own lane, and nothing maintains it when another lane finishes its work.

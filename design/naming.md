@@ -6,7 +6,7 @@ This file is the authority for naming conventions, per §155 (the naming convent
 constitution, and the note becomes the rule). `AGENTS.md` keeps only the authority: naming is an
 architect's call, ship a provisional one and say so, never rename on your own initiative. Where the
 two disagree, this file is the rule and `AGENTS.md` is the bug. The headline rule is
-[§39 (a component is named for what it is)](decisions/39-component-names.md).
+[§39 (a component is named for what it is)](decisions/0039-component-names.md).
 
 This page is what a lane or a maintainer acts on. The argument, history, worked examples and every
 recorded refusal live in the [appendices](#appendices), split out on 2026-09-24 under §212 (a prose

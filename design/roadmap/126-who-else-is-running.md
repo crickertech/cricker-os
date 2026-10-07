@@ -41,7 +41,7 @@ package's long description omits `pidwait`, which is how the first table here mi
 | `watch` | built 2026-08-24, cut 2026-09-13 by milestone 281 (`watch` holds exactly what `ps` holds) | notes/process-view.md |
 | `sysctl` | declined, §115 (no `sysctl`) | this block |
 | `kill`, `pkill`, `skill`, `snice` | refused, milestone 455 (the signaling stratum of `procps`) | `design/roadmap/455-the-signalling-stratum.md` |
-| `pwdx` | declined 2026-09-26, §224 (no `pwdx`): only the shell has a working directory | `design/decisions/224-no-pwdx.md` |
+| `pwdx` | declined 2026-09-26, §224 (no `pwdx`): only the shell has a working directory | `design/decisions/0224-no-pwdx.md` |
 | `w` | moved out: waits on a tid's name and a second session | `design/roadmap/681-w-shows-who-is-logged-in.md` |
 | `free`, `vmstat` | built 2026-09-26 under §225 (`free` sees the machine and your share) | `crates/free`, `crates/vmstat`, the-machine-and-your-share.md |
 | `slabtop` | built 2026-09-26: no slab since milestone 14 (kernel objects from untyped), so it breaks down a job budget by object kind | `crates/slabtop` |
@@ -222,14 +222,14 @@ this wrong looks like `ps` working beautifully while the confinement is decorati
 
 ## Follow-on
 
-- **Decision.** `pwdx` is not built and will not be: `design/decisions/224-no-pwdx.md` (calef,
+- **Decision.** `pwdx` is not built and will not be: `design/decisions/0224-no-pwdx.md` (calef,
   2026-09-26). Upstream prints another process's working directory, and here only the shell holds
   one (`grant_plan::nav::Cwd`), which it already prints with `pwd`.
 - **Milestone 681.** Milestone 681 (`w`: who is logged in, and what they are running). `w` waits on §148, because a
   tid has no name, and on a second session existing:
   `design/roadmap/681-w-shows-who-is-logged-in.md`.
 - **Decision.** How `free` and `vmstat` learn about memory is ruled in
-  `design/decisions/225-free-sees-the-machine-and-your-share.md` (calef, 2026-09-26): a
+  `design/decisions/0225-free-sees-the-machine-and-your-share.md` (calef, 2026-09-26): a
   `MemoryRegion` method under `ENUMERATE` for the caller's share, and a machine memory page granted
   to every login by default and withholdable by the owner.
 - **Done.** `free`, `vmstat`, `slabtop` and `top`'s machine line, on `milestone/126-free`
@@ -242,7 +242,7 @@ this wrong looks like `ps` working beautifully while the confinement is decorati
   paging out for now (pull request #1356); each says so in its `BUGS` in `crates/free/src/lib.rs`
   and `crates/vmstat/src/lib.rs`.
 - **Decision.** `pidwait` takes tids, not a pattern, and composes as `pidwait $(pgrep foo)`:
-  `design/decisions/226-pidwait-takes-tids.md` (calef, 2026-09-26). `pgrep --wait`, one binary with
+  `design/decisions/0226-pidwait-takes-tids.md` (calef, 2026-09-26). `pgrep --wait`, one binary with
   two names, and a pattern-taking `pidwait` are refused there.
 - **Milestone 667.** Milestone 667 (`pidwait`: a way to wait on a named tid with less authority than `pgrep`'s). `pidwait` needs a new kernel method to wait on a named tid with less authority
   than `pgrep`'s, which is the syscall surface and calef's: the options are in
@@ -251,11 +251,11 @@ this wrong looks like `ps` working beautifully while the confinement is decorati
   `kernel/src/user.rs` deregisters a space at `CONFIGURE`. calef moved it out of this milestone on
   2026-09-26 into a milestone of its own, proposed in pull request #1365.
 - **Decision.** The process view is the supervision domain, one level of direct supervision:
-  `design/decisions/223-the-process-view-is-the-supervision-domain.md` (calef, 2026-09-26, "A, and
+  `design/decisions/0223-the-process-view-is-the-supervision-domain.md` (calef, 2026-09-26, "A, and
   refuse B"). A separate process namespace is refused.
 - **Milestone 47.** A pattern still cannot be typed at `pgrep`, because its manifest in
   `crates/grant_plan` is `ArgSpec::Forbidden` and positional arity is 47's.
-- **Decision.** `sysctl` is not built and will not be: `design/decisions/115-no-sysctl.md`.
+- **Decision.** `sysctl` is not built and will not be: `design/decisions/0115-no-sysctl.md`.
 - **Refused.** The signalling stratum (`kill`, `pkill`, `skill`, `snice`) stays unbuilt: a survey
   returns a tid, a tid is not a capability, and killing stays with whoever holds the child's region.
   Milestone 455 carries the refusal and the condition that would change it.

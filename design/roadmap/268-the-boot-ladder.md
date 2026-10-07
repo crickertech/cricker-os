@@ -142,7 +142,7 @@ prints, and not a marker that exists on one architecture, which is the defect be
 
 - **Milestone 182.** x86_64's boot has nowhere to land until it has a shell. This milestone's rungs
   all run before userspace, so it does not wait, but the top rung is unreachable there until 182.
-- **Decision.** `design/decisions/149-kernel-served-console-endpoint.md`, how `swish` reaches a
+- **Decision.** `design/decisions/0149-kernel-served-console-endpoint.md`, how `swish` reaches a
   console on x86_64 where §121 leaves no userspace holder.
 - **Milestone 269.** `machine` as a program that can be run from the prompt.
 - **Recorded.** The `attach_screen` asymmetry is named in BUGS above rather than left for a lane to

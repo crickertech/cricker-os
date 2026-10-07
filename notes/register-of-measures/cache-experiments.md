@@ -12,7 +12,7 @@ notes/footprint-perturbation.md.
 
 - E1 found a knee at 16 threads: 1.00x, 1.03x, 1.20x, 1.68x, then flat to 96 (the last four points
   span 1.2%). The prediction was a knee in the low tens, computed by name against radon's 32 KB
-  L1i. It is recorded against `design/decisions/96-process-kernel-or-event-kernel.md`'s input 3.
+  L1i. It is recorded against `design/decisions/0096-process-kernel-or-event-kernel.md`'s input 3.
   The caveat: E2's customer path runs 4 to 8 threads, below the knee.
 - E4 found displacement that is real and load-dependent. It is 0 to 1% at ordinary IPC load and 5
   to 8% at 96 threads. It peaks at a 32 KiB working set, which is exactly radon's L1d. That is three

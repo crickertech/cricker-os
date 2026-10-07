@@ -534,7 +534,7 @@ The growth is two lines because the evidence went elsewhere, which is this budge
 designed rather than being worked around. The instruction (`git commit --allow-empty` before the
 draft) is in `AGENTS.md` because that is where a lane reads it; the four cases, the window, and why a
 rate-dependent failure hid for three days are in
-[§90](../decisions/90-claiming-and-closing.md)'s amendment, because that is where evidence belongs.
+[§90](../decisions/0090-claiming-and-closing.md)'s amendment, because that is where evidence belongs.
 The constitution gained the rule and not the argument.
 
 Raised from 990 to 1012 on 2026-08-30, and this paragraph is the sentence the rule asks for. The
@@ -637,7 +637,7 @@ invented for the occasion: the squash-against-`origin/main` scar (`AGENTS.md`, "
 `pkill`/mid-test-emulator incident and the reset-`--hard`/`checkout`/`stash` clobbers this section's
 own "What it costs, measured 2026-08-05" already quotes. **The git-clobber rule crossed the
 threshold at four open strikes**, one past three, exactly the finding this ledger exists to
-surface. [DECISIONS §128](../decisions/128-git-clobber-enforcement.md) priced the real enforcement
+surface. [DECISIONS §128](../decisions/0128-git-clobber-enforcement.md) priced the real enforcement
 options and calef's own call, on the evidence of zero repeats in the three weeks since, was to
 accept rather than add a mechanism: the existing `AGENTS.md` prose already appears to be doing the
 job. The ledger row is marked `resolved` on that basis. See notes/rule-violations.md, including its
@@ -683,7 +683,7 @@ honestly, which is a culture rather than a mechanism. Say so where the reader me
   and no gate reads it; the `git stash` scar beside it in `AGENTS.md` is the same shape. Checked
   2026-10-03.
 - **Done.** Budget rule 4 is mechanized: DECISIONS §88 was ratified 2026-08-25
-  (`design/decisions/88-needs-architect-as-a-check.md`) and
+  (`design/decisions/0088-needs-architect-as-a-check.md`) and
   `.github/workflows/architect-hold.yml` is a required check that fails any pull request carrying
   the `needs-architect` label.
 - **Done.** The unresolved "every fence names its counterpart" row is answered, and the answer is

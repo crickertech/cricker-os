@@ -157,7 +157,7 @@ difference between a claim and a fact on argon, whose firmware nobody has read.
   milestone 127's bench list beside its existing `PMCCNTR_EL0` item. Radon and xenon want the same
   reading. OVMF already showed five `CR4` bits set that this kernel never wrote, and a real Dell
   firmware is a stronger version of the same case.
-- **Decision.** `design/decisions/139-cycle-counter-authority.md` holds it: whether EL0 may read the
+- **Decision.** `design/decisions/0139-cycle-counter-authority.md` holds it: whether EL0 may read the
   cycle counter at all, and by what authority, is an architect's call. This milestone deliberately changed
   no policy. It made the default a fact rather than a firmware assumption, so that a grant means
   something when the decision lands.

@@ -15,7 +15,7 @@ ten still stand, one is closed, and one could not be confirmed.** Still wrong to
 `crates/capability/src/lib.rs:98` (the `ENUMERATE` rustdoc's "when `pmap` is built", and `crates/pmap`
 and `components/src/pmap.rs` both exist); `notes/crates-io-on-nife.md` rows 19 and 28 (against
 `filesystem_protocol`'s `GETMTIME`, `SETMTIME` and `SETMTIME_AT`, opcodes 20 to 22);
-`design/decisions/102-frame-names-a-run.md` line 7 ("this decision is still unbuilt");
+`design/decisions/0102-frame-names-a-run.md` line 7 ("this decision is still unbuilt");
 `notes/live-replacement.md` line 261; `notes/register-of-measures.md` line 253;
 `kernel/src/arch/aarch64/timer.rs:185`; `components/src/session_reviver.rs` (eight surviving mentions
 of the deleted durable-session type); and milestone 142's duplicated paragraphs. Closed: the
@@ -47,7 +47,7 @@ This is the list, so that fixing the roadmap does not leave the tree quietly dis
 - `crates/abi`'s start invocation is documented as ignoring its three arguments, which both the
   kernel's own arm and the builder's call contradict. Found by milestone 139's round 7 and left for
   whoever next touched the file.
-- `design/decisions/102-frame-names-a-run.md` says the decision is still unbuilt and quotes
+- `design/decisions/0102-frame-names-a-run.md` says the decision is still unbuilt and quotes
   milestone 142's block saying nobody is building it. It is built: the page-frame object carries a
   count and the compositor sizes a scanout over 311 frames.
 - `notes/live-replacement.md` says the interactive stack is not running under the test harness,

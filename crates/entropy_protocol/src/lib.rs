@@ -90,7 +90,7 @@
 //! and degrades afterwards, or one whose register file latches and repeats the same nonzero answer
 //! forever, passes [`readiness`] and is not caught anywhere in this crate. That is continuous
 //! health testing, it is a decision rather than an omission, and it is
-//! `design/decisions/137-trng-health-tests.md`'s to make: 137 has to answer what a *running*
+//! `design/decisions/0137-trng-health-tests.md`'s to make: 137 has to answer what a *running*
 //! service does when a test fails, which is a denial-of-service question this readiness handshake
 //! does not have (nothing depends on the service yet at the moment it reports). Nothing here
 //! pre-empts that decision, and the only client-side check that exists today is the riscv64 boot

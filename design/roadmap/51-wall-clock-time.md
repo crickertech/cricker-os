@@ -213,7 +213,7 @@ NTP), noting estimates for unbuilt work are guesses on a history-calibrated scal
 - **Milestone 30.** smoltcp, UDP and the NIC are unproven on this path, and nothing in slirp answers
   UDP 123, so there is no offline real server to point a gate at. The client's network path is
   substituted at the capability boundary instead.
-- **Recorded.** In `design/decisions/43-clock-authority.md`, as a limit rather than a win:
+- **Recorded.** In `design/decisions/0043-clock-authority.md`, as a limit rather than a win:
   `SystemTime::now()` has no error channel, so an unknown clock is a panic and std gives a program
   no way to ask before it asks. `date` has an error channel and prints the two causes apart.
 - **Recorded.** In `notes/ntp.md`: `crates/network_time_protocol` (spelled ntp_proto when this was

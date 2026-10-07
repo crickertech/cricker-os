@@ -36,6 +36,6 @@ calef, 2026-09-25 (UTC):
 
 So any one listed architect may rule on anything the role covers, with no domain split and no
 quorum.
-[§217 (every architect holds the whole role)](design/decisions/217-every-architect-holds-the-whole-role.md)
+[§217 (every architect holds the whole role)](design/decisions/0217-every-architect-holds-the-whole-role.md)
 records it. What happens when two architects disagree is not specified by that ruling, and nothing
 here specifies it either.

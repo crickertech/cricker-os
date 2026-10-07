@@ -51,7 +51,7 @@ the history here cannot bound). Off the thesis path, like 20 was: a reach the de
 
 ## Follow-on
 
-- **Decision.** `design/decisions/105-thread-spawn-decline-for-now.md`. `thread::spawn` shipped
+- **Decision.** `design/decisions/0105-thread-spawn-decline-for-now.md`. `thread::spawn` shipped
   `Unsupported` in both phases here, and the block leaves the retype-a-TCB version as a phase that
   never got scheduled. It was settled instead: declined until a customer needs it.
 - **Milestone 31.** Creating and truncating a file, listed here among the operations no contract

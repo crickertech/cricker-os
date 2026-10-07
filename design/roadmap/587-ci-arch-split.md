@@ -271,7 +271,7 @@ rather than bought) already names "merge throughput" as one of the three things 
   recalled from QEMU's documentation, not measured; the header of `.github/workflows/ci.yml` says
   so where it keeps `test` and `cpu-matrix` on arm64 for that reason.
 - **Decision.** The coverage job now runs the host suite on x86_64 on every pull request, which is
-  part of what `design/decisions/184-an-x86-64-host-in-the-host-pass.md` asks about (and milestone
+  part of what `design/decisions/0184-an-x86-64-host-in-the-host-pass.md` asks about (and milestone
   403 (an x86_64 host in the host pass) builds). It is coverage's pass, not `script/test`'s, so the
   section's question stays open; the maintainer should tell whoever holds it.
 

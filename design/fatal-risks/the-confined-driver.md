@@ -127,7 +127,7 @@ The decisive experiment above is unchanged, because throughput is what a TRNG ca
 
 And the machine for it exists, which nobody had established until 2026-09-05. The decisive
 experiment is one real non-virtio device on real silicon, confined, at throughput.
-[§86](../decisions/86-el0-nvme-driver.md) was decided on 2026-09-03 and its own research recorded
+[§86](../decisions/0086-el0-nvme-driver.md) was decided on 2026-09-03 and its own research recorded
 that no board this project owns has an IOMMU in front of a real NVMe controller. xenon has both. And
 its firmware transcription says so precisely. A `Micron 2450 NVMe 256GB` on M.2 PCIe SSD-0, with
 SATA in AHCI rather than RAID, *"so the NVMe is a plain PCIe function rather than hidden behind

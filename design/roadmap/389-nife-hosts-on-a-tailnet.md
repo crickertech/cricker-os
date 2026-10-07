@@ -83,7 +83,7 @@ maintenance relationship this project should not take on for a convenience.
 
 Tailscale's data plane is WireGuard: Curve25519, ChaCha20-Poly1305, BLAKE2s, over UDP. That is
 bounded and well specified where the control plane is neither, and
-[§46](../decisions/46-dependency-rule.md) puts the crypto squarely on the take side. It would put
+[§46](../decisions/0046-dependency-rule.md) puts the crypto squarely on the take side. It would put
 a nife host on the lab network cryptographically with no coordination plane at all.
 
 And it is the third instance of one pattern in a single evening, which is what makes it worth
@@ -111,7 +111,7 @@ which is why this is a proposal with no milestone attached.
 - A nife host that must be reachable **when the subnet router is not**, which is a real gap the
   moment anything depends on a board being up while cordoba is not.
 - Or the confined-peer demonstration being wanted for its own sake, which is
-  [§145](../decisions/145-compartmentalization-at-process-cost.md)'s question rather than this
+  [§145](../decisions/0145-compartmentalization-at-process-cost.md)'s question rather than this
   one's.
 
 ## BUGS

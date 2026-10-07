@@ -5,11 +5,11 @@
 Written 2026-10-02 (UTC) against `main` at `b4a081e02`. Risks 6 and 7 in
 [`design/fatal-risks/README.md`](../design/fatal-risks/README.md) read Experiment status RUN and carry
 no color (`color: none` in both appendices). The color is the architect's alone
-([§216 (fatal-risk facts are correctable, and verdicts are the architect's)](../design/decisions/216-fatal-risk-facts-are-correctable-verdicts-are-the-architects.md)).
+([§216 (fatal-risk facts are correctable, and verdicts are the architect's)](../design/decisions/0216-fatal-risk-facts-are-correctable-verdicts-are-the-architects.md)).
 This page gathers the evidence so a ruling takes one reading. It sets no verdict and edits nothing
 under `design/`.
 
-One thing to know first. [§211 (what a fatal-risk verdict says)](../design/decisions/211-what-a-fatal-risk-verdict-says.md)
+One thing to know first. [§211 (what a fatal-risk verdict says)](../design/decisions/0211-what-a-fatal-risk-verdict-says.md)
 defines the Experiment status words and defines no color. GREEN, AMBER and RED have no written
 definition in the tree. What exists is precedent, and this page applies it. GREEN on risks 1 and 9
 (ran, could have come back red, did not, caveats stated). AMBER on risks 2 and 3 (ran, and found a

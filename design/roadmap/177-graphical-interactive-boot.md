@@ -154,7 +154,7 @@ it.
 Finding 3 corrects this doc's own sequencing claim. The original text (below, in "what this
 unblocks") said piece 3 (x86_64's entry point) is provable against the plain `console`/`input` pair
 independent of pieces 1-2. Checked against
-[DECISIONS §121](../decisions/121-port-io-capability.md) (ratified permanently 2026-08-25) and
+[DECISIONS §121](../decisions/0121-port-io-capability.md) (ratified permanently 2026-08-25) and
 found false: x86_64's UART console is permanently kernel-resident, a closed question rather
 than an unbuilt feature ("this is not an interim stance to be revisited on a schedule"). x86_64 has
 no working userspace console at all, on either side of this milestone; its only possible route to
@@ -190,7 +190,7 @@ against the real boot path here).
 ## What this unblocks
 
 The graphical half of the login-to-`kilo` user story ([DECISIONS
-§131](../decisions/131-hold-at-rung-two.md)'s "kick-ass terminal, something I'll love working
+§131](../decisions/0131-hold-at-rung-two.md)'s "kick-ass terminal, something I'll love working
 with"), now that the display-driver hang above is resolved (2026-09-19). Independent of [milestone
 169](169-kilo-editor.md) (`kilo`'s raw-keystroke primitive sits at the `DECISIONS §21`
 line-discipline contract level, which both `console` and `display_terminal` already speak

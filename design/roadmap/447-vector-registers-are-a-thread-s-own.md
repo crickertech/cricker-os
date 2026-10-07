@@ -22,7 +22,7 @@ a gap: a decision, recorded three times and enforced by construction.
   that feature string **"a correctness requirement"** in its target table, with the reason beside
   it: "`kernel/src/arch/x86_64/` saves no FPU or SSE state on a context switch."
 - §31 (the foreign-language seam: C holds no capabilities and makes no syscalls), in
-  [its own section](../decisions/31-foreign-language-seam.md), says the same about the C boundary:
+  [its own section](../decisions/0031-foreign-language-seam.md), says the same about the C boundary:
   "the kernel never enables FP/SIMD for EL0, and the context switch" saves nothing, so a vector
   register in a confined component would be a trap or a corruption depending on which of those two
   bit first.

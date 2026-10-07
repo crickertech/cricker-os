@@ -18,7 +18,7 @@ unaffected by the naming question either way.
 
 Minted 2026-08-25, from calef asking what a lightweight first text editor
 for nife might be, after a dependency review of Emacs, nano and vim (in that order) found the same
-wall under all three: [DECISIONS §31](../decisions/31-foreign-language-seam.md) forbids C code from
+wall under all three: [DECISIONS §31](../decisions/0031-foreign-language-seam.md) forbids C code from
 making a syscall or holding a capability directly, so any C program's port is really "rewrite its
 syscall layer against nife's Rust-mediated shim," and no editor sidesteps that by being smaller.
 What *does* scale with size is how much of that rewrite there is to do. antirez's `kilo`
@@ -30,7 +30,7 @@ nano's or vim's much larger optional-feature surface.
 
 ## The one real gap this milestone exists to close
 
-nife's terminal contract, [DECISIONS §21](../decisions/21-terminal-in-userspace.md), is a **line
+nife's terminal contract, [DECISIONS §21](../decisions/0021-terminal-in-userspace.md), is a **line
 discipline**, not a curses substrate: `OP_READLINE` hands a program a finished line, and the
 program "never sees a keystroke, an escape sequence, or an echo" (per that decision's own text).
 `OP_WRITE` passes a program's own ANSI output straight through to the screen untouched, so the
@@ -57,7 +57,7 @@ Checked directly against `kilo.c`'s own structure, not assumed from its reputati
   of `std::thread::spawn` does not affect it.
 - **Signals are decorative, not load-bearing.** `kilo` installs a `SIGWINCH` handler for terminal
   resize as a convenience; without it, the editor simply does not notice a resized terminal until
-  the next redraw. [DECISIONS §101](../decisions/101-notification-objects.md)'s notification
+  the next redraw. [DECISIONS §101](../decisions/0101-notification-objects.md)'s notification
   objects are a plausible nife-native substitute if a lane wants the feature, but a first cut can
   ship without it and note the gap.
 - File I/O is a straight port. Open the file named on the command line, read it into `kilo`'s
@@ -66,7 +66,7 @@ Checked directly against `kilo.c`'s own structure, not assumed from its reputati
 
 ## What this unblocks
 
-Directly, [DECISIONS §31](../decisions/31-foreign-language-seam.md)'s foreign-language seam gets its
+Directly, [DECISIONS §31](../decisions/0031-foreign-language-seam.md)'s foreign-language seam gets its
 first real, load-bearing C program beyond the confined `c_seam.c` spike, and the raw-keystroke
 primitive this milestone has to build is reusable infrastructure, not a `kilo`-specific hack.
 

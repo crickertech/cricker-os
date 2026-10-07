@@ -54,7 +54,7 @@ help text is Dell's own:
 
 Its prerequisite is satisfied too: IMG_4083, `Enable Intel Virtualization Technology`, is ticked.
 
-What this settles. `design/decisions/86-el0-nvme-driver.md` was decided on 2026-09-03 and its
+What this settles. `design/decisions/0086-el0-nvme-driver.md` was decided on 2026-09-03 and its
 research recorded that no board this project owns has an IOMMU in front of a real NVMe controller.
 xenon has both, and now both are known to be *switched on*: VT-d enabled in firmware, and a
 `Micron 2450 NVMe 256GB` on M.2 PCIe SSD-0 with SATA in AHCI rather than RAID mode, so the

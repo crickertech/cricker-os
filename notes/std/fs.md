@@ -3,7 +3,7 @@
 *An appendix to [`notes/std.md`](../std.md), which is the page to read. This file holds how `File`
 and the namespace verbs map onto the file contract, why a path is relative to a granted directory,
 and what stays `Unsupported`. It was moved here verbatim from the main page on 2026-09-25 (UTC),
-under [§212 (a prose budget)](../../design/decisions/212-a-prose-budget-for-every-document.md). The
+under [§212 (a prose budget)](../../design/decisions/0212-a-prose-budget-for-every-document.md). The
 directory `notes/std/` and this file's stem are provisional names, minted that day by the lane that
 split the file. Naming is calef's.*
 

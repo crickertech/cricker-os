@@ -1,7 +1,7 @@
 # Login
 
 Authentication that produces capabilities instead of mutating an identity. Milestone 49's login
-half; the attribution half is [DECISIONS §109](../design/decisions/109-attribution-is-a-channel-property.md).
+half; the attribution half is [DECISIONS §109](../design/decisions/0109-attribution-is-a-channel-property.md).
 
 The contract is `crates/login_protocol`, the service is `components/src/login.rs`, and its test client is
 `fixtures/src/login_test_client.rs`. All three names are provisional, minted for this milestone and

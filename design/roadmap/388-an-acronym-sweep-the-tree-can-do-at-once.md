@@ -23,7 +23,7 @@ recorded refusal apiece (`dtb`, `gpt`, `ipc`); `dma` and `asid` are no longer na
 `script/names` sees. *(Number provisional until the merge queue lands it.)*
 
 an architect names things, and this is a list of names. The rule behind the gate is
-[§154 (acronym)](../decisions/154-the-acronym-test-is-whether-the-phrase-is-spoken.md), cited here from
+[§154 (acronym)](../decisions/0154-the-acronym-test-is-whether-the-phrase-is-spoken.md), cited here from
 2026-09-19; the block argued from it throughout and never named it.
 
 §154 is `DECIDED` and it already answers this block's hard half, which is why nothing new is
@@ -32,7 +32,7 @@ people actually say, and stays whole where nobody says it, asked again of any ac
 the expansion. Its own table rules four of the five names in this block's first `BUGS` entry by
 name: `dtb` becomes `device_tree_blob`, `ipc` becomes `inter_process_communication`, `asid` becomes
 `address_space_identifier`, `gpt` becomes `globally_unique_identifier_partition_table`, and `dma`
-was already ruled on 2026-09-05. [§113](../decisions/113-kernel-object-plain-names.md)'s amendment
+was already ruled on 2026-09-05. [§113](../decisions/0113-kernel-object-plain-names.md)'s amendment
 is the other half, since it ends the external-standard exemption the `jh7110_crg` row leaned on.
 
 So what stands here is performance and one genuinely open name, not a fork. Applying §154 to

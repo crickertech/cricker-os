@@ -21,12 +21,12 @@ restart a dead tier-one server would be one able to build processes.
 Answered twice over, and neither answer is a rights bit.
 
 - §32 (a supervisor may collect a corpse without being able to build one)
-  ([file](../decisions/32-reap-without-build.md)) was decided 2026-07-29, six days before this
+  ([file](../decisions/0032-reap-without-build.md)) was decided 2026-07-29, six days before this
   block was raised. It made reaping a method on the supervision endpoint, `abi::rendezvous::REAP`, authorized by the supervision relationship
   rather than by any right on the region. This block restated a settled question as open, which is
   recorded here rather than quietly fixed.
 - §148 (a supervisor restarts by asking, and resolves by asking the kernel)
-  ([file](../decisions/148-reap-and-thread-identity.md)), 2026-09-05, closed the rest: a tier-one server that should be
+  ([file](../decisions/0148-reap-and-thread-identity.md)), 2026-09-05, closed the rest: a tier-one server that should be
   restartable gets a one-program spawner, as tier two already does, and the root asks it. A bit says
   *may reap*; a one-program spawner says *may only ever produce this*. A supervision endpoint and a
   spawner land together, per server, or neither does.
@@ -108,7 +108,7 @@ both downward, which is what layout noise looks like when it is not a cost.
 ## Follow-on
 
 - **Decision.** §148's amendment decides R3 and leaves the layout to the builder. The built
-  semantics belong in `design/decisions/148-reap-and-thread-identity.md`, which a lane may not
+  semantics belong in `design/decisions/0148-reap-and-thread-identity.md`, which a lane may not
   edit: register 5, written on the death path to a plain receive only, zeroed on the way in by the
   receiver, and zero for an unbadged capability. The text is in this lane's report for the
   maintainer, and notes/abi.md carries it meanwhile.

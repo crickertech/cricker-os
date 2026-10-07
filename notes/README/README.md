@@ -1,7 +1,7 @@
 # The notes index, by area
 
 [`notes/README.md`](../README.md) is the index of every note. It reached the 3,000-word cap of
-[§212 (a prose budget)](../../design/decisions/212-a-prose-budget-for-every-document.md), so its
+[§212 (a prose budget)](../../design/decisions/0212-a-prose-budget-for-every-document.md), so its
 lines moved here, one page per area, and the top page keeps the "Start here" list and a link to each
 area. This is the default siting §212 ratified: a parent-named directory beside its document.
 

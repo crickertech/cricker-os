@@ -26,7 +26,7 @@ aarch64-only records for confinement rows 22, 23, 24 and 30. All five parts are 
 
 Part 4 was decided on 2026-09-18, and it was a ratification rather than a minting. calef ratified
 `Expected to fail:` as the line a record carries, in
-[§134](../decisions/134-harness-falsification-record.md)'s own spellings section. This block filed it
+[§134](../decisions/0134-harness-falsification-record.md)'s own spellings section. This block filed it
 as *"what to call a new field"* on the proposal's observation that four patches already did it in
 prose; counted on the day, all 66 falsification records carried the line and 65 spelled it exactly
 that way. The one outlier (`Expected red`, in `crates/nifefs`) was corrected in the same change, so

@@ -22,7 +22,7 @@ crates, the programs, and the shared modules", extended to public function and m
 2026-08-23).
 
 **Only the name is open, and that is a narrowing this block did not have.**
-[§94](../decisions/94-what-may-live-in-a-library.md) already decided the lift: it asks what
+[§94](../decisions/0094-what-may-live-in-a-library.md) already decided the lift: it asks what
 the language forces to be per-binary and lifts everything else, and its own tell is this case
 exactly, *"a per-binary item whose body is copied verbatim into every binary. If the body is
 identical everywhere, it is not per-binary; only its declaration is."* It was written about 58

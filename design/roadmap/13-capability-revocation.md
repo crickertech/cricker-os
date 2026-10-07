@@ -35,7 +35,7 @@ until revocation lands. This milestone is that work, and the precondition is why
   Frames were spend-only until revocation existed; 14 removes the kernel heap and retypes objects
   out of untyped, which is the reclamation this block made safe.
 - **Refused.** The full seL4-style capability-derivation tree, and with it subtree granularity
-  (revoke Bob's copy while keeping Alice's). `design/decisions/13-frame-revocation.md` argues it as
+  (revoke Bob's copy while keeping Alice's). `design/decisions/0013-frame-revocation.md` argues it as
   a considered terminal design rather than a way-station: revoke-all-derivatives is the
   memory-safety-critical half and is exactly what reclamation wants, nothing on the roadmap needs
   subtree revoke, and if one ever does, the unmap side and the revoke-before-reclaim discipline are

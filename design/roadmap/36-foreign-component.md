@@ -103,7 +103,7 @@ find it with a throwaway component rather than half way into a port.
 
 ## Follow-on
 
-- **Decision.** `design/decisions/32-reap-without-build.md` settles the fork this spike fed: a
+- **Decision.** `design/decisions/0032-reap-without-build.md` settles the fork this spike fed: a
   supervisor needs exactly `DESTROY` on one region it did not create, and nothing narrower existed,
   so the confiner was builder, supervisor and checker in one process.
 - **Milestone 29.** The large foreign component this spike was built to de-risk. libghostty-vt is

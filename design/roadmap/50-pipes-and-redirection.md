@@ -10,7 +10,7 @@ evidence: every residual the paragraph below listed as open had closed on 2026-0
 had not caught up. Buffering was measured and the verdict is build nothing (commit 8c27953;
 notes/pipes.md carries the numbers and the honest caveats); the terminal sink adapter is
 `terminal_sink_caretaker`, built, wired as the fifth boot component, name ratified (061066e); and
-`2>` was decided by Chris and built as the declared second stream (design/decisions/67-second-stream.md).
+`2>` was decided by Chris and built as the declared second stream (design/decisions/0067-second-stream.md).
 
 (The Gate paragraph that stood here described the three residuals; all three closed 2026-08-03,
 and a BUILT milestone gates nothing, so it is gone rather than stale.)
@@ -193,7 +193,7 @@ likely to surprise.
   one-page wall one layer down with nothing gained. `notes/sink-protocol.md` has the reasoning.
   This refusal is milestone 483 (design/roadmap/483-the-console-server-on-the-sink-protocol.md),
   which carries it with the condition that would change it.
-- **Decision.** `design/decisions/67-second-stream.md` settles `2>`, which this block named as a
+- **Decision.** `design/decisions/0067-second-stream.md` settles `2>`, which this block named as a
   design fork rather than a task. calef chose the manifest declaration: a program that has
   diagnostics declares a second output, the shell plans an endpoint only for a declarer, and `2>`
   aimed at a non-declarer is a refusal at the prompt.

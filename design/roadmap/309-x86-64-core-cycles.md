@@ -163,7 +163,7 @@ architectures of three after this, up from one, and the third has a named owner 
 silence.
 
 **No authority question, and this must not create one.**
-[DECISIONS §139 part 3](../decisions/139-cycle-counter-authority.md) records that `x86_64`'s TSC is
+[DECISIONS §139 part 3](../decisions/0139-cycle-counter-authority.md) records that `x86_64`'s TSC is
 already ambient (`CR4.TSD` clear at reset, never written by this kernel), which is why the negative
 half of `a_granted_thread_reads_the_cycle_counter_and_an_ungranted_one_faults` skips here with a
 reason. **This milestone does not change that.** `IA32_PERF_FIXED_CTR1` is read with `rdmsr`, ring 0
@@ -214,7 +214,7 @@ lane's. What it decides, in order:
    outcomes of this milestone; a plausible-looking wrong number is not.
 3. If it prints a number: what `cycles_per_tick` is on that part, which converts every
    tick-denominated row of an `x86_64` board bench into cycles at once, and gives milestone 25's
-   cross-OS comparison and [§96](../decisions/96-process-kernel-or-event-kernel.md) the currency the
+   cross-OS comparison and [§96](../decisions/0096-process-kernel-or-event-kernel.md) the currency the
    literature is denominated in.
 
 ## Names

@@ -29,7 +29,7 @@ So the semantics of a syscall method changed and every program is now written ag
 meaning. The only records are a PR comment, two roadmap blocks and a doc comment in
 `crates/abi`. CLAUDE.md's rule for the syscall surface is that each method's semantics are recorded
 in `design/decisions/`, not just in code. §230 is where a reader of the badge contract looks.
-`grep -n '613\|plain SEND' design/decisions/230-*.md design/decisions/242-*.md` finds nothing.
+`grep -n '613\|plain SEND' design/decisions/0230-*.md design/decisions/0242-*.md` finds nothing.
 
 ## What the amendment should say
 

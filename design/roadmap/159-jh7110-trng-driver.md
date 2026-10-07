@@ -338,7 +338,7 @@ secret derived from it.
 
 It stops at bring-up, deliberately. A source that answers once and degrades, or whose register
 file latches and repeats a nonzero answer, still passes. That is continuous health testing,
-`design/decisions/137-trng-health-tests.md` is `PROPOSED` and owns it, and its hard half is the
+`design/decisions/0137-trng-health-tests.md` is `PROPOSED` and owns it, and its hard half is the
 failure action for a *running* service (refusing to serve is a denial of service that can brick a
 boot). A readiness handshake does not have that problem, because nothing depends on the service at
 the moment it reports, which is why this could ship without 137 and does not pre-empt it.
@@ -468,7 +468,7 @@ polls, which is what this driver does).
   trip, bring-up 562 us. The proposal was promoted to milestone 306 at that point, because a
   proposal whose work is finished is not a proposal.
 - **Decision.** Whether these bytes need a NIST SP 800-90B-class health test before anything
-  security-shaped trusts them: `design/decisions/137-trng-health-tests.md`, already `PROPOSED` and
+  security-shaped trusts them: `design/decisions/0137-trng-health-tests.md`, already `PROPOSED` and
   untouched by this lane.
 
 ## What this does not decide

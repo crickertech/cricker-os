@@ -53,7 +53,7 @@ The work is a transport kind, the roster entry that carries it, and the wiring t
 
 ## Why now, and why not before
 
-[DECISIONS §86](../decisions/86-el0-nvme-driver.md) listed this under "what is blocked until it is
+[DECISIONS §86](../decisions/0086-el0-nvme-driver.md) listed this under "what is blocked until it is
 answered", with the reason stated precisely: *"small, but its wire shape depends on who owns the
 controller."* That dependency was real. A roster entry for a kernel-resident driver and one for a
 confined EL0 server are different entries, because what a holder of the roster can then *ask for* is

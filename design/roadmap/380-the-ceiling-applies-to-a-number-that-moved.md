@@ -8,7 +8,7 @@ built: 2026-09-04
 Filed as a proposal that day by the milestone 188 lane, and folded
 into the decision the same day by whoever held §144, which is exactly what it asked for and is why
 it was written as a proposal rather than as an edit. Promoted by milestone 433 on 2026-09-19, when
-`design/decisions/144-fastpath-footprint-ceiling.md` was read against it. That section now states
+`design/decisions/0144-fastpath-footprint-ceiling.md` was read against it. That section now states
 the ceiling as *"an absolute ceiling of 16 KiB, per architecture, on `script/fastpath-footprint`'s
 `total`"*, carries a paragraph headed "Amended 2026-09-04, the same day, because milestone 188
 moved both terms this sentence named", gives both reasons this file gives, concludes that *"the
@@ -68,12 +68,12 @@ finding by accident.
 - **Recorded.** x86_64 is the one to watch and the decision says so: its total rose to 60% of the
   ceiling against the 51% §144 recorded, because counting the shape services actually run adds more
   there than any other correction removes. Recorded in
-  `design/decisions/144-fastpath-footprint-ceiling.md` beside the table, which is where a reader
+  `design/decisions/0144-fastpath-footprint-ceiling.md` beside the table, which is where a reader
   meets the number.
 - **Recorded.** §144's own `BUGS` still says the measurement is an upper bound and a loose one, and
   that the bytes an IPC actually touches are fewer by an amount nobody knows. Milestone 188 narrowed
   that on one architecture and widened what is counted on all three; it did not close it.
-  `design/decisions/144-fastpath-footprint-ceiling.md`.
+  `design/decisions/0144-fastpath-footprint-ceiling.md`.
 - **Refused.** Moving the 16 KiB number. Neither this block nor milestone 188 asked calef to, and
   neither should be read as having done so: the ceiling's derivation from a 32 KB L1i is untouched
   by a correction to what is being summed, and only calef raises it.

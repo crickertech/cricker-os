@@ -2,7 +2,7 @@
 
 *Name: ratified 2026-08-04 (calef; §75 (directories under `design/` and `notes/` carry provenance in
 their own README) covers this directory). `audit-trail` was refused because
-[35-scanner-findings.md](../decisions/35-scanner-findings.md) already uses that phrase in its
+[0035-scanner-findings.md](../decisions/0035-scanner-findings.md) already uses that phrase in its
 established sense, a chronological record of who did what, which is also what an operating system
 means by it (Linux's `auditd`, BSD's audit subsystem); a kernel whose thesis is confinement is a
 plausible future home for that feature, and this is not it. Bare `audits` was passed over because
@@ -65,7 +65,7 @@ exactly the job §74 gave them, and it is worth seeing once, because a mechanism
 calendar alone would still be reporting green today.
 
 The triggers, and the ruling behind each, are
-[§74](../decisions/74-audit-cadence.md): **event triggers first, a count second, the calendar a
+[§74](../decisions/0074-audit-cadence.md): **event triggers first, a count second, the calendar a
 backstop.** The count numbers are the interval this project chose when nobody was counting, rounded
 to something a person can hold.
 

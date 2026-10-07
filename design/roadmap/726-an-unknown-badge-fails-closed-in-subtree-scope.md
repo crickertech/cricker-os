@@ -65,7 +65,7 @@ ruled.
 ## Follow-on
 
 - **Done.** The crate arm, the Kani harness `a_badge_with_no_window_is_never_open` and its falsification, and the host test `a_badge_with_no_window_is_refused` landed in this milestone's pull request, with the amendment to DECISIONS §230 (badged endpoint capabilities) and the dated fact in `design/fatal-risks/README.md`.
-- **Recorded.** The kernel's `BADGE` still has no ceiling, deliberately; `design/decisions/230-badged-endpoints-name-a-callers-frame.md` carries the amendment.
+- **Recorded.** The kernel's `BADGE` still has no ceiling, deliberately; `design/decisions/0230-badged-endpoints-name-a-callers-frame.md` carries the amendment.
 
 ## Index row
 

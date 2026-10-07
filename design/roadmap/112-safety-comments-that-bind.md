@@ -98,7 +98,7 @@ tree), not an assumption to start from.
 - **Refused.** A lint for "a SAFETY comment on a safe fn". Neither unsafe lint can read a comment,
   and a check for this shape would fire on the legitimate uses the block separates out, where
   "caller" means the calling thread or process rather than a soundness obligation. If the
-  distinction ever turns out to be mechanical, `design/decisions/61-lints-on-evidence.md` is the
+  distinction ever turns out to be mechanical, `design/decisions/0061-lints-on-evidence.md` is the
   ledger that adopts a lint on evidence from this tree.
   This refusal is milestone 453 (design/roadmap/453-a-lint-for-a-safety-comment-on-a-safe-fn.md),
   which carries it with the condition that would change it.

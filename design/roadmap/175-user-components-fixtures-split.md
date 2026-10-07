@@ -9,7 +9,7 @@ Minted 2026-08-25, from calef asking when nife development should split
 into different repositories. [Milestone 39 (repository)](39-repository-structure.md)'s own analysis already
 answered the bigger question (monorepo now, distribution as a separate manifest repo later, gated
 on milestone 23 forcing it, and 23's residual piece was declined for want of a customer rather than
-forcing anything, the same shape as [DECISIONS §105](../decisions/105-thread-spawn-decline-for-now.md)):
+forcing anything, the same shape as [DECISIONS §105](../decisions/0105-thread-spawn-decline-for-now.md)):
 not yet, by the tree's own stated trigger ("when a component is first built outside this tree, or a
 binary is first distributed to someone who cannot rebuild it"), which has not happened. This
 milestone is 39's own "cheap first move, which commits to none of the four options", re-scoped
@@ -29,7 +29,7 @@ when any shared module changes.
 
 Not "daemons": a Unix daemon is defined by what it detaches from (no controlling terminal, inherited
 ambient authority, a pid file), and nife deliberately has none of those
-([DECISIONS §10](../decisions/10-capability-microkernel.md)). Milestone 39's vocabulary, already
+([DECISIONS §10](../decisions/0010-capability-microkernel.md)). Milestone 39's vocabulary, already
 argued for and not re-litigated here: a component is the shippable unit (a binary plus its
 manifest), a service is what it offers over a contract. "Server" stays a fine role word inside a
 component; "daemon" does not appear.

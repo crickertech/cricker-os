@@ -20,7 +20,7 @@ moment the timing lines up, and it will look exactly like the mystery in
 
 And note what it does not need: a second core. This was written while §6 still said
 single-core, and the point was that the decision
-([DECISIONS](../design/decisions/06-single-core-first.md) §6, since **superseded by §11**) did not
+([DECISIONS](../design/decisions/0006-single-core-first.md) §6, since **superseded by §11**) did not
 protect us here at all. One core, one lock, one interrupt, dead machine. Cores 1 to n arriving at
 milestone 41 added races; it did not remove this one.
 
@@ -186,7 +186,7 @@ wrong.**
 
 ## The rules
 
-See [DECISIONS](../design/decisions/09-irq-safe-locking.md) §9 for the full table. The short version:
+See [DECISIONS](../design/decisions/0009-irq-safe-locking.md) §9 for the full table. The short version:
 
 1. All kernel locks are `IrqSafeMutex`.
 2. Mask, then lock. Unlock, then restore.

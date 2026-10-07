@@ -829,7 +829,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 126	47	context	later	2026-08-17	2026-08-14	`Prog::Date`'s deliberate under-declaration verbatim. It lifts when `ArgSpec` grows M-47's
 126	121	context	at-creation	2026-08-14	2026-08-14	this system is built to refuse.** M-121 makes the same argument for directories: a program
 126	108	context	at-creation	2026-08-14	2026-08-14	The negative control keeps M-108's shape: a viewer run against a domain it was not granted is
-126	282	context	later	2026-09-13	2026-08-14	`design/decisions/150-per-thread-cpu-accounting.md`, built as M-282. Raised 2026-08-26 by
+126	282	context	later	2026-09-13	2026-08-14	`design/decisions/0150-per-thread-cpu-accounting.md`, built as M-282. Raised 2026-08-26 by
 126	41	context	later	2026-08-26	2026-08-14	have alive, the same job S-28/M-41 moved to per-process untyped retyping (the budget *is*
 126	54	context	later	2026-08-26	2026-08-14	**This is a fork rather than a recommendation-only decision** because unlike M-54's demo
 126	106	context	later	2026-09-13	2026-08-14	It is M-106's fifth named consumer (`components/src/timetable.rs`'s module docs name the first
@@ -1395,7 +1395,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 211	212	context	at-creation	2026-09-01	2026-08-31	  `script/falsifications` walks `crates/` only (M-212 fixes that), so the two in
 161	164	context	at-creation	2026-08-24	2026-08-23	     keeps SSE; both want their own milestone (now minted: M-164), and until one lands
 211	470	context	later	2026-09-20	2026-08-31	  This refusal is M-470 (design/roadmap/470-a-gate-on-harness-quality.md), which carries it
-161	176	context	later	2026-08-25	2026-08-23	   M-176 piece 2's job (decided, [S-130](../decisions/130-cmos-rtc-delegation.md); not S-121,
+161	176	context	later	2026-08-25	2026-08-23	   M-176 piece 2's job (decided, [S-130](../decisions/0130-cmos-rtc-delegation.md); not S-121,
 161	165	context	later	2026-08-25	2026-08-23	   which the discovery seam itself no longer blocks (item 0's PCI window is wired, M-165) but
 161	27	context	at-creation	2026-08-24	2026-08-23	   (M-27).
 212	197	context	at-creation	2026-09-01	2026-08-31	**Status: BUILT** 2026-09-01. Minted 2026-08-31 from M-197's (`user/` and `xtask` are out of
@@ -1514,7 +1514,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 168	493	prerequisite	later	2026-09-20	2026-08-24	`design/roadmap/493-a-disk-file-job-mix-needs-a-disk-radon-can-drive.md`.
 219	473	context	later	2026-09-20	2026-09-01	  This refusal is M-473 (design/roadmap/473-a-soak-leg-in-script-test.md), which carries it
 168	433	context	later	2026-09-19	2026-08-24	on 2026-09-19, because another session had promoted them hours earlier under M-433's drain
-168	435	context	later	2026-09-19	2026-08-24	  [S-191](../decisions/191-job-mix-repeats-and-what-the-line-reports.md), from M-435's sweep
+168	435	context	later	2026-09-19	2026-08-24	  [S-191](../decisions/0191-job-mix-repeats-and-what-the-line-reports.md), from M-435's sweep
 220	159	context	later	2026-09-04	2026-09-01	**Status: BUILT 2026-09-04.** Minted 2026-09-01 by the maintainer, from M-159's (a real hardware
 168	227	context	later	2026-09-19	2026-08-24	- **The HVF cross-check has no machine until M-227.**
 220	218	prerequisite	later	2026-09-04	2026-09-01	lane's report of why**, the shape M-218 (every boot of the VisionFive 2 needs a human
@@ -1854,7 +1854,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 263	106	context	at-creation	2026-09-05	2026-09-05	**All four of M-106's named consumers are userspace** (`thread::sleep`, `Endpoint::RECEIVE`'s
 263	9	context	at-creation	2026-09-05	2026-09-05	| aarch64 | ambient across EL0, not holdable by one process | **wrong on both halves.** `CNTKCTL_EL1` has four independent enables, and this kernel writes ...
 263	51	context	at-creation	2026-09-05	2026-09-05	## The fourth shape, which neither M-51 nor 106 lists
-263	151	context	at-creation	2026-09-05	2026-09-05	([S-101](../decisions/101-notification-objects.md), decided 2026-08-20, unbuilt, M-151), and
+263	151	context	at-creation	2026-09-05	2026-09-05	([S-101](../decisions/0101-notification-objects.md), decided 2026-08-20, unbuilt, M-151), and
 263	106	context	at-creation	2026-09-05	2026-09-05	wakes on **either** a message or the deadline. That is M-106's own title met.
 263	51	context	at-creation	2026-09-05	2026-09-05	**It is smaller than any of M-51's three shapes.** Not "block until a deadline", only "signal
 263	106	context	at-creation	2026-09-05	2026-09-05	all three ISAs plus the OVMF leg), and **deleted**, which is M-106's own pricing method and
@@ -2050,7 +2050,7 @@ source	target	kind	discovery	blame_date	file_created	evidence
 291	268	prerequisite	at-creation	2026-09-15	2026-09-14	their own image. Gated on M-268, which was rebuilding that function beside this lane. It
 291	268	followon	at-creation	2026-09-14	2026-09-14	Minted 2026-09-14 by the maintainer on calef's ruling the same day (*"31 role binary is not the right shape. If there is anything left then we can consider a ...
 292	50	prerequisite	at-creation	2026-09-14	2026-09-14	Nothing at a prompt builds one, which notes/pipes.md has recorded since M-50.
-292	50	context	at-creation	2026-09-14	2026-09-14	`design/roadmap/50-pipes-and-redirection.md` and `design/decisions/51-sink-protocol.md` both cite
+292	50	context	at-creation	2026-09-14	2026-09-14	`design/roadmap/50-pipes-and-redirection.md` and `design/decisions/0051-sink-protocol.md` both cite
 293	433	context	later	2026-09-19	2026-09-14	- **M-407.** Numbered on 2026-09-19 by M-433's drain of the pile.
 293	115	context	at-creation	2026-09-14	2026-09-14	which is M-115's own rule.
 294	16	superseded	at-creation	2026-09-14	2026-09-14	them reads worse in a narrow table than what it replaced (M-16's parenthetical recast).

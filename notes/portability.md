@@ -38,7 +38,7 @@ memory-mapped I/O on ARM or behind x86's separate port-I/O instruction space. On
 radically different buses.
 
 That second one is our "a driver never reaches into a kernel global" rule
-([DECISIONS](../design/decisions/04-kernel-shape.md) §4), generalized and taken seriously. Remember it when we
+([DECISIONS](../design/decisions/0004-kernel-shape.md) §4), generalized and taken seriously. Remember it when we
 write the UART driver.
 
 ## The thing that cannot be abstracted: the memory model
@@ -203,7 +203,7 @@ do not abstract the two machines into a common denominator:
 The retrospective, one sentence after the 50 percent figure: "There is little architecture-specific
 optimization except for the IPC fastpath." That is the single place seL4 stayed Liedtke-true, and
 it is precisely the thing this tree does not have. On the narrow measure Liedtke cared most about,
-hand-tuning the hot path to the processor, we score zero. design/decisions/95-a-proven-ipc-fastpath.md
+hand-tuning the hot path to the processor, we score zero. design/decisions/0095-a-proven-ipc-fastpath.md
 is the open decision about whether to change that, and milestone 132 is the gate that measured the gap.
 
 A finding worth stating because the opposite is the natural assumption: §19 does not forbid it.

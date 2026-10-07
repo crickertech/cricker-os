@@ -140,7 +140,7 @@ fi
 # **The multi-tasking workload payload** (milestone 168): the same image, with the kernel feature
 # that replaces the halt at the end of the boot tour with a sweep of EL0 tasks through a
 # heterogeneous job mix, reported as jobs per minute against task count. It is the instrument
-# design/decisions/96-process-kernel-or-event-kernel.md is waiting on, and its gate is HARDWARE, so
+# design/decisions/0096-process-kernel-or-event-kernel.md is waiting on, and its gate is HARDWARE, so
 # a card is how the number is actually taken. A flag here rather than a second script for --soak's
 # reason: everything else about the payload is identical, and the archive/kernel ORDER below is the
 # thing that must not be re-derived by hand. See notes/job-mix.md.

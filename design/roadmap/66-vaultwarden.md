@@ -46,7 +46,7 @@ The listen/accept question was the interesting one and it has been answered, whi
 row above changed. A listening socket is a *capability to accept connections on a port* and `accept`
 mints a new capability per connection, and milestone 107 settled the shape: `bind` is `OPERATION_LISTEN`,
 `accept` is `OPERATION_ACCEPT` into a second socket id with a frame attached, and a listener carries no
-frame at all because a listener carries no bytes ([§25](../decisions/25-socket-identity.md)). The authority
+frame at all because a listener carries no bytes ([§25](../decisions/0025-socket-identity.md)). The authority
 is a listen grant `net_stack` is spawned with, so the same binary is a client or a server depending
 on what it was given, and neither is a fallback.
 

@@ -674,7 +674,7 @@ pub struct BootEndowment {
 /// the one function the real progenitor calls (`components/src/progenitor.rs`), not a synthetic
 /// kernel-side test harness. What it does
 /// not decide is *what* the second subtree should be: [DECISIONS
-/// §126](../../../design/decisions/126-two-directory-cwd.md) named that a boot-time policy
+/// §126](../../../design/decisions/0126-two-directory-cwd.md) named that a boot-time policy
 /// question reserved for an architect, so no shipped boot enables it. A second, separate gap:
 /// nothing yet tells the shell process *which* label and cspace slot this landed at (the `START`
 /// ABI's three words are already spoken for by the role, the argument, and the clock slot), so a

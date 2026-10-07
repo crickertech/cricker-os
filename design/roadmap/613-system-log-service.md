@@ -11,7 +11,7 @@ needs_person: no
 # 613. A system log service: the in-memory half
 
 Minted 2026-09-27 by the maintainer against §242 (a system log),
-`design/decisions/242-a-system-log.md`. calef ruled §242 the same day, on pull request #1423, now
+`design/decisions/0242-a-system-log.md`. calef ruled §242 the same day, on pull request #1423, now
 merged. The title and slug are drafts. The number is not.
 
 ## Scope
@@ -106,7 +106,7 @@ forwarding. `Log::ingest` is that entry point. The service's own `BUGS` sections
 
 - **Milestone 342.** Starting the service at boot, minting log badges for the progenitor's
   children, and forwarding kernel lines to the console. Its kernel ring is the thing to forward.
-- **Decision.** `design/decisions/230-badged-endpoints-name-a-callers-frame.md` owes a line: a
+- **Decision.** `design/decisions/0230-badged-endpoints-name-a-callers-frame.md` owes a line: a
   plain `SEND` now delivers its badge in `RECV`'s `x3`. The integrator mints it, per the shared
   state rule.
 - **Milestone 687.** Milestone 687 (the system log persists through RedoxFS: what a directory grant has to answer). `design/roadmap/687-a-system-log-on-redoxfs.md`, persistence.

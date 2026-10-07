@@ -157,7 +157,7 @@ Milestone 525 (a bad upgrade cannot brick the machine: two boot slots, tries and
 ```
 $ script/citations --moved 5f850c367~1..5f850c367
 citations: milestone 525 moved NEW -> BUILT: A bad upgrade cannot brick the machine: two boot slots, tries an
-citations:   design/decisions/207-the-roadmap-is-a-graph-and-says-so.md:50
+citations:   design/decisions/0207-the-roadmap-is-a-graph-and-says-so.md:50
 citations:   design/roadmap/554-a-good-upgrade-sticks.md:10
 ```
 

@@ -110,7 +110,7 @@
 //!
 //! **Nothing checks a byte after bring-up.** A device that answers correctly once and degrades, or
 //! whose buffer latches and repeats, is served through untouched. Continuous health testing is
-//! `design/decisions/137-trng-health-tests.md`'s question and is `PROPOSED`, not decided here.
+//! `design/decisions/0137-trng-health-tests.md`'s question and is `PROPOSED`, not decided here.
 //!
 //! On-die conditioning is a different question from a DRBG and this service does not refuse it:
 //! both Intel's noise source and ARM's entropy source run an AES-CBC-MAC-shaped conditioner

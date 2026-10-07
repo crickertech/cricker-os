@@ -1,6 +1,6 @@
 //! **The multi-tasking workload benchmark, and the thing that times it** (milestone 168).
 //!
-//! `design/decisions/96-process-kernel-or-event-kernel.md` has four inputs and three of them are
+//! `design/decisions/0096-process-kernel-or-event-kernel.md` has four inputs and three of them are
 //! settled. The live one is performance, and the retrospective it rests on says exactly where the
 //! difference lives: *"generally within 1% on micro-benchmarks but a 20% performance advantage of
 //! the event kernel on a multitasking workload (AIM7)"* (Elphinstone and Heiser, *L4 Microkernels:
@@ -233,7 +233,7 @@ pub fn run() -> ! {
     );
     println!(
         "job-mix: this measures THIS kernel under multi-tasking load; it compares nothing against an \
-         event kernel and does not decide design/decisions/96-process-kernel-or-event-kernel.md"
+         event kernel and does not decide design/decisions/0096-process-kernel-or-event-kernel.md"
     );
     println!(
         "job-mix: each point is the median of {REPEATS} repeats, with the fastest and slowest \

@@ -204,7 +204,7 @@ The remaining `CRK*` strings (`CRK47-*`, `CRK37-*`, `CRK57`, `CRKWRIT1`) were ch
 fixture payloads**, not formats. Renaming them would be churn with no reader, and they are listed
 here so the next person does not have to re-derive that.
 
-### 7. ACCEPTED: `design/decisions/16-object-revocation.md` carries the stale count
+### 7. ACCEPTED: `design/decisions/0016-object-revocation.md` carries the stale count
 
 Its heading reads "Two new methods on the Untyped object (the surface stays three syscalls)". A lane
 does not edit `design/decisions/`, so this is handed to the integrator. It is also the mildest

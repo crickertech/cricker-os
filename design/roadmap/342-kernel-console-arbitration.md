@@ -51,7 +51,7 @@ variations on one, and the choice binds every architecture and every future cons
 ## Decided, 2026-09-27
 
 calef ruled §175: **B, with a panic escape and a fallback**, the same shape as pull request #1423's
-system log proposal (`design/decisions/242-a-system-log.md`, now landed and DECIDED). See §175's
+system log proposal (`design/decisions/0242-a-system-log.md`, now landed and DECIDED). See §175's
 "The ruling" for the full record and why A and E lost and C and D are superseded.
 `decision_dependencies` stays `175`; the citation now resolves to a DECIDED section instead of a
 PROPOSED one.
@@ -163,7 +163,7 @@ and 243's BUGS points at a home that does not exist."*
   no readers).
 - **Recorded.** `components/src/console.rs`: a redraw replays bytes rather than the line editor's
   state.
-- **Decision.** `design/decisions/175-kernel-console-arbitration.md` owes the ruling F line, and
+- **Decision.** `design/decisions/0175-kernel-console-arbitration.md` owes the ruling F line, and
   §242's Question 3 the drain shape, for the integrator to mint.
 
 ## Index row

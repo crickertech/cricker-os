@@ -10,7 +10,7 @@ name: vendor watch
 # patches, which is a claim about the past; it never asks what upstream has published since.
 # Dependabot cannot cover the gap either, because `vendor/redoxfs` is deliberately its own
 # workspace and so sits outside the Cargo graph dependabot walks. Milestone 203 is that gap, and
-# design/decisions/81-dependency-upgrades.md's rule that a dependency stays upgradable had
+# design/decisions/0081-dependency-upgrades.md's rule that a dependency stays upgradable had
 # `vendor/` as its blind spot until this ran.
 #
 # **This is toolchain-bump.yml's shape, on purpose.** One PR, updated in place on a fixed branch,

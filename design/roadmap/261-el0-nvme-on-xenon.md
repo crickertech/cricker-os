@@ -11,7 +11,7 @@ needs_person: yes
 
 Built 2026-09-17: the driver is out of the kernel and a confined EL0 process
 serves the block contract off QEMU's NVMe on all three architectures. What is left is the machine,
-and the machine is what this block's gate always said it was. Minted 2026-09-05 by the maintainer. [§86](../decisions/86-el0-nvme-driver.md)
+and the machine is what this block's gate always said it was. Minted 2026-09-05 by the maintainer. [§86](../decisions/0086-el0-nvme-driver.md)
 was DECIDED on 2026-09-03 and the work it authorizes has had no milestone since, which is
 milestone 247's failure class (work identified by a finished piece goes nowhere) applied to a
 decision rather than to a block. *(Number provisional until the merge queue lands it.)*

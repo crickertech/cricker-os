@@ -34,7 +34,7 @@ both `rustc`'s linking step and `cargo`'s entire build model, which is exactly w
 
 ## What else this needs, once 172 exists
 
-- **LLVM itself, ported under [DECISIONS §31](../decisions/31-foreign-language-seam.md).** Far
+- **LLVM itself, ported under [DECISIONS §31](../decisions/0031-foreign-language-seam.md).** Far
   larger in scope than any single-purpose interpreter: not one purpose-built engine but rustc's
   entire general-purpose backend, with its own build system, target infrastructure and optimization
   pipeline. Size this honestly before committing to it; do not assume it is "vim but bigger."
@@ -42,7 +42,7 @@ both `rustc`'s linking step and `cargo`'s entire build model, which is exactly w
   `cargo` parallelizes the crate graph; both have a real, well-trodden single-threaded fallback
   (`-Z threads=1`, single codegen unit), already used by constrained/embedded toolchain builds
   elsewhere. Slower, not structurally blocked, and does not need reopening
-  [DECISIONS §105](../decisions/105-thread-spawn-decline-for-now.md) (`std::thread::spawn` stays
+  [DECISIONS §105](../decisions/0105-thread-spawn-decline-for-now.md) (`std::thread::spawn` stays
   declined until a customer needs it, not barred outright) the way a hard threading requirement
   would.
 - **Dependencies already on disk, not fetched.** This tree already vendors rather than pulling from

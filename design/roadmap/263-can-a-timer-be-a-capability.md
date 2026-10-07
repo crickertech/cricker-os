@@ -20,7 +20,7 @@ decision waiting.
 ## The answer
 
 No, and therefore the userspace-timer-service answer to milestone 106 does not survive
-[§19 (architectural)](../decisions/19-architectural-parity.md) parity. Two clauses, and both are needed:
+[§19 (architectural)](../decisions/0019-architectural-parity.md) parity. Two clauses, and both are needed:
 
 1. On riscv64 no *architected* timer can be granted to U-mode, on any machine, by the privileged
    architecture rather than by a gap in this kernel. Three independent closures, below.
@@ -49,7 +49,7 @@ currently say what it costs, which is the condition that earns a lane.
 
 calef, 2026-09-05, on milestone 106's fork: serve the timed wait from a userspace timer service
 signaling a notification, rather than from a new kernel blocking primitive. The reasoning is in
-[§101](../decisions/101-notification-objects.md), which anticipated it:
+[§101](../decisions/0101-notification-objects.md), which anticipated it:
 
 > A notification object lets a *userspace timer process* wake a thread at a deadline, which is how
 > seL4 does it, but it requires that timer process to exist and to hold a clock capability.
@@ -85,7 +85,7 @@ it. This is what the specifications say instead, and the working is in `notes/ti
 | all three | (not considered) | the spare-MMIO-timer route the block did not name, and it needs no new kernel mechanism, since a `DeviceFrame` plus an `Object::Irq` is how every userspace driver here owns a device. argon's Tegra X1 has `timer@60005000`, fourteen 29-bit one-shot-capable channels on fourteen GIC SPIs; radon's JH7110 has `si5_timer` at `0x13050000`, four channels on four PLIC lines (no mainline driver; the binding was posted ten times and never merged). QEMU aarch64 `virt` has none (`hw/arm/virt.c`'s memmap has a PL031 whose alarm is one-second resolution, and a watchdog that is not created by default), and QEMU riscv64 `virt` has one, the goldfish RTC's nanosecond alarm, which this tree drives for the wall clock. Good answer for one workload on one board; not a portable capability |
 | x86_64 | plausibly a spare exists | plausible and still unconfirmed on the machine this project owns. The `HPET` table is in the tree's own q35 transcript (`notes/x86-port/acpi-and-pci.md`) and `crates/machine_discovery` sees it and does nothing with it. xenon's is not recorded anywhere: `notes/x86-uefi-boot.md` says first light printed "the full table list" and the transcript is a photograph. Nobody has read this project's own `NUM_TIM_CAP` |
 
-[§19](../decisions/19-architectural-parity.md) makes parity a gate, so an answer that works on
+[§19](../decisions/0019-architectural-parity.md) makes parity a gate, so an answer that works on
 x86_64 alone is not an answer.
 
 ## What the spike must produce
@@ -110,7 +110,7 @@ Timer::ARM(deadline, notification) -> the kernel signals that notification at th
 ```
 
 A thread then blocks in `RECV` on its endpoint with the notification bound to its TCB
-([§101](../decisions/101-notification-objects.md), decided 2026-08-20, unbuilt, milestone 151 (notification)), and
+([§101](../decisions/0101-notification-objects.md), decided 2026-08-20, unbuilt, milestone 151 (notification)), and
 wakes on either a message or the deadline. That is milestone 106's own title met.
 
 It is smaller than any of milestone 51's three shapes. Not "block until a deadline", only "signal
@@ -197,7 +197,7 @@ block only says what it costs.
 
 ## Follow-on
 
-- **Milestone 106.** `design/decisions/147-a-timer-a-userspace-service-cannot-hold.md` is
+- **Milestone 106.** `design/decisions/0147-a-timer-a-userspace-service-cannot-hold.md` is
   decided (calef, 2026-09-05: *"option 1, the new object. ... A deadline argument seems
   like a work around to reduce effort."*), so the fork this spike was minted to force is closed and
   the lines below are the history of how it was put rather than a live question. What remains owed
@@ -234,7 +234,7 @@ block only says what it costs.
   than a slope, it prices every future addition to the scheduler's tables rather than anything about
   timers, and it is left unactioned because the right response may be a smaller registry rather than
   a fight with the backend. `notes/timer-capability.md` has the symbol-level working.
-- **Recorded.** `design/decisions/139-cycle-counter-authority.md` says *"There is no precedent in this
+- **Recorded.** `design/decisions/0139-cycle-counter-authority.md` says *"There is no precedent in this
   tree for a per-thread system-register bit maintained across a context switch."* Milestones 229 and
   237 built one, so that sentence is stale inside its own decision, in the same way §102's per-slot
   arithmetic went stale inside §102. Amending a `DECISIONS` section is not a lane's (AGENTS.md), so it

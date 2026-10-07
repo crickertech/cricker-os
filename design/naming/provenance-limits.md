@@ -42,7 +42,7 @@ month after the coverage grew, and nothing compared them against the tool.
 Crates, programs, `script/` entry points and Cargo packages carry blocks. Directories, types and
 `helpers/` helpers do not, and at least one ratified name had no home as a result:
 `design/audit-reports/` (calef, 2026-08-04). There `audit-trail` was refused because
-`design/decisions/35-scanner-findings.md` already uses that phrase for a chronological record of
+`design/decisions/0035-scanner-findings.md` already uses that phrase for a chronological record of
 dismissals and it is also what an operating system means by it (`auditd`). Bare `audits` was
 passed over because every file in the directory is a report. Recorded here rather than stretched
 into a schema that does not fit it.

@@ -24,7 +24,7 @@ the unsafe census) are each a whole audit and belong to §74's cadence, not to t
 - **Milestone 92.** The two candidate lenses this block named and did not run, capability-lifetime
   races between revocation and an in-flight use and the census of `unsafe` occurrences, belong to
   the audit cadence rather than to this block. 92 built the machine that schedules them, and
-  `design/decisions/74-audit-cadence.md` sets the triggers it fires on.
+  `design/decisions/0074-audit-cadence.md` sets the triggers it fires on.
 - **Milestone 134.** The `unsafe` census specifically. It stopped being an audit lens and became an
   instrument: the census and the ceiling relation live in `script/lint`, and milestone 139 spends
   them on real reductions.

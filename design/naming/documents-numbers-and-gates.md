@@ -82,7 +82,7 @@ does.
 
 The gate was buying a cosmetic property with the tree's most dangerous edit. A gap is closed by
 renumbering, and
-[§194 (sessions interleave rather than serialize)](../decisions/194-sessions-interleave-rather-than-serialize.md)
+[§194 (sessions interleave rather than serialize)](../decisions/0194-sessions-interleave-rather-than-serialize.md)
 records what renumbering costs. A citation rewritten by number can be silently wrong and still pass
 every gate, because the section it now names exists. On 2026-09-19 one branch was renumbered four
 times in two and a half hours, from §156-§189 to §160-§194. Another session was minting from the

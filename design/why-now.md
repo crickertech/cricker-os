@@ -186,9 +186,9 @@ sentence in this document that reads as though it were should be treated as a de
 
 ## Reading further
 
-- `design/decisions/82-ambient-authority-and-the-rewrite.md`, the thesis and its falsification
+- `design/decisions/0082-ambient-authority-and-the-rewrite.md`, the thesis and its falsification
   conditions.
-- `design/decisions/14-project-direction.md`, the technical direction and why verified-in-Rust is the
+- `design/decisions/0014-project-direction.md`, the technical direction and why verified-in-Rust is the
   differentiator.
 - `design/capsicum-and-the-retrofit-question.md`, the strongest argument against building this, taken
   seriously and at length, including what Capsicum does better than us.

@@ -12,7 +12,7 @@
 //!
 //! **The invariant every copy asserted by hand was the same one**: the offset passed in is inside
 //! the one page the kernel mapped at a known base VA. Copying that assertion N times is the §94
-//! shape (DECISIONS' `design/decisions/94-what-may-live-in-a-library.md`), and nothing checked that
+//! shape (DECISIONS' `design/decisions/0094-what-may-live-in-a-library.md`), and nothing checked that
 //! any of the N were actually kept inside the page: a wrong offset constant was a silent
 //! out-of-bounds volatile access, not a caught bug.
 //!

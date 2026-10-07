@@ -42,7 +42,7 @@ happening to read the diff.
 
 Milestone 122 already recorded that `OPENDIR` has no way to say "attenuate to whatever you have",
 so a held directory asks for `dir::ALL` and probes one right at a time when a narrowed grant
-refuses (`design/decisions/98-opendir-cannot-attenuate.md`). That probing path is currently
+refuses (`design/decisions/0098-opendir-cannot-attenuate.md`). That probing path is currently
 unexercised by any test, for exactly the same reason. This fixture is what runs it.
 
 ## Where it came from

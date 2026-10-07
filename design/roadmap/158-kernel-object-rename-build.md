@@ -137,9 +137,9 @@ and `notes/thread-spawn-fork.md` updated for the same reason `notes/ipc-naming.m
 historical citations were deliberately left alone: `crates/abi/src/lib.rs`'s crate-naming-ratification
 note ("...the actual test (does the architect have to ask what this means, which sank `Tcb`/`Aspace`/
 `Untyped`)...", 2026-08-23, describing the state of the tree at the moment that test was applied), and
-`design/decisions/114-aspace-enumerate.md`, a DECIDED record whose own text already parenthetically
+`design/decisions/0114-aspace-enumerate.md`, a DECIDED record whose own text already parenthetically
 notes the pending rename and was left as the point-in-time record it is, matching how the `Endpoint`
-rename left `26-fault-endpoint.md`/`41-endpoint-as-broker.md`/`91-endpoints-before-the-refusal.md`
+rename left `0026-fault-endpoint.md`/`0041-endpoint-as-broker.md`/`0091-endpoints-before-the-refusal.md`
 untouched.
 
 One self-inflicted bug during the build, caught by the crate's own build and fixed before any commit
@@ -383,7 +383,7 @@ contraction or borrowed abbreviation from this list anywhere in the tree anymore
 - **Refused.** Historical citations keep the old spelling on purpose: `crates/abi/src/lib.rs`'s
   naming rationale names `Tcb`/`Aspace`/`Untyped` as the abbreviations a review sank, and renaming
   them would make the sentence describe the winning name as the one that lost.
-  `design/decisions/114-aspace-enumerate.md` was left as the point-in-time record it is.
+  `design/decisions/0114-aspace-enumerate.md` was left as the point-in-time record it is.
 
 ## Index row
 

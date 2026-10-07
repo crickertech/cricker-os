@@ -21,7 +21,7 @@ own memory persists between two function calls. That is an extension to an exist
 mechanism, not a new design fork.
 
 That is the sharper question, and this milestone is the answer to it, not milestone 169 (`kilo`)'s.
-[DECISIONS §84](../decisions/84-how-we-port.md) already answers a related but different question
+[DECISIONS §84](../decisions/0084-how-we-port.md) already answers a related but different question
 well: how to *port* software into Rust while narrowing its authority. Nothing in this tree yet
 answers the question §31 was raised for: how to run real, unmodified foreign-language code at all,
 confined, without rewriting its own logic. §31's only evidence is `c_seam.c`, a 150-line throwaway

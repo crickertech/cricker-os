@@ -19,7 +19,7 @@ case that prompted it.
 
 Since 2026-09-25, "the architect" also names a role, listed in
 [`ARCHITECTS.md`](../../ARCHITECTS.md), that more than one person can hold
-([§217 (every architect holds the whole role)](../decisions/217-every-architect-holds-the-whole-role.md)).
+([§217 (every architect holds the whole role)](../decisions/0217-every-architect-holds-the-whole-role.md)).
 A record from before that date
 means calef, since he was the only one; a reader meeting "an architect" or "the architect" in a
 record after it should check the list rather than assume it still does.

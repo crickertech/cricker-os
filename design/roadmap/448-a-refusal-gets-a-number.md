@@ -176,7 +176,7 @@ to cheap by saying out loud that it is not settled.
   and a lane may not mint the section: `comrak` for GFM tables and `ratatui` for the pager, both
   refused by milestone 40 (design/roadmap/40-documentation-service.md). The reasoning is a
   dependency judgment and the record that judges dependencies is
-  `design/decisions/46-dependency-rule.md`, which is where the maintainer should mint them.
+  `design/decisions/0046-dependency-rule.md`, which is where the maintainer should mint them.
 - **Recorded.** In `script/metrics`: `MILESTONE_STATUSES` did not carry `SUPERSEDED` before this
   milestone and therefore undercounted seven blocks in every weekly row, with `milestones_total`
   short by the same seven. `REFUSED` and `SUPERSEDED` were both added and the history restated, so

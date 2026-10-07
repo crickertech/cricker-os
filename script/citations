@@ -111,7 +111,7 @@ import roadmap_block                                                        # no
 # ---- the two records ---------------------------------------------------------
 # Title from the H1 and body from the whole file. Milestone 114 and 76 split both records into one
 # file per entry, which is what makes this affordable: `§43 (the clock ladder)` is checked against
-# 43-clock-authority.md's own first line, with no need to parse a 5,000-line document to find where
+# 0043-clock-authority.md's own first line, with no need to parse a 5,000-line document to find where
 # §43 begins and §44 starts.
 # A LETTERED record gets a second entry under its own label, and the reason is that the two tables
 # answer different questions. `design/roadmap/20a-name-the-seams.md` is a block of its own with an
@@ -319,7 +319,7 @@ ANY_CITE = re.compile(r"(§|(?<![a-zA-Z])[Mm]ilestone )(\d+)([a-z]?)")
 # number hides every citation the line break split: the second alternative below accepts a line that
 # ENDS in a citation, which is what a wrapped one looks like. And the letter was missing, so a line
 # reading `Milestone 16b (...)` matched nothing and its file was never opened at all.
-# design/decisions/26-fault-endpoint.md was in that hole: its gloss of milestone 16 went unchecked
+# design/decisions/0026-fault-endpoint.md was in that hole: its gloss of milestone 16 went unchecked
 # for as long as the file existed, and no report in the tree could say so.
 #
 # This widens the file list from 649 to 853 and the scan still costs about three seconds, which is
@@ -770,8 +770,20 @@ if mode == "--ratchet":
     # 2026-10-05): dropping `**` from a line changes no citation on it, and §213 rule 3's sweep
     # touches hundreds of lines whose citations are older than the sweep. Both sides are compared
     # with `**` removed, so the sweep does not owe a gloss to every sentence it unbolds.
+    #
+    # **A line whose only edit is a record file's zero padding is not added prose either** (calef,
+    # 2026-10-07 UTC: numbered files in design/decisions/ and design/roadmap/ carry four digits).
+    # `46-foo.md` and `0046-foo.md` name the same record, and a relative link such as `(46-foo.md)`
+    # has no `/` for the path-pair rule above to see, while most absolute ones occur once and miss
+    # its recurrence threshold. Both sides are compared with the leading zeros of a `<n>-<slug>.md`
+    # token dropped, which changes no citation.
+    unpad = re.compile(r"(?<![0-9A-Za-z_])0+(\d+-[a-z0-9][a-z0-9-]*\.md)")
+
+    def plain(line):
+        return unpad.sub(r"\1", line.replace("**", ""))
+
     removed = collections.Counter(
-        line[1:].strip().replace("**", "") for line in diff.split("\n")
+        plain(line[1:].strip()) for line in diff.split("\n")
         if line.startswith("-") and not line.startswith("---") and line[1:].strip())
     path_pairs = collections.Counter()
     for path in sorted(added):
@@ -805,7 +817,7 @@ if mode == "--ratchet":
         kept = set()
         for n in sorted(added[path]):
             text = now[n - 1].strip() if n <= len(now) else ""
-            text = unsweep(text).replace("**", "")
+            text = plain(unsweep(text))
             if text and removed[text] > 0:
                 removed[text] -= 1
             else:

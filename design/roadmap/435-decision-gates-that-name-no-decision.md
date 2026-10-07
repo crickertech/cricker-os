@@ -7,8 +7,8 @@ built: 2026-09-19
 
 Built 2026-09-19, in one evening by three lanes. All forty-five blocks were read, and
 every one of them resolved to one of the three outcomes: 33 decisions written up as
-[§160 (what)](../decisions/160-what-a-subshell-copies.md) to
-[§192 (bound)](../decisions/192-a-checked-direct-map-reader-for-the-acpi-walk.md), 6 blocks that had a
+[§160 (what)](../decisions/0160-what-a-subshell-copies.md) to
+[§192 (bound)](../decisions/0192-a-checked-direct-map-reader-for-the-acpi-walk.md), 6 blocks that had a
 decision and
 gained a citation, and 6 gate tokens that were simply wrong. Minted the same day by calef, from a
 question he asked about one block that turned out to be true of forty-five.
@@ -89,7 +89,7 @@ one reading each, no code touched.
 | outcome | count | blocks |
 |---|---|---|
 | a decision was genuinely owed and is now written up | 12 | 52, 66, 95, 102, 105, 131, 142, 147, 178, 180, 205, 206 |
-| the decision existed and the gate did not cite it | 2 | 188 ([§95](../decisions/95-a-proven-ipc-fastpath.md)), 198 ([§151](../decisions/151-repository-goal-is-independent-release.md)) |
+| the decision existed and the gate did not cite it | 2 | 188 ([§95](../decisions/0095-a-proven-ipc-fastpath.md)), 198 ([§151](../decisions/0151-repository-goal-is-independent-release.md)) |
 | the token was wrong | 1 | 207, corrected to `NONE` |
 
 Sections minted: §160 to §171 (where), provisional until the merge queue lands them.
@@ -100,7 +100,7 @@ was, but three of the fifteen were records that had fallen behind the tree, and 
 fifth were blocks whose gate deferred to a decision that had since been taken:
 
 - Milestone 105 (forks)'s first fork was decided six days before the block was minted.
-  [§32](../decisions/32-reap-without-build.md) (a supervisor may collect a corpse without being able
+  [§32](../decisions/0032-reap-without-build.md) (a supervisor may collect a corpse without being able
   to build one) ruled it on 2026-07-29 and `abi::rendezvous::REAP` ships it, authorized by the
   supervision relationship rather than the rights bit the block proposes. The block restated a
   settled question as open.
@@ -139,9 +139,9 @@ milestone could not ask in advance:
   live in `bench/<board>-<date>/`.
 
 Three had their decision and gained a citation rather than a file: 241 (calef's own
-dated deferral, quoted in the gate), 340 ([§97 (gates)](../decisions/97-advisory-checks.md), whose
+dated deferral, quoted in the gate), 340 ([§97 (gates)](../decisions/0097-advisory-checks.md), whose
 ruleset edit is `DECIDED` and unperformed and whose `BUGS` predicted this block), and 388
-([§154](../decisions/154-the-acronym-test-is-whether-the-phrase-is-spoken.md), which rules four of
+([§154](../decisions/0154-the-acronym-test-is-whether-the-phrase-is-spoken.md), which rules four of
 that block's five names by name).
 
 Seven were genuinely owed and are written up `PROPOSED`: §172 (327), §173 (328), §174 (341),
@@ -229,7 +229,7 @@ the promoted quarter rather than as a prediction for the other 21.
 ## Follow-on
 
 - **Done.** *Milestone 75 carried the same defect and the filter could not see it.* Its gate defers
-  to a question [§139](../decisions/139-cycle-counter-authority.md) answered on 2026-09-02, under a
+  to a question [§139](../decisions/0139-cycle-counter-authority.md) answered on 2026-09-02, under a
   title identical to the block's own, and the block still read `NOT-STARTED` with `Gate: DECISION`.
   It was outside the forty-five because its gate paragraph happens to cite §10 and so counted as
   citing a decision. Corrected in this milestone's own commit: the gate is `NONE` and the block

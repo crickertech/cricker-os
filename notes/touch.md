@@ -50,7 +50,7 @@ needs only write permission to set the current time and ownership to set an arbi
 tree's own DECISIONS §43 already treats reading the wall clock as broadly grantable and setting it
 as a separate, more tightly held authority. `touch`'s two behaviors are the same shape one level
 down, applied to a file's timestamp instead of the machine's clock. See
-`design/decisions/112-touch-mtime-authority.md` for the full argument.
+`design/decisions/0112-touch-mtime-authority.md` for the full argument.
 
 ## What "now" is, honestly
 

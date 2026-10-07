@@ -259,7 +259,7 @@ pub const SCROLLBACK_CELLS: usize = 26_400;
 ///   calef's question. It is recorded here, where a reader meets the constant, so nobody reasons
 ///   from the belief that it is Schoonover's table untouched.
 ///
-/// [§104]: ../../design/decisions/104-the-font-and-the-palette.md
+/// [§104]: ../../design/decisions/0104-the-font-and-the-palette.md
 pub const PALETTE: [u32; 16] = [
     0x0007_3642, // 0 black: base02
     0x00dc_322f, // 1 red

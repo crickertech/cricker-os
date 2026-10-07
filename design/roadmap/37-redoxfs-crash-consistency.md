@@ -33,7 +33,7 @@ Why it matters. the condition that decides whether §34's label is earned. Crash
 
 ## Follow-on
 
-- **Recorded.** In `design/decisions/34-redoxfs-primary.md`, in the amendment this milestone earned:
+- **Recorded.** In `design/decisions/0034-redoxfs-primary.md`, in the amendment this milestone earned:
   RedoxFS's `Disk` trait has no flush and no barrier, so write ordering is the device's job, and our
   block server issues no `VIRTIO_BLK_T_FLUSH`. On real hardware with a volatile write cache the
   durability of the last acknowledged write is the device's word rather than ours. Every block

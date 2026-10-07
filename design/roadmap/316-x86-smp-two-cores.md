@@ -137,7 +137,7 @@ Milestone 313's audit found that window, reasoned it to "at most one tick", and 
 Milestone 315 is the lane that closes it by broadcasting the reset over the existing shootdown IPI.
 
 **This is a better outcome than a green run**, and it bears directly on
-`design/decisions/153-two-core-x86-test-sequencing.md`, which is `PROPOSED` and was gated on this
+`design/decisions/0153-two-core-x86-test-sequencing.md`, which is `PROPOSED` and was gated on this
 milestone:
 
 - §153's option 1 (order 315 behind the SMP bugs) worried that *"the substrate a two-core port test
@@ -179,7 +179,7 @@ architect's, and the above is evidence for it rather than an answer to it.
 - **Milestone 315.** The named next step, and better specified than it was: its test does not have
   to be invented, because the suite already contains a two-core observer of the window. What 315
   still owes is the broadcast.
-- **Decision.** `design/decisions/153-two-core-x86-test-sequencing.md` has its premise changed and
+- **Decision.** `design/decisions/0153-two-core-x86-test-sequencing.md` has its premise changed and
   wants re-reading with the section above beside it. Not this lane's to resolve.
 - **Recorded.** A bench boot on xenon would settle `BUGS` #1, and it is cheap now that the stick and the
   procedure exist (notes/x86-uefi-boot.md). #1 was *"measured extensively on QEMU TCG"* and has

@@ -17,12 +17,12 @@ with no supported single-process bypass in either case, even in "self-contained"
 primitive for one program to start another, wait for it, and read back what it produced.
 
 This is a new syscall-surface question, and [DECISIONS
-§10](../decisions/10-capability-microkernel.md)'s own rule applies: "A method that does not fit the
+§10](../decisions/0010-capability-microkernel.md)'s own rule applies: "A method that does not fit the
 model, or a brand-new syscall number, is a design fork, raise it before building it."
 
 ## This does not reopen §10
 
-[DECISIONS §10](../decisions/10-capability-microkernel.md) already decided the process model and
+[DECISIONS §10](../decisions/0010-capability-microkernel.md) already decided the process model and
 explicitly rejected Unix-shaped fork/exec, on an asymmetry: "capabilities to a Unix-shaped API" is
 additive (a POSIX shim in userspace, built on top of capability handles, "nothing is thrown away"),
 while the reverse, "Unix to capabilities," is "a rewrite, and historically it fails." §10 names
@@ -42,7 +42,7 @@ not a back door around them.
 
 `crates/supervision_protocol`'s `build_child` (milestone 22 phase B.2, "the supervision tree: the
 shared half") already constructs a child process with a specific, narrowed capability endowment and
-lets a parent supervise it (see [DECISIONS §24](../decisions/24-interrupting-the-foreground.md) for
+lets a parent supervise it (see [DECISIONS §24](../decisions/0024-interrupting-the-foreground.md) for
 how a shell already holds a child's interrupt endpoint). What is missing, checked directly against
 that crate and against `kernel/src/user.rs`'s spawn path: a synchronous, ergonomic wait-and-collect
 shape a caller like `cargo` would actually use in a loop ("run this, block until it's done, give me
@@ -70,8 +70,8 @@ status and output stay this milestone's fork, and the gate above still names the
 - Stdin/stdout/stderr as capabilities, not ambient file descriptors: a spawned child's I/O needs
   to be handed explicitly, the same "additive, not ambient" shape §10 already committed to.
 - Exit-status delivery distinct from the death-notification path
-  ([DECISIONS §24](../decisions/24-interrupting-the-foreground.md)'s supervision shape, and
-  [DECISIONS §32](../decisions/32-reap-without-build.md)'s "a supervisor may collect a corpse
+  ([DECISIONS §24](../decisions/0024-interrupting-the-foreground.md)'s supervision shape, and
+  [DECISIONS §32](../decisions/0032-reap-without-build.md)'s "a supervisor may collect a corpse
   without being able to build one"), since a caller waiting synchronously for one child's result is
   a different access pattern than a supervisor watching many.
 

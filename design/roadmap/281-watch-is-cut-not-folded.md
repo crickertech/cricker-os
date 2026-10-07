@@ -64,7 +64,7 @@ prefix and a line of help text. Folding it into `ps` bought a simplification; de
 of the same simplification and cost nothing anyone was using.
 
 What makes that safe to do rather than merely tempting is milestone 282 (a thread's CPU time, and the `top` it makes possible), minted and decided the
-same day (`design/decisions/150-per-thread-cpu-accounting.md`). It adds per-thread scheduled CPU time
+same day (`design/decisions/0150-per-thread-cpu-accounting.md`). It adds per-thread scheduled CPU time
 as a `u64` on `Thread`, tick-sampled in `sched::on_tick()` and exposed as a fourth word on
 `abi::rendezvous::SURVEY`. Once that lands there is something worth watching and something to rank
 by, and the live view gets rebuilt properly as `top` rather than as a refresh flag on a static table.
@@ -137,7 +137,7 @@ from the flag.
   with the program. `ps` and `pgrep` were already reachable only from an interactive prompt, which
   `crates/ps`'s `BUGS` records; this does not widen that gap but it does remove the one neighboring
   line that would have caught a regression in the domain grant at a real prompt.
-- `design/decisions/139-cycle-counter-authority.md` still cites `components/src/watch.rs:171` as one of
+- `design/decisions/0139-cycle-counter-authority.md` still cites `components/src/watch.rs:171` as one of
   its spin-yield sites, and a developer lane may not edit a decision, so it is named here for the
   integrator. This bullet used to name `design/roadmap/126-who-else-is-running.md` too, for
   describing `watch` in the present tense; pull request #1349 (milestone 126 (the `procps` package: who else is running)'s re-sweep) fixed that
@@ -155,7 +155,7 @@ from the flag.
   `design/roadmap/126-who-else-is-running.md`, which had still described `watch` in the present
   tense. It now lists `watch` as built 2026-08-24 and cut 2026-09-13 by this milestone. Resolved
   2026-09-26 by the integrator on `maintainer/126-followups`.
-- **Recorded.** `design/decisions/139-cycle-counter-authority.md` names one of this program's lines
+- **Recorded.** `design/decisions/0139-cycle-counter-authority.md` names one of this program's lines
   as a spin-yield site, and a developer lane may not edit a decision. It is in this block's own
   `BUGS`, for the integrator.
 

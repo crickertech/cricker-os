@@ -47,7 +47,7 @@ is not the numbering. The numbers are identity, like a milestone's.
 Verdicts are the architect's: the Experiment status word, the colour and the running order. The
 maintainer corrects a factual error (a wrong date or instrument, a claim the machine disproves)
 without asking, dated and citing its source. Facts arguing for a new verdict go to the architect.
-[§216 (fatal-risk facts are correctable, and verdicts are the architect's)](../decisions/216-fatal-risk-facts-are-correctable-verdicts-are-the-architects.md),
+[§216 (fatal-risk facts are correctable, and verdicts are the architect's)](../decisions/0216-fatal-risk-facts-are-correctable-verdicts-are-the-architects.md),
 2026-09-25.
 
 ## What an entry's Experiment status says, and the three words it may say it in

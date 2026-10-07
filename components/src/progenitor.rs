@@ -15,7 +15,7 @@
 //! **One program, three architectures** (milestone 266). Until then aarch64's first process was a
 //! *role* of the `hello` demo catalogue (`init_boot`, role 27) while riscv64 and `x86_64` got this
 //! purpose-built one, and the archive entry `init` meant a different binary depending on the board.
-//! That is [DECISIONS §19](../../design/decisions/19-architectural-parity.md)'s own failure mode,
+//! That is [DECISIONS §19](../../design/decisions/0019-architectural-parity.md)'s own failure mode,
 //! and the bill was paid once already: a fix that landed in one copy and not the other presented as
 //! a boot that reached userspace and printed nothing at all, with no fault and no message.
 //! `script/swish-check` runs both legs, which is what makes it the gate for this file.

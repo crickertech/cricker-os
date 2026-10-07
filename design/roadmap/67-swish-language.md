@@ -99,7 +99,7 @@ nearly all of it is proven in milliseconds without an emulator.
   been building it twice.
 - **Milestone 52.** Grouping. `a && b || c` is left to right with no precedence between `&&` and
   `||`, and there is no `{ }` or `( )` to override it; both should arrive with subshells.
-- **Recorded.** `design/decisions/76-roadmap-status-versus-tree.md` states the weakness that let
+- **Recorded.** `design/decisions/0076-roadmap-status-versus-tree.md` states the weakness that let
   this block sit at NOT-STARTED for twelve days after the work merged: the gate cannot see a status
   that is wrong in both places, because two records agreeing with each other and not with the tree
   look consistent to a consistency check.

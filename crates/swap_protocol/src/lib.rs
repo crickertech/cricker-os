@@ -800,7 +800,7 @@ pub fn probe_device() -> u64 {
 /// one differs in kind: COM1 on x86 is at I/O ports `0x3f8..0x400`, an address space with no page
 /// tables in front of it, so `user::UART_PHYS` is **zero** and there is nothing for a device
 /// capability to be a mapping of. That zero is the marker for
-/// [DECISIONS §121](../../../design/decisions/121-port-io-capability.md) (PROPOSED), which is a
+/// [DECISIONS §121](../../../design/decisions/0121-port-io-capability.md) (PROPOSED), which is a
 /// question about what a capability *is* rather than a driver to write.
 ///
 /// **So the live-swap fixture does not run here**, and `system_tests/src/user/live_swap_tests.rs` says so

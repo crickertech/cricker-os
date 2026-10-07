@@ -1,5 +1,5 @@
 //! **The NVMe controller's admin plane** (milestone 53's storage half, narrowed to the admin half
-//! by milestone 261 (the NVMe driver leaves the kernel); notes/non-volatile-memory-express.md, [DECISIONS §86 (whether an NVMe driver can leave the kernel)](../../design/decisions/86-el0-nvme-driver.md)).
+//! by milestone 261 (the NVMe driver leaves the kernel); notes/non-volatile-memory-express.md, [DECISIONS §86 (whether an NVMe driver can leave the kernel)](../../design/decisions/0086-el0-nvme-driver.md)).
 //!
 //! What is left in the kernel after §86's **option 2a**, and the line is the one the hardware
 //! already draws. Creating a queue names the physical address a ring lives at, in a PRP field of

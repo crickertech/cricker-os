@@ -129,7 +129,7 @@ are bound before the first waiter; only the signaling is switched on last.
   has produced one yet ([`notes/multicore-defect-curve.md`](../../notes/multicore-defect-curve.md),
   row D6).
 - **Decision.** A rebalancer, the only thing that would make the IPC workload itself migrate rather
-  than its waiters, is declined in `design/decisions/138-cross-core-handoff-under-load.md`, which is
+  than its waiters, is declined in `design/decisions/0138-cross-core-handoff-under-load.md`, which is
   also where option D (the tick-signaled rendezvous this milestone built) was approved.
 - **Recorded.** Nothing here says what a crossing rate should be. The QEMU numbers are a shape, not
   a target, and there is no baseline to compare a board against until a board has run one.

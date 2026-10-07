@@ -114,7 +114,7 @@ page and costs a gate nothing, which is what "purely a rendering" was supposed t
 and 442 are unused today and nothing complains. Only the decision index demanded density.
 
 **Failing on a gap is what forced the renumber, and the renumber is the expensive edit.**
-[§194](../decisions/194-sessions-interleave-rather-than-serialize.md) records the hazard in its own
+[§194](../decisions/0194-sessions-interleave-rather-than-serialize.md) records the hazard in its own
 words: a citation rewritten by number can be silently wrong and still pass every gate, because the
 section it now names exists. On 2026-09-19 one branch was renumbered **four times in two and a half
 hours**, §156-§189 up to §160-§194, because a second session was minting from the same range and
@@ -179,7 +179,7 @@ reported, and that the later lander takes the next free numbers instead of displ
   latent rather than new. Its home is the gate, which is red until it is answered, and the answer is
   an architect's: what 177's completion does to the risk is a judgment about the risk, not about
   the record. The standing rule it falls under is
-  `design/decisions/194-sessions-interleave-rather-than-serialize.md`, that anything global stays
+  `design/decisions/0194-sessions-interleave-rather-than-serialize.md`, that anything global stays
   provisional until the queue lands it; this one is held under the `needs-architect` label with the
   ask written on the pull request.
 

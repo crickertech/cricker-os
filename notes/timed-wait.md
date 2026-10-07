@@ -354,11 +354,11 @@ Two caveats that matter for how the number is used:
 ## A miscitation found on the way
 
 Milestone 106's block, milestone 103's block and `notes/pipes.md` all cite the timed-wait fork as
-**"DECISIONS §51"**. `design/decisions/51-sink-protocol.md` is the sink protocol; the fork is in
+**"DECISIONS §51"**. `design/decisions/0051-sink-protocol.md` is the sink protocol; the fork is in
 **`design/roadmap/51-wall-clock-time.md`**, a milestone block rather than a decisions section. This is
 exactly the failure `CLAUDE.md` warns about ("`script/decisions --check` verifies that a cited `§N`
 resolves to *some* section, never that it resolves to the right one, so a well-formed wrong citation
 is invisible to it") and the collision `MEMORY.md` records between `§N` and milestone N as two
 numbering schemes. This lane corrected 106's block; #1291 fixed `notes/pipes.md` and #1296 fixed
-103's, both 2026-09-25. `design/decisions/43-clock-authority.md:107` gets it right, saying
+103's, both 2026-09-25. `design/decisions/0043-clock-authority.md:107` gets it right, saying
 "the milestone block's fork".

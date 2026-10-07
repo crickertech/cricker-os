@@ -155,7 +155,7 @@ this is the step that turns a typo fix into a mechanism:
 
 ```sh
 $ git grep -no 'CRICKER_[A-Z_]*' -- '*.md' ':!vendor' | sort -u
-design/decisions/18-pcie-transport.md:49:CRICKER_DISK
+design/decisions/0018-pcie-transport.md:49:CRICKER_DISK
 notes/c-seam.md:186:CRICKER_CC
 notes/cpu-models.md:24:CRICKER_CPU
 ...

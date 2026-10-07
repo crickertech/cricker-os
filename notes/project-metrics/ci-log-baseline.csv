@@ -282,9 +282,9 @@ run_id,job_id,date,workflow,job_name,attributed_check,branch
 32271397434,96128622247,2026-08-19,CI,clippy,==> clippy: host crates + xtask,milestone/138-multi-page-transfer
 32283641790,96167913703,2026-08-19,CI,clippy,==> script docs,ci/runner-container
 32284953091,96172174503,2026-08-19,CI,clippy,==> script docs,ci/runner-container
-32393776783,96508798438,2026-08-20,CI,clippy,==> citations,decisions/101-notification-objects
-32395439693,96511363809,2026-08-20,CI,clippy,==> citations,decisions/101-notification-objects
-32401069881,96529209076,2026-08-20,CI,clippy,==> em-dashes,decisions/101-notification-objects
+32393776783,96508798438,2026-08-20,CI,clippy,==> citations,decisions/0101-notification-objects
+32395439693,96511363809,2026-08-20,CI,clippy,==> citations,decisions/0101-notification-objects
+32401069881,96529209076,2026-08-20,CI,clippy,==> em-dashes,decisions/0101-notification-objects
 32408701776,96553884968,2026-08-20,CI,clippy,==> rustdoc (broken intra-doc links),milestone/29-kaypro-style-font
 32416554311,96578902519,2026-08-20,CI,clippy,==> roadmap status,decisions/104-font-and-palette
 32424717429,96604166613,2026-08-20,CI,clippy,==> roadmap status,decisions/104-font-and-palette
@@ -309,22 +309,22 @@ run_id,job_id,date,workflow,job_name,attributed_check,branch
 32595304955,97085163670,2026-08-22,CI,clippy,==> decisions,roadmap/152-durable-delegation
 32608156505,97116558574,2026-08-23,CI,clippy,==> decisions,roadmap/153-out-of-memory-causes
 32610268017,97122047288,2026-08-23,CI,clippy,==> decisions,decisions/111-env-config-page
-32610511321,97122673104,2026-08-23,CI,clippy,==> decisions,decisions/112-touch-mtime-authority
-32612940986,97128726382,2026-08-23,CI,clippy,==> decisions,decisions/114-aspace-enumerate
-32613224438,97129504159,2026-08-23,CI,clippy,==> decisions,decisions/115-no-sysctl
-32619764745,97146042597,2026-08-23,CI,clippy,==> decisions,decisions/115-no-sysctl
+32610511321,97122673104,2026-08-23,CI,clippy,==> decisions,decisions/0112-touch-mtime-authority
+32612940986,97128726382,2026-08-23,CI,clippy,==> decisions,decisions/0114-aspace-enumerate
+32613224438,97129504159,2026-08-23,CI,clippy,==> decisions,decisions/0115-no-sysctl
+32619764745,97146042597,2026-08-23,CI,clippy,==> decisions,decisions/0115-no-sysctl
 32620101884,97146877108,2026-08-23,CI,clippy,==> roadmap status,milestone/118-constitution-budget
 32620209437,97147142447,2026-08-23,CI,cpu matrix (riscv64 across QEMU CPU models),cpu matrix: model(s) rv64 sifive-u54 rva22s64 rva23s64 thead-c906,milestone/49-login-region-reclaim
 32620592745,97148069727,2026-08-23,CI,clippy,==> counted claims,milestone/118-size-gate-and-ledger
 32621161434,97149417396,2026-08-23,CI,clippy,==> counted claims,milestone/47-env-config-page
-32623323353,97154757615,2026-08-23,CI,clippy,==> roadmap status,decisions/116-state-handoff-declined
-32624003815,97156425552,2026-08-23,CI,clippy,==> decisions,decisions/117-subtree-name-is-identity
+32623323353,97154757615,2026-08-23,CI,clippy,==> roadmap status,decisions/0116-state-handoff-declined
+32624003815,97156425552,2026-08-23,CI,clippy,==> decisions,decisions/0117-subtree-name-is-identity
 32648267490,97215796594,2026-08-23,CI,clippy,==> roadmap status,milestone/154-multi-dir-namespace
-32649083126,97217767171,2026-08-23,CI,clippy,==> decisions,decisions/119-oom-causes-declined
+32649083126,97217767171,2026-08-23,CI,clippy,==> decisions,decisions/0119-oom-causes-declined
 32662925703,97254249801,2026-08-23,verify,verify (Kani proofs),==> a shard reported 'failure',names/kernel-core-primitives
 32663578228,97253333272,2026-08-23,CI,clippy,==> clippy: kernel + user + user_rt (aarch64),names/protocol-crates
-32773871419,97580298679,2026-08-24,CI,clippy,==> citations,decisions/124-x86-64-syscall-abi
-32775110737,97584367552,2026-08-24,CI,clippy,==> em-dashes,decisions/124-x86-64-syscall-abi
+32773871419,97580298679,2026-08-24,CI,clippy,==> citations,decisions/0124-x86-64-syscall-abi
+32775110737,97584367552,2026-08-24,CI,clippy,==> em-dashes,decisions/0124-x86-64-syscall-abi
 32800120097,97659172018,2026-08-25,CI,clippy,==> em-dashes,decisions/78-signing-decline
 32802214170,97665219215,2026-08-25,CI,clippy,==> citations,decisions/121-tss-io-bitmap-bench
 32802932495,97667276135,2026-08-25,CI,clippy,==> em-dashes,decisions/163-mint-pcie-milestone

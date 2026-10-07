@@ -223,7 +223,7 @@ than a question, per AGENTS.md's own rule that a reversible fork gets a recommen
 2026-08-22, a second scoping pass. This block's BUGS-adjacent record in notes/smb.md read as an
 open, software-buildable item: `ReplaceIfExists = 0` is ignored on rename, and the note said "the
 fix is a `NOREPLACE` question in `fs_proto`". Checking it against §42
-(design/decisions/42-truthful-filesystem.md) found that §42 already decided **not** to offer
+(design/decisions/0042-truthful-filesystem.md) found that §42 already decided **not** to offer
 `renameat2`'s `NOREPLACE`, on the stated ground that emulating it with link-then-unlink is racy and
 backend-specific. Read literally, notes/smb.md's own suggestion contradicted a decided
 architecture rule, which is worth recording as its own small finding: a note can go stale exactly
@@ -243,7 +243,7 @@ already-shipped word.
 **Still not built, decided rather than deferred.** This is a wire-format change on
 `fs_proto::fs::RENAME`, a verb every SMB client, the std PAL and `fs_server` already agree on, and
 it revisited a section calef decided (§42). [DECISIONS
-§129](../decisions/129-rename-noreplace-flag.md) priced the change (a few lines, free wire room)
+§129](../decisions/0129-rename-noreplace-flag.md) priced the change (a few lines, free wire room)
 and calef's own call was "build it when we have a customer": §42 is amended to correct its
 racy-emulation reason (does not describe `redoxfs_server` specifically) but stays declined on the
 feature itself, since nothing ties `ReplaceIfExists` to a confirmed Time Machine operation today.

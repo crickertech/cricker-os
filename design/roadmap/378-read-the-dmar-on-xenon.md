@@ -73,7 +73,7 @@ OptiPlex's firmware leaves interrupt remapping off. Nothing under QEMU can answe
 answer is a setting in somebody else's firmware."* `notes/confinement-claims.md` carries the same
 thing as a fifth claim: a confined component's MSI-X write is a memory write, so DMA remapping does
 not cover it, and VFIO refuses to hand a device to an untrusted userspace driver on a machine
-without interrupt remapping for exactly that reason. `design/decisions/86-el0-nvme-driver.md` names
+without interrupt remapping for exactly that reason. `design/decisions/0086-el0-nvme-driver.md` names
 it as the axis its options had not priced.
 
 **The premise turned out to be half wrong, which is why this is a proposal rather than a bench

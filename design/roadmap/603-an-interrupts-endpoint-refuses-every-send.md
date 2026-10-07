@@ -111,7 +111,7 @@ baseline to re-record at merge with both numbers in hand, not a regression in ei
   note says the gap is closed, and §101 (notification objects)'s first amendment now points at the
   second.
 - **Decision.** Moving each driver's interrupt onto a notification object is deferred, driver by
-  driver, by `design/decisions/101-notification-objects.md`.
+  driver, by `design/decisions/0101-notification-objects.md`.
 
 ## Index row
 

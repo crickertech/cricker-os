@@ -65,7 +65,7 @@
 # - **The crossings are tick waiters, not the IPC pairs.** The summary says so on every run that has
 #   any, because the flattering reading (that the workload itself is migrating) is available and
 #   wrong: rendezvous wakes stay local whatever else is happening. Only a periodic rebalancer would
-#   move the pairs, and design/decisions/138-cross-core-handoff-under-load.md declines one.
+#   move the pairs, and design/decisions/0138-cross-core-handoff-under-load.md declines one.
 # - **`wakes` is not part of `rounds`** and the two rates are not comparable with each other. A wake
 #   is not a round trip, and `wakerate` is a property of the machine (TICK_HZ times the online
 #   cores) rather than of the workload.

@@ -21,7 +21,7 @@ usually older than the bullet recording it.
 From '13. Capability revocation + untyped reclamation', under `## Follow-on`:
 
 > The full seL4-style capability-derivation tree, and with it subtree granularity (revoke Bob's
-> copy while keeping Alice's). `design/decisions/13-frame-revocation.md` argues it as a considered
+> copy while keeping Alice's). `design/decisions/0013-frame-revocation.md` argues it as a considered
 > terminal design rather than a way-station: revoke-all-derivatives is the memory-safety-critical
 > half and is exactly what reclamation wants, nothing on the roadmap needs subtree revoke, and if
 > one ever does, the unmap side and the revoke-before-reclaim discipline are reused unchanged with
@@ -34,7 +34,7 @@ From '14. Kernel objects from untyped: remove the kernel heap', under `## Follow
 > The capability derivation tree. Revocation stays frame-scoped, which is the
 > memory-safety-critical half and is what reclamation actually wants; subtree granularity has no
 > driver on the roadmap, and the argument that this is a terminal design rather than a way-station
-> is in design/decisions/13-frame-revocation.md.
+> is in design/decisions/0013-frame-revocation.md.
 >
 > -- design/roadmap/14-kernel-objects-from-untyped.md
 

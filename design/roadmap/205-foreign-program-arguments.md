@@ -199,7 +199,7 @@ the planner's grant and the note's round trip.
 - **Milestone 675.** Milestone 675 (the mark on a foreign program's word). The mark, refused by calef at 2026-09-27T06:35Z and awaiting promotion as a
   refused block, in `design/roadmap/675-the-mark-on-a-foreign-programs-word.md`.
 - **Decision.** Environment variables and exit codes for a foreign program, which §170 leaves open
-  in `design/decisions/170-how-a-foreign-program-is-told-what-to-do.md`.
+  in `design/decisions/0170-how-a-foreign-program-is-told-what-to-do.md`.
 - **Recorded.** The `--mem` and `xargs` gaps, in this block's `BUGS` above
   (`design/roadmap/205-foreign-program-arguments.md`).
 - **Milestone 685.** Milestone 685 (a job is finished when its memory is back). A job counts as finished only when its memory is back, replacing the retry, in

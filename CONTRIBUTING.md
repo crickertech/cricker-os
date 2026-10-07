@@ -98,9 +98,9 @@ Concretely, a change is finished when:
   hits a limitation the docs hid will not trust anything again.
 - Anything measurable is **measured**. `script/bench` runs icount microbenchmarks against a committed
   baseline. An honest tie recorded plainly is worth more than an overclaimed win.
-- Its prose stays within budget. [§212 (a prose budget)](design/decisions/212-a-prose-budget-for-every-document.md)
+- Its prose stays within budget. [§212 (a prose budget)](design/decisions/0212-a-prose-budget-for-every-document.md)
   caps a document's main body at 3,000 words, and
-  [§213 (writing standards)](design/decisions/213-writing-standards.md) limits sentence length and
+  [§213 (writing standards)](design/decisions/0213-writing-standards.md) limits sentence length and
   bold. A new document meets both outright; an edited one may not get worse.
 
 ## What is not yours to decide, and why that saves you time
