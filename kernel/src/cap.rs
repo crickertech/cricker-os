@@ -635,9 +635,13 @@ pub fn irq_cap_rights(intid: u32, rights: Rights) -> Cap {
 /// the result onward. The sentence on [`memory_region_cap_rights`] that rights "only ever narrow
 /// downward" is true of the region and not of what is carved from it. That is ordinary capability
 /// semantics (full authority over an object you created) and probably the intended design, but
-/// `notes/confinement-claims.md` row 3's test exercises `SPLIT` alone, so nothing states the
+/// `notes/confinement-claims.md` row 3's test exercises `SPLIT` alone, so nothing stated the
 /// retype half. Found by milestone 633 (an outside agent attacks the confinement claim)'s second
-/// pass; a claim or a ruling is owed, not a fix.
+/// pass. **Ruled (a), 2026-10-07 (calef, PR #1798's thread): the mint is the intersection, not
+/// `Rights::ALL`.** A frame retyped from a `WRITE`-only budget carries `WRITE` only; `GRANT`
+/// cannot be minted, only delegated. The fix, a follow-up milestone the maintainer mints, is the
+/// kernel intersecting rights at retype and the characterization test flipping to a held
+/// assertion, which its own messages say it exists to announce.
 pub fn memory_region_cap(region: u64) -> Cap {
     Cap {
         object: Object::MemoryRegion(region),

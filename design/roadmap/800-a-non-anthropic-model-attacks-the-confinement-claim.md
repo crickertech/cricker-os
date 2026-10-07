@@ -206,6 +206,14 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   before one does. MSI confinement stays with the milestones that already own it. Kani re-runs in
   attack passes need no home: the pass brief already forbids them, which is a process rule, not a
   worklist item.
+- **The retype-GRANT question, 633's carry, is ruled (a)** (calef, 2026-10-07, PR #1798's thread):
+  the mint is the intersection of the budget's rights and `Rights::ALL`, so a `WRITE`-only budget
+  mints `WRITE`-only frames and `GRANT` cannot be minted, only delegated. Not this pass's finding;
+  presented here because the question was open. The fix is a follow-up milestone the maintainer
+  mints: the kernel intersects at retype, and
+  `confinement_attack_tests::a_grant_less_budget_mints_a_grant_bearing_frame` flips from
+  characterization to held assertion. Recorded at the test's doc and `cap.rs`'s BUGS in this
+  branch; the maintainer records the ruling in 633's block at merge.
 - **The routed `chatty` reshape landed.** Claim 26's own test now fails rather than hangs: the
   operator retires the last receiver, a plant parks the marker, and a let-open `RECEIVE_CAP`
   returns it. Green on aarch64 (whole module) and riscv64, red at its own assertion under the
