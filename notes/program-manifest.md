@@ -46,6 +46,7 @@ struct Manifest {
     entropy:       bool,        // may it ask the entropy service for random bytes?
     // ... network, machine, share, runtime: see grant_plan::Manifest
     reboot:        bool,        // may it restart the machine (milestone 805, DECISIONS §251)?
+    sync:          bool,        // may it ask the file server for SYNC and nothing else?
 }
 ```
 

@@ -549,8 +549,8 @@ programs! {
         /// (restarting the machine is a kernel object the progenitor hands out)),
         /// `components/src/reboot.rs`.
         ///
-        /// The one program that declares [`Manifest::reboot`] and [`Manifest::flush`]. It flushes
-        /// the writable filesystem through its flush-only capability, prints the answer, then
+        /// The one program that declares [`Manifest::reboot`] and [`Manifest::sync`]. It syncs
+        /// the writable filesystem through its sync-only capability, prints the answer, then
         /// invokes the reboot object, which does not return when the reset works. When the firmware
         /// refuses, it says so on its second stream.
         ///
@@ -588,7 +588,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             Prog::MemoryGrantDepleter => Manifest {
@@ -613,7 +613,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // The two interrupt demonstrators. Both run until interrupted, take no argument and no
@@ -641,7 +641,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             Prog::InterruptIgnorer => Manifest {
@@ -662,7 +662,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // `date` declares an empty grant expression, and that is the interesting part: its
@@ -712,7 +712,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // **The first program endowed a directory**, and the first with options. It takes no
@@ -747,7 +747,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // **The consumer**, and the only program that declares an input. Everything else about
@@ -777,7 +777,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // **The viewer**, whose manifest is "a stream in, a stream out" like `wc`'s, and handed
@@ -808,7 +808,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // **`ps`: a stream out, a domain in, and nothing else** (milestone 126).
@@ -842,7 +842,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // **`pgrep`: `ps`'s manifest, field for field, and the sameness is the claim.**
@@ -879,7 +879,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // **`top`: `ps`'s manifest and the machine statistics page.** Ranking still costs no
@@ -910,7 +910,7 @@ impl Prog {
                 machine: true,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // **The one program in this table that declares the inert-configuration page.** Same
@@ -934,7 +934,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // **`least_authority_demo`'s manifest, not `date`'s.** `uptime` reads `user_mode_runtime::monotonic_nanos`,
@@ -961,7 +961,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // **The one program in this table that declares the network** (milestone 590
@@ -988,7 +988,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // **Declares nothing, deliberately**: `uptime`'s manifest, field for field. The program
@@ -1011,7 +1011,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // **The one program in this table that declares the entropy service** (milestone 111).
@@ -1046,7 +1046,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // **`free`: the machine page and the budget view, and nothing that can act.** The
@@ -1072,7 +1072,7 @@ impl Prog {
                 machine: true,
                 share: true,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // **`vmstat`: the machine page alone.** Its rates are per second since boot, and the
@@ -1097,7 +1097,7 @@ impl Prog {
                 machine: true,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // **`slabtop`: the budget view alone**, which is the difference from `free`.
@@ -1121,7 +1121,7 @@ impl Prog {
                 machine: false,
                 share: true,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             Prog::GraphicalTerminal => Manifest {
@@ -1148,11 +1148,11 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Native,
             },
             // **`reboot`: the reboot object, and nothing a line can designate.** No argument, no
-            // file, no memory. Its output is a report of what the flush answered, and its second
+            // file, no memory. Its output is a report of what the sync answered, and its second
             // stream is for the one failure it can see, a firmware that refused: the reason of §67
             // (a program's second stream is a declaration, not a number), so `reboot > out.txt`
             // still puts the refusal in front of a person. Not interruptible, because the
@@ -1178,7 +1178,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: true,
-                flush: true,
+                sync: true,
                 runtime: Runtime::Native,
             },
             Prog::StdExerciser => Manifest {
@@ -1209,7 +1209,7 @@ impl Prog {
                 machine: false,
                 share: false,
                 reboot: false,
-                flush: false,
+                sync: false,
                 runtime: Runtime::Std,
             },
         }
@@ -1535,7 +1535,7 @@ pub fn image_can_carry(m: &Manifest) -> bool {
         // Milestone 805: the reboot object is endowed to the one program in this table that
         // declares it, never to installed bytes, whatever their note asks.
         && !m.reboot
-        && !m.flush
+        && !m.sync
         && std == (m.arg.hears_words())
         && (!std
             || (m.output == OutputSpec::Bytes
@@ -1627,12 +1627,13 @@ pub const SHARE_SLOT: u64 = 12;
 /// Name: provisional (milestone 805).
 pub const REBOOT_SLOT: u64 = 13;
 
-/// **Where a program that declares [`Manifest::flush`] finds its flush-only capability**
+/// **Where a program that declares [`Manifest::sync`] finds its sync-only capability**
 /// (milestone 805). Fourteen, one past [`REBOOT_SLOT`], for [`ENTROPY_SLOT`]'s reasons. `WRITE`
 /// alone, the right to `CALL` the file server.
 ///
-/// Name: provisional (milestone 805).
-pub const FLUSH_SLOT: u64 = 14;
+/// Name: ratified 2026-10-06 (calef, #1783: "Approve sync for the file-server
+/// request and its capability, and flush for the device cache only.").
+pub const SYNC_SLOT: u64 = 14;
 
 /// **What the progenitor endows a child whose bytes nobody vouched for**, when the caller presented
 /// the run-unvouched capability (DECISIONS §219 gate D2, ruled by calef 2026-09-26: *"Yes, allow
@@ -1668,7 +1669,7 @@ pub const UNVOUCHED_MANIFEST: Manifest = Manifest {
     machine: false,
     share: false,
     reboot: false,
-    flush: false,
+    sync: false,
     runtime: Runtime::Native,
 };
 
@@ -1990,8 +1991,8 @@ pub struct Manifest {
     /// the program can restart the machine. A program spawned without the declaration holds an
     /// empty slot there, and the kernel refuses its invoke with `abi::Error::NoSuchSlot`.
     ///
-    /// **It does not flush anything.** The kernel syncs nothing (§251), and the progenitor does
-    /// not either: the program flushes for itself through [`Manifest::flush`], which it declares
+    /// **It does not sync anything.** The kernel syncs nothing (§251), and the progenitor does
+    /// not either: the program syncs for itself through [`Manifest::sync`], which it declares
     /// beside this.
     ///
     /// **Exactly one program declares it, and no image can** ([`image_can_carry`]), so "only one
@@ -2000,20 +2001,21 @@ pub struct Manifest {
     ///
     /// **Provisional field name.**
     pub reboot: bool,
-    /// **Endowed a flush-only capability to the file server** (milestone 805, the 2026-10-06
-    /// amendment to §251), at [`FLUSH_SLOT`]: an endpoint badged and bound by
-    /// `filesystem_protocol::fs::BIND_FLUSH`, so it answers `fs::SYNC` and refuses every other
+    /// **Endowed a sync-only capability to the file server** (milestone 805, the 2026-10-06
+    /// amendment to §251), at [`SYNC_SLOT`]: an endpoint badged and bound by
+    /// `filesystem_protocol::fs::BIND_SYNC`, so it answers `fs::SYNC` and refuses every other
     /// verb. It names no directory and reaches no file. The progenitor makes one for the job from
     /// a client window the job holds until it is reaped, places it, and keeps no copy.
     ///
-    /// Only `reboot` declares it, and no image can ([`image_can_carry`]): a flush stalls every
+    /// Only `reboot` declares it, and no image can ([`image_can_carry`]): a sync stalls every
     /// client's queue, which is a lever this tree has handed out only to the program about to
     /// restart the machine. A boot with no writable filesystem leaves the slot empty, and a boot
     /// whose file server could not make one refuses the spawn rather than start `reboot` unable to
-    /// flush.
+    /// sync.
     ///
-    /// **Provisional field name.**
-    pub flush: bool,
+    /// Name: ratified 2026-10-06 (calef, #1783: "Approve sync for the file-server
+    /// request and its capability, and flush for the device cache only.").
+    pub sync: bool,
     /// **Which runtime contract the program was built against**, and so where it expects each
     /// capability to be (milestone 595 (provisional)). See [`Runtime`].
     ///
@@ -4099,7 +4101,7 @@ mod tests {
         assert!(!m.entropy, "never entropy");
         assert!(!m.network, "never the network");
         assert!(!m.reboot, "never the reboot object");
-        assert!(!m.flush, "never a flush");
+        assert!(!m.sync, "never a sync");
         let bound = NO_NOTE_MANIFEST;
         assert_eq!(
             (m.arg, m.mem, m.file, m.dir, m.input, m.output, m.runtime),
@@ -4116,27 +4118,27 @@ mod tests {
         );
     }
 
-    /// **Exactly one program can restart the machine or ask for a flush alone, and no installed bytes
+    /// **Exactly one program can restart the machine or ask for a sync alone, and no installed bytes
     /// can** (milestone 805,
-    /// DECISIONS §251's mitigation for the foot gun in its method: a holder that skips the flush
+    /// DECISIONS §251's mitigation for the foot gun in its method: a holder that skips the sync
     /// loses writes, and the answer is that only one program is endowed). A second declarer, or an
     /// image a note could endow, is that claim going false without anybody deciding it.
     #[test]
     fn only_reboot_declares_reboot_and_no_image_can() {
-        for flush in [false, true] {
+        for sync in [false, true] {
             let mut declarers = Prog::ALL.iter().filter(|p| {
                 let m = p.manifest();
-                if flush { m.flush } else { m.reboot }
+                if sync { m.sync } else { m.reboot }
             });
             assert_eq!(declarers.next(), Some(&Prog::Reboot));
             assert_eq!(
                 declarers.next(),
                 None,
-                "a second program declares it (flush: {flush})"
+                "a second program declares it (sync: {sync})"
             );
             let asks = Manifest {
-                reboot: !flush,
-                flush,
+                reboot: !sync,
+                sync,
                 ..NO_NOTE_MANIFEST
             };
             assert!(!image_can_carry(&asks));
@@ -4875,7 +4877,7 @@ mod tests {
         machine: false,
         share: false,
         reboot: false,
-        flush: false,
+        sync: false,
         runtime: Runtime::Native,
     };
 
@@ -4907,7 +4909,7 @@ mod tests {
         machine: false,
         share: false,
         reboot: false,
-        flush: false,
+        sync: false,
         runtime: Runtime::Native,
     };
 
@@ -5877,7 +5879,7 @@ mod tests {
         machine: false,
         share: false,
         reboot: false,
-        flush: false,
+        sync: false,
         runtime: Runtime::Native,
     };
 

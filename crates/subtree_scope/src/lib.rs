@@ -182,11 +182,14 @@ pub enum Binding {
         /// The server's handle for the granted directory.
         root: u64,
     },
-    /// **May flush the device and do nothing else** (milestone 805 (`reboot` at the prompt), the
-    /// flush-only capability). It names no directory, so every handle is refused; the server
+    /// **May sync and do nothing else** (milestone 805 (`reboot` at the prompt), the
+    /// sync-only capability). It names no directory, so every handle is refused; the server
     /// answers `SYNC` for it and refuses every other verb before a handle is read. Bound by
-    /// [`Bindings::bind_flush_only`], taken back by [`Bindings::unbind`] like any grant.
-    FlushOnly,
+    /// [`Bindings::bind_sync_only`], taken back by [`Bindings::unbind`] like any grant.
+    ///
+    /// Name: ratified 2026-10-06 (calef, #1783: "Approve sync for the file-server
+    /// request and its capability, and flush for the device cache only.").
+    SyncOnly,
     /// Was bound, and the grant was taken back. It reaches nothing. It never becomes
     /// [`Binding::Open`] again, which is the property that makes revocation mean anything: a badge
     /// that fell back to the whole endpoint's authority on revocation would be a widening.
@@ -206,7 +209,7 @@ pub fn admit(
     owner: Option<u64>,
 ) -> Result<u64, Refusal> {
     match binding {
-        Binding::FlushOnly => Err(Refusal::NotYours),
+        Binding::SyncOnly => Err(Refusal::NotYours),
         Binding::Open => Ok(requested),
         Binding::Revoked => Err(Refusal::NotYours),
         Binding::Bound { root } if requested == ROOT => Ok(root),
@@ -271,25 +274,28 @@ impl<const B: usize> Bindings<B> {
             return Err(Refusal::Refused);
         }
         let i = Self::index(badge);
-        if i == 0 || matches!(self.state[i], Binding::Bound { .. } | Binding::FlushOnly) {
+        if i == 0 || matches!(self.state[i], Binding::Bound { .. } | Binding::SyncOnly) {
             return Err(Refusal::Refused);
         }
         self.state[i] = Binding::Bound { root };
         Ok(())
     }
 
-    /// **Make `badge` flush-only** (milestone 805), asked for by a caller whose own badge is
+    /// **Make `badge` sync-only** (milestone 805), asked for by a caller whose own badge is
     /// `caller`: [`Bindings::bind`]'s rules, with no directory. A badge already bound either way
     /// cannot be bound again without being revoked first.
-    pub fn bind_flush_only(&mut self, caller: u64, badge: u64) -> Result<(), Refusal> {
+    ///
+    /// Name: ratified 2026-10-06 (calef, #1783: "Approve sync for the file-server
+    /// request and its capability, and flush for the device cache only.").
+    pub fn bind_sync_only(&mut self, caller: u64, badge: u64) -> Result<(), Refusal> {
         if self.of(caller) != Binding::Open {
             return Err(Refusal::Refused);
         }
         let i = Self::index(badge);
-        if i == 0 || matches!(self.state[i], Binding::Bound { .. } | Binding::FlushOnly) {
+        if i == 0 || matches!(self.state[i], Binding::Bound { .. } | Binding::SyncOnly) {
             return Err(Refusal::Refused);
         }
-        self.state[i] = Binding::FlushOnly;
+        self.state[i] = Binding::SyncOnly;
         Ok(())
     }
 
@@ -300,10 +306,10 @@ impl<const B: usize> Bindings<B> {
         if self.of(caller) != Binding::Open {
             return Err(Refusal::Refused);
         }
-        // A flush-only badge holds no directory, so there is no root to hand back for closing:
+        // A sync-only badge holds no directory, so there is no root to hand back for closing:
         // `ROOT`, which the server never closes.
         let f = Self::index(badge);
-        if f != 0 && self.state[f] == Binding::FlushOnly {
+        if f != 0 && self.state[f] == Binding::SyncOnly {
             self.state[f] = Binding::Revoked;
             return Ok(ROOT);
         }
@@ -406,7 +412,7 @@ mod proofs {
             assert!(h == root || (h == requested && owner == Some(badge)));
         }
         assert!(admit(Binding::Revoked, badge, requested, owner).is_err());
-        assert!(admit(Binding::FlushOnly, badge, requested, owner).is_err());
+        assert!(admit(Binding::SyncOnly, badge, requested, owner).is_err());
     }
 
     /// **Once bound, a badge is never open again, and a bound caller changes no binding.** Over any
@@ -426,7 +432,7 @@ mod proofs {
             let which: u8 = kani::any();
             let changed = match which % 3 {
                 0 => t.bind(caller, badge, kani::any()).is_ok(),
-                1 => t.bind_flush_only(caller, badge).is_ok(),
+                1 => t.bind_sync_only(caller, badge).is_ok(),
                 _ => t.unbind(caller, badge).is_ok(),
             };
             if changed {
@@ -437,7 +443,7 @@ mod proofs {
                 }
             }
             for (b, ever) in ever_bound.iter_mut().enumerate() {
-                if matches!(t.of(b as u64), Binding::Bound { .. } | Binding::FlushOnly) {
+                if matches!(t.of(b as u64), Binding::Bound { .. } | Binding::SyncOnly) {
                     *ever = true;
                 }
                 if *ever {
@@ -458,7 +464,7 @@ mod proofs {
         let caller: u64 = kani::any();
         let badge: u64 = kani::any();
         let _ = if kani::any() {
-            t.bind(caller, badge, kani::any()).is_ok() || t.bind_flush_only(caller, badge).is_ok()
+            t.bind(caller, badge, kani::any()).is_ok() || t.bind_sync_only(caller, badge).is_ok()
         } else {
             t.unbind(caller, badge).is_ok()
         };
@@ -554,32 +560,28 @@ mod tests {
     }
 
     #[test]
-    fn a_flush_only_badge_reaches_no_handle_and_is_revoked_like_a_grant() {
+    fn a_sync_only_badge_reaches_no_handle_and_is_revoked_like_a_grant() {
         let mut t = Bindings::<4>::new();
-        t.bind_flush_only(0, 3).unwrap();
-        assert_eq!(t.of(3), Binding::FlushOnly);
+        t.bind_sync_only(0, 3).unwrap();
+        assert_eq!(t.of(3), Binding::SyncOnly);
         assert_eq!(admit(t.of(3), 3, ROOT, None), Err(Refusal::NotYours));
         assert_eq!(admit(t.of(3), 3, 7, Some(3)), Err(Refusal::NotYours));
         assert_eq!(
-            t.bind_flush_only(3, 2),
+            t.bind_sync_only(3, 2),
             Err(Refusal::Refused),
-            "a flush-only caller binds"
+            "a sync-only caller binds"
         );
         assert_eq!(t.bind(3, 2, 40), Err(Refusal::Refused));
         assert_eq!(t.bind(0, 3, 40), Err(Refusal::Refused), "bound twice");
+        assert_eq!(t.bind_sync_only(0, 3), Err(Refusal::Refused), "bound twice");
         assert_eq!(
-            t.bind_flush_only(0, 3),
-            Err(Refusal::Refused),
-            "bound twice"
-        );
-        assert_eq!(
-            t.bind_flush_only(0, 0),
+            t.bind_sync_only(0, 0),
             Err(Refusal::Refused),
             "the unbadged value"
         );
         assert_eq!(t.unbind(0, 3), Ok(ROOT), "no directory to close");
         assert_eq!(t.of(3), Binding::Revoked);
-        t.bind_flush_only(0, 3).unwrap();
+        t.bind_sync_only(0, 3).unwrap();
     }
 
     #[test]

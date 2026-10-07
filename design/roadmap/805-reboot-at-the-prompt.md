@@ -206,22 +206,22 @@ Built 2026-10-06 (UTC) by lane/805-reboot. Every name below is provisional.
   (`only_reboot_declares_reboot_and_no_image_can`), and `grant_plan::image_can_carry` keeps it off
   every installed image. A manifest note cannot spell it (`manifest_note::encode` refuses), so the
   note's wire format is unchanged.
-- **The flush-only capability.** `filesystem_protocol::fs::BIND_FLUSH` binds a client badge so
+- **The sync-only capability.** `filesystem_protocol::fs::BIND_SYNC` binds a client badge so
   the file server answers `SYNC` on it and refuses every other verb with `EPERM`
-  (`subtree_scope::Binding::FlushOnly`, enforced in `redoxfs_server`'s dispatch). `reboot`
-  declares `grant_plan::Manifest::flush`; the spawn service binds a window's badge for that job,
-  places the endpoint `WRITE`-only at `grant_plan::FLUSH_SLOT` (14) and keeps no copy. The window
+  (`subtree_scope::Binding::SyncOnly`, enforced in `redoxfs_server`'s dispatch). `reboot`
+  declares `grant_plan::Manifest::sync`; the spawn service binds a window's badge for that job,
+  places the endpoint `WRITE`-only at `grant_plan::SYNC_SLOT` (14) and keeps no copy. The window
   returns at the reap. `redoxfs_server`'s
-  `a_flush_only_badge_answers_sync_and_refuses_everything_else` tests it, falsified by hand.
+  `a_sync_only_badge_answers_sync_and_refuses_everything_else` tests it, falsified by hand.
 - **The program.** `components/src/reboot.rs`, in the `init` package. It sends `SYNC`, prints the
-  answer, then invokes the object. A failed flush (any errno but `EOPNOTSUPP`) refuses to restart.
-- **`caps reboot`** prints slot 13 (the reboot object) and slot 14 (the flush), and the preview
+  answer, then invokes the object. A failed sync (any errno but `EOPNOTSUPP`) refuses to restart.
+- **`caps reboot`** prints slot 13 (the reboot object) and slot 14 (the sync), and the preview
   test checks that no other program's preview has either.
 - **The fixture.** `unreachable_network_witness` invokes `REBOOT` on slot 13 and must be refused
   for want of a capability, by name and when run unvouched.
 - **The gate.** `swish-check`'s first boot on every architecture ends with a reboot phase
   (`swish_check::reboot_phase`), once every scripted line has passed. It writes `reboot.txt` and
-  types `reboot`. It requires the flush report before the kernel's first `reboot:` line, the
+  types `reboot`. It requires the sync report before the kernel's first `reboot:` line, the
   route's attempt line and no refusal. Then the firmware's line where there is firmware (OpenSBI,
   `uefi_loader`), a second prompt, and `wc reboot.txt` answering `1 3 18`. Each failure is worded
   `reboot phase: …`.
@@ -231,7 +231,7 @@ Built 2026-10-06 (UTC) by lane/805-reboot. Every name below is provisional.
 | | criterion | state |
 |---|---|---|
 | 1 | the gate on all three architectures | met, by `swish-check`'s reboot phase, **not under `script/test`**: `script/test` runs the kernel-test legs, and `swish-check` (which boots the interactive system) is not one of them |
-| 2 | a completed flush before the reset line | met: the line is the block server's flush count as `SYNC` answered it on `reboot`'s flush-only capability, printed before the kernel's first line, and the gate checks the order |
+| 2 | a completed sync before the reset line | met: the line is the block server's flush count as `SYNC` answered it on `reboot`'s sync-only capability, printed before the kernel's first line, and the gate checks the order |
 | 3 | an undeclaring program holds no reset capability; `caps reboot` names it | met: the witness fixture and the `caps reboot` line in `swish-check`, plus the host test |
 | 4 | a refusal is loud | met: the kernel prints the firmware's code and `reboot` prints the reason. **No non-zero exit**: no program here has one |
 | 5 | `script/soak-test --reboot` still passes | met: passed on aarch64, riscv64 and x86_64 on 2026-10-06 (UTC), each resetting and soaking again 127 s in |
@@ -241,7 +241,7 @@ Built 2026-10-06 (UTC) by lane/805-reboot. Every name below is provisional.
 ## What it costs
 
 - **One capability slot in the progenitor for the life of the boot**, the reboot object. The
-  flush-only endpoint is per job and deleted once placed, so it adds nothing to the peak:
+  sync-only endpoint is per job and deleted once placed, so it adds nothing to the peak:
   `swish-check` measured 26, 30 and 33 with it, as before it, and
   `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED` records 33 of 64.
 - **One file-server window for the life of a `reboot` job**, from the pool directory grants use.
@@ -255,7 +255,7 @@ Built 2026-10-06 (UTC) by lane/805-reboot. Every name below is provisional.
 is the same code on radon as under QEMU `virt`, including milestone 592's I2C5 release, which runs
 before SBI SRST on any JH7110. But 592's fix has never run on the board, and on 2026-09-04 radon's
 OpenSBI accepted SRST type 1 and hung in its PMIC write. Until 592's bench run passes, `reboot`
-typed at radon's prompt prints its flush report and the kernel's attempt line, and the board may
+typed at radon's prompt prints its sync report and the kernel's attempt line, and the board may
 stop there. The plan: once 592 is BUILT, calef types `reboot` at radon's prompt with nobody at
 plug 2, and the serial capture goes under `target/board/`. Exit criterion 6 is that run. xenon and
 argon are not lab machines for this, as above.
@@ -270,7 +270,7 @@ on milestone 592.
 
 - A background job's write between `reboot`'s `SYNC` reply and the reset can be lost. calef ruled
   option A knowing it (2026-10-06 UTC); orderly shutdown closes it:
-  `design/roadmap/proposals/orderly-shutdown-closes-the-flush-window.md`.
+  `design/roadmap/proposals/orderly-shutdown-closes-the-sync-window.md`.
 - radon's reset is unproven on silicon. 592 has a fix waiting on one bench run, and if that fails,
   592's options B and C (a nife PMIC write, or new firmware) come before this.
 - Who at the prompt may reboot is not decided here. Any session the progenitor endows can.
@@ -284,8 +284,8 @@ on milestone 592.
 - **Outstanding.** Exit criterion 6, `reboot` at radon's prompt with nobody at plug 2. It waits on
   milestone 592's bench reset; checked 2026-10-06 (UTC) that 592 is still PARTIAL with its
   `**Outstanding.**` bench run unchanged. calef at the bench; see the scope note.
-- **Proposed.** Orderly shutdown closes the flush window:
-  `design/roadmap/proposals/orderly-shutdown-closes-the-flush-window.md`.
+- **Proposed.** Orderly shutdown closes the sync window:
+  `design/roadmap/proposals/orderly-shutdown-closes-the-sync-window.md`.
 - **Recorded.** The program does not exit non-zero on a refusal: `components/src/reboot.rs`'s
   `BUGS`.
 - **Recorded.** A refused reset leaves the kernel printing direct: `kernel/src/console.rs`'s

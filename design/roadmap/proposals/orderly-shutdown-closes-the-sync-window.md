@@ -7,28 +7,28 @@ machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Orderly shutdown closes the flush window
+# Orderly shutdown closes the sync window
 
 **Reuse:** the design is borrowed from the prior art below; no code is taken, because nothing
 outside a service manager can own the order, and nife's would be written here.
 
 calef asked for this on 2026-10-06 (UTC), ruling on #1783, milestone 805 (`reboot` at the prompt).
-He approved the flush-only binding (option A in §251 (restarting the machine is a kernel object the
+He approved the sync-only binding (option A in §251 (restarting the machine is a kernel object the
 progenitor hands out)'s amendment) and asked that option D be filed as follow-on work. Written by
 lane/805-reboot, which built nothing for it.
 
 ## The gap
 
-`reboot` sends `fs::SYNC` on its flush-only capability, waits for the reply, then invokes the reboot
+`reboot` sends `fs::SYNC` on its sync-only capability, waits for the reply, then invokes the reboot
 object. A write another job makes after that reply and before the reset is lost on a device with a
 volatile write cache. `components/src/reboot.rs`'s `BUGS` records it. The window is short, and it
-only holds a write from a job somebody left running in the background, but no flush issued by one
+only holds a write from a job somebody left running in the background, but no sync issued by one
 program can close it. Something has to stop the writers first.
 
 ## What closes it
 
 An orderly shutdown. Before the reset, the reboot path tells every stateful server to stop taking
-writes, flush and acknowledge. Only after every acknowledgement does it invoke the reboot object.
+writes, sync and acknowledge. Only after every acknowledgement does it invoke the reboot object.
 That is the only option in §251's amendment that closes the window rather than narrowing it.
 
 It needs an owner for shutdown order, and neither `reboot` nor the progenitor is the right one.
@@ -42,9 +42,9 @@ So this proposal has two halves, and the first may be its own milestone:
 1. A service manager owns start and stop order for the stateful servers (the file server, the
    block servers, the system log once it is durable).
 2. Shutdown is a request to it. `reboot` asks it to stop the system, it stops servers in reverse
-   dependency order and waits for each to flush and acknowledge, and then the reboot object is
-   invoked. The flush-only capability stays as the last step, or goes, depending on whether the
-   file server's own stop includes the flush.
+   dependency order and waits for each to sync and acknowledge, and then the reboot object is
+   invoked. The sync-only capability stays as the last step, or goes, depending on whether the
+   file server's own stop includes the sync.
 
 ## Does publish-subscribe fit?
 
@@ -54,7 +54,7 @@ Plain fire-and-forget fails three ways:
 
 - The publisher must know every subscriber finished before the reset, and a broadcast says
   nothing back.
-- The file system must flush after the writers stop. A flat broadcast cannot order that.
+- The file system must sync after the writers stop. A flat broadcast cannot order that.
 - A hung subscriber must not block the reboot forever.
 
 The capability mapping:
@@ -62,7 +62,7 @@ The capability mapping:
 - Subscribing is holding a badge on a shutdown notification, which the service manager hands out.
 - Publishing needs the reboot capability. `reboot` publishes, waits for every acknowledgment or the
   deadline, then resets. Neither `reboot` nor the progenitor knows who holds state.
-- Phases stand in for a dependency graph: for example 1, writers stop; 2, servers flush; 3, the
+- Phases stand in for a dependency graph: for example 1, writers stop; 2, servers sync; 3, the
   reset. A subscriber declares its phase.
 
 Prior art for this shape, recalled, not re-read:

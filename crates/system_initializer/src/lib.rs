@@ -647,7 +647,7 @@ pub struct BootEndowment {
     /// the machine is a kernel object the progenitor hands out)), `WRITE | GRANT`: the one capability
     /// on the machine that may restart it, granted on every boot. [`boot`] never invokes it. The
     /// spawn service keeps it and places `WRITE` in a child whose manifest declares
-    /// [`grant_plan::Manifest::reboot`], which flushes for itself through its flush-only
+    /// [`grant_plan::Manifest::reboot`], which syncs for itself through its sync-only
     /// capability. The shell holds none.
     ///
     /// Name: provisional, milestone 805's lane, 2026-10-06 (UTC).
@@ -3322,9 +3322,9 @@ fn spawn_service(
         // either. `grant_plan::image_can_carry` keeps it off every image, so only the built-in
         // `reboot` gets here with it.
         let wants_reboot = manifest.is_some_and(|m| m.reboot);
-        // And a flush-only capability to the file server (milestone 805), which `reboot` declares
-        // beside the object so it can flush for itself. Made below, per job, from a window.
-        let wants_flush = manifest.is_some_and(|m| m.flush);
+        // And a sync-only capability to the file server (milestone 805), which `reboot` declares
+        // beside the object so it can sync for itself. Made below, per job, from a window.
+        let wants_sync = manifest.is_some_and(|m| m.sync);
 
         if interruptible {
             // Build the whole child from the shell's job untyped, mapping the shared job frame; no
@@ -3409,9 +3409,9 @@ fn spawn_service(
             // the reaped message carries it back. A pool whose every window is held waits for the
             // reaps that are due, then refuses.
             let label = spawn.label();
-            // A flush-only grant takes a window too (milestone 805): its badge is bound flush-only
+            // A sync-only grant takes a window too (milestone 805): its badge is bound sync-only
             // rather than to a directory, and it is held until the reap like any other.
-            let window = if (wiring.dir || wants_flush) && fs.is_some() {
+            let window = if (wiring.dir || wants_sync) && fs.is_some() {
                 spawn.until_reaped(|s| s.windows.take(label))
             } else {
                 None
@@ -3450,20 +3450,20 @@ fn spawn_service(
             // to act on something and holds nothing, which is the one outcome this model must never
             // trade away.
             let dir_failed = wiring.dir && narrowed.is_none();
-            // **The flush-only capability** (milestone 805, `fs::BIND_FLUSH`): the window's badge
+            // **The sync-only capability** (milestone 805, `fs::BIND_SYNC`): the window's badge
             // bound so the file server answers `SYNC` on it and refuses everything else, and the
-            // endpoint badged with it. No page: a flush carries no bytes. Only a server that
+            // endpoint badged with it. No page: a sync carries no bytes. Only a server that
             // enforces bindings itself can make one, and a job that declared it on a boot with a
             // writable filesystem and got none is refused, `dir_failed`'s rule: `reboot` must not
-            // start unable to flush. With no filesystem there is nothing to flush, and the slot is
+            // start unable to sync. With no filesystem there is nothing to sync, and the slot is
             // left empty.
-            let flush_ep = match (wants_flush && fs_scoped, fs, window) {
+            let sync_ep = match (wants_sync && fs_scoped, fs, window) {
                 (true, Some(f), Some(w)) => {
-                    bind_flush_only(f, &mut spawn.windows, w, own_ut, &mut fs_mapped)
+                    bind_sync_only(f, &mut spawn.windows, w, own_ut, &mut fs_mapped)
                 }
                 _ => None,
             };
-            let flush_failed = wants_flush && fs.is_some() && flush_ep.is_none();
+            let sync_failed = wants_sync && fs.is_some() && sync_ep.is_none();
 
             // **Slot 0 is the output**, and milestone 50 is the whole of what changed here: it is
             // the shared result endpoint unless the shell delegated a sink, in which case the sink
@@ -3621,10 +3621,10 @@ fn spawn_service(
                 placed_buf[placed_n] = (grant_plan::REBOOT_SLOT, r, abi::rights::WRITE);
                 placed_n += 1;
             }
-            // **The eighth** (milestone 805): the flush-only endpoint, `WRITE` alone, the right to
+            // **The eighth** (milestone 805): the sync-only endpoint, `WRITE` alone, the right to
             // `CALL` the file server. Ours is deleted once the child holds its copy.
-            if let Some(f) = flush_ep {
-                placed_buf[placed_n] = (grant_plan::FLUSH_SLOT, f, abi::rights::WRITE);
+            if let Some(f) = sync_ep {
+                placed_buf[placed_n] = (grant_plan::SYNC_SLOT, f, abi::rights::WRITE);
                 placed_n += 1;
             }
             let placed: &[(u64, u64, u64)] = &placed_buf[..placed_n];
@@ -3710,7 +3710,7 @@ fn spawn_service(
             };
             let fault = screen.or(labeled);
             let built = match (
-                elf.filter(|_| !dir_failed && !flush_failed && !args_failed && fault.is_some()),
+                elf.filter(|_| !dir_failed && !sync_failed && !args_failed && fault.is_some()),
                 region,
             ) {
                 (Some(e), Some(r)) if std_layout => std_parts.as_ref().and_then(|l| {
@@ -3810,7 +3810,7 @@ fn spawn_service(
             if let Some(dir_ep) = narrowed {
                 cap_delete(dir_ep);
             }
-            if let Some(f) = flush_ep {
+            if let Some(f) = sync_ep {
                 cap_delete(f);
             }
             // The window's page and badged endpoint were only the means too: the caretaker and the
@@ -5359,11 +5359,14 @@ fn bound_channel(
     Some(Fs { ep, page })
 }
 
-/// **A flush-only endpoint for one job** (milestone 805 (`reboot` at the prompt),
-/// `fs::BIND_FLUSH`): window `w`'s badge, unbound from whatever it last held, bound flush-only, and
+/// **A sync-only endpoint for one job** (milestone 805 (`reboot` at the prompt),
+/// `fs::BIND_SYNC`): window `w`'s badge, unbound from whatever it last held, bound sync-only, and
 /// the endpoint badged with it in a fresh slot the caller deletes once the job holds its copy. The
 /// window is marked bound, so the next job to take it unbinds it first, as for a directory grant.
-fn bind_flush_only(
+///
+/// Name: ratified 2026-10-06 (calef, #1783: "Approve sync for the file-server
+/// request and its capability, and flush for the device cache only.").
+fn bind_sync_only(
     fs: Fs,
     windows: &mut Windows,
     w: u64,
@@ -5372,7 +5375,7 @@ fn bind_flush_only(
 ) -> Option<u64> {
     let files = FsCalls::map(Some(fs), own_ut, mapped)?;
     files.unbind(windows, w);
-    if call(fs.ep, fs_operation::req(fs_operation::BIND_FLUSH, 0, 0), w).0 != 0 {
+    if call(fs.ep, fs_operation::req(fs_operation::BIND_SYNC, 0, 0), w).0 != 0 {
         return None;
     }
     windows.set_bound(w, true);

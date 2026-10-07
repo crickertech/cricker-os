@@ -839,7 +839,7 @@ pub mod fs {
     /// caretaker grant's revocation ended the caretaker instead.
     pub const UNBIND: u64 = 65;
 
-    /// **Make a badge flush-only** (milestone 805 (`reboot` at the prompt), DECISIONS §251
+    /// **Make a badge sync-only** (milestone 805 (`reboot` at the prompt), DECISIONS §251
     /// (restarting the machine is a kernel object the progenitor hands out), its 2026-10-06
     /// amendment). The second word is the badge; the handle field is ignored. From then on a request
     /// carrying that badge may be [`SYNC`] and nothing else: the server answers `SYNC` with the
@@ -848,13 +848,14 @@ pub mod fs {
     ///
     /// [`BIND`]'s caller rule (only an unbound badge may bind) and its revocation ([`UNBIND`] leaves
     /// the badge reaching nothing). `SYNC` needs [`super::dir::WRITE`] on a handle for every other
-    /// client; the binder holds it, which is what lets it hand a badge the flush alone.
+    /// client; the binder holds it, which is what lets it hand a badge the sync alone.
     ///
-    /// The one holder is `reboot`, which flushes for itself before it restarts the machine.
+    /// The one holder is `reboot`, which syncs for itself before it restarts the machine.
     /// Outside [`super::verb::TABLE`]'s range for [`BIND`]'s reason: no caretaker forwards it.
     ///
-    /// Name and number provisional (milestone 805).
-    pub const BIND_FLUSH: u64 = 66;
+    /// Name: ratified 2026-10-06 (calef, #1783: "Approve sync for the file-server
+    /// request and its capability, and flush for the device cache only."). The number is provisional.
+    pub const BIND_SYNC: u64 = 66;
 
     /// **How many pages the file channel spans** (milestone 138 step 3). The client and the FS
     /// server share this many *contiguous* pages, not one, and a [`READ`] or [`WRITE`] may carry
@@ -3903,7 +3904,7 @@ mod tests {
     /// verb added to the table later cannot land on their numbers by accident.
     #[test]
     fn bind_and_unbind_are_not_directory_verbs() {
-        for code in [fs::BIND, fs::UNBIND, fs::BIND_FLUSH] {
+        for code in [fs::BIND, fs::UNBIND, fs::BIND_SYNC] {
             assert!(
                 verb::of(code).is_none(),
                 "a caretaker would forward opcode {code}"

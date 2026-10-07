@@ -23,7 +23,7 @@
 //! `0x0000_...`. **The hardware picks the table register from bits 63:48 of the address**, so:
 //!
 //! - The kernel is mapped in every address space, for free. Nobody had to copy anything.
-//! - A syscall **does not switch page tables**. There is nothing to flush and nothing to remap.
+//! - A syscall **does not switch page tables**. There is nothing to sync and nothing to remap.
 //! - Installing a process is one `msr ttbr0_el1`.
 //!
 //! None of that was written for milestone 7. It fell out of a higher-half decision made three

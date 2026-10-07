@@ -25,7 +25,7 @@ the reboot object, `REBOOT` and the `reboot` field for want of anything better.
 2. The kernel creates exactly one at boot and grants it to the progenitor. The progenitor endows it
    only to a program whose manifest declares the `reboot` field, the way `entropy` is endowed
    (`crates/manifest_note`). A program that does not declare it holds none.
-3. The `reboot` program flushes the writable filesystem with `filesystem_protocol::fs::SYNC` and
+3. The `reboot` program syncs the writable filesystem with `filesystem_protocol::fs::SYNC` and
    waits for the reply, then invokes `REBOOT`. An ordered shutdown of services is deferred to a
    later milestone, which will add its step before the `SYNC`.
 4. Power-off is excluded. It is a separate program and a separate object kind, so holding the
@@ -81,28 +81,31 @@ check. Both are recalled, not re-read.
 Milestone 805's lane built the object and found three places where this section's wording and the
 built thing differ. Milestone 805's block left the first one to the building lane ("How `reboot`
 reaches `SYNC` is the building lane's call"); the other two are corrections to wording. calef ruled
-all three items on 2026-10-06 (UTC), below. The provisional names are still with him.
+all three items on 2026-10-06 (UTC), below. He also ruled the sync names on #1783: "Approve sync
+for the file-server request and its capability, and flush for the device cache only." So the
+request and its capability are `fs::BIND_SYNC`, `SyncOnly` and `Manifest::sync`, and "flush"
+means the block device's own cache command. The other names are still with him.
 
-1. **`reboot` flushes for itself, through a flush-only capability** (clause 3). For an ordinary
+1. **`reboot` syncs for itself, through a sync-only capability** (clause 3). For an ordinary
    client, `fs::SYNC` needs a handle carrying `dir::WRITE`, which is also the right to open and
    truncate files by name. So the file server gains one protocol message,
-   `filesystem_protocol::fs::BIND_FLUSH` (66, provisional), beside `BIND` and `UNBIND` (milestone
+   `filesystem_protocol::fs::BIND_SYNC` (66, provisional), beside `BIND` and `UNBIND` (milestone
    606 (a directory walk costs what it does on Linux), ruling D). It binds a client badge
-   flush-only: the server answers `SYNC` on that badge with the block server's flush count and
+   sync-only: the server answers `SYNC` on that badge with the block server's flush count and
    refuses every other verb with `EPERM`, before it reads a handle. The badge names no directory
    and reaches no file. `BIND`'s caller rule holds (only an unbound badge may bind), and `UNBIND`
    revokes it like any grant. It is a server message on an existing endpoint, inside the badge
    model of §230 (badged endpoint capabilities), and adds no syscall and no kernel
    method.
-   - `reboot` declares `grant_plan::Manifest::flush` beside `reboot`. For that job the spawn
-     service takes a client window, as for a directory grant, binds its badge flush-only, places
+   - `reboot` declares `grant_plan::Manifest::sync` beside `reboot`. For that job the spawn
+     service takes a client window, as for a directory grant, binds its badge sync-only, places
      the badged endpoint `WRITE`-only at slot 14 and deletes its own copy. The window goes back
      when the job is reaped, so the progenitor holds nothing extra for the life of the boot.
-   - The program sends `SYNC`, checks the answer, prints it, and invokes `REBOOT`. A failed flush
+   - The program sends `SYNC`, checks the answer, prints it, and invokes `REBOOT`. A failed sync
      (any errno but `EOPNOTSUPP`) makes it refuse. A boot with no writable filesystem leaves the
-     slot empty and there is nothing to flush. A boot whose file server cannot bind one refuses the
-     spawn, rather than start `reboot` unable to flush.
-   - No image can declare `flush`, and a manifest note cannot spell it.
+     slot empty and there is nothing to sync. A boot whose file server cannot bind one refuses the
+     spawn, rather than start `reboot` unable to sync.
+   - No image can declare `sync`, and a manifest note cannot spell it.
    - The cost, recorded in the program's `BUGS`: a write another job makes between the `SYNC`
      reply and the reset is not covered.
 
@@ -111,27 +114,27 @@ all three items on 2026-10-06 (UTC), below. The provisional names are still with
    concern is progenitor is turning into a god process."
 
    Ruled A by calef on #1783, 2026-10-06 (UTC), answering "Yes" to: "Approve A
-   (fs::BIND_FLUSH flush-only binding), with B through F recorded and D filed as a follow-on?"
+   (fs::BIND_SYNC sync-only binding), with B through F recorded and D filed as a follow-on?"
 
    Alternatives considered:
 
-   - A, built: the flush-only binding above. Its gap is a write between the `SYNC` reply and
+   - A, built: the sync-only binding above. Its gap is a write between the `SYNC` reply and
      the reset.
    - B, the progenitor sends `SYNC`: rejected by calef, the god-process concern.
-   - C, give `reboot` an ordinary `dir::WRITE` handle: far too much authority for a flush.
+   - C, give `reboot` an ordinary `dir::WRITE` handle: far too much authority for a sync.
    - D, orderly shutdown: the reboot path tells every stateful server to stop taking writes,
-     flush and acknowledge before the reset. It is the only option that closes the window. It
+     sync and acknowledge before the reset. It is the only option that closes the window. It
      needs a service manager to own shutdown order, so it is neither `reboot`'s job nor the
-     progenitor's. Filed as `design/roadmap/proposals/orderly-shutdown-closes-the-flush-window.md`.
+     progenitor's. Filed as `design/roadmap/proposals/orderly-shutdown-closes-the-sync-window.md`.
    - E, the kernel calls registered pre-reset endpoints: puts shutdown policy in the kernel,
      against the narrow syscall surface.
-   - F, a crash-consistent filesystem, so no flush is needed: still loses recent writes, and
+   - F, a crash-consistent filesystem, so no sync is needed: still loses recent writes, and
      RedoxFS makes no such promise today.
 
    Prior art, recalled, not re-read:
 
    - Linux `reboot(2)` does not sync. `reboot(8)` and systemd call `sync(2)` first, and `sync(2)`
-     needs no privilege, which treats a flush as harmless authority and supports A.
+     needs no privilege, which treats a sync as harmless authority and supports A.
    - Capsicum has a separate `CAP_FSYNC` descriptor right: A at the descriptor level.
    - E and KeyKOS facets, and seL4 and CAmkES badge attenuation, are the A pattern.
    - Fuchsia's `component_manager` stops components in dependency order, and `fshost` flushes on

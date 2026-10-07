@@ -40,7 +40,7 @@
 //!   engine mid-transfer is cut off with everything else; that is the point of a cold reset. Since
 //!   milestone 805 (`reboot` at the prompt) this is also called on a machine holding a filesystem
 //!   open, through the reboot object (kernel/src/reboot.rs). What makes that safe is not here:
-//!   `reboot` flushes the writable filesystem before it invokes the object, so the block servers are
+//!   `reboot` syncs the writable filesystem before it invokes the object, so the block servers are
 //!   idle by the time this runs, and nothing else on the machine writes to persistent storage.
 
 use core::sync::atomic::{AtomicU8, AtomicU64, Ordering};

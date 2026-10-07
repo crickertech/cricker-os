@@ -983,7 +983,7 @@ pub fn write_help(out: &mut dyn FnMut(&[u8])) {
     out(b"  date                    print the wall-clock time\n");
     out(b"  printenv                print the inert configuration page (TZ, LANG, TERM)\n");
     out(b"  uuid                    a version-4 UUID, from the entropy service it is granted\n");
-    out(b"  reboot                  flush the filesystem and restart the machine\n");
+    out(b"  reboot                  sync the filesystem and restart the machine\n");
     out(b"  wc                      count lines, words and bytes on its INPUT\n");
     out(b"  mdr <page>              render markdown from its INPUT (apropos names the pages)\n");
     out(b"  <prog> <name>           grant a process one file, and only that file\n");
@@ -1911,13 +1911,13 @@ fn write_preview_rows(
     }
     // **The reboot object** (milestone 805 (`reboot` at the prompt), DECISIONS §251 (restarting the
     // machine is a kernel object the progenitor hands out)): the row exit criterion 3 asks `caps
-    // reboot` to print. It names the authority and the flush it does first, because the
+    // reboot` to print. It names the authority and the sync it does first, because the
     // second is what makes the first safe and neither shows anywhere else before the machine stops.
     if m.reboot {
         out(b"    cap 13 reboot    WRITE. restart the machine (the kernel asks the firmware).\n");
     }
-    if m.flush {
-        out(b"    cap 14 endpoint  flush  WRITE. the file server answers SYNC on it and refuses\n");
+    if m.sync {
+        out(b"    cap 14 endpoint  sync   WRITE. the file server answers SYNC on it and refuses\n");
         out(b"                              everything else: it flushes the device, and reaches no file\n");
     }
     // **Where its output goes**, which is the demonstration milestone 50 owed: the destination is a
@@ -3097,7 +3097,7 @@ mod tests {
             s.contains("cap 13 reboot    WRITE. restart the machine"),
             "{s}"
         );
-        assert!(s.contains("cap 14 endpoint  flush  WRITE"), "{s}");
+        assert!(s.contains("cap 14 endpoint  sync   WRITE"), "{s}");
         for p in Prog::ALL.iter().filter(|p| **p != Prog::Reboot) {
             let s = shown(|o| write_preview(&endowment(*p), &Holdings::default(), None, o));
             assert!(

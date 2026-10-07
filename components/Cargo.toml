@@ -581,7 +581,7 @@ bench = false
 
 # `reboot` (milestone 805 (`reboot` at the prompt), DECISIONS §251 (restarting the machine is a
 # kernel object the progenitor hands out)): restart the machine. Its authority is the reboot object
-# and a flush-only capability to the file server, both endowed only to this program. **Provisional
+# and a sync-only capability to the file server, both endowed only to this program. **Provisional
 # name.**
 [[bin]]
 name = "reboot"

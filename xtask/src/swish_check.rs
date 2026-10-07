@@ -1262,7 +1262,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "caps reboot",
         &[
             "cap 13 reboot    WRITE. restart the machine",
-            "cap 14 endpoint  flush  WRITE. the file server answers SYNC on it and refuses",
+            "cap 14 endpoint  sync   WRITE. the file server answers SYNC on it and refuses",
         ],
     ),
     // **A supervised job, interrupted**, under DECISIONS §24 (interrupting the foreground
@@ -3511,15 +3511,15 @@ fn reboot_firmware(arch: &str) -> Option<&'static str> {
 /// phase that ends every architecture's first boot). It writes a file, types `reboot`, and asks
 /// for, in order:
 ///
-/// - `reboot`'s own report that its flush was answered (the block server's count of completed
-///   `blk::FLUSH`es, through its flush-only capability), before the kernel's first `reboot:` line;
+/// - `reboot`'s own report that its sync was answered (the block server's count of completed
+///   `blk::FLUSH`es, through its sync-only capability), before the kernel's first `reboot:` line;
 /// - the kernel's attempt line, and no refusal;
 /// - the firmware's line where there is firmware ([`reboot_firmware`]);
 /// - a second prompt banner, then `wc reboot.txt` answering `1 3 18`.
 ///
 /// Every error names the step, prefixed `reboot phase:`, so a red leg says it was the reboot and
-/// not a scripted line. The read-back cannot fail for want of a flush under QEMU, which outlives a
-/// guest reset with its host cache intact; the flush line is the evidence the flush happened.
+/// not a scripted line. The read-back cannot fail for want of a sync under QEMU, which outlives a
+/// guest reset with its host cache intact; the sync line is the evidence the sync happened.
 fn reboot_phase(
     arch: &str,
     stdin: &mut std::process::ChildStdin,
@@ -3536,7 +3536,7 @@ fn reboot_phase(
     const READ_ANSWER: &str = "1 3 18";
     const KERNEL_ASKED: &str = "reboot: the kernel was asked to restart the machine";
     const KERNEL_REFUSED: &str = "reboot: every reset route was refused";
-    const FLUSHED: &str = "reboot: filesystem flushed";
+    const SYNCED: &str = "reboot: filesystem synced";
     let x86 = arch == "x86_64";
     let text = || degauge(&seen.lock().expect("transcript lock"));
     let len = || text().len();
@@ -3582,9 +3582,9 @@ fn reboot_phase(
         return fail("the kernel never said it was asked to restart the machine");
     };
     let before = text()[typed..asked].to_string();
-    if !before.contains(FLUSHED) {
+    if !before.contains(SYNCED) {
         return fail(&format!(
-            "`reboot` reached the kernel without reporting a completed flush (no {FLUSHED:?} \
+            "`reboot` reached the kernel without reporting a completed sync (no {SYNCED:?} \
              before the kernel's line): {:?}",
             before.trim()
         ));
@@ -3628,14 +3628,14 @@ fn reboot_phase(
              wrote is not there"
         ));
     }
-    let flushed = before
+    let synced = before
         .lines()
-        .find(|l| l.contains(FLUSHED))
+        .find(|l| l.contains(SYNCED))
         .unwrap_or("")
         .trim()
         .to_string();
     Ok(format!(
-        "swish-check ({arch}): typed `reboot`; {flushed}; the machine reset{} and came back to a \
+        "swish-check ({arch}): typed `reboot`; {synced}; the machine reset{} and came back to a \
          prompt, and `{READ_LINE}` read back what the first boot wrote",
         reboot_firmware(arch).map_or(String::new(), |fw| format!(" through {fw}"))
     ))

@@ -217,9 +217,9 @@ const fn put8(out: &mut [u8; DESCRIPTOR_LEN], at: usize, v: u64) {
 /// a constant that panic is a compile error rather than a note nobody can read: a declared second
 /// stream at a slot other than `grant_plan::DIAGNOSTICS_SLOT`, a subtree option that is not one of
 /// the declared letters (or is declared without a directory grant), and
-/// `grant_plan::Manifest::reboot` or `grant_plan::Manifest::flush`.
+/// `grant_plan::Manifest::reboot` or `grant_plan::Manifest::sync`.
 ///
-/// **`reboot` and `flush` have no byte on purpose** (milestone 805 (`reboot` at the prompt), DECISIONS §251
+/// **`reboot` and `sync` have no byte on purpose** (milestone 805 (`reboot` at the prompt), DECISIONS §251
 /// (restarting the machine is a kernel object the progenitor hands out)). A note is how installed
 /// bytes ask for authority, and `grant_plan::image_can_carry` refuses both to every image, so a
 /// byte for either would spell a request no reader may grant. Leaving it out keeps the
@@ -231,8 +231,8 @@ pub const fn encode(m: &Manifest) -> [u8; DESCRIPTOR_LEN] {
         "a manifest note cannot carry `reboot`: no image may be endowed the reboot object"
     );
     assert!(
-        !m.flush,
-        "a manifest note cannot carry `flush`: no image may be endowed a flush-only capability"
+        !m.sync,
+        "a manifest note cannot carry `sync`: no image may be endowed a sync-only capability"
     );
     let mut out = [0u8; DESCRIPTOR_LEN];
     let v = VERSION.to_le_bytes();
@@ -448,7 +448,7 @@ pub fn decode(d: &[u8]) -> Result<Manifest, Error> {
         share: flag(d, SHARE)?,
         // Never from a note: see `encode`.
         reboot: false,
-        flush: false,
+        sync: false,
         runtime,
     })
 }
@@ -684,7 +684,7 @@ mod tests {
         for p in Prog::ALL {
             let m = p.manifest();
             // The one manifest with no note, by design (milestone 805): see `encode`.
-            if m.reboot || m.flush {
+            if m.reboot || m.sync {
                 continue;
             }
             assert_eq!(decode(&encode(&m)), Ok(m), "{}", p.name());
