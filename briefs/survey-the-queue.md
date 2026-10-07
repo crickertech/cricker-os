@@ -3,7 +3,8 @@ This is read-only and its whole output is your final message.
 
     git fetch origin
     gh pr list --json number,isDraft,mergeStateStatus,title,statusCheckRollup,labels
-    gh pr list --label needs-maintainer --state all
+    gh api --paginate 'repos/nifeos/nife/issues?labels=needs-maintainer&state=all' \
+        --jq '.[] | [.number, (if .pull_request then "pr" else "issue" end), .state, .title] | @tsv'
 
 ## What to work out for each open pull request
 
@@ -11,7 +12,9 @@ This is read-only and its whole output is your final message.
   which in a comment: ejected, conflicting, a stale queue entry, or 30 minutes ready and unarmed,
   ready on a base other than `main`, or wearing `ci-failing`. The seventh is a draft whose head
   has had no commit for 6 hours, which usually means its lane has ended.
-  List these first, with the cause, whatever else the survey finds.
+  List these first, with the cause, whatever else the survey finds. The listing above holds
+  issues as well: an issue there is a CI job near its budget (the `budget` cause, milestone 808
+  (every gate accounts for its time)). Report it with its job and share of budget.
 
 - Is it ready or draft, and is auto-merge already enabled.
 - Is it `DIRTY` or `CONFLICTING`, which means it needs a rebase before anything else can happen.

@@ -5,10 +5,10 @@
 # queue's only working detector, while the drain re-armed and re-queued on his behalf and commented
 # where nobody looked. So the drain stopped acting on the queue, and this decides the one thing it
 # still owes: a label, `needs-maintainer` (name provisional), on a pull request a maintainer
-# session must pick up, so the session finds it with `gh pr list --label needs-maintainer --state
-# all` and not by watching. Nothing here arms, enqueues or re-queues; it only names.
+# session must pick up, so the session finds it in the `needs-maintainer` listing
+# (briefs/session-start.md) and not by watching. Nothing here arms, enqueues or re-queues; it only names.
 #
-# Twelve causes, each a fact nothing else reports to anyone:
+# Thirteen causes, each a fact nothing else reports to anyone:
 #
 #   ejected   the last removal from the queue was neither `merged` nor `manual`, nothing put it
 #             back since, and the head is still the one that was ejected. A removal whose event
@@ -83,6 +83,13 @@
 #             with no open question, an open question without it, and a diff the architect-label
 #             rules fire on with no hold or ruling label. They apply to drafts and held items too,
 #             and the first two to open issues as well as pull requests.
+#   budget   an open issue wearing `nm_budget_label`: a CI job's merge-group runs have passed about
+#             85% of its milestone 721 (each merge-group CI job has a 20-minute budget) budget, and
+#             `helpers/ci_job_times.py sync` opened the issue (milestone 808 (every gate accounts for
+#             its time), §254 (a gate prints what each item cost)). calef ruled on 2026-10-06 (UTC)
+#             that the issue must reach a session through this listing, because a label nothing
+#             queries is rung zero. Keyed on the issue's number and the time it was opened, so one
+#             comment per episode; the issue closing (the job back under the line) clears the label.
 #
 # `ejected`, `conflict` and `unarmed` apply only to what `eligible` admits (helpers/queue-eligible.jq,
 # spliced in front of this file); `off-main` and `red` to a ready pull request from this repository
@@ -115,6 +122,17 @@
 #   { number: null, branch, action: "adopt", causes: [ { cause: "orphan", ... } ] }
 #
 # helpers/needs-maintainer-selftest.sh feeds recorded responses through this; script/lint runs it.
+
+# The label `helpers/ci_job_times.py sync` puts on a job's tracking issue (milestone 808). The name
+# is provisional; that script holds the same string and the selftest checks they agree.
+def nm_budget_label: "near-budget";
+
+# An open tracking issue for a job near its budget. Closed ones carry no cause, so a closed issue
+# still wearing `needs-maintainer` (found by the search for labeled, closed items) is cleared.
+def nm_budget:
+  select(([.labels.nodes[]?.name] | index(nm_budget_label)) != null and (.state // "OPEN") == "OPEN")
+  | { cause: "budget", key: "\(.number)@\(.createdAt)", opened: .createdAt, url: (.url // null),
+      title: (.title // null) };
 
 # `held-by-lane` is the hold a send-back places: calef has ruled, and the lane owes a change.
 def nm_held: ["needs-architect", "held-by-lane", "held-for-red-trunk"];
@@ -322,7 +340,12 @@ def nm_decide($label; $now; $minutes; $blockers):
                      + nm_architect($now; $minutes) + [nm_surface_no_hold]) } ]
     + [ $d.repository.issues.nodes[]?
         | { number, kind: "issue", labeled: ([.labels.nodes[].name] | index($label) != null),
-            causes: nm_architect($now; $minutes) } ]
+            causes: (nm_architect($now; $minutes) + [nm_budget]) } ]
+    # Open budget issues by their own search, so one older than the fifty newest issues above is
+    # still seen; the merge by number below folds the two sightings into one.
+    + [ $d.budget.nodes[]? | select(.number != null)
+        | { number, kind: "issue", labeled: ([.labels.nodes[].name] | index($label) != null),
+            causes: [nm_budget] } ]
     + [ $orphans[] | select(.number != null) ]
     + [ $d.repository.mergeQueue.entries.nodes[]?
         | select(.pullRequest.state != "OPEN")
@@ -331,7 +354,8 @@ def nm_decide($label; $now; $minutes; $blockers):
                         state: .pullRequest.state, merged: .pullRequest.mergedAt, id: .pullRequest.id } ] } ]
     + [ ($d.repository.mergeQueue.entries.nodes // []) as $es | $es[] | nm_unmergeable($es) ]
     + [ $d.search.nodes[]? | select(.number != null)
-        | { number, labeled: ([.labels.nodes[].name] | index($label) != null), causes: [] } ] )
+        | { number, kind: (if .__typename == "Issue" then "issue" else "pr" end),
+            labeled: ([.labels.nodes[].name] | index($label) != null), causes: [] } ] )
   # A closed pull request with a stale entry also appears in the search for labeled ones, and an
   # open one can only appear once; merge by number, keeping every cause and any labeled flag.
   | group_by(.number)

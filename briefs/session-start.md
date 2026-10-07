@@ -71,9 +71,15 @@ A running watcher is not the same as a watcher that has been read, and this is t
 skipped. A watcher that reported at 03:00 and a session that opens at 09:00 never meet unless
 somebody goes looking. So the drain leaves its findings where one command finds them:
 
-    gh pr list --repo nifeos/nife --label needs-maintainer --state all
+    gh api --paginate 'repos/nifeos/nife/issues?labels=needs-maintainer&state=all' \
+        --jq '.[] | [.number, (if .pull_request then "pr" else "issue" end), .state, .title] | @tsv'
 
-Every pull request in that list is yours before any lane is briefed. The drain labels one that was
+Every item in that list is yours before any lane is briefed. It holds pull requests and issues
+together, because the issues endpoint returns both (a row marked `pr` is a pull request). One
+command rather than `gh pr list` plus `gh issue list`, since a second command is one more thing a
+session must remember (milestone 808 (every gate accounts for its time), §254 (a gate prints what
+each item cost)).
+The drain labels a pull request that was The drain labels one that was
 ejected from the merge queue, conflicts with `main`, is still queued after it merged, or has been
 ready and unarmed for 30 minutes, and comments once with the evidence (milestone 727 (a queue eviction goes to a maintainer session), provisional,
 and so is the label's name). It also labels orphan work, a branch holding commits that no open pull
@@ -81,8 +87,13 @@ request carries, and opens a draft for one that never had a pull request; notes/
 lists every cause. Read the comment, then fix it or hand it to its lane: rebase, re-arm a
 flake (`gh pr merge N --auto --merge`), dequeue a stale entry with the command the comment gives,
 or make an unfinished one a draft again. The label comes off by itself on the drain's next pass
-once the cause is gone, so never remove it by hand. `--state all` because a stale queue entry
+once the cause is gone, so never remove it by hand. `state=all` because a stale queue entry
 belongs to a pull request that is no longer open.
+
+An issue in the list is a CI job near its budget (the `budget` cause): its merge-group runs passed
+about 85% of the job's budget in `.github/ci-job-budgets`. Nothing has failed. The issue names the
+job's slowest steps; decide whether to make it faster, split it, or raise the budget with a reason
+line. The issue closes itself when the job's runs drop back under, and the label goes with it.
 
 calef ruled on 2026-10-03 (#1564): *"I don't want the job of watching the queue."* Nothing re-queues
 for him any more, so this list going unread is the queue going unwatched. It is rung three of the

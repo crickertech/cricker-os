@@ -435,9 +435,10 @@ group_runs() {
 # App's token may not create labels. A laptop pass assumes it exists.
 #
 # The session-side half is rung three, a written record: briefs/session-start.md runs
-# `gh pr list --label needs-maintainer --state all` first and fixes those pull requests first,
-# and helpers/nanny.py wakes a running session when the label lands. `--state all` because a stale
-# queue entry belongs to a pull request that is no longer open.
+# the `needs-maintainer` listing first (the REST issues endpoint, pull requests and issues in one
+# call, since milestone 808 (every gate accounts for its time) put a cause on issues) and fixes
+# those first, and helpers/nanny.py wakes a running session when the label lands on a pull request.
+# `state=all` because a stale queue entry belongs to a pull request that is no longer open.
 #
 # BUGS, the `orphan` cause's (lane/orphan-work, 2026-10-06 UTC):
 #   - Its clock is the branch tip's committer date, not the branch's birth, so a lane that keeps
@@ -478,7 +479,7 @@ OQ_JQ="$(dirname "$0")/open-question.jq"
 RULES_PY="$(dirname "$0")/architect-label-rules.py"
 # Every field helpers/needs-maintainer.jq reads, in one call. helpers/needs-maintainer-selftest.sh
 # checks this text names each of them, and its fixtures are this query's recorded responses.
-NM_QUERY='query($owner: String!, $name: String!, $labelled: String!) {
+NM_QUERY='query($owner: String!, $name: String!, $labelled: String!, $budget: String!) {
   repository(owner: $owner, name: $name) {
     mergeQueue(branch: "main") { entries(first: 100) { nodes { position enqueuedAt state pullRequest { id number state mergedAt headRefOid } } } }
     pullRequests(states: OPEN, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) { nodes {
@@ -505,8 +506,12 @@ NM_QUERY='query($owner: String!, $name: String!, $labelled: String!) {
       associatedPullRequests(last: 5, orderBy: {field: CREATED_AT, direction: ASC}) { nodes { number state labels(first: 30) { nodes { name } } } }
     } }
   }
-  search(query: $labelled, type: ISSUE, first: 50) { nodes { ... on PullRequest { number state labels(first: 30) { nodes { name } } } } }
+  search(query: $labelled, type: ISSUE, first: 50) { nodes { __typename ... on PullRequest { number state labels(first: 30) { nodes { name } } } ... on Issue { number state labels(first: 30) { nodes { name } } } } }
+  budget: search(query: $budget, type: ISSUE, first: 50) { nodes { ... on Issue { number state createdAt url title labels(first: 30) { nodes { name } } } } }
 }'
+# The label on a CI job's near-budget tracking issue (milestone 808 (every gate accounts for its
+# time); helpers/ci_job_times.py opens the issue, helpers/needs-maintainer.jq names the cause).
+NM_BUDGET_LABEL="near-budget"
 
 # The files a head conflicts on against `main`, as markdown list lines. `git merge-tree
 # --write-tree` needs no worktree; it exits 1 on a conflict and prints the tree, then one
@@ -682,6 +687,16 @@ The maintainer session owns the next step: hand it to its lane to merge \`main\`
 
 The label comes off when the entry no longer reads \`UNMERGEABLE\`."
 		;;
+	budget)
+		opened=$(printf '%s' "$c" | jq -r '.opened')
+		title=$(printf '%s' "$c" | jq -r '.title // "the tracking issue"')
+		what="A CI JOB IS NEAR ITS BUDGET: \"$title\", opened $opened by \`helpers/ci_job_times.py sync\` because the job's merge-group runs passed about 85% of its budget in \`.github/ci-job-budgets\` (§254 (a gate prints what each item cost)). Nothing has failed yet; this is the weeks of warning a drift gives before milestone 721 (each merge-group CI job has a 20-minute budget)'s hard limit ejects pull requests. The issue body has the job's recent runs, its slowest steps and where to find its per-item record. The maintainer session owns the decision, one of:
+
+- make something faster, or split the job, and let the issue close itself when the runs drop back under the line
+- raise the budget with a reason line in \`.github/ci-job-budgets\`, which moves the line with it
+
+The label comes off when the issue closes."
+		;;
 	stale)
 		state=$(printf '%s' "$c" | jq -r '.state')
 		merged=$(printf '%s' "$c" | jq -r '.merged // "an unrecorded time"')
@@ -705,7 +720,8 @@ The label is how a maintainer session finds this without anyone watching the que
 
 needs_maintainer() {
 	resp=$(gh api graphql -F owner="${REPO%/*}" -F name="${REPO#*/}" \
-		-f labelled="repo:$REPO is:pr is:closed label:$NM_LABEL" -f query="$NM_QUERY" 2>/dev/null) || resp=""
+		-f labelled="repo:$REPO is:closed label:$NM_LABEL" \
+		-f budget="repo:$REPO is:issue is:open label:$NM_BUDGET_LABEL" -f query="$NM_QUERY" 2>/dev/null) || resp=""
 	if [ -z "$resp" ] || [ "$(printf '%s' "$resp" | jq -r '.data.repository != null' 2>/dev/null)" != "true" ]; then
 		# Loud, because a detector that fails quietly is the drain's old shape. The run stays green
 		# so a GitHub outage does not page anyone twice; the next pass asks again.

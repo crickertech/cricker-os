@@ -238,6 +238,19 @@ VERIFY_RUNS_PATH = DATA_DIR / 'verify-runs.csv'
 # above rather than like the measure files: it is a record of an explanation, not a series
 # restated from git, so nothing here may rewrite a row that is already in it.
 WEEK_NOTES_PATH = DATA_DIR / 'week-notes.csv'
+# Milestone 808 (every gate accounts for its time): each merge-group job's daily median and maximum
+# wall time, per job and per step, written by `helpers/ci_job_times.py update` from GitHub's job
+# records. Read from the working tree for the queue file's reason. File name provisional.
+CI_JOB_TIMES_PATH = DATA_DIR / 'ci-job-times.csv'
+
+# The jobs `ci-jobs.svg` draws by name: the four longest poles of `ci.yml` when milestone 808's lane
+# read the record on 2026-10-07 (UTC). A fixed list because a chart's series are fixed; the line is
+# the slowest job of any name, so a fifth job overtaking these still shows. `cpu-matrix` folds in
+# `cpu-matrix-shard` (the same suite, split on 2026-10-06), taking whichever ran longer that day.
+CI_CHART_JOBS = [('test', 'ci_test_minutes', ('test',)),
+                 ('cpu-matrix', 'ci_cpu_matrix_minutes', ('cpu-matrix', 'cpu-matrix-shard')),
+                 ('fuzz', 'ci_fuzz_minutes', ('fuzz',)),
+                 ('swish-check', 'ci_swish_check_minutes', ('swish-check',))]
 
 # **This list is the roadmap's status vocabulary and it has to stay all of it**, because a status
 # missing here is counted as nothing: `milestones()` below keys on this dict and skips a row whose
@@ -402,6 +415,11 @@ MEASURES = [
     ('verify-shards', ['verify_runs_sampled', 'verify_slowest_minutes',
                        'verify_prove_fastest_minutes', 'verify_prove_slowest_minutes',
                        'verify_refalsify_slowest_minutes']),
+    # Merge-group CI jobs against their budget, milestone 721 (each merge-group CI job has a
+    # 20-minute budget), for milestone 808 and §254 (a gate prints what each item cost) Fork 4:
+    # weekly medians of `ci-job-times.csv`'s daily medians. Empty
+    # before 2026-10-06, the first day that file holds. Column names provisional.
+    ('ci-jobs', ['ci_slowest_job_minutes'] + [c for _l, c, _k in CI_CHART_JOBS]),
     # The model-attribution columns (file name `models.csv`; Name: ratified 2026-09-24 (calef, in session, when asked to ratify the two metrics files the split produced; nothing refused)). Commits
     # and lines are one measure and one file rather than two, because a single pass over the same
     # git log produces both and a week that has one always has the other. The two charts it feeds
@@ -1044,6 +1062,35 @@ def verify_by_week():
                 'verify_prove_slowest_minutes': med(h['slow']),
                 'verify_refalsify_slowest_minutes': med(h['refalsify'])}
             for w, h in held.items()}
+
+
+def ci_jobs_by_week():
+    """{ISO week: {column: value}} from `ci-job-times.csv`, or {} without the file.
+
+    A day's figure for a job is its median over that day's merge-group runs, the slowest variant
+    for a matrix job; a week's is the median of its days. The slowest-job column takes each day's
+    slowest job of any name, so it is the pole a merge waited for, not a sum."""
+    if not CI_JOB_TIMES_PATH.exists():
+        return {}
+    days = {}
+    for row in csv.DictReader(CI_JOB_TIMES_PATH.read_text().splitlines()):
+        if row['kind'] != 'job' or row['workflow'] != 'ci.yml':
+            continue
+        day = days.setdefault(row['date'], {})
+        minutes = float(row['median_seconds']) / 60.0
+        day[row['job']] = max(day.get(row['job'], 0.0), minutes)
+    weeks = {}
+    for date, jobs in days.items():
+        w = weeks.setdefault(week_of_date(date), {'slowest': [], **{c: [] for _l, c, _k in CI_CHART_JOBS}})
+        w['slowest'].append(max(jobs.values()))
+        for _label, column, keys in CI_CHART_JOBS:
+            seen = [jobs[k] for k in keys if k in jobs]
+            if seen:
+                w[column].append(max(seen))
+    med = lambda v: '%.1f' % statistics.median(v) if v else ''
+    return {week: dict({'ci_slowest_job_minutes': med(h['slowest'])},
+                       **{c: med(h[c]) for _l, c, _k in CI_CHART_JOBS})
+            for week, h in weeks.items()}
 
 
 def effort_by_week():
@@ -2335,6 +2382,13 @@ CHARTS = [
       ('slowest prove shard', 'verify_prove_slowest_minutes'),
       ('slowest re-falsify shard', 'verify_refalsify_slowest_minutes')], 1.0, (20, 'target'),
      'verify_slowest_minutes'),
+    # Milestone 808: the merge-group jobs against their budget. Grouped, for verify's reason: four
+    # jobs run side by side on four runners, and a sum is a number nobody waits for.
+    ('ci-jobs.svg', 'How long the merge-group CI jobs take, in minutes',
+     'weekly medians of each day\u2019s median run; the line is the slowest job of any name, and '
+     'the ceiling is the 20-minute budget, with a warning from 17',
+     [(label, column) for label, column, _k in CI_CHART_JOBS], 1.0, (20, 'budget'),
+     'ci_slowest_job_minutes'),
     ('models-commits.svg', 'Commits each week, by the model that signed them',
      'from the Co-Authored-By trailer, and for GLM commits from commit-models.csv; '
      'attributed + unattributed + merge is every commit that week',
@@ -2614,7 +2668,11 @@ def fill_derived(rows, rev):
     cash = cash_by_week(date.today())
     queue = queue_by_week()
     verify = verify_by_week()
+    ci_jobs = ci_jobs_by_week()
     for week, row in rows.items():
+        # Empty before the record starts, never zero, for the verify columns' reason.
+        for column in ['ci_slowest_job_minutes'] + [c for _l, c, _k in CI_CHART_JOBS]:
+            row[column] = ci_jobs.get(week, {}).get(column, '')
         # Empty for a week no run was sampled in, never zero, for the queue's reason below.
         for column in ('verify_runs_sampled', 'verify_slowest_minutes',
                        'verify_prove_fastest_minutes', 'verify_prove_slowest_minutes',
@@ -2689,8 +2747,9 @@ def github_anchor(heading):
 # it is arithmetic over a column already in the CSV, and a stored copy could disagree with it.
 # Charts whose series stand side by side rather than stacked, and charts that carry a column as a
 # solid line over the bars: (legend label, column). Both are the verify chart's alone so far.
-GROUPED = {'verify-shards.svg'}
-LINES = {'verify-shards.svg': ('slowest shard per run', 'verify_slowest_minutes')}
+GROUPED = {'verify-shards.svg', 'ci-jobs.svg'}
+LINES = {'verify-shards.svg': ('slowest shard per run', 'verify_slowest_minutes'),
+         'ci-jobs.svg': ('slowest job', 'ci_slowest_job_minutes')}
 
 TRENDS = {'velocity.svg': ('milestones_built_this_week', 10),
           'interface-stability.svg': ('interface_breaking', 4),
@@ -2884,6 +2943,21 @@ def selftest():
         VERIFY_RUNS_PATH = pathlib.Path(tmp) / 'absent.csv'
         verify_absent = verify_by_week()
         VERIFY_RUNS_PATH = held_path
+        global CI_JOB_TIMES_PATH
+        held_ci = CI_JOB_TIMES_PATH
+        CI_JOB_TIMES_PATH = pathlib.Path(tmp) / 'ci-job-times.csv'
+        CI_JOB_TIMES_PATH.write_text(
+            'date,workflow,job,variant,kind,name,runs,median_seconds,max_seconds\n'
+            '2026-10-06,ci.yml,cpu-matrix,,job,,63,1080,1202\n'
+            '2026-10-06,ci.yml,test,,job,,63,780,984\n'
+            '2026-10-06,ci.yml,test,,step,Run script/ci-build test,63,600,700\n'
+            '2026-10-07,ci.yml,cpu-matrix,,job,,25,6,9\n'
+            '2026-10-07,ci.yml,cpu-matrix-shard,a,job,,25,720,788\n'
+            '2026-10-07,ci.yml,cpu-matrix-shard,b,job,,25,540,606\n'
+            '2026-10-07,ci.yml,test,,job,,25,756,791\n'
+            '2026-10-07,verify.yml,prove,,job,,3,3000,3100\n')
+        ci_weeks = ci_jobs_by_week()
+        CI_JOB_TIMES_PATH = held_ci
         grouped_svg = pathlib.Path(tmp) / 'grouped.svg'
         svg_chart('t', 's', ['2026W40', '2026W41'],
                   [('fast', [10.0, 12.0], None), ('slow', [20.0, 22.0], None)], grouped_svg,
@@ -2898,6 +2972,11 @@ def selftest():
           'verify_prove_fastest_minutes': '20.0', 'verify_prove_slowest_minutes': '27.0',
           'verify_refalsify_slowest_minutes': '26.5'}),
         ('verify: no record is no weeks, not zeros', verify_absent, {}),
+        ('ci-jobs: a week is the median of its days, the shards fold into cpu-matrix, steps and '
+         'other workflows are not jobs here',
+         ci_weeks.get('2026W41'),
+         {'ci_slowest_job_minutes': '15.3', 'ci_test_minutes': '12.8',
+          'ci_cpu_matrix_minutes': '15.0', 'ci_fuzz_minutes': '', 'ci_swish_check_minutes': ''}),
         ('verify: grouped bars are never summed into a total',
          ('>30<' in grouped_text, '>34<' in grouped_text), (False, False)),
         ('verify: the line carries its value and breaks at a missing week',

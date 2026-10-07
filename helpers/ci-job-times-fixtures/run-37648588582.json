@@ -1,0 +1,404 @@
+{
+ "jobs": [
+  {
+   "completed_at": "2026-10-07T16:00:41Z",
+   "conclusion": "success",
+   "name": "draft gate",
+   "started_at": "2026-10-07T16:00:29Z",
+   "steps": [
+    {
+     "completed_at": "2026-10-07T16:00:30Z",
+     "conclusion": "success",
+     "name": "Set up job",
+     "started_at": "2026-10-07T16:00:30Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:00:30Z",
+     "conclusion": "success",
+     "name": "Start the job wall-time clock",
+     "started_at": "2026-10-07T16:00:30Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:00:30Z",
+     "conclusion": "success",
+     "name": "Run # A′: a push to `main` whose exact commit a merge group already tested. See the comment",
+     "started_at": "2026-10-07T16:00:30Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:00:36Z",
+     "conclusion": "success",
+     "name": "Run actions/checkout@v7",
+     "started_at": "2026-10-07T16:00:30Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:00:38Z",
+     "conclusion": "success",
+     "name": "Is this change prose that no build or test reads?",
+     "started_at": "2026-10-07T16:00:36Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:00:38Z",
+     "conclusion": "success",
+     "name": "Check the job's wall time against its budget",
+     "started_at": "2026-10-07T16:00:38Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:00:38Z",
+     "conclusion": "success",
+     "name": "Post Run actions/checkout@v7",
+     "started_at": "2026-10-07T16:00:38Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:00:38Z",
+     "conclusion": "success",
+     "name": "Complete job",
+     "started_at": "2026-10-07T16:00:38Z"
+    }
+   ]
+  },
+  {
+   "completed_at": "2026-10-07T16:13:42Z",
+   "conclusion": "success",
+   "name": "test (host crates and the kernel suite under QEMU)",
+   "started_at": "2026-10-07T16:00:45Z",
+   "steps": [
+    {
+     "completed_at": "2026-10-07T16:00:47Z",
+     "conclusion": "success",
+     "name": "Set up job",
+     "started_at": "2026-10-07T16:00:46Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:00:47Z",
+     "conclusion": "success",
+     "name": "Start the job wall-time clock",
+     "started_at": "2026-10-07T16:00:47Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:00:52Z",
+     "conclusion": "success",
+     "name": "Run actions/checkout@v7",
+     "started_at": "2026-10-07T16:00:47Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:06Z",
+     "conclusion": "success",
+     "name": "Run Swatinem/rust-cache@v2",
+     "started_at": "2026-10-07T16:00:52Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:08Z",
+     "conclusion": "success",
+     "name": "Cache QEMU",
+     "started_at": "2026-10-07T16:01:06Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:10Z",
+     "conclusion": "success",
+     "name": "Build QEMU if the cache missed",
+     "started_at": "2026-10-07T16:01:08Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:10Z",
+     "conclusion": "success",
+     "name": "Put it on PATH",
+     "started_at": "2026-10-07T16:01:10Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:12Z",
+     "conclusion": "success",
+     "name": "Run script/bootstrap",
+     "started_at": "2026-10-07T16:01:10Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:13:36Z",
+     "conclusion": "success",
+     "name": "Run script/ci-build test",
+     "started_at": "2026-10-07T16:01:12Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:13:36Z",
+     "conclusion": "success",
+     "name": "Check the job's wall time against its budget",
+     "started_at": "2026-10-07T16:13:36Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:13:36Z",
+     "conclusion": "success",
+     "name": "Post Cache QEMU",
+     "started_at": "2026-10-07T16:13:36Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:13:40Z",
+     "conclusion": "success",
+     "name": "Post Run Swatinem/rust-cache@v2",
+     "started_at": "2026-10-07T16:13:36Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:13:41Z",
+     "conclusion": "success",
+     "name": "Post Run actions/checkout@v7",
+     "started_at": "2026-10-07T16:13:40Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:13:41Z",
+     "conclusion": "success",
+     "name": "Complete job",
+     "started_at": "2026-10-07T16:13:41Z"
+    }
+   ]
+  },
+  {
+   "completed_at": "2026-10-07T16:10:25Z",
+   "conclusion": "success",
+   "name": "cpu matrix shard (rva23s64 thead-c906)",
+   "started_at": "2026-10-07T16:00:45Z",
+   "steps": [
+    {
+     "completed_at": "2026-10-07T16:00:47Z",
+     "conclusion": "success",
+     "name": "Set up job",
+     "started_at": "2026-10-07T16:00:46Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:00:47Z",
+     "conclusion": "success",
+     "name": "Start the job wall-time clock",
+     "started_at": "2026-10-07T16:00:47Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:00:52Z",
+     "conclusion": "success",
+     "name": "Run actions/checkout@v7",
+     "started_at": "2026-10-07T16:00:47Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:07Z",
+     "conclusion": "success",
+     "name": "Run Swatinem/rust-cache@v2",
+     "started_at": "2026-10-07T16:00:52Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:08Z",
+     "conclusion": "success",
+     "name": "Cache QEMU",
+     "started_at": "2026-10-07T16:01:07Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:10Z",
+     "conclusion": "success",
+     "name": "Build QEMU if the cache missed",
+     "started_at": "2026-10-07T16:01:08Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:10Z",
+     "conclusion": "success",
+     "name": "Put it on PATH",
+     "started_at": "2026-10-07T16:01:10Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:12Z",
+     "conclusion": "success",
+     "name": "Run script/bootstrap",
+     "started_at": "2026-10-07T16:01:10Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:10:19Z",
+     "conclusion": "success",
+     "name": "Run script/ci-build cpu-matrix",
+     "started_at": "2026-10-07T16:01:12Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:10:19Z",
+     "conclusion": "skipped",
+     "name": "Upload the per-model logs",
+     "started_at": "2026-10-07T16:10:19Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:10:19Z",
+     "conclusion": "success",
+     "name": "Check the job's wall time against its budget",
+     "started_at": "2026-10-07T16:10:19Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:10:19Z",
+     "conclusion": "success",
+     "name": "Post Cache QEMU",
+     "started_at": "2026-10-07T16:10:19Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:10:24Z",
+     "conclusion": "success",
+     "name": "Post Run Swatinem/rust-cache@v2",
+     "started_at": "2026-10-07T16:10:19Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:10:24Z",
+     "conclusion": "success",
+     "name": "Post Run actions/checkout@v7",
+     "started_at": "2026-10-07T16:10:24Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:10:24Z",
+     "conclusion": "success",
+     "name": "Complete job",
+     "started_at": "2026-10-07T16:10:24Z"
+    }
+   ]
+  },
+  {
+   "completed_at": "2026-10-07T16:01:24Z",
+   "conclusion": "success",
+   "name": "rustfmt",
+   "started_at": "2026-10-07T16:00:43Z",
+   "steps": [
+    {
+     "completed_at": "2026-10-07T16:00:45Z",
+     "conclusion": "success",
+     "name": "Set up job",
+     "started_at": "2026-10-07T16:00:44Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:00:45Z",
+     "conclusion": "success",
+     "name": "Start the job wall-time clock",
+     "started_at": "2026-10-07T16:00:45Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:00:49Z",
+     "conclusion": "success",
+     "name": "Run actions/checkout@v7",
+     "started_at": "2026-10-07T16:00:45Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:00:58Z",
+     "conclusion": "success",
+     "name": "Install rustfmt (pinned nightly)",
+     "started_at": "2026-10-07T16:00:49Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:22Z",
+     "conclusion": "success",
+     "name": "Run script/ci-build fmt",
+     "started_at": "2026-10-07T16:00:58Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:22Z",
+     "conclusion": "success",
+     "name": "Check the job's wall time against its budget",
+     "started_at": "2026-10-07T16:01:22Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:22Z",
+     "conclusion": "success",
+     "name": "Post Run actions/checkout@v7",
+     "started_at": "2026-10-07T16:01:22Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:22Z",
+     "conclusion": "success",
+     "name": "Complete job",
+     "started_at": "2026-10-07T16:01:22Z"
+    }
+   ]
+  },
+  {
+   "completed_at": "2026-10-07T16:13:05Z",
+   "conclusion": "success",
+   "name": "cpu matrix shard (rv64 sifive-u54 rva22s64)",
+   "started_at": "2026-10-07T16:00:46Z",
+   "steps": [
+    {
+     "completed_at": "2026-10-07T16:00:49Z",
+     "conclusion": "success",
+     "name": "Set up job",
+     "started_at": "2026-10-07T16:00:47Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:00:49Z",
+     "conclusion": "success",
+     "name": "Start the job wall-time clock",
+     "started_at": "2026-10-07T16:00:49Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:00:53Z",
+     "conclusion": "success",
+     "name": "Run actions/checkout@v7",
+     "started_at": "2026-10-07T16:00:49Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:07Z",
+     "conclusion": "success",
+     "name": "Run Swatinem/rust-cache@v2",
+     "started_at": "2026-10-07T16:00:53Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:10Z",
+     "conclusion": "success",
+     "name": "Cache QEMU",
+     "started_at": "2026-10-07T16:01:07Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:17Z",
+     "conclusion": "success",
+     "name": "Build QEMU if the cache missed",
+     "started_at": "2026-10-07T16:01:10Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:17Z",
+     "conclusion": "success",
+     "name": "Put it on PATH",
+     "started_at": "2026-10-07T16:01:17Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:01:23Z",
+     "conclusion": "success",
+     "name": "Run script/bootstrap",
+     "started_at": "2026-10-07T16:01:17Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:12:59Z",
+     "conclusion": "success",
+     "name": "Run script/ci-build cpu-matrix",
+     "started_at": "2026-10-07T16:01:23Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:12:59Z",
+     "conclusion": "skipped",
+     "name": "Upload the per-model logs",
+     "started_at": "2026-10-07T16:12:59Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:12:59Z",
+     "conclusion": "success",
+     "name": "Check the job's wall time against its budget",
+     "started_at": "2026-10-07T16:12:59Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:12:59Z",
+     "conclusion": "success",
+     "name": "Post Cache QEMU",
+     "started_at": "2026-10-07T16:12:59Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:13:02Z",
+     "conclusion": "success",
+     "name": "Post Run Swatinem/rust-cache@v2",
+     "started_at": "2026-10-07T16:12:59Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:13:02Z",
+     "conclusion": "success",
+     "name": "Post Run actions/checkout@v7",
+     "started_at": "2026-10-07T16:13:02Z"
+    },
+    {
+     "completed_at": "2026-10-07T16:13:02Z",
+     "conclusion": "success",
+     "name": "Complete job",
+     "started_at": "2026-10-07T16:13:02Z"
+    }
+   ]
+  }
+ ]
+}
