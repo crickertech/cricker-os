@@ -77,7 +77,9 @@ the badge's grant index and refuses a second attach at a granted window. Its ref
 too, the frame deleted with no reply, and that is safe there because the scoping makes every attach
 failure the caller's own, visible through the operations it then attempts. The fix shape for
 `net_stack` is the scoping; whether refusals should also become answerable is a separate, smaller
-call. Neither is decided here; the BUGS entry at the attach site carries the fork.
+call. The scoping is ruled: `name_resolver`'s exact shape, refusals silent (calef, 2026-10-06,
+PR #1798); the BUGS entry at the attach site carries the ruling, and the fix itself is a follow-up
+milestone this pass does not write.
 `name_resolver.rs:485`'s `attach_socket` is a client of the same contract and shares
 the exposure of any stack client, which the escape covers.
 
@@ -175,7 +177,8 @@ Counts: 1 escape (new, unnumbered surface), 0 re-discoveries, 4 near miss (3, 19
 
 `components/src/net_stack.rs`'s BUGS section carries the finding at the attach site, and the red
 test pins it. The fix is the scoping `name_resolver` demonstrates; whether its refusals also become
-answerable is a second, smaller call. Until the ruling, the test stays opt-in and red. The same
+answerable is a second, smaller call, still open. Until the fix milestone lands, the test stays
+opt-in and red. The same
 question ("whose id is this") applies to every multi-client window server, and the resolver shows
 the scoping half is already answerable in this tree.
 

@@ -178,7 +178,9 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   `net_confinement_tests::a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic`
   and recorded in `net_stack.rs`'s BUGS. The fix shape is the `name_resolver` one, per-caller
   windows keyed by badge; whether refusals should also become answerable is a smaller second
-  call. Both are the architect's.
+  call, still open. The shape itself is ruled: per-caller windows keyed by badge, the resolver's
+  exact shape, refusals silent (calef, 2026-10-06, PR #1798). The fix belongs to a follow-up
+  milestone; this pass pins and does not write it.
 - **The routed `chatty` reshape landed.** Claim 26's own test now fails rather than hangs: the
   operator retires the last receiver, a plant parks the marker, and a let-open `RECEIVE_CAP`
   returns it. Green on aarch64 (whole module) and riscv64, red at its own assertion under the
