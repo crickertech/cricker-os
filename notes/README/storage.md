@@ -3,6 +3,7 @@
 Part of [the notes index](../README.md), which says how to add a line.
 
 - [The RedoxFS filesystem server](../fs-server.md): RedoxFS confined behind a capability-shaped file contract.
+- [Rust filesystem crates on nife's own targets, 2026-10-07](../filesystem-crates-2026-10-07.md): which btrfs, FAT and ext4 crates build for the three nife targets and round-trip on foreign images; answers question 1 of §34 (RedoxFS is the primary filesystem, on three conditions). Name provisional.
 - [A frame per filesystem client channel](../a-frame-per-filesystem-client-channel.md): a window per file client, by badge.
 - [RedoxFS std-footprint audit](../redoxfs-audit.md): costing the RedoxFS port to no_std by building it.
 - [The directory capability](../dir-capability.md): a directory split into separable, attenuable rights.
