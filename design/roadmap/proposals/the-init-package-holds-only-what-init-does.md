@@ -181,7 +181,7 @@ Where they arise:
   leave implementation crates).
 - `http_response`: used only by `fetch`, the package installer's download. calef ruled on
   2026-10-06 that the package client becomes a program, `jig`
-  ([the package client becomes a program](the-package-client-becomes-a-program.md)). Once `jig`
+  ([milestone 809 (the package client becomes a program)](../809-the-package-client-becomes-a-program.md)). Once `jig`
   fetches, the progenitor no longer does, and this exception goes with the code.
 
 Alternatives:
@@ -273,8 +273,8 @@ item waits on it.
    `init`. A code change; it waits on nothing.
 5. Fork 4b: the package installer's fetch moves to `jig`, and the `http_response` exception leaves
    `init`. Waits on `jig` existing, which is
-   [the package client becomes a program](the-package-client-becomes-a-program.md), not yet
-   numbered or built. This item is that program's work, not a lane of its own.
+   [milestone 809 (the package client becomes a program)](../809-the-package-client-becomes-a-program.md),
+   not yet built. This item is that program's work, not a lane of its own.
 6. Fork 5: say in `init`'s package header that the supervision tree runs only under
    `system_tests`, and close the gap. The record is one comment and can ride with item 1 or 2;
    wiring the tree into the real boot is a milestone of its own, to be proposed by whoever takes it.
