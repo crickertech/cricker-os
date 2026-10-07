@@ -218,8 +218,9 @@ fn usurp() -> ! {
         abi::rendezvous::RECEIVE_CAP,
     );
     // Also say so on the operator's channel, so the operator knows the attack has been made and the
-    // run is not simply missing a report.
-    send(NOTE, swap_protocol::NOTE_ATTACK_DONE, 0, 0);
+    // run is not simply missing a report. `w1` carries the verdict, mirroring the report's word:
+    // the operator must tell a stolen plant message from a slow plant before the report is read.
+    send(NOTE, swap_protocol::NOTE_ATTACK_DONE, (-r) as u64, 0);
     user_mode_runtime::exit()
 }
 
@@ -265,7 +266,7 @@ fn confused_deputy() -> ! {
         swap_protocol::DEPUTY_PROBE,
     );
     send(RPT, swap_protocol::RPT_DEPUTY, d0, d1);
-    send(NOTE, swap_protocol::NOTE_ATTACK_DONE, 0, 0);
+    send(NOTE, swap_protocol::NOTE_ATTACK_DONE, (-r) as u64, 0);
     user_mode_runtime::exit()
 }
 

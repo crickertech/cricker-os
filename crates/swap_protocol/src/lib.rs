@@ -1141,7 +1141,9 @@ pub fn serve(version: u64, xform: fn(u64) -> u64, log_base: u64, device: bool, w
 /// hear its own system.
 pub const NOTE_SWAP_NOW: u64 = 1;
 /// The attacker has made its attempt, so the operator knows the run is complete rather than
-/// missing a report.
+/// missing a report. `w1` mirrors [`RPT_ATTACK`]'s first word: the negated error the kernel gave
+/// it (positive on a refusal), or `-PLANT_MARKER` on a let-through. The operator needs the verdict
+/// before the report stream is read, to tell a stolen plant message from a slow plant.
 pub const NOTE_ATTACK_DONE: u64 = 2;
 /// A client finished its conversation. The operator waits for this before reading the witness page:
 /// a log read while the conversation is still running would show the requests that have not been

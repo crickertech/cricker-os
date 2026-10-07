@@ -5,19 +5,19 @@ records. It is the first attack pass run by a non-Anthropic model: the
 reviewer is GLM 5.3, run by calef's opencode, per the milestone's own brief.
 
 This pass was **informed, by ruling** (calef, 2026-10-06 UTC: "GLM should run informed. That's a
-more realistic attack for an open source OS"). The reviewer read the whole tree and its git
-history: the claims note's narrative, the three earlier passes, the audit reports, the falsification
-records and the fixed escapes. A re-discovery of a fixed escape is reported separately and scores
-nothing; only a new finding counts. This is the mirror of passes two and three, which were blind by
-request, and the comparison is the point of both existing.
+more realistic attack for an open source OS"): the reviewer read the whole tree and its git
+history. A re-discovery of a fixed escape is reported separately and scores nothing; only a new
+finding counts. This is the mirror of passes two and three, which were blind by request, and the
+comparison is the point of both existing.
 
-**Result: one escape, booted on all three ISAs, at a service boundary the kernel's gates never
-see.** The capability core held under every attack this pass ran at it. The escape is the net
-stack's socket-id namespace: a second client of a shared `Stack` endpoint captures the first
-client's traffic, both directions, through nothing but a capability any client already holds. The
-kernel gave both programs exactly what they were granted; the confusion is the server's. Beside it
-the pass landed the work the claims note explicitly routed here: claim 26's own test can now fail
-rather than hang, and carries its falsification record.
+**Result: one booted re-discovery, on all three ISAs, at a service boundary the kernel's gates
+never see.** The escape is the net stack's socket-id namespace. A second client of a shared
+`Stack` endpoint captures the first client's traffic, both directions, through nothing but a
+capability any client already holds. The kernel gave both programs exactly what they were
+granted; the confusion is the server's. The finding itself was already recorded (milestone
+649); what this pass adds is the boot. Coverage: two rows booted this pass (claim 26 and the
+escape), 31 read. Beside it, claim 26's test can now fail rather than hang, the work the
+claims note routed here.
 
 ## What I added and booted
 
@@ -26,34 +26,31 @@ rather than hang, and carries its falsification record.
 escape's test is opt-in and red on the tree, which is the finding; run it with
 `script/test --arch <isa> --test a_squatter_at_a_shared_stack_endpoint`.
 
-`fixtures/src/chatty.rs` grew `ROLE_PLANT`, and `swapper`'s direct channel retires the last receiver
-before the attack and un-parks the plant boundedly. Claim 26's cited test,
-`live_swap_tests::a_client_of_the_stable_rendezvous_cannot_become_its_server`, is green on aarch64
-(the whole module, 8 tests) and riscv64, x86_64 skipping as it always has (§121 (what a device
-capability is when the device has no page)'s UART-page gap). With the kernel's `RECEIVE_CAP` check
-deleted it goes red at its own assertion, the report carrying the negated marker `-0x5317_0a11`.
-Its record is
-`system_tests/falsifications/user.live_swap_tests.a_client_of_the_stable_rendezvous_cannot_become_its_server.patch`.
+`fixtures/src/chatty.rs` grew `ROLE_PLANT`, and `swapper`'s direct channel retires the last
+receiver before the attack and un-parks the plant boundedly. Claim 26's cited test is green on
+aarch64 (the whole module, 8 tests) and riscv64; x86_64 skips as always (§121 (what a device
+capability is when the device has no page)'s UART-page gap). With the kernel's `RECEIVE_CAP`
+check deleted it goes red at its own assertion, under its recorded patch.
 
 ## The escape: a shared Stack endpoint's socket ids have no owner
 
 The socket contract keys a socket's shared frame by the socket id, a raw word the client picks
-(`socket_protocol::req`), and `ATTACH` is a `SEND_CAP`, which has no reply. `net_stack`'s serve loop
-maps whatever frame a delegation carried at `socket_va(sid)` and remembers it in `frame_window[sid]`
-with no notion of which client attached it.
+(`socket_protocol::req`), and `ATTACH` is a `SEND_CAP`, which has no reply. The serve loop maps
+whatever frame a delegation carried at `socket_va(sid)` into `frame_window[sid]`, with no notion
+of which client attached it.
 
-Two programs holding `WRITE` on one `Stack` endpoint is shipped wiring, not a contrivance:
-`name_resolver_tests` grants the same endpoint to the resolver and to its test client, and the
-progenitor's `net_stack_ep` is the boot's own shareable object.
+Who can hold the endpoint: any two concurrent holders. On the shipped boot the only holders are
+vouched `NetworkEchoClient` instances, `grant_plan`'s one network-declaring manifest, endowed
+unbadged by the progenitor's `ChildEndowment::network`; no hostile holder exists today, and any
+future declaring program inherits the exposure. The job pool holds six live jobs at once, so two
+holders are one prompt away. That is the severity sentence risk 7 lacked for 649.
 
 The attack, booted as `ROLE_SQUAT` (role 8 of the `net_stack` binary, endowed exactly as any stack
 client):
 
-1. The squatter delegates its own frame at socket id 0, the honest TFTP client's id, arriving
-   first.
-2. It writes a valid read request for the runners' fixture into its own frame, so the victim's
-   exchange still completes through the squatter's window. An informed attacker wants the traffic
-   to flow, not to wedge it.
+1. The squatter delegates its own frame at socket id 0, the honest TFTP client's id, first.
+2. It arms a valid read request for the runners' fixture in its own frame, so the victim's
+   exchange still completes: an informed attacker wants the traffic to flow, not to wedge it.
 3. The victim's `ATTACH` at id 0 fails silently: the map is taken, `ATTACH` cannot answer, and
    `map_page_frame`'s failure reaches nobody.
 4. The victim's `OPEN_UDP` binds the socket to `frame_window[0]`, the squatter's window.
@@ -62,48 +59,56 @@ client):
 
 Observed on all three ISAs, identical: the squatter read a TFTP DATA packet, opcode 3, block 1,
 length 14, body beginning "nife", out of its own frame. The victim's verdict was `0xE043` every
-time, because its own frame never saw the reply it was answered for. The escape is total in both
-directions: injection (the squatter's bytes sent as the victim's) and capture (the reply delivered
-to the squatter).
+time, because its own frame never saw the reply it was answered for. Both directions are reached,
+injection (the squatter's bytes sent as the victim's) and capture (the reply delivered to the
+squatter), and the victim's exchange fails visibly rather than silently, so the capture announces
+itself to the victim.
+
+Boot evidence, one line per ISA, at commit `c36ab530e`, command
+`script/test --arch <isa> --test a_squatter_at_a_shared_stack_endpoint`:
+- aarch64, riscv64, x86_64: the same assertion fired, `CONFINEMENT ESCAPE: the squatter's frame
+  captured the client's traffic (len/opcode/block ...), first body bytes ... = "nife"`, with the
+  client's verdict `0xE043`.
 
 The end-to-end claim it breaks is risk 7's own sentence, *a confined component cannot reach an
 object it was not granted*. The object is the victim's socket traffic. The kernel's gates were
-never consulted, which makes this worse than pass three's confused deputy. There the server wrote
-where the client aimed; here the server binds the wrong window, and the reach happens without any
-single wrong write.
+never consulted: the reach happens in the server's bookkeeping, with no single wrong write
+anywhere.
 
 The finding was already on the books: milestone 649 (every client of a network stack shares
 its socket numbers), raised 2026-09-24, NOT-STARTED, records the mechanism by reading with no
 test. This pass adds the booted bidirectional capture, pinned red on all three ISAs where 649 had
-none. Recorded-but-unfixed is neither new-as-unrecorded nor a
-re-discovery.
+none. For the counts below it is a re-discovery; for risk 7 it counts as an escape, by the ruling
+in the maintainer section.
 
-The wiring is the interactive system's own, not only the test boot's. `system_initializer` endows
-every network-declaring child with a copy of the one `net_stack_ep`, unbadged, and the job pool
-holds six live jobs at once. `network_echo_client` launched twice from the prompt is this shape on
-a shipped path, verified by reading.
+The sibling that already does it right is one component over: `name_resolver` keys its windows
+by the badge's grant index and refuses a second attach at a granted window. Its refusals are
+silent, safe there because the scoping makes every attach failure the caller's own. The fix shape is ruled to
+be exactly that, refusals silent (calef, 2026-10-07 UTC, about 03:50Z, PR #1798); the BUGS entry
+carries it, and `name_resolver`'s own `attach_socket` shares the exposure of any stack client.
 
-The sibling that already does it right is one component over: `name_resolver` keys its windows by
-the badge's grant index and refuses a second attach at a granted window. Its refusals are silent
-too, the frame deleted with no reply, and that is safe there because the scoping makes every attach
-failure the caller's own, visible through the operations it then attempts. The fix shape for
-`net_stack` is the scoping; whether refusals should also become answerable is a separate, smaller
-call. The scoping is ruled: `name_resolver`'s exact shape, refusals silent (calef, 2026-10-06,
-PR #1798); the BUGS entry at the attach site carries the ruling.
-`name_resolver.rs:485`'s `attach_socket` is a client of the same contract and shares
-the exposure of any stack client, which the escape covers.
+## Re-discoveries
+
+- **Milestone 649's finding, re-derived and booted.** The pass arrived at the capture from the
+  contract itself, then found the record. 649 (every client of a network stack shares its socket
+  numbers), raised 2026-09-24 from milestone 590 (the booted system starts its network stack)'s
+  lane, states the mechanism and the frame-redirect variant by reading. Since then: 649 still
+  NOT-STARTED, the contract and serve loop unchanged, and the four other homes still carry it
+  (590's block and BUGS, `grant_plan`'s `caps` note, `network_echo_client`'s header, risk 7's
+  open-gap list). The additions are the boot and the severity sentence.
 
 ## Near misses
 
-Nothing else new reached one bug from an escape. Three carried findings:
+Nothing else new reached one bug from an escape. The carried findings, matching the table's
+near-miss rows:
 
+- **Row 3, a `GRANT`-less budget still mints a `GRANT`-bearing frame**, 633's carry: read, not
+  booted this pass. Ruled (a) since (calef, 2026-10-07, PR #1798), the intersection; the fix is a
+  follow-up milestone and the characterization flips to a held assertion.
 - **Rows 19 and 24, the name TOCTOU, is still open and still recorded** where a reader meets it
   (`redoxfs_server/src/dispatch.rs`'s head: "A name is checked in the client's own window and then
-  used from it"). Settled by read this pass; booting it wants a RedoxFS disk fixture and a client
-  that races its own window, beyond a targeted boot. `name_resolver` copies the name out before
-  judging it (line 274's comment), so the resolver half of the family is closed.
-- **AMD-Vi items 4 and 6 stand** as pass two left them: no revocation in production (`quarantine`
-  is dead code outside tests) and fault attribution from devfn alone. Both recorded in `amd_vi.rs`.
+  used from it"). Settled by read; booting it wants a disk fixture and a racing client.
+  `name_resolver` copies the name out before judging it, so the resolver half is closed.
 - **Claim 25's respawn scrub gap is latent and unchanged**: no shipped path respawns a compositor
   client. `compositor_service::Wiring::spawn_client`'s BUGS carries it.
 
@@ -112,10 +117,10 @@ Nothing else new reached one bug from an escape. Three carried findings:
 Every escape found and fixed before this pass, checked for siblings rather than re-run:
 
 - **The in-flight capability (row 30).** The abort path now clears `outgoing_cap`
-  (`set_ipc_aborted`, the 2026-10-03 audit follow-up), which closes the sharpest sibling pass two
-  named: a parked delegation surviving an aborted send and being delivered on a different
-  rendezvous. The teardown limbs (`depart`, `finish_blocked_resident`, `reap_region_objects`) still
-  do not clear it; a dead thread cannot re-deliver, and the sweeps walk live tables. Held.
+  (`set_ipc_aborted`, the 2026-10-03 audit follow-up), closing the sharpest sibling pass two
+  named: a parked delegation delivered on a different rendezvous after an aborted send. The
+  teardown limbs still do not clear it; a dead thread cannot re-deliver, and the sweeps walk
+  live tables. Held.
 - **The wired mapping record.** `map_physical` records through `PageMapSource`; `map_new`'s
   exception still holds (its frames are the space's own and die with it); no `map_physical` call
   site maps a `MemoryRegion` page. Held, unchanged from the claims note's own record.
@@ -135,7 +140,9 @@ Every escape found and fixed before this pass, checked for siblings rather than 
   region cannot carry its previous holder's bytes into a second component. This was this pass's own
   new-ground question, asked cold, and the answer is in the code.
 - MSI confinement and SMEP sit where milestones 317, 313 and 424 left them; nothing new touches
-  an MSI-X table, and no boot this pass changed the x86 picture. Untestable here.
+  an MSI-X table, and no boot this pass changed the x86 picture. AMD-Vi items 4 and 6 stand as
+  pass two left them (no revocation in production, fault attribution from devfn alone), recorded
+  in `amd_vi.rs`; neither has a claim row. Untestable here.
 
 ## One row per claim
 
@@ -148,7 +155,7 @@ whole suite, so most rows are `read`; the falsification records each row cites w
 |---|---|---|---|---|
 | 1 | A derive holds no more than its source | held | read | `derive_never_widens_rights` cited; masking and subset checks read unchanged |
 | 2 | No right forged from a syscall register | held | read | `from_bits` masks `& ALL`; the cast drops high bits |
-| 3 | A non-delegating budget cannot mint a delegating child | near miss | booted aarch64 (pass three's pin) | `a_grant_less_budget_mints_a_grant_bearing_frame` still characterizes the retype gap; an architect's question, carried in 633's block |
+| 3 | A non-delegating budget cannot mint a delegating child | near miss | read | `a_grant_less_budget_mints_a_grant_bearing_frame` still characterizes the retype gap; ruled (a) 2026-10-07, the fix is a follow-up milestone |
 | 4 | A consumed capability cannot be reused | held | read | `delete` empties the slot; unchanged |
 | 5 | Dropping one capability spares the others | held, x86 exception | read | the port grant's two-copies limb stays recorded, fails safe |
 | 6 | No reaping a corpse you do not supervise | held | read | `reap_supervised` gates before `reclaim_region`; unchanged |
@@ -180,29 +187,24 @@ whole suite, so most rows are `read`; the falsification records each row cites w
 | 32 | The boot shell holds no display device | held | read | `swish-check` census, swept weekly |
 | 33 | No WRITE, no x86_64 port I/O | held | read | the grant install requires WRITE; the direction mirror is ruled in the code |
 
-Counts: 1 escape (milestone 649's finding, recorded 2026-09-24 by reading, unfixed; booted and
-pinned red this pass), 0 re-discoveries, 4 near miss (3, 19/24, 25), 28 held,
-0 untestable-elsewhere. Claim 26's row is this pass's own booted evidence.
+Counts: 0 new findings; 1 re-discovery, booted and pinned red (649's finding, ruled an escape
+on a shipped path for risk 7); 4 near miss (3, 19/24, 25); 29 held; 0 untestable-elsewhere; the
+rows sum to 33. Claim 26's row is this pass's own booted evidence.
 
 ## The escape's home
 
-`components/src/net_stack.rs`'s BUGS section carries the finding at the attach site, and the red
-test pins it. The fix is the scoping `name_resolver` demonstrates; whether its refusals also become
-answerable is a second, smaller call, still open. Until the fix milestone lands, the test stays
-opt-in and red. The same question ("whose id is this") is ruled tree-wide with it (calef,
-2026-10-06, PR #1798). Per-caller scoping is a written rule for every multi-client window server,
-and the fix lane audits the remaining ones; `system_log`'s reader windows, unread this pass, go
-first.
+`components/src/net_stack.rs`'s BUGS section carries the finding and the rulings at the attach
+site; the red test pins it, and until the fix milestone lands it stays opt-in and red.
 
 **How this pass counts toward risk 7's criterion (c) is ruled: option (b), an escape on a shipped
 path (calef, 2026-10-07, PR #1798's thread).** The two-consecutive count restarts at zero until
-649's defect is fixed and a fresh pass comes back clean. His reasoning: the stack starts on every
-booted system, so any granted program is a client today, and a known, unfixed escape counted as
-anything else would flatter the
-verdict. The ruling also resolves 649's option fork toward the badge
-(its option 1); the maintainer updates 649's block at merge. The claims row the fix will owe is
-ruled (i) (calef, 2026-10-07, PR #1798), recorded in this milestone's roadmap block; the
-maintainer adds the row at merge.
+649's defect is fixed and a fresh pass comes back clean. The stack starts on every booted system,
+so any granted program is a client today, and a known, unfixed escape counted as anything else
+would flatter the verdict.
+
+The other rulings from this PR's thread (the fix shape, the tree-wide scoping rule, the claims
+row's wording, the refusal order, 633's retype carry) are recorded with their dates in this
+milestone's roadmap block, beside the maintainer's merge list.
 
 ## Refusal log
 
@@ -211,30 +213,29 @@ Their order is ruled (i) (calef, 2026-10-07, PR #1798): the redoxfs boot is the 
 rest stay in their homes:
 
 1. Claim 19/24's name-window TOCTOU: I was trying to boot a hostile client racing its own window
-   against `redoxfs_server`. I declined to build it (a RedoxFS disk fixture plus a racing writer is
-   a milestone of its own, and the finding is already recorded at the dispatch head); the refusal
-   was my own. It stays a target for a later pass.
+   against `redoxfs_server`. I declined to build it: a disk fixture plus a racing writer is a
+   milestone of its own, and the finding is recorded at the dispatch head. My own refusal; a
+   target for a later pass.
 2. The compositor respawn scrub (claim 25's latent half): I was trying to observe stale pixels by
    respawning a client into a used slot. I declined to build the respawn handshake re-run, because
    no shipped path respawns a compositor client and the gap's BUGS entry says so; my own refusal.
-3. MSI confinement: I was trying to forge an MSI aimed at an ungranted vector. Nothing in the tree
-   programs an MSI-X table and no boot exercises the question (the claims note's own record); my
-   own refusal, unchanged target.
-4. Kani re-runs: I was trying to re-verify the host-cited rows. Declined because the brief forbids
-   `script/verify` in an attack pass; those rows are graded `read` above for that reason. My own
-   refusal, per the brief.
+3. MSI confinement: I was trying to forge an MSI aimed at an ungranted vector. Nothing in the
+   tree programs an MSI-X table and no boot exercises the question; my own refusal, unchanged
+   target.
+4. Kani re-runs: I was trying to re-verify the host-cited rows, and declined: the brief forbids
+   `script/verify` in an attack pass, so those rows are graded `read` for that reason.
 
 ## BUGS
 
-- Most verdicts are `read`, not run. This pass's boots were targeted at its own findings, so a row
-  citing a host harness did not have that harness run by me this pass; the row is only as fresh as
-  the tree it read.
-- The escape's test is opt-in and red on the tree, so `--sweep` will not replay it until the fix
-  lands and flips it; that is deliberate, the port escape's precedent.
+- The escape's test is opt-in and red on the tree, so `--sweep` will not replay it; that is
+  deliberate, the port escape's precedent. Each skip reason's exit is written at the test's doc
+  for 649's lane to copy: the fix flips the assertion, the aarch64 budget is measured or raised.
+  Until both, a post-fix regression would pass unnoticed.
 - The pass was informed, so it cannot say whether a fresh mind would have found the net-stack
-  escape blind. The three blind passes never looked at the socket contract's id namespace; that is
-  a fact about their coverage, not a claim about difficulty.
-- The chatty reshape's residual: the plant parks without a handshake, so its park is not provably
-  complete before the attacker's try. Every interleaving still converges (a send meeting a parked
-  cap receiver delivers to it directly), which is why no handshake is needed; the argument is in
-  the operator's comment and was booted once green, once red.
+  escape blind. The finding has been on the books since 2026-09-24 and no blind pass booted it;
+  that is a fact about coverage, not a claim about difficulty.
+- The chatty reshape's residual: the plant parks without a handshake, so its park is not
+  provably complete before the attacker's try. Every interleaving converges, and the one that does
+  not (an honest kernel whose plant is slow past the operator's bound) bails on its own stage
+  rather than reaping a corpse that never comes; the argument is in the operator's comment. Green
+  on aarch64 and riscv64 with the guard, red under the recorded patch before it.

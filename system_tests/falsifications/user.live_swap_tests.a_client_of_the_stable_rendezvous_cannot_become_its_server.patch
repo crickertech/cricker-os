@@ -14,7 +14,7 @@ assertion fires: `error -1394018833` is `-PLANT_MARKER`.
 
 Expected to fail: `assert_eq!` "a client of the stable rendezvous received on it (or was refused
 for the wrong reason)", with `left: 18446744072315532783` (the negated marker). Replayed red at
-exactly that assertion on aarch64 on 2026-10-06 (UTC) by the milestone 800 lane, the pass's fourth.
+exactly that assertion on aarch64 on 2026-10-07 (UTC) by the milestone 800 lane, the pass's fourth.
 
 diff --git a/kernel/src/syscall.rs b/kernel/src/syscall.rs
 --- a/kernel/src/syscall.rs

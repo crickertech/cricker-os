@@ -243,8 +243,10 @@ fn run_swap(role: u64) -> ([[u64; 5]; MAX_REPORTS], usize) {
             msg[0], RPT_FAILED,
             "the swap system could not be built: stage {}. Stages 1-4 are the archive and the \
              four program images, 5-10 the endpoints and the witness page, 11-16 the incumbent \
-             and the client, 20-27 the swap itself, 28-36 the attacker and its plant (30-31 the \
-             plant, 32-33 the attack, 34 the retire it waits on, 35-36 the plant's drain), \
+             and the client, 20-27 the swap itself, 30-37 the attacker and its plant (30 the \
+             plant, 31 the attacker, 33 the note it waits on, 34 the retire, 35-36 the plant's \
+             drain, 37 the slow-plant bail: the plant had not sent when the bound fired on an \
+             honest kernel), \
              40-51 the queued rung, \
              60-63 the component manifests (60 means an unsatisfiable declaration was WIRED), \
              64 the dependency graph query (more live instances than MAX_LIVE), 70-87 the \
@@ -571,7 +573,7 @@ fn a_client_keeps_talking_while_the_server_underneath_it_is_replaced() {
 /// the confinement)'s wrong-reason red on a third claim. The operator now
 /// retires the replacement first, so nothing ever receives on the endpoint again, then starts the
 /// plant (a `chatty` role that parks a message on it), then the attacker. A let-open
-/// `RECEIVE_CAP` *returns the plant's delegation*, and the assertion below fires: the attacker's
+/// `RECEIVE_CAP` *returns the plant's message*, and the assertion below fires: the attacker's
 /// report carries the marker word rather than the refusal. The operator then drains the plant
 /// itself on the honest kernel, so both programs exit and the run reclaims as before. The
 /// kernel-side twin of this gate is

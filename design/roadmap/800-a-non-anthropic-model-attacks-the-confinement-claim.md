@@ -1,7 +1,7 @@
 ---
 status: BUILT
 raised: 2026-10-06
-built: 2026-10-06
+built: 2026-10-07
 milestone_dependencies: 633
 decision_dependencies: none
 machine_requirements: none
@@ -168,11 +168,11 @@ correctable, and verdicts are the architect's). Moving the color stays calef's.
   wait on milestone 198 (a package manager, and the trivial install that makes a second customer
   possible).
 
-## Result (BUILT 2026-10-06, UTC, by this lane)
+## Result (BUILT 2026-10-07, UTC, by this lane)
 
 The pass ran informed, per the brief, and its note is `notes/confinement-outsider-pass-4.md`.
 
-- **One escape, booted red on all three ISAs**: a second client of a shared `Stack` endpoint
+- **One booted re-discovery, red on all three ISAs**: a second client of a shared `Stack` endpoint
   pre-attaches its own frame at the victim's socket id and captures both directions of the victim's
   exchange. `ATTACH` is a `SEND_CAP` with no reply and the id namespace has no per-caller scope, so
   the victim's attach fails silently. Pinned by the opt-in
@@ -180,7 +180,7 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   and recorded in `net_stack.rs`'s BUGS. The fix shape is the `name_resolver` one, per-caller
   windows keyed by badge; whether refusals should also become answerable is a smaller second
   call, still open. The shape itself is ruled: per-caller windows keyed by badge, the resolver's
-  exact shape, refusals silent (calef, 2026-10-06, PR #1798). Ruled with it, tree-wide: per-caller
+  exact shape, refusals silent (calef, 2026-10-07 UTC, about 03:50Z, PR #1798). Ruled with it, tree-wide: per-caller
   scoping is a written rule for every multi-client window server, and the fix lane audits the
   remaining ones (`system_log`'s reader windows unread this pass). The fix belongs to a follow-up
   milestone; this pass pins and does not write it. A second premise this pass settled by reading:
@@ -220,8 +220,15 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   recorded patch.
 - Every fixed escape was checked for siblings (the abort-path `outgoing_cap` follow-up closes the
   sharpest); every claim has an attack or a written reason; the refusal log has four entries, each
-  with a home or a target.
-- Outstanding for the maintainer: the net-stack fix needs an architect's ruling. The four refusal
-  targets (the redoxfs name-window TOCTOU boot, the compositor respawn scrub, MSI confinement,
-  Kani re-runs in an attack pass) are recorded in the note. Risk 7's appendix should cite this
-  pass under §216 (fatal-risk facts are correctable, and verdicts are the architect's).
+  with a home or a target. Coverage was targeted boots, not the suite: two rows booted this pass
+  (26 and the escape), 31 read.
+- Outstanding for the maintainer: the rulings above are all recorded, and the merge list is the
+  decisions section, the 649 and 633 block updates, the claims row, the follow-up mints, and the
+  §216 citation. Risk 7's appendix gains the booted severity sentence and cites pass four as an
+  informed non-Anthropic pass with a booted re-discovery. Still open and non-blocking: whether the
+  socket refusals become answerable.
+- **With calef, open:** does the fix-shape ruling cover the whole socket namespace or only the
+  frame windows? Keying `frame_window` alone closes the frame capture; 649's finding also includes
+  sending, reading and closing another client's socket by `sid`, which keying `frame_window` alone
+  leaves open. The reviewer's recommendation (Claude's, adopted by this lane): key every
+  `sid`-indexed table by `(badge, sid)`, the same work for the whole of 649.

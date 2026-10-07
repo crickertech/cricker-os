@@ -68,8 +68,8 @@ use component_plan::Provisions;
 use supervision_protocol::{ChildEndowment, Retention};
 use swap_protocol::log_checks as lc;
 use user_mode_runtime::{
-    Received, cap_delete, cntfrq, map_into, map_page_frame, now, receive, receive_bound,
-    receive_fault, revoke_frame, send, timer_arm,
+    cap_delete, cntfrq, map_into, map_page_frame, now, receive, receive_bound, receive_fault,
+    revoke_frame, send, timer_arm,
 };
 
 /// What the kernel grants us, and nothing else.
@@ -451,7 +451,12 @@ fn direct(fs: &nifefs::Fs, w: &Wiring) -> ! {
         [swap_protocol::ROLE_USURPER, 0, 0],
         31,
     );
-    expect_note(w.note, swap_protocol::NOTE_ATTACK_DONE, 33);
+    // The attacker's verdict, taken from the note rather than the report stream: `w1` is the
+    // refusal code (positive) or `-PLANT_MARKER` on a let-through, mirroring `RPT_ATTACK`.
+    let refused = {
+        let w1 = expect_note(w.note, swap_protocol::NOTE_ATTACK_DONE, 33);
+        (w1 as i64) > 0
+    };
 
     // **Un-park the plant, bounded, and the bound is what makes this honest in both worlds.** On a
     // kernel that refused the attacker, the plant is still parked and this receive returns its
@@ -459,12 +464,20 @@ fn direct(fs: &nifefs::Fs, w: &Wiring) -> ! {
     // the queue is empty, so the plain receive would block forever; the bound notification (armed
     // below by the timer our spawner granted, the `net_stack` retransmit pattern) ends the wait
     // instead, and the run goes on to fail at the test's assertion rather than at a watchdog.
+    //
+    // There is a third case, and an honest kernel can still reach it: the bound fires *before the
+    // plant has sent* (spawn order is not run order). Then the plant is still blocked in its `SEND`
+    // and will never exit, so the reap below would wait for a corpse that never comes, and the
+    // break would surface as the watchdog hang this reshape exists to remove. When the attacker
+    // reported a refusal, that is what the bound means, so the operator bails on its own stage
+    // number instead: an infrastructure failure that names itself, not a verdict and not a hang.
     if timer_arm(TIMER, now() + cntfrq() / 2, WAKE, 1) < 0 {
         bail(35);
     }
     match receive_bound(w.svc) {
         user_mode_runtime::Received::Message(word, _, _) if word == swap_protocol::PLANT_MARKER => {
         }
+        user_mode_runtime::Received::Notification(_) if refused => bail(37),
         user_mode_runtime::Received::Notification(_) => {}
         _ => bail(36),
     }
@@ -1382,11 +1395,12 @@ fn retire(w: &Wiring, collected: &mut u64, target: u64, stage: u64) {
     reap_to(w.faultep, collected, target);
 }
 
-fn expect_note(note: u64, want: u64, stage: u64) {
-    let (kind, _, _) = receive(note);
+fn expect_note(note: u64, want: u64, stage: u64) -> u64 {
+    let (kind, w1, _) = receive(note);
     if kind != want {
         bail(stage)
     }
+    w1
 }
 
 fn image<'a>(fs: &nifefs::Fs<'a>, name: &str, stage: u64) -> elf::Elf<'a> {
