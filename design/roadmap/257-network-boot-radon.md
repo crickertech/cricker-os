@@ -16,10 +16,10 @@ radon's U-Boot prompt; built 2026-09-05. *(Number provisional until the merge qu
 > flash-a-card loop into a rebuild-and-reset loop. **Worth building the moment the card loop gets
 > annoying, which history says is the second bench session.**
 
-The 2026-09-04 E3 session wrote the card **six times**, once per boot, each a walk to the board and
+The 2026-09-04 E3 session wrote the card six times, once per boot, each a walk to the board and
 back, because E3 is a comparison of two builds and the interleaving that makes it valid requires
 alternating them. That session also produced the other half of the argument: the numbers it took
-were good, so the cost was entirely in handling rather than in anything the experiment needed.
+were good, so the whole cost was handling.
 
 **One correction the note carries and this block does not inherit: the server belongs on patagonia,
 not cordoba.** radon's UART goes into patagonia (corrected by calef 2026-09-04; the rig note said
@@ -28,10 +28,8 @@ there is no copy step at all: build, power cycle, watch, on one machine.
 
 ## What was proved by hand, 2026-09-04, and what it cost
 
-Driven from patagonia over the serial line, with the board sitting at its `StarFive #` prompt.
-
-The vendor firmware has a network stack, which was the one real unknown and was checked rather
-than assumed:
+Driven from patagonia over the serial line, at the board's `StarFive #` prompt. The one real
+unknown, whether the vendor firmware has a network stack, was checked rather than assumed:
 
 ```
 U-Boot 2021.10 (Feb 12 2023 - 18:15:33 +0800), Build: jenkins-VF2_515_Branch_SDK_Release-24
@@ -41,8 +39,7 @@ ethernet@16030000 Waiting for PHY auto negotiation to complete...... done
 DHCP client bound to address 192.168.8.200 (3378 ms)
 ```
 
-Then nife booted, entirely over the wire, with the card ignored. The full bench suite ran to
-`bench: done`:
+Then nife booted entirely over the wire, card ignored, and the full bench suite ran to `bench: done`:
 
 ```
 tftpboot ${kernel_addr_r} nife-vf2.img        282,624 bytes,   1.4 s
@@ -70,8 +67,7 @@ trips instead of a FAT read.
 | `ipc_rtt_el0` | 124958 · 124391 · 124903 | **124917** |
 
 All three land inside the card-booted cluster. **How the kernel arrives does not perturb what it
-measures**, which is the one thing that could have made this workflow useless for the bench work it
-exists to serve, and it is now checked rather than assumed.
+measures**, the one thing that could have made this workflow useless for bench work.
 
 ## What was built, 2026-09-05
 
@@ -84,7 +80,7 @@ same card-only script milestone 218 shipped, byte for byte, and a test asserts t
 untouched. A network-booting card is a promise about a machine that has to be running, so it is
 asked for rather than arrived at.
 
-The card underneath the network, and it is exercised rather than asserted. The script tries
+The card underneath the network, exercised rather than asserted. The script tries
 DHCP and two transfers and falls back to `load` when any of them fails, so a card written once can
 be left in radon and still boots with the cable out. Its shape is deliberately the dullest thing
 that can express a fallback: one state variable, `if cmd; then` and `fi`, nesting never deeper than
@@ -97,12 +93,12 @@ shell functions whose exit status the test picks. Four cases: everything works a
 never touched; no lease, so the card supplies both halves; the kernel transfer succeeds and the
 archive's fails, which must still take both halves from the card because a mixed pair halts at
 `MEASURED BOOT REFUSED`; and neither path having a payload, where nothing is booted and the board
-says so rather than jumping into whatever a previous boot left at `0x4020_0000`. That last case is
-a guard the manual sequence does not have.
+says so rather than jumping into whatever a previous boot left at `0x4020_0000`. That last case is a
+guard the manual sequence lacks.
 
 `script/board-netboot`, a read-only TFTP server with `blksize` and `tsize`, in python3. The
-decision against dnsmasq is recorded in the script's own header, where a reader meets it, and the
-argument that decided it is not the dependency one: dnsmasq is a DHCP server that also does TFTP,
+decision against dnsmasq is recorded in the script's header, and the deciding argument is not the
+dependency one: dnsmasq is a DHCP server that also does TFTP,
 this bench LAN is a family's house network with a router already handing out leases, and a second
 DHCP server on it is an outage for everyone in the building. A tool that cannot speak DHCP cannot
 get that wrong. python3 is already what ten `script/` entry points are written in, so it asks
@@ -116,8 +112,8 @@ echoes it at boot so a console log says what a card expects before anything depe
 lease is then one line at the prompt (`setenv nife_boot_server <addr>`, `source ${scriptaddr}`) rather
 than a card reader.
 
-The first implementation of that was wrong and the machine said so, which is worth recording
-because it is milestone 256's own lesson arriving in a new place. The obvious discovery is a
+The first implementation was wrong and the machine said so, the lesson of milestone 256 (PCI BARs in a
+hardcoded window) arriving in a new place. The obvious discovery is a
 connected UDP socket whose local address the kernel picks from the route. patagonia's default route
 belongs to a Tailscale interface, so every probe answered `100.75.22.70`, a CGNAT address radon has
 no path to, and a card written that evening would have silently fallen back to the card forever.
@@ -128,21 +124,17 @@ the discovery reproduces the proved value without anyone having written it down.
 
 ## What was to be built
 
-1. A `--tftp` mode for `cargo xtask board-script`, emitting `dhcp` and two `tftpboot` lines in
-   place of the two `load` lines. `script/board-image` grows the matching flag.
-2. A fallback to the card in the same script. U-Boot can branch on command status, so the script
-   should try the network and fall back to `load` from the card's own payload. This is what lets the
-   card be written once and left in radon forever: no cable, no hub, no DHCP, and the board still
-   boots something. A card that can be bricked by an unplugged cable is a worse rig than the one
-   being replaced.
+1. A `--tftp` mode for `cargo xtask board-script` (`dhcp` and two `tftpboot` lines for the two
+   `load` lines), with the matching `script/board-image` flag.
+2. A fallback to the card in the same script, since U-Boot can branch on command status. That lets
+   the card be written once and left in radon: no cable, no hub, no DHCP, and the board still boots.
+   A card bricked by an unplugged cable is a worse rig than the one being replaced.
 3. A TFTP server on patagonia. A read-only server with `blksize` (RFC 2348) is about a hundred
-   lines and was written for the 2026-09-04 session; whether that becomes a `script/` entry point or
-   a Homebrew `dnsmasq` in TFTP-only mode is the lane's call. Note that port 69 bound without root
-   on this machine, so neither needs `sudo`.
+   lines and was written for the 2026-09-04 session; a `script/` entry point or a Homebrew `dnsmasq`
+   in TFTP-only mode is the lane's call. Port 69 bound without root here, so neither needs `sudo`.
 4. A recorded address expectation. `serverip` is patagonia's, `192.168.8.216` on 2026-09-04, and
-   a DHCP lease can move it. Whatever the script does about that, it should say so where a reader
-   meets it rather than leaving a stale constant to be discovered at the bench. This is the same
-   defect class milestone 256 is about, one layer out.
+   a DHCP lease can move it. The script should say so where a reader meets it rather than leave a
+   stale constant for the bench, the defect class milestone 256 is about, one layer out.
 
 ## The measure
 
@@ -174,25 +166,21 @@ TFTP from server 192.168.8.206; our IP address is 192.168.8.200
 nife: payload came from net
 ```
 
-Kernel at 3.2 MiB/s, the 8.6 MB archive at 6.7 MiB/s. This is the workflow this milestone was built
-for: the 2026-09-04 session that justified it wrote the card six times in one evening, once per
-boot, each a walk to the board and back.
+Kernel at 3.2 MiB/s, the 8.6 MB archive at 6.7 MiB/s, against the six card writes of 2026-09-04.
 
 The fallback was exercised too, by accident, and that is the more useful half. The first boot of
 2026-09-16 came up before the ethernet cable was in, and printed
 `Waiting for PHY auto negotiation to complete......... TIMEOUT !` followed by
-`nife: payload came from card`. The board booted anyway, off the card, and said which path it took.
-A boot script that fetches over the network is a promise about a machine that has to be running, and
-this is the first evidence that the promise degrades rather than strands the board. Recorded in
+`nife: payload came from card`. The board booted anyway, off the card, and said which path it took:
+the first evidence that a network boot degrades rather than strands the board. Recorded in
 milestone 218's block as well, where the hands-free claim it supports lives.
 
 ## Confirmed on radon, 2026-09-05, and it found a bug no test could have
 
 Three boots, with the card written by `--tftp` and left in the board throughout.
 
-Boot 1, ethernet unplugged. The fallback works and hush accepts the script. That was this
-block's headline risk, since the generated script had only ever been run under `/bin/sh` with the
-U-Boot verbs stubbed:
+Boot 1, ethernet unplugged. The fallback works and hush accepts the script, this block's headline
+risk, since the script had only run under `/bin/sh` with the U-Boot verbs stubbed:
 
 ```
 nife: tftp server is 192.168.8.216, setenv nife_boot_server to point somewhere else
@@ -224,8 +212,8 @@ nife: nothing came over the network, falling back to the card
 **Bare `dhcp` in U-Boot means "get an address AND TFTP the bootfile from the server DHCP names",
 not "get an address".** So the board fetched from `192.168.8.1`, the house router, failed, and
 because `dhcp` returns failure when its own autoload fails, the entire network branch was skipped.
-The boot looked like a clean fallback and was a bug, which is the worst shape a defect can take
-in a mechanism whose whole job is to fall back quietly.
+It looked like a clean fallback and was a bug, the worst shape a defect can take in a mechanism
+whose job is to fall back quietly.
 
 Boot 3 confirmed the one-line fix without rewriting the card. Autoboot was interrupted,
 `setenv autoload no` typed by hand, and the card's existing script sourced:
@@ -240,9 +228,8 @@ nife: payload came from net
 `setenv autoload no` is now emitted by `board_network_boot_script`, with the reason at the call
 site.
 
-Why no test could have caught it, which is the part worth keeping. Every test of this script
-stubs `dhcp` and chooses its exit status, so no test can observe what the real command *does* on
-success. The line was in the manual sequence that proved this path on 2026-09-04 and was left out of
+Why no test could have caught it: every test of this script stubs `dhcp` and chooses its exit
+status, so none can observe what the real command *does* on success. The line was in the manual sequence that proved this path on 2026-09-04 and was left out of
 the transcript in this block that the script was written from. The record was the defect, and
 the lane built correctly from an incomplete one.
 

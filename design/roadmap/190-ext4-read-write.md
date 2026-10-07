@@ -18,9 +18,8 @@ and 4 carry forks named below, and phase 4's is a real one; a single gate on the
 long would block the part that is buildable today.
 
 In brief. calef, 2026-08-30: *"I've invested heavily in an ext4 ecosystem so nife needs to
-support it."* This is a standing requirement with no deadline, which is a stronger position than
-it sounds: it is the condition under which the right implementation can be built instead of the fast
-one. The arc is four phases, each independently useful, ending in a Rust ext4 that reads and writes
+support it."* A standing requirement with no deadline is the condition under which the right implementation
+can be built instead of the fast one. The arc is four phases, each independently useful, ending in a Rust ext4 that reads and writes
 drives Linux formatted, verified against libext2fs and against Linux itself rather than against our
 own confidence.
 
@@ -30,8 +29,7 @@ RedoxFS.
 
 ## Why the requirement exists, and why it is not urgent
 
-The requirement is calef's own infrastructure, and the history matters because it is what retired
-the urgency:
+The requirement is calef's own infrastructure, and its history is what retired the urgency:
 
 - The family's backup solution is borg over SSH, on cordoba, plus Immich for images. Both were
   built in another session with the existing Linux ecosystem, because the data problem was pressing
@@ -76,15 +74,13 @@ never writes one, and fuse2fs, its own reference read/write client, says so in i
 >
 > -- fuse2fs(1), https://man7.org/linux/man-pages/man1/fuse2fs.1.html
 
-Reading its source confirms it: there are no transaction start or commit calls. Only LKL writes a
-real jbd2 journal, because only LKL is Linux. That single fact is why LKL kept resurfacing in the
-discussion, and it is why the journal question has to be answered on its own rather than assumed
-away.
+Its source confirms it: no transaction start or commit calls. Only LKL writes a
+real jbd2 journal, because only LKL is Linux. That is why LKL kept resurfacing, and why the journal question must be answered on its own rather
+than assumed away.
 
 ## The refusals, each with its reason
 
-The refusals are the valuable half of this block, and each is recorded so a later reader can
-disagree with an argument rather than rediscover it.
+Each refusal is recorded so a later reader can disagree with an argument rather than rediscover it.
 
 `lwext4`, refused on license and on the seam. It is the obvious embedded C candidate (its own
 blockdev abstraction, `malloc` plus string functions, tier two of milestone 36's (the foreign

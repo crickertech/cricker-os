@@ -15,7 +15,7 @@ number is provisional until the merge queue lands it. `jig` is ratified; the tit
 spellings are drafts. Later rulings are in the work list and the forks table.)*
 
 calef ruled on 2026-10-06 (UTC) that the package client must be a program, not a shell builtin, and
-named six things it must do. Lane `package-program` wrote this the same day and built nothing.
+named six things it must do. Lane `package-program` wrote this that day and built nothing.
 
 The program is `jig`, the basalt package manager, ratified 2026-10-06 by calef. A jig is the
 guide that makes flat-pack assembly come out the same every time.
@@ -149,22 +149,21 @@ fetches it, the program's write decides what the progenitor will install.
 | I2. The program fetches and writes the copy | The progenitor trusts the copy in a directory only the owner's console grants | Any defect in the client's TLS or parser becomes a defect in what runs. The activation set can no longer say "basalt vouched"; only "the owner's client said basalt vouched" |
 | I3. A signature over the index | The progenitor verifies the copy against a key in the image | Someone holds a long-lived key, which §195 clause 4 deferred "for now". An image shipping a public key is the step §195 named irreversible |
 
-The case for I2 is that it widens nothing. The owner may already vouch for any bytes (§195 clause
+I2 widens nothing. The owner may already vouch for any bytes (§195 clause
 3, §221), and only the owner's console could grant the program its index directory and its
-installer capability. What I2 loses is provenance. A record that says a source vouched would be
-the client's claim, not the progenitor's check.
+installer capability. What I2 loses is provenance, as the table says.
 
-The cost of the ruling, stated: until I3, whatever writes the index copy decides which digests may
+The ruling's cost: until I3, whatever writes the index copy decides which digests may
 run, so `jig` is inside the trusted base for installs. I3, a signed index the progenitor verifies
 itself, is the recorded follow-on that takes `jig` back out; it waits on a key-custody ruling.
 
-None of this touches the image's own catalog. It stays measured in the archive, and the
-progenitor keeps checking against it as it does on rung 3a.
+None of this touches the image's own catalog, which stays measured in the archive and checked as
+on rung 3a.
 
 ## Many indexes per machine: ruled
 
 calef, 2026-10-06 (UTC): *"A machine may write many indexes."* So a machine holds several, as apt's
-`sources.list` does. The details are open.
+`sources.list` does; details below.
 
 §250 (an image names its distribution's package index) rules that an *image*
 carries one fixed name, basalt's. An index the owner adds is the machine's, so §250 is not
@@ -172,7 +171,7 @@ contradicted. §195 clause 2 anticipates it: trust is
 scoped per source the owner opted into, and anyone may stand up a source. §196 clause 4 holds roots
 per source.
 
-The details still to settle, before `add-index` is built:
+To settle before `add-index` is built:
 
 1. How is a second index authenticated? §250 authenticates basalt's index by TLS alone, pinned to
    ISRG Root X1. A second index needs a root or key the owner supplies at `add-index`. There is no
@@ -185,12 +184,10 @@ The details still to settle, before `add-index` is built:
    or a rollback cannot say what it is undoing.
 4. Whether a second index may carry §250's "moved to" field, and whether the client follows it.
 
-They block only `add-index`.
-
 ## Other package managers, against the same contracts
 
 calef asked whether other package managers could emerge. This milestone makes it a design
-property: `jig` uses only public contracts, and it has no private channel to the progenitor.
+property: `jig` uses only public contracts, with no private channel to the progenitor.
 
 - The package format is `crates/package_archive`, per §197 (a package is one archive file).
 - The index format is milestone 801's crate, by rule 7.

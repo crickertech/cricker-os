@@ -10,8 +10,8 @@ The merge pipeline degraded for nine days before the work stopped arriving, and 
 compound.
 
 From 2026-09-20 each merge cost more. The long CI job had doubled on 09-19, and the queue began
-ejecting what it was given. Pull requests kept arriving and kept merging (53 a day from 09-22 to
-09-27), but each took longer and more runs to land:
+ejecting what it was given. Pull requests kept merging (53 a day from 09-22 to
+09-27), but each took longer and more runs:
 
 | days (UTC) | opened a day | merged a day | queue entries | ejected | share | median hours, opened to merged | group runs per merge |
 |---|---|---|---|---|---|---|---|
@@ -38,7 +38,7 @@ than lost: 10-03 merged 41 by 10:40 once Claude was back.
 10-03 runs to 10:40 for GitHub and about 08:00 for the rest. A turn is one assistant message, and
 the vendors' turns are not summed. "Merged" counts the merge queue's merge events.
 
-Three causes, in order of size. The estimates are judgment over the tables, not a model.
+Three causes, in order of size.
 
 | cause | merges, estimated | evidence |
 |---|---|---|
@@ -99,7 +99,7 @@ budget"; main already took 26m21s, with "x86_64's swish-check alone about 17 min
 lines pushed it past 30; and 45 "still catches a hang". It merged inside #1340 with no separate
 decision.
 
-On that frame it was reasonable. The frame was the error. The timeout was the only thing that read
+On that frame it was reasonable; the frame was the error. The timeout was the only thing that read
 the job's wall time, so raising it switched off the only alarm, and the lane did not ask why one leg
 cost 17 minutes. The 45 is our own `timeout-minutes` (a hosted job may run six hours), so the raise
 cost one line and nothing forced the question. That is the measure-first miss
@@ -129,10 +129,9 @@ session, was about:
 | not nife (homelab) | 29 | 1% | 3,714 | 0% |
 
 The largest merge-rate items were #1377's inbound failure (370 messages over four sessions), the
-x86_64 paint path (354) and the swish-check flake (270). The #1377 failure turned out to be the
+x86_64 paint path (354) and the swish-check flake (270). That failure was the
 branch's own: 12 of 12 boots failed on it and 12 of 12 passed on main. Counted as landing work
-instead, the merge-rate share is 35%. Either way, more than a third of the bridge went to diagnosing
-the problem this record is about.
+instead, the merge-rate share is 35%.
 
 What landed. From 09-28 12:40 to 10-03 00:00, 40 pull requests merged:
 
@@ -151,13 +150,11 @@ stops repainting the world), and #1472, #1443, #1377, #1370 and #1286 followed. 
 
 ## Impact
 
-Roughly 150 to 190 merges deferred over five days, most never started. Before that, nine days in
-which each merge cost 2.7 times the wall time and 1.7 times the group runs. On 09-30, 29 merge groups ran into the 45-minute timeout, about 22
-runner-hours. Between 35 and 43% of the z.ai bridge went to diagnosis rather than to new work.
+Roughly 150 to 190 merges deferred over five days, most never started. Before that, nine days of
+the 2.7x wall time and 1.7x group runs per merge. On 09-30, 29 merge groups ran into the 45-minute timeout, about 22
+runner-hours. 35 to 43% of the z.ai bridge went to diagnosis.
 
 ## Five whys
-
-The first answer splits in two, and each branch reaches its own fifth why.
 
 1. Why did the merge rate fall? From 09-20 each merge cost more, and from 09-28 few pull requests
    arrived (44 in five days, against 57 a day the week before).
@@ -172,20 +169,19 @@ Branch A, supply:
    each, with the rebases and triage between.
 4. Why did the pace not change before the limit? Claude Code's warnings come within a five-hour
    window and as the weekly limit nears (calef, on #1513). By then the week is spent. The week
-   before had also ended early, and the pace still did not change.
+   before had also ended early, and the pace did not change.
 5. Why is there no earlier signal? The meter is outside the tree, and nothing in the tree compares
    spend to the calendar. `script/effort` reports tokens after the fact, from one vendor.
 
 Branch B, friction:
 
 2. Why did each merge cost more from 09-20? The queue ejected 43% of its entries from 09-22 to 09-27,
-   against 8% the week before: 90 on failed checks, 85 on merge conflicts, 51 by hand. On 09-30 the
-   long job ran into its 45-minute timeout 29 times.
+   against 8% the week before: 90 on failed checks, 85 on merge conflicts, 51 by hand.
 3. Why did it eject more? The long job doubled on 09-19, so each group held the queue twice as long
    while `main` moved under it. The reasons are measured; that the doubling drove the conflicts is
    inferred from the timing.
-4. Why was the job slow, and getting slower? The x86_64 swish-check leg cost 7.7 s a line, because
-   the boot thread halted while runnable and the polling driver kept the scheduler reaching it.
+4. Why was the job slow, and getting slower? The x86_64 swish-check leg cost 7.7 s a line, from
+   [the defect under cause 2](#the-defect-under-cause-2).
 5. Why did it go unnoticed for 10.5 days? Nothing reads CI wall time or the queue's ejection share.
    The timeout was the only signal, and when it fired it was read as a false alarm and raised.
 
@@ -193,10 +189,10 @@ Branch B, friction:
 
 Two, and neither is a person forgetting.
 
-1. CI wall time and the queue's ejection share are measured by nothing, and the one bound on either
-   was ours to move. No script or watcher reads them;
-   milestone 648 (re-measure CI queue waits by runner label) measures waits only. So a job that doubled in one merge stayed doubled, an ejection share that went from one in
-   twelve to nearly half read as a busy week, and when the job hit its bound, the bound moved.
+1. Nothing reads CI wall time or the queue's ejection share (milestone 648 (re-measure CI queue
+   waits by runner label) measures waits only), and the one bound on either was ours to move. So a
+   job that doubled in one merge stayed doubled, and an ejection share that went from one in twelve
+   to nearly half read as a busy week.
 2. The token budget's burn-rate signal arrives too late to change a week's pace, and the tree's own
    effort measure counts one vendor, so even after the fact a bridged week reads as idle.
 

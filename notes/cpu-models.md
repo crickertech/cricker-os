@@ -35,8 +35,8 @@ ran both legs unconditionally. Its default is still both, so the parity gate (DE
 be weakened by forgetting to pass it.
 
 Under HVF (`--hvf`) there is no CPU model to pick: the guest runs the physical Apple core, so
-`-cpu host` is mandatory. `NIFE_CPU` set to anything else there is a hard error rather than a
-value silently ignored.
+`-cpu host` is mandatory. `NIFE_CPU` set to anything else there is a hard error, not silently
+ignored.
 
 ## The result: the suite passes on all five models
 
@@ -62,17 +62,17 @@ $ strings u54.dtb | grep 'riscv,sv'
 riscv,sv39
 ```
 
-So the reassuring thing the roadmap predicted is true, and now it is measured rather than argued:
+As the roadmap predicted, and now measured rather than argued:
 **we are already portable to the board's ISA.** `sifive-u54` advertises RV64GC and nothing else, and
 the whole suite runs on it, userspace and virtio and the IOMMU included.
 
-Two things make that result mean something rather than nothing.
+Two things make that result mean something.
 
 **We build for `riscv64imac`.** No `F`, no `D`. RV64GC is IMAFDC, so the compiler is already
-forbidden from emitting an instruction the U74 lacks. That was true before this milestone and it is
-why the milestone was expected to be cheap. What it never covered is the hand-written part:
+forbidden from emitting an instruction the U74 lacks. That predates this milestone and is
+why it was expected to be cheap. What it never covered is the hand-written part:
 the `asm!` in `kernel/src/arch/riscv64/`, and the CSRs, which QEMU may accept more permissively than
-SiFive does. That is the part the matrix actually exercises.
+SiFive does. That is what the matrix exercises.
 
 **The narrowing is enforced, not just advertised.** See the preflight below.
 
@@ -80,8 +80,8 @@ SiFive does. That is the part the matrix actually exercises.
 
 QEMU's `virt` machine writes a `riscv,isa` string into the device tree per CPU model. That string is
 a claim. If a future QEMU kept the claim but stopped trapping instructions the model does not
-have, all five runs would still go green while proving nothing at all, and nothing else in the
-matrix would notice. This project has been bitten by exactly that shape twice: `script/fmt` accepted
+have, all five runs would still go green, proving nothing, and nothing else in the
+matrix would notice. This project has been bitten by that shape twice: `script/fmt` accepted
 `--check` and ignored it for months, and the hand-maintained test list in `xtask` quietly covered 82
 fewer tests than it claimed.
 
@@ -116,19 +116,19 @@ one line, and `wfi` is a real vCPU halt, so QEMU sits at 0% host CPU either way 
 leave QEMU running").
 
 The check discriminates. Run against the other three models it reports `rva22s64` executed,
-`rva23s64` executed, `thead-c906` trapped, which is both directions demonstrated and also a
-reminder that the C906 is a genuinely different machine: it has no standard bitmanip at all, only
+`rva23s64` executed, `thead-c906` trapped, which demonstrates both directions; the C906 is a
+genuinely different machine: it has no standard bitmanip at all, only
 its own `xtheadba`/`xtheadbb`/`xtheadbs`.
 
 ## What the narrow models would have caught, and did not have to
 
-Worth naming, because a green run is only interesting if you can say what it ruled out.
+A green run is only interesting if you can say what it ruled out.
 
 **Hardware A/D update (`svadu`).** `rv64` has it: the machine sets a page table entry's Accessed and
-Dirty bits itself. `sifive-u54` and `thead-c906` do not have it at all, and `rva22s64`/`rva23s64`
+Dirty bits itself. `sifive-u54` and `thead-c906` do not have it, and `rva22s64`/`rva23s64`
 advertise `svade`, its opposite (the machine faults and software must set them). A kernel that left
 A and D clear would work on `rv64` and page-fault forever on the board. `crates/paging/src/sv39.rs`
-sets both eagerly, with a comment saying why, so this was already closed; the matrix is what turns
+sets both eagerly, with a comment saying why, so this was already closed; the matrix turns
 "we think we handled that" into a machine that would have punished us and did not.
 
 Sv57 versus Sv39. `rv64` advertises `mmu-type = riscv,sv57`. Every narrow model advertises
@@ -168,12 +168,9 @@ through SBI, so it works on both.
   were sighted through this entry: an aarch64 kernel-suite death (PR #204's branch, run
   31907966383 attempt 1) read as "same-EL data abort just after the canary line", and a c906
   matrix death (milestone 54's branch, run 31910308865 attempt 1) at the riscv trap reporter.
-  The logs acquit the canary: both are the kernel's own stack-overflow report, a store into a
-  THREAD stack guard page with `sp` 4096 bytes past the bottom of a 16 KiB stack, both during
-  `supervision_tests::a_faulting_child_reports_to_its_supervisor_and_is_reaped_then_respawned`,
-  right after the user-fault kill report (slot 87 on aarch64, slot 102 on c906; on aarch64 the
-  canary had disarmed 21 seconds earlier). That is one real, separate bug, seen on both ISAs on
-  slow hosts; it wants its own lane.
+  The logs acquit the canary: both are the thread-stack overflow in the next entry, right after
+  the user-fault kill report (slot 87 on aarch64, slot 102 on c906; on aarch64 the canary had
+  disarmed 21 seconds earlier).
 
 - The 2026-08-15 attempt-1 deaths on loaded runners were a real kernel thread-stack overflow,
   since diagnosed and fixed (aarch64 run 31907966383 and c906 run 31910308865, both during
@@ -197,8 +194,8 @@ through SBI, so it works on both.
   QEMU does not model a reduced `satp.ASID` width per CPU. `satp.ASID` is WARL and RISC-V permits an
   implementation to hardwire all of it to zero, which is the cheap option for a small core;
   `the_hardware_has_at_least_the_asid_bits_the_allocator_assumes` in `arch/riscv64/mmu.rs` exists
-  precisely because the U74 has not been checked. No `-cpu` value available to us exercises its
-  failing branch. The board will be the first machine that can. Until then the unconditional
+  precisely because the U74 has not been checked. No `-cpu` value available exercises its failing
+  branch; the board will be the first machine that can. Until then the unconditional
   `sfence.vma` in `write_satp` is what keeps address spaces from aliasing, and it stays.
 
 - **The matrix runs riscv64 only.** `NIFE_CPU` works on the aarch64 runner too, and nothing uses
@@ -213,7 +210,7 @@ through SBI, so it works on both.
   the same way. After the fix, `cargo xtask test --arch aarch64 --cpu max` passed on 2026-09-19
   (325 passed, 2 skipped, both skips unrelated to the model), including the `RNDRRS` entropy test
   the default `cortex-a72` always skips. So `max` is worth adding if the matrix grows an aarch64
-  leg: it is the model with the most features switched on, which is what `rv64` is to riscv64.
+  leg: it has the most features switched on, as `rv64` does on riscv64.
   That leg is milestone 274's first item (Apple Silicon's own core is untested) and part of
   milestone 322's (one machine matrix for three architectures).
 
@@ -233,20 +230,16 @@ through SBI, so it works on both.
 
   *(Two of those three have since been re-aimed: the reaper test in milestone 78's first round and
   the preemption test in its second, which replaced the one-second deadline with a budget of 200
-  delivered ticks. `the_handler_keeps_up_when_no_lock_is_held` is the one that stays, because it
-  cannot be re-aimed on this instrument; see notes/load-sensitive-assertions.md.)*
-
-  *And on 2026-08-18 it stopped staying: milestone 62 deleted it on both ISAs.* "Cannot be
-  re-aimed on this instrument" was the right diagnosis and the wrong conclusion, because the option
-  it did not consider is that an assertion which cannot be aimed at anything the host does not touch
-  has no business on the wall-clock path at all. The claim is `script/icount`'s now, in instructions.
+  delivered ticks. The third, `the_handler_keeps_up_when_no_lock_is_held`, was judged impossible to
+  re-aim on this instrument (notes/load-sensitive-assertions.md), and on 2026-08-18 milestone 62
+  (tests that assert on time) deleted it on both ISAs.)* That was the right diagnosis and the wrong conclusion: an assertion that
+  cannot be aimed at anything the host does not touch has no business on the wall-clock path at all. The claim is `script/icount`'s now, in instructions.
   So the matrix's exposure here is one assertion smaller than this paragraph says, and the surviving
   wall-clock timer claim (`ticks_arrive_at_the_configured_rate`'s re-arm law) reports `UNMEASURED`
   rather than failing when a loaded model denies it a clean window.
 
-  Two runs in this milestone did exactly that, and both were worth chasing rather than shrugging at,
-  because the whole point of the matrix is that a model-specific failure is real news. Neither was
-  model-specific, and the evidence is worth keeping:
+  Two runs in this milestone did exactly that, and both were chased, because a model-specific
+  failure is the matrix's whole point. Neither was model-specific:
 
   - `rva23s64` failed the preemption test at load average 4.0. Re-run quiet, it passed four times out
     of four.
@@ -265,8 +258,7 @@ through SBI, so it works on both.
   So CLAUDE.md's rule applies here with force. Load causes false failures, not false passes, so a
   green matrix under load is conclusive and a red one is not. Before you diagnose a model, re-run it
   quiet, and check `top` rather than only the load average. The CI job is five sequential QEMU runs
-  where `test` does one, so it is five times the existing exposure to a noisy runner rather than a
-  new kind of risk.
+  where `test` does one: more exposure to a noisy runner, not a new kind of risk.
 
   The converse of that rule is a tool, and it went unused for a month. "A green matrix under
   load is conclusive" also means loading the host on purpose is the cheapest way to *find* a
@@ -300,6 +292,5 @@ own runner it costs nothing a developer waits for.
 Since 2026-10-06 it is two `cpu-matrix-shard` jobs under an aggregate holding the required name;
 a failure's logs are on the shard.
 
-It runs on every push and pull request rather than nightly. The change that breaks this is a change
-to `kernel/src/arch/riscv64/`, which arrives in a pull request, and a nightly would report the
-failure a day after the merge that caused it.
+It runs on every push and pull request rather than nightly. The change that breaks this arrives in a
+pull request touching `kernel/src/arch/riscv64/`, and a nightly would report it a day after the merge.

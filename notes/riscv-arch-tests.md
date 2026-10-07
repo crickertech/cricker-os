@@ -1,33 +1,27 @@
 # The RISC-V arch tests: closing a parity gap in the suite, not in the kernel
 
 `kernel/src/arch/aarch64/` carried 21 unit tests. `kernel/src/arch/riscv64/` carried none, across
-the same three files (`mmu.rs`, `timer.rs`, `exceptions.rs`). Both ISAs booted the same suite and
-both were green, so nothing looked wrong. But the tests that existed on one side and not the other
-are exactly the ones about *the things the two ISAs do differently*, which is where a port is most
-likely to be subtly wrong. DECISIONS §19 makes parity a gate; the gate was being applied to the
+the same three files (`mmu.rs`, `timer.rs`, `exceptions.rs`). Both ISAs booted the same suite green,
+so nothing looked wrong. But the missing tests are exactly the ones about *what the two ISAs do
+differently*, where a port is most likely to be subtly wrong. DECISIONS §19 (architectural parity is a tenet) makes parity a gate; the gate was being applied to the
 kernel's capabilities and not to the suite that proves them.
 
-This note records what was translated, what has no RISC-V analogue, how each new test was proved
-able to fail, and what the exercise found.
-
-**It found three defects.** That is the argument for the whole lane, and it is worth stating before
-anything else, because "write the missing tests" reads like bookkeeping until the tests refuse to
-pass.
+**The exercise found three defects**, which is the argument for the lane: "write the missing
+tests" reads like bookkeeping until the tests refuse to pass.
 
 ## BUGS: what the missing tests were hiding
 
 ### 1. The timer ran at 80 Hz and said it was running at 100 Hz
 
 `timer::tick` re-armed with `sbi_set_timer(now() + interval())`. `now()` is read inside the handler,
-after the trap entry and after the SBI `ecall` round trip to OpenSBI, so every period ran long by
-however much that cost, and the lateness was never recovered.
+after the trap entry and the SBI `ecall` round trip to OpenSBI, so every period ran long by that
+cost, never recovered.
 
-This is the same bug aarch64 shipped and then measured, and the aarch64 module header has documented
-it since: `CNTV_TVAL_EL0` (relative) gave ~70 Hz against a configured 100 Hz, and `CNTV_CVAL_EL0`
+aarch64 shipped and measured the same bug, and its module header documents it: `CNTV_TVAL_EL0` (relative) gave ~70 Hz against a configured 100 Hz, and `CNTV_CVAL_EL0`
 (absolute, on a fixed grid) fixed it. RISC-V had the same defect for a different reason. SBI's
-`set_timer` takes an absolute deadline but is **write-only**: there is no register to read the
-previous deadline back from, the way `CVAL` can be read back. So the grid has to be kept in
-software, and the easy thing to do instead is re-arm from the clock.
+`set_timer` takes an absolute deadline but is write-only: unlike `CVAL`, the previous deadline
+cannot be read back. So the grid has to be kept in software, and the easy alternative is
+re-arming from the clock.
 
 Measured, by reverting the fix and running `ticks_arrive_at_the_configured_rate`:
 
@@ -45,8 +39,8 @@ where the next deadline is already in the past.
 The old comment said a missed tick was not a meaningful idea on this ISA, "since SBI set_timer
 re-arms from `now`, so a late handler simply spaces the next tick out rather than dropping a count".
 That is true and it is the wrong conclusion: re-arming from `now` is what made the count
-*unmeasurable*, not what made it *unnecessary*. The cost of holding a lock across a tick deadline is
-just as real here as on aarch64; there was simply no instrument.
+*unmeasurable*, not what made it *unnecessary*. Holding a lock across a tick deadline costs
+as much here as on aarch64; there was no instrument.
 
 With the grid in place the count is real, and `a_long_critical_section_costs_a_tick` is what makes
 the price of `IrqSafeMutex` visible on the second ISA.
@@ -59,17 +53,15 @@ observable, because masking interrupts masks only the holding core.
 
 RISC-V had one global. Under `-smp 4` the other three harts kept counting into the same word.
 Measured, by reverting to the global and running `holding_a_lock_masks_the_timer`: 61 ticks landed
-during a critical section that masked this hart's interrupts. The reasoning aarch64 had written
-down was simply never carried across.
+during a critical section that masked this hart's interrupts. aarch64's written reasoning was never carried across.
 
 None of the three is a capability gap, which is why the parity record (notes/riscv-parity-scope.md)
-did not catch them: every one of them is a *quality of implementation* property that only a test
-looks at.
+did not catch them: each is a *quality of implementation* property only a test looks at.
 
 ## EXAMPLES: translating a property instead of transliterating a test
 
-The rule was: read the aarch64 test to find what property it asserts, then assert that property the
-RISC-V way. The mechanisms are different almost everywhere.
+The rule: find the property the aarch64 test asserts, then assert it the RISC-V way. The mechanisms
+differ almost everywhere.
 
 | aarch64 mechanism | RISC-V mechanism |
 |---|---|
@@ -82,14 +74,13 @@ RISC-V way. The mechanisms are different almost everywhere.
 | an architectural device memory type in the descriptor | no such field in base Sv39; an RSW software bit stands in |
 | EL1, with `CurrentEL` readable | S-mode, with no way to read the current privilege at all |
 
-Three of those differences change what a test can honestly claim, and each is written into the test's
-own doc comment rather than left for a reader to discover:
+Three differences change what a test can honestly claim, and each test's doc comment says so:
 
 - **`kernel_text_is_executable_and_not_writable`** keeps aarch64's `!is_user_executable` assertion,
   but it is not carrying weight on Sv39. One `X` bit plus the `U` bit means `Sv39::leaf_flags`
   reports kernel-exec or user-exec and never both, so given kernel-exec the other cannot fail. It
-  stays because the property is what the kernel cares about and the format under it may change
-  (Svpbmt, or a future format with separate bits).
+  stays because the kernel cares about the property and the format may change (Svpbmt, or a
+  future format with separate bits).
 
 - **`the_uart_is_mapped_as_device_memory`** is a weaker claim here. On aarch64 the device type is an
   architectural PTE field, and getting it wrong lets the CPU speculatively read MMIO, which for a
@@ -99,8 +90,8 @@ own doc comment rather than left for a reader to discover:
   still catches the mistake worth catching (mapping the UART with `Flags::kernel_data()`), which is
   what the mutation below confirms.
 
-- **`a_low_address_does_not_translate_when_no_process_is_running`** is a *stronger* claim here, and
-  the test addresses had to be chosen carefully to keep it one. `Mapper::translate` returns `None`
+- **`a_low_address_does_not_translate_when_no_process_is_running`** is a *stronger* claim here, if
+  the addresses are chosen carefully. `Mapper::translate` returns `None`
   for anything outside its half before walking a single entry, so a test address above 2^38
   would pass without reading any page table and prove nothing. All three addresses are inside Sv39's
   low half on purpose.
@@ -112,27 +103,24 @@ spaces get distinct ASIDs, and switching between them flushes nothing, so their 
 coexist.
 
 The second half was not true on RISC-V, because `write_satp` followed every `csrw satp` with a bare
-`sfence.vma`, which discards the whole TLB. So the ASID was composed into `satp` and then made
-irrelevant on the very next instruction. An isolation test written here would have passed with the
-ASID tagging removed entirely, which makes it a test that cannot fail for its stated reason.
+`sfence.vma`, which discards the whole TLB. So the ASID was made irrelevant on the very next
+instruction. An isolation test here would have passed with ASID tagging removed entirely, so it
+could not fail for its stated reason.
 
 What shipped instead is `the_satp_carries_the_address_spaces_asid`, which proves the half that was
 real: distinct nonzero ASIDs, placed at bits 59:44 where the hardware reads them, without disturbing
 the MODE field above or the root PPN below (they are packed with no slack, so a shift that is off by
-four lands in one or the other). It is still there, and still earns its keep: it is the only test
-that would catch a wrong shift.
+four lands in one or the other). It still earns its keep as the only test that would catch a wrong
+shift.
 
-Milestone 58 closed it, and the shape of the fix is the point. The follow-up this section used to
-describe (drop the flush and the aarch64 property becomes true here) was correct about the goal and
-understated the work: the flush was covering for the fact that `flush_asid` was local, because
+Milestone 58 (RISC-V TLB shootdown) closed it. The follow-up this section once described (drop the flush and the aarch64
+property becomes true) was right about the goal and understated the work: the flush was covering for the fact that `flush_asid` was local, because
 `sfence.vma` does not broadcast. So the order was the shootdown first, then the removal, gated on a
 runtime probe of `satp.ASID`'s implemented width. The witness now runs on both ISAs and a new
 portable test, `an_asid_flush_reaches_the_other_cores`, proves the broadcast half. See
 notes/riscv-tlb-shootdown.md.
 
 ## What has no RISC-V analogue
-
-Three tests were considered and one of them genuinely does not exist here.
 
 - **`el1_runs_on_sp_el1` has no analogue.** At EL1, `sp` means `SP_EL1` or `SP_EL0` depending on
   `SPSel`, so the kernel and a user trap frame can be made to share one stack pointer register by
@@ -147,20 +135,19 @@ Three tests were considered and one of them genuinely does not exist here.
   breakpoint arm of the dispatcher is guarded by `!from_user` (`sstatus.SPP == 1`), so `BRK_COUNT`
   cannot move unless the trap came from S-mode; and the trap could not have reached our handler at
   all from M-mode, where `mtvec` (OpenSBI's) owns it. A count that went up is a machine executing in
-  S-mode. `main.rs` carried a comment promising this analogue "arrives with the RISC-V boot path";
-  the boot path arrived at milestone 20 and the comment outlived it, so it now points here.
+  S-mode. A `main.rs` comment promising this analogue "arrives with the RISC-V boot path" outlived
+  milestone 20 (a portable HAL) and now points here.
 
 - **`asid_tagging_keeps_address_spaces_apart_without_flushes` is half-translatable**, covered above.
 
-That is the whole residue: one test with no analogue, one property that is half-true and says so.
-The gap was never a scoping decision, and it does not need one now.
+That is the whole residue. The gap was never a scoping decision and needs none now.
 
 ## How each test was proved able to fail
 
 A test that cannot fail is worse than no test, because it reads as coverage. Every one of the 22 was
 run against a deliberately broken kernel and confirmed red, one at a time (a failing assertion ends
-the run, so mutations cannot be batched). The mutations are kept in the lane's scratch driver rather
-than in the tree; the table is the record.
+the run, so mutations cannot be batched). The mutations stayed in the lane's scratch driver; the table is
+the record.
 
 Nineteen were proved by breaking the code they check. Three could not be, and the reason is the
 same on both ISAs.
@@ -203,11 +190,10 @@ The three that are true by construction on a machine that booted, and are marked
 | `the_direct_map_reaches_physical_memory` | the kernel reaches every page table through the direct map, so any break kills the boot | expected `pa + 4096`; it read the real translation and failed |
 | `stvec_points_at_our_trap_entry` | a wrong `stvec` means the first trap never returns | expected `trap_entry + 4`; it read the real CSR and failed |
 
-The same three are by-construction on aarch64 for the same reasons. They are worth keeping for the
-same reason aarch64 keeps them: they cost nothing, and the day one of them *can* fail is the day
-someone changed the linker script or the boot path, which is exactly when you want the assertion
-sitting there. Saying which tests are in this class is the honest part; dropping them would only
-hide it.
+The same three are by-construction on aarch64 for the same reasons. They are kept for the
+same reason: they cost nothing, and the day one *can* fail is the day someone changed the linker
+script or the boot path, exactly when you want the assertion there. Naming the class is the honest
+part; dropping them would hide it.
 
 `mmu_is_enabled` sits between the two groups and its doc comment says so: the machine cannot reach
 the assertion without paging, so the *property* is boot-implied, but the accessor's field extraction
@@ -232,8 +218,8 @@ lives in `kernel::user::tests`.
 ## What was still aarch64-only, and what porting it took (DONE, milestone 19, 2026-07-31)
 
 The plan below was written when `kernel::user::tests` was ~30 tests that did not run on RISC-V. It
-has been executed, and it held up, so it is kept as written with the outcome noted at each step.
-The full record of what changed and what is still gated is in notes/riscv-parity-scope.md.
+held up, so it is kept with each step's outcome. notes/riscv-parity-scope.md records what changed
+and what is still gated.
 
 The module comment blamed the tests: every one drove a hand-written aarch64 program through
 `exec`, and several read aarch64 fault registers (`ESR`, `FAR`) directly. That was two separable
@@ -247,8 +233,7 @@ problems, and only the first was large.
    a real ELF from the initrd and drive that. The programs are tiny and their behaviors are
    ordinary (return, syscall twice, read a forbidden address, spin forever, die on purpose), so they
    are `user/` binaries or entry roles of one binary, built by the existing toolchain for both
-   targets. That turns "hand-write riscv machine code" into "add roles to a test binary", and it
-   deletes the aarch64 hand-assembly on the way rather than duplicating it.
+   targets. That deletes the aarch64 hand-assembly rather than duplicating it.
 
    **Outcome:** exactly this, and cheaper than sized. All five hand-assembled programs (three
    aarch64, two RISC-V) are gone, along with `exec`, the one-page raw-machine-code loader they
@@ -259,11 +244,11 @@ problems, and only the first was large.
 
 2. The fault-register assertions. Roughly a third of the tests assert on `ESR`/`FAR` (that a
    fault was a *permission* fault and not a translation fault, that `FAR` named the exact address).
-   Those assertions are the *point* of those tests, and they are genuinely arch-specific. The
+   Those assertions are the *point* of those tests, and genuinely arch-specific. The
    portable shape is a small arch-level accessor pair, something like "the last user fault's kind
    and address", implemented from `ESR`/`FAR` on aarch64 and from `scause`/`stval` on RISC-V. RISC-V
-   already records the same facts (`USER_FAULTS`, and `user_fault` prints `sepc` and `stval`); it
-   just has no readable last-fault record for a test to inspect.
+   already records the facts (`USER_FAULTS`; `user_fault` prints `sepc` and `stval`) but keeps no
+   readable last-fault record.
 
    **Outcome:** `arch::UserFault`, and one correction to the sizing above. RISC-V records the
    *address* but genuinely cannot report the *kind*: `scause` has one code per access kind and no
@@ -272,18 +257,17 @@ problems, and only the first was large.
    an inference rather than a measurement, and the code says so in a `BUGS` note. Two compositor
    assertions that had been gated off RISC-V for want of a last-fault address came along for free.
 
-The third thing, which the plan did not anticipate. The module was blocked on a stale comment as
-much as on machine code. `hello` carries milestone 7 (user mode) through 19 role catalog and xtask called it
+The plan did not anticipate a third thing: the module was blocked on a stale comment as much as on
+machine code. `hello` carries milestone 7 (user mode) through 19 role catalog and xtask called it
 "aarch64-wired"; three quarters of that sentence had been false, and the last quarter
 was six syscalls hand-rolled in aarch64 `asm!` that `user_mode_runtime` had had portable versions of since
 19f.6. Deleting the duplicates was the whole port for roughly twenty of the tests. Sizing a job from
 what the comments say it needs is how an afternoon's work stays undone for a year.
 
-Sizing it against this project's own units (notes/riscv-parity-scope.md's S/M/L): M, one to two
-sessions, split into commits that are each independently useful. That was right.
+Sized in notes/riscv-parity-scope.md's S/M/L units: M, one to two sessions, in independently
+useful commits. That was right.
 
-Worth saying plainly, and it was true then: the *portable* coverage in that module was already green
-on both ISAs. What RISC-V was missing was the userspace-boundary assertions, not the capability model.
+The *portable* coverage in that module was already green on both ISAs. What RISC-V was missing was the userspace-boundary assertions, not the capability model.
 
 ## See also
 

@@ -5,17 +5,16 @@ from the tree on 2026-08-30, with the SMB implementation that was their only con
 everything below in the past tense; none of it can be built from `main`. `685900ec` is the last
 commit that holds the code.
 
-Why this note is kept. The design argument in it is the transferable part and it is not about
-NTLM: *hold the key, expose the operation, never the key* is what a credential service is for, and
-the password half of that service (Argon2id, `verify::VERIFY`) still ships and still works that way.
-What went is one protocol's arithmetic.
+Why this note is kept: its design argument is not about NTLM. *Hold the key, expose the operation,
+never the key* is what a credential service is for, and the password half (Argon2id,
+`verify::VERIFY`) still ships and works that way. What went is one protocol's arithmetic.
 
 And the removal is itself the lesson. DECISIONS §79 approved holding password-equivalent
 material (an `NTOWFv2`, crackable at roughly the speed of MD4, beside an Argon2id tag that is not)
 and approved three known-broken hash functions to go with it. Its justification was **NTLMv2
-protocol compliance**: nothing here chose MD4 and MD5, the specification did. That reasoning was
-sound and entirely contingent on there being a protocol to comply with. When the customer moved and
-the SMB implementation went, the premise evaporated and nothing noticed: every gate stayed green,
+protocol compliance**: nothing here chose MD4 and MD5, the specification did. That was sound, and
+contingent on a protocol to comply with. When the customer moved and the SMB implementation went,
+the premise evaporated and nothing noticed: every gate stayed green,
 `cargo-deny` stayed happy, and the crate's documented security property was still true of the crate.
 A dependency taken for a stated reason has to be re-checked when the reason changes, and a decision
 record naming its own premise is what makes that possible. §79 is now stale and needs amending;
@@ -37,13 +36,12 @@ Milestone 56 wrote down the principle: *hand out the operation, not the secret.*
 the operation, and the assumption was wrong.
 
 **NTLMv2 does not verify a presented secret.** The client never sends the password, and the server
-never receives anything it can compare against a stored tag. The server holds a key, computes a MAC
-over a challenge it chose, and compares that to the MAC the client sent. So the NT hash is not a
-verifier, it is a key the server computes with, and "secret in, boolean out" does not describe
-the operation at all.
+receives nothing it can compare against a stored tag. The server holds a key, computes a MAC over a
+challenge it chose, and compares that to the client's MAC. The NT hash is a key the server computes
+with, not a verifier, and "secret in, boolean out" does not describe the operation.
 
-That is the whole reason 65 exists as a milestone rather than as a second opcode on the
-credentialer. The principle survived; the shape did not.
+That is why 65 is a milestone rather than a second opcode on the credentialer. The principle
+survived; the shape did not.
 
 ## What the service holds, and what it computes
 
@@ -62,12 +60,10 @@ credentialer. The principle survived; the shape did not.
                                                                     SessionBaseKey (16)
 ```
 
-Everything above the dotted line happens once, at provisioning, from a password the provisioner
-holds in the clear. Everything below happens per authentication, from inputs that are entirely
-public.
+Above the dotted line happens once, at provisioning, from a password the provisioner holds in the
+clear. Below happens per authentication, from public inputs.
 
-**The store holds `NTOWFv2`, not the NT hash**, and that is a design decision rather than an
-implementation detail. Two things follow.
+**The store holds `NTOWFv2`, not the NT hash**, a design decision with two consequences.
 
 The account name and the domain are bound at provisioning time, so a caller of the runtime
 operation cannot choose them. A caller that could would be choosing half the key derivation, which
@@ -84,9 +80,8 @@ Milestone 65's own table names the operation `ntlm_response(challenge) -> respon
 is `NTLM_PROOF`: *is this the proof a holder of the password would have computed, and if so, here
 is the session key.* The proof is computed inside and compared inside; it never leaves.
 
-Folding the comparison into the operation is the same move `VERIFY` makes for a password, and it is
-strictly stronger, because anything that can obtain the expected proof can do the comparison
-itself. The unfolded version is what an SMB client needs, and nothing in this tree is one.
+Folding the comparison in is the move `VERIFY` makes for a password, and it is strictly stronger,
+because anything that can obtain the expected proof can do the comparison itself. The unfolded version is what an SMB client needs, and nothing in this tree is one.
 Milestone 55 is a server: calef's Mac connects to nife as a Time Machine target.
 
 If an SMB client ever arrives, the unfolded operation is a new opcode and a decision to make on
@@ -104,19 +99,18 @@ hash, `NTOWFv2`. There is no message that would return one. There is also no mes
 Crosses, once, on a match: the 16-byte `SessionBaseKey`, written into the shared page at
 `cred_proto::SESSION_KEY_OFF`.
 
-It crosses because an SMB server that authenticates a session and cannot sign it cannot serve SMB2,
-so an operation that returned only a boolean would be useless for the thing it exists to serve. It
+It crosses because an SMB server that cannot sign the session it authenticated cannot serve SMB2,
+so a boolean-only operation would be useless for its purpose. It
 is defensible because the value is a function of the stored key and of a challenge this server
 chose and a client challenge inside the client's blob: it is per-session, it signs one session, and
 recovering the key it came from is an HMAC key recovery.
 
-It is released only against a proof that verified. A caller of this endpoint cannot manufacture
-one, because manufacturing one is exactly the thing the key it does not hold would let it do. So
-the rule is not "ask nicely and receive a key", it is "prove that a real client authenticated, and
-receive that session's key".
+It is released only against a proof that verified, which a caller cannot manufacture without the
+key it does not hold. The rule is "prove that a real client authenticated, and receive that
+session's key".
 
-A stricter design exists and is named rather than pretended away: keep the session key inside
-too and expose *signing* as a further operation. That is the same move one level up, it is where
+A stricter design exists: keep the session key inside too and expose *signing* as a further
+operation. That is the same move one level up, it is where
 milestone 65's third row (a signing key) would take this, and it is not what shipped.
 
 ## Two hazards the store handles that a naive one would not
@@ -136,8 +130,8 @@ nobody provisioned and a wrong proof on one that exists are the same reply and t
 ## Three broken primitives, on purpose
 
 MD4, MD5 and HMAC-MD5 are what NTLMv2 specifies. Shipping them is **protocol compliance, not a
-security choice**, the way implementing DES to talk to old hardware would not be an endorsement of
-DES. What matters is what is stored and what is claimed about it.
+security choice**, as implementing DES to talk to old hardware does not endorse DES. What matters is
+what is stored and what is claimed about it.
 
 They arrive as dependencies, which is DECISIONS §46 applied unchanged: depend rather than vendor,
 so `cargo-deny` and `cargo-audit` can see the graph, and make the specification's own answers the
@@ -153,7 +147,7 @@ says so where the choice is made.
 
 ## The vectors are the point
 
-A dependency whose answers you never check is a dependency you have merely hoped about. So:
+A dependency whose answers you never check is one you have merely hoped about. So:
 
 - RFC 1320's full MD4 test suite, seven vectors. The first, `MD4("")`, is the NT hash of the
   empty password.
@@ -163,16 +157,15 @@ A dependency whose answers you never check is a dependency you have merely hoped
   in the chain: the NT hash of `Password`, `NTOWFv2` for `Domain\User`, `NTProofStr`, and
   `SessionBaseKey`.
 
-The last one is the one that pins our wiring rather than the libraries' arithmetic: the UTF-16LE
+The last pins our wiring rather than the libraries' arithmetic: the UTF-16LE
 encoding, which of the two names is uppercased, the order of the challenge and the blob, and the key
 each HMAC runs under. It is transcribed twice on purpose, once in `crates/ntlm` and once in
 `crates/credentialer`, because the two crates should be checked against the published document and not
 against each other.
 
 A correction worth keeping. The first transcription of the blob carried four extra trailing
-zeros, and every published value up to `NTOWFv2` still matched, because the blob does not enter the
-chain until the proof. The machine caught it at exactly one assertion, where it looked like a bug in
-the code under test. A vector transcribed by shape rather than by count is a vector that lies.
+zeros, and every value up to `NTOWFv2` still matched, because the blob enters the chain only at the
+proof. The machine caught it at one assertion, where it looked like a bug in the code under test. A vector transcribed by shape rather than by count is a vector that lies.
 
 ## EXAMPLES
 
@@ -226,7 +219,7 @@ if proto::is_authenticated(r0) {
 proto::wipe(page);              // the key is ours now; it should not outlive the exchange
 ```
 
-`is_authenticated` is the whole client-side API for the verdict, and it collapses "there is no
+`is_authenticated` is the whole client-side verdict API, and it collapses "there is no
 secrets service", "the request was malformed", "the service died" and "the proof is wrong" into one
 `false`. Testing whether the session key is nonzero instead would be a second, weaker authentication
 check sitting beside the real one.
@@ -239,8 +232,7 @@ let proof = ntlm::proof(&key, &server_challenge, &blob);
 let session = ntlm::session_base_key(&key, &proof);
 ```
 
-Note what is missing from the service's API and present here: there is no `store.ntowfv2_for()`,
-no way to ask the store for a key. `crates/ntlm` is a function of inputs a caller already has;
+The service's API has no `store.ntowfv2_for()`, no way to ask the store for a key. `crates/ntlm` is a function of inputs a caller already has;
 `crates/credentialer` is where the secret lives, and it has no getter.
 
 ## What is proven, and where
@@ -279,18 +271,14 @@ Guest tests (`kernel::user::credential_tests`, on aarch64 and riscv64, same asse
 
 ## BUGS
 
-Named here rather than in a tracker, because a reader who meets the feature should meet its limits
-in the same place.
-
 - **It does not protect against an attacker who holds the endpoint right now.** They can
   authenticate sessions for as long as they hold it, and obtain a session key for each one. The
   claim is that compromise is *bounded and revocable*, not that the key is safe from a live
   intruder. What it buys over Samba is that the key cannot be extracted, cracked offline, or
   carried anywhere else, and that revoking the endpoint ends the access.
 - **Revocation is per holder, not per secret.** Destroying a client's endpoint cuts it off. Revoking
-  one *secret* is a different question and this service cannot answer it: the store is sealed, so
-  there is no object through which a record could be removed, which is the same property that makes
-  the seal worth having. Rotating a share's password means restarting the service and
+  one *secret* is not possible: the store is sealed, so no object exists through which a record
+  could be removed, the same property that makes the seal worth having. Rotating a share's password means restarting the service and
   reprovisioning, which restarts every other secret with it. A deployment that needs finer
   granularity runs more than one service, which is cheap here and is the shape the capability model
   suggests anyway. See [credentials](credentials.md) for the seal's argument.
@@ -317,8 +305,7 @@ in the same place.
   derived key, because the service derives both halves itself. Today that is a test program with
   the strings compiled in, which is fine for a test and is not a deployment.
 - SMB3 needs more than this. Signing is AES-CMAC, encryption is AES-CCM or GCM, and SMB 3.1.1
-  preauth integrity is SHA-512. None of them is here. What is here is the authentication step and
-  the key the rest would hang off.
+  preauth integrity is SHA-512. None of them is here. What is here is authentication and the key the rest would hang off.
 - **`crates/ntlm` is not constant-time and does not need to be**: its inputs are either public or
   keys whose bytes never branch. The one comparison that must be constant-time is the proof
   comparison, and it lives in `credentialer` next to the store, where `subtle` already is. There is no

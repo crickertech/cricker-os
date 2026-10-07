@@ -39,8 +39,7 @@ qemu-system-x86_64 -machine q35 -cpu max -smp 1 -m 256M -display none -serial st
 No accelerator and no `-icount`. Plain TCG on an aarch64 host, one vCPU by default. QEMU 11.1.1
 from Homebrew.
 
-`-icount` is not absent from this tree, and that is the subtlety worth knowing before reading any
-x86 timing number: `script/bench --x86` adds `-icount shift=0,sleep=off` unless you pass
+`-icount` does appear in this tree, which matters before reading any x86 timing number: `script/bench --x86` adds `-icount shift=0,sleep=off` unless you pass
 `--real`, and `xtask`'s `bench_x86` says why (three consecutive boots produced byte-identical tick
 counts on every bench line). `cargo xtask icount`, the instrument of milestone 78 (the load-sensitive
 assertions, and the three that measure the wrong thing), refuses `--arch x86_64` outright. So the
@@ -52,8 +51,8 @@ The TSC cannot validate itself, and neither can the device the boot already cali
 
 - The 8254 PIT is disqualified twice over. `timer::init_frequency` derives the stored rate from
   it, so agreement would be the calibration agreeing with itself; and in QEMU the i8254 is driven
-  from `QEMU_CLOCK_VIRTUAL`, which is the same clock the TSC comes from. It is not a second opinion,
-  it is the same opinion behind a different device model.
+  from `QEMU_CLOCK_VIRTUAL`, which is the same clock the TSC comes from. It is the same opinion behind a
+  different device model.
 - The local APIC timer is disqualified for the same reason, and worse: its own frequency is
   itself measured against the PIT in the same 10 ms window, which is why the `apic timer NN MHz`
   figure on the boot line moves in lockstep with the TSC figure in every transcript below.
@@ -110,7 +109,7 @@ window order: `alu` 1,000,137,750 / 999,149,250 / 1,000,000,250 / 999,999,750 Hz
 guest's emulated instruction rate moves the implied TSC frequency by less than the window-to-window
 noise. That is the instruction-derived hypothesis dead.
 
-**The per-window spread is the reference's jitter, not the TSC's.** It has to be: the spread is 4 ppm
+**The per-window spread is the reference's jitter, not the TSC's.** The spread is 4 ppm
 in one boot and 4,228 ppm in another taken minutes apart on the same binary, and the cumulative
 figure over thirty-two seconds lands within 42 ppm every time. QEMU's RTC advances its seconds
 register on a host timer that a loaded host delivers late, which shortens one window and lengthens
@@ -118,7 +117,7 @@ the next; averaging over the whole run is what removes it.
 
 ### Why it is exactly a gigahertz, read rather than recalled
 
-The measured value is not a coincidence and the mechanism is in QEMU's source. The x86 TSC under TCG
+The mechanism is in QEMU's source. The x86 TSC under TCG
 comes from `cpus_get_elapsed_ticks()` -> `cpu_get_ticks()`, which adds `cpu_get_host_ticks()`, and
 `include/qemu/timer.h` (v11.1.0) has no aarch64 case. An ARM64 host falls to the generic arm:
 
@@ -138,8 +137,8 @@ comes from `cpus_get_elapsed_ticks()` -> `cpu_get_ticks()`, which adds `cpu_get_
 host's monotonic nanosecond count, which is why it reads 1,000,000,000 Hz and why nothing the guest
 or the host does can change its rate: there is no rate to change.
 
-**This is a fact about the host's architecture, not about TCG**, and that is the most important
-caveat in this note. That header has a case for `x86_64` hosts that reads the host's own `rdtsc`. So
+**This is a fact about the host's architecture, not about TCG**, and it is this note's most
+important caveat. That header has a case for `x86_64` hosts that reads the host's own `rdtsc`. So
 on **xenon** (the x86_64 OptiPlex) or on any x86_64 CI runner, the guest TSC is the host TSC at the
 host part's rate, and this note's 1 GHz measures nothing there. What carries across is the method
 and the harness, not the number.
@@ -166,7 +165,7 @@ burns, reproducibly, in the same boot. And the determinism `-icount` exists for 
 same table from the other side: the work counter read 3704 in every `alu` window and 40496 in
 every `port` window, byte-identical, which is the property `bench --x86` gates on.
 
-This is not a bug and nothing here should be changed to "fix" it. Under `-icount` the guest's
+This is not a bug and nothing here should "fix" it. Under `-icount` the guest's
 virtual nanosecond *is* the unit of instruction count, so a bench number derived from it is a
 deterministic function of the instruction stream, which is exactly what a regression tripwire wants
 and exactly what a wall-clock measurement is not. `notes/benchmarks.md` already says the icount
@@ -202,8 +201,8 @@ What reads the number: `bench --x86 --real`'s ns/iter, `Instant` and `uptime` th
 in the x86 suite. Deadlines fail safe (an inflated rate makes a two-second timeout longer in real
 time, never shorter); the reported numbers do not.
 
-FIXED, 2026-09-21, the same day, by milestone 571 (the x86 boot calibrates the TSC once, and can be wrong by 4x), which is what
-the proposal this paragraph used to point at became. The boot now
+FIXED, 2026-09-21, the same day, by milestone 571 (the x86 boot calibrates the TSC once, and can be wrong by 4x),
+this note's former proposal. The boot now
 times several windows and keeps the smallest, because the error being one-sided is what makes the
 minimum the right estimator; it stops as soon as two windows agree to one part in a thousand, so the
 mean cost is 3.5 windows on a quiet host; and the boot line prints the worst window beside the
@@ -264,8 +263,7 @@ The boot prints one `tscprobe:` line per window and a summary. To vary the host,
 more spinning processes than it has cores while the run is in flight, or start a second guest from
 the same command.
 
-The calibration sweep needs no harness at all, which is worth knowing because it is the finding
-that matters most: boot any x86 kernel and read the `clocks      :` line, twenty times, once with
+The calibration sweep, the finding that matters most, needs no harness: boot any x86 kernel and read the `clocks      :` line, twenty times, once with
 the host loaded.
 
 # BUGS
@@ -274,8 +272,7 @@ the host loaded.
   orders of magnitude between runs taken minutes apart (4 ppm to 4,228 ppm per window). Everything
   here is therefore stated cumulatively over 32 or 48 seconds, and a short-window number from this
   harness means very little on its own.
-- The harness produced two confident wrong answers before it produced a right one, and both are
-  worth knowing because both look like results. Assuming a window's length instead of reading it off
+- The harness produced two confident wrong answers before a right one, and both look like results. Assuming a window's length instead of reading it off
   the reference reported a 1.25 GHz TSC that does not exist, exactly the ratio of the assumed count
   to the real one. Subtracting raw CMOS bytes without decoding BCD reported four-second windows as
   ten seconds, because the register steps 0x09 -> 0x10 across every decade. Both are in the commit

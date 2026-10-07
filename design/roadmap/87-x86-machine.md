@@ -11,7 +11,7 @@ Raised 2026-08-03. xenon printed `nife self-test: 5 of 5 passed` at
 
 nife now runs on real hardware on all three architectures, aarch64 only under HVF (corrected 2026-10-06).
 
-How the gate stood, kept as this block's history. It read `HARDWARE` to the end. What follows is that paragraph as written.
+The gate as it read to the end, kept as written:
 
 > **Gate: HARDWARE.** It is now the only gate. The hardware side finished 2026-08-23 (the
 > OptiPlex arrived 2026-08-15; the Dell C4PDJ serial module and the dev-side RS-232 chain arrived and
@@ -35,8 +35,8 @@ nife self-test: 5 of 5 passed
 On the OptiPlex 7040, at xenon's addresses, that unit covers only integrated graphics: the line
 shows a unit translating, not a device confined. Unverified until xenon's DMAR is read.
 
-The `AlreadyMapped` fix held. `mmu : fine W^X 4-level map installed` is the line this machine
-died before reaching on 2026-09-04, and the boot went straight past it.
+The `AlreadyMapped` fix held: the boot went straight past `mmu : fine W^X 4-level map installed`,
+the line this machine died before reaching on 2026-09-04.
 
 Three numbers nobody had read from real x86_64 hardware:
 
@@ -55,8 +55,8 @@ pcie ecam 0xf0000000, buses 0..=127 (mmu::PCI_ECAM_PHYS says 0xb0000000)
 ```
 
 The ACPI MCFG puts the ECAM window at `0xf0000000`; the constant says `0xb0000000`. Nothing failed,
-because the discovered value is what was used. A constant that disagrees with firmware on the first
-real machine to check it is worth a look before something trusts it without cross-checking.
+because the discovered value was used, but a constant that disagrees with the first real firmware
+to check it deserves a look before something trusts it.
 
 ## And it refused to hand over, which is the gate working and a defect in our own build
 
@@ -66,7 +66,7 @@ nife: handing the system to the userspace progenitor.
 ```
 
 This is the second time this exact defect has reached a bench. `cargo xtask uefi-image` built the
-kernel **before** the archive. Packing the archive regenerates `target/init-measure-x86_64.txt`, the
+kernel before the archive. Packing the archive regenerates `target/init-measure-x86_64.txt`, the
 manifest `kernel/build.rs` compiles in as the measured-boot trust root, so a kernel built first
 vouches for the *previous* archive and the gate refuses the pair at handover.
 
@@ -74,17 +74,14 @@ vouches for the *previous* archive and the gate refuses the pair at handover.
 2026-08-15 (boot 12). The fix there carries a comment reading *"QEMU never hit it because xtask
 orders these correctly"*, which was true of the riscv64 path and false of this one, and nothing checked.
 
-QEMU does not catch it because a developer running both from one tree usually has both fresh. It
-bites when the kernel is already built, which is every time a lane compiled it earlier in the
-session. That is exactly what happened here.
+QEMU does not catch it because one tree usually has both fresh. It bites when the kernel is
+already built, as it was here, after a lane compiled it earlier in the session.
 
 Fixed in `xtask::uefi_image` on 2026-09-17, archive first, with the reasoning at the call site
 rather than in a note, because a comment in the other script had already asserted this was handled.
 Verified under OVMF: the corrected pair prints `progenitor: every program measured against the
-archive table` and reaches a ring-3 shell.
-
-The next boot therefore starts where this one stopped, and everything past the handover is ground
-this kernel has never covered on this machine.
+archive table` and reaches a ring-3 shell. Everything past the handover is ground this kernel has
+never covered on this machine.
 
 ## What the screen showed, and a finding that was nearly invented
 
@@ -93,20 +90,18 @@ A photograph taken after the halt (`IMG_4143`, filed in `~/projects/xenon/` per
 `notes/xenon-firmware.md`'s convention) shows a sparse dotted grid, which is the panel after the
 machine stopped rather than anything nife drew.
 
-Recorded because it was nearly written up as a defect. A maintainer read that photograph alone
-and had begun drafting a finding that the framebuffer console was broken on xenon, citing
-`uefi_loader`'s own stride warning as the likely cause. calef's correction, that text had been on
-the screen before it, is the only thing that stopped a fabricated defect entering the record. A
+Recorded because a maintainer, reading that photograph alone, had begun drafting a finding that
+the framebuffer console was broken on xenon, citing `uefi_loader`'s own stride warning. calef's
+correction, that text had been on the screen before it, alone stopped a fabricated defect. A
 photograph of a halted machine is evidence about a halted machine.
 
 First light happened on 2026-09-04, and this block went on reading as though it had not, which
 misled a maintainer on 2026-09-16 into saying three times that xenon had never booted nife at all.
-The completion sentence below ("completes when the machine has printed a byte over serial") is the
-cause: bytes were printed, so the sentence is satisfied while the milestone is not, and a reader
-checking the status word against that sentence concludes nothing has happened.
+The cause was the completion sentence below ("completes when the machine has printed a byte over
+serial"): bytes were printed, so the sentence was satisfied while the milestone was not.
 
-What actually happened. The UEFI loader ran from the stick, the kernel started under the
-machine's own firmware, the tour printed, and it panicked in the mapper:
+What happened: the UEFI loader ran from the stick, the kernel started under the machine's own
+firmware, the tour printed, and it panicked in the mapper:
 
 ```
 [PANIC] panicked at kernel/src/arch/x86_64/mmu.rs:325:33:
@@ -121,36 +116,29 @@ APIC, the SPI flash and 128 MiB of PCH decode **cacheably**, which is a write th
 cache line and never reach the device. Nothing had touched those yet, so nothing had failed; the
 panic is what made it visible.
 
-The fix is on `main` (`memory_mapped_io_window`), so the next boot is a resumption rather than
-a first light: the line to look for is `mmu : fine W^X 4-level map installed (cr3 ...)`, which is
-one line past where the machine stopped, followed by a page-table cost nobody has ever read from
-real hardware. `notes/x86-uefi-boot.md`'s step list has the procedure and what to do if it panics
-somewhere new, which is progress rather than a failure of the fix.
+The fix is `memory_mapped_io_window`, on `main`. `notes/x86-uefi-boot.md`'s step list has the
+procedure and what to do on a new panic, which is progress rather than a failure of the fix.
 
 The completion criterion is the self-test, ruled by calef on 2026-09-17, replacing "printed a
 byte over serial":
 
 > This milestone is `BUILT` when xenon prints `nife self-test: N of N passed`.
 
-**Why that line and not one of the obvious alternatives**, because the question turned out to be
-sharper than it looked. "The tour completing" was proposed first and withdrawn: milestone 267
-established that the tour is three things wearing one name, and deleted one of them. The
-narrative program is gone, so a criterion naming "the tour" would cite something that partly does
-not exist.
+**Why that line and not the obvious alternatives.** "The tour completing" was proposed first and
+withdrawn: milestone 267 (the tour is three things wearing one name) established as much, and deleted
+one of them (the narrative program), so "the tour" would cite something that partly does not exist.
 
 The self-test is the right bound for **this** milestone. It is a machine-readable line that
 `script/soak` and `crates/board_console` already judge board runs by, so nothing new has to learn to
 read it; and passing it means exceptions, mapping, frames, timer and scheduler all work on the
 hardware, which is "this machine runs nife" with a definite answer rather than a liveness signal.
 
-The progenitor handover (`nife: handing the system to the userspace progenitor`) was considered and
-is a stronger claim, but it drags in the archive, ELF loading and the FS service, which are
-milestone 161's scope rather than this block's. This block's own text already says the x86_64
-port is not gated on the purchase. That line belongs to 161 or 182, not here.
+The progenitor handover (`nife: handing the system to the userspace progenitor`) is a stronger
+claim, but it drags in the archive, ELF loading and the FS service, which are the scope of
+milestone 161 (the x86_64 kernel port). That line belongs to 161 or 182, not here.
 
-The sentence below is kept as written because it is what the block promised, and rewriting a
-promise to match an outcome is how a record stops being one. This paragraph is what a reader should
-believe instead of it.
+The sentence below is kept as written because it is what the block promised; rewriting a promise
+to match an outcome is how a record stops being one. Believe this paragraph instead.
 
 The bench procedure and its failure triage are in notes/x86-uefi-boot.md's "The bench".
 
@@ -165,7 +153,7 @@ GRUB is not installable on the development machine at all (`brew info grub`: no 
 path could have been written on patagonia but not *proved* there. The OptiPlex is also UEFI-native,
 so UEFI is the shorter path at both ends. GRUB stays cheap to add for a BIOS-only machine.
 
-**The kernel is not modified**, and that is the design rather than an economy. `uefi_loader` places
+**The kernel is not modified**, by design rather than economy. `uefi_loader` places
 the kernel at its `p_paddr`, synthesizes an `hvm_start_info` out of what the firmware knows, leaves
 long mode, and enters **the same `_start`** with the same register contract QEMU's PVH loader
 delivers. One entry point, one handoff structure, one decoder, one set of tests; two of each would
@@ -194,9 +182,8 @@ null-modem barrel, $7.98, chosen over a cable so the desk carries eighteen inche
 three feet). About $182 all-in against the $194 estimate, twelve days after selection; the $129
 machine tier had aged out and nothing else moved. This milestone completes when the machine has
 printed a byte over serial; the x86_64 port itself is milestone 161's scope and is not gated on
-the purchase, because it starts under QEMU TCG the way riscv64 did. One bench note for arrival,
-recorded here because both kits share the desk: this port is real RS-232 and the boards' adapters
-are 3.3 V TTL, and the two chains must never swap; label them.
+the purchase, because it starts under QEMU TCG the way riscv64 did. The RS-232 and 3.3 V TTL
+bench note is under Follow-on.
 
 DECISIONS §19 names x86_64 as the third ISA target, and the second ISA's lesson (milestone 16, the
 VisionFive 2) is that the board should be chosen and ordered before the port needs it, from
@@ -251,9 +238,8 @@ hosts the PXE/TFTP end.
 
 ## Scope note
 
-This milestone is the machine, the serial link proven, and nothing else; the port itself is
-milestone 161's scope and is not gated on this purchase, because the port starts under
-QEMU TCG the way riscv64 did. Buying early was cheap insurance against the VisionFive 2 pattern
+This milestone is the machine and the serial link proven, nothing else; the port is milestone
+161's (above). Buying early was cheap insurance against the VisionFive 2 pattern
 (ordered 2026-07, arrived 2026-08-21) of the board being the long pole, and it paid off: the
 hardware side finished before the code side needed it.
 ## Follow-on

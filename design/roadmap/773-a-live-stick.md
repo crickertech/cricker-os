@@ -18,7 +18,7 @@ Asked for by calef on 2026-10-04 (UTC). Written by the lane `lane/live-stick-pro
 A stick that boots a PC such as xenon into a usable nife, runs from memory, and leaves the PC's own
 disk exactly as it found it.
 
-Exit criteria, each something a person at xenon can see happen:
+Exit criteria, each visible to a person at xenon:
 
 1. With Secure Boot off, xenon starts the stick from the firmware's one-time boot menu.
 2. The boot tour and then `$` appear on the monitor.
@@ -43,11 +43,10 @@ Under QEMU, a gate checks criterion 5 by hashing the NVMe image around a stick b
 - It runs from memory. The loader hands the archive over as a PVH module and reads its own file back
   as a second module while the firmware is still up (milestone 515 (the installer), R1;
   `notes/installing.md`). Nothing reads the stick after `ExitBootServices`. The stick can be pulled
-  once the prompt appears.
+  at the prompt.
 - A boot with no disk reaches the prompt (`crates/system_initializer`).
 - The installer stick is already a live stick when nobody types `INSTALL`. The offer waits 30
-  seconds, then "anything else continues the boot" (`kernel/src/user/install_service.rs`). That
-  ordinary boot is the live system.
+  seconds, then "anything else continues the boot" (`kernel/src/user/install_service.rs`).
 - The prompt on the screen: milestone 400 (the shell on the firmware screen) is PARTIAL, built and
   gated under OVMF, xenon outstanding.
 - The keyboard: milestone 242 (USB host and HID) is in the merge queue as PR #1629. Its BUGS say
@@ -69,14 +68,14 @@ Under QEMU, a gate checks criterion 5 by hashing the NVMe image around a stick b
 | G10. The install path on aarch64 and riscv64 | No install offer: a device-tree handoff has no slot for the boot file, and `BOOTRISCV64.EFI` is not an 8.3 name the FAT writer accepts. Both run live meanwhile | Milestone 568 (the boot file has nowhere to go on a device-tree machine); milestone 560 (a long file name, or riscv64 cannot be installed) |
 | G11. Each board's install-target disk driver | Unsurveyed. Nobody has listed which disk argon and radon would install onto, or whether nife has a driver for it | Nobody |
 
-G1 and G2 are the findings of this proposal. Both were read in the code, not run on silicon.
+G1 and G2 are this proposal's findings, read in the code (see BUGS).
 
 G1 means criterion 5 fails today. It also corrects milestone 572 (there is no way back from the
 stick), which blames the survey. The survey never runs: the chooser starts the disk's slot, which
 "has no boot file" (`chooser.rs` BUGS), so the offer is skipped and 572's REPLACE is never reached.
 
 On a disk carrying Windows, G2 is probably harmless: `FileSystem::open` should find no RedoxFS
-header and fail before it writes. That was read, not run.
+header and fail before it writes.
 
 ### The fix for G1 and G2, recommended
 
@@ -96,8 +95,7 @@ measured); and a build-time "live" flag, which the installed copy would inherit.
 
 ### G3: a filesystem in memory, recommended
 
-A block server over a run of RAM, serving the `filesystem_protocol::blk` wire, with `mkfs` run on it
-at boot. `redoxfs_server` and `mkfs` are reused unchanged. The live session then has a writable
+A block server over RAM, serving the `filesystem_protocol::blk` wire, with `mkfs` run on it at boot. `redoxfs_server` and `mkfs` are reused unchanged. The live session then has a writable
 filesystem that is gone at power-off. A provisional name for the server: `memory_disk`.
 
 Size: 256 MiB, provisional; the lane sizes it from the memory map. Prior art, read: Redox's
@@ -113,8 +111,8 @@ useful."*
 
 ### What a persistent stick is gated on
 
-A persistent stick boots on any architecture and carries work between machines, of the same
-architecture or a different one. By the ruling, that needs programs to carry over, not only files.
+A persistent stick boots on any architecture and carries work between machines of any
+architecture. By the ruling, that needs programs to carry over, not only files.
 So it depends on milestone 198's packages being usable on every architecture from one stick. Three
 options were recorded; two remain, and neither is chosen:
 
@@ -126,7 +124,7 @@ options were recorded; two remain, and neither is chosen:
 
 #### A leading candidate, not a decision
 
-Recorded at calef's request on 2026-10-05 (UTC); he said it is not a decision. A hybrid of (a) and
+Recorded at calef's request on 2026-10-05 (UTC). A hybrid of (a) and
 (b): thin at the source, fat on the stick. The package server keeps one build per architecture,
 and a normal install fetches only its own. Installing onto a persistent stick fetches all three,
 because the stick may boot offline on any machine and has no distribution layer behind it. That is
@@ -148,7 +146,7 @@ The fat sum is 2,170,480 bytes: 2.55x the largest build and 4.13x x86_64. Gzippe
 non-code content (documentation, data, manifest) is stored once, which lowers the ratio. Why the
 aarch64 and riscv64 builds are larger than x86_64 is unexplained.
 
-A refinement, recorded at calef's request on 2026-10-05 (UTC), also not a decision. calef
+A refinement, recorded at calef's request on 2026-10-05 (UTC), also not a decision. He
 suggested four versions per package: universal, aarch64, riscv64 and x86_64. The maintainer's
 refinement is that universal is an index, not a fourth built artifact: a few hundred bytes naming
 the three builds by digest, like a Docker manifest list. A built universal artifact would store
@@ -158,9 +156,9 @@ install reads the index and fetches its own build. An install onto a persistent 
 three, checks each against its own digest, and stores them side by side under one package name.
 
 These are fat packages, not fat binaries. A fat binary is one executable with slices, like Mach-O
-universal. ELF has none; FatELF was proposed and rejected in 2009 (from memory). A fat binary
-needs a new loader format. A fat package is three ordinary
-ELFs plus the index, chosen by the package manager at install or activation, with no loader change.
+universal, and needs a new loader format; ELF has none (FatELF was proposed and rejected in 2009,
+from memory). A fat package is three ordinary ELFs plus the index, chosen by the package manager
+at install or activation, with no loader change.
 
 #### What else it needs
 
@@ -214,7 +212,7 @@ asked in userspace they differ only in when.
    Fedora (Fedora Magazine). Ubuntu only through secondary sources, as `help.ubuntu.com` returned
    503: a `writable` partition (`casper-rw` before 20.04) and a `persistent` boot parameter.
 4. The premise "a stick boot never writes the internal disk" is false on an installed machine.
-5. Cost was not measured; no code was written. G1 and G2 are one device-path walk and one handoff
+5. Cost was not measured, and no code written. G1 and G2 are one device-path walk and one handoff
    field, G3 one small block server, G4 one moved question. P1 is a driver family.
 6. All of v1 is code in one sealed file. Publication (§157 rung 4) is the irreversible part, and
    calef's.

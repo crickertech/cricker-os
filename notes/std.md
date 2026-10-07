@@ -7,10 +7,9 @@ DECISIONS §22 for the decision and why; notes/abi.md for the ABI it binds to.)*
 
 The shape is Hermit's, not Redox's. Hermit implements std's platform layer directly on a
 non-POSIX unikernel ABI; Redox writes a POSIX C library (relibc) first and puts std on top of that.
-We took the native road: there is no errno, no fd table, no `open`, no `fork` under our `sys`
-backend, because the OS does not have them and std does not actually need them to run a workload
-that stays off files and sockets. That is the whole point of having done the native ABI first
-(DECISIONS §14, §15): std widens "runs real workloads" from hand-built `no_std` binaries to most of
+We took the native road: no errno, no fd table, no `open`, no `fork` under our `sys` backend,
+because the OS lacks them and std does not need them for a workload that stays off files and
+sockets. That is why the native ABI came first, per DECISIONS §14 (the project's direction) and §15 (the native ABI): std widens "runs real workloads" from hand-built `no_std` binaries to most of
 crates.io, without smuggling in the POSIX assumptions the ABI deliberately excludes.
 
 ## What a std program is given
@@ -20,9 +19,9 @@ A std program is an ordinary nife ELF (notes/abi.md §3): entered at `_start`, l
 out-of-band convention (notes/abi.md §4) grants them at fixed slots:
 
 - slot 0: an untyped budget. The global allocator draws heap pages from it lazily via
-  `untyped::MAP`, one page per invoke, at `0x4000_0000`. This is the same untyped-backed heap the
-  `allocator_exerciser` workload proved (`crates/user_mode_heap` algorithm, host-tested), restated inside std because
-  std cannot depend on an out-of-tree crate.
+  `untyped::MAP`, one page per invoke, at `0x4000_0000`: the untyped-backed heap the
+  `allocator_exerciser` workload proved (`crates/user_mode_heap` algorithm, host-tested), restated
+  because std cannot depend on an out-of-tree crate.
 - slot 1: an endpoint with WRITE. `stdout` and `stderr` SEND here, 16 bytes per message (w0 =
   byte count, w1|w2 = the bytes, little-endian). std's own `LineWriter` batches user writes; the
   receiver reassembles.
@@ -38,15 +37,15 @@ Three more slots exist, and a program holds each only if it was *given* the thin
   at `0x1200_0000`. `SystemTime::now()` is the offset it finds there plus the ambient counter
   (milestone 51, §43).
 - **slot 6: the entropy service's request endpoint**, with WRITE (milestone 56, §44). It means "you
-  may obtain randomness" and names no device; there is no mapping alongside it, because randomness is
-  obtained by asking rather than by reading. `std::random::SystemRng` is a `CALL` on it.
+  may obtain randomness" and names no device; no mapping comes with it, because randomness is
+  obtained by asking, not reading. `std::random::SystemRng` is a `CALL` on it.
 
-A program that never allocates, prints, opens a socket, or opens a file never touches the slots it
-does not use. The absence of slots 2 and 3 is exactly what "no ambient network" feels like from
-inside a process, and the absence of slot 4 is "no ambient filesystem": each returns `Unsupported`
-because there is no capability to reach, not because the code was compiled out. A program can hold
-one and not the other, so the slots do not fill contiguously; notes/abi.md §4 records how the
-kernel-side wiring places slot 4 while leaving 2 and 3 empty, and why the gap matters.
+A program never touches the slots it does not use. The absence of slots 2 and 3 is what "no
+ambient network" feels like from inside a process, and the absence of slot 4 is "no ambient
+filesystem": each returns `Unsupported` because there is no capability to reach, not because the
+code was compiled out. A program can hold
+one and not the other, so slots do not fill contiguously; section 4 of notes/abi.md records how the kernel
+places slot 4 while leaving 2 and 3 empty, and why the gap matters.
 
 ## The PAL surface, and what each piece binds to
 
@@ -70,9 +69,8 @@ std by `cargo xtask std-src`. Each file binds one std concept to the ABI:
 | `std::env::current_dir` | `/`, the root of this process's own namespace (milestone 47); `Unsupported` when it holds no directory. `current_exe` and `chdir` refuse, `home_dir` is `None` |
 | `std::process::id` | `0`, because this system issues no process identifier (`sys/process/nife.rs`); everything else in `std::process` refuses |
 
-The syscall glue (`sys/pal/nife/rt.rs`) is a deliberate twin of `crates/user_mode_runtime`: the same
-`svc`/`ecall` wrappers, restated because std cannot depend on the crate. The ABI constants are
-not restated: `abi.rs` is generated verbatim from `crates/abi` by `std-src`, so the numbers cannot
+The syscall glue (`sys/pal/nife/rt.rs`) deliberately twins `crates/user_mode_runtime`'s
+`svc`/`ecall` wrappers, because std cannot depend on the crate. The ABI constants are not restated: `abi.rs` is generated verbatim from `crates/abi` by `std-src`, so the numbers cannot
 drift. Likewise `user_mode_heap.rs` from `crates/user_mode_heap` (the host-tested heap algorithm is the only heap
 algorithm), `netproto.rs` from `crates/socket_protocol/src/lib.rs`, and `fsproto.rs` from `crates/filesystem_protocol`: every
 wire format the PAL speaks has exactly one definition, and it lives with the server that answers it.
@@ -82,13 +80,12 @@ come the same way, as `runtimeproto.rs` from `crates/std_runtime_protocol`, sinc
 
 ## The toolchain: build-std against a patched rust-src
 
-There is no crate to adopt; the deliverable IS the PAL, plus the machinery to build it. Rust's
-`-Zbuild-std` compiles std from source, and it finds that source in the sysroot of the rustc it
-invokes. So a patched std means a toolchain whose sysroot is patched. `cargo xtask std-src`
+There is no crate to adopt; the deliverable IS the PAL, plus the machinery to build it.
+`-Zbuild-std` compiles std from the sysroot of the rustc it invokes, so a patched std means a
+patched sysroot. `cargo xtask std-src`
 builds one:
 
-1. Hardlink-clone the real nightly (`cp -al` of `bin` and `lib`). Blocks are shared, so the
-   clone costs almost no disk. rustc resolves *this* directory as its sysroot (it derives the
+1. Hardlink-clone the real nightly (`cp -al` of `bin` and `lib`), which costs almost no disk. rustc resolves *this* directory as its sysroot (it derives the
    sysroot from the location of `librustc_driver`; a symlink farm resolves back to the real
    toolchain, as measured).
 2. Replace the `src` subtree with a real copy (independent inodes), so patching it never
@@ -99,52 +96,49 @@ builds one:
    `restricted_std` chain in std's `build.rs`.
 4. Link it as the `nife-dev` toolchain (`rustup toolchain link`).
 
-`cargo xtask std-exerciser` then builds the `std_exerciser` demo for both custom targets against it. The build
-sets `RUSTUP_TOOLCHAIN=nife-dev` explicitly rather than `+nife-dev`, because the cargo proxy
-that launched xtask already exports `RUSTUP_TOOLCHAIN=nightly`, which would override a `+` selector
+`cargo xtask std-exerciser` then builds the `std_exerciser` demo for both custom targets against it, setting
+`RUSTUP_TOOLCHAIN=nife-dev` rather than `+nife-dev`, because the cargo proxy that launched xtask
+already exports `RUSTUP_TOOLCHAIN=nightly`, which would override a `+` selector
 and silently build std from the *unpatched* sysroot.
 
 `std-src` is idempotent: a stamp of all inputs (the toolchain version, the ABI/heap crates, the
-target specs, every overlay file, and a patch-logic version) guards the rebuild, so a warm farm and
-its build-std cache survive across runs and only a PAL change forces std to recompile.
+target specs, every overlay file, and a patch-logic version) guards the rebuild, so only a PAL
+change forces std to recompile.
 
 ### `nife-dev` is global to the machine, and the stamp does not guard it
 
 The farm is per-worktree; the name is not. `rustup toolchain link` writes one symlink under
-`$RUSTUP_HOME/toolchains` for the whole user account, so `nife-dev` means whichever worktree ran
-`std-src` last, while every build downstream resolves std through that name rather than through a
-path. Two agent lanes gating at once therefore contend for it, and the loser does not fail: it
-compiles against a farm inside somebody else's worktree.
+`$RUSTUP_HOME/toolchains` for the whole account, so `nife-dev` means whichever worktree ran
+`std-src` last, and every downstream build resolves std through that name. Two lanes gating at once contend for it, and the loser does not fail: it compiles against a
+farm inside somebody else's worktree.
 
-A warm stamp used to be enough to skip the link entirely, which is what made the failure silent.
-The stamp answers *is this worktree's farm built*, and nothing was asking *does `nife-dev` still
-mean it*. On 2026-08-18 lane `55-durability` relinked mid-run and lane `64-more`'s `std_exerciser`
+A warm stamp used to skip the link entirely, which made the failure silent: the stamp answers *is
+this worktree's farm built*, and nothing asked *does `nife-dev` still mean it*. On 2026-08-18 lane `55-durability` relinked mid-run and lane `64-more`'s `std_exerciser`
 built against 55's farm; it was caught by a person reading the `Compiling std` path out of the build
-output, and nothing else would have caught it. AGENTS.md had warned about this shape in prose since
-2026-08-01 and the warning is rung four, which is exactly as much as it turned out to be worth.
+output, and nothing else would have caught it. AGENTS.md had warned about this in prose since
+2026-08-01, a rung-four warning worth exactly that much.
 
-`std_src` now verifies the link on the warm path and relinks, loudly, when it points elsewhere.
-Relink rather than refuse, because the lane calling it is about to build and needs the name to mean
-its own farm; taking the link is what every lane already does by design. What changed is that the
-theft is deliberate and printed, so a foreign `Compiling std` path cannot happen without a line
-above it naming who took what. It also fixes the dangling case AGENTS.md describes, where a pruned
-worktree left `nife-dev` pointing at nothing and unrelated builds failed far from the cause with
+`std_src` now verifies the link on the warm path and loudly relinks when it points elsewhere.
+Relink rather than refuse, because the calling lane is about to build and needs the name to mean
+its own farm; every lane takes the link by design. Now the theft is printed, so a foreign
+`Compiling std` path cannot happen without a line above it naming who took what. It also fixes the dangling case AGENTS.md describes, where a pruned worktree left `nife-dev`
+pointing at nothing and unrelated builds failed far from the cause with
 `override toolchain 'nife-dev' is not installed`.
 
-**Telling a lane not to take the link was never possible**, which milestone 57's lane established on
-2026-08-01 by reading the code rather than by failing. `script/test` calls `std_src()` transitively
+**Telling a lane not to take the link was never possible**, as the lane for milestone 57 (partitioning a real drive) established on
+2026-08-01 by reading the code. `script/test` calls `std_src()` transitively
 and a fresh worktree always has a cold farm, so any lane that runs the gate takes the
-account-wide name. `AGENTS.md` had at that point given two instructions that could not both be
-obeyed: gate before reporting, and do not run `xtask std-src`. The honest rule that replaced them is
-the integrator's, and is all that `AGENTS.md` still carries: expect every lane to take it, and
-relink from the main checkout at merge.
+account-wide name. `AGENTS.md` then gave two instructions that could not both be obeyed: gate
+before reporting, and do not run `xtask std-src`. The rule that replaced them, and all `AGENTS.md`
+still carries, is the integrator's: expect every lane to take it, and relink from the main checkout
+at merge.
 
-The workaround worth knowing, from the same lane: symlink the worktree's `target/nife-farm` at
+A workaround from the same lane: symlink the worktree's `target/nife-farm` at
 the main checkout's farm once `cargo xtask std-stamp` shows the stamps match, and `std_src()`
 early-returns instead of rebuilding a second copy.
 
-This does not make concurrent lanes safe, and must not be read that way. It makes the loss
-visible and self-healing at the next call. A lane whose build is already in flight when another
+This does not make concurrent lanes safe. It makes the loss visible and self-healing at the next
+call. A lane whose build is already in flight when another
 relinks still loses; the honest fix is a per-worktree toolchain name, which nobody has priced.
 
 **Since 2026-09-30, every build this tree owns names the farm by path.** Three sites of evidence
@@ -155,7 +149,7 @@ worktree's farm (16:34 UTC, not reproduced since). A path this checkout computed
 the only selector with one owner.
 
 `std-exerciser` also pins `CARGO_TARGET_DIR` to `std_exerciser/target` and prints the override.
-The export used to separate a build from its evidence: the sweep judged the previous run's
+An export used to separate a build from its evidence: the sweep judged the previous run's
 dep-info, so a wrong-sysroot build passed green. Both shapes were reproduced host-side.
 
 ### The target specs
@@ -165,10 +159,9 @@ dep-info, so a wrong-sysroot build passed green. Both shapes were reproduced hos
 The load-bearing fields:
 
 - `"os": "nife"` selects our `sys` backend through every dispatcher.
-- `"panic-strategy": "abort"` means unwinding machinery is never even linked; `panic!` prints and
-  faults.
+- `"panic-strategy": "abort"` means unwinding machinery is never linked; `panic!` prints and faults.
 - `"singlethread": true` turns off `target_has_threads`, so std uses its `no_threads` sync
-  primitives and single-`static` TLS. This is honest for phase one (one thread of execution per
+  primitives and single-`static` TLS, honest for phase one (one thread of execution per
   process, `thread::spawn` is `Unsupported`); it flips off when real threads arrive.
 - softfloat (aarch64 `-neon`, riscv `lp64`, x86_64 `-mmx,-sse...,+soft-float` with
   `"rustc-abi": "softfloat"`) matches EL0/U-mode/ring 3 with no FP save area, the same choice the
@@ -176,14 +169,14 @@ The load-bearing fields:
   `kernel/src/arch/x86_64/` saves no FPU or SSE state on a context switch, so a std program that let
   LLVM emit SSE would have its `xmm` registers overwritten by whichever thread ran next.
 
-The reasoning of milestone 184 (extend the `std` port to x86_64) for each field, the probe that
-shows no SSE leaked in, and the entry stub that fixes the stack offset are in [the x86_64 spec
+The reasoning of milestone 184 (extend the `std` port to x86_64) for each field, the probe showing no
+SSE leaked in, and the entry stub that fixes the stack offset are in [the x86_64 spec
 appendix](std/x86-64-target.md).
 
 ## `std::net` and `std::fs`
 
-Both are clients of a frozen contract and nothing more. Their wire constants are generated verbatim
-by `std-src` (`netproto.rs` and `fsproto.rs`), so the PAL's numbers cannot drift from the server's.
+Both are clients of a frozen contract. Their wire constants are generated verbatim by `std-src`
+(`netproto.rs` and `fsproto.rs`), so they cannot drift from the server's.
 
 - `std::net` binds `TcpStream`, `TcpListener` and outbound `UdpSocket` to net_stack's socket
   contract on slots 2 and 3, under §25 (socket identity). Each socket gets its own shared frame; a listener gets
@@ -191,7 +184,7 @@ by `std-src` (`netproto.rs` and `fsproto.rs`), so the PAL's numbers cannot drift
   outside the listen grant is `PermissionDenied`. The full mapping is in
   [the net appendix](std/net.md).
 - `std::fs` binds `File` and the namespace verbs to the FS server's file contract on slot 4,
-  under §27 (the filesystem service). A path is resolved under the one directory this process was granted, so `/motd`
+  under §27 (the filesystem service). A path resolves under the one granted directory, so `/motd`
   and `motd` are one file. Any `..` is refused with `InvalidFilename`, because no capability
   designates what is above the grant. A nested path is a chain of `OPENDIR` descents
   since milestone 122 (a directory handle `std` can hold). The mapping is in [the fs appendix](std/fs.md), the walk and `std::fs::Dir` are in
@@ -202,12 +195,11 @@ A program granted neither gets `Unsupported` from both, because there is no capa
 
 ## What still ends a nife process
 
-The dangerous std call is not the one that returns `Unsupported`. It is the one that compiles and
-then kills the process. Milestone 64 (enough `std` to run somebody else's crate) found five on
+The dangerous std call is not one that returns `Unsupported`, but one that compiles and then kills
+the process. Milestone 64 (enough `std` to run somebody else's crate) found five on
 2026-08-18: `env::vars`, `env::temp_dir`, `env::split_paths`, `process::id` and `process::exit`. All
 five now answer or exit cleanly. A gap list built from `Unsupported` answers could never show them,
-so the reading became a check. It greps the `sys/` sources the compiler actually built for bodies
-that end a process. Each hit is compared against `ABORTS_ACCEPTED` in `xtask/src/farm.rs`, which
+so a check now greps the `sys/` sources the compiler built for bodies that end a process. Each hit is compared against `ABORTS_ACCEPTED` in `xtask/src/farm.rs`, which
 carries a reason per entry.
 
 ```sh
@@ -255,8 +247,8 @@ std-aborts: 26 process-ending bodies across 79 compiled std sources, all account
 
 ## The proof
 
-`std_exerciser` is an ordinary Rust program with no `no_std` and no `unsafe`. It is one binary with
-three behaviors, chosen by the authority it was granted. With a directory it walks the `std::fs`
+`std_exerciser` is an ordinary Rust program with no `no_std` and no `unsafe`: one binary with three
+behaviors, chosen by the authority it was granted. With a directory it walks the `std::fs`
 surface; with the network it runs a UDP DNS query and a TCP echo; with neither it runs `Vec`,
 `String`, `HashMap` and `Instant` and checks that `fs` and `net` refuse. Three kernel tests spawn it
 and compare its output byte for byte on both ISAs. What each branch asserts is in
@@ -264,7 +256,7 @@ and compare its output byte for byte on both ISAs. What each branch asserts is i
 
 ## BUGS
 
-One line each. The full entry, with its reasoning and history, is in
+One line each. The full entry is in
 [the caveats appendix](std/caveats.md) unless another link is given.
 
 - `thread::spawn` returns `Unsupported`, and `Condvar::wait` and `Once::wait` end the process. Both

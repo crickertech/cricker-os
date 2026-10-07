@@ -12,10 +12,8 @@ five rounds and an instrument.
 
 A fourth claim was added on 2026-08-18 by milestone 62, and it corrects this block rather than
 extending it: the three claims below **could not see the timer drift bug at all**. The defect was
-injected and `script/icount` went green with every number byte-identical to a clean run, because
-claim 1 compares each arrival against the deadline that fired and a kernel re-anchoring the whole
-grid arms the timer with the very word it records. The instrument now asserts the re-arm law
-directly. See notes/instruction-clock.md.
+injected and `script/icount` went green with every number byte-identical to a clean run (why, in
+Follow-on). The instrument now asserts the re-arm law directly. See notes/instruction-clock.md.
 
 What closed it: `script/icount`, on both ISAs. The two claims this block was last left holding
 are asserted there: that the timer fired at the deadline the kernel armed (on riscv64, that SBI was
@@ -26,9 +24,7 @@ ISAs exists to tell a slow handler from a descheduled emulator and virtual time 
 CI runs it beside the bench tripwire. See notes/instruction-clock.md.
 
 Everything in the evidence table below is closed, and the table is history rather than a
-worklist: the disposition column says where each verdict lives. Read it for the diagnosis it
-records, not for work to pick up. The three negative-discrepancy assertions this gate line used to
-send a lane at are done.
+worklist: the disposition column says where each verdict lives.
 
 ## The day's evidence, which is history rather than a worklist
 
@@ -40,11 +36,9 @@ The address-space frame check is `kernel/src/user/tests.rs:2221`, where the old 
 comment recording the past failure rather than as a live baseline. The frame-hygiene check was
 removed rather than rescoped. `threads_round_robin` is at `kernel/src/sched.rs:3809` and waits on
 the clock. The timer twins were rebuilt against the re-arm law on both ISAs
-(`kernel/src/arch/aarch64/timer.rs:382`, `kernel/src/arch/riscv64/timer.rs:423`). The table is left
-below as the record of the day that prompted the milestone; read it for the failure shapes, not for
-where the code is.
+(`kernel/src/arch/aarch64/timer.rs:382`, `kernel/src/arch/riscv64/timer.rs:423`).
 
-The line numbers are 2026-08-03's and every file has moved since. Find an assertion by its message
+The line numbers are 2026-08-03's. Find an assertion by its message
 text. The disposition column was added 2026-08-17 after this table briefed a lane at three finished
 sites: the three negative-discrepancy rows had been settled on 2026-08-03 and the block still asked
 for "three small changes with three arguments" in its own gate line, which is the stale pointer §71
@@ -114,7 +108,7 @@ confound rather than tolerating it.
 
 So the likely answer for the two genuinely-timing assertions is **not a wider bound but a different
 instrument**: move the property to the icount tripwire, where "the handler takes fewer than N
-instructions" is a claim a contended runner cannot falsify. That would make them **stronger** than
+instructions" is a claim a contended runner cannot falsify. That would make them stronger than
 they are today, not weaker, which is the test of whether this milestone did its job.
 
 Worth checking before committing to it: icount is slower and changes what the suite measures, so this
@@ -157,8 +151,8 @@ made at least six times and got the wrong answer twice.
 
 Removed the same day this milestone was raised (#46), after it failed the cpu matrix twice more on
 `main`, once on `rv64`, the control model, and once on a Dependabot PR that touched only workflow
-files. That is a deletion, and the paragraph above says deletion is not the fix, so the difference
-is worth stating plainly. The 72 lane rightly declined to delete a check it could not explain; by
+files. That is a deletion, which the paragraph above says is not the fix, so the difference
+matters. The 72 lane rightly declined to delete a check it could not explain; by
 removal time the explanation was complete (the BUGS section of notes/live-replacement.md: only
 frames arriving from outside the run could trip it, with a measured margin of two frames). And the
 assertion this milestone asks for, one scoped to the property the test is responsible for, was
@@ -193,10 +187,9 @@ evidence and on riscv64 it is bookkeeping. The residual gap is an implementation
 `DEADLINE` correctly and arms SBI with something else, and no wall-clock margin could distinguish
 that from load either, which is the same reason the rest of this milestone exists.
 
-The instrument is the one this project already owns. Under `-icount shift=0,sleep=off`, which
-`script/bench` already uses, virtual time is a deterministic function of instructions executed, so
-host scheduling cannot advance it and "the interrupt arrived at the instruction the deadline named"
-becomes a claim a contended runner cannot falsify. Recommended by the lane that rebuilt the twins,
+The instrument is the one this project already owns, `-icount shift=0,sleep=off` as `script/bench`
+uses it (above), where "the interrupt arrived at the instruction the deadline named" becomes a
+claim a contended runner cannot falsify. Recommended by the lane that rebuilt the twins,
 not built by it. Cost: it belongs in the bench harness rather than the test suite, because
 `script/test` passes no `-icount` and adding it there would change what the whole suite measures.
 
@@ -236,8 +229,7 @@ line is about. The instrument's value is diagnostic certainty rather than detect
 names the defect.
 
 **Three things it deliberately did not do.** It is not on the test path, and
-notes/instruction-clock.md carries the measured reason (not speed: one shared virtual clock, and
-clock-bound waits costing instructions). It instruments the timer only, since that is where both
+notes/instruction-clock.md carries the measured reason (see Follow-on). It instruments the timer only, since that is where both
 claims are. And the scope note's remaining sites are still unaudited, for the sixth round running.
 
 ## Follow-on

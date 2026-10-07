@@ -37,11 +37,10 @@ measurement rather than a code-quality statistic. The full sentence matters and 
 of over 6000 lines of kernel code."* `libcore` is inside the base, unmeasured, and so is the
 compiler that enforces the type system the whole scheme rests on.
 
-RedLeaf: the same shape as Tock, one layer larger, and stated rather than measured. Established
-from the paper rather than assumed. Its domains *"are restricted to safe Rust (i.e., microkernel and
+RedLeaf: the same shape as Tock, one layer larger, and stated rather than measured. Its domains *"are restricted to safe Rust (i.e., microkernel and
 trusted libraries are the only parts of RedLeaf that are allowed to use unsafe Rust extensions)"*,
 and *"all domains and the microkernel run in ring 0."* So the compiler is in the trusted base, and
-RedLeaf says so first, before anything else: *"The core assumptions behind RedLeaf are that we trust
+RedLeaf says so first: *"The core assumptions behind RedLeaf are that we trust
 (1) the Rust compiler to implement language safety correctly, and (2) Rust core libraries that use
 unsafe code."* Its own enumeration: *"RedLeaf's TCB includes the microkernel, a small set of trusted
 RedLeaf crates required to implement hardware interfaces and low-level abstractions, device crates
@@ -54,13 +53,13 @@ compiler and a signing build environment), and the same authors later called the
 seL4: the kernel, and the number is published. *"In a well-designed microkernel, such as seL4, it
 is of the order of ten thousand lines of source code (10 kSLOC)."* Its proof is *"200,000 lines of
 proof script at the time"* (2009). Both from the whitepaper above. Secondary sources give tighter
-figures that disagree with each other and are **not** used here: the Atmosphere KISV '23 paper says
+figures that disagree with each other and are not used here: the Atmosphere KISV '23 paper says
 *"200,000 lines of proof code ... for 8,700 lines of C and required 22 person-years"* while the SOSP
 '25 paper from the same group says *"180,000 lines of proof code ... for 8,700 lines of C and
-required 20 person-years."* Two papers, same authors, same citation, three numbers moved. That is the
-reason this note quotes the primary source and flags the rest.
+required 20 person-years."* Same authors, same citation, three numbers moved. So this note
+quotes the primary source and flags the rest.
 
-The definitions in one place, because the differences are the content:
+The definitions in one place:
 
 | | what is trusted for isolation | what enforces it | is the compiler in the base? | is userspace in the base? |
 |---|---|---|---|---|
@@ -104,8 +103,7 @@ One derived split is needed and the tree does not publish it, so it is computed 
 | the boot chain, before the kernel exists | -- | 37 |
 
 This table said 577 when it was written on 2026-09-21 and that was short by 117, corrected the
-same day. The error is worth keeping rather than quietly fixing, because it is the exact mistake this
-page exists to stop a reader making: **the boundary is not a path.** A count of `kernel/src/` misses
+same day. The error stays because it is the mistake this page exists to prevent: **the boundary is not a path.** A count of `kernel/src/` misses
 sixteen `crates/` members that only the kernel depends on, several of which were **deliberately
 lifted out of `kernel/src` so that Kani could reach them. Drawing the line at the directory
 therefore undercounts the trusted base by exactly the code this project moved in order to prove
@@ -118,7 +116,7 @@ dependency edge instead, and `script/metrics` now reports the four populations s
 **The number of `unsafe` blocks in nife's TCB is 694**, not 1,138, not 824, and not 577.
 
 So the closest thing to Tock's ratio that this tree can state is 694 unsafe blocks against the
-kernel's code, and it is not Tock's ratio, for two reasons that both have to be said out loud:
+kernel's code, and it is not Tock's ratio, for two reasons:
 
 1. **The numerator is blocks, not lines.** Nothing in the tree converts one to the other, and a block
    ranges from a one-line register write to a page of context-switch glue.
@@ -132,8 +130,7 @@ kernel's code, and it is not Tock's ratio, for two reasons that both have to be 
 
 And the comparison that is actually apples to apples is with seL4, not with Tock, because seL4
 draws the boundary where nife does: 39,892 code lines against *"of the order of ten thousand."*
-Interpreting that gap is not this note's job, but the two facts a reader needs before interpreting it
-are that nife carries three architectures where seL4's published figure is one configuration, and
+Interpreting that gap is not this note's job, but a reader needs two facts first: nife carries three architectures where seL4's published figure is one configuration, and
 that `kernel/src/arch/` is 9,015 of the 39,892.
 
 ## Their six categories, run against this tree
@@ -159,8 +156,7 @@ syscall surface: a kernel that follows no user pointer has no buffer to validate
 a capability discipline removed an unsafe category outright, which is the opposite of the direction
 the 2017 paper predicts for a hardware-isolated kernel.
 
-**And this tree has categories they do not**, which is the other half of an honest audit. Every one of
-them exists *because* isolation is hardware:
+**And this tree has categories they do not**. Every one of them exists *because* isolation is hardware:
 
 - Programming the MMU. `kernel/src/arch/aarch64/mmu.rs`, 36 `unsafe` blocks, whose own header
   calls turning the MMU on *"the sketchiest moment in the kernel."* This is exactly the structure
@@ -224,8 +220,7 @@ that must keep running on a battery, which is the system Tock is.
   *"`script/metrics` tracks `kernel_code_lines` and `unsafe_density` over time, but not the TCB split
   this note's central table depends on, so the finding cannot be watched for drift and will be stale
   the moment a lane lands."* It went stale faster than that: the table's own figure was wrong when
-  published. `script/metrics` now carries the split as its own columns, so the series exists and the
-  drift is watchable. The remaining half of the entry is still true: the figures in this note are
+  published. `script/metrics` now carries the split as its own columns, so the drift is watchable. The remaining half of the entry is still true: the figures in this note are
   a snapshot, nothing regenerates them, and a reader should re-derive before quoting.
 - "The trusted base is the kernel" is a claim about the design, not a measurement. It assumes the
   MMU and the capability table do what the code says, which is what `design/fatal-risks/README.md`'s risk 2
@@ -245,5 +240,5 @@ that must keep running on a battery, which is the system Tock is.
   `notes/kernel-budget.md`; "no pointer crosses the boundary" was checked by reading
   `kernel/src/syscall.rs`'s header, which is documentation. Neither is a gate, and neither would
   catch a new syscall that reintroduced the category tomorrow.
-- **Tock today was not read.** The 2017 paper is treated as an argument, which is what it is. Nothing
+- **Tock today was not read.** The 2017 paper is treated as an argument. Nothing
   here is a claim about what Tock's trusted base looks like in 2026.
