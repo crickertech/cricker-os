@@ -72,6 +72,13 @@ never consulted, which makes this worse than pass three's confused deputy. There
 where the client aimed; here the server binds the wrong window, and the reach happens without any
 single wrong write.
 
+The wiring is the interactive system's own, not only the test boot's. `system_initializer` endows
+every child whose manifest declares network with a copy of the one `net_stack_ep`, unbadged, and
+the job pool holds six live jobs at once (`system_initializer`'s own "six live jobs" bound).
+`network_echo_client` launched twice from the prompt is this escape's shape on a shipped path.
+Verified this pass by reading the endowment path (`Channels::network` to `ChildEndowment::network`,
+`grant_plan`'s one network-declaring program); no boot was needed.
+
 The sibling that already does it right is one component over: `name_resolver` keys its windows by
 the badge's grant index and refuses a second attach at a granted window. Its refusals are silent
 too, the frame deleted with no reply, and that is safe there because the scoping makes every attach
@@ -178,9 +185,10 @@ Counts: 1 escape (new, unnumbered surface), 0 re-discoveries, 4 near miss (3, 19
 `components/src/net_stack.rs`'s BUGS section carries the finding at the attach site, and the red
 test pins it. The fix is the scoping `name_resolver` demonstrates; whether its refusals also become
 answerable is a second, smaller call, still open. Until the fix milestone lands, the test stays
-opt-in and red. The same
-question ("whose id is this") applies to every multi-client window server, and the resolver shows
-the scoping half is already answerable in this tree.
+opt-in and red. The same question ("whose id is this") is ruled tree-wide with it (calef,
+2026-10-06, PR #1798). Per-caller scoping is a written rule for every multi-client window server,
+and the fix lane audits the remaining ones; `system_log`'s reader windows, unread this pass, go
+first.
 
 ## Refusal log
 

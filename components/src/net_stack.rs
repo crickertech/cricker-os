@@ -53,8 +53,9 @@
 //! scoping makes every attach failure the caller's own. Whether this server's refusals should
 //! also become answerable is a separate, smaller call, still open. The fix shape itself is ruled:
 //! per-caller windows keyed by the badge, this precedent's exact shape, refusals silent (calef,
-//! 2026-10-06, PR #1798). Whether ids should also be per-caller on the
-//! other multi-client servers is the same question one component over.
+//! 2026-10-06, PR #1798). Ruled with it, tree-wide: per-caller scoping is a written rule for every
+//! multi-client window server, and the fix lane audits the remaining ones, `system_log`'s reader
+//! windows first (not read this pass).
 //!
 //! **No host fuzz target reaches this dispatch** (proposal #1592 part a, rank 2). The request match
 //! and every helper under it live in this EL0 binary and take `virtio_net_transport::VirtioNet`,
