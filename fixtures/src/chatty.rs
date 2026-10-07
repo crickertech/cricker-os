@@ -230,7 +230,7 @@ fn usurp() -> ! {
 /// watchdog hang instead of a red assertion: the wrong-reason red milestone 202 (every confinement
 /// test is a ritual until somebody breaks the confinement) recorded, and the
 /// reason claim 26's own test could never fail. This role parks a message on the endpoint first,
-/// so a let-open `RECEIVE_CAP` *returns* it ([`ipc_receive_cap`] takes any parked sender's word),
+/// so a let-open `RECEIVE_CAP` *returns* it (the kernel's `sched::ipc_receive_cap` takes any parked sender's word),
 /// and the usurper's report carries a word nothing honest produces
 /// ([`swap_protocol::PLANT_MARKER`]).
 ///
