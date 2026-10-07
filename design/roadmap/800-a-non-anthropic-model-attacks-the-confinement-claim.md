@@ -187,7 +187,7 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   Whether refusals also become answerable is a smaller second call, still open. Ruled the same
   day, tree-wide and still standing: per-caller scoping is a written rule for every multi-client
   window server, recorded as §256 (a server that keeps windows for many clients scopes each by the
-  caller's badge). 649's lane read `system_log`, the file service and `name_resolver` (§255); the
+  caller's badge). 649's lane read `system_log`, the file service and `name_resolver` (§255 (each socket is its own capability)); the
   rest of the audit is milestone 823 (every multi-client window server is audited for caller
   scoping). A
   second premise this pass settled by reading:

@@ -230,7 +230,7 @@ fn a_read_only_holder_cannot_send_and_an_ungranted_slot_names_nothing() {
 /// exists to announce, not a break. Ruled (a) (calef, 2026-10-07, PR #1798): retypes should
 /// withhold `GRANT`, the intersection rule, so when the fix lands this characterization becomes a
 /// held assertion. The question was carried in milestone 633's block, which records the ruling;
-/// the fix is milestone 824 (a retype mints no right its budget lacks, provisional).
+/// the fix is milestone 824 (a retype mints no right its budget lacks).
 #[test_case]
 fn a_grant_less_budget_mints_a_grant_bearing_frame() {
     let region = crate::memory_region::create(8).expect("no region");

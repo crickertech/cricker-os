@@ -38,9 +38,9 @@ case in it.
   characterization to a held assertion, renamed to say what it now holds, with a replayable
   falsification that restores `Rights::ALL`.
 - Extend claim 3's row, or add one, so the table states the retype half.
-- Record the method's new semantics in `design/decisions/`, as §10 requires of a method's
-  behavior. Check every caller that retypes from a narrowed budget and then delegates, since it will
-  now be refused.
+- Record the method's new semantics in `design/decisions/`, as §10 (process model:
+  capability-based, microkernel) requires of a method's behavior. Check every caller that
+  retypes from a narrowed budget and then delegates, since it will now be refused.
 - Remove the ruling's note from `cap::memory_region_cap`'s `BUGS`.
 
 ## Done when

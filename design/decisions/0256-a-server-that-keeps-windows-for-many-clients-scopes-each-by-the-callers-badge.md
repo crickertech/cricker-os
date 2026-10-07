@@ -64,7 +64,7 @@ in the request word.
 
 Read by milestone 649's lane and recorded in §255: `system_log`, the file service and
 `name_resolver` already scope by badge, and `net_stack` was the one that did not. The rest is
-milestone 823 (every multi-client window server is audited for caller scoping, provisional). At the
+milestone 823 (every multi-client window server is audited for caller scoping). At the
 merge a grep found servers that receive client pages and mention windows but not badges. None has
 been read against this rule: `compositor`, `console`, the two keyboard drivers and the swap
 demonstrator.

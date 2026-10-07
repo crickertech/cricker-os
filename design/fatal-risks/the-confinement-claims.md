@@ -228,8 +228,8 @@ first. The victim's attach then failed silently, its request went out as the squ
 its reply landed in the squatter's page. The kernel's gates were never consulted; the confusion was
 the server's.
 
-The severity, which this appendix had not stated: the stack starts on every booted system
-(milestone 590), and the progenitor gives every program that declares the network an unbadged copy
+The severity, which this appendix had not stated: since milestone 590 (the booted system starts its
+network stack), the stack runs on every booted system, and the progenitor gives every program that declares the network an unbadged copy
 of the one stack endpoint. On the shipped boot only vouched `NetworkEchoClient` instances declare
 it, so no hostile holder existed, but the job pool runs six jobs at once and two holders were one
 prompt away. calef ruled it an escape on a shipped path (2026-10-07 UTC), and criterion (c)'s count

@@ -53,7 +53,7 @@ themselves. The last column is this milestone's result.
 | 31 | An unvouched child holds no capability its caller did not delegate, beyond two read-only pages | §219 (how the shell names an installed program to the spawner) | `script/swish-check`: `installed/unvouched` | yes, 2026-10-03, swept weekly ([patch](../xtask/falsifications/swish_check.swish_check_boot.patch)) |
 | 32 | The boot shell holds no display device | Milestone 715 (provisional) | `script/swish-check`: the `caps` census on the gpu boots | yes, 2026-10-03, swept weekly ([patch](../xtask/falsifications/swish_check.swish_check_leg.patch)) |
 | 33 | No `WRITE`, no x86_64 port I/O | Milestone 768 (provisional) | `kernel::user::x86_port_tests::a_read_only_port_capability_must_not_grant_port_output` | [yes](../system_tests/falsifications/user.x86_port_tests.a_read_only_port_capability_must_not_grant_port_output.patch) |
-| 34 | A program reaches only the sockets it holds; a socket moves only by its capability | §255 (each socket is its own capability), milestone 649 | `kernel::user::net_confinement_tests::a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic`, `a_socket_moves_by_its_capability_and_a_closed_one_reaches_nothing` | yes: [the squatter](../system_tests/falsifications/user.net_confinement_tests.a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic.patch), [the hand-off](../system_tests/falsifications/user.net_confinement_tests.a_socket_moves_by_its_capability_and_a_closed_one_reaches_nothing.patch) |
+| 34 | A program reaches only the sockets it holds; a socket moves only by its capability | §255 (each socket is its own capability) | `kernel::user::net_confinement_tests::a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic`, `a_socket_moves_by_its_capability_and_a_closed_one_reaches_nothing` | yes: [the squatter](../system_tests/falsifications/user.net_confinement_tests.a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic.patch), [the hand-off](../system_tests/falsifications/user.net_confinement_tests.a_socket_moves_by_its_capability_and_a_closed_one_reaches_nothing.patch) |
 
 Every row carries a replayable record as of 2026-10-07 (UTC), fatal risk 7's second criterion.
 
@@ -308,8 +308,8 @@ names `Architecture: aarch64, x86_64`. Read the row as aarch64 twice, `x86_64` o
 -NotPermitted`. The honest defect deletes the kernel's `Rights::READ` check on `RECEIVE_CAP`. Run on
 2026-09-16, it gave a 60-second lost-wakeup watchdog and not one word about impersonation.
 `RECEIVE_CAP` blocks, so an attacker the kernel fails to refuse takes the server's message or parks,
-and the run deadlocks. That is milestone 202's wrong-reason red on a third claim, so the row stayed
-unfalsified rather than take an easier defect that only changes which error the refusal returns.
+and the run deadlocks. That is the wrong-reason red of milestone 202 (every confinement test is a
+ritual until somebody breaks the confinement), on a third claim, so the row stayed unfalsified rather than take an easier defect that only changes which error the refusal returns.
 
 Two fixes followed. Milestone 633 (an outside agent attacks the confinement claim)'s
 `a_write_only_rendezvous_holder_cannot_receive_reap_or_survey` parks a sender first, so a let-open
