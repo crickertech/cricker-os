@@ -225,8 +225,8 @@ jobs:
       needs.gate.outputs.run != 'false'
     runs-on: ubuntu-24.04
     # Half the serial job plus its setup. The serial job's 60 was for ~30 minutes of proving; a
-    # shard proves ~15, and the box stays generous because a hung solver must fail loudly rather
-    # than sit on the runner's 6-hour default.
+    # shard proves ~24 since 2026-10-07 (47 serial), and the box stays generous because a hung
+    # solver must fail loudly rather than sit on the runner's 6-hour default.
     timeout-minutes: 45
     strategy:
       # **Do not cancel the sibling.** One shard failing is a real result about its own crates, and
@@ -242,11 +242,13 @@ jobs:
         run: |
           cargo install --locked kani-verifier
           cargo kani setup
-      # Two shards and not four, which is a measurement rather than a default. `glob` alone is 15.0
-      # minutes of the 30.3, so it is atomic at crate granularity and no number of shards goes
-      # below it: two reach 15.1 and four reach 15.0, buying nothing for two extra runners. The
-      # balance is by measured seconds from the table in script/verify, because `glob` and
-      # `calendar` are 83% of the job and a split by crate count would be lopsided.
+      # Two shards. On 2026-08-14 that was a measurement (`glob` alone was half the job, so a third
+      # shard bought nothing); by 2026-10-07 `machine_discovery` had grown to match `glob`, and
+      # the 40-run medians pack to 23.6 minutes at two shards and 15.7 at three. Whether to pay for
+      # the third runner is calef's call; script/verify's comment above `--shard` has the ladder.
+      # The balance is by measured seconds from the table in script/verify, which
+      # verify-shard-refresh.yml keeps current, and each shard warns when it ran more than 30% off
+      # its plan.
       - name: script/verify --shard ${{ matrix.shard }}/2
         run: script/verify --shard ${{ matrix.shard }}/2
         # VERIFY_JOBS=2, not the script's default 4, and this is a measurement, not caution: the
