@@ -3,11 +3,15 @@
 //! computation (milestone 198 (a package manager, and the trivial install that makes a second
 //! customer possible), rung 2a).
 //!
-//! Name: provisional, minted 2026-09-21 by the rung 2a lane. It follows the tree's
-//! expand-the-acronym rule, the one
+//! Name: ratified 2026-10-07 (calef, pull request #1806's FAT crate review). The maintainer
+//! comment reads: "FAT crate name ratified by calef, 2026-10-07 (UTC): `file_allocation_table`
+//! (crates.io treats it and `file-allocation-table` as one name; free as of today). Permanent once
+//! first published." His word: "Yes". Minted provisionally 2026-09-21 by milestone 198's rung 2a
+//! lane under the tree's expand-the-acronym rule, the one
 //! `crates/globally_unique_identifier_partition_table` and `crates/non_volatile_memory_express`
 //! already keep: FAT is the File Allocation Table, and a reader who greps `fat` and finds nothing
-//! is looking for the expansion. calef names crates; expect this to change.
+//! is looking for the expansion. Milestone 813 (a proven FAT crate, released on its own) grows this
+//! crate into the FAT12/16/32 read-write crate the name now belongs to.
 //!
 //! # Why this exists, and what it deliberately is not
 //!

@@ -14,6 +14,12 @@ The number is **provisional**: the integrator mints it at merge. Promoted from t
 the trivial install that makes a second customer possible), which wrote
 `crates/file_allocation_table` and refused the name rather than mangling it.
 
+*Covered by milestone 813 (a proven FAT crate, released on its own), noted 2026-10-07 (UTC). calef
+ruled on #1806 that `crates/file_allocation_table` grows into a FAT12/16/32 read-write crate with
+long names, and 813's Exit formats a volume holding `BOOTRISCV64.EFI`. The status stays NOT-STARTED
+because this piece can still land first and on its own. The last BUGS line below, that the crate
+should never read, predates that ruling.*
+
 Nothing has to be decided, bought or ruled on. It is a self-contained piece of
 `crates/file_allocation_table` with host tests and one third-party reader already wired up.
 
