@@ -366,7 +366,15 @@ jobs:
           # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
           fetch-depth: 0
 
+      # **No rust-cache entry is saved from a merge group, because nothing can ever restore one.**
+      # A run restores caches from its own ref and the default branch's, and every merge group runs
+      # on a fresh `gh-readonly-queue/...` ref. Measured 2026-10-07 (UTC): 0 hits in 111 merge-group
+      # jobs, while those jobs' 163 saved entries held 3.8 GB of the repository's 10 GB, evicting the
+      # pull request entries that do hit. Every rust-cache step in ci.yml and verify.yml carries the
+      # same `save-if`. See notes/actions-cache-budget-2026-10-07.md.
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name != 'merge_group' }}
       # QEMU, built from source and cached. Ubuntu 24.04 ships 8.2 and `-device riscv-iommu-pci`
       # (milestone 16b) arrived later, so the runner's packaged QEMU cannot boot the riscv leg at all.
       # apt cannot fix it: it already installs the newest package for the release, and there is no
@@ -448,6 +456,8 @@ jobs:
           fetch-depth: 0
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name != 'merge_group' }}
       # QEMU, built from source and cached. Ubuntu 24.04 ships 8.2 and `-device riscv-iommu-pci`
       # (milestone 16b (real hardware + IOMMU-backed driver isolation)) arrived later, so the
       # runner's packaged QEMU cannot boot the riscv leg at all.
@@ -546,6 +556,8 @@ jobs:
           fetch-depth: 0
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name != 'merge_group' }}
       # QEMU, built from source and cached. Ubuntu 24.04 ships 8.2 and `-device riscv-iommu-pci`
       # (milestone 16b (real hardware + IOMMU-backed driver isolation)) arrived later, so the
       # runner's packaged QEMU cannot boot the riscv leg at all.
@@ -617,6 +629,8 @@ jobs:
           fetch-depth: 0
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name != 'merge_group' }}
       # QEMU, built from source and cached. Ubuntu 24.04 ships 8.2 and `-device riscv-iommu-pci`
       # (milestone 16b) arrived later, so the runner's packaged QEMU cannot boot the riscv leg at all.
       # apt cannot fix it: it already installs the newest package for the release, and there is no
@@ -710,6 +724,8 @@ jobs:
           fetch-depth: 0
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name != 'merge_group' }}
       # The same cached QEMU the test and bench jobs use, restored before script/bootstrap for the
       # same reason (bootstrap skips its apt install when QEMU is already on PATH).
       - name: Cache QEMU
@@ -830,6 +846,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         if: steps.scope.outputs.needed == 'true'
+        with:
+          save-if: ${{ github.event_name != 'merge_group' }}
       - name: Cache QEMU
         if: steps.scope.outputs.needed == 'true'
         uses: actions/cache@v6
@@ -913,6 +931,8 @@ jobs:
       - name: Install clang (the C component's compiler) and shellcheck
         run: sudo apt-get update && sudo apt-get install -y clang shellcheck
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name != 'merge_group' }}
       # cargo-machete (unused dependencies) and typos (spelling), both new gates in script/lint.
       # `cargo install` rather than the runner image, for the reason above: a gate that depends on
       # whatever the image happens to ship is a gate that can vanish without a diff. `--locked`
@@ -1020,6 +1040,8 @@ jobs:
         with:
           fetch-depth: 0
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name != 'merge_group' }}
       # `memory_regions` carries the falsification witness: that harness passes only when loom finds
       # the pre-#316 double free, so a green run also proves the search can still see a bug.
       - run: script/interleaving-check
@@ -1079,6 +1101,8 @@ jobs:
           rustup target add --toolchain nightly riscv64imac-unknown-none-elf
           rustup target add --toolchain nightly x86_64-unknown-none
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name != 'merge_group' }}
       # Its own job rather than a step in `clippy`, for `stack-frame-check`'s reason: it builds three
       # kernels and no other job builds the riscv64 or x86_64 one at all, so there is nothing to
       # share. Jobs run in parallel, so it costs no wall clock against the 30-minute Kani job.
@@ -1121,6 +1145,8 @@ jobs:
           # this job needs all three even though `stack-frame-check` below defaults to two.
           rustup target add --toolchain nightly x86_64-unknown-none
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name != 'merge_group' }}
       # Its own job rather than a step in `clippy`: it builds the kernel test binary twice (the flag
       # changes the build, so CI's existing kernel artifacts cannot be reused), and jobs run in
       # parallel so a separate one costs no wall clock against the 30-minute Kani job. **Why it is
@@ -1161,6 +1187,8 @@ jobs:
           fetch-depth: 0
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name != 'merge_group' }}
       # Milestone 21's stated requirement is to catch "the *introduction* of performance problems
       # proximate to the changes that introduce them", and a tripwire that only fires on a
       # developer's laptop cannot do that. icount was chosen for determinism precisely so this is
@@ -1258,6 +1286,8 @@ jobs:
           path: ~/.cache/nife-vendor
           key: nife-vendor-${{ hashFiles('vendor/*.pin') }}
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name != 'merge_group' }}
       - run: script/ci-build supply-chain
       - name: Check the job's wall time against its budget
         if: always()
@@ -1285,6 +1315,8 @@ jobs:
           fetch-depth: 0
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name != 'merge_group' }}
       # No install step: `script/fuzz` installs the version pinned in `.cargo-fuzz-version` when the
       # one on PATH does not match, exactly as it does on a developer's machine. That is the opposite
       # trade from the supply-chain and coverage jobs, which take a prebuilt binary because they
@@ -1354,6 +1386,8 @@ jobs:
         with:
           tool: cargo-llvm-cov
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name != 'merge_group' }}
       # Measures the pure-logic host crates only; the kernel/user crates run under QEMU, out of
       # reach of host instrumentation. Gates on the 80%-per-file line-coverage floor (the floor
       # lives in script/coverage, next to the check itself); the report is still published below.
