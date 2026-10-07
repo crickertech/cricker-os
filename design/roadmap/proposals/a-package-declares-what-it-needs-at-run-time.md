@@ -59,11 +59,8 @@ Nothing joins these. No gate knows that `uuid` (in `core-tools`) declares `entro
 - Packed by `xtask` iff that file exists: `xtask/src/farm.rs:71` names the path, and
   `xtask/src/archive.rs:653` (aarch64), `:354` (riscv64) and `:525` (x86_64) push it as `rg`. It is
   one of six names in a hand list, `BUILT_ELSEWHERE` (`:236`).
-- `packages/*.package.toml` cannot name it. `helpers/packages.py:325` refuses a `programs` entry that
-  is not a binary target in this tree, and `rg` never is. No `*.recipe.toml` names it either. The
-  script itself is claimed only by `packages/homes.toml:46`'s blanket `helpers/` entry.
-- It carries no manifest note. `helpers/build-ripgrep.sh:67-69` says so: "ripgrep carries no note
-  today", and a foreign program would carry one by linking an object nothing here writes yet.
+- No package file can name it: `helpers/packages.py:325` admits only in-tree binaries.
+- It carries no manifest note (`helpers/build-ripgrep.sh:67-69`).
 
 What it is handed, and by whom: the only thing that runs it is the kernel's test harness, not the
 progenitor. `system_tests/src/user/ripgrep_tests.rs:71` calls `fs_service::start_std_full`, which
@@ -93,8 +90,8 @@ A need is a capability, not a process: a program needs a `WRITE` endpoint that a
 
 ## Options and prior art
 
-Options A to F, with prior art and the rung each lands on, are tabled in the
-[prior-art appendix](a-package-declares-what-it-needs-at-run-time/prior-art.md). In short:
+Options A to F, with prior art and rungs, are in the
+[appendix](a-package-declares-what-it-needs-at-run-time/prior-art.md):
 
 - B duplicates the manifest, so a gate can prove two hand lists agree and never that they agree with
   the code.
@@ -121,27 +118,24 @@ Fork 1 is ruled, so needs live only in program manifests and the build derives t
    and `packages.py` applies the kind rules `depends` already has (fork 3).
 4. Install: the derived needs go into the package metadata and the index, per fork 1.
 
-`depends` stays link-only, so no package gains a `depends` on `system-log` by calling it. Counted
-cost: seven service fields plus `file` and `dir` to map, a `provides` table in about six packages,
-one function in `grant_plan`, one emitter in `xtask`, one rule in `packages.py`. Would I choose this
-if B cost the same? Yes; B loses on drift, not effort.
+`depends` stays link-only. Counted cost: nine fields to map, a `provides` table in about six
+packages, one function in `grant_plan`, one emitter in `xtask`, one rule in `packages.py`. B loses on
+drift, not effort.
 
-The gate would fire on day one. `rm` (`core-tools`, `base`) declares a directory, which only a file
-server answers, and the only file server's package, `redoxfs`, is `optional`. Fork 3 takes it.
+The gate would fire on day one: `rm` (`base`) needs a file server, and `redoxfs` is `optional`.
 
 System log: `system-log` provides the contract `system_log`. Its first client adds a manifest field
-(`log`, provisional), links only `contracts`, and has no `depends` on `system-log`.
+(`log`) and links only `contracts`.
 
-Ripgrep: `helpers/build-ripgrep.sh` links a note declaring `runtime = Std`, `arg = Words(ReadOnly)`
-and `output = Bytes`, by the mechanism #1319 measured (`-Clink-arg=note.o`). The words grant then
-derives the `filesystem` contract, which is slot 4 above. The lint sees it through fork 4's file.
+Ripgrep: its build links a note declaring `runtime = Std`, `arg = Words(ReadOnly)` and
+`output = Bytes`, by the mechanism #1319 measured (`-Clink-arg=note.o`). The words grant derives the
+`filesystem` contract, slot 4 above. Fork 4 puts that build in basalt.
 
 ## Every kind of language
 
 calef, 2026-10-07 (UTC): *"What about dynamic languages, non-C languages, go, java? I'm trying to
-make certain that we can package software comprehensively."* The question here is only where each
-kind's manifest lives and who runs it. Porting each runtime is per-workload milestone work, not part
-of this proposal.
+make certain that we can package software comprehensively."* Here, only where each kind's manifest
+lives and who runs it. Porting each runtime is per-workload milestone work.
 
 | Kind | Examples | What the kernel runs | Where the manifest lives | In the tree today |
 |---|---|---|---|---|
@@ -223,13 +217,13 @@ A. Where a manifest travels. Revised by calef, 2026-10-07 (UTC), on his question
    The consequence. One digest covers code and manifest together, for a script as for an ELF, so
    the earlier draft's separate manifest file and its own entry in the activation set go away. The
    cost. `jig` and the spawner each need one small reader per format, so `jig` grows as language
-   support grows. That belongs to the package client's milestone (#1799 promotes it), and this
+   support grows. That belongs to milestone 809 (the package client becomes a program), and this
    proposal does not edit that block.
 
    Prior art is in the appendix. Refused: a sidecar for every format, which separates the manifest
    from the bytes §197's option M2 hashes, and a stub ELF per script.
 
-   Recommend this shape, with the marker and encoding above.
+   Ruled by calef in that revision. The marker and encoding above are the lane's, unratified.
 
 B. How a program names what runs it. Options:
    - `#!` and a path the shell resolves, Unix's and Linux `binfmt_misc`'s way (recalled). It names
@@ -246,8 +240,9 @@ B. How a program names what runs it. Options:
    systems. A script with `#!` and no block is refused. `jig` may offer to write a block, and never
    infers one silently.
 
-2. How a provider is declared. Recommend a `provides` table in the package file covering both kinds,
-   each naming the member program that serves it:
+2. How a provider is declared. Ruled by calef, 2026-10-07 (UTC): *"ratify #1797 Fork 2."* One
+   `provides` key covers contracts and runners, each naming the member program that serves it, and
+   a gate checks it:
 
    ```toml
    [provides]
@@ -256,35 +251,31 @@ B. How a program names what runs it. Options:
    ```
 
    A contract is named by an identifier, and the Rust crate (`entropy_protocol`) is one binding of
-   it, so a Python or WASI client names the same contract. The alternative, a `Serve` declaration in
-   the provider's own manifest, is stronger and waits on the boot services adopting manifests.
-3. How hard an unmet need fails. Recommend: in the tree, a `base` program's contract or runner must
-   be met by a `base` provider, and the gate fails otherwise. In `jig`, a missing runner is resolved
-   or refused before download, and a missing contract is installed if it can be and warned if not,
-   since a consumer degrades and says so. This fires on `rm` at once; recommend making `redoxfs`
-   base, because a base image whose `rm` cannot run is the defect.
-4. Whether `rg` becomes a package now. Recommend yes: `ripgrep`, kind `test` until `jig` installs it,
-   its note written by `helpers/build-ripgrep.sh` (carrier: the ELF note; runner: `elf`), and a new
-   `[[foreign]]` key, since `packages.py` admits only in-tree binaries:
+   it, so a Python or WASI client names the same contract.
+3. How hard an unmet need fails. Ruled by calef, 2026-10-07 (UTC), reworded: the gate requires at
+   least one `base` provider for every contract a `base` program needs, rather than naming a
+   package. `jig` resolves or refuses a missing runner, and installs or warns on a missing
+   contract. `redoxfs` becomes `base` as today's chosen provider of the filesystem contract, being
+   the only writable one. His words: *"Yes begrudingly. I suspect btrfs is likely a better FS choice
+   than redoxfs, but it is what we have today."*
+4. Ripgrep. Ruled by calef, 2026-10-07 (UTC), amended: *"Should we have a milestone for packaging
+   ripgrep and a milestone for a functional ripgrep, which seems like what the ripgrep milestone
+   should be."* then *"Yes"*, and later *"To be clear, we should package ripgrep in basalt. That's
+   what it is for."* So `ripgrep` is kind `optional`, packaged in basalt (§151 (the goal of the
+   repository split is independent release and third-party programs)) from a recipe naming the
+   crate, the version and a checksum, with its note written at build time. And: *"With a
+   functional jig, ripgrep should be installed via jig and not part of the base image. It isn't
+   base."* It reaches a machine only by `jig install`, so it depends on milestone 809, and until then
+   an image carrying `rg` is a test image. Milestone 810 (ripgrep is packaged in basalt) holds the
+   work; milestone 121 (`ripgrep` on nife) depends on it only for `rg` at the prompt. The earlier
+   draft's `[[foreign]]` key is withdrawn.
+5. Versioning. Held for milestone 809 (the package client becomes a program): a later version goes
+   on the contract, as Fuchsia's API levels do, not a range on the providing package. calef added,
+   2026-10-07 (UTC): *"The runner dependencies may need versions too. Something to think about."*
+   A script may need Python 3.12 and not 3.8, so this fork covers runner versions as well.
 
-   ```toml
-   name = "ripgrep"
-   kind = "test"
-   home = { status = "undecided", reason = "upstream is BurntSushi/ripgrep; we ship a build, not a fork" }
-   paths = ["helpers/build-ripgrep.sh", "notes/ripgrep-on-nife.md"]
-   [[foreign]]
-   program = "rg"
-   source = { crate = "ripgrep", version = "14.1.1" }
-   build = "helpers/build-ripgrep.sh"
-   ```
-
-   `xtask`'s `BUILT_ELSEWHERE` list is then read from `[[foreign]]` entries. A paths-only file would
-   pass the lint today and read as complete when it is not, so the lane added none.
-5. Versioning. Held for the package client's milestone, which #1799 promotes: a later version
-   goes on the contract, as Fuchsia's API levels do, not a range on the providing package.
-
-Names for calef, all provisional: `provides`, `contracts`, `runners`, `runner`, `[[foreign]]`,
-`Manifest::contracts`, the package `ripgrep`, the manifest field `log`, and contract identifiers.
+Every fork is ruled except fork 5. Names still provisional: `contracts`, `runners`, `runner`,
+`Manifest::contracts`, the manifest field `log`, the marker word `nife`, and contract identifiers.
 
 ## BUGS
 

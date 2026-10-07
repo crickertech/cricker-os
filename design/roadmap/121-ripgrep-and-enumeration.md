@@ -1,7 +1,7 @@
 ---
 status: PARTIAL
 raised: 2026-08-13
-milestone_dependencies: 205, 206, 595
+milestone_dependencies: 205, 206, 595, 810
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
