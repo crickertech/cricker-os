@@ -499,13 +499,17 @@ pub(crate) fn cargo_test_with_scanout_check(arch: &str, test_args: &[&str]) -> b
     // the referee is: it is what sets `NIFE_HOSTFWD_PORT`, and the runner reads it from the
     // environment the child inherits.
     let prober = InboundProber::new(arch);
-    let mut child = match Command::new("cargo").args(test_args).spawn() {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("failed to run cargo: {e}");
-            return false;
-        }
-    };
+    // Timed and recorded (milestone 807 (the kernel suite reports what each test cost)): stdout
+    // passes through as it did when the child inherited it, and the transcript is kept for
+    // `time_record::account` below.
+    let (mut child, watch) =
+        match crate::time_record::Watch::spawn(Command::new("cargo").args(test_args)) {
+            Ok(pair) => pair,
+            Err(e) => {
+                eprintln!("failed to run cargo: {e}");
+                return false;
+            }
+        };
 
     // **The suite's verdict is collected, not returned early.** An early return here skipped every
     // prober's report exactly when a guest-side assertion had failed, which is the run where their
@@ -553,7 +557,21 @@ pub(crate) fn cargo_test_with_scanout_check(arch: &str, test_args: &[&str]) -> b
     // There were three until 2026-09-15, when milestone 298 retired the multicast DNS responder
     // and the multicast prober that checked its answers (notes/mdns.md).
     let inbound = prober.report();
-    let ok = child_ok && (filtered || (scanout && inbound));
+    let (lines, exited) = watch.finish();
+    let image = test_args
+        .iter()
+        .skip_while(|a| **a != "-p")
+        .nth(1)
+        .copied()
+        .unwrap_or("unknown");
+    let accounted = crate::time_record::account(
+        &crate::time_record::leg(arch),
+        image,
+        &lines,
+        exited,
+        child_ok,
+    );
+    let ok = child_ok && accounted && (filtered || (scanout && inbound));
     load.report_if_failed(ok, arch);
     ok
 }

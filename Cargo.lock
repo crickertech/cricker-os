@@ -687,6 +687,7 @@ dependencies = [
  "spin",
  "std_runtime_protocol",
  "system_log_protocol",
+ "test_times",
  "thread_wake_handshake",
  "tock-registers",
  "video_terminal",
@@ -1237,6 +1238,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "test_times"
+version = "0.1.0"
+
+[[package]]
 name = "thiserror"
 version = "2.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1537,6 +1542,7 @@ dependencies = [
  "package_archive",
  "portable_executable",
  "sealed_pair",
+ "test_times",
  "toml",
  "video_terminal",
  "walk_pricing",

@@ -1,0 +1,16 @@
+# Name: provisional, minted by milestone 807 (the kernel suite reports what each test cost)'s lane on
+# 2026-10-07 (UTC). The provenance block, with the refusals, lives in src/lib.rs, which is where the
+# naming gate reads it and where a reader meets the crate.
+[package]
+name = "test_times"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+# The grammar of the kernel suite's per-test time record (§254 (a gate prints what each item cost), Fork 1). The kernel prints it and
+# `xtask` parses it, so it is a crate under rule 7 rather than a `#[path]` module or two copies.
+#
+# **No dependencies, and `no_std`**, because the kernel links it.
+
+[lints]
+workspace = true

@@ -95,6 +95,13 @@ pub(crate) fn kernel_elf() -> String {
 }
 
 pub(crate) fn cargo(args: &[&str]) -> bool {
+    runner_env();
+    run("cargo", args)
+}
+
+/// The environment [`cargo`] gives every runner, set without running anything: for a caller that
+/// spawns the child itself, such as `time_record::cargo_test` timing a test image.
+pub(crate) fn runner_env() {
     // The runner needs to know where the initrd is. Set it for every cargo invocation; the
     // script ignores it when the file is not there (which is any build before `user` exists).
     // SAFETY: `set_var`/`remove_var` became unsafe in edition 2024 because they race other
@@ -114,8 +121,6 @@ pub(crate) fn cargo(args: &[&str]) -> bool {
     // that reads it is spawned, and the only thread xtask ever starts (the transcript reader
     // in swish_check_leg) copies pipe bytes into a String and never touches the environment.
     unsafe { std::env::set_var("NIFE_NET", "1") };
-
-    run("cargo", args)
 }
 
 pub(crate) fn run(program: &str, args: &[&str]) -> bool {

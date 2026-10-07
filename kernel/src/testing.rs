@@ -8,7 +8,7 @@
 //! Set up on day one on purpose. The alternative is debugging by `println!` for a
 //! year (DECISIONS §7).
 
-use core::sync::atomic::{AtomicBool, AtomicPtr, AtomicU64, AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 
 use crate::arch::semihosting;
 use crate::{print, println};
@@ -945,6 +945,24 @@ fn report_frame_pressure() {
 /// only way to learn a test's real cost was to set its budget too low on purpose and read the failure.
 const SLOW_REPORT_SECS: u64 = 5;
 
+/// **How many tests one image can record a time for** (milestone 807 (the kernel suite reports
+/// what each test cost)). The largest image held 320 tests on 2026-10-06 (riscv64's
+/// `system_tests`), so this is three times that. A fixed table rather than a `Vec` because the
+/// record must not allocate: the frame ledger and the heap tests measure exactly what an
+/// allocation here would disturb. 4 KiB of `.bss`. An image past it fails before its first test,
+/// in [`runner`], rather than printing a record with a hole in it.
+const TIME_RECORD_CAPACITY: usize = 1024;
+
+/// Each selected test's elapsed milliseconds, by its index in the runner's slice. `u32` holds 49
+/// days, which no test survives: the ceiling is minutes.
+static TEST_MILLISECONDS: [AtomicU32; TIME_RECORD_CAPACITY] =
+    [const { AtomicU32::new(0) }; TIME_RECORD_CAPACITY];
+
+/// What the test that just returned cost, in milliseconds, set by [`Testable::run`] on both of its
+/// exits (a pass and a skip) and read by [`runner`] straight after. A static rather than a return
+/// value so `Testable` keeps the signature every `#[test_case]` already satisfies.
+static LAST_TEST_MILLISECONDS: AtomicU64 = AtomicU64::new(0);
+
 /// **The default per-test wall-clock budget.** Deliberately tight: almost every test in this suite is
 /// milliseconds, and a handful of the userspace ones are a few seconds. 90 s is far above anything
 /// honest while still being a real net, so a two-second unit test that starts spinning fails in a
@@ -1249,8 +1267,9 @@ impl<T: Fn()> Testable for T {
             };
             SKIPPED.fetch_add(1, Ordering::Relaxed);
 
-            let elapsed =
-                crate::arch::timer::now().saturating_sub(start) / crate::arch::timer::frequency();
+            let ticks = crate::arch::timer::now().saturating_sub(start);
+            record_milliseconds(ticks);
+            let elapsed = ticks / crate::arch::timer::frequency();
             if elapsed >= SLOW_REPORT_SECS {
                 print!("[{elapsed} s] ");
             }
@@ -1282,9 +1301,12 @@ impl<T: Fn()> Testable for T {
         // human declaration of expected cost, and until now there was no way to learn the cost except
         // by setting a budget too low on purpose and reading the failure. That is a bad way to find
         // out, and it is exactly the position I was in when std_fs tripped the 90 s ceiling with no
-        // number attached. Anything under the threshold stays silent so the transcript is unchanged.
-        let elapsed =
-            crate::arch::timer::now().saturating_sub(start) / crate::arch::timer::frequency();
+        // number attached. Anything under the threshold stays silent on the `ok` line; every figure,
+        // this one included, goes to the record block the runner prints after the suite (milestone
+        // 807), which is where a reader asking "what did each test cost" looks.
+        let ticks = crate::arch::timer::now().saturating_sub(start);
+        record_milliseconds(ticks);
+        let elapsed = ticks / crate::arch::timer::frequency();
         if elapsed >= SLOW_REPORT_SECS {
             print!("[{elapsed} s] ");
         }
@@ -1301,6 +1323,37 @@ impl<T: Fn()> Testable for T {
         );
 
         println!("ok");
+    }
+}
+
+/// Keep the test that just ran's cost for [`runner`] (milestone 807). The stamp is the one the
+/// ceiling already takes, so the figure costs one conversion; `test_times::milliseconds`
+/// does it in 128 bits, because a TSC's frequency times a long test can outgrow 64.
+fn record_milliseconds(ticks: u64) {
+    LAST_TEST_MILLISECONDS.store(
+        test_times::milliseconds(ticks, crate::arch::timer::frequency()),
+        Ordering::Relaxed,
+    );
+}
+
+/// **The per-test time record** (milestone 807 (the kernel suite reports what each test cost),
+/// §254 (a gate prints what each item cost), Fork 1): one `time <milliseconds> <full test path>` line for every test this image ran,
+/// in the order it ran them, under `test_times::HEADING`.
+///
+/// It comes after the other reports and before `test result:`, so every line `xtask`,
+/// `script/falsifications` and the HVF leg already parse is where it was. `xtask` reads it, checks
+/// that it names every test the transcript names, and cross-checks its sum against the host's
+/// clock; `crates/test_times` holds the grammar both sides use.
+fn report_test_times(tests: &[&dyn Testable], filter: &str) {
+    println!("{}", test_times::HEADING);
+    for (index, test) in tests.iter().enumerate() {
+        if filter.is_empty() || test.name().contains(filter) {
+            let line = test_times::Line {
+                milliseconds: u64::from(TEST_MILLISECONDS[index].load(Ordering::Relaxed)),
+                path: test.name(),
+            };
+            println!("{line}");
+        }
     }
 }
 
@@ -1394,9 +1447,22 @@ pub fn runner(tests: &[&dyn Testable]) {
         semihosting::exit(semihosting::EXIT_FAILURE)
     }
 
-    for test in tests {
+    // **The time record's table must hold every test, or the run fails before it starts** (milestone
+    // 807). A record with a hole in it would read as a test that cost nothing, and `xtask`'s gap
+    // check would then fail the leg at the end of a whole suite for a reason this line knows now.
+    assert!(
+        tests.len() <= TIME_RECORD_CAPACITY,
+        "this image has {} tests and the per-test time record holds {TIME_RECORD_CAPACITY}; \
+         raise TIME_RECORD_CAPACITY in kernel/src/testing.rs",
+        tests.len(),
+    );
+
+    for (index, test) in tests.iter().enumerate() {
         if filter.is_empty() || test.name().contains(filter) {
             test.run();
+            let ms = LAST_TEST_MILLISECONDS.load(Ordering::Relaxed);
+            TEST_MILLISECONDS[index]
+                .store(u32::try_from(ms).unwrap_or(u32::MAX), Ordering::Relaxed);
         }
     }
 
@@ -1409,6 +1475,9 @@ pub fn runner(tests: &[&dyn Testable]) {
     report_region_peak();
     report_rendezvous_peak();
     report_frame_pressure();
+
+    println!();
+    report_test_times(tests, filter);
 
     println!();
     // "passed" counts only the tests that actually ran to an "ok"; a skipped test (skip!(), no
