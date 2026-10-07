@@ -174,3 +174,55 @@ control). 370 is built, and it is not enough: its padding is never executed. The
 would settle it on radon, with layout held fixed and a decision rule written first, is E5 in
 [`notes/footprint-perturbation/executed-footprint.md`](../footprint-perturbation/executed-footprint.md).
 It needs a build lane before it needs an evening.
+
+### The hot section (2026-10-07)
+
+Milestone 796 (pin the hot trap path's placement). On 2026-10-05 radon's one-task `null_syscall`
+read 110, 118, 116 and 111 ticks across four builds that only shifted kernel text, and a merge that
+added no instruction to the trap path moved it 16
+([`notes/job-mix/radon-2026-10-05.md`](../job-mix/radon-2026-10-05.md)). So every function a
+syscall or an IPC round trip runs now lives at one address in every build.
+
+**How.** Each such function carries a `.text.hot.<name>` section: `#[link_section]` on the Rust
+(gated on `target_os = "none"`, since the prover builds `kernel/src` for the host), a `.section`
+directive in the assembly. Each ISA's linker script gathers them right after the boot stub,
+`SORT_BY_NAME` so the order does not follow rustc's codegen units, from a 16 KiB boundary. That is
+the U74's L1i way (32 KiB, two-way), so the block's sets do not depend on the boot stub's size, and
+nothing else in `.text` precedes it. The set is `script/fastpath-footprint`'s: both IPC closures
+plus the entry set, 15 to 18 symbols per ISA, plus aarch64's `memcpy` by input-section name.
+
+**What it changed, statically**, on the same commit:
+
+| | riscv64 | aarch64 | x86_64 |
+|---|---|---|---|
+| hot lines (64 B) | 151 to 139 | 195 to 184 | 183 to 170 |
+| pages | 10 to 3 | 14 to 3 | 14 to 3 |
+| L1i sets holding more than two hot lines | 2 to 0 | (no geometry read) | (no geometry read) |
+| `.text.hot` | 8,874 B | 11,724 B | 11,125 B |
+
+The cost is alignment padding: `.text` grew 16 KiB on aarch64 and riscv64 and 8 KiB on x86_64,
+in an image of about 3 MiB. The instructions did not change (the `--layout` hash differs only where
+objdump names `yield_now`, an alias of `schedule`, by its other name).
+
+**What keeps it.** `script/fastpath-footprint` fails when a hot symbol is outside
+`__text_hot_start`..`__text_hot_end` or the block is off its boundary, on every ISA, and names the
+function to give a section to. On aarch64 and riscv64 it also builds two `fastpath_pad` kernels
+20,520 bytes of text shift apart and fails if any hot symbol's address or size differs. Both were
+broken on purpose before landing and both failed.
+
+**What it has not shown.** That it flattens radon's number. The leading reading was hot code
+evicting itself, and a contiguous block under one way cannot do that, but nothing counted misses.
+The sweep in the milestone's block is the test.
+
+#### BUGS
+
+- The userspace stub is not pinned. Its sets come from `crates/user_mode_runtime/link.ld`, and it
+  shares index bits with the kernel's block. Option 2 in the milestone's block, if the sweep says so.
+- Placement is fixed; alignment within the block is not. Five of riscv64's seventeen hot symbols
+  start 8-byte aligned, which the U74's BTB wants for a zero-bubble taken branch (the U74-MC core
+  manual, section 4.2.6). A hot function that grows still moves the ones sorted after it.
+- RISC-V call relaxation makes a hot call four bytes or eight depending on reach. Text is under
+  1 MiB today, so every call relaxes; past it, unrelated growth could change hot code size.
+- x86_64 has no `fastpath_pad`, so it gets the containment check and not the shift check.
+- aarch64 pins the whole 2 KiB vector table for the one 128-byte slot a syscall runs, and x86_64
+  pins `isr_common` because it falls through into `isr_restore`.

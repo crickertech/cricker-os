@@ -1,5 +1,5 @@
 ---
-status: NOT-STARTED
+status: PARTIAL
 promoted_from: pin-the-hot-trap-paths-placement
 raised: 2026-10-05
 milestone_dependencies: none
@@ -13,6 +13,12 @@ needs_person: yes
 Raised 2026-10-05 (UTC) by `lane/radon-2026-10-05-record`, recording that evening's radon session.
 Title and slug are drafts. `needs_person` is yes only because the acceptance sweep is boots on
 radon.
+
+PARTIAL since 2026-10-07 (UTC), `lane/796-trap-path-placement`. Option 1 is built on all three
+ISAs and gated in CI. The radon sweep, which is the only thing left, is below under "The radon
+sweep". The design, the before and after, and the `BUGS` are in
+[`notes/benchmarks/kernel-footprint-and-caches.md`](../../notes/benchmarks/kernel-footprint-and-caches.md),
+"The hot section".
 
 ## What was seen
 
@@ -50,7 +56,7 @@ run fired on placement, and an evening of boots went to proving that.
 --layout`'s hot set and set indices, both taken. No outside tool considered; the work is a linker
 script and a list.
 
-## Options, not yet decided
+## Options (option 1 taken, 2026-10-07)
 
 1. One output section for the hot set, placed and aligned. Put the `--layout` hot symbols in
    `.text.hot` (by `#[link_section]` on the Rust functions and a section directive on the entry
@@ -66,15 +72,109 @@ script and a list.
 
 This lane recommends 1, then 2 only if the sweep says so. It has not measured which pieces collide.
 
+Option 1 is what landed. Every symbol in `--layout`'s hot set carries a `.text.hot.<name>`
+section; each linker script places them `SORT_BY_NAME` from a 16 KiB boundary right after the boot
+stub, ahead of milestone 370's sled. On riscv64 the hot path went from 151 lines over 10 pages, two
+L1i sets holding three hot lines, to 139 lines over 3 pages with none. Inlining is covered by the
+gate rather than by hope: an out-of-line callee that joins the path and is not in the section fails
+`script/fastpath-footprint`. Option 2 waits on the sweep, and the sweep cannot ask for it: it moves
+kernel text only, so the userspace stub sits still in all four images.
+
 ## Done means
 
-- The hot set's addresses and L1i sets identical across `main` and a build with unrelated code
+- [x] The hot set's addresses and L1i sets identical across `main` and a build with unrelated code
   added ahead of it (a `script/fastpath-footprint --layout` diff), in a check that fails the build
-  when they move.
-- On radon, the 2026-10-05 sweep repeated (shifts 0, 16, 32, 48) reads `null_syscall` at one task
-  flat within 2 ticks, where it read 110 to 118.
-- `script/fastpath-footprint` and `script/bench` within their floors on all three ISAs; the same
-  pin applied, or a scope note recording why not, on aarch64 and x86_64.
+  when they move. Built as two checks in `script/fastpath-footprint`, which CI runs. One requires every hot
+  symbol inside `.text.hot` on a 16 KiB boundary (all three ISAs). The other builds two kernels
+  20,520 bytes of text shift apart and requires every hot symbol at the same address and size
+  (aarch64 and riscv64).
+  Each was broken on purpose and failed.
+- [ ] On radon, the 2026-10-05 sweep repeated (shifts 0, 16, 32, 48) reads `null_syscall` at one task
+  flat within 2 ticks, where it read 110 to 118. Not run. Statically the four images are ready:
+  `trap_entry` at `0xffffffc0802061c8`, set 135, and all 18 hot symbols inside the section in each
+  (checked 2026-10-07 with the first loop below).
+- [x] `script/fastpath-footprint` and `script/bench` within their floors on all three ISAs; the same
+  pin applied, or a scope note recording why not, on aarch64 and x86_64. The pin is on all three.
+  Scope note: x86_64 has no `fastpath_pad`, so it gets the containment check and not the shift
+  check. Footprint drift after the pin: within 2.8% on every figure (local, 2026-10-07); CI reads
+  `script/bench`.
+
+## The radon sweep, for calef
+
+Run on patagonia from a checkout of `main` with this milestone merged. Power is calef's alone:
+**smart plug 2 only** (radon), never plug 3 (garcia), never the USB hub. Dates below are the day
+of the run, UTC.
+
+### Build the four images, and check them before walking to the bench
+
+Each `fastpath-footprint` line must say `18 of 18 hot symbols inside` and print the same `trap_entry` address and set.
+
+```sh
+D=$(date -u +%Y-%m-%d); mkdir -p bench/radon-$D
+for S in 0 16 32 48; do
+  NIFE_FASTPATH_PAD=0 NIFE_FASTPATH_SHIFT=$S \
+    script/fastpath-footprint --arch riscv64 --features board,job_mix,fastpath_pad --layout \
+    | grep -E 'pin:|  trap_entry'
+  NIFE_FASTPATH_PAD=0 NIFE_FASTPATH_SHIFT=$S \
+    script/board-image --job-mix --tftp --extra-features fastpath_pad
+  rm -rf target/board-shift$S && mv target/board target/board-shift$S
+done
+shasum -a 256 target/board-shift*/nife-vf2.img | tee bench/radon-$D/payloads.sha256
+```
+
+### Each boot
+
+N = 1 to 4 in the order shift 16, 0, 48, 32 (16 was the worst on 2026-10-05, so it
+goes first rather than last). Two terminals in the same checkout:
+
+```sh
+# terminal A, the server (Ctrl-C the previous one first)
+N=1; S=16
+script/board-netboot --root target/board-shift$S 2>&1 | tee bench/radon-$D/boot$N-shift$S.netboot.log
+
+# terminal B, the console, started before power
+N=1; S=16
+script/board-console --for 30m --until none --log bench/radon-$D/raw-boot$N-shift$S.log
+```
+
+Power-cycle smart plug 2, wait for `job-mix: done`, end the capture, then:
+
+```sh
+LC_ALL=C tr -cd '\11\12\15\40-\176' < bench/radon-$D/raw-boot$N-shift$S.log > bench/radon-$D/boot$N-shift$S.log
+LC_ALL=C grep -a -E 'job-mix: done|FAILED|REFUSED|tasks=1 kind=null_syscall' bench/radon-$D/boot$N-shift$S.log
+grep -a 'nife-vf2.img' bench/radon-$D/boot$N-shift$S.netboot.log
+```
+
+A boot counts only with `job-mix: done` and a netboot log naming that boot's root. If the board
+announces another server address, `setenv nife_boot_server 192.168.8.138` then
+`source ${scriptaddr}` at the U-Boot prompt, as on 2026-10-05.
+
+### Reading it, written before any boot
+
+The number is `per_job` on the `tasks=1
+kind=null_syscall` line.
+
+| Spread of the four | Reading | Next |
+|---|---|---|
+| 2 ticks or less | the pin holds the crossing still; Done means is met | mark BUILT with the four numbers |
+| 3 to 5 | the pin took most of it; something on the path is outside the closure (a callee the walk does not follow, or data that moves with `.text`) | stays PARTIAL; find it with `--layout` before boots |
+| 6 or more | the pin is not what moves the number | stays PARTIAL; the 2026-10-05 reading is wrong, record that |
+
+Option 2 is not on this table on purpose: the sweep never moves the userspace stub. Whatever the
+spread, also record the one-task number itself against 2026-10-05's 110 to 118, since a contiguous
+hot block is a different layout from all of them.
+
+## Follow-on
+
+- **Outstanding.** The radon sweep above is the remaining step; it needs calef and the board.
+  Checked 2026-10-07: nothing under `bench/` records a boot of a pinned kernel.
+- **Recorded.** Five limitations, in the `BUGS` of
+  `notes/benchmarks/kernel-footprint-and-caches.md`. The userspace stub is unpinned and alignment
+  inside the block is not controlled. RISC-V call relaxation can change hot code size past 1 MiB of
+  text. x86_64 has no shift check. aarch64 and x86_64 carry a little cold code in the block.
+- **Outstanding.** Option 2 (the userspace stub at a set range the kernel's block does not use)
+  is held until a cross-build comparison shows the stub moving the number; this sweep cannot.
+  Checked 2026-10-07: `crates/user_mode_runtime/link.ld` is unchanged by this lane.
 
 ## Index row
 
