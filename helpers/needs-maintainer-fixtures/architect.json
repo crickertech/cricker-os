@@ -689,6 +689,47 @@
         }
        ]
       }
+     },
+     {
+      "number": 217,
+      "isDraft": true,
+      "baseRefName": "main",
+      "isCrossRepository": false,
+      "headRefName": "lane/case-217",
+      "headRefOid": "0000000000000000000000000000000000000217",
+      "createdAt": "2026-10-03T19:00:00Z",
+      "mergeable": "MERGEABLE",
+      "body": "",
+      "url": "https://github.com/o/r/pull/217",
+      "labels": {
+       "nodes": [
+        {
+         "name": "needs-maintainer"
+        }
+       ]
+      },
+      "autoMergeRequest": null,
+      "comments": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-03T20:00:00Z",
+         "url": "https://github.com/o/r/pull/217#c0",
+         "body": "**Lane:** lane/x, written by an agent.\n\n## What I need from you\n\n**Should X do Y?** Recommended: yes.\n"
+        }
+       ]
+      },
+      "labelEvents": {
+       "nodes": []
+      },
+      "commits": {
+       "nodes": [
+        {
+         "commit": {
+          "committedDate": "2026-10-03T21:00:00Z"
+         }
+        }
+       ]
+      }
      }
     ]
    },

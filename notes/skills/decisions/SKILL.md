@@ -105,8 +105,11 @@ you` comment, with `needs-architect`, including one first raised in a chat (lane
 only in a chat is missing from his queue, `script/architect-queue`, which lists an item when it
 carries the label or has an unanswered ask. Record his answer with `script/record-ruling`, which
 posts it and swaps `needs-architect` for `architect-ruled` (plus `held-by-lane` on a send-back) in
-one step. The drain labels `needs-maintainer` wherever the label and the open questions disagree
-(helpers/needs-maintainer.jq, the `hold-no-ask` and `ask-no-hold` causes).
+one step. Where the label and the open questions disagree, the drain repairs one direction and
+flags the other (calef's ruling on #1792, 2026-10-06 UTC): an open question or a moved surface with
+no label gets `needs-architect` added by the bot, since a wrong add costs calef a glance; a label
+with no open question gets `needs-maintainer` and is never removed by the bot, since a wrong removal
+could merge a pull request without his ruling (helpers/needs-maintainer.jq).
 
 The watchers run unattended as `nife-smelter[bot]` in scheduled Actions workflows (calef,
 2026-09-23; the watch that reads a machine's own lane worktrees stays per developer). A session

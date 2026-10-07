@@ -557,12 +557,7 @@ Any of these takes the label off."
 		at=$(printf '%s' "$c" | jq -r '.at')
 		url=$(printf '%s' "$c" | jq -r '.url')
 		line=$(printf '%s' "$c" | jq -r '.line')
-		what="A QUESTION FOR CALEF THAT HIS QUEUE CANNOT SHOW: asked at $at ($url), with no ruling recorded since, and no \`needs-architect\` on this. The question begins: \"$line\". The maintainer session owns the next step, one of:
-
-- add \`needs-architect\` (and, if \`architect-ruled\` is on and this asks something the old ruling did not cover, remove \`architect-ruled\` so the hold blocks the merge)
-- if calef has already answered it, record the ruling: \`script/record-ruling $1 --text '<his words>'\`
-
-Either takes the label off."
+		what="A QUESTION FOR CALEF THAT HIS QUEUE COULD NOT SHOW: asked at $at ($url), with no ruling recorded since, and no \`needs-architect\` on this, so the drain added it (calef's ruling on #1792: the bot adds, and only flags removals). The question begins: \"$line\". If \`architect-ruled\` is on and this asks something the old ruling did not cover, remove \`architect-ruled\` so the hold blocks the merge. If calef has already answered, record it: \`script/record-ruling $1 --text '<his words>'\`."
 		;;
 	surface-no-hold)
 		head=$(printf '%s' "$c" | jq -r '.head')
@@ -571,7 +566,7 @@ Either takes the label off."
 
 $rules
 
-The maintainer session owns the next step: add \`needs-architect\` and post the ask under a \`## What I need from you\` heading, or, if calef already ruled on this surface, record it with \`script/record-ruling $1\`. Either takes the label off."
+So the drain added \`needs-architect\` (calef's ruling on #1792: the bot adds, and only flags removals). Post the ask under a \`## What I need from you\` heading, or, if calef already ruled on this surface, record it with \`script/record-ruling $1\`; a hold with no ask is flagged \`hold-no-ask\` after $NM_MINUTES minutes."
 		;;
 	stale)
 		state=$(printf '%s' "$c" | jq -r '.state')
@@ -648,8 +643,19 @@ needs_maintainer() {
 			# `gh pr` or `gh issue`: the two architect causes also apply to issues.
 			NM_KIND=$(printf '%s' "$rec" | jq -r '.kind // "pr"')
 			action=$(printf '%s' "$rec" | jq -r '.action')
+			# calef, #1792, 2026-10-06 (UTC): the drain adds `needs-architect` itself for an open
+			# question or a moved surface, and only flags the reverse (hold-no-ask), because a wrong
+			# removal could merge a pull request without his ruling. Never remove it here.
+			if [ "$(printf '%s' "$rec" | jq -r '.hold')" = true ]; then
+				if w gh "$NM_KIND" edit "$num" --repo "$REPO" --add-label "$HELD_LABEL"; then
+					echo "$ME: HELD #$num for an architect ($causes)"
+				else
+					echo "$ME: #$num needs $HELD_LABEL ($causes) and could not be labeled"
+				fi
+			fi
 			causes=$(printf '%s' "$rec" | jq -r '.causes | map(.cause) | join(", ")')
 			case "$action" in
+			hold) ;;
 			adopt)
 				branch=$(printf '%s' "$rec" | jq -r '.branch')
 				head=$(printf '%s' "$rec" | jq -r '.causes[0].head')

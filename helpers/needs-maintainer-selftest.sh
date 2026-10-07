@@ -152,13 +152,19 @@ falsify 'select($last == null or (nm_parked([$last.labels.nodes[]?.name]) | not)
 #     partial ruling since the ask: nothing. 211 a "Nothing." section: nothing. 212 the rules fire
 #     and no label (#1745): surface-no-hold. 213 the same under `architect-ruled`: nothing. 214 an
 #     ask in the body: ask-no-hold. 215 the labeler's own comment quoting the heading: nothing. 216
-#     its needs-maintainer cause gone: clear. Issues 301 (held, no ask) and 302 (an ask in the
-#     body, unlabeled) take the first two causes, and come back as issues.
-arch_want='["202:pr:label:hold-no-ask","203:pr:label:hold-no-ask","205:pr:label:hold-no-ask","206:pr:label:ask-no-hold","209:pr:label:ask-no-hold","212:pr:label:surface-no-hold","214:pr:label:ask-no-hold","216:pr:clear","301:issue:label:hold-no-ask","302:issue:label:ask-no-hold"]'
+#     its needs-maintainer cause gone: clear. 217 case 206 already wearing needs-maintainer:
+#     clear, and still held. Issues 301 (held, no ask) and 302 (an ask in the body, unlabeled)
+#     take the first two causes, and come back as issues.
+#     The repair is asymmetric (calef, #1792, 2026-10-06 UTC): `+hold` marks the ADD of
+#     needs-architect the drain makes itself (ask-no-hold, surface-no-hold), with no
+#     needs-maintainer; hold-no-ask only flags. Section 5b holds the other half: the drain never
+#     removes needs-architect.
+arch_want='["202:pr:label:hold-no-ask","203:pr:label:hold-no-ask","205:pr:label:hold-no-ask","206:pr:hold+hold:ask-no-hold","209:pr:hold+hold:ask-no-hold","212:pr:hold+hold:surface-no-hold","214:pr:hold+hold:ask-no-hold","216:pr:clear","217:pr:clear+hold","301:issue:label:hold-no-ask","302:issue:hold+hold:ask-no-hold"]'
 arch_decide() {
 	jq -c --arg l needs-maintainer --argjson now "$(jq -n '"2026-10-03T22:00:00Z" | fromdateiso8601')" \
 		"$1"'[ nm_decide($l; $now; 30; {})
-			| "\(.number):\(.kind):\(.action)" + (if .action == "clear" then "" else ":" + (.causes | map(.cause) | join(",")) end) ]' \
+			| "\(.number):\(.kind):\(.action)" + (if .hold then "+hold" else "" end)
+				+ (if .action == "clear" then "" else ":" + (.causes | map(.cause) | join(",")) end) ]' \
 		"$fx/architect.json"
 }
 expect "the architect causes decided wrong" "$(arch_decide "$program")" "$arch_want"
@@ -181,6 +187,8 @@ arch_falsify 'select(($labeled_at | nm_ts) <= $now - $minutes * 60)' 'select(tru
 arch_falsify '(oq_has_label("needs-architect") or oq_has_label("architect-ruled") or oq_has_label("held-by-lane")) | not' 'true' "surface-no-hold's label exemption"
 arch_falsify '(.labelEvents.nodes[]? | select(.label.name == "architect-ruled" or .label.name == "held-by-lane") | .createdAt)' 'empty' 'a ruling label closing an ask'
 arch_falsify '(Nothing|None)' '(NEVER-EMPTY)' 'the "Nothing." exemption'
+arch_falsify 'def nm_hold_causes: ["ask-no-hold", "surface-no-hold"];' 'def nm_hold_causes: [];' 'the drain adding needs-architect itself'
+arch_falsify 'def nm_hold_causes: ["ask-no-hold", "surface-no-hold"];' 'def nm_hold_causes: ["ask-no-hold", "surface-no-hold", "hold-no-ask"];' 'hold-no-ask staying flag-only'
 
 # 3. The episode keys the comment markers are built from, and the evidence the comment names.
 got=$(jq -c --argjson now "$(jq -n '"2026-10-03T22:00:00Z" | fromdateiso8601')" \
@@ -221,6 +229,21 @@ if [ -n "$armers" ]; then
 	echo "$me: merge-drain.sh arms or enqueues again, which calef ruled out on #1564 (2026-10-03):" >&2
 	printf '  %s\n' "$armers" >&2
 	echo "  A pull request a lane did not arm is labelled needs-maintainer instead." >&2
+	exit 1
+fi
+
+# 5b. calef's ruling on #1792 (2026-10-06 UTC), the half no fixture can show: the drain adds
+#     needs-architect and never removes it, since a wrong removal could merge a pull request without
+#     his ruling. Comments are skipped, as in 5.
+removers=$(grep -v '^[[:space:]]*#' "$f" | grep -e '--remove-label "\$HELD_LABEL"' -e '--remove-label needs-architect' -e 'labels/needs-architect' || true)
+if [ -n "$removers" ]; then
+	echo "$me: merge-drain.sh removes needs-architect, which calef ruled out on #1792 (2026-10-06):" >&2
+	printf '  %s\n' "$removers" >&2
+	echo "  hold-no-ask flags needs-maintainer instead; a maintainer checks before the label comes off." >&2
+	exit 1
+fi
+if ! grep -qF -- '--add-label "$HELD_LABEL"' "$f"; then
+	echo "$me: merge-drain.sh no longer adds needs-architect for ask-no-hold and surface-no-hold (calef, #1792)." >&2
 	exit 1
 fi
 

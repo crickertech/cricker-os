@@ -94,7 +94,9 @@
 #              not call `gh`)
 #
 # Output, one object per pull request that has a cause or wears the label:
-#   { number, kind: "pr" | "issue", action: "label" | "keep" | "clear", causes: [ { cause, key, ... } ] }
+#   { number, kind: "pr" | "issue", action: "label" | "keep" | "clear" | "hold", hold: bool,
+#     causes: [ { cause, key, ... } ] }
+# `hold` true means the shell adds `needs-architect` (the architect causes, below).
 # and one per orphan branch that never had a pull request, for the shell to open a draft for:
 #   { number: null, branch, action: "adopt", causes: [ { cause: "orphan", ... } ] }
 #
@@ -231,8 +233,14 @@ def nm_stale_draft($now; $blockers):
 # in front of this file, decides "open"). Each cause is one way the invariant breaks; none is held
 # by another label, because a held pull request is exactly where a stale or missing hold hides.
 # Each waits `$minutes` after the fact that started it, so a lane that labels and then asks, or
-# asks and then labels, is not caught between the two. They flag; they never add or remove
-# `needs-architect` themselves (a reversible default, recorded on #1792 as calef's to change).
+# asks and then labels, is not caught between the two.
+#
+# The repair is asymmetric, by calef's ruling on #1792, 2026-10-06 (UTC): "Approve: the bot adds
+# labels itself and only flags removals." `ask-no-hold` and `surface-no-hold` set `hold`, and the
+# shell ADDS `needs-architect` itself, without `needs-maintainer`: a wrong add costs calef a glance.
+# `hold-no-ask` only flags: a wrong removal could let a pull request merge without his ruling, which
+# cannot be undone, so a maintainer checks before the label comes off. Nothing here ever removes
+# `needs-architect`; helpers/needs-maintainer-selftest.sh fails if the drain learns to.
 
 # When `needs-architect` last went on: the newest LabeledEvent the query fetched, else creation.
 def nm_architect_since:
@@ -261,6 +269,9 @@ def nm_surface_no_hold:
   select(((.architectSurface // []) | length) > 0)
   | select((oq_has_label("needs-architect") or oq_has_label("architect-ruled") or oq_has_label("held-by-lane")) | not)
   | { cause: "surface-no-hold", key: .headRefOid, head: .headRefOid, rules: .architectSurface };
+
+# The causes the drain repairs by adding `needs-architect` (calef, #1792; see above).
+def nm_hold_causes: ["ask-no-hold", "surface-no-hold"];
 
 def nm_architect($now; $minutes): [nm_hold_no_ask($now; $minutes)] + [nm_ask_no_hold($now; $minutes)];
 
@@ -293,7 +304,12 @@ def nm_decide($label; $now; $minutes; $blockers):
   | map({ number: .[0].number, kind: (map(.kind // "pr") | first), labeled: (map(.labeled) | any),
            causes: (map(.causes[]) | unique_by(.cause)) })
   | map(select(.labeled or (.causes | length) > 0))
-  | map(. + { action: (if (.causes | length) == 0 then "clear" elif .labeled then "keep" else "label" end) })
-  | map(del(.labeled))
+  # `hold`: the drain adds `needs-architect` itself. Those causes need no maintainer, so they do not
+  # count toward `needs-maintainer`; an item with only them and no label gets action "hold".
+  | map(. + { hold: (.causes | any(.cause as $c | nm_hold_causes | index($c) != null)),
+              flags: (.causes | map(select(.cause as $c | nm_hold_causes | index($c) | not))) })
+  | map(. + { action: (if (.flags | length) > 0 then (if .labeled then "keep" else "label" end)
+                       elif .labeled then "clear" else "hold" end) })
+  | map(del(.labeled, .flags))
   | . + [ $orphans[] | select(.number == null) | { number, kind: "pr", branch: .causes[0].branch, action: "adopt", causes } ]
   | .[];
