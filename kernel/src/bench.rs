@@ -36,6 +36,7 @@
 
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
+use crate::cap::{Rights, address_space_cap, memory_region_cap, page_frame_cap, rendezvous_cap};
 use crate::{println, sched};
 
 /// Iterations per benchmark. Fixed and part of the output, so a baseline is self-describing.
@@ -819,10 +820,7 @@ fn spawn_os_primitives_benchmarker(role: u64, report: sched::RendezvousId) -> bo
                 arg0: role,
                 arg1: 0,
                 arg2: 0,
-                grants: &[crate::cap::rendezvous_cap(
-                    report,
-                    crate::cap::Rights::WRITE,
-                )],
+                grants: &[rendezvous_cap(report, Rights::WRITE)],
                 maps: &[],
             },
         )
@@ -878,7 +876,6 @@ fn ipc_rtt_el0() {
     let request = sched::create_rendezvous();
     let reply = sched::create_rendezvous();
     let report = sched::create_rendezvous();
-    use crate::cap::{Rights, rendezvous_cap};
 
     sched::spawn(move || {
         crate::user::run(
@@ -1302,7 +1299,6 @@ fn sink_throughput() {
     };
     let pipe = sched::create_rendezvous();
     let report = sched::create_rendezvous();
-    use crate::cap::{Rights, rendezvous_cap};
 
     // The producer first, so the consumer's first `RECEIVE` meets a waiting sender rather than the
     // other way round. Either order works (a rendezvous blocks whichever side arrives first) and
@@ -1381,7 +1377,6 @@ fn map_el0() {
     };
 
     let report = sched::create_rendezvous();
-    use crate::cap::{Rights, address_space_cap, page_frame_cap, rendezvous_cap};
     sched::spawn(move || {
         crate::user::run(
             image,
@@ -1421,7 +1416,6 @@ fn spawn_el0() {
     };
     let report = sched::create_rendezvous();
     let child_done = sched::create_rendezvous();
-    use crate::cap::{Rights, memory_region_cap, rendezvous_cap};
     sched::spawn(move || {
         crate::user::run(
             image,
