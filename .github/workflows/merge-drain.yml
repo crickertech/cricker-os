@@ -96,7 +96,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: helpers/watcher_watch.py
           sparse-checkout-cone-mode: false
@@ -127,7 +127,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     steps:
-      - uses: actions/create-github-app-token@v3
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         id: token
         with:
           app-id: ${{ secrets.AUTOMATION_APP_ID }}
@@ -144,7 +144,7 @@ jobs:
       # nothing. `fetch-depth: 0` gets every branch; `filter: blob:none` keeps a 549 MB history from
       # being cloned in full 288 times a day, and the partial clone fetches the few blobs
       # `git diff --shortstat` actually touches on demand.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           filter: blob:none

@@ -99,7 +99,7 @@ jobs:
       # installation token, minted fresh each run (milestone 128 (the automation gets its own
       # identity)). The personal access token this job used before was retired 2026-10-03 UTC
       # and then deleted, secret and token both.
-      - uses: actions/create-github-app-token@v3
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         id: app-token
         with:
           app-id: ${{ secrets.AUTOMATION_APP_ID }}
@@ -110,7 +110,7 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           token: ${{ steps.app-token.outputs.token }}
           # The backfill walks first-parent history, so a shallow clone would silently produce a
@@ -140,9 +140,9 @@ jobs:
         id: covtool
         if: steps.day.outputs.coverage == 'true'
         continue-on-error: true  # outcome: re-raised
-        uses: taiki-e/install-action@cargo-llvm-cov
+        uses: taiki-e/install-action@27cdd3237bf9a6a2b668f3bcbfaa06949ae17deb # cargo-llvm-cov
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         if: steps.day.outputs.coverage == 'true' && steps.covtool.outcome == 'success'
 
       - name: Measure host-crate coverage

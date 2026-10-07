@@ -104,7 +104,7 @@ jobs:
       # reason: this needs history to diff against the pull request's base, but not every blob in
       # that history, and a partial clone fetches on demand exactly the blobs the diff below
       # actually touches (the changed files on both sides) rather than the whole tree.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           filter: blob:none
@@ -141,20 +141,23 @@ jobs:
       - name: Run the diff-reading rules
         id: rules
         env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
           # **Live labels, not the payload** (the payload snapshot lost a race on #1712, 2026-10-05:
           # `architect-ruled` at 19:24:14Z, `needs-architect` re-added by this job at 19:24:35Z).
           # This is the early exit; the add step below asks again, since the diff takes time.
-          if on="$(helpers/architect-ruled.sh '${{ github.event.pull_request.number }}' '${{ github.repository }}')"; then
+          if on="$(helpers/architect-ruled.sh "$PR_NUMBER" "$GITHUB_REPOSITORY")"; then
             echo "architect-label: $on is on this PR; an architect has already ruled" >&2
             echo "architect-label: on its surface, so this run is not re-adding needs-architect." >&2
             echo "add=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           base="$(helpers/scope-merge-base.sh \
-              '${{ github.event.pull_request.base.ref }}' \
-              '${{ github.event.pull_request.base.sha }}' 2>/dev/null || true)"
+              "$BASE_REF" \
+              "$BASE_SHA" 2>/dev/null || true)"
           # **A run that examined nothing routes to a person; it never reads as "no rule fired"**
           # (milestone 641 (a mechanism that reports clean says over how many units, and zero is
           # loud), provisional). Both cases below used to set add=false: no base to diff, and the
@@ -163,7 +166,7 @@ jobs:
           if [ -z "$base" ]; then
             report="unexamined: no base to diff against, so no rule read this pull request"
           else
-            echo "architect-label: diffing merge-base $base (origin/${{ github.event.pull_request.base.ref }})..HEAD"
+            echo "architect-label: diffing merge-base $base (origin/$BASE_REF)..HEAD"
             rc=0
             report="$(git diff --unified=1000000 "$base" HEAD | \
                 python3 helpers/architect-label-rules.py --base-rev "$base")" || rc=$?
@@ -224,10 +227,11 @@ jobs:
       - name: Comment once, naming which rule fired
         if: steps.rules.outputs.add == 'true'
         env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
           REPORT: ${{ steps.rules.outputs.report }}
         run: |
           helpers/architect-label-comment.sh \
-            "${{ github.event.pull_request.number }}" \
-            "${{ github.repository }}" \
+            "$PR_NUMBER" \
+            "$GITHUB_REPOSITORY" \
             "$REPORT"

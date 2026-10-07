@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
-      - uses: actions/create-github-app-token@v3
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         id: token
         with:
           app-id: ${{ secrets.AUTOMATION_APP_ID }}
@@ -83,7 +83,7 @@ jobs:
       # One ref is enough: this watcher reads `main`'s tip through `git ls-remote` and reads the
       # runs through `gh`. Nothing here walks another branch, which is what makes it cheaper than
       # the drain's checkout.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # **Says so when the merge queue ejects more than a fifth of what enters it** (milestone 724
       # (the merge queue reports its ejection share and its time to merge), provisional), for the

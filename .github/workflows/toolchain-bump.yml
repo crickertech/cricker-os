@@ -95,7 +95,7 @@ jobs:
     outputs:
       verdict: ${{ steps.measure.outputs.verdict }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Work out the two nightlies
         id: plan
@@ -130,13 +130,13 @@ jobs:
             rustup target add --toolchain "$tc" $targets
           done
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         if: steps.install.outcome == 'success'
       # The same pinned QEMU, under the same cache key, as ci.yml's `bench` job; see the comment
       # there for why the runner's packaged QEMU will not do.
       - name: Cache QEMU
         if: steps.install.outcome == 'success'
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/nife-qemu
           key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
@@ -179,7 +179,7 @@ jobs:
           echo "verdict: $verdict"
           [ -z "$red" ] || { echo "Still naming the old nightly, so the bump stays red:"; echo "$red"; }
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: steps.measure.outcome == 'success'
         with:
           name: restamp
@@ -268,7 +268,7 @@ jobs:
       - name: Mint an installation token for the automation App
         id: app-token
         if: env.AUTOMATION_APP_ID != ''
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
           app-id: ${{ secrets.AUTOMATION_APP_ID }}
           private-key: ${{ secrets.AUTOMATION_APP_KEY }}
@@ -306,7 +306,7 @@ jobs:
           fi
           exit 0
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           token: ${{ steps.app-token.outputs.token || github.token }}
 
@@ -345,7 +345,7 @@ jobs:
           rustup target add --toolchain "${{ steps.plan.outputs.target }}" \
             $(awk -F'"' '/^targets *=/ {for (i = 2; i < NF; i += 2) printf "%s ", $i}' rust-toolchain.toml)
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         if: steps.install.outcome == 'success'
 
       - name: Install clang (the C component's compiler, milestone 36)
@@ -396,7 +396,7 @@ jobs:
       - name: Fetch the restamp job's floors and report
         if: steps.install.outcome == 'success' && steps.plan.outputs.skip == 'false' && needs.restamp.outputs.verdict != ''
         continue-on-error: true  # outcome: exception, a missing report is stated in the pull request body
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: restamp
           path: ${{ runner.temp }}/restamp
