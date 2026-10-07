@@ -176,8 +176,9 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   exchange. `ATTACH` is a `SEND_CAP` with no reply and the id namespace has no per-caller scope, so
   the victim's attach fails silently. Pinned by the opt-in
   `net_confinement_tests::a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic`
-  and recorded in `net_stack.rs`'s BUGS. The fix shape (the `name_resolver` one: per-caller windows,
-  or an answerable refusing ATTACH) is an architect's call.
+  and recorded in `net_stack.rs`'s BUGS. The fix shape is the `name_resolver` one, per-caller
+  windows keyed by badge; whether refusals should also become answerable is a smaller second
+  call. Both are the architect's.
 - **The routed `chatty` reshape landed.** Claim 26's own test now fails rather than hangs: the
   operator retires the last receiver, a plant parks the marker, and a let-open `RECEIVE_CAP`
   returns it. Green on aarch64 (whole module) and riscv64, red at its own assertion under the

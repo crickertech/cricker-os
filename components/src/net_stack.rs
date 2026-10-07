@@ -49,7 +49,9 @@
 //! architectures by the opt-in `net_confinement_tests::
 //! a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic` while red. The
 //! sibling that does it right is `name_resolver`: windows keyed by the badge's grant index, a
-//! second attach refused, `ATTACH` answerable. Which
+//! second attach refused. Its refusals are silent too, and that is safe there because the
+//! scoping makes every attach failure the caller's own. Whether this server's refusals should
+//! also become answerable is a separate, smaller call. Which
 //! fix shape applies here is an architect's call; whether ids should also be per-caller on the
 //! other multi-client servers is the same question one component over.
 //!

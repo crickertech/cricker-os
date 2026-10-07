@@ -73,10 +73,12 @@ where the client aimed; here the server binds the wrong window, and the reach ha
 single wrong write.
 
 The sibling that already does it right is one component over: `name_resolver` keys its windows by
-the badge's grant index, refuses a second attach at a granted window, and its `ATTACH` arm carries
-a Reply. The fix shape for `net_stack` is that shape; which side (per-caller ids, or an answerable
-refusing ATTACH) is an architect's call, recorded in the BUGS entry at the attach site and not
-decided here. `name_resolver.rs:485`'s `attach_socket` is a client of the same contract and shares
+the badge's grant index and refuses a second attach at a granted window. Its refusals are silent
+too, the frame deleted with no reply, and that is safe there because the scoping makes every attach
+failure the caller's own, visible through the operations it then attempts. The fix shape for
+`net_stack` is the scoping; whether refusals should also become answerable is a separate, smaller
+call. Neither is decided here; the BUGS entry at the attach site carries the fork.
+`name_resolver.rs:485`'s `attach_socket` is a client of the same contract and shares
 the exposure of any stack client, which the escape covers.
 
 ## Near misses
@@ -172,10 +174,10 @@ Counts: 1 escape (new, unnumbered surface), 0 re-discoveries, 4 near miss (3, 19
 ## The escape's home
 
 `components/src/net_stack.rs`'s BUGS section carries the finding at the attach site, and the red
-test pins it. The fix is an architect's call between the two shapes `name_resolver` already
-demonstrates; until it is ruled, the test stays opt-in and red. The same question ("whose id is
-this") applies to every multi-client window server, and the resolver is the counterexample that
-shows it is answerable.
+test pins it. The fix is the scoping `name_resolver` demonstrates; whether its refusals also become
+answerable is a second, smaller call. Until the ruling, the test stays opt-in and red. The same
+question ("whose id is this") applies to every multi-client window server, and the resolver shows
+the scoping half is already answerable in this tree.
 
 ## Refusal log
 
