@@ -166,6 +166,11 @@ jobs:
         with:
           app-id: ${{ secrets.AUTOMATION_APP_ID }}
           private-key: ${{ secrets.AUTOMATION_APP_KEY }}
+          # Exactly the set the App held before milestone 128 (the automation gets its own identity)
+          # widened it for sessions, Administration among them. Named here so the widening reaches no
+          # workflow; notes/session-identity.md.
+          permission-contents: write
+          permission-pull-requests: write
 
       - uses: actions/checkout@v7
         with:
@@ -196,7 +201,7 @@ jobs:
           Per-record replay times from the weekly sweep, which verify.yml's re-falsify shards are
           packed by."
           git push --force origin "$branch"
-          body="**Lane:** $branch, opened by a scheduled workflow; calef's account is the author GitHub shows.
+          body="**Lane:** $branch, opened by a scheduled workflow; nife-smelter[bot] is the author GitHub shows.
 
           Per-record replay times from [run $GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID), the weights \`script/falsifications --plan-since\` packs verify.yml's re-falsify shards by."
           existing="$(gh pr list --head "$branch" --state open --json number --jq '.[].number')"

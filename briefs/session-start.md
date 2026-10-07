@@ -14,6 +14,17 @@ happens to notice, and that is precisely the arrangement this project has alread
 for hours, `main` went red with nobody assigned, and merging one pull request staled eight others
 that nothing picked back up.
 
+## Which identity this session acts as
+
+Nothing changes unless the session opted in. One that set `NIFE_SMELTER=1` checks, in any harness,
+before its first `gh` or `git push`:
+
+    helpers/smelter-token check
+
+Silent means it is on the `nife-smelter` App. A warning means it opted in but never applied the
+environment, so `gh` and `git` act as the personal login; prefix each command with
+`eval "$(helpers/smelter-token env)";` ([the note](../notes/session-identity.md)).
+
 ## 0. Is the week's budget burning faster than the week
 
 Write one line before anything else: the share of the weekly usage allowance used, against the

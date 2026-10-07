@@ -1,0 +1,664 @@
+#!/usr/bin/env python3
+"""Mint a short-lived nife-smelter installation token, so a session on a developer machine acts as
+the App and not as the architect whose machine it is.
+
+**Why this exists.** Milestone 128 (the automation gets its own identity) put the scheduled
+workflows on the `nife-smelter` GitHub App in Actions. Every agent session on patagonia still ran
+`gh` and `git push` as calef: his classic `gh` token (scopes repo, workflow, admin:public_key, gist,
+read:org) and his SSH key. A security audit on 2026-10-07 (UTC) found that any lane therefore held
+an admin credential that reaches calef's personal repositories and his SSH keys. An App
+installation token reaches only the repositories of the organization the App is installed on, holds
+only the permissions asked for when it is minted, and dies after an hour.
+
+**What it does.** Signs a JSON Web Token (JWT) with the App's private key (RS256, through `openssl`,
+the key passed on a pipe and never written to disk), finds the App's installation on the
+organization, and exchanges the JWT for an installation token restricted to one of two permission
+sets, `lane` (the default) or `maintainer` (adds Administration). The token is cached per scope,
+mode 0600, and reminted when it has less than ten minutes left.
+
+Subcommands:
+
+    token           print a valid installation token (cached or freshly minted)
+    identity        print the byline GitHub shows for this token, e.g. nife-smelter[bot]
+    git-credential  git's credential-helper protocol: answers `get` for https://github.com
+    env             print the shell lines (environment only) that put this session on the App,
+                    when and only when NIFE_SMELTER=1 is set; otherwise a comment. `env --json`
+                    gives the same answer as JSON, for a harness that sets variables itself
+    check           exit 1 with a warning when NIFE_SMELTER=1 but `env` was not applied
+    --selftest      against a throwaway key and a local stub of the GitHub API; no network,
+                    never reads the keychain
+
+Opt-in: NIFE_SMELTER=1. Without it `env` changes nothing, so the key's presence alone puts no
+session on the App. Configuration, all optional: NIFE_SMELTER_SCOPE (lane | maintainer), NIFE_SMELTER_KEY_FILE (a PEM
+file, instead of the macOS keychain), NIFE_SMELTER_APP_ID, NIFE_SMELTER_ORG, NIFE_SMELTER_API,
+NIFE_SMELTER_CACHE. The key's default home is the login keychain, generic password service
+`nife-smelter`, account `private-key`, holding the PEM base64-encoded on one line (`security -w`
+prints a value with newlines in it as hex, so the PEM itself cannot go there as is).
+notes/session-identity.md has the setup steps.
+
+Name provisional (milestone 128's lane, 2026-10-07 UTC); `design/naming.md` is the rule.
+
+EXAMPLES
+
+    helpers/smelter-token token >/dev/null && echo minted
+    GH_TOKEN="$(helpers/smelter-token token)" gh api /repos/nifeos/nife --jq .full_name
+    NIFE_SMELTER_SCOPE=maintainer gh api -X PATCH /repos/nifeos/nife -f has_wiki=false
+    eval "$(NIFE_SMELTER=1 helpers/smelter-token env)"; gh pr list   # one opted-in command
+    helpers/smelter-token --selftest
+
+BUGS
+
+- It is a guard against accident, not a boundary against a hostile session. Every session on
+  patagonia runs as calef's macOS user, so any of them can read the App key from the keychain and
+  mint the `maintainer` scope, and can read calef's own `gh` login and SSH key the same way. The
+  `lane` default keeps Administration out of a lane's hands unless the lane asks for it by name,
+  in the command, where a reader sees it.
+- The permission sets below are a request. GitHub refuses one the App does not hold (HTTP 422),
+  loudly, so widening the App must come before switching a scope on; and nothing here notices if
+  somebody widens the App further in the web UI.
+- Two sessions that find the cache stale at the same moment both mint. Tokens are independent, so
+  this costs an API call, not correctness.
+"""
+
+import base64
+import json
+import os
+import platform
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.error
+import urllib.request
+from datetime import datetime, timezone
+
+APP_ID = os.environ.get("NIFE_SMELTER_APP_ID", "5053502")
+ORG = os.environ.get("NIFE_SMELTER_ORG", "nifeos")
+API = os.environ.get("NIFE_SMELTER_API", "https://api.github.com").rstrip("/")
+KEYCHAIN_SERVICE = "nife-smelter"
+KEYCHAIN_ACCOUNT = "private-key"
+REFRESH_MARGIN = 600  # seconds; a token with less than this left is reminted, so a push never races expiry
+
+# What a lane does on GitHub, and nothing more: push and open pull requests (contents, pull
+# requests), label and comment (issues), dispatch and read CI (actions, checks, statuses), and edit
+# files under .github/workflows/, which GitHub refuses to any token without `workflows`.
+LANE = {
+    "contents": "write",
+    "pull_requests": "write",
+    "issues": "write",
+    "actions": "write",
+    "workflows": "write",
+    "checks": "read",
+    "statuses": "read",
+    "metadata": "read",
+}
+# The maintainer also changes repository settings: rulesets, the merge queue, merge buttons.
+MAINTAINER = dict(LANE, administration="write")
+SCOPES = {"lane": LANE, "maintainer": MAINTAINER}
+
+
+class Refusal(Exception):
+    """A failure with a message meant for a person, printed without a traceback."""
+
+
+def b64url(raw):
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+
+def private_key():
+    """The PEM, or None when this machine has no key (the switch is off)."""
+    path = os.environ.get("NIFE_SMELTER_KEY_FILE")
+    if path:
+        try:
+            with open(os.path.expanduser(path), "rb") as f:
+                return f.read()
+        except OSError as e:
+            raise Refusal("NIFE_SMELTER_KEY_FILE=%s cannot be read: %s" % (path, e.strerror))
+    if os.environ.get("NIFE_SMELTER_NO_KEYCHAIN") or platform.system() != "Darwin":
+        return None
+    r = subprocess.run(["security", "find-generic-password", "-s", KEYCHAIN_SERVICE,
+                        "-a", KEYCHAIN_ACCOUNT, "-w"], capture_output=True)
+    if r.returncode != 0:
+        return None
+    try:
+        return base64.b64decode(r.stdout.strip(), validate=True)
+    except ValueError:
+        raise Refusal("the keychain item %s/%s is not base64; store it with "
+                      "`base64 < key.pem | tr -d '\\n'` (notes/session-identity.md)"
+                      % (KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT))
+
+
+def key_present():
+    """Whether this machine holds the key, without reading it: `security` without `-w` reads only
+    the item's attributes, so a session start never raises a keychain prompt."""
+    path = os.environ.get("NIFE_SMELTER_KEY_FILE")
+    if path:
+        return os.path.isfile(os.path.expanduser(path))
+    if os.environ.get("NIFE_SMELTER_NO_KEYCHAIN") or platform.system() != "Darwin":
+        return False
+    return subprocess.run(["security", "find-generic-password", "-s", KEYCHAIN_SERVICE,
+                           "-a", KEYCHAIN_ACCOUNT], capture_output=True).returncode == 0
+
+
+def jwt(key, now=None):
+    # iat is backdated 60 s and exp kept under GitHub's 10-minute ceiling, the margins GitHub's own
+    # documentation gives for clock drift between this machine and theirs.
+    now = int(now if now is not None else time.time())
+    header = b64url(json.dumps({"alg": "RS256", "typ": "JWT"}).encode())
+    claims = b64url(json.dumps({"iat": now - 60, "exp": now + 540, "iss": APP_ID}).encode())
+    signing_input = ("%s.%s" % (header, claims)).encode()
+    with tempfile.NamedTemporaryFile() as data:
+        data.write(signing_input)
+        data.flush()
+        r = subprocess.run(["openssl", "dgst", "-sha256", "-sign", "/dev/stdin", "-binary",
+                            data.name], input=key, capture_output=True)
+    if r.returncode != 0 or not r.stdout:
+        raise Refusal("openssl could not sign with the App key (is it a PEM private key?)")
+    return "%s.%s" % (signing_input.decode(), b64url(r.stdout))
+
+
+def call(method, path, bearer, body=None):
+    req = urllib.request.Request(API + path, method=method,
+                                 data=json.dumps(body).encode() if body is not None else None)
+    req.add_header("Authorization", "Bearer " + bearer)
+    req.add_header("Accept", "application/vnd.github+json")
+    req.add_header("X-GitHub-Api-Version", "2022-11-28")
+    req.add_header("User-Agent", "nife-smelter-token")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.load(resp)
+    except urllib.error.HTTPError as e:
+        try:
+            msg = json.load(e).get("message", "")
+        except ValueError:
+            msg = ""
+        raise Refusal("GitHub said HTTP %d to %s %s: %s" % (e.code, method, path, msg))
+    except urllib.error.URLError as e:
+        raise Refusal("could not reach %s: %s" % (API, e.reason))
+
+
+def cache_dir():
+    if os.environ.get("NIFE_SMELTER_CACHE"):
+        return os.environ["NIFE_SMELTER_CACHE"]
+    if platform.system() == "Darwin":
+        return os.path.expanduser("~/Library/Caches/nife-smelter")
+    return os.path.join(os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")),
+                        "nife-smelter")
+
+
+def scope_name():
+    s = os.environ.get("NIFE_SMELTER_SCOPE", "lane")
+    if s not in SCOPES:
+        raise Refusal("NIFE_SMELTER_SCOPE=%s; it is lane or maintainer" % s)
+    return s
+
+
+def read_cache(path):
+    try:
+        with open(path) as f:
+            c = json.load(f)
+        if c["expires"] - time.time() > REFRESH_MARGIN:
+            return c
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    return None
+
+
+def write_cache(path, entry):
+    d = os.path.dirname(path)
+    os.makedirs(d, mode=0o700, exist_ok=True)
+    os.chmod(d, 0o700)
+    fd, tmp = tempfile.mkstemp(dir=d)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w") as f:
+            json.dump(entry, f)
+        os.replace(tmp, path)
+    except BaseException:
+        os.unlink(tmp)
+        raise
+
+
+def current():
+    """The cached entry for this scope, minting one when the cache is missing or nearly expired."""
+    scope = scope_name()
+    path = os.path.join(cache_dir(), "%s-%s-%s.json" % (ORG, APP_ID, scope))
+    entry = read_cache(path)
+    if entry:
+        return entry
+    key = private_key()
+    if key is None:
+        raise Refusal("no App key on this machine (keychain item %s/%s, or NIFE_SMELTER_KEY_FILE); "
+                      "notes/session-identity.md says how calef installs one"
+                      % (KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT))
+    token = jwt(key)
+    del key
+    slug = call("GET", "/app", token)["slug"]
+    installation = call("GET", "/orgs/%s/installation" % ORG, token)["id"]
+    minted = call("POST", "/app/installations/%d/access_tokens" % installation, token,
+                  {"permissions": SCOPES[scope]})
+    expires = datetime.strptime(minted["expires_at"], "%Y-%m-%dT%H:%M:%SZ")
+    entry = {"token": minted["token"], "identity": slug + "[bot]", "scope": scope,
+             "installation": installation,
+             "expires": expires.replace(tzinfo=timezone.utc).timestamp()}
+    write_cache(path, entry)
+    return entry
+
+
+def git_credential(op):
+    # git's credential protocol: key=value lines on stdin, a blank line ends them. Only `get` is
+    # answered; `store` and `erase` are acknowledged and ignored, because the cache is ours.
+    fields = {}
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            break
+        k, _, v = line.partition("=")
+        fields[k] = v
+    if op != "get" or fields.get("protocol") != "https" or fields.get("host") != "github.com":
+        return
+    entry = current()
+    print("username=x-access-token")
+    print("password=" + entry["token"])
+
+
+def session_env():
+    """What a session needs to act as the App: (directory to put first on PATH, variables to set),
+    or None when this session has not opted in. One answer, rendered by env_lines and --json.
+
+    Opt-in only: NIFE_SMELTER=1 in the caller's environment, never the key's mere presence, so a
+    shell that did not ask (calef's own terminal) is untouched. Everything returned is environment
+    for this process tree; nothing is written to any git or gh configuration file."""
+    if os.environ.get("NIFE_SMELTER") != "1":
+        return None
+    if not key_present():
+        raise Refusal("NIFE_SMELTER=1, but this machine has no App key (keychain item %s/%s, or "
+                      "NIFE_SMELTER_KEY_FILE); notes/session-identity.md" % (KEYCHAIN_SERVICE,
+                                                                             KEYCHAIN_ACCOUNT))
+    here = os.path.dirname(os.path.realpath(__file__))
+    me = os.path.realpath(__file__)
+    base = int(os.environ.get("GIT_CONFIG_COUNT", "0") or 0)
+    # The empty helper first, because git consults every configured helper in order and the
+    # system one on macOS is osxkeychain, which could answer with a stored personal credential.
+    # insteadOf rewrites only this organization's SSH remotes, so the SSH key is never offered for
+    # nifeos and nothing outside the organization changes.
+    config = [
+        ("credential.https://github.com.helper", ""),
+        ("credential.https://github.com.helper", "!%s git-credential" % me),
+        ("url.https://github.com/%s/.insteadOf" % ORG, "git@github.com:%s/" % ORG),
+        ("url.https://github.com/%s/.insteadOf" % ORG, "ssh://git@github.com/%s/" % ORG),
+    ]
+    variables = {"NIFE_SMELTER_ACTIVE": "1", "GIT_CONFIG_COUNT": str(base + len(config))}
+    for i, (k, v) in enumerate(config, base):
+        variables["GIT_CONFIG_KEY_%d" % i] = k
+        variables["GIT_CONFIG_VALUE_%d" % i] = v
+    return os.path.join(here, "smelter-bin"), variables
+
+
+def env_lines():
+    """Shell lines a session sources to act as the App; a comment alone when the switch is off."""
+    e = session_env()
+    if e is None:
+        return ["# smelter-token: NIFE_SMELTER is not 1, so gh and git keep their own login"]
+    shim, variables = e
+    lines = ['export PATH="%s:$PATH"' % shim]
+    lines += ["export %s='%s'" % kv for kv in variables.items()]
+    return lines
+
+
+def env_json():
+    """The same answer for a harness that sets variables itself (opencode's shell.env hook)."""
+    e = session_env()
+    if e is None:
+        return {"on": False}
+    return {"on": True, "path_prepend": e[0], "set": e[1]}
+
+
+def check():
+    """Exit 1, saying why, when this session opted in (NIFE_SMELTER=1) but `env` was never applied,
+    so gh and git would act as the personal login while the session believes otherwise. A session
+    that did not opt in passes without the keychain being touched."""
+    if os.environ.get("NIFE_SMELTER") != "1" or os.environ.get("NIFE_SMELTER_ACTIVE") == "1":
+        return 0
+    print("smelter-token: NIFE_SMELTER=1, but this shell is not on the App, so gh and git act as the "
+          "personal login. Prefix the command with `eval \"$(helpers/smelter-token env)\";` "
+          "(notes/session-identity.md).", file=sys.stderr)
+    return 1
+
+
+def main(argv):
+    if not argv:
+        print(__doc__.split("\n\n")[0], file=sys.stderr)
+        return 2
+    cmd = argv[0]
+    try:
+        if cmd == "token":
+            print(current()["token"])
+        elif cmd == "identity":
+            print(current()["identity"])
+        elif cmd == "git-credential":
+            git_credential(argv[1] if len(argv) > 1 else "get")
+        elif cmd == "env" and argv[1:] == ["--json"]:
+            print(json.dumps(env_json()))
+        elif cmd == "env":
+            print("\n".join(env_lines()))
+        elif cmd == "check":
+            return check()
+        elif cmd == "--selftest":
+            return selftest()
+        else:
+            print("smelter-token: unknown subcommand %s" % cmd, file=sys.stderr)
+            return 2
+    except Refusal as e:
+        print("smelter-token: %s" % e, file=sys.stderr)
+        return 3
+    return 0
+
+
+# --- the self-test ------------------------------------------------------------------------------
+
+def selftest():
+    import http.server
+    import shutil
+    import stat
+    import threading
+
+    me = os.path.realpath(__file__)
+    tmp = tempfile.mkdtemp(prefix="smelter-selftest.")
+    failures = []
+    server = None
+
+    def check(name, ok, detail=""):
+        if not ok:
+            failures.append("%s%s" % (name, (": " + detail) if detail else ""))
+
+    try:
+        key = os.path.join(tmp, "key.pem")
+        pub = os.path.join(tmp, "pub.pem")
+        subprocess.run(["openssl", "genrsa", "-out", key, "2048"], check=True, capture_output=True)
+        subprocess.run(["openssl", "rsa", "-in", key, "-pubout", "-out", pub], check=True,
+                       capture_output=True)
+        with open(key) as f:
+            key_body = [l for l in f.read().splitlines() if l and not l.startswith("-----")]
+
+        state = {"minted": 0, "perms": [], "claims": [], "deny_admin": False, "bad_auth": 0}
+
+        def verify(auth):
+            if not auth.startswith("Bearer "):
+                return None
+            parts = auth[7:].split(".")
+            if len(parts) != 3:
+                return None
+            data = os.path.join(tmp, "jwt-data")
+            sig = os.path.join(tmp, "jwt-sig")
+            with open(data, "w") as f:
+                f.write(parts[0] + "." + parts[1])
+            with open(sig, "wb") as f:
+                f.write(base64.urlsafe_b64decode(parts[2] + "=" * (-len(parts[2]) % 4)))
+            r = subprocess.run(["openssl", "dgst", "-sha256", "-verify", pub, "-signature", sig,
+                                data], capture_output=True)
+            if r.returncode != 0:
+                return None
+            return json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
+
+        class Stub(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def reply(self, code, obj):
+                body = json.dumps(obj).encode()
+                self.send_response(code)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def authed(self):
+                claims = verify(self.headers.get("Authorization", ""))
+                if claims is None:
+                    state["bad_auth"] += 1
+                    self.reply(401, {"message": "A JSON web token could not be decoded"})
+                else:
+                    state["claims"].append(claims)
+                return claims
+
+            def do_GET(self):
+                if not self.authed():
+                    return
+                if self.path == "/app":
+                    self.reply(200, {"slug": "nife-smelter-selftest"})
+                elif self.path == "/orgs/nifeos/installation":
+                    self.reply(200, {"id": 42})
+                else:
+                    self.reply(404, {"message": "Not Found"})
+
+            def do_POST(self):
+                if not self.authed():
+                    return
+                n = int(self.headers.get("Content-Length", "0"))
+                body = json.loads(self.rfile.read(n) or b"{}")
+                if self.path != "/app/installations/42/access_tokens":
+                    return self.reply(404, {"message": "Not Found"})
+                perms = body.get("permissions", {})
+                state["perms"].append(perms)
+                if state["deny_admin"] and "administration" in perms:
+                    return self.reply(422, {"message": "The permissions requested are not "
+                                                       "granted to this installation."})
+                state["minted"] += 1
+                exp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + 3600))
+                self.reply(201, {"token": "ghs_selftest%d" % state["minted"], "expires_at": exp})
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Stub)
+        # Not a background thread: shutdown() in the `finally` below is what ends it, on every path.
+        threading.Thread(target=server.serve_forever).start()
+        cache = os.path.join(tmp, "cache")
+        home = os.path.join(tmp, "home")
+        work = os.path.join(tmp, "work")
+        os.mkdir(home)
+        os.mkdir(work)
+        base_env = {k: v for k, v in os.environ.items()
+                    if not k.startswith(("NIFE_SMELTER", "GIT_CONFIG_"))}
+        base_env.update({
+            "NIFE_SMELTER_NO_KEYCHAIN": "1",  # never read calef's keychain from a test
+            "NIFE_SMELTER_API": "http://127.0.0.1:%d" % server.server_address[1],
+            "NIFE_SMELTER_CACHE": cache,
+            "NIFE_SMELTER_APP_ID": "5053502",
+            # An empty home and working directory, checked empty again at the end: nothing this
+            # helper does may write a git or gh configuration file anywhere.
+            "HOME": home,
+            "XDG_CONFIG_HOME": os.path.join(home, ".config"),
+        })
+        outputs = []
+
+        def run(args, extra=None, stdin=None, exe=None):
+            env = dict(base_env, **(extra or {}))
+            r = subprocess.run([exe or me] + args, env=env, input=stdin, capture_output=True,
+                               text=True, cwd=work)
+            outputs.append(r.stdout + r.stderr)
+            return r
+
+        keyed = {"NIFE_SMELTER_KEY_FILE": key}
+        opted = dict(keyed, NIFE_SMELTER="1")
+
+        # The switch is off: no key means no token, a loud refusal, and an inert `env`.
+        r = run(["token"])
+        check("no key: token refuses", r.returncode == 3 and "no App key" in r.stderr, r.stderr)
+        r = run(["env"])
+        check("not opted in: env is a comment only", r.returncode == 0 and
+              all(l.startswith("#") for l in r.stdout.splitlines()), r.stdout)
+        r = run(["env", "--json"])
+        check("not opted in: env --json says off", json.loads(r.stdout or "{}") == {"on": False},
+              r.stdout)
+        r = run(["env", "--json"], {"NIFE_SMELTER": "1"})
+        check("opted in, no key: env refuses", r.returncode == 3 and "no App key" in r.stderr,
+              r.stdout + r.stderr)
+        r = run(["check"])
+        check("not opted in: check passes", r.returncode == 0, r.stderr)
+
+        # The key alone activates nothing: opt-in is the switch.
+        r = run(["env"], keyed)
+        check("key, not opted in: env is a comment only", r.returncode == 0 and
+              all(l.startswith("#") for l in r.stdout.splitlines()), r.stdout)
+        r = run(["env", "--json"], keyed)
+        check("key, not opted in: env --json says off",
+              json.loads(r.stdout or "{}") == {"on": False}, r.stdout)
+
+        # Opted in but never applied: check says so. Applied: check passes.
+        r = run(["check"], opted)
+        check("opted, not applied: check fails loudly", r.returncode == 1
+              and "not on the App" in r.stderr, r.stderr)
+        r = run(["check"], dict(opted, NIFE_SMELTER_ACTIVE="1"))
+        check("opted and applied: check passes", r.returncode == 0, r.stderr)
+
+        # The JSON form carries the same variables as the shell form, for a harness that sets them.
+        r = run(["env", "--json"], opted)
+        j = json.loads(r.stdout or "{}")
+        check("env --json: on, shim, reset first",
+              j.get("on") is True and j.get("path_prepend", "").endswith("smelter-bin")
+              and j.get("set", {}).get("GIT_CONFIG_VALUE_0") == ""
+              and j["set"].get("NIFE_SMELTER_ACTIVE") == "1", r.stdout)
+
+        # A first mint: a JWT the stub verifies against the public key, claims in GitHub's bounds,
+        # and the lane permission set, which carries no Administration.
+        r = run(["token"], keyed)
+        check("mint: token", r.returncode == 0 and r.stdout.strip() == "ghs_selftest1",
+              r.stdout + r.stderr)
+        check("mint: every request signed with the App key", state["bad_auth"] == 0)
+        c = state["claims"][0] if state["claims"] else {}
+        now = time.time()
+        check("mint: iss is the App id", c.get("iss") == "5053502", str(c))
+        check("mint: iat backdated, exp within 10 minutes",
+              c.get("iat", now) < now - 30 and 0 < c.get("exp", 0) - c.get("iat", 0) <= 600, str(c))
+        check("mint: lane scope has no administration",
+              state["perms"] and "administration" not in state["perms"][-1]
+              and state["perms"][-1].get("contents") == "write", str(state["perms"]))
+
+        # The cache: served without a second mint, private to the user.
+        r = run(["token"], keyed)
+        check("cache: hit", r.stdout.strip() == "ghs_selftest1" and state["minted"] == 1,
+              r.stdout)
+        cfile = os.path.join(cache, "nifeos-5053502-lane.json")
+        check("cache: file is 0600", os.path.exists(cfile) and
+              stat.S_IMODE(os.stat(cfile).st_mode) == 0o600)
+        check("cache: directory is 0700", stat.S_IMODE(os.stat(cache).st_mode) == 0o700)
+
+        # A token inside the refresh margin is reminted rather than handed to a push that outlives it.
+        with open(cfile) as f:
+            entry = json.load(f)
+        entry["expires"] = time.time() + REFRESH_MARGIN - 60
+        with open(cfile, "w") as f:
+            json.dump(entry, f)
+        r = run(["token"], keyed)
+        check("cache: near expiry remints", r.stdout.strip() == "ghs_selftest2", r.stdout)
+
+        # The maintainer scope asks for Administration, and caches apart from the lane's token.
+        r = run(["token"], dict(keyed, NIFE_SMELTER_SCOPE="maintainer"))
+        check("maintainer: own token", r.stdout.strip() == "ghs_selftest3", r.stdout + r.stderr)
+        check("maintainer: asks for administration",
+              state["perms"][-1].get("administration") == "write", str(state["perms"][-1]))
+        r = run(["token"], keyed)
+        check("maintainer: lane cache untouched", r.stdout.strip() == "ghs_selftest2", r.stdout)
+
+        # An App not yet widened refuses the scope loudly: the exit, GitHub's words, no traceback.
+        state["deny_admin"] = True
+        os.unlink(os.path.join(cache, "nifeos-5053502-maintainer.json"))
+        r = run(["token"], dict(keyed, NIFE_SMELTER_SCOPE="maintainer"))
+        check("refusal: 422 is loud", r.returncode == 3 and "HTTP 422" in r.stderr
+              and "Traceback" not in r.stderr, r.stderr)
+        r = run(["token"], dict(keyed, NIFE_SMELTER_SCOPE="admin"))
+        check("refusal: unknown scope", r.returncode == 3, r.stderr)
+
+        r = run(["identity"], keyed)
+        check("identity", r.stdout.strip() == "nife-smelter-selftest[bot]", r.stdout)
+
+        # git's credential protocol: github.com over HTTPS gets the token, any other host nothing.
+        r = run(["git-credential", "get"], keyed, "protocol=https\nhost=github.com\n\n")
+        check("git: github.com", r.stdout == "username=x-access-token\npassword=ghs_selftest2\n",
+              r.stdout)
+        r = run(["git-credential", "get"], keyed, "protocol=https\nhost=gitlab.com\n\n")
+        check("git: other host gets nothing", r.stdout == "", r.stdout)
+        r = run(["git-credential", "store"], keyed, "protocol=https\nhost=github.com\n\n")
+        check("git: store is ignored", r.returncode == 0 and r.stdout == "", r.stdout)
+
+        # `env` with a key: the shim leads PATH, the stored helpers are reset first, and only this
+        # organization's SSH remotes are rewritten. Then the lines actually work in a shell.
+        r = run(["env"], opted)
+        out = r.stdout
+        shim = os.path.join(os.path.dirname(me), "smelter-bin")
+        check("env: shim on PATH", 'export PATH="%s:$PATH"' % shim in out, out)
+        check("env: helper list reset", "GIT_CONFIG_VALUE_0=''" in out, out)
+        check("env: nifeos only", "insteadOf" in out and "git@github.com:nifeos/" in out
+              and "git@github.com:'" not in out, out)
+        r = run(["env"], dict(opted, GIT_CONFIG_COUNT="2"))
+        check("env: appends to an existing GIT_CONFIG_COUNT", "GIT_CONFIG_COUNT='6'" in r.stdout
+              and "GIT_CONFIG_KEY_2=" in r.stdout, r.stdout)
+        # A global config standing in for a developer's: a personal helper for github.com that
+        # the reset must shadow, since git asks helpers in order and takes the first answer.
+        gconf = os.path.join(tmp, "gitconfig")
+        with open(gconf, "w") as f:
+            f.write('[credential "https://github.com"]\n\thelper = !personal-login\n')
+        sh = subprocess.run(["sh", "-c", out + "\ngit config --get-all "
+                             "credential.https://github.com.helper; "
+                             "git ls-remote --get-url git@github.com:nifeos/nife.git; "
+                             "git ls-remote --get-url git@github.com:calef/dotfiles.git; "
+                             "printf 'protocol=https\\nhost=github.com\\n\\n' | "
+                             "GIT_TERMINAL_PROMPT=0 git credential fill"],
+                            env=dict(base_env, GIT_CONFIG_GLOBAL=gconf, GIT_CONFIG_NOSYSTEM="1",
+                                     **keyed), capture_output=True, text=True, cwd=work)
+        lines = sh.stdout.splitlines()
+        check("env: the reset follows the personal helper, then ours",
+              lines[:3] == ["!personal-login", "", "!%s git-credential" % me],
+              sh.stdout + sh.stderr)
+        check("env: git rewrites nifeos to https and leaves others",
+              lines[3:5] == ["https://github.com/nifeos/nife.git",
+                             "git@github.com:calef/dotfiles.git"], sh.stdout + sh.stderr)
+        check("env: git credential fill answers with the App token, not the personal helper",
+              "password=ghs_selftest2" in lines[5:] and "personal-login" not in sh.stderr,
+              sh.stdout + sh.stderr)
+
+        # The gh shim: hands the real gh the App token, takes itself off PATH so it cannot recurse,
+        # and refuses (rather than falling back to the gh login) when no token can be had.
+        fake = os.path.join(tmp, "bin")
+        os.mkdir(fake)
+        with open(os.path.join(fake, "gh"), "w") as f:
+            f.write('#!/bin/sh\necho "token=$GH_TOKEN"\necho "path=$PATH"\necho "args=$*"\n')
+        os.chmod(os.path.join(fake, "gh"), 0o755)
+        shim_gh = os.path.join(shim, "gh")
+        path = "%s:%s:%s" % (shim, fake, base_env.get("PATH", "/usr/bin:/bin"))
+        r = run(["pr", "list"], dict(keyed, PATH=path), exe=shim_gh)
+        check("shim: real gh gets the App token", "token=ghs_selftest2" in r.stdout, r.stdout + r.stderr)
+        check("shim: off PATH for the real gh", "path=" in r.stdout and
+              shim not in r.stdout.split("path=")[1].splitlines()[0], r.stdout)
+        check("shim: arguments pass through", "args=pr list" in r.stdout, r.stdout)
+        shutil.rmtree(cache)
+        r = run(["pr", "list"], {"PATH": path}, exe=shim_gh)
+        check("shim: no token, no fallback", r.returncode != 0 and "token=" not in r.stdout,
+              r.stdout + r.stderr)
+
+        # Nothing above wrote outside the session: the home and working directory are still empty,
+        # and the stand-in global git config is byte for byte what the test wrote.
+        written = [os.path.join(d, f) for top in (home, work)
+                   for d, _, fs in os.walk(top) for f in fs]
+        check("nothing persistent: home and working directory untouched", not written, str(written))
+        with open(gconf) as f:
+            check("nothing persistent: global git config unchanged",
+                  f.read() == '[credential "https://github.com"]\n\thelper = !personal-login\n')
+
+        # Nothing printed, on any path above, carries the private key.
+        leaked = [l for l in key_body if any(l in o for o in outputs)]
+        check("the key never reaches output", not leaked)
+    finally:
+        if server is not None:
+            server.shutdown()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    for f in failures:
+        print("smelter-token selftest: FAIL %s" % f, file=sys.stderr)
+    if failures:
+        return 1
+    print("smelter-token selftest: ok")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

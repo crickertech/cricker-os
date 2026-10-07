@@ -18,6 +18,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [Working from a cloud session](../working-from-a-cloud-session.md): what past cloud sessions hit, how to set up, claim and gate in CI, and what needs patagonia. Name provisional.
 - [Build output on its own volume](../dev-machine-disk.md): why deleted `target/` directories fill a Mac's disk through local snapshots, and the runbook that moves lane worktrees to an unsnapshotted APFS volume. Names provisional.
 - [The automation's own identity](../automation-identity.md): the `smelter` GitHub App that replaces a personal token. Name provisional.
+- [Agent sessions act as the App](../session-identity.md): `helpers/smelter-token`, so a lane runs as nife-smelter rather than as calef. Name provisional.
 - [Hardening the repository itself](../repo-hardening.md): the GitHub settings that cannot be committed.
 - [The roadmap](../roadmap.md): how to add a milestone, and its vocabularies.
 - [Follow-on work, and what happened to it](../follow-on-work.md): the Follow-on section every finished block must answer. Name provisional.

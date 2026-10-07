@@ -105,6 +105,12 @@ fi
 # before a single file changes on disk.
 nife_check_branch_name_shape "$branch" claim || exit 1
 
+# A lane's first act is the right moment to say which identity it is about to act as. A session
+# that opted in to the App (NIFE_SMELTER=1; milestone 128 (the automation gets its own identity),
+# notes/session-identity.md) but never applied `smelter-token env` would claim under the personal
+# login; this says so, loudly, and carries on. A session that did not opt in sees nothing.
+"$repo_root/helpers/smelter-token" check || true
+
 if [ -z "$worktree" ]; then
     slug="${branch##*/}"
     worktree="${NIFE_WORKTREES:-$HOME/projects/nife-worktrees}/$slug"
@@ -148,7 +154,14 @@ Co-Authored-By: ${NIFE_CLAIM_MODEL:-Claude Code} <noreply@anthropic.com>"
     git push -u origin HEAD
     # The account is whoever `gh` is logged in as, read rather than spelled, because more than one
     # architect can run a lane (ARCHITECTS.md) and the line exists to say whose name GitHub shows.
-    account="$(gh api user --jq .login 2>/dev/null || echo "the \`gh\` user")"
+    # A session on the App (milestone 128 (the automation gets its own identity),
+    # helpers/smelter-token) has no `/user` to read: GitHub answers 403 to an installation token
+    # there, so the helper names the byline instead.
+    if [ "${NIFE_SMELTER_ACTIVE:-}" = 1 ]; then
+        account="$("$repo_root/helpers/smelter-token" identity 2>/dev/null || echo "the \`gh\` user")"
+    else
+        account="$(gh api user --jq .login 2>/dev/null || echo "the \`gh\` user")"
+    fi
     gh pr create --draft --title "$claim_text" --body "**Lane:** \`$branch\`, written by an agent; $account's account is the author GitHub shows.
 
 Claim commit only so far."

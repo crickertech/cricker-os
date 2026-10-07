@@ -101,6 +101,11 @@ jobs:
         with:
           app-id: ${{ secrets.AUTOMATION_APP_ID }}
           private-key: ${{ secrets.AUTOMATION_APP_KEY }}
+          # Exactly the set the App held before milestone 128 (the automation gets its own identity)
+          # widened it for sessions, Administration among them. Named here so the widening reaches no
+          # workflow; notes/session-identity.md.
+          permission-contents: write
+          permission-pull-requests: write
 
       - uses: actions/checkout@v7
         with:
@@ -250,7 +255,7 @@ jobs:
             digest="$(python3 helpers/week_digest.py "$old" "$new" "$series" || true)"
           fi
           title="metrics: record $week"
-          body="**Lane:** $branch, opened by a scheduled workflow; calef's account is the author GitHub shows.
+          body="**Lane:** $branch, opened by a scheduled workflow; nife-smelter[bot] is the author GitHub shows.
 
           Adds or refreshes the \`$week\` row in each measure's CSV under
           \`notes/project-metrics/\` and redraws the SVGs beside them. The page is

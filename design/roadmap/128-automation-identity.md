@@ -24,7 +24,9 @@ token first, falls through to `github.token`, and prints which rung it took.
 `TOOLCHAIN_BUMP_PAT` on the transferred repository and asked what other developers would need
 (answer: nothing, and that answer is what surfaced this).
 
-What is left is the provisional secret names (see Follow-on). The App secrets are no longer
+What is left is the provisional secret names (see Follow-on), and the agent sessions. Since
+2026-10-07 (UTC) the mechanism that moves a session onto the App is built, opt-in and inert until
+calef widens the App and installs its key on patagonia (`notes/session-identity.md`). The App secrets are no longer
 organization-level; see the 2026-10-03 line under the Done items below.
 
 In brief. The toolchain-bump workflow authenticates as a fine-grained personal access token
@@ -207,6 +209,18 @@ expiry from an outage into a fifteen-minute procedure someone can run without re
   page stays stale-green while the label says otherwise. The merge-queue run of the same check
   still catches it, so this is a display defect and not an escape. It lives in the BUGS section of
   `notes/automation-identity.md`, beside the mechanism that would fix it.
+
+- **Outstanding.** Built and waiting on calef: agent sessions act as the App, added 2026-10-07 (UTC)
+  after a security audit found every lane held calef's classic `gh` token and SSH key.
+  `helpers/smelter-token` (provisional) mints an hour-long installation token in a `lane` or
+  `maintainer` scope, for a session that opts in with `NIFE_SMELTER=1`; it changes that session's
+  environment only, never a configuration file. Every workflow's App token is pinned to Contents
+  and Pull requests write so widening the App reaches none of them. Wiring Claude Code and opencode
+  to opt in automatically is a later change, after a trial. `notes/session-identity.md` has calef's
+  steps and the kill switch. calef ruled the four forks on #1828 on 2026-10-07 (UTC): opted-in
+  sessions author as `nife-smelter[bot]`; one App with `lane` and `maintainer` scopes; installed
+  on All repositories in `nifeos`; his classic token left as it is, with confinement recorded as
+  the fix in that note's BUGS.
 
 - **Done.** The second deliverable (attribution) needs nothing further from a lane. The interim
   `**Lane:**` convention is in `AGENTS.md` and applied; `toolchain-bump.yml` now computes that line
