@@ -1,5 +1,5 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-08-22
 decided: 2026-08-22
 ratified_by: calef
@@ -64,3 +64,18 @@ not an open gap) rather than a still-open rank in its worklist. Milestone 149's 
 names the dependency correctly ("the Rayon-parallel variants gate on milestone 64's still-open
 `thread::spawn` fork"); that gate is now answered as out of scope for now, not resolved into a
 build.
+
+## Amendment (2026-10-07): reopened, and option A is milestone 812
+
+The trigger this section named has fired. calef, ruling fork 5 of pull request #1803 on
+2026-10-07 (UTC), refused read-only ZFS: *"Read only isn't interesting to me. Read write is the
+point."* The only realistic read-write ZFS is OpenZFS's own `libzpool`, which takes its threads from
+pthreads. Asked whether that reopens this section: *"Yes. However read-write ZFS just isn't the
+current priority."*
+
+So option A is minted as milestone 812 (`std::thread::spawn` runs real threads in one address
+space), not yet scheduled. Several wants now share it: read-write ZFS through `libzpool`, Linux's
+btrfs through LKL, the `tough` TUF client, `ripgrep`'s parallel walk, and parallel `rustc` and
+`cargo` for milestone 173 (`rustc`/`cargo`/LLVM natively on nife). The syscall-surface change in
+option A still owes its own section, ruled before code. The evidence is in
+[notes/filesystem-crates-2026-10-07.md](../../notes/filesystem-crates-2026-10-07.md).

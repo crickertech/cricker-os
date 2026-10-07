@@ -7,8 +7,6 @@ ratified_by: calef
 
 # 34. RedoxFS is the primary filesystem, on three conditions
 
-(four amendment blocks below, including the one that closes condition 1.)
-
 **Decided 2026-07-29 (calef), with the conditions attached deliberately so the label and its caveats
 land together.** RedoxFS is the primary on-disk filesystem. It is not yet the *root* filesystem, and
 §34.3 below is why that is a separate piece of work rather than a relabelling.
@@ -343,7 +341,9 @@ argument is untouched by userspace `std`. btrfs was bundled into a one-line dism
 should not have been, which is the more useful half of this correction: a shared bullet let one
 crate's disqualifier stand in for another's.
 
-What this does not do. It does not recommend btrfs, or reopen the primary-filesystem question,
-which the conditions at the top of this section already govern. It removes a false reason and names
-the true questions, and the probe that would answer them is filed in
-`design/roadmap/proposals/a-foreign-filesystem-probe-against-our-own-targets.md`.
+## Amendment (2026-10-07): btrfs does not replace RedoxFS
+
+Measured: btrfs and ZFS readers build here; no Rust writer of either exists. calef ruled (#1803):
+Linux's btrfs is roughly 150,000 lines of C, and RedoxFS already has copy-on-write under a
+checksum Merkle tree. Re-probe in three months. Data, and LKL as an alternative:
+[notes/filesystem-crates-2026-10-07.md](../../notes/filesystem-crates-2026-10-07.md).
