@@ -8,42 +8,99 @@ Sorted by breaking changes in the last four weeks (2026W38 to 2026W41), then by 
 
 | crate | breaking, 4 weeks | additions, 4 weeks | breaking | additions | commits | crossing another division |
 |---|---:|---:|---:|---:|---:|---:|
-| `grant_plan` | 42 | 208 | 86 | 839 | 131 | 110 (84%) |
-| `globally_unique_identifier_partition_table` | 27 | 27 | 28 | 217 | 32 | 25 (78%) |
+| `globally_unique_identifier_partition_table` | 66 | 29 | 67 | 219 | 34 | 27 (79%) |
+| `grant_plan` | 46 | 213 | 90 | 844 | 137 | 114 (83%) |
+| `login_protocol` | 14 | 68 | 14 | 83 | 29 | 29 (100%) |
 | `socket_protocol` | 13 | 17 | 15 | 55 | 25 | 23 (92%) |
 | `line_editor` | 11 | 73 | 12 | 118 | 28 | 24 (86%) |
 | `swap_protocol` | 11 | 32 | 12 | 122 | 38 | 37 (97%) |
-| `filesystem_protocol` | 10 | 50 | 42 | 450 | 97 | 88 (91%) |
-| `abi` | 6 | 31 | 36 | 128 | 87 | 84 (97%) |
+| `filesystem_protocol` | 10 | 54 | 42 | 454 | 100 | 91 (91%) |
+| `abi` | 7 | 38 | 37 | 135 | 92 | 88 (96%) |
 | `byte_sink_protocol` | 5 | 10 | 6 | 48 | 26 | 26 (100%) |
 | `clock_protocol` | 5 | 4 | 5 | 54 | 27 | 25 (93%) |
 | `credential_protocol` | 4 | 12 | 30 | 67 | 30 | 27 (90%) |
 | `graphics_protocol` | 3 | 2 | 11 | 33 | 27 | 27 (100%) |
 | `activation_set` | 3 | 52 | 3 | 52 | 15 | 15 (100%) |
 | `component_plan` | 3 | 14 | 3 | 126 | 21 | 17 (81%) |
-| `entropy_protocol` | 3 | 2 | 3 | 17 | 18 | 16 (89%) |
+| `entropy_protocol` | 3 | 3 | 3 | 18 | 20 | 18 (90%) |
 | `supervision_protocol` | 2 | 7 | 22 | 67 | 47 | 42 (89%) |
 | `nifefs` | 2 | 0 | 7 | 41 | 37 | 26 (70%) |
 | `counter_frequency_protocol` | 1 | 3 | 1 | 15 | 12 | 10 (83%) |
 | `environment_protocol` | 1 | 0 | 1 | 44 | 8 | 8 (100%) |
-| `login_protocol` | 1 | 55 | 1 | 70 | 28 | 28 (100%) |
 | `package_archive` | 1 | 97 | 1 | 97 | 13 | 8 (62%) |
 | `user_mode_heap` | 1 | 0 | 1 | 11 | 0 | 0 |
 | `compositor` | 0 | 1 | 4 | 93 | 27 | 22 (81%) |
 | `elf` | 0 | 4 | 3 | 53 | 39 | 32 (82%) |
 | `argument_protocol` | 0 | 29 | 0 | 29 | 0 | 0 |
-| `boot_slot` | 0 | 52 | 0 | 52 | 9 | 5 (56%) |
+| `boot_slot` | 0 | 52 | 0 | 52 | 10 | 6 (60%) |
 | `capability_witness_protocol` | 0 | 10 | 0 | 10 | 11 | 9 (82%) |
 | `current_cpu_protocol` | 0 | 13 | 0 | 13 | 5 | 3 (60%) |
-| `manifest_note` | 0 | 40 | 0 | 40 | 9 | 5 (56%) |
+| `manifest_note` | 0 | 40 | 0 | 40 | 12 | 8 (67%) |
 | `measured_boot` | 0 | 0 | 0 | 41 | 19 | 15 (79%) |
 | `std_runtime_protocol` | 0 | 17 | 0 | 17 | 5 | 4 (80%) |
 
 ## What broke in 2026W41
 
-Read at `cb0dad16aa5a` against the week before. Each line is one removed or changed public item; a crate rename is one line for the whole crate.
+Read at `a2d9fb5625d7` against the week before. Each line is one removed or changed public item; a crate rename is one line for the whole crate.
 
 - `abi`: syscall changed, method or encoding `CAPABILITY_TABLE_SLOTS`
+- `abi`: changed `Error`
 - `abi`: syscall changed, method or encoding `fault::FAULT_EP_SLOT`
+- `globally_unique_identifier_partition_table`: changed `GloballyUniqueIdentifierPartitionTable::create`
+- `globally_unique_identifier_partition_table`: changed `GloballyUniqueIdentifierPartitionTable::disk_guid`
+- `globally_unique_identifier_partition_table`: changed `entry::Entry::new`
+- `globally_unique_identifier_partition_table`: changed `entry::Entry::type_guid`
+- `globally_unique_identifier_partition_table`: changed `entry::Entry::unique_guid`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid: impl Clone`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid: impl Copy`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid: impl Debug`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid: impl Default`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid: impl Display`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid: impl Eq`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid: impl Hash`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid: impl Ord`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid: impl PartialEq`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid: impl PartialOrd`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid: impl StructuralPartialEq`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid::ZERO`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid::from_bytes`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid::from_fields`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid::is_zero`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid::to_ascii`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid::to_bytes`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid::try_from_ascii`
+- `globally_unique_identifier_partition_table`: removed `guid::Guid::v4_from_random`
+- `globally_unique_identifier_partition_table`: changed `guid::types::APPLE_APFS`
+- `globally_unique_identifier_partition_table`: changed `guid::types::APPLE_HFS_PLUS`
+- `globally_unique_identifier_partition_table`: changed `guid::types::BIOS_BOOT`
+- `globally_unique_identifier_partition_table`: changed `guid::types::EFI_SYSTEM`
+- `globally_unique_identifier_partition_table`: changed `guid::types::LINUX_FILESYSTEM`
+- `globally_unique_identifier_partition_table`: changed `guid::types::LINUX_LUKS`
+- `globally_unique_identifier_partition_table`: changed `guid::types::LINUX_ROOT_ARM64`
+- `globally_unique_identifier_partition_table`: changed `guid::types::LINUX_SWAP`
+- `globally_unique_identifier_partition_table`: changed `guid::types::MICROSOFT_BASIC_DATA`
+- `globally_unique_identifier_partition_table`: changed `guid::types::NIFE_BOOT`
+- `globally_unique_identifier_partition_table`: changed `guid::types::NIFE_DATA`
+- `globally_unique_identifier_partition_table`: changed `guid::types::UNUSED`
+- `globally_unique_identifier_partition_table`: changed `guid::types::name`
+- `globally_unique_identifier_partition_table`: changed `header::Header::disk_guid`
+- `grant_plan`: changed `Manifest`
+- `grant_plan`: changed `PROG_COUNT`
+- `grant_plan`: changed `Prog`
+- `grant_plan`: changed `UNVOUCHED_MANIFEST`
 - `grant_plan`: changed `spawnproto::RUN_UNVOUCHED_SLOT`
+- `login_protocol`: removed `SESSION_ELF_VA`
+- `login_protocol`: removed `durable::SESSION_BUDGET_PAGES`
+- `login_protocol`: removed `durable::SESSION_REGION_PAGES`
+- `login_protocol`: removed `session::ACTIVATION_SLOT`
+- `login_protocol`: removed `session::BUDGET_SLOT`
+- `login_protocol`: removed `session::FAILED`
+- `login_protocol`: removed `session::PACKAGES_SLOT`
+- `login_protocol`: removed `session::PAGE_SLOT`
+- `login_protocol`: removed `session::READY`
+- `login_protocol`: removed `session::READY_SLOT`
+- `login_protocol`: removed `session::STOPPED`
+- `login_protocol`: removed `session::STORE_PAGE_SLOT`
+- `login_protocol`: removed `session::TIMETABLE_VA`
 - `swap_protocol`: changed `log_put`
