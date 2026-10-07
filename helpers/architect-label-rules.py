@@ -60,8 +60,16 @@ against literal fixture strings, no repository and no subprocess required, cheap
    refusal went unlabeled. A line removed and re-added verbatim (a move) pairs off; comments do
    not count. Measured over the 31 merges that touched the file from 2026-09-01 to 2026-10-06: it
    fires on 13 (#1678 #1665 #1644 #1630 #1360 #1418 #1383 #1378 #1351 #1373 #1366 #1372 #882), and
-   5 of those were labeled at the time. Each of the other 8 fired on a new or changed error
-   return, which is the rule's definition of true; whether each one needed calef is his call.
+   5 of those were labeled at the time. calef ruled the breadth on #1792, 2026-10-06 (UTC): "Keep
+   it broad." The other 8, classified by reading each fired diff, so a later narrowing is measured:
+     changed what a caller can receive (4): #1351 (notification methods, new NotPermitted and
+       WrongObject), #1373 (`RETYPE` takes a count; OutOfMemory on zero), #1372 (a per-client
+       window refuses with NotPermitted), #882 (port-range methods, NotPermitted and BadMethod);
+     false alarms, a refactor returning the same error on the same path (4): #1644
+       (`current_cap` moved onto the revocation hold), #1630 (lookup code moved to `sched.rs`),
+       #1366 (the capability-table-full path restructured), #1665 (`retype_page` hoisted out of
+       a closure, still OutOfMemory).
+   Narrowing to added lines would keep all 4 true ones and drop only #1630 of the false ones.
 
 # Measured rate, 2026-10-04 UTC
 
