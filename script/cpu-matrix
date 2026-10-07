@@ -63,6 +63,13 @@ done
 OUT="target/cpu-matrix"
 mkdir -p "$OUT"
 
+# Every model's boot appends its phases and per-test times to one file (milestone 807 (the kernel
+# suite reports what each test cost)), which CI uploads and summarizes. Emptied here because
+# `cargo xtask test` appends when NIFE_TIME_RECORD names the file, so the caller owns its lifetime.
+NIFE_TIME_RECORD="$PWD/$OUT/time-record.tsv"
+export NIFE_TIME_RECORD
+rm -f "$NIFE_TIME_RECORD"
+
 # ---------------------------------------------------------------------------------------------
 # Preflight: is `-cpu` ENFORCED, or only advertised?
 #

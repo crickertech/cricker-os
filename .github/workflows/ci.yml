@@ -402,6 +402,19 @@ jobs:
       # `script/ci-build --list` prints it. Until 2026-09-30 this step chained three more checks
       # behind it in one runner; the three jobs below carry them, each for its own recorded reasons.
       - run: script/ci-build test
+      # Where the suite's time went (milestone 807 (the kernel suite reports what each test cost),
+      # §254 (a gate prints what each item cost), Fork 3): every leg's phases and every test's
+      # time, written by `cargo xtask test` as it ran. The step summary costs nothing unless someone
+      # opens it; the artifact holds the whole record. No pull request comment, by that ruling.
+      - name: Summarize where the time went
+        if: always() && hashFiles('target/time-record.tsv') != ''
+        run: cargo xtask time-summary target/time-record.tsv >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the time record
+        if: always() && hashFiles('target/time-record.tsv') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: time-record-test
+          path: target/time-record.tsv
       - name: Check the job's wall time against its budget
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
@@ -753,6 +766,17 @@ jobs:
         with:
           name: cpu-matrix-logs-${{ matrix.shard }}
           path: target/cpu-matrix/
+      # The models' phases and per-test times (milestone 807), on every run rather than only on
+      # failure, because the drift this record exists to catch happens on green runs.
+      - name: Summarize where the time went
+        if: always() && hashFiles('target/cpu-matrix/time-record.tsv') != ''
+        run: cargo xtask time-summary target/cpu-matrix/time-record.tsv >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the time record
+        if: always() && hashFiles('target/cpu-matrix/time-record.tsv') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: time-record-cpu-matrix-${{ matrix.shard }}
+          path: target/cpu-matrix/time-record.tsv
       - name: Check the job's wall time against its budget
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"

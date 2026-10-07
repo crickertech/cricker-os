@@ -53,6 +53,7 @@ mod soak;
 mod stick;
 mod suite;
 mod swish_check;
+mod time_record;
 mod uefi;
 
 use crate::archive::{initrd_aarch64, initrd_riscv, initrd_x86};
@@ -251,6 +252,9 @@ fn main() -> ExitCode {
         // and fail if its self-test verdict is not green. See script/boot-check.
         "boot-check" => boot_check(),
         "test" => test(),
+        // Milestone 807 (the kernel suite reports what each test cost): the time record as markdown,
+        // for a CI step summary. Name provisional. See xtask/src/time_record.rs.
+        "time-summary" => time_record::summary(),
         "undefined-behavior-check" => undefined_behavior_check(),
         "bench" => bench(),
         // The instruction-count instrument (milestone 78): the two timing claims a wall clock
@@ -289,7 +293,7 @@ fn main() -> ExitCode {
                 eprintln!("unknown command: {other}\n");
             }
             eprintln!(
-                "usage: cargo xtask <build|run|shell|swish-check|boot-check|initrd-aarch64|initrd-riscv|initrd-x86|uefi-image|uefi-boot|uefi-test|package|install-boot|rollback-boot|confirm-boot|stick|stick-boot|screen-boot|manual|apropos|std-src|std-stamp|std-exerciser|std-aborts|test|undefined-behavior-check|bench|icount|gdb|objdump|image|board-console|soak-test|board-script|card-check> [--hvf]"
+                "usage: cargo xtask <build|run|shell|swish-check|boot-check|initrd-aarch64|initrd-riscv|initrd-x86|uefi-image|uefi-boot|uefi-test|package|install-boot|rollback-boot|confirm-boot|stick|stick-boot|screen-boot|manual|apropos|std-src|std-stamp|std-exerciser|std-aborts|test|time-summary|undefined-behavior-check|bench|icount|gdb|objdump|image|board-console|soak-test|board-script|card-check> [--hvf]"
             );
             eprintln!("       cargo xtask swish-check [--arch aarch64|riscv64]");
             eprintln!(

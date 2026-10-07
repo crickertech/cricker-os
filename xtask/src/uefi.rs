@@ -845,7 +845,8 @@ fn uefi_test_image(package: &str) -> bool {
     eprintln!();
     eprintln!("--- {package} tests under real firmware, x86_64 (QEMU q35 + OVMF) ---");
 
-    let output = match Command::new("helpers/qemu-uefi-x86_64.sh")
+    let mut command = Command::new("helpers/qemu-uefi-x86_64.sh");
+    command
         .arg(uefi_test_esp_dir())
         .current_dir(workspace_root())
         // **The devices the PVH runner attaches** (milestone 195), which the tour above needs none
@@ -864,18 +865,25 @@ fn uefi_test_image(package: &str) -> bool {
         // `NIFE_DISK` and `NIFE_NVME` are already set by `test()` for the PVH leg that ran just
         // above, so this inherits them; they are named here only for a bare `cargo xtask uefi-test`.
         .env("NIFE_DISK", disk_path())
-        .env("NIFE_NVME", nvme_disk_path())
-        .output()
-    {
-        Ok(o) => o,
+        .env("NIFE_NVME", nvme_disk_path());
+    // Timed and recorded (milestone 807 (the kernel suite reports what each test cost)). The
+    // transcript used to be collected whole and printed at the end; it now streams as the other
+    // legs' do, and stderr (QEMU's own, never the guest console) goes straight to ours rather
+    // than being appended to what the checks below read.
+    let (mut child, watch) = match crate::time_record::Watch::spawn(&mut command) {
+        Ok(pair) => pair,
         Err(e) => {
             eprintln!("uefi-test: failed to run helpers/qemu-uefi-x86_64.sh: {e}");
             return false;
         }
     };
-    let transcript = String::from_utf8_lossy(&output.stdout).into_owned()
-        + &String::from_utf8_lossy(&output.stderr);
-    print!("{transcript}");
+    let status = child.wait();
+    let (lines, exited) = watch.finish();
+    let transcript: String = lines.iter().map(|l| l.text.clone() + "\n").collect();
+    let passed = status
+        .as_ref()
+        .is_ok_and(|s| s.code() == Some(i32::from(X86_DEBUG_EXIT_SUCCESS)));
+    let accounted = crate::time_record::account("x86_64 ovmf", package, &lines, exited, passed);
 
     let mut ok = true;
     // `(xsdt)` and the ECAM line are `uefi_boot`'s own assertions, repeated here rather than
@@ -894,12 +902,18 @@ fn uefi_test_image(package: &str) -> bool {
     // 3, not 0: see the doc comment. `helpers/qemu-uefi-x86_64.sh` execs QEMU rather than
     // translating this the way the PVH runner does, because that runner is a cargo `runner` and has
     // to speak cargo's success convention while this one has only ever had one caller.
-    if output.status.code() != Some(i32::from(X86_DEBUG_EXIT_SUCCESS)) {
+    if !passed {
         eprintln!(
             "uefi-test: qemu exited {:?}, not {X86_DEBUG_EXIT_SUCCESS} (the harness's own success \
              status through isa-debug-exit)",
-            output.status.code()
+            status
+                .as_ref()
+                .ok()
+                .and_then(std::process::ExitStatus::code)
         );
+        ok = false;
+    }
+    if !accounted {
         ok = false;
     }
     if ok {

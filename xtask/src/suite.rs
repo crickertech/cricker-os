@@ -13,11 +13,11 @@ use crate::disk_check::{
     blank_check_after_run, redoxfs_check_after_run, redoxfs_crash_check_after_run,
 };
 use crate::farm::std_exerciser;
-use crate::host::{cargo, cargo_test_counting_selected, flag_value, run, selected_by};
+use crate::host::{cargo, cargo_test_counting_selected, flag_value, run, runner_env, selected_by};
 use crate::inbound::InboundProber;
 use crate::scanout::{HostLoad, ScanoutReferee, cargo_test_with_scanout_check};
 use crate::uefi::{uefi_boot, uefi_test};
-use crate::{RELEASE, RISCV_TARGET, RUNNER, TARGET, X86_TARGET, user};
+use crate::{RELEASE, RISCV_TARGET, RUNNER, TARGET, X86_TARGET, time_record, user};
 
 /// The architecture legs `test` should run: both by default, one when `--arch` names it.
 ///
@@ -197,6 +197,11 @@ pub(crate) fn test() -> bool {
             std::env::remove_var("NIFE_TEST_FILTER_ACROSS_IMAGES");
         },
     }
+
+    // A plain run starts its own time record file (milestone 807 (the kernel suite reports what
+    // each test cost)); a caller that set
+    // `NIFE_TIME_RECORD` owns its file and gets rows appended. See `time_record::start`.
+    time_record::start();
 
     // Nothing cargo starts inherits an accelerator choice. The default leg is TCG, which is the
     // right place for reproducible tests (deterministic, identical on any host), and the HVF leg
@@ -394,11 +399,16 @@ pub(crate) fn test() -> bool {
         } else if filter.is_some() {
             filtered_leg("aarch64", TARGET)
         } else {
-            cargo(&["test", "-p", "kernel", "--target", TARGET])
-                && cargo_test_with_scanout_check(
-                    "aarch64",
-                    &["test", "-p", "system_tests", "--target", TARGET],
-                )
+            // The environment `cargo()` sets, since this child is spawned by the recorder.
+            runner_env();
+            time_record::cargo_test(
+                &time_record::leg("aarch64"),
+                "kernel",
+                &["test", "-p", "kernel", "--target", TARGET],
+            ) && cargo_test_with_scanout_check(
+                "aarch64",
+                &["test", "-p", "system_tests", "--target", TARGET],
+            )
         };
         if !leg {
             return false;
@@ -455,12 +465,14 @@ pub(crate) fn test() -> bool {
             if !filtered_leg("riscv64", RISCV_TARGET) {
                 return false;
             }
-        } else if !run("cargo", &["test", "-p", "kernel", "--target", RISCV_TARGET])
-            || !cargo_test_with_scanout_check(
-                "riscv64",
-                &["test", "-p", "system_tests", "--target", RISCV_TARGET],
-            )
-        {
+        } else if !time_record::cargo_test(
+            &time_record::leg("riscv64"),
+            "kernel",
+            &["test", "-p", "kernel", "--target", RISCV_TARGET],
+        ) || !cargo_test_with_scanout_check(
+            "riscv64",
+            &["test", "-p", "system_tests", "--target", RISCV_TARGET],
+        ) {
             return false;
         }
     }
@@ -529,12 +541,15 @@ pub(crate) fn test() -> bool {
             if !filtered_leg("x86_64", X86_TARGET) {
                 return false;
             }
-        } else if !run("cargo", &["test", "-p", "kernel", "--target", X86_TARGET])
-            || !run(
-                "cargo",
-                &["test", "-p", "system_tests", "--target", X86_TARGET],
-            )
-        {
+        } else if !time_record::cargo_test(
+            &time_record::leg("x86_64"),
+            "kernel",
+            &["test", "-p", "kernel", "--target", X86_TARGET],
+        ) || !time_record::cargo_test(
+            &time_record::leg("x86_64"),
+            "system_tests",
+            &["test", "-p", "system_tests", "--target", X86_TARGET],
+        ) {
             return false;
         }
         // **And one more boot, on a machine with a bridge on it** (milestone 320). `q35` is a flat
@@ -564,7 +579,11 @@ pub(crate) fn test() -> bool {
                 std::env::set_var("NIFE_PCIE_ROOT_PORT", "1");
                 std::env::set_var("NIFE_TEST_FILTER", "found_on_the_bus_behind_it");
             }
-            let bridged = run("cargo", &["test", "-p", "kernel", "--target", X86_TARGET]);
+            let bridged = time_record::cargo_test(
+                "x86_64 root-port",
+                "kernel",
+                &["test", "-p", "kernel", "--target", X86_TARGET],
+            );
             // Removed whether or not it passed: the UEFI boots below and every later leg must get
             // the flat machine they were written against.
             //
@@ -602,11 +621,15 @@ pub(crate) fn test() -> bool {
             // is spawned, and the only thread xtask ever starts (the transcript reader in
             // swish_check_leg) copies pipe bytes into a String and never touches the environment.
             unsafe { std::env::set_var("NIFE_IOMMU", "amd") };
-            let amd = run("cargo", &["test", "-p", "kernel", "--target", X86_TARGET])
-                && run(
-                    "cargo",
-                    &["test", "-p", "system_tests", "--target", X86_TARGET],
-                );
+            let amd = time_record::cargo_test(
+                &time_record::leg("x86_64"),
+                "kernel",
+                &["test", "-p", "kernel", "--target", X86_TARGET],
+            ) && time_record::cargo_test(
+                &time_record::leg("x86_64"),
+                "system_tests",
+                &["test", "-p", "system_tests", "--target", X86_TARGET],
+            );
             // Removed whether or not it passed, so every later boot gets the VT-d machine.
             //
             // SAFETY: as above. Single-threaded, on the main thread, and the child that read it
