@@ -260,11 +260,13 @@ remapping (off in this kernel, offered by xenon's unit) is off this path.
 ## BUGS
 
 - **FIXED (2026-10-04): the VT-d tables never reached memory on a unit that does not snoop.**
-  See "What the first evening found" above. Whether the fix suffices on silicon is the next boot's
-  question; until it reads `CONFINED-AT-RATE`, nothing here is a throughput.
-- The two-unit route and the RMRR maps have never run against a real DMAR. Host tests over the
-  7040's table cover them; QEMU presents one unit and no RMRR. The first xenon boot is their first
-  real input, and the screen shows whether the graphics RMRR is enough.
+  See "What the first evening found" above. The fix (`fef2e3206`, #1636) held on silicon: three
+  xenon boots on 2026-10-04 read `CONFINED-AT-RATE`, 16384 of 16384
+  verified, in the Results table.
+- The two-unit route and the RMRR maps first met a real DMAR on 2026-10-04: preflight 1 passed
+  (the catch-all owns 01:00.0), both units translated and the screen held on all three boots, so
+  the graphics RMRR covers the scanout. That is one machine; elsewhere only host tests over the
+  7040's table cover them, since QEMU presents one unit and no RMRR.
 - The domain-id width, the `GCMD` read-modify-write and the protected-memory switch-off are code
   paths QEMU does not reach. Milestone 594's block says why each matters on xenon.
 - One pass per boot, no warm-up. A second boot is the repeat, and three is this page's floor.
