@@ -19,17 +19,11 @@ Nothing is blocked from building. What is blocked is publishing: no aarch64
 cycle figure should be quoted until decision A is made, and no program should read the counter
 through a shared function until decision B is.
 
-Two branches met in this file and both were right. One numbered the proposal; the other rewrote
-it because it had built the thing the proposal proposed. The number and the filename are this
-branch's, the content below is that lane's, and nothing of either was dropped.
-
-Rewritten 2026-09-19 by the `milestone/74-cycle-counters-aarch64` lane, which built the half this
-file used to describe. The first version was the riscv64 lane's
-handoff: `PMCR_EL0.E` and `PMCNTENSET_EL0.C` were never written, so `PMCCNTR_EL0` was a stopped
-counter. That part is built (milestone 74's block, "What the aarch64 half built"). What is left is the
-two things that lane and this one were both told are an architect's, and this file is now those two
-decisions, each answered against AGENTS.md's seven questions, with options and no winner, because
-both are facts that leave the machine.
+Two branches met in this file: one numbered the proposal, the other rewrote it on 2026-09-19
+after building it (milestone 74's block, "What the aarch64 half built"). The number and filename
+are the first's, the content the second's, and nothing of either was dropped. Each decision is
+answered against AGENTS.md's seven questions, with options and no winner, because both are facts
+that leave the machine.
 
 ## Decision A: what `PMCCFILTR_EL0` counts
 
@@ -41,11 +35,10 @@ match what that firmware left, which is what seL4's published 413 and 426 were c
 stands, the boot line keeps saying `PROVISIONAL`, and no aarch64 cycle figure is published,
 milestone 25's included.
 
-Why this is not a deferral in the bad sense. Every option below is an argument about what
-seL4's number means; one line of argon's own console output replaces the argument with evidence,
-and that boot is scheduled work (milestone 127 (sel4)'s bring-up). The cost of waiting is that
-milestone 25's aarch64 row stays empty until argon's first evening, which it would anyway: there
-is no aarch64 board number yet.
+Not a deferral in the bad sense: every option below argues about what seL4's number means, and
+one line of argon's console output replaces the argument with evidence, in scheduled work
+(milestone 127 (sel4)'s bring-up). Milestone 25's aarch64 row stays empty until then, as it would
+anyway: there is no aarch64 board number yet.
 
 What the bench evening owes this block, beyond reading that line: if firmware left `P` set
 (kernel cycles excluded), say so loudly, because then seL4's figures exclude the kernel and every
@@ -68,11 +61,10 @@ architecturally UNKNOWN on every field (Arm's `AArch64-pmccfiltr_el0` page, read
 | 27 | `NSH` | do count EL2 (the one field whose sense is inverted) |
 | 26 | `M` | EL3: counted as `P` says when equal to it, not counted when different |
 
-What the kernel writes today is `0`, provisionally (`arch::aarch64::pmu::PMCCFILTR_PROVISIONAL`,
-whose doc comment carries the reasons and points here). That counts EL0 and EL1, not EL2, and EL3
-wherever `MDCR_EL3` permits counting there at all. The boot line prints `PROVISIONAL` beside it and
-the bench probe's meaning line says the same, so a number cannot leave the machine without the
-qualifier.
+The kernel writes `0` today, provisionally (`arch::aarch64::pmu::PMCCFILTR_PROVISIONAL`, whose
+doc comment carries the reasons). That counts EL0 and EL1, not EL2, and EL3 wherever `MDCR_EL3`
+permits. The boot line and the bench probe's meaning line both say `PROVISIONAL`, so a number cannot
+leave the machine without the qualifier.
 
 ### The options
 
@@ -172,15 +164,14 @@ count the kernel.
 
 ### Question 7: Would the choice be the same if every option cost the same?
 
-They do cost the same. Nothing here is an effort argument, which is why the table above carries no
-recommendation: it is a question about what nife wants its published numbers to mean.
+They do cost the same, so nothing here is an effort argument: it is a question about what nife
+wants its published numbers to mean.
 
 ### What happened when calef ruled
 
-He took none of A1 to A3 and chose the evidence instead: **wait for argon's firmware value**
-(2026-09-19). The paragraph at the top of this decision is the ruling; this section is kept because
-its prediction held, which is that the provisional A1 stays and milestone 25 cannot publish an
-aarch64 cycle figure until the bench evening.
+He took none of A1 to A3 and chose the evidence: **wait for argon's firmware value**
+(2026-09-19), as stated at the top of this decision. The provisional A1 stays and milestone 25
+cannot publish an aarch64 cycle figure until the bench evening.
 
 ## Decision B: the portable user-mode cycle read, its name and its promise
 
@@ -199,7 +190,7 @@ aarch64 cycle figure until the bench evening.
 | riscv64 | the `cycle` CSR | yes, **but** the kernel's own probe may have been handed a different counter (`hpmcounter3` on `rva23s64`) | 229's grant (`scounteren.CY`), and `mcounteren.CY` in firmware |
 | x86_64 | `rdtsc` | **no**: constant-rate, the same counter as `user_mode_runtime::now()` | ambient (DECISIONS §139 part 3) |
 
-The kernel's `cycles_per_tick` probe on x86_64 deliberately does **not** read the TSC (milestone
+The kernel's `cycles_per_tick` probe on x86_64 deliberately does not read the TSC (milestone
 309's whole argument: it would divide one counter by itself). A user-mode function called
 `cycles()` that read `rdtsc` on x86_64 would therefore be the exact mistake 309 was written to
 prevent, in the one place a stranger would call it. Reading core cycles from ring 3 needs `rdpmc`
@@ -257,21 +248,18 @@ trying.
 
 ### What happens if calef says nothing
 
-B1 holds: the read stays in the fixture, which is where it is today, and nothing is worse than it
-was.
+B1 holds: the read stays in the fixture, and nothing is worse than it was.
 
 ## Where it came from
 
-The riscv64 lane's handoff (2026-09-03, first version of this file) and the aarch64 lane that built
-the counter (2026-09-19). Everything cited above was read on the date given, not recalled.
+The riscv64 lane's handoff (2026-09-03) and the aarch64 lane that built the counter
+(2026-09-19). Everything cited was read on the date given, not recalled.
 
 ## Follow-on
 
 - **Outstanding.** *Decision A, what `PMCCFILTR_EL0` counts.* Blocks publishing any aarch64 cycle
   figure, because a count that excludes the kernel is not comparable to seL4's and one that includes
-  it is not comparable to a userspace-only profile. The aarch64 meaning line says `PROVISIONAL` so a
-  number cannot travel without it. Options and costs are above, with no winner named, because it is
-  a fact that leaves the machine.
+  it is not comparable to a userspace-only profile. Options and costs are above.
 - **Outstanding.** *Decision B, what a program calls the cycle-counter read and what it promises.*
   Blocks a shared function; the read stays in the fixture until it is answered, which is where it is
   today.
