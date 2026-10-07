@@ -225,11 +225,16 @@ for every ISA; rows 31 and 32 are `script/swish-check` censuses graded by read.
   that block does not yet say it closes a confinement gap; the maintainer should add that and weigh
   685's priority against risk 7.
 - Near misses, each with a home. Claim 3: a `GRANT`-less budget retypes a `GRANT`-bearing frame,
-  booted as a characterization on all three ISAs, with `BUGS` on `cap::memory_region_cap`. Whether
-  retypes should withhold `GRANT` is an architect's question. Claim 17: the regression test cannot
-  fail, with `BUGS` on it in `kernel/src/virtio.rs`. Claim 25: stale pixels on a respawn nobody
-  performs, in an existing `BUGS`. Claim 28: the test does not check the fault pc, with `BUGS` on
+  booted as a characterization on all three ISAs, with `BUGS` on `cap::memory_region_cap`. Its retype
+  question is ruled below. Claim 17: the regression test cannot fail, with `BUGS` on it in `kernel/src/virtio.rs`. Claim 25: stale
+  pixels on a respawn nobody performs, in an existing `BUGS`. Claim 28: the test does not check the fault pc, with `BUGS` on
   it. The unauthenticated `OPERATION_QUIESCE` is a denial of service, with `BUGS` at its arm.
+
+### The retype-GRANT question, ruled (2026-10-07 UTC)
+
+calef ruled option (a) in PR #1798's thread: a retype mints only the budget's rights, so `GRANT` is
+delegated, never minted. The fix is milestone 824 (a retype mints no right its budget lacks), which
+records the refused options.
 
 ### What risk 7's appendix should cite (for the maintainer, under §216)
 
