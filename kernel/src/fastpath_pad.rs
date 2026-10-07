@@ -96,6 +96,13 @@ const fn parse(s: &str) -> usize {
 /// Branches into the arch's nop sled only if [`core::hint::black_box`] fails to prove its input
 /// false, which it never does, so this costs one untaken branch and nothing else at runtime.
 #[inline(never)]
+// In the pinned hot section, because every `ipc_send` in a padded build runs it: milestone 796
+// (pin the hot trap path's placement).
+// The sled it guards stays outside: never executed, it is what moves the rest of the text.
+#[cfg_attr(
+    target_os = "none",
+    unsafe(link_section = ".text.hot.fastpath_pad.maybe_pad")
+)]
 pub fn maybe_pad() {
     if core::hint::black_box(false) {
         // SAFETY: the arch nop sled is a leaf function (no memory access, no stack frame beyond

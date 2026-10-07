@@ -12,7 +12,10 @@
 # UNPROVEN until RISC-V boots (the console step and beyond exercise it). It assembles and links now,
 # which is all the compile milestone claims.
 
-.section ".text", "ax"
+# In the pinned hot section, because every IPC that blocks runs it: milestone 796 (pin the
+# hot trap path's placement).
+# See notes/benchmarks/kernel-footprint-and-caches.md, "The hot section".
+.section ".text.hot.switch_to", "ax"
 
 # switch_to(prev_context: *mut *mut Context, next_context: *mut Context)
 #   a0 = where to STORE our stack pointer (&mut prev.context)
@@ -102,6 +105,8 @@ switch_to:
     ret
     .cfi_endproc
 .size switch_to, . - switch_to
+
+.section ".text", "ax"
 
 # Where a brand-new KERNEL thread begins. Context::for_kernel_thread faked a frame whose ra points
 # here, with s0 = the closure pointer and s1 = the monomorphized caller, both restored by switch_to

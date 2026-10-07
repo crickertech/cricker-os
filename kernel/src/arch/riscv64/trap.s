@@ -19,7 +19,10 @@
 #
 # The frame layout is `struct TrapFrame`: x[0..32] then sepc, scause, stval, sstatus (288 bytes).
 
-.section ".text", "ax"
+# `.text.hot.*` puts trap_entry, and the trap_return it falls through to, in the pinned hot
+# section: milestone 796 (pin the hot trap path's placement). See
+# notes/benchmarks/kernel-footprint-and-caches.md, "The hot section".
+.section ".text.hot.trap_entry", "ax"
 .balign 4                       # stvec direct mode needs the vector 4-byte aligned
 # CFI: see notes/cfi-unwind.md, "The hard case: a trap is not a call" (written for aarch64's
 # vectors.s; the same reasoning applies here). `.cfi_signal_frame` marks this as an
@@ -289,6 +292,9 @@ trap_return:
     sret
     .cfi_endproc
 .size trap_entry, . - trap_entry
+
+# Off the hot section: nothing below runs on a syscall.
+.section ".text", "ax"
 
 # RUN THE HANDLER ON THIS HART'S INTERRUPT STACK (milestone 124).
 #
