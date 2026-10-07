@@ -34,7 +34,7 @@ interleaved against the old payload on the same evening. Every note that quotes 
 has to say which side of the change it is on. `swish-check --release` already met the same mismatch
 and fixed it for its own path (the comment at `initrd_riscv`).
 
-**Reuse:** xtask's existing `RELEASE` flag and `profile_dir()`, which `bench`, `soak` and `install`
+Reuse: xtask's existing `RELEASE` flag and `profile_dir()`, which `bench`, `soak` and `install`
 already set; nothing new is built.
 
 ## Done means

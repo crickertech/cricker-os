@@ -54,7 +54,7 @@ endpoint would be the owner too."
 `login` blames its stuck-terminal bug on "no wait-any primitive", but notification objects (§101
 (notification objects: async multiplexing without wait-any)) have since landed.
 
-**Reuse:** `login`, the credential service, `fs_subtree_caretaker`, the system log and the spawn
+Reuse: `login`, the credential service, `fs_subtree_caretaker`, the system log and the spawn
 presentation are the tree's. The greeter and multiplexer are new glue over them;
 `getty` and `screen` lend a shape, not code. Remote login reuses `sunset` (fork 6).
 

@@ -16,7 +16,7 @@ mapping). The method works, and it cannot reach the window it was decided to clo
 `notes/unmap.md` has the finding in full. This is a fork on the syscall surface, so the options
 below wait for an architect.
 
-**Reuse:** none exists; searched `kernel/src` for every mint of `cap::address_space_cap` (only
+Reuse: none exists; searched `kernel/src` for every mint of `cap::address_space_cap` (only
 `RETYPE_OBJ` and tests) and `crates/abi` for a self-naming slot convention (only
 `abi::fault::FAULT_EP_SLOT`, which option B below would copy). This is the kernel's object model,
 where §46 (thin primitives or whole subsystems) says write it.

@@ -70,7 +70,7 @@ boot archive. notes/fs-server.md measures RedoxFS as prefix-consistent at every 
 Its block cache is write-through, and `filesystem_protocol::fs::SYNC` (op 19) asks the block
 server for a real device flush. Both the virtio and NVMe block servers implement that flush.
 
-**Reuse:** the reset routes are the tree's own `arch::reboot`, and the kernel is written here by
+Reuse: the reset routes are the tree's own `arch::reboot`, and the kernel is written here by
 rule. The program is a capability invoke after a `SYNC`, so Linux's `reboot(8)` and busybox's
 have nothing to lend: what they wrap is `reboot(2)`, option D below.
 

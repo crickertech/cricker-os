@@ -73,7 +73,7 @@ the second PC.
 
 The Secure Boot question is the `unwritten` decision dependency. Publication is `needs_person`.
 
-**Reuse:** `stick_maker`, the installer and the package client are the tree's own and are built;
+Reuse: `stick_maker`, the installer and the package client are the tree's own and are built;
 the release and the page are not surveyed yet, and the lane that builds them owes that survey under
 §46 (thin primitives or whole subsystems).
 

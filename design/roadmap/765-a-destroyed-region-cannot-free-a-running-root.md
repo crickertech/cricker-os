@@ -38,7 +38,7 @@ path, and 95's lane is in flight (#1678); building this beside it would be two l
 - `revoke::revoke_region`'s `BUGS` entry for the root and milestone 763's matching `BUGS` line are
   removed or rewritten to what remains.
 
-**Reuse:** none exists to take; this is §16's teardown path in the kernel, where §46 (thin
+Reuse: none exists to take; this is §16's teardown path in the kernel, where §46 (thin
 primitives or whole subsystems) says write it. Each option below reuses an existing mechanism (A the
 resident kill, C the `CONFIGURE` refusal shape).
 

@@ -9,7 +9,7 @@ needs_person: no
 ---
 # Orderly shutdown closes the sync window
 
-**Reuse:** the design is borrowed from the prior art below; no code is taken, because nothing
+Reuse: the design is borrowed from the prior art below; no code is taken, because nothing
 outside a service manager can own the order, and nife's would be written here.
 
 calef asked for this on 2026-10-06 (UTC), ruling on #1783, milestone 805 (`reboot` at the prompt).

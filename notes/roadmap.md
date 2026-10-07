@@ -54,7 +54,7 @@ You are a lane, you have been given milestone `N`, and you want it on the roadma
 
    The heading keeps its name although the index is gone (`script/audits` and
    `script/fatal-risks` still read it); renaming it is an architect's call.
-3. Name what you considered taking, in a `**Reuse:**` line or a `## Reuse` section, or write
+3. Name what you considered taking, in a `Reuse:` line or a `## Reuse` section, or write
    `none exists` and where you searched. §46 (thin primitives or whole subsystems) makes taking the
    default outside the kernel and the crates Kani proves; `--check` requires this from 2026-10-05.
 4. That is the whole procedure. There is no table to update and no regeneration to wait for.
@@ -343,7 +343,7 @@ Written by <who or what>, from milestone <N>'s block.
 
 **In brief.** <what the work is>
 
-**Reuse:** <what existing code was considered, and why it was or was not taken>
+Reuse: <what existing code was considered, and why it was or was not taken>
 ```
 
 Promotion is the integrator's, at merge, like every other global name: give the file its number,

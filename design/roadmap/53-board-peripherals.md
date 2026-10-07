@@ -76,7 +76,7 @@ provisional. notes/designware-ethernet.md has the split, the evidence and the ru
 - Not run on silicon. The booted system leaves the port alone until a bench boot passes
   (`PROVEN_ON_SILICON`).
 
-**Reuse:** OpenBSD's `dwqe` and `ytphy` (ISC), adapted with the notice carried in the crate root,
+Reuse: OpenBSD's `dwqe` and `ytphy` (ISC), adapted with the notice carried in the crate root,
 because its JH7110 glue handles radon's v1.3B transmit clock (`starfive,tx-use-rgmii-clk`).
 FreeBSD's `if_eqos_starfive.c` and `mcommphy.c` (BSD-2-Clause) also support this chip and were
 read as an independent cross-check. Linux stmmac, U-Boot `dwc_eth_qos` and both JH7110 trees are
@@ -115,7 +115,7 @@ notes/designware-mobile-storage.md has the evidence, the safety argument and the
   architecture-neutral.
 - Not run on silicon.
 
-**Reuse:** OpenBSD's `dwmmc` (`sys/dev/fdt/dwmmc.c` 1.33, ISC), adapted with the notice carried in
+Reuse: OpenBSD's `dwmmc` (`sys/dev/fdt/dwmmc.c` 1.33, ISC), adapted with the notice carried in
 the crate root; it matches both compatibles above. `starfive-jh7110-dwmmc` 0.1.8 on crates.io
 (Apache-2.0) was read and refused as a dependency: 333 lines over `dwmmc-host` 0.4.2 (5,253 lines)
 and three more crates from one young tree, with an IDMAC-only data path and volatile accesses inside

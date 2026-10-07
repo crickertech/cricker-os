@@ -255,7 +255,7 @@ on this milestone and the stranger meets a program, not a builtin about to go.
 Items 1, 2, 3 and 5 wait on nothing.
 Every item is proved on aarch64, riscv64 and x86_64 by the same gate, per rule 5.
 
-**Reuse:** all inside the tree. `package_archive` (`catalogd_stem`, `installable`, `installable_as`),
+Reuse: all inside the tree. `package_archive` (`catalogd_stem`, `installable`, `installable_as`),
 `http_response`, `socket_protocol`'s fixture peer, `activation_set`, `spawnproto`'s activation
 request, swish's frame sender and milestone 205's argv and designation. Writing the program rather
 than adapting one is forced: no existing client speaks this capability ABI.

@@ -34,7 +34,7 @@ toolchain bump or a `std` overlay change can break this graph today, and no chec
 - Run time: The kernel test is under 5 s per architecture. The host tests are under 2 s.
 - Image size: 1.27 MB (x86_64) to 1.89 MB (riscv64) per program before the archive strips it.
 
-**Reuse:** the two build helpers as they are and CI's existing crates.io fetch; nothing here is
+Reuse: the two build helpers as they are and CI's existing crates.io fetch; nothing here is
 written, and the crates are the ones §196 and §198 already took.
 
 ## The options

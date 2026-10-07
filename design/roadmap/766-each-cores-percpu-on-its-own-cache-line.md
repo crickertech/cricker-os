@@ -59,7 +59,7 @@ lookups contended). It is about 1.7 ns on a 33 ns trap there. Radon's size is un
 - `PERCPU` moved from `0x...508` to `0x...580` on aarch64 and from `0x...d50` to `0x...d80` on
   riscv64 (release kernels): both now 0 mod 128. x86_64's address is unchanged.
 
-**Reuse:** x86_64's own `repr(align(256))` on the same struct is the precedent this extends; no
+Reuse: x86_64's own `repr(align(256))` on the same struct is the precedent this extends; no
 crate is involved, since the change is one attribute and one assertion in the kernel.
 
 ## Gates

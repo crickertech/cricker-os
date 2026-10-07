@@ -48,7 +48,7 @@ The cost is a touch of five files in the test-wiring hotspot. That is why the §
 it. The lane for milestone 95 (an unmap primitive, and the mappings init never lets go) was
 open in the same files.
 
-**Reuse:** the helper would be the reuse. `kernel::user::run` was considered and does not fit
+Reuse: the helper would be the reuse. `kernel::user::run` was considered and does not fit
 (above); `spawn_hello` measures and routes interrupts, which no test harness wants. Searched
 `system_tests/src/user/` and `kernel/src/user.rs` for `INITRD_VA`.
 
