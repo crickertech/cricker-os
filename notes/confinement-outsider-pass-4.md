@@ -80,12 +80,12 @@ its socket numbers), raised 2026-09-24, NOT-STARTED, records the mechanism by re
 test. This pass adds the booted bidirectional capture, pinned red on all three ISAs where 649 had
 none. For the counts below it is a re-discovery; for risk 7 it counts as an escape, by the ruling
 in the maintainer section.
-
 The sibling that already does it right is one component over: `name_resolver` keys its windows
 by the badge's grant index and refuses a second attach at a granted window. Its refusals are
-silent, safe there because the scoping makes every attach failure the caller's own. The fix shape is ruled to
-be exactly that, refusals silent (calef, 2026-10-07 UTC, about 03:50Z, PR #1798); the BUGS entry
-carries it, and `name_resolver`'s own `attach_socket` shares the exposure of any stack client.
+silent, safe there because the scoping makes every attach failure the caller's own. The first
+fix-shape ruling (03:50Z) was that shape, superseded the same day (calef, 2026-10-07 UTC,
+15:04Z, PR #1798): each socket is its own capability, the `sid` leaves the wire, built as
+milestone 649 in PR #1817. The BUGS entry carries both rulings.
 
 ## Re-discoveries
 
@@ -121,7 +121,7 @@ Every escape found and fixed before this pass, checked for siblings rather than 
   named: a parked delegation delivered on a different rendezvous after an aborted send. The
   teardown limbs still do not clear it; a dead thread cannot re-deliver, and the sweeps walk
   live tables. Held.
-- **The wired mapping record.** `map_physical` records through `PageMapSource`; `map_new`'s
+- The wired mapping record. `map_physical` records through `PageMapSource`; `map_new`'s
   exception still holds (its frames are the space's own and die with it); no `map_physical` call
   site maps a `MemoryRegion` page. Held, unchanged from the claims note's own record.
 - **The port-rights fix (claim 33).** The grant install now requires `WRITE`
@@ -202,9 +202,8 @@ path (calef, 2026-10-07, PR #1798's thread).** The two-consecutive count restart
 so any granted program is a client today, and a known, unfixed escape counted as anything else
 would flatter the verdict.
 
-The other rulings from this PR's thread (the fix shape, the tree-wide scoping rule, the claims
-row's wording, the refusal order, 633's retype carry) are recorded with their dates in this
-milestone's roadmap block, beside the maintainer's merge list.
+The other rulings from this PR's thread are recorded with their dates in this milestone's
+roadmap block, beside the maintainer's merge list.
 
 ## Refusal log
 

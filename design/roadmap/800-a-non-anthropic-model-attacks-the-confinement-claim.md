@@ -177,13 +177,16 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   exchange. `ATTACH` is a `SEND_CAP` with no reply and the id namespace has no per-caller scope, so
   the victim's attach fails silently. Pinned by the opt-in
   `net_confinement_tests::a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic`
-  and recorded in `net_stack.rs`'s BUGS. The fix shape is the `name_resolver` one, per-caller
-  windows keyed by badge; whether refusals should also become answerable is a smaller second
-  call, still open. The shape itself is ruled: per-caller windows keyed by badge, the resolver's
-  exact shape, refusals silent (calef, 2026-10-07 UTC, about 03:50Z, PR #1798). Ruled with it, tree-wide: per-caller
-  scoping is a written rule for every multi-client window server, and the fix lane audits the
-  remaining ones (`system_log`'s reader windows unread this pass). The fix belongs to a follow-up
-  milestone; this pass pins and does not write it. A second premise this pass settled by reading:
+  and recorded in `net_stack.rs`'s BUGS. The fix shape was first ruled per-caller windows keyed
+  by badge, the resolver's exact shape, refusals silent (calef, 2026-10-07 UTC, about 03:50Z,
+  PR #1798). Superseded the same day (15:04Z): each socket is its own capability; the stack
+  mints a badged endpoint per socket on open, every later call is made on it, and the `sid`
+  leaves the wire. Built as milestone 649 in PR #1817, which rewrites the server, the contract
+  and this pass's pinned test. Whether refusals also become answerable is a smaller second call,
+  still open. Ruled with the first ruling, tree-wide and still standing: per-caller scoping is a
+  written rule for every multi-client window server, and the audit of the remaining ones
+  (`system_log`'s reader windows unread this pass) still needs its home. A
+  second premise this pass settled by reading:
   the escape is on a shipped path. The interactive boot endows every network-declaring child with a
   copy of the one stack endpoint, unbadged, and the job pool holds six live jobs at once.
 - **How the pass counts toward risk 7's criterion (c): ruled (b), an escape on a shipped path**
