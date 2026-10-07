@@ -1,0 +1,174 @@
+# The Actions cache budget, 2026-10-07 (provisional name)
+
+Measured 2026-10-07 (UTC), read-only, at base `1f5be6843`, by lane/actions-cache-budget. Pull
+request #1810 (measure Kani's install instead of caching it) found the repository's Actions caches at
+10.8 GB in 461 entries, over GitHub's 10 GB limit, and rust-cache logging `No cache found`. calef
+approved measuring it the same day. The question: which caches earn their bytes, and what layout
+fits under 10 GB with room to spare. The scripts are in
+[actions-cache-budget-2026-10-07/](actions-cache-budget-2026-10-07/), with the commands in its
+`README`.
+
+Result.
+
+- `main` holds no rust-cache entry at all. All 463 rust-cache entries sit on pull request refs (301,
+  6.8 GB) or merge-group refs (163, 3.8 GB). The five `main` entries are QEMU twice, the patched
+  Kani, the vendor pins and toolchain-drift.yml's rust-cache entry: 0.43 GB, which pull
+  requests and merge groups do restore.
+- No merge-group job restored a rust-cache entry: 0 of 111. None can. A run restores from its own
+  ref and from `main`, and every merge group gets a fresh `gh-readonly-queue/...` ref. Those saves
+  were 39% of the bytes written and evicted entries that do hit.
+- Pull request jobs hit 96 of 243 times (40%: 58 exact, 38 on the restore key), and only on a
+  second run of the same pull request. A pull request's first run always misses, because `main` has
+  nothing to fall back to.
+- A hit is cheap and buys little. Restores took 0.3 to 3.1 s (median entry 19 MB). Job medians on a
+  hit were within 0.4 minutes of a miss for 13 of 17 jobs; only clippy (2.0), prove (2.7) and
+  falsify-shard (3.7) gained more, on 4 to 11 hits each.
+- The 16 to 20 s #1810 attributed to the restore is mostly not the restore. rust-cache spends a
+  median 17 s computing its key before it looks for an entry (p10 13 s, p90 21 s), on a hit and on a
+  miss alike.
+- The eviction horizon is 12 hours. No entry had gone unaccessed for longer, so an entry not touched
+  within half a day is gone whatever its worth.
+
+This lane fixed the part with no fork: no rust-cache step in a merge-group workflow saves any more,
+and `script/lint` refuses one that does. What remains is calef's, below.
+
+## 1. What the cache holds
+
+`gh api repos/nifeos/nife/actions/caches --paginate`, 2026-10-07 about 14:50 UTC. Usage then read
+10,733,031,662 bytes in 455 entries; the paginated list returned 469 distinct entries, 10.99 GB, as
+entries came and went during the read.
+
+| Ref | Entries | GB | Never restored |
+|---|---|---|---|
+| pull request (`refs/pull/N/merge`) | 301 | 6.78 | 210 |
+| merge group (`gh-readonly-queue/main/...`) | 163 | 3.78 | 163 |
+| `main` | 5 | 0.43 | 1 |
+
+"Never restored" means `last_accessed_at` within ten minutes of `created_at`. GitHub updates the
+access time on a restore, so this is a lower bound on waste, not an exact count.
+
+By producer, the rust-cache entries split evenly across 17 jobs in ci.yml and verify.yml, from clippy
+(39 entries, 1.35 GB, 35 MB each) down to prove-kernel-riscv64 (18, 0.21 GB). No one job is the
+problem; the count of jobs times the count of refs is. Each job saves its own entry
+(`add-job-id-key`), on every pull request and every merge group.
+
+**Why `main` has none.** A′ (notes/merge-queue.md, 2026-09-24) skips the heavy jobs on a push to
+`main` because the merge group already ran them. That note predicted this: "A′ lets `main`'s
+Actions caches go stale ... Nobody has measured it yet." It is now measured, and it is worse than
+stale. The rust-cache entries `main` once had have been evicted, and nothing writes new ones.
+
+## 2. Hit rates and what a hit buys
+
+Method. The last 40 runs each of ci.yml and verify.yml, the 34 that concluded success or failure,
+618 jobs, 354 of them with a rust-cache step. Each job's log was read for the step's start, its
+`Cache Configuration` line (key computed), the restore's outcome (`No cache found`, `Cache hit for`,
+`Cache hit for restore-key`), the next step's start, and the post-job save.
+
+| Event | Jobs | Exact hit | Restore-key hit | Miss | Key computation (median) | Restore (median) | Saves |
+|---|---|---|---|---|---|---|---|
+| pull_request | 243 | 58 | 38 | 147 | 17.6 s | 0.3 s | 185 |
+| merge_group | 111 | 0 | 0 | 111 | 17.1 s | 0.2 s | 111 |
+
+Saves took a median 2 s, and up to 6 s for clippy. Across the 354 jobs, rust-cache spent 102 runner
+minutes computing keys, 12 saving and 3 restoring, about 3.5 minutes a run.
+
+What a hit buys, as median job wall time on a hit against a miss:
+
+| Job | Hits | Misses | Hit | Miss | Gain |
+|---|---|---|---|---|---|
+| falsify-shard | 11 | 9 | 16.7 min | 20.4 min | 3.7 |
+| prove | 10 | 19 | 14.9 | 17.6 | 2.7 |
+| clippy | 4 | 19 | 4.0 | 6.0 | 2.0 |
+| fuzz | 4 | 16 | 11.6 | 12.0 | 0.4 |
+| the other 13 | 2 to 11 | 8 to 29 | | | -2.3 to 0.2 |
+
+The rest are noise around zero (cpu-matrix-shard's -2.3 is a slower hit). The reason is in what
+rust-cache keeps. It caches `target/` after removing the workspace's own crates, so a hit saves
+compiling registry dependencies only. This tree's heavy jobs spend their time building its own
+crates for bare-metal targets and running QEMU, which no cache entry holds.
+
+**Where the 17 s goes.** rust-cache 2 (commit `6323deb`, `src/config.ts` and `src/workspace.ts`)
+runs `rustc -vV` once per installed toolchain and `cargo metadata --all-features` per workspace
+before restoring, and hashes every `Cargo.toml` it finds. In the sampled clippy job the pinned
+nightly was already installed when the step ended, with no install output in the log, so some jobs
+pay rustup's install of `nightly-2026-10-06` inside this step. In the 140 jobs where that install
+shows later in the log, the step still took a median 15 s. How much of the 17 s cargo would pay
+later anyway (the registry index fetch `cargo metadata` performs) was not separated; it needs one
+job run with and without the step.
+
+## 3. Prior art, read
+
+- GitHub's dependency-caching reference: "Workflow runs can restore caches created in either the
+  current branch or the default branch", and a pull request also its base branch; runs "cannot
+  restore caches created for child branches or sibling branches". Eviction deletes "in order of last
+  access date, from oldest to most recent", entries idle for 7 days go regardless, and the 10 GB
+  limit can be raised at a storage cost. The page says nothing specific about `merge_group`; the 0 of
+  111 above is the evidence for it.
+- rust-cache's README documents `save-if`, with `save-if: ${{ github.ref == 'refs/heads/master' }}`
+  as its example "when only runs from `master` should be saved", and `shared-key` for one entry
+  across jobs.
+- bevy (`.github/workflows/update-caches.yml`): CI jobs use `actions/cache/restore` only, and one
+  workflow on push to `main`, plus a nightly schedule, builds and saves the caches.
+- tokio (`ci.yml`): plain `Swatinem/rust-cache@v2` per job, saving everywhere. It has no merge
+  queue.
+- rust-lang/rust (`ci.yml`): `sccache` against an S3 bucket (`SCCACHE_BUCKET:
+  rust-lang-ci-sccache2`) and its own cache domain, not the Actions cache for compiler output.
+
+## 4. What changed in this pull request
+
+Every `Swatinem/rust-cache` step in ci.yml (14) and verify.yml (4) now carries
+`save-if: ${{ github.event_name != 'merge_group' }}`. A merge group still restores (from `main`,
+when `main` has something), so nothing that hits today stops hitting. The measurement is at the first
+step in ci.yml.
+
+`helpers/cache_save_scope.py`, run by `script/lint`, refuses a rust-cache step without that scope in
+any workflow whose `on:` lists `merge_group`. Watched failing on the 18 steps at base `1f5be6843`.
+
+Expected effect: about 39% fewer bytes written, so the 12-hour horizon should stretch toward 20
+hours at the same pull request traffic. The cache will still fill to the limit, as an LRU cache
+does. Being at the limit is not the harm; evicting entries before their second use is.
+
+## Caveats, together
+
+- 34 runs over about 12 hours on one day, eight pull request branches. The per-job gains rest on 2 to
+  11 hits each, and job wall time varies with the change under test, so read them as signs and
+  orders of magnitude.
+- "Never restored" from access times is a lower bound.
+- rust-cache's key includes every installed toolchain's version. Several ci.yml jobs install the
+  floating `nightly` beside the pinned one, so their restore key changes when nightly moves. Within a
+  12-hour horizon that cost nothing measurable.
+- The `actions/cache` steps (QEMU, the patched Kani, vendor pins) hit `main`'s entries today. When
+  one of their keys changes, the new entry is saved on a pull request or merge-group ref and `main`
+  gets one only from a push that runs in full. Not measured; noted in the helper's `BUGS`.
+
+## Forks for calef
+
+### (a) Where should a pull request's first run get a warm cache?
+
+`main` has none, so every first run misses.
+
+1. Nothing more. The merge-group fix stops the waste, and second runs keep hitting 40% of the time.
+2. bevy's layout: a workflow on push to `main` (and after a toolchain bump) that saves, and every
+   CI and verify job restores only. Costs a build on each merge, about the three jobs' worth below.
+3. Drop rust-cache from the 13 jobs where a hit gained under half a minute, and keep it, with
+   `shared-key` where jobs build the same graph, on clippy, prove and falsify-shard. Saves about
+   19 s a job (key computation plus save) and most of the remaining bytes.
+
+Recommendation: 3, then 2 for the three kept jobs only if their first-run misses still show in the
+shard-timing chart. Before 3, run one job with and without the step to split the 17 s, since some of
+it moves to cargo rather than vanishing. Would I choose this if both cost the same? Yes; it is
+fewer moving parts for the same measured speed.
+
+### (b) sccache or another backend?
+
+No, for now. rust-lang/rust's model needs a bucket, credentials and a new dependency, and the
+measured gain is in dependency compiles, which are not where these jobs spend their time. Revisit if
+(a)3's kept jobs grow.
+
+### (c) Something that shows this before a lane trips over it
+
+A daily sample of `GET /repos/nifeos/nife/actions/cache/usage` and the list's oldest
+`last_accessed_at`, charted in notes/project-metrics.md as bytes against 10 GB and the eviction
+horizon in hours. The horizon is the number that matters; a full cache with a week's horizon is
+healthy. Filed as a proposal:
+[design/roadmap/proposals/the-actions-cache-horizon-is-charted.md](../design/roadmap/proposals/the-actions-cache-horizon-is-charted.md).

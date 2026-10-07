@@ -25,6 +25,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [The dependency census](../dependency-census.md): real prerequisite edges between milestones, measured against declared ones.
 - [Citations that name what they cite](../citations.md).
 - [What Rust comments cost, 2026-10-07](../comment-cost-2026-10-07.md): comment-only Rust changes and the CI they ran, why comments change, density against seL4, Linux and Rust's library, and a sampled audit. Name provisional.
+- [The Actions cache budget, 2026-10-07](../actions-cache-budget-2026-10-07.md): which caches earn their bytes against GitHub's 10 GB limit, why merge groups save nothing now, and the forks left. Name provisional.
 - [Counted claims](../counted-claims.md): numbers in prose that a gate re-derives. Name provisional.
 - [The register of measures](../register-of-measures.md): the numbers this kernel holds itself to. Name provisional.
 - [Project metrics: what moved, week by week](../project-metrics.md): weekly charts of the project's measures, from git history. Script and data names provisional.
