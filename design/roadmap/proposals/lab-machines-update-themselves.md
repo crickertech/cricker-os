@@ -16,6 +16,19 @@ restart (if it is the kernel). Sound right? We want to be testing updates early.
 provisional. Two appendices: [the lab machines](lab-machines-update-themselves/the-lab.md) and
 [prior art](lab-machines-update-themselves/prior-art.md).
 
+## Rulings so far
+
+calef, 2026-10-07 (UTC), on #1805, relayed by the maintainer:
+
+| fork | ruling | his words |
+|---|---|---|
+| 0 | the tree correction below is right | "Yes" |
+| 1 | generations get tries, as a trial | "Let's try it." |
+| 2 | a trusted key vouches, the ABI revision must match, §229 narrows, as a trial | "Let's try it." |
+| 9 | added at his question | "Should we be considering TUF?", then "Yes" to adding it |
+
+Forks 3 to 9 are open.
+
 ## A correction, first
 
 The first version of this proposal updated the whole base set through a boot slot, with a reboot.
@@ -63,8 +76,8 @@ Checked rather than assumed. Each is a gap the model must close before a lab mac
    by archive entry. Starting a base service from the activation set is what §241's B2 required and
    nothing has built.
 4. **The kernel itself starts `block_driver` and `redoxfs_server`** (`kernel/src/user.rs`, §241's
-   fact 5). Nothing can restart those, so in effect they are slot programs until §235's P6 moves the
-   spawns to the progenitor.
+   fact 5). Nothing can restart those, so in effect they are slot programs until #1807 (the boot
+   services leave the kernel, numbered 811 provisionally, not yet merged) moves the spawns to the progenitor.
 5. **No real boot starts `root_supervisor`.** Only `authority_tests` does. Today the progenitor is
    the root, and the slot holds the kernel and the progenitor.
 6. **The restart tier is unbuilt.** Live swap exists for `line_editor` alone (§232 (the line editor
@@ -77,7 +90,7 @@ Checked rather than assumed. Each is a gap the model must close before a lab mac
 ## What to build, in order
 
 1. Narrow the slot. The progenitor starts every base service from the live generation, and the
-   archive carries only the kernel's boot set. The kernel's two spawns move to the progenitor (P6).
+   archive carries only the kernel's boot set. The kernel's two spawns move to the progenitor (#1807).
 2. Accept a base package update (Fork 2). Narrow §229's refusal; check the ABI revision.
 3. Apply it (Fork 3): a supervisor restart, a live swap, or the next spawn, by how the program lives.
 4. Confirm it or roll it back (Fork 4).
@@ -125,7 +138,7 @@ check), `fetch refused`, or `not offered`. patagonia already captures both machi
 (`script/board-console`). The new part is a parser that turns those lines into a verdict, the way
 `swish-check` reads the prompt.
 
-## Fork 1: what replaces the floor when a package breaks its own rollback
+## Fork 1: what replaces the floor when a package breaks its own rollback (ruled 1a, a trial)
 
 - 1a. Generations get tries, like slots. The progenitor marks a new generation on trial, and if the
   boot's required set (`console`, `input`, `line_editor`, `swish`, `job_undertaker` today) fails
@@ -138,7 +151,7 @@ check), `fetch refused`, or `not offered`. patagonia already captures both machi
 Recommend 1a, with the chooser's own image as the last resort it already is. It keeps the slot to
 what nothing can restart, and it is the mechanism §208 already has, with tries added.
 
-## Fork 2: how the progenitor accepts a base package update
+## Fork 2: how the progenitor accepts a base package update (ruled 2a, a trial)
 
 calef's model needs the progenitor to accept a newer base program than its slot names.
 
@@ -225,6 +238,40 @@ fetch: its gate's builds are 14-day workflow artifacts. No channel exists.
 
 Recommend 8b now and 8a later. The channel advances on each basalt gate that passes, with the pin
 bump triggered per nife merge. The runner minutes that costs are not measured.
+
+## Fork 9: the update index is a TUF repository
+
+Fork 2's trial signs packages. A signature alone does not stop an attacker, or a stale mirror,
+serving an older signed package, freezing the index at a vulnerable moment, or mixing packages from
+two releases. Nor does it say how to survive a stolen key. The Update Framework answers those with
+separate roles (root, targets, snapshot, timestamp), a threshold of root keys, root rotation,
+version numbers that only grow, and a timestamp that expires. That expiry is the freshness §196
+(nife carries TLS) named as missing: "an expiry in signed metadata (the Update Framework's timestamp
+role ...), which the format fork's metadata rows do not yet carry".
+
+- 9a. basalt publishes the index as a TUF repository. `jig` and the progenitor verify the metadata
+  before trusting a package. 809's I3 (a signed index) and 666's signed builds take TUF's shape:
+  a publisher's key is a delegated targets role, and 666's per-key ceiling rides in the
+  delegation's custom fields.
+- 9b. Fork 2's per-package signatures plus an expiring signed index of nife's own design. Fewer
+  parts, and it rebuilds TUF's roles one incident at a time.
+- 9c. Per-package signatures only. Leaves rollback and freeze attacks open.
+
+Prior art: Fuchsia's package resolver and Bottlerocket's `updog` both verify TUF, PyPI accepted it
+(PEP 458), Sigstore delivers its trust root through it, and Uptane extends it for vehicle fleets.
+
+Neither Rust client builds for nife's targets today, and both fail the same way the tree's TLS
+probes did: their C crypto. rust-tuf (Fuchsia's) is runtime-agnostic and needs no thread. Its
+crypto is `ring`, used in 11 files, and its last crates.io release (2022) no longer compiles on our
+nightly. tough (Bottlerocket's) is actively released, but needs `aws-lc-rs` and tokio's file system,
+which runs on a thread pool, and our `std` is single-threaded. The measurements are in
+[the TUF appendix](lab-machines-update-themselves/tuf.md).
+
+Recommend 9a, built on rust-tuf. Swap its `ring` calls for the RustCrypto verifiers
+`cryptography_provider` already builds, behind a feature offered upstream. Offer the Kani proofs of
+the metadata checks upstream too, per calef's standing direction on #1806. Writing our own client
+loses to both on every count except the size of the patch. A key in an image is what §195 (a reviewed recipe vouches for a package) called
+irreversible; TUF's root rotation is the mechanism that makes it less so.
 
 ## Scope note (rule 5)
 
