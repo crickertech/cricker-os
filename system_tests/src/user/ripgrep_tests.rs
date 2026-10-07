@@ -12,7 +12,8 @@
 //!
 //! **It skips when the archive has no `rg`**, which is every ordinary build and all of CI, because
 //! making the gate fetch a crates.io dependency tree is DECISIONS §46's decision and calef's rather
-//! than a lane's. See notes/ripgrep-on-nife.md.
+//! than a lane's. `rg` is never part of the base image either: calef ruled on 2026-10-07 (UTC) that
+//! it is installed with `jig` from its own package. See notes/ripgrep-on-nife.md.
 //!
 //! **All three ISAs run it**, which is DECISIONS §19 rather than thoroughness: a capability ships on
 //! every supported architecture or a scope note records the gap and the plan. `helpers/build-ripgrep.sh`
@@ -37,23 +38,16 @@ fn block_server_image() -> &'static [u8] {
 }
 
 /// **Somebody else's forty-crate application loads, runs, reaches a real filesystem through a
-/// capability it was handed, and then cannot be told what to search for.**
+/// capability it was handed, and, granted no argument page, hears no arguments.**
 ///
-/// Every layer below the last clause works, and none of it was written for `ripgrep`. A multi-megabyte
-/// ELF the loader maps (4.7 MB on aarch64, 10.7 MB on riscv64); a heap std grows one page at a time under `regex`'s and `ignore`'s allocation
-/// patterns; `std::env::current_dir` answering `/` because this process holds a directory; output
-/// through the one endpoint it was granted. `ripgrep` did all of that without a line of nife in it.
+/// Every layer below the search works, and none of it was written for `ripgrep`: the loader maps a
+/// multi-megabyte ELF, std grows a heap one page at a time, `std::env::current_dir` answers `/`
+/// because this process holds a directory, and output reaches the one endpoint it was granted.
 ///
-/// **What stops it is that the nife ABI has no argument vector.** `std::env::args()` resolves to
-/// std's `sys/args/unsupported.rs`, which yields an empty iterator, because a program is entered
-/// with three registers and a capability table (notes/abi.md) and there is nowhere for a command
-/// line to live. So `ripgrep` parses zero arguments, finds no pattern, and prints its own usage
-/// text. It is not refusing and it has not failed: it was never asked anything.
-///
-/// **It does not hit DECISIONS §105 at all**, which is the result this test was expected to
-/// produce and did not. `ripgrep` asks `std::thread::available_parallelism()` how much parallelism
-/// it has, nife's PAL answers `1` honestly, and `ripgrep` picks its own single-threaded walker and
-/// searcher. `thread::spawn` is never reached. See notes/ripgrep-on-nife.md.
+/// This was the whole result until milestone 205 (how a foreign program is told what to do) gave a
+/// program an argv. It stays as the honest-absence case: slot 8 empty is no arguments at all, not
+/// even `argv[0]`, so `ripgrep` prints its own "requires at least one pattern" and leaves. The
+/// searches below give it the page.
 #[test_case]
 fn unmodified_ripgrep_runs_and_has_no_arguments_to_run_on() {
     if program("rg").is_none() {
@@ -115,17 +109,14 @@ fn unmodified_ripgrep_runs_and_has_no_arguments_to_run_on() {
 }
 
 // ===========================================================================================
-// The walk, without `ripgrep` (the parts of milestone 121 (`ripgrep` on nife: enumeration as a
-// capability) that need no argument vector).
+// The walk, without `ripgrep`: the parts of milestone 121 (`ripgrep` on nife: enumeration as a
+// capability) that run in every archive.
 // ===========================================================================================
 //
-// `rg` cannot be told a pattern until §170 (how a foreign program is told what to do) is built as
-// milestone 205 (how a foreign program is told what to do), and cannot start from the prompt until
-// milestone 595 (the shell runs a `std` program) lands, so these two run `std_exerciser` instead, which is in every
-// archive on every ISA. What they prove does not depend on who wrote the walker: the walk is
-// `walk_pricing::walk`, plain `std::fs` in the shape `walkdir` and `ignore` walk, and the grant is
-// a caretaker narrowing `fixture::walk::ROOT`, which is the capability the confined `rg pattern
-// src/` will hold. When `rg` can be told what to do, it meets exactly these two answers.
+// These run `std_exerciser`, which is in every archive on every ISA, so CI proves them where it
+// cannot prove the `rg` tests below. What they prove does not depend on who wrote the walker: the
+// walk is `walk_pricing::walk`, plain `std::fs` in the shape `walkdir` and `ignore` walk, and the
+// grant is a caretaker narrowing `fixture::walk::ROOT`, the same grant `rg` holds below.
 
 /// The caretaker's ELF, in every archive since milestone 47 (navigation and naming).
 fn caretaker_image() -> &'static [u8] {
