@@ -221,8 +221,11 @@ The sweep in the milestone's block is the test.
 - Placement is fixed; alignment within the block is not. Five of riscv64's seventeen hot symbols
   start 8-byte aligned, which the U74's BTB wants for a zero-bubble taken branch (the U74-MC core
   manual, section 4.2.6). A hot function that grows still moves the ones sorted after it.
-- RISC-V call relaxation makes a hot call four bytes or eight depending on reach. Text is under
-  1 MiB today, so every call relaxes; past it, unrelated growth could change hot code size.
+- RISC-V reach is a placement fact. A call is four bytes or eight depending on how far it goes,
+  so past 1 MiB of text unrelated growth could change hot code size. A plain `j` into the block can
+  also fall out of range: `user_return`'s `j trap_return` failed to link in the debug test image on
+  2026-10-07, and is a `tail` now. Hand-written jumps into `.text.hot` from outside it must be `tail`
+  or `call`.
 - x86_64 has no `fastpath_pad`, so it gets the containment check and not the shift check.
 - aarch64 pins the whole 2 KiB vector table for the one 128-byte slot a syscall runs, and x86_64
   pins `isr_common` because it falls through into `isr_restore`.

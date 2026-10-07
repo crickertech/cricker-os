@@ -360,6 +360,11 @@ user_return:                    # a0 = *mut TrapFrame
     .cfi_startproc
     .cfi_undefined ra
     mv      sp, a0
-    j       trap_return
+    # `tail`, not `j`: trap_return lives in the pinned hot section at the front of `.text`, and a
+    # `j` (JAL, +/-1 MiB) does not reach it from here in a debug test image, whose text is larger
+    # (found by CI on 2026-10-07: `relocation R_RISCV_JAL out of range`). `tail` is auipc + jr
+    # through t1, which trap_return writes before it reads. The linker relaxes it back to a `j`
+    # wherever that reaches.
+    tail    trap_return
     .cfi_endproc
 .size user_return, . - user_return
