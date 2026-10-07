@@ -268,7 +268,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 156 | DECIDED | [What the package manager waits on: a decision, not milestone 23 and not the repository split](156-the-package-manager-waits-on-a-decision-not-milestone-23.md) |
 | 157 | DECIDED | [A trivial install is a web page, a USB drive, and packages over the internet](157-a-trivial-install-is-a-web-page-a-usb-drive-and-packages.md) |
 | 158 | DECIDED | [A program is declared once: the archives read `Cargo.toml`, and the shell's table is one macro](158-a-program-is-declared-once.md) |
-| 159 | DECIDED | [Lab machines upgrade like user machines, and only a new kernel needs a reboot](159-upgrades-without-a-reimage.md) |
+| 159 | AMENDED | [Lab machines upgrade like user machines, and only a new kernel needs a reboot](159-upgrades-without-a-reimage.md) |
 | 160 | PROPOSED | [What a subshell copies, given that a capability set cannot always be copied](160-what-a-subshell-copies.md) |
 | 161 | PROPOSED | [Which subset counts as running Vaultwarden](161-what-counts-as-running-vaultwarden.md) |
 | 162 | AMENDED | [Whether a holder can give up a mapping, and what gives it up](162-giving-up-a-mapping.md) |
@@ -338,7 +338,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 226 | DECIDED | [`pidwait` takes tids and composes with `pgrep`, because a program does one thing](226-pidwait-takes-tids.md) |
 | 227 | DECIDED | [How Tab reaches the shell: the shell edits its own line, and the terminal wire does not change](227-the-shell-edits-its-own-line.md) |
 | 228 | DECIDED | [How a set of matched names reaches the progenitor: in a page the shell fills, copied and checked](228-how-a-set-of-names-reaches-the-progenitor.md) |
-| 229 | DECIDED | [How a bare name at the prompt reaches an installed program: the activation set, and never an owner's vouch](229-how-a-bare-name-reaches-an-installed-program.md) |
+| 229 | AMENDED | [How a bare name at the prompt reaches an installed program: the activation set, and never an owner's vouch](229-how-a-bare-name-reaches-an-installed-program.md) |
 | 230 | AMENDED | [Badged endpoint capabilities: how a server learns which client's frame a request is in](230-badged-endpoints-name-a-callers-frame.md) |
 | 231 | DECIDED | [A swap's warning to a dependent is advisory, and the supervisor never waits for it](231-a-dependents-warning-is-advisory.md) |
 | 232 | DECIDED | [The `line_editor` swap contract: a quiesce opcode on the served endpoint, and a retry flag](232-the-line-editor-swap-contract.md) |
@@ -350,7 +350,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 238 | DECIDED | [The system tests leave the kernel crate as a second image, and a new test defaults to userspace](238-system-tests-leave-the-kernel-crate.md) |
 | 239 | DECIDED | [Four package kinds, and TOML for package declarations and recipes](239-package-kinds-and-toml-declarations.md) |
 | 240 | DECIDED | [§46 (thin primitives or whole subsystems): `toml` in `xtask`](240-toml-in-xtask.md) |
-| 241 | DECIDED | [A threadbare base: the boot slot holds the kernel and what boots and repairs, and every other program is a package](241-a-threadbare-base.md) |
+| 241 | AMENDED | [A threadbare base: the boot slot holds the kernel and what boots and repairs, and every other program is a package](241-a-threadbare-base.md) |
 | 242 | DECIDED | [A system log: one service that programs and the kernel append to](242-a-system-log.md) |
 | 243 | DECIDED | [Notices for people: programs publish, users curate, displays show](243-notices-for-people.md) |
 | 244 | DECIDED | [The installed disk has four partitions, and a boot slot is 64 MiB](244-the-installed-disk-has-four-partitions.md) |

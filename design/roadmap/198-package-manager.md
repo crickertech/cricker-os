@@ -15,8 +15,9 @@ and closes when both do. It keeps the top slot of principle 1's customer path. T
 which split it earlier that day and flipped it to BUILT. Until the split this block was "a package manager, and the trivial install that makes a second customer possible". Rung 3a, the package manager, was complete
 on 2026-10-05. The rung table below maps every rung to its milestone.
 
-Minted 2026-08-30 by calef. *(Number provisional until the merge queue
-lands it.)* Rung 3a's producer half was built 2026-09-23 on
+*Amended 2026-10-07 (UTC), owed since §159 (only a new kernel needs a reboot): a package update needs no reboot, a kernel one.*
+
+Minted 2026-08-30 by calef. Rung 3a's producer half was built 2026-09-23 on
 `milestone/198-the-next-rung`: the one archive file §197 ruled a package is
 (`crates/package_archive`, written and read by one definition), `cargo xtask package` turning a
 reviewed recipe into a package, its digest and a catalog line, and the fuzz target and Kani
@@ -29,12 +30,11 @@ granting) versions is in `crates/activation_set`. Run by digest and the installe
 architectures. `package install <name>` fetches over the booted system's network on all three
 (x86_64 since 2026-10-05, over the `e1000e`), and `greeting`, which no image carries, runs on all three. So does §219's gate D2: a
 session holding the run-unvouched capability runs bytes nobody vouched for. §221 (the boot prompt is
-the owner's console) followed: `vouch`, promoted from the proposal vouch-for-a-local-build, and
-the owner's list of who may run new code. notes/packages.md has the account.
+the owner's console) followed: `vouch`, and the owner's list of who may run new code.
+notes/packages.md has the account.
 
-[§219](../decisions/219-naming-an-installed-program-to-the-spawner.md) (how the
-shell names an installed program to the spawner) was decided 2026-09-26 (UTC): option D with gate
-D2, all built. The first cut took §219's two open
+[§219](../decisions/219-naming-an-installed-program-to-the-spawner.md) was decided 2026-09-26
+(UTC): option D with gate D2, all built. The first cut took §219's two open
 recommendations provisionally (the table's shape, and where a manifest travels, §197). Every earlier fork is ruled:
 [§195](../decisions/195-a-recipe-vouches-and-the-owner-may-overrule.md),
 [§197](../decisions/197-a-package-is-one-archive-file.md),

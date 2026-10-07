@@ -12,17 +12,17 @@ needs_person: no
 
 *(Promoted from the proposal pile on 2026-10-07 (UTC), calef: "Promote jig to a milestone." The
 number is provisional until the merge queue lands it. `jig` is ratified; the title, slug and verb
-spellings are drafts. Rulings since, on #1796 and #1797, are in the work list and the forks table.)*
+spellings are drafts. Later rulings are in the work list and the forks table.)*
 
 calef ruled on 2026-10-06 (UTC) that the package client must be a program, not a shell builtin, and
 named six things it must do. Lane `package-program` wrote this the same day and built nothing.
 
-The program is `jig`, the basalt package manager, ratified 2026-10-06 by calef. The theme is
-flat-pack assembly: a jig is the guide you build so assembly comes out the same every time.
-Refused: `package` (too generic, reads as "packages software"), `pkg` (reads as a port of
-FreeBSD's), `bpm` (repeats `rpm`), `knap` (one letter from `snap`) and `flatpak` (taken). `dowel`,
-`allen`, `kit` and `cam` were the shortlist, and `kit` and `cam` collide with shipped commands. One
-known collision is Arch's `extra/jig`, a Puppet module tool. When built, this record becomes the
+The program is `jig`, the basalt package manager, ratified 2026-10-06 by calef. A jig is the
+guide that makes flat-pack assembly come out the same every time.
+Refused: `package` (too generic), `pkg` (FreeBSD's), `bpm` (repeats `rpm`), `knap` (one letter
+from `snap`) and `flatpak` (taken). `dowel`,
+`allen`, `kit` and `cam` were the shortlist; `kit` and `cam` collide with shipped commands, and
+Arch's `extra/jig` is a Puppet module tool. When built, this record becomes the
 `Name:` block in its module doc, where `script/names` reads it.
 
 calef also ruled, the same day: *"We abbreviate on the command line."* The verb spellings below
@@ -45,6 +45,8 @@ His wording is the intent.
 
 `update` refreshes the index and installs nothing, as in apt, pkg and Homebrew (recalled, not
 read). No upgrade verb is proposed.
+
+*Amended 2026-10-07 (UTC), calef on #1805: `jig` must update base packages; only the slot reboots. See §159 (only a new kernel needs a reboot).*
 
 ## The premise, checked
 

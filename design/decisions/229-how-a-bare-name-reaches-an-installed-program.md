@@ -1,5 +1,5 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-09-26
 decided: 2026-09-26
 ratified_by: calef
@@ -11,6 +11,8 @@ Raised 2026-09-26 by the maintainer, from milestone 47 (navigation and naming)'s
 "The manifest question was answered elsewhere" in
 [design/roadmap/47-navigation-and-naming.md](../roadmap/47-navigation-and-naming.md). The options
 table is there. *(Section number provisional until the merge queue lands it.)*
+
+*Amended 2026-10-07 (UTC) by calef, on #1805: the install refusal of an image program's name now covers only what a slot still holds, the kernel's progenitor and root supervisor. Every other base program updates as a package, so the reason below, that a slot updates every base program, no longer holds. See §159 (only a new kernel needs a reboot)'s amendment. Narrowing `activation_set::Error::ImageName` is unbuilt.*
 
 ## The ruling
 
