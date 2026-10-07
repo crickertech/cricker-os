@@ -21,7 +21,7 @@ original 955,223 bytes/s has no committed transcript, corrected 2026-10-03 per ย
 **Verdict: AMBER, leaning to GREEN (calef, 2026-10-04).** Real hardware (a real NVMe with DMA), driven correctly (16384 of 16384 verified, three of three boots), from EL0 behind a translating VT-d unit, at 458 MB/s write and 272 MB/s read (medians, queue depth 1). Two things stand between this and GREEN, each written down before it is run:
 
 1. "Real speed" has no reference. A Linux `fio` run at queue depth 1 on the same disk and window must come out with nife within about 0.8x of Linux for both read and write.
-2. "Confined" is asserted, not attacked. A replayable test where an EL0 server aims a PRP outside its DMA region must go red with the IOMMU skipped and be refused with it on. Milestone 261 lists this as Outstanding.
+2. "Confined" is asserted, not attacked. A replayable test where an EL0 server aims a PRP outside its DMA region must go red with the IOMMU skipped and be refused with it on. Milestone 261 (the NVMe driver leaves the kernel) lists this as Outstanding. *(Corrected 2026-10-07 per ยง216 (fatal-risk facts are correctable, and verdicts are the architect's): the test, `a_confined_el0_server_cannot_dma_outside_its_region`, was done 2026-10-04 and its falsification replayed red 2026-10-05, green on all three ISAs; whether that meets the condition is the architect's, and the verdict above is unchanged.)*
 
 Not GREEN, because a risk about speed would be scored without a reference speed. Not RED, because nothing on the night came close to falsifying the claim.
 
