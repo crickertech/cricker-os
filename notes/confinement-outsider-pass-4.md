@@ -74,14 +74,14 @@ single wrong write.
 
 The finding was already on the books: milestone 649 (every client of a network stack shares
 its socket numbers), raised 2026-09-24, NOT-STARTED, records the mechanism by reading with no
-test. This pass adds the booted capture: observed, bidirectional, identical on all three ISAs,
-pinned red where 649 had none. Recorded-but-unfixed is neither new-as-unrecorded nor a
+test. This pass adds the booted bidirectional capture, pinned red on all three ISAs where 649 had
+none. Recorded-but-unfixed is neither new-as-unrecorded nor a
 re-discovery.
 
 The wiring is the interactive system's own, not only the test boot's. `system_initializer` endows
 every network-declaring child with a copy of the one `net_stack_ep`, unbadged, and the job pool
 holds six live jobs at once. `network_echo_client` launched twice from the prompt is this shape on
-a shipped path, verified by reading; no boot was needed.
+a shipped path, verified by reading.
 
 The sibling that already does it right is one component over: `name_resolver` keys its windows by
 the badge's grant index and refuses a second attach at a granted window. Its refusals are silent
@@ -89,8 +89,7 @@ too, the frame deleted with no reply, and that is safe there because the scoping
 failure the caller's own, visible through the operations it then attempts. The fix shape for
 `net_stack` is the scoping; whether refusals should also become answerable is a separate, smaller
 call. The scoping is ruled: `name_resolver`'s exact shape, refusals silent (calef, 2026-10-06,
-PR #1798); the BUGS entry at the attach site carries the ruling, and the fix itself is a follow-up
-milestone this pass does not write.
+PR #1798); the BUGS entry at the attach site carries the ruling.
 `name_resolver.rs:485`'s `attach_socket` is a client of the same contract and shares
 the exposure of any stack client, which the escape covers.
 
@@ -196,13 +195,15 @@ and the fix lane audits the remaining ones; `system_log`'s reader windows, unrea
 first.
 
 **How this pass counts toward risk 7's criterion (c) is ruled: option (b), an escape on a shipped
-path (calef, 2026-10-07, PR #1798's thread).** The two-consecutive count restarts at zero, and
-stays there until 649's defect is fixed and a fresh pass comes back clean. His reasoning, recorded
-with the ruling: the stack starts on every booted system, per milestone 590 (the booted system
-starts its network stack), so any granted program is a client today. Counting a known, unfixed
-escape as anything else would flatter the verdict; the "wiring no hostile program holds today"
-reading was considered and refused. The ruling also resolves 649's option fork toward the badge
-(its option 1); the maintainer updates 649's block at merge.
+path (calef, 2026-10-07, PR #1798's thread).** The two-consecutive count restarts at zero until
+649's defect is fixed and a fresh pass comes back clean. His reasoning: the stack starts on every
+booted system, per milestone 590 (the booted system starts its network stack), so any granted
+program is a client today. The "wiring no hostile program holds today" reading was refused: a
+known, unfixed escape counted as anything else would flatter the
+verdict. The ruling also resolves 649's option fork toward the badge
+(its option 1); the maintainer updates 649's block at merge. The claims row the fix will owe is
+ruled (i) (calef, 2026-10-07, PR #1798), recorded in this milestone's roadmap block; the
+maintainer adds the row at merge.
 
 ## Refusal log
 

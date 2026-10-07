@@ -194,6 +194,11 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   NOT-STARTED, no test; this pass's addition is the booted bidirectional
   capture, pinned red on all three ISAs. The ruling also resolves 649's option fork toward the
   badge (its option 1); the maintainer updates 649's block at merge.
+- **The claims row the fix will owe: ruled (i)** (calef, 2026-10-07, PR #1798's thread): *a
+  socket's window is the frame its holder attached; a second client of a shared Stack endpoint can
+  neither substitute nor capture another's socket traffic.* It states the property, not the
+  implementation, in the table's own idiom. The maintainer adds the row, with its number, at
+  merge.
 - **The routed `chatty` reshape landed.** Claim 26's own test now fails rather than hangs: the
   operator retires the last receiver, a plant parks the marker, and a let-open `RECEIVE_CAP`
   returns it. Green on aarch64 (whole module) and riscv64, red at its own assertion under the
