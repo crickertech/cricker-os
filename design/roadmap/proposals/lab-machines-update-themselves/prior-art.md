@@ -94,3 +94,33 @@ success: unverified.
   `hard_reset_command` via PDUDaemon; a failed health check marks the device Bad. Recovery is a
   power cycle and a fresh deploy per job, not on-device slots.
 - KernelCI's labs: not checked.
+
+## Updating the base without a reboot
+
+Added 2026-10-07 (UTC) after calef's redirect on #1805. Each system still leaves something only a
+reboot updates; they differ in how much.
+
+- MINIX 3 (<https://wiki.minix3.org/doku.php?id=developersguide:liveupdate>,
+  <https://wiki.minix3.org/doku.php?id=www:documentation:reliability>). The Reincarnation Server
+  replaces a driver that dies or stops answering. `minix-service update <binary> -label <label>`
+  updates a system service in place, PM, VFS, RS and VM included (VM "with severe restrictions
+  only"). The service quiesces, the new instance reads the old one's address space, and a failed
+  state transfer kills the new instance and resumes the old. Several services update as one
+  transaction with `-q` and `upd_run`. The microkernel cannot be updated.
+- Proteos, the MINIX 3 rewrite in Giuffrida, Kuijsten and Tanenbaum, ASPLOS 2013
+  (<https://www.cs.vu.nl/~ast/Publications/Papers/asplos-2013.pdf>). Every process, the update
+  manager included, updates in an atomic transaction. Rollback on a timeout or a failed state check
+  rebinds endpoints to the old instances. Only the kernel needs a reboot. This is the closest
+  precedent for calef's model.
+- QNX Neutrino (<https://www.qnx.com/developers/docs/8.0/com.qnx.doc.neutrino.utilities/topic/h/ham.html>,
+  `sys_arch/topic/proc.html`). The High Availability Manager restarts processes in stages, and
+  drivers and filesystem managers load and unload at run time. `procnto` is the microkernel and
+  process manager in one; whether it can be replaced live: unverified.
+- Fuchsia (<https://fuchsia.dev/fuchsia-src/concepts/packages/package_update>), the contrasting
+  model: the `base` package set "can only be updated by performing a whole system update", an OTA
+  and a reboot. Only cache and universe packages update on demand.
+- Linux `needrestart` (<https://github.com/liske/needrestart>) finds daemons still running old
+  binaries or libraries after an upgrade, restarts them through systemd, and says when the kernel
+  needs a reboot. NixOS's `switch-to-configuration` stops, reloads and restarts each changed unit
+  by rule (`X-StopIfChanged`, `X-ReloadIfChanged`, `X-RestartIfChanged`), from the nixpkgs manual
+  chapter "What happens during a system switch".
