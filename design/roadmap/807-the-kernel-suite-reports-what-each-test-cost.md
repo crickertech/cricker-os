@@ -1,5 +1,5 @@
 ---
-status: NOT-STARTED
+status: PARTIAL
 raised: 2026-10-06
 promoted_from: the-kernel-suite-reports-what-each-test-cost
 milestone_dependencies: none
@@ -169,12 +169,73 @@ and `xtask`. calef took the recommendation: a block after the suite, one line pe
 It leaves every existing line unchanged, it is greppable, and it costs one parser. The crate's name
 is provisional.
 
+## What was built
+
+Lane `lane/807-kernel-test-cost`, pull request #1819, 2026-10-07 (UTC). Every name below is
+provisional.
+
+- **The guest.** `kernel/src/testing.rs` keeps every test's milliseconds in a fixed 1,024-entry
+  table, so recording allocates nothing, and prints the block under the heading
+  `time per test, in milliseconds:`. The heading is an addition to §254's line format: it lets
+  `xtask` tell a missing record from an empty one, and stops a test's own output being read as a
+  record line. An image with more tests than the table fails before its first test.
+- **The grammar.** `crates/test_times` holds the heading, the line's printer and parser, and the
+  tick-to-millisecond conversion. Its first name, `test_time_record`, tripped the lint that reads a
+  name ending in `d` as a claim about what the thing is.
+- **The host.** `xtask/src/time_record.rs` passes each unfiltered image's stdout through as it
+  arrives and stamps lines. It records four phases (build, boot, suite, exit), fails the leg when
+  the record misses a test the transcript names, and fails it when the guest's sum leaves a band
+  around the host's span. Rows go to `target/time-record.tsv`, or to `NIFE_TIME_RECORD`, which
+  `script/cpu-matrix` sets so its models share one file.
+- **CI.** `test` and each `cpu-matrix-shard` upload the file as `time-record-*` and write
+  `cargo xtask time-summary` to the step summary, on every run.
+
+## Exit criteria, as built
+
+| | criterion | state |
+|---|---|---|
+| 1 | the record on three architectures, the per-job file, a parser host test | met: run 37650753759 recorded every image of aarch64, riscv64 and x86_64 (PVH, AMD-Vi, root port and OVMF); `crates/test_times` has the round trip and the refusals |
+| 2 | the artifact and step summary from a merge-group run, with no gaps | met on a dispatched run (37650753759); the gap check fails the leg otherwise. The first merge-group run follows the merge |
+| 3 | the cross-check holds everywhere, and a host test proves it can fail | met: guest over host was 0.97 to 1.00 on every PVH image and 0.65 and 0.80 under OVMF; `the_clock_check_fails_when_the_guest_and_host_disagree` |
+| 4 | the notes page over ten or more merge-group runs | **not met**: those runs exist only after the merge. See Follow-on |
+| 5 | the calendar waits fixed or refused; the display test explained | met. The calendar test fell from 10.5 s to 2.4 to 2.7 s with #1779. The display test is below |
+
+## What the first record says
+
+Run 37650753759, one run, so a premise check and not a baseline:
+
+- The riscv64 system suite's 326 tests took 122.1 s of guest time against a host span of 122.6 s.
+  The heaviest was `display_tests::a_bitmap_font_and_a_vt_engine_put_readable_text_on_the_scanout`
+  at 10.3 s, then `compositor_tests::three_clients_compose_into_one_scanout_and_the_host_sees_it`
+  at 7.5 s.
+- **The display test, explained.** 3 s of it is a deliberate hold: the test spins on the timer so
+  `cargo xtask`'s 100 ms scanout poll sees the picture before the next test replaces it. The rest
+  is compute: the test compares every pixel of a 924x344 scanout against a reference engine several
+  times, in a debug build under TCG. Without the hold it is 7.3 s on riscv64 and 3.9 s on aarch64,
+  a ratio of 1.9, the shape of emulated compute. On x86_64 it skips (no GPU on that runner).
+  Shortening the hold would save about 2 s per boot on seven boots per run; it was left alone,
+  since the hold exists to keep the scanout check from flaking and nothing measured its margin.
+
 ## BUGS
 
 - Guest time is emulated time. Under TCG it follows the host clock, so a slow runner reads as a
   slow test. The cross-check bounds the guest clock against the host, not against a fair machine.
 - The per-test deltas in the scrape above include console output between test lines, and the
   record will not. The two series will not match exactly.
+- **The cross-check's lower bound is loose on purpose.** The OVMF images read 0.65 and 0.80, while
+  their guest sums match the PVH images' (7.1 s against 6.8 s for the kernel unit tests). So the
+  missing host time is between tests rather than a slow guest clock. Likely the console's second
+  copy on the firmware's framebuffer, which is not measured. A band tight enough to catch a 20%
+  clock error would fail OVMF today, so the bound stays at half the span less 3 s.
+- `--hvf` and `--test` runs are not recorded (the guest still prints its block). Both are a
+  person at a laptop; `xtask/src/time_record.rs`'s BUGS has the detail.
+
+## Follow-on
+
+- **Outstanding.** The notes page (exit criterion 4): medians per test and per module on each
+  architecture over ten or more merge-group runs, read from their `time-record-*` artifacts and
+  cited by run id, and what the riscv64 growth since 2026-09-20 consists of. It needs those runs,
+  which start with this pull request's merge.
 
 ## Index row
 
