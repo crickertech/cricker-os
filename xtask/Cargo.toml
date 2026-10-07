@@ -64,6 +64,9 @@ board_console = { version = "0.1.0", path = "../crates/board_console" }
 # The rungs of the boot ladder (milestone 268), for the markers the UEFI boot waits on: the same
 # constants the kernel prints and `board_console` matches, rather than a third copy of one line.
 boot_ladder = { version = "0.1.0", path = "../crates/boot_ladder" }
+# The per-test time record's grammar (milestone 807 (the kernel suite reports what each test cost), §254 (a gate prints what each item cost), Fork 1): the kernel's test runner prints
+# it and `time_record.rs` parses it, so rule 7 makes it a crate rather than a second copy.
+test_times = { version = "0.1.0", path = "../crates/test_times" }
 # The compositor contract (milestone 33): the same scanout check also verifies the screen the
 # compositor composed, against the same scene and the same per-pixel definition the guest used. A
 # compositor's output is the thing a guest-side digest cannot confirm on its own.

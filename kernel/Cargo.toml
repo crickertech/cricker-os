@@ -89,6 +89,9 @@ block_roster = { version = "0.1.0", path = "../crates/block_roster" }
 # rather than two copies of a literal. That is not hypothetical here: the one marker that existed
 # before this crate WAS two copies of a literal, one inside a single architecture's arm.
 boot_ladder = { version = "0.1.0", path = "../crates/boot_ladder" }
+# The per-test time record's grammar (milestone 807 (the kernel suite reports what each test cost), §254 (a gate prints what each item cost), Fork 1): the test runner prints it and
+# `xtask` parses it, so rule 7 makes it a crate.
+test_times = { version = "0.1.0", path = "../crates/test_times" }
 # The soak workload's shared page (milestone 219): the kernel reads the progress counters the
 # `soaker` program writes, through one definition of the layout rather than two copies.
 soak_page = { version = "0.1.0", path = "../crates/soak_page", optional = true }
