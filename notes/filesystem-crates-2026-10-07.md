@@ -181,9 +181,9 @@ raised to 496 MiB by milestone 206 (a program image has under 896 KiB), built 20
 is no longer a blocker by that measure. Upkeep would follow Linux's cadence. Revisit at the
 three-month re-probe.
 
-## Rulings, and what is still open
+## Rulings
 
-calef ruled on #1803, 2026-10-07 (UTC), and these replace this note's recommendations.
+calef ruled every fork on #1803, 2026-10-07 (UTC), and these replace this note's recommendations.
 
 - Fork 1: milestone 140 (mount a drive this system did not create)'s FAT32 stratum is read-write,
   so FAT32 becomes a second writable provider beside RedoxFS. *"Yes."*
@@ -196,31 +196,21 @@ calef ruled on #1803, 2026-10-07 (UTC), and these replace this note's recommenda
   a checksum Merkle tree. *"The desire was a btrfs replacement of redoxfs. But that seems quite
   large."*
 
-### Fork 4, open. Three upstream submissions
+- Fork 4: the rust-fs-btrfs `capi` gate and the btrfsutils optional-zstd change wait until
+  milestone 140 needs btrfs, and each project's contribution policy is checked before either is
+  sent. *"Defer a and b."* No rust-fatfs release request is sent: one is already open upstream
+  (rafalh/rust-fatfs#53 and #81).
+- Fork 5: read-only ZFS is not pursued. *"Read only isn't interesting to me. Read write is the
+  point."* Read-write ZFS needs threads in one process, so calef reopened §105
+  (`std::thread::spawn` stays declined, until a customer needs it): *"Yes. However read-write ZFS
+  just isn't the current priority."* Option A is now milestone 812 (`std::thread::spawn` runs real
+  threads in one address space), not yet scheduled.
 
-§253 (concurrent login sessions) records that each upstream submission is an outward-facing act
-calef approves. Fork 2's ruling changes (c): with no FAT dependency, a rust-fatfs release request
-is a courtesy rather than a need.
+### Candidate, not a milestone: read-write ZFS
 
-- (a) rust-fs-btrfs: gate its `capi` module on the platforms `fs_core` gates `FileDevice` to.
-- (b) btrfsutils: make zstd optional in btrfs-transaction, whose only use is compress-on-write.
-- (c) rust-fatfs: ask for a release carrying the 2024-10-23 fix to a first-level directory's `..`
-  entry.
-
-**Recommendation: (a) and (b), which would let read-only btrfs build here unpatched; (c) only as
-a courtesy.**
-
-### Fork 5, new. ZFS under milestone 140
-
-140 lists ZFS as "some day". The data says read-only ZFS costs what read-only btrfs does.
-
-- (a) Treat ZFS like btrfs: read-only on lamzfs when a real ZFS drive needs reading, and re-probe
-  writing in three months.
-- (b) Leave ZFS at "some day" with no crate named.
-- (c) Host OpenZFS's `libzpool` for writing. That waits on the same threads decision as LKL, and
-  on a CDDL reading.
-
-**Recommendation: (a).** It matches fork 3's ruling, and lamzfs is `no_std` and needs no patch.
+OpenZFS's `libzpool` as a confined program, one per pool. Three things are owed first. Milestone
+812 gives it threads. Someone able to give one must read CDDL against §135's aggregation argument.
+And its ARC must be bounded for radon's memory (the VisionFive 2 has 4 to 8 GB). Not prioritized.
 
 ## BUGS
 
