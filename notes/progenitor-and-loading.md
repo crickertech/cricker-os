@@ -6,7 +6,7 @@ one of them; it is `crates/supervision_protocol`'s `build_child` now, and every 
 What the loader does is unchanged, and the steps below are still the steps.)*
 
 *This note said, until milestone 266, that the archive entry named `init` meant a different program
-on each architecture and pointed at [milestone 166](../design/roadmap/166-init-boot-parity.md) as the
+on each architecture and pointed at [milestone 166](../design/roadmap/0166-init-boot-parity.md) as the
 open question. That is settled: the entry is `progenitor` on all three boards and it is one program,
 `components/src/progenitor.rs`. Where the text below says init it is describing milestone 19d, when the
 role and the demo catalog were the same binary.*
@@ -290,7 +290,7 @@ refused the same address twice, then configures and starts the thread and receiv
 asserts every step on all three architectures under `script/test`, which is more than `builder` ever
 had: nothing on a pull request executed `builder` (milestone 406 (nothing on a pull request boots
 the riscv64 tour, so its userspace step is unasserted),
-`design/roadmap/406-nothing-in-ci-boots-the-riscv-tour.md`).
+`design/roadmap/0406-nothing-in-ci-boots-the-riscv-tour.md`).
 
 Until then the fixture was `address_space_witness` and stopped where milestone 19b (run a real
 workload) stopped, with nothing running in the space it built, while

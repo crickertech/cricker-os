@@ -11,9 +11,9 @@ ratified_by: calef
 a dependent is advisory) gives. The file name is provisional too.*
 
 Raised 2026-09-26 by the lane for milestone 23 (a capability-routed component OS with live replacement)
-([block](../roadmap/23-component-os-live-replacement.md)), while sizing the handoff page that §232
+([block](../roadmap/0023-component-os-live-replacement.md)), while sizing the handoff page that §232
 (the `line_editor` swap contract) needs. The finding and the options are in
-[`design/roadmap/659-a-region-retypes-a-frame-run.md`](https://github.com/nifeos/nife/blob/milestone/23-line-editor-swap/design/roadmap/proposals/a-region-retypes-a-frame-run.md),
+[`design/roadmap/0659-a-region-retypes-a-frame-run.md`](https://github.com/nifeos/nife/blob/milestone/23-line-editor-swap/design/roadmap/proposals/a-region-retypes-a-frame-run.md),
 on branch `milestone/23-line-editor-swap`, stacked on #1342 and not on `main` yet.
 
 ## The ruling

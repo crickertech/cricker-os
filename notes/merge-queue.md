@@ -751,7 +751,7 @@ any comparison across that boundary is between two different measurements. The s
 from it is ambiguous between "the drain did not do this" and "somebody did it by hand", and the
 ambiguity is worst exactly when it matters, which is when something unexpected happened. Closing
 that needs distinct GitHub identities rather than a better log; the proposal is
-[design/roadmap/642-who-took-the-step.md](../design/roadmap/642-who-took-the-step.md)
+[design/roadmap/0642-who-took-the-step.md](../design/roadmap/0642-who-took-the-step.md)
 (name provisional) and it is an architect's call.
 
 - A′ lets `main`'s Actions caches go stale. `Swatinem/rust-cache` saves on the ref that ran, and

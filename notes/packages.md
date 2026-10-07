@@ -144,7 +144,7 @@ tampered response is a complete, correct HTTP exchange of the right length; only
 tell, and a client that accepted whatever arrived would pass the first half too. They share one
 spawn because every `net_stack` a test starts holds a virtio slot for the rest of the boot; this
 lane took the table's tenth bump (`MAX_DEVICES`, to 34) and filed the unregister it keeps deferring
-as `design/roadmap/647-a-virtio-slot-comes-back-when-its-driver-dies.md`. riscv64 runs the
+as `design/roadmap/0647-a-virtio-slot-comes-back-when-its-driver-dies.md`. riscv64 runs the
 same test as a twin in `system_tests/src/user/riscv_virtio_tests.rs`.
 
 ### The versioned table, as logic
@@ -226,7 +226,7 @@ The progenitor is the installer, not a program, for §208's own reason: the auth
 decides which version is active should be the one that performs a swap, and §219 already made it
 the reader of the table. It holds the file service with `WRITE`, the image's catalog in its
 archive, and the frame-staging path an image request built. The *client* is slated to become a
-program, `jig` ([milestone 809 (the package client becomes a program)](../design/roadmap/809-the-package-client-becomes-a-program.md)).
+program, `jig` ([milestone 809 (the package client becomes a program)](../design/roadmap/0809-the-package-client-becomes-a-program.md)).
 `spawnproto::ACTIVATION_BIT` (provisional) is the request.
 
 Install stages the package exactly as an image is staged, so the progenitor checks its own

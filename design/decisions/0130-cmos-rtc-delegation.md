@@ -7,7 +7,7 @@ ratified_by: calef
 
 # 130. How the kernel-resident CMOS RTC reaches the userspace clock service
 
-calef, 2026-08-26: "Ratify option 3." [Milestone 176](../roadmap/176-x86-64-discovery-seam-wide-half.md)'s
+calef, 2026-08-26: "Ratify option 3." [Milestone 176](../roadmap/0176-x86-64-discovery-seam-wide-half.md)'s
 own lane sized this while building the milestone's second piece and found a real design fork rather
 than a shape to build, correctly declining to invent an answer.
 

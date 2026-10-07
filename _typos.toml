@@ -44,7 +44,7 @@ extend-ignore-re = ["\\b[0-9a-f]{12,}\\b"]
 # a held tool with no authority of its own. That is the same coin as this entry. Recorded here rather
 # than argued with, and worth knowing before the rename lands: every contributor's spell-checker will
 # reach the same conclusion about all 1,001 renamed occurrences until it is told otherwise.
-# calef's own spelling, quoted verbatim in design/roadmap/710-firefox-port.md (2026-10-03). A
+# calef's own spelling, quoted verbatim in design/roadmap/0710-firefox-port.md (2026-10-03). A
 # ruling is recorded as spoken, so the quotation is not corrected to please the checker.
 targetting = "targetting"
 nife = "nife"

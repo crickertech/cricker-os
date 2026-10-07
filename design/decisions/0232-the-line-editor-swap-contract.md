@@ -11,13 +11,13 @@ ratified_by: calef
 a dependent is advisory) gives. The file name and both new identifiers are provisional too.*
 
 Raised 2026-09-26 by the lane for milestone 23 (a capability-routed component OS with live replacement)
-([block](../roadmap/23-component-os-live-replacement.md)). The lane had built state handoff and then
+([block](../roadmap/0023-component-os-live-replacement.md)). The lane had built state handoff and then
 checked why the interactive stack is still not swapped. The two forks, the eleven programs that speak
 the terminal contract and the state sizes are in two files. Both are on branch
 `milestone/23-line-editor-swap`, stacked on #1342, and neither is on `main` yet:
 [`notes/interactive-stack-swap.md`](https://github.com/nifeos/nife/blob/milestone/23-line-editor-swap/notes/interactive-stack-swap.md)
 and
-[`design/roadmap/669-swap-line-editor-live-under-system-initializer.md`](https://github.com/nifeos/nife/blob/milestone/23-line-editor-swap/design/roadmap/proposals/swap-line-editor-live-under-system-initializer.md).
+[`design/roadmap/0669-swap-line-editor-live-under-system-initializer.md`](https://github.com/nifeos/nife/blob/milestone/23-line-editor-swap/design/roadmap/proposals/swap-line-editor-live-under-system-initializer.md).
 
 ## The ruling
 

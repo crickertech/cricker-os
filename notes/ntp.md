@@ -410,7 +410,7 @@ is `entropy().is_none()` now, which asks the same question through the helper th
 
 **The trap itself is still there for anyone else calling `ensure`**, and the remedy belongs in
 `ensure` rather than in its callers;
-Milestone 402, `design/roadmap/402-a-service-report-nobody-is-obliged-to-drain.md`, prices it.
+Milestone 402, `design/roadmap/0402-a-service-report-nobody-is-obliged-to-drain.md`, prices it.
 
 ## What the client does not do
 

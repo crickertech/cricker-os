@@ -23,7 +23,7 @@ are what streets are paved with, driven over for centuries, load-bearing and unn
 and underfoot is the operating-system claim exactly.
 
 The name is deliberately outside both software namespaces. Rocks name distributions and
-minerals name programs (design/roadmap/120-nife-and-the-organization.md); "cobble" names a size
+minerals name programs (design/roadmap/0120-nife-and-the-organization.md); "cobble" names a size
 and shape, not a lithology, so the mascot does not squat on either scheme. A cobble can be made
 of basalt, which is a coherence the family gets for free.
 

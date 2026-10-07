@@ -788,7 +788,7 @@ else's firmware, and the 2026-09-04 transcription found no such setting exists. 
 the 7050's Virtualization Support menu is three pages (`Virtualization`, `VT for Direct I/O`,
 `Trusted Execution`), and `VT for Direct I/O` is enabled. So the answer is not in a menu; it is
 in the DMAR the firmware publishes, which any kernel can read and which QEMU synthesizes too. That
-moves the question off the bench and into code: `design/roadmap/378-read-the-dmar-on-xenon.md`.
+moves the question off the bench and into code: `design/roadmap/0378-read-the-dmar-on-xenon.md`.
 
 And this milestone added one of its own for the bench, which is the more interesting of the two:
 whether the Dell's firmware leaves 32 MiB free. OVMF's low-memory habits are OVMF's. If it does

@@ -30,8 +30,8 @@ The loop is real, and it is written down in three places.
 
 | Record | What it says | Where |
 |---|---|---|
-| Milestone 23 | `Gate: NONE`, status PARTIAL; the one residual (state handoff) is "declined for now, for want of a customer" | `design/roadmap/23-component-os-live-replacement.md`, first paragraph; DECISIONS §116 ("revisit when a customer needs it, not before") |
-| Milestone 39 | `Gate: DECISION, MILESTONE 23`; the split is "not before milestone 23 forces it" | `design/roadmap/39-repository-structure.md`, lines 9 and 98 |
+| Milestone 23 | `Gate: NONE`, status PARTIAL; the one residual (state handoff) is "declined for now, for want of a customer" | `design/roadmap/0023-component-os-live-replacement.md`, first paragraph; DECISIONS §116 ("revisit when a customer needs it, not before") |
+| Milestone 39 | `Gate: DECISION, MILESTONE 23`; the split is "not before milestone 23 forces it" | `design/roadmap/0039-repository-structure.md`, lines 9 and 98 |
 | Milestone 198 | calef, 2026-08-30: no third party sees nife until there is a package manager and a trivial install | its own block; DECISIONS §135; AGENTS.md principle 1 |
 
 So 198 waits on 23, 23's residual waits on a customer, and a customer waits on 198. Milestone 23

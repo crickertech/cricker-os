@@ -32,7 +32,7 @@ and skipped 7 the day before.
 themselves and why. What bounds this architecture now is not userspace but **devices**: no PCI bus
 is enumerated, so no virtio function of any kind is found, and the console UART is in an I/O port
 space with no capability shape yet (DECISIONS §121). See "What a userspace still does not have here"
-below, and design/roadmap/161-x86-64-kernel-port.md for the order the rest comes in.
+below, and design/roadmap/0161-x86-64-kernel-port.md for the order the rest comes in.
 
 ## Reproducing it
 
@@ -241,7 +241,7 @@ Every item is a device or a toolchain, and none is `user_mode_runtime` any more.
   `-redoxfs.img` fixture as a second `virtio-blk-pci` function, and `virtio::find_block_device_n`
   spans virtio-mmio and virtio-pci so a wiring on a machine with no mmio bus can find it. What is
   still missing is the rest of the fixture set (milestone 37's crash disk, milestone 57's GPT and
-  blank disks); see design/roadmap/420-the-rest-of-the-x86-64-fixture-set.md.
+  blank disks); see design/roadmap/0420-the-rest-of-the-x86-64-fixture-set.md.
 - ~~No `std`~~: closed by milestone 184. `x86_64-unknown-nife` and its farm exist, and
   `std_exerciser` passes here. `std::fs` runs since milestone 303 gave the FS service a disk;
   `std::net` is compiled and unexercised for the NIC reason above. See notes/std.md.

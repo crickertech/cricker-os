@@ -121,7 +121,7 @@ A boot on silicon is the outstanding piece. Read these lines:
 - `notes/confinement-claims.md` has no AMD-Vi row, because that note is over its word budget and a
   row would grow it. This note is where the AMD-Vi claims are recorded until it is trimmed.
 - Milestone 633 (an outside agent attacks the confinement claim)'s second pass recorded five gaps
-  in `amd_vi.rs`'s BUGS. Milestone 767 (design/roadmap/767-amd-vi-hardening-before-the-first-amd-boot.md)
+  in `amd_vi.rs`'s BUGS. Milestone 767 (design/roadmap/0767-amd-vi-hardening-before-the-first-amd-boot.md)
   closed four: the exclusion range, aliases, read-only mappings and the entry proof. Production
   revocation stays open, with what QEMU could not show of the other four; the driver's BUGS has
   both. The claims the row should make are proposed in notes/confinement-outsider-pass-2.md.

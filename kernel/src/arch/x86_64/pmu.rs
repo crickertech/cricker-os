@@ -86,7 +86,7 @@
 //!   mapper at `mmu.rs`'s `AlreadyMapped` before reaching anything this module touches; that cause
 //!   is fixed on `main` and the next boot resumes one line further on. So the honest statement is
 //!   that this counter has never been read on silicon, not that the machine has never run.
-//!   See design/roadmap/309-x86-64-core-cycles.md and notes/x86-uefi-boot.md.
+//!   See design/roadmap/0309-x86-64-core-cycles.md and notes/x86-uefi-boot.md.
 //! - **The in-step check is bit-exact equality, and that is a deliberate under-detection.** A real
 //!   core pegged at exactly its base frequency has core cycles and TSC ticks at the same *rate*, so
 //!   an approximate band would refuse a legitimate counter on a legitimate machine. Two independent
@@ -429,7 +429,7 @@ mod tests {
     //! `NoPerfmonLeaf`, because the emulator models no PMU unless asked, so the assertions here are
     //! about the plumbing: that the gate held, that the outcome is decided, and that the three
     //! records agree. The measurement is xenon's first bench boot and it has not been run; see
-    //! design/roadmap/309-x86-64-core-cycles.md.
+    //! design/roadmap/0309-x86-64-core-cycles.md.
 
     use super::*;
 

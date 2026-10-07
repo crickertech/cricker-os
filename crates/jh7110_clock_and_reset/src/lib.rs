@@ -1,6 +1,6 @@
 #![cfg_attr(not(test), no_std)]
 //! **The `StarFive` JH7110's clock and reset generator, as pure logic** (milestone 220; roadmap
-//! `design/roadmap/220-jh7110-clock-and-reset.md`).
+//! `design/roadmap/0220-jh7110-clock-and-reset.md`).
 //!
 //! Register offsets, bit positions, the bring-up plan the TRNG needs, and the device-tree query
 //! that finds the controller, with nothing an actual driver touches. The volatile shell is
@@ -448,7 +448,7 @@ pub const SYSCLK_I2C5_APB: u32 = 143;
 /// OpenSBI re-enables a clock before its I2C transfer and never touches a reset. A controller held
 /// in reset reads `IC_STATUS` as zero, so its transmit-FIFO-empty poll can never succeed, which is
 /// the ten `i2c read: write daddr 36 to` lines in radon's 2026-09-04 log. See
-/// `design/roadmap/592-radons-reboot-dies-in-opensbis-pmic-write.md` for every source.
+/// `design/roadmap/0592-radons-reboot-dies-in-opensbis-pmic-write.md` for every source.
 pub const SYSRST_I2C5_APB: u32 = 81;
 
 /// **What I2C5 needs before OpenSBI can reach the PMIC**, when the tree does not say (milestone

@@ -4,7 +4,7 @@
 milestone 761 (capability lookup off the global lock), against
 [`notes/job-mix/null-syscall-under-load.md`](../../notes/job-mix/null-syscall-under-load.md#the-radon-run-that-decides-it),
 and milestone 766 (each core's PerCpu on its own cache line), against
-[its roadmap block](../../design/roadmap/766-each-cores-percpu-on-its-own-cache-line.md).*
+[its roadmap block](../../design/roadmap/0766-each-cores-percpu-on-its-own-cache-line.md).*
 
 ## The payloads
 

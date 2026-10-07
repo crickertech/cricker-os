@@ -60,7 +60,7 @@
 #   kernel. On radon (2026-10-05) the syscall stub alone was 3 to 8 ticks of a 110-tick null-syscall
 #   job (notes/job-mix/radon-2026-10-05.md). Fixing it moves every radon baseline at once, so it is
 #   a proposal with a re-baseline, not a flag flip:
-#   design/roadmap/797-release-userspace-in-board-images.md.
+#   design/roadmap/0797-release-userspace-in-board-images.md.
 
 set -eu
 cd "$(dirname "$0")/.."

@@ -153,7 +153,7 @@ fix was deliberately not made in that lane, because it changes a public signatur
 policy. It was raised as a proposal with gate `DECISION`, calef chose to route by redirection index
 on 2026-09-16. It was built the same day as milestone 308 (a GSI reaches its vector by redirection
 index, not by its own number). That block is
-[roadmap/308-route-gsi-by-index.md](../roadmap/308-route-gsi-by-index.md). The fix does not add to
+[roadmap/0308-route-gsi-by-index.md](../roadmap/0308-route-gsi-by-index.md). The fix does not add to
 this risk's evidence and slightly complicates it: the harness's `kani::assume(base == 0)` is gone.
 So a standing proof now covers the case. But no machine here can execute the path, which
 `kernel/src/arch/x86_64/irq.rs`'s module `BUGS` records where a reader meets the feature. A proof
@@ -179,7 +179,7 @@ is a gap waiting to bite, not a hole: a later harness that reaches such a model 
 differently, and nothing would say so. It moves neither half of the amber, survivorship or reach,
 since no verdict changed; calef ruled on 2026-10-03 (UTC) that risk 2 stays AMBER. The gate and the
 fix are milestone 635
-(riscv64 proofs check against the riscv64 model); see [its block](../roadmap/635-riscv64-proofs-check-against-the-riscv64-model.md).
+(riscv64 proofs check against the riscv64 model); see [its block](../roadmap/0635-riscv64-proofs-check-against-the-riscv64-model.md).
 
 *(Observed 2026-10-03 under §216 (fatal-risk facts are correctable, and verdicts are the
 architect's), by milestone 635's gate: the CI sentence above was reasoned, and it held.)* In

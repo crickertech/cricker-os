@@ -459,7 +459,7 @@ not tidiness; it is what makes a few-percent difference mean anything.
 They produce the same three filenames, so nothing on the card says which is which;
 `script/board-image` echoes its feature list for exactly this reason and that line belongs in the log
 beside the numbers. That the card cannot say what it is, is the reason six writes are risky rather
-than merely slow, and `design/roadmap/367-a-boot-banner-that-names-the-build.md` is the fix.
+than merely slow, and `design/roadmap/0367-a-boot-banner-that-names-the-build.md` is the fix.
 
 ## The procedure, in order
 
@@ -612,7 +612,7 @@ Tier B says so and its own BUGS warns that real PMUs do not implement every arch
 whether the U74 counts what M6 wants is unverified. Until then E3 remains what it was designed to
 be: an inference from a perturbation, not an observation of a cache.
 
-Wiring the PMU into these rows is `design/roadmap/374-cycles-per-ipc-on-the-bench-card.md`.
+Wiring the PMU into these rows is `design/roadmap/0374-cycles-per-ipc-on-the-bench-card.md`.
 
 Since 2026-09-16 the conversion exists without that wiring. radon measured
 `cycles_per_tick 250.00` (milestone 74's block, transcript `bench/radon-2026-09-16/bench-134300.log`),
@@ -715,7 +715,7 @@ read `ipc_thread_scaling skipped` twenty minutes later.
   `single_hart` and `fastpath_pad` are built when a person runs `script/board-image`, minutes before
   walking to the bench. A refactor that breaks a card build leaves the tree green until then, and
   the error arrives at the worst possible moment. Six release builds of one crate would close it:
-  `design/roadmap/373-board-only-features-nothing-compiles.md`.
+  `design/roadmap/0373-board-only-features-nothing-compiles.md`.
 - The bench card measures fewer things than an ordinary one. `smp_throughput`, `fs_read` and
   `fs_throughput` self-skip under `single_hart`. A session that wants a multi-core number from
   radon builds a second card without the flag, and that card cannot produce E1 or E4.

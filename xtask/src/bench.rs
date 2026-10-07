@@ -9,7 +9,7 @@ use crate::disk::{disk_path, mkdisk, mkredoxfs, redoxfs_server_build};
 use crate::host::{flag_value, kernel_elf, run, workspace_root};
 use crate::{RELEASE, RISCV_TARGET, RUNNER, TARGET, X86_TARGET, cargo_profiled, user};
 
-/// The microbenchmarks (milestone 21; design/roadmap/21-benchmarks.md).
+/// The microbenchmarks (milestone 21; design/roadmap/0021-benchmarks.md).
 ///
 /// Two instruments:
 /// - default: TCG with `-icount`, where virtual time is a deterministic function of instructions
@@ -70,7 +70,7 @@ pub(crate) fn bench() -> bool {
         return false;
     }
 
-    // E3 (milestone 134, design/roadmap/134-the-measurements-that-decide.md): build with an extra
+    // E3 (milestone 134, design/roadmap/0134-the-measurements-that-decide.md): build with an extra
     // kernel feature alongside `bench`, so the padded-fastpath experiment can be measured with the
     // same harness as everything else rather than a one-off. `--real`-only for the same reason
     // `--release` is: there is no cache under TCG for a footprint change to perturb, so a gated

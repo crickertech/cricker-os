@@ -60,7 +60,7 @@
 //! # BUGS
 //!
 //! - **A green soak proves nothing about the concurrency being correct.** It reports a number, and
-//!   the number's only use is comparison against another run. `design/roadmap/219-a-workload-that-does-not-stop.md`
+//!   the number's only use is comparison against another run. `design/roadmap/0219-a-workload-that-does-not-stop.md`
 //!   says this at more length and says it as the milestone's own headline caveat.
 //! - **The counters are not synchronised with the kernel's read.** The kernel samples the page
 //!   while workers are writing it, so a heartbeat's `rounds` total may be a few short. It is a

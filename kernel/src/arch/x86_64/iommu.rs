@@ -123,7 +123,7 @@
 //!   **What remains unexercised is the whole of the rest.** Nothing here writes an `IRTE`, forges
 //!   an MSI, or proves that a remapped interrupt lands where the table says it should. That is the
 //!   confinement claim notes/confinement-claims.md carries as stated nowhere, and
-//!   design/roadmap/317-interrupt-remapping-flags.md says what it would take.
+//!   design/roadmap/0317-interrupt-remapping-flags.md says what it would take.
 //! - **Invalidation is global, never domain- or device-selective.** Every `attach` invalidates the
 //!   *entire* context cache and the *entire* IOTLB rather than just the entry that changed, which
 //!   is correct (nothing survives that should not) and expensive on a machine with many attached
@@ -179,7 +179,7 @@
 //!   IOMMU do not show it, which is why those two legs always passed; whether their firmware
 //!   leaves functions bus-mastering the same way is unmeasured). The production question is
 //!   proposed, not answered, in
-//!   `design/roadmap/693-reset-unowned-pci-functions-before-iommu-enable.md`. The test now
+//!   `design/roadmap/0693-reset-unowned-pci-functions-before-iommu-enable.md`. The test now
 //!   resets every *other* block device on the bus (`STATUS = 0`, an ordinary virtio reset) before
 //!   registering and provoking its own, which stops their DMA outright regardless of the
 //!   mechanism; see the test for the commented fix. Green on all three architectures.
@@ -760,7 +760,7 @@ pub fn scope_of(rid: u32) -> crate::iommu::Scope {
 /// Nothing in this kernel remaps an interrupt. This exists so the question is *askable* from
 /// inside the guest, which is what milestone 317 is for: without it, turning
 /// `-device intel-iommu,intremap=on` on and watching the suite stay green proves only that the
-/// suite does not care. See design/roadmap/317-interrupt-remapping-flags.md.
+/// suite does not care. See design/roadmap/0317-interrupt-remapping-flags.md.
 // One caller: this module's own test. The comment below said "two callers, print_summary and this
 // module's own test", but print_summary inlines `u.interrupt_remapping` and never calls this; the
 // CI-warnings lane read the body on 2026-09-30 after mirroring print_summary's allowance set and
@@ -1135,7 +1135,7 @@ mod tests {
     /// what keeps `NIFE_INTREMAP` honest.** Booting a machine that offers remapping and watching
     /// the suite stay green would otherwise prove nothing; this fails the day somebody enables
     /// remapping without also retiring the claim in
-    /// design/roadmap/317-interrupt-remapping-flags.md that nothing in this kernel remaps an
+    /// design/roadmap/0317-interrupt-remapping-flags.md that nothing in this kernel remaps an
     /// interrupt.
     ///
     /// It runs identically with the flag and without it, on purpose. A test that only ran under

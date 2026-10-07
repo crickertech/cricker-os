@@ -130,7 +130,7 @@ interfere with plain HTTP.
 
 ## What each ruling blocks
 
-Rung 3's internet half (`design/roadmap/198-package-manager.md`, "Rescoped 2026-09-19") waits on
+Rung 3's internet half (`design/roadmap/0198-package-manager.md`, "Rescoped 2026-09-19") waits on
 this ruling and on the trust ruling. **Rung 3's LAN half does not**: a package fetched from a host on
 the same network, over plain HTTP, verified by digest, needs neither, and that is the first thing to
 build.

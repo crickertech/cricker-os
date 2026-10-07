@@ -20,8 +20,8 @@ Whoever finishes an entry moves it off this list in the same pull request.
 | rank | board | milestone | procedure | calef's hands |
 |---|---|---|---|---|
 | 1 | radon | milestone 168 (a multi-tasking workload benchmark), fatal risk 4 | `notes/job-mix.md`, "The next bench evening on radon, start to finish" | **one plug-2 power cycle per boot, at least five boots**, until the reset fix below lands |
-| 2 | xenon | 261, the NVMe driver leaves the kernel, and then the soak on xenon (fatal risks 6, then 5) | `notes/risk-6-bench-evening.md` (pull request #1275); if that has not landed, `design/roadmap/261-el0-nvme-on-xenon.md`. The first thing the boot reads is xenon's DMAR table, which decides whether the earlier x86 confinement results stand | about 30 minutes at xenon: the one-time firmware **Data Wipe** of the internal NVMe (261's "What calef has to do"), which cannot be undone; a monitor and a USB keyboard (xenon halts at POST without one); the FAT32 stick, staged by the lane with `cargo xtask disk-throughput --stage-only`, copying `target/esp-disk-throughput/EFI/BOOT/BOOTX64.EFI` and **not** `target/esp`; a phone for photos of the screen; optionally a Linux live stick for the `fio` comparison |
-| 3 | argon | awaiting the board (2026-10-06: the seller shipped a TK1, which is going back; `notes/bench-runbook.md`). Then 127, first light, then 225's soak on argon | `design/roadmap/127-the-sel4-machine.md` and `notes/bench-runbook.md`, "argon, and why it is last" | everything: argon has never booted nife, so cabling, media and power are all his |
+| 2 | xenon | 261, the NVMe driver leaves the kernel, and then the soak on xenon (fatal risks 6, then 5) | `notes/risk-6-bench-evening.md` (pull request #1275); if that has not landed, `design/roadmap/0261-el0-nvme-on-xenon.md`. The first thing the boot reads is xenon's DMAR table, which decides whether the earlier x86 confinement results stand | about 30 minutes at xenon: the one-time firmware **Data Wipe** of the internal NVMe (261's "What calef has to do"), which cannot be undone; a monitor and a USB keyboard (xenon halts at POST without one); the FAT32 stick, staged by the lane with `cargo xtask disk-throughput --stage-only`, copying `target/esp-disk-throughput/EFI/BOOT/BOOTX64.EFI` and **not** `target/esp`; a phone for photos of the screen; optionally a Linux live stick for the `fio` comparison |
+| 3 | argon | awaiting the board (2026-10-06: the seller shipped a TK1, which is going back; `notes/bench-runbook.md`). Then 127, first light, then 225's soak on argon | `design/roadmap/0127-the-sel4-machine.md` and `notes/bench-runbook.md`, "argon, and why it is last" | everything: argon has never booted nife, so cabling, media and power are all his |
 
 **The first step of each session is a watched reset, because a board that can reset itself turns
 every later boot from calef's hands into a command.**
@@ -40,7 +40,7 @@ every later boot from calef's hands into a command.**
   watched to a full boot. The firmware is set to halt at POST on warnings, so a reset that lands on
   a warning waits for a keypress: say so rather than calling it a hang. While calef is at the
   machine, ask him to press Ctrl-P at POST and record whether Intel AMT/MEBx appears
-  (`design/roadmap/653-xenon-may-carry-amt.md`); AMT would be remote power.
+  (`design/roadmap/0653-xenon-may-carry-amt.md`); AMT would be remote power.
 - argon, once the TX1 arrives (2026-10-06). First light comes first. The step after it is a PSCI system reset over `smc`, watched
   the same way.
 

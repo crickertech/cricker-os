@@ -720,7 +720,7 @@ pub fn jh7110_clock_and_reset() -> Option<jh7110_clock_and_reset::Found> {
 ///
 /// The only caller is the rebooting soak, just before SBI SRST: on radon OpenSBI performs every
 /// reset as an I2C write to the AXP15060, and U-Boot hands over with that bus's clock gated and its
-/// reset asserted. See `design/roadmap/592-radons-reboot-dies-in-opensbis-pmic-write.md`.
+/// reset asserted. See `design/roadmap/0592-radons-reboot-dies-in-opensbis-pmic-write.md`.
 #[cfg_attr(not(target_arch = "riscv64"), allow(dead_code))] // no JH7110 anywhere but a JH7110
 pub fn jh7110_pmic_bus() -> Option<(
     jh7110_clock_and_reset::Found,
@@ -1388,7 +1388,7 @@ mod tests {
     ///
     /// It used to say "passes trivially when there isn't", and did: it returned, and the harness
     /// counted a pass for a boot where the invariant was never looked at. That is the defect
-    /// milestone 214 (design/roadmap/214-print-and-return-skips.md) swept, in its silent form:
+    /// milestone 214 (design/roadmap/0214-print-and-return-skips.md) swept, in its silent form:
     /// a test that prints "skipping" and returns is counted as passed, and one that prints
     /// nothing at all is counted as passed too.
     #[test_case]

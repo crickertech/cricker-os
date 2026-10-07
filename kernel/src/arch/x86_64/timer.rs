@@ -66,7 +66,7 @@
 //!   should read that gap, and on a machine that reports `CPUID` leaf 0x15 none of this applies
 //!   because the machine states its rate (`arch::x86_64::isa::tsc_crystal_hz`; TCG does not).
 //!   Measured by the `calib` lane, 2026-09-21; see
-//!   design/roadmap/571-the-x86-boot-calibrates-once-and-can-be-wrong-by-4x.md (the x86 boot
+//!   design/roadmap/0571-the-x86-boot-calibrates-once-and-can-be-wrong-by-4x.md (the x86 boot
 //!   calibrates the TSC once, and can be wrong by 4x).
 //! - **Numbers published before 2026-09-21 came from the one-window calibration and are suspect.**
 //!   `bench --x86 --real`'s ns/iter, `Instant` and `uptime` through `counter_frequency_protocol`'s

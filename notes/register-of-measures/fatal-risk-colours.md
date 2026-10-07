@@ -13,7 +13,7 @@ gray for the total minus the three, which is a risk with no verdict rendered.
 
 calef commissioned this on 2026-09-29, built as milestone 625 (fatal risk colors, counted by
 week), whose number is provisional:
-[`design/roadmap/625-fatal-risk-colors-by-week.md`](../../design/roadmap/625-fatal-risk-colors-by-week.md).
+[`design/roadmap/0625-fatal-risk-colors-by-week.md`](../../design/roadmap/0625-fatal-risk-colors-by-week.md).
 Each appendix under `design/fatal-risks/` carries frontmatter: `risk:`, `color:`, `updated:`. The color is the verdict word, green, amber,
 red or none, and not a hex. The word is the architect's verdict, the one the README states in
 prose; the hue is a rendering choice. `none` is the fourth value because five of nine risks have

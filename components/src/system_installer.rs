@@ -3,7 +3,7 @@
 //! possible), rung 2a).
 //!
 //! The proposal this follows is
-//! [milestone 515 (a stick that puts itself on the machine's disk)](../../design/roadmap/515-the-installer-a-stick-runs-to-put-itself-on-the-disk.md),
+//! [milestone 515 (a stick that puts itself on the machine's disk)](../../design/roadmap/0515-the-installer-a-stick-runs-to-put-itself-on-the-disk.md),
 //! under DECISIONS §157 (a trivial install is a web page, a USB drive, and packages).
 //!
 //! Name: ratified 2026-10-06 (calef, "`system_installer` ratified.", in conversation), replacing

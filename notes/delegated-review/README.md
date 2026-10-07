@@ -181,7 +181,7 @@ already signed off as clean. Each was checked against the file before being coun
 - **`design/roadmap/526`'s justifying paragraph names the wrong statistic.** Checked against the
   file and correct. The reviewer's own words, quoted whole because its punctuation is its own:
 
-> 3. **design/roadmap/526-….md** — "By the mean, the defect was fixed at three windows and had never been
+> 3. **design/roadmap/0526-….md** — "By the mean, the defect was fixed at three windows and had never been
 > very bad at one" mislabels the statistic. The table reports the *median* (+0.36% at one window, +0.00%
 > from three up); the *mean* at one window is dominated by the tail — the +1153% and +884% outliers alone
 > contribute ~10 points over 200 boots — so the mean would have made the defect look glaring, not

@@ -50,7 +50,7 @@
 //! - **It runs nowhere on its own.** It was left out of `script/test`'s default legs because the
 //!   two boots were said to take several minutes under TCG. Measured 2026-10-03 on an Apple M-series
 //!   host, warm: 42.5 seconds for the whole gate. Nothing schedules it either, so a break is found
-//!   by whoever next runs it by hand: `design/roadmap/712-the-install-gates-run-nowhere.md`.
+//!   by whoever next runs it by hand: `design/roadmap/0712-the-install-gates-run-nowhere.md`.
 //! - **Boot 3 proves the stick left the disk alone under OVMF, and only there.** What keeps it so
 //!   is the `boot_slot::medium` token (calef's ruling on PR #1652, 2026-10-04 UTC): the loader
 //!   writes it only when its file is on an NVMe namespace, and a real firmware that built that
@@ -172,7 +172,7 @@ pub(crate) fn install_boot() -> bool {
 
 /// **Boot 3: the stick again, on the machine it just installed, and nobody types anything.**
 ///
-/// The live stick proposal (`design/roadmap/773-a-live-stick.md`, G1 and G2) read two defects
+/// The live stick proposal (`design/roadmap/0773-a-live-stick.md`, G1 and G2) read two defects
 /// out of the code: the stick's loader chain-loads the installed disk's boot slot instead of
 /// running its own image, and a stick boot mounts the internal disk, which writes it. This boot is
 /// the measurement. It asserts which system ran, and it compares the disk byte for byte before and

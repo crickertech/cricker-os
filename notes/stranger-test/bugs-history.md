@@ -17,7 +17,7 @@ score.
 Run 2 withheld the answer key rather than the whole subject, per the rule in [run 2](run-2.md). The
 note and its index entry were removed from the tree each stranger got, and nothing else. It worked
 as far as it claims and no further. Run 2 met three references to run 1 in ordinary reading, had
-`design/roadmap/117-newcomer-onboarding.md` returned by its own grep, and knew the project
+`design/roadmap/0117-newcomer-onboarding.md` returned by its own grep, and knew the project
 instruments onboarding. It simply never opened the block. Only the answers are hidden.
 
 Run 4 is the fourth confirmation and the loudest. It knew inside half an hour, from a table
@@ -83,7 +83,7 @@ rather than at the tree.** Runs 1 and 2 leaked the rubric and the constitution. 
 fact of being measured, earlier and more loudly than the in-tree references do.
 
 The run still counts. The stranger never opened the logs, never opened
-`design/roadmap/117-newcomer-onboarding.md`, and never used the network, so its actual output
+`design/roadmap/0117-newcomer-onboarding.md`, and never used the network, so its actual output
 survives the leak. Discount the rhetoric in it, and read the decision to add a program as prompted
 rather than spontaneous.
 

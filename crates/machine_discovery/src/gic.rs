@@ -1,7 +1,7 @@
 //! **Which Arm interrupt controller is this, and does the hardware agree?** The GIC's device tree
 //! node, read by its binding, and a cross-check of what the silicon says about itself.
 //!
-//! Milestone 227 (design/roadmap/227-gicv3-driver.md). Until this existed the kernel found its GIC
+//! Milestone 227 (design/roadmap/0227-gicv3-driver.md). Until this existed the kernel found its GIC
 //! by the node-name prefix `intc@` and took the first two `reg` blocks as "distributor, CPU
 //! interface". That is true of a GICv2 and false of a GICv3, whose second block is the
 //! **redistributor** array. Milestone 222 measured what followed: a kernel that booted the whole

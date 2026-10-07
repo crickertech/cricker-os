@@ -132,7 +132,7 @@ lives.
 |---|---|---|---|
 | Run per use | `date`, `printenv`, `rm`, `wc`, `ps`, `pgrep`, `pmap`, `top`, `uptime`, `uuid`, `mdr`, `disk_surveyor`, `disk_partitioner`, `installer`, `rmle`, `least_authority_demo` | at the next spawn | a built §220 (signed builds), fact 2 above, and #1374's bare names |
 | Built per grant or per login | the three filesystem caretakers, `login`'s per-session caretaker | at the next grant or login | the same; old grants keep old bytes until released |
-| Live swap built | `line_editor` | on a swap (§232 (the line editor swap contract), `FLAG_RETRY` in `swish` and `rmle`) | the trigger, `design/roadmap/694-the-installer-asks-the-terminal-to-swap.md`, and §229's refusal, since `line_editor` is in the floor |
+| Live swap built | `line_editor` | on a swap (§232 (the line editor swap contract), `FLAG_RETRY` in `swish` and `rmle`) | the trigger, `design/roadmap/0694-the-installer-asks-the-terminal-to-swap.md`, and §229's refusal, since `line_editor` is in the floor |
 | Long-lived, no swap | `net_stack`, `entropy`, `clock`, `network_time_client`, `login`, `login_audit_receiver`, `credentialer`, `terminal_sink_caretaker`, `display_terminal`, `compositor`, the display drivers | at the next boot | §159's restart tier: a supervisor that rebuilds the service from new bytes, and clients that survive a reconnect |
 | Not started by a real boot | `root_supervisor`, `spawner`, `sub_server_supervisor`, `swapper`, `broker`, `timetable`, `session_reviver` outside its test | at the next spawn | nothing |
 

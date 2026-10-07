@@ -70,7 +70,7 @@
 //!   `crates/globally_unique_identifier_partition_table` refuses to invent one and
 //!   notes/globally-unique-identifier-partition-table.md says why. That is milestone 57's remaining
 //!   half and it is a decision rather than a task; see
-//!   design/roadmap/57-partitioning-and-xattrs.md.
+//!   design/roadmap/0057-partitioning-and-xattrs.md.
 //! - **No hot plug.** The roster is written once at wiring time and never again.
 //!
 //! Name: ratified 2026-08-03 (calef, milestone 57). The lane shipped it provisionally and calef

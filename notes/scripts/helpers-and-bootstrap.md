@@ -85,7 +85,7 @@ twelve minutes the first time and under a second on every run after it. Before t
 printed the two commands for a human to type, which is rung four of AGENTS.md's ladder; worse, the
 printed sequence looped, because nothing outside `.github/workflows/ci.yml` put the build's install
 prefix on PATH. See `helpers/qemu-path.sh` and
-design/roadmap/287-bootstrap-installs-a-working-qemu.md.
+design/roadmap/0287-bootstrap-installs-a-working-qemu.md.
 
 What this appendix's numbers cite, gathered in `notes/scripts.md` until the split: milestone 87 (the
 x86_64 bare-metal machine) and

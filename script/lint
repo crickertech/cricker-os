@@ -252,7 +252,7 @@ cargo clippy -p components --features confinement_attackers --target aarch64-unk
 #   THREE architectures is still caught, by the aarch64 and riscv64 passes above, which keep full
 #   dead-code checking. The only thing that can now hide is code dead on x86_64 alone, which today
 #   is the expected state of a partial port and tomorrow is a real gap. **The trigger for removing
-#   this flag is the x86 boot joining the shared path**; see design/roadmap/161-x86-64-kernel-port.md.
+#   this flag is the x86 boot joining the shared path**; see design/roadmap/0161-x86-64-kernel-port.md.
 #
 # - **`-A clippy::reversed_empty_ranges`** is a smaller thing and is not a suppression of a real
 #   finding: `arch::mmu::VIRTIO_SLOTS` is genuinely ZERO on q35 (a PC has no virtio-mmio bus; every
@@ -335,7 +335,7 @@ cargo clippy -p components -p fixtures -p user_mode_runtime --target x86_64-unkn
 # (the boot block is `cfg(not(test))`).
 #
 # **The list below is written out, not globbed, and that is the property to keep** (milestone 296,
-# which removed `initboot` from it). Milestone 401, `design/roadmap/401-a-gate-that-selects-the-set-it-judges.md`,
+# which removed `initboot` from it). Milestone 401, `design/roadmap/0401-a-gate-that-selects-the-set-it-judges.md`,
 # is the class: a gate that computes the set it judges goes BLIND rather than red when the set
 # empties, which is how milestone 265's crate check passed by checking zero crates. This loop cannot
 # do that -- an empty `for` list is visible in the diff and in the output, since every iteration
@@ -548,7 +548,7 @@ done
 if [ "$cfi_seen" -eq 0 ]; then
     echo "lint: no .s files matched kernel/src/arch/*/*.s, so the CFI check judged nothing." >&2
     echo "Hand-written assembly moved. Fix the pattern above; a selector that matches nothing" >&2
-    echo "passes by checking nothing (design/roadmap/401-a-gate-that-selects-the-set-it-judges.md)." >&2
+    echo "passes by checking nothing (design/roadmap/0401-a-gate-that-selects-the-set-it-judges.md)." >&2
     exit 1
 fi
 if [ -n "$cfi_bad" ]; then
@@ -596,7 +596,7 @@ if start < 0:
           file=sys.stderr)
     print("      machine description a function so that nothing could gate half of it. If it was",
           file=sys.stderr)
-    print("      renamed, rename it here too and say why in design/roadmap/267-*.md.",
+    print("      renamed, rename it here too and say why in design/roadmap/0267-*.md.",
           file=sys.stderr)
     sys.exit(1)
 
@@ -627,7 +627,7 @@ if bad:
           file=sys.stderr)
     print("print on every boot. A demonstration that should be compiled out belongs in the tour",
           file=sys.stderr)
-    print("block in `kernel_main`, or in a userspace program. See design/roadmap/267-*.md.",
+    print("block in `kernel_main`, or in a userspace program. See design/roadmap/0267-*.md.",
           file=sys.stderr)
     sys.exit(1)
 
@@ -897,7 +897,7 @@ echo "actions: every uses: line is pinned to a commit SHA"
 # marker words are matched with the punctuation attached rather than as bare words.
 #
 # **Markdown is out of scope, and that is a self-consistency exemption rather than a gap.** Prose
-# that explains this convention has to spell the forbidden shape (design/roadmap/94-untracked-work.md
+# that explains this convention has to spell the forbidden shape (design/roadmap/0094-untracked-work.md
 # does); the em-dash gate below dodges the same problem by building
 # its character out of UTF-8 bytes, and a TODO marker cannot be disguised that way without making
 # the sentence unreadable. Prose is also where a *historical* marker legitimately lives: notes/uart.md
@@ -917,7 +917,7 @@ if [ -n "$todo_bad" ]; then
     echo "" >&2
     echo "Spell it TODO(milestone N): and add the block under design/roadmap/, or take the note out" >&2
     echo "of the marker form and record the limitation next to the feature (the BUGS convention)." >&2
-    echo "A marker with no home is work nobody will find; see design/roadmap/94-untracked-work.md." >&2
+    echo "A marker with no home is work nobody will find; see design/roadmap/0094-untracked-work.md." >&2
     exit 1
 fi
 # Every milestone a compliant marker cites has to have a block. Cheap, and it is the check that
@@ -926,7 +926,8 @@ todo_dangling=""
 for n in $(git grep -hoE '(TODO|FIXME|XXX|HACK)[[:blank:]]*\(milestone [0-9]+\)' -- \
            ':!vendor' ':!patches' ':!*.md' ':!script/lint' 2>/dev/null |
            grep -oE '[0-9]+' | sort -un); do
-    ls "$(dirname "$0")/../design/roadmap/$n-"*.md >/dev/null 2>&1 ||
+    # Block filenames carry the number zero-padded to four digits (calef, 2026-10-07 UTC).
+    ls "$(dirname "$0")/../design/roadmap/$(printf '%04d' "$(expr "$n" + 0)")-"*.md >/dev/null 2>&1 ||
         todo_dangling="$todo_dangling $n"
 done
 if [ -n "$todo_dangling" ]; then
@@ -1024,11 +1025,13 @@ echo "==> decisions"
 # again. script/decisions accepts either width on purpose, so the width is judged once, here.
 # One check for every directory the ruling covers: design/roadmap/ joins the list rather than
 # getting a near-copy of this block.
+# design/roadmap/ joined on 2026-10-07 (UTC). Its letter addenda (`0020a-`) pass on the `[a-z]?`, and
+# an appendix directory beside a block is judged like a file, since `listdir` returns both.
 echo "==> numbered record files carry four digits"
 python3 - <<'PY'
 import os, re, sys
 
-DIRS = ['design/decisions']
+DIRS = ['design/decisions', 'design/roadmap']
 NUMBERED = re.compile(r'(\d+)[a-z]?-')
 bad = []
 for d in DIRS:
@@ -1044,7 +1047,8 @@ if bad:
               f'{os.path.basename(b)[len(n):]}, and its links with it)', file=sys.stderr)
     print('calef ruled on 2026-10-07 (UTC) that these numbers are zero-padded to four digits so the',
           file=sys.stderr)
-    print('directory sorts. See design/decisions/README.md.', file=sys.stderr)
+    print('directory sorts. See design/decisions/README.md and design/roadmap/README.md.',
+          file=sys.stderr)
     sys.exit(1)
 print(f'numbered records: every file in {", ".join(DIRS)} carries a four-digit number')
 PY
@@ -1424,7 +1428,7 @@ MUTEOF
 # to prefer it: `script/coverage`'s per-feature line is now belt and braces rather than the mechanism.
 #
 # **Not the same question as the four-list problem beside it**, which is worth saying because the two
-# read alike. Milestone 393, `design/roadmap/393-the-host-excluded-crate-set-lives-in-four-places.md`, is about
+# read alike. Milestone 393, `design/roadmap/0393-the-host-excluded-crate-set-lives-in-four-places.md`, is about
 # which CRATES cannot compile for the host, restated in four files where one derives it. This is
 # about a crate that compiles perfectly well and a feature of it that a single-package test run does
 # not turn on. Solving either leaves the other exactly where it was.
@@ -2090,7 +2094,7 @@ MARKER = re.compile(r'<!--count(-at-least|-at-most)?:([a-z0-9-]+)-->')
 #
 # The shape is `unsafe-thread-safety-claims`' (a ceiling written at the tree's exact value) with the
 # slack direction closed, and the baseline stays where every counted claim's does: in the marker,
-# here in design/roadmap/118-constitution-budget.md. Not a separate baseline file, because the
+# here in design/roadmap/0118-constitution-budget.md. Not a separate baseline file, because the
 # marker already is one, and two places holding one number is the drift this convention exists to
 # end. BUGS: a raise is still an ordinary edit to that marker. Nothing here compares the number
 # against origin/main, because every raise on record (925 to 929, and before) was a considered act
@@ -2542,7 +2546,10 @@ milestone/*)
     case "$milestone_n" in
     '' | *[!0-9]*) ;; # no leading number: the prefix check above owns that shape
     *)
-        roadmap_block="$(ls "$(dirname "$0")/../design/roadmap/$milestone_n-"*.md 2>/dev/null | head -1)"
+        # The block's filename pads the number to four digits (calef, 2026-10-07 UTC); the
+        # branch name does not, so `milestone/7-x` and `milestone/0007-x` both find 0007-*.md.
+        milestone_file_n="$(printf '%04d' "$(expr "$milestone_n" + 0)")"
+        roadmap_block="$(ls "$(dirname "$0")/../design/roadmap/$milestone_file_n-"*.md 2>/dev/null | head -1)"
         if [ -z "$roadmap_block" ]; then
             echo "lint: branch '$branch' names milestone $milestone_n, which has no roadmap block." >&2
             exit 1
@@ -2551,7 +2558,7 @@ milestone/*)
         # and a branch that has merged main is not thereby excused.
         merge_base="$(git -C "$(dirname "$0")/.." merge-base HEAD origin/main 2>/dev/null || true)"
         if [ -n "$merge_base" ] && [ -n "$(git -C "$(dirname "$0")/.." rev-list -n1 "$merge_base"..HEAD 2>/dev/null)" ]; then
-            if [ -z "$(git -C "$(dirname "$0")/.." diff --name-only "$merge_base"..HEAD -- "design/roadmap/$milestone_n-"*.md)" ]; then
+            if [ -z "$(git -C "$(dirname "$0")/.." diff --name-only "$merge_base"..HEAD -- "design/roadmap/$milestone_file_n-"*.md)" ]; then
                 echo "lint: branch '$branch' changes nothing in ${roadmap_block#*design/}." >&2
                 echo "  A milestone branch lands its status flip in the same merge as the work (§90)." >&2
                 echo "  A lane edits its own milestone's roadmap block, and only that: this is the" >&2
@@ -3833,7 +3840,7 @@ PY
 # (a deliverable in "three <halves>", four of them landing over three days, a test pinning "all
 # three <halves>", three <halves> that are one claim). The examples are written with the angle
 # brackets on purpose: a gate whose own comment spells the forbidden shape fires on itself, which
-# design/roadmap/94-untracked-work.md hit first and script/lint line 660 already records.
+# design/roadmap/0094-untracked-work.md hit first and script/lint line 660 already records.
 #
 # The tree has ~3,500 uses of half/halves and nearly all are honest two-way splits, so this reads
 # ONLY the arithmetic-impossible shape: a count word immediately before the word. It does not judge
@@ -3846,7 +3853,7 @@ PY
 # same trap costing two renames a count), so the boundaries here are POSIX classes.
 echo "==> every RETYPE outside the run wrapper passes 0"
 # `MemoryRegion::RETYPE`'s first argument became a page count on 2026-09-26 (calef, option A of
-# design/roadmap/659-a-region-retypes-a-frame-run.md), with 0 meaning one page. Every caller
+# design/roadmap/0659-a-region-retypes-a-frame-run.md), with 0 meaning one page. Every caller
 # before it passed 0 and still means one page, so a raw invoke passing anything else is a run asked
 # for by accident. The one intended caller is `user_mode_runtime::retype_page_frame_run`.
 # The kernel's own tests are exempt: they drive the handler directly with every count on purpose.

@@ -8,7 +8,7 @@
 [workspace]
 
 # Name: recorded (package `redoxfs_server`, recorded against
-# design/roadmap/140-foreign-filesystems.md, whose rename calef called on 2026-08-18). Descriptive
+# design/roadmap/0140-foreign-filesystems.md, whose rename calef called on 2026-08-18). Descriptive
 # rather than chosen: `redoxfs` names the vendored engine, which is upstream's own name and
 # therefore in the protected class, and `host` names the side this tool runs on. The stem is on
 # the record twice over, since calef's own words settling the sibling were "fs_server is misnamed.

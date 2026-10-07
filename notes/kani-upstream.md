@@ -138,7 +138,7 @@ The pull request is open and the review is answered in code. Waiting on calef:
 
 1. The `kani_lib.c` link fix, promised on #4913 as a follow-up pull request. Milestone 635
    (riscv64 proofs check against the riscv64 model) carries it in nife's patch
-   ([its block](../design/roadmap/635-riscv64-proofs-check-against-the-riscv64-model.md)) and gates it in `script/verify-riscv64`. The upstream pull request is drafted in
+   ([its block](../design/roadmap/0635-riscv64-proofs-check-against-the-riscv64-model.md)) and gates it in `script/verify-riscv64`. The upstream pull request is drafted in
    [kani-upstream/kani-lib-link-order.md](kani-upstream/kani-lib-link-order.md), and nobody posts it
    before calef has read it. In CI the old link gave `arm64`/`linux`, so `arch` was the only field
    Kani wrote that changed there; no verdict changed for the seven harnesses that exist.

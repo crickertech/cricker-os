@@ -5,7 +5,7 @@ under a crate's `falsifications/` because the test is a `#[test_case]` that boot
 under QEMU and not a Kani harness. **The path is provisional and nothing sweeps
 it**: `script/falsifications` walks `crates/` and keys on `#[kani::proof]`, and
 DECISIONS §134's convention does not reach a kernel test. The proposal that would
-is in design/roadmap/202-confinement-claims-falsified.md, and it needs a way to
+is in design/roadmap/0202-confinement-claims-falsified.md, and it needs a way to
 run one kernel test by name, which today does not exist.
 
 The defect: `c_confiner` maps `WITNESS_RO` into the C component's address space

@@ -54,7 +54,7 @@
 #   5,000-word document" is not a test, it is a coincidence generator.
 #
 # Three shapes are not glosses at all and are recognised rather than judged: a repo path
-# (`milestone 15 (design/roadmap/15-asids.md)`), a cross-reference to the other record
+# (`milestone 15 (design/roadmap/0015-asids.md)`), a cross-reference to the other record
 # (`milestone 12 (§12)`), and a bare date. A path is checked harder than a gloss, since it is exact:
 # it must exist, and a numbered record file must carry the number that cites it.
 #
@@ -114,7 +114,7 @@ import roadmap_block                                                        # no
 # 0043-clock-authority.md's own first line, with no need to parse a 5,000-line document to find where
 # §43 begins and §44 starts.
 # A LETTERED record gets a second entry under its own label, and the reason is that the two tables
-# answer different questions. `design/roadmap/20a-name-the-seams.md` is a block of its own with an
+# answer different questions. `design/roadmap/0020a-name-the-seams.md` is a block of its own with an
 # H1 of its own, and a gloss of `milestone 20a` should be read against THAT title rather than
 # against milestone 20's, which is a different piece of work. The base table stays keyed by the
 # bare integer, because a file that glosses `milestone 19` has told the reader what 19 is and the
@@ -244,7 +244,7 @@ NUMBERED_RECORD = re.compile(r"design/(decisions|roadmap)/(\d+)[a-z]?-[a-z0-9-]*
 # and script/lint's TODO check already carved out the same category for the same reason (notes/uart.md
 # quotes a milestone-5 TODO as history, not as intent).
 GLOSS_ALLOW = {
-    "design/roadmap/10-shell-and-spawn.md:milestone:9":
+    "design/roadmap/0010-shell-and-spawn.md:milestone:9":
         "quotes milestone 9's ORIGINAL title, as history; the text says so",
 }
 
@@ -378,9 +378,9 @@ SELFTEST = [
 PREFILTER_PY = re.compile(PREFILTER.replace("[[:space:]]", r"[^\S\n]"), re.MULTILINE)
 
 PATH_FIXTURES = [
-    ("design/roadmap/15-asids.md", "design/roadmap/15-asids.md"),
-    ("`design/roadmap/409-one-machine-description-not-two.md`",
-     "design/roadmap/409-one-machine-description-not-two.md"),
+    ("design/roadmap/0015-asids.md", "design/roadmap/0015-asids.md"),
+    ("`design/roadmap/0409-one-machine-description-not-two.md`",
+     "design/roadmap/0409-one-machine-description-not-two.md"),
     ("`xtask/src/main.rs` is 10,700 lines", None),
     ('"Decision 2" in design/init-and-granular-spawn.md', None),
 ]
@@ -497,7 +497,7 @@ def blank_fenced_blocks(raw):
 # 4. **Prose inside a fenced code block**, skipped, for the
 #    reasons `--check` skips them (a page documenting this convention has to be able to show a bad
 #    citation; a generated table is not written by a person).
-# A record does not have to gloss its own number: design/roadmap/444-*.md saying "milestone 444" is
+# A record does not have to gloss its own number: design/roadmap/0444-*.md saying "milestone 444" is
 # the block naming itself, and the title is the file's own H1 a few lines up.
 OWN = re.compile(r"design/(decisions|roadmap)/(\d+)[a-z]?-")
 
@@ -777,7 +777,9 @@ if mode == "--ratchet":
     # has no `/` for the path-pair rule above to see, while most absolute ones occur once and miss
     # its recurrence threshold. Both sides are compared with the leading zeros of a `<n>-<slug>.md`
     # token dropped, which changes no citation.
-    unpad = re.compile(r"(?<![0-9A-Za-z_])0+(\d+-[a-z0-9][a-z0-9-]*\.md)")
+    # The token is a stem (an optional letter addendum, a slug ending `.md` or `/`) or a glob
+    # (`0155-*`, `0526-…`), the forms the roadmap rename padded beside plain file names.
+    unpad = re.compile(r"(?<![0-9A-Za-z_])0+(\d+[a-z]?-(?:[a-z0-9][a-z0-9-]*(?:\.md|/)|\*|…))")
 
     def plain(line):
         return unpad.sub(r"\1", line.replace("**", ""))

@@ -16,7 +16,7 @@
 //! **The loop is still here as the fallback**, for a process whose slot 0 cannot pay for the two
 //! pages (no untyped, or an exhausted one). A sleep that spins is worse than one that blocks and
 //! better than one that panics, and which one a program got is visible to nobody: that is this
-//! file's BUGS entry, in `design/roadmap/106-deadline-wait.md`.
+//! file's BUGS entry, in `design/roadmap/0106-deadline-wait.md`.
 
 use crate::ffi::CStr;
 use crate::io;

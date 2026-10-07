@@ -36,7 +36,7 @@ And at 17:41 UTC, on whether a new kernel may need a reboot:
    one is replacing a process.
 3. A new kernel takes effect at the next reboot, and that is acceptable. Live-patching a running
    kernel is a separate milestone, deferred for a long time (proposal:
-   `design/roadmap/509-live-patching-the-kernel.md`).
+   `design/roadmap/0509-live-patching-the-kernel.md`).
 
 ## What it settles elsewhere
 

@@ -74,10 +74,10 @@
 //! - **The file name must be 8.3 and upper case**, because nothing here writes a long-file-name
 //!   entry. `BOOTX64.EFI` and `BOOTAA64.EFI` fit; **`BOOTRISCV64.EFI` does not**, so the riscv64
 //!   removable-media path cannot be written by this crate as it stands. That is a real gap for
-//!   [milestone 515 (the installer)](../../../design/roadmap/515-the-installer-a-stick-runs-to-put-itself-on-the-disk.md)
+//!   [milestone 515 (the installer)](../../../design/roadmap/0515-the-installer-a-stick-runs-to-put-itself-on-the-disk.md)
 //!   on riscv64 and it is recorded rather than worked around: a long-name entry is a checksum and a
 //!   run of UTF-16 entries ahead of the short one. It has a milestone of its own,
-//!   `design/roadmap/560-a-long-file-name-or-riscv64-cannot-be-installed.md`, which prices it
+//!   `design/roadmap/0560-a-long-file-name-or-riscv64-cannot-be-installed.md`, which prices it
 //!   and says what it does and does not unblock.
 //! - **Every timestamp is zero.** A `mkfs` with no clock capability writes 1970 rather than
 //!   inventing a plausible date, the same choice `redoxfs_server`'s `mkfs` made and for the same

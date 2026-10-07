@@ -11,7 +11,7 @@ directory has no header file, so its provenance lives in its own README.*
 
 One file per audit, this file as the index. An audit is a deliberate adversarial read of the tree
 through one named lens, and the reason there is a directory rather than a habit is
-[milestone 92](../roadmap/92-security-audit-cadence.md): a practice that lives in someone's memory
+[milestone 92](../roadmap/0092-security-audit-cadence.md): a practice that lives in someone's memory
 gets skipped exactly when it matters.
 
 Two kinds of audit share this index, because a documentation sweep asks the same scheduling

@@ -1,7 +1,7 @@
 # The tail-stage output fork: milestone 40's last piece, decided the six-questions way
 
 *Written 2026-08-22, by the lane milestone 40's roadmap block handed this to
-(`design/roadmap/40-documentation-service.md`). The question itself is not new: notes/pipes.md has
+(`design/roadmap/0040-documentation-service.md`). The question itself is not new: notes/pipes.md has
 carried it open since milestone 50 (2026-08-04), notes/documentation.md restated it as milestone 40's
 remaining fork on 2026-08-18, and DECISIONS §101 (notification objects), decided 2026-08-20,
 ratified the *direction* without taking milestone 40's specific fork. This note is the six-questions writeup CLAUDE.md's "A fork

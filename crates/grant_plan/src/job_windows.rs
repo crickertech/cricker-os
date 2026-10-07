@@ -16,7 +16,7 @@
 //! The rule, since milestone 685: [`Windows::take`] hands a window only to a job when the job that
 //! last held it has been reaped, which the progenitor learns from `job_undertaker`'s "reaped"
 //! message (`crate::spawnproto::UNDERTAKER_BADGE`). Calef's ruling of 2026-10-06 (UTC), option A of
-//! `design/roadmap/685-a-job-is-finished-when-its-memory-is-back.md`.
+//! `design/roadmap/0685-a-job-is-finished-when-its-memory-is-back.md`.
 //!
 //! [`ReapsDue`] is the other half of that message's use: which finished jobs the progenitor may
 //! wait for, when a pool is short, because their reap is on its way.

@@ -52,7 +52,8 @@ the only tell a script has.
 
 Promotion is how a proposal reaches any disposition at all, including being refused or found
 moot: this directory carries exactly one status by design, so nothing can be retired in place. An
-integrator gives it a number, `git mv`s it up a directory, sets its `status`, and adds
+integrator gives it a number, `git mv`s it up a directory as `NNNN-<slug>.md` (four digits,
+zero-padded), sets its `status`, and adds
 `promoted_from: <slug>`. `script/roadmap --check` holds that field to the rule that the proposal is
 gone. The block that named the work updates its `**Proposed.**` bullet to `**Milestone N.**`, so
 neither record orphans the other.

@@ -1,4 +1,4 @@
-# Name: recorded (design/roadmap/39-repository-structure.md's naming section, performed by milestone
+# Name: recorded (design/roadmap/0039-repository-structure.md's naming section, performed by milestone
 # 175). A **component** is this project's word for the shippable unit, a binary plus its manifest,
 # and a **service** is what one offers over a contract. 39 refused the Unix word for a long-running
 # background process on a technical rather than an aesthetic argument, and that argument is written

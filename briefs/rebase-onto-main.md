@@ -103,9 +103,9 @@ milestone 596 (the roadmap blocks get frontmatter too) moved every block's `**St
 its block before then conflicts at the top of the file. Take this branch's side of the block,
 whole, then convert it; never hand-merge the frontmatter:
 
-    git checkout --theirs -- design/roadmap/<N>-<slug>.md
-    script/roadmap --migrate design/roadmap/<N>-<slug>.md
-    git add design/roadmap/<N>-<slug>.md
+    git checkout --theirs -- design/roadmap/<NNNN>-<slug>.md
+    script/roadmap --migrate design/roadmap/<NNNN>-<slug>.md
+    git add design/roadmap/<NNNN>-<slug>.md
     git rebase --continue
 
 During a rebase `--theirs` is the commit being replayed, which is this branch's. The migrator is
@@ -117,6 +117,16 @@ hand below the frontmatter, or stop. A block this branch
 the same command. If the migrator refuses a block (a `HARDWARE` gate or a `SUPERSEDED` status it has
 no hand-read row for), write the frontmatter by hand from `notes/roadmap.md`'s table, and say so in
 your report.
+
+### 9. A block this branch added still has an unpadded number
+
+On 2026-10-07 (UTC) every block under `design/roadmap/` was renamed to a four-digit number
+(`7-x.md` became `0007-x.md`) in a commit of pure renames, so an edit to an existing block rebases
+across it by rename detection and needs nothing. A block this branch *added* keeps the old name and
+`script/lint` fails on it. Rename it, and any appendix directory beside it, then fix the links:
+
+    git mv design/roadmap/812-<slug>.md design/roadmap/0812-<slug>.md
+    git grep -l '812-<slug>' | xargs perl -pi -e 's/(?<![0-9])812-<slug>/0812-<slug>/g'
 
 ## What is not permitted, and stops
 

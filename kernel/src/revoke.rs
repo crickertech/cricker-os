@@ -922,7 +922,7 @@ pub fn revoke_port_range(base: u16, count: u16) {
 ///   (UTC) that the thread dies as a resident as recorded in §16 (object revocation),
 ///   amended that date; milestone 765 (a
 ///   destroyed region cannot free the root a running thread walks),
-///   `design/roadmap/765-a-destroyed-region-cannot-free-a-running-root.md`, builds it.
+///   `design/roadmap/0765-a-destroyed-region-cannot-free-a-running-root.md`, builds it.
 pub fn revoke_region(base: u64, size: u64) {
     crate::sched::delete_page_frame_caps_overlapping(base, size);
     // One scan finds either kind of record, so the common case (nothing left) costs one pass over

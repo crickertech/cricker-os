@@ -10,7 +10,7 @@ ratified_by: calef
 *Section number and slug provisional until the merge queue lands them. Written 2026-10-03 (UTC) by
 the lane for milestone 706 (a `CALL` server can tell a Reply from a delegation) as the maintainer's
 delegate. The options with their costs are in the
-[milestone's block](../roadmap/706-a-call-server-can-tell-a-reply-from-a-delegation.md).*
+[milestone's block](../roadmap/0706-a-call-server-can-tell-a-reply-from-a-delegation.md).*
 
 calef, 2026-10-03 (UTC): *"Option 1 with the typed runtime helper."*
 

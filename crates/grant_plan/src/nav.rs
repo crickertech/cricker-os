@@ -386,7 +386,7 @@ impl Cwd {
 }
 
 /// **Two directory capabilities, composed under two labels** (milestone 154,
-/// design/roadmap/154-multi-directory-namespace.md). Provisional name and shape, named in the
+/// design/roadmap/0154-multi-directory-namespace.md). Provisional name and shape, named in the
 /// milestone's own report rather than ratified.
 ///
 /// This is deliberately **not** `bind`'s ordered union. Milestone 47's four open questions

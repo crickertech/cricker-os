@@ -187,12 +187,15 @@ _RENAME_RES = tuple(
 # the proposal, the path (a number is added and the directory dropped) and the `**Proposed.**`
 # disposition (to `**Milestone N.**`, with the one-time gloss `script/citations` asks for). No
 # sentence is new, and without this mask a promotion of the pile read as a touch of 40 baselined
-# documents and put each under the bold rule. The path form is narrow on purpose: three digits and a
-# hyphen under `roadmap/`. The label form folds every `**Milestone N.**` bullet label, glossed or
-# not, to `**Proposed.**` on both sides of a comparison, so it hides a label edit and nothing else.
+# documents and put each under the bold rule. The path form is narrow on purpose: a number and a
+# hyphen under `roadmap/`, two to four digits, since block numbers were padded to four on 2026-10-07
+# (UTC) and a base older than that holds two- and three-digit names, which the same mask lets the
+# padding rename compare equal. The label form folds every `**Milestone N.**` bullet label, glossed
+# or not, to `**Proposed.**` on both sides of a comparison, so it hides a label edit and nothing
+# else.
 _PROMOTION_RES = (
     (re.compile(r'\*\*Milestone \d+\.\*\*(?: Milestone \d+ \([^)\n]*\)\.)?'), '**Proposed.**'),
-    (re.compile(r'(roadmap/)\d{3}-'), r'\1proposals/'),
+    (re.compile(r'(roadmap/)\d{2,4}-'), r'\1proposals/'),
 )
 
 
@@ -524,7 +527,7 @@ def derived_markers(root=None):
 # Derivation (above) reads a literal pattern handed straight to `re.*`, or a literal `.startswith`.
 # A parser written any other way is invisible to it, and an invisible parser is a live hazard: the
 # bold it needs is counted as emphasis, and a sweep that removes the emphasis removes the key. Three
-# shapes were found by hand on 2026-10-05 UTC (design/roadmap/791-bold-keys-to-frontmatter.md,
+# shapes were found by hand on 2026-10-05 UTC (design/roadmap/0791-bold-keys-to-frontmatter.md,
 # provisional): a pattern built by `+` or an f-string (`script/roadmap` RESTATED), a bold written
 # with a repeat count or a character class instead of two escaped stars, and a reader in a language
 # this file does not parse (shell, awk, jq, Rust, a workflow). `opaque_readers` finds the first two
@@ -1271,7 +1274,7 @@ def selftest():
     # is not a touch; the same bullet plus a new sentence is.
     proposed = "- **Proposed.** Do x. `design/roadmap/proposals/some-slug.md` has it."
     ms = 'Mile' + 'stone 9999'  # assembled, so the citation gates do not read it as a citation
-    promoted = f"- **{ms}.** {ms} (some slug). Do x. `design/roadmap/999-some-slug.md` has it."
+    promoted = f"- **{ms}.** {ms} (some slug). Do x. `design/roadmap/9999-some-slug.md` has it."
     if rename_masked(_flat(proposed)) != rename_masked(_flat(promoted)):
         failed.append('a promotion reads as a touch')
     if rename_masked(_flat(proposed)) == rename_masked(_flat(promoted + " A new sentence.")):
@@ -1370,7 +1373,7 @@ def main(argv):
                 print(f'  {b}', file=sys.stderr)
             print('\nFix the document (cut restatement, split a sentence, drop or promote a bold '
                   'lead-in), or mark an exception in it with its date and reason. See milestone '
-                  '586\'s block, design/roadmap/586-a-prose-ratchet-in-lint.md.', file=sys.stderr)
+                  '586\'s block, design/roadmap/0586-a-prose-ratchet-in-lint.md.', file=sys.stderr)
             return 1
         print(f'prose ratchet: {len(docs)} documents; {held} over a limit and held to the baseline, '
               f'{excused} measures excused by a marked exception, every appendix linked')

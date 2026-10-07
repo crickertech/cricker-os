@@ -22,7 +22,7 @@
 # (0.68.0 on 2026-10-05), while the riscv64 job is pinned to 0.67.0 plus a carried patch. A proof
 # result can change because a Kani release moved, with no change in nife, and the rows are not proved
 # by one version. Recorded, not decided: see
-# design/roadmap/795-pin-stock-kani-to-a-version-bumped-deliberately.md.
+# design/roadmap/0795-pin-stock-kani-to-a-version-bumped-deliberately.md.
 name: verify
 
 # Observed failing: 2026-10-03, run 37156069481: the `re-falsify` leg went red on a push to main,

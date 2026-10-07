@@ -307,8 +307,8 @@ silence for a clean bill.
 
 ## See also
 
-- design/roadmap/81-hvf-leg.md (the block)
-- design/roadmap/222-hvf-leg-fails-silently.md (milestone 222, why the leg skips rather than fails)
+- design/roadmap/0081-hvf-leg.md (the block)
+- design/roadmap/0222-hvf-leg-fails-silently.md (milestone 222, why the leg skips rather than fails)
 - notes/scripts.md (`script/ci-build` and `script/test`, and where the leg sits in them)
 - notes/load-sensitive-assertions.md (milestone 78: the family both failures belong to)
 - notes/benchmarks.md (`--real`, the other HVF caller, and the exit trick this leg reuses)

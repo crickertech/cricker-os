@@ -185,7 +185,7 @@ _start:
 
     # --- 2f. NX, checked HERE because the next step is what would fault ---
     #
-    # The first of three boot gates (design/roadmap/524-the-three-x86-64-boot-gates.md). The other
+    # The first of three boot gates (design/roadmap/0524-the-three-x86-64-boot-gates.md). The other
     # two are checked in Rust by arch::x86_64::isa::init, where the console exists and a refusal
     # can be read. This one cannot wait for that: step 3 below sets EFER.NXE, and on a part without
     # NX that bit is reserved, so `wrmsr` raises #GP with no IDT installed, which escalates to a

@@ -30,7 +30,7 @@
 //! and six roles becoming six programs means it would have to name an entry per role instead.
 //! That is a boot-path change rather than a fixtures change, and it is the one piece 291 did not
 //! take. See
-//! `design/roadmap/291-one-program-one-job.md`.
+//! `design/roadmap/0291-one-program-one-job.md`.
 //!
 //! # Bugs
 //!
@@ -72,13 +72,13 @@ use user_mode_runtime::{exit, irq_wait, map_page_frame, receive, send};
 /// Roles, as passed in `x0` by the kernel.
 // Roles 0, 2, 7, 9 to 19 and 42 were the milestone 7-19 capability demonstrations and the granted
 // cycle-counter reader. Every one of them is its own program in `fixtures/src/` since milestone
-// 291, and the whole table is in `design/roadmap/291-one-program-one-job.md`. Roles 1 and 3 to 6
+// 291, and the whole table is in `design/roadmap/0291-one-program-one-job.md`. Roles 1 and 3 to 6
 // had left over 19f, 27 at 266, and 8, 13 and 30 to 40 at 291, which found them already duplicated
 // in `components/src/block_driver.rs`.
 //
 // **The numbers are not reused and the gaps are not tidied.** A role number is the word the kernel
 // puts in `x0`, so it is a value the kernel's test wiring and this file agree on, and
-// `design/roadmap/301-one-grant-order-for-the-progenitor.md` records six `spawn_hello`
+// `design/roadmap/0301-one-grant-order-for-the-progenitor.md` records six `spawn_hello`
 // tests that name them. Renumbering would be an edit to a wire value bought with nothing.
 const INIT: u64 = 20;
 const CHILD: u64 = 21;

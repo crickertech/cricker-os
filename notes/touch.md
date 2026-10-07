@@ -185,7 +185,7 @@ mtime probes are not (yet) independently witnessed from the host, see `BUGS`.
   narrow, read-only half. **Since 2026-09-19 it reaches `std` too**: milestone 64 bound
   `Metadata::modified` to `GETMTIME`, so every std program reading a file this system wrote gets the
   counter as a `SystemTime` in early 1970 (notes/std/file-times.md). Proposed as
-  design/roadmap/497-a-filesystem-server-that-knows-the-time.md.
+  design/roadmap/0497-a-filesystem-server-that-knows-the-time.md.
 - **`-t` accepts RFC 3339, not Unix's compact `[[CC]YY]MMDDhhmm[.ss]]`.** See "`-t`'s syntax" above
   for why. A script written against Unix's `touch -t` syntax will not work unmodified here.
 - **No `-c` (don't create)**, because Unix's `-c` exists to suppress the create half, and there is

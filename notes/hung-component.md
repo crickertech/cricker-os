@@ -179,7 +179,7 @@ retransmit window does (`wait_for_nic`, and milestone 106 (wait) records the pri
 A citation to fix while passing through, because it is the exact failure `script/decisions
 --check` cannot catch: milestone 106's block attributes the fork's three candidate shapes to
 "DECISIONS §51 (sink)" twice, and §51 is *the sink protocol*. The three shapes are in milestone 51 (wall)'s
-roadmap block (`design/roadmap/51-wall-clock-time.md`, its rejected-alternatives list). §N and
+roadmap block (`design/roadmap/0051-wall-clock-time.md`, its rejected-alternatives list). §N and
 milestone N are colliding schemes, the gate proves only that a cited §N resolves to *some* section,
 and a well-formed wrong citation is invisible to it. Corrected in 106's block by this lane.
 
@@ -468,9 +468,9 @@ cooperates).
   why a deadline is not a manifest field; notes/process-view.md for `SURVEY` and `ENUMERATE`
 - notes/deadlock.md for the four Coffman conditions and why detection means killing somebody;
   notes/supervision.md, notes/teardown.md, notes/sink-protocol.md (`abi::Error::Gone`)
-- design/roadmap/106-deadline-wait.md and design/roadmap/51-wall-clock-time.md for the timed-wait fork
+- design/roadmap/0106-deadline-wait.md and design/roadmap/0051-wall-clock-time.md for the timed-wait fork
   and its three candidate shapes, which five consumers now want;
-  design/roadmap/62-time-sensitive-tests.md for the progress-versus-duration argument this note
+  design/roadmap/0062-time-sensitive-tests.md for the progress-versus-duration argument this note
   borrows, and 78 for the assertions it is currently removing
 - Prior art: MINIX 3's reincarnation server (which does poll, with a per-service timeout an
   administrator sets), QNX's high-availability manager, Erlang/OTP supervisors, and the Linux kernel's

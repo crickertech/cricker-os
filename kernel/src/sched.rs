@@ -700,7 +700,7 @@ pub(crate) const MAX_RENDEZVOUS: usize = 512;
 /// else back, so every test that wires a service with [`create_rendezvous`] spends the registry
 /// for the rest of the boot. The fix the lane of milestone 152 used on its own test is the
 /// pattern: retype the endpoint from the run's own region, so it goes when the region does.
-/// `design/roadmap/671-tests-retype-their-rendezvous-from-their-own-region.md` is that work
+/// `design/roadmap/0671-tests-retype-their-rendezvous-from-their-own-region.md` is that work
 /// across the suite. Reports and does not gate, for [`MAX_THREADS`]'s reason.
 static PEAK_RENDEZVOUS: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(0);
 static KERNEL_CHUNK_RENDEZVOUS: core::sync::atomic::AtomicUsize =
@@ -4263,7 +4263,7 @@ pub fn ipc_receive_cap(ep: RendezvousId) -> [u64; 5] {
 /// unrelated `CALL` is that [`strand_reply_caller`] deletes it, not that [`ipc_reply`]'s guard could
 /// tell the two conversations apart. A future path that reached `ipc_reply` without presenting a
 /// capability would reopen that. The structural fix is a call identity in the payload:
-/// `design/roadmap/371-a-reply-capability-that-names-a-call.md`.
+/// `design/roadmap/0371-a-reply-capability-that-names-a-call.md`.
 // Inlined so the unbadged fastpath (`ipc_call_reply`, the shape real services run and the one
 // `script/icount` measures) gains no call frame: this forwards to `ipc_call_badged` with badge 0,
 // which writes the same mailbox word 3 it always did.
@@ -5309,7 +5309,7 @@ fn reap_region_objects(base: u64, end: u64) -> Result<(), ()> {
     // --- Finish phase: end every resident the arm below could never reach (milestone 133). ---
     //
     // **This is proposal A, "`DESTROY` finishes what it starts"** (calef, 2026-09-03;
-    // design/roadmap/133-blocked-thread-teardown.md, and notes/blocked-thread-teardown.md for the
+    // design/roadmap/0133-blocked-thread-teardown.md, and notes/blocked-thread-teardown.md for the
     // four proposals and the survey they came from). The refuse phase below arms DECISIONS §16's
     // kill, `schedule()` spends that kill only for a thread whose state is `Running`, and a thread
     // blocked on a rendezvous nobody will ever serve never becomes `Running` again. So the arm was

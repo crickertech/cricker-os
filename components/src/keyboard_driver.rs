@@ -19,7 +19,7 @@
 //! actually sees them (DECISIONS §33). [`MODE_DIRECT`] is milestone 177's: for a boot with exactly
 //! one terminal, there is no second window to misdirect a keystroke to, so the problem the
 //! compositor's focus arbitration solves does not exist in this journey's scope
-//! (design/roadmap/177-graphical-interactive-boot.md's own reasoning). The driver instead holds a
+//! (design/roadmap/0177-graphical-interactive-boot.md's own reasoning). The driver instead holds a
 //! fixed `CALL` capability to `line_editor`'s own served endpoint, granted at spawn, and sends
 //! every keystroke there directly, byte for byte the same [`line_editor::proto::OPERATION_BYTES`] framing
 //! `components/src/input.rs`'s UART driver already uses to feed the very same endpoint. **Not** a

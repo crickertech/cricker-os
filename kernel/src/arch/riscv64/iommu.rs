@@ -45,7 +45,7 @@
 //!   from an attached device is still bounded by the `iosatp` domain rather than escaping it. **No
 //!   boot here has tested that**, nothing forges an MSI, and `MSI page table offered (mode off)`
 //!   in the machine description is a report of the capability bit, not of any behaviour.
-//!   See design/roadmap/317-interrupt-remapping-flags.md.
+//!   See design/roadmap/0317-interrupt-remapping-flags.md.
 //! - **Untestable on the silicon this project owns, which inverts `x86_64`'s position.** The
 //!   comment below on `CAP_MSI_FLAT` notes that real silicon without MSI support reports
 //!   otherwise, and that branch has run zero times: no board shipping the ratified RISC-V IOMMU

@@ -136,7 +136,7 @@ re-derived numbers, their six unsafe categories run against this tree file by fi
 And the meta-gap is the one worth closing. `notes/tcb.md` is about the *Thread* Control Block,
 and its own acronym-collision section says the Trusted Computing Base sense *"is unrelated"*. No
 metric column tracks the trusted core's size, so the split above is a snapshot with nothing watching
-it. Proposed as `design/roadmap/535-the-trusted-core-has-no-size.md` rather than fixed here.
+it. Proposed as `design/roadmap/0535-the-trusted-core-has-no-size.md` rather than fixed here.
 
 ## Corrections to the sketch this lane was briefed with
 
@@ -503,5 +503,5 @@ moved since January 2022.
   history and was not verified against a 2026 nightly. Treat it as unconfirmed.
 - Nothing here is a positioning statement, on purpose. The comparison is laid out and the
   concluding sentence is not written, the same way
-  `design/roadmap/528-cheri-capabilities-are-not-these-capabilities.md` stops short of one.
+  `design/roadmap/0528-cheri-capabilities-are-not-these-capabilities.md` stops short of one.
   Where nife stands relative to RedLeaf is an architect's to say.

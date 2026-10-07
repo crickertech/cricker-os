@@ -29,7 +29,7 @@ fn main() {
     // (`/chosen/bootargs`, which this kernel does not parse), x86_64 arrives through PVH with no
     // device tree at all. One `env!` is the same mechanism on all three, needs no parsing, and
     // costs a kernel relink (measured at about 2.3 s) when the filter changes, against the 53 s of
-    // suite it replaces. See design/roadmap/210-run-one-kernel-test.md.
+    // suite it replaces. See design/roadmap/0210-run-one-kernel-test.md.
     //
     // `rerun-if-env-changed` is what makes changing the filter actually rebuild; without it a
     // second run with a different filter would silently reuse the first one's binary, which is the

@@ -94,7 +94,7 @@ type Share = (&'static [u8], &'static [u8], &'static [u8], &'static [u8]);
 
 /// **Three shares, one per family member**, each with its own account name and password, which is
 /// what "a secret is scoped to a resource rather than to an identity" means in practice
-/// (design/roadmap/65-secrets-service.md). A leaked key here authenticates to one share and to
+/// (design/roadmap/0065-secrets-service.md). A leaked key here authenticates to one share and to
 /// nothing else, because there is nothing else it is the credential for.
 ///
 /// The **first** uses [MS-NLMP] §4.2.1's account (`Domain\User`, password `Password`), which is

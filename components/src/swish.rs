@@ -71,7 +71,7 @@
 //! thing a confined program can forge here.
 //!
 //! **A spawned command that faults no longer hangs the prompt, and here is what it costs**
-//! (milestone 235, design/roadmap/235-a-faulted-job-should-reach-the-prompt.md). This shell waits
+//! (milestone 235, design/roadmap/0235-a-faulted-job-should-reach-the-prompt.md). This shell waits
 //! on the job's result endpoint and a thread the kernel killed never sends on it, so until
 //! `grant_plan::spawnproto::JOB_FAULTED` existed the wait had nothing to wake it. `job_undertaker`
 //! now sends that word after collecting the corpse, this shell prints

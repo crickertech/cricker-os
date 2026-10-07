@@ -152,7 +152,7 @@ while building it. Run 2 leaked the constitution. Run 3 leaked the fact of being
 than the in-tree references and before the stranger had read anything. The in-tree leak fired too,
 as the `BUGS` entry predicts it always will. The README cites runs 1 and 2 by name, and
 `notes/adding-a-program.md` is saturated with them. The stranger met both and still never opened
-`design/roadmap/117-newcomer-onboarding.md`, so the answer key held. The fix for run 4 is one line:
+`design/roadmap/0117-newcomer-onboarding.md`, so the answer key held. The fix for run 4 is one line:
 the log files go in a sibling directory, not the parent.
 
 Three smaller costs, all pre-registered except the second. The machine was warm, so B2 measures

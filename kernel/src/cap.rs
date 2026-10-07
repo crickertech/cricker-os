@@ -230,7 +230,7 @@ const _: () = assert!(core::mem::size_of::<Cap>() == 32);
 /// (`channel.result`, `channel.region`, two more) plus login's own resting footprint (eight granted
 /// capabilities, `own_ut`, `channel_ut`, ten more) is sixteen simultaneous slots, one past the
 /// fifteen usable. Every other avenue was considered and rejected first (see
-/// `design/roadmap/49-users-and-attribution.md`'s own account): none of `own_ut`, `channel_ut`, the
+/// `design/roadmap/0049-users-and-attribution.md`'s own account): none of `own_ut`, `channel_ut`, the
 /// caretaker's `region`/`narrow_ep`/`ready` triple, or the channel's own objects can be merged or
 /// deferred without reopening a bug this tree already paid to fix (the 368-page LIFO hole, or the
 /// permanently-unreclaimable caretaker). This constant's own comment already names the cost of
@@ -293,7 +293,7 @@ const _: () = assert!(core::mem::size_of::<Cap>() == 32);
 /// 2,112 bytes idle (`crate::thread`'s page-fit assertion is the check), and no static memory. The
 /// free-slot word widened from `u32` to `u64` with it, and the fault slot, derived, moves from 31
 /// to 63. Whether a table should be sized for its process instead is
-/// `design/roadmap/778-capability-tables-sized-per-process.md`.
+/// `design/roadmap/0778-capability-tables-sized-per-process.md`.
 pub const CAPABILITY_TABLE_SLOTS: usize = 64;
 
 // **The free-slot word is a `u64`, so sixty-four is also the ceiling the type allows** (milestone

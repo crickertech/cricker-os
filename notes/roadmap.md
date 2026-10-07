@@ -30,9 +30,10 @@ $ script/roadmap                  # every milestone that is not BUILT, grouped b
 
 ## The task: add a milestone to the roadmap
 
-You are a lane, you have been given milestone `N`, and you want it on the roadmap.
+You are a lane given milestone `N`, and you want it on the roadmap.
 
-1. Write `design/roadmap/N-<slug>.md`. It opens with frontmatter, then `# N. <title>`:
+1. Write `design/roadmap/NNNN-<slug>.md`, the number padded to four digits. It opens with
+   frontmatter, then `# N. <title>`:
 
    ```markdown
    ---
@@ -57,7 +58,7 @@ You are a lane, you have been given milestone `N`, and you want it on the roadma
 3. Name what you considered taking, in a `Reuse:` line or a `## Reuse` section, or write
    `none exists` and where you searched. §46 (thin primitives or whole subsystems) makes taking the
    default outside the kernel and the crates Kani proves; `--check` requires this from 2026-10-05.
-4. That is the whole procedure. There is no table to update and no regeneration to wait for.
+4. That is the whole procedure: no table to update, no regeneration to wait for.
 
 ### EXAMPLES
 
@@ -71,7 +72,7 @@ roadmap: 280 of them classified by gate, 154 ready to start (script/roadmap --re
 $ script/roadmap --index | head -3     # the five columns, for the two scripts that read them
 | #  | Status | Milestone | Why it matters (§14) | Built |
 |----|--------|-----------|----------------------|------------|
-| 1 | BUILT | [First boot][01-first-boot.md] | ... | 2026-07-12 |
+| 1 | BUILT | [First boot][0001-first-boot.md] | ... | 2026-07-12 |
 ```
 
 ## The vocabularies
@@ -514,4 +515,4 @@ get frontmatter too) proved its migration the same way.
   as the reason a directory beats a single file.
 - Nothing publishes any of this. calef's sentence retiring the table named a website as where
   the project plan eventually goes; there is no publishing story today, and the gap is written up
-  in `design/roadmap/565-a-website-for-the-project-plan.md`.
+  in `design/roadmap/0565-a-website-for-the-project-plan.md`.

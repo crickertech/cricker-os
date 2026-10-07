@@ -23,7 +23,7 @@ cinch the ratchet behind it) lowered it from 100 to 97, then 96, then 95, then 9
 the block count further but left the truncated density, and therefore the ceiling, unchanged.
 This text said 94 was the ceiling until 2026-09-24. The live gate in notes/unsafe-obligations.md
 is 88 on that date (corrected 2026-09-24). The drift was recorded by
-design/roadmap/522-a-boundary-drawn-by-dependency-not-by-path.md. See notes/unsafe-obligations.md
+design/roadmap/0522-a-boundary-drawn-by-dependency-not-by-path.md. See notes/unsafe-obligations.md
 for the measurement behind the ceiling.
 
 The unsafe rows did not exist when milestone 134 (the register of measures: every number this
@@ -102,7 +102,7 @@ one.
 
 The Tier B measures are not duplicated into the Owed table. They already have a home that carries
 each one's instrument, its prediction, and what its outcome settles:
-design/roadmap/134-the-measurements-that-decide.md. Two open kernel decisions were waiting on the
+design/roadmap/0134-the-measurements-that-decide.md. Two open kernel decisions were waiting on the
 Tier A half. §95 (a hand-written IPC fastpath, and whether it can stay proven) and §96 (process
 kernel or event kernel, and how to decide it) both recommend waiting for the TX1. The block's own
 correction is that both over-gated, because the experiments that produce a verdict need no silicon.

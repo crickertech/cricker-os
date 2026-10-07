@@ -7,7 +7,7 @@ seven other systems solve the same problem, maps each onto this kernel, and lays
 by side.*
 
 The fork is answered. calef chose proposal A on 2026-09-03, and milestone 133 (ending) built it
-(design/roadmap/133-blocked-thread-teardown.md). Everything below is kept as it was written, because
+(design/roadmap/0133-blocked-thread-teardown.md). Everything below is kept as it was written, because
 the argument is what the decision was made against and a note edited into agreement with its own
 outcome is worth nothing to the next reader. What changed against the text: the mechanism landed in
 `sched::finish_blocked_resident` and `RegionReap::FinishInPlace`; `Endpoint` is spelled
@@ -713,7 +713,7 @@ the top of `schedule`, which never reaches `depart`), or it is reaped with its r
 the rendezvous teardown this note named. All four call one helper, `sched::strand_reply_caller`,
 which sweeps every `Object::Reply` naming the caller **before** aborting and waking it. The scan for
 reply-parked callers rescans rather than listing, for the stack reason `reap_region_objects` already
-argues at length. See design/roadmap/254-a-caller-stranded-by-a-dead-server.md.
+argues at length. See design/roadmap/0254-a-caller-stranded-by-a-dead-server.md.
 
 **What it costs.** Piece 1 is small and is arguably a bug fix rather than a feature: a caller stranded
 by a *dead* server is stranded today, which QNX has not permitted since the 1990s and which nothing in
@@ -873,12 +873,12 @@ pins.
 
 What neither can test is the *negative* the argument rested on: nothing proves the sweep runs at
 every future way a server can stop answering, and nothing states the guard's rule anywhere a checker
-can read it. That is `design/roadmap/371-a-reply-capability-that-names-a-call.md`, and it is
+can read it. That is `design/roadmap/0371-a-reply-capability-that-names-a-call.md`, and it is
 rung one where both sweeps are rung two.
 
 **The claim that `WaitRole` enumerates every blocked thread depends on every block site calling
 `park`, and milestone 133 made that claim load-bearing rather than diagnostic**
-(`design/roadmap/366-a-block-site-that-writes-blocked-by-hand.md`). `thread_wake_handshake`'s own `BUGS` says nothing enforces that: the fields are public because the
+(`design/roadmap/0366-a-block-site-that-writes-blocked-by-hand.md`). `thread_wake_handshake`'s own `BUGS` says nothing enforces that: the fields are public because the
 kernel has legitimate out-of-protocol writers, so a future block site writing `state = Blocked`
 directly opts out silently and would leave `wait_on` stale. Proposals A, B and C all unlink using
 `wait_on`, so all three inherit that as their sharpest failure mode. I did not audit every write of

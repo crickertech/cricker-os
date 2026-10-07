@@ -13,7 +13,7 @@
 //! harness could reach it, because the `csrr` that fed it was in the same function.
 //!
 //! So the rule for this directory, riscv64 first (see
-//! design/roadmap/589-kani-can-target-riscv64-from-the-hosts-we-have.md, "Containment,
+//! design/roadmap/0589-kani-can-target-riscv64-from-the-hosts-we-have.md, "Containment,
 //! priced"): **logic calls these, and these contain nothing but the instruction.** A harness then
 //! replaces one with `#[kani::stub]` and a model, and the logic that called it becomes reachable.
 //! notes/kernel-proofs/stubbing-an-instruction.md has the pattern and its caveat.

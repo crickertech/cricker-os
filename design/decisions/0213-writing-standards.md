@@ -194,7 +194,7 @@ mostly load-bearing contrast, and they are this tree's actual idiom (*a fact rat
 
 Rule 3 fails every document in the tree, so a cliff would be 994 instant failures and a migration
 project nobody wants. The gate sits at rung 2 of the `AGENTS.md` ladder, a check that fails loudly,
-and it is [milestone 586 (a prose ratchet in lint)](../roadmap/586-a-prose-ratchet-in-lint.md), shared with §212's.
+and it is [milestone 586 (a prose ratchet in lint)](../roadmap/0586-a-prose-ratchet-in-lint.md), shared with §212's.
 #1230 built it on 2026-09-24 as `helpers/prose_ratchet.py`, run by `script/lint`. The milestone
 is PARTIAL: one week of baseline-churn measurement remains.
 

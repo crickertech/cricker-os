@@ -154,7 +154,7 @@ you which parts of the contract are QEMU artifacts, and that reason does not sur
 - **And the board the hold names has no IOMMU at all.** Milestone 143 (silicon IOMMU) exists to
   carry the RISC-V IOMMU driver to hardware, and milestone 16's block says why it is separate: it
   "waits on a board that ships the ratified RISC-V IOMMU spec and no such board exists today"
-  (`design/roadmap/16-real-hardware-iommu.md`). The JH7110 is not that board. So on radon, option 2's
+  (`design/roadmap/0016-real-hardware-iommu.md`). The JH7110 is not that board. So on radon, option 2's
   entire confinement story is absent, and a real-silicon NVMe experiment there confines nothing
   unless something in software does. Waiting for milestone 163 (the JH7110's PCIe root complex) to
   decide §86 would deliver a data point in which option 2 cannot be evaluated.

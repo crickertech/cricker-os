@@ -100,7 +100,7 @@ It became milestone 244, and the answer was not the expected one. The lane measu
 mutants by function before moving anything. 33 sit in pure logic and 157 in the syscall sequence,
 about sixty lines of a 2,632-line file, so nothing was lifted and the block records why. What did
 change the tree is the exclusion above and the gate behind it. See
-`design/roadmap/244-the-largest-crate-in-the-tree-is-proved-by-nothing.md`. Its most reusable line
+`design/roadmap/0244-the-largest-crate-in-the-tree-is-proved-by-nothing.md`. Its most reusable line
 is the method: **`cargo mutants --list -p <crate>` attributes every mutant to its enclosing
 function.** So "where are this crate's mutants" is one command, worth running before any lane
 proposes to restructure code for testability.

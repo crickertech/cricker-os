@@ -356,7 +356,7 @@ pub const fn is_authenticated(r0: u64) -> bool {
 pub mod fixture {
     /// The resource the SMB gate's share authenticates against: the name its NTLM key is stored
     /// under. A *resource* rather than an account, which is milestone 65's model
-    /// (design/roadmap/65-secrets-service.md): a secret is scoped to the thing it opens.
+    /// (design/roadmap/0065-secrets-service.md): a secret is scoped to the thing it opens.
     pub const SMB_RESOURCE: &[u8] = b"backups-chris";
     /// The password behind it. Published by Microsoft; secret to nobody.
     pub const SMB_PASSWORD: &[u8] = b"Password";
@@ -368,7 +368,7 @@ pub mod fixture {
 
     /// **The three people every credential fixture in this tree authenticates** (milestone 293).
     ///
-    /// Three, matching the three family members design/roadmap/56-secrets-and-entropy.md says the
+    /// Three, matching the three family members design/roadmap/0056-secrets-and-entropy.md says the
     /// real deployment serves. They were hand-copied in three places until this constant existed:
     /// `credentialer_test_client`'s own `PEOPLE`, `login_test_client`'s role-to-credential lookup,
     /// and `kernel::user::identity_provisioning_tests`, whose comment said out loud that it had

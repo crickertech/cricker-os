@@ -166,7 +166,7 @@ const VERIFY_WINDOW: MappedWindow = unsafe { MappedWindow::new(VERIFY_VA, proto:
 /// How many secrets the store holds. **Six: three logins and three shares.**
 ///
 /// Three, because calef's existing setup serves three family members with separate passwords
-/// (design/roadmap/56-secrets-and-entropy.md). Doubled by milestone 65, because each of those
+/// (design/roadmap/0056-secrets-and-entropy.md). Doubled by milestone 65, because each of those
 /// family members also has a Time Machine share with its own account and password, and a secret
 /// here is scoped to a *resource* rather than to a person. Three family members therefore means
 /// at least three shares, which is why multi-share is the deliverable rather than a later

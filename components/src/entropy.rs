@@ -51,7 +51,7 @@
 //! because a caller who cannot be given randomness must not be told otherwise (DECISIONS §42).
 //!
 //! Name: ratified 2026-09-14 (calef, working the unratified worklist), confirming milestone 63's
-//! name table (design/roadmap/63-name-spellings.md). Introduced 2026-07-30 with milestone 56. The
+//! name table (design/roadmap/0063-name-spellings.md). Introduced 2026-07-30 with milestone 56. The
 //! same argument `clock` carries, made in the same sentence: 63 cites the two together as the
 //! resource-name pattern it departed from for `credentialer`, on the ground that a credential
 //! service never hands you a credential. This service does hand you entropy, so the pattern holds.
@@ -103,7 +103,7 @@
 //! 2^-2048 for the virtio backend's 256-byte bufferful and 2^-64 for the instruction backend's
 //! eight bytes. The trade is deliberate and is stated where the contract is:
 //! `entropy_protocol`'s own `BUGS`, and the roadmap block that recorded the defect
-//! (`design/roadmap/159-jh7110-trng-driver.md`, "The bench ran it, 2026-09-04").
+//! (`design/roadmap/0159-jh7110-trng-driver.md`, "The bench ran it, 2026-09-04").
 //!
 //! **A condemned backend does not recover.** There is no path back short of restarting the
 //! service, even if the device starts producing bytes a moment later.

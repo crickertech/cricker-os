@@ -685,7 +685,7 @@ struct Device {
 /// eighth receipt did first: its genuine and tampered fetches share one `net_stack`, so the bump is
 /// one slot, not two. **This is an exception and a foot gun**: the next device will want 35, and
 /// the right answer to that lane is the generational unregister, proposed as
-/// `design/roadmap/647-a-virtio-slot-comes-back-when-its-driver-dies.md`.
+/// `design/roadmap/0647-a-virtio-slot-comes-back-when-its-driver-dies.md`.
 const MAX_DEVICES: usize = 34;
 
 /// The device table, fixed. `get`/`get_mut` mirror the slice API the call sites already used.

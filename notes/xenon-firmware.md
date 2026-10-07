@@ -87,7 +87,7 @@ bench and photograph a screen" into "read the DMAR", which is code this kernel c
 and a lane can write without a null modem. `notes/confinement-claims.md`'s fifth claim (a confined
 component's MSI-X write is a memory write, so DMA remapping does not cover it, which is why VFIO
 refuses userspace drivers without interrupt remapping) stays latent, and now has a defined next
-step. A proposal is filed: `design/roadmap/378-read-the-dmar-on-xenon.md`.
+step. A proposal is filed: `design/roadmap/0378-read-the-dmar-on-xenon.md`.
 
 ### A number that disagrees with the boot tour, recorded rather than resolved
 
@@ -472,4 +472,4 @@ list rather than a disclaimer.
   see "A number that disagrees with the boot tour" above.
 - A ticked `Enable VT for Direct I/O` is a firmware intention, not an observed IOMMU. Nothing in
   this tree has read xenon's DMAR. The proposal that would is
-  `design/roadmap/378-read-the-dmar-on-xenon.md`.
+  `design/roadmap/0378-read-the-dmar-on-xenon.md`.

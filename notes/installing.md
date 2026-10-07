@@ -2,7 +2,7 @@
 
 Milestone 198 (a package manager, and the trivial install that makes a second customer possible),
 rung 2a, built 2026-09-21. [Milestone 515 (a stick that puts itself on the machine's
-disk)](../design/roadmap/515-the-installer-a-stick-runs-to-put-itself-on-the-disk.md) is the
+disk)](../design/roadmap/0515-the-installer-a-stick-runs-to-put-itself-on-the-disk.md) is the
 proposal this follows, and where it was priced; what is here is what was built, what it measured,
 and the three things the building changed.
 

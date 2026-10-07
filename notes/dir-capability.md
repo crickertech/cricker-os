@@ -402,7 +402,7 @@ Known limitations, next to the feature rather than only in a tracker.
   lane's: a narrowing verb on the contract (small in the server, `Rights::attenuate` with no name
   resolution, and a permanent addition to something two programs agree on), or a boot whose
   interactive shell is rooted one component below the image root, which costs nothing on the wire and
-  changes what every other command means. Recorded in `design/roadmap/31-capability-shell.md` rather
+  changes what every other command means. Recorded in `design/roadmap/0031-capability-shell.md` rather
   than guessed at.
 - **A grant whose directory is not there reads as "the progenitor is out of memory" at the prompt.** The
   caretaker answers `DESCENT_REFUSED` and the progenitor does the right thing with it (nothing is spawned, and

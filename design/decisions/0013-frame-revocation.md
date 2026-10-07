@@ -28,7 +28,7 @@ granularity, which nothing on the roadmap needs, so by §4 it waits for a driver
 terminal design, not a way-station: if subtree revoke is ever required, the machinery here
 (unmap-from-any-address-space, the revoke-before-reclaim discipline, `untyped::destroy`) is reused
 unchanged, and only the index (an object-to-holders list) is rebuilt as a tree.
-design/roadmap/13-capability-revocation.md has the argument.
+design/roadmap/0013-capability-revocation.md has the argument.
 
 ## The mechanism
 

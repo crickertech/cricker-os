@@ -414,7 +414,7 @@ somebody reading the PAL and this page together.
 | 25 | `fs::rename` | CLOSED, milestone 64 | 2 | 2 | bound on `RENAME`; undercounted, see BUGS |
 | 26 | `fs::copy` | CLOSED 2026-08-17 | 2 | 2 | needs no verb: an open, a read/write loop, two closes |
 | 27 | `fs::canonicalize` | `Unsupported` | 2 | 1 | |
-| 28 | `File::set_times` | `fs::set_times` CLOSED 2026-09-19; `File::set_times` still `Unsupported` | 2 | 1 | `SETMTIME_AT` sets by name, needing `dir::WRITE` and `dir::SETTIME` (§112 (touch's two behaviors need two rights)); a handle has no name, so the `File` form is design/roadmap/504-an-mtime-for-an-open-file.md |
+| 28 | `File::set_times` | `fs::set_times` CLOSED 2026-09-19; `File::set_times` still `Unsupported` | 2 | 1 | `SETMTIME_AT` sets by name, needing `dir::WRITE` and `dir::SETTIME` (§112 (touch's two behaviors need two rights)); a handle has no name, so the `File` form is design/roadmap/0504-an-mtime-for-an-open-file.md |
 | 29 | `File::try_clone` | `Unsupported` | 2 | 1 | a handle is one session's token (§27) |
 | 30 | `File::lock`/`try_lock` | `Unsupported` | 2 | 1 | `gix-tempfile` |
 | 31 | read/write timeouts | `Unsupported` | 1 | 1 | |
@@ -468,7 +468,7 @@ Declined, and each for a reason rather than for time:
   (DECISIONS §112), which made both rows PAL bindings; this note went on calling them wire-format
   decisions for three weeks. What is still refused is the open-`File` form of each, because the
   verbs take a name and a handle has none; that one genuinely is a wire change, and it is proposed
-  in design/roadmap/504-an-mtime-for-an-open-file.md.
+  in design/roadmap/0504-an-mtime-for-an-open-file.md.
 - Rank 19, `Metadata::modified`. The nearest miss on the list. The FS server keeps an mtime and
   §43 gave us a clock to read it against, so the only missing piece is a **field in `FSTAT`'s
   reply**, which makes it a wire-format change, the expensive and irreversible kind, and not a

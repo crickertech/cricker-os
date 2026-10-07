@@ -185,7 +185,7 @@ not grow in order to be measured. Seven jobs stand in for AIM7's categories: a c
 shared server, and (since 2026-09-19) a page-mapping job and a process-creation job that build
 their objects from a per-task untyped budget. `crates/job_mix`'s `BUGS` records the one category
 still missing (disk-file operations) and why, and
-`design/roadmap/493-a-disk-file-job-mix-needs-a-disk-radon-can-drive.md` carries the options.
+`design/roadmap/0493-a-disk-file-job-mix-needs-a-disk-radon-can-drive.md` carries the options.
 
 So this is not AIM7 and no number from it is comparable with an AIM7 number. It is an
 AIM7-*shaped* instrument for a capability microkernel.

@@ -351,7 +351,7 @@ in the same place.
   the boundary, what never does, and the cost of storing a password-equivalent key at all.
 - The store holds six secrets, three logins and three shares, and that is a compiled-in
   constant rather than a policy anything reads. It is sized to the requirement
-  (design/roadmap/56-secrets-and-entropy.md's three family members, each of whom also has a Time
+  (design/roadmap/0056-secrets-and-entropy.md's three family members, each of whom also has a Time
   Machine share), which is what makes "the seventh is refused" a thing the tests show rather than a
   branch nothing reaches. A real deployment with a fourth person edits a constant and rebuilds.
 - One verify page means one client at a time. The page is per service, not per channel, so two

@@ -346,7 +346,7 @@ def selftest():
         "xtask/Cargo.toml": '[package]\nname = "xtask"\n',
         "xtask/src/manual.rs": 'const B: &[&str] = &["notes/pipes.md"];\n',
         "script/lint": '# reads notes/lint-comment.md\nls "notes"\n',
-        "notes/plain.md": None, "notes/pipes.md": None, "design/roadmap/1-x.md": None,
+        "notes/plain.md": None, "notes/pipes.md": None, "design/roadmap/0001-x.md": None,
     }
 
     def run(changed, extra=None):
@@ -359,7 +359,7 @@ def selftest():
     p, t, r = run(["kernel/src/main.rs"])
     cases.append(("code", p is False and r[0].startswith("RUN")))
     # Docs only, under a directory nothing walks: skips, no tests owed.
-    p, t, r = run(["design/roadmap/1-x.md"])
+    p, t, r = run(["design/roadmap/0001-x.md"])
     cases.append(("docs only", p is True and t == [] and r[0].startswith("SKIP")))
     # Docs under a walked directory: skips, and owes the walker's package tests.
     p, t, r = run(["notes/plain.md"])
@@ -380,7 +380,7 @@ def selftest():
     p, t, r = run(["notes/commented.md", "notes/lint-comment.md"])
     cases.append(("comments are not readers", p is True))
     # Mixed: one prose file and one code file runs everything.
-    p, t, r = run(["design/roadmap/1-x.md", "Cargo.lock"])
+    p, t, r = run(["design/roadmap/0001-x.md", "Cargo.lock"])
     cases.append(("mixed", p is False and t == []))
     # Markdown outside the prose directories (a crate README) is not prose.
     p, t, r = run(["crates/abi/README.md"])
@@ -401,7 +401,7 @@ def selftest():
     p, t, r = run(["notes/plain.md"], {"script/x": 'cat "$root/notes/plain.md"\n'})
     cases.append(("bare path in a script", p is False))
     # A glob over a prose directory is a directory read.
-    p, t, r = run(["design/roadmap/1-x.md"],
+    p, t, r = run(["design/roadmap/0001-x.md"],
                   {"crates/abi/src/lib.rs": 'let g = glob("design/roadmap/*.md");\n'})
     cases.append(("glob reader", p is True and "abi" in t))
 

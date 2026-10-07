@@ -11,7 +11,7 @@ the timer drift twins in `kernel/src/arch/riscv64/timer.rs` and `kernel/src/arch
 
 On 2026-08-03 five distinct assertions had failed pull requests that changed no executable code.
 The roadmap block holds the evidence table
-([design/roadmap/78-load-sensitive-assertions.md](../../design/roadmap/78-load-sensitive-assertions.md);
+([design/roadmap/0078-load-sensitive-assertions.md](../../design/roadmap/0078-load-sensitive-assertions.md);
 the old text said `design/roadmap.md`, corrected 2026-09-24). This appendix records what was done
 about each and why. The verdicts are per assertion, and the arguments are the deliverable.
 

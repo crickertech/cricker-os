@@ -514,7 +514,7 @@ constructions), which is still a real reduction by this milestone's own test -- 
 raw-pointer assertion replaced by a typed, bounds-checked abstraction -- even though it does not
 move that one file's own block count. The checked bound is a genuine soundness improvement the
 hand-written copies never had: a wrong offset used to be a silent out-of-bounds volatile access,
-and is now a panic naming the access. Full account in `design/roadmap/139-drive-down-unsafe.md`.
+and is now a panic naming the access. Full account in `design/roadmap/0139-drive-down-unsafe.md`.
 
 The new ceiling keeps 7 points of headroom above the density this reduction actually reached
 (90.8, truncated to 90), the same absolute headroom the original 100-vs-93 ceiling carried,
@@ -635,7 +635,7 @@ ticks/access on aarch64 (8 to 12) and ~0.6 on riscv64 (1.4 to 2.0), flat across 
 8,192 accesses. Total overhead at the largest volume, 8,192, is ~29,000 aarch64 ticks -- under 30
 `ipc_rtt` round trips (1,017 ticks each), inside a one-shot test that already pays several of those
 round trips plus, for `display.rs`, a real device DMA completion at ~200 us wall clock. Negligible on
-both ISAs; full readings in design/roadmap/139-drive-down-unsafe.md. The comparison itself was not
+both ISAs; full readings in design/roadmap/0139-drive-down-unsafe.md. The comparison itself was not
 kept in the tree: it settled a one-time question rather than an ongoing primitive, and keeping it
 would have cost this ceiling two more `unsafe {` blocks (one per loop) for a diagnostic that does not
 need to be regression-gated forever, working directly against the number it was written to inform.
@@ -684,7 +684,7 @@ this idiom "for the identical hardware" was checked and found false (that driver
 volatile access on purpose, because the NS16550's register stride is a runtime value no
 compile-time layout macro can express, per its own module doc), and the same fact holds for these
 two files' riscv64 halves, which hard-code QEMU's one-byte stride with no way to vary it. Full
-per-file reasoning in `design/roadmap/139-drive-down-unsafe.md`'s round 5 section.
+per-file reasoning in `design/roadmap/0139-drive-down-unsafe.md`'s round 5 section.
 
 Round 5 was measured against its own base commit (`757562a3`, the same one round 4 branched
 from), independently of round 4: 5 `unsafe {` blocks removed, 3 added, net -2 (`console.rs` flat,
@@ -701,7 +701,7 @@ isolation.
 split, then `jh7110_entropy_source` when calef ratified that on 2026-09-13, then `jh7110_entropy`
 when he replaced it later the same day, performed 2026-09-14). It is spelled here as it was when
 the blocks were counted, so the -1 stays checkable against base commit `757562a3`, and
-`design/roadmap/139-drive-down-unsafe.md`'s round 5 section spells it the same way.*
+`design/roadmap/0139-drive-down-unsafe.md`'s round 5 section spells it the same way.*
 
 The ratchet does not move a fifth time. With density unchanged at 87, the 7-point-headroom
 ceiling stays 94: there is nothing to cinch that round 4 had not already cinched. The block count

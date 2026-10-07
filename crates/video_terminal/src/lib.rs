@@ -308,7 +308,7 @@ const _: () = assert!(
 ///
 /// These are this tree's reconstruction of what the palette's original comment was reaching for,
 /// not a specification anybody wrote down; a fourth failure mode nobody has named would pass them.
-/// See design/roadmap/141-a-palette-worth-looking-at.md.
+/// See design/roadmap/0141-a-palette-worth-looking-at.md.
 ///
 /// Name: provisional (milestone 141's lane, 2026-09-26). Private to the crate: nothing outside
 /// needs it, and the gate is the `const` assertion beside [`PALETTE`], not a caller.

@@ -62,7 +62,7 @@ endgame, and POSIX posture). The entries here remain the detailed source for eac
   `untyped::destroy` now unmap a page from every holder and delete every capability to it, which is
   what met the precondition below and let reclamation land. The full capability-derivation tree (for
   subtree-granularity revoke) is deferred, not on the path to an inevitable rewrite; see §13 and
-  design/roadmap/13-capability-revocation.md. The rest of this entry is the pre-§13 design record.
+  design/roadmap/0013-capability-revocation.md. The rest of this entry is the pre-§13 design record.
 
   A granted
   capability cannot be retracted: no capability-derivation tree, no refcount, no `revoke`

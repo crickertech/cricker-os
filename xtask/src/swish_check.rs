@@ -1114,7 +1114,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // into; the contract has no verb for "the directory I already hold, with fewer rights". So this
     // is a refusal at the prompt with **nothing spawned**, which is the one outcome this model must
     // never trade away, and it is a design fork rather than a missing line of code. See
-    // design/roadmap/31-capability-shell.md and notes/dir-capability.md's BUGS.
+    // design/roadmap/0031-capability-shell.md and notes/dir-capability.md's BUGS.
     line(0, "rm gate.txt", &["there is no name here to descend into"]),
     // **`xargs`, at the one interface a human touches** (milestone 109). `globmany` holds eleven
     // names one pattern matches, which is more than the eight a single grant can carry.
@@ -2189,7 +2189,7 @@ fn swish_check_leg(arch: &str) -> bool {
     // gpu and no keyboard and launches at the end of its short script: the keystrokes are the
     // guest's UART, the configuration all three target boards have. A third, scriptless boot
     // attaches a gpu and a keyboard for the other arm. aarch64 and riscv64 only: x86_64 has no
-    // virtio-gpu in its runner (`design/roadmap/632-*.md`'s BUGS has what it would take).
+    // virtio-gpu in its runner (`design/roadmap/0632-*.md`'s BUGS has what it would take).
     let graphical = arch != "x86_64";
     swish_check_boot(arch, SWISH_CHECK_SCRIPT, true, None)
         && (probe() == Probe::Panic

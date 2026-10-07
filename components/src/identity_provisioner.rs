@@ -1,5 +1,5 @@
 //! **A provisioning tool: create an identity and its home subtree together** (milestone 155,
-//! design/roadmap/155-user-provisioning.md; DECISIONS §117).
+//! design/roadmap/0155-user-provisioning.md; DECISIONS §117).
 //!
 //! Unix's `useradd`, one level down: this process is spawned once per new identity by whoever
 //! already holds the two administrative capabilities that authority requires, presents the

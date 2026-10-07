@@ -2,7 +2,7 @@
 
 Milestone 152 (durable delegation: authority that outlives the session that requested it) wants a
 user's scheduled job to keep firing after the user disconnects, on the authority they held when they
-registered it. The design is in `design/roadmap/152-durable-delegation.md`. This note is the working
+registered it. The design is in `design/roadmap/0152-durable-delegation.md`. This note is the working
 record of the 2026-09-26 (UTC) lane: what it proved, and four questions it found that are an
 architect's to answer before anything else here can be built.
 

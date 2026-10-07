@@ -71,7 +71,7 @@ the tree spells `NIFE_KBD`) and then asking whether the class was bigger than th
 
 **Nine fixed here**: `notes/glyphs.md` (`CRICKER_KBD`), `notes/framebuffer-contract.md`
 (`CRICKER_GPU`, `CRICKER_GPU_MON`), `notes/cpu-models.md` (`CRICKER_CPU`, four sites),
-`notes/swish-language.md` (`CRICKER_SHOW_TRANSCRIPT`), `design/roadmap/81-hvf-leg.md`
+`notes/swish-language.md` (`CRICKER_SHOW_TRANSCRIPT`), `design/roadmap/0081-hvf-leg.md`
 (`CRICKER_ACCEL`).
 
 **Two were not stale and were left alone**, which is the part of this finding worth remembering:
@@ -150,7 +150,7 @@ it (`script/lint`'s comment). `crates/linedisc` is preserved on purpose by DECIS
 `script/sanitize` and `script/brief` are names milestone 115 rejected. **History we deliberately keep
 is not rot**, and a gate that could not tell the difference would be fixed by deleting the gate.
 
-### 6. ACCEPTED: `design/roadmap/39-repository-structure.md` proposed work that half happened
+### 6. ACCEPTED: `design/roadmap/0039-repository-structure.md` proposed work that half happened
 
 Its "cheap first move" proposes lifting `virtio`, `net_transport`, `socket_proto` and `suptree` into
 `runtime/` crates. Three of the four are crates already, lifted by rule 7 rather than by this

@@ -7,7 +7,7 @@ item 2: how a harness reaches logic whose call graph ends at an `asm!`, and what
 
 Added 2026-09-25 by the lane `lane/asm-behind-stubbable-wrappers`. It is the stub half of the
 containment priced in
-[milestone 589 (Kani can prove riscv64 from the hosts we already have)](../../design/roadmap/589-kani-can-target-riscv64-from-the-hosts-we-have.md).
+[milestone 589 (Kani can prove riscv64 from the hosts we already have)](../../design/roadmap/0589-kani-can-target-riscv64-from-the-hosts-we-have.md).
 
 ## The pattern
 

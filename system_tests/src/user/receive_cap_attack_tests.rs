@@ -21,7 +21,7 @@
 //! reachable by any program that declares network, whose `OPERATION_ATTACH_PAGE_FRAME` does
 //! `cap_delete(x1)` with no guard: a chosen slot deletes one of the server's own capabilities. The
 //! throwaway attack programs that drove the two escapes under QEMU on 2026-10-03 UTC are described
-//! in `design/roadmap/634-*.md`; these are the property they reduce to.
+//! in `design/roadmap/0634-*.md`; these are the property they reduce to.
 
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 

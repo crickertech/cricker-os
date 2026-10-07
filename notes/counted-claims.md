@@ -258,7 +258,7 @@ commits were 61% of thirteen days of growth, each a whole new tenet section) and
 "the point is it converts 'should I add this rule?' into 'what does this replace?'" describes: not
 headroom to absorb ordinary drift, but a stop on every single addition, forcing a deliberate,
 recorded raise. The marker cannot live in `AGENTS.md` itself: a developer lane may not edit that
-file (AGENTS.md's own naming section), so it lives in `design/roadmap/118-constitution-budget.md`
+file (AGENTS.md's own naming section), so it lives in `design/roadmap/0118-constitution-budget.md`
 instead, which is where the budget question was raised and is exactly the kind of indirection the
 floor's BUGS entry already names ("a reader who wants the number has to go to" the other file). The
 gate still runs against the real file; only the claim about it moved.

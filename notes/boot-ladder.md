@@ -156,9 +156,9 @@ $ cargo xtask board-console --replay target/boot-check-riscv64.log --until selft
 - The riscv64 and `x86_64` arms narrate their own bring-up and the description then repeats some
   of it. Noise rather than a defect, and trimming it is not free: those arms' lines are what a
   `test` or `bench` boot has instead, since the description is compiled out of both. It is milestone
-  409 (`design/roadmap/409-one-machine-description-not-two.md`).
+  409 (`design/roadmap/0409-one-machine-description-not-two.md`).
 - **The wordings are provisional** (milestone 268 (every architecture boots the same way)). They are
   contracts, so they are an architect's under AGENTS.md's *move fast on what can be undone* tenet; a
   lane ships one and says so rather than waiting.
 
-See `design/roadmap/268-the-boot-ladder.md`, `notes/board-console.md`, and `notes/visionfive2.md`.
+See `design/roadmap/0268-the-boot-ladder.md`, `notes/board-console.md`, and `notes/visionfive2.md`.

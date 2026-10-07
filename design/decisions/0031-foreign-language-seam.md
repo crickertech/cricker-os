@@ -40,7 +40,7 @@ capabilities, the DMA validator, the IOMMU.
    be for a real API. Same sans-IO shape RedoxFS's `Disk` trait already uses (§27), across a language
    boundary instead of a trait boundary.
 3. The libc is two symbols, `malloc` and `free`. Tier two of the roadmap's three tiers
-   (freestanding / a handful of symbols / full POSIX; design/roadmap/36-foreign-component.md). The C object references five (`malloc`, `free`,
+   (freestanding / a handful of symbols / full POSIX; design/roadmap/0036-foreign-component.md). The C object references five (`malloc`, `free`,
    `memcpy`, `memset`, `strlen`, identical on both ISAs at every optimization level, with no
    compiler-rt helper and no `__stack_chk_fail`), and the linker demands only two, because
    `compiler_builtins` already supplies the other three weakly for the bare targets. **Tier three is

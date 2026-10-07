@@ -237,7 +237,7 @@ searching for: capability
 
      46  notes/capabilities.md                             Capabilities, and why the kernel has no `open()`
      43  notes/README.md                                   Concept notes
-     37  design/roadmap/47-navigation-and-naming.md        47. Navigation and naming: `cd`, `pwd`, `ls`, `m
+     37  design/roadmap/0047-navigation-and-naming.md        47. Navigation and naming: `cd`, `pwd`, `ls`, `m
      33  notes/std.md                                      Rust `std` on the native ABI
      32  notes/pipes.md                                    Pipes and redirection: `>`, `<` and `|` are one
 

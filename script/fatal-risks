@@ -81,7 +81,7 @@
 #    asymmetry is not tidy and it is honest: a proposal has no completion date to record, so the only
 #    available answer to "did this move after the risk entry did" is the last commit that touched it.
 #    That is what catches the risk-6 finding, where the instrument
-#    (milestone 306, `design/roadmap/306-time-the-hw-entropy-step.md`) shipped on 2026-09-10 and the entry
+#    (milestone 306, `design/roadmap/0306-time-the-hw-entropy-step.md`) shipped on 2026-09-10 and the entry
 #    still called the step untimed. Exactly one proposal is cited in the file today, so the noise
 #    surface of the git half is one path rather than the tree.
 #
@@ -836,7 +836,7 @@ if mode == "--check":
               "the", file=sys.stderr)
         print("reader's call. A green run means no STATUS WORD contradicts the record, never that "
               "the", file=sys.stderr)
-        print("file's arguments still hold. See design/roadmap/275-fatal-risks-status-check.md.",
+        print("file's arguments still hold. See design/roadmap/0275-fatal-risks-status-check.md.",
               file=sys.stderr)
         sys.exit(1)
     cited_m = {int(m.group(1)) for m in CITE_M.finditer(text)}

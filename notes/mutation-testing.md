@@ -172,7 +172,7 @@ a survivor a merged pull request adds with no row fails that job. The key is the
 cargo-mutants names it without its line number (`helpers/mutation_inflow.py` has the exact form),
 the disposition is `killed`, `equivalent` or `gap`, and the reason names the test or the argument.
 The 2026-10-03 backfill is partial and says what it covers
-([the milestone](../design/roadmap/740-the-inflow-check.md)).
+([the milestone](../design/roadmap/0740-the-inflow-check.md)).
 
 The ledger has no column for unviable mutants, and it should. Milestone 250 (an unviable mutant is
 a hole in the measurement that reads as a pass) is that work, not started.

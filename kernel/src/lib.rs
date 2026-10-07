@@ -1393,7 +1393,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
             // `builder` composed a process from **exactly two** capabilities; the progenitor is
             // granted the NS16550 and the UART's interrupt line as well, because it is building a
             // system rather than demonstrating a floor. See
-            // design/roadmap/295-retire-the-builder-program.md for where that claim went.
+            // design/roadmap/0295-retire-the-builder-program.md for where that claim went.
             //
             // **And the measured-boot refusal moved rather than went.** The archive used to be
             // checked against this kernel's trust root here (`trust::require("builder", ...)` and
@@ -1582,7 +1582,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         sched::note_boot_stage(9);
 
         // **The clock the `hw entropy` step is measured with**
-        // (design/roadmap/306-time-the-hw-entropy-step.md, milestone 159's own follow-on).
+        // (design/roadmap/0306-time-the-hw-entropy-step.md, milestone 159's own follow-on).
         //
         // Read here, on the line after the `pcie` print, because the gap a bench session has been
         // timing by eye is exactly `pcie` to `hw entropy`: those two lines are adjacent in the
@@ -1603,7 +1603,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         let entropy_step_start = arch::timer::now();
 
         // **A real, non-virtio device, driven by a confined userspace process** (milestone 159,
-        // design/roadmap/159-jh7110-trng-driver.md; fatal risk 6 in design/fatal-risks/README.md). The
+        // design/roadmap/0159-jh7110-trng-driver.md; fatal risk 6 in design/fatal-risks/README.md). The
         // JH7110's TRNG is a register block on the `SoC`'s own fabric: no transport to negotiate,
         // no queue, no DMA. The kernel's whole part is the two lines below (ask the device tree
         // whether the device exists, then hand a userspace program one page of its registers and
@@ -2096,7 +2096,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
         //   - **The memory-region demo.** It prints `memory::stats().used` before and after a
         //     process spends its own budget, and the claim is that the number did not move. The
         //     number is the kernel's own frame accounting and is not exposed to EL0 (see the
-        //     preemption-counter note in design/roadmap/267-*.md: an ambient fact nobody needs yet).
+        //     preemption-counter note in design/roadmap/0267-*.md: an ambient fact nobody needs yet).
         //
         // The console server is started at the top of this block rather than being on that list.
         // It is not a survivor either, and since the narrator was deleted it is not the move
@@ -2406,7 +2406,7 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
 /// above is what explains.
 // riscv64-only because the JH7110 is; `allow(dead_code)` because the boot tour that calls it is
 // itself compiled out of the shell and bench builds, the same way `image_for_virtio` below is.
-/// **Counter ticks as microseconds** (design/roadmap/306-time-the-hw-entropy-step.md), for
+/// **Counter ticks as microseconds** (design/roadmap/0306-time-the-hw-entropy-step.md), for
 /// the boot tour's `hw entropy` line.
 ///
 /// Microseconds rather than milliseconds because the interesting half of the number is an IPC round
@@ -2526,7 +2526,7 @@ fn stack_top() -> usize {
 /// retired it on 2026-09-14 on the ground that this carries it at a larger scale on the same boot.
 /// The difference is that this one composes the whole running system rather than one child, and a
 /// person can then type at it; what it does not carry is the minimality half, which is why
-/// design/roadmap/295-retire-the-builder-program.md exists and says where that went.
+/// design/roadmap/0295-retire-the-builder-program.md exists and says where that went.
 ///
 /// **Two callers, one body** (milestone 268). It was the inside of the `#[cfg(feature = "shell")]`
 /// block and nothing else; since this milestone the *default* boot ends here too, so the two paths

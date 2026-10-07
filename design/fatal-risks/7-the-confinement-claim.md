@@ -67,7 +67,7 @@ falsifications, replayed red on aarch64.
 Dated 2026-10-04: nothing fuzzes what a confined process can reach. The six `cargo-fuzz` targets
 of §60 (fuzzing complements the proofs) read firmware, disk and network bytes, not IPC requests
 or syscalls. A proposal for both is
-[`fuzz-the-surface-a-confined-process-can-reach`](../roadmap/779-fuzz-the-surface-a-confined-process-can-reach.md).
+[`fuzz-the-surface-a-confined-process-can-reach`](../roadmap/0779-fuzz-the-surface-a-confined-process-can-reach.md).
 
 Dated 2026-10-05 (milestone 762 (a mapping cannot outlive its frame's revoke), PROVISIONAL number,
 PR #1644): a revoked frame is unreachable through mappings as well as capabilities. `PageFrame::MAP`,
@@ -119,15 +119,15 @@ supports is that these named claims are tested, and each shown to fail when brok
 
 Open security findings that bear on it, each a proposal and none yet built:
 
-- [The confinement table lists the unvouched child](../roadmap/673-the-confinement-table-lists-the-unvouched-child.md):
+- [The confinement table lists the unvouched child](../roadmap/0673-the-confinement-table-lists-the-unvouched-child.md):
   a claim tested and falsified by hand three times, with no row in the table. Severity not recorded.
   Dated 2026-10-03: row 31 of the table now states it, tested by the `installed/unvouched` line of
   `script/swish-check` on three ISAs, with a replayable falsification (a patch, replayed by hand on
   aarch64, red with exit 1).
-- [Reset unowned PCI functions before the IOMMU enables](../roadmap/693-reset-unowned-pci-functions-before-iommu-enable.md):
+- [Reset unowned PCI functions before the IOMMU enables](../roadmap/0693-reset-unowned-pci-functions-before-iommu-enable.md):
   Bus Master Enable is already set on functions the kernel never owns, so DMA can outlive the
   confinement. Severity not recorded; an architect's call.
-- [Every client of a network stack shares its socket numbers](../roadmap/649-every-client-of-a-network-stack-shares-its-socket-numbers.md):
+- [Every client of a network stack shares its socket numbers](../roadmap/0649-every-client-of-a-network-stack-shares-its-socket-numbers.md):
   one holder of the network capability can read and close another's sockets. Milestone 800 (a
   non-Anthropic model attacks the confinement claim)'s fourth pass booted it on a shipped path on
   all three ISAs, and calef ruled on 2026-10-07 (UTC) that it restarts criterion (c)'s count. The
@@ -136,11 +136,11 @@ Open security findings that bear on it, each a proposal and none yet built:
   tests in `system_tests/src/user/net_confinement_tests.rs`, each with a replayable falsification,
   check it on every ISA. This changes no verdict: criterion (c) needs a fresh clean
   non-Anthropic pass.
-- [The sibling RECEIVE_CAP paths get a receiver-first test](../roadmap/714-the-sibling-receive-cap-paths-get-a-receiver-first-test.md):
+- [The sibling RECEIVE_CAP paths get a receiver-first test](../roadmap/0714-the-sibling-receive-cap-paths-get-a-receiver-first-test.md):
   two paths now correct by reading, unmeasured. Severity not recorded. Dated 2026-10-03, afterwards:
   a receiver-first test for each is in PR #1576, with a replayable falsification that turns it red
   on aarch64; riscv64 and x86_64 build it and run it in CI.
-- [A graphical terminal session on the no-keyboard arm holds only the raw half of the boot discipline](../roadmap/709-arm-1-holds-only-the-raw-half-of-the-boot-discipline.md):
+- [A graphical terminal session on the no-keyboard arm holds only the raw half of the boot discipline](../roadmap/0709-arm-1-holds-only-the-raw-half-of-the-boot-discipline.md):
   the session's copy of the boot line discipline's endpoint also answers `OPERATION_BYTES`, so a
   compromised session can queue a command line the boot shell runs with its own authority. A
   userspace grant wider than its use, not a kernel escape; read, not demonstrated. Severity
@@ -149,7 +149,7 @@ Open security findings that bear on it, each a proposal and none yet built:
   served before the fix (a system test, red on aarch64) and is refused after it, with a replayable
   falsification; riscv64 and x86_64 run the test in CI. A session can still switch the
   discipline's mode under the shell.
-- [The spawn service holds the display grants, and the shell holds none](../roadmap/715-the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md):
+- [The spawn service holds the display grants, and the shell holds none](../roadmap/0715-the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md):
   the boot shell keeps the seven display and keyboard capabilities with `GRANT` for its whole life,
   and could map the keyboard's DMA page or take an interrupt wake; it does neither. Severity medium
   as a width, low as a reach (2026-10-03 audit, finding 10). Dated 2026-10-03, afterwards: PR

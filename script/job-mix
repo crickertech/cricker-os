@@ -70,7 +70,7 @@
 #   boot replaces the handoff the way a soak boot does and the `allow` named only `soak`) and fixed
 #   that one line. Nothing keeps it fixed. Not added to the loop here: that is two more clippy
 #   builds on every pull request, and the shape of the answer is
-#   `design/roadmap/373-board-only-features-nothing-compiles.md`, which covers `reboot_soak_test`
+#   `design/roadmap/0373-board-only-features-nothing-compiles.md`, which covers `reboot_soak_test`
 #   and `single_hart` too. **This entry said "CI builds neither this feature nor `--features soak_test`"
 #   until 2026-09-14 and the second half was false**: `soak` has been in that loop since it was
 #   written. A BUGS section that overstates is the failure mode AGENTS.md names, so it is corrected

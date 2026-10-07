@@ -1,5 +1,5 @@
 //! E3's footprint-perturbation experiment (milestone 134,
-//! design/roadmap/134-the-measurements-that-decide.md): pad the IPC fastpath's call graph with a
+//! design/roadmap/0134-the-measurements-that-decide.md): pad the IPC fastpath's call graph with a
 //! large, reachable-but-never-taken function, so the fastpath's *measured* footprint
 //! (`script/fastpath-footprint`) roughly doubles while the *executed* work on a benchmarked round
 //! trip stays exactly what it was. Liedtke's claim is that footprint costs cache, not that any

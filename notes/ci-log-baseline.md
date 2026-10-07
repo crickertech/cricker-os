@@ -8,7 +8,7 @@ run's metadata forever, but a job conclusion alone says only "the job failed", n
 sub-checks did. The one place that answer lives is the job's own log, and GitHub deletes those on a
 retention window; **there turn out to be two such windows, one per log endpoint, and they do not
 expire in step** (see "Two clocks" below).
-`design/roadmap/531-no-gate-records-when-it-fires.md` (a research lane's
+`design/roadmap/0531-no-gate-records-when-it-fires.md` (a research lane's
 proposal, an architect's to rule on, unedited by this record) mined that answer for the `clippy` job
 on 2026-09-21 and found the window closing around 2026-10-21. This page and
 [`notes/project-metrics/ci-log-baseline.csv`](project-metrics/ci-log-baseline.csv) absorb that

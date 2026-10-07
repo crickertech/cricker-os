@@ -8,7 +8,7 @@
 //! `raw_mode_service` already provides. What it proves is the incumbent's half of a swap: the
 //! reader is handed back, the half-typed line survives a resume, and the resumed read repaints
 //! nothing. The replacement's half needs the handoff page count first
-//! (`design/roadmap/659-a-region-retypes-a-frame-run.md`).
+//! (`design/roadmap/0659-a-region-retypes-a-frame-run.md`).
 
 use line_editor::proto;
 use raw_mode_service as svc;

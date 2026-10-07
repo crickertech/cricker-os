@@ -128,7 +128,7 @@
 //!   child's load options is the fix, and nothing needs it yet.
 //! - **x86_64 only**, the same scope as the rest of rung 2a and 2b (DECISIONS §19 (architectural parity is a tenet; the targets are aarch64, riscv64 and x86_64)): the
 //!   device-tree architectures have no second module slot for a boot file, which
-//!   `design/roadmap/568-the-boot-file-has-nowhere-to-go-on-a-device-tree-machine.md` prices.
+//!   `design/roadmap/0568-the-boot-file-has-nowhere-to-go-on-a-device-tree-machine.md` prices.
 //!   Nothing about the slot format is x86-specific; the chooser is what has not been built there.
 
 use core::ffi::c_void;

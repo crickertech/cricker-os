@@ -234,7 +234,7 @@ blocks. It is the question calef had to ask by hand, answered as a command.
 
 Fixing a block repeatedly left a rustdoc, a module header or a note still saying the old thing, where
 no gate reads it. Ten of those are listed in
-`design/roadmap/333-claims-the-sweep-found-false-outside-the-roadmap.md`: a rustdoc that says
+`design/roadmap/0333-claims-the-sweep-found-false-outside-the-roadmap.md`: a rustdoc that says
 the address-space object does not consult `ENUMERATE` yet, a decision file that quotes a roadmap
 block saying nobody is building the decision, six comments citing a type deleted four days earlier.
 This is the same rot 247 found through `Recorded.` path citations, one layer out, and nothing

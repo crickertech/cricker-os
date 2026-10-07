@@ -210,7 +210,7 @@ experiment. It is at least two, and this milestone delivers the first:
   observed defect lived. The soak does not sustain this, and cannot, for the reasons above.
 
 Saying so is the point. A run that quietly covered one and was quoted as covering both would be
-exactly the misuse `design/roadmap/219-a-workload-that-does-not-stop.md`'s BUGS section warns about,
+exactly the misuse `design/roadmap/0219-a-workload-that-does-not-stop.md`'s BUGS section warns about,
 and `script/soak-test` prints the gap on every run so that nobody has to have read this note to know.
 
 The second half is now runnable, which is a different claim from "has been run". See the next

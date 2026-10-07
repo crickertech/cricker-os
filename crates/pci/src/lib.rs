@@ -546,7 +546,7 @@ pub fn virtio_caps(
 /// independently maskable entry per vector, and every device this tree attaches has it. The
 /// deciding property is not the count: it is that neither of them consults a board-specific
 /// interrupt routing table, because the *device* is told where to deliver. See
-/// `kernel/src/pci.rs` and design/roadmap/215-x86-64-pci-interrupt-routing.md.
+/// `kernel/src/pci.rs` and design/roadmap/0215-x86-64-pci-interrupt-routing.md.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MsixCap {
     /// Where the capability structure starts in config space, so [`MESSAGE_CONTROL`] can be

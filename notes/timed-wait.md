@@ -18,7 +18,7 @@ of it turns out to be either wrong or beside the point. This note replaces it wi
 Name: provisional. `timed-wait` takes the phrase the tree uses in five places ("there
 is no timed wait anywhere in the kernel", roadmap 51, roadmap 106, notes/clock.md, notes/ntp.md,
 notes/pipes.md) rather than inventing a second one; the roadmap file beside it is
-`106-deadline-wait.md`, and the two words are the same idea from the caller's side and the
+`0106-deadline-wait.md`, and the two words are the same idea from the caller's side and the
 scheduler's. calef has not ruled on it.
 
 ## The price list
@@ -355,7 +355,7 @@ Two caveats that matter for how the number is used:
 
 Milestone 106's block, milestone 103's block and `notes/pipes.md` all cite the timed-wait fork as
 **"DECISIONS §51"**. `design/decisions/0051-sink-protocol.md` is the sink protocol; the fork is in
-**`design/roadmap/51-wall-clock-time.md`**, a milestone block rather than a decisions section. This is
+**`design/roadmap/0051-wall-clock-time.md`**, a milestone block rather than a decisions section. This is
 exactly the failure `CLAUDE.md` warns about ("`script/decisions --check` verifies that a cited `§N`
 resolves to *some* section, never that it resolves to the right one, so a well-formed wrong citation
 is invisible to it") and the collision `MEMORY.md` records between `§N` and milestone N as two

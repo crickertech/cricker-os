@@ -298,7 +298,7 @@ are worth their place rather than an assertion that they are.
   `cargo metadata`, and `--sweep` derives `--bin` per package. Both this note's own harness and
   `kernel`'s now carry records and are counted. Struck 2026-09-23, part 5 of milestone 323 (the
   falsification record is incomplete in five ways), the same unstruck-`BUGS`-entry shape
-  found twice more in `design/roadmap/197-user-and-xtask-proofs.md`.
+  found twice more in `design/roadmap/0197-user-and-xtask-proofs.md`.
 - **Two harnesses is not coverage of 68 programs**, and the number to watch is not the count but
   whether the properties are ones a defect would violate. This one is: the same guard, one character
   different, is the whole failure.

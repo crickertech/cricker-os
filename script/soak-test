@@ -24,7 +24,7 @@
 # second timeout reset the machine. `--watchdog` builds `--features watchdog_soak_test` and passes
 # when the watchdog armed, was seen counting, and nothing reset the machine for `--for` (default
 # 180s) after it armed. Exit statuses as `--reboot`'s. See kernel/src/arch/x86_64/tco.rs and
-# design/roadmap/593-a-wedged-kernel-resets-itself.md (number provisional).
+# design/roadmap/0593-a-wedged-kernel-resets-itself.md (number provisional).
 #
 # `design/fatal-risks.md`'s fifth entry ("it cannot be made reliable on multicore, and the bugs
 # appear only on silicon") names its decisive experiment as sustained multi-core stress with the

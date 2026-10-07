@@ -102,7 +102,7 @@ use crate::sync::{IrqSafeMutex, rank};
 ///
 /// `ntp_tests` and `login_tests` are a third of the aarch64 total between them, and neither is
 /// accounted for as deliberately permanent; the proposal
-/// `design/roadmap/676-the-ntp-and-login-tests-give-their-regions-back.md` is the work to
+/// `design/roadmap/0676-the-ntp-and-login-tests-give-their-regions-back.md` is the work to
 /// find out.
 ///
 /// **No gate, deliberately, and not only by precedent.** `sched::MAX_THREADS` reports and does not

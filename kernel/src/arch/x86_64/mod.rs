@@ -16,7 +16,7 @@
 //! is where a reader looks first: a program runs at ring 3, but there is no *process* behind it. The
 //! scheduler, the kernel heap and the untyped budget have never been brought up on this
 //! architecture, so `user::run` and `KernelStack::new` have nothing to stand on. See
-//! design/roadmap/161-x86-64-kernel-port.md, item 4.
+//! design/roadmap/0161-x86-64-kernel-port.md, item 4.
 //!
 //! # What this port has already shown about the seam
 //!

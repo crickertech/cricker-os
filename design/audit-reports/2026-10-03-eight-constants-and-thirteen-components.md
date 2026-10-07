@@ -152,7 +152,7 @@ amendment to §230". `grep -n '613\|plain SEND' design/decisions/0230-*.md desig
 finds nothing. CLAUDE.md's rule for the surface is that a method's semantics are recorded in
 `design/decisions/`, and §230's table still says the badge rides `CALL` and `SEND_CAP` only. A
 lane may not edit `design/decisions/`, so the amendment is proposed for the integrator to mint at
-merge: `design/roadmap/711-section-230-records-that-a-plain-send-carries-its-badge.md`.
+merge: `design/roadmap/0711-section-230-records-that-a-plain-send-carries-its-badge.md`.
 Severity: low, a record; the risk is the next server written against §230's table.
 
 ### 2. MINTED: arm 1 of the graphical terminal holds the whole boot discipline
@@ -175,7 +175,7 @@ Severity: medium. It needs a compromised session on a GPU-and-UART machine (xeno
 what is gained is the shell's authority, not the kernel's. The kernel confined the session exactly
 as granted; the grant is wider than the use. Recorded in `graphical_terminal.rs`'s BUGS; the fix
 (a badged copy of `term_ep` that the discipline answers only the raw requests on, §230's shape one
-component over) is `design/roadmap/709-arm-1-holds-only-the-raw-half-of-the-boot-discipline.md`.
+component over) is `design/roadmap/0709-arm-1-holds-only-the-raw-half-of-the-boot-discipline.md`.
 
 ### 3. FIXED: `crates/abi` said milestone 634's escape was still open
 
@@ -252,7 +252,7 @@ keyboard DMA page and the surface and can receive an interrupt wake meant for a 
 neither, and uses them only to delegate. The spawn service already holds `term_ep` for the same
 purpose without lending the shell `GRANT`. Severity: medium as a width, low as a reach, since the
 shell is the prompt's own authority. BUGS in `swish.rs`; proposal
-`715-the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md`.
+`0715-the-spawn-service-holds-the-display-grants-and-the-shell-holds-none.md`.
 
 ### 11. MINTED: a real capability passes the `NO_CAP` guard
 
@@ -262,7 +262,7 @@ object in `x1` and no method lets one. A client with `GRANT` on any capability `
 rendezvous parks the server forever, and every non-Reply delivery leaks a slot of 32. Severity:
 medium. A denial of service on `net_stack`, the compositor and the file service by any client. On
 the syscall surface, so calef's call: BUGS at `RECV_CAP`, proposal
-`706-a-call-server-can-tell-a-reply-from-a-delegation.md`.
+`0706-a-call-server-can-tell-a-reply-from-a-delegation.md`.
 
 ### 12. FIXED: a stale `outgoing_cap` survived a rendezvous teardown
 

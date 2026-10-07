@@ -4,7 +4,7 @@
 //! is a set of system registers, so the instructions that reach it are `msr` and `mrs` and they
 //! live here by DECISIONS §4 rule 1. The memory-mapped half of the same controller (distributor and
 //! redistributors) is `drivers/gicv3.rs`, and `irq.rs` beside this file is the one place that holds
-//! both. See design/roadmap/227-gicv3-driver.md for why the split falls here.
+//! both. See design/roadmap/0227-gicv3-driver.md for why the split falls here.
 //!
 //! # The registers, and what each costs to get wrong
 //!

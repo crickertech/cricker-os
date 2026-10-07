@@ -9,7 +9,7 @@ ratified_by: calef
 
 *Section number and slug provisional until the merge queue lands them. Minted 2026-10-03 (UTC) by
 the maintainer. calef ruled on the appendix
-[the layout ruling](../roadmap/515-the-installer-a-stick-runs-to-put-itself-on-the-disk/the-layout-ruling.md)
+[the layout ruling](../roadmap/0515-the-installer-a-stick-runs-to-put-itself-on-the-disk/the-layout-ruling.md)
 of milestone 515 (the installer: a stick that puts itself on the machine's disk and is then not
 needed). It holds the seven questions and the options.*
 

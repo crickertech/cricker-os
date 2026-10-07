@@ -64,7 +64,7 @@
 //! is older than this file and outlives it, and the lane splitting `components/src/ntp.rs`
 //! concurrently with this one has proposed the crate that would end it.
 //!
-//! Name: recorded (design/roadmap/292-the-sink-contract-ends-are-three-programs.md and
+//! Name: recorded (design/roadmap/0292-the-sink-contract-ends-are-three-programs.md and
 //! notes/sink-protocol.md, which together carry the argument). **Provisional: calef has not
 //! ratified it.** It was `ROLE_FILE` inside the `sink` binary until milestone 292 split that binary
 //! into the three programs it had always been, and `file_sink` is the name the kernel side has
@@ -82,7 +82,7 @@
 //! That the tree spells one translating adapter `terminal_sink_caretaker` and this one not is a real
 //! inconsistency in what `caretaker` means. It is an architect's to settle rather than this file's,
 //! and it has a home: milestone 413 (what a `caretaker` is),
-//! design/roadmap/413-what-a-caretaker-is-when-it-translates.md.
+//! design/roadmap/0413-what-a-caretaker-is-when-it-translates.md.
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68's ratchet tracks

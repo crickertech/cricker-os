@@ -602,7 +602,7 @@ Stated plainly, because a demonstrator's caveats are part of the deliverable.
 - **Scrollback: BUILT 2026-08-26** (milestone 142 increment 2). A ring of `video_terminal::
   SCROLLBACK_ROWS` off-screen rows plus a viewport (`Vt::scroll_up`/`scroll_down`, `Vt::
   view_offset`); new output snaps the view back to live. Not wired to a key: the route needs a new
-  opcode, proposed in `design/roadmap/668-scrollback-from-the-keyboard.md`.
+  opcode, proposed in `design/roadmap/0668-scrollback-from-the-keyboard.md`.
 - **UTF-8: BUILT 2026-08-26** (milestone 142 increment 2). The VT engine decodes UTF-8 in its ground
   state (a running `utf8_need`/`utf8_code` accumulator, invalid or truncated sequences drawing
   U+FFFD), and `bitmap_font::glyph`'s signature is `char`. The font's repertoire did not grow: a
@@ -669,7 +669,7 @@ Stated plainly, because a demonstrator's caveats are part of the deliverable.
 ## What adopting libghostty-vt would cost now
 
 The roadmap names libghostty-vt (Ghostty's extracted VT core: no libc, a C ABI, written in Zig; it
-needs a supplied allocator, corrected 2026-10-03 UTC per [the proposal](../design/roadmap/705-the-graphical-terminal-runs-full-screen-programs.md)) as the strongest form of
+needs a supplied allocator, corrected 2026-10-03 UTC per [the proposal](../design/roadmap/0705-the-graphical-terminal-runs-full-screen-programs.md)) as the strongest form of
 milestone 23 (a capability-routed component OS with live replacement)'s claim, and milestone 36 (a
 foreign-language component, seam first) built the C seam (DECISIONS §31 (the foreign-language seam), [c-seam.md](c-seam.md)) to
 de-risk it. The Rust engine is built, so the comparison rests on facts. This is a

@@ -180,7 +180,7 @@ reap" because it quantifies over rights combinations rather than sampling them.
 ## Where the death goes when the waiter is a shell (milestone 235)
 
 A death reaches one endpoint, and that single fact is what decided milestone 235
-(design/roadmap/235-a-faulted-job-should-reach-the-prompt.md). At the interactive prompt the holder
+(design/roadmap/0235-a-faulted-job-should-reach-the-prompt.md). At the interactive prompt the holder
 of that endpoint is `job_undertaker`, whose whole job is collecting; the process that *needed* to
 know was `swish`, blocked in a `RECEIVE` on the progenitor's result endpoint for an answer a killed thread can
 never send. So the prompt hung, and only on a fault: an ordinary non-zero exit is a value the child

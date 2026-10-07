@@ -25,7 +25,7 @@ ruling; it said "the red half is structural", naming a crate boundary milestone 
 (`arm64`/`macos` on patagonia; `arm64`/`linux` in CI, observed 2026-10-03 by run 37108539047). All
 seven gave identical verdicts and SAT counts under both models, so this is a gap waiting to bite,
 not a hole. The fix and its gate are milestone 635
-(riscv64 proofs check against the riscv64 model); see [its block](../roadmap/635-riscv64-proofs-check-against-the-riscv64-model.md).
+(riscv64 proofs check against the riscv64 model); see [its block](../roadmap/0635-riscv64-proofs-check-against-the-riscv64-model.md).
 
 *Measured 2026-10-04 (UTC) by milestone 741 (does a standing proof notice a regression), under §216:*
 across 189 harnesses in 26 packages (glob and calendar not measured), 178 of the 184 that reach a

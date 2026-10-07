@@ -152,7 +152,7 @@ four steps combined, on one machine, in MiB/s because the transfer size itself c
 Most of the gap this milestone set out to close has closed on this metric. The remaining gap to
 buffered Linux (7,141 MiB/s) is the page-cache gap this milestone was never scoped to close; see
 "What is out of scope, deliberately" in
-[`design/roadmap/138-file-io-throughput.md`](../../design/roadmap/138-file-io-throughput.md).
+[`design/roadmap/0138-file-io-throughput.md`](../../design/roadmap/0138-file-io-throughput.md).
 
 ### Crash consistency, re-run at the new geometry
 

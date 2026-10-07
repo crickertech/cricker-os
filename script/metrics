@@ -1441,7 +1441,7 @@ def harnesses(tree):
 # alone and could not see one appendix, although the docstring below said it counted them; the
 # weeks since the first appendix landed (2026W39) restate to include them. `AGENTS.md` is in because
 # a cap the tree's own rulebook is exempt from is not a cap; the ratified headline figures were
-# measured without it, and `design/roadmap/581-one-metrics-file-per-measure.md` reconciles the two.
+# measured without it, and `design/roadmap/0581-one-metrics-file-per-measure.md` reconciles the two.
 PROSE_CAP = prose_ratchet.PROSE_CAP
 
 
@@ -2474,7 +2474,7 @@ CHARTS = [
 # **The flag's threshold is a heuristic and it says so where it fires.** One tenth of the prior
 # week's value, carried verbatim from the proposal; measured over the first ten charted weeks it
 # flags every week on this tree's counts. The measurement and the options for the constant are in
-# `design/roadmap/698-the-week-flag-fires-every-week.md`, awaiting an architect. The flag
+# `design/roadmap/0698-the-week-flag-fires-every-week.md`, awaiting an architect. The flag
 # never blocks and never edits, so the noise costs a line in a log and nothing else.
 FLAG_ONE_OF = 10.0
 

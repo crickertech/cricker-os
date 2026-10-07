@@ -146,7 +146,7 @@
 compile_error!(
     "--features watchdog_soak_test is x86_64-only: the watchdog it arms is the Intel TCO \
      (kernel/src/arch/x86_64/tco.rs). radon's JH7110 watchdog and argon's Tegra WDT are later steps \
-     of design/roadmap/593-a-wedged-kernel-resets-itself.md."
+     of design/roadmap/0593-a-wedged-kernel-resets-itself.md."
 );
 
 use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -300,12 +300,12 @@ pub fn run() -> ! {
     );
     println!(
         "soak-test: a clean run is a number to compare against, NOT evidence that the concurrency is \
-         correct (design/roadmap/219-a-workload-that-does-not-stop.md)"
+         correct (design/roadmap/0219-a-workload-that-does-not-stop.md)"
     );
     println!(
         "soak-test: the threads that cross cores are the tick waiters, NOT the rendezvous pairs; a \
          rising crossings count is the wake protocol sustained across cores under load, not the \
-         IPC workload migrating (design/roadmap/221-a-soak-that-crosses-cores.md)"
+         IPC workload migrating (design/roadmap/0221-a-soak-that-crosses-cores.md)"
     );
     println!(
         "soak-test: rounds counts IPC round trips and wakes counts tick-route wakes; they are separate \
@@ -335,7 +335,7 @@ pub fn run() -> ! {
     println!(
         "{CENSUS_MARKER} tick waiters are excluded from drifted= because their movement is the \
          point rather than a surprise, and it is already crossings= \
-         (design/roadmap/221-a-soak-that-crosses-cores.md)"
+         (design/roadmap/0221-a-soak-that-crosses-cores.md)"
     );
 
     watch(shared, workers, &tids, &placed)

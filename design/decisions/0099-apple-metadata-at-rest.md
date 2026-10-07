@@ -397,7 +397,7 @@ on the hook for a format Apple can change.
 
 ## See also
 
-- `design/roadmap/55-time-machine.md`, whose Apple-metadata paragraphs this answers.
+- `design/roadmap/0055-time-machine.md`, whose Apple-metadata paragraphs this answers.
 - `notes/smb.md`, whose BUGS entry "Apple metadata is not implemented at all" is the reader-facing
   statement of the same gap, and whose Apple section is the `AAPL` claim table.
 - `notes/xattr.md` for the store, its ceilings, and the rename property.

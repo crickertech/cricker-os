@@ -131,7 +131,7 @@ Eight measures, M5 to M12 ("Tier B"). As of 2026-09-19 they no longer share one 
 | M10 to M12 | as milestone 134's block says | unchanged |
 
 Each measure's prediction, and what its outcome settles, is in
-design/roadmap/134-the-measurements-that-decide.md rather than duplicated here. Which rows the
+design/roadmap/0134-the-measurements-that-decide.md rather than duplicated here. Which rows the
 `PMCCFILTR_EL0` ruling touches, and why §95 (a hand-written IPC fastpath) and §96 over-gated on
 silicon, are in [the rows appendix](register-of-measures/gated-dated-and-owed-rows.md#owed).
 

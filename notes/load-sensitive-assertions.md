@@ -234,9 +234,9 @@ them, so an older citation of a dated section still resolves.
 
 ## See also
 
-- [design/roadmap/78-load-sensitive-assertions.md](../design/roadmap/78-load-sensitive-assertions.md):
+- [design/roadmap/0078-load-sensitive-assertions.md](../design/roadmap/0078-load-sensitive-assertions.md):
   milestone 78's spec and its evidence table
-- [design/roadmap/62-time-sensitive-tests.md](../design/roadmap/62-time-sensitive-tests.md):
+- [design/roadmap/0062-time-sensitive-tests.md](../design/roadmap/0062-time-sensitive-tests.md):
   milestone 62, the acceptance standard
 - [notes/instruction-clock.md](instruction-clock.md): the icount instrument and its four claims
 - [notes/cpu-models.md](cpu-models.md) BUGS: the load-sensitivity evidence, including the control

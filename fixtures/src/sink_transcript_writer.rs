@@ -45,7 +45,7 @@
 //! working as designed, and it is a foot gun for a test that spawns the writer and then returns
 //! early: drain the report or do not spawn it.
 //!
-//! Name: recorded (design/roadmap/292-the-sink-contract-ends-are-three-programs.md and
+//! Name: recorded (design/roadmap/0292-the-sink-contract-ends-are-three-programs.md and
 //! notes/sink-protocol.md, which together carry the argument). **Provisional: calef has not
 //! ratified it.** It was `ROLE_WRITER` inside the `sink` binary until milestone 292 split that
 //! binary into the three programs it had always been. `sink` is kept as the contract word because

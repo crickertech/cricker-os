@@ -9,7 +9,7 @@ ratified_by: calef
 
 *Section number PROVISIONAL: the maintainer mints it at merge. Written 2026-10-04 (UTC) by the lane
 on PR #1611. The finding, the seven questions and the first cost estimate are in the block of
-[milestone 752 (a seeded syscall driver with a shadow model)](../roadmap/752-a-seeded-syscall-driver-with-a-shadow-model.md),
+[milestone 752 (a seeded syscall driver with a shadow model)](../roadmap/0752-a-seeded-syscall-driver-with-a-shadow-model.md),
 section "A real finding".*
 
 calef, 2026-10-04 (UTC), ruling option A of that section.

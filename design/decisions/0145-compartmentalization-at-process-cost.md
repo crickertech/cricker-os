@@ -65,7 +65,7 @@ Qubes buys with virtual machines what a capability kernel gives at process cost,
 TCB, on their own chosen metric. `kernel/src` is 36,494 non-comment, non-blank lines of
 Rust (measured 2026-09-05; 71,036 lines with comments, which is why the code figure is the one to
 quote), of which `kernel/src/arch/` is 7,607. Against "hundreds of thousands of lines of C". With
-151 Kani proof harnesses, and since [milestone 193](../roadmap/193-kernel-kani-reachable.md) the
+151 Kani proof harnesses, and since [milestone 193](../roadmap/0193-kernel-kani-reachable.md) the
 prover reaches `kernel/src` itself rather than only the pure crates.
 
 **The caveat is mandatory and it is not small.** Qubes' TCB is doing work ours does not: a GUI
@@ -115,7 +115,7 @@ which is the cheaper half of the same idea and is built; [§86](0086-el0-nvme-dr
 case, decided 2026-09-03. And milestone 159 ran a confined EL0 driver against real silicon on
 2026-09-04, which is `sys-net`'s shape with no hypervisor under it.
 
-[Milestone 202](../roadmap/202-confinement-claims-falsified.md) enumerated 26 confinement claims, each
+[Milestone 202](../roadmap/0202-confinement-claims-falsified.md) enumerated 26 confinement claims, each
 with where it is stated, which test checks it, and whether that test has been shown to fail when the
 claim is broken, with 25 carrying a replayable falsification. **Qubes does not publish its claims in
 that form.** That asymmetry is the most defensible thing this project owns in this comparison and it

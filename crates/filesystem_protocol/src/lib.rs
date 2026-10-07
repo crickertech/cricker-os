@@ -3348,7 +3348,7 @@ pub mod fixture {
     }
 
     /// **What the two-directory witness reports** (milestone 154,
-    /// design/roadmap/154-multi-directory-namespace.md): one process, two `fs_subtree_caretaker`s,
+    /// design/roadmap/0154-multi-directory-namespace.md): one process, two `fs_subtree_caretaker`s,
     /// two capability table slots, and the negative control that only a union of two grants can state.
     ///
     /// A bitmap for [`dirscape`]'s reason: the test asserts an *exact* set, so a witness that
