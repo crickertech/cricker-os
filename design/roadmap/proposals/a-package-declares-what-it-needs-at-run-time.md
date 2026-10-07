@@ -54,9 +54,8 @@ Nothing joins these. No gate knows that `uuid` (in `core-tools`) declares `entro
 
 `rg` is unmodified ripgrep 14.1.1 from crates.io. It is in no manifest and no recipe.
 
-- Built by `helpers/build-ripgrep.sh`, which nothing in `script/test` or CI runs. It downloads the
-  crate into `$TMPDIR/nife-ripgrep`, builds for all three targets with `-Zbuild-std` against the
-  `nife-dev` farm, and copies each binary to `target/ripgrep/<triple>/rg`.
+- Built by `helpers/build-ripgrep.sh`, which nothing in `script/test` or CI runs, for all three
+  targets with `-Zbuild-std`, into `target/ripgrep/<triple>/rg`.
 - Packed by `xtask` iff that file exists: `xtask/src/farm.rs:71` names the path, and
   `xtask/src/archive.rs:653` (aarch64), `:354` (riscv64) and `:525` (x86_64) push it as `rg`. It is
   one of six names in a hand list, `BUILT_ELSEWHERE` (`:236`).
@@ -77,9 +76,8 @@ starts a RedoxFS server if none is running and spawns `rg` with three capabiliti
 | 1 | `WRITE` on a rendezvous | stdout and stderr |
 | 4 | the file server's endpoint, as a directory | `std::env::current_dir()` and every `std::fs` call |
 
-Slots 2 and 3 stay empty on purpose, so `std::net` can tell it has no network. Without slot 4 the
-same binary prints `failed to get current working directory`. The needs are real and specific, and
-they are written down only in that harness call.
+Without slot 4 the same binary prints `failed to get current working directory`. These needs are
+written down only in that harness call.
 
 From the prompt it would be worse. With no note, `grant_plan::image_manifest` (`:1477`) falls back
 to `NO_NOTE_MANIFEST` (`:1397`), which is `uptime`'s: native layout, no words. A `std` binary built
@@ -90,16 +88,9 @@ shape, and a word such as `.` then designates the directory, as §170 (how a for
 
 ## What a runtime need is here
 
-Three facts shape the answer, and each is already true of the tree.
-
-1. A need is a capability, not a process. A program does not need "the entropy package". It needs a
-   `WRITE` endpoint that answers `entropy_protocol`. That is why calef's #1796 ruling has clients
-   name the contract and not the implementation.
-2. The per-program half exists and is bound to the bytes. §197 (a package is one archive file)'s option M2 put the manifest in the
-   ELF, inside what the progenitor hashes. Anything declared again in a package file could disagree
-   with it.
-3. Absence is a supported state. Every provider in `system_initializer` is optional, and a consumer
-   is told it has nothing. So most needs are "wants", in systemd's sense, not "requires".
+A need is a capability, not a process: a program needs a `WRITE` endpoint that answers
+`entropy_protocol`, not "the entropy package". And absence is supported, since every provider in
+`system_initializer` is optional, so most needs are wants in systemd's sense, not requirements.
 
 ## Options and prior art
 
@@ -116,11 +107,10 @@ software across languages, Genode and Fuchsia in particular, is in the
 | E. `use`, `offer`, `expose`, routes verified before run | Fuchsia: "there must also be a valid capability route from the consuming component to a provider" ([capabilities](https://fuchsia.dev/fuchsia-src/concepts/components/v2/capabilities)); `scrutiny` checks routes over an image (recalled) | 1 in tree, 2 at pack and install |
 | F. A static assembly the compiler wires | seL4 CAmkES: `provides` and `uses`, connected in an assembly, glue generated before run time ([manual](https://docs.sel4.systems/projects/camkes/manual.html)) | 1 |
 
-- A rots the first time a program gains a field.
 - B duplicates the manifest, so a gate can prove two hand lists agree and never that they agree with
   the code.
-- C answers a question nife does not have at package level: ordering is readiness, a provider
-  answering `READY` before its endpoint is handed out. Its vocabulary of wants and requires is kept.
+- A rots the first time a program gains a field. C does not apply: ordering is readiness, a
+  provider answering `READY` before its endpoint is handed out.
 - F fixes the image at build time, and §235 (the OS is built and updated from packages) and `jig`
   install onto a running system.
 - D and E fit together. nife has Fuchsia's `use` (the manifest) and an implicit `offer` (the
@@ -167,8 +157,8 @@ of this proposal.
 | Kind | Examples | What the kernel runs | Where the manifest lives | In the tree today |
 |---|---|---|---|---|
 | Native compiled | Rust, C, C++, Zig, Swift, Go | the program's own ELF | an ELF note | Rust `std` (`patches/std-nife`); C behind a Rust shim |
-| Interpreted | Python, JavaScript, Ruby, Lua, shell | the interpreter | a file beside the script (fork A) | none |
-| Bytecode VM | Java, .NET, WebAssembly | the VM | a file beside the bytecode (fork A) | none |
+| Interpreted | Python, JavaScript, Ruby, Lua, shell | the interpreter | a comment block after `#!` (fork A) | none |
+| Bytecode VM | Java, .NET, WebAssembly | the VM | a custom section, or an entry under `META-INF/` (fork A) | none |
 
 Native compiled. Each language needs its runtime ported, and the shape differs. C runs today only
 as §31 (the foreign-language seam) builds it: `fixtures/c/c_seam.c` is linked into `c_shim`, a Rust
@@ -201,21 +191,57 @@ Each is reversible while nothing outside the tree reads these files. A "no" leav
 and breaks nothing that runs.
 
 1. Where a need is declared. Ruled by calef, 2026-10-07 (UTC): only in program manifests. The build
-   computes them into package metadata (§197) and the index (§250 (an image names its
+   computes them into package metadata (§197 (a package is one archive file)) and the index (§250 (an image names its
    distribution's package index)), where `jig` resolves them before download.
 
-A. Where a manifest travels. Options:
-   - The ELF note only. A script would need a stub ELF per script, wrapping it (PyInstaller's shape,
-     recalled), which repeats the interpreter in every package.
-   - A manifest file only, for every program. Loses §197's option M2, which put the manifest inside
-     the bytes the progenitor hashes.
-   - Two carriers: the ELF note for an ELF, and a manifest file inside the package beside a script or
-     bytecode, both decoding to one `grant_plan::Manifest`. Android ships `AndroidManifest.xml`
-     beside `classes.dex` in one signed APK, and Fuchsia packages a compiled `.cml` beside the binary
-     (both recalled). The file is covered by the package digest, as the note is by the program's.
+A. Where a manifest travels. Revised by calef, 2026-10-07 (UTC), on his question *"Could a script's
+   manifest be part of the start of the script much like #! is used to identify the scripting
+   language/executor?"*, answered *"Yes, that seems more elegant. Obviously jig would need to evolve
+   as we expand language support."* The proposal now reads: a program carries its manifest inside
+   itself, in its own format's metadata slot.
 
-   Recommend two carriers. One consequence: to vouch for a script, the progenitor must hash the
-   script as well as the interpreter, so the activation set gains script digests.
+   | Format | Slot | Encoding |
+   |---|---|---|
+   | ELF | the note, milestone 597 (a program carries its manifest in an ELF note) | the note's binary descriptor |
+   | Script | a comment block right after `#!` | the text form below |
+   | WebAssembly | a custom section named `nife.manifest` | the note's binary descriptor |
+   | Java jar | the entry `META-INF/nife/manifest` | the text form |
+   | A format with no slot | a sidecar file, as the last resort | the text form |
+
+   The marker. A block opens with a line made of the script's comment prefix, a space, `/// nife`,
+   and closes with the prefix, a space and `///`. Every line between starts with the same prefix.
+   The reader takes the prefix from the opening line, so `#`, `//` and `--` all work. This is PEP
+   723's block shape with its own type word, so a Python script can carry `# /// script` for its
+   packages and `# /// nife` for its grants side by side:
+
+   ```python
+   #!/usr/bin/env python3
+   # /// nife
+   # runner = python
+   # entropy = true
+   # ///
+   ```
+
+   The encoding. A text form inside text formats, the binary descriptor inside binary ones, and both
+   decode to one `grant_plan::Manifest`. The text form is a strict subset of TOML: one `key = value`
+   per line, keys from `Manifest`'s fields, values bare words, integers or booleans, and no tables or
+   quoted strings. That keeps the reader the progenitor needs small enough to fuzz, while any TOML
+   parser still reads it. A round-trip test (text, `Manifest`, descriptor, `Manifest`) keeps the two
+   encodings equal.
+
+   The consequence. One digest covers code and manifest together, for a script as for an ELF, so
+   the earlier draft's separate manifest file and its own entry in the activation set go away. The
+   cost. `jig` and the spawner each need one small reader per format, so `jig` grows as language
+   support grows. That belongs to the package client's milestone (#1799 promotes it), and this
+   proposal does not edit that block.
+
+   Prior art, in the [appendix](a-package-declares-what-it-needs-at-run-time/prior-art.md): PEP 723,
+   Cargo's script frontmatter, `nix-shell` `#!` lines, Deno's permission flags in a shebang,
+   WebAssembly custom sections and the jar manifest. Refused: a sidecar for every format, which
+   separates the manifest from the bytes §197's option M2 hashes, and a stub ELF per script, which
+   repeats the interpreter in every package.
+
+   Recommend this shape, with the marker and encoding above.
 
 B. How a program names what runs it. Options:
    - `#!` and a path the shell resolves, Unix's and Linux `binfmt_misc`'s way (recalled). It names
@@ -227,7 +253,8 @@ B. How a program names what runs it. Options:
      ([runners](https://fuchsia.dev/fuchsia-src/concepts/components/v2/capabilities/runner)).
 
    Recommend `runner` as a need, with `elf` implicit for native programs and provided by `init`.
-   Unlike a contract, a missing runner means nothing runs, so it is a requirement, not a want.
+   Unlike a contract, a missing runner means nothing runs, so it is a requirement, not a want. A
+   script keeps its `#!` line for other systems; nife reads the runner from the block, not the path.
 
 2. How a provider is declared. Recommend a `provides` table in the package file covering both kinds,
    each naming the member program that serves it:
