@@ -144,7 +144,7 @@ jobs:
           if-no-files-found: warn
 
   # **The measured times verify.yml packs its re-falsify shards by** (calef, 2026-10-06 UTC, a
-  # 20-minute target per shard). `script/falsifications --record-times` merges this sweep's
+  # 20-minute target per shard, 17 since #1802 on 2026-10-07). `script/falsifications --record-times` merges this sweep's
   # per-record times into notes/project-metrics/falsification-times.tsv and a pull request carries
   # them, in the shape mutation.yml's `record` job uses. It runs whatever the sweep found, since a
   # survivor's time is as good a weight as a red one's; a stale number only unbalances the shards

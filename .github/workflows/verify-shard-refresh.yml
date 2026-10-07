@@ -16,6 +16,7 @@ name: verify shard refresh
 # runs' per-crate seconds out of their logs, and rewrites the table when a planned shard is more
 # than 15% off its median or when repacking would save a minute. helpers/verify_times.py holds the
 # rule and its reasons; each shard also warns on its own run when it lands more than 30% off.
+# Since 2026-10-07 it also rewrites the re-falsify replay times the same way (calef, on #1802).
 #
 # The same propose, verify, accept split `metrics.yml` uses: this opens a pull request and never
 # pushes to `main`, and the pull request runs the full verify like any change to script/verify,
@@ -74,19 +75,19 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -e
-          if git diff --quiet -- script/verify; then
-            echo "The table matches CI; no pull request."
+          if git diff --quiet -- script/verify notes/project-metrics/falsification-times.tsv; then
+            echo "The prove table and the replay times match CI; no pull request."
             exit 0
           fi
           branch="metrics/verify-shards"
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          git add script/verify
-          git commit -m "verify: refresh the prove shard seconds from CI
+          git add script/verify notes/project-metrics/falsification-times.tsv
+          git commit -m "verify: refresh the prove and re-falsify shard seconds from CI
 
           Rewritten by the scheduled verify-shard-refresh workflow from the median per-crate
-          seconds of the last 20 green verify runs. A shard planned more than 15% off its median,
+          and per-record seconds of the last 20 green verify runs. A shard planned more than 15% off its median,
           or a repacking that saves a minute, is what triggers it; the table never changes which
           harnesses run, only which runner runs them.
 
@@ -94,9 +95,10 @@ jobs:
           git push --force origin "$branch"
           body="**Lane:** $branch, opened by a scheduled workflow; calef's account is the author GitHub shows.
 
-          Rewrites the seconds column of the crate table in \`script/verify\`, and its
-          \`# Seconds refreshed:\` line, from the median of the last 20 green verify runs'
-          \`==> kani-seconds:\` lines (\`helpers/verify_times.py refresh\`). Why it fired:
+          Rewrites the seconds of the crate table in \`script/verify\` and of the re-falsify
+          records in \`notes/project-metrics/falsification-times.tsv\`, with their
+          \`# Seconds refreshed:\` lines, from the medians of the last 20 green verify runs'
+          logs (\`helpers/verify_times.py refresh\`). Why it fired:
 
           $(cat "$RUNNER_TEMP/refresh.txt")
 
@@ -104,7 +106,7 @@ jobs:
           partition the table, so a wrong number can slow a shard and cannot drop a crate."
           existing="$(gh pr list --head "$branch" --state open --json number --jq '.[].number')"
           if [ -z "$existing" ]; then
-            gh pr create --head "$branch" --base main --title "verify: refresh the prove shard seconds from CI" --body "$body"
+            gh pr create --head "$branch" --base main --title "verify: refresh the shard seconds from CI" --body "$body"
           else
             gh pr edit "$existing" --body "$body"
             echo "Updated PR #$existing in place."

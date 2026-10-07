@@ -744,8 +744,8 @@ milestone 587 (most CI jobs do not need an arm64 host). Medians of 40 green runs
 
 Rebalancing alone does not reach 20 minutes; a third prove shard does, for about one more
 runner-minute per run, and calef ruled for it on 2026-10-07. The re-falsify shards, planned at 20
-minutes of replay, ran a median 22.5 job-minutes at their slowest since 2026-10-05; lowering that
-target to about 17 is still open.
+minutes of replay, ran a median 22.5 job-minutes at their slowest; he ruled their target down to
+17 the same day.
 `helpers/verify_times.py` keeps the table current and
 [notes/project-metrics.md](project-metrics.md) charts it.
 

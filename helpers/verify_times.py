@@ -68,6 +68,7 @@ REPO = "nifeos/nife"
 WORKFLOW = "verify.yml"
 VERIFY = "script/verify"
 VERIFY_YML = ".github/workflows/verify.yml"
+REPLAY_TIMES = "notes/project-metrics/falsification-times.tsv"
 RUNS_CSV = "notes/project-metrics/verify-runs.csv"
 RUN_COLUMNS = ["run", "created", "event", "prove_minutes", "refalsify_minutes", "slowest_minutes"]
 
@@ -85,6 +86,9 @@ SHARD_WARN_PCT = 30.0
 REFRESH_PCT = 15.0
 REPACK_SAVING_S = 60
 REFRESH_RUNS = 20
+# A replay time is rewritten only from a record seen in this many shard logs: one diff reaches a
+# record once, and one sample is what the weekly sweep already gives.
+REPLAY_MIN_SAMPLES = 3
 PER_DAY = 12
 DEFAULT_WINDOW_DAYS = 8
 
@@ -250,6 +254,36 @@ def parse_log(text):
     return out
 
 
+REPLAY_START = re.compile(r"==> (\S+::\S+)\s*$")
+REPLAY_VERDICT = re.compile(r"\s{4}(?:red|SURVIVOR|ERROR|STALE)\b.*\(([0-9.]+) s\)\s*$")
+REPLAY_PLAN = re.compile(r"shard (\d+)/(\d+): (\d+) record\(s\), estimated ([0-9.]+) s")
+
+
+def parse_replay_log(text):
+    """One re-falsify shard's log: ({record: seconds}, planned seconds or None).
+
+    script/falsifications already prints both: the plan as `shard k/n: N record(s), estimated S s`
+    and each verdict with its wall clock, build included, as `(12.3 s)`. The same two patterns its
+    own `--record-times` reads from the weekly sweep."""
+    records, plan, cur = {}, None, None
+    for line in text.splitlines():
+        m = STAMP.match(line)
+        body = m.group(2) if m else line
+        p = REPLAY_PLAN.search(body)
+        if p:
+            plan = float(p.group(4))
+            continue
+        s = REPLAY_START.search(body)
+        if s:
+            cur = s.group(1)
+            continue
+        v = REPLAY_VERDICT.search(body)
+        if v and cur:
+            records[cur] = float(v.group(1))
+            cur = None
+    return records, plan
+
+
 # ---------------------------------------------------------------------------------------------
 # GitHub.
 
@@ -396,16 +430,21 @@ def shard_count():
 
 
 def measure(count):
+    """The newest `count` runs with passing prove shards: (prove {crate: s} per run, replay logs
+    as [(records, plan)] per re-falsify shard, run ids)."""
     runs = recent_prove_runs(count)
-    per_run, ids = [], []
+    per_run, replays, ids = [], [], []
     for run, jobs in runs:
         merged = {}
         for job in jobs:
+            log = lambda: gh_text("repos/%s/actions/jobs/%d/logs" % (REPO, job["id"]))
             if PROVE_JOB.match(job["name"]):
-                merged.update(parse_log(gh_text("repos/%s/actions/jobs/%d/logs" % (REPO, job["id"]))))
+                merged.update(parse_log(log()))
+            elif REFALSIFY_JOB.match(job["name"]) and job["conclusion"] == "success":
+                replays.append(parse_replay_log(log()))
         per_run.append(merged)
         ids.append(run["id"])
-    return per_run, ids
+    return per_run, replays, ids
 
 
 def arg_value(argv, flag, default):
@@ -413,36 +452,99 @@ def arg_value(argv, flag, default):
 
 
 def crates(argv):
-    per_run, ids = measure(int(arg_value(argv, "--runs", str(REFRESH_RUNS))))
+    per_run, _replays, ids = measure(int(arg_value(argv, "--runs", str(REFRESH_RUNS))))
     for crate, secs in sorted(medians(per_run).items(), key=lambda x: -x[1]):
         print("%s\t%d" % (crate, secs))
     print("# %d runs: %s" % (len(ids), " ".join(map(str, ids))), file=sys.stderr)
     return 0
 
 
+# ---------------------------------------------------------------------------------------------
+# The re-falsify replay times (calef, 2026-10-07 UTC, on #1802: refresh them from CI, then lower
+# the target). script/falsifications packs its shards by REPLAY_TIMES, which the weekly sweep
+# also writes from its own single transcript; this side writes medians over the verify runs.
+
+def read_times(text):
+    """(comment lines, {record: seconds}) from the times file."""
+    head, times = [], {}
+    for line in text.splitlines():
+        if line.startswith("#") or not line.strip():
+            head.append(line)
+            continue
+        key, secs = line.split("\t")[:2]
+        times[key] = float(secs)
+    return head, times
+
+
+def write_times(head, times, stamp):
+    """The times file with every record sorted and the `# Seconds refreshed:` line set (added
+    after the other comment lines when absent)."""
+    head = [l for l in head if not REFRESHED.match(l)] + ["# Seconds refreshed: " + stamp]
+    return "\n".join(head + ["%s\t%.1f" % (k, times[k]) for k in sorted(times)]) + "\n"
+
+
+def replay_medians(replays, minimum=REPLAY_MIN_SAMPLES):
+    """{record: median seconds} over every shard log a record appeared in at least `minimum` times."""
+    seen = {}
+    for records, _plan in replays:
+        for k, v in records.items():
+            seen.setdefault(k, []).append(v)
+    return {k: round(statistics.median(v), 1) for k, v in seen.items() if len(v) >= minimum}
+
+
+def replay_drift(times, measured, replays):
+    """Why the replay times should be rewritten; empty when they should not.
+
+    Three reasons, each about the plan rather than one record: a measured record the file lacks
+    (it is packed at its package's mean), the records both know summing more than REFRESH_PCT
+    apart, or the shards themselves running a median more than REFRESH_PCT off their plans."""
+    reasons = []
+    missing = sorted(k for k in measured if k not in times)
+    if missing:
+        reasons.append("%d measured record(s) have no time and are packed by a guess, e.g. %s"
+                       % (len(missing), missing[0]))
+    common = [k for k in measured if k in times]
+    planned, actual = sum(times[k] for k in common), sum(measured[k] for k in common)
+    if planned and abs(actual - planned) * 100.0 / planned > REFRESH_PCT:
+        reasons.append("the %d records both know sum to %.1f min measured against %.1f planned"
+                       % (len(common), actual / 60, planned / 60))
+    ratios = [sum(r.values()) / plan for r, plan in replays if plan]
+    if ratios and abs(statistics.median(ratios) - 1) * 100 > REFRESH_PCT:
+        reasons.append("re-falsify shards ran a median %.0f%% of their plan" % (100 * statistics.median(ratios)))
+    return reasons
+
+
 def refresh(argv):
     count = int(arg_value(argv, "--runs", str(REFRESH_RUNS)))
     text = open(VERIFY).read()
     table = {name: secs for name, secs, _d in read_table(text)}
-    per_run, ids = measure(count)
+    per_run, replays, ids = measure(count)
     if not ids:
         print("verify_times: no run with passing prove shards found; nothing to compare", file=sys.stderr)
         return 2
-    measured = medians(per_run)
-    n = shard_count()
-    reasons = drift(table, measured, n)
-    for r in reasons:
-        print("- " + r)
-    if not reasons:
-        print("verify_times: the table matches %d runs within %.0f%%; no change" % (len(ids), REFRESH_PCT))
-        return 0
-    if "--dry-run" in argv:
-        return 0
     today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
     stamp = ("%s (UTC), the median of %d CI runs, %d to %d, by helpers/verify_times.py refresh"
              % (today, len(ids), min(ids), max(ids)))
-    open(VERIFY, "w").write(write_table(text, {c: s for c, s in measured.items() if c in table}, stamp))
-    print("verify_times: rewrote %s from %d runs" % (VERIFY, len(ids)))
+    measured = medians(per_run)
+    reasons = drift(table, measured, shard_count())
+    head, times = read_times(open(REPLAY_TIMES).read())
+    replayed = replay_medians(replays)
+    replay_reasons = replay_drift(times, replayed, replays)
+    for r in reasons + replay_reasons:
+        print("- " + r)
+    if not reasons and not replay_reasons:
+        print("verify_times: the prove table and the replay times match %d runs within %.0f%%; "
+              "no change" % (len(ids), REFRESH_PCT))
+    if "--dry-run" in argv:
+        return 0
+    if reasons:
+        open(VERIFY, "w").write(write_table(text, {c: s for c, s in measured.items() if c in table}, stamp))
+        print("verify_times: rewrote %s from %d runs" % (VERIFY, len(ids)))
+    if replay_reasons:
+        # Records not measured keep their time: a record no recent diff reached is not stale for that.
+        times.update(replayed)
+        open(REPLAY_TIMES, "w").write(write_times(head, times, stamp))
+        print("verify_times: rewrote %s from %d shard logs" % (REPLAY_TIMES, len(replays)))
     return 0
 
 
@@ -574,6 +676,30 @@ def selftest():
     expect("matching table is quiet", drift(now, now, 2), [])
     expect("unmeasured crate kept", drift(dict(now, new_crate=5), now, 2), [])
     expect("10% everywhere is under the line", drift(now, {c: int(s * 1.1) for c, s in now.items()}, 2), [])
+
+    # The replay side: the log reader, the drift rule and the times file.
+    rlog = ("2026-10-07T02:28:47.0337237Z shard 2/3: 70 record(s), estimated 1185 s\n"
+            "2026-10-07T02:28:47.2629172Z ==> glob::a\n"
+            "2026-10-07T02:28:50.1808178Z     red      the harness caught it (2.9 s)\n"
+            "2026-10-07T02:28:50.1824960Z ==> glob::b\n"
+            "2026-10-07T02:29:08.5367948Z     SURVIVOR it stayed green with its own falsification applied (13.5 s)\n"
+            "2026-10-07T02:29:08.6Z ==> glob::c\n"
+            "2026-10-07T02:29:09Z     STALE    the patch no longer applies; the covered code moved\n")
+    expect("replay log", parse_replay_log(rlog), ({"glob::a": 2.9, "glob::b": 13.5}, 1185.0))
+    logs = [({"glob::a": 10.0, "glob::b": 20.0}, 30.0)] * 2 + [({"glob::a": 12.0}, 12.0)]
+    expect("a record needs three samples", replay_medians(logs), {"glob::a": 10.0})
+    expect("matching times are quiet", replay_drift({"glob::a": 10.0}, {"glob::a": 10.5}, logs), [])
+    expect("a measured record without a time drifts",
+           len(replay_drift({"glob::b": 1.0}, {"glob::a": 10.0, "glob::b": 1.0}, logs)), 1)
+    expect("a sum 20% off drifts", len(replay_drift({"glob::a": 10.0}, {"glob::a": 12.0}, logs)), 1)
+    expect("shards running 1.3 times their plan drift",
+           len(replay_drift({"glob::a": 10.0}, {"glob::a": 10.0}, [({"x::y": 13.0}, 10.0)])), 1)
+    head, times = read_times("# a comment\n# Seconds refreshed: old\nb::x\t2.0\na::x\t1.25\n")
+    expect("times file", write_times(head, times, "new"),
+           "# a comment\n# Seconds refreshed: new\na::x\t1.2\nb::x\t2.0\n")
+    live_head, live_times = read_times(open(REPLAY_TIMES).read())
+    expect("live times file parses and is stamped",
+           (len(live_times) > 100, any(REFRESHED.match(l) for l in live_head)), (True, True))
 
     # The table rewrite: seconds replaced, descriptions, order and unmeasured rows kept, stamp set.
     src = ("# Seconds refreshed: never\n" + TABLE_START + "glob\t902\tmatching is total\n"

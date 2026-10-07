@@ -390,10 +390,11 @@ jobs:
   # **Sharded, sized by the diff** (calef, 2026-10-06 UTC: "I feel like the full sweep should be
   # sharded now with a target for 20 minutes for our long pole"). The scope job runs
   # `script/falsifications --plan-since`, which packs the records this diff reaches into the fewest
-  # shards whose estimated replay is at most 20 minutes, weighed by each record's measured time
-  # (notes/project-metrics/falsification-times.tsv, written back by the weekly sweep). A diff that
-  # reaches nothing gets no shard and spends no runner here; one crate gets one; the full set of
-  # 225 records, measured at 3,513 s on 2026-10-05, gets three at about 1,180 s each.
+  # shards whose estimated replay is at most 17 minutes (20 until calef ruled on #1802, 2026-10-07
+  # UTC), weighed by each record's measured time (notes/project-metrics/falsification-times.tsv,
+  # written back by the weekly sweep and by verify-shard-refresh.yml). A diff that reaches nothing
+  # gets no shard and spends no runner here; one crate gets one; the full set of 233 records gets
+  # four, the heaviest planned at 1,010 s (three at about 1,185 s each before the change).
   #
   # Why it had to change: #1726 and #1734 each reached every record and were cancelled at this
   # job's old 45-minute limit (#1734 in run 37399689439, 125 of 225 replayed), once `glob` and
@@ -410,7 +411,7 @@ jobs:
       needs.scope.outputs.falsify-shards != '' &&
       needs.gate.outputs.run != 'false'
     runs-on: ubuntu-24.04-arm
-    # 30 against the 20-minute target: 1.5 times, for a stale weight, a cold Kani install, or one
+    # 30 against the 17-minute target (20 until calef's 2026-10-07 ruling on #1802): ample, for a stale weight, a cold Kani install, or one
     # record at its own 15-minute limit. A shard that needs more is a packing input to fix (the
     # times file, or SHARD_TARGET in script/falsifications), not a limit to raise.
     timeout-minutes: 30
