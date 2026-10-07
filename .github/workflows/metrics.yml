@@ -79,6 +79,9 @@ permissions:
   pull-requests: write
   # verify's run and job records, for helpers/verify_times.py update.
   actions: read
+  # The near-budget tracking issues helpers/ci_job_times.py sync opens and closes (milestone 808
+  # (every gate accounts for its time)), and the label they carry.
+  issues: write
 
 jobs:
   record:
@@ -191,6 +194,33 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 helpers/verify_times.py update
+
+      # Where each merge-group job's time went, per day, per job and per step (milestone 808 (every
+      # gate accounts for its time), §254 (a gate prints what each item cost) Fork 4), from the jobs
+      # API, committed as `ci-job-times.csv` for `script/metrics`' weekly `ci-jobs.svg`. The last
+      # two days are rewritten, so yesterday's partial day heals on the next pass.
+      - name: Fetch the CI jobs' daily times
+        id: jobtimes
+        continue-on-error: true  # outcome: re-raised
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 helpers/ci_job_times.py update
+
+      # A job whose newest merge-group run passed 85% of its budget gets one tracking issue,
+      # rewritten each day and closed after three runs under the line (§254, Fork 2). Opened as the
+      # App so the issue's author is nife-smelter[bot]; the label is created with the workflow's
+      # own token first, because the App's may not create labels (helpers/merge-drain.sh says the
+      # same). It also appends this week's bullet for an open issue to week-notes.csv, which the
+      # step below draws and the pull request commits.
+      - name: Open, update or close the near-budget issues
+        id: budgetissues
+        continue-on-error: true  # outcome: re-raised
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          GH_TOKEN="${{ github.token }}" gh label create near-budget --repo "${{ github.repository }}" \
+            --color FBCA04 --description "A CI job near its budget (helpers/ci_job_times.py)" 2>/dev/null || true
+          python3 helpers/ci_job_times.py sync
 
       - name: Recompute this week's row and redraw the charts
         run: |
@@ -311,7 +341,8 @@ jobs:
         if: >-
           steps.covtool.outcome == 'failure' || steps.coverage.outcome == 'failure' ||
           steps.interfacetool.outcome == 'failure' || steps.interface.outcome == 'failure' ||
-          steps.queue.outcome == 'failure' || steps.verifytimes.outcome == 'failure'
+          steps.queue.outcome == 'failure' || steps.verifytimes.outcome == 'failure' ||
+          steps.jobtimes.outcome == 'failure' || steps.budgetissues.outcome == 'failure'
         run: |
           echo "::error::an instrument failed, so its cells were carried rather than measured:" \
             "cargo-llvm-cov install '${{ steps.covtool.outcome }}'," \
@@ -319,5 +350,7 @@ jobs:
             "interface target '${{ steps.interfacetool.outcome }}'," \
             "interface '${{ steps.interface.outcome }}'," \
             "merge queue fetch '${{ steps.queue.outcome }}'," \
-            "verify shard times '${{ steps.verifytimes.outcome }}'"
+            "verify shard times '${{ steps.verifytimes.outcome }}'," \
+            "CI job times '${{ steps.jobtimes.outcome }}'," \
+            "near-budget issues '${{ steps.budgetissues.outcome }}'"
           exit 1

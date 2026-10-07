@@ -1,5 +1,5 @@
 ---
-status: NOT-STARTED
+status: PARTIAL
 raised: 2026-10-06
 promoted_from: every-gate-accounts-for-its-time
 milestone_dependencies: 807
@@ -76,89 +76,32 @@ Three levels. Each gate provides the ones that apply to it.
 
 ## What the first read of per-step data already found
 
-Run 37505448674 on 2026-10-06, the `test` job, 14.9 minutes, read from the API and its log:
-
-| phase | seconds |
-|---|---|
-| checkout, caches, QEMU from cache | 58 |
-| `script/bootstrap` | 92 |
-| host tests and the redoxfs host passes | 89 |
-| `std-src` | 60 |
-| aarch64 suite | 134 |
-| riscv64 suite | 161 |
-| x86_64 suite, q35 | 93 |
-| x86_64, AMD-Vi | 79 |
-| x86_64 under OVMF, boot and both suites | 108 |
-| the rest | 23 |
-
-The surprise is `script/bootstrap`. 85 of its 92 seconds go to `cargo install` building
-`cargo-machete` (30.4 s) and `typos` (55.1 s) from source. Those are `script/lint`'s tools, and
-lint runs in `clippy`, not here. The same run built both in six jobs: `test`, `cpu-matrix`,
-`bench`, `boot-check`, `swish-check` and `swish-check-x86_64`. That is about 8.5 runner-minutes per
-merge-group run, and 1.4 minutes on every one of those poles, `cpu-matrix` included. It is larger
-than any single test fix the riscv64 answer suggests.
-
-It is cheap and reversible, so it should not wait for this milestone. Caching the two binaries, or
-giving `script/bootstrap` a way to skip the lint tools in a job that never lints, removes it.
-calef's 2026-09-13 ruling in `script/ci-build` (bootstrap runs first on the no-argument path) is
-about the local path and is not touched by either. This lane did not build it; it is the first
-instance of the mechanism finding something.
+Run 37505448674 on 2026-10-06: 85 of `script/bootstrap`'s 92 seconds in the `test` job were
+`cargo install` building `script/lint`'s tools. Six jobs that never lint did it, about 8.5
+runner-minutes per merge-group run. It was cheap and reversible, so it did not wait for this milestone:
+`NIFE_SKIP_LINT_TOOLS` (#1778) removed it.
 
 ## What catches the next drift before the wall-time gate fires
 
-The drift PR #1775 found was spread across about a hundred tests. A per-test ceiling would not have
-seen it. A per-suite budget would have, and this block recommended one; calef refused it (§254,
-Fork 2). A second hard limit fails whichever pull request tips an aggregate over, as `cpu-matrix`'s
-20-minute budget did to #1755 and #1766. Milestone 721's job budget stays the only hard limit.
+The drift PR #1775 found was spread across about a hundred tests, which a per-test ceiling would not
+have seen. This block recommended a per-suite budget; calef refused it (§254, Fork 2), because a
+second hard limit fails whichever pull request tips an aggregate over, as `cpu-matrix`'s budget did
+to #1755 and #1766. Milestone 721's job budget stays the only hard limit. In its place, a warning
+that fails nothing:
 
-What this milestone builds instead is a warning that fails nothing:
-
-- When a job's run on main passes about 85% of its budget in `.github/ci-job-budgets` (17 of 20
-  minutes today), the job emits a warning and stays green. `helpers/job-budget.py check` already
-  measures every job against that file, and already prints a warning at 75% (15 minutes) on every
-  run, pull requests included, where nobody reads it. The lane moves that line to 85% so the tree
-  has one warning line, not two, and says so in the helper's header.
-- That run's step summary shows the job's time against its budget, and its slowest suites and
-  tests from the per-item records. The reader starts from the answer rather than from the log.
-- A routine running as `nife-smelter[bot]` opens one tracking issue per job when the job first
-  crosses the line, updates it on later runs, and closes it when the job drops back under. The
-  issue carries a label (name provisional). A label needs an object, and a commit on main has
-  none, which is why the signal is an issue.
-  Milestone 723 (a stopped merge watcher is reported within three of its own intervals) opens an
-  issue the same way: `helpers/watcher_watch.py sync` opens or closes one issue per watcher, and
-  is the one to reuse.
-
-A label alone is read by nothing: today a session's queue is `needs-maintainer`, which lists pull
-requests only, and nobody opens the step summary of a green run on main. calef ruled on 2026-10-06
-(UTC) that the issue must reach a session by two routes (§254):
-
-- **The `needs-maintainer` listing.** `helpers/needs-maintainer.jq` gains an eighth cause,
-  `budget` (name provisional): an open issue carrying the budget label. Its key is the issue's
-  number and the time it was opened, so the drain comments once per episode, and it clears the
-  label when the issue closes. The drain's `NM_QUERY` in `helpers/merge-drain.sh` adds open issues
-  with that label, through the `search` it already runs with an `... on Issue` arm. The selftest
-  and `helpers/needs-maintainer-fixtures/every-cause.json` gain a labeled issue, open and closed.
-- **One query for the session, not two.** `briefs/session-start.md` and
-  `briefs/survey-the-queue.md` change from `gh pr list --label needs-maintainer --state all` to
-  `gh api --paginate 'repos/nifeos/nife/issues?labels=needs-maintainer&state=all'`, which returns
-  pull requests and issues together (a row with `pull_request` set is a pull request). A separate
-  `gh issue list` beside the existing command was refused: a second command is one more thing a
-  session must remember, which is rung zero. `gh search` was refused for the search index's lag,
-  which is recalled, not measured.
-- **A bullet under the chart.** While a budget issue is open, the weekly job-time chart in
-  `notes/project-metrics.md` carries a bullet under it naming the job, its percentage of budget and
-  the issue number. The routine appends the row to `notes/project-metrics/week-notes.csv`, so it
-  renders and ages out under milestone 623 (bullet under the chart explains a cliff)'s rule, with
-  no new mechanism.
+- A job past about 85% of its budget in `.github/ci-job-budgets` (17 of 20 minutes) warns and stays
+  green. Its step summary shows its time against the budget and its slowest items.
+- A routine running as `nife-smelter[bot]` opens one labeled tracking issue per job when it first
+  crosses the line, updates it, and closes it when the job is back under. A label needs an object,
+  and a commit on `main` has none, which is why the signal is an issue.
+- calef ruled on 2026-10-06 (UTC) that the issue must reach a session (§254). It is a
+  `needs-maintainer` cause, read with one command that lists pull requests and issues together, and
+  a bullet under the weekly job-time chart while it is open.
 
 At the measured growth of about 0.1 minutes per model per day, the longer `cpu-matrix` shard would
-have opened its issue about three weeks before it reached the hard limit. Each issue is a small
-recorded decision: fix something, split the job, or raise the budget with 721's reason line.
-
-A `script/lint` check holds the rule itself: a `ci.yml` job that checks out the tree either uploads
-the breakdown file or has a line in an exemption list with its reason. That is the same move
-`helpers/job-budget.py lint` makes for the wall-time steps, so a new gate cannot arrive without
-accounting.
+have opened its issue about three weeks before the hard limit. A `script/lint` check holds the rule
+itself: a `ci.yml` job that checks out the tree uploads the breakdown file or has an exemption line
+with its reason.
 
 ## Where it lands
 
@@ -245,10 +188,11 @@ the refused options.
 
 ## Reuse
 
-Taken: GitHub's jobs API for per-step times, `actions/upload-artifact` for the file, the step
-summary for display, and the patterns of `helpers/merge_queue_share.py` (a daily record) and
-`helpers/job-budget.py` (a ratchet with a lint), and `helpers/watcher_watch.py` (milestone 723) for the
-tracking issue. Written: the collector, the warning and the issue routine, a few hundred lines of Python
+Taken: GitHub's jobs API for per-step times, `actions/upload-artifact` for the file, and the step
+summary for display. Followed: `helpers/verify_times.py` and `helpers/merge_queue_share.py` for the
+daily record, and `helpers/job-budget.py` itself for the budget, the line and the job parser, which
+`helpers/ci_job_times.py` imports rather than copies. The issue routine calls `gh issue` directly;
+`helpers/watcher_watch.py` (milestone 723 (a stopped merge watcher is reported within three of its own intervals)) was read and is shaped around watchers. Written: the collector, the warning and the issue routine, a few hundred lines of Python
 against this tree's own record formats. JUnit XML was
 considered as the file's format and not taken, because no consumer here reads it.
 
@@ -265,14 +209,71 @@ considered as the file's format and not taken, because no consumer here reads it
   seconds. libtest's own JSON output with per-test times, behind `-Z unstable-options` on nightly,
   is the in-tree route if the host pass ever matters. That flag is recalled, not re-read.
 
+## What was built
+
+Lane `lane/808-gate-time`, pull request #1825, from 2026-10-07 (UTC), cut from `main` rather than
+stacked on milestone 807 (the kernel suite reports what each test cost), because these pieces do not
+read 807's record. Every name below is provisional.
+
+- **The warning line.** `helpers/job-budget.py check` warns at 85% instead of 75%, so there is one
+  line, and writes the job's minutes against its budget to the step summary. Its selftest proves the
+  warning fires at 17 of 20 minutes, is quiet below, and never changes the exit status.
+- **The daily record.** `helpers/ci_job_times.py update` reads every merge-group run of `ci.yml`
+  and `verify.yml` from the jobs API and writes per-job and per-step daily medians to
+  `notes/project-metrics/ci-job-times.csv`, seeded from 2026-10-06. `metrics.yml` runs it daily.
+- **The chart.** `script/metrics` draws `ci-jobs.svg`: `test`, `cpu-matrix`, `fuzz` and
+  `swish-check` side by side, the slowest job as a line, and the 20-minute ceiling.
+- **The tracking issue.** `helpers/ci_job_times.py sync` opens one `near-budget` issue per job,
+  rewrites it daily, closes it, and appends a week-notes row while it is open. It runs in
+  `metrics.yml` as `nife-smelter[bot]`. Its selftest drives the three transitions against a
+  recorded merge-group run (37648588582).
+- **The route to a session.** A thirteenth `needs-maintainer` cause, `budget`, keyed on the issue's
+  number and opening time. The drain finds open budget issues through a search of their own and
+  closed labeled issues through its existing search, which gained an `... on Issue` arm.
+  `briefs/session-start.md` and `briefs/survey-the-queue.md` read the listing through the REST
+  issues endpoint.
+
+### The damping, proposed as an amendment to §254
+
+§254's Open section left it to this lane. **One run at or past the line opens the issue, and three
+runs in a row under it close it.** Opening on one run keeps the warning as early as the ruling
+wants, and it fails nothing. Closing on one would flap, since one job on one commit varies by about
+30% across hosted runners. The maintainer applies the amendment to §254; this lane does not edit
+`design/decisions/`.
+
+## Exit criteria, so far
+
+| | criterion | state |
+|---|---|---|
+| 1 | the daily CSV for `ci.yml` and `verify.yml`, and the weekly chart | met, per job and per step. Per test waits on 807's artifacts |
+| 2 | every checkout job uploads the breakdown file or is exempt, held by `script/lint` | not yet: needs 807's file on `main` |
+| 3 | per-item times from the kernel suite, `cpu-matrix`, `swish-check`, re-falsify and `fuzz` | the kernel suite and `cpu-matrix` by 807; the other three not yet |
+| 4 | the 85% warning, its summary, its host test | met |
+| 5 | the issue's three transitions, tested against a recorded fixture | met |
+| 6 | `budget` in the `needs-maintainer` listing, the selftest, the briefs | met |
+| 7 | a week-notes bullet while an issue is open | met, through `sync` |
+| 8 | `verify.yml` joins the budget | not yet: the record now holds its medians. Over 60 runs to 2026-10-07, `prove` shards ran a 16.4-minute median (max 19.2). Re-falsify shards ran 16.1 (max 21.5) and need a ratchet line |
+| 9 | milestone 663's deadline from the host pass's measured time | not yet: needs the per-phase file |
+
 ## BUGS
 
-- The warning reads one run. A job sitting near 85% may open and close its issue on alternate runs.
-  §254 leaves the damping to this milestone's lane.
+- The warning reads one run, and `sync` damps the issue (one run opens, three close). A job
+  hovering at the line keeps one issue open rather than flapping, and may hold it open longer than
+  its median deserves.
+- `sync` runs once a day, so an issue opens up to a day after the crossing run.
+- `helpers/nanny.py`, which wakes a running session, still reads pull requests only. A budget issue
+  reaches a session at its next `needs-maintainer` read, not mid-session.
 
 - A merge-group run's runner varies, and every number here is wall time on a shared hosted machine.
   The record takes medians over runs for that reason. One run, as in the table above, is a premise
   check and not a baseline.
+
+## Follow-on
+
+- **Outstanding.** Exit criteria 2, 3, 8 and 9 above, in this lane after milestone 807 merges. That
+  is the per-phase timing of `script/ci-build test`, the upload-or-exempt lint, and per-item times
+  from `swish-check`, re-falsify and `fuzz`. Then the daily CSV's per-test rows, `verify.yml`'s
+  budget, and 663's deadline.
 
 ## Index row
 

@@ -70,7 +70,7 @@ expect "the recorded 2026-10-03T23:54:15Z response decided wrong" \
 
 # 2. Every cause, and every clearing, at 22:00 UTC with a 30-minute grace. #11, #22 and #33 name
 #    an open blocker and #12 only resolved ones.
-want='["1:label:ejected","2:clear","3:clear","4:label:conflict,ejected","5:clear","6:label:unarmed","7:label:unarmed","9:label:unarmed","12:label:unarmed","14:label:conflict","16:clear","20:label:off-main","24:label:red","27:label:red","29:label:red","30:label:stale-draft","32:label:stale-draft","36:keep:stale-draft","39:clear","41:label:unmergeable","42:clear","1555:keep:stale","1556:clear"]'
+want='["1:label:ejected","2:clear","3:clear","4:label:conflict,ejected","5:clear","6:label:unarmed","7:label:unarmed","9:label:unarmed","12:label:unarmed","14:label:conflict","16:clear","20:label:off-main","24:label:red","27:label:red","29:label:red","30:label:stale-draft","32:label:stale-draft","36:keep:stale-draft","39:clear","41:label:unmergeable","42:clear","50:label:budget","51:keep:budget","52:clear","53:label:budget","1555:keep:stale","1556:clear"]'
 got="$(decide "$fx/every-cause.json" 2026-10-03T22:00:00Z '{"11": ["OPEN", "MERGED"], "12": ["MERGED"], "22": ["OPEN"], "33": ["OPEN"]}')"
 if [ "$got" != "$want" ]; then
 	echo "$me: the needs-maintainer decision is wrong." >&2
@@ -100,6 +100,10 @@ if [ "$got" != "$want" ]; then
   38 an old draft labeled parked: nothing. 39 the same, already labeled: clear. 40 ready an hour,
   unarmed, sent back with held-by-lane and architect-ruled: nothing. 41 armed, queued at position
   4, its entry UNMERGEABLE: unmergeable (#1795). 42 labeled, its entry AWAITING_CHECKS: clear.
+  50 an open near-budget issue (milestone 808 (every gate accounts for its time)), seen by both
+  the issues list and the budget search: budget, once. 51 the same, already labeled: keep.
+  52 a closed near-budget issue still labeled: clear. 53 an open near-budget issue older than the
+  issues list reaches, seen only by the budget search: budget.
 EOF
 	exit 1
 fi
@@ -254,6 +258,18 @@ expect "an UNMERGEABLE entry's key, position or the entries ahead of it came bac
 	'["H41",4,[{"number":3,"head":"4124d6390de36d200e2797616761b584e9dcd850"},{"number":16,"head":"H16"},{"number":1555,"head":"H1555"}]]'
 
 # 4. The drain splices the decision and asks for every field it reads.
+got=$(jq -c --argjson now "$(jq -n '"2026-10-03T22:00:00Z" | fromdateiso8601')" \
+	"$program"'[ nm_decide("needs-maintainer"; $now; 30; {}) | select(.number >= 50 and .number <= 53) | "\(.number):\(.kind):" + (.causes | map(.key) | join(",")) ]' \
+	"$fx/every-cause.json")
+expect "a budget issue's kind or episode key came back wrong (milestone 808)" "$got" \
+	'["50:issue:50@2026-10-03T06:00:00Z","51:issue:51@2026-10-02T06:00:00Z","52:issue:","53:issue:53@2026-09-20T06:00:00Z"]'
+for where in "$here/merge-drain.sh" "$here/ci_job_times.py"; do
+	if ! grep -q 'near-budget' "$where"; then
+		echo "$me: $where does not name the near-budget label that needs-maintainer.jq's nm_budget_label holds." >&2
+		exit 1
+	fi
+done
+
 f="$here/merge-drain.sh"
 if ! grep -qF '"$(cat "$ELIGIBLE_JQ" "$OQ_JQ" "$NM_JQ")"' "$f"; then
 	echo "$me: merge-drain.sh does not splice queue-eligible.jq, open-question.jq and needs-maintainer.jq, so nothing decides." >&2
@@ -264,6 +280,7 @@ for field in 'mergeQueue(branch: "main")' 'position enqueuedAt state' 'mergedAt 
 	ADDED_TO_MERGE_QUEUE_EVENT READY_FOR_REVIEW_EVENT AUTO_MERGE_DISABLED_EVENT LABELED_EVENT committedDate beforeCommit \
 	'parents(first: 2)' 'search(query: $labelled' 'refs(refPrefix: "refs/heads/"' 'compare(headRef: "main") { behindBy }' \
 	associatedPullRequests 'comments(last: 30) { nodes { createdAt url body } }' 'issues(states: OPEN' \
+	'budget: search(query: $budget' '... on Issue { number state' __typename \
 	'architectSurface:' 'missingChecks:' 'RULES_PY="$(dirname "$0")/architect-label-rules.py"' 'OQ_JQ="$(dirname "$0")/open-question.jq"'; do
 	if ! grep -qF -- "$field" "$f"; then
 		echo "$me: merge-drain.sh's needs-maintainer query does not ask for $field, which the decision reads." >&2
@@ -298,4 +315,4 @@ if ! grep -qF -- '--add-label "$HELD_LABEL"' "$f"; then
 	exit 1
 fi
 
-echo "needs maintainer: ejected, conflicting, stale, unarmed, off-main, red, stale-draft, orphan and unmergeable pull requests, and the three architect-queue causes, labeled, each cleared when its cause goes; the drain splices it and never arms"
+echo "needs maintainer: ejected, conflicting, stale, unarmed, off-main, red, stale-draft, orphan and unmergeable pull requests, the three architect-queue causes, and a CI job near its budget, labeled, each cleared when its cause goes; the drain splices it and never arms"

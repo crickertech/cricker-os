@@ -63,13 +63,13 @@ What a pass does, in order:
 - labels `needs-maintainer` (name provisional) on a pull request a maintainer session must pick
   up, comments once per cause with the evidence, and takes the label off when the cause goes.
 
-The eight causes and their comments are in [queue-ejection.md](queue-ejection.md). The decision is
+The causes and their comments are in [queue-ejection.md](queue-ejection.md). The decision is
 `helpers/needs-maintainer.jq`, checked by `helpers/needs-maintainer-selftest.sh` against a recorded
 response, and that selftest also fails if the drain arms or enqueues again.
 
 The session-side half is rung three. `briefs/session-start.md` reads
-`gh pr list --label needs-maintainer --state all` before anything else, and `helpers/nanny.py`
-wakes a running session when the label lands.
+the `needs-maintainer` listing before anything else, and `helpers/nanny.py` wakes a running
+session when the label lands.
 
 Its event lines (`DEQUEUED`, `RERAN`, `UNBLOCKED`, `LABELLED`, `CLEARED`) each print once per
 transition, so they can be counted across passes. A snapshot read late is merely stale; a flow read

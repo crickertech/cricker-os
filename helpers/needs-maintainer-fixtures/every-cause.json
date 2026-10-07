@@ -1660,6 +1660,53 @@
       }
      }
     ]
+   },
+   "issues": {
+    "nodes": [
+     {
+      "number": 50,
+      "createdAt": "2026-10-03T06:00:00Z",
+      "url": "https://github.com/o/r/issues/50",
+      "body": "",
+      "title": "cpu-matrix-shard is near its budget",
+      "labels": {
+       "nodes": [
+        {
+         "name": "near-budget"
+        }
+       ]
+      },
+      "comments": {
+       "nodes": []
+      },
+      "labelEvents": {
+       "nodes": []
+      }
+     },
+     {
+      "number": 51,
+      "createdAt": "2026-10-02T06:00:00Z",
+      "url": "https://github.com/o/r/issues/51",
+      "body": "",
+      "title": "test is near its budget",
+      "labels": {
+       "nodes": [
+        {
+         "name": "near-budget"
+        },
+        {
+         "name": "needs-maintainer"
+        }
+       ]
+      },
+      "comments": {
+       "nodes": []
+      },
+      "labelEvents": {
+       "nodes": []
+      }
+     }
+    ]
    }
   },
   "search": {
@@ -1682,6 +1729,53 @@
       "nodes": [
        {
         "name": "needs-maintainer"
+       }
+      ]
+     }
+    },
+    {
+     "__typename": "Issue",
+     "number": 52,
+     "state": "CLOSED",
+     "labels": {
+      "nodes": [
+       {
+        "name": "near-budget"
+       },
+       {
+        "name": "needs-maintainer"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  "budget": {
+   "nodes": [
+    {
+     "number": 50,
+     "state": "OPEN",
+     "createdAt": "2026-10-03T06:00:00Z",
+     "url": "https://github.com/o/r/issues/50",
+     "title": "cpu-matrix-shard is near its budget",
+     "labels": {
+      "nodes": [
+       {
+        "name": "near-budget"
+       }
+      ]
+     }
+    },
+    {
+     "number": 53,
+     "state": "OPEN",
+     "createdAt": "2026-09-20T06:00:00Z",
+     "url": "https://github.com/o/r/issues/53",
+     "title": "bench is near its budget",
+     "labels": {
+      "nodes": [
+       {
+        "name": "near-budget"
        }
       ]
      }

@@ -21,7 +21,13 @@ check a number.
 
 - Every `ci.yml` job that checks out the tree opens with a step that records `JOB_STARTED_AT`, and
   closes with an `if: always()` step that runs `check`.
-- `check` warns at 75% of the budget (15 of 20 minutes) and fails above it.
+- `check` warns at 85% of the budget (17 of 20 minutes) and fails above it. The warning never
+  changes the exit status. It was 75% until milestone 808 (every gate accounts for its time) moved it
+  to the line §254 (a gate prints what each item cost, and a job near its budget warns rather than
+  fails) ruled, so the tree has one warning line and not two: this one on every run, and the
+  tracking issue `helpers/ci_job_times.py sync` opens when a merge-group run crosses the same line.
+- `check` also writes the job's time against its budget to the run's step summary, when
+  `GITHUB_STEP_SUMMARY` names one, so a reader of a run starts from the number (§254, Fork 3).
 - The budget is `BUDGET_MINUTES` unless `.github/ci-job-budgets` raises it for that job. A line there
   is `<job> <minutes> <reason>`, and a line without a reason is refused, so a budget grows only by
   saying why in the diff that grows it.
@@ -52,7 +58,7 @@ import sys
 import time
 
 BUDGET_MINUTES = 20
-WARN_FRACTION = 0.75
+WARN_FRACTION = 0.85
 MARGIN_MINUTES = 5
 WORKFLOWS = [".github/workflows/ci.yml"]
 RATCHET = ".github/ci-job-budgets"
@@ -98,6 +104,31 @@ def check(job, started, now, ratchet):
         return 0, ("::warning::%s took %.1f minutes, past the %.0f-minute warning for its %d-minute "
                    "budget." % (job, minutes, warn_at, budget))
     return 0, "==> %s took %.1f minutes (budget %d)" % (job, minutes, budget)
+
+
+def summary_line(job, started, now, ratchet):
+    """The job's row in the step summary's budget table: minutes, budget, share, and a verdict."""
+    minutes = (now - started) / 60.0
+    budget = budget_for(job, ratchet)
+    share = minutes / budget
+    verdict = "over budget" if minutes > budget else ("warning" if share >= WARN_FRACTION else "")
+    return ("| `%s` | %.1f | %d | %.0f%% | %s" % (job, minutes, budget, share * 100, verdict)).rstrip() + " |"
+
+
+def write_summary(job, started, now, ratchet):
+    """Append the budget table to `GITHUB_STEP_SUMMARY`, if the runner gave one. Best effort: a
+    summary that cannot be written must not change the job's verdict."""
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    try:
+        with open(path, "a") as f:
+            f.write("### Wall time against the budget\n\n| job | minutes | budget | share | |\n"
+                    "|---|---:|---:|---:|---|\n%s\n\nThe warning line is %d%% of the budget "
+                    "(helpers/job-budget.py, §254).\n"
+                    % (summary_line(job, started, now, ratchet), round(WARN_FRACTION * 100)))
+    except OSError:
+        pass
 
 
 def jobs_of(text):
@@ -225,15 +256,22 @@ def selftest():
             ok = False
             print("FAIL %s: got %r want %r" % (label, got, want), file=sys.stderr)
 
-    # check(): quiet under 15, warns from 15, fails above 20, and a ratchet moves both lines.
+    # check(): quiet under 17, warns from 17 (85%, §254), fails above 20, and a ratchet moves both
+    # lines. Milestone 808's exit criterion 4: fires above the line, silent below, never changes
+    # the exit status.
     expect("quiet", (check("j", 0, 14 * 60, {})[0], check("j", 0, 14 * 60, {})[1][:3]), (0, "==>"))
-    expect("warn", check("j", 0, 15 * 60, {})[1].startswith("::warning::"), True)
+    expect("quiet at 15 (the old 75% line)", check("j", 0, 15 * 60, {})[1][:3], "==>")
+    expect("quiet just under 17", check("j", 0, 17 * 60 - 1, {})[1][:3], "==>")
+    expect("warn at 17", check("j", 0, 17 * 60, {})[1].startswith("::warning::"), True)
+    expect("a warning never fails", check("j", 0, 19 * 60, {})[0], 0)
     expect("edge ok", check("j", 0, 20 * 60, {})[0], 0)
     expect("fail", check("j", 0, 20 * 60 + 1, {})[0], 1)
     expect("22.3 minutes fails (the 2026-09-19 run)", check("j", 0, int(22.3 * 60), {})[0], 1)
     expect("ratchet raises", check("j", 0, 22 * 60, {"j": 24})[0], 0)
     expect("ratchet is per job", check("k", 0, 22 * 60, {"j": 24})[0], 1)
-    expect("ratchet warn line moves", check("j", 0, 16 * 60, {"j": 24})[1][:3], "==>")
+    expect("ratchet warn line moves", check("j", 0, 20 * 60, {"j": 24})[1][:3], "==>")
+    expect("summary line", summary_line("j", 0, 17 * 60, {}), "| `j` | 17.0 | 20 | 85% | warning |")
+    expect("summary line quiet", summary_line("j", 0, 6 * 60, {}), "| `j` | 6.0 | 20 | 30% | |")
 
     # The ratchet file refuses a raise with no reason, a non-raise, and junk.
     _, p = parse_ratchet("cpu-matrix 24\n")
@@ -275,8 +313,10 @@ def main(argv):
         if not argv[3].isdigit():
             print("::error::JOB_STARTED_AT is %r; the first step of the job did not record it" % argv[3])
             return 1
-        code, msg = check(argv[2], int(argv[3]), time.time(), ratchet)
+        now = time.time()
+        code, msg = check(argv[2], int(argv[3]), now, ratchet)
         print(msg)
+        write_summary(argv[2], int(argv[3]), now, ratchet)
         return code
     if argv[1:] == ["lint"]:
         problems = lint()
