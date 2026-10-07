@@ -2399,7 +2399,8 @@ CHARTS = [
      'public items removed or changed in the contract and std ABI crates, a crate rename counted '
      'once; rustdoc JSON, week against week',
      [('breaking changes', 'interface_breaking')], 1.0, None, 'interface_breaking'),
-    # All actions delivered is a steady state.
+    # Last, by calef's rule (2026-10-06 UTC): a measure at its goal state sits below the ones still
+    # being driven. The page's own order is hand-written (see PAGE); this list only mirrors it.
     ('coe-actions.svg', 'Action items the corrections of error still owe',
      'notes/coes/, resolved by helpers/coe_actions.py: open while the milestone, proposal or '
      'decision an item names is not done; the direction is down',

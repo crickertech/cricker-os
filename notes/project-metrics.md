@@ -239,6 +239,17 @@ The harness count, split three ways: a falsification record, `unfalsifiable` wit
 written, and unfalsified. A harness with no record at all is counted as unfalsified. The denominator is harnesses, not
 code: unharnessed code is outside it ([what each ratio is of](denominators.md#the-published-ratios-and-what-each-is-of)).
 
+## Action items the corrections of error still owe
+
+![Action items the corrections of error still owe](project-metrics/coe-actions.svg)
+
+<!-- week-notes: script/metrics writes this -->
+- 2026W40: open items fell 3 to 0 on 2026-10-04 UTC. Milestone 641 (a mechanism that reports clean), 725 (count every vendor) and 640 (a gate is not evidence) turned BUILT.
+<!-- /week-notes -->
+
+Open while what an item names is not done; the direction is down (`script/roadmap --coe-actions`).
+Each week is read from its own commit, so 2026W39 is the first correction, already in this form.
+
 ## How it stays current
 
 `.github/workflows/metrics.yml` runs `script/metrics --update` daily and opens or refreshes a pull
@@ -327,14 +338,3 @@ rest.
 - The prose budget will be restated again when milestone 586 (a prose ratchet in lint) lands,
   because it shares one document scope with `script/lint` and may count documents this one does not.
 - Nothing here is audited outside this project, as stated at the top.
-
-## Action items the corrections of error still owe
-
-![Action items the corrections of error still owe](project-metrics/coe-actions.svg)
-
-<!-- week-notes: script/metrics writes this -->
-- 2026W40: open items fell 3 to 0 on 2026-10-04 UTC. Milestone 641 (a mechanism that reports clean), 725 (count every vendor) and 640 (a gate is not evidence) turned BUILT.
-<!-- /week-notes -->
-
-Open while what an item names is not done; the direction is down (`script/roadmap --coe-actions`).
-Each week is read from its own commit, so 2026W39 is the first correction, already in this form.
