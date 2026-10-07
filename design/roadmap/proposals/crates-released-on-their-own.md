@@ -26,6 +26,68 @@ from one repository), RustCrypto (one repository per family), rust-embedded and 
 repository per crate), and crates.io trusted publishing (RFC 3691). Nothing is written here; this
 decides how existing crates leave.
 
+## The rulings
+
+calef ruled all eight forks on 2026-10-07 (UTC), between 13:46 and 14:16, in the maintainer
+session, relayed in comments on pull request #1806. Each fork below keeps its options as the
+record of what was weighed, and its heading says how it was ruled.
+
+- Fork 1, replacing the recommendation: one repository per crate under `nifeos`, created when that
+  crate is first published. Until then it stays in this tree, and milestone 610's co-change
+  measurement still decides which crates are ready (§235). Every crate repository uses one shared
+  CI template (Kani, lint, release) through reusable workflows. calef: *"I lean one repo per
+  crate."* then *"Yes a"*.
+- Fork 2: a crate that has left is consumed as a crates.io release pinned with its checksum in
+  `Cargo.lock`. A `[patch]` to a local checkout or branch is allowed only during development, and a
+  lint fails if one reaches `main`. calef: *"Ratify fork two"*.
+- Fork 3: its own semantic version from 0.1, a stated minimum Rust version, and its Kani harnesses
+  and falsification patches shipped inside it. Every crate carries `publish = false` unless it is on
+  a lint-checked allowlist calef approves. calef: *"Yes"*.
+- Fork 4: `script/verify` proves a crate while it is here. After it moves, the shared template runs
+  `kani-github-action`, and the release workflow refuses to publish unless the proof job is green.
+  calef: *"Yes"*.
+- Fork 5: names stand on their own, with no `nife` prefix. A crate keeps this tree's name where it
+  is free and descriptive, and otherwise gets a fresh descriptive name, ratified when it is first
+  published. calef: *"It seems like we should pick create names that can stand on their own. If
+  Nife fails the crates may survive."*
+- Fork 6: crates.io trusted publishing from a `nifeos` workflow, no long-lived token, a `nifeos`
+  team as owner, and a release only when calef approves it. calef: *"Yes"*.
+- Fork 7, replacing approval of the table as a whole: each crate is reviewed with calef one at a
+  time. A crate approved to leave, published or with proofs contributed, becomes its own milestone
+  at that review, quoting his ruling, its disposition, the target project and who writes the
+  offer. A crate marked internal gets a line in the note and no milestone. calef: *"I think we need
+  to review them one by one. Should we create milestones for each?"* then *"Yes"*.
+- Fork 8, replacing the recommendation: lanes write offers, disclosed as agent-written, only to
+  projects whose policy admits disclosed AI work. Where a project bans AI-generated contributions or
+  requires a person's own words, nife sends no code or proofs, and calef writes nothing by hand.
+  calef: *"I need to scale myself. I'm not signing up to be a manual contributor. I think where AI
+  is banned I just shouldn't contribute."* Refined at 14:16: bug reports are fine everywhere,
+  including there. They stay disclosed, and a security finding goes privately to the maintainer
+  first. calef: *"Bug reports are fine."*
+- Approval cadence, ruled at 14:17: every upstream submission, whether an offer, a reply carrying
+  code or a bug report, comes to calef before it is sent, as his 2026-10-06 rule says. Approving
+  once per project at its crate review was offered and not taken for now. calef: *"Let's start
+  with b."*
+
+No per-crate milestone is minted by this proposal. They come from the reviews below.
+
+## The per-crate reviews, in order
+
+Proposed order, reversible. FAT is first by calef's ruling, and it is the only crate already
+ruled to be written. Then owners who already run Kani, then the rest by harnesses offered, then the
+rows fork 8 changes, then the publications that need a cut or proofs first. The internal crates
+close the list as one sitting, since each needs only a line.
+
+1. FAT (the ruled crate; `file_allocation_table` today).
+2. `paging` to `x86_64` and `aarch64-paging`.
+3. `globally_unique_identifier_partition_table` and `universally_unique_identifier`.
+4. `elf`, then `network_time_protocol`, `device_tree_blob`, `glob`, `domain_name_system`.
+5. `calendar`, revisited under fork 8, since `time` wants a person's words.
+6. `non_volatile_memory_express`, `extensible_host_controller_interface` (rust-osdev asked first).
+7. `e1000e`, the DesignWare pair and the JH7110 pair, after their cuts.
+8. `portable_executable`, once it carries proofs.
+9. The internal set, `redoxfs`'s bug report question among them.
+
 ## What is already on the record
 
 Milestone 39 (repository structure for a loosely-coupled OS) answered a narrower form of this on
@@ -52,7 +114,7 @@ device-logic crates (NVMe, e1000e, two DesignWare controllers, two JH7110 blocks
 rust-osdev declines, and `portable_executable`. Eleven outside projects are
 candidates for our proofs. The rest stay internal.
 
-## Fork 1. Where a released crate lives
+## Fork 1. Where a released crate lives (ruled: one repository per crate)
 
 | option | shape | prior art | cost |
 |---|---|---|---|
@@ -61,7 +123,7 @@ candidates for our proofs. The rest stay internal.
 | R-c. One repository per crate | `nifeos/<crate>` each | rust-osdev (`x86_64`, `uefi-rs`), rust-embedded-community | Nine repositories, each with its own CI, and two pull requests whenever a driver and its crate move together |
 | R-d. One repository per family | Two today: device logic (seven crates) and formats (FAT, PE) | RustCrypto: `hashes` holds 23 crates | A move before 610's column exists; the family lines are a guess until it does |
 
-**Recommendation: R-a now, R-d as the destination once 610 measures co-change.** The reason is
+Recommendation as raised, replaced by the ruling: R-a now, R-d as the destination once 610 measures co-change. The reason is
 §235's rule, not effort. R-d is the shape I would pick at equal cost, since a family is what
 changes together, and R-c multiplies the two-pull-request cost §235 already refused. Reversible
 until a stranger depends on the repository URL.
@@ -72,7 +134,7 @@ rust-embedded working group gives each crate its own repository and owns them th
 Fuchsia vendors third-party crates in its own tree and publishes few of its own (recalled). None of
 them publishes proofs beside the crate, which is the part this tree would add.
 
-## Fork 2. How nife consumes a crate that has left
+## Fork 2. How nife consumes a crate that has left (ruled: C-a, `[patch]` only in development)
 
 | option | prior art | cost |
 |---|---|---|
@@ -80,12 +142,12 @@ them publishes proofs beside the crate, which is the part this tree would add.
 | C-b. git dependency at a commit | seL4's `rust-sel4`, whose README says its crates are not on crates.io | A crates.io crate cannot depend on a git crate, so nobody can publish on top of it |
 | C-c. path, as today | this tree | Only while the crate is in this repository |
 
-**Recommendation: C-c while R-a holds, C-a after.** C-b would block exactly the third parties §151
+Recommendation as raised, and ruled with a `[patch]` rule added: C-c while a crate is here, C-a after. C-b would block exactly the third parties §151
 names as the goal.
 
-## Fork 3. Versions, and what a release carries
+## Fork 3. Versions, and what a release carries (ruled as recommended)
 
-Recommendation, reversible until the first publish:
+Recommendation as raised, and ruled:
 
 - Each crate carries its own semver version and starts at 0.1. Nothing moves in lockstep.
 - Each crate states a minimum Rust version. Measured 2026-10-07: all 30 build on stable 1.94.1,
@@ -97,17 +159,17 @@ Recommendation, reversible until the first publish:
   `cargo publish` with a token would succeed for the rest. That is rung 2 of the ladder in place of
   rung zero.
 
-## Fork 4. How proofs run where the crate lives
+## Fork 4. How proofs run where the crate lives (ruled as recommended)
 
 - P-a. In this repository, `script/verify` and the falsification workflow as today.
 - P-b. In a released repository, `model-checking/kani-github-action`, which Kani's maintainers
   publish, plus a job that applies each falsification patch and expects Kani to fail.
 - P-c. Proofs stay here and the released crate carries none.
 
-**Recommendation: P-a under R-a, P-b after a move.** P-c is refused: it publishes the code without
+Recommendation as raised, and ruled: P-a while a crate is here, P-b after a move. P-c is refused: it publishes the code without
 the evidence, and the evidence is milestone 39's reason to publish at all.
 
-## Fork 5. The crates.io names
+## Fork 5. The crates.io names (ruled: names that stand on their own)
 
 Options only, because a crates.io name cannot be taken back: a crate can be yanked but its name
 stays. Each name is ratified under naming-authority and `script/names` before its first publish.
@@ -120,18 +182,18 @@ stays. Each name is ratified under naming-authority and `script/names` before it
 - N-c. A short name chosen per crate, as RustCrypto does (`sha2`, `aes-gcm`). Readable, and every
   one is a separate naming decision.
 
-## Fork 6. Who publishes
+## Fork 6. Who publishes (ruled: W-a)
 
 - W-a. crates.io trusted publishing from a `nifeos` workflow (RFC 3691; the
   `rust-lang/crates-io-auth-action` action exists since 2025-06-26). Short-lived tokens, no secret
   stored, and the owner is a `nifeos` GitHub team.
 - W-b. calef's own token, by hand.
 
-**Recommendation: W-a.** It is the same reasoning §220 (signed builds) applied to keys: no
+Recommendation as raised, and ruled: W-a. It is the same reasoning §220 (signed builds) applied to keys: no
 long-lived secret where a workflow can mint one. Nothing is published until calef approves that
 crate's first release.
 
-## Fork 7. Each crate's disposition
+## Fork 7. Each crate's disposition (ruled: one crate at a time)
 
 The note's table classes every A and B crate as contribute upstream, publish ours, or keep internal,
 with the evidence for each. The ask is to approve the classes, not to send anything. Every upstream
@@ -139,13 +201,13 @@ approach and every first publication then comes to calef one at a time, with its
 upstream-hardening ruling of 2026-10-06 requires. A security finding in another project goes to
 its maintainers privately first.
 
-Recommendation: approve the table as it stands. Two rows carry the judgment most worth checking.
+Recommendation as raised, replaced by one review per crate: approve the table as it stands. Two rows carry the judgment most worth checking.
 `calendar` goes to `time` rather than out as a rival, although milestone 39 called it a real gap;
 `time` has 951M downloads and no proofs, so ours added there reach more callers. And
 `cryptography_provider` stays internal, although no good alternative exists, because a second
 alpha provider from a project with no security team is worse than none.
 
-## Fork 8. Who writes an offer to another project
+## Fork 8. Who writes an offer to another project (ruled: A-a without calef's hand, bug reports everywhere)
 
 The survey found contribution policies, not licenses, to be the binding constraint. Redox and
 embedded-sdmmc refuse AI-generated contributions. `time` takes AI-written code, disclosed, but wants
@@ -158,14 +220,14 @@ carry no agent branding, where this tree requires an agent's pull request to say
 - A-b. calef writes and submits every offer himself, and an agent only prepares the patch.
 - A-c. Offer findings only: an issue describing a bug and the harness that found it, never code.
 
-**Recommendation: A-a, with A-c for projects that refuse AI work.** A refusal is the owner's call,
+Recommendation as raised, replaced by the ruling: A-a, with A-c for projects that refuse AI work. A refusal is the owner's call,
 and a bug report is still welcome under every policy read. Each approach is a fact that leaves the
 machine, so the policy is reversible and each use of it is not.
 
 ## What is blocked, and what is not
 
-Nothing in the tree waits on these forks. The FAT crate, ruled 2026-10-07, can be written in this
-repository under R-a whatever Fork 1 says, and its first release waits on Fork 5.
+Nothing in the tree waits on these forks. The FAT crate is written in this repository and gets its
+own repository at first publication, under Fork 1's ruling; its name is ratified then.
 
 ## BUGS
 

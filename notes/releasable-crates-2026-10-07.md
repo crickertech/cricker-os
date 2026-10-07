@@ -37,7 +37,29 @@ publishing a rival?
   message to its maintainers be written by a person and that no LLM appear as a co-author.
   `jiff` and `globset` ask for human-written comments. rcore-os's `tgoskits` asks commits to carry
   no agent branding. This tree's rule is the opposite: an agent's pull request says so in its first
-  line. So an offer to those projects is calef's own writing, or it is not made.
+  line. calef ruled on 2026-10-07 that nife sends those projects no code or proofs, only disclosed bug reports.
+
+## The rulings, 2026-10-07
+
+calef ruled all eight forks of the proposal on 2026-10-07 (UTC); the proposal's "The rulings"
+quotes each. For this table, three matter. Fork 7: each crate is reviewed with him one at a time,
+FAT first, and the disposition column below is a recommendation until its review. A crate approved
+to leave becomes its own milestone then; an internal one gets a line here. Fork 8: lanes send
+disclosed code or proofs only where a project's policy admits AI work, and calef writes nothing by
+hand. *"I think where AI is banned I just shouldn't contribute."* Its refinement: *"Bug reports are
+fine."*, everywhere, disclosed, with security findings sent privately first. And each submission,
+bug reports included, still comes to calef one at a time before it is sent: *"Let's start with
+b."*
+
+Projects in the survey that fork 8 closes to code and proofs, so bug reports only:
+
+- Redox and embedded-sdmmc ban AI-generated contributions.
+- `time` wants every message written by a person. `jiff`, `globset`, `rustls` and systemd want
+  human-written comments or contributors who speak for themselves.
+- rcore-os's `tgoskits` wants no agent branding in commits, so a disclosed offer cannot meet it.
+
+Rows this changes: `calendar` (its target was `time`) and `redoxfs`, both marked "fork 8" below.
+No other row targets one of these projects.
 
 ## The disposition, per crate
 
@@ -53,7 +75,7 @@ evidence behind each row.
 | `device_tree_blob` | A | 763 | 4 | contribute: `dtoolkit` (Google) | Young, fuzzed, CONTRIBUTING, our license. `fdt` is MPL-2.0 with one author |
 | `domain_name_system` | A | 578 | 3 | contribute: `domain` (NLnet Labs) | Most outside merges of the DNS crates and a `no_std` path |
 | `network_time_protocol` | A | 684 | 7 | contribute: `ntp-proto` (Pendulum) | Security-minded, fuzzed, takes outside work. `sntpc` is the `no_std` second choice |
-| `calendar` | A | 1,091 | 11 | contribute: `time` (time-rs), on its terms | 951M downloads and no proofs. Its AI policy needs calef's own words. `hifitime` runs Kani but is MPL-2.0 and another scope |
+| `calendar` | A | 1,091 | 11 | fork 8: no code or proofs to `time`; bug reports only. Revisit in its review | 951M downloads and no proofs, but `time` wants a person's words. `hifitime` runs Kani but is MPL-2.0 and another scope |
 | `glob` | A | 650 | 6 | contribute: `wildmatch` | Pure matching, no IO, CONTRIBUTING. The large crates do IO |
 | `globally_unique_identifier_partition_table`, `universally_unique_identifier` | A | 1,408 | 10 | contribute: `gpt-disk-rs` (Google), `uuid` (uuid-rs) | Google's crates are I/O-free and take outside work; `uuid` already runs fuzzing, AFL and Miri in CI |
 | `non_volatile_memory_express` | A | 733 | 8 | publish | No maintained sans-IO NVMe crate; the drivers that exist are months old |
@@ -66,11 +88,11 @@ evidence behind each row.
 | `page_frames`, `generational_table`, `intrusive_fifo` | A | 722 | 10 | internal | Shaped by this kernel; the general crates (`slotmap`, `intrusive-collections`) serve other missions well |
 | `http_response` | A | 320 | 0 | internal | No proofs to offer; `httparse` is fuzzed and dominant |
 | `address_space_identifier`, `cpu_set`, `bitmap_font`, `coremark` | A | 754 | 3 | internal | Too small or too specific to be worth a stranger's dependency |
-| `file_allocation_table`, then the ruled FAT crate | A | 479 | 0 | publish, as ruled | rust-fatfs has not released since 2023-01 and has not answered a release request open since 2023-03. Offer it the bugs our oracle runs find, as issues |
+| `file_allocation_table`, then the ruled FAT crate | A | 479 | 0 | publish, as ruled | rust-fatfs has not released since 2023-01 and has not answered a release request open since 2023-03. `simple-fatfs` is an alpha with no dependents. Offer rust-fatfs the bugs our oracle runs find, as issues |
 | `portable_executable` | A | 778 | 0 | publish, after it carries proofs | No ELF-to-PE crate exists; systemd's `elf2efi.py` is the prior art |
 | `video_terminal`, `line_editor` | B | 4,141 | 0 | internal | No proofs to offer. `vte`, `vt100` and `noline` serve the need |
 | `cryptography_provider` | A | 610 | 0 | internal | Same mission as `rustls-rustcrypto`, which calef refused as a dependency. A second alpha provider helps nobody; offer it fixes when it moves |
-| `redoxfs` (vendored, two patches) | n/a | n/a | n/a | internal, patches carried | Redox refuses LLM-generated contributions, and §46's 2026-10-04 amendment already says nothing is offered |
+| `redoxfs` (vendored, two patches) | n/a | n/a | n/a | fork 8: internal, patches carried; a bug report is allowed | Redox refuses LLM-generated contributions. §46's 2026-10-04 amendment says nothing is offered; whether a report of the broken `no_std` build goes is its review's question |
 
 ## Two records this overtakes
 
