@@ -72,6 +72,12 @@
 #             exempts `stale-draft`: a branch kept on purpose, such as argon's waiting for a board
 #             (#1738, #1732). Deleting the branch, landing it, or opening a pull request for it
 #             takes the label off. The 2026-10-06 survey that prompted this is in #1787.
+#   missing-check  armed, ready, and a required status check of the `main` ruleset has no check run
+#             at all at the head, although every pull-request workflow run there has finished and the
+#             drain has already rerun the owning workflow once (helpers/missing-check.jq decides that
+#             half; the shell splices its verdict into the node as `missingChecks`). #1814 on
+#             2026-10-07 (UTC): CI finished `failure` with every job green, and the required cpu
+#             matrix job was never created. Keyed on the head, so one comment per head.
 #   hold-no-ask, ask-no-hold, surface-no-hold   the architect queue's invariant broken
 #             (lane/architect-queue, 2026-10-06; definitions above `nm_decide`): `needs-architect`
 #             with no open question, an open question without it, and a diff the architect-label
@@ -176,6 +182,14 @@ def nm_orphan_adopted:
   | select($oid == $pr.headRefOid)
   | { cause: "orphan", key: $oid, branch: .headRefName, head: $oid,
       since: (.commits.nodes[-1].commit.committedDate // null), shape: "adopted" };
+
+# Armed, and the drain found a required check absent and has already rerun (or cannot rerun) the
+# workflow that owns it. `missingChecks` is not a GraphQL field: helpers/merge-drain.sh splices it
+# in from helpers/missing-check.jq. A rerun still in flight is `tried: false`, so no cause yet.
+def nm_missing_check:
+  select(.isDraft == false and .autoMergeRequest != null and .missingChecks != null
+         and .missingChecks.tried == true and (.missingChecks.absent | length) > 0)
+  | { cause: "missing-check", key: .headRefOid, head: .headRefOid, absent: .missingChecks.absent };
 
 def nm_ejected($queued):
   . as $pr
@@ -300,7 +314,7 @@ def nm_decide($label; $now; $minutes; $blockers):
   | [nm_orphan_branches($label; $now)] as $orphans
   | ( [ $d.repository.pullRequests.nodes[]
         | . as $pr
-        | ([nm_ejected($queued)] + [nm_conflict] + [nm_red($now; $minutes)]) as $hard
+        | ([nm_ejected($queued)] + [nm_conflict] + [nm_red($now; $minutes)] + [nm_missing_check]) as $hard
         | { number, labeled: ([.labels.nodes[].name] | index($label) != null),
             causes: ($hard + (if $hard == [] then [nm_unarmed($queued; $now; $minutes; $blockers)]
                                                 + [nm_off_main($now; $minutes; $blockers)] else [] end)

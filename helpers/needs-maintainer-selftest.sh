@@ -194,6 +194,45 @@ arch_falsify '(Nothing|None)' '(NEVER-EMPTY)' 'the "Nothing." exemption'
 arch_falsify 'def nm_hold_causes: ["ask-no-hold", "surface-no-hold"];' 'def nm_hold_causes: [];' 'the drain adding needs-architect itself'
 arch_falsify 'def nm_hold_causes: ["ask-no-hold", "surface-no-hold"];' 'def nm_hold_causes: ["ask-no-hold", "surface-no-hold", "hold-no-ask"];' 'hold-no-ask staying flag-only'
 
+# 2e. The `missing-check` cause (lane/drain-missing-check, 2026-10-07 UTC; names provisional), from
+#     #1814: CI finished `failure` with every job it had green, and the required "cpu matrix" job was
+#     never created, so the armed pull request sat BLOCKED with nothing red to report. Two halves.
+#     helpers/missing-check.jq classifies a head from the required contexts, the checks present, the
+#     runs and the workflow that owns each context (cases in missing-check-runs.json, #1814's
+#     first). needs-maintainer.jq names the cause only once a rerun has been tried. Fixture
+#     missing-check.json, at 22:00 UTC on the 7th: 1814 armed, rerun tried, absent: missing-check.
+#     1815 the rerun is only now happening: nothing. 1816 nothing absent: nothing. 1817 a draft:
+#     nothing. 1818 already labeled, still absent: keep. 1819 labeled, nothing absent now: clear.
+mc_program="$(cat "$here/missing-check.jq")"
+ncases=$(jq '.cases | length' "$fx/missing-check-runs.json")
+i=0
+while [ "$i" -lt "$ncases" ]; do
+	got=$(jq -c ".cases[$i].input | $mc_program"'[ missing_checks ] | .[0]' "$fx/missing-check-runs.json")
+	want=$(jq -c ".cases[$i].want" "$fx/missing-check-runs.json")
+	expect "missing-check classification, case $i ($(jq -r ".cases[$i].name" "$fx/missing-check-runs.json"))" "$got" "$want"
+	i=$((i + 1))
+done
+mc_want='["1814:label:missing-check","1818:keep:missing-check","1819:clear"]'
+expect "the missing-check cause decided wrong" "$(decide "$fx/missing-check.json" 2026-10-07T22:00:00Z '{}')" "$mc_want"
+mc_falsify() {
+	mutated=$(printf '%s' "$program" | awk -v from="$1" -v to="$2" '
+		{ n = index($0, from); if (n) { $0 = substr($0, 1, n - 1) to substr($0, n + length(from)); hit = 1 } print }
+		END { exit !hit }') || {
+		echo "$me: the falsification for $3 no longer finds its clause: $1" >&2
+		exit 1
+	}
+	out=$(jq -c --arg l needs-maintainer --argjson now "$(jq -n '"2026-10-07T22:00:00Z" | fromdateiso8601')" --argjson b '{}' \
+		"$mutated"'[ nm_decide($l; $now; 30; $b)
+			| "\(.number):\(.action)" + (if .action == "clear" then "" else ":" + (.causes | map(.cause) | join(",")) end) ]' \
+		"$fx/missing-check.json")
+	if [ "$out" = "$mc_want" ]; then
+		echo "$me: removing $3 left the missing-check decision unchanged, so 2e does not test it." >&2
+		exit 1
+	fi
+}
+mc_falsify 'and .missingChecks.tried == true' 'and true' 'the rerun-first rule'
+mc_falsify 'select(.isDraft == false and .autoMergeRequest != null' 'select(true and .autoMergeRequest != null' "the draft exemption"
+
 # 3. The episode keys the comment markers are built from, and the evidence the comment names.
 got=$(jq -c --argjson now "$(jq -n '"2026-10-03T22:00:00Z" | fromdateiso8601')" \
 	"$program"'[ nm_decide("needs-maintainer"; $now; 30; {}) | select(.number == 1 or .number == 1555 or .number == 9 or .number == 20 or .number == 24 or .number == 29 or .number == 30) | .causes[] | [.cause, .key] ]' \
@@ -225,7 +264,7 @@ for field in 'mergeQueue(branch: "main")' 'position enqueuedAt state' 'mergedAt 
 	ADDED_TO_MERGE_QUEUE_EVENT READY_FOR_REVIEW_EVENT AUTO_MERGE_DISABLED_EVENT LABELED_EVENT committedDate beforeCommit \
 	'parents(first: 2)' 'search(query: $labelled' 'refs(refPrefix: "refs/heads/"' 'compare(headRef: "main") { behindBy }' \
 	associatedPullRequests 'comments(last: 30) { nodes { createdAt url body } }' 'issues(states: OPEN' \
-	'architectSurface:' 'RULES_PY="$(dirname "$0")/architect-label-rules.py"' 'OQ_JQ="$(dirname "$0")/open-question.jq"'; do
+	'architectSurface:' 'missingChecks:' 'RULES_PY="$(dirname "$0")/architect-label-rules.py"' 'OQ_JQ="$(dirname "$0")/open-question.jq"'; do
 	if ! grep -qF -- "$field" "$f"; then
 		echo "$me: merge-drain.sh's needs-maintainer query does not ask for $field, which the decision reads." >&2
 		exit 1
