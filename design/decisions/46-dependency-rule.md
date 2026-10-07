@@ -170,6 +170,8 @@ Redox is a source we consume and never contribute to. Its drivers are MIT-licens
 CONTRIBUTING refuses LLM-generated contributions. So we take its code under the license and send
 nothing back. A patch we need is carried here (§34, `script/vendor-verify`), never offered upstream.
 
+*2026-10-07 (UTC): calef ruled on #1815 that bug reports to Redox are allowed (disclosed, each approved, security findings privately first); code and patches still go nowhere. See §176 (offering the RedoxFS patches upstream).*
+
 ### The cases that prompted it
 
 - DNS: milestone 384 (in a capability system the resolver is a grant), pull request #1634. It wrote
