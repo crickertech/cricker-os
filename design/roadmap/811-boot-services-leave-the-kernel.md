@@ -95,7 +95,8 @@ the driver, not the boot.
 
 Two gaps are real. A multi-page device window has no capability, and the progenitor's capability
 table is full: all 32 slots are named in `components/src/progenitor.rs`'s `GRANTS`. Moving the rows
-frees seven (5, 10, 11, 16, 27, 29, 30) and needs about eleven. Fork 2 is that question.
+frees seven (5, 10, 11, 16, 27, 29, 30) and needs about eleven. Fork 2's ruling answers both: a
+`DeviceFrame` page count and a 64-slot table.
 
 The progenitor can already map a capability into a child without the child holding it. So the
 confinement each kernel starter argues for (the driver holds no name for its window, so it cannot
@@ -104,10 +105,11 @@ window into a restarted driver.
 
 ## The work, in order
 
-1. Supervision on a real boot (fork 3). Today nothing starts `root_supervisor`, `spawner` or
-   `sub_server_supervisor` on any boot; only `system_tests/src/user/authority_tests.rs` does
-   (recorded by PR #1796's proposal, the init package holds only what init does). Without this,
-   moving a starter changes who built it and not whether it can restart.
+1. Supervision on a real boot, by `root_supervisor`'s tree (fork 3). Today nothing starts
+   `root_supervisor`, `spawner` or `sub_server_supervisor` on any boot; only
+   `system_tests/src/user/authority_tests.rs` does (recorded by PR #1796's proposal, the init
+   package holds only what init does). Without this, moving a starter changes who built it and not
+   whether it can restart.
 2. `block_driver` and `redoxfs_server` on the virtio path. Every capability exists. The file
    endpoint is created by the supervisor, not the server, so a client's capability outlives a
    restart (milestone 23 (live replacement)'s "a supervisor restores the service with no authority
@@ -121,12 +123,12 @@ window into a restarted driver.
    (how the kernel-resident CMOS RTC reaches the userspace clock service)) into the clock page
    before the grant.
 5. `entropy` in instruction mode: the fact travels in the inert-configuration page (§111 (inert
-   configuration is a read-only page)) or the boot-information page of fork 2, and the kernel stops
-   building the service.
+   configuration is a read-only page)), and the kernel stops building the service.
 6. `net_stack` over `e1000e`, then over the GMAC once `PROVEN_ON_SILICON` is true.
 7. The screen terminal.
 8. The xHCI keyboard, last, because it needs the multi-page device window.
-9. `install_service::offer`, and the tour (fork 1).
+9. `install_service::offer` into the progenitor, and the tour behind a non-default `tour` feature
+   (fork 1).
 
 Drivers and the file server go first because they are what §159 and #1805 need restartable. A
 display or a keyboard that dies is visible to the person at the machine. A file server that dies
@@ -138,8 +140,8 @@ All three architectures move together, per §19 (architectural parity), and the 
 identical (milestone 166 (one boot loader, reached two inconsistent ways)). aarch64 and riscv64 take
 the virtio file-service path under QEMU. `x86_64` takes it under QEMU and the NVMe path on xenon.
 riscv64's GMAC row is inert until radon proves it. aarch64 has no silicon here until argon, so its
-exit is QEMU's. The tour rows differ per architecture today, and fork 1 decides whether that
-difference survives.
+exit is QEMU's. The tour rows differ per architecture today; by fork 1's ruling
+none of them is on a default build afterwards.
 
 ## Dependencies
 
@@ -148,63 +150,52 @@ difference survives.
   and is not required for the exit.
 - PR #1805's proposal (lab machines update themselves) lists "the kernel still starts `block_driver`
   and `redoxfs_server` itself" as a gap. This milestone is that gap.
-- The kernel's capability minting: fork 2.
+- The kernel's capability minting: a `DeviceFrame` page count and a 64-slot table (fork 2).
 - §26 (the fault endpoint: thread death becomes a message) is how a supervisor learns of a death.
   §32 (a supervisor may collect a corpse without being able to build one) is how it collects one.
   §26 also says the kernel never relaunches anything, which is why the kernel cannot be the
   restarter.
 
-## Forks for an architect
+## Rulings
 
-### Fork 1: does the kernel keep any starter?
+calef ruled all three forks on PR #1807 on 2026-10-07 (UTC), each recorded there by the maintainer.
 
-- A. None on any default build. The tour's demonstrations move behind a non-default `tour` feature,
-  `x86_userspace_demo` with them, and the install offer moves into the progenitor. The offer's
-  argument (ask before the authority to wipe exists) holds there too, because the progenitor holds
-  the disk capabilities and need not delegate them until a person answers.
-- B. The tour stays on the default build; the exit is proved on the `shell` build only.
-- C. The install offer stays in the kernel, because it asks on the console before the hand-over.
+### Fork 1, ruled A: the kernel keeps no starter
 
-Prior art (recalled, not reread): seL4's kernel starts only the root task and hands it every
-capability. Genode's core starts only `init`. Milestone 267 (the milestone tour is three things
-wearing one name) already left open whether the tour's console server earns its place.
+Ruled 14:19 UTC: *"Yes"* to option A. The kernel keeps no service starter on any default build. The
+tour's demonstrations and `x86_userspace_demo` move behind a non-default `tour` feature, and the
+x86 install offer moves into the progenitor. The offer's argument (ask before the authority to wipe
+exists) holds there too, because the progenitor holds the disk capabilities and need not delegate
+them until a person answers. Refused: keeping the tour on the default build and proving the exit on
+the `shell` build only, which proves the claim on a build no image ships; and keeping the install
+offer in the kernel. Prior art (recalled): seL4's kernel starts only the root task, and Genode's
+core starts only `init`. This also answers the question milestone 267 (the milestone tour is three
+things wearing one name) left open about the tour's console server, for the default build.
 
-Recommendation: A. A boot whose kernel starts demonstrations is not the boot a customer runs, and B
-proves the claim on a build nobody ships. The tour's entries need kernel privilege, which is why
-they are demonstrations, and a feature keeps them.
+### Fork 2, ruled A now: fixed slots, a `DeviceFrame` page count, a 64-slot table
 
-### Fork 2: how device authority reaches the progenitor
+Ruled 14:20 UTC: *"Yes"* to option A now. Device authority reaches the progenitor in fixed slots, as
+every grant does today. `DeviceFrame` gains a page count, as §102 (a frame names a run of pages)
+gave `PageFrame` one, and `CAPABILITY_TABLE_SLOTS` grows to 64 (calef raised it from 16 to 32 on
+2026-09-27). The new method's semantics owe a `design/decisions/` record when it is built. Option B
+(seL4-style device regions plus a read-only boot-information page) is recorded as its own later
+milestone, for when devices number in dozens: see the candidate below. Refused: a kernel-served
+endpoint that hands out devices by kind, because it puts a protocol server in the kernel.
 
-- A. Fixed slots, as today. `DeviceFrame` gains a page count, as §102 (a frame names a run of
-  pages) gave `PageFrame` one, and `CAPABILITY_TABLE_SLOTS` grows to 64 (calef raised it from 16
-  to 32 on 2026-09-27).
-- B. seL4's shape: the kernel grants device regions plus a read-only boot-information page naming
-  each device's kind, slot and interrupt. The progenitor reads the page instead of knowing slot
-  numbers.
-- C. A kernel-served endpoint the progenitor asks for a device by kind. It puts a protocol server in
-  the kernel, which the narrow syscall surface argues against.
+### Fork 3, ruled B: `root_supervisor`'s tree supervises drivers
 
-Prior art (recalled): seL4's `BootInfo` frame lists untyped and device-untyped regions. Genode's
-platform driver hands out MMIO and IRQ sessions. Fuchsia's board driver passes resources to the
-driver framework.
+Ruled 14:23 UTC: *"B"*. The progenitor starts `root_supervisor`'s tree from milestone 22 (trusted
+init). `spawner` builds each program and `sub_server_supervisor` restarts it, holding no memory
+itself. This closes the gap PR #1796 found: nothing starts the tree on a real boot. Refused: the
+progenitor restarting what it built, whose only argument was effort; and a driver manager per
+device class. Prior art (recalled): MINIX 3's reincarnation server.
 
-Recommendation: A for this milestone. It is additive, it is what every existing grant does, and
-about ten devices fit. B is the better shape once devices are counted in dozens, because a slot
-number per device stops scaling; it is a new boot ABI and should be its own milestone. Would I
-choose A if both cost the same? For ten devices yes, on fewer moving parts. Past that, no.
+## Candidate milestone
 
-### Fork 3: which process is a driver's supervisor?
-
-- A. The progenitor itself (`system_initializer`) holds a fault endpoint on what it builds and
-  restarts it. Genode's `init` is the parent that restarts (recalled).
-- B. The progenitor starts `root_supervisor`, whose `spawner` builds one program and whose
-  `sub_server_supervisor` holds no memory and restarts it (milestone 22 (trusted init)'s B.2 tree).
-  MINIX 3's reincarnation server is the analogue (recalled).
-- C. A driver manager per class, as Fuchsia's driver framework (recalled).
-
-Recommendation: B. It is the tree milestone 22 (trusted init) built and #1796 kept in `init` for
-this job, and its restarter holds the least authority. A puts restart in the process that already
-holds everything. A is less work, and that is the only argument for it.
+- Not numbered: device authority as seL4-style device regions plus a read-only boot-information
+  page naming each device's kind, slot and interrupt, so the progenitor reads a page instead of
+  knowing a slot number per device. A new boot ABI, wanted once devices number in dozens (fork 2's
+  ruling). Prior art (recalled): seL4's `BootInfo` frame; Genode's platform driver.
 
 ## Exit
 
