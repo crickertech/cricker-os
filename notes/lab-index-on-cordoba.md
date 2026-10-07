@@ -98,7 +98,7 @@ Do not re-sign, re-compress or rename anything. A mirror that changes a byte bre
 
 ## Constraints
 
-- Never touch the lab machines, the smart plugs (plug 3 is never switched), or radon's USB hub.
+- Never touch the lab machines, the smart plugs, or any USB hub.
 - Do not disturb Immich, the backups, the LiteLLM gateway or the netboot roles cordoba already has.
 - No signing key on cordoba. No credentials for GitHub beyond anonymous reads, unless basalt's
   release turns out to need a token; then ask calef.

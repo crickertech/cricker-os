@@ -429,8 +429,8 @@ no first light, so nothing is waiting on it"; xenon had first light on 2026-09-0
 Everything `notes/visionfive2.md`'s bench runbook and `notes/board-console.md` already list, and
 nothing more:
 
-- radon, DIP switches on QSPI, powered from its own Kasa outlet (smart plug 2; plug 3 is garcia
-  and must never be switched off).
+- radon, DIP switches on QSPI, powered from its own Kasa outlet (never switch another; the outlet map
+  is kept off-tree).
 - The USB TTL adapter on the 40-pin header, TX/RX crossed, 3.3 V, `/dev/cu.usbmodem*` (`cu.`, never
   `tty.`).
 - A microSD card already formatted and mounted, and its mount path.
